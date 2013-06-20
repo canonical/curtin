@@ -5,6 +5,7 @@
 
 Welcome to curtin's documentation!
 ==================================
+This is 'curtin', the curt installer.  It is blunt, brief, snappish, snippety and unceremonious.  Its goal is to install an operating system as quick as possible.
 
 Contents:
 
