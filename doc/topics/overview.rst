@@ -73,7 +73,7 @@ Note, that as with fstab, this file is not copied verbatum to the target filesys
 
 Networking commands have the following environment variables available to them:
 
-- ``WORKING_DIR``: This is simply for some sort of inter-command state.  It will be the same directory for each command run and will only be deleted at the end of all partitioning_commands.
+- ``WORKING_DIR``: This is simply for some sort of inter-command state.  It will be the same directory for each command run and will only be deleted at the end of all network_commands.
 - ``OUTPUT_INTERFACES``: This is the target path for an interfaces style file. After all commands have been run, a file should exist, formated per interfaces(5) that describes the systems network setup.
 
 Extraction of sources
@@ -101,7 +101,7 @@ After extraction of sources, the source that was extracted is then given a chanc
  config_hook: {{TARGET_MP}}/opt/curtin/config-hook
 
 **Command environment**
-- ``INTEFACES``: This is a path to the file created during networking stage
+- ``INTERFACES``: This is a path to the file created during networking stage
 - ``FSTAB``: This is a path to the file created during partitioning stage
 - ``CONFIG``: This is a path to the curtin config file.  It is provided so that additional configuration could be provided through to the OS customization.
 
