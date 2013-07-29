@@ -25,4 +25,4 @@ CMD_ARGUMENTS = (
     ('url', {'help': 'what to install'}),
 )
 
-# vi: ts=4 expandtab
+# vi: ts=4 expandtab syntax=python

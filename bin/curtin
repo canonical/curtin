@@ -47,4 +47,4 @@ def main(args=None):
 if __name__ == '__main__':
     main()
 
-# vi: ts=4 expandtab
+# vi: ts=4 expandtab syntax=python
