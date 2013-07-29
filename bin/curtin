@@ -1,0 +1,50 @@
+#!/usr/bin/python3
+#   Copyright (C) 2013 Canonical Ltd.
+#
+#   Author: Scott Moser <scott.moser@canonical.com>
+#
+#   Curtin is free software: you can redistribute it and/or modify it under
+#   the terms of the GNU Affero General Public License as published by the
+#   Free Software Foundation, either version 3 of the License, or (at your
+#   option) any later version.
+#
+#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
+#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
+#   more details.
+#
+#   You should have received a copy of the GNU Affero General Public License
+#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+
+import argparse
+import sys
+
+SUB_COMMAND_MODULES = ['install']
+
+
+def add_subcmd(subparser, subcmd):
+    subcmd_full = "curtin.commands.%s" % subcmd
+    __import__(subcmd_full)
+    subp = subparser.add_parser(subcmd)
+    for ent in getattr(sys.modules[subcmd_full], 'CMD_ARGUMENTS', []):
+        subp.add_argument(ent[0], **ent[1])
+    subp.set_defaults(func=getattr(sys.modules[subcmd_full], 'CMD_HANDLER'))
+
+
+def main(args=None):
+    if args is None:
+        args = sys.argv
+
+    parser = argparse.ArgumentParser()
+    subps = parser.add_subparsers(dest="subcmd")
+    for subcmd in SUB_COMMAND_MODULES:
+        add_subcmd(subps, subcmd)
+
+    args = parser.parse_args(sys.argv[1:])
+    sys.exit(args.func(args))
+
+
+if __name__ == '__main__':
+    main()
+
+# vi: ts=4 expandtab
