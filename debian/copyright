@@ -1,0 +1,17 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: curtin
+Upstream-Contact: Scott Moser <scott.moser@canonical.com>
+Source: https://launchpad.net/curtin
+
+Files: *
+Copyright: 2013, Canonical Ltd.
+License: AGPLv3
+ GNU AFFERO GENERAL PUBLIC LICENSE
+ Version 3, 19 November 2007
+ .
+ Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+ .
+ The complete text of the AGPL version 3 can be seen in
+ http://www.gnu.org/licenses/agpl-3.0.html

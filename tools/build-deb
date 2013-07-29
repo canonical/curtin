@@ -1,0 +1,89 @@
+#!/bin/sh
+
+set -e
+
+sourcename="curtin"
+TEMP_D=""
+UNCOMMITTED=${UNCOMMITTED:-0}
+
+fail() { echo "$@" 1>&2; exit 1; }
+cleanup() {
+   [ -z "$TEMP_D" ] || rm -Rf "$TEMP_D"
+}
+
+if [ "$1" = "-h" -o "$1" = "--help" ]; then
+   cat <<EOF
+Usage: ${0##*/}
+   build a deb of from trunk directory
+   any options are passed straight through to debuild
+
+   Example:
+    * ${0##*/} -us -uc
+
+   Its not significantly different than what you'd get by modifying
+   the debian/changelog to have the current revno, and then running
+     debuild --no-tgz-check
+EOF
+exit
+fi
+
+bname=${0##*/}
+
+start_d=$PWD
+top_d=$(cd "$(dirname "${0}")"/.. && pwd)
+
+export_uncommitted=""
+echo $UNCOMMITTED
+if [ "${UNCOMMITTED:-0}" != "0" ]; then
+   export_uncommitted="--uncommitted"
+fi
+
+# grab the first line in the changelog
+# hopefully this pulls the version info there
+# resulting in something like: 0.1.0~bzrREVNO-1~trunk1
+clogver_o=$(sed -n '1s,.*(\([^)]*\)).*,\1,p' debian/changelog.trunk)
+
+revno=$(bzr revno) || fail "failed to get revno"
+clogver_upstream=${clogver_o%%-*}
+clogver_debian=${clogver_o#*-}
+
+uver=$(echo "${clogver_upstream}" | sed "s,REVNO,$revno,")
+clogver_new="${uver}-${clogver_debian}"
+
+TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${bname}.XXXXXX")
+
+trap cleanup EXIT
+
+echo "building upstream version $uver, debian ver=${clogver_debian}"
+
+dir="${sourcename}-$uver"
+tarball="${sourcename}_$uver.orig.tar.gz"
+
+echo bzr export --format=tgz --root="$dir" --revision="${revno}" \
+   ${export_uncommitted} "${TEMP_D}/$tarball"
+bzr export --format=tgz --root="$dir" --revision="${revno}" \
+   ${export_uncommitted} "${TEMP_D}/$tarball" ||
+   fail "failed to bzr export tarball $tarball"
+echo "created ${tarball}"
+
+cd ${TEMP_D}
+tar xzf "$tarball" || fail "failed extract tarball"
+cd "$dir" || fail "failed cd $dir"
+
+# move files ending in .trunk to name without .trunk
+# ie, this copies debian/changelog.trunk to debian/changelog
+for f in debian/*.trunk; do
+   mv "$f" "${f%.trunk}"
+done
+
+sed -i "1s,${clogver_o},${clogver_new}," debian/changelog ||
+   fail "failed to write debian/changelog"
+debuild "$@" || fail "debuild failed"
+
+cd "$TEMP_D"
+for f in *; do
+   [ -f "$f" ] || continue
+   cp "$f" "$start_d" || fail "failed copy $f"
+   echo "wrote $f"
+done
+exit
