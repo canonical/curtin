@@ -1,18 +1,21 @@
 #!/bin/bash
 
-pycheck_dirs=( "bin/" "curtin/" "tests/" )
+pycheck_dirs=( "curtin/" "tests/" )
+bin_files=( "bin/curtin" )
 CR="
 "
+
+
 set -f
 if [ $# -eq 0 ]; then
-   unset IFS
    IFS="$CR"
-   files=( $(find "${pycheck_dirs[@]}" -name "*.py" -type f) )
+   files=( "${bin_files[@]}" "${pycheck_dirs[@]}" )
    unset IFS
 else
    files=( "$@" )
 fi
 
-cmd=( pep8 "${files[@]}" )
+myname=${0##*/}
+cmd=( "${myname#run-}" "${files[@]}" )
 echo "Running: " "${cmd[@]}" 1>&2
 exec "${cmd[@]}"
