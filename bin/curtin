@@ -25,10 +25,13 @@ SUB_COMMAND_MODULES = ['install']
 def add_subcmd(subparser, subcmd):
     subcmd_full = "curtin.commands.%s" % subcmd
     __import__(subcmd_full)
+    args = getattr(sys.modules[subcmd_full], 'CMD_ARGUMENTS', [])
+    func = getattr(sys.modules[subcmd_full], 'CMD_HANDLER')
+
     subp = subparser.add_parser(subcmd)
-    for ent in getattr(sys.modules[subcmd_full], 'CMD_ARGUMENTS', []):
+    for ent in args:
         subp.add_argument(ent[0], **ent[1])
-    subp.set_defaults(func=getattr(sys.modules[subcmd_full], 'CMD_HANDLER'))
+    subp.set_defaults(func=func)
 
 
 def main(args=None):
@@ -39,8 +42,13 @@ def main(args=None):
     subps = parser.add_subparsers(dest="subcmd")
     for subcmd in SUB_COMMAND_MODULES:
         add_subcmd(subps, subcmd)
-
     args = parser.parse_args(sys.argv[1:])
+
+    if not getattr(args, 'func', None):
+        # http://bugs.python.org/issue16308
+        parser.print_help()
+        sys.exit(1)
+
     sys.exit(args.func(args))
 
 
