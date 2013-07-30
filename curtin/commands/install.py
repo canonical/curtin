@@ -15,9 +15,11 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+from curtin.log import LOG
+
 
 def cmd_install(args):
-    print("args here: %s" % args)
+    LOG.debug("args here: %s" % args)
 
 
 CMD_HANDLER = cmd_install

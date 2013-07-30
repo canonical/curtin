@@ -19,6 +19,8 @@
 import argparse
 import sys
 
+from curtin import log
+
 SUB_COMMAND_MODULES = ['install']
 
 
@@ -39,6 +41,11 @@ def main(args=None):
         args = sys.argv
 
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('--verbose', '-v', action='count', default=0)
+    parser.add_argument('--log-file', default=sys.stderr,
+                        type=argparse.FileType('w'))
+
     subps = parser.add_subparsers(dest="subcmd")
     for subcmd in SUB_COMMAND_MODULES:
         add_subcmd(subps, subcmd)
@@ -48,6 +55,8 @@ def main(args=None):
         # http://bugs.python.org/issue16308
         parser.print_help()
         sys.exit(1)
+
+    log.basicConfig(stream=args.log_file, verbosity=args.verbose)
 
     sys.exit(args.func(args))
 
