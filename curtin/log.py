@@ -37,7 +37,7 @@ def basicConfig(**kwargs):
         level = ((logging.ERROR, logging.INFO, logging.DEBUG)
                  [min(kwargs['verbosity'], 2)])
     else:
-        level = kwargs.get('level', NOTSET)
+        level = kwargs.get('level', logging.NOTSET)
 
     handler.setFormatter(logging.Formatter(fmt=kwargs.get('format'),
                                            datefmt=kwargs.get('datefmt')))
