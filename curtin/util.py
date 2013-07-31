@@ -16,8 +16,9 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import subprocess
+import time
 
-from .logging import LOG
+from .log import LOG
 
 
 def subp(args, data=None, rcs=None, env=None, capture=True, shell=False,
@@ -110,6 +111,20 @@ class ProcessExecutionError(IOError):
             'reason': self.reason,
         }
         IOError.__init__(self, message)
+
+
+class LogTimer(object):
+    def __init__(self, logfunc, msg):
+        self.logfunc = logfunc
+        self.msg = msg
+
+    def __enter__(self):
+        self.start = time.time()
+        return self
+
+    def __exit__(self, etype, value, trace):
+        self.logfunc("%s took %0.3f seconds" %
+                     (self.msg, time.time() - self.start))
 
 
 # vi: ts=4 expandtab syntax=python
