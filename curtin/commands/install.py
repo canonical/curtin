@@ -15,16 +15,44 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+import argparse
+
 from curtin.log import LOG
+from curtin import config
+
+
+class MyAppend(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        if getattr(namespace, self.dest, None) is None:
+            setattr(namespace, self.dest, [])
+        getattr(namespace, self.dest).append((option_string, values,))
 
 
 def cmd_install(args):
-    LOG.debug("args here: %s" % args)
+    cfg = {'urls': {}}
+
+    for (flag, val) in args.cfgopts:
+        if flag in ('-c', '--config'):
+            config.merge_config_fp(cfg, val)
+        elif flag in ('--set'):
+            config.merge_cmdarg(cfg, val)
+
+    for url in args.url:
+        cfg['urls']["%02d_cmdline" % len(cfg['urls'])] = url
+
+    LOG.debug("merged config: %s" % cfg)
 
 
-CMD_HANDLER = cmd_install
 CMD_ARGUMENTS = (
-    ('url', {'help': 'what to install'}),
+    ((('-c', '--config'),
+      {'help': 'read configuration from cfg', 'action': MyAppend,
+       'metavar': 'FILE', 'type': argparse.FileType("rb"),
+       'dest': 'cfgopts'}),
+     ('--set', {'help': 'define a config variable', 'action': MyAppend,
+                'metavar': 'key=val', 'dest': 'cfgopts'}),
+     ('url', {'help': 'what to install', 'nargs': '*'}),
+     )
 )
+CMD_HANDLER = cmd_install
 
 # vi: ts=4 expandtab syntax=python

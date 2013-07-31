@@ -19,11 +19,15 @@ import yaml
 
 
 def merge_config_fp(cfgin, fp):
-    merge_config(cfgin, yaml.safe_load(fp))
+    merge_config_str(cfgin, fp.read())
 
 
 def merge_config_str(cfgin, cfgstr):
-    merge_config(cfgin, yaml.safe_load(cfgstr))
+    cfg2 = yaml.safe_load(cfgstr)
+    if not isinstance(cfg2, dict):
+        raise TypeError("Failed reading config. not a dictionary: %s" % cfgstr)
+
+    merge_config(cfgin, cfg2)
 
 
 def merge_config(cfg, cfg2):
@@ -33,6 +37,10 @@ def merge_config(cfg, cfg2):
             merge_config(cfg[k], v)
         else:
             cfg[k] = v
+
+
+def merge_cmdarg(cfg, cmdarg, delim="/"):
+    merge_config(cfg, cmdarg2cfg(cmdarg, delim))
 
 
 def cmdarg2cfg(cmdarg, delim="/"):

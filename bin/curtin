@@ -32,7 +32,10 @@ def add_subcmd(subparser, subcmd):
 
     subp = subparser.add_parser(subcmd)
     for ent in args:
-        subp.add_argument(ent[0], **ent[1])
+        args = ent[0]
+        if not isinstance(args, (list, tuple)):
+            args = (args,)
+        subp.add_argument(*args, **ent[1])
     subp.set_defaults(func=func)
 
 
