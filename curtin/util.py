@@ -60,6 +60,10 @@ def subp(args, data=None, rcs=None, env=None, capture=True, shell=False,
     return (out, err)
 
 
+class BadUsage(Exception):
+    pass
+
+
 class ProcessExecutionError(IOError):
 
     MESSAGE_TMPL = ('%(description)s\n'

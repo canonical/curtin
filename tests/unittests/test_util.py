@@ -9,7 +9,7 @@ class TestLogTimer(TestCase):
 
         def mylog(msg):
             data['msg'] = msg
-            
+
         with util.LogTimer(mylog, "mymessage"):
             pass
 

@@ -19,6 +19,7 @@ import argparse
 
 from curtin.log import LOG
 from curtin import config
+from curtin import util
 
 
 class MyAppend(argparse.Action):
@@ -29,7 +30,7 @@ class MyAppend(argparse.Action):
 
 
 def cmd_install(args):
-    cfg = {'urls': {}}
+    cfg = {'sources': {}}
 
     for (flag, val) in args.cfgopts:
         if flag in ('-c', '--config'):
@@ -37,10 +38,12 @@ def cmd_install(args):
         elif flag in ('--set'):
             config.merge_cmdarg(cfg, val)
 
-    for url in args.url:
-        cfg['urls']["%02d_cmdline" % len(cfg['urls'])] = url
+    for source in args.source:
+        cfg['sources']["%02d_cmdline" % len(cfg['sources'])] = source
 
     LOG.debug("merged config: %s" % cfg)
+    if not len(cfg.get('sources', [])):
+        raise util.BadUsage("no sources provided to install")
 
 
 CMD_ARGUMENTS = (
@@ -50,7 +53,7 @@ CMD_ARGUMENTS = (
        'dest': 'cfgopts'}),
      ('--set', {'help': 'define a config variable', 'action': MyAppend,
                 'metavar': 'key=val', 'dest': 'cfgopts'}),
-     ('url', {'help': 'what to install', 'nargs': '*'}),
+     ('source', {'help': 'what to install', 'nargs': '*'}),
      )
 )
 CMD_HANDLER = cmd_install

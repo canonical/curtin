@@ -17,7 +17,9 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import os
 import sys
+import traceback
 
 from curtin import log
 
@@ -45,6 +47,9 @@ def main(args=None):
 
     parser = argparse.ArgumentParser()
 
+    stacktrace = (os.environ.get('CURTIN_STACKTRACE', "0").lower()
+                  not in ("0", "false", ""))
+    parser.add_argument('--showtrace', action='store_true', default=stacktrace)
     parser.add_argument('--verbose', '-v', action='count', default=0)
     parser.add_argument('--log-file', default=sys.stderr,
                         type=argparse.FileType('w'))
@@ -61,7 +66,13 @@ def main(args=None):
 
     log.basicConfig(stream=args.log_file, verbosity=args.verbose)
 
-    sys.exit(args.func(args))
+    try:
+        sys.exit(args.func(args))
+    except Exception as e:
+        if args.showtrace:
+            traceback.print_exc()
+        sys.stderr.write("%s\n" % e)
+        sys.exit(3)
 
 
 if __name__ == '__main__':
