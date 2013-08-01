@@ -66,8 +66,7 @@ Note, that as with fstab, this file is not copied verbatum to the target filesys
 **Config Example**::
 
  network_commands:
-  10_wipe_filesystems: curtin wipe --quick --all-unused-disks
-  50_setup_raid: curtin disk-setup --all-disks raid0 /
+  10_netconf: curtin network copy-existing
 
 **Command environment**
 
