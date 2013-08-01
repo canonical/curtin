@@ -23,11 +23,12 @@ import traceback
 
 from curtin import log
 
-SUB_COMMAND_MODULES = ['install']
+SUB_COMMAND_MODULES = ['install', 'block-meta', 'net-meta']
 
 
 def add_subcmd(subparser, subcmd):
-    subcmd_full = "curtin.commands.%s" % subcmd
+    modname = subcmd.replace("-", "_")
+    subcmd_full = "curtin.commands.%s" % modname
     __import__(subcmd_full)
     args = getattr(sys.modules[subcmd_full], 'CMD_ARGUMENTS', [])
     func = getattr(sys.modules[subcmd_full], 'CMD_HANDLER')
