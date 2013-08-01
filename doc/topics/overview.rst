@@ -101,11 +101,12 @@ After extraction of sources, the source that was extracted is then given a chanc
  config_hook: {{TARGET_MP}}/opt/curtin/config-hook
 
 **Command environment**
-- ``INTERFACES``: This is a path to the file created during networking stage
-- ``FSTAB``: This is a path to the file created during partitioning stage
-- ``CONFIG``: This is a path to the curtin config file.  It is provided so that additional configuration could be provided through to the OS customization.
+ - ``INTERFACES``: This is a path to the file created during networking stage
+ - ``FSTAB``: This is a path to the file created during partitioning stage
+ - ``CONFIG``: This is a path to the curtin config file.  It is provided so that additional configuration could be provided through to the OS customization.
 
 **Helpers**
+
 Curtin provides some helpers to make the OS customization easier.
  - `curtin in-target`: run the command while chrooted into the target.
 
