@@ -15,6 +15,7 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+import errno
 import os
 import subprocess
 import time
@@ -176,6 +177,118 @@ class LogTimer(object):
     def __exit__(self, etype, value, trace):
         self.logfunc("%s took %0.3f seconds" %
                      (self.msg, time.time() - self.start))
+
+
+def is_mounted(target, src=None, opts=None):
+    # return whether or not src is mounted on target
+    mounts = ""
+    with open("/proc/mounts", "r") as fp:
+        mounts = fp.read()
+
+    for line in mounts.splitlines():
+        if line.split()[1] == os.path.abspath(target):
+            return True
+    return False
+
+
+def do_mount(src, target, opts=None):
+    # mount src at target with opts and return True
+    # if already mounted, return False
+    if opts is None:
+        opts = []
+    if isinstance(opts, str):
+        opts = [opts]
+
+    print("do_mount(%s, %s, opts=%s)" % (src, target, opts))
+    if is_mounted(target, src, opts):
+        return False
+
+    ensure_dir(target)
+    cmd = ['mount'] + opts + [src, target]
+    subp(cmd)
+    return True
+
+
+def do_umount(mountpoint):
+    if not is_mounted:
+        return False
+    subp(['umount', mountpoint])
+    return True
+
+
+def ensure_dir(path, mode=None):
+    try:
+        os.makedirs(path)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+
+    if mode is not None:
+        os.chmod(path, mode)
+
+
+def write_file(filename, content, mode=0o644, omode="w"):
+    ensure_dir(os.path.dirname(filename))
+    with open(filename, omode) as fp:
+        fp.write(content)
+    os.chmod(filename, mode)
+
+
+def disable_daemons_in_root(target):
+    contents = "\n".join(
+        ['#!/bin/sh',
+         'while true; do',
+         '   case "$1" in',
+         '      -*) shift;;',
+         '      makedev|x11-common) exit 0;;',
+         '      *) exit 101;;',
+         '   esac',
+         'done',
+         ''])
+
+    fpath = os.path.join(target, "usr/sbin/policy-rc.d")
+
+    if os.path.isfile(fpath):
+        return False
+
+    write_file(fpath, mode=0o755, content=contents)
+
+
+def undisable_daemons_in_root(target, needed=True):
+    if not needed:
+        return False
+    try:
+        os.unlink(os.path.join(target, "/usr/sbin/policy-rc.d"))
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise
+        return False
+    return True
+
+
+class ChrootableTarget(object):
+    def __init__(self, target, allow_daemons=False):
+        self.target = target
+        self.mounts = ["/dev", "/proc", "/sys"]
+        self.umounts = []
+        self.disabled_daemons = False
+        self.allow_daemons = allow_daemons
+
+    def __enter__(self):
+        for p in self.mounts:
+            tpath = os.path.join(self.target, p[1:])
+            if do_mount(p, tpath, opts='--bind'):
+                self.umounts.append(tpath)
+
+        if not self.allow_daemons:
+            self.disabled_daemons = disable_daemons_in_root(self.target)
+
+    def __exit__(self, etype, value, trace):
+        if self.disabled_daemons:
+            undisable_daemons_in_root(self.target)
+
+        for p in reversed(self.umounts):
+            do_umount(p)
 
 
 # vi: ts=4 expandtab syntax=python
