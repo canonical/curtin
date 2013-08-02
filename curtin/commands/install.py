@@ -76,8 +76,8 @@ class Stage(object):
 
     def run(self):
         for cmdname in sorted(self.commands.keys()):
-            cmd = self.commands['cmdname']
-            shell = isinstance(cmd, list)
+            cmd = self.commands[cmdname]
+            shell = not isinstance(cmd, list)
             with util.LogTimer(LOG.debug, cmdname):
                 try:
                     util.subp(cmd, shell=shell, env=self.env)
