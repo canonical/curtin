@@ -1,2 +1,3 @@
 usr/bin/*
 usr/lib/python3*/*-packages/curtin/*
+usr/lib/curtin/helpers/*
