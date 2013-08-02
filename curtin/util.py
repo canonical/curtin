@@ -15,13 +15,16 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import subprocess
 import time
 
 from .log import LOG
 
+INSTALLED_HELPERS_PATH = "/usr/lib/curtin/helpers"
 
-def subp(args, data=None, rcs=None, env=None, capture=True, shell=False,
+
+def subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
          logstring=False):
     if rcs is None:
         rcs = [0]
@@ -60,6 +63,50 @@ def subp(args, data=None, rcs=None, env=None, capture=True, shell=False,
     return (out, err)
 
 
+def load_command_environment(env=os.environ, strict=False):
+
+    mapping = {'scratch': 'WORKING_DIR', 'fstab': 'OUTPUT_FSTAB',
+               'interfaces': 'INTERFACES', 'config': 'CONFIG',
+               'target': 'TARGET_MOUNT_POINT'}
+
+    if strict:
+        missing = [k for k in mapping if k not in env]
+        if len(missing):
+            raise KeyError("missing environment vars: %s" % missing)
+
+    return {k: env.get(v) for k, v in mapping.items()}
+
+
+def find_helpers(env=os.environ):
+
+    def checkd(path):
+        if not os.path.isdir(path):
+            raise ValueError("not a directory")
+        if not os.path.isfile(os.path.join(path, 'partition')):
+            raise ValueError("did not find 'partition' in dir")
+        return os.path.abspath(path)
+
+    envname = 'CURTIN_HELPERS'
+
+    if envname in env:
+        val = env[envname]
+        try:
+            return checkd(val)
+        except ValueError as e:
+            raise ValueError("env[%s]='%s': %s" (envname, val, e))
+
+    search = (os.path.join(os.path.dirname(__file__), "..", "helpers"),
+              INSTALLED_HELPERS_PATH)
+
+    for curd in search:
+        try:
+            return checkd(curd)
+        except ValueError:
+            pass
+
+    raise Exception("Unable to find helpers dir, searched: %s" % str(search))
+
+
 class BadUsage(Exception):
     pass
 
@@ -86,7 +133,7 @@ class ProcessExecutionError(IOError):
         else:
             self.description = description
 
-        if not isinstance(exit_code, (long, int)):
+        if not isinstance(exit_code, int):
             self.exit_code = '-'
         else:
             self.exit_code = exit_code

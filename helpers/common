@@ -1,0 +1,44 @@
+#!/bin/bash
+
+error() { echo "$@" 1>&1; }
+debug() { [ ${VERBOSITY:-0} -lt "$1" ] || error "$@"; }
+
+partition() {
+    local target="" out="" ptype="L"
+    while : ; do
+        case "$1" in
+            --ptype=*) ptype="${1#--ptype=}";;
+            *) break;;
+        esac
+        shift;
+    done
+    target="$1"
+
+    local size="" name="${target##*/}"
+
+    size=$(awk '$4 == name { print $3 }' name="$name" /proc/partitions)
+    [ $? -eq 0 -a -n "$size" ] ||
+        { error "failed to get size of $name"; return 1; }
+
+    # wipe the front and end (gpt is at end also)
+    dd if=/dev/zero of="$target" bs=$((1024*1024)) count=1 >/dev/null 2>&1
+    out=$(dd if=/dev/zero of="$target" bs=1024 \
+          seek=$(($size-1024)) count=1024 2>&1)
+    [ $? -eq 0 ] ||
+        { error "failed to wipe end of $target [$size]: $out"; return 1; }
+
+    local sfdisk_out="" sfdisk_in="$((1024*1024/512)),,$ptype,*" sfdisk_cmd=""
+    sfdisk_cmd=( sfdisk --no-reread --force --Linux --unit S "$target" )
+    debug 1 "sfdisking with: echo '$sfdisk_in' | ${sfdisk_cmd[*]}"
+    sfdisk_out=$(echo "$sfdisk_in" | "${sfdisk_cmd[@]}" 2>&1)
+    ret=$?
+    [ $ret -eq 0 ] || {
+        error "failed to partition $target [${sfdisk_out}]";
+        return 1;
+    }
+    blockdev --rereadpt "$target"
+    udevadm settle
+    [ -b "${target}1" ] ||
+        { error "no partition found ${target}1"; return 1; }
+    wipefs --all "${target}1"
+}

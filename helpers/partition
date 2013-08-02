@@ -1,0 +1,4 @@
+#!/bin/bash
+
+[ "${0%/*}" = "$0" ] && . ./common || . "${0%/*}/common"
+partition "$@"

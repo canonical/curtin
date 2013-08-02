@@ -22,6 +22,7 @@ import sys
 import traceback
 
 from curtin import log
+from curtin import util
 
 SUB_COMMAND_MODULES = ['install', 'block-meta', 'net-meta']
 
@@ -66,6 +67,9 @@ def main(args=None):
         sys.exit(1)
 
     log.basicConfig(stream=args.log_file, verbosity=args.verbose)
+
+    helpers = util.find_helpers()
+    os.environ['PATH'] = ':'.join((helpers, os.environ['PATH'],))
 
     try:
         sys.exit(args.func(args))

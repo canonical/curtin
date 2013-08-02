@@ -21,5 +21,7 @@ setup(
     data_files=[
         ('/usr/share/doc/curtin',
          [f for f in glob('doc/*') if is_f(f)]),
+        ('/usr/lib/curtin/helpers',
+         [f for f in glob('helpers/*') if is_f(f)])
     ]
 )

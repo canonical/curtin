@@ -20,8 +20,8 @@ import json
 import os
 import tempfile
 
-from curtin.log import LOG
 from curtin import config
+from curtin.log import LOG
 from curtin import util
 
 
