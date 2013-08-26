@@ -237,6 +237,7 @@ def write_file(filename, content, mode=0o644, omode="w"):
 def disable_daemons_in_root(target):
     contents = "\n".join(
         ['#!/bin/sh',
+         '# see invoke-rc.d for exit codes. 101 is "do not run"',
          'while true; do',
          '   case "$1" in',
          '      -*) shift;;',
