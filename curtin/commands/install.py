@@ -26,6 +26,7 @@ from curtin import util
 
 from . import populate_one_subcmd
 
+
 class MyAppend(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         if getattr(namespace, self.dest, None) is None:

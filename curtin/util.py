@@ -18,11 +18,15 @@
 import errno
 import os
 import subprocess
+import shutil
+import sys
+import tempfile
 import time
 
 from .log import LOG
 
-INSTALLED_HELPERS_PATH = "/usr/lib/curtin/helpers"
+_INSTALLED_HELPERS_PATH = "/usr/lib/curtin/helpers"
+_INSTALLED_LIB_PATH = "/usr/share/pyshared"
 
 
 def subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
@@ -76,36 +80,6 @@ def load_command_environment(env=os.environ, strict=False):
             raise KeyError("missing environment vars: %s" % missing)
 
     return {k: env.get(v) for k, v in mapping.items()}
-
-
-def find_helpers(env=os.environ):
-
-    def checkd(path):
-        if not os.path.isdir(path):
-            raise ValueError("not a directory")
-        if not os.path.isfile(os.path.join(path, 'partition')):
-            raise ValueError("did not find 'partition' in dir")
-        return os.path.abspath(path)
-
-    envname = 'CURTIN_HELPERS'
-
-    if envname in env:
-        val = env[envname]
-        try:
-            return checkd(val)
-        except ValueError as e:
-            raise ValueError("env[%s]='%s': %s" (envname, val, e))
-
-    search = (os.path.join(os.path.dirname(__file__), "..", "helpers"),
-              INSTALLED_HELPERS_PATH)
-
-    for curd in search:
-        try:
-            return checkd(curd)
-        except ValueError:
-            pass
-
-    raise Exception("Unable to find helpers dir, searched: %s" % str(search))
 
 
 class BadUsage(Exception):
@@ -291,5 +265,77 @@ class ChrootableTarget(object):
         for p in reversed(self.umounts):
             do_umount(p)
 
+
+def get_curtin_paths(source=None, curtin_exe=None):
+    if source is None:
+        mydir = os.path.dirname(os.path.realpath(__file__))
+        if mydir.startswith("/usr"):
+            source = "INSTALLED"
+        else:
+            source = os.path.dirname(mydir)
+            if curtin_exe is None:
+                curtin_exe = os.path.join(source, "bin", "curtin")
+
+    if curtin_exe is None:
+        curtin_exe = os.path.realpath(sys.argv[0])
+
+    ret = {'curtin_exe': curtin_exe}
+
+    if source == "INSTALLED":
+        ret.update({'helpers': _INSTALLED_HELPERS_PATH,
+                    'lib': _INSTALLED_LIB_PATH})
+    else:
+        ret.update({'helpers': os.path.join(source, 'helpers'),
+                    'lib': os.path.join(source, 'curtin')})
+
+    return ret
+
+
+def pack(fdout, command=None, paths=None):
+    # write to 'fdout' a self extracting file to execute 'command'
+    if paths is None:
+        paths = get_curtin_paths()
+
+    tmpd = None
+    try:
+        tmpd = tempfile.mkdtemp()
+        exdir = os.path.join(tmpd, 'curtin')
+
+        os.mkdir(exdir)
+        bindir = os.path.join(exdir, 'bin')
+        os.mkdir(bindir)
+
+        def not_dot_py(input_d, flist):
+            # include .py files and directories other than __pycache__
+            return [f for f in flist if not
+                    (f.endswith(".py") or
+                     (f != "__pycache__" and
+                      os.path.isdir(os.path.join(input_d, f))))]
+
+        shutil.copytree(paths['helpers'], os.path.join(exdir, "helpers"))
+        shutil.copytree(paths['lib'], os.path.join(exdir, "curtin"),
+                        ignore=not_dot_py)
+        shutil.copy(paths['curtin_exe'], os.path.join(bindir, 'curtin'))
+
+        archout = os.path.join(tmpd, 'output')
+
+        archcmd = os.path.join(paths['helpers'], 'shell-archive')
+
+        args = [archcmd, '--output=%s' % archout, exdir, "curtin"]
+        if command is not None:
+            args.extend(command)
+
+        (_out, _err) = subp(args, capture=True)
+
+        with open(archout, "r") as fp:
+            while True:
+                buf = fp.read(4096)
+                fdout.write(buf)
+                if len(buf) != 4096:
+                    break
+    except:
+        if tmpd:
+            shutil.rmtree(tmpd)
+        raise
 
 # vi: ts=4 expandtab syntax=python

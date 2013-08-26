@@ -24,7 +24,7 @@ import traceback
 from curtin import log
 from curtin import util
 
-SUB_COMMAND_MODULES = ['install', 'block-meta', 'net-meta']
+SUB_COMMAND_MODULES = ['block-meta', 'install', 'net-meta', 'pack']
 
 
 def add_subcmd(subparser, subcmd):
@@ -64,8 +64,9 @@ def main(args=None):
 
     log.basicConfig(stream=args.log_file, verbosity=args.verbose)
 
-    helpers = util.find_helpers()
-    os.environ['PATH'] = ':'.join((helpers, os.environ['PATH'],))
+    paths = util.get_curtin_paths(curtin_exe=os.path.realpath(__file__))
+
+    os.environ['PATH'] = ':'.join((paths['helpers'], os.environ['PATH'],))
 
     try:
         sys.exit(args.func(args))
