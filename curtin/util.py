@@ -321,7 +321,7 @@ def pack(fdout, command=None, paths=None):
 
         archcmd = os.path.join(paths['helpers'], 'shell-archive')
 
-        args = [archcmd, '--output=%s' % archout, exdir, "curtin"]
+        args = [archcmd, '--output=%s' % archout, exdir, "curtin", "--"]
         if command is not None:
             args.extend(command)
 
