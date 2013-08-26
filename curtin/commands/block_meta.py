@@ -58,7 +58,6 @@ def meta_simple(args):
 
     LOG.info("installing in simple mode to '%s'", devname)
     state = util.load_command_environment()
-    print(state)
 
     # helper partition will forcibly set up partition there
     logtime("partition %s" % devnode, util.subp, ("partition", devnode))
