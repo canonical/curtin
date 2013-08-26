@@ -15,4 +15,80 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+import errno
+import os
+
+from curtin.log import LOG
+
+SYS_CLASS_NET = "/sys/class/net/"
+
+
+def sys_dev_path(devname, path=""):
+    return SYS_CLASS_NET + devname + "/" + path
+
+
+def read_sys_net(devname, path, translate=None, enoent=None, keyerror=None):
+    try:
+        contents = ""
+        with open(sys_dev_path(devname, path), "r") as fp:
+            contents = fp.read().strip()
+        if translate is None:
+            return contents
+
+        try:
+            return translate.get(contents)
+        except KeyError:
+            LOG.debug("found unexpected value '%s' in '%s/%s'", contents,
+                      devname, path)
+            if keyerror is not None:
+                return keyerror
+            raise
+    except OSError as e:
+        if e.errno == errno.ENOENT and enoent is not None:
+            return enoent
+        raise
+
+
+def is_up(devname):
+    return read_sys_net(devname, "operstate", enoent=False, keyerror=False,
+                        translate={'up': True, 'down': False})
+
+
+def is_wireless(devname):
+    return os.path.exists(sys_dev_path(devname, "wireless"))
+
+
+def is_connected(devname):
+    # is_connected isn't really as simple as that.  2 is
+    # 'physically connected'. 3 is 'not connected'. but a wlan interface will
+    # always show 3.
+    try:
+        iflink = read_sys_net(devname, "iflink", enoent=False)
+        if iflink == "2":
+            return True
+        if not is_wireless(devname):
+            return False
+        LOG.debug("'%s' is wireless, basing 'connected' on carrier", devname)
+
+        return read_sys_net(devname, "carrier", enoent=False, keyerror=False,
+                            translate={'0': False, '1': True})
+
+    except IOError as e:
+        if e.errno == errno.EINVAL:
+            return False
+        raise
+
+
+def is_physical(devname):
+    return os.path.exists(sys_dev_path(devname, "device"))
+
+
+def is_present(devname):
+    return os.path.exists(sys_dev_path(devname))
+
+
+def get_devicelist():
+    return os.listdir(SYS_CLASS_NET)
+
+
 # vi: ts=4 expandtab syntax=python
