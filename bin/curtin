@@ -31,16 +31,12 @@ def add_subcmd(subparser, subcmd):
     modname = subcmd.replace("-", "_")
     subcmd_full = "curtin.commands.%s" % modname
     __import__(subcmd_full)
-    args = getattr(sys.modules[subcmd_full], 'CMD_ARGUMENTS', [])
-    func = getattr(sys.modules[subcmd_full], 'CMD_HANDLER')
+    try:
+        popfunc = getattr(sys.modules[subcmd_full], 'POPULATE_SUBCMD')
+    except AttributeError:
+        raise AttributeError("No 'POPULATE_SUBCMD' in %s" % subcmd_full)
 
-    subp = subparser.add_parser(subcmd)
-    for ent in args:
-        args = ent[0]
-        if not isinstance(args, (list, tuple)):
-            args = (args,)
-        subp.add_argument(*args, **ent[1])
-    subp.set_defaults(func=func)
+    popfunc(subparser.add_parser(subcmd))
 
 
 def main(args=None):

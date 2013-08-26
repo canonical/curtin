@@ -19,6 +19,18 @@ from curtin import block
 from curtin import util
 from curtin.log import LOG
 
+from . import populate_one_subcmd
+
+CMD_ARGUMENTS = (
+    ((('-D', '--devices'),
+      {'help': 'which devices to operate on', 'action': 'append',
+       'metavar': 'DEVICE', 'default': None, }),
+     ('--fstype', {'help': 'root filesystem type',
+                   'choices': ['ext4', 'ext3'], 'default': 'ext4'}),
+     ('mode', {'help': 'meta-mode to use', 'choices': ['raid0', 'simple']}),
+     )
+)
+
 
 def block_meta(args):
     # main entry point for the block-meta command.
@@ -75,15 +87,7 @@ def meta_simple(args):
     return 0
 
 
-CMD_ARGUMENTS = (
-    ((('-D', '--devices'),
-      {'help': 'which devices to operate on', 'action': 'append',
-       'metavar': 'DEVICE', 'default': None, }),
-     ('--fstype', {'help': 'root filesystem type',
-                   'choices': ['ext4', 'ext3'], 'default': 'ext4'}),
-     ('mode', {'help': 'meta-mode to use', 'choices': ['raid0', 'simple']}),
-     )
-)
-CMD_HANDLER = block_meta
+def POPULATE_SUBCMD(parser):
+    populate_one_subcmd(parser, CMD_ARGUMENTS, block_meta)
 
 # vi: ts=4 expandtab syntax=python

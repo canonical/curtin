@@ -24,6 +24,7 @@ from curtin import config
 from curtin.log import LOG
 from curtin import util
 
+from . import populate_one_subcmd
 
 class MyAppend(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
@@ -142,6 +143,9 @@ CMD_ARGUMENTS = (
      ('source', {'help': 'what to install', 'nargs': '*'}),
      )
 )
-CMD_HANDLER = cmd_install
+
+
+def POPULATE_SUBCMD(parser):
+    populate_one_subcmd(parser, CMD_ARGUMENTS, cmd_install)
 
 # vi: ts=4 expandtab syntax=python

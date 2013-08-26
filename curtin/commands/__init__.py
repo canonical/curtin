@@ -15,4 +15,13 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+
+def populate_one_subcmd(parser, options_dict, handler):
+    for ent in options_dict:
+        args = ent[0]
+        if not isinstance(args, (list, tuple)):
+            args = (args,)
+        parser.add_argument(*args, **ent[1])
+    parser.set_defaults(func=handler)
+
 # vi: ts=4 expandtab syntax=python

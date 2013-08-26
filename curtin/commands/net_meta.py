@@ -21,6 +21,8 @@ import sys
 
 from curtin import net
 
+from . import populate_one_subcmd
+
 DEVNAME_ALIASES = ['connected', 'configured', 'netboot']
 
 
@@ -93,6 +95,9 @@ CMD_ARGUMENTS = (
      ('mode', {'help': 'meta-mode to use', 'choices': ['dhcp']})
      )
 )
-CMD_HANDLER = net_meta
+
+
+def POPULATE_SUBCMD(parser):
+    populate_one_subcmd(parser, CMD_ARGUMENTS, net_meta)
 
 # vi: ts=4 expandtab syntax=python
