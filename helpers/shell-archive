@@ -47,7 +47,6 @@ write_extractor() {
     cat <<"END_EXTRACTOR"
 VERBOSITY=0
 INFO_KEYS=("LABEL" "PREFIX" "COMMAND" "CREATE_TIME" "MD5SUM")
-MARKER="_____PAYLOAD_____"
 
 error() { echo "$@" 1>&2; }
 fail() { [ $# -eq 0 ] || error "$@"; exit 1; }
