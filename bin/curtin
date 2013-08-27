@@ -27,7 +27,7 @@ try:
 except ImportError as e:
     _tdir = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
     if (os.path.isdir(os.path.join(_tdir, 'curtin')) and
-        _tdir not in sys.path):
+            _tdir not in sys.path):
         sys.path.append(_tdir)
     else:
         raise
