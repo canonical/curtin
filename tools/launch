@@ -1,0 +1,244 @@
+#!/bin/bash
+
+VERBOSITY=0
+TEMP_D=""
+HTTP_PID=""
+
+error() { echo "$@" 1>&2; }
+
+Usage() {
+	cat <<EOF
+Usage: ${0##*/} [ options ] boot-image curtin install [args]
+
+   boot the image 'boot-image', install the 'install-url' into the
+   image at 'target'.  'install-url' can be a url or local file.
+  
+   options:
+      -a | --append     append args to kernel cmdline (--kernel)
+      -d | --disk   D   add a disk 'D' format (path[:size])
+      -h | --help       show this message
+      -i | --initrd F   use initramfs F
+      -k | --kernel F   use kernel K
+           --mem    K   memory in Kb
+      -p | --publish F  make file 'F' available in web server
+      -v | --verbose    be more verbose
+
+   use of --kernel/--initrd will seed cloud-init via cmdline
+   rather than the local datasource
+EOF
+}
+
+bad_Usage() { Usage 1>&2; [ $# -eq 0 ] || error "$@"; exit 1; }
+cleanup() {
+	exec >/dev/null 2>&1 # shut up any the killing of HTTP_PID
+	[ -z "$HTTP_PID" ] || kill $HTTP_PID;
+	[ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
+}
+
+debug() {
+	local level=${1}; shift;
+	[ "${level}" -gt "${VERBOSITY}" ] && return
+	error "${@}"
+}
+
+get_my_ip() {
+	[ -z "$IP_ADDR" ] || { _RET="${IP_ADDR}"; return 0; }
+	local Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT
+	local iface ipaddr=""
+	while read Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT; do
+		[ "$Mask" = "00000000" ] && break
+	done < /proc/net/route
+	iface="$Iface"
+	ipaddr=$(LC_ALL=C /sbin/ip -4 addr list dev "$iface" scope global)
+	ipaddr=${ipaddr#* inet }
+	ipaddr=${ipaddr%%/*}
+	_RET="$ipaddr"
+}
+
+write_metadata() {
+	cat <<EOF
+instance-id: 'inst-${RANDOM}'
+EOF
+}
+
+write_userdata() {
+	local x
+	cat <<EOF
+#cloud-config-archive
+- type: text/cloud-config
+  content: |
+   #http_proxy: http://my-proxy:3129/
+   password: passw0rd
+   chpasswd: { expire: False }
+   output: {all: '| tee -a /var/log/cloud-init-output.log'}
+EOF
+	for x in "$@"; do
+		printf "%s\n" "- |" && sed 's,^,  ,' "$x" || return
+	done
+}
+
+xkvm_check() {
+	command -v xkvm >/dev/null 2>&1 && return
+	cat 1>&2 <<EOF
+You do not have xkvm. Get it, put it in path.
+  http://smoser.brickies.net/git/?p=tildabin.git;a=blob_plain;f=xkvm;hb=HEAD
+EOF
+	return 1
+}
+
+main() {
+	local short_opts="a:d:h:i:k:p:v"
+	local long_opts="append:,disk:,help,initrd:,kernel:,mem:,publish:,verbose"
+	local getopt_out=""
+	getopt_out=$(getopt --name "${0##*/}" \
+		--options "${short_opts}" --long "${long_opts}" -- "$@") &&
+		eval set -- "${getopt_out}" ||
+		{ bad_Usage; return 1; }
+
+	local seed=""
+	local bootimg="" bootimg_dist="" target="" mem="1024"
+	local udata="" ip="" http_port="${HTTP_PORT:-9923}" burl=""
+	local tmp="" top_d
+	local initrd="" kernel="" uappend="" iargs="" disk_args=""
+	local pubs="" disks=""
+	pubs=( )
+	disks=( )
+
+	while [ $# -ne 0 ]; do
+		cur=${1}; next=${2};
+		case "$cur" in
+			-a|--append) uappend="$next"; shift;;
+			-d|--disk) disks[${#disks[@]}]="$next"; shift;;
+			-h|--help) Usage ; exit 0;;
+			-i|--initrd) initrd="$next"; shift;;
+			-k|--kernel) kernel="$next"; shift;;
+			   --mem) mem="$next"; shift;;
+			-p|--publish) pubs[${#pub[@]}]="$next"; shift;;
+			-v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
+			--) shift; break;;
+		esac
+		shift;
+	done
+
+	[ $# -ge 0 ] || { bad_Usage "must provide boot-image"; return 1; }
+	bootimg_dist="$1"
+	shift
+	cmdargs=( "$@" )
+
+	TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
+		{ error "failed to make tempdir"; return 1; }
+	
+	trap cleanup EXIT
+
+	if [ "${#disks[@]}" -eq 0 ]; then
+		disks=( "${TEMP_D}/disk1.img" )
+	fi
+
+	bootimg_dist=$(readlink -f "$bootimg_dist") ||
+		{ error "bad bootimg $bootimg_dist"; return 1; }
+
+	[ -z "$initrd" -o -f "$initrd" ] ||
+		{ error "initrd not a file: $initrd"; return 1; }
+	[ -z "$kernel" -o -f "$kernel" ] ||
+		{ error "kernel not a file: $kernel"; return 1; }
+
+	tmp=$(dirname "$0") && top_d=$(cd "$tmp" && cd .. && pwd) ||
+		{ error "failed to get dir for $0"; return 1; }
+
+	local disk="" src="" size=""
+	disk_args=( )
+	for disk in "${disks[@]}"; do
+		src=${disk}
+		size=5G
+		if [ "${src%:*}" != "${src}" ]; then
+			src="${disk%:*}"
+			size="${disk##*:}"
+		fi
+		if [ ! -f "$src" ]; then
+			qemu-img create -f raw "${src}" 5G ||
+				{ error "failed create $src"; return 1; }
+		fi
+		disk_args=( "${disk_args[@]}"
+			"-drive" "file=${src},if=virtio,cache=unsafe" )
+	done
+
+	get_my_ip || { error "failed to get your ip. set IP_ADDR"; return 1; }
+	ip=${_RET}
+	burl="http://$ip:${http_port}/"
+
+	local tok src pub fpath
+	# tok in pubs looks like file[:pubname]
+	# link them into the temp dir for publishing
+	for tok in "${pubs[@]}"; do
+		case "$tok" in
+			*:*) src="${tok%:*}"; pub="${tok##*:}";;
+			*) src=${tok}; pub="";;
+		esac
+		fpath=$(readlink -f "$src") ||
+			{ error "'$src': failed to get path"; return 1; }
+		if [ -n "$pub" ]; then
+			pub="${fpath##*/}"
+		fi
+		ln -sf "$src" "${TEMP_D}/${pub}"
+	done
+
+	# now replace PUBURL anywhere in cmdargs
+	for((i=0;i<${#cmdargs[@]};i++)); do
+		cmdargs[$i]=${cmdargs[$i]//PUBURL/$burl}
+	done
+
+	( cd "${TEMP_D}" &&
+		exec python -m SimpleHTTPServer $http_port ) >"${TEMP_D}/ws.log" 2>&1 &
+	HTTP_PID=$!
+
+    PYTHONPATH="${top_d}${PYTHONPATH:+${PYTHONPATH}}" \
+		"${top_d}/bin/curtin" pack -- "${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
+		{ error "failed to pack"; return 1; }
+
+	udata="${TEMP_D}/user-data"
+	mdata="${TEMP_D}/meta-data"
+	write_metadata > "$mdata" || { error "failed to write meta-data"; return 1; }
+	write_userdata "${TEMP_D}/install-cmd" > "$udata"  ||
+		{ error "failed to write user-data"; return 1; }
+
+	bootimg="${TEMP_D}/boot.img"
+	qemu-img create -f qcow2 -b "${bootimg_dist}" "$bootimg" ||
+		{ error "failed create from ${bootimg_dist}"; return 1; }
+
+	local seedargs=""
+	seedargs=()
+	if [ -n "$kernel" ]; then
+		local append="" root=""
+		# if this is a partition image, root=/dev/vda. else root=/dev/vda1
+		# this hack is necessary because LABEL even UUID  might be the same
+		# in the boot image and the target (if re-using target)
+		if tmp=$(blkid "$bootimg_dist" -ovalue -s UUID) && [ -n "$tmp" ]; then
+			root="/dev/vda"
+		else
+			root="/dev/vda1"
+		fi
+		append="root=$root ds=nocloud-net seedfrom=$burl/"
+		append="${append} console=ttyS0 ds=nocloud-net $uappend"
+		seedargs=( "${seedargs[@]}" -kernel "$kernel" )
+		[ -n "$initrd" ] && seedargs=( "${seedargs[@]}" -initrd "$initrd" )
+		seedargs=( "${seedargs[@]}" -append "$append" )
+	else
+		seed="${TEMP_D}/seed.img"
+		cloud-localds "$seed" "$udata" "$mdata" ||
+			{ error "failed cloud-localds"; return 1; }
+		seedargs=( "-drive" "file=${seed},if=virtio,media=cdrom" )
+	fi
+	
+	xkvm_check || return
+	time xkvm -- \
+		-m ${mem} -serial file:serial.log -curses \
+		-drive "file=$bootimg,if=virtio,cache=unsafe" \
+		"${seedargs[@]}" \
+		"${disk_args[@]}"
+
+	return
+}
+
+main "$@"
+
+# vi: ts=4 noexpandtab
