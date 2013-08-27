@@ -21,8 +21,18 @@ import os
 import sys
 import traceback
 
-from curtin import log
-from curtin import util
+try:
+    from curtin import log
+    from curtin import util
+except ImportError as e:
+    _tdir = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
+    if (os.path.isdir(os.path.join(_tdir, 'curtin')) and
+        _tdir not in sys.path):
+        sys.path.append(_tdir)
+    else:
+        raise
+    from curtin import log
+    from curtin import util
 
 SUB_COMMAND_MODULES = ['block-meta', 'install', 'net-meta', 'pack']
 
