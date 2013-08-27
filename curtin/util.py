@@ -291,10 +291,13 @@ def get_curtin_paths(source=None, curtin_exe=None):
     return ret
 
 
-def pack(fdout, command=None, paths=None):
+def pack(fdout, command=None, paths=None, addl=None):
     # write to 'fdout' a self extracting file to execute 'command'
     if paths is None:
         paths = get_curtin_paths()
+
+    if addl is None:
+        addl = []
 
     tmpd = None
     try:
@@ -304,6 +307,8 @@ def pack(fdout, command=None, paths=None):
         os.mkdir(exdir)
         bindir = os.path.join(exdir, 'bin')
         os.mkdir(bindir)
+        datadir = os.path.join(exdir, 'data')
+        os.mkdir(datadir)
 
         def not_dot_py(input_d, flist):
             # include .py files and directories other than __pycache__
@@ -316,6 +321,14 @@ def pack(fdout, command=None, paths=None):
         shutil.copytree(paths['lib'], os.path.join(exdir, "curtin"),
                         ignore=not_dot_py)
         shutil.copy(paths['curtin_exe'], os.path.join(bindir, 'curtin'))
+
+        for p in addl:
+            target = os.path.join(datadir,
+                                  os.path.basename(os.path.abspath(p)))
+            if os.path.isfile(p):
+                shutil.copy(p, target)
+            else:
+                shutil.copytree(p, target)
 
         archout = os.path.join(tmpd, 'output')
 

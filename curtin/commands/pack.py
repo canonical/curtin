@@ -25,25 +25,28 @@ CMD_ARGUMENTS = (
     ((('-o', '--output'),
       {'help': 'where to write the archive to', 'action': 'store',
        'metavar': 'FILE', 'default': "-", }),
+     (('-a', '--add'),
+      {'help': 'include in archive (under data/)',
+       'action': 'append', 'metavar': 'DIR'}),
      ('command_args',
       {'help': 'command to run after extracting', 'nargs': '*'}),
      )
 )
 
 
-def pack(args):
+def pack_main(args):
     if args.output == "-":
         fdout = sys.stdout
     else:
         fdout = open(args.output, "w")
 
-    util.pack(fdout, command=args.command_args)
+    util.pack(fdout, command=args.command_args, addl=args.add)
 
     if args.output != "-":
         fdout.close()
 
 
 def POPULATE_SUBCMD(parser):
-    populate_one_subcmd(parser, CMD_ARGUMENTS, pack)
+    populate_one_subcmd(parser, CMD_ARGUMENTS, pack_main)
 
 # vi: ts=4 expandtab syntax=python
