@@ -109,7 +109,7 @@ dump_bin() {
 
 extract() {
     mkdir "$2" || { error "failed to make '$2'"; return 1; }
-    dump_bin "$1" | tar -Sxvzf - -C "$2"
+    dump_bin "$1" | tar -Sxzf - -C "$2"
 }
 
 main() {
@@ -151,11 +151,24 @@ main() {
         dump) dump_bin "$0"; return;;
         extract)
             extract "$0" "$prefix" || { error "failed extraction"; return 1; }
-            if $no_execute || [ "${#COMMAND[@]}" = "0" ]; then
+            if ! $execute || [ "${#COMMAND[@]}" = "0" ]; then
                 error "extracted to '$prefix'"
                 return 0;
             fi
-            cd "$prefix"
+            cd "$prefix" ||
+                { error "failed to change to $prefix"; return 1; }
+
+            local np=""
+            if [ -n "$PYPATH" ]; then
+                np="${PYPATH//_pwd_/$PWD}${PYTHONPATH:+:${PYTHONPATH}}"
+                export PYTHONPATH="$np"
+            fi
+
+            if [ -n "$BINPATH" ]; then
+                np="${BINPATH//_pwd_/$PWD}${PATH:+:${PATH}}"
+                export PATH="$np"
+            fi
+
             debug 1 "executing: ${COMMAND[*]}"
             exec "${COMMAND[@]}"
             ;;
@@ -182,23 +195,31 @@ Usage: ${0##*/} [ options ] archive_dir label [ command [ args ] ]
       -d | --extract-dir D    extract top level dir named D
                               default: dirname(dir)
       -o | --output      F    output to 'F'. default: - (stdout)
+           --environ     E=N  set environment before execution
 EOF
 }
 
 main() {
-    local short_opts="ho:v"
-    local long_opts="help,output:,verbose"
+    local short_opts="hd:o:v"
+    local long_opts="bin-path:,extract-dir:,environ:,help,output:,python-path:,verbose"
     local getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
         eval set -- "${getopt_out}" ||
         { bad_Usage; return; }
 
     local cur="" next="" prefix=""
+    local pypath="" binpath=""
     local output="-"
 
     while [ $# -ne 0 ]; do
         cur="$1"; next="$2";
         case "$cur" in
+               --bin-path)
+                [ "$next" = "." ] && next="_pwd_";
+                binpath="$next${binpath:+:${binpath}}"; shift;;
+               --python-path)
+                [ "$next" = "." ] && next="_pwd_";
+                pypath="$next${pypath:+:${pypath}}"; shift;;
             -h|--help) Usage ; exit 0;;
             -d|--extract-dir) prefix=$next; shift;;
             -o|--output) output=$next; shift;;
@@ -215,7 +236,8 @@ main() {
     }
 
     shift 2
-    local MD5SUM PREFIX LABEL COMMAND
+    local MD5SUM PREFIX LABEL COMMAND 
+    local PYPATH="$pypath" BINPATH="$binpath"
     COMMAND=( "$@" )
     adir=$(cd "${archive_d}" && echo "$PWD") ||
         { error "failed to change dir to ${archive_d}"; return 1; }
@@ -240,7 +262,7 @@ main() {
             { error "failed to redirect output to $output"; return 1; }
     fi
         
-    write_extractor MD5SUM PREFIX LABEL COMMAND ||
+    write_extractor MD5SUM PREFIX LABEL COMMAND PYPATH BINPATH ||
         { error "failed to write extractro"; return 1; }
     base64 < "$payload" ||
         { error "failed to base64 encode payload"; return 1; }
