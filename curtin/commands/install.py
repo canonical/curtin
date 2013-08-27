@@ -26,6 +26,13 @@ from curtin import util
 
 from . import populate_one_subcmd
 
+CONFIG_BUILTIN = {
+    'sources': {},
+    'stages': ['early', 'partitioning', 'network', 'extract', 'hook', 'final'],
+    'extract_commands': {'builtin': ['curtin', 'extract-sources']},
+    'hook_commands': {'builtin': ['curtin', 'config-hook']}
+}
+
 
 class MyAppend(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
@@ -89,7 +96,7 @@ class Stage(object):
 
 
 def cmd_install(args):
-    cfg = {'sources': {}}
+    cfg = CONFIG_BUILTIN
 
     for (flag, val) in args.cfgopts:
         if flag in ('-c', '--config'):
@@ -110,35 +117,18 @@ def cmd_install(args):
     env = os.environ.copy()
     env.update(workingd.env())
 
-    for name in ('early', 'partitioning', 'network'):
+    for name in cfg.get('stages'):
         commands_name = '%s_commands' % name
         with util.LogTimer(LOG.debug, 'stage_%s' % name):
             stage = Stage(name, cfg.get(commands_name, {}), env)
             stage.run()
-
-    #
-    # curtin commands needed:
-    #  early:
-    #  partitioning:
-    #    curtin block-wipe --all-unused
-    #    curtin block-meta --devices all raid0
-    #    curtin block-meta --devices disk0 simple
-    #  network:
-    #    curtin netconfig eth0=dhcp
-    #
-    # extract stage is calling
-    #   curtin extract target_d sources
-    #
-    # command hook
-    #   need to allow oconfig to specify path which could include
-    #   'TARGET_MOUNT_POINT'.
 
 
 CMD_ARGUMENTS = (
     ((('-c', '--config'),
       {'help': 'read configuration from cfg', 'action': MyAppend,
        'metavar': 'FILE', 'type': argparse.FileType("rb"),
-       'dest': 'cfgopts'}),
+       'dest': 'cfgopts', 'default': []}),
      ('--set', {'help': 'define a config variable', 'action': MyAppend,
                 'metavar': 'key=val', 'dest': 'cfgopts'}),
      ('source', {'help': 'what to install', 'nargs': '*'}),
