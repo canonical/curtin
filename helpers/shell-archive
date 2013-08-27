@@ -151,8 +151,12 @@ main() {
         dump) dump_bin "$0"; return;;
         extract)
             extract "$0" "$prefix" || { error "failed extraction"; return 1; }
-            if ! $execute || [ "${#COMMAND[@]}" = "0" ]; then
-                error "extracted to '$prefix'"
+            if [ "${#COMMAND[@]}" = "1" -a -z "${COMMAND}" ]; then
+                error "extracted to '$PWD/$prefix'. no command to run."
+                return 0;
+            fi
+            if ! $execute; then
+                error "extracted to '$PWD/$prefix'. disabled command"
                 return 0;
             fi
             cd "$prefix" ||
