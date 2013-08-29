@@ -26,8 +26,8 @@ from . import populate_one_subcmd
 CMD_ARGUMENTS = (
     ((('-t', '--target'),
       {'help': ('target directory to extract to (root) '
-                '[default TARGET_MOUNT_DIR]'),
-       'action': 'store', 'default': os.environ.get('TARGET_MOUNT_DIR')}),
+                '[default TARGET_MOUNT_POINT]'),
+       'action': 'store', 'default': os.environ.get('TARGET_MOUNT_POINT')}),
      (('sources',),
       {'help': 'the sources to install [default read from CONFIG]',
        'nargs': '*'}),
@@ -67,12 +67,15 @@ def extract(args):
             raise ValueError("'sources' must be on cmdline or in config")
         sources = cfg.get('sources')
 
+    if isinstance(sources, dict):
+        sources = [sources[k] for k in sorted(sources.keys())]
+
     LOG.debug("Installing sources: %s to target at %s" % (sources, target))
 
     for source in sources:
         if source.startswith("cp://"):
             extract_root_tgz(source, target)
-        elif source.endswith("-root.tar.gz"):
+        elif source.startswith("http://"):
             extract_root_tgz(source, target)
         else:
             raise TypeError("do not know how to extract '%s'", source)
