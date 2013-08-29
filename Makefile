@@ -1,6 +1,8 @@
 TOP := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 CWD := $(shell pwd)
 
+build:
+
 check: pep8 pyflakes test
 
 pep8:
@@ -13,4 +15,4 @@ test:
 	@nosetests3 $(noseopts) tests/
 
 
-.PHONY: all test pyflakes pep8
+.PHONY: all test pyflakes pep8 build
