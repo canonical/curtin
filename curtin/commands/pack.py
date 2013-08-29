@@ -26,8 +26,9 @@ CMD_ARGUMENTS = (
       {'help': 'where to write the archive to', 'action': 'store',
        'metavar': 'FILE', 'default': "-", }),
      (('-a', '--add'),
-      {'help': 'include in archive (under data/)',
-       'action': 'append', 'metavar': 'DIR'}),
+      {'help': 'include FILE_PATH in archive at ARCHIVE_PATH',
+       'action': 'append', 'metavar': 'ARCHIVE_PATH:FILE_PATH',
+       'default': []}),
      ('command_args',
       {'help': 'command to run after extracting', 'nargs': '*'}),
      )
@@ -40,7 +41,16 @@ def pack_main(args):
     else:
         fdout = open(args.output, "w")
 
-    util.pack(fdout, command=args.command_args, addl=args.add)
+    delim = ":"
+    addl = []
+    for tok in args.add:
+        if delim not in tok:
+            raise ValueError("'--add' argument '%s' did not have a '%s'",
+                             (tok, delim))
+        (archpath, filepath) = tok.split(":", 1)
+        addl.append((archpath, filepath),)
+
+    util.pack(fdout, command=args.command_args, copy_files=addl)
 
     if args.output != "-":
         fdout.close()

@@ -291,13 +291,20 @@ def get_curtin_paths(source=None, curtin_exe=None):
     return ret
 
 
-def pack(fdout, command=None, paths=None, addl=None):
+def pack(fdout=None, command=None, paths=None, copy_files=None,
+         add_files=None):
     # write to 'fdout' a self extracting file to execute 'command'
+    # if fdout is None, return content that would be written to fdout.
+    # add_files is a list of (archive_path, file_content) tuples.
+    # copy_files is a list of (archive_path, file_path) tuples.
     if paths is None:
         paths = get_curtin_paths()
 
-    if addl is None:
-        addl = []
+    if add_files is None:
+        add_files = []
+
+    if copy_files is None:
+        copy_files = []
 
     tmpd = None
     try:
@@ -307,8 +314,6 @@ def pack(fdout, command=None, paths=None, addl=None):
         os.mkdir(exdir)
         bindir = os.path.join(exdir, 'bin')
         os.mkdir(bindir)
-        datadir = os.path.join(exdir, 'data')
-        os.mkdir(datadir)
 
         def not_dot_py(input_d, flist):
             # include .py files and directories other than __pycache__
@@ -322,35 +327,93 @@ def pack(fdout, command=None, paths=None, addl=None):
                         ignore=not_dot_py)
         shutil.copy(paths['curtin_exe'], os.path.join(bindir, 'curtin'))
 
-        for p in addl:
-            target = os.path.join(datadir,
-                                  os.path.basename(os.path.abspath(p)))
-            if os.path.isfile(p):
-                shutil.copy(p, target)
-            else:
-                shutil.copytree(p, target)
+        for archpath, filepath in copy_files:
+            target = os.path.abspath(os.path.join(exdir, archpath))
+            if not target.startswith(exdir + os.path.sep):
+                raise ValueError("'%s' resulted in path outside archive" %
+                                 archpath)
+            try:
+                os.mkdir(os.path.dirname(target))
+            except OSError as e:
+                if e.errno == errno.EEXIST:
+                    pass
 
-        archout = os.path.join(tmpd, 'output')
+            if os.path.isfile(filepath):
+                shutil.copy(filepath, target)
+            else:
+                shutil.copytree(filepath, target)
+
+        for archpath, content in add_files:
+            target = os.path.abspath(os.path.join(exdir, archpath))
+            if not target.startswith(exdir + os.path.sep):
+                raise ValueError("'%s' resulted in path outside archive" %
+                                 archpath)
+            try:
+                os.mkdir(os.path.dirname(target))
+            except OSError as e:
+                if e.errno == errno.EEXIST:
+                    pass
+
+            with open(target, "w") as fp:
+                fp.write(content)
 
         archcmd = os.path.join(paths['helpers'], 'shell-archive')
 
-        args = [archcmd, '--output=%s' % archout,
-                "--bin-path=_pwd_/bin", "--python-path=_pwd_",
-                exdir, "curtin", "--"]
+        archout = None
+
+        args = [archcmd]
+        if fdout is not None:
+            archout = os.path.join(tmpd, 'output')
+            args.append("--output=%s" % archout)
+
+        args.extend(["--bin-path=_pwd_/bin", "--python-path=_pwd_", exdir,
+                     "curtin", "--"])
         if command is not None:
             args.extend(command)
 
-        (_out, _err) = subp(args, capture=True)
+        (out, _err) = subp(args, capture=True)
 
-        with open(archout, "r") as fp:
-            while True:
-                buf = fp.read(4096)
-                fdout.write(buf)
-                if len(buf) != 4096:
-                    break
-    except:
+        if fdout is None:
+            if isinstance(out, bytes):
+                out = out.decode()
+            return out
+
+        else:
+            with open(archout, "r") as fp:
+                while True:
+                    buf = fp.read(4096)
+                    fdout.write(buf)
+                    if len(buf) != 4096:
+                        break
+    finally:
         if tmpd:
             shutil.rmtree(tmpd)
-        raise
+
+
+def pack_install(fdout=None, configs=None, paths=None,
+                 add_files=None, copy_files=None, args=None):
+
+    if configs is None:
+        configs = []
+
+    if add_files is None:
+        add_files = []
+
+    if args is None:
+        args = []
+
+    command = ["curtin", "install"]
+
+    my_files = []
+    for n, config in enumerate(configs):
+        apath = "configs/config-%03d.cfg" % n
+        my_files.append((apath, config),)
+        command.append("--config=%s" % apath)
+
+    command += args
+
+    return pack(fdout=fdout, command=command, paths=paths,
+                add_files=add_files + my_files, copy_files=copy_files)
+
 
 # vi: ts=4 expandtab syntax=python
