@@ -34,7 +34,7 @@ except ImportError as e:
     from curtin import log
     from curtin import util
 
-SUB_COMMAND_MODULES = ['block-meta', 'install', 'net-meta', 'pack']
+SUB_COMMAND_MODULES = ['block-meta', 'extract', 'install', 'net-meta', 'pack']
 
 
 def add_subcmd(subparser, subcmd):

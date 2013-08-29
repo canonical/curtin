@@ -57,3 +57,8 @@ def cmdarg2cfg(cmdarg, delim="/"):
 
     cur[items[-1]] = val
     return cfg
+
+
+def load_config(cfg_file):
+    with open(cfg_file, "r") as fp:
+        return yaml.safe_load(fp.read())
