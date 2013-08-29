@@ -18,6 +18,7 @@
 import argparse
 import json
 import os
+import shutil
 import tempfile
 
 from curtin import config
@@ -111,17 +112,23 @@ def cmd_install(args):
     if not len(cfg.get('sources', [])):
         raise util.BadUsage("no sources provided to install")
 
-    workingd = WorkingDir(cfg)
-    LOG.debug(workingd.env())
+    try:
+        workingd = WorkingDir(cfg)
+        LOG.debug(workingd.env())
 
-    env = os.environ.copy()
-    env.update(workingd.env())
+        env = os.environ.copy()
+        env.update(workingd.env())
 
-    for name in cfg.get('stages'):
-        commands_name = '%s_commands' % name
-        with util.LogTimer(LOG.debug, 'stage_%s' % name):
-            stage = Stage(name, cfg.get(commands_name, {}), env)
-            stage.run()
+        for name in cfg.get('stages'):
+            commands_name = '%s_commands' % name
+            with util.LogTimer(LOG.debug, 'stage_%s' % name):
+                stage = Stage(name, cfg.get(commands_name, {}), env)
+                stage.run()
+
+    finally:
+        for d in ('sys', 'dev', 'proc'):
+            util.umount(os.path.join(workingd.target, d))
+        shutil.rmtree(workingd.top)
 
 
 CMD_ARGUMENTS = (
