@@ -31,7 +31,7 @@ CONFIG_BUILTIN = {
     'sources': {},
     'stages': ['early', 'partitioning', 'network', 'extract', 'hook', 'final'],
     'extract_commands': {'builtin': ['curtin', 'extract']},
-    'hook_commands': {'builtin': ['curtin', 'config-hook']}
+    'hook_commands': {'builtin': ['curtin', 'hook']}
 }
 
 

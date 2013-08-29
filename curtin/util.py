@@ -173,7 +173,6 @@ def do_mount(src, target, opts=None):
     if isinstance(opts, str):
         opts = [opts]
 
-    print("do_mount(%s, %s, opts=%s)" % (src, target, opts))
     if is_mounted(target, src, opts):
         return False
 
@@ -184,7 +183,7 @@ def do_mount(src, target, opts=None):
 
 
 def do_umount(mountpoint):
-    if not is_mounted:
+    if not is_mounted(mountpoint):
         return False
     subp(['umount', mountpoint])
     return True
