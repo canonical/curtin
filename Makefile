@@ -12,7 +12,8 @@ pyflakes:
 	@$(CWD)/tools/run-pyflakes
 
 test:
-	@nosetests3 $(noseopts) tests/
+	nosetests $(noseopts) tests/
+	nosetests3 $(noseopts) tests
 
 
 .PHONY: all test pyflakes pep8 build
