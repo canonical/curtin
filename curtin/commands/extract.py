@@ -36,7 +36,9 @@ CMD_ARGUMENTS = (
 
 
 def extract_root_tgz(source, target):
-    curtin.util.subp(args=['sh', '-c', 'wget "$1" -O - | tar -C "$2" -Sxpzf -',
+    curtin.util.subp(args=['sh', '-c',
+                           ('wget "$1" --progress=dot:mega -O - |'
+                            'tar -C "$2" -Sxpzf -'),
                            '--', source, target])
 
 
@@ -74,7 +76,7 @@ def extract(args):
 
     for source in sources:
         if source.startswith("cp://"):
-            extract_root_tgz(source, target)
+            copy_to_target(source, target)
         elif source.startswith("http://"):
             extract_root_tgz(source, target)
         else:
