@@ -14,7 +14,7 @@ for f in $rel-server-cloudimg-amd64-root.tar.gz $rel-server-cloudimg-amd64-disk1
 ( cd $DLDIR && qemu-img convert -O qcow $rel-server-cloudimg-amd64-disk1.img $rel-server-cloudimg-amd64-disk1.qcow2)
 
 BOOTIMG="$DLDIR/$rel-server-cloudimg-amd64-disk1.qcow2"
-ROOTTGZ="$DLDIR/$rel-server-cloudimg-root.tar.gz"
+ROOTTGZ="$DLDIR/$rel-server-cloudimg-amd64-root.tar.gz"
 
 ## get curtin
 mkdir -p ~/src
