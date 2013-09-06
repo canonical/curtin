@@ -10,8 +10,9 @@ Usage() {
 	cat <<EOF
 Usage: ${0##*/} [ options ] boot-image curtin install [args]
 
-   boot the image 'boot-image', install the 'install-url' into the
-   image at 'target'.  'install-url' can be a url or local file.
+   boot the image 'boot-image', so that it will run 
+      curtin install [args]
+   after booting. 'curtin install [args]' can be any command'
   
    options:
       -a | --append     append args to kernel cmdline (--kernel)
@@ -25,6 +26,12 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
 
    use of --kernel/--initrd will seed cloud-init via cmdline
    rather than the local datasource
+
+   Example:
+    * boot myboot.img, and install my-root.tar.gz
+      ${0##*/} myboot.img --publish my-root.tar.gz curtin \
+         install PUBURL/my-root.tar.gz
+
 EOF
 }
 
@@ -191,7 +198,7 @@ main() {
 		exec python -m SimpleHTTPServer $http_port ) >"${TEMP_D}/ws.log" 2>&1 &
 	HTTP_PID=$!
 
-    PYTHONPATH="${top_d}${PYTHONPATH:+${PYTHONPATH}}" \
+	PYTHONPATH="${top_d}${PYTHONPATH:+${PYTHONPATH}}" \
 		"${top_d}/bin/curtin" pack -- "${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
 		{ error "failed to pack"; return 1; }
 
