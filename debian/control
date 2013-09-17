@@ -16,7 +16,7 @@ X-Python3-Version: >= 3.2
 Package: curtin
 Architecture: all
 Priority: extra
-Depends: ${misc:Depends}, ${python3:Depends}
+Depends: util-linux, ${misc:Depends}, ${python3:Depends}
 Description: Library and tools for the curtin installer
  This package provides the curtin installer.
  .
