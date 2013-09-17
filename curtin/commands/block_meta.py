@@ -48,8 +48,8 @@ def logtime(msg, func, *args, **kwargs):
 def meta_simple(args):
     devices = args.devices
     if devices is None:
-        LOG.warn("simple mode, no devices given, guessing")
-        devices = ("vda", "sda")
+        devices = block.get_installable_blockdevs()
+        LOG.warn("simple mode, no devices given. unused list: %s", devices)
 
     if len(devices) > 1:
         if args.devices is not None:

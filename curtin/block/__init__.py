@@ -18,6 +18,9 @@
 import errno
 import os
 import stat
+import shlex
+
+from curtin import util
 
 
 def get_dev_name_entry(devname):
@@ -33,6 +36,64 @@ def is_valid_device(devname):
         if e.errno != errno.ENOENT:
             raise
     return False
+
+
+def _lsblock_pairs_to_dict(lines, key="NAME"):
+    ret = {}
+    for line in lines.splitlines():
+        toks = shlex.split(line)
+        cur = {}
+        for tok in toks:
+            k, v = tok.split("=", 1)
+            cur[k] = v
+        cur['device_path'] = get_dev_name_entry(cur['NAME'])[1]
+        ret[cur['NAME']] = cur
+    return ret
+
+
+def _lsblock(args=None):
+    # lsblk  --help | sed -n '/Available/,/^$/p' |
+    #     sed -e 1d -e '$d' -e 's,^[ ]\+,,' -e 's, .*,,' | sort
+    keys = ['ALIGNMENT', 'DISC-ALN', 'DISC-GRAN', 'DISC-MAX', 'DISC-ZERO',
+            'FSTYPE', 'GROUP', 'KNAME', 'LABEL', 'LOG-SEC', 'MAJ:MIN',
+            'MIN-IO', 'MODE', 'MODEL', 'MOUNTPOINT', 'NAME', 'OPT-IO', 'OWNER',
+            'PHY-SEC', 'RM', 'RO', 'ROTA', 'RQ-SIZE', 'SCHED', 'SIZE', 'STATE',
+            'TYPE', 'UUID']
+    if args is None:
+        args = []
+    # in order to avoid a very odd error with '-o' and all output fields above
+    # we just drop one.  doesn't really matter which one.
+    keys.remove('SCHED')
+    basecmd = ['lsblk', '--noheadings', '--bytes', '--pairs',
+               '--out=' + ','.join(keys)]
+    (out, _err) = util.subp(basecmd + list(args), capture=True)
+    return _lsblock_pairs_to_dict(out)
+
+
+def get_unused_blockdev_info():
+    # return a list of unused block devices. These are devices that
+    # do not have anything mounted on them.
+
+    # get a list of top level block devices, then iterate over it to get
+    # devices dependent on those.  If the lsblk call for that specific
+    # call has nothing 'MOUNTED", then this is an unused block device
+    bdinfo = _lsblock(['--nodeps'])
+    unused = {}
+    for devname, data in bdinfo.items():
+        cur = _lsblock([data['device_path']])
+        mountpoints = [x for x in cur if cur[x].get('MOUNTPOINT')]
+        if len(mountpoints) == 0:
+            unused[devname] = data
+    return unused
+
+
+def get_installable_blockdevs():
+    good = []
+    unused = get_unused_blockdev_info()
+    for devname, data in unused.iteritems():
+        if data.get('RO') == "0" and data.get('TYPE') == "disk":
+            good.append(devname)
+    return good
 
 
 # vi: ts=4 expandtab syntax=python
