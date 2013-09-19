@@ -18,6 +18,7 @@
 import os
 import re
 import sys
+import shutil
 
 from curtin import config
 from curtin import futil
@@ -98,6 +99,85 @@ def apt_config(cfg, target):
             util.write_file(sources_list, content)
 
 
+def disable_overlayroot(cfg, target):
+    # cloud images come with overlayroot, but installed systems need disabled
+    disable = cfg.get('disable_overlayroot', True)
+    local_conf = os.path.sep.join([target, 'etc/overlayroot.local.conf'])
+    if disable and os.path.exists(local_conf):
+        LOG.debug("renaming %s to %s", local_conf, local_conf + ".old")
+        shutil.move(local_conf, local_conf + ".old")
+
+
+def restore_dist_interfaces(cfg, target):
+    eni = os.path.sep.join([target, 'etc/network/interfaces'])
+    if not cfg.get('restore_dist_interfaces', True):
+        return
+
+    if (os.path.exists(eni + ".dist") and
+        os.path.realpath(eni).startswith("/run/")):
+
+        LOG.debug("restoring dist interfaces, existing link pointed to /run")
+        shutil.move(eni, eni + ".old")
+        shutil.move(eni + ".dist", eni)
+
+
+def apply_debconf_selections(cfg, target):
+    # debconf_selections:
+    #  set1: |
+    #   cloud-init cloud-init/datasources multiselect MAAS
+    #  set2: pkg pkg/value string bar
+    selsets = cfg.get('debconf_selections')
+    if not selsets:
+        LOG.debug("debconf_selections was not set in config")
+        return
+
+    # for each entry in selections, chroot and apply them.
+    # keep a running total of packages we've seen.
+    pkgs_cfgd = set()
+    for key, content in selsets.items():
+        util.subp(['chroot', target, 'debconf-set-selections'],
+                  data=content.encode())
+        for line in content.splitlines():
+            if line.startswith("#"):
+                continue
+            pkg = re.sub(":.*", "", line)
+            pkgs_cfgd.add(pkg)
+
+    pkgs_installed = get_installed_packages(target)
+
+    to_config = pkgs_cfgd.intersection(pkgs_installed)
+
+    if len(to_config) == 0:
+        LOG.debug("no need for dpkg-reconfigure")
+        return
+
+    LOG.debug("configuring packages %s", to_config)
+    util.subp(['dpkg-reconfigure', '--frontend=noninteractive'] +
+              list(to_config), data=None)
+
+
+def get_installed_packages(target=None):
+    cmd = []
+    if target is not None:
+        cmd = ['chroot', target]
+    cmd.extend(['dpkg-query', '--list'])
+
+    (out, _err) = util.subp(cmd, capture=True)
+    if isinstance(out, bytes):
+        out = out.decode()
+
+    pkgs_inst = set()
+    for line in out.splitlines():
+        try:
+            (state, pkg, other) = line.split(None, 2)
+        except ValueError:
+            continue
+        if state.startswith("hi") or state.startswith("ii"):
+            pkgs_inst.add(re.sub(":.*", "", pkg))
+
+    return pkgs_inst
+
+
 def curthooks(args):
     state = util.load_command_environment()
 
@@ -124,6 +204,10 @@ def curthooks(args):
 
     write_files(cfg, target)
     apt_config(cfg, target)
+    disable_overlayroot(cfg, target)
+    restore_dist_interfaces(cfg, target)
+    apply_debconf_selections(cfg, target)
+
     sys.exit(0)
 
 
