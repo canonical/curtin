@@ -37,7 +37,7 @@ CONFIG_BUILTIN = {
     'partitioning_commands': {'builtin': ['curtin', 'block-meta', 'simple']},
     'curthooks_commands': {'builtin': ['curtin', 'curthooks']},
     'late_commands': {'builtin': []},
-    'network_commands': {'builtin': ['curtin', 'net-meta', 'copy']},
+    'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
 }
 
 
@@ -141,7 +141,7 @@ def load_power_state(pstate):
                         ','.join(opt_map.keys()))
 
     delay = pstate.get("delay", "5")
-    if delay == "now": 
+    if delay == "now":
         delay = "0"
     elif re.match(r"\+[0-9]+", str(delay)):
         delay = "%sm" % delay[1:]
@@ -197,7 +197,7 @@ def cmd_install(args):
         util.do_umount(workingd.target)
         shutil.rmtree(workingd.top)
 
-    util.apply_power_state(cfg.get('power_state'))
+    apply_power_state(cfg.get('power_state'))
 
     LOG.info("Finished installation")
     print("Installation finished")
