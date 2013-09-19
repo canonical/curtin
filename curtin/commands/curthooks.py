@@ -90,6 +90,7 @@ def apt_config(cfg, target):
             if content is None:
                 with open(sources_list) as fp:
                     content = fp.read()
+                util.write_file(sources_list + ".dist", content)
 
             content = re.sub(regex, mirror + " ", content)
 
