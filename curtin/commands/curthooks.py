@@ -16,6 +16,7 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import re
 import sys
 
 from curtin import config
@@ -36,7 +37,7 @@ CMD_ARGUMENTS = (
 )
 
 
-def write_files(config, target):
+def write_files(cfg, target):
     # this takes 'write_files' entry in config and writes files in the target
     # config entry example:
     # f1:
@@ -44,10 +45,10 @@ def write_files(config, target):
     #  content: !!binary |
     #    f0VMRgIBAQAAAAAAAAAAAAIAPgABAAAAwARAAAAAAABAAAAAAAAAAJAVAAAAAAA
     # f2: {path: /file2, content: "foobar", permissions: '0666'}
-    if 'write_files' not in config:
+    if 'write_files' not in cfg:
         return
 
-    for (key, info) in config.get('write_files').items():
+    for (key, info) in cfg.get('write_files').items():
         if not info.get('path'):
             LOG.warn("Warning, write_files[%s] had no 'path' entry", key)
 
@@ -55,6 +56,46 @@ def write_files(config, target):
                           content=info.get('content', ''),
                           owner=info.get('owner', "-1:-1"),
                           perms=info.get('perms', "0644"))
+
+
+def apt_config(cfg, target):
+    # cfg['apt_proxy']
+
+    proxy_cfg_path = os.path.sep.join([target,
+        '/etc/apt/apt.conf.d/90curtin-aptproxy'])
+    if cfg.get('apt_proxy'):
+        util.write_file(proxy_cfg_path,
+            content='Acquire::HTTP::Proxy "%s";\n' % cfg['apt_proxy'])
+    else:
+        if os.path.isfile(proxy_cfg_path):
+            os.path.unlink(proxy_cfg_path)
+
+    # cfg['apt_mirrors']
+    # apt_mirrors:
+    #  ubuntu_archive: http://local.archive/ubuntu
+    #  ubuntu_security: http://local.archive/ubuntu
+    sources_list = os.path.sep.join([target, '/etc/apt/sources.list'])
+    if (isinstance(cfg.get('apt_mirrors'), dict) and
+        os.path.isfile(sources_list)):
+        repls = [
+            ('ubuntu_archive', r'http://\S*[.]*archive.ubuntu.com/\S*'),
+            ('ubuntu_security', r'http://security.ubuntu.com/\S*'),
+        ]
+        content = None
+        for name, regex in repls:
+            mirror = cfg['apt_mirrors'].get(name)
+            if not mirror:
+                continue
+
+            if content is None:
+                with open(sources_list) as fp:
+                    content = fp.read()
+
+            content = re.sub(regex, mirror + " ", content)
+
+        if content is not None:
+            util.write_file(sources_list, content)
+
 
 def curthooks(args):
     state = util.load_command_environment()
@@ -81,6 +122,7 @@ def curthooks(args):
         cfg = config.load_config(cfg_file)
 
     write_files(cfg, target)
+    apt_config(cfg, target)
     sys.exit(0)
 
 
