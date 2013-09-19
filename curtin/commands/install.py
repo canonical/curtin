@@ -113,6 +113,9 @@ def cmd_install(args):
     if not len(cfg.get('sources', [])):
         raise util.BadUsage("no sources provided to install")
 
+    if cfg.get('http_proxy'):
+        os.environ['http_proxy'] = cfg['http_proxy']
+
     try:
         workingd = WorkingDir(cfg)
         LOG.debug(workingd.env())
