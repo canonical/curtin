@@ -36,6 +36,7 @@ CONFIG_BUILTIN = {
     'partitioning_commands': {'builtin': ['curtin', 'block-meta', 'simple']},
     'curthooks_commands': {'builtin': ['curtin', 'curthooks']},
     'late_commands': {'builtin': []},
+    'network_commands': {'builtin': ['curtin', 'net-meta', 'copy']},
 }
 
 

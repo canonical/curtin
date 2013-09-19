@@ -110,19 +110,6 @@ def disable_overlayroot(cfg, target):
         shutil.move(local_conf, local_conf + ".old")
 
 
-def restore_dist_interfaces(cfg, target):
-    eni = os.path.sep.join([target, 'etc/network/interfaces'])
-    if not cfg.get('restore_dist_interfaces', True):
-        return
-
-    if (os.path.exists(eni + ".dist") and
-            os.path.realpath(eni).startswith("/run/")):
-
-        LOG.debug("restoring dist interfaces, existing link pointed to /run")
-        shutil.move(eni, eni + ".old")
-        shutil.move(eni + ".dist", eni)
-
-
 def apply_debconf_selections(cfg, target):
     # debconf_selections:
     #  set1: |
@@ -193,13 +180,19 @@ def setup_grub(cfg, target):
         util.subp(['install-grub', target] + instdevs)
 
 
-def copy_fstab(cfg, target):
-    state = util.load_command_environment()
-    if 'fstab' not in state:
+def copy_fstab(fstab, target):
+    if not fstab:
         LOG.warn("fstab variable not in state, not copying fstab")
         return
 
-    shutil.copy(state['fstab'], os.path.sep.join([target, 'etc/fstab']))
+    shutil.copy(fstab, os.path.sep.join([target, 'etc/fstab']))
+
+
+def copy_interfaces(interfaces, target):
+    if not interfaces:
+        LOG.warn("no interfaces file to copy!")
+        return
+    shutil.copy(interfaces, os.path.sep.join([target, 'etc/fstab']))
 
 
 def curthooks(args):
@@ -229,10 +222,10 @@ def curthooks(args):
     write_files(cfg, target)
     apt_config(cfg, target)
     disable_overlayroot(cfg, target)
-    restore_dist_interfaces(cfg, target)
     apply_debconf_selections(cfg, target)
 
-    copy_fstab(cfg, target)
+    copy_interfaces(state.get('interfaces'), target)
+    copy_fstab(state.get('fstab'), target)
     setup_grub(cfg, target)
 
     sys.exit(0)
