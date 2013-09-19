@@ -6,6 +6,9 @@ Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 Build-Depends: debhelper (>= 7),
                pep8,
                pyflakes,
+               python-all,
+               python-setuptools,
+               python-yaml,
                python3,
                python3-nose,
                python3-setuptools,
@@ -16,9 +19,42 @@ X-Python3-Version: >= 3.2
 Package: curtin
 Architecture: all
 Priority: extra
-Depends: util-linux, ${misc:Depends}, ${python3:Depends}
+Depends: python, python-curtin (= ${binary:Version}), ${misc:Depends}, ${python:Depends}
 Description: Library and tools for the curtin installer
  This package provides the curtin installer.
  .
  Curtin is an installer that is blunt, brief, snappish, snippety and
  unceremonious.
+
+Package: curtin-common
+Architecture: all
+Priority: extra
+Depends: util-linux (>= 2.20.1-1ubuntu3), ${misc:Depends}, ${python:Depends}
+Conflicts: curtin (<= 0.1.0~bzr54-0ubuntu1)
+Description: Library and tools for curtin installer
+ This package contains utilities for the curtin installer.
+
+Package: python-curtin
+Section: python
+Architecture: all
+Priority: extra
+Depends: curl | wget,
+         curtin-common (= ${binary:Version}),
+         util-linux (>= 2.20.1-1ubuntu3),
+         ${misc:Depends},
+         ${python:Depends}
+Description: Library and tools for curtin installer
+ This package provides python library for use by curtin.
+
+Package: python3-curtin
+Section: python
+Architecture: all
+Priority: extra
+Conflicts: curtin (<= 0.1.0~bzr54-0ubuntu1)
+Depends: curl | wget,
+         curtin-common (= ${binary:Version}),
+         util-linux (>= 2.20.1-1ubuntu3),
+         ${misc:Depends},
+         ${python3:Depends}
+Description: Library and tools for curtin installer
+ This package provides python3 library for use by curtin.
