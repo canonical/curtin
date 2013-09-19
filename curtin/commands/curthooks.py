@@ -172,9 +172,12 @@ def setup_grub(cfg, target):
         instdevs = cfg.get('grub_install_devices')
         if isinstance(instdevs, str):
             instdevs = [instdevs]
+        if instdevs is None:
+            LOG.debug("grub installation disabled by config")
     else:
         instdevs = block.get_blockdev_for_mp(target)
 
+    instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
     LOG.debug("installing grub to %s", instdevs)
     with util.ChrootableTarget(target):
         util.subp(['install-grub', target] + instdevs)

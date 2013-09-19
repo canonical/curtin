@@ -52,14 +52,18 @@ is_md() {
 
 install_grub() {
     local mp="$1"
-    local cmdline tmp
+    local cmdline tmp r=""
     shift
     local grubdevs
     grubdevs=( "$@" )
     
     tmp=$(chroot "$mp" dpkg-query --show \
-        --showformat='${Status}\n' grub-pc) ||
-        { error "failed to check if grub-pc installed"; return 1; }
+        --showformat='${Status}\n' grub-pc)
+    r=$?
+    if [ $r -ne 0 -a $r -ne 1 ]; then
+        error "failed to check if grub-pc installed";
+        return 1;
+    fi
     case "$tmp" in
         install\ ok\ installed) :;;
         *) debug 1 "grub-pc not installed, not doing anything";

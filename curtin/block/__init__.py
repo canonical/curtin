@@ -93,7 +93,22 @@ def get_blockdev_for_mp(mountpoint):
     for devname, data in bdinfo.items():
         if data['MOUNTPOINT'] == mountpoint:
             found.add(devname)
-    return list(found)
+
+    if found:
+        return list(found)
+
+    # for some reason, on some systems, lsblk does not list mountpoint
+    # for devices that are mounted.  This happens on /dev/vdc1 during a run
+    # using tools/launch.
+    with open("/proc/mounts", "r") as fp:
+        for line in fp:
+            try:
+                (dev, mp, vfs, opts, freq, passno) = line.split(None, 5)
+                if mp == mountpoint:
+                    return [os.path.basename(dev)]
+            except ValueError:
+                continue
+    return []
 
 
 def get_installable_blockdevs():

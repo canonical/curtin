@@ -91,6 +91,22 @@ def net_meta(args):
     #    curtin net-meta --devices configured dhcp
     #    curtin net-meta --devices netboot dhcp
 
+    eni = "etc/network/interfaces"
+    if args.mode == "auto":
+        if not args.devices:
+            args.devices = ["connected"]
+
+        t_eni = None
+        if args.target:
+            t_eni = os.path.sep.join((args.target, eni,))
+            if not os.path.isfile(t_eni):
+                t_eni = None
+
+        if t_eni:
+            args.mode = "copy"
+        else:
+            args.mode = "dhcp"
+
     devices = []
     if args.devices:
         for dev in args.devices:
@@ -131,16 +147,18 @@ CMD_ARGUMENTS = (
       {'help': 'which devices to operate on', 'action': 'append',
        'metavar': 'DEVICE', 'type': network_device}),
      (('-o', '--output'),
-      {'help': 'file to write to. defaults to env["INTERFACES"] or "-"',
+      {'help': 'file to write to. defaults to env["OUTPUT_INTERFACES"] or "-"',
        'metavar': 'IFILE', 'action': 'store',
-       'default': os.environ.get('INTERFACES', "-")}),
+       'default': os.environ.get('OUTPUT_INTERFACES', "-")}),
      (('-c', '--config'),
       {'help': 'operate on config. default is env[CONFIG]',
        'action': 'store', 'metavar': 'CONFIG', 'default': None}),
      (('-t', '--target'),
       {'help': 'operate on target. default is env[TARGET_MOUNT_POINT]',
-       'action': 'store', 'metavar': 'TARGET', 'default': None}),
-     ('mode', {'help': 'meta-mode to use', 'choices': ['dhcp', 'copy']})
+       'action': 'store', 'metavar': 'TARGET',
+       'default': os.environ.get('TARGET_MOUNT_POINT')}),
+     ('mode', {'help': 'meta-mode to use',
+               'choices': ['dhcp', 'copy', 'auto']})
      )
 )
 

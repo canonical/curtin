@@ -71,7 +71,7 @@ def subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
 def load_command_environment(env=os.environ, strict=False):
 
     mapping = {'scratch': 'WORKING_DIR', 'fstab': 'OUTPUT_FSTAB',
-               'interfaces': 'INTERFACES', 'config': 'CONFIG',
+               'interfaces': 'OUTPUT_INTERFACES', 'config': 'CONFIG',
                'target': 'TARGET_MOUNT_POINT'}
 
     if strict:
