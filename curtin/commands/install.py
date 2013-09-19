@@ -29,10 +29,13 @@ from . import populate_one_subcmd
 
 CONFIG_BUILTIN = {
     'sources': {},
-    'stages': ['early', 'partitioning', 'network', 'extract', 'hook', 'final'],
+    'stages': ['early', 'partitioning', 'network', 'extract', 'curthooks',
+               'hook', 'late'],
     'extract_commands': {'builtin': ['curtin', 'extract']},
     'hook_commands': {'builtin': ['curtin', 'hook']},
     'partitioning_commands': {'builtin': ['curtin', 'block-meta', 'simple']},
+    'curthooks_commands': {'builtin': ['curtin', 'curthooks']},
+    'late_commands': {'builtin': []},
 }
 
 
