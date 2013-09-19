@@ -68,6 +68,11 @@ def main(args=None):
         add_subcmd(subps, subcmd)
     args = parser.parse_args(sys.argv[1:])
 
+    # if user gave cmdline arguments, then lets set environ so subsequent
+    # curtin calls get stacktraces.
+    if args.showtrace and not stacktrace:
+        os.environ['CURTIN_STACKTRACE'] = "1"
+
     if not getattr(args, 'func', None):
         # http://bugs.python.org/issue16308
         parser.print_help()
