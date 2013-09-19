@@ -20,6 +20,7 @@ import re
 import sys
 import shutil
 
+from curtin import block
 from curtin import config
 from curtin import futil
 from curtin.log import LOG
@@ -179,6 +180,28 @@ def get_installed_packages(target=None):
     return pkgs_inst
 
 
+def setup_grub(cfg, target):
+    if 'grub_install_devices' in cfg:
+        instdevs = cfg.get('grub_install_devices')
+        if isinstance(instdevs, str):
+            instdevs = [instdevs]
+    else:
+        instdevs = block.get_blockdev_for_mp(target)
+
+    LOG.debug("installing grub to %s", instdevs)
+    with util.ChrootableTarget(target):
+        util.subp(['install-grub', target] + instdevs)
+
+
+def copy_fstab(cfg, target):
+    state = util.load_command_environment()
+    if 'fstab' not in state:
+        LOG.warn("fstab variable not in state, not copying fstab")
+        return
+
+    shutil.copy(state['fstab'], os.path.sep.join([target, 'etc/fstab']))
+
+
 def curthooks(args):
     state = util.load_command_environment()
 
@@ -203,16 +226,14 @@ def curthooks(args):
     else:
         cfg = config.load_config(cfg_file)
 
-    print("write_files(%s, %s)" % (cfg, target))
     write_files(cfg, target)
-    print("apt_config(%s, %s)" % (cfg, target))
     apt_config(cfg, target)
-    print("disable_overlayroot(%s, %s)" % (cfg, target))
     disable_overlayroot(cfg, target)
-    print("restore_dist_interfaces(%s, %s)" % (cfg, target))
     restore_dist_interfaces(cfg, target)
-    print("apply_debconf(%s, %s)" % (cfg, target))
     apply_debconf_selections(cfg, target)
+
+    copy_fstab(cfg, target)
+    setup_grub(cfg, target)
 
     sys.exit(0)
 

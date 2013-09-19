@@ -87,6 +87,15 @@ def get_unused_blockdev_info():
     return unused
 
 
+def get_blockdev_for_mp(mountpoint):
+    bdinfo = _lsblock()
+    found = set()
+    for devname, data in bdinfo.items():
+        if data['MOUNTPOINT'] == mountpoint:
+            found.add(devname)
+    return list(found)
+
+
 def get_installable_blockdevs():
     good = []
     unused = get_unused_blockdev_info()
