@@ -190,7 +190,7 @@ def curthooks(args):
     if args.config is not None:
         cfg_file = args.config
     else:
-        cfg_file = state['target']
+        cfg_file = state['config']
 
     if target is None:
         sys.stderr.write("Unable to find target.  "
@@ -203,10 +203,15 @@ def curthooks(args):
     else:
         cfg = config.load_config(cfg_file)
 
+    print("write_files(%s, %s)" % (cfg, target))
     write_files(cfg, target)
+    print("apt_config(%s, %s)" % (cfg, target))
     apt_config(cfg, target)
+    print("disable_overlayroot(%s, %s)" % (cfg, target))
     disable_overlayroot(cfg, target)
+    print("restore_dist_interfaces(%s, %s)" % (cfg, target))
     restore_dist_interfaces(cfg, target)
+    print("apply_debconf(%s, %s)" % (cfg, target))
     apply_debconf_selections(cfg, target)
 
     sys.exit(0)

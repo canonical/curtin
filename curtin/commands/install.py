@@ -91,6 +91,8 @@ class Stage(object):
     def run(self):
         for cmdname in sorted(self.commands.keys()):
             cmd = self.commands[cmdname]
+            if not cmd:
+                continue
             shell = not isinstance(cmd, list)
             with util.LogTimer(LOG.debug, cmdname):
                 try:
@@ -137,6 +139,9 @@ def cmd_install(args):
             util.do_umount(os.path.join(workingd.target, d))
         util.do_umount(workingd.target)
         shutil.rmtree(workingd.top)
+
+    LOG.info("Finished installation")
+    print("Installation finished")
 
 
 CMD_ARGUMENTS = (
