@@ -62,10 +62,11 @@ def write_files(cfg, target):
 def apt_config(cfg, target):
     # cfg['apt_proxy']
 
-    proxy_cfg_path = os.path.sep.join([target,
-        '/etc/apt/apt.conf.d/90curtin-aptproxy'])
+    proxy_cfg_path = os.path.sep.join(
+        [target, '/etc/apt/apt.conf.d/90curtin-aptproxy'])
     if cfg.get('apt_proxy'):
-        util.write_file(proxy_cfg_path,
+        util.write_file(
+            proxy_cfg_path,
             content='Acquire::HTTP::Proxy "%s";\n' % cfg['apt_proxy'])
     else:
         if os.path.isfile(proxy_cfg_path):
@@ -77,7 +78,7 @@ def apt_config(cfg, target):
     #  ubuntu_security: http://local.archive/ubuntu
     sources_list = os.path.sep.join([target, '/etc/apt/sources.list'])
     if (isinstance(cfg.get('apt_mirrors'), dict) and
-        os.path.isfile(sources_list)):
+            os.path.isfile(sources_list)):
         repls = [
             ('ubuntu_archive', r'http://\S*[.]*archive.ubuntu.com/\S*'),
             ('ubuntu_security', r'http://security.ubuntu.com/\S*'),
@@ -114,7 +115,7 @@ def restore_dist_interfaces(cfg, target):
         return
 
     if (os.path.exists(eni + ".dist") and
-        os.path.realpath(eni).startswith("/run/")):
+            os.path.realpath(eni).startswith("/run/")):
 
         LOG.debug("restoring dist interfaces, existing link pointed to /run")
         shutil.move(eni, eni + ".old")
