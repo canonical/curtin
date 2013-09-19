@@ -49,7 +49,7 @@ def copy_to_target(source, target):
 
     curtin.util.subp(args=['sh', '-c',
                            ('mkdir -p "$2" && cd "$2" && '
-                            'cp --archive --one-file-system "$1/"* .'),
+                            'rsync -aXHAS --one-file-system "$1/" .'),
                            '--', source, target])
 
 
