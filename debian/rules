@@ -9,6 +9,7 @@ PY3VERS := $(shell py3versions -r)
 override_dh_auto_install:
 	dh_auto_install
 	set -ex; for python in $(PY3VERS) $(PYVERS); do \
+		$$python setup.py build --executable=/usr/bin/python && \
 		$$python setup.py install --root=$(CURDIR)/debian/tmp --install-layout=deb; \
 	done
 	chmod 755 $(CURDIR)/debian/tmp/usr/lib/curtin/helpers/*
