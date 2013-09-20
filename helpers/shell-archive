@@ -65,7 +65,7 @@ Usage: ${0##*/} [ options ] [mode]
    mode is one of:
      info:    dump information about archive
      check:   check archive against expected checksum
-     dump:    dump archie to stdout
+     dump:    dump archive to stdout
      extract: extract the archive under $PREFIX (default mode)
 EOF
 }
