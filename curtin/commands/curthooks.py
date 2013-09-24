@@ -205,6 +205,22 @@ def copy_interfaces(interfaces, target):
     shutil.copy(interfaces, eni)
 
 
+def restore_dist_interfaces(cfg, target):
+    # cloud images have a link of /etc/network/interfaces into /run
+    # 
+    eni = os.path.sep.join([target, 'etc/network/interfaces'])
+    if not cfg.get('restore_dist_interfaces', True):
+        return
+
+    rp = os.path.realpath(eni)
+    if (os.path.exists(eni + ".dist") and
+        (rp.startswith("/run") or rp.startswith(target + "/run"))):
+
+        LOG.debug("restoring dist interfaces, existing link pointed to /run")
+        shutil.move(eni, eni + ".old")
+        shutil.move(eni + ".dist", eni)
+
+
 def curthooks(args):
     state = util.load_command_environment()
 
@@ -233,6 +249,8 @@ def curthooks(args):
     apt_config(cfg, target)
     disable_overlayroot(cfg, target)
     apply_debconf_selections(cfg, target)
+
+    restore_dist_interfaces(cfg, target)
 
     copy_interfaces(state.get('interfaces'), target)
     copy_fstab(state.get('fstab'), target)

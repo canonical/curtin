@@ -73,19 +73,6 @@ def interfaces_basic_dhcp(devices):
     return content
 
 
-def restore_dist_interfaces(cfg, target):
-    eni = os.path.sep.join([target, 'etc/network/interfaces'])
-    if not cfg.get('restore_dist_interfaces', True):
-        return
-
-    if (os.path.exists(eni + ".dist") and
-            os.path.realpath(eni).startswith("/run/")):
-
-        LOG.debug("restoring dist interfaces, existing link pointed to /run")
-        shutil.move(eni, eni + ".old")
-        shutil.move(eni + ".dist", eni)
-
-
 def net_meta(args):
     #    curtin net-meta --devices connected dhcp
     #    curtin net-meta --devices configured dhcp
@@ -125,8 +112,6 @@ def net_meta(args):
     if args.mode == "copy":
         if not args.target:
             raise argparse.ArgumentTypeError("mode 'copy' requires --target")
-
-        restore_dist_interfaces(cfg, args.target)
 
         t_eni = os.path.sep.join((args.target, "etc/network/interfaces",))
         with open(t_eni, "r") as fp:
