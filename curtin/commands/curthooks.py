@@ -201,7 +201,8 @@ def copy_interfaces(interfaces, target):
     if not interfaces:
         LOG.warn("no interfaces file to copy!")
         return
-    shutil.copy(interfaces, os.path.sep.join([target, 'etc/fstab']))
+    eni = os.path.sep.join([target, 'etc/network/interfaces'])
+    shutil.copy(interfaces, eni)
 
 
 def curthooks(args):
