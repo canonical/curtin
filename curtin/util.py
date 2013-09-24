@@ -205,6 +205,11 @@ def write_file(filename, content, mode=0o644, omode="w"):
     os.chmod(filename, mode)
 
 
+def load_file(path, mode="r"):
+    with open(path, mode) as fp:
+        return fp.read()
+
+
 def disable_daemons_in_root(target):
     contents = "\n".join(
         ['#!/bin/sh',
