@@ -60,7 +60,7 @@ def interfaces_basic_dhcp(devices):
          "your system"),
          "# and how to activate them. For more information see interfaces(5).",
          "",
-         "# The loopback network interface"
+         "# The loopback network interface",
          "auto lo",
          "iface lo inet loopback",
          ])
