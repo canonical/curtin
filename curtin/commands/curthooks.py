@@ -207,14 +207,13 @@ def copy_interfaces(interfaces, target):
 
 def restore_dist_interfaces(cfg, target):
     # cloud images have a link of /etc/network/interfaces into /run
-    # 
     eni = os.path.sep.join([target, 'etc/network/interfaces'])
     if not cfg.get('restore_dist_interfaces', True):
         return
 
     rp = os.path.realpath(eni)
     if (os.path.exists(eni + ".dist") and
-        (rp.startswith("/run") or rp.startswith(target + "/run"))):
+            (rp.startswith("/run") or rp.startswith(target + "/run"))):
 
         LOG.debug("restoring dist interfaces, existing link pointed to /run")
         shutil.move(eni, eni + ".old")
