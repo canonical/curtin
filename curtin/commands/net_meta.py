@@ -17,11 +17,8 @@
 
 import argparse
 import os
-import shutil
 import sys
 
-from curtin import config
-from curtin.log import LOG
 from curtin import net
 
 from . import populate_one_subcmd
@@ -102,13 +99,6 @@ def net_meta(args):
             else:
                 devices.append(dev)
 
-    if args.config is not None:
-        cfg_file = args.config
-        cfg = config.load_config(cfg_file)
-    else:
-        cfg_file = None
-        cfg = {}
-
     if args.mode == "copy":
         if not args.target:
             raise argparse.ArgumentTypeError("mode 'copy' requires --target")
@@ -135,9 +125,6 @@ CMD_ARGUMENTS = (
       {'help': 'file to write to. defaults to env["OUTPUT_INTERFACES"] or "-"',
        'metavar': 'IFILE', 'action': 'store',
        'default': os.environ.get('OUTPUT_INTERFACES', "-")}),
-     (('-c', '--config'),
-      {'help': 'operate on config. default is env[CONFIG]',
-       'action': 'store', 'metavar': 'CONFIG', 'default': None}),
      (('-t', '--target'),
       {'help': 'operate on target. default is env[TARGET_MOUNT_POINT]',
        'action': 'store', 'metavar': 'TARGET',
