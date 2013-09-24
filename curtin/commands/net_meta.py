@@ -66,7 +66,7 @@ def interfaces_basic_dhcp(devices):
          ])
 
     for d in devices:
-        content += '\n'.join(("", "", "auth %s" % d,
+        content += '\n'.join(("", "", "auto %s" % d,
                               "iface %s inet dhcp" % d,))
     content += "\n"
 
