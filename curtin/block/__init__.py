@@ -87,12 +87,13 @@ def get_unused_blockdev_info():
     return unused
 
 
-def get_blockdev_for_mp(mountpoint):
+def get_devices_for_mp(mountpoint):
+    # return a list of devices (full paths) used by the provided mountpoint
     bdinfo = _lsblock()
     found = set()
     for devname, data in bdinfo.items():
         if data['MOUNTPOINT'] == mountpoint:
-            found.add(devname)
+            found.add(data['device_path'])
 
     if found:
         return list(found)
@@ -105,7 +106,7 @@ def get_blockdev_for_mp(mountpoint):
             try:
                 (dev, mp, vfs, opts, freq, passno) = line.split(None, 5)
                 if mp == mountpoint:
-                    return [os.path.basename(dev)]
+                    return [os.path.realpath(dev)]
             except ValueError:
                 continue
     return []

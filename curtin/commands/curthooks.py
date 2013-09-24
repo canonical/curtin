@@ -175,7 +175,13 @@ def setup_grub(cfg, target):
         if instdevs is None:
             LOG.debug("grub installation disabled by config")
     else:
-        instdevs = block.get_blockdev_for_mp(target)
+        devs = block.get_devices_for_mp(target)
+        blockdevs = set()
+        for maybepart in devs:
+            (blockdev, part) = block.get_blockdev_for_partition(maybepart)
+            blockdevs.add(blockdev)
+
+        instdevs = list(blockdevs)
 
     instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
     LOG.debug("installing grub to %s", instdevs)
