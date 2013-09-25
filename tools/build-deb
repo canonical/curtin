@@ -32,12 +32,6 @@ bname=${0##*/}
 start_d=$PWD
 top_d=$(cd "$(dirname "${0}")"/.. && pwd)
 
-export_uncommitted=""
-echo $UNCOMMITTED
-if [ "${UNCOMMITTED:-0}" != "0" ]; then
-   export_uncommitted="--uncommitted"
-fi
-
 # grab the first line in the changelog
 # hopefully this pulls the version info there
 # resulting in something like: 0.1.0~bzrREVNO-1~trunk1
@@ -59,14 +53,11 @@ echo "building upstream version $uver, debian ver=${clogver_debian}"
 dir="${sourcename}-$uver"
 tarball="${sourcename}_$uver.orig.tar.gz"
 
-echo bzr export --format=tgz --root="$dir" --revision="${revno}" \
-   ${export_uncommitted} "${TEMP_D}/$tarball"
-bzr export --format=tgz --root="$dir" --revision="${revno}" \
-   ${export_uncommitted} "${TEMP_D}/$tarball" ||
-   fail "failed to bzr export tarball $tarball"
+myd=$(dirname "$0")
+"$myd/export-tarball" "${revno}" "${TEMP_D}/$tarball"
 echo "created ${tarball}"
 
-cd ${TEMP_D}
+cd "${TEMP_D}"
 tar xzf "$tarball" || fail "failed extract tarball"
 cd "$dir" || fail "failed cd $dir"
 

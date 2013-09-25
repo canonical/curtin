@@ -10,14 +10,25 @@ Usage: [revno [output.tar.gz]]
   Create a tarball of revno (or tag) in output.tar.gz
   revno defaults to \`bzr revno\`.
   output filename defaults to:
-   curtin-X.Y~bzrREVNO
+   curtin-X.Y~bzrREVNO.tar.gz
+  or, if a tag is given:
+   curtin-TAG.tar.gz
+
+  if UNCOMMITTED is set to non '0' in environment
+  then uncommitted changes will be kept in the tarball.
 EOF
 }
+
 TEMP_D=""
 fail() { echo "$@" 1>&2; exit 1; }
 cleanup() {
    [ -z "$TEMP_D" ] || rm -Rf "$TEMP_D"
 }
+
+export_uncommitted=""
+if [ "${UNCOMMITTED:-0}" != "0" ]; then
+   export_uncommitted="--uncommitted"
+fi
 
 [ "$1" = "-h" -o "$1" = "--help" ] && { Usage; exit 0; }
 
@@ -45,5 +56,6 @@ if [ -z "$output" ]; then
    output="$sourcename-$version.tar.gz"
 fi
 
-bzr export --format=tgz --root="$sourcename-${version}" $revargs $output
+bzr export ${export_uncommitted} \
+   --format=tgz --root="$sourcename-${version}" $revargs $output
 echo "wrote $output"
