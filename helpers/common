@@ -76,8 +76,17 @@ install_grub() {
 
     tmp="${cmdline##* -- }"
     if [ "$tmp" != "$cmdline" ]; then
-        # there was an explicit '--', so copy stuff after it
-        newargs="$tmp"
+        # there was an explicit '--', so copy stuff some after it
+        newargs=$(set -f;
+            c="";
+            for p in ${cmdline##* -- }; do
+                case "$p" in
+                    (BOOTIF=*|initrd=*|BOOT_IMAGE=*) continue;;
+                esac
+                c="$c $p";
+            done
+            echo "${c# }"
+        )
     elif [ "${cmdline#* console=}" != "${cmdline}" ]; then
         # there are 'console=' params, copy those.
         newargs=$(set -f; c=""; for p in $cmdline; do

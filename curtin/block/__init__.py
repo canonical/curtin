@@ -87,12 +87,13 @@ def get_unused_blockdev_info():
     return unused
 
 
-def get_blockdev_for_mp(mountpoint):
+def get_devices_for_mp(mountpoint):
+    # return a list of devices (full paths) used by the provided mountpoint
     bdinfo = _lsblock()
     found = set()
     for devname, data in bdinfo.items():
         if data['MOUNTPOINT'] == mountpoint:
-            found.add(devname)
+            found.add(data['device_path'])
 
     if found:
         return list(found)
@@ -105,7 +106,7 @@ def get_blockdev_for_mp(mountpoint):
             try:
                 (dev, mp, vfs, opts, freq, passno) = line.split(None, 5)
                 if mp == mountpoint:
-                    return [os.path.basename(dev)]
+                    return [os.path.realpath(dev)]
             except ValueError:
                 continue
     return []
@@ -118,6 +119,39 @@ def get_installable_blockdevs():
         if data.get('RO') == "0" and data.get('TYPE') == "disk":
             good.append(devname)
     return good
+
+
+def get_blockdev_for_partition(devpath):
+    # convert an entry in /dev/ to parent disk and partition number
+    # if devpath is a block device and not a partition, return (devpath, None)
+
+    # input of /dev/vdb or /dev/disk/by-label/foo
+    # rpath is hopefully a real-ish path in /dev (vda, sdb..)
+    rpath = os.path.realpath(devpath)
+
+    bname = os.path.basename(rpath)
+    syspath = "/sys/class/block/%s" % bname
+
+    if not os.path.exists(syspath):
+        raise ValueError("%s had no syspath (%s)" % (devpath, syspath))
+
+    ptpath = os.path.join(syspath, "partition")
+    if not os.path.exists(ptpath):
+        return (rpath, None)
+
+    ptnum = util.load_file(ptpath).rstrip()
+
+    # for a partition, real syspath is something like:
+    # /sys/devices/pci0000:00/0000:00:04.0/virtio1/block/vda/vda1
+    rsyspath = os.path.realpath(syspath)
+    disksyspath = os.path.dirname(rsyspath)
+
+    diskmajmin = util.load_file(os.path.join(disksyspath, "dev")).rstrip()
+    diskdevpath = os.path.realpath("/dev/block/%s" % diskmajmin)
+
+    # diskdevpath has something like 253:0
+    # and udev has put links in /dev/block/253:0 to the device name in /dev/
+    return (diskdevpath, ptnum)
 
 
 # vi: ts=4 expandtab syntax=python
