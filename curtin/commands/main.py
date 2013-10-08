@@ -70,7 +70,7 @@ def main(args=None):
         os.environ['CURTIN_STACKTRACE'] = "1"
 
     if args.verbose and not verbosity:
-        os.environ['CURTIN_VERBOSITY'] = args.verbose
+        os.environ['CURTIN_VERBOSITY'] = str(args.verbose)
 
     if not getattr(args, 'func', None):
         # http://bugs.python.org/issue16308
