@@ -229,13 +229,12 @@ def disable_daemons_in_root(target):
         return False
 
     write_file(fpath, mode=0o755, content=contents)
+    return True
 
 
-def undisable_daemons_in_root(target, needed=True):
-    if not needed:
-        return False
+def undisable_daemons_in_root(target):
     try:
-        os.unlink(os.path.join(target, "/usr/sbin/policy-rc.d"))
+        os.unlink(os.path.join(target, "usr/sbin/policy-rc.d"))
     except OSError as e:
         if e.errno != errno.ENOENT:
             raise
