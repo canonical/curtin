@@ -57,7 +57,7 @@ def meta_simple(args):
                      "using first found")
         available = [f for f in devices
                      if block.is_valid_device(f)]
-        target = available[0]
+        target = sorted(available)[0]
         LOG.warn("mode is 'simple'. multiple devices given. using '%s' "
                  "(first available)", target)
     else:
