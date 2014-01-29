@@ -4,7 +4,7 @@ This document describes how to use kvm and ubuntu cloud images
 to develop curtin or test install configurations inside kvm.
 
 ## get some dependencies ##
-sudo apt-get -qy install kvm libvirt-bin bridge-utils uml-utilities cloud-utils
+sudo apt-get -qy install kvm libvirt-bin cloud-utils bzr
 
 ## get cloud image to boot (-disk1.img) and one to install (-root.tar.gz)
 mkdir -p ~/download
