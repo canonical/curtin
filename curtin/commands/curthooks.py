@@ -200,8 +200,14 @@ def get_installed_packages(target=None):
 
 
 def setup_grub(cfg, target):
-    if 'grub_install_devices' in cfg:
-        instdevs = cfg.get('grub_install_devices')
+    grubcfg = cfg.get('grub', {})
+
+    # copy legacy top level name
+    if 'grub_install_devices' in cfg and 'install_devices' not in grubcfg:
+        grubcfg['install_devices'] = cfg['grub_install_devices']
+
+    if 'install_devices' in grubcfg:
+        instdevs = grubcfg.get('install_devices')
         if isinstance(instdevs, str):
             instdevs = [instdevs]
         if instdevs is None:
@@ -215,10 +221,19 @@ def setup_grub(cfg, target):
 
         instdevs = list(blockdevs)
 
+    env = os.environ.copy()
+
+    replace_default = grubcfg.get('replace_linux_default', True)
+    if str(replace_default).lower() in ("0", "false"):
+        env['REPLACE_GRUB_LINUX_DEFAULT'] = "0"
+    else:
+        env['REPLACE_GRUB_LINUX_DEFAULT'] = "1"
+
     instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
-    LOG.debug("installing grub to %s", instdevs)
+    LOG.debug("installing grub to %s [replace_default=%s]",
+              instdevs, replace_default)
     with util.ChrootableTarget(target):
-        util.subp(['install-grub', target] + instdevs)
+        util.subp(['install-grub', target] + instdevs, env=env)
 
 
 def copy_fstab(fstab, target):

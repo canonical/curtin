@@ -239,7 +239,7 @@ install_grub() {
             [ "${p#console}" = "$p" ] || c="$c $p"; done; echo "${c# }")
     fi
 
-    if [ -n "$newargs" ]; then
+    if [ "${REPLACE_GRUB_LINUX_DEFAULT:-1}" != "0" ]; then
         local n="GRUB_CMDLINE_LINUX_DEFAULT"
         local sede="s|$n=.*|$n=\"$newargs\"|"
         sed -i "$sede" "$mp/etc/default/grub" ||
