@@ -59,7 +59,8 @@ def write_files(cfg, target):
         futil.write_finfo(path=target + os.path.sep + info['path'],
                           content=info.get('content', ''),
                           owner=info.get('owner', "-1:-1"),
-                          perms=info.get('perms', "0644"))
+                          perms=info.get('permissions',
+                                         info.get('perms', "0644")))
 
 
 def apt_config(cfg, target):
