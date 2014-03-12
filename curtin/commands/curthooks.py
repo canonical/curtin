@@ -54,6 +54,7 @@ def write_files(cfg, target):
     for (key, info) in cfg.get('write_files').items():
         if not info.get('path'):
             LOG.warn("Warning, write_files[%s] had no 'path' entry", key)
+            continue
 
         futil.write_finfo(path=target + os.path.sep + info['path'],
                           content=info.get('content', ''),
