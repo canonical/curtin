@@ -30,11 +30,11 @@ def chownbyid(fname, uid=None, gid=None):
 
 def decode_perms(perm, default=0o644):
     try:
+        if perm is None:
+            return default
         if isinstance(perm, (int, float)):
             # Just 'downcast' it (if a float)
             return int(perm)
-        elif isinstance(perm, None):
-            return default
         else:
             # Force to string and try octal conversion
             return int(str(perm), 8)
