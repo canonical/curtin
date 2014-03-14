@@ -35,11 +35,16 @@ CMD_ARGUMENTS = (
 )
 
 
-def extract_root_tgz(source, target):
+def extract_root_tgz_url(source, target):
     curtin.util.subp(args=['sh', '-c',
                            ('wget "$1" --progress=dot:mega -O - |'
                             'tar -C "$2" -Sxpzf - --numeric-owner'),
                            '--', source, target])
+
+
+def extract_root_tgz_file(source, target):
+    curtin.util.subp(args=['tar', '-C', target, '-Sxpzf', source,
+                           '--numeric-owner'])
 
 
 def copy_to_target(source, target):
@@ -77,8 +82,12 @@ def extract(args):
     for source in sources:
         if source.startswith("cp://"):
             copy_to_target(source, target)
-        elif source.startswith("http://"):
-            extract_root_tgz(source, target)
+        elif os.path.isfile(source):
+            extract_root_tgz_file(source, target)
+        elif source.startswith("file://"):
+            extract_root_tgz_file(source[len("file://"):], target)
+        elif source.startswith("http://") or source.startswith("https://"):
+            extract_root_tgz_url(source, target)
         else:
             raise TypeError("do not know how to extract '%s'", source)
 
