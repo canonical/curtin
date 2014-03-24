@@ -131,8 +131,8 @@ def clean_cloud_init(target):
 
 
 def install_kernel(cfg, target):
-    kernel_cfg = config.get('kernel', {'package': None,
-                                       'fallback-package': None})
+    kernel_cfg = cfg.get('kernel', {'package': None,
+                                    'fallback-package': None})
     apt_in_cmd = ['apt-get', '--quiet', '--assume-yes', 'install']
 
     with util.RunInChroot(target) as in_chroot:
