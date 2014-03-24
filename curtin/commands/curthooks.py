@@ -132,8 +132,9 @@ def clean_cloud_init(target):
 
 
 def install_kernel(cfg, target):
+    apt_in_cmd = ['apt-get', '--quiet', '--assume-yes', 'install']
     with util.RunInChroot(target) as in_chroot:
-        apt_install = lambda pkg: in_chroot(['apt-get', 'install', '-y', pkg])
+        apt_install = lambda pkg: in_chroot(apt_in_cmd + [pkg])
 
         kernel_cfg = cfg.get('kernel')
         if kernel_cfg is not None:
@@ -148,7 +149,8 @@ def install_kernel(cfg, target):
             return
         try:
             _, _, kernel, _, _ = os.uname()
-            out, _ = in_chroot(['lsb_release', '-cs'], capture=True)
+            out, _ = in_chroot(['lsb_release', '--codename', '--short'],
+                               capture=True)
             version, _, flavor = kernel.split('-', 2)
             map_suffix = KERNEL_MAPPING[out.strip()][version]
             package = "linux-{flavor}{map_suffix}".format(
@@ -156,7 +158,7 @@ def install_kernel(cfg, target):
             out, _ = in_chroot(
                 ['apt-cache', 'search', package], capture=True)
             if len(out.strip()) > 0:
-                in_chroot(['apt-get', 'install', '-y', package])
+                apt_install(package)
             else:
                 LOG.warn("Tried to install kernel %s but package not found."
                          % package)
