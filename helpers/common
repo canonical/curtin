@@ -115,7 +115,7 @@ partition_main() {
 		{ partition_usage 1>&2; return 1; }
 
 	local cur="" next=""
-	local format="gpt" target="" end=""
+	local format="mbr" target="" end=""
 
 	while [ $# -ne 0 ]; do
 		cur="$1"; next="$2";
