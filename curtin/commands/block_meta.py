@@ -53,7 +53,7 @@ def meta_simple(args):
 
     devices = args.devices
     if devices is None:
-        devices = cfg.get('devices', [])
+        devices = cfg.get('block-meta', {}).get('devices', [])
 
     # Remove duplicates but maintain ordering.
     devices = list(OrderedDict.fromkeys(devices))
