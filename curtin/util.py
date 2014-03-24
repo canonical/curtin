@@ -258,6 +258,7 @@ class ChrootableTarget(object):
 
         if not self.allow_daemons:
             self.disabled_daemons = disable_daemons_in_root(self.target)
+        return self
 
     def __exit__(self, etype, value, trace):
         if self.disabled_daemons:
@@ -265,6 +266,11 @@ class ChrootableTarget(object):
 
         for p in reversed(self.umounts):
             do_umount(p)
+
+
+class RunInChroot(ChrootableTarget):
+    def __call__(self, args, **kwargs):
+        return subp(['chroot', self.target] + args, **kwargs)
 
 
 def which(program):
