@@ -22,7 +22,6 @@ import sys
 import shutil
 
 from curtin import block
-from curtin import config
 from curtin import futil
 from curtin.log import LOG
 from curtin import util
@@ -328,21 +327,12 @@ def curthooks(args):
     else:
         target = state['target']
 
-    if args.config is not None:
-        cfg_file = args.config
-    else:
-        cfg_file = state['config']
-
     if target is None:
         sys.stderr.write("Unable to find target.  "
                          "Use --target or set TARGET_MOUNT_POINT\n")
         sys.exit(2)
 
-    if not cfg_file:
-        LOG.debug("config file was none!")
-        cfg = {}
-    else:
-        cfg = config.load_config(cfg_file)
+    cfg = util.load_command_config(args, state)
 
     write_files(cfg, target)
     apt_config(cfg, target)
