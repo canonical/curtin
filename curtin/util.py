@@ -85,7 +85,7 @@ def load_command_config(args, state):
     if hasattr(args, 'config') and args.config is not None:
         cfg_file = args.config
     else:
-        cfg_file = state['config']
+        cfg_file = state.get('config', {})
 
     if not cfg_file:
         LOG.debug("config file was none!")
