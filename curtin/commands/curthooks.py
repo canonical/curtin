@@ -48,6 +48,7 @@ KERNEL_MAPPING = {
     },
 }
 
+
 def write_files(cfg, target):
     # this takes 'write_files' entry in config and writes files in the target
     # config entry example:
@@ -158,14 +159,15 @@ def install_kernel(cfg, target):
                 in_chroot(['apt-get', 'install', '-y', package])
             else:
                 LOG.warn("Tried to install kernel %s but package not found."
-                    % package)
+                         % package)
                 if kernel_fallback is not None:
                     apt_install(kernel_fallback)
         except KeyError:
             LOG.warn("Couldn't detect kernel package to install for %s."
-                % kernel)
+                     % kernel)
             if kernel_fallback is not None:
                 apt_install(kernel_fallback)
+
 
 def apply_debconf_selections(cfg, target):
     # debconf_selections:
