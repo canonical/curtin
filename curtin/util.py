@@ -328,4 +328,17 @@ def get_paths(curtin_exe=None, lib=None, helpers=None):
     return({'curtin_exe': curtin_exe, 'lib': mydir, 'helpers': helpers})
 
 
+def has_pkg_installed(pkg, target=None):
+    chroot = []
+    if target is not None:
+        chroot = ['chroot', target]
+    try:
+        out, _ = subp(chroot + ['dpkg-query', '--show', '--showformat',
+                                '${db:Status-Abbrev}', pkg],
+                      capture=True)
+        return out.rstrip() == "ii"
+    except ProcessExecutionError:
+        return False
+
+
 # vi: ts=4 expandtab syntax=python
