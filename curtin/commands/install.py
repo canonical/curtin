@@ -38,7 +38,6 @@ CONFIG_BUILTIN = {
     'curthooks_commands': {'builtin': ['curtin', 'curthooks']},
     'late_commands': {'builtin': []},
     'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
-    'kernel': {'package': None, 'fallback-package': None},
 }
 
 
