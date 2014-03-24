@@ -22,6 +22,7 @@ import sys
 import time
 
 from .log import LOG
+from . import config
 
 _INSTALLED_HELPERS_PATH = "/usr/lib/curtin/helpers"
 _INSTALLED_MAIN = "/usr/bin/curtin"
@@ -78,6 +79,20 @@ def load_command_environment(env=os.environ, strict=False):
             raise KeyError("missing environment vars: %s" % missing)
 
     return {k: env.get(v) for k, v in mapping.items()}
+
+
+def load_command_config(args, state):
+    if hasattr(args, 'config') and args.config is not None:
+        cfg_file = args.config
+    else:
+        cfg_file = state.get('config', {})
+
+    if not cfg_file:
+        LOG.debug("config file was none!")
+        cfg = {}
+    else:
+        cfg = config.load_config(cfg_file)
+    return cfg
 
 
 class BadUsage(Exception):
@@ -258,6 +273,7 @@ class ChrootableTarget(object):
 
         if not self.allow_daemons:
             self.disabled_daemons = disable_daemons_in_root(self.target)
+        return self
 
     def __exit__(self, etype, value, trace):
         if self.disabled_daemons:
@@ -265,6 +281,11 @@ class ChrootableTarget(object):
 
         for p in reversed(self.umounts):
             do_umount(p)
+
+
+class RunInChroot(ChrootableTarget):
+    def __call__(self, args, **kwargs):
+        return subp(['chroot', self.target] + args, **kwargs)
 
 
 def which(program):
@@ -320,6 +341,19 @@ def get_paths(curtin_exe=None, lib=None, helpers=None):
         helpers = _INSTALLED_HELPERS_PATH
 
     return({'curtin_exe': curtin_exe, 'lib': mydir, 'helpers': helpers})
+
+
+def has_pkg_installed(pkg, target=None):
+    chroot = []
+    if target is not None:
+        chroot = ['chroot', target]
+    try:
+        out, _ = subp(chroot + ['dpkg-query', '--show', '--showformat',
+                                '${db:Status-Abbrev}', pkg],
+                      capture=True)
+        return out.rstrip() == "ii"
+    except ProcessExecutionError:
+        return False
 
 
 # vi: ts=4 expandtab syntax=python
