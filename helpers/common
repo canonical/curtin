@@ -1,4 +1,5 @@
 #!/bin/bash
+TEMP_D=""
 
 error() { echo "$@" 1>&1; }
 debug() { [ ${VERBOSITY:-0} -lt "$1" ] || error "$@"; }
@@ -16,6 +17,12 @@ Usage: ${0##*/} [ options ] target-dev
      -E | --end E      end the partition at E (unit 1k bytes)
 EOF
     [ $# -eq 0 ] || echo "$@"
+}
+
+cleanup() {
+    if [ -d "$TEMP_D" ]; then
+        rm -Rf "$TEMP_D"
+    fi
 }
 
 wipedev() {
