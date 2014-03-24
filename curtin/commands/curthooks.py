@@ -39,6 +39,14 @@ CMD_ARGUMENTS = (
      )
 )
 
+KERNEL_MAPPING = {
+    'precise': {
+        '3.5.0': '-lts-quantal',
+        '3.8.0': '-lts-raring',
+        '3.11.0': '-lts-saucy',
+        '3.13.0': '-lts-trusty',
+    },
+}
 
 def write_files(cfg, target):
     # this takes 'write_files' entry in config and writes files in the target
@@ -121,6 +129,43 @@ def clean_cloud_init(target):
     for dpkg_cfg in flist:
         os.unlink(dpkg_cfg)
 
+
+def install_kernel(cfg, target):
+    with util.RunInChroot(target) as in_chroot:
+        apt_install = lambda pkg: in_chroot(['apt-get', 'install', '-y', pkg])
+
+        kernel_cfg = cfg.get('kernel')
+        if kernel_cfg is not None:
+            kernel_package = kernel_cfg.get('package')
+            kernel_fallback = kernel_cfg.get('fallback-package')
+        else:
+            kernel_package = None
+            kernel_fallback = None
+
+        if kernel_package:
+            apt_install(kernel_package)
+            return
+        try:
+            _, _, kernel, _, _ = os.uname()
+            out, _ = in_chroot(['lsb_release', '-cs'], capture=True)
+            version, _, flavor = kernel.split('-', 2)
+            map_suffix = KERNEL_MAPPING[out.strip()][version]
+            package = "linux-{flavor}{map_suffix}".format(
+                flavor=flavor, map_suffix=map_suffix)
+            out, _ = in_chroot(
+                ['apt-cache', 'search', package], capture=True)
+            if len(out.strip()) > 0:
+                in_chroot(['apt-get', 'install', '-y', package])
+            else:
+                LOG.warn("Tried to install kernel %s but package not found."
+                    % package)
+                if kernel_fallback is not None:
+                    apt_install(kernel_fallback)
+        except KeyError:
+            LOG.warn("Couldn't detect kernel package to install for %s."
+                % kernel)
+            if kernel_fallback is not None:
+                apt_install(kernel_fallback)
 
 def apply_debconf_selections(cfg, target):
     # debconf_selections:
@@ -296,6 +341,7 @@ def curthooks(args):
     write_files(cfg, target)
     apt_config(cfg, target)
     disable_overlayroot(cfg, target)
+    install_kernel(cfg, target)
     apply_debconf_selections(cfg, target)
 
     restore_dist_interfaces(cfg, target)
