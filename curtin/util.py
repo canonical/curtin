@@ -17,8 +17,10 @@
 
 import errno
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 from .log import LOG
@@ -263,12 +265,15 @@ def undisable_daemons_in_root(target):
 
 
 class ChrootableTarget(object):
-    def __init__(self, target, allow_daemons=False):
+    def __init__(self, target, allow_daemons=False, sys_resolvconf=True):
         self.target = target
         self.mounts = ["/dev", "/proc", "/sys"]
         self.umounts = []
         self.disabled_daemons = False
         self.allow_daemons = allow_daemons
+        self.sys_resolvconf = sys_resolvconf
+        self.rconf_d = None
+        
 
     def __enter__(self):
         for p in self.mounts:
@@ -278,6 +283,23 @@ class ChrootableTarget(object):
 
         if not self.allow_daemons:
             self.disabled_daemons = disable_daemons_in_root(self.target)
+
+        rconf = os.path.join(self.target, "etc", "resolv.conf")
+        if (self.sys_resolvconf and
+                os.path.islink(rconf) or os.path.isfile(rconf)):
+            rtd = None
+            try:
+                rtd = tempfile.mkdtemp(dir=os.path.dirname(rconf))
+                tmp = os.path.join(rtd, "resolv.conf")
+                os.rename(rconf, tmp)
+                self.rconf_d = rtd
+                shutil.copy("/etc/resolv.conf", rconf)
+            except:
+                if rtd:
+                    shutil.rmtree(rtd)
+                    self.rconf_d = None
+                raise
+
         return self
 
     def __exit__(self, etype, value, trace):
@@ -286,6 +308,12 @@ class ChrootableTarget(object):
 
         for p in reversed(self.umounts):
             do_umount(p)
+
+        rconf = os.path.join(self.target, "etc", "resolv.conf")
+        if self.sys_resolvconf and self.rconf_d:
+            os.rename(os.path.join(self.rconf_d, "resolv.conf"),
+                           rconf)
+            shutil.rmtree(self.rconf_d)
 
 
 class RunInChroot(ChrootableTarget):
