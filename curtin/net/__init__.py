@@ -55,7 +55,7 @@ def is_up(devname):
     # Documentation/networking/operstates.txt in the kernel source.
     translate = {'up': True, 'unknown': True, 'down': False}
     return read_sys_net(devname, "operstate", enoent=False, keyerror=False,
-            translate=translate)
+                        translate=translate)
 
 
 def is_wireless(devname):
