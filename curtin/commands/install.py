@@ -173,8 +173,7 @@ def apply_kexec(kexec, target):
         raise TypeError("kexec is not a dict.")
 
     if not util.which('kexec'):
-        util.subp(args=['apt-get', 'install', 'kexec-tools', '--assume-yes',
-                        '--quiet'])
+        util.install_packages('kexec-tools')
 
     if not os.path.isfile(target_grubcfg):
         raise ValueError("%s does not exist in target" % grubcfg)
@@ -207,11 +206,11 @@ def apply_kexec(kexec, target):
         kernel = append = initrd = ""
 
         for i in range(begin, end):
-            if 'linux' in lines[i]:
+            if 'linux' in lines[i].split():
                 split_line = shlex.split(lines[i])
                 kernel = target + split_line[1]
                 append = "--append=" + ' '.join(split_line[2:])
-            if 'initrd' in lines[i]:
+            if 'initrd' in lines[i].split():
                 split_line = shlex.split(lines[i])
                 initrd = "--initrd=" + target + split_line[1]
 
