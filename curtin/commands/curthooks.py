@@ -292,8 +292,8 @@ def setup_grub(cfg, target):
 
 
 def update_initramfs(target):
-    with util.ChrootableTarget(target):
-        util.subp(['update-initramfs', '-u'])
+    with util.RunInChroot(target) as in_chroot:
+        in_chroot(['update-initramfs', '-u'])
 
 
 def copy_fstab(fstab, target):
