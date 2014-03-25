@@ -184,9 +184,9 @@ def apply_kexec(kexec, target):
 
         # get the default grub boot entry number and menu entry line numbers
         for line_num, line in enumerate(fp, 1):
-            if re.search(r"set default=\"[0-9]+\"", line):
+            if re.search(r"\bset default=\"[0-9]+\"\b", " %s " % line):
                 default = int(re.sub(r"[^0-9]", '', line))
-            if re.match(r"menuentry", line):
+            if re.search(r"\bmenuentry\b", " %s " % line):
                 menu_lines.append(line_num)
 
         if not menu_lines:
