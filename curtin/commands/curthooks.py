@@ -17,6 +17,7 @@
 
 import glob
 import os
+import platform
 import re
 import sys
 import shutil
@@ -238,6 +239,11 @@ def setup_grub(cfg, target):
         util.subp(['install-grub', target] + instdevs, env=env)
 
 
+def update_initramfs(target):
+    with util.ChrootableTarget(target):
+        util.subp(['update-initramfs', '-u'])
+
+
 def copy_fstab(fstab, target):
     if not fstab:
         LOG.warn("fstab variable not in state, not copying fstab")
@@ -302,7 +308,16 @@ def curthooks(args):
 
     copy_interfaces(state.get('interfaces'), target)
     copy_fstab(state.get('fstab'), target)
-    setup_grub(cfg, target)
+
+    # As a rule, ARMv7 systems don't use grub. This may change some
+    # day, but for now, assume no. They do require the initramfs
+    # to be updated, and this also triggers boot loader setup via
+    # flash-kernel.
+    machine = platform.machine()
+    if machine.startswith('armv7'):
+        update_initramfs(target)
+    else:
+        setup_grub(cfg, target)
 
     sys.exit(0)
 
