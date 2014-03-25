@@ -159,8 +159,9 @@ def load_power_state(pstate):
 
     return (['sh', '-c', shcmd, 'curtin-poweroff', delay] + args)
 
+
 def apply_kexec(kexec, target):
-    # load kexec kernel from target directory, similar to /etc/init.d/kexec-load
+    # load kexec kernel from target dir, similar to /etc/init.d/kexec-load
     # kexec:
     #  mode: on
     grubcfg = "boot/grub/grub.cfg"
@@ -221,6 +222,7 @@ def apply_kexec(kexec, target):
         LOG.debug("kexec -l %s %s %s" % (kernel, append, initrd))
         util.subp(args=['kexec', '-l', kernel, append, initrd])
         return True
+
 
 def cmd_install(args):
     cfg = CONFIG_BUILTIN
