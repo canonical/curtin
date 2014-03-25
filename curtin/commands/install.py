@@ -209,11 +209,11 @@ def apply_kexec(kexec, target):
         for i in range(begin, end):
             if 'linux' in lines[i].split():
                 split_line = shlex.split(lines[i])
-                kernel = target + split_line[1]
+                kernel = os.path.join(target, split_line[1])
                 append = "--append=" + ' '.join(split_line[2:])
             if 'initrd' in lines[i].split():
                 split_line = shlex.split(lines[i])
-                initrd = "--initrd=" + target + split_line[1]
+                initrd = "--initrd=" + os.path.join(target, split_line[1])
 
         if not kernel:
             LOG.error("grub config file does not have a kernel\n")
