@@ -273,7 +273,6 @@ class ChrootableTarget(object):
         self.allow_daemons = allow_daemons
         self.sys_resolvconf = sys_resolvconf
         self.rconf_d = None
-        
 
     def __enter__(self):
         for p in self.mounts:
@@ -311,8 +310,7 @@ class ChrootableTarget(object):
 
         rconf = os.path.join(self.target, "etc", "resolv.conf")
         if self.sys_resolvconf and self.rconf_d:
-            os.rename(os.path.join(self.rconf_d, "resolv.conf"),
-                           rconf)
+            os.rename(os.path.join(self.rconf_d, "resolv.conf"), rconf)
             shutil.rmtree(self.rconf_d)
 
 
@@ -387,6 +385,38 @@ def has_pkg_installed(pkg, target=None):
         return out.rstrip() == "ii"
     except ProcessExecutionError:
         return False
+
+
+def install_packages(pkglist, aptopts=None, target=None, env=None):
+    emd = []
+    apt_inst_cmd = ['apt-get', 'install', '--quiet', '--assume-yes',
+                    '--option=Dpkg::options::=--force-unsafe-io']
+
+    if aptopts is None:
+        aptopts = []
+    apt_inst_cmd.extend(aptopts)
+
+    for ptok in os.environ["PATH"].split(os.pathsep):
+        if target is None:
+            fpath = os.path.join(ptok, 'eatmydata')
+        else:
+            fpath = os.path.join(target, ptok, 'eatmydata')
+        if os.path.isfile(fpath) and os.access(fpath, os.X_OK):
+            emd = ['eatmydata']
+            break
+
+    if isinstance(pkglist, str):
+        pkglist = [pkglist]
+
+    if env is None:
+        env = os.environ.copy()
+        env['DEBIAN_FRONTEND'] = 'noninteractive'
+
+    if target is not None and target != "/":
+        with RunInChroot(target) as inchroot:
+            return inchroot(emd + apt_inst_cmd + list(pkglist), env=env)
+    else:
+        return subp(emd + apt_inst_cmd + list(pkglist), env=env)
 
 
 # vi: ts=4 expandtab syntax=python

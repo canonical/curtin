@@ -137,11 +137,8 @@ def clean_cloud_init(target):
 def install_kernel(cfg, target):
     kernel_cfg = cfg.get('kernel', {'package': None,
                                     'fallback-package': None})
-    apt_in_cmd = ['apt-get', '--quiet', '--assume-yes', 'install']
 
     with util.RunInChroot(target) as in_chroot:
-        apt_install = lambda pkg: in_chroot(apt_in_cmd + [pkg])
-
         if kernel_cfg is not None:
             kernel_package = kernel_cfg.get('package')
             kernel_fallback = kernel_cfg.get('fallback-package')
@@ -150,7 +147,7 @@ def install_kernel(cfg, target):
             kernel_fallback = None
 
         if kernel_package:
-            apt_install(kernel_package)
+            util.install_packages([kernel_package], target=target)
             return
         try:
             _, _, kernel, _, _ = os.uname()
@@ -164,17 +161,17 @@ def install_kernel(cfg, target):
                 ['apt-cache', 'search', package], capture=True)
             if (len(out.strip()) > 0 and
                     not util.has_pkg_installed(package, target)):
-                apt_install(package)
+                util.install_packages([package], target=target)
             else:
                 LOG.warn("Tried to install kernel %s but package not found."
                          % package)
                 if kernel_fallback is not None:
-                    apt_install(kernel_fallback)
+                    util.install_packages([kernel_fallback], target=target)
         except KeyError:
             LOG.warn("Couldn't detect kernel package to install for %s."
                      % kernel)
             if kernel_fallback is not None:
-                apt_install(kernel_fallback)
+                util.install_packages([kernel_fallback])
 
 
 def apply_debconf_selections(cfg, target):
