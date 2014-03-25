@@ -40,10 +40,14 @@ CMD_ARGUMENTS = (
 
 KERNEL_MAPPING = {
     'precise': {
+        '3.2.0': '',
         '3.5.0': '-lts-quantal',
         '3.8.0': '-lts-raring',
         '3.11.0': '-lts-saucy',
         '3.13.0': '-lts-trusty',
+    },
+    'trusty': {
+        '3.13.0': '',
     },
 }
 
@@ -131,8 +135,8 @@ def clean_cloud_init(target):
 
 
 def install_kernel(cfg, target):
-    kernel_cfg = config.get('kernel', {'package': None,
-                                       'fallback-package': None})
+    kernel_cfg = cfg.get('kernel', {'package': None,
+                                    'fallback-package': None})
     apt_in_cmd = ['apt-get', '--quiet', '--assume-yes', 'install']
 
     with util.RunInChroot(target) as in_chroot:
@@ -158,7 +162,8 @@ def install_kernel(cfg, target):
                 flavor=flavor, map_suffix=map_suffix)
             out, _ = in_chroot(
                 ['apt-cache', 'search', package], capture=True)
-            if len(out.strip()) > 0:
+            if (len(out.strip()) > 0 and
+                    not util.has_pkg_installed(package, target)):
                 apt_install(package)
             else:
                 LOG.warn("Tried to install kernel %s but package not found."
