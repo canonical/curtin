@@ -50,8 +50,12 @@ def read_sys_net(devname, path, translate=None, enoent=None, keyerror=None):
 
 
 def is_up(devname):
+    # The linux kernel says to consider devices in 'unknown'
+    # operstate as up for the purposes of network configuration. See
+    # Documentation/networking/operstates.txt in the kernel source.
+    translate = {'up': True, 'unknown': True, 'down': False}
     return read_sys_net(devname, "operstate", enoent=False, keyerror=False,
-                        translate={'up': True, 'down': False})
+                        translate=translate)
 
 
 def is_wireless(devname):
