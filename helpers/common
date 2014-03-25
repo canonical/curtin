@@ -1,4 +1,5 @@
 #!/bin/bash
+TEMP_D=""
 
 error() { echo "$@" 1>&1; }
 debug() { [ ${VERBOSITY:-0} -lt "$1" ] || error "$@"; }
@@ -16,6 +17,12 @@ Usage: ${0##*/} [ options ] target-dev
      -E | --end E      end the partition at E (unit 1k bytes)
 EOF
     [ $# -eq 0 ] || echo "$@"
+}
+
+cleanup() {
+    if [ -d "$TEMP_D" ]; then
+        rm -Rf "$TEMP_D"
+    fi
 }
 
 wipedev() {
@@ -56,7 +63,8 @@ pt_gpt() {
     [ "$end" -gt "$maxend" ] && end="$maxend"
     debug 1 "maxend=$maxend end=$end size=$size"
 
-    sgdisk --new "1:2048:$end" --typecode=1:8300 "$target"
+    sgdisk --new "15:2048:+1M" --typecode=15:ef02 \
+           --new "1::$end"     --typecode=1:8300 "$target"
 }
 
 
@@ -115,7 +123,7 @@ partition_main() {
 		{ partition_usage 1>&2; return 1; }
 
 	local cur="" next=""
-	local format="gpt" target="" end=""
+	local format="mbr" target="" end=""
 
 	while [ $# -ne 0 ]; do
 		cur="$1"; next="$2";

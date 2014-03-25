@@ -15,6 +15,7 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+from collections import OrderedDict
 from curtin import block
 from curtin import util
 from curtin.log import LOG
@@ -46,8 +47,18 @@ def logtime(msg, func, *args, **kwargs):
 
 
 def meta_simple(args):
+    state = util.load_command_environment()
+
+    cfg = util.load_command_config(args, state)
+
     devices = args.devices
     if devices is None:
+        devices = cfg.get('block-meta', {}).get('devices', [])
+
+    # Remove duplicates but maintain ordering.
+    devices = list(OrderedDict.fromkeys(devices))
+
+    if len(devices) == 0:
         devices = block.get_installable_blockdevs()
         LOG.warn("simple mode, no devices given. unused list: %s", devices)
 
@@ -69,7 +80,6 @@ def meta_simple(args):
     (devname, devnode) = block.get_dev_name_entry(target)
 
     LOG.info("installing in simple mode to '%s'", devname)
-    state = util.load_command_environment()
 
     # helper partition will forcibly set up partition there
     logtime("partition %s" % devnode, util.subp, ("partition", devnode))

@@ -17,6 +17,18 @@
 
 import yaml
 
+ARCHIVE_HEADER = "#curtin-config-archive"
+ARCHIVE_TYPE = "text/curtin-config-archive"
+CONFIG_HEADER = "#curtin-config"
+CONFIG_TYPE = "text/curtin-config"
+
+try:
+    # python2
+    _STRING_TYPES = (str, basestring, unicode)
+except NameError:
+    # python3
+    _STRING_TYPES = (str,)
+
 
 def merge_config_fp(cfgin, fp):
     merge_config_str(cfgin, fp.read())
@@ -59,6 +71,30 @@ def cmdarg2cfg(cmdarg, delim="/"):
     return cfg
 
 
+def load_config_archive(content):
+    archive = yaml.load(content)
+    config = {}
+    for part in archive:
+        if isinstance(part, (str,)):
+            if part.startswith(ARCHIVE_HEADER):
+                merge_config(config, load_config_archive(part))
+            elif part.startswith(CONFIG_HEADER):
+                merge_config_str(config, part)
+        elif isinstance(part, dict) and isinstance(part.get('content'), str):
+            payload = part.get('content')
+            if (part.get('type') == ARCHIVE_TYPE or
+                    payload.startswith(ARCHIVE_HEADER)):
+                merge_config(config, load_config_archive(payload))
+            elif (part.get('type') == CONFIG_TYPE or
+                  payload.startswith(CONFIG_HEADER)):
+                merge_config_str(config, payload)
+    return config
+
+
 def load_config(cfg_file):
     with open(cfg_file, "r") as fp:
-        return yaml.safe_load(fp.read())
+        content = fp.read()
+    if not content.startswith(ARCHIVE_HEADER):
+        return yaml.safe_load(content)
+    else:
+        return load_config_archive(content)

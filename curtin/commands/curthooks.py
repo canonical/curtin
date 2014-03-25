@@ -23,7 +23,6 @@ import sys
 import shutil
 
 from curtin import block
-from curtin import config
 from curtin import futil
 from curtin.log import LOG
 from curtin import util
@@ -39,6 +38,19 @@ CMD_ARGUMENTS = (
        'action': 'store', 'metavar': 'CONFIG', 'default': None}),
      )
 )
+
+KERNEL_MAPPING = {
+    'precise': {
+        '3.2.0': '',
+        '3.5.0': '-lts-quantal',
+        '3.8.0': '-lts-raring',
+        '3.11.0': '-lts-saucy',
+        '3.13.0': '-lts-trusty',
+    },
+    'trusty': {
+        '3.13.0': '',
+    },
+}
 
 
 def write_files(cfg, target):
@@ -121,6 +133,46 @@ def clean_cloud_init(target):
     LOG.debug("cleaning cloud-init config from: %s" % flist)
     for dpkg_cfg in flist:
         os.unlink(dpkg_cfg)
+
+
+def install_kernel(cfg, target):
+    kernel_cfg = cfg.get('kernel', {'package': None,
+                                    'fallback-package': None})
+
+    with util.RunInChroot(target) as in_chroot:
+        if kernel_cfg is not None:
+            kernel_package = kernel_cfg.get('package')
+            kernel_fallback = kernel_cfg.get('fallback-package')
+        else:
+            kernel_package = None
+            kernel_fallback = None
+
+        if kernel_package:
+            util.install_packages([kernel_package], target=target)
+            return
+        try:
+            _, _, kernel, _, _ = os.uname()
+            out, _ = in_chroot(['lsb_release', '--codename', '--short'],
+                               capture=True)
+            version, _, flavor = kernel.split('-', 2)
+            map_suffix = KERNEL_MAPPING[out.strip()][version]
+            package = "linux-{flavor}{map_suffix}".format(
+                flavor=flavor, map_suffix=map_suffix)
+            out, _ = in_chroot(
+                ['apt-cache', 'search', package], capture=True)
+            if (len(out.strip()) > 0 and
+                    not util.has_pkg_installed(package, target)):
+                util.install_packages([package], target=target)
+            else:
+                LOG.warn("Tried to install kernel %s but package not found."
+                         % package)
+                if kernel_fallback is not None:
+                    util.install_packages([kernel_fallback], target=target)
+        except KeyError:
+            LOG.warn("Couldn't detect kernel package to install for %s."
+                     % kernel)
+            if kernel_fallback is not None:
+                util.install_packages([kernel_fallback])
 
 
 def apply_debconf_selections(cfg, target):
@@ -283,25 +335,17 @@ def curthooks(args):
     else:
         target = state['target']
 
-    if args.config is not None:
-        cfg_file = args.config
-    else:
-        cfg_file = state['config']
-
     if target is None:
         sys.stderr.write("Unable to find target.  "
                          "Use --target or set TARGET_MOUNT_POINT\n")
         sys.exit(2)
 
-    if not cfg_file:
-        LOG.debug("config file was none!")
-        cfg = {}
-    else:
-        cfg = config.load_config(cfg_file)
+    cfg = util.load_command_config(args, state)
 
     write_files(cfg, target)
     apt_config(cfg, target)
     disable_overlayroot(cfg, target)
+    install_kernel(cfg, target)
     apply_debconf_selections(cfg, target)
 
     restore_dist_interfaces(cfg, target)
