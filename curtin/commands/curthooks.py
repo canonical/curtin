@@ -137,7 +137,8 @@ def clean_cloud_init(target):
 
 def install_kernel(cfg, target):
     kernel_cfg = cfg.get('kernel', {'package': None,
-                                    'fallback-package': None})
+                                    'fallback-package': None,
+                                    'mapping': None})
 
     with util.RunInChroot(target) as in_chroot:
         if kernel_cfg is not None:
@@ -155,7 +156,9 @@ def install_kernel(cfg, target):
             out, _ = in_chroot(['lsb_release', '--codename', '--short'],
                                capture=True)
             version, _, flavor = kernel.split('-', 2)
-            map_suffix = KERNEL_MAPPING[out.strip()][version]
+
+            mapping = kernel_cfg.get('mapping', KERNEL_MAPPING)
+            map_suffix = mapping[out.strip()][version]
             package = "linux-{flavor}{map_suffix}".format(
                 flavor=flavor, map_suffix=map_suffix)
             out, _ = in_chroot(
