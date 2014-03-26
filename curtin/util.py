@@ -412,10 +412,22 @@ def install_packages(pkglist, aptopts=None, target=None, env=None):
         env = os.environ.copy()
         env['DEBIAN_FRONTEND'] = 'noninteractive'
 
+    marker = "/tmp/curtin.aptupdate"
+    marker_text = ' '.join(pkglist) + "\n"
+    apt_update = ['apt-get', 'update', '--quiet']
     if target is not None and target != "/":
         with RunInChroot(target) as inchroot:
+            marker = os.path.join(target, marker)
+            if not os.path.exists(marker):
+                inchroot(apt_update)
+            with open(marker, "w") as fp:
+                fp.write(marker_text)
             return inchroot(emd + apt_inst_cmd + list(pkglist), env=env)
     else:
+        if not os.path.exists(marker):
+            subp(apt_update)
+        with open(marker, "w") as fp:
+            fp.write(marker_text)
         return subp(emd + apt_inst_cmd + list(pkglist), env=env)
 
 
