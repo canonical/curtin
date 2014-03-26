@@ -22,6 +22,7 @@ import re
 import sys
 import shutil
 
+from curtin import config
 from curtin import block
 from curtin import futil
 from curtin.log import LOG
@@ -138,7 +139,8 @@ def clean_cloud_init(target):
 def install_kernel(cfg, target):
     kernel_cfg = cfg.get('kernel', {'package': None,
                                     'fallback-package': None,
-                                    'mapping': None})
+                                    'mapping': {}})
+
 
     with util.RunInChroot(target) as in_chroot:
         if kernel_cfg is not None:
@@ -151,31 +153,33 @@ def install_kernel(cfg, target):
         if kernel_package:
             util.install_packages([kernel_package], target=target)
             return
-        try:
-            _, _, kernel, _, _ = os.uname()
-            out, _ = in_chroot(['lsb_release', '--codename', '--short'],
-                               capture=True)
-            version, _, flavor = kernel.split('-', 2)
 
-            mapping = kernel_cfg.get('mapping', KERNEL_MAPPING)
-            map_suffix = mapping[out.strip()][version]
-            package = "linux-{flavor}{map_suffix}".format(
-                flavor=flavor, map_suffix=map_suffix)
-            out, _ = in_chroot(
-                ['apt-cache', 'search', package], capture=True)
-            if (len(out.strip()) > 0 and
-                    not util.has_pkg_installed(package, target)):
-                util.install_packages([package], target=target)
-            else:
-                LOG.warn("Tried to install kernel %s but package not found."
-                         % package)
-                if kernel_fallback is not None:
-                    util.install_packages([kernel_fallback], target=target)
+        _, _, kernel, _, _ = os.uname()
+        out, _ = in_chroot(['lsb_release', '--codename', '--short'],
+                           capture=True)
+        version, _, flavor = kernel.split('-', 2)
+        config.merge_config(kernel_cfg['mapping'], KERNEL_MAPPING)
+
+        try:
+            map_suffix = kernel_cfg['mapping'][out.strip()][version]
         except KeyError:
             LOG.warn("Couldn't detect kernel package to install for %s."
                      % kernel)
             if kernel_fallback is not None:
                 util.install_packages([kernel_fallback])
+            return
+
+        package = "linux-{flavor}{map_suffix}".format(
+            flavor=flavor, map_suffix=map_suffix)
+        out, _ = in_chroot(['apt-cache', 'search', package], capture=True)
+        if (len(out.strip()) > 0 and
+                not util.has_pkg_installed(package, target)):
+            util.install_packages([package], target=target)
+        else:
+            LOG.warn("Tried to install kernel %s but package not found."
+                     % package)
+            if kernel_fallback is not None:
+                util.install_packages([kernel_fallback], target=target)
 
 
 def apply_debconf_selections(cfg, target):
