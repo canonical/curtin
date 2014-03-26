@@ -141,7 +141,6 @@ def install_kernel(cfg, target):
                                     'fallback-package': None,
                                     'mapping': {}})
 
-
     with util.RunInChroot(target) as in_chroot:
         if kernel_cfg is not None:
             kernel_package = kernel_cfg.get('package')
