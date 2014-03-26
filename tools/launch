@@ -238,8 +238,8 @@ main() {
 		else
 			root="/dev/vda1"
 		fi
-		append="root=$root ds=nocloud-net seedfrom=$burl/"
-		append="${append} console=ttyS0 ds=nocloud-net $uappend"
+		append="root=$root ds=nocloud-net;seedfrom=$burl"
+		append="${append} console=ttyS0 $uappend"
 		seedargs=( "${seedargs[@]}" -kernel "$kernel" )
 		[ -n "$initrd" ] && seedargs=( "${seedargs[@]}" -initrd "$initrd" )
 		seedargs=( "${seedargs[@]}" -append "$append" )
