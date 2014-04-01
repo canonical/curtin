@@ -171,7 +171,6 @@ pt_mbr() {
 }
 
 partition_main() {
-	VERBOSITY=1
 	local short_opts="hE:f:v"
 	local long_opts="help,end:,format:,verbose"
 	local getopt_out=$(getopt --name "${0##*/}" \
@@ -264,7 +263,6 @@ is_md() {
 }
 
 install_grub() {
-	VERBOSITY=1
 	local long_opts="uefi"
 	local getopt_out=$(getopt --name "${0##*/}" \
 		--options "" --long "${long_opts}" -- "$@") &&
