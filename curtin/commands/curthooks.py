@@ -292,7 +292,7 @@ def setup_grub(cfg, target):
         uefi_pkg_signed = 'grub-efi-%s-signed' % arch
         if util.has_pkg_available(uefi_pkg_signed):
             pkgs.append(uefi_pkg_signed)
-        
+
         # AMD64 has shim-signed for SecureBoot support
         if arch == "amd64":
             pkgs.append("shim-signed")
