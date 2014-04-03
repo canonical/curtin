@@ -82,7 +82,14 @@ def meta_simple(args):
     LOG.info("installing in simple mode to '%s'", devname)
 
     # helper partition will forcibly set up partition there
-    logtime("partition %s" % devnode, util.subp, ("partition", devnode))
+    if util.is_uefi_bootable():
+        logtime(
+            "partition --format uefi %s" % devnode,
+            util.subp, ("partition", "--format", "uefi", devnode))
+    else:
+        logtime(
+            "partition %s" % devnode,
+            util.subp, ("partition", devnode))
 
     rootdev = devnode + "1"
 

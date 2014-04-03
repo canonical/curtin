@@ -18,6 +18,7 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
            --add  F[:T] add file 'F' to the curtin archive at T
       -a | --append     append args to kernel cmdline (--kernel)
       -d | --disk   D   add a disk 'D' format (path[:size])
+           --uefi       enable uefi boot method
       -h | --help       show this message
       -i | --initrd F   use initramfs F
       -k | --kernel F   use kernel K
@@ -96,7 +97,7 @@ EOF
 
 main() {
 	local short_opts="a:d:h:i:k:p:v"
-	local long_opts="add:,append:,disk:,help,initrd:,kernel:,mem:,publish:,verbose"
+	local long_opts="add:,append:,disk:,help,initrd:,kernel:,mem:,publish:,uefi,verbose"
 	local getopt_out=""
 	getopt_out=$(getopt --name "${0##*/}" \
 		--options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -109,6 +110,7 @@ main() {
 	local tmp="" top_d
 	local initrd="" kernel="" uappend="" iargs="" disk_args=""
 	local pubs="" disks=""
+	local uefi=0
 	pubs=( )
 	disks=( )
 	addfiles=( )
@@ -124,6 +126,7 @@ main() {
 			-k|--kernel) kernel="$next"; shift;;
 			   --mem) mem="$next"; shift;;
 			-p|--publish) pubs[${#pub[@]}]="$next"; shift;;
+			   --uefi) uefi=1;;
 			-v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
 			--) shift; break;;
 		esac
@@ -139,6 +142,19 @@ main() {
 		{ error "failed to make tempdir"; return 1; }
 	
 	trap cleanup EXIT
+
+    local bios_opts=""
+    local video="-curses"
+
+	bios_opts=( )
+	if [ $uefi -eq 1 ]; then
+		[ -f "/usr/share/ovmf/OVMF.fd" ] ||
+			{ error "install ovmf package"; return 1; }
+		mkdir "${TEMP_D}/bios"
+		cp "/usr/share/ovmf/OVMF.fd" "${TEMP_D}/bios/bios.bin"
+		bios_opts=( -L "${TEMP_D}/bios/" )
+		video=""
+	fi
 
 	if [ "${#disks[@]}" -eq 0 ]; then
 		disks=( "${TEMP_D}/disk1.img" )
@@ -252,7 +268,8 @@ main() {
 	
 	xkvm_check || return
 	time xkvm -- \
-		-m ${mem} -serial file:serial.log -curses \
+		"${bios_opts[@]}" \
+		-m ${mem} -serial file:serial.log ${video} \
 		-drive "file=$bootimg,if=virtio,cache=unsafe" \
 		"${seedargs[@]}" \
 		"${disk_args[@]}"
