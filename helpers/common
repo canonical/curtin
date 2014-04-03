@@ -78,8 +78,8 @@ pt_gpt() {
     [ -b "$target" ] && isblk=true
 
     sgdisk --new "15:2048:+1M" --typecode=15:ef02 \
-           --new "1::$end"     --typecode=1:8300 "$target"
-    ret=$?
+           --new "1::$end"     --typecode=1:8300 "$target" ||
+        { error "failed to gpt partition $target"; return 1; }
 
     if $isblk; then
         blockdev --rereadpt "$target"
