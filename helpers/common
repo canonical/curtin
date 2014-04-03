@@ -111,8 +111,8 @@ pt_uefi() {
 
     # Part 15 is the UEFI partition, part 1 is root
     sgdisk --new "15:2048:+100M" --typecode=15:ef00 "$target" \
-           --new "1::$end" --typecode=1:8300 "$target"
-    ret=$?
+           --new "1::$end" --typecode=1:8300 "$target" ||
+        { error "failed to sgdisk for uefi to $target"; return 1; }
 
     if $isblk; then
         blockdev --rereadpt "$target"
