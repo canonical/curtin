@@ -268,7 +268,8 @@ is_md() {
 
 install_grub() {
     local long_opts="uefi"
-    local getopt_out=$(getopt --name "${0##*/}" \
+    local getopt_out=""
+    getopt_out=$(getopt --name "${0##*/}" \
         --options "" --long "${long_opts}" -- "$@") &&
         eval set -- "${getopt_out}"
 
