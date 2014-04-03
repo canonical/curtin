@@ -144,14 +144,16 @@ main() {
 	
 	trap cleanup EXIT
 
-    local bios_option=""
+    local bios_opts=""
     local video="-curses"
+
+	bios_opts=( )
 	if [ $uefi -gt 0 ]; then
 		[ -f "/usr/share/ovmf/OVMF.fd" ] ||
 			{ error "install ovmf package"; return 1; }
 		mkdir "${TEMP_D}/bios"
 		cp "/usr/share/ovmf/OVMF.fd" "${TEMP_D}/bios/bios.bin"
-		bios_option="-L ${TEMP_D}/bios/"
+		bios_opts=( -L "${TEMP_D}/bios/" )
 		video=""
 	fi
 
@@ -267,7 +269,7 @@ main() {
 	
 	xkvm_check || return
 	time xkvm -- \
-		${bios_option} \
+		"${bios_opts[@]}" \
 		-m ${mem} -serial file:serial.log ${video} \
 		-drive "file=$bootimg,if=virtio,cache=unsafe" \
 		"${seedargs[@]}" \
