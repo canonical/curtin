@@ -41,8 +41,7 @@ bad_Usage() { Usage 1>&2; [ $# -eq 0 ] || error "$@"; exit 1; }
 cleanup() {
 	exec >/dev/null 2>&1 # shut up any the killing of HTTP_PID
 	[ -z "$HTTP_PID" ] || kill $HTTP_PID;
-	echo "Manual cleanup: ${TEMP_D}"
-	#[ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
+	[ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
 }
 
 debug() {
