@@ -75,6 +75,8 @@ pt_gpt() {
 	[ "$end" -gt "$maxend" ] && end="$maxend"
 	debug 1 "maxend=$maxend end=$end size=$size"
 
+	[ -b "$target" ] && isblk=true
+
 	sgdisk --new "15:2048:+1M" --typecode=15:ef02 \
 		   --new "1::$end"     --typecode=1:8300 "$target"
 	ret=$?
@@ -104,6 +106,8 @@ pt_uefi() {
 	maxend=$((($size/512)-2048))
 	[ "$end" -gt "$maxend" ] && end="$maxend"
 	debug 1 "maxend=$maxend end=$end size=$size"
+
+	[ -b "$target" ] && isblk=true
 
 	# Part 15 is the UEFI partition, part 1 is root
 	sgdisk --new "15:2048:+100M" --typecode=15:ef00 "$target" \
