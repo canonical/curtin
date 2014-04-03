@@ -127,7 +127,7 @@ main() {
 			-k|--kernel) kernel="$next"; shift;;
 			   --mem) mem="$next"; shift;;
 			-p|--publish) pubs[${#pub[@]}]="$next"; shift;;
-			   --uefi) uefi=$((${uefi}+1));;
+			   --uefi) uefi=1;;
 			-v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
 			--) shift; break;;
 		esac
@@ -148,7 +148,7 @@ main() {
     local video="-curses"
 
 	bios_opts=( )
-	if [ $uefi -gt 0 ]; then
+	if [ $uefi -eq 1 ]; then
 		[ -f "/usr/share/ovmf/OVMF.fd" ] ||
 			{ error "install ovmf package"; return 1; }
 		mkdir "${TEMP_D}/bios"
