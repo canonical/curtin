@@ -387,8 +387,7 @@ def has_pkg_available(pkg, target=None):
     chroot = []
     if target is not None:
         chroot = ['chroot', target]
-    out, _ = subp(chroot + ['apt-cache', 'pkgnames'],
-                  capture=True)
+    out, _ = subp(chroot + ['apt-cache', 'pkgnames'], capture=True)
     for item in out.splitlines():
         if pkg == item.strip():
             return True
