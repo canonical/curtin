@@ -389,7 +389,10 @@ def has_pkg_available(pkg, target=None):
         chroot = ['chroot', target]
     out, _ = subp(chroot + ['apt-cache', 'pkgnames'],
                   capture=True)
-    return pkg in out.strip()
+    for item in out.splitlines():
+        if pkg == item.strip():
+            return True
+    return False
 
 
 def has_pkg_installed(pkg, target=None):
