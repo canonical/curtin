@@ -110,7 +110,7 @@ pt_uefi() {
     [ -b "$target" ] && isblk=true
 
     # Part 15 is the UEFI partition, part 1 is root
-    sgdisk --new "15:2048:+100M" --typecode=15:ef00 "$target" \
+    sgdisk --new "15:2048:+512M" --typecode=15:ef00 "$target" \
            --new "1::$end" --typecode=1:8300 "$target" ||
         { error "failed to sgdisk for uefi to $target"; return 1; }
 
