@@ -301,16 +301,21 @@ install_grub() {
     fi
     [ -b $mp_dev ] || { error "$mp_dev is not a block device!"; return 1; }
 
+    # get dpkg arch
+    local dpkg_arch=$(chroot "$mp" dpkg --print-architecture)
+    r=$?
+    if [ $r -ne 0 -a $r -ne 1 ]; then
+        error "failed to get dpkg architecture"
+        return 1;
+    fi
+
     # set correct grub package
     local grub_name="grub-pc"
     local grub_target="i386-pc"
-    if [ "$uefi" -ge 1 ]; then
-        dpkg_arch=$(chroot "$mp" dpkg --print-architecture)
-        r=$?
-        if [ $r -ne 0 -a $r -ne 1 ]; then
-            error "failed to get dpkg architecture"
-            return 1;
-        fi
+    if [ "$dpkg_arch" = "ppc64el" ]; then
+        grub_name="grub-ieee1275"
+        grub_target="powerpc-ieee1275"
+    elif [ "$uefi" -ge 1 ]; then
         grub_name="grub-efi-$dpkg_arch"
         if [ "$dpkg_arch" = "amd64" ]; then
             grub_target="x86_64-efi"
