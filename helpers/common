@@ -302,7 +302,8 @@ install_grub() {
     [ -b $mp_dev ] || { error "$mp_dev is not a block device!"; return 1; }
 
     # get dpkg arch
-    local dpkg_arch=$(chroot "$mp" dpkg --print-architecture)
+    local dpkg_arch=""
+    dpkg_arch=$(chroot "$mp" dpkg --print-architecture)
     r=$?
     if [ $r -ne 0 -a $r -ne 1 ]; then
         error "failed to get dpkg architecture"
