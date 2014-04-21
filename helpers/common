@@ -305,10 +305,10 @@ install_grub() {
     local dpkg_arch=""
     dpkg_arch=$(chroot "$mp" dpkg --print-architecture)
     r=$?
-    if [ $r -ne 0 ]; then
-        error "failed to get dpkg architecture"
+    [ $r -eq 0 ] || {
+        error "failed to get dpkg architecture [$r]"
         return 1;
-    fi
+    }
 
     # set correct grub package
     local grub_name="grub-pc"
