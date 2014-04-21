@@ -305,7 +305,7 @@ install_grub() {
     local dpkg_arch=""
     dpkg_arch=$(chroot "$mp" dpkg --print-architecture)
     r=$?
-    if [ $r -ne 0 -a $r -ne 1 ]; then
+    if [ $r -ne 0 ]; then
         error "failed to get dpkg architecture"
         return 1;
     fi
