@@ -35,16 +35,32 @@ CMD_ARGUMENTS = (
 )
 
 
+def tar_xattr_opts(cmd=None):
+    # if tar cmd supports xattrs, return the required flags to extract them.
+    if cmd is None:
+        cmd = ['tar']
+
+    if isinstance(cmd, str):
+        cmd = [cmd]
+
+    (out, _err) = curtin.util.subp(cmd + ['--help'], capture=True)
+
+    if "xattr" in out:
+        return ['--xattrs', '--xattrs-include=*', '--acls']
+    return []
+
+
 def extract_root_tgz_url(source, target):
-    curtin.util.subp(args=['sh', '-c',
+    curtin.util.subp(args=['sh', '-cf',
                            ('wget "$1" --progress=dot:mega -O - |'
-                            'tar -C "$2" -Sxpzf - --numeric-owner'),
+                            'tar -C "$2" ' + ' '.join(tar_xattr_opts()) +
+                            '-Sxpzf - --numeric-owner'),
                            '--', source, target])
 
 
 def extract_root_tgz_file(source, target):
-    curtin.util.subp(args=['tar', '-C', target, '-Sxpzf', source,
-                           '--numeric-owner'])
+    curtin.util.subp(args=['tar', '-C', target] +
+                     tar_xattr_opts() + ['-Sxpzf', source, '--numeric-owner'])
 
 
 def copy_to_target(source, target):
