@@ -96,6 +96,8 @@ def extract(args):
     LOG.debug("Installing sources: %s to target at %s" % (sources, target))
 
     for source in sources:
+        if source.endswith('.ddimg'):
+            continue
         if source.startswith("cp://"):
             copy_to_target(source, target)
         elif os.path.isfile(source):

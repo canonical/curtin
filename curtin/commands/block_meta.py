@@ -22,6 +22,10 @@ from curtin.log import LOG
 
 from . import populate_one_subcmd
 
+import os
+import tempfile
+
+
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
       {'help': 'which devices to operate on', 'action': 'append',
@@ -44,6 +48,28 @@ def block_meta(args):
 def logtime(msg, func, *args, **kwargs):
     with util.LogTimer(LOG.debug, msg):
         return func(*args, **kwargs)
+
+
+def write_image_to_disk(source, dev):
+    util.subp(args=['sh', '-c',
+                    ('wget "$1" --progress=dot:mega -O - |'
+                    'tar -SxOzf - | dd of="$2"'),
+                    '--', source, dev])
+    util.subp(['partprobe'])
+    for i in os.listdir('/dev'):
+        in_dev = os.path.join('/dev', i)
+        if in_dev.startswith(dev) and in_dev != dev:
+            tmp_mount = tempfile.mkdtemp()
+            try:
+                util.subp(['mount', in_dev, tmp_mount])
+                finalize = os.path.join(tmp_mount, 'opt/curtin/finalize')
+                if os.path.isfile(finalize):
+                    util.subp(['umount', tmp_mount])
+                    return in_dev
+                util.subp(['umount', tmp_mount])
+            except:
+                pass
+    raise Exception("Could not find finalize script in target image")
 
 
 def meta_simple(args):
@@ -80,6 +106,12 @@ def meta_simple(args):
     (devname, devnode) = block.get_dev_name_entry(target)
 
     LOG.info("installing in simple mode to '%s'", devname)
+
+    sources = cfg.get('sources', {})
+    if len(sources) and sources[sources.keys()[0]].endswith('.ddimg'):
+        rootdev = write_image_to_disk(sources[sources.keys()[0]], devnode)
+        util.subp(['mount', rootdev, state['target']])
+        return 0
 
     # helper partition will forcibly set up partition there
     if util.is_uefi_bootable():

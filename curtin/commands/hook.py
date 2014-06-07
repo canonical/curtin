@@ -38,7 +38,7 @@ def hook(args):
 
     LOG.debug("Finalizing %s" % args.target)
 
-    target_hook = os.path.join(args.target, "/opt/curtin/finalize")
+    target_hook = os.path.join(args.target, "opt/curtin/finalize")
     if os.path.exists(target_hook):
         LOG.debug("running %s" % target_hook)
         curtin.util.subp(target_hook)
