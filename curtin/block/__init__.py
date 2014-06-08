@@ -178,7 +178,9 @@ def get_root_device(dev):
         tmp_mount = tempfile.mkdtemp()
         try:
             util.do_mount(dev_path, tmp_mount)
-            util.get_target_os(tmp_mount)
+            curtin_dir = os.path.join(tmp_mount, 'curtin')
+            if os.path.isdir(curtin_dir) is False:
+                continue
             target = dev_path
             util.do_umount(tmp_mount)
         except:
