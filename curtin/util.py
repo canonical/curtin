@@ -455,4 +455,120 @@ def is_uefi_bootable():
     return os.path.exists('/sys/firmware/efi') is True
 
 
+def get_lsb_release(target):
+    """
+    On debian based systems lsb_release looks in /etc/lsb-release
+    for information
+    """
+    file_name = os.path.join(target, 'etc/lsb-release')
+    if os.path.isfile(file_name) is False:
+        return False
+    ret = {'ostype': 'linux'}
+    fd = load_file(file_name).splitlines()
+    for i in fd:
+        key, value = i.split("=")
+        if key == "DISTRIB_ID":
+            ret['name'] = value.lower()
+        elif key == "DISTRIB_RELEASE":
+            ret['version'] = value
+        elif key == "DISTRIB_DESCRIPTION":
+            ret['description'] = value.strip('"')
+    return ret
+
+
+def get_rh_release(target):
+    """
+    Get information about RH based release (CentOS, RHEL, Fedora, etc)
+    On RHEL based systems lsb_release looks in /etc/redhat-release for info
+    """
+    file_name = os.path.join(target, 'etc/redhat-release')
+    if os.path.isfile(file_name) is False:
+        return False
+    ret = {'ostype': 'linux'}
+    contents = load_file(file_name)
+    ret['name'] = contents[0].lower()
+    # We only care about the major version
+    ret['version'] = contents[2].split('.')[0]
+    ret['description'] = contents[3].replace('(', '').replace(')', '')
+    return ret
+
+
+def get_win_release(target):
+    """
+    Cant really parse windows version info from install environ,
+    but we can at least determine if it is windows.
+    """
+    file_name = os.path.join(target, 'Windows')
+    if os.path.isdir(file_name):
+        return {
+            'ostype': 'windows',
+            'name': 'windows',
+            'version': None,
+            'description': 'windows'}
+
+
+def get_target_os(target):
+    """
+    Get details about the OS in "target"
+    """
+    mapping = {
+        'ubuntu': get_lsb_release,
+        'rh': get_rh_release,
+        'win': get_win_release,
+    }
+    for i in mapping.keys():
+        ret = mapping[i](target)
+        if ret:
+            return ret
+    raise ValueError("Target OS is unknown")
+
+
+def run_hook_if_exists(target, hook):
+    """
+    Look for "hook" in "target" and run it
+    """
+    target_hook = os.path.join(target, 'opt/curtin', hook)
+    if os.path.isfile(target_hook):
+        LOG.debug("running %s" % target_hook)
+        subp([target_hook])
+        return True
+    return False
+
+
+def sanitize_source(source):
+    """
+    Check the install source for type information
+    If no type information is present or it is an invalid
+    type, we default to the standard tgz format
+    """
+    if type(source) is dict:
+        # already sanitized?
+        return source
+    supported = ['tgz', 'dd']
+    src = source.split(':', 1)
+    if len(src) == 1:
+        # This condition treats the case
+        # of a source that is a filename and does
+        # not have a type specified
+        return {'type': 'tgz', 'uri': src[1]}
+    if src[0] in supported:
+        return {'type': src[0], 'uri': src[1]}
+    # default to tgz for unknown types
+    return {'type': 'tgz', 'uri': src[1]}
+
+
+def get_dd_images(sources):
+    """
+    return all disk images in sources list
+    """
+    src = []
+    if type(sources) is not dict:
+        return src
+    for i in sources:
+        if type(sources[i]) is not dict:
+            continue
+        if sources[i]['type'] == 'dd':
+            src.append(sources[i]['uri'])
+    return src
+
 # vi: ts=4 expandtab syntax=python

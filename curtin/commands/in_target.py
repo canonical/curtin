@@ -53,6 +53,11 @@ def in_target_main(args):
                          "Use --target or set TARGET_MOUNT_POINT\n")
         sys.exit(2)
 
+    target_os = util.get_target_os(target)
+    if target_os['ostype'] == 'windows':
+        # in-target does nothing for windows
+        sys.exit(0)
+
     interactive = sys.stdin.isatty()
     exit = 0
 

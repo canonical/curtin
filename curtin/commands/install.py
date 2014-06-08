@@ -234,13 +234,16 @@ def cmd_install(args):
             config.merge_cmdarg(cfg, val)
 
     for source in args.source:
-        if source.endswith('.ddimg'):
-            os.environ["CURTIN_IS_DDIMG"] = "True"
-        cfg['sources']["%02d_cmdline" % len(cfg['sources'])] = source
+        src = util.sanitize_source(source)
+        cfg['sources']["%02d_cmdline" % len(cfg['sources'])] = src
 
     LOG.debug("merged config: %s" % cfg)
     if not len(cfg.get('sources', [])):
         raise util.BadUsage("no sources provided to install")
+
+    for i in cfg['sources']:
+        # we default to tgz for old style sources config
+        cfg['sources'][i] = util.sanitize_source(cfg['sources'][i])
 
     if cfg.get('http_proxy'):
         os.environ['http_proxy'] = cfg['http_proxy']
@@ -251,10 +254,6 @@ def cmd_install(args):
 
         env = os.environ.copy()
         env.update(workingd.env())
-        is_dd_image = os.environ.get("CURTIN_IS_DDIMG", None)
-        if is_dd_image == "True":
-            cfg['network_commands']['builtin'] = {}
-            cfg['curthooks_commands']['builtin'] = {}
 
         for name in cfg.get('stages'):
             commands_name = '%s_commands' % name

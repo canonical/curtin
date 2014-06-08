@@ -20,6 +20,7 @@ import os
 import sys
 
 from curtin import net
+import curtin.util as util
 
 from . import populate_one_subcmd
 
@@ -74,6 +75,11 @@ def net_meta(args):
     #    curtin net-meta --devices connected dhcp
     #    curtin net-meta --devices configured dhcp
     #    curtin net-meta --devices netboot dhcp
+
+    # if network-config hook exists in target,
+    # we do not run the builtin
+    if util.run_hook_if_exists(args.target, 'network-config'):
+        sys.exit(0)
 
     eni = "etc/network/interfaces"
     if args.mode == "auto":

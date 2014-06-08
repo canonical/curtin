@@ -51,25 +51,17 @@ def logtime(msg, func, *args, **kwargs):
 
 
 def write_image_to_disk(source, dev):
+    """
+    Write disk image to block device
+    """
+    (devname, devnode) = block.get_dev_name_entry(dev)
     util.subp(args=['sh', '-c',
                     ('wget "$1" --progress=dot:mega -O - |'
-                    'tar -SxOzf - | dd of="$2"'),
-                    '--', source, dev])
+                     'tar -SxOzf - | dd of="$2"'),
+                    '--', source, devnode])
     util.subp(['partprobe'])
-    for i in os.listdir('/dev'):
-        in_dev = os.path.join('/dev', i)
-        if in_dev.startswith(dev) and in_dev != dev:
-            tmp_mount = tempfile.mkdtemp()
-            try:
-                util.subp(['mount', in_dev, tmp_mount])
-                finalize = os.path.join(tmp_mount, 'opt/curtin/finalize')
-                if os.path.isfile(finalize):
-                    util.subp(['umount', tmp_mount])
-                    return in_dev
-                util.subp(['umount', tmp_mount])
-            except:
-                pass
-    raise Exception("Could not find finalize script in target image")
+    util.subp(['udevadm', 'settle'])
+    return block.get_root_device([devname, ])
 
 
 def meta_simple(args):
@@ -108,8 +100,11 @@ def meta_simple(args):
     LOG.info("installing in simple mode to '%s'", devname)
 
     sources = cfg.get('sources', {})
-    if len(sources) and sources[sources.keys()[0]].endswith('.ddimg'):
-        rootdev = write_image_to_disk(sources[sources.keys()[0]], devnode)
+    dd_images = util.get_dd_images(sources)
+    if len(dd_images):
+        # we have at least one dd-able image
+        # we will only take the first one
+        rootdev = write_image_to_disk(dd_images[0], devname)
         util.subp(['mount', rootdev, state['target']])
         return 0
 

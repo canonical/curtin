@@ -368,6 +368,11 @@ def curthooks(args):
                          "Use --target or set TARGET_MOUNT_POINT\n")
         sys.exit(2)
 
+    # if network-config hook exists in target,
+    # we do not run the builtin
+    if util.run_hook_if_exists(target, 'curtin-hooks'):
+        sys.exit(0)
+
     cfg = util.load_command_config(args, state)
 
     write_files(cfg, target)
