@@ -249,6 +249,9 @@ def cmd_install(args):
         os.environ['http_proxy'] = cfg['http_proxy']
 
     try:
+        dd_images = util.get_dd_images(cfg.get('sources', {}))
+        if len(dd_images) > 1:
+            raise ValueError("You may not use more then one disk image")
         workingd = WorkingDir(cfg)
         LOG.debug(workingd.env())
 

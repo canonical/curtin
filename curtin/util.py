@@ -459,7 +459,7 @@ def run_hook_if_exists(target, hook):
     """
     Look for "hook" in "target" and run it
     """
-    target_hook = os.path.join(target, 'opt/curtin', hook)
+    target_hook = os.path.join(target, 'curtin', hook)
     if os.path.isfile(target_hook):
         LOG.debug("running %s" % target_hook)
         subp([target_hook])
@@ -486,7 +486,7 @@ def sanitize_source(source):
     if src[0] in supported:
         return {'type': src[0], 'uri': src[1]}
     # default to tgz for unknown types
-    return {'type': 'tgz', 'uri': src[1]}
+    return {'type': 'tgz', 'uri': source}
 
 
 def get_dd_images(sources):

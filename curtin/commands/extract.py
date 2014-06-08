@@ -111,7 +111,7 @@ def extract(args):
             extract_root_tgz_url(source['uri'], target)
         else:
             raise TypeError(
-                "do not know how to extract '%s'",
+                "do not know how to extract '%s'" %
                 source['uri'])
 
 
