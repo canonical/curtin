@@ -22,6 +22,10 @@ from curtin.log import LOG
 
 from . import populate_one_subcmd
 
+import os
+import tempfile
+
+
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
       {'help': 'which devices to operate on', 'action': 'append',
@@ -44,6 +48,20 @@ def block_meta(args):
 def logtime(msg, func, *args, **kwargs):
     with util.LogTimer(LOG.debug, msg):
         return func(*args, **kwargs)
+
+
+def write_image_to_disk(source, dev):
+    """
+    Write disk image to block device
+    """
+    (devname, devnode) = block.get_dev_name_entry(dev)
+    util.subp(args=['sh', '-c',
+                    ('wget "$1" --progress=dot:mega -O - |'
+                     'tar -SxOzf - | dd of="$2"'),
+                    '--', source, devnode])
+    util.subp(['partprobe'])
+    util.subp(['udevadm', 'settle'])
+    return block.get_root_device([devname, ])
 
 
 def meta_simple(args):
@@ -80,6 +98,15 @@ def meta_simple(args):
     (devname, devnode) = block.get_dev_name_entry(target)
 
     LOG.info("installing in simple mode to '%s'", devname)
+
+    sources = cfg.get('sources', {})
+    dd_images = util.get_dd_images(sources)
+    if len(dd_images):
+        # we have at least one dd-able image
+        # we will only take the first one
+        rootdev = write_image_to_disk(dd_images[0], devname)
+        util.subp(['mount', rootdev, state['target']])
+        return 0
 
     # helper partition will forcibly set up partition there
     if util.is_uefi_bootable():

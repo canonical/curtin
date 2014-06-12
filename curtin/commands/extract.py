@@ -96,16 +96,23 @@ def extract(args):
     LOG.debug("Installing sources: %s to target at %s" % (sources, target))
 
     for source in sources:
-        if source.startswith("cp://"):
-            copy_to_target(source, target)
-        elif os.path.isfile(source):
-            extract_root_tgz_file(source, target)
-        elif source.startswith("file://"):
-            extract_root_tgz_file(source[len("file://"):], target)
-        elif source.startswith("http://") or source.startswith("https://"):
-            extract_root_tgz_url(source, target)
+        if source['type'] == 'dd':
+            continue
+        if source['uri'].startswith("cp://"):
+            copy_to_target(source['uri'], target)
+        elif os.path.isfile(source['uri']):
+            extract_root_tgz_file(source['uri'], target)
+        elif source['uri'].startswith("file://"):
+            extract_root_tgz_file(
+                source['uri'][len("file://"):],
+                target)
+        elif (source['uri'].startswith("http://") or
+              source['uri'].startswith("https://")):
+            extract_root_tgz_url(source['uri'], target)
         else:
-            raise TypeError("do not know how to extract '%s'", source)
+            raise TypeError(
+                "do not know how to extract '%s'" %
+                source['uri'])
 
 
 def POPULATE_SUBCMD(parser):

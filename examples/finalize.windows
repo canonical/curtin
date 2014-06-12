@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import tempfile
+
+from curtin.log import LOG
+from curtin import util
+
+
+def curthooks():
+    state = util.load_command_environment()
+    target = state['target']
+
+    if target is None:
+        sys.stderr.write("Unable to find target.  "
+                         "Use --target or set TARGET_MOUNT_POINT\n")
+        sys.exit(2)
+
+    cfg = util.load_command_config({}, state)
+
+    cloudbase_init = cfg.get('cloudbase_init', None)
+    if not cloudbase_init:
+        return False
+
+    cloudbase_init_cfg = os.path.join(
+        target,
+        "Program Files (x86)",
+        "Cloudbase Solutions",
+        "Cloudbase-Init",
+        "conf",
+        "cloudbase-init.conf")
+    cloudbase_init_unattended_cfg = os.path.join(
+        target,
+        "Program Files (x86)",
+        "Cloudbase Solutions",
+        "Cloudbase-Init",
+        "conf",
+        "cloudbase-init-unattend.conf")
+
+    if os.path.isfile(cloudbase_init_cfg) is False:
+        sys.stderr.write("Unable to find cloudbase-init.cfg.\n")
+        sys.exit(2)
+
+    fp = open(cloudbase_init_cfg, 'a')
+    fp_u = open(cloudbase_init_unattended_cfg, 'a')
+    for i in cloudbase_init['config'].splitlines():
+        fp.write("%s\r\n" % i)
+        fp_u.write("%s\r\n" % i)
+    fp.close()
+    fp_u.close()
+
+
+curthooks()

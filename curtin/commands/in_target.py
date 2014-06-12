@@ -48,7 +48,7 @@ def in_target_main(args):
         state = util.load_command_environment()
         target = state['target']
 
-    if target is None:
+    if args.target is None:
         sys.stderr.write("Unable to find target.  "
                          "Use --target or set TARGET_MOUNT_POINT\n")
         sys.exit(2)
