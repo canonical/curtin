@@ -1,6 +1,7 @@
-#   Copyright (C) 2013 Canonical Ltd.
+#   Copyright (C) 2013-2014 Canonical Ltd.
 #
 #   Author: Scott Moser <scott.moser@canonical.com>
+#   Author: Blake Rouse <blake.rouse@canonical.com>
 #
 #   Curtin is free software: you can redistribute it and/or modify it under
 #   the terms of the GNU Affero General Public License as published by the
@@ -21,6 +22,22 @@ import os
 from curtin.log import LOG
 
 SYS_CLASS_NET = "/sys/class/net/"
+
+NET_CONFIG_OPTIONS = [
+    "address", "netmask", "broadcast", "network", "metric", "gateway",
+    "pointtopoint", "media", "mtu", "hostname", "leasehours", "leasetime",
+    "vendor", "client", "bootfile", "server", "hwaddr", "provider", "frame",
+    "netnum", "endpoint", "local", "ttl",
+    ]
+
+NET_CONFIG_COMMANDS = [
+    "pre-up", "up", "post-up", "down", "pre-down", "post-down",
+    ]
+
+NET_CONFIG_BRIDGE_OPTIONS = [
+    "bridge_ageing", "bridge_bridgeprio", "bridge_fd", "bridge_gcinit",
+    "bridge_hello", "bridge_maxage", "bridge_maxwait", "bridge_stp",
+    ]
 
 
 def sys_dev_path(devname, path=""):
@@ -94,5 +111,76 @@ def is_present(devname):
 def get_devicelist():
     return os.listdir(SYS_CLASS_NET)
 
+
+def parse_deb_config(path):
+    """Parses a debian network configuration file."""
+    ifaces = {}
+    currif = ""
+    with open(path, "r") as fp:
+        contents = fp.read().strip()
+    for line in contents.splitlines():
+        line = line.strip()
+        if line.startswith('#'):
+            continue
+        split = line.split(' ')
+        option = split[0]
+        if option == "auto":
+            for iface in split[1:]:
+                if iface not in ifaces:
+                    ifaces[iface] = {}
+                ifaces[iface]['auto'] = True
+        elif option == "iface":
+            iface, family, method = split[1:4]
+            if iface not in ifaces:
+                ifaces[iface] = {}
+            ifaces[iface]['family'] = family
+            ifaces[iface]['method'] = method
+            currif = iface
+        elif option == "hwaddress":
+            ifaces[currif]['hwaddress'] = {
+                'class': split[1],
+                'address': split[2],
+                }
+        elif option in NET_CONFIG_OPTIONS:
+            ifaces[currif][option] = split[1]
+        elif option in NET_CONFIG_COMMANDS:
+            if option not in ifaces[currif]:
+                ifaces[currif][option] = []
+            ifaces[currif][option].append(' '.join(split[1:]))
+        elif option.startswith('dns-'):
+            if 'dns' not in ifaces[currif]:
+                ifaces[currif]['dns'] = {}
+            if option == 'dns-search':
+                ifaces[currif]['dns']['search'] = []
+                for domain in split[1:]:
+                    ifaces[currif]['dns']['search'].append(domain)
+            elif option == 'dns-nameservers':
+                ifaces[currif]['dns']['nameservers'] = []
+                for server in split[1:]:
+                    ifaces[currif]['dns']['nameservers'].append(server)
+        elif option.startswith('bridge_'):
+            if 'bridge' not in ifaces[currif]:
+                ifaces[currif]['bridge'] = {}
+            if option in NET_CONFIG_BRIDGE_OPTIONS:
+                bridge_option = option.replace('bridge_', '')
+                ifaces[currif]['bridge'][bridge_option] = split[1]
+            elif option == "bridge_ports":
+                ifaces[currif]['bridge']['ports'] = []
+                for iface in split[1:]:
+                    ifaces[currif]['bridge']['ports'].append(iface)
+            elif option == "bridge_hw" and split[1].lower() == "mac":
+                ifaces[currif]['bridge']['mac'] = split[2]
+            elif option == "bridge_pathcost":
+                if 'pathcost' not in ifaces[currif]['bridge']:
+                    ifaces[currif]['bridge']['pathcost'] = {}
+                ifaces[currif]['bridge']['pathcost'][split[1]] = split[2]
+            elif option == "bridge_portprio":
+                if 'portprio' not in ifaces[currif]['bridge']:
+                    ifaces[currif]['bridge']['portprio'] = {}
+                ifaces[currif]['bridge']['portprio'][split[1]] = split[2]
+    for iface in ifaces.keys():
+        if 'auto' not in ifaces[iface]:
+            ifaces[iface]['auto'] = False
+    return ifaces
 
 # vi: ts=4 expandtab syntax=python
