@@ -112,19 +112,35 @@ def get_devicelist():
     return os.listdir(SYS_CLASS_NET)
 
 
-def parse_deb_config(path):
-    """Parses a debian network configuration file."""
-    ifaces = {}
-    currif = ""
-    with open(path, "r") as fp:
-        contents = fp.read().strip()
+class ParserError(Exception):
+    """Raised when parser has issue parsing the interfaces file."""
+
+
+def parse_deb_config_data(ifaces, contents, path):
+    """Parses the file contents, placing result into ifaces.
+
+    :param ifaces: interface dictionary
+    :param contents: contents of interfaces file
+    :param path: directory interfaces file was located
+    """
+    currif = None
+    src_dir = path
     for line in contents.splitlines():
         line = line.strip()
         if line.startswith('#'):
             continue
         split = line.split(' ')
         option = split[0]
-        if option == "auto":
+        if option == "source-directory":
+            src_dir = os.path.join(path, split[1])
+        elif option == "source":
+            src_path = os.path.join(src_dir, split[1])
+            with open(src_path, "r") as fp:
+                src_data = fp.read().strip()
+            parse_deb_config_data(
+                ifaces, src_data,
+                os.path.dirname(os.path.abspath(src_path)))
+        elif option == "auto":
             for iface in split[1:]:
                 if iface not in ifaces:
                     ifaces[iface] = {}
@@ -132,7 +148,9 @@ def parse_deb_config(path):
         elif option == "iface":
             iface, family, method = split[1:4]
             if iface not in ifaces:
-                ifaces[iface] = {}
+                ifaces[iface] = {}  
+            elif 'family' in ifaces[iface]:
+                raise ParserError("Cannot define %s interface again.")
             ifaces[iface]['family'] = family
             ifaces[iface]['method'] = method
             currif = iface
@@ -181,6 +199,16 @@ def parse_deb_config(path):
     for iface in ifaces.keys():
         if 'auto' not in ifaces[iface]:
             ifaces[iface]['auto'] = False
+
+
+def parse_deb_config(path):
+    """Parses a debian network configuration file."""
+    ifaces = {}
+    with open(path, "r") as fp:
+        contents = fp.read().strip()
+    parse_deb_config_data(
+        ifaces, contents,
+        os.path.dirname(os.path.abspath(path)))
     return ifaces
 
 # vi: ts=4 expandtab syntax=python
