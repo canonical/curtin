@@ -126,7 +126,7 @@ def meta_simple(args):
     util.subp(['mount', rootdev, state['target']])
 
     with open(state['fstab'], "w") as fp:
-        fp.write("LABEL=%s / %s defaults 0 0\n" % ('cloudimg-rootfs', 'ext4'))
+        fp.write("LABEL=%s / %s defaults 0 0\n" % ('cloudimg-rootfs', args.fstype))
 
     return 0
 
