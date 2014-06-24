@@ -96,7 +96,7 @@ def extract(args):
     LOG.debug("Installing sources: %s to target at %s" % (sources, target))
 
     for source in sources:
-        if source['type'] == 'dd':
+        if source['type'].startswith('dd-'):
             continue
         if source['uri'].startswith("cp://"):
             copy_to_target(source['uri'], target)

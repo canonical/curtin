@@ -476,7 +476,7 @@ def sanitize_source(source):
     if type(source) is dict:
         # already sanitized?
         return source
-    supported = ['tgz', 'dd']
+    supported = ['tgz', 'dd-tgz']
     src = source.split(':', 1)
     if len(src) == 1:
         # This condition treats the case
@@ -499,7 +499,7 @@ def get_dd_images(sources):
     for i in sources:
         if type(sources[i]) is not dict:
             continue
-        if sources[i]['type'] == 'dd':
+        if sources[i]['type'].startswith('dd-'):
             src.append(sources[i]['uri'])
     return src
 
