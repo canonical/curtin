@@ -155,10 +155,7 @@ def parse_deb_config_data(ifaces, contents, path):
             ifaces[iface]['method'] = method
             currif = iface
         elif option == "hwaddress":
-            ifaces[currif]['hwaddress'] = {
-                'class': split[1],
-                'address': split[2],
-                }
+            ifaces[currif]['hwaddress'] = split[1]
         elif option in NET_CONFIG_OPTIONS:
             ifaces[currif][option] = split[1]
         elif option in NET_CONFIG_COMMANDS:
