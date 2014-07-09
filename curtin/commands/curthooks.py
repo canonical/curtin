@@ -392,7 +392,7 @@ def curthooks(args):
     # to be updated, and this also triggers boot loader setup via
     # flash-kernel.
     machine = platform.machine()
-    if machine.startswith('armv7'):
+    if machine.startswith('armv7') or machine.startswith('aarch64'):
         update_initramfs(target)
     else:
         setup_grub(cfg, target)
