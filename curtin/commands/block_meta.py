@@ -179,8 +179,6 @@ def meta_simple_boot(args):
 
     sources = cfg.get('sources', {})
     dd_images = util.get_dd_images(sources)
-    LOG.info("NEWELL: dd_images found %s" % dd_images)
-    LOG.info("NEWELL: len(dd_images) found %s" % len(dd_images))
     if len(dd_images):
         # we have at least one dd-able image
         # we will only take the first one
@@ -188,8 +186,6 @@ def meta_simple_boot(args):
         util.subp(['mount', rootdev, state['target']])
         return 0
 
-    # I believe this is where I will need to create the extra partition size
-    # helper partition will forcibly set up partition there
     if util.is_uefi_bootable():
         logtime(
             "partition --format uefi --boot %s" % devnode,
@@ -201,21 +197,17 @@ def meta_simple_boot(args):
 
     bootdev = devnode + "1"
     rootdev = devnode + "2"
-    LOG.info("NEWELL: bootdev %s" % bootdev)
-    LOG.info("NEWELL: rootdev %s" % rootdev)
 
-    cmd = ['mkfs.%s' % args.fstype, '-q', '-L', 'cloudimg-rootfs-boot', bootdev]
-    LOG.info("NEWELL: cmd %s" % cmd)    
+    cmd = ['mkfs.%s' % args.fstype, '-q', '-L', 'cloudimg-bootfs', bootdev]
     logtime(' '.join(cmd), util.subp, cmd)
     util.subp(['mount', bootdev, state['target']])
 
     cmd = ['mkfs.%s' % args.fstype, '-q', '-L', 'cloudimg-rootfs', rootdev]
-    LOG.info("NEWELL: cmd %s" % cmd)    
     logtime(' '.join(cmd), util.subp, cmd)
     util.subp(['mount', rootdev, state['target']])
 
     with open(state['fstab'], "w") as fp:
-        fp.write("LABEL=%s /boot %s defaults 0 0\n" % ('cloudimg-rootfs-boot', args.fstype))
+        fp.write("LABEL=%s /boot %s defaults 0 0\n" % ('cloudimg-bootfs', args.fstype))
         fp.write("LABEL=%s / %s defaults 0 0\n" % ('cloudimg-rootfs', args.fstype))
 
     return 0
