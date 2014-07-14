@@ -209,7 +209,7 @@ pt_mbr() {
 	local rootstart=$start+$bootsize
 	# Create /boot and / partition
 	local sfdisk_out="" 
-	local sfdisk_in="EOF\n$start,$bootsize,$ptype\n$rootstart,$rootsize,$ptype" 
+	local sfdisk_in="EOF\n$start,$bootsize,$ptype\n$rootstart,$rootsize,$ptype\nEOF" 
 	local sfdisk_cmd=""
 	sfdisk_cmd=( sfdisk --no-reread --force --Linux --unit S "$target" )
 	debug 1 "sfdisking with: echo '$sfdisk_in' | ${sfdisk_cmd[*]}"
@@ -266,7 +266,7 @@ partition_main() {
             -h|--help) partition_main_usage ; exit 0;;
             -E|--end) end=$next; shift;;
             -f|--format) format=$next; shift;;
-	    -b|--boot) boot="yes"; shift;;
+	    -b|--boot) boot=true; shift;;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
             --) shift; break;;
         esac
