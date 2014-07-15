@@ -137,16 +137,10 @@ def meta_simple_boot(args):
     """Similar to meta_simple but it also creates an extra /boot partition.
     This is needed from some instances of u-boot.
     """
-    # This is loading command environment k,v pairs such as 'fstab': 
-    # 'OUTPUT_FSTAB', which points to the fstab file path
     state = util.load_command_environment()
 
-    # This is taking the state dictionary above and finds whether either the
-    # args or the state have a configuration file and this is what is returned
     cfg = util.load_command_config(args, state)
 
-    # I believe this is finding if there are any /dev/sda etc. devices using
-    # the --device (or is it --devices) flag from the config file
     devices = args.devices
     if devices is None:
         devices = cfg.get('block-meta', {}).get('devices', [])

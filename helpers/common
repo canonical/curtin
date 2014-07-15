@@ -16,7 +16,6 @@ Usage: ${0##*/} [ options ] target-dev
      -f | --format F   use partition table format F. [mbr, gpt, uefi]
                        default gpt
      -b | --boot       create a 512MiB boot partition
-
 EOF
     [ $# -eq 0 ] || echo "$@"
 }
@@ -91,8 +90,8 @@ pt_gpt() {
 
     if [ -n "$boot" ]; then 
         sgdisk --new "15:$start:+1M" --typecode=15:ef02 \
-	       --new "1:+1M:+513M" --typecode=2:8300 \
-               --new "2::$end"     --typecode=1:8300 "$target" ||
+	       --new "1:+1M:+513M" --typecode=1:8300 \
+               --new "2::$end"     --typecode=2:8300 "$target" ||
             { error "failed to gpt partition $target"; return 1; }
     else
         sgdisk --new "15:2048:+1M" --typecode=15:ef02 \
@@ -145,8 +144,8 @@ pt_uefi() {
     # Part 15 is the UEFI partition, part 1 is root
     if [ -n "$boot" ]; then
         sgdisk --new "15:$start:+512M" --typecode=15:ef00 "$target" \
-	       --new "1:+512M:+1024M" --typecode=2:8300 \
-               --new "2::$end" --typecode=1:8300 "$target" ||
+	       --new "1:+512M:+1024M" --typecode=1:8300 \
+               --new "2::$end" --typecode=2:8300 "$target" ||
             { error "failed to sgdisk for uefi to $target"; return 1; }
     else
         sgdisk --new "15:$start:+512M" --typecode=15:ef00 "$target" \
@@ -266,7 +265,7 @@ partition_main() {
             -h|--help) partition_main_usage ; exit 0;;
             -E|--end) end=$next; shift;;
             -f|--format) format=$next; shift;;
-	    -b|--boot) boot=true; shift;;
+	    -b|--boot) boot=true;;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
             --) shift; break;;
         esac
