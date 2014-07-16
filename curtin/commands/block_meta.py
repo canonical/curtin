@@ -30,8 +30,10 @@ CMD_ARGUMENTS = (
     ((('-D', '--devices'),
       {'help': 'which devices to operate on', 'action': 'append',
        'metavar': 'DEVICE', 'default': None, }),
-     ('--fstype', {'help': 'root filesystem type',
+     ('--fstype', {'help': 'root partition filesystem type',
                    'choices': ['ext4', 'ext3'], 'default': 'ext4'}),
+     ('--boot-fstype', {'help': 'boot partition filesystem type',
+                        'choices': ['ext4', 'ext3'], 'default': None}),
      ('mode', {'help': 'meta-mode to use', 'choices': ['raid0', 'simple', 'simple-boot']}),
      )
 )
@@ -42,7 +44,7 @@ def block_meta(args):
     if args.mode == "simple":
         meta_simple(args)
     elif args.mode == "simple-boot":
-        meta_simple_boot(args)
+        meta_simple(args)
     else:
         raise NotImplementedError("mode=%s is not implemenbed" % args.mode)
 
@@ -67,75 +69,8 @@ def write_image_to_disk(source, dev):
 
 
 def meta_simple(args):
-    state = util.load_command_environment()
-
-    cfg = util.load_command_config(args, state)
-
-    devices = args.devices
-    if devices is None:
-        devices = cfg.get('block-meta', {}).get('devices', [])
-
-    # Remove duplicates but maintain ordering.
-    devices = list(OrderedDict.fromkeys(devices))
-
-    if len(devices) == 0:
-        devices = block.get_installable_blockdevs()
-        LOG.warn("simple mode, no devices given. unused list: %s", devices)
-
-    if len(devices) > 1:
-        if args.devices is not None:
-            LOG.warn("simple mode but multiple devices given. "
-                     "using first found")
-        available = [f for f in devices
-                     if block.is_valid_device(f)]
-        target = sorted(available)[0]
-        LOG.warn("mode is 'simple'. multiple devices given. using '%s' "
-                 "(first available)", target)
-    else:
-        target = devices[0]
-
-    if not block.is_valid_device(target):
-        raise Exception("target device '%s' is not a valid device" % target)
-
-    (devname, devnode) = block.get_dev_name_entry(target)
-
-    LOG.info("installing in simple mode to '%s'", devname)
-
-    sources = cfg.get('sources', {})
-    dd_images = util.get_dd_images(sources)
-    if len(dd_images):
-        # we have at least one dd-able image
-        # we will only take the first one
-        rootdev = write_image_to_disk(dd_images[0], devname)
-        util.subp(['mount', rootdev, state['target']])
-        return 0
-
-    # helper partition will forcibly set up partition there
-    if util.is_uefi_bootable():
-        logtime(
-            "partition --format uefi %s" % devnode,
-            util.subp, ("partition", "--format", "uefi", devnode))
-    else:
-        logtime(
-            "partition %s" % devnode,
-            util.subp, ("partition", devnode))
-
-    rootdev = devnode + "1"
-
-    cmd = ['mkfs.%s' % args.fstype, '-q', '-L', 'cloudimg-rootfs', rootdev]
-    logtime(' '.join(cmd), util.subp, cmd)
-
-    util.subp(['mount', rootdev, state['target']])
-
-    with open(state['fstab'], "w") as fp:
-        fp.write("LABEL=%s / %s defaults 0 0\n" % ('cloudimg-rootfs', args.fstype))
-
-    return 0
-
-
-def meta_simple_boot(args):
-    """Similar to meta_simple but it also creates an extra /boot partition.
-    This is needed from some instances of u-boot.
+    """Creates a root partition. If args.mode == 'simple-boot', it will also
+    create a separate /boot partition.
     """
     state = util.load_command_environment()
 
@@ -150,17 +85,18 @@ def meta_simple_boot(args):
 
     if len(devices) == 0:
         devices = block.get_installable_blockdevs()
-        LOG.warn("simple-boot mode, no devices given. unused list: %s", devices)
+        LOG.warn("'%s' mode, no devices given. unused list: %s",
+                 (args.mode, devices))
 
     if len(devices) > 1:
         if args.devices is not None:
-            LOG.warn("simple-boot mode but multiple devices given. "
-                     "using first found")
+            LOG.warn("'%s' mode but multiple devices given. "
+                     "using first found", args.mode)
         available = [f for f in devices
                      if block.is_valid_device(f)]
         target = sorted(available)[0]
-        LOG.warn("mode is 'simple-boot'. multiple devices given. using '%s' "
-                 "(first available)", target)
+        LOG.warn("mode is '%s'. multiple devices given. using '%s' "
+                 "(first available)", (args.mode, target))
     else:
         target = devices[0]
 
@@ -169,10 +105,12 @@ def meta_simple_boot(args):
 
     (devname, devnode) = block.get_dev_name_entry(target)
 
-    LOG.info("installing in simple-boot mode to '%s'", devname)
+    LOG.info("installing in '%s' mode to '%s'", (args.mode, devname))
 
     sources = cfg.get('sources', {})
     dd_images = util.get_dd_images(sources)
+
+    # dd images are only for Windows, not Linux
     if len(dd_images):
         # we have at least one dd-able image
         # we will only take the first one
@@ -180,28 +118,46 @@ def meta_simple_boot(args):
         util.subp(['mount', rootdev, state['target']])
         return 0
 
+    # helper partition will forcibly set up partition there
     if util.is_uefi_bootable():
         logtime(
-            "partition --format uefi --boot %s" % devnode,
-            util.subp, ("partition", "--format", "uefi", "--boot", devnode))
+            "partition --format uefi %s" % devnode,
+            util.subp, ("partition", "--format", "uefi", devnode))
+    elif args.mode == 'simple-boot':
+        logtime(
+            "partition %s" % devnode,
+            util.subp, ("partition", "--boot", devnode))
+        bootdev = devnode + "1"
+        rootdev = devnode + "2"
     else:
         logtime(
-            "partition --boot %s" % devnode,
-            util.subp, ("partition", "--boot", devnode))
+            "partition %s" % devnode,
+            util.subp, ("partition", devnode))
+        rootdev = devnode + "1"
 
-    bootdev = devnode + "1"
-    rootdev = devnode + "2"
-
-    cmd = ['mkfs.%s' % args.fstype, '-q', '-L', 'cloudimg-bootfs', bootdev]
-    logtime(' '.join(cmd), util.subp, cmd)
-    util.subp(['mount', bootdev, state['target']])
-
+    # mkfs for root partition first and mount
     cmd = ['mkfs.%s' % args.fstype, '-q', '-L', 'cloudimg-rootfs', rootdev]
     logtime(' '.join(cmd), util.subp, cmd)
     util.subp(['mount', rootdev, state['target']])
 
+    if args.mode == 'simple-boot':
+        # create 'boot' directory in state['target']
+        boot_dir = os.path.join(state['target'], 'boot')
+        util.subp(['mkdir', boot_dir])
+        # mkfs for boot partition and mount
+        if args.boot_fstype:
+            cmd = ['mkfs.%s' % args.boot_fstype, '-q', '-L', 'cloudimg-bootfs', bootdev]
+        else:
+            cmd = ['mkfs.%s' % args.fstype, '-q', '-L', 'cloudimg-bootfs', bootdev]    
+        logtime(' '.join(cmd), util.subp, cmd)
+        util.subp(['mount', bootdev, boot_dir])
+        
     with open(state['fstab'], "w") as fp:
-        fp.write("LABEL=%s /boot %s defaults 0 0\n" % ('cloudimg-bootfs', args.fstype))
+        if args.mode == 'simple-boot':
+            if args.boot_fstype:
+                fp.write("LABEL=%s /boot %s defaults 0 0\n" % ('cloudimg-bootfs', args.boot_fstype))
+            else:
+                   fp.write("LABEL=%s /boot %s defaults 0 0\n" % ('cloudimg-bootfs', args.fstype))
         fp.write("LABEL=%s / %s defaults 0 0\n" % ('cloudimg-rootfs', args.fstype))
 
     return 0

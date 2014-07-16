@@ -12,9 +12,9 @@ Usage: ${0##*/} [ options ] target-dev
    destroy any partition table that might be there already.
 
    options:
-     -E | --end E      end the partition at E (unit 1k bytes)
      -f | --format F   use partition table format F. [mbr, gpt, uefi]
                        default gpt
+     -E | --end E      end the partition at E (unit 1k bytes)
      -b | --boot       create a 512MiB boot partition
 EOF
     [ $# -eq 0 ] || echo "$@"
@@ -72,9 +72,8 @@ pt_gpt() {
     else
         end=$(($end/512))
     fi
-
     # 512MiB = 536870912 bytes / 512 bytes per sector = 1048576 sectors
-    if [ -n "$boot" ]; then
+    if [ "$boot" -ge 1 ]; then
         maxend=$((($size/512)-$start-$bootsize))
 	if [ $maxend -lt 0 ]; then
 	    { error "Disk is not big enough for /boot partition on $target";
@@ -88,7 +87,7 @@ pt_gpt() {
 
     [ -b "$target" ] && isblk=true
 
-    if [ -n "$boot" ]; then 
+    if [ "$boot" -ge 1 ]; then 
         sgdisk --new "15:$start:+1M" --typecode=15:ef02 \
 	       --new "1:+1M:+513M" --typecode=1:8300 \
                --new "2::$end"     --typecode=2:8300 "$target" ||
@@ -106,7 +105,7 @@ pt_gpt() {
             { error "no partition found ${target}1"; return 1; }
         [ -b "${target}15" ] ||
             { error "no partition found ${target}15"; return 1; }
-	if [ -n "$boot" ]; then
+	if [ "$boot" -ge 1 ]; then
             [ -b "${target}2" ] ||
                 { error "no partition found ${target}2"; return 1; }
 	fi
@@ -114,8 +113,8 @@ pt_gpt() {
 }
 
 pt_uefi() {
-    local target="$1" end=${2:-""} boot="$3" size="" s512="" ptype="L"
-    local start="2048" rootsize="" bootsize="1048576" maxend=""
+    local target="$1" end=${2:-""} size="" s512="" ptype="L"
+    local start="2048" pt1size="" maxend=""
     local isblk=false
     getsize "$target" ||
         { error "failed to get size of $target"; return 1; }
@@ -125,33 +124,16 @@ pt_uefi() {
     else
         end=$(($end/512))
     fi
-
-    # 512MiB = 536870912 bytes / 512 bytes per sector = 1048576 sectors
-    if [ -n "$boot" ]; then
-        maxend=$((($size/512)-$start-$bootsize))
-	if [ $maxend -lt 0 ]; then
-	    { error "Disk is not big enough for /boot partition on $target";
-		return 1; }
-	fi
-    else
-	maxend=$((($size/512)-$start))
-    fi
+    maxend=$((($size/512)-2048))
     [ "$end" -gt "$maxend" ] && end="$maxend"
     debug 1 "maxend=$maxend end=$end size=$size"
 
     [ -b "$target" ] && isblk=true
 
     # Part 15 is the UEFI partition, part 1 is root
-    if [ -n "$boot" ]; then
-        sgdisk --new "15:$start:+512M" --typecode=15:ef00 "$target" \
-	       --new "1:+512M:+1024M" --typecode=1:8300 \
-               --new "2::$end" --typecode=2:8300 "$target" ||
-            { error "failed to sgdisk for uefi to $target"; return 1; }
-    else
-        sgdisk --new "15:$start:+512M" --typecode=15:ef00 "$target" \
-               --new "1::$end" --typecode=1:8300 "$target" ||
-            { error "failed to sgdisk for uefi to $target"; return 1; }
-    fi
+    sgdisk --new "15:2048:+512M" --typecode=15:ef00 "$target" \
+           --new "1::$end" --typecode=1:8300 "$target" ||
+        { error "failed to sgdisk for uefi to $target"; return 1; }
 
     if $isblk; then
         blockdev --rereadpt "$target"
@@ -160,10 +142,6 @@ pt_uefi() {
             { error "no partition found ${target}1"; return 1; }
         [ -b "${target}15" ] ||
             { error "no partition found ${target}15"; return 1; }
-	if [ -n "$boot" ]; then
-            [ -b "${target}2" ] ||
-                { error "no partition found ${target}2"; return 1; }
-	fi
     fi
 
     mkfs -t vfat -F 32 -n uefi-boot ${target}15 ||
@@ -172,8 +150,8 @@ pt_uefi() {
 
 
 pt_mbr() {
-    local target="$1" end=${2:-""} boot="$3" size="" s512="" ptype="L"
-    local start="2048" rootsize="" bootsize="1048576" maxsize="4294967296"
+    local target="$1" end=${2:-""} size="" s512="" ptype="L"
+    local start="2048" pt1size="" maxsize="4294967296"
     local isblk=false
     getsize "$target" ||
         { error "failed to get size of $target"; return 1; }
@@ -185,61 +163,30 @@ pt_mbr() {
     else
         s512=$(($size/512))
     fi
-    # 512MiB = 536870912 bytes / 512 bytes per sector = 1048576 sectors
     if [ -n "$end" ]; then
-	if [ -n "$boot" ]; then
-            rootsize=$(((end/512)-$start-$bootsize))
-	else
-	    rootsize=$(((end/512)-$start))
-	fi
+        pt1size=$(((end/512)-2048))
     else
-	if [ -n "$boot" ]; then
-            rootsize=$((s512-Sstart-$bootsize))	    
-	else
-	    rootsize=$((s512-$start))	    
-	fi
+        pt1size=$((s512-2048))
     fi
 
     [ -b "$target" ] && isblk=true
 
     # interact with sfdisk in units of 512 bytes (--unit S)
     # we start all partitions at 2048 of those (1M)
-    if [ -n "$boot" ]; then
-	local rootstart=$start+$bootsize
-	# Create /boot and / partition
-	local sfdisk_out="" 
-	local sfdisk_in="EOF\n$start,$bootsize,$ptype\n$rootstart,$rootsize,$ptype\nEOF" 
-	local sfdisk_cmd=""
-	sfdisk_cmd=( sfdisk --no-reread --force --Linux --unit S "$target" )
-	debug 1 "sfdisking with: echo '$sfdisk_in' | ${sfdisk_cmd[*]}"
-	sfdisk_out=$(printf "$sfdisk_in" | "${sfdisk_cmd[@]}" 2>&1)
-
-	ret=$?
-	[ $ret -eq 0 ] || {
-            error "failed to partition $target [${sfdisk_out}]";
-            return 1;
-	}
-    else
-	local sfdisk_out="" sfdisk_in="$start,$rootsize,$ptype,*" sfdisk_cmd=""
-	sfdisk_cmd=( sfdisk --no-reread --force --Linux --unit S "$target" )
-	debug 1 "sfdisking with: echo '$sfdisk_in' | ${sfdisk_cmd[*]}"
-	sfdisk_out=$(echo "$sfdisk_in" | "${sfdisk_cmd[@]}" 2>&1)
-
-	ret=$?
-	[ $ret -eq 0 ] || {
-            error "failed to partition $target [${sfdisk_out}]";
-            return 1;
-	}
-    fi
+    local sfdisk_out="" sfdisk_in="2048,$pt1size,$ptype,*" sfdisk_cmd=""
+    sfdisk_cmd=( sfdisk --no-reread --force --Linux --unit S "$target" )
+    debug 1 "sfdisking with: echo '$sfdisk_in' | ${sfdisk_cmd[*]}"
+    sfdisk_out=$(echo "$sfdisk_in" | "${sfdisk_cmd[@]}" 2>&1)
+    ret=$?
+    [ $ret -eq 0 ] || {
+        error "failed to partition $target [${sfdisk_out}]";
+        return 1;
+    }
     if $isblk; then
         blockdev --rereadpt "$target"
         udevadm settle
         [ -b "${target}1" ] ||
             { error "no partition found ${target}1"; return 1; }
-	if [ -n "$boot" ]; then
-            [ -b "${target}2" ] ||
-                { error "no partition found ${target}2"; return 1; }
-	fi
     fi
     out=$(wipefs "--offset=$(($start*512))" "$target" 2>&1) || {
         error "$out";
@@ -257,7 +204,7 @@ partition_main() {
         { partition_main_usage 1>&2; return 1; }
 
     local cur="" next=""
-    local format="gpt" boot="" target="" end=""
+    local format="gpt" boot=0 target="" end=""
 
     while [ $# -ne 0 ]; do
         cur="$1"; next="$2";
@@ -265,7 +212,7 @@ partition_main() {
             -h|--help) partition_main_usage ; exit 0;;
             -E|--end) end=$next; shift;;
             -f|--format) format=$next; shift;;
-	    -b|--boot) boot=true;;
+	    -b|--boot) boot=$((${boot}+1));;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
             --) shift; break;;
         esac

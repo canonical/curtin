@@ -273,6 +273,8 @@ def cmd_install(args):
     finally:
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))
+        if util.is_mounted(workingd.target, 'boot'):
+            util.do_umount(os.path.join(workingd.target, 'boot'))
         util.do_umount(workingd.target)
         shutil.rmtree(workingd.top)
 
