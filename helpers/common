@@ -15,7 +15,7 @@ Usage: ${0##*/} [ options ] target-dev
      -f | --format F   use partition table format F. [mbr, gpt, uefi]
                        default gpt
      -E | --end E      end the partition at E (unit 1k bytes)
-     -b | --boot       create a 512MiB boot partition
+     -b | --boot       create a 512MiB (default size) boot partition
 EOF
     [ $# -eq 0 ] || echo "$@"
 }
@@ -73,6 +73,7 @@ pt_gpt() {
         end=$(($end/512))
     fi
     # 512MiB = 536870912 bytes / 512 bytes per sector = 1048576 sectors
+    # This is currently the default size we have the /boot partition set to
     if [ "$boot" -ge 1 ]; then
         maxend=$((($size/512)-$start-$bootsize))
 	if [ $maxend -lt 0 ]; then

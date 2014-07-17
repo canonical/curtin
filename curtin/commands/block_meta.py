@@ -157,7 +157,7 @@ def meta_simple(args):
             if args.boot_fstype:
                 fp.write("LABEL=%s /boot %s defaults 0 0\n" % ('cloudimg-bootfs', args.boot_fstype))
             else:
-                   fp.write("LABEL=%s /boot %s defaults 0 0\n" % ('cloudimg-bootfs', args.fstype))
+                fp.write("LABEL=%s /boot %s defaults 0 0\n" % ('cloudimg-bootfs', args.fstype))
         fp.write("LABEL=%s / %s defaults 0 0\n" % ('cloudimg-rootfs', args.fstype))
 
     return 0
