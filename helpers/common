@@ -73,7 +73,7 @@ pt_gpt() {
         end=$(($end/512))
     fi
     # 512MiB = 536870912 bytes / 512 bytes per sector = 1048576 sectors
-    # This is currently the default size we have the /boot partition set to
+    # This is currently the default size we have for the /boot partition
     if [ "$boot" -ge 1 ]; then
         maxend=$((($size/512)-$start-$bootsize))
 	if [ $maxend -lt 0 ]; then
@@ -89,11 +89,13 @@ pt_gpt() {
     [ -b "$target" ] && isblk=true
 
     if [ "$boot" -ge 1 ]; then 
+	# Creating 'efi', '/boot' and '/' partitions
         sgdisk --new "15:$start:+1M" --typecode=15:ef02 \
 	       --new "1:+1M:+513M" --typecode=1:8300 \
                --new "2::$end"     --typecode=2:8300 "$target" ||
             { error "failed to gpt partition $target"; return 1; }
     else
+	# Creating 'efi' and '/' partitions 
         sgdisk --new "15:2048:+1M" --typecode=15:ef02 \
                --new "1::$end"     --typecode=1:8300 "$target" ||
             { error "failed to gpt partition $target"; return 1; }
@@ -243,11 +245,11 @@ partition_main() {
         { error "wiping $target failed"; return 1; }
 
     if [ "$format" = "mbr" ]; then
-        pt_mbr "$target" "$end" "$boot"
+        pt_mbr "$target" "$end"
     elif [ "$format" = "gpt" ]; then
         pt_gpt "$target" "$end" "$boot"
     elif [ "$format" = "uefi" ]; then
-        pt_uefi "$target" "$end" "$boot"
+        pt_uefi "$target" "$end"
     fi
 
     trap cleanup EXIT
