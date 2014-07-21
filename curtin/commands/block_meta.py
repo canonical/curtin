@@ -22,6 +22,8 @@ from curtin.log import LOG
 
 from . import populate_one_subcmd
 
+import os
+
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 
@@ -66,6 +68,25 @@ def write_image_to_disk(source, dev):
     return block.get_root_device([devname, ])
 
 
+def get_bootpt_cfg(cfg, enabled=False, fstype=None):
+    # 'cfg' looks like:
+    #   enabled: boolean
+    #   fstype: filesystem type (default to 'fstype')
+    #   label:  filesystem label (default to 'boot')
+    #   size:   filesystem size in M (default to 512)
+    # parm enable can enable, but not disable
+    # parm fstype overrides cfg['fstype']
+    ret = {'enabled': False, 'fstype': None, 'size': 512, 'label': 'boot'}
+    ret.update(cfg)
+    if enabled:
+        ret['enabled'] = True
+    if ret['enabled']:
+        if fstype and not ret['fstype']:
+            ret['fstype'] = fstype
+    ret['size'] = int(ret['size'])
+    return ret
+
+
 def meta_simple(args):
     """Creates a root partition. If args.mode == 'simple-boot', it will also
     create a separate /boot partition.
@@ -77,6 +98,10 @@ def meta_simple(args):
     devices = args.devices
     if devices is None:
         devices = cfg.get('block-meta', {}).get('devices', [])
+
+    bootpt = get_bootpt_cfg(
+        cfg.get('block-meta', {}).get('boot-partition', {}),
+        enabled=bool(args.mode is SIMPLE_BOOT), fstype=args.boot_fstype)
 
     # Remove duplicates but maintain ordering.
     devices = list(OrderedDict.fromkeys(devices))
@@ -138,24 +163,20 @@ def meta_simple(args):
     logtime(' '.join(cmd), util.subp, cmd)
     util.subp(['mount', rootdev, state['target']])
 
-    if args.mode == SIMPLE_BOOT:
+    if bootpt['enabled']:
         # create 'boot' directory in state['target']
         boot_dir = os.path.join(state['target'], 'boot')
         util.subp(['mkdir', boot_dir])
         # mkfs for boot partition and mount
-        if args.boot_fstype:
-            cmd = ['mkfs.%s' % args.boot_fstype, '-q', '-L', 'cloudimg-bootfs', bootdev]
-        else:
-            cmd = ['mkfs.%s' % args.fstype, '-q', '-L', 'cloudimg-bootfs', bootdev]    
+        cmd = ['mkfs.%s' % bootpt['fstype'],
+               '-q', '-L', bootpt['label'], bootdev]
         logtime(' '.join(cmd), util.subp, cmd)
         util.subp(['mount', bootdev, boot_dir])
-        
+
     with open(state['fstab'], "w") as fp:
-        if args.mode == SIMPLE_BOOT:
-            if args.boot_fstype:
-                fp.write("LABEL=%s /boot %s defaults 0 0\n" % ('cloudimg-bootfs', args.boot_fstype))
-            else:
-                fp.write("LABEL=%s /boot %s defaults 0 0\n" % ('cloudimg-bootfs', args.fstype))
+        if bootpt['enabled']:
+            fp.write("LABEL=%s /boot %s defaults 0 0\n" %
+                     (bootpt['label'], bootpt['fstype']))
         fp.write("LABEL=%s / %s defaults 0 0\n" %
                  ('cloudimg-rootfs', args.fstype))
 
