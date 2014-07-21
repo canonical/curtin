@@ -133,7 +133,6 @@ def meta_simple(args):
     sources = cfg.get('sources', {})
     dd_images = util.get_dd_images(sources)
 
-    # dd images are only for Windows, not Linux
     if len(dd_images):
         # we have at least one dd-able image
         # we will only take the first one
