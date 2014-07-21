@@ -76,10 +76,10 @@ pt_gpt() {
     # This is currently the default size we have for the /boot partition
     if [ "$boot" -ge 1 ]; then
         maxend=$((($size/512)-$start-$bootsize))
-    if [ $maxend -lt 0 ]; then
-        { error "Disk is not big enough for /boot partition on $target";
-        return 1; }
-    fi
+        if [ $maxend -lt 0 ]; then
+            error "Disk is not big enough for /boot partition on $target";
+            return 1;
+        fi
     else
         maxend=$((($size/512)-$start))
     fi
@@ -89,13 +89,13 @@ pt_gpt() {
     [ -b "$target" ] && isblk=true
 
     if [ "$boot" -ge 1 ]; then 
-    # Creating 'efi', '/boot' and '/' partitions
+        # Creating 'efi', '/boot' and '/' partitions
         sgdisk --new "15:$start:+1M" --typecode=15:ef02 \
-               --new "1:+1M:+513M" --typecode=1:8300 \
-               --new "2::$end"     --typecode=2:8300 "$target" ||
+            --new "1:+1M:+513M" --typecode=1:8300 \
+            --new "2::$end"     --typecode=2:8300 "$target" ||
             { error "failed to gpt partition $target"; return 1; }
     else
-    # Creating 'efi' and '/' partitions 
+        # Creating 'efi' and '/' partitions 
         sgdisk --new "15:2048:+1M" --typecode=15:ef02 \
                --new "1::$end"     --typecode=1:8300 "$target" ||
             { error "failed to gpt partition $target"; return 1; }
