@@ -145,10 +145,9 @@ def meta_simple(args):
         logtime(
             "partition --format uefi %s" % devnode,
             util.subp, ("partition", "--format", "uefi", devnode))
-    elif args.mode == SIMPLE_BOOT:
-        logtime(
-            "partition %s" % devnode,
-            util.subp, ("partition", "--boot", devnode))
+    elif bootpt['enabled']:
+        logtime("partition %s" % devnode,
+                util.subp, ("partition", "--boot", devnode))
         bootdev = devnode + "1"
         rootdev = devnode + "2"
     else:
