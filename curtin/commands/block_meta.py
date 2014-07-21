@@ -88,7 +88,7 @@ def get_bootpt_cfg(cfg, enabled=False, fstype=None):
 
 
 def meta_simple(args):
-    """Creates a root partition. If args.mode == 'simple-boot', it will also
+    """Creates a root partition. If args.mode == SIMPLE_BOOT, it will also
     create a separate /boot partition.
     """
     state = util.load_command_environment()
@@ -145,9 +145,16 @@ def meta_simple(args):
         logtime(
             "partition --format uefi %s" % devnode,
             util.subp, ("partition", "--format", "uefi", devnode))
+        if bootpt['enabled']:
+            logtime(
+                "partition --format uefi --boot %s" % devnode,
+                util.subp, ("partition", "--format", "uefi", "--boot",
+                            bootpt['size'], devnode))
+            bootdev = devnode + 1
+            rootdev = devnode + 2
     elif bootpt['enabled']:
-        logtime("partition %s" % devnode,
-                util.subp, ("partition", "--boot", devnode))
+        logtime("partition --boot %s" % devnode,
+                util.subp, ("partition", "--boot", bootpt['size'], devnode))
         bootdev = devnode + "1"
         rootdev = devnode + "2"
     else:
