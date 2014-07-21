@@ -25,6 +25,8 @@ from . import populate_one_subcmd
 import os
 import tempfile
 
+SIMPLE = 'simple'
+SIMPLE_BOOT = 'simple-boot'
 
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
@@ -34,16 +36,15 @@ CMD_ARGUMENTS = (
                    'choices': ['ext4', 'ext3'], 'default': 'ext4'}),
      ('--boot-fstype', {'help': 'boot partition filesystem type',
                         'choices': ['ext4', 'ext3'], 'default': None}),
-     ('mode', {'help': 'meta-mode to use', 'choices': ['raid0', 'simple', 'simple-boot']}),
+     ('mode', {'help': 'meta-mode to use',
+               'choices': ['raid0', SIMPLE, SIMPLE_BOOT]}),
      )
 )
 
 
 def block_meta(args):
     # main entry point for the block-meta command.
-    if args.mode == "simple":
-        meta_simple(args)
-    elif args.mode == "simple-boot":
+    if args.mode in (SIMPLE, SIMPLE_BOOT):
         meta_simple(args)
     else:
         raise NotImplementedError("mode=%s is not implemenbed" % args.mode)
@@ -123,7 +124,7 @@ def meta_simple(args):
         logtime(
             "partition --format uefi %s" % devnode,
             util.subp, ("partition", "--format", "uefi", devnode))
-    elif args.mode == 'simple-boot':
+    elif args.mode == SIMPLE_BOOT:
         logtime(
             "partition %s" % devnode,
             util.subp, ("partition", "--boot", devnode))
@@ -140,7 +141,7 @@ def meta_simple(args):
     logtime(' '.join(cmd), util.subp, cmd)
     util.subp(['mount', rootdev, state['target']])
 
-    if args.mode == 'simple-boot':
+    if args.mode == SIMPLE_BOOT:
         # create 'boot' directory in state['target']
         boot_dir = os.path.join(state['target'], 'boot')
         util.subp(['mkdir', boot_dir])
@@ -153,7 +154,7 @@ def meta_simple(args):
         util.subp(['mount', bootdev, boot_dir])
         
     with open(state['fstab'], "w") as fp:
-        if args.mode == 'simple-boot':
+        if args.mode == SIMPLE_BOOT:
             if args.boot_fstype:
                 fp.write("LABEL=%s /boot %s defaults 0 0\n" % ('cloudimg-bootfs', args.boot_fstype))
             else:
