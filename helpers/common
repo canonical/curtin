@@ -92,7 +92,7 @@ pt_gpt() {
         # Creating 'efi', '/boot' and '/' partitions
         sgdisk --new "15:$start:+1M" --typecode=15:ef02 \
             --new "1:+1M:+513M" --typecode=1:8300 \
-               --new "2::$end"     --typecode=2:8300 "$target" ||
+            --new "2::$end"     --typecode=2:8300 "$target" ||
             { error "failed to gpt partition $target"; return 1; }
     else
         # Creating 'efi' and '/' partitions 
