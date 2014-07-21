@@ -119,7 +119,7 @@ class TestNetParserData(TestCase):
                     },
                 },
             }, ifaces)
-    
+
     def test_parse_deb_config_data_bridge(self):
         contents = dedent("""\
             iface eth0 inet manual
