@@ -22,9 +22,6 @@ from curtin.log import LOG
 
 from . import populate_one_subcmd
 
-import os
-import tempfile
-
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 
@@ -159,7 +156,8 @@ def meta_simple(args):
                 fp.write("LABEL=%s /boot %s defaults 0 0\n" % ('cloudimg-bootfs', args.boot_fstype))
             else:
                 fp.write("LABEL=%s /boot %s defaults 0 0\n" % ('cloudimg-bootfs', args.fstype))
-        fp.write("LABEL=%s / %s defaults 0 0\n" % ('cloudimg-rootfs', args.fstype))
+        fp.write("LABEL=%s / %s defaults 0 0\n" %
+                 ('cloudimg-rootfs', args.fstype))
 
     return 0
 

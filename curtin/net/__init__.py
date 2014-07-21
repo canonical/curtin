@@ -148,7 +148,7 @@ def parse_deb_config_data(ifaces, contents, path):
         elif option == "iface":
             iface, family, method = split[1:4]
             if iface not in ifaces:
-                ifaces[iface] = {}  
+                ifaces[iface] = {}
             elif 'family' in ifaces[iface]:
                 raise ParserError("Cannot define %s interface again.")
             ifaces[iface]['family'] = family
