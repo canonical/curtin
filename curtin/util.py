@@ -17,7 +17,6 @@
 
 import errno
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -503,15 +502,5 @@ def get_dd_images(sources):
         if sources[i]['type'].startswith('dd-'):
             src.append(sources[i]['uri'])
     return src
-
-
-def partitioning_command():
-    """
-    return the meta-block command for paritioning
-    """
-    mach = platform.machine()
-    if mach == 'aarch64':
-        return 'simple-boot'
-    return 'simple'
 
 # vi: ts=4 expandtab syntax=python

@@ -23,8 +23,8 @@ from curtin.log import LOG
 from . import populate_one_subcmd
 
 import os
+import platform
 
-AUTO = 'auto'
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 
@@ -37,15 +37,13 @@ CMD_ARGUMENTS = (
      ('--boot-fstype', {'help': 'boot partition filesystem type',
                         'choices': ['ext4', 'ext3'], 'default': None}),
      ('mode', {'help': 'meta-mode to use',
-               'choices': ['raid0', AUTO, SIMPLE, SIMPLE_BOOT]}),
+               'choices': ['raid0', SIMPLE, SIMPLE_BOOT]}),
      )
 )
 
 
 def block_meta(args):
     # main entry point for the block-meta command.
-    if args.mode == AUTO:
-        meta_auto(args)
     if args.mode in (SIMPLE, SIMPLE_BOOT):
         meta_simple(args)
     else:
@@ -79,7 +77,8 @@ def get_bootpt_cfg(cfg, enabled=False, fstype=None):
     #   size:   filesystem size in M (default to 512)
     # parm enable can enable, but not disable
     # parm fstype overrides cfg['fstype']
-    ret = {'enabled': False, 'fstype': None, 'size': 512, 'label': 'boot'}
+    def_boot = platform.machine() in ('aarch64')
+    ret = {'enabled': def_boot, 'fstype': None, 'size': 512, 'label': 'boot'}
     ret.update(cfg)
     if enabled:
         ret['enabled'] = True
@@ -88,12 +87,6 @@ def get_bootpt_cfg(cfg, enabled=False, fstype=None):
             ret['fstype'] = fstype
     ret['size'] = int(ret['size'])
     return ret
-
-
-def meta_auto(args):
-    """Checks to see Architecture of machine before calling meta_simple."""
-    args.mode = util.partitioning_command()
-    meta_simple(args)
 
 
 def meta_simple(args):
@@ -110,7 +103,7 @@ def meta_simple(args):
 
     bootpt = get_bootpt_cfg(
         cfg.get('block-meta', {}).get('boot-partition', {}),
-        enabled=bool(args.mode is SIMPLE_BOOT), fstype=args.boot_fstype)
+        enabled=args.mode == SIMPLE_BOOT, fstype=args.boot_fstype)
 
     # Remove duplicates but maintain ordering.
     devices = list(OrderedDict.fromkeys(devices))
