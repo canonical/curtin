@@ -74,18 +74,16 @@ def get_bootpt_cfg(cfg, enabled=False, fstype=None):
     #   enabled: boolean
     #   fstype: filesystem type (default to 'fstype')
     #   label:  filesystem label (default to 'boot')
-    #   size:   filesystem size in M (default to 512)
     # parm enable can enable, but not disable
     # parm fstype overrides cfg['fstype']
     def_boot = platform.machine() in ('aarch64')
-    ret = {'enabled': def_boot, 'fstype': None, 'size': 512, 'label': 'boot'}
+    ret = {'enabled': def_boot, 'fstype': None, 'label': 'boot'}
     ret.update(cfg)
     if enabled:
         ret['enabled'] = True
     if ret['enabled']:
         if fstype and not ret['fstype']:
             ret['fstype'] = fstype
-    ret['size'] = int(ret['size'])
     return ret
 
 
