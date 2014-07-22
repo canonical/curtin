@@ -29,13 +29,15 @@ from curtin import util
 
 from . import populate_one_subcmd
 
+
 CONFIG_BUILTIN = {
     'sources': {},
     'stages': ['early', 'partitioning', 'network', 'extract', 'curthooks',
                'hook', 'late'],
     'extract_commands': {'builtin': ['curtin', 'extract']},
     'hook_commands': {'builtin': ['curtin', 'hook']},
-    'partitioning_commands': {'builtin': ['curtin', 'block-meta', 'simple']},
+    'partitioning_commands': {
+        'builtin': ['curtin', 'block-meta', 'simple']},
     'curthooks_commands': {'builtin': ['curtin', 'curthooks']},
     'late_commands': {'builtin': []},
     'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
@@ -271,6 +273,8 @@ def cmd_install(args):
     finally:
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))
+        if util.is_mounted(workingd.target, 'boot'):
+            util.do_umount(os.path.join(workingd.target, 'boot'))
         util.do_umount(workingd.target)
         shutil.rmtree(workingd.top)
 
