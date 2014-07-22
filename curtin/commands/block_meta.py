@@ -24,6 +24,7 @@ from . import populate_one_subcmd
 
 import os
 
+AUTO = 'auto'
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 
@@ -36,17 +37,19 @@ CMD_ARGUMENTS = (
      ('--boot-fstype', {'help': 'boot partition filesystem type',
                         'choices': ['ext4', 'ext3'], 'default': None}),
      ('mode', {'help': 'meta-mode to use',
-               'choices': ['raid0', SIMPLE, SIMPLE_BOOT]}),
+               'choices': ['raid0', AUTO, SIMPLE, SIMPLE_BOOT]}),
      )
 )
 
 
 def block_meta(args):
     # main entry point for the block-meta command.
+    if args.mode == AUTO:
+        meta_auto(args)
     if args.mode in (SIMPLE, SIMPLE_BOOT):
         meta_simple(args)
     else:
-        raise NotImplementedError("mode=%s is not implemenbed" % args.mode)
+        raise NotImplementedError("mode=%s is not implemented" % args.mode)
 
 
 def logtime(msg, func, *args, **kwargs):
@@ -85,6 +88,12 @@ def get_bootpt_cfg(cfg, enabled=False, fstype=None):
             ret['fstype'] = fstype
     ret['size'] = int(ret['size'])
     return ret
+
+
+def meta_auto(args):
+    """Checks to see Architecture of machine before calling meta_simple."""
+    args.mode = util.partitioning_command()
+    meta_simple(args)
 
 
 def meta_simple(args):
@@ -145,16 +154,10 @@ def meta_simple(args):
         logtime(
             "partition --format uefi %s" % devnode,
             util.subp, ("partition", "--format", "uefi", devnode))
-        if bootpt['enabled']:
-            logtime(
-                "partition --format uefi --boot %s" % devnode,
-                util.subp, ("partition", "--format", "uefi", "--boot",
-                            bootpt['size'], devnode))
-            bootdev = devnode + 1
-            rootdev = devnode + 2
+        bootpt['enabled'] = False
     elif bootpt['enabled']:
         logtime("partition --boot %s" % devnode,
-                util.subp, ("partition", "--boot", bootpt['size'], devnode))
+                util.subp, ("partition", "--boot", devnode))
         bootdev = devnode + "1"
         rootdev = devnode + "2"
     else:

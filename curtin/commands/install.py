@@ -37,7 +37,7 @@ CONFIG_BUILTIN = {
     'extract_commands': {'builtin': ['curtin', 'extract']},
     'hook_commands': {'builtin': ['curtin', 'hook']},
     'partitioning_commands': {
-        'builtin': ['curtin', 'block-meta', util.partitioning_command()]},
+        'builtin': ['curtin', 'block-meta', 'auto']},
     'curthooks_commands': {'builtin': ['curtin', 'curthooks']},
     'late_commands': {'builtin': []},
     'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
