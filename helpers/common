@@ -456,14 +456,15 @@ install_grub() {
             -- "${grub_name}" "${grub_target}" </dev/null ||
             { error "failed to install grub!"; return 1; }
     else
-        debug 1 "installing grub-pc to: ${grubdevs[*]}"
+        debug 1 "installing ${grub_name} to: ${grubdevs[*]}"
         chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
+            pkg=$1; shift;
             prober="/etc/grub.d/30_os-prober"
             [ -x $prober ] && chmod -x "$prober"
-            dpkg-reconfigure grub-pc
+            dpkg-reconfigure "$pkg"
             [ -f $prober ] && chmod +x "$prober"
             for d in "$@"; do grub-install "$d" || exit; done' \
-            -- "${grubdevs[@]}" </dev/null ||
+            -- "${grub_name}" "${grubdevs[@]}" </dev/null ||
             { error "failed to install grub!"; return 1; }
     fi
 
