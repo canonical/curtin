@@ -24,6 +24,7 @@ from . import populate_one_subcmd
 
 import os
 import platform
+import sys
 
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
@@ -34,6 +35,10 @@ CMD_ARGUMENTS = (
        'metavar': 'DEVICE', 'default': None, }),
      ('--fstype', {'help': 'root partition filesystem type',
                    'choices': ['ext4', 'ext3'], 'default': 'ext4'}),
+     (('-t', '--target'),
+      {'help': 'chroot to target. default is env[TARGET_MOUNT_POINT]',
+       'action': 'store', 'metavar': 'TARGET',
+       'default': os.environ.get('TARGET_MOUNT_POINT')}),
      ('--boot-fstype', {'help': 'boot partition filesystem type',
                         'choices': ['ext4', 'ext3'], 'default': None}),
      ('mode', {'help': 'meta-mode to use',
@@ -97,6 +102,14 @@ def meta_simple(args):
     state = util.load_command_environment()
 
     cfg = util.load_command_config(args, state)
+
+    if args.target is not None:
+        state['target'] = args.target
+
+    if state['target'] is None:
+        sys.stderr.write("Unable to find target.  "
+                         "Use --target or set TARGET_MOUNT_POINT\n")
+        sys.exit(2)
 
     devices = args.devices
     if devices is None:
@@ -176,12 +189,15 @@ def meta_simple(args):
         logtime(' '.join(cmd), util.subp, cmd)
         util.subp(['mount', bootdev, boot_dir])
 
-    with open(state['fstab'], "w") as fp:
-        if bootpt['enabled']:
-            fp.write("LABEL=%s /boot %s defaults 0 0\n" %
-                     (bootpt['label'], bootpt['fstype']))
-        fp.write("LABEL=%s / %s defaults 0 0\n" %
-                 ('cloudimg-rootfs', args.fstype))
+    if state['fstab']:
+        with open(state['fstab'], "w") as fp:
+            if bootpt['enabled']:
+                fp.write("LABEL=%s /boot %s defaults 0 0\n" %
+                         (bootpt['label'], bootpt['fstype']))
+            fp.write("LABEL=%s / %s defaults 0 0\n" %
+                     ('cloudimg-rootfs', args.fstype))
+    else:
+        LOG.info("fstab not in environment, so not writing")
 
     return 0
 
