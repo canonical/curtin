@@ -81,7 +81,7 @@ def get_bootpt_cfg(cfg, enabled=False, fstype=None, root_fstype=None):
     ret.update(cfg)
     if enabled:
         ret['enabled'] = True
-    
+
     if ret['enabled'] and not ret['fstype']:
         if root_fstype:
             ret['fstype'] = root_fstype
@@ -123,7 +123,7 @@ def meta_simple(args):
                      if block.is_valid_device(f)]
         target = sorted(available)[0]
         LOG.warn("mode is '%s'. multiple devices given. using '%s' "
-                 "(first available)", (args.mode, target))
+                 "(first available)", args.mode, target)
     else:
         target = devices[0]
 
@@ -132,7 +132,7 @@ def meta_simple(args):
 
     (devname, devnode) = block.get_dev_name_entry(target)
 
-    LOG.info("installing in '%s' mode to '%s'", (args.mode, devname))
+    LOG.info("installing in '%s' mode to '%s'", args.mode, devname)
 
     sources = cfg.get('sources', {})
     dd_images = util.get_dd_images(sources)
