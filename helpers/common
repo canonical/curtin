@@ -227,7 +227,7 @@ pt_prep() {
             { error "no partition found ${target}2"; return 1; }
     fi
 
-    if [ -f "${target}2" ]; then
+    if [ -b "${target}2" ]; then
         dd if=/dev/zero of="${target}2"
     fi
 
