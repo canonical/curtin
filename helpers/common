@@ -208,8 +208,8 @@ pt_prep() {
 
     cmd=(
         sgdisk "$target"
-           --new "2::+8M"  --typecode=2:4100
-           --new "1::$end" --typecode=1:8300
+           --new "1::+8M"  --typecode=1:EF00
+           --new "2::$end" --typecode=2:8300
            "$target"
     )
     "${cmd[@]}" ||
@@ -225,12 +225,8 @@ pt_prep() {
             { error "no partition found ${target}1"; return 1; }
         [ -b "${target}2" ] ||
             { error "no partition found ${target}2"; return 1; }
-    fi
-
-    if [ -b "${target}2" ]; then
         dd if=/dev/zero of="${target}2"
     fi
-
 
     return 0
 }

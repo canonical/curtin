@@ -166,7 +166,7 @@ def meta_simple(args):
     elif platform.machine().startswith('ppc64'):
         logtime("partition --boot %s" % devnode,
                 util.subp, ("partition", "--format", "prep", devnode))
-        rootdev = devnode + "1"
+        rootdev = devnode + "2"
     elif bootpt['enabled']:
         logtime("partition --boot %s" % devnode,
                 util.subp, ("partition", "--boot", devnode))
