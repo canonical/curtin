@@ -260,7 +260,7 @@ partition_main() {
         end="$_RET"
     fi
 
-    [ "$format" = "gpt" -o "$format" = "mbr" -o ] ||
+    [ "$format" = "gpt" -o "$format" = "mbr" ] ||
         [ "$format" = "uefi" -o "$format" = "prep" ] ||
         { partition_main_usage "invalid format: $format" 1>&2; return 1; }
 
