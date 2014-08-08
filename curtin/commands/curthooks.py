@@ -275,11 +275,9 @@ def setup_grub(cfg, target):
         if instdevs is None:
             LOG.debug("grub installation disabled by config")
     elif platform.machine().startswith("ppc64"):
-        # need to find a prep partition.
-        # for now, assume prep is the first partition
-        devs = block.get_devices_for_mp(target)
-        blockdev = block.get_blockdev_for_partition(devs[0])[0]
-        instdevs = [blockdev + "1"]
+        # ppc64el at least does not install grub.
+        # the dpkg-reconfigure does the work.
+        instdevs = []
     else:
         devs = block.get_devices_for_mp(target)
         blockdevs = set()

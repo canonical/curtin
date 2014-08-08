@@ -374,7 +374,7 @@ install_grub() {
     # set correct grub package
     local grub_name="grub-pc"
     local grub_target="i386-pc"
-    if [ "$dpkg_arch" = "ppc64el" ]; then
+    if [ "${dpkg_arch#ppc64}" != "${dpkg_arch}" ]; then
         grub_name="grub-ieee1275"
         grub_target="powerpc-ieee1275"
     elif [ "$uefi" -ge 1 ]; then
