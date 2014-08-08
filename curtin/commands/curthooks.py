@@ -274,6 +274,12 @@ def setup_grub(cfg, target):
             instdevs = [instdevs]
         if instdevs is None:
             LOG.debug("grub installation disabled by config")
+    elif platform.machine().startswith("ppc64"):
+        # need to find a prep partition.
+        # for now, assume it is the second partition.
+        devs = block.get_devices_for_mp(target)
+        blockdev = block.get_blockdev_for_partition(devs[0])[0]
+        instdevs = [blockdev + "2"]
     else:
         devs = block.get_devices_for_mp(target)
         blockdevs = set()
