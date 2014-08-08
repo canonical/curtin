@@ -215,6 +215,9 @@ pt_prep() {
     "${cmd[@]}" ||
         fail "Failed to create GPT partitions (${cmd[*]})"
 
+    udevadm trigger
+    udevadm settle
+
     if $isblk; then
         blockdev --rereadpt "$target"
         udevadm settle
