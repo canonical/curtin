@@ -277,7 +277,7 @@ def setup_grub(cfg, target):
     elif platform.machine().startswith("ppc64"):
         # ppc64el at least does not install grub.
         # the dpkg-reconfigure does the work.
-        instdevs = []
+        instdevs = ["none"]
     else:
         devs = block.get_devices_for_mp(target)
         blockdevs = set()

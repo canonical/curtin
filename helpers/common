@@ -352,6 +352,9 @@ install_grub() {
     shift
     local grubdevs
     grubdevs=( "$@" )
+    if [ "${#grubdevs[@]}" = "1" -a "${grubdevs[0]}" = "none" ]; then
+        grubdevs=( )
+    fi
 
     # find the mp device
     mp_dev=$(awk -v MP=${mp} '$2==MP {print$1}' /proc/mounts)
