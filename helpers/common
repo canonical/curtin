@@ -203,12 +203,12 @@ pt_prep() {
     local cmd="" isblk=false
     [ -b "$target" ] && isblk=true
 
-    sgdisk "$target" --zap-all "$target" ||
+    sgdisk --zap-all "$target" ||
         fail "failed to clear $target";
 
     cmd=(
         sgdisk 
-           --new "1::+8M"  --typecode=1:EF00
+           --new "1::+8M"  --typecode=1:4100
            --new "2::$end" --typecode=2:8300
            "$target"
     )
