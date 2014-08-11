@@ -207,7 +207,7 @@ pt_prep() {
         fail "failed to clear $target";
 
     cmd=(
-        sgdisk "$target"
+        sgdisk 
            --new "1::+8M"  --typecode=1:EF00
            --new "2::$end" --typecode=2:8300
            "$target"
