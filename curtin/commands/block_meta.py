@@ -126,7 +126,7 @@ def meta_simple(args):
     if len(devices) == 0:
         devices = block.get_installable_blockdevs()
         LOG.warn("'%s' mode, no devices given. unused list: %s",
-                 (args.mode, devices))
+                 args.mode, devices)
 
     if len(devices) > 1:
         if args.devices is not None:
