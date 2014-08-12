@@ -202,15 +202,17 @@ def get_parted_info(devices=None):
         return ret
 
     def diskdata(line):
-        return dictfor(data=line[:-1].split(":"),
+        return dictfor(
+            data=line[:-1].split(":"),
             fields=("path", "size", "transport-type", "logical-sector-size",
                     "physical-sector-size", "partition-table-type",
                     "model-name"))
 
     def partdata(line):
-        return dictfor(data=line[:-1].split(":"),
-           fields=("number", "begin", "end", "size", "filesystem-type",
-               "partition-name", "flags-set"))
+        return dictfor(
+            data=line[:-1].split(":"),
+            fields=("number", "begin", "end", "size", "filesystem-type",
+                    "partition-name", "flags-set"))
 
     out, err = util.subp(["parted", "--list", "--machine"] + devices,
                          capture=True)
