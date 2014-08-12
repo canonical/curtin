@@ -21,6 +21,7 @@ import platform
 import re
 import sys
 import shutil
+import textwrap
 
 from curtin import config
 from curtin import block
@@ -262,6 +263,7 @@ def get_installed_packages(target=None):
 
 
 def setup_grub(cfg, target):
+    # target is the path to the mounted filesystem
     grubcfg = cfg.get('grub', {})
 
     # copy legacy top level name
@@ -274,10 +276,6 @@ def setup_grub(cfg, target):
             instdevs = [instdevs]
         if instdevs is None:
             LOG.debug("grub installation disabled by config")
-    elif platform.machine().startswith("ppc64"):
-        # ppc64el at least does not install grub.
-        # the dpkg-reconfigure does the work.
-        instdevs = None
     else:
         devs = block.get_devices_for_mp(target)
         blockdevs = set()
@@ -285,7 +283,27 @@ def setup_grub(cfg, target):
             (blockdev, part) = block.get_blockdev_for_partition(maybepart)
             blockdevs.add(blockdev)
 
-        instdevs = list(blockdevs)
+        if platform.machine().startswith("ppc64"):
+            # ppc64 we want the PReP partitions on the installed block devices.
+            # the shnip here prints /dev/xxxN for each N that has 'prep' flags
+            shnip = textwrap.dedent("""
+                export LANG=C;
+                for d in "$@"; do
+                  parted --machine "$d" print |
+                    awk -F: "\$7 ~ /prep/ { print d \$1 }" d=$d; done
+                """)
+            try:
+                out, err = util.subp(
+                    ['sh', '-c', shnip, '--'] + list(blockdevs),
+                    capture=True)
+                instdevs = str(out).splitlines()
+                if not instdevs:
+                    LOG.warn("No PReP partitions found!")
+            except util.ProcessExecutionError as e:
+                LOG.warn("Failed to find PReP partitions with parted: %s", e)
+                instdevs = ["none"]
+        else:
+            instdevs = list(blockdevs)
 
     # UEFI requires grub-efi-{arch}. If a signed version of that package
     # exists then it will be installed.
