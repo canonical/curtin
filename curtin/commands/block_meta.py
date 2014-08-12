@@ -126,7 +126,7 @@ def meta_simple(args):
     if len(devices) == 0:
         devices = block.get_installable_blockdevs()
         LOG.warn("'%s' mode, no devices given. unused list: %s",
-                 (args.mode, devices))
+                 args.mode, devices)
 
     if len(devices) > 1:
         if args.devices is not None:
@@ -163,6 +163,10 @@ def meta_simple(args):
             "partition --format uefi %s" % devnode,
             util.subp, ("partition", "--format", "uefi", devnode))
         bootpt['enabled'] = False
+    elif platform.machine().startswith('ppc64'):
+        logtime("partition --format %s" % devnode,
+                util.subp, ("partition", "--format", "prep", devnode))
+        rootdev = devnode + "2"
     elif bootpt['enabled']:
         logtime("partition --boot %s" % devnode,
                 util.subp, ("partition", "--boot", devnode))
