@@ -51,4 +51,51 @@ class TestDisableDaemons(TestCase):
         self.assertTrue(os.path.exists(self.temp_prc))
 
 
+class TestWhich(TestCase):
+    def setUp(self):
+        self.orig_is_exe = util.is_exe
+        util.is_exe = self.my_is_exe
+        self.orig_path = os.environ.get("PATH")
+        os.environ["PATH"] = "/usr/bin:/usr/sbin:/bin:/sbin"
+
+    def tearDown(self):
+        if self.orig_path is None:
+            del os.environ["PATH"]
+        else:
+            os.environ["PATH"] = self.orig_path
+
+        util.is_exe = self.orig_is_exe
+        self.exe_list = []
+
+    def my_is_exe(self, fpath):
+        return os.path.abspath(fpath) in self.exe_list
+
+    def test_target_none(self):
+        self.exe_list = ["/usr/bin/ls"]
+        self.assertEqual(util.which("ls"), "/usr/bin/ls")
+
+    def test_no_program_target_none(self):
+        self.exe_list = []
+        self.assertEqual(util.which("fuzz"), None)
+
+    def test_target_set(self):
+        self.exe_list = ["/foo/bin/ls"]
+        self.assertEqual(util.which("ls", target="/foo"), "/bin/ls")
+
+    def test_no_program_target_set(self):
+        self.exe_list = ["/usr/bin/ls"]
+        self.assertEqual(util.which("fuzz"), None)
+
+    def test_custom_path_target_unset(self):
+        self.exe_list = ["/usr/bin2/fuzz"]
+        self.assertEqual(
+            util.which("fuzz", search=["/bin1", "/usr/bin2"]),
+            "/usr/bin2/fuzz")
+
+    def test_custom_path_target_set(self):
+        self.exe_list = ["/target/usr/bin2/fuzz"]
+        found = util.which("fuzz", search=["/bin1", "/usr/bin2"],
+                           target="/target")
+        self.assertEqual(found, "/usr/bin2/fuzz")
+
 # vi: ts=4 expandtab syntax=python

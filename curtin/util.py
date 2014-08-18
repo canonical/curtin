@@ -319,21 +319,36 @@ class RunInChroot(ChrootableTarget):
         return subp(['chroot', self.target] + args, **kwargs)
 
 
-def which(program):
+def is_exe(fpath):
     # Return path of program for execution if found in path
-    def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+    return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
-    _fpath, _ = os.path.split(program)
-    if _fpath:
-        if is_exe(program):
+
+def which(program, search=None, target=None):
+    if target is None or os.path.realpath(target) == "/":
+        target = "/"
+
+    if os.path.sep in program:
+        # if program had a '/' in it, then do not search PATH
+        # 'which' does consider cwd here. (cd / && which bin/ls) = bin/ls
+        # so effectively we set cwd to / (or target)
+        if is_exe(os.path.sep.join((target, program,))):
             return program
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
-            if is_exe(exe_file):
-                return exe_file
+
+    if search is None:
+        paths = [p.strip('"') for p in
+                 os.environ.get("PATH", "").split(os.pathsep)]
+        if target == "/":
+            search = paths
+        else:
+            search = [p for p in paths if p.startswith("/")]
+
+    # normalize path input
+    search = [os.path.abspath(p) for p in search]
+
+    for path in search:
+        if is_exe(os.path.sep.join((target, path, program,))):
+            return os.path.sep.join((path, program,))
 
     return None
 
@@ -408,7 +423,6 @@ def has_pkg_installed(pkg, target=None):
 
 
 def install_packages(pkglist, aptopts=None, target=None, env=None):
-    emd = []
     apt_inst_cmd = ['apt-get', 'install', '--quiet', '--assume-yes',
                     '--option=Dpkg::options::=--force-unsafe-io']
 
@@ -416,14 +430,10 @@ def install_packages(pkglist, aptopts=None, target=None, env=None):
         aptopts = []
     apt_inst_cmd.extend(aptopts)
 
-    for ptok in os.environ["PATH"].split(os.pathsep):
-        if target is None:
-            fpath = os.path.join(ptok, 'eatmydata')
-        else:
-            fpath = os.path.join(target, ptok, 'eatmydata')
-        if os.path.isfile(fpath) and os.access(fpath, os.X_OK):
-            emd = ['eatmydata']
-            break
+    if which('eatmydata', target=target):
+        emd = ['eatmydata']
+    else:
+        emd = []
 
     if isinstance(pkglist, str):
         pkglist = [pkglist]
