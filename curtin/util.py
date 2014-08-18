@@ -266,7 +266,9 @@ def undisable_daemons_in_root(target):
 
 class ChrootableTarget(object):
     def __init__(self, target, allow_daemons=False, sys_resolvconf=True):
-        self.target = target
+        if target is None:
+            target = "/"
+        self.target = os.path.abspath(target)
         self.mounts = ["/dev", "/proc", "/sys"]
         self.umounts = []
         self.disabled_daemons = False
@@ -283,10 +285,12 @@ class ChrootableTarget(object):
         if not self.allow_daemons:
             self.disabled_daemons = disable_daemons_in_root(self.target)
 
-        rconf = os.path.join(self.target, "etc", "resolv.conf")
-        if (self.sys_resolvconf and
-                os.path.islink(rconf) or os.path.isfile(rconf)):
-            rtd = None
+        if self.target != "/":
+            # never muck with resolv.conf on /
+            rconf = os.path.join(self.target, "etc", "resolv.conf")
+            if (self.sys_resolvconf and
+                    os.path.islink(rconf) or os.path.isfile(rconf)):
+                rtd = None
             try:
                 rtd = tempfile.mkdtemp(dir=os.path.dirname(rconf))
                 tmp = os.path.join(rtd, "resolv.conf")
@@ -316,7 +320,11 @@ class ChrootableTarget(object):
 
 class RunInChroot(ChrootableTarget):
     def __call__(self, args, **kwargs):
-        return subp(['chroot', self.target] + args, **kwargs)
+        if self.target != "/":
+            chroot = ["chroot", self.target]
+        else:
+            chroot = []
+        return subp(chroot + args, **kwargs)
 
 
 def is_exe(fpath):
@@ -422,6 +430,32 @@ def has_pkg_installed(pkg, target=None):
         return False
 
 
+def apt_update(target=None, env=None, force=False, comment=None):
+    marker = "tmp/curtin.aptupdate"
+    if target is None:
+        target = "/"
+
+    if env is None:
+        env = os.environ.copy()
+
+    if comment is None:
+        comment = "no comment provided"
+
+    if comment.endswith("\n"):
+        comment = comment[:-1]
+
+    marker = os.path.join(target, marker)
+    if not force and os.path.exists(marker):
+        return
+
+    apt_update = ['apt-get', 'update', '--quiet']
+    with RunInChroot(target) as inchroot:
+        inchroot(apt_update, env=env)
+
+    with open(marker, "w") as fp:
+        fp.write(comment + "\n")
+
+
 def install_packages(pkglist, aptopts=None, target=None, env=None):
     apt_inst_cmd = ['apt-get', 'install', '--quiet', '--assume-yes',
                     '--option=Dpkg::options::=--force-unsafe-io']
@@ -442,23 +476,9 @@ def install_packages(pkglist, aptopts=None, target=None, env=None):
         env = os.environ.copy()
         env['DEBIAN_FRONTEND'] = 'noninteractive'
 
-    marker = "/tmp/curtin.aptupdate"
-    marker_text = ' '.join(pkglist) + "\n"
-    apt_update = ['apt-get', 'update', '--quiet']
-    if target is not None and target != "/":
-        with RunInChroot(target) as inchroot:
-            marker = os.path.join(target, marker)
-            if not os.path.exists(marker):
-                inchroot(apt_update)
-            with open(marker, "w") as fp:
-                fp.write(marker_text)
-            return inchroot(emd + apt_inst_cmd + list(pkglist), env=env)
-    else:
-        if not os.path.exists(marker):
-            subp(apt_update)
-        with open(marker, "w") as fp:
-            fp.write(marker_text)
-        return subp(emd + apt_inst_cmd + list(pkglist), env=env)
+    apt_update(target, comment=' '.join(pkglist))
+    with RunInChroot(target) as inchroot:
+        return inchroot(emd + apt_inst_cmd + list(pkglist), env=env)
 
 
 def is_uefi_bootable():
