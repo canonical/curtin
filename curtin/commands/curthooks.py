@@ -142,27 +142,31 @@ def install_kernel(cfg, target):
     kernel_cfg = cfg.get('kernel', {'package': None,
                                     'fallback-package': None,
                                     'mapping': {}})
+    if kernel_cfg is not None:
+        kernel_package = kernel_cfg.get('package')
+        kernel_fallback = kernel_cfg.get('fallback-package')
+    else:
+        kernel_package = None
+        kernel_fallback = None
+
+    config.merge_config(kernel_cfg['mapping'], KERNEL_MAPPING)
 
     with util.RunInChroot(target) as in_chroot:
-        if kernel_cfg is not None:
-            kernel_package = kernel_cfg.get('package')
-            kernel_fallback = kernel_cfg.get('fallback-package')
-        else:
-            kernel_package = None
-            kernel_fallback = None
 
         if kernel_package:
             util.install_packages([kernel_package], target=target)
             return
 
-        _, _, kernel, _, _ = os.uname()
-        out, _ = in_chroot(['lsb_release', '--codename', '--short'],
-                           capture=True)
-        version, _, flavor = kernel.split('-', 2)
-        config.merge_config(kernel_cfg['mapping'], KERNEL_MAPPING)
+        # uname[2] is kernel name (ie: 3.16.0-7-generic)
+        # version gets X.Y.Z, flavor gets anything after second '-'.
+        kernel = os.uname()[2]
+        codename, err = in_chroot(['lsb_release', '--codename', '--short'],
+                                  capture=True)
+        codename = codename.strip()
+        version, abi, flavor = kernel.split('-', 2)
 
         try:
-            map_suffix = kernel_cfg['mapping'][out.strip()][version]
+            map_suffix = kernel_cfg['mapping'][codename][version]
         except KeyError:
             LOG.warn("Couldn't detect kernel package to install for %s."
                      % kernel)
@@ -172,7 +176,10 @@ def install_kernel(cfg, target):
 
         package = "linux-{flavor}{map_suffix}".format(
             flavor=flavor, map_suffix=map_suffix)
-        out, _ = in_chroot(['apt-cache', 'search', package], capture=True)
+
+        util.apt_update(target)
+        out, err = in_chroot(['apt-cache', 'search', package], capture=True)
+
         if (len(out.strip()) > 0 and
                 not util.has_pkg_installed(package, target)):
             util.install_packages([package], target=target)
