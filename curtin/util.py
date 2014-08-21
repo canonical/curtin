@@ -561,4 +561,29 @@ def get_fs_use_info(path):
             statvfs.f_frsize * statvfs.f_bfree)
 
 
+def human2bytes(size):
+    # convert human 'size' to integer
+    if size.endswith("B"):
+        size = size[:-1]
+
+    mpliers = {'K': 2 ** 10, 'M': 2 ** 20, 'G': 2 ** 30, 'T': 2 ** 40}
+
+    num = ""
+    for suffloc, c in enumerate(size):
+        if not c.isdigit():
+            break
+        num += c
+    if not num:
+        raise ValueError("'%s' does not start with a digit" % size)
+
+    if num == size:
+        return int(num)
+
+    try:
+        return int(num) * mpliers[size[suffloc:].upper()]
+    except KeyError as e:
+        raise ValueError("Bad suffix '%s' in input '%s':" %
+                         (size[suffloc:], size))
+
+
 # vi: ts=4 expandtab syntax=python
