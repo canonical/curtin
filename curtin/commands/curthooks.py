@@ -15,6 +15,7 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+import copy
 import glob
 import os
 import platform
@@ -150,7 +151,8 @@ def install_kernel(cfg, target):
         kernel_package = None
         kernel_fallback = None
 
-    config.merge_config(kernel_cfg['mapping'], KERNEL_MAPPING)
+    mapping = copy.deepcopy(KERNEL_MAPPING)
+    config.merge_config(mapping, kernel_cfg['mapping'])
 
     with util.RunInChroot(target) as in_chroot:
 
@@ -167,7 +169,7 @@ def install_kernel(cfg, target):
         version, abi, flavor = kernel.split('-', 2)
 
         try:
-            map_suffix = kernel_cfg['mapping'][codename][version]
+            map_suffix = mapping[codename][version]
         except KeyError:
             LOG.warn("Couldn't detect kernel package to install for %s."
                      % kernel)
