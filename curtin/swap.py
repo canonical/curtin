@@ -35,8 +35,8 @@ def suggested_swapsize(memsize=None, maxsize=None, fsys=None):
     elif fsys:
         avail = util.get_fs_use_info(fsys)[1]
         if maxsize is None:
-            # set to 10% of filesystem space
-            maxsize = min(int(avail / 10), sugg_max)
+            # set to 25% of filesystem space
+            maxsize = min(int(avail / 4), sugg_max)
         elif maxsize > ((avail * .9)):
             # set to 90% of available disk space
             maxsize = int(avail * .9)
