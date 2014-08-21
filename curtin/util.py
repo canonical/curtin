@@ -533,4 +533,57 @@ def get_dd_images(sources):
             src.append(sources[i]['uri'])
     return src
 
+
+def get_meminfo(meminfo="/proc/meminfo", raw=False):
+    mpliers = {'kB': 2**10, 'mB': 2 ** 20, 'B': 1, 'gB': 2 ** 30}
+    kmap = {'MemTotal:': 'total', 'MemFree:': 'free',
+            'MemAvailable:': 'available'}
+    ret = {}
+    with open(meminfo, "r") as fp:
+        for line in fp:
+            try:
+                key, value, unit = line.split()
+            except ValueError:
+                key, value = line.split()
+                unit = 'B'
+            if raw:
+                ret[key] = int(value) * mpliers[unit]
+            elif key in kmap:
+                ret[kmap[key]] = int(value) * mpliers[unit]
+
+    return ret
+
+
+def get_fs_use_info(path):
+    # return some filesystem usage info as tuple of (size_in_bytes, free_bytes)
+    statvfs = os.statvfs(path)
+    return (statvfs.f_frsize * statvfs.f_blocks,
+            statvfs.f_frsize * statvfs.f_bfree)
+
+
+def human2bytes(size):
+    # convert human 'size' to integer
+    if size.endswith("B"):
+        size = size[:-1]
+
+    mpliers = {'K': 2 ** 10, 'M': 2 ** 20, 'G': 2 ** 30, 'T': 2 ** 40}
+
+    num = ""
+    for suffloc, c in enumerate(size):
+        if not c.isdigit():
+            break
+        num += c
+    if not num:
+        raise ValueError("'%s' does not start with a digit" % size)
+
+    if num == size:
+        return int(num)
+
+    try:
+        return int(num) * mpliers[size[suffloc:].upper()]
+    except KeyError:
+        raise ValueError("Bad suffix '%s' in input '%s':" %
+                         (size[suffloc:], size))
+
+
 # vi: ts=4 expandtab syntax=python
