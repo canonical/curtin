@@ -76,7 +76,7 @@ CMD_ARGUMENTS = (
       {'help': 'maximum size of swap file (assuming "auto")',
                'default': None, 'action': 'store'}),
      ('swapfile', {'help': 'path to swap file under target',
-               'default': 'swap.img', 'nargs': '?'}),
+                   'default': 'swap.img', 'nargs': '?'}),
      )
 )
 
