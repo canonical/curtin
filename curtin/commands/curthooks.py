@@ -397,6 +397,7 @@ def add_swap(cfg, target, fstab):
     # swap:
     #  filename: 'swap.img',
     #  size: None # (or 1G)
+    #  maxsize: 2G
     if 'swap' in cfg and not cfg.get('swap'):
         LOG.debug("disabling 'add_swap' due to config")
         return
