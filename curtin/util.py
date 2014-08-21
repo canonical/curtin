@@ -581,7 +581,7 @@ def human2bytes(size):
 
     try:
         return int(num) * mpliers[size[suffloc:].upper()]
-    except KeyError as e:
+    except KeyError:
         raise ValueError("Bad suffix '%s' in input '%s':" %
                          (size[suffloc:], size))
 

@@ -25,7 +25,7 @@ from curtin import log
 from curtin import util
 
 SUB_COMMAND_MODULES = ['block-meta', 'curthooks', 'extract', 'hook',
-                       'in-target', 'install', 'net-meta', 'pack']
+                       'in-target', 'install', 'net-meta', 'pack', 'swap']
 
 
 def add_subcmd(subparser, subcmd):
