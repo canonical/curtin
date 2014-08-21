@@ -51,9 +51,11 @@ def swap_main(args):
             sys.exit(2)
     if args.swap == "auto":
         args.swap = None
+    if args.maxsize is not None:
+        args.maxsize = util.human2bytes(args.maxsize)
 
     swap.setup_swapfile(target=state['target'], fstab=state['fstab'],
-                        swapfile=args.swap, size=size)
+                        swapfile=args.swap, size=size, maxsize=args.maxsize)
     sys.exit(0)
 
 
@@ -69,6 +71,9 @@ CMD_ARGUMENTS = (
        'default': os.environ.get('TARGET_MOUNT_POINT')}),
      (('-s', '--size'),
       {'help': 'size of swap file (eg: 1G, 1500M, 1024K, 100000. def: "auto")',
+               'default': None, 'action': 'store'}),
+     (('-M', '--max'),
+      {'help': 'maximum size of swap file (assuming "auto")',
                'default': None, 'action': 'store'}),
      ('swap', {'help': 'path to swap file under target',
                'default': 'swap.img', 'nargs': '?'}),
