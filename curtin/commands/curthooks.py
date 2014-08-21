@@ -409,6 +409,8 @@ def add_swap(cfg, target, fstab):
 
     if size:
         size = util.human2bytes(str(size))
+    if maxsize:
+        maxsize = util.human2bytes(str(maxsize))
 
     swap.setup_swapfile(target=target, fstab=fstab, swapfile=fname, size=size,
                         maxsize=maxsize)
