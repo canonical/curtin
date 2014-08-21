@@ -404,6 +404,7 @@ def add_swap(cfg, target, fstab):
     swapcfg = cfg.get('swap', {})
     fname = swapcfg.get('filename', None)
     size = swapcfg.get('size', None)
+    maxsize = swapcfg.get('maxsize', None)
 
     if size:
         size = util.human2bytes(str(size))
