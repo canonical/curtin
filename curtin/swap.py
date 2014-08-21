@@ -65,13 +65,16 @@ def suggested_swapsize(memsize=None, maxsize=None, fsys=None):
     return maxsize
 
 
-def setup_swapfile(target, fstab=None, swapfile="swap.img", size=None):
+def setup_swapfile(target, fstab=None, swapfile=None, size=None):
     if size is None:
         size = suggested_swapsize(fsys=target)
 
     if size == 0:
         LOG.debug("Not creating swap: suggested size was 0")
         return
+
+    if swapfile is None:
+        swapfile = "swap.img"
 
     mbsize = str(int(size / (2 ** 20)))
     LOG.debug("creating swap file '%s' of %sMB", swapfile, mbsize)
