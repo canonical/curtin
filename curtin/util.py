@@ -533,4 +533,32 @@ def get_dd_images(sources):
             src.append(sources[i]['uri'])
     return src
 
+
+def get_meminfo(meminfo="/proc/meminfo", raw=False):
+    mpliers = {'kB': 2**10, 'mB': 2 ** 20, 'B': 1, 'gB': 2 ** 30}
+    kmap = {'MemTotal:': 'total', 'MemFree:': 'free',
+            'MemAvailable:': 'available'}
+    ret = {}
+    with open(meminfo, "r") as fp:
+        for line in fp:
+            try:
+                key, value, unit = line.split()
+            except ValueError:
+                key, value = line.split()
+                unit = 'B'
+            if raw:
+                ret[key] = int(value) * mpliers[unit]
+            elif key in kmap:
+                ret[kmap[key]] = int(value) * mpliers[unit]
+
+    return ret
+
+
+def get_fs_use_info(path):
+    # return some filesystem usage info as tuple of (size_in_bytes, free_bytes)
+    statvfs = os.statvfs(path)
+    return (statvfs.f_frsize * statvfs.f_blocks,
+            statvfs.f_frsize * statvfs.f_bfree)
+
+
 # vi: ts=4 expandtab syntax=python
