@@ -74,21 +74,25 @@ def setup_swapfile(target, fstab=None, swapfile=None, size=None):
         return
 
     if swapfile is None:
-        swapfile = "swap.img"
+        swapfile = "/swap.img"
+
+    if not swapfile.startswith("/"):
+        swapfile = "/" + swapfile
 
     mbsize = str(int(size / (2 ** 20)))
-    LOG.debug("creating swap file '%s' of %sMB", swapfile, mbsize)
+    msg = "creating swap file '%s' of %sMB" % (swapfile, mbsize)
     fpath = os.path.sep.join([target, swapfile])
     try:
         util.ensure_dir(os.path.dirname(fpath))
-        util.subp(['sh', '-c',
-                   ('rm -f "$1" && umask 0066 && '
-                    'dd if=/dev/zero "of=$1" bs=1M "count=$2" && '
-                    'mkswap "$1" || '
-                    '{ r=$?; rm -f "$1"; exit $r; }'),
-                   'setup_swap', fpath, mbsize])
+        with util.LogTimer(LOG.debug, msg):
+            util.subp(
+                ['sh', '-c',
+                 ('rm -f "$1" && umask 0066 && '
+                  'dd if=/dev/zero "of=$1" bs=1M "count=$2" && '
+                  'mkswap "$1" || { r=$?; rm -f "$1"; exit $r; }'),
+                 'setup_swap', fpath, mbsize])
     except Exception:
-        LOG.warn("failed creating swap of '%sMB' in '%s'", mbsize, fpath)
+        LOG.warn("failed %s" % msg)
         raise
 
     if fstab is None:
