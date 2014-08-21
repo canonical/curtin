@@ -73,8 +73,8 @@ def setup_swapfile(target, fstab=None, swapfile="swap.img", size=None):
         LOG.debug("Not creating swap: suggested size was 0")
         return
 
-    mbsize = str(int(size / 2 ** 20))
-    LOG.debug("creating swap file '%s' of %sMB", (swapfile, mbsize))
+    mbsize = str(int(size / (2 ** 20)))
+    LOG.debug("creating swap file '%s' of %sMB", swapfile, mbsize)
     fpath = os.path.sep.join([target, swapfile])
     try:
         util.ensure_dir(os.path.dirname(fpath))
