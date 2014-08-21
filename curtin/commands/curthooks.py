@@ -27,6 +27,7 @@ from curtin import config
 from curtin import block
 from curtin import futil
 from curtin.log import LOG
+from curtin import swap
 from curtin import util
 
 from . import populate_one_subcmd
@@ -388,6 +389,25 @@ def restore_dist_interfaces(cfg, target):
         shutil.move(eni + ".dist", eni)
 
 
+def add_swap(cfg, target, fstab):
+    # add swap file per cfg to filesystem root at target. update fstab.
+    #
+    # swap:
+    #  filename: 'swap.img',
+    #  size: None # (or 1G)
+    if 'swap' in cfg and not cfg.get('swap'):
+        LOG.debug("disabling 'add_swap' due to config")
+        return
+
+    fname = cfg['swap'].get('filename', None)
+    size = cfg['swap'].get('size', None)
+
+    if size:
+        size = util.human2bytes(str(size))
+
+    swap.setup_swapfile(target=target, fstab=fstab, swapfile=fname, size=size)
+
+
 def curthooks(args):
     state = util.load_command_environment()
 
@@ -415,6 +435,8 @@ def curthooks(args):
     apply_debconf_selections(cfg, target)
 
     restore_dist_interfaces(cfg, target)
+
+    add_swap(cfg, target, state.get('fstab'))
 
     copy_interfaces(state.get('interfaces'), target)
     copy_fstab(state.get('fstab'), target)
