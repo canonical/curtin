@@ -13,7 +13,7 @@ Usage: ${0##*/} [ options ] target-dev
 
    options:
      -f | --format F   use partition table format F. [mbr, gpt, uefi, prep]
-                       default gpt
+                       default mbr
      -E | --end E      end the partition at E (unit 1k bytes)
      -b | --boot       create a boot partition (512 MiB - default)
 EOF
@@ -240,7 +240,7 @@ partition_main() {
         { partition_main_usage 1>&2; return 1; }
 
     local cur="" next=""
-    local format="gpt" boot=false target="" end=""
+    local format="mbr" boot=false target="" end=""
 
     while [ $# -ne 0 ]; do
         cur="$1"; next="$2";
