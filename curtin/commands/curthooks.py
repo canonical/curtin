@@ -410,7 +410,8 @@ def add_swap(cfg, target, fstab):
     if size:
         size = util.human2bytes(str(size))
 
-    swap.setup_swapfile(target=target, fstab=fstab, swapfile=fname, size=size)
+    swap.setup_swapfile(target=target, fstab=fstab, swapfile=fname, size=size,
+                        maxsize=maxsize)
 
 
 def curthooks(args):
