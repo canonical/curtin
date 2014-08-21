@@ -399,8 +399,9 @@ def add_swap(cfg, target, fstab):
         LOG.debug("disabling 'add_swap' due to config")
         return
 
-    fname = cfg['swap'].get('filename', None)
-    size = cfg['swap'].get('size', None)
+    swapcfg = cfg.get('swap', {})
+    fname = swapcfg.get('filename', None)
+    size = swapcfg.get('size', None)
 
     if size:
         size = util.human2bytes(str(size))
