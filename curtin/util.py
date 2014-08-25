@@ -288,9 +288,7 @@ class ChrootableTarget(object):
         if self.target != "/":
             # never muck with resolv.conf on /
             rconf = os.path.join(self.target, "etc", "resolv.conf")
-            if (self.sys_resolvconf and
-                    os.path.islink(rconf) or os.path.isfile(rconf)):
-                rtd = None
+            rtd = None
             try:
                 rtd = tempfile.mkdtemp(dir=os.path.dirname(rconf))
                 tmp = os.path.join(rtd, "resolv.conf")
