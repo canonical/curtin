@@ -505,16 +505,15 @@ def sanitize_source(source):
         # already sanitized?
         return source
     supported = ['tgz', 'dd-tgz']
-    src = source.split(':', 1)
-    if len(src) == 1:
-        # This condition treats the case
-        # of a source that is a filename and does
-        # not have a type specified
-        return {'type': 'tgz', 'uri': src[1]}
-    if src[0] in supported:
-        return {'type': src[0], 'uri': src[1]}
+    deftype = 'tgz'
+    for i in supported:
+        prefix = i + ":"
+        if source.startswith(prefix):
+            return {'type': i, 'uri': source[len(prefix):]}
+
+    LOG.debug("unknown type for url '%s', assuming type '%s'", source, deftype)
     # default to tgz for unknown types
-    return {'type': 'tgz', 'uri': source}
+    return {'type': deftype, 'uri': source}
 
 
 def get_dd_images(sources):
