@@ -66,7 +66,7 @@ def subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
         raise ProcessExecutionError(stdout=out, stderr=err,
                                     exit_code=rc,
                                     cmd=args)
-    # Just ensure blank instead of none?? (iff capturing)
+    # Just ensure blank instead of none?? (if capturing)
     if not out and capture:
         out = ''
     if not err and capture:
@@ -582,5 +582,19 @@ def human2bytes(size):
         raise ValueError("'%s': cannot be negative" % size_in)
 
     return int(num * mpliers[mplier])
+
+
+def import_module(import_str):
+    """Import a module."""
+    __import__(import_str)
+    return sys.modules[import_str]
+
+
+def try_import_module(import_str, default=None):
+    """Try to import a module."""
+    try:
+        return import_module(import_str)
+    except ImportError:
+        return default
 
 # vi: ts=4 expandtab syntax=python

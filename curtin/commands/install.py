@@ -24,11 +24,11 @@ import shutil
 import tempfile
 
 from curtin import config
-from curtin.log import LOG
 from curtin import util
-
+from curtin.log import LOG 
+from curtin.reporter import load_reporter
+from curtin.reporter.maas import MAAS_INSTALL_LOG
 from . import populate_one_subcmd
-
 
 CONFIG_BUILTIN = {
     'sources': {},
@@ -93,7 +93,7 @@ class Stage(object):
         self.commands = commands
         self.env = env
 
-    def run(self):
+    def run(self, install_log):
         for cmdname in sorted(self.commands.keys()):
             cmd = self.commands[cmdname]
             if not cmd:
@@ -101,8 +101,14 @@ class Stage(object):
             shell = not isinstance(cmd, list)
             with util.LogTimer(LOG.debug, cmdname):
                 try:
-                    util.subp(cmd, shell=shell, env=self.env)
+                    out_err = util.subp(
+                        cmd, shell=shell, env=self.env, capture=True)
+                    if out_err is not None:
+                        for output in out_err:
+                            install_log.write(output)
+                            print(output)
                 except util.ProcessExecutionError:
+                    install_log.write("%s command failed", cmdname)
                     LOG.warn("%s command failed", cmdname)
                     raise
 
@@ -250,13 +256,18 @@ def cmd_install(args):
     if cfg.get('http_proxy'):
         os.environ['http_proxy'] = cfg['http_proxy']
 
+    maas_reporter = load_reporter(cfg)
+    maas_install_log = open(MAAS_INSTALL_LOG, 'w')
+    exp_msg = ''
+    failed = False
+
     try:
         dd_images = util.get_dd_images(cfg.get('sources', {}))
         if len(dd_images) > 1:
             raise ValueError("You may not use more then one disk image")
+
         workingd = WorkingDir(cfg)
         LOG.debug(workingd.env())
-
         env = os.environ.copy()
         env.update(workingd.env())
 
@@ -264,12 +275,14 @@ def cmd_install(args):
             commands_name = '%s_commands' % name
             with util.LogTimer(LOG.debug, 'stage_%s' % name):
                 stage = Stage(name, cfg.get(commands_name, {}), env)
-                stage.run()
+                stage.run(install_log=maas_install_log)
 
         if apply_kexec(cfg.get('kexec'), workingd.target):
             cfg['power_state'] = {'mode': 'reboot', 'delay': 'now',
                                   'message': "'rebooting with kexec'"}
-
+    except Exception as e: # catch all exceptions
+        exp_msg = "Installation failed with exception: %s" % e
+        failed = True
     finally:
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))
@@ -278,10 +291,27 @@ def cmd_install(args):
         util.do_umount(workingd.target)
         shutil.rmtree(workingd.top)
 
-    apply_power_state(cfg.get('power_state'))
+    if not failed:
+        msg = "Installation finished."
+        maas_install_log.write(msg)
+        maas_install_log.close()
+        LOG.info(msg)
+        print(msg)
+        try:
+            maas_reporter.report_success()
+        except Exception as e:
+            LOG.error("exception e: %s" % e)
+    else:
+        maas_install_log.write(exp_msg)
+        maas_install_log.close()
+        LOG.error(exp_msg)
+        print(exp_msg)
+        try:
+            maas_reporter.report_failure(exp_msg)
+        except Exception as e:
+            LOG.error("exception e: %s" % e)
 
-    LOG.info("Finished installation")
-    print("Installation finished")
+    apply_power_state(cfg.get('power_state'))
 
 
 CMD_ARGUMENTS = (
