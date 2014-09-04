@@ -575,7 +575,7 @@ def human2bytes(size):
 
     try:
         num = float(num)
-    except ValueError as e:
+    except ValueError:
         raise ValueError("'%s' is not valid input." % size_in)
 
     if num < 0:
