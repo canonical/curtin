@@ -572,7 +572,7 @@ def human2bytes(size):
         if size.endswith(m):
             mplier = m
             num = size[0:-len(m)]
-            
+
     try:
         num = float(num)
     except ValueError as e:
