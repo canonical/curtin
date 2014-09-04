@@ -560,27 +560,27 @@ def get_fs_use_info(path):
 
 def human2bytes(size):
     # convert human 'size' to integer
+    size_in = size
     if size.endswith("B"):
         size = size[:-1]
 
-    mpliers = {'K': 2 ** 10, 'M': 2 ** 20, 'G': 2 ** 30, 'T': 2 ** 40}
+    mpliers = {'B': 1, 'K': 2 ** 10, 'M': 2 ** 20, 'G': 2 ** 30, 'T': 2 ** 40}
 
-    num = ""
-    for suffloc, c in enumerate(size):
-        if not c.isdigit():
-            break
-        num += c
-    if not num:
-        raise ValueError("'%s' does not start with a digit" % size)
-
-    if num == size:
-        return int(num)
-
+    num = size
+    mplier = 'B'
+    for m in mpliers:
+        if size.endswith(m):
+            mplier = m
+            num = size[0:-len(m)]
+            
     try:
-        return int(num) * mpliers[size[suffloc:].upper()]
-    except KeyError:
-        raise ValueError("Bad suffix '%s' in input '%s':" %
-                         (size[suffloc:], size))
+        num = float(num)
+    except ValueError as e:
+        raise ValueError("'%s' is not valid input." % size_in)
 
+    if num < 0:
+        raise ValueError("'%s': cannot be negative" % size_in)
+
+    return int(num * mpliers[mplier])
 
 # vi: ts=4 expandtab syntax=python
