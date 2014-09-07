@@ -27,7 +27,6 @@ from curtin import config
 from curtin import util
 from curtin.log import LOG 
 from curtin.reporter import load_reporter
-from curtin.reporter.maas import MAAS_INSTALL_LOG
 from . import populate_one_subcmd
 
 CONFIG_BUILTIN = {
@@ -93,7 +92,7 @@ class Stage(object):
         self.commands = commands
         self.env = env
 
-    def run(self, install_log):
+    def run(self):
         for cmdname in sorted(self.commands.keys()):
             cmd = self.commands[cmdname]
             if not cmd:
@@ -103,21 +102,20 @@ class Stage(object):
                 try:
                     out_err = util.subp(
                         cmd, shell=shell, env=self.env, capture=True)
-                    if out_err is not None:
-                        for output in out_err:
-                            install_log.write(output)
-                            print(output)
+                    for output in out_err:
+                        util.write_install_log(output)
                 except util.ProcessExecutionError:
-                    install_log.write("%s command failed", cmdname)
                     LOG.warn("%s command failed", cmdname)
                     raise
 
 
 def apply_power_state(pstate):
-    # power_state:
-    #  delay: 5
-    #  mode: poweroff
-    #  message: Bye Bye
+    """ 
+    power_state:
+    delay: 5
+    mode: poweroff
+    message: Bye Bye
+    """
     cmd = load_power_state(pstate)
     if not cmd:
         return
@@ -135,7 +133,7 @@ def apply_power_state(pstate):
 
 
 def load_power_state(pstate):
-    # returns a command to reboot the system if power_state should.
+    """Returns a command to reboot the system if power_state should."""
     if pstate is None:
         return None
 
@@ -169,9 +167,11 @@ def load_power_state(pstate):
 
 
 def apply_kexec(kexec, target):
-    # load kexec kernel from target dir, similar to /etc/init.d/kexec-load
-    # kexec:
-    #  mode: on
+    """
+    load kexec kernel from target dir, similar to /etc/init.d/kexec-load
+    kexec:
+    mode: on
+    """
     grubcfg = "boot/grub/grub.cfg"
     target_grubcfg = os.path.join(target, grubcfg)
 
@@ -256,10 +256,8 @@ def cmd_install(args):
     if cfg.get('http_proxy'):
         os.environ['http_proxy'] = cfg['http_proxy']
 
+    # Load MAAS Reporter 
     maas_reporter = load_reporter(cfg)
-    maas_install_log = open(MAAS_INSTALL_LOG, 'w')
-    exp_msg = ''
-    failed = False
 
     try:
         dd_images = util.get_dd_images(cfg.get('sources', {}))
@@ -275,14 +273,19 @@ def cmd_install(args):
             commands_name = '%s_commands' % name
             with util.LogTimer(LOG.debug, 'stage_%s' % name):
                 stage = Stage(name, cfg.get(commands_name, {}), env)
-                stage.run(install_log=maas_install_log)
+                stage.run()
 
         if apply_kexec(cfg.get('kexec'), workingd.target):
             cfg['power_state'] = {'mode': 'reboot', 'delay': 'now',
                                   'message': "'rebooting with kexec'"}
+
+        util.write_install_log("Installation finished.")
+        maas_reporter.report_success()
     except Exception as e: # catch all exceptions
         exp_msg = "Installation failed with exception: %s" % e
-        failed = True
+        util.write_install_log(exp_msg)
+        LOG.error(exp_msg)
+        maas_reporter.report_failure(exp_msg)
     finally:
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))
@@ -290,26 +293,6 @@ def cmd_install(args):
             util.do_umount(os.path.join(workingd.target, 'boot'))
         util.do_umount(workingd.target)
         shutil.rmtree(workingd.top)
-
-    if not failed:
-        msg = "Installation finished."
-        maas_install_log.write(msg)
-        maas_install_log.close()
-        LOG.info(msg)
-        print(msg)
-        try:
-            maas_reporter.report_success()
-        except Exception as e:
-            LOG.error("exception e: %s" % e)
-    else:
-        maas_install_log.write(exp_msg)
-        maas_install_log.close()
-        LOG.error(exp_msg)
-        print(exp_msg)
-        try:
-            maas_reporter.report_failure(exp_msg)
-        except Exception as e:
-            LOG.error("exception e: %s" % e)
 
     apply_power_state(cfg.get('power_state'))
 

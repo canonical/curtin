@@ -26,30 +26,31 @@ import time
 from .log import LOG
 from . import config
 
-_INSTALLED_HELPERS_PATH = "/usr/lib/curtin/helpers"
-_INSTALLED_MAIN = "/usr/bin/curtin"
+_INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
+_INSTALLED_MAIN = '/usr/bin/curtin'
+INSTALL_LOG = '/var/log/curtin_install.log'
 
 
 def subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
          logstring=False):
     if rcs is None:
         rcs = [0]
-    try:
 
+    try:
         if not logstring:
             LOG.debug(("Running command %s with allowed return codes %s"
                        " (shell=%s, capture=%s)"), args, rcs, shell, capture)
         else:
             LOG.debug(("Running hidden command to protect sensitive "
                        "input/output logstring: %s"), logstring)
-
-        if not capture:
-            stdout = None
-            stderr = None
-        else:
+        stdin = None
+        stdout = None
+        stderr = None
+        if capture:
             stdout = subprocess.PIPE
             stderr = subprocess.PIPE
-        stdin = subprocess.PIPE
+        if data is not None:
+            stdin = subprocess.PIPE
         sp = subprocess.Popen(args, stdout=stdout,
                               stderr=stderr, stdin=stdin,
                               env=env, shell=shell)
@@ -58,7 +59,6 @@ def subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
             out = out.decode()
         if isinstance(err, bytes):
             err = err.decode()
-
     except OSError as e:
         raise ProcessExecutionError(cmd=args, reason=e)
     rc = sp.returncode  # pylint: disable=E1101
@@ -596,5 +596,14 @@ def try_import_module(import_str, default=None):
         return import_module(import_str)
     except ImportError:
         return default
+
+
+def write_install_log(msg):
+    """Write to curtin intall log."""
+    if isinstance(msg, basestring):
+        with open(INSTALL_LOG, 'a') as fp:
+            fp.write(msg)
+            print(msg)
+
 
 # vi: ts=4 expandtab syntax=python
