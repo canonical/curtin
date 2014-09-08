@@ -28,7 +28,6 @@ from . import config
 
 _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
 _INSTALLED_MAIN = '/usr/bin/curtin'
-INSTALL_LOG = '/var/log/curtin_install.log'
 
 
 def subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
@@ -596,14 +595,6 @@ def try_import_module(import_str, default=None):
         return import_module(import_str)
     except ImportError:
         return default
-
-
-def write_install_log(msg):
-    """Write to curtin intall log."""
-    if isinstance(msg, basestring):
-        with open(INSTALL_LOG, 'a') as fp:
-            fp.write(msg)
-            print(msg)
 
 
 # vi: ts=4 expandtab syntax=python

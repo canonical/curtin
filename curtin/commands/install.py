@@ -16,17 +16,25 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import io
 import json
 import os
 import re
 import shlex
 import shutil
+import subprocess
+import sys
 import tempfile
+import time
 
 from curtin import config
 from curtin import util
 from curtin.log import LOG 
-from curtin.reporter import load_reporter
+from curtin.reporter import (
+    INSTALL_LOG,
+    load_reporter,
+    )
+from threading import Thread
 from . import populate_one_subcmd
 
 CONFIG_BUILTIN = {
@@ -100,21 +108,32 @@ class Stage(object):
             shell = not isinstance(cmd, list)
             with util.LogTimer(LOG.debug, cmdname):
                 try:
-                    out_err = util.subp(
-                        cmd, shell=shell, env=self.env, capture=True)
-                    for output in out_err:
-                        util.write_install_log(output)
+                    thread = Thread(
+                        target=self._run_thread,
+                        args=(cmd, shell, self.env))
+                    thread.start()
+                    thread.join()
                 except util.ProcessExecutionError:
                     LOG.warn("%s command failed", cmdname)
                     raise
+    
+    def _run_thread(self, cmd, shell, env):
+        with io.open(INSTALL_LOG, 'a') as writer, io.open(INSTALL_LOG, 'r', 1) as reader:
+            sp = subprocess.Popen(
+                cmd, stdout=writer, stderr=writer, env=env, shell=shell)
+            # sp.stdout and sp.stderr are written to parent process stdout
+            while sp.poll() is None:
+                sys.stdout.write(reader.read())
+                time.sleep(0.25)
+            sys.stdout.write(reader.read())
 
 
 def apply_power_state(pstate):
     """ 
     power_state:
-    delay: 5
-    mode: poweroff
-    message: Bye Bye
+     delay: 5
+     mode: poweroff
+     message: Bye Bye
     """
     cmd = load_power_state(pstate)
     if not cmd:
@@ -170,7 +189,7 @@ def apply_kexec(kexec, target):
     """
     load kexec kernel from target dir, similar to /etc/init.d/kexec-load
     kexec:
-    mode: on
+     mode: on
     """
     grubcfg = "boot/grub/grub.cfg"
     target_grubcfg = os.path.join(target, grubcfg)
@@ -279,11 +298,13 @@ def cmd_install(args):
             cfg['power_state'] = {'mode': 'reboot', 'delay': 'now',
                                   'message': "'rebooting with kexec'"}
 
-        util.write_install_log("Installation finished.")
+        with open(INSTALL_LOG, 'a') as fp:
+            fp.write("Installation finished.")
         maas_reporter.report_success()
     except Exception as e: # catch all exceptions
         exp_msg = "Installation failed with exception: %s" % e
-        util.write_install_log(exp_msg)
+        with open(INSTALL_LOG, 'a') as fp:
+            fp.write(exp_msg)
         LOG.error(exp_msg)
         maas_reporter.report_failure(exp_msg)
     finally:
