@@ -16,7 +16,7 @@ setup(
     author_email='scott.moser@canonical.com',
     license="AGPL",
     url='http://launchpad.net/curtin/',
-    packages=['curtin', 'curtin.commands', 'curtin.block', 'curtin.net'],
+    packages=['curtin', 'curtin.commands', 'curtin.block', 'curtin.net', 'curtin.reporter'],
     scripts=glob('bin/*'),
     data_files=[
         ('/usr/share/doc/curtin',
