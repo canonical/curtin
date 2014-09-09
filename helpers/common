@@ -46,19 +46,45 @@ cleanup() {
 
 wipedev() {
     # wipe the front and end (gpt is at end also)
-    local target="$1" size="" out=""
+    local target="$1" size="" out="" bs="" count="" seek="" mb=$((1024*1024))
+    local info=""
     getsize "$target" ||
         { error "failed to get size of $target"; return 1; }
     size="$_RET"
-    
-    dd if=/dev/zero conv=notrunc of="$target" \
-        bs=$((1024*1024)) count=1 >/dev/null 2>&1 ||
-        { error "failed to zero beginning of $target"; return 1; }
 
-    out=$(dd if=/dev/zero conv=notrunc of="$target" bs=1024 \
-        seek=$(((size/1024)-1024)) count=1024 2>&1)
-    [ $? -eq 0 ] ||
-        { error "failed to wipe end of $target [$size]: $out"; return 1; }
+    # select a block size that evenly divides size. bigger is generally faster.
+    for bs in $mb 4096 1024 512 1; do
+        [ "$((size % bs))" = "0" ] && break
+    done
+    if [ "$bs" = "1" ]; then
+        error "WARN: odd sized '$target' ($size). not divisible by 512."
+    fi
+    [ "$size" -ge "$mb" ] && count=$((mb / bs)) || count=$((size / bs))
+
+    info="size=$size count=$count bs=$bs"
+    debug 1 "wiping start of '$target' with ${info}."
+    # wipe the first MB (up to 'size')
+    out=$(dd if=/dev/zero conv=notrunc "of=$target" \
+            "bs=$bs" "count=$count" 2>&1) || {
+        error "wiping start of '$target' failed."
+        error "  size=$size count=$count bs=$bs: $out"
+        return 1
+    }
+
+    if [ "$size" -gt "$mb" ]; then
+        # do the last 1MB
+        count=$((mb / bs))
+        seek=$(((size / bs) - $count))
+        info="size=$size count=$count bs=$bs seek=$seek"
+        debug 1 "wiping end of '$target' with ${info}."
+        out=$(dd if=/dev/zero conv=notrunc "of=$target" "seek=$seek" \
+            "bs=$bs" "count=$count" 2>&1)
+        if [ $? -ne 0 ]; then
+            error "wiping end of '$target' failed."
+            error "  size=$size count=$count seek=$seek bs=$bs: $out";
+            return 1;
+        fi
+    fi
 
     if [ -b "$target" ]; then
         blockdev --rereadpt "$target"
@@ -222,7 +248,7 @@ pt_prep() {
     [ -b "$target" ] && isblk=true
 
     sgdisk --zap-all "$target" ||
-        fail "failed to clear $target";
+        { error "failed to clear $target"; return 1; }
 
     cmd=(
         sgdisk 
@@ -328,6 +354,7 @@ human2bytes() {
 }
 
 getsize() {
+    # return size of target in bytes
     local target="$1"
     if [ -b "$target" ]; then
         _RET=$(blockdev --getsize64 "$target")
