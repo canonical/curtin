@@ -17,20 +17,19 @@
 
 """Reporter Abstract Base Class."""
 
-## TODO - make python3 compliant
-# str = None 
+# TODO - make python3 compliant
+# str = None
 
 from abc import (
     ABCMeta,
     abstractmethod,
-    abstractproperty,
     )
 from curtin.util import (
-    import_module,
     try_import_module,
     )
 
 INSTALL_LOG = "/var/log/curtin_install.log"
+
 
 class BaseReporter:
     """Skeleton for a report."""
@@ -63,8 +62,8 @@ class EmptyReporter(BaseReporter):
 
 
 def load_reporter(config):
-    """Loads and returns reporter intance stored in config file."""
-    
+    """Loads and returns reporter instance stored in config file."""
+
     reporter = config.get('reporter')
     if reporter is None:
         return EmptyReporter()
@@ -74,5 +73,5 @@ def load_reporter(config):
         return EmptyReporter()
     try:
         return module.load_factory(options)
-    except Exception as e:
+    except Exception:
         return EmptyReporter()

@@ -29,7 +29,7 @@ import time
 
 from curtin import config
 from curtin import util
-from curtin.log import LOG 
+from curtin.log import LOG
 from curtin.reporter import (
     INSTALL_LOG,
     load_reporter,
@@ -116,9 +116,10 @@ class Stage(object):
                 except util.ProcessExecutionError:
                     LOG.warn("%s command failed", cmdname)
                     raise
-    
+
     def _run_thread(self, cmd, shell, env):
-        with io.open(INSTALL_LOG, 'a') as writer, io.open(INSTALL_LOG, 'r', 1) as reader:
+        with io.open(INSTALL_LOG, 'a') as writer, \
+                io.open(INSTALL_LOG, 'r', 1) as reader:
             sp = subprocess.Popen(
                 cmd, stdout=writer, stderr=writer, env=env, shell=shell)
             # sp.stdout and sp.stderr are written to parent process stdout
@@ -129,7 +130,7 @@ class Stage(object):
 
 
 def apply_power_state(pstate):
-    """ 
+    """
     power_state:
      delay: 5
      mode: poweroff
@@ -275,7 +276,7 @@ def cmd_install(args):
     if cfg.get('http_proxy'):
         os.environ['http_proxy'] = cfg['http_proxy']
 
-    # Load MAAS Reporter 
+    # Load MAAS Reporter
     maas_reporter = load_reporter(cfg)
 
     try:
@@ -301,7 +302,7 @@ def cmd_install(args):
         with open(INSTALL_LOG, 'a') as fp:
             fp.write("Installation finished.")
         maas_reporter.report_success()
-    except Exception as e: # catch all exceptions
+    except Exception as e:
         exp_msg = "Installation failed with exception: %s" % e
         with open(INSTALL_LOG, 'a') as fp:
             fp.write(exp_msg)

@@ -17,7 +17,6 @@
 
 """MAAS Reporter."""
 
-from curtin.log import LOG
 from curtin.reporter import (
     BaseReporter,
     INSTALL_LOG,
@@ -62,8 +61,8 @@ class MAASReporter(BaseReporter):
         status = "FAILED"
         self.report([INSTALL_LOG], status, message)
 
-    def oauth_headers(self, url, consumer_key, token_key, token_secret, consumer_secret,
-                      clockskew=0):
+    def oauth_headers(self, url, consumer_key, token_key, token_secret,
+                      consumer_secret, clockskew=0):
         """Build OAuth headers using given credentials."""
         consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
         token = oauth.OAuthToken(token_key, token_secret)
@@ -97,11 +96,11 @@ class MAASReporter(BaseReporter):
         """Create a MIME multipart payload from L{data} and L{files}.
 
         @param data: A mapping of names (ASCII strings) to data (byte string).
-        @param files: A mapping of names (ASCII strings) to file objects ready to
-            be read.
-        @return: A 2-tuple of C{(body, headers)}, where C{body} is a a byte string
-            and C{headers} is a dict of headers to add to the enclosing request in
-            which this payload will travel.
+        @param files: A mapping of names (ASCII strings) to file objects ready
+            to be read.
+        @return: A 2-tuple of C{(body, headers)}, where C{body} is a a byte
+            string and C{headers} is a dict of headers to add to the enclosing
+            request in which this payload will travel.
         """
         boundary = self._random_string(30)
 
@@ -143,7 +142,8 @@ class MAASReporter(BaseReporter):
                     try:
                         ret_time = time.mktime(parsedate(date))
                         clockskew = int(ret_time - time.time())
-                        sys.stderr.write("updated clock skew to %d" % clockskew)
+                        sys.stderr.write("updated clock skew to %d" %
+                                         clockskew)
                     except:
                         sys.stderr.write("failed to convert date '%s'" % date)
             except Exception as exc:
@@ -180,7 +180,8 @@ class MAASReporter(BaseReporter):
         msg = ""
 
         try:
-            payload = self.geturl(self.url, creds=creds, headers=headers, data=data)
+            payload = self.geturl(self.url, creds=creds, headers=headers,
+                                  data=data)
             if payload != "OK":
                 raise TypeError("Unexpected result from call: %s" % payload)
             else:
@@ -216,11 +217,11 @@ class MAASReporter(BaseReporter):
             )
 
     def _random_string(self, length):
-        return ''.join(random.choice(string.letters) for ii in range(length + 1))
+        return ''.join(random.choice(string.letters)
+                       for ii in range(length + 1))
 
     def _get_content_type(self, filename):
         return mimetypes.guess_type(filename)[0] or 'application/octet-stream'
-
 
 
 def load_factory(options):
