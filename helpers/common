@@ -3,8 +3,12 @@ TEMP_D=""
 CR="
 "
 
-error() { echo "$@" 1>&1; }
-debug() { [ ${VERBOSITY:-0} -lt "$1" ] || error "$@"; }
+error() { echo "$@" 1>&2; }
+debug() {
+    [ ${VERBOSITY:-0} -ge "$1" ] || return
+    shift
+    error "$@"
+}
 
 partition_main_usage() {
     cat <<EOF
