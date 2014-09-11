@@ -124,9 +124,13 @@ class Stage(object):
                 cmd, stdout=writer, stderr=writer, env=env, shell=shell)
             # sp.stdout and sp.stderr are written to parent process stdout
             while sp.poll() is None:
-                sys.stdout.write(reader.read())
+                msg = reader.read()
+                sys.stdout.write(msg)
+                LOG.info(msg)
                 time.sleep(0.25)
-            sys.stdout.write(reader.read())
+            msg = reader.read()
+            sys.stdout.write(msg)
+            LOG.info(msg)
 
 
 def apply_power_state(pstate):
