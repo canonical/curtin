@@ -26,11 +26,9 @@ str = None
 from unittest import TestCase
 from mock import patch
 
-from curtin import log
 from curtin.reporter import (
     EmptyReporter,
     load_reporter,
-    LoadReporterException,
     )
 # XXX: see `XXX` below for details
 #from curtin.reporter.maas import load_factory as maas_load_factory

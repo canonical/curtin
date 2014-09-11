@@ -230,4 +230,3 @@ def load_factory(options):
         return MAASReporter(options)
     except Exception:
         raise LoadReporterException
-
