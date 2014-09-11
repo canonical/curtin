@@ -20,6 +20,7 @@
 from curtin.reporter import (
     BaseReporter,
     INSTALL_LOG,
+    LoadReporterException,
     )
 from email.utils import parsedate
 import mimetypes
@@ -38,11 +39,11 @@ class MAASReporter(BaseReporter):
 
     def __init__(self, config):
         """Load config dictionary and initialize object."""
-        self.url = config.get('url')
-        self.consumer_key = config.get('consumer_key')
+        self.url = config['url']
+        self.consumer_key = config['consumer_key']
         self.consumer_secret = ''
-        self.token_key = config.get('token_key')
-        self.token_secret = config.get('token_secret')
+        self.token_key = config['token_key']
+        self.token_secret = config['token_secret']
 
     def report_progress(self, progress, files):
         """Report installation progress."""
@@ -225,4 +226,8 @@ class MAASReporter(BaseReporter):
 
 
 def load_factory(options):
-    return MAASReporter(options)
+    try:
+        return MAASReporter(options)
+    except Exception:
+        raise LoadReporterException
+
