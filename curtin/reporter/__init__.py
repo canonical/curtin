@@ -55,10 +55,10 @@ class EmptyReporter(BaseReporter):
     def report_progress(self, progress):
         """Empty."""
 
-    def report_success(self, progress):
+    def report_success(self):
         """Empty."""
 
-    def report_failure(self, progress):
+    def report_failure(self, failure):
         """Empty."""
 
 
