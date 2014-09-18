@@ -189,14 +189,14 @@ def meta_simple(args):
     if bootpt['enabled'] and ptfmt in ("uefi", "prep"):
         raise ValueError("format=%s with boot partition not supported" % ptfmt)
 
-    if ptfmt == "prep":
-        rootdev = devnode + "2"
-
     if bootpt['enabled']:
         bootdev = devnode + "1"
         rootdev = devnode + "2"
     else:
-        rootdev = devnode + "1"
+        if ptfmt == "prep":
+            rootdev = devnode + "2"
+        else:
+            rootdev = devnode + "1"
         bootdev = None
 
     LOG.debug("rootdev=%s bootdev=%s fmt=%s bootpt=%s",
