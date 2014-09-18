@@ -86,3 +86,22 @@ def load_reporter(config):
         LOG.error(
             "Failed loading %s reporter with %s" % (name, options))
         return EmptyReporter()
+
+
+def clear_install_log():
+    """Clear the installation log, so no previous installation is present."""
+    try:
+        open(INSTALL_LOG, 'w').close()
+    except IOError:
+        pass
+
+
+def writeline_install_log(output):
+    """Write output into the install log."""
+    if not output.endswith('\n'):
+        output += '\n'
+    try:
+        with open(INSTALL_LOG, 'a') as fp:
+            fp.write(output)
+    except IOError:
+        pass
