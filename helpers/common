@@ -536,7 +536,7 @@ install_grub() {
             [ -x $prober ] && chmod -x "$prober"
             dpkg-reconfigure "$1"
             [ -f $prober ] && chmod +x "$prober"
-            grub-install --target=$2 --efi-directory=/boot/efi --bootloader-id=ubuntu --recheck || exit; done' \
+            grub-install --target=$2 --efi-directory=/boot/efi --bootloader-id=ubuntu --recheck' \
             -- "${grub_name}" "${grub_target}" </dev/null ||
             { error "failed to install grub!"; return 1; }
     else
