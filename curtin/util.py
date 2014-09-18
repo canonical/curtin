@@ -55,9 +55,9 @@ def subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
                               env=env, shell=shell)
         (out, err) = sp.communicate(data)
         if isinstance(out, bytes):
-            out = out.decode()
+            out = out.decode('utf-8')
         if isinstance(err, bytes):
-            err = err.decode()
+            err = err.decode('utf-8')
     except OSError as e:
         raise ProcessExecutionError(cmd=args, reason=e)
     rc = sp.returncode  # pylint: disable=E1101

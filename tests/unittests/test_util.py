@@ -98,4 +98,15 @@ class TestWhich(TestCase):
                            target="/target")
         self.assertEqual(found, "/usr/bin2/fuzz")
 
+
+class TestSubp(TestCase):
+
+    def test_subp_handles_utf8(self):
+        # The given bytes contain utf-8 accented characters as seen in e.g.
+        # the "deja dup" package in Ubuntu.
+        input_bytes = b'd\xc3\xa9j\xc8\xa7'
+        cmd = ['echo', '-n', input_bytes]
+        (out, _err) = util.subp(cmd, capture=True)
+        self.assertEqual(out, input_bytes.decode('utf-8'))
+
 # vi: ts=4 expandtab syntax=python
