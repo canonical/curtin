@@ -488,7 +488,7 @@ install_grub() {
 
     # copy anything after '--' on cmdline to install'd cmdline
     read cmdline < /proc/cmdline
-    local reconf="" newargs=""
+    local newargs=""
 
     tmp="${cmdline##* -- }"
     if [ "$tmp" != "$cmdline" ]; then
@@ -509,24 +509,27 @@ install_grub() {
             [ "${p#console}" = "$p" ] || c="$c $p"; done; echo "${c# }")
     fi
 
-    if [ "${REPLACE_GRUB_LINUX_DEFAULT:-1}" != "0" ]; then
-        local n="GRUB_CMDLINE_LINUX_DEFAULT"
-        local sede="s|$n=.*|$n=\"$newargs\"|"
-        sed -i "$sede" "$mp/etc/default/grub" ||
-            { error "failed to update /etc/default/grub"; return 1; }
-        grep "$n" "$mp/etc/default/grub"
-        reconf="dpkg-reconfigure $grub_name"
-        debug 1 "updating cmdline to '${newargs}'"
+    local grub_d="etc/default/grub.d"
+    local mygrub_cfg="$grub_d/50-curtin-settings.cfg"
+    [ -d "$mp/$grub_d" ] || mkdir -p "$mp/$grub_d" ||
+        { error "Failed to create $grub_d"; return 1; }
 
-        # LP: #1179940 . this fix was applied to raring, which
-        # made changes above not stick.  This might not be the best
-        # way to handle this, but we'll do it for now.
-        local cicfg="etc/default/grub.d/50-cloudimg-settings.cfg"
-        if [ -f "$mp/$cicfg" ]; then
-            debug 1 "moved $cicfg out of the way"
-            mv "$mp/$cicfg" "$mp/$cicfg.disabled"
-        fi
+    # LP: #1179940 . The 50-cloudig-settings.cfg file is written by the cloud
+    # images build and defines/override some settings. Disable it.
+    local cicfg="$grub_d/50-cloudimg-settings.cfg"
+    if [ -f "$mp/$cicfg" ]; then
+       debug 1 "moved $cicfg out of the way"
+       mv "$mp/$cicfg" "$mp/$cicfg.disabled"
     fi
+
+    : > "$mp/$mygrub_cfg" ||
+        { error "Failed to write '$mygrub_cfg'"; return 1; }
+    {
+        [ "${REPLACE_GRUB_LINUX_DEFAULT:-1}" = "0" ] ||
+            echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$newargs\""
+        echo "# disable grub os prober that might find other OS installs."
+        echo "GRUB_DISABLE_OS_PROBER=true"
+    } >> "$mp/$mygrub_cfg"
 
     local short="" bd="" grubdev grubdevs_new=""
     grubdevs_new=()
@@ -548,21 +551,19 @@ install_grub() {
     if [ "$uefi" -ge 1 ]; then
         debug 1 "installing ${grub_name} to: /boot/efi"
         chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
-            prober="/etc/grub.d/30_os-prober"
-            [ -x $prober ] && chmod -x "$prober"
-            dpkg-reconfigure "$1"
-            [ -f $prober ] && chmod +x "$prober"
-            grub-install --target=$2 --efi-directory=/boot/efi --bootloader-id=ubuntu --recheck' \
-            -- "${grub_name}" "${grub_target}" </dev/null ||
+            pkg="$1"; shift;
+            dpkg-reconfigure "$pkg"
+            update-grub
+            grub-install --target=$2 --efi-directory=/boot/efi \
+                --bootloader-id=ubuntu --recheck' -- \
+            "${grub_name}" "${grub_target}" </dev/null ||
             { error "failed to install grub!"; return 1; }
     else
         debug 1 "installing ${grub_name} to: ${grubdevs[*]}"
         chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
             pkg=$1; shift;
-            prober="/etc/grub.d/30_os-prober"
-            [ -x $prober ] && chmod -x "$prober"
             dpkg-reconfigure "$pkg"
-            [ -f $prober ] && chmod +x "$prober"
+            update-grub
             for d in "$@"; do grub-install "$d" || exit; done' \
             -- "${grub_name}" "${grubdevs[@]}" </dev/null ||
             { error "failed to install grub!"; return 1; }
