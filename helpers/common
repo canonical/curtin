@@ -93,6 +93,23 @@ wipedev() {
     fi
 }
 
+part2bd() {
+    # part2bd given a partition, return the block device it is on
+    # and the number the partition is.  ie, 'sda2' -> '/dev/sda 2'
+    local dev="$1" fp="" sp="" bd="" ptnum=""
+    dev="/dev/${dev#/dev/}"
+    fp=$(readlink -f "$dev") || return 1
+    sp="/sys/class/block/${fp##*/}"
+    [ -f "$sp/partition" ] || { _RET="$fp 0"; return 0; }
+    read ptnum < "$sp/partition"
+    sp=$(readlink -f "$sp") || return 1
+    # sp now has some /sys/devices/pci..../0:2:0:0/block/sda/sda1
+    bd=${sp##*/block/}
+    bd="${bd%/*}"
+    _RET="/dev/$bd $ptnum"
+    return 0
+}
+
 pt_gpt() {
     local target="$1" end=${2:-""} boot="$3" size="" s512=""
     local start="2048" rootsize="" bootsize="1048576" maxend=""
@@ -519,7 +536,7 @@ install_grub() {
             for bd in "/sys/block/$short/slaves/"/*; do
                 [ -d "$bd" ] || continue
                 bd=${bd##*/}
-                bd="/dev/${bd%[0-9]}" # hack: part2bd
+                bd="/dev/${bd%[0-9]}" # FIXME: part2bd
                 grubdevs_new[${#grubdevs_new[@]}]="$bd"
             done
         else
