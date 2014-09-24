@@ -294,13 +294,15 @@ def setup_grub(cfg, target):
             blockdevs.add(blockdev)
 
         if platform.machine().startswith("ppc64"):
-            # ppc64 we want the PReP partitions on the installed block devices.
-            # the shnip here prints /dev/xxxN for each N that has 'prep' flags
+            # assume we want partitions that are 4100 (PReP). The snippet here
+            # just prints the partition number partitions of that type.
             shnip = textwrap.dedent("""
                 export LANG=C;
                 for d in "$@"; do
-                  parted --machine "$d" print |
-                    awk -F: "\$7 ~ /prep/ { print d \$1 }" d=$d; done
+                    sgdisk "$d" --print |
+                        awk "\$6 == prep || \$6 == efi { print d \$1 }" \
+                            "d=$d" prep=4100
+                done
                 """)
             try:
                 out, err = util.subp(
