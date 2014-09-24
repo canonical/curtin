@@ -2,6 +2,7 @@
 TEMP_D=""
 CR="
 "
+VERBOSITY=${VERBOSITY:-${CURTIN_VERBOSITY:-0}}
 
 error() { echo "$@" 1>&2; }
 debug() {
