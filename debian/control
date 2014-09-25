@@ -15,7 +15,7 @@ Build-Depends: debhelper (>= 7),
                python3-nose,
                python3-setuptools,
                python3-yaml,
-               pytyon3-mock
+               python3-mock
 Homepage: http://launchpad.net/curtin
 X-Python3-Version: >= 3.2
 
