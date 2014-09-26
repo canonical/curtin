@@ -69,7 +69,7 @@ def write_image_to_disk(source, dev):
                     ('wget "$1" --progress=dot:mega -O - |'
                      'tar -SxOzf - | dd of="$2"'),
                     '--', source, devnode])
-    util.subp(['partprobe'])
+    util.subp(['partprobe', devnode])
     util.subp(['udevadm', 'settle'])
     return block.get_root_device([devname, ])
 
