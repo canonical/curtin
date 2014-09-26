@@ -211,9 +211,9 @@ main() {
 		fpath=$(readlink -f "$src") ||
 			{ error "'$src': failed to get path"; return 1; }
 		if [ -n "$pub" ]; then
-			pub="${fpath##*/}"
+			pub="${src##*/}"
 		fi
-		ln -sf "$src" "${TEMP_D}/${pub}"
+		ln -sf "$fpath" "${TEMP_D}/${pub}"
 	done
 
 	# now replace PUBURL anywhere in cmdargs
