@@ -189,8 +189,8 @@ main() {
 			size="${disk##*:}"
 		fi
 		if [ ! -f "$src" ]; then
-			qemu-img create -f raw "${src}" 5G ||
-				{ error "failed create $src"; return 1; }
+			qemu-img create -f raw "${src}" "$size" ||
+				{ error "failed create $src of size $size"; return 1; }
 		fi
 		disk_args=( "${disk_args[@]}"
 			"-drive" "file=${src},if=virtio,cache=unsafe" )
