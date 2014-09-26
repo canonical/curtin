@@ -190,7 +190,7 @@ def get_root_device(dev, fpath="curtin"):
         finally:
             if mp:
                 util.do_umount(mp)
-    
+
     os.rmdir(tmp_mount)
 
     if target is None:
