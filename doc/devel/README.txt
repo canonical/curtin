@@ -9,15 +9,15 @@ sudo apt-get -qy install kvm libvirt-bin cloud-utils bzr
 ## get cloud image to boot (-disk1.img) and one to install (-root.tar.gz)
 mkdir -p ~/download
 DLDIR=$( cd ~/download && pwd )
-rel="precise"
-rel="raring"
+rel="trusty"
+arch=amd64
 burl="http://cloud-images.ubuntu.com/$rel/current/"
-for f in $rel-server-cloudimg-amd64-root.tar.gz $rel-server-cloudimg-amd64-disk1.img; do
+for f in $rel-server-cloudimg-${arch}-root.tar.gz $rel-server-cloudimg-${arch}-disk1.img; do
   wget "$burl/$f" -O $DLDIR/$f; done
-( cd $DLDIR && qemu-img convert -O qcow $rel-server-cloudimg-amd64-disk1.img $rel-server-cloudimg-amd64-disk1.qcow2)
+( cd $DLDIR && qemu-img convert -O qcow $rel-server-cloudimg-${arch}-disk1.img $rel-server-cloudimg-${arch}-disk1.qcow2)
 
-BOOTIMG="$DLDIR/$rel-server-cloudimg-amd64-disk1.qcow2"
-ROOTTGZ="$DLDIR/$rel-server-cloudimg-amd64-root.tar.gz"
+BOOTIMG="$DLDIR/$rel-server-cloudimg-${arch}-disk1.qcow2"
+ROOTTGZ="$DLDIR/$rel-server-cloudimg-${arch}-root.tar.gz"
 
 ## get curtin
 mkdir -p ~/src
