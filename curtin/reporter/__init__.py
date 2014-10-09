@@ -29,7 +29,7 @@ from curtin.util import (
     try_import_module,
     )
 
-INSTALL_LOG = "/var/log/curtin_install.log"
+INSTALL_LOG = "/var/log/install.log"
 
 
 class BaseReporter:
