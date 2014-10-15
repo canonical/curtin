@@ -20,6 +20,8 @@
 # TODO - make python3 compliant
 # str = None
 
+import os
+
 from abc import (
     ABCMeta,
     abstractmethod,
@@ -27,6 +29,7 @@ from abc import (
 from curtin.log import LOG
 from curtin.util import (
     try_import_module,
+    ensure_dir,
     )
 
 INSTALL_LOG = "/var/log/curtin/install.log"
@@ -90,12 +93,11 @@ def load_reporter(config):
 
 def clear_install_log():
     """Clear the installation log, so no previous installation is present."""
+    # Create MAAS install log directory
+    ensure_dir(os.path.dirname(INSTALL_LOG))
     try:
-        # Create MAAS install log directory
-        if not os.path.isdir(os.path.dirname(INSTALL_LOG)):
-            os.mkdir(os.path.dirname(INSTALL_LOG))
         open(INSTALL_LOG, 'w').close()
-    except IOError:
+    except:
         pass
 
 
