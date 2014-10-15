@@ -29,7 +29,7 @@ from curtin.util import (
     try_import_module,
     )
 
-INSTALL_LOG = "/var/log/install.log"
+INSTALL_LOG = "/var/log/curtin/install.log"
 
 
 class BaseReporter:
@@ -91,6 +91,9 @@ def load_reporter(config):
 def clear_install_log():
     """Clear the installation log, so no previous installation is present."""
     try:
+        # Create MAAS install log directory
+        if not os.path.isdir(os.path.dirname(INSTALL_LOG)):
+            os.mkdir(os.path.dirname(INSTALL_LOG))
         open(INSTALL_LOG, 'w').close()
     except IOError:
         pass
