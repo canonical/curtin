@@ -295,9 +295,6 @@ def cmd_install(args):
     if cfg.get('http_proxy'):
         os.environ['http_proxy'] = cfg['http_proxy']
 
-    # Create MAAS install log directory
-    if not os.path.isdir(os.path.dirname(INSTALL_LOG)):
-        os.mkdir(os.path.dirname(INSTALL_LOG))
     # Load MAAS reporter
     clear_install_log()
     maas_reporter = load_reporter(cfg)
