@@ -66,7 +66,7 @@ def _lsblock(args=None):
     # we just drop one.  doesn't really matter which one.
     keys.remove('SCHED')
     basecmd = ['lsblk', '--noheadings', '--bytes', '--pairs',
-               '--out=' + ','.join(keys)]
+               '--output=' + ','.join(keys)]
     (out, _err) = util.subp(basecmd + list(args), capture=True)
     return _lsblock_pairs_to_dict(out)
 
