@@ -137,14 +137,14 @@ pt_gpt() {
 
     [ -b "$target" ] && isblk=true
 
-    if [ "$boot" = true ]; then 
+    if [ "$boot" = true ]; then
         # Creating 'efi', '/boot' and '/' partitions
         sgdisk --new "15:$start:+1M" --typecode=15:ef02 \
             --new "1::+512M" --typecode=1:8300 \
             --new "2::$end" --typecode=2:8300 "$target" ||
             { error "failed to gpt partition $target"; return 1; }
     else
-        # Creating 'efi' and '/' partitions 
+        # Creating 'efi' and '/' partitions
         sgdisk --new "15:$start:+1M" --typecode=15:ef02 \
             --new "1::$end" --typecode=1:8300 "$target" ||
             { error "failed to gpt partition $target"; return 1; }
@@ -183,7 +183,7 @@ pt_uefi() {
 
     [ -b "$target" ] && isblk=true
 
-    # Creating 'UEFI' and '/' partitions 
+    # Creating 'UEFI' and '/' partitions
     sgdisk --new "15:2048:+512M" --typecode=15:ef00 \
            --new "1::$end" --typecode=1:8300 "$target" ||
         { error "failed to sgdisk for uefi to $target"; return 1; }
@@ -269,7 +269,7 @@ pt_prep() {
         { error "failed to clear $target"; return 1; }
 
     cmd=(
-        sgdisk 
+        sgdisk
            --new "1::+8M"  --typecode=1:4100
            --new "2::$end" --typecode=2:8300
            "$target"
@@ -551,8 +551,7 @@ install_grub() {
     if [ "$uefi" -ge 1 ]; then
         debug 1 "installing ${grub_name} to: /boot/efi"
         chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
-            pkg="$1"; shift;
-            dpkg-reconfigure "$pkg"
+            dpkg-reconfigure "$1"
             update-grub
             grub-install --target=$2 --efi-directory=/boot/efi \
                 --bootloader-id=ubuntu --recheck' -- \
