@@ -49,8 +49,7 @@ if __name__ == '__main__':
 """
 
 
-def write_exe_wrapper(entrypoint, path=None, interpreter="/usr/bin/python",
-                      mode=0o755):
+def write_exe_wrapper(entrypoint, path=None, interpreter=None, mode=0o755):
     content = '\n'.join((
         "#! %s" % interpreter,
         CALL_ENTRY_POINT_PY,
