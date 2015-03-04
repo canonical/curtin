@@ -88,9 +88,11 @@ EOF
 
 xkvm_check() {
 	command -v xkvm >/dev/null 2>&1 && return
+	local myd
+	myd=$(dirname "$0")
+	[ -x "$myd/xkvm" ] && PATH="$myd:$PATH" && return
 	cat 1>&2 <<EOF
-You do not have xkvm. Get it, put it in path.
-  http://smoser.brickies.net/git/?p=tildabin.git;a=blob_plain;f=xkvm;hb=HEAD
+Unable to find 'xkvm' in PATH, should be in curtin's tools/ dir
 EOF
 	return 1
 }
@@ -148,7 +150,7 @@ main() {
 
 	TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
 		{ error "failed to make tempdir"; return 1; }
-	
+
 	trap cleanup EXIT
 
 	local bios_opts=""
