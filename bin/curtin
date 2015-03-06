@@ -1,5 +1,6 @@
 #!/bin/sh
-PY3OR2_MCHECK="curtin.checkdeps"
+PY3OR2_MCHECK="curtin.deps.check"
+PY3OR2_MINSTALL="curtin.deps.install"
 PY3OR2_MAIN="curtin.commands.main"
 PY3OR2_PYTHONS=${PY3OR2_PYTHONS:-"python3:python2:python"}
 PYTHON=${PY3OR2_PYTHON}
@@ -8,6 +9,7 @@ debug() {
    [ "${PY3OR2_DEBUG:-0}" != "0" ] || return 0
    echo "$@" 1>&2
 }
+fail() { echo "$@" 1>&2; exit 1; }
 
 mydir=${0%/*}
 updir=${mydir%/*}
@@ -22,19 +24,26 @@ if [ "${mydir#${updir}/}" = "bin" -a -d "$updir/${PY3OR2_MCHECK%%.*}" ]; then
 fi
 
 if [ ! -n "$PYTHON" ]; then
-    err=""
+    first_exe=""
     oifs="$IFS"; IFS=":"
     for p in $PY3OR2_PYTHONS; do
         command -v "$p" >/dev/null 2>&1 ||
             { debug "$p: not in path"; continue; }
+        [ -n "$first_exe" ] || first_exe="$p"
         out=$($p -m "$PY3OR2_MCHECK" 2>&1) && PYTHON="$p" && break
         debug "$p: $out"
     done
     IFS="$oifs"
-    [ -n "$PYTHON" ] || {
-       echo "no availble python? [PY3OR2_DEBUG=1 for more info]" 1>&2;
-       exit 1;
-    }
+    if [ -z "$PYTHON" ]; then
+        if [ -n "$first_exe" -a -n "$PY3OR2_MINSTALL" ]; then
+            debug "attempting deps install with $first_exe $PY3OR2_MINSTALL"
+            "$first_exe" -m "$PY3OR2_MINSTALL" ||
+                fail "failed to install deps!"
+            PYTHON="$first_exe"
+        fi
+        [ -n "$PYTHON" ] ||
+            fail "no availble python? [PY3OR2_DEBUG=1 for more info]"
+    fi
 fi
 debug "executing: $PYTHON -m \"$PY3OR2_MAIN\" $*"
-echo exec $PYTHON -m "$PY3OR2_MAIN" "$@"
+exec $PYTHON -m "$PY3OR2_MAIN" "$@"

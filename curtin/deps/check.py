@@ -18,10 +18,10 @@
 """
 The intent point of this module is that it can be called
 and exit success or fail, indicating that deps should be there.
-  python -m curtin.checkdeps [-v]
+  python -m curtin.deps.check [-v]
 """
 _imports = (
-   "from .commands import main",
+   "from ..commands import main",
    "import yaml",
 )
 
