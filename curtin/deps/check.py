@@ -21,9 +21,10 @@ and exit success or fail, indicating that deps should be there.
   python -m curtin.deps.check [-v]
 """
 _imports = (
-   "from ..commands import main",
-   "import yaml",
+    "from ..commands import main",
+    "import yaml",
 )
+
 
 def _check_imports(imports=_imports):
     errors = []
@@ -32,14 +33,14 @@ def _check_imports(imports=_imports):
             exec(istr)
         except ImportError as e:
             errors.append("failed '%s': %s" % (istr, e))
-        
+
     return errors
 
 if __name__ == '__main__':
     import sys
     verbose = False
     if len(sys.argv) > 1 and sys.argv[1] in ("-v", "--verbose"):
-       verbose = True
+        verbose = True
     errors = _check_imports()
     if verbose:
         for emsg in errors:
