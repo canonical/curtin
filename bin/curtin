@@ -1,7 +1,7 @@
 #!/bin/sh
+PY3OR2_MAIN="curtin.commands.main"
 PY3OR2_MCHECK="curtin.deps.check"
 PY3OR2_MINSTALL="curtin.deps.install"
-PY3OR2_MAIN="curtin.commands.main"
 PY3OR2_PYTHONS=${PY3OR2_PYTHONS:-"python3:python2:python"}
 PYTHON=${PY3OR2_PYTHON}
 
@@ -31,6 +31,7 @@ if [ ! -n "$PYTHON" ]; then
         command -v "$p" >/dev/null 2>&1 ||
             { debug "$p: not in path"; continue; }
         [ -n "$first_exe" ] || first_exe="$p"
+        [ -z "$PY3OR2_MCHECK" ] && PYTHON=$p && break
         out=$($p -m "$PY3OR2_MCHECK" 2>&1) && PYTHON="$p" && break
         debug "$p: $out"
     done
@@ -42,9 +43,9 @@ if [ ! -n "$PYTHON" ]; then
                 fail "failed to install deps!"
             PYTHON="$first_exe"
         fi
-        [ -n "$PYTHON" ] ||
-            fail "no availble python? [PY3OR2_DEBUG=1 for more info]"
     fi
+    [ -n "$PYTHON" ] ||
+        fail "no availble python? [PY3OR2_DEBUG=1 for more info]"
 fi
-debug "executing: $PYTHON -m \"$PY3OR2_MAIN\" $*"
+debug "executing: $PYTHON -m "$PY3OR2_MAIN" $*"
 exec $PYTHON -m "$PY3OR2_MAIN" "$@"

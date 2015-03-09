@@ -1,0 +1,25 @@
+#!/usr/bin/python3
+
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from curtin.pack import write_exe_wrapper
+
+path = "bin/curtin"
+if len(sys.argv) > 1:
+    path = sys.argv[1]
+
+if path == "-":
+    parg = None
+else:
+    parg = path
+
+ret = write_exe_wrapper(entrypoint="curtin.commands.main", path=parg,
+                        deps_check_entry="curtin.deps.check",
+                        deps_install_entry="curtin.deps.install")
+
+if path == "-":
+    sys.stdout.write(ret)
+
+sys.stderr.write("wrote to %s\n" % path)

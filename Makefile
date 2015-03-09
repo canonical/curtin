@@ -1,7 +1,11 @@
 TOP := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 CWD := $(shell pwd)
+PYTHON ?= python3
 
 build:
+
+bin/curtin: curtin/pack.py tools/write-curtin
+	$(PYTHON) tools/write-curtin bin/curtin
 
 check: pep8 pyflakes pyflakes3 test
 
