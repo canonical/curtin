@@ -11,6 +11,7 @@ debug() {
 }
 fail() { echo "$@" 1>&2; exit 1; }
 
+# if $0 is is bin/ and dirname($0)/../module exists, then prepend PYTHONPATH
 mydir=${0%/*}
 updir=${mydir%/*}
 if [ "${mydir#${updir}/}" = "bin" -a -d "$updir/${PY3OR2_MCHECK%%.*}" ]; then
