@@ -138,7 +138,7 @@ def pack(fdout=None, command=None, paths=None, copy_files=None,
         shutil.copytree(paths['helpers'], os.path.join(exdir, "helpers"))
         shutil.copytree(paths['lib'], os.path.join(exdir, "curtin"),
                         ignore=not_dot_py)
-        write_exe_wrapper(entrypoint='curtin.commands.main.main',
+        write_exe_wrapper(entrypoint='curtin.commands.main',
                           path=os.path.join(bindir, 'curtin'),
                           deps_check_entry="curtin.deps.check",
                           deps_install_entry="curtin.deps.install"
