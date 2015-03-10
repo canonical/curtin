@@ -143,7 +143,7 @@ class Stage(object):
                     LOG.warn("%s command failed", cmdname)
                     raise util.ProcessExecutionError(cmd=cmd, reason=e)
 
-                output = ""
+                output = b""
                 while True:
                     data = sp.stdout.read(1)
                     if data == '' and sp.poll() is not None:
