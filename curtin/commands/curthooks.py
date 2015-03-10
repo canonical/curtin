@@ -245,6 +245,8 @@ def apply_debconf_selections(cfg, target):
         LOG.warn("The following packages were installed and preseeded, "
                  "but cannot be unconfigured: %s", unhandled)
 
+    util.subp(['chroot', target, 'sed', '-i', 's,iteritems(),items(),',
+               '/var/lib/dpkg/info/cloud-init.postinst'])
     util.subp(['chroot', target, 'dpkg-reconfigure',
                '--frontend=noninteractive'] +
               list(to_config), data=None)
