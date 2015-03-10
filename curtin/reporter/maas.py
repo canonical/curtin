@@ -113,13 +113,14 @@ class MAASReporter(BaseReporter):
 
         clockskew = 0
 
-        exc = Exception("Unexpected Error")
+        myexc = Exception("Unexpected Error")
         for naptime in (1, 1, 2, 4, 8, 16, 32):
             self.authenticate_headers(url, headers, creds, clockskew)
             try:
                 req = urllib_request(url=url, data=data, headers=headers)
                 return urllib_request.urlopen(req).read()
             except urllib_error.HTTPError as exc:
+                myexc = exc
                 if 'date' not in exc.headers:
                     sys.stderr.write("date field not in %d headers" % exc.code)
                     pass
@@ -133,10 +134,10 @@ class MAASReporter(BaseReporter):
                     except:
                         sys.stderr.write("failed to convert date '%s'" % date)
             except Exception as exc:
-                pass
+                myexc = exc
 
             sys.stderr.write(
-                "request to %s failed. sleeping %d.: %s" % (url, naptime, exc))
+                "request to %s failed. sleeping %d.: %s" % (url, naptime, myexc))
             time.sleep(naptime)
 
         raise exc
