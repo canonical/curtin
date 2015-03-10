@@ -245,7 +245,7 @@ except ImportError:
             resource_owner_key=token_key,
             resource_owner_secret=token_secret,
             signature_method=oauth1.SIGNATURE_PLAINTEXT,
-            timestamp=timestamp)
+            timestamp=str(timestamp))
         uri, signed_headers, body = client.sign(url)
         return signed_headers
 
