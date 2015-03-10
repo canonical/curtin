@@ -117,7 +117,7 @@ class MAASReporter(BaseReporter):
         for naptime in (1, 1, 2, 4, 8, 16, 32):
             self.authenticate_headers(url, headers, creds, clockskew)
             try:
-                req = urllib_request(url=url, data=data, headers=headers)
+                req = urllib_request.Request(url=url, data=data, headers=headers)
                 return urllib_request.urlopen(req).read()
             except urllib_error.HTTPError as exc:
                 myexc = exc
@@ -140,7 +140,7 @@ class MAASReporter(BaseReporter):
                 "request to %s failed. sleeping %d.: %s" % (url, naptime, myexc))
             time.sleep(naptime)
 
-        raise exc
+        raise myexc
 
     def report(self, files, status, message=None):
         """Send the report."""
@@ -166,10 +166,13 @@ class MAASReporter(BaseReporter):
         exc = None
         msg = ""
 
+        if not isinstance(data, bytes):
+            data = data.encode()
+
         try:
             payload = self.geturl(self.url, creds=creds, headers=headers,
                                   data=data)
-            if payload != "OK":
+            if payload != "OK" and payload != b'OK':
                 raise TypeError("Unexpected result from call: %s" % payload)
             else:
                 msg = "Success"
