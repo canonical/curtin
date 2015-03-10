@@ -116,7 +116,7 @@ def get_devices_for_mp(mountpoint):
 def get_installable_blockdevs():
     good = []
     unused = get_unused_blockdev_info()
-    for devname, data in unused.iteritems():
+    for devname, data in unused.items():
         if data.get('RO') == "0" and data.get('TYPE') == "disk":
             good.append(devname)
     return good
