@@ -54,6 +54,7 @@ KERNEL_MAPPING = {
     'trusty': {
         '3.13.0': '',
         '3.16.0': '-lts-utopic',
+        '3.19.0': '-lts-vivid',
     },
 }
 
