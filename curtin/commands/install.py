@@ -100,18 +100,29 @@ class Stage(object):
         self.commands = commands
         self.env = env
         self.install_log = self.open_install_log()
+        if hasattr(sys.stdout, 'buffer'):
+            self.write_stdout = self._write_stdout3
+        else:
+            self.write_stdout = self._write_stdout2
 
     def open_install_log(self):
         """Open the install log."""
         try:
-            return open(INSTALL_LOG, 'a')
+            return open(INSTALL_LOG, 'ab')
         except IOError:
             return None
 
-    def write(self, data):
-        """Write data to stdout and to the install_log."""
+    def _write_stdout3(self, data):
+        sys.stdout.buffer.write(data)
+        sys.stdout.flush()
+
+    def _write_stdout2(self, data):
         sys.stdout.write(data)
         sys.stdout.flush()
+
+    def write(self, data):
+        """Write data to stdout and to the install_log."""
+        self.write_stdout(data)
         if self.install_log is not None:
             self.install_log.write(data)
             self.install_log.flush()
@@ -132,10 +143,10 @@ class Stage(object):
                     LOG.warn("%s command failed", cmdname)
                     raise util.ProcessExecutionError(cmd=cmd, reason=e)
 
-                output = ""
+                output = b""
                 while True:
                     data = sp.stdout.read(1)
-                    if data == '' and sp.poll() is not None:
+                    if not data and sp.poll() is not None:
                         break
                     self.write(data)
                     output += data

@@ -1,43 +1,51 @@
-#!/usr/bin/python
-#   Copyright (C) 2013 Canonical Ltd.
-#
-#   Author: Scott Moser <scott.moser@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+#!/bin/sh
+PY3OR2_MAIN="curtin.commands.main"
+PY3OR2_MCHECK="curtin.deps.check"
+PY3OR2_MINSTALL="curtin.deps.install"
+PY3OR2_PYTHONS=${PY3OR2_PYTHONS:-"python3:python2:python"}
+PYTHON=${PY3OR2_PYTHON}
 
-import os
-import sys
+debug() {
+   [ "${PY3OR2_DEBUG:-0}" != "0" ] || return 0
+   echo "$@" 1>&2
+}
+fail() { echo "$@" 1>&2; exit 1; }
 
+# if $0 is is bin/ and dirname($0)/../module exists, then prepend PYTHONPATH
+mydir=${0%/*}
+updir=${mydir%/*}
+if [ "${mydir#${updir}/}" = "bin" -a -d "$updir/${PY3OR2_MCHECK%%.*}" ]; then
+    updir=$(cd "$mydir/.." && pwd)
+    case "$PYTHONPATH" in
+        *:$updir:*|$updir:*|*:$updir) :;;
+        *) export PYTHONPATH="$updir${PYTHONPATH:+:$PYTHONPATH}"
+           debug "adding '$updir' to PYTHONPATH"
+            ;;
+    esac
+fi
 
-def call_entry_point(name):
-    (istr, dot, ent) = name.rpartition('.')
-    try:
-        __import__(istr)
-    except ImportError as e:
-        # if that import failed, check dirname(__file__/..)
-        # to support ./bin/curtin with modules in .
-        _tdir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        sys.path.append(_tdir)
-        try:
-            __import__(istr)
-        except ImportError:
-            sys.stderr.write("Unable to find %s: %s\n" % (name, e))
-            sys.exit(2)
-
-    sys.exit(getattr(sys.modules[istr], ent)())
-
-if __name__ == '__main__':
-    call_entry_point("curtin.commands.main.main")
-
-# vi: ts=4 expandtab syntax=python
+if [ ! -n "$PYTHON" ]; then
+    first_exe=""
+    oifs="$IFS"; IFS=":"
+    for p in $PY3OR2_PYTHONS; do
+        command -v "$p" >/dev/null 2>&1 ||
+            { debug "$p: not in path"; continue; }
+        [ -n "$first_exe" ] || first_exe="$p"
+        [ -z "$PY3OR2_MCHECK" ] && PYTHON=$p && break
+        out=$($p -m "$PY3OR2_MCHECK" 2>&1) && PYTHON="$p" && break
+        debug "$p: $out"
+    done
+    IFS="$oifs"
+    if [ -z "$PYTHON" ]; then
+        if [ -n "$first_exe" -a -n "$PY3OR2_MINSTALL" ]; then
+            debug "attempting deps install with $first_exe $PY3OR2_MINSTALL"
+            "$first_exe" -m "$PY3OR2_MINSTALL" ||
+                fail "failed to install deps!"
+            PYTHON="$first_exe"
+        fi
+    fi
+    [ -n "$PYTHON" ] ||
+        fail "no availble python? [PY3OR2_DEBUG=1 for more info]"
+fi
+debug "executing: $PYTHON -m "$PY3OR2_MAIN" $*"
+exec $PYTHON -m "$PY3OR2_MAIN" "$@"

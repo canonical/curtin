@@ -2,7 +2,7 @@
 
 PYTHON_VERSION=${PYTHON_VERSION:-3}
 pycheck_dirs=( "curtin/" "tests/" )
-bin_files=( "bin/curtin" )
+bin_files=( )
 CR="
 "
 
