@@ -117,7 +117,8 @@ class MAASReporter(BaseReporter):
         for naptime in (1, 1, 2, 4, 8, 16, 32):
             self.authenticate_headers(url, headers, creds, clockskew)
             try:
-                req = urllib_request.Request(url=url, data=data, headers=headers)
+                req = urllib_request.Request(url=url, data=data,
+                                             headers=headers)
                 return urllib_request.urlopen(req).read()
             except urllib_error.HTTPError as exc:
                 myexc = exc
@@ -136,8 +137,8 @@ class MAASReporter(BaseReporter):
             except Exception as exc:
                 myexc = exc
 
-            sys.stderr.write(
-                "request to %s failed. sleeping %d.: %s" % (url, naptime, myexc))
+            sys.stderr.write("request to %s failed. sleeping %d.: %s" %
+                             (url, naptime, myexc))
             time.sleep(naptime)
 
         raise myexc
@@ -217,6 +218,7 @@ class MAASReporter(BaseReporter):
 
 try:
     import oauth.oauth as oauth
+
     def oauth_headers(url, consumer_key, token_key, token_secret,
                       consumer_secret, clockskew=0):
         """Build OAuth headers using given credentials."""
@@ -239,6 +241,7 @@ try:
 
 except ImportError:
     import oauthlib.oauth1 as oauth1
+
     def oauth_headers(url, consumer_key, token_key, token_secret,
                       consumer_secret, clockskew=0):
         """Build OAuth headers using given credentials."""
