@@ -146,7 +146,7 @@ class Stage(object):
                 output = b""
                 while True:
                     data = sp.stdout.read(1)
-                    if data == '' and sp.poll() is not None:
+                    if not data and sp.poll() is not None:
                         break
                     self.write(data)
                     output += data
