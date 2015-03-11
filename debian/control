@@ -1,9 +1,10 @@
 Source: curtin
 Section: admin
 Priority: extra
-Standards-Version: 3.9.4
+Standards-Version: 3.9.6
 Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 Build-Depends: debhelper (>= 7),
+               dh-python,
                pep8,
                pyflakes,
                python-all,
@@ -12,10 +13,10 @@ Build-Depends: debhelper (>= 7),
                python-setuptools,
                python-yaml,
                python3,
+               python3-mock,
                python3-nose,
                python3-setuptools,
-               python3-yaml,
-               python3-mock
+               python3-yaml
 Homepage: http://launchpad.net/curtin
 X-Python3-Version: >= 3.2
 
