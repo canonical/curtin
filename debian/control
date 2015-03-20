@@ -26,7 +26,7 @@ Priority: extra
 Depends: python,
          python-curtin (= ${binary:Version}),
          ${misc:Depends},
-         ${python:Depends}
+         ${python3:Depends}
 Description: Library and tools for the curtin installer
  This package provides the curtin installer.
  .
@@ -36,7 +36,7 @@ Description: Library and tools for the curtin installer
 Package: curtin-common
 Architecture: all
 Priority: extra
-Depends: util-linux (>= 2.20.1-1ubuntu3), ${misc:Depends}, ${python:Depends}
+Depends: util-linux (>= 2.20.1-1ubuntu3), ${misc:Depends}, ${python3:Depends}
 Conflicts: curtin (<= 0.1.0~bzr54-0ubuntu1)
 Description: Library and tools for curtin installer
  This package contains utilities for the curtin installer.

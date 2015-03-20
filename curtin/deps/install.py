@@ -28,8 +28,7 @@ if __name__ == '__main__':
     else:
         pkgs = ['python3-yaml']
     apt_update = ['apt-get', '--quiet', 'update']
-    apt_install = ['apt-get', '--dry-run', 'install', '--quiet',
-                   '--assume-yes']
+    apt_install = ['apt-get', 'install', '--quiet', '--assume-yes']
 
     cmds = [apt_update, apt_install + pkgs]
     for cmd in cmds:
