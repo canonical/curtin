@@ -93,6 +93,36 @@ wipedev() {
     fi
 }
 
+find_partno() {
+    local devname="$1" partno="$2"
+    local devbname cand msg="" slash="/"
+    devbname="${devname#/dev/}"
+    # /dev/cciss/c0d0 -> ccis!c0d0
+    devbname="${devbname//$slash/!}"
+    if [ -d "/sys/class/block/${devbname}" ]; then
+        local cand candptno name partdev
+        debug 1 "using sys/class/block/$devbname"
+        for cand in /sys/class/block/$devbname/*/partition; do
+            [ -f "$cand" ] || continue
+            read candptno < "$cand"
+            [ "$candptno" = "$partno" ] || continue
+            name=${cand#/sys/class/block/${devbname}/}
+            name=${name%/partition}
+            # ccis!c0d0p1 -> ccis/c0d0p1
+            name=${name//!/$slash}
+            partdev="/dev/$name"
+            [ -b "$partdev" ] && _RET="$partdev" && return 0
+            msg="expected $partdev to exist as partition $partno on $devname"
+            error "WARN: $msg. it did not exist."
+        done
+    else
+        for cand in "${devname}$partno" "${devname}p${partno}"; do
+            [ -b "$cand" ] && _RET="$cand" && return 0
+        done
+    fi
+    return 1
+}
+
 part2bd() {
     # part2bd given a partition, return the block device it is on
     # and the number the partition is.  ie, 'sda2' -> '/dev/sda 2'
@@ -151,17 +181,23 @@ pt_gpt() {
     fi
 
     if $isblk; then
+        local expected="1 15"
+        [ "$boot" = "true" ] && expected="$expected 2"
         blockdev --rereadpt "$target"
         udevadm settle
-        [ -b "${target}1" ] ||
-            { error "no partition found ${target}1"; return 1; }
-        [ -b "${target}15" ] ||
-            { error "no partition found ${target}15"; return 1; }
-        if [ "$boot" = true ]; then
-            [ -b "${target}2" ] ||
-                { error "no partition found ${target}2"; return 1; }
-        fi
+        assert_partitions "$target" $expected ||
+            { error "$target missing partitions: $_RET"; return 1; }
     fi
+}
+
+assert_partitions() {
+    local dev="$1" missing="" part=""
+    shift
+    for part in "$@"; do
+        find_partno "$dev" $part || missing="${missing} ${part}"
+    done
+    _RET="${missing# }"
+    [ -z "$missing" ]
 }
 
 pt_uefi() {
@@ -191,10 +227,8 @@ pt_uefi() {
     if $isblk; then
         blockdev --rereadpt "$target"
         udevadm settle
-        [ -b "${target}1" ] ||
-            { error "no partition found ${target}1"; return 1; }
-        [ -b "${target}15" ] ||
-            { error "no partition found ${target}15"; return 1; }
+        assert_partitions "$target" 1 15 ||
+            { error "$target missing partitions: $_RET"; return 1; }
     fi
 
     mkfs -t vfat -F 32 -n uefi-boot ${target}15 ||
@@ -250,8 +284,8 @@ pt_mbr() {
     if $isblk; then
         blockdev --rereadpt "$target"
         udevadm settle
-        [ -b "${target}1" ] ||
-            { error "no partition found ${target}1"; return 1; }
+        assert_partitions "$target" 1 ||
+            { error "$target missing partitions: $_RET"; return 1; }
     fi
     out=$(wipefs "--offset=$(($start*512))" "$target" 2>&1) || {
         error "$out";
@@ -283,11 +317,11 @@ pt_prep() {
     if $isblk; then
         blockdev --rereadpt "$target"
         udevadm settle
-        [ -b "${target}1" ] ||
-            { error "no partition found ${target}1"; return 1; }
-        [ -b "${target}2" ] ||
-            { error "no partition found ${target}2"; return 1; }
-        dd if=/dev/zero of="${target}1"
+        find_partno "$target" 1 ||
+            { error "$target had no partition 1"; return 1; }
+        dd if=/dev/zero of="$_RET"
+        assert_partitions "$target" 2 ||
+            { error "$target missing partitions: $_RET"; return 1; }
     fi
 
     return 0

@@ -25,7 +25,7 @@ from curtin import util
 
 
 def get_dev_name_entry(devname):
-    bname = os.path.basename(devname)
+    bname = devname.split('/dev/')[-1]
     return (bname, "/dev/" + bname)
 
 
@@ -62,12 +62,15 @@ def _lsblock(args=None):
             'TYPE', 'UUID']
     if args is None:
         args = []
+    args = [x.replace('!', '/') for x in args]
+
     # in order to avoid a very odd error with '-o' and all output fields above
     # we just drop one.  doesn't really matter which one.
     keys.remove('SCHED')
     basecmd = ['lsblk', '--noheadings', '--bytes', '--pairs',
                '--output=' + ','.join(keys)]
     (out, _err) = util.subp(basecmd + list(args), capture=True)
+    out = out.replace('!', '/')
     return _lsblock_pairs_to_dict(out)
 
 
@@ -134,7 +137,10 @@ def get_blockdev_for_partition(devpath):
     syspath = "/sys/class/block/%s" % bname
 
     if not os.path.exists(syspath):
-        raise ValueError("%s had no syspath (%s)" % (devpath, syspath))
+        syspath2 = "/sys/class/block/cciss!%s" % bname
+        if not os.path.exists(syspath2):
+            raise ValueError("%s had no syspath (%s)" % (devpath, syspath))
+        syspath = syspath2
 
     ptpath = os.path.join(syspath, "partition")
     if not os.path.exists(ptpath):
