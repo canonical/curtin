@@ -113,12 +113,17 @@ def get_devices_for_mp(mountpoint):
     return []
 
 
-def get_installable_blockdevs():
+def get_installable_blockdevs(include_removable=False, min_size=1024**3):
     good = []
     unused = get_unused_blockdev_info()
     for devname, data in unused.items():
-        if data.get('RO') == "0" and data.get('TYPE') == "disk":
-            good.append(devname)
+        if not include_removable and data.get('RM') == "1":
+            continue
+        if data.get('RO') != "0" or data.get('TYPE') != "disk":
+            continue
+        if min_size is not None and int(data.get('SIZE', '0')) < min_size:
+            continue
+        good.append(devname)
     return good
 
 
