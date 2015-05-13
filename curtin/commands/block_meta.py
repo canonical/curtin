@@ -189,20 +189,36 @@ def meta_simple(args):
     if bootpt['enabled'] and ptfmt in ("uefi", "prep"):
         raise ValueError("format=%s with boot partition not supported" % ptfmt)
 
+    bootdev_ptnum = None
+    rootdev_ptnum = None
+    bootdev = None
     if bootpt['enabled']:
-        bootdev = devnode + "1"
-        rootdev = devnode + "2"
+        bootdev_ptnum = 1
+        rootdev_ptnum = 2
     else:
         if ptfmt == "prep":
-            rootdev = devnode + "2"
+            rootdev_ptnum = 2
         else:
-            rootdev = devnode + "1"
-        bootdev = None
+            rootdev_ptnum = 1
+
+    logtime("creating partition with: %s" % ' '.join(ptcmd),
+            util.subp, ptcmd)
+
+    ptpre = ""
+    if not os.path.exists("%s%s" % (devnode, rootdev_ptnum)):
+        # perhaps the device is /dev/<blockname>p<ptnum>
+        if os.path.exists("%sp%s" % (devnode, rootdev_ptnum)):
+            ptpre = "p"
+        else:
+            LOG.warn("root device %s%s did not exist, expecting failure",
+                     devnode, rootdev_ptnum)
+
+    if bootdev_ptnum:
+        bootdev = "%s%s%s" % (devnode, ptpre, bootdev_ptnum)
+    rootdev = "%s%s%s" % (devnode, ptpre, rootdev_ptnum)
 
     LOG.debug("rootdev=%s bootdev=%s fmt=%s bootpt=%s",
               rootdev, bootdev, ptfmt, bootpt)
-    logtime("creating partition with: %s" % ' '.join(ptcmd),
-            util.subp, ptcmd)
 
     # mkfs for root partition first and mount
     cmd = ['mkfs.%s' % args.fstype, '-q', '-L', 'cloudimg-rootfs', rootdev]
