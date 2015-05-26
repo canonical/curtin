@@ -31,7 +31,7 @@ root_img=${root_img_gz%.gz}
 
 
 ## launch it using --kernel, --initrd
-./tools/launch ../dl/vivid/root-image \
-   --kernel=./root-image-kernel --initrd=./root-image-initrd \
+./tools/launch \
+   ./root-image --kernel=./root-image-kernel --initrd=./root-image-initrd \
    -v --publish ./root-image.tar.gz -- \
    curtin -vv install "PUBURL/root-image.tar.gz"
