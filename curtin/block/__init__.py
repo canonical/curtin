@@ -39,7 +39,7 @@ def is_valid_device(devname):
     return False
 
 
-def _lsblock_pairs_to_dict(lines, key="NAME"):
+def _lsblock_pairs_to_dict(lines, key="NAME", filter_func=None):
     ret = {}
     for line in lines.splitlines():
         toks = shlex.split(line)
@@ -48,11 +48,12 @@ def _lsblock_pairs_to_dict(lines, key="NAME"):
             k, v = tok.split("=", 1)
             cur[k] = v
         cur['device_path'] = get_dev_name_entry(cur['NAME'])[1]
-        ret[cur['NAME']] = cur
+        if not filter_func or filter_func(cur):
+            ret[cur[key]] = cur
     return ret
 
 
-def _lsblock(args=None):
+def _lsblock(args=None, filter_func=None):
     # lsblk  --help | sed -n '/Available/,/^$/p' |
     #     sed -e 1d -e '$d' -e 's,^[ ]\+,,' -e 's, .*,,' | sort
     keys = ['ALIGNMENT', 'DISC-ALN', 'DISC-GRAN', 'DISC-MAX', 'DISC-ZERO',
@@ -71,7 +72,7 @@ def _lsblock(args=None):
                '--output=' + ','.join(keys)]
     (out, _err) = util.subp(basecmd + list(args), capture=True)
     out = out.replace('!', '/')
-    return _lsblock_pairs_to_dict(out)
+    return _lsblock_pairs_to_dict(out, filter_func=filter_func)
 
 
 def get_unused_blockdev_info():
@@ -208,5 +209,56 @@ def get_root_device(dev, fpath="curtin"):
         raise ValueError("Could not find root device")
     return target
 
+def get_disk_serial(name):
+    """
+    Get serial number of the disk or empty string if it can't be fetched.
+    """
+    path = '/sys/block/%s/serial' % name
+    if os.path.exists(path):
+        return util.load_file(path)
+    else:
+        return ''
 
+def get_disk_busid(name):
+    """
+    Get bus address of the disk. This address uniquely identifies the device.
+    """
+    bus_path = os.readlink('/sys/block/%s' % name)
+    # /sys/block/vda -> ../devices/pci0000:00/0000:00:03.0/virtio1/block/vda
+    start = '../devices/'
+    end = '/block/%s' % name
+    if not bus_path.startswith(start) or not bus_path.endswith(end):
+        raise ValueError("malformed bus path from sysfs (%s)" % bus_path)
+    return bus_path[len(start):-len(end)]
+
+
+def _filter_disks(block_device):
+    return (block_device['TYPE'] == 'disk')
+
+def get_disk_info():
+    """
+    Get information about disks (not partitions) available in the system.
+    Together with information provided by lsblk, this function fetches
+    disk serial number and unique bus path.
+    """
+    disks = _lsblock(filter_func=_filter_disks)
+    for name in disks:
+        disks[name]['SERIAL'] = get_disk_serial(name)
+        disks[name]['BUSID'] = get_disk_busid(name)
+    return disks
+
+def lookup_disk(serial=None, busid=None):
+    """
+    Search for a disk by its serial number and/or bus id.
+    """
+    ret = None
+    for name, info in get_disk_info().items():
+        if serial and info['SERIAL'] != serial:
+            continue
+        if busid and info['BUSID'] != busid:
+            continue
+        ret = info
+        break
+    return ret
+       
 # vi: ts=4 expandtab syntax=python

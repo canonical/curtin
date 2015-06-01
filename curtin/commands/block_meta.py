@@ -28,6 +28,7 @@ import sys
 
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
+CUSTOM = 'custom'
 
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
@@ -42,7 +43,7 @@ CMD_ARGUMENTS = (
      ('--boot-fstype', {'help': 'boot partition filesystem type',
                         'choices': ['ext4', 'ext3'], 'default': None}),
      ('mode', {'help': 'meta-mode to use',
-               'choices': ['raid0', SIMPLE, SIMPLE_BOOT]}),
+               'choices': [CUSTOM, SIMPLE, SIMPLE_BOOT]}),
      )
 )
 
@@ -51,6 +52,8 @@ def block_meta(args):
     # main entry point for the block-meta command.
     if args.mode in (SIMPLE, SIMPLE_BOOT):
         meta_simple(args)
+    elif args.mode == CUSTOM:
+        meta_custom(args)
     else:
         raise NotImplementedError("mode=%s is not implemented" % args.mode)
 
@@ -114,6 +117,50 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
         return 'prep'
 
     return "mbr"
+
+
+def disk_handler(info):
+    serial = info.get('serial')
+    busid = info.get('busid')
+    if not serial and not busid:
+        raise ValueError("either serial number or bus id needs to"
+                         "be specified to identify disk")
+    disk = block.lookup_disk(serial=serial, busid=busid)
+    if not disk:
+        raise ValueError("disk with serial '%s' and bus id '%s'"
+                         "not found" % serial, busid)
+
+def partition_handler(info):
+    return
+
+
+def meta_custom(args):
+    """Does custom partitioning based on the layout provided in the config
+    file. Section with the name storage contains information on which
+    partitions on which disks to create. It also contains information about
+    overlays (raid, lvm, bcache) which need to be setup.
+    """
+
+    command_handlers = {
+        'disk': disk_handler,
+        'partition': partition_handler,
+    }
+
+    state = util.load_command_environment()
+    cfg = util.load_command_config(args, state)
+
+    storage_config = cfg.get('storage', [])
+    if not storage_config:
+        raise Exception("storage configuration is required by mode '%s' "
+                        "but not provided in the config file" % CUSTOM)
+
+    for command in storage_config:
+        handler = command_handlers.get(command['type'])
+        if not handler:
+            raise ValueError("unknown command type '%s'" % command['type'])
+        handler(command)
+
+    return 0
 
 
 def meta_simple(args):
