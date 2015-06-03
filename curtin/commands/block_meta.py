@@ -23,6 +23,7 @@ from curtin.log import LOG
 from . import populate_one_subcmd
 
 import os
+import parted
 import platform
 import sys
 
@@ -122,6 +123,7 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
 def disk_handler(info):
     serial = info.get('serial')
     busid = info.get('busid')
+    ptable = info.get('ptable')
     if not serial and not busid:
         raise ValueError("either serial number or bus id needs to"
                          "be specified to identify disk")
@@ -129,10 +131,21 @@ def disk_handler(info):
     if not disk:
         raise ValueError("disk with serial '%s' and bus id '%s'"
                          "not found" % (serial, busid))
+    if not ptable:
+        # TODO: check this behavior
+        ptable = "msdos"
+
+    # Get device and disk using parted using appropriate partition table
+    pdev = parted.getDevice(disk)
+    pdisk = parted.freshDisk(pdev, ptable)
+    LOG.info("labeling device: '%s' with '%s' partition table", disk, ptable)
+    pdisk.commit()
 
 def partition_handler(info):
     return
 
+def format_handler(info):
+    return
 
 def meta_custom(args):
     """Does custom partitioning based on the layout provided in the config
@@ -144,6 +157,7 @@ def meta_custom(args):
     command_handlers = {
         'disk': disk_handler,
         'partition': partition_handler,
+        'format' : format_handler
     }
 
     state = util.load_command_environment()
