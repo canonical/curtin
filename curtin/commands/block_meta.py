@@ -128,7 +128,7 @@ def disk_handler(info):
     disk = block.lookup_disk(serial=serial, busid=busid)
     if not disk:
         raise ValueError("disk with serial '%s' and bus id '%s'"
-                         "not found" % serial, busid)
+                         "not found" % (serial, busid))
 
 def partition_handler(info):
     return
