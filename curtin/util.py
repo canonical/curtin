@@ -306,6 +306,7 @@ class ChrootableTarget(object):
         if self.disabled_daemons:
             undisable_daemons_in_root(self.target)
 
+        subp(['udevadm', 'settle'])
         for p in reversed(self.umounts):
             do_umount(p)
 
