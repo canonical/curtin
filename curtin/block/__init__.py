@@ -22,6 +22,7 @@ import shlex
 import tempfile
 
 from curtin import util
+from curtin.log import LOG
 
 
 def get_dev_name_entry(devname):
@@ -177,6 +178,32 @@ def get_pardevs_on_blockdevs(devs):
         if found[short]['device_path'] not in devs:
             ret[short] = found[short]
     return ret
+
+
+def detect_multipath():
+    """
+    Figure out if target machine has any multipath devices.
+    """
+    # Multipath-tools are not available in the ephemeral image.
+    # This workaround detects multipath by looking for multiple
+    # devices with the same scsi id (serial number).
+    disk_ids = []
+    bdinfo = _lsblock(['--nodeps'])
+    for devname, data in bdinfo.items():
+        # Command scsi_id returns error while running against cdrom devices.
+        # To prevent getting unexpected errors for some other types of devices
+        # we ignore everything except hard disks.
+        if data['TYPE'] == 'disk':
+            cmd = ['/lib/udev/scsi_id', '--replace-whitespace',
+                   '--whitelisted', '--device=%s' % data['device_path']]
+            try:
+                (scsi_id, err) = util.subp(cmd, capture=True)
+                if scsi_id: # ignore empty ids because they are meaningless
+                    disk_ids.append(scsi_id.strip())
+            except util.ProcessExecutionError as e:
+                LOG.warn("Failed to get disk id: %s", e)
+    duplicates_found = (len(disk_ids) != len(set(disk_ids)))
+    return duplicates_found
 
 
 def get_root_device(dev, fpath="curtin"):

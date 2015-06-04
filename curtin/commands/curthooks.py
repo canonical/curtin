@@ -419,6 +419,25 @@ def add_swap(cfg, target, fstab):
                         maxsize=maxsize)
 
 
+def detect_and_handle_multipath(cfg, target):
+    DEFAULT_MULTIPATH_PACKAGES = ['multipath-tools-boot']
+    mpcfg = cfg.get('multipath', {})
+    mpmode = mpcfg.get('mode', 'auto')
+    mppkgs = mpcfg.get('packages', DEFAULT_MULTIPATH_PACKAGES)
+    if isinstance(mppkgs, str):
+        mppkgs = [mppkgs]
+
+    if mpmode == 'enabled' or (mpmode == 'auto' and block.detect_multipath()):
+        util.install_packages(mppkgs, target=target)
+        multipath_cfg_path = os.path.sep.join([target, '/etc/multipath.conf'])
+        # Without user_friendly_names option enabled system fails to boot
+        # if any of the disks has spaces in its name. Package multipath-tools
+        # has bug opened for this issue (LP: 1432062) but it was not fixed yet.
+        util.write_file(multipath_cfg_path,
+                        content='defaults {\n\tuser_friendly_names yes\n}\n')
+        # Initrams needs to be regenerated to include updated multipath.cfg
+        update_initramfs(target)
+
 def curthooks(args):
     state = util.load_command_environment()
 
@@ -451,6 +470,8 @@ def curthooks(args):
 
     copy_interfaces(state.get('interfaces'), target)
     copy_fstab(state.get('fstab'), target)
+
+    detect_and_handle_multipath(cfg, target)
 
     # As a rule, ARMv7 systems don't use grub. This may change some
     # day, but for now, assume no. They do require the initramfs
