@@ -197,9 +197,10 @@ def detect_multipath():
             cmd = ['/lib/udev/scsi_id', '--replace-whitespace',
                    '--whitelisted', '--device=%s' % data['device_path']]
             try:
-                (scsi_id, err) = util.subp(cmd, capture=True)
+                (out, err) = util.subp(cmd, capture=True)
+                scsi_id = out.rstrip('\n')
                 if scsi_id: # ignore empty ids because they are meaningless
-                    disk_ids.append(scsi_id.strip())
+                    disk_ids.append(scsi_id)
             except util.ProcessExecutionError as e:
                 LOG.warn("Failed to get disk id: %s", e)
     duplicates_found = (len(disk_ids) != len(set(disk_ids)))
