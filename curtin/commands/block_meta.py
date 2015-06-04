@@ -25,6 +25,7 @@ from . import populate_one_subcmd
 import os
 import parted
 import platform
+import string
 import sys
 
 SIMPLE = 'simple'
@@ -120,7 +121,7 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
     return "mbr"
 
 
-def disk_handler(info):
+def disk_handler(info, storage_config):
     serial = info.get('serial')
     busid = info.get('busid')
     ptable = info.get('ptable')
@@ -141,11 +142,68 @@ def disk_handler(info):
     LOG.info("labeling device: '%s' with '%s' partition table", disk, ptable)
     pdisk.commit()
 
-def partition_handler(info):
+
+def partition_handler(info, storage_config):
+    device = info.get('device')
+    offset = info.get('offset')
+    size = info.get('size')
+    flag = info.get('flag')
+    if not device:
+        raise ValueError("device must be set for partition to be created")
+    if not offset:
+        # TODO: instead of bailing, find beginning of free space on disk and go
+        #       from there
+        raise ValueError("offset must be specified for partition to be
+        created")
+    if not size:
+        raise ValueError("size must be specified for partition to be created")
+
+    # Find device to attach to in storage_config
+    # TODO: find a more efficient way to do this
+    for item in storage_config:
+        if item.get('id') == device:
+            disk = item
+            break
+    if not disk:
+        raise ValueError("device '%s' for partition '%s' not found" % (device,
+            info.get('id')
+
+    # Get disk. This should already have a partition table if config was done
+    # in right order.
+    pdev = parted.getDevice(disk)
+    pdisk = parted.Disk(device=pdev)
+
+    # Convert offset and length into sectors
+    offset_sectors = parted.sizeToSectors(int(offset.translate(None,
+        string.letters)), offset.translate(None, string.digits),
+        pdisk.device.sectorSize)
+    length_sectors = parted.sizeToSectors(int(size.translate(None,
+        string.letters)), size.translate(None, string.digits),
+        pdisk.device.sectorSize)
+
+    # Make geometry and partition
+    geometry = parted.Geometry(device=pdisk.device, start=offset_sectors,
+        length=length_sectors)
+    partition = parted.Partition(disk=pdisk, type=parted.PARTITION_NORMAL,
+        geometry=geometry)
+    constraint = parted.Constraint(exactGeom=partition.geometry)
+
+    # Set flag
+    if flag:
+        if flag == "boot":
+            partition.setFlag(parted.PARTITION_BOOT)
+        else:
+            raise ValueError("invalid partition flag '%s'" % flag)
+
+    # Add partition to disk and commit changes
+    LOG.info("adding partition '%s' to disk '%s'" % (info.get('id'), device))
+    pdisk.addPartition(partition, constraint)
+    pdisk.commit()
+
+
+def format_handler(info, storage_config):
     return
 
-def format_handler(info):
-    return
 
 def meta_custom(args):
     """Does custom partitioning based on the layout provided in the config
@@ -172,7 +230,7 @@ def meta_custom(args):
         handler = command_handlers.get(command['type'])
         if not handler:
             raise ValueError("unknown command type '%s'" % command['type'])
-        handler(command)
+        handler(command, storage_config)
 
     return 0
 
