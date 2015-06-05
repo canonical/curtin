@@ -170,8 +170,12 @@ def partition_handler(info, storage_config):
 
     # Get disk. This should already have a partition table if config was done
     # in right order.
-    pdev = parted.getDevice(disk)
-    pdisk = parted.Disk(device=pdev)
+    disk_block = block.lookup_disk(serial=disk.get('serial'),
+        busid=disk.get('busid'))
+    if not disk_block:
+        raise ValueError("disk not found")
+    pdev = parted.getDevice(disk_block)
+    pdisk = parted.newDisk(pdev)
 
     # Convert offset and length into sectors
     offset_sectors = parted.sizeToSectors(int(offset.translate(None,
@@ -202,7 +206,52 @@ def partition_handler(info, storage_config):
 
 
 def format_handler(info, storage_config):
-    return
+    fstype = info.get('fstype')
+    volume = info.get('volume')
+    part_id = info.get('id')[:16] # Partition labels can only be 16 bytes long
+    if fstype not in ["ext4", "ext3"]:
+        # TODO: determine which other fstypes to use
+        raise ValueError("fstype '%s' not supported" % fstype)
+    if not volume:
+        raise ValueError("volume must be specified for partition '%s'" %
+            info.get('id'))
+
+    # Find volume to format in config
+    for item in storage_config:
+        if item.get('id') == volume:
+            vol = item
+            break
+    if not vol:
+        raise ValueError("volume with id '%s' not found" % device)
+
+    # Figure out path to block dev
+    if vol.get('type') == partition:
+        # For partitions, get block device, and use Disk.getPartitionBySector()
+        # to grab partition object, then get path using Partition.path()
+        for item in storage_config:
+            if item.get('id') == vol.get('device'):
+                device = item
+                break
+        if not device:
+            raise ValueError("device with id '%s' not found" %
+                    vol.get('device'))
+
+        disk_block = block.lookup_disk(serial=device.get('serial'),
+            busid=disk.get('busid'))
+        if not disk_block:
+            raise ValueError("disk not found")
+        pdev = parted.getDevice(disk_block)
+        pdisk = parted.newDisk(pdev)
+        ppart = pdisk.getPartitionBySector(int(vol.offset + 1))
+        volume_path = ppart.path()
+    else:
+        raise NotImplementedError("volumes other than partitions not yet
+            supported")
+
+    # Generate mkfs command and run
+    cmd = "mkfs.%s -q -L %s %s" % (fstype, part_id, volume_path)
+    LOG.info("formatting volume '%s' with format '%s'" % (volume_path, fstype))
+    logtime(' '.join(cmd), util.subp, cmd)
 
 
 def meta_custom(args):
