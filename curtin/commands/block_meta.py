@@ -121,6 +121,46 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
     return "mbr"
 
 
+def get_path_to_storage_volume(volume):
+    # Get path to block device for volume. Volume param should refer to id of
+    # volume in storage config
+    storage_config = cfg.get('storage', [])
+
+    # Find volume to format in config
+    for item in storage_config:
+        if item.get('id') == volume:
+            vol = item
+            break
+    if not vol:
+        raise ValueError("volume with id '%s' not found" % device)
+
+    # Find path to block device
+    if vol.get('type') == "partition":
+        # For partitions, get block device, and use Disk.getPartitionBySector()
+        # to grab partition object, then get path using Partition.path()
+        for item in storage_config:
+            if item.get('id') == vol.get('device'):
+                device = item
+                break
+        if not device:
+            raise ValueError("device with id '%s' not found" %
+                    vol.get('device'))
+
+        disk_block = block.lookup_disk(serial=device.get('serial'),
+            busid=disk.get('busid'))
+        if not disk_block:
+            raise ValueError("disk not found")
+        pdev = parted.getDevice(disk_block)
+        pdisk = parted.newDisk(pdev)
+        ppart = pdisk.getPartitionBySector(int(vol.offset + 1))
+        volume_path = ppart.path()
+    else:
+        raise NotImplementedError("volumes other than partitions not yet
+            supported")
+
+    return volume_path
+
+
 def disk_handler(info, storage_config):
     serial = info.get('serial')
     busid = info.get('busid')
@@ -216,37 +256,8 @@ def format_handler(info, storage_config):
         raise ValueError("volume must be specified for partition '%s'" %
             info.get('id'))
 
-    # Find volume to format in config
-    for item in storage_config:
-        if item.get('id') == volume:
-            vol = item
-            break
-    if not vol:
-        raise ValueError("volume with id '%s' not found" % device)
-
-    # Figure out path to block dev
-    if vol.get('type') == partition:
-        # For partitions, get block device, and use Disk.getPartitionBySector()
-        # to grab partition object, then get path using Partition.path()
-        for item in storage_config:
-            if item.get('id') == vol.get('device'):
-                device = item
-                break
-        if not device:
-            raise ValueError("device with id '%s' not found" %
-                    vol.get('device'))
-
-        disk_block = block.lookup_disk(serial=device.get('serial'),
-            busid=disk.get('busid'))
-        if not disk_block:
-            raise ValueError("disk not found")
-        pdev = parted.getDevice(disk_block)
-        pdisk = parted.newDisk(pdev)
-        ppart = pdisk.getPartitionBySector(int(vol.offset + 1))
-        volume_path = ppart.path()
-    else:
-        raise NotImplementedError("volumes other than partitions not yet
-            supported")
+    # Get path to volume
+    volume_path = get_path_to_storage_volume(volume)
 
     # Generate mkfs command and run
     cmd = "mkfs.%s -q -L %s %s" % (fstype, part_id, volume_path)
