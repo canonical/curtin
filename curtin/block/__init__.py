@@ -180,6 +180,24 @@ def get_pardevs_on_blockdevs(devs):
     return ret
 
 
+def stop_all_unused_multipath_devices():
+    """
+    Stop all unused multipath devices.
+    """
+    multipath = util.which('multipath')
+    # Command multipath is not available only when multipath-tools package
+    # is not installed. Nothing needs to be done in this case because system
+    # doesn't create multipath devices without this package installed and we
+    # have nothing to stop.
+    if multipath:
+        # Command multipath -F flushes all unused multipath device maps
+        cmd = [multipath, '-F']
+        try:
+            util.subp(cmd)
+        except util.ProcessExecutionError as e:
+            LOG.warn("Failed to stop multipath devices: %s", e)
+
+
 def detect_multipath():
     """
     Figure out if target machine has any multipath devices.
