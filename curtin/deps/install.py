@@ -32,8 +32,15 @@ if __name__ == '__main__':
 
     cmds = [apt_update, apt_install + pkgs]
     for cmd in cmds:
-        try:
-            subprocess.check_call(cmd)
-        except subprocess.CalledProcessError as e:
-            sys.exit(e.returncode)
+        # Retry each command a maximum of 3 times.
+        for _ in range(3):
+            try:
+                subprocess.check_call(cmd)
+                returncode = 0
+            except subprocess.CalledProcessError as e:
+                returncode = e.returncode
+            if returncode == 0:
+                break
+        if returncode != 0:
+            sys.exit(returncode)
     sys.exit(0)

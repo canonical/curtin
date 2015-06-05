@@ -30,8 +30,8 @@ _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
 _INSTALLED_MAIN = '/usr/bin/curtin'
 
 
-def subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
-         logstring=False):
+def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
+          logstring=False):
     if rcs is None:
         rcs = [0]
 
@@ -71,6 +71,21 @@ def subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
     if not err and capture:
         err = ''
     return (out, err)
+
+
+def subp(*args, **kwargs):
+    if "retry" in kwargs:
+        retry = kwargs.pop("retry")
+        if retry < 1:
+            retry = 1
+    else:
+        retry = 1
+    for i in range(retry):
+        try:
+            return _subp(*args, **kwargs)
+        except ProcessExecutionError:
+            if i == retry - 1:
+                raise
 
 
 def load_command_environment(env=os.environ, strict=False):
@@ -431,7 +446,7 @@ def has_pkg_installed(pkg, target=None):
         return False
 
 
-def apt_update(target=None, env=None, force=False, comment=None):
+def apt_update(target=None, env=None, force=False, comment=None, retry=3):
     marker = "tmp/curtin.aptupdate"
     if target is None:
         target = "/"
@@ -451,13 +466,13 @@ def apt_update(target=None, env=None, force=False, comment=None):
 
     apt_update = ['apt-get', 'update', '--quiet']
     with RunInChroot(target) as inchroot:
-        inchroot(apt_update, env=env)
+        inchroot(apt_update, env=env, retry=retry)
 
     with open(marker, "w") as fp:
         fp.write(comment + "\n")
 
 
-def install_packages(pkglist, aptopts=None, target=None, env=None):
+def install_packages(pkglist, aptopts=None, target=None, env=None, retry=3):
     apt_inst_cmd = ['apt-get', 'install', '--quiet', '--assume-yes',
                     '--option=Dpkg::options::=--force-unsafe-io']
 
@@ -479,7 +494,8 @@ def install_packages(pkglist, aptopts=None, target=None, env=None):
 
     apt_update(target, comment=' '.join(pkglist))
     with RunInChroot(target) as inchroot:
-        return inchroot(emd + apt_inst_cmd + list(pkglist), env=env)
+        return inchroot(
+            emd + apt_inst_cmd + list(pkglist), env=env, retry=retry)
 
 
 def is_uefi_bootable():
