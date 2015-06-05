@@ -78,18 +78,22 @@ def subp(*args, **kwargs):
     if "retries" in kwargs:
         retries = kwargs.pop("retries")
 
-    # Add the final wait time at the end. It is zero because we want
-    # to execute the final command and don't want it to wait.
-    retries.append(0)
+    if args:
+        cmd = args[0]
+    if 'args' in kwargs:
+        cmd = kwargs['args']
 
     # Retry with waits between the retried command.
-    for i, wait in enumerate(retries):
+    for num, wait in enumerate(retries):
         try:
             return _subp(*args, **kwargs)
-        except ProcessExecutionError:
-            if i == len(retries) - 1:
-                raise
+        except ProcessExecutionError as e:
+            LOG.debug("try %s: command %s failed, rc: %s", num,
+                      cmd, e.exit_code)
             time.sleep(wait)
+    # Final try without needing to wait or catch the error. If this
+    # errors here then it will be raised to the caller.
+    return _subp(*args, **kwargs)
 
 
 def load_command_environment(env=os.environ, strict=False):
@@ -451,13 +455,19 @@ def has_pkg_installed(pkg, target=None):
 
 
 def apt_update(target=None, env=None, force=False, comment=None,
-               retries=[0.5, 1, 2]):
+               retries=None):
+
     marker = "tmp/curtin.aptupdate"
     if target is None:
         target = "/"
 
     if env is None:
         env = os.environ.copy()
+
+    if retries is None:
+        # by default run apt-update up to 3 times to allow
+        # for transient failures
+        retries = (1, 2, 3)
 
     if comment is None:
         comment = "no comment provided"

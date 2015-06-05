@@ -20,33 +20,33 @@ The intent of this module is that it can be called to install deps
   python -m curtin.deps.install [-v]
 """
 
+import subprocess
+import sys
+import time
+
+
+def runcmd(cmd, retries=[]):
+    for wait in retries:
+        try:
+            subprocess.check_call(cmd)
+            return 0
+        except subprocess.CalledProcessError as e:
+            sys.stderr.write("%s failed. sleeping %s\n" % (cmd, wait))
+            time.sleep(wait)
+    try:
+        subprocess.check_call(cmd)
+    except subprocess.CalledProcessError as e:
+        return e.returncode
+
 if __name__ == '__main__':
-    import subprocess
-    import sys
-    import time
     if sys.version_info[0] == 2:
         pkgs = ['python-yaml']
     else:
         pkgs = ['python3-yaml']
-    apt_update = ['apt-get', '--quiet', 'update']
-    apt_install = ['apt-get', 'install', '--quiet', '--assume-yes']
 
-    cmds = [apt_update, apt_install + pkgs]
-    for cmd in cmds:
-        # Retry each command with a wait between. The final wait time in this
-        # list is zero because we don't need to wait at the end of the last
-        # call.
-        wait_times = [0.5, 1, 2, 0]
-        for i, wait in enumerate(wait_times):
-            try:
-                subprocess.check_call(cmd)
-                returncode = 0
-            except subprocess.CalledProcessError as e:
-                returncode = e.returncode
-            if returncode == 0:
-                break
-            else:
-                time.sleep(wait)
-        if returncode != 0:
-            sys.exit(returncode)
-    sys.exit(0)
+    ret = runcmd(['apt-get', '--quiet', 'update'], retries=[2, 4])
+    if ret != 0:
+        sys.exit(ret)
+
+    ret = runcmd(['apt-get', 'install', '--quiet', '--assume-yes'] + pkgs)
+    sys.exit(ret)
