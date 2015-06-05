@@ -185,17 +185,20 @@ def stop_all_unused_multipath_devices():
     Stop all unused multipath devices.
     """
     multipath = util.which('multipath')
+
     # Command multipath is not available only when multipath-tools package
     # is not installed. Nothing needs to be done in this case because system
     # doesn't create multipath devices without this package installed and we
     # have nothing to stop.
-    if multipath:
-        # Command multipath -F flushes all unused multipath device maps
-        cmd = [multipath, '-F']
-        try:
-            util.subp(cmd)
-        except util.ProcessExecutionError as e:
-            LOG.warn("Failed to stop multipath devices: %s", e)
+    if not multipath:
+        return
+
+    # Command multipath -F flushes all unused multipath device maps
+    cmd = [multipath, '-F']
+    try:
+        util.subp(cmd)
+    except util.ProcessExecutionError as e:
+        LOG.warn("Failed to stop multipath devices: %s", e)
 
 
 def detect_multipath():
@@ -211,16 +214,20 @@ def detect_multipath():
         # Command scsi_id returns error while running against cdrom devices.
         # To prevent getting unexpected errors for some other types of devices
         # we ignore everything except hard disks.
-        if data['TYPE'] == 'disk':
-            cmd = ['/lib/udev/scsi_id', '--replace-whitespace',
-                   '--whitelisted', '--device=%s' % data['device_path']]
-            try:
-                (out, err) = util.subp(cmd, capture=True)
-                scsi_id = out.rstrip('\n')
-                if scsi_id: # ignore empty ids because they are meaningless
-                    disk_ids.append(scsi_id)
-            except util.ProcessExecutionError as e:
-                LOG.warn("Failed to get disk id: %s", e)
+        if data['TYPE'] != 'disk':
+            continue
+
+        cmd = ['/lib/udev/scsi_id', '--replace-whitespace',
+               '--whitelisted', '--device=%s' % data['device_path']]
+        try:
+            (out, err) = util.subp(cmd, capture=True)
+            scsi_id = out.rstrip('\n')
+            # ignore empty ids because they are meaningless
+            if scsi_id:
+                disk_ids.append(scsi_id)
+        except util.ProcessExecutionError as e:
+            LOG.warn("Failed to get disk id: %s", e)
+
     duplicates_found = (len(disk_ids) != len(set(disk_ids)))
     return duplicates_found
 

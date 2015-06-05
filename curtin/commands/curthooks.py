@@ -427,16 +427,22 @@ def detect_and_handle_multipath(cfg, target):
     if isinstance(mppkgs, str):
         mppkgs = [mppkgs]
 
-    if mpmode == 'enabled' or (mpmode == 'auto' and block.detect_multipath()):
-        util.install_packages(mppkgs, target=target)
-        multipath_cfg_path = os.path.sep.join([target, '/etc/multipath.conf'])
-        # Without user_friendly_names option enabled system fails to boot
-        # if any of the disks has spaces in its name. Package multipath-tools
-        # has bug opened for this issue (LP: 1432062) but it was not fixed yet.
-        util.write_file(multipath_cfg_path,
-                        content='defaults {\n\tuser_friendly_names yes\n}\n')
-        # Initrams needs to be regenerated to include updated multipath.cfg
-        update_initramfs(target)
+    if mpmode == 'disabled':
+        return
+
+    if mpmode == 'auto' and not block.detect_multipath():
+        return
+
+    util.install_packages(mppkgs, target=target)
+    multipath_cfg_path = os.path.sep.join([target, '/etc/multipath.conf'])
+    # Without user_friendly_names option enabled system fails to boot
+    # if any of the disks has spaces in its name. Package multipath-tools
+    # has bug opened for this issue (LP: 1432062) but it was not fixed yet.
+    util.write_file(multipath_cfg_path,
+                    content='defaults {\n\tuser_friendly_names yes\n}\n')
+    # Initrams needs to be regenerated to include updated multipath.cfg
+    update_initramfs(target)
+
 
 def curthooks(args):
     state = util.load_command_environment()
