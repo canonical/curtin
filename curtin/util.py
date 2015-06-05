@@ -74,18 +74,22 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
 
 
 def subp(*args, **kwargs):
-    if "retry" in kwargs:
-        retry = kwargs.pop("retry")
-        if retry < 1:
-            retry = 1
-    else:
-        retry = 1
-    for i in range(retry):
+    retries = []
+    if "retries" in kwargs:
+        retries = kwargs.pop("retries")
+
+    # Add the final wait time at the end. It is zero because we want
+    # to execute the final command and don't want it to wait.
+    retries.append(0)
+
+    # Retry with waits between the retried command.
+    for i, wait in enumerate(retries):
         try:
             return _subp(*args, **kwargs)
         except ProcessExecutionError:
-            if i == retry - 1:
+            if i == len(retries) - 1:
                 raise
+            time.sleep(wait)
 
 
 def load_command_environment(env=os.environ, strict=False):
@@ -446,7 +450,8 @@ def has_pkg_installed(pkg, target=None):
         return False
 
 
-def apt_update(target=None, env=None, force=False, comment=None, retry=3):
+def apt_update(target=None, env=None, force=False, comment=None,
+               retries=[0.5, 1, 2]):
     marker = "tmp/curtin.aptupdate"
     if target is None:
         target = "/"
@@ -466,13 +471,13 @@ def apt_update(target=None, env=None, force=False, comment=None, retry=3):
 
     apt_update = ['apt-get', 'update', '--quiet']
     with RunInChroot(target) as inchroot:
-        inchroot(apt_update, env=env, retry=retry)
+        inchroot(apt_update, env=env, retries=retries)
 
     with open(marker, "w") as fp:
         fp.write(comment + "\n")
 
 
-def install_packages(pkglist, aptopts=None, target=None, env=None, retry=3):
+def install_packages(pkglist, aptopts=None, target=None, env=None):
     apt_inst_cmd = ['apt-get', 'install', '--quiet', '--assume-yes',
                     '--option=Dpkg::options::=--force-unsafe-io']
 
@@ -495,7 +500,7 @@ def install_packages(pkglist, aptopts=None, target=None, env=None, retry=3):
     apt_update(target, comment=' '.join(pkglist))
     with RunInChroot(target) as inchroot:
         return inchroot(
-            emd + apt_inst_cmd + list(pkglist), env=env, retry=retry)
+            emd + apt_inst_cmd + list(pkglist), env=env)
 
 
 def is_uefi_bootable():

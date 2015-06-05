@@ -23,6 +23,7 @@ The intent of this module is that it can be called to install deps
 if __name__ == '__main__':
     import subprocess
     import sys
+    import time
     if sys.version_info[0] == 2:
         pkgs = ['python-yaml']
     else:
@@ -32,8 +33,11 @@ if __name__ == '__main__':
 
     cmds = [apt_update, apt_install + pkgs]
     for cmd in cmds:
-        # Retry each command a maximum of 3 times.
-        for _ in range(3):
+        # Retry each command with a wait between. The final wait time in this
+        # list is zero because we don't need to wait at the end of the last
+        # call.
+        wait_times = [0.5, 1, 2, 0]
+        for i, wait in enumerate(wait_times):
             try:
                 subprocess.check_call(cmd)
                 returncode = 0
@@ -41,6 +45,8 @@ if __name__ == '__main__':
                 returncode = e.returncode
             if returncode == 0:
                 break
+            else:
+                time.sleep(wait)
         if returncode != 0:
             sys.exit(returncode)
     sys.exit(0)
