@@ -306,6 +306,10 @@ class ChrootableTarget(object):
         if self.disabled_daemons:
             undisable_daemons_in_root(self.target)
 
+        # if /dev is to be unmounted, udevadm settle (LP: #1462139)
+        if os.path.join(self.target, "dev") in self.umounts:
+            subp(['udevadm', 'settle'])
+
         for p in reversed(self.umounts):
             do_umount(p)
 
