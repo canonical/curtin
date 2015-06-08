@@ -155,7 +155,7 @@ def get_path_to_storage_volume(volume):
         ppart = pdisk.getPartitionBySector(int(vol.offset + 1))
         volume_path = ppart.path()
     else:
-        raise NotImplementedError("volumes other than partitions not yet
+        raise NotImplementedError("volumes other than partitions not yet \
             supported")
 
     return volume_path
@@ -193,7 +193,7 @@ def partition_handler(info, storage_config):
     if not offset:
         # TODO: instead of bailing, find beginning of free space on disk and go
         #       from there
-        raise ValueError("offset must be specified for partition to be
+        raise ValueError("offset must be specified for partition to be \
         created")
     if not size:
         raise ValueError("size must be specified for partition to be created")
@@ -206,7 +206,7 @@ def partition_handler(info, storage_config):
             break
     if not disk:
         raise ValueError("device '%s' for partition '%s' not found" % (device,
-            info.get('id')
+            info.get('id')))
 
     # Get disk. This should already have a partition table if config was done
     # in right order.
@@ -260,9 +260,40 @@ def format_handler(info, storage_config):
     volume_path = get_path_to_storage_volume(volume)
 
     # Generate mkfs command and run
-    cmd = "mkfs.%s -q -L %s %s" % (fstype, part_id, volume_path)
+    cmd = ['mkfs.%s' % fstype, '-q', '-L', part_id, volume_path]
     LOG.info("formatting volume '%s' with format '%s'" % (volume_path, fstype))
     logtime(' '.join(cmd), util.subp, cmd)
+
+
+def mount_handler(info, storage_config):
+    path = info.get('path')
+    device = info.get('device')
+    if not path:
+        raise ValueError("path to mountpoint must be specified")
+    if not device:
+        raise ValueError("formated volume must be specified")
+
+    # Get filesystem in storage_config
+    for item in storage_config:
+        if item.get('id') == device:
+            filesystem = item
+            break
+    if not filesystem:
+        raise ValueError("filesystem '%s' could not be found" % device)
+
+    # Get path to volume
+    volume_path = get_path_to_storage_volume(filesystem.get('volume'))
+
+    # Mount volume
+    util.subp(['mount', volume_path, path])
+
+    # Add volume to fstab
+    if state['fstab']:
+        with open(state['fstab'], "w") as fp:
+            fp.write("LABEL=%s %s %s defaults 0 0\n" %
+                    (filesystem.get('id')[:16], path, filesystem.get('fstype')))
+    else:
+        LOG.info("fstab not in environment, so not writing")
 
 
 def meta_custom(args):
@@ -275,7 +306,8 @@ def meta_custom(args):
     command_handlers = {
         'disk': disk_handler,
         'partition': partition_handler,
-        'format' : format_handler
+        'format' : format_handler,
+        'mount' : mount_handler
     }
 
     state = util.load_command_environment()
