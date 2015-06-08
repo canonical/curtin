@@ -20,20 +20,33 @@ The intent of this module is that it can be called to install deps
   python -m curtin.deps.install [-v]
 """
 
+import subprocess
+import sys
+import time
+
+
+def runcmd(cmd, retries=[]):
+    for wait in retries:
+        try:
+            subprocess.check_call(cmd)
+            return 0
+        except subprocess.CalledProcessError as e:
+            sys.stderr.write("%s failed. sleeping %s\n" % (cmd, wait))
+            time.sleep(wait)
+    try:
+        subprocess.check_call(cmd)
+    except subprocess.CalledProcessError as e:
+        return e.returncode
+
 if __name__ == '__main__':
-    import subprocess
-    import sys
     if sys.version_info[0] == 2:
         pkgs = ['python-yaml']
     else:
         pkgs = ['python3-yaml']
-    apt_update = ['apt-get', '--quiet', 'update']
-    apt_install = ['apt-get', 'install', '--quiet', '--assume-yes']
 
-    cmds = [apt_update, apt_install + pkgs]
-    for cmd in cmds:
-        try:
-            subprocess.check_call(cmd)
-        except subprocess.CalledProcessError as e:
-            sys.exit(e.returncode)
-    sys.exit(0)
+    ret = runcmd(['apt-get', '--quiet', 'update'], retries=[2, 4])
+    if ret != 0:
+        sys.exit(ret)
+
+    ret = runcmd(['apt-get', 'install', '--quiet', '--assume-yes'] + pkgs)
+    sys.exit(ret)
