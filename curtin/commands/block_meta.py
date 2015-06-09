@@ -150,7 +150,7 @@ def get_path_to_storage_volume(volume):
             busid=disk.get('busid'))
         if not disk_block:
             raise ValueError("disk not found")
-        pdev = parted.getDevice(disk_block)
+        pdev = parted.getDevice(disk_block['device_path'])
         pdisk = parted.newDisk(pdev)
         ppart = pdisk.getPartitionBySector(int(vol.offset + 1))
         volume_path = ppart.path()
@@ -177,7 +177,7 @@ def disk_handler(info, storage_config):
         ptable = "msdos"
 
     # Get device and disk using parted using appropriate partition table
-    pdev = parted.getDevice(disk)
+    pdev = parted.getDevice(disk['device_path'])
     pdisk = parted.freshDisk(pdev, ptable)
     LOG.info("labeling device: '%s' with '%s' partition table", disk, ptable)
     pdisk.commit()
@@ -214,7 +214,7 @@ def partition_handler(info, storage_config):
         busid=disk.get('busid'))
     if not disk_block:
         raise ValueError("disk not found")
-    pdev = parted.getDevice(disk_block)
+    pdev = parted.getDevice(disk_block['device_path'])
     pdisk = parted.newDisk(pdev)
 
     # Convert offset and length into sectors
