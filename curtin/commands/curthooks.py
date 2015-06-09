@@ -430,8 +430,10 @@ def detect_and_handle_multipath(cfg, target):
     if mpmode == 'disabled':
         return
 
-    if mpmode == 'auto' and not block.detect_multipath():
+    if mpmode == 'auto' and not block.detect_multipath(target):
         return
+
+    LOG.info("Detected multipath devices. Installing support via %s", mppkgs)
 
     util.install_packages(mppkgs, target=target)
 
