@@ -219,9 +219,11 @@ def partition_handler(info, storage_config):
 
     # Convert offset and length into sectors
     offset_sectors = parted.sizeToSectors(int(offset.strip( \
-        string.ascii_letters)), offset.strip(string.digits))
+        string.ascii_letters)), offset.strip(string.digits), \
+        pdisk.device.sectorSize)
     length_sectors = parted.sizeToSectors(int(size.strip( \
-        string.ascii_letters)), size.strip(string.digits))
+        string.ascii_letters)), size.strip(string.digits), \
+        pdisk.device.sectorSize)
 
     # Make geometry and partition
     geometry = parted.Geometry(device=pdisk.device, start=offset_sectors,
