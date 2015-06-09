@@ -60,8 +60,8 @@ def _lsblock(args=None, filter_func=None):
     keys = ['ALIGNMENT', 'DISC-ALN', 'DISC-GRAN', 'DISC-MAX', 'DISC-ZERO',
             'FSTYPE', 'GROUP', 'KNAME', 'LABEL', 'LOG-SEC', 'MAJ:MIN',
             'MIN-IO', 'MODE', 'MODEL', 'MOUNTPOINT', 'NAME', 'OPT-IO', 'OWNER',
-            'PHY-SEC', 'RM', 'RO', 'ROTA', 'RQ-SIZE', 'SCHED', 'SIZE', 'STATE',
-            'TYPE', 'UUID']
+            'PHY-SEC', 'RM', 'RO', 'ROTA', 'RQ-SIZE', 'SCHED', 'SERIAL',
+            'SIZE', 'STATE', 'TYPE', 'UUID']
     if args is None:
         args = []
     args = [x.replace('!', '/') for x in args]
@@ -296,7 +296,6 @@ def get_disk_info():
     """
     disks = _lsblock(filter_func=_filter_disks)
     for name in disks:
-        disks[name]['SERIAL'] = get_disk_serial(name)
         disks[name]['BUSID'] = get_disk_busid(name)
     return disks
 
