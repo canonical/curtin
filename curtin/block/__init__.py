@@ -224,18 +224,18 @@ def detect_multipath(target_mountpoint):
     """
     # The obvious way to detect multipath is to use multipath utility which is
     # provided by the multipath-tools package. Unfortunately, multipath-tools
-    # package is not available in trusty ephemeral image hence we can't use it.
+    # package is not available in all ephemeral images hence we can't use it.
     # Another reasonable way to detect multipath is to look for two (or more)
     # devices with the same World Wide Name (WWN) which can be fetched using
     # scsi_id utility. This way doesn't work as well because WWNs are not
     # unique in some cases which leads to false positives which may prevent
-    # system from booting (see LP:1463046 for details).
+    # system from booting (see LP: #1463046 for details).
     # Taking into account all the issues mentioned above, curent implementation
-    # detects multipath by looking for a device (partition) with the same UUID
+    # detects multipath by looking for a filesystem with the same UUID
     # as the target device. It relies on the fact that all alternative routes
     # to the same disk observe identical partition information including UUID.
     binfo = blkid(cache=False)
-    # This function may return multiple devices by design. It is not yet
+    # get_devices_for_mp may return multiple devices by design. It is not yet
     # implemented but it should return multiple devices when installer creates
     # separate disk partitions for / and /boot. We need to do UUID-based
     # multipath detection against each of target devices.
