@@ -433,6 +433,8 @@ def detect_and_handle_multipath(cfg, target):
     if mpmode == 'auto' and not block.detect_multipath(target):
         return
 
+    LOG.info("Detected multipath devices. Installing support via %s", mppkgs)
+
     util.install_packages(mppkgs, target=target)
 
     multipath_cfg_path = os.path.sep.join([target, '/etc/multipath.conf'])
