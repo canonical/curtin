@@ -259,8 +259,8 @@ def detect_multipath(target_mountpoint):
         # we probably installed the system to the multipath device.
         for other_devpath, other_data in binfo.items():
             if ((other_data.get('UUID') == target_uuid) and
-                (other_devpath != devpath)):
-                   return True
+                    (other_devpath != devpath)):
+                return True
     # No other devices have the same UUID as the target devices.
     # We probably installed the system to the non-multipath device.
     return False
