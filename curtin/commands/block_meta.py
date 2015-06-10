@@ -267,6 +267,7 @@ def format_handler(info, storage_config):
 
 
 def mount_handler(info, storage_config):
+    state = util.load_command_environment()
     path = info.get('path')
     device = info.get('device')
     if not path:
