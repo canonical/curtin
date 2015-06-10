@@ -288,7 +288,7 @@ def mount_handler(info, storage_config):
             filesystem.get('volume'))
 
     # Figure out what point should be
-    while path[0] == "/":
+    while len(path) > 0 and path[0] == "/":
         path = path[1:]
     mount_point = os.path.join(state['target'], path)
 
