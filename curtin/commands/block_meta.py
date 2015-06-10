@@ -287,8 +287,17 @@ def mount_handler(info, storage_config):
     volume_path = get_path_to_storage_volume(storage_config, \
             filesystem.get('volume'))
 
+    # Figure out what point should be
+    while path[0] == "/":
+        path = path[1:]
+    mount_point = os.path.join(state['target'], path)
+
+    # Create mount point if does not exist
+    if not os.path.isdir(mount_point):
+        os.mkdir(mount_point)
+
     # Mount volume
-    util.subp(['mount', volume_path, path])
+    util.subp(['mount', volume_path, mount_point])
 
     # Add volume to fstab
     if state['fstab']:
