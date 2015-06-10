@@ -121,10 +121,9 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
     return "mbr"
 
 
-def get_path_to_storage_volume(volume):
+def get_path_to_storage_volume(storage_config, volume):
     # Get path to block device for volume. Volume param should refer to id of
     # volume in storage config
-    storage_config = cfg.get('storage', [])
 
     # Find volume to format in config
     for item in storage_config:
@@ -147,13 +146,15 @@ def get_path_to_storage_volume(volume):
                     vol.get('device'))
 
         disk_block = block.lookup_disk(serial=device.get('serial'),
-            busid=disk.get('busid'))
+            busid=device.get('busid'))
         if not disk_block:
             raise ValueError("disk not found")
         pdev = parted.getDevice(disk_block['device_path'])
         pdisk = parted.newDisk(pdev)
-        ppart = pdisk.getPartitionBySector(int(vol.offset + 1))
-        volume_path = ppart.path()
+        ppart = pdisk.getPartitionBySector(parted.sizeToSectors(int( \
+            vol.get('offset').strip(string.ascii_letters)) + 1, \
+            vol.get('offset').strip(string.digits), pdisk.device.sectorSize))
+        volume_path = ppart.path
     else:
         raise NotImplementedError("volumes other than partitions not yet \
             supported")
@@ -257,7 +258,7 @@ def format_handler(info, storage_config):
             info.get('id'))
 
     # Get path to volume
-    volume_path = get_path_to_storage_volume(volume)
+    volume_path = get_path_to_storage_volume(storage_config, volume)
 
     # Generate mkfs command and run
     cmd = ['mkfs.%s' % fstype, '-q', '-L', part_id, volume_path]
@@ -282,7 +283,8 @@ def mount_handler(info, storage_config):
         raise ValueError("filesystem '%s' could not be found" % device)
 
     # Get path to volume
-    volume_path = get_path_to_storage_volume(filesystem.get('volume'))
+    volume_path = get_path_to_storage_volume(storage_config, \
+            filesystem.get('volume'))
 
     # Mount volume
     util.subp(['mount', volume_path, path])
