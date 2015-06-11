@@ -249,10 +249,7 @@ def partition_handler(info, storage_config):
 def format_handler(info, storage_config):
     fstype = info.get('fstype')
     volume = info.get('volume')
-    part_id = info.get('id')[:16] # Partition labels can only be 16 bytes long
-    if fstype not in ["ext4", "ext3"]:
-        # TODO: determine which other fstypes to use
-        raise ValueError("fstype '%s' not supported" % fstype)
+    part_id = info.get('id')
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
             info.get('id'))
@@ -261,7 +258,16 @@ def format_handler(info, storage_config):
     volume_path = get_path_to_storage_volume(storage_config, volume)
 
     # Generate mkfs command and run
-    cmd = ['mkfs.%s' % fstype, '-q', '-L', part_id, volume_path]
+    if fstype in ["ext4", "ext3"]:
+        cmd = ['mkfs.%s' % fstype, '-q', '-L', part_id[:16], volume_path]
+    elif fstype in ["fat16", "fat32", "fat"]:
+        cmd = ["mkfs.fat"]
+        fat_size = fstype.strip(string.ascii_letters)
+        if fat_size in ["12", "16", "32"]:
+            cmd.extend(["-F", fat_size])
+        cmd.extend(["-n", part_id[:11], volume_path])
+    else:
+        raise ValueError("fstype '%s' not supported" % fstype)
     LOG.info("formatting volume '%s' with format '%s'" % (volume_path, fstype))
     logtime(' '.join(cmd), util.subp, cmd)
 
