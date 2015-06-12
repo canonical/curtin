@@ -307,8 +307,8 @@ def mount_handler(info, storage_config):
 
     # Add volume to fstab
     if state['fstab']:
-        with open(state['fstab'], "w") as fp:
-            fp.write("LABEL=%s %s %s defaults 0 0\n" %
+        with open(state['fstab'], "a") as fp:
+            fp.write("LABEL=%s /%s %s defaults 0 0\n" %
                     (filesystem.get('id')[:16], path, filesystem.get('fstype')))
     else:
         LOG.info("fstab not in environment, so not writing")
