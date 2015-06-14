@@ -328,7 +328,7 @@ def lvm_volgroup_handler(info, storage_config):
                     % device_id)
         if device.get('type') == "partition":
             device_path = get_path_to_storage_volume(device_id, storage_config)
-        elif device.get('type') == "physical":
+        elif device.get('type') == "disk":
             device_path = get_path_to_storage_device(device_id, storage_config)
         else:
             raise ValueError("volumes for lvm other than partitions and \
