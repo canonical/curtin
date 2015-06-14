@@ -323,7 +323,7 @@ def lvm_volgroup_handler(info, storage_config):
             if item.get('id') == device_id:
                 device = item
                 break
-        if not item:
+        if not device:
             raise ValueError("device '%s' could not be found in storage config"
                     % device_id)
         if device.get('type') == "partition":
