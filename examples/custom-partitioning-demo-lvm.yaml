@@ -25,7 +25,9 @@ storage:
     device: sda
   - id: storage_volgroup
     type: lvm_volgroup
-    devices: sda2 sdb
+    devices: 
+      - sda2
+      - sdb
   - id: storage_1
     type: lvm_partition
     volgroup: storage_volgroup
