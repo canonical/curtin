@@ -121,11 +121,28 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
     return "mbr"
 
 
-def get_path_to_storage_volume(storage_config, volume):
+def get_path_to_storage_device(device_id, storage_config):
+    # Get path to block device for physical device. Device_id param should refer
+    # to id of device in storage config
+    for item in storage_config:
+        if item.get('id') == device_id:
+            device = item
+            break
+    if not device:
+        raise ValueError("device with id '%s' not found" % device_id)
+
+    disk_block = block.lookup_disk(serial=device.get('serial'),
+            busid=device.get('busid'))
+    if not disk_block:
+        raise ValueError("disk not found")
+
+    return disk_block['device_path']
+
+
+def get_path_to_storage_volume(volume, storage_config):
     # Get path to block device for volume. Volume param should refer to id of
     # volume in storage config
 
-    # Find volume to format in config
     for item in storage_config:
         if item.get('id') == volume:
             vol = item
@@ -137,19 +154,9 @@ def get_path_to_storage_volume(storage_config, volume):
     if vol.get('type') == "partition":
         # For partitions, get block device, and use Disk.getPartitionBySector()
         # to grab partition object, then get path using Partition.path()
-        for item in storage_config:
-            if item.get('id') == vol.get('device'):
-                device = item
-                break
-        if not device:
-            raise ValueError("device with id '%s' not found" %
-                    vol.get('device'))
-
-        disk_block = block.lookup_disk(serial=device.get('serial'),
-            busid=device.get('busid'))
-        if not disk_block:
-            raise ValueError("disk not found")
-        pdev = parted.getDevice(disk_block['device_path'])
+        disk_block_path = get_path_to_storage_device(vol.get('device'), \
+                storage_config)
+        pdev = parted.getDevice(disk_block_path)
         pdisk = parted.newDisk(pdev)
         ppart = pdisk.getPartitionBySector(parted.sizeToSectors(int( \
             vol.get('offset').strip(string.ascii_letters)) + 1, \
@@ -201,21 +208,8 @@ def partition_handler(info, storage_config):
 
     # Find device to attach to in storage_config
     # TODO: find a more efficient way to do this
-    for item in storage_config:
-        if item.get('id') == device:
-            disk = item
-            break
-    if not disk:
-        raise ValueError("device '%s' for partition '%s' not found" % (device,
-            info.get('id')))
-
-    # Get disk. This should already have a partition table if config was done
-    # in right order.
-    disk_block = block.lookup_disk(serial=disk.get('serial'),
-        busid=disk.get('busid'))
-    if not disk_block:
-        raise ValueError("disk not found")
-    pdev = parted.getDevice(disk_block['device_path'])
+    disk = get_path_to_storage_device(device, storage_config)
+    pdev = parted.getDevice(disk)
     pdisk = parted.newDisk(pdev)
 
     # Convert offset and length into sectors
@@ -237,6 +231,8 @@ def partition_handler(info, storage_config):
     if flag:
         if flag == "boot":
             partition.setFlag(parted.PARTITION_BOOT)
+        elif flag == "lvm":
+            partition.setFlag(parted.PARTITION_LVM)
         else:
             raise ValueError("invalid partition flag '%s'" % flag)
 
@@ -255,7 +251,7 @@ def format_handler(info, storage_config):
             info.get('id'))
 
     # Get path to volume
-    volume_path = get_path_to_storage_volume(storage_config, volume)
+    volume_path = get_path_to_storage_volume(volume, storage_config)
 
     # Generate mkfs command and run
     if fstype in ["ext4", "ext3"]:
@@ -290,8 +286,8 @@ def mount_handler(info, storage_config):
         raise ValueError("filesystem '%s' could not be found" % device)
 
     # Get path to volume
-    volume_path = get_path_to_storage_volume(storage_config, \
-            filesystem.get('volume'))
+    volume_path = get_path_to_storage_volume(filesystem.get('volume'), \
+            storage_config)
 
     # Figure out what point should be
     while len(path) > 0 and path[0] == "/":
@@ -314,6 +310,49 @@ def mount_handler(info, storage_config):
         LOG.info("fstab not in environment, so not writing")
 
 
+def lvm_volgroup_handler(info, storage_config):
+    devices = info.get('devices')
+    if not devices:
+        raise ValueError("devices for volgroup '%s' must be specified" %
+                info.get('id'))
+
+    cmd = ["vgcreate", info.get('id')]
+    for device_id in devices:
+        # Get device in config
+        for item in storage_config:
+            if item.get('id') == device_id:
+                device = item
+                break
+        if not item:
+            raise ValueError("device '%s' could not be found in storage config"
+                    % device_id)
+        if device.get('type') == "partition":
+            device_path = get_path_to_storage_volume(device_id, storage_config)
+        elif device.get('type') == "physical":
+            device_path = get_path_to_storage_device(device_id, storage_config)
+        else:
+            raise ValueError("volumes for lvm other than partitions and \
+                physical volumes not supported")
+
+        # Add device to command
+        cmd.append(device_path)
+
+    util.subp(cmd)
+
+
+def lvm_partition_handler(info, storage_config):
+    volgroup = info.get('volgroup')
+    if not volgroup:
+        raise ValueError("lvm volgroup for lvm partition must be specified")
+    cmd = ["lvcreate", volgroup, "-n", info.get('id')]
+    if info.get('size'):
+        cmd.extend(["-L", info.get('size')])
+    else:
+        cmd.extend(["-l", "100%FREE"])
+
+    util.subp(cmd)
+
+
 def meta_custom(args):
     """Does custom partitioning based on the layout provided in the config
     file. Section with the name storage contains information on which
@@ -325,7 +364,9 @@ def meta_custom(args):
         'disk': disk_handler,
         'partition': partition_handler,
         'format' : format_handler,
-        'mount' : mount_handler
+        'mount' : mount_handler,
+        'lvm_volgroup' : lvm_volgroup_handler,
+        'lvm_partition' : lvm_partition_handler
     }
 
     state = util.load_command_environment()
