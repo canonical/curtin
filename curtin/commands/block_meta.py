@@ -144,15 +144,16 @@ def get_path_to_storage_volume(volume, storage_config):
             vol.get('offset').strip(string.ascii_letters)) + 1, \
             vol.get('offset').strip(string.digits), pdisk.device.sectorSize))
         volume_path = ppart.path
+
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
         # to id of device in storage config
         for item in storage_config:
-            if item.get('id') == device_id:
+            if item.get('id') == volume:
                 device = item
                 break
         if not device:
-            raise ValueError("device with id '%s' not found" % device_id)
+            raise ValueError("device with id '%s' not found" % volume)
 
         disk_block = block.lookup_disk(serial=device.get('serial'),
                 busid=device.get('busid'))
@@ -160,6 +161,23 @@ def get_path_to_storage_volume(volume, storage_config):
             raise ValueError("disk not found")
 
         volume_path = disk_block['device_path']
+
+    elif vol.get('type') == "lvm_partition":
+        # For lvm partitions, a directory in /dev/ should be present with the
+        # name of the volgroup the partition belongs to. We can simply append
+        # the id of the lvm partition to the path of that directory
+        for item in storage_config:
+            if item.get('id') == volume.get('volgroup'):
+                volgroup = item
+        if not volgroup:
+            raise ValueError("lvm volume group '%s' could not be found" \
+                % volume.get('volgroup')
+        volume_path = os.path.join("/dev/", volgroup.get('id'), \
+            volume.get('id'))
+        if not os.path.exists(volume_path):
+            raise ValueError("lvm partition block device '%s' does not exist" \
+                % volume_path)
+
     else:
         raise NotImplementedError("volumes other than partitions not yet \
             supported")
@@ -303,7 +321,7 @@ def mount_handler(info, storage_config):
     if state['fstab']:
         with open(state['fstab'], "a") as fp:
             fp.write("LABEL=%s /%s %s defaults 0 0\n" %
-                    (filesystem.get('id')[:16], path, filesystem.get('fstype')))
+                    (filesystem.get('id'), path, filesystem.get('fstype')))
     else:
         LOG.info("fstab not in environment, so not writing")
 
