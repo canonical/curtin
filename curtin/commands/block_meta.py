@@ -121,24 +121,6 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
     return "mbr"
 
 
-def get_path_to_storage_device(device_id, storage_config):
-    # Get path to block device for physical device. Device_id param should refer
-    # to id of device in storage config
-    for item in storage_config:
-        if item.get('id') == device_id:
-            device = item
-            break
-    if not device:
-        raise ValueError("device with id '%s' not found" % device_id)
-
-    disk_block = block.lookup_disk(serial=device.get('serial'),
-            busid=device.get('busid'))
-    if not disk_block:
-        raise ValueError("disk not found")
-
-    return disk_block['device_path']
-
-
 def get_path_to_storage_volume(volume, storage_config):
     # Get path to block device for volume. Volume param should refer to id of
     # volume in storage config
@@ -154,7 +136,7 @@ def get_path_to_storage_volume(volume, storage_config):
     if vol.get('type') == "partition":
         # For partitions, get block device, and use Disk.getPartitionBySector()
         # to grab partition object, then get path using Partition.path()
-        disk_block_path = get_path_to_storage_device(vol.get('device'), \
+        disk_block_path = get_path_to_storage_volume(vol.get('device'), \
                 storage_config)
         pdev = parted.getDevice(disk_block_path)
         pdisk = parted.newDisk(pdev)
@@ -162,6 +144,22 @@ def get_path_to_storage_volume(volume, storage_config):
             vol.get('offset').strip(string.ascii_letters)) + 1, \
             vol.get('offset').strip(string.digits), pdisk.device.sectorSize))
         volume_path = ppart.path
+    elif vol.get('type') == "disk":
+        # Get path to block device for disk. Device_id param should refer
+        # to id of device in storage config
+        for item in storage_config:
+            if item.get('id') == device_id:
+                device = item
+                break
+        if not device:
+            raise ValueError("device with id '%s' not found" % device_id)
+
+        disk_block = block.lookup_disk(serial=device.get('serial'),
+                busid=device.get('busid'))
+        if not disk_block:
+            raise ValueError("disk not found")
+
+        volume_path = disk_block['device_path']
     else:
         raise NotImplementedError("volumes other than partitions not yet \
             supported")
@@ -208,7 +206,7 @@ def partition_handler(info, storage_config):
 
     # Find device to attach to in storage_config
     # TODO: find a more efficient way to do this
-    disk = get_path_to_storage_device(device, storage_config)
+    disk = get_path_to_storage_volume(device, storage_config)
     pdev = parted.getDevice(disk)
     pdisk = parted.newDisk(pdev)
 
@@ -326,13 +324,7 @@ def lvm_volgroup_handler(info, storage_config):
         if not device:
             raise ValueError("device '%s' could not be found in storage config"
                     % device_id)
-        if device.get('type') == "partition":
-            device_path = get_path_to_storage_volume(device_id, storage_config)
-        elif device.get('type') == "disk":
-            device_path = get_path_to_storage_device(device_id, storage_config)
-        else:
-            raise ValueError("volumes for lvm other than partitions and \
-                physical volumes not supported")
+        device_path = get_path_to_storage_volume(device_id, storage_config)
 
         # Add device to command
         cmd.append(device_path)
