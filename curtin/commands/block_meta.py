@@ -171,7 +171,7 @@ def get_path_to_storage_volume(volume, storage_config):
                 volgroup = item
         if not volgroup:
             raise ValueError("lvm volume group '%s' could not be found" \
-                % volume.get('volgroup')
+                % volume.get('volgroup'))
         volume_path = os.path.join("/dev/", volgroup.get('id'), \
             volume.get('id'))
         if not os.path.exists(volume_path):
