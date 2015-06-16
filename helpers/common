@@ -443,7 +443,7 @@ install_grub() {
         grub_target="powerpc-ieee1275"
     elif [ "$uefi" -ge 1 ]; then
         grub_name="grub-efi-$dpkg_arch"
-	case $dpkg_arch in
+	case "$dpkg_arch" in
 	    amd64)
 		grub_target="x86_64-efi"
 		;;
