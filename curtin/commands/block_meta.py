@@ -277,11 +277,7 @@ def mount_handler(info, storage_config):
     path = info.get('path')
     if not path:
         raise ValueError("path to mountpoint must be specified")
-    if not device:
-        raise ValueError("formated volume must be specified")
     filesystem = storage_config.get(info.get('device'))
-    if not filesystem:
-        raise ValueError("filesystem '%s' could not be found" % device)
     volume = storage_config.get(filesystem.get('volume'))
 
     # Get path to volume
