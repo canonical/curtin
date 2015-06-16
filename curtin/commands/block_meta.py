@@ -167,7 +167,7 @@ def get_path_to_storage_volume(volume, storage_config):
         # name of the volgroup the partition belongs to. We can simply append
         # the id of the lvm partition to the path of that directory
         for item in storage_config:
-            if item.get('id') == volume.get('volgroup'):
+            if item.get('id') == vol.get('volgroup'):
                 volgroup = item
         if not volgroup:
             raise ValueError("lvm volume group '%s' could not be found" \
