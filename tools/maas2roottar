@@ -1,0 +1,226 @@
+#!/bin/bash
+
+VERBOSITY=0
+TEMP_D=""
+
+error() { echo "$@" 1>&2; }
+fail() { [ $# -eq 0 ] || error "$@"; exit 1; }
+
+Usage() {
+	cat <<EOF
+Usage: ${0##*/} maas-root[.gz] [output]
+convert from maas root image to a -root.tar.gz
+supports compressed or uncompressed
+
+maas root images are available at
+  http://maas.ubuntu.com/images/ephemeral-v2/daily/
+
+options:
+   --krd            extract kernel and intrd from inside to 
+                    output-kernel, output-initrd with .tar.gz stripped
+   --delete-temp    delete the temp file maas-root if uncompressing
+                    default is to keep it in maas-root if input is
+                    compressed.
+EOF
+}
+create_Usage() {
+	cat <<EOF
+Usage: ${0##*/} create-tgz root-dir output
+	create output.tar.gz from root-d
+EOF
+}
+
+bad_Usage() { Usage 1>&2; [ $# -eq 0 ] || error "$@"; return 1; }
+bad_create_Usage() { create_Usage 1>&2; [ $# -eq 0 ] || error "$@"; return 1; }
+cleanup() {
+	[ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
+}
+
+debug() {
+	local level=${1}; shift;
+	[ "${level}" -gt "${VERBOSITY}" ] && return
+	error "${@}"
+}
+
+main() {
+	local short_opts="hv"
+	local long_opts="help,no-patch,delete-temp,krd,verbose"
+	local getopt_out=""
+	getopt_out=$(getopt --name "${0##*/}" \
+		--options "${short_opts}" --long "${long_opts}" -- "$@") &&
+		eval set -- "${getopt_out}" ||
+		{ bad_Usage; return; }
+
+	local keep=true cur="" next=""
+	local sudo="" krd="" vflags=""
+
+	while [ $# -ne 0 ]; do
+		cur="$1"; next="$2";
+		case "$cur" in
+			-h|--help) Usage ; exit 0;;
+			   --delete-temp) keep=false; shift;;
+			   --no-patch|--krd) pt[${#pt[@]}]="$cur";;
+			-v|--verbose) VERBOSITY=$((${VERBOSITY}+1)); vflags="${vflags}v";;
+			--) shift; break;;
+		esac
+		shift;
+	done
+
+	[ $# -eq 1 -o $# -eq 2 ] ||
+		{ bad_Usage "must provide 1 or 2 arguments"; return; }
+	img_gz="$1"
+	output="$2"
+	if [ -z "$output" ]; then
+		output=${img_gz%.gz}
+		output=${output%.raw}
+		output=${output%.img}
+		output=${output}.tar.gz
+	fi
+	debug 1 "converting ${img_gz} to ${output}"
+
+	TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
+		fail "failed to make tempdir"
+	trap cleanup EXIT
+
+	[ "$(id -u)" = "0" ] && sudo="" || sudo="sudo"
+	[ -z "$vflags" ] || vflags="-${vflags}"
+
+	[ -f "$img_gz" ] || fail "$img_gz: not a file"
+	if $(LANG=C file "$img_gz" | grep -qi "gzip"); then
+		img="${TEMP_D}/root.img"
+		if $keep; then
+			img=${img_gz%.gz}
+			[ "$img" = "$img_gz" ] && img="$img.raw"
+		else
+			img="${TEMP_D}/root.img"
+		fi
+		if [ -f "$img" ]; then
+			debug 1 "re-using existing $img"
+		else
+			debug 1 "uncompressing $img"
+			zcat "$img_gz" > "$img.$$" && mv "$img.$$" "$img" || {
+				rm -f "$img.$$" 
+				error "failed uncompress $img"
+				return 1
+			}
+		fi
+	else
+		keep=true
+		img="$img_gz"
+	fi
+
+	$sudo mount-image-callback "$img" -- "$0" create-tgz \
+		${vflags} "${pt[@]}" _MOUNTPOINT_ "$output"
+
+	$keep || rm -f "$img"
+
+}
+
+chownto() {
+	[ -n "$1" ] || return 0
+	chown "$@" ||
+		{ error "failed chown $@"; return 1; }
+}
+
+patch_root() {
+	local rootd="$1"
+	debug 1 "patching $rootd"
+	local eni="$rootd/etc/network/interfaces"
+	if [ -L "$eni" -o -e "$eni" ]; then
+		rm -f "$eni.${0##*/}"
+		mv "$eni" "$eni.${0##*/}"
+	fi
+	( echo "auto lo";
+	  echo "iface lo inet loopback";
+	  echo "auto eth0" ;
+	  echo "iface eth0 inet dhcp" ) > "$eni"
+}
+
+create_tgz() {
+	local short_opts="hv"
+	local long_opts="help,no-patch,krd,verbose"
+	local getopt_out=""
+	getopt_out=$(getopt --name "${0##*/}" \
+		--options "${short_opts}" --long "${long_opts}" -- "$@") &&
+		eval set -- "${getopt_out}" ||
+		{ bad_Usage; return; }
+
+	local cur="" next="" patch=true krd=false
+	local krd="" vflags=""
+
+	while [ $# -ne 0 ]; do
+		cur="$1"; next="$2";
+		case "$cur" in
+			-h|--help) Usage ; exit 0;;
+			   --delete-temp) keep=false; shift;;
+			   --no-patch) patch=false;;
+			   --krd) krd=true;;
+			-v|--verbose) VERBOSITY=$((${VERBOSITY}+1)); vflags="${vflags}v";;
+			--) shift; break;;
+		esac
+		shift;
+	done
+
+	[ $# -eq 2 ] || {
+		bad_create_Usage "expected 2 args, got $#: $*";
+		return;
+	}
+
+	[ "$(id -u)" = "0" ] && sudo="" || sudo="sudo"
+	[ -z "$vflags" ] || vflags="-${vflags}"
+
+	rootd="$1"
+	output="$2"
+
+	local chownto=""
+	[ -n "$SUDO_UID" -a -n "$SUDO_GID" ] &&
+		chownto="$SUDO_UID:$SUDO_GID"
+
+	if $patch; then
+		patch_root "$rootd" ||
+			{ error "failed to patch root"; return 1; }
+	fi
+	debug 1 "creating tarball in $output from $rootd"
+
+	local gzflag="--use-compress-program=gzip"
+	if command -v pigz >/dev/null 2>&1; then
+		gzflag="--use-compress-program=pigz"
+	fi
+	tar -C "$rootd" -cpSf "$output" $gzflag \
+		--xattrs "--xattrs-include=*" . || {
+		error "failed tar command"
+		rm -f "$output"
+		return 1
+	}
+	chownto "$chownto" "$output" || return
+
+	local kernel initrd f=""
+	if $krd; then
+		local kfile="" ifile=""
+		kernel="${output%.tar.*}-kernel"
+		initrd="${output%.tar.*}-initrd"
+		for f in "$rootd/boot/"*; do
+			[ -f "$f" ] || continue
+			case "${f##*/}" in
+				vmlin*) kfile="$f";;
+				initrd*) ifile="$f";;
+			esac
+		done
+		[ -n "$ifile" ] || { error "failed to find initrd"; return 1; }
+		[ -n "$kfile" ] || { error "failed to find kernel"; return 1; }
+		cp "$ifile" "$initrd" &&
+			cp "$kfile" "$kernel" ||
+			{ error "failed copy initrd or kernel"; return 1; }
+		chownto "$chownto" "$kernel" "$initrd" || return
+	fi
+
+	debug 1 "wrote $output${kfile:+ $kernel}${initrd:+ $initrd}"
+}
+
+if [ "$1" = "create-tgz" -o "$1" = "create_tgz" ]; then
+	shift
+	create_tgz "$@"
+else
+	main "$@"
+fi
+# vi: ts=4 noexpandtab

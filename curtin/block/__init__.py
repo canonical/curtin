@@ -20,12 +20,14 @@ import os
 import stat
 import shlex
 import tempfile
+import itertools
 
 from curtin import util
+from curtin.log import LOG
 
 
 def get_dev_name_entry(devname):
-    bname = os.path.basename(devname)
+    bname = devname.split('/dev/')[-1]
     return (bname, "/dev/" + bname)
 
 
@@ -39,7 +41,7 @@ def is_valid_device(devname):
     return False
 
 
-def _lsblock_pairs_to_dict(lines, key="NAME"):
+def _lsblock_pairs_to_dict(lines):
     ret = {}
     for line in lines.splitlines():
         toks = shlex.split(line)
@@ -62,12 +64,15 @@ def _lsblock(args=None):
             'TYPE', 'UUID']
     if args is None:
         args = []
+    args = [x.replace('!', '/') for x in args]
+
     # in order to avoid a very odd error with '-o' and all output fields above
     # we just drop one.  doesn't really matter which one.
     keys.remove('SCHED')
     basecmd = ['lsblk', '--noheadings', '--bytes', '--pairs',
                '--output=' + ','.join(keys)]
     (out, _err) = util.subp(basecmd + list(args), capture=True)
+    out = out.replace('!', '/')
     return _lsblock_pairs_to_dict(out)
 
 
@@ -113,12 +118,17 @@ def get_devices_for_mp(mountpoint):
     return []
 
 
-def get_installable_blockdevs():
+def get_installable_blockdevs(include_removable=False, min_size=1024**3):
     good = []
     unused = get_unused_blockdev_info()
     for devname, data in unused.items():
-        if data.get('RO') == "0" and data.get('TYPE') == "disk":
-            good.append(devname)
+        if not include_removable and data.get('RM') == "1":
+            continue
+        if data.get('RO') != "0" or data.get('TYPE') != "disk":
+            continue
+        if min_size is not None and int(data.get('SIZE', '0')) < min_size:
+            continue
+        good.append(devname)
     return good
 
 
@@ -134,7 +144,10 @@ def get_blockdev_for_partition(devpath):
     syspath = "/sys/class/block/%s" % bname
 
     if not os.path.exists(syspath):
-        raise ValueError("%s had no syspath (%s)" % (devpath, syspath))
+        syspath2 = "/sys/class/block/cciss!%s" % bname
+        if not os.path.exists(syspath2):
+            raise ValueError("%s had no syspath (%s)" % (devpath, syspath))
+        syspath = syspath2
 
     ptpath = os.path.join(syspath, "partition")
     if not os.path.exists(ptpath):
@@ -166,6 +179,123 @@ def get_pardevs_on_blockdevs(devs):
         if found[short]['device_path'] not in devs:
             ret[short] = found[short]
     return ret
+
+
+def stop_all_unused_multipath_devices():
+    """
+    Stop all unused multipath devices.
+    """
+    multipath = util.which('multipath')
+
+    # Command multipath is not available only when multipath-tools package
+    # is not installed. Nothing needs to be done in this case because system
+    # doesn't create multipath devices without this package installed and we
+    # have nothing to stop.
+    if not multipath:
+        return
+
+    # Command multipath -F flushes all unused multipath device maps
+    cmd = [multipath, '-F']
+    try:
+        util.subp(cmd)
+    except util.ProcessExecutionError as e:
+        LOG.warn("Failed to stop multipath devices: %s", e)
+
+
+def blkid(devs=None, cache=True):
+    if devs is None:
+        devs = []
+    cachefile = "/run/blkid/blkid.tab"
+    if not cache and os.path.exists(cachefile):
+        os.unlink(cachefile)
+
+    # blkid output is <device_path>: KEY=VALUE
+    # where KEY is TYPE, UUID, PARTUUID, LABEL
+    out, err = util.subp(['blkid', '-o', 'full'] + devs, capture=True)
+    data = {}
+    for line in out.splitlines():
+        curdev, curdata = line.split(":", 1)
+        data[curdev] = dict(tok.split('=', 1) for tok in shlex.split(curdata))
+    return data
+
+
+def detect_multipath(target_mountpoint):
+    """
+    Detect if the operating system has been installed to a multipath device.
+    """
+    # The obvious way to detect multipath is to use multipath utility which is
+    # provided by the multipath-tools package. Unfortunately, multipath-tools
+    # package is not available in all ephemeral images hence we can't use it.
+    # Another reasonable way to detect multipath is to look for two (or more)
+    # devices with the same World Wide Name (WWN) which can be fetched using
+    # scsi_id utility. This way doesn't work as well because WWNs are not
+    # unique in some cases which leads to false positives which may prevent
+    # system from booting (see LP: #1463046 for details).
+    # Taking into account all the issues mentioned above, curent implementation
+    # detects multipath by looking for a filesystem with the same UUID
+    # as the target device. It relies on the fact that all alternative routes
+    # to the same disk observe identical partition information including UUID.
+    binfo = blkid(cache=False)
+    # get_devices_for_mp may return multiple devices by design. It is not yet
+    # implemented but it should return multiple devices when installer creates
+    # separate disk partitions for / and /boot. We need to do UUID-based
+    # multipath detection against each of target devices.
+    target_devs = get_devices_for_mp(target_mountpoint)
+    LOG.debug("target_devs: %s" % target_devs)
+    for devpath, data in binfo.items():
+        # We need to figure out UUID of the target device first
+        if devpath not in target_devs:
+            continue
+        # This entry contains information about one of target devices
+        target_uuid = data.get('UUID')
+        # UUID-based multipath detection won't work if target partition
+        # doesn't have UUID assigned
+        if not target_uuid:
+            LOG.warn("Target partition %s doesn't have UUID assigned",
+                     devpath)
+            continue
+        LOG.debug("%s: %s" % (devpath, data.get('UUID', "")))
+        # Iterating over available devices to see if any other device
+        # has the same UUID as the target device. If such device exists
+        # we probably installed the system to the multipath device.
+        for other_devpath, other_data in binfo.items():
+            if ((other_data.get('UUID') == target_uuid) and
+                    (other_devpath != devpath)):
+                return True
+    # No other devices have the same UUID as the target devices.
+    # We probably installed the system to the non-multipath device.
+    return False
+
+
+def get_scsi_wwid(device, replace_whitespace=False):
+    """
+    Issue a call to scsi_id utility to get WWID of the device.
+    """
+    cmd = ['/lib/udev/scsi_id', '--whitelisted', '--device=%s' % device]
+    if replace_whitespace:
+        cmd.append('--replace-whitespace')
+    try:
+        (out, err) = util.subp(cmd, capture=True)
+        scsi_wwid = out.rstrip('\n')
+        return scsi_wwid
+    except util.ProcessExecutionError as e:
+        LOG.warn("Failed to get WWID: %s", e)
+        return None
+
+
+def get_multipath_wwids():
+    """
+    Get WWIDs of all multipath devices available in the system.
+    """
+    multipath_devices = set()
+    multipath_wwids = set()
+    devuuids = [(d, i['UUID']) for d, i in blkid().items() if 'UUID' in i]
+    for (dev1, uuid1), (dev2, uuid2) in itertools.combinations(devuuids, 2):
+        if uuid1 == uuid2:
+            multipath_devices.add(get_blockdev_for_partition(dev1)[0])
+    for device in multipath_devices:
+        multipath_wwids.add(get_scsi_wwid(device))
+    return multipath_wwids
 
 
 def get_root_device(dev, fpath="curtin"):
