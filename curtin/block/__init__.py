@@ -20,6 +20,7 @@ import os
 import stat
 import shlex
 import tempfile
+import itertools
 
 from curtin import util
 from curtin.log import LOG
@@ -264,6 +265,37 @@ def detect_multipath(target_mountpoint):
     # No other devices have the same UUID as the target devices.
     # We probably installed the system to the non-multipath device.
     return False
+
+
+def get_scsi_wwid(device, replace_whitespace=False):
+    """
+    Issue a call to scsi_id utility to get WWID of the device.
+    """
+    cmd = ['/lib/udev/scsi_id', '--whitelisted', '--device=%s' % device]
+    if replace_whitespace:
+        cmd.append('--replace-whitespace')
+    try:
+        (out, err) = util.subp(cmd, capture=True)
+        scsi_wwid = out.rstrip('\n')
+        return scsi_wwid
+    except util.ProcessExecutionError as e:
+        LOG.warn("Failed to get WWID: %s", e)
+        return None
+
+
+def get_multipath_wwids():
+    """
+    Get WWIDs of all multipath devices available in the system.
+    """
+    multipath_devices = set()
+    multipath_wwids = set()
+    devuuids = [(d, i['UUID']) for d, i in blkid().items() if 'UUID' in i]
+    for (dev1, uuid1), (dev2, uuid2) in itertools.combinations(devuuids, 2):
+        if uuid1 == uuid2:
+            multipath_devices.add(get_blockdev_for_partition(dev1)[0])
+    for device in multipath_devices:
+        multipath_wwids.add(get_scsi_wwid(device))
+    return multipath_wwids
 
 
 def get_root_device(dev, fpath="curtin"):
