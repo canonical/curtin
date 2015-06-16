@@ -125,10 +125,7 @@ def get_path_to_storage_volume(volume, storage_config):
     # Get path to block device for volume. Volume param should refer to id of
     # volume in storage config
 
-    for item in storage_config:
-        if item.get('id') == volume:
-            vol = item
-            break
+    vol = storage_config.get(volume)
     if not vol:
         raise ValueError("volume with id '%s' not found" % device)
 
@@ -148,15 +145,8 @@ def get_path_to_storage_volume(volume, storage_config):
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
         # to id of device in storage config
-        for item in storage_config:
-            if item.get('id') == volume:
-                device = item
-                break
-        if not device:
-            raise ValueError("device with id '%s' not found" % volume)
-
-        disk_block = block.lookup_disk(serial=device.get('serial'),
-                busid=device.get('busid'))
+        disk_block = block.lookup_disk(serial=vol.get('serial'), \
+                busid=vol.get('busid'))
         if not disk_block:
             raise ValueError("disk not found")
 
@@ -166,9 +156,7 @@ def get_path_to_storage_volume(volume, storage_config):
         # For lvm partitions, a directory in /dev/ should be present with the
         # name of the volgroup the partition belongs to. We can simply append
         # the id of the lvm partition to the path of that directory
-        for item in storage_config:
-            if item.get('id') == vol.get('volgroup'):
-                volgroup = item
+        volgroup = storage_config.get(vol.get('volgroup'))
         if not volgroup:
             raise ValueError("lvm volume group '%s' could not be found" \
                 % vol.get('volgroup'))
@@ -287,19 +275,14 @@ def format_handler(info, storage_config):
 def mount_handler(info, storage_config):
     state = util.load_command_environment()
     path = info.get('path')
-    device = info.get('device')
     if not path:
         raise ValueError("path to mountpoint must be specified")
     if not device:
         raise ValueError("formated volume must be specified")
-
-    # Get filesystem in storage_config
-    for item in storage_config:
-        if item.get('id') == device:
-            filesystem = item
-            break
+    filesystem = storage_config.get(info.get('device'))
     if not filesystem:
         raise ValueError("filesystem '%s' could not be found" % device)
+    volume = storage_config.get(filesystem.get('volume'))
 
     # Get path to volume
     volume_path = get_path_to_storage_volume(filesystem.get('volume'), \
@@ -320,8 +303,14 @@ def mount_handler(info, storage_config):
     # Add volume to fstab
     if state['fstab']:
         with open(state['fstab'], "a") as fp:
-            fp.write("LABEL=%s /%s %s defaults 0 0\n" %
-                    (filesystem.get('id'), path, filesystem.get('fstype')))
+            if volume.get('type') == "partition":
+                location = "LABEL=%s" % filesystem.get('id')
+            elif volume.get('type') == "lvm_partition":
+                location = volume_path
+            else:
+                raise ValueError("volume type not yet supported")
+            fp.write("%s /%s %s defaults 0 0\n" %
+                    (location, path, filesystem.get('fstype')))
     else:
         LOG.info("fstab not in environment, so not writing")
 
@@ -387,11 +376,18 @@ def meta_custom(args):
         raise Exception("storage configuration is required by mode '%s' "
                         "but not provided in the config file" % CUSTOM)
 
+    # Since storage config will often have to be searched for a value by its
+    # id, and this can become very inefficient as storage_config grows, a dict
+    # will be generated with the id of each component of the storage_config as
+    # its index and the component of storage_config as its value
+    storage_config_dict = dict((d["id"], d) for (i, d) in \
+            enumerate(storage_config))
+
     for command in storage_config:
         handler = command_handlers.get(command['type'])
         if not handler:
             raise ValueError("unknown command type '%s'" % command['type'])
-        handler(command, storage_config)
+        handler(command, storage_config_dict)
 
     return 0
 
