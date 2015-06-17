@@ -349,6 +349,27 @@ def lvm_partition_handler(info, storage_config):
     util.subp(cmd)
 
 
+def dm_crypt_handler(info, storage_config):
+    volume = info.get('volume')
+    key = info.get('test_password')
+    keysize = info.get('keysize')
+    cipher = info.get('cipher')
+    if not volume:
+        raise ValueError("volume for cryptsetup to operate on must be \
+            specified")
+    if not key:
+        raise ValueError("encryption key must be specified")
+
+    cmd = ["cryptsetup"]
+    if cipher:
+        cmd.extend(["--cipher", cipher])
+    if keysize:
+        cmd.extend(["--key-size", keysize])
+    cmd.extend(["luksFormat", volume])
+
+    util.subp(cmd)
+
+
 def meta_custom(args):
     """Does custom partitioning based on the layout provided in the config
     file. Section with the name storage contains information on which
@@ -362,7 +383,8 @@ def meta_custom(args):
         'format' : format_handler,
         'mount' : mount_handler,
         'lvm_volgroup' : lvm_volgroup_handler,
-        'lvm_partition' : lvm_partition_handler
+        'lvm_partition' : lvm_partition_handler,
+        'dm_crypt' : dm_crypt_handler
     }
 
     state = util.load_command_environment()
