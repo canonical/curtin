@@ -260,7 +260,7 @@ def format_handler(info, storage_config):
     # Generate mkfs command and run
     if fstype in ["ext4", "ext3"]:
         cmd = ['mkfs.%s' % fstype, '-q', '-L', part_id[:16], volume_path]
-    elif fstype in ["fat16", "fat32", "fat"]:
+    elif fstype in ["fat12", "fat16", "fat32", "fat"]:
         cmd = ["mkfs.fat"]
         fat_size = fstype.strip(string.ascii_letters)
         if fat_size in ["12", "16", "32"]:
@@ -305,8 +305,13 @@ def mount_handler(info, storage_config):
                 location = volume_path
             else:
                 raise ValueError("volume type not yet supported")
+            if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32", \
+                    "fat64"]:
+                fstype = "vfat"
+            else:
+                fstype = filesystem.get('fstype')
             fp.write("%s /%s %s defaults 0 0\n" %
-                    (location, path, filesystem.get('fstype')))
+                    (location, path, fstype))
     else:
         LOG.info("fstab not in environment, so not writing")
 
