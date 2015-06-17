@@ -162,13 +162,22 @@ def get_path_to_storage_volume(volume, storage_config):
                 % vol.get('volgroup'))
         volume_path = os.path.join("/dev/", volgroup.get('id'), \
             vol.get('id'))
-        if not os.path.exists(volume_path):
-            raise ValueError("lvm partition block device '%s' does not exist" \
-                % volume_path)
+
+    elif: vol.get('type') == "dm_crypt":
+        # For dm_crypted partitions, unencrypted block device is at
+        # /dev/mapper/<dm_name>
+        dm_name = vol.get('dm_name')
+        if not dm_name:
+            dm_name = vol.get('id')
+        volume_path = os.path.join("/dev", "mapper", dm_name)
 
     else:
         raise NotImplementedError("volumes other than partitions not yet \
             supported")
+
+    if not os.path.exists(volume_path):
+        raise ValueError("path to storage volume '%s' does not exist" % \
+            volume)
 
     return volume_path
 
@@ -354,18 +363,26 @@ def dm_crypt_handler(info, storage_config):
     key = info.get('test_password')
     keysize = info.get('keysize')
     cipher = info.get('cipher')
+    dm_name = info.get('dm_name')
     if not volume:
         raise ValueError("volume for cryptsetup to operate on must be \
             specified")
     if not key:
         raise ValueError("encryption key must be specified")
+    if not dm_name:
+        dm_name = info.get('id')
 
-    cmd = ["cryptsetup"]
+    cmd = ["printf", "'%s'" % key, "|", "cryptsetup"]
     if cipher:
         cmd.extend(["--cipher", cipher])
     if keysize:
         cmd.extend(["--key-size", keysize])
-    cmd.extend(["luksFormat", volume])
+    cmd.extend(["luksFormat", volume, "-"])
+
+    util.subp(cmd)
+
+    cmd = ["printf", "'%s'" % key, "|", "cryptsetup", "open", "--type", \
+            "luks", volume, dm_name, "--key-file", "-"]
 
     util.subp(cmd)
 
