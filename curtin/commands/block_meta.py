@@ -163,7 +163,7 @@ def get_path_to_storage_volume(volume, storage_config):
         volume_path = os.path.join("/dev/", volgroup.get('id'), \
             vol.get('id'))
 
-    elif: vol.get('type') == "dm_crypt":
+    elif vol.get('type') == "dm_crypt":
         # For dm_crypted partitions, unencrypted block device is at
         # /dev/mapper/<dm_name>
         dm_name = vol.get('dm_name')
