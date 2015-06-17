@@ -394,7 +394,7 @@ def dm_crypt_handler(info, storage_config):
         crypt_tab_location = os.path.join(os.path.split(state['fstab'])[0], \
                 "crypttab")
         with open(crypt_tab_location, "a") as fp:
-            fp.write("%s %s none luks" % (dm_name, volume_path)
+            fp.write("%s %s none luks" % (dm_name, volume_path))
     else:
         LOG.info("fstab configuration is not present in environment, so \
             cannot locate an appropriate directory to write crypttab in \
