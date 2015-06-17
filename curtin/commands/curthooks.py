@@ -490,7 +490,7 @@ def detect_and_handle_multipath(cfg, target):
         util.write_file(grub_cfg, content=msg)
 
         # FIXME: this assumes grub. need more generic way to update root=
-        ensure_dir(os.path.sep.join([target, os.path.dirname(grub_dev)])
+        util.ensure_dir(os.path.sep.join([target, os.path.dirname(grub_dev)]))
         with util.RunInChroot(target) as in_chroot:
             in_chroot(['ln', '-sf', target_dev, grub_dev])
             in_chroot(['update-grub'])
