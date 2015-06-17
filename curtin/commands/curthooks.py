@@ -470,6 +470,9 @@ def detect_and_handle_multipath(cfg, target):
         if partno is not None:
             grub_dev += "-part%s" % partno
 
+        LOG.debug("configuring multipath install for root=%s wwid=%s",
+                  grub_dev, wwid)
+
         multipath_bind_content = '\n'.join(
             ['# This file was created by curtin while installing the system.',
              "%s %s" % (mpname, wwid),
@@ -486,7 +489,7 @@ def detect_and_handle_multipath(cfg, target):
                 '']))
 
         # FIXME: this assumes grub. need more generic way to update root=
-        with util.RunInChroot as in_chroot:
+        with util.RunInChroot(target) as in_chroot:
             in_chroot(['update-grub'])
 
     else:
