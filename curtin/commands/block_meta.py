@@ -372,19 +372,33 @@ def dm_crypt_handler(info, storage_config):
     if not dm_name:
         dm_name = info.get('id')
 
+    volume_path = get_path_to_storage_volume(volume, storage_config)
+
     cmd = ["printf", "'%s'" % key, "|", "cryptsetup"]
     if cipher:
         cmd.extend(["--cipher", cipher])
     if keysize:
         cmd.extend(["--key-size", keysize])
-    cmd.extend(["luksFormat", volume, "-"])
+    cmd.extend(["luksFormat", volume_path, "-"])
 
     util.subp(cmd)
 
     cmd = ["printf", "'%s'" % key, "|", "cryptsetup", "open", "--type", \
-            "luks", volume, dm_name, "--key-file", "-"]
+            "luks", volume_path, dm_name, "--key-file", "-"]
 
     util.subp(cmd)
+
+    # A crypttab will be created in the same directory as the fstab in the
+    # configuration. This will then be copied onto the system later
+    if state['fstab']:
+        crypt_tab_location = os.path.join(os.path.split(state['fstab'])[0], \
+                "crypttab")
+        with open(crypt_tab_location, "a") as fp:
+            fp.write("%s %s none luks" % (dm_name, volume_path)
+    else:
+        LOG.info("fstab configuration is not present in environment, so \
+            cannot locate an appropriate directory to write crypttab in \
+            so not writing crypttab")
 
 
 def meta_custom(args):
