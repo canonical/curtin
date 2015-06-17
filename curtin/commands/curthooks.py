@@ -466,7 +466,7 @@ def detect_and_handle_multipath(cfg, target):
         blockdev, partno = block.get_blockdev_for_partition(target_dev)
 
         mpname = "mpath0"
-        grub_dev = "/dev/" + mpname
+        grub_dev = "/dev/mapper/" + mpname
         if partno is not None:
             grub_dev += "-part%s" % partno
 
