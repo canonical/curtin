@@ -474,7 +474,10 @@ def detect_and_handle_multipath(cfg, target):
         # from starting while installing packages to the target device. Hence
         # we need to manually generate bindings file and update initramfs.
         # We can't use multipath utility to generate bindings because it needs
-        # to have dm-multipath kernel module inserted.
+        # to have dm-multipath kernel module inserted. Installation image
+        # contains this module but it may not fit to the kernel which is
+        # available in the ephemeral image (one which is currently running)
+        # due to a version mismatch.
         num_wwid = enumerate(block.get_multipath_wwids())
         multipath_bind_content = '\n'.join(
             ['# This file was created by curtin while installing the system.',
