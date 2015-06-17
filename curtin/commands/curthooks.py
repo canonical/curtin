@@ -482,13 +482,12 @@ def detect_and_handle_multipath(cfg, target):
         util.write_file(multipath_bind_path, content=multipath_bind_content)
 
         grub_cfg = os.path.sep.join(
-            [target, '/etc/default/grub.d/50-curtin-settings.cfg'])
+            [target, '/etc/default/grub.d/50-curtin-multipath.cfg'])
         msg = '\n'.join([
             '# Written by curtin for multipath device wwid "%s"' % wwid,
             'GRUB_DEVICE=%s' % grub_dev,
             ''])
-        with open(grub_cfg, "a+") as fp:
-            fp.write(msg)
+        util.write_file(grub_cfg, content=msg)
 
         # FIXME: this assumes grub. need more generic way to update root=
         with util.RunInChroot(target) as in_chroot:
