@@ -93,7 +93,8 @@ wipedev() {
         count=$((size / bs))
         info="size=$size conv=notrunc count=$count bs=$bs"
         debug 1 "wiping full '$target' with ${info}."
-        out=$(dd if=/dev/zero conv=notrunc bs=$bs "of=$target" 2>&1) || {
+        out=$(LANG=C dd if=/dev/zero conv=notrunc "of=$target" \
+            bs=$bs count=$count 2>&1) || {
             error "wiping entire '$target' with ${info} failed."
             error "$out"
             return 1
@@ -363,9 +364,9 @@ pt_prep() {
             { error "$target missing partitions: $_RET"; return 1; }
         # wipe the full prep partition
         wipe_partitions --full "$target" 1 ||
-            { error "$target: failed to wipe partitions"; return 1;}
+            { error "$target: failed to wipe full PReP partition"; return 1;}
         wipe_partitions "$target" 2 ||
-            { error "$target: failed to wipe partitions"; return 1;}
+            { error "$target: failed to wipe partition 2"; return 1;}
     fi
 
     return 0
@@ -380,7 +381,7 @@ partition_main() {
         { partition_main_usage 1>&2; return 1; }
 
     local cur="" next=""
-    local format="mbr" boot=false target="" end=""
+    local format="mbr" boot=false target="" end="" ret=0
 
     while [ $# -ne 0 ]; do
         cur="$1"; next="$2";
@@ -410,6 +411,7 @@ partition_main() {
 
     TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
         fail "failed to make tempdir"
+    trap cleanup EXIT
 
     [ -e "$target" ] || { error "$target does not exist"; return 1; }
     [ -f "$target" -o -b "$target" ] ||
@@ -427,10 +429,9 @@ partition_main() {
     elif [ "$format" = "prep" ]; then
         pt_prep "$target" "$end"
     fi
+    ret=$?
 
-    trap cleanup EXIT
-
-    return 0
+    return $ret
 }
 
 human2bytes() {
