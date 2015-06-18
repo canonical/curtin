@@ -21,7 +21,12 @@ storage:
   - id: sda2
     type: partition
     offset: 8512MB
-    size: 1GB
+    size: 512MB
+    device: sda
+  - id: sda3
+    type: partition
+    offset: 9GB
+    size: 512GB
     device: sda
   - id: storage_volgroup
     type: lvm_volgroup
@@ -35,11 +40,11 @@ storage:
   - id: storage_2
     type: lvm_partition
     volgroup: storage_volgroup
-  - id: storage_2_crypt
+  - id: sda3_crypt
     type: dm_crypt
-    volume: storage_2
+    volume: sda3
     password: testpassword
-    dm_name: storage_2_crypt
+    dm_name: sda3_crypt
   - id: sda1_root
     type: format
     fstype: ext4
@@ -51,7 +56,11 @@ storage:
   - id: storage_2_fs
     type: format
     fstype: ext4
-    volume: storage_2_crypt
+    volume: storage_2
+  - id: sda3_crypt_fs
+    type: format
+    fstype: ext4
+    volume: sda3_crypt
   - id: sda1_mount
     type: mount
     path: /
@@ -64,3 +73,7 @@ storage:
     type: mount
     path: /media/storage2
     device: storage_2_fs
+  - id: sda3_crypt_mount
+    type: mount
+    path: /media/encrypted_storage
+    device: sda3_crypt_fs
