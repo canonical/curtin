@@ -310,10 +310,8 @@ def mount_handler(info, storage_config):
         with open(state['fstab'], "a") as fp:
             if volume.get('type') == "partition":
                 location = "LABEL=%s" % filesystem.get('id')
-            elif volume.get('type') == "lvm_partition":
-                location = volume_path
             else:
-                raise ValueError("volume type not yet supported")
+                location = volume_path
             if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32", \
                     "fat64"]:
                 fstype = "vfat"
@@ -359,6 +357,7 @@ def lvm_partition_handler(info, storage_config):
 
 
 def dm_crypt_handler(info, storage_config):
+    state = util.load_command_environment()
     volume = info.get('volume')
     key = info.get('password')
     keysize = info.get('keysize')

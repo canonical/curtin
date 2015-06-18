@@ -371,6 +371,14 @@ def copy_fstab(fstab, target):
     shutil.copy(fstab, os.path.sep.join([target, 'etc/fstab']))
 
 
+def copy_crypttab(crypttab, target):
+    if not crypttab:
+        LOG.warn("crypttab location must be specified")
+        return
+
+    shutil.copy(crypttab, os.path.sep.join([target, 'etc/crypttab']))
+
+
 def copy_interfaces(interfaces, target):
     if not interfaces:
         LOG.warn("no interfaces file to copy!")
@@ -486,6 +494,10 @@ def curthooks(args):
 
     copy_interfaces(state.get('interfaces'), target)
     copy_fstab(state.get('fstab'), target)
+    crypttab_location = os.path.join(os.path.split(state['fstab'])[0], \
+            "crypttab")
+    if os.path.exists(crypttab_location):
+        copy_crypttab(crypttab_location, target)
 
     detect_and_handle_multipath(cfg, target)
 
