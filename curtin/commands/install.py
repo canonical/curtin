@@ -340,8 +340,14 @@ def cmd_install(args):
     finally:
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))
-        if util.is_mounted(workingd.target, 'boot'):
-            util.do_umount(os.path.join(workingd.target, 'boot'))
+        disk_info = block.get_disk_info()
+        mounted = list(disk_i.get("MOUNTPOINT") for disk_i in disk_info if
+                disk_i.get("MOUNTPOINT") is not None and
+                disk_i.get("MOUNTPOINT") != "")
+        mounted.sort(key = lambda x: -1 * x.count("/"))
+        for d in mounted:
+            if workingd.target in d:
+                util.do_umount(d)
         util.do_umount(workingd.target)
         shutil.rmtree(workingd.top)
 
