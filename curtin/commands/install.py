@@ -342,7 +342,8 @@ def cmd_install(args):
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))
         disk_info = block.get_disk_info()
-        mounted = list(disk_i.get("MOUNTPOINT") for disk_i in disk_info if
+        mounted = list(disk_i.get("MOUNTPOINT") for name, disk_i
+                in disk_info.items() if
                 disk_i.get("MOUNTPOINT") is not None and
                 disk_i.get("MOUNTPOINT") != "")
         mounted.sort(key = lambda x: -1 * x.count("/"))
