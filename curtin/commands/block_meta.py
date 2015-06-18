@@ -360,7 +360,7 @@ def lvm_partition_handler(info, storage_config):
 def dm_crypt_handler(info, storage_config):
     state = util.load_command_environment()
     volume = info.get('volume')
-    key = info.get('password')
+    key = info.get('key')
     keysize = info.get('keysize')
     cipher = info.get('cipher')
     dm_name = info.get('dm_name')
