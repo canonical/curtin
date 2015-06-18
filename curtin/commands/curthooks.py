@@ -486,13 +486,13 @@ def detect_and_handle_multipath(cfg, target):
         msg = '\n'.join([
             '# Written by curtin for multipath device wwid "%s"' % wwid,
             'GRUB_DEVICE=%s' % grub_dev,
+            'GRUB_DISABLE_LINUX_UUID=true',
             ''])
         util.write_file(grub_cfg, content=msg)
 
         # FIXME: this assumes grub. need more generic way to update root=
         util.ensure_dir(os.path.sep.join([target, os.path.dirname(grub_dev)]))
         with util.RunInChroot(target) as in_chroot:
-            in_chroot(['ln', '-sf', target_dev, grub_dev])
             in_chroot(['update-grub'])
 
     else:
