@@ -291,6 +291,9 @@ def get_volume_uuid(name):
     """
     return _lsblock(filter_func=None)[name]['UUID']
 
+def get_lsblk_info():
+    return _lsblock(filter_func=None)
+
 def _filter_disks(block_device):
     return (block_device['TYPE'] == 'disk')
 
