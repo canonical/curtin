@@ -284,6 +284,12 @@ def get_disk_busid(name):
         raise ValueError("malformed bus path from sysfs (%s)" % bus_path)
     return bus_path[len(start):-len(end)]
 
+def get_volume_uuid(name):
+    """
+    Get uuid of disk with given block name. This address uniquely identifies
+    the device and remains consistant across reboots
+    """
+    return _lsblock(filter_func=None)[name]['UUID']
 
 def _filter_disks(block_device):
     return (block_device['TYPE'] == 'disk')

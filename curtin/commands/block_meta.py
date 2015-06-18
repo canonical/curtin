@@ -309,17 +309,13 @@ def mount_handler(info, storage_config):
     # Add volume to fstab
     if state['fstab']:
         with open(state['fstab'], "a") as fp:
-            if volume.get('type') == "partition":
-                location = "LABEL=%s" % filesystem.get('id')
-            else:
-                location = volume_path
+            uuid = block.get_volume_uuid(os.path.split(volume_path)[-1])
             if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32", \
                     "fat64"]:
                 fstype = "vfat"
             else:
                 fstype = filesystem.get('fstype')
-            fp.write("%s /%s %s defaults 0 0\n" %
-                    (location, path, fstype))
+            fp.write("LABEL=%s /%s %s defaults 0 0\n" % (uuid, path, fstype))
     else:
         LOG.info("fstab not in environment, so not writing")
 
@@ -401,8 +397,9 @@ def dm_crypt_handler(info, storage_config):
     if state['fstab']:
         crypt_tab_location = os.path.join(os.path.split(state['fstab'])[0], \
                 "crypttab")
+        uuid = block.get_volume_uuid(os.path.split(volume_path)[-1])
         with open(crypt_tab_location, "a") as fp:
-            fp.write("%s %s none luks" % (dm_name, volume_path))
+            fp.write("%s UUID=%s none luks" % (dm_name, uuid))
     else:
         LOG.info("fstab configuration is not present in environment, so \
             cannot locate an appropriate directory to write crypttab in \
