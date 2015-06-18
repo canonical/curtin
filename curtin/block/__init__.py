@@ -197,7 +197,8 @@ def stop_all_unused_multipath_devices():
     # Command multipath -F flushes all unused multipath device maps
     cmd = [multipath, '-F']
     try:
-        util.subp(cmd)
+        # unless multipath cleared *everything* it will exit with 1
+        util.subp(cmd, rcs=[0, 1])
     except util.ProcessExecutionError as e:
         LOG.warn("Failed to stop multipath devices: %s", e)
 
