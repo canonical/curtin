@@ -399,7 +399,7 @@ def dm_crypt_handler(info, storage_config):
                 "crypttab")
         uuid = block.get_volume_uuid(os.path.split(volume_path)[-1])
         with open(crypt_tab_location, "a") as fp:
-            fp.write("%s UUID=%s none luks" % (dm_name, uuid))
+            fp.write("%s UUID=%s none luks\n" % (dm_name, uuid))
     else:
         LOG.info("fstab configuration is not present in environment, so \
             cannot locate an appropriate directory to write crypttab in \
