@@ -100,14 +100,19 @@ wipedev() {
             return 1
         }
     else
-        [ "$size" -ge "$mb" ] && count=$((mb / bs)) || count=$((size / bs))
-        info="size=$size count=$count bs=$bs"
+        local fbs=$bs
+        count=$((size / bs))
+        if [ "$size" -ge "$mb" ]; then
+            count=1
+            fbs=$mb
+        fi
+        info="size=$size count=$count bs=$fbs"
         debug 1 "wiping start of '$target' with ${info}."
         # wipe the first MB (up to 'size')
         out=$(dd if=/dev/zero conv=notrunc "of=$target" \
-                "bs=$bs" "count=$count" 2>&1) || {
-            error "wiping start of '$target' failed."
-            error "  size=$size count=$count bs=$bs: $out"
+                "bs=$fbs" "count=$count" 2>&1) || {
+            error "wiping start of '$target' with ${info} failed."
+            error "$out"
             return 1
         }
 
@@ -120,8 +125,8 @@ wipedev() {
             out=$(dd if=/dev/zero conv=notrunc "of=$target" "seek=$seek" \
                 "bs=$bs" "count=$count" 2>&1)
             if [ $? -ne 0 ]; then
-                error "wiping end of '$target' failed."
-                error "  size=$size count=$count seek=$seek bs=$bs: $out";
+                error "wiping end of '$target' with ${info} failed."
+                error "$out";
                 return 1;
             fi
         fi
