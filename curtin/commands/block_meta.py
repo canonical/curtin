@@ -27,6 +27,7 @@ import parted
 import platform
 import string
 import sys
+import tempfile
 
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
@@ -373,19 +374,27 @@ def dm_crypt_handler(info, storage_config):
 
     volume_path = get_path_to_storage_volume(volume, storage_config)
 
-    cmd = ["printf", "'%s'" % key, "|", "cryptsetup"]
+    # TODO: this is insecure, find better way to do this
+    tmp_keyfile = tempfile.mkstemp()[1]
+    fp = open(tmp_keyfile, "w")
+    fp.write(key)
+    fp.close()
+
+    cmd = ["cryptsetup"]
     if cipher:
         cmd.extend(["--cipher", cipher])
     if keysize:
         cmd.extend(["--key-size", keysize])
-    cmd.extend(["luksFormat", volume_path, "-"])
+    cmd.extend(["luksFormat", volume_path, tmp_keyfile])
 
     util.subp(cmd)
 
-    cmd = ["printf", "'%s'" % key, "|", "cryptsetup", "open", "--type", \
-            "luks", volume_path, dm_name, "--key-file", "-"]
+    cmd = ["cryptsetup", "open", "--type", "luks", volume_path, dm_name, \
+            "--key-file", tmp_keyfile]
 
     util.subp(cmd)
+
+    os.remove(tmp_keyfile)
 
     # A crypttab will be created in the same directory as the fstab in the
     # configuration. This will then be copied onto the system later
