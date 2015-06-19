@@ -309,13 +309,22 @@ def mount_handler(info, storage_config):
     # Add volume to fstab
     if state['fstab']:
         with open(state['fstab'], "a") as fp:
-            uuid = block.get_volume_uuid(os.path.split(volume_path)[-1])
+            if volume.get('type') == "lvm_partition":
+                location = os.path.join("/dev", \
+                    storage_config.get(volume.get('volgroup')).get('id'), \
+                    volume.get('id'))
+            elif volume.get('type') in ["partition", "dm_crypt"]:
+                location = "UUID=%s" % block.get_volume_uuid(os.path.split( \
+                        volume_path)[-1])
+            else:
+                raise ValueError("cannot write fstab for volume type '%s'" % \
+                        volume.get("type"))
             if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32", \
                     "fat64"]:
                 fstype = "vfat"
             else:
                 fstype = filesystem.get('fstype')
-            fp.write("LABEL=%s /%s %s defaults 0 0\n" % (uuid, path, fstype))
+            fp.write("%s /%s %s defaults 0 0\n" % (location, path, fstype))
     else:
         LOG.info("fstab not in environment, so not writing")
 
