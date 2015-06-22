@@ -204,6 +204,31 @@ def disk_handler(info, storage_config):
     LOG.info("labeling device: '%s' with '%s' partition table", disk, ptable)
     pdisk.commit()
 
+    # If grub_device option is present and set to true in config than this
+    # device will be added to grub_install_devices in cfg. This is not
+    # necessary when the root filesystem is on a normal partition, as curthooks
+    # can figure out what the parent device is on its own in this case.
+    # However, if the root filesystem is on an encrypted partition or on lvm,
+    # it is necessary to set this option to tell curthooks where to install
+    # grub as it will not be possible for curthooks to figure it out otherwise.
+    if storage_config.get('grub_device'):
+        state = util.load_command_environment()
+        cfg_file = state.get('config')
+        if not cfg_file:
+            LOG.warn("grub_device option set in storage_config, but cfg_file \
+                not in environment, so cannot determine what file to add \
+                grub_install_devices to, so not writing this information.")
+            return
+        cfg = util.load_command_config({}, state)
+        if cfg.get("grub_install_devices"):
+            devices = cfg.get("grub_install_devices")
+        else:
+            devices = []
+        devices.append(disk["device_path"])
+        cfg["grub_install_devices"] = devices
+        with open(cfg_file, "w") as fp:
+            json.dump(cfg, fp)
+
 
 def partition_handler(info, storage_config):
     device = info.get('device')

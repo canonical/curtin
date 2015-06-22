@@ -7,6 +7,7 @@ storage:
     ptable: msdos
     model: QEMU HARDDISK
     serial: QM00002
+    grub_device: True
   - id: sda1
     type: partition
     offset: 512MB
@@ -15,7 +16,7 @@ storage:
     flag: boot
   - id: sda2
     type: partition
-    offset: 1GB
+    offset: 1GiB
     size: 9GB
     device: sda
   - id: sda2_crypto
