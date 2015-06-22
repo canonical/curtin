@@ -22,6 +22,7 @@ from curtin.log import LOG
 
 from . import populate_one_subcmd
 
+import json
 import os
 import parted
 import platform
