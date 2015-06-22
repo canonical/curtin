@@ -15,7 +15,7 @@ storage:
     flag: boot
   - id: sda2
     type: partition
-    offset: 1MB
+    offset: 1GB
     size: 9GB
     device: sda
   - id: sda2_crypto
