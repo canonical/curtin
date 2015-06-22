@@ -211,7 +211,7 @@ def disk_handler(info, storage_config):
     # However, if the root filesystem is on an encrypted partition or on lvm,
     # it is necessary to set this option to tell curthooks where to install
     # grub as it will not be possible for curthooks to figure it out otherwise.
-    if storage_config.get('grub_device'):
+    if info.get('grub_device'):
         state = util.load_command_environment()
         cfg_file = state.get('config')
         if not cfg_file:
