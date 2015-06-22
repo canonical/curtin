@@ -262,11 +262,12 @@ def get_root_device(dev, fpath="curtin"):
         raise ValueError("Could not find root device")
     return target
 
-def get_disk_serial(name):
+def get_disk_serial(path):
     """
     Get serial number of the disk or empty string if it can't be fetched.
     """
-    (out, _err) = util.subp("udevadm info --query=property /dev/%s" % name, capture=True)
+    (out, _err) = util.subp(["udevadm", "info", "--query=property", name],
+            capture=True)
     for line in out.splitlines():
         if "ID_SERIAL_SHORT" in line:
             return line.split('=')[-1]
@@ -289,7 +290,7 @@ def get_volume_uuid(path):
     Get uuid of disk with given path. This address uniquely identifies
     the device and remains consistant across reboots
     """
-    (out, _err) = util.subp("blkid -o export %" % path, capture=True)
+    (out, _err) = util.subp(["blkid", "-o", "export", path], capture=True)
     for line in out.splitlines():
         if "UUID" in line:
             return line.split('=')[-1]
@@ -317,7 +318,7 @@ def get_disk_info():
     for name in disks:
         disks[name]['BUSID'] = get_disk_busid(name)
     for name in disks:
-        disks[name]['SERIAL'] = get_disk_serial(name)
+        disks[name]['SERIAL'] = get_disk_serial(disks[name]['device_path'])
     return disks
 
 def lookup_disk(serial=None, busid=None):
