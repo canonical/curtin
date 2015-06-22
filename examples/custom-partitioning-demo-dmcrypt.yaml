@@ -10,19 +10,32 @@ storage:
   - id: sda1
     type: partition
     offset: 512MB
-    size: 9GB
+    size: 512MB
     device: sda
     flag: boot
-  - id: sda1_crypto
+  - id: sda2
+    type: partition
+    offset: 1MB
+    size: 9GB
+    device: sda
+  - id: sda2_crypto
     type: dm_crypt
-    volume: sda1
+    volume: sda2
     key: testkey
-    dm_name: sda1_crypto
-  - id: sda1_root
+    dm_name: sda2_crypto
+  - id: sda1_boot
     type: format
     fstype: ext4
-    volume: sda1_crypto
-  - id: sda1_mount
+    volume: sda1
+  - id: sda2_root
+    type: format
+    fstype: ext4
+    volume: sda2_crypto
+  - id: sda2_mount
     type: mount
     path: /
-    device: sda1_root
+    device: sda2_root
+  - id: sda1_mount
+    type: mount
+    path: /boot
+    device: sda1_boot
