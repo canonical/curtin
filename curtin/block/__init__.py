@@ -301,9 +301,9 @@ def get_mountpoints():
     Returns a list of all mountpoints where filesystems are currently mounted.
     """
     info = _lsblock(filter_func=None)
-    return list(i.get("MOUNTPOINT" for name, i in info.items() if
+    return list(i.get("MOUNTPOINT") for name, i in info.items() if
         i.get("MOUNTPOINT") is not None and
-        i.get("MOUNTPOINT") != ""))
+        i.get("MOUNTPOINT") != "")
 
 def _filter_disks(block_device):
     return (block_device['TYPE'] == 'disk')
