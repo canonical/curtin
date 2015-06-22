@@ -405,7 +405,7 @@ def dm_crypt_handler(info, storage_config):
     if state['fstab']:
         crypt_tab_location = os.path.join(os.path.split(state['fstab'])[0], \
                 "crypttab")
-        uuid = block.get_volume_uuid(os.path.split(volume_path)[-1])
+        uuid = block.get_volume_uuid(volume_path)
         with open(crypt_tab_location, "a") as fp:
             fp.write("%s UUID=%s none luks\n" % (dm_name, uuid))
     else:
