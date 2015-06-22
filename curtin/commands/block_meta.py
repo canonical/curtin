@@ -314,8 +314,7 @@ def mount_handler(info, storage_config):
                     storage_config.get(volume.get('volgroup')).get('id'), \
                     volume.get('id'))
             elif volume.get('type') in ["partition", "dm_crypt"]:
-                location = "UUID=%s" % block.get_volume_uuid(os.path.split( \
-                        volume_path)[-1])
+                location = "UUID=%s" % block.get_volume_uuid(volume_path)
             else:
                 raise ValueError("cannot write fstab for volume type '%s'" % \
                         volume.get("type"))

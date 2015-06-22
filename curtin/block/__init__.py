@@ -60,8 +60,8 @@ def _lsblock(args=None, filter_func=None):
     keys = ['ALIGNMENT', 'DISC-ALN', 'DISC-GRAN', 'DISC-MAX', 'DISC-ZERO',
             'FSTYPE', 'GROUP', 'KNAME', 'LABEL', 'LOG-SEC', 'MAJ:MIN',
             'MIN-IO', 'MODE', 'MODEL', 'MOUNTPOINT', 'NAME', 'OPT-IO', 'OWNER',
-            'PHY-SEC', 'RM', 'RO', 'ROTA', 'RQ-SIZE', 'SCHED', 'SERIAL',
-            'SIZE', 'STATE', 'TYPE', 'UUID']
+            'PHY-SEC', 'RM', 'RO', 'ROTA', 'RQ-SIZE', 'SCHED', 'SIZE', 'STATE',
+            'TYPE']
     if args is None:
         args = []
     args = [x.replace('!', '/') for x in args]
@@ -266,11 +266,11 @@ def get_disk_serial(name):
     """
     Get serial number of the disk or empty string if it can't be fetched.
     """
-    path = '/sys/block/%s/serial' % name
-    if os.path.exists(path):
-        return util.load_file(path)
-    else:
-        return ''
+    (out, _err) = util.subp("udevadm info --query=property /dev/%s" % name, capture=True)
+    for line in out.splitlines():
+        if "ID_SERIAL_SHORT" in line:
+            return line.split('=')[-1]
+    return ''
 
 def get_disk_busid(name):
     """
@@ -284,15 +284,25 @@ def get_disk_busid(name):
         raise ValueError("malformed bus path from sysfs (%s)" % bus_path)
     return bus_path[len(start):-len(end)]
 
-def get_volume_uuid(name):
+def get_volume_uuid(path):
     """
-    Get uuid of disk with given block name. This address uniquely identifies
+    Get uuid of disk with given path. This address uniquely identifies
     the device and remains consistant across reboots
     """
-    return _lsblock(filter_func=None)[name]['UUID']
+    (out, _err) = util.subp("blkid -o export %" % path, capture=True)
+    for line in out.splitlines():
+        if "UUID" in line:
+            return line.split('=')[-1]
+    return ''
 
-def get_lsblk_info():
-    return _lsblock(filter_func=None)
+def get_mountpoints():
+    """
+    Returns a list of all mountpoints where filesystems are currently mounted.
+    """
+    info = _lsblock(filter_func=None)
+    return list(i.get("MOUNTPOINT" for name, i in info.items() if
+        i.get("MOUNTPOINT") is not None and
+        i.get("MOUNTPOINT") != ""))
 
 def _filter_disks(block_device):
     return (block_device['TYPE'] == 'disk')
@@ -306,6 +316,8 @@ def get_disk_info():
     disks = _lsblock(filter_func=_filter_disks)
     for name in disks:
         disks[name]['BUSID'] = get_disk_busid(name)
+    for name in disks:
+        disks[name]['SERIAL'] = get_disk_serial(name)
     return disks
 
 def lookup_disk(serial=None, busid=None):
