@@ -266,7 +266,7 @@ def get_disk_serial(path):
     """
     Get serial number of the disk or empty string if it can't be fetched.
     """
-    (out, _err) = util.subp(["udevadm", "info", "--query=property", name],
+    (out, _err) = util.subp(["udevadm", "info", "--query=property", path],
             capture=True)
     for line in out.splitlines():
         if "ID_SERIAL_SHORT" in line:
