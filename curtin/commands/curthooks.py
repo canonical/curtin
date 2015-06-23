@@ -373,10 +373,18 @@ def copy_fstab(fstab, target):
 
 def copy_crypttab(crypttab, target):
     if not crypttab:
-        LOG.warn("crypttab location must be specified")
+        LOG.warn("crypttab config must be specified, not copying")
         return
 
     shutil.copy(crypttab, os.path.sep.join([target, 'etc/crypttab']))
+
+
+def copy_mdadm_conf(mdadm_conf, target):
+    if not mdadm_conf:
+        LOG.warn("mdadm config must be specified, not copying")
+        return
+
+    shutil.copy(mdadm_conf, os.path.sep.join([target, 'etc/mdadm.conf']))
 
 
 def copy_interfaces(interfaces, target):
@@ -506,6 +514,13 @@ def curthooks(args):
     if os.path.exists(crypttab_location):
         copy_crypttab(crypttab_location, target)
         update_initramfs(target)
+
+    # If a mdadm.conf file was created by block_meta than it needs to be copied
+    # onto the target system
+    mdadm_location = os.path.join(os.path.split(state['fstab'])[0], \
+            "mdadm.conf")
+    if os.path.exists(mdadm_location):
+        copy_mdadm_conf(mdadm_location, target)
 
     # As a rule, ARMv7 systems don't use grub. This may change some
     # day, but for now, assume no. They do require the initramfs

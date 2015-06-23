@@ -173,9 +173,14 @@ def get_path_to_storage_volume(volume, storage_config):
             dm_name = vol.get('id')
         volume_path = os.path.join("/dev", "mapper", dm_name)
 
+    elif vol.get('type') == "raid":
+        # For raid partitions, block device is at /dev/mdX
+        name = vol.get('id')
+        volume_path = os.path.join("/dev", name)
+
     else:
-        raise NotImplementedError("volumes other than partitions not yet \
-            supported")
+        raise NotImplementedError("cannot determine the path to storage \
+            volume '%s' with type '%s'" % (volume, vol.get('type')))
 
     if not os.path.exists(volume_path):
         raise ValueError("path to storage volume '%s' does not exist" % \
@@ -268,11 +273,13 @@ def partition_handler(info, storage_config):
     constraint = parted.Constraint(exactGeom=partition.geometry)
 
     # Set flag
+    flags = { "boot" : parted.PARTITION_BOOT,
+              "lvm" : parted.PARTITION_LVM,
+              "raid" : parted.PARTITION_RAID }
+
     if flag:
-        if flag == "boot":
-            partition.setFlag(parted.PARTITION_BOOT)
-        elif flag == "lvm":
-            partition.setFlag(parted.PARTITION_LVM)
+        if flag in flags:
+            partition.setFlat(flags[flag])
         else:
             raise ValueError("invalid partition flag '%s'" % flag)
 
@@ -440,6 +447,49 @@ def dm_crypt_handler(info, storage_config):
             so not writing crypttab")
 
 
+def raid_handler(info, storage_config):
+    state = util.load_command_environment()
+    devices = info.get('devices')
+    raidlevel = info.get('raidlevel')
+    if not devices:
+        raise ValueError("devices for raid must be specified")
+    if raidlevel not in [0, 1, 5]:
+        raise ValueError("invalid raidlevel '%s'" % raidlevel)
+
+    device_paths = list(get_path_to_storage_volume(dev, storage_config) for \
+            dev in devices)
+
+    cmd = ["mdadm", "--create", "/dev/%s"% info.get('id'), "--level=%s" % \
+            raidlevel, "--raid-devices=%s" % len(device_paths)]
+
+    for device in device_paths:
+        # Zero out device superblock just in case device has been used for raid
+        # before, as this will cause many issues
+        util.subp(["mdadm", "--zero-superblock", \
+            get_path_to_storage_volume(device, storage_config)])
+
+        cmd.append(device)
+
+    # Create the raid device
+    util.subp(cmd)
+
+    # Assemble the raid device
+    util.subp(["mdadm", "--assemble"])
+
+    # A mdadm.conf will be created in the same directory as the fstab in the
+    # configuration. This will then be copied onto the system later
+    if state['fstab']:
+        mdadm_location = os.path.join(os.path.split(state['fstab'])[0], \
+                "mdadm.conf")
+        (out, _err) = util.subp(["mdadm", "--detail", "--scan"], capture=True)
+        with open(mdadm_location, "w") as fp:
+            fp.write(out)
+    else:
+        LOG.info("fstab configuration is not present in the environment, so \
+            cannot locate an appropriate directory to write mdadm.conf in, \
+            so not writing mdadm.conf")
+
+
 def meta_custom(args):
     """Does custom partitioning based on the layout provided in the config
     file. Section with the name storage contains information on which
@@ -454,7 +504,8 @@ def meta_custom(args):
         'mount' : mount_handler,
         'lvm_volgroup' : lvm_volgroup_handler,
         'lvm_partition' : lvm_partition_handler,
-        'dm_crypt' : dm_crypt_handler
+        'dm_crypt' : dm_crypt_handler,
+        'raid' : raid_handler
     }
 
     state = util.load_command_environment()
