@@ -494,12 +494,18 @@ def curthooks(args):
 
     copy_interfaces(state.get('interfaces'), target)
     copy_fstab(state.get('fstab'), target)
+
+    detect_and_handle_multipath(cfg, target)
+
+    # If a crypttab file was created by block_meta than it needs to be copied
+    # onto the target system, and update_initramfs() needs to be run, so that
+    # the cryptsetup hooks are properly configured on the installed system and
+    # it will be able to open encrypted volumes at boot.
     crypttab_location = os.path.join(os.path.split(state['fstab'])[0], \
             "crypttab")
     if os.path.exists(crypttab_location):
         copy_crypttab(crypttab_location, target)
-
-    detect_and_handle_multipath(cfg, target)
+        update_initramfs(target)
 
     # As a rule, ARMv7 systems don't use grub. This may change some
     # day, but for now, assume no. They do require the initramfs
