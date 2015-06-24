@@ -384,7 +384,8 @@ def copy_mdadm_conf(mdadm_conf, target):
         LOG.warn("mdadm config must be specified, not copying")
         return
 
-    shutil.copy(mdadm_conf, os.path.sep.join([target, 'etc/mdadm.conf']))
+    shutil.copy(mdadm_conf, os.path.sep.join([target, \
+        'etc/mdadm/mdadm.conf']))
 
 
 def copy_interfaces(interfaces, target):

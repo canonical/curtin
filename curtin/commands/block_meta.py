@@ -494,7 +494,7 @@ def raid_handler(info, storage_config):
         (out, _err) = util.subp(["mdadm", "--detail", "--scan"], capture=True)
         with open(mdadm_location, "w") as fp:
             fp.write(out)
-        with open("/etc/mdadm.conf", "w") as fp:
+        with open("/etc/mdadm/mdadm.conf", "w") as fp:
             fp.write(out)
     else:
         LOG.info("fstab configuration is not present in the environment, so \
