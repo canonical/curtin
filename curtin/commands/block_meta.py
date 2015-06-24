@@ -496,15 +496,10 @@ def raid_handler(info, storage_config):
         (out, _err) = util.subp(["mdadm", "--detail", "--scan"], capture=True)
         with open(mdadm_location, "w") as fp:
             fp.write(out)
-        with open("/etc/mdadm/mdadm.conf", "w") as fp:
-            fp.write(out)
     else:
         LOG.info("fstab configuration is not present in the environment, so \
             cannot locate an appropriate directory to write mdadm.conf in, \
             so not writing mdadm.conf")
-
-    # Assemble the raid device
-    util.subp(["mdadm", "--assemble", info.get('id')])
 
 
 def meta_custom(args):
