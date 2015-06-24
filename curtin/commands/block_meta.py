@@ -129,7 +129,7 @@ def get_path_to_storage_volume(volume, storage_config):
 
     vol = storage_config.get(volume)
     if not vol:
-        raise ValueError("volume with id '%s' not found" % device)
+        raise ValueError("volume with id '%s' not found" % volume)
 
     # Find path to block device
     if vol.get('type') == "partition":
