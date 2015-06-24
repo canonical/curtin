@@ -451,6 +451,7 @@ def raid_handler(info, storage_config):
     state = util.load_command_environment()
     devices = info.get('devices')
     raidlevel = info.get('raidlevel')
+    spare_devices = info.get('spare_devices')
     if not devices:
         raise ValueError("devices for raid must be specified")
     if raidlevel not in [0, 1, 5]:
@@ -459,16 +460,26 @@ def raid_handler(info, storage_config):
     device_paths = list(get_path_to_storage_volume(dev, storage_config) for \
             dev in devices)
 
+    if spare_devices:
+        spare_device_paths = list(get_path_to_storage_volume(dev, \
+            storage_config) for dev in spare_devices)
+
     cmd = ["mdadm", "--create", "/dev/%s"% info.get('id'), "--level=%s" % \
             raidlevel, "--raid-devices=%s" % len(device_paths)]
 
     for device in device_paths:
         # Zero out device superblock just in case device has been used for raid
         # before, as this will cause many issues
-        util.subp(["mdadm", "--zero-superblock", \
-            get_path_to_storage_volume(device, storage_config)])
+        util.subp(["mdadm", "--zero-superblock", device])
 
         cmd.append(device)
+
+    if spare_devices:
+        cmd.append("--spare-devices=%s" % len(spare_device_paths))
+        for device in spare_device_paths:
+            util.subp(["mdadm", "--zero-superblock", device])
+
+            cmd.append(device)
 
     # Create the raid device
     util.subp(cmd)
