@@ -279,7 +279,7 @@ def partition_handler(info, storage_config):
 
     if flag:
         if flag in flags:
-            partition.setFlat(flags[flag])
+            partition.setFlag(flags[flag])
         else:
             raise ValueError("invalid partition flag '%s'" % flag)
 
