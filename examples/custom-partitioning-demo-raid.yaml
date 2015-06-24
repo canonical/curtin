@@ -25,13 +25,13 @@ storage:
     flag: boot
   - id: sdb1
     type: partition
-    offset: 0B
+    offset: 512B
     size: 1GB
     device: sdb
     flag: raid
   - id: sdc1
     type: partition
-    offset: 0B
+    offset: 512B
     size: 1GB
     device: sdc
     flag: raid
