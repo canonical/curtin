@@ -514,8 +514,9 @@ def bcache_handler(info, storage_config):
     # bcache will do this automatically. It is no longer necessary to inform
     # register the devices by writing to /sys/fs/bcache/register, as bcache
     # handles this itself with udev rules
-    util.subp(["make-bcache", "-B", get_path_to_storage_volume(backing_device),
-        "-C", get_path_to_storage_volume(cache_device)])
+    util.subp(["make-bcache", "-B", get_path_to_storage_volume(backing_device,
+        storage_config), "-C", get_path_to_storage_volume(cache_device,
+        storage_config)])
 
 
 def meta_custom(args):
