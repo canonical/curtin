@@ -17,6 +17,11 @@ storage:
     ptable: msdos
     model: QEMU HARDDISK
     serial: QM00004
+  - id: sdd
+    type: disk
+    ptable: msdos
+    model: QEMU HARDDISK
+    serial: QM00005
   - id: sda1
     type: partition
     offset: 512MB
@@ -35,12 +40,20 @@ storage:
     size: 1GB
     device: sdc
     flag: raid
+  - id: sdd1
+    type: partition
+    offset: 512B
+    size: 1GB
+    device: sdc
+    flag: raid
   - id: md0
     type: raid
     raidlevel: 0
     devices:
       - sdb1
       - sdc1
+    spare_devices:
+      - sdd1
   - id: sda1_root
     type: format
     fstype: ext4

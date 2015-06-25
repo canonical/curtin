@@ -502,6 +502,22 @@ def raid_handler(info, storage_config):
             so not writing mdadm.conf")
 
 
+def bcache_handler(info, storage_config):
+    backing_device = info.get('backing_device')
+    cache_device = info.get('cache_device')
+    if not backing_device or not cache_device:
+        raise ValueError("backing device and cache device for bcache must be \
+                specified")
+
+    # If both the backing device and cache device are specified at the same
+    # time than it is not necessary to attach the cache device manually, as
+    # bcache will do this automatically. It is no longer necessary to inform
+    # register the devices by writing to /sys/fs/bcache/register, as bcache
+    # handles this itself with udev rules
+    util.subp(["make-bcache", "-B", get_path_to_storage_volume(backing_device),
+        "-C", get_path_to_storage_volume(cache_device)])
+
+
 def meta_custom(args):
     """Does custom partitioning based on the layout provided in the config
     file. Section with the name storage contains information on which
@@ -517,7 +533,8 @@ def meta_custom(args):
         'lvm_volgroup' : lvm_volgroup_handler,
         'lvm_partition' : lvm_partition_handler,
         'dm_crypt' : dm_crypt_handler,
-        'raid' : raid_handler
+        'raid' : raid_handler,
+        'bcache' : bcache_handler
     }
 
     state = util.load_command_environment()
