@@ -522,6 +522,7 @@ def curthooks(args):
             "mdadm.conf")
     if os.path.exists(mdadm_location):
         copy_mdadm_conf(mdadm_location, target)
+        update_initramfs(target)
 
     # As a rule, ARMv7 systems don't use grub. This may change some
     # day, but for now, assume no. They do require the initramfs
