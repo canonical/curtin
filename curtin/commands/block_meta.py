@@ -533,16 +533,17 @@ def bcache_handler(info, storage_config):
     # If both the backing device and cache device are specified at the same
     # time than it is not necessary to attach the cache device manually, as
     # bcache will do this automatically.
-    util.subp(["make-bcache", "-B", backing_device, "-C", \
-            cache_device])
+    util.subp(["make-bcache", "-B", backing_device, "-C", cache_device])
 
     # Bcache only registers devices on its own when running udev rules at boot,
     # so it is necessary to manually register the devices here to create the
     # bcache block device that will be formatted and mounted while the
-    # installer is running
-    with open("/sys/fs/bcache/register", "a") as fp:
-        fp.write(backing_device)
-        fp.write(cache_device)
+    # installer is running. After each path is written, the fp needs to be
+    # closed and reopened, otherwise an os error will be thrown
+    for path in [backing_device, cache_device]:
+        fp = open("/sys/fs/bcache/register", "w")
+        fp.write(path)
+        fp.close()
 
 
 def meta_custom(args):
