@@ -22,6 +22,7 @@ from curtin.log import LOG
 
 from . import populate_one_subcmd
 
+import glob
 import json
 import os
 import parted
@@ -177,6 +178,21 @@ def get_path_to_storage_volume(volume, storage_config):
         # For raid partitions, block device is at /dev/mdX
         name = vol.get('id')
         volume_path = os.path.join("/dev", name)
+
+    elif vol.get('type') == "bcache":
+        # For bcache setups, the only reliable way to determine the name of the
+        # block device is to look in all /sys/block/bcacheX/ dirs and see what
+        # block devs are in the slaves dir there. Then, those blockdevs can be
+        # checked against the kname of the devs in the config for the desired
+        # bcache device. This is not very elegant though
+        backing_device_kname = os.path.split(get_path_to_storage_volume( \
+                storage_config.get(vol.get('backing_device')), \
+                storage_config))[-1]
+        sys_path = list(filter(lambda x: backing_device_kname in x, \
+                glob.glob("/sys/block/bcache*/slaves/*")))[0]
+        while "bcache" not in os.path.split(sys_path)[-1]:
+            sys_path = os.path.split(sys_path)[0]
+        volume_path = os.path.join("/dev", os.path.split(sys_path)[-1])
 
     else:
         raise NotImplementedError("cannot determine the path to storage \
