@@ -186,8 +186,7 @@ def get_path_to_storage_volume(volume, storage_config):
         # checked against the kname of the devs in the config for the desired
         # bcache device. This is not very elegant though
         backing_device_kname = os.path.split(get_path_to_storage_volume( \
-                storage_config.get(vol.get('backing_device')), \
-                storage_config))[-1]
+                vol.get('backing_device'), storage_config))[-1]
         sys_path = list(filter(lambda x: backing_device_kname in x, \
                 glob.glob("/sys/block/bcache*/slaves/*")))[0]
         while "bcache" not in os.path.split(sys_path)[-1]:
