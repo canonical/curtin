@@ -357,12 +357,8 @@ def mount_handler(info, storage_config):
     # Add volume to fstab
     if state['fstab']:
         with open(state['fstab'], "a") as fp:
-            if volume.get('type') == "lvm_partition":
-                location = os.path.join("/dev", \
-                    storage_config.get(volume.get('volgroup')).get('id'), \
-                    volume.get('id'))
-            elif volume.get('type') == "raid":
-                location = os.path.join("/dev", volume.get('id'))
+            if volume.get('type') in ["raid", "bcache", "lvm_partition"]:
+                location = get_path_to_storage_volume(volume.get('id'))
             elif volume.get('type') in ["partition", "dm_crypt"]:
                 location = "UUID=%s" % block.get_volume_uuid(volume_path)
             else:
