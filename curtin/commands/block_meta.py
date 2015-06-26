@@ -518,8 +518,10 @@ def raid_handler(info, storage_config):
 
 
 def bcache_handler(info, storage_config):
-    backing_device = info.get('backing_device')
-    cache_device = info.get('cache_device')
+    backing_device = get_path_to_storage_volume(info.get('backing_device'),
+            storage_config)
+    cache_device = get_path_to_storage_volume(info.get('cache_device'),
+            storage_config)
     if not backing_device or not cache_device:
         raise ValueError("backing device and cache device for bcache must be \
                 specified")
@@ -530,12 +532,17 @@ def bcache_handler(info, storage_config):
 
     # If both the backing device and cache device are specified at the same
     # time than it is not necessary to attach the cache device manually, as
-    # bcache will do this automatically. It is no longer necessary to inform
-    # register the devices by writing to /sys/fs/bcache/register, as bcache
-    # handles this itself with udev rules
-    util.subp(["make-bcache", "-B", get_path_to_storage_volume(backing_device,
-        storage_config), "-C", get_path_to_storage_volume(cache_device,
-        storage_config)])
+    # bcache will do this automatically.
+    util.subp(["make-bcache", "-B", backing_device, "-C", \
+            cache_device])
+
+    # Bcache only registers devices on its own when running udev rules at boot,
+    # so it is necessary to manually register the devices here to create the
+    # bcache block device that will be formatted and mounted while the
+    # installer is running
+    with open("/sys/fs/bcache/register") as fp:
+        fp.write(backing_device)
+        fp.write(cache_device)
 
 
 def meta_custom(args):
