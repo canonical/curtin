@@ -524,6 +524,10 @@ def bcache_handler(info, storage_config):
         raise ValueError("backing device and cache device for bcache must be \
                 specified")
 
+    # The bcache module is not loaded when bcache is installed by apt-get, so
+    # we will load it now
+    util.subp(["modprobe", "bcache"])
+
     # If both the backing device and cache device are specified at the same
     # time than it is not necessary to attach the cache device manually, as
     # bcache will do this automatically. It is no longer necessary to inform
