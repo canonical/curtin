@@ -36,7 +36,15 @@ storage:
     type: format
     fstype: ext4
     volume: sda1
+  - id: bcache_home
+    type: format
+    fstype: ext4
+    volume: bcache0
   - id: sda1_mount
     type: mount
     path: /
     device: sda1_root
+  - id: home_mount
+    type: mount
+    path: /home
+    device: bcache_home
