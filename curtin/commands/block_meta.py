@@ -540,7 +540,7 @@ def bcache_handler(info, storage_config):
     # so it is necessary to manually register the devices here to create the
     # bcache block device that will be formatted and mounted while the
     # installer is running
-    with open("/sys/fs/bcache/register") as fp:
+    with open("/sys/fs/bcache/register", "a") as fp:
         fp.write(backing_device)
         fp.write(cache_device)
 
