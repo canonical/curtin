@@ -141,8 +141,9 @@ def get_path_to_storage_volume(volume, storage_config):
         pdev = parted.getDevice(disk_block_path)
         pdisk = parted.newDisk(pdev)
         ppart = pdisk.getPartitionBySector(parted.sizeToSectors(int( \
-            vol.get('offset').strip(string.ascii_letters)) + 1, \
-            vol.get('offset').strip(string.digits), pdisk.device.sectorSize))
+            vol.get('offset').strip(string.ascii_letters)), \
+            vol.get('offset').strip(string.digits), pdisk.device.sectorSize) \
+            + 1)
         volume_path = ppart.path
 
     elif vol.get('type') == "disk":
