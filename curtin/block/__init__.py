@@ -262,16 +262,18 @@ def get_root_device(dev, fpath="curtin"):
         raise ValueError("Could not find root device")
     return target
 
+
 def get_disk_serial(path):
     """
     Get serial number of the disk or empty string if it can't be fetched.
     """
     (out, _err) = util.subp(["udevadm", "info", "--query=property", path],
-            capture=True)
+                            capture=True)
     for line in out.splitlines():
         if "ID_SERIAL_SHORT" in line:
             return line.split('=')[-1]
     return ''
+
 
 def get_disk_busid(name):
     """
@@ -285,6 +287,7 @@ def get_disk_busid(name):
         raise ValueError("malformed bus path from sysfs (%s)" % bus_path)
     return bus_path[len(start):-len(end)]
 
+
 def get_volume_uuid(path):
     """
     Get uuid of disk with given path. This address uniquely identifies
@@ -296,17 +299,20 @@ def get_volume_uuid(path):
             return line.split('=')[-1]
     return ''
 
+
 def get_mountpoints():
     """
     Returns a list of all mountpoints where filesystems are currently mounted.
     """
     info = _lsblock(filter_func=None)
     return list(i.get("MOUNTPOINT") for name, i in info.items() if
-        i.get("MOUNTPOINT") is not None and
-        i.get("MOUNTPOINT") != "")
+                i.get("MOUNTPOINT") is not None and
+                i.get("MOUNTPOINT") != "")
+
 
 def _filter_disks(block_device):
     return (block_device['TYPE'] == 'disk')
+
 
 def get_disk_info():
     """
@@ -321,6 +327,7 @@ def get_disk_info():
         disks[name]['SERIAL'] = get_disk_serial(disks[name]['device_path'])
     return disks
 
+
 def lookup_disk(serial=None, busid=None):
     """
     Search for a disk by its serial number and/or bus id.
@@ -334,5 +341,5 @@ def lookup_disk(serial=None, busid=None):
         ret = info
         break
     return ret
-       
+
 # vi: ts=4 expandtab syntax=python

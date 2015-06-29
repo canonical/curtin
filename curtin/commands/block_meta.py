@@ -136,21 +136,21 @@ def get_path_to_storage_volume(volume, storage_config):
     if vol.get('type') == "partition":
         # For partitions, get block device, and use Disk.getPartitionBySector()
         # to grab partition object, then get path using Partition.path()
-        disk_block_path = get_path_to_storage_volume(vol.get('device'), \
-                storage_config)
+        disk_block_path = get_path_to_storage_volume(vol.get('device'),
+                                                     storage_config)
         pdev = parted.getDevice(disk_block_path)
         pdisk = parted.newDisk(pdev)
-        ppart = pdisk.getPartitionBySector(parted.sizeToSectors(int( \
-            vol.get('offset').strip(string.ascii_letters)), \
-            vol.get('offset').strip(string.digits), pdisk.device.sectorSize) \
+        ppart = pdisk.getPartitionBySector(parted.sizeToSectors(int(
+            vol.get('offset').strip(string.ascii_letters)),
+            vol.get('offset').strip(string.digits), pdisk.device.sectorSize)
             + 1)
         volume_path = ppart.path
 
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
         # to id of device in storage config
-        disk_block = block.lookup_disk(serial=vol.get('serial'), \
-                busid=vol.get('busid'))
+        disk_block = block.lookup_disk(serial=vol.get('serial'),
+                                       busid=vol.get('busid'))
         if not disk_block:
             raise ValueError("disk not found")
 
@@ -162,10 +162,10 @@ def get_path_to_storage_volume(volume, storage_config):
         # the id of the lvm partition to the path of that directory
         volgroup = storage_config.get(vol.get('volgroup'))
         if not volgroup:
-            raise ValueError("lvm volume group '%s' could not be found" \
-                % vol.get('volgroup'))
-        volume_path = os.path.join("/dev/", volgroup.get('id'), \
-            vol.get('id'))
+            raise ValueError("lvm volume group '%s' could not be found"
+                             % vol.get('volgroup'))
+        volume_path = os.path.join("/dev/", volgroup.get('id'),
+                                   vol.get('id'))
 
     elif vol.get('type') == "dm_crypt":
         # For dm_crypted partitions, unencrypted block device is at
@@ -186,10 +186,10 @@ def get_path_to_storage_volume(volume, storage_config):
         # block devs are in the slaves dir there. Then, those blockdevs can be
         # checked against the kname of the devs in the config for the desired
         # bcache device. This is not very elegant though
-        backing_device_kname = os.path.split(get_path_to_storage_volume( \
-                vol.get('backing_device'), storage_config))[-1]
-        sys_path = list(filter(lambda x: backing_device_kname in x, \
-                glob.glob("/sys/block/bcache*/slaves/*")))[0]
+        backing_device_kname = os.path.split(get_path_to_storage_volume(
+            vol.get('backing_device'), storage_config))[-1]
+        sys_path = list(filter(lambda x: backing_device_kname in x,
+                               glob.glob("/sys/block/bcache*/slaves/*")))[0]
         while "bcache" not in os.path.split(sys_path)[-1]:
             sys_path = os.path.split(sys_path)[0]
         volume_path = os.path.join("/dev", os.path.split(sys_path)[-1])
@@ -199,8 +199,7 @@ def get_path_to_storage_volume(volume, storage_config):
             volume '%s' with type '%s'" % (volume, vol.get('type')))
 
     if not os.path.exists(volume_path):
-        raise ValueError("path to storage volume '%s' does not exist" % \
-            volume)
+        raise ValueError("path to storage volume '%s' does not exist" % volume)
 
     return volume_path
 
@@ -263,7 +262,7 @@ def partition_handler(info, storage_config):
         # TODO: instead of bailing, find beginning of free space on disk and go
         #       from there
         raise ValueError("offset must be specified for partition to be \
-        created")
+            created")
     if not size:
         raise ValueError("size must be specified for partition to be created")
 
@@ -274,24 +273,24 @@ def partition_handler(info, storage_config):
     pdisk = parted.newDisk(pdev)
 
     # Convert offset and length into sectors
-    offset_sectors = parted.sizeToSectors(int(offset.strip( \
-        string.ascii_letters)), offset.strip(string.digits), \
+    offset_sectors = parted.sizeToSectors(int(offset.strip(
+        string.ascii_letters)), offset.strip(string.digits),
         pdisk.device.sectorSize)
-    length_sectors = parted.sizeToSectors(int(size.strip( \
-        string.ascii_letters)), size.strip(string.digits), \
+    length_sectors = parted.sizeToSectors(int(size.strip(
+        string.ascii_letters)), size.strip(string.digits),
         pdisk.device.sectorSize)
 
     # Make geometry and partition
     geometry = parted.Geometry(device=pdisk.device, start=offset_sectors,
-        length=length_sectors)
+                               length=length_sectors)
     partition = parted.Partition(disk=pdisk, type=parted.PARTITION_NORMAL,
-        geometry=geometry)
+                                 geometry=geometry)
     constraint = parted.Constraint(exactGeom=partition.geometry)
 
     # Set flag
-    flags = { "boot" : parted.PARTITION_BOOT,
-              "lvm" : parted.PARTITION_LVM,
-              "raid" : parted.PARTITION_RAID }
+    flags = {"boot": parted.PARTITION_BOOT,
+             "lvm": parted.PARTITION_LVM,
+             "raid": parted.PARTITION_RAID}
 
     if flag:
         if flag in flags:
@@ -311,7 +310,7 @@ def format_handler(info, storage_config):
     part_id = info.get('id')
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
-            info.get('id'))
+                         info.get('id'))
 
     # Get path to volume
     volume_path = get_path_to_storage_volume(volume, storage_config)
@@ -340,8 +339,8 @@ def mount_handler(info, storage_config):
     volume = storage_config.get(filesystem.get('volume'))
 
     # Get path to volume
-    volume_path = get_path_to_storage_volume(filesystem.get('volume'), \
-            storage_config)
+    volume_path = get_path_to_storage_volume(filesystem.get('volume'),
+                                             storage_config)
 
     # Figure out what point should be
     while len(path) > 0 and path[0] == "/":
@@ -359,15 +358,15 @@ def mount_handler(info, storage_config):
     if state['fstab']:
         with open(state['fstab'], "a") as fp:
             if volume.get('type') in ["raid", "bcache", "lvm_partition"]:
-                location = get_path_to_storage_volume(volume.get('id'), \
-                        storage_config)
+                location = get_path_to_storage_volume(volume.get('id'),
+                                                      storage_config)
             elif volume.get('type') in ["partition", "dm_crypt"]:
                 location = "UUID=%s" % block.get_volume_uuid(volume_path)
             else:
-                raise ValueError("cannot write fstab for volume type '%s'" % \
-                        volume.get("type"))
-            if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32", \
-                    "fat64"]:
+                raise ValueError("cannot write fstab for volume type '%s'" %
+                                 volume.get("type"))
+            if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32",
+                                            "fat64"]:
                 fstype = "vfat"
             else:
                 fstype = filesystem.get('fstype')
@@ -380,14 +379,14 @@ def lvm_volgroup_handler(info, storage_config):
     devices = info.get('devices')
     if not devices:
         raise ValueError("devices for volgroup '%s' must be specified" %
-                info.get('id'))
+                         info.get('id'))
 
     cmd = ["vgcreate", info.get('id')]
     for device_id in devices:
         device = storage_config.get(device_id)
         if not device:
             raise ValueError("device '%s' could not be found in storage config"
-                    % device_id)
+                             % device_id)
         device_path = get_path_to_storage_volume(device_id, storage_config)
 
         # Add device to command
@@ -441,8 +440,8 @@ def dm_crypt_handler(info, storage_config):
 
     util.subp(cmd)
 
-    cmd = ["cryptsetup", "open", "--type", "luks", volume_path, dm_name, \
-            "--key-file", tmp_keyfile]
+    cmd = ["cryptsetup", "open", "--type", "luks", volume_path, dm_name,
+           "--key-file", tmp_keyfile]
 
     util.subp(cmd)
 
@@ -451,8 +450,8 @@ def dm_crypt_handler(info, storage_config):
     # A crypttab will be created in the same directory as the fstab in the
     # configuration. This will then be copied onto the system later
     if state['fstab']:
-        crypt_tab_location = os.path.join(os.path.split(state['fstab'])[0], \
-                "crypttab")
+        crypt_tab_location = os.path.join(os.path.split(state['fstab'])[0],
+                                          "crypttab")
         uuid = block.get_volume_uuid(volume_path)
         with open(crypt_tab_location, "a") as fp:
             fp.write("%s UUID=%s none luks\n" % (dm_name, uuid))
@@ -472,15 +471,15 @@ def raid_handler(info, storage_config):
     if raidlevel not in [0, 1, 5]:
         raise ValueError("invalid raidlevel '%s'" % raidlevel)
 
-    device_paths = list(get_path_to_storage_volume(dev, storage_config) for \
-            dev in devices)
+    device_paths = list(get_path_to_storage_volume(dev, storage_config) for
+                        dev in devices)
 
     if spare_devices:
-        spare_device_paths = list(get_path_to_storage_volume(dev, \
-            storage_config) for dev in spare_devices)
+        spare_device_paths = list(get_path_to_storage_volume(dev,
+                                  storage_config) for dev in spare_devices)
 
-    cmd = ["mdadm", "--create", "-f", "/dev/%s"% info.get('id'), \
-            "--level=%s" % raidlevel, "--raid-devices=%s" % len(device_paths)]
+    cmd = ["mdadm", "--create", "-f", "/dev/%s" % info.get('id'),
+           "--level=%s" % raidlevel, "--raid-devices=%s" % len(device_paths)]
 
     for device in device_paths:
         # Zero out device superblock just in case device has been used for raid
@@ -504,8 +503,8 @@ def raid_handler(info, storage_config):
     # The file must also be written onto the running system to enable it to run
     # mdadm --assemble and continue installation
     if state['fstab']:
-        mdadm_location = os.path.join(os.path.split(state['fstab'])[0], \
-                "mdadm.conf")
+        mdadm_location = os.path.join(os.path.split(state['fstab'])[0],
+                                      "mdadm.conf")
         (out, _err) = util.subp(["mdadm", "--detail", "--scan"], capture=True)
         with open(mdadm_location, "w") as fp:
             fp.write(out)
@@ -517,9 +516,9 @@ def raid_handler(info, storage_config):
 
 def bcache_handler(info, storage_config):
     backing_device = get_path_to_storage_volume(info.get('backing_device'),
-            storage_config)
+                                                storage_config)
     cache_device = get_path_to_storage_volume(info.get('cache_device'),
-            storage_config)
+                                              storage_config)
     if not backing_device or not cache_device:
         raise ValueError("backing device and cache device for bcache must be \
                 specified")
@@ -554,13 +553,13 @@ def meta_custom(args):
     command_handlers = {
         'disk': disk_handler,
         'partition': partition_handler,
-        'format' : format_handler,
-        'mount' : mount_handler,
-        'lvm_volgroup' : lvm_volgroup_handler,
-        'lvm_partition' : lvm_partition_handler,
-        'dm_crypt' : dm_crypt_handler,
-        'raid' : raid_handler,
-        'bcache' : bcache_handler
+        'format': format_handler,
+        'mount': mount_handler,
+        'lvm_volgroup': lvm_volgroup_handler,
+        'lvm_partition': lvm_partition_handler,
+        'dm_crypt': dm_crypt_handler,
+        'raid': raid_handler,
+        'bcache': bcache_handler
     }
 
     state = util.load_command_environment()
@@ -575,8 +574,8 @@ def meta_custom(args):
     # id, and this can become very inefficient as storage_config grows, a dict
     # will be generated with the id of each component of the storage_config as
     # its index and the component of storage_config as its value
-    storage_config_dict = dict((d["id"], d) for (i, d) in \
-            enumerate(storage_config))
+    storage_config_dict = dict((d["id"], d) for (i, d) in
+                               enumerate(storage_config))
 
     for command in storage_config:
         handler = command_handlers.get(command['type'])

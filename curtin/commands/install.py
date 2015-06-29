@@ -342,7 +342,7 @@ def cmd_install(args):
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))
         mounted = block.get_mountpoints()
-        mounted.sort(key = lambda x: -1 * x.count("/"))
+        mounted.sort(key=lambda x: -1 * x.count("/"))
         for d in filter(lambda x: workingd.target in x, mounted):
             util.do_umount(d)
         util.do_umount(workingd.target)

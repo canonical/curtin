@@ -384,8 +384,8 @@ def copy_mdadm_conf(mdadm_conf, target):
         LOG.warn("mdadm config must be specified, not copying")
         return
 
-    shutil.copy(mdadm_conf, os.path.sep.join([target, \
-        'etc/mdadm/mdadm.conf']))
+    shutil.copy(mdadm_conf, os.path.sep.join([target,
+                'etc/mdadm/mdadm.conf']))
 
 
 def copy_interfaces(interfaces, target):
@@ -510,16 +510,16 @@ def curthooks(args):
     # onto the target system, and update_initramfs() needs to be run, so that
     # the cryptsetup hooks are properly configured on the installed system and
     # it will be able to open encrypted volumes at boot.
-    crypttab_location = os.path.join(os.path.split(state['fstab'])[0], \
-            "crypttab")
+    crypttab_location = os.path.join(os.path.split(state['fstab'])[0],
+                                     "crypttab")
     if os.path.exists(crypttab_location):
         copy_crypttab(crypttab_location, target)
         update_initramfs(target)
 
     # If a mdadm.conf file was created by block_meta than it needs to be copied
     # onto the target system
-    mdadm_location = os.path.join(os.path.split(state['fstab'])[0], \
-            "mdadm.conf")
+    mdadm_location = os.path.join(os.path.split(state['fstab'])[0],
+                                  "mdadm.conf")
     if os.path.exists(mdadm_location):
         copy_mdadm_conf(mdadm_location, target)
         update_initramfs(target)
