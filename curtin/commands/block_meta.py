@@ -478,7 +478,7 @@ def raid_handler(info, storage_config):
         spare_device_paths = list(get_path_to_storage_volume(dev,
                                   storage_config) for dev in spare_devices)
 
-    cmd = ["mdadm", "--create", "-f", "/dev/%s" % info.get('id'),
+    cmd = ["yes", "|", "mdadm", "--create", "/dev/%s" % info.get('id'),
            "--level=%s" % raidlevel, "--raid-devices=%s" % len(device_paths)]
 
     for device in device_paths:
@@ -496,7 +496,7 @@ def raid_handler(info, storage_config):
             cmd.append(device)
 
     # Create the raid device
-    util.subp(cmd)
+    util.subp(" ".join(cmd), shell=True)
 
     # A mdadm.conf will be created in the same directory as the fstab in the
     # configuration. This will then be copied onto the installed system later.
