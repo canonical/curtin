@@ -479,8 +479,8 @@ def raid_handler(info, storage_config):
         spare_device_paths = list(get_path_to_storage_volume(dev, \
             storage_config) for dev in spare_devices)
 
-    cmd = ["mdadm", "--create", "/dev/%s"% info.get('id'), "--level=%s" % \
-            raidlevel, "--raid-devices=%s" % len(device_paths)]
+    cmd = ["mdadm", "--create", "-f", "/dev/%s"% info.get('id'), \
+            "--level=%s" % raidlevel, "--raid-devices=%s" % len(device_paths)]
 
     for device in device_paths:
         # Zero out device superblock just in case device has been used for raid
