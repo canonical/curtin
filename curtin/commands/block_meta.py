@@ -149,8 +149,7 @@ def get_path_to_storage_volume(volume, storage_config):
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
         # to id of device in storage config
-        disk_block = block.lookup_disk(serial=vol.get('serial'),
-                                       busid=vol.get('busid'))
+        disk_block = block.lookup_disk(vol.get('serial'))
         if not disk_block:
             raise ValueError("disk not found")
 
@@ -206,12 +205,10 @@ def get_path_to_storage_volume(volume, storage_config):
 
 def disk_handler(info, storage_config):
     serial = info.get('serial')
-    busid = info.get('busid')
     ptable = info.get('ptable')
-    if not serial and not busid:
-        raise ValueError("either serial number or bus id needs to"
-                         "be specified to identify disk")
-    disk = block.lookup_disk(serial=serial, busid=busid)
+    if not serial:
+        raise ValueError("serial number must be specified to identify disk")
+    disk = block.lookup_disk(serial)
     if not disk:
         raise ValueError("disk with serial '%s' and bus id '%s'"
                          "not found" % (serial, busid))

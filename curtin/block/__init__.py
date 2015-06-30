@@ -263,31 +263,6 @@ def get_root_device(dev, fpath="curtin"):
     return target
 
 
-def get_disk_serial(path):
-    """
-    Get serial number of the disk or empty string if it can't be fetched.
-    """
-    (out, _err) = util.subp(["udevadm", "info", "--query=property", path],
-                            capture=True)
-    for line in out.splitlines():
-        if "ID_SERIAL_SHORT" in line:
-            return line.split('=')[-1]
-    return ''
-
-
-def get_disk_busid(name):
-    """
-    Get bus address of the disk. This address uniquely identifies the device.
-    """
-    bus_path = os.readlink('/sys/block/%s' % name)
-    # /sys/block/vda -> ../devices/pci0000:00/0000:00:03.0/virtio1/block/vda
-    start = '../devices/'
-    end = '/block/%s' % name
-    if not bus_path.startswith(start) or not bus_path.endswith(end):
-        raise ValueError("malformed bus path from sysfs (%s)" % bus_path)
-    return bus_path[len(start):-len(end)]
-
-
 def get_volume_uuid(path):
     """
     Get uuid of disk with given path. This address uniquely identifies
@@ -310,36 +285,25 @@ def get_mountpoints():
                 i.get("MOUNTPOINT") != "")
 
 
-def _filter_disks(block_device):
-    return (block_device['TYPE'] == 'disk')
-
-
-def get_disk_info():
+def lookup_disk(serial):
     """
-    Get information about disks (not partitions) available in the system.
-    Together with information provided by lsblk, this function fetches
-    disk serial number and unique bus path.
+    Search for a disk by its serial number using /dev/disk/by-id/
     """
-    disks = _lsblock(filter_func=_filter_disks)
-    for name in disks:
-        disks[name]['BUSID'] = get_disk_busid(name)
-    for name in disks:
-        disks[name]['SERIAL'] = get_disk_serial(disks[name]['device_path'])
-    return disks
+    # Get all volumes in /dev/disk/by-id/ containing the serial string. The
+    # string specified can be either in the short or long serial format
+    disks = list(filter(lambda x: serial in x, os.listdir("/dev/disk/by-id/")))
+    if not disks or len(disks) < 1:
+        raise ValueError("no disk with serial '%s' found" % serial)
 
-
-def lookup_disk(serial=None, busid=None):
-    """
-    Search for a disk by its serial number and/or bus id.
-    """
-    ret = None
-    for name, info in get_disk_info().items():
-        if serial and info['SERIAL'] != serial:
-            continue
-        if busid and info['BUSID'] != busid:
-            continue
-        ret = info
-        break
-    return ret
+    # Sort by length and take the shortest path name, as the longer path names
+    # will be the partitions on the disk. Then use os.path.realpath to determine the
+    # path to the block device in /dev/
+    disks.sort(key=lambda x: len(x))
+    path = os.path.realpath(disks[0])
+    
+    if not os.path.exists(path):
+        raise ValueError("path '%s' to block device for disk with serial '%s' \
+            does not exist" % (path, serial))
+    return path
 
 # vi: ts=4 expandtab syntax=python
