@@ -149,11 +149,7 @@ def get_path_to_storage_volume(volume, storage_config):
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
         # to id of device in storage config
-        disk_block = block.lookup_disk(vol.get('serial'))
-        if not disk_block:
-            raise ValueError("disk not found")
-
-        volume_path = disk_block['device_path']
+        volume_path = block.lookup_disk(vol.get('serial'))
 
     elif vol.get('type') == "lvm_partition":
         # For lvm partitions, a directory in /dev/ should be present with the
@@ -217,7 +213,7 @@ def disk_handler(info, storage_config):
         ptable = "msdos"
 
     # Get device and disk using parted using appropriate partition table
-    pdev = parted.getDevice(disk['device_path'])
+    pdev = parted.getDevice(disk)
     pdisk = parted.freshDisk(pdev, ptable)
     LOG.info("labeling device: '%s' with '%s' partition table", disk, ptable)
     pdisk.commit()
