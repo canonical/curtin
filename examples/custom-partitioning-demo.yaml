@@ -1,3 +1,7 @@
+reporter:
+ subiquity:
+  path: /tmp/curtin_progress_subiquity
+
 partitioning_commands:
  builtin: curtin block-meta custom
 
