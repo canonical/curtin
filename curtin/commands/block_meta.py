@@ -124,6 +124,30 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
     return "mbr"
 
 
+def parse_offset(offset, pdisk, storage_config):
+    # Convert offset and length into sectors
+    if offset[0] in string.digits:
+        # Offset is specified in 8MiB format
+        offset_sectors = parted.sizeToSectors(int(offset.strip(
+            string.ascii_letters)), offset.strip(string.digits),
+            pdisk.device.sectorSize)
+    else:
+        # Offset is specified as sda1+0
+        offset_parts = offset.split("+")
+        if offset_parts[0] == offset:
+            # No '+' in offset string, so cannot parse
+            raise ValueError("offset specification '%s' is invalid" % offset)
+        offset_base_path = get_path_to_storage_volume(offset_parts[0],
+                                                      storage_config)
+        if not offset_base_path:
+            raise ValueError("volume '%s' could not be found" %
+                             offset_parts[0])
+        offset_end = pdisk.getPartitionByPath(offset_base_path).geometry.end
+        offset_sectors = int(offset_end) + int(offset_parts[1])
+
+    return offset_sectors
+
+
 def get_path_to_storage_volume(volume, storage_config):
     # Get path to block device for volume. Volume param should refer to id of
     # volume in storage config
@@ -140,10 +164,8 @@ def get_path_to_storage_volume(volume, storage_config):
                                                      storage_config)
         pdev = parted.getDevice(disk_block_path)
         pdisk = parted.newDisk(pdev)
-        ppart = pdisk.getPartitionBySector(parted.sizeToSectors(int(
-            vol.get('offset').strip(string.ascii_letters)),
-            vol.get('offset').strip(string.digits), pdisk.device.sectorSize)
-            + 1)
+        ppart = pdisk.getPartitionBySector(parse_offset(vol.get('offset'),
+                                           pdisk, storage_config))
         volume_path = ppart.path
 
     elif vol.get('type') == "disk":
@@ -265,24 +287,7 @@ def partition_handler(info, storage_config):
     pdev = parted.getDevice(disk)
     pdisk = parted.newDisk(pdev)
 
-    # Convert offset and length into sectors
-    if offset[0] in string.digits:
-        # Offset is specified in 8MiB format
-        offset_sectors = parted.sizeToSectors(int(offset.strip(
-            string.ascii_letters)), offset.strip(string.digits),
-            pdisk.device.sectorSize)
-    else:
-        # Offset is specified as sda1+0
-        offset_parts = offset.split("+")
-        if offset_parts[0] == offset:
-            # No '+' in offset string, so cannot parse
-            raise ValueError("offset specification '%s' is invalid" % offset)
-        offset_base_path = get_path_to_storage_volume(offset_parts[0],
-                                                      storage_config)
-        if not offset_base_path:
-            raise ValueError("volume '%s' could not be found" % offset_parts[0])
-        offset_end = pdisk.getPartitionByPath(offset_base_path).geometry.end
-        offset_sectors = int(offset_end) + int(offset_parts[1])
+    offset_sectors = parse_offset(offset, pdisk, storage_config)
 
     length_sectors = parted.sizeToSectors(int(size.strip(
         string.ascii_letters)), size.strip(string.digits),
