@@ -15,7 +15,7 @@ storage:
     flag: boot
   - id: sda2
     type: partition
-    offset: sda1+0
+    offset: sda1+1
     size: 1GB
     device: sda
   - id: sda1_root
