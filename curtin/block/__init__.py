@@ -299,7 +299,7 @@ def lookup_disk(serial):
     # will be the partitions on the disk. Then use os.path.realpath to determine the
     # path to the block device in /dev/
     disks.sort(key=lambda x: len(x))
-    path = os.path.realpath(disks[0])
+    path = os.path.realpath("/dev/disk/by-id/%s" % disks[0])
     
     if not os.path.exists(path):
         raise ValueError("path '%s' to block device for disk with serial '%s' \
