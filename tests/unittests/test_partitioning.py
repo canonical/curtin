@@ -55,7 +55,7 @@ class TestBlock(TestCase):
     @mock.patch("curtin.commands.block_meta.parted")
     def test_disk_handler(self, mock_parted, mock_lookup_disk, mock_util_env,
                           mock_util_cmd_cfg, mock_json):
-        f_path = "file"
+        f_path = "/dev/null"
         mock_lookup_disk.return_value = "/dev/sda"
         mock_util_env.return_value = {"config": f_path}
         mock_util_cmd_cfg.return_value = {}
