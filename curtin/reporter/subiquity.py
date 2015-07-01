@@ -41,7 +41,7 @@ class SubiquityReporter(BaseReporter):
     def report_success(self):
         """Report installation success."""
         status = "OK"
-        message = "Installation succeeded."
+        progress = "Installation succeeded."
         self.report(status, progress)
 
     def report_failure(self, progress):
@@ -54,7 +54,7 @@ class SubiquityReporter(BaseReporter):
         report = {"STATUS": status,
                   "PROGRESS": progress}
         with open(self.path, "a") as fp:
-            fp.write("%s" % json.dumps(report))
+            fp.write("%s\n" % json.dumps(report))
 
 
 def load_factory(options):
