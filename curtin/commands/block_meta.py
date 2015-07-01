@@ -260,7 +260,7 @@ def disk_handler(info, storage_config):
             devices = cfg.get("grub_install_devices")
         else:
             devices = []
-        devices.append(disk["device_path"])
+        devices.append(disk)
         cfg["grub_install_devices"] = devices
         with open(cfg_file, "w") as fp:
             json.dump(cfg, fp)
