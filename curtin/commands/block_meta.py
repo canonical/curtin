@@ -228,8 +228,7 @@ def disk_handler(info, storage_config):
         raise ValueError("serial number must be specified to identify disk")
     disk = block.lookup_disk(serial)
     if not disk:
-        raise ValueError("disk with serial '%s' and bus id '%s'"
-                         "not found" % (serial, busid))
+        raise ValueError("disk with serial '%s' not found" % serial)
     if not ptable:
         # TODO: check this behavior
         ptable = "msdos"

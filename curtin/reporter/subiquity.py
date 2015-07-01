@@ -19,10 +19,8 @@
 
 from curtin.reporter import (
     BaseReporter,
-    INSTALL_LOG,
     LoadReporterException,
     )
-import os
 import json
 
 
