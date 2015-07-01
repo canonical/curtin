@@ -307,9 +307,9 @@ def cmd_install(args):
     if cfg.get('http_proxy'):
         os.environ['http_proxy'] = cfg['http_proxy']
 
-    # Load MAAS reporter
+    # Load reporter
     clear_install_log()
-    maas_reporter = load_reporter(cfg)
+    reporter = load_reporter(cfg)
 
     try:
         dd_images = util.get_dd_images(cfg.get('sources', {}))
@@ -322,6 +322,8 @@ def cmd_install(args):
         env.update(workingd.env())
 
         for name in cfg.get('stages'):
+            if reporter.progress:
+                reporter.report_progress(name)
             commands_name = '%s_commands' % name
             with util.LogTimer(LOG.debug, 'stage_%s' % name):
                 stage = Stage(name, cfg.get(commands_name, {}), env)
@@ -332,12 +334,12 @@ def cmd_install(args):
                                   'message': "'rebooting with kexec'"}
 
         writeline_install_log("Installation finished.")
-        maas_reporter.report_success()
+        reporter.report_success()
     except Exception as e:
         exp_msg = "Installation failed with exception: %s" % e
         writeline_install_log(exp_msg)
         LOG.error(exp_msg)
-        maas_reporter.report_failure(exp_msg)
+        reporter.report_failure(exp_msg)
     finally:
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))

@@ -1,6 +1,7 @@
 reporter:
  subiquity:
   path: /tmp/curtin_progress_subiquity
+  progress: True
 
 partitioning_commands:
  builtin: curtin block-meta custom

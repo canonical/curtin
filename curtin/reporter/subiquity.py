@@ -23,34 +23,38 @@ from curtin.reporter import (
     LoadReporterException,
     )
 import os
+import json
+
 
 class SubiquityReporter(BaseReporter):
 
     def __init__(self, config):
         """Load config dictionary and initialize object."""
         self.path = config['path']
+        self.progress = config['progress']
 
     def report_progress(self, progress):
         """Report installation progress."""
         status = "WORKING"
-        message = "%s" % progress
-        self.report(status, message)
+        self.report(status, progress)
 
     def report_success(self):
         """Report installation success."""
         status = "OK"
         message = "Installation succeeded."
-        self.report(status, message)
+        self.report(status, progress)
 
-    def report_failure(self, message):
+    def report_failure(self, progress):
         """Report installation failure."""
         status = "FAILED"
-        self.report(status, message)
+        self.report(status, progress)
 
-    def report(self, files, status, message=None):
+    def report(self, status, progress):
         """Write the report."""
+        report = {"STATUS": status,
+                  "PROGRESS": progress}
         with open(self.path, "a") as fp:
-            fp.write("%s : %s" % (status, message))
+            fp.write("%s" % json.dumps(report))
 
 
 def load_factory(options):
