@@ -54,7 +54,7 @@ class TestBlock(TestCase):
 
         with self.assertRaises(ValueError):
             mock_os_path_exists.return_value = True
-            mock_os_listdir.return_value  = ["other"]
+            mock_os_listdir.return_value = ["other"]
             curtin.block.lookup_disk(serial)
 
 # vi: ts=4 expandtab syntax=python
