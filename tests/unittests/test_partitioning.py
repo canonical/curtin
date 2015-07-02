@@ -3,6 +3,12 @@ import mock
 import parted
 import curtin.commands.block_meta
 
+from sys import version_info
+if version_info.major == 2:
+    import __builtin__ as builtins
+else:
+    import builtins
+
 
 class TestBlock(TestCase):
     storage_config = {
@@ -21,6 +27,8 @@ class TestBlock(TestCase):
                       "volgroup1", "size": "1G"},
         "lvm_part2": {"id": "lvm_part2", "type": "lvm_partition", "volgroup":
                       "volgroup1"},
+        "bcache0": {"id": "bcache0", "type": "bcache", "backing_device":
+                    "sdb1", "cache_device": "sdc1"},
         "sda1_root": {"id": "sda1_root", "type": "format", "fstype": "ext4",
                       "volume": "sda1"},
         "sda2_home": {"id": "sda2_home", "type": "format", "fstype": "fat32",
@@ -56,13 +64,14 @@ class TestBlock(TestCase):
                                                 self.storage_config)
         mock_parted.sizeToSectors.assert_called_with(8, "GB", "512")
 
+    @mock.patch.object(builtins, "open")
     @mock.patch("curtin.commands.block_meta.json")
     @mock.patch("curtin.util.load_command_config")
     @mock.patch("curtin.util.load_command_environment")
     @mock.patch("curtin.block.lookup_disk")
     @mock.patch("curtin.commands.block_meta.parted")
     def test_disk_handler(self, mock_parted, mock_lookup_disk, mock_util_env,
-                          mock_util_cmd_cfg, mock_json):
+                          mock_util_cmd_cfg, mock_json, mock_open):
         f_path = "/dev/null"
         disk_path = "/dev/sda"
         mock_lookup_disk.return_value = disk_path
@@ -75,6 +84,7 @@ class TestBlock(TestCase):
         mock_parted.getDevice.assert_called_with(disk_path)
         mock_parted.freshDisk.assert_called_with(
             mock_parted.getDevice(), "msdos")
+        mock_open.assert_called_with(f_path, "w")
         args, kwargs = mock_json.dump.call_args
         self.assertTrue({"grub_install_devices": [disk_path]} in args)
 
@@ -167,5 +177,23 @@ class TestBlock(TestCase):
 
         mock_util.subp.assert_called_with(base_cmd + ["lvm_part2", "-l",
                                           "100%FREE"])
+
+    @mock.patch.object(builtins, "open")
+    @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
+    @mock.patch("curtin.commands.block_meta.util")
+    def test_bcache_handler(self, mock_util, mock_get_path_to_storage_volume,
+                            mock_open):
+        mock_get_path_to_storage_volume.side_effect = ["/dev/fake0",
+                                                       "/dev/fake1"]
+
+        curtin.commands.block_meta.bcache_handler(
+            self.storage_config.get("bcache0"), self.storage_config)
+
+        calls = mock_util.subp.call_args_list
+        self.assertTrue(mock.call(["modprobe", "bcache"]) == calls[0])
+        self.assertTrue(mock.call(["make-bcache", "-B", "/dev/fake0", "-C",
+                        "/dev/fake1"]) == calls[1])
+
+        mock_open.assert_called_with("/sys/fs/bcache/register", "w")
 
 # vi: ts=4 expandtab syntax=python
