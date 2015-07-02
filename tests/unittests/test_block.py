@@ -29,9 +29,9 @@ class TestBlock(TestCase):
         self.assertTrue(mock_lsblk.called)
         self.assertEqual(mountpoints, ["/mnt"])
 
-    @mock.patch("os.path.realpath")
-    @mock.patch("os.path.exists")
-    @mock.patch("os.listdir")
+    @mock.patch("curtin.block.os.path.realpath")
+    @mock.patch("curtin.block.os.path.exists")
+    @mock.patch("curtin.block.os.listdir")
     def test_lookup_disk(self, mock_os_listdir, mock_os_path_exists,
                          mock_os_path_realpath):
         serial = "SERIAL123"
