@@ -322,8 +322,11 @@ def cmd_install(args):
         env.update(workingd.env())
 
         for name in cfg.get('stages'):
-            if reporter.progress:
-                reporter.report_progress(name)
+            try:
+                if reporter.progress:
+                    reporter.report_progress(name)
+            except AttributeError:
+                pass
             commands_name = '%s_commands' % name
             with util.LogTimer(LOG.debug, 'stage_%s' % name):
                 stage = Stage(name, cfg.get(commands_name, {}), env)
