@@ -37,10 +37,14 @@ class TestBlock(TestCase):
                       "volume": "sda1"},
         "sda2_home": {"id": "sda2_home", "type": "format", "fstype": "fat32",
                       "volume": "sda2"},
+        "raid_format": {"id": "raid_format", "type": "format", "fstype":
+                        "ext4", "volume": "md0"},
         "sda1_mount": {"id": "sda1_mount", "type": "mount", "path": "/",
                        "device": "sda1_root"},
         "sda2_mount": {"id": "sda2_mount", "type": "mount", "path": "/home",
-                       "device": "sda2_home"}
+                       "device": "sda2_home"},
+        "raid_mount": {"id": "raid_mount", "type": "mount", "path":
+                       "/srv/data", "device": "raid_format"}
     }
 
     @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
@@ -152,6 +156,41 @@ class TestBlock(TestCase):
             curtin.commands.block_meta.format_handler(
                 {"type": "format", "fstype": "invalid", "volume": "fake",
                  "id": "fake1"}, self.storage_config)
+
+    @mock.patch.object(builtins, "open")
+    @mock.patch("curtin.commands.block_meta.block")
+    @mock.patch("curtin.commands.block_meta.os.makedirs")
+    @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
+    @mock.patch("curtin.commands.block_meta.util")
+    def test_mount_handler(self, mock_util, mock_get_path_to_storage_volume,
+                           mock_makedirs, mock_block, mock_open):
+        mock_util.load_command_environment.return_value = {"fstab":
+                                                           "/tmp/dir/fstab",
+                                                           "target":
+                                                           "/tmp/mntdir"}
+        mock_get_path_to_storage_volume.return_value = "/dev/fake0"
+        mock_block.get_volume_uuid.return_value = "UUID123"
+
+        curtin.commands.block_meta.mount_handler(
+            self.storage_config.get("sda2_mount"), self.storage_config)
+
+        mock_makedirs.assert_called_with("/tmp/mntdir/home")
+        mock_open.assert_called_with("/tmp/dir/fstab", "a")
+        mock_util.subp.assert_called_with(["mount", "/dev/fake0",
+                                          "/tmp/mntdir/home"])
+
+        args = mock_get_path_to_storage_volume.call_args_list
+        self.assertTrue(len(args) == 1)
+        self.assertTrue(args[0] == mock.call("sda2", self.storage_config))
+        mock_block.get_volume_uuid.assert_called_with("/dev/fake0")
+
+        curtin.commands.block_meta.mount_handler(
+            self.storage_config.get("raid_mount"), self.storage_config)
+
+        mock_makedirs.assert_called_with("/tmp/mntdir/srv/data")
+        args = mock_get_path_to_storage_volume.call_args_list
+        self.assertTrue(len(args) == 3)
+        self.assertTrue(args[2] == mock.call("md0", self.storage_config))
 
     @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
     @mock.patch("curtin.commands.block_meta.util")
