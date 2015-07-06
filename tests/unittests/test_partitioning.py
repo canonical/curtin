@@ -28,11 +28,12 @@ class TestBlock(TestCase):
         "lvm_part2": {"id": "lvm_part2", "type": "lvm_partition", "volgroup":
                       "volgroup1"},
         "bcache0": {"id": "bcache0", "type": "bcache", "backing_device":
-                    "sdb1", "cache_device": "sdc1"},
+                    "lvm_part1", "cache_device": "sdc1"},
         "crypt0": {"id": "crypt0", "type": "dm_crypt", "volume": "sdb1", "key":
                    "testkey"},
         "md0": {"id": "md0", "type": "raid", "raidlevel": 1, "devices":
                 ["sdx1", "sdy1"], "spare_devices": ["sdz1"]},
+        "fake0": {"id": "fake0", "type": "faketype"},
         "sda1_root": {"id": "sda1_root", "type": "format", "fstype": "ext4",
                       "volume": "sda1"},
         "sda2_home": {"id": "sda2_home", "type": "format", "fstype": "fat32",
@@ -71,6 +72,67 @@ class TestBlock(TestCase):
         curtin.commands.block_meta.parse_offset(offset, pdisk,
                                                 self.storage_config)
         mock_parted.sizeToSectors.assert_called_with(8, "GB", "512")
+
+    @mock.patch("curtin.commands.block_meta.glob")
+    @mock.patch("curtin.commands.block_meta.parse_offset")
+    @mock.patch("curtin.commands.block_meta.os.path.exists")
+    @mock.patch("curtin.commands.block_meta.block")
+    @mock.patch("curtin.commands.block_meta.parted")
+    def test_get_path_to_storage_volume(self, mock_parted, mock_block,
+                                        mock_exists, mock_parse_offset,
+                                        mock_glob):
+        mock_exists.return_value = True
+
+        # Test disk
+        mock_block.lookup_disk.side_effect = \
+            lambda x: "/dev/fake/serial-%s" % x
+        path = curtin.commands.block_meta.get_path_to_storage_volume(
+            "sda", self.storage_config)
+        self.assertTrue(path == "/dev/fake/serial-DISK_1")
+
+        # Test partition
+        mock_parse_offset.return_value = 123456789
+        mock_parted.newDisk().getPartitionBySector().path = "/dev/fake0"
+        path = curtin.commands.block_meta.get_path_to_storage_volume(
+            "sda1", self.storage_config)
+        self.assertTrue(path == "/dev/fake0")
+        mock_parted.getDevice.assert_called_with("/dev/fake/serial-DISK_1")
+        self.assertTrue(mock_parted.newDisk.called)
+        self.assertTrue(mock_parse_offset.called)
+        mock_parted.newDisk().getPartitionBySector.assert_called_with(
+            mock_parse_offset.return_value)
+
+        # Test lvm partition
+        path = curtin.commands.block_meta.get_path_to_storage_volume(
+            "lvm_part1", self.storage_config)
+        self.assertTrue(path == "/dev/volgroup1/lvm_part1")
+
+        # Test dmcrypt
+        path = curtin.commands.block_meta.get_path_to_storage_volume(
+            "crypt0", self.storage_config)
+        self.assertTrue(path == "/dev/mapper/crypt0")
+
+        # Test raid
+        path = curtin.commands.block_meta.get_path_to_storage_volume(
+            "md0", self.storage_config)
+        self.assertTrue(path == "/dev/md0")
+
+        # Test bcache
+        mock_glob.glob.return_value = ["/sys/block/bcache1/slaves/hd0",
+                                       "/sys/block/bcache0/slaves/lvm_part1"]
+        path = curtin.commands.block_meta.get_path_to_storage_volume(
+            "bcache0", self.storage_config)
+        self.assertTrue(path == "/dev/bcache0")
+
+        # Test errors
+        mock_exists.return_value = False
+        with self.assertRaises(ValueError):
+            curtin.commands.block_meta.get_path_to_storage_volume(
+                "md0", self.storage_config)
+        mock_exists.return_value = True
+        with self.assertRaises(NotImplementedError):
+            curtin.commands.block_meta.get_path_to_storage_volume(
+                "fake0", self.storage_config)
 
     @mock.patch.object(builtins, "open")
     @mock.patch("curtin.commands.block_meta.json")
