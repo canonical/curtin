@@ -25,6 +25,7 @@ import subprocess
 import sys
 import tempfile
 
+from curtin import block
 from curtin import config
 from curtin import util
 from curtin.log import LOG
@@ -340,8 +341,10 @@ def cmd_install(args):
     finally:
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))
-        if util.is_mounted(workingd.target, 'boot'):
-            util.do_umount(os.path.join(workingd.target, 'boot'))
+        mounted = block.get_mountpoints()
+        mounted.sort(key=lambda x: -1 * x.count("/"))
+        for d in filter(lambda x: workingd.target in x, mounted):
+            util.do_umount(d)
         util.do_umount(workingd.target)
         shutil.rmtree(workingd.top)
 
