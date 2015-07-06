@@ -280,8 +280,11 @@ pt_uefi() {
             { error "$target: failed to wipe partitions"; return 1; }
     fi
 
-    mkfs -t vfat -F 32 -n uefi-boot ${target}15 ||
-        { error "failed to partition ${target}15 for UEFI vfat"; return 1; }
+    local pt15
+    find_partno "$target" 15 && pt15="$_RET" ||
+        { error "failed to find partition 15 for $target"; return 1; }
+    mkfs -t vfat -F 32 -n uefi-boot "$pt15" ||
+        { error "failed to partition :$pt15' for UEFI vfat"; return 1; }
 }
 
 
