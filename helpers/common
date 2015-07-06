@@ -477,6 +477,53 @@ is_md() {
     return 1
 }
 
+get_carryover_params() {
+    local cmdline=" $1 " extra="" lead="" carry_extra="" carry_lead=""
+    # return a string to append to installed systems boot parameters
+    # it may include a '--' after a '---'
+    # see LP: 1402042 for some history here.  this is similar to 'user-params'
+    case "$cmdline" in
+        *\ ---\ *)
+            extra=${cmdline#* --- }
+            lead=${cmdline%% --- *}
+            ;;
+        *\ --\ *)
+            extra="${cmdline#* -- }"
+            lead=${cmdline%% -- *}
+            ;;
+        *)
+            extra=""
+            lead="$cmdline"
+            ;;
+    esac
+
+    if [ -n "$extra" ]; then
+        carry_extra=$(set -f;
+            c="";
+            for p in $extra; do
+                case "$p" in
+                    (BOOTIF=*|initrd=*|BOOT_IMAGE=*) continue;;
+                esac
+                c="$c $p";
+            done
+            echo "${c# }"
+        )
+    fi
+
+    # these get copied even if they werent after the '---'
+    carry_lead=$(set -f;
+        c=""
+        for p in $lead; do
+            case "$p" in
+                (console=*) c="$c $p";;
+            esac
+            c="$c $p";
+        done
+        echo "${c# }"
+    )
+    _RET="${carry_lead}${carry_extra}"
+}
+
 install_grub() {
     local long_opts="uefi"
     local getopt_out="" mp_efi=""
@@ -576,29 +623,6 @@ install_grub() {
         echo "LABEL=${fslabel}  /boot/efi   vfat    defaults    0 0" >> "$mp/etc/fstab"
     fi
 
-    # copy anything after '--' on cmdline to install'd cmdline
-    read cmdline < /proc/cmdline
-    local newargs=""
-
-    tmp="${cmdline##* -- }"
-    if [ "$tmp" != "$cmdline" ]; then
-        # there was an explicit '--', so copy stuff some after it
-        newargs=$(set -f;
-            c="";
-            for p in ${cmdline##* -- }; do
-                case "$p" in
-                    (BOOTIF=*|initrd=*|BOOT_IMAGE=*) continue;;
-                esac
-                c="$c $p";
-            done
-            echo "${c# }"
-        )
-    elif [ "${cmdline#* console=}" != "${cmdline}" ]; then
-        # there are 'console=' params, copy those.
-        newargs=$(set -f; c=""; for p in $cmdline; do
-            [ "${p#console}" = "$p" ] || c="$c $p"; done; echo "${c# }")
-    fi
-
     local grub_d="etc/default/grub.d"
     local mygrub_cfg="$grub_d/50-curtin-settings.cfg"
     [ -d "$mp/$grub_d" ] || mkdir -p "$mp/$grub_d" ||
@@ -611,6 +635,11 @@ install_grub() {
        debug 1 "moved $cicfg out of the way"
        mv "$mp/$cicfg" "$mp/$cicfg.disabled"
     fi
+
+    # get the user provided / carry-over kernel arguments
+    read cmdline < /proc/cmdline
+    local newargs=""
+    newargs=$(get_carryover_params "$cmdline")
 
     : > "$mp/$mygrub_cfg" ||
         { error "Failed to write '$mygrub_cfg'"; return 1; }
