@@ -31,6 +31,8 @@ class TestBlock(TestCase):
                     "sdb1", "cache_device": "sdc1"},
         "crypt0": {"id": "crypt0", "type": "dm_crypt", "volume": "sdb1", "key":
                    "testkey"},
+        "md0": {"id": "md0", "type": "raid", "raidlevel": 1, "devices":
+                ["sdx1", "sdy1"], "spare_devices": ["sdz1"]},
         "sda1_root": {"id": "sda1_root", "type": "format", "fstype": "ext4",
                       "volume": "sda1"},
         "sda2_home": {"id": "sda2_home", "type": "format", "fstype": "fat32",
@@ -215,6 +217,39 @@ class TestBlock(TestCase):
         mock_open.assert_called_with("/tmp/dir/crypttab", "a")
         mock_block.get_volume_uuid.assert_called_with(
             mock_get_path_to_storage_volume.return_value)
+
+    @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
+    @mock.patch.object(builtins, "open")
+    @mock.patch("curtin.commands.block_meta.util")
+    def test_raid_handler(self, mock_util, mock_open,
+                          mock_get_path_to_storage_volume):
+        main_cmd = ["yes", "|", "mdadm", "--create", "/dev/md0", "--level=1",
+                    "--raid-devices=2", "/dev/fake/sdx1", "/dev/fake/sdy1",
+                    "--spare-devices=1", "/dev/fake/sdz1"]
+        mock_util.load_command_environment.return_value = {"fstab":
+                                                           "/tmp/dir/fstab"}
+        mock_get_path_to_storage_volume.side_effect = \
+            lambda x, y: "/dev/fake/%s" % x
+        mock_util.subp.return_value = ("mdadm scan info", None)
+
+        curtin.commands.block_meta.raid_handler(
+            self.storage_config.get("md0"), self.storage_config)
+
+        path_calls = list(args[0] for args, kwargs in
+                          mock_get_path_to_storage_volume.call_args_list)
+        subp_calls = mock_util.subp.call_args_list
+        for path in self.storage_config.get("md0").get("devices") + \
+                self.storage_config.get("md0").get("spare_devices"):
+            self.assertTrue(path in path_calls)
+            self.assertTrue(mock.call(["mdadm", "--zero-superblock",
+                            mock_get_path_to_storage_volume.side_effect(path,
+                                                                        None)])
+                            in subp_calls)
+        self.assertTrue(mock.call(" ".join(main_cmd), shell=True) in
+                        subp_calls)
+        self.assertTrue(mock.call(["mdadm", "--detail", "--scan"],
+                        capture=True) in subp_calls)
+        mock_open.assert_called_with("/tmp/dir/mdadm.conf", "w")
 
     @mock.patch.object(builtins, "open")
     @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")

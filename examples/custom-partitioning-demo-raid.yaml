@@ -48,7 +48,7 @@ storage:
     flag: raid
   - id: md0
     type: raid
-    raidlevel: 0
+    raidlevel: 1
     devices:
       - sdb1
       - sdc1
