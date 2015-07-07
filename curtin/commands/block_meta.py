@@ -22,12 +22,16 @@ from curtin.log import LOG
 
 from . import populate_one_subcmd
 
+import json
 import os
+import parted
 import platform
+import string
 import sys
 
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
+CUSTOM = 'custom'
 
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
@@ -42,14 +46,18 @@ CMD_ARGUMENTS = (
      ('--boot-fstype', {'help': 'boot partition filesystem type',
                         'choices': ['ext4', 'ext3'], 'default': None}),
      ('mode', {'help': 'meta-mode to use',
-               'choices': ['raid0', SIMPLE, SIMPLE_BOOT]}),
+               'choices': [CUSTOM, SIMPLE, SIMPLE_BOOT]}),
      )
 )
 
 
 def block_meta(args):
     # main entry point for the block-meta command.
-    if args.mode in (SIMPLE, SIMPLE_BOOT):
+    state = util.load_command_environment()
+    cfg = util.load_command_config(args, state)
+    if args.mode == CUSTOM or cfg.get("storage") is not None:
+        meta_custom(args)
+    elif args.mode in (SIMPLE, SIMPLE_BOOT):
         meta_simple(args)
     else:
         raise NotImplementedError("mode=%s is not implemented" % args.mode)
@@ -115,6 +123,264 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
         return 'prep'
 
     return "mbr"
+
+
+def parse_offset(offset, pdisk, storage_config):
+    # Convert offset and length into sectors
+    if offset[0] in string.digits:
+        # Offset is specified in 8MiB format
+        offset_sectors = parted.sizeToSectors(int(offset.strip(
+            string.ascii_letters)), offset.strip(string.digits),
+            pdisk.device.sectorSize)
+    else:
+        # Offset is specified as sda1+0
+        offset_parts = offset.split("+")
+        if offset_parts[0] == offset:
+            # No '+' in offset string, so cannot parse
+            raise ValueError("offset specification '%s' is invalid" % offset)
+        offset_base_path = get_path_to_storage_volume(offset_parts[0],
+                                                      storage_config)
+        if not offset_base_path:
+            raise ValueError("volume '%s' could not be found" %
+                             offset_parts[0])
+        offset_end = pdisk.getPartitionByPath(offset_base_path).geometry.end
+        offset_sectors = int(offset_end) + int(offset_parts[1])
+
+    return offset_sectors
+
+
+def get_path_to_storage_volume(volume, storage_config):
+    # Get path to block device for volume. Volume param should refer to id of
+    # volume in storage config
+
+    vol = storage_config.get(volume)
+    if not vol:
+        raise ValueError("volume with id '%s' not found" % volume)
+
+    # Find path to block device
+    if vol.get('type') == "partition":
+        # For partitions, get block device, and use Disk.getPartitionBySector()
+        # to grab partition object, then get path using Partition.path()
+        disk_block_path = get_path_to_storage_volume(vol.get('device'),
+                                                     storage_config)
+        pdev = parted.getDevice(disk_block_path)
+        pdisk = parted.newDisk(pdev)
+        ppart = pdisk.getPartitionBySector(parse_offset(vol.get('offset'),
+                                           pdisk, storage_config))
+        volume_path = ppart.path
+
+    elif vol.get('type') == "disk":
+        # Get path to block device for disk. Device_id param should refer
+        # to id of device in storage config
+        volume_path = block.lookup_disk(vol.get('serial'))
+
+    else:
+        raise NotImplementedError("cannot determine the path to storage \
+            volume '%s' with type '%s'" % (volume, vol.get('type')))
+
+    if not os.path.exists(volume_path):
+        raise ValueError("path to storage volume '%s' does not exist" % volume)
+
+    return volume_path
+
+
+def disk_handler(info, storage_config):
+    serial = info.get('serial')
+    ptable = info.get('ptable')
+    if not serial:
+        raise ValueError("serial number must be specified to identify disk")
+    disk = block.lookup_disk(serial)
+    if not disk:
+        raise ValueError("disk with serial '%s' not found" % serial)
+    if not ptable:
+        # TODO: check this behavior
+        ptable = "msdos"
+
+    # Get device and disk using parted using appropriate partition table
+    pdev = parted.getDevice(disk)
+    pdisk = parted.freshDisk(pdev, ptable)
+    LOG.info("labeling device: '%s' with '%s' partition table", disk, ptable)
+    pdisk.commit()
+
+    # If grub_device option is present and set to true in config than this
+    # device will be added to grub_install_devices in cfg. This is not
+    # necessary when the root filesystem is on a normal partition, as curthooks
+    # can figure out what the parent device is on its own in this case.
+    # However, if the root filesystem is on an encrypted partition or on lvm,
+    # it is necessary to set this option to tell curthooks where to install
+    # grub as it will not be possible for curthooks to figure it out otherwise.
+    if info.get('grub_device'):
+        state = util.load_command_environment()
+        cfg_file = state.get('config')
+        if not cfg_file:
+            LOG.warn("grub_device option set in storage_config, but cfg_file \
+                not in environment, so cannot determine what file to add \
+                grub_install_devices to, so not writing this information.")
+            return
+        cfg = util.load_command_config({}, state)
+        if cfg.get("grub_install_devices"):
+            devices = cfg.get("grub_install_devices")
+        else:
+            devices = []
+        devices.append(disk)
+        cfg["grub_install_devices"] = devices
+        with open(cfg_file, "w") as fp:
+            json.dump(cfg, fp)
+
+
+def partition_handler(info, storage_config):
+    device = info.get('device')
+    offset = info.get('offset')
+    size = info.get('size')
+    flag = info.get('flag')
+    if not device:
+        raise ValueError("device must be set for partition to be created")
+    if not offset:
+        # TODO: instead of bailing, find beginning of free space on disk and go
+        #       from there
+        raise ValueError("offset must be specified for partition to be \
+            created")
+    if not size:
+        raise ValueError("size must be specified for partition to be created")
+
+    # Find device to attach to in storage_config
+    # TODO: find a more efficient way to do this
+    disk = get_path_to_storage_volume(device, storage_config)
+    pdev = parted.getDevice(disk)
+    pdisk = parted.newDisk(pdev)
+
+    offset_sectors = parse_offset(offset, pdisk, storage_config)
+
+    length_sectors = parted.sizeToSectors(int(size.strip(
+        string.ascii_letters)), size.strip(string.digits),
+        pdisk.device.sectorSize)
+
+    # Make geometry and partition
+    geometry = parted.Geometry(device=pdisk.device, start=offset_sectors,
+                               length=length_sectors)
+    partition = parted.Partition(disk=pdisk, type=parted.PARTITION_NORMAL,
+                                 geometry=geometry)
+    constraint = parted.Constraint(exactGeom=partition.geometry)
+
+    # Set flag
+    flags = {"boot": parted.PARTITION_BOOT}
+
+    if flag:
+        if flag in flags:
+            partition.setFlag(flags[flag])
+        else:
+            raise ValueError("invalid partition flag '%s'" % flag)
+
+    # Add partition to disk and commit changes
+    LOG.info("adding partition '%s' to disk '%s'" % (info.get('id'), device))
+    pdisk.addPartition(partition, constraint)
+    pdisk.commit()
+
+
+def format_handler(info, storage_config):
+    fstype = info.get('fstype')
+    volume = info.get('volume')
+    part_id = info.get('id')
+    if not volume:
+        raise ValueError("volume must be specified for partition '%s'" %
+                         info.get('id'))
+
+    # Get path to volume
+    volume_path = get_path_to_storage_volume(volume, storage_config)
+
+    # Generate mkfs command and run
+    if fstype in ["ext4", "ext3"]:
+        cmd = ['mkfs.%s' % fstype, '-q', '-L', part_id[:16], volume_path]
+    elif fstype in ["fat12", "fat16", "fat32", "fat"]:
+        cmd = ["mkfs.fat"]
+        fat_size = fstype.strip(string.ascii_letters)
+        if fat_size in ["12", "16", "32"]:
+            cmd.extend(["-F", fat_size])
+        cmd.extend(["-n", part_id[:11], volume_path])
+    else:
+        raise ValueError("fstype '%s' not supported" % fstype)
+    LOG.info("formatting volume '%s' with format '%s'" % (volume_path, fstype))
+    logtime(' '.join(cmd), util.subp, cmd)
+
+
+def mount_handler(info, storage_config):
+    state = util.load_command_environment()
+    path = info.get('path')
+    if not path:
+        raise ValueError("path to mountpoint must be specified")
+    filesystem = storage_config.get(info.get('device'))
+    volume = storage_config.get(filesystem.get('volume'))
+
+    # Get path to volume
+    volume_path = get_path_to_storage_volume(filesystem.get('volume'),
+                                             storage_config)
+
+    # Figure out what point should be
+    while len(path) > 0 and path[0] == "/":
+        path = path[1:]
+    mount_point = os.path.join(state['target'], path)
+
+    # Create mount point if does not exist
+    if not os.path.isdir(mount_point):
+        os.makedirs(mount_point)
+
+    # Mount volume
+    util.subp(['mount', volume_path, mount_point])
+
+    # Add volume to fstab
+    if state['fstab']:
+        with open(state['fstab'], "a") as fp:
+            if volume.get('type') in ["partition"]:
+                location = "UUID=%s" % block.get_volume_uuid(volume_path)
+            else:
+                raise ValueError("cannot write fstab for volume type '%s'" %
+                                 volume.get("type"))
+            if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32",
+                                            "fat64"]:
+                fstype = "vfat"
+            else:
+                fstype = filesystem.get('fstype')
+            fp.write("%s /%s %s defaults 0 0\n" % (location, path, fstype))
+    else:
+        LOG.info("fstab not in environment, so not writing")
+
+
+def meta_custom(args):
+    """Does custom partitioning based on the layout provided in the config
+    file. Section with the name storage contains information on which
+    partitions on which disks to create. It also contains information about
+    overlays (raid, lvm, bcache) which need to be setup.
+    """
+
+    command_handlers = {
+        'disk': disk_handler,
+        'partition': partition_handler,
+        'format': format_handler,
+        'mount': mount_handler
+    }
+
+    state = util.load_command_environment()
+    cfg = util.load_command_config(args, state)
+
+    storage_config = cfg.get('storage', [])
+    if not storage_config:
+        raise Exception("storage configuration is required by mode '%s' "
+                        "but not provided in the config file" % CUSTOM)
+
+    # Since storage config will often have to be searched for a value by its
+    # id, and this can become very inefficient as storage_config grows, a dict
+    # will be generated with the id of each component of the storage_config as
+    # its index and the component of storage_config as its value
+    storage_config_dict = dict((d["id"], d) for (i, d) in
+                               enumerate(storage_config))
+
+    for command in storage_config:
+        handler = command_handlers.get(command['type'])
+        if not handler:
+            raise ValueError("unknown command type '%s'" % command['type'])
+        handler(command, storage_config_dict)
+
+    return 0
 
 
 def meta_simple(args):
