@@ -292,7 +292,7 @@ pt_mbr() {
     local target="$1" end=${2:-""} boot="$3" size="" s512="" ptype="L"
     local start="2048" rootsize="" maxsize="4294967296"
     local maxend="" isblk=false def_bootsize="1048576" bootsize=0
-    local isblk=false pad
+    local isblk=false
     getsize "$target" ||
         { error "failed to get size of $target"; return 1; }
     size="$_RET"
@@ -301,16 +301,21 @@ pt_mbr() {
         bootsize=$def_bootsize
     fi
 
-    if [ "$(($size/512))" -gt "$maxsize" ]; then
+    s512=$(($size/512))
+    if [ $s512 -ge $maxsize ]; then
         debug 1 "disk is larger than max for mbr (2TB)"
         s512=$maxsize
     else
         s512=$(($size/512))
     fi
+
+    # allow 33 sectors for the secondary gpt header in the case that
+    # the user wants to later 'sgdisk --mbrtogpt'
+    local gpt2hsize="33"
     if [ -n "$end" ]; then
         rootsize=$(((end/512)-start-bootsize))
     else
-        rootsize=$((s512-start-bootsize))
+        rootsize=$((s512-start-bootsize-$gpt2hsize))
     fi
 
     [ -b "$target" ] && isblk=true
