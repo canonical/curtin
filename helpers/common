@@ -305,8 +305,6 @@ pt_mbr() {
     if [ $s512 -ge $maxsize ]; then
         debug 1 "disk is larger than max for mbr (2TB)"
         s512=$maxsize
-    else
-        s512=$(($size/512))
     fi
 
     # allow 33 sectors for the secondary gpt header in the case that
@@ -322,13 +320,15 @@ pt_mbr() {
 
     # interact with sfdisk in units of 512 bytes (--unit S)
     # we start all partitions at 2048 of those (1M)
-    local sfdisk_out="" sfdisk_in="" sfdisk_cmd="" t=""
+    local sfdisk_out="" sfdisk_in="" sfdisk_cmd="" t="" expected=""
     if "$boot"; then
         t="$start,$bootsize,$ptype,-${CR}"
         t="$t$(($start+$bootsize)),$rootsize,$ptype,*"
         sfdisk_in="$t"
+        expected="1 2"
     else
         sfdisk_in="$start,$rootsize,$ptype,*"
+        expected=1
     fi
     sfdisk_cmd=( sfdisk --no-reread --force --Linux --unit S "$target" )
     debug 1 "sfdisking with: echo '$sfdisk_in' | ${sfdisk_cmd[*]}"
@@ -341,10 +341,10 @@ pt_mbr() {
     if $isblk; then
         blockdev --rereadpt "$target"
         udevadm settle
-        assert_partitions "$target" 1 ||
+        assert_partitions "$target" ${expected} ||
             { error "$target missing partitions: $_RET"; return 1; }
 
-        wipe_partitions "$target" 1 ||
+        wipe_partitions "$target" ${expected} ||
             { error "failed to wipe partition 1 on $target"; return 1; }
     fi
 
