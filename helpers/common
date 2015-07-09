@@ -481,7 +481,8 @@ get_carryover_params() {
     local cmdline=" $1 " extra="" lead="" carry_extra="" carry_lead=""
     # return a string to append to installed systems boot parameters
     # it may include a '--' after a '---'
-    # see LP: 1402042 for some history here.  this is similar to 'user-params'
+    # see LP: 1402042 for some history here.
+    # this is similar to 'user-params' from d-i
     case "$cmdline" in
         *\ ---\ *)
             extra=${cmdline#* --- }
@@ -521,11 +522,10 @@ get_carryover_params() {
             case "$p" in
                 (console=*) c="$c $p";;
             esac
-            c="$c $p";
         done
         echo "${c# }"
     )
-    _RET="${carry_lead}${carry_extra}"
+    _RET="${carry_lead:+${carry_lead} }${carry_extra}"
 }
 
 install_grub() {
