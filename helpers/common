@@ -648,9 +648,13 @@ install_grub() {
     fi
 
     # get the user provided / carry-over kernel arguments
-    read cmdline < /proc/cmdline
     local newargs=""
-    newargs=$(get_carryover_params "$cmdline")
+    read cmdline < /proc/cmdline &&
+        get_carryover_params "$cmdline" && newargs="$_RET" || {
+        error "Failed to get carryover parrameters from cmdline"; 
+        return 1;
+    }
+    debug 1 "carryover command line params: $newargs"
 
     : > "$mp/$mygrub_cfg" ||
         { error "Failed to write '$mygrub_cfg'"; return 1; }
