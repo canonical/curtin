@@ -55,10 +55,12 @@ CMD_ARGUMENTS = (
 
 def block_meta(args):
     # main entry point for the block-meta command.
-    if args.mode in (SIMPLE, SIMPLE_BOOT):
-        meta_simple(args)
-    elif args.mode == CUSTOM:
+    state = util.load_command_environment()
+    cfg = util.load_command_config(args, state)
+    if args.mode == CUSTOM or cfg.get("storage") is not None:
         meta_custom(args)
+    elif args.mode in (SIMPLE, SIMPLE_BOOT):
+        meta_simple(args)
     else:
         raise NotImplementedError("mode=%s is not implemented" % args.mode)
 
