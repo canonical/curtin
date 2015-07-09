@@ -488,14 +488,16 @@ get_carryover_params() {
     # it may include a '--' after a '---'
     # see LP: 1402042 for some history here.
     # this is similar to 'user-params' from d-i
+    local preferred_sep="---"  # KERNEL_CMDLINE_COPY_TO_INSTALL_SEP
+    local legacy_sep="--"
     case "$cmdline" in
-        *\ ---\ *)
-            extra=${cmdline#* --- }
-            lead=${cmdline%% --- *}
+        *\ ${preferred_sep}\ *)
+            extra=${cmdline#* ${preferred_sep} }
+            lead=${cmdline%% ${preferred_sep} *}
             ;;
-        *\ --\ *)
-            extra="${cmdline#* -- }"
-            lead=${cmdline%% -- *}
+        *\ ${legacy_sep}\ *)
+            extra="${cmdline#* ${legacy_sep} }"
+            lead=${cmdline%% ${legacy_sep} *}
             ;;
         *)
             extra=""
@@ -516,7 +518,7 @@ get_carryover_params() {
         )
     fi
 
-    # these get copied even if they werent after the '---'
+    # these get copied even if they werent after the separator
     local padded=" $carry_extra "
     carry_lead=$(set -f;
         padded=" ${carry_extra} "
