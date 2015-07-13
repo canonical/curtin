@@ -374,15 +374,26 @@ def format_handler(info, storage_config):
 
     # Generate mkfs command and run
     if fstype in ["ext4", "ext3"]:
-        cmd = ['mkfs.%s' % fstype, '-q', '-L', part_id[:16], volume_path]
+        if len(part_id) > 16:
+            raise ValueError("ext3/4 partition labels cannot be longer than \
+                16 characters")
+        cmd = ['mkfs.%s' % fstype, '-q', '-L', part_id, volume_path]
     elif fstype in ["fat12", "fat16", "fat32", "fat"]:
         cmd = ["mkfs.fat"]
         fat_size = fstype.strip(string.ascii_letters)
         if fat_size in ["12", "16", "32"]:
             cmd.extend(["-F", fat_size])
-        cmd.extend(["-n", part_id[:11], volume_path])
+        if len(part_id) > 11:
+            raise ValueError("fat partition names cannot be longer than \
+                11 characters")
+        cmd.extend(["-n", part_id, volume_path])
     else:
-        raise ValueError("fstype '%s' not supported" % fstype)
+        # See if mkfs.<fstype> exists. If so try to run it.
+        try:
+            util.subp(["which", "mkfs.%s" % fstype])
+            cmd = ["mkfs.%s" % fstype, volume_path]
+        except util.ProcessExecutionError:
+            raise ValueError("fstype '%s' not supported" % fstype)
     LOG.info("formatting volume '%s' with format '%s'" % (volume_path, fstype))
     logtime(' '.join(cmd), util.subp, cmd)
 
