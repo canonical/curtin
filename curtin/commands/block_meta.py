@@ -419,8 +419,7 @@ def mount_handler(info, storage_config):
     mount_point = os.path.join(state['target'], path)
 
     # Create mount point if does not exist
-    if not os.path.isdir(mount_point):
-        os.makedirs(mount_point)
+    util.ensure_dir(mount_point)
 
     # Mount volume
     util.subp(['mount', volume_path, mount_point])
