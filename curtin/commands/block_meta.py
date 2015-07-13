@@ -173,7 +173,13 @@ def get_path_to_storage_volume(volume, storage_config):
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
         # to id of device in storage config
-        volume_path = block.lookup_disk(vol.get('serial'))
+        if vol.get('serial'):
+            volume_path = block.lookup_disk(serial)
+        elif vol.get('path'):
+            volume_path = path
+        else:
+            raise ValueError("serial number or path to block dev must be \
+                specified to identify disk")
 
     elif vol.get('type') == "lvm_partition":
         # For lvm partitions, a directory in /dev/ should be present with the
@@ -225,15 +231,12 @@ def get_path_to_storage_volume(volume, storage_config):
 
 def disk_handler(info, storage_config):
     serial = info.get('serial')
+    path = info.get('path')
     ptable = info.get('ptable')
-    if not serial:
-        raise ValueError("serial number must be specified to identify disk")
-    disk = block.lookup_disk(serial)
-    if not disk:
-        raise ValueError("disk with serial '%s' not found" % serial)
     if not ptable:
-        # TODO: check this behavior
         ptable = "msdos"
+
+    disk = get_path_to_storage_volume(info.get('id'), storage_config)
 
     # Handle preserve flag
     if info.get('preserve'):
