@@ -176,7 +176,7 @@ def get_path_to_storage_volume(volume, storage_config):
         if vol.get('serial'):
             volume_path = block.lookup_disk(serial)
         elif vol.get('path'):
-            volume_path = path
+            volume_path = vol.get('path')
         else:
             raise ValueError("serial number or path to block dev must be \
                 specified to identify disk")
