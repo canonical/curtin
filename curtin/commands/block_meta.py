@@ -23,7 +23,6 @@ from curtin.log import LOG
 from . import populate_one_subcmd
 
 import glob
-import json
 import os
 import parted
 import platform
@@ -231,7 +230,6 @@ def get_path_to_storage_volume(volume, storage_config):
 
 def disk_handler(info, storage_config):
     serial = info.get('serial')
-    path = info.get('path')
     ptable = info.get('ptable')
     if not ptable:
         ptable = "msdos"
@@ -241,13 +239,14 @@ def disk_handler(info, storage_config):
     # Handle preserve flag
     if info.get('preserve'):
         try:
-            (out, _err) = util.subp(["blkid", "-o", "export", disk], capture=True)
+            (out, _err) = util.subp(["blkid", "-o", "export", disk],
+                                    capture=True)
         except util.ProcessExecutionError:
             raise ValueError("disk '%s' has no readable partition table or \
                 cannot be accessed, but preserve is set to true, so cannot \
                 continue")
         current_ptable = list(filter(lambda x: "PTTYPE" in x,
-                                out.splitlines()))[0].split("=")[-1]
+                                     out.splitlines()))[0].split("=")[-1]
         if current_ptable == "dos" and ptable != "msdos":
             raise ValueError("disk with serial '%s' does not have correct \
                 partition table, but preserve is set to true, so not \
@@ -301,7 +300,7 @@ def partition_handler(info, storage_config):
         if partition.geometry.start != offset_sectors or \
                 partition.geometry.length != length_sectors:
             raise ValueError("partition '%s' does not match what exists on \
-                disk, but preserve is set to true, so bailing" % info.get('id'))
+                disk, but preserve is set to true, bailing" % info.get('id'))
         return
     elif storage_config.get(device).get('preserve'):
         raise NotImplementedError("Partition '%s' is not marked to be \
