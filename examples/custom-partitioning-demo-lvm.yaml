@@ -14,13 +14,13 @@ storage:
     serial: QM00003
   - id: sda1
     type: partition
-    offset: 512MB
+    number: 1
     size: 8GB
     device: sda
     flag: boot
   - id: sda2
     type: partition
-    offset: 8512MB
+    number: 2
     size: 1GB
     device: sda
   - id: storage_volgroup

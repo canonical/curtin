@@ -125,30 +125,6 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
     return "mbr"
 
 
-def parse_offset(offset, pdisk, storage_config):
-    # Convert offset and length into sectors
-    if offset[0] in string.digits:
-        # Offset is specified in 8MiB format
-        offset_sectors = parted.sizeToSectors(int(offset.strip(
-            string.ascii_letters)), offset.strip(string.digits),
-            pdisk.device.sectorSize)
-    else:
-        # Offset is specified as sda1+0
-        offset_parts = offset.split("+")
-        if offset_parts[0] == offset:
-            # No '+' in offset string, so cannot parse
-            raise ValueError("offset specification '%s' is invalid" % offset)
-        offset_base_path = get_path_to_storage_volume(offset_parts[0],
-                                                      storage_config)
-        if not offset_base_path:
-            raise ValueError("volume '%s' could not be found" %
-                             offset_parts[0])
-        offset_end = pdisk.getPartitionByPath(offset_base_path).geometry.end
-        offset_sectors = int(offset_end) + int(offset_parts[1])
-
-    return offset_sectors
-
-
 def get_path_to_storage_volume(volume, storage_config):
     # Get path to block device for volume. Volume param should refer to id of
     # volume in storage config
@@ -159,15 +135,21 @@ def get_path_to_storage_volume(volume, storage_config):
 
     # Find path to block device
     if vol.get('type') == "partition":
-        # For partitions, get block device, and use Disk.getPartitionBySector()
-        # to grab partition object, then get path using Partition.path()
+        # For partitions, parted.Disk of parent disk, then find what number
+        # partition it is and use parted.Partition.path
+        partnumber = vol.get('number')
+        if not partnumber:
+            raise ValueError("partition number must be specified for '%s'" %
+                             vol.get('id'))
         disk_block_path = get_path_to_storage_volume(vol.get('device'),
                                                      storage_config)
         pdev = parted.getDevice(disk_block_path)
         pdisk = parted.newDisk(pdev)
-        ppart = pdisk.getPartitionBySector(parse_offset(vol.get('offset'),
-                                           pdisk, storage_config))
-        volume_path = ppart.path
+        ppartitions = pdisk.partitions
+        try:
+            volume_path = ppartitions[partnumber - 1].path
+        except IndexError:
+            raise ValueError("partition '%s' does not exist" % vol.get('id'))
 
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
@@ -268,18 +250,15 @@ def disk_handler(info, storage_config):
 
 def partition_handler(info, storage_config):
     device = info.get('device')
-    offset = info.get('offset')
     size = info.get('size')
     flag = info.get('flag')
+    partnumber = info.get('number')
     if not device:
         raise ValueError("device must be set for partition to be created")
-    if not offset:
-        # TODO: instead of bailing, find beginning of free space on disk and go
-        #       from there
-        raise ValueError("offset must be specified for partition to be \
-            created")
     if not size:
         raise ValueError("size must be specified for partition to be created")
+    if not partnumber:
+        raise ValueError("partition number must be specified")
 
     # Find device to attach to in storage_config
     # TODO: find a more efficient way to do this
@@ -287,7 +266,23 @@ def partition_handler(info, storage_config):
     pdev = parted.getDevice(disk)
     pdisk = parted.newDisk(pdev)
 
-    offset_sectors = parse_offset(offset, pdisk, storage_config)
+    # Offset is either 1 sector after last partition, or near the beginning if
+    # this is the first partition
+    if partnumber > 1:
+        ppartitions = pdisk.partitions
+        try:
+            offset_sectors = ppartitions[partnumber - 2].geometry.end + 1
+        except IndexError:
+            raise ValueError(
+                "partition numbered '%s' does not exist, so cannot create \
+                '%s'. Make sure partitions are in order in config." %
+                (partnumber - 1, info.get('id')))
+    else:
+        if storage_config.get(device).get('ptable') == "msdos":
+            offset_sectors = 62
+        else:
+            offset_sectors = parted.sizeToSectors(
+                16, 'KiB', pdisk.device.sectorSize) + 2
 
     length_sectors = parted.sizeToSectors(int(size.strip(
         string.ascii_letters)), size.strip(string.digits),
