@@ -22,7 +22,6 @@ from curtin.log import LOG
 
 from . import populate_one_subcmd
 
-import json
 import os
 import parted
 import platform
@@ -172,7 +171,13 @@ def get_path_to_storage_volume(volume, storage_config):
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
         # to id of device in storage config
-        volume_path = block.lookup_disk(vol.get('serial'))
+        if vol.get('serial'):
+            volume_path = block.lookup_disk(vol.get('serial'))
+        elif vol.get('path'):
+            volume_path = vol.get('path')
+        else:
+            raise ValueError("serial number or path to block dev must be \
+                specified to identify disk")
 
     else:
         raise NotImplementedError("cannot determine the path to storage \
@@ -185,47 +190,18 @@ def get_path_to_storage_volume(volume, storage_config):
 
 
 def disk_handler(info, storage_config):
-    serial = info.get('serial')
     ptable = info.get('ptable')
-    if not serial:
-        raise ValueError("serial number must be specified to identify disk")
-    disk = block.lookup_disk(serial)
-    if not disk:
-        raise ValueError("disk with serial '%s' not found" % serial)
     if not ptable:
-        # TODO: check this behavior
         ptable = "msdos"
+
+    disk = get_path_to_storage_volume(info.get('id'), storage_config)
 
     # Get device and disk using parted using appropriate partition table
     pdev = parted.getDevice(disk)
     pdisk = parted.freshDisk(pdev, ptable)
-    LOG.info("labeling device: '%s' with '%s' partition table", disk, ptable)
+    LOG.info("labeling device: '%s' with '%s' partition table", disk,
+             ptable)
     pdisk.commit()
-
-    # If grub_device option is present and set to true in config than this
-    # device will be added to grub_install_devices in cfg. This is not
-    # necessary when the root filesystem is on a normal partition, as curthooks
-    # can figure out what the parent device is on its own in this case.
-    # However, if the root filesystem is on an encrypted partition or on lvm,
-    # it is necessary to set this option to tell curthooks where to install
-    # grub as it will not be possible for curthooks to figure it out otherwise.
-    if info.get('grub_device'):
-        state = util.load_command_environment()
-        cfg_file = state.get('config')
-        if not cfg_file:
-            LOG.warn("grub_device option set in storage_config, but cfg_file \
-                not in environment, so cannot determine what file to add \
-                grub_install_devices to, so not writing this information.")
-            return
-        cfg = util.load_command_config({}, state)
-        if cfg.get("grub_install_devices"):
-            devices = cfg.get("grub_install_devices")
-        else:
-            devices = []
-        devices.append(disk)
-        cfg["grub_install_devices"] = devices
-        with open(cfg_file, "w") as fp:
-            json.dump(cfg, fp)
 
 
 def partition_handler(info, storage_config):
@@ -290,15 +266,26 @@ def format_handler(info, storage_config):
 
     # Generate mkfs command and run
     if fstype in ["ext4", "ext3"]:
+        if len(part_id) > 16:
+            raise ValueError("ext3/4 partition labels cannot be longer than \
+                16 characters")
         cmd = ['mkfs.%s' % fstype, '-q', '-L', part_id[:16], volume_path]
     elif fstype in ["fat12", "fat16", "fat32", "fat"]:
         cmd = ["mkfs.fat"]
         fat_size = fstype.strip(string.ascii_letters)
         if fat_size in ["12", "16", "32"]:
             cmd.extend(["-F", fat_size])
+        if len(part_id) > 11:
+            raise ValueError("fat partition names cannot be longer than \
+                11 characters")
         cmd.extend(["-n", part_id[:11], volume_path])
     else:
-        raise ValueError("fstype '%s' not supported" % fstype)
+        # See if mkfs.<fstype> exists. If so try to run it.
+        try:
+            util.subp(["which", "mkfs.%s" % fstype])
+            cmd = ["mkfs.%s" % fstype, volume_path]
+        except util.ProcessExecutionError:
+            raise ValueError("fstype '%s' not supported" % fstype)
     LOG.info("formatting volume '%s' with format '%s'" % (volume_path, fstype))
     logtime(' '.join(cmd), util.subp, cmd)
 
@@ -321,8 +308,7 @@ def mount_handler(info, storage_config):
     mount_point = os.path.join(state['target'], path)
 
     # Create mount point if does not exist
-    if not os.path.isdir(mount_point):
-        os.makedirs(mount_point)
+    util.ensure_dir(mount_point)
 
     # Mount volume
     util.subp(['mount', volume_path, mount_point])

@@ -93,32 +93,19 @@ class TestBlock(TestCase):
             curtin.commands.block_meta.get_path_to_storage_volume(
                 "fake0", self.storage_config)
 
-    @mock.patch.object(builtins, "open")
-    @mock.patch("curtin.commands.block_meta.json")
-    @mock.patch("curtin.commands.block_meta.util")
-    @mock.patch("curtin.commands.block_meta.block.lookup_disk")
+    @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
     @mock.patch("curtin.commands.block_meta.parted")
-    def test_disk_handler(self, mock_parted, mock_lookup_disk, mock_util,
-                          mock_json, mock_open):
-        f_path = "/dev/null"
+    def test_disk_handler(self, mock_parted, mock_get_path_to_storage_volume):
         disk_path = "/dev/sda"
-        mock_lookup_disk.return_value = disk_path
-        mock_util.load_command_environment.return_value = {"config": f_path}
-        mock_util.load_command_config.return_value = {}
+        mock_get_path_to_storage_volume.return_value = disk_path
 
         curtin.commands.block_meta.disk_handler(self.storage_config.get("sda"),
                                                 self.storage_config)
 
+        self.assertTrue(mock_get_path_to_storage_volume.called)
         mock_parted.getDevice.assert_called_with(disk_path)
         mock_parted.freshDisk.assert_called_with(
             mock_parted.getDevice(), "msdos")
-        mock_open.assert_called_with(f_path, "w")
-        args, kwargs = mock_json.dump.call_args
-        self.assertTrue({"grub_install_devices": [disk_path]} in args)
-
-        with self.assertRaises(ValueError):
-            curtin.commands.block_meta.disk_handler(
-                self.storage_config.get("sdb"), self.storage_config)
 
     @mock.patch("curtin.commands.block_meta.parse_offset")
     @mock.patch("curtin.commands.block_meta.parted")
@@ -173,18 +160,18 @@ class TestBlock(TestCase):
             ["mkfs.fat", "-F", "32", "-n",
              "sda2_home", mock_get_path_to_storage_volume.return_value])
 
-        with self.assertRaises(ValueError):
-            curtin.commands.block_meta.format_handler(
-                {"type": "format", "fstype": "invalid", "volume": "fake",
-                 "id": "fake1"}, self.storage_config)
+        curtin.commands.block_meta.format_handler(
+            {"type": "format", "fstype": "invalid", "volume": "fake",
+             "id": "fake1"}, self.storage_config)
+        args = mock_util.subp.call_args_list
+        self.assertTrue(mock.call(["which", "mkfs.invalid"]) in args)
 
     @mock.patch.object(builtins, "open")
     @mock.patch("curtin.commands.block_meta.block")
-    @mock.patch("curtin.commands.block_meta.os.makedirs")
     @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
     @mock.patch("curtin.commands.block_meta.util")
     def test_mount_handler(self, mock_util, mock_get_path_to_storage_volume,
-                           mock_makedirs, mock_block, mock_open):
+                           mock_block, mock_open):
         mock_util.load_command_environment.return_value = {"fstab":
                                                            "/tmp/dir/fstab",
                                                            "target":
@@ -195,7 +182,7 @@ class TestBlock(TestCase):
         curtin.commands.block_meta.mount_handler(
             self.storage_config.get("sda2_mount"), self.storage_config)
 
-        mock_makedirs.assert_called_with("/tmp/mntdir/home")
+        mock_util.ensure_dir.assert_called_with("/tmp/mntdir/home")
         mock_open.assert_called_with("/tmp/dir/fstab", "a")
         mock_util.subp.assert_called_with(["mount", "/dev/fake0",
                                           "/tmp/mntdir/home"])
