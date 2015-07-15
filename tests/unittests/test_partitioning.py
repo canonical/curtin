@@ -32,37 +32,11 @@ class TestBlock(TestCase):
                        "device": "sda2_home"},
     }
 
-    @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
-    @mock.patch("curtin.commands.block_meta.parted")
-    def test_parse_offset(self, mock_parted, mock_get_path_to_storage_volume):
-        path = "/dev/fake1"
-        offset = "sda1+1"
-        pdisk = mock.create_autospec(parted.Disk)
-        pdisk.device.sectorSize = "512"
-        mock_get_path_to_storage_volume.return_value = path
-
-        curtin.commands.block_meta.parse_offset(offset, pdisk,
-                                                self.storage_config)
-        mock_get_path_to_storage_volume.assert_called_with(
-            "sda1", self.storage_config)
-        pdisk.getPartitionByPath.assert_called_with(path)
-
-        with self.assertRaises(ValueError):
-            offset = "sda1"
-            curtin.commands.block_meta.parse_offset(offset, pdisk,
-                                                    self.storage_config)
-
-        offset = "8GB"
-        curtin.commands.block_meta.parse_offset(offset, pdisk,
-                                                self.storage_config)
-        mock_parted.sizeToSectors.assert_called_with(8, "GB", "512")
-
-    @mock.patch("curtin.commands.block_meta.parse_offset")
     @mock.patch("curtin.commands.block_meta.os.path.exists")
     @mock.patch("curtin.commands.block_meta.block")
     @mock.patch("curtin.commands.block_meta.parted")
     def test_get_path_to_storage_volume(self, mock_parted, mock_block,
-                                        mock_exists, mock_parse_offset):
+                                        mock_exists):
         mock_exists.return_value = True
 
         # Test disk
@@ -73,16 +47,10 @@ class TestBlock(TestCase):
         self.assertTrue(path == "/dev/fake/serial-DISK_1")
 
         # Test partition
-        mock_parse_offset.return_value = 123456789
-        mock_parted.newDisk().getPartitionBySector().path = "/dev/fake0"
         path = curtin.commands.block_meta.get_path_to_storage_volume(
             "sda1", self.storage_config)
-        self.assertTrue(path == "/dev/fake0")
         mock_parted.getDevice.assert_called_with("/dev/fake/serial-DISK_1")
         self.assertTrue(mock_parted.newDisk.called)
-        self.assertTrue(mock_parse_offset.called)
-        mock_parted.newDisk().getPartitionBySector.assert_called_with(
-            mock_parse_offset.return_value)
 
         # Test errors
         mock_exists.return_value = False
@@ -107,13 +75,11 @@ class TestBlock(TestCase):
         mock_parted.freshDisk.assert_called_with(
             mock_parted.getDevice(), "msdos")
 
-    @mock.patch("curtin.commands.block_meta.parse_offset")
     @mock.patch("curtin.commands.block_meta.parted")
     @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
     def test_partition_handler(self, mock_get_path_to_storage_volume,
-                               mock_parted, mock_parse_offset):
+                               mock_parted):
         mock_get_path_to_storage_volume.return_value = "/dev/fake"
-        mock_parse_offset.return_value = parted.sizeToSectors(512, "MB", 512)
         mock_parted.sizeToSectors.return_value = parted.sizeToSectors(8, "GB",
                                                                       512)
 
@@ -125,10 +91,9 @@ class TestBlock(TestCase):
         mock_parted.getDevice.assert_called_with(
             mock_get_path_to_storage_volume.return_value)
         self.assertTrue(mock_parted.newDisk.called)
-        self.assertTrue(mock_parse_offset.called)
         mock_parted.Geometry.assert_called_with(
             device=mock_parted.newDisk().device,
-            start=mock_parse_offset.return_value,
+            start=62,
             length=mock_parted.sizeToSectors.return_value)
         mock_parted.Partition().setFlag.assert_called_with(
             mock_parted.PARTITION_BOOT)
