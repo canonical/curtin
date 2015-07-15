@@ -139,13 +139,29 @@ def get_path_to_storage_volume(volume, storage_config):
         # partition it is and use parted.Partition.path
         partnumber = vol.get('number')
         if not partnumber:
-            raise ValueError("partition number must be specified for '%s'" %
-                             vol.get('id'))
+            partnumber = 1
+            for key, item in storage_config.items():
+                if item.get("type") == "partition" and \
+                        item.get("device") == vol.get("device"):
+                    if item.get("id") == vol.get("id"):
+                        break
+                    else:
+                        partnumber += 1
         disk_block_path = get_path_to_storage_volume(vol.get('device'),
                                                      storage_config)
         pdev = parted.getDevice(disk_block_path)
         pdisk = parted.newDisk(pdev)
         ppartitions = pdisk.partitions
+        # This is necessary because sometimes when a parted.Disk object is
+        # created and then closed without commit() being called the kernel
+        # seems to be unaware of the current partition table until something
+        # like mount is run. This seems like a bug either in parted or in udev,
+        # because the partition table has already been flushed to the kernel
+        # when the partitions were created, and nothing is being changed here,
+        # so the kernel should know about all the partitions already without
+        # commit() being called here. However, if this call is removed than
+        # sometimes mkfs will fail saying that a partition does not exist
+        pdisk.commit()
         try:
             volume_path = ppartitions[partnumber - 1].path
         except IndexError:
@@ -257,14 +273,15 @@ def partition_handler(info, storage_config):
         raise ValueError("device must be set for partition to be created")
     if not size:
         raise ValueError("size must be specified for partition to be created")
-    if not partnumber:
-        raise ValueError("partition number must be specified")
 
     # Find device to attach to in storage_config
     # TODO: find a more efficient way to do this
     disk = get_path_to_storage_volume(device, storage_config)
     pdev = parted.getDevice(disk)
     pdisk = parted.newDisk(pdev)
+
+    if not partnumber:
+        partnumber = len(pdisk.partitions) + 1
 
     # Offset is either 1 sector after last partition, or near the beginning if
     # this is the first partition
@@ -613,8 +630,8 @@ def meta_custom(args):
     # id, and this can become very inefficient as storage_config grows, a dict
     # will be generated with the id of each component of the storage_config as
     # its index and the component of storage_config as its value
-    storage_config_dict = dict((d["id"], d) for (i, d) in
-                               enumerate(storage_config))
+    storage_config_dict = OrderedDict((d["id"], d) for (i, d) in
+                                      enumerate(storage_config))
 
     for command in storage_config:
         handler = command_handlers.get(command['type'])
