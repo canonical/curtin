@@ -194,12 +194,31 @@ def disk_handler(info, storage_config):
 
     disk = get_path_to_storage_volume(info.get('id'), storage_config)
 
-    # Get device and disk using parted using appropriate partition table
-    pdev = parted.getDevice(disk)
-    pdisk = parted.freshDisk(pdev, ptable)
-    LOG.info("labeling device: '%s' with '%s' partition table", disk,
-             ptable)
-    pdisk.commit()
+    # Handle preserve flag
+    if info.get('preserve'):
+        try:
+            (out, _err) = util.subp(["blkid", "-o", "export", disk],
+                                    capture=True)
+        except util.ProcessExecutionError:
+            raise ValueError("disk '%s' has no readable partition table or \
+                cannot be accessed, but preserve is set to true, so cannot \
+                continue")
+        current_ptable = list(filter(lambda x: "PTTYPE" in x,
+                                     out.splitlines()))[0].split("=")[-1]
+        if current_ptable == "dos" and ptable != "msdos" or \
+                current_ptable == "gpt" and ptable != "gpt":
+            raise ValueError("disk '%s' does not have correct \
+                partition table, but preserve is set to true, so not \
+                creating table, so not creating table." % info.get('id'))
+        LOG.info("disk '%s' marked to be preserved, so keeping partition \
+                 table")
+    else:
+        # Get device and disk using parted using appropriate partition table
+        pdev = parted.getDevice(disk)
+        pdisk = parted.freshDisk(pdev, ptable)
+        LOG.info("labeling device: '%s' with '%s' partition table", disk,
+                 ptable)
+        pdisk.commit()
 
 
 def partition_handler(info, storage_config):
@@ -242,6 +261,22 @@ def partition_handler(info, storage_config):
         string.ascii_letters)), size.strip(string.digits),
         pdisk.device.sectorSize)
 
+    # Handle preserve flag
+    if info.get('preserve'):
+        partition = pdisk.getPartitionByPath(
+            get_path_to_storage_volume(info.get('id'), storage_config))
+        if partition.geometry.start != offset_sectors or \
+                partition.geometry.length != length_sectors:
+            raise ValueError("partition '%s' does not match what exists on \
+                disk, but preserve is set to true, bailing" % info.get('id'))
+        return
+    elif storage_config.get(device).get('preserve'):
+        raise NotImplementedError("Partition '%s' is not marked to be \
+            preserved, but device '%s' is. At this time, preserving devices \
+            but not also the partitions on the devices is not supported, \
+            because of the possibility of damaging partitions intended to be \
+            preserved." % (info.get('id'), device))
+
     # Make geometry and partition
     geometry = parted.Geometry(device=pdisk.device, start=offset_sectors,
                                length=length_sectors)
@@ -274,6 +309,11 @@ def format_handler(info, storage_config):
 
     # Get path to volume
     volume_path = get_path_to_storage_volume(volume, storage_config)
+
+    # Handle preserve flag
+    if info.get('preserve'):
+        # Volume marked to be preserved, not formatting
+        return
 
     # Generate mkfs command and run
     if fstype in ["ext4", "ext3"]:
