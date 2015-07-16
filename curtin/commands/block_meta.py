@@ -300,45 +300,13 @@ def partition_handler(info, storage_config):
 
 
 def format_handler(info, storage_config):
-    fstype = info.get('fstype')
-    volume = info.get('volume')
-    part_id = info.get('id')
-    if not volume:
-        raise ValueError("volume must be specified for partition '%s'" %
-                         info.get('id'))
-
-    # Get path to volume
-    volume_path = get_path_to_storage_volume(volume, storage_config)
-
     # Handle preserve flag
     if info.get('preserve'):
         # Volume marked to be preserved, not formatting
         return
 
-    # Generate mkfs command and run
-    if fstype in ["ext4", "ext3"]:
-        if len(part_id) > 16:
-            raise ValueError("ext3/4 partition labels cannot be longer than \
-                16 characters")
-        cmd = ['mkfs.%s' % fstype, '-q', '-L', part_id[:16], volume_path]
-    elif fstype in ["fat12", "fat16", "fat32", "fat"]:
-        cmd = ["mkfs.fat"]
-        fat_size = fstype.strip(string.ascii_letters)
-        if fat_size in ["12", "16", "32"]:
-            cmd.extend(["-F", fat_size])
-        if len(part_id) > 11:
-            raise ValueError("fat partition names cannot be longer than \
-                11 characters")
-        cmd.extend(["-n", part_id[:11], volume_path])
-    else:
-        # See if mkfs.<fstype> exists. If so try to run it.
-        try:
-            util.subp(["which", "mkfs.%s" % fstype])
-            cmd = ["mkfs.%s" % fstype, volume_path]
-        except util.ProcessExecutionError:
-            raise ValueError("fstype '%s' not supported" % fstype)
-    LOG.info("formatting volume '%s' with format '%s'" % (volume_path, fstype))
-    logtime(' '.join(cmd), util.subp, cmd)
+    cmd = ["curtin", "mkfs", info.get('id')]
+    util.subp(cmd, env=os.environ.copy())
 
 
 def mount_handler(info, storage_config):

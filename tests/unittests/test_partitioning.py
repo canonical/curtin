@@ -1,5 +1,6 @@
 from unittest import TestCase
 import mock
+import os
 import parted
 import curtin.commands.block_meta
 
@@ -106,30 +107,13 @@ class TestBlock(TestCase):
             curtin.commands.block_meta.partition_handler({},
                                                          self.storage_config)
 
-    @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
     @mock.patch("curtin.commands.block_meta.util")
-    def test_format_handler(self, mock_util, mock_get_path_to_storage_volume):
-        mock_get_path_to_storage_volume.return_value = "/dev/fake0"
-
+    def test_format_handler(self, mock_util):
         curtin.commands.block_meta.format_handler(
             self.storage_config.get("sda1_root"), self.storage_config)
 
-        mock_util.subp.assert_called_with(
-            ["mkfs.ext4", "-q", "-L", "sda1_root",
-             mock_get_path_to_storage_volume.return_value])
-
-        curtin.commands.block_meta.format_handler(
-            self.storage_config.get("sda2_home"), self.storage_config)
-
-        mock_util.subp.assert_called_with(
-            ["mkfs.fat", "-F", "32", "-n",
-             "sda2_home", mock_get_path_to_storage_volume.return_value])
-
-        curtin.commands.block_meta.format_handler(
-            {"type": "format", "fstype": "invalid", "volume": "fake",
-             "id": "fake1"}, self.storage_config)
-        args = mock_util.subp.call_args_list
-        self.assertTrue(mock.call(["which", "mkfs.invalid"]) in args)
+        mock_util.subp.assert_called_with(["curtin", "mkfs", "sda1_root"],
+                                          env=os.environ.copy())
 
     @mock.patch.object(builtins, "open")
     @mock.patch("curtin.commands.block_meta.block")
