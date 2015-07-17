@@ -133,7 +133,7 @@ class TestBlock(TestCase):
         self.assertTrue(mock_parted.newDisk.called)
         mock_parted.Geometry.assert_called_with(
             device=mock_parted.newDisk().device,
-            start=62,
+            start=2048,
             length=mock_parted.sizeToSectors.return_value)
         mock_parted.Partition().setFlag.assert_called_with(
             mock_parted.PARTITION_BOOT)

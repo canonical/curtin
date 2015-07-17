@@ -296,7 +296,7 @@ def partition_handler(info, storage_config):
                 (partnumber - 1, info.get('id')))
     else:
         if storage_config.get(device).get('ptable') == "msdos":
-            offset_sectors = 62
+            offset_sectors = 2048
         else:
             offset_sectors = parted.sizeToSectors(
                 16, 'KiB', pdisk.device.sectorSize) + 2
@@ -433,35 +433,76 @@ def mount_handler(info, storage_config):
 
 def lvm_volgroup_handler(info, storage_config):
     devices = info.get('devices')
+    device_paths = []
     if not devices:
         raise ValueError("devices for volgroup '%s' must be specified" %
                          info.get('id'))
 
-    cmd = ["vgcreate", info.get('id')]
     for device_id in devices:
         device = storage_config.get(device_id)
         if not device:
             raise ValueError("device '%s' could not be found in storage config"
                              % device_id)
-        device_path = get_path_to_storage_volume(device_id, storage_config)
+        device_paths.append(get_path_to_storage_volume(device_id,
+                            storage_config))
 
-        # Add device to command
-        cmd.append(device_path)
-
-    util.subp(cmd)
+    # Handle preserve flag
+    if info.get('preserve'):
+        # LVM will probably be offline, so start it
+        util.subp(["vgchange", "-a", "y"])
+        # Verify that volgroup exists and contains all specified devices
+        current_paths = []
+        (out, _err) = util.subp(["pvdisplay", "-C", "--separator", "=", "-o",
+                                "vg_name,pv_name", "--noheadings"],
+                                capture=True)
+        for line in out.splitlines():
+            if info.get('id') in line:
+                current_paths.append(line.split("=")[-1])
+        if set(current_paths) != set(device_paths):
+            raise ValueError("volgroup '%s' marked to be preserved, but does \
+                             not exist or does not contain the right physical \
+                             volumes" % info.get('id'))
+    else:
+        # Create vgrcreate command and run
+        cmd = ["vgcreate", info.get('id')]
+        cmd.extend(device_paths)
+        util.subp(cmd)
 
 
 def lvm_partition_handler(info, storage_config):
     volgroup = info.get('volgroup')
     if not volgroup:
         raise ValueError("lvm volgroup for lvm partition must be specified")
-    cmd = ["lvcreate", volgroup, "-n", info.get('id')]
-    if info.get('size'):
-        cmd.extend(["-L", info.get('size')])
-    else:
-        cmd.extend(["-l", "100%FREE"])
 
-    util.subp(cmd)
+    # Handle preserve flag
+    if info.get('preserve'):
+        (out, _err) = util.subp(["lvdisplay", "-C", "--separator", "=", "-o",
+                                "lv_name,vg_name", "--noheadings"],
+                                capture=True)
+        found = False
+        for line in out.splitlines():
+            if info.get('id') in line:
+                if volgroup == line.split("=")[-1]:
+                    found = True
+                    break
+        if not found:
+            raise ValueError("lvm partition '%s' marked to be preserved, but \
+                             does not exist or does not mach storage \
+                             configuration" % info.get('id'))
+    elif storage_config.get(volgroup).get('preserve'):
+        raise NotImplementedError("Lvm Partition '%s' is not marked to be \
+            preserved, but volgroup '%s' is. At this time, preserving \
+            volgroups but not also the lvm partitions on the volgroup is \
+            not supported, because of the possibility of damaging lvm \
+            partitions intended to be preserved." % (info.get('id'), volgroup))
+    else:
+        cmd = ["lvcreate", volgroup, "-n", info.get('id')]
+        if info.get('size'):
+            cmd.extend(["-L", info.get('size')])
+        else:
+            cmd.extend(["-l", "100%FREE"])
+
+        util.subp(cmd)
 
 
 def dm_crypt_handler(info, storage_config):
