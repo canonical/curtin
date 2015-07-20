@@ -2,8 +2,6 @@ from . import VMBaseClass
 from curtin import util
 from unittest import TestCase
 
-import parted
-
 
 class TestPartitioning(VMBaseClass, TestCase):
     boot_img = "./wily.img"

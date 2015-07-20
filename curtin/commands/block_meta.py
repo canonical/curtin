@@ -24,11 +24,18 @@ from . import populate_one_subcmd
 
 import glob
 import os
-import parted
 import platform
 import string
 import sys
 import tempfile
+
+# Sometimes when a seed is being generated to build an installer image parted
+# might not be available, so don't import it unless it is, and only fail if it
+# isn't available when it is actually being used
+try:
+    import parted
+except ImportError:
+    pass
 
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
@@ -646,6 +653,11 @@ def meta_custom(args):
     partitions on which disks to create. It also contains information about
     overlays (raid, lvm, bcache) which need to be setup.
     """
+
+    # make sure parted has been imported
+    if "parted" not in sys.modules:
+        raise ImportError("module parted is not available but is needed to \
+                          run meta_custom")
 
     command_handlers = {
         'disk': disk_handler,
