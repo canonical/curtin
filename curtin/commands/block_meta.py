@@ -159,16 +159,6 @@ def get_path_to_storage_volume(volume, storage_config):
         pdev = parted.getDevice(disk_block_path)
         pdisk = parted.newDisk(pdev)
         ppartitions = pdisk.partitions
-        # This is necessary because sometimes when a parted.Disk object is
-        # created and then closed without commit() being called the kernel
-        # seems to be unaware of the current partition table until something
-        # like mount is run. This seems like a bug either in parted or in udev,
-        # because the partition table has already been flushed to the kernel
-        # when the partitions were created, and nothing is being changed here,
-        # so the kernel should know about all the partitions already without
-        # commit() being called here. However, if this call is removed than
-        # sometimes mkfs will fail saying that a partition does not exist
-        pdisk.commit()
         try:
             volume_path = ppartitions[partnumber - 1].path
         except IndexError:
@@ -350,6 +340,11 @@ def partition_handler(info, storage_config):
     LOG.info("adding partition '%s' to disk '%s'" % (info.get('id'), device))
     pdisk.addPartition(partition, constraint)
     pdisk.commit()
+
+    # Run partprobe on the disk and then udevadm settle to make sure that the
+    # os knows about the new partition before trying to work with the partition
+    util.subp(['partprobe', disk])
+    util.subp(['udevadm', 'settle'])
 
 
 def format_handler(info, storage_config):
