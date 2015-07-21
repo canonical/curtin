@@ -115,11 +115,15 @@ class TestBlock(TestCase):
         mock_parted.freshDisk.assert_called_with(
             mock_parted.getDevice(), "msdos")
 
+    @mock.patch("curtin.commands.block_meta.time")
+    @mock.patch("curtin.commands.block_meta.os.path")
     @mock.patch("curtin.commands.block_meta.util")
     @mock.patch("curtin.commands.block_meta.parted")
     @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
     def test_partition_handler(self, mock_get_path_to_storage_volume,
-                               mock_parted, mock_util):
+                               mock_parted, mock_util, mock_path,
+                               mock_time):
+        mock_path.exists.return_value = True
         mock_get_path_to_storage_volume.return_value = "/dev/fake"
         mock_parted.sizeToSectors.return_value = parted.sizeToSectors(8, "GB",
                                                                       512)
@@ -140,6 +144,7 @@ class TestBlock(TestCase):
             mock_parted.PARTITION_BOOT)
         mock_util.subp.assert_called_with(
             ["partprobe", mock_get_path_to_storage_volume.return_value])
+        self.assertTrue(mock_path.exists.called)
 
         curtin.commands.block_meta.partition_handler(
             self.storage_config.get("sda2"), self.storage_config)

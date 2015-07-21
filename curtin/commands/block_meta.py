@@ -28,6 +28,7 @@ import platform
 import string
 import sys
 import tempfile
+import time
 
 # Sometimes when a seed is being generated to build an installer image parted
 # might not be available, so don't import it unless it is, and only fail if it
@@ -343,6 +344,17 @@ def partition_handler(info, storage_config):
 
     # Run partprobe on the disk to make sure the os knows about the changes
     util.subp(['partprobe', disk])
+
+    # Pause until the block device for this volume exists, or until 10
+    # seconds pass
+    for i in range(10):
+        time.sleep(1)
+        if os.path.exists(partition.path):
+            break
+    else:
+        raise OSError("The block device '%s' for volume '%s' took longer than \
+                      10 seconds to show up. This is probably a problem with \
+                      udev" % (partition.path, info.get('volume')))
 
 
 def format_handler(info, storage_config):
