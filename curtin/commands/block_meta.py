@@ -133,10 +133,23 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
     return "mbr"
 
 
+def devsync(devpath):
+    util.subp(['partprobe', devpath])
+    util.subp(['udevadm', 'settle'])
+    for x in range(0, 10):
+        if os.path.exists(devpath):
+            return
+        else:
+            LOG.debug('Waiting on device path: {}'.format(devpath))
+            time.sleep(1)
+    raise Exception('Failed to find device at path: {}'.format(devpath))
+
+
 def get_path_to_storage_volume(volume, storage_config):
     # Get path to block device for volume. Volume param should refer to id of
     # volume in storage config
 
+    devsync_vol = None
     vol = storage_config.get(volume)
     if not vol:
         raise ValueError("volume with id '%s' not found" % volume)
@@ -164,6 +177,7 @@ def get_path_to_storage_volume(volume, storage_config):
             volume_path = ppartitions[partnumber - 1].path
         except IndexError:
             raise ValueError("partition '%s' does not exist" % vol.get('id'))
+        devsync_vol = disk_block_path
 
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
@@ -218,8 +232,10 @@ def get_path_to_storage_volume(volume, storage_config):
         raise NotImplementedError("cannot determine the path to storage \
             volume '%s' with type '%s'" % (volume, vol.get('type')))
 
-    if not os.path.exists(volume_path):
-        raise ValueError("path to storage volume '%s' does not exist" % volume)
+    # sync devices
+    if not devsync_vol:
+        devsync_vol = volume_path
+    devsync(devsync_vol)
 
     return volume_path
 
@@ -345,17 +361,6 @@ def partition_handler(info, storage_config):
 
     # Run partprobe on the disk to make sure the os knows about the changes
     util.subp(['partprobe', disk])
-
-    # Pause until the block device for this volume exists, or until 10
-    # seconds pass
-    for i in range(10):
-        time.sleep(1)
-        if os.path.exists(partition.path):
-            break
-    else:
-        raise OSError("The block device '%s' for volume '%s' took longer than \
-                      10 seconds to show up. This is probably a problem with \
-                      udev" % (partition.path, info.get('volume')))
 
 
 def format_handler(info, storage_config):
