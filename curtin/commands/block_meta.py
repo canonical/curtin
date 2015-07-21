@@ -329,7 +329,8 @@ def partition_handler(info, storage_config):
     # Set flag
     flags = {"boot": parted.PARTITION_BOOT,
              "lvm": parted.PARTITION_LVM,
-             "raid": parted.PARTITION_RAID}
+             "raid": parted.PARTITION_RAID,
+             "bios_grub": parted.PARTITION_BIOS_GRUB}
 
     if flag:
         if flag in flags:
