@@ -27,6 +27,7 @@ import parted
 import platform
 import string
 import sys
+import time
 
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
@@ -124,10 +125,23 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
     return "mbr"
 
 
+def devsync(devpath):
+    util.subp(['partprobe', devpath])
+    util.subp(['udevadm', 'settle'])
+    for x in range(0, 10):
+        if os.path.exists(devpath):
+            return
+        else:
+            LOG.debug('Waiting on device path: {}'.format(devpath))
+            time.sleep(1)
+    raise Exception('Failed to find device at path: {}'.format(devpath))
+
+
 def get_path_to_storage_volume(volume, storage_config):
     # Get path to block device for volume. Volume param should refer to id of
     # volume in storage config
 
+    devsync_vol = None
     vol = storage_config.get(volume)
     if not vol:
         raise ValueError("volume with id '%s' not found" % volume)
@@ -151,20 +165,11 @@ def get_path_to_storage_volume(volume, storage_config):
         pdev = parted.getDevice(disk_block_path)
         pdisk = parted.newDisk(pdev)
         ppartitions = pdisk.partitions
-        # This is necessary because sometimes when a parted.Disk object is
-        # created and then closed without commit() being called the kernel
-        # seems to be unaware of the current partition table until something
-        # like mount is run. This seems like a bug either in parted or in udev,
-        # because the partition table has already been flushed to the kernel
-        # when the partitions were created, and nothing is being changed here,
-        # so the kernel should know about all the partitions already without
-        # commit() being called here. However, if this call is removed than
-        # sometimes mkfs will fail saying that a partition does not exist
-        pdisk.commit()
         try:
             volume_path = ppartitions[partnumber - 1].path
         except IndexError:
             raise ValueError("partition '%s' does not exist" % vol.get('id'))
+        devsync_vol = disk_block_path
 
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
@@ -181,8 +186,10 @@ def get_path_to_storage_volume(volume, storage_config):
         raise NotImplementedError("cannot determine the path to storage \
             volume '%s' with type '%s'" % (volume, vol.get('type')))
 
-    if not os.path.exists(volume_path):
-        raise ValueError("path to storage volume '%s' does not exist" % volume)
+    # sync devices
+    if not devsync_vol:
+        devsync_vol = volume_path
+    devsync(devsync_vol)
 
     return volume_path
 
@@ -285,7 +292,8 @@ def partition_handler(info, storage_config):
     constraint = parted.Constraint(exactGeom=partition.geometry)
 
     # Set flag
-    flags = {"boot": parted.PARTITION_BOOT}
+    flags = {"boot": parted.PARTITION_BOOT,
+             "bios_grub": parted.PARTITION_BIOS_GRUB}
 
     if flag:
         if flag in flags:
@@ -376,8 +384,8 @@ def meta_custom(args):
     # id, and this can become very inefficient as storage_config grows, a dict
     # will be generated with the id of each component of the storage_config as
     # its index and the component of storage_config as its value
-    storage_config_dict = dict((d["id"], d) for (i, d) in
-                               enumerate(storage_config))
+    storage_config_dict = OrderedDict((d["id"], d) for (i, d) in
+                                      enumerate(storage_config))
 
     for command in storage_config:
         handler = command_handlers.get(command['type'])

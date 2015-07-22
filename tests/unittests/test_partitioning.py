@@ -33,31 +33,27 @@ class TestBlock(TestCase):
                        "device": "sda2_home"},
     }
 
-    @mock.patch("curtin.commands.block_meta.os.path.exists")
+    @mock.patch("curtin.commands.block_meta.devsync")
     @mock.patch("curtin.commands.block_meta.block")
     @mock.patch("curtin.commands.block_meta.parted")
     def test_get_path_to_storage_volume(self, mock_parted, mock_block,
-                                        mock_exists):
-        mock_exists.return_value = True
-
+                                        mock_devsync):
         # Test disk
         mock_block.lookup_disk.side_effect = \
             lambda x: "/dev/fake/serial-%s" % x
         path = curtin.commands.block_meta.get_path_to_storage_volume(
             "sda", self.storage_config)
         self.assertTrue(path == "/dev/fake/serial-DISK_1")
+        mock_devsync.assert_called_with("/dev/fake/serial-DISK_1")
 
         # Test partition
         path = curtin.commands.block_meta.get_path_to_storage_volume(
             "sda1", self.storage_config)
         mock_parted.getDevice.assert_called_with("/dev/fake/serial-DISK_1")
         self.assertTrue(mock_parted.newDisk.called)
+        mock_devsync.assert_called_with("/dev/fake/serial-DISK_1")
 
         # Test errors
-        mock_exists.return_value = False
-        with self.assertRaises(ValueError):
-            curtin.commands.block_meta.get_path_to_storage_volume(
-                "sda1", self.storage_config)
         with self.assertRaises(NotImplementedError):
             curtin.commands.block_meta.get_path_to_storage_volume(
                 "fake0", self.storage_config)
