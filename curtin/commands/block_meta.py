@@ -359,9 +359,6 @@ def partition_handler(info, storage_config):
     pdisk.addPartition(partition, constraint)
     pdisk.commit()
 
-    # Run partprobe on the disk to make sure the os knows about the changes
-    util.subp(['partprobe', disk])
-
 
 def format_handler(info, storage_config):
     fstype = info.get('fstype')
@@ -702,9 +699,6 @@ def meta_custom(args):
         if not handler:
             raise ValueError("unknown command type '%s'" % command['type'])
         handler(command, storage_config_dict)
-        # Before running next command, make sure that udev does not have any
-        # pending operations
-        util.subp(['udevadm', 'settle'])
 
     return 0
 
