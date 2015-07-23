@@ -391,6 +391,8 @@ def format_handler(info, storage_config):
             raise ValueError("fat partition names cannot be longer than \
                 11 characters")
         cmd.extend(["-n", part_id, volume_path])
+    elif fstype == "swap":
+        cmd = ["mkswap", volume_path]
     else:
         # See if mkfs.<fstype> exists. If so try to run it.
         try:
@@ -405,25 +407,26 @@ def format_handler(info, storage_config):
 def mount_handler(info, storage_config):
     state = util.load_command_environment()
     path = info.get('path')
-    if not path:
-        raise ValueError("path to mountpoint must be specified")
     filesystem = storage_config.get(info.get('device'))
+    if not path and filesystem.get('fstype') != "swap":
+        raise ValueError("path to mountpoint must be specified")
     volume = storage_config.get(filesystem.get('volume'))
 
     # Get path to volume
     volume_path = get_path_to_storage_volume(filesystem.get('volume'),
                                              storage_config)
 
-    # Figure out what point should be
-    while len(path) > 0 and path[0] == "/":
-        path = path[1:]
-    mount_point = os.path.join(state['target'], path)
+    if filesystem.get('fstype') != "swap":
+        # Figure out what point should be
+        while len(path) > 0 and path[0] == "/":
+            path = path[1:]
+        mount_point = os.path.join(state['target'], path)
 
-    # Create mount point if does not exist
-    util.ensure_dir(mount_point)
+        # Create mount point if does not exist
+        util.ensure_dir(mount_point)
 
-    # Mount volume
-    util.subp(['mount', volume_path, mount_point])
+        # Mount volume
+        util.subp(['mount', volume_path, mount_point])
 
     # Add volume to fstab
     if state['fstab']:
@@ -436,12 +439,18 @@ def mount_handler(info, storage_config):
             else:
                 raise ValueError("cannot write fstab for volume type '%s'" %
                                  volume.get("type"))
+
+            if filesystem.get('fstype') == "swap":
+                path = "none"
+            else:
+                path = "/%s" % path
+
             if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32",
                                             "fat64"]:
                 fstype = "vfat"
             else:
                 fstype = filesystem.get('fstype')
-            fp.write("%s /%s %s defaults 0 0\n" % (location, path, fstype))
+            fp.write("%s %s %s defaults 0 0\n" % (location, path, fstype))
     else:
         LOG.info("fstab not in environment, so not writing")
 
