@@ -18,9 +18,10 @@
 import curtin.config
 from curtin.log import LOG
 from curtin import util
-
 from . import populate_one_subcmd
 from curtin.commands.block_meta import get_path_to_storage_volume
+
+from collections import OrderedDict
 
 import os
 import string
@@ -94,7 +95,7 @@ def mkfs(args):
             curtin.config.merge_config_fp(cfg, open(filename))
 
     if "storage" in cfg:
-        storage_config = dict((d["id"], d) for (i, d) in
+        storage_config = OrderedDict((d["id"], d) for (i, d) in
                               enumerate(cfg.get("storage")))
     else:
         storage_config = {}
