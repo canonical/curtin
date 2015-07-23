@@ -442,15 +442,17 @@ def mount_handler(info, storage_config):
 
             if filesystem.get('fstype') == "swap":
                 path = "none"
+                options = "sw"
             else:
                 path = "/%s" % path
+                options = "defaults"
 
             if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32",
                                             "fat64"]:
                 fstype = "vfat"
             else:
                 fstype = filesystem.get('fstype')
-            fp.write("%s %s %s defaults 0 0\n" % (location, path, fstype))
+            fp.write("%s %s %s %s 0 0\n" % (location, path, fstype, options))
     else:
         LOG.info("fstab not in environment, so not writing")
 
