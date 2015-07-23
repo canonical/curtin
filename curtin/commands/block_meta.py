@@ -289,7 +289,6 @@ def partition_handler(info, storage_config):
         raise ValueError("size must be specified for partition to be created")
 
     # Find device to attach to in storage_config
-    # TODO: find a more efficient way to do this
     disk = get_path_to_storage_volume(device, storage_config)
     pdev = parted.getDevice(disk)
     pdisk = parted.newDisk(pdev)
@@ -302,12 +301,18 @@ def partition_handler(info, storage_config):
     if partnumber > 1:
         ppartitions = pdisk.partitions
         try:
-            offset_sectors = ppartitions[partnumber - 2].geometry.end + 1
+            previous_partition = ppartitions[partnumber - 2]
         except IndexError:
             raise ValueError(
                 "partition numbered '%s' does not exist, so cannot create \
                 '%s'. Make sure partitions are in order in config." %
                 (partnumber - 1, info.get('id')))
+        if previous_partition.type == parted.PARTITION_EXTENDED:
+            offset_sectors = previous_partition.geometry.start + 1
+        elif previous_partition.type == parted.PARTITION_LOGICAL:
+            offset_sectors = previous_partition.geometry.end + 2
+        else:
+            offset_sectors = previous_partition.geometry.end + 1
     else:
         if storage_config.get(device).get('ptable') == "msdos":
             offset_sectors = 2048
@@ -335,10 +340,18 @@ def partition_handler(info, storage_config):
             because of the possibility of damaging partitions intended to be \
             preserved." % (info.get('id'), device))
 
+    # Figure out partition type
+    if flag == "extended":
+        partition_type = parted.PARTITION_EXTENDED
+    elif flag == "logical":
+        partition_type = parted.PARTITION_LOGICAL
+    else:
+        partition_type = parted.PARTITION_NORMAL
+
     # Make geometry and partition
     geometry = parted.Geometry(device=pdisk.device, start=offset_sectors,
                                length=length_sectors)
-    partition = parted.Partition(disk=pdisk, type=parted.PARTITION_NORMAL,
+    partition = parted.Partition(disk=pdisk, type=partition_type,
                                  geometry=geometry)
     constraint = parted.Constraint(exactGeom=partition.geometry)
 
@@ -351,7 +364,7 @@ def partition_handler(info, storage_config):
     if flag:
         if flag in flags:
             partition.setFlag(flags[flag])
-        else:
+        elif flag not in ["extended", "logical"]:
             raise ValueError("invalid partition flag '%s'" % flag)
 
     # Add partition to disk and commit changes
