@@ -282,6 +282,21 @@ def setup_grub(cfg, target):
     if 'grub_install_devices' in cfg and 'install_devices' not in grubcfg:
         grubcfg['install_devices'] = cfg['grub_install_devices']
 
+    if 'storage' in cfg:
+        storage_grub_devices = []
+        for item in cfg['storage']:
+            if item.get('grub_device'):
+                if item.get('serial'):
+                    storage_grub_devices.append(
+                        block.lookup_disk(item.get('serial')))
+                elif item.get('path'):
+                    storage_grub_devices.append(item.get('path'))
+                else:
+                    raise ValueError("setup_grub cannot find path to disk \
+                        '%s'" % item.get('id'))
+        if len(storage_grub_devices) > 0:
+            grubcfg['install_devices'] = storage_grub_devices
+
     if 'install_devices' in grubcfg:
         instdevs = grubcfg.get('install_devices')
         if isinstance(instdevs, str):
