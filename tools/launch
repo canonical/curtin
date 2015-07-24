@@ -25,6 +25,7 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
            --mem    K   memory in Kb
       -n | --netdev     netdev can be 'user' or a bridge
       -p | --publish F  make file 'F' available in web server
+           --silent     use -vga none
       -v | --verbose    be more verbose
 
    use of --kernel/--initrd will seed cloud-init via cmdline
@@ -102,7 +103,7 @@ EOF
 
 main() {
 	local short_opts="a:d:h:i:k:n:p:v"
-	local long_opts="add:,append:,disk:,help,initrd:,kernel:,mem:,netdev:,power:,publish:,uefi,verbose"
+	local long_opts="add:,append:,disk:,help,initrd:,kernel:,mem:,netdev:,power:,publish:,silent,uefi,verbose"
 	local getopt_out=""
 	getopt_out=$(getopt --name "${0##*/}" \
 		--options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -117,6 +118,7 @@ main() {
 	local pubs="" disks="" pstate="null"
 	local uefi=0
     local netdevs=""
+	local video="-curses"
 	pubs=( )
 	disks=( )
 	addfiles=( )
@@ -143,6 +145,7 @@ main() {
             -n|--netdev) netdevs[${#netdevs[@]}]="$next"; shift;;
 			-p|--publish) pubs[${#pub[@]}]="$next"; shift;;
 			   --uefi) uefi=1;;
+               --silent) video="-nographic";;
 			-v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
 			--) shift; break;;
 		esac
@@ -160,7 +163,6 @@ main() {
 	trap cleanup EXIT
 
 	local bios_opts=""
-	local video="-curses"
 
 	bios_opts=( )
 	if [ $uefi -eq 1 ]; then
