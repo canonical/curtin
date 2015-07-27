@@ -3,7 +3,7 @@ storage:
     type: disk
     ptable: msdos
     model: QEMU HARDDISK
-    path: /dev/vdc
+    path: /dev/vdb
   - id: sda1
     type: partition
     number: 1
