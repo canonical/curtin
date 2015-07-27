@@ -5,7 +5,7 @@ import tempfile
 import shutil
 import subprocess
 
-IMAGE_DIR = "/srv/images/code/curtin-vm-test"
+IMAGE_DIR = "/home/magicanus/code/curtin-vm-test"
 
 
 class ImageStore:
@@ -133,12 +133,13 @@ class VMBaseClass:
         if os.path.exists("./serial.log"):
             os.remove("./serial.log")
 
-
-def source_data(data):
-    ret = {}
-    for line in data.splitlines():
-        if line == "":
-            continue
-        val = line.split('=')
-        ret[val[0]] = val[1]
-    return ret
+    def get_blkid_data(self, blkid_file):
+        with open(os.path.join(self.td.mnt, blkid_file)) as fp:
+            data = fp.read()
+        ret = {}
+        for line in data.splitlines():
+            if line == "":
+                continue
+            val = line.split('=')
+            ret[val[0]] = val[1]
+        return ret
