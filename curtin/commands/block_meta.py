@@ -243,13 +243,16 @@ def get_path_to_storage_volume(volume, storage_config):
 def disk_handler(info, storage_config):
     serial = info.get('serial')
     ptable = info.get('ptable')
-    if not ptable:
-        ptable = "msdos"
 
     disk = get_path_to_storage_volume(info.get('id'), storage_config)
 
     # Handle preserve flag
     if info.get('preserve'):
+        if not ptable:
+            # Don't need to check state, return
+            return
+
+        # Check state of current ptable
         try:
             (out, _err) = util.subp(["blkid", "-o", "export", disk],
                                     capture=True)
@@ -269,7 +272,24 @@ def disk_handler(info, storage_config):
                 creating table, so not creating table." % serial)
         LOG.info("disk '%s' marked to be preserved, so keeping partition \
                  table")
-    else:
+        return
+
+    # Wipe the disk
+    if info.get('wipe') and info.get('wipe') != "none":
+        if info.get('wipe') == "table":
+            cmd = ["sgdisk", "--zap-all", disk]
+        elif info.get('wipe') == "full":
+            cmd = ["dd", "bs=512", "if=/dev/zero", "of=%s" % disk]
+        elif info.get('wipe') == "random":
+            cmd = ["dd", "bs=512", "if=/dev/urandom", "of=%s" % disk]
+        elif info.get('wipe'):
+            raise ValueError("wipe mode %s not supported" % info.get('wipe'))
+        # Dd commands will likely exit with 1 when they run out of space. This
+        # is expected and not an issue
+        util.subp(cmd, rcs=[0, 1])
+
+    # Create partition table on disk
+    if info.get('ptable'):
         # Get device and disk using parted using appropriate partition table
         pdev = parted.getDevice(disk)
         pdisk = parted.freshDisk(pdev, ptable)
