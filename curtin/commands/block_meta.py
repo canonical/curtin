@@ -133,6 +133,22 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
     return "mbr"
 
 
+def wipe_volume(path, wipe_type):
+        if wipe_type == "pvremove":
+            cmd = ["pvremove", "--yes", path]
+        elif wipe_type == "zero":
+            cmd = ["dd", "bs=512", "if=/dev/zero", "of=%s" % path]
+        elif wipe_type == "random":
+            cmd = ["dd", "bs=512", "if=/dev/urandom", "of=%s" % path]
+        elif: wipe_type == "superblock":
+            cmd = ["sgdisk", "--zap-all", path]
+        else:
+            raise ValueError("wipe mode %s not supported" % wipe_type)
+        # Dd commands will likely exit with 1 when they run out of space. This
+        # is expected and not an issue
+        util.subp(cmd, rcs=[0, 1])
+
+
 def devsync(devpath):
     util.subp(['partprobe', devpath])
     util.subp(['udevadm', 'settle'])
@@ -272,17 +288,7 @@ def disk_handler(info, storage_config):
 
     # Wipe the disk
     if info.get('wipe') and info.get('wipe') != "none":
-        if info.get('wipe') == "superblock":
-            cmd = ["sgdisk", "--zap-all", disk]
-        elif info.get('wipe') == "zero":
-            cmd = ["dd", "bs=512", "if=/dev/zero", "of=%s" % disk]
-        elif info.get('wipe') == "random":
-            cmd = ["dd", "bs=512", "if=/dev/urandom", "of=%s" % disk]
-        elif info.get('wipe'):
-            raise ValueError("wipe mode %s not supported" % info.get('wipe'))
-        # Dd commands will likely exit with 1 when they run out of space. This
-        # is expected and not an issue
-        util.subp(cmd, rcs=[0, 1])
+        wipe_volume(disk, info.get('wipe'))
 
     # Create partition table on disk
     if info.get('ptable'):
@@ -356,6 +362,11 @@ def partition_handler(info, storage_config):
             because of the possibility of damaging partitions intended to be \
             preserved." % (info.get('id'), device))
 
+    # Wipe the partition if told to do so
+    if info.get('wipe') and info.get('wipe') != "none":
+        wipe_volume(ppartitions[partnumber - 1].path, info.get('wipe'))
+
+
     # Figure out partition type
     if flag == "extended":
         partition_type = parted.PARTITION_EXTENDED
@@ -392,7 +403,9 @@ def partition_handler(info, storage_config):
 def format_handler(info, storage_config):
     fstype = info.get('fstype')
     volume = info.get('volume')
-    part_id = info.get('id')
+    part_label = info.get('label')
+    if not part_label:
+        part_label = info.get('id')[:11]
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
                          info.get('id'))
@@ -407,19 +420,19 @@ def format_handler(info, storage_config):
 
     # Generate mkfs command and run
     if fstype in ["ext4", "ext3"]:
-        if len(part_id) > 16:
+        if len(part_label) > 16:
             raise ValueError("ext3/4 partition labels cannot be longer than \
                 16 characters")
-        cmd = ['mkfs.%s' % fstype, '-q', '-L', part_id, volume_path]
+        cmd = ['mkfs.%s' % fstype, '-q', '-L', part_label, volume_path]
     elif fstype in ["fat12", "fat16", "fat32", "fat"]:
         cmd = ["mkfs.fat"]
         fat_size = fstype.strip(string.ascii_letters)
         if fat_size in ["12", "16", "32"]:
             cmd.extend(["-F", fat_size])
-        if len(part_id) > 11:
+        if len(part_label) > 11:
             raise ValueError("fat partition names cannot be longer than \
                 11 characters")
-        cmd.extend(["-n", part_id, volume_path])
+        cmd.extend(["-n", part_label, volume_path])
     elif fstype == "swap":
         cmd = ["mkswap", volume_path]
     else:
