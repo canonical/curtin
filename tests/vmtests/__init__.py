@@ -102,8 +102,8 @@ class VMBaseClass:
         # create launch cmd
         cmd = ["tools/launch"]
         if not self.interactive:
-            cmd.append("--silent")
-        cmd.extend(["--power=off", "--netdev=user", "-d", self.td.target_disk,
+            cmd.extend(["--silent", "--power=off"])
+        cmd.extend(["--netdev=user", "-d", self.td.target_disk,
                    boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                    boot_initrd, "--", "curtin", "install", "--config=%s" %
                    self.conf_file, "cp:///"])
