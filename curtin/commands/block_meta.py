@@ -276,9 +276,9 @@ def disk_handler(info, storage_config):
 
     # Wipe the disk
     if info.get('wipe') and info.get('wipe') != "none":
-        if info.get('wipe') == "table":
+        if info.get('wipe') == "superblock":
             cmd = ["sgdisk", "--zap-all", disk]
-        elif info.get('wipe') == "full":
+        elif info.get('wipe') == "zero":
             cmd = ["dd", "bs=512", "if=/dev/zero", "of=%s" % disk]
         elif info.get('wipe') == "random":
             cmd = ["dd", "bs=512", "if=/dev/urandom", "of=%s" % disk]
