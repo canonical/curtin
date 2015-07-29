@@ -241,7 +241,6 @@ def get_path_to_storage_volume(volume, storage_config):
 
 
 def disk_handler(info, storage_config):
-    serial = info.get('serial')
     ptable = info.get('ptable')
 
     disk = get_path_to_storage_volume(info.get('id'), storage_config)
@@ -262,14 +261,11 @@ def disk_handler(info, storage_config):
                 continue")
         current_ptable = list(filter(lambda x: "PTTYPE" in x,
                                      out.splitlines()))[0].split("=")[-1]
-        if current_ptable == "dos" and ptable != "msdos":
-            raise ValueError("disk with serial '%s' does not have correct \
+        if current_ptable == "dos" and ptable != "msdos" or \
+                current_ptable == "gpt" and ptable != "gpt":
+            raise ValueError("disk '%s' does not have correct \
                 partition table, but preserve is set to true, so not \
-                creating table, so not creating table." % serial)
-        elif current_ptable == "gpt" and ptable != "gpt":
-            raise ValueError("disk with serial '%s' does not have correct \
-                partition table, but preserve is set to true, so not \
-                creating table, so not creating table." % serial)
+                creating table, so not creating table." % info.get('id'))
         LOG.info("disk '%s' marked to be preserved, so keeping partition \
                  table")
         return
@@ -668,6 +664,11 @@ def raid_handler(info, storage_config):
         LOG.info("fstab configuration is not present in the environment, so \
             cannot locate an appropriate directory to write mdadm.conf in, \
             so not writing mdadm.conf")
+
+    # If ptable is specified, call disk_handler on this mdadm device to create
+    # the table
+    if info.get('ptable'):
+        disk_handler(info, storage_config)
 
 
 def bcache_handler(info, storage_config):
