@@ -140,7 +140,7 @@ def wipe_volume(path, wipe_type):
             cmd = ["dd", "bs=512", "if=/dev/zero", "of=%s" % path]
         elif wipe_type == "random":
             cmd = ["dd", "bs=512", "if=/dev/urandom", "of=%s" % path]
-        elif: wipe_type == "superblock":
+        elif wipe_type == "superblock":
             cmd = ["sgdisk", "--zap-all", path]
         else:
             raise ValueError("wipe mode %s not supported" % wipe_type)
@@ -365,7 +365,6 @@ def partition_handler(info, storage_config):
     # Wipe the partition if told to do so
     if info.get('wipe') and info.get('wipe') != "none":
         wipe_volume(ppartitions[partnumber - 1].path, info.get('wipe'))
-
 
     # Figure out partition type
     if flag == "extended":
