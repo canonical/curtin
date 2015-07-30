@@ -539,6 +539,10 @@ def curthooks(args):
         copy_mdadm_conf(mdadm_location, target)
         update_initramfs(target)
 
+    # if lvm2 is installed, we need it in our hooks
+    if util.has_package_installed("lvm2", target):
+        update_initramfs(target)
+
     # As a rule, ARMv7 systems don't use grub. This may change some
     # day, but for now, assume no. They do require the initramfs
     # to be updated, and this also triggers boot loader setup via
