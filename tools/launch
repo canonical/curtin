@@ -158,11 +158,15 @@ main() {
 
 	bios_opts=( )
 	if [ $uefi -eq 1 ]; then
-		[ -f "/usr/share/ovmf/OVMF.fd" ] ||
-			{ error "install ovmf package"; return 1; }
-		mkdir "${TEMP_D}/bios"
-		cp "/usr/share/ovmf/OVMF.fd" "${TEMP_D}/bios/bios.bin"
-		bios_opts=( -L "${TEMP_D}/bios/" )
+		local ovmf_bios="/usr/share/qemu/OVMF.fd"
+		[ -f "$ovmf_bios" ] || {
+			error "no --uefi requires ovmf bios: apt-get install ovmf"
+			return 1;
+		}
+		bios_opts=( -bios "$ovmf_bios" )
+		# this is here because in this bios, it goes into graphics mode
+		# rendering the display on curses mode useless.  Would be nice
+		# if we could find a fix.
 		video=""
 	fi
 
