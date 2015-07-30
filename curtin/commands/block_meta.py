@@ -149,6 +149,7 @@ def wipe_volume(path, wipe_type):
         cmds.append(["dd", "bs=512", "if=/dev/urandom", "of=%s" % path])
     elif wipe_type == "superblock":
         cmds.append(["sgdisk", "--zap-all", path])
+        cmds.append(["wipefs", "-a", path])
     else:
         raise ValueError("wipe mode %s not supported" % wipe_type)
     # Dd commands will likely exit with 1 when they run out of space. This
@@ -156,7 +157,7 @@ def wipe_volume(path, wipe_type):
     # the system, then it exits with 5. That is also okay, because we might be
     # wiping something that is already blank
     for cmd in cmds:
-        util.subp(cmd, rcs=[0, 1, 5], capture=True)
+        util.subp(cmd, rcs=[0, 1, 2, 5], capture=True)
 
 
 def devsync(devpath):
