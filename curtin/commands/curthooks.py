@@ -497,7 +497,7 @@ def install_missing_storage_packages(cfg, target):
         )
     needed_packages = []
     installed_packages = get_installed_packages(target)
-    if (('lvm_volgroup' in all_types or 'lvm_partition' in all_types) and
+    if ('lvm_volgroup' in all_types or 'lvm_partition' in all_types) and \
             'lvm2' not in installed_packages:
         needed_packages.append('lvm2')
     if 'raid' in all_types and 'mdadm' not in installed_packages:
