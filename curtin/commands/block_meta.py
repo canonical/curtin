@@ -320,8 +320,8 @@ def disk_handler(info, storage_config):
                 wipe_volume(partition, "pvremove")
             # Shut down bcache if any of the partitions contain bcache
             # superblocks
+            uuids = []
             for partition in partitions:
-                uuids = []
                 try:
                     (out, _err) = util.subp(["bcache-super-show", partition],
                                             capture=True)
@@ -334,7 +334,9 @@ def disk_handler(info, storage_config):
                     # unregister its bcache device
                     for line in out.splitlines():
                         if "cset.uuid" in line:
-                            uuids.append(line.rsplit()[-1])
+                            uuid = line.rsplit()[-1]
+                            if uuid not in uuids:
+                                uuids.append(uuid)
             if len(uuids) > 0:
                 for uuid in uuids:
                     with open(os.path.join("/sys/fs/bcache", uuid, "stop"), "w") \
