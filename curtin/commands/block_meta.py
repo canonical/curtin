@@ -154,7 +154,7 @@ def wipe_volume(path, wipe_type):
     # the system, then it exits with 5. That is also okay, because we might be
     # wiping something that is already blank
     for cmd in cmds:
-        util.subp(cmd, rcs=[0, 1, 5])
+        util.subp(cmd, rcs=[0, 1, 5], capture=True)
 
 
 def devsync(devpath):
@@ -312,7 +312,7 @@ def disk_handler(info, storage_config):
                     line.split('=')[0] not in volgroups:
                 volgroups.append(line.split('=')[0].lstrip())
         if len(volgroups) > 0:
-            util.subp(["vgremove", "--force"] + volgroups)
+            util.subp(["vgremove", "--force"] + volgroups, capture=True)
         for partition in partitions:
             wipe_volume(partition, "pvremove")
         wipe_volume(disk, info.get('wipe'))
@@ -564,8 +564,6 @@ def lvm_volgroup_handler(info, storage_config):
                              not exist or does not contain the right physical \
                              volumes" % info.get('id'))
     else:
-        # Nuke it all, don't care if it fails
-        util.subp(["vgremove", "--force", name], rcs=[0, 5])
         # Create vgrcreate command and run
         cmd = ["vgcreate", name]
         cmd.extend(device_paths)
