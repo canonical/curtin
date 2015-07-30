@@ -429,7 +429,7 @@ def partition_handler(info, storage_config):
 def format_handler(info, storage_config):
     fstype = info.get('fstype')
     volume = info.get('volume')
-    part_label = info.get('label')
+    part_label = info.get('name')
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
                          info.get('id'))
