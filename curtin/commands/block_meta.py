@@ -42,6 +42,8 @@ SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
 
+CUSTOM_REQUIRED_PACKAGES = ['mdadm', 'lvm2', 'bcache-tools']
+
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
       {'help': 'which devices to operate on', 'action': 'append',
@@ -447,8 +449,9 @@ def format_handler(info, storage_config):
         cmd = ['mkfs.%s' % fstype, '-q']
         if part_label:
             if len(part_label) > 16:
-                raise ValueError("ext3/4 partition labels cannot be longer than \
-                    16 characters")
+                raise ValueError(
+                    "ext3/4 partition labels cannot be longer than "
+                    "16 characters")
             else:
                 cmd.extend(["-L", part_label])
         cmd.append(volume_path)
@@ -459,8 +462,9 @@ def format_handler(info, storage_config):
             cmd.extend(["-F", fat_size])
             if part_label:
                 if len(part_label) > 11:
-                    raise ValueError("fat partition names cannot be longer than \
-                        11 characters")
+                    raise ValueError(
+                        "fat partition names cannot be longer than "
+                        "11 characters")
                 cmd.extend(["-n", part_label])
         cmd.append(volume_path)
     elif fstype == "swap":
@@ -749,6 +753,19 @@ def bcache_handler(info, storage_config):
         fp.close()
 
 
+def install_missing_packages_for_meta_custom():
+    """Install all the missing package that `meta_custom` requires to
+    function properly."""
+    missing_packages = [
+        package
+        for package in CUSTOM_REQUIRED_PACKAGES
+        if not util.has_pkg_installed(package)
+    ]
+    if len(missing_packages) > 0:
+        util.apt_update()
+        util.install_packages(missing_packages)
+
+
 def meta_custom(args):
     """Does custom partitioning based on the layout provided in the config
     file. Section with the name storage contains information on which
@@ -780,6 +797,9 @@ def meta_custom(args):
     if not storage_config:
         raise Exception("storage configuration is required by mode '%s' "
                         "but not provided in the config file" % CUSTOM)
+
+    # make sure the required packages are installed
+    install_missing_packages_for_meta_custom()
 
     # Since storage config will often have to be searched for a value by its
     # id, and this can become very inefficient as storage_config grows, a dict

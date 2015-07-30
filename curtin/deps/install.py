@@ -40,9 +40,9 @@ def runcmd(cmd, retries=[]):
 
 if __name__ == '__main__':
     if sys.version_info[0] == 2:
-        pkgs = ['python-yaml']
+        pkgs = ['python-yaml', 'python-parted']
     else:
-        pkgs = ['python3-yaml']
+        pkgs = ['python3-yaml', 'python3-parted']
 
     ret = runcmd(['apt-get', '--quiet', 'update'], retries=[2, 4])
     if ret != 0:
