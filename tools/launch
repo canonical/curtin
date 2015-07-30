@@ -80,8 +80,6 @@ write_userdata() {
   content: |
    #http_proxy: http://my-proxy:3129/
    password: passw0rd
-   packages:
-    - python3-parted
    chpasswd: { expire: False }
    output: {all: '| tee -a /var/log/cloud-init-output.log'}
 EOF

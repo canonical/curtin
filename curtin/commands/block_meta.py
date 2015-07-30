@@ -168,7 +168,7 @@ def devsync(devpath):
         else:
             LOG.debug('Waiting on device path: {}'.format(devpath))
             time.sleep(1)
-    raise Exception('Failed to find device at path: {}'.format(devpath))
+    raise OSError('Failed to find device at path: {}'.format(devpath))
 
 
 def get_path_to_storage_volume(volume, storage_config):
@@ -431,7 +431,7 @@ def partition_handler(info, storage_config):
 def format_handler(info, storage_config):
     fstype = info.get('fstype')
     volume = info.get('volume')
-    part_label = info.get('name')
+    part_label = info.get('label')
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
                          info.get('id'))
@@ -742,15 +742,17 @@ def bcache_handler(info, storage_config):
     # bcache will do this automatically.
     util.subp(["make-bcache", "-B", backing_device, "-C", cache_device])
 
-    # Bcache only registers devices on its own when running udev rules at boot,
-    # so it is necessary to manually register the devices here to create the
-    # bcache block device that will be formatted and mounted while the
-    # installer is running. After each path is written, the fp needs to be
-    # closed and reopened, otherwise an os error will be thrown
-    for path in [backing_device, cache_device]:
-        fp = open("/sys/fs/bcache/register", "w")
-        fp.write(path)
-        fp.close()
+    # Some versions of bcache-tools will register the bcache device as soon as
+    # we run make-bcache, on older versions we need to register it manually
+    # though
+    try:
+        get_path_to_storage_volume(info.get('id'), storage_config)
+    except OSError:
+        # Register
+        for path in [backing_device, cache_device]:
+            fp = open("/sys/fs/bcache/register", "w")
+            fp.write(path)
+            fp.close()
 
 
 def install_missing_packages_for_meta_custom():
@@ -812,7 +814,12 @@ def meta_custom(args):
         handler = command_handlers.get(command['type'])
         if not handler:
             raise ValueError("unknown command type '%s'" % command['type'])
-        handler(command, storage_config_dict)
+        try:
+            handler(command, storage_config_dict)
+        except Exception as error:
+            LOG.error("An error occured handling '%s': %s" %
+                      (command.get('id'), error))
+            raise
 
     return 0
 

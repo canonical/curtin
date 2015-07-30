@@ -35,7 +35,7 @@ class TestBlock(TestCase):
                 ["sdx1", "sdy1"], "spare_devices": ["sdz1"]},
         "fake0": {"id": "fake0", "type": "faketype"},
         "sda1_root": {"id": "sda1_root", "type": "format", "fstype": "ext4",
-                      "volume": "sda1", "name": "root_part"},
+                      "volume": "sda1", "label": "root_part"},
         "sda2_home": {"id": "sda2_home", "type": "format", "fstype": "fat32",
                       "volume": "sda2"},
         "raid_format": {"id": "raid_format", "type": "format", "fstype":
@@ -311,7 +311,8 @@ class TestBlock(TestCase):
     def test_bcache_handler(self, mock_util, mock_get_path_to_storage_volume,
                             mock_open):
         mock_get_path_to_storage_volume.side_effect = ["/dev/fake0",
-                                                       "/dev/fake1"]
+                                                       "/dev/fake1",
+                                                       "/dev/fake0"]
 
         curtin.commands.block_meta.bcache_handler(
             self.storage_config.get("bcache0"), self.storage_config)
@@ -320,7 +321,5 @@ class TestBlock(TestCase):
         self.assertTrue(mock.call(["modprobe", "bcache"]) == calls[0])
         self.assertTrue(mock.call(["make-bcache", "-B", "/dev/fake0", "-C",
                         "/dev/fake1"]) == calls[1])
-
-        mock_open.assert_called_with("/sys/fs/bcache/register", "w")
 
 # vi: ts=4 expandtab syntax=python
