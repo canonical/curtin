@@ -134,19 +134,27 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
 
 
 def wipe_volume(path, wipe_type):
-        if wipe_type == "pvremove":
-            cmd = ["pvremove", "--yes", path]
-        elif wipe_type == "zero":
-            cmd = ["dd", "bs=512", "if=/dev/zero", "of=%s" % path]
-        elif wipe_type == "random":
-            cmd = ["dd", "bs=512", "if=/dev/urandom", "of=%s" % path]
-        elif wipe_type == "superblock":
-            cmd = ["sgdisk", "--zap-all", path]
-        else:
-            raise ValueError("wipe mode %s not supported" % wipe_type)
-        # Dd commands will likely exit with 1 when they run out of space. This
-        # is expected and not an issue
-        util.subp(cmd, rcs=[0, 1])
+    cmds = []
+    if wipe_type == "pvremove":
+        # We need to use --force --force in case it's already in a volgroup and
+        # pvremove doesn't want to remove it
+        cmds.append(["pvremove", "--force", "--force", "--yes", path])
+        cmds.append(["pvscan", "--cache"])
+        cmds.append(["vgscan", "--mknodes", "--cache"])
+    elif wipe_type == "zero":
+        cmds.append(["dd", "bs=512", "if=/dev/zero", "of=%s" % path])
+    elif wipe_type == "random":
+        cmds.append(["dd", "bs=512", "if=/dev/urandom", "of=%s" % path])
+    elif wipe_type == "superblock":
+        cmds.append(["sgdisk", "--zap-all", path])
+    else:
+        raise ValueError("wipe mode %s not supported" % wipe_type)
+    # Dd commands will likely exit with 1 when they run out of space. This
+    # is expected and not an issue. If pvremove is run and there is no label on
+    # the system, then it exits with 5. That is also okay, because we might be
+    # wiping something that is already blank
+    for cmd in cmds:
+        util.subp(cmd, rcs=[0, 1, 5])
 
 
 def devsync(devpath):
@@ -214,8 +222,8 @@ def get_path_to_storage_volume(volume, storage_config):
         if not volgroup:
             raise ValueError("lvm volume group '%s' could not be found"
                              % vol.get('volgroup'))
-        volume_path = os.path.join("/dev/", volgroup.get('id'),
-                                   vol.get('id'))
+        volume_path = os.path.join("/dev/", volgroup.get('name'),
+                                   vol.get('name'))
 
     elif vol.get('type') == "dm_crypt":
         # For dm_crypted partitions, unencrypted block device is at
@@ -288,6 +296,25 @@ def disk_handler(info, storage_config):
 
     # Wipe the disk
     if info.get('wipe') and info.get('wipe') != "none":
+        # Shut down any volgroups, destroy all physical volumes
+        volgroups = []
+        pdev = parted.getDevice(disk)
+        pdisk = parted.newDisk(pdev)
+        partitions = list(partition.path for partition in pdisk.partitions)
+        # We don't want to keep pdisk around if we're creating a new partition
+        # table
+        del(pdisk)
+        (out, _err) = util.subp(["pvdisplay", "-C", "--separator", "=", "-o",
+                                "vg_name,pv_name", "--noheadings"],
+                                capture=True)
+        for line in out.splitlines():
+            if line.split('=')[-1] in partitions and \
+                    line.split('=')[0] not in volgroups:
+                volgroups.append(line.split('=')[0].lstrip())
+        if len(volgroups) > 0:
+            util.subp(["vgremove", "--force"] + volgroups)
+        for partition in partitions:
+            wipe_volume(partition, "pvremove")
         wipe_volume(disk, info.get('wipe'))
 
     # Create partition table on disk
@@ -362,10 +389,6 @@ def partition_handler(info, storage_config):
             because of the possibility of damaging partitions intended to be \
             preserved." % (info.get('id'), device))
 
-    # Wipe the partition if told to do so
-    if info.get('wipe') and info.get('wipe') != "none":
-        wipe_volume(ppartitions[partnumber - 1].path, info.get('wipe'))
-
     # Figure out partition type
     if flag == "extended":
         partition_type = parted.PARTITION_EXTENDED
@@ -398,13 +421,15 @@ def partition_handler(info, storage_config):
     pdisk.addPartition(partition, constraint)
     pdisk.commit()
 
+    # Wipe the partition if told to do so
+    if info.get('wipe') and info.get('wipe') != "none":
+        wipe_volume(pdisk.partitions[partnumber - 1].path, info.get('wipe'))
+
 
 def format_handler(info, storage_config):
     fstype = info.get('fstype')
     volume = info.get('volume')
     part_label = info.get('label')
-    if not part_label:
-        part_label = info.get('id')[:11]
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
                          info.get('id'))
@@ -419,19 +444,25 @@ def format_handler(info, storage_config):
 
     # Generate mkfs command and run
     if fstype in ["ext4", "ext3"]:
-        if len(part_label) > 16:
-            raise ValueError("ext3/4 partition labels cannot be longer than \
-                16 characters")
-        cmd = ['mkfs.%s' % fstype, '-q', '-L', part_label, volume_path]
+        cmd = ['mkfs.%s' % fstype, '-q']
+        if part_label:
+            if len(part_label) > 16:
+                raise ValueError("ext3/4 partition labels cannot be longer than \
+                    16 characters")
+            else:
+                cmd.extend(["-L", part_label])
+        cmd.append(volume_path)
     elif fstype in ["fat12", "fat16", "fat32", "fat"]:
         cmd = ["mkfs.fat"]
         fat_size = fstype.strip(string.ascii_letters)
         if fat_size in ["12", "16", "32"]:
             cmd.extend(["-F", fat_size])
-        if len(part_label) > 11:
-            raise ValueError("fat partition names cannot be longer than \
-                11 characters")
-        cmd.extend(["-n", part_label, volume_path])
+            if part_label:
+                if len(part_label) > 11:
+                    raise ValueError("fat partition names cannot be longer than \
+                        11 characters")
+                cmd.extend(["-n", part_label])
+        cmd.append(volume_path)
     elif fstype == "swap":
         cmd = ["mkswap", volume_path]
     else:
@@ -501,9 +532,12 @@ def mount_handler(info, storage_config):
 def lvm_volgroup_handler(info, storage_config):
     devices = info.get('devices')
     device_paths = []
+    name = info.get('name')
     if not devices:
         raise ValueError("devices for volgroup '%s' must be specified" %
                          info.get('id'))
+    if not name:
+        raise ValueError("name for volgroups needs to be specified")
 
     for device_id in devices:
         device = storage_config.get(device_id)
@@ -523,23 +557,28 @@ def lvm_volgroup_handler(info, storage_config):
                                 "vg_name,pv_name", "--noheadings"],
                                 capture=True)
         for line in out.splitlines():
-            if info.get('id') in line:
+            if name in line:
                 current_paths.append(line.split("=")[-1])
         if set(current_paths) != set(device_paths):
             raise ValueError("volgroup '%s' marked to be preserved, but does \
                              not exist or does not contain the right physical \
                              volumes" % info.get('id'))
     else:
+        # Nuke it all, don't care if it fails
+        util.subp(["vgremove", "--force", name], rcs=[0, 5])
         # Create vgrcreate command and run
-        cmd = ["vgcreate", info.get('id')]
+        cmd = ["vgcreate", name]
         cmd.extend(device_paths)
         util.subp(cmd)
 
 
 def lvm_partition_handler(info, storage_config):
-    volgroup = info.get('volgroup')
+    volgroup = storage_config.get(info.get('volgroup')).get('name')
+    name = info.get('name')
     if not volgroup:
         raise ValueError("lvm volgroup for lvm partition must be specified")
+    if not name:
+        raise ValueError("lvm partition name must be specified")
 
     # Handle preserve flag
     if info.get('preserve'):
@@ -548,7 +587,7 @@ def lvm_partition_handler(info, storage_config):
                                 capture=True)
         found = False
         for line in out.splitlines():
-            if info.get('id') in line:
+            if name in line:
                 if volgroup == line.split("=")[-1]:
                     found = True
                     break
@@ -556,14 +595,14 @@ def lvm_partition_handler(info, storage_config):
             raise ValueError("lvm partition '%s' marked to be preserved, but \
                              does not exist or does not mach storage \
                              configuration" % info.get('id'))
-    elif storage_config.get(volgroup).get('preserve'):
+    elif storage_config.get(info.get('volgroup')).get('preserve'):
         raise NotImplementedError("Lvm Partition '%s' is not marked to be \
             preserved, but volgroup '%s' is. At this time, preserving \
             volgroups but not also the lvm partitions on the volgroup is \
             not supported, because of the possibility of damaging lvm \
             partitions intended to be preserved." % (info.get('id'), volgroup))
     else:
-        cmd = ["lvcreate", volgroup, "-n", info.get('id')]
+        cmd = ["lvcreate", volgroup, "-n", name]
         if info.get('size'):
             cmd.extend(["-L", info.get('size')])
         else:
