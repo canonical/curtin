@@ -22,11 +22,11 @@ class TestBlock(TestCase):
         "sda3": {"id": "sda3", "type": "partition", "number": 3,
                  "size": "2GB", "device": "sda"},
         "volgroup1": {"id": "volgroup1", "type": "lvm_volgroup", "devices":
-                      ["sda3"]},
+                      ["sda3"], "name": "lvm_vg1"},
         "lvm_part1": {"id": "lvm_part1", "type": "lvm_partition", "volgroup":
-                      "volgroup1", "size": "1G"},
+                      "volgroup1", "size": "1G", "name": "lvm_p1"},
         "lvm_part2": {"id": "lvm_part2", "type": "lvm_partition", "volgroup":
-                      "volgroup1"},
+                      "volgroup1", "name": "lvm_p2"},
         "bcache0": {"id": "bcache0", "type": "bcache", "backing_device":
                     "lvm_part1", "cache_device": "sdc1"},
         "crypt0": {"id": "crypt0", "type": "dm_crypt", "volume": "sdb1", "key":
@@ -35,7 +35,7 @@ class TestBlock(TestCase):
                 ["sdx1", "sdy1"], "spare_devices": ["sdz1"]},
         "fake0": {"id": "fake0", "type": "faketype"},
         "sda1_root": {"id": "sda1_root", "type": "format", "fstype": "ext4",
-                      "volume": "sda1"},
+                      "volume": "sda1", "name": "root_part"},
         "sda2_home": {"id": "sda2_home", "type": "format", "fstype": "fat32",
                       "volume": "sda2"},
         "raid_format": {"id": "raid_format", "type": "format", "fstype":
@@ -59,7 +59,7 @@ class TestBlock(TestCase):
             lambda x: "/dev/fake/serial-%s" % x
         path = curtin.commands.block_meta.get_path_to_storage_volume(
             "sda", self.storage_config)
-        self.assertTrue(path == "/dev/fake/serial-DISK_1")
+        self.assertEqual(path, "/dev/fake/serial-DISK_1")
         mock_devsync.assert_called_with("/dev/fake/serial-DISK_1")
 
         # Test partition
@@ -72,27 +72,27 @@ class TestBlock(TestCase):
         # Test lvm partition
         path = curtin.commands.block_meta.get_path_to_storage_volume(
             "lvm_part1", self.storage_config)
-        self.assertTrue(path == "/dev/volgroup1/lvm_part1")
-        mock_devsync.assert_called_with("/dev/volgroup1/lvm_part1")
+        self.assertEqual(path, "/dev/lvm_vg1/lvm_p1")
+        mock_devsync.assert_called_with("/dev/lvm_vg1/lvm_p1")
 
         # Test dmcrypt
         path = curtin.commands.block_meta.get_path_to_storage_volume(
             "crypt0", self.storage_config)
-        self.assertTrue(path == "/dev/mapper/crypt0")
+        self.assertEqual(path, "/dev/mapper/crypt0")
         mock_devsync.assert_called_with("/dev/mapper/crypt0")
 
         # Test raid
         path = curtin.commands.block_meta.get_path_to_storage_volume(
             "md0", self.storage_config)
-        self.assertTrue(path == "/dev/md0")
+        self.assertEqual(path, "/dev/md0")
         mock_devsync.assert_called_with("/dev/md0")
 
         # Test bcache
         mock_glob.glob.return_value = ["/sys/block/bcache1/slaves/hd0",
-                                       "/sys/block/bcache0/slaves/lvm_part1"]
+                                       "/sys/block/bcache0/slaves/lvm_p1"]
         path = curtin.commands.block_meta.get_path_to_storage_volume(
             "bcache0", self.storage_config)
-        self.assertTrue(path == "/dev/bcache0")
+        self.assertEqual(path, "/dev/bcache0")
 
         with self.assertRaises(NotImplementedError):
             curtin.commands.block_meta.get_path_to_storage_volume(
@@ -157,15 +157,15 @@ class TestBlock(TestCase):
             self.storage_config.get("sda1_root"), self.storage_config)
 
         mock_util.subp.assert_called_with(
-            ["mkfs.ext4", "-q", "-L", "sda1_root",
+            ["mkfs.ext4", "-q", "-L", "root_part",
              mock_get_path_to_storage_volume.return_value])
 
         curtin.commands.block_meta.format_handler(
             self.storage_config.get("sda2_home"), self.storage_config)
 
         mock_util.subp.assert_called_with(
-            ["mkfs.fat", "-F", "32", "-n",
-             "sda2_home", mock_get_path_to_storage_volume.return_value])
+            ["mkfs.fat", "-F", "32",
+             mock_get_path_to_storage_volume.return_value])
 
         curtin.commands.block_meta.format_handler(
             {"type": "format", "fstype": "invalid", "volume": "fake",
@@ -217,22 +217,22 @@ class TestBlock(TestCase):
             self.storage_config.get("volgroup1"), self.storage_config)
 
         mock_util.subp.assert_called_with(
-            ["vgcreate", "volgroup1",
+            ["vgcreate", "lvm_vg1",
              mock_get_path_to_storage_volume.return_value])
 
     @mock.patch("curtin.commands.block_meta.util")
     def test_lvm_partition_handler(self, mock_util):
-        base_cmd = ["lvcreate", "volgroup1", "-n"]
+        base_cmd = ["lvcreate", "lvm_vg1", "-n"]
 
         curtin.commands.block_meta.lvm_partition_handler(
             self.storage_config.get("lvm_part1"), self.storage_config)
 
-        mock_util.subp.assert_called_with(base_cmd + ["lvm_part1", "-L", "1G"])
+        mock_util.subp.assert_called_with(base_cmd + ["lvm_p1", "-L", "1G"])
 
         curtin.commands.block_meta.lvm_partition_handler(
             self.storage_config.get("lvm_part2"), self.storage_config)
 
-        mock_util.subp.assert_called_with(base_cmd + ["lvm_part2", "-l",
+        mock_util.subp.assert_called_with(base_cmd + ["lvm_p2", "-l",
                                           "100%FREE"])
 
     @mock.patch("curtin.commands.block_meta.block")
