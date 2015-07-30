@@ -346,6 +346,26 @@ def disk_handler(info, storage_config):
                 for partition in partitions:
                     wipe_volume(partition, "superblock")
                 util.subp(["modprobe", "bcache"])
+            # Stop any mdadm devices, we need to partprobe first to make sure
+            # mdadm knows about them
+            mdadm_arrays = []
+            util.subp(["partprobe", disk])
+            (out, _err) = util.subp(["mdadm", "--detail", "--scan"],
+                                    capture=True)
+            for line in out.splitlines():
+                if "ARRAY" in line:
+                    mdadm_array = line.rsplit()[1]
+                    if mdadm_array not in mdadm_arrays:
+                        mdadm_arrays.append(mdadm_array)
+            for mdadm_array in mdadm_arrays:
+                # Get actual path to blockdev, not the link mdadm gives us
+                mdadm_array_path = os.path.realpath(mdadm_array)
+                # if these fail its okay, we might not have a running md dev
+                # and thats fine
+                util.subp(["mdadm", "--stop", mdadm_array_path], rcs=[0, 1])
+                util.subp(["mdadm", "--remove", mdadm_array_path], rcs=[0, 1])
+            for partition in partitions:
+                wipe_volume(partition, "superblock")
 
         except (parted.DiskLabelException, parted.DiskException):
             # We might be trying to wipe a disk that doesn't have anything on
