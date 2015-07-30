@@ -486,6 +486,28 @@ def detect_and_handle_multipath(cfg, target):
     update_initramfs(target)
 
 
+def install_missing_storage_packages(cfg, target):
+    # Do nothing if no custom storage.
+    if 'storage' not in cfg:
+        return
+
+    all_types = set(
+        operation['type']
+        for operation in cfg['storage']
+        )
+    needed_packages = []
+    installed_packages = get_installed_packages(target)
+    if (('lvm_volgroup' in all_types or 'lvm_partition' in all_types) and
+            'lvm2' not in installed_packages:
+        needed_packages.append('lvm2')
+    if 'raid' in all_types and 'mdadm' not in installed_packages:
+        needed_packages.append('mdadm')
+    if 'bcache' in all_types and 'bcache-tools' not in installed_packages:
+        needed_packages.append('bcache-tools')
+    if needed_packages:
+        util.install_packages(needed_packages, target=target)
+
+
 def curthooks(args):
     state = util.load_command_environment()
 
@@ -520,6 +542,8 @@ def curthooks(args):
     copy_fstab(state.get('fstab'), target)
 
     detect_and_handle_multipath(cfg, target)
+
+    install_missing_storage_packages(cfg, target)
 
     # If a crypttab file was created by block_meta than it needs to be copied
     # onto the target system, and update_initramfs() needs to be run, so that
