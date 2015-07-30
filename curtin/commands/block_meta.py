@@ -649,10 +649,9 @@ def lvm_partition_handler(info, storage_config):
 
         util.subp(cmd)
 
-    # If ptable is specified, call disk_handler on this lv device to create
-    # the table
     if info.get('ptable'):
-        disk_handler(info, storage_config)
+        raise ValueError("Partition tables on top of lvm logical volumes is \
+                         not supported")
 
 
 def dm_crypt_handler(info, storage_config):
@@ -795,6 +794,10 @@ def bcache_handler(info, storage_config):
             fp = open("/sys/fs/bcache/register", "w")
             fp.write(path)
             fp.close()
+
+    if info.get('ptable'):
+        raise ValueError("Partition tables on top of lvm logical volumes is \
+                         not supported")
 
 
 def install_missing_packages_for_meta_custom():
