@@ -449,8 +449,9 @@ def format_handler(info, storage_config):
         cmd = ['mkfs.%s' % fstype, '-q']
         if part_label:
             if len(part_label) > 16:
-                raise ValueError("ext3/4 partition labels cannot be longer than \
-                    16 characters")
+                raise ValueError(
+                    "ext3/4 partition labels cannot be longer than "
+                    "16 characters")
             else:
                 cmd.extend(["-L", part_label])
         cmd.append(volume_path)
@@ -461,8 +462,9 @@ def format_handler(info, storage_config):
             cmd.extend(["-F", fat_size])
             if part_label:
                 if len(part_label) > 11:
-                    raise ValueError("fat partition names cannot be longer than \
-                        11 characters")
+                    raise ValueError(
+                        "fat partition names cannot be longer than "
+                        "11 characters")
                 cmd.extend(["-n", part_label])
         cmd.append(volume_path)
     elif fstype == "swap":
