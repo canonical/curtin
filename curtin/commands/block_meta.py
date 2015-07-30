@@ -298,25 +298,59 @@ def disk_handler(info, storage_config):
 
     # Wipe the disk
     if info.get('wipe') and info.get('wipe') != "none":
-        # Shut down any volgroups, destroy all physical volumes
-        volgroups = []
-        pdev = parted.getDevice(disk)
-        pdisk = parted.newDisk(pdev)
-        partitions = list(partition.path for partition in pdisk.partitions)
-        # We don't want to keep pdisk around if we're creating a new partition
-        # table
-        del(pdisk)
-        (out, _err) = util.subp(["pvdisplay", "-C", "--separator", "=", "-o",
-                                "vg_name,pv_name", "--noheadings"],
-                                capture=True)
-        for line in out.splitlines():
-            if line.split('=')[-1] in partitions and \
-                    line.split('=')[0] not in volgroups:
-                volgroups.append(line.split('=')[0].lstrip())
-        if len(volgroups) > 0:
-            util.subp(["vgremove", "--force"] + volgroups, capture=True)
-        for partition in partitions:
-            wipe_volume(partition, "pvremove")
+        try:
+            # Shut down any volgroups, destroy all physical volumes
+            volgroups = []
+            pdev = parted.getDevice(disk)
+            pdisk = parted.newDisk(pdev)
+            partitions = list(partition.path for partition in pdisk.partitions)
+            # We don't want to keep pdisk around if we're creating a new
+            # partition table
+            del(pdisk)
+            (out, _err) = util.subp(["pvdisplay", "-C", "--separator", "=",
+                                     "-o", "vg_name,pv_name", "--noheadings"],
+                                    capture=True)
+            for line in out.splitlines():
+                if line.split('=')[-1] in partitions and \
+                        line.split('=')[0] not in volgroups:
+                    volgroups.append(line.split('=')[0].lstrip())
+            if len(volgroups) > 0:
+                util.subp(["vgremove", "--force"] + volgroups, capture=True)
+            for partition in partitions:
+                wipe_volume(partition, "pvremove")
+            # Shut down bcache if any of the partitions contain bcache
+            # superblocks
+            for partition in partitions:
+                uuids = []
+                try:
+                    (out, _err) = util.subp(["bcache-super-show", partition],
+                                            capture=True)
+                except util.ProcessExecutionError:
+                    # bcache-super-show will fail if there is no valid bcache
+                    # superblock
+                    pass
+                else:
+                    # We found a valid bcache superblock on this disk,
+                    # unregister its bcache device
+                    for line in out.splitlines():
+                        if "cset.uuid" in line:
+                            uuids.append(line.rsplit()[-1])
+            if len(uuids) > 0:
+                for uuid in uuids:
+                    with open(os.path.join("/sys/fs/bcache", uuid, "stop"), "w") \
+                            as fp:
+                        fp.write("1")
+                util.subp(["modprobe", "-r", "bcache"])
+                for partition in partitions:
+                    wipe_volume(partition, "superblock")
+                util.subp(["modprobe", "bcache"])
+
+        except (parted.DiskLabelException, parted.DiskException):
+            # We might be trying to wipe a disk that doesn't have anything on
+            # it. If that's the case, there's no reason to fail, just keep
+            # going
+            pass
+
         wipe_volume(disk, info.get('wipe'))
 
     # Create partition table on disk
@@ -817,8 +851,8 @@ def meta_custom(args):
         try:
             handler(command, storage_config_dict)
         except Exception as error:
-            LOG.error("An error occured handling '%s': %s" %
-                      (command.get('id'), error))
+            LOG.error("An error occured handling '%s': %s - %s" %
+                      (command.get('id'), type(error).__name__, error))
             raise
 
     return 0
