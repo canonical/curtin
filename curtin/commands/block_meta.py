@@ -339,13 +339,28 @@ def disk_handler(info, storage_config):
                                 uuids.append(uuid)
             if len(uuids) > 0:
                 for uuid in uuids:
-                    with open(os.path.join("/sys/fs/bcache", uuid, "stop"), "w") \
-                            as fp:
+                    with open(os.path.join("/sys/fs/bcache", uuid, "stop"),
+                              "w") as fp:
                         fp.write("1")
                 util.subp(["modprobe", "-r", "bcache"])
                 for partition in partitions:
                     wipe_volume(partition, "superblock")
                 util.subp(["modprobe", "bcache"])
+            # Stop any mdadm devices, we need to partprobe first to make sure
+            # mdadm knows about them
+            mdadm_arrays = []
+            util.subp(["partprobe", disk])
+            (out, _err) = util.subp(["mdadm", "--detail", "--scan"])
+            for line in out.splitlines():
+                if "ARRAY" in line:
+                    mdadm_array = line.rsplit()[1]
+                    if mdadm_array not in mdadm_arrays:
+                        mdadm_arrays.append(mdadm_array)
+            for mdadm_array in mdadm_arrays:
+                util.subp(["mdadm", "--stop", mdadm_array])
+                util.subp(["mdadm", "--remove", mdadm_array])
+            for partition in partitions:
+                wipe_volume(partition, "superblock")
 
         except (parted.DiskLabelException, parted.DiskException):
             # We might be trying to wipe a disk that doesn't have anything on
