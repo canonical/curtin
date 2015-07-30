@@ -444,7 +444,8 @@ def partition_handler(info, storage_config):
     flags = {"boot": parted.PARTITION_BOOT,
              "lvm": parted.PARTITION_LVM,
              "raid": parted.PARTITION_RAID,
-             "bios_grub": parted.PARTITION_BIOS_GRUB}
+             "bios_grub": parted.PARTITION_BIOS_GRUB,
+             "prep": parted.PARTITION_PREP}
 
     if flag:
         if flag in flags:
@@ -645,6 +646,11 @@ def lvm_partition_handler(info, storage_config):
             cmd.extend(["-l", "100%FREE"])
 
         util.subp(cmd)
+
+    # If ptable is specified, call disk_handler on this lv device to create
+    # the table
+    if info.get('ptable'):
+        disk_handler(info, storage_config)
 
 
 def dm_crypt_handler(info, storage_config):
