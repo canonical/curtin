@@ -156,7 +156,7 @@ def wipe_volume(path, wipe_type):
     # the system, then it exits with 5. That is also okay, because we might be
     # wiping something that is already blank
     for cmd in cmds:
-        util.subp(cmd, rcs=[0, 1, 5], capture=True)
+        util.subp(cmd, rcs=[0, 1, 2, 5], capture=True)
 
 
 def devsync(devpath):
