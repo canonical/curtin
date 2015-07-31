@@ -489,6 +489,7 @@ def format_handler(info, storage_config):
     fstype = info.get('fstype')
     volume = info.get('volume')
     part_label = info.get('label')
+    uuid = info.get('uuid')
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
                          info.get('id'))
@@ -511,18 +512,20 @@ def format_handler(info, storage_config):
                     "16 characters")
             else:
                 cmd.extend(["-L", part_label])
+        if uuid:
+            cmd.extend(["-U", uuid])
         cmd.append(volume_path)
     elif fstype in ["fat12", "fat16", "fat32", "fat"]:
         cmd = ["mkfs.fat"]
         fat_size = fstype.strip(string.ascii_letters)
         if fat_size in ["12", "16", "32"]:
             cmd.extend(["-F", fat_size])
-            if part_label:
-                if len(part_label) > 11:
-                    raise ValueError(
-                        "fat partition names cannot be longer than "
-                        "11 characters")
-                cmd.extend(["-n", part_label])
+        if part_label:
+            if len(part_label) > 11:
+                raise ValueError(
+                    "fat partition names cannot be longer than "
+                    "11 characters")
+            cmd.extend(["-n", part_label])
         cmd.append(volume_path)
     elif fstype == "swap":
         cmd = ["mkswap", volume_path]
