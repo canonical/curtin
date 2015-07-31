@@ -804,11 +804,13 @@ def bcache_handler(info, storage_config):
     util.subp(["make-bcache", "-B", backing_device, "-C", cache_device])
 
     # Some versions of bcache-tools will register the bcache device as soon as
-    # we run make-bcache, on older versions we need to register it manually
+    # we run make-bcache using udev rules, so wait for udev to settle, then try
+    # to locate the dev, on older versions we need to register it manually
     # though
     try:
+        util.subp(["udevadm", "settle"])
         get_path_to_storage_volume(info.get('id'), storage_config)
-    except OSError:
+    except (OSError, IndexError):
         # Register
         for path in [backing_device, cache_device]:
             fp = open("/sys/fs/bcache/register", "w")
