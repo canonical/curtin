@@ -998,6 +998,13 @@ def meta_simple(args):
 
     if bootdev_ptnum:
         bootdev = "%s%s%s" % (devnode, ptpre, bootdev_ptnum)
+
+    if ptfmt == "uefi":
+        # assumed / required from the partitioner pt_uefi
+        uefi_ptnum = "15"
+        uefi_label = "uefi-boot"
+        uefi_dev = "%s%s%s" % (devnode, ptpre, uefi_ptnum)
+
     rootdev = "%s%s%s" % (devnode, ptpre, rootdev_ptnum)
 
     LOG.debug("rootdev=%s bootdev=%s fmt=%s bootpt=%s",
@@ -1018,11 +1025,22 @@ def meta_simple(args):
         logtime(' '.join(cmd), util.subp, cmd)
         util.subp(['mount', bootdev, boot_dir])
 
+    if ptfmt == "uefi":
+        uefi_dir = os.path.join(state['target'], 'boot', 'efi')
+        util.ensure_dir(uefi_dir)
+        util.subp(['mount', uefi_dev, uefi_dir])
+
     if state['fstab']:
         with open(state['fstab'], "w") as fp:
             if bootpt['enabled']:
                 fp.write("LABEL=%s /boot %s defaults 0 0\n" %
                          (bootpt['label'], bootpt['fstype']))
+
+            if ptfmt == "uefi":
+                # label created in helpers/partition for uefi
+                fp.write("LABEL=%s /boot/efi vfat defaults 0 0\n" %
+                         uefi_label)
+
             fp.write("LABEL=%s / %s defaults 0 0\n" %
                      ('cloudimg-rootfs', args.fstype))
     else:
