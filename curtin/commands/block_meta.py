@@ -159,6 +159,78 @@ def wipe_volume(path, wipe_type):
         util.subp(cmd, rcs=[0, 1, 2, 5], capture=True)
 
 
+def clear_holders(sys_block_path):
+    holders = os.listdir(os.path.join(sys_block_path, "holders"))
+    LOG.info("clear_holders running on '%s', with holders '%s'" %
+             (sys_block_path, holders))
+    for holder in holders:
+        # get path to holder in /sys/block, then clear it
+        try:
+            holder_realpath = os.path.realpath(
+                os.path.join(sys_block_path, "holders", holder))
+            clear_holders(holder_realpath)
+        except FileNotFoundError:
+            # something might have already caused the holder to go away
+            pass
+
+    # detect what type of holder is using this volume and shut it down, need to
+    # find more robust name of doing detection
+    if "bcache" in sys_block_path:
+        # bcache device
+        part_devs = []
+        for part_dev in glob.glob(os.path.join(sys_block_path,
+                                               "slaves", "*", "dev")):
+            with open(part_dev, "r") as fp:
+                part_dev_id = fp.read().rstrip()
+                part_devs.append(
+                    os.path.split(os.path.realpath(os.path.join("/dev/block",
+                                  part_dev_id)))[-1])
+        for cache_dev in glob.glob("/sys/fs/bcache/*/bdev*"):
+            for part_dev in part_devs:
+                if part_dev in os.path.realpath(cache_dev):
+                    # This is our bcache device, stop it, wait for udev to
+                    # settle
+                    with open(os.path.join(os.path.split(cache_dev)[0],
+                              "stop"), "w") as fp:
+                        LOG.info("stopping: %s" % fp)
+                        fp.write("1")
+                        util.subp(["udevadm", "settle"])
+                    break
+        for part_dev in part_devs:
+            wipe_volume(os.path.join("/dev", part_dev), "superblock")
+
+    if os.path.exists(os.path.join(sys_block_path, "bcache")):
+        # bcache device that isn't running, if it were, we would have found it
+        # when we looked for holders
+        try:
+            with open(os.path.join(sys_block_path, "bcache", "set", "stop"),
+                      "w") as fp:
+                LOG.info("stopping: %s" % fp)
+                fp.write("1")
+        except FileNotFoundError:
+            with open(os.path.join(sys_block_path, "bcache", "stop"),
+                      "w") as fp:
+                LOG.info("stopping: %s" % fp)
+                fp.write("1")
+        util.subp(["udevadm", "settle"])
+
+    if os.path.exists(os.path.join(sys_block_path, "md")):
+        # md device
+        block_dev = os.path.join("/dev/", os.path.split(sys_block_path)[-1])
+        # if these fail its okay, the array might not be assembled and thats
+        # fine
+        LOG.info("stopping: %s" % block_dev)
+        util.subp(["mdadm", "--stop", block_dev], rcs=[0, 1])
+        util.subp(["mdadm", "--remove", block_dev], rcs=[0, 1])
+
+    elif os.path.exists(os.path.join(sys_block_path, "dm")):
+        # Shut down any volgroups
+        with open(os.path.join(sys_block_path, "dm", "name"), "r") as fp:
+            name = fp.read().split('-')
+        util.subp(["lvremove", "--force", name[0].rstrip(), name[1].rstrip()],
+                  rcs=[0, 5])
+
+
 def devsync(devpath):
     util.subp(['partprobe', devpath])
     util.subp(['udevadm', 'settle'])
@@ -299,79 +371,28 @@ def disk_handler(info, storage_config):
     # Wipe the disk
     if info.get('wipe') and info.get('wipe') != "none":
         try:
-            # Shut down any volgroups, destroy all physical volumes
-            volgroups = []
             pdev = parted.getDevice(disk)
             pdisk = parted.newDisk(pdev)
             partitions = list(partition.path for partition in pdisk.partitions)
             # We don't want to keep pdisk around if we're creating a new
             # partition table
             del(pdisk)
-            (out, _err) = util.subp(["pvdisplay", "-C", "--separator", "=",
-                                     "-o", "vg_name,pv_name", "--noheadings"],
-                                    capture=True)
-            for line in out.splitlines():
-                if line.split('=')[-1] in partitions and \
-                        line.split('=')[0] not in volgroups:
-                    volgroups.append(line.split('=')[0].lstrip())
-            if len(volgroups) > 0:
-                util.subp(["vgremove", "--force"] + volgroups, capture=True)
-            for partition in partitions:
-                wipe_volume(partition, "pvremove")
-            # Shut down bcache if any of the partitions contain bcache
-            # superblocks
-            uuids = []
-            for partition in partitions:
-                try:
-                    (out, _err) = util.subp(["bcache-super-show", partition],
-                                            capture=True)
-                except util.ProcessExecutionError:
-                    # bcache-super-show will fail if there is no valid bcache
-                    # superblock
-                    pass
-                else:
-                    # We found a valid bcache superblock on this disk,
-                    # unregister its bcache device
-                    for line in out.splitlines():
-                        if "cset.uuid" in line:
-                            uuid = line.rsplit()[-1]
-                            if uuid not in uuids:
-                                uuids.append(uuid)
-            if len(uuids) > 0:
-                for uuid in uuids:
-                    with open(os.path.join("/sys/fs/bcache", uuid, "stop"),
-                              "w") as fp:
-                        fp.write("1")
-                util.subp(["modprobe", "-r", "bcache"])
-                for partition in partitions:
-                    wipe_volume(partition, "superblock")
-                util.subp(["modprobe", "bcache"])
-            # Stop any mdadm devices, we need to partprobe first to make sure
-            # mdadm knows about them
-            mdadm_arrays = []
-            util.subp(["partprobe", disk])
-            (out, _err) = util.subp(["mdadm", "--detail", "--scan"],
-                                    capture=True)
-            for line in out.splitlines():
-                if "ARRAY" in line:
-                    mdadm_array = line.rsplit()[1]
-                    if mdadm_array not in mdadm_arrays:
-                        mdadm_arrays.append(mdadm_array)
-            for mdadm_array in mdadm_arrays:
-                # Get actual path to blockdev, not the link mdadm gives us
-                mdadm_array_path = os.path.realpath(mdadm_array)
-                # if these fail its okay, we might not have a running md dev
-                # and thats fine
-                util.subp(["mdadm", "--stop", mdadm_array_path], rcs=[0, 1])
-                util.subp(["mdadm", "--remove", mdadm_array_path], rcs=[0, 1])
-            for partition in partitions:
-                wipe_volume(partition, "superblock")
-
         except (parted.DiskLabelException, parted.DiskException):
             # We might be trying to wipe a disk that doesn't have anything on
             # it. If that's the case, there's no reason to fail, just keep
             # going
             pass
+        else:
+            # The disk has a lable, clear all partitions
+            util.subp(["mdadm", "--assemble", "--scan"], rcs=[0, 1, 2])
+            disk_kname = os.path.split(disk)[-1]
+            syspath_partitions = list(
+                os.path.split(prt)[0] for prt in
+                glob.glob("/sys/block/%s/*/partition" % disk_kname))
+            for partition in syspath_partitions:
+                clear_holders(partition)
+            for partition in partitions:
+                wipe_volume(partition, info.get('wipe'))
 
         wipe_volume(disk, info.get('wipe'))
 
