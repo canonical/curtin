@@ -229,6 +229,7 @@ def clear_holders(sys_block_path):
             name = fp.read().split('-')
         util.subp(["lvremove", "--force", name[0].rstrip(), name[1].rstrip()],
                   rcs=[0, 5])
+        util.subp(["vgremove", name[0].rstrip()], rcs=[0, 5, 6])
 
 
 def devsync(devpath):
