@@ -125,7 +125,41 @@ def handle_bond(command, network_config):
     pass
 
 def handle_bridge(command, network_config):
-    pass
+    '''
+        auto br0
+        iface br0 inet static
+                address 10.10.10.1
+                netmask 255.255.255.0
+                bridge_ports eth0 eth1
+                bridge_stp off
+                bridge_fd 0
+                bridge_maxwait 0
+
+    '''
+    bridge_params = [
+        "bridge_ports",
+        "bridge_ageing",
+        "bridge_bridgeprio",
+        "bridge_fd",
+        "bridge_gcint",
+        "bridge_hello",
+        "bridge_hw",
+        "bridge_maxage",
+        "bridge_maxwait",
+        "bridge_pathcost",
+        "bridge_portprio",
+        "bridge_stp",
+        "bridge_waitport",
+    ]
+
+    phys_output = handle_physical(command, network_config)
+    phys_output += "    bridge_ports %s\n" %(
+        " ".join(command['bridge_interfaces']))
+    params = command.get(params, [])
+    for param,value in params:
+        phys_output += "    {} {}".format(param, value)
+
+    return phys_output
 
 def handle_route(command, network_config):
     pass
