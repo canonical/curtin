@@ -109,7 +109,17 @@ def interfaces_custom(args):
 
 
 def handle_vlan(command, network_config):
-    pass
+    '''
+        auto eth0.222
+        iface eth0.222 inet static
+                address 10.10.10.1
+                netmask 255.255.255.0
+                vlan-raw-device eth0
+    '''
+    phys_output = handle_physical(command, network_config)
+    phys_output += "    vlan-raw-device {}".format(command['vlan_link'])
+
+    return phys_output
 
 def handle_bond(command, network_config):
     pass
