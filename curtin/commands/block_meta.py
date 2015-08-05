@@ -23,11 +23,15 @@ from curtin.log import LOG
 from . import populate_one_subcmd
 
 import os
-import parted
 import platform
 import string
 import sys
 import time
+
+try:
+    import parted
+except Exception:
+    pass
 
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
