@@ -25,15 +25,18 @@ storage:
     device: sda
   - id: storage_volgroup
     type: lvm_volgroup
+    name: volgroup1
     devices: 
       - sda2
       - sdb
   - id: storage_1
     type: lvm_partition
     volgroup: storage_volgroup
+    name: lv1
     size: 2G
   - id: storage_2
     type: lvm_partition
+    name: lv2
     volgroup: storage_volgroup
   - id: sda1_root
     type: format
