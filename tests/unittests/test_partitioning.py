@@ -31,15 +31,16 @@ class TestBlock(TestCase):
                     "lvm_part1", "cache_device": "sdc1"},
         "crypt0": {"id": "crypt0", "type": "dm_crypt", "volume": "sdb1", "key":
                    "testkey"},
-        "md0": {"id": "md0", "type": "raid", "raidlevel": 1, "devices":
-                ["sdx1", "sdy1"], "spare_devices": ["sdz1"]},
+        "raiddev": {"id": "raiddev", "type": "raid", "raidlevel": 1, "devices":
+                    ["sdx1", "sdy1"], "spare_devices": ["sdz1"],
+                    "name": "md0"},
         "fake0": {"id": "fake0", "type": "faketype"},
         "sda1_root": {"id": "sda1_root", "type": "format", "fstype": "ext4",
                       "volume": "sda1", "label": "root_part"},
         "sda2_home": {"id": "sda2_home", "type": "format", "fstype": "fat32",
                       "volume": "sda2"},
         "raid_format": {"id": "raid_format", "type": "format", "fstype":
-                        "ext4", "volume": "md0"},
+                        "ext4", "volume": "raiddev"},
         "sda1_mount": {"id": "sda1_mount", "type": "mount", "path": "/",
                        "device": "sda1_root"},
         "sda2_mount": {"id": "sda2_mount", "type": "mount", "path": "/home",
@@ -83,7 +84,7 @@ class TestBlock(TestCase):
 
         # Test raid
         path = curtin.commands.block_meta.get_path_to_storage_volume(
-            "md0", self.storage_config)
+            "raiddev", self.storage_config)
         self.assertEqual(path, "/dev/md0")
         mock_devsync.assert_called_with("/dev/md0")
 
@@ -205,7 +206,7 @@ class TestBlock(TestCase):
         mock_util.ensure_dir.assert_called_with("/tmp/mntdir/srv/data")
         args = mock_get_path_to_storage_volume.call_args_list
         self.assertTrue(len(args) == 3)
-        self.assertTrue(args[2] == mock.call("md0", self.storage_config))
+        self.assertTrue(args[2] == mock.call("raiddev", self.storage_config))
 
     @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
     @mock.patch("curtin.commands.block_meta.util")
@@ -287,13 +288,13 @@ class TestBlock(TestCase):
         mock_util.subp.return_value = ("mdadm scan info", None)
 
         curtin.commands.block_meta.raid_handler(
-            self.storage_config.get("md0"), self.storage_config)
+            self.storage_config.get("raiddev"), self.storage_config)
 
         path_calls = list(args[0] for args, kwargs in
                           mock_get_path_to_storage_volume.call_args_list)
         subp_calls = mock_util.subp.call_args_list
-        for path in self.storage_config.get("md0").get("devices") + \
-                self.storage_config.get("md0").get("spare_devices"):
+        for path in self.storage_config.get("raiddev").get("devices") + \
+                self.storage_config.get("raiddev").get("spare_devices"):
             self.assertTrue(path in path_calls)
             self.assertTrue(mock.call(["mdadm", "--zero-superblock",
                             mock_get_path_to_storage_volume.side_effect(path,
