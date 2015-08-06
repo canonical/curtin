@@ -89,28 +89,46 @@ wipedev() {
         error "WARN: odd sized '$target' ($size). not divisible by 512."
     fi
 
-    info="size=$size count=$count bs=$bs"
-    debug 1 "wiping start of '$target' with ${info}."
-    # wipe the first MB (up to 'size')
-    out=$(dd if=/dev/zero conv=notrunc "of=$target" \
-            "bs=$bs" "count=$count" 2>&1) || {
-        error "wiping start of '$target' failed."
-        error "  size=$size count=$count bs=$bs: $out"
-        return 1
-    }
+    if [ "$full" != "0" ]; then
+        count=$((size / bs))
+        info="size=$size conv=notrunc count=$count bs=$bs"
+        debug 1 "wiping full '$target' with ${info}."
+        out=$(LANG=C dd if=/dev/zero conv=notrunc "of=$target" \
+            bs=$bs count=$count 2>&1) || {
+            error "wiping entire '$target' with ${info} failed."
+            error "$out"
+            return 1
+        }
+    else
+        local fbs=$bs
+        count=$((size / bs))
+        if [ "$size" -ge "$mb" ]; then
+            count=1
+            fbs=$mb
+        fi
+        info="size=$size count=$count bs=$fbs"
+        debug 1 "wiping start of '$target' with ${info}."
+        # wipe the first MB (up to 'size')
+        out=$(dd if=/dev/zero conv=notrunc "of=$target" \
+                "bs=$fbs" "count=$count" 2>&1) || {
+            error "wiping start of '$target' with ${info} failed."
+            error "$out"
+            return 1
+        }
 
-    if $wipe_end && [ "$size" -gt "$mb" ]; then
-        # do the last 1MB
-        count=$((mb / bs))
-        seek=$(((size / bs) - $count))
-        info="size=$size count=$count bs=$bs seek=$seek"
-        debug 1 "wiping end of '$target' with ${info}."
-        out=$(dd if=/dev/zero conv=notrunc "of=$target" "seek=$seek" \
-            "bs=$bs" "count=$count" 2>&1)
-        if [ $? -ne 0 ]; then
-            error "wiping end of '$target' failed."
-            error "  size=$size count=$count seek=$seek bs=$bs: $out";
-            return 1;
+        if $wipe_end && [ "$size" -gt "$mb" ]; then
+            # do the last 1MB
+            count=$((mb / bs))
+            seek=$(((size / bs) - $count))
+            info="size=$size count=$count bs=$bs seek=$seek"
+            debug 1 "wiping end of '$target' with ${info}."
+            out=$(dd if=/dev/zero conv=notrunc "of=$target" "seek=$seek" \
+                "bs=$bs" "count=$count" 2>&1)
+            if [ $? -ne 0 ]; then
+                error "wiping end of '$target' with ${info} failed."
+                error "$out";
+                return 1;
+            fi
         fi
     fi
 
@@ -588,26 +606,6 @@ install_grub() {
         *) debug 1 "$grub_name not installed, not doing anything";
             return 0;;
     esac
-
-
-    tmp="${cmdline##* -- }"
-    if [ "$tmp" != "$cmdline" ]; then
-        # there was an explicit '--', so copy stuff some after it
-        newargs=$(set -f;
-            c="";
-            for p in ${cmdline##* -- }; do
-                case "$p" in
-                    (BOOTIF=*|initrd=*|BOOT_IMAGE=*) continue;;
-                esac
-                c="$c $p";
-            done
-            echo "${c# }"
-        )
-    elif [ "${cmdline#* console=}" != "${cmdline}" ]; then
-        # there are 'console=' params, copy those.
-        newargs=$(set -f; c=""; for p in $cmdline; do
-            [ "${p#console}" = "$p" ] || c="$c $p"; done; echo "${c# }")
-    fi
 
     local grub_d="etc/default/grub.d"
     local mygrub_cfg="$grub_d/50-curtin-settings.cfg"
