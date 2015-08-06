@@ -96,7 +96,7 @@ def mkfs(args):
 
     if "storage" in cfg:
         storage_config = OrderedDict((d["id"], d) for (i, d) in
-                              enumerate(cfg.get("storage")))
+                                     enumerate(cfg.get("storage")))
     else:
         storage_config = {}
 

@@ -3,11 +3,11 @@ storage:
     type: disk
     ptable: msdos
     model: QEMU HARDDISK
-    serial: QM00002
+    path: /dev/vdb
   - id: sda1
     type: partition
     number: 1
-    size: 8GB
+    size: 3GB
     device: sda
     flag: boot
   - id: sda2
