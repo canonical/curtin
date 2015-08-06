@@ -116,13 +116,48 @@ def handle_vlan(command, network_config):
                 netmask 255.255.255.0
                 vlan-raw-device eth0
     '''
-    phys_output = handle_physical(command, network_config)
-    phys_output += "    vlan-raw-device {}".format(command['vlan_link'])
+    content = handle_physical(command, network_config)
+    content += "    vlan-raw-device {}".format(command['vlan_link'])
 
-    return phys_output
+    return content
 
 def handle_bond(command, network_config):
-    pass
+    '''
+#/etc/network/interfaces 
+auto eth0
+iface eth0 inet manual
+
+auto eth1
+iface eth1 inet manual
+
+auto bond0
+iface bond0 inet static
+     address 192.168.0.10
+     gateway 192.168.0.1
+     netmask 255.255.255.0
+     bond-mode 802.3ad
+     bond-miimon 100
+     bond-downdelay 200
+     bond-updelay 200
+     bond-lacp-rate 4
+    '''
+    # write out bondX iface stanza and options
+    content = handle_physical(command, network_config)
+    params = command.get('params', [])
+    for param,value in params.items():
+        content += "    {} {}".format(param, value)
+
+    content += "\n"
+
+    # now write out slaved iface stanzas
+    for slave in command['bond_interfaces']:
+        content += "auto {}\n".format(slave)
+        content += "iface {} inet manual\n".format(slave)
+        content += "    bond-master {}\n\n".format(command['name'])
+     
+    content += "\n"
+    return content
+   
 
 def handle_bridge(command, network_config):
     '''
@@ -152,14 +187,15 @@ def handle_bridge(command, network_config):
         "bridge_waitport",
     ]
 
-    phys_output = handle_physical(command, network_config)
-    phys_output += "    bridge_ports %s\n" %(
+    content = handle_physical(command, network_config)
+    content += "    bridge_ports %s\n" %(
         " ".join(command['bridge_interfaces']))
-    params = command.get(params, [])
-    for param,value in params:
-        phys_output += "    {} {}".format(param, value)
+    params = command.get('params', [])
+    for param,value in params.items():
+        if param in bridge_params:
+            content += "    {} {}".format(param, value)
 
-    return phys_output
+    return content
 
 def handle_route(command, network_config):
     pass
@@ -221,7 +257,6 @@ iface {{ name }} {{ inet }} {{ mode }}
 {% if gateway %}
     gateway {{ gateway }}
 {% endif %}
-
 ''' 
     print(ctxt)
     template = jinja2.Template(physical_template,
