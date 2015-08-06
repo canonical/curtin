@@ -133,6 +133,11 @@ class VMBaseClass:
         if os.path.exists("./serial.log"):
             os.remove("./serial.log")
 
+    # Misc functions that are useful for many tests
+    def output_files_exist(self, files):
+        for f in files:
+            self.assertTrue(os.path.exists(os.path.join(self.td.mnt, f)))
+
     def get_blkid_data(self, blkid_file):
         with open(os.path.join(self.td.mnt, blkid_file)) as fp:
             data = fp.read()

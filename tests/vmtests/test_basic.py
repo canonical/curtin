@@ -27,6 +27,11 @@ class TestBasicAbs(VMBaseClass):
           mode: poweroff
         """)
 
+    def test_output_files_exist(self):
+        self.output_files_exist(
+            ["blkid_output_vda", "blkid_output_vda1", "blkid_output_vda2",
+             "fstab"])
+
     def test_ptable(self):
         blkid_info = self.get_blkid_data("blkid_output_vda")
         self.assertEquals(blkid_info["PTTYPE"], "dos")
