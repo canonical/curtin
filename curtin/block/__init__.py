@@ -20,6 +20,7 @@ import os
 import stat
 import shlex
 import tempfile
+import itertools
 
 from curtin import util
 from curtin.log import LOG
@@ -40,7 +41,7 @@ def is_valid_device(devname):
     return False
 
 
-def _lsblock_pairs_to_dict(lines, key="NAME", filter_func=None):
+def _lsblock_pairs_to_dict(lines):
     ret = {}
     for line in lines.splitlines():
         toks = shlex.split(line)
@@ -49,19 +50,18 @@ def _lsblock_pairs_to_dict(lines, key="NAME", filter_func=None):
             k, v = tok.split("=", 1)
             cur[k] = v
         cur['device_path'] = get_dev_name_entry(cur['NAME'])[1]
-        if not filter_func or filter_func(cur):
-            ret[cur[key]] = cur
+        ret[cur['NAME']] = cur
     return ret
 
 
-def _lsblock(args=None, filter_func=None):
+def _lsblock(args=None):
     # lsblk  --help | sed -n '/Available/,/^$/p' |
     #     sed -e 1d -e '$d' -e 's,^[ ]\+,,' -e 's, .*,,' | sort
     keys = ['ALIGNMENT', 'DISC-ALN', 'DISC-GRAN', 'DISC-MAX', 'DISC-ZERO',
             'FSTYPE', 'GROUP', 'KNAME', 'LABEL', 'LOG-SEC', 'MAJ:MIN',
             'MIN-IO', 'MODE', 'MODEL', 'MOUNTPOINT', 'NAME', 'OPT-IO', 'OWNER',
             'PHY-SEC', 'RM', 'RO', 'ROTA', 'RQ-SIZE', 'SCHED', 'SIZE', 'STATE',
-            'TYPE']
+            'TYPE', 'UUID']
     if args is None:
         args = []
     args = [x.replace('!', '/') for x in args]
@@ -73,7 +73,7 @@ def _lsblock(args=None, filter_func=None):
                '--output=' + ','.join(keys)]
     (out, _err) = util.subp(basecmd + list(args), capture=True)
     out = out.replace('!', '/')
-    return _lsblock_pairs_to_dict(out, filter_func=filter_func)
+    return _lsblock_pairs_to_dict(out)
 
 
 def get_unused_blockdev_info():
@@ -197,40 +197,150 @@ def stop_all_unused_multipath_devices():
     # Command multipath -F flushes all unused multipath device maps
     cmd = [multipath, '-F']
     try:
-        util.subp(cmd)
+        # unless multipath cleared *everything* it will exit with 1
+        util.subp(cmd, rcs=[0, 1])
     except util.ProcessExecutionError as e:
         LOG.warn("Failed to stop multipath devices: %s", e)
 
 
-def detect_multipath():
-    """
-    Figure out if target machine has any multipath devices.
-    """
-    # Multipath-tools are not available in the ephemeral image.
-    # This workaround detects multipath by looking for multiple
-    # devices with the same scsi id (serial number).
-    disk_ids = []
-    bdinfo = _lsblock(['--nodeps'])
-    for devname, data in bdinfo.items():
-        # Command scsi_id returns error while running against cdrom devices.
-        # To prevent getting unexpected errors for some other types of devices
-        # we ignore everything except hard disks.
-        if data['TYPE'] != 'disk':
+def rescan_block_devices():
+    # run 'blockdev --rereadpt' for all block devices not currently mounted
+    unused = get_unused_blockdev_info()
+    devices = []
+    for devname, data in unused.items():
+        if data.get('RM') == "1":
             continue
+        if data.get('RO') != "0" or data.get('TYPE') != "disk":
+            continue
+        devices.append(data['device_path'])
 
-        cmd = ['/lib/udev/scsi_id', '--replace-whitespace',
-               '--whitelisted', '--device=%s' % data['device_path']]
-        try:
-            (out, err) = util.subp(cmd, capture=True)
-            scsi_id = out.rstrip('\n')
-            # ignore empty ids because they are meaningless
-            if scsi_id:
-                disk_ids.append(scsi_id)
-        except util.ProcessExecutionError as e:
-            LOG.warn("Failed to get disk id: %s", e)
+    if not devices:
+        LOG.debug("no devices found to rescan")
+        return
 
-    duplicates_found = (len(disk_ids) != len(set(disk_ids)))
-    return duplicates_found
+    cmd = ['blockdev', '--rereadpt'] + devices
+    try:
+        util.subp(cmd, capture=True)
+        util.subp(['udevadm', 'settle'])
+    except util.ProcessExecutionError as e:
+        LOG.warn("rescanning devices failed: %s", e)
+
+    return
+
+
+def blkid(devs=None, cache=True):
+    if devs is None:
+        devs = []
+
+    # 14.04 blkid reads undocumented /dev/.blkid.tab
+    # man pages mention /run/blkid.tab and /etc/blkid.tab
+    if not cache:
+        cfiles = ("/run/blkid/blkid.tab", "/dev/.blkid.tab", "/etc/blkid.tab")
+        for cachefile in cfiles:
+            if os.path.exists(cachefile):
+                os.unlink(cachefile)
+
+    cmd = ['blkid', '-o', 'full']
+    # blkid output is <device_path>: KEY=VALUE
+    # where KEY is TYPE, UUID, PARTUUID, LABEL
+    out, err = util.subp(cmd, capture=True)
+    data = {}
+    for line in out.splitlines():
+        curdev, curdata = line.split(":", 1)
+        data[curdev] = dict(tok.split('=', 1) for tok in shlex.split(curdata))
+    return data
+
+
+def detect_multipath(target_mountpoint):
+    """
+    Detect if the operating system has been installed to a multipath device.
+    """
+    # The obvious way to detect multipath is to use multipath utility which is
+    # provided by the multipath-tools package. Unfortunately, multipath-tools
+    # package is not available in all ephemeral images hence we can't use it.
+    # Another reasonable way to detect multipath is to look for two (or more)
+    # devices with the same World Wide Name (WWN) which can be fetched using
+    # scsi_id utility. This way doesn't work as well because WWNs are not
+    # unique in some cases which leads to false positives which may prevent
+    # system from booting (see LP: #1463046 for details).
+    # Taking into account all the issues mentioned above, curent implementation
+    # detects multipath by looking for a filesystem with the same UUID
+    # as the target device. It relies on the fact that all alternative routes
+    # to the same disk observe identical partition information including UUID.
+    # There are some issues with this approach as well though. We won't detect
+    # multipath disk if it doesn't any filesystems.  Good news is that
+    # target disk will always have a filesystem because curtin creates them
+    # while installing the system.
+    rescan_block_devices()
+    binfo = blkid(cache=False)
+    LOG.debug("detect_multipath found blkid info: %s", binfo)
+    # get_devices_for_mp may return multiple devices by design. It is not yet
+    # implemented but it should return multiple devices when installer creates
+    # separate disk partitions for / and /boot. We need to do UUID-based
+    # multipath detection against each of target devices.
+    target_devs = get_devices_for_mp(target_mountpoint)
+    LOG.debug("target_devs: %s" % target_devs)
+    for devpath, data in binfo.items():
+        # We need to figure out UUID of the target device first
+        if devpath not in target_devs:
+            continue
+        # This entry contains information about one of target devices
+        target_uuid = data.get('UUID')
+        # UUID-based multipath detection won't work if target partition
+        # doesn't have UUID assigned
+        if not target_uuid:
+            LOG.warn("Target partition %s doesn't have UUID assigned",
+                     devpath)
+            continue
+        LOG.debug("%s: %s" % (devpath, data.get('UUID', "")))
+        # Iterating over available devices to see if any other device
+        # has the same UUID as the target device. If such device exists
+        # we probably installed the system to the multipath device.
+        for other_devpath, other_data in binfo.items():
+            if ((other_data.get('UUID') == target_uuid) and
+                    (other_devpath != devpath)):
+                return True
+    # No other devices have the same UUID as the target devices.
+    # We probably installed the system to the non-multipath device.
+    return False
+
+
+def get_scsi_wwid(device, replace_whitespace=False):
+    """
+    Issue a call to scsi_id utility to get WWID of the device.
+    """
+    cmd = ['/lib/udev/scsi_id', '--whitelisted', '--device=%s' % device]
+    if replace_whitespace:
+        cmd.append('--replace-whitespace')
+    try:
+        (out, err) = util.subp(cmd, capture=True)
+        scsi_wwid = out.rstrip('\n')
+        return scsi_wwid
+    except util.ProcessExecutionError as e:
+        LOG.warn("Failed to get WWID: %s", e)
+        return None
+
+
+def get_multipath_wwids():
+    """
+    Get WWIDs of all multipath devices available in the system.
+    """
+    multipath_devices = set()
+    multipath_wwids = set()
+    devuuids = [(d, i['UUID']) for d, i in blkid().items() if 'UUID' in i]
+    # Looking for two disks which contain filesystems with the same UUID.
+    for (dev1, uuid1), (dev2, uuid2) in itertools.combinations(devuuids, 2):
+        if uuid1 == uuid2:
+            multipath_devices.add(get_blockdev_for_partition(dev1)[0])
+    for device in multipath_devices:
+        wwid = get_scsi_wwid(device)
+        # Function get_scsi_wwid() may return None in case of errors or
+        # WWID field may be empty for some buggy disk. We don't want to
+        # propagate both of these value further to avoid generation of
+        # incorrect /etc/multipath/bindings file.
+        if wwid:
+            multipath_wwids.add(wwid)
+    return multipath_wwids
 
 
 def get_root_device(dev, fpath="curtin"):
@@ -279,7 +389,7 @@ def get_mountpoints():
     """
     Returns a list of all mountpoints where filesystems are currently mounted.
     """
-    info = _lsblock(filter_func=None)
+    info = _lsblock()
     return list(i.get("MOUNTPOINT") for name, i in info.items() if
                 i.get("MOUNTPOINT") is not None and
                 i.get("MOUNTPOINT") != "")

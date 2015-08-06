@@ -42,6 +42,20 @@ debug() {
 	error "${@}"
 }
 
+hascmd() {
+	local cmd="$1" envref="$2"
+	if [ -n "${envref}" -a -n "${!envref}" ]; then
+		cmd="${!envref}"
+	fi
+	if [ -x "$cmd" ]; then
+		_RET="$cmd"
+	elif command -v "$cmd" >/dev/null 2>&1; then
+		_RET="$cmd"
+	else
+		return 1
+	fi
+}
+
 main() {
 	local short_opts="hv"
 	local long_opts="help,no-patch,delete-temp,krd,verbose"
@@ -79,13 +93,23 @@ main() {
 	debug 1 "converting ${img_gz} to ${output}"
 
 	TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
-		fail "failed to make tempdir"
+		{ error "failed to make tempdir"; return 1; }
 	trap cleanup EXIT
 
 	[ "$(id -u)" = "0" ] && sudo="" || sudo="sudo"
 	[ -z "$vflags" ] || vflags="-${vflags}"
 
-	[ -f "$img_gz" ] || fail "$img_gz: not a file"
+	[ -f "$img_gz" ] || {
+		error "$img_gz: not a file"
+		return 1
+	}
+
+	local micb=""
+	hascmd mount-image-callback MOUNT_IMAGE_CALLBACK && micb="$_RET" || {
+			error "no mount-image-callback. install cloud-image-utils.";
+			return 1;
+		}
+
 	if $(LANG=C file "$img_gz" | grep -qi "gzip"); then
 		img="${TEMP_D}/root.img"
 		if $keep; then
@@ -110,9 +134,13 @@ main() {
 	fi
 
 	$sudo mount-image-callback "$img" -- "$0" create-tgz \
-		${vflags} "${pt[@]}" _MOUNTPOINT_ "$output"
+		${vflags} "${pt[@]}" _MOUNTPOINT_ "$output" || {
+			error "failed mount-image-callback on $img for create-tgz"
+			return 1
+		}
 
-	$keep || rm -f "$img"
+	$keep || rm -f "$img" ||
+		{ error "failed to remove $img"; return 1; }
 
 }
 

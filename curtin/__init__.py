@@ -15,4 +15,8 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+# This constant is made available so a caller can read it
+# it must be kept the same as that used in helpers/common:get_carryover_params
+KERNEL_CMDLINE_COPY_TO_INSTALL_SEP = "---"
+
 # vi: ts=4 expandtab syntax=python
