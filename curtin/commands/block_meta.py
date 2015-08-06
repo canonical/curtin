@@ -310,7 +310,7 @@ def get_path_to_storage_volume(volume, storage_config):
 
     elif vol.get('type') == "raid":
         # For raid partitions, block device is at /dev/mdX
-        name = vol.get('id')
+        name = vol.get('name')
         volume_path = os.path.join("/dev", name)
 
     elif vol.get('type') == "bcache":
@@ -769,7 +769,7 @@ def raid_handler(info, storage_config):
         spare_device_paths = list(get_path_to_storage_volume(dev,
                                   storage_config) for dev in spare_devices)
 
-    cmd = ["yes", "|", "mdadm", "--create", "/dev/%s" % info.get('id'),
+    cmd = ["yes", "|", "mdadm", "--create", "/dev/%s" % info.get('name'),
            "--level=%s" % raidlevel, "--raid-devices=%s" % len(device_paths)]
 
     for device in device_paths:
