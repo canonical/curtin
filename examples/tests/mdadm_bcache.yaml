@@ -29,7 +29,8 @@ storage:
     type: partition
     size: 1GB
     device: sda
-  - id: md0
+  - id: mddevice
+    name: md0
     type: raid
     raidlevel: 1
     devices:
@@ -39,7 +40,7 @@ storage:
       - sda4
   - id: bcache0
     type: bcache
-    backing_device: md0
+    backing_device: mddevice
     cache_device: sda5
   - id: sda1_root
     type: format
