@@ -5,7 +5,7 @@ import tempfile
 import shutil
 import subprocess
 
-IMAGE_DIR = "/home/magicanus/code/curtin-vm-test"
+IMAGE_DIR = "/srv/images"
 
 
 class ImageStore:
