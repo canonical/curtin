@@ -888,22 +888,26 @@ def meta_custom(args):
     state = util.load_command_environment()
     cfg = util.load_command_config(args, state)
 
+    # make sure the required packages are installed
+    install_missing_packages_for_meta_custom()
+
     storage_config = cfg.get('storage', [])
     if not storage_config:
         raise Exception("storage configuration is required by mode '%s' "
                         "but not provided in the config file" % CUSTOM)
+    storage_config_data = storage_config.get('config')
 
-    # make sure the required packages are installed
-    install_missing_packages_for_meta_custom()
+    if not storage_config_data:
+        raise ValueError("invalid storage config data")
 
     # Since storage config will often have to be searched for a value by its
     # id, and this can become very inefficient as storage_config grows, a dict
     # will be generated with the id of each component of the storage_config as
     # its index and the component of storage_config as its value
     storage_config_dict = OrderedDict((d["id"], d) for (i, d) in
-                                      enumerate(storage_config))
+                                      enumerate(storage_config_data))
 
-    for command in storage_config:
+    for command in storage_config_data:
         handler = command_handlers.get(command['type'])
         if not handler:
             raise ValueError("unknown command type '%s'" % command['type'])

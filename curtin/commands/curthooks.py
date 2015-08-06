@@ -284,7 +284,7 @@ def setup_grub(cfg, target):
 
     if 'storage' in cfg:
         storage_grub_devices = []
-        for item in cfg['storage']:
+        for item in cfg.get('storage').get('config'):
             if item.get('grub_device'):
                 if item.get('serial'):
                     storage_grub_devices.append(
@@ -542,7 +542,7 @@ def install_missing_storage_packages(cfg, target):
 
     all_types = set(
         operation['type']
-        for operation in cfg['storage']
+        for operation in cfg['storage']['config']
         )
     needed_packages = []
     installed_packages = get_installed_packages(target)
