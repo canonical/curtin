@@ -7,7 +7,7 @@ build:
 bin/curtin: curtin/pack.py tools/write-curtin
 	$(PYTHON) tools/write-curtin bin/curtin
 
-check: pep8 pyflakes pyflakes3 test
+check: pep8 pyflakes pyflakes3 unittest
 
 pep8:
 	@$(CWD)/tools/run-pep8
@@ -18,9 +18,12 @@ pyflakes:
 pyflakes3:
 	@$(CWD)/tools/run-pyflakes
 
-test:
-	nosetests $(noseopts) tests/
-	nosetests3 $(noseopts) tests
+unittest:
+	nosetests $(noseopts) tests/unittests
+	nosetests3 $(noseopts) tests/unittests
+
+vmtest:
+	nosetests3 $(noseopts) tests/vmtests
 
 
 .PHONY: all test pyflakes pyflakes3 pep8 build

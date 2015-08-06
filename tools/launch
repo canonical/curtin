@@ -23,7 +23,9 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
       -i | --initrd F   use initramfs F
       -k | --kernel F   use kernel K
            --mem    K   memory in Kb
+      -n | --netdev     netdev can be 'user' or a bridge
       -p | --publish F  make file 'F' available in web server
+           --silent     use -vga none
       -v | --verbose    be more verbose
 
    use of --kernel/--initrd will seed cloud-init via cmdline
@@ -98,8 +100,8 @@ EOF
 }
 
 main() {
-	local short_opts="a:d:h:i:k:p:v"
-	local long_opts="add:,append:,disk:,help,initrd:,kernel:,mem:,power:,publish:,uefi,verbose"
+	local short_opts="a:d:h:i:k:n:p:v"
+	local long_opts="add:,append:,disk:,help,initrd:,kernel:,mem:,netdev:,power:,publish:,silent,uefi,verbose"
 	local getopt_out=""
 	getopt_out=$(getopt --name "${0##*/}" \
 		--options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -113,9 +115,12 @@ main() {
 	local initrd="" kernel="" uappend="" iargs="" disk_args=""
 	local pubs="" disks="" pstate="null"
 	local uefi=0
+    local netdevs=""
+	local video="-curses"
 	pubs=( )
 	disks=( )
 	addfiles=( )
+    netdevs=( )
 
 	while [ $# -ne 0 ]; do
 		cur=${1}; next=${2};
@@ -135,8 +140,10 @@ main() {
 					*) error "Invalid power state, must be: off, on, reboot";;
 				esac
 				shift;;
+            -n|--netdev) netdevs[${#netdevs[@]}]="$next"; shift;;
 			-p|--publish) pubs[${#pub[@]}]="$next"; shift;;
 			   --uefi) uefi=1;;
+               --silent) video="-nographic";;
 			-v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
 			--) shift; break;;
 		esac
@@ -154,7 +161,6 @@ main() {
 	trap cleanup EXIT
 
 	local bios_opts=""
-	local video="-curses"
 
 	bios_opts=( )
 	if [ $uefi -eq 1 ]; then
@@ -237,6 +243,33 @@ main() {
 		fi
 	done
 
+    if [ "${cmdargs[0]##*/} ${cmdargs[1]}" = "curtin install" ]; then
+        # if its curtin install, pack config files up for them.
+        # potentially should check to make sure they've not already done this
+        # as this updating could then be destructive / annoying
+        # specifically, it could be annoying if you had a config inside
+        # the image that you were meaning to reference, adn we copied (or tried)
+        # the file from the host.
+        for((i=2;i<${#cmdargs[@]};i++)); do
+            cur=${cmdargs[$i]}
+            next=${cmdargs[$i+1]}
+            stuffed_cfg=""
+            fpath=""
+            case "$cur" in
+                --config|-c)
+                    fpath=$next;
+                    cmdargs[$i+1]="config/${fpath##*/}"
+                    ;;
+                --config=*)
+                    fpath=${cur#--config=}
+                    cmdargs[$i]="--config=config/${fpath##*/}"
+                    ;;
+                *) continue;;
+            esac
+            addargs[${#addargs[@]}]="--add=config/${fpath##*/}:$fpath"
+        done
+    fi
+
 	PYTHONPATH="${top_d}${PYTHONPATH:+${PYTHONPATH}}" \
 		"${top_d}/bin/curtin" pack "${addargs[@]}" -- \
 		"${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
@@ -288,9 +321,15 @@ main() {
 			{ error "failed cloud-localds"; return 1; }
 		seedargs=( "-drive" "file=${seed},if=virtio,media=cdrom" )
 	fi
+
+    local netargs
+    netargs=( )
+    for dev in "${netdevs[@]}"; do
+		netargs=( "${netargs[@]}" "-n" "${dev}" )
+    done
 	
 	xkvm_check || return
-	time xkvm -- \
+	time xkvm "${netargs[@]}" -- \
 		"${bios_opts[@]}" \
 		-m ${mem} -serial file:serial.log ${video} \
 		-drive "file=$bootimg,if=virtio,cache=unsafe" \

@@ -33,6 +33,7 @@ from curtin.util import (
     )
 
 INSTALL_LOG = "/var/log/curtin/install.log"
+PROGRESS_LOG = "/tmp/curtin_install_progress"
 
 
 class BaseReporter:

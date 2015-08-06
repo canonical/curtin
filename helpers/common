@@ -89,46 +89,28 @@ wipedev() {
         error "WARN: odd sized '$target' ($size). not divisible by 512."
     fi
 
-    if [ "$full" != "0" ]; then
-        count=$((size / bs))
-        info="size=$size conv=notrunc count=$count bs=$bs"
-        debug 1 "wiping full '$target' with ${info}."
-        out=$(LANG=C dd if=/dev/zero conv=notrunc "of=$target" \
-            bs=$bs count=$count 2>&1) || {
-            error "wiping entire '$target' with ${info} failed."
-            error "$out"
-            return 1
-        }
-    else
-        local fbs=$bs
-        count=$((size / bs))
-        if [ "$size" -ge "$mb" ]; then
-            count=1
-            fbs=$mb
-        fi
-        info="size=$size count=$count bs=$fbs"
-        debug 1 "wiping start of '$target' with ${info}."
-        # wipe the first MB (up to 'size')
-        out=$(dd if=/dev/zero conv=notrunc "of=$target" \
-                "bs=$fbs" "count=$count" 2>&1) || {
-            error "wiping start of '$target' with ${info} failed."
-            error "$out"
-            return 1
-        }
+    info="size=$size count=$count bs=$bs"
+    debug 1 "wiping start of '$target' with ${info}."
+    # wipe the first MB (up to 'size')
+    out=$(dd if=/dev/zero conv=notrunc "of=$target" \
+            "bs=$bs" "count=$count" 2>&1) || {
+        error "wiping start of '$target' failed."
+        error "  size=$size count=$count bs=$bs: $out"
+        return 1
+    }
 
-        if $wipe_end && [ "$size" -gt "$mb" ]; then
-            # do the last 1MB
-            count=$((mb / bs))
-            seek=$(((size / bs) - $count))
-            info="size=$size count=$count bs=$bs seek=$seek"
-            debug 1 "wiping end of '$target' with ${info}."
-            out=$(dd if=/dev/zero conv=notrunc "of=$target" "seek=$seek" \
-                "bs=$bs" "count=$count" 2>&1)
-            if [ $? -ne 0 ]; then
-                error "wiping end of '$target' with ${info} failed."
-                error "$out";
-                return 1;
-            fi
+    if $wipe_end && [ "$size" -gt "$mb" ]; then
+        # do the last 1MB
+        count=$((mb / bs))
+        seek=$(((size / bs) - $count))
+        info="size=$size count=$count bs=$bs seek=$seek"
+        debug 1 "wiping end of '$target' with ${info}."
+        out=$(dd if=/dev/zero conv=notrunc "of=$target" "seek=$seek" \
+            "bs=$bs" "count=$count" 2>&1)
+        if [ $? -ne 0 ]; then
+            error "wiping end of '$target' failed."
+            error "  size=$size count=$count seek=$seek bs=$bs: $out";
+            return 1;
         fi
     fi
 
@@ -280,11 +262,8 @@ pt_uefi() {
             { error "$target: failed to wipe partitions"; return 1; }
     fi
 
-    local pt15
-    find_partno "$target" 15 && pt15="$_RET" ||
-        { error "failed to find partition 15 for $target"; return 1; }
-    mkfs -t vfat -F 32 -n uefi-boot "$pt15" ||
-        { error "failed to partition :$pt15' for UEFI vfat"; return 1; }
+    mkfs -t vfat -F 32 -n uefi-boot ${target}15 ||
+        { error "failed to partition ${target}15 for UEFI vfat"; return 1; }
 }
 
 
@@ -610,28 +589,24 @@ install_grub() {
             return 0;;
     esac
 
-    # check that mount point has efi partition, and that its mounted
-    # at /boot/efi and added to the fstab
-    if [ "$uefi" -ge 1 ]; then
-        # this assumes that the device was '/dev/xxx[0-9]' and the efi is 15.
-        local efi_dev="${mp_dev%[0-9]}15"
-        [ -b ${efi_dev} ] || { error "no UEFI partition on ${efi_dev}"; return 1; }
 
-        fslabel=$(blkid -s LABEL -o value "${efi_dev}")
-        fstype=$(blkid -s TYPE -o value "${efi_dev}")
-        [ "$fstype" = "vfat" ] || { error "${efi_dev} is not a vfat fs"; return 1; }
-        [ -n "$fslabel" ] || {  error "no label on EFI device"; return 1; }
-
-        mp_efi=$(lsblk --nodeps -n --output "MOUNTPOINT" ${efi_dev})
-        [ -z "$mp_efi" ] || umount "$mp_efi"
-
-        if [ ! -e "$mp/boot/efi" ]; then
-            mkdir -p "$mp/boot/efi" || { error "failed to mount EFI partition"; return 1; }
-            mount "$efi_dev" "$mp/boot/efi" || { error "unable to mount efi part"; return 1; }
-            mp_efi="$mp/boot/efi"
-        fi
-
-        echo "LABEL=${fslabel}  /boot/efi   vfat    defaults    0 0" >> "$mp/etc/fstab"
+    tmp="${cmdline##* -- }"
+    if [ "$tmp" != "$cmdline" ]; then
+        # there was an explicit '--', so copy stuff some after it
+        newargs=$(set -f;
+            c="";
+            for p in ${cmdline##* -- }; do
+                case "$p" in
+                    (BOOTIF=*|initrd=*|BOOT_IMAGE=*) continue;;
+                esac
+                c="$c $p";
+            done
+            echo "${c# }"
+        )
+    elif [ "${cmdline#* console=}" != "${cmdline}" ]; then
+        # there are 'console=' params, copy those.
+        newargs=$(set -f; c=""; for p in $cmdline; do
+            [ "${p#console}" = "$p" ] || c="$c $p"; done; echo "${c# }")
     fi
 
     local grub_d="etc/default/grub.d"
