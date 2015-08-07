@@ -349,6 +349,11 @@ def net_meta(args):
     if util.run_hook_if_exists(args.target, 'network-config'):
         sys.exit(0)
 
+    state = util.load_command_environment()
+    cfg = util.load_command_config(args, state)
+    if cfg.get("network") is not None:
+        args.mode = "custom"
+
     eni = "etc/network/interfaces"
     if args.mode == "auto":
         if not args.devices:
