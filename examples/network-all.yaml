@@ -1,5 +1,9 @@
+network_commands:
+ builtin: null
+ 10_network: curtin net-meta custom
+
 # YAML example of a network config.
-network_config:
+network:
     # Physical interfaces.
     - type: physical
       name: eth0
@@ -40,7 +44,7 @@ network_config:
         - eth1
         - eth2
       params:
-        mode: active-backup
+        bond-mode: active-backup
       subnets:
         - type: dhcp6
     # A Bond VLAN.
@@ -57,17 +61,17 @@ network_config:
           - eth3
           - eth4
       ipv4_conf:
-          rp_filter: ?
-          proxy_arp: ?
-          forwarding: ?
+          rp_filter: 1
+          proxy_arp: 0
+          forwarding: 1
       ipv6_conf:
-          autoconf: ?
-          disable_ipv6: ?
-          use_tempaddr: ?
-          forwarding: ?
+          autoconf: 1
+          disable_ipv6: 1
+          use_tempaddr: 1
+          forwarding: 1
           # basically anything in /proc/sys/net/ipv6/conf/.../
       params:
-          bridge_stp: off
+          bridge_stp: 'off'
           bridge_fd: 0
           bridge_maxwait: 0 
       subnets:
