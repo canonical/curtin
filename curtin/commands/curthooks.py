@@ -284,7 +284,7 @@ def setup_grub(cfg, target):
 
     if 'storage' in cfg:
         storage_grub_devices = []
-        for item in cfg['storage']:
+        for item in cfg.get('storage').get('config'):
             if item.get('grub_device'):
                 if item.get('serial'):
                     storage_grub_devices.append(
@@ -388,6 +388,23 @@ def copy_fstab(fstab, target):
         return
 
     shutil.copy(fstab, os.path.sep.join([target, 'etc/fstab']))
+
+
+def copy_crypttab(crypttab, target):
+    if not crypttab:
+        LOG.warn("crypttab config must be specified, not copying")
+        return
+
+    shutil.copy(crypttab, os.path.sep.join([target, 'etc/crypttab']))
+
+
+def copy_mdadm_conf(mdadm_conf, target):
+    if not mdadm_conf:
+        LOG.warn("mdadm config must be specified, not copying")
+        return
+
+    shutil.copy(mdadm_conf, os.path.sep.join([target,
+                'etc/mdadm/mdadm.conf']))
 
 
 def copy_interfaces(interfaces, target):
@@ -518,6 +535,28 @@ def detect_and_handle_multipath(cfg, target):
     update_initramfs(target, all_kernels=True)
 
 
+def install_missing_storage_packages(cfg, target):
+    # Do nothing if no custom storage.
+    if 'storage' not in cfg:
+        return
+
+    all_types = set(
+        operation['type']
+        for operation in cfg['storage']['config']
+        )
+    needed_packages = []
+    installed_packages = get_installed_packages(target)
+    if ('lvm_volgroup' in all_types or 'lvm_partition' in all_types) and \
+            'lvm2' not in installed_packages:
+        needed_packages.append('lvm2')
+    if 'raid' in all_types and 'mdadm' not in installed_packages:
+        needed_packages.append('mdadm')
+    if 'bcache' in all_types and 'bcache-tools' not in installed_packages:
+        needed_packages.append('bcache-tools')
+    if needed_packages:
+        util.install_packages(needed_packages, target=target)
+
+
 def curthooks(args):
     state = util.load_command_environment()
 
@@ -552,6 +591,25 @@ def curthooks(args):
     copy_fstab(state.get('fstab'), target)
 
     detect_and_handle_multipath(cfg, target)
+
+    install_missing_storage_packages(cfg, target)
+
+    # If a crypttab file was created by block_meta than it needs to be copied
+    # onto the target system, and update_initramfs() needs to be run, so that
+    # the cryptsetup hooks are properly configured on the installed system and
+    # it will be able to open encrypted volumes at boot.
+    crypttab_location = os.path.join(os.path.split(state['fstab'])[0],
+                                     "crypttab")
+    if os.path.exists(crypttab_location):
+        copy_crypttab(crypttab_location, target)
+        update_initramfs(target)
+
+    # If a mdadm.conf file was created by block_meta than it needs to be copied
+    # onto the target system
+    mdadm_location = os.path.join(os.path.split(state['fstab'])[0],
+                                  "mdadm.conf")
+    if os.path.exists(mdadm_location):
+        copy_mdadm_conf(mdadm_location, target)
 
     # As a rule, ARMv7 systems don't use grub. This may change some
     # day, but for now, assume no. They do require the initramfs

@@ -1,0 +1,75 @@
+partitioning_commands:
+ builtin: curtin block-meta custom
+
+storage:
+    version: 1
+    config:
+      - id: sda
+        type: disk
+        ptable: msdos
+        model: QEMU HARDDISK
+        serial: QM00002
+      - id: sdb
+        type: disk
+        ptable: msdos
+        model: QEMU HARDDISK
+        serial: QM00003
+      - id: sdc
+        type: disk
+        ptable: msdos
+        model: QEMU HARDDISK
+        serial: QM00004
+      - id: sdd
+        type: disk
+        ptable: msdos
+        model: QEMU HARDDISK
+        serial: QM00005
+      - id: sda1
+        type: partition
+        number: 1
+        size: 8GB
+        device: sda
+        flag: boot
+      - id: sdb1
+        type: partition
+        number: 1
+        size: 1GB
+        device: sdb
+        flag: raid
+      - id: sdc1
+        type: partition
+        number: 1
+        size: 1GB
+        device: sdc
+        flag: raid
+      - id: sdd1
+        type: partition
+        number: 1
+        size: 1GB
+        device: sdc
+        flag: raid
+      - id: md0
+        type: raid
+        name: md0
+        raidlevel: 1
+        devices:
+          - sdb1
+          - sdc1
+        spare_devices:
+          - sdd1
+      - id: sda1_root
+        type: format
+        fstype: ext4
+        volume: sda1
+      - id: raid_storage
+        type: format
+        fstype: ext4
+        volume: md0
+      - id: sda1_mount
+        type: mount
+        path: /
+        device: sda1_root
+      - id: raid_mount
+        type: mount
+        path: /media/storage
+        device: raid_storage
