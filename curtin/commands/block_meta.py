@@ -891,7 +891,7 @@ def meta_custom(args):
     # make sure the required packages are installed
     install_missing_packages_for_meta_custom()
 
-    storage_config = cfg.get('storage', [])
+    storage_config = cfg.get('storage', {})
     if not storage_config:
         raise Exception("storage configuration is required by mode '%s' "
                         "but not provided in the config file" % CUSTOM)
