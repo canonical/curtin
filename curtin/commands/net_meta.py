@@ -102,12 +102,13 @@ def interfaces_custom(args):
         handler = command_handlers.get(command['type'])
         if not handler:
             raise ValueError("unknown command type '%s'" % command['type'])
-        content += handler(command, network_config)
+        content += handler(command, args)
+        content = content.replace('\n\n\n', '\n\n')
 
-    return content.replace('\n\n\n', '\n\n')
+    return content
 
 
-def handle_vlan(command, network_config):
+def handle_vlan(command, args):
     '''
         auto eth0.222
         iface eth0.222 inet static
@@ -115,13 +116,13 @@ def handle_vlan(command, network_config):
                 netmask 255.255.255.0
                 vlan-raw-device eth0
     '''
-    content = handle_physical(command, network_config)[:-1]
+    content = handle_physical(command, args)[:-1]
     content += "    vlan-raw-device {}".format(command['vlan_link'])
 
     return content
 
 
-def handle_bond(command, network_config):
+def handle_bond(command, args):
     '''
 #/etc/network/interfaces
 auto eth0
@@ -142,7 +143,7 @@ iface bond0 inet static
      bond-lacp-rate 4
     '''
     # write out bondX iface stanza and options
-    content = handle_physical(command, network_config)[:-1]
+    content = handle_physical(command, args)[:-1]
     params = command.get('params', [])
     for param, value in params.items():
         content += "    {} {}\n".format(param, value)
@@ -158,7 +159,7 @@ iface bond0 inet static
     return content
 
 
-def handle_bridge(command, network_config):
+def handle_bridge(command, args):
     '''
         auto br0
         iface br0 inet static
@@ -186,7 +187,7 @@ def handle_bridge(command, network_config):
         "bridge_waitport",
     ]
 
-    content = handle_physical(command, network_config)[:-1]
+    content = handle_physical(command, args)[:-1]
     content += "    bridge_ports %s\n" % (
         " ".join(command['bridge_interfaces']))
     params = command.get('params', [])
@@ -205,7 +206,7 @@ def cidr2mask(cidr):
     return ".".join([str(x) for x in mask])
 
 
-def handle_route(command, network_config):
+def handle_route(command, args):
     content = "\n"
     network, cidr = command['destination'].split("/")
     netmask = cidr2mask(int(cidr))
@@ -226,7 +227,7 @@ def handle_route(command, network_config):
     return content
 
 
-def handle_nameserver(command, network_config):
+def handle_nameserver(command, args):
     content = "\n"
     if 'address' in command:
         content += "dns-nameserver {address}\n".format(**command)
@@ -236,7 +237,7 @@ def handle_nameserver(command, network_config):
     return content
 
 
-def handle_physical(command, network_config):
+def handle_physical(command, args):
     '''
     command = {
         'type': 'physical',
@@ -287,7 +288,54 @@ def handle_physical(command, network_config):
     else:
         content += "iface {name} {inet} {mode}\n\n".format(**ctxt)
 
+    # for physical interfaces ,write out a persist net udev rule
+    if command['type'] == 'physical' and \
+       'name' in command and 'mac_address' in command:
+        udev_line = generate_udev_rule(command['name'],
+                                       command['mac_address'])
+        persist_net = 'etc/udev/rules.d/70-persistent-net.rules'
+        netrules = os.path.sep.join((args.target, persist_net,))
+        util.ensure_dir(os.path.dirname(netrules))
+        with open(netrules, 'a+') as f:
+            f.write(udev_line)
+
     return content
+
+
+def compose_udev_equality(key, value):
+    """Return a udev comparison clause, like `ACTION=="add"`."""
+    assert key == key.upper()
+    return '%s=="%s"' % (key, value)
+
+
+def compose_udev_attr_equality(attribute, value):
+    """Return a udev attribute comparison clause, like `ATTR{type}=="1"`."""
+    assert attribute == attribute.lower()
+    return 'ATTR{%s}=="%s"' % (attribute, value)
+
+
+def compose_udev_setting(key, value):
+    """Return a udev assignment clause, like `NAME="eth0"`."""
+    assert key == key.upper()
+    return '%s="%s"' % (key, value)
+
+
+def generate_udev_rule(interface, mac):
+    """Return a udev rule to set the name of network interface with `mac`.
+
+    The rule ends up as a single line looking something like:
+
+    SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*",
+    ATTR{address}="ff:ee:dd:cc:bb:aa", NAME="eth0"
+    """
+    rule = ', '.join([
+        compose_udev_equality('SUBSYSTEM', 'net'),
+        compose_udev_equality('ACTION', 'add'),
+        compose_udev_equality('DRIVERS', '?*'),
+        compose_udev_attr_equality('address', mac),
+        compose_udev_setting('NAME', interface),
+        ])
+    return '%s\n' % rule
 
 
 def net_meta(args):
@@ -300,6 +348,11 @@ def net_meta(args):
     # we do not run the builtin
     if util.run_hook_if_exists(args.target, 'network-config'):
         sys.exit(0)
+
+    state = util.load_command_environment()
+    cfg = util.load_command_config(args, state)
+    if cfg.get("network") is not None:
+        args.mode = "custom"
 
     eni = "etc/network/interfaces"
     if args.mode == "auto":
