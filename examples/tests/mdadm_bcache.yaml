@@ -1,7 +1,7 @@
 storage:
   version: 1
   config:
-    - id: sda
+     - id: sda
        type: disk
        ptable: gpt
        model: QEMU HARDDISK
@@ -15,7 +15,7 @@ storage:
        type: partition
        size: 3GB
        device: sda
-    - id: sda2
+     - id: sda2
        type: partition
        size: 1GB
        device: sda
