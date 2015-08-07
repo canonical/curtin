@@ -1,0 +1,66 @@
+partitioning_commands:
+ builtin: curtin block-meta custom
+
+storage:
+    version: 1
+    config:
+      - id: sda
+        type: disk
+        ptable: msdos
+        model: QEMU HARDDISK
+        serial: QM00002
+      - id: sdb
+        type: disk
+        ptable: msdos
+        mode: QEMU HARDDISK
+        serial: QM00003
+      - id: sda1
+        type: partition
+        number: 1
+        size: 8GB
+        device: sda
+        flag: boot
+      - id: sda2
+        type: partition
+        number: 2
+        size: 1GB
+        device: sda
+      - id: storage_volgroup
+        type: lvm_volgroup
+        name: volgroup1
+        devices: 
+          - sda2
+          - sdb
+      - id: storage_1
+        type: lvm_partition
+        volgroup: storage_volgroup
+        name: lv1
+        size: 2G
+      - id: storage_2
+        type: lvm_partition
+        name: lv2
+        volgroup: storage_volgroup
+      - id: sda1_root
+        type: format
+        fstype: ext4
+        volume: sda1
+      - id: storage_1_fs
+        type: format
+        fstype: ext4
+        volume: storage_1
+      - id: storage_2_fs
+        type: format
+        fstype: fat32
+        volume: storage_2
+      - id: sda1_mount
+        type: mount
+        path: /
+        device: sda1_root
+      - id: storage_1_mount
+        type: mount
+        path: /media/storage1
+        device: storage_1_fs
+      - id: storage_2_mount
+        type: mount
+        path: /media/storage2
+        device: storage_2_fs

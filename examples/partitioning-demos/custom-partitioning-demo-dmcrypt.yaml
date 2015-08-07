@@ -1,0 +1,44 @@
+partitioning_commands:
+ builtin: curtin block-meta custom
+
+storage:
+    version: 1
+    config:
+      - id: sda
+        type: disk
+        ptable: msdos
+        model: QEMU HARDDISK
+        serial: QM00002
+        grub_device: True
+      - id: sda1
+        type: partition
+        number: 1
+        size: 512MB
+        device: sda
+        flag: boot
+      - id: sda2
+        type: partition
+        number: 2
+        size: 9GB
+        device: sda
+      - id: sda2_crypto
+        type: dm_crypt
+        volume: sda2
+        key: testkey
+        dm_name: sda2_crypto
+      - id: sda1_boot
+        type: format
+        fstype: ext4
+        volume: sda1
+      - id: sda2_root
+        type: format
+        fstype: ext4
+        volume: sda2_crypto
+      - id: sda2_mount
+        type: mount
+        path: /
+        device: sda2_root
+      - id: sda1_mount
+        type: mount
+        path: /boot
+        device: sda1_boot
