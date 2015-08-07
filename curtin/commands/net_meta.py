@@ -18,7 +18,6 @@
 import argparse
 import os
 import sys
-import jinja2
 
 from curtin import net
 import curtin.util as util
@@ -105,7 +104,7 @@ def interfaces_custom(args):
             raise ValueError("unknown command type '%s'" % command['type'])
         content += handler(command, network_config)
 
-    return content
+    return content.replace('\n\n\n', '\n\n')
 
 
 def handle_vlan(command, network_config):
@@ -116,14 +115,15 @@ def handle_vlan(command, network_config):
                 netmask 255.255.255.0
                 vlan-raw-device eth0
     '''
-    content = handle_physical(command, network_config)
+    content = handle_physical(command, network_config)[:-1]
     content += "    vlan-raw-device {}".format(command['vlan_link'])
 
     return content
 
+
 def handle_bond(command, network_config):
     '''
-#/etc/network/interfaces 
+#/etc/network/interfaces
 auto eth0
 iface eth0 inet manual
 
@@ -142,10 +142,10 @@ iface bond0 inet static
      bond-lacp-rate 4
     '''
     # write out bondX iface stanza and options
-    content = handle_physical(command, network_config)
+    content = handle_physical(command, network_config)[:-1]
     params = command.get('params', [])
-    for param,value in params.items():
-        content += "    {} {}".format(param, value)
+    for param, value in params.items():
+        content += "    {} {}\n".format(param, value)
 
     content += "\n"
 
@@ -154,10 +154,9 @@ iface bond0 inet static
         content += "auto {}\n".format(slave)
         content += "iface {} inet manual\n".format(slave)
         content += "    bond-master {}\n\n".format(command['name'])
-     
-    content += "\n"
+
     return content
-   
+
 
 def handle_bridge(command, network_config):
     '''
@@ -187,24 +186,57 @@ def handle_bridge(command, network_config):
         "bridge_waitport",
     ]
 
-    content = handle_physical(command, network_config)
-    content += "    bridge_ports %s\n" %(
+    content = handle_physical(command, network_config)[:-1]
+    content += "    bridge_ports %s\n" % (
         " ".join(command['bridge_interfaces']))
     params = command.get('params', [])
-    for param,value in params.items():
+    for param, value in params.items():
         if param in bridge_params:
-            content += "    {} {}".format(param, value)
+            content += "    {} {}\n".format(param, value)
 
     return content
 
+
+def cidr2mask(cidr):
+    mask = [0, 0, 0, 0]
+    for i in list(range(0, cidr)):
+        idx = int(i / 8)
+        mask[idx] = mask[idx] + (1 << (7 - i % 8))
+    return ".".join([str(x) for x in mask])
+
+
 def handle_route(command, network_config):
-    pass
+    content = "\n"
+    network, cidr = command['destination'].split("/")
+    netmask = cidr2mask(int(cidr))
+    command['network'] = network
+    command['netmask'] = netmask
+    content += "up route add"
+    mapping = {
+        'network': '-net',
+        'netmask': 'netmask',
+        'gateway': 'gw',
+        'metric': 'metric',
+    }
+    for k in ['network', 'netmask', 'gateway', 'metric']:
+        if k in command:
+            content += " %s %s" % (mapping[k], command[k])
+
+    content += '\n'
+    return content
+
 
 def handle_nameserver(command, network_config):
-    pass
+    content = "\n"
+    if 'address' in command:
+        content += "dns-nameserver {address}\n".format(**command)
+    if 'search' in command:
+        content += "dns-search {search}\n".format(**command)
+
+    return content
+
 
 def handle_physical(command, network_config):
-    print(command)
     '''
     command = {
         'type': 'physical',
@@ -215,56 +247,46 @@ def handle_physical(command, network_config):
          ]
     }
     '''
-    inet = 'inet'
-    mode = 'manual'
-
     ctxt = {
         'name': command.get('name'),
-        'inet': inet,
-        'mode': mode,
+        'inet': 'inet',
+        'mode': 'manual',
+        'mtu': command.get('mtu'),
         'address': None,
         'gateway': None,
+        'subnets': command.get('subnets'),
     }
 
+    content = ""
+    content += "auto {name}\n".format(**ctxt)
     subnets = command.get('subnets', {})
     if subnets:
-        subnet = subnets[0]
+        for index, subnet in zip(range(0, len(subnets)), subnets):
+            ctxt['index'] = index
+            ctxt['mode'] = subnet['type']
+            if ctxt['mode'].endswith('6'):
+                ctxt['inet'] += '6'
+            elif ctxt['mode'] == 'static' and ":" in subnet['address']:
+                ctxt['inet'] += '6'
+            if ctxt['mode'].startswith('dhcp'):
+                ctxt['mode'] = 'dhcp'
+
+            if index == 0:
+                content += "iface {name} {inet} {mode}\n".format(**ctxt)
+            else:
+                content += \
+                    "iface {name}:{index} {inet} {mode}\n".format(**ctxt)
+
+            if 'mtu' in ctxt and ctxt['mtu'] and index == 0:
+                content += "    mtu {mtu}\n".format(**ctxt)
+            if 'address' in subnet:
+                content += "    address {address}\n".format(**subnet)
+            if 'gateway' in subnet:
+                content += "    gateway {gateway}\n".format(**subnet)
+            content += "\n"
     else:
-        subnet = None
-    if subnet:
-        mode = subnet['type']
-        if mode.endswith('6'):
-            inet += '6'
-        elif mode == 'static' and \
-             ":" in subnet['address']:
-            inet += '6'
-        if mode.startswith('dhcp'):
-            mode = 'dhcp'
-        ctxt.update({'mode': mode})
+        content += "iface {name} {inet} {mode}\n\n".format(**ctxt)
 
-        ctxt.update({'address': subnet.get('address')})
-        ctxt.update({'gateway': subnet.get('gateway')})
-
-    # TODO: use mapping to ensure mac to config
-    #  stays the same no matter interface change
-    physical_template = \
-'''
-auto {{ name }}
-iface {{ name }} {{ inet }} {{ mode }}
-{% if address %}
-    address {{ address }}
-{% endif %}
-{% if gateway %}
-    gateway {{ gateway }}
-{% endif %}
-''' 
-    print(ctxt)
-    template = jinja2.Template(physical_template,
-                               undefined=jinja2.StrictUndefined,
-                               trim_blocks=True,
-                               lstrip_blocks=True)
-
-    content = template.render(ctxt)
     return content
 
 
