@@ -1,6 +1,5 @@
 import unittest
 import mock
-#import parted
 import curtin.commands.block_meta
 
 from sys import version_info
@@ -8,6 +7,8 @@ if version_info.major == 2:
     import __builtin__ as builtins
 else:
     import builtins
+
+parted = None  # FIXME: remove these tests entirely. This is here for flake8
 
 
 @unittest.skip
