@@ -30,6 +30,7 @@ import sys
 import tempfile
 import time
 
+# FIXME: parted will be dropped entirely soon
 # Sometimes when a seed is being generated to build an installer image parted
 # might not be available, so don't import it unless it is, and only fail if it
 # isn't available when it is actually being used
