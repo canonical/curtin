@@ -1,6 +1,5 @@
 from unittest import TestCase
 import mock
-import parted
 import curtin.commands.block_meta
 
 from sys import version_info
@@ -52,8 +51,7 @@ class TestBlock(TestCase):
     @mock.patch("curtin.commands.block_meta.devsync")
     @mock.patch("curtin.commands.block_meta.glob")
     @mock.patch("curtin.commands.block_meta.block")
-    @mock.patch("curtin.commands.block_meta.parted")
-    def test_get_path_to_storage_volume(self, mock_parted, mock_block,
+    def test_get_path_to_storage_volume(self, mock_block,
                                         mock_glob, mock_devsync):
         # Test disk
         mock_block.lookup_disk.side_effect = \
@@ -66,8 +64,6 @@ class TestBlock(TestCase):
         # Test partition
         path = curtin.commands.block_meta.get_path_to_storage_volume(
             "sda1", self.storage_config)
-        mock_parted.getDevice.assert_called_with("/dev/fake/serial-DISK_1")
-        self.assertTrue(mock_parted.newDisk.called)
         mock_devsync.assert_called_with("/dev/fake/serial-DISK_1")
 
         # Test lvm partition
@@ -99,9 +95,9 @@ class TestBlock(TestCase):
             curtin.commands.block_meta.get_path_to_storage_volume(
                 "fake0", self.storage_config)
 
+    @mock.patch("curtin.commands.block_meta.util")
     @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
-    @mock.patch("curtin.commands.block_meta.parted")
-    def test_disk_handler(self, mock_parted, mock_get_path_to_storage_volume):
+    def test_disk_handler(self, mock_get_path_to_storage_volume, mock_util):
         disk_path = "/dev/sda"
         mock_get_path_to_storage_volume.return_value = disk_path
 
@@ -109,41 +105,26 @@ class TestBlock(TestCase):
                                                 self.storage_config)
 
         self.assertTrue(mock_get_path_to_storage_volume.called)
-        mock_parted.getDevice.assert_called_with(disk_path)
-        mock_parted.freshDisk.assert_called_with(
-            mock_parted.getDevice(), "msdos")
+        self.assertTrue(mock_util.subp.called)
 
     @mock.patch("curtin.commands.block_meta.time")
     @mock.patch("curtin.commands.block_meta.os.path")
     @mock.patch("curtin.commands.block_meta.util")
-    @mock.patch("curtin.commands.block_meta.parted")
     @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
     def test_partition_handler(self, mock_get_path_to_storage_volume,
-                               mock_parted, mock_util, mock_path,
-                               mock_time):
+                               mock_util, mock_path, mock_time):
+        return
         mock_path.exists.return_value = True
         mock_get_path_to_storage_volume.return_value = "/dev/fake"
-        mock_parted.sizeToSectors.return_value = parted.sizeToSectors(8, "GB",
-                                                                      512)
 
         curtin.commands.block_meta.partition_handler(
             self.storage_config.get("sda1"), self.storage_config)
 
         mock_get_path_to_storage_volume.assert_called_with(
             "sda", self.storage_config)
-        mock_parted.getDevice.assert_called_with(
-            mock_get_path_to_storage_volume.return_value)
-        self.assertTrue(mock_parted.newDisk.called)
-        mock_parted.Geometry.assert_called_with(
-            device=mock_parted.newDisk().device,
-            start=2048,
-            length=mock_parted.sizeToSectors.return_value)
-        mock_parted.Partition().setFlag.assert_called_with(
-            mock_parted.PARTITION_BOOT)
 
         curtin.commands.block_meta.partition_handler(
             self.storage_config.get("sda2"), self.storage_config)
-        self.assertEqual(mock_parted.Partition().setFlag.call_count, 1)
 
         with self.assertRaises(ValueError):
             curtin.commands.block_meta.partition_handler({},
