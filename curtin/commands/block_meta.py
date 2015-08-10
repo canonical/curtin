@@ -380,6 +380,7 @@ def disk_handler(info, storage_config):
                 os.path.join("/dev/block", block_no))
             wipe_volume(partition_path, info.get('wipe'))
 
+        clear_holders("/sys/block/%s" % disk_kname)
         wipe_volume(disk, info.get('wipe'))
 
     # Create partition table on disk
