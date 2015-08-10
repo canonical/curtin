@@ -171,8 +171,10 @@ def clear_holders(sys_block_path):
             holder_realpath = os.path.realpath(
                 os.path.join(sys_block_path, "holders", holder))
             clear_holders(holder_realpath)
-        except FileNotFoundError:
+        except IOError as e:
             # something might have already caused the holder to go away
+            if util.is_file_not_found_exc(e):
+                pass
             pass
 
     # detect what type of holder is using this volume and shut it down, need to
@@ -209,7 +211,9 @@ def clear_holders(sys_block_path):
                       "w") as fp:
                 LOG.info("stopping: %s" % fp)
                 fp.write("1")
-        except FileNotFoundError:
+        except IOError as e:
+            if not util.is_file_not_found_exc(e):
+                raise e
             with open(os.path.join(sys_block_path, "bcache", "stop"),
                       "w") as fp:
                 LOG.info("stopping: %s" % fp)
