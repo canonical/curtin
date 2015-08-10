@@ -632,4 +632,7 @@ def try_import_module(import_str, default=None):
         return default
 
 
+def is_file_not_found_exc(exc):
+    return (isinstance(exc, IOError) and exc.errno == errno.ENOENT)
+
 # vi: ts=4 expandtab syntax=python
