@@ -244,15 +244,27 @@ def devsync(devpath):
 def determine_partition_number(partition_id, storage_config):
     vol = storage_config.get(partition_id)
     partnumber = vol.get('number')
-    if not partnumber:
-        partnumber = 1
-        for key, item in storage_config.items():
-            if item.get('type') == "partition" and \
-                    item.get('device') == vol.get('device'):
-                if item.get('id') == vol.get('id'):
-                    break
-                else:
-                    partnumber += 1
+    if vol.get('flag') == "logical":
+        if not partnumber:
+            partnumber = 5
+            for key, item in storage_config.items():
+                if item.get('type') == "partition" and \
+                        item.get('device') == vol.get('device') and\
+                        item.get('flag') == "logical":
+                    if item.get('id') == vol.get('id'):
+                        break
+                    else:
+                        partnumber += 1
+    else:
+        if not partnumber:
+            partnumber = 1
+            for key, item in storage_config.items():
+                if item.get('type') == "partition" and \
+                        item.get('device') == vol.get('device'):
+                    if item.get('id') == vol.get('id'):
+                        break
+                    else:
+                        partnumber += 1
     return partnumber
 
 
@@ -412,8 +424,19 @@ def partition_handler(info, storage_config):
     if partnumber > 1:
         disk_kname = os.path.split(
             get_path_to_storage_volume(device, storage_config))[-1]
-        previous_partition = "/sys/block/%s/%s%s/" % \
-            (disk_kname, disk_kname, partnumber - 1)
+        if partnumber == 5 and disk_ptable == "msdos":
+            for key, item in storage_config.items():
+                if item.get('type') == "partition" and \
+                        item.get('device') == device and \
+                        item.get('flag') == "extended":
+                    extended_part_no = determine_partition_number(
+                        key, storage_config)
+                    break
+            previous_partition = "/sys/block/%s/%s%s/" % \
+                (disk_kname, disk_kname, extended_part_no)
+        else:
+            previous_partition = "/sys/block/%s/%s%s/" % \
+                (disk_kname, disk_kname, partnumber - 1)
         with open(os.path.join(previous_partition, "size"), "r") as fp:
             previous_size = int(fp.read())
         with open(os.path.join(previous_partition, "start"), "r") as fp:
