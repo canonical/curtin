@@ -402,7 +402,7 @@ def disk_handler(info, storage_config):
         if ptable == "gpt":
             util.subp(["sgdisk", "--clear", disk])
         elif ptable == "msdos":
-            util.subp(["parted", disk, "-s", "mklabel", "msdos"])
+            util.subp(["parted", disk, "--script", "mklabel", "msdos"])
 
 
 def partition_handler(info, storage_config):
@@ -473,7 +473,7 @@ def partition_handler(info, storage_config):
             partition_type = flag
         else:
             partition_type = "primary"
-        cmd = ["parted", disk, "-s", "mkpart", partition_type,
+        cmd = ["parted", disk, "--script", "mkpart", partition_type,
                "%ss" % offset_sectors, "%ss" % str(offset_sectors +
                                                    length_sectors)]
         util.subp(cmd)
