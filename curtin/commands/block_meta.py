@@ -30,14 +30,6 @@ import sys
 import tempfile
 import time
 
-# Sometimes when a seed is being generated to build an installer image parted
-# might not be available, so don't import it unless it is, and only fail if it
-# isn't available when it is actually being used
-try:
-    import parted
-except ImportError:
-    pass
-
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
@@ -244,6 +236,21 @@ def devsync(devpath):
     raise OSError('Failed to find device at path: {}'.format(devpath))
 
 
+def determine_partition_number(partition_id, storage_config):
+    vol = storage_config.get(partition_id)
+    partnumber = vol.get('number')
+    if not partnumber:
+        partnumber = 1
+        for key, item in storage_config.items():
+            if item.get('type') == "partition" and \
+                    item.get('device') == vol.get('device'):
+                if item.get('id') == vol.get('id'):
+                    break
+                else:
+                    partnumber += 1
+    return partnumber
+
+
 def get_path_to_storage_volume(volume, storage_config):
     # Get path to block device for volume. Volume param should refer to id of
     # volume in storage config
@@ -255,28 +262,11 @@ def get_path_to_storage_volume(volume, storage_config):
 
     # Find path to block device
     if vol.get('type') == "partition":
-        # For partitions, parted.Disk of parent disk, then find what number
-        # partition it is and use parted.Partition.path
-        partnumber = vol.get('number')
-        if not partnumber:
-            partnumber = 1
-            for key, item in storage_config.items():
-                if item.get("type") == "partition" and \
-                        item.get("device") == vol.get("device"):
-                    if item.get("id") == vol.get("id"):
-                        break
-                    else:
-                        partnumber += 1
+        partnumber = determine_partition_number(vol.get('id'), storage_config)
         disk_block_path = get_path_to_storage_volume(vol.get('device'),
                                                      storage_config)
-        pdev = parted.getDevice(disk_block_path)
-        pdisk = parted.newDisk(pdev)
-        ppartitions = pdisk.partitions
-        try:
-            volume_path = ppartitions[partnumber - 1].path
-        except IndexError:
-            raise ValueError("partition '%s' does not exist" % vol.get('id'))
-        devsync_vol = disk_block_path
+        volume_path = disk_block_path + str(partnumber)
+        devsync_vol = os.path.join(disk_block_path)
 
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
@@ -371,96 +361,65 @@ def disk_handler(info, storage_config):
 
     # Wipe the disk
     if info.get('wipe') and info.get('wipe') != "none":
-        try:
-            pdev = parted.getDevice(disk)
-            pdisk = parted.newDisk(pdev)
-            partitions = list(partition.path for partition in pdisk.partitions)
-            # We don't want to keep pdisk around if we're creating a new
-            # partition table
-            del(pdisk)
-        except (parted.DiskLabelException, parted.DiskException):
-            # We might be trying to wipe a disk that doesn't have anything on
-            # it. If that's the case, there's no reason to fail, just keep
-            # going
-            pass
-        else:
-            # The disk has a lable, clear all partitions
-            util.subp(["mdadm", "--assemble", "--scan"], rcs=[0, 1, 2])
-            disk_kname = os.path.split(disk)[-1]
-            syspath_partitions = list(
-                os.path.split(prt)[0] for prt in
-                glob.glob("/sys/block/%s/*/partition" % disk_kname))
-            for partition in syspath_partitions:
-                clear_holders(partition)
-            for partition in partitions:
-                wipe_volume(partition, info.get('wipe'))
+        # The disk has a lable, clear all partitions
+        util.subp(["mdadm", "--assemble", "--scan"], rcs=[0, 1, 2])
+        disk_kname = os.path.split(disk)[-1]
+        syspath_partitions = list(
+            os.path.split(prt)[0] for prt in
+            glob.glob("/sys/block/%s/*/partition" % disk_kname))
+        for partition in syspath_partitions:
+            clear_holders(partition)
+            with open(os.path.join(partition, "dev"), "r") as fp:
+                block_no = fp.read().rstrip()
+            partition_path = os.path.realpath(
+                os.path.join("/dev/block", block_no))
+            wipe_volume(partition_path, info.get('wipe'))
 
         wipe_volume(disk, info.get('wipe'))
 
     # Create partition table on disk
     if info.get('ptable'):
-        # Get device and disk using parted using appropriate partition table
-        pdev = parted.getDevice(disk)
-        pdisk = parted.freshDisk(pdev, ptable)
         LOG.info("labeling device: '%s' with '%s' partition table", disk,
                  ptable)
-        pdisk.commit()
+        if ptable == "gpt":
+            util.subp(["sgdisk", "--clear", disk])
+        elif ptable == "msdos":
+            data = 'o\nw'
+            util.subp(["fdisk", disk], data=data.encode(), capture=True)
 
 
 def partition_handler(info, storage_config):
     device = info.get('device')
     size = info.get('size')
     flag = info.get('flag')
-    partnumber = info.get('number')
+    disk_ptable = storage_config.get(device).get('ptable')
     if not device:
         raise ValueError("device must be set for partition to be created")
     if not size:
         raise ValueError("size must be specified for partition to be created")
 
-    # Find device to attach to in storage_config
     disk = get_path_to_storage_volume(device, storage_config)
-    pdev = parted.getDevice(disk)
-    pdisk = parted.newDisk(pdev)
-
-    if not partnumber:
-        partnumber = len(pdisk.partitions) + 1
+    partnumber = determine_partition_number(info.get('id'), storage_config)
 
     # Offset is either 1 sector after last partition, or near the beginning if
     # this is the first partition
     if partnumber > 1:
-        ppartitions = pdisk.partitions
-        try:
-            previous_partition = ppartitions[partnumber - 2]
-        except IndexError:
-            raise ValueError(
-                "partition numbered '%s' does not exist, so cannot create \
-                '%s'. Make sure partitions are in order in config." %
-                (partnumber - 1, info.get('id')))
-        if previous_partition.type == parted.PARTITION_EXTENDED:
-            offset_sectors = previous_partition.geometry.start + 1
-        elif previous_partition.type == parted.PARTITION_LOGICAL:
-            offset_sectors = previous_partition.geometry.end + 2
-        else:
-            offset_sectors = previous_partition.geometry.end + 1
+        disk_kname = os.path.split(
+            get_path_to_storage_volume(device, storage_config))[-1]
+        previous_partition = "/sys/block/%s/%s%s/" % \
+            (disk_kname, disk_kname, partnumber - 1)
+        with open(os.path.join(previous_partition, "size"), "r") as fp:
+            previous_size = int(fp.read())
+        with open(os.path.join(previous_partition, "start"), "r") as fp:
+            offset_sectors = previous_size + int(fp.read()) + 1
     else:
-        if storage_config.get(device).get('ptable') == "msdos":
-            offset_sectors = 2048
-        else:
-            offset_sectors = parted.sizeToSectors(
-                16, 'KiB', pdisk.device.sectorSize) + 2
+        offset_sectors = 2048
 
-    length_sectors = parted.sizeToSectors(int(size.strip(
-        string.ascii_letters)), size.strip(string.digits),
-        pdisk.device.sectorSize)
+    length_bytes = util.human2bytes(size)
+    length_sectors = length_bytes / 512
 
     # Handle preserve flag
     if info.get('preserve'):
-        partition = pdisk.getPartitionByPath(
-            get_path_to_storage_volume(info.get('id'), storage_config))
-        if partition.geometry.start != offset_sectors or \
-                partition.geometry.length != length_sectors:
-            raise ValueError("partition '%s' does not match what exists on \
-                disk, but preserve is set to true, bailing" % info.get('id'))
         return
     elif storage_config.get(device).get('preserve'):
         raise NotImplementedError("Partition '%s' is not marked to be \
@@ -469,42 +428,44 @@ def partition_handler(info, storage_config):
             because of the possibility of damaging partitions intended to be \
             preserved." % (info.get('id'), device))
 
-    # Figure out partition type
-    if flag == "extended":
-        partition_type = parted.PARTITION_EXTENDED
-    elif flag == "logical":
-        partition_type = parted.PARTITION_LOGICAL
-    else:
-        partition_type = parted.PARTITION_NORMAL
-
-    # Make geometry and partition
-    geometry = parted.Geometry(device=pdisk.device, start=offset_sectors,
-                               length=length_sectors)
-    partition = parted.Partition(disk=pdisk, type=partition_type,
-                                 geometry=geometry)
-    constraint = parted.Constraint(exactGeom=partition.geometry)
-
     # Set flag
-    flags = {"boot": parted.PARTITION_BOOT,
-             "lvm": parted.PARTITION_LVM,
-             "raid": parted.PARTITION_RAID,
-             "bios_grub": parted.PARTITION_BIOS_GRUB,
-             "prep": parted.PARTITION_PREP}
+    # 'sgdisk --list-types'
+    sgdisk_flags = {"boot": 'ef00',
+                    "lvm": '8e00',
+                    "raid": 'fd00',
+                    "bios_grub": 'ef02',
+                    "prep": '4100',
+                    "swap": '8200',
+                    "home": '8302',
+                    "linux": '8300'}
 
-    if flag:
-        if flag in flags:
-            partition.setFlag(flags[flag])
-        elif flag not in ["extended", "logical"]:
-            raise ValueError("invalid partition flag '%s'" % flag)
-
-    # Add partition to disk and commit changes
     LOG.info("adding partition '%s' to disk '%s'" % (info.get('id'), device))
-    pdisk.addPartition(partition, constraint)
-    pdisk.commit()
+    if disk_ptable == "msdos":
+        if flag in ["extended", "logical", "primary"]:
+            partition_type = flag
+        else:
+            partition_type = "primary"
+        cmd = ["parted", disk, "-s", "mkpart", partition_type,
+               "%ss" % offset_sectors, "%ss" % str(offset_sectors +
+                                                   length_sectors)]
+        util.subp(cmd)
+    elif disk_ptable == "gpt":
+        if flag and flag in sgdisk_flags:
+            typecode = sgdisk_flags[flag]
+        else:
+            typecode = sgdisk_flags['linux']
+        cmd = ["sgdisk", "--new", "%s:%s:%s" % (partnumber, offset_sectors,
+               length_sectors + offset_sectors),
+               "--typecode=%s:%s" % (partnumber, typecode), disk]
+        util.subp(cmd)
+    else:
+        raise ValueError("parent partition has invalid partition table")
 
     # Wipe the partition if told to do so
     if info.get('wipe') and info.get('wipe') != "none":
-        wipe_volume(pdisk.partitions[partnumber - 1].path, info.get('wipe'))
+        wipe_volume(
+            get_path_to_storage_volume(info.get('id'), storage_config),
+            info.get('wipe'))
 
 
 def format_handler(info, storage_config):
@@ -866,11 +827,6 @@ def meta_custom(args):
     partitions on which disks to create. It also contains information about
     overlays (raid, lvm, bcache) which need to be setup.
     """
-
-    # make sure parted has been imported
-    if "parted" not in sys.modules:
-        raise ImportError("module parted is not available but is needed to \
-                          run meta_custom")
 
     command_handlers = {
         'disk': disk_handler,
