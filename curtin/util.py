@@ -15,6 +15,7 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+import argparse
 import errno
 import os
 import shutil
@@ -112,7 +113,7 @@ def load_command_environment(env=os.environ, strict=False):
 
 def load_command_config(args, state):
     if hasattr(args, 'config') and args.config is not None:
-        cfg_file = args.config
+        return args.config
     else:
         cfg_file = state.get('config', {})
 
@@ -634,5 +635,14 @@ def try_import_module(import_str, default=None):
 
 def is_file_not_found_exc(exc):
     return (isinstance(exc, IOError) and exc.errno == errno.ENOENT)
+
+
+class MergedCmdAppend(argparse.Action):
+    """This appends to a list in order of appearence both the option string
+       and the value"""
+    def __call__(self, parser, namespace, values, option_string=None):
+        if getattr(namespace, self.dest, None) is None:
+            setattr(namespace, self.dest, [])
+        getattr(namespace, self.dest).append((option_string, values,))
 
 # vi: ts=4 expandtab syntax=python

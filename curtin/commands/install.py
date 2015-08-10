@@ -51,13 +51,6 @@ CONFIG_BUILTIN = {
 }
 
 
-class MyAppend(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        if getattr(namespace, self.dest, None) is None:
-            setattr(namespace, self.dest, [])
-        getattr(namespace, self.dest).append((option_string, values,))
-
-
 class WorkingDir(object):
     def __init__(self, config):
         top_d = tempfile.mkdtemp()
@@ -284,13 +277,8 @@ def apply_kexec(kexec, target):
 
 
 def cmd_install(args):
-    cfg = CONFIG_BUILTIN
-
-    for (flag, val) in args.cfgopts:
-        if flag in ('-c', '--config'):
-            config.merge_config_fp(cfg, val)
-        elif flag in ('--set'):
-            config.merge_cmdarg(cfg, val)
+    cfg = CONFIG_BUILTIN.copy()
+    config.merge_config(cfg, args.config)
 
     for source in args.source:
         src = util.sanitize_source(source)
@@ -307,6 +295,8 @@ def cmd_install(args):
     if cfg.get('http_proxy'):
         os.environ['http_proxy'] = cfg['http_proxy']
 
+    import json
+    print(json.dumps(cfg, indent=1))
     # Load reporter
     clear_install_log()
     reporter = load_reporter(cfg)
@@ -356,12 +346,14 @@ def cmd_install(args):
     apply_power_state(cfg.get('power_state'))
 
 
+# we explicitly accept config on install for backwards compatibility
 CMD_ARGUMENTS = (
     ((('-c', '--config'),
-      {'help': 'read configuration from cfg', 'action': MyAppend,
+      {'help': 'read configuration from cfg', 'action': util.MergedCmdAppend,
        'metavar': 'FILE', 'type': argparse.FileType("rb"),
        'dest': 'cfgopts', 'default': []}),
-     ('--set', {'help': 'define a config variable', 'action': MyAppend,
+     ('--set', {'help': 'define a config variable',
+                'action': util.MergedCmdAppend,
                 'metavar': 'key=val', 'dest': 'cfgopts'}),
      ('source', {'help': 'what to install', 'nargs': '*'}),
      )
