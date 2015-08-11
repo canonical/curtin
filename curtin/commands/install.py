@@ -90,7 +90,7 @@ class WorkingDir(object):
 
 class Stage(object):
 
-    def __init__(self, name, commands, env):
+    def __init__(self, name, commands, env, reportstack=None):
         self.name = name
         self.commands = commands
         self.env = env
@@ -99,6 +99,12 @@ class Stage(object):
             self.write_stdout = self._write_stdout3
         else:
             self.write_stdout = self._write_stdout2
+
+        if reportstack is None:
+            reportstack = events.ReportEventStack(
+                name="stage-%s" % name, description="basic stage %s" % name,
+                reporting_enabled=False)
+        self.reportstack = reportstack
 
     def open_install_log(self):
         """Open the install log."""
@@ -127,30 +133,39 @@ class Stage(object):
             cmd = self.commands[cmdname]
             if not cmd:
                 continue
+            cur_res = events.ReportEventStack(
+                name=cmdname, description="running '%s'" % cmdname,
+                parent=self.reportstack)
+
+            env = self.env.copy()
+            env['CURTIN_REPORTSTACK'] = cur_res.fullname
+
             shell = not isinstance(cmd, list)
             with util.LogTimer(LOG.debug, cmdname):
-                try:
-                    sp = subprocess.Popen(
-                        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                        env=self.env, shell=shell)
-                except OSError as e:
-                    LOG.warn("%s command failed", cmdname)
-                    raise util.ProcessExecutionError(cmd=cmd, reason=e)
+                with cur_res:
+                    try:
+                        sp = subprocess.Popen(
+                            cmd, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT,
+                            env=env, shell=shell)
+                    except OSError as e:
+                        LOG.warn("%s command failed", cmdname)
+                        raise util.ProcessExecutionError(cmd=cmd, reason=e)
 
-                output = b""
-                while True:
-                    data = sp.stdout.read(1)
-                    if not data and sp.poll() is not None:
-                        break
-                    self.write(data)
-                    output += data
+                    output = b""
+                    while True:
+                        data = sp.stdout.read(1)
+                        if not data and sp.poll() is not None:
+                            break
+                        self.write(data)
+                        output += data
 
-                rc = sp.returncode
-                if rc != 0:
-                    LOG.warn("%s command failed", cmdname)
-                    raise util.ProcessExecutionError(
-                        stdout=output, stderr="",
-                        exit_code=rc, cmd=cmd)
+                    rc = sp.returncode
+                    if rc != 0:
+                        LOG.warn("%s command failed", cmdname)
+                        raise util.ProcessExecutionError(
+                            stdout=output, stderr="",
+                            exit_code=rc, cmd=cmd)
 
 
 def apply_power_state(pstate):
@@ -311,7 +326,7 @@ def cmd_install(args):
 
         for name in cfg.get('stages'):
             reportstack = events.ReportEventStack(
-                name, description="curtin stage %s" % name,
+                "stage-%s" % name, description="curtin stage %s" % name,
                 parent=args.reportstack)
             env['CURTIN_REPORTSTACK'] = reportstack.fullname
 
@@ -323,7 +338,8 @@ def cmd_install(args):
             with reportstack:
                 commands_name = '%s_commands' % name
                 with util.LogTimer(LOG.debug, 'stage_%s' % name):
-                    stage = Stage(name, cfg.get(commands_name, {}), env)
+                    stage = Stage(name, cfg.get(commands_name, {}), env,
+                                  reportstack=reportstack)
                     stage.run()
 
         if apply_kexec(cfg.get('kexec'), workingd.target):
