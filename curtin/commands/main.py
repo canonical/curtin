@@ -23,6 +23,7 @@ import traceback
 
 from curtin import log
 from curtin import util
+from curtin import config
 
 SUB_COMMAND_MODULES = ['block-meta', 'curthooks', 'extract', 'hook',
                        'in-target', 'install', 'mkfs', 'net-meta', 'pack',
@@ -56,29 +57,56 @@ def main(args=None):
         verbosity = 1
 
     parser.add_argument('--showtrace', action='store_true', default=stacktrace)
-    parser.add_argument('--verbose', '-v', action='count', default=verbosity)
+    parser.add_argument('-v', '--verbose', action='count', default=verbosity,
+                        dest='verbosity')
     parser.add_argument('--log-file', default=sys.stderr,
                         type=argparse.FileType('w'))
+    parser.add_argument('-c', '--config', action=util.MergedCmdAppend,
+                        help='read configuration from cfg',
+                        metavar='FILE', type=argparse.FileType("rb"),
+                        dest='main_cfgopts', default=[])
+    parser.add_argument('--set', action=util.MergedCmdAppend,
+                        help='define a config variable',
+                        metavar='key=val', dest='main_cfgopts')
+    parser.set_defaults(config=None)
 
     subps = parser.add_subparsers(dest="subcmd")
     for subcmd in SUB_COMMAND_MODULES:
         add_subcmd(subps, subcmd)
     args = parser.parse_args(sys.argv[1:])
 
-    # if user gave cmdline arguments, then lets set environ so subsequent
-    # curtin calls get stacktraces.
-    if args.showtrace and not stacktrace:
-        os.environ['CURTIN_STACKTRACE'] = "1"
+    # merge config flags into a single config dictionary
+    cfg_opts = args.main_cfgopts
+    if hasattr(args, 'cfgopts'):
+        cfg_opts += args.cfgopts
 
-    if args.verbose and not verbosity:
-        os.environ['CURTIN_VERBOSITY'] = str(args.verbose)
+    cfg = {}
+    for (flag, val) in cfg_opts:
+        if flag in ('-c', '--config'):
+            config.merge_config_fp(cfg, val)
+        elif flag in ('--set'):
+            config.merge_cmdarg(cfg, val)
+
+    args.config = cfg
+
+    # if user gave cmdline arguments, then set environ so subsequent
+    # curtin calls get those as default
+    showtrace = False
+    if 'showtrace' in args.config:
+        showtrace = str(args.config['showtrace']).lower() not in ("0", "false")
+    os.environ['CURTIN_STACKTRACE'] = str(int(showtrace))
+
+    verbosity = args.verbosity
+    if 'verbosity' in args.config:
+        verbosity = int(args.config['verbosity'])
+    os.environ['CURTIN_VERBOSITY'] = str(verbosity)
 
     if not getattr(args, 'func', None):
         # http://bugs.python.org/issue16308
         parser.print_help()
         sys.exit(1)
 
-    log.basicConfig(stream=args.log_file, verbosity=args.verbose)
+    log.basicConfig(stream=args.log_file, verbosity=verbosity)
 
     paths = util.get_paths()
 
@@ -96,7 +124,7 @@ def main(args=None):
     try:
         sys.exit(args.func(args))
     except Exception as e:
-        if args.showtrace:
+        if showtrace:
             traceback.print_exc()
         sys.stderr.write("%s\n" % e)
         sys.exit(3)
