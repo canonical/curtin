@@ -130,7 +130,7 @@ def main(args=None):
     update_configuration(cfg.get('reporting', {}))
 
     stack_prefix = (os.environ.get("CURTIN_REPORTSTACK", "") +
-                    "/%s" % args.subcmd)
+                    "/cmd-%s" % args.subcmd)
     if stack_prefix.startswith("/"):
         stack_prefix = stack_prefix[1:]
     os.environ["CURTIN_REPORTSTACK"] = stack_prefix
