@@ -1,17 +1,15 @@
 # vi: ts=4 expandtab
 
 import abc
-import six
 
 from .registry import DictRegistry
-from .. import (url_helper, util)
+from .. import url_helper
 from .. import log as logging
 
 
 LOG = logging.getLogger(__name__)
 
 
-@six.add_metaclass(abc.ABCMeta)
 class ReportingHandler(object):
     """Base class for report handlers.
 
@@ -48,8 +46,9 @@ class LogHandler(ReportingHandler):
 
 
 class PrintHandler(ReportingHandler):
+    """Print the event as a string."""
+
     def publish_event(self, event):
-        """Publish an event to the ``INFO`` log level."""
         print(event.as_string())
 
 
@@ -59,29 +58,20 @@ class WebHookHandler(ReportingHandler):
                  retries=None):
         super(WebHookHandler, self).__init__()
 
-        if any([consumer_key, token_key, token_secret, consumer_secret]):
-            self.oauth_helper = url_helper.OauthUrlHelper(
-                consumer_key=consumer_key, token_key=token_key,
-                token_secret=token_secret, consumer_secret=consumer_secret)
-        else:
-            self.oauth_helper = None
+        self.oauth_helper = url_helper.OauthUrlHelper(
+            consumer_key=consumer_key, token_key=token_key,
+            token_secret=token_secret, consumer_secret=consumer_secret)
         self.endpoint = endpoint
         self.timeout = timeout
         self.retries = retries
-        self.ssl_details = util.fetch_ssl_details()
 
     def publish_event(self, event):
-        if self.oauth_helper:
-            readurl = self.oauth_helper.readurl
-        else:
-            readurl = url_helper.readurl
         try:
-            return readurl(
-                self.endpoint, data=event.as_dict(),
-                timeout=self.timeout,
-                retries=self.retries, ssl_details=self.ssl_details)
-        except:
-            LOG.warn("failed posting event: %s" % event.as_string())
+            return self.oauth_helper.geturl(
+                url=self.endpoint, data=event.as_dict(),
+                retries=self.retries)
+        except Exception as e:
+            LOG.warn("failed posting event: %s [%s]" % (event.as_string(), e))
 
 
 available_handlers = DictRegistry()

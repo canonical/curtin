@@ -133,13 +133,15 @@ def main(args=None):
     if report_prefix.startswith("/"):
         report_prefix = report_prefix[1:]
     os.environ["CURTIN_REPORTSTACK"] = report_prefix
-    args.reporter = events.ReportEventStack(report_prefix,
-        "curtin command %s" % args.subcmd, reporting_enabled=True)
+    args.reporter = events.ReportEventStack(
+        report_prefix, "curtin command %s" % args.subcmd,
+        reporting_enabled=True)
     reporter.update_configuration(cfg.get('reporting', {}))
 
     try:
         with args.reporter:
-            sys.exit(args.func(args))
+            ret = args.func(args)
+        sys.exit(ret)
     except Exception as e:
         if showtrace:
             traceback.print_exc()

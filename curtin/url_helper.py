@@ -10,11 +10,13 @@ try:
     from urllib import request as urllib_request
     from urllib import error as urllib_error
     from urllib.parse import urlparse
+    from urllib.parse import urlencode
 except ImportError:
     # python2
     import urllib2 as urllib_request
     import urllib2 as urllib_error
     from urlparse import urlparse
+    from urllib import urlencode
 
 from .log import LOG
 
@@ -37,13 +39,15 @@ def _geturl(url, headers=None, headers_cb=None, exception_cb=None, data=None):
     if headers_cb:
         headers.update(headers_cb(url))
 
+    if data and isinstance(data, dict):
+        data = urlencode(data).encode()
+
     try:
         req = urllib_request.Request(url=url, data=data, headers=headers)
         r = urllib_request.urlopen(req).read()
         # python2, we want to return bytes, which is what python3 does
         if isinstance(r, str):
             return r.decode()
-        print("returing an decoded")
         return r
     except urllib_error.HTTPError as exc:
         myexc = UrlError(exc, code=exc.code, headers=exc.headers, url=url,
