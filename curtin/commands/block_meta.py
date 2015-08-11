@@ -21,6 +21,7 @@ from curtin import util
 from curtin.log import LOG
 
 from . import populate_one_subcmd
+from curtin.commands.net_meta import compose_udev_equality
 
 import glob
 import os
@@ -268,6 +269,35 @@ def determine_partition_number(partition_id, storage_config):
     return partnumber
 
 
+def make_dname(volume, storage_config):
+    state = util.load_command_environment()
+    rules_dir = os.path.join(state['scratch'], "rules.d")
+    vol = storage_config.get(volume)
+    path = get_path_to_storage_volume(volume, storage_config)
+    (out, _err) = util.subp(["blkid", "-o", "export", path], capture=True)
+    for line in out.splitlines():
+        if "PTUUID" in line or "PARTUUID" in line:
+            ptuuid = line.split('=')[-1]
+            break
+    rule = [
+        compose_udev_equality("SUBSYSTEM", "block"),
+        compose_udev_equality("ACTION", "add|change"),
+        ]
+    if vol.get('type') == "disk":
+        dname = vol.get('name')
+        rule.append(compose_udev_equality('ENV{DEVTYPE}', "disk"))
+        rule.append(compose_udev_equality('ENV{ID_PART_TABLE_UUID}', ptuuid))
+    elif vol.get('type') == "partition":
+        rule.append(compose_udev_equality('ENV{DEVTYPE}', "partition"))
+        dname = storage_config.get(vol.get('device')).get('name') + \
+            "-part%s" % determine_partition_number(volume, storage_config)
+        rule.append(compose_udev_equality('ENV{ID_PART_ENTRY_UUID}', ptuuid))
+    rule.append("SYMLINK+=\"disk/by-dname/%s\"" % dname)
+    util.ensure_dir(rules_dir)
+    with open(os.path.join(rules_dir, volume), "w") as fp:
+        fp.write(', '.join(rule))
+
+
 def get_path_to_storage_volume(volume, storage_config):
     # Get path to block device for volume. Volume param should refer to id of
     # volume in storage config
@@ -404,6 +434,10 @@ def disk_handler(info, storage_config):
         elif ptable == "msdos":
             util.subp(["parted", disk, "-s", "mklabel", "msdos"])
 
+    # Make the name if needed
+    if info.get('name'):
+        make_dname(info.get('id'), storage_config)
+
 
 def partition_handler(info, storage_config):
     device = info.get('device')
@@ -494,6 +528,9 @@ def partition_handler(info, storage_config):
         wipe_volume(
             get_path_to_storage_volume(info.get('id'), storage_config),
             info.get('wipe'))
+    # Make the name if needed
+    if storage_config.get(device).get('name'):
+        make_dname(info.get('id'), storage_config)
 
 
 def format_handler(info, storage_config):
