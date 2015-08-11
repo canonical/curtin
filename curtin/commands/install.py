@@ -34,6 +34,7 @@ from curtin.reporter import (
     load_reporter,
     clear_install_log,
     writeline_install_log,
+    events
     )
 from . import populate_one_subcmd
 
@@ -130,8 +131,7 @@ class Stage(object):
             with util.LogTimer(LOG.debug, cmdname):
                 try:
                     sp = subprocess.Popen(
-                        cmd,
-                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                         env=self.env, shell=shell)
                 except OSError as e:
                     LOG.warn("%s command failed", cmdname)
@@ -310,15 +310,21 @@ def cmd_install(args):
         env.update(workingd.env())
 
         for name in cfg.get('stages'):
+            reportstack = events.ReportEventStack(
+                name, description="curtin stage %s" % name,
+                parent=args.reportstack)
+            env['CURTIN_REPORTSTACK'] = reportstack.fullname
+
             try:
                 if reporter.progress:
                     reporter.report_progress(name)
             except AttributeError:
                 pass
-            commands_name = '%s_commands' % name
-            with util.LogTimer(LOG.debug, 'stage_%s' % name):
-                stage = Stage(name, cfg.get(commands_name, {}), env)
-                stage.run()
+            with reportstack:
+                commands_name = '%s_commands' % name
+                with util.LogTimer(LOG.debug, 'stage_%s' % name):
+                    stage = Stage(name, cfg.get(commands_name, {}), env)
+                    stage.run()
 
         if apply_kexec(cfg.get('kexec'), workingd.target):
             cfg['power_state'] = {'mode': 'reboot', 'delay': 'now',
@@ -331,6 +337,7 @@ def cmd_install(args):
         writeline_install_log(exp_msg)
         LOG.error(exp_msg)
         reporter.report_failure(exp_msg)
+        raise e
     finally:
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))

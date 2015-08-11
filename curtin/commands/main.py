@@ -71,7 +71,7 @@ def main(args=None):
                         help='define a config variable',
                         metavar='key=val', dest='main_cfgopts')
     parser.set_defaults(config={})
-    parser.set_defaults(reporter=None)
+    parser.set_defaults(reportstack=None)
 
     subps = parser.add_subparsers(dest="subcmd")
     for subcmd in SUB_COMMAND_MODULES:
@@ -127,19 +127,19 @@ def main(args=None):
 
     os.environ['PATH'] = ':'.join(path)
 
-    # set up the reporter
-    report_prefix = (os.environ.get("CURTIN_REPORTSTACK", "") +
-                     "/%s" % args.subcmd)
-    if report_prefix.startswith("/"):
-        report_prefix = report_prefix[1:]
-    os.environ["CURTIN_REPORTSTACK"] = report_prefix
-    args.reporter = events.ReportEventStack(
-        report_prefix, "curtin command %s" % args.subcmd,
+    # set up the reportstack
+    stack_prefix = (os.environ.get("CURTIN_REPORTSTACK", "") +
+                    "/%s" % args.subcmd)
+    if stack_prefix.startswith("/"):
+        stack_prefix = stack_prefix[1:]
+    os.environ["CURTIN_REPORTSTACK"] = stack_prefix
+    args.reportstack = events.ReportEventStack(
+        name=stack_prefix, description="curtin command %s" % args.subcmd,
         reporting_enabled=True)
     reporter.update_configuration(cfg.get('reporting', {}))
 
     try:
-        with args.reporter:
+        with args.reportstack:
             ret = args.func(args)
         sys.exit(ret)
     except Exception as e:
