@@ -43,22 +43,22 @@ class MAASReporter(BaseReporter):
             consumer_secret='',
             skew_data_file="/run/oauth_skew.json")
 
-    def report_progress(self, progress, files):
+    def report_progress(self, progress):
         """Report installation progress."""
         status = "WORKING"
         message = "Installation in progress %s" % progress
-        self.report(files, status, message)
+        self.report(status, message)
 
     def report_success(self):
         """Report installation success."""
         status = "OK"
         message = "Installation succeeded."
-        self.report([INSTALL_LOG], status, message)
+        self.report(status, message, files=[INSTALL_LOG])
 
     def report_failure(self, message):
         """Report installation failure."""
         status = "FAILED"
-        self.report([INSTALL_LOG], status, message)
+        self.report(status, message, files=[INSTALL_LOG])
 
     def encode_multipart_data(self, data, files):
         """Create a MIME multipart payload from L{data} and L{files}.
@@ -86,7 +86,7 @@ class MAASReporter(BaseReporter):
         }
         return body, headers
 
-    def report(self, files, status, message=None):
+    def report(self, status, message=None, files=None):
         """Send the report."""
 
         params = {}
@@ -94,6 +94,8 @@ class MAASReporter(BaseReporter):
         if message is not None:
             params['error'] = message
 
+        if files is None:
+            files = []
         install_files = {}
         for fpath in files:
             install_files[os.path.basename(fpath)] = open(fpath, "r")
