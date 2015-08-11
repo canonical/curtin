@@ -243,32 +243,30 @@ main() {
         fi
     done
 
-    if [ "${cmdargs[0]##*/} ${cmdargs[1]}" = "curtin install" ]; then
-        # if its curtin install, pack config files up for them.
-        # potentially should check to make sure they've not already done this
-        # as this updating could then be destructive / annoying
-        # specifically, it could be annoying if you had a config inside
-        # the image that you were meaning to reference, adn we copied (or tried)
-        # the file from the host.
-        for((i=2;i<${#cmdargs[@]};i++)); do
-            cur=${cmdargs[$i]}
-            next=${cmdargs[$i+1]}
-            stuffed_cfg=""
-            fpath=""
-            case "$cur" in
-                --config|-c)
-                    fpath=$next;
-                    cmdargs[$i+1]="config/${fpath##*/}"
-                    ;;
-                --config=*)
-                    fpath=${cur#--config=}
-                    cmdargs[$i]="--config=config/${fpath##*/}"
-                    ;;
-                *) continue;;
-            esac
-            addargs[${#addargs[@]}]="--add=config/${fpath##*/}:$fpath"
-        done
-    fi
+    # We now pack up --config= options for the user
+    # potentially should check to make sure they've not already done this
+    # as this updating could then be destructive / annoying
+    # specifically, it could be annoying if you had a config inside
+    # the image that you were meaning to reference, and we copied (or tried)
+    # the file from the host.
+    for((i=1;i<${#cmdargs[@]};i++)); do
+        cur=${cmdargs[$i]}
+        next=${cmdargs[$i+1]}
+        stuffed_cfg=""
+        fpath=""
+        case "$cur" in
+            --config|-c)
+                fpath=$next;
+                cmdargs[$i+1]="config/${fpath##*/}"
+                ;;
+            --config=*)
+                fpath=${cur#--config=}
+                cmdargs[$i]="--config=config/${fpath##*/}"
+                ;;
+            *) continue;;
+        esac
+        addargs[${#addargs[@]}]="--add=config/${fpath##*/}:$fpath"
+    done
 
     PYTHONPATH="${top_d}${PYTHONPATH:+${PYTHONPATH}}" \
         "${top_d}/bin/curtin" pack "${addargs[@]}" -- \
