@@ -17,27 +17,18 @@
 
 """MAAS Reporter."""
 
-from curtin.reporter import (
+from . import (
     BaseReporter,
     INSTALL_LOG,
     LoadReporterException,
     )
-from email.utils import parsedate
+from .. import url_helper
+
 import mimetypes
 import os.path
 import random
-import socket
 import string
 import sys
-import time
-import uuid
-try:
-    from urllib import request as urllib_request
-    from urllib import error as urllib_error
-except ImportError:
-    # python2
-    import urllib2 as urllib_request
-    import urllib2 as urllib_error
 
 
 class MAASReporter(BaseReporter):
@@ -45,10 +36,12 @@ class MAASReporter(BaseReporter):
     def __init__(self, config):
         """Load config dictionary and initialize object."""
         self.url = config['url']
-        self.consumer_key = config['consumer_key']
-        self.consumer_secret = ''
-        self.token_key = config['token_key']
-        self.token_secret = config['token_secret']
+        self.urlhelper = url_helper.OauthUrlHelper(
+            consumer_key=config.get('consumer_key'),
+            token_key=config.get('token_key'),
+            token_secret=config.get('token_secret'),
+            consumer_secret='',
+            skew_data_file="/run/oauth_skew.json")
 
     def report_progress(self, progress, files):
         """Report installation progress."""
@@ -66,17 +59,6 @@ class MAASReporter(BaseReporter):
         """Report installation failure."""
         status = "FAILED"
         self.report([INSTALL_LOG], status, message)
-
-    def authenticate_headers(self, url, headers, creds, clockskew):
-        """Update and sign a dict of request headers."""
-        if creds.get('consumer_key', None) is not None:
-            headers.update(oauth_headers(
-                url,
-                consumer_key=creds['consumer_key'],
-                token_key=creds['token_key'],
-                token_secret=creds['token_secret'],
-                consumer_secret=creds['consumer_secret'],
-                clockskew=clockskew))
 
     def encode_multipart_data(self, data, files):
         """Create a MIME multipart payload from L{data} and L{files}.
@@ -104,54 +86,8 @@ class MAASReporter(BaseReporter):
         }
         return body, headers
 
-    def geturl(self, url, creds, headers=None, data=None):
-        """Create MAAS url for sending the report."""
-        if headers is None:
-            headers = {}
-        else:
-            headers = dict(headers)
-
-        clockskew = 0
-
-        myexc = Exception("Unexpected Error")
-        for naptime in (1, 1, 2, 4, 8, 16, 32):
-            self.authenticate_headers(url, headers, creds, clockskew)
-            try:
-                req = urllib_request.Request(url=url, data=data,
-                                             headers=headers)
-                return urllib_request.urlopen(req).read()
-            except urllib_error.HTTPError as exc:
-                myexc = exc
-                if 'date' not in exc.headers:
-                    sys.stderr.write("date field not in %d headers" % exc.code)
-                    pass
-                elif exc.code in (401, 403):
-                    date = exc.headers['date']
-                    try:
-                        ret_time = time.mktime(parsedate(date))
-                        clockskew = int(ret_time - time.time())
-                        sys.stderr.write("updated clock skew to %d" %
-                                         clockskew)
-                    except:
-                        sys.stderr.write("failed to convert date '%s'" % date)
-            except Exception as exc:
-                myexc = exc
-
-            sys.stderr.write("request to %s failed. sleeping %d.: %s" %
-                             (url, naptime, myexc))
-            time.sleep(naptime)
-
-        raise myexc
-
     def report(self, files, status, message=None):
         """Send the report."""
-
-        creds = {
-            'consumer_key': self.consumer_key,
-            'token_key': self.token_key,
-            'token_secret': self.token_secret,
-            'consumer_secret': self.consumer_secret,
-            }
 
         params = {}
         params['status'] = status
@@ -171,20 +107,14 @@ class MAASReporter(BaseReporter):
             data = data.encode()
 
         try:
-            payload = self.geturl(self.url, creds=creds, headers=headers,
-                                  data=data)
-            if payload != "OK" and payload != b'OK':
+            payload = self.urlhelper.geturl(
+                self.url, data=data, headers=headers)
+            if payload != b'OK':
                 raise TypeError("Unexpected result from call: %s" % payload)
             else:
                 msg = "Success"
-        except urllib_error.HTTPError as exc:
-            msg = "http error [%s]" % exc.code
-        except urllib_error.URLError as exc:
-            msg = "url error [%s]" % exc.reason
-        except socket.timeout as exc:
-            msg = "socket timeout [%s]" % exc
-        except TypeError as exc:
-            msg = exc.message
+        except url_helper.UrlError as exc:
+            msg = str(exc)
         except Exception as exc:
             raise exc
             msg = "unexpected error [%s]" % exc
@@ -216,49 +146,10 @@ class MAASReporter(BaseReporter):
         return mimetypes.guess_type(filename)[0] or 'application/octet-stream'
 
 
-try:
-    import oauth.oauth as oauth
-
-    def oauth_headers(url, consumer_key, token_key, token_secret,
-                      consumer_secret, clockskew=0):
-        """Build OAuth headers using given credentials."""
-        consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
-        token = oauth.OAuthToken(token_key, token_secret)
-
-        timestamp = int(time.time()) + clockskew
-
-        params = {
-            'oauth_version': "1.0",
-            'oauth_nonce': uuid.uuid4().get_hex(),
-            'oauth_timestamp': timestamp,
-            'oauth_token': token.key,
-            'oauth_consumer_key': consumer.key,
-        }
-        req = oauth.OAuthRequest(http_url=url, parameters=params)
-        req.sign_request(
-            oauth.OAuthSignatureMethod_PLAINTEXT(), consumer, token)
-        return(req.to_header())
-
-except ImportError:
-    import oauthlib.oauth1 as oauth1
-
-    def oauth_headers(url, consumer_key, token_key, token_secret,
-                      consumer_secret, clockskew=0):
-        """Build OAuth headers using given credentials."""
-        timestamp = int(time.time()) + clockskew
-        client = oauth1.Client(
-            consumer_key,
-            client_secret=consumer_secret,
-            resource_owner_key=token_key,
-            resource_owner_secret=token_secret,
-            signature_method=oauth1.SIGNATURE_PLAINTEXT,
-            timestamp=str(timestamp))
-        uri, signed_headers, body = client.sign(url)
-        return signed_headers
-
-
 def load_factory(options):
     try:
         return MAASReporter(options)
     except Exception:
         raise LoadReporterException
+
+# vi: ts=4 expandtab syntax=python

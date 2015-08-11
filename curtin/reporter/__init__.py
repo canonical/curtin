@@ -17,9 +17,6 @@
 
 """Reporter Abstract Base Class."""
 
-# TODO - make python3 compliant
-# str = None
-
 import os
 
 from abc import (
@@ -32,8 +29,15 @@ from curtin.util import (
     ensure_dir,
     )
 
+from .registry import DictRegistry
+from .handlers import available_handlers
+
 INSTALL_LOG = "/var/log/curtin/install.log"
 PROGRESS_LOG = "/tmp/curtin_install_progress"
+
+DEFAULT_CONFIG = {
+    'logging': {'type': 'log'},
+}
 
 
 class BaseReporter:
@@ -111,3 +115,27 @@ def writeline_install_log(output):
             fp.write(output)
     except IOError:
         pass
+
+
+def update_configuration(config):
+    """Update the instanciated_handler_registry.
+
+    :param config:
+        The dictionary containing changes to apply.  If a key is given
+        with a False-ish value, the registered handler matching that name
+        will be unregistered.
+    """
+    for handler_name, handler_config in config.items():
+        if not handler_config:
+            instantiated_handler_registry.unregister_item(
+                handler_name, force=True)
+            continue
+        handler_config = handler_config.copy()
+        cls = available_handlers.registered_items[handler_config.pop('type')]
+        instantiated_handler_registry.unregister_item(handler_name)
+        instance = cls(**handler_config)
+        instantiated_handler_registry.register_item(handler_name, instance)
+
+
+instantiated_handler_registry = DictRegistry()
+update_configuration(DEFAULT_CONFIG)

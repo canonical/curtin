@@ -93,6 +93,12 @@ def main(args=None):
 
     os.environ['PATH'] = ':'.join(path)
 
+    report_prefix = (os.environ.get("CURTIN_REPORTSTACK", "") +
+                     "/%s" % args.cmdname)
+    if report_prefix.startswith("/"):
+        report_prefix = report_prefix[1:]
+    os.environ["CURTIN_REPORTSTACK"] = report_prefix
+
     try:
         sys.exit(args.func(args))
     except Exception as e:
