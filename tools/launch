@@ -55,12 +55,14 @@ debug() {
 get_my_ip() {
     [ -z "$IP_ADDR" ] || { _RET="${IP_ADDR}"; return 0; }
     local Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT
-    local iface ipaddr=""
+    local iface ipaddr="" tmpf=""
+    # work around LP: #1483440
+    cp "/proc/net/route" "${TEMP_D}/current-route"
     while read Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT; do
         [ "$Mask" = "00000000" ] && break
-    done < /proc/net/route
+    done < "${TEMP_D}/current-route"
     iface="$Iface"
-    ipaddr=$(LC_ALL=C /sbin/ip -4 addr list dev "$iface" scope global)
+    ipaddr=$(LC_ALL=C /sbin/ip -4 addr list dev "$iface" scope global) || return
     ipaddr=${ipaddr#* inet }
     ipaddr=${ipaddr%%/*}
     _RET="$ipaddr"
