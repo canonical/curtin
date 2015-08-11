@@ -24,8 +24,7 @@ import traceback
 from .. import log
 from .. import util
 from .. import config
-from ..reporter import events
-from .. import reporter
+from ..reporter import (events, update_configuration)
 
 SUB_COMMAND_MODULES = ['block-meta', 'curthooks', 'extract', 'hook',
                        'in-target', 'install', 'mkfs', 'net-meta', 'pack',
@@ -128,6 +127,8 @@ def main(args=None):
     os.environ['PATH'] = ':'.join(path)
 
     # set up the reportstack
+    update_configuration(cfg.get('reporting', {}))
+
     stack_prefix = (os.environ.get("CURTIN_REPORTSTACK", "") +
                     "/%s" % args.subcmd)
     if stack_prefix.startswith("/"):
@@ -136,7 +137,6 @@ def main(args=None):
     args.reportstack = events.ReportEventStack(
         name=stack_prefix, description="curtin command %s" % args.subcmd,
         reporting_enabled=True)
-    reporter.update_configuration(cfg.get('reporting', {}))
 
     try:
         with args.reportstack:
