@@ -295,8 +295,6 @@ def cmd_install(args):
     if cfg.get('http_proxy'):
         os.environ['http_proxy'] = cfg['http_proxy']
 
-    import json
-    print(json.dumps(cfg, indent=1))
     # Load reporter
     clear_install_log()
     reporter = load_reporter(cfg)
