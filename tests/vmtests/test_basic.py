@@ -7,10 +7,10 @@ import textwrap
 
 class TestBasicAbs(VMBaseClass):
     __test__ = False
+    interactive = False
     conf_file = "examples/tests/basic.yaml"
     install_timeout = 600
     boot_timeout = 120
-    interactive = False
     user_data = textwrap.dedent("""\
         #cloud-config
         password: passw0rd
@@ -23,6 +23,7 @@ class TestBasicAbs(VMBaseClass):
           - blkid -o export /dev/vda1 > /media/output/blkid_output_vda1
           - blkid -o export /dev/vda2 > /media/output/blkid_output_vda2
           - cat /etc/fstab > /media/output/fstab
+          - ls /dev/disk/by-dname/ > /media/output/ls_dname
         power_state:
           mode: poweroff
         """)
@@ -30,11 +31,17 @@ class TestBasicAbs(VMBaseClass):
     def test_output_files_exist(self):
         self.output_files_exist(
             ["blkid_output_vda", "blkid_output_vda1", "blkid_output_vda2",
-             "fstab"])
+             "fstab", "ls_dname"])
 
     def test_ptable(self):
         blkid_info = self.get_blkid_data("blkid_output_vda")
         self.assertEquals(blkid_info["PTTYPE"], "dos")
+
+    def test_dname(self):
+        with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
+            contents = fp.read().splitlines()
+        for link in ["main_disk", "main_disk-part1", "main_disk-part2"]:
+            self.assertIn(link, contents)
 
     def test_partitions(self):
         with open(os.path.join(self.td.mnt, "fstab")) as fp:
