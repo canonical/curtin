@@ -27,10 +27,11 @@ from mock import patch
 from curtin.reporter import (
     EmptyReporter,
     load_reporter,
+    LoadReporterException,
     )
 # #XXX: see `XXX` below for details
-# from curtin.reporter.maas import load_factory as maas_load_factory
-# from curtin.reporter.maas import MAASReporter
+from curtin.reporter.maas import load_factory as maas_load_factory
+from curtin.reporter.maas import MAASReporter
 
 
 class TestReporter(TestCase):
@@ -59,20 +60,16 @@ class TestReporter(TestCase):
         self.assertIsInstance(reporter, EmptyReporter)
         self.assertTrue(mock_LOG.error.called)
 
-# # XXX newell 2014-09-10 bug=1367493: For Python3 compliance all
-# # oauth usage in MAASReporter will need to be changed to oauthlib
-# # Until this bug is fixed, the below tests will break `make test`
-# # and should be commented out.
-# class TestMAASReporter(TestCase):
-#
-#     def test_load_factory_raises_exception_wrong_options(self):
-#         options = {'wrong': 'wrong'}
-#         self.assertRaises(
-#             LoadReporterException, maas_load_factory, options)
-#
-#     def test_load_factory_returns_maas_reporter_good_options(self):
-#         options = {
-#             'url': 'url', 'consumer_key': 'consumer_key',
-#             'token_key': 'token_key', 'token_secret': 'token_secret'}
-#         reporter = maas_load_factory(options)
-#         self.assertIsInstance(reporter, MAASReporter)
+
+class TestMAASReporter(TestCase):
+    def test_load_factory_raises_exception_wrong_options(self):
+        options = {'wrong': 'wrong'}
+        self.assertRaises(
+            LoadReporterException, maas_load_factory, options)
+
+    def test_load_factory_returns_maas_reporter_good_options(self):
+        options = {
+            'url': 'url', 'consumer_key': 'consumer_key',
+            'token_key': 'token_key', 'token_secret': 'token_secret'}
+        reporter = maas_load_factory(options)
+        self.assertIsInstance(reporter, MAASReporter)
