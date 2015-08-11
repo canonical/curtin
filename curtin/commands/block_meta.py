@@ -402,8 +402,7 @@ def disk_handler(info, storage_config):
         if ptable == "gpt":
             util.subp(["sgdisk", "--clear", disk])
         elif ptable == "msdos":
-            data = 'o\nw'
-            util.subp(["fdisk", disk], data=data.encode(), capture=True)
+            util.subp(["parted", disk, "--script", "mklabel", "msdos"])
 
 
 def partition_handler(info, storage_config):
@@ -445,7 +444,7 @@ def partition_handler(info, storage_config):
         offset_sectors = 2048
 
     length_bytes = util.human2bytes(size)
-    length_sectors = length_bytes / 512
+    length_sectors = int(length_bytes / 512)
 
     # Handle preserve flag
     if info.get('preserve'):
@@ -474,7 +473,7 @@ def partition_handler(info, storage_config):
             partition_type = flag
         else:
             partition_type = "primary"
-        cmd = ["parted", disk, "-s", "mkpart", partition_type,
+        cmd = ["parted", disk, "--script", "mkpart", partition_type,
                "%ss" % offset_sectors, "%ss" % str(offset_sectors +
                                                    length_sectors)]
         util.subp(cmd)
