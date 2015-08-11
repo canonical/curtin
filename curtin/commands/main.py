@@ -91,7 +91,7 @@ def main(args=None):
 
     # if user gave cmdline arguments, then set environ so subsequent
     # curtin calls get those as default
-    showtrace = False
+    showtrace = args.showtrace
     if 'showtrace' in args.config:
         showtrace = str(args.config['showtrace']).lower() not in ("0", "false")
     os.environ['CURTIN_STACKTRACE'] = str(int(showtrace))
