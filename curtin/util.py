@@ -112,10 +112,11 @@ def load_command_environment(env=os.environ, strict=False):
 
 
 def load_command_config(args, state):
-    if hasattr(args, 'config') and args.config is not None:
+    if hasattr(args, 'config') and args.config:
         return args.config
     else:
-        cfg_file = state.get('config', {})
+        # state 'config' points to a file with fully rendered config
+        cfg_file = state.get('config')
 
     if not cfg_file:
         LOG.debug("config file was none!")

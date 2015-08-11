@@ -68,7 +68,7 @@ def main(args=None):
     parser.add_argument('--set', action=util.MergedCmdAppend,
                         help='define a config variable',
                         metavar='key=val', dest='main_cfgopts')
-    parser.set_defaults(config=None)
+    parser.set_defaults(config={})
 
     subps = parser.add_subparsers(dest="subcmd")
     for subcmd in SUB_COMMAND_MODULES:
