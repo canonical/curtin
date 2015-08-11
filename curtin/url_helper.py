@@ -246,6 +246,8 @@ try:
         consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
         token = oauth.OAuthToken(token_key, token_secret)
 
+        if clockskew is None:
+            clockskew = 0
         timestamp = int(time.time()) + clockskew
 
         params = {
@@ -266,6 +268,8 @@ except ImportError:
     def oauth_headers(url, consumer_key, token_key, token_secret,
                       consumer_secret, clockskew=0):
         """Build OAuth headers using given credentials."""
+        if clockskew is None:
+            clockskew = 0
         timestamp = int(time.time()) + clockskew
         client = oauth1.Client(
             consumer_key,
