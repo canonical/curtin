@@ -135,6 +135,26 @@ class OauthUrlHelper(object):
         old = self.read_skew_file()
         self.skew_data = old or {}
 
+    def __str__(self):
+        fields = ['consumer_key', 'consumer_secret',
+                  'token_key', 'token_secret']
+        masked = fields
+
+        def r(name):
+            if not hasattr(self, name):
+                rval = "_unset"
+            else:
+                val = getattr(self, name)
+                if val is None:
+                    rval = "None"
+                elif name in masked:
+                    rval = '"%s"' % ("*" * len(val))
+                else:
+                    rval = '"%s"' % val
+            return '%s=%s' % (name, rval)
+
+        return ("OauthUrlHelper(" + ','.join([r(f) for f in fields]) + ")")
+
     def read_skew_file(self):
         if self.skew_data_file and os.path.isfile(self.skew_data_file):
             with open(self.skew_data_file, mode="r") as fp:
@@ -180,15 +200,15 @@ class OauthUrlHelper(object):
         if not self._do_oauth:
             return {}
 
-        timestamp = None
         host = urlparse(url).netloc
+        clockskew = None
         if self.skew_data and host in self.skew_data:
-            timestamp = int(time.time()) + self.skew_data[host]
+            clockskew = self.skew_data[host]
 
         return oauth_headers(
             url=url, consumer_key=self.consumer_key,
             token_key=self.token_key, token_secret=self.token_secret,
-            consumer_secret=self.consumer_secret, timestamp=timestamp)
+            consumer_secret=self.consumer_secret, clockskew=clockskew)
 
     def _wrapped(self, wrapped_func, args, kwargs):
         kwargs['headers_cb'] = partial(
