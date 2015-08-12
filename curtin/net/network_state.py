@@ -18,23 +18,68 @@ import yaml
 
 from curtin.log import LOG
 
+NETWORK_STATE_VERSION = 1
+NETWORK_STATE_REQUIRED_KEYS = {
+    1: ['version', 'config', 'network_state'],
+}
+
+
+def from_state_file(state_file):
+    network_state = None
+    with open(state_file, "r") as sf:
+        content = sf.read()
+        state = yaml.safe_load(content)
+        network_state = NetworkState(network_config=None)
+        network_state.load(state)
+
+    return network_state
+
 
 class NetworkState:
     def __init__(self, network_config):
+        self.version = NETWORK_STATE_VERSION
         self.config = network_config
         self.network_state = {
             'interfaces': {},
             'routes': [],
             'nameservers': {},
         }
-        self.command_handlers = {
-            'physical': getattr(self, 'handle_physical'),
-            'vlan': getattr(self, 'handle_vlan'),
-            'bridge': getattr(self, 'handle_bridge'),
-            'bond': getattr(self, 'handle_bond'),
-            'nameserver': getattr(self, 'handle_nameserver'),
-            'route': getattr(self, 'handle_route'),
+        self.command_handlers = self.get_command_handlers()
+
+    def get_command_handlers(self):
+        METHOD_PREFIX = 'handle_'
+        methods = filter(lambda x: callable(getattr(self, x)) and
+                         x.startswith(METHOD_PREFIX),  dir(self))
+        handlers = {}
+        for m in methods:
+            key = m.replace(METHOD_PREFIX, '')
+            handlers[key] = getattr(self, m)
+
+        return handlers
+
+    def dump(self):
+        state = {
+            'version': self.version,
+            'config': self.config,
+            'network_state': self.network_state,
         }
+        return yaml.dump(state)
+
+    def load(self, state):
+        if 'version' not in state:
+            LOG.error('Invalid state, missing version field')
+            raise Exception('Invalid state, missing version field')
+
+        required_keys = NETWORK_STATE_REQUIRED_KEYS[state['version']]
+        if not self.valid_command(state, required_keys):
+            msg = 'Invalid state, missing keys: {}'.format(required_keys)
+            LOG.error(msg)
+            raise Exception(msg)
+
+        # v1 - direct attr mapping, except version
+        for key in [k for k in required_keys if k not in ['version']]:
+            setattr(self, key, state[key])
+        self.command_handlers = self.get_command_handlers()
 
     def dump_network_state(self):
         return yaml.dump(self.network_state, default_flow_style=False)
@@ -42,10 +87,8 @@ class NetworkState:
     def parse_config(self):
         # rebuild network state
         for command in self.config:
-            self.dump_network_state()
             handler = self.command_handlers.get(command['type'])
             handler(command)
-            self.dump_network_state()
 
     def valid_command(self, command, required_keys):
         if not required_keys:
@@ -273,20 +316,40 @@ if __name__ == '__main__':
     import random
     from curtin import net
 
+    def test_parse(network_config):
+        ns1 = NetworkState(network_config)
+        ns1.parse_config()
+        random.shuffle(network_config)
+        ns2 = NetworkState(network_config)
+        ns2.parse_config()
+        print("----NS1-----")
+        print(ns1.dump_network_state())
+        print()
+        print("----NS2-----")
+        print(ns2.dump_network_state())
+        print("NS1 == NS2 ?=> {}".format(
+            ns1.network_state == ns2.network_state))
+        eni = net.render_interfaces(ns2.network_state)
+        print(eni)
+        udev_rules = net.render_persistent_net(ns2.network_state)
+        print(udev_rules)
+
+    def test_dump_and_load(network_config):
+        print("Loading network_config into NetworkState")
+        ns1 = NetworkState(network_config)
+        ns1.parse_config()
+        print("Dumping state to file")
+        ns1_dump = ns1.dump()
+        ns1_state = "/tmp/ns1.state"
+        with open(ns1_state, "w+") as f:
+            f.write(ns1_dump)
+
+        print("Loading state from file")
+        ns2 = from_state_file(ns1_state)
+        print("NS1 == NS2 ?=> {}".format(
+            ns1.network_state == ns2.network_state))
+
     y = yaml.load(open(sys.argv[1]))
     network_config = y.get('network')
-    ns1 = NetworkState(network_config)
-    ns1.parse_config()
-    random.shuffle(network_config)
-    ns2 = NetworkState(network_config)
-    ns2.parse_config()
-    print("----NS1-----")
-    print(ns1.dump_network_state())
-    print()
-    print("----NS2-----")
-    print(ns2.dump_network_state())
-    print("NS1 == NS2 ?=> {}".format(ns1.network_state == ns2.network_state))
-    eni = net.render_interfaces(ns2.network_state)
-    print(eni)
-    udev_rules = net.render_persistent_net(ns2.network_state)
-    print(udev_rules)
+    test_parse(network_config)
+    test_dump_and_load(network_config)
