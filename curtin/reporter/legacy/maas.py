@@ -1,5 +1,4 @@
 from curtin import url_helper
-from curtin.log import INSTALL_LOG
 
 from . import (BaseReporter, LoadReporterException)
 
@@ -12,7 +11,7 @@ import sys
 
 class MAASReporter(BaseReporter):
 
-    def __init__(self, config, files=None):
+    def __init__(self, config):
         """Load config dictionary and initialize object."""
         self.url = config['url']
         self.urlhelper = url_helper.OauthUrlHelper(
@@ -21,17 +20,18 @@ class MAASReporter(BaseReporter):
             token_secret=config.get('token_secret'),
             consumer_secret='',
             skew_data_file="/run/oauth_skew.json")
+        self.files = []
 
     def report_success(self):
         """Report installation success."""
         status = "OK"
         message = "Installation succeeded."
-        self.report(status, message, files=[INSTALL_LOG])
+        self.report(status, message, files=self.files)
 
     def report_failure(self, message):
         """Report installation failure."""
         status = "FAILED"
-        self.report(status, message, files=[INSTALL_LOG])
+        self.report(status, message, files=self.files)
 
     def encode_multipart_data(self, data, files):
         """Create a MIME multipart payload from L{data} and L{files}.
