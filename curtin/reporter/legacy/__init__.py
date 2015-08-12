@@ -16,10 +16,6 @@ class BaseReporter:
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def report_progress(self, progress):
-        """Report installation progress."""
-
-    @abstractmethod
     def report_success(self):
         """Report installation success."""
 
@@ -29,10 +25,6 @@ class BaseReporter:
 
 
 class EmptyReporter(BaseReporter):
-
-    def report_progress(self, progress):
-        """Empty."""
-
     def report_success(self):
         """Empty."""
 

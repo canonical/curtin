@@ -22,12 +22,6 @@ class MAASReporter(BaseReporter):
             consumer_secret='',
             skew_data_file="/run/oauth_skew.json")
 
-    def report_progress(self, progress):
-        """Report installation progress."""
-        status = "WORKING"
-        message = "Installation in progress %s" % progress
-        self.report(status, message)
-
     def report_success(self):
         """Report installation success."""
         status = "OK"
