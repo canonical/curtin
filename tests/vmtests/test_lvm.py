@@ -59,7 +59,7 @@ class TestMdadmBcacheAbs(VMBaseClass):
     def test_dname(self):
         with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
             contents = fp.read().splitlines()
-        for link in list(("main_disk-part%s" % i for i in (1,2,5,6))):
+        for link in list(("main_disk-part%s" % i for i in (1, 2, 5, 6))):
             self.assertIn(link, contents)
         self.assertIn("main_disk", contents)
         self.assertIn("vg1-lv1", contents)
