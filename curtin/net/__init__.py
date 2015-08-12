@@ -20,6 +20,7 @@ import errno
 import os
 
 from curtin.log import LOG
+from . import network_state
 
 SYS_CLASS_NET = "/sys/class/net/"
 
@@ -207,5 +208,166 @@ def parse_deb_config(path):
         ifaces, contents,
         os.path.dirname(os.path.abspath(path)))
     return ifaces
+
+
+def parse_net_config_data(config):
+    """Parses the config, returns NetworkState dictionary
+
+    :param config: curtin network config dict
+    """
+    ns = network_state.NetworkState(config)
+    ns.parse_config()
+    return ns.network_state
+
+
+def parse_net_config(path):
+    """Parses a curtin network configuration file."""
+    net_config = {}
+    with open(path, "r") as fp:
+        contents = fp.read().strip()
+        if 'network' in contents:
+            net_config = parse_net_config_data(contents.get('network'))
+
+    return net_config
+
+
+def render_persistent_net(network_state):
+    ''' Given state, emit udev rules to map
+        mac to ifname
+    '''
+    content = ""
+    interfaces = network_state.get('interfaces')
+    for iface in interfaces.values():
+        # for physical interfaces ,write out a persist net udev rule
+        if iface['type'] == 'physical' and \
+           'name' in iface and 'mac_address' in iface:
+            content += generate_udev_rule(iface['name'],
+                                          iface['mac_address'])
+
+    return content
+
+
+def compose_udev_equality(key, value):
+    """Return a udev comparison clause, like `ACTION=="add"`."""
+    assert key == key.upper()
+    return '%s=="%s"' % (key, value)
+
+
+def compose_udev_attr_equality(attribute, value):
+    """Return a udev attribute comparison clause, like `ATTR{type}=="1"`."""
+    assert attribute == attribute.lower()
+    return 'ATTR{%s}=="%s"' % (attribute, value)
+
+
+def compose_udev_setting(key, value):
+    """Return a udev assignment clause, like `NAME="eth0"`."""
+    assert key == key.upper()
+    return '%s="%s"' % (key, value)
+
+
+def generate_udev_rule(interface, mac):
+    """Return a udev rule to set the name of network interface with `mac`.
+
+    The rule ends up as a single line looking something like:
+
+    SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*",
+    ATTR{address}="ff:ee:dd:cc:bb:aa", NAME="eth0"
+    """
+    rule = ', '.join([
+        compose_udev_equality('SUBSYSTEM', 'net'),
+        compose_udev_equality('ACTION', 'add'),
+        compose_udev_equality('DRIVERS', '?*'),
+        compose_udev_attr_equality('address', mac),
+        compose_udev_setting('NAME', interface),
+        ])
+    return '%s\n' % rule
+
+
+# TODO: switch valid_map based on mode inet/inet6
+def iface_add_subnet(iface, subnet):
+    content = ""
+    valid_map = [
+        'address',
+        'netmask',
+        'broadcast',
+        'metric',
+        'gateway',
+        'pointopoint',
+        'hwaddress',
+        'mtu',
+        'scope',
+    ]
+    for key, value in subnet.items():
+        if value and key in valid_map:
+            if type(value) == list:
+                value = " ".join(value)
+            content += "    {} {}\n".format(key, value)
+
+    return content
+
+
+# TODO: switch to valid_map for attrs
+def iface_add_attrs(iface):
+    content = ""
+    ignore_map = [
+        'type',
+        'name',
+        'inet',
+        'mode',
+        'index',
+        'subnets',
+    ]
+    for key, value in iface.items():
+        if value and key not in ignore_map:
+            if type(value) == list:
+                value = " ".join(value)
+            content += "    {} {}\n".format(key, value)
+
+    return content
+
+
+def render_interfaces(network_state):
+    ''' Given state, emit etc/network/interfaces content '''
+
+    content = ""
+    interfaces = network_state.get('interfaces')
+    for iface in interfaces.values():
+        content += "auto {name}\n".format(**iface)
+
+        subnets = iface.get('subnets', {})
+        if subnets:
+            for index, subnet in zip(range(0, len(subnets)), subnets):
+                iface['index'] = index
+                iface['mode'] = subnet['type']
+                if iface['mode'].endswith('6'):
+                    iface['inet'] += '6'
+                elif iface['mode'] == 'static' and ":" in subnet['address']:
+                    iface['inet'] += '6'
+                if iface['mode'].startswith('dhcp'):
+                    iface['mode'] = 'dhcp'
+
+                if index == 0:
+                    content += "iface {name} {inet} {mode}\n".format(**iface)
+                else:
+                    content += \
+                        "iface {name}:{index} {inet} {mode}\n".format(**iface)
+
+                content += iface_add_subnet(iface, subnet)
+                content += iface_add_attrs(iface)
+                content += "\n"
+        else:
+            content += "iface {name} {inet} {mode}\n".format(**iface)
+            content += iface_add_attrs(iface)
+            content += "\n"
+
+    for (addr, dns) in network_state.get('nameservers').items():
+        content += "{}\n".format(dns)
+
+    for route in network_state.get('routes'):
+        content += render_route(route)
+
+    # global replacements until v2 format
+    content = content.replace('mac_address', 'hwaddress')
+    return content
 
 # vi: ts=4 expandtab syntax=python
