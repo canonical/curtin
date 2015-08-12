@@ -21,6 +21,17 @@ class ReportingHandler(object):
     def publish_event(self, event):
         """Publish an event to the ``INFO`` log level."""
 
+    def publish_result(self, result, message, filedata):
+        """Publish a result.
+        
+        :param result:
+            The event.status value (success or fail)
+        :param message:
+            A message / summary
+        :param filedata:
+            A list of tuples of name, content that should be posted."""
+        pass
+
 
 class LogHandler(ReportingHandler):
     """Publishes events to the cloud-init log at the ``INFO`` log level."""
@@ -51,6 +62,10 @@ class PrintHandler(ReportingHandler):
     def publish_event(self, event):
         print(event.as_string())
 
+    def publish_result(self, result, message, filedata):
+        print("publish_result [%s]: %s [%s]" %
+              (result, message, ','.join(f[0] for f in filedata)))
+
 
 class WebHookHandler(ReportingHandler):
     def __init__(self, endpoint, consumer_key=None, token_key=None,
@@ -72,6 +87,9 @@ class WebHookHandler(ReportingHandler):
                 retries=self.retries)
         except Exception as e:
             LOG.warn("failed posting event: %s [%s]" % (event.as_string(), e))
+
+    def publish_result(self, result, message, filedata):
+        raise Exception("not implemented to publish files")
 
 
 available_handlers = DictRegistry()
