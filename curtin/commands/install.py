@@ -328,7 +328,7 @@ def cmd_install(args):
 
     # Load reporter
     clear_install_log()
-    reporter = load_reporter(cfg)
+    legacy_reporter = load_reporter(cfg)
 
     try:
         dd_images = util.get_dd_images(cfg.get('sources', {}))
@@ -346,11 +346,6 @@ def cmd_install(args):
                 parent=args.reportstack)
             env['CURTIN_REPORTSTACK'] = reportstack.fullname
 
-            try:
-                if reporter.progress:
-                    reporter.report_progress(name)
-            except AttributeError:
-                pass
             with reportstack:
                 commands_name = '%s_commands' % name
                 with util.LogTimer(LOG.debug, 'stage_%s' % name):
@@ -363,12 +358,12 @@ def cmd_install(args):
                                   'message': "'rebooting with kexec'"}
 
         writeline_install_log("Installation finished.")
-        reporter.report_success()
+        legacy_reporter.report_success()
     except Exception as e:
         exp_msg = "Installation failed with exception: %s" % e
         writeline_install_log(exp_msg)
         LOG.error(exp_msg)
-        reporter.report_failure(exp_msg)
+        legacy_reporter.report_failure(exp_msg)
         raise e
     finally:
         for d in ('sys', 'dev', 'proc'):
