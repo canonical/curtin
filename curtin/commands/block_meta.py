@@ -303,6 +303,10 @@ def make_dname(volume, storage_config):
         rule.append(compose_udev_equality("ENV{MD_UUID}", md_uuid))
     elif vol.get('type') == "bcache":
         rule.append(compose_udev_equality("ENV{DEVNAME}", path))
+    elif vol.get('type') == "lvm_partition":
+        volgroup_name = storage_config.get(vol.get('volgroup')).get('name')
+        dname = "%s-%s" % (volgroup_name, dname)
+        rule.append(compose_udev_equality("ENV{DM_NAME}", dname))
     rule.append("SYMLINK+=\"disk/by-dname/%s\"" % dname)
     util.ensure_dir(rules_dir)
     with open(os.path.join(rules_dir, volume), "w") as fp:
@@ -734,6 +738,8 @@ def lvm_partition_handler(info, storage_config):
     if info.get('ptable'):
         raise ValueError("Partition tables on top of lvm logical volumes is \
                          not supported")
+
+    make_dname(info.get('id'), storage_config)
 
 
 def dm_crypt_handler(info, storage_config):
