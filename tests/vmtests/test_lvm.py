@@ -62,6 +62,8 @@ class TestMdadmBcacheAbs(VMBaseClass):
         for link in list(("main_disk-part%s" % i for i in (1,2,5,6))):
             self.assertIn(link, contents)
         self.assertIn("main_disk", contents)
+        self.assertIn("vg1-lv1", contents)
+        self.assertIn("vg1-lv2", contents)
 
 
 class WilyTestLvm(TestMdadmBcacheAbs, TestCase):
