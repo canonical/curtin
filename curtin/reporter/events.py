@@ -8,10 +8,13 @@ cloud-init reporting framework
 The reporting framework is intended to allow all parts of cloud-init to
 report events in a structured manner.
 """
+import os.path
+
 from . import instantiated_handler_registry
 
 FINISH_EVENT_TYPE = 'finish'
 START_EVENT_TYPE = 'start'
+RESULT_EVENT_TYPE = 'result'
 
 
 class _nameset(set):
@@ -63,6 +66,20 @@ class FinishReportingEvent(ReportingEvent):
         return data
 
 
+class ResultEvent(FinishReportingEvent):
+    def __init__(self, name, description, result=status.SUCCESS,
+                 file_paths=None):
+        super(ResultEvent, self).__init__(name, description, result)
+        self.event_type = RESULT_EVENT_TYPE
+        self.result = result
+        if file_paths is None:
+            file_paths = []
+        self.filedata = []
+        for f in file_paths:
+            with open(f, "rb") as fp:
+                self.filedata.append((os.path.basename(f), fp.read(),))
+
+
 def report_event(event):
     """Report an event to all registered event handlers.
 
@@ -75,6 +92,23 @@ def report_event(event):
     """
     for _, handler in instantiated_handler_registry.registered_items.items():
         handler.publish_event(event)
+
+
+def publish_result(name, description, result=status.SUCCESS, file_paths=None):
+    """Publish a file to all registered event handlers.
+
+    :param name:
+        The the event name / id
+    :param description:
+        Description / message about the result
+    :param result:
+        The result, one of status
+    :param file_paths:
+        list of file paths to post
+    """
+    event = ResultEvent(name, description, result, file_paths)
+    for _, handler in instantiated_handler_registry.registered_items.items():
+        handler.publish_result(event)
 
 
 def report_finish_event(event_name, event_description,

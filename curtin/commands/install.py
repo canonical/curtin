@@ -28,10 +28,12 @@ import tempfile
 from curtin import block
 from curtin import config
 from curtin import util
-from curtin.log import (LOG, INSTALL_LOG)
+from curtin.log import LOG
 from curtin.reporter.legacy import load_reporter
 from curtin.reporter import events
 from . import populate_one_subcmd
+
+INSTALL_LOG = "/var/log/curtin/install.log"
 
 CONFIG_BUILTIN = {
     'sources': {},
@@ -329,6 +331,7 @@ def cmd_install(args):
     # Load reporter
     clear_install_log()
     legacy_reporter = load_reporter(cfg)
+    legacy_reporter.files = [INSTALL_LOG]
 
     try:
         dd_images = util.get_dd_images(cfg.get('sources', {}))
@@ -359,11 +362,20 @@ def cmd_install(args):
 
         writeline_install_log("Installation finished.")
         legacy_reporter.report_success()
+        events.publish_result(
+            name="install", description="Installation succeeded.",
+            result=events.status.SUCCESS, file_paths=[INSTALL_LOG])
     except Exception as e:
         exp_msg = "Installation failed with exception: %s" % e
         writeline_install_log(exp_msg)
         LOG.error(exp_msg)
         legacy_reporter.report_failure(exp_msg)
+        try:
+            events.publish_result(
+                name="install", description=exp_msg,
+                result=events.status.FAIL, file_paths=[INSTALL_LOG])
+        except:
+            LOG.error("failed publishing result")
         raise e
     finally:
         for d in ('sys', 'dev', 'proc'):

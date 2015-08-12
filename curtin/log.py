@@ -29,8 +29,6 @@ INFO = logging.INFO
 DEBUG = logging.DEBUG
 NOTSET = logging.NOTSET
 
-INSTALL_LOG = "/var/log/curtin/install.log"
-
 
 class NullHandler(logging.Handler):
     def emit(self, record):
