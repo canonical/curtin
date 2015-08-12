@@ -23,6 +23,7 @@ class TestMdadmBcacheAbs(VMBaseClass):
           - mdadm --detail --scan > /media/output/mdadm_status
           - bcache-super-show /dev/vda6 > /media/output/bcache_super_vda6
           - ls /sys/fs/bcache > /media/output/bcache_ls
+          - ls /dev/disk/by-dname > /media/output/ls_dname
         power_state:
           mode: poweroff
         """)
@@ -46,6 +47,15 @@ class TestMdadmBcacheAbs(VMBaseClass):
     def test_output_files_exist(self):
         self.output_files_exist(
             ["fstab", "mdadm_status", "bcache_super_vda6", "bcache_ls"])
+
+    def test_dname(self):
+        with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
+            contents = fp.read().splitlines()
+        for link in list(("main_disk-part%s" % i for i in range(1, 6))):
+            self.assertIn(link, contents)
+        self.assertIn("md0", contents)
+        self.assertIn("cached_array", contents)
+        self.assertIn("main_disk", contents)
 
     def test_bcache_status(self):
         bcache_cset_uuid = None
