@@ -8,7 +8,7 @@ storage:
         serial: QM00002
       - id: bios_boot_partition
         type: partition
-        size: 1MiB
+        size: 1MB
         device: sda
         flag: bios_grub
       - id: sda1

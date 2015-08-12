@@ -21,8 +21,6 @@ from __future__ import (
     unicode_literals,
     )
 
-str = None
-
 from unittest import TestCase
 from mock import patch
 

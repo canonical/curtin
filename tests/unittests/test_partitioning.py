@@ -261,15 +261,15 @@ class TestBlock(unittest.TestCase):
             "sdb1", self.storage_config)
         self.assertTrue(mock_tempfile.mkstemp.called)
         calls = mock_util.subp.call_args_list
-        self.assertTrue(
+        self.assertEqual(
             mock.call(["cryptsetup", "luksFormat",
-                      mock_get_path_to_storage_volume.return_value, tmp_path])
-            == calls[0])
-        self.assertTrue(
+                      mock_get_path_to_storage_volume.return_value, tmp_path]),
+            calls[0])
+        self.assertEqual(
             mock.call(["cryptsetup", "open", "--type", "luks",
                       mock_get_path_to_storage_volume.return_value, "crypt0",
-                      "--key-file", tmp_path])
-            == calls[1])
+                      "--key-file", tmp_path]),
+            calls[1])
         mock_remove.assert_called_with(tmp_path)
         mock_open.assert_called_with("/tmp/dir/crypttab", "a")
         mock_block.get_volume_uuid.assert_called_with(

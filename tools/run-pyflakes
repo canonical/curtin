@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PYTHON_VERSION=${PYTHON_VERSION:-3}
+PYTHON_VERSION=${PYTHON_VERSION:-2}
 pycheck_dirs=( "curtin/" "tests/" )
 bin_files=( )
 CR="

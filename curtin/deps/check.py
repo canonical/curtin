@@ -23,7 +23,6 @@ and exit success or fail, indicating that deps should be there.
 _imports = (
     "from ..commands import main",
     "import yaml",
-    "import parted",
 )
 
 

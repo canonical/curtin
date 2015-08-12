@@ -55,12 +55,14 @@ debug() {
 get_my_ip() {
     [ -z "$IP_ADDR" ] || { _RET="${IP_ADDR}"; return 0; }
     local Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT
-    local iface ipaddr=""
+    local iface ipaddr="" tmpf=""
+    # work around LP: #1483440
+    cp "/proc/net/route" "${TEMP_D}/current-route"
     while read Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT; do
         [ "$Mask" = "00000000" ] && break
-    done < /proc/net/route
+    done < "${TEMP_D}/current-route"
     iface="$Iface"
-    ipaddr=$(LC_ALL=C /sbin/ip -4 addr list dev "$iface" scope global)
+    ipaddr=$(LC_ALL=C /sbin/ip -4 addr list dev "$iface" scope global) || return
     ipaddr=${ipaddr#* inet }
     ipaddr=${ipaddr%%/*}
     _RET="$ipaddr"
@@ -243,32 +245,30 @@ main() {
         fi
     done
 
-    if [ "${cmdargs[0]##*/} ${cmdargs[1]}" = "curtin install" ]; then
-        # if its curtin install, pack config files up for them.
-        # potentially should check to make sure they've not already done this
-        # as this updating could then be destructive / annoying
-        # specifically, it could be annoying if you had a config inside
-        # the image that you were meaning to reference, adn we copied (or tried)
-        # the file from the host.
-        for((i=2;i<${#cmdargs[@]};i++)); do
-            cur=${cmdargs[$i]}
-            next=${cmdargs[$i+1]}
-            stuffed_cfg=""
-            fpath=""
-            case "$cur" in
-                --config|-c)
-                    fpath=$next;
-                    cmdargs[$i+1]="config/${fpath##*/}"
-                    ;;
-                --config=*)
-                    fpath=${cur#--config=}
-                    cmdargs[$i]="--config=config/${fpath##*/}"
-                    ;;
-                *) continue;;
-            esac
-            addargs[${#addargs[@]}]="--add=config/${fpath##*/}:$fpath"
-        done
-    fi
+    # We now pack up --config= options for the user
+    # potentially should check to make sure they've not already done this
+    # as this updating could then be destructive / annoying
+    # specifically, it could be annoying if you had a config inside
+    # the image that you were meaning to reference, and we copied (or tried)
+    # the file from the host.
+    for((i=1;i<${#cmdargs[@]};i++)); do
+        cur=${cmdargs[$i]}
+        next=${cmdargs[$i+1]}
+        stuffed_cfg=""
+        fpath=""
+        case "$cur" in
+            --config|-c)
+                fpath=$next;
+                cmdargs[$i+1]="config/${fpath##*/}"
+                ;;
+            --config=*)
+                fpath=${cur#--config=}
+                cmdargs[$i]="--config=config/${fpath##*/}"
+                ;;
+            *) continue;;
+        esac
+        addargs[${#addargs[@]}]="--add=config/${fpath##*/}:$fpath"
+    done
 
     PYTHONPATH="${top_d}${PYTHONPATH:+${PYTHONPATH}}" \
         "${top_d}/bin/curtin" pack "${addargs[@]}" -- \

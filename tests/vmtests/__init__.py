@@ -25,7 +25,10 @@ class ImageStore:
         checksum = ""
         release_dir = os.path.join(self.base_dir, repo, release, arch,
                                    sstream_data['version_name'])
-        p = lambda x: os.path.join(release_dir, x)
+
+        def p(x):
+            return os.path.join(release_dir, x)
+
         if os.path.isdir(release_dir) and os.path.exists(p("root-image.gz")):
             # get checksum of cached image
             with open(p("root-image.gz"), "rb") as fp:
