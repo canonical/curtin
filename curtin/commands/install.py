@@ -28,14 +28,9 @@ import tempfile
 from curtin import block
 from curtin import config
 from curtin import util
-from curtin.log import LOG
-from curtin.reporter import (
-    INSTALL_LOG,
-    load_reporter,
-    clear_install_log,
-    writeline_install_log,
-    events
-    )
+from curtin.log import (LOG, INSTALL_LOG)
+from curtin.reporter.legacy import load_reporter
+from curtin.reporter import events
 from . import populate_one_subcmd
 
 CONFIG_BUILTIN = {
@@ -50,6 +45,27 @@ CONFIG_BUILTIN = {
     'late_commands': {'builtin': []},
     'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
 }
+
+
+def clear_install_log():
+    """Clear the installation log, so no previous installation is present."""
+    # Create MAAS install log directory
+    util.ensure_dir(os.path.dirname(INSTALL_LOG))
+    try:
+        open(INSTALL_LOG, 'w').close()
+    except:
+        pass
+
+
+def writeline_install_log(output):
+    """Write output into the install log."""
+    if not output.endswith('\n'):
+        output += '\n'
+    try:
+        with open(INSTALL_LOG, 'a') as fp:
+            fp.write(output)
+    except IOError:
+        pass
 
 
 class WorkingDir(object):
