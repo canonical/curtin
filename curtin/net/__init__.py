@@ -326,6 +326,22 @@ def iface_add_attrs(iface):
     return content
 
 
+def render_route(route):
+    content = "up route add"
+    mapping = {
+        'network': '-net',
+        'netmask': 'netmask',
+        'gateway': 'gw',
+        'metric': 'metric',
+    }
+    for k in ['network', 'netmask', 'gateway', 'metric']:
+        if k in route:
+            content += " %s %s" % (mapping[k], route[k])
+
+    content += '\n'
+    return content
+
+
 def render_interfaces(network_state):
     ''' Given state, emit etc/network/interfaces content '''
 
