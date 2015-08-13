@@ -14,9 +14,9 @@
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
-import yaml
 
 from curtin.log import LOG
+import curtin.config as config
 
 NETWORK_STATE_VERSION = 1
 NETWORK_STATE_REQUIRED_KEYS = {
@@ -26,11 +26,9 @@ NETWORK_STATE_REQUIRED_KEYS = {
 
 def from_state_file(state_file):
     network_state = None
-    with open(state_file, "r") as sf:
-        content = sf.read()
-        state = yaml.safe_load(content)
-        network_state = NetworkState(network_config=None)
-        network_state.load(state)
+    state = config.load_config(state_file)
+    network_state = NetworkState(network_config=None)
+    network_state.load(state)
 
     return network_state
 
@@ -63,7 +61,7 @@ class NetworkState:
             'config': self.config,
             'network_state': self.network_state,
         }
-        return yaml.dump(state)
+        return config.dump_config(state)
 
     def load(self, state):
         if 'version' not in state:
@@ -82,7 +80,7 @@ class NetworkState:
         self.command_handlers = self.get_command_handlers()
 
     def dump_network_state(self):
-        return yaml.dump(self.network_state, default_flow_style=False)
+        return config.dump_config(self.network_state)
 
     def parse_config(self):
         # rebuild network state
@@ -349,7 +347,7 @@ if __name__ == '__main__':
         print("NS1 == NS2 ?=> {}".format(
             ns1.network_state == ns2.network_state))
 
-    y = yaml.load(open(sys.argv[1]))
+    y = config.load_config(sys.argv[1])
     network_config = y.get('network')
     test_parse(network_config)
     test_dump_and_load(network_config)

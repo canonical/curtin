@@ -21,6 +21,7 @@ import sys
 
 from curtin import net
 import curtin.util as util
+import curtin.config as config
 
 from . import populate_one_subcmd
 
@@ -74,29 +75,13 @@ def interfaces_basic_dhcp(devices):
 def interfaces_custom(args):
     state = util.load_command_environment()
     cfg = util.load_command_config(args, state)
-    eni = 'etc/network/interfaces'
-    persist_net = 'etc/udev/rules.d/70-persistent-net.rules'
 
     network_config = cfg.get('network', [])
     if not network_config:
         raise Exception("network configuration is required by mode '%s' "
                         "but not provided in the config file" % 'custom')
 
-    network_state = net.parse_net_config_data(network_config)
-    if args.output == "-":
-        content = "{}\n".format(eni)
-        content += net.render_interfaces(network_state)
-        content += "\n\n{}\n".format(persist_net)
-        content += net.render_persistent_net(network_state)
-    else:
-        content = net.render_interfaces(network_state)
-        # write out udev rules here
-        netrules = os.path.sep.join((args.target, persist_net,))
-        util.ensure_dir(os.path.dirname(netrules))
-        with open(netrules, 'w+') as f:
-            f.write(net.render_persistent_net(network_state))
-
-    return content
+    return config.dump_config({'network': network_config})
 
 
 def net_meta(args):
@@ -150,8 +135,12 @@ def net_meta(args):
     elif args.mode == "dhcp":
         content = interfaces_basic_dhcp(devices)
     elif args.mode == 'custom':
-        print('custom')
         content = interfaces_custom(args)
+        # if we have a config, write it out to OUTPUT_NETWORK_CONFIG
+        output_network_config = os.environ.get("OUTPUT_NETWORK_CONFIG", "")
+        if output_network_config:
+            with open(output_network_config, "w") as fp:
+                fp.write(content)
 
     if args.output == "-":
         sys.stdout.write(content)

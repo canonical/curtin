@@ -20,6 +20,8 @@ import errno
 import os
 
 from curtin.log import LOG
+import curtin.util as util
+import curtin.config as config
 from . import network_state
 
 SYS_CLASS_NET = "/sys/class/net/"
@@ -210,41 +212,25 @@ def parse_deb_config(path):
     return ifaces
 
 
-def parse_net_config_data(config):
+def parse_net_config_data(net_config):
     """Parses the config, returns NetworkState dictionary
 
-    :param config: curtin network config dict
+    :param net_config: curtin network config dict
     """
-    ns = network_state.NetworkState(config)
+    ns = network_state.NetworkState(net_config)
     ns.parse_config()
     return ns.network_state
 
 
 def parse_net_config(path):
-    """Parses a curtin network configuration file."""
-    net_config = {}
-    with open(path, "r") as fp:
-        contents = fp.read().strip()
-        if 'network' in contents:
-            net_config = parse_net_config_data(contents.get('network'))
+    """Parses a curtin network configuration file and
+       return network state"""
+    ns = None
+    net_config = config.load_config(path)
+    if 'network' in net_config:
+        ns = parse_net_config_data(net_config.get('network'))
 
-    return net_config
-
-
-def render_persistent_net(network_state):
-    ''' Given state, emit udev rules to map
-        mac to ifname
-    '''
-    content = ""
-    interfaces = network_state.get('interfaces')
-    for iface in interfaces.values():
-        # for physical interfaces ,write out a persist net udev rule
-        if iface['type'] == 'physical' and \
-           'name' in iface and 'mac_address' in iface:
-            content += generate_udev_rule(iface['name'],
-                                          iface['mac_address'])
-
-    return content
+    return ns
 
 
 def compose_udev_equality(key, value):
@@ -281,6 +267,22 @@ def generate_udev_rule(interface, mac):
         compose_udev_setting('NAME', interface),
         ])
     return '%s\n' % rule
+
+
+def render_persistent_net(network_state):
+    ''' Given state, emit udev rules to map
+        mac to ifname
+    '''
+    content = ""
+    interfaces = network_state.get('interfaces')
+    for iface in interfaces.values():
+        # for physical interfaces write out a persist net udev rule
+        if iface['type'] == 'physical' and \
+           'name' in iface and 'mac_address' in iface:
+            content += generate_udev_rule(iface['name'],
+                                          iface['mac_address'])
+
+    return content
 
 
 # TODO: switch valid_map based on mode inet/inet6
@@ -385,5 +387,20 @@ def render_interfaces(network_state):
     # global replacements until v2 format
     content = content.replace('mac_address', 'hwaddress')
     return content
+
+
+def render_network_state(target, network_state):
+    eni = 'etc/network/interfaces'
+    netrules = 'etc/udev/rules.d/70-persistent-net.rules'
+
+    eni = os.path.sep.join((target, eni,))
+    util.ensure_dir(os.path.dirname(eni))
+    with open(eni, 'w+') as f:
+        f.write(render_interfaces(network_state))
+
+    netrules = os.path.sep.join((target, netrules,))
+    util.ensure_dir(os.path.dirname(netrules))
+    with open(netrules, 'w+') as f:
+        f.write(render_persistent_net(network_state))
 
 # vi: ts=4 expandtab syntax=python

@@ -98,3 +98,7 @@ def load_config(cfg_file):
         return yaml.safe_load(content)
     else:
         return load_config_archive(content)
+
+
+def dump_config(config):
+    return yaml.dump(config, default_flow_style=False)
