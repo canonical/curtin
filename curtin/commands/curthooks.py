@@ -443,6 +443,16 @@ def copy_interfaces(interfaces, target):
     shutil.copy(interfaces, eni)
 
 
+def copy_dname_rules(rules_d, target):
+    if not rules_d:
+        LOG.warn("no udev rules directory to copy")
+        return
+    for rule in os.listdir(rules_d):
+        target_file = os.path.join(
+            target, "etc/udev/rules.d", "%s.rules" % rule)
+        shutil.copy(os.path.join(rules_d, rule), target_file)
+
+
 def restore_dist_interfaces(cfg, target):
     # cloud images have a link of /etc/network/interfaces into /run
     eni = os.path.sep.join([target, 'etc/network/interfaces'])
@@ -638,6 +648,11 @@ def curthooks(args):
                                   "mdadm.conf")
     if os.path.exists(mdadm_location):
         copy_mdadm_conf(mdadm_location, target)
+
+    # If udev dname rules were created, copy them to target
+    udev_rules_d = os.path.join(state['scratch'], "rules.d")
+    if os.path.isdir(udev_rules_d):
+        copy_dname_rules(udev_rules_d, target)
 
     # As a rule, ARMv7 systems don't use grub. This may change some
     # day, but for now, assume no. They do require the initramfs
