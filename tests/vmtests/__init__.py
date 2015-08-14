@@ -4,6 +4,8 @@ import os
 import tempfile
 import shutil
 import subprocess
+import curtin.net as curtin_net
+
 
 IMAGE_DIR = "/srv/images"
 
@@ -16,9 +18,12 @@ class ImageStore:
 
     def get_image(self, repo, release, arch):
         # query sstream for root image
-        out = subprocess.check_output(
-            ["tools/usquery", "--max=1", repo, "release=%s" % release,
-             "arch=%s" % arch, "item_name=root-image.gz"])
+        cmd = ["tools/usquery", "--max=1", repo, "release=%s" % release,
+               "krel=%s" % release, "arch=%s" % arch,
+               "item_name=root-image.gz"]
+        print(" ".join(cmd))
+        out = subprocess.check_output(cmd)
+        print(out)
         sstream_data = ast.literal_eval(bytes.decode(out))
 
         # Check if we already have the image
@@ -80,7 +85,7 @@ class TempDir:
         self.output_disk = os.path.join(self.tmpdir, "output_disk.img")
         subprocess.check_call(["qemu-img", "create", "-f", "raw",
                                self.output_disk, "10M"])
-        subprocess.check_call(["mkfs.ext2", self.output_disk])
+        subprocess.check_call(["mkfs.ext2", "-F", self.output_disk])
 
     def mount_output_disk(self):
         subprocess.check_call(["fuseext2", "-o", "rw+", self.output_disk,
@@ -88,7 +93,8 @@ class TempDir:
 
     def __del__(self):
         # remove tempdir
-        shutil.rmtree(self.tmpdir)
+        #shutil.rmtree(self.tmpdir)
+        pass
 
 
 class VMBaseClass:
@@ -151,3 +157,66 @@ class VMBaseClass:
             val = line.split('=')
             ret[val[0]] = val[1]
         return ret
+
+
+class VMNetClass(VMBaseClass):
+    @classmethod
+    def setUpClass(self):
+        self.network_state = curtin_net.parse_net_config(self.conf_file)
+        print(self.network_state)
+
+        # build -n arg list with macaddrs from net_config physical config
+        macs = []
+        interfaces = self.network_state.get('interfaces')
+        for ifname in interfaces:
+            print(ifname)
+            iface = interfaces.get(ifname)
+            hwaddr = iface.get('mac_address')
+            if hwaddr:
+                macs.append(hwaddr)
+        netdevs = []
+        if len(macs) > 0:
+            for mac in macs:
+                netdevs.extend(["--netdev=user,mac={}".format(mac)])
+        else:
+            netdevs.extend(["--netdev=user"])
+
+        # get boot img
+        image_store = ImageStore(IMAGE_DIR)
+        (boot_img, boot_kernel, boot_initrd) = image_store.get_image(
+            self.repo, self.release, self.arch)
+
+        # set up tempdir
+        self.td = TempDir(self.user_data)
+
+        # create launch cmd
+        cmd = ["tools/launch"]
+        if not self.interactive:
+            cmd.extend(["--silent", "--power=off"])
+        cmd.extend(netdevs + ["-d", self.td.target_disk,
+                   boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
+                   boot_initrd, "--", "curtin", "install", "--config=%s" %
+                   self.conf_file, "cp:///"])
+
+        # run vm with installer
+        subprocess.check_call(cmd, timeout=self.install_timeout)
+
+        # create xkvm cmd
+        cmd = ["tools/xkvm"]
+        cmd.extend(netdevs + ["-d", self.td.target_disk, "-d",
+                   self.td.output_disk, "--", "-drive",
+                   "file=%s,if=virtio,media=cdrom" % self.td.seed_disk,
+                   "-m", "1024"])
+        if not self.interactive:
+            cmd.extend(["-nographic", "-serial", "file:%s" %
+                       os.path.join(self.td.tmpdir, "serial.log")])
+
+        # run vm with installed system, fail if timeout expires
+        subprocess.check_call(cmd, timeout=self.boot_timeout)
+
+        # mount output disk
+        self.td.mount_output_disk()
+
+    @classmethod
+    def expected_interfaces(self):
+        return self.network_state.get('interfaces').keys()

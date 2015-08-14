@@ -16,7 +16,7 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 from curtin.log import LOG
-import curtin.config as config
+import curtin.config as curtin_config
 
 NETWORK_STATE_VERSION = 1
 NETWORK_STATE_REQUIRED_KEYS = {
@@ -26,7 +26,7 @@ NETWORK_STATE_REQUIRED_KEYS = {
 
 def from_state_file(state_file):
     network_state = None
-    state = config.load_config(state_file)
+    state = curtin_config.load_config(state_file)
     network_state = NetworkState(network_config=None)
     network_state.load(state)
 
@@ -61,7 +61,7 @@ class NetworkState:
             'config': self.config,
             'network_state': self.network_state,
         }
-        return config.dump_config(state)
+        return curtin_config.dump_config(state)
 
     def load(self, state):
         if 'version' not in state:
@@ -80,7 +80,7 @@ class NetworkState:
         self.command_handlers = self.get_command_handlers()
 
     def dump_network_state(self):
-        return config.dump_config(self.network_state)
+        return curtin_config.dump_config(self.network_state)
 
     def parse_config(self):
         # rebuild network state
@@ -347,7 +347,7 @@ if __name__ == '__main__':
         print("NS1 == NS2 ?=> {}".format(
             ns1.network_state == ns2.network_state))
 
-    y = config.load_config(sys.argv[1])
+    y = curtin_config.load_config(sys.argv[1])
     network_config = y.get('network')
     test_parse(network_config)
     test_dump_and_load(network_config)

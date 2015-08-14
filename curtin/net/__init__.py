@@ -20,6 +20,7 @@ import errno
 import os
 
 from curtin.log import LOG
+from curtin.udev import generate_udev_rule
 import curtin.util as util
 import curtin.config as config
 from . import network_state
@@ -231,42 +232,6 @@ def parse_net_config(path):
         ns = parse_net_config_data(net_config.get('network'))
 
     return ns
-
-
-def compose_udev_equality(key, value):
-    """Return a udev comparison clause, like `ACTION=="add"`."""
-    assert key == key.upper()
-    return '%s=="%s"' % (key, value)
-
-
-def compose_udev_attr_equality(attribute, value):
-    """Return a udev attribute comparison clause, like `ATTR{type}=="1"`."""
-    assert attribute == attribute.lower()
-    return 'ATTR{%s}=="%s"' % (attribute, value)
-
-
-def compose_udev_setting(key, value):
-    """Return a udev assignment clause, like `NAME="eth0"`."""
-    assert key == key.upper()
-    return '%s="%s"' % (key, value)
-
-
-def generate_udev_rule(interface, mac):
-    """Return a udev rule to set the name of network interface with `mac`.
-
-    The rule ends up as a single line looking something like:
-
-    SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*",
-    ATTR{address}="ff:ee:dd:cc:bb:aa", NAME="eth0"
-    """
-    rule = ', '.join([
-        compose_udev_equality('SUBSYSTEM', 'net'),
-        compose_udev_equality('ACTION', 'add'),
-        compose_udev_equality('DRIVERS', '?*'),
-        compose_udev_attr_equality('address', mac),
-        compose_udev_setting('NAME', interface),
-        ])
-    return '%s\n' % rule
 
 
 def render_persistent_net(network_state):
