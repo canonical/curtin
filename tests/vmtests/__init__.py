@@ -105,7 +105,6 @@ class TempDir:
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
     def __del__(self):
-        print('Cleaning up')
         # remove tempdir
         shutil.rmtree(self.tmpdir)
 
