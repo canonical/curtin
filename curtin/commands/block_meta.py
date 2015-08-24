@@ -284,7 +284,7 @@ def make_dname(volume, storage_config):
                 ptuuid = line.split('=')[-1]
                 break
     # we may not always be able to find a uniq identifier on devices with names
-    if not ptuuid:
+    if not ptuuid and vol.get('type') in ["disk", "partition"]:
         LOG.warning("Can't find a uuid for volume: {}. Skipping dname.".format(
             dname))
         return
