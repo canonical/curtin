@@ -467,6 +467,7 @@ def partition_handler(info, storage_config):
     size = info.get('size')
     flag = info.get('flag')
     disk_ptable = storage_config.get(device).get('ptable')
+    partition_type = None
     if not device:
         raise ValueError("device must be set for partition to be created")
     if not size:
@@ -552,7 +553,7 @@ def partition_handler(info, storage_config):
             get_path_to_storage_volume(info.get('id'), storage_config),
             info.get('wipe'))
     # Make the name if needed
-    if storage_config.get(device).get('name'):
+    if storage_config.get(device).get('name') and partition_type != 'extended':
         make_dname(info.get('id'), storage_config)
 
 
