@@ -10,13 +10,11 @@ try:
     from urllib import request as urllib_request
     from urllib import error as urllib_error
     from urllib.parse import urlparse
-    from urllib.parse import urlencode
 except ImportError:
     # python2
     import urllib2 as urllib_request
     import urllib2 as urllib_error
     from urlparse import urlparse
-    from urllib import urlencode
 
 from .log import LOG
 
@@ -40,7 +38,7 @@ def _geturl(url, headers=None, headers_cb=None, exception_cb=None, data=None):
         headers.update(headers_cb(url))
 
     if data and isinstance(data, dict):
-        data = urlencode(data).encode()
+        data = json.dumps(data).encode()
 
     try:
         req = urllib_request.Request(url=url, data=data, headers=headers)

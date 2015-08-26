@@ -1,0 +1,58 @@
+#!/usr/bin/python
+import SimpleHTTPServer
+import SocketServer
+import logging
+import json
+import sys
+
+
+if len(sys.argv) > 2:
+    PORT = int(sys.argv[2])
+    addr = sys.argv[1]
+elif len(sys.argv) > 1:
+    PORT = int(sys.argv[1])
+    addr = ""
+else:
+    PORT = 8000
+    addr = ""
+
+
+def render_event_string(event_str):
+    return json.dumps(json.loads(event_str), indent=1)
+
+
+class ServerHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+
+    def do_GET(self):
+        print("== Get %s ==" % self.path)
+        print(self.headers)
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write("content of %s\n" % self.path)
+
+    def do_POST(self):
+        print("== Post %s ==" % self.path)
+        print(self.headers)
+        length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(length).decode('utf-8')
+        try:
+            print(render_event_string(post_data))
+        except Exception as e:
+            print("failed printing event: %s" % e)
+            print(post_data)
+
+        self.send_response(200, "received post to %s" % self.path)
+
+Handler = ServerHandler
+
+httpd = SocketServer.TCPServer(("", PORT), Handler)
+httpd.allow_reuse_address = True
+
+print("Serving at: http://%(interface)s:%(port)s" %
+      dict(interface=addr or "localhost", port=PORT))
+try:
+    httpd.serve_forever()
+except KeyboardInterrupt:
+    pass
+httpd.server_close()
+sys.exit(0)

@@ -46,25 +46,26 @@ CONFIG_BUILTIN = {
     'curthooks_commands': {'builtin': ['curtin', 'curthooks']},
     'late_commands': {'builtin': []},
     'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
+    'install': {'logfile': INSTALL_LOG},
 }
 
 
-def clear_install_log():
+def clear_install_log(logfile):
     """Clear the installation log, so no previous installation is present."""
     # Create MAAS install log directory
-    util.ensure_dir(os.path.dirname(INSTALL_LOG))
+    util.ensure_dir(os.path.dirname(logfile))
     try:
-        open(INSTALL_LOG, 'w').close()
+        open(logfile, 'w').close()
     except:
         pass
 
 
-def writeline_install_log(output):
-    """Write output into the install log."""
+def writeline(fname, output):
+    """Write a line to a file."""
     if not output.endswith('\n'):
         output += '\n'
     try:
-        with open(INSTALL_LOG, 'a') as fp:
+        with open(fname, 'a') as fp:
             fp.write(output)
     except IOError:
         pass
@@ -108,11 +109,14 @@ class WorkingDir(object):
 
 class Stage(object):
 
-    def __init__(self, name, commands, env, reportstack=None):
+    def __init__(self, name, commands, env, reportstack=None, logfile=None):
         self.name = name
         self.commands = commands
         self.env = env
-        self.install_log = self.open_install_log()
+        if logfile is None:
+            logfile = INSTALL_LOG
+        self.install_log = self._open_install_log(logfile)
+
         if hasattr(sys.stdout, 'buffer'):
             self.write_stdout = self._write_stdout3
         else:
@@ -124,10 +128,12 @@ class Stage(object):
                 reporting_enabled=False)
         self.reportstack = reportstack
 
-    def open_install_log(self):
+    def _open_install_log(self, logfile):
         """Open the install log."""
+        if not logfile:
+            return None
         try:
-            return open(INSTALL_LOG, 'ab')
+            return open(logfile, 'ab')
         except IOError:
             return None
 
@@ -328,11 +334,17 @@ def cmd_install(args):
     if cfg.get('http_proxy'):
         os.environ['http_proxy'] = cfg['http_proxy']
 
-    # Load reporter
-    clear_install_log()
-    legacy_reporter = load_reporter(cfg)
-    legacy_reporter.files = [INSTALL_LOG]
+    instcfg = cfg.get('install', {})
+    logfile = instcfg.get('logfile')
+    post_files = instcfg.get('post_files', [logfile])
 
+    # Load reporter
+    clear_install_log(logfile)
+    post_files = cfg.get('post_files', [logfile])
+    legacy_reporter = load_reporter(cfg)
+    legacy_reporter.files = post_files
+
+    args.reportstack.post_files = post_files
     try:
         dd_images = util.get_dd_images(cfg.get('sources', {}))
         if len(dd_images) > 1:
@@ -345,7 +357,7 @@ def cmd_install(args):
 
         for name in cfg.get('stages'):
             reportstack = events.ReportEventStack(
-                "stage-%s" % name, description="curtin stage %s" % name,
+                "stage-%s" % name, description="stage %s" % name,
                 parent=args.reportstack)
             env['CURTIN_REPORTSTACK'] = reportstack.fullname
 
@@ -353,29 +365,20 @@ def cmd_install(args):
                 commands_name = '%s_commands' % name
                 with util.LogTimer(LOG.debug, 'stage_%s' % name):
                     stage = Stage(name, cfg.get(commands_name, {}), env,
-                                  reportstack=reportstack)
+                                  reportstack=reportstack, logfile=logfile)
                     stage.run()
 
         if apply_kexec(cfg.get('kexec'), workingd.target):
             cfg['power_state'] = {'mode': 'reboot', 'delay': 'now',
                                   'message': "'rebooting with kexec'"}
 
-        writeline_install_log("Installation finished.")
+        writeline(logfile, "Installation finished.")
         legacy_reporter.report_success()
-        events.publish_result(
-            name="install", description="Installation succeeded.",
-            result=events.status.SUCCESS, file_paths=[INSTALL_LOG])
     except Exception as e:
         exp_msg = "Installation failed with exception: %s" % e
-        writeline_install_log(exp_msg)
+        writeline(logfile, exp_msg)
         LOG.error(exp_msg)
         legacy_reporter.report_failure(exp_msg)
-        try:
-            events.publish_result(
-                name="install", description=exp_msg,
-                result=events.status.FAIL, file_paths=[INSTALL_LOG])
-        except:
-            LOG.error("failed publishing result")
         raise e
     finally:
         for d in ('sys', 'dev', 'proc'):
