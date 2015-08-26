@@ -136,7 +136,7 @@ class VMBaseClass:
         cmd.extend(["--netdev=user", "-d", self.td.target_disk] + extra_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "install", "--config=%s" %
-                   self.conf_file, "cp:///"])
+                    self.conf_file, "cp:///"])
 
         # run vm with installer
         try:
