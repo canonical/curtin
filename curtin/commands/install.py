@@ -46,7 +46,7 @@ CONFIG_BUILTIN = {
     'curthooks_commands': {'builtin': ['curtin', 'curthooks']},
     'late_commands': {'builtin': []},
     'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
-    'install': {'logfile': INSTALL_LOG},
+    'install': {'log_file': INSTALL_LOG},
 }
 
 
@@ -335,7 +335,7 @@ def cmd_install(args):
         os.environ['http_proxy'] = cfg['http_proxy']
 
     instcfg = cfg.get('install', {})
-    logfile = instcfg.get('logfile')
+    logfile = instcfg.get('log_file')
     post_files = instcfg.get('post_files', [logfile])
 
     # Load reporter
