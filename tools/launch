@@ -295,7 +295,7 @@ main() {
         { error "failed to write user-data"; return 1; }
 
     bootimg="${TEMP_D}/boot.img"
-    qemu-img create -f qcow2 -b "${bootimg_dist}" "$bootimg" ||
+    qemu-img create -f qcow2 -b "${bootimg_dist}" "$bootimg" 2G ||
         { error "failed create from ${bootimg_dist}"; return 1; }
 
     local seedargs=""
