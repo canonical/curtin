@@ -231,7 +231,7 @@ def clear_holders(sys_block_path):
 
 
 def devsync(devpath):
-    util.subp(['partprobe', devpath])
+    util.subp(['partprobe', devpath], rcs=[0, 1])
     util.subp(['udevadm', 'settle'])
     for x in range(0, 10):
         if os.path.exists(devpath):
