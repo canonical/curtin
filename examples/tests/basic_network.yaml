@@ -2,13 +2,13 @@ network:
     # Physical interfaces.
     - type: physical
       name: eth0
-      mac_address: "aa:d6:9f:2c:e8:80"
+      mac_address: "52:54:00:12:34:00"
       subnets:
           - type: dhcp4
     - type: physical
       name: eth1
       mtu: 1492
-      mac_address: "aa:d6:9f:2c:e8:82"
+      mac_address: "52:54:00:12:34:02"
       subnets:
           - type: static
             address: 10.0.2.100/24
@@ -17,4 +17,4 @@ network:
             address: 10.0.2.200/24
     - type: physical
       name: eth2
-      mac_address: "cf:d6:af:48:e8:80"
+      mac_address: "52:54:00:12:34:04"

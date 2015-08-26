@@ -1,16 +1,18 @@
-from . import VMNetClass
+from . import VMBaseClass
 from unittest import TestCase
 
 import os
 import textwrap
 
 
-class TestNetworkAbs(VMNetClass):
+class TestNetworkAbs(VMBaseClass):
     __test__ = False
     interactive = False
     conf_file = "examples/tests/basic_network.yaml"
     install_timeout = 600
     boot_timeout = 600
+    extra_disks = []
+    extra_nics = []
     user_data = textwrap.dedent("""\
         #cloud-config
         password: passw0rd
@@ -20,8 +22,8 @@ class TestNetworkAbs(VMNetClass):
           - mount /dev/vdb /media/output
         runcmd:
           - ifconfig -a > /media/output/ifconfig_a
-          - cp /etc/network/interfaces /media/output
-          - cp /etc/etc/udev/rules.d/70-persistent-net.rules > /media/output
+          - cp -av /etc/network/interfaces /media/output
+          - cp -av /etc/udev/rules.d/70-persistent-net.rules /media/output
         power_state:
           mode: poweroff
         """)
@@ -34,9 +36,11 @@ class TestNetworkAbs(VMNetClass):
     def test_ifconfig_output(self):
         '''check ifconfig output with test input'''
         with open(os.path.join(self.td.mnt, "ifconfig_a")) as fp:
-            ifconfig_lines = fp.readlines()
+            ifconfig_a = fp.read()
+            print(ifconfig_a)
         for iface in self.expected_interfaces():
-            self.assertTrue(iface in ifconfig_lines)
+            print(iface)
+            self.assertTrue(iface in ifconfig_a)
 
 
 class TrustyTestBasic(TestNetworkAbs, TestCase):

@@ -6,6 +6,8 @@ import shutil
 import subprocess
 import tempfile
 
+import curtin.net as curtin_net
+
 IMAGE_DIR = "/srv/images"
 
 DEVNULL = open(os.devnull, 'w')
@@ -109,8 +111,7 @@ class TempDir:
 
     def __del__(self):
         # remove tempdir
-        #shutil.rmtree(self.tmpdir)
-        pass
+        shutil.rmtree(self.tmpdir)
 
 
 class VMBaseClass:
@@ -131,13 +132,33 @@ class VMBaseClass:
         if not self.interactive:
             cmd.extend(["--silent", "--power=off"])
 
+        # check for network configuration
+        self.network_state = curtin_net.parse_net_config(self.conf_file)
+        print(self.network_state)
+
+        # build -n arg list with macaddrs from net_config physical config
+        macs = []
+        interfaces = self.network_state.get('interfaces')
+        for ifname in interfaces:
+            print(ifname)
+            iface = interfaces.get(ifname)
+            hwaddr = iface.get('mac_address')
+            if hwaddr:
+                macs.append(hwaddr)
+        netdevs = []
+        if len(macs) > 0:
+            for mac in macs:
+                netdevs.extend(["--netdev=user,mac={}".format(mac)])
+        else:
+            netdevs.extend(["--netdev=user"])
+
         # build disk arguments
         extra_disks = []
         for (disk_no, disk_sz) in enumerate(self.extra_disks):
             dpath = os.path.join(self.td.tmpdir, 'extra_disk_%d.img' % disk_no)
             extra_disks.extend(['-d', '{}:{}'.format(dpath, disk_sz)])
 
-        cmd.extend(["--netdev=user", "-d", self.td.target_disk] + extra_disks +
+        cmd.extend(netdevs + ["-d", self.td.target_disk] + extra_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "install", "--config=%s" %
                     self.conf_file, "cp:///"])
@@ -174,7 +195,7 @@ class VMBaseClass:
         extra_disks = [x if ":" not in x else x.split(':')[0]
                        for x in extra_disks]
         # create xkvm cmd
-        cmd = (["tools/xkvm", "--netdev=user", "-d", self.td.target_disk, "-d",
+        cmd = (["tools/xkvm"] + netdevs + ["-d", self.td.target_disk, "-d",
                self.td.output_disk] + extra_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % self.td.seed_disk,
@@ -210,6 +231,14 @@ class VMBaseClass:
         if os.path.exists("./serial.log"):
             os.remove("./serial.log")
 
+    @classmethod
+    def expected_interfaces(self):
+        return self.network_state.get('interfaces').keys()
+
+    @classmethod
+    def get_network_state(self):
+        return self.network_state
+
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
         for f in files:
@@ -225,66 +254,3 @@ class VMBaseClass:
             val = line.split('=')
             ret[val[0]] = val[1]
         return ret
-
-
-class VMNetClass(VMBaseClass):
-    @classmethod
-    def setUpClass(self):
-        self.network_state = curtin_net.parse_net_config(self.conf_file)
-        print(self.network_state)
-
-        # build -n arg list with macaddrs from net_config physical config
-        macs = []
-        interfaces = self.network_state.get('interfaces')
-        for ifname in interfaces:
-            print(ifname)
-            iface = interfaces.get(ifname)
-            hwaddr = iface.get('mac_address')
-            if hwaddr:
-                macs.append(hwaddr)
-        netdevs = []
-        if len(macs) > 0:
-            for mac in macs:
-                netdevs.extend(["--netdev=user,mac={}".format(mac)])
-        else:
-            netdevs.extend(["--netdev=user"])
-
-        # get boot img
-        image_store = ImageStore(IMAGE_DIR)
-        (boot_img, boot_kernel, boot_initrd) = image_store.get_image(
-            self.repo, self.release, self.arch)
-
-        # set up tempdir
-        self.td = TempDir(self.user_data)
-
-        # create launch cmd
-        cmd = ["tools/launch"]
-        if not self.interactive:
-            cmd.extend(["--silent", "--power=off"])
-        cmd.extend(netdevs + ["-d", self.td.target_disk,
-                   boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
-                   boot_initrd, "--", "curtin", "install", "--config=%s" %
-                   self.conf_file, "cp:///"])
-
-        # run vm with installer
-        subprocess.check_call(cmd, timeout=self.install_timeout)
-
-        # create xkvm cmd
-        cmd = ["tools/xkvm"]
-        cmd.extend(netdevs + ["-d", self.td.target_disk, "-d",
-                   self.td.output_disk, "--", "-drive",
-                   "file=%s,if=virtio,media=cdrom" % self.td.seed_disk,
-                   "-m", "1024"])
-        if not self.interactive:
-            cmd.extend(["-nographic", "-serial", "file:%s" %
-                       os.path.join(self.td.tmpdir, "serial.log")])
-
-        # run vm with installed system, fail if timeout expires
-        subprocess.check_call(cmd, timeout=self.boot_timeout)
-
-        # mount output disk
-        self.td.mount_output_disk()
-
-    @classmethod
-    def expected_interfaces(self):
-        return self.network_state.get('interfaces').keys()
