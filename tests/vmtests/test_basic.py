@@ -11,6 +11,7 @@ class TestBasicAbs(VMBaseClass):
     conf_file = "examples/tests/basic.yaml"
     install_timeout = 600
     boot_timeout = 120
+    extra_disks = ['128G']
     user_data = textwrap.dedent("""\
         #cloud-config
         password: passw0rd

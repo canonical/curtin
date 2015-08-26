@@ -11,6 +11,7 @@ class TestMdadmBcacheAbs(VMBaseClass):
     install_timeout = 600
     boot_timeout = 100
     interactive = False
+    extra_disks = []
     user_data = textwrap.dedent("""\
         #cloud-config
         password: passw0rd

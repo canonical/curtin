@@ -274,13 +274,21 @@ def make_dname(volume, storage_config):
     rules_dir = os.path.join(state['scratch'], "rules.d")
     vol = storage_config.get(volume)
     path = get_path_to_storage_volume(volume, storage_config)
+    ptuuid = None
     dname = vol.get('name')
     if vol.get('type') in ["partition", "disk"]:
-        (out, _err) = util.subp(["blkid", "-o", "export", path], capture=True)
+        (out, _err) = util.subp(["blkid", "-o", "export", path], capture=True,
+                                rcs=[0, 2], retries=[1, 1, 1])
         for line in out.splitlines():
             if "PTUUID" in line or "PARTUUID" in line:
                 ptuuid = line.split('=')[-1]
                 break
+    # we may not always be able to find a uniq identifier on devices with names
+    if not ptuuid:
+        LOG.warning("Can't find a uuid for volume: {}. Skipping dname.".format(
+            dname))
+        return
+
     rule = [
         compose_udev_equality("SUBSYSTEM", "block"),
         compose_udev_equality("ACTION", "add|change"),
