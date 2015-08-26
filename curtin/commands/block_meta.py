@@ -21,6 +21,7 @@ from curtin import util
 from curtin.log import LOG
 
 from . import populate_one_subcmd
+from curtin.commands.net_meta import compose_udev_equality
 
 import glob
 import os
@@ -230,7 +231,7 @@ def clear_holders(sys_block_path):
 
 
 def devsync(devpath):
-    util.subp(['partprobe', devpath])
+    util.subp(['partprobe', devpath], rcs=[0, 1])
     util.subp(['udevadm', 'settle'])
     for x in range(0, 10):
         if os.path.exists(devpath):
@@ -266,6 +267,58 @@ def determine_partition_number(partition_id, storage_config):
                     else:
                         partnumber += 1
     return partnumber
+
+
+def make_dname(volume, storage_config):
+    state = util.load_command_environment()
+    rules_dir = os.path.join(state['scratch'], "rules.d")
+    vol = storage_config.get(volume)
+    path = get_path_to_storage_volume(volume, storage_config)
+    ptuuid = None
+    dname = vol.get('name')
+    if vol.get('type') in ["partition", "disk"]:
+        (out, _err) = util.subp(["blkid", "-o", "export", path], capture=True,
+                                rcs=[0, 2], retries=[1, 1, 1])
+        for line in out.splitlines():
+            if "PTUUID" in line or "PARTUUID" in line:
+                ptuuid = line.split('=')[-1]
+                break
+    # we may not always be able to find a uniq identifier on devices with names
+    if not ptuuid and vol.get('type') in ["disk", "partition"]:
+        LOG.warning("Can't find a uuid for volume: {}. Skipping dname.".format(
+            dname))
+        return
+
+    rule = [
+        compose_udev_equality("SUBSYSTEM", "block"),
+        compose_udev_equality("ACTION", "add|change"),
+        ]
+    if vol.get('type') == "disk":
+        rule.append(compose_udev_equality('ENV{DEVTYPE}', "disk"))
+        rule.append(compose_udev_equality('ENV{ID_PART_TABLE_UUID}', ptuuid))
+    elif vol.get('type') == "partition":
+        rule.append(compose_udev_equality('ENV{DEVTYPE}', "partition"))
+        dname = storage_config.get(vol.get('device')).get('name') + \
+            "-part%s" % determine_partition_number(volume, storage_config)
+        rule.append(compose_udev_equality('ENV{ID_PART_ENTRY_UUID}', ptuuid))
+    elif vol.get('type') == "raid":
+        (out, _err) = util.subp(["mdadm", "--detail", "--export", path],
+                                capture=True)
+        for line in out.splitlines():
+            if "MD_UUID" in line:
+                md_uuid = line.split('=')[-1]
+                break
+        rule.append(compose_udev_equality("ENV{MD_UUID}", md_uuid))
+    elif vol.get('type') == "bcache":
+        rule.append(compose_udev_equality("ENV{DEVNAME}", path))
+    elif vol.get('type') == "lvm_partition":
+        volgroup_name = storage_config.get(vol.get('volgroup')).get('name')
+        dname = "%s-%s" % (volgroup_name, dname)
+        rule.append(compose_udev_equality("ENV{DM_NAME}", dname))
+    rule.append("SYMLINK+=\"disk/by-dname/%s\"" % dname)
+    util.ensure_dir(rules_dir)
+    with open(os.path.join(rules_dir, volume), "w") as fp:
+        fp.write(', '.join(rule))
 
 
 def get_path_to_storage_volume(volume, storage_config):
@@ -404,12 +457,17 @@ def disk_handler(info, storage_config):
         elif ptable == "msdos":
             util.subp(["parted", disk, "--script", "mklabel", "msdos"])
 
+    # Make the name if needed
+    if info.get('name'):
+        make_dname(info.get('id'), storage_config)
+
 
 def partition_handler(info, storage_config):
     device = info.get('device')
     size = info.get('size')
     flag = info.get('flag')
     disk_ptable = storage_config.get(device).get('ptable')
+    partition_type = None
     if not device:
         raise ValueError("device must be set for partition to be created")
     if not size:
@@ -494,6 +552,9 @@ def partition_handler(info, storage_config):
         wipe_volume(
             get_path_to_storage_volume(info.get('id'), storage_config),
             info.get('wipe'))
+    # Make the name if needed
+    if storage_config.get(device).get('name') and partition_type != 'extended':
+        make_dname(info.get('id'), storage_config)
 
 
 def format_handler(info, storage_config):
@@ -687,6 +748,8 @@ def lvm_partition_handler(info, storage_config):
         raise ValueError("Partition tables on top of lvm logical volumes is \
                          not supported")
 
+    make_dname(info.get('id'), storage_config)
+
 
 def dm_crypt_handler(info, storage_config):
     state = util.load_command_environment()
@@ -778,6 +841,9 @@ def raid_handler(info, storage_config):
     # Create the raid device
     util.subp(" ".join(cmd), shell=True)
 
+    # Make dname rule for this dev
+    make_dname(info.get('id'), storage_config)
+
     # A mdadm.conf will be created in the same directory as the fstab in the
     # configuration. This will then be copied onto the installed system later.
     # The file must also be written onto the running system to enable it to run
@@ -830,6 +896,10 @@ def bcache_handler(info, storage_config):
             fp = open("/sys/fs/bcache/register", "w")
             fp.write(path)
             fp.close()
+
+    if info.get('name'):
+        # Make dname rule for this dev
+        make_dname(info.get('id'), storage_config)
 
     if info.get('ptable'):
         raise ValueError("Partition tables on top of lvm logical volumes is \

@@ -1,0 +1,70 @@
+storage:
+    version: 1
+    config:
+      - id: sda
+        type: disk
+        ptable: msdos
+        model: QEMU HARDDISK
+        path: /dev/vdb
+        name: main_disk
+      - id: sda1
+        type: partition
+        size: 3GB
+        device: sda
+        flag: boot
+      - id: sda_extended
+        type: partition
+        size: 5G
+        flag: extended
+        device: sda
+      - id: sda2
+        type: partition
+        size: 2G
+        flag: logical
+        device: sda
+      - id: sda3
+        type: partition
+        size: 2G
+        flag: logical
+        device: sda
+      - id: volgroup1
+        name: vg1
+        type: lvm_volgroup
+        devices:
+            - sda2
+            - sda3
+      - id: lvmpart1
+        name: lv1
+        size: 1G
+        type: lvm_partition
+        volgroup: volgroup1
+      - id: lvmpart2
+        name: lv2
+        type: lvm_partition
+        volgroup: volgroup1
+      - id: sda1_root
+        type: format
+        fstype: ext4
+        volume: sda1
+      - id: lv1_fs
+        name: storage
+        type: format
+        fstype: fat32
+        volume: lvmpart1
+      - id: lv2_fs
+        name: storage
+        type: format
+        fstype: ext3
+        volume: lvmpart2
+      - id: sda1_mount
+        type: mount
+        path: /
+        device: sda1_root
+      - id: lv1_mount
+        type: mount
+        path: /srv/data
+        device: lv1_fs
+      - id: lv2_mount
+        type: mount
+        path: /srv/backup
+        device: lv2_fs
