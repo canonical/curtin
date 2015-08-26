@@ -5,6 +5,14 @@ import logging
 import json
 import sys
 
+EXAMPLE_CONFIG = """\
+install:
+  reporting:
+    mypost:
+    endpoint: http://localhost:8000
+install:
+  log_file: /tmp/foo
+  post_files: [/tmp/foo]"""
 
 if len(sys.argv) > 2:
     PORT = int(sys.argv[2])
@@ -50,6 +58,8 @@ httpd.allow_reuse_address = True
 
 print("Serving at: http://%(interface)s:%(port)s" %
       dict(interface=addr or "localhost", port=PORT))
+print("Post to this with:\n%s\n" % EXAMPLE_CONFIG)
+
 try:
     httpd.serve_forever()
 except KeyboardInterrupt:
