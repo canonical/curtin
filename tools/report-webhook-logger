@@ -30,15 +30,18 @@ def render_event_string(event_str):
 
 class ServerHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
+    def log_request(self, code, size=None):
+        print("== %s %s ==" % (self.command, self.path))
+
     def do_GET(self):
-        print("== Get %s ==" % self.path)
+        #print("== Get %s ==" % self.path)
         print(str(self.headers).replace('\r', ''))
         self.send_response(200)
         self.end_headers()
         self.wfile.write("content of %s\n" % self.path)
 
     def do_POST(self):
-        print("== Post %s ==" % self.path)
+        #print("== Post %s ==" % self.path)
         print(str(self.headers).replace('\r', ''))
         length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(length).decode('utf-8')
@@ -50,8 +53,10 @@ class ServerHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         self.send_response(200, "received post to %s" % self.path)
 
-Handler = ServerHandler
+# avoid 'Address already in use' after ctrl-c
+SocketServer.TCPServer.allow_reuse_address = True
 
+Handler = ServerHandler
 httpd = SocketServer.TCPServer(("", PORT), Handler)
 httpd.allow_reuse_address = True
 
