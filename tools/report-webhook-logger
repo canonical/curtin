@@ -32,24 +32,24 @@ class ServerHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
     def log_request(self, code, size=None):
         print("== %s %s ==" % (self.command, self.path))
+        print(str(self.headers).replace('\r', ''))
+        if self._message:
+            print(self._message)
 
     def do_GET(self):
-        #print("== Get %s ==" % self.path)
-        print(str(self.headers).replace('\r', ''))
+        self._message = None
         self.send_response(200)
         self.end_headers()
         self.wfile.write("content of %s\n" % self.path)
 
     def do_POST(self):
-        #print("== Post %s ==" % self.path)
-        print(str(self.headers).replace('\r', ''))
         length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(length).decode('utf-8')
         try:
-            print(render_event_string(post_data))
+            self._message = render_event_string(post_data)
         except Exception as e:
-            print("failed printing event: %s" % e)
-            print(post_data)
+            self._message = '\n'.join(
+		["failed printing event: %s" % e, post_data])
 
         self.send_response(200, "received post to %s" % self.path)
 
