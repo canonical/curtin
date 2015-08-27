@@ -22,6 +22,12 @@ unittest:
 	nosetests $(noseopts) tests/unittests
 	nosetests3 $(noseopts) tests/unittests
 
+docs:
+	@which sphinx-build || \
+		{ echo "need sphinx-build. get it:"; \
+		  echo "   apt-get install -qy python3-sphinx"; exit 1; } 1>&2
+	make -C doc html
+
 vmtest:
 	nosetests3 $(noseopts) tests/vmtests
 
