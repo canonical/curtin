@@ -31,10 +31,13 @@ def render_event_string(event_str):
 class ServerHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
     def log_request(self, code, size=None):
-        print("== %s %s ==" % (self.command, self.path))
-        print(str(self.headers).replace('\r', ''))
+        lines = [
+            "== %s %s ==" % (self.command, self.path),
+            str(self.headers).replace('\r', '')]
         if self._message:
-            print(self._message)
+            lines.append(self._message)
+        sys.stdout.write('\n'.join(lines) + '\n')
+        sys.stdout.flush()
 
     def do_GET(self):
         self._message = None
@@ -67,6 +70,7 @@ print("Post to this with:\n%s\n" % EXAMPLE_CONFIG)
 try:
     httpd.serve_forever()
 except KeyboardInterrupt:
+    sys.stdout.flush()
     pass
 httpd.server_close()
 sys.exit(0)
