@@ -133,10 +133,12 @@ class VMBaseClass:
             dpath = os.path.join(self.td.tmpdir, 'extra_disk_%d.img' % disk_no)
             extra_disks.extend(['--disk', '{}:{}'.format(dpath, disk_sz)])
 
-        cmd.extend(["--netdev=user", "--disk", self.td.target_disk] + extra_disks +
-                   [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
-                    boot_initrd, "--", "curtin", "install", "--config=%s" %
-                    self.conf_file, "cp:///"])
+        cmd.extend(["--netdev=user", "--disk", self.td.target_disk] +
+                   extra_disks +
+                   [boot_img, "--kernel=%s" % boot_kernel,
+                    "--initrd=%s" % boot_initrd,
+                    "--", "curtin", "install",
+                    "--config=%s" % self.conf_file, "cp:///"])
 
         # run vm with installer
         try:
