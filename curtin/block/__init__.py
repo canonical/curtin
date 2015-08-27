@@ -221,9 +221,12 @@ def rescan_block_devices():
     cmd = ['blockdev', '--rereadpt'] + devices
     try:
         util.subp(cmd, capture=True)
-        util.subp(['udevadm', 'settle'])
     except util.ProcessExecutionError as e:
+        # FIXME: its less than ideal to swallow this error, but until
+        # we fix LP: #1489521 we kind of need to.
         LOG.warn("rescanning devices failed: %s", e)
+
+    util.subp(['udevadm', 'settle'])
 
     return
 
