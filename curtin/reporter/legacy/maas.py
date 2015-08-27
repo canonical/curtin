@@ -21,6 +21,7 @@ class MAASReporter(BaseReporter):
             consumer_secret='',
             skew_data_file="/run/oauth_skew.json")
         self.files = []
+        self.retries = config.get('retries', [1, 1, 2, 4, 8, 16, 32])
 
     def report_success(self):
         """Report installation success."""
@@ -83,7 +84,8 @@ class MAASReporter(BaseReporter):
 
         try:
             payload = self.urlhelper.geturl(
-                self.url, data=data, headers=headers)
+                self.url, data=data, headers=headers,
+                retries=self.retries)
             if payload != b'OK':
                 raise TypeError("Unexpected result from call: %s" % payload)
             else:
