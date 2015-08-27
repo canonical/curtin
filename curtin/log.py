@@ -17,6 +17,18 @@
 
 import logging
 
+# Logging items for easy access
+getLogger = logging.getLogger
+
+CRITICAL = logging.CRITICAL
+FATAL = logging.FATAL
+ERROR = logging.ERROR
+WARNING = logging.WARNING
+WARN = logging.WARN
+INFO = logging.INFO
+DEBUG = logging.DEBUG
+NOTSET = logging.NOTSET
+
 
 class NullHandler(logging.Handler):
     def emit(self, record):

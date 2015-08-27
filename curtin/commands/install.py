@@ -29,13 +29,21 @@ from curtin import block
 from curtin import config
 from curtin import util
 from curtin.log import LOG
-from curtin.reporter import (
-    INSTALL_LOG,
-    load_reporter,
-    clear_install_log,
-    writeline_install_log,
-    )
+from curtin.reporter.legacy import load_reporter
+from curtin.reporter import events
 from . import populate_one_subcmd
+
+INSTALL_LOG = "/var/log/curtin/install.log"
+
+STAGE_DESCRIPTIONS = {
+    'early': 'preparing for installation',
+    'partitioning': 'configuring storage',
+    'network': 'configuring network',
+    'extract': 'writing install sources to disk',
+    'curthooks': 'configuring installed system',
+    'hook': 'finalizing installation',
+    'late': 'executing late commands',
+}
 
 CONFIG_BUILTIN = {
     'sources': {},
@@ -48,7 +56,28 @@ CONFIG_BUILTIN = {
     'curthooks_commands': {'builtin': ['curtin', 'curthooks']},
     'late_commands': {'builtin': []},
     'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
+    'install': {'log_file': INSTALL_LOG},
 }
+
+
+def clear_install_log(logfile):
+    """Clear the installation log, so no previous installation is present."""
+    util.ensure_dir(os.path.dirname(logfile))
+    try:
+        open(logfile, 'w').close()
+    except:
+        pass
+
+
+def writeline(fname, output):
+    """Write a line to a file."""
+    if not output.endswith('\n'):
+        output += '\n'
+    try:
+        with open(fname, 'a') as fp:
+            fp.write(output)
+    except IOError:
+        pass
 
 
 class WorkingDir(object):
@@ -89,20 +118,31 @@ class WorkingDir(object):
 
 class Stage(object):
 
-    def __init__(self, name, commands, env):
+    def __init__(self, name, commands, env, reportstack=None, logfile=None):
         self.name = name
         self.commands = commands
         self.env = env
-        self.install_log = self.open_install_log()
+        if logfile is None:
+            logfile = INSTALL_LOG
+        self.install_log = self._open_install_log(logfile)
+
         if hasattr(sys.stdout, 'buffer'):
             self.write_stdout = self._write_stdout3
         else:
             self.write_stdout = self._write_stdout2
 
-    def open_install_log(self):
+        if reportstack is None:
+            reportstack = events.ReportEventStack(
+                name="stage-%s" % name, description="basic stage %s" % name,
+                reporting_enabled=False)
+        self.reportstack = reportstack
+
+    def _open_install_log(self, logfile):
         """Open the install log."""
+        if not logfile:
+            return None
         try:
-            return open(INSTALL_LOG, 'ab')
+            return open(logfile, 'ab')
         except IOError:
             return None
 
@@ -126,31 +166,39 @@ class Stage(object):
             cmd = self.commands[cmdname]
             if not cmd:
                 continue
+            cur_res = events.ReportEventStack(
+                name=cmdname, description="running '%s'" % cmdname,
+                parent=self.reportstack)
+
+            env = self.env.copy()
+            env['CURTIN_REPORTSTACK'] = cur_res.fullname
+
             shell = not isinstance(cmd, list)
             with util.LogTimer(LOG.debug, cmdname):
-                try:
-                    sp = subprocess.Popen(
-                        cmd,
-                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                        env=self.env, shell=shell)
-                except OSError as e:
-                    LOG.warn("%s command failed", cmdname)
-                    raise util.ProcessExecutionError(cmd=cmd, reason=e)
+                with cur_res:
+                    try:
+                        sp = subprocess.Popen(
+                            cmd, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT,
+                            env=env, shell=shell)
+                    except OSError as e:
+                        LOG.warn("%s command failed", cmdname)
+                        raise util.ProcessExecutionError(cmd=cmd, reason=e)
 
-                output = b""
-                while True:
-                    data = sp.stdout.read(1)
-                    if not data and sp.poll() is not None:
-                        break
-                    self.write(data)
-                    output += data
+                    output = b""
+                    while True:
+                        data = sp.stdout.read(1)
+                        if not data and sp.poll() is not None:
+                            break
+                        self.write(data)
+                        output += data
 
-                rc = sp.returncode
-                if rc != 0:
-                    LOG.warn("%s command failed", cmdname)
-                    raise util.ProcessExecutionError(
-                        stdout=output, stderr="",
-                        exit_code=rc, cmd=cmd)
+                    rc = sp.returncode
+                    if rc != 0:
+                        LOG.warn("%s command failed", cmdname)
+                        raise util.ProcessExecutionError(
+                            stdout=output, stderr="",
+                            exit_code=rc, cmd=cmd)
 
 
 def apply_power_state(pstate):
@@ -295,10 +343,17 @@ def cmd_install(args):
     if cfg.get('http_proxy'):
         os.environ['http_proxy'] = cfg['http_proxy']
 
-    # Load reporter
-    clear_install_log()
-    reporter = load_reporter(cfg)
+    instcfg = cfg.get('install', {})
+    logfile = instcfg.get('log_file')
+    post_files = instcfg.get('post_files', [logfile])
 
+    # Load reporter
+    clear_install_log(logfile)
+    post_files = cfg.get('post_files', [logfile])
+    legacy_reporter = load_reporter(cfg)
+    legacy_reporter.files = post_files
+
+    args.reportstack.post_files = post_files
     try:
         dd_images = util.get_dd_images(cfg.get('sources', {}))
         if len(dd_images) > 1:
@@ -310,27 +365,31 @@ def cmd_install(args):
         env.update(workingd.env())
 
         for name in cfg.get('stages'):
-            try:
-                if reporter.progress:
-                    reporter.report_progress(name)
-            except AttributeError:
-                pass
-            commands_name = '%s_commands' % name
-            with util.LogTimer(LOG.debug, 'stage_%s' % name):
-                stage = Stage(name, cfg.get(commands_name, {}), env)
-                stage.run()
+            desc = STAGE_DESCRIPTIONS.get(name, "stage %s" % name)
+            reportstack = events.ReportEventStack(
+                "stage-%s" % name, description=desc,
+                parent=args.reportstack)
+            env['CURTIN_REPORTSTACK'] = reportstack.fullname
+
+            with reportstack:
+                commands_name = '%s_commands' % name
+                with util.LogTimer(LOG.debug, 'stage_%s' % name):
+                    stage = Stage(name, cfg.get(commands_name, {}), env,
+                                  reportstack=reportstack, logfile=logfile)
+                    stage.run()
 
         if apply_kexec(cfg.get('kexec'), workingd.target):
             cfg['power_state'] = {'mode': 'reboot', 'delay': 'now',
                                   'message': "'rebooting with kexec'"}
 
-        writeline_install_log("Installation finished.")
-        reporter.report_success()
+        writeline(logfile, "Installation finished.")
+        legacy_reporter.report_success()
     except Exception as e:
         exp_msg = "Installation failed with exception: %s" % e
-        writeline_install_log(exp_msg)
+        writeline(logfile, exp_msg)
         LOG.error(exp_msg)
-        reporter.report_failure(exp_msg)
+        legacy_reporter.report_failure(exp_msg)
+        raise e
     finally:
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))

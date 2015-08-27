@@ -21,9 +21,10 @@ import os
 import sys
 import traceback
 
-from curtin import log
-from curtin import util
-from curtin import config
+from .. import log
+from .. import util
+from .. import config
+from ..reporter import (events, update_configuration)
 
 SUB_COMMAND_MODULES = ['block-meta', 'curthooks', 'extract', 'hook',
                        'in-target', 'install', 'mkfs', 'net-meta', 'pack',
@@ -69,6 +70,7 @@ def main(args=None):
                         help='define a config variable',
                         metavar='key=val', dest='main_cfgopts')
     parser.set_defaults(config={})
+    parser.set_defaults(reportstack=None)
 
     subps = parser.add_subparsers(dest="subcmd")
     for subcmd in SUB_COMMAND_MODULES:
@@ -81,11 +83,14 @@ def main(args=None):
         cfg_opts += args.cfgopts
 
     cfg = {}
-    for (flag, val) in cfg_opts:
-        if flag in ('-c', '--config'):
-            config.merge_config_fp(cfg, val)
-        elif flag in ('--set'):
-            config.merge_cmdarg(cfg, val)
+    if cfg_opts:
+        for (flag, val) in cfg_opts:
+            if flag in ('-c', '--config'):
+                config.merge_config_fp(cfg, val)
+            elif flag in ('--set'):
+                config.merge_cmdarg(cfg, val)
+    else:
+        cfg = util.load_command_config(args, util.load_command_environment())
 
     args.config = cfg
 
@@ -121,8 +126,22 @@ def main(args=None):
 
     os.environ['PATH'] = ':'.join(path)
 
+    # set up the reportstack
+    update_configuration(cfg.get('reporting', {}))
+
+    stack_prefix = (os.environ.get("CURTIN_REPORTSTACK", "") +
+                    "/cmd-%s" % args.subcmd)
+    if stack_prefix.startswith("/"):
+        stack_prefix = stack_prefix[1:]
+    os.environ["CURTIN_REPORTSTACK"] = stack_prefix
+    args.reportstack = events.ReportEventStack(
+        name=stack_prefix, description="curtin command %s" % args.subcmd,
+        reporting_enabled=True)
+
     try:
-        sys.exit(args.func(args))
+        with args.reportstack:
+            ret = args.func(args)
+        sys.exit(ret)
     except Exception as e:
         if showtrace:
             traceback.print_exc()

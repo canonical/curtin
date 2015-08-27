@@ -231,7 +231,7 @@ def clear_holders(sys_block_path):
 
 
 def devsync(devpath):
-    util.subp(['partprobe', devpath])
+    util.subp(['partprobe', devpath], rcs=[0, 1])
     util.subp(['udevadm', 'settle'])
     for x in range(0, 10):
         if os.path.exists(devpath):
@@ -284,7 +284,7 @@ def make_dname(volume, storage_config):
                 ptuuid = line.split('=')[-1]
                 break
     # we may not always be able to find a uniq identifier on devices with names
-    if not ptuuid:
+    if not ptuuid and vol.get('type') in ["disk", "partition"]:
         LOG.warning("Can't find a uuid for volume: {}. Skipping dname.".format(
             dname))
         return
