@@ -76,14 +76,15 @@ def geturl(url, headers=None, headers_cb=None, exception_cb=None,
         try:
             return _geturl(url=url, headers=headers, headers_cb=headers_cb,
                            exception_cb=exception_cb, data=data)
-        except Exception as curexc:
+        except Exception as e:
+            curexc = e
             if isinstance(curexc, _ReRaisedException):
                 raise curexc.exc
         if log:
             msg = ("try %d of request to %s failed. sleeping %d: %s" %
                    (naptime, url, naptime, curexc))
             log(msg)
-            time.sleep(naptime)
+        time.sleep(naptime)
     try:
         return _geturl(url=url, headers=headers, headers_cb=headers_cb,
                        exception_cb=exception_cb, data=data)
