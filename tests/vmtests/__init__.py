@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import curtin.net as curtin_net
 
 IMAGE_DIR = "/srv/images"
 
@@ -22,9 +23,12 @@ class ImageStore:
         print('Query simplestreams for root image: '
               'release={release} arch={arch}'.format(release=release,
                                                      arch=arch))
-        out = subprocess.check_output(
-            ["tools/usquery", "--max=1", repo, "release=%s" % release,
-             "arch=%s" % arch, "item_name=root-image.gz"])
+        cmd = ["tools/usquery", "--max=1", repo, "release=%s" % release,
+               "krel=%s" % release, "arch=%s" % arch,
+               "item_name=root-image.gz"]
+        print(" ".join(cmd))
+        out = subprocess.check_output(cmd)
+        print(out)
         sstream_data = ast.literal_eval(bytes.decode(out))
 
         # Check if we already have the image
@@ -127,18 +131,36 @@ class VMBaseClass:
         if not self.interactive:
             cmd.extend(["--silent", "--power=off"])
 
+        # check for network configuration
+        self.network_state = curtin_net.parse_net_config(self.conf_file)
+        print(self.network_state)
+
+        # build -n arg list with macaddrs from net_config physical config
+        macs = []
+        interfaces = self.network_state.get('interfaces')
+        for ifname in interfaces:
+            print(ifname)
+            iface = interfaces.get(ifname)
+            hwaddr = iface.get('mac_address')
+            if hwaddr:
+                macs.append(hwaddr)
+        netdevs = []
+        if len(macs) > 0:
+            for mac in macs:
+                netdevs.extend(["--netdev=user,mac={}".format(mac)])
+        else:
+            netdevs.extend(["--netdev=user"])
+
         # build disk arguments
         extra_disks = []
         for (disk_no, disk_sz) in enumerate(self.extra_disks):
             dpath = os.path.join(self.td.tmpdir, 'extra_disk_%d.img' % disk_no)
             extra_disks.extend(['--disk', '{}:{}'.format(dpath, disk_sz)])
 
-        cmd.extend(["--netdev=user", "--disk", self.td.target_disk] +
-                   extra_disks +
-                   [boot_img, "--kernel=%s" % boot_kernel,
-                    "--initrd=%s" % boot_initrd,
-                    "--", "curtin", "install",
-                    "--config=%s" % self.conf_file, "cp:///"])
+        cmd.extend(netdevs + ["--disk", self.td.target_disk] + extra_disks +
+                   [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
+                    boot_initrd, "--", "curtin", "install", "--config=%s" %
+                    self.conf_file, "cp:///"])
 
         # run vm with installer
         try:
@@ -172,8 +194,8 @@ class VMBaseClass:
         extra_disks = [x if ":" not in x else x.split(':')[0]
                        for x in extra_disks]
         # create xkvm cmd
-        cmd = (["tools/xkvm", "--netdev=user", "--disk", self.td.target_disk,
-                "--disk", self.td.output_disk] + extra_disks +
+        cmd = (["tools/xkvm"] + netdevs + ["--disk", self.td.target_disk,
+               "--disk", self.td.output_disk] + extra_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % self.td.seed_disk,
                 "-m", "1024"])
@@ -207,6 +229,30 @@ class VMBaseClass:
         # remove launch logfile
         if os.path.exists("./serial.log"):
             os.remove("./serial.log")
+
+    @classmethod
+    def expected_interfaces(self):
+        expected = []
+        interfaces = self.network_state.get('interfaces')
+        # handle interface aliases when subnets have multiple entries
+        for iface in interfaces.values():
+            subnets = iface.get('subnets', {})
+            if subnets:
+                for index, subnet in zip(range(0, len(subnets)), subnets):
+                    if index == 0:
+                        expected.append(iface)
+                    else:
+                        expected.append("{}:{}".format(iface, index))
+            else:
+                expected.append(iface)
+
+    @classmethod
+    def get_network_state(self):
+        return self.network_state
+
+    @classmethod
+    def get_expected_etc_network_interfaces(self):
+        return curtin_net.render_interfaces(self.network_state)
 
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
