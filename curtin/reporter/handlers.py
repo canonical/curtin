@@ -79,7 +79,7 @@ class WebHookHandler(ReportingHandler):
         try:
             return self.oauth_helper.geturl(
                 url=self.endpoint, data=event.as_dict(),
-                headers = self.headers, retries=self.retries)
+                headers=self.headers, retries=self.retries)
         except Exception as e:
             LOG.warn("failed posting event: %s [%s]" % (event.as_string(), e))
 
