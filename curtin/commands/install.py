@@ -35,6 +35,16 @@ from . import populate_one_subcmd
 
 INSTALL_LOG = "/var/log/curtin/install.log"
 
+STAGE_DESCRIPTIONS = {
+    'early': 'preparing for installation',
+    'partitioning': 'configuring storage',
+    'network': 'configuring network',
+    'extract': 'writing install sources to disk',
+    'curthooks': 'configuring installed system',
+    'hook': 'finalizing installation',
+    'late': 'executing late commands',
+}
+
 CONFIG_BUILTIN = {
     'sources': {},
     'stages': ['early', 'partitioning', 'network', 'extract', 'curthooks',
@@ -52,7 +62,6 @@ CONFIG_BUILTIN = {
 
 def clear_install_log(logfile):
     """Clear the installation log, so no previous installation is present."""
-    # Create MAAS install log directory
     util.ensure_dir(os.path.dirname(logfile))
     try:
         open(logfile, 'w').close()
@@ -356,8 +365,9 @@ def cmd_install(args):
         env.update(workingd.env())
 
         for name in cfg.get('stages'):
+            desc = STAGE_DESCRIPTIONS.get(name, "stage %s" % name)
             reportstack = events.ReportEventStack(
-                "stage-%s" % name, description="stage %s" % name,
+                "stage-%s" % name, description=desc,
                 parent=args.reportstack)
             env['CURTIN_REPORTSTACK'] = reportstack.fullname
 
