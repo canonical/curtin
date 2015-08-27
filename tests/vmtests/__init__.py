@@ -131,9 +131,9 @@ class VMBaseClass:
         extra_disks = []
         for (disk_no, disk_sz) in enumerate(self.extra_disks):
             dpath = os.path.join(self.td.tmpdir, 'extra_disk_%d.img' % disk_no)
-            extra_disks.extend(['-d', '{}:{}'.format(dpath, disk_sz)])
+            extra_disks.extend(['--disk', '{}:{}'.format(dpath, disk_sz)])
 
-        cmd.extend(["--netdev=user", "-d", self.td.target_disk] + extra_disks +
+        cmd.extend(["--netdev=user", "--disk", self.td.target_disk] + extra_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "install", "--config=%s" %
                     self.conf_file, "cp:///"])
@@ -170,8 +170,8 @@ class VMBaseClass:
         extra_disks = [x if ":" not in x else x.split(':')[0]
                        for x in extra_disks]
         # create xkvm cmd
-        cmd = (["tools/xkvm", "--netdev=user", "-d", self.td.target_disk, "-d",
-               self.td.output_disk] + extra_disks +
+        cmd = (["tools/xkvm", "--netdev=user", "--disk", self.td.target_disk,
+                "--disk", self.td.output_disk] + extra_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % self.td.seed_disk,
                 "-m", "1024"])
