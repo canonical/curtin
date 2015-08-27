@@ -21,12 +21,6 @@ class ReportingHandler(object):
     def publish_event(self, event):
         """Publish an event to the ``INFO`` log level."""
 
-    def publish_result(self, event):
-        """Publish a result event.
-
-        This is separate from other events due to file data"""
-        pass
-
 
 class LogHandler(ReportingHandler):
     """Publishes events to the cloud-init log at the ``INFO`` log level."""
@@ -57,9 +51,6 @@ class PrintHandler(ReportingHandler):
     def publish_event(self, event):
         print(event.as_string())
 
-    def publish_result(self, event):
-        self.publish_event(event)
-
 
 class WebHookHandler(ReportingHandler):
     def __init__(self, endpoint, consumer_key=None, token_key=None,
@@ -82,14 +73,6 @@ class WebHookHandler(ReportingHandler):
                 headers=self.headers, retries=self.retries)
         except Exception as e:
             LOG.warn("failed posting event: %s [%s]" % (event.as_string(), e))
-
-    def publish_result(self, event):
-        """Publish the result and attached files."""
-        # TODO: we need to add mime multipart posting here
-        # the goal is to add general infrastructure to url_helper
-        # and then to use that similar to how we use geturl above
-        LOG.warn("Do not yet know how to post files.")
-        self.publish_event(event)
 
 
 available_handlers = DictRegistry()
