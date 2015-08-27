@@ -211,14 +211,14 @@ class TrustyTestBasic(TestNetworkAbs, TestCase):
 
 
 class WilyTestBasic(TestNetworkAbs, TestCase):
-    __test__ = False
+    __test__ = True
     repo = "maas-daily"
     release = "wily"
     arch = "amd64"
 
 
 class VividTestBasic(TestNetworkAbs, TestCase):
-    __test__ = False
+    __test__ = True
     repo = "maas-daily"
     release = "vivid"
     arch = "amd64"
