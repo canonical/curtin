@@ -73,12 +73,13 @@ class WebHookHandler(ReportingHandler):
         self.endpoint = endpoint
         self.timeout = timeout
         self.retries = retries
+        self.headers = {'Content-Type': 'application/json'}
 
     def publish_event(self, event):
         try:
             return self.oauth_helper.geturl(
                 url=self.endpoint, data=event.as_dict(),
-                retries=self.retries)
+                headers = self.headers, retries=self.retries)
         except Exception as e:
             LOG.warn("failed posting event: %s [%s]" % (event.as_string(), e))
 

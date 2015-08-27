@@ -29,10 +29,12 @@ class _ReRaisedException(Exception):
 
 
 def _geturl(url, headers=None, headers_cb=None, exception_cb=None, data=None):
-    headers = {'User-Agent': 'Curtin/0.1'}
+    def_headers = {'User-Agent': 'Curtin/0.1'}
 
     if headers is not None:
-        headers.update(headers)
+        def_headers.update(headers)
+
+    headers = def_headers
 
     if headers_cb:
         headers.update(headers_cb(url))
