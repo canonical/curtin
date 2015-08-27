@@ -7,6 +7,8 @@ storage:
         model: QEMU HARDDISK
         path: /dev/vdb
         name: main_disk
+        wipe: superblock
+        grub_device: true
       - id: sda1
         type: partition
         number: 1
@@ -34,3 +36,9 @@ storage:
         type: mount
         path: /home
         device: sda2_home
+      - id: vdb
+        type: disk
+        path: /dev/vdc
+        name: sparedisk
+        wipe: superblock
+

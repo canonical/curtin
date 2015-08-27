@@ -126,10 +126,19 @@ class VMBaseClass:
         cmd = ["tools/launch"]
         if not self.interactive:
             cmd.extend(["--silent", "--power=off"])
-        cmd.extend(["--netdev=user", "-d", self.td.target_disk,
-                   boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
-                   boot_initrd, "--", "curtin", "install", "--config=%s" %
-                   self.conf_file, "cp:///"])
+
+        # build disk arguments
+        extra_disks = []
+        for (disk_no, disk_sz) in enumerate(self.extra_disks):
+            dpath = os.path.join(self.td.tmpdir, 'extra_disk_%d.img' % disk_no)
+            extra_disks.extend(['--disk', '{}:{}'.format(dpath, disk_sz)])
+
+        cmd.extend(["--netdev=user", "--disk", self.td.target_disk] +
+                   extra_disks +
+                   [boot_img, "--kernel=%s" % boot_kernel,
+                    "--initrd=%s" % boot_initrd,
+                    "--", "curtin", "install",
+                    "--config=%s" % self.conf_file, "cp:///"])
 
         # run vm with installer
         try:
@@ -159,11 +168,15 @@ class VMBaseClass:
             else:
                 print('Install OK')
 
+        # drop the size parameter if present in extra_disks
+        extra_disks = [x if ":" not in x else x.split(':')[0]
+                       for x in extra_disks]
         # create xkvm cmd
-        cmd = ["tools/xkvm", "--netdev=user", "-d", self.td.target_disk, "-d",
-               self.td.output_disk, "--",
-               "-drive", "file=%s,if=virtio,media=cdrom" % self.td.seed_disk,
-               "-m", "1024"]
+        cmd = (["tools/xkvm", "--netdev=user", "--disk", self.td.target_disk,
+                "--disk", self.td.output_disk] + extra_disks +
+               ["--", "-drive",
+                "file=%s,if=virtio,media=cdrom" % self.td.seed_disk,
+                "-m", "1024"])
         if not self.interactive:
             cmd.extend(["-nographic", "-serial", "file:%s" %
                        os.path.join(self.td.tmpdir, "serial.log")])
