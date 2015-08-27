@@ -332,6 +332,7 @@ def render_interfaces(network_state):
                 if index == 0:
                     content += "iface {name} {inet} {mode}\n".format(**iface)
                 else:
+                    content += "auto {name}:{index}\n".format(**iface)
                     content += \
                         "iface {name}:{index} {inet} {mode}\n".format(**iface)
 

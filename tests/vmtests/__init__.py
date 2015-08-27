@@ -233,11 +233,27 @@ class VMBaseClass:
 
     @classmethod
     def expected_interfaces(self):
-        return self.network_state.get('interfaces').keys()
+        expected = []
+        interfaces = self.network_state.get('interfaces')
+        # handle interface aliases when subnets have multiple entries
+        for iface in interfaces.values():
+            subnets = iface.get('subnets', {})
+            if subnets:
+                for index, subnet in zip(range(0, len(subnets)), subnets):
+                    if index == 0:
+                        expected.append(iface)
+                    else:
+                        expected.append("{}:{}".format(iface, index))
+            else:
+                expected.append(iface)
 
     @classmethod
     def get_network_state(self):
         return self.network_state
+
+    @classmethod
+    def get_expected_etc_network_interfaces(self):
+        return curtin_net.render_interfaces(self.network_state)
 
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
