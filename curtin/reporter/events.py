@@ -22,6 +22,7 @@ report events in a structured manner.
 """
 import base64
 import os.path
+import time
 
 from . import instantiated_handler_registry
 
@@ -46,11 +47,12 @@ class ReportingEvent(object):
     """Encapsulation of event formatting."""
 
     def __init__(self, event_type, name, description,
-                 origin=DEFAULT_EVENT_ORIGIN):
+                 origin=DEFAULT_EVENT_ORIGIN, timestamp=time.time()):
         self.event_type = event_type
         self.name = name
         self.description = description
         self.origin = origin
+        self.timestamp = timestamp
 
     def as_string(self):
         """The event represented as a string."""
@@ -60,7 +62,8 @@ class ReportingEvent(object):
     def as_dict(self):
         """The event represented as a dictionary."""
         return {'name': self.name, 'description': self.description,
-                'event_type': self.event_type, 'origin': self.origin}
+                'event_type': self.event_type, 'origin': self.origin,
+                'timestamp': self.timestamp}
 
 
 class FinishReportingEvent(ReportingEvent):
