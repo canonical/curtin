@@ -466,14 +466,15 @@ def apt_update(target=None, env=None, force=False, comment=None,
         return
 
     apt_update = ['apt-get', 'update', '--quiet']
-    with RunInChroot(target) as inchroot:
+    with RunInChroot(target, allow_daemons=True) as inchroot:
         inchroot(apt_update, env=env, retries=retries)
 
     with open(marker, "w") as fp:
         fp.write(comment + "\n")
 
 
-def install_packages(pkglist, aptopts=None, target=None, env=None):
+def install_packages(pkglist, aptopts=None, target=None, env=None,
+                     allow_daemons=False):
     apt_inst_cmd = ['apt-get', 'install', '--quiet', '--assume-yes',
                     '--option=Dpkg::options::=--force-unsafe-io']
 
@@ -494,7 +495,8 @@ def install_packages(pkglist, aptopts=None, target=None, env=None):
         env['DEBIAN_FRONTEND'] = 'noninteractive'
 
     apt_update(target, comment=' '.join(pkglist))
-    with RunInChroot(target) as inchroot:
+    ric = RunInChroot(target, allow_daemons=allow_daemons)
+    with ric as inchroot:
         return inchroot(
             emd + apt_inst_cmd + list(pkglist), env=env)
 

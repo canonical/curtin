@@ -20,29 +20,26 @@ The intent point of this module is that it can be called
 and exit success or fail, indicating that deps should be there.
   python -m curtin.deps.check [-v]
 """
-_imports = (
-    "from ..commands import main",
-    "import yaml",
-)
-
-
-def _check_imports(imports=_imports):
-    errors = []
-    for istr in _imports:
-        try:
-            exec(istr)
-        except ImportError as e:
-            errors.append("failed '%s': %s" % (istr, e))
-
-    return errors
+from . import find_missing_deps
 
 if __name__ == '__main__':
     import sys
     verbose = False
     if len(sys.argv) > 1 and sys.argv[1] in ("-v", "--verbose"):
         verbose = True
-    errors = _check_imports()
+    errors = find_missing_deps()
     if verbose:
         for emsg in errors:
             sys.stderr.write("%s\n" % emsg)
-    sys.exit(len(errors))
+
+    if len(errors) == 0:
+        sys.exit(0)
+
+    missing_pkgs = []
+    for e in errors:
+        missing_pkgs += e.deps
+
+    if verbose:
+       sys.stderr.write("Fix with:\n  "
+           "apt-get -qy install %s\n" % ' '.join(sorted(missing_pkgs)))
+    sys.exit(100-len(missing_pkgs))

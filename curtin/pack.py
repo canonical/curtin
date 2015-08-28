@@ -54,27 +54,35 @@ fi
 if [ ! -n "$PYTHON" ]; then
     first_exe=""
     oifs="$IFS"; IFS=":"
+    best=0
+    best_exe=""
     for p in $PY3OR2_PYTHONS; do
         command -v "$p" >/dev/null 2>&1 ||
             { debug "$p: not in path"; continue; }
         [ -n "$first_exe" ] || first_exe="$p"
         [ -z "$PY3OR2_MCHECK" ] && PYTHON=$p && break
-        out=$($p -m "$PY3OR2_MCHECK" 2>&1) && PYTHON="$p" && break
-        debug "$p: $out"
+        out=$($p -m "$PY3OR2_MCHECK" 2>&1) && PYTHON="$p" &&
+            { debug "$p passed check [$p -m $PY3OR2_MCHECK]"; break; }
+        ret=$?
+        debug "$p [$ret]: $out"
+        # higher non-zero exit values indicate more plausible usability
+        [ $best -lt $ret ] && best_exe="$p" && best=$ret &&
+            debug "current best: $best_exe"
     done
+    [ -z "$best_exe" -a -n "$first_exe" ] && best_exe="$first_exe"
     IFS="$oifs"
     if [ -z "$PYTHON" ]; then
-        if [ -n "$first_exe" -a -n "$PY3OR2_MINSTALL" ]; then
-            debug "attempting deps install with $first_exe $PY3OR2_MINSTALL"
-            "$first_exe" -m "$PY3OR2_MINSTALL" ||
+        if [ -n "$best_exe" -a -n "$PY3OR2_MINSTALL" ]; then
+            debug "attempting deps install with: $best_exe -m $PY3OR2_MINSTALL"
+            "$best_exe" -m "$PY3OR2_MINSTALL" ||
                 fail "failed to install deps!"
-            PYTHON="$first_exe"
+            PYTHON="$best_exe"
         fi
     fi
     [ -n "$PYTHON" ] ||
         fail "no availble python? [PY3OR2_DEBUG=1 for more info]"
 fi
-debug "executing: $PYTHON -m \"$PY3OR2_MAIN\" $*"
+debug "executing: $PYTHON -m "$PY3OR2_MAIN" $*"
 exec $PYTHON -m "$PY3OR2_MAIN" "$@"
 """
 

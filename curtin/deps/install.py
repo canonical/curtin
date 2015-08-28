@@ -24,6 +24,9 @@ import subprocess
 import sys
 import time
 
+from . import find_missing_deps
+from ..util import (install_packages, ProcessExecutionError)
+
 
 def runcmd(cmd, retries=[]):
     for wait in retries:
@@ -39,14 +42,24 @@ def runcmd(cmd, retries=[]):
         return e.returncode
 
 if __name__ == '__main__':
-    if sys.version_info[0] == 2:
-        pkgs = ['python-yaml']
-    else:
-        pkgs = ['python3-yaml']
+    verbose = False
+    if len(sys.argv) > 1 and sys.argv[1] in ("-v", "--verbose"):
+        verbose = True
+    errors = find_missing_deps()
+    if len(errors) == 0:
+        sys.exit(0)
 
-    ret = runcmd(['apt-get', '--quiet', 'update'], retries=[2, 4])
-    if ret != 0:
-        sys.exit(ret)
+    missing_pkgs = []
+    for e in errors:
+        missing_pkgs += e.deps
 
-    ret = runcmd(['apt-get', 'install', '--quiet', '--assume-yes'] + pkgs)
+    if verbose:
+       sys.stderr.write(
+           "Installing %s\n" % ' '.join(sorted(missing_pkgs)))
+
+    try:
+        install_packages(missing_pkgs, allow_daemons=True)
+    except ProcessExecutionError as e:
+        sys.stderr.write("%s\n" % e)
+
     sys.exit(ret)
