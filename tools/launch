@@ -275,9 +275,32 @@ main() {
         "${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
         { error "failed to pack"; return 1; }
 
-    ( cd "${TEMP_D}" &&
+    # eyecatcher for http service validation
+    date | sha256sum > "${TEMP_D}/datesum";
+    DATESUM="$(cat ${TEMP_D}/datesum)"
+
+    # start http service
+    ( set -eb; cd "${TEMP_D}" &&
         exec python -m SimpleHTTPServer $http_port ) >"${TEMP_D}/ws.log" 2>&1 &
     HTTP_PID=$!
+
+    # wait for it a bit
+    local waitcnt=0; local waitmax=10;
+    while ! echo exit | nc localhost $http_port; do 
+        sleep 0.2;
+        waitcnt=$(($waitcnt + 1))
+        [ ${waitcnt} -ge $waitmax ] && {
+            error "Waited too long for HTTP service";
+            return 1;
+        }
+    done
+
+    # check that it's the same one we spawned
+    CK_DATESUM=$(wget -q http://localhost:$http_port/datesum -O -)
+    [ "${DATESUM}" = "${CK_DATESUM}" ] || {
+        error "Existing HTTP server on port $http_port is not ours!";
+        return 1;
+    }
 
     udata="${TEMP_D}/user-data"
     mdata="${TEMP_D}/meta-data"
