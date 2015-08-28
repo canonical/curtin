@@ -58,7 +58,7 @@ CMD_ARGUMENTS = (
 def block_meta(args):
     # main entry point for the block-meta command.
     state = util.load_command_environment()
-    cfg = util.load_command_config(args, state)
+    cfg = config.load_command_config(args, state)
     if args.mode == CUSTOM or cfg.get("storage") is not None:
         meta_custom(args)
     elif args.mode in (SIMPLE, SIMPLE_BOOT):
@@ -939,7 +939,7 @@ def meta_custom(args):
     }
 
     state = util.load_command_environment()
-    cfg = util.load_command_config(args, state)
+    cfg = config.load_command_config(args, state)
 
     # make sure the required packages are installed
     install_missing_packages_for_meta_custom()

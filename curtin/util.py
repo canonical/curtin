@@ -25,7 +25,6 @@ import tempfile
 import time
 
 from .log import LOG
-from . import config
 
 _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
 _INSTALLED_MAIN = '/usr/bin/curtin'
@@ -109,21 +108,6 @@ def load_command_environment(env=os.environ, strict=False):
             raise KeyError("missing environment vars: %s" % missing)
 
     return {k: env.get(v) for k, v in mapping.items()}
-
-
-def load_command_config(args, state):
-    if hasattr(args, 'config') and args.config:
-        return args.config
-    else:
-        # state 'config' points to a file with fully rendered config
-        cfg_file = state.get('config')
-
-    if not cfg_file:
-        LOG.debug("config file was none!")
-        cfg = {}
-    else:
-        cfg = config.load_config(cfg_file)
-    return cfg
 
 
 class BadUsage(Exception):

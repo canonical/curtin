@@ -98,3 +98,19 @@ def load_config(cfg_file):
         return yaml.safe_load(content)
     else:
         return load_config_archive(content)
+
+
+def load_command_config(args, state):
+    if hasattr(args, 'config') and args.config:
+        return args.config
+    else:
+        # state 'config' points to a file with fully rendered config
+        cfg_file = state.get('config')
+
+    if not cfg_file:
+        cfg = {}
+    else:
+        cfg = load_config(cfg_file)
+    return cfg
+
+
