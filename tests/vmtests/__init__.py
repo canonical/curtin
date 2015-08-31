@@ -137,7 +137,9 @@ class VMBaseClass:
 
         # build -n arg list with macaddrs from net_config physical config
         macs = []
-        interfaces = self.network_state.get('interfaces')
+        interfaces = {}
+        if self.network_state:
+            interfaces = self.network_state.get('interfaces')
         for ifname in interfaces:
             print(ifname)
             iface = interfaces.get(ifname)
@@ -233,7 +235,9 @@ class VMBaseClass:
     @classmethod
     def expected_interfaces(self):
         expected = []
-        interfaces = self.network_state.get('interfaces')
+        interfaces = {}
+        if self.network_state:
+            interfaces = self.network_state.get('interfaces')
         # handle interface aliases when subnets have multiple entries
         for iface in interfaces.values():
             subnets = iface.get('subnets', {})
@@ -245,6 +249,7 @@ class VMBaseClass:
                         expected.append("{}:{}".format(iface, index))
             else:
                 expected.append(iface)
+        return expected
 
     @classmethod
     def get_network_state(self):
