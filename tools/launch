@@ -101,6 +101,12 @@ EOF
     return 1
 }
 
+random_port() {
+    local rand=$RANDOM;
+    [ $rand -le 1024 ] && rand=$(($rand + 1024));
+    echo $rand
+}
+
 main() {
     local short_opts="a:d:h:i:k:n:p:v"
     local long_opts="add:,append:,disk:,help,initrd:,kernel:,mem:,netdev:,power:,publish:,silent,uefi,verbose"
@@ -112,7 +118,7 @@ main() {
 
     local seed=""
     local bootimg="" bootimg_dist="" target="" mem="1024"
-    local udata="" ip="" http_port="${HTTP_PORT:-9923}" burl=""
+    local udata="" ip="" http_port="${HTTP_PORT:-`random_port`}" burl=""
     local tmp="" top_d
     local initrd="" kernel="" uappend="" iargs="" disk_args=""
     local pubs="" disks="" pstate="null"
