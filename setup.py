@@ -22,7 +22,8 @@ setup(
         'curtin.deps',
         'curtin.commands',
         'curtin.net',
-        'curtin.reporter'
+        'curtin.reporter',
+        'curtin.reporter.legacy',
     ],
     scripts=glob('bin/*'),
     data_files=[
