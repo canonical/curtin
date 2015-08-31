@@ -52,6 +52,12 @@ debug() {
     error "${@}"
 }
 
+random_port() {
+    local rand=$RANDOM;
+    [ $rand -le 1024 ] && rand=$(($rand + 1024));
+    _RET="$rand"
+}
+
 get_my_ip() {
     [ -z "$IP_ADDR" ] || { _RET="${IP_ADDR}"; return 0; }
     local Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT
@@ -101,12 +107,6 @@ EOF
     return 1
 }
 
-random_port() {
-    local rand=$RANDOM;
-    [ $rand -le 1024 ] && rand=$(($rand + 1024));
-    echo $rand
-}
-
 main() {
     local short_opts="a:d:h:i:k:n:p:v"
     local long_opts="add:,append:,disk:,help,initrd:,kernel:,mem:,netdev:,power:,publish:,silent,uefi,verbose"
@@ -118,7 +118,7 @@ main() {
 
     local seed=""
     local bootimg="" bootimg_dist="" target="" mem="1024"
-    local udata="" ip="" http_port="${HTTP_PORT:-`random_port`}" burl=""
+    local udata="" ip="" http_port="${HTTP_PORT}" burl=""
     local tmp="" top_d
     local initrd="" kernel="" uappend="" iargs="" disk_args=""
     local pubs="" disks="" pstate="null"
@@ -216,6 +216,10 @@ main() {
             "-drive" "file=${src},if=virtio,cache=unsafe" )
     done
 
+    [ -z "${http_port}" ] && {
+        random_port
+        http_port="${_RET}"
+    }
     get_my_ip || { error "failed to get your ip. set IP_ADDR"; return 1; }
     ip=${_RET}
     burl="http://$ip:${http_port}/"
@@ -282,7 +286,7 @@ main() {
         { error "failed to pack"; return 1; }
 
     # eyecatcher for http service validation
-    echo "$$:`date +%s.%N`" | sha256sum > "${TEMP_D}/datesum";
+    echo "$$:$(date +%s.%N)" | sha256sum > "${TEMP_D}/datesum";
     DATESUM="$(cat ${TEMP_D}/datesum)"
 
     # start http service
@@ -292,7 +296,7 @@ main() {
 
     # check that it's the same one we spawned, with some timeout/retry
     CK_DATESUM=$(wget -q --waitretry=0.4 --retry-connrefused -t 10 \
-                 http://localhost:$http_port/datesum -O - 2>/dev/null)
+                 ${burl}/datesum -O - 2>/dev/null)
     [ "${DATESUM}" = "${CK_DATESUM}" ] || {
         error "Existing HTTP server on port $http_port is not ours!";
         return 1;
