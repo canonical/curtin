@@ -16,6 +16,7 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import yaml
+import json
 
 ARCHIVE_HEADER = "#curtin-config-archive"
 ARCHIVE_TYPE = "text/curtin-config-archive"
@@ -62,12 +63,25 @@ def cmdarg2cfg(cmdarg, delim="/"):
     key, val = cmdarg.split("=", 2)
     cfg = {}
     cur = cfg
+
+    is_json = False
+    if key.startswith("json:"):
+        is_json = True
+        key = key[5:]
+
     items = key.split(delim)
     for item in items[:-1]:
         cur[item] = {}
         cur = cur[item]
 
+    if is_json:
+        try:
+            val = json.loads(val)
+        except (ValueError, TypeError) as e:
+            raise ValueError("setting of key '%s' had invalid json: %s" %
+                             (key, val))
     cur[items[-1]] = val
+
     return cfg
 
 

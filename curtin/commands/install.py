@@ -409,8 +409,11 @@ CMD_ARGUMENTS = (
       {'help': 'read configuration from cfg', 'action': util.MergedCmdAppend,
        'metavar': 'FILE', 'type': argparse.FileType("rb"),
        'dest': 'cfgopts', 'default': []}),
-     ('--set', {'help': 'define a config variable',
-                'action': util.MergedCmdAppend,
+     ('--set', {'action': util.MergedCmdAppend,
+                'help': ('define a config variable. key can be a "/" '
+                         'delimited path ("early_commands/cmd1=a"). if '
+                         'key starts with "json:" then val is loaded as '
+                         'json (json:stages="[\'early\']")'),
                 'metavar': 'key=val', 'dest': 'cfgopts'}),
      ('source', {'help': 'what to install', 'nargs': '*'}),
      )

@@ -67,7 +67,10 @@ def main(args=None):
                         metavar='FILE', type=argparse.FileType("rb"),
                         dest='main_cfgopts', default=[])
     parser.add_argument('--set', action=util.MergedCmdAppend,
-                        help='define a config variable',
+                        help=('define a config variable. key can be a "/" '
+                              'delimited path ("early_commands/cmd1=a"). if '
+                              'key starts with "json:" then val is loaded as '
+                              'json (json:stages="[\'early\']")'),
                         metavar='key=val', dest='main_cfgopts')
     parser.set_defaults(config={})
     parser.set_defaults(reportstack=None)
