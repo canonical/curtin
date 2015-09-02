@@ -21,7 +21,7 @@ from curtin import util
 from curtin.log import LOG
 
 from . import populate_one_subcmd
-from curtin.commands.net_meta import compose_udev_equality
+from curtin.udev import compose_udev_equality
 
 import glob
 import os

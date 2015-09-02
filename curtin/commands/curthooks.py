@@ -30,6 +30,7 @@ from curtin import futil
 from curtin.log import LOG
 from curtin import swap
 from curtin import util
+from curtin import net
 
 from . import populate_one_subcmd
 
@@ -407,6 +408,33 @@ def copy_mdadm_conf(mdadm_conf, target):
                 'etc/mdadm/mdadm.conf']))
 
 
+def apply_networking(target, state):
+    netstate = state.get('network_state')
+    netconf = state.get('network_config')
+    interfaces = state.get('interfaces')
+
+    def is_valid_src(infile):
+        with open(infile, 'r') as fp:
+            content = fp.read()
+            if len(content.split('\n')) > 1:
+                return True
+        return False
+
+    ns = None
+    if is_valid_src(netstate):
+        LOG.debug("applying network_state")
+        ns = net.network_state.from_state_file(netstate)
+    elif is_valid_src(netconf):
+        LOG.debug("applying network_config")
+        ns = net.parse_net_config(netconf)
+
+    if ns is not None:
+        net.render_network_state(target=target, network_state=ns)
+    else:
+        LOG.debug("copying interfaces")
+        copy_interfaces(interfaces, target)
+
+
 def copy_interfaces(interfaces, target):
     if not interfaces:
         LOG.warn("no interfaces file to copy!")
@@ -597,7 +625,7 @@ def curthooks(args):
 
     add_swap(cfg, target, state.get('fstab'))
 
-    copy_interfaces(state.get('interfaces'), target)
+    apply_networking(target, state)
     copy_fstab(state.get('fstab'), target)
 
     detect_and_handle_multipath(cfg, target)

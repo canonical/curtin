@@ -26,9 +26,9 @@ from .. import util
 from .. import config
 from ..reporter import (events, update_configuration)
 
-SUB_COMMAND_MODULES = ['block-meta', 'curthooks', 'extract', 'hook',
-                       'in-target', 'install', 'mkfs', 'net-meta', 'pack',
-                       'swap']
+SUB_COMMAND_MODULES = ['apply_net', 'block-meta', 'curthooks', 'extract',
+                       'hook', 'in-target', 'install', 'mkfs', 'net-meta',
+                       'pack', 'swap']
 
 
 def add_subcmd(subparser, subcmd):
