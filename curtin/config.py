@@ -77,10 +77,15 @@ def cmdarg2cfg(cmdarg, delim="/"):
     if is_json:
         try:
             val = json.loads(val)
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError):
             raise ValueError("setting of key '%s' had invalid json: %s" %
                              (key, val))
-    cur[items[-1]] = val
+
+    # this would occur if 'json:={"topkey": "topval"}'
+    if items[-1] == "":
+        cfg = val
+    else:
+        cur[items[-1]] = val
 
     return cfg
 
