@@ -1,20 +1,22 @@
 network:
-    # Physical interfaces.
-    - type: physical
-      name: eth0
-      mac_address: "52:54:00:12:34:00"
-      subnets:
-          - type: dhcp4
-    - type: physical
-      name: eth1
-      mtu: 1492
-      mac_address: "52:54:00:12:34:02"
-      subnets:
-          - type: static
-            address: 10.0.2.100/24
-            gateway: 10.0.2.1
-          - type: static
-            address: 10.0.2.200/24
-    - type: physical
-      name: eth2
-      mac_address: "52:54:00:12:34:04"
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: eth0
+          mac_address: "52:54:00:12:34:00"
+          subnets:
+              - type: dhcp4
+        - type: physical
+          name: eth1
+          mtu: 1492
+          mac_address: "52:54:00:12:34:02"
+          subnets:
+              - type: static
+                address: 10.0.2.100/24
+                gateway: 10.0.2.1
+              - type: static
+                address: 10.0.2.200/24
+        - type: physical
+          name: eth2
+          mac_address: "52:54:00:12:34:04"

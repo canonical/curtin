@@ -251,15 +251,17 @@ class TestNetConfig(TestCase):
         self.config = '''
 # YAML example of a simple network config
 network:
-    # Physical interfaces.
-    - type: physical
-      name: eth0
-      mac_address: "c0:d6:9f:2c:e8:80"
-      subnets:
-          - type: dhcp4
-    - type: physical
-      name: eth1
-      mac_address: "cf:d6:af:48:e8:80"
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: eth0
+          mac_address: "c0:d6:9f:2c:e8:80"
+          subnets:
+              - type: dhcp4
+        - type: physical
+          name: eth1
+          mac_address: "cf:d6:af:48:e8:80"
 '''
         with open(self.config_f, 'w') as fp:
             fp.write(self.config)
@@ -270,7 +272,9 @@ network:
 
     def get_net_state(self):
         net_cfg = self.get_net_config()
-        ns = network_state.NetworkState(net_cfg)
+        version = net_cfg.get('version')
+        config = net_cfg.get('config')
+        ns = network_state.NetworkState(version=version, config=config)
         ns.parse_config()
         return ns
 

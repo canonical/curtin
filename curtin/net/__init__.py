@@ -218,9 +218,14 @@ def parse_net_config_data(net_config):
 
     :param net_config: curtin network config dict
     """
-    ns = network_state.NetworkState(net_config)
-    ns.parse_config()
-    return ns.network_state
+    state = None
+    if 'version' in net_config and 'config' in net_config:
+        ns = network_state.NetworkState(version=net_config.get('version'),
+                                        config=net_config.get('config'))
+        ns.parse_config()
+        state = ns.network_state
+
+    return state
 
 
 def parse_net_config(path):

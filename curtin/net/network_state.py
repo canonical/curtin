@@ -27,16 +27,16 @@ NETWORK_STATE_REQUIRED_KEYS = {
 def from_state_file(state_file):
     network_state = None
     state = curtin_config.load_config(state_file)
-    network_state = NetworkState(network_config=None)
+    network_state = NetworkState()
     network_state.load(state)
 
     return network_state
 
 
 class NetworkState:
-    def __init__(self, network_config):
-        self.version = NETWORK_STATE_VERSION
-        self.config = network_config
+    def __init__(self, version=NETWORK_STATE_VERSION, config=None):
+        self.version = version
+        self.config = config
         self.network_state = {
             'interfaces': {},
             'routes': [],
@@ -314,11 +314,17 @@ if __name__ == '__main__':
     import random
     from curtin import net
 
+    def load_config(nc):
+        version = nc.get('version')
+        config = nc.get('config')
+        return (version, config)
+
     def test_parse(network_config):
-        ns1 = NetworkState(network_config)
+        (version, config) = load_config(network_config)
+        ns1 = NetworkState(version=version, config=config)
         ns1.parse_config()
-        random.shuffle(network_config)
-        ns2 = NetworkState(network_config)
+        random.shuffle(config)
+        ns2 = NetworkState(version=version, config=config)
         ns2.parse_config()
         print("----NS1-----")
         print(ns1.dump_network_state())
@@ -334,7 +340,8 @@ if __name__ == '__main__':
 
     def test_dump_and_load(network_config):
         print("Loading network_config into NetworkState")
-        ns1 = NetworkState(network_config)
+        (version, config) = load_config(network_config)
+        ns1 = NetworkState(version=version, config=config)
         ns1.parse_config()
         print("Dumping state to file")
         ns1_dump = ns1.dump()
