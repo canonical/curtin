@@ -32,6 +32,11 @@ class TestCmdArg2Cfg(TestCase):
             config.cmdarg2cfg('json:foo/bar=["a", "b", "c"]', delim="/"),
             {'foo': {'bar': ['a', 'b', 'c']}})
 
+    def test_cmdarg_multiple_equal(self):
+        self.assertEqual(
+            config.cmdarg2cfg("key=mykey=value"),
+            {"key": "mykey=value"})
+
     def test_with_merge_cmdarg(self):
         cfg1 = {'foo': {'key1': 'val1', 'mylist': [1, 2]}, 'f': 'fval'}
         cfg2 = {'foo': {'key2': 'val2', 'mylist2': ['a', 'b']}, 'g': 'gval'}

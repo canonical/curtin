@@ -60,7 +60,7 @@ def cmdarg2cfg(cmdarg, delim="/"):
     if '=' not in cmdarg:
         raise ValueError('no "=" in "%s"' % cmdarg)
 
-    key, val = cmdarg.split("=", 2)
+    key, val = cmdarg.split("=", 1)
     cfg = {}
     cur = cfg
 
