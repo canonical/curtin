@@ -17,6 +17,7 @@
 
 import curtin.config
 from curtin.log import LOG
+from curtin import config
 from curtin import util
 from . import populate_one_subcmd
 from curtin.commands.block_meta import get_path_to_storage_volume
@@ -88,7 +89,7 @@ def format_storage_item(info, storage_config):
 
 def mkfs(args):
     state = util.load_command_environment()
-    cfg = util.load_command_config(args, state)
+    cfg = config.load_command_config(args, state)
 
     if args.cfgopts:
         for filename in args.cfgopts:

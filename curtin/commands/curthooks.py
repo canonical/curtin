@@ -613,7 +613,7 @@ def curthooks(args):
     if util.run_hook_if_exists(target, 'curtin-hooks'):
         sys.exit(0)
 
-    cfg = util.load_command_config(args, state)
+    cfg = config.load_command_config(args, state)
 
     write_files(cfg, target)
     apt_config(cfg, target)

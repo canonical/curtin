@@ -119,5 +119,19 @@ def load_config(cfg_file):
         return load_config_archive(content)
 
 
+def load_command_config(args, state):
+    if hasattr(args, 'config') and args.config:
+        return args.config
+    else:
+        # state 'config' points to a file with fully rendered config
+        cfg_file = state.get('config')
+
+    if not cfg_file:
+        cfg = {}
+    else:
+        cfg = load_config(cfg_file)
+    return cfg
+
+
 def dump_config(config):
     return yaml.dump(config, default_flow_style=False)
