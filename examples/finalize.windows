@@ -17,7 +17,7 @@ def curthooks():
                          "Use --target or set TARGET_MOUNT_POINT\n")
         sys.exit(2)
 
-    cfg = util.load_command_config({}, state)
+    cfg = config.load_command_config({}, state)
 
     cloudbase_init = cfg.get('cloudbase_init', None)
     if not cloudbase_init:

@@ -981,7 +981,7 @@ def meta_simple(args):
     """
     state = util.load_command_environment()
 
-    cfg = util.load_command_config(args, state)
+    cfg = config.load_command_config(args, state)
 
     if args.target is not None:
         state['target'] = args.target
