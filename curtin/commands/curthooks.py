@@ -573,48 +573,41 @@ def detect_and_handle_multipath(cfg, target):
     update_initramfs(target, all_kernels=True)
 
 
-def install_missing_network_packages(cfg, target):
-    # Do nothing if no custom network.
-    if 'network' not in cfg:
-        return
+def install_missing_packages(cfg, target):
+    ''' describe which operation types will require specific packages
 
-    all_types = set(
-        operation['type']
-        for operation in cfg['network']['config']
-        )
+    'custom_config_key': {
+         'pkg1': ['op_name_1', 'op_name_2', ...]
+     }
+    '''
+    custom_configs = {
+        'storage': {
+            'lvm2': ['lvm_volgroup', 'lvm_partition'],
+            'mdadm': ['raid'],
+            'bcache-tools': ['bcache']},
+        'network': {
+            'vlan': ['vlan'],
+            'ifenslave': ['bond'],
+            'bridge-utils': ['bridge']},
+    }
+
     needed_packages = []
     installed_packages = get_installed_packages(target)
-    if 'vlan' in all_types:
-        needed_packages.append('vlan')
-    if 'bond' in all_types:
-        needed_packages.append('ifenslave')
-    if 'bridge' in all_types:
-        needed_packages.append('bridge-utils')
-    if needed_packages:
+    for config, pkg_reqs in custom_configs.items():
+        if config not in cfg:
+            continue
+
+        all_types = set(
+            operation['type']
+            for operation in cfg[config]['config']
+            )
+        for pkg, types in pkg_reqs.items():
+            if set(types).intersection(all_types) and \
+               pkg not in installed_packages:
+                needed_packages.append(pkg)
+
+    if needed_packages
         util.install_packages(needed_packages, target=target)
-
-
-def install_missing_storage_packages(cfg, target):
-    # Do nothing if no custom storage.
-    if 'storage' not in cfg:
-        return
-
-    all_types = set(
-        operation['type']
-        for operation in cfg['storage']['config']
-        )
-    needed_packages = []
-    installed_packages = get_installed_packages(target)
-    if ('lvm_volgroup' in all_types or 'lvm_partition' in all_types) and \
-            'lvm2' not in installed_packages:
-        needed_packages.append('lvm2')
-    if 'raid' in all_types and 'mdadm' not in installed_packages:
-        needed_packages.append('mdadm')
-    if 'bcache' in all_types and 'bcache-tools' not in installed_packages:
-        needed_packages.append('bcache-tools')
-    if needed_packages:
-        util.install_packages(needed_packages, target=target)
-
 
 def curthooks(args):
     state = util.load_command_environment()
@@ -651,7 +644,7 @@ def curthooks(args):
 
     detect_and_handle_multipath(cfg, target)
 
-    install_missing_storage_packages(cfg, target)
+    install_missing_packages(cfg, target)
 
     # If a crypttab file was created by block_meta than it needs to be copied
     # onto the target system, and update_initramfs() needs to be run, so that
