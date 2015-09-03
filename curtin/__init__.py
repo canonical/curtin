@@ -19,4 +19,16 @@
 # it must be kept the same as that used in helpers/common:get_carryover_params
 KERNEL_CMDLINE_COPY_TO_INSTALL_SEP = "---"
 
+# The 'FEATURES' variable is provided so that users of curtin
+# can determine which features are supported.  Each entry should have
+# a consistent meaning.
+FEATURES = [
+    # install supports the 'network' config version 1
+    'NETWORK_CONFIG_V1',
+    # reporter supports 'webhook' type
+    'REPORTING_EVENTS_WEBHOOK',
+    # install supports the 'storage' config version 1
+    'STORAGE_CONFIG_V1',
+]
+
 # vi: ts=4 expandtab syntax=python

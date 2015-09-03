@@ -56,6 +56,7 @@ CONFIG_BUILTIN = {
     'curthooks_commands': {'builtin': ['curtin', 'curthooks']},
     'late_commands': {'builtin': []},
     'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
+    'apply_net_commands': {'builtin': []},
     'install': {'log_file': INSTALL_LOG},
 }
 
@@ -89,6 +90,8 @@ class WorkingDir(object):
         for p in (state_d, target_d, scratch_d):
             os.mkdir(p)
 
+        netconf_f = os.path.join(state_d, 'network_config')
+        netstate_f = os.path.join(state_d, 'network_state')
         interfaces_f = os.path.join(state_d, 'interfaces')
         config_f = os.path.join(state_d, 'config')
         fstab_f = os.path.join(state_d, 'fstab')
@@ -97,7 +100,7 @@ class WorkingDir(object):
             json.dump(config, fp)
 
         # just touch these files to make sure they exist
-        for f in (interfaces_f, config_f, fstab_f):
+        for f in (interfaces_f, config_f, fstab_f, netconf_f, netstate_f):
             with open(f, "ab") as fp:
                 pass
 
@@ -105,6 +108,8 @@ class WorkingDir(object):
         self.target = target_d
         self.top = top_d
         self.interfaces = interfaces_f
+        self.netconf = netconf_f
+        self.netstate = netstate_f
         self.fstab = fstab_f
         self.config = config
         self.config_file = config_f
@@ -112,6 +117,8 @@ class WorkingDir(object):
     def env(self):
         return ({'WORKING_DIR': self.scratch, 'OUTPUT_FSTAB': self.fstab,
                  'OUTPUT_INTERFACES': self.interfaces,
+                 'OUTPUT_NETWORK_CONFIG': self.netconf,
+                 'OUTPUT_NETWORK_STATE': self.netstate,
                  'TARGET_MOUNT_POINT': self.target,
                  'CONFIG': self.config_file})
 
@@ -409,8 +416,11 @@ CMD_ARGUMENTS = (
       {'help': 'read configuration from cfg', 'action': util.MergedCmdAppend,
        'metavar': 'FILE', 'type': argparse.FileType("rb"),
        'dest': 'cfgopts', 'default': []}),
-     ('--set', {'help': 'define a config variable',
-                'action': util.MergedCmdAppend,
+     ('--set', {'action': util.MergedCmdAppend,
+                'help': ('define a config variable. key can be a "/" '
+                         'delimited path ("early_commands/cmd1=a"). if '
+                         'key starts with "json:" then val is loaded as '
+                         'json (json:stages="[\'early\']")'),
                 'metavar': 'key=val', 'dest': 'cfgopts'}),
      ('source', {'help': 'what to install', 'nargs': '*'}),
      )

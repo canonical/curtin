@@ -100,7 +100,9 @@ def load_command_environment(env=os.environ, strict=False):
 
     mapping = {'scratch': 'WORKING_DIR', 'fstab': 'OUTPUT_FSTAB',
                'interfaces': 'OUTPUT_INTERFACES', 'config': 'CONFIG',
-               'target': 'TARGET_MOUNT_POINT'}
+               'target': 'TARGET_MOUNT_POINT',
+               'network_state': 'OUTPUT_NETWORK_STATE',
+               'network_config': 'OUTPUT_NETWORK_CONFIG'}
 
     if strict:
         missing = [k for k in mapping if k not in env]

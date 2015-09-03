@@ -5,10 +5,11 @@ import json
 import sys
 
 EXAMPLE_CONFIG = """\
-install:
-  reporting:
-    mypost:
-    endpoint: http://localhost:8000
+# example config
+reporting:
+  mypost:
+    type: webhook
+    endpoint: %(endpoint)s
 install:
   log_file: /tmp/foo
   post_files: [/tmp/foo]"""
@@ -63,9 +64,13 @@ Handler = ServerHandler
 httpd = SocketServer.TCPServer(("", PORT), Handler)
 httpd.allow_reuse_address = True
 
-print("Serving at: http://%(interface)s:%(port)s" %
-      dict(interface=addr or "localhost", port=PORT))
-print("Post to this with:\n%s\n" % EXAMPLE_CONFIG)
+info = {
+    'interface': addr or "localhost",
+    'port': PORT,
+    'endpoint': "http://" + (addr or "localhost") + ":%s" % PORT
+}
+print("Serving at: %(endpoint)s" % info)
+print("Post to this with:\n%s\n" % (EXAMPLE_CONFIG % info))
 
 try:
     httpd.serve_forever()

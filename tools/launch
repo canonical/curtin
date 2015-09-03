@@ -3,6 +3,9 @@
 VERBOSITY=0
 TEMP_D=""
 HTTP_PID=""
+HTTP_PORT_TRIES=${HTTP_PORT_TRIES:-5}
+HTTP_PORT_MIN=${HTTP_PORT_MIN:-12000}
+HTTP_PORT_MAX=${HTTP_PORT_MAX:-65500}
 
 error() { echo "$@" 1>&2; }
 
@@ -101,6 +104,65 @@ EOF
     return 1
 }
 
+_start_http() {
+    local pubdir="$1" ip="$2" port="$3"
+    local statfile="_datesum" contents="" burl="http://$ip:$port"
+    local found="" hpid="" ret=""
+    contents="$$:$(date +%s.%N)"
+    echo "$contents" > "$pubdir/$statfile"
+    ( set -eb; cd "$pubdir" &&
+        exec python -m SimpleHTTPServer "$port" ) >"$pubdir/ws.log" 2>&1 &
+    hpid=$!
+    HTTP_PID=$hpid  # set so cleanup cleans up during wget
+    debug 3 "checking web service [pid=$hpid] on $burl"
+    found=$(wget -q --waitretry=0.4 --retry-connrefused \
+        --tries=10 "$burl/$statfile" --timeout=4 -O - 2>/dev/null) &&
+        [ "$found" = "$contents" ] && {
+            _RET=$hpid
+            return 0
+        }
+    ret=$?
+    kill $hpid && HTTP_PID=""
+    return $ret
+}
+
+start_http() {
+    # start_http(pubdir, ip, port="", tries=5)
+    # starts a web service at 'port' that serves files in 'pubdir'
+    # waits until it is verified to be lisenting at ip
+    # if port is not provided, '$tries' random ports are tried.
+    # 
+    # sets HTTP_PID and returns in _RET the port selected.
+    local pubdir="$1" ip="$2" port="$3" tries="${4:-5}" i=""
+    [ -z "$ip" ] && ip="localhost"
+    local pmin="$HTTP_PORT_MIN" pmax="$HTTP_PORT_MAX" ret="" tried=""
+    local ptries=""
+    ptries=( )
+    if [ -n "$port" ]; then
+        ptries=( $port )
+    elif [ $(($pmax-$pmin+1)) -le $tries ]; then
+        # if tries spans the whole range, then just try them all
+        local range=$(($pmax-$pmin+1))
+        for((i=0;i<$range;i++)); do
+            ptries[$i]=$((pmin+$i))
+        done
+    else
+        for((i=0;i<$tries;i++)); do
+            ptries[$i]="random"
+        done
+    fi
+    for port in "${ptries[@]}"; do
+        [ "$port" = "random" ] && port=$(($pmin+($RANDOM%($pmax+1-$pmin))))
+        debug 1 "trying http server $ip:$port"
+        _start_http "$pubdir" "$ip" "$port" &&
+            HTTP_PID="$_RET" && _RET="$port" && return
+        ret=$?
+        tried="$tried $port"
+    done
+    error "failed to start http on service on $ip tried ports: ${tried# }"
+    return $ret
+}
+
 main() {
     local short_opts="a:d:h:i:k:n:p:v"
     local long_opts="add:,append:,disk:,help,initrd:,kernel:,mem:,netdev:,power:,publish:,silent,uefi,verbose"
@@ -112,7 +174,7 @@ main() {
 
     local seed=""
     local bootimg="" bootimg_dist="" target="" mem="1024"
-    local udata="" ip="" http_port="${HTTP_PORT:-9923}" burl=""
+    local udata="" ip="" http_port="${HTTP_PORT}" burl=""
     local tmp="" top_d
     local initrd="" kernel="" uappend="" iargs="" disk_args=""
     local pubs="" disks="" pstate="null"
@@ -212,7 +274,6 @@ main() {
 
     get_my_ip || { error "failed to get your ip. set IP_ADDR"; return 1; }
     ip=${_RET}
-    burl="http://$ip:${http_port}/"
 
     local tok src pub fpath
     # tok in pubs looks like file[:pubname]
@@ -275,9 +336,11 @@ main() {
         "${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
         { error "failed to pack"; return 1; }
 
-    ( cd "${TEMP_D}" &&
-        exec python -m SimpleHTTPServer $http_port ) >"${TEMP_D}/ws.log" 2>&1 &
-    HTTP_PID=$!
+    start_http "${TEMP_D}" "$ip" "$http_port" "${HTTP_TRIES}" ||
+        { error "failed to start http service"; return 1; }
+    http_port=$_RET
+    burl="http://$ip:${http_port}/"
+    debug 1 "serving files on $burl"
 
     udata="${TEMP_D}/user-data"
     mdata="${TEMP_D}/meta-data"
@@ -337,6 +400,18 @@ main() {
         "${disk_args[@]}"
 
     return
+}
+
+test_start_http() {
+    # run this like:
+    #  HTTP_PORT_MIN=59000 HTTP_PORT_MAX=63001 ./tools/launch \
+    #     /tmp/smfoo localhost
+    VERBOSITY=3
+    trap cleanup EXIT
+    start_http "$@" || { ret=$?; echo "returned $ret"; return $ret; }
+    ret=$?
+    port=$_RET
+    echo "pid $HTTP_PID is serving on $port"
 }
 
 main "$@"
