@@ -1,0 +1,39 @@
+network:
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: eth0
+          mac_address: "52:54:00:12:34:00"
+        - type: physical
+          name: eth1
+          mac_address: "52:54:00:12:34:02"
+        - type: physical
+          name: eth2
+          mac_address: "52:54:00:12:34:04"
+        - type: physical
+          name: eth3
+          mac_address: "52:54:00:12:34:06"
+        - type: physical
+          name: eth4
+          mac_address: "52:54:00:12:34:08"
+        # Bond.
+        - type: bond
+          name: bond0
+          bond_interfaces:
+            - eth1
+            - eth2
+          params:
+            bond-mode: active-backup
+          subnets:
+            - type: dhcp
+        - type: vlan 
+          name: bond0.200
+          vlan_link: bond0 
+          vlan_id: 200
+          subnets:
+            - type: static
+              address: 192.168.0.2/24
+              gateway: 192.168.0.1
+              dns_nameservers:
+                - 192.168.0.10

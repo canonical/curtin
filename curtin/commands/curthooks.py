@@ -573,6 +573,27 @@ def detect_and_handle_multipath(cfg, target):
     update_initramfs(target, all_kernels=True)
 
 
+def install_missing_network_packages(cfg, target):
+    # Do nothing if no custom network.
+    if 'network' not in cfg:
+        return
+
+    all_types = set(
+        operation['type']
+        for operation in cfg['network']['config']
+        )
+    needed_packages = []
+    installed_packages = get_installed_packages(target)
+    if 'vlan' in all_types:
+        needed_packages.append('vlan')
+    if 'bond' in all_types:
+        needed_packages.append('ifenslave')
+    if 'bridge' in all_types:
+        needed_packages.append('bridge-utils')
+    if needed_packages:
+        util.install_packages(needed_packages, target=target)
+
+
 def install_missing_storage_packages(cfg, target):
     # Do nothing if no custom storage.
     if 'storage' not in cfg:
