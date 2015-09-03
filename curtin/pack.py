@@ -82,7 +82,7 @@ if [ ! -n "$PYTHON" ]; then
     [ -n "$PYTHON" ] ||
         fail "no availble python? [PY3OR2_DEBUG=1 for more info]"
 fi
-debug "executing: $PYTHON -m "$PY3OR2_MAIN" $*"
+debug "executing: $PYTHON -m \\"$PY3OR2_MAIN\\" $*"
 exec $PYTHON -m "$PY3OR2_MAIN" "$@"
 """
 
