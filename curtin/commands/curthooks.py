@@ -593,8 +593,8 @@ def install_missing_packages(cfg, target):
 
     needed_packages = []
     installed_packages = get_installed_packages(target)
-    for config, pkg_reqs in custom_configs.items():
-        if config not in cfg:
+    for cust_cfg, pkg_reqs in custom_configs.items():
+        if cust_cfg not in cfg:
             continue
 
         all_types = set(
@@ -606,8 +606,9 @@ def install_missing_packages(cfg, target):
                pkg not in installed_packages:
                 needed_packages.append(pkg)
 
-    if needed_packages
+    if needed_packages:
         util.install_packages(needed_packages, target=target)
+
 
 def curthooks(args):
     state = util.load_command_environment()

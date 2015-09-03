@@ -67,7 +67,8 @@ class TestNetworkAbs(VMBaseClass):
           - cp -av /etc/udev/rules.d/70-persistent-net.rules /media/output
           - ip -o route show > /media/output/ip_route_show
           - route -n > /media/output/route_n
-          - dpkg-query -W -f '${Status}\n' ifenslave > /media/output/ifenslave_installed
+          - dpkg-query -W -f '${Status}\n' ifenslave > \
+                /media/output/ifenslave_installed
         power_state:
           mode: poweroff
         """)
