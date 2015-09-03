@@ -468,7 +468,7 @@ def apt_update(target=None, env=None, force=False, comment=None,
         return
 
     apt_update = ['apt-get', 'update', '--quiet']
-    with RunInChroot(target, allow_daemons=True) as inchroot:
+    with RunInChroot(target) as inchroot:
         inchroot(apt_update, env=env, retries=retries)
 
     with open(marker, "w") as fp:
