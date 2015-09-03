@@ -93,7 +93,7 @@ def main(args=None):
             elif flag in ('--set'):
                 config.merge_cmdarg(cfg, val)
     else:
-        cfg = util.load_command_config(args, util.load_command_environment())
+        cfg = config.load_command_config(args, util.load_command_environment())
 
     args.config = cfg
 

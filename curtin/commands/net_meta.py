@@ -74,7 +74,7 @@ def interfaces_basic_dhcp(devices):
 
 def interfaces_custom(args):
     state = util.load_command_environment()
-    cfg = util.load_command_config(args, state)
+    cfg = config.load_command_config(args, state)
 
     network_config = cfg.get('network', [])
     if not network_config:
@@ -96,7 +96,7 @@ def net_meta(args):
         sys.exit(0)
 
     state = util.load_command_environment()
-    cfg = util.load_command_config(args, state)
+    cfg = config.load_command_config(args, state)
     if cfg.get("network") is not None:
         args.mode = "custom"
 
