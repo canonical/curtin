@@ -54,12 +54,16 @@ if __name__ == '__main__':
         missing_pkgs += e.deps
 
     if verbose:
-       sys.stderr.write(
-           "Installing %s\n" % ' '.join(sorted(missing_pkgs)))
+        sys.stderr.write(
+            "Installing %s\n" % ' '.join(sorted(missing_pkgs)))
 
+    ret = 0
     try:
         install_packages(missing_pkgs, allow_daemons=True)
     except ProcessExecutionError as e:
         sys.stderr.write("%s\n" % e)
+        ret = e.exit_code
 
     sys.exit(ret)
+
+# vi: ts=4 expandtab syntax=python

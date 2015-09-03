@@ -57,7 +57,7 @@ def check_imports(imports, py2pkgs, py3pkgs, message=None):
         try:
             exec(istr)
             return
-        except ImportError as e:
+        except ImportError:
             pass
 
     if not message:

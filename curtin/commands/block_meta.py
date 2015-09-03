@@ -17,6 +17,7 @@
 
 from collections import OrderedDict
 from curtin import block
+from curtin import config
 from curtin import util
 from curtin.log import LOG
 

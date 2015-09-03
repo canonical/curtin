@@ -40,6 +40,9 @@ if __name__ == '__main__':
         missing_pkgs += e.deps
 
     if verbose:
-       sys.stderr.write("Fix with:\n  "
-           "apt-get -qy install %s\n" % ' '.join(sorted(missing_pkgs)))
+        sys.stderr.write(
+            "Fix with:\n  apt-get -qy install %s\n" %
+            ' '.join(sorted(missing_pkgs)))
     sys.exit(100-len(missing_pkgs))
+
+# vi: ts=4 expandtab syntax=python

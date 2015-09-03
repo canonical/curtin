@@ -17,6 +17,7 @@
 
 import curtin.config
 from curtin.log import LOG
+from curtin import config
 from curtin import util
 from . import populate_one_subcmd
 from curtin.commands.block_meta import get_path_to_storage_volume
