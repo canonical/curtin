@@ -152,7 +152,7 @@ class VMBaseClass:
 
         # check for network configuration
         self.network_state = curtin_net.parse_net_config(self.conf_file)
-        logger.debug(self.network_state)
+        logger.debug("Network state: {}".format(self.network_state))
 
         # build -n arg list with macaddrs from net_config physical config
         macs = []
@@ -160,7 +160,7 @@ class VMBaseClass:
         if self.network_state:
             interfaces = self.network_state.get('interfaces')
         for ifname in interfaces:
-            logger.debug(ifname)
+            logger.debug("Interface name: {}".format(ifname))
             iface = interfaces.get(ifname)
             hwaddr = iface.get('mac_address')
             if hwaddr:
