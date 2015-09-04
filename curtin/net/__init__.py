@@ -319,7 +319,18 @@ def render_interfaces(network_state):
 
     content = ""
     interfaces = network_state.get('interfaces')
-    for iface in interfaces.values():
+    ''' Apply a sort order to ensure that we write out
+        the physical interfaces first; this is critical for
+        bonding
+    '''
+    order = {
+        'physical': 0,
+        'bond': 1,
+        'bridge': 2,
+        'vlan': 3,
+    }
+    for iface in sorted(interfaces.values(),
+                        key=lambda k: (order[k['type']], k['name'])):
         content += "auto {name}\n".format(**iface)
 
         subnets = iface.get('subnets', {})
