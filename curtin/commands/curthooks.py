@@ -599,7 +599,7 @@ def install_missing_packages(cfg, target):
 
         all_types = set(
             operation['type']
-            for operation in cfg[config]['config']
+            for operation in cfg[cust_cfg]['config']
             )
         for pkg, types in pkg_reqs.items():
             if set(types).intersection(all_types) and \
