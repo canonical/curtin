@@ -295,9 +295,10 @@ class ChrootableTarget(object):
         if not self.allow_daemons:
             self.disabled_daemons = disable_daemons_in_root(self.target)
 
-        if self.target != "/":
+        target_etc = os.path.join(self.target, "etc")
+        if self.target != "/" and os.path.isdir(target_etc):
             # never muck with resolv.conf on /
-            rconf = os.path.join(self.target, "etc", "resolv.conf")
+            rconf = os.path.join(target_etc, "resolv.conf")
             rtd = None
             try:
                 rtd = tempfile.mkdtemp(dir=os.path.dirname(rconf))
