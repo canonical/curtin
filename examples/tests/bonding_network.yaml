@@ -1,0 +1,27 @@
+network:
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: eth0
+          mac_address: "52:54:00:12:34:00"
+          subnets:
+              - type: dhcp4
+        - type: physical
+          name: eth1
+          mac_address: "52:54:00:12:34:02"
+        - type: physical
+          name: eth2
+          mac_address: "52:54:00:12:34:04"
+        # Bond.
+        - type: bond
+          name: bond0
+          mac_address: "52:54:00:12:34:06"
+          bond_interfaces:
+            - eth1
+            - eth2
+          params:
+            bond-mode: active-backup
+          subnets:
+              - type: static
+                address: 10.23.23.2/24
