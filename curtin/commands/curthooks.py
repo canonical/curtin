@@ -155,7 +155,7 @@ def install_kernel(cfg, target):
         kernel_fallback = None
 
     mapping = copy.deepcopy(KERNEL_MAPPING)
-    config.merge_config(mapping, kernel_cfg['mapping'])
+    config.merge_config(mapping, kernel_cfg.get('mapping', {}))
 
     with util.RunInChroot(target) as in_chroot:
 

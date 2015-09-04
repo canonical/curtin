@@ -44,7 +44,7 @@ def merge_config_str(cfgin, cfgstr):
 
 
 def merge_config(cfg, cfg2):
-    # merge cfg2 over the top of cfg
+    # update cfg by merging cfg2 over the top
     for k, v in cfg2.items():
         if isinstance(v, dict) and isinstance(cfg.get(k, None), dict):
             merge_config(cfg[k], v)
