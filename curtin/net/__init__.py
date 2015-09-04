@@ -265,7 +265,6 @@ def iface_add_subnet(iface, subnet):
         'metric',
         'gateway',
         'pointopoint',
-        'hwaddress',
         'mtu',
         'scope',
     ]
@@ -289,6 +288,9 @@ def iface_add_attrs(iface):
         'index',
         'subnets',
     ]
+    if iface['type'] not in ['bond', 'bridge']:
+        ignore_map.append('mac_address')
+
     for key, value in iface.items():
         if value and key not in ignore_map:
             if type(value) == list:

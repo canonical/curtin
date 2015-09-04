@@ -67,7 +67,7 @@ class TestNetworkAbs(VMBaseClass):
           - cp -av /etc/udev/rules.d/70-persistent-net.rules /media/output
           - ip -o route show > /media/output/ip_route_show
           - route -n > /media/output/route_n
-          - dpkg-query -W -f '${Status}\n' ifenslave > \
+          - dpkg-query -W -f '${Status}' ifenslave > \
                 /media/output/ifenslave_installed
         power_state:
           mode: poweroff
@@ -163,7 +163,9 @@ class TestNetworkAbs(VMBaseClass):
         self.assertEqual(ifname, ifconfig['interface'])
 
         # check physical interface attributes
-        for key in ['mac_address', 'mtu']:
+        # FIXME: can't check mac_addr under bonding since
+        # the bond might change slave mac addrs
+        for key in ['mtu']:
             if key in iface and iface[key]:
                 self.assertEqual(iface[key],
                                  ifconfig[key])
