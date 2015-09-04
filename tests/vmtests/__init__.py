@@ -218,7 +218,7 @@ class VMBaseClass:
             serial_log = os.path.join(self.td.tmpdir, 'serial.log')
             if os.path.exists(serial_log):
                 with open(serial_log, 'r') as l:
-                    print('Serial console output:\n{}'.format(l.read()))
+                    print('Serial console output:\n{}'.format(unicode(l.read())))
 
         # mount output disk
         self.td.mount_output_disk()
