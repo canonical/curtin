@@ -215,7 +215,7 @@ class TestNetworkAbs(VMBaseClass):
 
 
 class TrustyTestBasic(TestNetworkAbs, TestCase):
-    __test__ = True
+    __test__ = False
     repo = "maas-daily"
     release = "trusty"
     arch = "amd64"
