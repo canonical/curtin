@@ -639,6 +639,7 @@ install_grub() {
             echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$newargs\""
         echo "# disable grub os prober that might find other OS installs."
         echo "GRUB_DISABLE_OS_PROBER=true"
+        echo "GRUB_TERMINAL=console"
     } >> "$mp/$mygrub_cfg"
 
     local short="" bd="" grubdev grubdevs_new=""
