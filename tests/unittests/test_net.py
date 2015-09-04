@@ -307,10 +307,8 @@ network:
 
     def test_render_interfaces(self):
         ns = self.get_net_state()
-        ifaces = ('auto eth1\n' + 'iface eth1 inet manual\n' +
-                  '    hwaddress cf:d6:af:48:e8:80\n\n' +
-                  'auto eth0\n' + 'iface eth0 inet dhcp\n' +
-                  '    hwaddress c0:d6:9f:2c:e8:80\n\n')
+        ifaces = ('auto eth0\n' + 'iface eth0 inet dhcp\n\n' +
+                  'auto eth1\n' + 'iface eth1 inet manual\n\n')
         net_ifaces = net.render_interfaces(ns.network_state)
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))

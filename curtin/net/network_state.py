@@ -381,7 +381,6 @@ if __name__ == '__main__':
         print("eni_1 == eni_2 ?=> {}".format(
             eni_1 == eni_2))
 
-
     y = curtin_config.load_config(sys.argv[1])
     network_config = y.get('network')
     test_parse(network_config)
