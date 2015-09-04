@@ -219,7 +219,7 @@ class VMBaseClass:
             if os.path.exists(serial_log):
                 with open(serial_log, 'r') as l:
                     # Encode the content in utf-8 so it can be printed.
-                    log_content = l.read().encode('utf8')
+                    log_content = l.read().decode('utf8')
                     print('Serial console output:\n{}'.format(log_content))
 
         # mount output disk
