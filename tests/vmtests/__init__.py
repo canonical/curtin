@@ -127,9 +127,9 @@ class TempDir:
                               self.mnt],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
-    #def __del__(self):
-    #    # remove tempdir
-    #    shutil.rmtree(self.tmpdir)
+    def __del__(self):
+        # remove tempdir
+        shutil.rmtree(self.tmpdir)
 
 
 class VMBaseClass:
