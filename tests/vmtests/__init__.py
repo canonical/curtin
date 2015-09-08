@@ -195,7 +195,7 @@ class VMBaseClass:
         finally:
             if os.path.exists('serial.log'):
                 with open('serial.log', 'r', encoding='utf8') as l:
-                    logger.debug('Serial console output:\n{}'.format(l.read()))
+                    logger.debug(u'Serial console output:\n{}'.format(l.read()))
 
         logger.debug('')
         logger.debug('Checking curtin install output for errors')
@@ -237,7 +237,7 @@ class VMBaseClass:
             serial_log = os.path.join(self.td.tmpdir, 'serial.log')
             if os.path.exists(serial_log):
                 with open(serial_log, 'r', encoding='utf8') as l:
-                    logger.debug('Serial console output:\n{}'.format(l.read()))
+                    logger.debug(u'Serial console output:\n{}'.format(l.read()))
 
         # mount output disk
         self.td.mount_output_disk()
