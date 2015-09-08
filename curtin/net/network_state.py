@@ -116,6 +116,8 @@ class NetworkState:
 
         interfaces = self.network_state.get('interfaces')
         iface = interfaces.get(command['name'], {})
+        for param, val in command.get('params', {}).items():
+            iface.update({param: val})
         iface.update({
             'name': command.get('name'),
             'type': command.get('type'),
@@ -160,15 +162,20 @@ class NetworkState:
     #/etc/network/interfaces
     auto eth0
     iface eth0 inet manual
+        bond-master bond0
+        bond-mode 802.3ad
 
     auto eth1
     iface eth1 inet manual
+        bond-master bond0
+        bond-mode 802.3ad
 
     auto bond0
     iface bond0 inet static
          address 192.168.0.10
          gateway 192.168.0.1
          netmask 255.255.255.0
+         bond-slaves none
          bond-mode 802.3ad
          bond-miimon 100
          bond-downdelay 200
@@ -190,6 +197,7 @@ class NetworkState:
         iface = interfaces.get(command.get('name'), {})
         for param, val in command.get('params').items():
             iface.update({param: val})
+        iface.update({'bond-slaves': 'none'})
         self.network_state['interfaces'].update({iface['name']: iface})
 
         # handle bond slaves
@@ -205,6 +213,9 @@ class NetworkState:
             interfaces = self.network_state.get('interfaces')
             bond_if = interfaces.get(ifname)
             bond_if['bond-master'] = command.get('name')
+            # copy in bond config into slave
+            for param, val in command.get('params').items():
+                bond_if.update({param: val})
             self.network_state['interfaces'].update({ifname: bond_if})
 
     def handle_bridge(self, command):
@@ -354,7 +365,24 @@ if __name__ == '__main__':
         print("NS1 == NS2 ?=> {}".format(
             ns1.network_state == ns2.network_state))
 
+    def test_output(network_config):
+        (version, config) = load_config(network_config)
+        ns1 = NetworkState(version=version, config=config)
+        ns1.parse_config()
+        random.shuffle(config)
+        ns2 = NetworkState(version=version, config=config)
+        ns2.parse_config()
+        print("NS1 == NS2 ?=> {}".format(
+            ns1.network_state == ns2.network_state))
+        eni_1 = net.render_interfaces(ns1.network_state)
+        eni_2 = net.render_interfaces(ns2.network_state)
+        print(eni_1)
+        print(eni_2)
+        print("eni_1 == eni_2 ?=> {}".format(
+            eni_1 == eni_2))
+
     y = curtin_config.load_config(sys.argv[1])
     network_config = y.get('network')
     test_parse(network_config)
     test_dump_and_load(network_config)
+    test_output(network_config)
