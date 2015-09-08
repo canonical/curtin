@@ -13,7 +13,7 @@ IMAGE_DIR = "/srv/images"
 DEVNULL = open(os.devnull, 'w')
 
 
-logger = logging.getLogger('vmtest')
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter(
     '%(asctime)s - %(name)s - %(levelname)s - %(message)s')

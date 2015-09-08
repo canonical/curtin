@@ -1,4 +1,4 @@
-from . import VMBaseClass
+from . import VMBaseClass, logger
 from unittest import TestCase
 
 import ipaddress
@@ -7,9 +7,6 @@ import os
 import re
 import textwrap
 import yaml
-
-
-logger = logging.getLogger(__name__)
 
 
 def iface_extract(input):
