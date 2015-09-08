@@ -19,7 +19,7 @@ formatter = logging.Formatter(
     '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 # Configure logging module to save output to disk and present it on
 # sys.stderr
-fh = logging.FileHandler('/tmp/vmtest.log', encoding='utf-8')
+fh = logging.FileHandler('/tmp/vmtest.log', mode='w', encoding='utf-8')
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 
