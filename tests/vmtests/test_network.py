@@ -2,10 +2,14 @@ from . import VMBaseClass
 from unittest import TestCase
 
 import ipaddress
+import logging
 import os
 import re
 import textwrap
 import yaml
+
+
+logger = logging.getLogger(__name__)
 
 
 def iface_extract(input):
@@ -81,7 +85,7 @@ class TestNetworkAbs(VMBaseClass):
     def test_etc_network_interfaces(self):
         with open(os.path.join(self.td.mnt, "interfaces")) as fp:
             eni = fp.read()
-            print('etc/network/interfaces:\n{}'.format(eni))
+            logger.debug('etc/network/interfaces:\n{}'.format(eni))
 
         expected_eni = self.get_expected_etc_network_interfaces()
         eni_lines = eni.split('\n')
@@ -91,20 +95,20 @@ class TestNetworkAbs(VMBaseClass):
     def test_ifconfig_output(self):
         '''check ifconfig output with test input'''
         network_state = self.get_network_state()
-        print('expected_network_state:\n{}'.format(
+        logger.debug('expected_network_state:\n{}'.format(
             yaml.dump(network_state, default_flow_style=False, indent=4)))
 
         with open(os.path.join(self.td.mnt, "ifconfig_a")) as fp:
             ifconfig_a = fp.read()
-            print('ifconfig -a:\n{}'.format(ifconfig_a))
+            logger.debug('ifconfig -a:\n{}'.format(ifconfig_a))
 
         ifconfig_dict = ifconfig_to_dict(ifconfig_a)
-        print('parsed ifcfg dict:\n{}'.format(
+        logger.debug('parsed ifcfg dict:\n{}'.format(
             yaml.dump(ifconfig_dict, default_flow_style=False, indent=4)))
 
         with open(os.path.join(self.td.mnt, "ip_route_show")) as fp:
             ip_route_show = fp.read()
-            print("ip route show:\n{}".format(ip_route_show))
+            logger.debug("ip route show:\n{}".format(ip_route_show))
             for line in [line for line in ip_route_show.split('\n')
                          if 'src' in line]:
                 m = re.search(r'^(?P<network>\S+)\sdev\s' +
@@ -113,11 +117,11 @@ class TestNetworkAbs(VMBaseClass):
                               r'\s+src\s(?P<src_ip>\S+)',
                               line)
                 route_info = m.groupdict('')
-                print(route_info)
+                logger.debug(route_info)
 
         with open(os.path.join(self.td.mnt, "route_n")) as fp:
             route_n = fp.read()
-            print("route -n:\n{}".format(route_n))
+            logger.debug("route -n:\n{}".format(route_n))
 
         interfaces = network_state.get('interfaces')
         for iface in interfaces.values():
@@ -140,7 +144,7 @@ class TestNetworkAbs(VMBaseClass):
                                      route_n)
 
     def check_interface(self, iface, ifconfig, route_n):
-        print('testing iface:\n{}\n\nifconfig:\n{}'.format(
+        logger.debug('testing iface:\n{}\n\nifconfig:\n{}'.format(
               iface, ifconfig))
         subnets = iface.get('subnets', {})
         if subnets and iface['index'] != 0:
@@ -149,8 +153,8 @@ class TestNetworkAbs(VMBaseClass):
             ifname = "{name}".format(**iface)
 
         # initial check, do we have the correct iface ?
-        print('ifname={}'.format(ifname))
-        print("ifconfig['interface']={}".format(ifconfig['interface']))
+        logger.debug('ifname={}'.format(ifname))
+        logger.debug("ifconfig['interface']={}".format(ifconfig['interface']))
         self.assertEqual(ifname, ifconfig['interface'])
 
         # check physical interface attributes
@@ -194,12 +198,12 @@ class TestNetworkAbs(VMBaseClass):
                 gw_ip = subnet['gateway']
                 gateways = [line for line in route_n.split('\n')
                             if 'UG' in line and gw_ip in line]
-                print('matching gateways:\n{}'.format(gateways))
+                logger.debug('matching gateways:\n{}'.format(gateways))
                 self.assertEqual(len(gateways), 1)
                 [gateways] = gateways
                 (dest, gw, genmask, flags, metric, ref, use, iface) = \
                     gateways.split()
-                print('expected gw:{} found gw:{}'.format(gw_ip, gw))
+                logger.debug('expected gw:{} found gw:{}'.format(gw_ip, gw))
                 self.assertEqual(gw_ip, gw)
 
 
