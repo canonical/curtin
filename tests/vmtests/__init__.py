@@ -194,7 +194,7 @@ class VMBaseClass:
             raise
         finally:
             if os.path.exists('serial.log'):
-                with open('serial.log', 'r') as l:
+                with open('serial.log', 'r', encoding='utf8') as l:
                     logger.debug('Serial console output:\n{}'.format(l.read()))
 
         logger.debug('')
@@ -236,7 +236,7 @@ class VMBaseClass:
         finally:
             serial_log = os.path.join(self.td.tmpdir, 'serial.log')
             if os.path.exists(serial_log):
-                with open(serial_log, 'r') as l:
+                with open(serial_log, 'r', encoding='utf8') as l:
                     logger.debug('Serial console output:\n{}'.format(l.read()))
 
         # mount output disk
