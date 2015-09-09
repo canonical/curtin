@@ -190,7 +190,7 @@ class VMBaseClass:
             subprocess.check_call(cmd, timeout=self.install_timeout,
                                   stdout=DEVNULL, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
-            logger.debug('Curting installer failed')
+            logger.debug('Curtin installer failed')
             raise
         finally:
             if os.path.exists('serial.log'):
