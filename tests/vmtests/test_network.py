@@ -2,7 +2,6 @@ from . import VMBaseClass, logger
 from unittest import TestCase
 
 import ipaddress
-import logging
 import os
 import re
 import textwrap
