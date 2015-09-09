@@ -140,8 +140,8 @@ class TestNetworkAbs(VMBaseClass):
                                      route_n)
 
     def check_interface(self, iface, ifconfig, route_n):
-        logger.debug('testing iface:\n{}\n\nifconfig:\n{}'.format(
-              iface, ifconfig))
+        logger.debug(
+            'testing iface:\n{}\n\nifconfig:\n{}'.format(iface, ifconfig))
         subnets = iface.get('subnets', {})
         if subnets and iface['index'] != 0:
             ifname = "{name}:{index}".format(**iface)

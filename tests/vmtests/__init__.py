@@ -39,9 +39,9 @@ class ImageStore:
 
     def get_image(self, repo, release, arch):
         # query sstream for root image
-        logger.debug('Query simplestreams for root image: '
-              'release={release} arch={arch}'.format(release=release,
-                                                     arch=arch))
+        logger.debug(
+            'Query simplestreams for root image: '
+            'release={release} arch={arch}'.format(release=release, arch=arch))
         cmd = ["tools/usquery", "--max=1", repo, "release=%s" % release,
                "krel=%s" % release, "arch=%s" % arch,
                "item_name=root-image.gz"]
@@ -195,7 +195,8 @@ class VMBaseClass:
         finally:
             if os.path.exists('serial.log'):
                 with open('serial.log', 'r', encoding='utf-8') as l:
-                    logger.debug(u'Serial console output:\n{}'.format(l.read()))
+                    logger.debug(
+                        u'Serial console output:\n{}'.format(l.read()))
 
         logger.debug('')
         logger.debug('Checking curtin install output for errors')
@@ -237,7 +238,8 @@ class VMBaseClass:
             serial_log = os.path.join(self.td.tmpdir, 'serial.log')
             if os.path.exists(serial_log):
                 with open(serial_log, 'r', encoding='utf-8') as l:
-                    logger.debug(u'Serial console output:\n{}'.format(l.read()))
+                    logger.debug(
+                        u'Serial console output:\n{}'.format(l.read()))
 
         # mount output disk
         self.td.mount_output_disk()
