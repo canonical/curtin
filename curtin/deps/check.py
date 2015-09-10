@@ -33,6 +33,7 @@ if __name__ == '__main__':
             sys.stderr.write("%s\n" % emsg)
 
     if len(errors) == 0:
+        # exit 0 means we need no depends
         sys.exit(0)
 
     missing_pkgs = []
@@ -43,6 +44,8 @@ if __name__ == '__main__':
         sys.stderr.write(
             "Fix with:\n  apt-get -qy install %s\n" %
             ' '.join(sorted(missing_pkgs)))
+    # we exit higher with less deps needed.
+    # exiting 99 means just 1 dep needed.
     sys.exit(100-len(missing_pkgs))
 
 # vi: ts=4 expandtab syntax=python
