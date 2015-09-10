@@ -66,9 +66,11 @@ def check_sgdisk():
         raise MissingDeps("Missing program 'sgdisk'.", 'gdisk')
 
 
-def find_missing_deps():
+def find_missing_deps(checks=None):
+    if checks is None:
+        checks = CHECKS
     mdeps = []
-    for checker in CHECKS:
+    for checker in checks:
         try:
             checker()
         except MissingDeps as e:
