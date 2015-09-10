@@ -1,4 +1,5 @@
 import ast
+import datetime
 import hashlib
 import logging
 import os
@@ -19,7 +20,9 @@ formatter = logging.Formatter(
     '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 # Configure logging module to save output to disk and present it on
 # sys.stderr
-fh = logging.FileHandler('/tmp/vmtest.log', mode='w', encoding='utf-8')
+now = datetime.datetime.now().isoformat()
+fh = logging.FileHandler(
+    '/tmp/{}-vmtest.log'.format(now), mode='w', encoding='utf-8')
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 
