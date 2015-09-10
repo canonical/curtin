@@ -17,6 +17,8 @@
 import os.path
 import sys
 
+from curtin.util import which
+
 
 class MissingDeps(Exception):
     def __init__(self, message, deps):
@@ -27,25 +29,6 @@ class MissingDeps(Exception):
 
     def __str__(self):
         return self.message + " Install packages: %s" % ' '.join(self.deps)
-
-
-def which(program):
-    # Return path of program for execution if found in path
-    def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-    _fpath, _ = os.path.split(program)
-    if _fpath:
-        if is_exe(program):
-            return program
-    else:
-        for path in os.environ.get("PATH", "").split(os.pathsep):
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
-            if is_exe(exe_file):
-                return exe_file
-
-    return None
 
 
 def check_imports(imports, py2pkgs, py3pkgs, message=None):
