@@ -1,5 +1,7 @@
 import ast
+import datetime
 import hashlib
+import logging
 import os
 import re
 import shutil
@@ -12,6 +14,26 @@ IMAGE_DIR = "/srv/images"
 DEVNULL = open(os.devnull, 'w')
 
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# Configure logging module to save output to disk and present it on
+# sys.stderr
+now = datetime.datetime.now().isoformat()
+fh = logging.FileHandler(
+    '/tmp/{}-vmtest.log'.format(now), mode='w', encoding='utf-8')
+fh.setLevel(logging.DEBUG)
+fh.setFormatter(formatter)
+
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+ch.setFormatter(formatter)
+
+logger.addHandler(fh)
+logger.addHandler(ch)
+
+
 class ImageStore:
     def __init__(self, base_dir):
         self.base_dir = base_dir
@@ -20,19 +42,19 @@ class ImageStore:
 
     def get_image(self, repo, release, arch):
         # query sstream for root image
-        print('Query simplestreams for root image: '
-              'release={release} arch={arch}'.format(release=release,
-                                                     arch=arch))
+        logger.debug(
+            'Query simplestreams for root image: '
+            'release={release} arch={arch}'.format(release=release, arch=arch))
         cmd = ["tools/usquery", "--max=1", repo, "release=%s" % release,
                "krel=%s" % release, "arch=%s" % arch,
                "item_name=root-image.gz"]
-        print(" ".join(cmd))
+        logger.debug(" ".join(cmd))
         out = subprocess.check_output(cmd)
-        print(out)
+        logger.debug(out)
         sstream_data = ast.literal_eval(bytes.decode(out))
 
         # Check if we already have the image
-        print('Checking cache for image')
+        logger.debug('Checking cache for image')
         checksum = ""
         release_dir = os.path.join(self.base_dir, repo, release, arch,
                                    sstream_data['version_name'])
@@ -50,13 +72,13 @@ class ImageStore:
                 not os.path.exists(p("root-image-kernel")) or \
                 not os.path.exists(p("root-image-initrd")):
             # clear dir, download, and extract image
-            print('Image not found, downloading...')
+            logger.debug('Image not found, downloading...')
             shutil.rmtree(release_dir, ignore_errors=True)
             os.makedirs(release_dir)
             subprocess.check_call(
                 ["wget", "-c", sstream_data['item_url'], "-O",
                  p("root-image.gz")])
-            print('Converting image format')
+            logger.debug('Converting image format')
             subprocess.check_call(["tools/maas2roottar", p("root-image.gz")])
         return (p("root-image"), p("root-image-kernel"),
                 p("root-image-initrd"))
@@ -80,21 +102,21 @@ class TempDir:
         os.mkdir(self.mnt)
 
         # create target disk
-        print('Creating target disk')
+        logger.debug('Creating target disk')
         self.target_disk = os.path.join(self.tmpdir, "install_disk.img")
         subprocess.check_call(["qemu-img", "create", "-f", "qcow2",
                               self.target_disk, "10G"],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
         # create seed.img for installed system's cloud init
-        print('Creating seed disk')
+        logger.debug('Creating seed disk')
         self.seed_disk = os.path.join(self.tmpdir, "seed.img")
         subprocess.check_call(["cloud-localds", self.seed_disk,
                               user_data_file, meta_data_file],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
         # create output disk, mount ro
-        print('Creating output disk')
+        logger.debug('Creating output disk')
         self.output_disk = os.path.join(self.tmpdir, "output_disk.img")
         subprocess.check_call(["qemu-img", "create", "-f", "raw",
                               self.output_disk, "10M"],
@@ -103,7 +125,7 @@ class TempDir:
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
     def mount_output_disk(self):
-        print('Mounting output disk')
+        logger.debug('Mounting output disk')
         subprocess.check_call(["fuseext2", "-o", "rw+", self.output_disk,
                               self.mnt],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
@@ -116,14 +138,14 @@ class TempDir:
 class VMBaseClass:
     @classmethod
     def setUpClass(self):
-        print('Acquiring boot image')
+        logger.debug('Acquiring boot image')
         # get boot img
         image_store = ImageStore(IMAGE_DIR)
         (boot_img, boot_kernel, boot_initrd) = image_store.get_image(
             self.repo, self.release, self.arch)
 
         # set up tempdir
-        print('Setting up tempdir')
+        logger.debug('Setting up tempdir')
         self.td = TempDir(self.user_data)
 
         # create launch cmd
@@ -133,7 +155,7 @@ class VMBaseClass:
 
         # check for network configuration
         self.network_state = curtin_net.parse_net_config(self.conf_file)
-        print(self.network_state)
+        logger.debug("Network state: {}".format(self.network_state))
 
         # build -n arg list with macaddrs from net_config physical config
         macs = []
@@ -141,7 +163,7 @@ class VMBaseClass:
         if self.network_state:
             interfaces = self.network_state.get('interfaces')
         for ifname in interfaces:
-            print(ifname)
+            logger.debug("Interface name: {}".format(ifname))
             iface = interfaces.get(ifname)
             hwaddr = iface.get('mac_address')
             if hwaddr:
@@ -166,31 +188,32 @@ class VMBaseClass:
 
         # run vm with installer
         try:
-            print('Running curtin installer')
-            print('{}'.format(" ".join(cmd)))
+            logger.debug('Running curtin installer')
+            logger.debug('{}'.format(" ".join(cmd)))
             subprocess.check_call(cmd, timeout=self.install_timeout,
                                   stdout=DEVNULL, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
-            print('Curting installer failed')
+            logger.debug('Curtin installer failed')
             raise
         finally:
             if os.path.exists('serial.log'):
-                with open('serial.log', 'r') as l:
-                    print('Serial console output:\n{}'.format(l.read()))
+                with open('serial.log', 'r', encoding='utf-8') as l:
+                    logger.debug(
+                        u'Serial console output:\n{}'.format(l.read()))
 
-        print('')
-        print('Checking curtin install output for errors')
+        logger.debug('')
+        logger.debug('Checking curtin install output for errors')
         with open('serial.log') as l:
             install_log = l.read()
             errors = re.findall('\[.*\]\ cloud-init.*:.*Installation\ failed',
                                 install_log)
             if len(errors) > 0:
                 for e in errors:
-                    print(e)
-                print('Errors during curtin installer')
+                    logger.debug(e)
+                logger.debug('Errors during curtin installer')
                 raise Exception('Errors during curtin installer')
             else:
-                print('Install OK')
+                logger.debug('Install OK')
 
         # drop the size parameter if present in extra_disks
         extra_disks = [x if ":" not in x else x.split(':')[0]
@@ -207,26 +230,27 @@ class VMBaseClass:
 
         # run vm with installed system, fail if timeout expires
         try:
-            print('Booting target image')
-            print('{}'.format(" ".join(cmd)))
+            logger.debug('Booting target image')
+            logger.debug('{}'.format(" ".join(cmd)))
             subprocess.check_call(cmd, timeout=self.boot_timeout,
                                   stdout=DEVNULL, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
-            print('Booting after install failed')
+            logger.debug('Booting after install failed')
             raise
         finally:
             serial_log = os.path.join(self.td.tmpdir, 'serial.log')
             if os.path.exists(serial_log):
-                with open(serial_log, 'r') as l:
-                    print('Serial console output:\n{}'.format(l.read()))
+                with open(serial_log, 'r', encoding='utf-8') as l:
+                    logger.debug(
+                        u'Serial console output:\n{}'.format(l.read()))
 
         # mount output disk
         self.td.mount_output_disk()
-        print('Ready for testcases')
+        logger.debug('Ready for testcases')
 
     @classmethod
     def tearDownClass(self):
-        print('Removing launch logfile')
+        logger.debug('Removing launch logfile')
         subprocess.call(["fusermount", "-u", self.td.mnt])
         # remove launch logfile
         if os.path.exists("./serial.log"):
