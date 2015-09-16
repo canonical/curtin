@@ -11,7 +11,7 @@ import curtin.net as curtin_net
 
 from .helpers import check_call
 
-IMAGE_DIR = "/srv/images"
+IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
 
 DEVNULL = open(os.devnull, 'w')
 
