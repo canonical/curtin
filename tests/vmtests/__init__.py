@@ -9,6 +9,8 @@ import subprocess
 import tempfile
 import curtin.net as curtin_net
 
+from .helpers import check_call
+
 IMAGE_DIR = "/srv/images"
 
 DEVNULL = open(os.devnull, 'w')
@@ -149,7 +151,7 @@ class VMBaseClass:
         self.td = TempDir(self.user_data)
 
         # create launch cmd
-        cmd = ["tools/launch"]
+        cmd = ["tools/launch", "-v"]
         if not self.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -190,8 +192,8 @@ class VMBaseClass:
         try:
             logger.debug('Running curtin installer')
             logger.debug('{}'.format(" ".join(cmd)))
-            subprocess.check_call(cmd, timeout=self.install_timeout,
-                                  stdout=DEVNULL, stderr=subprocess.STDOUT)
+            check_call(cmd, timeout=self.install_timeout,
+                       stdout=DEVNULL, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
             logger.debug('Curtin installer failed')
             raise
@@ -219,7 +221,7 @@ class VMBaseClass:
         extra_disks = [x if ":" not in x else x.split(':')[0]
                        for x in extra_disks]
         # create xkvm cmd
-        cmd = (["tools/xkvm"] + netdevs + ["--disk", self.td.target_disk,
+        cmd = (["tools/xkvm", "-v"] + netdevs + ["--disk", self.td.target_disk,
                "--disk", self.td.output_disk] + extra_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % self.td.seed_disk,
@@ -232,8 +234,8 @@ class VMBaseClass:
         try:
             logger.debug('Booting target image')
             logger.debug('{}'.format(" ".join(cmd)))
-            subprocess.check_call(cmd, timeout=self.boot_timeout,
-                                  stdout=DEVNULL, stderr=subprocess.STDOUT)
+            check_call(cmd, timeout=self.boot_timeout,
+                       stdout=DEVNULL, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
             logger.debug('Booting after install failed')
             raise
