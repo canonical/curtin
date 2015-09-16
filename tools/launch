@@ -3,6 +3,7 @@
 VERBOSITY=0
 TEMP_D=""
 HTTP_PID=""
+XKVM_PID=""
 HTTP_PORT_TRIES=${HTTP_PORT_TRIES:-5}
 HTTP_PORT_MIN=${HTTP_PORT_MIN:-12000}
 HTTP_PORT_MAX=${HTTP_PORT_MAX:-65500}
@@ -44,9 +45,26 @@ EOF
 
 bad_Usage() { Usage 1>&2; [ $# -eq 0 ] || error "$@"; exit 1; }
 cleanup() {
-    exec >/dev/null 2>&1 # shut up any the killing of HTTP_PID
-    [ -z "$HTTP_PID" ] || kill $HTTP_PID;
+    local msg="" pid=""
+    [ ! -d "$TEMP_D" ] || msg="${msg:+$msg }remove temp dir ${TEMP_D}."
+    [ -z "$HTTP_PID" ] || msg="${msg:+$msg }kill http pid ${HTTP_PID}."
+    [ -z "$XKVM_PID" ] || msg="${msg:+$msg }kill xkvm pid ${XKVM_PID}."
+    debug 1 "cleaning up.${msg:+ $msg}"
     [ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
+    for pid in ${XKVM_PID} ${HTTP_PID}; do
+        kill $pid
+    done
+}
+sighandle() {
+    debug 1 "recieved $1"
+    exit ${2:-1}
+}
+
+register_signal_handlers() {
+    local cur
+    for cur in TERM INT; do
+        trap "sighandle $cur" "SIG$cur"
+    done
 }
 
 debug() {
@@ -153,9 +171,11 @@ start_http() {
     fi
     for port in "${ptries[@]}"; do
         [ "$port" = "random" ] && port=$(($pmin+($RANDOM%($pmax+1-$pmin))))
-        debug 1 "trying http server $ip:$port"
+        debug 2 "trying http server $ip:$port"
         _start_http "$pubdir" "$ip" "$port" &&
-            HTTP_PID="$_RET" && _RET="$port" && return
+            HTTP_PID="$_RET" && _RET="$port" && 
+            debug 1 "serving $pubdir at http://$ip:$port/ in pid $HTTP_PID" &&
+            return 0
         ret=$?
         tried="$tried $port"
     done
@@ -165,7 +185,7 @@ start_http() {
 
 main() {
     local short_opts="a:d:h:i:k:n:p:v"
-    local long_opts="add:,append:,disk:,help,initrd:,kernel:,mem:,netdev:,power:,publish:,silent,uefi,verbose"
+    local long_opts="add:,append:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,uefi,verbose"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -177,7 +197,7 @@ main() {
     local udata="" ip="" http_port="${HTTP_PORT}" burl=""
     local tmp="" top_d
     local initrd="" kernel="" uappend="" iargs="" disk_args=""
-    local pubs="" disks="" pstate="null"
+    local pubs="" disks="" pstate="null" dowait=""
     local uefi=0
     local netdevs=""
     local video="-curses"
@@ -185,7 +205,9 @@ main() {
     disks=( )
     addfiles=( )
     netdevs=( )
+    pt=( )
 
+    [ -t 0 ] && dowait=false || dowait=true
     while [ $# -ne 0 ]; do
         cur=${1}; next=${2};
         case "$cur" in
@@ -209,10 +231,17 @@ main() {
                --uefi) uefi=1;;
                --silent) video="-nographic";;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
+               --dowait) pt[${#pt[@]}]="$cur"; dowait=true;;
+               --no-dowait) pt[${#pt[@]}]="$cur"; dowait=false;;
             --) shift; break;;
         esac
         shift;
     done
+
+    # handle passing through '-v' if given
+    local t=""
+    for((i=0;i<${VERBOSITY};i++)); do t="${t}v"; done
+    [ -n "$t" ] && pt[${#pt[@]}]="-$t"
 
     [ $# -ge 0 ] || { bad_Usage "must provide boot-image"; return 1; }
     bootimg_dist="$1"
@@ -223,6 +252,7 @@ main() {
         { error "failed to make tempdir"; return 1; }
 
     trap cleanup EXIT
+    register_signal_handlers
 
     local bios_opts=""
 
@@ -340,7 +370,6 @@ main() {
         { error "failed to start http service"; return 1; }
     http_port=$_RET
     burl="http://$ip:${http_port}/"
-    debug 1 "serving files on $burl"
 
     udata="${TEMP_D}/user-data"
     mdata="${TEMP_D}/meta-data"
@@ -391,15 +420,30 @@ main() {
         netargs=( "${netargs[@]}" "-n" "${dev}" )
     done
     
-    xkvm_check || return
-    time xkvm "${netargs[@]}" -- \
-        "${bios_opts[@]}" \
-        -m ${mem} -serial file:serial.log ${video} \
-        -drive "file=$bootimg,if=virtio,cache=unsafe" \
-        "${seedargs[@]}" \
-        "${disk_args[@]}"
+    local cmd
+    cmd=( 
+        xkvm "${pt[@]}" "${netargs[@]}" -- 
+        "${bios_opts[@]}"
+        -m ${mem} -serial file:serial.log ${video}
+        -drive "file=$bootimg,if=virtio,cache=unsafe"
+        "${seedargs[@]}"
+        "${disk_args[@]}" )
 
-    return
+    local sstart=$SECONDS
+    if $dowait; then
+        "${cmd[@]}" &
+        XKVM_PID=$!
+        debug 1 "xkvm pid: $KVM_PID. launch pid: $$"
+        wait
+        ret=$?
+        XKVM_PID=""
+    else
+        "${cmd[@]}"
+        ret=$?
+    fi
+    debug 1 "xkvm returned $ret took $(($SECONDS-$sstart))"
+
+    return $ret
 }
 
 test_start_http() {
@@ -408,10 +452,18 @@ test_start_http() {
     #     /tmp/smfoo localhost
     VERBOSITY=3
     trap cleanup EXIT
+    register_signal_handlers
+    echo "mypid: $$"
     start_http "$@" || { ret=$?; echo "returned $ret"; return $ret; }
     ret=$?
     port=$_RET
     echo "pid $HTTP_PID is serving on $port"
+    sleep ${SLEEPTIME:-3} &
+    XKVM_PID=$!
+    wait $XKVM_PID
+    ret=$?
+    XKVM_PID=""
+    return $ret
 }
 
 main "$@"
