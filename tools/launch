@@ -133,7 +133,7 @@ _start_http() {
     hpid=$!
     HTTP_PID=$hpid  # set so cleanup cleans up during wget
     debug 3 "checking web service [pid=$hpid] on $burl"
-    found=$(wget -q --waitretry=0.4 --retry-connrefused \
+    found=$(env -u http_proxy wget -q --waitretry=0.4 --retry-connrefused \
         --tries=10 "$burl/$statfile" --timeout=4 -O - 2>/dev/null) &&
         [ "$found" = "$contents" ] && {
             _RET=$hpid
