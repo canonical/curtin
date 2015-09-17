@@ -192,8 +192,7 @@ class VMBaseClass:
         try:
             logger.debug('Running curtin installer')
             logger.debug('{}'.format(" ".join(cmd)))
-            check_call(cmd, timeout=self.install_timeout,
-                       stdout=DEVNULL, stderr=subprocess.STDOUT)
+            check_call(cmd, timeout=self.install_timeout)
         except subprocess.TimeoutExpired:
             logger.debug('Curtin installer failed')
             raise
@@ -234,8 +233,7 @@ class VMBaseClass:
         try:
             logger.debug('Booting target image')
             logger.debug('{}'.format(" ".join(cmd)))
-            check_call(cmd, timeout=self.boot_timeout,
-                       stdout=DEVNULL, stderr=subprocess.STDOUT)
+            check_call(cmd, timeout=self.boot_timeout)
         except subprocess.TimeoutExpired:
             logger.debug('Booting after install failed')
             raise
