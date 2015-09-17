@@ -112,7 +112,7 @@ class TestNetworkAbs(VMBaseClass):
             dns-search foo.bar
         '''
 
-        #iface dict
+        # iface dict
         ''''
         eth1:1:
           dns:
