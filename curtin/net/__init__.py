@@ -366,8 +366,9 @@ def render_interfaces(network_state):
             content += iface_add_attrs(iface)
             content += "\n"
 
-    for (addr, dns) in network_state.get('nameservers').items():
-        content += "{}\n".format(dns)
+    for dnskey, value in network_state.get('dns', {}).items():
+        if len(value):
+            content += "dns-{} {}\n".format(dnskey, " ".join(value))
 
     for route in network_state.get('routes'):
         content += render_route(route)

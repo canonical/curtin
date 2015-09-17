@@ -40,7 +40,10 @@ class NetworkState:
         self.network_state = {
             'interfaces': {},
             'routes': [],
-            'nameservers': {},
+            'dns': {
+                'nameservers': [],
+                'search': [],
+            }
         }
         self.command_handlers = self.get_command_handlers()
 
@@ -286,13 +289,19 @@ class NetworkState:
             print(self.dump_network_state())
             return
 
-        nameservers = self.network_state.get('nameservers')
+        dns = self.network_state.get('dns')
         if 'address' in command:
-            nameservers[command['address']] = \
-                "dns-nameservers {address}".format(**command)
+            addrs = command['address']
+            if not type(addrs) == list:
+                addrs = [addrs]
+            for addr in addrs:
+                dns['nameservers'].append(addr)
         if 'search' in command:
-            nameservers[command['search']] = \
-                "dns-search {search}".format(**command)
+            paths = command['search']
+            if not type(paths) == list:
+                paths = [paths]
+            for path in paths:
+                dns['search'].append(path)
 
     def handle_route(self, command):
         required_keys = [
