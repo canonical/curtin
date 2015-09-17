@@ -267,11 +267,15 @@ def iface_add_subnet(iface, subnet):
         'pointopoint',
         'mtu',
         'scope',
+        'dns_search',
+        'dns_nameservers',
     ]
     for key, value in subnet.items():
         if value and key in valid_map:
             if type(value) == list:
                 value = " ".join(value)
+            if '_' in key:
+                key = key.replace('_', '-')
             content += "    {} {}\n".format(key, value)
 
     return content

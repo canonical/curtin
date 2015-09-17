@@ -289,7 +289,10 @@ class NetworkState:
         nameservers = self.network_state.get('nameservers')
         if 'address' in command:
             nameservers[command['address']] = \
-                "dns-nameserver {address}".format(**command)
+                "dns-nameservers {address}".format(**command)
+        if 'search' in command:
+            nameservers[command['search']] = \
+                "dns-search {search}".format(**command)
 
     def handle_route(self, command):
         required_keys = [
