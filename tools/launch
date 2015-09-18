@@ -434,7 +434,7 @@ main() {
     if $dowait; then
         "${cmd[@]}" &
         XKVM_PID=$!
-        debug 1 "xkvm pid: $KVM_PID. launch pid: $$"
+        debug 1 "xkvm pid: $XKVM_PID. launch pid: $$"
         wait
         ret=$?
         XKVM_PID=""
