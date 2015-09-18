@@ -64,6 +64,7 @@ class TestNetworkAbs(VMBaseClass):
         runcmd:
           - ifconfig -a > /media/output/ifconfig_a
           - cp -av /etc/network/interfaces /media/output
+          - cp /etc/resolv.conf /media/output
           - cp -av /etc/udev/rules.d/70-persistent-net.rules /media/output
           - ip -o route show > /media/output/ip_route_show
           - route -n > /media/output/route_n
@@ -74,6 +75,7 @@ class TestNetworkAbs(VMBaseClass):
     def test_output_files_exist(self):
         self.output_files_exist(["ifconfig_a",
                                  "interfaces",
+                                 "resolv.conf",
                                  "70-persistent-net.rules",
                                  "ip_route_show",
                                  "route_n"])
@@ -87,6 +89,45 @@ class TestNetworkAbs(VMBaseClass):
         eni_lines = eni.split('\n')
         for line in expected_eni.split('\n'):
             self.assertTrue(line in eni_lines)
+
+    def test_etc_resolvconf(self):
+        with open(os.path.join(self.td.mnt, "resolv.conf")) as fp:
+            resolvconf = fp.read()
+            logger.debug('etc/resolv.conf:\n{}'.format(resolvconf))
+
+        resolv_lines = resolvconf.split('\n')
+        logger.debug('resolv.conf lines:\n{}'.format(resolv_lines))
+        # resolv.conf
+        '''
+        nameserver X.Y.Z.A
+        nameserver 1.2.3.4
+        search foo.bar
+        '''
+
+        # eni
+        ''''
+        auto eth1:1
+        iface eth1:1 inet static
+            dns-nameserver X.Y.Z.A
+            dns-search foo.bar
+        '''
+
+        # iface dict
+        ''''
+        eth1:1:
+          dns:
+            nameserver: X.Y.Z.A
+            search: foo.bar
+        '''
+        expected_ifaces = self.get_expected_etc_resolvconf()
+        logger.debug('parsed eni ifaces:\n{}'.format(expected_ifaces))
+        for ifname in expected_ifaces.keys():
+            iface = expected_ifaces.get(ifname)
+            for k, v in iface.get('dns', {}).items():
+                dns_line = '{} {}'.format(
+                    k.replace('nameservers', 'nameserver'), " ".join(v))
+                logger.debug('dns_line:{}'.format(dns_line))
+                self.assertTrue(dns_line in resolv_lines)
 
     def test_ifconfig_output(self):
         '''check ifconfig output with test input'''

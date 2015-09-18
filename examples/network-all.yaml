@@ -34,6 +34,11 @@ network:
               gateway: 192.168.0.1
               dns_nameservers:
                 - 192.168.0.10
+                - 10.23.23.134
+              dns_search:
+                - barley.maas
+                - sacchromyces.maas
+                - brettanomyces.maas
             - type: static
               address: 192.168.2.10/24
         # Bond.
@@ -84,6 +89,15 @@ network:
         # A global nameserver.
         - type: nameserver
           address: 8.8.8.8
+          search: barley.maas
+        # global nameservers and search in list form
+        - type: nameserver
+          address:
+            - 4.4.4.4
+            - 8.8.4.4
+          search:
+            - wark.maas
+            - foobar.maas
         # A global route.
         - type: route
           destination: 10.0.0.0/8

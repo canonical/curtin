@@ -283,6 +283,13 @@ class VMBaseClass:
     def get_expected_etc_network_interfaces(self):
         return curtin_net.render_interfaces(self.network_state)
 
+    @classmethod
+    def get_expected_etc_resolvconf(self):
+        ifaces = {}
+        eni = curtin_net.render_interfaces(self.network_state)
+        curtin_net.parse_deb_config_data(ifaces, eni, None)
+        return ifaces
+
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
         for f in files:
