@@ -298,7 +298,7 @@ class NetworkState:
                 dns['nameservers'].append(addr)
         if 'search' in command:
             paths = command['search']
-            if not type(paths) == list:
+            if not isinstance(paths, list):
                 paths = [paths]
             for path in paths:
                 dns['search'].append(path)
