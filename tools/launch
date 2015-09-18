@@ -435,7 +435,7 @@ main() {
         "${cmd[@]}" &
         XKVM_PID=$!
         debug 1 "xkvm pid: $XKVM_PID. launch pid: $$"
-        wait
+        wait "${XKVM_PID}"
         ret=$?
         XKVM_PID=""
     else
