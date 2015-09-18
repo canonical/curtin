@@ -17,7 +17,7 @@ class TestMdadmBcacheAbs(VMBaseClass):
         password: passw0rd
         chpasswd: { expire: False }
         bootcmd:
-          - mkdir /media/output
+          - mkdir -p /media/output
           - mount /dev/vdb /media/output
         runcmd:
           - cat /etc/fstab > /media/output/fstab
@@ -25,6 +25,7 @@ class TestMdadmBcacheAbs(VMBaseClass):
           - bcache-super-show /dev/vda6 > /media/output/bcache_super_vda6
           - ls /sys/fs/bcache > /media/output/bcache_ls
           - ls /dev/disk/by-dname > /media/output/ls_dname
+          - [tar, -C, /media/output, -cf, /dev/vdb, .]
         power_state:
           mode: poweroff
         """)

@@ -127,9 +127,8 @@ class TempDir:
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
     def mount_output_disk(self):
-        logger.debug('Mounting output disk')
-        subprocess.check_call(["fuseext2", "-o", "rw+", self.output_disk,
-                              self.mnt],
+        logger.debug('extracting output disk')
+        subprocess.check_call(['tar', '-C', self.mnt, '-xf', self.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
     def __del__(self):
@@ -185,7 +184,7 @@ class VMBaseClass:
 
         cmd.extend(netdevs + ["--disk", self.td.target_disk] + extra_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
-                    boot_initrd, "--", "curtin", "install", "--config=%s" %
+                    boot_initrd, "--", "curtin", "-vv", "install", "--config=%s" %
                     self.conf_file, "cp:///"])
 
         # run vm with installer
@@ -256,7 +255,6 @@ class VMBaseClass:
     @classmethod
     def tearDownClass(self):
         logger.debug('Removing launch logfile')
-        subprocess.call(["fusermount", "-u", self.td.mnt])
         # remove launch logfile
         if os.path.exists("./serial.log"):
             os.remove("./serial.log")

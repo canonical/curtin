@@ -17,8 +17,7 @@ class TestMdadmBcacheAbs(VMBaseClass):
         password: passw0rd
         chpasswd: { expire: False }
         bootcmd:
-          - mkdir /media/output
-          - mount /dev/vdb /media/output
+          - mkdir -p /media/output
         runcmd:
           - cat /etc/fstab > /media/output/fstab
           - ls /dev/disk/by-dname > /media/output/ls_dname
@@ -26,6 +25,7 @@ class TestMdadmBcacheAbs(VMBaseClass):
                   /media/output/pvs
           - lvdisplay -C --separator = -o lv_name,vg_name --noheadings > \
                   /media/output/lvs
+          - [tar, -C, /media/output, -cf, /dev/vdb, .]
         power_state:
           mode: poweroff
         """)
