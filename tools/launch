@@ -419,8 +419,9 @@ main() {
     for dev in "${netdevs[@]}"; do
         netargs=( "${netargs[@]}" "-n" "${dev}" )
     done
-    
+
     local cmd
+    xkvm_check || return
     cmd=( 
         xkvm "${pt[@]}" "${netargs[@]}" -- 
         "${bios_opts[@]}"
