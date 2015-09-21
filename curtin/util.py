@@ -521,6 +521,7 @@ def run_apt_command(mode, args=None, aptopts=None, env=None, target=None,
 
 
 def system_upgrade(aptopts=None, target=None, env=None, allow_daemons=False):
+    LOG.debug("Upgrading system in %s", target)
     for mode in ('dist-upgrade', 'autoremove'):
         ret = run_apt_command(
             mode, aptopts=aptopts, target=target,
