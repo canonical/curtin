@@ -1,4 +1,4 @@
-#   Copyright (C) 2013 Canonical Ltd.
+#   Copyright (C) 2015 Canonical Ltd.
 #
 #   Author: Scott Moser <scott.moser@canonical.com>
 #
