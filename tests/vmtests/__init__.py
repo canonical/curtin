@@ -217,15 +217,15 @@ class VMBaseClass:
                 install_log = l.read()
             errors = re.findall(
                 '\[.*\]\ cloud-init.*:.*Installation\ failed', install_log)
-                if len(errors) > 0:
-                    for e in errors:
-                        logger.debug(e)
-                    logger.debug('Errors during curtin installer')
-                    raise Exception('Errors during curtin installer')
-                else:
-                    logger.debug('Install OK')
+            if len(errors) > 0:
+                for e in errors:
+                    logger.debug(e)
+                logger.debug('Errors during curtin installer')
+                raise Exception('Errors during curtin installer')
+            else:
+                logger.debug('Install OK')
         else:
-            logger.debug('No install log %s from launch: %s', self.install_log)
+            raise Exception("No install log was produced")
 
         # drop the size parameter if present in extra_disks
         extra_disks = [x if ":" not in x else x.split(':')[0]
