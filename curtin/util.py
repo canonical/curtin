@@ -457,7 +457,6 @@ def apt_update(target=None, env=None, force=False, comment=None,
     if target is None:
         target = "/"
 
-    print("env=%s" % env)
     if env is None:
         env = os.environ.copy()
 
@@ -473,6 +472,7 @@ def apt_update(target=None, env=None, force=False, comment=None,
         comment = comment[:-1]
 
     marker = os.path.join(target, marker)
+    # if marker exists, check if there are files that would make it obsolete
     if os.path.exists(marker) and not force:
         listfiles = [os.path.join(target, "/etc/apt/sources.list")]
         listfiles += glob.glob(
@@ -480,6 +480,7 @@ def apt_update(target=None, env=None, force=False, comment=None,
         if len(find_newer(marker, listfiles)) == 0:
             return
 
+    # we're not using 'run_apt_command' so we can use 'retries' to subp
     apt_update = ['apt-get', 'update', '--quiet']
     with RunInChroot(target, allow_daemons=True) as inchroot:
         inchroot(apt_update, env=env, retries=retries)
