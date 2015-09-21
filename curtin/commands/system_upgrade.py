@@ -21,6 +21,7 @@ import sys
 import curtin.util as util
 
 from . import populate_one_subcmd
+from curtin.log import LOG
 
 
 def system_upgrade_main(args):
@@ -35,6 +36,7 @@ def system_upgrade_main(args):
                             allow_daemons=args.allow_daemons)
         return 0
     except util.ProcessExecutionError as e:
+        LOG.warn("system upgrade failed: %s" % e)
         return e.exit_code
 
 
