@@ -366,7 +366,7 @@ main() {
         "${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
         { error "failed to pack"; return 1; }
 
-    start_http "${TEMP_D}" "$ip" "$http_port" "${HTTP_TRIES}" ||
+    start_http "${TEMP_D}" "$ip" "$http_port" "${HTTP_TRIES}" </dev/null ||
         { error "failed to start http service"; return 1; }
     http_port=$_RET
     burl="http://$ip:${http_port}/"
