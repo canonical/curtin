@@ -237,8 +237,7 @@ class VMBaseClass:
                 "file=%s,if=virtio,media=cdrom" % self.td.seed_disk,
                 "-m", "1024"])
         if not self.interactive:
-            cmd.extend(["-nographic", "-serial",
-                        "file:%s" + self.boot_log])
+            cmd.extend(["-nographic", "-serial", "file:" + self.boot_log])
 
         # run vm with installed system, fail if timeout expires
         try:
