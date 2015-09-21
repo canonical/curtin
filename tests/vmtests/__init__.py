@@ -154,6 +154,9 @@ class VMBaseClass:
         if not self.interactive:
             cmd.extend(["--silent", "--power=off"])
 
+        serial_log = os.path.join(self.td.tmpdir, 'serial.log')
+        cmd.extend(["--serial-log=" + serial_log])
+
         # check for network configuration
         self.network_state = curtin_net.parse_net_config(self.conf_file)
         logger.debug("Network state: {}".format(self.network_state))
@@ -199,10 +202,12 @@ class VMBaseClass:
             logger.debug('Curtin installer failed')
             raise
         finally:
-            if os.path.exists('serial.log'):
-                with open('serial.log', 'r', encoding='utf-8') as l:
+            if os.path.exists(serial_log):
+                with open(serial_log, 'r', encoding='utf-8') as l:
                     logger.debug(
                         u'Serial console output:\n{}'.format(l.read()))
+            else:
+                logger.warn("Did not have a serial log file from launch.")
 
         logger.debug('')
         logger.debug('Checking curtin install output for errors')

@@ -30,6 +30,7 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
       -n | --netdev     netdev can be 'user' or a bridge
       -p | --publish F  make file 'F' available in web server
            --silent     use -vga none
+           --serial-log F  : log to F (default 'serial.log')
       -v | --verbose    be more verbose
 
    use of --kernel/--initrd will seed cloud-init via cmdline
@@ -185,7 +186,7 @@ start_http() {
 
 main() {
     local short_opts="a:d:h:i:k:n:p:v"
-    local long_opts="add:,append:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,uefi,verbose"
+    local long_opts="add:,append:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi,verbose"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -200,7 +201,7 @@ main() {
     local pubs="" disks="" pstate="null" dowait=""
     local uefi=0
     local netdevs=""
-    local video="-curses"
+    local video="-curses" serial_log="file:serial.log"
     pubs=( )
     disks=( )
     addfiles=( )
@@ -230,6 +231,7 @@ main() {
             -p|--publish) pubs[${#pub[@]}]="$next"; shift;;
                --uefi) uefi=1;;
                --silent) video="-nographic";;
+               --serial-log) serial_log="file:$next"; shift;;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
                --dowait) pt[${#pt[@]}]="$cur"; dowait=true;;
                --no-dowait) pt[${#pt[@]}]="$cur"; dowait=false;;
@@ -425,7 +427,7 @@ main() {
     cmd=( 
         xkvm "${pt[@]}" "${netargs[@]}" -- 
         "${bios_opts[@]}"
-        -m ${mem} -serial file:serial.log ${video}
+        -m ${mem} ${serial_log:+-serial "${serial_log}"} ${video}
         -drive "file=$bootimg,if=virtio,cache=unsafe"
         "${seedargs[@]}"
         "${disk_args[@]}" )
