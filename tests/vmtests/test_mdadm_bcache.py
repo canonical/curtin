@@ -18,7 +18,6 @@ class TestMdadmBcacheAbs(VMBaseClass):
         chpasswd: { expire: False }
         bootcmd:
           - mkdir -p /media/output
-          - mount /dev/vdb /media/output
         runcmd:
           - cat /etc/fstab > /media/output/fstab
           - mdadm --detail --scan > /media/output/mdadm_status
