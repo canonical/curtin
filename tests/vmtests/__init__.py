@@ -148,14 +148,15 @@ class VMBaseClass:
         # set up tempdir
         logger.debug('Setting up tempdir')
         self.td = TempDir(self.user_data)
+        self.install_log = os.path.join(self.td.tmpdir, 'install-serial.log')
+        self.boot_log = os.path.join(self.td.tmpdir, 'boot-serial.log')
 
         # create launch cmd
         cmd = ["tools/launch", "-v"]
         if not self.interactive:
             cmd.extend(["--silent", "--power=off"])
 
-        serial_log = os.path.join(self.td.tmpdir, 'serial.log')
-        cmd.extend(["--serial-log=" + serial_log])
+        cmd.extend(["--serial-log=" + self.install_log])
 
         # check for network configuration
         self.network_state = curtin_net.parse_net_config(self.conf_file)
@@ -202,26 +203,29 @@ class VMBaseClass:
             logger.debug('Curtin installer failed')
             raise
         finally:
-            if os.path.exists(serial_log):
-                with open(serial_log, 'r', encoding='utf-8') as l:
+            if os.path.exists(self.install_log):
+                with open(self.install_log, 'r', encoding='utf-8') as l:
                     logger.debug(
                         u'Serial console output:\n{}'.format(l.read()))
             else:
                 logger.warn("Did not have a serial log file from launch.")
 
         logger.debug('')
-        logger.debug('Checking curtin install output for errors')
-        with open('serial.log') as l:
-            install_log = l.read()
-            errors = re.findall('\[.*\]\ cloud-init.*:.*Installation\ failed',
-                                install_log)
-            if len(errors) > 0:
-                for e in errors:
-                    logger.debug(e)
-                logger.debug('Errors during curtin installer')
-                raise Exception('Errors during curtin installer')
-            else:
-                logger.debug('Install OK')
+        if os.path.exists(self.install_log):
+            logger.debug('Checking curtin install output for errors')
+            with open(self.install_log) as l:
+                install_log = l.read()
+            errors = re.findall(
+                '\[.*\]\ cloud-init.*:.*Installation\ failed', install_log)
+                if len(errors) > 0:
+                    for e in errors:
+                        logger.debug(e)
+                    logger.debug('Errors during curtin installer')
+                    raise Exception('Errors during curtin installer')
+                else:
+                    logger.debug('Install OK')
+        else:
+            logger.debug('No install log %s from launch: %s', self.install_log)
 
         # drop the size parameter if present in extra_disks
         extra_disks = [x if ":" not in x else x.split(':')[0]
@@ -233,8 +237,8 @@ class VMBaseClass:
                 "file=%s,if=virtio,media=cdrom" % self.td.seed_disk,
                 "-m", "1024"])
         if not self.interactive:
-            cmd.extend(["-nographic", "-serial", "file:%s" %
-                       os.path.join(self.td.tmpdir, "serial.log")])
+            cmd.extend(["-nographic", "-serial",
+                        "file:%s" self.boot_log])
 
         # run vm with installed system, fail if timeout expires
         try:
@@ -247,9 +251,8 @@ class VMBaseClass:
             logger.debug('Booting after install failed')
             raise
         finally:
-            serial_log = os.path.join(self.td.tmpdir, 'serial.log')
-            if os.path.exists(serial_log):
-                with open(serial_log, 'r', encoding='utf-8') as l:
+            if os.path.exists(self.boot_log):
+                with open(self.boot_log, 'r', encoding='utf-8') as l:
                     logger.debug(
                         u'Serial console output:\n{}'.format(l.read()))
 
@@ -260,9 +263,6 @@ class VMBaseClass:
     @classmethod
     def tearDownClass(self):
         logger.debug('Removing launch logfile')
-        # remove launch logfile
-        if os.path.exists("./serial.log"):
-            os.remove("./serial.log")
 
     @classmethod
     def expected_interfaces(self):
