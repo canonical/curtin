@@ -238,7 +238,7 @@ class VMBaseClass:
                 "-m", "1024"])
         if not self.interactive:
             cmd.extend(["-nographic", "-serial",
-                        "file:%s" self.boot_log])
+                        "file:%s" + self.boot_log])
 
         # run vm with installed system, fail if timeout expires
         try:
