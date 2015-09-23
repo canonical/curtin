@@ -267,11 +267,15 @@ def iface_add_subnet(iface, subnet):
         'pointopoint',
         'mtu',
         'scope',
+        'dns_search',
+        'dns_nameservers',
     ]
     for key, value in subnet.items():
         if value and key in valid_map:
             if type(value) == list:
                 value = " ".join(value)
+            if '_' in key:
+                key = key.replace('_', '-')
             content += "    {} {}\n".format(key, value)
 
     return content
@@ -362,8 +366,9 @@ def render_interfaces(network_state):
             content += iface_add_attrs(iface)
             content += "\n"
 
-    for (addr, dns) in network_state.get('nameservers').items():
-        content += "{}\n".format(dns)
+    for dnskey, value in network_state.get('dns', {}).items():
+        if len(value):
+            content += "dns-{} {}\n".format(dnskey, " ".join(value))
 
     for route in network_state.get('routes'):
         content += render_route(route)

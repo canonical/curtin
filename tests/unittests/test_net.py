@@ -259,10 +259,23 @@ network:
           mac_address: "c0:d6:9f:2c:e8:80"
           subnets:
               - type: dhcp4
+              - type: static
+                address: 192.168.21.3/24
+                dns_nameservers:
+                  - 8.8.8.8
+                  - 8.8.4.4
+                dns_search: barley.maas sach.maas
         - type: physical
           name: eth1
           mac_address: "cf:d6:af:48:e8:80"
+        - type: nameserver
+          address:
+            - 1.2.3.4
+            - 5.6.7.8
+          search:
+            - wark.maas
 '''
+
         with open(self.config_f, 'w') as fp:
             fp.write(self.config)
 
@@ -308,8 +321,16 @@ network:
     def test_render_interfaces(self):
         ns = self.get_net_state()
         ifaces = ('auto eth0\n' + 'iface eth0 inet dhcp\n\n' +
-                  'auto eth1\n' + 'iface eth1 inet manual\n\n')
+                  'auto eth0:1\n' +
+                  'iface eth0:1 inet static\n' +
+                  '    address 192.168.21.3/24\n' +
+                  '    dns-nameservers 8.8.8.8 8.8.4.4\n' +
+                  '    dns-search barley.maas sach.maas\n\n' +
+                  'auto eth1\n' + 'iface eth1 inet manual\n\n' +
+                  'dns-nameservers 1.2.3.4 5.6.7.8\n' +
+                  'dns-search wark.maas\n')
         net_ifaces = net.render_interfaces(ns.network_state)
+        print(ns.network_state.get('interfaces'))
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
 
