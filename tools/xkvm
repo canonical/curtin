@@ -249,7 +249,7 @@ main() {
     #  if detached with &, then user input will not go to xkvm.
     #  if *not* detached, then signal handling is blocked until
     #  the foreground subprocess returns. which means we can't handle
-    #  a sigterm and kill xkvm.
+    #  a sigterm and kill the qemu-system process.
     #  We default to dowait=false if output is to a terminal
     local dowait=""
     [ -t 0 ] && dowait=false || dowait=true

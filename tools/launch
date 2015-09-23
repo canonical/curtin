@@ -211,7 +211,6 @@ main() {
     #  We default to dowait=false if output is to a terminal
     local dowait=""
     [ -t 0 ] && dowait=false || dowait=true
-    local dowait=""
     pubs=( )
     disks=( )
     addfiles=( )
