@@ -18,13 +18,13 @@ class TestBasicAbs(VMBaseClass):
         chpasswd: { expire: False }
         bootcmd:
           - mkdir /media/output
-          - mount /dev/vdb /media/output
         runcmd:
           - blkid -o export /dev/vda > /media/output/blkid_output_vda
           - blkid -o export /dev/vda1 > /media/output/blkid_output_vda1
           - blkid -o export /dev/vda2 > /media/output/blkid_output_vda2
           - cat /etc/fstab > /media/output/fstab
           - ls /dev/disk/by-dname/ > /media/output/ls_dname
+          - [tar, -C, /media/output, -cf, /dev/vdb, .]
         power_state:
           mode: poweroff
         """)

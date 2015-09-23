@@ -31,5 +31,8 @@ docs:
 vmtest:
 	nosetests3 $(noseopts) tests/vmtests
 
+vmtest-deps:
+	@$(CWD)/tools/vmtest-system-setup
+
 
 .PHONY: all test pyflakes pyflakes3 pep8 build

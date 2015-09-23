@@ -60,7 +60,6 @@ class TestNetworkAbs(VMBaseClass):
         chpasswd: { expire: False }
         bootcmd:
           - mkdir -p /media/output
-          - mount /dev/vdb /media/output
         runcmd:
           - ifconfig -a > /media/output/ifconfig_a
           - cp -av /etc/network/interfaces /media/output
@@ -69,6 +68,7 @@ class TestNetworkAbs(VMBaseClass):
           - route -n > /media/output/route_n
           - dpkg-query -W -f '${Status}' ifenslave > \
                 /media/output/ifenslave_installed
+          - [tar, -C, /media/output, -cf, /dev/vdb, .]
         power_state:
           mode: poweroff
         """)

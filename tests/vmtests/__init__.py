@@ -9,7 +9,9 @@ import subprocess
 import tempfile
 import curtin.net as curtin_net
 
-IMAGE_DIR = "/srv/images"
+from .helpers import check_call
+
+IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
 
 DEVNULL = open(os.devnull, 'w')
 
@@ -125,9 +127,8 @@ class TempDir:
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
     def mount_output_disk(self):
-        logger.debug('Mounting output disk')
-        subprocess.check_call(["fuseext2", "-o", "rw+", self.output_disk,
-                              self.mnt],
+        logger.debug('extracting output disk')
+        subprocess.check_call(['tar', '-C', self.mnt, '-xf', self.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
     def __del__(self):
@@ -147,11 +148,15 @@ class VMBaseClass:
         # set up tempdir
         logger.debug('Setting up tempdir')
         self.td = TempDir(self.user_data)
+        self.install_log = os.path.join(self.td.tmpdir, 'install-serial.log')
+        self.boot_log = os.path.join(self.td.tmpdir, 'boot-serial.log')
 
         # create launch cmd
-        cmd = ["tools/launch"]
+        cmd = ["tools/launch", "-v"]
         if not self.interactive:
             cmd.extend(["--silent", "--power=off"])
+
+        cmd.extend(["--serial-log=" + self.install_log])
 
         # check for network configuration
         self.network_state = curtin_net.parse_net_config(self.conf_file)
@@ -183,30 +188,35 @@ class VMBaseClass:
 
         cmd.extend(netdevs + ["--disk", self.td.target_disk] + extra_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
-                    boot_initrd, "--", "curtin", "install", "--config=%s" %
-                    self.conf_file, "cp:///"])
+                    boot_initrd, "--", "curtin", "-vv",
+                    "install", "--config=%s" % self.conf_file, "cp:///"])
 
         # run vm with installer
+        lout_path = os.path.join(self.td.tmpdir, "launch-install.out")
         try:
             logger.debug('Running curtin installer')
             logger.debug('{}'.format(" ".join(cmd)))
-            subprocess.check_call(cmd, timeout=self.install_timeout,
-                                  stdout=DEVNULL, stderr=subprocess.STDOUT)
+            with open(lout_path, "wb") as fpout:
+                check_call(cmd, timeout=self.install_timeout,
+                           stdout=fpout, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
             logger.debug('Curtin installer failed')
             raise
         finally:
-            if os.path.exists('serial.log'):
-                with open('serial.log', 'r', encoding='utf-8') as l:
+            if os.path.exists(self.install_log):
+                with open(self.install_log, 'r', encoding='utf-8') as l:
                     logger.debug(
                         u'Serial console output:\n{}'.format(l.read()))
+            else:
+                logger.warn("Did not have a serial log file from launch.")
 
         logger.debug('')
-        logger.debug('Checking curtin install output for errors')
-        with open('serial.log') as l:
-            install_log = l.read()
-            errors = re.findall('\[.*\]\ cloud-init.*:.*Installation\ failed',
-                                install_log)
+        if os.path.exists(self.install_log):
+            logger.debug('Checking curtin install output for errors')
+            with open(self.install_log) as l:
+                install_log = l.read()
+            errors = re.findall(
+                '\[.*\]\ cloud-init.*:.*Installation\ failed', install_log)
             if len(errors) > 0:
                 for e in errors:
                     logger.debug(e)
@@ -214,33 +224,35 @@ class VMBaseClass:
                 raise Exception('Errors during curtin installer')
             else:
                 logger.debug('Install OK')
+        else:
+            raise Exception("No install log was produced")
 
         # drop the size parameter if present in extra_disks
         extra_disks = [x if ":" not in x else x.split(':')[0]
                        for x in extra_disks]
         # create xkvm cmd
-        cmd = (["tools/xkvm"] + netdevs + ["--disk", self.td.target_disk,
+        cmd = (["tools/xkvm", "-v"] + netdevs + ["--disk", self.td.target_disk,
                "--disk", self.td.output_disk] + extra_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % self.td.seed_disk,
                 "-m", "1024"])
         if not self.interactive:
-            cmd.extend(["-nographic", "-serial", "file:%s" %
-                       os.path.join(self.td.tmpdir, "serial.log")])
+            cmd.extend(["-nographic", "-serial", "file:" + self.boot_log])
 
         # run vm with installed system, fail if timeout expires
         try:
             logger.debug('Booting target image')
             logger.debug('{}'.format(" ".join(cmd)))
-            subprocess.check_call(cmd, timeout=self.boot_timeout,
-                                  stdout=DEVNULL, stderr=subprocess.STDOUT)
+            xout_path = os.path.join(self.td.tmpdir, "xkvm-boot.out")
+            with open(xout_path, "wb") as fpout:
+                check_call(cmd, timeout=self.boot_timeout,
+                           stdout=fpout, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
             logger.debug('Booting after install failed')
             raise
         finally:
-            serial_log = os.path.join(self.td.tmpdir, 'serial.log')
-            if os.path.exists(serial_log):
-                with open(serial_log, 'r', encoding='utf-8') as l:
+            if os.path.exists(self.boot_log):
+                with open(self.boot_log, 'r', encoding='utf-8') as l:
                     logger.debug(
                         u'Serial console output:\n{}'.format(l.read()))
 
@@ -251,10 +263,6 @@ class VMBaseClass:
     @classmethod
     def tearDownClass(self):
         logger.debug('Removing launch logfile')
-        subprocess.call(["fusermount", "-u", self.td.mnt])
-        # remove launch logfile
-        if os.path.exists("./serial.log"):
-            os.remove("./serial.log")
 
     @classmethod
     def expected_interfaces(self):

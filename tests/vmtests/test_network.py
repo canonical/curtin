@@ -60,7 +60,6 @@ class TestNetworkAbs(VMBaseClass):
         chpasswd: { expire: False }
         bootcmd:
           - mkdir -p /media/output
-          - mount /dev/vdb /media/output
         runcmd:
           - ifconfig -a > /media/output/ifconfig_a
           - cp -av /etc/network/interfaces /media/output
@@ -68,6 +67,7 @@ class TestNetworkAbs(VMBaseClass):
           - cp -av /etc/udev/rules.d/70-persistent-net.rules /media/output
           - ip -o route show > /media/output/ip_route_show
           - route -n > /media/output/route_n
+          - [tar, -C, /media/output, -cf, /dev/vdb, .]
         power_state:
           mode: poweroff
         """)
