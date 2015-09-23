@@ -233,9 +233,10 @@ main() {
 
     local bridge="$DEF_BRIDGE"
     local netdevs="" need_tap="" ret="" p="" i="" pt="" cur="" conn=""
-    local kvm="" kvmcmd="" archopts="" dowait=""
+    local kvm="" kvmcmd="" archopts=""
     local def_diskif=${DEF_DISKIF:-"virtio"}
     local def_netmodel=${DEF_NETMODEL:-"virtio-net-pci"}
+
     archopts=( )
     kvmcmd=( )
     netdevs=( )
@@ -243,6 +244,14 @@ main() {
     diskdevs=( )
     diskargs=( )
 
+    # dowait: run qemu-system with a '&' and then 'wait' on the pid.
+    #  the reason to do this or not do this has to do with interactivity
+    #  if detached with &, then user input will not go to xkvm.
+    #  if *not* detached, then signal handling is blocked until
+    #  the foreground subprocess returns. which means we can't handle
+    #  a sigterm and kill xkvm.
+    #  We default to dowait=false if output is to a terminal
+    local dowait=""
     [ -t 0 ] && dowait=false || dowait=true
     while [ $# -ne 0 ]; do
         cur=${1}; next=${2};

@@ -188,17 +188,17 @@ class VMBaseClass:
 
         cmd.extend(netdevs + ["--disk", self.td.target_disk] + extra_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
-                    boot_initrd, "--", "curtin", "-vv", "install", "--config=%s" %
-                    self.conf_file, "cp:///"])
+                    boot_initrd, "--", "curtin", "-vv",
+                    "install", "--config=%s" % self.conf_file, "cp:///"])
 
         # run vm with installer
+        lout_path = os.path.join(self.td.tmpdir, "launch-install.out")
         try:
             logger.debug('Running curtin installer')
             logger.debug('{}'.format(" ".join(cmd)))
-            fpout = open(
-                os.path.join(self.td.tmpdir, "launch-install.out"), "wb")
-            check_call(cmd, timeout=self.install_timeout,
-                       stdout=fpout, stderr=subprocess.STDOUT)
+            with open(lout_path, "wb") as fpout:
+                check_call(cmd, timeout=self.install_timeout,
+                           stdout=fpout, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
             logger.debug('Curtin installer failed')
             raise
@@ -243,9 +243,10 @@ class VMBaseClass:
         try:
             logger.debug('Booting target image')
             logger.debug('{}'.format(" ".join(cmd)))
-            fpout = open(os.path.join(self.td.tmpdir, "xkvm-boot.out"), "wb")
-            check_call(cmd, timeout=self.boot_timeout,
-                       stdout=fpout, stderr=subprocess.STDOUT)
+            xout_path = os.path.join(self.td.tmpdir, "xkvm-boot.out")
+            with open(xout_path, "wb") as fpout:
+                check_call(cmd, timeout=self.boot_timeout,
+                           stdout=fpout, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
             logger.debug('Booting after install failed')
             raise

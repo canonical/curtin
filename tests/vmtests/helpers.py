@@ -1,7 +1,22 @@
 #! /usr/bin/env python
+#   Copyright (C) 2015 Canonical Ltd.
+#
+#   Author: Scott Moser <scott.moser@canonical.com>
+#
+#   Curtin is free software: you can redistribute it and/or modify it under
+#   the terms of the GNU Affero General Public License as published by the
+#   Free Software Foundation, either version 3 of the License, or (at your
+#   option) any later version.
+#
+#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
+#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
+#   more details.
+#
+#   You should have received a copy of the GNU Affero General Public License
+#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 import threading
 import subprocess
-import traceback
 import signal
 
 
@@ -58,6 +73,8 @@ except AttributeError:
             if not kwargs:
                 kwargs = {}
             if len(args):
+                # if args are given, convert them to kwargs.
+                # *args is a tuple, convert it to a list to use pop
                 args = list(args)
                 for arg in ('cmd', 'output', 'timeout'):
                     kwargs[arg] = args.pop(0)
@@ -71,7 +88,7 @@ except AttributeError:
                 self.timeout = -1
 
             super(TimeoutExpired, self).__init__(returncode, **kwargs)
-            
+
 
 def check_call(cmd, signal=signal.SIGTERM, **kwargs):
     # provide a 'check_call' like interface, but kill with a nice signal

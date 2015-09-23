@@ -198,16 +198,27 @@ main() {
     local udata="" ip="" http_port="${HTTP_PORT}" burl=""
     local tmp="" top_d
     local initrd="" kernel="" uappend="" iargs="" disk_args=""
-    local pubs="" disks="" pstate="null" dowait=""
+    local pubs="" disks="" pstate="null"
     local uefi=0
     local netdevs=""
     local video="-curses" serial_log="file:serial.log"
+    # dowait: run xkvm with a '&' and then 'wait' on the pid.
+    #  the reason to do this or not do this has to do with interactivity
+    #  if detached with &, then user input will not go to xkvm.
+    #  if *not* detached, then signal handling is blocked until
+    #  the foreground subprocess returns. which means we can't handle
+    #  a sigterm and kill xkvm.
+    #  We default to dowait=false if output is to a terminal
+    local dowait=""
+    [ -t 0 ] && dowait=false || dowait=true
+    local dowait=""
     pubs=( )
     disks=( )
     addfiles=( )
     netdevs=( )
     pt=( )
 
+    # if output is to a terminal, then set dowait default to false
     [ -t 0 ] && dowait=false || dowait=true
     while [ $# -ne 0 ]; do
         cur=${1}; next=${2};
