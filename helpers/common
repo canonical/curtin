@@ -565,9 +565,14 @@ install_grub() {
     fi
 
     # find the mp device
-    mp_dev=$(awk -v MP=${mp} '$2==MP {print$1}' /proc/mounts) || {
+    mp_dev=$(awk -v "MP=$mp" '$2 == MP { print $1 }' /proc/mounts) || {
         error "unable to determine device for mount $mp";
         return 1;
+    }
+    [ -z "$mp_dev" ] && {
+        error "did not find '$mp' in /proc/mounts"
+        cat /proc/mounts 1>&2
+        return 1
     }
     [ -b "$mp_dev" ] || { error "$mp_dev is not a block device!"; return 1; }
 
