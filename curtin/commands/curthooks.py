@@ -621,12 +621,12 @@ def curthooks(args):
     if target is None:
         sys.stderr.write("Unable to find target.  "
                          "Use --target or set TARGET_MOUNT_POINT\n")
-        sys.exit(2)
+        return 2
 
     # if network-config hook exists in target,
     # we do not run the builtin
     if util.run_hook_if_exists(target, 'curtin-hooks'):
-        sys.exit(0)
+        return 0
 
     cfg = config.load_command_config(args, state)
 
@@ -680,7 +680,7 @@ def curthooks(args):
     else:
         setup_grub(cfg, target)
 
-    sys.exit(0)
+    return 0
 
 
 def POPULATE_SUBCMD(parser):

@@ -65,7 +65,7 @@ def in_target_main(args):
     if args.target is None:
         sys.stderr.write("Unable to find target.  "
                          "Use --target or set TARGET_MOUNT_POINT\n")
-        sys.exit(2)
+        return 2
 
     if os.path.abspath(target) == "/":
         cmd = args.command_args
@@ -73,10 +73,12 @@ def in_target_main(args):
         cmd = ['chroot', target] + args.command_args
 
     if target == "/" and args.allow_daemons:
-        sys.exit(run_command(cmd, args.interactive, capture=args.capture))
+        ret = run_command(cmd, args.interactive, capture=args.capture)
     else:
         with util.ChrootableTarget(target, allow_daemons=args.allow_daemons):
-            sys.exit(run_command(cmd, args.interactive))
+            ret = run_command(cmd, args.interactive)
+
+    return ret
 
 
 def POPULATE_SUBCMD(parser):

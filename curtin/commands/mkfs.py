@@ -113,6 +113,8 @@ def mkfs(args):
             raise ValueError("device '%s' is neither an item in storage \
                 config nor a block device" % device)
 
+    return 0
+
 
 def POPULATE_SUBCMD(parser):
     populate_one_subcmd(parser, CMD_ARGUMENTS, mkfs)

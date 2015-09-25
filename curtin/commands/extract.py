@@ -114,6 +114,8 @@ def extract(args):
                 "do not know how to extract '%s'" %
                 source['uri'])
 
+    return 0
+
 
 def POPULATE_SUBCMD(parser):
     populate_one_subcmd(parser, CMD_ARGUMENTS, extract)

@@ -39,6 +39,8 @@ def hook(args):
     LOG.debug("Finalizing %s" % args.target)
     curtin.util.run_hook_if_exists(args.target, "finalize")
 
+    return 0
+
 
 def POPULATE_SUBCMD(parser):
     populate_one_subcmd(parser, CMD_ARGUMENTS, hook)

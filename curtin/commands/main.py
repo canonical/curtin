@@ -145,6 +145,12 @@ def main(args=None):
         with args.reportstack:
             ret = args.func(args)
         sys.exit(ret)
+    except SystemExit as e:
+        sys.stderr.write(
+            "WARN: Subcommand %s exited '%d'. "
+            "It should have returned instead.\n" % (args.subcmd, e.code))
+        traceback.print_exc()
+        sys.exit(e.code)
     except Exception as e:
         if showtrace:
             traceback.print_exc()
@@ -153,6 +159,6 @@ def main(args=None):
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    main()
 
 # vi: ts=4 expandtab syntax=python
