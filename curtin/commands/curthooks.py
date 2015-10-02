@@ -610,6 +610,28 @@ def install_missing_packages(cfg, target):
         util.install_packages(needed_packages, target=target)
 
 
+def system_upgrade(cfg, target):
+    """run system-upgrade (apt-get dist-upgrade) or other in target.
+
+    config:
+      system_upgrade:
+        enabled: False
+
+    """
+    mycfg = {'system_upgrade': {'enabled': False}}
+    config.merge_config(mycfg, cfg)
+    mycfg = mycfg.get('system_upgrade')
+    if not isinstance(mycfg, dict):
+        LOG.debug("system_upgrade disabled by config. entry not a dict.")
+        return
+
+    if not config.value_as_boolean(mycfg.get('enabled', True)):
+        LOG.debug("system_upgrade disabled by config.")
+        return
+
+    util.system_upgrade(target=target)
+
+
 def curthooks(args):
     state = util.load_command_environment()
 
@@ -646,6 +668,8 @@ def curthooks(args):
     detect_and_handle_multipath(cfg, target)
 
     install_missing_packages(cfg, target)
+
+    system_upgrade(cfg, target)
 
     # If a crypttab file was created by block_meta than it needs to be copied
     # onto the target system, and update_initramfs() needs to be run, so that
