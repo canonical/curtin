@@ -39,7 +39,7 @@ def hook(args):
     LOG.debug("Finalizing %s" % args.target)
     curtin.util.run_hook_if_exists(args.target, "finalize")
 
-    return 0
+    sys.exit(0)
 
 
 def POPULATE_SUBCMD(parser):

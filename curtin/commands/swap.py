@@ -37,7 +37,7 @@ def swap_main(args):
     if state['target'] is None:
         sys.stderr.write("Unable to find target.  "
                          "Use --target or set TARGET_MOUNT_POINT\n")
-        return 2
+        sys.exit(2)
 
     size = args.size
     if size is not None and size.lower() == "auto":
@@ -48,7 +48,7 @@ def swap_main(args):
             size = util.human2bytes(size)
         except ValueError as e:
             sys.stderr.write("%s\n" % e)
-            return 2
+            sys.exit(2)
 
     if args.maxsize is not None:
         args.maxsize = util.human2bytes(args.maxsize)
@@ -56,7 +56,7 @@ def swap_main(args):
     swap.setup_swapfile(target=state['target'], fstab=state['fstab'],
                         swapfile=args.swapfile, size=size,
                         maxsize=args.maxsize)
-    return 0
+    sys.exit(2)
 
 
 CMD_ARGUMENTS = (

@@ -113,7 +113,7 @@ def mkfs(args):
             raise ValueError("device '%s' is neither an item in storage \
                 config nor a block device" % device)
 
-    return 0
+    sys.exit(0)
 
 
 def POPULATE_SUBCMD(parser):

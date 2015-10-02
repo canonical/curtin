@@ -55,7 +55,7 @@ def pack_main(args):
     if args.output != "-":
         fdout.close()
 
-    return 0
+    sys.exit(0)
 
 
 def POPULATE_SUBCMD(parser):

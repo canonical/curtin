@@ -93,7 +93,7 @@ def net_meta(args):
     # if network-config hook exists in target,
     # we do not run the builtin
     if util.run_hook_if_exists(args.target, 'network-config'):
-        return 0
+        sys.exit(0)
 
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
@@ -148,7 +148,7 @@ def net_meta(args):
         with open(args.output, "w") as fp:
             fp.write(content)
 
-    return 0
+    sys.exit(0)
 
 
 CMD_ARGUMENTS = (

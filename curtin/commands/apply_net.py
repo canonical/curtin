@@ -59,17 +59,17 @@ def apply_net_main(args):
     if state['target'] is None:
         sys.stderr.write("Unable to find target.  "
                          "Use --target or set TARGET_MOUNT_POINT\n")
-        return 2
+        sys.exit(2)
 
     if not state['network_config'] and not state['network_state']:
         sys.stderr.write("Must provide at least config or state\n")
-        return 2
+        sys.exit(2)
 
     apply_net(target=state['target'],
               network_state=state['network_state'],
               network_config=state['network_config'])
 
-    return 0
+    sys.exit(0)
 
 
 CMD_ARGUMENTS = (

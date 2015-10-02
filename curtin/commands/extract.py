@@ -114,7 +114,7 @@ def extract(args):
                 "do not know how to extract '%s'" %
                 source['uri'])
 
-    return 0
+    sys.exit(0)
 
 
 def POPULATE_SUBCMD(parser):

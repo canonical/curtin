@@ -65,7 +65,7 @@ def in_target_main(args):
     if args.target is None:
         sys.stderr.write("Unable to find target.  "
                          "Use --target or set TARGET_MOUNT_POINT\n")
-        return 2
+        sys.exit(2)
 
     if os.path.abspath(target) == "/":
         cmd = args.command_args
@@ -78,7 +78,7 @@ def in_target_main(args):
         with util.ChrootableTarget(target, allow_daemons=args.allow_daemons):
             ret = run_command(cmd, args.interactive)
 
-    return ret
+    sys.exit(ret)
 
 
 def POPULATE_SUBCMD(parser):

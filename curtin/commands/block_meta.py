@@ -989,7 +989,7 @@ def meta_simple(args):
     if state['target'] is None:
         sys.stderr.write("Unable to find target.  "
                          "Use --target or set TARGET_MOUNT_POINT\n")
-        return 2
+        sys.exit(2)
 
     devices = args.devices
     if devices is None:
