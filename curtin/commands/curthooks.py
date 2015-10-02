@@ -620,7 +620,7 @@ def system_upgrade(cfg, target):
     """
     mycfg = {'system_upgrade': {'enabled': False}}
     config.merge_config(mycfg, cfg)
-    mycfg.get('system_upgrade')
+    mycfg = mycfg.get('system_upgrade')
     if not isinstance(mycfg, dict):
         LOG.debug("system_upgrade disabled by config. entry not a dict.")
         return
