@@ -627,6 +627,7 @@ def system_upgrade(cfg, target):
 
     if not config.value_as_boolean(mycfg.get('enabled', True)):
         LOG.debug("system_upgrade disabled by config.")
+        return
 
     util.system_upgrade(target=target)
 
