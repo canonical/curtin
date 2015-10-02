@@ -26,23 +26,22 @@ from curtin.log import LOG
 
 def system_upgrade_main(args):
     #  curtin system-upgrade [--target=/]
-    state = util.load_command_environment()
-
     if args.target is None:
         args.target = "/"
 
+    exit_code = 0
     try:
         util.system_upgrade(target=args.target,
                             allow_daemons=args.allow_daemons)
-        return 0
     except util.ProcessExecutionError as e:
         LOG.warn("system upgrade failed: %s" % e)
-        return e.exit_code
+        exit_code = e.exit_code
+
+    sys.exit(exit_code)
 
 
 CMD_ARGUMENTS = (
-    (
-     (('--allow-daemons',),
+    ((('--allow-daemons',),
       {'help': ('do not disable running of daemons during upgrade.'),
        'action': 'store_true', 'default': False}),
      (('-t', '--target'),
