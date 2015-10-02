@@ -16,6 +16,7 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import sys
 
 import curtin.config
 from curtin.log import LOG
@@ -113,6 +114,8 @@ def extract(args):
             raise TypeError(
                 "do not know how to extract '%s'" %
                 source['uri'])
+
+    sys.exit(0)
 
 
 def POPULATE_SUBCMD(parser):

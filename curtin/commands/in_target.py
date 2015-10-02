@@ -73,10 +73,12 @@ def in_target_main(args):
         cmd = ['chroot', target] + args.command_args
 
     if target == "/" and args.allow_daemons:
-        sys.exit(run_command(cmd, args.interactive, capture=args.capture))
+        ret = run_command(cmd, args.interactive, capture=args.capture)
     else:
         with util.ChrootableTarget(target, allow_daemons=args.allow_daemons):
-            sys.exit(run_command(cmd, args.interactive))
+            ret = run_command(cmd, args.interactive)
+
+    sys.exit(ret)
 
 
 def POPULATE_SUBCMD(parser):

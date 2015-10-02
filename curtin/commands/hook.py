@@ -16,6 +16,7 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import sys
 
 import curtin.config
 from curtin.log import LOG
@@ -38,6 +39,8 @@ def hook(args):
 
     LOG.debug("Finalizing %s" % args.target)
     curtin.util.run_hook_if_exists(args.target, "finalize")
+
+    sys.exit(0)
 
 
 def POPULATE_SUBCMD(parser):
