@@ -135,3 +135,9 @@ def load_command_config(args, state):
 
 def dump_config(config):
     return yaml.dump(config, default_flow_style=False)
+
+
+def value_as_boolean(value):
+    if value in (False, None, '0', 'False', 'false', ''):
+        return False
+    return True
