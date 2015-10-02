@@ -138,6 +138,6 @@ def dump_config(config):
 
 
 def value_as_boolean(value):
-    if value in (False, None, '0', 'False', 'false', ''):
+    if value in (False, None, '0', 0, 'False', 'false', ''):
         return False
     return True
