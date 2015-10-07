@@ -1,16 +1,19 @@
 import ast
 import datetime
-import hashlib
 import logging
 import os
+import pathlib
 import re
 import shutil
 import subprocess
 import tempfile
+import urllib
 import curtin.net as curtin_net
 
 from .helpers import check_call
 
+SOURCE_MIRROR_URL=(
+    'http://maas.ubuntu.com/images/ephemeral-v2/daily/streams/v1/index.sjson')
 IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
 
 DEVNULL = open(os.devnull, 'w')
@@ -35,55 +38,79 @@ ch.setFormatter(formatter)
 logger.addHandler(fh)
 logger.addHandler(ch)
 
+#XXX: matsubara 
+# The ImageStore object should provide a way to:
+#  - retrieve root-image, root-kernel and root-initrd
+#  - sync images from upstream mirror
+#  - unpack root-image, kernel and initrdd from root-image.gz
+#  - maybe retrieve the above items directly from mirror and skip the unpack step
 
 class ImageStore:
+    """Local mirror of MAAS images simplestreams data."""
+
     def __init__(self, base_dir):
         self.base_dir = base_dir
         if not os.path.isdir(self.base_dir):
             os.makedirs(self.base_dir)
+        self.url = pathlib.Path(self.base_dir).as_uri()
+
+    def _convert_image(self, root_image_path):
+        """Use maas2roottar to unpack root-image, kernel and initrd."""
+        logger.debug('Converting image format')
+        subprocess.check_call(["tools/maas2roottar", root_image_path])
+
+    def _sync_images(self, repo, release, arch):
+        """Sync root-image.gz in the local mirror."""
+        #XXX: matsubara repo parameter defines which source url to use...
+        # need to fix that
+        cmd = [
+            'sstream-mirror',
+            '--max=1',
+            '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg',
+            SOURCE_MIRROR_URL,
+            self.base_dir,
+            'release={release} krel={release} arch={arch}'.format(
+                release=release, arch=arch),
+            'item_name=root-image.gz'
+            ]
+        logger.debug('Syncing root-image.gz from {}'.format(SOURCE_MIRROR_URL))
+        logger.debug(" ".join(cmd))
+        subprocess.check_call(cmd)
 
     def get_image(self, repo, release, arch):
-        # query sstream for root image
+        # Query local sstream mirror for root image.
         logger.debug(
             'Query simplestreams for root image: '
             'release={release} arch={arch}'.format(release=release, arch=arch))
-        cmd = ["tools/usquery", "--max=1", repo, "release=%s" % release,
-               "krel=%s" % release, "arch=%s" % arch,
-               "item_name=root-image.gz"]
+        cmd = [
+            'sstream-query',
+            '--max=1',
+            '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg',
+            self.url,
+            'release={release} krel={release} arch={arch}'.format(
+                release=release, arch=arch),
+            'item_name=root-image.gz'
+            ]
         logger.debug(" ".join(cmd))
+        # If there's no root-image.gz in the local mirror, trigger a sync.
         out = subprocess.check_output(cmd)
+        while not out:
+            self._sync_images(repo, release, arch)
+            out = subprocess.check_output(cmd)
         logger.debug(out)
         sstream_data = ast.literal_eval(bytes.decode(out))
 
-        # Check if we already have the image
-        logger.debug('Checking cache for image')
-        checksum = ""
-        release_dir = os.path.join(self.base_dir, repo, release, arch,
-                                   sstream_data['version_name'])
+        # Once we have root-image.gz available in the local mirror,
+        # unpack what we need.
+        root_image_path = urllib.parse.urlsplit(sstream_data['item_url']).path
+        self._convert_image(root_image_path)
+        image_dir = os.path.dirname(root_image_path)
+        return (
+            os.path.join(image_dir, 'root-image'),
+            os.path.join(image_dir, 'root-image-kernel'),
+            os.path.join(image_dir, 'root-image-initrd')
+            )
 
-        def p(x):
-            return os.path.join(release_dir, x)
-
-        if os.path.isdir(release_dir) and os.path.exists(p("root-image.gz")):
-            # get checksum of cached image
-            with open(p("root-image.gz"), "rb") as fp:
-                checksum = hashlib.sha256(fp.read()).hexdigest()
-        if not os.path.exists(p("root-image.gz")) or \
-                checksum != sstream_data['sha256'] or \
-                not os.path.exists(p("root-image")) or \
-                not os.path.exists(p("root-image-kernel")) or \
-                not os.path.exists(p("root-image-initrd")):
-            # clear dir, download, and extract image
-            logger.debug('Image not found, downloading...')
-            shutil.rmtree(release_dir, ignore_errors=True)
-            os.makedirs(release_dir)
-            subprocess.check_call(
-                ["wget", "-c", sstream_data['item_url'], "-O",
-                 p("root-image.gz")])
-            logger.debug('Converting image format')
-            subprocess.check_call(["tools/maas2roottar", p("root-image.gz")])
-        return (p("root-image"), p("root-image-kernel"),
-                p("root-image-initrd"))
 
 
 class TempDir:

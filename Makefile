@@ -34,5 +34,8 @@ vmtest:
 vmtest-deps:
 	@$(CWD)/tools/vmtest-system-setup
 
+sync-images:
+	@$(CWD)/tools/vmtest-sync-images
+
 
 .PHONY: all test pyflakes pyflakes3 pep8 build
