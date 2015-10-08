@@ -149,7 +149,8 @@ class VMBaseClass:
 
         # set up tempdir
         logger.debug('Setting up tempdir')
-        self.td = TempDir(generate_user_data(collect_scripts=self.collect_scripts))
+        self.td = TempDir(
+            generate_user_data(collect_scripts=self.collect_scripts))
         self.install_log = os.path.join(self.td.tmpdir, 'install-serial.log')
         self.boot_log = os.path.join(self.td.tmpdir, 'boot-serial.log')
 
@@ -371,18 +372,20 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
 
     parts = [{'type': 'text/cloud-config',
               'content': json.dumps(base_cloudconfig, indent=1)}]
-    collect_prep = textwrap.dedent("""
-        mkdir -p OUTPUT_COLLECT_D
-        """)
-    collect_post = textwrap.dedent("""
-        tar -C OUTPUT_COLLECT_D -cf /dev/vdb .
-        """)
+
+    output_dir_macro = 'OUTPUT_COLLECT_D'
+    output_dir = '/mnt/output'
+    output_device = '/dev/vdb'
+
+    collect_prep = textwrap.dedent("mkdir -p " + output_dir)
+    collect_post = textwrap.dedent(
+        'tar -C "%s" -cf "%s" .' % (output_dir, output_device))
+
     scripts = [collect_prep] + collect_scripts + [collect_post]
+
     for part in scripts:
         if not part.startswith("#!"):
             part = "#!/bin/sh\n" + part
-        part = part.replace('OUTPUT_COLLECT_D', '/mnt/output')
+        part = part.replace(output_dir_macro, output_dir)
         parts.append({'content': part, 'type': 'text/x-shellscript'})
-    with open("/tmp/my.file", "w") as fp:
-        fp.write(json.dumps(parts, indent=1))
     return '#cloud-config-archive\n' + json.dumps(parts, indent=1)
