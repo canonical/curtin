@@ -344,6 +344,4 @@ def generate_user_data(collect_scripts=None):
             part = "#!/bin/sh\n" + part
         part = part.replace('OUTPUT_COLLECT_D', '/mnt/output')
         parts.append({'content': part, 'type': 'text/x-shellscript'})
-    with open("/tmp/my.file", "w") as fp:
-        fp.write(json.dumps(parts, indent=1))
     return '#cloud-config-archive\n' + json.dumps(parts, indent=1)
