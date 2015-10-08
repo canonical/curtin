@@ -344,7 +344,10 @@ def get_apt_proxy():
     """)
 
     try:
-        return subprocess.check_output(['sh', '-c', get_apt_config]).rstrip()
+        out = subprocess.check_output(['sh', '-c', get_apt_config])
+        if isinstance(out, bytes):
+            out = out.decode()
+        out = out.rstrip()
     except subprocess.CalledProcessError:
         pass
 
