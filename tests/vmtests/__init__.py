@@ -317,7 +317,30 @@ class VMBaseClass:
         return ret
 
 
-def generate_user_data(collect_scripts=None):
+def get_apt_proxy():
+    # get setting for proxy. should have same result as in tools/launch
+    for name in ('apt_proxy', 'http_proxy'):
+        val = os.environ.get(name)
+        if val is not None:
+            return val
+
+    get_apt_config = textwrap.dedent("""
+        command -v apt-config >/dev/null 2>&1
+        out=$(apt-config shell x Acquire::HTTP::Proxy)
+        out=$(sh -c 'eval $1 && echo $x' -- "$out")
+        [ -n "$out" ]
+        echo "$out"
+    """)
+
+    try:
+        return subprocess.check_output(['sh', '-c', get_apt_config]).rstrip()
+    except subprocess.CalledProcessError:
+        pass
+
+    return None
+
+
+def generate_user_data(collect_scripts=None, apt_proxy=None):
     # this returns the user data for the *booted* system
     # its a cloud-config-archive type, which is
     # just a list of parts.  the 'x-shellscript' parts
@@ -330,6 +353,11 @@ def generate_user_data(collect_scripts=None):
         'chpasswd': {'expire': False},
         'power_state': {'mode': 'poweroff'},
     }
+    if apt_proxy is None:
+        apt_proxy = get_apt_proxy()
+        if apt_proxy:
+            base_cloudconfig['apt_proxy'] = apt_proxy
+
     parts = [{'type': 'text/cloud-config',
               'content': json.dumps(base_cloudconfig, indent=1)}]
     collect_prep = textwrap.dedent("""
