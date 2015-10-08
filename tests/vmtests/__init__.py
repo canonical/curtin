@@ -348,6 +348,7 @@ def get_apt_proxy():
         if isinstance(out, bytes):
             out = out.decode()
         out = out.rstrip()
+        return out
     except subprocess.CalledProcessError:
         pass
 
