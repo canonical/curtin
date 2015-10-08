@@ -24,8 +24,8 @@ Running tests is done most simply by:
 
   make vmtest
 
-If you wish to run a single test, you can run all tests in test_network.py with:
-  sudo PATH=$PWD/tools:$PATH nosetests3 tests/vmtests/test_network.py:WilyTestBasic
+If you wish to all tests in test_network.py, do so with:
+  sudo PATH=$PWD/tools:$PATH nosetests3 tests/vmtests/test_network.py
 
 Or run a single test with:
   sudo PATH=$PWD/tools:$PATH nosetests3 tests/vmtests/test_network.py:WilyTestBasic
