@@ -12,8 +12,6 @@ import curtin.net as curtin_net
 
 from .helpers import check_call
 
-SOURCE_MIRROR_URL=(
-    'http://maas.ubuntu.com/images/ephemeral-v2/daily/streams/v1/index.sjson')
 IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
 
 DEVNULL = open(os.devnull, 'w')
@@ -49,6 +47,11 @@ class ImageStore:
     """Local mirror of MAAS images simplestreams data."""
 
     def __init__(self, base_dir):
+        """Initialize the ImageStore.
+
+        base_dir must be a simplestreams mirror previously synced with
+        sstream-mirror. See tools/vmtest-sync-images.
+        """
         self.base_dir = base_dir
         if not os.path.isdir(self.base_dir):
             os.makedirs(self.base_dir)
@@ -59,26 +62,8 @@ class ImageStore:
         logger.debug('Converting image format')
         subprocess.check_call(["tools/maas2roottar", root_image_path])
 
-    def _sync_images(self, repo, release, arch):
-        """Sync root-image.gz in the local mirror."""
-        #XXX: matsubara repo parameter defines which source url to use...
-        # need to fix that
-        cmd = [
-            'sstream-mirror',
-            '--max=1',
-            '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg',
-            SOURCE_MIRROR_URL,
-            self.base_dir,
-            'release={release} krel={release} arch={arch}'.format(
-                release=release, arch=arch),
-            'item_name=root-image.gz'
-            ]
-        logger.debug('Syncing root-image.gz from {}'.format(SOURCE_MIRROR_URL))
-        logger.debug(" ".join(cmd))
-        subprocess.check_call(cmd)
-
     def get_image(self, repo, release, arch):
-        # Query local sstream mirror for root image.
+        # Query sstream for compressed root image.
         logger.debug(
             'Query simplestreams for root image: '
             'release={release} arch={arch}'.format(release=release, arch=arch))
@@ -87,30 +72,27 @@ class ImageStore:
             '--max=1',
             '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg',
             self.url,
-            'release={release} krel={release} arch={arch}'.format(
-                release=release, arch=arch),
+            'release={}'.format(release),
+            'krel={}'.format(release),
+            'arch={}'.format(arch),
             'item_name=root-image.gz'
             ]
         logger.debug(" ".join(cmd))
-        # If there's no root-image.gz in the local mirror, trigger a sync.
         out = subprocess.check_output(cmd)
-        while not out:
-            self._sync_images(repo, release, arch)
-            out = subprocess.check_output(cmd)
         logger.debug(out)
         sstream_data = ast.literal_eval(bytes.decode(out))
 
-        # Once we have root-image.gz available in the local mirror,
-        # unpack what we need.
-        root_image_path = urllib.parse.urlsplit(sstream_data['item_url']).path
-        self._convert_image(root_image_path)
-        image_dir = os.path.dirname(root_image_path)
-        return (
-            os.path.join(image_dir, 'root-image'),
-            os.path.join(image_dir, 'root-image-kernel'),
-            os.path.join(image_dir, 'root-image-initrd')
-            )
-
+        root_image_gz = urllib.parse.urlsplit(sstream_data['item_url']).path
+        image_dir = os.path.dirname(root_image_gz)
+        root_image_path = os.path.join(image_dir, 'root-image')
+        kernel_path = os.path.join(image_dir, 'root-image-kernel')
+        initrd_path = os.path.join(image_dir, 'root-image-initrd')
+        # Check if we need to unpack things from the compressed image.
+        if (not os.path.exists(root_image_path) or
+            not os.path.exists(kernel_path) or
+            not os.path.exists(initrd_path)):
+            self._convert_image(root_image_gz)
+        return (root_image_path, kernel_path, initrd_path)
 
 
 class TempDir:
