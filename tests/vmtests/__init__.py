@@ -368,10 +368,6 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
         'chpasswd': {'expire': False},
         'power_state': {'mode': 'poweroff'},
     }
-    if apt_proxy is None:
-        apt_proxy = get_apt_proxy()
-        if apt_proxy:
-            base_cloudconfig['apt_proxy'] = apt_proxy
 
     parts = [{'type': 'text/cloud-config',
               'content': json.dumps(base_cloudconfig, indent=1)}]
