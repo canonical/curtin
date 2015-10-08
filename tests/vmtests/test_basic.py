@@ -12,22 +12,14 @@ class TestBasicAbs(VMBaseClass):
     install_timeout = 600
     boot_timeout = 120
     extra_disks = ['128G']
-    user_data = textwrap.dedent("""\
-        #cloud-config
-        password: passw0rd
-        chpasswd: { expire: False }
-        bootcmd:
-          - mkdir /media/output
-        runcmd:
-          - blkid -o export /dev/vda > /media/output/blkid_output_vda
-          - blkid -o export /dev/vda1 > /media/output/blkid_output_vda1
-          - blkid -o export /dev/vda2 > /media/output/blkid_output_vda2
-          - cat /etc/fstab > /media/output/fstab
-          - ls /dev/disk/by-dname/ > /media/output/ls_dname
-          - [tar, -C, /media/output, -cf, /dev/vdb, .]
-        power_state:
-          mode: poweroff
-        """)
+    collect_scripts = [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        blkid -o export /dev/vda > blkid_output_vda
+        blkid -o export /dev/vda1 > blkid_output_vda1
+        blkid -o export /dev/vda2 > blkid_output_vda2
+        cat /etc/fstab > fstab
+        ls /dev/disk/by-dname/ > ls_dname
+        """)]
 
     def test_output_files_exist(self):
         self.output_files_exist(

@@ -2,11 +2,13 @@ import ast
 import datetime
 import hashlib
 import logging
+import json
 import os
 import re
 import shutil
 import subprocess
 import tempfile
+import textwrap
 import curtin.net as curtin_net
 
 from .helpers import check_call
@@ -147,7 +149,8 @@ class VMBaseClass:
 
         # set up tempdir
         logger.debug('Setting up tempdir')
-        self.td = TempDir(self.user_data)
+        self.td = TempDir(
+            generate_user_data(collect_scripts=self.collect_scripts))
         self.install_log = os.path.join(self.td.tmpdir, 'install-serial.log')
         self.boot_log = os.path.join(self.td.tmpdir, 'boot-serial.log')
 
@@ -313,3 +316,37 @@ class VMBaseClass:
             val = line.split('=')
             ret[val[0]] = val[1]
         return ret
+
+
+def generate_user_data(collect_scripts=None):
+    # this returns the user data for the *booted* system
+    # its a cloud-config-archive type, which is
+    # just a list of parts.  the 'x-shellscript' parts
+    # will be executed in the order they're put in
+    if collect_scripts is None:
+        collect_scripts = []
+    parts = []
+    base_cloudconfig = {
+        'password': 'passw0rd',
+        'chpasswd': {'expire': False},
+        'power_state': {'mode': 'poweroff'},
+    }
+    parts = [{'type': 'text/cloud-config',
+              'content': json.dumps(base_cloudconfig, indent=1)}]
+
+    output_dir_macro = 'OUTPUT_COLLECT_D'
+    output_dir = '/mnt/output'
+    output_device = '/dev/vdb'
+
+    collect_prep = textwrap.dedent("mkdir -p " + output_dir)
+    collect_post = textwrap.dedent(
+        'tar -C "%s" -cf "%s" .' % (output_dir, output_device))
+
+    scripts = [collect_prep] + collect_scripts + [collect_post]
+
+    for part in scripts:
+        if not part.startswith("#!"):
+            part = "#!/bin/sh\n" + part
+        part = part.replace(output_dir_macro, output_dir)
+        parts.append({'content': part, 'type': 'text/x-shellscript'})
+    return '#cloud-config-archive\n' + json.dumps(parts, indent=1)

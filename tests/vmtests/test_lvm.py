@@ -12,23 +12,13 @@ class TestMdadmBcacheAbs(VMBaseClass):
     boot_timeout = 100
     interactive = False
     extra_disks = []
-    user_data = textwrap.dedent("""\
-        #cloud-config
-        password: passw0rd
-        chpasswd: { expire: False }
-        bootcmd:
-          - mkdir -p /media/output
-        runcmd:
-          - cat /etc/fstab > /media/output/fstab
-          - ls /dev/disk/by-dname > /media/output/ls_dname
-          - pvdisplay -C --separator = -o vg_name,pv_name --noheadings > \
-                  /media/output/pvs
-          - lvdisplay -C --separator = -o lv_name,vg_name --noheadings > \
-                  /media/output/lvs
-          - [tar, -C, /media/output, -cf, /dev/vdb, .]
-        power_state:
-          mode: poweroff
-        """)
+    collect_scripts = [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        cat /etc/fstab > fstab
+        ls /dev/disk/by-dname > ls_dname
+        pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
+        lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
+        """)]
 
     def test_fstab(self):
         with open(os.path.join(self.td.mnt, "fstab")) as fp:
