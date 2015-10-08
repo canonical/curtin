@@ -188,10 +188,21 @@ class VMBaseClass:
             dpath = os.path.join(self.td.tmpdir, 'extra_disk_%d.img' % disk_no)
             extra_disks.extend(['--disk', '{}:{}'.format(dpath, disk_sz)])
 
+        # proxy config
+        configs = [self.conf_file]
+        proxy = get_apt_proxy()
+        if get_apt_proxy is not None:
+            proxy_config = os.path.join(self.td.tmpdir, 'proxy.cfg')
+            with open(proxy_config, "w") as fp:
+                fp.write(json.dumps({'apt_proxy': proxy}) + "\n")
+            configs.append(proxy_config)
+
         cmd.extend(netdevs + ["--disk", self.td.target_disk] + extra_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "-vv",
-                    "install", "--config=%s" % self.conf_file, "cp:///"])
+                    "install"] +
+                   ["--config=%s" % f for f in configs] +
+                   ["cp:///"])
 
         # run vm with installer
         lout_path = os.path.join(self.td.tmpdir, "launch-install.out")
