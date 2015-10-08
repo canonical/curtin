@@ -64,7 +64,7 @@ class TestBasicAbs(VMBaseClass):
         self.assertIsNotNone(fstab_entry)
         self.assertEqual(fstab_entry.split(' ')[1], "/home")
 
-    def test_proxy_set(self)
+    def test_proxy_set(self):
         expected = get_apt_proxy()
         with open(os.path.join(self.td.mnt, "apt-proxy")) as fp:
             apt_proxy_found = fp.read()
