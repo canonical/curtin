@@ -330,10 +330,9 @@ class VMBaseClass:
 
 def get_apt_proxy():
     # get setting for proxy. should have same result as in tools/launch
-    for name in ('apt_proxy', 'http_proxy'):
-        val = os.environ.get(name)
-        if val is not None:
-            return val
+    apt_proxy = os.environ.get('apt_proxy')
+    if apt_proxy:
+        return apt_proxy
 
     get_apt_config = textwrap.dedent("""
         command -v apt-config >/dev/null 2>&1
