@@ -76,9 +76,6 @@ class TestBasicAbs(VMBaseClass):
             self.assertEqual("", apt_proxy_found)
 
 
-        
-
-
 class WilyTestBasic(TestBasicAbs, TestCase):
     __test__ = True
     repo = "maas-daily"
