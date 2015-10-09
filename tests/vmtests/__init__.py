@@ -189,10 +189,20 @@ class VMBaseClass:
             dpath = os.path.join(self.td.tmpdir, 'extra_disk_%d.img' % disk_no)
             extra_disks.extend(['--disk', '{}:{}'.format(dpath, disk_sz)])
 
+        # proxy config
+        configs = [self.conf_file]
+        proxy = get_apt_proxy()
+        if get_apt_proxy is not None:
+            proxy_config = os.path.join(self.td.tmpdir, 'proxy.cfg')
+            with open(proxy_config, "w") as fp:
+                fp.write(json.dumps({'apt_proxy': proxy}) + "\n")
+            configs.append(proxy_config)
+
         cmd.extend(netdevs + ["--disk", self.td.target_disk] + extra_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
-                    boot_initrd, "--", "curtin", "-vv",
-                    "install", "--config=%s" % self.conf_file, "cp:///"])
+                    boot_initrd, "--", "curtin", "-vv", "install"] +
+                   ["--config=%s" % f for f in configs] +
+                   ["cp:///"])
 
         # run vm with installer
         lout_path = os.path.join(self.td.tmpdir, "launch-install.out")
@@ -318,7 +328,33 @@ class VMBaseClass:
         return ret
 
 
-def generate_user_data(collect_scripts=None):
+def get_apt_proxy():
+    # get setting for proxy. should have same result as in tools/launch
+    apt_proxy = os.environ.get('apt_proxy')
+    if apt_proxy:
+        return apt_proxy
+
+    get_apt_config = textwrap.dedent("""
+        command -v apt-config >/dev/null 2>&1
+        out=$(apt-config shell x Acquire::HTTP::Proxy)
+        out=$(sh -c 'eval $1 && echo $x' -- "$out")
+        [ -n "$out" ]
+        echo "$out"
+    """)
+
+    try:
+        out = subprocess.check_output(['sh', '-c', get_apt_config])
+        if isinstance(out, bytes):
+            out = out.decode()
+        out = out.rstrip()
+        return out
+    except subprocess.CalledProcessError:
+        pass
+
+    return None
+
+
+def generate_user_data(collect_scripts=None, apt_proxy=None):
     # this returns the user data for the *booted* system
     # its a cloud-config-archive type, which is
     # just a list of parts.  the 'x-shellscript' parts
@@ -331,6 +367,7 @@ def generate_user_data(collect_scripts=None):
         'chpasswd': {'expire': False},
         'power_state': {'mode': 'poweroff'},
     }
+
     parts = [{'type': 'text/cloud-config',
               'content': json.dumps(base_cloudconfig, indent=1)}]
 

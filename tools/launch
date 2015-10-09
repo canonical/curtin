@@ -102,7 +102,6 @@ write_userdata() {
 #cloud-config-archive
 - type: text/cloud-config
   content: |
-   #http_proxy: http://my-proxy:3129/
    password: passw0rd
    chpasswd: { expire: False }
    output: {all: '| tee -a /var/log/cloud-init-output.log'}
@@ -182,6 +181,23 @@ start_http() {
     done
     error "failed to start http on service on $ip tried ports: ${tried# }"
     return $ret
+}
+
+find_apt_proxy() {
+    # pick an apt proxy for the guest
+    local out=""
+
+    # if user set uncommon 'apt_proxy', then trust it
+    [ -n "$apt_proxy" ] && echo "$apt_proxy" && return 0
+
+    # see if the host has an apt proxy configured, and use it
+    if command -v apt-config >/dev/null 2>&1; then
+        out=$(apt-config shell x Acquire::HTTP::Proxy) &&
+        out=$(sh -c 'eval $1 && echo $x' -- "$out") && [ -n "$out" ] &&
+        echo "$out" && return
+    fi
+
+    return 1
 }
 
 main() {
@@ -392,6 +408,12 @@ main() {
         printf "#cloud-config\npower_state:\n  mode: %s\n" "$pstate" \
             > "${TEMP_D}/pstate"
         ccfiles[${#ccfiles[@]}]="${TEMP_D}/pstate"
+    fi
+
+    if tmp=$(find_apt_proxy); then
+        debug 1 "using $tmp for proxy"
+        printf '#cloud-config\napt_proxy: "%s"\n' "$tmp" > "${TEMP_D}/cc-proxy"
+        ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-proxy"
     fi
 
     write_metadata > "$mdata" || { error "failed to write meta-data"; return 1; }

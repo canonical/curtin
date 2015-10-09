@@ -1,4 +1,7 @@
-from . import VMBaseClass
+from . import (
+    VMBaseClass,
+    get_apt_proxy)
+
 from unittest import TestCase
 
 import os
@@ -19,6 +22,8 @@ class TestBasicAbs(VMBaseClass):
         blkid -o export /dev/vda2 > blkid_output_vda2
         cat /etc/fstab > fstab
         ls /dev/disk/by-dname/ > ls_dname
+
+        apt-config dump Acquire::HTTP::Proxy > apt-proxy
         """)]
 
     def test_output_files_exist(self):
@@ -58,6 +63,20 @@ class TestBasicAbs(VMBaseClass):
                 break
         self.assertIsNotNone(fstab_entry)
         self.assertEqual(fstab_entry.split(' ')[1], "/home")
+
+    def test_proxy_set(self):
+        expected = get_apt_proxy()
+        with open(os.path.join(self.td.mnt, "apt-proxy")) as fp:
+            apt_proxy_found = fp.read()
+        if expected:
+            # the proxy should have gotten set through
+            self.assertIn(expected, apt_proxy_found)
+        else:
+            # no proxy, so the output of apt-config dump should be empty
+            self.assertEqual("", apt_proxy_found)
+
+
+        
 
 
 class WilyTestBasic(TestBasicAbs, TestCase):
