@@ -27,9 +27,12 @@ class TestLvmAbs(VMBaseClass, TestCase):
         for line in fstab_lines:
             if "/dev/vg1/lv1" in line:
                 fstab_entry = line
-                break
-        self.assertIsNotNone(fstab_entry)
-        self.assertEqual(fstab_entry.split(' ')[1], "/srv/data")
+                self.assertIsNotNone(fstab_entry)
+                self.assertEqual(fstab_entry.split(' ')[1], "/srv/data")
+            if "/dev/vg1/lv2" in line:
+                fstab_entry = line
+                self.assertIsNotNone(fstab_entry)
+                self.assertEqual(fstab_entry.split(' ')[1], "/srv/backup")
 
     def test_lvs(self):
         with open(os.path.join(self.td.mnt, "lvs"), "r") as fp:
