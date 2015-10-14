@@ -5,7 +5,7 @@ import textwrap
 import os
 
 
-class TestMdadmBcacheAbs(VMBaseClass):
+class TestLvmAbs(VMBaseClass):
     __test__ = False
     conf_file = "examples/tests/lvm.yaml"
     install_timeout = 600
@@ -57,14 +57,14 @@ class TestMdadmBcacheAbs(VMBaseClass):
         self.assertIn("vg1-lv2", contents)
 
 
-class WilyTestLvm(TestMdadmBcacheAbs, TestCase):
+class WilyTestLvm(TestLvmAbs, TestCase):
     __test__ = True
     repo = "maas-daily"
     release = "wily"
     arch = "amd64"
 
 
-class VividTestLvm(TestMdadmBcacheAbs, TestCase):
+class VividTestLvm(TestLvmAbs, TestCase):
     __test__ = True
     repo = "maas-daily"
     release = "vivid"
