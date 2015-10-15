@@ -353,6 +353,19 @@ def get_apt_proxy():
 
     return None
 
+    def test_fstab(self):
+        if self.fstab_expected is not None:
+            with open(os.path.join(self.td.mnt, "fstab")) as fp:
+                fstab_lines = fp.readlines()
+            fstab_entry = None
+            for line in fstab_lines:
+                for device, mntpoint in self.fstab_expected.items():
+                        if device in line:
+                            fstab_entry = line
+                            self.assertIsNotNone(fstab_entry)
+                            self.assertEqual(fstab_entry.split(' ')[1], mntpoint)
+
+
 
 def generate_user_data(collect_scripts=None, apt_proxy=None):
     # this returns the user data for the *booted* system

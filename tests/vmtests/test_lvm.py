@@ -5,7 +5,7 @@ import textwrap
 import os
 
 
-class TestLvmAbs(VMBaseClass, TestCase):
+class TestMdadmBcacheAbs(VMBaseClass, TestCase):
     __test__ = False
     conf_file = "examples/tests/lvm.yaml"
     install_timeout = 600
@@ -19,21 +19,11 @@ class TestLvmAbs(VMBaseClass, TestCase):
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
         """)]
-
-    def test_fstab(self):
-        with open(os.path.join(self.td.mnt, "fstab")) as fp:
-            fstab_lines = fp.readlines()
-        fstab_entry = None
-        for line in fstab_lines:
-            if "/dev/vg1/lv1" in line:
-                fstab_entry = line
-                self.assertIsNotNone(fstab_entry)
-                self.assertEqual(fstab_entry.split(' ')[1], "/srv/data")
-            if "/dev/vg1/lv2" in line:
-                fstab_entry = line
-                self.assertIsNotNone(fstab_entry)
-                self.assertEqual(fstab_entry.split(' ')[1], "/srv/backup")
-
+    fstab_expected = {
+        '/dev/vg1/lv1': '/srv/data',
+        '/dev/vg1/lv2': '/srv/backup',
+    }
+    
     def test_lvs(self):
         with open(os.path.join(self.td.mnt, "lvs"), "r") as fp:
             lv_data = list(i.strip() for i in fp.readlines())
@@ -60,14 +50,14 @@ class TestLvmAbs(VMBaseClass, TestCase):
         self.assertIn("vg1-lv2", contents)
 
 
-class WilyTestLvm(TestLvmAbs):
+class WilyTestLvm(TestMdadmBcacheAbs):
     __test__ = True
     repo = "maas-daily"
     release = "wily"
     arch = "amd64"
 
 
-class VividTestLvm(TestLvmAbs):
+class VividTestLvm(TestMdadmBcacheAbs):
     __test__ = True
     repo = "maas-daily"
     release = "vivid"
