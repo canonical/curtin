@@ -5,9 +5,10 @@ import textwrap
 import os
 
 
-class TestMdadmBcacheAbs(VMBaseClass):
+class TestMdadmAbs(VMBaseClass, TestCase):
     __test__ = False
-    conf_file = "examples/tests/mdadm_bcache.yaml"
+    repo = "maas-daily"
+    arch = "amd64"
     install_timeout = 600
     boot_timeout = 100
     interactive = False
@@ -16,39 +17,17 @@ class TestMdadmBcacheAbs(VMBaseClass):
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         mdadm --detail --scan > mdadm_status
-        bcache-super-show /dev/vda6 > bcache_super_vda6
-        ls /sys/fs/bcache > bcache_ls
         ls /dev/disk/by-dname > ls_dname
         """)]
-
-    def test_fstab(self):
-        with open(os.path.join(self.td.mnt, "fstab")) as fp:
-            fstab_lines = fp.readlines()
-        fstab_entry = None
-        for line in fstab_lines:
-            if "/dev/bcache0" in line:
-                fstab_entry = line
-                break
-        self.assertIsNotNone(fstab_entry)
-        self.assertEqual(fstab_entry.split(' ')[1], "/media/data")
 
     def test_mdadm_status(self):
         with open(os.path.join(self.td.mnt, "mdadm_status"), "r") as fp:
             mdadm_status = fp.read()
         self.assertTrue("/dev/md/ubuntu" in mdadm_status)
 
-    def test_output_files_exist(self):
+    def test_mdadm_output_files_exist(self):
         self.output_files_exist(
-            ["fstab", "mdadm_status", "bcache_super_vda6", "bcache_ls"])
-
-    def test_dname(self):
-        with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
-            contents = fp.read().splitlines()
-        for link in list(("main_disk-part%s" % i for i in range(1, 6))):
-            self.assertIn(link, contents)
-        self.assertIn("md0", contents)
-        self.assertIn("cached_array", contents)
-        self.assertIn("main_disk", contents)
+            ["fstab", "mdadm_status", "ls_dname"])
 
     def test_bcache_status(self):
         bcache_cset_uuid = None
@@ -61,15 +40,35 @@ class TestMdadmBcacheAbs(VMBaseClass):
             self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
 
 
-class WilyTestMdadmBcache(TestMdadmBcacheAbs, TestCase):
+class TestMdadmBcacheAbs(TestMdadmAbs):
+    conf_file = "examples/tests/mdadm_bcache.yaml"
+    disk_to_check = {'main_disk': 1,
+                     'main_disk': 2,
+                     'main_disk': 3,
+                     'main_disk': 4,
+                     'main_disk': 5,
+                     'main_disk': 6,
+                     'md0': 0,
+                     'cached_array': 0}
+
+    collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        bcache-super-show /dev/vda6 > bcache_super_vda6
+        ls /sys/fs/bcache > bcache_ls
+        """)]
+    fstab_expected = {
+        '/dev/bcache0': '/media/data'
+    }
+
+    def test_bcache_output_files_exist(self):
+        self.output_files_exist(["bcache_super_vda6", "bcache_ls"])
+
+
+class WilyTestMdadmBcache(TestMdadmBcacheAbs):
     __test__ = True
-    repo = "maas-daily"
     release = "wily"
-    arch = "amd64"
 
 
-class VividTestMdadmBcache(TestMdadmBcacheAbs, TestCase):
+class VividTestMdadmBcache(TestMdadmBcacheAbs):
     __test__ = True
-    repo = "maas-daily"
     release = "vivid"
-    arch = "amd64"
