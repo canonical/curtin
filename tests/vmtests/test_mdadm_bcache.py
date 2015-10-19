@@ -138,3 +138,26 @@ class WilyTestRaid6boot(TestRaid6bootAbs):
 class VividTestRaid6boot(TestRaid6bootAbs):
     __test__ = True
     release = "vivid"
+
+
+class TestRaid10bootAbs(TestMdadmAbs):
+    # alternative config for more complex setup
+    conf_file = "examples/tests/raid10boot.yaml"
+    # initialize secondary disk
+    extra_disks = ['4G', '4G', '4G']
+    disk_to_check = {'main_disk': 1,
+                     'main_disk': 2,
+                     'second_disk': 1,
+                     'third_disk': 1,
+                     'fourth_disk': 1,
+                     'md0': 0}
+
+
+class WilyTestRaid10boot(TestRaid10bootAbs):
+    __test__ = True
+    release = "wily"
+
+
+class VividTestRaid10boot(TestRaid10bootAbs):
+    __test__ = True
+    release = "vivid"
