@@ -363,8 +363,8 @@ def get_apt_proxy():
                         if device in line:
                             fstab_entry = line
                             self.assertIsNotNone(fstab_entry)
-                            self.assertEqual(fstab_entry.split(' ')[1], mntpoint)
-
+                            self.assertEqual(fstab_entry.split(' ')[1],
+                                             mntpoint)
 
 
 def generate_user_data(collect_scripts=None, apt_proxy=None):
