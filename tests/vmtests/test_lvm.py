@@ -25,16 +25,12 @@ class TestMdadmBcacheAbs(VMBaseClass, TestCase):
     }
 
     def test_lvs(self):
-        with open(os.path.join(self.td.mnt, "lvs"), "r") as fp:
-            lv_data = list(i.strip() for i in fp.readlines())
-        self.assertIn("lv1=vg1", lv_data)
-        self.assertIn("lv2=vg1", lv_data)
+        self.check_file_content("lvs", "lv1=vg1")
+        self.check_file_content("lvs", "lv2=vg1")
 
     def test_pvs(self):
-        with open(os.path.join(self.td.mnt, "pvs"), "r") as fp:
-            lv_data = list(i.strip() for i in fp.readlines())
-        self.assertIn("vg1=/dev/vda5", lv_data)
-        self.assertIn("vg1=/dev/vda6", lv_data)
+        self.check_file_content("pvs", "vg1=/dev/vda5")
+        self.check_file_content("pvs", "vg1=/dev/vda6")
 
     def test_output_files_exist(self):
         self.output_files_exist(
