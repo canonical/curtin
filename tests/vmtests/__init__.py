@@ -362,7 +362,8 @@ def get_apt_proxy():
     return None
 
     def test_fstab(self):
-        if self.fstab_expected is not None:
+        if (os.path.exists(self.td.mnt+"fstab")
+                and self.fstab_expected is not None):
             with open(os.path.join(self.td.mnt, "fstab")) as fp:
                 fstab_lines = fp.readlines()
             fstab_entry = None
