@@ -5,9 +5,10 @@ import textwrap
 import os
 
 
-class TestMdadmBcacheAbs(VMBaseClass):
+class TestMdadmAbs(VMBaseClass, TestCase):
     __test__ = False
-    conf_file = "examples/tests/mdadm_bcache.yaml"
+    repo = "maas-daily"
+    arch = "amd64"
     install_timeout = 600
     boot_timeout = 100
     interactive = False
@@ -16,39 +17,41 @@ class TestMdadmBcacheAbs(VMBaseClass):
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         mdadm --detail --scan > mdadm_status
-        bcache-super-show /dev/vda6 > bcache_super_vda6
-        ls /sys/fs/bcache > bcache_ls
         ls /dev/disk/by-dname > ls_dname
         """)]
-
-    def test_fstab(self):
-        with open(os.path.join(self.td.mnt, "fstab")) as fp:
-            fstab_lines = fp.readlines()
-        fstab_entry = None
-        for line in fstab_lines:
-            if "/dev/bcache0" in line:
-                fstab_entry = line
-                break
-        self.assertIsNotNone(fstab_entry)
-        self.assertEqual(fstab_entry.split(' ')[1], "/media/data")
 
     def test_mdadm_status(self):
         with open(os.path.join(self.td.mnt, "mdadm_status"), "r") as fp:
             mdadm_status = fp.read()
         self.assertTrue("/dev/md/ubuntu" in mdadm_status)
 
-    def test_output_files_exist(self):
+    def test_mdadm_output_files_exist(self):
         self.output_files_exist(
-            ["fstab", "mdadm_status", "bcache_super_vda6", "bcache_ls"])
+            ["fstab", "mdadm_status", "ls_dname"])
 
-    def test_dname(self):
-        with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
-            contents = fp.read().splitlines()
-        for link in list(("main_disk-part%s" % i for i in range(1, 6))):
-            self.assertIn(link, contents)
-        self.assertIn("md0", contents)
-        self.assertIn("cached_array", contents)
-        self.assertIn("main_disk", contents)
+
+class TestMdadmBcacheAbs(TestMdadmAbs):
+    conf_file = "examples/tests/mdadm_bcache.yaml"
+    disk_to_check = {'main_disk': 1,
+                     'main_disk': 2,
+                     'main_disk': 3,
+                     'main_disk': 4,
+                     'main_disk': 5,
+                     'main_disk': 6,
+                     'md0': 0,
+                     'cached_array': 0}
+
+    collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        bcache-super-show /dev/vda6 > bcache_super_vda6
+        ls /sys/fs/bcache > bcache_ls
+        """)]
+    fstab_expected = {
+        '/dev/bcache0': '/media/data'
+    }
+
+    def test_bcache_output_files_exist(self):
+        self.output_files_exist(["bcache_super_vda6", "bcache_ls"])
 
     def test_bcache_status(self):
         bcache_cset_uuid = None
@@ -61,15 +64,163 @@ class TestMdadmBcacheAbs(VMBaseClass):
             self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
 
 
-class WilyTestMdadmBcache(TestMdadmBcacheAbs, TestCase):
+class WilyTestMdadmBcache(TestMdadmBcacheAbs):
     __test__ = True
-    repo = "maas-daily"
     release = "wily"
-    arch = "amd64"
 
 
-class VividTestMdadmBcache(TestMdadmBcacheAbs, TestCase):
+class VividTestMdadmBcache(TestMdadmBcacheAbs):
     __test__ = True
-    repo = "maas-daily"
     release = "vivid"
-    arch = "amd64"
+
+
+class TestMirrorbootAbs(TestMdadmAbs):
+    # alternative config for more complex setup
+    conf_file = "examples/tests/mirrorboot.yaml"
+    # initialize secondary disk
+    extra_disks = ['4G']
+    disk_to_check = {'main_disk': 1,
+                     'main_disk': 2,
+                     'second_disk': 1,
+                     'md0': 0}
+
+
+class WilyTestMirrorboot(TestMirrorbootAbs):
+    __test__ = True
+    release = "wily"
+
+
+class VividTestMirrorboot(TestMirrorbootAbs):
+    __test__ = True
+    release = "vivid"
+
+
+class TestRaid5bootAbs(TestMdadmAbs):
+    # alternative config for more complex setup
+    conf_file = "examples/tests/raid5boot.yaml"
+    # initialize secondary disk
+    extra_disks = ['4G', '4G']
+    disk_to_check = {'main_disk': 1,
+                     'main_disk': 2,
+                     'second_disk': 1,
+                     'third_disk': 1,
+                     'md0': 0}
+
+
+class WilyTestRaid5boot(TestRaid5bootAbs):
+    __test__ = True
+    release = "wily"
+
+
+class VividTestRaid5boot(TestRaid5bootAbs):
+    __test__ = True
+    release = "vivid"
+
+
+class TestRaid6bootAbs(TestMdadmAbs):
+    # alternative config for more complex setup
+    conf_file = "examples/tests/raid6boot.yaml"
+    # initialize secondary disk
+    extra_disks = ['4G', '4G', '4G']
+    disk_to_check = {'main_disk': 1,
+                     'main_disk': 2,
+                     'second_disk': 1,
+                     'third_disk': 1,
+                     'fourth_disk': 1,
+                     'md0': 0}
+
+
+class WilyTestRaid6boot(TestRaid6bootAbs):
+    __test__ = True
+    release = "wily"
+
+
+class VividTestRaid6boot(TestRaid6bootAbs):
+    __test__ = True
+    release = "vivid"
+
+
+class TestRaid10bootAbs(TestMdadmAbs):
+    # alternative config for more complex setup
+    conf_file = "examples/tests/raid10boot.yaml"
+    # initialize secondary disk
+    extra_disks = ['4G', '4G', '4G']
+    disk_to_check = {'main_disk': 1,
+                     'main_disk': 2,
+                     'second_disk': 1,
+                     'third_disk': 1,
+                     'fourth_disk': 1,
+                     'md0': 0}
+
+
+class WilyTestRaid10boot(TestRaid10bootAbs):
+    __test__ = True
+    release = "wily"
+
+
+class VividTestRaid10boot(TestRaid10bootAbs):
+    __test__ = True
+    release = "vivid"
+
+
+class TestAllindataAbs(TestMdadmBcacheAbs):
+    # more complex, needs more time
+    install_timeout = 900
+    boot_timeout = 200
+    # alternative config for more complex setup
+    conf_file = "examples/tests/allindata.yaml"
+    # initialize secondary disk
+    extra_disks = ['5G', '5G', '5G']
+    disk_to_check = {'main_disk': 1,
+                     'main_disk': 2,
+                     'main_disk': 3,
+                     'main_disk': 4,
+                     'main_disk': 5,
+                     'second_disk': 1,
+                     'second_disk': 2,
+                     'second_disk': 3,
+                     'second_disk': 4,
+                     'third_disk': 1,
+                     'third_disk': 2,
+                     'third_disk': 3,
+                     'third_disk': 4,
+                     'fourth_disk': 1,
+                     'fourth_disk': 2,
+                     'fourth_disk': 3,
+                     'fourth_disk': 4,
+                     'md0': 0,
+                     'md1': 0,
+                     'md2': 0,
+                     'md3': 0,
+                     'vg1-lv1': 0,
+                     'vg1-lv2': 0}
+    collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
+        lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
+        """)]
+    fstab_expected = {
+        '/dev/vg1/lv1': '/srv/data',
+        '/dev/vg1/lv2': '/srv/backup',
+    }
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["pvs", "lvs"])
+
+    def test_lvs(self):
+        self.check_file_content("lvs", "lv1=vg1")
+        self.check_file_content("lvs", "lv2=vg1")
+
+    def test_pvs(self):
+        self.check_file_content("pvs", "vg1=/dev/vda5")
+        self.check_file_content("pvs", "vg1=/dev/vda6")
+
+
+class WilyTestAllindata(TestAllindataAbs):
+    __test__ = True
+    release = "wily"
+
+
+class VividTestAllindata(TestAllindataAbs):
+    __test__ = True
+    release = "vivid"

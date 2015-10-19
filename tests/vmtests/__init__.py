@@ -139,6 +139,9 @@ class TempDir:
 
 
 class VMBaseClass:
+    disk_to_check = {}
+    fstab_expected = {}
+
     @classmethod
     def setUpClass(self):
         logger.debug('Acquiring boot image')
@@ -316,6 +319,11 @@ class VMBaseClass:
         for f in files:
             self.assertTrue(os.path.exists(os.path.join(self.td.mnt, f)))
 
+    def check_file_content(self, filename, search):
+        with open(os.path.join(self.td.mnt, filename), "r") as fp:
+            data = list(i.strip() for i in fp.readlines())
+        self.assertIn(search, data)
+
     def get_blkid_data(self, blkid_file):
         with open(os.path.join(self.td.mnt, blkid_file)) as fp:
             data = fp.read()
@@ -353,6 +361,31 @@ def get_apt_proxy():
 
     return None
 
+    def test_fstab(self):
+        if (os.path.exists(self.td.mnt+"fstab")
+                and self.fstab_expected is not None):
+            with open(os.path.join(self.td.mnt, "fstab")) as fp:
+                fstab_lines = fp.readlines()
+            fstab_entry = None
+            for line in fstab_lines:
+                for device, mntpoint in self.fstab_expected.items():
+                        if device in line:
+                            fstab_entry = line
+                            self.assertIsNotNone(fstab_entry)
+                            self.assertEqual(fstab_entry.split(' ')[1],
+                                             mntpoint)
+
+    def test_dname(self):
+        if (os.path.exists(self.td.mnt+"ls_dname")
+                and self.disk_to_check is not None):
+            with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
+                contents = fp.read().splitlines()
+            for diskname, part in self.disk_to_check.items():
+                if part is not 0:
+                    link = diskname + "-part" + str(part)
+                    self.assertIn(link, contents)
+                self.assertIn(diskname, contents)
+
 
 def generate_user_data(collect_scripts=None, apt_proxy=None):
     # this returns the user data for the *booted* system
@@ -385,5 +418,6 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
         if not part.startswith("#!"):
             part = "#!/bin/sh\n" + part
         part = part.replace(output_dir_macro, output_dir)
+        logger.debug('Cloud config archive content (pre-json):' + part)
         parts.append({'content': part, 'type': 'text/x-shellscript'})
     return '#cloud-config-archive\n' + json.dumps(parts, indent=1)
