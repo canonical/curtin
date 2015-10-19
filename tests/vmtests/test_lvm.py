@@ -4,9 +4,11 @@ from unittest import TestCase
 import textwrap
 
 
-class TestMdadmBcacheAbs(VMBaseClass, TestCase):
+class TestLvmAbs(VMBaseClass, TestCase):
     __test__ = False
     conf_file = "examples/tests/lvm.yaml"
+    repo = "maas-daily"
+    arch = "amd64"
     install_timeout = 600
     boot_timeout = 100
     interactive = False
@@ -41,15 +43,11 @@ class TestMdadmBcacheAbs(VMBaseClass, TestCase):
             ["fstab", "ls_dname"])
 
 
-class WilyTestLvm(TestMdadmBcacheAbs):
+class WilyTestLvm(TestLvmAbs):
     __test__ = True
-    repo = "maas-daily"
     release = "wily"
-    arch = "amd64"
 
 
-class VividTestLvm(TestMdadmBcacheAbs):
+class VividTestLvm(TestLvmAbs):
     __test__ = True
-    repo = "maas-daily"
     release = "vivid"
-    arch = "amd64"
