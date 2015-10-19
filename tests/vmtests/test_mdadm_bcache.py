@@ -72,3 +72,24 @@ class WilyTestMdadmBcache(TestMdadmBcacheAbs):
 class VividTestMdadmBcache(TestMdadmBcacheAbs):
     __test__ = True
     release = "vivid"
+
+
+class TestMirrorbootAbs(TestMdadmAbs):
+    # alternative config for more complex setup
+    conf_file = "examples/tests/mirrorboot.yaml"
+    # initialize secondary disk
+    extra_disks = ['4G']
+    disk_to_check = {'main_disk': 1,
+                     'main_disk': 2,
+                     'second_disk': 1,
+                     'md0': 0}
+
+
+class WilyTestMirrorboot(TestMirrorbootAbs):
+    __test__ = True
+    release = "wily"
+
+
+class VividTestMirrorboot(TestMirrorbootAbs):
+    __test__ = True
+    release = "vivid"
