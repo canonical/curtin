@@ -161,3 +161,66 @@ class WilyTestRaid10boot(TestRaid10bootAbs):
 class VividTestRaid10boot(TestRaid10bootAbs):
     __test__ = True
     release = "vivid"
+
+
+class TestAllindataAbs(TestMdadmBcacheAbs):
+    # more complex, needs more time
+    install_timeout = 900
+    boot_timeout = 200
+    # alternative config for more complex setup
+    conf_file = "examples/tests/allindata.yaml"
+    # initialize secondary disk
+    extra_disks = ['5G', '5G', '5G']
+    disk_to_check = {'main_disk': 1,
+                     'main_disk': 2,
+                     'main_disk': 3,
+                     'main_disk': 4,
+                     'main_disk': 5,
+                     'second_disk': 1,
+                     'second_disk': 2,
+                     'second_disk': 3,
+                     'second_disk': 4,
+                     'third_disk': 1,
+                     'third_disk': 2,
+                     'third_disk': 3,
+                     'third_disk': 4,
+                     'fourth_disk': 1,
+                     'fourth_disk': 2,
+                     'fourth_disk': 3,
+                     'fourth_disk': 4,
+                     'md0': 0,
+                     'md1': 0,
+                     'md2': 0,
+                     'md3': 0,
+                     'vg1-lv1': 0,
+                     'vg1-lv2': 0}
+    collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
+        lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
+        """)]
+    fstab_expected = {
+        '/dev/vg1/lv1': '/srv/data',
+        '/dev/vg1/lv2': '/srv/backup',
+    }
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["pvs", "lvs"])
+
+    def test_lvs(self):
+        self.check_file_content("lvs", "lv1=vg1")
+        self.check_file_content("lvs", "lv2=vg1")
+
+    def test_pvs(self):
+        self.check_file_content("pvs", "vg1=/dev/vda5")
+        self.check_file_content("pvs", "vg1=/dev/vda6")
+
+
+class WilyTestAllindata(TestAllindataAbs):
+    # __test__ = True
+    release = "wily"
+
+
+class VividTestAllindata(TestAllindataAbs):
+    # __test__ = True
+    release = "vivid"
