@@ -23,7 +23,7 @@ class TestMdadmBcacheAbs(VMBaseClass, TestCase):
         '/dev/vg1/lv1': '/srv/data',
         '/dev/vg1/lv2': '/srv/backup',
     }
-    
+
     def test_lvs(self):
         with open(os.path.join(self.td.mnt, "lvs"), "r") as fp:
             lv_data = list(i.strip() for i in fp.readlines())

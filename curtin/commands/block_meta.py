@@ -36,7 +36,8 @@ SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
 
-CUSTOM_REQUIRED_PACKAGES = ['mdadm', 'lvm2', 'bcache-tools']
+CUSTOM_REQUIRED_PACKAGES = ['mdadm', 'lvm2', 'bcache-tools',
+                            'btrfs-tools', 'xfsprogs']
 
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
