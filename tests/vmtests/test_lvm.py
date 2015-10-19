@@ -2,7 +2,6 @@ from . import VMBaseClass
 from unittest import TestCase
 
 import textwrap
-import os
 
 
 class TestMdadmBcacheAbs(VMBaseClass, TestCase):
@@ -23,6 +22,11 @@ class TestMdadmBcacheAbs(VMBaseClass, TestCase):
         '/dev/vg1/lv1': '/srv/data',
         '/dev/vg1/lv2': '/srv/backup',
     }
+    disk_to_check = {'main_disk': 1,
+                     'main_disk': 5,
+                     'main_disk': 6,
+                     'vg1-lv1': 0,
+                     'vg1-lv2': 0}
 
     def test_lvs(self):
         self.check_file_content("lvs", "lv1=vg1")
@@ -35,15 +39,6 @@ class TestMdadmBcacheAbs(VMBaseClass, TestCase):
     def test_output_files_exist(self):
         self.output_files_exist(
             ["fstab", "ls_dname"])
-
-    def test_dname(self):
-        with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
-            contents = fp.read().splitlines()
-        for link in list(("main_disk-part%s" % i for i in (1, 5, 6))):
-            self.assertIn(link, contents)
-        self.assertIn("main_disk", contents)
-        self.assertIn("vg1-lv1", contents)
-        self.assertIn("vg1-lv2", contents)
 
 
 class WilyTestLvm(TestMdadmBcacheAbs):

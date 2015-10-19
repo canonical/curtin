@@ -139,6 +139,9 @@ class TempDir:
 
 
 class VMBaseClass:
+    disk_to_check = {}
+    fstab_expected = {}
+
     @classmethod
     def setUpClass(self):
         logger.debug('Acquiring boot image')
@@ -370,6 +373,17 @@ def get_apt_proxy():
                             self.assertIsNotNone(fstab_entry)
                             self.assertEqual(fstab_entry.split(' ')[1],
                                              mntpoint)
+
+    def test_dname(self):
+        if (os.path.exists(self.td.mnt+"ls_dname")
+                and self.disk_to_check is not None):
+            with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
+                contents = fp.read().splitlines()
+            for diskname, part in self.disk_to_check.items():
+                if part is not 0:
+                    link = diskname + "-part" + str(part)
+                    self.assertIn(link, contents)
+                self.assertIn(diskname, contents)
 
 
 def generate_user_data(collect_scripts=None, apt_proxy=None):
