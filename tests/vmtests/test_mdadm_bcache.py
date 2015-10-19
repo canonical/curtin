@@ -29,16 +29,6 @@ class TestMdadmAbs(VMBaseClass, TestCase):
         self.output_files_exist(
             ["fstab", "mdadm_status", "ls_dname"])
 
-    def test_bcache_status(self):
-        bcache_cset_uuid = None
-        with open(os.path.join(self.td.mnt, "bcache_super_vda6"), "r") as fp:
-            for line in fp.read().splitlines():
-                if line != "" and line.split()[0] == "cset.uuid":
-                    bcache_cset_uuid = line.split()[-1].rstrip()
-        self.assertIsNotNone(bcache_cset_uuid)
-        with open(os.path.join(self.td.mnt, "bcache_ls"), "r") as fp:
-            self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
-
 
 class TestMdadmBcacheAbs(TestMdadmAbs):
     conf_file = "examples/tests/mdadm_bcache.yaml"
@@ -62,6 +52,16 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
 
     def test_bcache_output_files_exist(self):
         self.output_files_exist(["bcache_super_vda6", "bcache_ls"])
+
+    def test_bcache_status(self):
+        bcache_cset_uuid = None
+        with open(os.path.join(self.td.mnt, "bcache_super_vda6"), "r") as fp:
+            for line in fp.read().splitlines():
+                if line != "" and line.split()[0] == "cset.uuid":
+                    bcache_cset_uuid = line.split()[-1].rstrip()
+        self.assertIsNotNone(bcache_cset_uuid)
+        with open(os.path.join(self.td.mnt, "bcache_ls"), "r") as fp:
+            self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
 
 
 class WilyTestMdadmBcache(TestMdadmBcacheAbs):
@@ -217,10 +217,10 @@ class TestAllindataAbs(TestMdadmBcacheAbs):
 
 
 class WilyTestAllindata(TestAllindataAbs):
-    # __test__ = True
+    __test__ = True
     release = "wily"
 
 
 class VividTestAllindata(TestAllindataAbs):
-    # __test__ = True
+    __test__ = True
     release = "vivid"
