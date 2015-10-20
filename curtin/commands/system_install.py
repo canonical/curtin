@@ -35,7 +35,7 @@ def system_install_pkgs_main(args):
             pkglist=args.packages, target=args.target,
             allow_daemons=args.allow_daemons)
     except util.ProcessExecutionError as e:
-        LOG.warn("system upgrade failed: %s" % e)
+        LOG.warn("system install failed for %s: %s" % (args.packages, e))
         exit_code = e.exit_code
 
     sys.exit(exit_code)
