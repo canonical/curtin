@@ -362,8 +362,8 @@ def get_apt_proxy():
     return None
 
     def test_fstab(self):
-        if (os.path.exists(self.td.mnt+"fstab")
-                and self.fstab_expected is not None):
+        if (os.path.exists(self.td.mnt + "fstab") and
+                self.fstab_expected is not None):
             with open(os.path.join(self.td.mnt, "fstab")) as fp:
                 fstab_lines = fp.readlines()
             fstab_entry = None
@@ -376,8 +376,8 @@ def get_apt_proxy():
                                              mntpoint)
 
     def test_dname(self):
-        if (os.path.exists(self.td.mnt+"ls_dname")
-                and self.disk_to_check is not None):
+        if (os.path.exists(self.td.mnt + "ls_dname") and
+                self.disk_to_check is not None):
             with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
                 contents = fp.read().splitlines()
             for diskname, part in self.disk_to_check.items():
