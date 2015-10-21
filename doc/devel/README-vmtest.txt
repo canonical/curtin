@@ -41,3 +41,8 @@ Note:
   * test will set apt_proxy in the guests to the value of
     'apt_proxy' environment variable.  If that is not set it will 
     look at the host's apt config and read 'Acquire::HTTP::Proxy'
+
+If required for further debugging one can set the environment variable
+"KEEP_VMTEST_DATA" like:
+export KEEP_VMTEST_DATA=true
+This will keep the temporary disk files around by skipping __init__.py:__del__
