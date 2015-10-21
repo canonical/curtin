@@ -169,6 +169,8 @@ class TestAllindataAbs(TestMdadmBcacheAbs):
     boot_timeout = 200
     # alternative config for more complex setup
     conf_file = "examples/tests/allindata.yaml"
+    # we have to avoid a systemd hang due to the way it handles dmcrypt
+    extra_kern_args = "luks=no"
     # initialize secondary disk
     extra_disks = ['5G', '5G', '5G']
     disk_to_check = {'main_disk': 1,
