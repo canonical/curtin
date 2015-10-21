@@ -201,7 +201,7 @@ class TestAllindataAbs(TestMdadmBcacheAbs):
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
         cat /etc/crypttab > crypttab
-        yes "testkey" | cryptsetup open /dev/md0 dmcrypt0 --type luks
+        yes "testkey" | cryptsetup open /dev/vg1/lv3 dmcrypt0 --type luks
         ls -laF /dev/mapper/dmcrypt0 | echo wrong > mapper
         mkdir -p /tmp/xfstest
         mount /dev/mapper/dmcrypt0 /tmp/xfstest
@@ -219,10 +219,13 @@ class TestAllindataAbs(TestMdadmBcacheAbs):
     def test_lvs(self):
         self.check_file_content("lvs", "lv1=vg1")
         self.check_file_content("lvs", "lv2=vg1")
+        self.check_file_content("lvs", "lv3=vg1")
 
     def test_pvs(self):
-        self.check_file_content("pvs", "vg1=/dev/vda5")
-        self.check_file_content("pvs", "vg1=/dev/vda6")
+        self.check_file_content("pvs", "vg1=/dev/md0")
+        self.check_file_content("pvs", "vg1=/dev/md1")
+        self.check_file_content("pvs", "vg1=/dev/md2")
+        self.check_file_content("pvs", "vg1=/dev/md3")
 
     def test_dmcrypt(self):
         self.check_file_content("crypttab", "dmcrypt0")
