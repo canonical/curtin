@@ -198,6 +198,12 @@ class TestAllindataAbs(TestMdadmBcacheAbs):
         cd OUTPUT_COLLECT_D
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
+        cat /etc/crypttab > crypttab
+        yes "testkey" | cryptsetup open /dev/md0 dmcrypt0 --type luks
+        ls -laF /dev/mapper/dmcrypt0 | echo wrong > mapper
+        mkdir -p /tmp/xfstest
+        mount /dev/mapper/dmcrypt0 /tmp/xfstest
+        xfs_info /tmp/xfstest/ > xfsinfo
         """)]
     fstab_expected = {
         '/dev/vg1/lv1': '/srv/data',
@@ -205,7 +211,8 @@ class TestAllindataAbs(TestMdadmBcacheAbs):
     }
 
     def test_output_files_exist(self):
-        self.output_files_exist(["pvs", "lvs"])
+        self.output_files_exist(["pvs", "lvs", "crypttab", "mapper",
+                                 "xfsinfo"])
 
     def test_lvs(self):
         self.check_file_content("lvs", "lv1=vg1")
@@ -214,6 +221,12 @@ class TestAllindataAbs(TestMdadmBcacheAbs):
     def test_pvs(self):
         self.check_file_content("pvs", "vg1=/dev/vda5")
         self.check_file_content("pvs", "vg1=/dev/vda6")
+
+    def test_dmcrypt(self):
+        self.check_file_content("crypttab", "dmcrypt0")
+        self.check_file_content("crypttab", "luks")
+        self.check_file_content("mapper", "dmcrypt0: symbolic link")
+        self.check_file_content("xfsinfo", "meta-data")
 
 
 class WilyTestAllindata(TestAllindataAbs):
