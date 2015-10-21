@@ -136,11 +136,7 @@ class TempDir:
     def __del__(self):
         if (os.environ.get('KEEP_VMTEST_DATA') is not None):
             # remove tempdir
-            logger.debug('deleting tmp files')
             shutil.rmtree(self.tmpdir)
-        else:
-            logger.debug('Found Environment Variable KEEP_VMTEST_DATA')
-            logger.debug('not deleting tmp files')
 
 
 class VMBaseClass:
