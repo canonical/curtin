@@ -31,7 +31,11 @@ storage:
        device: sda
      - id: sda5
        type: partition
-       size: 3GB
+       size: 2GB
+       device: sda
+     - id: sda6
+       type: partition
+       size: 500MB
        device: sda
      - id: sdb
        type: disk
@@ -159,9 +163,14 @@ storage:
        name: lv3
        type: lvm_partition
        volgroup: volgroup1
+     - id: bcache0
+       type: bcache
+       name: cached_array
+       backing_device: lvmpart3
+       cache_device: sda5
      - id: dmcrypt0
        type: dm_crypt
-       volume: lvmpart3
+       volume: bcache0
        key: testkey
        dm_name: dmcrypt0
      - id: lv1_fs
@@ -174,7 +183,7 @@ storage:
        type: format
        fstype: ext4
        volume: lvmpart2
-     - id: dmc_fs
+     - id: dmcrypt_fs
        name: storage
        type: format
        fstype: xfs
