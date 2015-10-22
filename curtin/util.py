@@ -375,6 +375,71 @@ def which(program, search=None, target=None):
     return None
 
 
+class OptimizedAptUpdate(object):
+    """OptimizedAptUpdate(target)
+
+    Optimize target for optimized 'apt-get update'.
+    This will disable translation and deb-src entries and then restore
+    the previous behavior on exit.
+    """
+    notrans_f = "/etc/apt/apt.conf.d/99notranslations"
+
+    def __init__(self, target=None):
+        if target is None:
+            target = "/"
+        self.deletes = None
+        self.renames = None
+        self.target = target
+
+    def __enter__(self):
+        self.deletes = []
+        self.renames = []
+
+        if not os.path.isfile(self.notrans_f):
+            with open(self.notrans_f, "w") as fp:
+                fp.write('Acquire::Languages "none";\n')
+            self.deletes.append(self.notrans_f)
+
+        listfiles = glob.glob(
+            os.path.join(self.target, "/etc/apt/sources.list"))
+        listfiles += glob.glob(
+            os.path.join(self.target, "/etc/apt/sources.list.d/*.list"))
+        for sfile in listfiles:
+            with open(sfile, "r") as fp:
+                contents = fp.read()
+            startswith = contents.startswith("deb-src")
+            if not startswith and "\ndeb-src" not in contents:
+                continue
+
+            bkfile = sfile + ".with-sources"
+            with open(bkfile, "w") as fp:
+                fp.write(contents)
+            self.renames.append((bkfile, sfile,))
+
+            with open(sfile, "w") as fp:
+                if startswith:
+                    fp.write("# ")
+                fp.write(contents.replace("\ndeb-src", "\n# deb-src"))
+
+        transfiles = glob.glob(
+            os.path.join(self.target, "/var/lib/apt/lists/*Translation*"))
+        for tfile in transfiles:
+            if os.path.isfile(tfile):
+                os.rename(tfile, tfile + ".disabled")
+                self.renames.append((tfile + ".disabled", tfile,))
+
+        return self
+
+    def __exit__(self, etype, value, trace):
+        for delfile in self.deletes:
+            if os.path.exists(delfile):
+                os.unlink(delfile)
+
+        for r_from, r_to in self.renames:
+            if os.path.exists(r_from):
+                os.rename(r_from, r_to)
+
+
 def get_paths(curtin_exe=None, lib=None, helpers=None):
     # return a dictionary with paths for 'curtin_exe', 'helpers' and 'lib'
     # that represent where 'curtin' executable lives, where the 'curtin' module
@@ -480,10 +545,11 @@ def apt_update(target=None, env=None, force=False, comment=None,
         if len(find_newer(marker, listfiles)) == 0:
             return
 
-    # we're not using 'run_apt_command' so we can use 'retries' to subp
-    apt_update = ['apt-get', 'update', '--quiet']
-    with RunInChroot(target, allow_daemons=True) as inchroot:
-        inchroot(apt_update, env=env, retries=retries)
+    with OptimizedAptUpdate(target):
+        # we're not using 'run_apt_command' so we can use 'retries' to subp
+        apt_update = ['apt-get', 'update', '--quiet']
+        with RunInChroot(target, allow_daemons=True) as inchroot:
+            inchroot(apt_update, env=env, retries=retries)
 
     with open(marker, "w") as fp:
         fp.write(comment + "\n")
