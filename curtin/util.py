@@ -415,10 +415,6 @@ class OptimizedAptUpdate(object):
         return self
 
     def __exit__(self, etype, value, trace):
-        for delfile in self.deletes:
-            if os.path.exists(delfile):
-                os.unlink(delfile)
-
         for r_from, r_to in self.renames:
             if os.path.exists(r_from):
                 os.rename(r_from, r_to)
