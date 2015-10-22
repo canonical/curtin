@@ -163,7 +163,7 @@ class VividTestRaid10boot(TestRaid10bootAbs):
     release = "vivid"
 
 
-class TestAllindataAbs(TestMdadmBcacheAbs):
+class TestAllindataAbs(TestMdadmAbs):
     # more complex, needs more time
     install_timeout = 900
     boot_timeout = 200

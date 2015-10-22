@@ -31,11 +31,7 @@ storage:
        device: sda
      - id: sda5
        type: partition
-       size: 2500MB
-       device: sda
-     - id: sda6
-       type: partition
-       size: 500MB
+       size: 3GB
        device: sda
      - id: sdb
        type: disk
@@ -163,14 +159,9 @@ storage:
        name: lv3
        type: lvm_partition
        volgroup: volgroup1
-     - id: bcache0
-       type: bcache
-       name: cached_array
-       backing_device: lvmpart3
-       cache_device: sda6
      - id: dmcrypt0
        type: dm_crypt
-       volume: bcache0
+       volume: lvmpart3
        key: testkey
        dm_name: dmcrypt0
      - id: lv1_fs
