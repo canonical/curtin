@@ -167,7 +167,7 @@ class VMBaseClass:
         cmd.extend(["--serial-log=" + self.install_log])
 
         if self.extra_kern_args:
-            cmd.extend(["--append=\""+self.extra_kern_args+"\""])
+            cmd.extend(["--append="+self.extra_kern_args])
 
         # check for network configuration
         self.network_state = curtin_net.parse_net_config(self.conf_file)
