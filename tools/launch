@@ -218,7 +218,7 @@ main() {
     local pubs="" disks="" pstate="null"
     local uefi=0
     local netdevs=""
-    local video="-curses" serial_log="file:serial.log"
+    local video="-curses -vga std" serial_log="file:serial.log"
     # dowait: run xkvm with a '&' and then 'wait' on the pid.
     #  the reason to do this or not do this has to do with interactivity
     #  if detached with &, then user input will not go to xkvm.
