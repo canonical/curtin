@@ -379,26 +379,17 @@ class OptimizedAptUpdate(object):
     """OptimizedAptUpdate(target)
 
     Optimize target for optimized 'apt-get update'.
-    This will disable translation and deb-src entries and then restore
-    the previous behavior on exit.
+    This will disable deb-src entries and then restore
+    the previous behavior on __exit__.
     """
-    notrans_f = "/etc/apt/apt.conf.d/99notranslations"
-
     def __init__(self, target=None):
         if target is None:
             target = "/"
-        self.deletes = None
         self.renames = None
         self.target = target
 
     def __enter__(self):
-        self.deletes = []
         self.renames = []
-
-        if not os.path.isfile(self.notrans_f):
-            with open(self.notrans_f, "w") as fp:
-                fp.write('Acquire::Languages "none";\n')
-            self.deletes.append(self.notrans_f)
 
         listfiles = glob.glob(
             os.path.join(self.target, "/etc/apt/sources.list"))
@@ -420,13 +411,6 @@ class OptimizedAptUpdate(object):
                 if startswith:
                     fp.write("# ")
                 fp.write(contents.replace("\ndeb-src", "\n# deb-src"))
-
-        transfiles = glob.glob(
-            os.path.join(self.target, "/var/lib/apt/lists/*Translation*"))
-        for tfile in transfiles:
-            if os.path.isfile(tfile):
-                os.rename(tfile, tfile + ".disabled")
-                self.renames.append((tfile + ".disabled", tfile,))
 
         return self
 
@@ -547,7 +531,8 @@ def apt_update(target=None, env=None, force=False, comment=None,
 
     with OptimizedAptUpdate(target):
         # we're not using 'run_apt_command' so we can use 'retries' to subp
-        apt_update = ['apt-get', 'update', '--quiet']
+        apt_update = ['apt-get', '--option=Acquire::Languages=none',
+                      'update', '--quiet']
         with RunInChroot(target, allow_daemons=True) as inchroot:
             inchroot(apt_update, env=env, retries=retries)
 
