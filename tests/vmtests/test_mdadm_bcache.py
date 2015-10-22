@@ -13,21 +13,26 @@ class TestMdadmAbs(VMBaseClass, TestCase):
     boot_timeout = 100
     interactive = False
     extra_disks = []
+    active_mdadm = "1"
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         mdadm --detail --scan > mdadm_status
+        mdadm --detail --scan | grep ubuntu | wc -l > mdadm_active1
+        cat /proc/mdstat | grep active | wc -l > mdadm_active2
         ls /dev/disk/by-dname > ls_dname
         """)]
 
-    def test_mdadm_status(self):
-        with open(os.path.join(self.td.mnt, "mdadm_status"), "r") as fp:
-            mdadm_status = fp.read()
-        self.assertTrue("/dev/md/ubuntu" in mdadm_status)
-
     def test_mdadm_output_files_exist(self):
         self.output_files_exist(
-            ["fstab", "mdadm_status", "ls_dname"])
+            ["fstab", "mdadm_status", "mdadm_active1", "mdadm_active2",
+             "ls_dname"])
+
+    def test_mdadm_status(self):
+        # ubuntu is the default name assigned to the md array
+        self.check_file_regex("mdadm_status", "ubuntu")
+        self.check_file_strippedline("mdadm_active1", self.active_mdadm)
+        self.check_file_strippedline("mdadm_active2", self.active_mdadm)
 
 
 class TestMdadmBcacheAbs(TestMdadmAbs):
@@ -171,6 +176,7 @@ class TestAllindataAbs(TestMdadmAbs):
     conf_file = "examples/tests/allindata.yaml"
     # we have to avoid a systemd hang due to the way it handles dmcrypt
     extra_kern_args = "--- luks=no"
+    active_mdadm = "4"
     # initialize secondary disk
     extra_disks = ['5G', '5G', '5G']
     disk_to_check = {'main_disk': 1,
@@ -202,7 +208,7 @@ class TestAllindataAbs(TestMdadmAbs):
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
         cat /etc/crypttab > crypttab
         yes "testkey" | cryptsetup open /dev/vg1/lv3 dmcrypt0 --type luks
-        ls -laF /dev/mapper/dmcrypt0 | echo wrong > mapper
+        ls -laF /dev/mapper/dmcrypt0 > mapper
         mkdir -p /tmp/xfstest
         mount /dev/mapper/dmcrypt0 /tmp/xfstest
         xfs_info /tmp/xfstest/ > xfsinfo
@@ -217,21 +223,22 @@ class TestAllindataAbs(TestMdadmAbs):
                                  "xfsinfo"])
 
     def test_lvs(self):
-        self.check_file_content("lvs", "lv1=vg1")
-        self.check_file_content("lvs", "lv2=vg1")
-        self.check_file_content("lvs", "lv3=vg1")
+        self.check_file_strippedline("lvs", "lv1=vg1")
+        self.check_file_strippedline("lvs", "lv2=vg1")
+        self.check_file_strippedline("lvs", "lv3=vg1")
 
     def test_pvs(self):
-        self.check_file_content("pvs", "vg1=/dev/md0")
-        self.check_file_content("pvs", "vg1=/dev/md1")
-        self.check_file_content("pvs", "vg1=/dev/md2")
-        self.check_file_content("pvs", "vg1=/dev/md3")
+        self.check_file_strippedline("pvs", "vg1=/dev/md0")
+        self.check_file_strippedline("pvs", "vg1=/dev/md1")
+        self.check_file_strippedline("pvs", "vg1=/dev/md2")
+        self.check_file_strippedline("pvs", "vg1=/dev/md3")
 
     def test_dmcrypt(self):
-        self.check_file_content("crypttab", "dmcrypt0")
-        self.check_file_content("crypttab", "luks")
-        self.check_file_content("mapper", "dmcrypt0: symbolic link")
-        self.check_file_content("xfsinfo", "meta-data")
+        self.check_file_regex("crypttab", "dmcrypt0.*luks")
+        self.check_file_regex("mapper",
+                              "^lrwxrwxrwx.*/dev/mapper/dmcrypt0")
+        self.check_file_regex("xfsinfo",
+                              "^meta-data=/dev/mapper/dmcrypt0")
 
 
 class WilyTestAllindata(TestAllindataAbs):

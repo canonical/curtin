@@ -324,10 +324,15 @@ class VMBaseClass:
         for f in files:
             self.assertTrue(os.path.exists(os.path.join(self.td.mnt, f)))
 
-    def check_file_content(self, filename, search):
+    def check_file_strippedline(self, filename, search):
         with open(os.path.join(self.td.mnt, filename), "r") as fp:
             data = list(i.strip() for i in fp.readlines())
         self.assertIn(search, data)
+
+    def check_file_regex(self, filename, regex):
+        with open(os.path.join(self.td.mnt, filename), "r") as fp:
+            data = fp.read()
+        self.assertRegex(data, regex)
 
     def get_blkid_data(self, blkid_file):
         with open(os.path.join(self.td.mnt, blkid_file)) as fp:

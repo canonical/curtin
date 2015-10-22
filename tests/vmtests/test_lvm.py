@@ -31,12 +31,12 @@ class TestLvmAbs(VMBaseClass, TestCase):
                      'vg1-lv2': 0}
 
     def test_lvs(self):
-        self.check_file_content("lvs", "lv1=vg1")
-        self.check_file_content("lvs", "lv2=vg1")
+        self.check_file_strippedline("lvs", "lv1=vg1")
+        self.check_file_strippedline("lvs", "lv2=vg1")
 
     def test_pvs(self):
-        self.check_file_content("pvs", "vg1=/dev/vda5")
-        self.check_file_content("pvs", "vg1=/dev/vda6")
+        self.check_file_strippedline("pvs", "vg1=/dev/vda5")
+        self.check_file_strippedline("pvs", "vg1=/dev/vda6")
 
     def test_output_files_exist(self):
         self.output_files_exist(
