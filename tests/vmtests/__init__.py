@@ -134,7 +134,7 @@ class TempDir:
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
     def __del__(self):
-        if (os.getenv('KEEP_VMTEST_DATA',"false") == "true"):
+        if (os.getenv('KEEP_VMTEST_DATA', "false") == "true"):
             # remove tempdir
             shutil.rmtree(self.tmpdir)
 
