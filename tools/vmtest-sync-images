@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eux
 # This tool keeps a local copy of the maas images used by vmtests.
 # It keeps only the latest copy of the available images.
 

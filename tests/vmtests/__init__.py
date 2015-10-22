@@ -140,9 +140,9 @@ class TempDir:
         subprocess.check_call(['tar', '-C', self.mnt, '-xf', self.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
-    def __del__(self):
-        # remove tempdir
-        shutil.rmtree(self.tmpdir)
+#    def __del__(self):
+#        # remove tempdir
+#        shutil.rmtree(self.tmpdir)
 
 
 class VMBaseClass:
@@ -211,13 +211,13 @@ class VMBaseClass:
         except subprocess.TimeoutExpired:
             logger.debug('Curtin installer failed')
             raise
-        finally:
-            if os.path.exists(self.install_log):
-                with open(self.install_log, 'r', encoding='utf-8') as l:
-                    logger.debug(
-                        u'Serial console output:\n{}'.format(l.read()))
-            else:
-                logger.warn("Did not have a serial log file from launch.")
+        #finally:
+        #    if os.path.exists(self.install_log):
+        #        with open(self.install_log, 'r', encoding='utf-8') as l:
+        #            logger.debug(
+        #                u'Serial console output:\n{}'.format(l.read()))
+        #    else:
+        #        logger.warn("Did not have a serial log file from launch.")
 
         logger.debug('')
         if os.path.exists(self.install_log):
@@ -259,11 +259,11 @@ class VMBaseClass:
         except subprocess.TimeoutExpired:
             logger.debug('Booting after install failed')
             raise
-        finally:
-            if os.path.exists(self.boot_log):
-                with open(self.boot_log, 'r', encoding='utf-8') as l:
-                    logger.debug(
-                        u'Serial console output:\n{}'.format(l.read()))
+        #finally:
+        #    if os.path.exists(self.boot_log):
+        #        with open(self.boot_log, 'r', encoding='utf-8') as l:
+        #            logger.debug(
+        #                u'Serial console output:\n{}'.format(l.read()))
 
         # mount output disk
         self.td.mount_output_disk()

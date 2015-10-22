@@ -9,7 +9,7 @@ class TestBasicAbs(VMBaseClass):
     __test__ = False
     interactive = False
     conf_file = "examples/tests/basic.yaml"
-    install_timeout = 600
+    install_timeout = 900
     boot_timeout = 120
     extra_disks = ['128G']
     user_data = textwrap.dedent("""\
