@@ -375,51 +375,6 @@ def which(program, search=None, target=None):
     return None
 
 
-class OptimizedAptUpdate(object):
-    """OptimizedAptUpdate(target)
-
-    Optimize target for optimized 'apt-get update'.
-    This will disable deb-src entries and then restore
-    the previous behavior on __exit__.
-    """
-    def __init__(self, target=None):
-        if target is None:
-            target = "/"
-        self.renames = None
-        self.target = target
-
-    def __enter__(self):
-        self.renames = []
-
-        listfiles = glob.glob(
-            os.path.join(self.target, "/etc/apt/sources.list"))
-        listfiles += glob.glob(
-            os.path.join(self.target, "/etc/apt/sources.list.d/*.list"))
-        for sfile in listfiles:
-            with open(sfile, "r") as fp:
-                contents = fp.read()
-            startswith = contents.startswith("deb-src")
-            if not startswith and "\ndeb-src" not in contents:
-                continue
-
-            bkfile = sfile + ".with-sources"
-            with open(bkfile, "w") as fp:
-                fp.write(contents)
-            self.renames.append((bkfile, sfile,))
-
-            with open(sfile, "w") as fp:
-                if startswith:
-                    fp.write("# ")
-                fp.write(contents.replace("\ndeb-src", "\n# deb-src"))
-
-        return self
-
-    def __exit__(self, etype, value, trace):
-        for r_from, r_to in self.renames:
-            if os.path.exists(r_from):
-                os.rename(r_from, r_to)
-
-
 def get_paths(curtin_exe=None, lib=None, helpers=None):
     # return a dictionary with paths for 'curtin_exe', 'helpers' and 'lib'
     # that represent where 'curtin' executable lives, where the 'curtin' module
@@ -525,12 +480,44 @@ def apt_update(target=None, env=None, force=False, comment=None,
         if len(find_newer(marker, listfiles)) == 0:
             return
 
-    with OptimizedAptUpdate(target):
+    abs_tmpdir = tempfile.mkdtemp(dir=os.path.join(target, 'tmp'))
+    try:
+        abs_slist = abs_tmpdir + "/sources.list"
+        abs_slistd = abs_tmpdir + "/sources.list.d"
+
+        ch_tmpdir = "/tmp/" + os.path.basename(abs_tmpdir)
+        ch_slist = ch_tmpdir + "/sources.list"
+        ch_slistd = ch_tmpdir + "/sources.list.d"
+
+        os.mkdir(abs_slistd)
+        listfiles = glob.glob(
+            os.path.join(target, "/etc/apt/sources.list"))
+        listfiles += glob.glob(
+            os.path.join(target, "/etc/apt/sources.list.d/*.list"))
+
+        # we create tmpdir/sources.list with all lines bug deb-src
+        with open(abs_slist, "w") as sfp:
+            for sfile in listfiles:
+                with open(sfile, "r") as fp:
+                    contents = fp.read()
+                for line in contents.splitlines():
+                    line = line.lstrip()
+                    if not line.startswith("deb-src"):
+                        sfp.write(line + "\n")
+
         # we're not using 'run_apt_command' so we can use 'retries' to subp
-        apt_update = ['apt-get', '--option=Acquire::Languages=none',
-                      'update', '--quiet']
+        update_cmd = [
+            'apt-get',
+             '--option=Acquire::Languages=none',
+             '--option=Dir::Etc::sourcelist=%s' % ch_slist,
+             '--option=Dir::Etc::sourceparts=%s' % ch_slistd,
+             'update']
         with RunInChroot(target, allow_daemons=True) as inchroot:
-            inchroot(apt_update, env=env, retries=retries)
+            print("update_cmd: %s" % ' '.join(update_cmd))
+            inchroot(update_cmd, env=env, retries=retries)
+    finally:
+        if abs_tmpdir:
+            shutil.rmtree(abs_tmpdir)
 
     with open(marker, "w") as fp:
         fp.write(comment + "\n")
