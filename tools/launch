@@ -30,7 +30,9 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
       -n | --netdev     netdev can be 'user' or a bridge
       -p | --publish F  make file 'F' available in web server
            --silent     use -nographic
-           --vnc        use -vnc 127.0.0.0:1 (mutually exclusive with --silent)
+           --vnc D      use -vnc 127.0.0.1:D (mutually exclusive with --silent)
+                        to export display D on port 5900+D
+                        In case of collitions 127.0.X.1 is used
            --serial-log F  : log to F (default 'serial.log')
       -v | --verbose    be more verbose
 
@@ -203,7 +205,7 @@ find_apt_proxy() {
 
 main() {
     local short_opts="a:d:h:i:k:n:p:v"
-    local long_opts="add:,append:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi,verbose,vnc"
+    local long_opts="add:,append:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -258,7 +260,20 @@ main() {
             -p|--publish) pubs[${#pub[@]}]="$next"; shift;;
                --uefi) uefi=1;;
                --silent) video="-nographic";;
-               --vnc) video="-vnc 127.0.0.1:1";;
+               --vnc)
+                    port="$next"
+                    finalport=$((5900+port))
+                    echo "VNC requested - final vnc port will be ${finalport}"
+                    for((neti=0;neti<4;neti++)); do
+                        if ! nc -z 127.0.${neti}.1 ${finalport}; then
+                            video="-vnc 127.0.${neti}.1:${port}"
+                            break
+                        else
+                            echo "VNC skipping 127.0.${neti}.1:${finalport} (collision)"
+                        fi  
+                    done
+                    echo "VNC Parm ${video}"
+                    shift;;
                --serial-log) serial_log="file:$next"; shift;;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
                --dowait) pt[${#pt[@]}]="$cur"; dowait=true;;
