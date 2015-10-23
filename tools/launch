@@ -203,7 +203,7 @@ find_apt_proxy() {
 
 main() {
     local short_opts="a:d:h:i:k:n:p:v"
-    local long_opts="add:,append:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,vnc,serial-log:,uefi,verbose"
+    local long_opts="add:,append:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi,verbose,vnc"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
