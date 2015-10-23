@@ -335,6 +335,31 @@ class VMBaseClass:
             ret[val[0]] = val[1]
         return ret
 
+    def test_fstab(self):
+        if (os.path.exists(self.td.mnt+"fstab")
+                and self.fstab_expected is not None):
+            with open(os.path.join(self.td.mnt, "fstab")) as fp:
+                fstab_lines = fp.readlines()
+            fstab_entry = None
+            for line in fstab_lines:
+                for device, mntpoint in self.fstab_expected.items():
+                        if device in line:
+                            fstab_entry = line
+                            self.assertIsNotNone(fstab_entry)
+                            self.assertEqual(fstab_entry.split(' ')[1],
+                                             mntpoint)
+
+    def test_dname(self):
+        if (os.path.exists(self.td.mnt+"ls_dname")
+                and self.disk_to_check is not None):
+            with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
+                contents = fp.read().splitlines()
+            for diskname, part in self.disk_to_check.items():
+                if part is not 0:
+                    link = diskname + "-part" + str(part)
+                    self.assertIn(link, contents)
+                self.assertIn(diskname, contents)
+
 
 def get_apt_proxy():
     # get setting for proxy. should have same result as in tools/launch
@@ -360,31 +385,6 @@ def get_apt_proxy():
         pass
 
     return None
-
-    def test_fstab(self):
-        if (os.path.exists(self.td.mnt+"fstab")
-                and self.fstab_expected is not None):
-            with open(os.path.join(self.td.mnt, "fstab")) as fp:
-                fstab_lines = fp.readlines()
-            fstab_entry = None
-            for line in fstab_lines:
-                for device, mntpoint in self.fstab_expected.items():
-                        if device in line:
-                            fstab_entry = line
-                            self.assertIsNotNone(fstab_entry)
-                            self.assertEqual(fstab_entry.split(' ')[1],
-                                             mntpoint)
-
-    def test_dname(self):
-        if (os.path.exists(self.td.mnt+"ls_dname")
-                and self.disk_to_check is not None):
-            with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
-                contents = fp.read().splitlines()
-            for diskname, part in self.disk_to_check.items():
-                if part is not 0:
-                    link = diskname + "-part" + str(part)
-                    self.assertIn(link, contents)
-                self.assertIn(diskname, contents)
 
 
 def generate_user_data(collect_scripts=None, apt_proxy=None):
