@@ -1,6 +1,12 @@
-#!/usr/bin/python
-import SimpleHTTPServer
-import SocketServer
+#!/usr/bin/python3
+try:
+    # python2
+    import SimpleHTTPServer as http_server
+    import SocketServer as socketserver
+except ImportError:
+    import http.server as http_server
+    import socketserver
+
 import json
 import sys
 
@@ -12,7 +18,16 @@ reporting:
     endpoint: %(endpoint)s
 install:
   log_file: /tmp/foo
-  post_files: [/tmp/foo]"""
+  post_files: [/tmp/foo]
+
+# example python:
+from curtin.reporter import events, update_configuration
+cfg = {'mypost': {'type': 'webhook', 'endpoint': '%(endpoint)s'}}
+update_configuration(cfg)
+with events.ReportEventStack(name="myname", description="mydesc",
+                             reporting_enabled=True):
+    print("do something")
+"""
 
 if len(sys.argv) > 2:
     PORT = int(sys.argv[2])
@@ -29,7 +44,7 @@ def render_event_string(event_str):
     return json.dumps(json.loads(event_str), indent=1)
 
 
-class ServerHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+class ServerHandler(http_server.SimpleHTTPRequestHandler):
 
     def log_request(self, code, size=None):
         lines = [
@@ -55,13 +70,17 @@ class ServerHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             self._message = '\n'.join(
 		["failed printing event: %s" % e, post_data])
 
-        self.send_response(200, "received post to %s" % self.path)
+        msg = "received post to %s" % self.path
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(msg.encode('utf-8'))
 
 # avoid 'Address already in use' after ctrl-c
-SocketServer.TCPServer.allow_reuse_address = True
+socketserver.TCPServer.allow_reuse_address = True
 
 Handler = ServerHandler
-httpd = SocketServer.TCPServer(("", PORT), Handler)
+httpd = socketserver.TCPServer(("", PORT), Handler)
 httpd.allow_reuse_address = True
 
 info = {

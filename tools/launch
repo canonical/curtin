@@ -185,13 +185,10 @@ start_http() {
 
 find_apt_proxy() {
     # pick an apt proxy for the guest
-    local out="" proxy=""
+    local out=""
 
     # if user set uncommon 'apt_proxy', then trust it
     [ -n "$apt_proxy" ] && echo "$apt_proxy" && return 0
-
-    # if http_proxy is set in the environment and non-empty respect it
-    [ -n "$http_proxy" ] && echo "$http_proxy" && return 0
 
     # see if the host has an apt proxy configured, and use it
     if command -v apt-config >/dev/null 2>&1; then

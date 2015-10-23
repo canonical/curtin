@@ -409,6 +409,8 @@ def cmd_install(args):
 
     apply_power_state(cfg.get('power_state'))
 
+    sys.exit(0)
+
 
 # we explicitly accept config on install for backwards compatibility
 CMD_ARGUMENTS = (

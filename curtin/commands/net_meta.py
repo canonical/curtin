@@ -148,6 +148,8 @@ def net_meta(args):
         with open(args.output, "w") as fp:
             fp.write(content)
 
+    sys.exit(0)
+
 
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),

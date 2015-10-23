@@ -24,8 +24,8 @@ Running tests is done most simply by:
 
   make vmtest
 
-If you wish to run a single test, you can run all tests in test_network.py with:
-  sudo PATH=$PWD/tools:$PATH nosetests3 tests/vmtests/test_network.py:WilyTestBasic
+If you wish to all tests in test_network.py, do so with:
+  sudo PATH=$PWD/tools:$PATH nosetests3 tests/vmtests/test_network.py
 
 Or run a single test with:
   sudo PATH=$PWD/tools:$PATH nosetests3 tests/vmtests/test_network.py:WilyTestBasic
@@ -38,3 +38,6 @@ Note:
     The tests themselves don't actually have to run as root, but the
     test setup does.
   * the 'tools' directory must be in your path.
+  * test will set apt_proxy in the guests to the value of
+    'apt_proxy' environment variable.  If that is not set it will 
+    look at the host's apt config and read 'Acquire::HTTP::Proxy'

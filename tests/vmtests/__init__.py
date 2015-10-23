@@ -1,12 +1,14 @@
 import ast
 import datetime
 import logging
+import json
 import os
 import pathlib
 import re
 import shutil
 import subprocess
 import tempfile
+import textwrap
 import urllib
 import curtin.net as curtin_net
 
@@ -146,6 +148,9 @@ class TempDir:
 
 
 class VMBaseClass:
+    disk_to_check = {}
+    fstab_expected = {}
+
     @classmethod
     def setUpClass(self):
         logger.debug('Acquiring boot image')
@@ -156,7 +161,8 @@ class VMBaseClass:
 
         # set up tempdir
         logger.debug('Setting up tempdir')
-        self.td = TempDir(self.user_data)
+        self.td = TempDir(
+            generate_user_data(collect_scripts=self.collect_scripts))
         self.install_log = os.path.join(self.td.tmpdir, 'install-serial.log')
         self.boot_log = os.path.join(self.td.tmpdir, 'boot-serial.log')
 
@@ -195,10 +201,20 @@ class VMBaseClass:
             dpath = os.path.join(self.td.tmpdir, 'extra_disk_%d.img' % disk_no)
             extra_disks.extend(['--disk', '{}:{}'.format(dpath, disk_sz)])
 
+        # proxy config
+        configs = [self.conf_file]
+        proxy = get_apt_proxy()
+        if get_apt_proxy is not None:
+            proxy_config = os.path.join(self.td.tmpdir, 'proxy.cfg')
+            with open(proxy_config, "w") as fp:
+                fp.write(json.dumps({'apt_proxy': proxy}) + "\n")
+            configs.append(proxy_config)
+
         cmd.extend(netdevs + ["--disk", self.td.target_disk] + extra_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
-                    boot_initrd, "--", "curtin", "-vv",
-                    "install", "--config=%s" % self.conf_file, "cp:///"])
+                    boot_initrd, "--", "curtin", "-vv", "install"] +
+                   ["--config=%s" % f for f in configs] +
+                   ["cp:///"])
 
         # run vm with installer
         lout_path = os.path.join(self.td.tmpdir, "launch-install.out")
@@ -312,6 +328,11 @@ class VMBaseClass:
         for f in files:
             self.assertTrue(os.path.exists(os.path.join(self.td.mnt, f)))
 
+    def check_file_content(self, filename, search):
+        with open(os.path.join(self.td.mnt, filename), "r") as fp:
+            data = list(i.strip() for i in fp.readlines())
+        self.assertIn(search, data)
+
     def get_blkid_data(self, blkid_file):
         with open(os.path.join(self.td.mnt, blkid_file)) as fp:
             data = fp.read()
@@ -322,3 +343,90 @@ class VMBaseClass:
             val = line.split('=')
             ret[val[0]] = val[1]
         return ret
+
+
+def get_apt_proxy():
+    # get setting for proxy. should have same result as in tools/launch
+    apt_proxy = os.environ.get('apt_proxy')
+    if apt_proxy:
+        return apt_proxy
+
+    get_apt_config = textwrap.dedent("""
+        command -v apt-config >/dev/null 2>&1
+        out=$(apt-config shell x Acquire::HTTP::Proxy)
+        out=$(sh -c 'eval $1 && echo $x' -- "$out")
+        [ -n "$out" ]
+        echo "$out"
+    """)
+
+    try:
+        out = subprocess.check_output(['sh', '-c', get_apt_config])
+        if isinstance(out, bytes):
+            out = out.decode()
+        out = out.rstrip()
+        return out
+    except subprocess.CalledProcessError:
+        pass
+
+    return None
+
+    def test_fstab(self):
+        if (os.path.exists(self.td.mnt+"fstab")
+                and self.fstab_expected is not None):
+            with open(os.path.join(self.td.mnt, "fstab")) as fp:
+                fstab_lines = fp.readlines()
+            fstab_entry = None
+            for line in fstab_lines:
+                for device, mntpoint in self.fstab_expected.items():
+                        if device in line:
+                            fstab_entry = line
+                            self.assertIsNotNone(fstab_entry)
+                            self.assertEqual(fstab_entry.split(' ')[1],
+                                             mntpoint)
+
+    def test_dname(self):
+        if (os.path.exists(self.td.mnt+"ls_dname")
+                and self.disk_to_check is not None):
+            with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
+                contents = fp.read().splitlines()
+            for diskname, part in self.disk_to_check.items():
+                if part is not 0:
+                    link = diskname + "-part" + str(part)
+                    self.assertIn(link, contents)
+                self.assertIn(diskname, contents)
+
+
+def generate_user_data(collect_scripts=None, apt_proxy=None):
+    # this returns the user data for the *booted* system
+    # its a cloud-config-archive type, which is
+    # just a list of parts.  the 'x-shellscript' parts
+    # will be executed in the order they're put in
+    if collect_scripts is None:
+        collect_scripts = []
+    parts = []
+    base_cloudconfig = {
+        'password': 'passw0rd',
+        'chpasswd': {'expire': False},
+        'power_state': {'mode': 'poweroff'},
+    }
+
+    parts = [{'type': 'text/cloud-config',
+              'content': json.dumps(base_cloudconfig, indent=1)}]
+
+    output_dir_macro = 'OUTPUT_COLLECT_D'
+    output_dir = '/mnt/output'
+    output_device = '/dev/vdb'
+
+    collect_prep = textwrap.dedent("mkdir -p " + output_dir)
+    collect_post = textwrap.dedent(
+        'tar -C "%s" -cf "%s" .' % (output_dir, output_device))
+
+    scripts = [collect_prep] + collect_scripts + [collect_post]
+
+    for part in scripts:
+        if not part.startswith("#!"):
+            part = "#!/bin/sh\n" + part
+        part = part.replace(output_dir_macro, output_dir)
+        logger.debug('Cloud config archive content (pre-json):' + part)
+        parts.append({'content': part, 'type': 'text/x-shellscript'})
+    return '#cloud-config-archive\n' + json.dumps(parts, indent=1)
