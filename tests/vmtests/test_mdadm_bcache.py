@@ -18,8 +18,8 @@ class TestMdadmAbs(VMBaseClass, TestCase):
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         mdadm --detail --scan > mdadm_status
-        mdadm --detail --scan | grep ubuntu | wc -l > mdadm_active1
-        cat /proc/mdstat | grep active | wc -l > mdadm_active2
+        mdadm --detail --scan | grep -c ubuntu > mdadm_active1
+        grep -c active /proc/mdstat > mdadm_active2
         ls /dev/disk/by-dname > ls_dname
         """)]
 
