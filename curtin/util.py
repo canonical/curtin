@@ -484,18 +484,18 @@ def apt_update(target=None, env=None, force=False, comment=None,
     try:
         abs_slist = abs_tmpdir + "/sources.list"
         abs_slistd = abs_tmpdir + "/sources.list.d"
-
         ch_tmpdir = "/tmp/" + os.path.basename(abs_tmpdir)
         ch_slist = ch_tmpdir + "/sources.list"
         ch_slistd = ch_tmpdir + "/sources.list.d"
 
-        os.mkdir(abs_slistd)
         listfiles = glob.glob(
             os.path.join(target, "/etc/apt/sources.list"))
         listfiles += glob.glob(
             os.path.join(target, "/etc/apt/sources.list.d/*.list"))
 
-        # we create tmpdir/sources.list with all lines bug deb-src
+        # create tmpdir/sources.list with all lines other than deb-src
+        # avoid apt complaining by using existing and empty dir for sourceparts
+        os.mkdir(abs_slistd)
         with open(abs_slist, "w") as sfp:
             for sfile in listfiles:
                 with open(sfile, "r") as fp:
@@ -505,15 +505,15 @@ def apt_update(target=None, env=None, force=False, comment=None,
                     if not line.startswith("deb-src"):
                         sfp.write(line + "\n")
 
-        # we're not using 'run_apt_command' so we can use 'retries' to subp
         update_cmd = [
-            'apt-get',
-             '--option=Acquire::Languages=none',
-             '--option=Dir::Etc::sourcelist=%s' % ch_slist,
-             '--option=Dir::Etc::sourceparts=%s' % ch_slistd,
-             'update']
+            'apt-get', '--quiet',
+            '--option=Acquire::Languages=none',
+            '--option=Dir::Etc::sourcelist=%s' % ch_slist,
+            '--option=Dir::Etc::sourceparts=%s' % ch_slistd,
+            'update']
+
+        # do not using 'run_apt_command' so we can use 'retries' to subp
         with RunInChroot(target, allow_daemons=True) as inchroot:
-            print("update_cmd: %s" % ' '.join(update_cmd))
             inchroot(update_cmd, env=env, retries=retries)
     finally:
         if abs_tmpdir:
