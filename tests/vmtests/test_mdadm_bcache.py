@@ -30,7 +30,7 @@ class TestMdadmAbs(VMBaseClass, TestCase):
 
     def test_mdadm_status(self):
         # ubuntu:<ID> is the name assigned to the md array
-        self.check_file_regex("mdadm_status", "ubuntu:[0-9]*")
+        self.check_file_regex("mdadm_status", r"ubuntu:[0-9]*")
         self.check_file_strippedline("mdadm_active1", self.active_mdadm)
         self.check_file_strippedline("mdadm_active2", self.active_mdadm)
 
@@ -144,7 +144,7 @@ class TestRaid6bootAbs(TestMdadmAbs):
 
     def test_mdadm_custom_name(self):
         # the raid6boot.yaml sets this name, check if it was set
-        self.check_file_regex("mdadm_detail", "ubuntu:foobar")
+        self.check_file_regex("mdadm_detail", r"ubuntu:foobar")
 
 
 class WilyTestRaid6boot(TestRaid6bootAbs):
@@ -246,11 +246,9 @@ class TestAllindataAbs(TestMdadmAbs):
         self.check_file_strippedline("pvs", "vg1=/dev/md3")
 
     def test_dmcrypt(self):
-        self.check_file_regex("crypttab", "dmcrypt0.*luks")
-        self.check_file_regex("mapper",
-                              "^lrwxrwxrwx.*/dev/mapper/dmcrypt0")
-        self.check_file_regex("xfs_info",
-                              "^meta-data=/dev/mapper/dmcrypt0")
+        self.check_file_regex("crypttab", r"dmcrypt0.*luks")
+        self.check_file_regex("mapper", r"^lrwxrwxrwx.*/dev/mapper/dmcrypt0")
+        self.check_file_regex("xfs_info", r"^meta-data=/dev/mapper/dmcrypt0")
 
 
 class WilyTestAllindata(TestAllindataAbs):
