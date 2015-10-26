@@ -30,9 +30,9 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
       -n | --netdev     netdev can be 'user' or a bridge
       -p | --publish F  make file 'F' available in web server
            --silent     use -nographic
-           --vnc D      use -vnc 127.0.0.1:D (mutually exclusive with --silent)
-                        to export display D on port 5900+D
-                        In case of collitions 127.0.X.1 is used
+           --vnc D      use -vnc D (mutually exclusive with --silent)
+                        directly through to qemu-system.
+                        Note, qemu adds 5900 to port numbers. (:0 = port 5900)
            --serial-log F  : log to F (default 'serial.log')
       -v | --verbose    be more verbose
 
@@ -261,19 +261,8 @@ main() {
                --uefi) uefi=1;;
                --silent) video="-nographic";;
                --vnc)
-                    port="$next"
-                    finalport=$((5900+port))
-                    echo "VNC requested - final vnc port will be ${finalport}"
-                    local neti=0
-                    for((neti=0;neti<4;neti++)); do
-                        if ! nc -z 127.0.${neti}.1 ${finalport}; then
-                            video="-vnc 127.0.${neti}.1:${port}"
-                            break
-                        else
-                            echo "VNC skipping 127.0.${neti}.1:${finalport} (collision)"
-                        fi  
-                    done
-                    echo "VNC Parm ${video}"
+                    video="-vnc $next"
+                    debug 1 "VNC requested - $next"
                     shift;;
                --serial-log) serial_log="file:$next"; shift;;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
