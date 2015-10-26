@@ -7,17 +7,16 @@ The general flow of the vmtests is:
  2. uses curtin-pack to create the user-data for cloud-init to trigger install
  3. create and install a system using 'tools/launch'.
     3.1 The install environment is booted from a maas ephemeral image.
-    3.2 kernel & initrd are provided by maas as well (not part of the image)
+    3.2 kernel & initrd used are from maas images (not part of the image)
     3.3 network by default is handled via user networking
     3.4 It creates all empty disks required
-    3.5 cloud-init is provided by launch
+    3.5 cloud-init datasource is provided by launch
       a) like: ds=nocloud-net;seedfrom=http://10.7.0.41:41518/
          provided by python webserver start_http
       b) via -drive file=/tmp/launch.8VOiOn/seed.img,if=virtio,media=cdrom
          as a seed disk (if booted without external kernel)
-    3.6 dependencies and other preparations are installed by cloud-init
-        commands inside the ephemeral image prior to calling curtin
-    3.7 eventually calls curtin to process the config for installation
+    3.6 dependencies and other preparations are installed at the beginning by
+        curtin inside the ephemeral image prior to configuring the target
  4. power off the system.
  5. configure a 'NoCloud' datasource seed image that provides scripts that
     will run on first boot.
@@ -38,7 +37,7 @@ At 3.1
   - one can pull data out of the maas image with
     sudo mount-image-callback your.img -- sh -c 'COMMAND'
     e.g. sudo mount-image-callback your.img -- sh -c 'cp $MOUNTPOINT/boot/* .'
-At step 3.7 -> 4.
+At step 3.6 -> 4.
   - tools/launch can be called in a way to give you console access
     to do so just call tools/launch but drop the -serial=x parameter.
     One might want to change "'power_state': {'mode': 'poweroff'}" to avoid
@@ -59,10 +58,8 @@ At step 6 -> 7
     further execution.
 At step 7
   - You might want to take a look at the output disk yourself.
-    It is a normal qcow image, so do:
-      modprobe nbd max_part=20
-      qemu-nbd -c /dev/nbd0 /tmp/yourtmpdir/image.img
-      mount /dev/nbd0p<YOURPARTITION> /mnt/<YOURMOUNTPOINT>
+    It is a normal qcow image, so one can use mount-image-callback as described
+    above
   - to invoke xkvm on your own take the command you see in the output and
     remove the "-serial ..." but add -nographic instead
     For graphical console one can add --vnc 127.0.0.1:1
