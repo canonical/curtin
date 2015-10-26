@@ -29,7 +29,10 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
            --mem    K   memory in Kb
       -n | --netdev     netdev can be 'user' or a bridge
       -p | --publish F  make file 'F' available in web server
-           --silent     use -vga none
+           --silent     use -nographic
+           --vnc D      use -vnc D (mutually exclusive with --silent)
+                        directly through to qemu-system.
+                        Note, qemu adds 5900 to port numbers. (:0 = port 5900)
            --serial-log F  : log to F (default 'serial.log')
       -v | --verbose    be more verbose
 
@@ -202,7 +205,7 @@ find_apt_proxy() {
 
 main() {
     local short_opts="a:d:h:i:k:n:p:v"
-    local long_opts="add:,append:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi,verbose"
+    local long_opts="add:,append:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -217,7 +220,7 @@ main() {
     local pubs="" disks="" pstate="null"
     local uefi=0
     local netdevs=""
-    local video="-curses" serial_log="file:serial.log"
+    local video="-curses -vga std" serial_log="file:serial.log"
     # dowait: run xkvm with a '&' and then 'wait' on the pid.
     #  the reason to do this or not do this has to do with interactivity
     #  if detached with &, then user input will not go to xkvm.
@@ -257,6 +260,10 @@ main() {
             -p|--publish) pubs[${#pub[@]}]="$next"; shift;;
                --uefi) uefi=1;;
                --silent) video="-nographic";;
+               --vnc)
+                    video="-vnc $next"
+                    debug 1 "VNC requested - $next"
+                    shift;;
                --serial-log) serial_log="file:$next"; shift;;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
                --dowait) pt[${#pt[@]}]="$cur"; dowait=true;;
