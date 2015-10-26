@@ -473,10 +473,11 @@ def apt_update(target=None, env=None, force=False, comment=None,
 
     marker = os.path.join(target, marker)
     # if marker exists, check if there are files that would make it obsolete
+    listfiles = [os.path.join(target, "etc/apt/sources.list")]
+    listfiles += glob.glob(
+        os.path.join(target, "etc/apt/sources.list.d/*.list"))
+
     if os.path.exists(marker) and not force:
-        listfiles = [os.path.join(target, "/etc/apt/sources.list")]
-        listfiles += glob.glob(
-            os.path.join(target, "/etc/apt/sources.list.d/*.list"))
         if len(find_newer(marker, listfiles)) == 0:
             return
 
@@ -487,11 +488,6 @@ def apt_update(target=None, env=None, force=False, comment=None,
         ch_tmpdir = "/tmp/" + os.path.basename(abs_tmpdir)
         ch_slist = ch_tmpdir + "/sources.list"
         ch_slistd = ch_tmpdir + "/sources.list.d"
-
-        listfiles = glob.glob(
-            os.path.join(target, "/etc/apt/sources.list"))
-        listfiles += glob.glob(
-            os.path.join(target, "/etc/apt/sources.list.d/*.list"))
 
         # create tmpdir/sources.list with all lines other than deb-src
         # avoid apt complaining by using existing and empty dir for sourceparts
