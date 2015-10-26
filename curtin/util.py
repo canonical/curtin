@@ -473,17 +473,47 @@ def apt_update(target=None, env=None, force=False, comment=None,
 
     marker = os.path.join(target, marker)
     # if marker exists, check if there are files that would make it obsolete
+    listfiles = [os.path.join(target, "etc/apt/sources.list")]
+    listfiles += glob.glob(
+        os.path.join(target, "etc/apt/sources.list.d/*.list"))
+
     if os.path.exists(marker) and not force:
-        listfiles = [os.path.join(target, "/etc/apt/sources.list")]
-        listfiles += glob.glob(
-            os.path.join(target, "/etc/apt/sources.list.d/*.list"))
         if len(find_newer(marker, listfiles)) == 0:
             return
 
-    # we're not using 'run_apt_command' so we can use 'retries' to subp
-    apt_update = ['apt-get', 'update', '--quiet']
-    with RunInChroot(target, allow_daemons=True) as inchroot:
-        inchroot(apt_update, env=env, retries=retries)
+    abs_tmpdir = tempfile.mkdtemp(dir=os.path.join(target, 'tmp'))
+    try:
+        abs_slist = abs_tmpdir + "/sources.list"
+        abs_slistd = abs_tmpdir + "/sources.list.d"
+        ch_tmpdir = "/tmp/" + os.path.basename(abs_tmpdir)
+        ch_slist = ch_tmpdir + "/sources.list"
+        ch_slistd = ch_tmpdir + "/sources.list.d"
+
+        # create tmpdir/sources.list with all lines other than deb-src
+        # avoid apt complaining by using existing and empty dir for sourceparts
+        os.mkdir(abs_slistd)
+        with open(abs_slist, "w") as sfp:
+            for sfile in listfiles:
+                with open(sfile, "r") as fp:
+                    contents = fp.read()
+                for line in contents.splitlines():
+                    line = line.lstrip()
+                    if not line.startswith("deb-src"):
+                        sfp.write(line + "\n")
+
+        update_cmd = [
+            'apt-get', '--quiet',
+            '--option=Acquire::Languages=none',
+            '--option=Dir::Etc::sourcelist=%s' % ch_slist,
+            '--option=Dir::Etc::sourceparts=%s' % ch_slistd,
+            'update']
+
+        # do not using 'run_apt_command' so we can use 'retries' to subp
+        with RunInChroot(target, allow_daemons=True) as inchroot:
+            inchroot(update_cmd, env=env, retries=retries)
+    finally:
+        if abs_tmpdir:
+            shutil.rmtree(abs_tmpdir)
 
     with open(marker, "w") as fp:
         fp.write(comment + "\n")
