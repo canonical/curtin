@@ -264,6 +264,7 @@ main() {
                     port="$next"
                     finalport=$((5900+port))
                     echo "VNC requested - final vnc port will be ${finalport}"
+                    local neti=0
                     for((neti=0;neti<4;neti++)); do
                         if ! nc -z 127.0.${neti}.1 ${finalport}; then
                             video="-vnc 127.0.${neti}.1:${port}"
