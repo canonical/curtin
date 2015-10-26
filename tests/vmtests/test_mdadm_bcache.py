@@ -223,7 +223,7 @@ class TestAllindataAbs(TestMdadmAbs):
         ls -laF /dev/mapper/dmcrypt0 > mapper
         mkdir -p /tmp/xfstest
         mount /dev/mapper/dmcrypt0 /tmp/xfstest
-        xfs_info /tmp/xfstest/ > xfsinfo
+        xfs_info /tmp/xfstest/ > xfs_info
         """)]
     fstab_expected = {
         '/dev/vg1/lv1': '/srv/data',
@@ -232,7 +232,7 @@ class TestAllindataAbs(TestMdadmAbs):
 
     def test_output_files_exist(self):
         self.output_files_exist(["pvs", "lvs", "crypttab", "mapper",
-                                 "xfsinfo"])
+                                 "xfs_info"])
 
     def test_lvs(self):
         self.check_file_strippedline("lvs", "lv1=vg1")
@@ -249,7 +249,7 @@ class TestAllindataAbs(TestMdadmAbs):
         self.check_file_regex("crypttab", "dmcrypt0.*luks")
         self.check_file_regex("mapper",
                               "^lrwxrwxrwx.*/dev/mapper/dmcrypt0")
-        self.check_file_regex("xfsinfo",
+        self.check_file_regex("xfs_info",
                               "^meta-data=/dev/mapper/dmcrypt0")
 
 
