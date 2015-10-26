@@ -133,6 +133,18 @@ class TestRaid6bootAbs(TestMdadmAbs):
                      'third_disk': 1,
                      'fourth_disk': 1,
                      'md0': 0}
+    collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        mdadm --detail --scan > mdadm_detail
+        """)]
+
+    def test_raid6_output_files_exist(self):
+        self.output_files_exist(
+            ["mdadm_detail"])
+
+    def test_mdadm_custom_name(self):
+        # the raid6boot.yaml sets this name, check if it was set
+        self.check_file_regex("mdadm_detail", "ubuntu:foobar")
 
 
 class WilyTestRaid6boot(TestRaid6bootAbs):

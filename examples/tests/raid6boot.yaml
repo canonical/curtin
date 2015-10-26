@@ -49,6 +49,7 @@ storage:
        device: sdd
      - id: mddevice
        name: md0
+       mdname: foobar
        type: raid
        raidlevel: 6
        devices:
