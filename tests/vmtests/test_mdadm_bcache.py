@@ -29,8 +29,8 @@ class TestMdadmAbs(VMBaseClass, TestCase):
              "ls_dname"])
 
     def test_mdadm_status(self):
-        # ubuntu is the default name assigned to the md array
-        self.check_file_regex("mdadm_status", "ubuntu")
+        # ubuntu:<ID> is the name assigned to the md array
+        self.check_file_regex("mdadm_status", "ubuntu:[0-9]*")
         self.check_file_strippedline("mdadm_active1", self.active_mdadm)
         self.check_file_strippedline("mdadm_active2", self.active_mdadm)
 
