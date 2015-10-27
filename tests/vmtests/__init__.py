@@ -142,9 +142,9 @@ class TempDir:
         subprocess.check_call(['tar', '-C', self.mnt, '-xf', self.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
-#    def __del__(self):
-#        # remove tempdir
-#        shutil.rmtree(self.tmpdir)
+    def __del__(self):
+        # remove tempdir
+        shutil.rmtree(self.tmpdir)
 
 
 class VMBaseClass:
