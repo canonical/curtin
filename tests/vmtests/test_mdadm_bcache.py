@@ -13,21 +13,26 @@ class TestMdadmAbs(VMBaseClass, TestCase):
     boot_timeout = 100
     interactive = False
     extra_disks = []
+    active_mdadm = "1"
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         mdadm --detail --scan > mdadm_status
+        mdadm --detail --scan | grep -c ubuntu > mdadm_active1
+        grep -c active /proc/mdstat > mdadm_active2
         ls /dev/disk/by-dname > ls_dname
         """)]
 
-    def test_mdadm_status(self):
-        with open(os.path.join(self.td.mnt, "mdadm_status"), "r") as fp:
-            mdadm_status = fp.read()
-        self.assertTrue("/dev/md/ubuntu" in mdadm_status)
-
     def test_mdadm_output_files_exist(self):
         self.output_files_exist(
-            ["fstab", "mdadm_status", "ls_dname"])
+            ["fstab", "mdadm_status", "mdadm_active1", "mdadm_active2",
+             "ls_dname"])
+
+    def test_mdadm_status(self):
+        # ubuntu:<ID> is the name assigned to the md array
+        self.check_file_regex("mdadm_status", r"ubuntu:[0-9]*")
+        self.check_file_strippedline("mdadm_active1", self.active_mdadm)
+        self.check_file_strippedline("mdadm_active2", self.active_mdadm)
 
 
 class TestMdadmBcacheAbs(TestMdadmAbs):
@@ -128,6 +133,18 @@ class TestRaid6bootAbs(TestMdadmAbs):
                      'third_disk': 1,
                      'fourth_disk': 1,
                      'md0': 0}
+    collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        mdadm --detail --scan > mdadm_detail
+        """)]
+
+    def test_raid6_output_files_exist(self):
+        self.output_files_exist(
+            ["mdadm_detail"])
+
+    def test_mdadm_custom_name(self):
+        # the raid6boot.yaml sets this name, check if it was set
+        self.check_file_regex("mdadm_detail", r"ubuntu:foobar")
 
 
 class WilyTestRaid6boot(TestRaid6bootAbs):
@@ -163,12 +180,15 @@ class VividTestRaid10boot(TestRaid10bootAbs):
     release = "vivid"
 
 
-class TestAllindataAbs(TestMdadmBcacheAbs):
+class TestAllindataAbs(TestMdadmAbs):
     # more complex, needs more time
     install_timeout = 900
     boot_timeout = 200
     # alternative config for more complex setup
     conf_file = "examples/tests/allindata.yaml"
+    # we have to avoid a systemd hang due to the way it handles dmcrypt
+    extra_kern_args = "--- luks=no"
+    active_mdadm = "4"
     # initialize secondary disk
     extra_disks = ['5G', '5G', '5G']
     disk_to_check = {'main_disk': 1,
@@ -198,6 +218,12 @@ class TestAllindataAbs(TestMdadmBcacheAbs):
         cd OUTPUT_COLLECT_D
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
+        cat /etc/crypttab > crypttab
+        yes "testkey" | cryptsetup open /dev/vg1/lv3 dmcrypt0 --type luks
+        ls -laF /dev/mapper/dmcrypt0 > mapper
+        mkdir -p /tmp/xfstest
+        mount /dev/mapper/dmcrypt0 /tmp/xfstest
+        xfs_info /tmp/xfstest/ > xfs_info
         """)]
     fstab_expected = {
         '/dev/vg1/lv1': '/srv/data',
@@ -205,15 +231,24 @@ class TestAllindataAbs(TestMdadmBcacheAbs):
     }
 
     def test_output_files_exist(self):
-        self.output_files_exist(["pvs", "lvs"])
+        self.output_files_exist(["pvs", "lvs", "crypttab", "mapper",
+                                 "xfs_info"])
 
     def test_lvs(self):
-        self.check_file_content("lvs", "lv1=vg1")
-        self.check_file_content("lvs", "lv2=vg1")
+        self.check_file_strippedline("lvs", "lv1=vg1")
+        self.check_file_strippedline("lvs", "lv2=vg1")
+        self.check_file_strippedline("lvs", "lv3=vg1")
 
     def test_pvs(self):
-        self.check_file_content("pvs", "vg1=/dev/vda5")
-        self.check_file_content("pvs", "vg1=/dev/vda6")
+        self.check_file_strippedline("pvs", "vg1=/dev/md0")
+        self.check_file_strippedline("pvs", "vg1=/dev/md1")
+        self.check_file_strippedline("pvs", "vg1=/dev/md2")
+        self.check_file_strippedline("pvs", "vg1=/dev/md3")
+
+    def test_dmcrypt(self):
+        self.check_file_regex("crypttab", r"dmcrypt0.*luks")
+        self.check_file_regex("mapper", r"^lrwxrwxrwx.*/dev/mapper/dmcrypt0")
+        self.check_file_regex("xfs_info", r"^meta-data=/dev/mapper/dmcrypt0")
 
 
 class WilyTestAllindata(TestAllindataAbs):

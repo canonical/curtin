@@ -143,13 +143,15 @@ class TempDir:
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
     def __del__(self):
-        # remove tempdir
-        shutil.rmtree(self.tmpdir)
+        if (os.getenv('KEEP_VMTEST_DATA', "false") != "true"):
+            # remove tempdir
+            shutil.rmtree(self.tmpdir)
 
 
 class VMBaseClass:
     disk_to_check = {}
     fstab_expected = {}
+    extra_kern_args = None
 
     @classmethod
     def setUpClass(self):
@@ -172,6 +174,9 @@ class VMBaseClass:
             cmd.extend(["--silent", "--power=off"])
 
         cmd.extend(["--serial-log=" + self.install_log])
+
+        if self.extra_kern_args:
+            cmd.extend(["--append=" + self.extra_kern_args])
 
         # check for network configuration
         self.network_state = curtin_net.parse_net_config(self.conf_file)
@@ -328,10 +333,15 @@ class VMBaseClass:
         for f in files:
             self.assertTrue(os.path.exists(os.path.join(self.td.mnt, f)))
 
-    def check_file_content(self, filename, search):
+    def check_file_strippedline(self, filename, search):
         with open(os.path.join(self.td.mnt, filename), "r") as fp:
             data = list(i.strip() for i in fp.readlines())
         self.assertIn(search, data)
+
+    def check_file_regex(self, filename, regex):
+        with open(os.path.join(self.td.mnt, filename), "r") as fp:
+            data = fp.read()
+        self.assertRegex(data, regex)
 
     def get_blkid_data(self, blkid_file):
         with open(os.path.join(self.td.mnt, blkid_file)) as fp:
@@ -343,6 +353,31 @@ class VMBaseClass:
             val = line.split('=')
             ret[val[0]] = val[1]
         return ret
+
+    def test_fstab(self):
+        if (os.path.exists(self.td.mnt + "fstab") and
+                self.fstab_expected is not None):
+            with open(os.path.join(self.td.mnt, "fstab")) as fp:
+                fstab_lines = fp.readlines()
+            fstab_entry = None
+            for line in fstab_lines:
+                for device, mntpoint in self.fstab_expected.items():
+                        if device in line:
+                            fstab_entry = line
+                            self.assertIsNotNone(fstab_entry)
+                            self.assertEqual(fstab_entry.split(' ')[1],
+                                             mntpoint)
+
+    def test_dname(self):
+        if (os.path.exists(self.td.mnt + "ls_dname") and
+                self.disk_to_check is not None):
+            with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
+                contents = fp.read().splitlines()
+            for diskname, part in self.disk_to_check.items():
+                if part is not 0:
+                    link = diskname + "-part" + str(part)
+                    self.assertIn(link, contents)
+                self.assertIn(diskname, contents)
 
 
 def get_apt_proxy():
@@ -369,31 +404,6 @@ def get_apt_proxy():
         pass
 
     return None
-
-    def test_fstab(self):
-        if (os.path.exists(self.td.mnt+"fstab")
-                and self.fstab_expected is not None):
-            with open(os.path.join(self.td.mnt, "fstab")) as fp:
-                fstab_lines = fp.readlines()
-            fstab_entry = None
-            for line in fstab_lines:
-                for device, mntpoint in self.fstab_expected.items():
-                        if device in line:
-                            fstab_entry = line
-                            self.assertIsNotNone(fstab_entry)
-                            self.assertEqual(fstab_entry.split(' ')[1],
-                                             mntpoint)
-
-    def test_dname(self):
-        if (os.path.exists(self.td.mnt+"ls_dname")
-                and self.disk_to_check is not None):
-            with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
-                contents = fp.read().splitlines()
-            for diskname, part in self.disk_to_check.items():
-                if part is not 0:
-                    link = diskname + "-part" + str(part)
-                    self.assertIn(link, contents)
-                self.assertIn(diskname, contents)
 
 
 def generate_user_data(collect_scripts=None, apt_proxy=None):
