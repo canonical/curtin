@@ -882,8 +882,8 @@ def bcache_handler(info, storage_config):
                                                 storage_config)
     cache_device = get_path_to_storage_volume(info.get('cache_device'),
                                               storage_config)
-    cache_mode = get_path_to_storage_volume(info.get('cache_mode', None),
-                                               storage_config)
+    cache_mode = info.get('cache_mode', None)
+                 
     if not backing_device or not cache_device:
         raise ValueError("backing device and cache device for bcache must be \
                 specified")
