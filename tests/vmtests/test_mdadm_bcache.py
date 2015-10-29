@@ -73,6 +73,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
     def test_bcache_cachemode(self):
         with open(os.path.join(self.td.mnt, "bcache_cache_mode"), "r") as fp:
             cmode = fp.read().strip()
+            print('cachemode: {}'.format(cmode))
             '''
             # cat /sys/block/bcache0/bcache/cache_mode 
             [writethrough] writeback writearound none

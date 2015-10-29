@@ -882,6 +882,8 @@ def bcache_handler(info, storage_config):
                                                 storage_config)
     cache_device = get_path_to_storage_volume(info.get('cache_device'),
                                               storage_config)
+    cache_mode = get_path_to_storage_volume(info.get('cache_mode', None),
+                                               storage_config)
     if not backing_device or not cache_device:
         raise ValueError("backing device and cache device for bcache must be \
                 specified")
@@ -908,6 +910,15 @@ def bcache_handler(info, storage_config):
             fp = open("/sys/fs/bcache/register", "w")
             fp.write(path)
             fp.close()
+
+    if cache_mode:
+        bcache_dev = info.get('id')
+        LOG.info("Setting cache_mode on {} to {}".format(bcache_dev,
+                                                         cache_mode))
+        cache_mode_file = \
+            '/sys/block/{}/bcache/cache_mode'.format(info.get('id'))
+        with open(cache_mode_file, "w") as fp:
+            fp.write(cache_mode)
 
     if info.get('name'):
         # Make dname rule for this dev
