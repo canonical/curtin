@@ -168,7 +168,7 @@ def get_holders(devname):
         raise ValueError(err)
 
     LOG.debug('Getting blockdev holders: {}'.format(devname_sysfs))
-    return listdir(devname_sysfs)
+    return os.listdir(devname_sysfs)
 
 
 def clear_holders(sys_block_path):
@@ -899,7 +899,7 @@ def bcache_handler(info, storage_config):
     cache_device = get_path_to_storage_volume(info.get('cache_device'),
                                               storage_config)
     cache_mode = info.get('cache_mode', None)
-                 
+
     if not backing_device or not cache_device:
         raise ValueError("backing device and cache device for bcache must be \
                 specified")
