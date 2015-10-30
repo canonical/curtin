@@ -71,7 +71,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
             self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
 
     def test_bcache_cachemode(self):
-        self.check_file_strippedline("bcache_cache_mode", "[writeback]")
+        self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
 
 
 class WilyTestMdadmBcache(TestMdadmBcacheAbs):
