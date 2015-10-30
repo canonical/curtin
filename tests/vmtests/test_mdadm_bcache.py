@@ -71,15 +71,8 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
             self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
 
     def test_bcache_cachemode(self):
-        with open(os.path.join(self.td.mnt, "bcache_cache_mode"), "r") as fp:
-            cmode = fp.read().strip()
-            print('cachemode: {}'.format(cmode))
-            '''
-            # cat /sys/block/bcache0/bcache/cache_mode 
-            [writethrough] writeback writearound none
-            '''
-            self.assertTrue("[writeback]" in cmode)
-                    
+        self.check_file_strippedline("bcache_cache_mode", "[writeback]")
+
 
 class WilyTestMdadmBcache(TestMdadmBcacheAbs):
     __test__ = True
