@@ -133,10 +133,14 @@ class TempDir:
         subprocess.check_call(['tar', '-C', self.mnt, '-xf', self.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
-    def __del__(self):
+    def remove_tmpdir(self):
         if (os.getenv('KEEP_VMTEST_DATA', "false") != "true"):
             # remove tempdir
-            shutil.rmtree(self.tmpdir)
+            if os.path.exists(self.tmpdir):
+                shutil.rmtree(self.tmpdir)
+
+    def __del__(self):
+        self.remove_tmpdir()
 
 
 class VMBaseClass:
@@ -283,7 +287,8 @@ class VMBaseClass:
 
     @classmethod
     def tearDownClass(self):
-        logger.debug('Removing launch logfile')
+        logger.debug('Removing class tmpdir: {}'.format(self.td.tmpdir))
+        self.td.remove_tmpdir()
 
     @classmethod
     def expected_interfaces(self):
