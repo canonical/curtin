@@ -155,6 +155,22 @@ def wipe_volume(path, wipe_type):
         util.subp(cmd, rcs=[0, 1, 2, 5], capture=True)
 
 
+def get_holders(devname):
+    if not devname:
+        return []
+
+    devname_sysfs = \
+        '/sys/class/block/{}/holders'.format(os.path.basename(devname))
+    if not os.path.exists(devname_sysfs):
+        err = ('No sysfs path to device holders:'
+               ' {}'.format(devname_sysfs))
+        LOG.error(err)
+        raise ValueError(err)
+
+    LOG.debug('Getting blockdev holders: {}'.format(devname_sysfs))
+    return listdir(devname_sysfs)
+
+
 def clear_holders(sys_block_path):
     holders = os.listdir(os.path.join(sys_block_path, "holders"))
     LOG.info("clear_holders running on '%s', with holders '%s'" %
@@ -912,7 +928,17 @@ def bcache_handler(info, storage_config):
             fp.close()
 
     if cache_mode:
-        bcache_dev = info.get('id')
+        # find the actual bcache device name via sysfs using the
+        # backing device's holders directory.
+        holders = get_holders(backing_device)
+
+        if len(holders) != 1:
+            err = ('Invalid number of holding devices:'
+                   ' {}'.format(holders))
+            LOG.error(err)
+            raise ValueError(err)
+
+        [bcache_dev] = holders
         LOG.info("Setting cache_mode on {} to {}".format(bcache_dev,
                                                          cache_mode))
         cache_mode_file = \
