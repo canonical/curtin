@@ -14,7 +14,13 @@ import curtin.net as curtin_net
 
 from .helpers import check_call
 
+IMAGE_SRC_URL=(
+    "http://maas.ubuntu.com/images/ephemeral-v2/daily/streams/v1/index.sjson")
 IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
+RELEASE_FILTER='release~trusty|vivid|wily|xenial'
+DEFAULT_FILTERS=['arch=amd64', 'item_name=root-image.gz']
+DEFAULT_FILTERS.append(RELEASE_FILTER)
+
 
 DEVNULL = open(os.devnull, 'w')
 
@@ -42,40 +48,62 @@ logger.addHandler(ch)
 class ImageStore:
     """Local mirror of MAAS images simplestreams data."""
 
-    def __init__(self, base_dir):
+    # By default sync on demand.
+    sync = True
+
+    def __init__(self, source_url, base_dir):
         """Initialize the ImageStore.
 
-        base_dir must be a simplestreams mirror previously synced with
-        sstream-mirror. See tools/vmtest-sync-images.
+        source_url is the simplestreams source from where the images will be
+        downloaded.
+        base_dir is the target dir in the filesystem to keep the mirror.
         """
+        self.source_url = source_url
         self.base_dir = base_dir
         if not os.path.isdir(self.base_dir):
             os.makedirs(self.base_dir)
         self.url = pathlib.Path(self.base_dir).as_uri()
 
-    def _convert_image(self, root_image_path):
+    def convert_image(self, root_image_path):
         """Use maas2roottar to unpack root-image, kernel and initrd."""
         logger.debug('Converting image format')
         subprocess.check_call(["tools/maas2roottar", root_image_path])
 
-    def get_image(self, repo, release, arch):
-        # Query sstream for compressed root image.
+    def sync_images(self, filters=DEFAULT_FILTERS):
+        """Sync MAAS images from source_url simplestreams."""
+        cmd = [
+            'sstream-mirror',
+            '--max=1',
+            '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg',
+            self.source_url,
+            self.base_dir,
+        ] + filters
+        logger.debug('Syncing images {}'.format(cmd))
+        out = subprocess.check_output(cmd)
+        logger.debug(out)
+
+    def get_image(self, release, arch):
+        """Return local path for root image, kernel and initrd."""
+        filters = (
+            'release={release} krel={release} arch={arch}'.format(
+            release=release, arch=arch))
+        # Query local sstream for compressed root image.
         logger.debug(
-            'Query simplestreams for root image: '
-            'release={release} arch={arch}'.format(release=release, arch=arch))
+            'Query simplestreams for root image: ' + filters)
         cmd = [
             'sstream-query',
             '--max=1',
             '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg',
             self.url,
-            'release={}'.format(release),
-            'krel={}'.format(release),
-            'arch={}'.format(arch),
             'item_name=root-image.gz'
-            ]
+            ] + filters.split()
         logger.debug(" ".join(cmd))
         out = subprocess.check_output(cmd)
         logger.debug(out)
+        if not out and self.sync:
+            # Couldn't find the image in the local mirror. Try to sync.
+            self.sync_images(filters=filters)
+            out = subprocess.check_output(cmd)
         sstream_data = ast.literal_eval(bytes.decode(out))
 
         root_image_gz = urllib.parse.urlsplit(sstream_data['item_url']).path
@@ -87,7 +115,7 @@ class ImageStore:
         if (not os.path.exists(root_image_path) or
             not os.path.exists(kernel_path) or
             not os.path.exists(initrd_path)):
-            self._convert_image(root_image_gz)
+            self.convert_image(root_image_gz)
         return (root_image_path, kernel_path, initrd_path)
 
 
@@ -151,9 +179,13 @@ class VMBaseClass:
     def setUpClass(self):
         logger.debug('Acquiring boot image')
         # get boot img
-        image_store = ImageStore(IMAGE_DIR)
+        image_store = ImageStore(IMAGE_SRC_URL, IMAGE_DIR)
+        # Disable sync if env var is set.
+        if os.getenv('IMAGE_SYNC', False):
+            logger.debug("Images not synced.")
+            image_store.sync = False
         (boot_img, boot_kernel, boot_initrd) = image_store.get_image(
-            self.repo, self.release, self.arch)
+            self.release, self.arch)
 
         # set up tempdir
         logger.debug('Setting up tempdir')

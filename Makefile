@@ -28,8 +28,9 @@ docs:
 		  echo "   apt-get install -qy python3-sphinx"; exit 1; } 1>&2
 	make -C doc html
 
+# By default don't sync images when running all tests.
 vmtest:
-	nosetests3 $(noseopts) tests/vmtests
+	IMAGE_SYNC=False nosetests3 $(noseopts) tests/vmtests
 
 vmtest-deps:
 	@$(CWD)/tools/vmtest-system-setup
