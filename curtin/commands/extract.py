@@ -55,7 +55,7 @@ def extract_root_tgz_url(source, target):
     curtin.util.subp(args=['sh', '-cf',
                            ('wget "$1" --progress=dot:mega -O - |'
                             'tar -C "$2" ' + ' '.join(tar_xattr_opts()) +
-                            ' ' + '-Sxpf - --numeric-owner'),
+                            ' ' + '-Sxpzf - --numeric-owner'),
                            '--', source, target])
 
 

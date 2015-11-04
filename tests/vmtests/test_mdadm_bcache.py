@@ -50,13 +50,15 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         cd OUTPUT_COLLECT_D
         bcache-super-show /dev/vda6 > bcache_super_vda6
         ls /sys/fs/bcache > bcache_ls
+        cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
         """)]
     fstab_expected = {
         '/dev/bcache0': '/media/data'
     }
 
     def test_bcache_output_files_exist(self):
-        self.output_files_exist(["bcache_super_vda6", "bcache_ls"])
+        self.output_files_exist(["bcache_super_vda6", "bcache_ls",
+                                 "bcache_cache_mode"])
 
     def test_bcache_status(self):
         bcache_cset_uuid = None
@@ -67,6 +69,9 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         self.assertIsNotNone(bcache_cset_uuid)
         with open(os.path.join(self.td.mnt, "bcache_ls"), "r") as fp:
             self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
+
+    def test_bcache_cachemode(self):
+        self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
 
 
 class WilyTestMdadmBcache(TestMdadmBcacheAbs):
