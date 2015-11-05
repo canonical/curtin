@@ -12,14 +12,12 @@ import textwrap
 import urllib
 import curtin.net as curtin_net
 
-from .helpers import check_call
+from .helpers import check_call, find_releases
 
-IMAGE_SRC_URL=(
+IMAGE_SRC_URL = (
     "http://maas.ubuntu.com/images/ephemeral-v2/daily/streams/v1/index.sjson")
 IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
-RELEASE_FILTER='release~trusty|vivid|wily|xenial'
-DEFAULT_FILTERS=['arch=amd64', 'item_name=root-image.gz']
-DEFAULT_FILTERS.append(RELEASE_FILTER)
+DEFAULT_FILTERS = ['arch=amd64', 'item_name=root-image.gz']
 
 
 DEVNULL = open(os.devnull, 'w')
@@ -102,7 +100,7 @@ class ImageStore:
         logger.debug(out)
         # Try to sync if there's no image locally or if ImageStore says so.
         if not out or self.sync:
-            self.sync_images(filters=filters)
+            self.sync_images(filters=filters.split())
             out = subprocess.check_output(cmd)
         sstream_data = ast.literal_eval(bytes.decode(out))
 

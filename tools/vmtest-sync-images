@@ -7,11 +7,15 @@ import sys
 # Fix path so we can import ImageStore class.
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from tests.vmtests import ImageStore, IMAGE_DIR, IMAGE_SRC_URL
+from tests.vmtests import (
+    ImageStore, IMAGE_DIR, IMAGE_SRC_URL, DEFAULT_FILTERS)
+from tests.vmtests.helpers import find_releases
 
 
 if __name__ == '__main__':
     # Instantiate the ImageStore object.
     store = ImageStore(IMAGE_SRC_URL, IMAGE_DIR)
+    release_filter = 'release~{}'.format('|'.join(find_releases()))
+    DEFAULT_FILTERS.append(release_filter)
     # Sync images.
-    store.sync_images()
+    store.sync_images(filters=DEFAULT_FILTERS)

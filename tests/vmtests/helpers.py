@@ -15,9 +15,11 @@
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
-import threading
+import os
 import subprocess
 import signal
+import threading
+from unittest import TestLoader
 
 
 class Command(object):
@@ -93,3 +95,18 @@ except AttributeError:
 def check_call(cmd, signal=signal.SIGTERM, **kwargs):
     # provide a 'check_call' like interface, but kill with a nice signal
     return Command(cmd, signal).run(**kwargs)
+
+
+def find_releases():
+    """Return a sorted list of releases defined in test cases."""
+    loader = TestLoader()
+    root_dir = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
+    tests_dir = os.path.dirname(__file__)
+    module_test_suites = loader.discover(tests_dir, top_level_dir=root_dir)
+    releases = set()
+    for mts in module_test_suites:
+        for class_test_suite in mts:
+            for test_case in class_test_suite:
+                if getattr(test_case, 'release', ''):
+                    releases.add(getattr(test_case, 'release'))
+    return sorted(releases)
