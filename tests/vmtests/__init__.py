@@ -100,8 +100,8 @@ class ImageStore:
         logger.debug(" ".join(cmd))
         out = subprocess.check_output(cmd)
         logger.debug(out)
-        if not out and self.sync:
-            # Couldn't find the image in the local mirror. Try to sync.
+        # Try to sync if there's no image locally or if ImageStore says so.
+        if not out or self.sync:
             self.sync_images(filters=filters)
             out = subprocess.check_output(cmd)
         sstream_data = ast.literal_eval(bytes.decode(out))
