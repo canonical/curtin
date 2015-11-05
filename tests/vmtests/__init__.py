@@ -1,5 +1,6 @@
 import ast
 import datetime
+import hashlib
 import logging
 import json
 import os
@@ -12,7 +13,7 @@ import textwrap
 import urllib
 import curtin.net as curtin_net
 
-from .helpers import check_call, find_releases
+from .helpers import check_call
 
 IMAGE_SRC_URL = (
     "http://maas.ubuntu.com/images/ephemeral-v2/daily/streams/v1/index.sjson")
@@ -103,8 +104,19 @@ class ImageStore:
             self.sync_images(filters=filters.split())
             out = subprocess.check_output(cmd)
         sstream_data = ast.literal_eval(bytes.decode(out))
-
         root_image_gz = urllib.parse.urlsplit(sstream_data['item_url']).path
+        # Make sure the image checksums correctly. Ideally
+        # sstream-[query,mirror] would make the verification for us.
+        # See https://bugs.launchpad.net/simplestreams/+bug/1513625
+        with open(root_image_gz, "rb") as fp:
+            checksum = hashlib.sha256(fp.read()).hexdigest()
+        if checksum != sstream_data['sha256']:
+            self.sync_images(filters=filters.split())
+            out = subprocess.check_output(cmd)
+            sstream_data = ast.literal_eval(bytes.decode(out))
+            root_image_gz = urllib.parse.urlsplit(
+                sstream_data['item_url']).path
+
         image_dir = os.path.dirname(root_image_gz)
         root_image_path = os.path.join(image_dir, 'root-image')
         kernel_path = os.path.join(image_dir, 'root-image-kernel')
