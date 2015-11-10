@@ -15,12 +15,13 @@ import curtin.net as curtin_net
 
 from .helpers import check_call
 
-IMAGE_SRC_URL = (
+IMAGE_SRC_URL = os.environ.get(
+    'IMAGE_SRC_URL',
     "http://maas.ubuntu.com/images/ephemeral-v2/daily/streams/v1/index.sjson")
+
 IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
 DEFAULT_SSTREAM_OPTS = [
-    '--max=1',
-    '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
+    '--max=1', '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
 DEFAULT_FILTERS = ['arch=amd64', 'item_name=root-image.gz']
 
 
@@ -73,7 +74,17 @@ class ImageStore:
 
     def sync_images(self, filters=DEFAULT_FILTERS):
         """Sync MAAS images from source_url simplestreams."""
-        cmd = ['sstream-mirror'] + DEFAULT_SSTREAM_OPTS + [
+        try:
+            out = subprocess.check_output(
+                ['sstream-mirror', '--help'], stderr=subprocess.STDOUT)
+            if isinstance(out, bytes):
+                out = out.decode()
+            if '--progress' in out:
+                progress = ['--progress']
+        except subprocess.CalledProcessError:
+            progress = []
+
+        cmd = ['sstream-mirror'] + DEFAULT_SSTREAM_OPTS + progress + [
             self.source_url, self.base_dir] + filters
         logger.debug('Syncing images {}'.format(cmd))
         out = subprocess.check_output(cmd)
