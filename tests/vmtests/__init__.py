@@ -197,9 +197,8 @@ class VMBaseClass:
         # get boot img
         image_store = ImageStore(IMAGE_SRC_URL, IMAGE_DIR)
         # Disable sync if env var is set.
-        if get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False):
-            logger.debug("Images not synced.")
-            image_store.sync = False
+        image_store.sync = get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False)
+        logger.debug("Image sync = %s", image_store.sync)
         (boot_img, boot_kernel, boot_initrd) = image_store.get_image(
             self.release, self.arch)
 
