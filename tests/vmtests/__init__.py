@@ -18,6 +18,9 @@ from .helpers import check_call
 IMAGE_SRC_URL = (
     "http://maas.ubuntu.com/images/ephemeral-v2/daily/streams/v1/index.sjson")
 IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
+DEFAULT_SSTREAM_OPTS = [
+    '--max=1',
+    '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
 DEFAULT_FILTERS = ['arch=amd64', 'item_name=root-image.gz']
 
 
@@ -70,36 +73,29 @@ class ImageStore:
 
     def sync_images(self, filters=DEFAULT_FILTERS):
         """Sync MAAS images from source_url simplestreams."""
-        cmd = [
-            'sstream-mirror',
-            '--max=1',
-            '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg',
-            self.source_url,
-            self.base_dir,
-        ] + filters
+        cmd = ['sstream-mirror'] + DEFAULT_SSTREAM_OPTS + [
+            self.source_url, self.base_dir] + filters
         logger.debug('Syncing images {}'.format(cmd))
         out = subprocess.check_output(cmd)
         logger.debug(out)
 
-    def get_image(self, release, arch):
+    def get_image(self, release, arch, filters=None):
         """Return local path for root image, kernel and initrd."""
-        filters = (
-            'release={release} krel={release} arch={arch}'.format(
-            release=release, arch=arch))
+        if not filters:
+            filters = (
+                'release={release} krel={release} arch={arch}'.format(
+                release=release, arch=arch))
         # Query local sstream for compressed root image.
         logger.debug(
             'Query simplestreams for root image: ' + filters)
-        cmd = [
-            'sstream-query',
-            '--max=1',
-            '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg',
-            self.url,
-            'item_name=root-image.gz'
-            ] + filters.split()
+        cmd = ['sstream-query'] + DEFAULT_SSTREAM_OPTS + [
+            self.url, 'item_name=root-image.gz' ] + filters.split()
         logger.debug(" ".join(cmd))
         out = subprocess.check_output(cmd)
         logger.debug(out)
-        # Try to sync if there's no image locally or if ImageStore says so.
+        # No output means we have no images locally, so try to sync.
+        # If there's output, ImageStore.sync decides if images should be
+        # synced or not.
         if not out or self.sync:
             self.sync_images(filters=filters.split())
             out = subprocess.check_output(cmd)
@@ -175,7 +171,7 @@ class TempDir:
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
     def __del__(self):
-        if (os.getenv('KEEP_VMTEST_DATA', "false") != "true"):
+        if (os.getenv('CURTIN_VMTEST_KEEP_DATA', "false") != "true"):
             # remove tempdir
             shutil.rmtree(self.tmpdir)
 
@@ -191,7 +187,7 @@ class VMBaseClass:
         # get boot img
         image_store = ImageStore(IMAGE_SRC_URL, IMAGE_DIR)
         # Disable sync if env var is set.
-        if os.getenv('IMAGE_SYNC', False):
+        if os.getenv('CURTIN_VMTEST_IMAGE_SYNC', False):
             logger.debug("Images not synced.")
             image_store.sync = False
         (boot_img, boot_kernel, boot_initrd) = image_store.get_image(

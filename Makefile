@@ -30,7 +30,7 @@ docs:
 
 # By default don't sync images when running all tests.
 vmtest:
-	IMAGE_SYNC=False nosetests3 $(noseopts) tests/vmtests
+	CURTIN_VMTEST_IMAGE_SYNC=False nosetests3 $(noseopts) tests/vmtests
 
 vmtest-deps:
 	@$(CWD)/tools/vmtest-system-setup

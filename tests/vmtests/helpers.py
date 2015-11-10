@@ -99,9 +99,14 @@ def check_call(cmd, signal=signal.SIGTERM, **kwargs):
 
 def find_releases():
     """Return a sorted list of releases defined in test cases."""
+    # Use the TestLoader to load all tests cases defined within
+    # tests/vmtests/ and figure out which releases they are testing.
     loader = TestLoader()
-    root_dir = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
+    # dir with the vmtest modules (i.e. tests/vmtests/)
     tests_dir = os.path.dirname(__file__)
+    # The root_dir for the curtin branch. (i.e. curtin/)
+    root_dir = os.path.split(os.path.split(tests_dir)[0])[0]
+    # Find all test modules defined in curtin/tests/vmtests/
     module_test_suites = loader.discover(tests_dir, top_level_dir=root_dir)
     releases = set()
     for mts in module_test_suites:
