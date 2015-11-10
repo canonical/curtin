@@ -170,7 +170,7 @@ class TempDir:
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
     def __del__(self):
-        if (os.getenv('CURTIN_VMTEST_KEEP_DATA', "false") != "true"):
+        if get_env_var_bool('CURTIN_VMTEST_KEEP_DATA', False):
             # remove tempdir
             shutil.rmtree(self.tmpdir)
 
@@ -186,7 +186,7 @@ class VMBaseClass:
         # get boot img
         image_store = ImageStore(IMAGE_SRC_URL, IMAGE_DIR)
         # Disable sync if env var is set.
-        if os.getenv('CURTIN_VMTEST_IMAGE_SYNC', False):
+        if get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False):
             logger.debug("Images not synced.")
             image_store.sync = False
         (boot_img, boot_kernel, boot_initrd) = image_store.get_image(
@@ -471,3 +471,18 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
         logger.debug('Cloud config archive content (pre-json):' + part)
         parts.append({'content': part, 'type': 'text/x-shellscript'})
     return '#cloud-config-archive\n' + json.dumps(parts, indent=1)
+
+
+def get_env_var_bool(envname, default=False):
+    """get a boolean environment variable.
+
+    If environment variable is not set, use default.
+    False values are case insensitive 'false', '0', ''."""
+    if not isinstance(default, bool):
+        raise ValueError("default '%s' for '%s' is not a boolean" %
+                         (default, envname))
+    val = os.environ.get(envname)
+    if val is None:
+        return default
+
+    return val.lower() not in ("false", "0", "")
