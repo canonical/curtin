@@ -938,20 +938,24 @@ def bcache_handler(info, storage_config):
 
         if os.path.exists(os.path.join(cache_device_sysfs, "bcache")):
             # read in cset uuid from cache device
-            (out, err) = util.subp(["bcache-super-show", cache_device])
+            (out, err) = util.subp(["bcache-super-show", cache_device],
+                                   capture=True)
+            LOG.debug('out=[{}]'.format(out))
             [cset_uuid] = [line.split()[-1] for line in out
                            if line.startswith('cset.uuid')]
 
         else:
             # make the cache device, extracting cacheset uuid
-            (out, err) = util.subp(["make-bcache", "-C", cache_device])
+            (out, err) = util.subp(["make-bcache", "-C", cache_device],
+                                   capture=True)
+            LOG.debug('out=[{}]'.format(out))
             [cset_uuid] = [line.split()[-1] for line in out
                            if line.startswith('Set UUID:')]
 
     if backing_device:
         backing_device_sysfs = block_find_sysfs_path(backing_device)
         if not os.path.exists(os.path.join(backing_device_sysfs, "bcache")):
-            (out, err) = util.subp(["make-bcache", "-B", backing_device])
+            util.subp(["make-bcache", "-B", backing_device])
 
     # Some versions of bcache-tools will register the bcache device as soon as
     # we run make-bcache using udev rules, so wait for udev to settle, then try
