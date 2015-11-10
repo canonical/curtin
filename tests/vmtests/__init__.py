@@ -81,15 +81,14 @@ class ImageStore:
 
     def get_image(self, release, arch, filters=None):
         """Return local path for root image, kernel and initrd."""
-        if not filters:
-            filters = (
-                'release={release} krel={release} arch={arch}'.format(
-                release=release, arch=arch))
+        if filters is None:
+            filters = [
+                'release=%s' % release, 'krel=%s' % release, 'arch=%s' % arch]
         # Query local sstream for compressed root image.
         logger.debug(
             'Query simplestreams for root image: ' + filters)
         cmd = ['sstream-query'] + DEFAULT_SSTREAM_OPTS + [
-            self.url, 'item_name=root-image.gz' ] + filters.split()
+            self.url, 'item_name=root-image.gz'] + filters
         logger.debug(" ".join(cmd))
         out = subprocess.check_output(cmd)
         logger.debug(out)
@@ -97,7 +96,7 @@ class ImageStore:
         # If there's output, ImageStore.sync decides if images should be
         # synced or not.
         if not out or self.sync:
-            self.sync_images(filters=filters.split())
+            self.sync_images(filters=filters)
             out = subprocess.check_output(cmd)
         sstream_data = ast.literal_eval(bytes.decode(out))
         root_image_gz = urllib.parse.urlsplit(sstream_data['item_url']).path
@@ -107,7 +106,7 @@ class ImageStore:
         with open(root_image_gz, "rb") as fp:
             checksum = hashlib.sha256(fp.read()).hexdigest()
         if checksum != sstream_data['sha256']:
-            self.sync_images(filters=filters.split())
+            self.sync_images(filters=filters)
             out = subprocess.check_output(cmd)
             sstream_data = ast.literal_eval(bytes.decode(out))
             root_image_gz = urllib.parse.urlsplit(
@@ -119,8 +118,8 @@ class ImageStore:
         initrd_path = os.path.join(image_dir, 'root-image-initrd')
         # Check if we need to unpack things from the compressed image.
         if (not os.path.exists(root_image_path) or
-            not os.path.exists(kernel_path) or
-            not os.path.exists(initrd_path)):
+                not os.path.exists(kernel_path) or
+                not os.path.exists(initrd_path)):
             self.convert_image(root_image_gz)
         return (root_image_path, kernel_path, initrd_path)
 
