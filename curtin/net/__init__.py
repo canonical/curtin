@@ -265,14 +265,17 @@ def iface_add_subnet(iface, subnet):
         'metric',
         'gateway',
         'pointopoint',
-        'hwaddress',
         'mtu',
         'scope',
+        'dns_search',
+        'dns_nameservers',
     ]
     for key, value in subnet.items():
         if value and key in valid_map:
             if type(value) == list:
                 value = " ".join(value)
+            if '_' in key:
+                key = key.replace('_', '-')
             content += "    {} {}\n".format(key, value)
 
     return content
@@ -289,6 +292,9 @@ def iface_add_attrs(iface):
         'index',
         'subnets',
     ]
+    if iface['type'] not in ['bond', 'bridge']:
+        ignore_map.append('mac_address')
+
     for key, value in iface.items():
         if value and key not in ignore_map:
             if type(value) == list:
@@ -319,7 +325,18 @@ def render_interfaces(network_state):
 
     content = ""
     interfaces = network_state.get('interfaces')
-    for iface in interfaces.values():
+    ''' Apply a sort order to ensure that we write out
+        the physical interfaces first; this is critical for
+        bonding
+    '''
+    order = {
+        'physical': 0,
+        'bond': 1,
+        'bridge': 2,
+        'vlan': 3,
+    }
+    for iface in sorted(interfaces.values(),
+                        key=lambda k: (order[k['type']], k['name'])):
         content += "auto {name}\n".format(**iface)
 
         subnets = iface.get('subnets', {})
@@ -349,8 +366,9 @@ def render_interfaces(network_state):
             content += iface_add_attrs(iface)
             content += "\n"
 
-    for (addr, dns) in network_state.get('nameservers').items():
-        content += "{}\n".format(dns)
+    for dnskey, value in network_state.get('dns', {}).items():
+        if len(value):
+            content += "dns-{} {}\n".format(dnskey, " ".join(value))
 
     for route in network_state.get('routes'):
         content += render_route(route)

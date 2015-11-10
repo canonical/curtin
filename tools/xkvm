@@ -3,6 +3,7 @@
 set -f
 
 VERBOSITY=0
+KVM_PID=""
 DRY_RUN=false
 TEMP_D=""
 DEF_BRIDGE="virbr0"
@@ -26,6 +27,7 @@ randmac() {
 
 cleanup() {
     [ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
+    [ -z "${KVM_PID}" ] || kill "$KVM_PID"
     if [ ${#TAPDEVS[@]} -ne 0 ]; then
         local name item
         for item in "${TAPDEVS[@]}"; do
@@ -223,7 +225,7 @@ ovs_cleanup() {
 
 main() {
     local short_opts="hd:n:v"
-    local long_opts="help,disk:,dry-run,kvm:,netdev:,verbose"
+    local long_opts="help,dowait,disk:,dry-run,kvm:,no-dowait,netdev:,verbose"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -234,6 +236,7 @@ main() {
     local kvm="" kvmcmd="" archopts=""
     local def_diskif=${DEF_DISKIF:-"virtio"}
     local def_netmodel=${DEF_NETMODEL:-"virtio-net-pci"}
+
     archopts=( )
     kvmcmd=( )
     netdevs=( )
@@ -241,6 +244,15 @@ main() {
     diskdevs=( )
     diskargs=( )
 
+    # dowait: run qemu-system with a '&' and then 'wait' on the pid.
+    #  the reason to do this or not do this has to do with interactivity
+    #  if detached with &, then user input will not go to xkvm.
+    #  if *not* detached, then signal handling is blocked until
+    #  the foreground subprocess returns. which means we can't handle
+    #  a sigterm and kill the qemu-system process.
+    #  We default to dowait=false if output is to a terminal
+    local dowait=""
+    [ -t 0 ] && dowait=false || dowait=true
     while [ $# -ne 0 ]; do
         cur=${1}; next=${2};
         case "$cur" in
@@ -252,6 +264,8 @@ main() {
             -n|--netdev)
             	netdevs[${#netdevs[@]}]=$next; shift;;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
+               --dowait) dowait=true;;
+               --no-dowait) dowait=false;;
             --) shift; break;;
         esac
         shift;
@@ -424,8 +438,23 @@ main() {
                   -netdev "${netdev_args[$i]}")
     done
 
-    error "${kvmcmd[@]}" "${archopts[@]}" "${netargs[@]}" "${diskargs[@]}" "${pt[@]}"
-    $DRY_RUN || "${kvmcmd[@]}" "${archopts[@]}" "${netargs[@]}" "${diskargs[@]}" "${pt[@]}"
+    cmd=( "${kvmcmd[@]}" "${archopts[@]}" "${netargs[@]}"
+           "${diskargs[@]}" "${pt[@]}" )
+    error "${cmd[@]}"
+    ${DRY_RUN} && return 0
+    
+    if $dowait; then
+        "${cmd[@]}" &
+        KVM_PID=$!
+        debug 1 "kvm pid=$KVM_PID. my pid=$$"
+        wait
+        ret=$?
+        KVM_PID=""
+    else
+        "${cmd[@]}"
+        ret=$?
+    fi
+    return $ret
 }
 
 

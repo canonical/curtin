@@ -25,6 +25,7 @@ from curtin.commands.block_meta import get_path_to_storage_volume
 from collections import OrderedDict
 
 import os
+import sys
 import string
 
 CMD_ARGUMENTS = (
@@ -112,6 +113,8 @@ def mkfs(args):
             # Bad argument
             raise ValueError("device '%s' is neither an item in storage \
                 config nor a block device" % device)
+
+    sys.exit(0)
 
 
 def POPULATE_SUBCMD(parser):

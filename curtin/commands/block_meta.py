@@ -36,7 +36,8 @@ SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
 
-CUSTOM_REQUIRED_PACKAGES = ['mdadm', 'lvm2', 'bcache-tools']
+CUSTOM_REQUIRED_PACKAGES = ['mdadm', 'lvm2', 'bcache-tools',
+                            'btrfs-tools', 'xfsprogs']
 
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
@@ -152,6 +153,22 @@ def wipe_volume(path, wipe_type):
     # wiping something that is already blank
     for cmd in cmds:
         util.subp(cmd, rcs=[0, 1, 2, 5], capture=True)
+
+
+def get_holders(devname):
+    if not devname:
+        return []
+
+    devname_sysfs = \
+        '/sys/class/block/{}/holders'.format(os.path.basename(devname))
+    if not os.path.exists(devname_sysfs):
+        err = ('No sysfs path to device holders:'
+               ' {}'.format(devname_sysfs))
+        LOG.error(err)
+        raise ValueError(err)
+
+    LOG.debug('Getting blockdev holders: {}'.format(devname_sysfs))
+    return os.listdir(devname_sysfs)
 
 
 def clear_holders(sys_block_path):
@@ -812,8 +829,12 @@ def raid_handler(info, storage_config):
     spare_devices = info.get('spare_devices')
     if not devices:
         raise ValueError("devices for raid must be specified")
-    if raidlevel not in [0, 1, 5]:
+    if raidlevel not in ['linear', 'raid0', 0, 'stripe', 'raid1', 1, 'mirror',
+                         'raid4', 4, 'raid5', 5, 'raid6', 6, 'raid10', 10]:
         raise ValueError("invalid raidlevel '%s'" % raidlevel)
+    if raidlevel in ['linear', 'raid0', 0, 'stripe']:
+        if spare_devices:
+            raise ValueError("spareunsupported in raidlevel '%s'" % raidlevel)
 
     device_paths = list(get_path_to_storage_volume(dev, storage_config) for
                         dev in devices)
@@ -822,8 +843,14 @@ def raid_handler(info, storage_config):
         spare_device_paths = list(get_path_to_storage_volume(dev,
                                   storage_config) for dev in spare_devices)
 
+    mdnameparm = ""
+    mdname = info.get('mdname')
+    if mdname:
+        mdnameparm = "--name=%s" % info.get('mdname')
+
     cmd = ["yes", "|", "mdadm", "--create", "/dev/%s" % info.get('name'),
-           "--level=%s" % raidlevel, "--raid-devices=%s" % len(device_paths)]
+           "--level=%s" % raidlevel, "--raid-devices=%s" % len(device_paths),
+           mdnameparm]
 
     for device in device_paths:
         # Zero out device superblock just in case device has been used for raid
@@ -871,6 +898,8 @@ def bcache_handler(info, storage_config):
                                                 storage_config)
     cache_device = get_path_to_storage_volume(info.get('cache_device'),
                                               storage_config)
+    cache_mode = info.get('cache_mode', None)
+
     if not backing_device or not cache_device:
         raise ValueError("backing device and cache device for bcache must be \
                 specified")
@@ -897,6 +926,25 @@ def bcache_handler(info, storage_config):
             fp = open("/sys/fs/bcache/register", "w")
             fp.write(path)
             fp.close()
+
+    if cache_mode:
+        # find the actual bcache device name via sysfs using the
+        # backing device's holders directory.
+        holders = get_holders(backing_device)
+
+        if len(holders) != 1:
+            err = ('Invalid number of holding devices:'
+                   ' {}'.format(holders))
+            LOG.error(err)
+            raise ValueError(err)
+
+        [bcache_dev] = holders
+        LOG.info("Setting cache_mode on {} to {}".format(bcache_dev,
+                                                         cache_mode))
+        cache_mode_file = \
+            '/sys/block/{}/bcache/cache_mode'.format(info.get('id'))
+        with open(cache_mode_file, "w") as fp:
+            fp.write(cache_mode)
 
     if info.get('name'):
         # Make dname rule for this dev

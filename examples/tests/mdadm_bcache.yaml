@@ -46,6 +46,7 @@ storage:
        name: cached_array
        backing_device: mddevice
        cache_device: sda5
+       cache_mode: writeback
      - id: sda1_root
        type: format
        fstype: ext4

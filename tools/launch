@@ -3,6 +3,7 @@
 VERBOSITY=0
 TEMP_D=""
 HTTP_PID=""
+XKVM_PID=""
 HTTP_PORT_TRIES=${HTTP_PORT_TRIES:-5}
 HTTP_PORT_MIN=${HTTP_PORT_MIN:-12000}
 HTTP_PORT_MAX=${HTTP_PORT_MAX:-65500}
@@ -28,7 +29,11 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
            --mem    K   memory in Kb
       -n | --netdev     netdev can be 'user' or a bridge
       -p | --publish F  make file 'F' available in web server
-           --silent     use -vga none
+           --silent     use -nographic
+           --vnc D      use -vnc D (mutually exclusive with --silent)
+                        directly through to qemu-system.
+                        Note, qemu adds 5900 to port numbers. (:0 = port 5900)
+           --serial-log F  : log to F (default 'serial.log')
       -v | --verbose    be more verbose
 
    use of --kernel/--initrd will seed cloud-init via cmdline
@@ -44,9 +49,26 @@ EOF
 
 bad_Usage() { Usage 1>&2; [ $# -eq 0 ] || error "$@"; exit 1; }
 cleanup() {
-    exec >/dev/null 2>&1 # shut up any the killing of HTTP_PID
-    [ -z "$HTTP_PID" ] || kill $HTTP_PID;
+    local msg="" pid=""
+    [ ! -d "$TEMP_D" ] || msg="${msg:+$msg }remove temp dir ${TEMP_D}."
+    [ -z "$HTTP_PID" ] || msg="${msg:+$msg }kill http pid ${HTTP_PID}."
+    [ -z "$XKVM_PID" ] || msg="${msg:+$msg }kill xkvm pid ${XKVM_PID}."
+    debug 1 "cleaning up.${msg:+ $msg}"
     [ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
+    for pid in ${XKVM_PID} ${HTTP_PID}; do
+        kill $pid
+    done
+}
+sighandle() {
+    debug 1 "recieved $1"
+    exit ${2:-1}
+}
+
+register_signal_handlers() {
+    local cur
+    for cur in TERM INT; do
+        trap "sighandle $cur" "SIG$cur"
+    done
 }
 
 debug() {
@@ -83,7 +105,6 @@ write_userdata() {
 #cloud-config-archive
 - type: text/cloud-config
   content: |
-   #http_proxy: http://my-proxy:3129/
    password: passw0rd
    chpasswd: { expire: False }
    output: {all: '| tee -a /var/log/cloud-init-output.log'}
@@ -115,7 +136,7 @@ _start_http() {
     hpid=$!
     HTTP_PID=$hpid  # set so cleanup cleans up during wget
     debug 3 "checking web service [pid=$hpid] on $burl"
-    found=$(wget -q --waitretry=0.4 --retry-connrefused \
+    found=$(env -u http_proxy wget -q --waitretry=0.4 --retry-connrefused \
         --tries=10 "$burl/$statfile" --timeout=4 -O - 2>/dev/null) &&
         [ "$found" = "$contents" ] && {
             _RET=$hpid
@@ -153,9 +174,11 @@ start_http() {
     fi
     for port in "${ptries[@]}"; do
         [ "$port" = "random" ] && port=$(($pmin+($RANDOM%($pmax+1-$pmin))))
-        debug 1 "trying http server $ip:$port"
+        debug 2 "trying http server $ip:$port"
         _start_http "$pubdir" "$ip" "$port" &&
-            HTTP_PID="$_RET" && _RET="$port" && return
+            HTTP_PID="$_RET" && _RET="$port" && 
+            debug 1 "serving $pubdir at http://$ip:$port/ in pid $HTTP_PID" &&
+            return 0
         ret=$?
         tried="$tried $port"
     done
@@ -163,9 +186,26 @@ start_http() {
     return $ret
 }
 
+find_apt_proxy() {
+    # pick an apt proxy for the guest
+    local out=""
+
+    # if user set uncommon 'apt_proxy', then trust it
+    [ -n "$apt_proxy" ] && echo "$apt_proxy" && return 0
+
+    # see if the host has an apt proxy configured, and use it
+    if command -v apt-config >/dev/null 2>&1; then
+        out=$(apt-config shell x Acquire::HTTP::Proxy) &&
+        out=$(sh -c 'eval $1 && echo $x' -- "$out") && [ -n "$out" ] &&
+        echo "$out" && return
+    fi
+
+    return 1
+}
+
 main() {
     local short_opts="a:d:h:i:k:n:p:v"
-    local long_opts="add:,append:,disk:,help,initrd:,kernel:,mem:,netdev:,power:,publish:,silent,uefi,verbose"
+    local long_opts="add:,append:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -180,12 +220,24 @@ main() {
     local pubs="" disks="" pstate="null"
     local uefi=0
     local netdevs=""
-    local video="-curses"
+    local video="-curses -vga std" serial_log="file:serial.log"
+    # dowait: run xkvm with a '&' and then 'wait' on the pid.
+    #  the reason to do this or not do this has to do with interactivity
+    #  if detached with &, then user input will not go to xkvm.
+    #  if *not* detached, then signal handling is blocked until
+    #  the foreground subprocess returns. which means we can't handle
+    #  a sigterm and kill xkvm.
+    #  We default to dowait=false if output is to a terminal
+    local dowait=""
+    [ -t 0 ] && dowait=false || dowait=true
     pubs=( )
     disks=( )
     addfiles=( )
     netdevs=( )
+    pt=( )
 
+    # if output is to a terminal, then set dowait default to false
+    [ -t 0 ] && dowait=false || dowait=true
     while [ $# -ne 0 ]; do
         cur=${1}; next=${2};
         case "$cur" in
@@ -208,11 +260,23 @@ main() {
             -p|--publish) pubs[${#pub[@]}]="$next"; shift;;
                --uefi) uefi=1;;
                --silent) video="-nographic";;
+               --vnc)
+                    video="-vnc $next"
+                    debug 1 "VNC requested - $next"
+                    shift;;
+               --serial-log) serial_log="file:$next"; shift;;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
+               --dowait) pt[${#pt[@]}]="$cur"; dowait=true;;
+               --no-dowait) pt[${#pt[@]}]="$cur"; dowait=false;;
             --) shift; break;;
         esac
         shift;
     done
+
+    # handle passing through '-v' if given
+    local t=""
+    for((i=0;i<${VERBOSITY};i++)); do t="${t}v"; done
+    [ -n "$t" ] && pt[${#pt[@]}]="-$t"
 
     [ $# -ge 0 ] || { bad_Usage "must provide boot-image"; return 1; }
     bootimg_dist="$1"
@@ -223,6 +287,7 @@ main() {
         { error "failed to make tempdir"; return 1; }
 
     trap cleanup EXIT
+    register_signal_handlers
 
     local bios_opts=""
 
@@ -336,11 +401,10 @@ main() {
         "${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
         { error "failed to pack"; return 1; }
 
-    start_http "${TEMP_D}" "$ip" "$http_port" "${HTTP_TRIES}" ||
+    start_http "${TEMP_D}" "$ip" "$http_port" "${HTTP_TRIES}" </dev/null ||
         { error "failed to start http service"; return 1; }
     http_port=$_RET
     burl="http://$ip:${http_port}/"
-    debug 1 "serving files on $burl"
 
     udata="${TEMP_D}/user-data"
     mdata="${TEMP_D}/meta-data"
@@ -351,6 +415,12 @@ main() {
         printf "#cloud-config\npower_state:\n  mode: %s\n" "$pstate" \
             > "${TEMP_D}/pstate"
         ccfiles[${#ccfiles[@]}]="${TEMP_D}/pstate"
+    fi
+
+    if tmp=$(find_apt_proxy); then
+        debug 1 "using $tmp for proxy"
+        printf '#cloud-config\napt_proxy: "%s"\n' "$tmp" > "${TEMP_D}/cc-proxy"
+        ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-proxy"
     fi
 
     write_metadata > "$mdata" || { error "failed to write meta-data"; return 1; }
@@ -390,16 +460,32 @@ main() {
     for dev in "${netdevs[@]}"; do
         netargs=( "${netargs[@]}" "-n" "${dev}" )
     done
-    
-    xkvm_check || return
-    time xkvm "${netargs[@]}" -- \
-        "${bios_opts[@]}" \
-        -m ${mem} -serial file:serial.log ${video} \
-        -drive "file=$bootimg,if=virtio,cache=unsafe" \
-        "${seedargs[@]}" \
-        "${disk_args[@]}"
 
-    return
+    local cmd
+    xkvm_check || return
+    cmd=( 
+        xkvm "${pt[@]}" "${netargs[@]}" -- 
+        "${bios_opts[@]}"
+        -m ${mem} ${serial_log:+-serial "${serial_log}"} ${video}
+        -drive "file=$bootimg,if=virtio,cache=unsafe"
+        "${seedargs[@]}"
+        "${disk_args[@]}" )
+
+    local sstart=$SECONDS
+    if $dowait; then
+        "${cmd[@]}" &
+        XKVM_PID=$!
+        debug 1 "xkvm pid: $XKVM_PID. launch pid: $$"
+        wait "${XKVM_PID}"
+        ret=$?
+        XKVM_PID=""
+    else
+        "${cmd[@]}"
+        ret=$?
+    fi
+    debug 1 "xkvm returned $ret took $(($SECONDS-$sstart))"
+
+    return $ret
 }
 
 test_start_http() {
@@ -408,10 +494,18 @@ test_start_http() {
     #     /tmp/smfoo localhost
     VERBOSITY=3
     trap cleanup EXIT
+    register_signal_handlers
+    echo "mypid: $$"
     start_http "$@" || { ret=$?; echo "returned $ret"; return $ret; }
     ret=$?
     port=$_RET
     echo "pid $HTTP_PID is serving on $port"
+    sleep ${SLEEPTIME:-3} &
+    XKVM_PID=$!
+    wait $XKVM_PID
+    ret=$?
+    XKVM_PID=""
+    return $ret
 }
 
 main "$@"

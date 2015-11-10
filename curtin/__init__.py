@@ -29,6 +29,10 @@ FEATURES = [
     'REPORTING_EVENTS_WEBHOOK',
     # install supports the 'storage' config version 1
     'STORAGE_CONFIG_V1',
+    # subcommand 'system-install' is present
+    'SUBCOMMAND_SYSTEM_INSTALL',
+    # subcommand 'system-upgrade' is present
+    'SUBCOMMAND_SYSTEM_UPGRADE',
 ]
 
 # vi: ts=4 expandtab syntax=python

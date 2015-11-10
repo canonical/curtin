@@ -9,18 +9,19 @@ network:
               - type: dhcp4
         - type: physical
           name: eth1
-          mtu: 1492
           mac_address: "52:54:00:12:34:02"
-          subnets:
-              - type: static
-                address: 10.0.2.100/24
-                gateway: 10.0.2.1
-              - type: static
-                address: 10.0.2.200/24
-                dns_nameservers:
-                  - 8.8.8.8
-                dns_search:
-                  - barley.maas
         - type: physical
           name: eth2
           mac_address: "52:54:00:12:34:04"
+        # Bond.
+        - type: bond
+          name: bond0
+          mac_address: "52:54:00:12:34:06"
+          bond_interfaces:
+            - eth1
+            - eth2
+          params:
+            bond-mode: active-backup
+          subnets:
+              - type: static
+                address: 10.23.23.2/24

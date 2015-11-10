@@ -230,7 +230,8 @@ class ReportEventStack(object):
 
     def _finish_info(self, exc):
         # return tuple of description, and value
-        if exc:
+        # explicitly handle sys.exit(0) as not an error
+        if exc and not(isinstance(exc, SystemExit) and exc.code == 0):
             return (self.result_on_exception, self.message)
         return self._childrens_finish_info()
 

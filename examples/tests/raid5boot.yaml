@@ -1,0 +1,55 @@
+storage:
+  version: 1
+  config:
+     - id: sda
+       type: disk
+       ptable: gpt
+       model: QEMU HARDDISK
+       path: /dev/vdb
+       name: main_disk
+       grub_device: 1
+     - id: bios_boot_partition
+       type: partition
+       size: 1MB
+       device: sda
+       flag: bios_grub
+     - id: sda1
+       type: partition
+       size: 3GB
+       device: sda
+     - id: sdb
+       type: disk
+       ptable: gpt
+       model: QEMU HARDDISK
+       path: /dev/vdc
+       name: second_disk
+     - id: sdb1
+       type: partition
+       size: 3GB
+       device: sdb
+     - id: sdc
+       type: disk
+       ptable: gpt
+       model: QEMU HARDDISK
+       path: /dev/vdd
+       name: third_disk
+     - id: sdc1
+       type: partition
+       size: 3GB
+       device: sdc
+     - id: mddevice
+       name: md0
+       type: raid
+       raidlevel: 5
+       devices:
+         - sda1
+         - sdb1
+         - sdc1
+     - id: md_root
+       type: format
+       fstype: ext4
+       volume: mddevice
+     - id: md_mount
+       type: mount
+       path: /
+       device: md_root

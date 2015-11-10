@@ -565,9 +565,14 @@ install_grub() {
     fi
 
     # find the mp device
-    mp_dev=$(awk -v MP=${mp} '$2==MP {print$1}' /proc/mounts) || {
+    mp_dev=$(awk -v "MP=$mp" '$2 == MP { print $1 }' /proc/mounts) || {
         error "unable to determine device for mount $mp";
         return 1;
+    }
+    [ -z "$mp_dev" ] && {
+        error "did not find '$mp' in /proc/mounts"
+        cat /proc/mounts 1>&2
+        return 1
     }
     [ -b "$mp_dev" ] || { error "$mp_dev is not a block device!"; return 1; }
 
@@ -639,6 +644,7 @@ install_grub() {
             echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$newargs\""
         echo "# disable grub os prober that might find other OS installs."
         echo "GRUB_DISABLE_OS_PROBER=true"
+        echo "GRUB_TERMINAL=console"
     } >> "$mp/$mygrub_cfg"
 
     local short="" bd="" grubdev grubdevs_new=""

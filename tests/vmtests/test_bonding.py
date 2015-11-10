@@ -49,7 +49,7 @@ def ifconfig_to_dict(ifconfig):
 class TestNetworkAbs(VMBaseClass):
     __test__ = False
     interactive = False
-    conf_file = "examples/tests/basic_network.yaml"
+    conf_file = "examples/tests/bonding_network.yaml"
     install_timeout = 600
     boot_timeout = 600
     extra_disks = []
@@ -58,19 +58,25 @@ class TestNetworkAbs(VMBaseClass):
         cd OUTPUT_COLLECT_D
         ifconfig -a > ifconfig_a
         cp -av /etc/network/interfaces .
-        cp /etc/resolv.conf .
         cp -av /etc/udev/rules.d/70-persistent-net.rules .
         ip -o route show > ip_route_show
         route -n > route_n
+        dpkg-query -W -f '${Status}' ifenslave > ifenslave_installed
         """)]
 
     def test_output_files_exist(self):
         self.output_files_exist(["ifconfig_a",
                                  "interfaces",
-                                 "resolv.conf",
                                  "70-persistent-net.rules",
                                  "ip_route_show",
+                                 "ifenslave_installed",
                                  "route_n"])
+
+    def test_ifenslave_installed(self):
+        with open(os.path.join(self.td.mnt, "ifenslave_installed")) as fp:
+            status = fp.read().strip()
+            logger.debug('ifenslave installed: {}'.format(status))
+            self.assertEqual('install ok installed', status)
 
     def test_etc_network_interfaces(self):
         with open(os.path.join(self.td.mnt, "interfaces")) as fp:
@@ -81,45 +87,6 @@ class TestNetworkAbs(VMBaseClass):
         eni_lines = eni.split('\n')
         for line in expected_eni.split('\n'):
             self.assertTrue(line in eni_lines)
-
-    def test_etc_resolvconf(self):
-        with open(os.path.join(self.td.mnt, "resolv.conf")) as fp:
-            resolvconf = fp.read()
-            logger.debug('etc/resolv.conf:\n{}'.format(resolvconf))
-
-        resolv_lines = resolvconf.split('\n')
-        logger.debug('resolv.conf lines:\n{}'.format(resolv_lines))
-        # resolv.conf
-        '''
-        nameserver X.Y.Z.A
-        nameserver 1.2.3.4
-        search foo.bar
-        '''
-
-        # eni
-        ''''
-        auto eth1:1
-        iface eth1:1 inet static
-            dns-nameserver X.Y.Z.A
-            dns-search foo.bar
-        '''
-
-        # iface dict
-        ''''
-        eth1:1:
-          dns:
-            nameserver: X.Y.Z.A
-            search: foo.bar
-        '''
-        expected_ifaces = self.get_expected_etc_resolvconf()
-        logger.debug('parsed eni ifaces:\n{}'.format(expected_ifaces))
-        for ifname in expected_ifaces.keys():
-            iface = expected_ifaces.get(ifname)
-            for k, v in iface.get('dns', {}).items():
-                dns_line = '{} {}'.format(
-                    k.replace('nameservers', 'nameserver'), " ".join(v))
-                logger.debug('dns_line:{}'.format(dns_line))
-                self.assertTrue(dns_line in resolv_lines)
 
     def test_ifconfig_output(self):
         '''check ifconfig output with test input'''
@@ -187,7 +154,9 @@ class TestNetworkAbs(VMBaseClass):
         self.assertEqual(ifname, ifconfig['interface'])
 
         # check physical interface attributes
-        for key in ['mac_address', 'mtu']:
+        # FIXME: can't check mac_addr under bonding since
+        # the bond might change slave mac addrs
+        for key in ['mtu']:
             if key in iface and iface[key]:
                 self.assertEqual(iface[key],
                                  ifconfig[key])
@@ -237,7 +206,7 @@ class TestNetworkAbs(VMBaseClass):
 
 
 class TrustyTestBasic(TestNetworkAbs, TestCase):
-    __test__ = True
+    __test__ = False
     repo = "maas-daily"
     release = "trusty"
     arch = "amd64"

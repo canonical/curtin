@@ -155,7 +155,7 @@ def install_kernel(cfg, target):
         kernel_fallback = None
 
     mapping = copy.deepcopy(KERNEL_MAPPING)
-    config.merge_config(mapping, kernel_cfg['mapping'])
+    config.merge_config(mapping, kernel_cfg.get('mapping', {}))
 
     with util.RunInChroot(target) as in_chroot:
 
@@ -573,26 +573,63 @@ def detect_and_handle_multipath(cfg, target):
     update_initramfs(target, all_kernels=True)
 
 
-def install_missing_storage_packages(cfg, target):
-    # Do nothing if no custom storage.
-    if 'storage' not in cfg:
-        return
+def install_missing_packages(cfg, target):
+    ''' describe which operation types will require specific packages
 
-    all_types = set(
-        operation['type']
-        for operation in cfg['storage']['config']
-        )
+    'custom_config_key': {
+         'pkg1': ['op_name_1', 'op_name_2', ...]
+     }
+    '''
+    custom_configs = {
+        'storage': {
+            'lvm2': ['lvm_volgroup', 'lvm_partition'],
+            'mdadm': ['raid'],
+            'bcache-tools': ['bcache']},
+        'network': {
+            'vlan': ['vlan'],
+            'ifenslave': ['bond'],
+            'bridge-utils': ['bridge']},
+    }
+
     needed_packages = []
     installed_packages = get_installed_packages(target)
-    if ('lvm_volgroup' in all_types or 'lvm_partition' in all_types) and \
-            'lvm2' not in installed_packages:
-        needed_packages.append('lvm2')
-    if 'raid' in all_types and 'mdadm' not in installed_packages:
-        needed_packages.append('mdadm')
-    if 'bcache' in all_types and 'bcache-tools' not in installed_packages:
-        needed_packages.append('bcache-tools')
+    for cust_cfg, pkg_reqs in custom_configs.items():
+        if cust_cfg not in cfg:
+            continue
+
+        all_types = set(
+            operation['type']
+            for operation in cfg[cust_cfg]['config']
+            )
+        for pkg, types in pkg_reqs.items():
+            if set(types).intersection(all_types) and \
+               pkg not in installed_packages:
+                needed_packages.append(pkg)
+
     if needed_packages:
         util.install_packages(needed_packages, target=target)
+
+
+def system_upgrade(cfg, target):
+    """run system-upgrade (apt-get dist-upgrade) or other in target.
+
+    config:
+      system_upgrade:
+        enabled: False
+
+    """
+    mycfg = {'system_upgrade': {'enabled': False}}
+    config.merge_config(mycfg, cfg)
+    mycfg = mycfg.get('system_upgrade')
+    if not isinstance(mycfg, dict):
+        LOG.debug("system_upgrade disabled by config. entry not a dict.")
+        return
+
+    if not config.value_as_boolean(mycfg.get('enabled', True)):
+        LOG.debug("system_upgrade disabled by config.")
+        return
+
+    util.system_upgrade(target=target)
 
 
 def curthooks(args):
@@ -630,7 +667,9 @@ def curthooks(args):
 
     detect_and_handle_multipath(cfg, target)
 
-    install_missing_storage_packages(cfg, target)
+    install_missing_packages(cfg, target)
+
+    system_upgrade(cfg, target)
 
     # If a crypttab file was created by block_meta than it needs to be copied
     # onto the target system, and update_initramfs() needs to be run, so that
