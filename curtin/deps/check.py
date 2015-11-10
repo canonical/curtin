@@ -34,6 +34,8 @@ if __name__ == '__main__':
 
     if len(errors) == 0:
         # exit 0 means we need no depends
+        if verbose:
+            sys.stderr.write("No missing dependencies.\n")
         sys.exit(0)
 
     missing_pkgs = []
