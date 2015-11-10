@@ -86,7 +86,7 @@ class ImageStore:
                 'release=%s' % release, 'krel=%s' % release, 'arch=%s' % arch]
         # Query local sstream for compressed root image.
         logger.debug(
-            'Query simplestreams for root image: ' + filters)
+            'Query simplestreams for root image: %s', filters)
         cmd = ['sstream-query'] + DEFAULT_SSTREAM_OPTS + [
             self.url, 'item_name=root-image.gz'] + filters
         logger.debug(" ".join(cmd))
