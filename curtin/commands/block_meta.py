@@ -941,7 +941,7 @@ def bcache_handler(info, storage_config):
             (out, err) = util.subp(["bcache-super-show", cache_device],
                                    capture=True)
             LOG.debug('out=[{}]'.format(out))
-            [cset_uuid] = [line.split()[-1] for line in out
+            [cset_uuid] = [line.split()[-1] for line in out.split("\n")
                            if line.startswith('cset.uuid')]
 
         else:
@@ -949,7 +949,7 @@ def bcache_handler(info, storage_config):
             (out, err) = util.subp(["make-bcache", "-C", cache_device],
                                    capture=True)
             LOG.debug('out=[{}]'.format(out))
-            [cset_uuid] = [line.split()[-1] for line in out
+            [cset_uuid] = [line.split()[-1] for line in out.split("\n")
                            if line.startswith('Set UUID:')]
 
     if backing_device:
