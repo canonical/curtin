@@ -52,8 +52,8 @@ At step 3.6 -> 4.
     sudo ./backdoor-image -v --user=<USER> --password-auth --password=<PW> IMG
 At step 6 -> 7
   - You might want to keep all the temporary images around.
-    To do so you can set KEEP_VMTEST_DATA to true:
-    export KEEP_VMTEST_DATA=true
+    To do so you can set CURTIN_VMTEST_KEEP_DATA to true:
+    export CURTIN_VMTEST_KEEP_DATA=true
     That will keep the /tmp/tmpXXXXX directories and all files in there for
     further execution.
 At step 7
@@ -95,6 +95,6 @@ Note:
     look at the host's apt config and read 'Acquire::HTTP::Proxy'
 
 If required for further debugging one can set the environment variable
-"KEEP_VMTEST_DATA" like:
-export KEEP_VMTEST_DATA=true
+"CURTIN_VMTEST_KEEP_DATA" like:
+export CURTIN_VMTEST_KEEP_DATA=true
 This will keep the temporary disk files around by skipping __init__.py:__del__
