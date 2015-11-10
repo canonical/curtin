@@ -1,6 +1,8 @@
 TOP := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 CWD := $(shell pwd)
 PYTHON ?= python3
+CURTIN_VMTEST_IMAGE_SYNC ?= False
+export CURTIN_VMTEST_IMAGE_SYNC
 
 build:
 
@@ -30,7 +32,7 @@ docs:
 
 # By default don't sync images when running all tests.
 vmtest:
-	CURTIN_VMTEST_IMAGE_SYNC=False nosetests3 $(noseopts) tests/vmtests
+	nosetests3 $(noseopts) tests/vmtests
 
 vmtest-deps:
 	@$(CWD)/tools/vmtest-system-setup
