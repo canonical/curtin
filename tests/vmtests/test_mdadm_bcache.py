@@ -54,6 +54,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         bcache-super-show /dev/md0 > bcache_super_md0
         ls /sys/fs/bcache > bcache_ls
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
+        cat /proc/mounts > proc_mounts
         """)]
     fstab_expected = {
         '/dev/bcache0': '/media/data',
@@ -80,14 +81,21 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                 for line in fp.read().splitlines():
                     if line != "" and line.split()[0] == "cset.uuid":
                         bcache_cset_uuid = line.split()[-1].rstrip()
-                        found_cset_uuid[bcache_super] = bcache_cset_uuid
+                        if bcache_set_uuid in  found_cset_uuid:
+                            found_cset_uuid[bcache_cset_uuid].append(bcache_super)
+                        else:
+                            found_cset_uuid[bcache_cset_uuid] = [bcache_super]
             self.assertIsNotNone(bcache_cset_uuid)
             with open(os.path.join(self.td.mnt, "bcache_ls"), "r") as fp:
                 self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
 
-        # one cacheset
+        # one cset.uuid for all devices
         self.assertEqual(len(found_cset_uuid), 1)
-        # all backing devs used the same cset.uuid
+
+        # three devices with same cset.uuid
+        self.assertEqual(len(found_cset_uuid[bcache_cset_uuid]), 3)
+
+        # check the cset.uuid in the dict
         self.assertEqual(list(found_cset_uuid.keys()).pop(),
                          bcache_cset_uuid)
 
