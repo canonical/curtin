@@ -75,28 +75,28 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
             "bcache_super_md0",
         ]
         bcache_cset_uuid = None
-        found_cset_uuid = {}
+        found = {}
         for bcache_super in bcache_supers:
             with open(os.path.join(self.td.mnt, bcache_super), "r") as fp:
                 for line in fp.read().splitlines():
                     if line != "" and line.split()[0] == "cset.uuid":
                         bcache_cset_uuid = line.split()[-1].rstrip()
-                        if bcache_cset_uuid in found_cset_uuid:
-                            found_cset_uuid[bcache_cset_uuid].append(bcache_super)
+                        if bcache_cset_uuid in found:
+                            found[bcache_cset_uuid].append(bcache_super)
                         else:
-                            found_cset_uuid[bcache_cset_uuid] = [bcache_super]
+                            found[bcache_cset_uuid] = [bcache_super]
             self.assertIsNotNone(bcache_cset_uuid)
             with open(os.path.join(self.td.mnt, "bcache_ls"), "r") as fp:
                 self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
 
         # one cset.uuid for all devices
-        self.assertEqual(len(found_cset_uuid), 1)
+        self.assertEqual(len(found), 1)
 
         # three devices with same cset.uuid
-        self.assertEqual(len(found_cset_uuid[bcache_cset_uuid]), 3)
+        self.assertEqual(len(found[bcache_cset_uuid]), 3)
 
         # check the cset.uuid in the dict
-        self.assertEqual(list(found_cset_uuid.keys()).pop(),
+        self.assertEqual(list(found.keys()).pop(),
                          bcache_cset_uuid)
 
     def test_bcache_cachemode(self):

@@ -690,7 +690,7 @@ def curthooks(args):
         # as per https://bugs.launchpad.net/ubuntu/+source/mdadm/+bug/964052
         # reconfigure mdadm
         util.subp(['chroot', target, 'dpkg-reconfigure',
-                   '--frontend=noninteractive', 'mdadm', data=None)
+                   '--frontend=noninteractive', 'mdadm'], data=None)
 
     # If udev dname rules were created, copy them to target
     udev_rules_d = os.path.join(state['scratch'], "rules.d")
