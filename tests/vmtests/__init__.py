@@ -181,7 +181,7 @@ class TempDir:
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
     def remove_tmpdir(self):
-        if get_env_var_bool('CURTIN_VMTEST_KEEP_DATA', False):
+        if not get_env_var_bool('CURTIN_VMTEST_KEEP_DATA', False):
             # remove tempdir
             if os.path.exists(self.tmpdir):
                 shutil.rmtree(self.tmpdir)
