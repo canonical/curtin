@@ -81,7 +81,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                 for line in fp.read().splitlines():
                     if line != "" and line.split()[0] == "cset.uuid":
                         bcache_cset_uuid = line.split()[-1].rstrip()
-                        if bcache_set_uuid in  found_cset_uuid:
+                        if bcache_cset_uuid in found_cset_uuid:
                             found_cset_uuid[bcache_cset_uuid].append(bcache_super)
                         else:
                             found_cset_uuid[bcache_cset_uuid] = [bcache_super]
