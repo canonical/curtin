@@ -155,6 +155,22 @@ def wipe_volume(path, wipe_type):
         util.subp(cmd, rcs=[0, 1, 2, 5], capture=True)
 
 
+def get_holders(devname):
+    if not devname:
+        return []
+
+    devname_sysfs = \
+        '/sys/class/block/{}/holders'.format(os.path.basename(devname))
+    if not os.path.exists(devname_sysfs):
+        err = ('No sysfs path to device holders:'
+               ' {}'.format(devname_sysfs))
+        LOG.error(err)
+        raise ValueError(err)
+
+    LOG.debug('Getting blockdev holders: {}'.format(devname_sysfs))
+    return os.listdir(devname_sysfs)
+
+
 def clear_holders(sys_block_path):
     holders = os.listdir(os.path.join(sys_block_path, "holders"))
     LOG.info("clear_holders running on '%s', with holders '%s'" %
@@ -882,6 +898,8 @@ def bcache_handler(info, storage_config):
                                                 storage_config)
     cache_device = get_path_to_storage_volume(info.get('cache_device'),
                                               storage_config)
+    cache_mode = info.get('cache_mode', None)
+
     if not backing_device or not cache_device:
         raise ValueError("backing device and cache device for bcache must be \
                 specified")
@@ -908,6 +926,25 @@ def bcache_handler(info, storage_config):
             fp = open("/sys/fs/bcache/register", "w")
             fp.write(path)
             fp.close()
+
+    if cache_mode:
+        # find the actual bcache device name via sysfs using the
+        # backing device's holders directory.
+        holders = get_holders(backing_device)
+
+        if len(holders) != 1:
+            err = ('Invalid number of holding devices:'
+                   ' {}'.format(holders))
+            LOG.error(err)
+            raise ValueError(err)
+
+        [bcache_dev] = holders
+        LOG.info("Setting cache_mode on {} to {}".format(bcache_dev,
+                                                         cache_mode))
+        cache_mode_file = \
+            '/sys/block/{}/bcache/cache_mode'.format(info.get('id'))
+        with open(cache_mode_file, "w") as fp:
+            fp.write(cache_mode)
 
     if info.get('name'):
         # Make dname rule for this dev

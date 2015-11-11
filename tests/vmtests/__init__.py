@@ -4,16 +4,26 @@ import hashlib
 import logging
 import json
 import os
+import pathlib
 import re
 import shutil
 import subprocess
 import tempfile
 import textwrap
+import urllib
 import curtin.net as curtin_net
 
 from .helpers import check_call
 
+IMAGE_SRC_URL = os.environ.get(
+    'IMAGE_SRC_URL',
+    "http://maas.ubuntu.com/images/ephemeral-v2/daily/streams/v1/index.sjson")
+
 IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
+DEFAULT_SSTREAM_OPTS = [
+    '--max=1', '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
+DEFAULT_FILTERS = ['arch=amd64', 'item_name=root-image.gz']
+
 
 DEVNULL = open(os.devnull, 'w')
 
@@ -39,53 +49,90 @@ logger.addHandler(ch)
 
 
 class ImageStore:
-    def __init__(self, base_dir):
+    """Local mirror of MAAS images simplestreams data."""
+
+    # By default sync on demand.
+    sync = True
+
+    def __init__(self, source_url, base_dir):
+        """Initialize the ImageStore.
+
+        source_url is the simplestreams source from where the images will be
+        downloaded.
+        base_dir is the target dir in the filesystem to keep the mirror.
+        """
+        self.source_url = source_url
         self.base_dir = base_dir
         if not os.path.isdir(self.base_dir):
             os.makedirs(self.base_dir)
+        self.url = pathlib.Path(self.base_dir).as_uri()
 
-    def get_image(self, repo, release, arch):
-        # query sstream for root image
+    def convert_image(self, root_image_path):
+        """Use maas2roottar to unpack root-image, kernel and initrd."""
+        logger.debug('Converting image format')
+        subprocess.check_call(["tools/maas2roottar", root_image_path])
+
+    def sync_images(self, filters=DEFAULT_FILTERS):
+        """Sync MAAS images from source_url simplestreams."""
+        try:
+            out = subprocess.check_output(
+                ['sstream-mirror', '--help'], stderr=subprocess.STDOUT)
+            if isinstance(out, bytes):
+                out = out.decode()
+            if '--progress' in out:
+                progress = ['--progress']
+        except subprocess.CalledProcessError:
+            progress = []
+
+        cmd = ['sstream-mirror'] + DEFAULT_SSTREAM_OPTS + progress + [
+            self.source_url, self.base_dir] + filters
+        logger.debug('Syncing images {}'.format(cmd))
+        out = subprocess.check_output(cmd)
+        logger.debug(out)
+
+    def get_image(self, release, arch, filters=None):
+        """Return local path for root image, kernel and initrd."""
+        if filters is None:
+            filters = [
+                'release=%s' % release, 'krel=%s' % release, 'arch=%s' % arch]
+        # Query local sstream for compressed root image.
         logger.debug(
-            'Query simplestreams for root image: '
-            'release={release} arch={arch}'.format(release=release, arch=arch))
-        cmd = ["tools/usquery", "--max=1", repo, "release=%s" % release,
-               "krel=%s" % release, "arch=%s" % arch,
-               "item_name=root-image.gz"]
+            'Query simplestreams for root image: %s', filters)
+        cmd = ['sstream-query'] + DEFAULT_SSTREAM_OPTS + [
+            self.url, 'item_name=root-image.gz'] + filters
         logger.debug(" ".join(cmd))
         out = subprocess.check_output(cmd)
         logger.debug(out)
+        # No output means we have no images locally, so try to sync.
+        # If there's output, ImageStore.sync decides if images should be
+        # synced or not.
+        if not out or self.sync:
+            self.sync_images(filters=filters)
+            out = subprocess.check_output(cmd)
         sstream_data = ast.literal_eval(bytes.decode(out))
+        root_image_gz = urllib.parse.urlsplit(sstream_data['item_url']).path
+        # Make sure the image checksums correctly. Ideally
+        # sstream-[query,mirror] would make the verification for us.
+        # See https://bugs.launchpad.net/simplestreams/+bug/1513625
+        with open(root_image_gz, "rb") as fp:
+            checksum = hashlib.sha256(fp.read()).hexdigest()
+        if checksum != sstream_data['sha256']:
+            self.sync_images(filters=filters)
+            out = subprocess.check_output(cmd)
+            sstream_data = ast.literal_eval(bytes.decode(out))
+            root_image_gz = urllib.parse.urlsplit(
+                sstream_data['item_url']).path
 
-        # Check if we already have the image
-        logger.debug('Checking cache for image')
-        checksum = ""
-        release_dir = os.path.join(self.base_dir, repo, release, arch,
-                                   sstream_data['version_name'])
-
-        def p(x):
-            return os.path.join(release_dir, x)
-
-        if os.path.isdir(release_dir) and os.path.exists(p("root-image.gz")):
-            # get checksum of cached image
-            with open(p("root-image.gz"), "rb") as fp:
-                checksum = hashlib.sha256(fp.read()).hexdigest()
-        if not os.path.exists(p("root-image.gz")) or \
-                checksum != sstream_data['sha256'] or \
-                not os.path.exists(p("root-image")) or \
-                not os.path.exists(p("root-image-kernel")) or \
-                not os.path.exists(p("root-image-initrd")):
-            # clear dir, download, and extract image
-            logger.debug('Image not found, downloading...')
-            shutil.rmtree(release_dir, ignore_errors=True)
-            os.makedirs(release_dir)
-            subprocess.check_call(
-                ["wget", "-c", sstream_data['item_url'], "-O",
-                 p("root-image.gz")])
-            logger.debug('Converting image format')
-            subprocess.check_call(["tools/maas2roottar", p("root-image.gz")])
-        return (p("root-image"), p("root-image-kernel"),
-                p("root-image-initrd"))
+        image_dir = os.path.dirname(root_image_gz)
+        root_image_path = os.path.join(image_dir, 'root-image')
+        kernel_path = os.path.join(image_dir, 'root-image-kernel')
+        initrd_path = os.path.join(image_dir, 'root-image-initrd')
+        # Check if we need to unpack things from the compressed image.
+        if (not os.path.exists(root_image_path) or
+                not os.path.exists(kernel_path) or
+                not os.path.exists(initrd_path)):
+            self.convert_image(root_image_gz)
+        return (root_image_path, kernel_path, initrd_path)
 
 
 class TempDir:
@@ -134,7 +181,7 @@ class TempDir:
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
     def remove_tmpdir(self):
-        if (os.getenv('KEEP_VMTEST_DATA', "false") != "true"):
+        if get_env_var_bool('CURTIN_VMTEST_KEEP_DATA', False):
             # remove tempdir
             if os.path.exists(self.tmpdir):
                 shutil.rmtree(self.tmpdir)
@@ -152,9 +199,12 @@ class VMBaseClass:
     def setUpClass(self):
         logger.debug('Acquiring boot image')
         # get boot img
-        image_store = ImageStore(IMAGE_DIR)
+        image_store = ImageStore(IMAGE_SRC_URL, IMAGE_DIR)
+        # Disable sync if env var is set.
+        image_store.sync = get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False)
+        logger.debug("Image sync = %s", image_store.sync)
         (boot_img, boot_kernel, boot_initrd) = image_store.get_image(
-            self.repo, self.release, self.arch)
+            self.release, self.arch)
 
         # set up tempdir
         logger.debug('Setting up tempdir')
@@ -436,3 +486,18 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
         logger.debug('Cloud config archive content (pre-json):' + part)
         parts.append({'content': part, 'type': 'text/x-shellscript'})
     return '#cloud-config-archive\n' + json.dumps(parts, indent=1)
+
+
+def get_env_var_bool(envname, default=False):
+    """get a boolean environment variable.
+
+    If environment variable is not set, use default.
+    False values are case insensitive 'false', '0', ''."""
+    if not isinstance(default, bool):
+        raise ValueError("default '%s' for '%s' is not a boolean" %
+                         (default, envname))
+    val = os.environ.get(envname)
+    if val is None:
+        return default
+
+    return val.lower() not in ("false", "0", "")
