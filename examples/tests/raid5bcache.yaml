@@ -1,0 +1,97 @@
+storage:
+  config:
+  - grub_device: true
+    id: sda
+    model: QEMU HARDDISK
+    name: sda
+    ptable: msdos
+    path: /dev/vdb
+    type: disk
+    wipe: superblock
+  - id: sdb
+    model: QEMU HARDDISK
+    name: sdb
+    path: /dev/vdc
+    type: disk
+    wipe: superblock
+  - id: sdc
+    model: QEMU HARDDISK
+    name: sdc
+    path: /dev/vdd
+    type: disk
+    wipe: superblock
+  - id: sdd
+    model: QEMU HARDDISK
+    name: sdd
+    path: /dev/vde
+    type: disk
+    wipe: superblock
+  - id: sde
+    model: QEMU HARDDISK
+    name: sde
+    path: /dev/vdf
+    type: disk
+    wipe: superblock
+  - devices:
+    - sdc
+    - sdd
+    - sde
+    id: md0
+    name: md0
+    raidlevel: 5
+    spare_devices: []
+    type: raid
+  - device: sda
+    id: sda-part1
+    name: sda-part1
+    number: 1
+    offset: 2097152B
+    size: 1000001536B
+    type: partition
+    uuid: 3a38820c-d675-4069-b060-509a3d9d13cc
+    wipe: superblock
+  - device: sda
+    id: sda-part2
+    name: sda-part2
+    number: 2
+    size: 7586787328B
+    type: partition
+    uuid: 17747faa-4b9e-4411-97e5-12fd3d199fb8
+    wipe: superblock
+  - backing_device: sda-part2
+    cache_device: sdb
+    cache_mode: writeback
+    id: bcache0
+    name: bcache0
+    type: bcache
+  - fstype: ext4
+    id: sda-part1_format
+    label: ''
+    type: format
+    uuid: 71b1ef6f-5cab-4a77-b4c8-5a209ec11d7c
+    volume: sda-part1
+  - fstype: ext4
+    id: md0_format
+    label: ''
+    type: format
+    uuid: b031f0a0-adb3-43be-bb43-ce0fc8a224a4
+    volume: md0
+  - fstype: ext4
+    id: bcache0_format
+    label: ''
+    type: format
+    uuid: ce45bbaf-5a44-4487-b89e-035c2dd40657
+    volume: bcache0
+  - device: bcache0_format
+    id: bcache0_mount
+    path: /
+    type: mount
+  - device: sda-part1_format
+    id: sda-part1_mount
+    path: /boot
+    type: mount
+  - device: md0_format
+    id: md0_mount
+    path: /srv/data
+    type: mount
+  version: 1
