@@ -36,7 +36,7 @@ class TestMdadmAbs(VMBaseClass, TestCase):
 
 
 class TestMdadmBcacheAbs(TestMdadmAbs):
-    conf_file = "examples/tests/raid5_bcache.yaml"
+    conf_file = "examples/tests/raid5bcache.yaml"
     disk_to_check = {'sda': 2,
                      'md0': 0}
                      
