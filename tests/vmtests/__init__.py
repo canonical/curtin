@@ -74,6 +74,7 @@ class ImageStore:
 
     def sync_images(self, filters=DEFAULT_FILTERS):
         """Sync MAAS images from source_url simplestreams."""
+        # Verify sstream-mirror supports --progress option.
         out = subprocess.check_output(
             ['sstream-mirror', '--help'], stderr=subprocess.STDOUT)
         if isinstance(out, bytes):
