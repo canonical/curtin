@@ -39,7 +39,6 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
     conf_file = "examples/tests/raid5bcache.yaml"
     disk_to_check = {'sda': 2,
                      'md0': 0}
-                     
 
     collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
@@ -81,4 +80,6 @@ class VividTestRaid5Bcache(TestMdadmBcacheAbs):
     __test__ = True
     release = "vivid"
 
-
+class TrustTestRaid5Bcache(TestMdadmBcacheAbs):
+    __test__ = True
+    release = "trusty"
