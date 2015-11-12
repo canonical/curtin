@@ -61,7 +61,7 @@ if [ ! -n "$PYTHON" ]; then
             { debug "$p: not in path"; continue; }
         [ -n "$first_exe" ] || first_exe="$p"
         [ -z "$PY3OR2_MCHECK" ] && PYTHON=$p && break
-        out=$($p -m "$PY3OR2_MCHECK" 2>&1) && PYTHON="$p" &&
+        out=$($p -m "$PY3OR2_MCHECK" -- "$@" 2>&1) && PYTHON="$p" &&
             { debug "$p passed check [$p -m $PY3OR2_MCHECK]"; break; }
         ret=$?
         debug "$p [$ret]: $out"
@@ -74,7 +74,7 @@ if [ ! -n "$PYTHON" ]; then
     if [ -z "$PYTHON" ]; then
         if [ -n "$best_exe" -a -n "$PY3OR2_MINSTALL" ]; then
             debug "attempting deps install with: $best_exe -m $PY3OR2_MINSTALL"
-            "$best_exe" -m "$PY3OR2_MINSTALL" ||
+            "$best_exe" -m "$PY3OR2_MINSTALL" "$@" ||
                 fail "failed to install deps!"
             PYTHON="$best_exe"
         fi
