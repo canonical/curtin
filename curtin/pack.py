@@ -37,11 +37,6 @@ debug() {
    echo "$@" 1>&2
 }
 fail() { echo "$@" 1>&2; exit 1; }
-launch() {
-    PY3OR2_ARGS_DELIM=${PY3OR2_ARGS_DELIM} \\
-    PY3OR2_ARGS=${PY3OR2_ARGS} PY3OR2_MAIN=${PY3OR2_MAIN} \\
-    "$@"
-}
 
 # if $0 is is bin/ and dirname($0)/../module exists, then prepend PYTHONPATH
 mydir=${0%/*}
@@ -57,11 +52,8 @@ if [ "${mydir#${updir}/}" = "bin" -a -d "$updir/${PY3OR2_MCHECK%%.*}" ]; then
 fi
 
 if [ ! -n "$PYTHON" ]; then
-    PY3OR2_ARGS_DELIM="${PY3OR2_ARGS_DELIM:-|}"
-    oifs="$IFS"
-    IFS="${PY3OR2_ARGS_DELIM}"; PY3OR2_ARGS="$*"; IFS="$oifs"
-    IFS=":"
     first_exe=""
+    oifs="$IFS"; IFS=":"
     best=0
     best_exe=""
     for p in $PY3OR2_PYTHONS; do
@@ -69,10 +61,10 @@ if [ ! -n "$PYTHON" ]; then
             { debug "$p: not in path"; continue; }
         [ -n "$first_exe" ] || first_exe="$p"
         [ -z "$PY3OR2_MCHECK" ] && PYTHON=$p && break
-        out=$(launch $p -m "$PY3OR2_MCHECK" 2>&1) && PYTHON="$p" &&
-            { debug "[0] $p -m $PY3OR2_MCHECK: $out"; break; }
+        out=$($p -m "$PY3OR2_MCHECK" 2>&1) && PYTHON="$p" &&
+            { debug "$p passed check [$p -m $PY3OR2_MCHECK]"; break; }
         ret=$?
-        debug "[$ret] $p -m $PY3OR2_MCHECK: $out"
+        debug "$p [$ret]: $out"
         # higher non-zero exit values indicate more plausible usability
         [ $best -lt $ret ] && best_exe="$p" && best=$ret &&
             debug "current best: $best_exe"
@@ -82,7 +74,7 @@ if [ ! -n "$PYTHON" ]; then
     if [ -z "$PYTHON" ]; then
         if [ -n "$best_exe" -a -n "$PY3OR2_MINSTALL" ]; then
             debug "attempting deps install with: $best_exe -m $PY3OR2_MINSTALL"
-            launch "$best_exe" -m "$PY3OR2_MINSTALL" ||
+            "$best_exe" -m "$PY3OR2_MINSTALL" ||
                 fail "failed to install deps!"
             PYTHON="$best_exe"
         fi
