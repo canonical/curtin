@@ -23,7 +23,10 @@ class TestBasicAbs(VMBaseClass):
         cat /etc/fstab > fstab
         ls /dev/disk/by-dname/ > ls_dname
 
-        apt-config dump Acquire::HTTP::Proxy > apt-proxy
+        v=""
+        out=$(apt-config shell v Acquire::HTTP::Proxy)
+        eval "$out"
+        echo "$v" > apt-proxy
         """)]
 
     def test_output_files_exist(self):
