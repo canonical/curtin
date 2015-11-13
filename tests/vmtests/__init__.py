@@ -74,6 +74,8 @@ class ImageStore:
 
     def sync_images(self, filters=DEFAULT_FILTERS):
         """Sync MAAS images from source_url simplestreams."""
+        # Verify sstream-mirror supports --progress option.
+        progress = []
         try:
             out = subprocess.check_output(
                 ['sstream-mirror', '--help'], stderr=subprocess.STDOUT)
@@ -82,7 +84,9 @@ class ImageStore:
             if '--progress' in out:
                 progress = ['--progress']
         except subprocess.CalledProcessError:
-            progress = []
+            # swallow the error here as if sstream-mirror --help failed
+            # then the real sstream-mirror call below will also fail.
+            pass
 
         cmd = ['sstream-mirror'] + DEFAULT_SSTREAM_OPTS + progress + [
             self.source_url, self.base_dir] + filters
@@ -180,10 +184,14 @@ class TempDir:
         subprocess.check_call(['tar', '-C', self.mnt, '-xf', self.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
-    def __del__(self):
-        if get_env_var_bool('CURTIN_VMTEST_KEEP_DATA', False):
-            # remove tempdir
+    def remove_tmpdir(self):
+        # remove tempdir
+        if os.path.exists(self.tmpdir):
+            logger.debug('Removing tmpdir: {}'.format(self.tmpdir))
             shutil.rmtree(self.tmpdir)
+
+    def __del__(self):
+        self.remove_tmpdir()
 
 
 class VMBaseClass:
@@ -333,7 +341,8 @@ class VMBaseClass:
 
     @classmethod
     def tearDownClass(self):
-        logger.debug('Removing launch logfile')
+        if not get_env_var_bool('CURTIN_VMTEST_KEEP_DATA', False):
+            self.td.remove_tmpdir()
 
     @classmethod
     def expected_interfaces(self):
