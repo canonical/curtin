@@ -155,6 +155,22 @@ def wipe_volume(path, wipe_type):
         util.subp(cmd, rcs=[0, 1, 2, 5], capture=True)
 
 
+def get_holders(devname):
+    if not devname:
+        return []
+
+    devname_sysfs = \
+        '/sys/class/block/{}/holders'.format(os.path.basename(devname))
+    if not os.path.exists(devname_sysfs):
+        err = ('No sysfs path to device holders:'
+               ' {}'.format(devname_sysfs))
+        LOG.error(err)
+        raise ValueError(err)
+
+    LOG.debug('Getting blockdev holders: {}'.format(devname_sysfs))
+    return os.listdir(devname_sysfs)
+
+
 def clear_holders(sys_block_path):
     holders = os.listdir(os.path.join(sys_block_path, "holders"))
     LOG.info("clear_holders running on '%s', with holders '%s'" %
@@ -464,6 +480,14 @@ def disk_handler(info, storage_config):
         make_dname(info.get('id'), storage_config)
 
 
+def getnumberoflogicaldisks(device, storage_config):
+    logicaldisks = 0
+    for key, item in storage_config.items():
+        if item.get('device') == device and item.get('flag') == "logical":
+            logicaldisks = logicaldisks + 1
+    return logicaldisks
+
+
 def partition_handler(info, storage_config):
     device = info.get('device')
     size = info.get('size')
@@ -478,11 +502,18 @@ def partition_handler(info, storage_config):
     disk = get_path_to_storage_volume(device, storage_config)
     partnumber = determine_partition_number(info.get('id'), storage_config)
 
-    # Offset is either 1 sector after last partition, or near the beginning if
-    # this is the first partition
+    disk_kname = os.path.split(
+        get_path_to_storage_volume(device, storage_config))[-1]
+    # consider the disks logical sector size when calculating sectors
+    try:
+        prefix = "/sys/block/%s/queue/" % disk_kname
+        with open(prefix + "logical_block_size", "r") as f:
+            l = f.readline()
+            logical_block_size_bytes = int(l)
+    except:
+        logical_block_size_bytes = 512
+
     if partnumber > 1:
-        disk_kname = os.path.split(
-            get_path_to_storage_volume(device, storage_config))[-1]
         if partnumber == 5 and disk_ptable == "msdos":
             for key, item in storage_config.items():
                 if item.get('type') == "partition" and \
@@ -499,12 +530,41 @@ def partition_handler(info, storage_config):
         with open(os.path.join(previous_partition, "size"), "r") as fp:
             previous_size = int(fp.read())
         with open(os.path.join(previous_partition, "start"), "r") as fp:
-            offset_sectors = previous_size + int(fp.read()) + 1
+            previous_start = int(fp.read())
+
+    # Align to 1M at the beginning of the disk and at logical partitions
+    alignment_offset = (1 << 20) / logical_block_size_bytes
+    if partnumber == 1:
+        # start of disk
+        offset_sectors = alignment_offset
     else:
-        offset_sectors = 2048
+        # further partitions
+        if disk_ptable == "gpt" or flag != "logical":
+            # msdos primary and any gpt part start after former partition end
+            offset_sectors = previous_start + previous_size
+        else:
+            # msdos extended/logical partitions
+            if flag == "logical":
+                if partnumber == 5:
+                    # First logical partition
+                    # start at extended partition start + alignment_offset
+                    offset_sectors = previous_start + alignment_offset
+                else:
+                    # Further logical partitions
+                    # start at former logical partition end + alignment_offset
+                    offset_sectors = (previous_start + previous_size +
+                                      alignment_offset)
 
     length_bytes = util.human2bytes(size)
-    length_sectors = int(length_bytes / 512)
+    # start sector is part of the sectors that define the partitions size
+    # so length has to be "size in sectors - 1"
+    length_sectors = int(length_bytes / logical_block_size_bytes) - 1
+    # logical partitions can't share their start sector with the extended
+    # partition and logical partitions can't go head-to-head, so we have to
+    # realign and for that increase size as required
+    if info.get('flag') == "extended":
+        logdisks = getnumberoflogicaldisks(device, storage_config)
+        length_sectors = length_sectors + (logdisks * alignment_offset)
 
     # Handle preserve flag
     if info.get('preserve'):
@@ -882,6 +942,8 @@ def bcache_handler(info, storage_config):
                                                 storage_config)
     cache_device = get_path_to_storage_volume(info.get('cache_device'),
                                               storage_config)
+    cache_mode = info.get('cache_mode', None)
+
     if not backing_device or not cache_device:
         raise ValueError("backing device and cache device for bcache must be \
                 specified")
@@ -908,6 +970,25 @@ def bcache_handler(info, storage_config):
             fp = open("/sys/fs/bcache/register", "w")
             fp.write(path)
             fp.close()
+
+    if cache_mode:
+        # find the actual bcache device name via sysfs using the
+        # backing device's holders directory.
+        holders = get_holders(backing_device)
+
+        if len(holders) != 1:
+            err = ('Invalid number of holding devices:'
+                   ' {}'.format(holders))
+            LOG.error(err)
+            raise ValueError(err)
+
+        [bcache_dev] = holders
+        LOG.info("Setting cache_mode on {} to {}".format(bcache_dev,
+                                                         cache_mode))
+        cache_mode_file = \
+            '/sys/block/{}/bcache/cache_mode'.format(info.get('id'))
+        with open(cache_mode_file, "w") as fp:
+            fp.write(cache_mode)
 
     if info.get('name'):
         # Make dname rule for this dev
