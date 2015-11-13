@@ -129,6 +129,7 @@ class ImageStore:
 
         image_dir = os.path.dirname(root_image_gz)
         root_image_path = os.path.join(image_dir, 'root-image')
+        tarball = os.path.join(image_dir, 'root-image.tar.gz')
         kernel_path = os.path.join(image_dir, 'root-image-kernel')
         initrd_path = os.path.join(image_dir, 'root-image-initrd')
         # Check if we need to unpack things from the compressed image.
@@ -136,7 +137,7 @@ class ImageStore:
                 not os.path.exists(kernel_path) or
                 not os.path.exists(initrd_path)):
             self.convert_image(root_image_gz)
-        return (root_image_path, kernel_path, initrd_path)
+        return (root_image_path, kernel_path, initrd_path, tarball)
 
 
 class TempDir:
@@ -207,7 +208,7 @@ class VMBaseClass:
         # Disable sync if env var is set.
         image_store.sync = get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False)
         logger.debug("Image sync = %s", image_store.sync)
-        (boot_img, boot_kernel, boot_initrd) = image_store.get_image(
+        (boot_img, boot_kernel, boot_initrd, tarball) = image_store.get_image(
             self.release, self.arch)
 
         # set up tempdir
@@ -226,6 +227,10 @@ class VMBaseClass:
 
         if self.extra_kern_args:
             cmd.extend(["--append=" + self.extra_kern_args])
+
+        # publish the root tarball
+        install_src = "PUBURL/" + os.path.basename(tarball)
+        cmd.append("--publish=%s" % tarball)
 
         # check for network configuration
         self.network_state = curtin_net.parse_net_config(self.conf_file)
@@ -268,7 +273,7 @@ class VMBaseClass:
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "-vv", "install"] +
                    ["--config=%s" % f for f in configs] +
-                   ["cp:///"])
+                   [install_src])
 
         # run vm with installer
         lout_path = os.path.join(self.td.tmpdir, "launch-install.out")

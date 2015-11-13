@@ -389,6 +389,10 @@ main() {
         ln -sf "$fpath" "${TEMP_D}/${pub}"
     done
 
+    start_http "${TEMP_D}" "$ip" "$http_port" "${HTTP_TRIES}" </dev/null ||
+        { error "failed to start http service"; return 1; }
+    http_port=$_RET
+    burl="http://$ip:${http_port}/"
     # now replace PUBURL anywhere in cmdargs
     for((i=0;i<${#cmdargs[@]};i++)); do
         cmdargs[$i]=${cmdargs[$i]//PUBURL/$burl}
@@ -439,11 +443,6 @@ main() {
         "${top_d}/bin/curtin" pack "${addargs[@]}" -- \
         "${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
         { error "failed to pack"; return 1; }
-
-    start_http "${TEMP_D}" "$ip" "$http_port" "${HTTP_TRIES}" </dev/null ||
-        { error "failed to start http service"; return 1; }
-    http_port=$_RET
-    burl="http://$ip:${http_port}/"
 
     udata="${TEMP_D}/user-data"
     mdata="${TEMP_D}/meta-data"
