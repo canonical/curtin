@@ -49,6 +49,11 @@ if __name__ == '__main__':
         verbose = True
         args = args[1:]
 
+    # if this is 'curtin pack install', then --install-deps does
+    # not apply to *this* command.
+    if 'pack' in args:
+        args = args[:args.index('pack')]
+
     install_deps = '--install-deps' in args
 
     errors = find_missing_deps()
