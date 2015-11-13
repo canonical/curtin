@@ -19,6 +19,11 @@ import subprocess
 
 from curtin.util import which
 
+REQUIRED_IMPORTS = [
+    # import string to execute, python2 package, python3 package
+    ('import yaml', 'python-yaml', 'python3-yaml'),
+]
+
 REQUIRED_EXECUTABLES = [
     # executable in PATH, package
     ('sgdisk', 'gdisk'),
@@ -32,12 +37,6 @@ try:
         REQUIRED_EXECUTABLES.append(('make-bcache', 'bcache-utils',))
 except:
     pass
-
-
-REQUIRED_IMPORTS = [
-    # import string to execute, python2 package, python3 package
-    ('import yaml', 'python-yaml', 'python3-yaml'),
-]
 
 
 class MissingDeps(Exception):
