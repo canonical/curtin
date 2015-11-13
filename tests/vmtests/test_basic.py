@@ -88,3 +88,10 @@ class VividTestBasic(TestBasicAbs, TestCase):
     repo = "maas-daily"
     release = "vivid"
     arch = "amd64"
+
+
+class PreciseTestBasic(TestBasicAbs, TestCase):
+    __test__ = True
+    repo = "maas-daily"
+    release = "precise"
+    arch = "amd64"

@@ -36,9 +36,6 @@ SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
 
-CUSTOM_REQUIRED_PACKAGES = ['mdadm', 'lvm2', 'bcache-tools',
-                            'btrfs-tools', 'xfsprogs']
-
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
       {'help': 'which devices to operate on', 'action': 'append',
@@ -999,19 +996,6 @@ def bcache_handler(info, storage_config):
                          not supported")
 
 
-def install_missing_packages_for_meta_custom():
-    """Install all the missing package that `meta_custom` requires to
-    function properly."""
-    missing_packages = [
-        package
-        for package in CUSTOM_REQUIRED_PACKAGES
-        if not util.has_pkg_installed(package)
-    ]
-    if len(missing_packages) > 0:
-        util.apt_update()
-        util.install_packages(missing_packages)
-
-
 def meta_custom(args):
     """Does custom partitioning based on the layout provided in the config
     file. Section with the name storage contains information on which
@@ -1033,9 +1017,6 @@ def meta_custom(args):
 
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
-
-    # make sure the required packages are installed
-    install_missing_packages_for_meta_custom()
 
     storage_config = cfg.get('storage', {})
     if not storage_config:
