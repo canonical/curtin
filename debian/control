@@ -25,10 +25,12 @@ X-Python3-Version: >= 3.2
 Package: curtin
 Architecture: all
 Priority: extra
-Depends: gdisk,
+Depends: btrfs-tools,
+         gdisk,
          lvm2,
          mdadm,
          python3-curtin (= ${binary:Version}),
+         xfsprogs,
          ${misc:Depends}
 Description: Library and tools for the curtin installer
  This package provides the curtin installer.

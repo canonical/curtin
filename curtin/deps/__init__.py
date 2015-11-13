@@ -26,9 +26,11 @@ REQUIRED_IMPORTS = [
 
 REQUIRED_EXECUTABLES = [
     # executable in PATH, package
-    ('sgdisk', 'gdisk'),
-    ('mdadm', 'mdadm'),
     ('lvcreate', 'lvm2'),
+    ('mdadm', 'mdadm'),
+    ('mkfs.btrfs', 'btrfs-tools'),
+    ('mkfs.xfs', 'xfsprogs'),
+    ('sgdisk', 'gdisk'),
 ]
 
 try:
