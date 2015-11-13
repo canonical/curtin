@@ -35,6 +35,8 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
                         Note, qemu adds 5900 to port numbers. (:0 = port 5900)
            --serial-log F  : log to F (default 'serial.log')
       -v | --verbose    be more verbose
+           --no-install-deps  do not install insert '--install-deps'
+                              on curtin command invocations
 
    use of --kernel/--initrd will seed cloud-init via cmdline
    rather than the local datasource
@@ -219,7 +221,7 @@ main() {
     local initrd="" kernel="" uappend="" iargs="" disk_args=""
     local pubs="" disks="" pstate="null"
     local uefi=0
-    local netdevs=""
+    local netdevs="" install_deps="--install-deps"
     local video="-curses -vga std" serial_log="file:serial.log"
     # dowait: run xkvm with a '&' and then 'wait' on the pid.
     #  the reason to do this or not do this has to do with interactivity
@@ -246,6 +248,7 @@ main() {
             -d|--disk) disks[${#disks[@]}]="$next"; shift;;
             -h|--help) Usage ; exit 0;;
             -i|--initrd) initrd="$next"; shift;;
+               --no-install-deps) install_deps="";;
             -k|--kernel) kernel="$next"; shift;;
                --mem) mem="$next"; shift;;
                --power)
@@ -395,6 +398,12 @@ main() {
         esac
         addargs[${#addargs[@]}]="--add=config/${fpath##*/}:$fpath"
     done
+
+    if [ "${cmdargs[0]}" = "curtin" -a -n "$install_deps" ]; then
+        # if this is a 'curtin' command, then also insert --install-deps
+        debug 1 "adding --install-deps to command"
+        cmdargs=( curtin $install_deps "${cmdargs[@]:1}" )
+    fi
 
     PYTHONPATH="${top_d}${PYTHONPATH:+${PYTHONPATH}}" \
         "${top_d}/bin/curtin" pack "${addargs[@]}" -- \
