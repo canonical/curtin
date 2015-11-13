@@ -495,7 +495,6 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
 
     scripts = ([collect_prep] + collect_scripts + [collect_post] +
                [precise_poweroff])
-               
 
     for part in scripts:
         if not part.startswith("#!"):
