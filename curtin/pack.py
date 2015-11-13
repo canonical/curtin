@@ -216,7 +216,8 @@ def pack(fdout=None, command=None, paths=None, copy_files=None,
 
 
 def pack_install(fdout=None, configs=None, paths=None,
-                 add_files=None, copy_files=None, args=None):
+                 add_files=None, copy_files=None, args=None,
+                 install_deps=True):
 
     if configs is None:
         configs = []
@@ -227,7 +228,12 @@ def pack_install(fdout=None, configs=None, paths=None,
     if args is None:
         args = []
 
-    command = ["curtin", "install"]
+    if install_deps:
+        dep_flags = ["--install-deps"]
+    else:
+        dep_flags = []
+
+    command = ["curtin", dep_flags, "install"]
 
     my_files = []
     for n, config in enumerate(configs):
