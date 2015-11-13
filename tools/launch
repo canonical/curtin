@@ -101,6 +101,36 @@ instance-id: 'inst-${RANDOM}'
 EOF
 }
 
+write_pstate_config() {
+    local pstate="$1" config1="$2" config2="$3"
+    cat > "$config1" <<EOF
+#cloud-config
+power_state:
+  mode: "$pstate"
+EOF
+    sed -e "s,PSTATE,$pstate," > "$config2" <<"EOF"
+#upstart-job
+# precise does not do cloud-config poweroff
+description "power-state for precise"
+start on stopped cloud-final
+console output
+task
+script
+  [ "$(lsb_release -sc)" = "precise" ] || exit 0
+  target="PSTATE"
+  msg="precise-powerstate: $target"
+  case "$target" in
+     on) exit 0;;
+     off|poweroff) shutdown -P now "$msg";;
+     reboot) shutdown -r now "$msg";;
+     *) echo "$msg : unknown target"; exit 1;;
+  esac
+  echo "$msg"
+  exit 0
+end script
+EOF
+}
+
 write_userdata() {
     local x
     cat <<EOF
@@ -421,9 +451,9 @@ main() {
     local ccfiles=""
     ccfiles=( )
     if [ -n "${pstate}" ]; then
-        printf "#cloud-config\npower_state:\n  mode: %s\n" "$pstate" \
-            > "${TEMP_D}/pstate"
-        ccfiles[${#ccfiles[@]}]="${TEMP_D}/pstate"
+        write_pstate_config "$pstate" "${TEMP_D}/pstate.1" "${TEMP_D}/pstate.2"
+        ccfiles[${#ccfiles[@]}]="${TEMP_D}/pstate.1"
+        ccfiles[${#ccfiles[@]}]="${TEMP_D}/pstate.2"
     fi
 
     if tmp=$(find_apt_proxy); then
