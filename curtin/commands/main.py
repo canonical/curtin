@@ -66,6 +66,12 @@ def main(args=None):
                         help='read configuration from cfg',
                         metavar='FILE', type=argparse.FileType("rb"),
                         dest='main_cfgopts', default=[])
+    # note, this '--install-deps' is currently only
+    # read by curtin.deps.install which is invoked by the
+    # launcher (bin/curtin).
+    parser.add_argument('--install-deps', action='store_true',
+                        help='install dependencies as necessary',
+                        default=False)
     parser.add_argument('--set', action=util.MergedCmdAppend,
                         help=('define a config variable. key can be a "/" '
                               'delimited path ("early_commands/cmd1=a"). if '

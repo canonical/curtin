@@ -14,10 +14,30 @@
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
-import os.path
 import sys
+import subprocess
 
 from curtin.util import which
+
+REQUIRED_EXECUTABLES = [
+    # executable in PATH, package
+    ('sgdisk', 'gdisk'),
+    ('mdadm', 'mdadm'),
+    ('lvcreate', 'lvm2'),
+]
+
+try:
+    __lsb_rel = subprocess.check_output(['lsb_release', '-sc']).strip()
+    if __lsb_rel != 'precise':
+        REQUIRED_EXECUTABLES.append(('make-bcache', 'bcache-utils',))
+except:
+    pass
+
+
+REQUIRED_IMPORTS = [
+    # import string to execute, python2 package, python3 package
+    ('import yaml', 'python-yaml', 'python3-yaml'),
+]
 
 
 class MissingDeps(Exception):
@@ -31,7 +51,7 @@ class MissingDeps(Exception):
         return self.message + " Install packages: %s" % ' '.join(self.deps)
 
 
-def check_imports(imports, py2pkgs, py3pkgs, message=None):
+def check_import(imports, py2pkgs, py3pkgs, message=None):
     import_group = imports
     if isinstance(import_group, str):
         import_group = [import_group]
@@ -57,28 +77,38 @@ def check_imports(imports, py2pkgs, py3pkgs, message=None):
     raise MissingDeps(message, pkgs)
 
 
-def check_yaml():
-    check_imports('import yaml', py2pkgs='python-yaml', py3pkgs='python3-yaml')
+def check_executable(cmdname, pkg):
+    if not which(cmdname):
+        raise MissingDeps("Missing program '%s' from '%s'.", pkg)
 
 
-def check_sgdisk():
-    if not which('sgdisk'):
-        raise MissingDeps("Missing program 'sgdisk'.", 'gdisk')
-
-
-def find_missing_deps(checks=None):
-    if checks is None:
-        checks = CHECKS
+def check_executables(executables=None):
+    if executables is None:
+        executables = REQUIRED_EXECUTABLES
     mdeps = []
-    for checker in checks:
+    for exe, pkg in executables:
         try:
-            checker()
+            check_executable(exe, pkg)
         except MissingDeps as e:
             mdeps.append(e)
-
     return mdeps
 
 
-CHECKS = [check_yaml, check_sgdisk]
+def check_imports(imports=None):
+    if imports is None:
+        imports = REQUIRED_IMPORTS
+
+    mdeps = []
+    for import_str, py2pkg, py3pkg in imports:
+        try:
+            check_import(import_str, py2pkg, py3pkg)
+        except MissingDeps as e:
+            mdeps.append(e)
+    return mdeps
+
+
+def find_missing_deps():
+    return check_executables() + check_imports()
+
 
 # vi: ts=4 expandtab syntax=python

@@ -41,17 +41,31 @@ def runcmd(cmd, retries=[]):
     except subprocess.CalledProcessError as e:
         return e.returncode
 
+
 if __name__ == '__main__':
     verbose = False
-    if len(sys.argv) > 1 and sys.argv[1] in ("-v", "--verbose"):
+    args = sys.argv
+    if len(args) > 1 and args[1] in ("-v", "--verbose"):
         verbose = True
+        args = args[1:]
+
+    install_deps = '--install-deps' in args
+
     errors = find_missing_deps()
     if len(errors) == 0:
+        if verbose:
+            sys.stderr.write("No missing dependencies\n")
         sys.exit(0)
 
     missing_pkgs = []
     for e in errors:
         missing_pkgs += e.deps
+
+    if not install_deps:
+        if verbose:
+            sys.stderr.write("Missing dependencies: %s\n" %
+                             ' '.join(sorted(missing_pkgs)))
+        sys.exit(0)
 
     if verbose:
         sys.stderr.write(
