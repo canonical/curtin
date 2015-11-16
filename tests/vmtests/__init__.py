@@ -224,9 +224,6 @@ class TempDir:
         if os.path.exists(self.tmpdir):
             shutil.rmtree(self.tmpdir)
 
-    def __del__(self):
-        self.remove_tmpdir()
-
 
 class VMBaseClass:
     disk_to_check = {}
@@ -385,7 +382,7 @@ class VMBaseClass:
             cls.td.remove_tmpdir()
         if os.path.exists(_topdir()):
             try:
-                os.rmdir(tdir)
+                os.rmdir(_topdir())
             except OSError as e:
                 if e.errno == errno.ENOTEMPTY:
                     pass
