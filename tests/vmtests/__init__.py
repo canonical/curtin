@@ -57,7 +57,7 @@ def _topdir():
             ts = ts.replace(":", "")
             outd = os.path.join(tdir, 'curtin-vmtest-{}'.format(ts))
             os.mkdir(outd)
-            atexit(cleanup, outd)
+            atexit.register(cleanup, outd)
             _TOPDIR = outd
             return _TOPDIR
         except FileExistsError:
