@@ -188,7 +188,6 @@ class TempDir:
     def remove_tmpdir(self):
         # remove tempdir
         if os.path.exists(self.tmpdir):
-            logger.debug('Removing tmpdir: {}'.format(self.tmpdir))
             shutil.rmtree(self.tmpdir)
 
     def __del__(self):
@@ -347,6 +346,7 @@ class VMBaseClass:
     @classmethod
     def tearDownClass(self):
         if not get_env_var_bool('CURTIN_VMTEST_KEEP_DATA', False):
+            logger.debug('Removing tmpdir: {}'.format(self.td.tmpdir))
             self.td.remove_tmpdir()
 
     @classmethod
