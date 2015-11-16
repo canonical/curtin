@@ -42,11 +42,9 @@ def _topdir():
         try:
             now = datetime.datetime.now().isoformat()
             # : in path give grief at least to tools/launch
-            now.replace(":", "")
             outd = os.path.join(tdir, 'curtin-vmtest-{}'.format(now))
             os.mkdir(outd)
             _TOPDIR = outd
-            print("TOPDIR = %s" % _TOPDIR)
             return _TOPDIR
         except FileExistsError:
             time.sleep(random.random()/10)
@@ -61,8 +59,7 @@ def _initialize_logging():
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-    fh = logging.FileHandler(_topdir() + ".log"),
-                             mode='w', encoding='utf-8')
+    fh = logging.FileHandler(_topdir() + ".log", mode='w', encoding='utf-8')
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(formatter)
     log = logging.getLogger(__name__)
