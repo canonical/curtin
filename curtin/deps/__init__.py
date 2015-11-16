@@ -80,7 +80,7 @@ def check_import(imports, py2pkgs, py3pkgs, message=None):
 
 def check_executable(cmdname, pkg):
     if not which(cmdname):
-        raise MissingDeps("Missing program '%s' from '%s'.", pkg)
+        raise MissingDeps("Missing program '%s'." % cmdname, pkg)
 
 
 def check_executables(executables=None):
