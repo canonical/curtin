@@ -5,11 +5,13 @@ import logging
 import json
 import os
 import pathlib
+import random
 import re
 import shutil
 import subprocess
 import tempfile
 import textwrap
+import time
 import urllib
 import curtin.net as curtin_net
 
@@ -27,25 +29,51 @@ DEFAULT_FILTERS = ['arch=amd64', 'item_name=root-image.gz']
 
 DEVNULL = open(os.devnull, 'w')
 
+_TOPDIR = None
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter(
-    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-# Configure logging module to save output to disk and present it on
-# sys.stderr
-now = datetime.datetime.now().isoformat()
-fh = logging.FileHandler(
-    '/tmp/{}-vmtest.log'.format(now), mode='w', encoding='utf-8')
-fh.setLevel(logging.DEBUG)
-fh.setFormatter(formatter)
 
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-ch.setFormatter(formatter)
+def _topdir():
+    global _TOPDIR
+    if _TOPDIR:
+        return _TOPDIR
 
-logger.addHandler(fh)
-logger.addHandler(ch)
+    tdir = os.environ.get('TMPDIR', '/tmp')
+    for i in range(0, 10):
+        try:
+            now = datetime.datetime.now().isoformat()
+            outd = os.path.join(tdir, 'curtin-vmtest-{}'.format(now))
+            os.mkdir(outd)
+            _TOPDIR = outd
+            print("TOPDIR = %s" % _TOPDIR)
+            return _TOPDIR
+        except FileExistsError:
+            time.sleep(random.random()/10)
+
+    raise Exception("Unable to initialize topdir in TMPDIR [%s]" % tdir)
+
+
+def _initialize_logging():
+    # Configure logging module to save output to disk and present it on
+    # sys.stderr
+
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    fh = logging.FileHandler(os.path.join(_topdir(), "log"),
+                             mode='w', encoding='utf-8')
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    log = logging.getLogger(__name__)
+    log.setLevel(logging.DEBUG)
+
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    ch.setFormatter(formatter)
+
+    log.addHandler(fh)
+    log.addHandler(ch)
+
+    return log
 
 
 class ImageStore:
@@ -141,14 +169,14 @@ class ImageStore:
 
 
 class TempDir:
-    def __init__(self, user_data, name=None):
+    def __init__(self, name, user_data):
         # Create tmpdir
-        if name is None:
-            prefix = "curtin-vmtest."
-        else:
-            prefix = "curtin-vmtest-%s." % name
-
-        self.tmpdir = tempfile.mkdtemp(prefix=prefix)
+        self.tmpdir = os.path.join(_topdir(), name)
+        try:
+            os.mkdir(self.tmpdir)
+        except FileExistsError:
+            raise ValueError("name '%s' already exists in %s" %
+                             (name, _topdir))
 
         # write cloud-init for installed system
         meta_data_file = os.path.join(self.tmpdir, "meta-data")
@@ -516,3 +544,6 @@ def get_env_var_bool(envname, default=False):
         return default
 
     return val.lower() not in ("false", "0", "")
+
+
+logger = _initialize_logging()
