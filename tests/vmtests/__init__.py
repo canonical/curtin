@@ -59,7 +59,7 @@ def _initialize_logging():
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-    fh = logging.FileHandler(os.path.join(_topdir(), "log"),
+    fh = logging.FileHandler(_topdir() + ".log"),
                              mode='w', encoding='utf-8')
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(formatter)
