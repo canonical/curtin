@@ -42,6 +42,7 @@ def _topdir():
         try:
             now = datetime.datetime.now().isoformat()
             # : in path give grief at least to tools/launch
+            now.replace(":", "")
             outd = os.path.join(tdir, 'curtin-vmtest-{}'.format(now))
             os.mkdir(outd)
             _TOPDIR = outd
