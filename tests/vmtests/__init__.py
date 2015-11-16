@@ -40,10 +40,10 @@ def _topdir():
     tdir = os.environ.get('TMPDIR', '/tmp')
     for i in range(0, 10):
         try:
-            now = datetime.datetime.now().isoformat()
+            ts = datetime.datetime.now().isoformat()
             # : in path give grief at least to tools/launch
-            now.replace(":", "")
-            outd = os.path.join(tdir, 'curtin-vmtest-{}'.format(now))
+            ts = ts.replace(":", "")
+            outd = os.path.join(tdir, 'curtin-vmtest-{}'.format(ts))
             os.mkdir(outd)
             _TOPDIR = outd
             return _TOPDIR
