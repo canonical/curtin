@@ -1,4 +1,5 @@
 import ast
+import atexit
 import datetime
 import errno
 import hashlib
@@ -38,6 +39,16 @@ def _topdir():
     if _TOPDIR:
         return _TOPDIR
 
+    def cleanup(tdir):
+        # remove the top dir if its empty
+        if not os.path.exists(tdir):
+            return
+        try:
+            os.rmdir(tdir)
+        except OSError as e:
+            if e.errno == errno.ENOTEMPTY:
+                pass
+
     tdir = os.environ.get('TMPDIR', '/tmp')
     for i in range(0, 10):
         try:
@@ -46,6 +57,7 @@ def _topdir():
             ts = ts.replace(":", "")
             outd = os.path.join(tdir, 'curtin-vmtest-{}'.format(ts))
             os.mkdir(outd)
+            atexit(cleanup, outd)
             _TOPDIR = outd
             return _TOPDIR
         except FileExistsError:
@@ -383,12 +395,6 @@ class VMBaseClass:
         if not get_env_var_bool('CURTIN_VMTEST_KEEP_DATA', False):
             logger.debug('Removing tmpdir: {}'.format(cls.td.tmpdir))
             cls.td.remove_tmpdir()
-        # remove the top dir if its empty
-        try:
-            os.rmdir(_topdir())
-        except OSError as e:
-            if e.errno == errno.ENOTEMPTY:
-                pass
 
     @classmethod
     def expected_interfaces(cls):
