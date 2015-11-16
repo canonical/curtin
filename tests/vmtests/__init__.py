@@ -1,5 +1,6 @@
 import ast
 import datetime
+import errno
 import hashlib
 import logging
 import json
@@ -382,6 +383,12 @@ class VMBaseClass:
         if not get_env_var_bool('CURTIN_VMTEST_KEEP_DATA', False):
             logger.debug('Removing tmpdir: {}'.format(cls.td.tmpdir))
             cls.td.remove_tmpdir()
+        # remove the top dir if its empty
+        try:
+            os.rmdir(_topdir())
+        except OSError as e:
+            if e.errno == errno.ENOTEMPTY:
+                pass
 
     @classmethod
     def expected_interfaces(cls):
