@@ -1,8 +1,7 @@
 #!/bin/sh
 PY3OR2_MAIN="curtin.commands.main"
 PY3OR2_MCHECK="curtin.deps.check"
-PY3OR2_MINSTALL="curtin.deps.install"
-PY3OR2_PYTHONS=${PY3OR2_PYTHONS:-"python3:python2:python"}
+PY3OR2_PYTHONS=${PY3OR2_PYTHONS:-"python3:python"}
 PYTHON=${PY3OR2_PYTHON}
 
 debug() {
@@ -42,16 +41,9 @@ if [ ! -n "$PYTHON" ]; then
         [ $best -lt $ret ] && best_exe="$p" && best=$ret &&
             debug "current best: $best_exe"
     done
-    [ -z "$best_exe" -a -n "$first_exe" ] && best_exe="$first_exe"
     IFS="$oifs"
-    if [ -z "$PYTHON" ]; then
-        if [ -n "$best_exe" -a -n "$PY3OR2_MINSTALL" ]; then
-            debug "attempting deps install: $best_exe -m $PY3OR2_MINSTALL $*"
-            "$best_exe" -m "$PY3OR2_MINSTALL" "$@" ||
-                fail "failed to install deps!"
-            PYTHON="$best_exe"
-        fi
-    fi
+    [ -z "$best_exe" -a -n "$first_exe" ] && best_exe="$first_exe"
+    [ -n "$PYTHON" ] || PYTHON="$best_exe"
     [ -n "$PYTHON" ] ||
         fail "no availble python? [PY3OR2_DEBUG=1 for more info]"
 fi

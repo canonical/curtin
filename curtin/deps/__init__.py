@@ -14,10 +14,11 @@
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+import os
 import sys
 import subprocess
 
-from curtin.util import which
+from curtin.util import (which, install_packages, ProcessExecutionError)
 
 REQUIRED_IMPORTS = [
     # import string to execute, python2 package, python3 package
@@ -110,6 +111,41 @@ def check_imports(imports=None):
 
 def find_missing_deps():
     return check_executables() + check_imports()
+
+
+def install_deps(verbosity=False, dry_run=False, allow_daemons=True):
+    errors = find_missing_deps()
+    if len(errors) == 0:
+        if verbosity:
+            sys.stderr.write("No missing dependencies\n")
+        return 0
+
+    missing_pkgs = []
+    for e in errors:
+        missing_pkgs += e.deps
+
+    deps_string = ' '.join(sorted(missing_pkgs))
+
+    if dry_run:
+        sys.stderr.write("Missing dependencies: %s\n" % deps_string)
+        return 0
+
+    if os.geteuid() != 0:
+        sys.stderr.write("Missing dependencies: %s\n" % deps_string)
+        sys.stderr.write("Package installation is not possible as non-root.\n")
+        return 2
+
+    if verbosity:
+        sys.stderr.write("Installing %s\n" % deps_string)
+
+    ret = 0
+    try:
+        install_packages(missing_pkgs, allow_daemons=allow_daemons)
+    except ProcessExecutionError as e:
+        sys.stderr.write("%s\n" % e)
+        ret = e.exit_code
+
+    return ret
 
 
 # vi: ts=4 expandtab syntax=python

@@ -26,7 +26,6 @@ CALL_ENTRY_POINT_SH_HEADER = """
 #!/bin/sh
 PY3OR2_MAIN="%(ep_main)s"
 PY3OR2_MCHECK="%(ep_mcheck)s"
-PY3OR2_MINSTALL="%(ep_minstall)s"
 PY3OR2_PYTHONS=${PY3OR2_PYTHONS:-"%(python_exe_list)s"}
 PYTHON=${PY3OR2_PYTHON}
 """.strip()
@@ -69,16 +68,9 @@ if [ ! -n "$PYTHON" ]; then
         [ $best -lt $ret ] && best_exe="$p" && best=$ret &&
             debug "current best: $best_exe"
     done
-    [ -z "$best_exe" -a -n "$first_exe" ] && best_exe="$first_exe"
     IFS="$oifs"
-    if [ -z "$PYTHON" ]; then
-        if [ -n "$best_exe" -a -n "$PY3OR2_MINSTALL" ]; then
-            debug "attempting deps install: $best_exe -m $PY3OR2_MINSTALL $*"
-            "$best_exe" -m "$PY3OR2_MINSTALL" "$@" ||
-                fail "failed to install deps!"
-            PYTHON="$best_exe"
-        fi
-    fi
+    [ -z "$best_exe" -a -n "$first_exe" ] && best_exe="$first_exe"
+    [ -n "$PYTHON" ] || PYTHON="$best_exe"
     [ -n "$PYTHON" ] ||
         fail "no availble python? [PY3OR2_DEBUG=1 for more info]"
 fi
@@ -88,15 +80,13 @@ exec $PYTHON -m "$PY3OR2_MAIN" "$@"
 
 
 def write_exe_wrapper(entrypoint, path=None, interpreter=None,
-                      deps_check_entry=None, deps_install_entry=None,
-                      mode=0o755):
+                      deps_check_entry=None, mode=0o755):
     if not interpreter:
-        interpreter = "python3:python2:python"
+        interpreter = "python3:python"
 
     subs = {
         'ep_main': entrypoint,
         'ep_mcheck': deps_check_entry if deps_check_entry else "",
-        'ep_minstall': deps_install_entry if deps_install_entry else "",
         'python_exe_list': interpreter,
     }
 
@@ -148,9 +138,7 @@ def pack(fdout=None, command=None, paths=None, copy_files=None,
                         ignore=not_dot_py)
         write_exe_wrapper(entrypoint='curtin.commands.main',
                           path=os.path.join(bindir, 'curtin'),
-                          deps_check_entry="curtin.deps.check",
-                          deps_install_entry="curtin.deps.install"
-                          )
+                          deps_check_entry="curtin.deps.check")
 
         for archpath, filepath in copy_files:
             target = os.path.abspath(os.path.join(exdir, archpath))
