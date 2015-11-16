@@ -141,9 +141,14 @@ class ImageStore:
 
 
 class TempDir:
-    def __init__(self, user_data):
+    def __init__(self, user_data, name=None):
         # Create tmpdir
-        self.tmpdir = tempfile.mkdtemp()
+        if name is None:
+            prefix = "curtin-vmtest."
+        else:
+            prefix = "curtin-vmtest-%s." % name
+
+        self.tmpdir = tempfile.mkdtemp(prefix=prefix)
 
         # write cloud-init for installed system
         meta_data_file = os.path.join(self.tmpdir, "meta-data")
@@ -213,7 +218,8 @@ class VMBaseClass:
         # set up tempdir
         logger.debug('Setting up tempdir')
         cls.td = TempDir(
-            generate_user_data(collect_scripts=cls.collect_scripts))
+            name=cls.__name__,
+            user_data=generate_user_data(collect_scripts=cls.collect_scripts))
         cls.install_log = os.path.join(cls.td.tmpdir, 'install-serial.log')
         cls.boot_log = os.path.join(cls.td.tmpdir, 'boot-serial.log')
 
