@@ -487,7 +487,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
         'tar -C "%s" -cf "%s" .' % (output_dir, output_device))
 
     # failsafe poweroff runs on precise only, where power_state does
-    # not exist. It marks that it is done so as to only do it once.
+    # not exist.
     precise_poweroff = textwrap.dedent("""#!/bin/sh
         [ "$(lsb_release -sc)" = "precise" ] || exit 0;
         shutdown -P now "Shutting down on precise"
