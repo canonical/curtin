@@ -18,7 +18,8 @@ import os
 import sys
 import subprocess
 
-from curtin.util import (which, install_packages, ProcessExecutionError)
+from curtin.util import (which, install_packages, lsb_release,
+                         ProcessExecutionError)
 
 REQUIRED_IMPORTS = [
     # import string to execute, python2 package, python3 package
@@ -37,12 +38,8 @@ REQUIRED_EXECUTABLES = [
     ('udevadm', 'udev'),
 ]
 
-try:
-    __lsb_rel = subprocess.check_output(['lsb_release', '-sc']).strip()
-    if __lsb_rel != 'precise':
-        REQUIRED_EXECUTABLES.append(('make-bcache', 'bcache-utils',))
-except:
-    pass
+if lsb_release(field='codename') == "precise":
+    REQUIRED_EXECUTABLES.append(('make-bcache', 'bcache-utils',))
 
 
 class MissingDeps(Exception):

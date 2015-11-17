@@ -30,6 +30,8 @@ from .log import LOG
 _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
 _INSTALLED_MAIN = '/usr/bin/curtin'
 
+_LSB_RELEASE = {}
+
 
 def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
           logstring=False):
@@ -689,6 +691,27 @@ def try_import_module(import_str, default=None):
 
 def is_file_not_found_exc(exc):
     return (isinstance(exc, IOError) and exc.errno == errno.ENOENT)
+
+
+def lsb_release(field="codename"):
+    fields = ('description', 'release', 'codename', 'id')
+    if field not in fields:
+        raise ValueError("Invalid field: %s. Must be one of %s" %
+                         (field, ','.join(fields)))
+
+    global _LSB_RELEASE
+    if not _LSB_RELEASE:
+        data = {}
+        for k in fields:
+            try:
+                out, err = subp(['lsb_release', '--short', '--%s' % k], 
+                                capture=True)
+                data[k] = out.strip()
+            except ProcessExecutionError as e:
+                LOG.warn("Unable to get lsb_release/%s: %s", k, e)
+                data[k] = "UNAVAILABLE"
+        _LSB_RELEASE.update(data)
+    return _LSB_RELEASE
 
 
 class MergedCmdAppend(argparse.Action):

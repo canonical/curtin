@@ -1,4 +1,5 @@
 from unittest import TestCase
+import mock
 import os
 import shutil
 import tempfile
@@ -97,6 +98,41 @@ class TestWhich(TestCase):
         found = util.which("fuzz", search=["/bin1", "/usr/bin2"],
                            target="/target")
         self.assertEqual(found, "/usr/bin2/fuzz")
+
+
+class TestLsbRelease(TestCase):
+    def setUp(self):
+        self._reset_cache()
+
+    def _reset_cache(self):
+        for d in util._LSB_RELEASE.keys():
+            del util._LSB_RELEASE[d]
+
+    @mock.patch("curtin.util.subp")
+    def test_lsb_release_functional(self, mock_subp):
+        rdata = {'id': 'Ubuntu', 'description': 'Ubuntu 14.04.2 LTS',
+                 'codename': 'trusty', 'release': '14.04'}
+        def fake_subp(cmd, capture=False):
+            if cmd[0:2] == ["lsb_release", "--short"]:
+                field = cmd[2].replace("--", "")
+                return (rdata[field] + "\n", "")
+            return mock.DEFAULT
+    
+        mock_subp.side_effect = fake_subp
+        found = util.lsb_release()
+        mock_subp.assert_called_with(['lsb_release', '--short', '--id'],
+                                     capture=True)
+        self.assertEqual(found, rdata)
+
+    @mock.patch("curtin.util.subp")
+    def test_lsb_release_unavailable(self, mock_subp):
+        def doraise(*args, **kwargs):
+            raise util.ProcessExecutionError("foo")
+        mock_subp.side_effect = doraise
+
+        expected = {k: "UNAVAILABLE" for k in
+                    ('id', 'description', 'codename', 'release')}
+        self.assertEqual(util.lsb_release(), expected)
 
 
 class TestSubp(TestCase):
