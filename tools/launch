@@ -320,7 +320,7 @@ main() {
     tmp=$(dirname "$0") && top_d=$(cd "$tmp" && cd .. && pwd) ||
         { error "failed to get dir for $0"; return 1; }
 
-    local disk="" src="" size=""
+    local disk="" src="" size="" fmt="" out=""
     disk_args=( )
     for disk in "${disks[@]}"; do
         src=${disk}
@@ -332,9 +332,14 @@ main() {
         if [ ! -f "$src" ]; then
             qemu-img create -f raw "${src}" "$size" ||
                 { error "failed create $src of size $size"; return 1; }
+            fmt="raw"
+        else
+            out=$(qemu-img info "$src") &&
+                fmt=$(echo "$out" | awk '$0 ~ /file format/ { print $3 }') ||
+                { error "failed to determine format of $src"; return 1; }
         fi
         disk_args=( "${disk_args[@]}"
-            "-drive" "file=${src},if=virtio,cache=unsafe" )
+            "-drive" "file=${src},if=virtio,cache=unsafe,format=$fmt" )
     done
 
     get_my_ip || { error "failed to get your ip. set IP_ADDR"; return 1; }
