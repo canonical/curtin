@@ -26,10 +26,13 @@ Package: curtin
 Architecture: all
 Priority: extra
 Depends: btrfs-tools,
+         e2fsprogs,
          gdisk,
          lvm2,
          mdadm,
+         parted,
          python3-curtin (= ${binary:Version}),
+         udev,
          xfsprogs,
          ${misc:Depends}
 Description: Library and tools for the curtin installer
