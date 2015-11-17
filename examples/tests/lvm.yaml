@@ -24,7 +24,7 @@ storage:
         device: sda
       - id: sda3
         type: partition
-        size: 2G
+        size: 3G
         flag: logical
         device: sda
       - id: volgroup1

@@ -38,7 +38,7 @@ CMD_ARGUMENTS = (
        'default': 'ext4', 'action': 'store'}),
      (('-c', '--config'),
       {'help': 'read configuration from cfg', 'action': 'append',
-       'metavar': 'CONFIG', 'dest': 'cfgopts'})
+       'metavar': 'CONFIG', 'dest': 'cfgopts', 'default': []})
      )
 )
 
@@ -111,8 +111,8 @@ def mkfs(args):
             format_blockdev(device, args.fstype)
         else:
             # Bad argument
-            raise ValueError("device '%s' is neither an item in storage \
-                config nor a block device" % device)
+            raise ValueError("device '%s' is neither an item in storage "
+                             "config nor a block device" % device)
 
     sys.exit(0)
 
