@@ -30,8 +30,11 @@ REQUIRED_EXECUTABLES = [
     ('lvcreate', 'lvm2'),
     ('mdadm', 'mdadm'),
     ('mkfs.btrfs', 'btrfs-tools'),
+    ('mkfs.ext4', 'e2fsprogs'),
     ('mkfs.xfs', 'xfsprogs'),
+    ('partprobe', 'parted'),
     ('sgdisk', 'gdisk'),
+    ('udevadm', 'udev'),
 ]
 
 try:
