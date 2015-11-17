@@ -70,7 +70,7 @@ class TestBasicAbs(VMBaseClass):
     def test_proxy_set(self):
         expected = get_apt_proxy()
         with open(os.path.join(self.td.mnt, "apt-proxy")) as fp:
-            apt_proxy_found = fp.read()
+            apt_proxy_found = fp.read().rstrip()
         if expected:
             # the proxy should have gotten set through
             self.assertIn(expected, apt_proxy_found)
