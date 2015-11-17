@@ -129,6 +129,7 @@ class ImageStore:
 
         image_dir = os.path.dirname(root_image_gz)
         root_image_path = os.path.join(image_dir, 'root-image')
+        tarball = os.path.join(image_dir, 'root-image.tar.gz')
         kernel_path = os.path.join(image_dir, 'root-image-kernel')
         initrd_path = os.path.join(image_dir, 'root-image-initrd')
         # Check if we need to unpack things from the compressed image.
@@ -136,7 +137,7 @@ class ImageStore:
                 not os.path.exists(kernel_path) or
                 not os.path.exists(initrd_path)):
             self.convert_image(root_image_gz)
-        return (root_image_path, kernel_path, initrd_path)
+        return (root_image_path, kernel_path, initrd_path, tarball)
 
 
 class TempDir:
@@ -187,7 +188,6 @@ class TempDir:
     def remove_tmpdir(self):
         # remove tempdir
         if os.path.exists(self.tmpdir):
-            logger.debug('Removing tmpdir: {}'.format(self.tmpdir))
             shutil.rmtree(self.tmpdir)
 
     def __del__(self):
@@ -200,42 +200,46 @@ class VMBaseClass:
     extra_kern_args = None
 
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         logger.debug('Acquiring boot image')
         # get boot img
         image_store = ImageStore(IMAGE_SRC_URL, IMAGE_DIR)
         # Disable sync if env var is set.
         image_store.sync = get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False)
         logger.debug("Image sync = %s", image_store.sync)
-        (boot_img, boot_kernel, boot_initrd) = image_store.get_image(
-            self.release, self.arch)
+        (boot_img, boot_kernel, boot_initrd, tarball) = image_store.get_image(
+            cls.release, cls.arch)
 
         # set up tempdir
         logger.debug('Setting up tempdir')
-        self.td = TempDir(
-            generate_user_data(collect_scripts=self.collect_scripts))
-        self.install_log = os.path.join(self.td.tmpdir, 'install-serial.log')
-        self.boot_log = os.path.join(self.td.tmpdir, 'boot-serial.log')
+        cls.td = TempDir(
+            generate_user_data(collect_scripts=cls.collect_scripts))
+        cls.install_log = os.path.join(cls.td.tmpdir, 'install-serial.log')
+        cls.boot_log = os.path.join(cls.td.tmpdir, 'boot-serial.log')
 
         # create launch cmd
         cmd = ["tools/launch", "-v"]
-        if not self.interactive:
+        if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
-        cmd.extend(["--serial-log=" + self.install_log])
+        cmd.extend(["--serial-log=" + cls.install_log])
 
-        if self.extra_kern_args:
-            cmd.extend(["--append=" + self.extra_kern_args])
+        if cls.extra_kern_args:
+            cmd.extend(["--append=" + cls.extra_kern_args])
+
+        # publish the root tarball
+        install_src = "PUBURL/" + os.path.basename(tarball)
+        cmd.append("--publish=%s" % tarball)
 
         # check for network configuration
-        self.network_state = curtin_net.parse_net_config(self.conf_file)
-        logger.debug("Network state: {}".format(self.network_state))
+        cls.network_state = curtin_net.parse_net_config(cls.conf_file)
+        logger.debug("Network state: {}".format(cls.network_state))
 
         # build -n arg list with macaddrs from net_config physical config
         macs = []
         interfaces = {}
-        if self.network_state:
-            interfaces = self.network_state.get('interfaces')
+        if cls.network_state:
+            interfaces = cls.network_state.get('interfaces')
         for ifname in interfaces:
             logger.debug("Interface name: {}".format(ifname))
             iface = interfaces.get(ifname)
@@ -251,48 +255,48 @@ class VMBaseClass:
 
         # build disk arguments
         extra_disks = []
-        for (disk_no, disk_sz) in enumerate(self.extra_disks):
-            dpath = os.path.join(self.td.tmpdir, 'extra_disk_%d.img' % disk_no)
+        for (disk_no, disk_sz) in enumerate(cls.extra_disks):
+            dpath = os.path.join(cls.td.tmpdir, 'extra_disk_%d.img' % disk_no)
             extra_disks.extend(['--disk', '{}:{}'.format(dpath, disk_sz)])
 
         # proxy config
-        configs = [self.conf_file]
+        configs = [cls.conf_file]
         proxy = get_apt_proxy()
         if get_apt_proxy is not None:
-            proxy_config = os.path.join(self.td.tmpdir, 'proxy.cfg')
+            proxy_config = os.path.join(cls.td.tmpdir, 'proxy.cfg')
             with open(proxy_config, "w") as fp:
                 fp.write(json.dumps({'apt_proxy': proxy}) + "\n")
             configs.append(proxy_config)
 
-        cmd.extend(netdevs + ["--disk", self.td.target_disk] + extra_disks +
+        cmd.extend(netdevs + ["--disk", cls.td.target_disk] + extra_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "-vv", "install"] +
                    ["--config=%s" % f for f in configs] +
-                   ["cp:///"])
+                   [install_src])
 
         # run vm with installer
-        lout_path = os.path.join(self.td.tmpdir, "launch-install.out")
+        lout_path = os.path.join(cls.td.tmpdir, "launch-install.out")
         try:
             logger.debug('Running curtin installer')
             logger.debug('{}'.format(" ".join(cmd)))
             with open(lout_path, "wb") as fpout:
-                check_call(cmd, timeout=self.install_timeout,
+                check_call(cmd, timeout=cls.install_timeout,
                            stdout=fpout, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
             logger.debug('Curtin installer failed')
             raise
         finally:
-            if os.path.exists(self.install_log):
-                with open(self.install_log, 'r', encoding='utf-8') as l:
+            if os.path.exists(cls.install_log):
+                with open(cls.install_log, 'r', encoding='utf-8') as l:
                     logger.debug(
                         u'Serial console output:\n{}'.format(l.read()))
             else:
                 logger.warn("Did not have a serial log file from launch.")
 
         logger.debug('')
-        if os.path.exists(self.install_log):
+        if os.path.exists(cls.install_log):
             logger.debug('Checking curtin install output for errors')
-            with open(self.install_log) as l:
+            with open(cls.install_log) as l:
                 install_log = l.read()
             errors = re.findall(
                 '\[.*\]\ cloud-init.*:.*Installation\ failed', install_log)
@@ -310,46 +314,47 @@ class VMBaseClass:
         extra_disks = [x if ":" not in x else x.split(':')[0]
                        for x in extra_disks]
         # create xkvm cmd
-        cmd = (["tools/xkvm", "-v"] + netdevs + ["--disk", self.td.target_disk,
-               "--disk", self.td.output_disk] + extra_disks +
+        cmd = (["tools/xkvm", "-v"] + netdevs + ["--disk", cls.td.target_disk,
+               "--disk", cls.td.output_disk] + extra_disks +
                ["--", "-drive",
-                "file=%s,if=virtio,media=cdrom" % self.td.seed_disk,
+                "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
                 "-m", "1024"])
-        if not self.interactive:
-            cmd.extend(["-nographic", "-serial", "file:" + self.boot_log])
+        if not cls.interactive:
+            cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
 
         # run vm with installed system, fail if timeout expires
         try:
             logger.debug('Booting target image')
             logger.debug('{}'.format(" ".join(cmd)))
-            xout_path = os.path.join(self.td.tmpdir, "xkvm-boot.out")
+            xout_path = os.path.join(cls.td.tmpdir, "xkvm-boot.out")
             with open(xout_path, "wb") as fpout:
-                check_call(cmd, timeout=self.boot_timeout,
+                check_call(cmd, timeout=cls.boot_timeout,
                            stdout=fpout, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
             logger.debug('Booting after install failed')
             raise
         finally:
-            if os.path.exists(self.boot_log):
-                with open(self.boot_log, 'r', encoding='utf-8') as l:
+            if os.path.exists(cls.boot_log):
+                with open(cls.boot_log, 'r', encoding='utf-8') as l:
                     logger.debug(
                         u'Serial console output:\n{}'.format(l.read()))
 
         # mount output disk
-        self.td.mount_output_disk()
+        cls.td.mount_output_disk()
         logger.debug('Ready for testcases')
 
     @classmethod
-    def tearDownClass(self):
+    def tearDownClass(cls):
         if not get_env_var_bool('CURTIN_VMTEST_KEEP_DATA', False):
-            self.td.remove_tmpdir()
+            logger.debug('Removing tmpdir: {}'.format(cls.td.tmpdir))
+            cls.td.remove_tmpdir()
 
     @classmethod
-    def expected_interfaces(self):
+    def expected_interfaces(cls):
         expected = []
         interfaces = {}
-        if self.network_state:
-            interfaces = self.network_state.get('interfaces')
+        if cls.network_state:
+            interfaces = cls.network_state.get('interfaces')
         # handle interface aliases when subnets have multiple entries
         for iface in interfaces.values():
             subnets = iface.get('subnets', {})
@@ -364,17 +369,17 @@ class VMBaseClass:
         return expected
 
     @classmethod
-    def get_network_state(self):
-        return self.network_state
+    def get_network_state(cls):
+        return cls.network_state
 
     @classmethod
-    def get_expected_etc_network_interfaces(self):
-        return curtin_net.render_interfaces(self.network_state)
+    def get_expected_etc_network_interfaces(cls):
+        return curtin_net.render_interfaces(cls.network_state)
 
     @classmethod
-    def get_expected_etc_resolvconf(self):
+    def get_expected_etc_resolvconf(cls):
         ifaces = {}
-        eni = curtin_net.render_interfaces(self.network_state)
+        eni = curtin_net.render_interfaces(cls.network_state)
         curtin_net.parse_deb_config_data(ifaces, eni, None)
         return ifaces
 

@@ -552,8 +552,8 @@ def partition_handler(info, storage_config):
                 else:
                     # Further logical partitions
                     # start at former logical partition end + alignment_offset
-                    offset_sectors = (previous_start + previous_size
-                                      + alignment_offset)
+                    offset_sectors = (previous_start + previous_size +
+                                      alignment_offset)
 
     length_bytes = util.human2bytes(size)
     # start sector is part of the sectors that define the partitions size
