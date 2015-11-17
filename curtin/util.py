@@ -704,7 +704,7 @@ def lsb_release(field="codename"):
         data = {}
         for k in fields:
             try:
-                out, err = subp(['lsb_release', '--short', '--%s' % k], 
+                out, err = subp(['lsb_release', '--short', '--%s' % k],
                                 capture=True)
                 data[k] = out.strip()
             except ProcessExecutionError as e:

@@ -16,7 +16,6 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 import os
 import sys
-import subprocess
 
 from curtin.util import (which, install_packages, lsb_release,
                          ProcessExecutionError)

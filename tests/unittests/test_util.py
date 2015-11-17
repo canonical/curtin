@@ -105,19 +105,21 @@ class TestLsbRelease(TestCase):
         self._reset_cache()
 
     def _reset_cache(self):
-        for d in util._LSB_RELEASE.keys():
+        keys = [k for k in util._LSB_RELEASE.keys()]
+        for d in keys:
             del util._LSB_RELEASE[d]
 
     @mock.patch("curtin.util.subp")
     def test_lsb_release_functional(self, mock_subp):
         rdata = {'id': 'Ubuntu', 'description': 'Ubuntu 14.04.2 LTS',
                  'codename': 'trusty', 'release': '14.04'}
+
         def fake_subp(cmd, capture=False):
             if cmd[0:2] == ["lsb_release", "--short"]:
                 field = cmd[2].replace("--", "")
                 return (rdata[field] + "\n", "")
             return mock.DEFAULT
-    
+
         mock_subp.side_effect = fake_subp
         found = util.lsb_release()
         mock_subp.assert_called_with(['lsb_release', '--short', '--id'],
