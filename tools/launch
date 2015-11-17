@@ -334,8 +334,8 @@ main() {
                 { error "failed create $src of size $size"; return 1; }
             fmt="raw"
         else
-            out=$(qemu-img info "$src") &&
-                fmt=$(echo "$out" | awk '$0 ~ /file format/ { print $3 }') ||
+            out=$(LANG=C qemu-img info "$src") &&
+                fmt=$(echo "$out" | awk '$0 ~ /^file format:/ { print $3 }') ||
                 { error "failed to determine format of $src"; return 1; }
         fi
         disk_args=( "${disk_args[@]}"
