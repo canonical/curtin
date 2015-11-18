@@ -52,7 +52,7 @@ def format_blockdev(volume_path, fstype, part_id=None):
         if len(part_id) > 16:
             raise ValueError("ext3/4 partition labels cannot be longer than \
                 16 characters")
-        cmd = ['mkfs.%s' % fstype, '-q', '-L', part_id, volume_path]
+        cmd = ['mkfs.%s' % fstype, '-F', '-q', '-L', part_id, volume_path]
     elif fstype in ["fat12", "fat16", "fat32", "fat"]:
         cmd = ["mkfs.fat"]
         fat_size = fstype.strip(string.ascii_letters)
