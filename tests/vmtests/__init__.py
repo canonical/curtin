@@ -298,7 +298,11 @@ class VMBaseClass:
             logger.debug('Checking curtin install output for errors')
             with open(cls.install_log) as l:
                 install_log = l.read()
-            errors = re.findall('Installation\ failed', install_log)
+                failures = "({})".format("|".join([
+                           'Installation\ failed',
+                           'Unexpected error while running command',
+                           'E: Unable to locate package.*']))
+            errors = re.findall(failures, install_log)
             if len(errors) > 0:
                 for e in errors:
                     logger.debug(e)
