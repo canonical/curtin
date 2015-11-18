@@ -39,11 +39,11 @@ REQUIRED_EXECUTABLES = [
 
 if lsb_release()['codename'] == "precise":
     REQUIRED_IMPORTS.append(
-       ('import oauth.oauth', 'python-oauth', None),)
+        ('import oauth.oauth', 'python-oauth', None),)
 else:
     REQUIRED_EXECUTABLES.append(('make-bcache', 'bcache-tools',))
     REQUIRED_IMPORTS.append(
-       ('import oauthlib.oauth1', 'python-oauthlib', 'python3-oauthlib'),)
+        ('import oauthlib.oauth1', 'python-oauthlib', 'python3-oauthlib'),)
 
 
 class MissingDeps(Exception):

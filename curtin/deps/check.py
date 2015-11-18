@@ -63,7 +63,7 @@ def main():
 
     debug(args.verbosity, 1,
           "Fix with:\n  apt-get -qy install %s\n" %
-            ' '.join(sorted(missing_pkgs)))
+          ' '.join(sorted(missing_pkgs)))
 
     # we exit higher with less deps needed.
     # exiting 99 means just 1 dep needed.
