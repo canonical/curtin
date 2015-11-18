@@ -638,7 +638,7 @@ def format_handler(info, storage_config):
 
     # Generate mkfs command and run
     if fstype in ["ext4", "ext3"]:
-        cmd = ['mkfs.%s' % fstype, '-q']
+        cmd = ['mkfs.%s' % fstype, '-F', '-q']
         if part_label:
             if len(part_label) > 16:
                 raise ValueError(
