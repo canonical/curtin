@@ -916,7 +916,7 @@ def raid_handler(info, storage_config):
     if mdname:
         mdnameparm = "--name=%s" % info.get('mdname')
 
-    cmd = ["yes", "|", "mdadm", "--create", "/dev/%s" % info.get('name'),
+    cmd = ["mdadm", "--create", "/dev/%s" % info.get('name'), "--run",
            "--level=%s" % raidlevel, "--raid-devices=%s" % len(device_paths),
            mdnameparm]
 
@@ -935,7 +935,11 @@ def raid_handler(info, storage_config):
             cmd.append(device)
 
     # Create the raid device
+    util.subp(["udevadm", "settle"])
+    util.subp(["udevadm", "control", "--stop-exec-queue"])
     util.subp(" ".join(cmd), shell=True)
+    util.subp(["udevadm", "control", "--start-exec-queue"])
+    util.subp(["udevadm", "settle"])
 
     # Make dname rule for this dev
     make_dname(info.get('id'), storage_config)
