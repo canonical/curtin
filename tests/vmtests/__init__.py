@@ -510,7 +510,15 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
     collect_post = textwrap.dedent(
         'tar -C "%s" -cf "%s" .' % (output_dir, output_device))
 
-    scripts = [collect_prep] + collect_scripts + [collect_post]
+    # failsafe poweroff runs on precise only, where power_state does
+    # not exist.
+    precise_poweroff = textwrap.dedent("""#!/bin/sh
+        [ "$(lsb_release -sc)" = "precise" ] || exit 0;
+        shutdown -P now "Shutting down on precise"
+        """)
+
+    scripts = ([collect_prep] + collect_scripts + [collect_post] +
+               [precise_poweroff])
 
     for part in scripts:
         if not part.startswith("#!"):

@@ -1,8 +1,7 @@
 #!/bin/sh
 PY3OR2_MAIN="curtin.commands.main"
 PY3OR2_MCHECK="curtin.deps.check"
-PY3OR2_MINSTALL="curtin.deps.install"
-PY3OR2_PYTHONS=${PY3OR2_PYTHONS:-"python3:python2:python"}
+PY3OR2_PYTHONS=${PY3OR2_PYTHONS:-"python3:python"}
 PYTHON=${PY3OR2_PYTHON}
 
 debug() {
@@ -27,25 +26,28 @@ fi
 if [ ! -n "$PYTHON" ]; then
     first_exe=""
     oifs="$IFS"; IFS=":"
+    best=0
+    best_exe=""
     for p in $PY3OR2_PYTHONS; do
         command -v "$p" >/dev/null 2>&1 ||
             { debug "$p: not in path"; continue; }
-        [ -n "$first_exe" ] || first_exe="$p"
         [ -z "$PY3OR2_MCHECK" ] && PYTHON=$p && break
-        out=$($p -m "$PY3OR2_MCHECK" 2>&1) && PYTHON="$p" && break
-        debug "$p: $out"
+        out=$($p -m "$PY3OR2_MCHECK" "$@" 2>&1) && PYTHON="$p" &&
+            { debug "$p passed check [$p -m $PY3OR2_MCHECK $*]"; break; }
+        ret=$?
+        debug "$p [$ret]: $out"
+        # exit code of 1 is unuseable
+        [ $ret -eq 1 ] && continue
+        [ -n "$first_exe" ] || first_exe="$p"
+        # higher non-zero exit values indicate more plausible usability
+        [ $best -lt $ret ] && best_exe="$p" && best=$ret &&
+            debug "current best: $best_exe"
     done
     IFS="$oifs"
-    if [ -z "$PYTHON" ]; then
-        if [ -n "$first_exe" -a -n "$PY3OR2_MINSTALL" ]; then
-            debug "attempting deps install with $first_exe $PY3OR2_MINSTALL"
-            "$first_exe" -m "$PY3OR2_MINSTALL" ||
-                fail "failed to install deps!"
-            PYTHON="$first_exe"
-        fi
-    fi
+    [ -z "$best_exe" -a -n "$first_exe" ] && best_exe="$first_exe"
+    [ -n "$PYTHON" ] || PYTHON="$best_exe"
     [ -n "$PYTHON" ] ||
         fail "no availble python? [PY3OR2_DEBUG=1 for more info]"
 fi
-debug "executing: $PYTHON -m "$PY3OR2_MAIN" $*"
+debug "executing: $PYTHON -m \"$PY3OR2_MAIN\" $*"
 exec $PYTHON -m "$PY3OR2_MAIN" "$@"

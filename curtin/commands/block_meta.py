@@ -31,13 +31,11 @@ import string
 import sys
 import tempfile
 import time
+import re
 
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
-
-CUSTOM_REQUIRED_PACKAGES = ['mdadm', 'lvm2', 'bcache-tools',
-                            'btrfs-tools', 'xfsprogs']
 
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
@@ -155,20 +153,43 @@ def wipe_volume(path, wipe_type):
         util.subp(cmd, rcs=[0, 1, 2, 5], capture=True)
 
 
-def get_holders(devname):
+def block_find_sysfs_path(devname):
+    # Look up any block device holders.  Handle devices and partitions
+    # as devnames (vdb, md0, vdb7)
     if not devname:
         return []
 
-    devname_sysfs = \
-        '/sys/class/block/{}/holders'.format(os.path.basename(devname))
-    if not os.path.exists(devname_sysfs):
-        err = ('No sysfs path to device holders:'
+    sys_class_block = '/sys/class/block/'
+    basename = os.path.basename(devname)
+    # try without parent blockdevice, then prepend parent
+    paths = [
+        os.path.join(sys_class_block, basename),
+        os.path.join(sys_class_block,
+                     re.split('[\d+]', basename)[0], basename),
+    ]
+
+    # find path to devname directory in sysfs
+    devname_sysfs = None
+    for path in paths:
+        if os.path.exists(path):
+            devname_sysfs = path
+
+    if devname_sysfs is None:
+        err = ('No sysfs path to device:'
                ' {}'.format(devname_sysfs))
         LOG.error(err)
         raise ValueError(err)
 
-    LOG.debug('Getting blockdev holders: {}'.format(devname_sysfs))
-    return os.listdir(devname_sysfs)
+    return devname_sysfs
+
+
+def get_holders(devname):
+    devname_sysfs = block_find_sysfs_path(devname)
+    if devname_sysfs:
+        LOG.debug('Getting blockdev holders: {}'.format(devname_sysfs))
+        return os.listdir(os.path.join(devname_sysfs, 'holders'))
+
+    return []
 
 
 def clear_holders(sys_block_path):
@@ -892,7 +913,7 @@ def raid_handler(info, storage_config):
     if mdname:
         mdnameparm = "--name=%s" % info.get('mdname')
 
-    cmd = ["yes", "|", "mdadm", "--create", "/dev/%s" % info.get('name'),
+    cmd = ["mdadm", "--create", "/dev/%s" % info.get('name'), "--run",
            "--level=%s" % raidlevel, "--raid-devices=%s" % len(device_paths),
            mdnameparm]
 
@@ -911,7 +932,11 @@ def raid_handler(info, storage_config):
             cmd.append(device)
 
     # Create the raid device
+    util.subp(["udevadm", "settle"])
+    util.subp(["udevadm", "control", "--stop-exec-queue"])
     util.subp(" ".join(cmd), shell=True)
+    util.subp(["udevadm", "control", "--start-exec-queue"])
+    util.subp(["udevadm", "settle"])
 
     # Make dname rule for this dev
     make_dname(info.get('id'), storage_config)
@@ -945,17 +970,37 @@ def bcache_handler(info, storage_config):
     cache_mode = info.get('cache_mode', None)
 
     if not backing_device or not cache_device:
-        raise ValueError("backing device and cache device for bcache must be \
-                specified")
+        raise ValueError("backing device and cache device for bcache"
+                         " must be specified")
 
     # The bcache module is not loaded when bcache is installed by apt-get, so
     # we will load it now
     util.subp(["modprobe", "bcache"])
 
-    # If both the backing device and cache device are specified at the same
-    # time than it is not necessary to attach the cache device manually, as
-    # bcache will do this automatically.
-    util.subp(["make-bcache", "-B", backing_device, "-C", cache_device])
+    if cache_device:
+        # /sys/class/block/XXX/YYY/
+        cache_device_sysfs = block_find_sysfs_path(cache_device)
+
+        if os.path.exists(os.path.join(cache_device_sysfs, "bcache")):
+            # read in cset uuid from cache device
+            (out, err) = util.subp(["bcache-super-show", cache_device],
+                                   capture=True)
+            LOG.debug('out=[{}]'.format(out))
+            [cset_uuid] = [line.split()[-1] for line in out.split("\n")
+                           if line.startswith('cset.uuid')]
+
+        else:
+            # make the cache device, extracting cacheset uuid
+            (out, err) = util.subp(["make-bcache", "-C", cache_device],
+                                   capture=True)
+            LOG.debug('out=[{}]'.format(out))
+            [cset_uuid] = [line.split()[-1] for line in out.split("\n")
+                           if line.startswith('Set UUID:')]
+
+    if backing_device:
+        backing_device_sysfs = block_find_sysfs_path(backing_device)
+        if not os.path.exists(os.path.join(backing_device_sysfs, "bcache")):
+            util.subp(["make-bcache", "-B", backing_device])
 
     # Some versions of bcache-tools will register the bcache device as soon as
     # we run make-bcache using udev rules, so wait for udev to settle, then try
@@ -970,6 +1015,22 @@ def bcache_handler(info, storage_config):
             fp = open("/sys/fs/bcache/register", "w")
             fp.write(path)
             fp.close()
+
+    # if we specify both then we need to attach backing to cache
+    if cache_device and backing_device:
+        if cset_uuid:
+            LOG.info("Attaching backing device to cacheset: "
+                     "{} -> {} cset.uuid: {}".format(backing_device,
+                                                     cache_device,
+                                                     cset_uuid))
+            attach = os.path.join(backing_device_sysfs,
+                                  "bcache",
+                                  "attach")
+            with open(attach, "w") as fp:
+                fp.write(cset_uuid)
+        else:
+            LOG.error("Invalid cset_uuid: {}".format(cset_uuid))
+            raise
 
     if cache_mode:
         # find the actual bcache device name via sysfs using the
@@ -999,19 +1060,6 @@ def bcache_handler(info, storage_config):
                          not supported")
 
 
-def install_missing_packages_for_meta_custom():
-    """Install all the missing package that `meta_custom` requires to
-    function properly."""
-    missing_packages = [
-        package
-        for package in CUSTOM_REQUIRED_PACKAGES
-        if not util.has_pkg_installed(package)
-    ]
-    if len(missing_packages) > 0:
-        util.apt_update()
-        util.install_packages(missing_packages)
-
-
 def meta_custom(args):
     """Does custom partitioning based on the layout provided in the config
     file. Section with the name storage contains information on which
@@ -1033,9 +1081,6 @@ def meta_custom(args):
 
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
-
-    # make sure the required packages are installed
-    install_missing_packages_for_meta_custom()
 
     storage_config = cfg.get('storage', {})
     if not storage_config:
