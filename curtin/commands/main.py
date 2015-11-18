@@ -48,6 +48,10 @@ class NoHelpParser(argparse.ArgumentParser):
         kwargs.update({'add_help': False})
         super(NoHelpParser, self).__init__(*args, **kwargs)
 
+    def error(self, message):
+        # without overriding this, argparse exits with bad usage
+        raise ValueError("failed parsing arguments: %s" % message)
+
 
 def get_main_parser(stacktrace=False, verbosity=0,
                     parser_class=argparse.ArgumentParser):
@@ -82,11 +86,19 @@ def maybe_install_deps(args, stacktrace=True, verbosity=0):
     subps = parser.add_subparsers(dest="subcmd", parser_class=NoHelpParser)
     for subcmd in SUB_COMMAND_MODULES:
         subps.add_parser(subcmd)
-    ns, unknown = parser.parse_known_args(args)
+    try:
+        ns, unknown = parser.parse_known_args(args)
+    except ValueError:
+        # bad usage will be reported by the real reporter
+        return
+
     if ns.install_deps:
         ret = install_deps(verbosity=verbosity)
         if ret != 0:
             sys.exit(ret)
+
+        if args == ['--install-deps']:
+            sys.exit(0)
     return
 
 
