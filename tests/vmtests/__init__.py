@@ -30,6 +30,7 @@ DEVNULL = open(os.devnull, 'w')
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
 formatter = logging.Formatter(
     '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 # Configure logging module to save output to disk and present it on
@@ -41,7 +42,7 @@ fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 
 ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
+ch.setLevel(logging.INFO)
 ch.setFormatter(formatter)
 
 logger.addHandler(fh)
@@ -69,7 +70,7 @@ class ImageStore:
 
     def convert_image(self, root_image_path):
         """Use maas2roottar to unpack root-image, kernel and initrd."""
-        logger.debug('Converting image format')
+        logger.info('Converting image format')
         subprocess.check_call(["tools/maas2roottar", root_image_path])
 
     def sync_images(self, filters=DEFAULT_FILTERS):
@@ -90,7 +91,7 @@ class ImageStore:
 
         cmd = ['sstream-mirror'] + DEFAULT_SSTREAM_OPTS + progress + [
             self.source_url, self.base_dir] + filters
-        logger.debug('Syncing images {}'.format(cmd))
+        logger.info('Syncing images {}'.format(cmd))
         out = subprocess.check_output(cmd)
         logger.debug(out)
 
@@ -100,7 +101,7 @@ class ImageStore:
             filters = [
                 'release=%s' % release, 'krel=%s' % release, 'arch=%s' % arch]
         # Query local sstream for compressed root image.
-        logger.debug(
+        logger.info(
             'Query simplestreams for root image: %s', filters)
         cmd = ['sstream-query'] + DEFAULT_SSTREAM_OPTS + [
             self.url, 'item_name=root-image.gz'] + filters
@@ -201,7 +202,7 @@ class VMBaseClass:
 
     @classmethod
     def setUpClass(cls):
-        logger.debug('Acquiring boot image')
+        logger.info('Acquiring boot image')
         # get boot img
         image_store = ImageStore(IMAGE_SRC_URL, IMAGE_DIR)
         # Disable sync if env var is set.
@@ -211,11 +212,13 @@ class VMBaseClass:
             cls.release, cls.arch)
 
         # set up tempdir
-        logger.debug('Setting up tempdir')
         cls.td = TempDir(
             generate_user_data(collect_scripts=cls.collect_scripts))
+        logger.info('Using tempdir: {}'.format(cls.td.tmpdir))
         cls.install_log = os.path.join(cls.td.tmpdir, 'install-serial.log')
         cls.boot_log = os.path.join(cls.td.tmpdir, 'boot-serial.log')
+        logger.debug('Install console log: '.format(cls.install_log))
+        logger.debug('Boot console log: '.format(cls.boot_log))
 
         # create launch cmd
         cmd = ["tools/launch", "-v"]
@@ -277,13 +280,13 @@ class VMBaseClass:
         # run vm with installer
         lout_path = os.path.join(cls.td.tmpdir, "launch-install.out")
         try:
-            logger.debug('Running curtin installer')
+            logger.info('Running curtin installer: {}'.format(cls.install_log))
             logger.debug('{}'.format(" ".join(cmd)))
             with open(lout_path, "wb") as fpout:
                 check_call(cmd, timeout=cls.install_timeout,
                            stdout=fpout, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
-            logger.debug('Curtin installer failed')
+            logger.error('Curtin installer failed')
             raise
         finally:
             if os.path.exists(cls.install_log):
@@ -295,18 +298,18 @@ class VMBaseClass:
 
         logger.debug('')
         if os.path.exists(cls.install_log):
-            logger.debug('Checking curtin install output for errors')
+            logger.info('Checking curtin install output for errors')
             with open(cls.install_log) as l:
                 install_log = l.read()
             errors = re.findall(
                 '\[.*\]\ cloud-init.*:.*Installation\ failed', install_log)
             if len(errors) > 0:
                 for e in errors:
-                    logger.debug(e)
-                logger.debug('Errors during curtin installer')
+                    logger.error(e)
+                logger.error('Errors during curtin installer')
                 raise Exception('Errors during curtin installer')
             else:
-                logger.debug('Install OK')
+                logger.info('Install OK')
         else:
             raise Exception("No install log was produced")
 
@@ -324,14 +327,14 @@ class VMBaseClass:
 
         # run vm with installed system, fail if timeout expires
         try:
-            logger.debug('Booting target image')
+            logger.info('Booting target image: {}'.format(cls.boot_log))
             logger.debug('{}'.format(" ".join(cmd)))
             xout_path = os.path.join(cls.td.tmpdir, "xkvm-boot.out")
             with open(xout_path, "wb") as fpout:
                 check_call(cmd, timeout=cls.boot_timeout,
                            stdout=fpout, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
-            logger.debug('Booting after install failed')
+            logger.error('Booting after install failed')
             raise
         finally:
             if os.path.exists(cls.boot_log):
@@ -341,7 +344,7 @@ class VMBaseClass:
 
         # mount output disk
         cls.td.mount_output_disk()
-        logger.debug('Ready for testcases')
+        logger.info('Ready for testcases')
 
     @classmethod
     def tearDownClass(cls):
