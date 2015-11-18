@@ -298,8 +298,7 @@ class VMBaseClass:
             logger.debug('Checking curtin install output for errors')
             with open(cls.install_log) as l:
                 install_log = l.read()
-            errors = re.findall(
-                '\[.*\]\ cloud-init.*:.*Installation\ failed', install_log)
+            errors = re.findall('Installation\ failed', install_log)
             if len(errors) > 0:
                 for e in errors:
                     logger.debug(e)
