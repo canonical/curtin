@@ -86,19 +86,34 @@ def maybe_install_deps(args, stacktrace=True, verbosity=0):
     subps = parser.add_subparsers(dest="subcmd", parser_class=NoHelpParser)
     for subcmd in SUB_COMMAND_MODULES:
         subps.add_parser(subcmd)
-    try:
-        ns, unknown = parser.parse_known_args(args)
-    except ValueError:
-        # bad usage will be reported by the real reporter
-        return
 
-    if ns.install_deps:
-        ret = install_deps(verbosity=verbosity)
-        if ret != 0:
-            sys.exit(ret)
+    install_only_args = [
+       ['-v', '--install-deps'],
+       ['-vv', '--install-deps'],
+       ['--install-deps', '-v'],
+       ['--install-deps', '-vv'],
+       ['--install-deps'],
+    ]
 
-        if args == ['--install-deps']:
-            sys.exit(0)
+    install_only = args in install_only_args
+     
+    if install_only:
+        verbosity = 1
+    else:
+        try:
+            ns, unknown = parser.parse_known_args(args)
+            verbosity = ns.verbosity
+            if not ns.install_deps:
+                return
+        except ValueError as e:
+            # bad usage will be reported by the real reporter
+            return
+
+    ret = install_deps(verbosity=verbosity)
+
+    if ret != 0 or install_only:
+        sys.exit(ret)
+
     return
 
 
