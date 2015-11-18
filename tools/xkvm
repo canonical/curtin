@@ -298,9 +298,15 @@ main() {
     esac
     kvmcmd=( $kvm -enable-kvm )
 
+    local out="" fmt=""
     for i in "${diskdevs[@]}"; do
+        if [ -f "$i" ]; then
+            out=$(LANG=C qemu-img info "$i") &&
+                fmt=$(echo "$out" | awk '$0 ~ /^file format:/ { print $3 }') ||
+                { error "failed to determine format of $i"; return 1; }
+        fi
         diskargs[${#diskargs[@]}]="-drive";
-        diskargs[${#diskargs[@]}]="if=${def_diskif},file=$i";
+        diskargs[${#diskargs[@]}]="if=${def_diskif},file=$i,format=$fmt";
     done
 
     local mnics_vflag=""
