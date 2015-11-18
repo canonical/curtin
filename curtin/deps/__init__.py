@@ -37,19 +37,32 @@ REQUIRED_EXECUTABLES = [
     ('udevadm', 'udev'),
 ]
 
-if lsb_release()['codename'] != "precise":
+if lsb_release()['codename'] == "precise":
+    REQUIRED_IMPORTS.append(
+       ('import oauth.oauth', 'python-oauth', None),)
+else:
     REQUIRED_EXECUTABLES.append(('make-bcache', 'bcache-tools',))
+    REQUIRED_IMPORTS.append(
+       ('import oauthlib.oauth1', 'python-oauthlib', 'python3-oauthlib'),)
 
 
 class MissingDeps(Exception):
     def __init__(self, message, deps):
         self.message = message
-        if isinstance(deps, str):
+        if isinstance(deps, str) or deps is None:
             deps = [deps]
-        self.deps = deps
+        self.deps = [d for d in deps if d is not None]
+        self.fatal = None in deps
 
     def __str__(self):
-        return self.message + " Install packages: %s" % ' '.join(self.deps)
+        if self.fatal:
+            if not len(self.deps):
+                return self.message + " Unresolvable."
+            return (self.message +
+                    " Unresolvable.  Partially resolvable with packages: %s" %
+                    ' '.join(self.deps))
+        else:
+            return self.message + " Install packages: %s" % ' '.join(self.deps)
 
 
 def check_import(imports, py2pkgs, py3pkgs, message=None):

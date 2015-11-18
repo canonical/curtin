@@ -58,12 +58,14 @@ if [ ! -n "$PYTHON" ]; then
     for p in $PY3OR2_PYTHONS; do
         command -v "$p" >/dev/null 2>&1 ||
             { debug "$p: not in path"; continue; }
-        [ -n "$first_exe" ] || first_exe="$p"
         [ -z "$PY3OR2_MCHECK" ] && PYTHON=$p && break
         out=$($p -m "$PY3OR2_MCHECK" "$@" 2>&1) && PYTHON="$p" &&
             { debug "$p passed check [$p -m $PY3OR2_MCHECK $*]"; break; }
         ret=$?
         debug "$p [$ret]: $out"
+        # exit code of 1 is unuseable
+        [ $ret -eq 1 ] && continue
+        [ -n "$first_exe" ] || first_exe="$p"
         # higher non-zero exit values indicate more plausible usability
         [ $best -lt $ret ] && best_exe="$p" && best=$ret &&
             debug "current best: $best_exe"

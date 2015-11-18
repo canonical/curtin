@@ -26,6 +26,13 @@ import sys
 from . import find_missing_deps
 
 
+def debug(level, msg_level, msg):
+    if level >= msg_level:
+        if msg[-1] != "\n":
+            msg += "\n"
+        sys.stderr.write(msg)
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog='curtin-check-deps',
@@ -35,23 +42,27 @@ def main():
     args = parser.parse_args(sys.argv[1:])
 
     errors = find_missing_deps()
-    if args.verbosity:
-        for emsg in errors:
-            sys.stderr.write("%s\n" % emsg)
 
     if len(errors) == 0:
         # exit 0 means all dependencies are available.
-        if args.verbosity:
-            sys.stderr.write("No missing dependencies.\n")
+        debug(args.verbosity, 1, "No missing dependencies")
         sys.exit(0)
 
     missing_pkgs = []
+    fatal = []
     for e in errors:
+        if e.fatal:
+            fatal.append(e)
+        debug(args.verbosity, 2, str(e))
         missing_pkgs += e.deps
 
-    if args.verbosity:
-        sys.stderr.write(
-            "Fix with:\n  apt-get -qy install %s\n" %
+    if len(fatal):
+        for e in fatal:
+            debug(args.verbosity, 1, str(e))
+        sys.exit(1)
+
+    debug(args.verbosity, 1,
+          "Fix with:\n  apt-get -qy install %s\n" %
             ' '.join(sorted(missing_pkgs)))
 
     # we exit higher with less deps needed.
