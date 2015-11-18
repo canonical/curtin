@@ -30,6 +30,8 @@ from .log import LOG
 _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
 _INSTALLED_MAIN = '/usr/bin/curtin'
 
+_LSB_RELEASE = {}
+
 
 def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
           logstring=False):
@@ -689,6 +691,31 @@ def try_import_module(import_str, default=None):
 
 def is_file_not_found_exc(exc):
     return (isinstance(exc, IOError) and exc.errno == errno.ENOENT)
+
+
+def lsb_release():
+    fmap = {'Codename': 'codename', 'Description': 'description',
+            'Distributor ID': 'id', 'Release': 'release'}
+    global _LSB_RELEASE
+    if not _LSB_RELEASE:
+        data = {}
+        try:
+            out, err = subp(['lsb_release', '--all'], capture=True)
+            for line in out.splitlines():
+                fname, tok, val = line.partition(":")
+                if fname in fmap:
+                    data[fmap[fname]] = val.strip()
+            missing = [k for k in fmap.values() if k not in data]
+            if len(missing):
+                LOG.warn("Missing fields in lsb_release --all output: %s",
+                         ','.join(missing))
+
+        except ProcessExecutionError as e:
+            LOG.warn("Unable to get lsb_release --all: %s", e)
+            data = {v: "UNAVAILABLE" for v in fmap.values()}
+
+        _LSB_RELEASE.update(data)
+    return _LSB_RELEASE
 
 
 class MergedCmdAppend(argparse.Action):
