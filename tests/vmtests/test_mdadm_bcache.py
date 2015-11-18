@@ -44,31 +44,60 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                      'main_disk': 5,
                      'main_disk': 6,
                      'md0': 0,
-                     'cached_array': 0}
+                     'cached_array': 0,
+                     'cached_array_2': 0}
 
     collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         bcache-super-show /dev/vda6 > bcache_super_vda6
+        bcache-super-show /dev/vda7 > bcache_super_vda7
+        bcache-super-show /dev/md0 > bcache_super_md0
         ls /sys/fs/bcache > bcache_ls
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
+        cat /proc/mounts > proc_mounts
         """)]
     fstab_expected = {
-        '/dev/bcache0': '/media/data'
+        '/dev/bcache0': '/media/data',
+        '/dev/bcache1': '/media/bcache1',
     }
 
     def test_bcache_output_files_exist(self):
-        self.output_files_exist(["bcache_super_vda6", "bcache_ls",
+        self.output_files_exist(["bcache_super_vda6",
+                                 "bcache_super_vda7",
+                                 "bcache_super_md0",
+                                 "bcache_ls",
                                  "bcache_cache_mode"])
 
     def test_bcache_status(self):
+        bcache_supers = [
+            "bcache_super_vda6",
+            "bcache_super_vda7",
+            "bcache_super_md0",
+        ]
         bcache_cset_uuid = None
-        with open(os.path.join(self.td.mnt, "bcache_super_vda6"), "r") as fp:
-            for line in fp.read().splitlines():
-                if line != "" and line.split()[0] == "cset.uuid":
-                    bcache_cset_uuid = line.split()[-1].rstrip()
-        self.assertIsNotNone(bcache_cset_uuid)
-        with open(os.path.join(self.td.mnt, "bcache_ls"), "r") as fp:
-            self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
+        found = {}
+        for bcache_super in bcache_supers:
+            with open(os.path.join(self.td.mnt, bcache_super), "r") as fp:
+                for line in fp.read().splitlines():
+                    if line != "" and line.split()[0] == "cset.uuid":
+                        bcache_cset_uuid = line.split()[-1].rstrip()
+                        if bcache_cset_uuid in found:
+                            found[bcache_cset_uuid].append(bcache_super)
+                        else:
+                            found[bcache_cset_uuid] = [bcache_super]
+            self.assertIsNotNone(bcache_cset_uuid)
+            with open(os.path.join(self.td.mnt, "bcache_ls"), "r") as fp:
+                self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
+
+        # one cset.uuid for all devices
+        self.assertEqual(len(found), 1)
+
+        # three devices with same cset.uuid
+        self.assertEqual(len(found[bcache_cset_uuid]), 3)
+
+        # check the cset.uuid in the dict
+        self.assertEqual(list(found.keys()).pop(),
+                         bcache_cset_uuid)
 
     def test_bcache_cachemode(self):
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")

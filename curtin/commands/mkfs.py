@@ -38,7 +38,7 @@ CMD_ARGUMENTS = (
        'default': 'ext4', 'action': 'store'}),
      (('-c', '--config'),
       {'help': 'read configuration from cfg', 'action': 'append',
-       'metavar': 'CONFIG', 'dest': 'cfgopts'})
+       'metavar': 'CONFIG', 'dest': 'cfgopts', 'default': []})
      )
 )
 
@@ -52,7 +52,7 @@ def format_blockdev(volume_path, fstype, part_id=None):
         if len(part_id) > 16:
             raise ValueError("ext3/4 partition labels cannot be longer than \
                 16 characters")
-        cmd = ['mkfs.%s' % fstype, '-q', '-L', part_id, volume_path]
+        cmd = ['mkfs.%s' % fstype, '-F', '-q', '-L', part_id, volume_path]
     elif fstype in ["fat12", "fat16", "fat32", "fat"]:
         cmd = ["mkfs.fat"]
         fat_size = fstype.strip(string.ascii_letters)
@@ -111,8 +111,8 @@ def mkfs(args):
             format_blockdev(device, args.fstype)
         else:
             # Bad argument
-            raise ValueError("device '%s' is neither an item in storage \
-                config nor a block device" % device)
+            raise ValueError("device '%s' is neither an item in storage "
+                             "config nor a block device" % device)
 
     sys.exit(0)
 
