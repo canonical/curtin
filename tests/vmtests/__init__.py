@@ -295,16 +295,29 @@ class VMBaseClass:
             logger.debug('Checking curtin install output for errors')
             with open(cls.install_log) as l:
                 install_log = l.read()
-                failures = "({})".format("|".join([
-                           'Installation\ failed',
-                           'Unexpected error while running command',
-                           'E: Unable to locate package.*']))
-            errors = re.findall(failures, install_log)
-            if len(errors) > 0:
-                for e in errors:
-                    logger.debug(e)
-                logger.debug('Errors during curtin installer')
-                raise Exception('Errors during curtin installer')
+            # look if install is OK via curtin 'Installation ok"
+            # if we dont find that, scan for known error messages and report
+            # if we don't see any errors, fail with general error
+            install_ok = "Installation finished. No error reported."
+            failures = "({})".format("|".join([
+                       'Installation\ failed',
+                       'ImportError: No module named.*',
+                       'Unexpected error while running command',
+                       'E: Unable to locate package.*']))
+            install_is_ok = re.findall(install_ok, install_log)
+            if len(install_is_ok) == 0:
+                errors = re.findall(failures, install_log)
+                if len(errors) > 0:
+                    for e in errors:
+                        logger.error(e)
+                    errmsg = ('Errors during curtin installer: '
+                              '{}'.format(cls.__name__))
+                    logger.error(errmsg)
+                    raise Exception(errmsg)
+                else:
+                    errmsg = ('Failed to verify Installation is OK')
+                    logger.error(errmsg)
+                    raise Exception(errmsg)
             else:
                 logger.debug('Install OK')
         else:
