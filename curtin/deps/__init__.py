@@ -38,7 +38,7 @@ REQUIRED_EXECUTABLES = [
 ]
 
 if lsb_release()['codename'] != "precise":
-    REQUIRED_EXECUTABLES.append(('make-bcache', 'bcache-utils',))
+    REQUIRED_EXECUTABLES.append(('make-bcache', 'bcache-tools',))
 
 
 class MissingDeps(Exception):
