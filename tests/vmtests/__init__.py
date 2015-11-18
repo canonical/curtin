@@ -191,9 +191,6 @@ class TempDir:
         if os.path.exists(self.tmpdir):
             shutil.rmtree(self.tmpdir)
 
-    def __del__(self):
-        self.remove_tmpdir()
-
 
 class VMBaseClass:
     disk_to_check = {}
