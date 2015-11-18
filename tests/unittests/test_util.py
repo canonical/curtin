@@ -111,19 +111,21 @@ class TestLsbRelease(TestCase):
 
     @mock.patch("curtin.util.subp")
     def test_lsb_release_functional(self, mock_subp):
+        output = '\n'.join([
+            "Distributor ID: Ubuntu",
+            "Description:    Ubuntu 14.04.2 LTS",
+            "Release:    14.04",
+            "Codename:   trusty",
+        ])
         rdata = {'id': 'Ubuntu', 'description': 'Ubuntu 14.04.2 LTS',
                  'codename': 'trusty', 'release': '14.04'}
 
         def fake_subp(cmd, capture=False):
-            if cmd[0:2] == ["lsb_release", "--short"]:
-                field = cmd[2].replace("--", "")
-                return (rdata[field] + "\n", "")
-            return mock.DEFAULT
+            return output, 'No LSB modules are available.'
 
         mock_subp.side_effect = fake_subp
         found = util.lsb_release()
-        mock_subp.assert_called_with(['lsb_release', '--short', '--id'],
-                                     capture=True)
+        mock_subp.assert_called_with(['lsb_release', '--all'], capture=True)
         self.assertEqual(found, rdata)
 
     @mock.patch("curtin.util.subp")

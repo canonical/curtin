@@ -693,23 +693,27 @@ def is_file_not_found_exc(exc):
     return (isinstance(exc, IOError) and exc.errno == errno.ENOENT)
 
 
-def lsb_release(field="codename"):
-    fields = ('description', 'release', 'codename', 'id')
-    if field not in fields:
-        raise ValueError("Invalid field: %s. Must be one of %s" %
-                         (field, ','.join(fields)))
-
+def lsb_release():
+    fmap = {'Codename': 'codename', 'Description': 'description',
+            'Distributor ID': 'id', 'Release': 'release'}
     global _LSB_RELEASE
     if not _LSB_RELEASE:
         data = {}
-        for k in fields:
-            try:
-                out, err = subp(['lsb_release', '--short', '--%s' % k],
-                                capture=True)
-                data[k] = out.strip()
-            except ProcessExecutionError as e:
-                LOG.warn("Unable to get lsb_release/%s: %s", k, e)
-                data[k] = "UNAVAILABLE"
+        try:
+            out, err = subp(['lsb_release', '--all'], capture=True)
+            for line in out.splitlines():
+                fname, tok, val = line.partition(":")
+                if fname in fmap:
+                    data[fmap[fname]] = val.strip()
+            missing = [k for k in fmap.values() if k not in data]
+            if len(missing):
+                LOG.warn("Missing fields in lsb_release --all output: %s",
+                         ','.join(missing))
+
+        except ProcessExecutionError as e:
+            LOG.warn("Unable to get lsb_release --all: %s", e)
+            data = {v: "UNAVAILABLE" for v in fmap.values()}
+
         _LSB_RELEASE.update(data)
     return _LSB_RELEASE
 

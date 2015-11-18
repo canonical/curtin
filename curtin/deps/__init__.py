@@ -37,7 +37,7 @@ REQUIRED_EXECUTABLES = [
     ('udevadm', 'udev'),
 ]
 
-if lsb_release(field='codename') == "precise":
+if lsb_release()['codename'] != "precise":
     REQUIRED_EXECUTABLES.append(('make-bcache', 'bcache-utils',))
 
 
