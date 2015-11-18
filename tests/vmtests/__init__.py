@@ -199,6 +199,7 @@ class VMBaseClass:
 
     @classmethod
     def setUpClass(cls):
+        logger.info('Starting setup for testclass: {}'.format(cls.__name__))
         logger.info('Acquiring boot image')
         # get boot img
         image_store = ImageStore(IMAGE_SRC_URL, IMAGE_DIR)
@@ -303,8 +304,10 @@ class VMBaseClass:
             if len(errors) > 0:
                 for e in errors:
                     logger.error(e)
-                logger.error('Errors during curtin installer')
-                raise Exception('Errors during curtin installer')
+                errmsg = ('Errors during curtin installer: '
+                          '{}'.format(cls.__name__))
+                logger.error(errmsg)
+                raise Exception(errmsg)
             else:
                 logger.info('Install OK')
         else:
@@ -341,7 +344,7 @@ class VMBaseClass:
 
         # mount output disk
         cls.td.mount_output_disk()
-        logger.info('Ready for testcases')
+        logger.info('Ready for testcases: '.format(cls.__name__))
 
     @classmethod
     def tearDownClass(cls):
