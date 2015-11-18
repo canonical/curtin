@@ -88,15 +88,15 @@ def maybe_install_deps(args, stacktrace=True, verbosity=0):
         subps.add_parser(subcmd)
 
     install_only_args = [
-       ['-v', '--install-deps'],
-       ['-vv', '--install-deps'],
-       ['--install-deps', '-v'],
-       ['--install-deps', '-vv'],
-       ['--install-deps'],
+        ['-v', '--install-deps'],
+        ['-vv', '--install-deps'],
+        ['--install-deps', '-v'],
+        ['--install-deps', '-vv'],
+        ['--install-deps'],
     ]
 
     install_only = args in install_only_args
-     
+
     if install_only:
         verbosity = 1
     else:
@@ -105,7 +105,7 @@ def maybe_install_deps(args, stacktrace=True, verbosity=0):
             verbosity = ns.verbosity
             if not ns.install_deps:
                 return
-        except ValueError as e:
+        except ValueError:
             # bad usage will be reported by the real reporter
             return
 

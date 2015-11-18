@@ -80,6 +80,7 @@ class VividTestRaid5Bcache(TestMdadmBcacheAbs):
     __test__ = True
     release = "vivid"
 
-class TrustTestRaid5Bcache(TestMdadmBcacheAbs):
+
+class TrustyTestRaid5Bcache(TestMdadmBcacheAbs):
     __test__ = True
     release = "trusty"
