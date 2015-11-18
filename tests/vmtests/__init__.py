@@ -1,4 +1,5 @@
 import ast
+import atexit
 import datetime
 import errno
 import hashlib
@@ -10,7 +11,6 @@ import random
 import re
 import shutil
 import subprocess
-import tempfile
 import textwrap
 import time
 import urllib
@@ -33,6 +33,15 @@ DEVNULL = open(os.devnull, 'w')
 _TOPDIR = None
 
 
+def remove_empty_dir(dirpath):
+    if os.path.exists(dirpath):
+        try:
+            os.rmdir(dirpath)
+        except OSError as e:
+            if e.errno == errno.ENOTEMPTY:
+                pass
+
+
 def _topdir():
     global _TOPDIR
     if _TOPDIR:
@@ -46,6 +55,7 @@ def _topdir():
             ts = ts.replace(":", "")
             outd = os.path.join(tdir, 'curtin-vmtest-{}'.format(ts))
             os.mkdir(outd)
+            atexit.register(remove_empty_dir, outd)
             _TOPDIR = outd
             return _TOPDIR
         except FileExistsError:
@@ -387,12 +397,6 @@ class VMBaseClass:
         if not get_env_var_bool('CURTIN_VMTEST_KEEP_DATA', False):
             logger.debug('Removing tmpdir: {}'.format(cls.td.tmpdir))
             cls.td.remove_tmpdir()
-        if os.path.exists(_topdir()):
-            try:
-                os.rmdir(_topdir())
-            except OSError as e:
-                if e.errno == errno.ENOTEMPTY:
-                    pass
 
     @classmethod
     def expected_interfaces(cls):
