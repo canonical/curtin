@@ -39,7 +39,7 @@ def main():
         description='check dependencies for curtin.')
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         dest='verbosity')
-    args = parser.parse_args(sys.argv[1:])
+    args, extra = parser.parse_known_args(sys.argv[1:])
 
     errors = find_missing_deps()
 
