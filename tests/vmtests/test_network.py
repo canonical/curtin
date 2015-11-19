@@ -236,21 +236,21 @@ class TestNetworkAbs(VMBaseClass):
                 self.assertEqual(gw_ip, gw)
 
 
-class TrustyTestBasic(TestNetworkAbs, TestCase):
+class TrustyTestNetwork(TestNetworkAbs, TestCase):
     __test__ = True
     repo = "maas-daily"
     release = "trusty"
     arch = "amd64"
 
 
-class WilyTestBasic(TestNetworkAbs, TestCase):
+class WilyTestNetwork(TestNetworkAbs, TestCase):
     __test__ = True
     repo = "maas-daily"
     release = "wily"
     arch = "amd64"
 
 
-class VividTestBasic(TestNetworkAbs, TestCase):
+class VividTestNetwork(TestNetworkAbs, TestCase):
     __test__ = True
     repo = "maas-daily"
     release = "vivid"
