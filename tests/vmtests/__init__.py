@@ -51,11 +51,14 @@ def _topdir():
     envname = 'CURTIN_VMTEST_TOPDIR'
     envdir = os.environ.get(envname)
     if envdir:
-        if not os.path.isdir(envdir):
+        if not os.path.exists(envdir):
             os.mkdir(envdir)
             _TOPDIR = envdir
-        elif os.path.exists(envdir):
-            raise ValueError("%s exists but is not a directory" % envname)
+        elif not os.path.isdir(envdir):
+            raise ValueError("%s=%s exists but is not a directory" %
+                             (envname, envdir))
+        else:
+            _TOPDIR = envdir
     else:
         tdir = os.environ.get('TMPDIR', '/tmp')
         for i in range(0, 10):
@@ -69,8 +72,9 @@ def _topdir():
             except FileExistsError:
                 time.sleep(random.random()/10)
 
-    if not _TOPDIR:
-        raise Exception("Unable to initialize topdir in TMPDIR [%s]" % tdir)
+        if not _TOPDIR:
+            raise Exception("Unable to initialize topdir in TMPDIR [%s]" %
+                            tdir)
 
     atexit.register(remove_empty_dir, _TOPDIR)
     return _TOPDIR
