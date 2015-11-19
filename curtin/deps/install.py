@@ -37,7 +37,7 @@ def main():
                         default=True)
     args = parser.parse_args(sys.argv[1:])
 
-    ret = install_deps(verbose=args.verbosity, dry_run=args.dry_run,
+    ret = install_deps(verbosity=args.verbosity, dry_run=args.dry_run,
                        allow_daemons=True)
     sys.exit(ret)
 
