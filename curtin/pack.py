@@ -223,7 +223,7 @@ def pack_install(fdout=None, configs=None, paths=None,
     else:
         dep_flags = []
 
-    command = ["curtin", dep_flags, "install"]
+    command = ["curtin"] + dep_flags + ["install"]
 
     my_files = []
     for n, config in enumerate(configs):

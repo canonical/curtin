@@ -362,15 +362,12 @@ class VMBaseClass:
             logger.info('Checking curtin install output for errors')
             with open(cls.install_log) as l:
                 install_log = l.read()
-            errors = re.findall(
-                '\[.*\]\ cloud-init.*:.*Installation\ failed', install_log)
-            if len(errors) > 0:
+            errmsg, errors = check_install_log(install_log)
+            if errmsg:
                 for e in errors:
                     logger.error(e)
-                errmsg = ('Errors during curtin installer: '
-                          '{}'.format(cls.__name__))
                 logger.error(errmsg)
-                raise Exception(errmsg)
+                raise Exception(cls.__name__ + ":" + errmsg)
             else:
                 logger.info('Install OK')
         else:
@@ -499,6 +496,34 @@ class VMBaseClass:
                     link = diskname + "-part" + str(part)
                     self.assertIn(link, contents)
                 self.assertIn(diskname, contents)
+
+
+def check_install_log(install_log):
+    # look if install is OK via curtin 'Installation ok"
+    # if we dont find that, scan for known error messages and report
+    # if we don't see any errors, fail with general error
+    errors = []
+    errmsg = None
+
+    # regexps expected in curtin output
+    install_pass = "Installation finished. No error reported."
+    install_fail = "({})".format("|".join([
+                   'Installation\ failed',
+                   'ImportError: No module named.*',
+                   'Unexpected error while running command',
+                   'E: Unable to locate package.*']))
+
+    install_is_ok = re.findall(install_pass, install_log)
+    if len(install_is_ok) == 0:
+        errors = re.findall(install_fail, install_log)
+        if len(errors) > 0:
+            for e in errors:
+                logger.error(e)
+            errmsg = ('Errors during curtin installer')
+        else:
+            errmsg = ('Failed to verify Installation is OK')
+
+    return errmsg, errors
 
 
 def get_apt_proxy():
