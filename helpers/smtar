@@ -95,10 +95,10 @@ file_out=$(LANG=C file --mime-type "$TEMPF")
 # my.tar.Z:  application/x-compress
 if [ $? -eq 0 ]; then
     case "$file_out" in
-        */x-bzip2) zopt="--bzip2";;
-        */gzip) zopt="--gzip";;
-        */x-xz) zopt="--xz";;
-        */x-compress) zopt="--compress";;
+        */x-bzip2|*/bzip2) zopt="--bzip2";;
+        */x-gzip|*/gzip) zopt="--gzip";;
+        */x-xz|*/xz) zopt="--xz";;
+        */x-compress|*/compress) zopt="--compress";;
         *) zopt="";;
     esac
 else
