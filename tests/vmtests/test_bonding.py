@@ -1,5 +1,4 @@
 from . import VMBaseClass, logger
-from unittest import TestCase
 
 import ipaddress
 import os
@@ -205,21 +204,21 @@ class TestNetworkAbs(VMBaseClass):
                 self.assertEqual(gw_ip, gw)
 
 
-class TrustyTestBonding(TestNetworkAbs, TestCase):
+class TrustyTestBonding(TestNetworkAbs):
     __test__ = False
     repo = "maas-daily"
     release = "trusty"
     arch = "amd64"
 
 
-class WilyTestBonding(TestNetworkAbs, TestCase):
+class WilyTestBonding(TestNetworkAbs):
     __test__ = True
     repo = "maas-daily"
     release = "wily"
     arch = "amd64"
 
 
-class VividTestBonding(TestNetworkAbs, TestCase):
+class VividTestBonding(TestNetworkAbs):
     __test__ = True
     repo = "maas-daily"
     release = "vivid"

@@ -101,7 +101,11 @@ Some environment variables affect the running of vmtest
     If that is not set it will look at the host's apt config and read
     'Acquire::HTTP::Proxy'
 
-  * CURTIN_VMTEST_KEEP_DATA: default false (boolean)
+  * CURTIN_VMTEST_KEEP_DATA: default 'fail'
+    values:
+      0, none: do not keep results
+      fail:    keep image data for failures only
+      1, all:  keep all image data
     by default vmtest data is deleted upon exit.  If you want to
     look at disk images after failure, you need to set
     set this to a non-false value. Anything other than case insensi

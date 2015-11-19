@@ -2,8 +2,6 @@ from . import (
     VMBaseClass,
     get_apt_proxy)
 
-from unittest import TestCase
-
 import os
 import textwrap
 
@@ -79,21 +77,21 @@ class TestBasicAbs(VMBaseClass):
             self.assertEqual("", apt_proxy_found)
 
 
-class WilyTestBasic(TestBasicAbs, TestCase):
+class WilyTestBasic(TestBasicAbs):
     __test__ = True
     repo = "maas-daily"
     release = "wily"
     arch = "amd64"
 
 
-class VividTestBasic(TestBasicAbs, TestCase):
+class VividTestBasic(TestBasicAbs):
     __test__ = True
     repo = "maas-daily"
     release = "vivid"
     arch = "amd64"
 
 
-class PreciseTestBasic(TestBasicAbs, TestCase):
+class PreciseTestBasic(TestBasicAbs):
     __test__ = True
     repo = "maas-daily"
     release = "precise"

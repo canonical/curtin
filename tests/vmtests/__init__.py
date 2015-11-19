@@ -14,6 +14,7 @@ import subprocess
 import textwrap
 import time
 import urllib
+import unittest
 import curtin.net as curtin_net
 
 from .helpers import check_call
@@ -253,10 +254,12 @@ class TempDir:
             shutil.rmtree(self.tmpdir)
 
 
-class VMBaseClass:
+class VMBaseClass(unittest.TestCase):
     disk_to_check = {}
     fstab_expected = {}
     extra_kern_args = None
+    recorded_errors = 0
+    recorded_failures = 0
 
     @classmethod
     def setUpClass(cls):
@@ -408,7 +411,30 @@ class VMBaseClass:
 
     @classmethod
     def tearDownClass(cls):
-        if not get_env_var_bool('CURTIN_VMTEST_KEEP_DATA', False):
+        val = os.environ.get('CURTIN_VMTEST_KEEP_DATA')
+        if not val:
+            val = "fail"
+
+        remove = False
+        if val in ("0", "none"):
+            remove = True
+        else:
+            sfile = os.path.exists(os.path.join(cls.td.tmpdir, "success"))
+            efile = os.path.exists(os.path.join(cls.td.tmpdir, "errors.json"))
+            if not (sfile or efile):
+                logger.warn("class %s had no status", cls.__name__)
+            elif (sfile and efile):
+                logger.warn("class %s had success and fail", cls.__name__)
+            elif sfile:
+                # tests passed
+                if val not in ("1", "all"):
+                    remove = True
+            else:
+                # tests failed
+                if val not in ("fail"):
+                    remove = True
+
+        if remove:
             logger.debug('Removing tmpdir: {}'.format(cls.td.tmpdir))
             cls.td.remove_tmpdir()
 
@@ -496,6 +522,27 @@ class VMBaseClass:
                     link = diskname + "-part" + str(part)
                     self.assertIn(link, contents)
                 self.assertIn(diskname, contents)
+
+    def run(self, result):
+        super(VMBaseClass, self).run(result)
+        self.record_result(result)
+
+    def record_result(self, result):
+        success_file = os.path.join(self.td.tmpdir, "success")
+        errors_file = os.path.join(self.td.tmpdir, "errors.json")
+
+        if len(result.errors) == 0 and len(result.failures) == 0:
+            if not os.path.exists(success_file):
+                with open(success_file, "w") as fp:
+                    fp.write("good")
+        elif (self.recorded_errors != len(result.errors) or
+              self.recorded_failures != len(result.failures)):
+            if os.path.exists(success_file):
+                os.unlink(success_file)
+            with open(errors_file, "w") as fp:
+                fp.write(json.dumps(
+                    {'errors': len(result.errors),
+                     'failures': len(result.failures)}))
 
 
 def check_install_log(install_log):
