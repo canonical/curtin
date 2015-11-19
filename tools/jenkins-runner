@@ -1,0 +1,28 @@
+#!/bin/sh
+
+fail() { echo "$@" 1>&2; exit 1; }
+
+top_d=${WORKSPACE:-$PWD}
+work_d="${1:-working.d}"
+pub_d=${2:-pub.d}
+
+mkdir -p "$work_d" "$pub_d" || fail "failed to make output dirs"
+work_d=$(cd "$work_d" && pwd) || fail "failed to get pull path to $work_d"
+pub_d=$(cd "$pub_d" && pwd) || fail "failed to get pull path to $pub_d"
+
+keep=${CURTIN_VMTEST_KEEP_DATA:-all}
+log=${CURTIN_VMTEST_LOG:-${work_d}.log}
+
+export CURTIN_VMTEST_KEEP_DATA=${keep}
+export CURTIN_VMTEST_TOPDIR=${work_d}
+export CURTIN_VMTEST_LOG=${log}
+
+start_s=$(date +%s)
+make vmtest
+ret=$?
+end_s=$(date +%s)
+echo "vmtest finished with $ret in $(($end_s-$start_s))s"
+
+# now find interesting files in $work_d and copy them to pub_d
+rsync -a --exclude "*.img" "$work_d/" "${pub_d}"
+rm -Rf "$work_d"
