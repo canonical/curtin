@@ -101,6 +101,7 @@ def _initialize_logging():
     logger.addHandler(fh)
     logger.addHandler(ch)
 
+    logger.info("Logfile: %s .  Working dir: %s", logfile, _topdir())
     return logger
 
 
