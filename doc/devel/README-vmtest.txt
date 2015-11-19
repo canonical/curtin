@@ -94,7 +94,36 @@ Note:
     'apt_proxy' environment variable.  If that is not set it will 
     look at the host's apt config and read 'Acquire::HTTP::Proxy'
 
-If required for further debugging one can set the environment variable
-"CURTIN_VMTEST_KEEP_DATA" like:
-export CURTIN_VMTEST_KEEP_DATA=true
-This will keep the temporary disk files around by skipping __init__.py:__del__
+== Environment Variables ==
+Some environment variables affect the running of vmtest
+  * apt_proxy: 
+    test will set apt_proxy in the guests to the value of 'apt_proxy'.
+    If that is not set it will look at the host's apt config and read
+    'Acquire::HTTP::Proxy'
+
+  * CURTIN_VMTEST_KEEP_DATA: default false (boolean)
+    by default vmtest data is deleted upon exit.  If you want to
+    look at disk images after failure, you need to set
+    set this to a non-false value. Anything other than case insensi
+    False values are case insensitive 'false', '0', ''."""
+
+    FIXME: This really should be set to keep failed tests by default.
+
+  * CURTIN_VMTEST_TOPDIR: default $TMPDIR/vmtest-<timestamp>
+    vmtest puts all test data under this value.  By default, it creates
+    a directory in TMPDIR (/tmp) named with as "vmtest-<timestamp>"
+
+    If you set this value, you must ensure that the directory is either
+    non-existant or clean.
+
+  * CURTIN_VMTEST_LOG: default $TMPDIR/vmtest-<timestamp>.log
+    vmtest writes extended log information to this file.
+    The default puts the log along side the TOPDIR.
+
+  * CURTIN_VMTEST_IMAGE_SYNC: default false (boolean)
+    if set to true, each run will attempt a sync of images.
+    If you want to make sure images are always up to date, then set to true.
+
+Environment 'boolean' values:
+   For boolean environment variables the value is considered True
+   if it is any value other than case insensitive 'false', '' or "0"

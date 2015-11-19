@@ -47,21 +47,32 @@ def _topdir():
     if _TOPDIR:
         return _TOPDIR
 
-    tdir = os.environ.get('TMPDIR', '/tmp')
-    for i in range(0, 10):
-        try:
-            ts = datetime.datetime.now().isoformat()
-            # : in path give grief at least to tools/launch
-            ts = ts.replace(":", "")
-            outd = os.path.join(tdir, 'curtin-vmtest-{}'.format(ts))
-            os.mkdir(outd)
-            atexit.register(remove_empty_dir, outd)
-            _TOPDIR = outd
-            return _TOPDIR
-        except FileExistsError:
-            time.sleep(random.random()/10)
+    envname = 'CURTIN_VMTEST_TOPDIR'
+    envdir = os.environ.get(envname)
+    if envdir:
+        if not os.path.isdir(envdir):
+            os.mkdir(envdir)
+            _TOPDIR = envdir
+        elif os.path.exists(envdir):
+            raise ValueError("%s exists but is not a directory" % envname)
+    else:
+        tdir = os.environ.get('TMPDIR', '/tmp')
+        for i in range(0, 10):
+            try:
+                ts = datetime.datetime.now().isoformat()
+                # : in path give grief at least to tools/launch
+                ts = ts.replace(":", "")
+                outd = os.path.join(tdir, 'vmtest-{}'.format(ts))
+                os.mkdir(outd)
+                _TOPDIR = outd
+            except FileExistsError:
+                time.sleep(random.random()/10)
 
-    raise Exception("Unable to initialize topdir in TMPDIR [%s]" % tdir)
+    if not _TOPDIR:
+        raise Exception("Unable to initialize topdir in TMPDIR [%s]" % tdir)
+
+    atexit.register(remove_empty_dir, _TOPDIR)
+    return _TOPDIR
 
 
 def _initialize_logging():
@@ -74,7 +85,12 @@ def _initialize_logging():
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-    fh = logging.FileHandler(_topdir() + ".log", mode='w', encoding='utf-8')
+    envlog = os.environ.get('CURTIN_VMTEST_LOG')
+    if envlog:
+        logfile = envlog
+    else:
+        logfile = _topdir() + ".log"
+    fh = logging.FileHandler(logfile, mode='w', encoding='utf-8')
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(formatter)
 
