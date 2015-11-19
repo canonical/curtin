@@ -27,6 +27,7 @@ REQUIRED_IMPORTS = [
 
 REQUIRED_EXECUTABLES = [
     # executable in PATH, package
+    ('file', 'file'),
     ('lvcreate', 'lvm2'),
     ('mdadm', 'mdadm'),
     ('mkfs.btrfs', 'btrfs-tools'),

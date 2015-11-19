@@ -52,10 +52,13 @@ def tar_xattr_opts(cmd=None):
 
 
 def extract_root_tgz_url(source, target):
+    # extract a -root.tar.gz url in the 'target' directory
+    #
+    # Uses smtar to avoid specifying the compression type
     curtin.util.subp(args=['sh', '-cf',
                            ('wget "$1" --progress=dot:mega -O - |'
-                            'tar -C "$2" ' + ' '.join(tar_xattr_opts()) +
-                            ' ' + '-Sxpzf - --numeric-owner'),
+                            'smtar -C "$2" ' + ' '.join(tar_xattr_opts()) +
+                            ' ' + '-Sxpf - --numeric-owner'),
                            '--', source, target])
 
 
