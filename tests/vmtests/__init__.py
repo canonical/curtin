@@ -2,6 +2,7 @@ import ast
 import atexit
 import datetime
 import errno
+import glob
 import hashlib
 import logging
 import json
@@ -14,7 +15,6 @@ import subprocess
 import textwrap
 import time
 import urllib
-import unittest
 import curtin.net as curtin_net
 
 from .helpers import check_call
@@ -252,11 +252,6 @@ class TempDir:
         subprocess.check_call(['tar', '-C', self.mnt, '-xf', self.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
-    def remove_tmpdir(self):
-        # remove tempdir
-        if os.path.exists(self.tmpdir):
-            shutil.rmtree(self.tmpdir)
-
 
 class VMBaseClass(object):
     disk_to_check = {}
@@ -415,32 +410,21 @@ class VMBaseClass(object):
 
     @classmethod
     def tearDownClass(cls):
-        val = os.environ.get('CURTIN_VMTEST_KEEP_DATA')
-        if not val:
-            val = "fail"
+        # acceptable values: (never|fail|always)[:(all|logs)]
+        val = os.environ.get('CURTIN_VMTEST_KEEP_DATA', "fail:all")
+        when, tok, what = val.partition(":")
 
-        remove = False
-        if val in ("0", "none"):
-            remove = True
-        else:
-            sfile = os.path.exists(os.path.join(cls.td.tmpdir, "success"))
-            efile = os.path.exists(os.path.join(cls.td.tmpdir, "errors.json"))
-            if not (sfile or efile):
-                logger.warn("class %s had no status", cls.__name__)
-            elif (sfile and efile):
-                logger.warn("class %s had success and fail", cls.__name__)
-            elif sfile:
-                # tests passed
-                if val not in ("1", "all"):
-                    remove = True
-            else:
-                # tests failed
-                if val not in ("fail"):
-                    remove = True
+        success = False
+        sfile = os.path.exists(os.path.join(cls.td.tmpdir, "success"))
+        efile = os.path.exists(os.path.join(cls.td.tmpdir, "errors.json"))
+        if not (sfile or efile):
+            logger.warn("class %s had no status", cls.__name__)
+        elif (sfile and efile):
+            logger.warn("class %s had success and fail", cls.__name__)
+        elif sfile:
+            success = True
 
-        if remove:
-            logger.debug('Removing tmpdir: {}'.format(cls.td.tmpdir))
-            cls.td.remove_tmpdir()
+        clean_test_dir(cls.td.tmpdir, success, when, what)
 
     @classmethod
     def expected_interfaces(cls):
@@ -660,6 +644,57 @@ def get_env_var_bool(envname, default=False):
         return default
 
     return val.lower() not in ("false", "0", "")
+
+
+def clean_test_dir(tdir, result, keep_when, keep_what):
+    # values for keep_when
+    s_never, s_fail, s_always = ("never", "fail", "always")
+    # values for keep_what
+    s_all, s_logs = ("all", "logs")
+
+    if not keep_what:
+        keep_what = s_all
+    keep_what = keep_what.lower()
+
+    if not keep_when:
+        keep_when = s_never
+    keep_when = keep_when.lower()
+
+    if keep_when not in (s_never, s_fail, s_always):
+        logger.warn("Unknown value for keep_when: %s. using '%s'",
+                    keep_when, s_fail)
+        keep_when = s_fail
+
+    if keep_what not in (s_all, s_logs):
+        logger.warn("Unknown value for keep: %s. using '%s'", keep_what, s_all)
+        keep_what = s_all
+
+    if result:
+        keep = keep_when == s_always
+    else:
+        keep = keep_when in (s_always, s_fail)
+
+    # result, keep-mode
+    rkm = 'result=%s keep=%s' % (
+        'pass' if "result" else "fail",
+        keep_when + ":" + keep_what)
+
+    if keep and keep_what == s_logs:
+        # remove any filenames ending in '.img'
+        logger.debug('Pruning tmpdir %s [%s]', tdir, rkm)
+        img_files = [y for x in os.walk(tdir)
+                     for y in glob.glob(os.path.join(x[0], '*.img'))]
+        for f in img_files:
+            os.unlink(f)
+
+    if not keep:
+        if os.path.exists(tdir):
+            logger.debug('Removing tmpdir %s [%s]', tdir, rkm)
+            shutil.rmtree(tdir)
+        else:
+            logger.debug('tmpdir did not exist %s [%s]', tdir, rkm)
+
+    return
 
 
 logger = _initialize_logging()

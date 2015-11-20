@@ -101,17 +101,20 @@ Some environment variables affect the running of vmtest
     If that is not set it will look at the host's apt config and read
     'Acquire::HTTP::Proxy'
 
-  * CURTIN_VMTEST_KEEP_DATA: default 'fail'
-    values:
-      0, none: do not keep results
-      fail:    keep image data for failures only
-      1, all:  keep all image data
-    by default vmtest data is deleted upon exit.  If you want to
-    look at disk images after failure, you need to set
-    set this to a non-false value. Anything other than case insensi
-    False values are case insensitive 'false', '0', ''."""
+  * CURTIN_VMTEST_KEEP_DATA: default 'fail:all'
+    this is 2 fields 'when' and 'what' that are ':' delimited.
 
-    FIXME: This really should be set to keep failed tests by default.
+    when: default: 'fail'
+       values indicate when a test class output should be kept.
+          never:  never
+          fail:   only if class had failures
+          always: always
+    what: default: 'all'
+       values indicate what should be kept.
+         all: keep everything
+         logs: discard images (the things that are large)
+
+    'what' has no significance if when is 'never'.
 
   * CURTIN_VMTEST_TOPDIR: default $TMPDIR/vmtest-<timestamp>
     vmtest puts all test data under this value.  By default, it creates
