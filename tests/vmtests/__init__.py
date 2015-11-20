@@ -358,22 +358,26 @@ class VMBaseClass(object):
                         u'Serial console output:\n{}'.format(l.read()))
             else:
                 logger.warn("Did not have a serial log file from launch.")
+            cls.tearDownClass()
 
         logger.debug('')
-        if os.path.exists(cls.install_log):
-            logger.info('Checking curtin install output for errors')
-            with open(cls.install_log) as l:
-                install_log = l.read()
-            errmsg, errors = check_install_log(install_log)
-            if errmsg:
-                for e in errors:
-                    logger.error(e)
-                logger.error(errmsg)
-                raise Exception(cls.__name__ + ":" + errmsg)
+        try:
+            if os.path.exists(cls.install_log):
+                logger.info('Checking curtin install output for errors')
+                with open(cls.install_log) as l:
+                    install_log = l.read()
+                errmsg, errors = check_install_log(install_log)
+                if errmsg:
+                    for e in errors:
+                        logger.error(e)
+                    logger.error(errmsg)
+                    raise Exception(cls.__name__ + ":" + errmsg)
+                else:
+                    logger.info('Install OK')
             else:
-                logger.info('Install OK')
-        else:
-            raise Exception("No install log was produced")
+                raise Exception("No install log was produced")
+        finally:
+            cls.tearDownClass()
 
         # drop the size parameter if present in extra_disks
         extra_disks = [x if ":" not in x else x.split(':')[0]
@@ -403,9 +407,13 @@ class VMBaseClass(object):
                 with open(cls.boot_log, 'r', encoding='utf-8') as l:
                     logger.debug(
                         u'Serial console output:\n{}'.format(l.read()))
+            cls.tearDownClass()
 
         # mount output disk
-        cls.td.mount_output_disk()
+        try:
+            cls.td.mount_output_disk()
+        finally:
+            cls.tearDownClass()
         logger.info('Ready for testcases: '.format(cls.__name__))
 
     @classmethod
