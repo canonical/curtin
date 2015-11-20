@@ -1,10 +1,11 @@
 from . import VMBaseClass
+from unittest import TestCase
 
 import textwrap
 import os
 
 
-class TestMdadmAbs(VMBaseClass):
+class TestMdadmAbs(VMBaseClass, TestCase):
     __test__ = False
     repo = "maas-daily"
     arch = "amd64"

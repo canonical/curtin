@@ -1,9 +1,10 @@
 from . import VMBaseClass
+from unittest import TestCase
 
 import textwrap
 
 
-class TestLvmAbs(VMBaseClass):
+class TestLvmAbs(VMBaseClass, TestCase):
     __test__ = False
     conf_file = "examples/tests/lvm.yaml"
     repo = "maas-daily"

@@ -258,7 +258,7 @@ class TempDir:
             shutil.rmtree(self.tmpdir)
 
 
-class VMBaseClass(unittest.TestCase):
+class VMBaseClass(object):
     disk_to_check = {}
     fstab_expected = {}
     extra_kern_args = None
