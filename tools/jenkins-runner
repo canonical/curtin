@@ -18,7 +18,7 @@ export CURTIN_VMTEST_TOPDIR=${work_d}
 export CURTIN_VMTEST_LOG=${log}
 
 start_s=$(date +%s)
-make vmtest
+make vmtest </dev/null
 ret=$?
 end_s=$(date +%s)
 echo "vmtest finished with $ret in $(($end_s-$start_s))s"
