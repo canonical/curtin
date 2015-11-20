@@ -17,6 +17,9 @@ if [ $# -eq 0 ]; then
 fi
 
 start_s=$(date +%s)
+echo "CURTIN_VMTEST_KEEP_DATA=$CURTIN_VMTEST_KEEP_DATA"
+echo "CURTIN_VMTEST_TOPDIR=$CURTIN_VMTEST_TOPDIR"
+echo "CURTIN_VMTEST_LOG=$CURTIN_VMTEST_LOG"
 echo "$(date -R): vmtest start: nosetests3 $*"
 nosetests3 "$@"
 ret=$?
