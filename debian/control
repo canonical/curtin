@@ -26,7 +26,6 @@ Package: curtin
 Architecture: all
 Priority: extra
 Depends: btrfs-tools,
-         e2fsprogs,
          file,
          gdisk,
          lvm2,
