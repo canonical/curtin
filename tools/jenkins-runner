@@ -12,6 +12,10 @@ if [ -d "$topdir" ]; then
 fi
 mkdir -p "$topdir" || fail "failed mkdir $topdir"
 
+if [ $# -eq 0 ]; then
+   set -- -vv tests/vmtests/
+fi
+
 start_s=$(date +%s)
 echo "$(date -R): vmtest start: nosetests3 $*"
 nosetests3 "$@"
