@@ -1047,7 +1047,7 @@ def bcache_handler(info, storage_config):
         LOG.info("Setting cache_mode on {} to {}".format(bcache_dev,
                                                          cache_mode))
         cache_mode_file = \
-            '/sys/block/{}/bcache/cache_mode'.format(info.get('id'))
+            '/sys/block/{}/bcache/cache_mode'.format(bcache_dev)
         with open(cache_mode_file, "w") as fp:
             fp.write(cache_mode)
 
