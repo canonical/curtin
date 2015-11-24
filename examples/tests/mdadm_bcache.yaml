@@ -92,7 +92,7 @@ storage:
      - id: sda1_mount
        type: mount
        path: /
-       device: sda1_root
+       device: bcache_storage2
      - id: raid_mount
        type: mount
        path: /media/data
@@ -103,5 +103,5 @@ storage:
        device: bcache_storage
      - id: bcachefoo_mount
        type: mount
-       path: /media/bcachefoo
-       device: bcache_storage2
+       path: /media/sda1
+       device: sda1_root

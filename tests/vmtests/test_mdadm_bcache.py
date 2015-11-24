@@ -60,9 +60,10 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         cat /proc/mounts > proc_mounts
         """)]
     fstab_expected = {
+        '/dev/vda1': '/media/sda1',
         '/dev/bcache1': '/media/data',
         '/dev/bcache0': '/media/bcache0',
-        '/dev/bcachefoo': '/media/bcachefoo'
+        '/dev/bcachefoo': '/'
     }
 
     def test_bcache_output_files_exist(self):
