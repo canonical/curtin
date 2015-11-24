@@ -46,6 +46,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                      'md0': 0,
                      'cached_array': 0,
                      'cached_array_2': 0}
+    extra_disks = ['4G', '4G']
 
     collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
@@ -53,12 +54,15 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         bcache-super-show /dev/vda7 > bcache_super_vda7
         bcache-super-show /dev/md0 > bcache_super_md0
         ls /sys/fs/bcache > bcache_ls
-        cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
+        cat /sys/block/bcache0/bcache/cache_mode > bcache0_cache_mode
+        cat /sys/block/bcache1/bcache/cache_mode > bcache1_cache_mode
+        cat /sys/block/bcache2/bcache/cache_mode > bcache2_cache_mode
         cat /proc/mounts > proc_mounts
         """)]
     fstab_expected = {
-        '/dev/bcache0': '/media/data',
-        '/dev/bcache1': '/media/bcache1',
+        '/dev/bcache1': '/media/data',
+        '/dev/bcache0': '/media/bcache0',
+        '/dev/bcachefoo': '/media/bcachefoo'
     }
 
     def test_bcache_output_files_exist(self):
@@ -66,7 +70,9 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                                  "bcache_super_vda7",
                                  "bcache_super_md0",
                                  "bcache_ls",
-                                 "bcache_cache_mode"])
+                                 "bcache0_cache_mode",
+                                 "bcache1_cache_mode",
+                                 "bcache2_cache_mode"])
 
     def test_bcache_status(self):
         bcache_supers = [
@@ -100,7 +106,9 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                          bcache_cset_uuid)
 
     def test_bcache_cachemode(self):
-        self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
+        self.check_file_regex("bcache0_cache_mode", r"\[writeback\]")
+        self.check_file_regex("bcache1_cache_mode", r"\[writethrough\]")
+        self.check_file_regex("bcache2_cache_mode", r"\[writearound\]")
 
 
 class WilyTestMdadmBcache(TestMdadmBcacheAbs):

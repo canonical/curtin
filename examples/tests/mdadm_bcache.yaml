@@ -36,6 +36,16 @@ storage:
        type: partition
        size: 1GB
        device: sda
+     - id: sdb
+       type: disk
+       model: QEMU HARDDISK
+       path: /dev/vdc
+       name: second_disk
+     - id: sdc
+       type: disk
+       model: QEMU HARDDISK
+       path: /dev/vdd
+       name: third_disk
      - id: mddevice
        name: md0
        type: raid
@@ -45,18 +55,24 @@ storage:
          - sda3
        spare_devices:
          - sda4
-     - id: bcache0
+     - id: bcache1
        type: bcache
        name: cached_array
        backing_device: mddevice
        cache_device: sda5
        cache_mode: writeback
-     - id: bcache1
+     - id: bcache0
        type: bcache
        name: cached_array_2
        backing_device: sda6
        cache_device: sda5
-       cache_mode: writeback
+       cache_mode: writethrough
+     - id: bcachefoo
+       type: bcache
+       name: cached_array_3
+       backing_device: sdc
+       cache_device: sdb
+       cache_mode: writearound
      - id: sda1_root
        type: format
        fstype: ext4
@@ -64,11 +80,15 @@ storage:
      - id: raid_storage
        type: format
        fstype: ext4
-       volume: bcache0
+       volume: bcache1
      - id: bcache_storage
        type: format
        fstype: ext4
-       volume: bcache1
+       volume: bcache0
+     - id: bcache_storage2
+       type: format
+       fstype: ext4
+       volume: bcachefoo
      - id: sda1_mount
        type: mount
        path: /
@@ -77,7 +97,11 @@ storage:
        type: mount
        path: /media/data
        device: raid_storage
-     - id: bcache1_mount
+     - id: bcache0_mount
        type: mount
-       path: /media/bcache1
+       path: /media/bcache0
        device: bcache_storage
+     - id: bcachefoo_mount
+       type: mount
+       path: /media/bcachefoo
+       device: bcache_storage2
