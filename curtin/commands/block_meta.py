@@ -355,6 +355,7 @@ def make_dname(volume, storage_config):
         dname = "%s-%s" % (volgroup_name, dname)
         rule.append(compose_udev_equality("ENV{DM_NAME}", dname))
     rule.append("SYMLINK+=\"disk/by-dname/%s\"" % dname)
+    LOG.debug("Writing dname udev rule '{}'".format(str(rule)))
     util.ensure_dir(rules_dir)
     with open(os.path.join(rules_dir, volume), "w") as fp:
         fp.write(', '.join(rule))
