@@ -270,10 +270,12 @@ def clear_holders(sys_block_path):
 
 
 def devsync(devpath):
+    LOG.debug('devsync for {}'.format(devpath))
     util.subp(['partprobe', devpath], rcs=[0, 1])
     util.subp(['udevadm', 'settle'])
     for x in range(0, 10):
         if os.path.exists(devpath):
+            LOG.debug('devsync happy - path {} now exists'.format(devpath))
             return
         else:
             LOG.debug('Waiting on device path: {}'.format(devpath))
@@ -309,6 +311,7 @@ def determine_partition_number(partition_id, storage_config):
 
 
 def make_dname(volume, storage_config):
+    LOG.debug('Create dname for volume {}'.format(volume))
     state = util.load_command_environment()
     rules_dir = os.path.join(state['scratch'], "rules.d")
     vol = storage_config.get(volume)
@@ -365,6 +368,7 @@ def get_path_to_storage_volume(volume, storage_config):
     # Get path to block device for volume. Volume param should refer to id of
     # volume in storage config
 
+    LOG.debug('get_path_to_storage_volume for volume {}'.format(volume))
     devsync_vol = None
     vol = storage_config.get(volume)
     if not vol:
@@ -426,6 +430,7 @@ def get_path_to_storage_volume(volume, storage_config):
         while "bcache" not in os.path.split(sys_path)[-1]:
             sys_path = os.path.split(sys_path)[0]
         volume_path = os.path.join("/dev", os.path.split(sys_path)[-1])
+        LOG.debug('got bcache volume path {}'.format(volume_path))
 
     else:
         raise NotImplementedError("cannot determine the path to storage \
@@ -436,6 +441,7 @@ def get_path_to_storage_volume(volume, storage_config):
         devsync_vol = volume_path
     devsync(devsync_vol)
 
+    LOG.debug('return volume path {}'.format(volume_path))
     return volume_path
 
 
@@ -1008,6 +1014,7 @@ def bcache_handler(info, storage_config):
     # we run make-bcache using udev rules, so wait for udev to settle, then try
     # to locate the dev, on older versions we need to register it manually
     # though
+    LOG.debug('check if bcache is already registered')
     try:
         util.subp(["udevadm", "settle"])
         get_path_to_storage_volume(info.get('id'), storage_config)
@@ -1060,6 +1067,8 @@ def bcache_handler(info, storage_config):
     if info.get('ptable'):
         raise ValueError("Partition tables on top of lvm logical volumes is \
                          not supported")
+    LOG.debug('Finished bcache creation for backing {} or caching {}'
+              .format(backing_device, cache_device))
 
 
 def meta_custom(args):
