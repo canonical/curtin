@@ -17,26 +17,32 @@ storage:
        type: partition
        size: 3GB
        device: sda
+       uuid: deadbeef-dead-beef-dead-deadbeefaaa1
      - id: sda2
        type: partition
        size: 1GB
        device: sda
+       uuid: deadbeef-dead-beef-dead-deadbeefaaa2
      - id: sda3
        type: partition
        size: 1GB
        device: sda
+       uuid: deadbeef-dead-beef-dead-deadbeefaaa3
      - id: sda4
        type: partition
        size: 1GB
        device: sda
+       uuid: deadbeef-dead-beef-dead-deadbeefaaa4
      - id: sda5
        type: partition
        size: 1GB
        device: sda
+       uuid: deadbeef-dead-beef-dead-deadbeefaaa5
      - id: sda6
        type: partition
        size: 1GB
        device: sda
+       uuid: deadbeef-dead-beef-dead-deadbeefaaa6
      - id: sdb
        type: disk
        model: QEMU HARDDISK
@@ -52,6 +58,7 @@ storage:
        type: partition
        size: 3GB
        device: sdc
+       uuid: deadbeef-dead-beef-dead-deadbeefaac1
      - id: mddevice
        name: md0
        type: raid
@@ -83,14 +90,17 @@ storage:
        type: format
        fstype: ext4
        volume: sda1
+       uuid: deadbeef-dead-beef-dead-deadbeeffff1
      - id: bcache_raid_storage
        type: format
        fstype: ext4
        volume: bcache1_raid
+       uuid: deadbeef-dead-beef-dead-deadbeefcac1
      - id: bcache_normal_storage
        type: format
        fstype: ext4
        volume: bcache_normal
+       uuid: deadbeef-dead-beef-dead-deadbeefcac2
      - id: bcachefoo_fulldiskascache_storage
        type: format
        fstype: ext4
