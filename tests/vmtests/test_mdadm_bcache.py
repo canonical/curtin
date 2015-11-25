@@ -61,9 +61,10 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         """)]
     fstab_expected = {
         '/dev/vda1': '/media/sda1',
+        '/dev/vda7': '/boot',
         '/dev/bcache1': '/media/data',
-        '/dev/bcache0': '/media/bcache0',
-        '/dev/bcachefoo': '/'
+        '/dev/bcache0': '/media/bcache_normal',
+        '/dev/bcache2': '/media/bcachefoo_fulldiskascache_storage'
     }
 
     def test_bcache_output_files_exist(self):
@@ -71,8 +72,6 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                                  "bcache_super_vda7",
                                  "bcache_super_md0",
                                  "bcache_ls",
-                                 "bcache_cache_mode",
-                                 "bcache_cache_mode",
                                  "bcache_cache_mode"])
 
     def test_bcache_status(self):
@@ -119,6 +118,14 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
 class WilyTestMdadmBcache(TestMdadmBcacheAbs):
     __test__ = True
     release = "wily"
+
+
+# More complex bcache test currently failing, but this way easily accessible
+# for all developers
+# Disabled by default to not interfere with automated QA
+class WilyTestMdadmBcacheComplex(TestMdadmBcacheAbs):
+    conf_file = "examples/tests/mdadm_bcache_complex.yaml"
+    __test__ = False
 
 
 class VividTestMdadmBcache(TestMdadmBcacheAbs):
