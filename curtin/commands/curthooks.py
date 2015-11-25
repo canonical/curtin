@@ -283,6 +283,7 @@ def setup_grub(cfg, target):
     if 'grub_install_devices' in cfg and 'install_devices' not in grubcfg:
         grubcfg['install_devices'] = cfg['grub_install_devices']
 
+    LOG.debug("setup grub on target %s", target)
     if 'storage' in cfg:
         storage_grub_devices = []
         for item in cfg.get('storage').get('config'):
@@ -290,8 +291,10 @@ def setup_grub(cfg, target):
                 if item.get('serial'):
                     storage_grub_devices.append(
                         block.lookup_disk(item.get('serial')))
+                    LOG.debug("grub_device serial: %s", item.get('serial'))
                 elif item.get('path'):
                     storage_grub_devices.append(item.get('path'))
+                    LOG.debug("grub_device path %s", item.get('path'))
                 else:
                     raise ValueError("setup_grub cannot find path to disk \
                         '%s'" % item.get('id'))
