@@ -120,17 +120,14 @@ class WilyTestMdadmBcache(TestMdadmBcacheAbs):
     release = "wily"
 
 
-# More complex bcache test currently failing, but this way easily accessible
-# for all developers
-# Disabled by default to not interfere with automated QA
-class WilyTestMdadmBcacheComplex(TestMdadmBcacheAbs):
-    conf_file = "examples/tests/mdadm_bcache_complex.yaml"
-    __test__ = False
-
-
 class VividTestMdadmBcache(TestMdadmBcacheAbs):
     __test__ = True
     release = "vivid"
+
+
+class TrustyTestMdadmBcache(TestMdadmBcacheAbs):
+    __test__ = True
+    release = "trusty"
 
 
 class TestMirrorbootAbs(TestMdadmAbs):

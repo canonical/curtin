@@ -184,11 +184,13 @@ def block_find_sysfs_path(devname):
 
 
 def get_holders(devname):
+    LOG.debug('Getting blockdev holders for {}'.format(devname))
     devname_sysfs = block_find_sysfs_path(devname)
     if devname_sysfs:
-        LOG.debug('Getting blockdev holders: {}'.format(devname_sysfs))
+        LOG.debug('Found devname_sysfs {}'.format(devname_sysfs))
         return os.listdir(os.path.join(devname_sysfs, 'holders'))
 
+    LOG.debug('Did not find devname_sysfs')
     return []
 
 
@@ -1029,8 +1031,8 @@ def bcache_handler(info, storage_config):
     util.subp(["udevadm", "settle"])
     holders = get_holders(backing_device)
     if len(holders) != 1:
-        err = ('Invalid number of holding devices:'
-               ' {}'.format(holders))
+        err = ('Invalid number {} of holding devices:'
+               ' {}'.format(len(holders), holders))
         LOG.error(err)
         raise ValueError(err)
     [bcache_dev] = holders
