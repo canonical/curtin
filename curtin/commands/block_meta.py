@@ -1010,20 +1010,31 @@ def bcache_handler(info, storage_config):
         if not os.path.exists(os.path.join(backing_device_sysfs, "bcache")):
             util.subp(["make-bcache", "-B", backing_device])
 
-    # Some versions of bcache-tools will register the bcache device as soon as
-    # we run make-bcache using udev rules, so wait for udev to settle, then try
-    # to locate the dev, on older versions we need to register it manually
-    # though
-    LOG.debug('check if bcache is already registered')
+    # find the actual bcache device name via sysfs using the
+    # backing device's holders directory.
+    LOG.debug('check for the just created bcache device')
     try:
         util.subp(["udevadm", "settle"])
-        get_path_to_storage_volume(info.get('id'), storage_config)
+        holders = get_holders(backing_device)
     except (OSError, IndexError):
-        # Register
+        # Some versions of bcache-tools will register the bcache device as soon as
+        # we run make-bcache using udev rules, so wait for udev to settle, then try
+        # to locate the dev, on older versions we need to register it manually
+        # though
+        LOG.debug('bcache device was not registered, registering')
         for path in [backing_device, cache_device]:
             fp = open("/sys/fs/bcache/register", "w")
             fp.write(path)
             fp.close()
+    util.subp(["udevadm", "settle"])
+    holders = get_holders(backing_device)
+    if len(holders) != 1:
+        err = ('Invalid number of holding devices:'
+               ' {}'.format(holders))
+        LOG.error(err)
+        raise ValueError(err)
+    [bcache_dev] = holders
+    LOG.debug('The just created bcache device is {}'.format(holders))
 
     # if we specify both then we need to attach backing to cache
     if cache_device and backing_device:
@@ -1042,17 +1053,6 @@ def bcache_handler(info, storage_config):
             raise
 
     if cache_mode:
-        # find the actual bcache device name via sysfs using the
-        # backing device's holders directory.
-        holders = get_holders(backing_device)
-
-        if len(holders) != 1:
-            err = ('Invalid number of holding devices:'
-                   ' {}'.format(holders))
-            LOG.error(err)
-            raise ValueError(err)
-
-        [bcache_dev] = holders
         LOG.info("Setting cache_mode on {} to {}".format(bcache_dev,
                                                          cache_mode))
         cache_mode_file = \
