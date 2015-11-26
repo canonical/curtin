@@ -987,7 +987,7 @@ def bcache_handler(info, storage_config):
     # we will load it now
     util.subp(["modprobe", "bcache"])
 
-    def ensure_bcache_is_registered(bcache_device):
+    def ensure_bcache_is_registered(bcache_device, retry=0):
         # find the actual bcache device name via sysfs using the
         # backing device's holders directory.
         LOG.debug('check the just created bcache device if it is registered')
@@ -1004,10 +1004,21 @@ def bcache_handler(info, storage_config):
             # register it manually though
             LOG.debug('bcache device was not registered, registering {} at'
                       '/sys/fs/bcache/register'.format(bcache_device))
-            fp = open("/sys/fs/bcache/register", "w")
-            fp.write(bcache_device)
-            fp.close()
-            util.subp(["udevadm", "settle"])
+            try:
+                fp = open("/sys/fs/bcache/register", "w")
+                fp.write(bcache_device)
+                fp.close()
+                util.subp(["udevadm", "settle"])
+            except (IOError):
+                # device creation is notoriously racy and this can trigger
+                # "Invalid argument" IOErrors if it got created in "the
+                # meantime" - just restart the function a few times to
+                # check it all again
+                if retry < 5:
+                    ensure_bcache_is_registered(bcache_device, (retry+1))
+                else:
+                    LOG.debug('Repetive error registering the bcache device')
+                    raise ValueError("bcache device can't be registered")
 
     if cache_device:
         # /sys/class/block/XXX/YYY/
