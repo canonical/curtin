@@ -1019,10 +1019,10 @@ def bcache_handler(info, storage_config):
         util.subp(["udevadm", "settle"])
         holders = get_holders(backing_device)
     except (OSError, IndexError):
-        # Some versions of bcache-tools will register the bcache device as soon as
-        # we run make-bcache using udev rules, so wait for udev to settle, then try
-        # to locate the dev, on older versions we need to register it manually
-        # though
+        # Some versions of bcache-tools will register the bcache device as soon
+        # as we run make-bcache using udev rules, so wait for udev to settle,
+        # then try to locate the dev, on older versions we need to register it
+        # manually though
         LOG.debug('bcache device was not registered, registering')
         for path in [backing_device, cache_device]:
             fp = open("/sys/fs/bcache/register", "w")
