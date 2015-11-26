@@ -987,12 +987,35 @@ def bcache_handler(info, storage_config):
     # we will load it now
     util.subp(["modprobe", "bcache"])
 
+    def ensure_bcache_is_registered(bcache_device):
+        # find the actual bcache device name via sysfs using the
+        # backing device's holders directory.
+        LOG.debug('check the just created bcache device if it is registered')
+        try:
+            util.subp(["udevadm", "settle"])
+            local_holders = get_holders(bcache_device)
+            LOG.debug('got initial holders being "{}"'.format(local_holders))
+            if len(local_holders) == 0:
+                raise ValueError
+        except (OSError, IndexError, ValueError):
+            # Some versions of bcache-tools will register the bcache device as
+            # soon as we run make-bcache using udev rules, so wait for udev to
+            # settle, then try to locate the dev, on older versions we need to
+            # register it manually though
+            LOG.debug('bcache device was not registered, registering {} at'
+                      '/sys/fs/bcache/register'.format(bcache_device))
+            fp = open("/sys/fs/bcache/register", "w")
+            fp.write(bcache_device)
+            fp.close()
+            util.subp(["udevadm", "settle"])
+
     if cache_device:
         # /sys/class/block/XXX/YYY/
         cache_device_sysfs = block_find_sysfs_path(cache_device)
 
         if os.path.exists(os.path.join(cache_device_sysfs, "bcache")):
-            # read in cset uuid from cache device
+            LOG.debug('caching device already exists at {}/bcache. Read '
+                      'cset.uuid'.format(cache_device_sysfs))
             (out, err) = util.subp(["bcache-super-show", cache_device],
                                    capture=True)
             LOG.debug('out=[{}]'.format(out))
@@ -1000,67 +1023,61 @@ def bcache_handler(info, storage_config):
                            if line.startswith('cset.uuid')]
 
         else:
+            LOG.debug('caching device does not yet exist at {}/bcache. Make '
+                      'cache and get uuid'.format(cache_device_sysfs))
             # make the cache device, extracting cacheset uuid
             (out, err) = util.subp(["make-bcache", "-C", cache_device],
                                    capture=True)
             LOG.debug('out=[{}]'.format(out))
             [cset_uuid] = [line.split()[-1] for line in out.split("\n")
                            if line.startswith('Set UUID:')]
+        ensure_bcache_is_registered(cache_device)
 
     if backing_device:
         backing_device_sysfs = block_find_sysfs_path(backing_device)
         if not os.path.exists(os.path.join(backing_device_sysfs, "bcache")):
             util.subp(["make-bcache", "-B", backing_device])
+        ensure_bcache_is_registered(backing_device)
 
-    # find the actual bcache device name via sysfs using the
-    # backing device's holders directory.
-    LOG.debug('check for the just created bcache device')
-    try:
-        util.subp(["udevadm", "settle"])
+        # via the holders we can identify which bcache device we just created
+        # for a given backing device
         holders = get_holders(backing_device)
-    except (OSError, IndexError):
-        # Some versions of bcache-tools will register the bcache device as soon
-        # as we run make-bcache using udev rules, so wait for udev to settle,
-        # then try to locate the dev, on older versions we need to register it
-        # manually though
-        LOG.debug('bcache device was not registered, registering')
-        for path in [backing_device, cache_device]:
-            fp = open("/sys/fs/bcache/register", "w")
-            fp.write(path)
-            fp.close()
-    util.subp(["udevadm", "settle"])
-    holders = get_holders(backing_device)
-    if len(holders) != 1:
-        err = ('Invalid number {} of holding devices:'
-               ' {}'.format(len(holders), holders))
-        LOG.error(err)
-        raise ValueError(err)
-    [bcache_dev] = holders
-    LOG.debug('The just created bcache device is {}'.format(holders))
+        if len(holders) != 1:
+            err = ('Invalid number {} of holding devices:'
+                   ' "{}"'.format(len(holders), holders))
+            LOG.error(err)
+            raise ValueError(err)
+        [bcache_dev] = holders
+        LOG.debug('The just created bcache device is {}'.format(holders))
 
-    # if we specify both then we need to attach backing to cache
-    if cache_device and backing_device:
-        if cset_uuid:
-            LOG.info("Attaching backing device to cacheset: "
-                     "{} -> {} cset.uuid: {}".format(backing_device,
-                                                     cache_device,
-                                                     cset_uuid))
-            attach = os.path.join(backing_device_sysfs,
-                                  "bcache",
-                                  "attach")
-            with open(attach, "w") as fp:
-                fp.write(cset_uuid)
-        else:
-            LOG.error("Invalid cset_uuid: {}".format(cset_uuid))
-            raise
+        if cache_device:
+            # if we specify both then we need to attach backing to cache
+            if cset_uuid:
+                LOG.info("Attaching backing device to cacheset: "
+                         "{} -> {} cset.uuid: {}".format(backing_device,
+                                                         cache_device,
+                                                         cset_uuid))
+                attach = os.path.join(backing_device_sysfs,
+                                      "bcache",
+                                      "attach")
+                with open(attach, "w") as fp:
+                    fp.write(cset_uuid)
+            else:
+                LOG.error("Invalid cset_uuid: {}".format(cset_uuid))
+                raise
 
-    if cache_mode:
-        LOG.info("Setting cache_mode on {} to {}".format(bcache_dev,
-                                                         cache_mode))
-        cache_mode_file = \
-            '/sys/block/{}/bcache/cache_mode'.format(bcache_dev)
-        with open(cache_mode_file, "w") as fp:
-            fp.write(cache_mode)
+        if cache_mode:
+            LOG.info("Setting cache_mode on {} to {}".format(bcache_dev,
+                                                             cache_mode))
+            cache_mode_file = \
+                '/sys/block/{}/bcache/cache_mode'.format(bcache_dev)
+            with open(cache_mode_file, "w") as fp:
+                fp.write(cache_mode)
+    else:
+        # no backing device
+        if cache_mode:
+            raise ValueError("cache mode specified which can only be set per \
+                              backing devices, but none was specified")
 
     if info.get('name'):
         # Make dname rule for this dev
