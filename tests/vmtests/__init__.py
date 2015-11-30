@@ -216,8 +216,6 @@ class TempDir:
             else:
                 raise e
 
-        self.success_file = os.path.join(self.tmpdir, "success")
-        self.errors_file = os.path.join(self.tmpdir, "errors.json")
         # make subdirs
         self.collect = os.path.join(self.tmpdir, "collect")
         self.install = os.path.join(self.tmpdir, "install")
@@ -229,6 +227,9 @@ class TempDir:
                      self.disks)
         for d in self.dirs:
             os.mkdir(d)
+
+        self.success_file = os.path.join(self.logs, "success")
+        self.errors_file = os.path.join(self.logs, "errors.json")
 
         # write cloud-init for installed system
         meta_data_file = os.path.join(self.install, "meta-data")
@@ -684,7 +685,11 @@ def clean_test_dir(tdir, result, keep_pass, keep_fail):
         logger.debug('Pruning dirs in %s [%s]: %s',
                      tdir, rkm, ','.join(to_clean))
         for d in to_clean:
-            shutil.rmtree(os.path.join(tdir, d))
+            cpath = os.path.join(tdir, d)
+            if os.path.isdir(cpath):
+                shutil.rmtree(os.path.join(tdir, d))
+            else:
+                os.unlink(cpath)
 
     return
 
