@@ -2,7 +2,6 @@ import ast
 import atexit
 import datetime
 import errno
-import glob
 import hashlib
 import logging
 import json
@@ -28,8 +27,8 @@ DEFAULT_SSTREAM_OPTS = [
     '--max=1', '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
 DEFAULT_FILTERS = ['arch=amd64', 'item_name=root-image.gz']
 
-
 DEVNULL = open(os.devnull, 'w')
+KEEP_DATA = {"pass": "none", "fail": "all"}
 
 _TOPDIR = None
 
@@ -435,10 +434,6 @@ class VMBaseClass(object):
 
     @classmethod
     def tearDownClass(cls):
-        # acceptable values: (never|fail|always)[:(all|logs)]
-        val = os.environ.get('CURTIN_VMTEST_KEEP_DATA', "fail:all")
-        when, tok, what = val.partition(":")
-
         success = False
         sfile = os.path.exists(cls.td.success_file)
         efile = os.path.exists(cls.td.errors_file)
@@ -449,7 +444,9 @@ class VMBaseClass(object):
         elif sfile:
             success = True
 
-        clean_test_dir(cls.td.tmpdir, success, when, what)
+        clean_test_dir(cls.td.tmpdir, success,
+                       keep_pass=KEEP_DATA['pass'],
+                       keep_fail=KEEP_DATA['fail'])
 
     @classmethod
     def expected_interfaces(cls):
@@ -668,55 +665,50 @@ def get_env_var_bool(envname, default=False):
     return val.lower() not in ("false", "0", "")
 
 
-def clean_test_dir(tdir, result, keep_when, keep_what):
-    # values for keep_when
-    s_never, s_fail, s_always = ("never", "fail", "always")
-    # values for keep_what
-    s_all, s_logs = ("all", "logs")
-
-    if not keep_what:
-        keep_what = s_all
-    keep_what = keep_what.lower()
-
-    if not keep_when:
-        keep_when = s_never
-    keep_when = keep_when.lower()
-
-    if keep_when not in (s_never, s_fail, s_always):
-        logger.warn("Unknown value for keep_when: %s. using '%s'",
-                    keep_when, s_fail)
-        keep_when = s_fail
-
-    if keep_what not in (s_all, s_logs):
-        logger.warn("Unknown value for keep: %s. using '%s'", keep_what, s_all)
-        keep_what = s_all
-
+def clean_test_dir(tdir, result, keep_pass, keep_fail):
     if result:
-        keep = keep_when == s_always
+        keep = keep_pass
     else:
-        keep = keep_when in (s_always, s_fail)
+        keep = keep_fail
 
     # result, keep-mode
-    rkm = 'result=%s keep=%s' % (
-        'pass' if "result" else "fail",
-        keep_when + ":" + keep_what)
+    rkm = 'result=%s keep=%s' % ('pass' if result else 'fail', keep)
 
-    if keep and keep_what == s_logs:
-        # remove any filenames ending in '.img'
-        logger.debug('Pruning tmpdir %s [%s]', tdir, rkm)
-        img_files = [y for x in os.walk(tdir)
-                     for y in glob.glob(os.path.join(x[0], '*.img'))]
-        for f in img_files:
-            os.unlink(f)
-
-    if not keep:
-        if os.path.exists(tdir):
-            logger.debug('Removing tmpdir %s [%s]', tdir, rkm)
-            shutil.rmtree(tdir)
-        else:
-            logger.debug('tmpdir did not exist %s [%s]', tdir, rkm)
+    if keep == "all":
+        logger.debug('Keeping tmpdir %s [%s]', tdir, rkm)
+    elif keep == "none":
+        logger.debug('Removing tmpdir %s [%s]', tdir, rkm)
+        shutil.rmtree(tdir)
+    else:
+        to_clean = [d for d in os.listdir(tdir) if d not in keep]
+        logger.debug('Pruning dirs in %s [%s]: %s',
+                     tdir, rkm, ','.join(to_clean))
+        for d in to_clean:
+            shutil.rmtree(os.path.join(tdir, d))
 
     return
 
 
+def apply_keep_settings(success=None, fail=None):
+    data = {}
+    flist = (
+        (success, "CURTIN_VMTEST_KEEP_DATA_PASS", "pass", "none"),
+        (fail, "CURTIN_VMTEST_KEEP_DATA_FAIL", "fail", "all"),
+    )
+
+    allowed = ("boot", "collect", "disks", "install", "logs", "none", "all")
+    for val, ename, dname, default in flist:
+        if val is None:
+            val = os.environ.get(ename, default)
+        toks = val.split(",")
+        for name in toks:
+            if name not in allowed:
+                raise ValueError("'%s' had invalid token '%s'" % (ename, name))
+        data[dname] = toks
+
+    global KEEP_DATA
+    KEEP_DATA.update(data)
+
+
+apply_keep_settings()
 logger = _initialize_logging()
