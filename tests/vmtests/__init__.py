@@ -69,7 +69,9 @@ def _topdir():
                 outd = os.path.join(tdir, 'vmtest-{}'.format(ts))
                 os.mkdir(outd)
                 _TOPDIR = outd
-            except FileExistsError:
+            except OSError as e:
+                if e.errno != errno.EEXIST:
+                    raise
                 time.sleep(random.random()/10)
 
         if not _TOPDIR:
@@ -208,9 +210,12 @@ class TempDir:
         self.tmpdir = os.path.join(_topdir(), name)
         try:
             os.mkdir(self.tmpdir)
-        except FileExistsError:
-            raise ValueError("name '%s' already exists in %s" %
-                             (name, _topdir))
+        except OSError as e:
+            if e.errno == errno.EEXIST:
+                raise ValueError("name '%s' already exists in %s" %
+                                 (name, _topdir))
+            else:
+                raise e
 
         # write cloud-init for installed system
         meta_data_file = os.path.join(self.tmpdir, "meta-data")
