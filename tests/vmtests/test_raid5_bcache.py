@@ -59,12 +59,13 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
 
     def test_bcache_status(self):
         bcache_cset_uuid = None
-        with open(os.path.join(self.td.mnt, "bcache_super_vda2"), "r") as fp:
+        fname = os.path.join(self.td.collect, "bcache_super_vda2")
+        with open(fname, "r") as fp:
             for line in fp.read().splitlines():
                 if line != "" and line.split()[0] == "cset.uuid":
                     bcache_cset_uuid = line.split()[-1].rstrip()
         self.assertIsNotNone(bcache_cset_uuid)
-        with open(os.path.join(self.td.mnt, "bcache_ls"), "r") as fp:
+        with open(os.path.join(self.td.collect, "bcache_ls"), "r") as fp:
             self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
 
     def test_bcache_cachemode(self):
