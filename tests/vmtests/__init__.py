@@ -216,14 +216,6 @@ class TempDir:
             else:
                 raise e
 
-        # write cloud-init for installed system
-        meta_data_file = os.path.join(self.tmpdir, "meta-data")
-        with open(meta_data_file, "w") as fp:
-            fp.write("instance-id: inst-123\n")
-        user_data_file = os.path.join(self.tmpdir, "user-data")
-        with open(user_data_file, "w") as fp:
-            fp.write(user_data)
-
         self.success_file = os.path.join(self.tmpdir, "success")
         self.errors_file = os.path.join(self.tmpdir, "errors.json")
         # make subdirs
@@ -237,6 +229,14 @@ class TempDir:
                      self.disks)
         for d in self.dirs:
             os.mkdir(d)
+
+        # write cloud-init for installed system
+        meta_data_file = os.path.join(self.install, "meta-data")
+        with open(meta_data_file, "w") as fp:
+            fp.write("instance-id: inst-123\n")
+        user_data_file = os.path.join(self.install, "user-data")
+        with open(user_data_file, "w") as fp:
+            fp.write(user_data)
 
         # create target disk
         logger.debug('Creating target disk')
