@@ -225,36 +225,47 @@ class TempDir:
         with open(user_data_file, "w") as fp:
             fp.write(user_data)
 
-        # make mnt dir
-        self.mnt = os.path.join(self.tmpdir, "mnt")
-        os.mkdir(self.mnt)
+        self.success_file = os.path.join(self.tmpdir, "success")
+        self.errors_file = os.path.join(self.tmpdir, "errors.json")
+        # make subdirs
+        self.collect = os.path.join(self.tmpdir, "collect")
+        self.install = os.path.join(self.tmpdir, "install")
+        self.boot = os.path.join(self.tmpdir, "boot")
+        self.logs = os.path.join(self.tmpdir, "logs")
+        self.disks = os.path.join(self.tmpdir, "disks")
+
+        self.dirs = (self.collect, self.install, self.boot, self.logs,
+                     self.disks)
+        for d in self.dirs:
+            os.mkdir(d)
 
         # create target disk
         logger.debug('Creating target disk')
-        self.target_disk = os.path.join(self.tmpdir, "install_disk.img")
+        self.target_disk = os.path.join(self.disks, "install_disk.img")
         subprocess.check_call(["qemu-img", "create", "-f", "qcow2",
                               self.target_disk, "10G"],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
         # create seed.img for installed system's cloud init
         logger.debug('Creating seed disk')
-        self.seed_disk = os.path.join(self.tmpdir, "seed.img")
+        self.seed_disk = os.path.join(self.boot, "seed.img")
         subprocess.check_call(["cloud-localds", self.seed_disk,
                               user_data_file, meta_data_file],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
         # create output disk, mount ro
         logger.debug('Creating output disk')
-        self.output_disk = os.path.join(self.tmpdir, "output_disk.img")
+        self.output_disk = os.path.join(self.boot, "output_disk.img")
         subprocess.check_call(["qemu-img", "create", "-f", "raw",
                               self.output_disk, "10M"],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
-        subprocess.check_call(["/sbin/mkfs.ext2", "-F", self.output_disk],
+        subprocess.check_call(["mkfs.ext2", "-F", self.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
     def mount_output_disk(self):
         logger.debug('extracting output disk')
-        subprocess.check_call(['tar', '-C', self.mnt, '-xf', self.output_disk],
+        subprocess.check_call(['tar', '-C', self.collect, '-xf',
+                               self.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
 
@@ -283,8 +294,8 @@ class VMBaseClass(object):
             user_data=generate_user_data(collect_scripts=cls.collect_scripts))
         logger.info('Using tempdir: {}'.format(cls.td.tmpdir))
 
-        cls.install_log = os.path.join(cls.td.tmpdir, 'install-serial.log')
-        cls.boot_log = os.path.join(cls.td.tmpdir, 'boot-serial.log')
+        cls.install_log = os.path.join(cls.td.logs, 'install-serial.log')
+        cls.boot_log = os.path.join(cls.td.logs, 'boot-serial.log')
         logger.debug('Install console log: '.format(cls.install_log))
         logger.debug('Boot console log: '.format(cls.boot_log))
 
@@ -327,14 +338,14 @@ class VMBaseClass(object):
         # build disk arguments
         extra_disks = []
         for (disk_no, disk_sz) in enumerate(cls.extra_disks):
-            dpath = os.path.join(cls.td.tmpdir, 'extra_disk_%d.img' % disk_no)
+            dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
             extra_disks.extend(['--disk', '{}:{}'.format(dpath, disk_sz)])
 
         # proxy config
         configs = [cls.conf_file]
         proxy = get_apt_proxy()
         if get_apt_proxy is not None:
-            proxy_config = os.path.join(cls.td.tmpdir, 'proxy.cfg')
+            proxy_config = os.path.join(cls.td.install, 'proxy.cfg')
             with open(proxy_config, "w") as fp:
                 fp.write(json.dumps({'apt_proxy': proxy}) + "\n")
             configs.append(proxy_config)
@@ -346,7 +357,7 @@ class VMBaseClass(object):
                    [install_src])
 
         # run vm with installer
-        lout_path = os.path.join(cls.td.tmpdir, "launch-install.out")
+        lout_path = os.path.join(cls.td.install, "launch-install.out")
         try:
             logger.info('Running curtin installer: {}'.format(cls.install_log))
             logger.debug('{}'.format(" ".join(cmd)))
@@ -401,7 +412,7 @@ class VMBaseClass(object):
         try:
             logger.info('Booting target image: {}'.format(cls.boot_log))
             logger.debug('{}'.format(" ".join(cmd)))
-            xout_path = os.path.join(cls.td.tmpdir, "xkvm-boot.out")
+            xout_path = os.path.join(cls.td.boot, "xkvm-boot.out")
             with open(xout_path, "wb") as fpout:
                 check_call(cmd, timeout=cls.boot_timeout,
                            stdout=fpout, stderr=subprocess.STDOUT)
@@ -429,8 +440,8 @@ class VMBaseClass(object):
         when, tok, what = val.partition(":")
 
         success = False
-        sfile = os.path.exists(os.path.join(cls.td.tmpdir, "success"))
-        efile = os.path.exists(os.path.join(cls.td.tmpdir, "errors.json"))
+        sfile = os.path.exists(cls.td.success_file)
+        efile = os.path.exists(cls.td.errors_file)
         if not (sfile or efile):
             logger.warn("class %s had no status", cls.__name__)
         elif (sfile and efile):
@@ -477,20 +488,20 @@ class VMBaseClass(object):
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
         for f in files:
-            self.assertTrue(os.path.exists(os.path.join(self.td.mnt, f)))
+            self.assertTrue(os.path.exists(os.path.join(self.td.collect, f)))
 
     def check_file_strippedline(self, filename, search):
-        with open(os.path.join(self.td.mnt, filename), "r") as fp:
+        with open(os.path.join(self.td.collect, filename), "r") as fp:
             data = list(i.strip() for i in fp.readlines())
         self.assertIn(search, data)
 
     def check_file_regex(self, filename, regex):
-        with open(os.path.join(self.td.mnt, filename), "r") as fp:
+        with open(os.path.join(self.td.collect, filename), "r") as fp:
             data = fp.read()
         self.assertRegex(data, regex)
 
     def get_blkid_data(self, blkid_file):
-        with open(os.path.join(self.td.mnt, blkid_file)) as fp:
+        with open(os.path.join(self.td.collect, blkid_file)) as fp:
             data = fp.read()
         ret = {}
         for line in data.splitlines():
@@ -501,9 +512,9 @@ class VMBaseClass(object):
         return ret
 
     def test_fstab(self):
-        if (os.path.exists(self.td.mnt + "fstab") and
+        if (os.path.exists(self.td.collect + "fstab") and
                 self.fstab_expected is not None):
-            with open(os.path.join(self.td.mnt, "fstab")) as fp:
+            with open(os.path.join(self.td.collect, "fstab")) as fp:
                 fstab_lines = fp.readlines()
             fstab_entry = None
             for line in fstab_lines:
@@ -515,9 +526,9 @@ class VMBaseClass(object):
                                              mntpoint)
 
     def test_dname(self):
-        if (os.path.exists(self.td.mnt + "ls_dname") and
-                self.disk_to_check is not None):
-            with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
+        fpath = os.path.join(self.td.collect, "ls_dname")
+        if (os.path.exists(fpath) and self.disk_to_check is not None):
+            with open(fpath, "r") as fp:
                 contents = fp.read().splitlines()
             for diskname, part in self.disk_to_check.items():
                 if part is not 0:
@@ -530,18 +541,15 @@ class VMBaseClass(object):
         self.record_result(result)
 
     def record_result(self, result):
-        success_file = os.path.join(self.td.tmpdir, "success")
-        errors_file = os.path.join(self.td.tmpdir, "errors.json")
-
         if len(result.errors) == 0 and len(result.failures) == 0:
-            if not os.path.exists(success_file):
-                with open(success_file, "w") as fp:
+            if not os.path.exists(self.td.success_file):
+                with open(self.td.success_file, "w") as fp:
                     fp.write("good")
         elif (self.recorded_errors != len(result.errors) or
               self.recorded_failures != len(result.failures)):
-            if os.path.exists(success_file):
-                os.unlink(success_file)
-            with open(errors_file, "w") as fp:
+            if os.path.exists(self.td.success_file):
+                os.unlink(self.td.success_file)
+            with open(self.td.errors_file, "w") as fp:
                 fp.write(json.dumps(
                     {'errors': len(result.errors),
                      'failures': len(result.failures)}))
