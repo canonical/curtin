@@ -674,9 +674,9 @@ def clean_test_dir(tdir, result, keep_pass, keep_fail):
     # result, keep-mode
     rkm = 'result=%s keep=%s' % ('pass' if result else 'fail', keep)
 
-    if keep == "all":
+    if len(keep) == 1 and keep[0] == "all":
         logger.debug('Keeping tmpdir %s [%s]', tdir, rkm)
-    elif keep == "none":
+    elif len(keep) == 1 and keep[0] == "none":
         logger.debug('Removing tmpdir %s [%s]', tdir, rkm)
         shutil.rmtree(tdir)
     else:
