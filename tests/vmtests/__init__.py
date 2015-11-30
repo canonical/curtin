@@ -68,6 +68,7 @@ def _topdir():
                 outd = os.path.join(tdir, 'vmtest-{}'.format(ts))
                 os.mkdir(outd)
                 _TOPDIR = outd
+                break
             except OSError as e:
                 if e.errno != errno.EEXIST:
                     raise
