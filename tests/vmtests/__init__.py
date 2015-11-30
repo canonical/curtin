@@ -350,6 +350,7 @@ class VMBaseClass(object):
                            stdout=fpout, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
             logger.error('Curtin installer failed')
+            cls.tearDownClass()
             raise
         finally:
             if os.path.exists(cls.install_log):
@@ -358,7 +359,6 @@ class VMBaseClass(object):
                         u'Serial console output:\n{}'.format(l.read()))
             else:
                 logger.warn("Did not have a serial log file from launch.")
-            cls.tearDownClass()
 
         logger.debug('')
         try:
@@ -376,8 +376,9 @@ class VMBaseClass(object):
                     logger.info('Install OK')
             else:
                 raise Exception("No install log was produced")
-        finally:
+        except:
             cls.tearDownClass()
+            raise
 
         # drop the size parameter if present in extra_disks
         extra_disks = [x if ":" not in x else x.split(':')[0]
@@ -401,13 +402,13 @@ class VMBaseClass(object):
                            stdout=fpout, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
             logger.error('Booting after install failed')
+            cls.tearDownClass()
             raise
         finally:
             if os.path.exists(cls.boot_log):
                 with open(cls.boot_log, 'r', encoding='utf-8') as l:
                     logger.debug(
                         u'Serial console output:\n{}'.format(l.read()))
-            cls.tearDownClass()
 
         # mount output disk
         try:
