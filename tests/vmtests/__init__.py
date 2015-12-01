@@ -441,7 +441,7 @@ class VMBaseClass(object):
         sfile = os.path.exists(cls.td.success_file)
         efile = os.path.exists(cls.td.errors_file)
         if not (sfile or efile):
-            logger.warn("class %s had no status.  Possibly no tests run.",u
+            logger.warn("class %s had no status.  Possibly no tests run.",
                         cls.__name__)
         elif (sfile and efile):
             logger.warn("class %s had success and fail.", cls.__name__)
