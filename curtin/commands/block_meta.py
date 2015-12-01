@@ -618,7 +618,7 @@ def partition_handler(info, storage_config):
                     "linux": '8300'}
 
     LOG.info("adding partition '%s' to disk '%s' (ptable: '%s')" %
-            (info.get('id'), device, disk_ptable))
+             (info.get('id'), device, disk_ptable))
     if disk_ptable == "msdos":
         if flag in ["extended", "logical", "primary"]:
             partition_type = flag
