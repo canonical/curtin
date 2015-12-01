@@ -52,8 +52,8 @@ At step 3.6 -> 4.
     sudo ./backdoor-image -v --user=<USER> --password-auth --password=<PW> IMG
 At step 6 -> 7
   - You might want to keep all the temporary images around.
-    To do so you can set CURTIN_VMTEST_KEEP_DATA to true:
-    export CURTIN_VMTEST_KEEP_DATA=true
+    To do so you can set CURTIN_VMTEST_KEEP_DATA_PASS=all:
+    export CURTIN_VMTEST_KEEP_DATA_PASS=all CURTIN_VMTEST_KEEP_DATA_FAIL=all
     That will keep the /tmp/tmpXXXXX directories and all files in there for
     further execution.
 At step 7
@@ -101,20 +101,22 @@ Some environment variables affect the running of vmtest
     If that is not set it will look at the host's apt config and read
     'Acquire::HTTP::Proxy'
 
-  * CURTIN_VMTEST_KEEP_DATA: default 'fail:all'
-    this is 2 fields 'when' and 'what' that are ':' delimited.
+  * CURTIN_VMTEST_KEEP_DATA_PASS CURTIN_VMTEST_KEEP_DATA_FAIL:
+    default: 'logs,collect'
+    These 2 variables determine what portions of the temporary
+    test data are kept.
 
-    when: default: 'fail'
-       values indicate when a test class output should be kept.
-          never:  never
-          fail:   only if class had failures
-          always: always
-    what: default: 'all'
-       values indicate what should be kept.
-         all: keep everything
-         logs: discard images (the things that are large)
+    The variables contain a comma ',' delimited list of directories
+    that should be kept in the case of pass or fail.  Additionally,
+    the values 'all' and 'none' are accepted.
 
-    'what' has no significance if when is 'never'.
+    Each vmtest that runs has its own sub-directory under the top level
+    CURTIN_VMTEST_TOPDIR.  In that directory are directories:
+      boot: inputs to the system boot (after install)
+      install: install phase related files
+      disks: the disks used for installation and boot
+      logs: install and boot logs
+      collect: data collected by the boot phase
 
   * CURTIN_VMTEST_TOPDIR: default $TMPDIR/vmtest-<timestamp>
     vmtest puts all test data under this value.  By default, it creates

@@ -1,7 +1,10 @@
 #!/bin/sh
 
 topdir=${CURTIN_VMTEST_TOPDIR:-"${WORKSPACE:-$PWD}/output"}
-export CURTIN_VMTEST_KEEP_DATA=${CURTIN_VMTEST_KEEP_DATA:-"always:logs"}
+pkeep=${CURTIN_VMTEST_KEEP_DATA_PASS:-logs,collect}
+fkeep=${CURTIN_VMTEST_KEEP_DATA_FAIL:-logs,collect}
+export CURTIN_VMTEST_KEEP_DATA_PASS=$pkeep
+export CURTIN_VMTEST_KEEP_DATA_FAIL=$fkeep
 export CURTIN_VMTEST_TOPDIR="$topdir"
 export CURTIN_VMTEST_LOG=${CURTIN_VMTEST_LOG:-"$topdir/debug.log"}
 
@@ -17,7 +20,7 @@ if [ $# -eq 0 ]; then
 fi
 
 start_s=$(date +%s)
-echo "CURTIN_VMTEST_KEEP_DATA=$CURTIN_VMTEST_KEEP_DATA"
+echo "CURTIN_VMTEST_KEEP_DATA_PASS=$pkeep CURTIN_VMTEST_KEEP_DATA_FAIL=$pfail"
 echo "CURTIN_VMTEST_TOPDIR=$CURTIN_VMTEST_TOPDIR"
 echo "CURTIN_VMTEST_LOG=$CURTIN_VMTEST_LOG"
 echo "$(date -R): vmtest start: nosetests3 $*"
