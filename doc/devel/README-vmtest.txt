@@ -102,7 +102,9 @@ Some environment variables affect the running of vmtest
     'Acquire::HTTP::Proxy'
 
   * CURTIN_VMTEST_KEEP_DATA_PASS CURTIN_VMTEST_KEEP_DATA_FAIL:
-    default: 'logs,collect'
+    default:
+      CURTIN_VMTEST_KEEP_DATA_PASS=none
+      CURTIN_VMTEST_KEEP_DATA_FAIL=all
     These 2 variables determine what portions of the temporary
     test data are kept.
 
