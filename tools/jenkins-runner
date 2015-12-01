@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 topdir=${CURTIN_VMTEST_TOPDIR:-"${WORKSPACE:-$PWD}/output"}
 pkeep=${CURTIN_VMTEST_KEEP_DATA_PASS:-logs,collect}
@@ -20,9 +20,10 @@ if [ $# -eq 0 ]; then
 fi
 
 start_s=$(date +%s)
-echo "CURTIN_VMTEST_KEEP_DATA_PASS=$pkeep CURTIN_VMTEST_KEEP_DATA_FAIL=$pfail"
-echo "CURTIN_VMTEST_TOPDIR=$CURTIN_VMTEST_TOPDIR"
-echo "CURTIN_VMTEST_LOG=$CURTIN_VMTEST_LOG"
+# dump CURTIN* variables just for info
+for v in ${!CURTIN_*}; do
+   echo "$v=${!v}"
+done
 echo "$(date -R): vmtest start: nosetests3 $*"
 nosetests3 "$@"
 ret=$?
