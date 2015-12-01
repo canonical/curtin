@@ -430,8 +430,9 @@ class VMBaseClass(object):
         # mount output disk
         try:
             cls.td.mount_output_disk()
-        finally:
+        except:
             cls.tearDownClass()
+            raise
         logger.info('Ready for testcases: '.format(cls.__name__))
 
     @classmethod
@@ -440,9 +441,10 @@ class VMBaseClass(object):
         sfile = os.path.exists(cls.td.success_file)
         efile = os.path.exists(cls.td.errors_file)
         if not (sfile or efile):
-            logger.warn("class %s had no status", cls.__name__)
+            logger.warn("class %s had no status.  Possibly no tests run.",u
+                        cls.__name__)
         elif (sfile and efile):
-            logger.warn("class %s had success and fail", cls.__name__)
+            logger.warn("class %s had success and fail.", cls.__name__)
         elif sfile:
             success = True
 
