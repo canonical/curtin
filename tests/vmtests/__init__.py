@@ -16,7 +16,7 @@ import time
 import urllib
 import curtin.net as curtin_net
 
-from .helpers import check_call
+from .helpers import check_call, TimeoutExpired
 
 IMAGE_SRC_URL = os.environ.get(
     'IMAGE_SRC_URL',
@@ -29,6 +29,7 @@ DEFAULT_FILTERS = ['arch=amd64', 'item_name=root-image.gz']
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
+INSTALL_PASS_MSG = "Installation finished. No error reported."
 
 _TOPDIR = None
 
@@ -112,6 +113,21 @@ def _initialize_logging():
     return logger
 
 
+def get_env_var_bool(envname, default=False):
+    """get a boolean environment variable.
+
+    If environment variable is not set, use default.
+    False values are case insensitive 'false', '0', ''."""
+    if not isinstance(default, bool):
+        raise ValueError("default '%s' for '%s' is not a boolean" %
+                         (default, envname))
+    val = os.environ.get(envname)
+    if val is None:
+        return default
+
+    return val.lower() not in ("false", "0", "")
+
+
 class ImageStore:
     """Local mirror of MAAS images simplestreams data."""
 
@@ -159,7 +175,7 @@ class ImageStore:
         logger.debug(out)
 
     def get_image(self, release, arch, filters=None):
-        """Return local path for root image, kernel and initrd."""
+        """Return local path for root image, kernel and initrd, tarball."""
         if filters is None:
             filters = [
                 'release=%s' % release, 'krel=%s' % release, 'arch=%s' % arch]
@@ -263,10 +279,10 @@ class TempDir:
         subprocess.check_call(["mkfs.ext2", "-F", self.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
-    def mount_output_disk(self):
+    def collect_output(cls):
         logger.debug('extracting output disk')
-        subprocess.check_call(['tar', '-C', self.collect, '-xf',
-                               self.output_disk],
+        subprocess.check_call(['tar', '-C', cls.collect, '-xf',
+                               cls.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
 
@@ -276,13 +292,19 @@ class VMBaseClass(object):
     extra_kern_args = None
     recorded_errors = 0
     recorded_failures = 0
+    image_store_class = ImageStore
+    collect_scripts = []
+    interactive = False
+    conf_file = "examples/tests/basic.yaml"
+    extra_disks = []
+    boot_timeout = 300
 
     @classmethod
     def setUpClass(cls):
         logger.info('Starting setup for testclass: {}'.format(cls.__name__))
         logger.info('Acquiring boot image')
         # get boot img
-        image_store = ImageStore(IMAGE_SRC_URL, IMAGE_DIR)
+        image_store = cls.image_store_class(IMAGE_SRC_URL, IMAGE_DIR)
         # Disable sync if env var is set.
         image_store.sync = get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False)
         logger.debug("Image sync = %s", image_store.sync)
@@ -359,14 +381,14 @@ class VMBaseClass(object):
 
         # run vm with installer
         lout_path = os.path.join(cls.td.install, "launch-install.out")
+        logger.info('Running curtin installer: {}'.format(cls.install_log))
         try:
-            logger.info('Running curtin installer: {}'.format(cls.install_log))
-            logger.debug('{}'.format(" ".join(cmd)))
             with open(lout_path, "wb") as fpout:
-                check_call(cmd, timeout=cls.install_timeout,
-                           stdout=fpout, stderr=subprocess.STDOUT)
-        except subprocess.TimeoutExpired:
-            logger.error('Curtin installer failed')
+                cls.boot_system(cmd, timeout=cls.boot_timeout,
+                                console_log=cls.install_log, proc_out=fpout,
+                                purpose="install")
+        except TimeoutExpired:
+            logger.error('Curtin installer failed with timeout')
             cls.tearDownClass()
             raise
         finally:
@@ -415,9 +437,9 @@ class VMBaseClass(object):
             logger.debug('{}'.format(" ".join(cmd)))
             xout_path = os.path.join(cls.td.boot, "xkvm-boot.out")
             with open(xout_path, "wb") as fpout:
-                check_call(cmd, timeout=cls.boot_timeout,
-                           stdout=fpout, stderr=subprocess.STDOUT)
-        except subprocess.TimeoutExpired:
+                cls.boot_system(cmd, console_log=cls.boot_log, proc_out=fpout,
+                                timeout=cls.boot_timeout, purpose="first_boot")
+        except TimeoutExpired:
             logger.error('Booting after install failed')
             cls.tearDownClass()
             raise
@@ -429,7 +451,7 @@ class VMBaseClass(object):
 
         # mount output disk
         try:
-            cls.td.mount_output_disk()
+            cls.td.collect_output()
         except:
             cls.tearDownClass()
             raise
@@ -485,6 +507,15 @@ class VMBaseClass(object):
         eni = curtin_net.render_interfaces(cls.network_state)
         curtin_net.parse_deb_config_data(ifaces, eni, None)
         return ifaces
+
+    @classmethod
+    def boot_system(cls, cmd, console_log, proc_out, timeout, purpose):
+        # this is separated for easy override in Psuedo classes
+        log.debug("booting system for '%s'. timeout='%s', log=%s. cmd: %s",
+                  purpose, timeout, console_log, ' '.join(cmd))
+        with open(console_log, "wb") as fpout:
+            check_call(cmd, timeout=timeout,
+                       stdout=fpout, stderr=subprocess.STDOUT)
 
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
@@ -542,18 +573,81 @@ class VMBaseClass(object):
         self.record_result(result)
 
     def record_result(self, result):
-        if len(result.errors) == 0 and len(result.failures) == 0:
-            if not os.path.exists(self.td.success_file):
-                with open(self.td.success_file, "w") as fp:
-                    fp.write("good")
-        elif (self.recorded_errors != len(result.errors) or
-              self.recorded_failures != len(result.failures)):
+        # record the result of this test to the class log dir
+        # 'passed' gets False on failure, None (not set) on success.
+        passed = result.test.passed in (True, None)
+        all_good = passed and not os.path.exists(self.td.errors_file)
+
+        if all_good:
+            with open(self.td.success_file, "w") as fp:
+                fp.write("good")
+
+        if not passed:
             if os.path.exists(self.td.success_file):
                 os.unlink(self.td.success_file)
             with open(self.td.errors_file, "w") as fp:
                 fp.write(json.dumps(
                     {'errors': len(result.errors),
                      'failures': len(result.failures)}))
+
+
+class PsuedoImageStore(object):
+    def __init__(self, source_url, base_dir):
+        self.source_url = source_url
+        self.base_dir = base_dir
+
+    def get_image(self, release, arch, filters=None):
+        """Return local path for root image, kernel and initrd, tarball."""
+        names = ['psuedo-root-image', 'psuedo-kernel', 'psuedo-initrd',
+                 'psuedo-tarball']
+        return [os.path.join(self.base_dir, release, arch, f) for f in names]
+
+
+class PsuedoVMBaseClass(VMBaseClass):
+    # boot_timeouts is a dict of {'purpose': 'mesg'}
+    image_store_class = PsuedoImageStore
+    boot_results = {
+        'install': {'timeout': None, 'exit': 0},
+        'boot': {'timeout': None, 'exit': 0},
+    }
+    console_log_pass = '\n'.join([
+        'Psuedo console log', INSTALL_PASS_MSG])
+    allow_test_fails = get_env_var_bool('CURTIN_VMTEST_DEBUG_ALLOW_FAIL',
+                                        False)
+
+    @classmethod
+    def collect_output(cls):
+        logger.debug('Psuedo extracting output disk')
+        with open(os.path.join(cls.collect, "fstab")) as fp:
+            fp.write('\n'.join("# psuedo fstab",
+                               "LABEL=root / ext4 defaults 0 1"))
+
+    @classmethod
+    def boot_system(cls, cmd, console_log, proc_out, timeout, purpose):
+        # this is separated for easy override in Psuedo classes
+        logger.debug("Psuedo booting system for '%s'. timeout='%s', "
+                     "log=%s. cmd=%s", purpose, timeout, console_log, cmd)
+        data = {'timeout': None, 'exit': 0, 'log': cls.console_log_pass}
+        data.update(cls.boot_results.get(purpose, {}))
+
+        with open(console_log, "w") as fpout:
+            fpout.write(data['log'])
+
+        if data['timeout']:
+            TimeoutExpired("Psuedo timeout expired: %s" % data[timeout])
+
+        if data['exit'] != 0:
+            raise subprocess.CalledProcessError(cmd=cmd, returncode=data[exit])
+
+    def test_fstab(self):
+        pass
+
+    def test_dname(self):
+        pass
+
+    def _maybe_raise(self, exc):
+        if self.allow_test_fails:
+            raise exc
 
 
 def check_install_log(install_log):
@@ -564,7 +658,7 @@ def check_install_log(install_log):
     errmsg = None
 
     # regexps expected in curtin output
-    install_pass = "Installation finished. No error reported."
+    install_pass = INSTALL_PASS_MSG
     install_fail = "({})".format("|".join([
                    'Installation\ failed',
                    'ImportError: No module named.*',
@@ -652,21 +746,6 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
         logger.debug('Cloud config archive content (pre-json):' + part)
         parts.append({'content': part, 'type': 'text/x-shellscript'})
     return '#cloud-config-archive\n' + json.dumps(parts, indent=1)
-
-
-def get_env_var_bool(envname, default=False):
-    """get a boolean environment variable.
-
-    If environment variable is not set, use default.
-    False values are case insensitive 'false', '0', ''."""
-    if not isinstance(default, bool):
-        raise ValueError("default '%s' for '%s' is not a boolean" %
-                         (default, envname))
-    val = os.environ.get(envname)
-    if val is None:
-        return default
-
-    return val.lower() not in ("false", "0", "")
 
 
 def clean_working_dir(tdir, result, keep_pass, keep_fail):
