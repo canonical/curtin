@@ -438,6 +438,75 @@ def get_path_to_storage_volume(volume, storage_config):
     return volume_path
 
 
+def check_raid_array(mdname, raidlevel, devices=[], spares=[]):
+    LOG.debug('Checking mdadm array: '
+              'name={} raidlevel={} devices={} spares={}'.format(
+                  mdname, raidlevel, devices, spares))
+
+    # query the target raid device
+    md_devname = os.path.join('/dev', mdname)
+    (out, _err) = util.subp(["mdadm", "--query", "--detail", "--export",
+                             md_devname], capture=True)
+    if _err:
+        # this is not fatal as we may need to assemble the array
+        LOG.warn("raid device '%s' does not exist" % md_devname)
+        return False
+
+    # Convert mdadm --query --detail --export key=value into dictionary
+    md_query_data = {k: v for k, v in (x.split('=')
+                     for x in out.strip().split('\n'))}
+
+    # confirm we have /dev/{mdname} by following the udev symlink
+    mduuid_path = ('/dev/disk/by-id/md-uuid-' +
+                   '{}'.format(md_query_data['MD_UUID']))
+    mdquery_devname = os.path.realpath(mduuid_path)
+    if md_devname != mdquery_devname:
+        raise ValueError("Couldn't find correct raid device."
+                         "MD_UUID={} points to {} but expected {}" % (
+                             md_query_data['MD_UUID'],
+                             mdquery_devname,
+                             md_devname))
+
+    def _compare_devlist(expected, found):
+        LOG.debug('comparing device lists: '
+                  'expected: {} found: {}'.format(expected, found))
+        expected = set(expected)
+        found = set(found)
+        if expected != found:
+            missing = expected.difference(found)
+            extra = found.difference(expected)
+            raise ValueError("RAID array device list does not match."
+                             " Missing: {} Extra: {}".format(missing, extra))
+
+    # confirm spares, if any
+    mdquery_spares = ['/dev/' + re.findall('MD_DEVICE_(.*)_ROLE', k).pop()
+                      for k, v in md_query_data.items()
+                      if v == 'spare']
+    LOG.debug('mdadm spares found: {}'.format(mdquery_spares))
+    if spares:
+        _compare_devlist(spares, mdquery_spares)
+
+    # confirm devices
+    mdquery_devices = [v for (k, v) in md_query_data.items()
+                       if k.endswith('_DEV') and v not in mdquery_spares]
+    LOG.debug('mdadm devices found: {}'.format(mdquery_devices))
+    _compare_devlist(devices, mdquery_devices)
+
+    # confirm raidlevel
+    def _rl(raidlevel):
+        return raidlevel.lower().replace('raid', '')
+
+    raid_level_message = (
+        " Expected: {} Found: {}".format(raidlevel,
+                                         md_query_data['MD_LEVEL']))
+    LOG.DEBUG(raid_level_message)
+    if _rl(raidlevel) != _rl(md_query_data('MD_LEVEL')):
+        raise ValueError("Invalid RAID level:" + raid_level_message)
+
+    LOG.DEBUG('mdadm array OK: {}'.format(mdname))
+    return True
+
+
 def disk_handler(info, storage_config):
     ptable = info.get('ptable')
 
@@ -912,6 +981,28 @@ def raid_handler(info, storage_config):
     mdname = info.get('mdname')
     if mdname:
         mdnameparm = "--name=%s" % info.get('mdname')
+
+    # Handle preserve flag
+    if info.get('preserve'):
+        # check if the array is already up, if not try to assemble
+        if not check_raid_array(info.get('name'), raidlevel,
+                                devices, spare_devices):
+            LOG.info("assembling preserved raid for "
+                     "{}".format(info.get('name')))
+            cmd = ["mdadm", "--assemble", "/dev/%s" % info.get('name'),
+                   "--run"] + device_paths
+            if spare_devices:
+                cmd += spare_device_paths
+            util.subp(" ".join(cmd), shell=True)
+            util.subp(["udevadm", "settle"])
+
+            # try again after attempting to assemble
+            if not check_raid_array(info.get('name'), raidlevel,
+                                    devices, spare_devices):
+                raise ValueError("Unable to confirm preserved raid array: "
+                                 " {}".format(info.get('name')))
+        # raid is all OK
+        return
 
     cmd = ["mdadm", "--create", "/dev/%s" % info.get('name'), "--run",
            "--level=%s" % raidlevel, "--raid-devices=%s" % len(device_paths),
