@@ -494,16 +494,16 @@ def check_raid_array(mdname, raidlevel, devices=[], spares=[]):
 
     # confirm raidlevel
     def _rl(raidlevel):
-        return raidlevel.lower().replace('raid', '')
+        return str(raidlevel).lower().replace('raid', '')
 
     raid_level_message = (
         " Expected: {} Found: {}".format(raidlevel,
                                          md_query_data['MD_LEVEL']))
-    LOG.DEBUG(raid_level_message)
-    if _rl(raidlevel) != _rl(md_query_data('MD_LEVEL')):
+    LOG.debug(raid_level_message)
+    if _rl(raidlevel) != _rl(md_query_data['MD_LEVEL']):
         raise ValueError("Invalid RAID level:" + raid_level_message)
 
-    LOG.DEBUG('mdadm array OK: {}'.format(mdname))
+    LOG.debug('mdadm array OK: {}'.format(mdname))
     return True
 
 
@@ -973,6 +973,7 @@ def raid_handler(info, storage_config):
     device_paths = list(get_path_to_storage_volume(dev, storage_config) for
                         dev in devices)
 
+    spare_device_paths = []
     if spare_devices:
         spare_device_paths = list(get_path_to_storage_volume(dev,
                                   storage_config) for dev in spare_devices)
@@ -986,7 +987,7 @@ def raid_handler(info, storage_config):
     if info.get('preserve'):
         # check if the array is already up, if not try to assemble
         if not check_raid_array(info.get('name'), raidlevel,
-                                devices, spare_devices):
+                                device_paths, spare_device_paths):
             LOG.info("assembling preserved raid for "
                      "{}".format(info.get('name')))
             cmd = ["mdadm", "--assemble", "/dev/%s" % info.get('name'),
