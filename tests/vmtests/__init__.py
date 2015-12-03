@@ -448,9 +448,9 @@ class VMBaseClass(object):
         elif sfile:
             success = True
 
-        clean_test_dir(cls.td.tmpdir, success,
-                       keep_pass=KEEP_DATA['pass'],
-                       keep_fail=KEEP_DATA['fail'])
+        clean_working_dir(cls.td.tmpdir, success,
+                          keep_pass=KEEP_DATA['pass'],
+                          keep_fail=KEEP_DATA['fail'])
 
     @classmethod
     def expected_interfaces(cls):
@@ -669,7 +669,7 @@ def get_env_var_bool(envname, default=False):
     return val.lower() not in ("false", "0", "")
 
 
-def clean_test_dir(tdir, result, keep_pass, keep_fail):
+def clean_working_dir(tdir, result, keep_pass, keep_fail):
     if result:
         keep = keep_pass
     else:
