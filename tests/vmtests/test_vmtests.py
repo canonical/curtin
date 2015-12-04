@@ -4,8 +4,8 @@ multiple tests that can pass or fail.
 
 To see these tests fail, run:
   CURTIN_VMTEST_DEBUG_ALLOW_FAIL=1 nosetest3 tests/vmtests/test_vmtests.py
-  
 """
+
 from . import (PsuedoVMBaseClass)
 
 from unittest import TestCase
@@ -16,6 +16,11 @@ class PsuedoTestAllPass(PsuedoVMBaseClass, TestCase):
     repo = "maas-daily"
     release = "trusty"
     arch = "amd64"
+    # These boot_results would cause first_boot failure
+    # boot_results = {
+    #   'install': {'timeout': 0, 'exit': 0},
+    #   'first_boot': {'timeout': 0, 'exit': 1},
+    # }
 
     def test_pass(self):
         pass
