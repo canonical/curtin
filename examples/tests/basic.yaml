@@ -41,4 +41,16 @@ storage:
         path: /dev/vdc
         name: sparedisk
         wipe: superblock
-
+      - id: vdc
+        type: disk
+        path: /dev/vdd
+        name: btrfs_volume
+        wipe: superblock
+      - id: vdc_fmt
+        type: format
+        fstype: btrfs
+        volume: vdg
+      - id: vdc_fmt_mount
+        type: mount
+        path: /btrfs
+        device: vdc_fmt
