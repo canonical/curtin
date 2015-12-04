@@ -432,8 +432,8 @@ class VMBaseClass(object):
                        for x in extra_disks]
         # create xkvm cmd
         cmd = (["tools/xkvm", "-v", dowait] + netdevs +
-               ["--disk", cls.td.target_disk, "--disk", cls.td.output_disk]
-               + extra_disks +
+               ["--disk", cls.td.target_disk, "--disk", cls.td.output_disk] +
+               extra_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
                 "-m", "1024"])
