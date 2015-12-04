@@ -302,6 +302,7 @@ class VMBaseClass(object):
 
     @classmethod
     def setUpClass(cls):
+        setup_start = time.time()
         logger.info('Starting setup for testclass: {}'.format(cls.__name__))
         logger.info('Acquiring boot image')
         # get boot img
@@ -398,12 +399,11 @@ class VMBaseClass(object):
                     logger.debug(
                         u'Serial console output:\n{}'.format(l.read()))
             else:
-                logger.warn("Did not have a serial log file from launch.")
+                logger.warn("Boot for install did not produce a console log.")
 
         logger.debug('')
         try:
             if os.path.exists(cls.install_log):
-                logger.info('Checking curtin install output for errors')
                 with open(cls.install_log) as l:
                     install_log = l.read()
                 errmsg, errors = check_install_log(install_log)
@@ -415,6 +415,7 @@ class VMBaseClass(object):
                 else:
                     logger.info('Install OK')
             else:
+                logger.info('Install Failed')
                 raise Exception("No install log was produced")
         except:
             cls.tearDownClass()
@@ -440,15 +441,18 @@ class VMBaseClass(object):
             with open(xout_path, "wb") as fpout:
                 cls.boot_system(cmd, console_log=cls.boot_log, proc_out=fpout,
                                 timeout=cls.boot_timeout, purpose="first_boot")
-        except TimeoutExpired:
-            logger.error('Booting after install failed')
+        except Exception as e:
+            logger.error('Booting after install failed: %s', e)
             cls.tearDownClass()
-            raise
+            raise e
         finally:
             if os.path.exists(cls.boot_log):
                 with open(cls.boot_log, 'r', encoding='utf-8') as l:
                     logger.debug(
                         u'Serial console output:\n{}'.format(l.read()))
+            else:
+                    logger.warn("Boot for first_boot did not produce"
+                                " a console log.")
 
         # mount output disk
         try:
@@ -456,7 +460,9 @@ class VMBaseClass(object):
         except:
             cls.tearDownClass()
             raise
-        logger.info('Ready for testcases: '.format(cls.__name__))
+        logger.info(
+            "setUpClass finished. took %.02f seconds. Running testcases: %s",
+            time.time() - setup_start, cls.__name__)
 
     @classmethod
     def tearDownClass(cls):
@@ -515,6 +521,7 @@ class VMBaseClass(object):
         def myboot():
             check_call(cmd, timeout=timeout, stdout=proc_out,
                        stderr=subprocess.STDOUT)
+            return True
 
         return boot_log_wrap(cls.__name__, myboot, cmd, console_log, timeout,
                              purpose)
@@ -627,7 +634,7 @@ class PsuedoVMBaseClass(VMBaseClass):
     #   console_log: what to write into the console log for that boot
     boot_results = {
         'install': {'timeout': 0, 'exit': 0},
-        'boot': {'timeout': 0, 'exit': 0},
+        'first_boot': {'timeout': 0, 'exit': 0},
     }
     console_log_pass = '\n'.join([
         'Psuedo console log', INSTALL_PASS_MSG])
@@ -659,6 +666,7 @@ class PsuedoVMBaseClass(VMBaseClass):
             if data['exit'] != 0:
                 raise subprocess.CalledProcessError(cmd=cmd,
                                                     returncode=data['exit'])
+            return True
 
         return boot_log_wrap(cls.__name__, myboot, cmd, console_log, timeout,
                              purpose)
@@ -824,16 +832,14 @@ def apply_keep_settings(success=None, fail=None):
 def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):
     logger.debug("%s[%s]: booting with timeout=%s log=%s cmd: %s",
                  name, purpose, timeout, console_log, ' '.join(cmd))
-    success = False
+    ret = None
     start = time.time()
     try:
         ret = func()
-        success = True
     finally:
         end = time.time()
-        logger.debug("%s[%s]: boot took %.02f seconds. result=%s",
-                     name, purpose, int(end - start),
-                     'PASS' if success else 'FAIL')
+        logger.info("%s[%s]: boot took %.02f seconds. returned %s",
+                    name, purpose, int(end - start), ret)
     return ret
 
 
