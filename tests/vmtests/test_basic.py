@@ -14,7 +14,7 @@ class TestBasicAbs(VMBaseClass):
     conf_file = "examples/tests/basic.yaml"
     install_timeout = 600
     boot_timeout = 120
-    extra_disks = ['128G']
+    extra_disks = ['128G', '128G']
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda > blkid_output_vda
