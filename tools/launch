@@ -55,7 +55,7 @@ cleanup() {
     [ ! -d "$TEMP_D" ] || msg="${msg:+$msg }remove temp dir ${TEMP_D}."
     [ -z "$HTTP_PID" ] || msg="${msg:+$msg }kill http pid ${HTTP_PID}."
     [ -z "$XKVM_PID" ] || msg="${msg:+$msg }kill xkvm pid ${XKVM_PID}."
-    debug 1 "cleaning up.${msg:+ $msg}"
+    debug 1 "cleaning up [${SECONDS}s].${msg:+ $msg}"
     [ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
     for pid in ${XKVM_PID} ${HTTP_PID}; do
         kill $pid
@@ -514,6 +514,7 @@ main() {
         "${seedargs[@]}"
         "${disk_args[@]}" )
 
+    debug 1 "running with dowait=$dowait: ${cmd[*]}"
     local sstart=$SECONDS
     if $dowait; then
         "${cmd[@]}" &

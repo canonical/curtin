@@ -43,13 +43,13 @@ class TestBasicAbs(VMBaseClass):
         self.assertEquals(blkid_info["PTTYPE"], "dos")
 
     def test_dname(self):
-        with open(os.path.join(self.td.mnt, "ls_dname"), "r") as fp:
+        with open(os.path.join(self.td.collect, "ls_dname"), "r") as fp:
             contents = fp.read().splitlines()
         for link in ["main_disk", "main_disk-part1", "main_disk-part2"]:
             self.assertIn(link, contents)
 
     def test_partitions(self):
-        with open(os.path.join(self.td.mnt, "fstab")) as fp:
+        with open(os.path.join(self.td.collect, "fstab")) as fp:
             fstab_lines = fp.readlines()
         print("\n".join(fstab_lines))
         # Test that vda1 is on /
@@ -112,7 +112,7 @@ class TestBasicAbs(VMBaseClass):
 
     def test_proxy_set(self):
         expected = get_apt_proxy()
-        with open(os.path.join(self.td.mnt, "apt-proxy")) as fp:
+        with open(os.path.join(self.td.collect, "apt-proxy")) as fp:
             apt_proxy_found = fp.read().rstrip()
         if expected:
             # the proxy should have gotten set through
