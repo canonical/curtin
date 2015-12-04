@@ -319,8 +319,8 @@ class VMBaseClass(object):
 
         cls.install_log = os.path.join(cls.td.logs, 'install-serial.log')
         cls.boot_log = os.path.join(cls.td.logs, 'boot-serial.log')
-        logger.debug('Install console log: '.format(cls.install_log))
-        logger.debug('Boot console log: '.format(cls.boot_log))
+        logger.debug('Install console log: {}'.format(cls.install_log))
+        logger.debug('Boot console log: {}'.format(cls.boot_log))
 
         # create launch cmd
         cmd = ["tools/launch", "-v"]
