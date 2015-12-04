@@ -1008,9 +1008,8 @@ def bcache_handler(info, storage_config):
             LOG.debug('bcache device was not registered, registering {} at'
                       '/sys/fs/bcache/register'.format(bcache_device))
             try:
-                fp = open("/sys/fs/bcache/register", "w")
-                fp.write(bcache_device)
-                fp.close()
+                with open("/sys/fs/bcache/register", "w") as fp:
+                    fp.write(bcache_device)
                 util.subp(["udevadm", "settle"])
             except (IOError):
                 # device creation is notoriously racy and this can trigger
