@@ -451,7 +451,7 @@ class VMBaseClass(object):
                     logger.debug(
                         u'Serial console output:\n{}'.format(l.read()))
             else:
-                    logger.warn("Boot for first_boot did not produce"
+                    logger.warn("Booting after install not produce"
                                 " a console log.")
 
         # mount output disk
