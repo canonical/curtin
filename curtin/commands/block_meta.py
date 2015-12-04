@@ -993,7 +993,8 @@ def bcache_handler(info, storage_config):
     def ensure_bcache_is_registered(bcache_device, retry=0):
         # find the actual bcache device name via sysfs using the
         # backing device's holders directory.
-        LOG.debug('check the just created bcache device if it is registered')
+        LOG.debug('check just created bcache %s if it is registered',
+                  bcache_device)
         try:
             util.subp(["udevadm", "settle"])
             local_holders = get_holders(bcache_device)
@@ -1019,8 +1020,10 @@ def bcache_handler(info, storage_config):
                 if retry < 5:
                     ensure_bcache_is_registered(bcache_device, (retry+1))
                 else:
-                    LOG.debug('Repetive error registering the bcache device')
-                    raise ValueError("bcache device can't be registered")
+                    LOG.debug('Repetive error registering the bcache dev %s',
+                              bcache_device)
+                    raise ValueError("bcache device %s can't be registered" %
+                                     bcache_device)
 
     if cache_device:
         # /sys/class/block/XXX/YYY/
