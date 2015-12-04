@@ -216,9 +216,9 @@ class VMBaseClass:
 
         # if interactive, launch qemu without 'background & wait'
         if cls.interactive:
-            dowait = ["--no-dowait"]
+            dowait = "--no-dowait"
         else:
-            dowait = ["--dowait"]
+            dowait = "--dowait"
 
         # create launch cmd
         cmd = ["tools/launch", "-v", dowait]
