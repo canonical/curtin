@@ -512,9 +512,8 @@ class VMBaseClass(object):
     def boot_system(cls, cmd, console_log, proc_out, timeout, purpose):
         # this is separated for easy override in Psuedo classes
         def myboot():
-            with open(console_log, "wb") as fpout:
-                check_call(cmd, timeout=timeout,
-                           stdout=fpout, stderr=subprocess.STDOUT)
+            check_call(cmd, timeout=timeout, stdout=proc_out,
+                       stderr=subprocess.STDOUT)
 
         return boot_log_wrap(cls.__name__, myboot, cmd, console_log, timeout,
                              purpose)
