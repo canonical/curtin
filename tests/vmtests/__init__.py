@@ -298,6 +298,7 @@ class VMBaseClass(object):
     conf_file = "examples/tests/basic.yaml"
     extra_disks = []
     boot_timeout = 300
+    install_timeout = 600
 
     @classmethod
     def setUpClass(cls):
@@ -384,7 +385,7 @@ class VMBaseClass(object):
         logger.info('Running curtin installer: {}'.format(cls.install_log))
         try:
             with open(lout_path, "wb") as fpout:
-                cls.boot_system(cmd, timeout=cls.boot_timeout,
+                cls.boot_system(cmd, timeout=cls.install_timeout,
                                 console_log=cls.install_log, proc_out=fpout,
                                 purpose="install")
         except TimeoutExpired:
