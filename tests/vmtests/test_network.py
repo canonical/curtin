@@ -73,7 +73,7 @@ class TestNetworkAbs(VMBaseClass):
                                  "route_n"])
 
     def test_etc_network_interfaces(self):
-        with open(os.path.join(self.td.mnt, "interfaces")) as fp:
+        with open(os.path.join(self.td.collect, "interfaces")) as fp:
             eni = fp.read()
             logger.debug('etc/network/interfaces:\n{}'.format(eni))
 
@@ -83,7 +83,7 @@ class TestNetworkAbs(VMBaseClass):
             self.assertTrue(line in eni_lines)
 
     def test_etc_resolvconf(self):
-        with open(os.path.join(self.td.mnt, "resolv.conf")) as fp:
+        with open(os.path.join(self.td.collect, "resolv.conf")) as fp:
             resolvconf = fp.read()
             logger.debug('etc/resolv.conf:\n{}'.format(resolvconf))
 
@@ -127,7 +127,7 @@ class TestNetworkAbs(VMBaseClass):
         logger.debug('expected_network_state:\n{}'.format(
             yaml.dump(network_state, default_flow_style=False, indent=4)))
 
-        with open(os.path.join(self.td.mnt, "ifconfig_a")) as fp:
+        with open(os.path.join(self.td.collect, "ifconfig_a")) as fp:
             ifconfig_a = fp.read()
             logger.debug('ifconfig -a:\n{}'.format(ifconfig_a))
 
@@ -135,7 +135,7 @@ class TestNetworkAbs(VMBaseClass):
         logger.debug('parsed ifcfg dict:\n{}'.format(
             yaml.dump(ifconfig_dict, default_flow_style=False, indent=4)))
 
-        with open(os.path.join(self.td.mnt, "ip_route_show")) as fp:
+        with open(os.path.join(self.td.collect, "ip_route_show")) as fp:
             ip_route_show = fp.read()
             logger.debug("ip route show:\n{}".format(ip_route_show))
             for line in [line for line in ip_route_show.split('\n')
@@ -148,7 +148,7 @@ class TestNetworkAbs(VMBaseClass):
                 route_info = m.groupdict('')
                 logger.debug(route_info)
 
-        with open(os.path.join(self.td.mnt, "route_n")) as fp:
+        with open(os.path.join(self.td.collect, "route_n")) as fp:
             route_n = fp.read()
             logger.debug("route -n:\n{}".format(route_n))
 
