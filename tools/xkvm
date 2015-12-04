@@ -252,7 +252,7 @@ main() {
     #  a sigterm and kill the qemu-system process.
     #  We default to dowait=false if output is to a terminal
     local dowait=""
-    [ -t 0 ] && dowait=false || dowait=true
+    [ -t 0 -a -t 1 ] && dowait=false || dowait=true
     while [ $# -ne 0 ]; do
         cur=${1}; next=${2};
         case "$cur" in

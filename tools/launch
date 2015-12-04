@@ -261,7 +261,7 @@ main() {
     #  a sigterm and kill xkvm.
     #  We default to dowait=false if output is to a terminal
     local dowait=""
-    [ -t 0 ] && dowait=false || dowait=true
+    [ -t 0 -a -t 1 ] && dowait=false || dowait=true
     pubs=( )
     disks=( )
     addfiles=( )

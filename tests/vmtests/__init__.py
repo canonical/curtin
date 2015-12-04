@@ -214,8 +214,14 @@ class VMBaseClass:
         cls.install_log = os.path.join(cls.td.tmpdir, 'install-serial.log')
         cls.boot_log = os.path.join(cls.td.tmpdir, 'boot-serial.log')
 
+        # if interactive, launch qemu without 'background & wait'
+        if cls.interactive:
+            dowait = ["--no-dowait"]
+        else:
+            dowait = ["--dowait"]
+
         # create launch cmd
-        cmd = ["tools/launch", "-v"]
+        cmd = ["tools/launch", "-v", dowait]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -310,8 +316,9 @@ class VMBaseClass:
         extra_disks = [x if ":" not in x else x.split(':')[0]
                        for x in extra_disks]
         # create xkvm cmd
-        cmd = (["tools/xkvm", "-v"] + netdevs + ["--disk", cls.td.target_disk,
-               "--disk", cls.td.output_disk] + extra_disks +
+        cmd = (["tools/xkvm", "-v", dowait] + netdevs +
+               ["--disk", cls.td.target_disk, "--disk", cls.td.output_disk]
+               + extra_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
                 "-m", "1024"])
