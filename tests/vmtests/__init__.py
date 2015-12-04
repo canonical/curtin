@@ -511,11 +511,13 @@ class VMBaseClass(object):
     @classmethod
     def boot_system(cls, cmd, console_log, proc_out, timeout, purpose):
         # this is separated for easy override in Psuedo classes
-        log.debug("booting system for '%s'. timeout='%s', log=%s. cmd: %s",
-                  purpose, timeout, console_log, ' '.join(cmd))
-        with open(console_log, "wb") as fpout:
-            check_call(cmd, timeout=timeout,
-                       stdout=fpout, stderr=subprocess.STDOUT)
+        def myboot():
+            with open(console_log, "wb") as fpout:
+                check_call(cmd, timeout=timeout,
+                           stdout=fpout, stderr=subprocess.STDOUT)
+
+        return boot_log_wrap(cls.__name__, myboot, cmd, console_log, timeout,
+                             purpose)
 
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
@@ -619,12 +621,13 @@ class PsuedoVMBaseClass(VMBaseClass):
     # boot_results controls what happens when boot_system is called
     # a dictionary with key of the 'purpose'
     # inside each dictionary:
-    #   timeout: a message for a TimeoutException to raise
+    #   timeout_msg: a message for a TimeoutException to raise.
+    #   timeout: the value to pass as timeout to exception
     #   exit: the exit value of a CalledProcessError to raise
     #   console_log: what to write into the console log for that boot
     boot_results = {
-        'install': {'timeout': None, 'exit': 0},
-        'boot': {'timeout': None, 'exit': 0},
+        'install': {'timeout': 0, 'exit': 0},
+        'boot': {'timeout': 0, 'exit': 0},
     }
     console_log_pass = '\n'.join([
         'Psuedo console log', INSTALL_PASS_MSG])
@@ -641,19 +644,24 @@ class PsuedoVMBaseClass(VMBaseClass):
     @classmethod
     def boot_system(cls, cmd, console_log, proc_out, timeout, purpose):
         # this is separated for easy override in Psuedo classes
-        logger.debug("Psuedo booting system for '%s'. timeout='%s', "
-                     "log=%s. cmd=%s", purpose, timeout, console_log, cmd)
-        data = {'timeout': None, 'exit': 0, 'log': cls.console_log_pass}
+        data = {'timeout_msg': None, 'timeout': 0,
+                'exit': 0, 'log': cls.console_log_pass}
         data.update(cls.boot_results.get(purpose, {}))
 
-        with open(console_log, "w") as fpout:
-            fpout.write(data['log'])
+        def myboot():
+            with open(console_log, "w") as fpout:
+                fpout.write(data['log'])
 
-        if data['timeout']:
-            TimeoutExpired("Psuedo timeout expired: %s" % data[timeout])
+            if data['timeout_msg']:
+                raise TimeoutExpired(data['timeout_msg'],
+                                     timeout=data['timeout'])
 
-        if data['exit'] != 0:
-            raise subprocess.CalledProcessError(cmd=cmd, returncode=data[exit])
+            if data['exit'] != 0:
+                raise subprocess.CalledProcessError(cmd=cmd,
+                                                    returncode=data['exit'])
+
+        return boot_log_wrap(cls.__name__, myboot, cmd, console_log, timeout,
+                             purpose)
 
     def test_fstab(self):
         pass
@@ -811,6 +819,22 @@ def apply_keep_settings(success=None, fail=None):
 
     global KEEP_DATA
     KEEP_DATA.update(data)
+
+
+def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):
+    logger.debug("%s[%s]: booting with timeout=%s log=%s cmd: %s",
+                 name, purpose, timeout, console_log, ' '.join(cmd))
+    success = False
+    start = time.time()
+    try:
+        ret = func()
+        success = True
+    finally:
+        end = time.time()
+        logger.debug("%s[%s]: boot took %.02f seconds. result=%s",
+                     name, purpose, int(end - start),
+                     'PASS' if success else 'FAIL')
+    return ret
 
 
 apply_keep_settings()
