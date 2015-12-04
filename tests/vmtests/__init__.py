@@ -461,8 +461,8 @@ class VMBaseClass(object):
             cls.tearDownClass()
             raise
         logger.info(
-            "setUpClass finished. took %.02f seconds. Running testcases: %s",
-            time.time() - setup_start, cls.__name__)
+            "%s: setUpClass finished. took %.02f seconds. Running testcases.",
+             cls.__name__, time.time() - setup_start)
 
     @classmethod
     def tearDownClass(cls):
