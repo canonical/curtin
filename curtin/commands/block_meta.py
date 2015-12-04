@@ -154,8 +154,10 @@ def wipe_volume(path, wipe_type):
 
 
 def block_find_sysfs_path(devname):
-    # Look up any block device holders.  Handle devices and partitions
-    # as devnames (vdb, md0, vdb7)
+    # return the path in sys for device named devname
+    # support either short name ('sda') or full path /dev/sda
+    #  sda -> /sys/class/block/sda
+    #  sda1 -> /sys/class/block/sda/sda1
     if not devname:
         return []
 
@@ -184,13 +186,15 @@ def block_find_sysfs_path(devname):
 
 
 def get_holders(devname):
-    LOG.debug('Getting blockdev holders for {}'.format(devname))
+    # Look up any block device holders.
+    # Handle devices and partitions as devnames (vdb, md0, vdb7)
     devname_sysfs = block_find_sysfs_path(devname)
     if devname_sysfs:
-        LOG.debug('Found devname_sysfs {}'.format(devname_sysfs))
-        return os.listdir(os.path.join(devname_sysfs, 'holders'))
+        holders = os.listdir(os.path.join(devname_sysfs, 'holders'))
+        LOG.debug("devname '%s' had holders: %s", devname, ','.join(holders))
+        return holders
 
-    LOG.debug('Did not find devname_sysfs')
+    LOG.debug('get_holders: did not find sysfs path for %s', devname)
     return []
 
 
