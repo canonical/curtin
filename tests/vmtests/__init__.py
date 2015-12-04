@@ -839,7 +839,7 @@ def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):
     finally:
         end = time.time()
         logger.info("%s[%s]: boot took %.02f seconds. returned %s",
-                    name, purpose, int(end - start), ret)
+                    name, purpose, end - start, ret)
     return ret
 
 
