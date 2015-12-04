@@ -20,7 +20,8 @@ class TestBasicAbs(VMBaseClass):
         blkid -o export /dev/vda > blkid_output_vda
         blkid -o export /dev/vda1 > blkid_output_vda1
         blkid -o export /dev/vda2 > blkid_output_vda2
-        btrfs-show-super /dev/vdc > btrfs_show_super_vdc
+        btrfs-show-super /dev/vdd > btrfs_show_super_vdd
+        cat /proc/partitions > proc_partitions
         ls -al /dev/disk/by-uuid/ > ls_uuid
         cat /etc/fstab > fstab
         ls /dev/disk/by-dname/ > ls_dname
@@ -34,7 +35,8 @@ class TestBasicAbs(VMBaseClass):
     def test_output_files_exist(self):
         self.output_files_exist(
             ["blkid_output_vda", "blkid_output_vda1", "blkid_output_vda2",
-             "btrfs_show_super_vdc", "fstab", "ls_dname", "ls_uuid"])
+             "btrfs_show_super_vdd", "fstab", "ls_dname", "ls_uuid",
+             "proc_partitions"])
 
     def test_ptable(self):
         blkid_info = self.get_blkid_data("blkid_output_vda")
@@ -49,6 +51,7 @@ class TestBasicAbs(VMBaseClass):
     def test_partitions(self):
         with open(os.path.join(self.td.mnt, "fstab")) as fp:
             fstab_lines = fp.readlines()
+        print("\n".join(fstab_lines))
         # Test that vda1 is on /
         blkid_info = self.get_blkid_data("blkid_output_vda1")
         fstab_entry = None
@@ -69,10 +72,10 @@ class TestBasicAbs(VMBaseClass):
         self.assertIsNotNone(fstab_entry)
         self.assertEqual(fstab_entry.split(' ')[1], "/home")
 
-        # Test whole disk vdc is mounted at /btrfs
+        # Test whole disk vdd is mounted at /btrfs
         fstab_entry = None
         for line in fstab_lines:
-            if "/dev/vdc" in line:
+            if "/dev/vdd" in line:
                 fstab_entry = line
                 break
         self.assertIsNotNone(fstab_entry)
@@ -81,7 +84,7 @@ class TestBasicAbs(VMBaseClass):
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
         with open(os.path.join(self.td.mnt,
-                  "btrfs_show_super_vdc"), "r") as fp:
+                  "btrfs_show_super_vdd"), "r") as fp:
             btrfs_show_super = fp.read()
 
         with open(os.path.join(self.td.mnt, "ls_uuid"), "r") as fp:
@@ -91,21 +94,21 @@ class TestBasicAbs(VMBaseClass):
         btrfs_fsid = [line for line in btrfs_show_super.split('\n')
                       if line.startswith('fsid\t\t')]
         self.assertEqual(len(btrfs_fsid), 1)
-        btrfs_uuid = btrfs_fsid.split()[1]
+        btrfs_uuid = btrfs_fsid[0].split()[1]
         self.assertTrue(btrfs_uuid is not None)
 
-        # extract uuid from /dev/disk/by-uuid on /dev/vdc
+        # extract uuid from /dev/disk/by-uuid on /dev/vdd
         # parsing ls -al output on /dev/disk/by-uuid:
         # lrwxrwxrwx 1 root root   9 Dec  4 20:02
         #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
-        vdc_uuid = [line.split()[8] for line in ls_uuid.split('\n')
-                    if 'vdc' in line]
-        self.assertEqual(len(vdc_uuid), 1)
-        vdc_uuid = vdc_uuid.pop()
-        self.assertTrue(vdc_uuid is not None)
+        vdd_uuid = [line.split()[8] for line in ls_uuid.split('\n')
+                    if 'vdd' in line]
+        self.assertEqual(len(vdd_uuid), 1)
+        vdd_uuid = vdd_uuid.pop()
+        self.assertTrue(vdd_uuid is not None)
 
         # compare them
-        self.assertEqual(vdc_uuid, btrfs_uuid)
+        self.assertEqual(vdd_uuid, btrfs_uuid)
 
     def test_proxy_set(self):
         expected = get_apt_proxy()
