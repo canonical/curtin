@@ -381,7 +381,7 @@ class VMBaseClass(object):
                    [install_src])
 
         # run vm with installer
-        lout_path = os.path.join(cls.td.install, "launch-install.out")
+        lout_path = os.path.join(cls.td.logs, "install-launch.out")
         logger.info('Running curtin installer: {}'.format(cls.install_log))
         try:
             with open(lout_path, "wb") as fpout:
@@ -436,7 +436,7 @@ class VMBaseClass(object):
         try:
             logger.info('Booting target image: {}'.format(cls.boot_log))
             logger.debug('{}'.format(" ".join(cmd)))
-            xout_path = os.path.join(cls.td.boot, "xkvm-boot.out")
+            xout_path = os.path.join(cls.td.logs, "boot-xkvm.out")
             with open(xout_path, "wb") as fpout:
                 cls.boot_system(cmd, console_log=cls.boot_log, proc_out=fpout,
                                 timeout=cls.boot_timeout, purpose="first_boot")
