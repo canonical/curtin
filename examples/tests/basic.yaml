@@ -49,7 +49,7 @@ storage:
       - id: vdc_fmt
         type: format
         fstype: btrfs
-        volume: vdg
+        volume: vdc
       - id: vdc_fmt_mount
         type: mount
         path: /btrfs
