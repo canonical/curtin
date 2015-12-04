@@ -317,7 +317,6 @@ def determine_partition_number(partition_id, storage_config):
 
 
 def make_dname(volume, storage_config):
-    LOG.debug('Create dname for volume {}'.format(volume))
     state = util.load_command_environment()
     rules_dir = os.path.join(state['scratch'], "rules.d")
     vol = storage_config.get(volume)
