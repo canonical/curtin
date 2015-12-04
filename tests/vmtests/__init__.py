@@ -580,15 +580,20 @@ class VMBaseClass(object):
 
         if all_good:
             with open(self.td.success_file, "w") as fp:
-                fp.write("good")
+                fp.write("all good\n")
 
         if not passed:
+            data = {'errors': 1}
             if os.path.exists(self.td.success_file):
                 os.unlink(self.td.success_file)
+            if os.path.exists(self.td.errors_file):
+                with open(self.td.errors_file, "r") as fp:
+                    data = json.loads(fp.read())
+                data['errors'] += 1
+
             with open(self.td.errors_file, "w") as fp:
-                fp.write(json.dumps(
-                    {'errors': len(result.errors),
-                     'failures': len(result.failures)}))
+                fp.write(json.dumps(data, indent=2, sort_keys=True,
+                                    separators=(',', ': ')) + "\n")
 
 
 class PsuedoImageStore(object):
@@ -604,8 +609,19 @@ class PsuedoImageStore(object):
 
 
 class PsuedoVMBaseClass(VMBaseClass):
+    # This mimics much of the VMBaseClass just with faster setUpClass
+    # The tests here will fail only if CURTIN_VMTEST_DEBUG_ALLOW_FAIL
+    # is set to a true value.  This allows the code to mostly run
+    # during a 'make vmtest' (keeping it running) but not to break test.
+    #
     # boot_timeouts is a dict of {'purpose': 'mesg'}
     image_store_class = PsuedoImageStore
+    # boot_results controls what happens when boot_system is called
+    # a dictionary with key of the 'purpose'
+    # inside each dictionary:
+    #   timeout: a message for a TimeoutException to raise
+    #   exit: the exit value of a CalledProcessError to raise
+    #   console_log: what to write into the console log for that boot
     boot_results = {
         'install': {'timeout': None, 'exit': 0},
         'boot': {'timeout': None, 'exit': 0},

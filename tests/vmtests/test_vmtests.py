@@ -1,6 +1,10 @@
 """
 This just tests the vmtest harness.  Useful for quickly running
 multiple tests that can pass or fail.
+
+To see these tests fail, run:
+  CURTIN_VMTEST_DEBUG_ALLOW_FAIL=1 nosetest3 tests/vmtests/test_vmtests.py
+  
 """
 from . import (PsuedoVMBaseClass)
 
@@ -31,3 +35,6 @@ class PsuedoTestMixedPassAndFail(PsuedoVMBaseClass, TestCase):
 
     def test_fail(self):
         self._maybe_raise(Exception("This failed."))
+
+    def test_fail2(self):
+        self._maybe_raise(Exception("This second test failed."))
