@@ -259,9 +259,9 @@ main() {
     #  if *not* detached, then signal handling is blocked until
     #  the foreground subprocess returns. which means we can't handle
     #  a sigterm and kill xkvm.
-    #  We default to dowait=false if output is to a terminal
+    #  We default to dowait=false if input and output are a terminal
     local dowait=""
-    [ -t 0 ] && dowait=false || dowait=true
+    [ -t 0 -a -t 1 ] && dowait=false || dowait=true
     pubs=( )
     disks=( )
     addfiles=( )

@@ -324,8 +324,14 @@ class VMBaseClass(object):
         logger.debug('Install console log: {}'.format(cls.install_log))
         logger.debug('Boot console log: {}'.format(cls.boot_log))
 
+        # if interactive, launch qemu without 'background & wait'
+        if cls.interactive:
+            dowait = "--no-dowait"
+        else:
+            dowait = "--dowait"
+
         # create launch cmd
-        cmd = ["tools/launch", "-v"]
+        cmd = ["tools/launch", "-v", dowait]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -425,8 +431,9 @@ class VMBaseClass(object):
         extra_disks = [x if ":" not in x else x.split(':')[0]
                        for x in extra_disks]
         # create xkvm cmd
-        cmd = (["tools/xkvm", "-v"] + netdevs + ["--disk", cls.td.target_disk,
-               "--disk", cls.td.output_disk] + extra_disks +
+        cmd = (["tools/xkvm", "-v", dowait] + netdevs +
+               ["--disk", cls.td.target_disk, "--disk", cls.td.output_disk] +
+               extra_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
                 "-m", "1024"])
