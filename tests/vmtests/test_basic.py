@@ -136,6 +136,13 @@ class VividTestBasic(TestBasicAbs, TestCase):
     arch = "amd64"
 
 
+class TrustyTestBasic(TestBasicAbs, TestCase):
+    __test__ = True
+    repo = "maas-daily"
+    release = "trusty"
+    arch = "amd64"
+
+
 class PreciseTestBasic(TestBasicAbs, TestCase):
     __test__ = True
     repo = "maas-daily"
