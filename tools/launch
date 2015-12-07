@@ -55,7 +55,7 @@ cleanup() {
     [ ! -d "$TEMP_D" ] || msg="${msg:+$msg }remove temp dir ${TEMP_D}."
     [ -z "$HTTP_PID" ] || msg="${msg:+$msg }kill http pid ${HTTP_PID}."
     [ -z "$XKVM_PID" ] || msg="${msg:+$msg }kill xkvm pid ${XKVM_PID}."
-    debug 1 "cleaning up.${msg:+ $msg}"
+    debug 1 "cleaning up [${SECONDS}s].${msg:+ $msg}"
     [ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
     for pid in ${XKVM_PID} ${HTTP_PID}; do
         kill $pid
@@ -259,9 +259,9 @@ main() {
     #  if *not* detached, then signal handling is blocked until
     #  the foreground subprocess returns. which means we can't handle
     #  a sigterm and kill xkvm.
-    #  We default to dowait=false if output is to a terminal
+    #  We default to dowait=false if input and output are a terminal
     local dowait=""
-    [ -t 0 ] && dowait=false || dowait=true
+    [ -t 0 -a -t 1 ] && dowait=false || dowait=true
     pubs=( )
     disks=( )
     addfiles=( )
@@ -514,6 +514,7 @@ main() {
         "${seedargs[@]}"
         "${disk_args[@]}" )
 
+    debug 1 "running with dowait=$dowait: ${cmd[*]}"
     local sstart=$SECONDS
     if $dowait; then
         "${cmd[@]}" &
