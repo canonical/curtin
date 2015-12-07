@@ -670,6 +670,13 @@ def format_handler(info, storage_config):
         if uuid:
             cmd.extend(["-U", uuid])
         cmd.append(volume_path)
+    elif fstype in ["btrfs"]:
+        cmd = ['mkfs.%s' % fstype, '-f']
+        if part_label:
+                cmd.extend(["-L", part_label])
+        if uuid:
+            cmd.extend(["-U", uuid])
+        cmd.append(volume_path)
     elif fstype in ["fat12", "fat16", "fat32", "fat"]:
         cmd = ["mkfs.fat"]
         fat_size = fstype.strip(string.ascii_letters)
@@ -722,7 +729,8 @@ def mount_handler(info, storage_config):
     # Add volume to fstab
     if state['fstab']:
         with open(state['fstab'], "a") as fp:
-            if volume.get('type') in ["raid", "bcache", "lvm_partition"]:
+            if volume.get('type') in ["raid", "bcache",
+                                      "disk", "lvm_partition"]:
                 location = get_path_to_storage_volume(volume.get('id'),
                                                       storage_config)
             elif volume.get('type') in ["partition", "dm_crypt"]:

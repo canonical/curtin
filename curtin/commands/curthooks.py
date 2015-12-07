@@ -594,7 +594,7 @@ def install_missing_packages(cfg, target):
     format_configs = {
         'xfsprogs': ['xfs'],
         'e2fsprogs': ['ext2', 'ext3', 'ext4'],
-        'brtfs-tools': ['btrfs'],
+        'btrfs-tools': ['btrfs'],
     }
 
     needed_packages = []
