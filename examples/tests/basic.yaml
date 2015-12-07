@@ -36,21 +36,21 @@ storage:
         type: mount
         path: /home
         device: sda2_home
-      - id: vdb
+      - id: sparedisk_id
         type: disk
         path: /dev/vdc
         name: sparedisk
         wipe: superblock
-      - id: vdc
+      - id: btrfs_disk_id
         type: disk
         path: /dev/vdd
         name: btrfs_volume
         wipe: superblock
-      - id: vdc_fmt
+      - id: btrfs_disk_fmt_id
         type: format
         fstype: btrfs
-        volume: vdc
-      - id: vdc_fmt_mount
+        volume: btrfs_disk_id
+      - id: btrfs_disk_mnt_id
         type: mount
         path: /btrfs
-        device: vdc_fmt
+        device: btrfs_disk_fmt_id
