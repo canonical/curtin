@@ -83,7 +83,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         bcache_cset_uuid = None
         found = {}
         for bcache_super in bcache_supers:
-            with open(os.path.join(self.td.mnt, bcache_super), "r") as fp:
+            with open(os.path.join(self.td.collect, bcache_super), "r") as fp:
                 for line in fp.read().splitlines():
                     if line != "" and line.split()[0] == "cset.uuid":
                         bcache_cset_uuid = line.split()[-1].rstrip()
@@ -92,7 +92,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                         else:
                             found[bcache_cset_uuid] = [bcache_super]
             self.assertIsNotNone(bcache_cset_uuid)
-            with open(os.path.join(self.td.mnt, "bcache_ls"), "r") as fp:
+            with open(os.path.join(self.td.collect, "bcache_ls"), "r") as fp:
                 self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
 
         # one cset.uuid for all devices

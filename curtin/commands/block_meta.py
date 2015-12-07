@@ -154,8 +154,10 @@ def wipe_volume(path, wipe_type):
 
 
 def block_find_sysfs_path(devname):
-    # Look up any block device holders.  Handle devices and partitions
-    # as devnames (vdb, md0, vdb7)
+    # return the path in sys for device named devname
+    # support either short name ('sda') or full path /dev/sda
+    #  sda -> /sys/class/block/sda
+    #  sda1 -> /sys/class/block/sda/sda1
     if not devname:
         return []
 
@@ -184,13 +186,15 @@ def block_find_sysfs_path(devname):
 
 
 def get_holders(devname):
-    LOG.debug('Getting blockdev holders for {}'.format(devname))
+    # Look up any block device holders.
+    # Handle devices and partitions as devnames (vdb, md0, vdb7)
     devname_sysfs = block_find_sysfs_path(devname)
     if devname_sysfs:
-        LOG.debug('Found devname_sysfs {}'.format(devname_sysfs))
-        return os.listdir(os.path.join(devname_sysfs, 'holders'))
+        holders = os.listdir(os.path.join(devname_sysfs, 'holders'))
+        LOG.debug("devname '%s' had holders: %s", devname, ','.join(holders))
+        return holders
 
-    LOG.debug('Did not find devname_sysfs')
+    LOG.debug('get_holders: did not find sysfs path for %s', devname)
     return []
 
 
@@ -313,7 +317,6 @@ def determine_partition_number(partition_id, storage_config):
 
 
 def make_dname(volume, storage_config):
-    LOG.debug('Create dname for volume {}'.format(volume))
     state = util.load_command_environment()
     rules_dir = os.path.join(state['scratch'], "rules.d")
     vol = storage_config.get(volume)
@@ -990,7 +993,8 @@ def bcache_handler(info, storage_config):
     def ensure_bcache_is_registered(bcache_device, retry=0):
         # find the actual bcache device name via sysfs using the
         # backing device's holders directory.
-        LOG.debug('check the just created bcache device if it is registered')
+        LOG.debug('check just created bcache %s if it is registered',
+                  bcache_device)
         try:
             util.subp(["udevadm", "settle"])
             local_holders = get_holders(bcache_device)
@@ -1005,9 +1009,8 @@ def bcache_handler(info, storage_config):
             LOG.debug('bcache device was not registered, registering {} at'
                       '/sys/fs/bcache/register'.format(bcache_device))
             try:
-                fp = open("/sys/fs/bcache/register", "w")
-                fp.write(bcache_device)
-                fp.close()
+                with open("/sys/fs/bcache/register", "w") as fp:
+                    fp.write(bcache_device)
                 util.subp(["udevadm", "settle"])
             except (IOError):
                 # device creation is notoriously racy and this can trigger
@@ -1017,8 +1020,10 @@ def bcache_handler(info, storage_config):
                 if retry < 5:
                     ensure_bcache_is_registered(bcache_device, (retry+1))
                 else:
-                    LOG.debug('Repetive error registering the bcache device')
-                    raise ValueError("bcache device can't be registered")
+                    LOG.debug('Repetive error registering the bcache dev %s',
+                              bcache_device)
+                    raise ValueError("bcache device %s can't be registered" %
+                                     bcache_device)
 
     if cache_device:
         # /sys/class/block/XXX/YYY/
