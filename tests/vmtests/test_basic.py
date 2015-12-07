@@ -83,11 +83,11 @@ class TestBasicAbs(VMBaseClass):
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
-        with open(os.path.join(self.td.mnt,
+        with open(os.path.join(self.td.collect,
                   "btrfs_show_super_vdd"), "r") as fp:
             btrfs_show_super = fp.read()
 
-        with open(os.path.join(self.td.mnt, "ls_uuid"), "r") as fp:
+        with open(os.path.join(self.td.collect, "ls_uuid"), "r") as fp:
             ls_uuid = fp.read()
 
         # extract uuid from btrfs superblock
