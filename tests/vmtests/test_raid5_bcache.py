@@ -85,3 +85,7 @@ class VividTestRaid5Bcache(TestMdadmBcacheAbs):
 class TrustyTestRaid5Bcache(TestMdadmBcacheAbs):
     __test__ = True
     release = "trusty"
+    # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
+    # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
+    # when dname works on trusty, then we need to re-enable the expectation
+    disk_to_check = {'md0': 0}
