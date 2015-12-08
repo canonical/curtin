@@ -16,7 +16,7 @@ class TestBasicAbs(VMBaseClass):
     install_timeout = 600
     boot_timeout = 120
     extra_disks = ['128G', '128G']
-    disk_to_check = {'main_disk': 1, 'main_disk': 2,}
+    disk_to_check = {'main_disk': 1, 'main_disk': 2}
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda > blkid_output_vda
@@ -183,7 +183,7 @@ class PreciseTestBasic(TestBasicAbs, TestCase):
 
         # extract uuid from btrfs superblock
         btrfs_fsid = re.findall('.*uuid:\ (.*)\n', btrfs_show_super)
-                    
+
         self.assertEqual(len(btrfs_fsid), 1)
         btrfs_uuid = btrfs_fsid.pop()
         self.assertTrue(btrfs_uuid is not None)
@@ -200,7 +200,6 @@ class PreciseTestBasic(TestBasicAbs, TestCase):
 
         # compare them
         self.assertEqual(vdd_uuid, btrfs_uuid)
-
 
     def test_ptable(self):
         print("test_ptable does not work for Precise")
