@@ -5,6 +5,7 @@ from . import (
 from unittest import TestCase
 
 import os
+import re
 import textwrap
 
 
@@ -137,10 +138,12 @@ class TrustyTestBasic(TestBasicAbs, TestCase):
     repo = "maas-daily"
     release = "trusty"
     arch = "amd64"
+
     # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
     # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
     # when dname works on trusty, then we need to re-enable by removing line.
-    disk_to_check = {'sda': 3}
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
 
     def test_ptable(self):
         print("test_ptable does not work for Trusty")
@@ -151,6 +154,53 @@ class PreciseTestBasic(TestBasicAbs, TestCase):
     repo = "maas-daily"
     release = "precise"
     arch = "amd64"
+    collect_scripts = [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        blkid -o export /dev/vda > blkid_output_vda
+        blkid -o export /dev/vda1 > blkid_output_vda1
+        blkid -o export /dev/vda2 > blkid_output_vda2
+        btrfs-show /dev/vdd > btrfs_show_super_vdd
+        cat /proc/partitions > proc_partitions
+        ls -al /dev/disk/by-uuid/ > ls_uuid
+        cat /etc/fstab > fstab
+        mkdir -p /dev/disk/by-dname
+        ls /dev/disk/by-dname/ > ls_dname
+
+        v=""
+        out=$(apt-config shell v Acquire::HTTP::Proxy)
+        eval "$out"
+        echo "$v" > apt-proxy
+        """)]
+
+    def test_whole_disk_format(self):
+        # confirm the whole disk format is the expected device
+        with open(os.path.join(self.td.collect,
+                  "btrfs_show_super_vdd"), "r") as fp:
+            btrfs_show_super = fp.read()
+
+        with open(os.path.join(self.td.collect, "ls_uuid"), "r") as fp:
+            ls_uuid = fp.read()
+
+        # extract uuid from btrfs superblock
+        btrfs_fsid = re.findall('.*uuid:\ (.*)\n', btrfs_show_super)
+                    
+        self.assertEqual(len(btrfs_fsid), 1)
+        btrfs_uuid = btrfs_fsid.pop()
+        self.assertTrue(btrfs_uuid is not None)
+
+        # extract uuid from /dev/disk/by-uuid on /dev/vdd
+        # parsing ls -al output on /dev/disk/by-uuid:
+        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
+        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
+        vdd_uuid = [line.split()[8] for line in ls_uuid.split('\n')
+                    if 'vdd' in line]
+        self.assertEqual(len(vdd_uuid), 1)
+        vdd_uuid = vdd_uuid.pop()
+        self.assertTrue(vdd_uuid is not None)
+
+        # compare them
+        self.assertEqual(vdd_uuid, btrfs_uuid)
+
 
     def test_ptable(self):
         print("test_ptable does not work for Precise")
