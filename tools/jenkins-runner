@@ -16,7 +16,7 @@ fi
 mkdir -p "$topdir" || fail "failed mkdir $topdir"
 
 if [ $# -eq 0 ]; then
-   set -- -vv tests/vmtests/
+   set -- -vv --nologcapture tests/vmtests/
 fi
 
 start_s=$(date +%s)
