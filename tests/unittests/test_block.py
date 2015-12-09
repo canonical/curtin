@@ -18,16 +18,21 @@ class TestBlock(TestCase):
         mock_util.subp.assert_called_with(expected_call, capture=True)
         self.assertEqual(uuid, "182e8e23-5322-46c9-a1b8-cf2c6a88f9f7")
 
+    @mock.patch("curtin.block.get_proc_mounts")
     @mock.patch("curtin.block._lsblock")
-    def test_get_mountpoints(self, mock_lsblk):
+    def test_get_mountpoints(self, mock_lsblk, mock_proc_mounts):
         mock_lsblk.return_value = {"sda1": {"MOUNTPOINT": None},
                                    "sda2": {"MOUNTPOINT": ""},
                                    "sda3": {"MOUNTPOINT": "/mnt"}}
+        mock_proc_mounts.return_value = [
+            ('sysfs', '/sys', 'sysfs', 'sysfs_opts', '0', '0'),
+        ]
 
         mountpoints = curtin.block.get_mountpoints()
 
         self.assertTrue(mock_lsblk.called)
-        self.assertEqual(mountpoints, ["/mnt"])
+        self.assertEqual(sorted(mountpoints),
+                         sorted(["/mnt", "/sys"]))
 
     @mock.patch("curtin.block.os.path.realpath")
     @mock.patch("curtin.block.os.path.exists")

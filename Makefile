@@ -3,7 +3,7 @@ CWD := $(shell pwd)
 PYTHON ?= python3
 CURTIN_VMTEST_IMAGE_SYNC ?= False
 export CURTIN_VMTEST_IMAGE_SYNC
-noseopts ?= "-vv"
+noseopts ?= -vv --nologcapture
 
 build:
 

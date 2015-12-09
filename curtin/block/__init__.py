@@ -107,15 +107,11 @@ def get_devices_for_mp(mountpoint):
     # for some reason, on some systems, lsblk does not list mountpoint
     # for devices that are mounted.  This happens on /dev/vdc1 during a run
     # using tools/launch.
-    with open("/proc/mounts", "r") as fp:
-        for line in fp:
-            try:
-                (dev, mp, vfs, opts, freq, passno) = line.split(None, 5)
-                if mp == mountpoint:
-                    return [os.path.realpath(dev)]
-            except ValueError:
-                continue
-    return []
+    mountpoint = [os.path.realpath(dev)
+                  for (dev, mp, vfs, opts, freq, passno) in
+                  get_proc_mounts() if mp == mountpoint]
+
+    return mountpoint
 
 
 def get_installable_blockdevs(include_removable=False, min_size=1024**3):
@@ -393,9 +389,29 @@ def get_mountpoints():
     Returns a list of all mountpoints where filesystems are currently mounted.
     """
     info = _lsblock()
-    return list(i.get("MOUNTPOINT") for name, i in info.items() if
-                i.get("MOUNTPOINT") is not None and
-                i.get("MOUNTPOINT") != "")
+    proc_mounts = [mp for (dev, mp, vfs, opts, freq, passno) in
+                   get_proc_mounts()]
+    lsblock_mounts = list(i.get("MOUNTPOINT") for name, i in info.items() if
+                          i.get("MOUNTPOINT") is not None and
+                          i.get("MOUNTPOINT") != "")
+
+    return list(set(proc_mounts + lsblock_mounts))
+
+
+def get_proc_mounts():
+    """
+    Returns a list of tuples for each entry in /proc/mounts
+    """
+    mounts = []
+    with open("/proc/mounts", "r") as fp:
+        for line in fp:
+            try:
+                (dev, mp, vfs, opts, freq, passno) = \
+                    line.strip().split(None, 5)
+                mounts.append((dev, mp, vfs, opts, freq, passno))
+            except ValueError:
+                continue
+    return mounts
 
 
 def lookup_disk(serial):

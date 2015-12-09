@@ -740,7 +740,9 @@ def format_handler(info, storage_config):
             cmd.extend(["-U", uuid])
         cmd.append(volume_path)
     elif fstype in ["btrfs"]:
-        cmd = ['mkfs.%s' % fstype, '-f']
+        cmd = ['mkfs.%s' % fstype]
+        if util.lsb_release()['codename'] != "precise":
+            cmd.extend(['-f'])
         if part_label:
                 cmd.extend(["-L", part_label])
         if uuid:
