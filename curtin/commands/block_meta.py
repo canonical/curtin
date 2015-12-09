@@ -461,7 +461,7 @@ def check_raid_array(mdname, raidlevel, devices=[], spares=[]):
                    '{}'.format(md_query_data['MD_UUID']))
     mdquery_devname = os.path.realpath(mduuid_path)
     if md_devname != mdquery_devname:
-        raise ValueError("Couldn't find correct raid device."
+        raise ValueError("Couldn't find correct raid device. "
                          "MD_UUID={} points to {} but expected {}" % (
                              md_query_data['MD_UUID'],
                              mdquery_devname,
