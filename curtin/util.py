@@ -218,7 +218,7 @@ def do_mount(src, target, opts=None):
 def do_umount(mountpoint):
     if not is_mounted(mountpoint):
         return False
-    subp(['umount', '-l', mountpoint])
+    subp(['umount', mountpoint])
     return True
 
 
