@@ -58,9 +58,17 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
                               env=env, shell=shell)
         (out, err) = sp.communicate(data)
         if isinstance(out, bytes):
-            out = out.decode('utf-8')
+            try:
+                out = out.decode('utf-8')
+            except UnicodeDecodeError as e:
+                LOG.warn("stdout contained non-utf-8 chars. ignoring. %s", e)
+                out = out.decode('utf-8', errors='ignore')
         if isinstance(err, bytes):
-            err = err.decode('utf-8')
+            try:
+                err = err.decode('utf-8')
+            except UnicodeDecodeError as e:
+                LOG.warn("stderr contained non-utf-8 chars. ignoring. %s", e)
+                err = err.decode('utf-8', errors='ignore')
     except OSError as e:
         raise ProcessExecutionError(cmd=args, reason=e)
     rc = sp.returncode  # pylint: disable=E1101
