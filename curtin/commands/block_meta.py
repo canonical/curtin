@@ -1070,6 +1070,21 @@ def bcache_handler(info, storage_config):
                          not supported")
 
 
+def extract_storage_ordered_dict(config):
+    storage_config = config.get('storage', {})
+    if not storage_config:
+        raise ValueError("no 'storage' entry in config")
+    scfg = storage_config.get('config')
+    if not scfg:
+        raise ValueError("invalid storage config data")
+
+    # Since storage config will often have to be searched for a value by its
+    # id, and this can become very inefficient as storage_config grows, a dict
+    # will be generated with the id of each component of the storage_config as
+    # its index and the component of storage_config as its value
+    return OrderedDict((d["id"], d) for (i, d) in enumerate(scfg))
+
+
 def meta_custom(args):
     """Does custom partitioning based on the layout provided in the config
     file. Section with the name storage contains information on which
@@ -1092,23 +1107,9 @@ def meta_custom(args):
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
 
-    storage_config = cfg.get('storage', {})
-    if not storage_config:
-        raise Exception("storage configuration is required by mode '%s' "
-                        "but not provided in the config file" % CUSTOM)
-    storage_config_data = storage_config.get('config')
+    storage_config_dict = extract_storage_ordered_dict(cfg)
 
-    if not storage_config_data:
-        raise ValueError("invalid storage config data")
-
-    # Since storage config will often have to be searched for a value by its
-    # id, and this can become very inefficient as storage_config grows, a dict
-    # will be generated with the id of each component of the storage_config as
-    # its index and the component of storage_config as its value
-    storage_config_dict = OrderedDict((d["id"], d) for (i, d) in
-                                      enumerate(storage_config_data))
-
-    for command in storage_config_data:
+    for item_id, command in storage_config_dict.items():
         handler = command_handlers.get(command['type'])
         if not handler:
             raise ValueError("unknown command type '%s'" % command['type'])
@@ -1116,7 +1117,7 @@ def meta_custom(args):
             handler(command, storage_config_dict)
         except Exception as error:
             LOG.error("An error occured handling '%s': %s - %s" %
-                      (command.get('id'), type(error).__name__, error))
+                      (item_id, type(error).__name__, error))
             raise
 
     return 0
