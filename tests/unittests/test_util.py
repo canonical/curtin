@@ -166,4 +166,38 @@ class TestSubp(TestCase):
         self.assertRaises(UnicodeDecodeError, util.subp, *args, **kwargs)
 
 
+class TestHuman2Bytes(TestCase):
+    GB = 1024 * 1024 * 1024
+    MB = 1024 * 1024
+
+    def test_float_equal_int_is_allowed(self):
+        self.assertEqual(1000, util.human2bytes(1000.0))
+
+    def test_float_in_string_nonequal_int_raises_type_error(self):
+        self.assertRaises(ValueError, util.human2bytes, "1000.4B")
+
+    def test_float_nonequal_int_raises_type_error(self):
+        self.assertRaises(ValueError, util.human2bytes, 1000.4)
+
+    def test_int_gets_int(self):
+        self.assertEqual(100, util.human2bytes(100))
+
+    def test_no_suffix_is_bytes(self):
+        self.assertEqual(100, util.human2bytes("100"))
+
+    def test_suffix_M(self):
+        self.assertEqual(100 * self.MB, util.human2bytes("100M"))
+
+    def test_suffix_B(self):
+        self.assertEqual(100, util.human2bytes("100B"))
+
+    def test_suffix_G(self):
+        self.assertEqual(int(10 * self.GB), util.human2bytes("10G"))
+
+    def test_float_in_string(self):
+        self.assertEqual(int(3.5 * self.GB), util.human2bytes("3.5G"))
+
+    def test_GB_equals_G(self):
+        self.assertEqual(util.human2bytes("3GB"), util.human2bytes("3G"))
+
 # vi: ts=4 expandtab syntax=python

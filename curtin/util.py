@@ -656,6 +656,17 @@ def get_fs_use_info(path):
 def human2bytes(size):
     # convert human 'size' to integer
     size_in = size
+
+    if isinstance(size, int):
+        return size
+    elif isinstance(size, float):
+        if int(size) != size:
+            raise ValueError("'%s': resulted in non-integer (%s)" %
+                             (size_in, int(size)))
+        return size
+    elif not isinstance(size, str):
+        raise TypeError("cannot convert type %s ('%s')." % (type(size), size))
+
     if size.endswith("B"):
         size = size[:-1]
 
@@ -676,7 +687,11 @@ def human2bytes(size):
     if num < 0:
         raise ValueError("'%s': cannot be negative" % size_in)
 
-    return int(num * mpliers[mplier])
+    val = num * mpliers[mplier]
+    if int(val) != val:
+        raise ValueError("'%s': resulted in non-integer (%s)" % (size_in, val))
+
+    return val
 
 
 def import_module(import_str):
