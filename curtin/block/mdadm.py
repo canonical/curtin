@@ -134,24 +134,6 @@ def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False):
     util.subp(["udevadm", "settle"])
 
 
-def md_raidlevel_short(raidlevel):
-    if isinstance(raidlevel, int) or raidlevel in ['linear', 'stripe']:
-        return raidlevel
-
-    return int(raidlevel.replace('raid', ''))
-
-
-def md_minimum_devices(raidlevel):
-    ''' return the minimum number of devices for a given raid level '''
-    rl = md_raidlevel_short(raidlevel)
-    if rl in [0, 1, 'linear', 'stripe']:
-        return 2
-    if rl in [5]:
-        return 3
-    if rl in [6, 10]:
-        return 4
-
-
 def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
     valid_mdname(md_devname)
 
@@ -277,6 +259,24 @@ def md_sysfs_attr(md_devname, attrname):
             attrdata = fp.read().strip()
 
     return attrdata
+
+
+def md_raidlevel_short(raidlevel):
+    if isinstance(raidlevel, int) or raidlevel in ['linear', 'stripe']:
+        return raidlevel
+
+    return int(raidlevel.replace('raid', ''))
+
+
+def md_minimum_devices(raidlevel):
+    ''' return the minimum number of devices for a given raid level '''
+    rl = md_raidlevel_short(raidlevel)
+    if rl in [0, 1, 'linear', 'stripe']:
+        return 2
+    if rl in [5]:
+        return 3
+    if rl in [6, 10]:
+        return 4
 
 
 def __md_check_array_state(md_devname, mode='WRITABLE'):
