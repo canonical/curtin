@@ -34,7 +34,7 @@ _LSB_RELEASE = {}
 
 
 def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
-          logstring=False):
+          logstring=False, decode="ignore"):
     if rcs is None:
         rcs = [0]
 
@@ -57,18 +57,14 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
                               stderr=stderr, stdin=stdin,
                               env=env, shell=shell)
         (out, err) = sp.communicate(data)
-        if isinstance(out, bytes):
-            try:
-                out = out.decode('utf-8')
-            except UnicodeDecodeError as e:
-                LOG.warn("stdout contained non-utf-8 chars. ignoring. %s", e)
-                out = out.decode('utf-8', errors='ignore')
-        if isinstance(err, bytes):
-            try:
-                err = err.decode('utf-8')
-            except UnicodeDecodeError as e:
-                LOG.warn("stderr contained non-utf-8 chars. ignoring. %s", e)
-                err = err.decode('utf-8', errors='ignore')
+        if decode:
+            def ldecode(data, m='utf-8'):
+                if not isinstance(data, bytes):
+                    return data
+                return data.decode(m, errors=decode)
+
+            out = ldecode(out)
+            err = ldecode(err)
     except OSError as e:
         raise ProcessExecutionError(cmd=args, reason=e)
     rc = sp.returncode  # pylint: disable=E1101

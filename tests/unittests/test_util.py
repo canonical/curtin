@@ -149,4 +149,21 @@ class TestSubp(TestCase):
         (out, _err) = util.subp(cmd, capture=True)
         self.assertEqual(out, input_bytes.decode('utf-8'))
 
+    def test_subp_drops_non_utf8(self):
+        cmd = ['printf', 'abc\\xaadef']
+        (out, _err) = util.subp(cmd, capture=True)
+        self.assertEqual(out, 'abcdef')
+
+    def test_subp_respects_decode_false(self):
+        cmd = ['printf', 'abc\\xaadef']
+        (out, _err) = util.subp(cmd, capture=True, decode=False)
+        self.assertEqual(out, b'abc\xaadef')
+
+    def test_subp_respects_decode_strict(self):
+        args = []
+        kwargs = {'args': ['printf', 'abc\\xaadef'], 'capture': True,
+                  'decode': 'strict'}
+        self.assertRaises(UnicodeDecodeError, util.subp, *args, **kwargs)
+
+
 # vi: ts=4 expandtab syntax=python
