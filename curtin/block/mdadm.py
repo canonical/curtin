@@ -31,15 +31,19 @@ from curtin.block import (dev_short, dev_long, is_valid_device, sys_block_path)
 from curtin import util
 from curtin.log import LOG
 
-VALID_RAID_LEVELS = [
-    'linear',
-    'raid0', '0', 0,
+NOSPARE_RAID_LEVELS = [
+    'linear', 'raid0', '0', 0,
+]
+
+SPARE_RAID_LEVELS = [
     'raid1', 'stripe', 'mirror', '1', 1,
     'raid4', '4', 4,
     'raid5', '5', 5,
     'raid6', '6', 6,
     'raid10', '10', 10,
 ]
+
+VALID_RAID_LEVELS = NOSPARE_RAID_LEVELS + SPARE_RAID_LEVELS
 
 #  https://www.kernel.org/doc/Documentation/md.txt
 '''
@@ -113,24 +117,58 @@ MDADM_USE_EXPORT = util.lsb_release()['codename'] not in ['precise', 'trusty']
 #
 
 
-def mdadm_assemble(md_devname=None, devices=None, spares=None, scan=False):
+def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False):
     # md_devname is a /dev/XXXX
-    # devices is non-empty list
-    # if spares is non-empt list append
+    # devices is non-empty list of /dev/xxx
+    # if spares is non-empt list append of /dev/xxx
     cmd = ["mdadm", "--assemble"]
     if scan:
         cmd += ['--scan']
     else:
-        cmd += ["/dev/%s" % md_devname, "--run"] + devices
+        valid_mdname(md_devname)
+        cmd += [dev_long(md_devname), "--run"] + devices
         if spares:
             cmd += spares
 
-    util.subp(" ".join(cmd), shell=True)
-    util.subp(["udevadm", "settle", "--exit-if-exists=%s" % md_devname])
+    util.subp(cmd, capture=True)
+    util.subp(["udevadm", "settle"])
+
+
+def md_raidlevel_short(raidlevel):
+    if isinstance(raidlevel, int) or raidlevel in ['linear', 'stripe']:
+        return raidlevel
+
+    return int(raidlevel.replace('raid', ''))
+
+
+def md_minimum_devices(raidlevel):
+    ''' return the minimum number of devices for a given raid level '''
+    rl = md_raidlevel_short(raidlevel)
+    if rl in [0, 1, 'linear', 'stripe']:
+        return 2
+    if rl in [5]:
+        return 3
+    if rl in [6, 10]:
+        return 4
 
 
 def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
-    cmd = ["mdadm", "--create", "/dev/%s" % md_devname, "--run",
+    valid_mdname(md_devname)
+
+    if raidlevel not in VALID_RAID_LEVELS:
+        raise ValueError('Invalid raidlevel: ' + str(raidlevel))
+
+    min_devices = md_minimum_devices(raidlevel)
+    if len(devices) < min_devices:
+        err = 'Not enough devices for raidlevel: ' + str(raidlevel)
+        err += ' minimum devices needed: ' + str(min_devices)
+        raise ValueError(err)
+
+    if spares and raidlevel not in SPARE_RAID_LEVELS:
+        err = ('Raidlevel does not support spare devices: ' + str(raidlevel))
+        raise ValueError(err)
+
+    cmd = ["mdadm", "--create", dev_long(md_devname), "--run",
            "--level=%s" % raidlevel, "--raid-devices=%s" % len(devices)]
     if md_name:
         cmd.append("--name=%s" % md_name)
@@ -138,29 +176,29 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
     for device in devices:
         # Zero out device superblock just in case device has been used for raid
         # before, as this will cause many issues
-        util.subp(["mdadm", "--zero-superblock", device])
+        util.subp(["mdadm", "--zero-superblock", device], capture=True)
         cmd.append(device)
 
     if spares:
         cmd.append("--spare-devices=%s" % len(spares))
         for device in spares:
-            util.subp(["mdadm", "--zero-superblock", device])
+            util.subp(["mdadm", "--zero-superblock", device], capture=True)
             cmd.append(device)
 
     # Create the raid device
     util.subp(["udevadm", "settle"])
     util.subp(["udevadm", "control", "--stop-exec-queue"])
-    util.subp(" ".join(cmd), shell=True, capture=True)
+    util.subp(cmd, capture=True)
     util.subp(["udevadm", "control", "--start-exec-queue"])
     util.subp(["udevadm", "settle", "--exit-if-exists=%s" % md_devname])
 
 
-def mdadm_examine(devpath, export=False):
+def mdadm_examine(devpath, export=MDADM_USE_EXPORT):
     ''' exectute mdadm --examine, and optionally
         append --export.
         Parse and return dict of key=val from output'''
     cmd = ["mdadm", "--examine"]
-    if export or MDADM_USE_EXPORT:
+    if export:
         cmd.extend(["--export"])
 
     cmd.extend([devpath])
@@ -211,7 +249,8 @@ def mdadm_detail_scan():
 
 # ------------------------------ #
 def valid_mdname(md_devname):
-    if not md_devname:
+    print(md_devname)
+    if md_devname is None:
         raise ValueError('Parameter: md_devname is None')
         return False
 
@@ -267,6 +306,7 @@ def md_check_array_state_error(md_devname):
 
 def __mdadm_export_to_dict(output):
     ''' convert Key=Value text output into dictionary '''
+    print(output)
     return dict(tok.split('=', 1) for tok in shlex.split(output))
 
 
