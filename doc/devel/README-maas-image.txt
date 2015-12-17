@@ -8,8 +8,8 @@ follow doc/devel/README.txt, but instead of the 'get cloud image' section
  do the following.
 
 ## this gets root image url that you could find from traversing
-##  http://maas.ubuntu.com/images/ephemeral-v2/daily/wily/amd64/
-rel=wily
+##  http://maas.ubuntu.com/images/ephemeral-v2/daily/xenial/amd64/
+rel=xenial
 streams_url="http://maas.ubuntu.com/images/ephemeral-v2/daily/streams/v1/index.json"
 root_img_url=$(sstream-query \
    --output-format="%(item_url)s" --max=1 \
