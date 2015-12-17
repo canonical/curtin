@@ -82,4 +82,3 @@ class VividTestRaid5Bcache(relbase.vivid, TestMdadmBcacheAbs):
 
 class WilyTestRaid5Bcache(relbase.wily, TestMdadmBcacheAbs):
     __test__ = True
-

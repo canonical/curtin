@@ -37,11 +37,11 @@ class _XenialBase(_ReleaseBase):
 
 
 base_vm_classes = _AttrDict({
-   'precise': _PreciseBase,
-   'trusty': _TrustyBase,
-   'vivid': _VividBase,
-   'wily': _WilyBase,
-   'xenial': _XenialBase,
+    'precise': _PreciseBase,
+    'trusty': _TrustyBase,
+    'vivid': _VividBase,
+    'wily': _WilyBase,
+    'xenial': _XenialBase,
 })
 
 # vi: ts=4 expandtab syntax=python
