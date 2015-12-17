@@ -199,13 +199,19 @@ def mdadm_examine(devpath, export=MDADM_USE_EXPORT):
 
 
 def mdadm_stop(devpath):
+    if not devpath:
+        raise ValueError('mdadm_stop: missing parameter devpath')
+
     LOG.info("mdadm stopping: %s" % devpath)
-    util.subp(["mdadm", "--stop", devpath], rcs=[0, 1])
+    util.subp(["mdadm", "--stop", devpath], rcs=[0, 1], capture=True)
 
 
 def mdadm_remove(devpath):
+    if not devpath:
+        raise ValueError('mdadm_remove: missing parameter devpath')
+
     LOG.info("mdadm removing: %s" % devpath)
-    util.subp(["mdadm", "--remove", devpath], rcs=[0, 1])
+    util.subp(["mdadm", "--remove", devpath], rcs=[0, 1], capture=True)
 
 
 def mdadm_query_detail(md_devname, export=False):

@@ -290,4 +290,57 @@ class TestBlockMdadmExamine(MdadmTestBase):
         self.mock_util.subp.assert_has_calls(expected_calls)
         self.assertEqual(data, {})
 
+
+class TestBlockMdadmStop(MdadmTestBase):
+    def setUp(self):
+        super(TestBlockMdadmStop, self).setUp()
+        self.add_patch('curtin.block.mdadm.util', 'mock_util')
+        self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
+
+        # Common mock settings
+        self.mock_valid.return_value = True
+        self.mock_util.lsb_release.return_value = {'codename': 'xenial'}
+        self.mock_util.subp.side_effect = [
+            ("", ""),  # mdadm stop device
+        ]
+
+    def test_mdadm_stop_no_devpath(self):
+        with self.assertRaises(ValueError):
+            mdadm.mdadm_stop(None)
+
+    def test_mdadm_stop(self):
+        device = "/dev/vdc"
+        mdadm.mdadm_stop(device)
+        expected_calls = [
+            call(["mdadm", "--stop", device], rcs=[0, 1], capture=True),
+        ]
+        self.mock_util.subp.assert_has_calls(expected_calls)
+
+
+class TestBlockMdadmRemove(MdadmTestBase):
+    def setUp(self):
+        super(TestBlockMdadmRemove, self).setUp()
+        self.add_patch('curtin.block.mdadm.util', 'mock_util')
+        self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
+
+        # Common mock settings
+        self.mock_valid.return_value = True
+        self.mock_util.lsb_release.return_value = {'codename': 'xenial'}
+        self.mock_util.subp.side_effect = [
+            ("", ""),  # mdadm stop device
+        ]
+
+    def test_mdadm_remove_no_devpath(self):
+        with self.assertRaises(ValueError):
+            mdadm.mdadm_remove(None)
+
+    def test_mdadm_remove(self):
+        device = "/dev/vdc"
+        mdadm.mdadm_remove(device)
+        expected_calls = [
+            call(["mdadm", "--remove", device], rcs=[0, 1], capture=True),
+        ]
+        self.mock_util.subp.assert_has_calls(expected_calls)
+
+
 # vi: ts=4 expandtab syntax=python
