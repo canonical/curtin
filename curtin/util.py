@@ -34,7 +34,7 @@ _LSB_RELEASE = {}
 
 
 def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
-          logstring=False, decode="ignore"):
+          logstring=False, decode="replace"):
     if rcs is None:
         rcs = [0]
 
@@ -57,6 +57,12 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
                               stderr=stderr, stdin=stdin,
                               env=env, shell=shell)
         (out, err) = sp.communicate(data)
+
+        # Just ensure blank instead of none.
+        if not out and capture:
+            out = b''
+        if not err and capture:
+            err = b''
         if decode:
             def ldecode(data, m='utf-8'):
                 if not isinstance(data, bytes):
@@ -72,15 +78,36 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
         raise ProcessExecutionError(stdout=out, stderr=err,
                                     exit_code=rc,
                                     cmd=args)
-    # Just ensure blank instead of none?? (if capturing)
-    if not out and capture:
-        out = ''
-    if not err and capture:
-        err = ''
     return (out, err)
 
 
 def subp(*args, **kwargs):
+    """Run a subprocess.
+
+    :param args: command to run in a list. [cmd, arg1, arg2...]
+    :param data: input to the command, made available on its stdin.
+    :param rcs:
+        a list of allowed return codes.  If subprocess exits with a value not
+        in this list, a ProcessExecutionError will be raised.  By default,
+        data is returned as a string.  See 'decode' parameter.
+    :param env: a dictionary for the command's environment.
+    :param capture:
+        boolean indicating if output should be captured.  If True, then stderr
+        and stdout will be returned.  If False, they will not be redirected.
+    :param shell: boolean indicating if this should be run with a shell.
+    :param logstring:
+        the command will be logged to DEBUG.  If it contains info that should
+        not be logged, then logstring will be logged instead.
+    :param decode:
+        if False, no decoding will be done and returned stdout and stderr will
+        be bytes.  Other allowed values are 'strict', 'ignore', and 'replace'.
+        These values are passed through to bytes().decode() as the 'errors'
+        parameter.  There is no support for decoding to other than utf-8.
+    :param retries:
+        a list of times to sleep in between retries.  After each failure
+        subp will sleep for N seconds and then try again.  A value of [1, 3]
+        means to run, sleep 1, run, sleep 3, run and then return exit code.
+    """
     retries = []
     if "retries" in kwargs:
         retries = kwargs.pop("retries")
