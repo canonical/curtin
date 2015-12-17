@@ -243,6 +243,13 @@ class TrustyTestNetwork(TestNetworkAbs, TestCase):
     arch = "amd64"
 
 
+class VividTestNetwork(TestNetworkAbs, TestCase):
+    __test__ = True
+    repo = "maas-daily"
+    release = "vivid"
+    arch = "amd64"
+
+
 class WilyTestNetwork(TestNetworkAbs, TestCase):
     __test__ = True
     repo = "maas-daily"
@@ -250,8 +257,12 @@ class WilyTestNetwork(TestNetworkAbs, TestCase):
     arch = "amd64"
 
 
-class VividTestNetwork(TestNetworkAbs, TestCase):
-    __test__ = True
+class XenialTestNetwork(TestNetworkAbs, TestCase):
     repo = "maas-daily"
-    release = "vivid"
+    release = "xenial"
     arch = "amd64"
+    # FIXME: net.ifnames=0 should not be required as image should
+    #        eventually address this internally.  Here we do not carry
+    #        over the net.ifnames to the installed system via '---' as the net
+    #        config should take care of that.
+    extra_kern_args = "net.ifnames=0"
