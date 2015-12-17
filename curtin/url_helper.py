@@ -238,49 +238,65 @@ class OauthUrlHelper(object):
         return headers
 
 
+def _oauth_headers_none(url, consumer_key, token_key, token_secret,
+                        consumer_secret, clockskew):
+    if not any(token_key, token_secret, consumer_key):
+        return {}
+    raise ValueError("oauth_headers requested, but no oauth library "
+                     "available.  Please install oauthlib.")
+
+
+def _oauth_headers_oauth(url, consumer_key, token_key, token_secret,
+                         consumer_secret, clockskew=0):
+    """Build OAuth headers using given credentials."""
+    consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
+    token = oauth.OAuthToken(token_key, token_secret)
+
+    if clockskew is None:
+        clockskew = 0
+    timestamp = int(time.time()) + clockskew
+
+    params = {
+        'oauth_version': "1.0",
+        'oauth_nonce': uuid.uuid4().get_hex(),
+        'oauth_timestamp': timestamp,
+        'oauth_token': token.key,
+        'oauth_consumer_key': consumer.key,
+    }
+    req = oauth.OAuthRequest(http_url=url, parameters=params)
+    req.sign_request(
+        oauth.OAuthSignatureMethod_PLAINTEXT(), consumer, token)
+    return(req.to_header())
+
+
+def _oauth_headers_oauthlib(url, consumer_key, token_key, token_secret,
+                            consumer_secret, clockskew=0):
+    """Build OAuth headers using given credentials."""
+    if clockskew is None:
+        clockskew = 0
+    timestamp = int(time.time()) + clockskew
+    client = oauth1.Client(
+        consumer_key,
+        client_secret=consumer_secret,
+        resource_owner_key=token_key,
+        resource_owner_secret=token_secret,
+        signature_method=oauth1.SIGNATURE_PLAINTEXT,
+        timestamp=str(timestamp))
+    uri, signed_headers, body = client.sign(url)
+    return signed_headers
+
+
+oauth_headers = _oauth_headers_none
 try:
     import oauth.oauth as oauth
-
-    def oauth_headers(url, consumer_key, token_key, token_secret,
-                      consumer_secret, clockskew=0):
-        """Build OAuth headers using given credentials."""
-        consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
-        token = oauth.OAuthToken(token_key, token_secret)
-
-        if clockskew is None:
-            clockskew = 0
-        timestamp = int(time.time()) + clockskew
-
-        params = {
-            'oauth_version': "1.0",
-            'oauth_nonce': uuid.uuid4().get_hex(),
-            'oauth_timestamp': timestamp,
-            'oauth_token': token.key,
-            'oauth_consumer_key': consumer.key,
-        }
-        req = oauth.OAuthRequest(http_url=url, parameters=params)
-        req.sign_request(
-            oauth.OAuthSignatureMethod_PLAINTEXT(), consumer, token)
-        return(req.to_header())
-
+    oauth_headers = _oauth_headers_oauth
 except ImportError:
-    import oauthlib.oauth1 as oauth1
+    try:
+        import oauthlib.oauth1 as oauth1
+        oauth_headers = _oauth_headers_oauthlib
 
-    def oauth_headers(url, consumer_key, token_key, token_secret,
-                      consumer_secret, clockskew=0):
-        """Build OAuth headers using given credentials."""
-        if clockskew is None:
-            clockskew = 0
-        timestamp = int(time.time()) + clockskew
-        client = oauth1.Client(
-            consumer_key,
-            client_secret=consumer_secret,
-            resource_owner_key=token_key,
-            resource_owner_secret=token_secret,
-            signature_method=oauth1.SIGNATURE_PLAINTEXT,
-            timestamp=str(timestamp))
-        uri, signed_headers, body = client.sign(url)
-        return signed_headers
+    except ImportError:
+        pass
 
 
 # vi: ts=4 expandtab syntax=python
