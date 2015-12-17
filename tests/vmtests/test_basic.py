@@ -214,7 +214,7 @@ class XenialTestBasic(TestBasicAbs, TestCase):
     release = "xenial"
     arch = "amd64"
     # FIXME: net.ifnames=0 should not be required as image should
-    #        eventually address this internally.  Note, also we do
-    #        currently need this copied over to the installed environment
-    #        although in theory the udev rules we write should fix that.
+    #        eventually address this internally.  This test does not
+    #        write the udev rules, so we need to copy over the setting
+    #        to the target environment with '---'
     extra_kern_args = "--- net.ifnames=0"
