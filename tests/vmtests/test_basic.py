@@ -194,17 +194,17 @@ class PreciseTestBasic(TestBasicAbs, TestCase):
         print("test_dname does not work for Precise")
 
 
-class WilyTestBasic(TestBasicAbs, TestCase):
-    __test__ = True
-    repo = "maas-daily"
-    release = "wily"
-    arch = "amd64"
-
-
 class VividTestBasic(TestBasicAbs, TestCase):
     __test__ = True
     repo = "maas-daily"
     release = "vivid"
+    arch = "amd64"
+
+
+class WilyTestBasic(TestBasicAbs, TestCase):
+    __test__ = True
+    repo = "maas-daily"
+    release = "wily"
     arch = "amd64"
 
 
