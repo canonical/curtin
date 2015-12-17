@@ -119,20 +119,6 @@ class TestBasicAbs(VMBaseClass):
             self.assertEqual("", apt_proxy_found)
 
 
-class WilyTestBasic(TestBasicAbs, TestCase):
-    __test__ = True
-    repo = "maas-daily"
-    release = "wily"
-    arch = "amd64"
-
-
-class VividTestBasic(TestBasicAbs, TestCase):
-    __test__ = True
-    repo = "maas-daily"
-    release = "vivid"
-    arch = "amd64"
-
-
 class TrustyTestBasic(TestBasicAbs, TestCase):
     __test__ = True
     repo = "maas-daily"
@@ -206,3 +192,29 @@ class PreciseTestBasic(TestBasicAbs, TestCase):
 
     def test_dname(self):
         print("test_dname does not work for Precise")
+
+
+class VividTestBasic(TestBasicAbs, TestCase):
+    __test__ = True
+    repo = "maas-daily"
+    release = "vivid"
+    arch = "amd64"
+
+
+class WilyTestBasic(TestBasicAbs, TestCase):
+    __test__ = True
+    repo = "maas-daily"
+    release = "wily"
+    arch = "amd64"
+
+
+class XenialTestBasic(TestBasicAbs, TestCase):
+    __test__ = True
+    repo = "maas-daily"
+    release = "xenial"
+    arch = "amd64"
+    # FIXME: net.ifnames=0 should not be required as image should
+    #        eventually address this internally.  This test does not
+    #        write the udev rules, so we need to copy over the setting
+    #        to the target environment with '---'
+    extra_kern_args = "--- net.ifnames=0"

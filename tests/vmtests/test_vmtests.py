@@ -32,7 +32,7 @@ class PsuedoTestAllPass(PsuedoVMBaseClass, TestCase):
 class PsuedoTestMixedPassAndFail(PsuedoVMBaseClass, TestCase):
     __test__ = True
     repo = "maas-daily"
-    release = "wily"
+    release = "xenial"
     arch = "amd64"
 
     def test_pass(self):
