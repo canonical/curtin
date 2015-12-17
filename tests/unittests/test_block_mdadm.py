@@ -286,6 +286,7 @@ class TestBlockMdadmExamine(MdadmTestBase):
         expected_calls = [
             call(["mdadm", "--examine", device], capture=True),
         ]
+
         # don't mock anything if raidlevel and spares mismatch
         self.mock_util.subp.assert_has_calls(expected_calls)
         self.assertEqual(data, {})
@@ -327,7 +328,7 @@ class TestBlockMdadmRemove(MdadmTestBase):
         self.mock_valid.return_value = True
         self.mock_util.lsb_release.return_value = {'codename': 'xenial'}
         self.mock_util.subp.side_effect = [
-            ("", ""),  # mdadm stop device
+            ("", ""),  # mdadm remove device
         ]
 
     def test_mdadm_remove_no_devpath(self):
@@ -341,6 +342,41 @@ class TestBlockMdadmRemove(MdadmTestBase):
             call(["mdadm", "--remove", device], rcs=[0, 1], capture=True),
         ]
         self.mock_util.subp.assert_has_calls(expected_calls)
+
+
+class TestBlockMdadmDetailScan(MdadmTestBase):
+    def setUp(self):
+        super(TestBlockMdadmDetailScan, self).setUp()
+        self.add_patch('curtin.block.mdadm.util', 'mock_util')
+        self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
+
+        # Common mock settings
+        self.scan_output = ("ARRAY /dev/md0 metadata=1.2 spares=2 name=0 " +
+                            "UUID=b1eae2ff:69b6b02e:1d63bb53:ddfa6e4a")
+        self.mock_valid.return_value = True
+        self.mock_util.lsb_release.return_value = {'codename': 'xenial'}
+        self.mock_util.subp.side_effect = [
+            (self.scan_output, ""),  # mdadm --detail --scan
+        ]
+
+    def test_mdadm_remove(self):
+        data = mdadm.mdadm_detail_scan()
+        expected_calls = [
+            call(["mdadm", "--detail", "--scan"], capture=True),
+        ]
+        self.mock_util.subp.assert_has_calls(expected_calls)
+        self.assertEqual(self.scan_output, data)
+
+    def test_mdadm_remove_error(self):
+        self.mock_util.subp.side_effect = [
+            ("wark", "error"),  # mdadm --detail --scan
+        ]
+        data = mdadm.mdadm_detail_scan()
+        expected_calls = [
+            call(["mdadm", "--detail", "--scan"], capture=True),
+        ]
+        self.mock_util.subp.assert_has_calls(expected_calls)
+        self.assertEqual(None, data)
 
 
 # vi: ts=4 expandtab syntax=python
