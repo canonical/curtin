@@ -288,14 +288,16 @@ def _oauth_headers_oauthlib(url, consumer_key, token_key, token_secret,
 
 oauth_headers = _oauth_headers_none
 try:
-    import oauth.oauth as oauth
-    oauth_headers = _oauth_headers_oauth
+    # prefer to use oauthlib. (python-oauthlib)
+    import oauthlib.oauth1 as oauth1
+    oauth_headers = _oauth_headers_oauthlib
 except ImportError:
+    # no oauthlib was present, try using oauth (python-oauth)
     try:
-        import oauthlib.oauth1 as oauth1
-        oauth_headers = _oauth_headers_oauthlib
-
+        import oauth.oauth as oauth
+        oauth_headers = _oauth_headers_oauth
     except ImportError:
+        # we have no oauth libraries available, use oauth_headers_none
         pass
 
 
