@@ -1,7 +1,14 @@
 from unittest import TestCase
 from mock import call, patch
+from curtin.block import dev_short
 from curtin.block import mdadm
 import subprocess
+
+from sys import version_info
+if version_info.major == 2:
+    import __builtin__ as builtins
+else:
+    import builtins
 
 
 class MdadmTestBase(TestCase):
@@ -456,5 +463,80 @@ class TestBlockMdadmDetailScan(MdadmTestBase):
         self.mock_util.subp.assert_has_calls(expected_calls)
         self.assertEqual(None, data)
 
+
+class TestBlockMdadmMdHelpers(MdadmTestBase):
+    def setUp(self):
+        super(TestBlockMdadmMdHelpers, self).setUp()
+        self.add_patch('curtin.block.mdadm.util', 'mock_util')
+        self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
+
+        self.mock_valid.return_value = True
+        self.mock_util.lsb_release.return_value = {'codename': 'xenial'}
+
+    def test_valid_mdname(self):
+        mdname = "/dev/md0"
+        result = mdadm.valid_mdname(mdname)
+        expected_calls = [
+            call(mdname)
+        ]
+        self.mock_valid.assert_has_calls(expected_calls)
+        self.assertTrue(result)
+
+    def test_valid_mdname_short(self):
+        mdname = "md0"
+        result = mdadm.valid_mdname(mdname)
+        expected_calls = [
+            call("/dev/md0")
+        ]
+        self.mock_valid.assert_has_calls(expected_calls)
+        self.assertTrue(result)
+
+    def test_valid_mdname_none(self):
+        mdname = None
+        with self.assertRaises(ValueError):
+            mdadm.valid_mdname(mdname)
+
+    def test_valid_mdname_not_valid_device(self):
+        self.mock_valid.return_value = False
+        mdname = "/dev/md0"
+        with self.assertRaises(ValueError):
+            mdadm.valid_mdname(mdname)
+
+    @patch.object(builtins, "open")
+    def test_md_sysfs_attr(self, mock_open):
+        mdname = "/dev/md0"
+        attr_name = 'array_state'
+        sysfs_path = '/sys/class/block/{}/md/{}'.format(dev_short(mdname),
+                                                        attr_name)
+        mdadm.md_sysfs_attr(mdname, attr_name)
+        mock_open.assert_called_with(sysfs_path)
+
+    def test_md_sysfs_attr_devname_none(self):
+        mdname = None
+        attr_name = 'array_state'
+        with self.assertRaises(ValueError):
+            mdadm.md_sysfs_attr(mdname, attr_name)
+
+    def test_md_raidlevel_short(self):
+        for rl in [0, 1, 5, 6, 10, 'linear', 'stripe']:
+            self.assertEqual(rl, mdadm.md_raidlevel_short(rl))
+            if isinstance(rl, int):
+                long_rl = 'raid%d' % rl
+                self.assertEqual(rl, mdadm.md_raidlevel_short(long_rl))
+
+    def test_md_minimum_devices(self):
+        min_to_rl = {
+            2: [0, 1, 'linear', 'stripe'],
+            3: [5],
+            4: [6, 10],
+        }
+
+        for rl in [0, 1, 5, 6, 10, 'linear', 'stripe']:
+            min_devs = mdadm.md_minimum_devices(rl)
+            self.assertTrue(rl in min_to_rl[min_devs])
+
+    def test_md_minimum_devices_invalid_rl(self):
+        min_devs = mdadm.md_minimum_devices(27)
+        self.assertEqual(min_devs, -1)
 
 # vi: ts=4 expandtab syntax=python

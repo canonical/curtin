@@ -285,6 +285,8 @@ def md_minimum_devices(raidlevel):
     if rl in [6, 10]:
         return 4
 
+    return -1
+
 
 def __md_check_array_state(md_devname, mode='WRITABLE'):
     modes = {
