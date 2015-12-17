@@ -28,11 +28,12 @@ PY3OR2_MAIN="%(ep_main)s"
 PY3OR2_MCHECK="%(ep_mcheck)s"
 PY3OR2_PYTHONS=${PY3OR2_PYTHONS:-"%(python_exe_list)s"}
 PYTHON=${PY3OR2_PYTHON}
+PY3OR2_DEBUG=${PY3OR2_DEBUG:-0}
 """.strip()
 
 CALL_ENTRY_POINT_SH_BODY = """
 debug() {
-   [ "${PY3OR2_DEBUG:-0}" != "0" ] || return 0
+   [ "${PY3OR2_DEBUG}" != "0" ] || return 0
    echo "$@" 1>&2
 }
 fail() { echo "$@" 1>&2; exit 1; }
@@ -55,12 +56,13 @@ if [ ! -n "$PYTHON" ]; then
     oifs="$IFS"; IFS=":"
     best=0
     best_exe=""
+    [ "${PY3OR2_DEBUG}" = "0" ] && _v="" || _v="-v"
     for p in $PY3OR2_PYTHONS; do
         command -v "$p" >/dev/null 2>&1 ||
             { debug "$p: not in path"; continue; }
         [ -z "$PY3OR2_MCHECK" ] && PYTHON=$p && break
-        out=$($p -m "$PY3OR2_MCHECK" "$@" 2>&1) && PYTHON="$p" &&
-            { debug "$p passed check [$p -m $PY3OR2_MCHECK $*]"; break; }
+        out=$($p -m "$PY3OR2_MCHECK" $_v -- "$@" 2>&1) && PYTHON="$p" &&
+            { debug "$p is good [$p -m $PY3OR2_MCHECK $_v -- $*]"; break; }
         ret=$?
         debug "$p [$ret]: $out"
         # exit code of 1 is unuseable
