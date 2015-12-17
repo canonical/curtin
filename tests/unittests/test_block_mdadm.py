@@ -344,6 +344,84 @@ class TestBlockMdadmRemove(MdadmTestBase):
         self.mock_util.subp.assert_has_calls(expected_calls)
 
 
+class TestBlockMdadmQueryDetail(MdadmTestBase):
+    def setUp(self):
+        super(TestBlockMdadmQueryDetail, self).setUp()
+        self.add_patch('curtin.block.mdadm.util', 'mock_util')
+        self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
+
+        # Common mock settings
+        self.mock_valid.return_value = True
+        self.mock_util.lsb_release.return_value = {'codename': 'precise'}
+
+    def test_mdadm_query_detail_export(self):
+        self.mock_util.lsb_release.return_value = {'codename': 'xenial'}
+        self.mock_util.subp.return_value = (
+            """
+            MD_LEVEL=raid1
+            MD_DEVICES=2
+            MD_METADATA=1.2
+            MD_UUID=93a73e10:427f280b:b7076c02:204b8f7a
+            MD_NAME=wily-foobar:0
+            MD_DEVICE_vdc_ROLE=0
+            MD_DEVICE_vdc_DEV=/dev/vdc
+            MD_DEVICE_vdd_ROLE=1
+            MD_DEVICE_vdd_DEV=/dev/vdd
+            MD_DEVICE_vde_ROLE=spare
+            MD_DEVICE_vde_DEV=/dev/vde
+            """, "")
+
+        device = "/dev/md0"
+        self.mock_valid.return_value = True
+        data = mdadm.mdadm_query_detail(device, export=True)
+
+        expected_calls = [
+            call(["mdadm", "--query", "--detail", "--export", device],
+                 capture=True),
+        ]
+        self.mock_util.subp.assert_has_calls(expected_calls)
+        self.assertEqual(data['MD_UUID'],
+                         '93a73e10:427f280b:b7076c02:204b8f7a')
+
+    def test_mdadm_query_detail_no_export(self):
+        self.mock_util.subp.return_value = ("""/dev/md0:
+        Version : 1.2
+  Creation Time : Sat Dec 12 16:06:05 2015
+     Raid Level : raid1
+     Array Size : 10477568 (9.99 GiB 10.73 GB)
+  Used Dev Size : 10477568 (9.99 GiB 10.73 GB)
+   Raid Devices : 2
+  Total Devices : 3
+    Persistence : Superblock is persistent
+
+    Update Time : Sat Dec 12 16:09:09 2015
+          State : clean
+ Active Devices : 2
+Working Devices : 3
+ Failed Devices : 0
+  Spare Devices : 1
+
+           Name : wily-foobar:0  (local to host wily-foobar)
+           UUID : 93a73e10:427f280b:b7076c02:204b8f7a
+         Events : 17
+
+    Number   Major   Minor   RaidDevice State
+       0     253       32        0      active sync   /dev/vdc
+       1     253       48        1      active sync   /dev/vdd
+
+       2     253       64        -      spare   /dev/vde
+        """, "")   # mdadm --query --detail /dev/md0
+
+        device = "/dev/md0"
+        data = mdadm.mdadm_query_detail(device, export=False)
+        expected_calls = [
+            call(["mdadm", "--query", "--detail", device], capture=True),
+        ]
+        self.mock_util.subp.assert_has_calls(expected_calls)
+        self.assertEqual(data['MD_UUID'],
+                         '93a73e10:427f280b:b7076c02:204b8f7a')
+
+
 class TestBlockMdadmDetailScan(MdadmTestBase):
     def setUp(self):
         super(TestBlockMdadmDetailScan, self).setUp()

@@ -214,9 +214,11 @@ def mdadm_remove(devpath):
     util.subp(["mdadm", "--remove", devpath], rcs=[0, 1], capture=True)
 
 
-def mdadm_query_detail(md_devname, export=False):
+def mdadm_query_detail(md_devname, export=MDADM_USE_EXPORT):
+    valid_mdname(md_devname)
+
     cmd = ["mdadm", "--query", "--detail"]
-    if export or MDADM_USE_EXPORT:
+    if export:
         cmd.extend(["--export"])
     cmd.extend([md_devname])
     (out, _err) = util.subp(cmd, capture=True)
@@ -237,7 +239,6 @@ def mdadm_detail_scan():
 
 # ------------------------------ #
 def valid_mdname(md_devname):
-    print(md_devname)
     if md_devname is None:
         raise ValueError('Parameter: md_devname is None')
         return False
@@ -312,7 +313,6 @@ def md_check_array_state_error(md_devname):
 
 def __mdadm_export_to_dict(output):
     ''' convert Key=Value text output into dictionary '''
-    print(output)
     return dict(tok.split('=', 1) for tok in shlex.split(output))
 
 
@@ -385,17 +385,20 @@ def __upgrade_detail_dict(detail):
     if 'MD_UUID' in detail:
         return detail
 
-    # we're expected mdadm --detail output, which includes a magic key
-    if 'magic' not in detail:
-        raise ValueError('Missing "magic" key in  input dict: ' + detail)
-
     md_detail = {
         'MD_LEVEL': detail['raid_level'],
         'MD_DEVICES': detail['raid_devices'],
         'MD_METADATA': detail['version'],
-        'MD_UUID': detail['array_uuid'],
         'MD_NAME': detail['name'].split()[0],
     }
+
+    # exmaine has ARRAY UUID
+    if 'array_uuid' in detail:
+        md_detail.update({'MD_UUID': detail['array_uuid']})
+    # query,detail has UUID
+    elif 'uuid' in detail:
+        md_detail.update({'MD_UUID': detail['uuid']})
+
     device = detail['device']
 
     #  MD_DEVICE_vdc1_DEV=/dev/vdc1
