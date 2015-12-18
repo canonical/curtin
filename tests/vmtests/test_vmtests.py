@@ -3,19 +3,20 @@ This just tests the vmtest harness.  Useful for quickly running
 multiple tests that can pass or fail.
 
 To see these tests fail, run:
-  CURTIN_VMTEST_DEBUG_ALLOW_FAIL=1 nosetest3 tests/vmtests/test_vmtests.py
+  CURTIN_VMTEST_DEBUG_ALLOW_FAIL=1 nosetests3 tests/vmtests/test_vmtests.py
 """
 
 from . import (PsuedoVMBaseClass)
+from .releases import base_vm_classes as relbase
 
-from unittest import TestCase
+
+class PsuedoBase(PsuedoVMBaseClass):
+    # Just present to show structure used in other tests
+    pass
 
 
-class PsuedoTestAllPass(PsuedoVMBaseClass, TestCase):
+class PsuedoTestAllPass(relbase.trusty, PsuedoBase):
     __test__ = True
-    repo = "maas-daily"
-    release = "trusty"
-    arch = "amd64"
     # These boot_results would cause first_boot failure
     # boot_results = {
     #   'install': {'timeout': 0, 'exit': 0},
@@ -29,11 +30,8 @@ class PsuedoTestAllPass(PsuedoVMBaseClass, TestCase):
         pass
 
 
-class PsuedoTestMixedPassAndFail(PsuedoVMBaseClass, TestCase):
+class PsuedoTestMixedPassAndFail(relbase.xenial, PsuedoBase):
     __test__ = True
-    repo = "maas-daily"
-    release = "wily"
-    arch = "amd64"
 
     def test_pass(self):
         pass

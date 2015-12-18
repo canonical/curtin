@@ -21,6 +21,7 @@ import glob
 import os
 import shutil
 import subprocess
+import stat
 import sys
 import tempfile
 import time
@@ -34,7 +35,7 @@ _LSB_RELEASE = {}
 
 
 def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
-          logstring=False):
+          logstring=False, decode="replace"):
     if rcs is None:
         rcs = [0]
 
@@ -57,10 +58,20 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
                               stderr=stderr, stdin=stdin,
                               env=env, shell=shell)
         (out, err) = sp.communicate(data)
-        if isinstance(out, bytes):
-            out = out.decode('utf-8')
-        if isinstance(err, bytes):
-            err = err.decode('utf-8')
+
+        # Just ensure blank instead of none.
+        if not out and capture:
+            out = b''
+        if not err and capture:
+            err = b''
+        if decode:
+            def ldecode(data, m='utf-8'):
+                if not isinstance(data, bytes):
+                    return data
+                return data.decode(m, errors=decode)
+
+            out = ldecode(out)
+            err = ldecode(err)
     except OSError as e:
         raise ProcessExecutionError(cmd=args, reason=e)
     rc = sp.returncode  # pylint: disable=E1101
@@ -68,15 +79,36 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
         raise ProcessExecutionError(stdout=out, stderr=err,
                                     exit_code=rc,
                                     cmd=args)
-    # Just ensure blank instead of none?? (if capturing)
-    if not out and capture:
-        out = ''
-    if not err and capture:
-        err = ''
     return (out, err)
 
 
 def subp(*args, **kwargs):
+    """Run a subprocess.
+
+    :param args: command to run in a list. [cmd, arg1, arg2...]
+    :param data: input to the command, made available on its stdin.
+    :param rcs:
+        a list of allowed return codes.  If subprocess exits with a value not
+        in this list, a ProcessExecutionError will be raised.  By default,
+        data is returned as a string.  See 'decode' parameter.
+    :param env: a dictionary for the command's environment.
+    :param capture:
+        boolean indicating if output should be captured.  If True, then stderr
+        and stdout will be returned.  If False, they will not be redirected.
+    :param shell: boolean indicating if this should be run with a shell.
+    :param logstring:
+        the command will be logged to DEBUG.  If it contains info that should
+        not be logged, then logstring will be logged instead.
+    :param decode:
+        if False, no decoding will be done and returned stdout and stderr will
+        be bytes.  Other allowed values are 'strict', 'ignore', and 'replace'.
+        These values are passed through to bytes().decode() as the 'errors'
+        parameter.  There is no support for decoding to other than utf-8.
+    :param retries:
+        a list of times to sleep in between retries.  After each failure
+        subp will sleep for N seconds and then try again.  A value of [1, 3]
+        means to run, sleep 1, run, sleep 3, run and then return exit code.
+    """
     retries = []
     if "retries" in kwargs:
         retries = kwargs.pop("retries")
@@ -452,6 +484,24 @@ def find_newer(src, files):
             os.path.exists(f) and os.stat(f).st_mtime > mtime]
 
 
+def set_unexecutable(fname, strict=False):
+    """set fname so it is not executable.
+
+    if strict, raise an exception if the file does not exist.
+    return the current mode, or None if no change is needed.
+    """
+    if not os.path.exists(fname):
+        if strict:
+            raise ValueError('%s: file does not exist' % fname)
+        return None
+    cur = stat.S_IMODE(os.lstat(fname).st_mode)
+    target = cur & (~stat.S_IEXEC & ~stat.S_IXGRP & ~stat.S_IXOTH)
+    if cur == target:
+        return None
+    os.chmod(fname, target)
+    return cur
+
+
 def apt_update(target=None, env=None, force=False, comment=None,
                retries=None):
 
@@ -483,6 +533,8 @@ def apt_update(target=None, env=None, force=False, comment=None,
         if len(find_newer(marker, listfiles)) == 0:
             return
 
+    restore_perms = []
+
     abs_tmpdir = tempfile.mkdtemp(dir=os.path.join(target, 'tmp'))
     try:
         abs_slist = abs_tmpdir + "/sources.list"
@@ -490,6 +542,13 @@ def apt_update(target=None, env=None, force=False, comment=None,
         ch_tmpdir = "/tmp/" + os.path.basename(abs_tmpdir)
         ch_slist = ch_tmpdir + "/sources.list"
         ch_slistd = ch_tmpdir + "/sources.list.d"
+
+        # this file gets executed on apt-get update sometimes. (LP: #1527710)
+        motd_update = os.path.join(
+            target, "usr/lib/update-notifier/update-motd-updates-available")
+        pmode = set_unexecutable(motd_update)
+        if pmode is not None:
+            restore_perms.append((motd_update, pmode),)
 
         # create tmpdir/sources.list with all lines other than deb-src
         # avoid apt complaining by using existing and empty dir for sourceparts
@@ -514,6 +573,8 @@ def apt_update(target=None, env=None, force=False, comment=None,
         with RunInChroot(target, allow_daemons=True) as inchroot:
             inchroot(update_cmd, env=env, retries=retries)
     finally:
+        for fname, perms in restore_perms:
+            os.chmod(fname, perms)
         if abs_tmpdir:
             shutil.rmtree(abs_tmpdir)
 

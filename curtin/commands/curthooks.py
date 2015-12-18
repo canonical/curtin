@@ -57,7 +57,12 @@ KERNEL_MAPPING = {
         '3.16.0': '-lts-utopic',
         '3.19.0': '-lts-vivid',
         '4.2.0': '-lts-wily',
+        '4.4.0': '-lts-xenial',
     },
+    'xenial': {
+        '4.3.0': '',  # development release has 4.3, release will have 4.4
+        '4.4.0': '',
+    }
 }
 
 
