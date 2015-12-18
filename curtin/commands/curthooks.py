@@ -312,6 +312,10 @@ def setup_grub(cfg, target):
         if instdevs is None:
             LOG.debug("grub installation disabled by config")
     else:
+        # If there were no install_devices found then we try to do the right
+        # thing.  That right thing is basically installing on all block
+        # devices that are mounted.  On powerpc, though it means finding PrEP
+        # partitions.
         devs = block.get_devices_for_mp(target)
         blockdevs = set()
         for maybepart in devs:
