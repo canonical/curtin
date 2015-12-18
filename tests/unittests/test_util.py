@@ -1,6 +1,7 @@
 from unittest import TestCase
 import mock
 import os
+import stat
 import shutil
 import tempfile
 
@@ -235,5 +236,50 @@ class TestHuman2Bytes(TestCase):
 
     def test_GB_equals_G(self):
         self.assertEqual(util.human2bytes("3GB"), util.human2bytes("3G"))
+
+
+class TestSetUnExecutable(TestCase):
+    tmpf = None
+    tmpd = None
+
+    def tearDown(self):
+        if self.tmpf:
+            if os.path.exists(self.tmpf):
+                os.unlink(self.tmpf)
+            self.tmpf = None
+        if self.tmpd:
+            shutil.rmtree(self.tmpd)
+            self.tmpd = None
+
+    def tempfile(self, data=None):
+        fp, self.tmpf = tempfile.mkstemp()
+        if data:
+            fp.write(data)
+        os.close(fp)
+        return self.tmpf
+
+    def test_change_needed_returns_original_mode(self):
+        tmpf = self.tempfile()
+        os.chmod(tmpf, 0o755)
+        ret = util.set_unexecutable(tmpf)
+        self.assertEqual(ret, 0o0755)
+
+    def test_no_change_needed_returns_none(self):
+        tmpf = self.tempfile()
+        os.chmod(tmpf, 0o600)
+        ret = util.set_unexecutable(tmpf)
+        self.assertEqual(ret, None)
+
+    def test_change_does_as_expected(self):
+        tmpf = self.tempfile()
+        os.chmod(tmpf, 0o755)
+        ret = util.set_unexecutable(tmpf)
+        self.assertEqual(ret, 0o0755)
+        self.assertEqual(stat.S_IMODE(os.stat(tmpf).st_mode), 0o0644)
+
+    def test_strict_no_exists_raises_exception(self):
+        self.tmpd = tempfile.mkdtemp()
+        bogus = os.path.join(self.tmpd, 'bogus')
+        self.assertRaises(ValueError, util.set_unexecutable, bogus, True)
 
 # vi: ts=4 expandtab syntax=python
