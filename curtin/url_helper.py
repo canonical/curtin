@@ -240,6 +240,7 @@ class OauthUrlHelper(object):
 
 def _oauth_headers_none(url, consumer_key, token_key, token_secret,
                         consumer_secret, clockskew):
+    """oauth_headers implementation when no oauth is available"""
     if not any(token_key, token_secret, consumer_key):
         return {}
     raise ValueError("oauth_headers requested, but no oauth library "
@@ -248,7 +249,7 @@ def _oauth_headers_none(url, consumer_key, token_key, token_secret,
 
 def _oauth_headers_oauth(url, consumer_key, token_key, token_secret,
                          consumer_secret, clockskew=0):
-    """Build OAuth headers using given credentials."""
+    """Build OAuth headers with oauth using given credentials."""
     consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
     token = oauth.OAuthToken(token_key, token_secret)
 
@@ -271,7 +272,7 @@ def _oauth_headers_oauth(url, consumer_key, token_key, token_secret,
 
 def _oauth_headers_oauthlib(url, consumer_key, token_key, token_secret,
                             consumer_secret, clockskew=0):
-    """Build OAuth headers using given credentials."""
+    """Build OAuth headers with oauthlib using given credentials."""
     if clockskew is None:
         clockskew = 0
     timestamp = int(time.time()) + clockskew
