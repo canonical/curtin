@@ -282,15 +282,26 @@ def get_installed_packages(target=None):
 
 def setup_grub(cfg, target):
     # target is the path to the mounted filesystem
-    from curtin.commands.block_meta import extract_storage_ordered_dict, get_path_to_storage_volume
+
+    # FIXME: these methods need moving to curtin.block
+    # and using them from there rather than commands.block_meta
+    from curtin.commands.block_meta import (extract_storage_ordered_dict,
+                                            get_path_to_storage_volume)
+
     grubcfg = cfg.get('grub', {})
 
     # copy legacy top level name
     if 'grub_install_devices' in cfg and 'install_devices' not in grubcfg:
         grubcfg['install_devices'] = cfg['grub_install_devices']
 
+    # if there is storage config, look for devices tagged with 'grub_device'
+    storage_cfg_odict = None
     try:
         storage_cfg_odict = extract_storage_ordered_dict(cfg)
+    except ValueError as e:
+        pass
+
+    if storage_cfg_odict:
         storage_grub_devices = []
         for item_id, item in storage_cfg_odict.items():
             if not item.get('grub_device'):
@@ -300,9 +311,6 @@ def setup_grub(cfg, target):
                 get_path_to_storage_volume(item_id, storage_cfg_odict))
         if len(storage_grub_devices) > 0:
             grubcfg['install_devices'] = storage_grub_devices
-
-    except ValueError as e:
-        pass
 
     LOG.debug("install_devices: %s", grubcfg['install_devices'])
     if 'install_devices' in grubcfg:
