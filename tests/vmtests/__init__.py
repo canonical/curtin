@@ -32,6 +32,8 @@ DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
 INSTALL_PASS_MSG = "Installation finished. No error reported."
 
+DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
+
 _TOPDIR = None
 
 
@@ -363,9 +365,10 @@ class VMBaseClass(object):
         netdevs = []
         if len(macs) > 0:
             for mac in macs:
-                netdevs.extend(["--netdev=user,mac={}".format(mac)])
+                netdevs.extend(["--netdev=" + DEFAULT_BRIDGE +
+                                ",mac={}".format(mac)])
         else:
-            netdevs.extend(["--netdev=user"])
+            netdevs.extend(["--netdev=" + DEFAULT_BRIDGE])
 
         # build disk arguments
         extra_disks = []
