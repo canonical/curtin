@@ -596,27 +596,61 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         with self.assertRaises(ValueError):
             mdadm.md_device_key_dev(devname)
 
-    @patch('curtin.block.mdadm.os')
-    def fixme_md_get_spares_list(self, mock_os, mock_open):
+    @patch('curtin.block.mdadm.os.path.exists')
+    @patch('curtin.block.mdadm.os.listdir')
+    def tests_md_get_spares_list(self, mock_listdir, mock_exists):
         mdname = '/dev/md0'
         devices = ['dev-vda', 'dev-vdb', 'dev-vdc']
-        #states = ['in-sync', 'in-sync', 'spare']
-        expected_calls = []
+        states = ['in-sync', 'in-sync', 'spare']
 
-        mock_os.listdir.return_value = devices
+        mock_exists.return_value = True
+        mock_listdir.return_value = devices
+        self.mock_util.load_file.side_effect = states
 
         sysfs_path = '/sys/class/block/md0/md/'
 
+        expected_calls = []
         for d in devices:
             expected_calls.append(call(os.path.join(sysfs_path, d, 'state')))
 
         spares = mdadm.md_get_spares_list(mdname)
-        mock_open.assert_has_calls(expected_calls)
+        self.mock_util.load_file.assert_has_calls(expected_calls)
         self.assertEqual(['/dev/vdc'], spares)
 
-    @patch('curtin.block.mdadm.os')
-    def fixme_md_get_devices_list(self, mock_os):
-        pass
+    @patch('curtin.block.mdadm.os.path.exists')
+    def tests_md_get_spares_list_nomd(self, mock_exists):
+        mdname = '/dev/md0'
+        mock_exists.return_value = False
+        with self.assertRaises(ValueError):
+            mdadm.md_get_spares_list(mdname)
+
+    @patch('curtin.block.mdadm.os.path.exists')
+    @patch('curtin.block.mdadm.os.listdir')
+    def tests_md_get_devices_list(self, mock_listdir, mock_exists):
+        mdname = '/dev/md0'
+        devices = ['dev-vda', 'dev-vdb', 'dev-vdc']
+        states = ['in-sync', 'in-sync', 'spare']
+
+        mock_exists.return_value = True
+        mock_listdir.return_value = devices
+        self.mock_util.load_file.side_effect = states
+
+        sysfs_path = '/sys/class/block/md0/md/'
+
+        expected_calls = []
+        for d in devices:
+            expected_calls.append(call(os.path.join(sysfs_path, d, 'state')))
+
+        devs = mdadm.md_get_devices_list(mdname)
+        self.mock_util.load_file.assert_has_calls(expected_calls)
+        self.assertEqual(sorted(['/dev/vda', '/dev/vdb']), sorted(devs))
+
+    @patch('curtin.block.mdadm.os.path.exists')
+    def tests_md_get_devices_list_nomd(self, mock_exists):
+        mdname = '/dev/md0'
+        mock_exists.return_value = False
+        with self.assertRaises(ValueError):
+            mdadm.md_get_devices_list(mdname)
 
     @patch('curtin.block.mdadm.os')
     def test_md_check_array_uuid(self, mock_os):

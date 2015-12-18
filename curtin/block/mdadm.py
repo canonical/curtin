@@ -459,7 +459,7 @@ def md_get_spares_list(devpath):
     spares = [dev_long(dev[4:])
               for dev in os.listdir(sysfs_md)
               if (dev.startswith('dev-') and
-                  open(os.path.join(sysfs_md, dev, 'state')).read().strip()
+                  util.load_file(os.path.join(sysfs_md, dev, 'state')).strip()
                   == 'spare')]
 
     return spares
@@ -473,7 +473,7 @@ def md_get_devices_list(devpath):
     devices = [dev_long(dev[4:])
                for dev in os.listdir(sysfs_md)
                if (dev.startswith('dev-') and
-                   open(os.path.join(sysfs_md, dev, 'state')).read().strip()
+                   util.load_file(os.path.join(sysfs_md, dev, 'state')).strip()
                    != 'spare')]
     return devices
 
