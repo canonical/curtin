@@ -687,9 +687,9 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         for rl in mdadm.VALID_RAID_LEVELS:
             self.assertTrue(mdadm.md_check_raidlevel(rl))
 
-    def test_md_check_raid_level(self):
+    def test_md_check_raid_level_bad(self):
         bogus = '27'
-        self.assertTrue(bogus not in  mdadm.VALID_RAID_LEVELS)
+        self.assertTrue(bogus not in mdadm.VALID_RAID_LEVELS)
         with self.assertRaises(ValueError):
             mdadm.md_check_raidlevel(bogus)
 
