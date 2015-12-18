@@ -514,7 +514,7 @@ def md_check_raidlevel(raidlevel):
     # Validate raidlevel against what curtin supports configuring
     if raidlevel not in VALID_RAID_LEVELS:
         err = ('Invalid raidlevel: ' + raidlevel +
-               ' Must be one of: ' + VALID_RAID_LEVELS)
+               ' Must be one of: ' + str(VALID_RAID_LEVELS))
         raise ValueError(err)
     return True
 
