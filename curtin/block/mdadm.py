@@ -86,12 +86,12 @@ ERROR_RAID_STATES = [
     'suspended',
 ]
 
-READABLE_RAID_STATES = [
+READONLY_RAID_STATES = [
     'readonly',
-    'read-auto',
 ]
 
-WRITABLE_RAID_STATES = [
+READWRITE_RAID_STATES = [
+    'read-auto',
     'clean',
     'active',
     'active-idle',
@@ -100,8 +100,8 @@ WRITABLE_RAID_STATES = [
 
 VALID_RAID_ARRAY_STATES = (
     ERROR_RAID_STATES +
-    READABLE_RAID_STATES +
-    WRITABLE_RAID_STATES
+    READONLY_RAID_STATES +
+    READWRITE_RAID_STATES
 )
 
 # need a on-import check of version and set the value for later reference
@@ -288,12 +288,15 @@ def md_minimum_devices(raidlevel):
     return -1
 
 
-def __md_check_array_state(md_devname, mode='WRITABLE'):
+def __md_check_array_state(md_devname, mode='READWRITE'):
     modes = {
-        'WRITABLE': WRITABLE_RAID_STATES,
-        'READABLE': READABLE_RAID_STATES,
+        'READWRITE': READWRITE_RAID_STATES,
+        'READONLY': READONLY_RAID_STATES,
         'ERROR': ERROR_RAID_STATES,
     }
+    if mode not in modes:
+        raise ValueError('Invalid Array State mode: ' + mode)
+
     array_state = md_sysfs_attr(md_devname, 'array_state')
     if array_state in modes[mode]:
         return True
@@ -301,12 +304,12 @@ def __md_check_array_state(md_devname, mode='WRITABLE'):
     return False
 
 
-def md_check_array_state_writable(md_devname):
-    return __md_check_array_state(md_devname, mode='WRITABLE')
+def md_check_array_state_rw(md_devname):
+    return __md_check_array_state(md_devname, mode='READWRITE')
 
 
-def md_check_array_state_readable(md_devname):
-    return __md_check_array_state(md_devname, mode='READABLE')
+def md_check_array_state_ro(md_devname):
+    return __md_check_array_state(md_devname, mode='READONLY')
 
 
 def md_check_array_state_error(md_devname):
@@ -372,10 +375,14 @@ def __mdadm_detail_to_dict(input):
 
 
 def md_device_key_role(devname):
+    if not devname:
+        raise ValueError('Missing parameter devname')
     return 'MD_DEVICE_' + dev_short(devname) + '_ROLE'
 
 
 def md_device_key_dev(devname):
+    if not devname:
+        raise ValueError('Missing parameter devname')
     return 'MD_DEVICE_' + dev_short(devname) + '_DEV'
 
 
@@ -532,7 +539,7 @@ def md_check_array_state(md_devname):
     # FIXME: also check degraded and sync_action
     # check array state
 
-    writable = md_check_array_state_writable(md_devname)
+    writable = md_check_array_state_rw(md_devname)
     degraded = int(md_sysfs_attr(md_devname, 'degraded'))
     sync_action = md_sysfs_attr(md_devname, 'sync_action')
 
@@ -616,35 +623,5 @@ def md_check(md_devname, raidlevel, devices=[], spares=[]):
     LOG.debug('RAID array OK: ' + md_devname)
     return True
 
-
-#if __name__ == '__main__':
-#
-#    #  --level=5 --raid-devices=3 /dev/vdc1 /dev/vdd1 /dev/vdg1 \
-#    #  --spare-devices=2 /dev/vde /dev/vdf
-#    md0 = {
-#        'devname': '/dev/md0',
-#        'raidlevel': 5,
-#        'devices': ['/dev/vdc1', '/dev/vdd1', '/dev/vdg1'],
-#        'spares': ['/dev/vde', '/dev/vdf']
-#    }
-#    md1 = {
-#        'devname': '/dev/md1',
-#        'raidlevel': 0,
-#        'devices': ['/dev/vdf', '/dev/vde'],
-#        'spares': None,
-#    }
-#    md2
-#    to_check = [md0]
-#
-#    for md in to_check:
-#        try:
-#            md_check(md['devname'], md['raidlevel'], md['devices'],
-#                     md['spares'])
-#        except ValueError as e:
-#            exc_type, exc_value, exc_traceback = sys.exc_info()
-#            traceback.print_exception(exc_type, exc_value, exc_traceback,
-#                                      limit=2, file=sys.stdout)
-#            print(e)
-#            print('FAIL: md array failed check: ' + str(md))
 
 # vi: ts=4 expandtab syntax=python

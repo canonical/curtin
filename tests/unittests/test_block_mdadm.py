@@ -2,6 +2,7 @@ from unittest import TestCase
 from mock import call, patch
 from curtin.block import dev_short
 from curtin.block import mdadm
+import os
 import subprocess
 
 from sys import version_info
@@ -538,5 +539,115 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
     def test_md_minimum_devices_invalid_rl(self):
         min_devs = mdadm.md_minimum_devices(27)
         self.assertEqual(min_devs, -1)
+
+    @patch('curtin.block.mdadm.md_sysfs_attr')
+    def test_md_check_array_state_rw(self, mock_attr):
+        mdname = '/dev/md0'
+        mock_attr.return_value = 'clean'
+        self.assertTrue(mdadm.md_check_array_state_rw(mdname))
+
+    @patch('curtin.block.mdadm.md_sysfs_attr')
+    def test_md_check_array_state_rw_false(self, mock_attr):
+        mdname = '/dev/md0'
+        mock_attr.return_value = 'inactive'
+        self.assertFalse(mdadm.md_check_array_state_rw(mdname))
+
+    @patch('curtin.block.mdadm.md_sysfs_attr')
+    def test_md_check_array_state_ro(self, mock_attr):
+        mdname = '/dev/md0'
+        mock_attr.return_value = 'readonly'
+        self.assertTrue(mdadm.md_check_array_state_ro(mdname))
+
+    @patch('curtin.block.mdadm.md_sysfs_attr')
+    def test_md_check_array_state_ro_false(self, mock_attr):
+        mdname = '/dev/md0'
+        mock_attr.return_value = 'inactive'
+        self.assertFalse(mdadm.md_check_array_state_ro(mdname))
+
+    @patch('curtin.block.mdadm.md_sysfs_attr')
+    def test_md_check_array_state_error(self, mock_attr):
+        mdname = '/dev/md0'
+        mock_attr.return_value = 'inactive'
+        self.assertTrue(mdadm.md_check_array_state_error(mdname))
+
+    @patch('curtin.block.mdadm.md_sysfs_attr')
+    def test_md_check_array_state_error_false(self, mock_attr):
+        mdname = '/dev/md0'
+        mock_attr.return_value = 'active'
+        self.assertFalse(mdadm.md_check_array_state_error(mdname))
+
+    def test_md_device_key_role(self):
+        devname = '/dev/vda'
+        rolekey = mdadm.md_device_key_role(devname)
+        self.assertEqual('MD_DEVICE_vda_ROLE', rolekey)
+
+    def test_md_device_key_role_no_dev(self):
+        devname = None
+        with self.assertRaises(ValueError):
+            mdadm.md_device_key_role(devname)
+
+    def test_md_device_key_dev(self):
+        devname = '/dev/vda'
+        devkey = mdadm.md_device_key_dev(devname)
+        self.assertEqual('MD_DEVICE_vda_DEV', devkey)
+
+    def test_md_device_key_dev_no_dev(self):
+        devname = None
+        with self.assertRaises(ValueError):
+            mdadm.md_device_key_dev(devname)
+
+    @patch('curtin.block.mdadm.os')
+    def fixme_md_get_spares_list(self, mock_os, mock_open):
+        mdname = '/dev/md0'
+        devices = ['dev-vda', 'dev-vdb', 'dev-vdc']
+        #states = ['in-sync', 'in-sync', 'spare']
+        expected_calls = []
+
+        mock_os.listdir.return_value = devices
+
+        sysfs_path = '/sys/class/block/md0/md/'
+
+        for d in devices:
+            expected_calls.append(call(os.path.join(sysfs_path, d, 'state')))
+
+        spares = mdadm.md_get_spares_list(mdname)
+        mock_open.assert_has_calls(expected_calls)
+        self.assertEqual(['/dev/vdc'], spares)
+
+    @patch('curtin.block.mdadm.os')
+    def fixme_md_get_devices_list(self, mock_os):
+        pass
+
+    @patch('curtin.block.mdadm.os')
+    def test_md_check_array_uuid(self, mock_os):
+        devname = '/dev/md0'
+        md_uuid = '93a73e10:427f280b:b7076c02:204b8f7a'
+        mock_os.path.realpath.return_value = devname
+        rv = mdadm.md_check_array_uuid(devname, md_uuid)
+        self.assertTrue(rv)
+
+    @patch('curtin.block.mdadm.os')
+    def test_md_check_array_uuid_mismatch(self, mock_os):
+        devname = '/dev/md0'
+        md_uuid = '93a73e10:427f280b:b7076c02:204b8f7a'
+        mock_os.path.realpath.return_value = '/dev/md1'
+
+        with self.assertRaises(ValueError):
+            mdadm.md_check_array_uuid(devname, md_uuid)
+
+    @patch('curtin.block.mdadm.mdadm_query_detail')
+    def test_md_get_uuid(self, mock_query):
+        mdname = '/dev/md0'
+        md_uuid = '93a73e10:427f280b:b7076c02:204b8f7a'
+        mock_query.return_value = {'MD_UUID': md_uuid}
+        uuid = mdadm.md_get_uuid(mdname)
+        self.assertEqual(md_uuid, uuid)
+
+    @patch('curtin.block.mdadm.mdadm_query_detail')
+    def test_md_get_uuid_dev_none(self, mock_query):
+        mdname = None
+        with self.assertRaises(ValueError):
+            mdadm.md_get_uuid(mdname)
+
 
 # vi: ts=4 expandtab syntax=python
