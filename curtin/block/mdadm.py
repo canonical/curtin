@@ -536,7 +536,6 @@ def md_block_until_in_sync(md_devname):
 
 
 def md_check_array_state(md_devname):
-    # FIXME: also check degraded and sync_action
     # check array state
 
     writable = md_check_array_state_rw(md_devname)

@@ -693,4 +693,48 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         with self.assertRaises(ValueError):
             mdadm.md_check_raidlevel(bogus)
 
+    @patch('curtin.block.mdadm.md_sysfs_attr')
+    def test_md_check_array_state(self, mock_attr):
+        mdname = '/dev/md0'
+        mock_attr.side_effect = [
+            'clean',  # array_state
+            '0',  # degraded
+            'idle',  # sync_action
+        ]
+        self.assertTrue(mdadm.md_check_array_state(mdname))
+
+    @patch('curtin.block.mdadm.md_sysfs_attr')
+    def test_md_check_array_state_norw(self, mock_attr):
+        mdname = '/dev/md0'
+        mock_attr.side_effect = [
+            'suspended',  # array_state
+            '0',  # degraded
+            'idle',  # sync_action
+        ]
+        with self.assertRaises(ValueError):
+            mdadm.md_check_array_state(mdname)
+
+    @patch('curtin.block.mdadm.md_sysfs_attr')
+    def test_md_check_array_state_degraded(self, mock_attr):
+        mdname = '/dev/md0'
+        mock_attr.side_effect = [
+            'clean',  # array_state
+            '1',  # degraded
+            'idle',  # sync_action
+        ]
+        with self.assertRaises(ValueError):
+            mdadm.md_check_array_state(mdname)
+
+    @patch('curtin.block.mdadm.md_sysfs_attr')
+    def test_md_check_array_state_sync(self, mock_attr):
+        mdname = '/dev/md0'
+        mock_attr.side_effect = [
+            'clean',  # array_state
+            '0',  # degraded
+            'recovery',  # sync_action
+        ]
+        with self.assertRaises(ValueError):
+            mdadm.md_check_array_state(mdname)
+
+
 # vi: ts=4 expandtab syntax=python
