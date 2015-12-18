@@ -1,14 +1,11 @@
 from . import VMBaseClass
-from unittest import TestCase
+from .releases import base_vm_classes as relbase
 
 import textwrap
 import os
 
 
-class TestMdadmAbs(VMBaseClass, TestCase):
-    __test__ = False
-    repo = "maas-daily"
-    arch = "amd64"
+class TestMdadmAbs(VMBaseClass):
     install_timeout = 600
     boot_timeout = 100
     interactive = False
@@ -71,20 +68,17 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
 
 
-class WilyTestRaid5Bcache(TestMdadmBcacheAbs):
+class TrustyTestRaid5Bcache(relbase.trusty, TestMdadmBcacheAbs):
     __test__ = True
-    release = "wily"
-
-
-class VividTestRaid5Bcache(TestMdadmBcacheAbs):
-    __test__ = True
-    release = "vivid"
-
-
-class TrustyTestRaid5Bcache(TestMdadmBcacheAbs):
-    __test__ = True
-    release = "trusty"
     # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
     # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
     # when dname works on trusty, then we need to re-enable by removing line.
     disk_to_check = {'md0': 0}
+
+
+class VividTestRaid5Bcache(relbase.vivid, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class WilyTestRaid5Bcache(relbase.wily, TestMdadmBcacheAbs):
+    __test__ = True

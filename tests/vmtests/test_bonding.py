@@ -1,5 +1,5 @@
 from . import VMBaseClass, logger
-from unittest import TestCase
+from .releases import base_vm_classes as relbase
 
 import ipaddress
 import os
@@ -47,7 +47,6 @@ def ifconfig_to_dict(ifconfig):
 
 
 class TestNetworkAbs(VMBaseClass):
-    __test__ = False
     interactive = False
     conf_file = "examples/tests/bonding_network.yaml"
     install_timeout = 600
@@ -205,22 +204,13 @@ class TestNetworkAbs(VMBaseClass):
                 self.assertEqual(gw_ip, gw)
 
 
-class TrustyTestBonding(TestNetworkAbs, TestCase):
+class TrustyTestBonding(relbase.trusty, TestNetworkAbs):
     __test__ = False
-    repo = "maas-daily"
-    release = "trusty"
-    arch = "amd64"
 
 
-class WilyTestBonding(TestNetworkAbs, TestCase):
+class VividTestBonding(relbase.vivid, TestNetworkAbs):
     __test__ = True
-    repo = "maas-daily"
-    release = "wily"
-    arch = "amd64"
 
 
-class VividTestBonding(TestNetworkAbs, TestCase):
+class WilyTestBonding(relbase.wily, TestNetworkAbs):
     __test__ = True
-    repo = "maas-daily"
-    release = "vivid"
-    arch = "amd64"

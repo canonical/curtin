@@ -18,6 +18,7 @@ import curtin.net as curtin_net
 import curtin.util as util
 
 from .helpers import check_call, TimeoutExpired
+from unittest import TestCase
 
 IMAGE_SRC_URL = os.environ.get(
     'IMAGE_SRC_URL',
@@ -289,7 +290,8 @@ class TempDir:
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
 
-class VMBaseClass(object):
+class VMBaseClass(TestCase):
+    __test__ = False
     disk_to_check = {}
     fstab_expected = {}
     extra_kern_args = None
