@@ -15,6 +15,7 @@ import textwrap
 import time
 import urllib
 import curtin.net as curtin_net
+import curtin.util as util
 
 from .helpers import check_call, TimeoutExpired
 
@@ -757,8 +758,10 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
         'power_state': {'mode': 'poweroff'},
     }
 
+    ssh_keys = util.subp(['tools/ssh-list-keys', 'cloud-config'], capture=True)
     parts = [{'type': 'text/cloud-config',
-              'content': json.dumps(base_cloudconfig, indent=1)}]
+              'content': json.dumps(base_cloudconfig, indent=1)},
+             {'type': 'text/cloud-config', 'content': ssh_keys}]
 
     output_dir_macro = 'OUTPUT_COLLECT_D'
     output_dir = '/mnt/output'

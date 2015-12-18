@@ -465,6 +465,8 @@ main() {
         printf '#cloud-config\napt_proxy: "%s"\n' "$tmp" > "${TEMP_D}/cc-proxy"
         ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-proxy"
     fi
+    ssh-keys-list cloud-config > "${TEMP_D}/cc-ssh-keys" &&
+        ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-ssh-keys"
 
     write_metadata > "$mdata" || { error "failed to write meta-data"; return 1; }
     write_userdata "${TEMP_D}/install-cmd" "${ccfiles[@]}" > "$udata"  ||
