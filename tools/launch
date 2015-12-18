@@ -7,6 +7,7 @@ XKVM_PID=""
 HTTP_PORT_TRIES=${HTTP_PORT_TRIES:-5}
 HTTP_PORT_MIN=${HTTP_PORT_MIN:-12000}
 HTTP_PORT_MAX=${HTTP_PORT_MAX:-65500}
+MY_D=$(dirname "$0")
 
 error() { echo "$@" 1>&2; }
 
@@ -148,9 +149,7 @@ EOF
 
 xkvm_check() {
     command -v xkvm >/dev/null 2>&1 && return
-    local myd
-    myd=$(dirname "$0")
-    [ -x "$myd/xkvm" ] && PATH="$myd:$PATH" && return
+    [ -x "$MY_D/xkvm" ] && PATH="$MY_D:$PATH" && return
     cat 1>&2 <<EOF
 Unable to find 'xkvm' in PATH, should be in curtin's tools/ dir
 EOF
@@ -316,6 +315,7 @@ main() {
     shift
     cmdargs=( "$@" )
 
+    xkvm_check || return
     TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
         { error "failed to make tempdir"; return 1; }
 
@@ -465,8 +465,11 @@ main() {
         printf '#cloud-config\napt_proxy: "%s"\n' "$tmp" > "${TEMP_D}/cc-proxy"
         ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-proxy"
     fi
-    ssh-keys-list cloud-config > "${TEMP_D}/cc-ssh-keys" &&
-        ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-ssh-keys"
+
+    if command -v ssh-keys-list >/dev/null; then
+        ssh-keys-list cloud-config > "${TEMP_D}/cc-ssh-keys" &&
+            ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-ssh-keys"
+    fi
 
     write_metadata > "$mdata" || { error "failed to write meta-data"; return 1; }
     write_userdata "${TEMP_D}/install-cmd" "${ccfiles[@]}" > "$udata"  ||
@@ -507,7 +510,6 @@ main() {
     done
 
     local cmd
-    xkvm_check || return
     cmd=( 
         xkvm "${pt[@]}" "${netargs[@]}" -- 
         "${bios_opts[@]}"
