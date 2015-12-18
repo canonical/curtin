@@ -248,7 +248,7 @@ class TestSetUnExecutable(TestCase):
                 os.unlink(self.tmpf)
             self.tmpf = None
         if self.tmpd:
-            shutil.rmtree(tmpd)
+            shutil.rmtree(self.tmpd)
             self.tmpd = None
 
     def tempfile(self, data=None):
@@ -263,7 +263,7 @@ class TestSetUnExecutable(TestCase):
         os.chmod(tmpf, 0o755)
         ret = util.set_unexecutable(tmpf)
         self.assertEqual(ret, 0o0755)
-        
+
     def test_no_change_needed_returns_none(self):
         tmpf = self.tempfile()
         os.chmod(tmpf, 0o600)
@@ -276,13 +276,10 @@ class TestSetUnExecutable(TestCase):
         ret = util.set_unexecutable(tmpf)
         self.assertEqual(ret, 0o0755)
         self.assertEqual(stat.S_IMODE(os.stat(tmpf).st_mode), 0o0644)
-        
+
     def test_strict_no_exists_raises_exception(self):
-        try:
-            tmpd = tempfile.mkdtemp()
-            bogus = os.path.join(tmpd, 'bogus')
-            self.assertRaises(ValueError, util.set_unexecutable, bogus, True)
-        finally:
-            shutil.rmtree(tmpd)
+        self.tmpd = tempfile.mkdtemp()
+        bogus = os.path.join(self.tmpd, 'bogus')
+        self.assertRaises(ValueError, util.set_unexecutable, bogus, True)
 
 # vi: ts=4 expandtab syntax=python
