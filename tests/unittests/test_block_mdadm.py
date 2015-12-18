@@ -736,5 +736,65 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         with self.assertRaises(ValueError):
             mdadm.md_check_array_state(mdname)
 
+    @patch('curtin.block.mdadm.md_check_array_uuid')
+    @patch('curtin.block.mdadm.md_get_uuid')
+    def test_md_check_uuid(self, mock_guuid, mock_ckuuid):
+        mdname = '/dev/md0'
+        mock_guuid.return_value = '93a73e10:427f280b:b7076c02:204b8f7a'
+        mock_ckuuid.return_value = True
+
+        rv = mdadm.md_check_uuid(mdname)
+        self.assertTrue(rv)
+
+    @patch('curtin.block.mdadm.md_check_array_uuid')
+    @patch('curtin.block.mdadm.md_get_uuid')
+    def test_md_check_uuid_nouuid(self, mock_guuid, mock_ckuuid):
+        mdname = '/dev/md0'
+        mock_guuid.return_value = None
+        with self.assertRaises(ValueError):
+            mdadm.md_check_uuid(mdname)
+        
+    @patch('curtin.block.mdadm.md_get_devices_list')
+    def test_md_check_devices(self, mock_devlist):
+        mdname = '/dev/md0'
+        devices = ['/dev/vdc', '/dev/vdd']
+
+        mock_devlist.return_value = devices
+        rv = mdadm.md_check_devices(mdname, devices)
+        self.assertEqual(rv, None)
+
+    @patch('curtin.block.mdadm.md_get_devices_list')
+    def test_md_check_devices_wrong_devs(self, mock_devlist):
+        mdname = '/dev/md0'
+        devices = ['/dev/vdc', '/dev/vdd']
+
+        mock_devlist.return_value = ['/dev/sda']
+        with self.assertRaises(ValueError):
+            mdadm.md_check_devices(mdname, devices)
+
+    def test_md_check_devices_no_devs(self):
+        mdname = '/dev/md0'
+        devices = []
+
+        with self.assertRaises(ValueError):
+            mdadm.md_check_devices(mdname, devices)
+
+    @patch('curtin.block.mdadm.md_get_spares_list')
+    def test_md_check_spares(self, mock_devlist):
+        mdname = '/dev/md0'
+        spares = ['/dev/vdc', '/dev/vdd']
+
+        mock_devlist.return_value = spares
+        rv = mdadm.md_check_spares(mdname, spares)
+        self.assertEqual(rv, None)
+
+    @patch('curtin.block.mdadm.md_get_spares_list')
+    def test_md_check_devices_wrong_devs(self, mock_devlist):
+        mdname = '/dev/md0'
+        spares = ['/dev/vdc', '/dev/vdd']
+
+        mock_devlist.return_value = ['/dev/sda']
+        with self.assertRaises(ValueError):
+            mdadm.md_check_spares(mdname, spares)
 
 # vi: ts=4 expandtab syntax=python
