@@ -1,6 +1,7 @@
 from unittest import TestCase
 import mock
 import os
+import stat
 import shutil
 import tempfile
 
@@ -141,12 +142,144 @@ class TestLsbRelease(TestCase):
 
 class TestSubp(TestCase):
 
+    stdin2err = ['bash', '-c', 'cat >&2']
+    stdin2out = ['cat']
+    utf8_invalid = b'ab\xaadef'
+    utf8_valid = b'start \xc3\xa9 end'
+    utf8_valid_2 = b'd\xc3\xa9j\xc8\xa7'
+
+    def printf_cmd(self, *args):
+        # bash's printf supports \xaa.  So does /usr/bin/printf
+        # but by using bash, we remove dependency on another program.
+        return(['bash', '-c', 'printf "$@"', 'printf'] + list(args))
+
     def test_subp_handles_utf8(self):
         # The given bytes contain utf-8 accented characters as seen in e.g.
         # the "deja dup" package in Ubuntu.
-        input_bytes = b'd\xc3\xa9j\xc8\xa7'
-        cmd = ['echo', '-n', input_bytes]
+        cmd = self.printf_cmd(self.utf8_valid_2)
         (out, _err) = util.subp(cmd, capture=True)
-        self.assertEqual(out, input_bytes.decode('utf-8'))
+        self.assertEqual(out, self.utf8_valid_2.decode('utf-8'))
+
+    def test_subp_respects_decode_false(self):
+        (out, err) = util.subp(self.stdin2out, capture=True, decode=False,
+                               data=self.utf8_valid)
+        self.assertTrue(isinstance(out, bytes))
+        self.assertTrue(isinstance(err, bytes))
+        self.assertEqual(out, self.utf8_valid)
+
+    def test_subp_decode_ignore(self):
+        # this executes a string that writes invalid utf-8 to stdout
+        (out, _err) = util.subp(self.printf_cmd('abc\\xaadef'),
+                                capture=True, decode='ignore')
+        self.assertEqual(out, 'abcdef')
+
+    def test_subp_decode_strict_valid_utf8(self):
+        (out, _err) = util.subp(self.stdin2out, capture=True,
+                                decode='strict', data=self.utf8_valid)
+        self.assertEqual(out, self.utf8_valid.decode('utf-8'))
+
+    def test_subp_decode_invalid_utf8_replaces(self):
+        (out, _err) = util.subp(self.stdin2out, capture=True,
+                                data=self.utf8_invalid)
+        expected = self.utf8_invalid.decode('utf-8', errors='replace')
+        self.assertEqual(out, expected)
+
+    def test_subp_decode_strict_raises(self):
+        args = []
+        kwargs = {'args': self.stdin2out, 'capture': True,
+                  'decode': 'strict', 'data': self.utf8_invalid}
+        self.assertRaises(UnicodeDecodeError, util.subp, *args, **kwargs)
+
+    def test_subp_capture_stderr(self):
+        data = b'hello world'
+        (out, err) = util.subp(self.stdin2err, capture=True,
+                               decode=False, data=data)
+        self.assertEqual(err, data)
+        self.assertEqual(out, b'')
+
+    def test_returns_none_if_no_capture(self):
+        (out, err) = util.subp(self.stdin2out, data=b'')
+        self.assertEqual(err, None)
+        self.assertEqual(out, None)
+
+
+class TestHuman2Bytes(TestCase):
+    GB = 1024 * 1024 * 1024
+    MB = 1024 * 1024
+
+    def test_float_equal_int_is_allowed(self):
+        self.assertEqual(1000, util.human2bytes(1000.0))
+
+    def test_float_in_string_nonequal_int_raises_type_error(self):
+        self.assertRaises(ValueError, util.human2bytes, "1000.4B")
+
+    def test_float_nonequal_int_raises_type_error(self):
+        self.assertRaises(ValueError, util.human2bytes, 1000.4)
+
+    def test_int_gets_int(self):
+        self.assertEqual(100, util.human2bytes(100))
+
+    def test_no_suffix_is_bytes(self):
+        self.assertEqual(100, util.human2bytes("100"))
+
+    def test_suffix_M(self):
+        self.assertEqual(100 * self.MB, util.human2bytes("100M"))
+
+    def test_suffix_B(self):
+        self.assertEqual(100, util.human2bytes("100B"))
+
+    def test_suffix_G(self):
+        self.assertEqual(int(10 * self.GB), util.human2bytes("10G"))
+
+    def test_float_in_string(self):
+        self.assertEqual(int(3.5 * self.GB), util.human2bytes("3.5G"))
+
+    def test_GB_equals_G(self):
+        self.assertEqual(util.human2bytes("3GB"), util.human2bytes("3G"))
+
+
+class TestSetUnExecutable(TestCase):
+    tmpf = None
+    tmpd = None
+
+    def tearDown(self):
+        if self.tmpf:
+            if os.path.exists(self.tmpf):
+                os.unlink(self.tmpf)
+            self.tmpf = None
+        if self.tmpd:
+            shutil.rmtree(self.tmpd)
+            self.tmpd = None
+
+    def tempfile(self, data=None):
+        fp, self.tmpf = tempfile.mkstemp()
+        if data:
+            fp.write(data)
+        os.close(fp)
+        return self.tmpf
+
+    def test_change_needed_returns_original_mode(self):
+        tmpf = self.tempfile()
+        os.chmod(tmpf, 0o755)
+        ret = util.set_unexecutable(tmpf)
+        self.assertEqual(ret, 0o0755)
+
+    def test_no_change_needed_returns_none(self):
+        tmpf = self.tempfile()
+        os.chmod(tmpf, 0o600)
+        ret = util.set_unexecutable(tmpf)
+        self.assertEqual(ret, None)
+
+    def test_change_does_as_expected(self):
+        tmpf = self.tempfile()
+        os.chmod(tmpf, 0o755)
+        ret = util.set_unexecutable(tmpf)
+        self.assertEqual(ret, 0o0755)
+        self.assertEqual(stat.S_IMODE(os.stat(tmpf).st_mode), 0o0644)
+
+    def test_strict_no_exists_raises_exception(self):
+        self.tmpd = tempfile.mkdtemp()
+        bogus = os.path.join(self.tmpd, 'bogus')
+        self.assertRaises(ValueError, util.set_unexecutable, bogus, True)
 
 # vi: ts=4 expandtab syntax=python

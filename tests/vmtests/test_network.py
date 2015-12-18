@@ -1,5 +1,5 @@
 from . import VMBaseClass, logger
-from unittest import TestCase
+from .releases import base_vm_classes as relbase
 
 import ipaddress
 import os
@@ -47,7 +47,6 @@ def ifconfig_to_dict(ifconfig):
 
 
 class TestNetworkAbs(VMBaseClass):
-    __test__ = False
     interactive = False
     conf_file = "examples/tests/basic_network.yaml"
     install_timeout = 600
@@ -236,22 +235,22 @@ class TestNetworkAbs(VMBaseClass):
                 self.assertEqual(gw_ip, gw)
 
 
-class TrustyTestNetwork(TestNetworkAbs, TestCase):
+class TrustyTestNetwork(relbase.trusty, TestNetworkAbs):
     __test__ = True
-    repo = "maas-daily"
-    release = "trusty"
-    arch = "amd64"
 
 
-class WilyTestNetwork(TestNetworkAbs, TestCase):
+class VividTestNetwork(relbase.vivid, TestNetworkAbs):
     __test__ = True
-    repo = "maas-daily"
-    release = "wily"
-    arch = "amd64"
 
 
-class VividTestNetwork(TestNetworkAbs, TestCase):
+class WilyTestNetwork(relbase.wily, TestNetworkAbs):
     __test__ = True
-    repo = "maas-daily"
-    release = "vivid"
-    arch = "amd64"
+
+
+class XenialTestNetwork(relbase.xenial, TestNetworkAbs):
+    __test__ = True
+    # FIXME: net.ifnames=0 should not be required as image should
+    #        eventually address this internally.  Here we do not carry
+    #        over the net.ifnames to the installed system via '---' as the net
+    #        config should take care of that.
+    extra_kern_args = "net.ifnames=0"
