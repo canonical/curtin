@@ -135,6 +135,12 @@ Some environment variables affect the running of vmtest
     if set to true, each run will attempt a sync of images.
     If you want to make sure images are always up to date, then set to true.
 
+  * CURTIN_VMTEST_BRIDGE: default 'user'
+    the network devices will be attached to this bridge.  The default is
+    'user', which means to use qemu user mode networking.  Set it to
+    'virbr0' or 'lxcbr0' to use those bridges and then be able to ssh
+    in directly.
+
 Environment 'boolean' values:
    For boolean environment variables the value is considered True
    if it is any value other than case insensitive 'false', '' or "0"

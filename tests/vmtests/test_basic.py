@@ -1,8 +1,7 @@
 from . import (
     VMBaseClass,
     get_apt_proxy)
-
-from unittest import TestCase
+from .releases import base_vm_classes as relbase
 
 import os
 import re
@@ -10,7 +9,6 @@ import textwrap
 
 
 class TestBasicAbs(VMBaseClass):
-    __test__ = False
     interactive = False
     conf_file = "examples/tests/basic.yaml"
     install_timeout = 600
@@ -119,27 +117,9 @@ class TestBasicAbs(VMBaseClass):
             self.assertEqual("", apt_proxy_found)
 
 
-class TrustyTestBasic(TestBasicAbs, TestCase):
+class PreciseTestBasic(relbase.precise, TestBasicAbs):
     __test__ = True
-    repo = "maas-daily"
-    release = "trusty"
-    arch = "amd64"
 
-    # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
-    # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
-
-    def test_ptable(self):
-        print("test_ptable does not work for Trusty")
-
-
-class PreciseTestBasic(TestBasicAbs, TestCase):
-    __test__ = True
-    repo = "maas-daily"
-    release = "precise"
-    arch = "amd64"
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda > blkid_output_vda
@@ -194,27 +174,26 @@ class PreciseTestBasic(TestBasicAbs, TestCase):
         print("test_dname does not work for Precise")
 
 
-class VividTestBasic(TestBasicAbs, TestCase):
+class TrustyTestBasic(relbase.trusty, TestBasicAbs):
     __test__ = True
-    repo = "maas-daily"
-    release = "vivid"
-    arch = "amd64"
+
+    # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
+    # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
+    # when dname works on trusty, then we need to re-enable by removing line.
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
+
+    def test_ptable(self):
+        print("test_ptable does not work for Trusty")
 
 
-class WilyTestBasic(TestBasicAbs, TestCase):
+class VividTestBasic(relbase.vivid, TestBasicAbs):
     __test__ = True
-    repo = "maas-daily"
-    release = "wily"
-    arch = "amd64"
 
 
-class XenialTestBasic(TestBasicAbs, TestCase):
+class WilyTestBasic(relbase.wily, TestBasicAbs):
     __test__ = True
-    repo = "maas-daily"
-    release = "xenial"
-    arch = "amd64"
-    # FIXME: net.ifnames=0 should not be required as image should
-    #        eventually address this internally.  This test does not
-    #        write the udev rules, so we need to copy over the setting
-    #        to the target environment with '---'
-    extra_kern_args = "--- net.ifnames=0"
+
+
+class XenialTestBasic(relbase.xenial, TestBasicAbs):
+    __test__ = True
