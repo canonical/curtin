@@ -797,4 +797,92 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         with self.assertRaises(ValueError):
             mdadm.md_check_spares(mdname, spares)
 
+    @patch('curtin.block.mdadm.mdadm_examine')
+    @patch('curtin.block.mdadm.mdadm_query_detail')
+    @patch('curtin.block.mdadm.md_get_uuid')
+    def test_md_check_array_membership(self, mock_uuid, mock_query,
+                                       mock_examine):
+        mdname = '/dev/md0'
+        devices = ['/dev/vda', '/dev/vdb', '/dev/vdc', '/dev/vdd']
+        md_uuid = '93a73e10:427f280b:b7076c02:204b8f7a'
+        md_dict = {'MD_UUID': md_uuid}
+        mock_query.return_value = md_dict
+        mock_uuid.return_value = md_uuid
+        mock_examine.side_effect = [md_dict] * len(devices)
+        expected_calls = []
+        for dev in devices:
+            expected_calls.append(call(dev, export=False))
+
+        rv = mdadm.md_check_array_membership(mdname, devices)
+
+        self.assertEqual(rv, None)
+        mock_uuid.assert_has_calls(call(mdname))
+        mock_examine.assert_has_calls(expected_calls)
+
+    @patch('curtin.block.mdadm.mdadm_examine')
+    @patch('curtin.block.mdadm.mdadm_query_detail')
+    @patch('curtin.block.mdadm.md_get_uuid')
+    def test_md_check_array_membership_bad_dev(self, mock_uuid, mock_query,
+                                               mock_examine):
+        mdname = '/dev/md0'
+        devices = ['/dev/vda', '/dev/vdb', '/dev/vdc', '/dev/vdd']
+        md_uuid = '93a73e10:427f280b:b7076c02:204b8f7a'
+        md_dict = {'MD_UUID': md_uuid}
+        mock_query.return_value = md_dict
+        mock_uuid.return_value = md_uuid
+        mock_examine.side_effect = [
+            md_dict,
+            {},
+            md_dict,
+            md_dict,
+        ]  # one device isn't a member
+
+        with self.assertRaises(ValueError):
+            mdadm.md_check_array_membership(mdname, devices)
+
+    @patch('curtin.block.mdadm.mdadm_examine')
+    @patch('curtin.block.mdadm.mdadm_query_detail')
+    @patch('curtin.block.mdadm.md_get_uuid')
+    def test_md_check_array_membership_wrong_array(self, mock_uuid, mock_query,
+                                                   mock_examine):
+        mdname = '/dev/md0'
+        devices = ['/dev/vda', '/dev/vdb', '/dev/vdc', '/dev/vdd']
+        md_uuid = '93a73e10:427f280b:b7076c02:204b8f7a'
+        md_dict = {'MD_UUID': '11111111:427f280b:b7076c02:204b8f7a'}
+        mock_query.return_value = md_dict
+        mock_uuid.return_value = md_uuid
+        mock_examine.side_effect = [md_dict] * len(devices)
+
+        with self.assertRaises(ValueError):
+            mdadm.md_check_array_membership(mdname, devices)
+
+    @patch('curtin.block.mdadm.md_check_array_membership')
+    @patch('curtin.block.mdadm.md_check_spares')
+    @patch('curtin.block.mdadm.md_check_devices')
+    @patch('curtin.block.mdadm.md_check_uuid')
+    @patch('curtin.block.mdadm.md_check_raidlevel')
+    @patch('curtin.block.mdadm.md_check_array_state')
+    def test_md_check_all_good(self, mock_array, mock_raid, mock_uuid,
+                               mock_dev, mock_spare, mock_member):
+        md_devname = '/dev/md0'
+        raidlevel = 1
+        devices = ['/dev/vda', '/dev/vdb']
+        spares = ['/dev/vdc']
+
+        mock_array.return_value = None
+        mock_raid.return_value = None
+        mock_uuid.return_value = None
+        mock_dev.return_value = None
+        mock_spare.return_value = None
+        mock_member.return_value = None
+
+        mdadm.md_check(md_devname, raidlevel, devices=devices, spares=spares)
+
+        mock_array.assert_has_calls([call(md_devname)])
+        mock_raid.assert_has_calls([call(raidlevel)])
+        mock_uuid.assert_has_calls([call(md_devname)])
+        mock_dev.assert_has_calls([call(md_devname, devices)])
+        mock_spare.assert_has_calls([call(md_devname, spares)])
+        mock_member.assert_has_calls([call(md_devname, devices + spares)])
+
 # vi: ts=4 expandtab syntax=python
