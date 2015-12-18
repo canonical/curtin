@@ -466,9 +466,10 @@ main() {
         ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-proxy"
     fi
 
-    if command -v ssh-keys-list >/dev/null; then
+    if command -v ssh-keys-list >/dev/null 2>&1; then
         ssh-keys-list cloud-config > "${TEMP_D}/cc-ssh-keys" &&
-            ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-ssh-keys"
+            ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-ssh-keys" ||
+            { error "failed to get users ssh keys."; return 1; }
     fi
 
     write_metadata > "$mdata" || { error "failed to write meta-data"; return 1; }
