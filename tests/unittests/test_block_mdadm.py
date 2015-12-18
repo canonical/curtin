@@ -753,7 +753,7 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         mock_guuid.return_value = None
         with self.assertRaises(ValueError):
             mdadm.md_check_uuid(mdname)
-        
+
     @patch('curtin.block.mdadm.md_get_devices_list')
     def test_md_check_devices(self, mock_devlist):
         mdname = '/dev/md0'
@@ -789,7 +789,7 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         self.assertEqual(rv, None)
 
     @patch('curtin.block.mdadm.md_get_spares_list')
-    def test_md_check_devices_wrong_devs(self, mock_devlist):
+    def test_md_check_spares_wrong_devs(self, mock_devlist):
         mdname = '/dev/md0'
         spares = ['/dev/vdc', '/dev/vdd']
 
