@@ -31,6 +31,10 @@ def read_pubkeys():
 
 
 def format_pubkeys(mode, keys):
+    valid_modes = ('dump', 'cloud-config', 'public-keys')
+    if mode not in valid_modes:
+        raise ValueError("unknown mode '%s'. Expected one of: %s" %
+                         (mode, ' '.join(valid_modes)))
     if mode == 'dump':
         if len(keys) != 0:
             data = '\n'.join(keys) + "\n"
@@ -44,8 +48,6 @@ def format_pubkeys(mode, keys):
         data += name + ": " + jdump(keys) + "\n"
     elif mode == "json":
         return jdump(keys) + "\n"
-    else:
-        raise ValueError("unknown mode %s" % mode)
     return data
 
 
