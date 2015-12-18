@@ -312,7 +312,7 @@ def setup_grub(cfg, target):
         if len(storage_grub_devices) > 0:
             grubcfg['install_devices'] = storage_grub_devices
 
-    LOG.debug("install_devices: %s", grubcfg['install_devices'])
+    LOG.debug("install_devices: %s", grubcfg.get('install_devices'))
     if 'install_devices' in grubcfg:
         instdevs = grubcfg.get('install_devices')
         if isinstance(instdevs, str):
