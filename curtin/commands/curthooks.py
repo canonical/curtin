@@ -327,8 +327,13 @@ def setup_grub(cfg, target):
         devs = block.get_devices_for_mp(target)
         blockdevs = set()
         for maybepart in devs:
-            (blockdev, part) = block.get_blockdev_for_partition(maybepart)
-            blockdevs.add(blockdev)
+            try:
+                (blockdev, part) = block.get_blockdev_for_partition(maybepart)
+                blockdevs.add(blockdev)
+            except ValueError as e:
+                # if there is no syspath for this device such as a lvm
+                # or raid device, then a ValueError is raised here.
+                LOG.debug("failed to find block device for %s", maybepart)
 
         if platform.machine().startswith("ppc64"):
             # assume we want partitions that are 4100 (PReP). The snippet here
