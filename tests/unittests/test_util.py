@@ -1,6 +1,7 @@
 from unittest import TestCase
 import mock
 import os
+import stat
 import shutil
 import tempfile
 
@@ -250,7 +251,7 @@ class TestSetUnExecutable(TestCase):
             shutil.rmtree(tmpd)
             self.tmpd = None
 
-    def _tempfile(self, data=None):
+    def tempfile(self, data=None):
         fp, self.tmpf = tempfile.mkstemp()
         if data:
             fp.write(data)
@@ -268,6 +269,13 @@ class TestSetUnExecutable(TestCase):
         os.chmod(tmpf, 0o600)
         ret = util.set_unexecutable(tmpf)
         self.assertEqual(ret, None)
+
+    def test_change_does_as_expected(self):
+        tmpf = self.tempfile()
+        os.chmod(tmpf, 0o755)
+        ret = util.set_unexecutable(tmpf)
+        self.assertEqual(ret, 0o0755)
+        self.assertEqual(stat.S_IMODE(os.stat(tmpf).st_mode), 0o0644)
         
     def test_strict_no_exists_raises_exception(self):
         try:
