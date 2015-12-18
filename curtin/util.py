@@ -21,6 +21,7 @@ import glob
 import os
 import shutil
 import subprocess
+import stat
 import sys
 import tempfile
 import time
@@ -483,6 +484,24 @@ def find_newer(src, files):
             os.path.exists(f) and os.stat(f).st_mtime > mtime]
 
 
+def set_unexecutable(fname, strict=False):
+    """set fname so it is not executable.
+
+    if strict, raise an exception if the file does not exist.
+    return the current mode, or None if no change is needed.
+    """
+    if not os.path.exists(fname):
+        if strict:
+            raise ValueError('%s: file does not exist' % fname)
+        return None
+    cur = stat.S_IMODE(os.lstat(fname).st_mode)
+    target = cur & (~stat.S_IEXEC & ~stat.S_IXGRP & ~stat.S_IXOTH)
+    if cur == target:
+        return None
+    os.chmod(fname, target)
+    return cur
+
+
 def apt_update(target=None, env=None, force=False, comment=None,
                retries=None):
 
@@ -514,6 +533,8 @@ def apt_update(target=None, env=None, force=False, comment=None,
         if len(find_newer(marker, listfiles)) == 0:
             return
 
+    restore_perms = []
+
     abs_tmpdir = tempfile.mkdtemp(dir=os.path.join(target, 'tmp'))
     try:
         abs_slist = abs_tmpdir + "/sources.list"
@@ -521,6 +542,13 @@ def apt_update(target=None, env=None, force=False, comment=None,
         ch_tmpdir = "/tmp/" + os.path.basename(abs_tmpdir)
         ch_slist = ch_tmpdir + "/sources.list"
         ch_slistd = ch_tmpdir + "/sources.list.d"
+
+        # this file gets executed on apt-get update sometimes. (LP: #1527710)
+        motd_update = os.path.join(
+            target, "usr/lib/update-notifier/update-motd-updates-available")
+        pmode = set_unexecutable(motd_update)
+        if pmode is not None:
+            restore_perms.append((motd_update, pmode),)
 
         # create tmpdir/sources.list with all lines other than deb-src
         # avoid apt complaining by using existing and empty dir for sourceparts
@@ -545,6 +573,8 @@ def apt_update(target=None, env=None, force=False, comment=None,
         with RunInChroot(target, allow_daemons=True) as inchroot:
             inchroot(update_cmd, env=env, retries=retries)
     finally:
+        for fname, perms in restore_perms:
+            os.chmod(fname, perms)
         if abs_tmpdir:
             shutil.rmtree(abs_tmpdir)
 
