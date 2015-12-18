@@ -15,6 +15,7 @@ import textwrap
 import time
 import urllib
 import curtin.net as curtin_net
+import curtin.util as util
 
 from .helpers import check_call, TimeoutExpired
 
@@ -30,6 +31,8 @@ DEFAULT_FILTERS = ['arch=amd64', 'item_name=root-image.gz']
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
 INSTALL_PASS_MSG = "Installation finished. No error reported."
+
+DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 
 _TOPDIR = None
 
@@ -362,9 +365,10 @@ class VMBaseClass(object):
         netdevs = []
         if len(macs) > 0:
             for mac in macs:
-                netdevs.extend(["--netdev=user,mac={}".format(mac)])
+                netdevs.extend(["--netdev=" + DEFAULT_BRIDGE +
+                                ",mac={}".format(mac)])
         else:
-            netdevs.extend(["--netdev=user"])
+            netdevs.extend(["--netdev=" + DEFAULT_BRIDGE])
 
         # build disk arguments
         extra_disks = []
@@ -757,8 +761,11 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
         'power_state': {'mode': 'poweroff'},
     }
 
+    ssh_keys, _err = util.subp(['tools/ssh-keys-list', 'cloud-config'],
+                               capture=True)
     parts = [{'type': 'text/cloud-config',
-              'content': json.dumps(base_cloudconfig, indent=1)}]
+              'content': json.dumps(base_cloudconfig, indent=1)},
+             {'type': 'text/cloud-config', 'content': ssh_keys}]
 
     output_dir_macro = 'OUTPUT_COLLECT_D'
     output_dir = '/mnt/output'
