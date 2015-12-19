@@ -819,7 +819,7 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         rv = mdadm.md_check_array_membership(mdname, devices)
 
         self.assertEqual(rv, None)
-        mock_uuid.assert_has_calls(call(mdname))
+        mock_uuid.assert_has_calls([call(mdname)])
         mock_examine.assert_has_calls(expected_calls)
 
     @patch('curtin.block.mdadm.mdadm_examine')
