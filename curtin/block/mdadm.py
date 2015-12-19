@@ -135,7 +135,9 @@ def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False):
 
 
 def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
-    valid_mdname(md_devname)
+    LOG.debug('mdadm_create: ' +
+              'md_name=%s raidlevel=%s ' % (md_devname, raidlevel) +
+              ' devices=%s spares=%s name=%s' % (devices, spares, md_name))
 
     if raidlevel not in VALID_RAID_LEVELS:
         raise ValueError('Invalid raidlevel: ' + str(raidlevel))
