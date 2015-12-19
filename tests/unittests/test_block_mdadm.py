@@ -42,7 +42,8 @@ class TestBlockMdadmAssemble(MdadmTestBase):
     def test_mdadm_assemble_scan(self):
         mdadm.mdadm_assemble(scan=True)
         expected_calls = [
-            call(["mdadm", "--assemble", "--scan"], capture=True),
+            call(["mdadm", "--assemble", "--scan"], capture=True,
+                 rcs=[0, 1, 2]),
             call(["udevadm", "settle"]),
         ]
         self.mock_util.subp.assert_has_calls(expected_calls)
@@ -52,7 +53,8 @@ class TestBlockMdadmAssemble(MdadmTestBase):
         mdadm.mdadm_assemble(md_devname=md_devname)
 
         expected_calls = [
-            call(["mdadm", "--assemble", md_devname, "--run"], capture=True),
+            call(["mdadm", "--assemble", md_devname, "--run"], capture=True,
+                 rcs=[0, 1, 2]),
             call(["udevadm", "settle"]),
         ]
         self.mock_util.subp.assert_has_calls(expected_calls)
@@ -62,7 +64,8 @@ class TestBlockMdadmAssemble(MdadmTestBase):
         mdadm.mdadm_assemble(md_devname=md_devname)
 
         expected_calls = [
-            call(["mdadm", "--assemble", "/dev/md0", "--run"], capture=True),
+            call(["mdadm", "--assemble", "/dev/md0", "--run"], capture=True,
+                 rcs=[0, 1, 2]),
             call(["udevadm", "settle"]),
         ]
         self.mock_util.subp.assert_has_calls(expected_calls)
@@ -78,7 +81,7 @@ class TestBlockMdadmAssemble(MdadmTestBase):
         mdadm.mdadm_assemble(md_devname=md_devname, devices=devices)
         expected_calls = [
             call(["mdadm", "--assemble", md_devname, "--run"] + devices,
-                 capture=True),
+                 capture=True, rcs=[0, 1, 2]),
             call(["udevadm", "settle"]),
         ]
         self.mock_util.subp.assert_has_calls(expected_calls)

@@ -130,7 +130,7 @@ def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False):
         if spares:
             cmd += spares
 
-    util.subp(cmd, capture=True)
+    util.subp(cmd, capture=True, rcs=[0, 1, 2])
     util.subp(["udevadm", "settle"])
 
 
