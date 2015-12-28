@@ -68,21 +68,38 @@ def mkfs(path, fstype, flags):
     mkfs_cmd = mkfs_commands.get(fstype)
     if fs_family is None or mkfs_cmd is None:
         raise ValueError("unsupported fs type '%s'" % fstype)
+
     cmd = [mkfs_cmd]
+
     if fs_family == "fat":
         fat_size = fstype.strip(string.ascii_letters)
         if fat_size in ["12", "16", "32"]:
             flags.append(("fatsize", fat_size))
+
     for flag in flags:
-        flag_sym_families = family_flag_mappings.get(flag[0])
+        if type(flag) in [tuple, list]:
+            # This is a flag with params
+            flag_name = flag[0]
+            flag_val = flag[1]
+        else:
+            # This is a standalone flag
+            flag_name = flag
+            flag_val = None
+
+        flag_sym_families = family_flag_mappings.get(flag_name)
         if flag_sym_families is None:
             raise ValueError("unsupported flag '%s'" % flag[0])
+
         flag_sym = flag_sym_families.get(fs_family)
         if flag_sym is None:
             # This flag is npt supported by current fs_family, previous
             # behavior was to ignore it silently, so not going to raise
             continue
-        cmd.extend([flag_sym, flag[1]])
+
+        cmd.append(flag_sym)
+        if flag_val is not None:
+            cmd.append(flag_val)
+
     cmd.append(path)
     util.subp(cmd)
 
@@ -94,4 +111,12 @@ def mkfs_from_config(path, info):
     if fstype is None:
         raise ValueError("fstype must be specified")
     flags = list((i, info.get(i)) for i in info if i in family_flag_mappings)
+    # NOTE: Since old metadata on partitions that have not been wiped can cause
+    #       some mkfs commands to refuse to work, its best to add a force flag
+    #       here. At some point it may be a good idea to remove this if we can
+    #       ensure that everything will be clean by the time we format. Also
+    #       note that mkfs.btrfs does not have a force flag on precise, so we
+    #       will skip adding the force flag for it
+    if util.lsb_release()['codename'] != "precise" or fstype != "btrfs":
+        flags.append("force")
     mkfs(path, fstype, flags)
