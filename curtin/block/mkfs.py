@@ -31,7 +31,11 @@ mkfs_commands = {
         "fat32": "mkfs.fat",
         "fat": "mkfs.fat",
         "btrfs": "mkfs.btrfs",
-        "swap": "mkswap"
+        "swap": "mkswap",
+        "xfs": "mkfs.xfs",
+        "jfs": "jfs_mkfs",
+        "reiserfs": "mkfs.reiserfs",
+        "ntfs": "mkntfs"
         }
 
 specific_to_family = {
@@ -41,30 +45,39 @@ specific_to_family = {
         "fat12": "fat",
         "fat16": "fat",
         "fat32": "fat",
-        "fat": "fat",
-        "btrfs": "btrfs",
-        "swap": "swap"
         }
 
 family_flag_mappings = {
         "label": {"ext": "-L",
                   "btrfs": "-L",
                   "fat": "-n",
-                  "label": "-L"},
+                  "swap": "-L",
+                  "xfs": "-L",
+                  "jfs": "-L",
+                  "reiserfs": "-l",
+                  "ntfs": "-L"},
         "uuid": {"ext": "-U",
                  "btrfs": "-U",
-                 "swap": "-U"},
+                 "swap": "-U",
+                 "reiserfs": "-d"},
         "force": {"ext": "-F",
                   "btrfs": "-f",
-                  "swap": "-f"},
-        "fatsize": {"fat": "-F"}
+                  "swap": "-f",
+                  "xfs": "-f",
+                  "ntfs": "-F",
+                  "reiserfs": "-f"},
+        "fatsize": {"fat": "-F"},
+        "quiet": {"ext": "-q",
+                  "reiserfs": "-q",
+                  "ntfs": "-q",
+                  "xfs": "-q"}
         }
 
 
 def mkfs(path, fstype, flags):
     """Make filesystem on block device with given path using given fstype and
        appropriate flags for filesystem family"""
-    fs_family = specific_to_family.get(fstype)
+    fs_family = specific_to_family.get(fstype, fstype)
     mkfs_cmd = mkfs_commands.get(fstype)
     if fs_family is None or mkfs_cmd is None:
         raise ValueError("unsupported fs type '%s'" % fstype)
@@ -119,4 +132,6 @@ def mkfs_from_config(path, info):
     #       will skip adding the force flag for it
     if util.lsb_release()['codename'] != "precise" or fstype != "btrfs":
         flags.append("force")
+    # Go ahead and add the quiet flag if the filesystem supports it
+    flags.append("quiet")
     mkfs(path, fstype, flags)
