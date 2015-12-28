@@ -16,17 +16,16 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import curtin.config
-from curtin.log import LOG
 from curtin import config
 from curtin import util
 from . import populate_one_subcmd
+from curtin.block import mkfs
 from curtin.commands.block_meta import get_path_to_storage_volume
 
 from collections import OrderedDict
 
 import os
 import sys
-import string
 
 CMD_ARGUMENTS = (
     (('devices',
@@ -43,40 +42,16 @@ CMD_ARGUMENTS = (
 )
 
 
-def format_blockdev(volume_path, fstype, part_id=None):
-    if not part_id:
-        part_id = volume_path.split("/")[-1]
-
-    # Generate mkfs command and run
-    if fstype in ["ext4", "ext3"]:
-        if len(part_id) > 16:
-            raise ValueError("ext3/4 partition labels cannot be longer than \
-                16 characters")
-        cmd = ['mkfs.%s' % fstype, '-F', '-q', '-L', part_id, volume_path]
-    elif fstype in ["fat12", "fat16", "fat32", "fat"]:
-        cmd = ["mkfs.fat"]
-        fat_size = fstype.strip(string.ascii_letters)
-        if fat_size in ["12", "16", "32"]:
-            cmd.extend(["-F", fat_size])
-        if len(part_id) > 11:
-            raise ValueError("fat partition names cannot be longer than \
-                11 characters")
-        cmd.extend(["-n", part_id, volume_path])
-    else:
-        # See if mkfs.<fstype> exists. If so try to run it.
-        try:
-            util.subp(["which", "mkfs.%s" % fstype])
-            cmd = ["mkfs.%s" % fstype, volume_path]
-        except util.ProcessExecutionError:
-            raise ValueError("fstype '%s' not supported" % fstype)
-    LOG.info("formatting volume '%s' with format '%s'" % (volume_path, fstype))
-    util.subp(cmd)
+def format_blockdev(volume_path, fstype, part_id=None, flags=None):
+    if flags is None:
+        flags = []
+    if part_id is not None:
+        flags.append(("label", part_id))
+    mkfs.mkfs(volume_path, fstype, flags)
 
 
 def format_storage_item(info, storage_config):
-    fstype = info.get('fstype')
     volume = info.get('volume')
-    part_id = info.get('id')
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
                          info.get('id'))
@@ -84,11 +59,11 @@ def format_storage_item(info, storage_config):
     # Get path to volume
     volume_path = get_path_to_storage_volume(volume, storage_config)
 
-    # Call format_blockdev
-    format_blockdev(volume_path, fstype, part_id=part_id)
+    # Call mkfs_from_config
+    mkfs.mkfs_from_config(volume_path, info)
 
 
-def mkfs(args):
+def mkfs_meta(args):
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
 
@@ -118,6 +93,6 @@ def mkfs(args):
 
 
 def POPULATE_SUBCMD(parser):
-    populate_one_subcmd(parser, CMD_ARGUMENTS, mkfs)
+    populate_one_subcmd(parser, CMD_ARGUMENTS, mkfs_meta)
 
 # vi: ts=4 expandtab syntax=python
