@@ -47,6 +47,17 @@ specific_to_family = {
         "fat32": "fat",
         }
 
+label_length_limits = {
+        "fat": 11,
+        "ext": 16,
+        "ntfs": 32,
+        "jfs": 16,  # see jfs_tune manpage
+        "xfs": 12,
+        "swap": 15,  # not in manpages, found experimentally
+        "btrfs": 256,
+        "reiserfs": 16
+        }
+
 family_flag_mappings = {
         "label": {"ext": "-L",
                   "btrfs": "-L",
@@ -108,6 +119,13 @@ def mkfs(path, fstype, flags):
             # This flag is npt supported by current fs_family, previous
             # behavior was to ignore it silently, so not going to raise
             continue
+
+        if flag_name == "label":
+            limit = label_length_limits.get(fs_family)
+            if len(flag_val) > limit:
+                raise ValueError("length of fs label for '%s' exceeds max " +
+                                 "allowed for fstype '%s'. max is '%s'"
+                                 % (path, fstype, limit))
 
         cmd.append(flag_sym)
         if flag_val is not None:
