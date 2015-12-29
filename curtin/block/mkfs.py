@@ -123,8 +123,8 @@ def mkfs(path, fstype, flags):
         if flag_name == "label":
             limit = label_length_limits.get(fs_family)
             if len(flag_val) > limit:
-                raise ValueError("length of fs label for '%s' exceeds max " +
-                                 "allowed for fstype '%s'. max is '%s'"
+                raise ValueError("length of fs label for '%s' exceeds max \
+                                 allowed for fstype '%s'. max is '%s'"
                                  % (path, fstype, limit))
 
         cmd.append(flag_sym)
