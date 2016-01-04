@@ -41,6 +41,23 @@ def is_valid_device(devname):
     return False
 
 
+def dev_short(devname):
+    if os.path.sep in devname:
+        return os.path.basename(devname)
+    return devname
+
+
+def dev_path(devname):
+    if devname.startswith('/dev/'):
+        return devname
+    else:
+        return '/dev/' + devname
+
+
+def sys_block_path(devname):
+    return '/sys/class/block/' + dev_short(devname)
+
+
 def _lsblock_pairs_to_dict(lines):
     ret = {}
     for line in lines.splitlines():
@@ -434,5 +451,6 @@ def lookup_disk(serial):
         raise ValueError("path '%s' to block device for disk with serial '%s' \
             does not exist" % (path, serial))
     return path
+
 
 # vi: ts=4 expandtab syntax=python
