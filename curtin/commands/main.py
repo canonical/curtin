@@ -152,6 +152,7 @@ def main(args=None):
         for (flag, val) in cfg_opts:
             if flag in ('-c', '--config'):
                 config.merge_config_fp(cfg, val)
+                val.close()
             elif flag in ('--set'):
                 config.merge_cmdarg(cfg, val)
     else:

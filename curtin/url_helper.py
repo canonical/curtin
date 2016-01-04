@@ -2,6 +2,7 @@ from email.utils import parsedate
 import json
 import os
 import socket
+import sys
 import time
 import uuid
 from functools import partial
@@ -238,49 +239,72 @@ class OauthUrlHelper(object):
         return headers
 
 
+def _oauth_headers_none(url, consumer_key, token_key, token_secret,
+                        consumer_secret, clockskew=0):
+    """oauth_headers implementation when no oauth is available"""
+    if not any([token_key, token_secret, consumer_key]):
+        return {}
+    pkg = "'python3-oauthlib'"
+    if sys.version_info[0] == 2:
+        pkg = "'python-oauthlib' or 'python-oauth'"
+    raise ValueError(
+        "Oauth was necessary but no oauth library is available. "
+        "Please install package " + pkg + ".")
+
+
+def _oauth_headers_oauth(url, consumer_key, token_key, token_secret,
+                         consumer_secret, clockskew=0):
+    """Build OAuth headers with oauth using given credentials."""
+    consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
+    token = oauth.OAuthToken(token_key, token_secret)
+
+    if clockskew is None:
+        clockskew = 0
+    timestamp = int(time.time()) + clockskew
+
+    params = {
+        'oauth_version': "1.0",
+        'oauth_nonce': uuid.uuid4().get_hex(),
+        'oauth_timestamp': timestamp,
+        'oauth_token': token.key,
+        'oauth_consumer_key': consumer.key,
+    }
+    req = oauth.OAuthRequest(http_url=url, parameters=params)
+    req.sign_request(
+        oauth.OAuthSignatureMethod_PLAINTEXT(), consumer, token)
+    return(req.to_header())
+
+
+def _oauth_headers_oauthlib(url, consumer_key, token_key, token_secret,
+                            consumer_secret, clockskew=0):
+    """Build OAuth headers with oauthlib using given credentials."""
+    if clockskew is None:
+        clockskew = 0
+    timestamp = int(time.time()) + clockskew
+    client = oauth1.Client(
+        consumer_key,
+        client_secret=consumer_secret,
+        resource_owner_key=token_key,
+        resource_owner_secret=token_secret,
+        signature_method=oauth1.SIGNATURE_PLAINTEXT,
+        timestamp=str(timestamp))
+    uri, signed_headers, body = client.sign(url)
+    return signed_headers
+
+
+oauth_headers = _oauth_headers_none
 try:
-    import oauth.oauth as oauth
-
-    def oauth_headers(url, consumer_key, token_key, token_secret,
-                      consumer_secret, clockskew=0):
-        """Build OAuth headers using given credentials."""
-        consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
-        token = oauth.OAuthToken(token_key, token_secret)
-
-        if clockskew is None:
-            clockskew = 0
-        timestamp = int(time.time()) + clockskew
-
-        params = {
-            'oauth_version': "1.0",
-            'oauth_nonce': uuid.uuid4().get_hex(),
-            'oauth_timestamp': timestamp,
-            'oauth_token': token.key,
-            'oauth_consumer_key': consumer.key,
-        }
-        req = oauth.OAuthRequest(http_url=url, parameters=params)
-        req.sign_request(
-            oauth.OAuthSignatureMethod_PLAINTEXT(), consumer, token)
-        return(req.to_header())
-
-except ImportError:
+    # prefer to use oauthlib. (python-oauthlib)
     import oauthlib.oauth1 as oauth1
-
-    def oauth_headers(url, consumer_key, token_key, token_secret,
-                      consumer_secret, clockskew=0):
-        """Build OAuth headers using given credentials."""
-        if clockskew is None:
-            clockskew = 0
-        timestamp = int(time.time()) + clockskew
-        client = oauth1.Client(
-            consumer_key,
-            client_secret=consumer_secret,
-            resource_owner_key=token_key,
-            resource_owner_secret=token_secret,
-            signature_method=oauth1.SIGNATURE_PLAINTEXT,
-            timestamp=str(timestamp))
-        uri, signed_headers, body = client.sign(url)
-        return signed_headers
+    oauth_headers = _oauth_headers_oauthlib
+except ImportError:
+    # no oauthlib was present, try using oauth (python-oauth)
+    try:
+        import oauth.oauth as oauth
+        oauth_headers = _oauth_headers_oauth
+    except ImportError:
+        # we have no oauth libraries available, use oauth_headers_none
+        pass
 
 
 # vi: ts=4 expandtab syntax=python
