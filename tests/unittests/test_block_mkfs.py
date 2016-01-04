@@ -75,14 +75,35 @@ class TestBlockMkfs(TestCase):
         expected_flags = [["-n", "format1"], ["-F", "16"]]
         self._run_mkfs_with_config(conf, "mkfs.fat", expected_flags)
 
-    def test_mkfs_errors(self):
+    @mock.patch("curtin.block.mkfs.block")
+    @mock.patch("curtin.block.mkfs.util")
+    def test_mkfs_errors(self, mock_util, mock_block):
+        # Should not proceed without fstype
         with self.assertRaises(ValueError):
             conf = self._get_config(None)
             self._run_mkfs_with_config(conf, "mkfs.ext4", [])
+
+        # Should not proceed with invalid fstype
         with self.assertRaises(ValueError):
             conf = self._get_config("fakefilesystemtype")
             self._run_mkfs_with_config(conf, "mkfs.ext3", [])
+
+        # Should not proceed if label is too long
         with self.assertRaises(ValueError):
             conf = self._get_config("ext4")
             conf['label'] = "thislabelislongerthan16chars"
             self._run_mkfs_with_config(conf, "mkfs.ext4", [])
+
+        # Should not proceed with invalid block dev
+        with self.assertRaises(ValueError):
+            mock_block.is_valid_device.return_value = False
+            mkfs.run_mkfs("/dev/null", "ext4", [])
+
+        # Should not proceed without a block dev
+        with self.assertRaises(ValueError):
+            mock_block.is_valid_device.return_value = True
+            mkfs.run_mkfs(None, "ext4", [])
+
+        # Should not proceed with invalid flags
+        with self.assertRaises(ValueError):
+            mkfs.run_mkfs("/dev/null", "ext4", ["notarealflagtype"])
