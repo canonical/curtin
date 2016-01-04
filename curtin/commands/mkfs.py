@@ -19,7 +19,7 @@ import curtin.config
 from curtin import config
 from curtin import util
 from . import populate_one_subcmd
-from curtin.block import mkfs
+from curtin.block.mkfs import (run_mkfs, mkfs_from_config)
 from curtin.commands.block_meta import get_path_to_storage_volume
 
 from collections import OrderedDict
@@ -47,7 +47,7 @@ def format_blockdev(volume_path, fstype, part_id=None, flags=None):
         flags = []
     if part_id is not None:
         flags.append(("label", part_id))
-    mkfs.mkfs(volume_path, fstype, flags)
+    run_mkfs(volume_path, fstype, flags)
 
 
 def format_storage_item(info, storage_config):
@@ -60,10 +60,10 @@ def format_storage_item(info, storage_config):
     volume_path = get_path_to_storage_volume(volume, storage_config)
 
     # Call mkfs_from_config
-    mkfs.mkfs_from_config(volume_path, info)
+    mkfs_from_config(volume_path, info)
 
 
-def mkfs_meta(args):
+def mkfs(args):
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
 
@@ -93,6 +93,6 @@ def mkfs_meta(args):
 
 
 def POPULATE_SUBCMD(parser):
-    populate_one_subcmd(parser, CMD_ARGUMENTS, mkfs_meta)
+    populate_one_subcmd(parser, CMD_ARGUMENTS, mkfs)
 
 # vi: ts=4 expandtab syntax=python
