@@ -1,4 +1,4 @@
-#   Copyright (C) 2013 Canonical Ltd.
+#   Copyright (C) 2016 Canonical Ltd.
 #
 #   Author: Wesley Wiedenmeier <wesley.wiedenmeier@canonical.com>
 #
@@ -116,7 +116,7 @@ def mkfs(path, fstype, flags):
 
         flag_sym = flag_sym_families.get(fs_family)
         if flag_sym is None:
-            # This flag is npt supported by current fs_family, previous
+            # This flag is not supported by current fs_family, previous
             # behavior was to ignore it silently, so not going to raise
             continue
 
@@ -143,11 +143,9 @@ def mkfs_from_config(path, info):
         raise ValueError("fstype must be specified")
     flags = list((i, info.get(i)) for i in info if i in family_flag_mappings)
     # NOTE: Since old metadata on partitions that have not been wiped can cause
-    #       some mkfs commands to refuse to work, its best to add a force flag
-    #       here. At some point it may be a good idea to remove this if we can
-    #       ensure that everything will be clean by the time we format. Also
-    #       note that mkfs.btrfs does not have a force flag on precise, so we
-    #       will skip adding the force flag for it
+    #       some mkfs commands to refuse to work, it's best to add a force flag
+    #       here. Also note that mkfs.btrfs does not have a force flag on
+    #       precise, so we will skip adding the force flag for it
     if util.lsb_release()['codename'] != "precise" or fstype != "btrfs":
         flags.append("force")
     # Go ahead and add the quiet flag if the filesystem supports it
