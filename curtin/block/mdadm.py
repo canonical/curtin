@@ -27,7 +27,7 @@ import re
 import shlex
 from subprocess import CalledProcessError
 
-from curtin.block import (dev_short, dev_long, is_valid_device, sys_block_path)
+from curtin.block import (dev_short, dev_path, is_valid_device, sys_block_path)
 from curtin import util
 from curtin.log import LOG
 
@@ -126,7 +126,7 @@ def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False):
         cmd += ['--scan']
     else:
         valid_mdname(md_devname)
-        cmd += [dev_long(md_devname), "--run"] + devices
+        cmd += [dev_path(md_devname), "--run"] + devices
         if spares:
             cmd += spares
 
@@ -152,7 +152,7 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
         err = ('Raidlevel does not support spare devices: ' + str(raidlevel))
         raise ValueError(err)
 
-    cmd = ["mdadm", "--create", dev_long(md_devname), "--run",
+    cmd = ["mdadm", "--create", dev_path(md_devname), "--run",
            "--level=%s" % raidlevel, "--raid-devices=%s" % len(devices)]
     if md_name:
         cmd.append("--name=%s" % md_name)
@@ -245,9 +245,9 @@ def valid_mdname(md_devname):
         raise ValueError('Parameter: md_devname is None')
         return False
 
-    if not is_valid_device(dev_long(md_devname)):
+    if not is_valid_device(dev_path(md_devname)):
         raise ValueError('Specified md device does not exist: ' +
-                         dev_long(md_devname))
+                         dev_path(md_devname))
         return False
 
     return True
@@ -458,7 +458,7 @@ def md_get_spares_list(devpath):
         raise ValueError('Cannot find md sysfs directory: ' +
                          sysfs_md)
 
-    spares = [dev_long(dev[4:])
+    spares = [dev_path(dev[4:])
               for dev in os.listdir(sysfs_md)
               if (dev.startswith('dev-') and
                   util.load_file(os.path.join(sysfs_md,
@@ -473,7 +473,7 @@ def md_get_devices_list(devpath):
     if not os.path.exists(sysfs_md):
         raise ValueError('Cannot find md sysfs directory: ' +
                          sysfs_md)
-    devices = [dev_long(dev[4:])
+    devices = [dev_path(dev[4:])
                for dev in os.listdir(sysfs_md)
                if (dev.startswith('dev-') and
                    util.load_file(os.path.join(sysfs_md,
@@ -485,7 +485,7 @@ def md_get_devices_list(devpath):
 def md_check_array_uuid(md_devname, md_uuid):
     # confirm we have /dev/{mdname} by following the udev symlink
     mduuid_path = ('/dev/disk/by-id/md-uuid-' + md_uuid)
-    mdlink_devname = dev_long(os.path.realpath(mduuid_path))
+    mdlink_devname = dev_path(os.path.realpath(mduuid_path))
     if md_devname != mdlink_devname:
         err = ('Mismatch between devname and md-uuid symlink: ' +
                '%s -> %s != %s' % (mduuid_path, mdlink_devname, md_devname))

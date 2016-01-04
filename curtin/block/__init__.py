@@ -47,7 +47,7 @@ def dev_short(devname):
     return devname
 
 
-def dev_long(devname):
+def dev_path(devname):
     if devname.startswith('/dev/'):
         return devname
     else:
