@@ -2,6 +2,7 @@ from email.utils import parsedate
 import json
 import os
 import socket
+import sys
 import time
 import uuid
 from functools import partial
@@ -239,12 +240,16 @@ class OauthUrlHelper(object):
 
 
 def _oauth_headers_none(url, consumer_key, token_key, token_secret,
-                        consumer_secret, clockskew):
+                        consumer_secret, clockskew=0):
     """oauth_headers implementation when no oauth is available"""
-    if not any(token_key, token_secret, consumer_key):
+    if not any([token_key, token_secret, consumer_key]):
         return {}
-    raise ValueError("oauth_headers requested, but no oauth library "
-                     "available.  Please install oauthlib.")
+    pkg = "'python3-oauthlib'"
+    if sys.version_info[0] == 2:
+        pkg = "'python-oauthlib' or 'python-oauth'"
+    raise ValueError(
+        "Oauth was necessary but no oauth library is available. "
+        "Please install package " + pkg + ".")
 
 
 def _oauth_headers_oauth(url, consumer_key, token_key, token_secret,
