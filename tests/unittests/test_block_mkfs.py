@@ -30,13 +30,18 @@ class TestBlockMkfs(TestCase):
 
     @mock.patch("curtin.block.mkfs.block")
     @mock.patch("curtin.block.mkfs.util")
-    def _run_mkfs_with_config(self, config, expected_cmd, expected_flags,
-                              mock_util, mock_block):
+    def _run_mkfs_with_config(self, config, expected_cmd,
+                              expected_flags, mock_util, mock_block,
+                              release="wily"):
+        # Pretend we are on wily as there are no known edge cases for it
+        mock_util.lsb_release.return_value = {"codename": release}
         mock_block.is_valid_device.return_value = True
+
         mkfs.mkfs_from_config("/dev/null", config)
         self.assertTrue(mock_util.subp.called)
         calls = mock_util.subp.call_args_list
         self.assertEquals(len(calls), 1)
+
         # Get first function call, tuple of first positional arg and its
         # (nonexistant) keyword arg, and unpack to get cmd
         call = calls[0][0][0]
@@ -54,6 +59,11 @@ class TestBlockMkfs(TestCase):
         expected_flags = [["-L", "format1"], "-f",
                           ["-U", "fb26cc6c-ae73-11e5-9e38-2fb63f0c3155"]]
         self._run_mkfs_with_config(conf, "mkfs.btrfs", expected_flags)
+
+        # Test precise+btrfs edge case, force should not be used
+        expected_flags.remove("-f")
+        self._run_mkfs_with_config(conf, "mkfs.btrfs", expected_flags,
+                                   release="precise")
 
     def test_mkfs_fat(self):
         conf = self._get_config("fat32")
