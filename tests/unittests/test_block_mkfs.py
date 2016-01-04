@@ -37,6 +37,8 @@ class TestBlockMkfs(TestCase):
         self.assertTrue(mock_util.subp.called)
         calls = mock_util.subp.call_args_list
         self.assertEquals(len(calls), 1)
+        # Get first function call, tuple of first positional arg and its
+        # (nonexistant) keyword arg, and unpack to get cmd
         call = calls[0][0][0]
         self.assertEquals(call[0], expected_cmd)
         self._assert_same_flags(call, expected_flags)

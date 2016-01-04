@@ -94,7 +94,7 @@ def mkfs(path, fstype, flags):
 
     fs_family = specific_to_family.get(fstype, fstype)
     mkfs_cmd = mkfs_commands.get(fstype)
-    if fs_family is None or mkfs_cmd is None:
+    if not all((fs_family, mkfs_cmd)):
         raise ValueError("unsupported fs type '%s'" % fstype)
 
     cmd = [mkfs_cmd]
@@ -136,7 +136,7 @@ def mkfs(path, fstype, flags):
             cmd.append(flag_val)
 
     cmd.append(path)
-    util.subp(cmd)
+    util.subp(cmd, capture=True)
 
 
 def mkfs_from_config(path, info):
