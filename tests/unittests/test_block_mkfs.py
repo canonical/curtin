@@ -28,9 +28,11 @@ class TestBlockMkfs(TestCase):
         # Only remaining vals in call should be mkfs.fstype and dev path
         self.assertEquals(len(call), 2)
 
+    @mock.patch("curtin.block.mkfs.block")
     @mock.patch("curtin.block.mkfs.util")
     def _run_mkfs_with_config(self, config, expected_cmd, expected_flags,
-                              mock_util):
+                              mock_util, mock_block):
+        mock_block.is_valid_device.return_value = True
         mkfs.mkfs_from_config("/dev/null", config)
         self.assertTrue(mock_util.subp.called)
         calls = mock_util.subp.call_args_list

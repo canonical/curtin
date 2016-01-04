@@ -19,6 +19,7 @@
 # for each filesystem type
 
 from curtin import util
+from curtin import block
 
 import string
 
@@ -88,6 +89,9 @@ family_flag_mappings = {
 def mkfs(path, fstype, flags):
     """Make filesystem on block device with given path using given fstype and
        appropriate flags for filesystem family"""
+    if path is None or not block.is_valid_device(path):
+        raise ValueError("invalid block dev path '%s'" % path)
+
     fs_family = specific_to_family.get(fstype, fstype)
     mkfs_cmd = mkfs_commands.get(fstype)
     if fs_family is None or mkfs_cmd is None:
