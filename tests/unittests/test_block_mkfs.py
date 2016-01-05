@@ -75,35 +75,37 @@ class TestBlockMkfs(TestCase):
         expected_flags = [["-n", "format1"], ["-F", "16"]]
         self._run_mkfs_with_config(conf, "mkfs.fat", expected_flags)
 
-    @mock.patch("curtin.block.mkfs.block")
-    @mock.patch("curtin.block.mkfs.util")
-    def test_mkfs_errors(self, mock_util, mock_block):
-        # Should not proceed without fstype
+    def test_mkfs_invalid_fstype(self):
+        """Do not proceed if fstype is None or invalid"""
         with self.assertRaises(ValueError):
             conf = self._get_config(None)
             self._run_mkfs_with_config(conf, "mkfs.ext4", [])
-
-        # Should not proceed with invalid fstype
         with self.assertRaises(ValueError):
             conf = self._get_config("fakefilesystemtype")
             self._run_mkfs_with_config(conf, "mkfs.ext3", [])
 
-        # Should not proceed if label is too long
+    def test_mkfs_invalid_label(self):
+        """Do not proceed if filesystem label is too long"""
         with self.assertRaises(ValueError):
             conf = self._get_config("ext4")
             conf['label'] = "thislabelislongerthan16chars"
             self._run_mkfs_with_config(conf, "mkfs.ext4", [])
+        with self.assertRaises(ValueError):
+            conf = self._get_config("swap")
+            conf['label'] = "abcdefghijklmnop"  # 16 chars
+            self._run_mkfs_with_config(conf, "mkswap", [])
 
-        # Should not proceed with invalid block dev
+    @mock.patch("curtin.block.mkfs.block")
+    def test_mkfs_invalid_block_device(self, mock_block):
+        """Do not proceed if block device is none or is not valid block dev"""
         with self.assertRaises(ValueError):
             mock_block.is_valid_device.return_value = False
             mkfs.mkfs("/dev/null", "ext4", [])
-
-        # Should not proceed without a block dev
         with self.assertRaises(ValueError):
             mock_block.is_valid_device.return_value = True
             mkfs.mkfs(None, "ext4", [])
 
-        # Should not proceed with invalid flags
+    def test_mkfs_invalid_flags(self):
+        """Do not proceed if flag type is not known"""
         with self.assertRaises(ValueError):
             mkfs.mkfs("/dev/null", "ext4", ["notarealflagtype"])
