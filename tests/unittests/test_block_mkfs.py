@@ -97,13 +97,13 @@ class TestBlockMkfs(TestCase):
         # Should not proceed with invalid block dev
         with self.assertRaises(ValueError):
             mock_block.is_valid_device.return_value = False
-            mkfs.run_mkfs("/dev/null", "ext4", [])
+            mkfs.mkfs("/dev/null", "ext4", [])
 
         # Should not proceed without a block dev
         with self.assertRaises(ValueError):
             mock_block.is_valid_device.return_value = True
-            mkfs.run_mkfs(None, "ext4", [])
+            mkfs.mkfs(None, "ext4", [])
 
         # Should not proceed with invalid flags
         with self.assertRaises(ValueError):
-            mkfs.run_mkfs("/dev/null", "ext4", ["notarealflagtype"])
+            mkfs.mkfs("/dev/null", "ext4", ["notarealflagtype"])

@@ -19,7 +19,8 @@ import curtin.config
 from curtin import config
 from curtin import util
 from . import populate_one_subcmd
-from curtin.block.mkfs import (run_mkfs, mkfs_from_config)
+from curtin.block.mkfs import mkfs_from_config
+from curtin.block.mkfs import mkfs as run_mkfs
 from curtin.commands.block_meta import get_path_to_storage_volume
 
 from collections import OrderedDict

@@ -86,7 +86,7 @@ family_flag_mappings = {
         }
 
 
-def run_mkfs(path, fstype, flags):
+def mkfs(path, fstype, flags):
     """Make filesystem on block device with given path using given fstype and
        appropriate flags for filesystem family"""
     if path is None or not block.is_valid_device(path):
@@ -154,4 +154,4 @@ def mkfs_from_config(path, info):
         flags.append("force")
     # Go ahead and add the quiet flag if the filesystem supports it
     flags.append("quiet")
-    run_mkfs(path, fstype, flags)
+    mkfs(path, fstype, flags)
