@@ -157,6 +157,4 @@ def mkfs_from_config(path, info):
     #       precise, so we will skip adding the force flag for it
     if util.lsb_release()['codename'] != "precise" or fstype != "btrfs":
         flags.append("force")
-    # Go ahead and add the quiet flag if the filesystem supports it
-    flags.append("quiet")
     mkfs(path, fstype, flags)
