@@ -99,6 +99,9 @@ def mkfs(path, fstype, flags):
     if not all((fs_family, mkfs_cmd)):
         raise ValueError("unsupported fs type '%s'" % fstype)
 
+    if util.which(mkfs_cmd) is None:
+        raise ValueError("need '%s' but it could not be found" % mkfs_cmd)
+
     cmd = [mkfs_cmd]
 
     if fs_family == "fat":
@@ -107,7 +110,7 @@ def mkfs(path, fstype, flags):
             flags.append(("fatsize", fat_size))
 
     for flag in flags:
-        if type(flag) in [tuple, list]:
+        if isinstance(flag, (tuple, list)):
             # This is a flag with params
             flag_name = flag[0]
             flag_val = flag[1]
