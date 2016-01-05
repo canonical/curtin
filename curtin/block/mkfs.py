@@ -86,11 +86,16 @@ family_flag_mappings = {
         }
 
 
-def mkfs(path, fstype, flags):
+def mkfs(path, fstype, flags, strict=False):
     """Make filesystem on block device with given path using given fstype and
        appropriate flags for filesystem family. Flags are passed in as a list,
        with each entry in the list either being a string representing a flag
-       without a parameter or a tuple representing a flag and it's parameter"""
+       without a parameter or a tuple representing a flag and it's parameter.
+       If a flag is not supported by a filesystem family mkfs will raise a
+       ValueError if the strict flag is true or silently ignore it otherwise.
+       If a filesystem label is too long curtin will raise a ValueError if the
+       strict flag is true or will truncate it to the maximum possible length
+       otherwise."""
     if path is None or not block.is_valid_device(path):
         raise ValueError("invalid block dev path '%s'" % path)
 
@@ -125,16 +130,22 @@ def mkfs(path, fstype, flags):
 
         flag_sym = flag_sym_families.get(fs_family)
         if flag_sym is None:
-            # This flag is not supported by current fs_family, previous
-            # behavior was to ignore it silently, so not going to raise
-            continue
+            # This flag is not supported by current filesystem family.
+            if strict:
+                raise ValueError("flag '%s' not supported by fs family '%s'" %
+                                 flag_name, fs_family)
+            else:
+                continue
 
         if flag_name == "label":
             limit = label_length_limits.get(fs_family)
             if len(flag_val) > limit:
-                raise ValueError("length of fs label for '%s' exceeds max \
-                                 allowed for fstype '%s'. max is '%s'"
-                                 % (path, fstype, limit))
+                if strict:
+                    raise ValueError("length of fs label for '%s' exceeds max \
+                                     allowed for fstype '%s'. max is '%s'"
+                                     % (path, fstype, limit))
+                else:
+                    flag_val = flag_val[:limit]
 
         cmd.append(flag_sym)
         if flag_val is not None:
@@ -144,7 +155,7 @@ def mkfs(path, fstype, flags):
     util.subp(cmd, capture=True)
 
 
-def mkfs_from_config(path, info):
+def mkfs_from_config(path, info, strict=False):
     """Make filesystem on block device with given path according to storage
        config given"""
     fstype = info.get('fstype')
@@ -157,4 +168,4 @@ def mkfs_from_config(path, info):
     #       precise, so we will skip adding the force flag for it
     if util.lsb_release()['codename'] != "precise" or fstype != "btrfs":
         flags.append("force")
-    mkfs(path, fstype, flags)
+    mkfs(path, fstype, flags, strict=strict)

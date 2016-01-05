@@ -32,12 +32,12 @@ class TestBlockMkfs(TestCase):
     @mock.patch("curtin.block.mkfs.util")
     def _run_mkfs_with_config(self, config, expected_cmd,
                               expected_flags, mock_util, mock_block,
-                              release="wily"):
+                              release="wily", strict=False):
         # Pretend we are on wily as there are no known edge cases for it
         mock_util.lsb_release.return_value = {"codename": release}
         mock_block.is_valid_device.return_value = True
 
-        mkfs.mkfs_from_config("/dev/null", config)
+        mkfs.mkfs_from_config("/dev/null", config, strict=strict)
         self.assertTrue(mock_util.subp.called)
         calls = mock_util.subp.call_args_list
         self.assertEquals(len(calls), 1)
@@ -89,11 +89,20 @@ class TestBlockMkfs(TestCase):
         with self.assertRaises(ValueError):
             conf = self._get_config("ext4")
             conf['label'] = "thislabelislongerthan16chars"
-            self._run_mkfs_with_config(conf, "mkfs.ext4", [])
+            self._run_mkfs_with_config(conf, "mkfs.ext4", [], strict=True)
+
+        conf = self._get_config("swap")
+        expected_flags = ["--force", ["--label", "abcdefghijklmno"],
+                          ["--uuid", conf['uuid']]]
+        conf['label'] = "abcdefghijklmnop"  # 16 chars, 15 is max
+
+        # Raise error, do not truncate with strict = True
         with self.assertRaises(ValueError):
-            conf = self._get_config("swap")
-            conf['label'] = "abcdefghijklmnop"  # 16 chars
-            self._run_mkfs_with_config(conf, "mkswap", [])
+            self._run_mkfs_with_config(conf, "mkswap", expected_flags,
+                                       strict=True)
+
+        # Do not raise with strict = False
+        self._run_mkfs_with_config(conf, "mkswap", expected_flags)
 
     @mock.patch("curtin.block.mkfs.block")
     def test_mkfs_invalid_block_device(self, mock_block):
