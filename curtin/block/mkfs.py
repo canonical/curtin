@@ -88,7 +88,9 @@ family_flag_mappings = {
 
 def mkfs(path, fstype, flags):
     """Make filesystem on block device with given path using given fstype and
-       appropriate flags for filesystem family"""
+       appropriate flags for filesystem family. Flags are passed in as a list,
+       with each entry in the list either being a string representing a flag
+       without a parameter or a tuple representing a flag and it's parameter"""
     if path is None or not block.is_valid_device(path):
         raise ValueError("invalid block dev path '%s'" % path)
 
