@@ -61,28 +61,28 @@ label_length_limits = {
 
 family_flag_mappings = {
         "label": {"ext": "-L",
-                  "btrfs": "-L",
+                  "btrfs": "--label",
                   "fat": "-n",
-                  "swap": "-L",
+                  "swap": "--label",
                   "xfs": "-L",
                   "jfs": "-L",
-                  "reiserfs": "-l",
-                  "ntfs": "-L"},
+                  "reiserfs": "--label",
+                  "ntfs": "--label"},
         "uuid": {"ext": "-U",
-                 "btrfs": "-U",
-                 "swap": "-U",
-                 "reiserfs": "-d"},
+                 "btrfs": "--uuid",
+                 "swap": "--uuid",
+                 "reiserfs": "--uuid"},
         "force": {"ext": "-F",
-                  "btrfs": "-f",
-                  "swap": "-f",
+                  "btrfs": "--force",
+                  "swap": "--force",
                   "xfs": "-f",
-                  "ntfs": "-F",
+                  "ntfs": "--force",
                   "reiserfs": "-f"},
         "fatsize": {"fat": "-F"},
         "quiet": {"ext": "-q",
                   "reiserfs": "-q",
                   "ntfs": "-q",
-                  "xfs": "-q"}
+                  "xfs": "--quiet"}
         }
 
 

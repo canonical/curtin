@@ -56,12 +56,12 @@ class TestBlockMkfs(TestCase):
 
     def test_mkfs_btrfs(self):
         conf = self._get_config("btrfs")
-        expected_flags = [["-L", "format1"], "-f",
-                          ["-U", "fb26cc6c-ae73-11e5-9e38-2fb63f0c3155"]]
+        expected_flags = [["--label", "format1"], "--force",
+                          ["--uuid", "fb26cc6c-ae73-11e5-9e38-2fb63f0c3155"]]
         self._run_mkfs_with_config(conf, "mkfs.btrfs", expected_flags)
 
         # Test precise+btrfs edge case, force should not be used
-        expected_flags.remove("-f")
+        expected_flags.remove("--force")
         self._run_mkfs_with_config(conf, "mkfs.btrfs", expected_flags,
                                    release="precise")
 
