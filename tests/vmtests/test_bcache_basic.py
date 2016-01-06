@@ -37,7 +37,7 @@ class TestBcacheBasic(VMBaseClass):
 
 
 class PreciseBcacheBasic(relbase.precise, TestBcacheBasic):
-    __test__ = True
+    __test__ = False  # FIXME: hwe-t necessary to enable this test
 
 
 class TrustyBcacheBasic(relbase.trusty, TestBcacheBasic):
