@@ -27,7 +27,7 @@ storage:
     number: 2
     size: 9G
     wipe: superblock
-  - id: bcache0
+  - id: id_bcache0
     type: bcache
     name: bcache0
     backing_device: id_rotary0_part2
@@ -41,7 +41,7 @@ storage:
   - id: rootfs
     type: format
     label: root-fs
-    volume: bcache0
+    volume: id_bcache0
     fstype: ext4
   - id: rootfs_mount
     type: mount
