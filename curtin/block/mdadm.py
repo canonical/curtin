@@ -263,9 +263,8 @@ def md_sysfs_attr(md_devname, attrname):
 
     #  /sys/class/block/<md_short>/md/attrname
     sysfs_attr_path = os.path.join(sysmd, attrname)
-    if not os.path.isfile(sysfs_attr_path):
-        with open(sysfs_attr_path) as fp:
-            attrdata = fp.read().strip()
+    if os.path.isfile(sysfs_attr_path):
+        attrdata = util.load_file(sysfs_attr_path).strip()
 
     return attrdata
 

@@ -5,12 +5,6 @@ from curtin.block import mdadm
 import os
 import subprocess
 
-from sys import version_info
-if version_info.major == 2:
-    import __builtin__ as builtins
-else:
-    import builtins
-
 
 class MdadmTestBase(TestCase):
     def setUp(self):
@@ -506,14 +500,15 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         with self.assertRaises(ValueError):
             mdadm.valid_mdname(mdname)
 
-    @patch.object(builtins, "open")
-    def test_md_sysfs_attr(self, mock_open):
+    @patch('curtin.block.mdadm.os.path.isfile')
+    def test_md_sysfs_attr(self, mock_isfile):
         mdname = "/dev/md0"
         attr_name = 'array_state'
         sysfs_path = '/sys/class/block/{}/md/{}'.format(dev_short(mdname),
                                                         attr_name)
+        mock_isfile.return_value = True
         mdadm.md_sysfs_attr(mdname, attr_name)
-        mock_open.assert_called_with(sysfs_path)
+        self.mock_util.load_file.assert_called_with(sysfs_path)
 
     def test_md_sysfs_attr_devname_none(self):
         mdname = None
