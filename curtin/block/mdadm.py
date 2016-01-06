@@ -139,6 +139,9 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
               'md_name=%s raidlevel=%s ' % (md_devname, raidlevel) +
               ' devices=%s spares=%s name=%s' % (devices, spares, md_name))
 
+    if not md_devname or not md_devname.startswith('/dev/'):
+        raise ValueError('Invalid md_devname: [{}]'.format(md_devname))
+
     if raidlevel not in VALID_RAID_LEVELS:
         raise ValueError('Invalid raidlevel: ' + str(raidlevel))
 
@@ -152,7 +155,7 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
         err = ('Raidlevel does not support spare devices: ' + str(raidlevel))
         raise ValueError(err)
 
-    cmd = ["mdadm", "--create", dev_path(md_devname), "--run",
+    cmd = ["mdadm", "--create", md_devname, "--run",
            "--level=%s" % raidlevel, "--raid-devices=%s" % len(devices)]
     if md_name:
         cmd.append("--name=%s" % md_name)
@@ -174,7 +177,8 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
     util.subp(["udevadm", "control", "--stop-exec-queue"])
     util.subp(cmd, capture=True)
     util.subp(["udevadm", "control", "--start-exec-queue"])
-    util.subp(["udevadm", "settle", "--exit-if-exists=%s" % md_devname])
+    util.subp(["udevadm", "settle",
+               "--exit-if-exists=%s" % md_devname])
 
 
 def mdadm_examine(devpath, export=MDADM_USE_EXPORT):

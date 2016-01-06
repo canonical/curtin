@@ -143,6 +143,15 @@ class TestBlockMdadmCreate(MdadmTestBase):
                            devices=devices, spares=spares)
         self.mock_util.subp.assert_has_calls(expected_calls)
 
+    def test_mdadm_create_raid0_devshort(self):
+        md_devname = "md0"
+        raidlevel = 0
+        devices = ["/dev/vdc1", "/dev/vdd1"]
+        spares = []
+        with self.assertRaises(ValueError):
+            mdadm.mdadm_create(md_devname=md_devname, raidlevel=raidlevel,
+                               devices=devices, spares=spares)
+
     def test_mdadm_create_raid0_with_spares(self):
         md_devname = "/dev/md0"
         raidlevel = 0
