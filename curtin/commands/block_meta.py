@@ -1005,17 +1005,22 @@ def bcache_handler(info, storage_config):
     # to locate the dev, on older versions we need to register it manually
     # though
     devpath = None
+    cur_id = info.get('id')
     try:
         util.subp(["udevadm", "settle"])
-        devpath = get_path_to_storage_volume(info.get('id'), storage_config)
+        devpath = get_path_to_storage_volume(cur_id, storage_config)
     except (OSError, IndexError):
         # Register
         for path in [backing_device, cache_device]:
             fp = open("/sys/fs/bcache/register", "w")
             fp.write(path)
             fp.close()
-        devpath = get_path_to_storage_volume(info.get('id'), storage_config)
+        devpath = get_path_to_storage_volume(cur_id, storage_config)
+
     syspath = block.sys_block_path(devpath)
+    if not os.path.isdir(syspath):
+        raise OSError("Did not find existing sys_block_path for id %s" %
+                      str(cur_id))
 
     # if we specify both then we need to attach backing to cache
     if cache_device and backing_device:
