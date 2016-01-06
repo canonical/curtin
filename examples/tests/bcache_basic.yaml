@@ -18,7 +18,7 @@ storage:
     device: id_rotary0
     number: 1
     offset: 1M
-    size: 1G
+    size: 999M
     wipe: superblock
   - id: id_rotary0_part2
     type: partition
@@ -42,6 +42,7 @@ storage:
     type: format
     label: root-fs
     volume: bcache0
+    fstype: ext4
   - id: rootfs_mount
     type: mount
     path: /
