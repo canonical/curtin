@@ -916,7 +916,7 @@ def raid_handler(info, storage_config):
     # Handle preserve flag
     if info.get('preserve'):
         # check if the array is already up, if not try to assemble
-        if not block.md_check(info.get('name'), raidlevel,
+        if not mdadm.md_check(info.get('name'), raidlevel,
                               device_paths, spare_device_paths):
             LOG.info("assembling preserved raid for "
                      "{}".format(info.get('name')))
