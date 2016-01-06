@@ -54,15 +54,9 @@ class TestBlockMdadmAssemble(MdadmTestBase):
         self.mock_util.subp.assert_has_calls(expected_calls)
 
     def test_mdadm_assemble_md_devname_short(self):
-        md_devname = "md0"
-        mdadm.mdadm_assemble(md_devname=md_devname)
-
-        expected_calls = [
-            call(["mdadm", "--assemble", "/dev/md0", "--run"], capture=True,
-                 rcs=[0, 1, 2]),
-            call(["udevadm", "settle"]),
-        ]
-        self.mock_util.subp.assert_has_calls(expected_calls)
+        with self.assertRaises(ValueError):
+            md_devname = "md0"
+            mdadm.mdadm_assemble(md_devname=md_devname)
 
     def test_mdadm_assemble_md_devname_none(self):
         with self.assertRaises(ValueError):
@@ -491,12 +485,8 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
 
     def test_valid_mdname_short(self):
         mdname = "md0"
-        result = mdadm.valid_mdname(mdname)
-        expected_calls = [
-            call("/dev/md0")
-        ]
-        self.mock_valid.assert_has_calls(expected_calls)
-        self.assertTrue(result)
+        with self.assertRaises(ValueError):
+            mdadm.valid_mdname(mdname)
 
     def test_valid_mdname_none(self):
         mdname = None
@@ -902,5 +892,15 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         mock_dev.assert_has_calls([call(md_devname, devices)])
         mock_spare.assert_has_calls([call(md_devname, spares)])
         mock_member.assert_has_calls([call(md_devname, devices + spares)])
+
+    def test_md_check_all_good_devshort(self):
+        md_devname = 'md0'
+        raidlevel = 1
+        devices = ['/dev/vda', '/dev/vdb']
+        spares = ['/dev/vdc']
+
+        with self.assertRaises(ValueError):
+            mdadm.md_check(md_devname, raidlevel, devices=devices,
+                           spares=spares)
 
 # vi: ts=4 expandtab syntax=python
