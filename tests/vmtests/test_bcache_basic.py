@@ -36,7 +36,7 @@ class TestBcacheBasic(VMBaseClass):
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
 
 
-class PreciseBcache(relbase.precise, TestBcacheBasic):
+class PreciseBcacheBasic(relbase.precise, TestBcacheBasic):
     __test__ = True
 
 
@@ -46,4 +46,3 @@ class TrustyBcacheBasic(relbase.trusty, TestBcacheBasic):
 
 class XenialBcacheBasic(relbase.wily, TestBcacheBasic):
     __test__ = True
-
