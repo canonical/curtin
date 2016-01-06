@@ -542,12 +542,12 @@ def md_check_array_state(md_devname):
     # check array state
 
     writable = md_check_array_state_rw(md_devname)
-    degraded = int(md_sysfs_attr(md_devname, 'degraded'))
+    degraded = md_sysfs_attr(md_devname, 'degraded')
     sync_action = md_sysfs_attr(md_devname, 'sync_action')
 
     if not writable:
         raise ValueError('Array not in writable state: ' + md_devname)
-    if degraded > 0:
+    if degraded != "0":
         raise ValueError('Array in degraded state: ' + md_devname)
     if sync_action != "idle":
         raise ValueError('Array syncing, not idle state: ' + md_devname)

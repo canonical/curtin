@@ -724,6 +724,17 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
             mdadm.md_check_array_state(mdname)
 
     @patch('curtin.block.mdadm.md_sysfs_attr')
+    def test_md_check_array_state_degraded_empty(self, mock_attr):
+        mdname = '/dev/md0'
+        mock_attr.side_effect = [
+            'clean',  # array_state
+            '',  # unknown
+            'idle',  # sync_action
+        ]
+        with self.assertRaises(ValueError):
+            mdadm.md_check_array_state(mdname)
+
+    @patch('curtin.block.mdadm.md_sysfs_attr')
     def test_md_check_array_state_sync(self, mock_attr):
         mdname = '/dev/md0'
         mock_attr.side_effect = [
