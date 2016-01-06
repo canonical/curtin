@@ -44,5 +44,5 @@ class TrustyBcacheBasic(relbase.trusty, TestBcacheBasic):
     __test__ = True
 
 
-class XenialBcacheBasic(relbase.wily, TestBcacheBasic):
+class XenialBcacheBasic(relbase.xenial, TestBcacheBasic):
     __test__ = True
