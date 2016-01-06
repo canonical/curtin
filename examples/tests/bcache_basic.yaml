@@ -14,7 +14,7 @@ storage:
     wipe: superblock
   - id: id_rotary0_part1
     type: partition
-    name: id_rotary0-part1
+    name: rotary0-part1
     device: id_rotary0
     number: 1
     offset: 1M
