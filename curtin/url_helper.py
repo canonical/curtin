@@ -8,14 +8,16 @@ import uuid
 from functools import partial
 
 try:
-    from urllib import request as urllib_request
-    from urllib import error as urllib_error
-    from urllib.parse import urlparse
+    from urllib import request as _u_re  # pylint: disable=no-name-in-module
+    from urllib import error as _u_e     # pylint: disable=no-name-in-module
+    from urllib.parse import urlparse    # pylint: disable=no-name-in-module
+    urllib_request = _u_re
+    urllib_error = _u_e
 except ImportError:
     # python2
     import urllib2 as urllib_request
     import urllib2 as urllib_error
-    from urlparse import urlparse
+    from urlparse import urlparse  # pylint: disable=import-error
 
 from .log import LOG
 
@@ -23,6 +25,7 @@ error = urllib_error
 
 
 class _ReRaisedException(Exception):
+    exc = None
     """this exists only as an exception type that was re-raised by
     an exception_cb, so code can know to handle it specially"""
     def __init__(self, exc):
@@ -77,10 +80,10 @@ def geturl(url, headers=None, headers_cb=None, exception_cb=None,
         try:
             return _geturl(url=url, headers=headers, headers_cb=headers_cb,
                            exception_cb=exception_cb, data=data)
+        except _ReRaisedException as e:
+            raise curexc.exc
         except Exception as e:
             curexc = e
-            if isinstance(curexc, _ReRaisedException):
-                raise curexc.exc
         if log:
             msg = ("try %d of request to %s failed. sleeping %d: %s" %
                    (naptime, url, naptime, curexc))
@@ -264,7 +267,7 @@ def _oauth_headers_oauth(url, consumer_key, token_key, token_secret,
 
     params = {
         'oauth_version': "1.0",
-        'oauth_nonce': uuid.uuid4().get_hex(),
+        'oauth_nonce': uuid.uuid4().hex,
         'oauth_timestamp': timestamp,
         'oauth_token': token.key,
         'oauth_consumer_key': consumer.key,
