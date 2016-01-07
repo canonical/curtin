@@ -126,7 +126,7 @@ def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False):
         cmd += ['--scan']
     else:
         valid_mdname(md_devname)
-        cmd += [dev_path(md_devname), "--run"] + devices
+        cmd += [md_devname, "--run"] + devices
         if spares:
             cmd += spares
 
@@ -139,8 +139,10 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
               'md_name=%s raidlevel=%s ' % (md_devname, raidlevel) +
               ' devices=%s spares=%s name=%s' % (devices, spares, md_name))
 
+    assert_valid_devpath(md_devname)
+
     if raidlevel not in VALID_RAID_LEVELS:
-        raise ValueError('Invalid raidlevel: ' + str(raidlevel))
+        raise ValueError('Invalid raidlevel: [{}]'.format(raidlevel))
 
     min_devices = md_minimum_devices(raidlevel)
     if len(devices) < min_devices:
@@ -152,7 +154,7 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
         err = ('Raidlevel does not support spare devices: ' + str(raidlevel))
         raise ValueError(err)
 
-    cmd = ["mdadm", "--create", dev_path(md_devname), "--run",
+    cmd = ["mdadm", "--create", md_devname, "--run",
            "--level=%s" % raidlevel, "--raid-devices=%s" % len(devices)]
     if md_name:
         cmd.append("--name=%s" % md_name)
@@ -174,13 +176,16 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
     util.subp(["udevadm", "control", "--stop-exec-queue"])
     util.subp(cmd, capture=True)
     util.subp(["udevadm", "control", "--start-exec-queue"])
-    util.subp(["udevadm", "settle", "--exit-if-exists=%s" % md_devname])
+    util.subp(["udevadm", "settle",
+               "--exit-if-exists=%s" % md_devname])
 
 
 def mdadm_examine(devpath, export=MDADM_USE_EXPORT):
     ''' exectute mdadm --examine, and optionally
         append --export.
         Parse and return dict of key=val from output'''
+    assert_valid_devpath(devpath)
+
     cmd = ["mdadm", "--examine"]
     if export:
         cmd.extend(["--export"])
@@ -201,16 +206,14 @@ def mdadm_examine(devpath, export=MDADM_USE_EXPORT):
 
 
 def mdadm_stop(devpath):
-    if not devpath:
-        raise ValueError('mdadm_stop: missing parameter devpath')
+    assert_valid_devpath(devpath)
 
     LOG.info("mdadm stopping: %s" % devpath)
     util.subp(["mdadm", "--stop", devpath], rcs=[0, 1], capture=True)
 
 
 def mdadm_remove(devpath):
-    if not devpath:
-        raise ValueError('mdadm_remove: missing parameter devpath')
+    assert_valid_devpath(devpath)
 
     LOG.info("mdadm removing: %s" % devpath)
     util.subp(["mdadm", "--remove", devpath], rcs=[0, 1], capture=True)
@@ -241,21 +244,29 @@ def mdadm_detail_scan():
 
 # ------------------------------ #
 def valid_mdname(md_devname):
-    if md_devname is None:
-        raise ValueError('Parameter: md_devname is None')
-        return False
+    assert_valid_devpath(md_devname)
 
-    if not is_valid_device(dev_path(md_devname)):
-        raise ValueError('Specified md device does not exist: ' +
-                         dev_path(md_devname))
+    if not is_valid_device(md_devname):
+        raise ValueError('Specified md device does not exist: ' + md_devname)
         return False
 
     return True
 
 
+def valid_devpath(devpath):
+    if devpath:
+        return devpath.startswith('/dev')
+    return False
+
+
+def assert_valid_devpath(devpath):
+    if not valid_devpath(devpath):
+        raise ValueError("Invalid devpath: '%s'" % devpath)
+
+
 def md_sysfs_attr(md_devname, attrname):
     if not valid_mdname(md_devname):
-        raise ValueError('Invalid md devicename')
+        raise ValueError('Invalid md devicename: [{}]'.format(md_devname))
 
     attrdata = ''
     #  /sys/class/block/<md_short>/md
@@ -263,9 +274,8 @@ def md_sysfs_attr(md_devname, attrname):
 
     #  /sys/class/block/<md_short>/md/attrname
     sysfs_attr_path = os.path.join(sysmd, attrname)
-    if not os.path.isfile(sysfs_attr_path):
-        with open(sysfs_attr_path) as fp:
-            attrdata = fp.read().strip()
+    if os.path.isfile(sysfs_attr_path):
+        attrdata = util.load_file(sysfs_attr_path).strip()
 
     return attrdata
 
@@ -452,6 +462,8 @@ def md_read_run_mdadm_map():
 
 
 def md_get_spares_list(devpath):
+    assert_valid_devpath(devpath)
+
     sysfs_md = sys_block_path(devpath) + '/md'
 
     if not os.path.exists(sysfs_md):
@@ -469,6 +481,8 @@ def md_get_spares_list(devpath):
 
 
 def md_get_devices_list(devpath):
+    assert_valid_devpath(devpath)
+
     sysfs_md = sys_block_path(devpath) + '/md'
     if not os.path.exists(sysfs_md):
         raise ValueError('Cannot find md sysfs directory: ' +
@@ -483,6 +497,8 @@ def md_get_devices_list(devpath):
 
 
 def md_check_array_uuid(md_devname, md_uuid):
+    valid_mdname(md_devname)
+
     # confirm we have /dev/{mdname} by following the udev symlink
     mduuid_path = ('/dev/disk/by-id/md-uuid-' + md_uuid)
     mdlink_devname = dev_path(os.path.realpath(mduuid_path))
@@ -495,8 +511,7 @@ def md_check_array_uuid(md_devname, md_uuid):
 
 
 def md_get_uuid(md_devname):
-    if not valid_mdname(md_devname):
-        raise ValueError('Invalid md devicename')
+    valid_mdname(md_devname)
 
     md_query = mdadm_query_detail(md_devname)
     return md_query.get('MD_UUID', None)
@@ -543,12 +558,12 @@ def md_check_array_state(md_devname):
     # check array state
 
     writable = md_check_array_state_rw(md_devname)
-    degraded = int(md_sysfs_attr(md_devname, 'degraded'))
+    degraded = md_sysfs_attr(md_devname, 'degraded')
     sync_action = md_sysfs_attr(md_devname, 'sync_action')
 
     if not writable:
         raise ValueError('Array not in writable state: ' + md_devname)
-    if degraded > 0:
+    if degraded != "0":
         raise ValueError('Array in degraded state: ' + md_devname)
     if sync_action != "idle":
         raise ValueError('Array syncing, not idle state: ' + md_devname)
@@ -615,6 +630,7 @@ def md_check(md_devname, raidlevel, devices=[], spares=[]):
                                                                  raidlevel,
                                                                  devices,
                                                                  spares))
+    assert_valid_devpath(md_devname)
 
     md_check_array_state(md_devname)
     md_check_raidlevel(raidlevel)
