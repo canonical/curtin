@@ -1018,9 +1018,6 @@ def bcache_handler(info, storage_config):
         devpath = get_path_to_storage_volume(cur_id, storage_config)
 
     syspath = block.sys_block_path(devpath)
-    if not os.path.isdir(syspath):
-        raise OSError("Did not find existing sys_block_path for id %s" %
-                      str(cur_id))
 
     # if we specify both then we need to attach backing to cache
     if cache_device and backing_device:

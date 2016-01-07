@@ -54,8 +54,20 @@ def dev_path(devname):
         return '/dev/' + devname
 
 
-def sys_block_path(devname):
-    return '/sys/class/block/' + dev_short(devname)
+def sys_block_path(devname, add=None, strict=True):
+    toks = ['/sys/class/block', dev_short(devname)]
+    if add is not None:
+        toks.append(add)
+    path = os.sep.join(toks)
+    
+    if strict and not os.path.exists(path):
+        err = OSError(
+            "devname '{}' did not have existing syspath '{}'".format(
+                devname, path))
+        err.errno = errno.ENOENT
+        raise err
+
+    return os.path.normpath(path)
 
 
 def _lsblock_pairs_to_dict(lines):
