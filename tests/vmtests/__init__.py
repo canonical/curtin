@@ -27,7 +27,8 @@ IMAGE_SRC_URL = os.environ.get(
 IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
 DEFAULT_SSTREAM_OPTS = [
     '--max=1', '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
-DEFAULT_FILTERS = ['arch=amd64', 'item_name=root-image.gz']
+DEFAULT_ARCH = 'amd64'
+DEFAULT_FILTERS = ['arch=%s' % DEFAULT_ARCH, 'item_name=root-image.gz']
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
