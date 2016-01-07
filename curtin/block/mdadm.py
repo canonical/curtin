@@ -139,8 +139,7 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
               'md_name=%s raidlevel=%s ' % (md_devname, raidlevel) +
               ' devices=%s spares=%s name=%s' % (devices, spares, md_name))
 
-    if not valid_devpath(md_devname):
-        raise ValueError('Invalid md_devname: [{}]'.format(md_devname))
+    assert_valid_devpath(md_devname)
 
     if raidlevel not in VALID_RAID_LEVELS:
         raise ValueError('Invalid raidlevel: [{}]'.format(raidlevel))
@@ -185,8 +184,7 @@ def mdadm_examine(devpath, export=MDADM_USE_EXPORT):
     ''' exectute mdadm --examine, and optionally
         append --export.
         Parse and return dict of key=val from output'''
-    if not valid_devpath(devpath):
-        raise ValueError('Invalid devpath: [{}]'.format(devpath))
+    assert_valid_devpath(devpath)
 
     cmd = ["mdadm", "--examine"]
     if export:
@@ -208,16 +206,14 @@ def mdadm_examine(devpath, export=MDADM_USE_EXPORT):
 
 
 def mdadm_stop(devpath):
-    if not valid_devpath(devpath):
-        raise ValueError('Invalid devpath: [{}]'.format(devpath))
+    assert_valid_devpath(devpath)
 
     LOG.info("mdadm stopping: %s" % devpath)
     util.subp(["mdadm", "--stop", devpath], rcs=[0, 1], capture=True)
 
 
 def mdadm_remove(devpath):
-    if not valid_devpath(devpath):
-        raise ValueError('Invalid devpath: [{}]'.format(devpath))
+    assert_valid_devpath(devpath)
 
     LOG.info("mdadm removing: %s" % devpath)
     util.subp(["mdadm", "--remove", devpath], rcs=[0, 1], capture=True)
@@ -248,9 +244,7 @@ def mdadm_detail_scan():
 
 # ------------------------------ #
 def valid_mdname(md_devname):
-    if not valid_devpath(md_devname):
-        raise ValueError('Invalid md devicename: [{}]'.format(md_devname))
-        return False
+    assert_valid_devpath(md_devname)
 
     if not is_valid_device(md_devname):
         raise ValueError('Specified md device does not exist: ' + md_devname)
@@ -263,6 +257,11 @@ def valid_devpath(devpath):
     if devpath:
         return devpath.startswith('/dev')
     return False
+
+
+def assert_valid_devpath(devpath):
+    if not valid_devpath(devpath):
+        raise ValueError('Invalid devpath: %s' % devpath)
 
 
 def md_sysfs_attr(md_devname, attrname):
@@ -463,8 +462,7 @@ def md_read_run_mdadm_map():
 
 
 def md_get_spares_list(devpath):
-    if not valid_devpath(devpath):
-        raise ValueError('Invalid md devicename: [{}]'.format(devpath))
+    assert_valid_devpath(devpath)
 
     sysfs_md = sys_block_path(devpath) + '/md'
 
@@ -483,8 +481,7 @@ def md_get_spares_list(devpath):
 
 
 def md_get_devices_list(devpath):
-    if not valid_devpath(devpath):
-        raise ValueError('Invalid md devicename: [{}]'.format(devpath))
+    assert_valid_devpath(devpath)
 
     sysfs_md = sys_block_path(devpath) + '/md'
     if not os.path.exists(sysfs_md):
@@ -633,8 +630,7 @@ def md_check(md_devname, raidlevel, devices=[], spares=[]):
                                                                  raidlevel,
                                                                  devices,
                                                                  spares))
-    if not valid_devpath(md_devname):
-        raise ValueError('Invalid md_devname', md_devname)
+    assert_valid_devpath(md_devname)
 
     md_check_array_state(md_devname)
     md_check_raidlevel(raidlevel)
