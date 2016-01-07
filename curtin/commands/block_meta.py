@@ -916,7 +916,7 @@ def raid_handler(info, storage_config):
     # Handle preserve flag
     if info.get('preserve'):
         # check if the array is already up, if not try to assemble
-        if not block.md_check(info.get('name'), raidlevel,
+        if not mdadm.md_check(info.get('name'), raidlevel,
                               device_paths, spare_device_paths):
             LOG.info("assembling preserved raid for "
                      "{}".format(info.get('name')))
@@ -1035,8 +1035,8 @@ def bcache_handler(info, storage_config):
             with open(attach, "w") as fp:
                 fp.write(cset_uuid)
         else:
-            LOG.error("Invalid cset_uuid: {}".format(cset_uuid))
-            raise
+            LOG.error("Invalid cset_uuid: '%s'" % cset_uuid)
+            raise Exception("Invalid cset_uuid: '%s'" % cset_uuid)
 
     if cache_mode:
         # find the actual bcache device name via sysfs using the
