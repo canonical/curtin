@@ -22,6 +22,6 @@ if __name__ == '__main__':
     store.sync_images(filters=DEFAULT_FILTERS)
     # Convert images.
     for release in releases:
-        _* = store.get_image(release, DEFAULT_ARCH)
+        store.get_image(release, DEFAULT_ARCH)
 
 
