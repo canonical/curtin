@@ -1,4 +1,5 @@
 #!/bin/sh
+# https://gist.github.com/smoser/2d4100a6a5d230ca937f
 
 CR='
 '
@@ -56,6 +57,13 @@ list_environments() {
 
 get_env_dir() {
     local tox_ini="$1" env="$2" oifs="$IFS" t="" d="" envs=""
+    if [ "${TOX_VENV_SHORTCUT:-1}" != "0" ]; then
+        local stox_d="${tox_ini%/*}/.tox/${env}"
+        if [ -e "${stox_d}/bin/activate" ]; then
+            _RET="${stox_d}"
+            return
+        fi
+    fi
     load_config "$tox_ini" && envs="$_RET" || return 1
     IFS="$CR"
     for t in $envs; do
