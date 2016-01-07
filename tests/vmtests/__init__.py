@@ -188,12 +188,15 @@ class ImageStore:
 
     def prune_images(self, release, arch, filters=None):
         image_dir = os.path.join(self.base_dir, release, arch)
-        release_dirs = os.listdir(image_dir)
+        release_dirs = sorted(os.listdir(image_dir))
+        logger.info('Pruning release={} keep={}'.format(release,
+                                                        IMAGES_TO_KEEP))
         if len(release_dirs) > IMAGES_TO_KEEP:
-            logger.info('Removing {} old {} images, keeping {}'.format(
-                        len(release_dirs), release, IMAGES_TO_KEEP))
-            for d in release_dirs[0:-IMAGES_TO_KEEP]:
-                remove_dir(d)
+            to_remove = release_dirs[0:-IMAGES_TO_KEEP]
+            logger.info('Removing {} images'.format(len(to_remove)))
+            for d in to_remove:
+                fullpath = os.path.join(image_dir, d)
+                remove_dir(fullpath)
 
     def get_image(self, release, arch, filters=None):
         """Return local path for root image, kernel and initrd, tarball."""
