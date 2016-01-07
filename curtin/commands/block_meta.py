@@ -1035,8 +1035,8 @@ def bcache_handler(info, storage_config):
             with open(attach, "w") as fp:
                 fp.write(cset_uuid)
         else:
-            LOG.error("Invalid cset_uuid: {}".format(cset_uuid))
-            raise
+            LOG.error("Invalid cset_uuid: '%s'" % cset_uuid)
+            raise Exception("Invalid cset_uuid: '%s'" % cset_uuid)
 
     if cache_mode:
         # find the actual bcache device name via sysfs using the
