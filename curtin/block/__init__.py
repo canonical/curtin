@@ -59,7 +59,7 @@ def sys_block_path(devname, add=None, strict=True):
     if add is not None:
         toks.append(add)
     path = os.sep.join(toks)
-    
+
     if strict and not os.path.exists(path):
         err = OSError(
             "devname '{}' did not have existing syspath '{}'".format(
