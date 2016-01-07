@@ -1,0 +1,54 @@
+storage:
+  config:
+  - id: id_rotary0
+    type: disk
+    name: rotary0
+    path: /dev/vdb
+    ptable: msdos
+    wipe: superblock
+    grub_device: true
+  - id: id_ssd0
+    type: disk
+    name: ssd0
+    path: /dev/vdc
+    wipe: superblock
+  - id: id_rotary0_part1
+    type: partition
+    name: rotary0-part1
+    device: id_rotary0
+    number: 1
+    offset: 1M
+    size: 999M
+    wipe: superblock
+  - id: id_rotary0_part2
+    type: partition
+    name: rotary0-part2
+    device: id_rotary0
+    number: 2
+    size: 9G
+    wipe: superblock
+  - id: id_bcache0
+    type: bcache
+    name: bcache0
+    backing_device: id_rotary0_part2
+    cache_device: id_ssd0
+    cache_mode: writeback
+  - id: bootfs
+    type: format
+    label: boot-fs
+    volume: id_rotary0_part1
+    fstype: ext4
+  - id: rootfs
+    type: format
+    label: root-fs
+    volume: id_bcache0
+    fstype: ext4
+  - id: rootfs_mount
+    type: mount
+    path: /
+    device: rootfs
+  - id: bootfs_mount
+    type: mount
+    path: /boot
+    device: bootfs
+  version: 1
