@@ -25,6 +25,8 @@ IMAGE_SRC_URL = os.environ.get(
     "http://maas.ubuntu.com/images/ephemeral-v2/daily/streams/v1/index.sjson")
 
 IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
+IMAGES_TO_KEEP = os.environ.get("IMAGES_TO_KEEP", 1)
+
 DEFAULT_SSTREAM_OPTS = [
     '--max=1', '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
 DEFAULT_ARCH = 'amd64'
@@ -46,6 +48,11 @@ def remove_empty_dir(dirpath):
         except OSError as e:
             if e.errno == errno.ENOTEMPTY:
                 pass
+
+
+def remove_dir(dirpath):
+    if os.path.exists(dirpath):
+        shutil.rmtree(dirpath)
 
 
 def _topdir():
@@ -178,6 +185,15 @@ class ImageStore:
         logger.info('Syncing images {}'.format(cmd))
         out = subprocess.check_output(cmd)
         logger.debug(out)
+
+    def prune_images(self, release, arch, filters=None):
+        image_dir = os.path.join(self.base_dir, release, arch)
+        release_dirs = os.listdir(image_dir)
+        if len(release_dirs) > IMAGES_TO_KEEP:
+            logger.info('Removing {} old {} images, keeping {}'.format(
+                        len(release_dirs), release, IMAGES_TO_KEEP))
+            for d in release_dirs[0:-IMAGES_TO_KEEP]:
+                remove_dir(d)
 
     def get_image(self, release, arch, filters=None):
         """Return local path for root image, kernel and initrd, tarball."""

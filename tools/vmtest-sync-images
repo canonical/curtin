@@ -20,8 +20,9 @@ if __name__ == '__main__':
     DEFAULT_FILTERS.append(release_filter)
     # Sync images.
     store.sync_images(filters=DEFAULT_FILTERS)
-    # Convert images.
+    # Drop old images and convert new images.
     for release in releases:
+        store.prune_images(release, DEFAULT_ARCH)
         store.get_image(release, DEFAULT_ARCH)
 
 
