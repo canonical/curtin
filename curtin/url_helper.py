@@ -160,7 +160,7 @@ class OauthUrlHelper(object):
     def read_skew_file(self):
         if self.skew_data_file and os.path.isfile(self.skew_data_file):
             with open(self.skew_data_file, mode="r") as fp:
-                return json.load(fp.read())
+                return json.load(fp)
         return None
 
     def update_skew_file(self, host, value):
@@ -168,6 +168,8 @@ class OauthUrlHelper(object):
         if not self.skew_data_file:
             return
         cur = self.read_skew_file()
+        if cur is None:
+            cur = {}
         cur[host] = value
         with open(self.skew_data_file, mode="w") as fp:
             fp.write(json.dumps(cur))
