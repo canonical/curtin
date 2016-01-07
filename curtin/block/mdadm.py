@@ -261,7 +261,7 @@ def valid_devpath(devpath):
 
 def assert_valid_devpath(devpath):
     if not valid_devpath(devpath):
-        raise ValueError('Invalid devpath: %s' % devpath)
+        raise ValueError("Invalid devpath: '%s'" % devpath)
 
 
 def md_sysfs_attr(md_devname, attrname):
