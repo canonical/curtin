@@ -1004,15 +1004,23 @@ def bcache_handler(info, storage_config):
     # we run make-bcache using udev rules, so wait for udev to settle, then try
     # to locate the dev, on older versions we need to register it manually
     # though
+    devpath = None
+    cur_id = info.get('id')
     try:
         util.subp(["udevadm", "settle"])
-        get_path_to_storage_volume(info.get('id'), storage_config)
+        devpath = get_path_to_storage_volume(cur_id, storage_config)
     except (OSError, IndexError):
         # Register
         for path in [backing_device, cache_device]:
             fp = open("/sys/fs/bcache/register", "w")
             fp.write(path)
             fp.close()
+        devpath = get_path_to_storage_volume(cur_id, storage_config)
+
+    syspath = block.sys_block_path(devpath)
+    if not os.path.isdir(syspath):
+        raise OSError("Did not find existing sys_block_path for id %s" %
+                      str(cur_id))
 
     # if we specify both then we need to attach backing to cache
     if cache_device and backing_device:
@@ -1044,8 +1052,7 @@ def bcache_handler(info, storage_config):
         [bcache_dev] = holders
         LOG.info("Setting cache_mode on {} to {}".format(bcache_dev,
                                                          cache_mode))
-        cache_mode_file = \
-            '/sys/block/{}/bcache/cache_mode'.format(info.get('id'))
+        cache_mode_file = os.path.join(syspath, "bcache/cache_mode")
         with open(cache_mode_file, "w") as fp:
             fp.write(cache_mode)
 
