@@ -86,16 +86,36 @@ family_flag_mappings = {
         }
 
 
-def mkfs(path, fstype, flags, strict=False):
+def replace_flag_value(flags, flagname, flagval):
+    """Loop through flags and replace value of any instance of flag with
+       given name with given value. If no instance of flag exists then append
+       one"""
+    for flag in flags:
+        if isinstance(flag, (tuple, list)) and flag[0] == flagname:
+            flag[1] = flagval
+            break
+    else:
+        flags.append([flagname, flagval])
+
+
+def mkfs(path, fstype, extra_flags=[], strict=False, label=None, uuid=None):
     """Make filesystem on block device with given path using given fstype and
-       appropriate flags for filesystem family. Flags are passed in as a list,
-       with each entry in the list either being a string representing a flag
-       without a parameter or a tuple representing a flag and it's parameter.
+       appropriate flags for filesystem family.
+
+       Filesystem uuid and label can be passed in as kwargs. By default no
+       label or uuid will be used. If a filesystem label is too long curtin
+       will raise a ValueError if the strict flag is true or will truncate
+       it to the maximum possible length.
+
+       Additional flags are passed in as a list to extra_flags, with each
+       entry in the list either being a string representing a flag without
+       a parameter or a tuple representing a flag and it's parameter. UUID and
+       label can be passed in to extra_flags as well, but if a uuid or label is
+       specified both in extra_flags and as a kwarg the kwarg takes priority.
        If a flag is not supported by a filesystem family mkfs will raise a
        ValueError if the strict flag is true or silently ignore it otherwise.
-       If a filesystem label is too long curtin will raise a ValueError if the
-       strict flag is true or will truncate it to the maximum possible length
-       otherwise."""
+       """
+
     if path is None or not block.is_valid_device(path):
         raise ValueError("invalid block dev path '%s'" % path)
 
@@ -109,12 +129,18 @@ def mkfs(path, fstype, flags, strict=False):
 
     cmd = [mkfs_cmd]
 
+    if label is not None:
+        replace_flag_value(extra_flags, "label", label)
+
+    if uuid is not None:
+        replace_flag_value(extra_flags, "uuid", uuid)
+
     if fs_family == "fat":
         fat_size = fstype.strip(string.ascii_letters)
         if fat_size in ["12", "16", "32"]:
-            flags.append(("fatsize", fat_size))
+            replace_flag_value(extra_flags, "fatsize", fat_size)
 
-    for flag in flags:
+    for flag in extra_flags:
         if isinstance(flag, (tuple, list)):
             # This is a flag with params
             flag_name = flag[0]
@@ -168,4 +194,4 @@ def mkfs_from_config(path, info, strict=False):
     #       precise, so we will skip adding the force flag for it
     if util.lsb_release()['codename'] != "precise" or fstype != "btrfs":
         flags.append("force")
-    mkfs(path, fstype, flags, strict=strict)
+    mkfs(path, fstype, extra_flags=flags, strict=strict)

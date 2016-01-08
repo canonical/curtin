@@ -15,7 +15,6 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
-from curtin import util
 from . import populate_one_subcmd
 from curtin.block.mkfs import mkfs as run_mkfs
 
@@ -41,16 +40,14 @@ CMD_ARGUMENTS = (
 
 
 def mkfs(args):
-    flags = []
-    if args.label:
-        flags.append(("label", args.label))
-    if args.uuid:
-        flags.append(("uuid", args.uuid))
     if args.force:
-        flags.append("force")
+        flags = ["force"]
+    else:
+        flags = []
 
     for device in args.devices:
-        run_mkfs(device, args.fstype, flags, strict=(not args.force))
+        run_mkfs(device, args.fstype, flags, strict=(not args.force),
+                 uuid=args.uuid, label=args.label)
 
     sys.exit(0)
 
