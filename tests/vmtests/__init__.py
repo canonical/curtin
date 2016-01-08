@@ -31,7 +31,7 @@ except ValueError:
     raise ValueError("IMAGES_TO_KEEP in environment was not an integer")
 
 DEFAULT_SSTREAM_OPTS = [
-    '--max=%s' % IMAGES_TO_KEEP,
+    '--max=1',
     '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
 DEFAULT_ARCH = 'amd64'
 DEFAULT_FILTERS = ['arch=%s' % DEFAULT_ARCH, 'item_name=root-image.gz']
@@ -184,8 +184,9 @@ class ImageStore:
             # then the real sstream-mirror call below will also fail.
             pass
 
-        cmd = ['sstream-mirror'] + DEFAULT_SSTREAM_OPTS + progress + [
-            self.source_url, self.base_dir] + filters
+        cmd = (['sstream-mirror'] + DEFAULT_SSTREAM_OPTS + progress + [
+            '--max=%s' % IMAGES_TO_KEEP, self.source_url, self.base_dir] +
+            filters)
         logger.info('Syncing images {}'.format(cmd))
         out = subprocess.check_output(cmd)
         logger.debug(out)
