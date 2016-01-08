@@ -25,9 +25,15 @@ IMAGE_SRC_URL = os.environ.get(
     "http://maas.ubuntu.com/images/ephemeral-v2/daily/streams/v1/index.sjson")
 
 IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
+try:
+    IMAGES_TO_KEEP = int(os.environ.get("IMAGES_TO_KEEP", 1))
+except ValueError:
+    raise ValueError("IMAGES_TO_KEEP in environment was not an integer")
+
 DEFAULT_SSTREAM_OPTS = [
-    '--max=1', '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
-DEFAULT_FILTERS = ['arch=amd64', 'item_name=root-image.gz']
+    '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
+DEFAULT_ARCH = 'amd64'
+DEFAULT_FILTERS = ['arch=%s' % DEFAULT_ARCH, 'item_name=root-image.gz']
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
@@ -45,6 +51,11 @@ def remove_empty_dir(dirpath):
         except OSError as e:
             if e.errno == errno.ENOTEMPTY:
                 pass
+
+
+def remove_dir(dirpath):
+    if os.path.exists(dirpath):
+        shutil.rmtree(dirpath)
 
 
 def _topdir():
@@ -172,11 +183,24 @@ class ImageStore:
             # then the real sstream-mirror call below will also fail.
             pass
 
-        cmd = ['sstream-mirror'] + DEFAULT_SSTREAM_OPTS + progress + [
-            self.source_url, self.base_dir] + filters
+        cmd = (['sstream-mirror'] + DEFAULT_SSTREAM_OPTS + progress + [
+            '--max=%s' % IMAGES_TO_KEEP, self.source_url, self.base_dir] +
+            filters)
         logger.info('Syncing images {}'.format(cmd))
         out = subprocess.check_output(cmd)
         logger.debug(out)
+
+    def prune_images(self, release, arch, filters=None):
+        image_dir = os.path.join(self.base_dir, release, arch)
+        release_dirs = sorted(os.listdir(image_dir))
+        logger.info('Pruning release={} keep={}'.format(release,
+                                                        IMAGES_TO_KEEP))
+        if len(release_dirs) > IMAGES_TO_KEEP:
+            to_remove = release_dirs[0:-IMAGES_TO_KEEP]
+            logger.info('Removing {} images'.format(len(to_remove)))
+            for d in to_remove:
+                fullpath = os.path.join(image_dir, d)
+                remove_dir(fullpath)
 
     def get_image(self, release, arch, filters=None):
         """Return local path for root image, kernel and initrd, tarball."""
@@ -187,7 +211,7 @@ class ImageStore:
         logger.info(
             'Query simplestreams for root image: %s', filters)
         cmd = ['sstream-query'] + DEFAULT_SSTREAM_OPTS + [
-            self.url, 'item_name=root-image.gz'] + filters
+            '--max=1', self.url, 'item_name=root-image.gz'] + filters
         logger.debug(" ".join(cmd))
         out = subprocess.check_output(cmd)
         logger.debug(out)
