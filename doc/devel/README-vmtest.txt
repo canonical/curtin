@@ -141,6 +141,12 @@ Some environment variables affect the running of vmtest
     'virbr0' or 'lxcbr0' to use those bridges and then be able to ssh
     in directly.
 
+  * IMAGE_DIR: default /srv/images
+    vmtest keeps a mirror of maas ephemeral images in this directory.
+
+  * IMAGES_TO_KEEP: default 1
+    keep this number of images of each release in the IMAGE_DIR.
+
 Environment 'boolean' values:
    For boolean environment variables the value is considered True
    if it is any value other than case insensitive 'false', '' or "0"
