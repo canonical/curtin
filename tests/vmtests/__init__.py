@@ -38,6 +38,7 @@ DEFAULT_FILTERS = ['arch=%s' % DEFAULT_ARCH, 'item_name=root-image.gz']
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
 INSTALL_PASS_MSG = "Installation finished. No error reported."
+IMAGE_SYNCS = []
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 
@@ -143,6 +144,87 @@ def get_env_var_bool(envname, default=False):
     return val.lower() not in ("false", "0", "")
 
 
+def sync_images(src_url, base_dir, filters):
+    # do a sync with provided filters
+
+    # only sync once per set of filters.  global IMAGE_SYNCS manages that.
+    global IMAGE_SYNCS
+    sfilters = ','.join(sorted(filters))
+
+    if sfilters in IMAGE_SYNCS:
+        LOG.debug("already synced for filters: %s", sfilters)
+        return
+
+    # Verify sstream-mirror supports --progress option.
+    progress = []
+    try:
+        out, err = util.subp(['sstream-mirror', '--help'], capture=True)
+        if '--progress' in out:
+            progress = ['--progress']
+    except util.ProcessExecutionError:
+        # swallow the error here as if sstream-mirror --help failed
+        # then the real sstream-mirror call below will also fail.
+        pass
+
+    cmd = (['sstream-mirror'] + DEFAULT_SSTREAM_OPTS + progress +
+           ['--max=%s' % IMAGES_TO_KEEP, src_url, base_dir] + filters)
+    logger.info('Syncing images {}'.format(cmd))
+    out = subprocess.check_output(cmd)
+    logger.debug(out)
+    IMAGE_SYNCS.append(sfilters)
+    logger.debug("now done syncs: %s" % IMAGE_SYNCS)
+    return
+
+
+def get_images(src_url, local_d, release, arch, sync=True):
+    # ensure that the images we need for release and arch are available
+    # in base_dir.  return path to root-image.gz
+    filters = [
+        'item_name=root-image.gz',
+        'release=%s' % release, 'krel=%s' % release, 'arch=%s' % arch]
+    qcmd = (['sstream-query'] + DEFAULT_SSTREAM_OPTS +
+            ['--max=1', local_d, 'item_name=root-image.gz'] + filters)
+    qcmd_str = ' '.join(qcmd)
+
+    if sync:
+        sync_images(src_url, local_d, filters=filters)
+
+    logger.debug('Query %s for image. filters=%s', local_d, filters)
+    fail_msg = None
+    try:
+        out = util.subp(qcmd, capture=True)[0]
+        if not out:
+            fail_msg = "Query '%s' returned empty result.\n" % qcmd_str
+        else:
+            logger.debug("Query '%s' returned: %s", qcmd_str, out)
+        sstream_data = ast.literal_eval(out)
+        root_image_gz = urllib.parse.urlsplit(sstream_data['item_url']).path
+        if os.path.exists(root_image_gz):
+            return root_image_gz
+        else:
+            fail_msg = "root-image.gz (%s) did not exist" % root_image_gz
+    except util.ProcessExecutionError as e:
+        if not os.path.isdir(os.path.join(local_d, "streams/v1")):
+            # assume this failed because this is first time.
+            fail_msg = "Query failed. streams/v1 did not exist."
+        else:
+            fail_msg = ("Query '%s' exited '%s': %s\n" %
+                        (qcmd_str, e.exit_code, e.stderr))
+
+    if not sync:
+        # try to fix this with a sync
+        # this can work, because sstream-mirror keeps data in .data
+        # indicating what is *actually* in the mirror, but sstream-query
+        # queries streams/v1/index, which describes what was in the
+        # upstream mirror (not including things filtered out)
+        logger.info(fail_msg + "  Attempting to fix with an image sync.")
+        return get_images(src_url, local_d, release, arch, sync=True)
+
+    logger.warn(fail_msg)
+    raise util.ProcessExecutionError(cmd=qcmd, reason=fail_msg)
+
+
+
 class ImageStore:
     """Local mirror of MAAS images simplestreams data."""
 
@@ -164,31 +246,12 @@ class ImageStore:
 
     def convert_image(self, root_image_path):
         """Use maas2roottar to unpack root-image, kernel and initrd."""
-        logger.info('Converting image format')
+        logger.info('Converting image format for %s', root_image_path)
         subprocess.check_call(["tools/maas2roottar", root_image_path])
 
     def sync_images(self, filters=DEFAULT_FILTERS):
         """Sync MAAS images from source_url simplestreams."""
-        # Verify sstream-mirror supports --progress option.
-        progress = []
-        try:
-            out = subprocess.check_output(
-                ['sstream-mirror', '--help'], stderr=subprocess.STDOUT)
-            if isinstance(out, bytes):
-                out = out.decode()
-            if '--progress' in out:
-                progress = ['--progress']
-        except subprocess.CalledProcessError:
-            # swallow the error here as if sstream-mirror --help failed
-            # then the real sstream-mirror call below will also fail.
-            pass
-
-        cmd = (['sstream-mirror'] + DEFAULT_SSTREAM_OPTS + progress + [
-            '--max=%s' % IMAGES_TO_KEEP, self.source_url, self.base_dir] +
-            filters)
-        logger.info('Syncing images {}'.format(cmd))
-        out = subprocess.check_output(cmd)
-        logger.debug(out)
+        sync_images(self.source_url, self.base_dir, filters=filters)
 
     def prune_images(self, release, arch, filters=None):
         image_dir = os.path.join(self.base_dir, release, arch)
@@ -202,39 +265,10 @@ class ImageStore:
                 fullpath = os.path.join(image_dir, d)
                 remove_dir(fullpath)
 
-    def get_image(self, release, arch, filters=None):
+    def get_image(self, release, arch):
         """Return local path for root image, kernel and initrd, tarball."""
-        if filters is None:
-            filters = [
-                'release=%s' % release, 'krel=%s' % release, 'arch=%s' % arch]
-        # Query local sstream for compressed root image.
-        logger.info(
-            'Query simplestreams for root image: %s', filters)
-        cmd = ['sstream-query'] + DEFAULT_SSTREAM_OPTS + [
-            '--max=1', self.url, 'item_name=root-image.gz'] + filters
-        logger.debug(" ".join(cmd))
-        out = subprocess.check_output(cmd)
-        logger.debug(out)
-        # No output means we have no images locally, so try to sync.
-        # If there's output, ImageStore.sync decides if images should be
-        # synced or not.
-        if not out or self.sync:
-            self.sync_images(filters=filters)
-            out = subprocess.check_output(cmd)
-        sstream_data = ast.literal_eval(bytes.decode(out))
-        root_image_gz = urllib.parse.urlsplit(sstream_data['item_url']).path
-        # Make sure the image checksums correctly. Ideally
-        # sstream-[query,mirror] would make the verification for us.
-        # See https://bugs.launchpad.net/simplestreams/+bug/1513625
-        with open(root_image_gz, "rb") as fp:
-            checksum = hashlib.sha256(fp.read()).hexdigest()
-        if checksum != sstream_data['sha256']:
-            self.sync_images(filters=filters)
-            out = subprocess.check_output(cmd)
-            sstream_data = ast.literal_eval(bytes.decode(out))
-            root_image_gz = urllib.parse.urlsplit(
-                sstream_data['item_url']).path
-
+        root_image_gz = get_images(
+            self.source_url, self.base_dir, release, arch, self.sync)
         image_dir = os.path.dirname(root_image_gz)
         root_image_path = os.path.join(image_dir, 'root-image')
         tarball = os.path.join(image_dir, 'root-image.tar.gz')
@@ -333,7 +367,6 @@ class VMBaseClass(TestCase):
     def setUpClass(cls):
         setup_start = time.time()
         logger.info('Starting setup for testclass: {}'.format(cls.__name__))
-        logger.info('Acquiring boot image')
         # get boot img
         image_store = cls.image_store_class(IMAGE_SRC_URL, IMAGE_DIR)
         # Disable sync if env var is set.
@@ -647,7 +680,7 @@ class PsuedoImageStore(object):
         self.source_url = source_url
         self.base_dir = base_dir
 
-    def get_image(self, release, arch, filters=None):
+    def get_image(self, release, arch):
         """Return local path for root image, kernel and initrd, tarball."""
         names = ['psuedo-root-image', 'psuedo-kernel', 'psuedo-initrd',
                  'psuedo-tarball']
