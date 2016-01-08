@@ -2,7 +2,6 @@ import ast
 import atexit
 import datetime
 import errno
-import hashlib
 import logging
 import json
 import os
@@ -222,7 +221,6 @@ def get_images(src_url, local_d, release, arch, sync=True):
 
     logger.warn(fail_msg)
     raise util.ProcessExecutionError(cmd=qcmd, reason=fail_msg)
-
 
 
 class ImageStore:
