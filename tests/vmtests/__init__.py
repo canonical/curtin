@@ -31,7 +31,6 @@ except ValueError:
     raise ValueError("IMAGES_TO_KEEP in environment was not an integer")
 
 DEFAULT_SSTREAM_OPTS = [
-    '--max=1',
     '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
 DEFAULT_ARCH = 'amd64'
 DEFAULT_FILTERS = ['arch=%s' % DEFAULT_ARCH, 'item_name=root-image.gz']
@@ -212,7 +211,7 @@ class ImageStore:
         logger.info(
             'Query simplestreams for root image: %s', filters)
         cmd = ['sstream-query'] + DEFAULT_SSTREAM_OPTS + [
-            self.url, 'item_name=root-image.gz'] + filters
+            '--max=1', self.url, 'item_name=root-image.gz'] + filters
         logger.debug(" ".join(cmd))
         out = subprocess.check_output(cmd)
         logger.debug(out)
