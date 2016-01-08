@@ -28,7 +28,8 @@ IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
 IMAGES_TO_KEEP = os.environ.get("IMAGES_TO_KEEP", 1)
 
 DEFAULT_SSTREAM_OPTS = [
-    '--max=1', '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
+    '--max=%s' % IMAGES_TO_KEEP,
+    '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
 DEFAULT_ARCH = 'amd64'
 DEFAULT_FILTERS = ['arch=%s' % DEFAULT_ARCH, 'item_name=root-image.gz']
 
