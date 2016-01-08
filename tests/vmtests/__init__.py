@@ -25,7 +25,10 @@ IMAGE_SRC_URL = os.environ.get(
     "http://maas.ubuntu.com/images/ephemeral-v2/daily/streams/v1/index.sjson")
 
 IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
-IMAGES_TO_KEEP = os.environ.get("IMAGES_TO_KEEP", 1)
+try:
+    IMAGES_TO_KEEP = int(os.environ.get("IMAGES_TO_KEEP", 1))
+except ValueError:
+    raise ValueError("IMAGES_TO_KEEP in environment was not an integer")
 
 DEFAULT_SSTREAM_OPTS = [
     '--max=%s' % IMAGES_TO_KEEP,
