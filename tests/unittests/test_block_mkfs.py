@@ -71,11 +71,6 @@ class TestBlockMkfs(TestCase):
         expected_flags = [["-n", "format1"], ["-F", "32"]]
         self._run_mkfs_with_config(conf, "mkfs.fat", expected_flags)
 
-        conf = self._get_config("fat")
-        conf['fatsize'] = "16"
-        expected_flags = [["-n", "format1"], ["-F", "16"]]
-        self._run_mkfs_with_config(conf, "mkfs.fat", expected_flags)
-
     def test_mkfs_invalid_fstype(self):
         """Do not proceed if fstype is None or invalid"""
         with self.assertRaises(ValueError):
@@ -123,12 +118,12 @@ class TestBlockMkfs(TestCase):
         """Do not proceed if block device is none or is not valid block dev"""
         with self.assertRaises(ValueError):
             mock_block.is_valid_device.return_value = False
-            mkfs.mkfs("/dev/null", "ext4", [])
+            mkfs.mkfs("/dev/null", "ext4")
         with self.assertRaises(ValueError):
             mock_block.is_valid_device.return_value = True
-            mkfs.mkfs(None, "ext4", [])
+            mkfs.mkfs(None, "ext4")
 
     def test_mkfs_invalid_flags(self):
         """Do not proceed if flag type is not known"""
         with self.assertRaises(ValueError):
-            mkfs.mkfs("/dev/null", "ext4", ["notarealflagtype"])
+            mkfs.mkfs("/dev/null", "ext4")

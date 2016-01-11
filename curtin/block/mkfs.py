@@ -86,20 +86,24 @@ family_flag_mappings = {
         }
 
 
-def replace_flag_value(flags, flagname, flagval):
-    """Loop through flags and replace value of any instance of flag with
-       given name with given value. If no instance of flag exists then append
-       one"""
-    for flag in flags:
-        if isinstance(flag, (tuple, list)) and flag[0] == flagname:
-            flag[1] = flagval
-            break
+def get_flag_mapping(flag_name, fs_family, param=None, strict=False):
+    ret = []
+    flag_sym_families = family_flag_mappings.get(flag_name)
+    if flag_sym_families is None:
+        raise ValueError("unsupported flag '%s'" % flag_name)
+    flag_sym = flag_sym_families.get(fs_family)
+    if flag_sym is None:
+        if strict:
+            raise ValueError("flag '%s' not supported by fs family '%s'" %
+                             flag_name, fs_family)
     else:
-        flags.append([flagname, flagval])
+        ret = [flag_sym]
+        if param is not None:
+            ret.append(param)
+    return ret
 
 
-def mkfs(path, fstype, extra_flags=[], strict=False, label=None, uuid=None,
-         force=False):
+def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False):
     """Make filesystem on block device with given path using given fstype and
        appropriate flags for filesystem family.
 
@@ -122,7 +126,7 @@ def mkfs(path, fstype, extra_flags=[], strict=False, label=None, uuid=None,
 
     fs_family = specific_to_family.get(fstype, fstype)
     mkfs_cmd = mkfs_commands.get(fstype)
-    if not all((fs_family, mkfs_cmd)):
+    if not mkfs_cmd:
         raise ValueError("unsupported fs type '%s'" % fstype)
 
     if util.which(mkfs_cmd) is None:
@@ -131,55 +135,26 @@ def mkfs(path, fstype, extra_flags=[], strict=False, label=None, uuid=None,
     cmd = [mkfs_cmd]
 
     if force:
-        extra_flags.append("force")
-
+        cmd.extend(get_flag_mapping("force", fs_family, strict=strict))
     if label is not None:
-        replace_flag_value(extra_flags, "label", label)
-
+        limit = label_length_limits.get(fs_family)
+        if len(label) > limit:
+            if strict:
+                raise ValueError("length of fs label for '%s' exceeds max \
+                                 allowed for fstype '%s'. max is '%s'"
+                                 % (path, fstype, limit))
+            else:
+                label = label[:limit]
+        cmd.extend(get_flag_mapping("label", fs_family, param=label,
+                                    strict=strict))
     if uuid is not None:
-        replace_flag_value(extra_flags, "uuid", uuid)
-
+        cmd.extend(get_flag_mapping("uuid", fs_family, param=uuid,
+                                    strict=strict))
     if fs_family == "fat":
         fat_size = fstype.strip(string.ascii_letters)
         if fat_size in ["12", "16", "32"]:
-            replace_flag_value(extra_flags, "fatsize", fat_size)
-
-    for flag in extra_flags:
-        if isinstance(flag, (tuple, list)):
-            # This is a flag with params
-            flag_name = flag[0]
-            flag_val = flag[1]
-        else:
-            # This is a standalone flag
-            flag_name = flag
-            flag_val = None
-
-        flag_sym_families = family_flag_mappings.get(flag_name)
-        if flag_sym_families is None:
-            raise ValueError("unsupported flag '%s'" % flag[0])
-
-        flag_sym = flag_sym_families.get(fs_family)
-        if flag_sym is None:
-            # This flag is not supported by current filesystem family.
-            if strict:
-                raise ValueError("flag '%s' not supported by fs family '%s'" %
-                                 flag_name, fs_family)
-            else:
-                continue
-
-        if flag_name == "label":
-            limit = label_length_limits.get(fs_family)
-            if len(flag_val) > limit:
-                if strict:
-                    raise ValueError("length of fs label for '%s' exceeds max \
-                                     allowed for fstype '%s'. max is '%s'"
-                                     % (path, fstype, limit))
-                else:
-                    flag_val = flag_val[:limit]
-
-        cmd.append(flag_sym)
-        if flag_val is not None:
-            cmd.append(flag_val)
+            cmd.extend(get_flag_mapping("fatsize", fs_family, param=fat_size,
+                                        strict=strict))
 
     cmd.append(path)
     util.subp(cmd, capture=True)
@@ -191,7 +166,6 @@ def mkfs_from_config(path, info, strict=False):
     fstype = info.get('fstype')
     if fstype is None:
         raise ValueError("fstype must be specified")
-    flags = list((i, info.get(i)) for i in info if i in family_flag_mappings)
     # NOTE: Since old metadata on partitions that have not been wiped can cause
     #       some mkfs commands to refuse to work, it's best to add a force flag
     #       here. Also note that mkfs.btrfs does not have a force flag on
@@ -199,4 +173,5 @@ def mkfs_from_config(path, info, strict=False):
     force = True
     if util.lsb_release()['codename'] == "precise" and fstype == "btrfs":
         force = False
-    mkfs(path, fstype, extra_flags=flags, strict=strict, force=force)
+    mkfs(path, fstype, strict=strict, force=force, uuid=info.get('uuid'),
+         label=info.get('label'))
