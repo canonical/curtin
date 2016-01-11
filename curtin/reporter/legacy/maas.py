@@ -76,7 +76,6 @@ class MAASReporter(BaseReporter):
 
         data, headers = self.encode_multipart_data(params, install_files)
 
-        exc = None
         msg = ""
 
         if not isinstance(data, bytes):
@@ -94,7 +93,6 @@ class MAASReporter(BaseReporter):
             msg = str(exc)
         except Exception as exc:
             raise exc
-            msg = "unexpected error [%s]" % exc
 
         sys.stderr.write("%s\n" % msg)
 

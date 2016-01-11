@@ -145,7 +145,7 @@ def main(args=None):
     # merge config flags into a single config dictionary
     cfg_opts = args.main_cfgopts
     if hasattr(args, 'cfgopts'):
-        cfg_opts += args.cfgopts
+        cfg_opts += getattr(args, 'cfgopts')
 
     cfg = {}
     if cfg_opts:
@@ -163,13 +163,13 @@ def main(args=None):
     # if user gave cmdline arguments, then set environ so subsequent
     # curtin calls get those as default
     showtrace = args.showtrace
-    if 'showtrace' in args.config:
-        showtrace = str(args.config['showtrace']).lower() not in ("0", "false")
+    if 'showtrace' in cfg:
+        showtrace = str(cfg['showtrace']).lower() not in ("0", "false")
     os.environ['CURTIN_STACKTRACE'] = str(int(showtrace))
 
     verbosity = args.verbosity
-    if 'verbosity' in args.config:
-        verbosity = int(args.config['verbosity'])
+    if 'verbosity' in cfg:
+        verbosity = int(cfg['verbosity'])
     os.environ['CURTIN_VERBOSITY'] = str(verbosity)
 
     if not getattr(args, 'func', None):

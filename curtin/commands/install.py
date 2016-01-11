@@ -154,7 +154,7 @@ class Stage(object):
             return None
 
     def _write_stdout3(self, data):
-        sys.stdout.buffer.write(data)
+        sys.stdout.buffer.write(data)  # pylint: disable=no-member
         sys.stdout.flush()
 
     def _write_stdout2(self, data):

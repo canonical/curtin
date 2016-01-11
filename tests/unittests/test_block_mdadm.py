@@ -5,12 +5,6 @@ from curtin.block import mdadm
 import os
 import subprocess
 
-from sys import version_info
-if version_info.major == 2:
-    import __builtin__ as builtins
-else:
-    import builtins
-
 
 class MdadmTestBase(TestCase):
     def setUp(self):
@@ -60,15 +54,9 @@ class TestBlockMdadmAssemble(MdadmTestBase):
         self.mock_util.subp.assert_has_calls(expected_calls)
 
     def test_mdadm_assemble_md_devname_short(self):
-        md_devname = "md0"
-        mdadm.mdadm_assemble(md_devname=md_devname)
-
-        expected_calls = [
-            call(["mdadm", "--assemble", "/dev/md0", "--run"], capture=True,
-                 rcs=[0, 1, 2]),
-            call(["udevadm", "settle"]),
-        ]
-        self.mock_util.subp.assert_has_calls(expected_calls)
+        with self.assertRaises(ValueError):
+            md_devname = "md0"
+            mdadm.mdadm_assemble(md_devname=md_devname)
 
     def test_mdadm_assemble_md_devname_none(self):
         with self.assertRaises(ValueError):
@@ -148,6 +136,15 @@ class TestBlockMdadmCreate(MdadmTestBase):
         mdadm.mdadm_create(md_devname=md_devname, raidlevel=raidlevel,
                            devices=devices, spares=spares)
         self.mock_util.subp.assert_has_calls(expected_calls)
+
+    def test_mdadm_create_raid0_devshort(self):
+        md_devname = "md0"
+        raidlevel = 0
+        devices = ["/dev/vdc1", "/dev/vdd1"]
+        spares = []
+        with self.assertRaises(ValueError):
+            mdadm.mdadm_create(md_devname=md_devname, raidlevel=raidlevel,
+                               devices=devices, spares=spares)
 
     def test_mdadm_create_raid0_with_spares(self):
         md_devname = "/dev/md0"
@@ -488,12 +485,8 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
 
     def test_valid_mdname_short(self):
         mdname = "md0"
-        result = mdadm.valid_mdname(mdname)
-        expected_calls = [
-            call("/dev/md0")
-        ]
-        self.mock_valid.assert_has_calls(expected_calls)
-        self.assertTrue(result)
+        with self.assertRaises(ValueError):
+            mdadm.valid_mdname(mdname)
 
     def test_valid_mdname_none(self):
         mdname = None
@@ -506,14 +499,15 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         with self.assertRaises(ValueError):
             mdadm.valid_mdname(mdname)
 
-    @patch.object(builtins, "open")
-    def test_md_sysfs_attr(self, mock_open):
+    @patch('curtin.block.mdadm.os.path.isfile')
+    def test_md_sysfs_attr(self, mock_isfile):
         mdname = "/dev/md0"
         attr_name = 'array_state'
         sysfs_path = '/sys/class/block/{}/md/{}'.format(dev_short(mdname),
                                                         attr_name)
+        mock_isfile.return_value = True
         mdadm.md_sysfs_attr(mdname, attr_name)
-        mock_open.assert_called_with(sysfs_path)
+        self.mock_util.load_file.assert_called_with(sysfs_path)
 
     def test_md_sysfs_attr_devname_none(self):
         mdname = None
@@ -729,6 +723,17 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
             mdadm.md_check_array_state(mdname)
 
     @patch('curtin.block.mdadm.md_sysfs_attr')
+    def test_md_check_array_state_degraded_empty(self, mock_attr):
+        mdname = '/dev/md0'
+        mock_attr.side_effect = [
+            'clean',  # array_state
+            '',  # unknown
+            'idle',  # sync_action
+        ]
+        with self.assertRaises(ValueError):
+            mdadm.md_check_array_state(mdname)
+
+    @patch('curtin.block.mdadm.md_sysfs_attr')
     def test_md_check_array_state_sync(self, mock_attr):
         mdname = '/dev/md0'
         mock_attr.side_effect = [
@@ -887,5 +892,15 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         mock_dev.assert_has_calls([call(md_devname, devices)])
         mock_spare.assert_has_calls([call(md_devname, spares)])
         mock_member.assert_has_calls([call(md_devname, devices + spares)])
+
+    def test_md_check_all_good_devshort(self):
+        md_devname = 'md0'
+        raidlevel = 1
+        devices = ['/dev/vda', '/dev/vdb']
+        spares = ['/dev/vdc']
+
+        with self.assertRaises(ValueError):
+            mdadm.md_check(md_devname, raidlevel, devices=devices,
+                           spares=spares)
 
 # vi: ts=4 expandtab syntax=python

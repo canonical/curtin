@@ -100,7 +100,7 @@ def apt_config(cfg, target):
             content='Acquire::HTTP::Proxy "%s";\n' % cfg['apt_proxy'])
     else:
         if os.path.isfile(proxy_cfg_path):
-            os.path.unlink(proxy_cfg_path)
+            os.unlink(proxy_cfg_path)
 
     # cfg['apt_mirrors']
     # apt_mirrors:

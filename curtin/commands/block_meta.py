@@ -896,6 +896,7 @@ def raid_handler(info, storage_config):
     devices = info.get('devices')
     raidlevel = info.get('raidlevel')
     spare_devices = info.get('spare_devices')
+    md_devname = block.dev_path(info.get('name'))
     if not devices:
         raise ValueError("devices for raid must be specified")
     if raidlevel not in ['linear', 'raid0', 0, 'stripe', 'raid1', 1, 'mirror',
@@ -916,23 +917,22 @@ def raid_handler(info, storage_config):
     # Handle preserve flag
     if info.get('preserve'):
         # check if the array is already up, if not try to assemble
-        if not block.md_check(info.get('name'), raidlevel,
+        if not mdadm.md_check(md_devname, raidlevel,
                               device_paths, spare_device_paths):
             LOG.info("assembling preserved raid for "
-                     "{}".format(info.get('name')))
+                     "{}".format(md_devname))
 
-            mdadm.mdadm_assemble(info.get('name'),
-                                 device_paths, spare_device_paths)
+            mdadm.mdadm_assemble(md_devname, device_paths, spare_device_paths)
 
             # try again after attempting to assemble
-            if not mdadm.md_check(info.get('name'), raidlevel,
+            if not mdadm.md_check(md_devname, raidlevel,
                                   devices, spare_device_paths):
                 raise ValueError("Unable to confirm preserved raid array: "
-                                 " {}".format(info.get('name')))
+                                 " {}".format(md_devname))
         # raid is all OK
         return
 
-    mdadm.mdadm_create(info.get('name'), raidlevel,
+    mdadm.mdadm_create(md_devname, raidlevel,
                        device_paths, spare_device_paths,
                        info.get('mdname', ''))
 
@@ -1032,8 +1032,8 @@ def bcache_handler(info, storage_config):
             with open(attach, "w") as fp:
                 fp.write(cset_uuid)
         else:
-            LOG.error("Invalid cset_uuid: {}".format(cset_uuid))
-            raise
+            LOG.error("Invalid cset_uuid: '%s'" % cset_uuid)
+            raise Exception("Invalid cset_uuid: '%s'" % cset_uuid)
 
     if cache_mode:
         # find the actual bcache device name via sysfs using the
