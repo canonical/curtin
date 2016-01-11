@@ -151,7 +151,7 @@ def sync_images(src_url, base_dir, filters):
     sfilters = ','.join(sorted(filters))
 
     if sfilters in IMAGE_SYNCS:
-        LOG.debug("already synced for filters: %s", sfilters)
+        logger.debug("already synced for filters: %s", sfilters)
         return
 
     # Verify sstream-mirror supports --progress option.
@@ -280,7 +280,14 @@ class ImageStore:
         return (root_image_path, kernel_path, initrd_path, tarball)
 
 
-class TempDir:
+class TempDir(object):
+    boot = None
+    collect = None
+    disks = None
+    install = None
+    logs = None
+    output_disk = None
+
     def __init__(self, name, user_data):
         # Create tmpdir
         self.tmpdir = os.path.join(_topdir(), name)
@@ -339,6 +346,7 @@ class TempDir:
         subprocess.check_call(["mkfs.ext2", "-F", self.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
+    @classmethod
     def collect_output(cls):
         logger.debug('extracting output disk')
         subprocess.check_call(['tar', '-C', cls.collect, '-xf',
@@ -360,6 +368,10 @@ class VMBaseClass(TestCase):
     extra_disks = []
     boot_timeout = 300
     install_timeout = 600
+
+    # these get set from base_vm_classes
+    release = None
+    arch = None
 
     @classmethod
     def setUpClass(cls):
@@ -712,9 +724,9 @@ class PsuedoVMBaseClass(VMBaseClass):
     @classmethod
     def collect_output(cls):
         logger.debug('Psuedo extracting output disk')
-        with open(os.path.join(cls.collect, "fstab")) as fp:
-            fp.write('\n'.join("# psuedo fstab",
-                               "LABEL=root / ext4 defaults 0 1"))
+        with open(os.path.join(cls.td.collect, "fstab")) as fp:
+            fp.write('\n'.join(("# psuedo fstab",
+                                "LABEL=root / ext4 defaults 0 1")))
 
     @classmethod
     def boot_system(cls, cmd, console_log, proc_out, timeout, purpose):
