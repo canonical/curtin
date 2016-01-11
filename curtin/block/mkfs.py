@@ -133,7 +133,11 @@ def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False):
     cmd = [mkfs_cmd]
 
     if force:
-        cmd.extend(get_flag_mapping("force", fs_family, strict=strict))
+        # On precise mkfs.btrfs does not have a force flag, though it does in
+        # later releases
+        if not (util.lsb_release()['codename'] == "precise" and fstype ==
+                "btrfs"):
+            cmd.extend(get_flag_mapping("force", fs_family, strict=strict))
     if label is not None:
         limit = label_length_limits.get(fs_family)
         if len(label) > limit:
@@ -165,11 +169,6 @@ def mkfs_from_config(path, info, strict=False):
     if fstype is None:
         raise ValueError("fstype must be specified")
     # NOTE: Since old metadata on partitions that have not been wiped can cause
-    #       some mkfs commands to refuse to work, it's best to add a force flag
-    #       here. Also note that mkfs.btrfs does not have a force flag on
-    #       precise, so we will skip adding the force flag for it
-    force = True
-    if util.lsb_release()['codename'] == "precise" and fstype == "btrfs":
-        force = False
-    mkfs(path, fstype, strict=strict, force=force, uuid=info.get('uuid'),
+    #       some mkfs commands to refuse to work, it's best to use force=True
+    mkfs(path, fstype, strict=strict, force=True, uuid=info.get('uuid'),
          label=info.get('label'))
