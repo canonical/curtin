@@ -346,11 +346,10 @@ class TempDir(object):
         subprocess.check_call(["mkfs.ext2", "-F", self.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
-    @classmethod
-    def collect_output(cls):
+    def collect_output(self):
         logger.debug('extracting output disk')
-        subprocess.check_call(['tar', '-C', cls.collect, '-xf',
-                               cls.output_disk],
+        subprocess.check_call(['tar', '-C', self.collect, '-xf',
+                               self.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
 
@@ -721,10 +720,9 @@ class PsuedoVMBaseClass(VMBaseClass):
     allow_test_fails = get_env_var_bool('CURTIN_VMTEST_DEBUG_ALLOW_FAIL',
                                         False)
 
-    @classmethod
-    def collect_output(cls):
+    def collect_output(self):
         logger.debug('Psuedo extracting output disk')
-        with open(os.path.join(cls.td.collect, "fstab")) as fp:
+        with open(os.path.join(self.td.collect, "fstab")) as fp:
             fp.write('\n'.join(("# psuedo fstab",
                                 "LABEL=root / ext4 defaults 0 1")))
 
