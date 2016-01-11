@@ -89,7 +89,9 @@ except AttributeError:
             else:
                 self.timeout = -1
 
-            super(TimeoutExpired, self).__init__(returncode, **kwargs)
+            # do not use super here as it confuses pylint
+            # https://github.com/PyCQA/pylint/issues/773
+            subprocess.CalledProcessError.__init__(self, returncode, **kwargs)
 
 
 def check_call(cmd, signal=signal.SIGTERM, **kwargs):
