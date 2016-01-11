@@ -32,16 +32,19 @@ CMD_ARGUMENTS = (
       {'help': 'label to use for filesystem', 'action': 'store'}),
      (('-u', '--uuid'),
       {'help': 'uuid to use for filesystem', 'action': 'store'}),
+     (('-s', '--strict'),
+      {'help': 'exit if mkfs cannot do exactly what is specified',
+       'action': 'store_true', 'default': False}),
      (('-F', '--force'),
-      {'help': 'continue if minor errors encountered', 'action': 'store_true',
-       'default': False})
+      {'help': 'continue if some data already exists on device',
+       'action': 'store_true', 'default': False})
      )
 )
 
 
 def mkfs(args):
     for device in args.devices:
-        run_mkfs(device, args.fstype, strict=(not args.force),
+        run_mkfs(device, args.fstype, strict=args.strict,
                  uuid=args.uuid, label=args.label, force=args.force)
 
     sys.exit(0)
