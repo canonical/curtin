@@ -98,7 +98,8 @@ def replace_flag_value(flags, flagname, flagval):
         flags.append([flagname, flagval])
 
 
-def mkfs(path, fstype, extra_flags=[], strict=False, label=None, uuid=None):
+def mkfs(path, fstype, extra_flags=[], strict=False, label=None, uuid=None,
+         force=False):
     """Make filesystem on block device with given path using given fstype and
        appropriate flags for filesystem family.
 
@@ -128,6 +129,9 @@ def mkfs(path, fstype, extra_flags=[], strict=False, label=None, uuid=None):
         raise ValueError("need '%s' but it could not be found" % mkfs_cmd)
 
     cmd = [mkfs_cmd]
+
+    if force:
+        extra_flags.append("force")
 
     if label is not None:
         replace_flag_value(extra_flags, "label", label)
@@ -192,6 +196,7 @@ def mkfs_from_config(path, info, strict=False):
     #       some mkfs commands to refuse to work, it's best to add a force flag
     #       here. Also note that mkfs.btrfs does not have a force flag on
     #       precise, so we will skip adding the force flag for it
-    if util.lsb_release()['codename'] != "precise" or fstype != "btrfs":
-        flags.append("force")
-    mkfs(path, fstype, extra_flags=flags, strict=strict)
+    force = True
+    if util.lsb_release()['codename'] == "precise" and fstype == "btrfs":
+        force = False
+    mkfs(path, fstype, extra_flags=flags, strict=strict, force=force)

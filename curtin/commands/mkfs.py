@@ -40,14 +40,9 @@ CMD_ARGUMENTS = (
 
 
 def mkfs(args):
-    if args.force:
-        flags = ["force"]
-    else:
-        flags = []
-
     for device in args.devices:
-        run_mkfs(device, args.fstype, flags, strict=(not args.force),
-                 uuid=args.uuid, label=args.label)
+        run_mkfs(device, args.fstype, strict=(not args.force),
+                 uuid=args.uuid, label=args.label, force=args.force)
 
     sys.exit(0)
 

@@ -5,11 +5,12 @@ import mock
 
 
 class TestBlockMkfs(TestCase):
+    test_uuid = "fb26cc6c-ae73-11e5-9e38-2fb63f0c3155"
 
     def _get_config(self, fstype):
         return {"fstype": fstype, "type": "format", "id": "testfmt",
                 "volume": "null", "label": "format1",
-                "uuid": "fb26cc6c-ae73-11e5-9e38-2fb63f0c3155"}
+                "uuid": self.test_uuid}
 
     def _assert_same_flags(self, call, expected):
         for flag in expected:
@@ -51,13 +52,13 @@ class TestBlockMkfs(TestCase):
     def test_mkfs_ext(self):
         conf = self._get_config("ext4")
         expected_flags = [["-L", "format1"], "-F",
-                          ["-U", "fb26cc6c-ae73-11e5-9e38-2fb63f0c3155"]]
+                          ["-U", self.test_uuid]]
         self._run_mkfs_with_config(conf, "mkfs.ext4", expected_flags)
 
     def test_mkfs_btrfs(self):
         conf = self._get_config("btrfs")
         expected_flags = [["--label", "format1"], "--force",
-                          ["--uuid", "fb26cc6c-ae73-11e5-9e38-2fb63f0c3155"]]
+                          ["--uuid", self.test_uuid]]
         self._run_mkfs_with_config(conf, "mkfs.btrfs", expected_flags)
 
         # Test precise+btrfs edge case, force should not be used
@@ -103,6 +104,19 @@ class TestBlockMkfs(TestCase):
 
         # Do not raise with strict = False
         self._run_mkfs_with_config(conf, "mkswap", expected_flags)
+
+    @mock.patch("curtin.block.mkfs.util")
+    @mock.patch("curtin.block.mkfs.block")
+    def test_mkfs_kwargs(self, mock_block, mock_util):
+        """Ensure that kwargs are being followed"""
+        mkfs.mkfs("/dev/null", "ext4", [], uuid=self.test_uuid,
+                  label="testlabel", force=True)
+        expected_flags = ["-F", ["-L", "testlabel"], ["-U", self.test_uuid]]
+        calls = mock_util.subp.call_args_list
+        self.assertEquals(len(calls), 1)
+        call = calls[0][0][0]
+        self.assertEquals(call[0], "mkfs.ext4")
+        self._assert_same_flags(call, expected_flags)
 
     @mock.patch("curtin.block.mkfs.block")
     def test_mkfs_invalid_block_device(self, mock_block):
