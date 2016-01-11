@@ -112,13 +112,11 @@ def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False):
        will raise a ValueError if the strict flag is true or will truncate
        it to the maximum possible length.
 
-       Additional flags are passed in as a list to extra_flags, with each
-       entry in the list either being a string representing a flag without
-       a parameter or a tuple representing a flag and it's parameter. UUID and
-       label can be passed in to extra_flags as well, but if a uuid or label is
-       specified both in extra_flags and as a kwarg the kwarg takes priority.
        If a flag is not supported by a filesystem family mkfs will raise a
        ValueError if the strict flag is true or silently ignore it otherwise.
+
+       Force can be specified to force the mkfs command to continue even if it
+       finds old data or filesystems on the partition.
        """
 
     if path is None or not block.is_valid_device(path):
