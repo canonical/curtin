@@ -201,7 +201,7 @@ def get_images(src_url, local_d, release, arch, sync=True):
         if os.path.exists(root_image_gz):
             return root_image_gz
         else:
-            fail_msg = "root-image.gz (%s) did not exist" % root_image_gz
+            fail_msg = "root-image.gz (%s) did not exist.\n" % root_image_gz
     except util.ProcessExecutionError as e:
         if not os.path.isdir(os.path.join(local_d, "streams/v1")):
             # assume this failed because this is first time.
@@ -229,6 +229,9 @@ class ImageStore:
     # By default sync on demand.
     sync = True
 
+    # images are expected in dirs named <release>/<arch>/YYYYMMDD[.X]
+    image_dir_re = re.compile(r"^[0-9]{4}[01][0-9][0123][0-9]([.][0-9])*$")
+
     def __init__(self, source_url, base_dir):
         """Initialize the ImageStore.
 
@@ -252,16 +255,21 @@ class ImageStore:
         sync_images(self.source_url, self.base_dir, filters=filters)
 
     def prune_images(self, release, arch, filters=None):
-        image_dir = os.path.join(self.base_dir, release, arch)
-        release_dirs = sorted(os.listdir(image_dir))
-        logger.info('Pruning release={} keep={}'.format(release,
-                                                        IMAGES_TO_KEEP))
-        if len(release_dirs) > IMAGES_TO_KEEP:
-            to_remove = release_dirs[0:-IMAGES_TO_KEEP]
-            logger.info('Removing {} images'.format(len(to_remove)))
+        release_dir = os.path.join(self.base_dir, release, arch)
+        subdirs = [os.path.basename(d)
+                   for d in sorted(os.listdir(release_dir))]
+        image_dirs = [d for d in subdirs if self.image_dir_re.match(d)]
+        bmsg = 'Pruning %s release=%s keep=%s.' % (release_dir, release,
+                                                   IMAGES_TO_KEEP)
+        if len(image_dirs) > IMAGES_TO_KEEP:
+            to_remove = image_dirs[0:-IMAGES_TO_KEEP]
+            logger.info(bmsg + ' Removing: %s', ' '.join(to_remove))
             for d in to_remove:
-                fullpath = os.path.join(image_dir, d)
+                fullpath = os.path.join(release_dir, d)
                 remove_dir(fullpath)
+        else:
+            logger.info(bmsg + ' Nothing to do. Keeping: %s',
+                        ' '.join(image_dirs))
 
     def get_image(self, release, arch):
         """Return local path for root image, kernel and initrd, tarball."""
