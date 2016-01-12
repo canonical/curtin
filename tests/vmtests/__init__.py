@@ -41,9 +41,6 @@ IMAGE_SYNCS = []
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 
-# serials are YYYYMMDD[.X] format.
-VERSION_SERIAL = re.compile(r"^[0-9]{4}[01][0-9][0123][0-9]([.][0-9])*$")
-
 _TOPDIR = None
 
 
@@ -232,6 +229,9 @@ class ImageStore:
     # By default sync on demand.
     sync = True
 
+    # images are expected in dirs named <release>/<arch>/YYYYMMDD[.X]
+    image_dir_re = re.compile(r"^[0-9]{4}[01][0-9][0123][0-9]([.][0-9])*$")
+
     def __init__(self, source_url, base_dir):
         """Initialize the ImageStore.
 
@@ -258,7 +258,7 @@ class ImageStore:
         release_dir = os.path.join(self.base_dir, release, arch)
         subdirs = [os.path.basename(d)
                    for d in sorted(os.listdir(release_dir))]
-        image_dirs = [d for d in subdirs if VERSION_SERIAL.match(d)]
+        image_dirs = [d for d in subdirs if self.image_dir_re.match(d)]
         bmsg = 'Pruning %s release=%s keep=%s.' % (release_dir, release,
                                                    IMAGES_TO_KEEP)
         if len(image_dirs) > IMAGES_TO_KEEP:
@@ -268,7 +268,7 @@ class ImageStore:
                 fullpath = os.path.join(release_dir, d)
                 remove_dir(fullpath)
         else:
-            logger.info(bmsg + ' Nothing to do. existing: %s',
+            logger.info(bmsg + ' Nothing to do. Keeping: %s',
                         ' '.join(image_dirs))
 
     def get_image(self, release, arch):
