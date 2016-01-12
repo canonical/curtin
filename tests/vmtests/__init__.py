@@ -41,6 +41,9 @@ IMAGE_SYNCS = []
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 
+# serials are YYYYMMDD[.X] format.
+VERSION_SERIAL = re.compile(r"^[0-9]{4}[01][0-9][0123][0-9]([.][0-9])*$")
+
 _TOPDIR = None
 
 
@@ -253,10 +256,9 @@ class ImageStore:
 
     def prune_images(self, release, arch, filters=None):
         release_dir = os.path.join(self.base_dir, release, arch)
-        excluded = ['di']
         subdirs = [os.path.basename(d)
                    for d in sorted(os.listdir(release_dir))]
-        image_dirs = [d for d in subdirs if d not in excluded]
+        image_dirs = [d for d in subdirs if VERSION_SERIAL.match(d)]
         bmsg = 'Pruning %s release=%s keep=%s.' % (release_dir, release,
                                                    IMAGES_TO_KEEP)
         if len(image_dirs) > IMAGES_TO_KEEP:
