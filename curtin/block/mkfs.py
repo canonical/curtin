@@ -24,64 +24,64 @@ from curtin import block
 import string
 
 mkfs_commands = {
-        "ext4": "mkfs.ext4",
-        "ext3": "mkfs.ext3",
+        "btrfs": "mkfs.btrfs",
         "ext2": "mkfs.ext2",
+        "ext3": "mkfs.ext3",
+        "ext4": "mkfs.ext4",
+        "fat": "mkfs.fat",
         "fat12": "mkfs.fat",
         "fat16": "mkfs.fat",
         "fat32": "mkfs.fat",
-        "fat": "mkfs.fat",
-        "btrfs": "mkfs.btrfs",
-        "swap": "mkswap",
-        "xfs": "mkfs.xfs",
         "jfs": "jfs_mkfs",
+        "ntfs": "mkntfs",
         "reiserfs": "mkfs.reiserfs",
-        "ntfs": "mkntfs"
+        "swap": "mkswap",
+        "xfs": "mkfs.xfs"
         }
 
 specific_to_family = {
-        "ext4": "ext",
-        "ext3": "ext",
         "ext2": "ext",
+        "ext3": "ext",
+        "ext4": "ext",
         "fat12": "fat",
         "fat16": "fat",
         "fat32": "fat",
         }
 
 label_length_limits = {
-        "fat": 11,
-        "ext": 16,
-        "ntfs": 32,
-        "jfs": 16,  # see jfs_tune manpage
-        "xfs": 12,
-        "swap": 15,  # not in manpages, found experimentally
         "btrfs": 256,
-        "reiserfs": 16
+        "ext": 16,
+        "fat": 11,
+        "jfs": 16,  # see jfs_tune manpage
+        "ntfs": 32,
+        "reiserfs": 16,
+        "swap": 15,  # not in manpages, found experimentally
+        "xfs": 12
         }
 
 family_flag_mappings = {
-        "label": {"ext": "-L",
-                  "btrfs": "--label",
+        "label": {"btrfs": "--label",
+                  "ext": "-L",
                   "fat": "-n",
-                  "swap": "--label",
-                  "xfs": "-L",
                   "jfs": "-L",
+                  "ntfs": "--label",
                   "reiserfs": "--label",
-                  "ntfs": "--label"},
-        "uuid": {"ext": "-U",
-                 "btrfs": "--uuid",
-                 "swap": "--uuid",
-                 "reiserfs": "--uuid"},
-        "force": {"ext": "-F",
-                  "btrfs": "--force",
-                  "swap": "--force",
-                  "xfs": "-f",
+                  "swap": "--label",
+                  "xfs": "-L"},
+        "uuid": {"btrfs": "--uuid",
+                 "ext": "-U",
+                 "reiserfs": "--uuid",
+                 "swap": "--uuid"},
+        "force": {"btrfs": "--force",
+                  "ext": "-F",
                   "ntfs": "--force",
-                  "reiserfs": "-f"},
+                  "reiserfs": "-f",
+                  "swap": "--force",
+                  "xfs": "-f"},
         "fatsize": {"fat": "-F"},
         "quiet": {"ext": "-q",
-                  "reiserfs": "-q",
                   "ntfs": "-q",
+                  "reiserfs": "-q",
                   "xfs": "--quiet"}
         }
 
