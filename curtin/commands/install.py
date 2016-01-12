@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import yaml
 
 from curtin import block
 from curtin import config
@@ -353,6 +354,10 @@ def cmd_install(args):
     instcfg = cfg.get('install', {})
     logfile = instcfg.get('log_file')
     post_files = instcfg.get('post_files', [logfile])
+
+    yaml_dump_file = instcfg.get('yaml_dump', '/root/install.yaml')
+    if yaml_dump_file:
+        util.write_file(yaml_dump_file, yaml.dump(cfg), mode=0o400)
 
     # Load reporter
     clear_install_log(logfile)
