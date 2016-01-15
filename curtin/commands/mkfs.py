@@ -17,6 +17,7 @@
 
 from . import populate_one_subcmd
 from curtin.block.mkfs import mkfs as run_mkfs
+from curtin.block.mkfs import valid_fstypes
 
 import sys
 
@@ -27,6 +28,7 @@ CMD_ARGUMENTS = (
        'metavar': 'DEVICE', 'action': 'store', 'nargs': '+'}),
      (('-f', '--fstype'),
       {'help': 'filesystem type to use. default is ext4',
+       'choices': valid_fstypes(),
        'default': 'ext4', 'action': 'store'}),
      (('-l', '--label'),
       {'help': 'label to use for filesystem', 'action': 'store'}),
