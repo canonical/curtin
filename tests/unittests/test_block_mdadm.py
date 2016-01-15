@@ -500,14 +500,17 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
             mdadm.valid_mdname(mdname)
 
     @patch('curtin.block.mdadm.os.path.isfile')
-    def test_md_sysfs_attr(self, mock_isfile):
+    @patch('curtin.block.mdadm.os.path.exists')
+    def test_md_sysfs_attr(self, mock_exists, mock_isfile):
         mdname = "/dev/md0"
         attr_name = 'array_state'
         sysfs_path = '/sys/class/block/{}/md/{}'.format(dev_short(mdname),
                                                         attr_name)
+        mock_exists.side_effect = [True]
         mock_isfile.return_value = True
         mdadm.md_sysfs_attr(mdname, attr_name)
         self.mock_util.load_file.assert_called_with(sysfs_path)
+        mock_exists.assert_called_with(os.path.dirname(sysfs_path))
 
     def test_md_sysfs_attr_devname_none(self):
         mdname = None
@@ -618,7 +621,7 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
     def tests_md_get_spares_list_nomd(self, mock_exists):
         mdname = '/dev/md0'
         mock_exists.return_value = False
-        with self.assertRaises(ValueError):
+        with self.assertRaises(OSError):
             mdadm.md_get_spares_list(mdname)
 
     @patch('curtin.block.mdadm.os.path.exists')
@@ -646,7 +649,7 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
     def tests_md_get_devices_list_nomd(self, mock_exists):
         mdname = '/dev/md0'
         mock_exists.return_value = False
-        with self.assertRaises(ValueError):
+        with self.assertRaises(OSError):
             mdadm.md_get_devices_list(mdname)
 
     @patch('curtin.block.mdadm.os')
