@@ -499,18 +499,19 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         with self.assertRaises(ValueError):
             mdadm.valid_mdname(mdname)
 
+    @patch('curtin.block.mdadm.sys_block_path')
     @patch('curtin.block.mdadm.os.path.isfile')
-    @patch('curtin.block.mdadm.os.path.exists')
-    def test_md_sysfs_attr(self, mock_exists, mock_isfile):
+    def test_md_sysfs_attr(self, mock_isfile, mock_sysblock):
         mdname = "/dev/md0"
         attr_name = 'array_state'
         sysfs_path = '/sys/class/block/{}/md/{}'.format(dev_short(mdname),
                                                         attr_name)
-        mock_exists.side_effect = [True]
-        mock_isfile.return_value = True
+        mock_sysblock.side_effect = ['/sys/class/block/md0/md']
+        mock_isfile.side_effect = [True]
         mdadm.md_sysfs_attr(mdname, attr_name)
         self.mock_util.load_file.assert_called_with(sysfs_path)
-        mock_exists.assert_called_with(os.path.dirname(sysfs_path))
+        mock_sysblock.assert_called_with(mdname, 'md')
+        mock_isfile.assert_called_with(sysfs_path)
 
     def test_md_sysfs_attr_devname_none(self):
         mdname = None
