@@ -44,8 +44,12 @@ CMD_ARGUMENTS = (
 
 def mkfs(args):
     for device in args.devices:
-        run_mkfs(device, args.fstype, strict=args.strict,
-                 uuid=args.uuid, label=args.label, force=args.force)
+        uuid = run_mkfs(device, args.fstype, strict=args.strict,
+                        uuid=args.uuid, label=args.label,
+                        force=args.force)
+
+        print("Created '%s' filesystem in '%s' with uuid '%s' and label '%s'" %
+              (args.fstype, device, uuid, args.label))
 
     sys.exit(0)
 
