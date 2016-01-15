@@ -19,9 +19,9 @@
 # for each filesystem type
 
 from curtin import util
-from curtin import block
 
 import string
+import os
 
 mkfs_commands = {
         "btrfs": "mkfs.btrfs",
@@ -119,8 +119,10 @@ def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False):
        finds old data or filesystems on the partition.
        """
 
-    if path is None or not block.is_valid_device(path):
+    if path is None:
         raise ValueError("invalid block dev path '%s'" % path)
+    if not os.path.exists(path):
+        raise ValueError("'%s': no such file or directory" % path)
 
     fs_family = specific_to_family.get(fstype, fstype)
     mkfs_cmd = mkfs_commands.get(fstype)
