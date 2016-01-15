@@ -19,9 +19,11 @@
 # for each filesystem type
 
 from curtin import util
+from curtin import block
 
 import string
 import os
+from uuid import uuid1
 
 mkfs_commands = {
         "btrfs": "mkfs.btrfs",
@@ -151,9 +153,12 @@ def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False):
                 label = label[:limit]
         cmd.extend(get_flag_mapping("label", fs_family, param=label,
                                     strict=strict))
-    if uuid is not None:
-        cmd.extend(get_flag_mapping("uuid", fs_family, param=uuid,
-                                    strict=strict))
+
+    # If uuid is not specified, generate one and try to use it
+    if uuid is None:
+        uuid = str(uuid1())
+    cmd.extend(get_flag_mapping("uuid", fs_family, param=uuid, strict=strict))
+
     if fs_family == "fat":
         fat_size = fstype.strip(string.ascii_letters)
         if fat_size in ["12", "16", "32"]:
@@ -162,6 +167,18 @@ def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False):
 
     cmd.append(path)
     util.subp(cmd, capture=True)
+
+    # if fs_family does not support specifying uuid then use blkid to find it
+    # if blkid is unable to then just return None for uuid
+    if fs_family not in family_flag_mappings['uuid']:
+        try:
+            uuid = block.blkid()[path]['UUID']
+        except:
+            pass
+
+    # return uuid, may be none if it could not be specified and blkid could not
+    # find it
+    return uuid
 
 
 def mkfs_from_config(path, info, strict=False):
