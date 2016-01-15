@@ -29,14 +29,14 @@ class TestBlockMkfs(TestCase):
         # Only remaining vals in call should be mkfs.fstype and dev path
         self.assertEquals(len(call), 2)
 
-    @mock.patch("curtin.block.mkfs.block")
+    @mock.patch("curtin.block.mkfs.os")
     @mock.patch("curtin.block.mkfs.util")
     def _run_mkfs_with_config(self, config, expected_cmd,
-                              expected_flags, mock_util, mock_block,
+                              expected_flags, mock_util, mock_os,
                               release="wily", strict=False):
         # Pretend we are on wily as there are no known edge cases for it
         mock_util.lsb_release.return_value = {"codename": release}
-        mock_block.is_valid_device.return_value = True
+        mock_os.path.exists.return_value = True
 
         mkfs.mkfs_from_config("/dev/null", config, strict=strict)
         self.assertTrue(mock_util.subp.called)
@@ -101,8 +101,8 @@ class TestBlockMkfs(TestCase):
         self._run_mkfs_with_config(conf, "mkswap", expected_flags)
 
     @mock.patch("curtin.block.mkfs.util")
-    @mock.patch("curtin.block.mkfs.block")
-    def test_mkfs_kwargs(self, mock_block, mock_util):
+    @mock.patch("curtin.block.mkfs.os")
+    def test_mkfs_kwargs(self, mock_os, mock_util):
         """Ensure that kwargs are being followed"""
         mkfs.mkfs("/dev/null", "ext4", [], uuid=self.test_uuid,
                   label="testlabel", force=True)
@@ -113,17 +113,12 @@ class TestBlockMkfs(TestCase):
         self.assertEquals(call[0], "mkfs.ext4")
         self._assert_same_flags(call, expected_flags)
 
-    @mock.patch("curtin.block.mkfs.block")
-    def test_mkfs_invalid_block_device(self, mock_block):
+    @mock.patch("curtin.block.mkfs.os")
+    def test_mkfs_invalid_block_device(self, mock_os):
         """Do not proceed if block device is none or is not valid block dev"""
         with self.assertRaises(ValueError):
-            mock_block.is_valid_device.return_value = False
+            mock_os.path.exists.return_value = False
             mkfs.mkfs("/dev/null", "ext4")
         with self.assertRaises(ValueError):
-            mock_block.is_valid_device.return_value = True
+            mock_os.path.exists.return_value = True
             mkfs.mkfs(None, "ext4")
-
-    def test_mkfs_invalid_flags(self):
-        """Do not proceed if flag type is not known"""
-        with self.assertRaises(ValueError):
-            mkfs.mkfs("/dev/null", "ext4")
