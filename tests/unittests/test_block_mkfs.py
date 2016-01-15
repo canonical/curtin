@@ -29,10 +29,11 @@ class TestBlockMkfs(TestCase):
         # Only remaining vals in call should be mkfs.fstype and dev path
         self.assertEquals(len(call), 2)
 
+    @mock.patch("curtin.block.mkfs.block")
     @mock.patch("curtin.block.mkfs.os")
     @mock.patch("curtin.block.mkfs.util")
-    def _run_mkfs_with_config(self, config, expected_cmd,
-                              expected_flags, mock_util, mock_os,
+    def _run_mkfs_with_config(self, config, expected_cmd, expected_flags,
+                              mock_util, mock_os, mock_block,
                               release="wily", strict=False):
         # Pretend we are on wily as there are no known edge cases for it
         mock_util.lsb_release.return_value = {"codename": release}
@@ -100,9 +101,10 @@ class TestBlockMkfs(TestCase):
         # Do not raise with strict = False
         self._run_mkfs_with_config(conf, "mkswap", expected_flags)
 
+    @mock.patch("curtin.block.mkfs.block")
     @mock.patch("curtin.block.mkfs.util")
     @mock.patch("curtin.block.mkfs.os")
-    def test_mkfs_kwargs(self, mock_os, mock_util):
+    def test_mkfs_kwargs(self, mock_os, mock_util, mock_block):
         """Ensure that kwargs are being followed"""
         mkfs.mkfs("/dev/null", "ext4", [], uuid=self.test_uuid,
                   label="testlabel", force=True)
@@ -122,3 +124,11 @@ class TestBlockMkfs(TestCase):
         with self.assertRaises(ValueError):
             mock_os.path.exists.return_value = True
             mkfs.mkfs(None, "ext4")
+
+    @mock.patch("curtin.block.mkfs.util")
+    @mock.patch("curtin.block.mkfs.os")
+    def test_mkfs_generates_uuid(self, mock_os, mock_util):
+        """Ensure that block.mkfs generates and returns a uuid if None is
+           provided"""
+        uuid = mkfs.mkfs("/dev/null", "ext4")
+        self.assertIsNotNone(uuid)
