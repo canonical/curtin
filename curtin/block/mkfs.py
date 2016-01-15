@@ -88,6 +88,10 @@ family_flag_mappings = {
         }
 
 
+def valid_fstypes():
+    return list(mkfs_commands.keys())
+
+
 def get_flag_mapping(flag_name, fs_family, param=None, strict=False):
     ret = []
     flag_sym_families = family_flag_mappings.get(flag_name)
