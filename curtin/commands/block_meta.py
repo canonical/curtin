@@ -19,6 +19,7 @@ from collections import OrderedDict
 from curtin import (block, config, util)
 from curtin.block import mdadm
 from curtin.log import LOG
+from curtin.block import mkfs
 
 from . import populate_one_subcmd
 from curtin.udev import compose_udev_equality
@@ -26,7 +27,6 @@ from curtin.udev import compose_udev_equality
 import glob
 import os
 import platform
-import string
 import sys
 import tempfile
 import time
@@ -635,10 +635,7 @@ def partition_handler(info, storage_config):
 
 
 def format_handler(info, storage_config):
-    fstype = info.get('fstype')
     volume = info.get('volume')
-    part_label = info.get('label')
-    uuid = info.get('uuid')
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
                          info.get('id'))
@@ -651,51 +648,8 @@ def format_handler(info, storage_config):
         # Volume marked to be preserved, not formatting
         return
 
-    # Generate mkfs command and run
-    if fstype in ["ext4", "ext3"]:
-        cmd = ['mkfs.%s' % fstype, '-F', '-q']
-        if part_label:
-            if len(part_label) > 16:
-                raise ValueError(
-                    "ext3/4 partition labels cannot be longer than "
-                    "16 characters")
-            else:
-                cmd.extend(["-L", part_label])
-        if uuid:
-            cmd.extend(["-U", uuid])
-        cmd.append(volume_path)
-    elif fstype in ["btrfs"]:
-        cmd = ['mkfs.%s' % fstype]
-        if util.lsb_release()['codename'] != "precise":
-            cmd.extend(['-f'])
-        if part_label:
-                cmd.extend(["-L", part_label])
-        if uuid:
-            cmd.extend(["-U", uuid])
-        cmd.append(volume_path)
-    elif fstype in ["fat12", "fat16", "fat32", "fat"]:
-        cmd = ["mkfs.fat"]
-        fat_size = fstype.strip(string.ascii_letters)
-        if fat_size in ["12", "16", "32"]:
-            cmd.extend(["-F", fat_size])
-        if part_label:
-            if len(part_label) > 11:
-                raise ValueError(
-                    "fat partition names cannot be longer than "
-                    "11 characters")
-            cmd.extend(["-n", part_label])
-        cmd.append(volume_path)
-    elif fstype == "swap":
-        cmd = ["mkswap", volume_path]
-    else:
-        # See if mkfs.<fstype> exists. If so try to run it.
-        try:
-            util.subp(["which", "mkfs.%s" % fstype])
-            cmd = ["mkfs.%s" % fstype, volume_path]
-        except util.ProcessExecutionError:
-            raise ValueError("fstype '%s' not supported" % fstype)
-    LOG.info("formatting volume '%s' with format '%s'" % (volume_path, fstype))
-    logtime(' '.join(cmd), util.subp, cmd)
+    # Make filesystem using block library
+    mkfs.mkfs_from_config(volume_path, info)
 
 
 def mount_handler(info, storage_config):
