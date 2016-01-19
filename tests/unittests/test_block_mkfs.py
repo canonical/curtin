@@ -70,7 +70,7 @@ class TestBlockMkfs(TestCase):
                                    release="precise")
 
     def test_mkfs_btrfs_on_trusty(self):
-        # Test precise+btrfs where there is no force or uuid
+        # Test trusty btrfs where there is no uuid
         conf = self._get_config("btrfs")
         expected_flags = [["--label", "format1"], "--force"]
         self._run_mkfs_with_config(conf, "mkfs.btrfs", expected_flags,
