@@ -87,6 +87,14 @@ family_flag_mappings = {
               "xfs": "--quiet"}
 }
 
+release_flag_mapping_overrides = {
+    "precise": {
+        "force": {"btrfs": None},
+        "uuid": {"btrfs": None}},
+    "trusty": {
+        "uuid": {"btrfs": None}},
+}
+
 
 def valid_fstypes():
     return list(mkfs_commands.keys())
@@ -94,10 +102,16 @@ def valid_fstypes():
 
 def get_flag_mapping(flag_name, fs_family, param=None, strict=False):
     ret = []
-    flag_sym_families = family_flag_mappings.get(flag_name)
-    if flag_sym_families is None:
-        raise ValueError("unsupported flag '%s'" % flag_name)
-    flag_sym = flag_sym_families.get(fs_family)
+    release = util.lsb_release()['codename']
+    overrides = release_flag_mapping_overrides.get(release, {})
+    if flag_name in overrides and fs_family in overrides[flag_name]:
+        flag_sym = overrides[flag_name][fs_family]
+    else:
+        flag_sym_families = family_flag_mappings.get(flag_name)
+        if flag_sym_families is None:
+            raise ValueError("unsupported flag '%s'" % flag_name)
+        flag_sym = flag_sym_families.get(fs_family)
+
     if flag_sym is None:
         if strict:
             raise ValueError("flag '%s' not supported by fs family '%s'" %
@@ -141,11 +155,7 @@ def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False):
     cmd = [mkfs_cmd]
 
     if force:
-        # On precise mkfs.btrfs does not have a force flag, though it does in
-        # later releases
-        if not (util.lsb_release()['codename'] == "precise" and fstype ==
-                "btrfs"):
-            cmd.extend(get_flag_mapping("force", fs_family, strict=strict))
+        cmd.extend(get_flag_mapping("force", fs_family, strict=strict))
     if label is not None:
         limit = label_length_limits.get(fs_family)
         if len(label) > limit:
