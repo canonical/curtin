@@ -62,10 +62,19 @@ class TestBlockMkfs(TestCase):
                           ["--uuid", self.test_uuid]]
         self._run_mkfs_with_config(conf, "mkfs.btrfs", expected_flags)
 
-        # Test precise+btrfs edge case, force should not be used
-        expected_flags.remove("--force")
+    def test_mkfs_btrfs_on_precise(self):
+        # Test precise+btrfs where there is no force or uuid
+        conf = self._get_config("btrfs")
+        expected_flags = [["--label", "format1"]]
         self._run_mkfs_with_config(conf, "mkfs.btrfs", expected_flags,
                                    release="precise")
+
+    def test_mkfs_btrfs_on_trusty(self):
+        # Test trusty btrfs where there is no uuid
+        conf = self._get_config("btrfs")
+        expected_flags = [["--label", "format1"], "--force"]
+        self._run_mkfs_with_config(conf, "mkfs.btrfs", expected_flags,
+                                   release="trusty")
 
     def test_mkfs_fat(self):
         conf = self._get_config("fat32")
