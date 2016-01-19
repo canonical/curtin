@@ -14,7 +14,6 @@ network:
           subnets:
               - type: static
                 address: 10.0.2.100/24
-                gateway: 10.0.2.1
               - type: static
                 address: 10.0.2.200/24
                 dns_nameservers:
