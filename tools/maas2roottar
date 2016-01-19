@@ -215,7 +215,7 @@ create_tgz() {
         gzflag="--use-compress-program=pigz"
     fi
     tar -C "$rootd" -cpSf "$output" $gzflag \
-        --xattrs "--xattrs-include=*" . || {
+        --numeric-owner --xattrs "--xattrs-include=*" . || {
         error "failed tar command"
         rm -f "$output"
         return 1

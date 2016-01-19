@@ -1,11 +1,3 @@
-class _AttrDict(dict):
-    # http://stackoverflow.com/questions/4984647/
-    #     accessing-dict-keys-like-an-attribute-in-python
-    def __init__(self, *args, **kwargs):
-        super(_AttrDict, self).__init__(*args, **kwargs)
-        self.__dict__ = self
-
-
 class _ReleaseBase(object):
     repo = "maas-daily"
     arch = "amd64"
@@ -36,12 +28,13 @@ class _XenialBase(_ReleaseBase):
     extra_kern_args = "--- net.ifnames=0"
 
 
-base_vm_classes = _AttrDict({
-    'precise': _PreciseBase,
-    'trusty': _TrustyBase,
-    'vivid': _VividBase,
-    'wily': _WilyBase,
-    'xenial': _XenialBase,
-})
+class _Releases(object):
+    precise = _PreciseBase
+    trusty = _TrustyBase
+    vivid = _VividBase
+    wily = _WilyBase
+    xenial = _XenialBase
+
+base_vm_classes = _Releases
 
 # vi: ts=4 expandtab syntax=python

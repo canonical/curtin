@@ -16,9 +16,8 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 from collections import OrderedDict
-from curtin import block
-from curtin import config
-from curtin import util
+from curtin import (block, config, util)
+from curtin.block import mdadm
 from curtin.log import LOG
 from curtin.block import mkfs
 
@@ -256,9 +255,8 @@ def clear_holders(sys_block_path):
         block_dev = os.path.join("/dev/", os.path.split(sys_block_path)[-1])
         # if these fail its okay, the array might not be assembled and thats
         # fine
-        LOG.info("stopping: %s" % block_dev)
-        util.subp(["mdadm", "--stop", block_dev], rcs=[0, 1])
-        util.subp(["mdadm", "--remove", block_dev], rcs=[0, 1])
+        mdadm.mdadm_stop(block_dev)
+        mdadm.mdadm_remove(block_dev)
 
     elif os.path.exists(os.path.join(sys_block_path, "dm")):
         # Shut down any volgroups
@@ -341,12 +339,8 @@ def make_dname(volume, storage_config):
             "-part%s" % determine_partition_number(volume, storage_config)
         rule.append(compose_udev_equality('ENV{ID_PART_ENTRY_UUID}', ptuuid))
     elif vol.get('type') == "raid":
-        (out, _err) = util.subp(["mdadm", "--detail", "--export", path],
-                                capture=True)
-        for line in out.splitlines():
-            if "MD_UUID" in line:
-                md_uuid = line.split('=')[-1]
-                break
+        md_data = mdadm.mdadm_query_detail(path)
+        md_uuid = md_data.get('MD_UUID')
         rule.append(compose_udev_equality("ENV{MD_UUID}", md_uuid))
     elif vol.get('type') == "bcache":
         rule.append(compose_udev_equality("ENV{DEVNAME}", path))
@@ -471,7 +465,7 @@ def disk_handler(info, storage_config):
     # Wipe the disk
     if info.get('wipe') and info.get('wipe') != "none":
         # The disk has a lable, clear all partitions
-        util.subp(["mdadm", "--assemble", "--scan"], rcs=[0, 1, 2])
+        mdadm.mdadm_assemble(scan=True)
         disk_kname = os.path.split(disk)[-1]
         syspath_partitions = list(
             os.path.split(prt)[0] for prt in
@@ -856,6 +850,7 @@ def raid_handler(info, storage_config):
     devices = info.get('devices')
     raidlevel = info.get('raidlevel')
     spare_devices = info.get('spare_devices')
+    md_devname = block.dev_path(info.get('name'))
     if not devices:
         raise ValueError("devices for raid must be specified")
     if raidlevel not in ['linear', 'raid0', 0, 'stripe', 'raid1', 1, 'mirror',
@@ -868,39 +863,32 @@ def raid_handler(info, storage_config):
     device_paths = list(get_path_to_storage_volume(dev, storage_config) for
                         dev in devices)
 
+    spare_device_paths = []
     if spare_devices:
         spare_device_paths = list(get_path_to_storage_volume(dev,
                                   storage_config) for dev in spare_devices)
 
-    mdnameparm = ""
-    mdname = info.get('mdname')
-    if mdname:
-        mdnameparm = "--name=%s" % info.get('mdname')
+    # Handle preserve flag
+    if info.get('preserve'):
+        # check if the array is already up, if not try to assemble
+        if not mdadm.md_check(md_devname, raidlevel,
+                              device_paths, spare_device_paths):
+            LOG.info("assembling preserved raid for "
+                     "{}".format(md_devname))
 
-    cmd = ["mdadm", "--create", "/dev/%s" % info.get('name'), "--run",
-           "--level=%s" % raidlevel, "--raid-devices=%s" % len(device_paths),
-           mdnameparm]
+            mdadm.mdadm_assemble(md_devname, device_paths, spare_device_paths)
 
-    for device in device_paths:
-        # Zero out device superblock just in case device has been used for raid
-        # before, as this will cause many issues
-        util.subp(["mdadm", "--zero-superblock", device])
+            # try again after attempting to assemble
+            if not mdadm.md_check(md_devname, raidlevel,
+                                  devices, spare_device_paths):
+                raise ValueError("Unable to confirm preserved raid array: "
+                                 " {}".format(md_devname))
+        # raid is all OK
+        return
 
-        cmd.append(device)
-
-    if spare_devices:
-        cmd.append("--spare-devices=%s" % len(spare_device_paths))
-        for device in spare_device_paths:
-            util.subp(["mdadm", "--zero-superblock", device])
-
-            cmd.append(device)
-
-    # Create the raid device
-    util.subp(["udevadm", "settle"])
-    util.subp(["udevadm", "control", "--stop-exec-queue"])
-    util.subp(" ".join(cmd), shell=True)
-    util.subp(["udevadm", "control", "--start-exec-queue"])
-    util.subp(["udevadm", "settle"])
+    mdadm.mdadm_create(md_devname, raidlevel,
+                       device_paths, spare_device_paths,
+                       info.get('mdname', ''))
 
     # Make dname rule for this dev
     make_dname(info.get('id'), storage_config)
@@ -912,9 +900,9 @@ def raid_handler(info, storage_config):
     if state['fstab']:
         mdadm_location = os.path.join(os.path.split(state['fstab'])[0],
                                       "mdadm.conf")
-        (out, _err) = util.subp(["mdadm", "--detail", "--scan"], capture=True)
+        mdadm_scan_data = mdadm.mdadm_detail_scan()
         with open(mdadm_location, "w") as fp:
-            fp.write(out)
+            fp.write(mdadm_scan_data)
     else:
         LOG.info("fstab configuration is not present in the environment, so \
             cannot locate an appropriate directory to write mdadm.conf in, \
@@ -970,15 +958,23 @@ def bcache_handler(info, storage_config):
     # we run make-bcache using udev rules, so wait for udev to settle, then try
     # to locate the dev, on older versions we need to register it manually
     # though
+    devpath = None
+    cur_id = info.get('id')
     try:
         util.subp(["udevadm", "settle"])
-        get_path_to_storage_volume(info.get('id'), storage_config)
+        devpath = get_path_to_storage_volume(cur_id, storage_config)
     except (OSError, IndexError):
         # Register
         for path in [backing_device, cache_device]:
             fp = open("/sys/fs/bcache/register", "w")
             fp.write(path)
             fp.close()
+        devpath = get_path_to_storage_volume(cur_id, storage_config)
+
+    syspath = block.sys_block_path(devpath)
+    if not os.path.isdir(syspath):
+        raise OSError("Did not find existing sys_block_path for id %s" %
+                      str(cur_id))
 
     # if we specify both then we need to attach backing to cache
     if cache_device and backing_device:
@@ -993,8 +989,8 @@ def bcache_handler(info, storage_config):
             with open(attach, "w") as fp:
                 fp.write(cset_uuid)
         else:
-            LOG.error("Invalid cset_uuid: {}".format(cset_uuid))
-            raise
+            LOG.error("Invalid cset_uuid: '%s'" % cset_uuid)
+            raise Exception("Invalid cset_uuid: '%s'" % cset_uuid)
 
     if cache_mode:
         # find the actual bcache device name via sysfs using the
@@ -1010,8 +1006,7 @@ def bcache_handler(info, storage_config):
         [bcache_dev] = holders
         LOG.info("Setting cache_mode on {} to {}".format(bcache_dev,
                                                          cache_mode))
-        cache_mode_file = \
-            '/sys/block/{}/bcache/cache_mode'.format(info.get('id'))
+        cache_mode_file = os.path.join(syspath, "bcache/cache_mode")
         with open(cache_mode_file, "w") as fp:
             fp.write(cache_mode)
 
@@ -1022,6 +1017,21 @@ def bcache_handler(info, storage_config):
     if info.get('ptable'):
         raise ValueError("Partition tables on top of lvm logical volumes is \
                          not supported")
+
+
+def extract_storage_ordered_dict(config):
+    storage_config = config.get('storage', {})
+    if not storage_config:
+        raise ValueError("no 'storage' entry in config")
+    scfg = storage_config.get('config')
+    if not scfg:
+        raise ValueError("invalid storage config data")
+
+    # Since storage config will often have to be searched for a value by its
+    # id, and this can become very inefficient as storage_config grows, a dict
+    # will be generated with the id of each component of the storage_config as
+    # its index and the component of storage_config as its value
+    return OrderedDict((d["id"], d) for (i, d) in enumerate(scfg))
 
 
 def meta_custom(args):
@@ -1046,23 +1056,9 @@ def meta_custom(args):
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
 
-    storage_config = cfg.get('storage', {})
-    if not storage_config:
-        raise Exception("storage configuration is required by mode '%s' "
-                        "but not provided in the config file" % CUSTOM)
-    storage_config_data = storage_config.get('config')
+    storage_config_dict = extract_storage_ordered_dict(cfg)
 
-    if not storage_config_data:
-        raise ValueError("invalid storage config data")
-
-    # Since storage config will often have to be searched for a value by its
-    # id, and this can become very inefficient as storage_config grows, a dict
-    # will be generated with the id of each component of the storage_config as
-    # its index and the component of storage_config as its value
-    storage_config_dict = OrderedDict((d["id"], d) for (i, d) in
-                                      enumerate(storage_config_data))
-
-    for command in storage_config_data:
+    for item_id, command in storage_config_dict.items():
         handler = command_handlers.get(command['type'])
         if not handler:
             raise ValueError("unknown command type '%s'" % command['type'])
@@ -1070,7 +1066,7 @@ def meta_custom(args):
             handler(command, storage_config_dict)
         except Exception as error:
             LOG.error("An error occured handling '%s': %s - %s" %
-                      (command.get('id'), type(error).__name__, error))
+                      (item_id, type(error).__name__, error))
             raise
 
     return 0

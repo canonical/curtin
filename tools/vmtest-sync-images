@@ -8,14 +8,22 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from tests.vmtests import (
-    ImageStore, IMAGE_DIR, IMAGE_SRC_URL, DEFAULT_FILTERS)
+    ImageStore, IMAGE_DIR, IMAGE_SRC_URL, DEFAULT_FILTERS, DEFAULT_ARCH)
 from tests.vmtests.helpers import find_releases
 
 
 if __name__ == '__main__':
     # Instantiate the ImageStore object.
     store = ImageStore(IMAGE_SRC_URL, IMAGE_DIR)
-    release_filter = 'release~{}'.format('|'.join(find_releases()))
+    # set sync to False as we explicilty call sync_images
+    # if set to true, get_image will force a sync also.
+    store.sync = False
+    releases = find_releases()
+    release_filter = 'release~{}'.format('|'.join(releases))
     DEFAULT_FILTERS.append(release_filter)
     # Sync images.
     store.sync_images(filters=DEFAULT_FILTERS)
+    # Drop old images and convert new images.
+    for release in releases:
+        store.prune_images(release, DEFAULT_ARCH)
+        store.get_image(release, DEFAULT_ARCH)
