@@ -26,66 +26,66 @@ import os
 from uuid import uuid1
 
 mkfs_commands = {
-        "btrfs": "mkfs.btrfs",
-        "ext2": "mkfs.ext2",
-        "ext3": "mkfs.ext3",
-        "ext4": "mkfs.ext4",
-        "fat": "mkfs.fat",
-        "fat12": "mkfs.fat",
-        "fat16": "mkfs.fat",
-        "fat32": "mkfs.fat",
-        "jfs": "jfs_mkfs",
-        "ntfs": "mkntfs",
-        "reiserfs": "mkfs.reiserfs",
-        "swap": "mkswap",
-        "xfs": "mkfs.xfs"
-        }
+    "btrfs": "mkfs.btrfs",
+    "ext2": "mkfs.ext2",
+    "ext3": "mkfs.ext3",
+    "ext4": "mkfs.ext4",
+    "fat": "mkfs.fat",
+    "fat12": "mkfs.fat",
+    "fat16": "mkfs.fat",
+    "fat32": "mkfs.fat",
+    "jfs": "jfs_mkfs",
+    "ntfs": "mkntfs",
+    "reiserfs": "mkfs.reiserfs",
+    "swap": "mkswap",
+    "xfs": "mkfs.xfs"
+}
 
 specific_to_family = {
-        "ext2": "ext",
-        "ext3": "ext",
-        "ext4": "ext",
-        "fat12": "fat",
-        "fat16": "fat",
-        "fat32": "fat",
-        }
+    "ext2": "ext",
+    "ext3": "ext",
+    "ext4": "ext",
+    "fat12": "fat",
+    "fat16": "fat",
+    "fat32": "fat",
+}
 
 label_length_limits = {
-        "btrfs": 256,
-        "ext": 16,
-        "fat": 11,
-        "jfs": 16,  # see jfs_tune manpage
-        "ntfs": 32,
-        "reiserfs": 16,
-        "swap": 15,  # not in manpages, found experimentally
-        "xfs": 12
-        }
+    "btrfs": 256,
+    "ext": 16,
+    "fat": 11,
+    "jfs": 16,  # see jfs_tune manpage
+    "ntfs": 32,
+    "reiserfs": 16,
+    "swap": 15,  # not in manpages, found experimentally
+    "xfs": 12
+}
 
 family_flag_mappings = {
-        "label": {"btrfs": "--label",
-                  "ext": "-L",
-                  "fat": "-n",
-                  "jfs": "-L",
-                  "ntfs": "--label",
-                  "reiserfs": "--label",
-                  "swap": "--label",
-                  "xfs": "-L"},
-        "uuid": {"btrfs": "--uuid",
-                 "ext": "-U",
-                 "reiserfs": "--uuid",
-                 "swap": "--uuid"},
-        "force": {"btrfs": "--force",
-                  "ext": "-F",
-                  "ntfs": "--force",
-                  "reiserfs": "-f",
-                  "swap": "--force",
-                  "xfs": "-f"},
-        "fatsize": {"fat": "-F"},
-        "quiet": {"ext": "-q",
-                  "ntfs": "-q",
-                  "reiserfs": "-q",
-                  "xfs": "--quiet"}
-        }
+    "label": {"btrfs": "--label",
+              "ext": "-L",
+              "fat": "-n",
+              "jfs": "-L",
+              "ntfs": "--label",
+              "reiserfs": "--label",
+              "swap": "--label",
+              "xfs": "-L"},
+    "uuid": {"btrfs": "--uuid",
+             "ext": "-U",
+             "reiserfs": "--uuid",
+             "swap": "--uuid"},
+    "force": {"btrfs": "--force",
+              "ext": "-F",
+              "ntfs": "--force",
+              "reiserfs": "-f",
+              "swap": "--force",
+              "xfs": "-f"},
+    "fatsize": {"fat": "-F"},
+    "quiet": {"ext": "-q",
+              "ntfs": "-q",
+              "reiserfs": "-q",
+              "xfs": "--quiet"}
+}
 
 
 def valid_fstypes():
