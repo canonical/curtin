@@ -28,7 +28,7 @@ CMD_ARGUMENTS = (
        'metavar': 'DEVICE', 'action': 'store', 'nargs': '+'}),
      (('-f', '--fstype'),
       {'help': 'filesystem type to use. default is ext4',
-       'choices': valid_fstypes(),
+       'choices': sorted(valid_fstypes()),
        'default': 'ext4', 'action': 'store'}),
      (('-l', '--label'),
       {'help': 'label to use for filesystem', 'action': 'store'}),
