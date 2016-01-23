@@ -443,18 +443,26 @@ def disk_handler(info, storage_config):
             # Don't need to check state, return
             return
 
-        # Check state of current ptable
+        # Check state of current ptable, try to do this using blkid, but if
+        # blkid fails then try to fall back to using parted.
         try:
             (out, _err) = util.subp(["blkid", "-o", "export", disk],
                                     capture=True)
+            current_ptable = list(filter(lambda x: "PTTYPE" in x,
+                                         out.splitlines()))[0].split("=")[-1]
         except util.ProcessExecutionError:
-            raise ValueError("disk '%s' has no readable partition table or \
-                cannot be accessed, but preserve is set to true, so cannot \
-                continue")
-        current_ptable = list(filter(lambda x: "PTTYPE" in x,
-                                     out.splitlines()))[0].split("=")[-1]
-        if current_ptable == "dos" and ptable != "msdos" or \
-                current_ptable == "gpt" and ptable != "gpt":
+            try:
+                (out, _err) = util.subp(["parted", disk, "--script", "print"],
+                                        capture=True)
+                current_ptable = next(l for l in out.splitlines()
+                                      if "Partition Table" in l).split()[-1]
+            except (util.ProcessExecutionError, StopIteration, IndexError,
+                    AttributeError):
+                raise ValueError("disk '%s' has no readable partition table or\
+                    cannot be accessed, but preserve is set to true, so cannot\
+                    continue")
+        if not (current_ptable == ptable or
+                (current_ptable == "dos" and ptable == "msdos")):
             raise ValueError("disk '%s' does not have correct \
                 partition table, but preserve is set to true, so not \
                 creating table, so not creating table." % info.get('id'))
