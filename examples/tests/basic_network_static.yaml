@@ -7,11 +7,11 @@ network:
           mac_address: "52:54:00:12:34:00"
           subnets:
               - type: static
-                address: 192.168.2.1/24
+                address: 10.0.2.15/24
+                gateway: 10.0.2.2
         - type: nameserver
           address:
-            - 4.4.4.4
-            - 8.8.4.4
+            - 10.0.2.3
           search:
             - wark.maas
             - foobar.maas

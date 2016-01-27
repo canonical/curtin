@@ -320,7 +320,7 @@ network:
 
     def test_render_interfaces(self):
         ns = self.get_net_state()
-        ifaces = ('auto lo\n' +
+        ifaces = ('auto lo\n' + 'iface lo inet loopback\n' +
                   '    dns-nameservers 1.2.3.4 5.6.7.8\n' +
                   '    dns-search wark.maas\n' +
                   'auto eth0\n' + 'iface eth0 inet dhcp\n\n' +

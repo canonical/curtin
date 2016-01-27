@@ -335,7 +335,7 @@ def render_interfaces(network_state):
         'bridge': 2,
         'vlan': 3,
     }
-    content += "auto lo\n"
+    content += "auto lo\niface lo inet loopback\n"
     for dnskey, value in network_state.get('dns', {}).items():
         if len(value):
             content += "    dns-{} {}\n".format(dnskey, " ".join(value))
