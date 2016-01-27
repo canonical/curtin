@@ -1,0 +1,17 @@
+network:
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: eth0
+          mac_address: "52:54:00:12:34:00"
+          subnets:
+              - type: static
+                address: 192.168.2.1/24
+        - type: nameserver
+          address:
+            - 4.4.4.4
+            - 8.8.4.4
+          search:
+            - wark.maas
+            - foobar.maas

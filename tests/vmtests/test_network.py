@@ -235,7 +235,15 @@ class TestNetworkAbs(VMBaseClass):
                 self.assertEqual(gw_ip, gw)
 
 
+class TestNetworkStaticAbs(TestNetworkAbs):
+    conf_file = "examples/tests/basic_network_static.yaml"
+
+
 class TrustyTestNetwork(relbase.trusty, TestNetworkAbs):
+    __test__ = True
+
+
+class TrustyTestNetworkStatic(relbase.trusty, TestNetworkStaticAbs):
     __test__ = True
 
 
@@ -243,11 +251,28 @@ class VividTestNetwork(relbase.vivid, TestNetworkAbs):
     __test__ = True
 
 
+class VividTestNetworkStatic(relbase.vivid, TestNetworkStaticAbs):
+    __test__ = True
+
+
 class WilyTestNetwork(relbase.wily, TestNetworkAbs):
     __test__ = True
 
 
+class WilyTestNetworkStatic(relbase.wily, TestNetworkStaticAbs):
+    __test__ = True
+
+
 class XenialTestNetwork(relbase.xenial, TestNetworkAbs):
+    __test__ = True
+    # FIXME: net.ifnames=0 should not be required as image should
+    #        eventually address this internally.  Here we do not carry
+    #        over the net.ifnames to the installed system via '---' as the net
+    #        config should take care of that.
+    extra_kern_args = "net.ifnames=0"
+
+
+class XenialTestNetworkStatic(relbase.xenial, TestNetworkStaticAbs):
     __test__ = True
     # FIXME: net.ifnames=0 should not be required as image should
     #        eventually address this internally.  Here we do not carry
