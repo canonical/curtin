@@ -335,6 +335,11 @@ def render_interfaces(network_state):
         'bridge': 2,
         'vlan': 3,
     }
+    content += "auto lo\n"
+    for dnskey, value in network_state.get('dns', {}).items():
+        if len(value):
+            content += "    dns-{} {}\n".format(dnskey, " ".join(value))
+
     for iface in sorted(interfaces.values(),
                         key=lambda k: (order[k['type']], k['name'])):
         content += "auto {name}\n".format(**iface)
@@ -365,10 +370,6 @@ def render_interfaces(network_state):
             content += "iface {name} {inet} {mode}\n".format(**iface)
             content += iface_add_attrs(iface)
             content += "\n"
-
-    for dnskey, value in network_state.get('dns', {}).items():
-        if len(value):
-            content += "dns-{} {}\n".format(dnskey, " ".join(value))
 
     for route in network_state.get('routes'):
         content += render_route(route)
