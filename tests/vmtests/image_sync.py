@@ -172,7 +172,7 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
 
         self.config = config
         self.filters = self.config.get('filters', [])
-        self.out_d = out_d
+        self.out_d = os.path.abspath(out_d)
         self.objectstore = objectstores.FileStore(
             out_d, complete_callback=self.callback)
         super(CurtinVmTestMirror, self).__init__(config=config,
@@ -180,6 +180,9 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
 
     def source(self, path):
         return self.objectstore.source(path)
+
+    def fpath(self, path):
+        return os.path.join(self.out_d, path)
 
     def read_json(self, path):
         with self.source(path) as source:
@@ -238,43 +241,6 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
                                               os.path.dirname(item['path'])))
 
 
-class QueryMirrorWriter(mirrors.BasicMirrorWriter):
-    def __init__(self, config=None):
-        super(QueryMirrorWriter, self).__init__(config=config)
-        if config is None:
-            config = {}
-        self.config = config
-        self.filters = config.get('filters', [])
-        outfmt = config.get('output_format')
-        if not outfmt:
-            outfmt = "%s"
-        self.output_format = outfmt
-        self.json_entries = []
-
-    def load_products(self, path=None, content_id=None):
-        return {'content_id': content_id, 'products': {}}
-
-    def filter_item(self, data, src, target, pedigree):
-        return filters.filter_item(self.filters, data, src, pedigree)
-
-    def insert_item(self, data, src, target, pedigree, contentsource):
-        # src and target are top level products:1.0
-        # data is src['products'][ped[0]]['versions'][ped[1]]['items'][ped[2]]
-        # contentsource is a ContentSource if 'path' exists in data or None
-        data = sutil.products_exdata(src, pedigree)
-        if 'path' in data:
-            data.update({'item_url': contentsource.url})
-
-        if self.output_format == FORMAT_JSON:
-            self.json_entries.append(data)
-        else:
-            try:
-                print(self.output_format % (data))
-            except KeyError as e:
-                sys.stderr.write("output format failed. Missing %s\n" % e.args)
-                sys.stderr.write("item: %s\n" % data)
-
-
 def set_logging(verbose, log_file):
     vlevel = min(verbose, 2)
     level = (log.ERROR, log.INFO, log.DEBUG)[vlevel]
@@ -328,22 +294,45 @@ def main_mirror(args):
     tmirror.sync(smirror, initial_path)
 
 
+def query_ptree(ptree, max_num=None, ifilters=None, path2url=None):
+    results = []
+    pkey = 'products'
+    verkey = 'versions'
+    for prodname, proddata in sorted(ptree.get(pkey, {}).items()):
+        if verkey not in proddata:
+            continue
+        cur = 0
+        for vername in sorted(proddata[verkey].keys(), reverse=True):
+            if max_num is not None and cur >= max_num:
+                break
+            verdata = proddata[verkey][vername]
+            cur += 1
+            for itemname, itemdata in sorted(verdata.get('items', {}).items()):
+                flat = sutil.products_exdata(ptree, (prodname, vername, itemname))
+                if not ifilters:
+                    if not filters.filter_dict(ifilters, flat):
+                        continue
+                if path2url and 'path' in flat:
+                    flat['item_url'] = path2url(flat['path'])
+                results.append(flat)
+    return results
+
+
+def jdump(thing):
+    return json.dumps(thing, indent=2, sort_keys=True, separators=(',', ': '))
+
+
 def main_query(args):
     vlevel = set_logging(args.verbose, args.log_file)
-
     filter_list = filters.get_filters(args.filters)
-    cfg = {'max_items': args.max_items,
-           'filters': filter_list,
-           'output_format': args.output_format}
 
     smirror = CurtinVmTestMirror(config={}, out_d=args.mirror_url, verbosity=vlevel)
-    tmirror = QueryMirrorWriter(config=cfg)
     stree = smirror.load_products(content_id='com.ubuntu.maas:daily:v2:download')
+    results = query_ptree(stree, max_num=args.max_items, ifilters=filter_list,
+                          path2url=smirror.fpath)
+
     try:
-        tmirror.sync_products(reader=smirror, path=None, src=stree, content=None)
-        if tmirror.output_format == FORMAT_JSON:
-            print(json.dumps(tmirror.json_entries, indent=2, sort_keys=True,
-                             separators=(',', ': ')))
+        print(jdump(results))
     except IOError as e:
         if e.errno == errno.EPIPE:
             sys.exit(0x80 | signal.SIGPIPE)
