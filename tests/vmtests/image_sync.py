@@ -168,6 +168,8 @@ def products_version_get(tree, pedigree):
 
 
 class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
+    # This class works as both a reader and a writer
+    # can be passed to source and target of a mirror.sync
     def __init__(self, config, out_d, verbosity=0):
 
         self.config = config
@@ -178,28 +180,41 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
         super(CurtinVmTestMirror, self).__init__(config=config,
                                                  objectstore=self.objectstore)
 
-    def source(self, path):
-        return self.objectstore.source(path)
-
-    def fpath(self, path):
-        return os.path.join(self.out_d, path)
-
+    # 'source' and 'read_json' are necessary for acting as a reader
+    # They're not present in ObjectFilterMirror.  These are copied
+    # source comes from ObjectStoreMirrorReader.  Possibly it could
+    # work to also inherit from ObjectStoreMirrorReader to get these
     def read_json(self, path):
         with self.source(path) as source:
             raw = source.read().decode('utf-8')
         return raw, self.policy(content=raw, path=path)
 
+    def source(self, path):
+        # ObjectFilterMirror doesn't normally have a 'source' as it
+        # is write only.  We want to be query-able and mirrorable.
+        # so we work as both target and source of mirror.
+        return self.objectstore.source(path)
+
+    def fpath(self, path):
+        # return the full path to a local file in the mirror
+        return os.path.join(self.out_d, path)
+
     def callback(self, path, cur_bytes, tot_bytes):
+        # for future use, to show progress.
         pass
 
     def products_data_path(self, content_id):
+        # our data path is .vmtest-data rather than .data
         return ".vmtest-data/%s" % content_id
 
     def _reference_count_data_path(self):
-	# less than ideal to override this. but want to leave .data alone
+        # overridden from ObjectStoreMirrorWriter
         return ".vmtest-data/references.json"
 
     def load_products(self, path=None, content_id=None):
+        # overridden from ObjectStoreMirrorWriter
+        # the reason is that we have copied here from trunk
+        # is bug 1511364 which is not fixed in all ubuntu versions
         if content_id:
             try:
                 dpath = self.products_data_path(content_id)
@@ -234,11 +249,24 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
 
     def remove_version(self, data, src, target, pedigree):
         # called for versions that were removed.
+        # we want to remove empty paths that have been cleaned
         print("removing %s" % ','.join(pedigree))
         for item in data.get('items', {}).values():
             if 'path' in item:
                 remove_empty_dir(os.path.join(self.out_d,
                                               os.path.dirname(item['path'])))
+
+    def insert_products(self, path, target, content):
+        # we override this because default  mirror inserts content
+        # where as we want to insert the rendered 'target' tree
+        # the difference is that 'content' is the original (with gpg sign)
+        # so our content will no longer have that signature.
+        dpath = self.products_data_path(target['content_id'])
+        self.store.insert_content(dpath, util.dump_data(target))
+        if not path:
+            return
+        content = util.dump_data(target)
+        self.store.insert_content(path, content)
 
 
 def set_logging(verbose, log_file):
