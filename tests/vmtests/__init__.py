@@ -1,4 +1,3 @@
-import ast
 import atexit
 import datetime
 import errno
@@ -12,10 +11,12 @@ import shutil
 import subprocess
 import textwrap
 import time
-import urllib
 import curtin.net as curtin_net
 import curtin.util as util
 
+from .image_sync import main_query as imagesync_query
+from .image_sync import main_mirror as imagesync_mirror
+from .image_sync import default_parser as imagesync_parser
 from .helpers import check_call, TimeoutExpired
 from unittest import TestCase
 
@@ -176,32 +177,48 @@ def sync_images(src_url, base_dir, filters):
 
 
 def get_images(src_url, local_d, release, arch, sync=True):
-    # ensure that the images we need for release and arch are available
-    # in base_dir.  return path to root-image.gz
+    # ensure that the image items (roottar, kernel, initrd)
+    # we need for release and arch are available
+    # in base_dir.  
+    # returns updated ftypes dictionary {ftype: item_url}
+    # TODO: move krel up as an parameter
+    print('get_images')
+    parser = imagesync_parser()
+    ftypes = {
+        'vmtest.root-image': '',
+        'vmtest.root-tgz': '',
+        'boot-kernel': '',
+        'boot-initrd': ''
+    }
     filters = [
-        'item_name=root-image.gz',
+        'ftype~(%s)' % ("|".join(ftypes.keys())),
         'release=%s' % release, 'krel=%s' % release, 'arch=%s' % arch]
-    qcmd = (['sstream-query'] + DEFAULT_SSTREAM_OPTS +
-            ['--max=1', local_d, 'item_name=root-image.gz'] + filters)
-    qcmd_str = ' '.join(qcmd)
+    args = ['--max=1', local_d] + filters
+    qcmd_str = " ".join(args)
 
     if sync:
-        sync_images(src_url, local_d, filters=filters)
+        mirror_args = parser.parse_args(args + ['mirror'])
+        imagesync_mirror(mirror_args)
 
     logger.debug('Query %s for image. filters=%s', local_d, filters)
     fail_msg = None
     try:
-        out = util.subp(qcmd, capture=True)[0]
+        import ipdb; ipdb.set_trace()
+        query_args = parser.parse_args(args + ['query'])
+        out = imagesync_query(query_args)
         if not out:
             fail_msg = "Query '%s' returned empty result.\n" % qcmd_str
+            raise util.ProcessExecutionError
         else:
             logger.debug("Query '%s' returned: %s", qcmd_str, out)
-        sstream_data = ast.literal_eval(out)
-        root_image_gz = urllib.parse.urlsplit(sstream_data['item_url']).path
-        if os.path.exists(root_image_gz):
-            return root_image_gz
-        else:
-            fail_msg = "root-image.gz (%s) did not exist.\n" % root_image_gz
+        for product in out:
+            ftypes[product['ftype']] = product['item_url']
+            if not os.path.exists(product['item_url']):
+                fail_msg = "ftype:%s (%s) did not exist.\n" % (product['ftype'],
+                                                               product['item_url'])
+                raise util.ProcessExecutionError
+        import ipdb; ipdb.set_trace()
+        return ftypes
     except util.ProcessExecutionError as e:
         if not os.path.isdir(os.path.join(local_d, "streams/v1")):
             # assume this failed because this is first time.
@@ -209,7 +226,9 @@ def get_images(src_url, local_d, release, arch, sync=True):
         else:
             fail_msg = ("Query '%s' exited '%s': %s\n" %
                         (qcmd_str, e.exit_code, e.stderr))
+        import ipdb; ipdb.set_trace()
 
+    import ipdb; ipdb.set_trace()
     if not sync:
         # try to fix this with a sync
         # this can work, because sstream-mirror keeps data in .data
@@ -273,18 +292,13 @@ class ImageStore:
 
     def get_image(self, release, arch):
         """Return local path for root image, kernel and initrd, tarball."""
-        root_image_gz = get_images(
+        print('get_image')
+        ftypes = get_images(
             self.source_url, self.base_dir, release, arch, self.sync)
-        image_dir = os.path.dirname(root_image_gz)
-        root_image_path = os.path.join(image_dir, 'root-image')
-        tarball = os.path.join(image_dir, 'root-image.tar.gz')
-        kernel_path = os.path.join(image_dir, 'root-image-kernel')
-        initrd_path = os.path.join(image_dir, 'root-image-initrd')
-        # Check if we need to unpack things from the compressed image.
-        if (not os.path.exists(root_image_path) or
-                not os.path.exists(kernel_path) or
-                not os.path.exists(initrd_path)):
-            self.convert_image(root_image_gz)
+        root_image_path = ftypes['vmtest.root-image']
+        kernel_path = ftypes['boot-kernel']
+        initrd_path = ftypes['boot-initrd']
+        tarball = ftypes['vmtest.root-tgz']
         return (root_image_path, kernel_path, initrd_path, tarball)
 
 

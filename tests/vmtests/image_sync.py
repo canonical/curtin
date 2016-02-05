@@ -9,12 +9,12 @@ from simplestreams import mirrors
 from simplestreams import filters
 
 import argparse
-import copy
 import errno
 import hashlib
 import json
 import os
 import shutil
+import signal
 import sys
 import tempfile
 
@@ -232,7 +232,6 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
         # this is called for any version that had items inserted
         # data target['products'][pedigree[0]]['versions'][pedigree[1]]
         # a dictionary with possibly some tags and 'items': {'boot_initrd}...
-        items = data.get('items', {})
         ri_name = 'vmtest.root-image'
         rtgz_name = 'vmtest.root-tgz'
         tver_data = products_version_get(target, pedigree)
@@ -350,15 +349,20 @@ def jdump(thing):
     return json.dumps(thing, indent=2, sort_keys=True, separators=(',', ': '))
 
 
+def query(mirror, verbosity, max_items, filter_list):
+
+    smirror = CurtinVmTestMirror(config={}, out_d=mirror, verbosity=verbosity)
+    stree = smirror.load_products(content_id='com.ubuntu.maas:daily:v2:download')
+    results = query_ptree(stree, max_num=max_items, ifilters=filter_list,
+                          path2url=smirror.fpath)
+    return results
+
+
 def main_query(args):
     vlevel = set_logging(args.verbose, args.log_file)
     filter_list = filters.get_filters(args.filters)
-
-    smirror = CurtinVmTestMirror(config={}, out_d=args.mirror_url, verbosity=vlevel)
-    stree = smirror.load_products(content_id='com.ubuntu.maas:daily:v2:download')
-    results = query_ptree(stree, max_num=args.max_items, ifilters=filter_list,
-                          path2url=smirror.fpath)
-
+  
+    results = query(args.mirror_url, vlevel, args.max_items, filter_list)
     try:
         print(jdump(results))
     except IOError as e:
