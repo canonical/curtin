@@ -274,6 +274,8 @@ class ImageStore:
         sync_images(self.source_url, self.base_dir, filters=filters)
 
     def prune_images(self, release, arch, filters=None):
+        ## FIXME: this should no longer be necessary.
+        ## as the mirror code should be cleaning its directories now.
         release_dir = os.path.join(self.base_dir, release, arch)
         subdirs = [os.path.basename(d)
                    for d in sorted(os.listdir(release_dir))]
