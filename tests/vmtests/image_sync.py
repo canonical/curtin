@@ -41,6 +41,7 @@ DEFAULT_ARCHES = {
     'aarch64': ['arm64'],
 }
 
+
 def get_file_info(path, sums=None):
     # return dictionary with size and checksums of existing file
     LOG.info("getting info for %s" % path)
@@ -64,45 +65,6 @@ def get_file_info(path, sums=None):
     return ret
 
 
-class MyObjectStore(object):
-    paths = {}
-        
-    def __init__(self, out_d):
-        print("new: %s" % out_d)
-        self.out_d = out_d
-        
-    def insert(self, path, reader, checksums=None, mutable=True, size=None):
-        # store content from reader.read() into path, expecting result checksum
-        print("insert: path=%s reader=%s checksums=%s mutable=%s size=%s" %
-              (path, reader, checksums, mutable, size))
-        if path and path.startswith(".vmtest-data"):
-            self.paths[path] = reader.read()
-        elif path:
-            self.paths[path] = str(path) + " " + str(reader)
-        else:
-            raise ValueError("FOO bad path")
-            
-    def insert_content(self, path, content, checksums=None, mutable=True):
-        if not isinstance(content, bytes):
-            content = content.encode('utf-8')
-        self.insert(path=path, reader=contentsource.MemoryContentSource(content=content),
-                    checksums=checksums, mutable=mutable)
-                
-    def remove(self, path):
-        # remove path from store
-        print("remove: path=%s" % path)
-        del self.paths[path]
-        
-    def source(self, path):
-        try:
-            return contentsource.MemoryContentSource(content=self.paths[path])
-        except KeyError:
-            raise IOError(errno.ENOENT, '%s not found' % path)
-
-    def exists_with_checksum(self, path, checksums=None):
-        return (path in self.paths)
-
-
 def generate_root_derived(path_gz, base_d="/", info_func=get_file_info):
     fpath_gz = os.path.join(base_d, path_gz)
     ri_name = 'vmtest.root-image'
@@ -113,7 +75,7 @@ def generate_root_derived(path_gz, base_d="/", info_func=get_file_info):
     rtgz_fpath = os.path.join(base_d, rtgz_path)
     new_items = {ri_name: {'ftype': ri_name, 'path': ri_path},
                  rtgz_name: {'ftype': rtgz_name, 'path': rtgz_path}}
-    
+
     tmpd = None
     try:
         # create tmpdir under output dir
@@ -259,12 +221,12 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
                 remove_empty_dir(self.fpath(os.path.dirname(item['path'])))
 
     def insert_products(self, path, target, content):
-        # The super classes' insert_products will 
+        # The super classes' insert_products will
         # we override this because default  mirror inserts content
         # where as we want to insert the rendered 'target' tree
         # the difference is that 'content' is the original (with gpg sign)
         # so our content will no longer have that signature.
-        
+
         dpath = self.products_data_path(target['content_id'])
         self.store.insert_content(dpath, util.json_dumps(target))
         if not path:
@@ -279,7 +241,6 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
         if target['content_id'] == VMTEST_CONTENT_ID:
             self.store.insert_content(VMTEST_JSON_PATH,
                                       util.json_dumps(target))
-            
 
     def insert_index_entry(self, data, src, pedigree, contentsource):
         # this is overridden, because the default implementation
@@ -313,7 +274,8 @@ def main_mirror(args):
 
     arch_filter = "arch~(" + "|".join(arches) + ")"
 
-    filter_list = filters.get_filters([arch_filter] + ITEM_NAME_FILTERS + args.filters)
+    filter_list = filters.get_filters([arch_filter] + ITEM_NAME_FILTERS +
+                                      args.filters)
 
     (source_url, initial_path) = sutil.path_from_mirror_url(args.source, None)
 
@@ -357,7 +319,8 @@ def query_ptree(ptree, max_num=None, ifilters=None, path2url=None):
             verdata = proddata[verkey][vername]
             cur += 1
             for itemname, itemdata in sorted(verdata.get('items', {}).items()):
-                flat = sutil.products_exdata(ptree, (prodname, vername, itemname))
+                flat = sutil.products_exdata(ptree,
+                                             (prodname, vername, itemname))
                 if not ifilters:
                     if not filters.filter_dict(ifilters, flat):
                         continue
@@ -386,7 +349,7 @@ def query(mirror, verbosity, max_items, filter_list):
 def main_query(args):
     vlevel = set_logging(args.verbose, args.log_file)
     filter_list = filters.get_filters(args.filters)
-  
+
     results = query(args.mirror_url, vlevel, args.max_items, filter_list)
     try:
         print(util.json_dumps(results).decode())
@@ -408,7 +371,7 @@ def main():
         'mirror', help='like sstream-mirror but for vmtest images')
     mirror_p.set_defaults(func=main_mirror)
     mirror_p.add_argument('--max', type=int, default=1, dest='max_items',
-                        help='store at most MAX items in the target')
+                          help='store at most MAX items in the target')
     mirror_p.add_argument('--verbose', '-v', action='count', default=0)
     mirror_p.add_argument('--dry-run', action='store_true', default=False,
                           help='only report what would be done')
@@ -446,9 +409,7 @@ def main():
 
 
 if __name__ == '__main__':
-    #ret = generate_root_derived(sys.argv[1], sys.argv[2])
-    #print(ret)
-    #sys.exit(0)
     main()
+    sys.exit(0)
 
 # vi: ts=4 expandtab syntax=python
