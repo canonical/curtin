@@ -27,6 +27,9 @@ IMAGE_SRC_URL = os.environ.get(
 KEYRING = '/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg'
 ITEM_NAME_FILTERS = ['ftype~(root-image.gz|boot-initrd|boot-kernel)']
 FORMAT_JSON = 'JSON'
+VMTEST_CONTENT_ID = 'com.ubuntu.maas:daily:v2:download'
+VMTEST_JSON_PATH = "streams/v1/vmtest.json"
+
 
 DEFAULT_ARCHES = {
     'i386': ['i386'],
@@ -148,6 +151,10 @@ def remove_empty_dir(dirpath):
     if os.path.exists(dirpath):
         try:
             os.rmdir(dirpath)
+            print("removed empty dir %s" % dirpath)
+            if dirpath.endswith(os.path.sep):
+                dirpath = dirpath[:-1]
+                remove_empty_dir(os.path.dirname(dirpath))
         except OSError as e:
             if e.errno == errno.ENOTEMPTY:
                 pass
@@ -168,8 +175,10 @@ def products_version_get(tree, pedigree):
 
 
 class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
-    # This class works as both a reader and a writer
-    # can be passed to source and target of a mirror.sync
+    # This class works as a 'target' mirror.
+    # it creates the vmtest files as it needs them and
+    # writes the maas image files and maas json files intact.
+    # but adds a streams/v1/vmtest.json file the created data.
     def __init__(self, config, out_d, verbosity=0):
 
         self.config = config
@@ -178,39 +187,25 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
         self.objectstore = objectstores.FileStore(
             out_d, complete_callback=self.callback)
         self.file_info = {}
+        self.data_path = ".vmtest-data"
         super(CurtinVmTestMirror, self).__init__(config=config,
                                                  objectstore=self.objectstore)
 
-    # 'source' and 'read_json' are necessary for acting as a reader
-    # They're not present in ObjectFilterMirror.  These are copied
-    # source comes from ObjectStoreMirrorReader.  Possibly it could
-    # work to also inherit from ObjectStoreMirrorReader to get these
-    def read_json(self, path):
-        with self.source(path) as source:
-            raw = source.read().decode('utf-8')
-        return raw, self.policy(content=raw, path=path)
-
-    def source(self, path):
-        # ObjectFilterMirror doesn't normally have a 'source' as it
-        # is write only.  We want to be query-able and mirrorable.
-        # so we work as both target and source of mirror.
-        return self.objectstore.source(path)
+    def callback(self, path, cur_bytes, tot_bytes):
+        # for future use, to show progress during downloading.
+        pass
 
     def fpath(self, path):
         # return the full path to a local file in the mirror
         return os.path.join(self.out_d, path)
 
-    def callback(self, path, cur_bytes, tot_bytes):
-        # for future use, to show progress.
-        pass
-
     def products_data_path(self, content_id):
         # our data path is .vmtest-data rather than .data
-        return ".vmtest-data/%s" % content_id
+        return self.data_path + os.path.sep + content_id
 
     def _reference_count_data_path(self):
         # overridden from ObjectStoreMirrorWriter
-        return ".vmtest-data/references.json"
+        return self.data_path + os.path.sep + "references.json"
 
     def load_products(self, path=None, content_id=None):
         # overridden from ObjectStoreMirrorWriter
@@ -250,7 +245,6 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
 
     def get_file_info(self, path):
         # check and see if we might know checksum and size
-        import ipdb; ipdb.set_trace()
         if path in self.file_info:
             return self.file_info[path]
         found = get_file_info(path)
@@ -260,23 +254,40 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
     def remove_version(self, data, src, target, pedigree):
         # called for versions that were removed.
         # we want to remove empty paths that have been cleaned
-        print("removing %s" % ','.join(pedigree))
         for item in data.get('items', {}).values():
             if 'path' in item:
-                remove_empty_dir(os.path.join(self.out_d,
-                                              os.path.dirname(item['path'])))
+                remove_empty_dir(self.fpath(os.path.dirname(item['path'])))
 
     def insert_products(self, path, target, content):
+        # The super classes' insert_products will 
         # we override this because default  mirror inserts content
         # where as we want to insert the rendered 'target' tree
         # the difference is that 'content' is the original (with gpg sign)
         # so our content will no longer have that signature.
+        
         dpath = self.products_data_path(target['content_id'])
         self.store.insert_content(dpath, util.json_dumps(target))
         if not path:
             return
-        content = util.json_dumps(target)
+        # this will end up writing the content exactly as it
+        # was in the source, leaving the signed data in-tact
         self.store.insert_content(path, content)
+
+        # for our vmtest content id, we want to write
+        # a vmtest.json in streams/v1/vmtest.json that can be queried
+        # even though it will not appear in index
+        if target['content_id'] == VMTEST_CONTENT_ID:
+            self.store.insert_content(VMTEST_JSON_PATH,
+                                      util.json_dumps(target))
+            
+
+    def insert_index_entry(self, data, src, pedigree, contentsource):
+        # this is overridden, because the default implementation
+        # when syncing an index.json will call insert_products
+        # and also insert_index_entry. And both actually end up
+        # writing the .[s]json file that they should write. Since
+        # insert_products will do that, we just no-op this.
+        return
 
 
 def set_logging(verbose, log_file):
@@ -358,10 +369,17 @@ def query_ptree(ptree, max_num=None, ifilters=None, path2url=None):
 
 def query(mirror, verbosity, max_items, filter_list):
 
-    smirror = CurtinVmTestMirror(config={}, out_d=mirror, verbosity=verbosity)
-    stree = smirror.load_products(content_id='com.ubuntu.maas:daily:v2:download')
+    def fpath(path):
+        # return the full path to a local file in the mirror
+        return os.path.join(mirror, path)
+
+    try:
+        stree = sutil.load_content(util.load_file(fpath(VMTEST_JSON_PATH)))
+    except OSError:
+        raise
+        stree = {}
     results = query_ptree(stree, max_num=max_items, ifilters=filter_list,
-                          path2url=smirror.fpath)
+                          path2url=fpath)
     return results
 
 
@@ -371,7 +389,7 @@ def main_query(args):
   
     results = query(args.mirror_url, vlevel, args.max_items, filter_list)
     try:
-        print(util.json_dumps(results))
+        print(util.json_dumps(results).decode())
     except IOError as e:
         if e.errno == errno.EPIPE:
             sys.exit(0x80 | signal.SIGPIPE)
