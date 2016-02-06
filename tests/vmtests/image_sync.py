@@ -40,7 +40,7 @@ DEFAULT_ARCHES = {
 
 def get_file_info(path, sums=None):
     # return dictionary with size and checksums of existing file
-    LOG.info("getting ifo for %s" % path)
+    LOG.info("getting info for %s" % path)
     buflen = 1024*1024
 
     if sums is None:
@@ -100,7 +100,7 @@ class MyObjectStore(object):
         return (path in self.paths)
 
 
-def generate_root_derived(path_gz, base_d="/"):
+def generate_root_derived(path_gz, base_d="/", info_func=get_file_info):
     fpath_gz = os.path.join(base_d, path_gz)
     ri_name = 'vmtest.root-image'
     rtgz_name = 'vmtest.root-tgz'
@@ -138,8 +138,8 @@ def generate_root_derived(path_gz, base_d="/"):
         if tmpd:
             shutil.rmtree(tmpd)
 
-    new_items[ri_name].update(get_file_info(ri_fpath))
-    new_items[rtgz_name].update(get_file_info(rtgz_fpath))
+    new_items[ri_name].update(info_func(ri_fpath))
+    new_items[rtgz_name].update(info_func(rtgz_fpath))
 
     return new_items
 
@@ -177,6 +177,7 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
         self.out_d = os.path.abspath(out_d)
         self.objectstore = objectstores.FileStore(
             out_d, complete_callback=self.callback)
+        self.file_info = {}
         super(CurtinVmTestMirror, self).__init__(config=config,
                                                  objectstore=self.objectstore)
 
@@ -241,10 +242,20 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
                 not (ri_name in titems and rtgz_name in titems)):
             # generate the root-image and root-tgz
             derived_items = generate_root_derived(
-                titems['root-image.gz']['path'], base_d=self.out_d)
+                titems['root-image.gz']['path'], base_d=self.out_d,
+                info_func=self.get_file_info)
             for fname, item in derived_items.items():
                 self.insert_item(item, src, target, pedigree + (fname,),
                                  FakeContentSource(item['path']))
+
+    def get_file_info(self, path):
+        # check and see if we might know checksum and size
+        import ipdb; ipdb.set_trace()
+        if path in self.file_info:
+            return self.file_info[path]
+        found = get_file_info(path)
+        self.file_info[path] = found
+        return found
 
     def remove_version(self, data, src, target, pedigree):
         # called for versions that were removed.
@@ -261,10 +272,10 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
         # the difference is that 'content' is the original (with gpg sign)
         # so our content will no longer have that signature.
         dpath = self.products_data_path(target['content_id'])
-        self.store.insert_content(dpath, util.dump_data(target))
+        self.store.insert_content(dpath, util.json_dumps(target))
         if not path:
             return
-        content = util.dump_data(target)
+        content = util.json_dumps(target)
         self.store.insert_content(path, content)
 
 
@@ -345,10 +356,6 @@ def query_ptree(ptree, max_num=None, ifilters=None, path2url=None):
     return results
 
 
-def jdump(thing):
-    return json.dumps(thing, indent=2, sort_keys=True, separators=(',', ': '))
-
-
 def query(mirror, verbosity, max_items, filter_list):
 
     smirror = CurtinVmTestMirror(config={}, out_d=mirror, verbosity=verbosity)
@@ -364,7 +371,7 @@ def main_query(args):
   
     results = query(args.mirror_url, vlevel, args.max_items, filter_list)
     try:
-        print(jdump(results))
+        print(util.json_dumps(results))
     except IOError as e:
         if e.errno == errno.EPIPE:
             sys.exit(0x80 | signal.SIGPIPE)
