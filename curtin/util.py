@@ -18,6 +18,7 @@
 import argparse
 import errno
 import glob
+import json
 import os
 import shutil
 import subprocess
@@ -809,5 +810,11 @@ class MergedCmdAppend(argparse.Action):
         if getattr(namespace, self.dest, None) is None:
             setattr(namespace, self.dest, [])
         getattr(namespace, self.dest).append((option_string, values,))
+
+
+def json_dumps(data):
+    return json.dumps(data, indent=1, sort_keys=True,
+                      separators=(',', ': ')).encode('utf-8')
+
 
 # vi: ts=4 expandtab syntax=python
