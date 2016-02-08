@@ -19,6 +19,7 @@ from collections import OrderedDict
 from curtin import (block, config, util)
 from curtin.block import mdadm
 from curtin.log import LOG
+from curtin.block import mkfs
 
 from . import populate_one_subcmd
 from curtin.udev import compose_udev_equality
@@ -26,7 +27,6 @@ from curtin.udev import compose_udev_equality
 import glob
 import os
 import platform
-import string
 import sys
 import tempfile
 import time
@@ -635,10 +635,7 @@ def partition_handler(info, storage_config):
 
 
 def format_handler(info, storage_config):
-    fstype = info.get('fstype')
     volume = info.get('volume')
-    part_label = info.get('label')
-    uuid = info.get('uuid')
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
                          info.get('id'))
@@ -651,51 +648,8 @@ def format_handler(info, storage_config):
         # Volume marked to be preserved, not formatting
         return
 
-    # Generate mkfs command and run
-    if fstype in ["ext4", "ext3"]:
-        cmd = ['mkfs.%s' % fstype, '-F', '-q']
-        if part_label:
-            if len(part_label) > 16:
-                raise ValueError(
-                    "ext3/4 partition labels cannot be longer than "
-                    "16 characters")
-            else:
-                cmd.extend(["-L", part_label])
-        if uuid:
-            cmd.extend(["-U", uuid])
-        cmd.append(volume_path)
-    elif fstype in ["btrfs"]:
-        cmd = ['mkfs.%s' % fstype]
-        if util.lsb_release()['codename'] != "precise":
-            cmd.extend(['-f'])
-        if part_label:
-                cmd.extend(["-L", part_label])
-        if uuid:
-            cmd.extend(["-U", uuid])
-        cmd.append(volume_path)
-    elif fstype in ["fat12", "fat16", "fat32", "fat"]:
-        cmd = ["mkfs.fat"]
-        fat_size = fstype.strip(string.ascii_letters)
-        if fat_size in ["12", "16", "32"]:
-            cmd.extend(["-F", fat_size])
-        if part_label:
-            if len(part_label) > 11:
-                raise ValueError(
-                    "fat partition names cannot be longer than "
-                    "11 characters")
-            cmd.extend(["-n", part_label])
-        cmd.append(volume_path)
-    elif fstype == "swap":
-        cmd = ["mkswap", volume_path]
-    else:
-        # See if mkfs.<fstype> exists. If so try to run it.
-        try:
-            util.subp(["which", "mkfs.%s" % fstype])
-            cmd = ["mkfs.%s" % fstype, volume_path]
-        except util.ProcessExecutionError:
-            raise ValueError("fstype '%s' not supported" % fstype)
-    LOG.info("formatting volume '%s' with format '%s'" % (volume_path, fstype))
-    logtime(' '.join(cmd), util.subp, cmd)
+    # Make filesystem using block library
+    mkfs.mkfs_from_config(volume_path, info)
 
 
 def mount_handler(info, storage_config):
@@ -896,6 +850,7 @@ def raid_handler(info, storage_config):
     devices = info.get('devices')
     raidlevel = info.get('raidlevel')
     spare_devices = info.get('spare_devices')
+    md_devname = block.dev_path(info.get('name'))
     if not devices:
         raise ValueError("devices for raid must be specified")
     if raidlevel not in ['linear', 'raid0', 0, 'stripe', 'raid1', 1, 'mirror',
@@ -916,23 +871,22 @@ def raid_handler(info, storage_config):
     # Handle preserve flag
     if info.get('preserve'):
         # check if the array is already up, if not try to assemble
-        if not block.md_check(info.get('name'), raidlevel,
+        if not mdadm.md_check(md_devname, raidlevel,
                               device_paths, spare_device_paths):
             LOG.info("assembling preserved raid for "
-                     "{}".format(info.get('name')))
+                     "{}".format(md_devname))
 
-            mdadm.mdadm_assemble(info.get('name'),
-                                 device_paths, spare_device_paths)
+            mdadm.mdadm_assemble(md_devname, device_paths, spare_device_paths)
 
             # try again after attempting to assemble
-            if not mdadm.md_check(info.get('name'), raidlevel,
+            if not mdadm.md_check(md_devname, raidlevel,
                                   devices, spare_device_paths):
                 raise ValueError("Unable to confirm preserved raid array: "
-                                 " {}".format(info.get('name')))
+                                 " {}".format(md_devname))
         # raid is all OK
         return
 
-    mdadm.mdadm_create(info.get('name'), raidlevel,
+    mdadm.mdadm_create(md_devname, raidlevel,
                        device_paths, spare_device_paths,
                        info.get('mdname', ''))
 
@@ -1004,15 +958,23 @@ def bcache_handler(info, storage_config):
     # we run make-bcache using udev rules, so wait for udev to settle, then try
     # to locate the dev, on older versions we need to register it manually
     # though
+    devpath = None
+    cur_id = info.get('id')
     try:
         util.subp(["udevadm", "settle"])
-        get_path_to_storage_volume(info.get('id'), storage_config)
+        devpath = get_path_to_storage_volume(cur_id, storage_config)
     except (OSError, IndexError):
         # Register
         for path in [backing_device, cache_device]:
             fp = open("/sys/fs/bcache/register", "w")
             fp.write(path)
             fp.close()
+        devpath = get_path_to_storage_volume(cur_id, storage_config)
+
+    syspath = block.sys_block_path(devpath)
+    if not os.path.isdir(syspath):
+        raise OSError("Did not find existing sys_block_path for id %s" %
+                      str(cur_id))
 
     # if we specify both then we need to attach backing to cache
     if cache_device and backing_device:
@@ -1027,8 +989,8 @@ def bcache_handler(info, storage_config):
             with open(attach, "w") as fp:
                 fp.write(cset_uuid)
         else:
-            LOG.error("Invalid cset_uuid: {}".format(cset_uuid))
-            raise
+            LOG.error("Invalid cset_uuid: '%s'" % cset_uuid)
+            raise Exception("Invalid cset_uuid: '%s'" % cset_uuid)
 
     if cache_mode:
         # find the actual bcache device name via sysfs using the
@@ -1044,8 +1006,7 @@ def bcache_handler(info, storage_config):
         [bcache_dev] = holders
         LOG.info("Setting cache_mode on {} to {}".format(bcache_dev,
                                                          cache_mode))
-        cache_mode_file = \
-            '/sys/block/{}/bcache/cache_mode'.format(info.get('id'))
+        cache_mode_file = os.path.join(syspath, "bcache/cache_mode")
         with open(cache_mode_file, "w") as fp:
             fp.write(cache_mode)
 
