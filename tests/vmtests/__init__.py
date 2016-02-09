@@ -142,7 +142,7 @@ def get_env_var_bool(envname, default=False):
     return val.lower() not in ("false", "0", "")
 
 
-def sync_images(src_url, base_dir, filters):
+def sync_images(src_url, base_dir, filters, verbosity=0):
     # do a sync with provided filters
 
     # only sync once per set of filters.  global IMAGE_SYNCS manages that.
@@ -156,7 +156,7 @@ def sync_images(src_url, base_dir, filters):
     logger.info('Syncing images from %s with filters=%s', src_url, filters)
     imagesync_mirror(output_d=base_dir, source=src_url,
                      mirror_filters=filters,
-                     max_items=IMAGES_TO_KEEP)
+                     max_items=IMAGES_TO_KEEP, verbosity=verbosity)
 
     IMAGE_SYNCS.append(sfilters)
     logger.debug("now done syncs: %s" % IMAGE_SYNCS)

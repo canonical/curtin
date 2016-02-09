@@ -36,4 +36,4 @@ if __name__ == '__main__':
     release_filter = 'release~{}'.format('|'.join(releases))
     my_filters = ['arch=' + DEFAULT_ARCH, release_filter] + ITEM_NAME_FILTERS
     # Sync images.
-    sync_images(IMAGE_SRC_URL, IMAGE_DIR, filters=my_filters)
+    sync_images(IMAGE_SRC_URL, IMAGE_DIR, filters=my_filters, verbosity=1)

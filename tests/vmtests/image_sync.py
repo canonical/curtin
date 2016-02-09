@@ -153,9 +153,33 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
         super(CurtinVmTestMirror, self).__init__(config=config,
                                                  objectstore=self.objectstore)
 
+        self.verbosity = verbosity
+        self.dlstatus = {'columns': 80, 'total': 0, 'curpath': None}
+
     def callback(self, path, cur_bytes, tot_bytes):
-        # for future use, to show progress during downloading.
-        pass
+        # progress written to screen
+        if self.verbosity == 0:
+            return
+
+        # this is taken logically from simplstreams DotProgress
+        if self.dlstatus['curpath'] != path:
+            self.dlstatus['printed'] = 0
+            self.dlstatus['curpath'] = path
+            sys.stderr.write('=> %s [%s]\n' % (path, tot_bytes))
+
+        if cur_bytes == tot_bytes:
+            self.dlstatus['total'] += tot_bytes
+            sys.stderr.write("\n")
+            return
+
+        columns = self.dlstatus['columns']
+        printed = self.dlstatus['printed']
+        toprint = int(cur_bytes * columns / tot_bytes) - printed
+        if toprint <= 0:
+            return
+        sys.stderr.write('.' * toprint)
+        sys.stderr.flush()
+        self.dlstatus['printed'] += toprint
 
     def fpath(self, path):
         # return the full path to a local file in the mirror
@@ -283,7 +307,7 @@ def main_mirror(args):
             "source: %s" % args.source,
             "output: %s" % args.output_d,
             "arches: %s" % arches,
-            "filters: %s" % filters,
+            "filters: %s" % mirror_filters,
         ]) + '\n')
 
     mirror(output_d=args.output_d, source=args.source,
@@ -386,6 +410,7 @@ def main():
                         type=argparse.FileType('w'))
     parser.add_argument('--verbose', '-v', action='count', default=0)
 
+    parser.set_defaults(func=None)
     subparsers = parser.add_subparsers(help='subcommand help')
     mirror_p = subparsers.add_parser(
         'mirror', help='like sstream-mirror but for vmtest images')
@@ -425,6 +450,10 @@ def main():
     query_p.add_argument('filters', nargs='*', default=[])
 
     args = parser.parse_args()
+
+    if args.func is None:
+        parser.print_help()
+        sys.exit(1)
     args.func(args)
 
 
