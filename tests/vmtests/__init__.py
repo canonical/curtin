@@ -16,7 +16,6 @@ import curtin.util as util
 
 from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
-from .image_sync import ITEM_NAME_FILTERS
 from .helpers import check_call, TimeoutExpired
 from unittest import TestCase
 
@@ -165,8 +164,7 @@ def sync_images(src_url, base_dir, filters, verbosity=0):
 
 def get_images(src_url, local_d, release, arch, sync=True):
     # ensure that the image items (roottar, kernel, initrd)
-    # we need for release and arch are available
-    # in base_dir.  
+    # we need for release and arch are available in base_dir.
     # returns updated ftypes dictionary {ftype: item_url}
     # TODO: move krel up as an parameter
     krel = release
@@ -205,7 +203,7 @@ def get_images(src_url, local_d, release, arch, sync=True):
         return get_images(src_url, local_d, release, arch, sync=True)
     elif not results:
         raise ValueError("Nothing found in query: %s" % query_str)
-        
+
     missing = []
     expected = sorted(ftypes.keys())
     found = sorted(f.get('ftype') for f in results)
@@ -216,7 +214,7 @@ def get_images(src_url, local_d, release, arch, sync=True):
         ftypes[item['ftype']] = item['item_url']
 
     missing = [(ftype, path) for ftype, path in ftypes.items()
-                             if not os.path.exists(path)]
+               if not os.path.exists(path)]
 
     if len(missing):
         raise FileNotFoundError("missing files for ftypes: %s" % missing)

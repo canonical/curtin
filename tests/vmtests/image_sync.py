@@ -11,7 +11,6 @@ from simplestreams import filters
 import argparse
 import errno
 import hashlib
-import json
 import os
 import shutil
 import signal
@@ -377,6 +376,7 @@ def query(mirror, max_items=1, filter_list=None, verbosity=0):
         filter_list = []
 
     ifilters = filters.get_filters(filter_list)
+
     def fpath(path):
         # return the full path to a local file in the mirror
         return os.path.join(mirror, path)
