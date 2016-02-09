@@ -126,8 +126,8 @@ class FakeContentSource(contentsource.ContentSource):
         self.url = path
 
     def open(self):
-        raise ValueError("'%s' content source never expected to be read" %
-                         self.path)
+        raise ValueError(
+            "'%s' content source never expected to be read" % self.url)
 
 
 def products_version_get(tree, pedigree):
