@@ -191,6 +191,7 @@ def get_images(src_url, local_d, release, arch, sync=True):
         results = imagesync_query(local_d, max_items=IMAGES_TO_KEEP,
                                   filter_list=filters)
         logger.debug("Query '%s' returned: %s", query_str, results)
+        fail_msg = "Empty result returned."
     except Exception as e:
         logger.debug("Query '%s' failed: %s", query_str, e)
         results = None
