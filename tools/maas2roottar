@@ -154,7 +154,6 @@ patch_root() {
     local rootd="$1"
     debug 1 "patching $rootd"
     local eni="$rootd/etc/network/interfaces"
-ls -l $eni
     if [ -L "$eni" -o -e "$eni" ]; then
         rm -f "$eni.${0##*/}"
         mv "$eni" "$eni.${0##*/}"
@@ -216,7 +215,7 @@ create_tgz() {
         gzflag="--use-compress-program=pigz"
     fi
     tar -C "$rootd" -cpSf "$output" $gzflag \
-        --numeric-owner --xattrs "--xattrs-include=*" ./etc/network || {
+        --numeric-owner --xattrs "--xattrs-include=*" . || {
         error "failed tar command"
         rm -f "$output"
         return 1
