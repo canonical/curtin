@@ -14,9 +14,9 @@ import time
 import curtin.net as curtin_net
 import curtin.util as util
 
-from .image_sync import main_query as imagesync_query
-from .image_sync import main_mirror as imagesync_mirror
-from .image_sync import default_parser as imagesync_parser
+from .image_sync import query as imagesync_query
+from .image_sync import mirror as imagesync_mirror
+from .image_sync import ITEM_NAME_FILTERS
 from .helpers import check_call, TimeoutExpired
 from unittest import TestCase
 
@@ -32,8 +32,6 @@ except ValueError:
 
 DEFAULT_SSTREAM_OPTS = [
     '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
-DEFAULT_ARCH = 'amd64'
-DEFAULT_FILTERS = ['arch=%s' % DEFAULT_ARCH, 'item_name=root-image.gz']
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
@@ -155,22 +153,11 @@ def sync_images(src_url, base_dir, filters):
         logger.debug("already synced for filters: %s", sfilters)
         return
 
-    # Verify sstream-mirror supports --progress option.
-    progress = []
-    try:
-        out, err = util.subp(['sstream-mirror', '--help'], capture=True)
-        if '--progress' in out:
-            progress = ['--progress']
-    except util.ProcessExecutionError:
-        # swallow the error here as if sstream-mirror --help failed
-        # then the real sstream-mirror call below will also fail.
-        pass
+    logger.info('Syncing images from %s with filters=%s', src_url, filters)
+    imagesync_mirror(output_d=base_dir, source=src_url,
+                     mirror_filters=filters,
+                     max_items=IMAGES_TO_KEEP)
 
-    cmd = (['sstream-mirror'] + DEFAULT_SSTREAM_OPTS + progress +
-           ['--max=%s' % IMAGES_TO_KEEP, src_url, base_dir] + filters)
-    logger.info('Syncing images {}'.format(cmd))
-    out = subprocess.check_output(cmd)
-    logger.debug(out)
     IMAGE_SYNCS.append(sfilters)
     logger.debug("now done syncs: %s" % IMAGE_SYNCS)
     return
@@ -182,64 +169,59 @@ def get_images(src_url, local_d, release, arch, sync=True):
     # in base_dir.  
     # returns updated ftypes dictionary {ftype: item_url}
     # TODO: move krel up as an parameter
-    print('get_images')
-    parser = imagesync_parser()
+    krel = release
     ftypes = {
         'vmtest.root-image': '',
         'vmtest.root-tgz': '',
         'boot-kernel': '',
         'boot-initrd': ''
     }
-    filters = [
-        'ftype~(%s)' % ("|".join(ftypes.keys())),
-        'release=%s' % release, 'krel=%s' % release, 'arch=%s' % arch]
-    args = ['--max=1', local_d] + filters
-    qcmd_str = " ".join(args)
+    common_filters = ['release=%s' % release, 'krel=%s' % krel,
+                      'arch=%s' % arch]
+    filters = ['ftype~(%s)' % ("|".join(ftypes.keys()))] + common_filters
 
     if sync:
-        mirror_args = parser.parse_args(args + ['mirror'])
-        imagesync_mirror(mirror_args)
+        imagesync_mirror(output_d=local_d, source=src_url,
+                         mirror_filters=common_filters,
+                         max_items=IMAGES_TO_KEEP)
 
-    logger.debug('Query %s for image. filters=%s', local_d, filters)
+    query_str = 'query = %s' % (' '.join(filters))
+    logger.debug('Query %s for image. %s', local_d, query_str)
     fail_msg = None
+
     try:
-        import ipdb; ipdb.set_trace()
-        query_args = parser.parse_args(args + ['query'])
-        out = imagesync_query(query_args)
-        if not out:
-            fail_msg = "Query '%s' returned empty result.\n" % qcmd_str
-            raise util.ProcessExecutionError
-        else:
-            logger.debug("Query '%s' returned: %s", qcmd_str, out)
-        for product in out:
-            ftypes[product['ftype']] = product['item_url']
-            if not os.path.exists(product['item_url']):
-                fail_msg = "ftype:%s (%s) did not exist.\n" % (product['ftype'],
-                                                               product['item_url'])
-                raise util.ProcessExecutionError
-        import ipdb; ipdb.set_trace()
-        return ftypes
-    except util.ProcessExecutionError as e:
-        if not os.path.isdir(os.path.join(local_d, "streams/v1")):
-            # assume this failed because this is first time.
-            fail_msg = "Query failed. streams/v1 did not exist."
-        else:
-            fail_msg = ("Query '%s' exited '%s': %s\n" %
-                        (qcmd_str, e.exit_code, e.stderr))
-        import ipdb; ipdb.set_trace()
+        results = imagesync_query(local_d, max_items=IMAGES_TO_KEEP,
+                                  filter_list=filters)
+        logger.debug("Query '%s' returned: %s", query_str, results)
+    except Exception as e:
+        logger.debug("Query '%s' failed: %s", query_str, e)
+        results = None
+        fail_msg = str(e)
 
-    import ipdb; ipdb.set_trace()
-    if not sync:
+    if not results and not sync:
         # try to fix this with a sync
-        # this can work, because sstream-mirror keeps data in .data
-        # indicating what is *actually* in the mirror, but sstream-query
-        # queries streams/v1/index, which describes what was in the
-        # upstream mirror (not including things filtered out)
-        logger.info(fail_msg + "  Attempting to fix with an image sync.")
+        logger.info(fail_msg + "  Attempting to fix with an image sync. (%s)",
+                    query_str)
         return get_images(src_url, local_d, release, arch, sync=True)
+    elif not results:
+        raise ValueError("Nothing found in query: %s" % query_str)
+        
+    missing = []
+    expected = sorted(ftypes.keys())
+    found = sorted(f.get('ftype') for f in results)
+    if expected != found:
+        raise ValueError("Query returned unexpected ftypes=%s. "
+                         "Expected=%s" % (found, expected))
+    for item in results:
+        ftypes[item['ftype']] = item['item_url']
 
-    logger.warn(fail_msg)
-    raise util.ProcessExecutionError(cmd=qcmd, reason=fail_msg)
+    missing = [(ftype, path) for ftype, path in ftypes.items()
+                             if not os.path.exists(path)]
+
+    if len(missing):
+        raise FileNotFoundError("missing files for ftypes: %s" % missing)
+
+    return ftypes
 
 
 class ImageStore:
@@ -264,37 +246,8 @@ class ImageStore:
             os.makedirs(self.base_dir)
         self.url = pathlib.Path(self.base_dir).as_uri()
 
-    def convert_image(self, root_image_path):
-        """Use maas2roottar to unpack root-image, kernel and initrd."""
-        logger.info('Converting image format for %s', root_image_path)
-        subprocess.check_call(["tools/maas2roottar", root_image_path])
-
-    def sync_images(self, filters=DEFAULT_FILTERS):
-        """Sync MAAS images from source_url simplestreams."""
-        sync_images(self.source_url, self.base_dir, filters=filters)
-
-    def prune_images(self, release, arch, filters=None):
-        ## FIXME: this should no longer be necessary.
-        ## as the mirror code should be cleaning its directories now.
-        release_dir = os.path.join(self.base_dir, release, arch)
-        subdirs = [os.path.basename(d)
-                   for d in sorted(os.listdir(release_dir))]
-        image_dirs = [d for d in subdirs if self.image_dir_re.match(d)]
-        bmsg = 'Pruning %s release=%s keep=%s.' % (release_dir, release,
-                                                   IMAGES_TO_KEEP)
-        if len(image_dirs) > IMAGES_TO_KEEP:
-            to_remove = image_dirs[0:-IMAGES_TO_KEEP]
-            logger.info(bmsg + ' Removing: %s', ' '.join(to_remove))
-            for d in to_remove:
-                fullpath = os.path.join(release_dir, d)
-                remove_dir(fullpath)
-        else:
-            logger.info(bmsg + ' Nothing to do. Keeping: %s',
-                        ' '.join(image_dirs))
-
     def get_image(self, release, arch):
         """Return local path for root image, kernel and initrd, tarball."""
-        print('get_image')
         ftypes = get_images(
             self.source_url, self.base_dir, release, arch, self.sync)
         root_image_path = ftypes['vmtest.root-image']

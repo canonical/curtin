@@ -274,33 +274,51 @@ def main_mirror(args):
 
     arch_filter = "arch~(" + "|".join(arches) + ")"
 
-    filter_list = filters.get_filters([arch_filter] + ITEM_NAME_FILTERS +
-                                      args.filters)
-
-    (source_url, initial_path) = sutil.path_from_mirror_url(args.source, None)
-
-    def policy(content, path):  # pylint: disable=W0613
-        if initial_path.endswith('sjson'):
-            return sutil.read_signed(content, keyring=args.keyring)
-        else:
-            return content
-
-    mirror_config = {'max_items': args.max_items, 'filters': filter_list}
+    mirror_filters = [arch_filter] + ITEM_NAME_FILTERS + args.filters
 
     vlevel = set_logging(args.verbose, args.log_file)
 
-    smirror = mirrors.UrlMirrorReader(source_url, policy=policy)
-
-    LOG.info(
+    sys.stderr.write(
         "summary: \n " + '\n '.join([
             "source: %s" % args.source,
             "output: %s" % args.output_d,
             "arches: %s" % arches,
+            "filters: %s" % filters,
+        ]) + '\n')
+
+    mirror(output_d=args.output_d, source=args.source,
+           mirror_filters=mirror_filters, max_items=args.max_items,
+           keyring=args.keyring, verbosity=vlevel)
+
+
+def mirror(output_d, source=IMAGE_SRC_URL, mirror_filters=None, max_items=1,
+           keyring=KEYRING, verbosity=0):
+    if mirror_filters is None:
+        mirror_filters = [f for f in ITEM_NAME_FILTERS]
+
+    filter_list = filters.get_filters(mirror_filters)
+
+    (source_url, initial_path) = sutil.path_from_mirror_url(source, None)
+
+    def policy(content, path):  # pylint: disable=W0613
+        if initial_path.endswith('sjson'):
+            return sutil.read_signed(content, keyring=keyring)
+        else:
+            return content
+
+    smirror = mirrors.UrlMirrorReader(source_url, policy=policy)
+
+    LOG.debug(
+        "summary: \n " + '\n '.join([
+            "source: %s" % source_url,
+            "path: %s" % initial_path,
+            "output: %s" % output_d,
             "filters: %s" % filter_list,
         ]) + '\n')
 
-    tmirror = CurtinVmTestMirror(config=mirror_config, out_d=args.output_d,
-                                 verbosity=vlevel)
+    mirror_config = {'max_items': max_items, 'filters': filter_list}
+    tmirror = CurtinVmTestMirror(config=mirror_config, out_d=output_d,
+                                 verbosity=verbosity)
 
     tmirror.sync(smirror, initial_path)
 
@@ -321,7 +339,7 @@ def query_ptree(ptree, max_num=None, ifilters=None, path2url=None):
             for itemname, itemdata in sorted(verdata.get('items', {}).items()):
                 flat = sutil.products_exdata(ptree,
                                              (prodname, vername, itemname))
-                if not ifilters:
+                if ifilters is not None and len(ifilters) > 0:
                     if not filters.filter_dict(ifilters, flat):
                         continue
                 if path2url and 'path' in flat:
@@ -330,8 +348,11 @@ def query_ptree(ptree, max_num=None, ifilters=None, path2url=None):
     return results
 
 
-def query(mirror, verbosity, max_items, filter_list):
+def query(mirror, max_items=1, filter_list=None, verbosity=0):
+    if filter_list is None:
+        filter_list = []
 
+    ifilters = filters.get_filters(filter_list)
     def fpath(path):
         # return the full path to a local file in the mirror
         return os.path.join(mirror, path)
@@ -340,17 +361,16 @@ def query(mirror, verbosity, max_items, filter_list):
         stree = sutil.load_content(util.load_file(fpath(VMTEST_JSON_PATH)))
     except OSError:
         raise
-        stree = {}
-    results = query_ptree(stree, max_num=max_items, ifilters=filter_list,
+    results = query_ptree(stree, max_num=max_items, ifilters=ifilters,
                           path2url=fpath)
     return results
 
 
 def main_query(args):
     vlevel = set_logging(args.verbose, args.log_file)
-    filter_list = filters.get_filters(args.filters)
 
-    results = query(args.mirror_url, vlevel, args.max_items, filter_list)
+    results = query(args.mirror_url, args.max_items, args.filters,
+                    verbosity=vlevel)
     try:
         print(util.json_dumps(results).decode())
     except IOError as e:
