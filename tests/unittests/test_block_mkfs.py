@@ -79,7 +79,7 @@ class TestBlockMkfs(TestCase):
     def test_mkfs_fat(self):
         conf = self._get_config("fat32")
         expected_flags = [["-n", "format1"], ["-F", "32"]]
-        self._run_mkfs_with_config(conf, "mkfs.fat", expected_flags)
+        self._run_mkfs_with_config(conf, "mkfs.vfat", expected_flags)
 
     def test_mkfs_invalid_fstype(self):
         """Do not proceed if fstype is None or invalid"""
