@@ -174,7 +174,7 @@ create_tgz() {
         { bad_Usage; return; }
 
     local cur="" next="" patch=true krd=false
-    local krd="" vflags=""
+    local vflags=""
 
     while [ $# -ne 0 ]; do
         cur="$1"; next="$2";

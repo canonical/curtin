@@ -1108,6 +1108,22 @@ def meta_simple(args):
         devices = block.get_installable_blockdevs()
         LOG.warn("'%s' mode, no devices given. unused list: %s",
                  args.mode, devices)
+        # Check if the list of installable block devices is still empty after
+        # checking for block devices and filtering out the removable ones.  In
+        # this case we may have a system which has its harddrives reported by
+        # lsblk incorrectly. In this case we search for installable
+        # blockdevices that are removable as a last resort before raising an
+        # exception.
+        if len(devices) == 0:
+            devices = block.get_installable_blockdevs(include_removable=True)
+            if len(devices) == 0:
+                # Fail gracefully if no devices are found, still.
+                raise Exception("No valid target devices found that curtin "
+                                "can install on.")
+            else:
+                LOG.warn("No non-removable, installable devices found. List "
+                         "populated with removable devices allowed: %s",
+                         devices)
 
     if len(devices) > 1:
         if args.devices is not None:

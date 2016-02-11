@@ -30,6 +30,7 @@ REQUIRED_EXECUTABLES = [
     ('file', 'file'),
     ('lvcreate', 'lvm2'),
     ('mdadm', 'mdadm'),
+    ('mkfs.vfat', 'dosfstools'),
     ('mkfs.btrfs', 'btrfs-tools'),
     ('mkfs.ext4', 'e2fsprogs'),
     ('mkfs.xfs', 'xfsprogs'),
