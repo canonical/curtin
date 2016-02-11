@@ -110,9 +110,9 @@ def generate_root_derived(path_gz, base_d="/", info_func=get_file_info):
 
 def remove_empty_dir(dirpath):
     if os.path.exists(dirpath):
-        # remove any trailing / so that dirname won't return the same dir
-        # as dirname("foo/bar/") == "foo/bar", but we want "foo".
-        dirpath = dirpath.rstrip(os.path.sep)
+        # normpath never returns trailing / (unless '/')
+        # so that dirname will always get our parent.
+        dirpath = os.path.normpath(dirpath)
         try:
             os.rmdir(dirpath)
             LOG.info("removed empty directory '%s'", dirpath)
