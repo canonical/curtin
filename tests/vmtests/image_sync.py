@@ -110,12 +110,13 @@ def generate_root_derived(path_gz, base_d="/", info_func=get_file_info):
 
 def remove_empty_dir(dirpath):
     if os.path.exists(dirpath):
+        # remove any trailing / so that dirname won't return the same dir
+        # as dirname("foo/bar/") == "foo/bar", but we want "foo".
+        dirpath = dirpath.rstrip(os.path.sep)
         try:
             os.rmdir(dirpath)
-            print("removed empty dir %s" % dirpath)
-            if dirpath.endswith(os.path.sep):
-                dirpath = dirpath[:-1]
-                remove_empty_dir(os.path.dirname(dirpath))
+            LOG.info("removed empty directory '%s'", dirpath)
+            remove_empty_dir(os.path.dirname(dirpath))
         except OSError as e:
             if e.errno == errno.ENOTEMPTY:
                 pass
@@ -236,12 +237,11 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
         self.file_info[path] = found
         return found
 
-    def remove_version(self, data, src, target, pedigree):
-        # called for versions that were removed.
-        # we want to remove empty paths that have been cleaned
-        for item in data.get('items', {}).values():
-            if 'path' in item:
-                remove_empty_dir(self.fpath(os.path.dirname(item['path'])))
+    def remove_item(self, data, src, target, pedigree):
+        super(CurtinVmTestMirror, self).remove_item(data, src, target,
+                                                    pedigree)
+        if 'path' in data:
+            remove_empty_dir(self.fpath(os.path.dirname(data['path'])))
 
     def insert_products(self, path, target, content):
         # The super classes' insert_products will
