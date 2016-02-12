@@ -13,7 +13,7 @@ class TestBasicAbs(VMBaseClass):
     conf_file = "examples/tests/basic.yaml"
     install_timeout = 600
     boot_timeout = 120
-    extra_disks = ['128G', '128G']
+    extra_disks = ['128G', '128G', '4G']
     disk_to_check = {'main_disk': 1, 'main_disk': 2}
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
@@ -42,6 +42,21 @@ class TestBasicAbs(VMBaseClass):
     def test_ptable(self):
         blkid_info = self.get_blkid_data("blkid_output_vda")
         self.assertEquals(blkid_info["PTTYPE"], "dos")
+
+    def test_partition_numbers(self):
+        # vde should have partitions 1 and 10
+        disk = "vde"
+        proc_partitions_path = os.path.join(self.td.collect,
+                                            'proc_partitions')
+        self.assertTrue(os.path.exists(proc_partitions_path))
+        found = []
+        with open(proc_partitions_path, 'r') as fp:
+            for line in fp.readlines():
+                if disk in line:
+                    found.append(line.split()[3])
+        # /proc/partitions should have 3 lines with 'vde' in them.
+        expected = [disk + s for s in ["", "1", "10"]]
+        self.assertEqual(found, expected)
 
     def test_partitions(self):
         with open(os.path.join(self.td.collect, "fstab")) as fp:
