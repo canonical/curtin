@@ -504,16 +504,20 @@ def getnumberoflogicaldisks(device, storage_config):
 
 
 def find_previous_partition(disk_id, part_id, storage_config):
-    last_partnum = 0
+    last_partnum = None
     for item_id, command in storage_config.items():
         if item_id == part_id:
-            return last_partnum
-        if command['type'] == 'partition' and command['device'] == disk_id:
-            if 'number' in item_id:
-                last_partnum = item_id['number']
-            else:
-                last_partnum += 1
-    return None
+            break
+
+        # skip anything not on this disk, not a 'partition' or 'extended'
+        if command['type'] != 'partition' or command['device'] != disk_id:
+            continue
+        if command.get('flag') == "extended":
+            continue
+
+        last_partnum = determine_partition_number(item_id, storage_config)
+
+    return last_partnum
 
 
 def partition_handler(info, storage_config):
