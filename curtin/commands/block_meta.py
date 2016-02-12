@@ -554,8 +554,8 @@ def partition_handler(info, storage_config):
                 (disk_kname, disk_kname, extended_part_no)
         else:
             pnum = find_previous_partition(device, info['id'], storage_config)
-            LOG.debug("previous partition number for '%s' found to be '%s'" %
-                      (info.get('id'), pnum))
+            LOG.debug("previous partition number for '%s' found to be '%s'",
+                      info.get('id'), pnum)
             previous_partition = "/sys/block/%s/%s%s/" % \
                 (disk_kname, disk_kname, pnum)
         with open(os.path.join(previous_partition, "size"), "r") as fp:
