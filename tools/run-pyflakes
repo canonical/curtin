@@ -5,7 +5,7 @@ CR="
 "
 vmtests=""
 if [ "$PYTHON_VERSION" = "3" ]; then
-    vmtests="tests/"
+    vmtests="tests/vmtests/"
 fi
 pycheck_dirs=( "curtin/" "tests/unittests/" $vmtests )
 
