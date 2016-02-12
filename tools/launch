@@ -236,7 +236,7 @@ find_apt_proxy() {
 
 main() {
     local short_opts="a:d:h:i:k:n:p:v"
-    local long_opts="add:,append:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi,verbose,vnc:"
+    local long_opts="add:,append:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -249,7 +249,7 @@ main() {
     local tmp="" top_d
     local initrd="" kernel="" uappend="" iargs="" disk_args=""
     local pubs="" disks="" pstate="null"
-    local uefi=0
+    local uefi=1 bios=""
     local netdevs="" install_deps="--install-deps"
     local video="-curses -vga std" serial_log="file:serial.log"
     # dowait: run xkvm with a '&' and then 'wait' on the pid.
@@ -291,6 +291,7 @@ main() {
             -n|--netdev) netdevs[${#netdevs[@]}]="$next"; shift;;
             -p|--publish) pubs[${#pub[@]}]="$next"; shift;;
                --uefi) uefi=1;;
+               --bios) bios="$2"; shift;;
                --silent) video="-nographic";;
                --vnc)
                     video="-vnc $next"
@@ -325,7 +326,9 @@ main() {
     local bios_opts=""
 
     bios_opts=( )
-    if [ $uefi -eq 1 ]; then
+    if [ -n "$bios" ]; then
+        bios_opts=(  -drive "if=pflash,format=raw,file=$bios" )
+    elif [ $uefi -eq 1 ]; then
         local ovmf_bios="/usr/share/qemu/OVMF.fd"
         [ -f "$ovmf_bios" ] || {
             error "no --uefi requires ovmf bios: apt-get install ovmf"
@@ -335,7 +338,10 @@ main() {
         # this is here because in this bios, it goes into graphics mode
         # rendering the display on curses mode useless.  Would be nice
         # if we could find a fix.
-        video=""
+        case "$video" in
+           -vnc*) :;;
+           *) video="";;
+        esac
     fi
 
     if [ "${#disks[@]}" -eq 0 ]; then
@@ -507,12 +513,15 @@ main() {
     local netargs
     netargs=( )
     for dev in "${netdevs[@]}"; do
-        netargs=( "${netargs[@]}" "-n" "${dev}" )
+        netargs=( "${netargs[@]}" "--netdev=${dev}" )
     done
 
     local cmd
+    [ "${serial_log}" = "file:none" ] && serial_log=""
+    [ "${serial_log}" = "file:stdio" ] && serial_log="stdio"
+video="-vnc :1"
     cmd=( 
-        xkvm "${pt[@]}" "${netargs[@]}" -- 
+        xkvm "${pt[@]}" "${netargs[@]}" -- -nographic
         "${bios_opts[@]}"
         -m ${mem} ${serial_log:+-serial "${serial_log}"} ${video}
         -drive "file=$bootimg,if=virtio,cache=unsafe"

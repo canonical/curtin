@@ -429,6 +429,10 @@ class VMBaseClass(TestCase):
                 fp.write(json.dumps({'apt_proxy': proxy}) + "\n")
             configs.append(proxy_config)
 
+        nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
+        shutil.copy("/usr/share/qemu/OVMF.fd", nvram)
+        cmd.extend(["--bios=" + nvram])
+
         cmd.extend(netdevs + ["--disk", cls.td.target_disk] + extra_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "-vv", "install"] +
@@ -438,6 +442,8 @@ class VMBaseClass(TestCase):
         # run vm with installer
         lout_path = os.path.join(cls.td.logs, "install-launch.out")
         logger.info('Running curtin installer: {}'.format(cls.install_log))
+
+
         try:
             with open(lout_path, "wb") as fpout:
                 cls.boot_system(cmd, timeout=cls.install_timeout,
@@ -487,6 +493,7 @@ class VMBaseClass(TestCase):
                 "-m", "1024"])
         if not cls.interactive:
             cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
+        cmd.extend(["-drive", "if=pflash,format=raw,file=" + nvram, "-vnc", ":1" ])
 
         # run vm with installed system, fail if timeout expires
         try:
