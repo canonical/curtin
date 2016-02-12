@@ -43,8 +43,10 @@ storage:
     type: mount
   version: 1
 
+## 
+## http://www.linux-kvm.org/page/OVMF has a link to the
+## only informative info i've found on this.
 late_commands:
- 99smoser01: "efibootmgr -v"
  99smoser02: "blkid"
  99smoser03: ["curtin", "in-target", "--", "find", "/boot", "-type", "f"]
 # 99smoser04: ["sh", "-c", "sleep 10m || :; exit 0"]
