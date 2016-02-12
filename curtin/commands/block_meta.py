@@ -506,10 +506,7 @@ def getnumberoflogicaldisks(device, storage_config):
 def find_previous_partition(disk_id, part_id, storage_config):
     last_partnum = 0
     for item_id, command in storage_config.items():
-        print('item_id: %s last=%s' % (item_id, last_partnum))
         if item_id == part_id:
-            print("found last partition for %s was %s" %
-                  (part_id, last_partnum))
             return last_partnum
         if command['type'] == 'partition' and command['device'] == disk_id:
             if 'number' in item_id:
@@ -544,7 +541,6 @@ def partition_handler(info, storage_config):
     except:
         logical_block_size_bytes = 512
 
-    print("disk=%s\npartnumber=%s\n" % (disk, partnumber))
     if partnumber > 1:
         if partnumber == 5 and disk_ptable == "msdos":
             for key, item in storage_config.items():
@@ -558,6 +554,8 @@ def partition_handler(info, storage_config):
                 (disk_kname, disk_kname, extended_part_no)
         else:
             pnum = find_previous_partition(device, info['id'], storage_config)
+            LOG.debug("previous partition number for '%s' found to be '%s'" %
+                      (info.get('id'), pnum))
             previous_partition = "/sys/block/%s/%s%s/" % \
                 (disk_kname, disk_kname, pnum)
         with open(os.path.join(previous_partition, "size"), "r") as fp:
