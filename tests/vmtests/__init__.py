@@ -449,9 +449,9 @@ class VMBaseClass(TestCase):
             raise
         finally:
             if os.path.exists(cls.install_log):
-                with open(cls.install_log, 'r', encoding='utf-8') as l:
-                    logger.debug(
-                        u'Serial console output:\n{}'.format(l.read()))
+                with open(cls.install_log, 'rb') as l:
+                    content = l.read().decode('utf-8', errors='replace')
+                logger.debug('install serial console output:\n%s', content)
             else:
                 logger.warn("Boot for install did not produce a console log.")
 
@@ -502,9 +502,9 @@ class VMBaseClass(TestCase):
             raise e
         finally:
             if os.path.exists(cls.boot_log):
-                with open(cls.boot_log, 'r', encoding='utf-8') as l:
-                    logger.debug(
-                        u'Serial console output:\n{}'.format(l.read()))
+                with open(cls.boot_log, 'rb') as l:
+                    content = l.read().decode('utf-8', errors='replace')
+                logger.debug('boot serial console output:\n%s', content)
             else:
                     logger.warn("Booting after install not produce"
                                 " a console log.")
