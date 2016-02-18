@@ -181,7 +181,7 @@ def parse_deb_config_data(ifaces, contents, path):
             if 'bridge' not in ifaces[currif]:
                 ifaces[currif]['bridge'] = {}
             if option in NET_CONFIG_BRIDGE_OPTIONS:
-                bridge_option = option.replace('bridge_', '')
+                bridge_option = option.replace('bridge_', '', 1)
                 ifaces[currif]['bridge'][bridge_option] = split[1]
             elif option == "bridge_ports":
                 ifaces[currif]['bridge']['ports'] = []
@@ -197,6 +197,11 @@ def parse_deb_config_data(ifaces, contents, path):
                 if 'portprio' not in ifaces[currif]['bridge']:
                     ifaces[currif]['bridge']['portprio'] = {}
                 ifaces[currif]['bridge']['portprio'][split[1]] = split[2]
+        elif option.startswith('bond-'):
+            if 'bond' not in ifaces[currif]:
+                ifaces[currif]['bond'] = {}
+            bond_option = option.replace('bond-', '', 1)
+            ifaces[currif]['bond'][bond_option] = split[1]
     for iface in ifaces.keys():
         if 'auto' not in ifaces[iface]:
             ifaces[iface]['auto'] = False

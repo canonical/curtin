@@ -170,6 +170,62 @@ class TestNetParserData(TestCase):
                 },
             }, ifaces)
 
+    def test_parse_deb_config_data_bond(self):
+        contents = dedent("""\
+            iface eth0 inet manual
+            bond-master bond0
+            bond-primary eth0
+            bond-mode active-backup
+            iface eth1 inet manual
+            bond-master bond0
+            bond-primary eth0
+            bond-mode active-backup
+            iface bond0 inet static
+            address 192.168.1.1
+            netmask 255.255.255.0
+            bond-slaves none
+            bond-primary eth0
+            bond-mode active-backup
+            bond-miimon 100
+            """)
+        ifaces = {}
+        net.parse_deb_config_data(ifaces, contents, '')
+        self.assertEqual({
+            'eth0': {
+                'auto': False,
+                'family': 'inet',
+                'method': 'manual',
+                'bond': {
+                    'master': 'bond0',
+                    'primary': 'eth0',
+                    'mode': 'active-backup',
+                    },
+                },
+            'eth1': {
+                'auto': False,
+                'family': 'inet',
+                'method': 'manual',
+                'bond': {
+                    'master': 'bond0',
+                    'primary': 'eth0',
+                    'mode': 'active-backup',
+                    },
+                },
+            'bond0': {
+                'auto': False,
+                'family': 'inet',
+                'method': 'static',
+                'address': '192.168.1.1',
+                'netmask': '255.255.255.0',
+                'bond': {
+                    'slaves': 'none',
+                    'primary': 'eth0',
+                    'mode': 'active-backup',
+                    'miimon': '100',
+                    },
+                },
+            }, ifaces)
+
 
 class TestNetParser(TestCase):
 
