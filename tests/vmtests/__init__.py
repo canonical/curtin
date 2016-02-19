@@ -642,7 +642,7 @@ class VMBaseClass(TestCase):
         if (os.path.exists(fpath) and self.disk_to_check is not None):
             with open(fpath, "r") as fp:
                 contents = fp.read().splitlines()
-            for diskname, part in self.disk_to_check.items():
+            for diskname, part in self.disk_to_check:
                 if part is not 0:
                     link = diskname + "-part" + str(part)
                     self.assertIn(link, contents)

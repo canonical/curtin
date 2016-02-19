@@ -14,7 +14,7 @@ class TestBasicAbs(VMBaseClass):
     install_timeout = 600
     boot_timeout = 120
     extra_disks = ['128G', '128G', '4G']
-    disk_to_check = {'main_disk': 1, 'main_disk': 2}
+    disk_to_check = [('main_disk', 1), ('main_disk', 2)]
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda > blkid_output_vda

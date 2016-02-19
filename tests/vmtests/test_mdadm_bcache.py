@@ -34,15 +34,15 @@ class TestMdadmAbs(VMBaseClass):
 
 class TestMdadmBcacheAbs(TestMdadmAbs):
     conf_file = "examples/tests/mdadm_bcache.yaml"
-    disk_to_check = {'main_disk': 1,
-                     'main_disk': 2,
-                     'main_disk': 3,
-                     'main_disk': 4,
-                     'main_disk': 5,
-                     'main_disk': 6,
-                     'md0': 0,
-                     'cached_array': 0,
-                     'cached_array_2': 0}
+    disk_to_check = [('main_disk', 1),
+                     ('main_disk', 2),
+                     ('main_disk', 3),
+                     ('main_disk', 4),
+                     ('main_disk', 5),
+                     ('main_disk', 6),
+                     ('md0', 0),
+                     ('cached_array', 0),
+                     ('cached_array_2', 0)]
 
     collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
@@ -113,10 +113,10 @@ class TestMirrorbootAbs(TestMdadmAbs):
     conf_file = "examples/tests/mirrorboot.yaml"
     # initialize secondary disk
     extra_disks = ['4G']
-    disk_to_check = {'main_disk': 1,
-                     'main_disk': 2,
-                     'second_disk': 1,
-                     'md0': 0}
+    disk_to_check = [('main_disk', 1),
+                     ('main_disk', 2),
+                     ('second_disk', 1),
+                     ('md0', 0)]
 
 
 class VividTestMirrorboot(relbase.vivid, TestMirrorbootAbs):
@@ -132,11 +132,11 @@ class TestRaid5bootAbs(TestMdadmAbs):
     conf_file = "examples/tests/raid5boot.yaml"
     # initialize secondary disk
     extra_disks = ['4G', '4G']
-    disk_to_check = {'main_disk': 1,
-                     'main_disk': 2,
-                     'second_disk': 1,
-                     'third_disk': 1,
-                     'md0': 0}
+    disk_to_check = [('main_disk', 1),
+                     ('main_disk', 2),
+                     ('second_disk', 1),
+                     ('third_disk', 1),
+                     ('md0', 0)]
 
 
 class VividTestRaid5boot(relbase.vivid, TestRaid5bootAbs):
@@ -152,12 +152,12 @@ class TestRaid6bootAbs(TestMdadmAbs):
     conf_file = "examples/tests/raid6boot.yaml"
     # initialize secondary disk
     extra_disks = ['4G', '4G', '4G']
-    disk_to_check = {'main_disk': 1,
-                     'main_disk': 2,
-                     'second_disk': 1,
-                     'third_disk': 1,
-                     'fourth_disk': 1,
-                     'md0': 0}
+    disk_to_check = [('main_disk', 1),
+                     ('main_disk', 2),
+                     ('second_disk', 1),
+                     ('third_disk', 1),
+                     ('fourth_disk', 1),
+                     ('md0', 0)]
     collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         mdadm --detail --scan > mdadm_detail
@@ -185,12 +185,12 @@ class TestRaid10bootAbs(TestMdadmAbs):
     conf_file = "examples/tests/raid10boot.yaml"
     # initialize secondary disk
     extra_disks = ['4G', '4G', '4G']
-    disk_to_check = {'main_disk': 1,
-                     'main_disk': 2,
-                     'second_disk': 1,
-                     'third_disk': 1,
-                     'fourth_disk': 1,
-                     'md0': 0}
+    disk_to_check = [('main_disk', 1),
+                     ('main_disk', 2),
+                     ('second_disk', 1),
+                     ('third_disk', 1),
+                     ('fourth_disk', 1),
+                     ('md0', 0)]
 
 
 class VividTestRaid10boot(relbase.vivid, TestRaid10bootAbs):
@@ -212,29 +212,30 @@ class TestAllindataAbs(TestMdadmAbs):
     active_mdadm = "4"
     # initialize secondary disk
     extra_disks = ['5G', '5G', '5G']
-    disk_to_check = {'main_disk': 1,
-                     'main_disk': 2,
-                     'main_disk': 3,
-                     'main_disk': 4,
-                     'main_disk': 5,
-                     'second_disk': 1,
-                     'second_disk': 2,
-                     'second_disk': 3,
-                     'second_disk': 4,
-                     'third_disk': 1,
-                     'third_disk': 2,
-                     'third_disk': 3,
-                     'third_disk': 4,
-                     'fourth_disk': 1,
-                     'fourth_disk': 2,
-                     'fourth_disk': 3,
-                     'fourth_disk': 4,
-                     'md0': 0,
-                     'md1': 0,
-                     'md2': 0,
-                     'md3': 0,
-                     'vg1-lv1': 0,
-                     'vg1-lv2': 0}
+    disk_to_check = [('main_disk', 1),
+                     ('main_disk', 2),
+                     ('main_disk', 3),
+                     ('main_disk', 4),
+                     ('main_disk', 5),
+                     ('second_disk', 1),
+                     ('second_disk', 2),
+                     ('second_disk', 3),
+                     ('second_disk', 4),
+                     ('third_disk', 1),
+                     ('third_disk', 2),
+                     ('third_disk', 3),
+                     ('third_disk', 4),
+                     ('fourth_disk', 1),
+                     ('fourth_disk', 2),
+                     ('fourth_disk', 3),
+                     ('fourth_disk', 4),
+                     ('md0', 0),
+                     ('md1', 0),
+                     ('md2', 0),
+                     ('md3', 0),
+                     ('vg1-lv1', 0),
+                     ('vg1-lv2', 0)]
+
     collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs

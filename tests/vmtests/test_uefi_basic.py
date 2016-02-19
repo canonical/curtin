@@ -15,7 +15,7 @@ class TestBasicAbs(VMBaseClass):
     boot_timeout = 120
     extra_disks = []
     uefi = True
-    disk_to_check = {'main_disk': 1}
+    disk_to_check = [('main_disk', 1), ('main_disk', 2)]
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda > blkid_output_vda
@@ -83,4 +83,3 @@ class WilyUefiTestBasic(relbase.wily, TestBasicAbs):
 
 class XenialUefiTestBasic(relbase.xenial, TestBasicAbs):
     __test__ = True
-

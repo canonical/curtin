@@ -21,11 +21,11 @@ class TestLvmAbs(VMBaseClass):
         '/dev/vg1/lv1': '/srv/data',
         '/dev/vg1/lv2': '/srv/backup',
     }
-    disk_to_check = {'main_disk': 1,
-                     'main_disk': 5,
-                     'main_disk': 6,
-                     'vg1-lv1': 0,
-                     'vg1-lv2': 0}
+    disk_to_check = [('main_disk', 1),
+                     ('main_disk', 5),
+                     ('main_disk', 6),
+                     ('vg1-lv1', 0),
+                     ('vg1-lv2', 0)]
 
     def test_lvs(self):
         self.check_file_strippedline("lvs", "lv1=vg1")
