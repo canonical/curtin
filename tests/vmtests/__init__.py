@@ -447,7 +447,6 @@ class VMBaseClass(TestCase):
         lout_path = os.path.join(cls.td.logs, "install-launch.out")
         logger.info('Running curtin installer: {}'.format(cls.install_log))
 
-
         try:
             with open(lout_path, "wb") as fpout:
                 cls.boot_system(cmd, timeout=cls.install_timeout,

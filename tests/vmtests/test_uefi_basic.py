@@ -1,10 +1,8 @@
-from . import (
-    VMBaseClass,
-    get_apt_proxy)
+from . import (VMBaseClass)
+
 from .releases import base_vm_classes as relbase
 
 import os
-import re
 import textwrap
 
 
