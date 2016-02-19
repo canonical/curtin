@@ -666,7 +666,7 @@ install_grub() {
 
     if [ "$uefi" -ge 1 ]; then
         debug 1 "installing ${grub_name} to: /boot/efi"
-        chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -exc '
+        chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
             dpkg-reconfigure "$1"
             update-grub
             # grub-install in 12.04 does not contain --no-nvram, --target,
