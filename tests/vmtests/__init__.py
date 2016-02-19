@@ -36,6 +36,7 @@ DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
 INSTALL_PASS_MSG = "Installation finished. No error reported."
 IMAGE_SYNCS = []
+OVMF_CODE = "/usr/share/OVMF/OVMF_CODE.fd"
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 
@@ -429,9 +430,11 @@ class VMBaseClass(TestCase):
                 fp.write(json.dumps({'apt_proxy': proxy}) + "\n")
             configs.append(proxy_config)
 
-        nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
-        shutil.copy("/usr/share/qemu/OVMF.fd", nvram)
-        cmd.extend(["--bios=" + nvram])
+        if cls.uefi:
+            logger.debug("Testcase requested launching with UEFI")
+            nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
+            shutil.copy("/usr/share/OVMF/OVMF_VARS.fd", nvram)
+            cmd.extend(["--uefi", nvram])
 
         cmd.extend(netdevs + ["--disk", cls.td.target_disk] + extra_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
@@ -493,7 +496,12 @@ class VMBaseClass(TestCase):
                 "-m", "1024"])
         if not cls.interactive:
             cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
-        cmd.extend(["-drive", "if=pflash,format=raw,file=" + nvram, "-vnc", ":1" ])
+
+        if cls.uefi:
+            logger.debug("Testcase requested booting with UEFI")
+            cmd.extend(["-drive",
+                        "if=pflash,format=raw,readonly,file=" + OVMF_CODE,
+                        "-drive", "if=pflash,format=raw,file=" + nvram])
 
         # run vm with installed system, fail if timeout expires
         try:
