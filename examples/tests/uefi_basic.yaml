@@ -2,7 +2,7 @@ storage:
   config:
   - id: id_disk0
     type: disk
-    name: disk0
+    name: main_disk
     path: /dev/vdb
     ptable: gpt
     wipe: superblock
@@ -10,7 +10,6 @@ storage:
   - device: id_disk0
     flag: boot
     id: id_disk0_part1
-    name: disk0-part1
     number: 1
     offset: 1M
     size: 499M
@@ -18,7 +17,6 @@ storage:
     wipe: superblock
   - device: id_disk0
     id: id_disk0_part2
-    name: disk0-part2
     number: 2
     size: 3G
     type: partition
@@ -46,7 +44,7 @@ storage:
 ## 
 ## http://www.linux-kvm.org/page/OVMF has a link to the
 ## only informative info i've found on this.
-late_commands:
- 99smoser02: "blkid"
- 99smoser03: ["curtin", "in-target", "--", "find", "/boot", "-type", "f"]
-# 99smoser04: ["sh", "-c", "sleep 10m || :; exit 0"]
+#late_commands:
+# 99smoser02: "blkid"
+# 99smoser03: ["curtin", "in-target", "--", "find", "/boot", "-type", "f"]
+### 99smoser04: ["sh", "-c", "sleep 10m || :; exit 0"]
