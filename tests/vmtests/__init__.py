@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import textwrap
 import time
+import yaml
 import curtin.net as curtin_net
 import curtin.util as util
 
@@ -822,7 +823,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
     ssh_keys, _err = util.subp(['tools/ssh-keys-list', 'cloud-config'],
                                capture=True)
     parts = [{'type': 'text/cloud-config',
-              'content': json.dumps(base_cloudconfig, indent=1)},
+              'content': yaml.dumps(base_cloudconfig, indent=1)},
              {'type': 'text/cloud-config', 'content': ssh_keys}]
 
     output_dir_macro = 'OUTPUT_COLLECT_D'
