@@ -331,7 +331,7 @@ main() {
     elif [ -n "$uefi" ]; then
         local ovmf_code="/usr/share/OVMF/OVMF_CODE.fd"
         local ovmf_var="/usr/share/OVMF/OVMF_VARS.fd"
-        [ -o -f "$ovmf_code" ] || {
+        [ -f "$ovmf_code" ] || {
             error "no --uefi requires ovmf bios: apt-get install ovmf"
             return 1;
         }
