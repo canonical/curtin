@@ -822,7 +822,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
     ssh_keys, _err = util.subp(['tools/ssh-keys-list', 'cloud-config'],
                                capture=True)
     parts = [{'type': 'text/cloud-config',
-              'content': yaml.dumps(base_cloudconfig, indent=1)},
+              'content': yaml.dump(base_cloudconfig, indent=1)},
              {'type': 'text/cloud-config', 'content': ssh_keys}]
 
     output_dir_macro = 'OUTPUT_COLLECT_D'
