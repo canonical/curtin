@@ -345,6 +345,7 @@ class VMBaseClass(TestCase):
     extra_disks = []
     boot_timeout = 300
     install_timeout = 600
+    uefi = False
 
     # these get set from base_vm_classes
     release = None
