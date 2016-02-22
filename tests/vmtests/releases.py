@@ -7,6 +7,11 @@ class _PreciseBase(_ReleaseBase):
     release = "precise"
 
 
+class _PreciseHWET(_ReleaseBase):
+    release = "precise"
+    krel = "trusty"
+
+
 class _TrustyBase(_ReleaseBase):
     release = "trusty"
 
@@ -45,6 +50,7 @@ class _XenialBase(_ReleaseBase):
 
 class _Releases(object):
     precise = _PreciseBase
+    precise_hwe_t = _PreciseHWET
     trusty = _TrustyBase
     trusty_hwe_u = _TrustyHWEU
     trusty_hwe_v = _TrustyHWEV

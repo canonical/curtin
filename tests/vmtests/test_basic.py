@@ -202,18 +202,23 @@ class TrustyTestBasic(relbase.trusty, TestBasicAbs):
         print("test_ptable does not work for Trusty")
 
 
+class PreciseHWETTestBasic(relbase.precise_hwe_t, PreciseTestBasic):
+    # FIXME: off due to test_whole_disk_format failing
+    __test__ = False
+
+
 class TrustyHWEUTestBasic(relbase.trusty_hwe_u, TrustyTestBasic):
-    # Working, but off by default to safe test suite runtime, covered by bonding
+    # off by default to safe test suite runtime, covered by bonding
     __test__ = False
 
 
 class TrustyHWEVTestBasic(relbase.trusty_hwe_v, TrustyTestBasic):
-    # Working, but off by default to safe test suite runtime, covered by bonding
+    # off by default to safe test suite runtime, covered by bonding
     __test__ = False
 
 
 class TrustyHWEWTestBasic(relbase.trusty_hwe_w, TrustyTestBasic):
-    # Working, but off by default to safe test suite runtime, covered by bonding
+    # off by default to safe test suite runtime, covered by bonding
     __test__ = False
 
 

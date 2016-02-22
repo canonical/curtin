@@ -204,6 +204,11 @@ class TestNetworkAbs(VMBaseClass):
                 self.assertEqual(gw_ip, gw)
 
 
+class PreciseHWETTestBonding(relbase.precise_hwe_t, TestNetworkAbs):
+    # FIXME: off, due to failing test_ifenslave_installed
+    __test__ = True
+
+
 class TrustyTestBonding(relbase.trusty, TestNetworkAbs):
     __test__ = False
 
