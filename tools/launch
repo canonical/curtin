@@ -338,8 +338,8 @@ main() {
         # user specified where to write nvram data in --uefi param
         # pre-populate it with the OVMF_VARS.fd template
         local nvram=${uefi}
-        cp -a $ovmf_var $nvram || {
-            error "failed to create OVMF nvram file: $nvram"
+        cp -a "${ovmf_var}" "${nvram}" || {
+            error "failed to create OVMF nvram file: '$nvram'"
             return 1;
         }
         bios_opts=( -drive "file=$ovmf_code,if=pflash,format=raw,readonly"
