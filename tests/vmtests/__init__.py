@@ -38,7 +38,7 @@ KEEP_DATA = {"pass": "none", "fail": "all"}
 INSTALL_PASS_MSG = "Installation finished. No error reported."
 IMAGE_SYNCS = []
 OVMF_CODE = "/usr/share/OVMF/OVMF_CODE.fd"
-OVMD_VARS = "/usr/share/OVMF/OVMF_VARS.fd"
+OVMF_VARS = "/usr/share/OVMF/OVMF_VARS.fd"
 # precise -> vivid don't have split UEFI firmware, fallback
 if not os.path.exists(OVMF_CODE):
     OVMF_CODE = "/usr/share/ovmf/OVMF.fd"
@@ -513,10 +513,13 @@ class VMBaseClass(TestCase):
 
         if cls.uefi:
             logger.debug("Testcase requested booting with UEFI")
-            cmd.extend(["-drive", "if=pflash,format=raw,file=" + nvram])
+            uefi_opts = ["-drive", "if=pflash,format=raw,file=" + nvram]
             if OVMF_CODE != OVMF_VARS:
-                cmd.extend(["-drive",
-                            "if=pflash,format=raw,readonly,file=" + OVMF_CODE])
+                # reorder opts, code then writable space
+                uefi_opts = (
+                    ["-drive", "if=pflash,format=raw,readonly,file=" + OVMF_CODE] +
+                    uefi_opts)
+            cmd.extend(uefi_opts)
 
         # run vm with installed system, fail if timeout expires
         try:

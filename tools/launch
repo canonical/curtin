@@ -358,7 +358,8 @@ main() {
         local uefi_opts="-drive file=$nvram,if=pflash,format=raw"
         # if firmware is split, use readonly-code section
         if [ "$ovmf_code" != "$ovmf_var" ]; then
-            uefi_opts="$uefi_opts -drive file=$ovmf_code,if=pflash,format=raw,readonly"
+            # to ensure bootability, re-order firmware, code then variables
+            uefi_opts="-drive file=$ovmf_code,if=pflash,format=raw,readonly $uefi_opts"
         fi
 
         bios_opts=( $uefi_opts )
