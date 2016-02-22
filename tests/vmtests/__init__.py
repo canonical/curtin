@@ -38,6 +38,12 @@ KEEP_DATA = {"pass": "none", "fail": "all"}
 INSTALL_PASS_MSG = "Installation finished. No error reported."
 IMAGE_SYNCS = []
 OVMF_CODE = "/usr/share/OVMF/OVMF_CODE.fd"
+OVMD_VARS = "/usr/share/OVMF/OVMF_VARS.fd"
+# precise -> vivid don't have split UEFI firmware, fallback
+if not os.path.exists(OVMF_CODE):
+    OVMF_CODE = "/usr/share/ovmf/OVMF.fd"
+    OVMF_VARS = OVMF_CODE
+
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 
@@ -434,8 +440,16 @@ class VMBaseClass(TestCase):
 
         if cls.uefi:
             logger.debug("Testcase requested launching with UEFI")
+
+            # always attempt to update target nvram (via grub)
+            grub_config = os.path.join(cls.td.install, 'grub.cfg')
+            with open(grub_config, "w") as fp:
+                fp.write(json.dumps({'grub': {'update_nvram': True}}))
+            configs.append(grub_config)
+
+            # make our own copy so we can store guest modified values
             nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
-            shutil.copy("/usr/share/OVMF/OVMF_VARS.fd", nvram)
+            shutil.copy(OVMF_VARS, nvram)
             cmd.extend(["--uefi", nvram])
 
         cmd.extend(netdevs + ["--disk", cls.td.target_disk] + extra_disks +
@@ -499,9 +513,10 @@ class VMBaseClass(TestCase):
 
         if cls.uefi:
             logger.debug("Testcase requested booting with UEFI")
-            cmd.extend(["-drive",
-                        "if=pflash,format=raw,readonly,file=" + OVMF_CODE,
-                        "-drive", "if=pflash,format=raw,file=" + nvram])
+            cmd.extend(["-drive", "if=pflash,format=raw,file=" + nvram])
+            if OVMF_CODE != OVMF_VARS:
+                cmd.extend(["-drive",
+                            "if=pflash,format=raw,readonly,file=" + OVMF_CODE])
 
         # run vm with installed system, fail if timeout expires
         try:
@@ -822,8 +837,9 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
     ssh_keys, _err = util.subp(['tools/ssh-keys-list', 'cloud-config'],
                                capture=True)
     # precises' cloud-init version has limited support for cloud-config-archive
-    # and expects cloud-config pieces to be appendable to a single file and 
-    # yaml.load()'able.  Resolve this by using yaml.dump() when generating parts
+    # and expects cloud-config pieces to be appendable to a single file and
+    # yaml.load()'able.  Resolve this by using yaml.dump() when generating
+    # a list of parts
     parts = [{'type': 'text/cloud-config',
               'content': yaml.dump(base_cloudconfig, indent=1)},
              {'type': 'text/cloud-config', 'content': ssh_keys}]
