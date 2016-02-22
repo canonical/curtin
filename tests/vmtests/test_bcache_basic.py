@@ -41,7 +41,7 @@ class PreciseHWETBcacheBasic(relbase.precise_hwe_t, TestBcacheBasic):
 
 
 class TrustyBcacheBasic(relbase.trusty, TestBcacheBasic):
-    __test__ = True  # covered by test_raid5_bcache
+    __test__ = False  # covered by test_raid5_bcache
 
 
 class XenialBcacheBasic(relbase.xenial, TestBcacheBasic):
