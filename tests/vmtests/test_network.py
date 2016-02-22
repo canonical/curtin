@@ -239,12 +239,56 @@ class TestNetworkStaticAbs(TestNetworkAbs):
     conf_file = "examples/tests/basic_network_static.yaml"
 
 
+class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkAbs):
+    # FIXME: off due to hang at test: Starting execute cloud user/final scripts
+    __test__ = False
+
+
+class PreciseHWETTestNetworkStatic(relbase.precise_hwe_t,
+                                   TestNetworkStaticAbs):
+    # FIXME: off due to hang at test: Starting execute cloud user/final scripts
+    __test__ = False
+
+
 class TrustyTestNetwork(relbase.trusty, TestNetworkAbs):
     __test__ = True
 
 
 class TrustyTestNetworkStatic(relbase.trusty, TestNetworkStaticAbs):
     __test__ = True
+
+
+class TrustyHWEUTestNetwork(relbase.trusty_hwe_u, TrustyTestNetwork):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
+class TrustyHWEUTestNetworkStatic(relbase.trusty_hwe_u,
+                                  TestNetworkStaticAbs):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
+class TrustyHWEVTestNetwork(relbase.trusty_hwe_v, TrustyTestNetwork):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
+class TrustyHWEVTestNetworkStatic(relbase.trusty_hwe_v,
+                                  TestNetworkStaticAbs):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
+class TrustyHWEWTestNetwork(relbase.trusty_hwe_w, TrustyTestNetwork):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
+class TrustyHWEWTestNetworkStatic(relbase.trusty_hwe_w,
+                                  TestNetworkStaticAbs):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
 
 
 class VividTestNetwork(relbase.vivid, TestNetworkAbs):
