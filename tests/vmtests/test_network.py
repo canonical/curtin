@@ -235,8 +235,28 @@ class TestNetworkAbs(VMBaseClass):
                 self.assertEqual(gw_ip, gw)
 
 
+class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkAbs):
+    # FIXME: off due to hang at test: Starting execute cloud user/final scripts
+    __test__ = False
+
+
 class TrustyTestNetwork(relbase.trusty, TestNetworkAbs):
     __test__ = True
+
+
+class TrustyHWEUTestNetwork(relbase.trusty_hwe_u, TrustyTestNetwork):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
+class TrustyHWEVTestNetwork(relbase.trusty_hwe_v, TrustyTestNetwork):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
+class TrustyHWEWTestNetwork(relbase.trusty_hwe_w, TrustyTestNetwork):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
 
 
 class VividTestNetwork(relbase.vivid, TestNetworkAbs):

@@ -36,12 +36,12 @@ class TestBcacheBasic(VMBaseClass):
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
 
 
-class PreciseBcacheBasic(relbase.precise, TestBcacheBasic):
-    __test__ = False  # FIXME: hwe-t necessary to enable this test
+class PreciseHWETBcacheBasic(relbase.precise_hwe_t, TestBcacheBasic):
+    __test__ = True
 
 
 class TrustyBcacheBasic(relbase.trusty, TestBcacheBasic):
-    __test__ = True
+    __test__ = False  # covered by test_raid5_bcache
 
 
 class XenialBcacheBasic(relbase.xenial, TestBcacheBasic):
