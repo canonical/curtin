@@ -239,6 +239,18 @@ class TrustyTestNetwork(relbase.trusty, TestNetworkAbs):
     __test__ = True
 
 
+class TrustyHWEUTestNetwork(relbase.trusty_hwe_u, TrustyTestNetwork):
+    __test__ = True
+
+
+class TrustyHWEVTestNetwork(relbase.trusty_hwe_v, TrustyTestNetwork):
+    __test__ = True
+
+
+class TrustyHWEWTestNetwork(relbase.trusty_hwe_w, TrustyTestNetwork):
+    __test__ = True
+
+
 class VividTestNetwork(relbase.vivid, TestNetworkAbs):
     __test__ = True
 

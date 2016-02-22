@@ -202,6 +202,18 @@ class TrustyTestBasic(relbase.trusty, TestBasicAbs):
         print("test_ptable does not work for Trusty")
 
 
+class TrustyHWEUTestBasic(relbase.trusty_hwe_u, TrustyTestBasic):
+    __test__ = True
+
+
+class TrustyHWEVTestBasic(relbase.trusty_hwe_v, TrustyTestBasic):
+    __test__ = True
+
+
+class TrustyHWEWTestBasic(relbase.trusty_hwe_w, TrustyTestBasic):
+    __test__ = True
+
+
 class VividTestBasic(relbase.vivid, TestBasicAbs):
     __test__ = True
 

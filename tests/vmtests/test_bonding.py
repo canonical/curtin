@@ -208,6 +208,18 @@ class TrustyTestBonding(relbase.trusty, TestNetworkAbs):
     __test__ = False
 
 
+class TrustyHWEUTestBonding(relbase.trusty_hwe_u, TrustyTestBonding):
+    __test__ = True
+
+
+class TrustyHWEVTestBonding(relbase.trusty_hwe_v, TrustyTestBonding):
+    __test__ = True
+
+
+class TrustyHWEWTestBonding(relbase.trusty_hwe_w, TrustyTestBonding):
+    __test__ = True
+
+
 class VividTestBonding(relbase.vivid, TestNetworkAbs):
     __test__ = True
 

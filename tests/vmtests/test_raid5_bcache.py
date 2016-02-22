@@ -76,6 +76,18 @@ class TrustyTestRaid5Bcache(relbase.trusty, TestMdadmBcacheAbs):
     disk_to_check = {'md0': 0}
 
 
+class TrustyHWEUTestRaid5Bcache(relbase.trusty_hwe_u, TrustyTestRaid5Bcache):
+    __test__ = True
+
+
+class TrustyHWEVTestRaid5Bcache(relbase.trusty_hwe_v, TrustyTestRaid5Bcache):
+    __test__ = True
+
+
+class TrustyHWEWTestRaid5Bcache(relbase.trusty_hwe_w, TrustyTestRaid5Bcache):
+    __test__ = True
+
+
 class VividTestRaid5Bcache(relbase.vivid, TestMdadmBcacheAbs):
     __test__ = True
 
