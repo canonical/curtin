@@ -205,8 +205,12 @@ class TestNetworkAbs(VMBaseClass):
 
 
 class PreciseHWETTestBonding(relbase.precise_hwe_t, TestNetworkAbs):
-    # FIXME: off, due to failing test_ifenslave_installed
     __test__ = True
+    # package names on precise are different, need to check on ifenslave-2.6
+    collect_scripts = TestNetworkAbs.collect_scripts + [textwrap.dedent("""
+             cd OUTPUT_COLLECT_D
+             dpkg-query -W -f '${Status}' ifenslave-2.6 > ifenslave_installed
+             """)]
 
 
 class TrustyTestBonding(relbase.trusty, TestNetworkAbs):
