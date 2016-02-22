@@ -245,17 +245,17 @@ class TrustyTestNetwork(relbase.trusty, TestNetworkAbs):
 
 
 class TrustyHWEUTestNetwork(relbase.trusty_hwe_u, TrustyTestNetwork):
-    # Working, but off by default to safe test suite runtime, covered by bonding
+    # Working, off by default to safe test suite runtime, covered by bonding
     __test__ = False
 
 
 class TrustyHWEVTestNetwork(relbase.trusty_hwe_v, TrustyTestNetwork):
-    # Working, but off by default to safe test suite runtime, covered by bonding
+    # Working, off by default to safe test suite runtime, covered by bonding
     __test__ = False
 
 
 class TrustyHWEWTestNetwork(relbase.trusty_hwe_w, TrustyTestNetwork):
-    # Working, but off by default to safe test suite runtime, covered by bonding
+    # Working, off by default to safe test suite runtime, covered by bonding
     __test__ = False
 
 
