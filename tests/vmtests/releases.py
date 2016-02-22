@@ -11,6 +11,21 @@ class _TrustyBase(_ReleaseBase):
     release = "trusty"
 
 
+class _TrustyHWEU(_ReleaseBase):
+    release = "trusty"
+    krel = "utopic"
+
+
+class _TrustyHWEV(_ReleaseBase):
+    release = "trusty"
+    krel = "vivid"
+
+
+class _TrustyHWEW(_ReleaseBase):
+    release = "trusty"
+    krel = "wily"
+
+
 class _VividBase(_ReleaseBase):
     release = "vivid"
 
@@ -31,6 +46,9 @@ class _XenialBase(_ReleaseBase):
 class _Releases(object):
     precise = _PreciseBase
     trusty = _TrustyBase
+    trusty_hwe_u = _TrustyHWEU
+    trusty_hwe_v = _TrustyHWEV
+    trusty_hwe_w = _TrustyHWEW
     vivid = _VividBase
     wily = _WilyBase
     xenial = _XenialBase
