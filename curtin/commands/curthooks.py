@@ -395,6 +395,12 @@ def setup_grub(cfg, target):
         args = ['install-grub']
         if util.is_uefi_bootable():
             args.append("--uefi")
+            if grubcfg.get('update_nvram', False):
+                LOG.debug("GRUB UEFI enabling NVRAM updates")
+                args.append("--update-nvram")
+            else:
+                LOG.debug("NOT enabling UEFI nvram updates")
+                LOG.debug("Target system may not boot")
         args.append(target)
         util.subp(args + instdevs, env=env)
 
