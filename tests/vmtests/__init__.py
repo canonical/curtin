@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import textwrap
 import time
+import yaml
 import curtin.net as curtin_net
 import curtin.util as util
 
@@ -36,6 +37,7 @@ DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
 INSTALL_PASS_MSG = "Installation finished. No error reported."
 IMAGE_SYNCS = []
+OVMF_CODE = "/usr/share/OVMF/OVMF_CODE.fd"
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 
@@ -343,6 +345,7 @@ class VMBaseClass(TestCase):
     extra_disks = []
     boot_timeout = 300
     install_timeout = 600
+    uefi = False
 
     # these get set from base_vm_classes
     release = None
@@ -429,6 +432,12 @@ class VMBaseClass(TestCase):
                 fp.write(json.dumps({'apt_proxy': proxy}) + "\n")
             configs.append(proxy_config)
 
+        if cls.uefi:
+            logger.debug("Testcase requested launching with UEFI")
+            nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
+            shutil.copy("/usr/share/OVMF/OVMF_VARS.fd", nvram)
+            cmd.extend(["--uefi", nvram])
+
         cmd.extend(netdevs + ["--disk", cls.td.target_disk] + extra_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "-vv", "install"] +
@@ -487,6 +496,12 @@ class VMBaseClass(TestCase):
                 "-m", "1024"])
         if not cls.interactive:
             cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
+
+        if cls.uefi:
+            logger.debug("Testcase requested booting with UEFI")
+            cmd.extend(["-drive",
+                        "if=pflash,format=raw,readonly,file=" + OVMF_CODE,
+                        "-drive", "if=pflash,format=raw,file=" + nvram])
 
         # run vm with installed system, fail if timeout expires
         try:
@@ -626,7 +641,7 @@ class VMBaseClass(TestCase):
         if (os.path.exists(fpath) and self.disk_to_check is not None):
             with open(fpath, "r") as fp:
                 contents = fp.read().splitlines()
-            for diskname, part in self.disk_to_check.items():
+            for diskname, part in self.disk_to_check:
                 if part is not 0:
                     link = diskname + "-part" + str(part)
                     self.assertIn(link, contents)
@@ -807,7 +822,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
     ssh_keys, _err = util.subp(['tools/ssh-keys-list', 'cloud-config'],
                                capture=True)
     parts = [{'type': 'text/cloud-config',
-              'content': json.dumps(base_cloudconfig, indent=1)},
+              'content': yaml.dump(base_cloudconfig, indent=1)},
              {'type': 'text/cloud-config', 'content': ssh_keys}]
 
     output_dir_macro = 'OUTPUT_COLLECT_D'

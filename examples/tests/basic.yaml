@@ -57,7 +57,7 @@ storage:
       - id: pnum_disk
         type: disk
         path: /dev/vde
-        name: sparedisk
+        name: pnum_disk
         wipe: superblock
         ptable: gpt
       - id: pnum_disk_p1

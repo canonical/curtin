@@ -669,11 +669,17 @@ install_grub() {
         chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
             dpkg-reconfigure "$1"
             update-grub
-            # grub-install in 12.04 does not contain --no-nvram
+            # grub-install in 12.04 does not contain --no-nvram, --target,
+            # or --efi-directory
             no_nvram="--no-nvram"
-            grub-install --help | grep -q -- "$no_nvram" ||
-                no_nvram=""
-            grub-install --target=$2 --efi-directory=/boot/efi \
+            no_nvram=""
+            target="--target=$2"
+            efi_dir="--efi-directory=/boot/efi"
+            gi_out=$(grub-install --help 2>&1)
+            echo "$gi_out" | grep -q -- "$no_nvram" || no_nvram=""
+            echo "$gi_out" | grep -q -- "--target" || target=""
+            echo "$gi_out" | grep -q -- "--efi-directory" || efi_dir=""
+            grub-install $target $efi_dir \
                 --bootloader-id=ubuntu --recheck $no_nvram' -- \
             "${grub_name}" "${grub_target}" </dev/null ||
             { error "failed to install grub!"; return 1; }
