@@ -519,9 +519,9 @@ class VMBaseClass(TestCase):
             uefi_opts = ["-drive", "if=pflash,format=raw,file=" + nvram]
             if OVMF_CODE != OVMF_VARS:
                 # reorder opts, code then writable space
-                uefi_opts = (
-                    ["-drive", "if=pflash,format=raw,readonly,file=" + OVMF_CODE] +
-                    uefi_opts)
+                uefi_opts = (["-drive",
+                              "if=pflash,format=raw,readonly,file=" +
+                              OVMF_CODE] + uefi_opts)
             cmd.extend(uefi_opts)
 
         # run vm with installed system, fail if timeout expires
