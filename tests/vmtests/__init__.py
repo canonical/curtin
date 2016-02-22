@@ -821,6 +821,9 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
 
     ssh_keys, _err = util.subp(['tools/ssh-keys-list', 'cloud-config'],
                                capture=True)
+    # precises' cloud-init version has limited support for cloud-config-archive
+    # and expects cloud-config pieces to be appendable to a single file and 
+    # yaml.load()'able.  Resolve this by using yaml.dump() when generating parts
     parts = [{'type': 'text/cloud-config',
               'content': yaml.dump(base_cloudconfig, indent=1)},
              {'type': 'text/cloud-config', 'content': ssh_keys}]
