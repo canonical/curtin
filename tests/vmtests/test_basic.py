@@ -203,15 +203,18 @@ class TrustyTestBasic(relbase.trusty, TestBasicAbs):
 
 
 class TrustyHWEUTestBasic(relbase.trusty_hwe_u, TrustyTestBasic):
-    __test__ = True
+    # Working, but off by default to safe test suite runtime, covered by bonding
+    __test__ = False
 
 
 class TrustyHWEVTestBasic(relbase.trusty_hwe_v, TrustyTestBasic):
-    __test__ = True
+    # Working, but off by default to safe test suite runtime, covered by bonding
+    __test__ = False
 
 
 class TrustyHWEWTestBasic(relbase.trusty_hwe_w, TrustyTestBasic):
-    __test__ = True
+    # Working, but off by default to safe test suite runtime, covered by bonding
+    __test__ = False
 
 
 class VividTestBasic(relbase.vivid, TestBasicAbs):

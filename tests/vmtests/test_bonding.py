@@ -213,7 +213,9 @@ class TrustyHWEUTestBonding(relbase.trusty_hwe_u, TrustyTestBonding):
 
 
 class TrustyHWEVTestBonding(relbase.trusty_hwe_v, TrustyTestBonding):
-    __test__ = True
+    # Working, but off by default to safe test suite runtime
+    # oldest/newest HWE-* covered above/below
+    __test__ = False
 
 
 class TrustyHWEWTestBonding(relbase.trusty_hwe_w, TrustyTestBonding):
