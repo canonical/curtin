@@ -668,7 +668,7 @@ class PsuedoImageStore(object):
         self.source_url = source_url
         self.base_dir = base_dir
 
-    def get_image(self, release, arch):
+    def get_image(self, release, arch, krel=None):
         """Return local path for root image, kernel and initrd, tarball."""
         names = ['psuedo-root-image', 'psuedo-kernel', 'psuedo-initrd',
                  'psuedo-tarball']
