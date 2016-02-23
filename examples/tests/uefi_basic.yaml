@@ -1,0 +1,42 @@
+storage:
+  config:
+  - id: id_disk0
+    type: disk
+    name: main_disk
+    path: /dev/vdb
+    ptable: gpt
+    wipe: superblock
+    grub_device: true
+  - device: id_disk0
+    flag: boot
+    id: id_disk0_part1
+    number: 1
+    offset: 1M
+    size: 499M
+    type: partition
+    wipe: superblock
+  - device: id_disk0
+    id: id_disk0_part2
+    number: 2
+    size: 3G
+    type: partition
+    wipe: superblock
+  - fstype: fat32
+    id: id_efi_format
+    label: efi
+    type: format
+    volume: id_disk0_part1
+  - fstype: ext4
+    id: id_root_format
+    label: root
+    type: format
+    volume: id_disk0_part2
+  - device: id_root_format
+    id: id_root_mount
+    path: /
+    type: mount
+  - device: id_efi_format
+    id: id_efi_mount
+    path: /boot/efi
+    type: mount
+  version: 1

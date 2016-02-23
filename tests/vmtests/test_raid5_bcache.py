@@ -34,7 +34,7 @@ class TestMdadmAbs(VMBaseClass):
 
 class TestMdadmBcacheAbs(TestMdadmAbs):
     conf_file = "examples/tests/raid5bcache.yaml"
-    disk_to_check = {'md0': 0, 'sda': 2}
+    disk_to_check = [('md0', 0), ('sda', 2)]
 
     collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
@@ -78,7 +78,7 @@ class TrustyTestRaid5Bcache(relbase.trusty, TestMdadmBcacheAbs):
     # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
     # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
     # when dname works on trusty, then we need to re-enable by removing line.
-    disk_to_check = {'md0': 0}
+    disk_to_check = [('md0', 0)]
 
 
 class TrustyHWEUTestRaid5Bcache(relbase.trusty_hwe_u, TrustyTestRaid5Bcache):
