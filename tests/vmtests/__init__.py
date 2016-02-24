@@ -603,7 +603,7 @@ class VMBaseClass(TestCase):
     def get_expected_etc_resolvconf(cls):
         ifaces = {}
         eni = curtin_net.render_interfaces(cls.network_state)
-        curtin_net.parse_deb_config_data(ifaces, eni, None)
+        curtin_net.parse_deb_config_data(ifaces, eni, None, None)
         return ifaces
 
     @classmethod
