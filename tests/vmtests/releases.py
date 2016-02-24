@@ -1,6 +1,7 @@
 class _ReleaseBase(object):
     repo = "maas-daily"
-    arch = "amd64"
+    # FIXME PPC64
+    arch = "ppc64el"
 
 
 class _PreciseBase(_ReleaseBase):

@@ -13,7 +13,8 @@ from tests.vmtests import (
     IMAGE_DIR, IMAGE_SRC_URL, sync_images)
 from tests.vmtests.image_sync import ITEM_NAME_FILTERS
 from tests.vmtests.helpers import find_releases
-DEFAULT_ARCH = "amd64"
+# FIXME PPC64
+DEFAULT_ARCH = "ppc64el"
 
 
 if __name__ == '__main__':
@@ -33,6 +34,10 @@ if __name__ == '__main__':
                         os.unlink(fpath)
 
     releases = find_releases()
+    # FIXME PPC64: there are no precie images and no support for precise
+    # on ppc64.  this is just hack to do what i wanted, but one way
+    # or another we need to not run precise tests for power.
+    releases = ['trusty', 'xenial']
     release_filter = 'release~{}'.format('|'.join(releases))
     my_filters = ['arch=' + DEFAULT_ARCH, release_filter] + ITEM_NAME_FILTERS
     # Sync images.

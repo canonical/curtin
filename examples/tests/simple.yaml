@@ -1,0 +1,55 @@
+# This should do the right thing
+placeholder_simple_install: unused
+
+xxx_storage:
+  config:
+  - id: id_disk0
+    type: disk
+    name: main_disk
+    path: /dev/vdb
+    ptable: gpt
+    wipe: superblock
+    grub_device: true
+  - device: id_disk0
+    flag: prep
+    id: id_disk0_part14
+    number: 14
+    offset: 1M
+    size: 8M
+    type: partition
+    wipe: zero
+  - device: id_disk0
+    id: id_disk0_part1
+    number: 1
+    size: 3G
+    type: partition
+    wipe: superblock
+  - fstype: ext4
+    id: id_root_format
+    label: root
+    type: format
+    volume: id_disk0_part1
+  - device: id_root_format
+    id: id_root_mount
+    path: /
+    type: mount
+  version: 1
+
+bucket:
+  - &cleanup_1436810 |
+    ls -l /boot/ || :
+    for f in /boot/initrd*; do
+       [ -L "$f" ] && link=1 || link=0
+       [ -e "$f" ] && exist=1 || exist=0
+       case "${link}${exist}" in
+          11) echo "$f: existing link";;
+          10) echo "$f: dangling link";;
+          01) echo "$f: existing file";;
+          00) echo "$f: non-existing file?";;
+       esac
+       echo "removing $f"
+       rm -f "$f"
+    done
+
+curthooks_commands:
+  aa_cleanup_tarball: ['curtin', 'in-target', '--', 'sh', '-c', *cleanup_1436810]

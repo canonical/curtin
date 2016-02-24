@@ -509,6 +509,10 @@ main() {
 
     local seedargs=""
     seedargs=()
+    # FIXME PPC64 need somehow to select the right device
+    # but launch here doesn't even know what arch will run.
+    local console_name="ttyS0"
+    console_name="hvc0"
     if [ -n "$kernel" ]; then
         local append="" root=""
         # if this is a partition image, root=/dev/vda. else root=/dev/vda1
@@ -520,7 +524,7 @@ main() {
             root="/dev/vda1"
         fi
         append="root=$root ds=nocloud-net;seedfrom=$burl"
-        append="${append} console=ttyS0 $uappend"
+        append="${append} console=${console_name} $uappend"
         seedargs=( "${seedargs[@]}" -kernel "$kernel" )
         [ -n "$initrd" ] && seedargs=( "${seedargs[@]}" -initrd "$initrd" )
         seedargs=( "${seedargs[@]}" -append "$append" )
