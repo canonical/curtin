@@ -288,7 +288,7 @@ main() {
         ppc64*)
             [ -n "$kvm" ] ||
             	{ kvm="qemu-system-ppc64"; kvm_pkg="qemu-system-ppc"; }
-            def_netmodel="spapr-vlan"
+            def_netmodel="virtio-net-pci"
             # virtio seems functional on in 14.10, but might want scsi here
             #def_diskif="scsi"
             archopts=( "${archopts[@]}" -machine pseries,usb=off )
