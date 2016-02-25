@@ -14,7 +14,7 @@ class TestBasicAbs(VMBaseClass):
     install_timeout = 600
     boot_timeout = 120
     extra_disks = ['128G', '128G', '4G']
-    disk_to_check = {'main_disk': 1, 'main_disk': 2}
+    disk_to_check = [('main_disk', 1), ('main_disk', 2)]
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda > blkid_output_vda
@@ -200,6 +200,26 @@ class TrustyTestBasic(relbase.trusty, TestBasicAbs):
 
     def test_ptable(self):
         print("test_ptable does not work for Trusty")
+
+
+class PreciseHWETTestBasic(relbase.precise_hwe_t, PreciseTestBasic):
+    # FIXME: off due to test_whole_disk_format failing
+    __test__ = False
+
+
+class TrustyHWEUTestBasic(relbase.trusty_hwe_u, TrustyTestBasic):
+    # off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
+class TrustyHWEVTestBasic(relbase.trusty_hwe_v, TrustyTestBasic):
+    # off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
+class TrustyHWEWTestBasic(relbase.trusty_hwe_w, TrustyTestBasic):
+    # off by default to safe test suite runtime, covered by bonding
+    __test__ = False
 
 
 class VividTestBasic(relbase.vivid, TestBasicAbs):

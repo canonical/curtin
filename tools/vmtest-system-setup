@@ -16,6 +16,7 @@ DEPS=(
   python3-nose
   python3-simplestreams
   python3-yaml
+  ovmf
   simplestreams
   $qemu
   ubuntu-cloudimage-keyring
