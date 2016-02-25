@@ -5,13 +5,13 @@ import os.path
 import sys
 import json
 VALID_MODES = (
-    # one per line
+    # one key per line
     'dump',
     # suitable for use in cloud-config
     'cloud-config',
     # suitable for use in cloud-localds meta-data
     'meta-data',
-    # simple json list of keys
+    # simple json list of strings keys
     'json'
 )
 

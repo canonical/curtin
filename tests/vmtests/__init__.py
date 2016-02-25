@@ -798,16 +798,21 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
     if collect_scripts is None:
         collect_scripts = []
     parts = []
-    base_cloudconfig = {
-        'password': 'passw0rd',
-        'chpasswd': {'expire': False},
-        'power_state': {'mode': 'poweroff'},
-    }
+    # This must be special format of yaml which can just be
+    # appended one after another to be friendly to precise
+    # version of cloud-init.
+    base_cloudconfig = textwrap.dedent("""
+        password: passw0rd
+        chpasswd:
+          expire: False
+        power_state:
+          mode: poweroff
+    """)
 
     ssh_keys, _err = util.subp(['tools/ssh-keys-list', 'cloud-config'],
                                capture=True)
     parts = [{'type': 'text/cloud-config',
-              'content': json.dumps(base_cloudconfig, indent=1)},
+              'content': base_cloudconfig,
              {'type': 'text/cloud-config', 'content': ssh_keys}]
 
     output_dir_macro = 'OUTPUT_COLLECT_D'
