@@ -357,7 +357,9 @@ def cmd_install(args):
 
     yaml_dump_file = instcfg.get('yaml_dump', '/root/install.yaml')
     if yaml_dump_file:
-        util.write_file(yaml_dump_file, yaml.dump(cfg), mode=0o400)
+        util.write_file(yaml_dump_file,
+                        yaml.dump(cfg, default_flow_style=False, indent=2),
+                        mode=0o400)
 
     # Load reporter
     clear_install_log(logfile)
