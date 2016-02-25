@@ -19,6 +19,7 @@ from collections import OrderedDict
 from curtin import (block, config, util)
 from curtin.block import mdadm
 from curtin.log import LOG
+from curtin.block import mkfs
 
 from . import populate_one_subcmd
 from curtin.udev import compose_udev_equality
@@ -26,7 +27,6 @@ from curtin.udev import compose_udev_equality
 import glob
 import os
 import platform
-import string
 import sys
 import tempfile
 import time
@@ -503,6 +503,23 @@ def getnumberoflogicaldisks(device, storage_config):
     return logicaldisks
 
 
+def find_previous_partition(disk_id, part_id, storage_config):
+    last_partnum = None
+    for item_id, command in storage_config.items():
+        if item_id == part_id:
+            break
+
+        # skip anything not on this disk, not a 'partition' or 'extended'
+        if command['type'] != 'partition' or command['device'] != disk_id:
+            continue
+        if command.get('flag') == "extended":
+            continue
+
+        last_partnum = determine_partition_number(item_id, storage_config)
+
+    return last_partnum
+
+
 def partition_handler(info, storage_config):
     device = info.get('device')
     size = info.get('size')
@@ -540,8 +557,11 @@ def partition_handler(info, storage_config):
             previous_partition = "/sys/block/%s/%s%s/" % \
                 (disk_kname, disk_kname, extended_part_no)
         else:
+            pnum = find_previous_partition(device, info['id'], storage_config)
+            LOG.debug("previous partition number for '%s' found to be '%s'",
+                      info.get('id'), pnum)
             previous_partition = "/sys/block/%s/%s%s/" % \
-                (disk_kname, disk_kname, partnumber - 1)
+                (disk_kname, disk_kname, pnum)
         with open(os.path.join(previous_partition, "size"), "r") as fp:
             previous_size = int(fp.read())
         with open(os.path.join(previous_partition, "start"), "r") as fp:
@@ -635,10 +655,7 @@ def partition_handler(info, storage_config):
 
 
 def format_handler(info, storage_config):
-    fstype = info.get('fstype')
     volume = info.get('volume')
-    part_label = info.get('label')
-    uuid = info.get('uuid')
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
                          info.get('id'))
@@ -651,51 +668,8 @@ def format_handler(info, storage_config):
         # Volume marked to be preserved, not formatting
         return
 
-    # Generate mkfs command and run
-    if fstype in ["ext4", "ext3"]:
-        cmd = ['mkfs.%s' % fstype, '-F', '-q']
-        if part_label:
-            if len(part_label) > 16:
-                raise ValueError(
-                    "ext3/4 partition labels cannot be longer than "
-                    "16 characters")
-            else:
-                cmd.extend(["-L", part_label])
-        if uuid:
-            cmd.extend(["-U", uuid])
-        cmd.append(volume_path)
-    elif fstype in ["btrfs"]:
-        cmd = ['mkfs.%s' % fstype]
-        if util.lsb_release()['codename'] != "precise":
-            cmd.extend(['-f'])
-        if part_label:
-                cmd.extend(["-L", part_label])
-        if uuid:
-            cmd.extend(["-U", uuid])
-        cmd.append(volume_path)
-    elif fstype in ["fat12", "fat16", "fat32", "fat"]:
-        cmd = ["mkfs.fat"]
-        fat_size = fstype.strip(string.ascii_letters)
-        if fat_size in ["12", "16", "32"]:
-            cmd.extend(["-F", fat_size])
-        if part_label:
-            if len(part_label) > 11:
-                raise ValueError(
-                    "fat partition names cannot be longer than "
-                    "11 characters")
-            cmd.extend(["-n", part_label])
-        cmd.append(volume_path)
-    elif fstype == "swap":
-        cmd = ["mkswap", volume_path]
-    else:
-        # See if mkfs.<fstype> exists. If so try to run it.
-        try:
-            util.subp(["which", "mkfs.%s" % fstype])
-            cmd = ["mkfs.%s" % fstype, volume_path]
-        except util.ProcessExecutionError:
-            raise ValueError("fstype '%s' not supported" % fstype)
-    LOG.info("formatting volume '%s' with format '%s'" % (volume_path, fstype))
-    logtime(' '.join(cmd), util.subp, cmd)
+    # Make filesystem using block library
+    mkfs.mkfs_from_config(volume_path, info)
 
 
 def mount_handler(info, storage_config):
@@ -1018,9 +992,6 @@ def bcache_handler(info, storage_config):
         devpath = get_path_to_storage_volume(cur_id, storage_config)
 
     syspath = block.sys_block_path(devpath)
-    if not os.path.isdir(syspath):
-        raise OSError("Did not find existing sys_block_path for id %s" %
-                      str(cur_id))
 
     # if we specify both then we need to attach backing to cache
     if cache_device and backing_device:
@@ -1157,6 +1128,22 @@ def meta_simple(args):
         devices = block.get_installable_blockdevs()
         LOG.warn("'%s' mode, no devices given. unused list: %s",
                  args.mode, devices)
+        # Check if the list of installable block devices is still empty after
+        # checking for block devices and filtering out the removable ones.  In
+        # this case we may have a system which has its harddrives reported by
+        # lsblk incorrectly. In this case we search for installable
+        # blockdevices that are removable as a last resort before raising an
+        # exception.
+        if len(devices) == 0:
+            devices = block.get_installable_blockdevs(include_removable=True)
+            if len(devices) == 0:
+                # Fail gracefully if no devices are found, still.
+                raise Exception("No valid target devices found that curtin "
+                                "can install on.")
+            else:
+                LOG.warn("No non-removable, installable devices found. List "
+                         "populated with removable devices allowed: %s",
+                         devices)
 
     if len(devices) > 1:
         if args.devices is not None:

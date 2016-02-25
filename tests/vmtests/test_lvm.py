@@ -21,11 +21,11 @@ class TestLvmAbs(VMBaseClass):
         '/dev/vg1/lv1': '/srv/data',
         '/dev/vg1/lv2': '/srv/backup',
     }
-    disk_to_check = {'main_disk': 1,
-                     'main_disk': 5,
-                     'main_disk': 6,
-                     'vg1-lv1': 0,
-                     'vg1-lv2': 0}
+    disk_to_check = [('main_disk', 1),
+                     ('main_disk', 5),
+                     ('main_disk', 6),
+                     ('vg1-lv1', 0),
+                     ('vg1-lv2', 0)]
 
     def test_lvs(self):
         self.check_file_strippedline("lvs", "lv1=vg1")
@@ -38,6 +38,30 @@ class TestLvmAbs(VMBaseClass):
     def test_output_files_exist(self):
         self.output_files_exist(
             ["fstab", "ls_dname"])
+
+
+class PreciseTestLvm(relbase.precise, TestLvmAbs):
+    __test__ = True
+
+    # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
+    # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
+    # when dname works on trusty, then we need to re-enable by removing line.
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
+
+
+class PreciseHWETTestLvm(relbase.precise_hwe_t, PreciseTestLvm):
+    __test__ = True
+
+
+class TrustyTestLvm(relbase.trusty, TestLvmAbs):
+    __test__ = True
+
+    # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
+    # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
+    # when dname works on trusty, then we need to re-enable by removing line.
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
 
 
 class VividTestLvm(relbase.vivid, TestLvmAbs):

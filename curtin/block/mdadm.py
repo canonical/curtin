@@ -270,7 +270,7 @@ def md_sysfs_attr(md_devname, attrname):
 
     attrdata = ''
     #  /sys/class/block/<md_short>/md
-    sysmd = sys_block_path(dev_short(md_devname)) + "/md"
+    sysmd = sys_block_path(md_devname, "md")
 
     #  /sys/class/block/<md_short>/md/attrname
     sysfs_attr_path = os.path.join(sysmd, attrname)
@@ -462,14 +462,7 @@ def md_read_run_mdadm_map():
 
 
 def md_get_spares_list(devpath):
-    assert_valid_devpath(devpath)
-
-    sysfs_md = sys_block_path(devpath) + '/md'
-
-    if not os.path.exists(sysfs_md):
-        raise ValueError('Cannot find md sysfs directory: ' +
-                         sysfs_md)
-
+    sysfs_md = sys_block_path(devpath, "md")
     spares = [dev_path(dev[4:])
               for dev in os.listdir(sysfs_md)
               if (dev.startswith('dev-') and
@@ -481,12 +474,7 @@ def md_get_spares_list(devpath):
 
 
 def md_get_devices_list(devpath):
-    assert_valid_devpath(devpath)
-
-    sysfs_md = sys_block_path(devpath) + '/md'
-    if not os.path.exists(sysfs_md):
-        raise ValueError('Cannot find md sysfs directory: ' +
-                         sysfs_md)
+    sysfs_md = sys_block_path(devpath, "md")
     devices = [dev_path(dev[4:])
                for dev in os.listdir(sysfs_md)
                if (dev.startswith('dev-') and

@@ -18,6 +18,7 @@
 import argparse
 import errno
 import glob
+import json
 import os
 import shutil
 import subprocess
@@ -39,6 +40,7 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
     if rcs is None:
         rcs = [0]
 
+    devnull_fp = None
     try:
         if not logstring:
             LOG.debug(("Running command %s with allowed return codes %s"
@@ -52,7 +54,10 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
         if capture:
             stdout = subprocess.PIPE
             stderr = subprocess.PIPE
-        if data is not None:
+        if data is None:
+            devnull_fp = open(os.devnull)
+            stdin = devnull_fp
+        else:
             stdin = subprocess.PIPE
         sp = subprocess.Popen(args, stdout=stdout,
                               stderr=stderr, stdin=stdin,
@@ -74,6 +79,10 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
             err = ldecode(err)
     except OSError as e:
         raise ProcessExecutionError(cmd=args, reason=e)
+    finally:
+        if devnull_fp:
+            devnull_fp.close()
+
     rc = sp.returncode  # pylint: disable=E1101
     if rc not in rcs:
         raise ProcessExecutionError(stdout=out, stderr=err,
@@ -801,5 +810,11 @@ class MergedCmdAppend(argparse.Action):
         if getattr(namespace, self.dest, None) is None:
             setattr(namespace, self.dest, [])
         getattr(namespace, self.dest).append((option_string, values,))
+
+
+def json_dumps(data):
+    return json.dumps(data, indent=1, sort_keys=True,
+                      separators=(',', ': ')).encode('utf-8')
+
 
 # vi: ts=4 expandtab syntax=python

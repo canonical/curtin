@@ -1,28 +1,22 @@
 #!/bin/bash
 
 PYTHON_VERSION=${PYTHON_VERSION:-2}
-pycheck_dirs=( "curtin/" "tests/" )
-bin_files=( )
 CR="
 "
-
+vmtests=""
+if [ "$PYTHON_VERSION" = "3" ]; then
+    vmtests="tests/vmtests/"
+fi
+pycheck_dirs=( "curtin/" "tests/unittests/" $vmtests )
 
 set -f
 if [ $# -eq 0 ]; then
-   IFS="$CR"
-   files=( "${bin_files[@]}" "${pycheck_dirs[@]}" )
-   unset IFS
+   files=( "${pycheck_dirs[@]}" )
 else
    files=( "$@" )
 fi
 
-if [ "$PYTHON_VERSION" = "2" ]; then
-    pyflakes="pyflakes"
-else
-    pyflakes="pyflakes3"
-fi
-
-cmd=( "$pyflakes" "${files[@]}" )
+cmd=( "python${PYTHON_VERSION}" -m "pyflakes" "${files[@]}" )
 
 echo "Running: " "${cmd[@]}" 1>&2
 exec "${cmd[@]}"

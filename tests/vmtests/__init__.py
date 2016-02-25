@@ -1,4 +1,3 @@
-import ast
 import atexit
 import datetime
 import errno
@@ -12,10 +11,12 @@ import shutil
 import subprocess
 import textwrap
 import time
-import urllib
+import yaml
 import curtin.net as curtin_net
 import curtin.util as util
 
+from .image_sync import query as imagesync_query
+from .image_sync import mirror as imagesync_mirror
 from .helpers import check_call, TimeoutExpired
 from unittest import TestCase
 
@@ -31,13 +32,18 @@ except ValueError:
 
 DEFAULT_SSTREAM_OPTS = [
     '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
-DEFAULT_ARCH = 'amd64'
-DEFAULT_FILTERS = ['arch=%s' % DEFAULT_ARCH, 'item_name=root-image.gz']
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
 INSTALL_PASS_MSG = "Installation finished. No error reported."
 IMAGE_SYNCS = []
+OVMF_CODE = "/usr/share/OVMF/OVMF_CODE.fd"
+OVMF_VARS = "/usr/share/OVMF/OVMF_VARS.fd"
+# precise -> vivid don't have split UEFI firmware, fallback
+if not os.path.exists(OVMF_CODE):
+    OVMF_CODE = "/usr/share/ovmf/OVMF.fd"
+    OVMF_VARS = OVMF_CODE
+
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 
@@ -143,7 +149,7 @@ def get_env_var_bool(envname, default=False):
     return val.lower() not in ("false", "0", "")
 
 
-def sync_images(src_url, base_dir, filters):
+def sync_images(src_url, base_dir, filters, verbosity=0):
     # do a sync with provided filters
 
     # only sync once per set of filters.  global IMAGE_SYNCS manages that.
@@ -154,73 +160,75 @@ def sync_images(src_url, base_dir, filters):
         logger.debug("already synced for filters: %s", sfilters)
         return
 
-    # Verify sstream-mirror supports --progress option.
-    progress = []
-    try:
-        out, err = util.subp(['sstream-mirror', '--help'], capture=True)
-        if '--progress' in out:
-            progress = ['--progress']
-    except util.ProcessExecutionError:
-        # swallow the error here as if sstream-mirror --help failed
-        # then the real sstream-mirror call below will also fail.
-        pass
+    logger.info('Syncing images from %s with filters=%s', src_url, filters)
+    imagesync_mirror(output_d=base_dir, source=src_url,
+                     mirror_filters=filters,
+                     max_items=IMAGES_TO_KEEP, verbosity=verbosity)
 
-    cmd = (['sstream-mirror'] + DEFAULT_SSTREAM_OPTS + progress +
-           ['--max=%s' % IMAGES_TO_KEEP, src_url, base_dir] + filters)
-    logger.info('Syncing images {}'.format(cmd))
-    out = subprocess.check_output(cmd)
-    logger.debug(out)
     IMAGE_SYNCS.append(sfilters)
     logger.debug("now done syncs: %s" % IMAGE_SYNCS)
     return
 
 
-def get_images(src_url, local_d, release, arch, sync=True):
-    # ensure that the images we need for release and arch are available
-    # in base_dir.  return path to root-image.gz
-    filters = [
-        'item_name=root-image.gz',
-        'release=%s' % release, 'krel=%s' % release, 'arch=%s' % arch]
-    qcmd = (['sstream-query'] + DEFAULT_SSTREAM_OPTS +
-            ['--max=1', local_d, 'item_name=root-image.gz'] + filters)
-    qcmd_str = ' '.join(qcmd)
+def get_images(src_url, local_d, release, arch, krel=None, sync=True):
+    # ensure that the image items (roottar, kernel, initrd)
+    # we need for release and arch are available in base_dir.
+    # returns updated ftypes dictionary {ftype: item_url}
+    if krel is None:
+        krel = release
+    ftypes = {
+        'vmtest.root-image': '',
+        'vmtest.root-tgz': '',
+        'boot-kernel': '',
+        'boot-initrd': ''
+    }
+    common_filters = ['release=%s' % release, 'krel=%s' % krel,
+                      'arch=%s' % arch]
+    filters = ['ftype~(%s)' % ("|".join(ftypes.keys()))] + common_filters
 
     if sync:
-        sync_images(src_url, local_d, filters=filters)
+        imagesync_mirror(output_d=local_d, source=src_url,
+                         mirror_filters=common_filters,
+                         max_items=IMAGES_TO_KEEP)
 
-    logger.debug('Query %s for image. filters=%s', local_d, filters)
+    query_str = 'query = %s' % (' '.join(filters))
+    logger.debug('Query %s for image. %s', local_d, query_str)
     fail_msg = None
+
     try:
-        out = util.subp(qcmd, capture=True)[0]
-        if not out:
-            fail_msg = "Query '%s' returned empty result.\n" % qcmd_str
-        else:
-            logger.debug("Query '%s' returned: %s", qcmd_str, out)
-        sstream_data = ast.literal_eval(out)
-        root_image_gz = urllib.parse.urlsplit(sstream_data['item_url']).path
-        if os.path.exists(root_image_gz):
-            return root_image_gz
-        else:
-            fail_msg = "root-image.gz (%s) did not exist.\n" % root_image_gz
-    except util.ProcessExecutionError as e:
-        if not os.path.isdir(os.path.join(local_d, "streams/v1")):
-            # assume this failed because this is first time.
-            fail_msg = "Query failed. streams/v1 did not exist."
-        else:
-            fail_msg = ("Query '%s' exited '%s': %s\n" %
-                        (qcmd_str, e.exit_code, e.stderr))
+        results = imagesync_query(local_d, max_items=IMAGES_TO_KEEP,
+                                  filter_list=filters)
+        logger.debug("Query '%s' returned: %s", query_str, results)
+        fail_msg = "Empty result returned."
+    except Exception as e:
+        logger.debug("Query '%s' failed: %s", query_str, e)
+        results = None
+        fail_msg = str(e)
 
-    if not sync:
+    if not results and not sync:
         # try to fix this with a sync
-        # this can work, because sstream-mirror keeps data in .data
-        # indicating what is *actually* in the mirror, but sstream-query
-        # queries streams/v1/index, which describes what was in the
-        # upstream mirror (not including things filtered out)
-        logger.info(fail_msg + "  Attempting to fix with an image sync.")
-        return get_images(src_url, local_d, release, arch, sync=True)
+        logger.info(fail_msg + "  Attempting to fix with an image sync. (%s)",
+                    query_str)
+        return get_images(src_url, local_d, release, arch, krel, sync=True)
+    elif not results:
+        raise ValueError("Nothing found in query: %s" % query_str)
 
-    logger.warn(fail_msg)
-    raise util.ProcessExecutionError(cmd=qcmd, reason=fail_msg)
+    missing = []
+    expected = sorted(ftypes.keys())
+    found = sorted(f.get('ftype') for f in results)
+    if expected != found:
+        raise ValueError("Query returned unexpected ftypes=%s. "
+                         "Expected=%s" % (found, expected))
+    for item in results:
+        ftypes[item['ftype']] = item['item_url']
+
+    missing = [(ftype, path) for ftype, path in ftypes.items()
+               if not os.path.exists(path)]
+
+    if len(missing):
+        raise FileNotFoundError("missing files for ftypes: %s" % missing)
+
+    return ftypes
 
 
 class ImageStore:
@@ -245,46 +253,16 @@ class ImageStore:
             os.makedirs(self.base_dir)
         self.url = pathlib.Path(self.base_dir).as_uri()
 
-    def convert_image(self, root_image_path):
-        """Use maas2roottar to unpack root-image, kernel and initrd."""
-        logger.info('Converting image format for %s', root_image_path)
-        subprocess.check_call(["tools/maas2roottar", root_image_path])
-
-    def sync_images(self, filters=DEFAULT_FILTERS):
-        """Sync MAAS images from source_url simplestreams."""
-        sync_images(self.source_url, self.base_dir, filters=filters)
-
-    def prune_images(self, release, arch, filters=None):
-        release_dir = os.path.join(self.base_dir, release, arch)
-        subdirs = [os.path.basename(d)
-                   for d in sorted(os.listdir(release_dir))]
-        image_dirs = [d for d in subdirs if self.image_dir_re.match(d)]
-        bmsg = 'Pruning %s release=%s keep=%s.' % (release_dir, release,
-                                                   IMAGES_TO_KEEP)
-        if len(image_dirs) > IMAGES_TO_KEEP:
-            to_remove = image_dirs[0:-IMAGES_TO_KEEP]
-            logger.info(bmsg + ' Removing: %s', ' '.join(to_remove))
-            for d in to_remove:
-                fullpath = os.path.join(release_dir, d)
-                remove_dir(fullpath)
-        else:
-            logger.info(bmsg + ' Nothing to do. Keeping: %s',
-                        ' '.join(image_dirs))
-
-    def get_image(self, release, arch):
+    def get_image(self, release, arch, krel=None):
         """Return local path for root image, kernel and initrd, tarball."""
-        root_image_gz = get_images(
-            self.source_url, self.base_dir, release, arch, self.sync)
-        image_dir = os.path.dirname(root_image_gz)
-        root_image_path = os.path.join(image_dir, 'root-image')
-        tarball = os.path.join(image_dir, 'root-image.tar.gz')
-        kernel_path = os.path.join(image_dir, 'root-image-kernel')
-        initrd_path = os.path.join(image_dir, 'root-image-initrd')
-        # Check if we need to unpack things from the compressed image.
-        if (not os.path.exists(root_image_path) or
-                not os.path.exists(kernel_path) or
-                not os.path.exists(initrd_path)):
-            self.convert_image(root_image_gz)
+        if krel is None:
+            krel = release
+        ftypes = get_images(
+            self.source_url, self.base_dir, release, arch, krel, self.sync)
+        root_image_path = ftypes['vmtest.root-image']
+        kernel_path = ftypes['boot-kernel']
+        initrd_path = ftypes['boot-initrd']
+        tarball = ftypes['vmtest.root-tgz']
         return (root_image_path, kernel_path, initrd_path, tarball)
 
 
@@ -375,10 +353,12 @@ class VMBaseClass(TestCase):
     extra_disks = []
     boot_timeout = 300
     install_timeout = 600
+    uefi = False
 
     # these get set from base_vm_classes
     release = None
     arch = None
+    krel = None
 
     @classmethod
     def setUpClass(cls):
@@ -390,7 +370,7 @@ class VMBaseClass(TestCase):
         image_store.sync = get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False)
         logger.debug("Image sync = %s", image_store.sync)
         (boot_img, boot_kernel, boot_initrd, tarball) = image_store.get_image(
-            cls.release, cls.arch)
+            cls.release, cls.arch, cls.krel)
 
         # set up tempdir
         cls.td = TempDir(
@@ -461,6 +441,20 @@ class VMBaseClass(TestCase):
                 fp.write(json.dumps({'apt_proxy': proxy}) + "\n")
             configs.append(proxy_config)
 
+        if cls.uefi:
+            logger.debug("Testcase requested launching with UEFI")
+
+            # always attempt to update target nvram (via grub)
+            grub_config = os.path.join(cls.td.install, 'grub.cfg')
+            with open(grub_config, "w") as fp:
+                fp.write(json.dumps({'grub': {'update_nvram': True}}))
+            configs.append(grub_config)
+
+            # make our own copy so we can store guest modified values
+            nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
+            shutil.copy(OVMF_VARS, nvram)
+            cmd.extend(["--uefi", nvram])
+
         cmd.extend(netdevs + ["--disk", cls.td.target_disk] + extra_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "-vv", "install"] +
@@ -481,9 +475,9 @@ class VMBaseClass(TestCase):
             raise
         finally:
             if os.path.exists(cls.install_log):
-                with open(cls.install_log, 'r', encoding='utf-8') as l:
-                    logger.debug(
-                        u'Serial console output:\n{}'.format(l.read()))
+                with open(cls.install_log, 'rb') as l:
+                    content = l.read().decode('utf-8', errors='replace')
+                logger.debug('install serial console output:\n%s', content)
             else:
                 logger.warn("Boot for install did not produce a console log.")
 
@@ -520,6 +514,16 @@ class VMBaseClass(TestCase):
         if not cls.interactive:
             cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
 
+        if cls.uefi:
+            logger.debug("Testcase requested booting with UEFI")
+            uefi_opts = ["-drive", "if=pflash,format=raw,file=" + nvram]
+            if OVMF_CODE != OVMF_VARS:
+                # reorder opts, code then writable space
+                uefi_opts = (["-drive",
+                              "if=pflash,format=raw,readonly,file=" +
+                              OVMF_CODE] + uefi_opts)
+            cmd.extend(uefi_opts)
+
         # run vm with installed system, fail if timeout expires
         try:
             logger.info('Booting target image: {}'.format(cls.boot_log))
@@ -534,9 +538,9 @@ class VMBaseClass(TestCase):
             raise e
         finally:
             if os.path.exists(cls.boot_log):
-                with open(cls.boot_log, 'r', encoding='utf-8') as l:
-                    logger.debug(
-                        u'Serial console output:\n{}'.format(l.read()))
+                with open(cls.boot_log, 'rb') as l:
+                    content = l.read().decode('utf-8', errors='replace')
+                logger.debug('boot serial console output:\n%s', content)
             else:
                     logger.warn("Booting after install not produce"
                                 " a console log.")
@@ -599,7 +603,7 @@ class VMBaseClass(TestCase):
     def get_expected_etc_resolvconf(cls):
         ifaces = {}
         eni = curtin_net.render_interfaces(cls.network_state)
-        curtin_net.parse_deb_config_data(ifaces, eni, None)
+        curtin_net.parse_deb_config_data(ifaces, eni, None, None)
         return ifaces
 
     @classmethod
@@ -658,7 +662,7 @@ class VMBaseClass(TestCase):
         if (os.path.exists(fpath) and self.disk_to_check is not None):
             with open(fpath, "r") as fp:
                 contents = fp.read().splitlines()
-            for diskname, part in self.disk_to_check.items():
+            for diskname, part in self.disk_to_check:
                 if part is not 0:
                     link = diskname + "-part" + str(part)
                     self.assertIn(link, contents)
@@ -697,7 +701,7 @@ class PsuedoImageStore(object):
         self.source_url = source_url
         self.base_dir = base_dir
 
-    def get_image(self, release, arch):
+    def get_image(self, release, arch, krel=None):
         """Return local path for root image, kernel and initrd, tarball."""
         names = ['psuedo-root-image', 'psuedo-kernel', 'psuedo-initrd',
                  'psuedo-tarball']
@@ -838,8 +842,12 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
 
     ssh_keys, _err = util.subp(['tools/ssh-keys-list', 'cloud-config'],
                                capture=True)
+    # precises' cloud-init version has limited support for cloud-config-archive
+    # and expects cloud-config pieces to be appendable to a single file and
+    # yaml.load()'able.  Resolve this by using yaml.dump() when generating
+    # a list of parts
     parts = [{'type': 'text/cloud-config',
-              'content': json.dumps(base_cloudconfig, indent=1)},
+              'content': yaml.dump(base_cloudconfig, indent=1)},
              {'type': 'text/cloud-config', 'content': ssh_keys}]
 
     output_dir_macro = 'OUTPUT_COLLECT_D'
