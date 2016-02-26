@@ -355,11 +355,19 @@ def cmd_install(args):
     logfile = instcfg.get('log_file')
     post_files = instcfg.get('post_files', [logfile])
 
-    yaml_dump_file = instcfg.get('yaml_dump', '/root/install.yaml')
+    # Generate curtin configuration dump and add to write_files unless
+    # installation config disables dump
+    yaml_dump_file = instcfg.get('save_install_config',
+                                 '/var/log/curtin-install-cfg.yaml')
     if yaml_dump_file:
-        util.write_file(yaml_dump_file,
-                        yaml.dump(cfg, default_flow_style=False, indent=2),
-                        mode=0o400)
+        write_files = cfg.get('write_files', {})
+        write_files['curtin_install_cfg'] = {
+                'path': yaml_dump_file,
+                'permissions': '0400',
+                'owner': 'root:root',
+                'content': yaml.dump(cfg, default_flow_style=False, indent=2)
+        }
+        cfg['write_files'] = write_files
 
     # Load reporter
     clear_install_log(logfile)
