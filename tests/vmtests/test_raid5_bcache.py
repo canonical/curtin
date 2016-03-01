@@ -6,7 +6,7 @@ import os
 
 
 class TestMdadmAbs(VMBaseClass):
-    install_timeout = 600
+    install_timeout = 3000
     boot_timeout = 100
     interactive = False
     extra_disks = ['10G', '10G', '10G', '10G']

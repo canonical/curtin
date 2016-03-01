@@ -9,7 +9,7 @@ import textwrap
 class TestBasicAbs(VMBaseClass):
     interactive = False
     conf_file = "examples/tests/uefi_basic.yaml"
-    install_timeout = 600
+    install_timeout = 3000
     boot_timeout = 120
     extra_disks = []
     uefi = True

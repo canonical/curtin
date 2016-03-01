@@ -352,7 +352,7 @@ class VMBaseClass(TestCase):
     conf_file = "examples/tests/basic.yaml"
     extra_disks = []
     boot_timeout = 300
-    install_timeout = 600
+    install_timeout = 3000
     uefi = False
 
     # these get set from base_vm_classes

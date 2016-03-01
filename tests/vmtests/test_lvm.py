@@ -6,7 +6,7 @@ import textwrap
 
 class TestLvmAbs(VMBaseClass):
     conf_file = "examples/tests/lvm.yaml"
-    install_timeout = 600
+    install_timeout = 3000
     boot_timeout = 100
     interactive = False
     extra_disks = []

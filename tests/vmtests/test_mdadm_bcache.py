@@ -6,7 +6,7 @@ import os
 
 
 class TestMdadmAbs(VMBaseClass):
-    install_timeout = 600
+    install_timeout = 3000
     boot_timeout = 100
     interactive = False
     extra_disks = []
@@ -203,7 +203,7 @@ class WilyTestRaid10boot(relbase.wily, TestRaid10bootAbs):
 
 class TestAllindataAbs(TestMdadmAbs):
     # more complex, needs more time
-    install_timeout = 900
+    install_timeout = 3000
     boot_timeout = 200
     # alternative config for more complex setup
     conf_file = "examples/tests/allindata.yaml"

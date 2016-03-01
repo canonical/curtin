@@ -11,7 +11,7 @@ import textwrap
 class TestBasicAbs(VMBaseClass):
     interactive = False
     conf_file = "examples/tests/basic.yaml"
-    install_timeout = 600
+    install_timeout = 3000
     boot_timeout = 120
     extra_disks = ['128G', '128G', '4G']
     disk_to_check = [('main_disk', 1), ('main_disk', 2)]

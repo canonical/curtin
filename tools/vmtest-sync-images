@@ -5,6 +5,7 @@ import errno
 import os
 import shutil
 import sys
+import platform
 
 # Fix path so we can import ImageStore class.
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -13,7 +14,16 @@ from tests.vmtests import (
     IMAGE_DIR, IMAGE_SRC_URL, sync_images)
 from tests.vmtests.image_sync import ITEM_NAME_FILTERS
 from tests.vmtests.helpers import find_releases
-DEFAULT_ARCH = "amd64"
+
+DEFAULT_ARCHES = {
+    'i586': ['i386'],
+    'i686': ['i386'],
+    'x86_64': ['amd64'],
+    'ppc64le': ['ppc64el'],
+    'aarch64': ['arm64'],
+}
+
+DEFAULT_ARCH = DEFAULT_ARCHES.get(platform.machine(), platform.machine())
 
 
 if __name__ == '__main__':

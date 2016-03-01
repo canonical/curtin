@@ -49,7 +49,7 @@ def ifconfig_to_dict(ifconfig):
 class TestNetworkAbs(VMBaseClass):
     interactive = False
     conf_file = "examples/tests/basic_network.yaml"
-    install_timeout = 600
+    install_timeout = 3000
     boot_timeout = 600
     extra_disks = []
     extra_nics = []

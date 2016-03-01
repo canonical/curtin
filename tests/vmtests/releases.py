@@ -1,6 +1,9 @@
+import platform
+
+
 class _ReleaseBase(object):
     repo = "maas-daily"
-    arch = "amd64"
+    arch = platform.machine()
 
 
 class _PreciseBase(_ReleaseBase):
