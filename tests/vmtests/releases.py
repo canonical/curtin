@@ -1,9 +1,16 @@
 import platform
+platform2arch = {
+    'i586': 'i386',
+    'i686': 'i386',
+    'x86_64': 'amd64',
+    'ppc64le': 'ppc64el',
+    'aarch64': 'arm64',
+}
 
 
 class _ReleaseBase(object):
     repo = "maas-daily"
-    arch = platform.machine()
+    arch = platform2arch.get(platform.machine(), platform.machine())
 
 
 class _PreciseBase(_ReleaseBase):
