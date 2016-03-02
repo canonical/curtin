@@ -148,6 +148,40 @@ def clean_cloud_init(target):
         os.unlink(dpkg_cfg)
 
 
+def setup_zipl(cfg, target):
+    if platform.machine() != 's390x':
+        return
+
+    # assuming that below gives the "/" rootfs
+    target_dev = block.get_devices_for_mp(target)[0]
+    zipl_conf = """
+# This has been modified by the MAAS curtin installer
+[defaultboot]
+default=ubuntu
+
+[ubuntu]
+target = /boot
+image = /boot/vmlinuz
+ramdisk = /boot/initrd.img
+parameters = root=%s
+
+""" % target_dev
+    zipl_cfg = {
+        "write_files": {
+            "zipl_cfg": {
+                "path": "/etc/zipl.conf",
+                "content": zipl_conf,
+            }
+        }
+    }
+    write_files(zipl_cfg, target)
+
+
+def run_zipl(cfg, target):
+    with util.RunInChroot(target) as in_chroot:
+        in_chroot(['zipl'])
+
+
 def install_kernel(cfg, target):
     kernel_cfg = cfg.get('kernel', {'package': None,
                                     'fallback-package': None,
@@ -700,7 +734,9 @@ def curthooks(args):
     write_files(cfg, target)
     apt_config(cfg, target)
     disable_overlayroot(cfg, target)
+    setup_zipl(cfg, target)
     install_kernel(cfg, target)
+    run_zipl(cfg, target)
     apply_debconf_selections(cfg, target)
 
     restore_dist_interfaces(cfg, target)
@@ -748,11 +784,13 @@ def curthooks(args):
     # flash-kernel.
     machine = platform.machine()
     if (machine.startswith('armv7') or
+            machine.startswith('s390x') or
             machine.startswith('aarch64') and not util.is_uefi_bootable()):
         update_initramfs(target)
     else:
         setup_grub(cfg, target)
 
+    LOG.debug("curtin: installation complete a472f9ff-b10d-412f-b311-d04584b0c5d5")
     sys.exit(0)
 
 

@@ -35,6 +35,7 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
                         directly through to qemu-system.
                         Note, qemu adds 5900 to port numbers. (:0 = port 5900)
            --serial-log F  : log to F (default 'serial.log')
+           --arch       kernel architecture hint
       -v | --verbose    be more verbose
            --no-install-deps  do not install insert '--install-deps'
                               on curtin command invocations
@@ -236,7 +237,7 @@ find_apt_proxy() {
 
 main() {
     local short_opts="a:d:h:i:k:n:p:v"
-    local long_opts="add:,append:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi:,verbose,vnc:"
+    local long_opts="add:,append:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi:,arch:,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -251,7 +252,8 @@ main() {
     local pubs="" disks="" pstate="null"
     local uefi="" bios=""
     local netdevs="" install_deps="--install-deps"
-    local video="-curses -vga std" serial_log="file:serial.log"
+    local arch_hint=""
+    local video="-curses -vga std" serial_log="serial.log"
     # dowait: run xkvm with a '&' and then 'wait' on the pid.
     #  the reason to do this or not do this has to do with interactivity
     #  if detached with &, then user input will not go to xkvm.
@@ -297,7 +299,8 @@ main() {
                     video="-vnc $next"
                     debug 1 "VNC requested - $next"
                     shift;;
-               --serial-log) serial_log="file:$next"; shift;;
+               --serial-log) serial_log="$next"; shift;;
+               --arch) arch_hint="$next"; shift;;	       
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
                --dowait) pt[${#pt[@]}]="$cur"; dowait=true;;
                --no-dowait) pt[${#pt[@]}]="$cur"; dowait=false;;
@@ -520,7 +523,10 @@ main() {
             root="/dev/vda1"
         fi
         append="root=$root ds=nocloud-net;seedfrom=$burl"
-        append="${append} console=ttyS0 $uappend"
+        if [ "${arch_hint}" != "s390x" ]; then
+            append="${append} console=ttyS0"
+        fi
+        append="${append} $uappend"
         seedargs=( "${seedargs[@]}" -kernel "$kernel" )
         [ -n "$initrd" ] && seedargs=( "${seedargs[@]}" -initrd "$initrd" )
         seedargs=( "${seedargs[@]}" -append "$append" )
@@ -537,13 +543,24 @@ main() {
         netargs=( "${netargs[@]}" "--netdev=${dev}" )
     done
 
-    local cmd
-    [ "${serial_log}" = "file:none" ] && serial_log=""
-    [ "${serial_log}" = "file:stdio" ] && serial_log="stdio"
+    local cmd serial_args="" chardev_arg=""
+    [ "${serial_log}" = "none" ] && serial_log=""
+    if [ -n "${serial_log}" ]; then
+	if [ "${arch_hint}" = "s390x" ]; then
+	    if [ "${serial_log}" = "stdio" ]; then
+		chardev_arg="stdio"
+	    else
+		chardev_arg="file,path=${serial_log}"
+	    fi
+	    serial_args="-nodefaults -chardev ${chardev_arg},id=charconsole0 -device sclpconsole,chardev=charconsole0,id=console0"
+	else
+	    serial_args="-serial file:${serial_log}"
+	fi
+    fi
     cmd=( 
         xkvm "${pt[@]}" "${netargs[@]}" --
         "${bios_opts[@]}"
-        -m ${mem} ${serial_log:+-serial "${serial_log}"} ${video}
+        -m ${mem} ${serial_args} ${video}
         -drive "file=$bootimg,if=virtio,cache=unsafe,format=qcow2"
         "${disk_args[@]}"
         "${seedargs[@]}"

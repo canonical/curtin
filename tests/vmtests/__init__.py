@@ -35,7 +35,7 @@ DEFAULT_SSTREAM_OPTS = [
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
-INSTALL_PASS_MSG = "Installation finished. No error reported."
+INSTALL_PASS_MSG = "curtin: installation complete a472f9ff-b10d-412f-b311-d04584b0c5d5"
 IMAGE_SYNCS = []
 OVMF_CODE = "/usr/share/OVMF/OVMF_CODE.fd"
 OVMF_VARS = "/usr/share/OVMF/OVMF_VARS.fd"
@@ -390,7 +390,7 @@ class VMBaseClass(TestCase):
             dowait = "--dowait"
 
         # create launch cmd
-        cmd = ["tools/launch", "-v", dowait]
+        cmd = ["tools/launch", "--arch", cls.arch, "-v", dowait]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -512,7 +512,13 @@ class VMBaseClass(TestCase):
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
                 "-m", "1024"])
         if not cls.interactive:
-            cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
+            if cls.arch == 's390x':
+                cmd.extend([
+                    "-nographic", "-nodefaults", "-chardev",
+                    "file,path=%s,id=charconsole0" % cls.boot_log,
+                    "-device sclpconsole,chardev=charconsole0,id=console0"])
+            else:
+                cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
 
         if cls.uefi:
             logger.debug("Testcase requested booting with UEFI")
