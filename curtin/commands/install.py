@@ -389,7 +389,12 @@ def cmd_install(args):
             cfg['power_state'] = {'mode': 'reboot', 'delay': 'now',
                                   'message': "'rebooting with kexec'"}
 
-        writeline(logfile, "Installation finished.")
+        writeline(logfile, "Installation finished. a472f9ff-b10d-412f-b311-d04584b0c5d5")
+        out=sys.stdout
+        if hassattr(out, 'buffer'):
+            out=out.buffer
+        out.write("Installation finished. a472f9ff-b10d-412f-b311-d04584b0c5d5\n")
+        out.flush()
         legacy_reporter.report_success()
     except Exception as e:
         exp_msg = "Installation failed with exception: %s" % e

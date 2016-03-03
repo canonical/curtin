@@ -792,7 +792,6 @@ def curthooks(args):
     else:
         setup_grub(cfg, target)
 
-    LOG.debug("curtin: installation complete a472f9ff-b10d-412f-b311-d04584b0c5d5")
     sys.exit(0)
 
 

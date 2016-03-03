@@ -35,7 +35,7 @@ DEFAULT_SSTREAM_OPTS = [
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
-INSTALL_PASS_MSG = "curtin: installation complete a472f9ff-b10d-412f-b311-d04584b0c5d5"
+INSTALL_PASS_MSG = "Installation finished. a472f9ff-b10d-412f-b311-d04584b0c5d5"
 IMAGE_SYNCS = []
 OVMF_CODE = "/usr/share/OVMF/OVMF_CODE.fd"
 OVMF_VARS = "/usr/share/OVMF/OVMF_VARS.fd"
