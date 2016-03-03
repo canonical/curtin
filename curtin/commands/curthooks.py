@@ -178,6 +178,8 @@ parameters = root=%s
 
 
 def run_zipl(cfg, target):
+    if platform.machine() != 's390x':
+        return
     with util.RunInChroot(target) as in_chroot:
         in_chroot(['zipl'])
 
