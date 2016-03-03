@@ -15,6 +15,8 @@ import yaml
 import curtin.net as curtin_net
 import curtin.util as util
 
+from curtin.commands.install import INSTALL_PASS_MSG
+
 from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
 from .helpers import check_call, TimeoutExpired
@@ -35,7 +37,6 @@ DEFAULT_SSTREAM_OPTS = [
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
-INSTALL_PASS_MSG = "Installation finished. a472f9ff-b10d-412f-b311-d04584b0c5d5"
 IMAGE_SYNCS = []
 OVMF_CODE = "/usr/share/OVMF/OVMF_CODE.fd"
 OVMF_VARS = "/usr/share/OVMF/OVMF_VARS.fd"

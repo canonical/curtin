@@ -1,16 +1,9 @@
-import platform
-platform2arch = {
-    'i586': 'i386',
-    'i686': 'i386',
-    'x86_64': 'amd64',
-    'ppc64le': 'ppc64el',
-    'aarch64': 'arm64',
-}
+from ..curtin.util import get_platform_arch
 
 
 class _ReleaseBase(object):
     repo = "maas-daily"
-    arch = platform2arch.get(platform.machine(), platform.machine())
+    arch = get_platform_arch()
 
 
 class _PreciseBase(_ReleaseBase):

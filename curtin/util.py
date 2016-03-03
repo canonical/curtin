@@ -20,6 +20,7 @@ import errno
 import glob
 import json
 import os
+import platform
 import shutil
 import subprocess
 import stat
@@ -816,5 +817,15 @@ def json_dumps(data):
     return json.dumps(data, indent=1, sort_keys=True,
                       separators=(',', ': ')).encode('utf-8')
 
+
+def get_platform_arch():
+    platform2arch = {
+        'i586': 'i386',
+        'i686': 'i386',
+        'x86_64': 'amd64',
+        'ppc64le': 'ppc64el',
+        'aarch64': 'arm64',
+    }
+    return platform2arch.get(platform.machine(), platform.machine())
 
 # vi: ts=4 expandtab syntax=python

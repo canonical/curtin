@@ -14,16 +14,9 @@ from tests.vmtests import (
     IMAGE_DIR, IMAGE_SRC_URL, sync_images)
 from tests.vmtests.image_sync import ITEM_NAME_FILTERS
 from tests.vmtests.helpers import find_releases
+from curtin.util import get_platform_arch
 
-platform2arch = {
-    'i586': 'i386',
-    'i686': 'i386',
-    'x86_64': 'amd64',
-    'ppc64le': 'ppc64el',
-    'aarch64': 'arm64',
-}
-
-DEFAULT_ARCH = platform2arch.get(platform.machine(), platform.machine())
+DEFAULT_ARCH = get_platform_arch()
 
 
 if __name__ == '__main__':
