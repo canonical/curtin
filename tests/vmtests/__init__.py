@@ -390,7 +390,7 @@ class VMBaseClass(TestCase):
             dowait = "--dowait"
 
         # create launch cmd
-        cmd = ["tools/launch", "--arch", cls.arch, "-v", dowait]
+        cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
