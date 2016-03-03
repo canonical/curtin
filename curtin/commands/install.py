@@ -394,9 +394,11 @@ def cmd_install(args):
 
         writeline(logfile, INSTALL_PASS_MSG)
         out = sys.stdout
+        msg = "%s\n" % INSTALL_PASS_MSG
         if hasattr(out, 'buffer'):
             out = out.buffer
-        out.write("%s\n" % INSTALL_PASS_MSG)
+            msg = msg.encode()
+        out.write(msg)
         out.flush()
         legacy_reporter.report_success()
     except Exception as e:
