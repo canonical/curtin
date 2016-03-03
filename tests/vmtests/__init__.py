@@ -517,7 +517,8 @@ class VMBaseClass(TestCase):
                 cmd.extend([
                     "-nographic", "-nodefaults", "-chardev",
                     "file,path=%s,id=charconsole0" % cls.boot_log,
-                    "-device sclpconsole,chardev=charconsole0,id=console0"])
+                    "-device",
+                    "sclpconsole,chardev=charconsole0,id=console0"])
             else:
                 cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
 
