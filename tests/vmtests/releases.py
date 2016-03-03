@@ -1,4 +1,4 @@
-from ..curtin.util import get_platform_arch
+from curtin.util import get_platform_arch
 
 
 class _ReleaseBase(object):
