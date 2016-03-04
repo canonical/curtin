@@ -382,7 +382,6 @@ def render_interfaces(network_state):
 
     for iface in sorted(interfaces.values(),
                         key=lambda k: (order[k['type']], k['name'])):
-        content += "auto {name}\n".format(**iface)
 
         subnets = iface.get('subnets', {})
         if subnets:
@@ -397,9 +396,12 @@ def render_interfaces(network_state):
                     iface['mode'] = 'dhcp'
 
                 if index == 0:
+                    if subnet['type'] != 'manual':
+                        content += "auto {name}\n".format(**iface)
                     content += "iface {name} {inet} {mode}\n".format(**iface)
                 else:
-                    content += "auto {name}:{index}\n".format(**iface)
+                    if subnet['type'] != 'manual':
+                        content += "auto {name}:{index}\n".format(**iface)
                     content += \
                         "iface {name}:{index} {inet} {mode}\n".format(**iface)
 
