@@ -286,11 +286,12 @@ def render_persistent_net(network_state):
     content = ""
     interfaces = network_state.get('interfaces')
     for iface in interfaces.values():
-        # for physical interfaces write out a persist net udev rule
-        if iface['type'] == 'physical' and \
-           'name' in iface and 'mac_address' in iface:
-            content += generate_udev_rule(iface['name'],
-                                          iface['mac_address'])
+        if iface['type'] == 'physical':
+            ifname = iface.get('name', None)
+            mac = iface.get('mac_address', '')
+            # len(macaddr) == 2 * 6 + 5 == 17
+            if ifname and mac and len(mac) == 17:
+                content += generate_udev_rule(ifname, mac)
 
     return content
 
@@ -428,11 +429,15 @@ def render_network_state(target, network_state):
     eni = os.path.sep.join((target, eni,))
     util.ensure_dir(os.path.dirname(eni))
     with open(eni, 'w+') as f:
+        LOG.info('Writing ' + eni)
         f.write(render_interfaces(network_state))
 
     netrules = os.path.sep.join((target, netrules,))
     util.ensure_dir(os.path.dirname(netrules))
-    with open(netrules, 'w+') as f:
-        f.write(render_persistent_net(network_state))
+    persistent_net_rules = render_persistent_net(network_state)
+    if len(persistent_net_rules) > 0:
+        with open(netrules, 'w+') as f:
+            LOG.info('Writing ' + netrules)
+            f.write(persistent_net_rules)
 
 # vi: ts=4 expandtab syntax=python
