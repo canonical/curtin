@@ -154,6 +154,19 @@ def setup_zipl(cfg, target):
 
     # assuming that below gives the "/" rootfs
     target_dev = block.get_devices_for_mp(target)[0]
+
+    root_arg = None
+    # not mapped rootfs, use UUID
+    if 'mapper' in target_dev:
+        root_arg = target_dev
+    else:
+        uuid = block.get_volume_uuid(target_dev)
+        if uuid:
+            root_arg = "UUID=%s" % uuid
+
+    if not root_arg:
+        LOG.warn("Failed to identify root= for %s at %s.", target, target_dev)
+
     zipl_conf = """
 # This has been modified by the MAAS curtin installer
 [defaultboot]
@@ -165,7 +178,7 @@ image = /boot/vmlinuz
 ramdisk = /boot/initrd.img
 parameters = root=%s
 
-""" % target_dev
+""" % root_arg
     zipl_cfg = {
         "write_files": {
             "zipl_cfg": {
