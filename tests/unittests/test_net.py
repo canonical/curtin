@@ -482,7 +482,7 @@ network:
                   '    address 192.168.21.3/24\n' +
                   '    dns-nameservers 8.8.8.8 8.8.4.4\n' +
                   '    dns-search barley.maas sach.maas\n\n' +
-                  'auto eth1\n' + 'iface eth1 inet manual\n\n')
+                  'iface eth1 inet manual\n\n')
         net_ifaces = net.render_interfaces(ns.network_state)
         print(ns.network_state.get('interfaces'))
         self.assertEqual(sorted(ifaces.split('\n')),
