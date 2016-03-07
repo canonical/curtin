@@ -384,9 +384,13 @@ def render_interfaces(network_state):
     for iface in sorted(interfaces.values(),
                         key=lambda k: (order[k['type']], k['name'])):
 
+        if content[-2:] != "\n\n":
+            content += "\n"
         subnets = iface.get('subnets', {})
         if subnets:
             for index, subnet in zip(range(0, len(subnets)), subnets):
+                if content[-2:] != "\n\n":
+                    content += "\n"
                 iface['index'] = index
                 iface['mode'] = subnet['type']
                 if iface['mode'].endswith('6'):
@@ -408,11 +412,11 @@ def render_interfaces(network_state):
 
                 content += iface_add_subnet(iface, subnet)
                 content += iface_add_attrs(iface)
-                content += "\n"
         else:
+            if 'bond-master' in iface:
+                content += "auto {name}\n".format(**iface)
             content += "iface {name} {inet} {mode}\n".format(**iface)
             content += iface_add_attrs(iface)
-            content += "\n"
 
     for route in network_state.get('routes'):
         content += render_route(route)

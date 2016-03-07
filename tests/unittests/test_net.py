@@ -432,12 +432,14 @@ network:
         with open(self.config_f, 'w') as fp:
             fp.write(self.config)
 
-    def get_net_config(self):
-        cfg = yaml.safe_load(self.config)
+    def get_net_config(self, config=None):
+        if config is None:
+            config = self.config
+        cfg = yaml.safe_load(config)
         return cfg.get('network')
 
-    def get_net_state(self):
-        net_cfg = self.get_net_config()
+    def get_net_state(self, config=None):
+        net_cfg = self.get_net_config(config)
         version = net_cfg.get('version')
         config = net_cfg.get('config')
         ns = network_state.NetworkState(version=version, config=config)
@@ -487,5 +489,36 @@ network:
         print(ns.network_state.get('interfaces'))
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
+
+    def test_render_interfaces_bonds(self):
+        bond_config = open('examples/tests/bonding_network.yaml', 'r').read()
+
+        ns = self.get_net_state(bond_config)
+        ifaces = ('auto lo\n' +
+                  'iface lo inet loopback\n\n' +
+                  'auto eth0\n' +
+                  'iface eth0 inet dhcp\n\n' +
+                  'auto eth1\n' +
+                  'iface eth1 inet manual\n' +
+                  '    bond-master bond0\n' +
+                  '    bond-mode active-backup\n\n' +
+                  'auto eth2\n' +
+                  'iface eth2 inet manual\n' +
+                  '    bond-master bond0\n' +
+                  '    bond-mode active-backup\n\n' +
+                  'auto bond0\n' +
+                  'iface bond0 inet static\n' +
+                  '    address 10.23.23.2/24\n' +
+                  '    bond-mode active-backup\n' +
+                  '    hwaddress 52:54:00:12:34:06\n' +
+                  '    bond-slaves none\n')
+        net_ifaces = net.render_interfaces(ns.network_state)
+        print("\n".join(sorted(ifaces.split('\n'))))
+        print("\n^^ LOCAL -- RENDER vv")
+        print("\n".join(sorted(net_ifaces.split('\n'))))
+        print(ns.network_state.get('interfaces'))
+        self.assertEqual(sorted(ifaces.split('\n')),
+                         sorted(net_ifaces.split('\n')))
+
 
 # vi: ts=4 expandtab syntax=python
