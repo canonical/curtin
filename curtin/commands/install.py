@@ -36,7 +36,7 @@ from . import populate_one_subcmd
 INSTALL_LOG = "/var/log/curtin/install.log"
 
 INSTALL_PASS_MSG = \
-    "Installation finished. a472f9ff-b10d-412f-b311-d04584b0c5d5"
+    "curtin: Installation finished."
 
 STAGE_DESCRIPTIONS = {
     'early': 'preparing for installation',
