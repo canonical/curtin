@@ -361,10 +361,10 @@ def cmd_install(args):
     if yaml_dump_file:
         write_files = cfg.get('write_files', {})
         write_files['curtin_install_cfg'] = {
-                'path': yaml_dump_file,
-                'permissions': '0400',
-                'owner': 'root:root',
-                'content': config.dump_config(cfg)
+            'path': yaml_dump_file,
+            'permissions': '0400',
+            'owner': 'root:root',
+            'content': config.dump_config(cfg)
         }
         cfg['write_files'] = write_files
 
