@@ -416,6 +416,10 @@ def render_interfaces(network_state):
 
     # global replacements until v2 format
     content = content.replace('mac_address', 'hwaddress')
+
+    # Play nice with others and source eni config files
+    content += "source /etc/network/interfaces.d/*.cfg\n"
+
     return content
 
 
