@@ -165,7 +165,9 @@ def setup_zipl(cfg, target):
             root_arg = "UUID=%s" % uuid
 
     if not root_arg:
-        LOG.warn("Failed to identify root= for %s at %s.", target, target_dev)
+        msg = "Failed to identify root= for %s at %s." % (target, target_dev)
+        LOG.warn(msg)
+        raise ValueError(msg)
 
     zipl_conf = """
 # This has been modified by the MAAS curtin installer
