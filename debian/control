@@ -17,6 +17,7 @@ Build-Depends: debhelper (>= 7),
                python3-mock,
                python3-nose,
                python3-oauthlib,
+               python3-pyflakes | pyflakes (<< 1.1.0-2),
                python3-setuptools,
                python3-yaml
 Homepage: http://launchpad.net/curtin

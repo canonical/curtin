@@ -134,7 +134,7 @@ def load_command_config(args, state):
 
 
 def dump_config(config):
-    return yaml.dump(config, default_flow_style=False)
+    return yaml.dump(config, default_flow_style=False, indent=2)
 
 
 def value_as_boolean(value):
