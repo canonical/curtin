@@ -67,19 +67,6 @@ class TestNetParserData(TestCase):
                 },
             }, ifaces)
 
-    def test_parse_deb_config_data_error_on_redefine(self):
-        contents = dedent("""\
-            iface eth0 inet static
-            address 192.168.1.2
-            iface eth0 inet static
-            address 192.168.1.3
-            """)
-        ifaces = {}
-        self.assertRaises(
-            net.ParserError,
-            net.parse_deb_config_data,
-            ifaces, contents, '', '/etc/network/interfaces')
-
     def test_parse_deb_config_data_commands(self):
         contents = dedent("""\
             iface eth0 inet manual
