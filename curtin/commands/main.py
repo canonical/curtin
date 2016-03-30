@@ -118,9 +118,6 @@ def maybe_install_deps(args, stacktrace=True, verbosity=0):
 
 
 def main(args=None):
-    if args is None:
-        args = sys.argv
-
     stacktrace = (os.environ.get('CURTIN_STACKTRACE', "0").lower()
                   not in ("0", "false", ""))
 
