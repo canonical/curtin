@@ -15,6 +15,8 @@ import yaml
 import curtin.net as curtin_net
 import curtin.util as util
 
+from curtin.commands.install import INSTALL_PASS_MSG
+
 from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
 from .helpers import check_call, TimeoutExpired
@@ -35,7 +37,6 @@ DEFAULT_SSTREAM_OPTS = [
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
-INSTALL_PASS_MSG = "Installation finished. No error reported."
 IMAGE_SYNCS = []
 OVMF_CODE = "/usr/share/OVMF/OVMF_CODE.fd"
 OVMF_VARS = "/usr/share/OVMF/OVMF_VARS.fd"
@@ -352,7 +353,7 @@ class VMBaseClass(TestCase):
     conf_file = "examples/tests/basic.yaml"
     extra_disks = []
     boot_timeout = 300
-    install_timeout = 600
+    install_timeout = 3000
     uefi = False
 
     # these get set from base_vm_classes
@@ -390,7 +391,7 @@ class VMBaseClass(TestCase):
             dowait = "--dowait"
 
         # create launch cmd
-        cmd = ["tools/launch", "-v", dowait]
+        cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -512,7 +513,14 @@ class VMBaseClass(TestCase):
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
                 "-m", "1024"])
         if not cls.interactive:
-            cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
+            if cls.arch == 's390x':
+                cmd.extend([
+                    "-nographic", "-nodefaults", "-chardev",
+                    "file,path=%s,id=charconsole0" % cls.boot_log,
+                    "-device",
+                    "sclpconsole,chardev=charconsole0,id=console0"])
+            else:
+                cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
 
         if cls.uefi:
             logger.debug("Testcase requested booting with UEFI")

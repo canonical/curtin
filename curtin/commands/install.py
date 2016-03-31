@@ -35,6 +35,9 @@ from . import populate_one_subcmd
 
 INSTALL_LOG = "/var/log/curtin/install.log"
 
+INSTALL_PASS_MSG = \
+    "curtin: Installation finished."
+
 STAGE_DESCRIPTIONS = {
     'early': 'preparing for installation',
     'partitioning': 'configuring storage',
@@ -403,7 +406,14 @@ def cmd_install(args):
             cfg['power_state'] = {'mode': 'reboot', 'delay': 'now',
                                   'message': "'rebooting with kexec'"}
 
-        writeline(logfile, "Installation finished.")
+        writeline(logfile, INSTALL_PASS_MSG)
+        out = sys.stdout
+        msg = "%s\n" % INSTALL_PASS_MSG
+        if hasattr(out, 'buffer'):
+            out = out.buffer
+            msg = msg.encode()
+        out.write(msg)
+        out.flush()
         legacy_reporter.report_success()
     except Exception as e:
         exp_msg = "Installation failed with exception: %s" % e
