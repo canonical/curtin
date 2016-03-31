@@ -117,7 +117,10 @@ def maybe_install_deps(args, stacktrace=True, verbosity=0):
     return
 
 
-def main(args=None):
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
+
     stacktrace = (os.environ.get('CURTIN_STACKTRACE', "0").lower()
                   not in ("0", "false", ""))
 
@@ -126,7 +129,7 @@ def main(args=None):
     except ValueError:
         verbosity = 1
 
-    maybe_install_deps(sys.argv[1:], stacktrace=stacktrace,
+    maybe_install_deps(argv, stacktrace=stacktrace,
                        verbosity=verbosity)
 
     # Above here, only standard library modules can be assumed.
@@ -137,7 +140,7 @@ def main(args=None):
     subps = parser.add_subparsers(dest="subcmd")
     for subcmd in SUB_COMMAND_MODULES:
         add_subcmd(subps, subcmd)
-    args = parser.parse_args(sys.argv[1:])
+    args = parser.parse_args(argv)
 
     # merge config flags into a single config dictionary
     cfg_opts = args.main_cfgopts
