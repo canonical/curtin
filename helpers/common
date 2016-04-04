@@ -588,6 +588,11 @@ install_grub() {
         return 1;
     }
 
+    # grub is not the bootloader you are looking for
+    if [ "${dpkg_arch}" = "s390x" ]; then
+	return 0;
+    fi
+
     # set correct grub package
     local grub_name="grub-pc"
     local grub_target="i386-pc"
