@@ -31,6 +31,7 @@ from curtin.log import LOG
 from curtin import swap
 from curtin import util
 from curtin import net
+from curtin.reporter import events
 
 from . import populate_one_subcmd
 
@@ -148,6 +149,57 @@ def clean_cloud_init(target):
         os.unlink(dpkg_cfg)
 
 
+def setup_zipl(cfg, target):
+    if platform.machine() != 's390x':
+        return
+
+    # assuming that below gives the "/" rootfs
+    target_dev = block.get_devices_for_mp(target)[0]
+
+    root_arg = None
+    # not mapped rootfs, use UUID
+    if 'mapper' in target_dev:
+        root_arg = target_dev
+    else:
+        uuid = block.get_volume_uuid(target_dev)
+        if uuid:
+            root_arg = "UUID=%s" % uuid
+
+    if not root_arg:
+        msg = "Failed to identify root= for %s at %s." % (target, target_dev)
+        LOG.warn(msg)
+        raise ValueError(msg)
+
+    zipl_conf = """
+# This has been modified by the MAAS curtin installer
+[defaultboot]
+default=ubuntu
+
+[ubuntu]
+target = /boot
+image = /boot/vmlinuz
+ramdisk = /boot/initrd.img
+parameters = root=%s
+
+""" % root_arg
+    zipl_cfg = {
+        "write_files": {
+            "zipl_cfg": {
+                "path": "/etc/zipl.conf",
+                "content": zipl_conf,
+            }
+        }
+    }
+    write_files(zipl_cfg, target)
+
+
+def run_zipl(cfg, target):
+    if platform.machine() != 's390x':
+        return
+    with util.RunInChroot(target) as in_chroot:
+        in_chroot(['zipl'])
+
+
 def install_kernel(cfg, target):
     kernel_cfg = cfg.get('kernel', {'package': None,
                                     'fallback-package': None,
@@ -188,17 +240,21 @@ def install_kernel(cfg, target):
         package = "linux-{flavor}{map_suffix}".format(
             flavor=flavor, map_suffix=map_suffix)
 
-        util.apt_update(target)
-        out, err = in_chroot(['apt-cache', 'search', package], capture=True)
-
-        if (len(out.strip()) > 0 and
-                not util.has_pkg_installed(package, target)):
-            util.install_packages([package], target=target)
+        if util.has_pkg_available(package, target):
+            if util.has_pkg_installed(package, target):
+                LOG.debug("Kernel package '%s' already installed", package)
+            else:
+                LOG.debug("installing kernel package '%s'", package)
+                util.install_packages([package], target=target)
         else:
-            LOG.warn("Tried to install kernel %s but package not found."
-                     % package)
             if kernel_fallback is not None:
+                LOG.info("Kernel package '%s' not available.  "
+                         "Installing fallback package '%s'.",
+                         package, kernel_fallback)
                 util.install_packages([kernel_fallback], target=target)
+            else:
+                LOG.warn("Kernel package '%s' not available and no fallback."
+                         " System may not boot.", package)
 
 
 def apply_debconf_selections(cfg, target):
@@ -652,7 +708,13 @@ def install_missing_packages(cfg, target):
                 needed_packages.append(pkg)
 
     if needed_packages:
-        util.install_packages(needed_packages, target=target)
+        state = util.load_command_environment()
+        with events.ReportEventStack(
+                name=state.get('report_stack_prefix'),
+                reporting_enabled=True, level="INFO",
+                description="Installing packages on target system: " +
+                str(needed_packages)):
+            util.install_packages(needed_packages, target=target)
 
 
 def system_upgrade(cfg, target):
@@ -696,25 +758,51 @@ def curthooks(args):
         sys.exit(0)
 
     cfg = config.load_command_config(args, state)
+    stack_prefix = state.get('report_stack_prefix', '')
 
-    write_files(cfg, target)
-    apt_config(cfg, target)
-    disable_overlayroot(cfg, target)
-    install_kernel(cfg, target)
-    apply_debconf_selections(cfg, target)
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level="INFO",
+            description="writing config files and configuring apt"):
+        write_files(cfg, target)
+        apt_config(cfg, target)
+        disable_overlayroot(cfg, target)
 
-    restore_dist_interfaces(cfg, target)
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level="INFO",
+            description="installing kernel"):
+        setup_zipl(cfg, target)
+        install_kernel(cfg, target)
+        run_zipl(cfg, target)
+        apply_debconf_selections(cfg, target)
 
-    add_swap(cfg, target, state.get('fstab'))
+        restore_dist_interfaces(cfg, target)
 
-    apply_networking(target, state)
-    copy_fstab(state.get('fstab'), target)
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level="INFO",
+            description="setting up swap"):
+        add_swap(cfg, target, state.get('fstab'))
 
-    detect_and_handle_multipath(cfg, target)
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level="INFO",
+            description="apply networking"):
+        apply_networking(target, state)
+
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level="INFO",
+            description="writing etc/fstab"):
+        copy_fstab(state.get('fstab'), target)
+
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level="INFO",
+            description="configuring multipath"):
+        detect_and_handle_multipath(cfg, target)
 
     install_missing_packages(cfg, target)
 
-    system_upgrade(cfg, target)
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level="INFO",
+            description="updating packages on target system"):
+        system_upgrade(cfg, target)
 
     # If a crypttab file was created by block_meta than it needs to be copied
     # onto the target system, and update_initramfs() needs to be run, so that
@@ -748,6 +836,7 @@ def curthooks(args):
     # flash-kernel.
     machine = platform.machine()
     if (machine.startswith('armv7') or
+            machine.startswith('s390x') or
             machine.startswith('aarch64') and not util.is_uefi_bootable()):
         update_initramfs(target)
     else:

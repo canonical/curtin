@@ -18,9 +18,13 @@
 import os
 import sys
 
+from .. import log
 import curtin.net as net
 import curtin.util as util
 from . import populate_one_subcmd
+
+
+LOG = log.LOG
 
 
 def apply_net(target, network_state=None, network_config=None):
@@ -47,6 +51,8 @@ def apply_net_main(args):
     #                   [--net-config=/config/maas_net.yml]
     state = util.load_command_environment()
 
+    log.basicConfig(stream=args.log_file, verbosity=1)
+
     if args.target is not None:
         state['target'] = args.target
 
@@ -65,10 +71,15 @@ def apply_net_main(args):
         sys.stderr.write("Must provide at least config or state\n")
         sys.exit(2)
 
-    apply_net(target=state['target'],
-              network_state=state['network_state'],
-              network_config=state['network_config'])
+    LOG.info('Applying network configuration')
+    try:
+        apply_net(target=state['target'],
+                  network_state=state['network_state'],
+                  network_config=state['network_config'])
+    except Exception:
+        LOG.exception('failed to apply network config')
 
+    LOG.info('Applied network configuration successfully')
     sys.exit(0)
 
 

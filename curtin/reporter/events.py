@@ -47,12 +47,16 @@ class ReportingEvent(object):
     """Encapsulation of event formatting."""
 
     def __init__(self, event_type, name, description,
-                 origin=DEFAULT_EVENT_ORIGIN, timestamp=time.time()):
+                 origin=DEFAULT_EVENT_ORIGIN, timestamp=time.time(),
+                 level=None):
         self.event_type = event_type
         self.name = name
         self.description = description
         self.origin = origin
         self.timestamp = timestamp
+        if level is None:
+            level = "INFO"
+        self.level = level
 
     def as_string(self):
         """The event represented as a string."""
@@ -63,15 +67,15 @@ class ReportingEvent(object):
         """The event represented as a dictionary."""
         return {'name': self.name, 'description': self.description,
                 'event_type': self.event_type, 'origin': self.origin,
-                'timestamp': self.timestamp}
+                'timestamp': self.timestamp, 'level': self.level}
 
 
 class FinishReportingEvent(ReportingEvent):
 
     def __init__(self, name, description, result=status.SUCCESS,
-                 post_files=None):
+                 post_files=None, level=None):
         super(FinishReportingEvent, self).__init__(
-            FINISH_EVENT_TYPE, name, description)
+            FINISH_EVENT_TYPE, name, description, level=level)
         self.result = result
         if post_files is None:
             post_files = []
@@ -89,6 +93,10 @@ class FinishReportingEvent(ReportingEvent):
         data['result'] = self.result
         if self.post_files:
             data['files'] = _collect_file_info(self.post_files)
+        if self.result == status.WARN:
+            data['level'] = "WARN"
+        elif self.result == status.FAIL:
+            data['level'] = "ERROR"
         return data
 
 
@@ -107,17 +115,21 @@ def report_event(event):
 
 
 def report_finish_event(event_name, event_description,
-                        result=status.SUCCESS, post_files=None):
+                        result=status.SUCCESS, post_files=None, level=None):
     """Report a "finish" event.
 
     See :py:func:`.report_event` for parameter details.
     """
+    if result == status.SUCCESS:
+        event_description = "finished: " + event_description
+    else:
+        event_description = "failed: " + event_description
     event = FinishReportingEvent(event_name, event_description, result,
-                                 post_files=post_files)
+                                 post_files=post_files, level=level)
     return report_event(event)
 
 
-def report_start_event(event_name, event_description):
+def report_start_event(event_name, event_description, level=None):
     """Report a "start" event.
 
     :param event_name:
@@ -127,7 +139,9 @@ def report_start_event(event_name, event_description):
     :param event_description:
         A human-readable description of the event that has occurred.
     """
-    event = ReportingEvent(START_EVENT_TYPE, event_name, event_description)
+    event_description = "started: " + event_description
+    event = ReportingEvent(START_EVENT_TYPE, event_name, event_description,
+                           level=level)
     return report_event(event)
 
 
@@ -161,16 +175,21 @@ class ReportEventStack(object):
     :param result_on_exception:
         The result value to set if an exception is caught. default
         value is FAIL.
+
+    :param level:
+        The priority level of the enter and exit messages sent. Default value
+        is INFO.
     """
     def __init__(self, name, description, message=None, parent=None,
                  reporting_enabled=None, result_on_exception=status.FAIL,
-                 post_files=None):
+                 post_files=None, level="INFO"):
         self.parent = parent
         self.name = name
         self.description = description
         self.message = message
         self.result_on_exception = result_on_exception
         self.result = status.SUCCESS
+        self.level = level
         if post_files is None:
             post_files = []
         self.post_files = post_files
@@ -196,7 +215,8 @@ class ReportEventStack(object):
     def __enter__(self):
         self.result = status.SUCCESS
         if self.reporting_enabled:
-            report_start_event(self.fullname, self.description)
+            report_start_event(self.fullname, self.description,
+                               level=self.level)
         if self.parent:
             self.parent.children[self.name] = (None, None)
         return self
@@ -241,7 +261,7 @@ class ReportEventStack(object):
             self.parent.children[self.name] = (result, msg)
         if self.reporting_enabled:
             report_finish_event(self.fullname, msg, result,
-                                post_files=self.post_files)
+                                post_files=self.post_files, level=self.level)
 
 
 def _collect_file_info(files):

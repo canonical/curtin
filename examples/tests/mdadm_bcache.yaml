@@ -1,3 +1,4 @@
+showtrace: true
 storage:
   version: 1
   config:
