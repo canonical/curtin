@@ -201,8 +201,8 @@ def main(argv=None):
         stack_prefix = stack_prefix[1:]
     os.environ["CURTIN_REPORTSTACK"] = stack_prefix
     args.reportstack = events.ReportEventStack(
-        name=stack_prefix, description="curtin command %s" % args.subcmd,
-        reporting_enabled=True)
+        name=stack_prefix, reporting_enabled=True, level="DEBUG",
+        description="curtin command %s" % args.subcmd)
 
     try:
         with args.reportstack:

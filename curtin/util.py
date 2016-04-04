@@ -147,7 +147,8 @@ def load_command_environment(env=os.environ, strict=False):
                'interfaces': 'OUTPUT_INTERFACES', 'config': 'CONFIG',
                'target': 'TARGET_MOUNT_POINT',
                'network_state': 'OUTPUT_NETWORK_STATE',
-               'network_config': 'OUTPUT_NETWORK_CONFIG'}
+               'network_config': 'OUTPUT_NETWORK_CONFIG',
+               'report_stack_prefix': 'CURTIN_REPORTSTACK'}
 
     if strict:
         missing = [k for k in mapping if k not in env]

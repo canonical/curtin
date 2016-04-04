@@ -31,6 +31,7 @@ from curtin.log import LOG
 from curtin import swap
 from curtin import util
 from curtin import net
+from curtin.reporter import events
 
 from . import populate_one_subcmd
 
@@ -707,7 +708,13 @@ def install_missing_packages(cfg, target):
                 needed_packages.append(pkg)
 
     if needed_packages:
-        util.install_packages(needed_packages, target=target)
+        state = util.load_command_environment()
+        with events.ReportEventStack(
+                name=state.get('report_stack_prefix'),
+                reporting_enabled=True, level="INFO",
+                description="Installing packages on target system: " +
+                str(needed_packages)):
+            util.install_packages(needed_packages, target=target)
 
 
 def system_upgrade(cfg, target):
@@ -751,27 +758,51 @@ def curthooks(args):
         sys.exit(0)
 
     cfg = config.load_command_config(args, state)
+    stack_prefix = state.get('report_stack_prefix', '')
 
-    write_files(cfg, target)
-    apt_config(cfg, target)
-    disable_overlayroot(cfg, target)
-    setup_zipl(cfg, target)
-    install_kernel(cfg, target)
-    run_zipl(cfg, target)
-    apply_debconf_selections(cfg, target)
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level="INFO",
+            description="writing config files and configuring apt"):
+        write_files(cfg, target)
+        apt_config(cfg, target)
+        disable_overlayroot(cfg, target)
 
-    restore_dist_interfaces(cfg, target)
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level="INFO",
+            description="installing kernel"):
+        setup_zipl(cfg, target)
+        install_kernel(cfg, target)
+        run_zipl(cfg, target)
+        apply_debconf_selections(cfg, target)
 
-    add_swap(cfg, target, state.get('fstab'))
+        restore_dist_interfaces(cfg, target)
 
-    apply_networking(target, state)
-    copy_fstab(state.get('fstab'), target)
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level="INFO",
+            description="setting up swap"):
+        add_swap(cfg, target, state.get('fstab'))
 
-    detect_and_handle_multipath(cfg, target)
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level="INFO",
+            description="apply networking"):
+        apply_networking(target, state)
+
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level="INFO",
+            description="writing etc/fstab"):
+        copy_fstab(state.get('fstab'), target)
+
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level="INFO",
+            description="configuring multipath"):
+        detect_and_handle_multipath(cfg, target)
 
     install_missing_packages(cfg, target)
 
-    system_upgrade(cfg, target)
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level="INFO",
+            description="updating packages on target system"):
+        system_upgrade(cfg, target)
 
     # If a crypttab file was created by block_meta than it needs to be copied
     # onto the target system, and update_initramfs() needs to be run, so that

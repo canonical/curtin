@@ -177,8 +177,8 @@ class Stage(object):
             if not cmd:
                 continue
             cur_res = events.ReportEventStack(
-                name=cmdname, description="running '%s'" % cmdname,
-                parent=self.reportstack)
+                name=cmdname, description="running '%s'" % ' '.join(cmd),
+                parent=self.reportstack, level="DEBUG")
 
             env = self.env.copy()
             env['CURTIN_REPORTSTACK'] = cur_res.fullname

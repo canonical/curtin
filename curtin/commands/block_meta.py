@@ -20,6 +20,7 @@ from curtin import (block, config, util)
 from curtin.block import mdadm
 from curtin.log import LOG
 from curtin.block import mkfs
+from curtin.reporter import events
 
 from . import populate_one_subcmd
 from curtin.udev import compose_udev_equality
@@ -1088,16 +1089,23 @@ def meta_custom(args):
 
     storage_config_dict = extract_storage_ordered_dict(cfg)
 
+    # set up reportstack
+    stack_prefix = state.get('report_stack_prefix', '')
+
     for item_id, command in storage_config_dict.items():
         handler = command_handlers.get(command['type'])
         if not handler:
             raise ValueError("unknown command type '%s'" % command['type'])
-        try:
-            handler(command, storage_config_dict)
-        except Exception as error:
-            LOG.error("An error occured handling '%s': %s - %s" %
-                      (item_id, type(error).__name__, error))
-            raise
+        with events.ReportEventStack(
+                name=stack_prefix, reporting_enabled=True, level="INFO",
+                description="configuring %s: %s" % (command['type'],
+                                                    command['id'])):
+            try:
+                handler(command, storage_config_dict)
+            except Exception as error:
+                LOG.error("An error occured handling '%s': %s - %s" %
+                          (item_id, type(error).__name__, error))
+                raise
 
     return 0
 
