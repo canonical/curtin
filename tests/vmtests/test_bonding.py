@@ -235,3 +235,7 @@ class VividTestBonding(relbase.vivid, TestNetworkAbs):
 
 class WilyTestBonding(relbase.wily, TestNetworkAbs):
     __test__ = True
+
+
+class XenialTestBonding(relbase.xenial, TestNetworkAbs):
+    __test__ = True
