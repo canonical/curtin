@@ -1,3 +1,4 @@
+showtrace: true
 network:
     version: 1
     config:
