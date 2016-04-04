@@ -239,17 +239,21 @@ def install_kernel(cfg, target):
         package = "linux-{flavor}{map_suffix}".format(
             flavor=flavor, map_suffix=map_suffix)
 
-        util.apt_update(target)
-        out, err = in_chroot(['apt-cache', 'search', package], capture=True)
-
-        if (len(out.strip()) > 0 and
-                not util.has_pkg_installed(package, target)):
-            util.install_packages([package], target=target)
+        if util.has_pkg_available(package, target):
+            if util.has_pkg_installed(package, target):
+                LOG.debug("Kernel package '%s' already installed", package)
+            else:
+                LOG.debug("installing kernel package '%s'", package)
+                util.install_packages([package], target=target)
         else:
-            LOG.warn("Tried to install kernel %s but package not found."
-                     % package)
             if kernel_fallback is not None:
+                LOG.info("Kernel package '%s' not available.  "
+                         "Installing fallback package '%s'.",
+                         package, kernel_fallback)
                 util.install_packages([kernel_fallback], target=target)
+            else:
+                LOG.warn("Kernel package '%s' not available and no fallback."
+                         " System may not boot.", package)
 
 
 def apply_debconf_selections(cfg, target):
