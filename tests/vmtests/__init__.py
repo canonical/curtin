@@ -353,6 +353,7 @@ class VMBaseClass(TestCase):
     interactive = False
     conf_file = "examples/tests/basic.yaml"
     extra_disks = []
+    nvme_disks = []
     boot_timeout = 300
     install_timeout = 3000
     uefi = False
@@ -440,6 +441,12 @@ class VMBaseClass(TestCase):
             dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
             extra_disks.extend(['--disk', '{}:{}'.format(dpath, disk_sz)])
 
+        # build nvme disk args if needed
+        nvme_disks = []
+        for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
+            dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
+            nvme_disks.extend(['--disk', '{}:{}:nvme'.format(dpath, disk_sz)])
+
         # proxy config
         configs = [cls.conf_file]
         proxy = get_apt_proxy()
@@ -463,7 +470,8 @@ class VMBaseClass(TestCase):
             shutil.copy(OVMF_VARS, nvram)
             cmd.extend(["--uefi", nvram])
 
-        cmd.extend(netdevs + ["--disk", cls.td.target_disk] + extra_disks +
+        cmd.extend(netdevs + ["--disk", cls.td.target_disk] +
+                   extra_disks + nvme_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "-vv", "install"] +
                    ["--config=%s" % f for f in configs] +
@@ -512,13 +520,23 @@ class VMBaseClass(TestCase):
         # drop the size parameter if present in extra_disks
         extra_disks = [x if ":" not in x else x.split(':')[0]
                        for x in extra_disks]
+        # create --disk params for nvme disks
+        nvme_disks = []
+        for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
+            dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
+            nvme_disks.extend(
+                ['-drive',
+                 'file={},if=none,cache=unsafe,format=raw,id=drv{}'.format(
+                     dpath, disk_no),
+                 '-device', 'nvme,drive=drv{},serial=NVM{}'.format(
+                     disk_no, disk_no)])
         # create xkvm cmd
         cmd = (["tools/xkvm", "-v", dowait] + netdevs +
                ["--disk", cls.td.target_disk, "--disk", cls.td.output_disk] +
                extra_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
-                "-m", "1024"])
+                "-m", "1024"] + nvme_disks)
         if not cls.interactive:
             if cls.arch == 's390x':
                 cmd.extend([

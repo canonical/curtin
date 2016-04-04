@@ -12,6 +12,7 @@ class TestBasicAbs(VMBaseClass):
     interactive = False
     conf_file = "examples/tests/basic.yaml"
     extra_disks = ['128G', '128G', '4G']
+    nvme_disks = ['4G']
     disk_to_check = [('main_disk', 1), ('main_disk', 2)]
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
