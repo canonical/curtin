@@ -1,0 +1,31 @@
+network:
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: eth0
+          mac_address: "52:54:00:12:34:00"
+          subnets:
+              - type: dhcp4
+        - type: physical
+          name: eth1
+          mtu: 1500
+          mac_address: "52:54:00:12:34:02"
+          subnets:
+              - type: static
+                address: 10.245.168.17/21
+                gateway: 10.245.168.1
+                dns_nameservers:
+                  - 10.245.168.2
+        - type: physical
+          name: eth2
+          mtu: 1500
+          mac_address: "52:54:00:12:34:04"
+        - type: vlan
+          name: eth2.2667
+          vlan_link: eth2
+          vlan_id: 2667
+          mtu: 9000
+          subnets:
+            - type: static
+              address: 10.245.184.20/24

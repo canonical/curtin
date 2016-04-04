@@ -237,6 +237,23 @@ class TestNetworkStaticAbs(TestNetworkAbs):
     conf_file = "examples/tests/basic_network_static.yaml"
 
 
+class TestNetworkVlanAbs(TestNetworkAbs):
+    conf_file = "examples/tests/vlan_network.yaml"
+    collect_scripts = TestNetworkAbs.collect_scripts + [textwrap.dedent("""
+             cd OUTPUT_COLLECT_D
+             dpkg-query -W -f '${Status}' vlan > vlan_installed
+             """)]
+
+    def test_output_files_exist_vlan(self):
+        self.output_files_exist(["vlan_installed"])
+
+    def test_vlan_installed(self):
+        with open(os.path.join(self.td.collect, "vlan_installed")) as fp:
+            status = fp.read().strip()
+            logger.debug('vlan installed?: {}'.format(status))
+            self.assertEqual('install ok installed', status)
+
+
 class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkAbs):
     # FIXME: off due to hang at test: Starting execute cloud user/final scripts
     __test__ = False
@@ -321,3 +338,7 @@ class XenialTestNetworkStatic(relbase.xenial, TestNetworkStaticAbs):
     #        over the net.ifnames to the installed system via '---' as the net
     #        config should take care of that.
     extra_kern_args = "net.ifnames=0"
+
+
+class XenialTestNetworkVlan(relbase.xenial, TestNetworkVlanAbs):
+    __test__ = True
