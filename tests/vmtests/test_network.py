@@ -9,7 +9,7 @@ import yaml
 
 
 def iface_extract(input):
-    mo = re.search(r'^(?P<interface>\w+|\w+:\d+)\s+' +
+    mo = re.search(r'^(?P<interface>\w+|\w+:\d+|\w+\.\d+)\s+' +
                    r'Link encap:(?P<link_encap>\S+)\s+' +
                    r'(HWaddr\s+(?P<mac_address>\S+))?' +
                    r'(\s+inet addr:(?P<address>\S+))?' +
@@ -273,7 +273,7 @@ class TestNetworkVlanAbs(TestNetworkAbs):
         for vlan in self.get_vlans():
             link_file = "ip_link_show_" + vlan['name']
             vlan_msg = "vlan protocol 802.1Q id " + str(vlan['vlan_id'])
-            self.check_file_stripped_line(link_file, vlan_msg)
+            self.check_file_regex(link_file, vlan_msg)
 
 
 class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkAbs):
