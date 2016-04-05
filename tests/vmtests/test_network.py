@@ -272,7 +272,7 @@ class TestNetworkVlanAbs(TestNetworkAbs):
         # did they get configured?
         for vlan in self.get_vlans():
             link_file = "ip_link_show_" + vlan['name']
-            vlan_msg = "vlan protocol 802.1Q id " + vlan['vlan_id']
+            vlan_msg = "vlan protocol 802.1Q id " + str(vlan['vlan_id'])
             self.check_file_stripped_line(link_file, vlan_msg)
 
 
