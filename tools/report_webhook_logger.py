@@ -10,6 +10,7 @@ except ImportError:
 import json
 import os
 import sys
+import threading
 
 EXAMPLE_CONFIG = """\
 # example config
@@ -127,6 +128,23 @@ def run_server(port=DEFAULT_PORT, log_data=True):
             httpd.server_close()
 
     return CURTIN_EVENTS
+
+
+class CaptureReporting:
+
+    def __init__(self, result_file):
+        self.result_file = result_file
+
+    def __enter__(self):
+        if os.path.exists(self.result_file):
+            os.remove(self.result_file)
+        self.httpd = get_httpd(result_file=self.result_file)
+        self.worker = threading.Thread(target=self.httpd.serve_forever)
+        self.worker.start()
+        return self
+
+    def __exit__(self, etype, value, trace):
+        self.httpd.shutdown()
 
 
 if __name__ == "__main__":
