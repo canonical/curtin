@@ -242,16 +242,38 @@ class TestNetworkVlanAbs(TestNetworkAbs):
     collect_scripts = TestNetworkAbs.collect_scripts + [textwrap.dedent("""
              cd OUTPUT_COLLECT_D
              dpkg-query -W -f '${Status}' vlan > vlan_installed
+             ip -d link show eth2.2667 > ip_link_show_eth2.2667
              """)]
 
+    def get_vlans(self):
+        network_state = self.get_network_state()
+        logger.debug('get_vlans ns:\n{}'.format(
+            yaml.dump(network_state, default_flow_style=False, indent=4)))
+        interfaces = network_state.get('interfaces')
+        return [iface for iface in interfaces.values()
+                if iface['type'] == 'vlan']
+
     def test_output_files_exist_vlan(self):
-        self.output_files_exist(["vlan_installed"])
+        link_files = ["ip_link_show_{}".format(vlan['name'])
+                      for vlan in self.get_vlans()]
+        self.output_files_exist(["vlan_installed"] + link_files)
 
     def test_vlan_installed(self):
         with open(os.path.join(self.td.collect, "vlan_installed")) as fp:
             status = fp.read().strip()
             logger.debug('vlan installed?: {}'.format(status))
             self.assertEqual('install ok installed', status)
+
+    def test_vlan_enabled(self):
+
+        # we must have at least one
+        self.assertGreaterEqual(1, len(self.get_vlans()))
+
+        # did they get configured?
+        for vlan in self.get_vlans():
+            link_file = "ip_link_show_" + vlan['name']
+            vlan_msg = "vlan protocol 802.1Q id " + vlan['vlan_id']
+            self.check_file_stripped_line(link_file, vlan_msg)
 
 
 class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkAbs):

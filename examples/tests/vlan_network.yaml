@@ -25,7 +25,7 @@ network:
           name: eth2.2667
           vlan_link: eth2
           vlan_id: 2667
-          mtu: 9000
+          mtu: 1500
           subnets:
             - type: static
               address: 10.245.184.20/24
