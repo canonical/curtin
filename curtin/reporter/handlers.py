@@ -72,6 +72,7 @@ class WebHookHandler(ReportingHandler):
         self.headers = {'Content-Type': 'application/json'}
 
     def publish_event(self, event):
+        # Determine effective level, and do not output if below threshold
         if isinstance(event.level, int):
             ev_level = event.level
         else:
@@ -81,9 +82,18 @@ class WebHookHandler(ReportingHandler):
                 ev_level = logging.INFO
         if ev_level < self.level:
             return
+        data = event.as_dict()
+        # Add 'started: ' and 'finished: ' to description strings if needed
+        if event.event_type == 'start':
+            data['description'] = 'started: ' + data['description']
+        elif event.event_type == 'finish':
+            if event.result == 'SUCCESS':
+                data['description'] = 'finished: ' + data['description']
+            else:
+                data['description'] = 'failed: ' + data['description']
         try:
             return self.oauth_helper.geturl(
-                url=self.endpoint, data=event.as_dict(),
+                url=self.endpoint, data=data,
                 headers=self.headers, retries=self.retries)
         except Exception as e:
             LOG.warn("failed posting event: %s [%s]" % (event.as_string(), e))
