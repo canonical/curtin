@@ -544,6 +544,9 @@ def partition_handler(info, storage_config):
             logical_block_size_bytes = int(l)
     except:
         logical_block_size_bytes = 512
+    LOG.debug(
+        "{} logical_block_size_bytes: {}".format(disk_kname,
+                                                 logical_block_size_bytes))
 
     if partnumber > 1:
         if partnumber == 5 and disk_ptable == "msdos":
@@ -562,10 +565,18 @@ def partition_handler(info, storage_config):
                       info.get('id'), pnum)
             previous_partition = "/sys/block/%s/%s%s/" % \
                 (disk_kname, disk_kname, pnum)
+        LOG.debug("previous partition: {}".format(previous_partition))
+        # XXX: sys/block/X/{size,start} is *ALWAYS* in 512b value
         with open(os.path.join(previous_partition, "size"), "r") as fp:
-            previous_size = int(fp.read())
+            previous_size_sectors = (int(fp.read()) * 512 /
+                                     logical_block_size_bytes)
         with open(os.path.join(previous_partition, "start"), "r") as fp:
-            previous_start = int(fp.read())
+            previous_start_sectors = (int(fp.read()) * 512 /
+                                      logical_block_size_bytes)
+        LOG.debug("previous partition.size_sectors: {}".format(
+                  previous_size_sectors))
+        LOG.debug("previous partition.start_sectors: {}".format(
+                  previous_size_sectors))
 
     # Align to 1M at the beginning of the disk and at logical partitions
     alignment_offset = (1 << 20) / logical_block_size_bytes
@@ -576,18 +587,20 @@ def partition_handler(info, storage_config):
         # further partitions
         if disk_ptable == "gpt" or flag != "logical":
             # msdos primary and any gpt part start after former partition end
-            offset_sectors = previous_start + previous_size
+            offset_sectors = previous_start_sectors + previous_size_sectors
         else:
             # msdos extended/logical partitions
             if flag == "logical":
                 if partnumber == 5:
                     # First logical partition
                     # start at extended partition start + alignment_offset
-                    offset_sectors = previous_start + alignment_offset
+                    offset_sectors = (previous_start_sectors +
+                                      alignment_offset)
                 else:
                     # Further logical partitions
                     # start at former logical partition end + alignment_offset
-                    offset_sectors = (previous_start + previous_size +
+                    offset_sectors = (previous_start_sectors +
+                                      previous_size_sectors +
                                       alignment_offset)
 
     length_bytes = util.human2bytes(size)
@@ -623,6 +636,8 @@ def partition_handler(info, storage_config):
                     "linux": '8300'}
 
     LOG.info("adding partition '%s' to disk '%s'" % (info.get('id'), device))
+    LOG.debug("partnum: {} offset_sectors: {} length_sectors: {}".format(
+                partnumber, offset_sectors, length_sectors))
     if disk_ptable == "msdos":
         if flag in ["extended", "logical", "primary"]:
             partition_type = flag
@@ -631,7 +646,7 @@ def partition_handler(info, storage_config):
         cmd = ["parted", disk, "--script", "mkpart", partition_type,
                "%ss" % offset_sectors, "%ss" % str(offset_sectors +
                                                    length_sectors)]
-        util.subp(cmd)
+        util.subp(cmd, capture=True)
     elif disk_ptable == "gpt":
         if flag and flag in sgdisk_flags:
             typecode = sgdisk_flags[flag]
@@ -640,7 +655,7 @@ def partition_handler(info, storage_config):
         cmd = ["sgdisk", "--new", "%s:%s:%s" % (partnumber, offset_sectors,
                length_sectors + offset_sectors),
                "--typecode=%s:%s" % (partnumber, typecode), disk]
-        util.subp(cmd)
+        util.subp(cmd, capture=True)
     else:
         raise ValueError("parent partition has invalid partition table")
 
