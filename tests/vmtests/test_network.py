@@ -59,6 +59,7 @@ class TestNetworkAbs(VMBaseClass):
         cp -av /etc/udev/rules.d/70-persistent-net.rules .
         ip -o route show > ip_route_show
         route -n > route_n
+        cp -av /run/network ./run_network
         """)]
 
     def test_output_files_exist(self):
@@ -242,7 +243,10 @@ class TestNetworkVlanAbs(TestNetworkAbs):
     collect_scripts = TestNetworkAbs.collect_scripts + [textwrap.dedent("""
              cd OUTPUT_COLLECT_D
              dpkg-query -W -f '${Status}' vlan > vlan_installed
-             ip -d link show eth2.2667 > ip_link_show_eth2.2667
+             ip -d link show eth1.2667 > ip_link_show_eth1.2667
+             ip -d link show eth1.2668 > ip_link_show_eth1.2668
+             ip -d link show eth1.2669 > ip_link_show_eth1.2669
+             ip -d link show eth1.2670 > ip_link_show_eth1.2670
              """)]
 
     def get_vlans(self):
@@ -267,7 +271,7 @@ class TestNetworkVlanAbs(TestNetworkAbs):
     def test_vlan_enabled(self):
 
         # we must have at least one
-        self.assertGreaterEqual(1, len(self.get_vlans()))
+        self.assertGreaterEqual(len(self.get_vlans()), 1)
 
         # did they get configured?
         for vlan in self.get_vlans():
@@ -360,6 +364,34 @@ class XenialTestNetworkStatic(relbase.xenial, TestNetworkStaticAbs):
     #        over the net.ifnames to the installed system via '---' as the net
     #        config should take care of that.
     extra_kern_args = "net.ifnames=0"
+
+
+class PreciseTestNetworkVlan(relbase.precise, TestNetworkVlanAbs):
+    __test__ = True
+
+    # precise ip -d link show output is different (of course)
+    def test_vlan_enabled(self):
+
+        # we must have at least one
+        self.assertGreaterEqual(len(self.get_vlans()), 1)
+
+        # did they get configured?
+        for vlan in self.get_vlans():
+            link_file = "ip_link_show_" + vlan['name']
+            vlan_msg = "vlan id " + str(vlan['vlan_id'])
+            self.check_file_regex(link_file, vlan_msg)
+
+
+class TrustyTestNetworkVlan(relbase.trusty, TestNetworkVlanAbs):
+    __test__ = True
+
+
+class VividTestNetworkVlan(relbase.vivid, TestNetworkVlanAbs):
+    __test__ = True
+
+
+class WilyTestNetworkVlan(relbase.wily, TestNetworkVlanAbs):
+    __test__ = True
 
 
 class XenialTestNetworkVlan(relbase.xenial, TestNetworkVlanAbs):

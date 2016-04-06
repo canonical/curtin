@@ -1,31 +1,81 @@
 network:
-    version: 1
-    config:
-        # Physical interfaces.
-        - type: physical
-          name: eth0
-          mac_address: "52:54:00:12:34:00"
-          subnets:
-              - type: dhcp4
-        - type: physical
-          name: eth1
-          mtu: 1500
-          mac_address: "52:54:00:12:34:02"
-          subnets:
-              - type: static
-                address: 10.245.168.17/21
-                gateway: 10.245.168.1
-                dns_nameservers:
-                  - 10.245.168.2
-        - type: physical
-          name: eth2
-          mtu: 1500
-          mac_address: "52:54:00:12:34:04"
-        - type: vlan
-          name: eth2.2667
-          vlan_link: eth2
-          vlan_id: 2667
-          mtu: 1500
-          subnets:
-            - type: static
-              address: 10.245.184.20/24
+  config:
+  - id: eth0
+    mac_address: d4:be:d9:a8:49:13
+    mtu: 1500
+    name: eth0
+    subnets:
+    - address: 10.245.168.16/21
+      dns_nameservers:
+      - 10.245.168.2
+      gateway: 10.245.168.1
+      type: static
+    type: physical
+  - id: eth1
+    mac_address: d4:be:d9:a8:49:15
+    mtu: 1500
+    name: eth1
+    subnets:
+    - address: 10.245.188.2/24
+      dns_nameservers: []
+      type: static
+    type: physical
+  - id: eth2
+    mac_address: d4:be:d9:a8:49:17
+    mtu: 1500
+    name: eth2
+    subnets:
+    - type: manual
+    type: physical
+  - id: eth3
+    mac_address: d4:be:d9:a8:49:19
+    mtu: 1500
+    name: eth3
+    subnets:
+    - type: manual
+    type: physical
+  - id: eth1.2667
+    mtu: 1500
+    name: eth1.2667
+    subnets:
+    - address: 10.245.184.2/24
+      dns_nameservers: []
+      type: static
+    type: vlan
+    vlan_id: 2667
+    vlan_link: eth1
+  - id: eth1.2668
+    mtu: 1500
+    name: eth1.2668
+    subnets:
+    - address: 10.245.185.1/24
+      dns_nameservers: []
+      type: static
+    type: vlan
+    vlan_id: 2668
+    vlan_link: eth1
+  - id: eth1.2669
+    mtu: 1500
+    name: eth1.2669
+    subnets:
+    - address: 10.245.186.1/24
+      dns_nameservers: []
+      type: static
+    type: vlan
+    vlan_id: 2669
+    vlan_link: eth1
+  - id: eth1.2670
+    mtu: 1500
+    name: eth1.2670
+    subnets:
+    - address: 10.245.187.2/24
+      dns_nameservers: []
+      type: static
+    type: vlan
+    vlan_id: 2670
+    vlan_link: eth1
+  - address: 10.245.168.2
+    search:
+    - dellstack
+    type: nameserver
+  version: 1
