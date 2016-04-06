@@ -720,9 +720,13 @@ class VMBaseClass(TestCase):
         with open(self.reporting_log, 'r') as fp:
             data = json.load(fp)
         self.assertTrue(len(data) > 0)
+        first_event = data[0]
+        self.assertEqual(first_event['event_type'], 'start')
+        self.assertTrue(first_event['description'].startswith('started: '))
         final_event = data[-1]
         self.assertEqual(final_event['event_type'], 'finish')
         self.assertEqual(final_event['name'], 'cmd-install/stage-late')
+        self.assertTrue(final_event['description'].startswith('finished: '))
 
     def run(self, result):
         super(VMBaseClass, self).run(result)
