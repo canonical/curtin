@@ -17,7 +17,9 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import errno
+import glob
 import os
+import re
 
 from curtin.log import LOG
 from curtin.udev import generate_udev_rule
@@ -120,15 +122,18 @@ class ParserError(Exception):
     """Raised when parser has issue parsing the interfaces file."""
 
 
-def parse_deb_config_data(ifaces, contents, path):
+def parse_deb_config_data(ifaces, contents, src_dir, src_path):
     """Parses the file contents, placing result into ifaces.
+
+    '_source_path' is added to every dictionary entry to define which file
+    the configration information came from.
 
     :param ifaces: interface dictionary
     :param contents: contents of interfaces file
-    :param path: directory interfaces file was located
+    :param src_dir: directory interfaces file was located
+    :param src_path: file path the `contents` was read
     """
     currif = None
-    src_dir = path
     for line in contents.splitlines():
         line = line.strip()
         if line.startswith('#'):
@@ -136,25 +141,54 @@ def parse_deb_config_data(ifaces, contents, path):
         split = line.split(' ')
         option = split[0]
         if option == "source-directory":
-            src_dir = os.path.join(path, split[1])
+            parsed_src_dir = split[1]
+            if not parsed_src_dir.startswith("/"):
+                parsed_src_dir = os.path.join(src_dir, parsed_src_dir)
+            for expanded_path in glob.glob(parsed_src_dir):
+                dir_contents = os.listdir(expanded_path)
+                dir_contents = [
+                    os.path.join(expanded_path, path)
+                    for path in dir_contents
+                    if (os.path.isfile(os.path.join(expanded_path, path)) and
+                        re.match("^[a-zA-Z0-9_-]+$", path) is not None)
+                ]
+                for entry in dir_contents:
+                    with open(entry, "r") as fp:
+                        src_data = fp.read().strip()
+                    abs_entry = os.path.abspath(entry)
+                    parse_deb_config_data(
+                        ifaces, src_data,
+                        os.path.dirname(abs_entry), abs_entry)
         elif option == "source":
-            src_path = os.path.join(src_dir, split[1])
-            with open(src_path, "r") as fp:
-                src_data = fp.read().strip()
-            parse_deb_config_data(
-                ifaces, src_data,
-                os.path.dirname(os.path.abspath(src_path)))
+            new_src_path = split[1]
+            if not new_src_path.startswith("/"):
+                new_src_path = os.path.join(src_dir, new_src_path)
+            for expanded_path in glob.glob(new_src_path):
+                with open(expanded_path, "r") as fp:
+                    src_data = fp.read().strip()
+                abs_path = os.path.abspath(expanded_path)
+                parse_deb_config_data(
+                    ifaces, src_data,
+                    os.path.dirname(abs_path), abs_path)
         elif option == "auto":
             for iface in split[1:]:
                 if iface not in ifaces:
-                    ifaces[iface] = {}
+                    ifaces[iface] = {
+                        # Include the source path this interface was found in.
+                        "_source_path": src_path
+                    }
                 ifaces[iface]['auto'] = True
         elif option == "iface":
             iface, family, method = split[1:4]
             if iface not in ifaces:
-                ifaces[iface] = {}
+                ifaces[iface] = {
+                    # Include the source path this interface was found in.
+                    "_source_path": src_path
+                }
             elif 'family' in ifaces[iface]:
-                raise ParserError("Cannot define %s interface again.")
+                raise ParserError(
+                    "Interface %s can only be defined once. "
+                    "Re-defined in '%s'." % (iface, src_path))
             ifaces[iface]['family'] = family
             ifaces[iface]['method'] = method
             currif = iface
@@ -181,7 +215,7 @@ def parse_deb_config_data(ifaces, contents, path):
             if 'bridge' not in ifaces[currif]:
                 ifaces[currif]['bridge'] = {}
             if option in NET_CONFIG_BRIDGE_OPTIONS:
-                bridge_option = option.replace('bridge_', '')
+                bridge_option = option.replace('bridge_', '', 1)
                 ifaces[currif]['bridge'][bridge_option] = split[1]
             elif option == "bridge_ports":
                 ifaces[currif]['bridge']['ports'] = []
@@ -197,6 +231,11 @@ def parse_deb_config_data(ifaces, contents, path):
                 if 'portprio' not in ifaces[currif]['bridge']:
                     ifaces[currif]['bridge']['portprio'] = {}
                 ifaces[currif]['bridge']['portprio'][split[1]] = split[2]
+        elif option.startswith('bond-'):
+            if 'bond' not in ifaces[currif]:
+                ifaces[currif]['bond'] = {}
+            bond_option = option.replace('bond-', '', 1)
+            ifaces[currif]['bond'][bond_option] = split[1]
     for iface in ifaces.keys():
         if 'auto' not in ifaces[iface]:
             ifaces[iface]['auto'] = False
@@ -207,9 +246,10 @@ def parse_deb_config(path):
     ifaces = {}
     with open(path, "r") as fp:
         contents = fp.read().strip()
+    abs_path = os.path.abspath(path)
     parse_deb_config_data(
         ifaces, contents,
-        os.path.dirname(os.path.abspath(path)))
+        os.path.dirname(abs_path), abs_path)
     return ifaces
 
 
@@ -243,14 +283,15 @@ def render_persistent_net(network_state):
     ''' Given state, emit udev rules to map
         mac to ifname
     '''
-    content = ""
+    content = "# Autogenerated by curtin\n"
     interfaces = network_state.get('interfaces')
     for iface in interfaces.values():
-        # for physical interfaces write out a persist net udev rule
-        if iface['type'] == 'physical' and \
-           'name' in iface and 'mac_address' in iface:
-            content += generate_udev_rule(iface['name'],
-                                          iface['mac_address'])
+        if iface['type'] == 'physical':
+            ifname = iface.get('name', None)
+            mac = iface.get('mac_address', '')
+            # len(macaddr) == 2 * 6 + 5 == 17
+            if ifname and mac and len(mac) == 17:
+                content += generate_udev_rule(ifname, mac)
 
     return content
 
@@ -342,11 +383,14 @@ def render_interfaces(network_state):
 
     for iface in sorted(interfaces.values(),
                         key=lambda k: (order[k['type']], k['name'])):
-        content += "auto {name}\n".format(**iface)
 
+        if content[-2:] != "\n\n":
+            content += "\n"
         subnets = iface.get('subnets', {})
         if subnets:
             for index, subnet in zip(range(0, len(subnets)), subnets):
+                if content[-2:] != "\n\n":
+                    content += "\n"
                 iface['index'] = index
                 iface['mode'] = subnet['type']
                 if iface['mode'].endswith('6'):
@@ -357,19 +401,22 @@ def render_interfaces(network_state):
                     iface['mode'] = 'dhcp'
 
                 if index == 0:
+                    if subnet['type'] != 'manual':
+                        content += "auto {name}\n".format(**iface)
                     content += "iface {name} {inet} {mode}\n".format(**iface)
                 else:
-                    content += "auto {name}:{index}\n".format(**iface)
+                    if subnet['type'] != 'manual':
+                        content += "auto {name}:{index}\n".format(**iface)
                     content += \
                         "iface {name}:{index} {inet} {mode}\n".format(**iface)
 
                 content += iface_add_subnet(iface, subnet)
                 content += iface_add_attrs(iface)
-                content += "\n"
         else:
+            if 'bond-master' in iface:
+                content += "auto {name}\n".format(**iface)
             content += "iface {name} {inet} {mode}\n".format(**iface)
             content += iface_add_attrs(iface)
-            content += "\n"
 
     for route in network_state.get('routes'):
         content += render_route(route)
@@ -386,11 +433,15 @@ def render_network_state(target, network_state):
     eni = os.path.sep.join((target, eni,))
     util.ensure_dir(os.path.dirname(eni))
     with open(eni, 'w+') as f:
+        LOG.info('Writing ' + eni)
         f.write(render_interfaces(network_state))
 
     netrules = os.path.sep.join((target, netrules,))
     util.ensure_dir(os.path.dirname(netrules))
-    with open(netrules, 'w+') as f:
-        f.write(render_persistent_net(network_state))
+    persistent_net_rules = render_persistent_net(network_state)
+    if len(persistent_net_rules) > 0:
+        with open(netrules, 'w+') as f:
+            LOG.info('Writing ' + netrules)
+            f.write(persistent_net_rules)
 
 # vi: ts=4 expandtab syntax=python

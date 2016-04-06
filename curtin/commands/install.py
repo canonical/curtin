@@ -35,6 +35,8 @@ from . import populate_one_subcmd
 
 INSTALL_LOG = "/var/log/curtin/install.log"
 
+INSTALL_PASS_MSG = "curtin: Installation finished."
+
 STAGE_DESCRIPTIONS = {
     'early': 'preparing for installation',
     'partitioning': 'configuring storage',
@@ -174,8 +176,8 @@ class Stage(object):
             if not cmd:
                 continue
             cur_res = events.ReportEventStack(
-                name=cmdname, description="running '%s'" % cmdname,
-                parent=self.reportstack)
+                name=cmdname, description="running '%s'" % ' '.join(cmd),
+                parent=self.reportstack, level="DEBUG")
 
             env = self.env.copy()
             env['CURTIN_REPORTSTACK'] = cur_res.fullname
@@ -354,6 +356,20 @@ def cmd_install(args):
     logfile = instcfg.get('log_file')
     post_files = instcfg.get('post_files', [logfile])
 
+    # Generate curtin configuration dump and add to write_files unless
+    # installation config disables dump
+    yaml_dump_file = instcfg.get('save_install_config',
+                                 '/root/curtin-install-cfg.yaml')
+    if yaml_dump_file:
+        write_files = cfg.get('write_files', {})
+        write_files['curtin_install_cfg'] = {
+            'path': yaml_dump_file,
+            'permissions': '0400',
+            'owner': 'root:root',
+            'content': config.dump_config(cfg)
+        }
+        cfg['write_files'] = write_files
+
     # Load reporter
     clear_install_log(logfile)
     post_files = cfg.get('post_files', [logfile])
@@ -389,7 +405,14 @@ def cmd_install(args):
             cfg['power_state'] = {'mode': 'reboot', 'delay': 'now',
                                   'message': "'rebooting with kexec'"}
 
-        writeline(logfile, "Installation finished.")
+        writeline(logfile, INSTALL_PASS_MSG)
+        out = sys.stdout
+        msg = "%s\n" % INSTALL_PASS_MSG
+        if hasattr(out, 'buffer'):
+            out = out.buffer
+            msg = msg.encode()
+        out.write(msg)
+        out.flush()
         legacy_reporter.report_success()
     except Exception as e:
         exp_msg = "Installation failed with exception: %s" % e

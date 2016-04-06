@@ -597,9 +597,11 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         with self.assertRaises(ValueError):
             mdadm.md_device_key_dev(devname)
 
+    @patch('curtin.block.get_blockdev_for_partition')
     @patch('curtin.block.mdadm.os.path.exists')
     @patch('curtin.block.mdadm.os.listdir')
-    def tests_md_get_spares_list(self, mock_listdir, mock_exists):
+    def tests_md_get_spares_list(self, mock_listdir, mock_exists,
+                                 mock_getbdev):
         mdname = '/dev/md0'
         devices = ['dev-vda', 'dev-vdb', 'dev-vdc']
         states = ['in-sync', 'in-sync', 'spare']
@@ -607,6 +609,7 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         mock_exists.return_value = True
         mock_listdir.return_value = devices
         self.mock_util.load_file.side_effect = states
+        mock_getbdev.return_value = ('md0', None)
 
         sysfs_path = '/sys/class/block/md0/md/'
 
@@ -618,16 +621,20 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         self.mock_util.load_file.assert_has_calls(expected_calls)
         self.assertEqual(['/dev/vdc'], spares)
 
+    @patch('curtin.block.get_blockdev_for_partition')
     @patch('curtin.block.mdadm.os.path.exists')
-    def tests_md_get_spares_list_nomd(self, mock_exists):
+    def tests_md_get_spares_list_nomd(self, mock_exists, mock_getbdev):
         mdname = '/dev/md0'
         mock_exists.return_value = False
+        mock_getbdev.return_value = ('md0', None)
         with self.assertRaises(OSError):
             mdadm.md_get_spares_list(mdname)
 
+    @patch('curtin.block.get_blockdev_for_partition')
     @patch('curtin.block.mdadm.os.path.exists')
     @patch('curtin.block.mdadm.os.listdir')
-    def tests_md_get_devices_list(self, mock_listdir, mock_exists):
+    def tests_md_get_devices_list(self, mock_listdir, mock_exists,
+                                  mock_getbdev):
         mdname = '/dev/md0'
         devices = ['dev-vda', 'dev-vdb', 'dev-vdc']
         states = ['in-sync', 'in-sync', 'spare']
@@ -635,6 +642,7 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         mock_exists.return_value = True
         mock_listdir.return_value = devices
         self.mock_util.load_file.side_effect = states
+        mock_getbdev.return_value = ('md0', None)
 
         sysfs_path = '/sys/class/block/md0/md/'
 
@@ -646,10 +654,12 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         self.mock_util.load_file.assert_has_calls(expected_calls)
         self.assertEqual(sorted(['/dev/vda', '/dev/vdb']), sorted(devs))
 
+    @patch('curtin.block.get_blockdev_for_partition')
     @patch('curtin.block.mdadm.os.path.exists')
-    def tests_md_get_devices_list_nomd(self, mock_exists):
+    def tests_md_get_devices_list_nomd(self, mock_exists, mock_getbdev):
         mdname = '/dev/md0'
         mock_exists.return_value = False
+        mock_getbdev.return_value = ('md0', None)
         with self.assertRaises(OSError):
             mdadm.md_get_devices_list(mdname)
 

@@ -1,7 +1,9 @@
+from curtin.util import get_platform_arch
+
+
 class _ReleaseBase(object):
     repo = "maas-daily"
-    # FIXME PPC64
-    arch = "ppc64el"
+    arch = get_platform_arch()
 
 
 class _PreciseBase(_ReleaseBase):

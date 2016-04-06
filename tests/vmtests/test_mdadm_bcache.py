@@ -6,8 +6,6 @@ import os
 
 
 class TestMdadmAbs(VMBaseClass):
-    install_timeout = 600
-    boot_timeout = 100
     interactive = False
     extra_disks = []
     active_mdadm = "1"
@@ -33,6 +31,9 @@ class TestMdadmAbs(VMBaseClass):
 
 
 class TestMdadmBcacheAbs(TestMdadmAbs):
+    arch_skip = [
+        "s390x",  # lp:1565029
+        ]
     conf_file = "examples/tests/mdadm_bcache.yaml"
     disk_to_check = [('main_disk', 1),
                      ('main_disk', 2),
@@ -203,8 +204,6 @@ class WilyTestRaid10boot(relbase.wily, TestRaid10bootAbs):
 
 class TestAllindataAbs(TestMdadmAbs):
     # more complex, needs more time
-    install_timeout = 900
-    boot_timeout = 200
     # alternative config for more complex setup
     conf_file = "examples/tests/allindata.yaml"
     # we have to avoid a systemd hang due to the way it handles dmcrypt

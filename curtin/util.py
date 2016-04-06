@@ -20,6 +20,7 @@ import errno
 import glob
 import json
 import os
+import platform
 import shutil
 import subprocess
 import stat
@@ -146,7 +147,8 @@ def load_command_environment(env=os.environ, strict=False):
                'interfaces': 'OUTPUT_INTERFACES', 'config': 'CONFIG',
                'target': 'TARGET_MOUNT_POINT',
                'network_state': 'OUTPUT_NETWORK_STATE',
-               'network_config': 'OUTPUT_NETWORK_CONFIG'}
+               'network_config': 'OUTPUT_NETWORK_CONFIG',
+               'report_stack_prefix': 'CURTIN_REPORTSTACK'}
 
     if strict:
         missing = [k for k in mapping if k not in env]
@@ -816,5 +818,15 @@ def json_dumps(data):
     return json.dumps(data, indent=1, sort_keys=True,
                       separators=(',', ': ')).encode('utf-8')
 
+
+def get_platform_arch():
+    platform2arch = {
+        'i586': 'i386',
+        'i686': 'i386',
+        'x86_64': 'amd64',
+        'ppc64le': 'ppc64el',
+        'aarch64': 'arm64',
+    }
+    return platform2arch.get(platform.machine(), platform.machine())
 
 # vi: ts=4 expandtab syntax=python

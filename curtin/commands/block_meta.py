@@ -20,6 +20,7 @@ from curtin import (block, config, util)
 from curtin.block import mdadm
 from curtin.log import LOG
 from curtin.block import mkfs
+from curtin.reporter import events
 
 from . import populate_one_subcmd
 from curtin.udev import compose_udev_equality
@@ -27,10 +28,10 @@ from curtin.udev import compose_udev_equality
 import glob
 import os
 import platform
+import re
 import sys
 import tempfile
 import time
-import re
 
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
@@ -128,35 +129,11 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
     return "mbr"
 
 
-def wipe_volume(path, wipe_type):
-    cmds = []
-    if wipe_type == "pvremove":
-        # We need to use --force --force in case it's already in a volgroup and
-        # pvremove doesn't want to remove it
-        cmds.append(["pvremove", "--force", "--force", "--yes", path])
-        cmds.append(["pvscan", "--cache"])
-        cmds.append(["vgscan", "--mknodes", "--cache"])
-    elif wipe_type == "zero":
-        cmds.append(["dd", "bs=512", "if=/dev/zero", "of=%s" % path])
-    elif wipe_type == "random":
-        cmds.append(["dd", "bs=512", "if=/dev/urandom", "of=%s" % path])
-    elif wipe_type == "superblock":
-        cmds.append(["sgdisk", "--zap-all", path])
-    else:
-        raise ValueError("wipe mode %s not supported" % wipe_type)
-    # Dd commands will likely exit with 1 when they run out of space. This
-    # is expected and not an issue. If pvremove is run and there is no label on
-    # the system, then it exits with 5. That is also okay, because we might be
-    # wiping something that is already blank
-    for cmd in cmds:
-        util.subp(cmd, rcs=[0, 1, 2, 5], capture=True)
-
-
 def block_find_sysfs_path(devname):
-    # Look up any block device holders.  Handle devices and partitions
-    # as devnames (vdb, md0, vdb7)
+    # return the path in /sys (/sys/class/block/<dev>) for
+    # the device name /dev/XXX or XXX
     if not devname:
-        return []
+        raise ValueError("empty devname provided to find_sysfs_path")
 
     sys_class_block = '/sys/class/block/'
     basename = os.path.basename(devname)
@@ -231,7 +208,8 @@ def clear_holders(sys_block_path):
                         util.subp(["udevadm", "settle"])
                     break
         for part_dev in part_devs:
-            wipe_volume(os.path.join("/dev", part_dev), "superblock")
+            block.wipe_volume(os.path.join("/dev", part_dev),
+                              mode="superblock")
 
     if os.path.exists(os.path.join(sys_block_path, "bcache")):
         # bcache device that isn't running, if it were, we would have found it
@@ -277,6 +255,14 @@ def devsync(devpath):
             LOG.debug('Waiting on device path: {}'.format(devpath))
             time.sleep(1)
     raise OSError('Failed to find device at path: {}'.format(devpath))
+
+
+def determine_partition_kname(disk_kname, partition_number):
+    for dev_type in ["nvme", "mmcblk"]:
+        if disk_kname.startswith(dev_type):
+            partition_number = "p%s" % partition_number
+            break
+    return "%s%s" % (disk_kname, partition_number)
 
 
 def determine_partition_number(partition_id, storage_config):
@@ -368,7 +354,9 @@ def get_path_to_storage_volume(volume, storage_config):
         partnumber = determine_partition_number(vol.get('id'), storage_config)
         disk_block_path = get_path_to_storage_volume(vol.get('device'),
                                                      storage_config)
-        volume_path = disk_block_path + str(partnumber)
+        (base_path, disk_kname) = os.path.split(disk_block_path)
+        partition_kname = determine_partition_kname(disk_kname, partnumber)
+        volume_path = os.path.join(base_path, partition_kname)
         devsync_vol = os.path.join(disk_block_path)
 
     elif vol.get('type') == "disk":
@@ -476,10 +464,10 @@ def disk_handler(info, storage_config):
                 block_no = fp.read().rstrip()
             partition_path = os.path.realpath(
                 os.path.join("/dev/block", block_no))
-            wipe_volume(partition_path, info.get('wipe'))
+            block.wipe_volume(partition_path, mode=info.get('wipe'))
 
         clear_holders("/sys/block/%s" % disk_kname)
-        wipe_volume(disk, info.get('wipe'))
+        block.wipe_volume(disk, mode=info.get('wipe'))
 
     # Create partition table on disk
     if info.get('ptable'):
@@ -554,14 +542,17 @@ def partition_handler(info, storage_config):
                     extended_part_no = determine_partition_number(
                         key, storage_config)
                     break
-            previous_partition = "/sys/block/%s/%s%s/" % \
-                (disk_kname, disk_kname, extended_part_no)
+            partition_kname = determine_partition_kname(
+                disk_kname, extended_part_no)
+            previous_partition = "/sys/block/%s/%s/" % \
+                (disk_kname, partition_kname)
         else:
             pnum = find_previous_partition(device, info['id'], storage_config)
             LOG.debug("previous partition number for '%s' found to be '%s'",
                       info.get('id'), pnum)
-            previous_partition = "/sys/block/%s/%s%s/" % \
-                (disk_kname, disk_kname, pnum)
+            partition_kname = determine_partition_kname(disk_kname, pnum)
+            previous_partition = "/sys/block/%s/%s/" % \
+                (disk_kname, partition_kname)
         with open(os.path.join(previous_partition, "size"), "r") as fp:
             previous_size = int(fp.read())
         with open(os.path.join(previous_partition, "start"), "r") as fp:
@@ -646,9 +637,9 @@ def partition_handler(info, storage_config):
 
     # Wipe the partition if told to do so
     if info.get('wipe') and info.get('wipe') != "none":
-        wipe_volume(
+        block.wipe_volume(
             get_path_to_storage_volume(info.get('id'), storage_config),
-            info.get('wipe'))
+            mode=info.get('wipe'))
     # Make the name if needed
     if storage_config.get(device).get('name') and partition_type != 'extended':
         make_dname(info.get('id'), storage_config)
@@ -1075,16 +1066,23 @@ def meta_custom(args):
 
     storage_config_dict = extract_storage_ordered_dict(cfg)
 
+    # set up reportstack
+    stack_prefix = state.get('report_stack_prefix', '')
+
     for item_id, command in storage_config_dict.items():
         handler = command_handlers.get(command['type'])
         if not handler:
             raise ValueError("unknown command type '%s'" % command['type'])
-        try:
-            handler(command, storage_config_dict)
-        except Exception as error:
-            LOG.error("An error occured handling '%s': %s - %s" %
-                      (item_id, type(error).__name__, error))
-            raise
+        with events.ReportEventStack(
+                name=stack_prefix, reporting_enabled=True, level="INFO",
+                description="configuring %s: %s" % (command['type'],
+                                                    command['id'])):
+            try:
+                handler(command, storage_config_dict)
+            except Exception as error:
+                LOG.error("An error occured handling '%s': %s - %s" %
+                          (item_id, type(error).__name__, error))
+                raise
 
     return 0
 
