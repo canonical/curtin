@@ -53,12 +53,14 @@ class TestBasicAbs(VMBaseClass):
                                  sorted(efi_lines))
 
     def test_disk_block_sizes(self):
-        """ Test disk logical and physical block size are 4096 """
+        """ Test disk logical and physical block size are match
+            the class block size.
+        """
         for bs in ['lbs', 'pbs']:
             with open(os.path.join(self.td.collect,
                       'vda_' + bs), 'r') as fp:
                 size = int(fp.read())
-                self.assertEqual(4096, size)
+                self.assertEqual(self.disk_block_size, size)
 
 
 class PreciseUefiTestBasic(relbase.precise, TestBasicAbs):

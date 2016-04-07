@@ -413,7 +413,7 @@ main() {
         fi
 
         if [ -z "${driver}" ]; then
-            if="virtio-blk-pci"
+            driver="virtio-blk-pci"
         fi
         
         if [ -z "${bsize}" ]; then

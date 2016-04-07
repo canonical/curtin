@@ -479,7 +479,7 @@ class VMBaseClass(TestCase):
         # --disk source:size:driver:block_size
         target_disk = "{}:{}:{}:{}".format(cls.td.target_disk, "", "",
                                            cls.disk_block_size)
-        cmd.extend(netdevs + ["--disk", target_disk],
+        cmd.extend(netdevs + ["--disk", target_disk] +
                    extra_disks + nvme_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "-vv", "install"] +
@@ -570,7 +570,7 @@ class VMBaseClass(TestCase):
                  'file={},if=none,cache=unsafe,format={},id=drv{}'.format(
                      dpath, TARGET_IMAGE_FORMAT, disk_idx),
                  '-device', 'nvme,drive=drv{},serial=NVM{}'.format(
-                     disk_no, disk_idx)])
+                     disk_idx, disk_idx)])
 
         # create xkvm cmd
         cmd = (["tools/xkvm", "-v", dowait] + netdevs +
