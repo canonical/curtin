@@ -23,8 +23,11 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
            --add  F[:T] add file 'F' to the curtin archive at T
       -a | --append     append args to kernel cmdline (--kernel)
       -A | --arch   A   assume guest kernel architecture A
-      -d | --disk   D   add a disk 'D' format (path[:size][:driver])
+      -d | --disk   D   add a disk 'D' format (path[:size][:driver][:bsize])
                         driver can be specified without size using path::driver
+                        driver defaults to virtio-blk-pci
+                        bsize <logical>[,<physical>][,<min_io_size>]
+                        bsize defaults to 512b sector size
            --uefi   N   enable uefi boot method, store nvram at N
       -h | --help       show this message
       -i | --initrd F   use initramfs F
@@ -251,7 +254,7 @@ main() {
     local tmp="" top_d
     local initrd="" kernel="" uappend="" iargs="" disk_args=""
     local pubs="" disks="" pstate="null"
-    local uefi="" bios=""
+    local uefi="" bios="" bsize="512"
     local netdevs="" install_deps="--install-deps"
     local arch_hint=""
     local video="-curses -vga std" serial_log="serial.log"
@@ -387,31 +390,36 @@ main() {
     local disk="" src="" size="" fmt="" out="" id="" driver="" if=""
     local split_input=""
     disk_args=( )
-    id=0
+    id=1
     for disk in "${disks[@]}"; do
         ((id++))
-        size=5G
-        if="none"
-        driver=""
-        split_input=( $(echo "${disk}" | tr ":" "\n") )
-        src="${split_input[0]}"
-        if [ "${#split_input[@]}" -gt 1 ]; then
-            if [ "${#split_input[@]}" -eq 2 ]; then
-                if [[ "${disk}" == *"::"* ]]; then
-                    driver="${split_input[1]}"
-                else
-                    size="${split_input[1]}"
-                fi
-            else
-                size="${split_input[1]}"
-                driver="${split_input[2]}"
-            fi
+
+        # 1=src
+        # 2=src:size
+        # 3=src:size:driver
+        # 4=src:size:driver:bsize
+        src=$(echo $disk | awk -F: '{print $1}')
+        size=$(echo $disk | awk -F: '{print $2}')
+        driver=$(echo $disk | awk -F: '{print $3}')
+        bsize=$(echo $disk | awk -F: '{print $4}')
+        
+        if [ -z "${src}" ]; then
+            error "Failed to provide disk source"
+            exit 1
+        fi
+
+        if [ -z "${size}" ]; then
+            size=5G
         fi
 
         if [ -z "${driver}" ]; then
-            if="virtio"
+            if="virtio-blk-pci"
         fi
         
+        if [ -z "${bsize}" ]; then
+            bsize="512"
+        fi
+
         if [ ! -f "$src" ]; then
             qemu-img create -f raw "${src}" "$size" ||
                 { error "failed create $src of size $size"; return 1; }
@@ -421,13 +429,20 @@ main() {
                 fmt=$(echo "$out" | awk '$0 ~ /^file format:/ { print $3 }') ||
                 { error "failed to determine format of $src"; return 1; }
         fi
-        
+
+        # set logical/physical size blocksz is logical:phys
+        local logbs=$(round_up ${bsize%%:*})
+        local phybs=$(round_up ${bsize##*:})
+        local bs_args="logical_block_size=$logbs"
+              bs_args="${bs_args},physical_block_size=$phybs"
+              bs_args="${bs_args},min_io_size=$logbs"
+
         disk_args=( "${disk_args[@]}" "-drive"
-            "file=${src},if=${if},cache=unsafe,format=$fmt,id=drv${id}" )
-        if [ -n "${driver}" ]; then
-            disk_args=( "${disk_args[@]}" "-device"
-                "${driver},drive=drv${id},serial=dev${id}" )
-        fi
+            "file=${src},if=none,cache=unsafe,format=$fmt,id=drv${id},index=$id" )
+
+        disk_args=( "${disk_args[@]}" "-device"
+            "${driver},drive=drv${id},serial=dev${id},${bs_args}" )
+        
     done
 
     get_my_ip || { error "failed to get your ip. set IP_ADDR"; return 1; }
@@ -586,7 +601,8 @@ main() {
         xkvm "${pt[@]}" "${netargs[@]}" --
         "${bios_opts[@]}"
         -m ${mem} ${serial_args} ${video}
-        -drive "file=$bootimg,if=virtio,cache=unsafe,format=qcow2"
+        -drive "file=$bootimg,if=none,cache=unsafe,format=qcow2,id=boot,index=0"
+        -device "virtio-blk-pci,drive=boot"
         "${disk_args[@]}"
         "${seedargs[@]}"
         )
@@ -608,6 +624,24 @@ main() {
 
     return $ret
 }
+
+
+round_up() {
+    local size="${1}"
+    local multiple="${2:-512}"
+    local max_size=$((32 * 1024)) # 32k max
+
+    size=$(( (($size + $multiple - 1) / $multiple) * $multiple))
+    if [ $size -gt $max_size ]; then
+        echo $max_size
+        return
+    elif [ $size -lt $multiple ]; then
+        echo $multiple
+        return
+    fi
+    echo $size
+}
+
 
 test_start_http() {
     # run this like:

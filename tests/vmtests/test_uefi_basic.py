@@ -24,6 +24,8 @@ class TestBasicAbs(VMBaseClass):
         mkdir -p /dev/disk/by-dname
         ls /dev/disk/by-dname/ > ls_dname
         ls /sys/firmware/efi/ > ls_sys_firmware_efi
+        cat /sys/class/block/vda/queue/logical_block_size > vda_lbs
+        cat /sys/class/block/vda/queue/physical_block_size > vda_pbs
         """)]
 
     def test_output_files_exist(self):
@@ -49,6 +51,14 @@ class TestBasicAbs(VMBaseClass):
                 efi_lines = fp.read().strip().split('\n')
                 self.assertEqual(sorted(sys_efi_expected),
                                  sorted(efi_lines))
+
+    def test_disk_block_sizes(self):
+        """ Test disk logical and physical block size are 4096 """
+        for bs in ['lbs', 'pbs']:
+            with open(os.path.join(self.td.collect,
+                      'vda_' + bs), 'r') as fp:
+                size = int(fp.read())
+                self.assertEqual(4096, size)
 
 
 class PreciseUefiTestBasic(relbase.precise, TestBasicAbs):
@@ -80,3 +90,8 @@ class WilyUefiTestBasic(relbase.wily, TestBasicAbs):
 
 class XenialUefiTestBasic(relbase.xenial, TestBasicAbs):
     __test__ = True
+
+
+class XenialUefiTestBasic4k(relbase.xenial, TestBasicAbs):
+    __test__ = True
+    disk_block_size = 4096
