@@ -185,10 +185,8 @@ def parse_deb_config_data(ifaces, contents, src_dir, src_path):
                     # Include the source path this interface was found in.
                     "_source_path": src_path
                 }
-            elif 'family' in ifaces[iface]:
-                raise ParserError(
-                    "Interface %s can only be defined once. "
-                    "Re-defined in '%s'." % (iface, src_path))
+            # man (5) interfaces says we can have multiple iface stanzas
+            # all options are combined
             ifaces[iface]['family'] = family
             ifaces[iface]['method'] = method
             currif = iface
@@ -423,6 +421,10 @@ def render_interfaces(network_state):
 
     # global replacements until v2 format
     content = content.replace('mac_address', 'hwaddress')
+
+    # Play nice with others and source eni config files
+    content += "\nsource /etc/network/interfaces.d/*.cfg\n"
+
     return content
 
 

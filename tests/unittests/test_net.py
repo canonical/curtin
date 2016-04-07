@@ -67,19 +67,6 @@ class TestNetParserData(TestCase):
                 },
             }, ifaces)
 
-    def test_parse_deb_config_data_error_on_redefine(self):
-        contents = dedent("""\
-            iface eth0 inet static
-            address 192.168.1.2
-            iface eth0 inet static
-            address 192.168.1.3
-            """)
-        ifaces = {}
-        self.assertRaises(
-            net.ParserError,
-            net.parse_deb_config_data,
-            ifaces, contents, '', '/etc/network/interfaces')
-
     def test_parse_deb_config_data_commands(self):
         contents = dedent("""\
             iface eth0 inet manual
@@ -476,16 +463,23 @@ network:
 
     def test_render_interfaces(self):
         ns = self.get_net_state()
-        ifaces = ('auto lo\n' + 'iface lo inet loopback\n' +
+        ifaces = ('auto lo\n' +
+                  'iface lo inet loopback\n' +
                   '    dns-nameservers 1.2.3.4 5.6.7.8\n' +
                   '    dns-search wark.maas\n' +
-                  'auto eth0\n' + 'iface eth0 inet dhcp\n\n' +
+                  '\n' +
+                  'auto eth0\n' +
+                  'iface eth0 inet dhcp\n' +
+                  '\n' +
                   'auto eth0:1\n' +
                   'iface eth0:1 inet static\n' +
                   '    address 192.168.21.3/24\n' +
                   '    dns-nameservers 8.8.8.8 8.8.4.4\n' +
-                  '    dns-search barley.maas sach.maas\n\n' +
-                  'iface eth1 inet manual\n\n')
+                  '    dns-search barley.maas sach.maas\n'
+                  '\n' +
+                  'iface eth1 inet manual\n'
+                  '\n' +
+                  'source /etc/network/interfaces.d/*.cfg\n')
         net_ifaces = net.render_interfaces(ns.network_state)
         print(ns.network_state.get('interfaces'))
         self.assertEqual(sorted(ifaces.split('\n')),
@@ -496,27 +490,35 @@ network:
 
         ns = self.get_net_state(bond_config)
         ifaces = ('auto lo\n' +
-                  'iface lo inet loopback\n\n' +
+                  'iface lo inet loopback\n' +
+                  '\n' +
                   'auto eth0\n' +
-                  'iface eth0 inet dhcp\n\n' +
+                  'iface eth0 inet dhcp\n'
+                  '\n' +
                   'auto eth1\n' +
                   'iface eth1 inet manual\n' +
+                  '    bond-mode active-backup\n' +
                   '    bond-master bond0\n' +
-                  '    bond-mode active-backup\n\n' +
+                  '\n' +
                   'auto eth2\n' +
                   'iface eth2 inet manual\n' +
+                  '    bond-mode active-backup\n' +
                   '    bond-master bond0\n' +
-                  '    bond-mode active-backup\n\n' +
+                  '\n' +
                   'auto bond0\n' +
                   'iface bond0 inet static\n' +
                   '    address 10.23.23.2/24\n' +
                   '    bond-mode active-backup\n' +
                   '    hwaddress 52:54:00:12:34:06\n' +
-                  '    bond-slaves none\n')
+                  '    bond-slaves none\n' +
+                  '\n' +
+                  'source /etc/network/interfaces.d/*.cfg\n')
         net_ifaces = net.render_interfaces(ns.network_state)
-        print("\n".join(sorted(ifaces.split('\n'))))
+        print("\n".join(list(map(str,
+                                 enumerate(sorted(ifaces.split('\n')))))))
         print("\n^^ LOCAL -- RENDER vv")
-        print("\n".join(sorted(net_ifaces.split('\n'))))
+        print("\n".join(list(map(str,
+                                 enumerate(sorted(net_ifaces.split('\n')))))))
         print(ns.network_state.get('interfaces'))
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
