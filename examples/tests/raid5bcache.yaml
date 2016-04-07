@@ -1,3 +1,4 @@
+showtrace: true
 storage:
   config:
   - grub_device: true

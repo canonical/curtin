@@ -25,9 +25,10 @@ from .. import log
 from .. import util
 from ..deps import install_deps
 
-SUB_COMMAND_MODULES = ['apply_net', 'block-meta', 'curthooks', 'extract',
-                       'hook', 'in-target', 'install', 'mkfs', 'net-meta',
-                       'pack', 'swap', 'system-install', 'system-upgrade']
+SUB_COMMAND_MODULES = [
+    'apply_net', 'block-meta', 'block-wipe', 'curthooks', 'extract',
+    'hook', 'in-target', 'install', 'mkfs', 'net-meta',
+    'pack', 'swap', 'system-install', 'system-upgrade']
 
 
 def add_subcmd(subparser, subcmd):
@@ -201,8 +202,8 @@ def main(argv=None):
         stack_prefix = stack_prefix[1:]
     os.environ["CURTIN_REPORTSTACK"] = stack_prefix
     args.reportstack = events.ReportEventStack(
-        name=stack_prefix, description="curtin command %s" % args.subcmd,
-        reporting_enabled=True)
+        name=stack_prefix, reporting_enabled=True, level="DEBUG",
+        description="curtin command %s" % args.subcmd)
 
     try:
         with args.reportstack:

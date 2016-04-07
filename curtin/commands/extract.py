@@ -21,6 +21,7 @@ import sys
 import curtin.config
 from curtin.log import LOG
 import curtin.util
+from curtin.reporter import events
 
 from . import populate_one_subcmd
 
@@ -82,14 +83,12 @@ def extract(args):
     if not args.target:
         raise ValueError("Target must be defined or set in environment")
 
-    cfgfile = os.environ.get('CONFIG')
-    cfg = {}
+    state = curtin.util.load_command_environment()
+    cfg = curtin.config.load_command_config(args, state)
 
     sources = args.sources
     target = args.target
     if not sources:
-        if cfgfile:
-            cfg = curtin.config.load_config(cfgfile)
         if not cfg.get('sources'):
             raise ValueError("'sources' must be on cmdline or in config")
         sources = cfg.get('sources')
@@ -98,25 +97,30 @@ def extract(args):
         sources = [sources[k] for k in sorted(sources.keys())]
 
     LOG.debug("Installing sources: %s to target at %s" % (sources, target))
+    stack_prefix = state.get('report_stack_prefix', '')
 
     for source in sources:
-        if source['type'].startswith('dd-'):
-            continue
-        if source['uri'].startswith("cp://"):
-            copy_to_target(source['uri'], target)
-        elif os.path.isfile(source['uri']):
-            extract_root_tgz_file(source['uri'], target)
-        elif source['uri'].startswith("file://"):
-            extract_root_tgz_file(
-                source['uri'][len("file://"):],
-                target)
-        elif (source['uri'].startswith("http://") or
-              source['uri'].startswith("https://")):
-            extract_root_tgz_url(source['uri'], target)
-        else:
-            raise TypeError(
-                "do not know how to extract '%s'" %
-                source['uri'])
+        with events.ReportEventStack(
+                name=stack_prefix, reporting_enabled=True, level="INFO",
+                description="acquiring and extracting image from %s" %
+                source['uri']):
+            if source['type'].startswith('dd-'):
+                continue
+            if source['uri'].startswith("cp://"):
+                copy_to_target(source['uri'], target)
+            elif os.path.isfile(source['uri']):
+                extract_root_tgz_file(source['uri'], target)
+            elif source['uri'].startswith("file://"):
+                extract_root_tgz_file(
+                    source['uri'][len("file://"):],
+                    target)
+            elif (source['uri'].startswith("http://") or
+                  source['uri'].startswith("https://")):
+                extract_root_tgz_url(source['uri'], target)
+            else:
+                raise TypeError(
+                    "do not know how to extract '%s'" %
+                    source['uri'])
 
     sys.exit(0)
 

@@ -285,6 +285,11 @@ main() {
             [ -n "$kvm" ] ||
             	{ kvm="qemu-system-x86_64"; kvm_pkg="qemu-system-x86"; }
             ;;
+        s390x)
+            [ -n "$kvm" ] ||
+            	{ kvm="qemu-system-s390x"; kvm_pkg="qemu-system-misc"; }
+	    def_netmodel=${DEF_NETMODEL:-"virtio-net-ccw"}
+            ;;
         ppc64*)
             [ -n "$kvm" ] ||
             	{ kvm="qemu-system-ppc64"; kvm_pkg="qemu-system-ppc"; }

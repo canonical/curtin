@@ -174,7 +174,22 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
     # Create the raid device
     util.subp(["udevadm", "settle"])
     util.subp(["udevadm", "control", "--stop-exec-queue"])
-    util.subp(cmd, capture=True)
+    try:
+        util.subp(cmd, capture=True)
+    except util.ProcessExecutionError:
+        # frequent issues by modules being missing (LP: #1519470) - add debug
+        LOG.debug('mdadm_create failed - extra debug regarding md modules')
+        (out, _err) = util.subp(["lsmod"], capture=True)
+        if not _err:
+            LOG.debug('modules loaded: \n%s' % out)
+        raidmodpath = '/lib/modules/%s/kernel/drivers/md' % os.uname()[2]
+        (out, _err) = util.subp(["find", raidmodpath],
+                                rcs=[0, 1], capture=True)
+        if out:
+            LOG.debug('available md modules: \n%s' % out)
+        else:
+            LOG.debug('no available md modules found')
+        raise
     util.subp(["udevadm", "control", "--start-exec-queue"])
     util.subp(["udevadm", "settle",
                "--exit-if-exists=%s" % md_devname])

@@ -55,7 +55,7 @@ class PrintHandler(ReportingHandler):
 class WebHookHandler(ReportingHandler):
     def __init__(self, endpoint, consumer_key=None, token_key=None,
                  token_secret=None, consumer_secret=None, timeout=None,
-                 retries=None):
+                 retries=None, level="INFO"):
         super(WebHookHandler, self).__init__()
 
         self.oauth_helper = url_helper.OauthUrlHelper(
@@ -64,9 +64,23 @@ class WebHookHandler(ReportingHandler):
         self.endpoint = endpoint
         self.timeout = timeout
         self.retries = retries
+        try:
+            self.level = getattr(logging, level.upper())
+        except:
+            LOG.warn("invalid level '%s', using WARN", level)
+            self.level = logging.WARN
         self.headers = {'Content-Type': 'application/json'}
 
     def publish_event(self, event):
+        if isinstance(event.level, int):
+            ev_level = event.level
+        else:
+            try:
+                ev_level = getattr(logging, event.level.upper())
+            except:
+                ev_level = logging.INFO
+        if ev_level < self.level:
+            return
         try:
             return self.oauth_helper.geturl(
                 url=self.endpoint, data=event.as_dict(),
