@@ -401,6 +401,16 @@ def get_root_device(dev, fpath="curtin"):
     return target
 
 
+def get_blockdev_sector_size(devpath):
+    """
+    Get the logical and physical sector size of device at devpath
+    Returns a tuple of integer values (logical, physical).
+    """
+    info = _lsblock([devpath])
+    parent = dev_short(devpath)
+    return (int(info[parent]['LOG-SEC']), int(info[parent]['PHY-SEC']))
+
+
 def get_volume_uuid(path):
     """
     Get uuid of disk with given path. This address uniquely identifies
