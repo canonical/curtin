@@ -579,7 +579,7 @@ def partition_handler(info, storage_config):
                   previous_size_sectors))
 
     # Align to 1M at the beginning of the disk and at logical partitions
-    alignment_offset = (1 << 20) / logical_block_size_bytes
+    alignment_offset = int((1 << 20) / logical_block_size_bytes)
     if partnumber == 1:
         # start of disk
         offset_sectors = alignment_offset
@@ -684,6 +684,7 @@ def format_handler(info, storage_config):
         return
 
     # Make filesystem using block library
+    LOG.debug("mkfs {} info: {}".format(volume_path, info))
     mkfs.mkfs_from_config(volume_path, info)
 
 
