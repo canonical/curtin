@@ -443,7 +443,7 @@ class VMBaseClass(TestCase):
         for (disk_no, disk_sz) in enumerate(cls.extra_disks):
             dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
             extra_disks.extend(
-                ['--disk', '{}:{}:{}:{}'.format(dpath, "", disk_sz,
+                ['--disk', '{}:{}:{}:{}'.format(dpath, disk_sz, "",
                                                 cls.disk_block_size)])
 
         # build nvme disk args if needed
