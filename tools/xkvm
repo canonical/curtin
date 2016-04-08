@@ -305,7 +305,7 @@ main() {
             [ -n "$kvm" ] ||
                 { kvm="qemu-system-s390x"; kvm_pkg="qemu-system-misc"; }
             def_netmodel=${DEF_NETMODEL:-"virtio-net-ccw"}
-            virtio_scsi_bus="virtio-scsi-s390"
+            virtio_scsi_bus="virtio-scsi-ccw"
             ;;
         ppc64*)
             [ -n "$kvm" ] ||
