@@ -9,7 +9,7 @@ import yaml
 
 
 def iface_extract(input):
-    mo = re.search(r'^(?P<interface>\w+|\w+:\d+)\s+' +
+    mo = re.search(r'^(?P<interface>\w+|\w+:\d+|\w+\.\d+)\s+' +
                    r'Link encap:(?P<link_encap>\S+)\s+' +
                    r'(HWaddr\s+(?P<mac_address>\S+))?' +
                    r'(\s+inet addr:(?P<address>\S+))?' +
@@ -59,6 +59,7 @@ class TestNetworkAbs(VMBaseClass):
         cp -av /etc/udev/rules.d/70-persistent-net.rules .
         ip -o route show > ip_route_show
         route -n > route_n
+        cp -av /run/network ./run_network
         """)]
 
     def test_output_files_exist(self):
@@ -237,6 +238,48 @@ class TestNetworkStaticAbs(TestNetworkAbs):
     conf_file = "examples/tests/basic_network_static.yaml"
 
 
+class TestNetworkVlanAbs(TestNetworkAbs):
+    conf_file = "examples/tests/vlan_network.yaml"
+    collect_scripts = TestNetworkAbs.collect_scripts + [textwrap.dedent("""
+             cd OUTPUT_COLLECT_D
+             dpkg-query -W -f '${Status}' vlan > vlan_installed
+             ip -d link show eth1.2667 > ip_link_show_eth1.2667
+             ip -d link show eth1.2668 > ip_link_show_eth1.2668
+             ip -d link show eth1.2669 > ip_link_show_eth1.2669
+             ip -d link show eth1.2670 > ip_link_show_eth1.2670
+             """)]
+
+    def get_vlans(self):
+        network_state = self.get_network_state()
+        logger.debug('get_vlans ns:\n{}'.format(
+            yaml.dump(network_state, default_flow_style=False, indent=4)))
+        interfaces = network_state.get('interfaces')
+        return [iface for iface in interfaces.values()
+                if iface['type'] == 'vlan']
+
+    def test_output_files_exist_vlan(self):
+        link_files = ["ip_link_show_{}".format(vlan['name'])
+                      for vlan in self.get_vlans()]
+        self.output_files_exist(["vlan_installed"] + link_files)
+
+    def test_vlan_installed(self):
+        with open(os.path.join(self.td.collect, "vlan_installed")) as fp:
+            status = fp.read().strip()
+            logger.debug('vlan installed?: {}'.format(status))
+            self.assertEqual('install ok installed', status)
+
+    def test_vlan_enabled(self):
+
+        # we must have at least one
+        self.assertGreaterEqual(len(self.get_vlans()), 1)
+
+        # did they get configured?
+        for vlan in self.get_vlans():
+            link_file = "ip_link_show_" + vlan['name']
+            vlan_msg = "vlan protocol 802.1Q id " + str(vlan['vlan_id'])
+            self.check_file_regex(link_file, vlan_msg)
+
+
 class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkAbs):
     # FIXME: off due to hang at test: Starting execute cloud user/final scripts
     __test__ = False
@@ -321,3 +364,35 @@ class XenialTestNetworkStatic(relbase.xenial, TestNetworkStaticAbs):
     #        over the net.ifnames to the installed system via '---' as the net
     #        config should take care of that.
     extra_kern_args = "net.ifnames=0"
+
+
+class PreciseTestNetworkVlan(relbase.precise, TestNetworkVlanAbs):
+    __test__ = True
+
+    # precise ip -d link show output is different (of course)
+    def test_vlan_enabled(self):
+
+        # we must have at least one
+        self.assertGreaterEqual(len(self.get_vlans()), 1)
+
+        # did they get configured?
+        for vlan in self.get_vlans():
+            link_file = "ip_link_show_" + vlan['name']
+            vlan_msg = "vlan id " + str(vlan['vlan_id'])
+            self.check_file_regex(link_file, vlan_msg)
+
+
+class TrustyTestNetworkVlan(relbase.trusty, TestNetworkVlanAbs):
+    __test__ = True
+
+
+class VividTestNetworkVlan(relbase.vivid, TestNetworkVlanAbs):
+    __test__ = True
+
+
+class WilyTestNetworkVlan(relbase.wily, TestNetworkVlanAbs):
+    __test__ = True
+
+
+class XenialTestNetworkVlan(relbase.xenial, TestNetworkVlanAbs):
+    __test__ = True
