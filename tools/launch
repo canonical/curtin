@@ -25,7 +25,7 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
       -A | --arch   A   assume guest kernel architecture A
       -d | --disk   D   add a disk 'D' format (path[:size][:driver][:bsize])
                         driver can be specified without size using path::driver
-                        driver defaults to virtio-blk-pci
+                        driver defaults to virtio-blk
                         bsize <logical>[,<physical>][,<min_io_size>]
                         bsize defaults to 512b sector size
            --uefi   N   enable uefi boot method, store nvram at N
@@ -413,7 +413,7 @@ main() {
         fi
 
         if [ -z "${driver}" ]; then
-            driver="virtio-blk-pci"
+            driver="virtio-blk"
         fi
         
         if [ -z "${bsize}" ]; then
@@ -602,7 +602,7 @@ main() {
         "${bios_opts[@]}"
         -m ${mem} ${serial_args} ${video}
         -drive "file=$bootimg,if=none,cache=unsafe,format=qcow2,id=boot,index=0"
-        -device "virtio-blk-pci,drive=boot"
+        -device "virtio-blk,drive=boot"
         "${disk_args[@]}"
         "${seedargs[@]}"
         )
