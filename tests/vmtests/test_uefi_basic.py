@@ -26,6 +26,10 @@ class TestBasicAbs(VMBaseClass):
         ls /sys/firmware/efi/ > ls_sys_firmware_efi
         cat /sys/class/block/vda/queue/logical_block_size > vda_lbs
         cat /sys/class/block/vda/queue/physical_block_size > vda_pbs
+        blockdev --getsz /dev/vda > vda_blockdev_getsz
+        blockdev --getss /dev/vda > vda_blockdev_getss
+        blockdev --getpbsz /dev/vda > vda_blockdev_getpbsz
+        blockdev --getbsz /dev/vda > vda_blockdev_getbsz
         """)]
 
     def test_output_files_exist(self):
@@ -59,6 +63,19 @@ class TestBasicAbs(VMBaseClass):
         for bs in ['lbs', 'pbs']:
             with open(os.path.join(self.td.collect,
                       'vda_' + bs), 'r') as fp:
+                size = int(fp.read())
+                self.assertEqual(self.disk_block_size, size)
+
+    def test_disk_block_size_with_blockdev(self):
+        """ validate maas setting
+        --getss                   get size in 512-byte sectors
+        --getss                   get logical block (sector) size
+        --getpbsz                 get physical block (sector) size
+        --getbsz                  get blocksize
+        """
+        for syscall in ['getss', 'getpbsz', 'getbsz']:
+            with open(os.path.join(self.td.collect,
+                      'vda_blockdev_' + syscall), 'r') as fp:
                 size = int(fp.read())
                 self.assertEqual(self.disk_block_size, size)
 
