@@ -228,7 +228,7 @@ def get_images(src_url, local_d, release, arch, krel=None, sync=True):
                if not os.path.exists(path)]
 
     if len(missing):
-        raise FileNotFoundError("missing files for ftypes: %s" % missing)
+        raise ValueError("missing files for ftypes: %s" % missing)
 
     return ftypes
 
@@ -438,11 +438,12 @@ class VMBaseClass(TestCase):
             netdevs.extend(["--netdev=" + DEFAULT_BRIDGE])
 
         # build disk arguments
+        # --disk source:size:driver:block_size
         extra_disks = []
         for (disk_no, disk_sz) in enumerate(cls.extra_disks):
             dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
             extra_disks.extend(
-                ['--disk', '{}:{}:{}:{}'.format(dpath, disk_sz,
+                ['--disk', '{}:{}:{}:{}'.format(dpath, "", disk_sz,
                                                 cls.disk_block_size)])
 
         # build nvme disk args if needed
@@ -544,9 +545,9 @@ class VMBaseClass(TestCase):
             target_disks.extend(
                 ['-drive',
                  'file={},if=none,cache=unsafe,format={},id=drv{}'.format(
-                    disk, TARGET_IMAGE_FORMAT, disk_idx),
+                     disk, TARGET_IMAGE_FORMAT, disk_idx),
                  '-device', '{},drive=drv{},serial=drv{},{}'.format(
-                    disk_driver, disk_idx, disk_idx, bsize_args)])
+                     disk_driver, disk_idx, disk_idx, bsize_args)])
 
         extra_disks = []
         disk_offset += len(target_disks)
@@ -705,6 +706,15 @@ class VMBaseClass(TestCase):
         with open(os.path.join(self.td.collect, filename), "r") as fp:
             data = fp.read()
         self.assertRegex(data, regex)
+
+    # To get rid of deprecation warning in python 3.
+    def assertRegex(self, s, r):
+        try:
+            # Python 3.
+            super(VMBaseClass, self).assertRegex(s, r)
+        except AttributeError:
+            # Python 2.
+            self.assertRegexpMatches(s, r)
 
     def get_blkid_data(self, blkid_file):
         with open(os.path.join(self.td.collect, blkid_file)) as fp:
