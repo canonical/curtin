@@ -89,8 +89,10 @@ def _lsblock_pairs_to_dict(lines):
         for tok in toks:
             k, v = tok.split("=", 1)
             cur[k] = v
-        cur['device_path'] = get_dev_name_entry(cur['NAME'])[1]
-        ret[cur['NAME']] = cur
+        # use KNAME, as NAME may include spaces and other info,
+        # for example, lvm decices may show 'dm0 lvm1'
+        cur['device_path'] = get_dev_name_entry(cur['KNAME'])[1]
+        ret[cur['KNAME']] = cur
     return ret
 
 
@@ -418,7 +420,8 @@ def get_blockdev_sector_size(devpath):
     Returns a tuple of integer values (logical, physical).
     """
     info = _lsblock([devpath])
-    parent = dev_short(devpath)
+    LOG.debug('get_blockdev_sector_size: info:\n%s' % util.json_dumps(info))
+    [parent] = info
     return (int(info[parent]['LOG-SEC']), int(info[parent]['PHY-SEC']))
 
 
