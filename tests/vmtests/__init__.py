@@ -534,7 +534,7 @@ class VMBaseClass(TestCase):
         bsize_args = "logical_block_size={}".format(cls.disk_block_size)
         bsize_args += ",physical_block_size={}".format(cls.disk_block_size)
         bsize_args += ",min_io_size={}".format(cls.disk_block_size)
-        disk_driver = "virtio-blk-pci"
+        disk_driver = "virtio-blk"
 
         target_disks = []
         disk_offset = 0
