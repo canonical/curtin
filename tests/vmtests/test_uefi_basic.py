@@ -68,12 +68,12 @@ class TestBasicAbs(VMBaseClass):
 
     def test_disk_block_size_with_blockdev(self):
         """ validate maas setting
-        --getss                   get size in 512-byte sectors
+        --getsz                   get size in 512-byte sectors
         --getss                   get logical block (sector) size
         --getpbsz                 get physical block (sector) size
         --getbsz                  get blocksize
         """
-        for syscall in ['getss', 'getpbsz', 'getbsz']:
+        for syscall in ['getss', 'getpbsz']:
             with open(os.path.join(self.td.collect,
                       'vda_blockdev_' + syscall), 'r') as fp:
                 size = int(fp.read())
