@@ -19,6 +19,7 @@ import errno
 import os
 import stat
 import shlex
+import string
 import tempfile
 import itertools
 
@@ -482,28 +483,31 @@ def sysfs_partition_data(blockdev=None, sysfs_path=None):
     if blockdev is None and sysfs_path is None:
         raise ValueError("Blockdev and sysfs_path cannot both be None")
 
+    partnum = None
     if blockdev:
         sysfs_path = sys_block_path(blockdev)
-
-    ptdata = []
-    # /sys/class/block/dev has entries of 'kname' for each partition
 
     # queue property is only on parent devices, ie, we can't read
     # /sys/class/block/vda/vda1/queue/* as queue is only on the
     # parent device
-    (parent, partnum) = get_blockdev_for_partition(blockdev)
     sysfs_prefix = sysfs_path
-    if partnum:
-        sysfs_prefix = sys_block_path(parent)
+    if blockdev:
+        (parent, _partnum) = get_blockdev_for_partition(blockdev)
+        if _partnum:
+            sysfs_prefix = sys_block_path(parent)
+            partnum = int(_partnum)
+    elif os.path.exists(os.path.join(sysfs_path, 'partition')):
+        (sysfs_prefix, _part_kname) = os.path.split(sysfs_path)
+        partnum = int(_part_kname.strip(string.ascii_letters))
 
-    block_size = int(util.load_file(os.path.join(sysfs_prefix,
-                                    'queue/logical_block_size')))
-
-    block_size = int(
-        util.load_file(os.path.join(sysfs_path, 'queue/logical_block_size')))
+    block_size = int(util.load_file(os.path.join(
+        sysfs_prefix, 'queue/logical_block_size')))
     unit = block_size
-    for d in os.listdir(sysfs_path):
-        partd = os.path.join(sysfs_path, d)
+
+    # /sys/class/block/dev has entries of 'kname' for each partition
+    ptdata = []
+    for d in os.listdir(sysfs_prefix):
+        partd = os.path.join(sysfs_prefix, d)
         data = {}
         for sfile in ('partition', 'start', 'size'):
             dfile = os.path.join(partd, sfile)
@@ -512,8 +516,9 @@ def sysfs_partition_data(blockdev=None, sysfs_path=None):
             data[sfile] = int(util.load_file(dfile))
         if 'partition' not in data:
             continue
-        ptdata.append((d, data['partition'], data['start'] * unit,
-                       data['size'] * unit,))
+        if partnum is None or data['partition'] == partnum:
+            ptdata.append((d, data['partition'], data['start'] * unit,
+                           data['size'] * unit,))
 
     return ptdata
 
