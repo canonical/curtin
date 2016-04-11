@@ -55,6 +55,7 @@ class TestNetworkAbs(VMBaseClass):
         cd OUTPUT_COLLECT_D
         ifconfig -a > ifconfig_a
         cp -av /etc/network/interfaces .
+        cp -av /etc/network/interfaces.d .
         cp /etc/resolv.conf .
         cp -av /etc/udev/rules.d/70-persistent-net.rules .
         ip -o route show > ip_route_show
@@ -350,20 +351,10 @@ class WilyTestNetworkStatic(relbase.wily, TestNetworkStaticAbs):
 
 class XenialTestNetwork(relbase.xenial, TestNetworkAbs):
     __test__ = True
-    # FIXME: net.ifnames=0 should not be required as image should
-    #        eventually address this internally.  Here we do not carry
-    #        over the net.ifnames to the installed system via '---' as the net
-    #        config should take care of that.
-    extra_kern_args = "net.ifnames=0"
 
 
 class XenialTestNetworkStatic(relbase.xenial, TestNetworkStaticAbs):
     __test__ = True
-    # FIXME: net.ifnames=0 should not be required as image should
-    #        eventually address this internally.  Here we do not carry
-    #        over the net.ifnames to the installed system via '---' as the net
-    #        config should take care of that.
-    extra_kern_args = "net.ifnames=0"
 
 
 class PreciseTestNetworkVlan(relbase.precise, TestNetworkVlanAbs):
