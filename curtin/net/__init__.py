@@ -429,19 +429,18 @@ def render_interfaces(network_state):
 def render_network_state(target, network_state):
     eni = 'etc/network/interfaces'
     netrules = 'etc/udev/rules.d/70-persistent-net.rules'
+    cc = 'etc/cloud/cloud.cfg.d/curtin-disable-cloudinit-networking.cfg'
 
     eni = os.path.sep.join((target, eni,))
-    util.ensure_dir(os.path.dirname(eni))
-    with open(eni, 'w+') as f:
-        LOG.info('Writing ' + eni)
-        f.write(render_interfaces(network_state))
+    LOG.info('Writing ' + eni)
+    util.write_file(eni, content=render_interfaces(network_state))
 
     netrules = os.path.sep.join((target, netrules,))
-    util.ensure_dir(os.path.dirname(netrules))
-    persistent_net_rules = render_persistent_net(network_state)
-    if len(persistent_net_rules) > 0:
-        with open(netrules, 'w+') as f:
-            LOG.info('Writing ' + netrules)
-            f.write(persistent_net_rules)
+    LOG.info('Writing ' + netrules)
+    util.write_file(netrules, content=render_persistent_net(network_state))
+
+    cc_disable = os.path.sep.join((target, cc,))
+    LOG.info('Writing ' + cc_disable)
+    util.write_file(cc_disable, content='network: {config: disabled}\n')
 
 # vi: ts=4 expandtab syntax=python

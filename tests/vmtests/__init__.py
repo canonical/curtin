@@ -922,6 +922,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
         'password': 'passw0rd',
         'chpasswd': {'expire': False},
         'power_state': {'mode': 'poweroff'},
+        'network': {'config': 'disabled'},
     }
 
     ssh_keys, _err = util.subp(['tools/ssh-keys-list', 'cloud-config'],
