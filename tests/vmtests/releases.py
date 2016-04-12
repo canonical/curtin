@@ -44,11 +44,6 @@ class _WilyBase(_ReleaseBase):
 
 class _XenialBase(_ReleaseBase):
     release = "xenial"
-    # FIXME: net.ifnames=0 should not be required as image should
-    #        eventually address this internally.  Note, also we do
-    #        currently need this copied over to the installed environment
-    #        although in theory the udev rules we write should fix that.
-    extra_kern_args = "--- net.ifnames=0"
 
 
 class _Releases(object):
