@@ -101,11 +101,19 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
 
 
+class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 class VividTestMdadmBcache(relbase.vivid, TestMdadmBcacheAbs):
     __test__ = True
 
 
 class WilyTestMdadmBcache(relbase.wily, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class XenialTestMdadmBcache(relbase.xenial, TestMdadmBcacheAbs):
     __test__ = True
 
 
@@ -120,12 +128,21 @@ class TestMirrorbootAbs(TestMdadmAbs):
                      ('md0', 0)]
 
 
+class TrustyTestMirrorboot(relbase.trusty, TestMirrorbootAbs):
+    __test__ = True
+
+
 class VividTestMirrorboot(relbase.vivid, TestMirrorbootAbs):
     __test__ = True
 
 
 class WilyTestMirrorboot(relbase.wily, TestMirrorbootAbs):
     __test__ = True
+
+
+class XenialTestMirrorboot(relbase.xenial, TestMirrorbootAbs):
+    __test__ = True
+
 
 
 class TestRaid5bootAbs(TestMdadmAbs):
@@ -140,11 +157,19 @@ class TestRaid5bootAbs(TestMdadmAbs):
                      ('md0', 0)]
 
 
+class TrustyTestRaid5Boot(relbase.trusty, TestRaid5bootAbs):
+    __test__ = True
+
+
 class VividTestRaid5boot(relbase.vivid, TestRaid5bootAbs):
     __test__ = True
 
 
 class WilyTestRaid5boot(relbase.wily, TestRaid5bootAbs):
+    __test__ = True
+
+
+class XenialTestRaid5boot(relbase.xenial, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -173,11 +198,19 @@ class TestRaid6bootAbs(TestMdadmAbs):
         self.check_file_regex("mdadm_detail", r"ubuntu:foobar")
 
 
+class TrustyTestRaid6boot(relbase.trusty, TestRaid6bootAbs):
+    __test__ = True
+
+
 class VividTestRaid6boot(relbase.vivid, TestRaid6bootAbs):
     __test__ = True
 
 
 class WilyTestRaid6boot(relbase.wily, TestRaid6bootAbs):
+    __test__ = True
+
+
+class XenialTestRaid6boot(relbase.xenial, TestRaid6bootAbs):
     __test__ = True
 
 
@@ -194,11 +227,19 @@ class TestRaid10bootAbs(TestMdadmAbs):
                      ('md0', 0)]
 
 
+class TrustyTestRaid10boot(relbase.trusty, TestRaid10bootAbs):
+    __test__ = True
+
+
 class VividTestRaid10boot(relbase.vivid, TestRaid10bootAbs):
     __test__ = True
 
 
 class WilyTestRaid10boot(relbase.wily, TestRaid10bootAbs):
+    __test__ = True
+
+
+class XenialTestRaid10boot(relbase.xenial, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -272,9 +313,17 @@ class TestAllindataAbs(TestMdadmAbs):
         self.check_file_regex("xfs_info", r"^meta-data=/dev/mapper/dmcrypt0")
 
 
+class TrustyTestAllindata(relbase.trusty, TestAllindataAbs):
+    __test__ = True
+
+
 class VividTestAllindata(relbase.vivid, TestAllindataAbs):
     __test__ = True
 
 
 class WilyTestAllindata(relbase.wily, TestAllindataAbs):
+    __test__ = True
+
+
+class XenialTestAllindata(relbase.xenial, TestAllindataAbs):
     __test__ = True
