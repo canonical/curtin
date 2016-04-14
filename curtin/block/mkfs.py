@@ -169,7 +169,7 @@ def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False):
                                     param=str(logical_bsize),
                                     strict=strict))
         # mkfs.vfat doesn't calculate this right for non-512b sector size
-        # LP: XXXXXXX
+        # lp:1569576 , d-i uses the same setting.
         cmd.extend(["-s", "1"])
 
     if force:
