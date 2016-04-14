@@ -56,6 +56,7 @@ class TestNetworkAbs(VMBaseClass):
         cd OUTPUT_COLLECT_D
         ifconfig -a > ifconfig_a
         cp -av /etc/network/interfaces .
+        cp -av /etc/network/interfaces.d .
         cp /etc/resolv.conf .
         cp -av /etc/udev/rules.d/70-persistent-net.rules .
         ip -o route show > ip_route_show
