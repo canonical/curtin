@@ -490,6 +490,7 @@ def copy_mdadm_conf(mdadm_conf, target):
         LOG.warn("mdadm config must be specified, not copying")
         return
 
+    LOG.info("copying mdadm.conf into target")
     shutil.copy(mdadm_conf, os.path.sep.join([target,
                 'etc/mdadm/mdadm.conf']))
 
@@ -767,6 +768,20 @@ def curthooks(args):
         apt_config(cfg, target)
         disable_overlayroot(cfg, target)
 
+    # packages may be needed prior to installing kernel
+    install_missing_packages(cfg, target)
+
+    # If a mdadm.conf file was created by block_meta than it needs to be copied
+    # onto the target system
+    mdadm_location = os.path.join(os.path.split(state['fstab'])[0],
+                                  "mdadm.conf")
+    if os.path.exists(mdadm_location):
+        copy_mdadm_conf(mdadm_location, target)
+        # as per https://bugs.launchpad.net/ubuntu/+source/mdadm/+bug/964052
+        # reconfigure mdadm
+        util.subp(['chroot', target, 'dpkg-reconfigure',
+                   '--frontend=noninteractive', 'mdadm'], data=None)
+
     with events.ReportEventStack(
             name=stack_prefix, reporting_enabled=True, level="INFO",
             description="installing kernel"):
@@ -797,8 +812,6 @@ def curthooks(args):
             description="configuring multipath"):
         detect_and_handle_multipath(cfg, target)
 
-    install_missing_packages(cfg, target)
-
     with events.ReportEventStack(
             name=stack_prefix, reporting_enabled=True, level="INFO",
             description="updating packages on target system"):
@@ -813,17 +826,6 @@ def curthooks(args):
     if os.path.exists(crypttab_location):
         copy_crypttab(crypttab_location, target)
         update_initramfs(target)
-
-    # If a mdadm.conf file was created by block_meta than it needs to be copied
-    # onto the target system
-    mdadm_location = os.path.join(os.path.split(state['fstab'])[0],
-                                  "mdadm.conf")
-    if os.path.exists(mdadm_location):
-        copy_mdadm_conf(mdadm_location, target)
-        # as per https://bugs.launchpad.net/ubuntu/+source/mdadm/+bug/964052
-        # reconfigure mdadm
-        util.subp(['chroot', target, 'dpkg-reconfigure',
-                   '--frontend=noninteractive', 'mdadm'], data=None)
 
     # If udev dname rules were created, copy them to target
     udev_rules_d = os.path.join(state['scratch'], "rules.d")

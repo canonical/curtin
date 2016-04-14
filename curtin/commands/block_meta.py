@@ -270,6 +270,8 @@ def determine_partition_number(partition_id, storage_config):
     partnumber = vol.get('number')
     if vol.get('flag') == "logical":
         if not partnumber:
+            LOG.warn('partition \'number\' key not set in config:\n{}'.format(
+                     util.json_dumps(vol)))
             partnumber = 5
             for key, item in storage_config.items():
                 if item.get('type') == "partition" and \
@@ -281,6 +283,8 @@ def determine_partition_number(partition_id, storage_config):
                         partnumber += 1
     else:
         if not partnumber:
+            LOG.warn('partition \'number\' key not set in config:\n{}'.format(
+                     util.json_dumps(vol)))
             partnumber = 1
             for key, item in storage_config.items():
                 if item.get('type') == "partition" and \
@@ -871,13 +875,18 @@ def raid_handler(info, storage_config):
         if spare_devices:
             raise ValueError("spareunsupported in raidlevel '%s'" % raidlevel)
 
+    LOG.debug('raid: cfg: {}'.format(util.json_dumps(info)))
     device_paths = list(get_path_to_storage_volume(dev, storage_config) for
                         dev in devices)
+    LOG.debug('raid: device path mapping: {}'.format(
+              zip(devices, device_paths)))
 
     spare_device_paths = []
     if spare_devices:
         spare_device_paths = list(get_path_to_storage_volume(dev,
                                   storage_config) for dev in spare_devices)
+        LOG.debug('raid: spare device path mapping: {}'.format(
+                  zip(spare_devices, spare_device_paths)))
 
     # Handle preserve flag
     if info.get('preserve'):
@@ -948,17 +957,29 @@ def bcache_handler(info, storage_config):
             # read in cset uuid from cache device
             (out, err) = util.subp(["bcache-super-show", cache_device],
                                    capture=True)
-            LOG.debug('out=[{}]'.format(out))
+            LOG.debug('bcache-super-show=[{}]'.format(out))
             [cset_uuid] = [line.split()[-1] for line in out.split("\n")
                            if line.startswith('cset.uuid')]
 
         else:
             # make the cache device, extracting cacheset uuid
-            (out, err) = util.subp(["make-bcache", "-C", cache_device],
-                                   capture=True)
-            LOG.debug('out=[{}]'.format(out))
-            [cset_uuid] = [line.split()[-1] for line in out.split("\n")
-                           if line.startswith('Set UUID:')]
+            try:
+                (out, err) = util.subp(["make-bcache", "-C", cache_device],
+                                       capture=True)
+                LOG.debug('make-bcache -C=[{}]'.format(out))
+                [cset_uuid] = [line.split()[-1] for line in out.split("\n")
+                               if line.startswith('Set UUID:')]
+            except util.ProcessExecutionError:
+                LOG.debug('Fallback: make-bcache -C failed, trying read')
+                # on trusty, we may fail to find existing cache devices
+                # since we don't ahve a sysfs entry, so try to read
+                # cset uuid from cache device
+                (out, err) = util.subp(["bcache-super-show", cache_device],
+                                       capture=True)
+                LOG.debug('bcache-super-show=[{}]'.format(out))
+
+                [cset_uuid] = [line.split()[-1] for line in out.split("\n")
+                               if line.startswith('cset.uuid')]
 
     if backing_device:
         backing_device_sysfs = block_find_sysfs_path(backing_device)
