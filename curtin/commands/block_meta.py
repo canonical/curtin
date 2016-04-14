@@ -972,7 +972,7 @@ def bcache_handler(info, storage_config):
             except util.ProcessExecutionError:
                 LOG.debug('Fallback: make-bcache -C failed, trying read')
                 # on trusty, we may fail to find existing cache devices
-                # since we don't ahve a sysfs entry, so try to read
+                # since we don't have a sysfs entry, so try to read
                 # cset uuid from cache device
                 (out, err) = util.subp(["bcache-super-show", cache_device],
                                        capture=True)
