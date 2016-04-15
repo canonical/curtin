@@ -55,6 +55,7 @@ class TestNetParserData(TestCase):
         self.assertEqual({
             'eth0': {
                 'auto': True,
+                'control': 'auto',
                 'family': 'inet',
                 'method': 'manual',
                 '_source_path': '/etc/network/interfaces',
@@ -62,6 +63,7 @@ class TestNetParserData(TestCase):
             'eth1': {
                 'auto': True,
                 'family': 'inet',
+                'control': 'auto',
                 'method': 'manual',
                 '_source_path': '/etc/network/interfaces',
                 },
@@ -521,5 +523,37 @@ network:
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
 
+    def test_render_interfaces_iscsiroot(self):
+        iscsi_config = open('examples/network-iscsiroot.yaml', 'r').read()
+
+        ns = self.get_net_state(iscsi_config)
+        ifaces = ('auto lo\n' +
+                  'iface lo inet loopback\n' +
+                  '\n' +
+                  '# control-manual eth0\n' +
+                  'iface eth0 inet dhcp\n' +
+                  '\n' +
+                  'auto eth1\n' +
+                  'iface eth1 inet static\n' +
+                  '    address 192.168.14.2/24\n' +
+                  '    gateway 192.168.14.1\n' +
+                  '    mtu 1492\n' +
+                  '\n' +
+                  'auto eth1:1\n' +
+                  'iface eth1:1 inet static\n' +
+                  '    address 192.168.14.4/24\n' +
+                  '    mtu 1492\n' +
+                  '\n' +
+                  'allow-hotplug eth2\n'
+                  'iface eth2 inet static\n' +
+                  '    address 10.11.12.13/22\n' +
+                  '    gateway 10.11.12.1\n')
+        net_ifaces = net.render_interfaces(ns.network_state)
+        print("\n".join(sorted(ifaces.split('\n'))))
+        print("\n^^ LOCAL -- RENDER vv")
+        print("\n".join(sorted(net_ifaces.split('\n'))))
+        print(ns.network_state.get('interfaces'))
+        self.assertEqual(sorted(ifaces.split('\n')),
+                         sorted(net_ifaces.split('\n')))
 
 # vi: ts=4 expandtab syntax=python
