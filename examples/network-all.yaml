@@ -22,6 +22,16 @@ network:
         - type: physical
           name: eth4
           mac_address: "98:bb:9f:2c:e8:80"
+        # specify how ifupdown should treat iface
+        # control is one of ['auto', 'hotplug', 'manual']
+        # with manual meaning ifup/ifdown should not affect the iface
+        # useful for things like iscsi root + dhcp
+        - type: physical
+          name: eth5
+          mac_address: "98:bb:9f:2c:e8:8a"
+          subnets:
+            - type: dhcp
+              control: manual
         # VLAN interface.
         - type: vlan
           name: eth0.101
