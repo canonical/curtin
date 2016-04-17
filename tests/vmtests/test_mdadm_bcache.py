@@ -44,7 +44,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                      ('md0', 0),
                      ('cached_array', 0),
                      ('cached_array_2', 0)]
-
+    extra_disks = ['4G', '4G']
     collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         bcache-super-show /dev/vda6 > bcache_super_vda6
@@ -52,11 +52,16 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         bcache-super-show /dev/md0 > bcache_super_md0
         ls /sys/fs/bcache > bcache_ls
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
+        cat /sys/block/bcache1/bcache/cache_mode >> bcache_cache_mode
+        cat /sys/block/bcache2/bcache/cache_mode >> bcache_cache_mode
         cat /proc/mounts > proc_mounts
         """)]
     fstab_expected = {
-        '/dev/bcache0': '/media/data',
-        '/dev/bcache1': '/media/bcache1',
+        '/dev/vda1': '/media/sda1',
+        '/dev/vda7': '/boot',
+        '/dev/bcache1': '/media/data',
+        '/dev/bcache0': '/media/bcache_normal',
+        '/dev/bcache2': '/media/bcachefoo_fulldiskascache_storage'
     }
 
     def test_bcache_output_files_exist(self):
@@ -98,7 +103,13 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                          bcache_cset_uuid)
 
     def test_bcache_cachemode(self):
+        # definition is on order 0->back,1->through,2->around
+        # but after reboot it can be anything since order is not guaranteed
+        # until we find a way to redetect the order we just check that all
+        # three are there
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
+        self.check_file_regex("bcache_cache_mode", r"\[writethrough\]")
+        self.check_file_regex("bcache_cache_mode", r"\[writearound\]")
 
 
 class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):

@@ -350,6 +350,7 @@ def setup_grub(cfg, target):
     if 'grub_install_devices' in cfg and 'install_devices' not in grubcfg:
         grubcfg['install_devices'] = cfg['grub_install_devices']
 
+    LOG.debug("setup grub on target %s", target)
     # if there is storage config, look for devices tagged with 'grub_device'
     storage_cfg_odict = None
     try:
