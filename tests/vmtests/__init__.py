@@ -537,47 +537,36 @@ class VMBaseClass(TestCase):
         disk_driver = "virtio-blk"
 
         target_disks = []
-        disk_offset = 0
         for (disk_no, disk) in enumerate([cls.td.target_disk,
                                           cls.td.output_disk]):
-
-            disk_idx = disk_offset + disk_no
-            target_disks.extend(
-                ['-drive',
-                 'file={},if=none,cache=unsafe,format={},id=drv{}'.format(
-                     disk, TARGET_IMAGE_FORMAT, disk_idx),
-                 '-device', '{},drive=drv{},serial=drv{},{}'.format(
-                     disk_driver, disk_idx, disk_idx, bsize_args)])
+            d = '--disk={},driver={},format={},{}' % (disk, disk_driver,
+                                                      TARGET_IMAGE_FORMAT,
+                                                      bsize_args)
+            target_disks.extend([d])
 
         extra_disks = []
-        disk_offset += len(target_disks)
         for (disk_no, disk_sz) in enumerate(cls.extra_disks):
             dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
-            disk_idx = disk_offset + disk_no
-            extra_disks.extend(
-                ['-drive',
-                 'file={},if=none,cache=unsafe,format={},id=drv{}'.format(
-                     dpath, TARGET_IMAGE_FORMAT, disk_idx),
-                 '-device', '{},drive=drv{},serial=drv{},{}'.format(
-                     disk_driver, disk_idx, disk_idx, bsize_args)])
+            d = '--disk={},driver={},format={},{}' % (dpath, disk_driver,
+                                                      TARGET_IMAGE_FORMAT,
+                                                      bsize_args)
+            extra_disks.extend([d])
 
         nvme_disks = []
-        disk_offset += len(extra_disks)
+        disk_driver = 'nvme'
         for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
             dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
-            disk_idx = disk_offset + disk_no
-            nvme_disks.extend(
-                ['-drive',
-                 'file={},if=none,cache=unsafe,format={},id=drv{}'.format(
-                     dpath, TARGET_IMAGE_FORMAT, disk_idx),
-                 '-device', 'nvme,drive=drv{},serial=NVM{}'.format(
-                     disk_idx, disk_idx)])
+            d = '--disk={},driver={},format={},{}' % (dpath, disk_driver,
+                                                      TARGET_IMAGE_FORMAT,
+                                                      bsize_args)
+            nvme_disks.extend([d])
 
         # create xkvm cmd
         cmd = (["tools/xkvm", "-v", dowait] + netdevs +
+               target_disks + extra_disks + nvme_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
-                "-m", "1024"] + target_disks + extra_disks + nvme_disks)
+                "-m", "1024"])
 
         if not cls.interactive:
             if cls.arch == 's390x':
