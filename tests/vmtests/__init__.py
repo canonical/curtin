@@ -539,26 +539,26 @@ class VMBaseClass(TestCase):
         target_disks = []
         for (disk_no, disk) in enumerate([cls.td.target_disk,
                                           cls.td.output_disk]):
-            d = '--disk={},driver={},format={},{}' % (disk, disk_driver,
-                                                      TARGET_IMAGE_FORMAT,
-                                                      bsize_args)
+            d = '--disk={},driver={},format={},{}'.format(disk, disk_driver,
+                                                          TARGET_IMAGE_FORMAT,
+                                                          bsize_args)
             target_disks.extend([d])
 
         extra_disks = []
         for (disk_no, disk_sz) in enumerate(cls.extra_disks):
             dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
-            d = '--disk={},driver={},format={},{}' % (dpath, disk_driver,
-                                                      TARGET_IMAGE_FORMAT,
-                                                      bsize_args)
+            d = '--disk={},driver={},format={},{}'.format(dpath, disk_driver,
+                                                          TARGET_IMAGE_FORMAT,
+                                                          bsize_args)
             extra_disks.extend([d])
 
         nvme_disks = []
         disk_driver = 'nvme'
         for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
             dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
-            d = '--disk={},driver={},format={},{}' % (dpath, disk_driver,
-                                                      TARGET_IMAGE_FORMAT,
-                                                      bsize_args)
+            d = '--disk={},driver={},format={},{}'.format(dpath, disk_driver,
+                                                          TARGET_IMAGE_FORMAT,
+                                                          bsize_args)
             nvme_disks.extend([d])
 
         # create xkvm cmd
