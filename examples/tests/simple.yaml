@@ -36,7 +36,7 @@ xxx_storage:
   version: 1
 
 bucket:
-  - &cleanup_1436810 |
+  - &cleanup_1536810 |
     ls -l /boot/ || :
     for f in /boot/initrd*; do
        [ -L "$f" ] && link=1 || link=0
