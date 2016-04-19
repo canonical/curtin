@@ -345,7 +345,7 @@ main() {
                 if=sd|if=mtd|floppy) fail "do not know what to do with $tok on $cur";;
                 id=*) id=$val;;
                 file=*) file=$val;;
-                fmt=*) fmt=$val;;
+                fmt=*|format=*) fmt=$val;;
                 serial=*) serial=$val;;
                 bus=*) bus=$val;;
                 unit=*) unit=$val;;
@@ -375,12 +375,13 @@ main() {
         fi
 
         busorindex="${bus:+bus=$bus,unit=$unit}${index:+index=${index}}"
-        diskopts="file=${file},id=$id,if=none,$busorindex"
+        diskopts="file=${file}${fmt:+,format=${fmt}},id=$id,if=none,$busorindex"
         devopts="$driver,drive=$id${serial:+,serial=${serial}}"
         for tok in "$@"; do
             case "$tok" in
-                id=*|if=*|driver=*|$file) continue;;
+                id=*|if=*|driver=*|$file|file=*) continue;;
                 serial=*|bus=*|unit=*|index=*) continue;;
+                fmt=*|format=*) continue;;
             esac
             isdevopt "$driver" "$tok" && devopts="${devopts},$tok" ||
                 diskopts="${diskopts},${tok}"
