@@ -656,6 +656,10 @@ class VMBaseClass(TestCase):
         return expected
 
     @classmethod
+    def parse_deb_config(cls, path):
+        return curtin_net.parse_deb_config(path)
+
+    @classmethod
     def get_network_state(cls):
         return cls.network_state
 
