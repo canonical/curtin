@@ -15,6 +15,7 @@ import yaml
 import curtin.net as curtin_net
 import curtin.util as util
 
+from tools.report_webhook_logger import CaptureReporting
 from curtin.commands.install import INSTALL_PASS_MSG
 
 from .image_sync import query as imagesync_query
@@ -470,6 +471,15 @@ class VMBaseClass(TestCase):
             shutil.copy(OVMF_VARS, nvram)
             cmd.extend(["--uefi", nvram])
 
+        # write reporting config
+        reporting_config = os.path.join(cls.td.install, 'reporting.cfg')
+        localhost_url = 'http://' + get_lan_ip() + ':8000/'
+        with open(reporting_config, 'w') as fp:
+            fp.write(json.dumps({'reporting': {
+                'test': {'type': 'webhook', 'endpoint': localhost_url,
+                         'level': 'INFO'}}}))
+        configs.append(reporting_config)
+
         cmd.extend(netdevs + ["--disk", cls.td.target_disk] +
                    extra_disks + nvme_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
@@ -477,14 +487,19 @@ class VMBaseClass(TestCase):
                    ["--config=%s" % f for f in configs] +
                    [install_src])
 
+        # set reporting logger
+        cls.reporting_log = os.path.join(cls.td.logs, 'webhooks-events.json')
+        reporting_logger = CaptureReporting(cls.reporting_log)
+
         # run vm with installer
         lout_path = os.path.join(cls.td.logs, "install-launch.out")
         logger.info('Running curtin installer: {}'.format(cls.install_log))
         try:
             with open(lout_path, "wb") as fpout:
-                cls.boot_system(cmd, timeout=cls.install_timeout,
-                                console_log=cls.install_log, proc_out=fpout,
-                                purpose="install")
+                with reporting_logger:
+                    cls.boot_system(cmd, timeout=cls.install_timeout,
+                                    console_log=cls.install_log,
+                                    proc_out=fpout, purpose="install")
         except TimeoutExpired:
             logger.error('Curtin installer failed with timeout')
             cls.tearDownClass()
@@ -700,6 +715,18 @@ class VMBaseClass(TestCase):
                     link = diskname + "-part" + str(part)
                     self.assertIn(link, contents)
                 self.assertIn(diskname, contents)
+
+    def test_reporting_data(self):
+        with open(self.reporting_log, 'r') as fp:
+            data = json.load(fp)
+        self.assertTrue(len(data) > 0)
+        first_event = data[0]
+        self.assertEqual(first_event['event_type'], 'start')
+        self.assertTrue(first_event['description'].startswith('started: '))
+        final_event = data[-1]
+        self.assertEqual(final_event['event_type'], 'finish')
+        self.assertEqual(final_event['name'], 'cmd-install/stage-late')
+        self.assertTrue(final_event['description'].startswith('finished: '))
 
     def run(self, result):
         super(VMBaseClass, self).run(result)
@@ -972,6 +999,16 @@ def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):
         logger.info("%s[%s]: boot took %.02f seconds. returned %s",
                     name, purpose, end - start, ret)
     return ret
+
+
+def get_lan_ip():
+    out = subprocess.check_output(['ip', 'addr'])
+    out = out.decode()
+    line = next(l for l in out.splitlines() if 'inet' in l and 'global' in l)
+    addr = line.split()[1]
+    if '/' in addr:
+        addr = addr[:addr.index('/')]
+    return addr
 
 
 apply_keep_settings()
