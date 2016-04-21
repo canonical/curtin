@@ -558,16 +558,18 @@ def partition_handler(info, storage_config):
                 (disk_kname, partition_kname)
         LOG.debug("previous partition: {}".format(previous_partition))
         # XXX: sys/block/X/{size,start} is *ALWAYS* in 512b value
-        with open(os.path.join(previous_partition, "size"), "r") as fp:
-            previous_size_sectors = (int(fp.read()) * 512 /
-                                     logical_block_size_bytes)
-        with open(os.path.join(previous_partition, "start"), "r") as fp:
-            previous_start_sectors = (int(fp.read()) * 512 /
-                                      logical_block_size_bytes)
+        previous_size = util.load_file(os.path.join(previous_partition,
+                                                    "size"))
+        previous_size_sectors = (int(previous_size) * 512 /
+                                 logical_block_size_bytes)
+        previous_start = util.load_file(os.path.join(previous_partition,
+                                                     "start"))
+        previous_start_sectors = (int(previous_start) * 512 /
+                                  logical_block_size_bytes)
         LOG.debug("previous partition.size_sectors: {}".format(
                   previous_size_sectors))
         LOG.debug("previous partition.start_sectors: {}".format(
-                  previous_size_sectors))
+                  previous_start_sectors))
 
     # Align to 1M at the beginning of the disk and at logical partitions
     alignment_offset = int((1 << 20) / logical_block_size_bytes)
