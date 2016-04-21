@@ -548,6 +548,9 @@ def partition_handler(info, storage_config):
             logical_block_size_bytes = int(l)
     except:
         logical_block_size_bytes = 512
+    LOG.debug(
+        "{} logical_block_size_bytes: {}".format(disk_kname,
+                                                 logical_block_size_bytes))
 
     if partnumber > 1:
         if partnumber == 5 and disk_ptable == "msdos":
@@ -569,13 +572,23 @@ def partition_handler(info, storage_config):
             partition_kname = determine_partition_kname(disk_kname, pnum)
             previous_partition = "/sys/block/%s/%s/" % \
                 (disk_kname, partition_kname)
-        with open(os.path.join(previous_partition, "size"), "r") as fp:
-            previous_size = int(fp.read())
-        with open(os.path.join(previous_partition, "start"), "r") as fp:
-            previous_start = int(fp.read())
+        LOG.debug("previous partition: {}".format(previous_partition))
+        # XXX: sys/block/X/{size,start} is *ALWAYS* in 512b value
+        previous_size = util.load_file(os.path.join(previous_partition,
+                                                    "size"))
+        previous_size_sectors = (int(previous_size) * 512 /
+                                 logical_block_size_bytes)
+        previous_start = util.load_file(os.path.join(previous_partition,
+                                                     "start"))
+        previous_start_sectors = (int(previous_start) * 512 /
+                                  logical_block_size_bytes)
+        LOG.debug("previous partition.size_sectors: {}".format(
+                  previous_size_sectors))
+        LOG.debug("previous partition.start_sectors: {}".format(
+                  previous_start_sectors))
 
     # Align to 1M at the beginning of the disk and at logical partitions
-    alignment_offset = (1 << 20) / logical_block_size_bytes
+    alignment_offset = int((1 << 20) / logical_block_size_bytes)
     if partnumber == 1:
         # start of disk
         offset_sectors = alignment_offset
@@ -583,18 +596,20 @@ def partition_handler(info, storage_config):
         # further partitions
         if disk_ptable == "gpt" or flag != "logical":
             # msdos primary and any gpt part start after former partition end
-            offset_sectors = previous_start + previous_size
+            offset_sectors = previous_start_sectors + previous_size_sectors
         else:
             # msdos extended/logical partitions
             if flag == "logical":
                 if partnumber == 5:
                     # First logical partition
                     # start at extended partition start + alignment_offset
-                    offset_sectors = previous_start + alignment_offset
+                    offset_sectors = (previous_start_sectors +
+                                      alignment_offset)
                 else:
                     # Further logical partitions
                     # start at former logical partition end + alignment_offset
-                    offset_sectors = (previous_start + previous_size +
+                    offset_sectors = (previous_start_sectors +
+                                      previous_size_sectors +
                                       alignment_offset)
 
     length_bytes = util.human2bytes(size)
@@ -631,6 +646,8 @@ def partition_handler(info, storage_config):
 
     LOG.info("adding partition '%s' to disk '%s' (ptable: '%s')" %
              (info.get('id'), device, disk_ptable))
+    LOG.debug("partnum: {} offset_sectors: {} length_sectors: {}".format(
+        partnumber, offset_sectors, length_sectors))
     if disk_ptable == "msdos":
         if flag in ["extended", "logical", "primary"]:
             partition_type = flag
@@ -639,7 +656,7 @@ def partition_handler(info, storage_config):
         cmd = ["parted", disk, "--script", "mkpart", partition_type,
                "%ss" % offset_sectors, "%ss" % str(offset_sectors +
                                                    length_sectors)]
-        util.subp(cmd)
+        util.subp(cmd, capture=True)
     elif disk_ptable == "gpt":
         if flag and flag in sgdisk_flags:
             typecode = sgdisk_flags[flag]
@@ -648,7 +665,7 @@ def partition_handler(info, storage_config):
         cmd = ["sgdisk", "--new", "%s:%s:%s" % (partnumber, offset_sectors,
                length_sectors + offset_sectors),
                "--typecode=%s:%s" % (partnumber, typecode), disk]
-        util.subp(cmd)
+        util.subp(cmd, capture=True)
     else:
         raise ValueError("parent partition has invalid partition table")
 
@@ -677,6 +694,7 @@ def format_handler(info, storage_config):
         return
 
     # Make filesystem using block library
+    LOG.debug("mkfs {} info: {}".format(volume_path, info))
     mkfs.mkfs_from_config(volume_path, info)
 
 
@@ -1066,8 +1084,9 @@ def bcache_handler(info, storage_config):
                 with open(attach, "w") as fp:
                     fp.write(cset_uuid)
             else:
-                LOG.error("Invalid cset_uuid: {}".format(cset_uuid))
-                raise
+                msg = "Invalid cset_uuid: {}".format(cset_uuid)
+                LOG.error(msg)
+                raise ValueError(msg)
 
         if cache_mode:
             LOG.info("Setting cache_mode on {} to {}".format(bcache_dev,
