@@ -919,6 +919,9 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
     collect_post = textwrap.dedent(
         'tar -C "%s" -cf "%s" .' % (output_dir, output_device))
 
+    # copy /root for curtin config and install.log
+    copy_rootdir = textwrap.dedent("cp -a /root " + output_dir)
+
     # failsafe poweroff runs on precise only, where power_state does
     # not exist.
     precise_poweroff = textwrap.dedent("""#!/bin/sh
@@ -926,12 +929,12 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
         shutdown -P now "Shutting down on precise"
         """)
 
-    scripts = ([collect_prep] + collect_scripts + [collect_post] +
-               [precise_poweroff])
+    scripts = ([collect_prep] + [copy_rootdir] + collect_scripts + 
+               [collect_post] + [precise_poweroff])
 
     for part in scripts:
         if not part.startswith("#!"):
-            part = "#!/bin/sh\n" + part
+            part = "#!/bin/sh -x\n" + part
         part = part.replace(output_dir_macro, output_dir)
         logger.debug('Cloud config archive content (pre-json):' + part)
         parts.append({'content': part, 'type': 'text/x-shellscript'})
