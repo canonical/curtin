@@ -23,7 +23,7 @@ from curtin.block import mkfs
 from curtin.reporter import events
 
 from . import populate_one_subcmd
-from curtin.udev import compose_udev_equality
+from curtin.udev import compose_udev_equality, udevadm_settle
 
 import glob
 import os
@@ -82,7 +82,7 @@ def write_image_to_disk(source, dev):
                      'tar -SxOzf - | dd of="$2"'),
                     '--', source, devnode])
     util.subp(['partprobe', devnode])
-    util.subp(['udevadm', 'settle'])
+    udevadm_settle()
     return block.get_root_device([devname, ])
 
 
@@ -211,7 +211,7 @@ def clear_holders(sys_block_path):
                               "stop"), "w") as fp:
                         LOG.info("stopping: %s" % fp)
                         fp.write("1")
-                        util.subp(["udevadm", "settle"])
+                        udevadm_settle()
                     break
         for part_dev in part_devs:
             block.wipe_volume(os.path.join("/dev", part_dev),
@@ -232,7 +232,7 @@ def clear_holders(sys_block_path):
                       "w") as fp:
                 LOG.info("stopping: %s" % fp)
                 fp.write("1")
-        util.subp(["udevadm", "settle"])
+        udevadm_settle()
 
     if os.path.exists(os.path.join(sys_block_path, "md")):
         # md device
@@ -252,17 +252,17 @@ def clear_holders(sys_block_path):
 
 
 def devsync(devpath):
-    LOG.debug('devsync for {}'.format(devpath))
+    LOG.debug('devsync for %s', devpath)
     util.subp(['partprobe', devpath], rcs=[0, 1])
-    util.subp(['udevadm', 'settle'])
+    udevadm_settle()
     for x in range(0, 10):
         if os.path.exists(devpath):
-            LOG.debug('devsync happy - path {} now exists'.format(devpath))
+            LOG.debug('devsync happy - path %s now exists', devpath)
             return
         else:
-            LOG.debug('Waiting on device path: {}'.format(devpath))
+            LOG.debug('Waiting on device path: %s', devpath)
             time.sleep(1)
-    raise OSError('Failed to find device at path: {}'.format(devpath))
+    raise OSError('Failed to find device at path: %s', devpath)
 
 
 def determine_partition_kname(disk_kname, partition_number):
@@ -278,8 +278,8 @@ def determine_partition_number(partition_id, storage_config):
     partnumber = vol.get('number')
     if vol.get('flag') == "logical":
         if not partnumber:
-            LOG.warn('partition \'number\' key not set in config:\n{}'.format(
-                     util.json_dumps(vol)))
+            LOG.warn('partition \'number\' key not set in config:\n%s',
+                     util.json_dumps(vol))
             partnumber = 5
             for key, item in storage_config.items():
                 if item.get('type') == "partition" and \
@@ -291,8 +291,8 @@ def determine_partition_number(partition_id, storage_config):
                         partnumber += 1
     else:
         if not partnumber:
-            LOG.warn('partition \'number\' key not set in config:\n{}'.format(
-                     util.json_dumps(vol)))
+            LOG.warn('partition \'number\' key not set in config:\n%s',
+                     util.json_dumps(vol))
             partnumber = 1
             for key, item in storage_config.items():
                 if item.get('type') == "partition" and \
@@ -644,10 +644,10 @@ def partition_handler(info, storage_config):
                     "home": '8302',
                     "linux": '8300'}
 
-    LOG.info("adding partition '%s' to disk '%s' (ptable: '%s')" %
-             (info.get('id'), device, disk_ptable))
-    LOG.debug("partnum: {} offset_sectors: {} length_sectors: {}".format(
-        partnumber, offset_sectors, length_sectors))
+    LOG.info("adding partition '%s' to disk '%s' (ptable: '%s')",
+             info.get('id'), device, disk_ptable)
+    LOG.debug("partnum: %s offset_sectors: %s length_sectors: %s",
+              partnumber, offset_sectors, length_sectors)
     if disk_ptable == "msdos":
         if flag in ["extended", "logical", "primary"]:
             partition_type = flag
@@ -980,39 +980,38 @@ def bcache_handler(info, storage_config):
     # we will load it now
     util.subp(["modprobe", "bcache"])
     bcache_sysfs = "/sys/fs/bcache"
-    util.subp(["udevadm", "settle", "--exit-if-exists=%s" % bcache_sysfs])
+    udevadm_settle(exists=bcache_sysfs)
+
+    def register_bcache(bcache_device):
+        with open("/sys/fs/bcache/register", "w") as fp:
+            fp.write(bcache_device)
 
     def ensure_bcache_is_registered(bcache_device, expected, retry=0):
         # find the actual bcache device name via sysfs using the
         # backing device's holders directory.
         LOG.debug('check just created bcache %s if it is registered',
                   bcache_device)
-        settle_cmd = ["udevadm", "settle"]
-        if expected:
-            LOG.debug('expecting %s if device is registered' % expected)
-            settle_cmd.extend(["--exit-if-exists=%s" % expected])
         try:
-            util.subp(settle_cmd)
+            udevadm_settle(exists=expected)
             if os.path.exists(expected):
-                LOG.debug('Found bcache dev %s ' % bcache_device +
-                          'at expected path %s' % expected)
+                LOG.debug('Found bcache dev %s at expected path %s',
+                          bcache_device, expected)
                 return
-            LOG.debug('bcache device path not found: %s' % expected)
+            LOG.debug('bcache device path not found: %s', expected)
             local_holders = get_holders(bcache_device)
-            LOG.debug('got initial holders being "{}"'.format(local_holders))
+            LOG.debug('got initial holders being "%s"', local_holders)
             if len(local_holders) == 0:
-                raise ValueError("holders == 0")
+                raise ValueError("holders == 0 , expected non-zero")
         except (OSError, IndexError, ValueError):
             # Some versions of bcache-tools will register the bcache device as
             # soon as we run make-bcache using udev rules, so wait for udev to
             # settle, then try to locate the dev, on older versions we need to
             # register it manually though
-            LOG.debug('bcache device was not registered, registering {} at '
-                      '/sys/fs/bcache/register'.format(bcache_device))
+            LOG.debug('bcache device was not registered, registering %s at '
+                      '/sys/fs/bcache/register', bcache_device)
             try:
-                with open("/sys/fs/bcache/register", "w") as fp:
-                    fp.write(bcache_device)
-                util.subp(settle_cmd)
+                register_bcache(bcache_device)
+                udevadm_settle(exists=expected)
             except (IOError):
                 # device creation is notoriously racy and this can trigger
                 # "Invalid argument" IOErrors if it got created in "the
@@ -1024,7 +1023,7 @@ def bcache_handler(info, storage_config):
                 else:
                     LOG.debug('Repetive error registering the bcache dev %s',
                               bcache_device)
-                    raise ValueError("bcache device %s can't be registered" %
+                    raise ValueError("bcache device %s can't be registered",
                                      bcache_device)
 
     if cache_device:
