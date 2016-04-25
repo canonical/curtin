@@ -88,7 +88,7 @@ class TrustyHWEVTestRaid5Bcache(relbase.trusty_hwe_v, TrustyTestRaid5Bcache):
 
 
 class TrustyHWEWTestRaid5Bcache(relbase.trusty_hwe_w, TrustyTestRaid5Bcache):
-    __test__ = True
+    __test__ = False
 
 
 class VividTestRaid5Bcache(relbase.vivid, TestMdadmBcacheAbs):

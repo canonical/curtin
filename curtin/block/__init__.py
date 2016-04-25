@@ -23,6 +23,7 @@ import tempfile
 import itertools
 
 from curtin import util
+from curtin.udev import udevadm_settle
 from curtin.log import LOG
 
 
@@ -264,7 +265,7 @@ def rescan_block_devices():
         # we fix LP: #1489521 we kind of need to.
         LOG.warn("rescanning devices failed: %s", e)
 
-    util.subp(['udevadm', 'settle'])
+    udevadm_settle()
 
     return
 
