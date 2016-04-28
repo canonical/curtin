@@ -1,0 +1,32 @@
+showtrace: true
+network:
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: eth0
+          mac_address: "52:54:00:12:34:00"
+          subnets:
+              - type: dhcp4
+        - type: physical
+          name: eth1
+          mac_address: "52:54:00:12:34:02"
+        - type: physical
+          name: eth2
+          mac_address: "52:54:00:12:34:04"
+        # Bridge
+        - type: bridge
+          name: br0
+          mac_address: "52:54:00:12:34:06"
+          bridge_interfaces:
+            - eth1
+            - eth2
+          params:
+              bridge_stp: 'off'
+              bridge_fd: 0
+              bridge_maxwait: 0 
+          subnets:
+              - type: static
+                address: 192.168.14.2/24
+              - type: static
+                address: 2001:1::1/64 # default to /64
