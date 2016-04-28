@@ -48,7 +48,7 @@ def ifconfig_to_dict(ifconfig):
 
 class TestNetworkAbs(VMBaseClass):
     interactive = False
-    conf_file = "examples/tests/bonding_network.yaml"
+    conf_file = "examples/tests/bridging_network.yaml"
     extra_disks = []
     extra_nics = []
     collect_scripts = [textwrap.dedent("""
@@ -58,7 +58,7 @@ class TestNetworkAbs(VMBaseClass):
         cp -av /etc/udev/rules.d/70-persistent-net.rules .
         ip -o route show > ip_route_show
         route -n > route_n
-        dpkg-query -W -f '${Status}' bridge-utils > bridge-utils_installed
+        dpkg-query -W -f '${Status}' bridge-utils 2>&1 > bridge-utils_installed
         """)]
 
     def test_output_files_exist(self):
@@ -152,8 +152,6 @@ class TestNetworkAbs(VMBaseClass):
         self.assertEqual(ifname, ifconfig['interface'])
 
         # check physical interface attributes
-        # FIXME: can't check mac_addr under bonding since
-        # the bond might change slave mac addrs
         for key in ['mtu']:
             if key in iface and iface[key]:
                 self.assertEqual(iface[key],
