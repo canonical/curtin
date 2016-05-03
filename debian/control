@@ -48,7 +48,7 @@ Description: Library and tools for the curtin installer
 Package: curtin-common
 Architecture: all
 Priority: extra
-Depends: util-linux (>= 2.20.1-1ubuntu3), ${misc:Depends}, ${python3:Depends}
+Depends: ${misc:Depends}
 Conflicts: curtin (<= 0.1.0~bzr54-0ubuntu1)
 Description: Library and tools for curtin installer
  This package contains utilities for the curtin installer.
@@ -57,9 +57,10 @@ Package: python-curtin
 Section: python
 Architecture: all
 Priority: extra
-Depends: curl | wget,
-         curtin-common (= ${binary:Version}),
-         util-linux (>= 2.20.1-1ubuntu3),
+Depends: curtin-common (= ${binary:Version}),
+         python-oauthlib,
+         python-yaml,
+         wget,
          ${misc:Depends},
          ${python:Depends}
 Description: Library and tools for curtin installer
@@ -70,9 +71,10 @@ Section: python
 Architecture: all
 Priority: extra
 Conflicts: curtin (<= 0.1.0~bzr54-0ubuntu1)
-Depends: curl | wget,
-         curtin-common (= ${binary:Version}),
-         util-linux (>= 2.20.1-1ubuntu3),
+Depends: curtin-common (= ${binary:Version}),
+         python3-oauthlib,
+         python3-yaml,
+         wget,
          ${misc:Depends},
          ${python3:Depends}
 Description: Library and tools for curtin installer
