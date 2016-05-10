@@ -79,7 +79,7 @@ def write_image_to_disk(source, dev):
     (devname, devnode) = block.get_dev_name_entry(dev)
     util.subp(args=['sh', '-c',
                     ('wget "$1" --progress=dot:mega -O - |'
-                     'tar -SxOzf - | dd of="$2"'),
+                     'smtar -SxOf - | dd of="$2"'),
                     '--', source, devnode])
     util.subp(['partprobe', devnode])
     udevadm_settle()
