@@ -83,7 +83,16 @@ def write_image_to_disk(source, dev):
                     '--', source, devnode])
     util.subp(['partprobe', devnode])
     udevadm_settle()
-    return block.get_root_device([devname, ])
+    for fpath in ["curtin", "system-data/snap/ubuntu-core"]:
+        root_dev = block.get_root_device([devname, ], fpath=fpath)
+        if fpath == "curtin" and root_dev:
+            return root_dev
+        elif fpath == "system-data/snap/ubuntu-core" and root_dev is not None:
+            # snappy needs no root stuff
+            return None
+
+    if root_dev is None:
+        raise ValueError("Could not find root device")
 
 
 def get_bootpt_cfg(cfg, enabled=False, fstype=None, root_fstype=None):
@@ -1253,7 +1262,8 @@ def meta_simple(args):
         # we have at least one dd-able image
         # we will only take the first one
         rootdev = write_image_to_disk(dd_images[0], devname)
-        util.subp(['mount', rootdev, state['target']])
+        if rootdev:
+            util.subp(['mount', rootdev, state['target']])
         return 0
 
     # helper partition will forcibly set up partition there

@@ -765,6 +765,18 @@ def curthooks(args):
     with events.ReportEventStack(
             name=stack_prefix, reporting_enabled=True, level="INFO",
             description="writing config files and configuring apt"):
+
+        # dd- images provide their own curthooks which
+        # run in-target, so skip it here if source dd-*
+        # is set.
+        sources = cfg.get('sources')
+        if isinstance(sources, dict):
+            sources = [sources[k] for k in sorted(sources.keys())]
+        for source in sources:
+            if source['type'].startswith('dd-'):
+                LOG.debug('found a dd source, skipping curthooks')
+                return
+
         write_files(cfg, target)
         apt_config(cfg, target)
         disable_overlayroot(cfg, target)

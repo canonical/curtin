@@ -409,9 +409,6 @@ def get_root_device(dev, fpath="curtin"):
                 util.do_umount(mp)
 
     os.rmdir(tmp_mount)
-
-    if target is None:
-        raise ValueError("Could not find root device")
     return target
 
 
