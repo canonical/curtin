@@ -777,7 +777,8 @@ def try_import_module(import_str, default=None):
 
 
 def is_file_not_found_exc(exc):
-    return (isinstance(exc, IOError) and exc.errno == errno.ENOENT)
+    return (isinstance(exc, IOError) and
+            exc.errno in (errno.ENOENT, errno.ENXIO))
 
 
 def lsb_release():

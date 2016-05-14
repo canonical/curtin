@@ -480,7 +480,16 @@ def disk_handler(info, storage_config):
                 block_no = fp.read().rstrip()
             partition_path = os.path.realpath(
                 os.path.join("/dev/block", block_no))
-            block.wipe_volume(partition_path, mode=info.get('wipe'))
+            try:
+                block.wipe_volume(partition_path, mode=info.get('wipe'))
+            except IOError as e:
+                # in some cases the block dev may not be available when it is
+                # to be erased. since it is possible that installation can
+                # still continue without having wiped the partition, don't
+                # crash here (LP:1579572)
+                if not util.is_file_not_found_exc(e):
+                    LOG.warn("could not wipe volume at %s" % partition_path)
+                    raise
 
         clear_holders("/sys/block/%s" % disk_kname)
         block.wipe_volume(disk, mode=info.get('wipe'))
