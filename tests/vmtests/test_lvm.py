@@ -68,3 +68,7 @@ class VividTestLvm(relbase.vivid, TestLvmAbs):
 
 class WilyTestLvm(relbase.wily, TestLvmAbs):
     __test__ = True
+
+
+class XenialTestLvm(relbase.xenial, TestLvmAbs):
+    __test__ = True
