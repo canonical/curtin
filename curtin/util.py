@@ -288,6 +288,15 @@ def load_file(path, mode="r"):
         return fp.read()
 
 
+def del_file(path):
+    LOG.debug("Attempting to remove %s", path)
+    try:
+        os.unlink(path)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise e
+
+
 def disable_daemons_in_root(target):
     contents = "\n".join(
         ['#!/bin/sh',
