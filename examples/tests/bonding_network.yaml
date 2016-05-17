@@ -4,23 +4,23 @@ network:
     config:
         # Physical interfaces.
         - type: physical
-          name: eth0
+          name: interface0
           mac_address: "52:54:00:12:34:00"
           subnets:
               - type: dhcp4
         - type: physical
-          name: eth1
+          name: interface1
           mac_address: "52:54:00:12:34:02"
         - type: physical
-          name: eth2
+          name: interface2
           mac_address: "52:54:00:12:34:04"
         # Bond.
         - type: bond
           name: bond0
           mac_address: "52:54:00:12:34:06"
           bond_interfaces:
-            - eth1
-            - eth2
+            - interface1
+            - interface2
           params:
             bond-mode: active-backup
           subnets:
