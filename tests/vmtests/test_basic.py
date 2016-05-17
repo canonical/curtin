@@ -25,6 +25,7 @@ class TestBasicAbs(VMBaseClass):
         cat /etc/fstab > fstab
         mkdir -p /dev/disk/by-dname
         ls /dev/disk/by-dname/ > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
 
         v=""
         out=$(apt-config shell v Acquire::HTTP::Proxy)
@@ -145,6 +146,7 @@ class PreciseTestBasic(relbase.precise, TestBasicAbs):
         cat /etc/fstab > fstab
         mkdir -p /dev/disk/by-dname
         ls /dev/disk/by-dname/ > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
 
         v=""
         out=$(apt-config shell v Acquire::HTTP::Proxy)

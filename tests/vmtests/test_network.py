@@ -57,6 +57,7 @@ class TestNetworkAbs(VMBaseClass):
         ifconfig -a > ifconfig_a
         cp -av /etc/network/interfaces .
         cp -av /etc/network/interfaces.d .
+        find /etc/network/interfaces.d > find_interfacesd
         cp /etc/resolv.conf .
         cp -av /etc/udev/rules.d/70-persistent-net.rules .
         ip -o route show > ip_route_show
@@ -309,6 +310,7 @@ class TestNetworkENISource(TestNetworkAbs):
         ifconfig -a > ifconfig_a
         cp -av /etc/network/interfaces .
         cp -a /etc/network/interfaces.d .
+        find /etc/network/interfaces.d > find_interfacesd
         cp /etc/resolv.conf .
         cp -av /etc/udev/rules.d/70-persistent-net.rules .
         ip -o route show > ip_route_show
