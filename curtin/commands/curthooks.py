@@ -163,6 +163,7 @@ def _maybe_remove_legacy_eth0(target,
 
     cfg = os.path.sep.join([target, path])
     if not os.path.exists(cfg):
+        LOG.warn('Failed to find legacy conf file %s', cfg)
         return
 
     bmsg = "Dynamic networking config may not apply."
@@ -178,6 +179,8 @@ def _maybe_remove_legacy_eth0(target,
             msg = (bmsg + " '%s' exists with user configured content." % cfg)
     except:
         msg = bmsg + " %s exists, but could not be read." % cfg
+        LOG.exception(msg)
+        return
 
     LOG.warn(msg)
 

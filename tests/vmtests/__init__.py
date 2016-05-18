@@ -853,6 +853,9 @@ class PsuedoVMBaseClass(VMBaseClass):
     def test_dname(self):
         pass
 
+    def test_interfacesd_eth0_removed(self):
+        pass
+
     def _maybe_raise(self, exc):
         if self.allow_test_fails:
             raise exc
