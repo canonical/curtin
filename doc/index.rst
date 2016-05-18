@@ -13,7 +13,11 @@ Contents:
    :maxdepth: 2
 
    topics/overview
+   topics/networking
+   topics/storage
    topics/reporting
+   topics/development
+   topics/integration-testing
 
 
 
