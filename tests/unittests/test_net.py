@@ -497,16 +497,16 @@ network:
             auto lo
             iface lo inet loopback
 
-            auto eth0
-            iface eth0 inet dhcp
+            auto interface0
+            iface interface0 inet dhcp
 
-            auto eth1
-            iface eth1 inet manual
+            auto interface1
+            iface interface1 inet manual
                 bond-mode active-backup
                 bond-master bond0
 
-            auto eth2
-            iface eth2 inet manual
+            auto interface2
+            iface interface2 inet manual
                 bond-mode active-backup
                 bond-master bond0
 
@@ -537,22 +537,22 @@ network:
             auto lo
             iface lo inet loopback
 
-            # control-manual eth0
-            iface eth0 inet dhcp
+            # control-manual interface0
+            iface interface0 inet dhcp
 
-            auto eth1
-            iface eth1 inet static
+            auto interface1
+            iface interface1 inet static
                 address 192.168.14.2/24
                 gateway 192.168.14.1
                 mtu 1492
 
-            auto eth1:1
-            iface eth1:1 inet static
+            auto interface1:1
+            iface interface1:1 inet static
                 address 192.168.14.4/24
                 mtu 1492
 
-            allow-hotplug eth2
-            iface eth2 inet static
+            allow-hotplug interface2
+            iface interface2 inet static
                 gateway 10.11.12.1
                 address 10.11.12.13/22
 
