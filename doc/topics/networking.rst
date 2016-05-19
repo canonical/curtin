@@ -8,7 +8,7 @@ networking interfaces by assigning subnet configuration, virtual device
 creation (bonds, bridges, vlans) routes and DNS configuration.
 
 Format
-------
+~~~~~~
 Curtin accepts a YAML input under the top-level ``network`` key
 to indicate that a user would like to specify a custom networking
 configuration.  Required elements of a network configuration are
@@ -17,10 +17,10 @@ network config version=1. ::
 
   network:
     version: 1
-    config:
+    config: []
        
 Config Types
-------------
+~~~~~~~~~~~~
 Within the network ``config`` portion, users include a list of configuration
 types.  The current list of support ``type`` values are as follows:
   
@@ -28,6 +28,15 @@ types.  The current list of support ``type`` values are as follows:
  - **bridge**: A software Linux Bridge device
  - **bond**:  A software Linux Bond device
  - **vlan**:  A software Linux VLAN device
+
+
+Type: physical
+~~~~~~~~~~~~~~
+Type ``physical`` requires only one key: ``name``.  Some common and useful
+other values include:
+
+ - **mac_address**: Indicate the MAC address of the underlying device.  This also triggers a udev rule to map the device by the MAC address to the ``name`` value.
+ - **mtu**: Configure the MTU value on the interface.  The value is not checked and a device a runtime may reject the value.
 
 **Physical Example**::
   
@@ -51,6 +60,28 @@ types.  The current list of support ``type`` values are as follows:
         name: gbe1
         mac_address: cd:11:22:33:44:02
 
+Type: bridge
+~~~~~~~~~~~~
+Type ``bridge`` requires the following keys:
+
+ - **name**: Set the name of the bridge.
+ - **bridge_interfaces**: Specify the ports of a bridge via their ``name``.  This list may be empty.
+ - **params**:  A list of bridge params.  For more details, please read the bridge-utils-interfaces manpage.  Valid keys are:
+
+   - **bridge_ageing**: Set the bridge's ageing value.
+   - **bridge_bridgeprio**: Set the bridge device network priority.
+   - **bridge_fd**: Set the bridge's forward delay.
+   - **bridge_hello**: Set the bridge's hello value.
+   - **bridge_hw**: Set the bridge's MAC address.
+   - **bridge_maxage**: Set the bridge's maxage value.
+   - **bridge_maxwait**:  Set how long network scripts should wait for the bridge to come up.
+   - **bridge_pathcost**:  Set the cost of a specific port on the bridge.
+   - **bridge_portprio**:  Set the priority of a specific port on the bridge.
+   - **bridge_ports**:  List of devices that are part of the bridge.
+   - **bridge_stp**:  Set spanning tree protocol on or off.
+   - **bridge_waitport**: Set amount of time in seconds to wait on specific ports to become available.
+
+
 **Bridge Example**::
 
    network:
@@ -70,10 +101,64 @@ types.  The current list of support ``type`` values are as follows:
         bridge_interfaces:
           - jumbo0
         params:
-          bridge_stp: "off"
-          bridge_fd: 0
+          bridge_ageing: 250
+		  bridge_bridgeprio: 22
+		  bridge_fd: 1
+          bridge_hello: 1
+          bridge_maxage: 10
           bridge_maxwait: 0
-      
+          bridge_pathcost:
+            - jumbo0 75
+          bridge_pathprio:
+            - jumbo0 28
+          bridge_stp: 'off'
+          bridge_maxwait:
+            - jumbo0 0
+
+Type: bond
+~~~~~~~~~~
+Type ``bond`` requires the following keys:
+
+ - **name**: Set the name of the bond.
+ - **bond_interfaces**: Specify the ports of a bond via their ``name``.  This list may be empty.
+ - **params**:  A list of bonding params.  For more details, please read the Linux Kernel Bonding.txt.  Valid keys are:
+
+   - **active_slave**: Set bond attribute
+   - **ad_actor_key**: Set bond attribute
+   - **ad_actor_sys_prio**: Set bond attribute
+   - **ad_actor_system**: Set bond attribute
+   - **ad_aggregator**: Set bond attribute
+   - **ad_num_ports**: Set bond attribute
+   - **ad_partner_key**: Set bond attribute
+   - **ad_partner_mac**: Set bond attribute
+   - **ad_select**: Set bond attribute
+   - **ad_user_port_key**: Set bond attribute
+   - **all_slaves_active**: Set bond attribute
+   - **arp_all_targets**: Set bond attribute
+   - **arp_interval**: Set bond attribute
+   - **arp_ip_target**: Set bond attribute
+   - **arp_validate**: Set bond attribute
+   - **downdelay**: Set bond attribute
+   - **fail_over_mac**: Set bond attribute
+   - **lacp_rate**: Set bond attribute
+   - **lp_interval**: Set bond attribute
+   - **miimon**: Set bond attribute
+   - **mii_status**: Set bond attribute
+   - **min_links**: Set bond attribute
+   - **mode**: Set bond attribute
+   - **num_grat_arp**: Set bond attribute
+   - **num_unsol_na**: Set bond attribute
+   - **packets_per_slave**: Set bond attribute
+   - **primary**: Set bond attribute
+   - **primary_reselect**: Set bond attribute
+   - **queue_id**: Set bond attribute
+   - **resend_igmp**: Set bond attribute
+   - **slaves**: Set bond attribute
+   - **tlb_dynamic_lb**: Set bond attribute
+   - **updelay**: Set bond attribute
+   - **use_carrier**: Set bond attribute
+   - **xmit_hash_policy**: Set bond attribute
+ 
 **Bond Example**::
 
    network:
@@ -98,6 +183,14 @@ types.  The current list of support ``type`` values are as follows:
         params:
           bond-mode: active-backup
    
+Type: vlan
+~~~~~~~~~~
+Type ``vlan`` requires the following keys:
+
+ - **name**: Set the name of the VLAN
+ - **vlan_link**: Specify the underlying link via its ``name``.
+ - **vlan_id**: Specify the VLAN numeric id.
+
 **VLAN Example**::
 
    network:
@@ -114,16 +207,15 @@ types.  The current list of support ``type`` values are as follows:
          vlan_id: 101
          mtu: 1500
 
-
 Subnet/IP configuration
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 For any network device (one of the Config Types) users can define a list of
 ``subnets`` which contain ip configuration dictionaries.  Multiple subnet
 entries will create interface alias allowing a single interface to use different
 ip configurations.  
 
-Valid keys for for `subnets` include the following:
+Valid keys for for ``subnets`` include the following:
 
  - **type**: Specify the subnet type.
  - **control**: Specify manual, auto or hotplug.  Indicates how the interface will be handled during boot.
@@ -176,7 +268,7 @@ subnet dictionary.
              dns_search:
                - exemplary.maas
 
-The following will result in an `interface0` using DHCP and `interface0:1`
+The following will result in an ``interface0`` using DHCP and ``interface0:1``
 using the static subnet configuration.
 
 **Multiple subnet Example**::
@@ -188,7 +280,6 @@ using the static subnet configuration.
          name: interface0
          mac_address: 00:11:22:33:44:55
          subnets:
-         subnets:
            - type: dhcp
            - type: static
              address: 192.168.23.14/27
@@ -197,13 +288,10 @@ using the static subnet configuration.
                - 192.168.23.2
                - 8.8.8.8
              dns_search:
-               - exemplary.maas
-
-
-
+               - exemplary
 
 Nameservers
------------
+~~~~~~~~~~~
 
 Users can specify a ``nameserver`` type.  Nameserver dictionaries include
 the following keys:
@@ -211,9 +299,29 @@ the following keys:
  - **address**: List of IPv4 or IPv6 address of nameservers.
  - **search**: List of of hostnames to include in the resolv.conf search path.
 
+**Nameserver Example**::
+
+  network:
+    version: 1
+    config:
+      - type: physical
+        name: interface0
+        mac_address: 00:11:22:33:44:55
+        subnets:
+           - type: static
+             address: 192.168.23.14/27
+             gateway: 192.168.23.1
+      - type: namserver:
+        address: 
+          - 192.168.23.2
+          - 8.8.8.8
+        search:
+          - exemplary
+
+     
 
 Routes
-------
+~~~~~~
 
 Users can include static routing information as well.  A ``route`` dictionary
 has the following keys:
@@ -223,17 +331,65 @@ has the following keys:
  - **metric**: Integer which sets the network metric value for this route.
  - **device**: Specify the network device that will deliver packets for this route.
 
+**Route Example**::
+
+  network:
+    version: 1
+    config:
+      - type: physical
+        name: interface0
+        mac_address: 00:11:22:33:44:55
+        subnets:
+           - type: static
+             address: 192.168.23.14/24
+             gateway: 192.168.23.1
+      - type: route
+        destination: 192.168.24.0/24
+        gateway: 192.168.24.1
+        metric: 3
+
 
 Multi-layered configurations
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A vlan'ed bonded bridged set of interfaces.
+Complex networking sometimes uses layers of configuration.  The syntax allows
+users to build those layers one at a time.  All of the virtual network devices
+supported allow specifying an underlying device by their ``name`` value.
 
+**Bonded VLAN Example**::
+
+  network:
+    version: 1
+    config:
+      # 10G pair
+      - type: physical
+        name: gbe0
+        mac_address: cd:11:22:33:44:00
+      - type: physical
+        name: gbe1
+        mac_address: cd:11:22:33:44:02
+      # Bond.
+      - type: bond
+        name: bond0
+        bond_interfaces:
+          - gbe0
+          - gbe1
+        params:
+          bond-mode: 802.3ad
+          bond-lacp-rate: fast
+      # A Bond VLAN.
+      - type: vlan
+          name: bond0.200
+          vlan_link: bond0
+          vlan_id: 200
+          subnets:
+              - type: dhcp4
 
 More Examples
--------------
+~~~~~~~~~~~~~
+Some more examples to explore the various options available.
 
-Multiple VLAN example ::
+**Multiple VLAN example**::
 
   network:
     version: 1
@@ -257,20 +413,6 @@ Multiple VLAN example ::
       - address: 10.245.188.2/24
         dns_nameservers: []
         type: static
-      type: physical
-    - id: eth2
-      mac_address: d4:be:d9:a8:49:17
-      mtu: 1500
-      name: eth2
-      subnets:
-      - type: manual
-      type: physical
-    - id: eth3
-      mac_address: d4:be:d9:a8:49:19
-      mtu: 1500
-      name: eth3
-      subnets:
-      - type: manual
       type: physical
     - id: eth1.2667
       mtu: 1500
