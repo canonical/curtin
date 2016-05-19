@@ -289,10 +289,11 @@ def load_file(path, mode="r"):
 
 
 def del_file(path):
-    LOG.debug("Attempting to remove %s", path)
+    LOG.debug("del_file: removed %s", path)
     try:
         os.unlink(path)
     except OSError as e:
+        LOG.exception("del_file: %s did not exist.", path)
         if e.errno != errno.ENOENT:
             raise e
 
