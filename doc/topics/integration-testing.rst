@@ -133,11 +133,12 @@ Some environment variables affect the running of vmtest
 
     Each vmtest that runs has its own sub-directory under the top level
     `CURTIN_VMTEST_TOPDIR`.  In that directory are directories:
-      boot: inputs to the system boot (after install)
-      install: install phase related files
-      disks: the disks used for installation and boot
-      logs: install and boot logs
-      collect: data collected by the boot phase
+
+    - boot: inputs to the system boot (after install)
+    - install: install phase related files
+    - disks: the disks used for installation and boot
+    - logs: install and boot logs
+    - collect: data collected by the boot phase
 
   - **CURTIN_VMTEST_TOPDIR**: default $TMPDIR/vmtest-<timestamp>
 

@@ -60,7 +60,7 @@ Notes about 'launch'
 - launch sets 'ubuntu' user password to 'passw0rd'
 - launch runs 'kvm -curses'
   kvm -curses keyboard info:
-    'alt-2' to go to qemu console
+  'alt-2' to go to qemu console
 - launch puts serial console to 'serial.log' (look there for stuff)
 - when logged in
   - you can look at /var/log/cloud-init-output.log
