@@ -35,4 +35,6 @@ FEATURES = [
     'SUBCOMMAND_SYSTEM_UPGRADE',
 ]
 
+__version__ = "0.1.0"
+
 # vi: ts=4 expandtab syntax=python
