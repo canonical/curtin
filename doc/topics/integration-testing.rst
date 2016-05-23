@@ -55,26 +55,27 @@ The general flow of the vmtests is:
 Debugging
 =========
 
-At 3.1 one can pull data out of the maas image with `sudo mount-image-callback
-your.img -- sh -c 'COMMAND'` For example::
+At 3.1 one can pull data out of the maas image the command 
+``mount-image-callback``.  For example::
 
   sudo mount-image-callback your.img -- sh -c 'cp $MOUNTPOINT/boot/* .'
 
-At step 3.6 through 4 `tools/launch` can be called in a way to give you console
-access.  To do so just call tools/launch but drop the -serial=x parameter.
-One might want to change "'power_state': {'mode': 'poweroff'}" to avoid the auto
-reboot before getting control.  Replace the directory usually seen in the launch
-calls with a clean fresh directory
+At step 3.6 through 4 ``tools/launch`` can be called in a way to give you
+console access.  To do so just call tools/launch but drop the -serial=x
+parameter.  One might want to change "'power_state': {'mode': 'poweroff'}" to
+avoid the auto reboot before getting control.  Replace the directory usually
+seen in the launch calls with a clean fresh directory.
 
 In /curtin curtin and its config can be found. If the system gets that far
 cloud-init will create a user creds: ubuntu/passw0rd , otherwise one can use a
-cloud-image from  https://cloud-images.ubuntu.com/ and add a backdoor user via::
+cloud-image from  https://cloud-images.ubuntu.com/ and add a backdoor user
+via::
 
   bzr branch lp:~maas-maintainers/maas/backdoor-image backdoor-image
   sudo ./backdoor-image -v --user=<USER> --password-auth --password=<PW> IMG
 
-At step 6 -> 7 you might want to keep all the temporary images around.  To do so
-you can set CURTIN_VMTEST_KEEP_DATA_PASS=all in your environment. ::
+At step 6 -> 7 you might want to keep all the temporary images around.  To do
+so you can set ``CURTIN_VMTEST_KEEP_DATA_PASS=all`` in your environment. ::
 
   export CURTIN_VMTEST_KEEP_DATA_PASS=all CURTIN_VMTEST_KEEP_DATA_FAIL=all
 
@@ -82,11 +83,11 @@ That will keep the /tmp/tmpXXXXX directories and all files in there for further
 execution.
 
 At step 7 you might want to take a look at the output disk yourself.  It is a
-normal qcow image, so one can use `mount-image-callback` as described above.
+normal qcow image, so one can use ``mount-image-callback`` as described above.
 
-To invoke xkvm on your own take the command you see in the output and remove the
-"-serial ..." but add -nographic instead For graphical console one can add --vnc
-127.0.0.1:1
+To invoke xkvm on your own take the command you see in the output and remove
+the "-serial ..." but add ``-nographic`` instead For graphical console one can
+add ``--vnc 127.0.0.1:1``
 
 Setup
 =====
@@ -116,62 +117,64 @@ Environment Variables
 =====================
 
 Some environment variables affect the running of vmtest
-  - **apt_proxy**:
-    Vmtest will set apt_proxy in the guests to the value of 'apt_proxy'.
+
+- ``apt_proxy``:
+
+    Vmtest will set apt_proxy in the guests to the value of ``apt_proxy``.
     If that is not set it will look at the host's apt config and read
-    'Acquire::HTTP::Proxy'
+    ``Acquire::HTTP::Proxy``
 
-  - **CURTIN_VMTEST_KEEP_DATA_PASS**: Defaults to none.
-  - **CURTIN_VMTEST_KEEP_DATA_FAIL**: Defaults to all.
+- ``CURTIN_VMTEST_KEEP_DATA_PASS``: Defaults to none.
+- ``CURTIN_VMTEST_KEEP_DATA_FAIL``: Defaults to all.
 
-    These 2 variables determine what portions of the temporary
-    test data are kept.
+  These 2 variables determine what portions of the temporary
+  test data are kept.
 
-    The variables contain a comma ',' delimited list of directories
-    that should be kept in the case of pass or fail.  Additionally,
-    the values 'all' and 'none' are accepted.
+  The variables contain a comma ',' delimited list of directories
+  that should be kept in the case of pass or fail.  Additionally,
+  the values 'all' and 'none' are accepted.
 
-    Each vmtest that runs has its own sub-directory under the top level
-    `CURTIN_VMTEST_TOPDIR`.  In that directory are directories:
+  Each vmtest that runs has its own sub-directory under the top level
+  ``CURTIN_VMTEST_TOPDIR``.  In that directory are directories:
 
-    - boot: inputs to the system boot (after install)
-    - install: install phase related files
-    - disks: the disks used for installation and boot
-    - logs: install and boot logs
-    - collect: data collected by the boot phase
+    - ``boot``: inputs to the system boot (after install)
+    - ``install``: install phase related files
+    - ``disks``: the disks used for installation and boot
+    - ``logs``: install and boot logs
+    - ``collect``: data collected by the boot phase
 
-  - **CURTIN_VMTEST_TOPDIR**: default $TMPDIR/vmtest-<timestamp>
+- ``CURTIN_VMTEST_TOPDIR``: default $TMPDIR/vmtest-<timestamp>
 
-    Vmtest puts all test data under this value.  By default, it creates
-    a directory in TMPDIR (/tmp) named with as "vmtest-<timestamp>"
+  Vmtest puts all test data under this value.  By default, it creates
+  a directory in TMPDIR (/tmp) named with as ``vmtest-<timestamp>``
 
-    If you set this value, you must ensure that the directory is either
-    non-existant or clean.
+  If you set this value, you must ensure that the directory is either
+  non-existant or clean.
 
-  - **CURTIN_VMTEST_LOG**: default $TMPDIR/vmtest-<timestamp>.log
+- ``CURTIN_VMTEST_LOG``: default $TMPDIR/vmtest-<timestamp>.log
 
-    Vmtest writes extended log information to this file.
-    The default puts the log along side the TOPDIR.
+  Vmtest writes extended log information to this file.
+  The default puts the log along side the TOPDIR.
 
-  - **CURTIN_VMTEST_IMAGE_SYNC**: default false (boolean)
+- ``CURTIN_VMTEST_IMAGE_SYNC``: default false (boolean)
 
-    If set to true, each run will attempt a sync of images.
-    If you want to make sure images are always up to date, then set to true.
+  If set to true, each run will attempt a sync of images.
+  If you want to make sure images are always up to date, then set to true.
 
-  - **CURTIN_VMTEST_BRIDGE**: default 'user'
+- ``CURTIN_VMTEST_BRIDGE``: default 'user'
 
-    The network devices will be attached to this bridge.  The default is
-    'user', which means to use qemu user mode networking.  Set it to
-    'virbr0' or 'lxcbr0' to use those bridges and then be able to ssh
-    in directly.
+  The network devices will be attached to this bridge.  The default is
+  ``user``, which means to use qemu user mode networking.  Set it to
+  ``virbr0`` or ``lxdbr0`` to use those bridges and then be able to ssh
+  in directly.
 
-  - **IMAGE_DIR**: default /srv/images
+- ``IMAGE_DIR``: default /srv/images
 
-    Vmtest keeps a mirror of maas ephemeral images in this directory.
+  Vmtest keeps a mirror of maas ephemeral images in this directory.
 
-  - **IMAGES_TO_KEEP**: default 1
+- ``IMAGES_TO_KEEP``: default 1
 
-    Controls the number of images of each release retained in the IMAGE_DIR.
+  Controls the number of images of each release retained in the IMAGE_DIR.
 
 Environment 'boolean' values
 ============================

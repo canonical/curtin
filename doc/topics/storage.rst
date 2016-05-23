@@ -7,8 +7,6 @@ Curtin supports a user-configurable storage layout.  This format lets users
 creating partitions, RAIDs, LVMs, formating with file systems and setting
 mount points.
 
-Basic Configuration Layout
-~~~~~~~~~~~~~~~~~~~~~~~~~~
 Custom storage configuration is handled by the ``block-meta custom`` command
 in curtin. Partitioning layout is read as a list of in-order modifications to
 make to achieve the desired configuration. The top level configuration key
@@ -27,8 +25,8 @@ current config specification is ``version: 1``.
        serial: QM00002
        model: QEMU_HARDDISK
 
-Configuration List Entries
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Configuration Types
+-------------------
 Each entry in the config list is a dictionary with several keys which vary
 between commands. The two dictionary keys that every entry in the list needs
 to have are ``id: <id>`` and ``type: <type>``.
@@ -40,15 +38,15 @@ meaning in yaml, such as ``true`` or ``none``.
 An entry's ``type`` tells curtin what command this config entry should be
 running. Available commands include:
 
-- disk
-- partition
-- format
-- mount
-- lvm_volgroup
-- lvm_partition
-- dm_crypt
-- raid
-- bcache
+- Disk Command
+- Partition Command
+- Format Command
+- Mount Command
+- LVM_VolGroup Command
+- LVM_Partition Command
+- DM_Crypt Command
+- RAID Command
+- Bcache Command
 
 Disk Command
 ~~~~~~~~~~~~
@@ -542,9 +540,20 @@ If the ``name`` key is present, curtin will create a link to the device at
 
 
 Additional Examples
-~~~~~~~~~~~~~~~~~~~
+-------------------
 
-**Basic**::
+Learn by examples.
+
+- Basic
+- LVM
+- Bcache
+- RAID Boot
+- RAID5 + Bcache
+
+Basic Layout
+~~~~~~~~~~~~
+
+::
 
   storage:
     version: 1
@@ -585,7 +594,10 @@ Additional Examples
         path: /home
         device: disk0-part2-format-home
 
-**LVM**::
+LVM
+~~~
+
+::
 
   storage:
     version: 1
@@ -658,7 +670,10 @@ Additional Examples
         path: /srv/backup
         device: lv2_fs
 
-**bcache**::
+Bcache
+~~~~~~
+
+::
 
   storage:
     version: 1
@@ -714,7 +729,10 @@ Additional Examples
         path: /boot
         device: bootfs
 
-**RAID Boot**::
+RAID Boot
+~~~~~~~~~
+
+::
 
   storage:
     version: 1
@@ -773,7 +791,10 @@ Additional Examples
          device: md_root
 
 
-**RAID5 Bcache**::
+RAID5 + Bcache
+~~~~~~~~~~~~~~
+
+::
 
   storage:
     config:
@@ -871,76 +892,3 @@ Additional Examples
       path: /srv/data
       type: mount
     version: 1
-
-**LVM**::
-
-  storage:
-      version: 1
-      config:
-        - id: sda
-          type: disk
-          ptable: msdos
-          model: QEMU HARDDISK
-          path: /dev/vdb
-          name: main_disk
-        - id: sda1
-          type: partition
-          size: 3GB
-          device: sda
-          flag: boot
-        - id: sda_extended
-          type: partition
-          size: 5G
-          flag: extended
-          device: sda
-        - id: sda2
-          type: partition
-          size: 2G
-          flag: logical
-          device: sda
-        - id: sda3
-          type: partition
-          size: 3G
-          flag: logical
-          device: sda
-        - id: volgroup1
-          name: vg1
-          type: lvm_volgroup
-          devices:
-              - sda2
-              - sda3
-        - id: lvmpart1
-          name: lv1
-          size: 1G
-          type: lvm_partition
-          volgroup: volgroup1
-        - id: lvmpart2
-          name: lv2
-          type: lvm_partition
-          volgroup: volgroup1
-        - id: sda1_root
-          type: format
-          fstype: ext4
-          volume: sda1
-        - id: lv1_fs
-          name: storage
-          type: format
-          fstype: fat32
-          volume: lvmpart1
-        - id: lv2_fs
-          name: storage
-          type: format
-          fstype: ext3
-          volume: lvmpart2
-        - id: sda1_mount
-          type: mount
-          path: /
-          device: sda1_root
-        - id: lv1_mount
-          type: mount
-          path: /srv/data
-          device: lv1_fs
-        - id: lv2_mount
-          type: mount
-          path: /srv/backup
-          device: lv2_fs

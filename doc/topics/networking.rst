@@ -7,8 +7,6 @@ This format lets users (including via MAAS) to customize their machines'
 networking interfaces by assigning subnet configuration, virtual device
 creation (bonds, bridges, vlans) routes and DNS configuration.
 
-Format
-~~~~~~
 Curtin accepts a YAML input under the top-level ``network`` key
 to indicate that a user would like to specify a custom networking
 configuration.  Required elements of a network configuration are
@@ -19,24 +17,37 @@ network config version=1. ::
     version: 1
     config: []
        
-Config Types
-~~~~~~~~~~~~
+Configuration Types
+-------------------
 Within the network ``config`` portion, users include a list of configuration
 types.  The current list of support ``type`` values are as follows:
   
- - **physical**: "Physical" network devices, like ethernet which are identified by MAC address.
- - **bridge**: A software Linux Bridge device
- - **bond**:  A software Linux Bond device
- - **vlan**:  A software Linux VLAN device
+- Physical
+- Bond
+- Bridge
+- VLAN
+- Subnet/IP
+- Nameserver
+- Route
 
-
-Type: physical
-~~~~~~~~~~~~~~
+Physical
+~~~~~~~~
 Type ``physical`` requires only one key: ``name``.  Some common and useful
 other values include:
 
- - **mac_address**: Indicate the MAC address of the underlying device.  This also triggers a udev rule to map the device by the MAC address to the ``name`` value.
- - **mtu**: Configure the MTU value on the interface.  The value is not checked and a device a runtime may reject the value.
+- ``mac_address``: Specify the MAC address of the underlying device.
+
+.. note::
+
+  Curtin will write a udev rule to provide a persistent mapping between a
+  device's ``name`` and the ``mac_address``.
+
+- ``mtu``: Configure the MTU value on the interface.
+
+.. note::
+
+  The value is not checked and a device a runtime may reject the value.
+
 
 **Physical Example**::
   
@@ -60,26 +71,99 @@ other values include:
         name: gbe1
         mac_address: cd:11:22:33:44:02
 
-Type: bridge
-~~~~~~~~~~~~
+Bond
+~~~~
+A ``bond`` type will configure a Linux software Bond with one or more network
+devices.  A ``bond`` type requires the following keys:
+
+- ``name``: Set the name of the bond.
+- ``bond_interfaces``: Specify the ports of a bond via their ``name``.  This list may be empty.
+- ``params``:  A list of bonding parameters. This list may be empty. For more details, please read the Linux Kernel Bonding.txt.
+
+Valid ``params`` keys are:
+
+  - ``active_slave``: Set bond attribute
+  - ``ad_actor_key``: Set bond attribute
+  - ``ad_actor_sys_prio``: Set bond attribute
+  - ``ad_actor_system``: Set bond attribute
+  - ``ad_aggregator``: Set bond attribute
+  - ``ad_num_ports``: Set bond attribute
+  - ``ad_partner_key``: Set bond attribute
+  - ``ad_partner_mac``: Set bond attribute
+  - ``ad_select``: Set bond attribute
+  - ``ad_user_port_key``: Set bond attribute
+  - ``all_slaves_active``: Set bond attribute
+  - ``arp_all_targets``: Set bond attribute
+  - ``arp_interval``: Set bond attribute
+  - ``arp_ip_target``: Set bond attribute
+  - ``arp_validate``: Set bond attribute
+  - ``downdelay``: Set bond attribute
+  - ``fail_over_mac``: Set bond attribute
+  - ``lacp_rate``: Set bond attribute
+  - ``lp_interval``: Set bond attribute
+  - ``miimon``: Set bond attribute
+  - ``mii_status``: Set bond attribute
+  - ``min_links``: Set bond attribute
+  - ``mode``: Set bond attribute
+  - ``num_grat_arp``: Set bond attribute
+  - ``num_unsol_na``: Set bond attribute
+  - ``packets_per_slave``: Set bond attribute
+  - ``primary``: Set bond attribute
+  - ``primary_reselect``: Set bond attribute
+  - ``queue_id``: Set bond attribute
+  - ``resend_igmp``: Set bond attribute
+  - ``slaves``: Set bond attribute
+  - ``tlb_dynamic_lb``: Set bond attribute
+  - ``updelay``: Set bond attribute
+  - ``use_carrier``: Set bond attribute
+  - ``xmit_hash_policy``: Set bond attribute
+ 
+**Bond Example**::
+
+   network:
+    version: 1
+    config:
+      # Simple network adapter
+      - type: physical
+        name: interface0
+        mac_address: 00:11:22:33:44:55
+      # 10G pair
+      - type: physical
+        name: gbe0
+        mac_address: cd:11:22:33:44:00
+      - type: physical
+        name: gbe1
+        mac_address: cd:11:22:33:44:02
+      - type: bond
+        name: bond0
+        bond_interfaces:
+          - gbe0
+          - gbe1
+        params:
+          bond-mode: active-backup
+ 
+Bridge
+~~~~~~
 Type ``bridge`` requires the following keys:
 
- - **name**: Set the name of the bridge.
- - **bridge_interfaces**: Specify the ports of a bridge via their ``name``.  This list may be empty.
- - **params**:  A list of bridge params.  For more details, please read the bridge-utils-interfaces manpage.  Valid keys are:
+- ``name``: Set the name of the bridge.
+- ``bridge_interfaces``: Specify the ports of a bridge via their ``name``.  This list may be empty.
+- ``params``:  A list of bridge params.  For more details, please read the bridge-utils-interfaces manpage.
 
-   - **bridge_ageing**: Set the bridge's ageing value.
-   - **bridge_bridgeprio**: Set the bridge device network priority.
-   - **bridge_fd**: Set the bridge's forward delay.
-   - **bridge_hello**: Set the bridge's hello value.
-   - **bridge_hw**: Set the bridge's MAC address.
-   - **bridge_maxage**: Set the bridge's maxage value.
-   - **bridge_maxwait**:  Set how long network scripts should wait for the bridge to come up.
-   - **bridge_pathcost**:  Set the cost of a specific port on the bridge.
-   - **bridge_portprio**:  Set the priority of a specific port on the bridge.
-   - **bridge_ports**:  List of devices that are part of the bridge.
-   - **bridge_stp**:  Set spanning tree protocol on or off.
-   - **bridge_waitport**: Set amount of time in seconds to wait on specific ports to become available.
+Valid keys are:
+
+  - ``bridge_ageing``: Set the bridge's ageing value.
+  - ``bridge_bridgeprio``: Set the bridge device network priority.
+  - ``bridge_fd``: Set the bridge's forward delay.
+  - ``bridge_hello``: Set the bridge's hello value.
+  - ``bridge_hw``: Set the bridge's MAC address.
+  - ``bridge_maxage``: Set the bridge's maxage value.
+  - ``bridge_maxwait``:  Set how long network scripts should wait for the bridge to be up.
+  - ``bridge_pathcost``:  Set the cost of a specific port on the bridge.
+  - ``bridge_portprio``:  Set the priority of a specific port on the bridge.
+  - ``bridge_ports``:  List of devices that are part of the bridge.
+  - ``bridge_stp``:  Set spanning tree protocol on or off.
+  - ``bridge_waitport``: Set amount of time in seconds to wait on specific ports to become available.
 
 
 **Bridge Example**::
@@ -115,81 +199,14 @@ Type ``bridge`` requires the following keys:
           bridge_maxwait:
             - jumbo0 0
 
-Type: bond
-~~~~~~~~~~
-Type ``bond`` requires the following keys:
-
- - **name**: Set the name of the bond.
- - **bond_interfaces**: Specify the ports of a bond via their ``name``.  This list may be empty.
- - **params**:  A list of bonding params.  For more details, please read the Linux Kernel Bonding.txt.  Valid keys are:
-
-   - **active_slave**: Set bond attribute
-   - **ad_actor_key**: Set bond attribute
-   - **ad_actor_sys_prio**: Set bond attribute
-   - **ad_actor_system**: Set bond attribute
-   - **ad_aggregator**: Set bond attribute
-   - **ad_num_ports**: Set bond attribute
-   - **ad_partner_key**: Set bond attribute
-   - **ad_partner_mac**: Set bond attribute
-   - **ad_select**: Set bond attribute
-   - **ad_user_port_key**: Set bond attribute
-   - **all_slaves_active**: Set bond attribute
-   - **arp_all_targets**: Set bond attribute
-   - **arp_interval**: Set bond attribute
-   - **arp_ip_target**: Set bond attribute
-   - **arp_validate**: Set bond attribute
-   - **downdelay**: Set bond attribute
-   - **fail_over_mac**: Set bond attribute
-   - **lacp_rate**: Set bond attribute
-   - **lp_interval**: Set bond attribute
-   - **miimon**: Set bond attribute
-   - **mii_status**: Set bond attribute
-   - **min_links**: Set bond attribute
-   - **mode**: Set bond attribute
-   - **num_grat_arp**: Set bond attribute
-   - **num_unsol_na**: Set bond attribute
-   - **packets_per_slave**: Set bond attribute
-   - **primary**: Set bond attribute
-   - **primary_reselect**: Set bond attribute
-   - **queue_id**: Set bond attribute
-   - **resend_igmp**: Set bond attribute
-   - **slaves**: Set bond attribute
-   - **tlb_dynamic_lb**: Set bond attribute
-   - **updelay**: Set bond attribute
-   - **use_carrier**: Set bond attribute
-   - **xmit_hash_policy**: Set bond attribute
- 
-**Bond Example**::
-
-   network:
-    version: 1
-    config:
-      # Simple network adapter
-      - type: physical
-        name: interface0
-        mac_address: 00:11:22:33:44:55
-      # 10G pair
-      - type: physical
-        name: gbe0
-        mac_address: cd:11:22:33:44:00
-      - type: physical
-        name: gbe1
-        mac_address: cd:11:22:33:44:02
-      - type: bond
-        name: bond0
-        bond_interfaces:
-          - gbe0
-          - gbe1
-        params:
-          bond-mode: active-backup
-   
-Type: vlan
-~~~~~~~~~~
+  
+VLAN
+~~~~
 Type ``vlan`` requires the following keys:
 
- - **name**: Set the name of the VLAN
- - **vlan_link**: Specify the underlying link via its ``name``.
- - **vlan_id**: Specify the VLAN numeric id.
+- ``name``: Set the name of the VLAN
+- ``vlan_link``: Specify the underlying link via its ``name``.
+- ``vlan_id``: Specify the VLAN numeric id.
 
 **VLAN Example**::
 
@@ -207,8 +224,8 @@ Type ``vlan`` requires the following keys:
          vlan_id: 101
          mtu: 1500
 
-Subnet/IP configuration
-~~~~~~~~~~~~~~~~~~~~~~~
+Subnet/IP
+~~~~~~~~~
 
 For any network device (one of the Config Types) users can define a list of
 ``subnets`` which contain ip configuration dictionaries.  Multiple subnet
@@ -217,22 +234,22 @@ ip configurations.
 
 Valid keys for for ``subnets`` include the following:
 
- - **type**: Specify the subnet type.
- - **control**: Specify manual, auto or hotplug.  Indicates how the interface will be handled during boot.
- - **address**: IPv4 or IPv6 address.  It may include CIDR netmask notation.
- - **netmask**: IPv4 subnet mask in dotted format or CIDR notation.
- - **gateway**: IPv4 address of the default gateway for this subnet.
- - **dns_nameserver**: Specify a list of IPv4 dns server IPs to end up in resolv.conf.
- - **dns_search**: Specify a list of search paths to be included in resolv.conf.
+- ``type``: Specify the subnet type.
+- ``control``: Specify manual, auto or hotplug.  Indicates how the interface will be handled during boot.
+- ``address``: IPv4 or IPv6 address.  It may include CIDR netmask notation.
+- ``netmask``: IPv4 subnet mask in dotted format or CIDR notation.
+- ``gateway``: IPv4 address of the default gateway for this subnet.
+- ``dns_nameserver``: Specify a list of IPv4 dns server IPs to end up in resolv.conf.
+- ``dns_search``: Specify a list of search paths to be included in resolv.conf.
 
 
 Subnet types are one of the following:
 
- - **dhcp4**: Configure this interface with IPv4 dhcp.
- - **dhcp**: Alias for ``dhcp4``
- - **dhcp6**: Configure this interface with IPv6 dhcp.
- - **static**: Configure this interface with a static IPv4.
- - **static6**: Configure this interface with a static IPv6 .
+- ``dhcp4``: Configure this interface with IPv4 dhcp.
+- ``dhcp``: Alias for ``dhcp4``
+- ``dhcp6``: Configure this interface with IPv6 dhcp.
+- ``static``: Configure this interface with a static IPv4.
+- ``static6``: Configure this interface with a static IPv6 .
 
 When making use of ``dhcp`` types, no additional configuration is needed in the
 subnet dictionary.
@@ -290,14 +307,14 @@ using the static subnet configuration.
              dns_search:
                - exemplary
 
-Nameservers
-~~~~~~~~~~~
+Nameserver
+~~~~~~~~~~
 
 Users can specify a ``nameserver`` type.  Nameserver dictionaries include
 the following keys:
 
- - **address**: List of IPv4 or IPv6 address of nameservers.
- - **search**: List of of hostnames to include in the resolv.conf search path.
+- ``address``: List of IPv4 or IPv6 address of nameservers.
+- ``search``: List of of hostnames to include in the resolv.conf search path.
 
 **Nameserver Example**::
 
@@ -320,16 +337,16 @@ the following keys:
 
      
 
-Routes
-~~~~~~
+Route
+~~~~~
 
 Users can include static routing information as well.  A ``route`` dictionary
 has the following keys:
 
- - **destination**: IPv4 network address with CIDR netmask notation.
- - **gateway**: IPv4 gateway address with CIDR netmask notation.
- - **metric**: Integer which sets the network metric value for this route.
- - **device**: Specify the network device that will deliver packets for this route.
+- ``destination``: IPv4 network address with CIDR netmask notation.
+- ``gateway``: IPv4 gateway address with CIDR netmask notation.
+- ``metric``: Integer which sets the network metric value for this route.
+- ``device``: Specify the network device that will deliver packets for this route.
 
 **Route Example**::
 
@@ -350,7 +367,7 @@ has the following keys:
 
 
 Multi-layered configurations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------
 
 Complex networking sometimes uses layers of configuration.  The syntax allows
 users to build those layers one at a time.  All of the virtual network devices
@@ -386,7 +403,7 @@ supported allow specifying an underlying device by their ``name`` value.
               - type: dhcp4
 
 More Examples
-~~~~~~~~~~~~~
+-------------
 Some more examples to explore the various options available.
 
 **Multiple VLAN example**::
