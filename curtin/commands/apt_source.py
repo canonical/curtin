@@ -36,6 +36,10 @@ CUSTOM = 'custom'
 # this will match 'XXX:YYY' (ie, 'cloud-archive:foo' or 'ppa:bar')
 ADD_APT_REPO_MATCH = r"^[\w-]+:\w"
 
+# Files to store proxy information
+APT_CONFIG_FN = "/etc/apt/apt.conf.d/94curtin-config"
+APT_PROXY_FN = "/etc/apt/apt.conf.d/95curtin-proxy"
+
 # A temporary shell program to get a given gpg key
 # from a given keyserver
 EXPORT_GPG_KEYID = """
