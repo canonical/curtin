@@ -1,0 +1,172 @@
+early_commands:
+ 10_aptsource: curtin apt-source custom
+
+# YAML example of an apt_source config.
+apt_source:
+    version: 1
+
+    # 'apt_sources' is a dictionary
+    # The key is the filename and will be prepended by /etc/apt/sources.list.d/
+    # if it doesn't start with a '/'.
+    # There are certain cases - where no content is written into a source.list
+    # file  where the filename will be ignored - yet it can still be used as
+    # index for merging.
+    # The value it maps to is a dictionary with the following optional entries:
+    #   'source': a sources.list entry (some variable replacements apply)
+    #   'keyid': providing a key to import via shortid or fingerprint
+    #   'key': providing a raw PGP key
+    #   'filename': for compatibility with the older format (now the key to
+    #               this dictionary is the filename). If specified this
+    #               overwrites the filename given as key.
+
+    # the new format allows merging between multiple input files than a list
+    # like:
+    # cloud-config1
+    # sources:
+    #    s1: {'key': 'key1', 'source': 'source1'}
+    # cloud-config2
+    # sources:
+    #    s2: {'key': 'key2'}
+    #    s1: {filename: 'foo'}
+    # this would be merged to
+    #sources:
+    #    s1:
+    #        filename: foo
+    #        key: key1
+    #        source: source1
+    #    s2:
+    #        key: key2
+
+    # apt_sources examples:
+    apt_sources:
+      byobu-ppa.list:
+        source: "deb http://ppa.launchpad.net/byobu/ppa/ubuntu xenial main"
+        keyid: F430BBA5 # GPG key ID published on a key server
+      # adding a source.list line, importing a gpg key for a given key id and
+      # storing the deb entry in /etc/apt/sources.list.d/byobu-ppa.list
+
+      # PPA shortcut:
+      #  * Setup correct apt sources.list line
+      #  * Import the signing key from LP
+      #
+      #  See https://help.launchpad.net/Packaging/PPA for more information
+      #  this requires 'add-apt-repository'
+      #  due to that the filename key is ignored in this case
+      ignored1:
+        source: "ppa:smoser/ppa"    # Quote the string
+
+      # additional custom deb source config:
+      #  * Creates a file in /etc/apt/sources.list.d/ for the sources list entry
+      #  * [optional] Import the apt signing key from the keyserver
+      #  * Defaults:
+      #    + keyserver: keyserver.ubuntu.com
+      #
+      #    See sources.list man page for more information about the format
+      my-repo1.list:
+        source: deb http://archive.ubuntu.com/ubuntu xenial-backports main universe multiverse restricted
+
+      # sources can use $MIRROR and $RELEASE and they will be replaced
+      # with the local mirror for this cloud, and the running release
+      # the entry below would be possibly turned into:
+      # source: deb http://us-east-1.ec2.archive.ubuntu.com/ubuntu natty multiverse
+      my-repo2.list:
+        source: deb $MIRROR $RELEASE multiverse
+
+      # this would have the same end effect as 'ppa:byobu/ppa'
+      my-repo3.list:
+        source: "deb http://ppa.launchpad.net/byobu/ppa/ubuntu xenial main"
+        keyid: F430BBA5 # GPG key ID published on a key server
+        filename: byobu-ppa.list
+
+      # this would only import the key without adding a ppa or other source spec
+      # since this doesn't generate a source.list file the filename key is ignored
+      ignored2:
+        keyid: F430BBA5 # GPG key ID published on a key server
+
+      # In general keyid's can also be specified via their long fingerprints
+      # since this doesn't generate a source.list file the filename key is ignored
+      ignored3:
+        keyid: B59D 5F15 97A5 04B7 E230  6DCA 0620 BBCF 0368 3F77
+
+      # Custom apt repository:
+      #  * The apt signing key can also be specified
+      #    by providing a pgp public key block
+      #  * Providing the PGP key here is the most robust method for
+      #    specifying a key, as it removes dependency on a remote key server
+      my-repo4.list:
+        source: deb http://ppa.launchpad.net/alestic/ppa/ubuntu xenial main
+        key: | # The value needs to start with -----BEGIN PGP PUBLIC KEY BLOCK-----
+           -----BEGIN PGP PUBLIC KEY BLOCK-----
+           Version: SKS 1.0.10
+
+           mI0ESpA3UQEEALdZKVIMq0j6qWAXAyxSlF63SvPVIgxHPb9Nk0DZUixn+akqytxG4zKCONz6
+           qLjoBBfHnynyVLfT4ihg9an1PqxRnTO+JKQxl8NgKGz6Pon569GtAOdWNKw15XKinJTDLjnj
+           9y96ljJqRcpV9t/WsIcdJPcKFR5voHTEoABE2aEXABEBAAG0GUxhdW5jaHBhZCBQUEEgZm9y
+           IEFsZXN0aWOItgQTAQIAIAUCSpA3UQIbAwYLCQgHAwIEFQIIAwQWAgMBAh4BAheAAAoJEA7H
+           5Qi+CcVxWZ8D/1MyYvfj3FJPZUm2Yo1zZsQ657vHI9+pPouqflWOayRR9jbiyUFIn0VdQBrP
+           t0FwvnOFArUovUWoKAEdqR8hPy3M3APUZjl5K4cMZR/xaMQeQRZ5CHpS4DBKURKAHC0ltS5o
+           uBJKQOZm5iltJp15cgyIkBkGe8Mx18VFyVglAZey
+           =Y2oI
+           -----END PGP PUBLIC KEY BLOCK-----
+
+      # Custom gpg key:
+      #  * As the keyid also a key can be specified withut a related source
+      #  * all other facts mentioned above still apply
+      # since this doesn't generate a source.list file the filename key is ignored
+      ignored4:
+        key: | # The value needs to start with -----BEGIN PGP PUBLIC KEY BLOCK-----
+           -----BEGIN PGP PUBLIC KEY BLOCK-----
+           Version: SKS 1.0.10
+
+           mI0ESpA3UQEEALdZKVIMq0j6qWAXAyxSlF63SvPVIgxHPb9Nk0DZUixn+akqytxG4zKCONz6
+           qLjoBBfHnynyVLfT4ihg9an1PqxRnTO+JKQxl8NgKGz6Pon569GtAOdWNKw15XKinJTDLjnj
+           9y96ljJqRcpV9t/WsIcdJPcKFR5voHTEoABE2aEXABEBAAG0GUxhdW5jaHBhZCBQUEEgZm9y
+           IEFsZXN0aWOItgQTAQIAIAUCSpA3UQIbAwYLCQgHAwIEFQIIAwQWAgMBAh4BAheAAAoJEA7H
+           5Qi+CcVxWZ8D/1MyYvfj3FJPZUm2Yo1zZsQ657vHI9+pPouqflWOayRR9jbiyUFIn0VdQBrP
+           t0FwvnOFArUovUWoKAEdqR8hPy3M3APUZjl5K4cMZR/xaMQeQRZ5CHpS4DBKURKAHC0ltS5o
+           uBJKQOZm5iltJp15cgyIkBkGe8Mx18VFyVglAZey
+           =Y2oI
+           -----END PGP PUBLIC KEY BLOCK-----
+    # end of apt_sources block
+
+    # Preserve existing /etc/apt/sources.list
+    # Default: overwrite sources_list with mirror. If this is true
+    # then apt_*mirror configurations above will have no effect
+    apt_preserve_sources_list: false
+
+    # a custom (e.g. localized) mirror that will be set in sources.list
+    apt_mirror: http://us.archive.ubuntu.com/ubuntu/
+    # instead of just apt_mirror one can set primary and security mirror to
+    # different url's
+    apt_primary_mirror: http://us.archive.ubuntu.com/ubuntu/
+    apt_security_mirror: http://security.ubuntu.com/ubuntu/
+
+    # Provide a custom template for rendering sources.list
+    # by default it will use a builtin default template
+    apt_custom_sources_list: | # written by curtin custom template
+      deb {{mirror}} {{codename}} main restricted
+      deb-src {{mirror}} {{codename}} main restricted
+
+    # any apt config string that will be made available to apt
+    # see the APT.CONF(5) man page for details what can be specified
+    apt_config: | # APT config
+      APT {
+        Get {
+          Assume-Yes "true";
+          Fix-Broken "true";
+        };
+      };
+
+    # See debconf-set-selections man page.
+    # Default: none
+    debconf_selections: | # Need to perserve newlines
+        # Force debconf priority to critical.
+        debconf debconf/priority select critical
+
+        # Override default frontend to readline, but allow user to select.
+        debconf debconf/frontend select readline
+        debconf debconf/frontend seen false
+
+    # 'source' entries in apt-sources that match this python regex
+    # expression will be passed to add-apt-repository
+    add_apt_repo_match: '^[\w-]+:\w'
