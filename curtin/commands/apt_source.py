@@ -131,10 +131,6 @@ def handle_apt_source(cfg):
     if not config.value_as_boolean(cfg.get('apt_preserve_sources_list',
                                            False)):
         generate_sources_list(cfg, release, mirrors)
-        old_mirrors = cfg.get('apt_old_mirrors',
-                              {"primary": "archive.ubuntu.com/ubuntu",
-                               "security": "security.ubuntu.com/ubuntu"})
-        rename_apt_lists(old_mirrors, mirrors)
 
     try:
         apply_apt_proxy_config(cfg, APT_PROXY_FN, APT_CONFIG_FN)
@@ -191,23 +187,6 @@ def mirror2lists_fileprefix(mirror):
         string = string[pos + 3:]
     string = string.replace("/", "_")
     return string
-
-
-def rename_apt_lists(old_mirrors, new_mirrors, lists_d="/var/lib/apt/lists"):
-    """ rename_apt_lists
-        rename apt lists in /var/lib/apt/lists (or another path if specified)
-    """
-    for (name, omirror) in old_mirrors.items():
-        nmirror = new_mirrors.get(name)
-        if not nmirror:
-            continue
-        oprefix = os.path.join(lists_d, mirror2lists_fileprefix(omirror))
-        nprefix = os.path.join(lists_d, mirror2lists_fileprefix(nmirror))
-        if oprefix == nprefix:
-            continue
-        olen = len(oprefix)
-        for filename in glob.glob("%s_*" % oprefix):
-            os.rename(filename, "%s%s" % (nprefix, filename[olen:]))
 
 
 def get_release():
