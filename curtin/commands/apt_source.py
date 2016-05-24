@@ -414,7 +414,7 @@ def apt_source(args):
         writing custom source.list files, adding ppa's and PGP keys.
         It is especially useful to provide a fully isolated derived repository
     """
-    #  curtin apt_source custom
+    #  curtin apt-source custom
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
 
