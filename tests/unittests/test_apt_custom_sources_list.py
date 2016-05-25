@@ -19,7 +19,7 @@ from curtin.commands import apt_source
 LOG = logging.getLogger(__name__)
 
 YAML_TEXT_CUSTOM_SL = """
-apt_mirror: http://archive.ubuntu.com/ubuntu/
+apt_mirror: http://archive.ubuntu.com/ubuntu
 apt_custom_sources_list: |
     ## template:jinja
     ## Note, this file is written by cloud-init on first boot of an instance
@@ -34,6 +34,8 @@ apt_custom_sources_list: |
     # newer versions of the distribution.
     deb {{mirror}} {{codename}} main restricted
     deb-src {{mirror}} {{codename}} main restricted
+    deb {{primary}} {{codename}} universe restricted
+    deb {{security}} {{codename}}-security multiverse
     # FIND_SOMETHING_SPECIAL
 """
 
@@ -49,8 +51,10 @@ EXPECTED_CONVERTED_CONTENT = (
 
 # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
 # newer versions of the distribution.
-deb http://archive.ubuntu.com/ubuntu/ fakerelease main restricted
-deb-src http://archive.ubuntu.com/ubuntu/ fakerelease main restricted
+deb http://archive.ubuntu.com/ubuntu fakerelease main restricted
+deb-src http://archive.ubuntu.com/ubuntu fakerelease main restricted
+deb http://archive.ubuntu.com/ubuntu xenial universe restricted
+deb http://archive.ubuntu.com/ubuntu xenial-security multiverse
 # FIND_SOMETHING_SPECIAL
 """)
 
@@ -103,14 +107,14 @@ class TestAptSourceConfigSourceList(TestCase):
         """ test_apt_source_list_mirror
         Test rendering of default source.list with mirrors set
         """
-        cfg = {'apt_mirror': 'http://archive.ubuntu.com/ubuntu/'}
+        cfg = {'apt_mirror': 'http://archive.ubuntu.com/ubuntu'}
         self._apt_source_list(cfg, EXPECTED_MIRROR_CONTENT)
 
     def test_apt_source_list_psmirrors(self):
         """ test_apt_source_list_psmirrors
         Test rendering of default source.list with prim+sec mirrors set
         """
-        cfg = {'apt_primary_mirror': 'http://archive.ubuntu.com/ubuntu/',
+        cfg = {'apt_primary_mirror': 'http://archive.ubuntu.com/ubuntu',
                'apt_security_mirror': 'http://security.ubuntu.com/ubuntu'}
 
         self._apt_source_list(cfg, EXPECTED_PRIMSEC_CONTENT)
