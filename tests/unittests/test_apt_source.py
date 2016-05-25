@@ -32,6 +32,7 @@ S0ORP6HXET3+jC8BMG4tBWCTK/XEZw==
 =ACB2
 -----END PGP PUBLIC KEY BLOCK-----"""
 
+ADD_APT_REPO_MATCH = r"^[\w-]+:\w"
 
 def load_tfile_or_url(*args, **kwargs):
     """ load_tfile_or_url
@@ -52,6 +53,8 @@ class TestAptSourceConfig(TestCase):
         self.aptlistfile2 = os.path.join(self.tmp, "single-deb2.list")
         self.aptlistfile3 = os.path.join(self.tmp, "single-deb3.list")
         self.join = os.path.join
+        self.matcher = re.compile(ADD_APT_REPO_MATCH).search
+
 
     @staticmethod
     def _get_default_params():
@@ -78,7 +81,7 @@ class TestAptSourceConfig(TestCase):
         """
         params = self._get_default_params()
 
-        apt_source.add_sources(cfg, params)
+        apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
 
         self.assertTrue(os.path.isfile(filename))
 
@@ -138,7 +141,7 @@ class TestAptSourceConfig(TestCase):
         Test Autoreplacement of MIRROR and RELEASE in source specs
         """
         params = self._get_default_params()
-        apt_source.add_sources(cfg, params)
+        apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
 
         self.assertTrue(os.path.isfile(filename))
 
@@ -208,7 +211,7 @@ class TestAptSourceConfig(TestCase):
 
         with mock.patch.object(util, 'subp',
                                return_value=('fakekey 1234', '')) as mockobj:
-            apt_source.add_sources(cfg, params)
+            apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
 
         # check if it added the right ammount of keys
         calls = []
@@ -285,7 +288,7 @@ class TestAptSourceConfig(TestCase):
         params = self._get_default_params()
 
         with mock.patch.object(util, 'subp') as mockobj:
-            apt_source.add_sources([cfg], params)
+            apt_source.add_sources([cfg], params, aa_repo_match=self.matcher)
 
         mockobj.assert_called_with(('apt-key', 'add', '-'), 'fakekey 4321')
 
@@ -320,7 +323,7 @@ class TestAptSourceConfig(TestCase):
                'filename': self.aptlistfile}
 
         with mock.patch.object(util, 'subp') as mockobj:
-            apt_source.add_sources([cfg], params)
+            apt_source.add_sources([cfg], params, aa_repo_match=self.matcher)
 
         mockobj.assert_called_once_with(('apt-key', 'add', '-'),
                                         'fakekey 4242')
@@ -338,7 +341,7 @@ class TestAptSourceConfig(TestCase):
 
         with mock.patch.object(util, 'subp',
                                return_value=('fakekey 1212', '')) as mockobj:
-            apt_source.add_sources([cfg], params)
+            apt_source.add_sources([cfg], params, aa_repo_match=self.matcher)
 
         mockobj.assert_called_with(('apt-key', 'add', '-'), 'fakekey 1212')
 
@@ -356,7 +359,7 @@ class TestAptSourceConfig(TestCase):
                'filename': self.aptlistfile}
 
         with mock.patch.object(apt_source, 'add_key_raw') as mockobj:
-            apt_source.add_sources([cfg], params)
+            apt_source.add_sources([cfg], params, aa_repo_match=self.matcher)
 
         mockobj.assert_called_with(EXPECTEDKEY)
 
@@ -374,7 +377,7 @@ class TestAptSourceConfig(TestCase):
                'filename': self.aptlistfile}
 
         with mock.patch.object(apt_source, 'add_key_raw') as mockobj:
-            apt_source.add_sources([cfg], params)
+            apt_source.add_sources([cfg], params, aa_repo_match=self.matcher)
 
         mockobj.assert_called_with(EXPECTEDKEY)
 
@@ -389,11 +392,8 @@ class TestAptSourceConfig(TestCase):
         cfg = {'source': 'ppa:smoser/cloud-init-test',
                'filename': self.aptlistfile}
 
-        # default matcher needed for ppa
-        matcher = re.compile(r'^[\w-]+:\w').search
-
         with mock.patch.object(util, 'subp') as mockobj:
-            apt_source.add_sources([cfg], params, aa_repo_match=matcher)
+            apt_source.add_sources([cfg], params, aa_repo_match=self.matcher)
         mockobj.assert_called_once_with(['add-apt-repository',
                                          'ppa:smoser/cloud-init-test'])
 
@@ -412,12 +412,9 @@ class TestAptSourceConfig(TestCase):
         cfg3 = {'source': 'ppa:smoser/cloud-init-test3',
                 'filename': self.aptlistfile3}
 
-        # default matcher needed for ppa
-        matcher = re.compile(r'^[\w-]+:\w').search
-
         with mock.patch.object(util, 'subp') as mockobj:
             apt_source.add_sources([cfg1, cfg2, cfg3], params,
-                                   aa_repo_match=matcher)
+                                   aa_repo_match=self.matcher)
         calls = [call(['add-apt-repository', 'ppa:smoser/cloud-init-test']),
                  call(['add-apt-repository', 'ppa:smoser/cloud-init-test2']),
                  call(['add-apt-repository', 'ppa:smoser/cloud-init-test3'])]
