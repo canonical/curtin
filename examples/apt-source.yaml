@@ -66,9 +66,10 @@ apt_source:
         source: deb http://archive.ubuntu.com/ubuntu xenial-backports main universe multiverse restricted
 
       # sources can use $MIRROR and $RELEASE and they will be replaced
-      # with the local mirror for this cloud, and the running release
-      # the entry below would be possibly turned into:
+      # with the default or specified mirror and the running release.
+      # The entry below would be possibly turned into:
       # source: deb http://archive.ubuntu.com/ubuntu xenial multiverse
+      # see below at apt*mirror for more
       my-repo2.list:
         source: deb $MIRROR $RELEASE multiverse
 
@@ -150,12 +151,12 @@ apt_source:
     # by default it will use a builtin default template
     # These full source.list templates can use the following variables which
     # will be replaced (all have sane ubuntu defaults, see above for details):
-    # {{codename}}, {{mirror}}, {{primary}}, {{security}}
+    # $RELEASE, $MIRROR, $PRIMARY, $SECURITY
     apt_custom_sources_list: | # written by curtin custom template
-      deb {{mirror}} {{codename}} main restricted
-      deb-src {{mirror}} {{codename}} main restricted
-      deb {{primary}} {{codename}} universe restricted
-      deb {{security}} {{codename}}-security multiverse
+      deb $MIRROR $RELEASE main restricted
+      deb-src $MIRROR $RELEASE main restricted
+      deb $PRIMARY $RELEASE universe restricted
+      deb $SECURITY $RELEASE-security multiverse
 
     # any apt config string that will be made available to apt
     # see the APT.CONF(5) man page for details what can be specified
