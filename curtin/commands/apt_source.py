@@ -20,7 +20,6 @@ Handling the setup of apt related tasks like proxies, PGP keys, repositories.
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import collections
-import glob
 import os
 import re
 import sys
