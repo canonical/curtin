@@ -121,9 +121,6 @@ def handle_apt_source(cfg):
     """
     release = get_release()
     mirrors = find_apt_mirror_info(cfg)
-    if mirrors is None or "primary" not in mirrors:
-        LOG.error("Can't get a valid mirror configuration")
-        return
 
     # backwards compatibility
     mirror = mirrors["primary"]
@@ -382,6 +379,11 @@ def find_apt_mirror_info(cfg):
         if pmirror is not None:
             mirror_info = {'primary': pmirror,
                            'security': smirror}
+
+    # default fallback if nothing is specified
+    if mirror_info is None:
+        mirror_info = {'primary': 'http://archive.ubuntu.com/ubuntu',
+                       'security': 'http://security.ubuntu.com/ubuntu'}
 
     return mirror_info
 
