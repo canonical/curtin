@@ -175,7 +175,7 @@ def getkeybyid(keyid, keyserver):
         fileh.write(EXPORT_GPG_KEYID)
         fileh.flush()
         cmd = ['/bin/sh', fileh.name, keyid, keyserver]
-        (stdout, _unused_stderr) = util.subp(cmd)
+        (stdout, _unused_stderr) = util.subp(cmd, capture=True)
         return stdout.strip()
 
 
@@ -197,7 +197,7 @@ def get_release():
     """ get_release
         get the name of the release e.g. xenial
     """
-    (stdout, _unused_stderr) = util.subp(['lsb_release', '-cs'])
+    (stdout, _unused_stderr) = util.subp(['lsb_release', '-cs'], capture=True)
     return stdout.strip()
 
 
