@@ -22,13 +22,18 @@ Configuration Types
 Within the network ``config`` portion, users include a list of configuration
 types.  The current list of support ``type`` values are as follows:
   
-- Physical
-- Bond
-- Bridge
-- VLAN
-- Subnet/IP
-- Nameserver
-- Route
+- Physical (``physical``)
+- Bond (``bond``)
+- Bridge (``bridge``)
+- VLAN (``vlan``)
+- Nameserver (``nameserver``)
+- Route (``route``)
+
+Physical, Bond, Bridge and VLAN types may also include IP configuration under
+the key ``subnets``.
+
+- Subnet/IP (``subnets``)
+
 
 Physical
 ~~~~~~~~
@@ -224,6 +229,64 @@ Type ``vlan`` requires the following keys:
          vlan_id: 101
          mtu: 1500
 
+Nameserver
+~~~~~~~~~~
+
+Users can specify a ``nameserver`` type.  Nameserver dictionaries include
+the following keys:
+
+- ``address``: List of IPv4 or IPv6 address of nameservers.
+- ``search``: List of of hostnames to include in the resolv.conf search path.
+
+**Nameserver Example**::
+
+  network:
+    version: 1
+    config:
+      - type: physical
+        name: interface0
+        mac_address: 00:11:22:33:44:55
+        subnets:
+           - type: static
+             address: 192.168.23.14/27
+             gateway: 192.168.23.1
+      - type: namserver:
+        address: 
+          - 192.168.23.2
+          - 8.8.8.8
+        search:
+          - exemplary
+
+     
+
+Route
+~~~~~
+
+Users can include static routing information as well.  A ``route`` dictionary
+has the following keys:
+
+- ``destination``: IPv4 network address with CIDR netmask notation.
+- ``gateway``: IPv4 gateway address with CIDR netmask notation.
+- ``metric``: Integer which sets the network metric value for this route.
+- ``device``: Specify the network device that will deliver packets for this route.
+
+**Route Example**::
+
+  network:
+    version: 1
+    config:
+      - type: physical
+        name: interface0
+        mac_address: 00:11:22:33:44:55
+        subnets:
+           - type: static
+             address: 192.168.23.14/24
+             gateway: 192.168.23.1
+      - type: route
+        destination: 192.168.24.0/24
+        gateway: 192.168.24.1
+        metric: 3
+
 Subnet/IP
 ~~~~~~~~~
 
@@ -306,64 +369,6 @@ using the static subnet configuration.
                - 8.8.8.8
              dns_search:
                - exemplary
-
-Nameserver
-~~~~~~~~~~
-
-Users can specify a ``nameserver`` type.  Nameserver dictionaries include
-the following keys:
-
-- ``address``: List of IPv4 or IPv6 address of nameservers.
-- ``search``: List of of hostnames to include in the resolv.conf search path.
-
-**Nameserver Example**::
-
-  network:
-    version: 1
-    config:
-      - type: physical
-        name: interface0
-        mac_address: 00:11:22:33:44:55
-        subnets:
-           - type: static
-             address: 192.168.23.14/27
-             gateway: 192.168.23.1
-      - type: namserver:
-        address: 
-          - 192.168.23.2
-          - 8.8.8.8
-        search:
-          - exemplary
-
-     
-
-Route
-~~~~~
-
-Users can include static routing information as well.  A ``route`` dictionary
-has the following keys:
-
-- ``destination``: IPv4 network address with CIDR netmask notation.
-- ``gateway``: IPv4 gateway address with CIDR netmask notation.
-- ``metric``: Integer which sets the network metric value for this route.
-- ``device``: Specify the network device that will deliver packets for this route.
-
-**Route Example**::
-
-  network:
-    version: 1
-    config:
-      - type: physical
-        name: interface0
-        mac_address: 00:11:22:33:44:55
-        subnets:
-           - type: static
-             address: 192.168.23.14/24
-             gateway: 192.168.23.1
-      - type: route
-        destination: 192.168.24.0/24
-        gateway: 192.168.24.1
-        metric: 3
 
 
 Multi-layered configurations
