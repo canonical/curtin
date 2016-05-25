@@ -34,6 +34,7 @@ S0ORP6HXET3+jC8BMG4tBWCTK/XEZw==
 
 ADD_APT_REPO_MATCH = r"^[\w-]+:\w"
 
+
 def load_tfile_or_url(*args, **kwargs):
     """ load_tfile_or_url
     load file and return content after decoding
@@ -54,7 +55,6 @@ class TestAptSourceConfig(TestCase):
         self.aptlistfile3 = os.path.join(self.tmp, "single-deb3.list")
         self.join = os.path.join
         self.matcher = re.compile(ADD_APT_REPO_MATCH).search
-
 
     @staticmethod
     def _get_default_params():
@@ -233,39 +233,36 @@ class TestAptSourceConfig(TestCase):
         """ test_apt_src_keyid
         Test specification of a source + keyid with filename being set
         """
-        cfg = {'source': ('deb '
-                          'http://ppa.launchpad.net/'
-                          'smoser/cloud-init-test/ubuntu'
-                          ' xenial main'),
-               'keyid': "03683F77",
-               'filename': self.aptlistfile}
-        self._apt_src_keyid(self.aptlistfile, [cfg], 1)
+        cfg = {self.aptlistfile: {'source': ('deb '
+                                             'http://ppa.launchpad.net/'
+                                             'smoser/cloud-init-test/ubuntu'
+                                             ' xenial main'),
+                                  'keyid': "03683F77"}}
+        self._apt_src_keyid(self.aptlistfile, cfg, 1)
 
     def test_apt_src_keyid_tri(self):
         """ test_apt_src_keyid_tri
         Test specification of a source + keyid with filename being set
         Setting three of such, check for content and keys
         """
-        cfg1 = {'source': ('deb '
-                           'http://ppa.launchpad.net/'
-                           'smoser/cloud-init-test/ubuntu'
-                           ' xenial main'),
-                'keyid': "03683F77",
-                'filename': self.aptlistfile}
-        cfg2 = {'source': ('deb '
-                           'http://ppa.launchpad.net/'
-                           'smoser/cloud-init-test/ubuntu'
-                           ' xenial universe'),
-                'keyid': "03683F77",
-                'filename': self.aptlistfile2}
-        cfg3 = {'source': ('deb '
-                           'http://ppa.launchpad.net/'
-                           'smoser/cloud-init-test/ubuntu'
-                           ' xenial multiverse'),
-                'keyid': "03683F77",
-                'filename': self.aptlistfile3}
+        cfg = {self.aptlistfile:  {'source': ('deb '
+                                              'http://ppa.launchpad.net/'
+                                              'smoser/cloud-init-test/ubuntu'
+                                              ' xenial main'),
+                                   'keyid': "03683F77"},
+               'ignored':         {'source': ('deb '
+                                              'http://ppa.launchpad.net/'
+                                              'smoser/cloud-init-test/ubuntu'
+                                              ' xenial universe'),
+                                   'keyid': "03683F77",
+                                   'filename': self.aptlistfile2},
+               self.aptlistfile3: {'source': ('deb '
+                                              'http://ppa.launchpad.net/'
+                                              'smoser/cloud-init-test/ubuntu'
+                                              ' xenial multiverse'),
+                                   'keyid': "03683F77"}}
 
-        self._apt_src_keyid(self.aptlistfile, [cfg1, cfg2, cfg3], 3)
+        self._apt_src_keyid(self.aptlistfile, cfg, 3)
         contents = load_tfile_or_url(self.aptlistfile2)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb",
@@ -281,20 +278,25 @@ class TestAptSourceConfig(TestCase):
                                    "xenial", "multiverse"),
                                   contents, flags=re.IGNORECASE))
 
-    def apt_src_key(self, filename, cfg):
-        """ apt_src_key
+    def test_apt_src_key(self):
+        """ test_apt_src_key
         Test specification of a source + key
         """
         params = self._get_default_params()
+        cfg = {self.aptlistfile: {'source': ('deb '
+                                             'http://ppa.launchpad.net/'
+                                             'smoser/cloud-init-test/ubuntu'
+                                             ' xenial main'),
+                                  'key': "fakekey 4321"}}
 
         with mock.patch.object(util, 'subp') as mockobj:
-            apt_source.add_sources([cfg], params, aa_repo_match=self.matcher)
+            apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
 
         mockobj.assert_called_with(('apt-key', 'add', '-'), 'fakekey 4321')
 
-        self.assertTrue(os.path.isfile(filename))
+        self.assertTrue(os.path.isfile(self.aptlistfile))
 
-        contents = load_tfile_or_url(filename)
+        contents = load_tfile_or_url(self.aptlistfile)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb",
                                    ('http://ppa.launchpad.net/smoser/'
@@ -302,28 +304,15 @@ class TestAptSourceConfig(TestCase):
                                    "xenial", "main"),
                                   contents, flags=re.IGNORECASE))
 
-    def test_apt_src_key(self):
-        """ test_apt_src_key
-        Test specification of a source + key with filename being set
-        """
-        cfg = {'source': ('deb '
-                          'http://ppa.launchpad.net/'
-                          'smoser/cloud-init-test/ubuntu'
-                          ' xenial main'),
-               'key': "fakekey 4321",
-               'filename': self.aptlistfile}
-        self.apt_src_key(self.aptlistfile, cfg)
-
     def test_apt_src_keyonly(self):
         """ test_apt_src_keyonly
         Test specification key without source
         """
         params = self._get_default_params()
-        cfg = {'key': "fakekey 4242",
-               'filename': self.aptlistfile}
+        cfg = {self.aptlistfile: {'key': "fakekey 4242"}}
 
         with mock.patch.object(util, 'subp') as mockobj:
-            apt_source.add_sources([cfg], params, aa_repo_match=self.matcher)
+            apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
 
         mockobj.assert_called_once_with(('apt-key', 'add', '-'),
                                         'fakekey 4242')
@@ -336,12 +325,11 @@ class TestAptSourceConfig(TestCase):
         Test specification of a keyid without source
         """
         params = self._get_default_params()
-        cfg = {'keyid': "03683F77",
-               'filename': self.aptlistfile}
+        cfg = {self.aptlistfile: {'keyid': "03683F77"}}
 
         with mock.patch.object(util, 'subp',
                                return_value=('fakekey 1212', '')) as mockobj:
-            apt_source.add_sources([cfg], params, aa_repo_match=self.matcher)
+            apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
 
         mockobj.assert_called_with(('apt-key', 'add', '-'), 'fakekey 1212')
 
@@ -355,11 +343,10 @@ class TestAptSourceConfig(TestCase):
         """
         keyid = "03683F77"
         params = self._get_default_params()
-        cfg = {'keyid': keyid,
-               'filename': self.aptlistfile}
+        cfg = {self.aptlistfile: {'keyid': keyid}}
 
         with mock.patch.object(apt_source, 'add_key_raw') as mockobj:
-            apt_source.add_sources([cfg], params, aa_repo_match=self.matcher)
+            apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
 
         mockobj.assert_called_with(EXPECTEDKEY)
 
@@ -373,11 +360,10 @@ class TestAptSourceConfig(TestCase):
         """
         keyid = "B59D 5F15 97A5 04B7 E230  6DCA 0620 BBCF 0368 3F77"
         params = self._get_default_params()
-        cfg = {'keyid': keyid,
-               'filename': self.aptlistfile}
+        cfg = {self.aptlistfile: {'keyid': keyid}}
 
         with mock.patch.object(apt_source, 'add_key_raw') as mockobj:
-            apt_source.add_sources([cfg], params, aa_repo_match=self.matcher)
+            apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
 
         mockobj.assert_called_with(EXPECTEDKEY)
 
@@ -389,11 +375,10 @@ class TestAptSourceConfig(TestCase):
         Test specification of a ppa
         """
         params = self._get_default_params()
-        cfg = {'source': 'ppa:smoser/cloud-init-test',
-               'filename': self.aptlistfile}
+        cfg = {self.aptlistfile: {'source': 'ppa:smoser/cloud-init-test'}}
 
         with mock.patch.object(util, 'subp') as mockobj:
-            apt_source.add_sources([cfg], params, aa_repo_match=self.matcher)
+            apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
         mockobj.assert_called_once_with(['add-apt-repository',
                                          'ppa:smoser/cloud-init-test'])
 
@@ -405,16 +390,12 @@ class TestAptSourceConfig(TestCase):
         Test specification of a ppa
         """
         params = self._get_default_params()
-        cfg1 = {'source': 'ppa:smoser/cloud-init-test',
-                'filename': self.aptlistfile}
-        cfg2 = {'source': 'ppa:smoser/cloud-init-test2',
-                'filename': self.aptlistfile2}
-        cfg3 = {'source': 'ppa:smoser/cloud-init-test3',
-                'filename': self.aptlistfile3}
+        cfg = {self.aptlistfile: {'source': 'ppa:smoser/cloud-init-test'},
+               self.aptlistfile2: {'source': 'ppa:smoser/cloud-init-test2'},
+               self.aptlistfile3: {'source': 'ppa:smoser/cloud-init-test3'}}
 
         with mock.patch.object(util, 'subp') as mockobj:
-            apt_source.add_sources([cfg1, cfg2, cfg3], params,
-                                   aa_repo_match=self.matcher)
+            apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
         calls = [call(['add-apt-repository', 'ppa:smoser/cloud-init-test']),
                  call(['add-apt-repository', 'ppa:smoser/cloud-init-test2']),
                  call(['add-apt-repository', 'ppa:smoser/cloud-init-test3'])]
