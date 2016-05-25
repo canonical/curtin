@@ -35,11 +35,17 @@ S0ORP6HXET3+jC8BMG4tBWCTK/XEZw==
 ADD_APT_REPO_MATCH = r"^[\w-]+:\w"
 
 
-def load_tfile_or_url(*args, **kwargs):
-    """ load_tfile_or_url
+def load_tfile(filename):
+    """ load_tfile
     load file and return content after decoding
     """
-    return util.decode_binary(util.read_file_or_url(*args, **kwargs).contents)
+    try:
+        content = util.load_file(filename, mode="r")
+    except Exception as error:
+        print('failed to load file content for test: %s' % error)
+        raise
+
+    return content
 
 
 class TestAptSourceConfig(TestCase):
@@ -85,7 +91,7 @@ class TestAptSourceConfig(TestCase):
 
         self.assertTrue(os.path.isfile(filename))
 
-        contents = load_tfile_or_url(filename)
+        contents = load_tfile(filename)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb", "http://archive.ubuntu.com/ubuntu",
                                    "karmic-backports",
@@ -123,13 +129,13 @@ class TestAptSourceConfig(TestCase):
         self._apt_src_basic(self.aptlistfile, cfg)
 
         # extra verify on two extra files of this test
-        contents = load_tfile_or_url(self.aptlistfile2)
+        contents = load_tfile(self.aptlistfile2)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb", "http://archive.ubuntu.com/ubuntu",
                                    "precise-backports",
                                    "main universe multiverse restricted"),
                                   contents, flags=re.IGNORECASE))
-        contents = load_tfile_or_url(self.aptlistfile3)
+        contents = load_tfile(self.aptlistfile3)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb", "http://archive.ubuntu.com/ubuntu",
                                    "lucid-backports",
@@ -145,7 +151,7 @@ class TestAptSourceConfig(TestCase):
 
         self.assertTrue(os.path.isfile(filename))
 
-        contents = load_tfile_or_url(filename)
+        contents = load_tfile(filename)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb", params['MIRROR'], params['RELEASE'],
                                    "multiverse"),
@@ -178,12 +184,12 @@ class TestAptSourceConfig(TestCase):
 
         # extra verify on two extra files of this test
         params = self._get_default_params()
-        contents = load_tfile_or_url(self.aptlistfile2)
+        contents = load_tfile(self.aptlistfile2)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb", params['MIRROR'], params['RELEASE'],
                                    "main"),
                                   contents, flags=re.IGNORECASE))
-        contents = load_tfile_or_url(self.aptlistfile3)
+        contents = load_tfile(self.aptlistfile3)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb", params['MIRROR'], params['RELEASE'],
                                    "universe"),
@@ -221,7 +227,7 @@ class TestAptSourceConfig(TestCase):
 
         self.assertTrue(os.path.isfile(filename))
 
-        contents = load_tfile_or_url(filename)
+        contents = load_tfile(filename)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb",
                                    ('http://ppa.launchpad.net/smoser/'
@@ -263,14 +269,14 @@ class TestAptSourceConfig(TestCase):
                                    'keyid': "03683F77"}}
 
         self._apt_src_keyid(self.aptlistfile, cfg, 3)
-        contents = load_tfile_or_url(self.aptlistfile2)
+        contents = load_tfile(self.aptlistfile2)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb",
                                    ('http://ppa.launchpad.net/smoser/'
                                     'cloud-init-test/ubuntu'),
                                    "xenial", "universe"),
                                   contents, flags=re.IGNORECASE))
-        contents = load_tfile_or_url(self.aptlistfile3)
+        contents = load_tfile(self.aptlistfile3)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb",
                                    ('http://ppa.launchpad.net/smoser/'
@@ -296,7 +302,7 @@ class TestAptSourceConfig(TestCase):
 
         self.assertTrue(os.path.isfile(self.aptlistfile))
 
-        contents = load_tfile_or_url(self.aptlistfile)
+        contents = load_tfile(self.aptlistfile)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb",
                                    ('http://ppa.launchpad.net/smoser/'

@@ -356,7 +356,7 @@ def add_sources(srcdict, template_params=None, aa_repo_match=None):
 
         try:
             contents = "%s\n" % (source)
-            util.write_file(ent['filename'], contents, omode="ab")
+            util.write_file(ent['filename'], contents, omode="a")
         except Exception as detail:
             errorlist.append([source,
                               "failed write to file %s: %s" % (ent['filename'],
