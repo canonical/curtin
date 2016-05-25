@@ -4,6 +4,7 @@ Test templating of custom sources list
 import logging
 import shutil
 import tempfile
+import yaml
 
 from unittest import TestCase
 
@@ -118,7 +119,7 @@ class TestAptSourceConfigSourceList(TestCase):
         """ test_apt_srcl_custom
         Test rendering from a custom source.list template
         """
-        cfg = util.load_yaml(YAML_TEXT_CUSTOM_SL)
+        cfg = yaml.safe_load(YAML_TEXT_CUSTOM_SL)
 
         # the second mock restores the original subp
         with mock.patch.object(util, 'write_file') as mockwrite:
