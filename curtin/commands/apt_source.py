@@ -65,53 +65,53 @@ DEFAULT_TEMPLATE = """
 
 # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
 # newer versions of the distribution.
-deb {{mirror}} {{codename}} main restricted
-deb-src {{mirror}} {{codename}} main restricted
+deb $MIRROR $RELEASE main restricted
+deb-src $MIRROR $RELEASE main restricted
 
 ## Major bug fix updates produced after the final release of the
 ## distribution.
-deb {{mirror}} {{codename}}-updates main restricted
-deb-src {{mirror}} {{codename}}-updates main restricted
+deb $MIRROR $RELEASE-updates main restricted
+deb-src $MIRROR $RELEASE-updates main restricted
 
 ## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
 ## team. Also, please note that software in universe WILL NOT receive any
 ## review or updates from the Ubuntu security team.
-deb {{mirror}} {{codename}} universe
-deb-src {{mirror}} {{codename}} universe
-deb {{mirror}} {{codename}}-updates universe
-deb-src {{mirror}} {{codename}}-updates universe
+deb $MIRROR $RELEASE universe
+deb-src $MIRROR $RELEASE universe
+deb $MIRROR $RELEASE-updates universe
+deb-src $MIRROR $RELEASE-updates universe
 
 ## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
 ## team, and may not be under a free licence. Please satisfy yourself as to
 ## your rights to use the software. Also, please note that software in
 ## multiverse WILL NOT receive any review or updates from the Ubuntu
 ## security team.
-deb {{mirror}} {{codename}} multiverse
-deb-src {{mirror}} {{codename}} multiverse
-deb {{mirror}} {{codename}}-updates multiverse
-deb-src {{mirror}} {{codename}}-updates multiverse
+deb $MIRROR $RELEASE multiverse
+deb-src $MIRROR $RELEASE multiverse
+deb $MIRROR $RELEASE-updates multiverse
+deb-src $MIRROR $RELEASE-updates multiverse
 
 ## N.B. software from this repository may not have been tested as
 ## extensively as that contained in the main release, although it includes
 ## newer versions of some applications which may provide useful features.
 ## Also, please note that software in backports WILL NOT receive any review
 ## or updates from the Ubuntu security team.
-deb {{mirror}} {{codename}}-backports main restricted universe multiverse
-deb-src {{mirror}} {{codename}}-backports main restricted universe multiverse
+deb $MIRROR $RELEASE-backports main restricted universe multiverse
+deb-src $MIRROR $RELEASE-backports main restricted universe multiverse
 
-deb {{security}} {{codename}}-security main restricted
-deb-src {{security}} {{codename}}-security main restricted
-deb {{security}} {{codename}}-security universe
-deb-src {{security}} {{codename}}-security universe
-deb {{security}} {{codename}}-security multiverse
-deb-src {{security}} {{codename}}-security multiverse
+deb $SECURITY $RELEASE-security main restricted
+deb-src $SECURITY $RELEASE-security main restricted
+deb $SECURITY $RELEASE-security universe
+deb-src $SECURITY $RELEASE-security universe
+deb $SECURITY $RELEASE-security multiverse
+deb-src $SECURITY $RELEASE-security multiverse
 
 ## Uncomment the following two lines to add software from Canonical's
 ## 'partner' repository.
 ## This software is not part of Ubuntu, but is offered by Canonical and the
 ## respective vendors as a service to Ubuntu users.
-# deb http://archive.canonical.com/ubuntu {{codename}} partner
-# deb-src http://archive.canonical.com/ubuntu {{codename}} partner
+# deb http://archive.canonical.com/ubuntu $RELEASE partner
+# deb-src http://archive.canonical.com/ubuntu $RELEASE partner
 """
 
 
@@ -121,11 +121,6 @@ def handle_apt_source(cfg):
     """
     release = get_release()
     mirrors = find_apt_mirror_info(cfg)
-
-    # backwards compatibility
-    mirror = mirrors["primary"]
-    mirrors["mirror"] = mirror
-
     LOG.debug("Mirror info: %s", mirrors)
 
     if not config.value_as_boolean(cfg.get('apt_preserve_sources_list',
@@ -141,7 +136,7 @@ def handle_apt_source(cfg):
     if 'apt_sources' in cfg:
         params = mirrors
         params['RELEASE'] = release
-        params['MIRROR'] = mirror
+        params['MIRROR'] = mirrors["MIRROR"]
 
         matcher = None
         matchcfg = cfg.get('add_apt_repo_match', ADD_APT_REPO_MATCH)
@@ -246,8 +241,8 @@ def render_string_to_file(content, outfn, params, mode=0o644):
         render a string to a file following replacement rules as defined
         in basic_render
     """
-    contents = render_string(content, params)
-    util.write_file(outfn, contents, mode=mode)
+    rendered = render_string(content, params)
+    util.write_file(outfn, rendered, mode=mode)
 
 
 def render_string(content, params):
@@ -260,12 +255,12 @@ def render_string(content, params):
     return basic_render(content, params)
 
 
-def generate_sources_list(cfg, codename, mirrors):
+def generate_sources_list(cfg, release, mirrors):
     """ generate_sources_list
         create a source.list file based on a custom or default template
         by replacing mirrors and release in the template
     """
-    params = {'codename': codename}
+    params = {'RELEASE': release}
     for k in mirrors:
         params[k] = mirrors[k]
 
@@ -371,19 +366,22 @@ def find_apt_mirror_info(cfg):
     mirror_info = None
     mirror = cfg.get("apt_mirror", None)
     if mirror is not None:
-        mirror_info = {'primary': mirror,
-                       'security': mirror}
+        mirror_info = {'PRIMARY': mirror,
+                       'SECURITY': mirror}
     else:
         pmirror = cfg.get("apt_primary_mirror", None)
         smirror = cfg.get("apt_security_mirror", pmirror)
         if pmirror is not None:
-            mirror_info = {'primary': pmirror,
-                           'security': smirror}
+            mirror_info = {'PRIMARY': pmirror,
+                           'SECURITY': smirror}
 
     # default fallback if nothing is specified
     if mirror_info is None:
-        mirror_info = {'primary': 'http://archive.ubuntu.com/ubuntu',
-                       'security': 'http://security.ubuntu.com/ubuntu'}
+        mirror_info = {'PRIMARY': 'http://archive.ubuntu.com/ubuntu',
+                       'SECURITY': 'http://security.ubuntu.com/ubuntu'}
+
+    # less complex replacements use only MIRROR, derive from primary
+    mirror_info["MIRROR"] = mirror_info["PRIMARY"]
 
     return mirror_info
 
