@@ -68,7 +68,7 @@ apt_source:
       # sources can use $MIRROR and $RELEASE and they will be replaced
       # with the local mirror for this cloud, and the running release
       # the entry below would be possibly turned into:
-      # source: deb http://us-east-1.ec2.archive.ubuntu.com/ubuntu natty multiverse
+      # source: deb http://archive.ubuntu.com/ubuntu xenial multiverse
       my-repo2.list:
         source: deb $MIRROR $RELEASE multiverse
 
@@ -134,18 +134,28 @@ apt_source:
     # then apt_*mirror configurations above will have no effect
     apt_preserve_sources_list: false
 
-    # a custom (e.g. localized) mirror that will be set in sources.list
+    # a custom (e.g. localized) mirror that will be set in sources.list and
+    # deb / deb-src lines
     apt_mirror: http://us.archive.ubuntu.com/ubuntu/
     # instead of just apt_mirror one can set primary and security mirror to
     # different url's
     apt_primary_mirror: http://us.archive.ubuntu.com/ubuntu/
     apt_security_mirror: http://security.ubuntu.com/ubuntu/
+    # if apt_mirror is specified it will overwrite primary and secondary
+    # if none at all are specified it will use:
+    # primary: http://archive.ubuntu.com/ubuntu
+    # security: http://security.ubuntu.com/ubuntu
 
     # Provide a custom template for rendering sources.list
     # by default it will use a builtin default template
+    # These full source.list templates can use the following variables which
+    # will be replaced (all have sane ubuntu defaults, see above for details):
+    # {{codename}}, {{mirror}}, {{primary}}, {{security}}
     apt_custom_sources_list: | # written by curtin custom template
       deb {{mirror}} {{codename}} main restricted
       deb-src {{mirror}} {{codename}} main restricted
+      deb {{primary}} {{codename}} universe restricted
+      deb {{security}} {{codename}}-security multiverse
 
     # any apt config string that will be made available to apt
     # see the APT.CONF(5) man page for details what can be specified
