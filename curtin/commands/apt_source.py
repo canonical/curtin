@@ -137,7 +137,7 @@ def handle_apt_source(cfg):
 
     try:
         apply_apt_proxy_config(cfg, APT_PROXY_FN, APT_CONFIG_FN)
-    except Exception as error:
+    except (IOError, OSError) as error:
         LOG.warn("failed to proxy or apt config info: %s", error)
 
     # Process 'apt_sources'
@@ -161,7 +161,7 @@ def handle_apt_source(cfg):
         LOG.debug("Setting debconf selections per cloud config")
         try:
             util.subp(('debconf-set-selections', '-'), dconf_sel)
-        except Exception:
+        except util.ProcessExecutionError:
             LOG.error("Failed to run debconf-set-selections")
 
 
@@ -300,10 +300,8 @@ def add_key(ent):
         keyserver = "keyserver.ubuntu.com"
         if 'keyserver' in ent:
             keyserver = ent['keyserver']
-        try:
-            ent['key'] = getkeybyid(ent['keyid'], keyserver)
-        except:
-            raise Exception('failed to get key from %s' % keyserver)
+
+        ent['key'] = getkeybyid(ent['keyid'], keyserver)
 
     if 'key' in ent:
         add_key_raw(ent['key'])
@@ -319,11 +317,11 @@ def add_sources(srcdict, template_params=None, aa_repo_match=None):
         template_params = {}
 
     if aa_repo_match is None:
-        raise Exception('did not get a valid repo matcher')
+        raise ValueError('did not get a valid repo matcher')
 
     errorlist = []
     if not isinstance(srcdict, dict):
-        raise Exception('unknown apt_sources format: %s' % (srcdict))
+        raise TypeError('unknown apt_sources format: %s' % (srcdict))
 
     for filename in srcdict:
         ent = srcdict[filename]
