@@ -16,6 +16,7 @@ class TestMdadmAbs(VMBaseClass):
         mdadm --detail --scan | grep -c ubuntu > mdadm_active1
         grep -c active /proc/mdstat > mdadm_active2
         ls /dev/disk/by-dname > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
         """)]
 
     def test_mdadm_output_files_exist(self):
@@ -55,6 +56,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         cat /sys/block/bcache1/bcache/cache_mode >> bcache_cache_mode
         cat /sys/block/bcache2/bcache/cache_mode >> bcache_cache_mode
         cat /proc/mounts > proc_mounts
+        find /etc/network/interfaces.d > find_interfacesd
         """)]
     fstab_expected = {
         '/dev/vda1': '/media/sda1',

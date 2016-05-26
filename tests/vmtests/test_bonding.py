@@ -59,6 +59,7 @@ class TestNetworkAbs(VMBaseClass):
         ip -o route show > ip_route_show
         route -n > route_n
         dpkg-query -W -f '${Status}' ifenslave > ifenslave_installed
+        find /etc/network/interfaces.d > find_interfacesd
         """)]
 
     def test_output_files_exist(self):

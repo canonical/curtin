@@ -23,6 +23,7 @@ class TestBasicAbs(VMBaseClass):
         cat /etc/fstab > fstab
         mkdir -p /dev/disk/by-dname
         ls /dev/disk/by-dname/ > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
         ls /sys/firmware/efi/ > ls_sys_firmware_efi
         cat /sys/class/block/vda/queue/logical_block_size > vda_lbs
         cat /sys/class/block/vda/queue/physical_block_size > vda_pbs

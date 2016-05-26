@@ -12,6 +12,7 @@ class TestLvmAbs(VMBaseClass):
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         ls /dev/disk/by-dname > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
         """)]
@@ -67,4 +68,8 @@ class VividTestLvm(relbase.vivid, TestLvmAbs):
 
 
 class WilyTestLvm(relbase.wily, TestLvmAbs):
+    __test__ = True
+
+
+class XenialTestLvm(relbase.xenial, TestLvmAbs):
     __test__ = True
