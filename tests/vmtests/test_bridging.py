@@ -159,7 +159,7 @@ class TestBridgeNetworkAbs(TestNetworkAbs):
                 release_to_bridge_params_uncheckable.get(self.release)
             return [p for p in br.keys()
                     if (p.startswith('bridge_') and
-                    p not in bridge_params_uncheckable)]
+                        p not in bridge_params_uncheckable)]
 
         def _check_bridge_param(sysfs_vals, p, br):
             value = br.get(param)
