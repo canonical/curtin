@@ -948,7 +948,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
 
     for part in scripts:
         if not part.startswith("#!"):
-            part = "#!/bin/sh\n" + part
+            part = "#!/bin/sh -x\n" + part
         part = part.replace(output_dir_macro, output_dir)
         logger.debug('Cloud config archive content (pre-json):' + part)
         parts.append({'content': part, 'type': 'text/x-shellscript'})
