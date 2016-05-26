@@ -1,73 +1,129 @@
-from . import VMBaseClass, logger
+from . import logger
 from .releases import base_vm_classes as relbase
+from .test_network import TestNetworkAbs
+from curtin import util
 
-import ipaddress
 import os
-import re
 import textwrap
-import yaml
 
 
-def iface_extract(input):
-    mo = re.search(r'^(?P<interface>\w+|\w+:\d+)\s+' +
-                   r'Link encap:(?P<link_encap>\S+)\s+' +
-                   r'(HWaddr\s+(?P<mac_address>\S+))?' +
-                   r'(\s+inet addr:(?P<address>\S+))?' +
-                   r'(\s+Bcast:(?P<broadcast>\S+)\s+)?' +
-                   r'(Mask:(?P<netmask>\S+)\s+)?',
-                   input, re.MULTILINE)
-
-    mtu = re.search(r'(\s+MTU:(?P<mtu>\d+)\s+)\s+', input, re.MULTILINE)
-    mtu_info = mtu.groupdict('')
-    mtu_info['mtu'] = int(mtu_info['mtu'])
-
-    if mo:
-        info = mo.groupdict('')
-        info['running'] = False
-        info['up'] = False
-        info['multicast'] = False
-        if 'RUNNING' in input:
-            info['running'] = True
-        if 'UP' in input:
-            info['up'] = True
-        if 'MULTICAST' in input:
-            info['multicast'] = True
-        info.update(mtu_info)
-        return info
-    return {}
+bridge_param_to_sysfs = {
+    'bridge_ageing': '/sys/class/net/{name}/bridge/ageing_time',
+    'bridge_bridgeprio': '/sys/class/net/{name}/bridge/priority',
+    'bridge_fd': '/sys/class/net/{name}/bridge/forward_delay',
+    'bridge_hello': '/sys/class/net/{name}/bridge/hello_time',
+    'bridge_hw': '/sys/class/net/{name}/address',
+    'bridge_maxage': '/sys/class/net/{name}/bridge/max_age',
+    'bridge_pathcost': '/sys/class/net/{name}/brif/{port}/path_cost',
+    'bridge_portprio': '/sys/class/net/{name}/brif/{port}/priority',
+    'bridge_stp': '/sys/class/net/{name}/bridge/stp_state',
+}
 
 
-def ifconfig_to_dict(ifconfig):
-    interfaces = {}
-    for iface in [iface_extract(iface) for iface in ifconfig.split('\n\n')
-                  if iface.strip()]:
-        interfaces[iface['interface']] = iface
+# convert kernel sysfs values into human settings
+bridge_param_divfactor = {
+    'bridge_ageing': 100,
+    'bridge_bridgeprio': 1,
+    'bridge_fd': 100,
+    'bridge_hello': 100,
+    'bridge_maxage': 100,
+    'bridge_pathcost': 1,
+    'bridge_portprio': 1,
+}
 
-    return interfaces
+default_bridge_params_uncheckable = [
+    'bridge_gcint',  # dead in kernel
+    'bridge_maxwait',  # ifupdown variable
+    'bridge_ports',  # not a sysfs value
+    'bridge_waitport',  # ifupdown variable
+]
+
+xenial_bridge_params_uncheckable = [
+    'bridge_ageing',  # dead in kernel; not settable
+] + default_bridge_params_uncheckable
 
 
-class TestNetworkAbs(VMBaseClass):
-    interactive = False
+wily_bridge_params_uncheckable = [] + default_bridge_params_uncheckable
+
+
+vivid_bridge_params_uncheckable = [] + default_bridge_params_uncheckable
+
+
+trusty_bridge_params_uncheckable = [] + default_bridge_params_uncheckable
+
+
+precise_bridge_params_uncheckable = [] + default_bridge_params_uncheckable
+
+
+# attrs we cannot validate
+release_to_bridge_params_uncheckable = {
+    'xenial': xenial_bridge_params_uncheckable,
+    'wily': wily_bridge_params_uncheckable,
+    'vivid': vivid_bridge_params_uncheckable,
+    'trusty': trusty_bridge_params_uncheckable,
+    'precise': precise_bridge_params_uncheckable,
+}
+
+
+def _get_sysfs_value(sysfs_data, name, param, port=None):
+    """ Look up the correct sysfs file based on the network
+        device `name`, the sysfs parameter, and in the case
+        we're looking at a per-port setting, change how we
+        index the the data.
+    """
+    print('_get_sys_val: name=%s param=%s port=%s' % (name, param, port))
+    bcfg = {
+        'name': name,
+        'dataidx': name,
+    }
+    if port:
+        bcfg.update({
+            'port': port,
+            'dataidx': port})
+    print('_get_sys_val: bcfg: %s' % bcfg)
+
+    # look up the param template and fill it out to find
+    # which file holds the value
+    sys_file = bridge_param_to_sysfs[param].format(**bcfg)
+    print('_get_sys_val: sys_file=%s' % sys_file)
+
+    # extract the value and convert to integer; this is an assumption
+    # for bridge params.
+    sys_file_val = int(sysfs_data[bcfg.get('dataidx')][sys_file])
+
+    # Some of the kernel parameters are non-human values, in that
+    # case convert them back to match values from the input YAML
+    if param in bridge_param_divfactor:
+        sys_file_val = (sys_file_val / bridge_param_divfactor[param])
+
+    return sys_file_val
+
+
+def sysfs_to_dict(input):
+    """ Simple converter for loading key: value lines from a recursive
+        grep -r . <sysfs path> > sysfs_data
+    """
+    data = util.load_file(input)
+
+    return {y[0]: ":".join(y[1:]) for y in
+            [x.split(":")for x in data.split("\n") if len(x) > 0]}
+
+
+class TestBridgeNetworkAbs(TestNetworkAbs):
     conf_file = "examples/tests/bridging_network.yaml"
-    extra_disks = []
-    extra_nics = []
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = TestNetworkAbs.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        ifconfig -a > ifconfig_a
-        cp -av /etc/network/interfaces .
-        cp -av /etc/udev/rules.d/70-persistent-net.rules .
-        ip -o route show > ip_route_show
-        route -n > route_n
+        grep -r . /sys/class/net/br0 > sysfs_br0
+        grep -r . /sys/class/net/br0/brif/eth1 > sysfs_br0_eth1
+        grep -r . /sys/class/net/br0/brif/eth2 > sysfs_br0_eth2
         dpkg-query -W -f '${Status}' bridge-utils 2>&1 > bridge-utils_installed
         """)]
 
-    def test_output_files_exist(self):
-        self.output_files_exist(["ifconfig_a",
-                                 "interfaces",
-                                 "70-persistent-net.rules",
-                                 "ip_route_show",
-                                 "bridge-utils_installed",
-                                 "route_n"])
+    def test_output_files_exist_bridge(self):
+        self.output_files_exist(["bridge-utils_installed",
+                                 "sysfs_br0",
+                                 "sysfs_br0_eth1",
+                                 "sysfs_br0_eth2"])
 
     def test_bridge_utils_installed(self):
         with open(os.path.join(self.td.collect,
@@ -76,136 +132,71 @@ class TestNetworkAbs(VMBaseClass):
             logger.debug('bridge-utils installed: {}'.format(status))
             self.assertEqual('install ok installed', status)
 
-    def test_etc_network_interfaces(self):
-        with open(os.path.join(self.td.collect, "interfaces")) as fp:
-            eni = fp.read()
-            logger.debug('etc/network/interfaces:\n{}'.format(eni))
+    def test_bridge_params(self):
+        """ Test if configure bridge params match values on the device """
 
-        expected_eni = self.get_expected_etc_network_interfaces()
-        eni_lines = eni.split('\n')
-        for line in expected_eni.split('\n'):
-            self.assertTrue(line in eni_lines)
+        def _load_sysfs_bridge_data():
+            sysfs_br0 = sysfs_to_dict(os.path.join(self.td.collect,
+                                                   "sysfs_br0"))
+            sysfs_br0_eth1 = sysfs_to_dict(os.path.join(self.td.collect,
+                                                        "sysfs_br0_eth1"))
+            sysfs_br0_eth2 = sysfs_to_dict(os.path.join(self.td.collect,
+                                                        "sysfs_br0_eth2"))
+            return {
+                'br0': sysfs_br0,
+                'eth1': sysfs_br0_eth1,
+                'eth2': sysfs_br0_eth2,
+            }
 
-    def test_ifconfig_output(self):
-        '''check ifconfig output with test input'''
-        network_state = self.get_network_state()
-        logger.debug('expected_network_state:\n{}'.format(
-            yaml.dump(network_state, default_flow_style=False, indent=4)))
+        def _get_bridge_config():
+            network_state = self.get_network_state()
+            interfaces = network_state.get('interfaces')
+            br0 = interfaces.get('br0')
+            return br0
 
-        with open(os.path.join(self.td.collect, "ifconfig_a")) as fp:
-            ifconfig_a = fp.read()
-            logger.debug('ifconfig -a:\n{}'.format(ifconfig_a))
+        def _get_bridge_params(br):
+            bridge_params_uncheckable = \
+                release_to_bridge_params_uncheckable.get(self.release)
+            return [p for p in br.keys()
+                    if (p.startswith('bridge_') and
+                    p not in bridge_params_uncheckable)]
 
-        ifconfig_dict = ifconfig_to_dict(ifconfig_a)
-        logger.debug('parsed ifcfg dict:\n{}'.format(
-            yaml.dump(ifconfig_dict, default_flow_style=False, indent=4)))
-
-        with open(os.path.join(self.td.collect, "ip_route_show")) as fp:
-            ip_route_show = fp.read()
-            logger.debug("ip route show:\n{}".format(ip_route_show))
-            for line in [line for line in ip_route_show.split('\n')
-                         if 'src' in line]:
-                m = re.search(r'^(?P<network>\S+)\sdev\s' +
-                              r'(?P<devname>\S+)\s+' +
-                              r'proto kernel\s+scope link' +
-                              r'\s+src\s(?P<src_ip>\S+)',
-                              line)
-                route_info = m.groupdict('')
-                logger.debug(route_info)
-
-        with open(os.path.join(self.td.collect, "route_n")) as fp:
-            route_n = fp.read()
-            logger.debug("route -n:\n{}".format(route_n))
-
-        interfaces = network_state.get('interfaces')
-        for iface in interfaces.values():
-            subnets = iface.get('subnets', {})
-            if subnets:
-                for index, subnet in zip(range(0, len(subnets)), subnets):
-                    iface['index'] = index
-                    if index == 0:
-                        ifname = "{name}".format(**iface)
-                    else:
-                        ifname = "{name}:{index}".format(**iface)
-
-                    self.check_interface(iface,
-                                         ifconfig_dict.get(ifname),
-                                         route_n)
-            else:
-                iface['index'] = 0
-                self.check_interface(iface,
-                                     ifconfig_dict.get(iface['name']),
-                                     route_n)
-
-    def check_interface(self, iface, ifconfig, route_n):
-        logger.debug(
-            'testing iface:\n{}\n\nifconfig:\n{}'.format(iface, ifconfig))
-        subnets = iface.get('subnets', {})
-        if subnets and iface['index'] != 0:
-            ifname = "{name}:{index}".format(**iface)
-        else:
-            ifname = "{name}".format(**iface)
-
-        # initial check, do we have the correct iface ?
-        logger.debug('ifname={}'.format(ifname))
-        logger.debug("ifconfig['interface']={}".format(ifconfig['interface']))
-        self.assertEqual(ifname, ifconfig['interface'])
-
-        # check physical interface attributes
-        for key in ['mtu']:
-            if key in iface and iface[key]:
-                self.assertEqual(iface[key],
-                                 ifconfig[key])
-
-        def __get_subnet(subnets, subidx):
-            for index, subnet in zip(range(0, len(subnets)), subnets):
-                if index == subidx:
-                    break
-            return subnet
-
-        # check subnet related attributes, and specifically only
-        # the subnet specified by iface['index']
-        subnets = iface.get('subnets', {})
-        if subnets:
-            subnet = __get_subnet(subnets, iface['index'])
-            if 'address' in subnet and subnet['address']:
-                if ':' in subnet['address']:
-                    inet_iface = ipaddress.IPv6Interface(
-                        subnet['address'])
+        def _check_bridge_param(sysfs_vals, p, br):
+            value = br.get(param)
+            if param in ['bridge_stp']:
+                if value in ['off', '0']:
+                    value = 0
+                elif value in ['on', '1']:
+                    value = 1
                 else:
-                    inet_iface = ipaddress.IPv4Interface(
-                        subnet['address'])
+                    print('bridge_stp not in known val list')
 
-                # check ip addr
-                self.assertEqual(str(inet_iface.ip),
-                                 ifconfig['address'])
+            print('key=%s value=%s' % (param, value))
+            if type(value) == list:
+                for subval in value:
+                    (port, pval) = subval.split(" ")
+                    print('key=%s port=%s pval=%s' % (param, port, pval))
+                    sys_file_val = _get_sysfs_value(sysfs_vals, br0['name'],
+                                                    param, port)
 
-                self.assertEqual(str(inet_iface.netmask),
-                                 ifconfig['netmask'])
+                    self.assertEqual(int(pval), int(sys_file_val))
+            else:
+                sys_file_val = _get_sysfs_value(sysfs_vals, br0['name'],
+                                                param, port=None)
+                self.assertEqual(int(value), int(sys_file_val))
 
-                self.assertEqual(
-                    str(inet_iface.network.broadcast_address),
-                    ifconfig['broadcast'])
-
-            # handle gateway by looking at routing table
-            if 'gateway' in subnet and subnet['gateway']:
-                gw_ip = subnet['gateway']
-                gateways = [line for line in route_n.split('\n')
-                            if 'UG' in line and gw_ip in line]
-                logger.debug('matching gateways:\n{}'.format(gateways))
-                self.assertEqual(len(gateways), 1)
-                [gateways] = gateways
-                (dest, gw, genmask, flags, metric, ref, use, iface) = \
-                    gateways.split()
-                logger.debug('expected gw:{} found gw:{}'.format(gw_ip, gw))
-                self.assertEqual(gw_ip, gw)
+        sysfs_vals = _load_sysfs_bridge_data()
+        print(sysfs_vals)
+        br0 = _get_bridge_config()
+        for param in _get_bridge_params(br0):
+            _check_bridge_param(sysfs_vals, param, br0)
 
 
-class PreciseHWETTestBridging(relbase.precise_hwe_t, TestNetworkAbs):
-    __test__ = True
+class PreciseHWETTestBridging(relbase.precise_hwe_t, TestBridgeNetworkAbs):
+    __test__ = False
 
 
-class TrustyTestBridging(relbase.trusty, TestNetworkAbs):
+class TrustyTestBridging(relbase.trusty, TestBridgeNetworkAbs):
     __test__ = False
 
 
@@ -223,13 +214,13 @@ class TrustyHWEWTestBridging(relbase.trusty_hwe_w, TrustyTestBridging):
     __test__ = True
 
 
-class VividTestBridging(relbase.vivid, TestNetworkAbs):
+class VividTestBridging(relbase.vivid, TestBridgeNetworkAbs):
     __test__ = True
 
 
-class WilyTestBridging(relbase.wily, TestNetworkAbs):
+class WilyTestBridging(relbase.wily, TestBridgeNetworkAbs):
     __test__ = True
 
 
-class XenialTestBridging(relbase.xenial, TestNetworkAbs):
+class XenialTestBridging(relbase.xenial, TestBridgeNetworkAbs):
     __test__ = True

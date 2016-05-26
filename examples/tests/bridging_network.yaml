@@ -22,9 +22,31 @@ network:
             - eth1
             - eth2
           params:
-              bridge_stp: 'off'
-              bridge_fd: 0
+              bridge_ageing: 250
+              bridge_bridgeprio: 22
+              bridge_fd: 1
+              bridge_gcint: 2
+              bridge_hello: 1
+              bridge_maxage: 10
               bridge_maxwait: 0 
+              bridge_pathcost: 
+                - eth1 50
+                - eth2 75
+              bridge_portprio:
+                - eth1 28
+                - eth2 14
+              bridge_stp: 'off'
+              bridge_waitport:
+                - 1 eth1
+                - 2 eth2
           subnets:
               - type: static
                 address: 192.168.14.2/24
+
+curthooks_commands:
+    # use curtin to inject a eni config file outside of the network yaml
+    # this allows us to test user installed configurations outside of
+    # curtin's control
+    iscsi_cleanup: ['curtin', 'in-target', '--', 'sh', '-c', 'if [ "`lsb_release -sc`" = "precise" ]; then rm -f /etc/network/if-down.d/open-iscsi /etc/network/if-up.d/open-iscsi; fi']
+    # XXX: Remove me after LP:1576858 is released
+    aa_pre: ['curtin', 'in-target', '--', 'sh', '-c', "add-apt-repository -y ppa:raharper/bugfixes; apt-get update; apt-get install bridge-utils"]
