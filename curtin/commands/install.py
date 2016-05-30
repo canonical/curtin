@@ -51,6 +51,7 @@ CONFIG_BUILTIN = {
     'sources': {},
     'stages': ['early', 'partitioning', 'network', 'extract', 'curthooks',
                'hook', 'late'],
+    'early_commands': {'builtin': ['curtin', 'apt-source', 'custom']},
     'extract_commands': {'builtin': ['curtin', 'extract']},
     'hook_commands': {'builtin': ['curtin', 'hook']},
     'partitioning_commands': {

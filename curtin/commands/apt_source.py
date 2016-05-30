@@ -410,7 +410,7 @@ def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
 
 def apt_source(args):
     """ apt_source
-        Entry point for curtin apt_source
+        Main entry point for curtin apt_source
         Handling of apt_source: dict as custom config for apt. This allows
         writing custom source.list files, adding ppa's and PGP keys.
         It is especially useful to provide a fully isolated derived repository
@@ -423,8 +423,10 @@ def apt_source(args):
         raise NotImplementedError("mode=%s is not implemented" % args.mode)
 
     apt_source_cfg = cfg.get("apt_source")
+    # if no apt_source config section is available, do nothing
     if apt_source_cfg is None:
-        raise ValueError("apt_source needs a custom config to be defined")
+        LOG.info("No apt_source custom config provided, skipping")
+        sys.exit(0)
 
     try:
         handle_apt_source(apt_source_cfg)
