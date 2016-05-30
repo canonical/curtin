@@ -24,7 +24,7 @@ class TestAptSrcAbs(VMBaseClass):
         cp /etc/apt/sources.list.d/byobu-ppa.list .
         cp /etc/apt/sources.list.d/my-repo2.list .
         cp /etc/apt/sources.list.d/my-repo4.list .
-        ls -1 /etc/apt/sources.list.d/* > sourcelists
+        ls -1 /etc/apt/sources.list.d/ > sourcelists
         """)]
 
     def test_output_files_exist(self):
