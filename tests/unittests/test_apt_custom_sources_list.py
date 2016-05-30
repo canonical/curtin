@@ -58,7 +58,7 @@ deb http://archive.ubuntu.com/ubuntu fakerelease-security multiverse
 # FIND_SOMETHING_SPECIAL
 """
 
-EXPECTED_BASE_CONTENT = """
+EXPECTED_BASE_CONTENT = ("""
 ## Note, this file is written by cloud-init on first boot of an instance
 ## modifications made here will not survive a re-bundle.
 ## if you wish to make changes you can:
@@ -100,8 +100,10 @@ deb-src http://archive.ubuntu.com/ubuntu xenial-updates multiverse
 ## newer versions of some applications which may provide useful features.
 ## Also, please note that software in backports WILL NOT receive any review
 ## or updates from the Ubuntu security team.
-deb http://archive.ubuntu.com/ubuntu xenial-backports main restricted universe multiverse
-deb-src http://archive.ubuntu.com/ubuntu xenial-backports main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu xenial-backports"""
+                         """ main restricted universe multiverse
+deb-src http://archive.ubuntu.com/ubuntu xenial-backports"""
+                         """ main restricted universe multiverse
 
 deb http://security.ubuntu.com/ubuntu xenial-security main restricted
 deb-src http://security.ubuntu.com/ubuntu xenial-security main restricted
@@ -116,9 +118,9 @@ deb-src http://security.ubuntu.com/ubuntu xenial-security multiverse
 ## respective vendors as a service to Ubuntu users.
 # deb http://archive.canonical.com/ubuntu xenial partner
 # deb-src http://archive.canonical.com/ubuntu xenial partner
-"""
+""")
 
-EXPECTED_MIRROR_CONTENT = """
+EXPECTED_MIRROR_CONTENT = ("""
 ## Note, this file is written by cloud-init on first boot of an instance
 ## modifications made here will not survive a re-bundle.
 ## if you wish to make changes you can:
@@ -160,8 +162,10 @@ deb-src http://archive.ubuntu.com/ubuntu xenial-updates multiverse
 ## newer versions of some applications which may provide useful features.
 ## Also, please note that software in backports WILL NOT receive any review
 ## or updates from the Ubuntu security team.
-deb http://archive.ubuntu.com/ubuntu xenial-backports main restricted universe multiverse
-deb-src http://archive.ubuntu.com/ubuntu xenial-backports main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu xenial-backports"""
+                           """ main restricted universe multiverse
+deb-src http://archive.ubuntu.com/ubuntu xenial-backports"""
+                           """ main restricted universe multiverse
 
 deb http://archive.ubuntu.com/ubuntu xenial-security main restricted
 deb-src http://archive.ubuntu.com/ubuntu xenial-security main restricted
@@ -176,9 +180,9 @@ deb-src http://archive.ubuntu.com/ubuntu xenial-security multiverse
 ## respective vendors as a service to Ubuntu users.
 # deb http://archive.canonical.com/ubuntu xenial partner
 # deb-src http://archive.canonical.com/ubuntu xenial partner
-"""
+""")
 
-EXPECTED_PRIMSEC_CONTENT = """
+EXPECTED_PRIMSEC_CONTENT = ("""
 ## Note, this file is written by cloud-init on first boot of an instance
 ## modifications made here will not survive a re-bundle.
 ## if you wish to make changes you can:
@@ -220,8 +224,10 @@ deb-src http://archive.ubuntu.com/ubuntu xenial-updates multiverse
 ## newer versions of some applications which may provide useful features.
 ## Also, please note that software in backports WILL NOT receive any review
 ## or updates from the Ubuntu security team.
-deb http://archive.ubuntu.com/ubuntu xenial-backports main restricted universe multiverse
-deb-src http://archive.ubuntu.com/ubuntu xenial-backports main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu xenial-backports"""
+                            """ main restricted universe multiverse
+deb-src http://archive.ubuntu.com/ubuntu xenial-backports"""
+                            """ main restricted universe multiverse
 
 deb http://security.ubuntu.com/ubuntu xenial-security main restricted
 deb-src http://security.ubuntu.com/ubuntu xenial-security main restricted
@@ -236,7 +242,7 @@ deb-src http://security.ubuntu.com/ubuntu xenial-security multiverse
 ## respective vendors as a service to Ubuntu users.
 # deb http://archive.canonical.com/ubuntu xenial partner
 # deb-src http://archive.canonical.com/ubuntu xenial partner
-"""
+""")
 
 
 def load_tfile_or_url(*args, **kwargs):
