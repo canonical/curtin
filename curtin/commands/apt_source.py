@@ -24,6 +24,7 @@ import os
 import re
 import sys
 import tempfile
+import traceback
 
 from curtin.log import LOG
 from curtin import (config, util)
@@ -276,10 +277,11 @@ def add_key_raw(key):
     actual adding of a key as defined in key argument
     to the system
     """
+    LOG.info("Adding key:\n'%s'", key)
     try:
         util.subp(('apt-key', 'add', '-'), key)
-    except:
-        raise Exception('failed add key')
+    except util.ProcessExecutionError:
+        raise ValueError('failed to add key')
 
 
 def add_key(ent):
@@ -323,7 +325,7 @@ def add_sources(srcdict, template_params=None, aa_repo_match=None):
         # keys can be added without specifying a source
         try:
             add_key(ent)
-        except Exception as detail:
+        except ValueError as detail:
             errorlist.append([ent, detail])
 
         if 'source' not in ent:
@@ -347,7 +349,7 @@ def add_sources(srcdict, template_params=None, aa_repo_match=None):
         try:
             contents = "%s\n" % (source)
             util.write_file(ent['filename'], contents, omode="a")
-        except Exception as detail:
+        except IOError as detail:
             errorlist.append([source,
                               "failed write to file %s: %s" % (ent['filename'],
                                                                detail)])
@@ -430,10 +432,11 @@ def apt_source(args):
 
     try:
         handle_apt_source(apt_source_cfg)
-    except Exception as error:
-        sys.stderr.write("Failed to configure apt_source:\n%s\nExeption: %s" %
-                         (apt_source_cfg, error))
+    except (RuntimeError, TypeError, ValueError) as error:
+        sys.stderr.write("Failed to configure apt_source: '%s'\n" % error)
+        traceback.print_exc()
         sys.exit(1)
+
     sys.exit(0)
 
 
