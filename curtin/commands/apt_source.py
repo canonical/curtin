@@ -279,7 +279,7 @@ def add_key_raw(key):
     """
     LOG.info("Adding key:\n'%s'", key)
     try:
-        util.subp(('apt-key', 'add', '-'), key)
+        util.subp(('apt-key', 'add', '-'), key.encode())
     except util.ProcessExecutionError:
         raise ValueError('failed to add key')
 

@@ -222,7 +222,7 @@ class TestAptSourceConfig(TestCase):
         # check if it added the right ammount of keys
         calls = []
         for _ in range(keynum):
-            calls.append(call(('apt-key', 'add', '-'), 'fakekey 1234'))
+            calls.append(call(('apt-key', 'add', '-'), b'fakekey 1234'))
         mockobj.assert_has_calls(calls, any_order=True)
 
         self.assertTrue(os.path.isfile(filename))
@@ -298,7 +298,7 @@ class TestAptSourceConfig(TestCase):
         with mock.patch.object(util, 'subp') as mockobj:
             apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
 
-        mockobj.assert_called_with(('apt-key', 'add', '-'), 'fakekey 4321')
+        mockobj.assert_called_with(('apt-key', 'add', '-'), b'fakekey 4321')
 
         self.assertTrue(os.path.isfile(self.aptlistfile))
 
@@ -321,7 +321,7 @@ class TestAptSourceConfig(TestCase):
             apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
 
         mockobj.assert_called_once_with(('apt-key', 'add', '-'),
-                                        'fakekey 4242')
+                                        b'fakekey 4242')
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
@@ -337,7 +337,7 @@ class TestAptSourceConfig(TestCase):
                                return_value=('fakekey 1212', '')) as mockobj:
             apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
 
-        mockobj.assert_called_with(('apt-key', 'add', '-'), 'fakekey 1212')
+        mockobj.assert_called_with(('apt-key', 'add', '-'), b'fakekey 1212')
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
