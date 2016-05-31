@@ -46,6 +46,25 @@ class TestAptSrcAbs(VMBaseClass):
         self.check_file_regex("keyraw-8280B242",
                               r"Christian Ehrhardt")
 
+    def test_source_files(self):
+        "Check if the generated source.list files have the right content"
+        # hard coded deb lines
+        self.check_file_strippedline("byobu-ppa.list",
+                                     ("deb http://ppa.launchpad.net/byobu/"
+                                      "ppa/ubuntu xenial main"))
+        self.check_file_strippedline("my-repo4.list",
+                                     ("deb http://ppa.launchpad.net/alestic/"
+                                      "ppa/ubuntu xenial main"))
+        # mirror and release replacement in deb line
+        self.check_file_strippedline("my-repo2.list", "deb %s %s multiverse" %
+                                     ("http://us.archive.ubuntu.com/ubuntu/",
+                                      self.release))
+        # auto creation by apt-add-repository
+        self.check_file_strippedline("smoser-ubuntu-ppa-%s.list" %
+                                     self.release,
+                                     ("deb http://ppa.launchpad.net/smoser/"
+                                      "ppa/ubuntu %s main" % self.release))
+
 
 class XenialTestAptSrc(relbase.xenial, TestAptSrcAbs):
     """ XenialTestAptSrc
