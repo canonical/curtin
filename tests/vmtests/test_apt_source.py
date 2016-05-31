@@ -34,6 +34,15 @@ class TestAptSrcAbs(VMBaseClass):
             ["fstab", "keyid-F430BBA5", "keylongid-B59D", "keyraw-8280B242",
              "byobu-ppa.list", "my-repo2.list", "my-repo4.list"])
 
+    def test_keys_imported(self):
+        "Check if all keys that should be imported are there"
+        self.check_file_regex("keyid-F430BBA5",
+                              r"Launchpad PPA for Ubuntu Screen Profile")
+        self.check_file_regex("keylongid-B59D",
+                              r"Launchpad PPA for Scott Moser")
+        self.check_file_regex("keylongid-8280B242"
+                              r"Christian Ehrhardt")
+
 
 class XenialTestAptSrc(relbase.xenial, TestAptSrcAbs):
     """ XenialTestAptSrc
