@@ -172,6 +172,15 @@ apt_source:
         };
       };
 
+    # proxies are the most common apt_config option that is set there is a
+    # shortcut via apt*proxy. Those get automatically translated into the
+    # correct Acquire::*::Proxy statements.
+    apt_proxy: http://[[user][:pass]@]host[:port]/
+    apt_http_proxy: http://[[user][:pass]@]host[:port]/
+    apt_ftp_proxy: ftp://[[user][:pass]@]host[:port]/
+    apt_https_proxy: https://[[user][:pass]@]host[:port]/
+    # note: apt_proxy actually being a short synonym to apt_http_proxy
+
     # 'source' entries in apt-sources that match this python regex
     # expression will be passed to add-apt-repository
     # The following example is also the builtin default if nothing is specified
