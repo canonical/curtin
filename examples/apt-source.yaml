@@ -126,7 +126,13 @@ apt_source:
            uBJKQOZm5iltJp15cgyIkBkGe8Mx18VFyVglAZey
            =Y2oI
            -----END PGP PUBLIC KEY BLOCK-----
-    # end of apt_sources block
+      # end of apt_sources dictionary
+
+
+    #
+    # All of the following are auxillary configurations to the apt handling
+    # But no child element to the generic dict in apt_sources->config: {}
+    #
 
     # Preserve existing /etc/apt/sources.list
     # Default: overwrite sources_list with mirror. If this is true
@@ -178,4 +184,5 @@ apt_source:
 
     # 'source' entries in apt-sources that match this python regex
     # expression will be passed to add-apt-repository
+    # The following example is also the builtin default if nothing is specified
     add_apt_repo_match: '^[\w-]+:\w'
