@@ -389,10 +389,12 @@ class TestAptSourceConfig(TestCase):
         with mock.patch.object(os, 'rename') as mockobj:
             apt_source.rename_apt_lists(mirrors)
 
-        mockobj.assert_called_with(("/var/lib/apt/lists/archive.ubuntu.com_"
-                                    "ubuntu_dists_xenial-proposed_InRelease"),
-                                   ("/var/lib/apt/lists/us.archive.ubuntu.com_"
-                                    "ubuntu_dists_xenial-proposed_InRelease"))
+        pre = "/var/lib/apt/lists"
+        post = "ubuntu_dists_%s-proposed_InRelease" % apt_source.get_release()
+        mockobj.assert_called_with(("%s/archive.ubuntu.com_%s" %
+                                    (pre, post)),
+                                   ("%s/us.archive.ubuntu.com_%s" %
+                                    (pre, post)))
 
 
 # vi: ts=4 expandtab
