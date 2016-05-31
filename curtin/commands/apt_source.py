@@ -130,8 +130,8 @@ def handle_apt_source(cfg):
     except (IOError, OSError) as error:
         LOG.warn("failed to proxy or apt config info: %s", error)
 
-    # Process 'apt_source -> config {dict}'
-    if 'config' in cfg:
+    # Process 'apt_source -> sources {dict}'
+    if 'sources' in cfg:
         params = mirrors
         params['RELEASE'] = release
         params['MIRROR'] = mirrors["MIRROR"]
@@ -141,7 +141,7 @@ def handle_apt_source(cfg):
         if matchcfg:
             matcher = re.compile(matchcfg).search
 
-        errors = add_sources(cfg['config'], params,
+        errors = add_sources(cfg['sources'], params,
                              aa_repo_match=matcher)
         for error in errors:
             LOG.warn("Add source error: %s", ':'.join(error))

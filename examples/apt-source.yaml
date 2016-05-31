@@ -4,7 +4,7 @@ early_commands:
 # YAML example of an apt_source config.
 apt_source:
     version: 1
-    config:
+    sources:
       # This is a dictionary (unlike most block/net which are lists)
       # The key is the filename and will be prepended by /etc/apt/sources.list.d/
       # if it doesn't start with a '/'.

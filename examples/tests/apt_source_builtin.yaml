@@ -25,7 +25,7 @@ apt_source:
     ACQUIRE {
       Retries "3";
     };
-  config:
+  sources:
     byobu-ppa.list:
       source: "deb http://ppa.launchpad.net/byobu/ppa/ubuntu xenial main"
       keyid: F430BBA5
