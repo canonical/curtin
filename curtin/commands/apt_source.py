@@ -149,14 +149,6 @@ def handle_apt_source(cfg):
         for error in errors:
             LOG.warn("Add source error: %s", ':'.join(error))
 
-    dconf_sel = cfg.get('debconf_selections', False)
-    if dconf_sel:
-        LOG.debug("Setting debconf selections per cloud config")
-        try:
-            util.subp(('debconf-set-selections', '-'), dconf_sel)
-        except util.ProcessExecutionError:
-            LOG.error("Failed to run debconf-set-selections")
-
 
 # get gpg keyid from keyserver
 def getkeybyid(keyid, keyserver):

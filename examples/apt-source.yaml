@@ -172,16 +172,6 @@ apt_source:
         };
       };
 
-    # See debconf-set-selections man page.
-    # Default: none
-    debconf_selections: | # Need to perserve newlines
-        # Force debconf priority to critical.
-        debconf debconf/priority select critical
-
-        # Override default frontend to readline, but allow user to select.
-        debconf debconf/frontend select readline
-        debconf debconf/frontend seen false
-
     # 'source' entries in apt-sources that match this python regex
     # expression will be passed to add-apt-repository
     # The following example is also the builtin default if nothing is specified
