@@ -31,7 +31,7 @@ class TestAptSrcAbs(VMBaseClass):
     def test_output_files_exist(self):
         "Check if all output files exist"
         self.output_files_exist(
-            ["fstab", "keyid-F430BBA5", "keylongid-F470A0AC",
+            ["fstab", "ignorecount", "keyid-F430BBA5", "keylongid-F470A0AC",
              "keyraw-8280B242", "keyppa-03683F77",
              "byobu-ppa.list", "my-repo2.list", "my-repo4.list"])
 
@@ -64,6 +64,10 @@ class TestAptSrcAbs(VMBaseClass):
                                      self.release,
                                      ("deb http://ppa.launchpad.net/smoser/"
                                       "ppa/ubuntu %s main" % self.release))
+
+    def test_ignore_count(self):
+        "Check if the files that should not be generated are missing"
+        self.check_file_strippedline("ignorecount", "0")
 
 
 class XenialTestAptSrc(relbase.xenial, TestAptSrcAbs):

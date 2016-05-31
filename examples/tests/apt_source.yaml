@@ -14,6 +14,7 @@ early_commands:
   xx-postcollect11: cp /etc/apt/sources.list.d/my-repo2.list /mnt/earlyoutput/
   xx-postcollect12: cp /etc/apt/sources.list.d/my-repo4.list /mnt/earlyoutput/
   xx-postcollect13: cp /etc/apt/sources.list.d/smoser-ubuntu-ppa-xenial.list /mnt/earlyoutput/
+  xx-postcollect14: find /etc/apt/sources.list.d/ -maxdepth 1 -name "*ignore*" | wc -l > /mnt/earlyoutput/ignorecount
 apt_source:
   version: 1
   config:
