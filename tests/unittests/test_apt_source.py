@@ -373,4 +373,26 @@ class TestAptSourceConfig(TestCase):
         self.assertFalse(os.path.isfile(self.aptlistfile2))
         self.assertFalse(os.path.isfile(self.aptlistfile3))
 
+    def test_mir_apt_list_rename(self):
+        "test_mir_apt_list_rename - Test find mirrors and apt list renaming"
+        cfg = {"apt_primary_mirror": "http://us.archive.ubuntu.com/ubuntu/",
+               "apt_security_mirror": "http://security.ubuntu.com/ubuntu/"}
+        mirrors = apt_source.find_apt_mirror_info(cfg)
+
+        self.assertEqual(mirrors['MIRROR'],
+                         "http://us.archive.ubuntu.com/ubuntu/")
+        self.assertEqual(mirrors['PRIMARY'],
+                         "http://us.archive.ubuntu.com/ubuntu/")
+        self.assertEqual(mirrors['SECURITY'],
+                         "http://security.ubuntu.com/ubuntu/")
+
+        with mock.patch.object(os, 'rename') as mockobj:
+            apt_source.rename_apt_lists(mirrors)
+
+        mockobj.assert_called_with(("/var/lib/apt/lists/archive.ubuntu.com_"
+                                    "ubuntu_dists_xenial-proposed_InRelease"),
+                                   ("/var/lib/apt/lists/us.archive.ubuntu.com_"
+                                    "ubuntu_dists_xenial-proposed_InRelease"))
+
+
 # vi: ts=4 expandtab
