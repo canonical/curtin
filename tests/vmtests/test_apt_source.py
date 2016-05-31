@@ -27,12 +27,14 @@ class TestAptSrcAbs(VMBaseClass):
         mount LABEL=earlyoutput /mnt/earlyoutput
         cp /mnt/earlyoutput/* .
         """)]
+    mirror = "http://us.archive.ubuntu.com/ubuntu/"
+    secmirror = "http://security.ubuntu.com/ubuntu/"
 
     def test_output_files_exist(self):
         "Check if all output files exist"
         self.output_files_exist(
             ["fstab", "ignorecount", "keyid-F430BBA5", "keylongid-F470A0AC",
-             "keyraw-8280B242", "keyppa-03683F77", "aptconf",
+             "keyraw-8280B242", "keyppa-03683F77", "aptconf", "sources.list",
              "byobu-ppa.list", "my-repo2.list", "my-repo4.list"])
 
     def test_keys_imported(self):
@@ -57,8 +59,7 @@ class TestAptSrcAbs(VMBaseClass):
                                       "ppa/ubuntu xenial main"))
         # mirror and release replacement in deb line
         self.check_file_strippedline("my-repo2.list", "deb %s %s multiverse" %
-                                     ("http://us.archive.ubuntu.com/ubuntu/",
-                                      self.release))
+                                     (self.mirror, self.release))
         # auto creation by apt-add-repository
         self.check_file_strippedline("smoser-ubuntu-ppa-%s.list" %
                                      self.release,
@@ -72,6 +73,23 @@ class TestAptSrcAbs(VMBaseClass):
     def test_apt_conf(self):
         "Check if the selected apt conf arrived"
         self.check_file_strippedline("aptconf", 'Acquire::Retries "3";')
+
+    def test_custom_source_list(self):
+        "Check for custom source list with release/mirror replacement"
+        self.check_file_strippedline("sources.list",
+                                     "deb %s %s main restricted" %
+                                     (self.mirror, self.release))
+        self.check_file_strippedline("sources.list",
+                                     "deb-src %s %s main restricted" %
+                                     (self.mirror, self.release))
+        self.check_file_strippedline("sources.list",
+                                     "deb %s %s universe restricted" %
+                                     (self.mirror, self.release))
+        self.check_file_strippedline("sources.list",
+                                     "deb %s %s-security multiverse" %
+                                     (self.secmirror, self.release))
+        self.check_file_strippedline("sources.list",
+                                     "# nice line to check in test")
 
 
 class XenialTestAptSrc(relbase.xenial, TestAptSrcAbs):

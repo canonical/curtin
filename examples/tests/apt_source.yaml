@@ -16,10 +16,17 @@ early_commands:
   xx-postcollect13: cp /etc/apt/sources.list.d/smoser-ubuntu-ppa-xenial.list /mnt/earlyoutput/
   xx-postcollect14: find /etc/apt/sources.list.d/ -maxdepth 1 -name "*ignore*" | wc -l > /mnt/earlyoutput/ignorecount
   xx-postcollect15: apt-config dump | grep Retries > /mnt/earlyoutput/aptconf
+  xx-postcollect16: cp /etc/apt/sources.list /mnt/earlyoutput/sources.list
 apt_source:
   version: 1
   apt_primary_mirror: http://us.archive.ubuntu.com/ubuntu/
   apt_security_mirror: http://security.ubuntu.com/ubuntu/
+  apt_custom_sources_list: | # written by curtin custom template
+    deb $MIRROR $RELEASE main restricted
+    deb-src $MIRROR $RELEASE main restricted
+    deb $PRIMARY $RELEASE universe restricted
+    deb $SECURITY $RELEASE-security multiverse
+    # nice line to check in test
   apt_config: | # APT config
     ACQUIRE {
       Retries "3";
