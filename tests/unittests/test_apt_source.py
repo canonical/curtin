@@ -396,5 +396,22 @@ class TestAptSourceConfig(TestCase):
                                    ("%s/us.archive.ubuntu.com_%s" %
                                     (pre, post)))
 
+    @staticmethod
+    def test_apt_proxy():
+        "test_mir_apt_list_rename - Test apt_*proxy configuration"
+        cfg = {"apt_proxy": "foobar1",
+               "apt_http_proxy": "foobar2",
+               "apt_ftp_proxy": "foobar3",
+               "apt_https_proxy": "foobar4"}
+
+        with mock.patch.object(util, 'write_file') as mockobj:
+            apt_source.apply_apt_proxy_config(cfg, "proxyfn", "notused")
+
+        mockobj.assert_called_with('proxyfn',
+                                   ('Acquire::HTTP::Proxy "foobar1";\n'
+                                    'Acquire::HTTP::Proxy "foobar2";\n'
+                                    'Acquire::FTP::Proxy "foobar3";\n'
+                                    'Acquire::HTTPS::Proxy "foobar4";\n'))
+
 
 # vi: ts=4 expandtab
