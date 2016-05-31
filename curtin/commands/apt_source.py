@@ -20,6 +20,7 @@ Handling the setup of apt related tasks like proxies, PGP keys, repositories.
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import collections
+import glob
 import os
 import re
 import sys
@@ -122,6 +123,7 @@ def handle_apt_source(cfg):
     if not config.value_as_boolean(cfg.get('apt_preserve_sources_list',
                                            False)):
         generate_sources_list(cfg, release, mirrors)
+        rename_apt_lists(mirrors)
 
     try:
         apply_apt_proxy_config(cfg, APT_PROXY_FN, APT_CONFIG_FN)
@@ -170,6 +172,27 @@ def mirror2lists_fileprefix(mirror):
         string = string[pos + 3:]
     string = string.replace("/", "_")
     return string
+
+
+def rename_apt_lists(new_mirrors, lists_d="/var/lib/apt/lists"):
+    "rename_apt_lists - rename existing apt lists to preserve old cache data"
+    # paths and archive names are fix for the cloud-image curtin runs in
+    lists_d = "/var/lib/apt/lists"
+    old_mirrors = {"PRIMARY": "archive.ubuntu.com/ubuntu",
+                   "SECURITY": "security.ubuntu.com/ubuntu"}
+    for (name, omirror) in old_mirrors.items():
+        nmirror = new_mirrors.get(name)
+        if not nmirror:
+            continue
+        oprefix = os.path.join(lists_d, mirror2lists_fileprefix(omirror))
+        nprefix = os.path.join(lists_d, mirror2lists_fileprefix(nmirror))
+        if oprefix == nprefix:
+            continue
+        olen = len(oprefix)
+        for filename in glob.glob("%s_*" % oprefix):
+            newname = "%s%s" % (nprefix, filename[olen:])
+            LOG.info("Renaming apt list %s to %s", filename, newname)
+            os.rename(filename, newname)
 
 
 def get_release():
