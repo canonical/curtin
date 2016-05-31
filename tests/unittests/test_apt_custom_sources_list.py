@@ -228,9 +228,7 @@ def load_tfile_or_url(*args, **kwargs):
 
 
 class TestAptSourceConfigSourceList(TestCase):
-    """ TestAptSourceConfigSourceList
-    Main Class to test sources list rendering
-    """
+    "TestAptSourceConfigSourceList - Main Class to test sources list rendering"
     def setUp(self):
         super(TestAptSourceConfigSourceList, self).setUp()
         self.subp = util.subp
@@ -239,9 +237,7 @@ class TestAptSourceConfigSourceList(TestCase):
         # self.patchUtils(self.new_root)
 
     def _apt_source_list(self, cfg, expected):
-        """ test_apt_source_list
-        Test rendering from template
-        """
+        "_apt_source_list - Test rendering from template (generic)"
 
         with mock.patch.object(util, 'write_file') as mockwrite:
             with mock.patch.object(util, 'subp', self.subp):
@@ -253,33 +249,25 @@ class TestAptSourceConfigSourceList(TestCase):
             mode=420)
 
     def test_apt_source_list(self):
-        """ test_apt_source_list
-        Test rendering of builtin source.list without extra parms
-        """
+        "test_apt_source_list - Test builtin sources.list without extra parms"
         cfg = {}
 
         self._apt_source_list(cfg, EXPECTED_BASE_CONTENT)
 
     def test_apt_source_list_mirror(self):
-        """ test_apt_source_list_mirror
-        Test rendering of builtin source.list with mirrors set
-        """
+        "test_apt_source_list_mirror - Test builtin sources.list with mirror"
         cfg = {'apt_mirror': 'http://archive.ubuntu.com/ubuntu'}
         self._apt_source_list(cfg, EXPECTED_MIRROR_CONTENT)
 
-    def test_apt_source_list_psmirrors(self):
-        """ test_apt_source_list_psmirrors
-        Test rendering of builtin source.list with prim+sec mirrors set
-        """
+    def test_apt_source_list_psm(self):
+        "test_apt_source_list_psm - Test builtin sources with prim+sec mirrors"
         cfg = {'apt_primary_mirror': 'http://archive.ubuntu.com/ubuntu',
                'apt_security_mirror': 'http://security.ubuntu.com/ubuntu'}
 
         self._apt_source_list(cfg, EXPECTED_PRIMSEC_CONTENT)
 
     def test_apt_srcl_custom(self):
-        """ test_apt_srcl_custom
-        Test rendering from a custom source.list template
-        """
+        "test_apt_srcl_custom - Test rendering a custom source.list template"
         cfg = yaml.safe_load(YAML_TEXT_CUSTOM_SL)
 
         # the second mock restores the original subp
