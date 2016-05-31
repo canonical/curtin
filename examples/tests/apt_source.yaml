@@ -7,12 +7,13 @@ early_commands:
   xx-postcollect04: mkdir -p /mnt/earlyoutput
   xx-postcollect05: mount LABEL=earlyoutput /mnt/earlyoutput
   xx-postcollect06: apt-key list "F430BBA5" > /mnt/earlyoutput/keyid-F430BBA5
-  xx-postcollect07: apt-key list "B59D 5F15 97A5 04B7 E230 6DCA 0620 BBCF 0368 3F77" > /mnt/earlyoutput/keylongid-B59D
-  xx-postcollect08: apt-key list "8280B242" > /mnt/earlyoutput/keyraw-8280B242
-  xx-postcollect09: cp /etc/apt/sources.list.d/byobu-ppa.list /mnt/earlyoutput/
-  xx-postcollect10: cp /etc/apt/sources.list.d/my-repo2.list /mnt/earlyoutput/
-  xx-postcollect11: cp /etc/apt/sources.list.d/my-repo4.list /mnt/earlyoutput/
-  xx-postcollect12: cp /etc/apt/sources.list.d/smoser-ubuntu-ppa-xenial.list /mnt/earlyoutput/
+  xx-postcollect07: apt-key list "03683F77" > /mnt/earlyoutput/keyppa-03683F77
+  xx-postcollect08: apt-key list "0E72 9061 0D2F 6DC4 D65E  A921 9A31 4EC5 F470 A0AC" > /mnt/earlyoutput/keylongid-F470A0AC
+  xx-postcollect09: apt-key list "8280B242" > /mnt/earlyoutput/keyraw-8280B242
+  xx-postcollect10: cp /etc/apt/sources.list.d/byobu-ppa.list /mnt/earlyoutput/
+  xx-postcollect11: cp /etc/apt/sources.list.d/my-repo2.list /mnt/earlyoutput/
+  xx-postcollect12: cp /etc/apt/sources.list.d/my-repo4.list /mnt/earlyoutput/
+  xx-postcollect13: cp /etc/apt/sources.list.d/smoser-ubuntu-ppa-xenial.list /mnt/earlyoutput/
 apt_source:
   version: 1
   config:
@@ -24,7 +25,7 @@ apt_source:
     my-repo2.list:
       source: deb $MIRROR $RELEASE multiverse
     ignored3:
-      keyid: B59D 5F15 97A5 04B7 E230  6DCA 0620 BBCF 0368 3F77
+      keyid: 0E72 9061 0D2F 6DC4 D65E  A921 9A31 4EC5 F470 A0AC
     my-repo4.list:
       source: deb http://ppa.launchpad.net/alestic/ppa/ubuntu xenial main
       key: |

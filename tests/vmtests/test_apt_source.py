@@ -31,16 +31,19 @@ class TestAptSrcAbs(VMBaseClass):
     def test_output_files_exist(self):
         "Check if all output files exist"
         self.output_files_exist(
-            ["fstab", "keyid-F430BBA5", "keylongid-B59D", "keyraw-8280B242",
+            ["fstab", "keyid-F430BBA5", "keylongid-F470A0AC",
+             "keyraw-8280B242", "keyppa-03683F77",
              "byobu-ppa.list", "my-repo2.list", "my-repo4.list"])
 
     def test_keys_imported(self):
         "Check if all keys that should be imported are there"
         self.check_file_regex("keyid-F430BBA5",
                               r"Launchpad PPA for Ubuntu Screen Profile")
-        self.check_file_regex("keylongid-B59D",
+        self.check_file_regex("keylongid-F470A0AC",
+                              r"Ryan Harper")
+        self.check_file_regex("keyppa-03683F77",
                               r"Launchpad PPA for Scott Moser")
-        self.check_file_regex("keylongid-8280B242"
+        self.check_file_regex("keyraw-8280B242",
                               r"Christian Ehrhardt")
 
 
