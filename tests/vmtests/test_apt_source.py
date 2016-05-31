@@ -32,7 +32,7 @@ class TestAptSrcAbs(VMBaseClass):
         "Check if all output files exist"
         self.output_files_exist(
             ["fstab", "ignorecount", "keyid-F430BBA5", "keylongid-F470A0AC",
-             "keyraw-8280B242", "keyppa-03683F77",
+             "keyraw-8280B242", "keyppa-03683F77", "aptconf",
              "byobu-ppa.list", "my-repo2.list", "my-repo4.list"])
 
     def test_keys_imported(self):
@@ -68,6 +68,10 @@ class TestAptSrcAbs(VMBaseClass):
     def test_ignore_count(self):
         "Check if the files that should not be generated are missing"
         self.check_file_strippedline("ignorecount", "0")
+
+    def test_apt_conf(self):
+        "Check if the selected apt conf arrived"
+        self.check_file_strippedline("aptconf", 'Acquire::Retries "3";')
 
 
 class XenialTestAptSrc(relbase.xenial, TestAptSrcAbs):
