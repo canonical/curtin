@@ -9,9 +9,8 @@ from .releases import base_vm_classes as relbase
 
 class TestAptSrcAbs(VMBaseClass):
     """ TestAptSrcAbs
-        Basic test class to test apt_sources features of curtin
+        Basic tests for apt_sources features of curtin
     """
-    conf_file = "examples/tests/apt_source.yaml"
     interactive = False
     # disk for early data collection at install stage
     extra_disks = ['1G']
@@ -36,6 +35,8 @@ class TestAptSrcAbs(VMBaseClass):
             ["fstab", "ignorecount", "keyid-F430BBA5", "keylongid-F470A0AC",
              "keyraw-8280B242", "keyppa-03683F77", "aptconf", "sources.list",
              "byobu-ppa.list", "my-repo2.list", "my-repo4.list"])
+        self.output_files_exist(
+            ["smoser-ubuntu-ppa-%s.list" % self.release])
 
     def test_keys_imported(self):
         "Check if all keys that should be imported are there"
@@ -74,8 +75,13 @@ class TestAptSrcAbs(VMBaseClass):
         "Check if the selected apt conf arrived"
         self.check_file_strippedline("aptconf", 'Acquire::Retries "3";')
 
+
+class TestAptSrcCustom(TestAptSrcAbs):
+    "TestAptSrcNormal - tests valid in the normal case"
+    conf_file = "examples/tests/apt_source_custom.yaml"
+
     def test_custom_source_list(self):
-        "Check for custom source list with release/mirror replacement"
+        "Check for custom sources.list with release/mirror replacement"
         self.check_file_strippedline("sources.list",
                                      "deb %s %s main restricted" %
                                      (self.mirror, self.release))
@@ -92,14 +98,42 @@ class TestAptSrcAbs(VMBaseClass):
                                      "# nice line to check in test")
 
 
-class XenialTestAptSrc(relbase.xenial, TestAptSrcAbs):
-    """ XenialTestAptSrc
-       Basic Test for Xenial without HWE
-       Not that for this feature we don't support/care pre-Xenial
+class TestAptSrcPreserve(TestAptSrcAbs):
+    "TestAptSrcPreserve - tests valid in the preserved sources.list case"
+    conf_file = "examples/tests/apt_source_preserve.yaml"
+
+    def test_preserved_source_list(self):
+        "Check for sources.list to be preserved as-is"
+        self.check_file_regex("sources.list",
+                              r"this file is written by cloud-init")
+
+
+class TestAptSrcBuiltin(TestAptSrcAbs):
+    "TestAptSrcPreserve - tests valid for the builtin sources.list template"
+    conf_file = "examples/tests/apt_source_builtin.yaml"
+
+    def test_preserved_source_list(self):
+        "Check for builtin source list with release/mirror replacement"
+        self.check_file_regex("sources.list",
+                              r"this file is written by curtin")
+
+
+class XenialTestAptSrcCustom(relbase.xenial, TestAptSrcCustom):
+    """ XenialTestAptSrcCustom
+       Apt_source Test for Xenial with a custom template
     """
     __test__ = True
 
-    def test_release_output_files(self):
-        "Check if all release specific output files exist"
-        self.output_files_exist(
-            ["smoser-ubuntu-ppa-xenial.list"])
+
+class XenialTestAptSrcPreserve(relbase.xenial, TestAptSrcPreserve):
+    """ XenialTestAptSrcPreserve
+       Apt_source Test for Xenial with apt_preserve_sources_list enabled
+    """
+    __test__ = True
+
+
+class XenialTestAptSrcBuiltin(relbase.xenial, TestAptSrcBuiltin):
+    """ XenialTestAptSrcBuiltin
+        Apt_source Test for Xenial using the builtin template
+    """
+    __test__ = True

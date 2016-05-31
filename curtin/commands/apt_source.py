@@ -56,14 +56,9 @@ EXPORT_GPG_KEYID = """
 """
 
 DEFAULT_TEMPLATE = """
-## Note, this file is written by cloud-init on first boot of an instance
-## modifications made here will not survive a re-bundle.
-## if you wish to make changes you can:
-## a.) add 'apt_preserve_sources_list: true' to /etc/cloud/cloud.cfg
-##     or do the same in user-data
-## b.) add sources in /etc/apt/sources.list.d
-## c.) make changes to template file /etc/cloud/templates/sources.list.tmpl
-
+## Note, this file is written by curtin at install time. It should not end
+## up on the installed system itself.
+#
 # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
 # newer versions of the distribution.
 deb $MIRROR $RELEASE main restricted

@@ -22,14 +22,9 @@ YAML_TEXT_CUSTOM_SL = """
 apt_mirror: http://archive.ubuntu.com/ubuntu
 apt_custom_sources_list: |
 
-    ## Note, this file is written by cloud-init on first boot of an instance
-    ## modifications made here will not survive a re-bundle.
-    ## if you wish to make changes you can:
-    ## a.) add 'apt_preserve_sources_list: true' to /etc/cloud/cloud.cfg
-    ##     or do the same in user-data
-    ## b.) add sources in /etc/apt/sources.list.d
-    ## c.) make changes to template file /etc/cloud/templates/sources.list.tmpl
-
+    ## Note, this file is written by curtin at install time. It should not end
+    ## up on the installed system itself.
+    #
     # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
     # newer versions of the distribution.
     deb $MIRROR $RELEASE main restricted
@@ -41,14 +36,9 @@ apt_custom_sources_list: |
 
 # the custom template above converted on mocked fakerelease
 EXPECTED_CONVERTED_CONTENT = """
-## Note, this file is written by cloud-init on first boot of an instance
-## modifications made here will not survive a re-bundle.
-## if you wish to make changes you can:
-## a.) add 'apt_preserve_sources_list: true' to /etc/cloud/cloud.cfg
-##     or do the same in user-data
-## b.) add sources in /etc/apt/sources.list.d
-## c.) make changes to template file /etc/cloud/templates/sources.list.tmpl
-
+## Note, this file is written by curtin at install time. It should not end
+## up on the installed system itself.
+#
 # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
 # newer versions of the distribution.
 deb http://archive.ubuntu.com/ubuntu fakerelease main restricted
@@ -59,14 +49,9 @@ deb http://archive.ubuntu.com/ubuntu fakerelease-security multiverse
 """
 
 EXPECTED_BASE_CONTENT = ("""
-## Note, this file is written by cloud-init on first boot of an instance
-## modifications made here will not survive a re-bundle.
-## if you wish to make changes you can:
-## a.) add 'apt_preserve_sources_list: true' to /etc/cloud/cloud.cfg
-##     or do the same in user-data
-## b.) add sources in /etc/apt/sources.list.d
-## c.) make changes to template file /etc/cloud/templates/sources.list.tmpl
-
+## Note, this file is written by curtin at install time. It should not end
+## up on the installed system itself.
+#
 # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
 # newer versions of the distribution.
 deb http://archive.ubuntu.com/ubuntu xenial main restricted
@@ -121,14 +106,9 @@ deb-src http://security.ubuntu.com/ubuntu xenial-security multiverse
 """)
 
 EXPECTED_MIRROR_CONTENT = ("""
-## Note, this file is written by cloud-init on first boot of an instance
-## modifications made here will not survive a re-bundle.
-## if you wish to make changes you can:
-## a.) add 'apt_preserve_sources_list: true' to /etc/cloud/cloud.cfg
-##     or do the same in user-data
-## b.) add sources in /etc/apt/sources.list.d
-## c.) make changes to template file /etc/cloud/templates/sources.list.tmpl
-
+## Note, this file is written by curtin at install time. It should not end
+## up on the installed system itself.
+#
 # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
 # newer versions of the distribution.
 deb http://archive.ubuntu.com/ubuntu xenial main restricted
@@ -183,14 +163,9 @@ deb-src http://archive.ubuntu.com/ubuntu xenial-security multiverse
 """)
 
 EXPECTED_PRIMSEC_CONTENT = ("""
-## Note, this file is written by cloud-init on first boot of an instance
-## modifications made here will not survive a re-bundle.
-## if you wish to make changes you can:
-## a.) add 'apt_preserve_sources_list: true' to /etc/cloud/cloud.cfg
-##     or do the same in user-data
-## b.) add sources in /etc/apt/sources.list.d
-## c.) make changes to template file /etc/cloud/templates/sources.list.tmpl
-
+## Note, this file is written by curtin at install time. It should not end
+## up on the installed system itself.
+#
 # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
 # newer versions of the distribution.
 deb http://archive.ubuntu.com/ubuntu xenial main restricted
@@ -279,7 +254,7 @@ class TestAptSourceConfigSourceList(TestCase):
 
     def test_apt_source_list(self):
         """ test_apt_source_list
-        Test rendering of default a source.list without extra parms
+        Test rendering of builtin source.list without extra parms
         """
         cfg = {}
 
@@ -287,14 +262,14 @@ class TestAptSourceConfigSourceList(TestCase):
 
     def test_apt_source_list_mirror(self):
         """ test_apt_source_list_mirror
-        Test rendering of default source.list with mirrors set
+        Test rendering of builtin source.list with mirrors set
         """
         cfg = {'apt_mirror': 'http://archive.ubuntu.com/ubuntu'}
         self._apt_source_list(cfg, EXPECTED_MIRROR_CONTENT)
 
     def test_apt_source_list_psmirrors(self):
         """ test_apt_source_list_psmirrors
-        Test rendering of default source.list with prim+sec mirrors set
+        Test rendering of builtin source.list with prim+sec mirrors set
         """
         cfg = {'apt_primary_mirror': 'http://archive.ubuntu.com/ubuntu',
                'apt_security_mirror': 'http://security.ubuntu.com/ubuntu'}
