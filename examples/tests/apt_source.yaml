@@ -17,6 +17,8 @@ early_commands:
   xx-postcollect14: find /etc/apt/sources.list.d/ -maxdepth 1 -name "*ignore*" | wc -l > /mnt/earlyoutput/ignorecount
 apt_source:
   version: 1
+  apt_primary_mirror: http://us.archive.ubuntu.com/ubuntu/
+  apt_security_mirror: http://security.ubuntu.com/ubuntu/
   config:
     byobu-ppa.list:
       source: "deb http://ppa.launchpad.net/byobu/ppa/ubuntu xenial main"
@@ -95,6 +97,3 @@ apt_source:
          7oh88hTkC1w=
          =UNSw
          -----END PGP PUBLIC KEY BLOCK-----
-
-  apt_primary_mirror: http://us.archive.ubuntu.com/ubuntu/
-  apt_security_mirror: http://security.ubuntu.com/ubuntu/
