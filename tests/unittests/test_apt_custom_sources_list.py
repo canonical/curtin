@@ -232,20 +232,18 @@ class TestAptSourceConfigSourceList(TestCase):
     "TestAptSourceConfigSourceList - Main Class to test sources list rendering"
     def setUp(self):
         super(TestAptSourceConfigSourceList, self).setUp()
-        self.subp = util.subp
         self.new_root = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.new_root)
         # self.patchUtils(self.new_root)
 
-    def _apt_source_list(self, cfg, expected):
+    @staticmethod
+    def _apt_source_list(cfg, expected):
         "_apt_source_list - Test rendering from template (generic)"
 
         with mock.patch.object(util, 'write_file') as mockwrite:
             # keep it side effect free and avoid permission errors
             with mock.patch.object(os, 'rename'):
-               # mock to restores the original subp
-                with mock.patch.object(util, 'subp', self.subp):
-                    apt_source.handle_apt_source(cfg)
+                apt_source.handle_apt_source(cfg)
 
         mockwrite.assert_called_once_with(
             '/etc/apt/sources.list',
@@ -277,11 +275,9 @@ class TestAptSourceConfigSourceList(TestCase):
         with mock.patch.object(util, 'write_file') as mockwrite:
             # keep it side effect free and avoid permission errors
             with mock.patch.object(os, 'rename'):
-                # mock to restores the original subp
-                with mock.patch.object(util, 'subp', self.subp):
-                    with mock.patch.object(apt_source, 'get_release',
-                                           return_value='fakerelease'):
-                        apt_source.handle_apt_source(cfg)
+                with mock.patch.object(apt_source, 'get_release',
+                                       return_value='fakerelease'):
+                    apt_source.handle_apt_source(cfg)
 
         mockwrite.assert_called_once_with(
             '/etc/apt/sources.list',
