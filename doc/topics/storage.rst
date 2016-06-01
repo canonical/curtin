@@ -31,22 +31,22 @@ Each entry in the config list is a dictionary with several keys which vary
 between commands. The two dictionary keys that every entry in the list needs
 to have are ``id: <id>`` and ``type: <type>``.
 
-An entry's ``id`` is a reference for the entry that is used to reference other
-elements in the config file. It can be any string other than one with a special
-meaning in yaml, such as ``true`` or ``none``.
+An entry's ``id`` allows other entries in the config to refer to a specific
+entry. It can be any string other than one with a special meaning in yaml, such
+as ``true`` or ``none``.
 
-An entry's ``type`` tells curtin what command this config entry should be
-running. Available commands include:
+An entry's ``type`` tells curtin how to handle a particular entry. Available
+commands include:
 
-- Disk Command
-- Partition Command
-- Format Command
-- Mount Command
-- LVM_VolGroup Command
-- LVM_Partition Command
-- DM_Crypt Command
-- RAID Command
-- Bcache Command
+- Disk Command (``disk``)
+- Partition Command (``partition``)
+- Format Command (``format``)
+- Mount Command  (``mount``)
+- LVM_VolGroup Command (``lvm_volgroup``)
+- LVM_Partition Command (``lvm_partition``)
+- DM_Crypt Command (``dm_crypt``)
+- RAID Command (``raid``)
+- Bcache Command (``bcache``)
 
 Disk Command
 ~~~~~~~~~~~~

@@ -37,21 +37,39 @@ the key ``subnets``.
 
 Physical
 ~~~~~~~~
-Type ``physical`` requires only one key: ``name``.  Some common and useful
-other values include:
+The ``physical`` type configuration represents a "physical" network device,
+typically Ethernet-based.  At least one of of these entries is required for
+external network connectivity.  Type ``physical`` requires only one key:
+``name``.  A ``physical`` device may contain some or all of the following keys:
 
-- ``mac_address``: Specify the MAC address of the underlying device.
+**name**: *<desired device name>*
+
+A devices name must be less than 15 characters.  Names exceeding the maximum
+will be truncated. This is a limitation of the Linux kernel network-device
+structure.
+
+**mac_address**: *<MAC Address>*
+
+The MAC Address is a device unique identifier that most Ethernet-based network
+devices posess.  Specifiying a MAC Address is optional.
+
 
 .. note::
 
-  Curtin will write a udev rule to provide a persistent mapping between a
+  Curtin will emit a udev rule to provide a persistent mapping between a
   device's ``name`` and the ``mac_address``.
 
-- ``mtu``: Configure the MTU value on the interface.
+**mtu**: *<MTU SizeBytes>* 
+
+The MTU key represents a device's Maximum Transmission Unit, the largest size
+packet or frame, specified in octets (eight-bit bytes), that can be sent in a
+packet- or frame-based network.  Specifying ``mtu`` is optional.
 
 .. note::
 
-  The value is not checked and a device a runtime may reject the value.
+  The possible supported values of a device's MTU is not available at
+  configuration time.  It's possible to specify a value too large or to
+  small for a device and may be ignored by the device.
 
 
 **Physical Example**::
@@ -81,9 +99,31 @@ Bond
 A ``bond`` type will configure a Linux software Bond with one or more network
 devices.  A ``bond`` type requires the following keys:
 
-- ``name``: Set the name of the bond.
-- ``bond_interfaces``: Specify the ports of a bond via their ``name``.  This list may be empty.
-- ``params``:  A list of bonding parameters. This list may be empty. For more details, please read the Linux Kernel Bonding.txt.
+**name**: *<desired device name>*
+
+A devices name must be less than 15 characters.  Names exceeding the maximum
+will be truncated. This is a limitation of the Linux kernel network-device
+structure.
+
+**mac_address**: *<MAC Address>*
+
+When specifying MAC Address on a bond this value will be assigned to the bond
+device and may be different than the MAC address of any of the underlying 
+bond interfaces.  Specifiying a MAC Address is optional.  If ``mac_address`` is
+not present, then the bond will use one of the MAC Address values from one of
+the bond interfaces.
+
+
+**bond_interfaces**: *<List of network device names>*
+
+The ``bond_interfaces`` key accepts a list of network device ``name`` values
+from the configuration.  This list may be empty.
+
+**params**:  *<Dictionary of key: value bonding parameter pairs>* 
+
+The ``params`` key in a bond holds a dictionary of bonding parameters.
+This dictionary may be empty. For more details on what the various bonding
+parameters mean please read the Linux Kernel Bonding.txt.
 
 Valid ``params`` keys are:
 
