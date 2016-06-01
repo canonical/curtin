@@ -3,9 +3,9 @@ Integration Testing
 ===================
 
 Curtin includes an in-tree integration suite that runs hundreds of tests
-validating various forms of custin storage and network configurations across
+validating various forms of custom storage and network configurations across
 all of the supported Ubuntu LTS releases as well as some of the currently 
-supported interrum releases.
+supported interim releases.
 
 Background
 ==========
@@ -149,7 +149,7 @@ Some environment variables affect the running of vmtest
   a directory in TMPDIR (/tmp) named with as ``vmtest-<timestamp>``
 
   If you set this value, you must ensure that the directory is either
-  non-existant or clean.
+  non-existent or clean.
 
 - ``CURTIN_VMTEST_LOG``: default $TMPDIR/vmtest-<timestamp>.log
 
