@@ -2,6 +2,7 @@
 Test templating of custom sources list
 """
 import logging
+import os
 import shutil
 import tempfile
 import yaml
@@ -240,8 +241,11 @@ class TestAptSourceConfigSourceList(TestCase):
         "_apt_source_list - Test rendering from template (generic)"
 
         with mock.patch.object(util, 'write_file') as mockwrite:
-            with mock.patch.object(util, 'subp', self.subp):
-                apt_source.handle_apt_source(cfg)
+            # keep it side effect free and avoid permission errors
+            with mock.patch.object(os, 'rename'):
+               # mock to restores the original subp
+                with mock.patch.object(util, 'subp', self.subp):
+                    apt_source.handle_apt_source(cfg)
 
         mockwrite.assert_called_once_with(
             '/etc/apt/sources.list',
@@ -270,12 +274,14 @@ class TestAptSourceConfigSourceList(TestCase):
         "test_apt_srcl_custom - Test rendering a custom source.list template"
         cfg = yaml.safe_load(YAML_TEXT_CUSTOM_SL)
 
-        # the second mock restores the original subp
         with mock.patch.object(util, 'write_file') as mockwrite:
-            with mock.patch.object(util, 'subp', self.subp):
-                with mock.patch.object(apt_source, 'get_release',
-                                       return_value='fakerelease'):
-                    apt_source.handle_apt_source(cfg)
+            # keep it side effect free and avoid permission errors
+            with mock.patch.object(os, 'rename'):
+                # mock to restores the original subp
+                with mock.patch.object(util, 'subp', self.subp):
+                    with mock.patch.object(apt_source, 'get_release',
+                                           return_value='fakerelease'):
+                        apt_source.handle_apt_source(cfg)
 
         mockwrite.assert_called_once_with(
             '/etc/apt/sources.list',
