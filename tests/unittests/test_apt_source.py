@@ -1,6 +1,7 @@
 """ test_apt_source
 Testing various config variations of the apt_source custom config
 """
+import glob
 import os
 import re
 import shutil
@@ -386,15 +387,17 @@ class TestAptSourceConfig(TestCase):
         self.assertEqual(mirrors['SECURITY'],
                          "http://security.ubuntu.com/ubuntu/")
 
-        with mock.patch.object(os, 'rename') as mockobj:
-            apt_source.rename_apt_lists(mirrors)
-
         pre = "/var/lib/apt/lists"
         post = "ubuntu_dists_%s-proposed_InRelease" % apt_source.get_release()
-        mockobj.assert_any_call(("%s/archive.ubuntu.com_%s" %
-                                 (pre, post)),
-                                ("%s/us.archive.ubuntu.com_%s" %
-                                 (pre, post)))
+        fromfn = ("%s/archive.ubuntu.com_%s" % (pre, post))
+        tofn = ("%s/us.archive.ubuntu.com_%s" % (pre, post))
+
+        with mock.patch.object(os, 'rename') as mockren:
+            with mock.patch.object(glob, 'glob',
+                                   return_value=[fromfn]):
+                apt_source.rename_apt_lists(mirrors)
+
+        mockren.assert_any_call(fromfn, tofn)
 
     @staticmethod
     def test_apt_proxy():
