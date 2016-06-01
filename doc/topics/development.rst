@@ -2,7 +2,7 @@
 Developing Curtin 
 =================
 
-Curtin developers make use of cloud-images and kvm to help develope and test new
+Curtin developers make use of cloud-images and kvm to help develop and test new
 curtin features.
 
 Install dependencies
