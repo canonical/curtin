@@ -391,10 +391,10 @@ class TestAptSourceConfig(TestCase):
 
         pre = "/var/lib/apt/lists"
         post = "ubuntu_dists_%s-proposed_InRelease" % apt_source.get_release()
-        mockobj.assert_called_with(("%s/archive.ubuntu.com_%s" %
-                                    (pre, post)),
-                                   ("%s/us.archive.ubuntu.com_%s" %
-                                    (pre, post)))
+        mockobj.assert_any_call(("%s/archive.ubuntu.com_%s" %
+                                 (pre, post)),
+                                ("%s/us.archive.ubuntu.com_%s" %
+                                 (pre, post)))
 
     @staticmethod
     def test_apt_proxy():
