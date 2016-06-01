@@ -51,7 +51,7 @@ structure.
 **mac_address**: *<MAC Address>*
 
 The MAC Address is a device unique identifier that most Ethernet-based network
-devices posess.  Specifiying a MAC Address is optional.
+devices possess.  Specifying a MAC Address is optional.
 
 
 .. note::
@@ -109,7 +109,7 @@ structure.
 
 When specifying MAC Address on a bond this value will be assigned to the bond
 device and may be different than the MAC address of any of the underlying 
-bond interfaces.  Specifiying a MAC Address is optional.  If ``mac_address`` is
+bond interfaces.  Specifying a MAC Address is optional.  If ``mac_address`` is
 not present, then the bond will use one of the MAC Address values from one of
 the bond interfaces.
 
@@ -290,7 +290,7 @@ the following keys:
            - type: static
              address: 192.168.23.14/27
              gateway: 192.168.23.1
-      - type: namserver:
+      - type: nameserver:
         address: 
           - 192.168.23.2
           - 8.8.8.8
