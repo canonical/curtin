@@ -4,7 +4,7 @@ Storage
 
 Curtin supports a user-configurable storage layout.  This format lets users
 (including via MAAS) to customize their machines' storage configuration by
-creating partitions, RAIDs, LVMs, formating with file systems and setting
+creating partitions, RAIDs, LVMs, formatting with file systems and setting
 mount points.
 
 Custom storage configuration is handled by the ``block-meta custom`` command
@@ -100,7 +100,7 @@ The ``wipe: zero`` option will write zeros to each sector of the disk.
 Depending on the size and speed of the disk; it may take a long time to
 complete.
 
-The ``wipe: random`` option will write psuedo-random data from /dev/urandom
+The ``wipe: random`` option will write pseudo-random data from /dev/urandom
 Depending on the size and speed of the disk; it may take a long time to
 complete.
 
@@ -114,7 +114,7 @@ not. If ``preserve`` is set and ``ptable`` is not, then curtin will be able to
 use the disk in later commands, but will not check if the disk has a valid
 partition table, and will only verify that the disk exists.
 
-It can be dangerous to try to move or resize filesystems and partitions
+It can be dangerous to try to move or re-size filesystems and partitions
 containing data that needs to be preserved. Therefor curtin does not support
 preserving a disk without also preserving the partitions on it. If a disk is
 set to be preserved and curtin is told to move a partition on that disk,
@@ -207,9 +207,9 @@ partition.
 
 If the host system for curtin has been booted using UEFI then curtin will
 install grub to the esp partition. If the system installation media
-has been booted using an MBR, grub will be installed onto the disk's mbr.
+has been booted using an MBR, grub will be installed onto the disk's MBR.
 However, on a disk with a gpt partition table, there is not enough space after
-the MBR for grub to store its second stage core.img, so a small unformatted
+the MBR for grub to store its second stage core.img, so a small un-formatted
 partition with the *bios_grub* flag is needed. This partition should be placed
 at the beginning of the disk and should be 1MB in size. It should not contain a
 filesystem or be mounted anywhere on the system.
@@ -236,7 +236,7 @@ target volume can be specified, as well as a few other options.
 **fstype**: ext4, ext3, fat32, fat16, swap, xfs
 
 The ``fstype`` key specifies what type of filesystem format curtin should use
-for this volume. Curtin knows about common linux filesystems such as ext4/3 and
+for this volume. Curtin knows about common Linux filesystems such as ext4/3 and
 fat filesystems and makes use of additional parameters and flags to optimize the
 filesystem.  If the ``fstype`` value is not known to curtin, that is not fatal.
 Curtin will check if ``mkfs.<fstype>`` exists and if so,  will use that tool to
@@ -415,7 +415,7 @@ Dm-Crypt Command
 The dm_crypt command creates encrypted volumes using ``cryptsetup``. It
 requires a name for the encrypted volume, the volume to be encrypted and a key.
 Note that this should not be used for systems where security is a requirement.
-The key is stored in plaintext in the storage configuration and it could be
+The key is stored in plain-text in the storage configuration and it could be
 possible for the storage configuration to be intercepted between the utility
 that generates it and curtin.
 
@@ -457,7 +457,7 @@ The ``name`` key specifies the name of the md device.
 
 .. note::
 
-  Curin creates a udev rule to create a link to the md device in
+  Curtin creates a udev rule to create a link to the md device in
   ``/dev/disk/by-dname/<name>`` using the specified name.
 
 **raidlevel**: *0, 1, 5, 6, 10*
