@@ -255,6 +255,8 @@ def render_string_to_file(content, outfn, params, mode=0o644):
         render a string to a file following replacement rules as defined
         in basic_render
     """
+    if not outfn or not content:
+        return
     rendered = render_string(content, params)
     util.write_file(outfn, rendered, mode=mode)
 
