@@ -37,6 +37,9 @@ CUSTOM = 'custom'
 # this will match 'XXX:YYY' (ie, 'cloud-archive:foo' or 'ppa:bar')
 ADD_APT_REPO_MATCH = r"^[\w-]+:\w"
 
+# place where apt stores cached repository data
+APT_LISTS = "/var/lib/apt/lists"
+
 # Files to store proxy information
 APT_CONFIG_FN = "/etc/apt/apt.conf.d/94curtin-config"
 APT_PROXY_FN = "/etc/apt/apt.conf.d/95curtin-proxy"
@@ -179,18 +182,17 @@ def mirror2lists_fileprefix(mirror):
     return string
 
 
-def rename_apt_lists(new_mirrors, lists_d="/var/lib/apt/lists"):
+def rename_apt_lists(new_mirrors):
     "rename_apt_lists - rename existing apt lists to preserve old cache data"
-    # paths and archive names are fix for the cloud-image curtin runs in
-    lists_d = "/var/lib/apt/lists"
+    # archive names are fix for the cloud-image curtin runs in
     old_mirrors = {"PRIMARY": "archive.ubuntu.com/ubuntu",
                    "SECURITY": "security.ubuntu.com/ubuntu"}
     for (name, omirror) in old_mirrors.items():
         nmirror = new_mirrors.get(name)
         if not nmirror:
             continue
-        oprefix = os.path.join(lists_d, mirror2lists_fileprefix(omirror))
-        nprefix = os.path.join(lists_d, mirror2lists_fileprefix(nmirror))
+        oprefix = os.path.join(APT_LISTS, mirror2lists_fileprefix(omirror))
+        nprefix = os.path.join(APT_LISTS, mirror2lists_fileprefix(nmirror))
         if oprefix == nprefix:
             continue
         olen = len(oprefix)
