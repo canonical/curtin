@@ -165,7 +165,7 @@ def getkeybyid(keyid, keyserver):
 
 def mirror2lists_fileprefix(mirror):
     """ mirror2lists_fileprefix
-        Convert a mirror url to the fule prefix used by apt on disk to 
+        Convert a mirror url to the fule prefix used by apt on disk to
         store cache information for that mirror.
         To do so do:
         - take off ???://
