@@ -162,7 +162,12 @@ def getkeybyid(keyid, keyserver):
 
 def mirror2lists_fileprefix(mirror):
     """ mirror2lists_fileprefix
-        take off http:// or ftp://
+        Convert a mirror url to the fule prefix used by apt on disk to 
+        store cache information for that mirror.
+        To do so do:
+        - take off ???://
+        - drop tailing /
+        - convert in string / to _
     """
     string = mirror
     if string.endswith("/"):
