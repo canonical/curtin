@@ -119,7 +119,7 @@ def handle_apt_source(cfg):
     """ handle_apt_source
         process the custom config for apt_sources
     """
-    release = get_release()
+    release = util.lsb_release()['codename']
     mirrors = find_apt_mirror_info(cfg)
     LOG.debug("Mirror info: %s", mirrors)
 
@@ -204,14 +204,6 @@ def rename_apt_lists(new_mirrors):
             except OSError as error:
                 # since this is a best effort task, warn but don't fail
                 LOG.warn("failed to renaming apt list: %s", error)
-
-
-def get_release():
-    """ get_release
-        get the name of the release e.g. xenial
-    """
-    (stdout, _) = util.subp(['lsb_release', '-cs'], capture=True)
-    return stdout.strip()
 
 
 BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')

@@ -35,17 +35,17 @@ apt_custom_sources_list: |
     # FIND_SOMETHING_SPECIAL
 """
 
-# the custom and builtin templates converted on mocked fakerelease
+# the custom and builtin templates converted on mocked fakerel
 EXPECTED_CONVERTED_CONTENT = """
 ## Note, this file is written by curtin at install time. It should not end
 ## up on the installed system itself.
 #
 # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
 # newer versions of the distribution.
-deb http://archive.ubuntu.com/ubuntu fakerelease main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerelease main restricted
-deb http://archive.ubuntu.com/ubuntu fakerelease universe restricted
-deb http://archive.ubuntu.com/ubuntu fakerelease-security multiverse
+deb http://archive.ubuntu.com/ubuntu fakerel main restricted
+deb-src http://archive.ubuntu.com/ubuntu fakerel main restricted
+deb http://archive.ubuntu.com/ubuntu fakerel universe restricted
+deb http://archive.ubuntu.com/ubuntu fakerel-security multiverse
 # FIND_SOMETHING_SPECIAL
 """
 
@@ -55,55 +55,55 @@ EXPECTED_BASE_CONTENT = ("""
 #
 # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
 # newer versions of the distribution.
-deb http://archive.ubuntu.com/ubuntu fakerelease main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerelease main restricted
+deb http://archive.ubuntu.com/ubuntu fakerel main restricted
+deb-src http://archive.ubuntu.com/ubuntu fakerel main restricted
 
 ## Major bug fix updates produced after the final release of the
 ## distribution.
-deb http://archive.ubuntu.com/ubuntu fakerelease-updates main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerelease-updates main restricted
+deb http://archive.ubuntu.com/ubuntu fakerel-updates main restricted
+deb-src http://archive.ubuntu.com/ubuntu fakerel-updates main restricted
 
 ## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
 ## team. Also, please note that software in universe WILL NOT receive any
 ## review or updates from the Ubuntu security team.
-deb http://archive.ubuntu.com/ubuntu fakerelease universe
-deb-src http://archive.ubuntu.com/ubuntu fakerelease universe
-deb http://archive.ubuntu.com/ubuntu fakerelease-updates universe
-deb-src http://archive.ubuntu.com/ubuntu fakerelease-updates universe
+deb http://archive.ubuntu.com/ubuntu fakerel universe
+deb-src http://archive.ubuntu.com/ubuntu fakerel universe
+deb http://archive.ubuntu.com/ubuntu fakerel-updates universe
+deb-src http://archive.ubuntu.com/ubuntu fakerel-updates universe
 
 ## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
 ## team, and may not be under a free licence. Please satisfy yourself as to
 ## your rights to use the software. Also, please note that software in
 ## multiverse WILL NOT receive any review or updates from the Ubuntu
 ## security team.
-deb http://archive.ubuntu.com/ubuntu fakerelease multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerelease multiverse
-deb http://archive.ubuntu.com/ubuntu fakerelease-updates multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerelease-updates multiverse
+deb http://archive.ubuntu.com/ubuntu fakerel multiverse
+deb-src http://archive.ubuntu.com/ubuntu fakerel multiverse
+deb http://archive.ubuntu.com/ubuntu fakerel-updates multiverse
+deb-src http://archive.ubuntu.com/ubuntu fakerel-updates multiverse
 
 ## N.B. software from this repository may not have been tested as
 ## extensively as that contained in the main release, although it includes
 ## newer versions of some applications which may provide useful features.
 ## Also, please note that software in backports WILL NOT receive any review
 ## or updates from the Ubuntu security team.
-deb http://archive.ubuntu.com/ubuntu fakerelease-backports"""
+deb http://archive.ubuntu.com/ubuntu fakerel-backports"""
                          """ main restricted universe multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerelease-backports"""
+deb-src http://archive.ubuntu.com/ubuntu fakerel-backports"""
                          """ main restricted universe multiverse
 
-deb http://security.ubuntu.com/ubuntu fakerelease-security main restricted
-deb-src http://security.ubuntu.com/ubuntu fakerelease-security main restricted
-deb http://security.ubuntu.com/ubuntu fakerelease-security universe
-deb-src http://security.ubuntu.com/ubuntu fakerelease-security universe
-deb http://security.ubuntu.com/ubuntu fakerelease-security multiverse
-deb-src http://security.ubuntu.com/ubuntu fakerelease-security multiverse
+deb http://security.ubuntu.com/ubuntu fakerel-security main restricted
+deb-src http://security.ubuntu.com/ubuntu fakerel-security main restricted
+deb http://security.ubuntu.com/ubuntu fakerel-security universe
+deb-src http://security.ubuntu.com/ubuntu fakerel-security universe
+deb http://security.ubuntu.com/ubuntu fakerel-security multiverse
+deb-src http://security.ubuntu.com/ubuntu fakerel-security multiverse
 
 ## Uncomment the following two lines to add software from Canonical's
 ## 'partner' repository.
 ## This software is not part of Ubuntu, but is offered by Canonical and the
 ## respective vendors as a service to Ubuntu users.
-# deb http://archive.canonical.com/ubuntu fakerelease partner
-# deb-src http://archive.canonical.com/ubuntu fakerelease partner
+# deb http://archive.canonical.com/ubuntu fakerel partner
+# deb-src http://archive.canonical.com/ubuntu fakerel partner
 """)
 
 EXPECTED_MIRROR_CONTENT = ("""
@@ -112,55 +112,55 @@ EXPECTED_MIRROR_CONTENT = ("""
 #
 # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
 # newer versions of the distribution.
-deb http://archive.ubuntu.com/ubuntu fakerelease main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerelease main restricted
+deb http://archive.ubuntu.com/ubuntu fakerel main restricted
+deb-src http://archive.ubuntu.com/ubuntu fakerel main restricted
 
 ## Major bug fix updates produced after the final release of the
 ## distribution.
-deb http://archive.ubuntu.com/ubuntu fakerelease-updates main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerelease-updates main restricted
+deb http://archive.ubuntu.com/ubuntu fakerel-updates main restricted
+deb-src http://archive.ubuntu.com/ubuntu fakerel-updates main restricted
 
 ## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
 ## team. Also, please note that software in universe WILL NOT receive any
 ## review or updates from the Ubuntu security team.
-deb http://archive.ubuntu.com/ubuntu fakerelease universe
-deb-src http://archive.ubuntu.com/ubuntu fakerelease universe
-deb http://archive.ubuntu.com/ubuntu fakerelease-updates universe
-deb-src http://archive.ubuntu.com/ubuntu fakerelease-updates universe
+deb http://archive.ubuntu.com/ubuntu fakerel universe
+deb-src http://archive.ubuntu.com/ubuntu fakerel universe
+deb http://archive.ubuntu.com/ubuntu fakerel-updates universe
+deb-src http://archive.ubuntu.com/ubuntu fakerel-updates universe
 
 ## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
 ## team, and may not be under a free licence. Please satisfy yourself as to
 ## your rights to use the software. Also, please note that software in
 ## multiverse WILL NOT receive any review or updates from the Ubuntu
 ## security team.
-deb http://archive.ubuntu.com/ubuntu fakerelease multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerelease multiverse
-deb http://archive.ubuntu.com/ubuntu fakerelease-updates multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerelease-updates multiverse
+deb http://archive.ubuntu.com/ubuntu fakerel multiverse
+deb-src http://archive.ubuntu.com/ubuntu fakerel multiverse
+deb http://archive.ubuntu.com/ubuntu fakerel-updates multiverse
+deb-src http://archive.ubuntu.com/ubuntu fakerel-updates multiverse
 
 ## N.B. software from this repository may not have been tested as
 ## extensively as that contained in the main release, although it includes
 ## newer versions of some applications which may provide useful features.
 ## Also, please note that software in backports WILL NOT receive any review
 ## or updates from the Ubuntu security team.
-deb http://archive.ubuntu.com/ubuntu fakerelease-backports"""
+deb http://archive.ubuntu.com/ubuntu fakerel-backports"""
                            """ main restricted universe multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerelease-backports"""
+deb-src http://archive.ubuntu.com/ubuntu fakerel-backports"""
                            """ main restricted universe multiverse
 
-deb http://archive.ubuntu.com/ubuntu fakerelease-security main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerelease-security main restricted
-deb http://archive.ubuntu.com/ubuntu fakerelease-security universe
-deb-src http://archive.ubuntu.com/ubuntu fakerelease-security universe
-deb http://archive.ubuntu.com/ubuntu fakerelease-security multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerelease-security multiverse
+deb http://archive.ubuntu.com/ubuntu fakerel-security main restricted
+deb-src http://archive.ubuntu.com/ubuntu fakerel-security main restricted
+deb http://archive.ubuntu.com/ubuntu fakerel-security universe
+deb-src http://archive.ubuntu.com/ubuntu fakerel-security universe
+deb http://archive.ubuntu.com/ubuntu fakerel-security multiverse
+deb-src http://archive.ubuntu.com/ubuntu fakerel-security multiverse
 
 ## Uncomment the following two lines to add software from Canonical's
 ## 'partner' repository.
 ## This software is not part of Ubuntu, but is offered by Canonical and the
 ## respective vendors as a service to Ubuntu users.
-# deb http://archive.canonical.com/ubuntu fakerelease partner
-# deb-src http://archive.canonical.com/ubuntu fakerelease partner
+# deb http://archive.canonical.com/ubuntu fakerel partner
+# deb-src http://archive.canonical.com/ubuntu fakerel partner
 """)
 
 EXPECTED_PRIMSEC_CONTENT = ("""
@@ -169,55 +169,55 @@ EXPECTED_PRIMSEC_CONTENT = ("""
 #
 # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
 # newer versions of the distribution.
-deb http://archive.ubuntu.com/ubuntu fakerelease main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerelease main restricted
+deb http://archive.ubuntu.com/ubuntu fakerel main restricted
+deb-src http://archive.ubuntu.com/ubuntu fakerel main restricted
 
 ## Major bug fix updates produced after the final release of the
 ## distribution.
-deb http://archive.ubuntu.com/ubuntu fakerelease-updates main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerelease-updates main restricted
+deb http://archive.ubuntu.com/ubuntu fakerel-updates main restricted
+deb-src http://archive.ubuntu.com/ubuntu fakerel-updates main restricted
 
 ## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
 ## team. Also, please note that software in universe WILL NOT receive any
 ## review or updates from the Ubuntu security team.
-deb http://archive.ubuntu.com/ubuntu fakerelease universe
-deb-src http://archive.ubuntu.com/ubuntu fakerelease universe
-deb http://archive.ubuntu.com/ubuntu fakerelease-updates universe
-deb-src http://archive.ubuntu.com/ubuntu fakerelease-updates universe
+deb http://archive.ubuntu.com/ubuntu fakerel universe
+deb-src http://archive.ubuntu.com/ubuntu fakerel universe
+deb http://archive.ubuntu.com/ubuntu fakerel-updates universe
+deb-src http://archive.ubuntu.com/ubuntu fakerel-updates universe
 
 ## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
 ## team, and may not be under a free licence. Please satisfy yourself as to
 ## your rights to use the software. Also, please note that software in
 ## multiverse WILL NOT receive any review or updates from the Ubuntu
 ## security team.
-deb http://archive.ubuntu.com/ubuntu fakerelease multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerelease multiverse
-deb http://archive.ubuntu.com/ubuntu fakerelease-updates multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerelease-updates multiverse
+deb http://archive.ubuntu.com/ubuntu fakerel multiverse
+deb-src http://archive.ubuntu.com/ubuntu fakerel multiverse
+deb http://archive.ubuntu.com/ubuntu fakerel-updates multiverse
+deb-src http://archive.ubuntu.com/ubuntu fakerel-updates multiverse
 
 ## N.B. software from this repository may not have been tested as
 ## extensively as that contained in the main release, although it includes
 ## newer versions of some applications which may provide useful features.
 ## Also, please note that software in backports WILL NOT receive any review
 ## or updates from the Ubuntu security team.
-deb http://archive.ubuntu.com/ubuntu fakerelease-backports"""
+deb http://archive.ubuntu.com/ubuntu fakerel-backports"""
                             """ main restricted universe multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerelease-backports"""
+deb-src http://archive.ubuntu.com/ubuntu fakerel-backports"""
                             """ main restricted universe multiverse
 
-deb http://security.ubuntu.com/ubuntu fakerelease-security main restricted
-deb-src http://security.ubuntu.com/ubuntu fakerelease-security main restricted
-deb http://security.ubuntu.com/ubuntu fakerelease-security universe
-deb-src http://security.ubuntu.com/ubuntu fakerelease-security universe
-deb http://security.ubuntu.com/ubuntu fakerelease-security multiverse
-deb-src http://security.ubuntu.com/ubuntu fakerelease-security multiverse
+deb http://security.ubuntu.com/ubuntu fakerel-security main restricted
+deb-src http://security.ubuntu.com/ubuntu fakerel-security main restricted
+deb http://security.ubuntu.com/ubuntu fakerel-security universe
+deb-src http://security.ubuntu.com/ubuntu fakerel-security universe
+deb http://security.ubuntu.com/ubuntu fakerel-security multiverse
+deb-src http://security.ubuntu.com/ubuntu fakerel-security multiverse
 
 ## Uncomment the following two lines to add software from Canonical's
 ## 'partner' repository.
 ## This software is not part of Ubuntu, but is offered by Canonical and the
 ## respective vendors as a service to Ubuntu users.
-# deb http://archive.canonical.com/ubuntu fakerelease partner
-# deb-src http://archive.canonical.com/ubuntu fakerelease partner
+# deb http://archive.canonical.com/ubuntu fakerel partner
+# deb-src http://archive.canonical.com/ubuntu fakerel partner
 """)
 
 
@@ -243,8 +243,8 @@ class TestAptSourceConfigSourceList(TestCase):
         with mock.patch.object(util, 'write_file') as mockwrite:
             # keep it side effect free and avoid permission errors
             with mock.patch.object(os, 'rename'):
-                with mock.patch.object(apt_source, 'get_release',
-                                       return_value='fakerelease'):
+                with mock.patch.object(util, 'lsb_release',
+                                       return_value={'codename': 'fakerel'}):
                     apt_source.handle_apt_source(cfg)
 
         mockwrite.assert_called_once_with(
@@ -278,8 +278,8 @@ class TestAptSourceConfigSourceList(TestCase):
         with mock.patch.object(util, 'write_file') as mockwrite:
             # keep it side effect free and avoid permission errors
             with mock.patch.object(os, 'rename'):
-                with mock.patch.object(apt_source, 'get_release',
-                                       return_value='fakerelease'):
+                with mock.patch.object(util, 'lsb_release',
+                                       return_value={'codename': 'fakerel'}):
                     apt_source.handle_apt_source(cfg)
 
         mockwrite.assert_called_once_with(

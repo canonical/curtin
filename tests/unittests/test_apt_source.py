@@ -69,7 +69,7 @@ class TestAptSourceConfig(TestCase):
         Get the most basic default mrror and release info to be used in tests
         """
         params = {}
-        params['RELEASE'] = apt_source.get_release()
+        params['RELEASE'] = util.lsb_release()['codename']
         params['MIRROR'] = "http://archive.ubuntu.com/ubuntu"
         return params
 
@@ -388,7 +388,8 @@ class TestAptSourceConfig(TestCase):
                          "http://security.ubuntu.com/ubuntu/")
 
         pre = "/var/lib/apt/lists"
-        post = "ubuntu_dists_%s-proposed_InRelease" % apt_source.get_release()
+        post = ("ubuntu_dists_%s-proposed_InRelease" %
+                util.lsb_release()['codename'])
         fromfn = ("%s/archive.ubuntu.com_%s" % (pre, post))
         tofn = ("%s/us.archive.ubuntu.com_%s" % (pre, post))
 
