@@ -44,6 +44,9 @@ APT_LISTS = "/var/lib/apt/lists"
 APT_CONFIG_FN = "/etc/apt/apt.conf.d/94curtin-config"
 APT_PROXY_FN = "/etc/apt/apt.conf.d/95curtin-proxy"
 
+# matcher used in template rendering functions
+BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
+
 # A temporary shell program to get a given gpg key
 # from a given keyserver
 EXPORT_GPG_KEYID = """
@@ -204,9 +207,6 @@ def rename_apt_lists(new_mirrors):
             except OSError as error:
                 # since this is a best effort task, warn but don't fail
                 LOG.warn("failed to renaming apt list: %s", error)
-
-
-BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 
 def basic_render(content, params):
