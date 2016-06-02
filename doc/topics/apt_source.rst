@@ -75,21 +75,25 @@ What do we need for that:
 
   - if you have an internal keyserver you could pull from there, but let us assume you don't even have that; so you have to provide the raw key
 
-  - in the example I'll use the key of the "Ubuntu CD Image Automatic Signing Key" which makes no sense as it is in the trusted keyring anyway, but it is a good example. (Also the key is shortened to stay readable)::
-    -----BEGIN PGP PUBLIC KEY BLOCK-----
-    Version: GnuPG v1
+  - in the example I'll use the key of the "Ubuntu CD Image Automatic Signing Key" which makes no sense as it is in the trusted keyring anyway, but it is a good example. (Also the key is shortened to stay readable)
 
-    mQGiBEFEnz8RBAC7LstGsKD7McXZgd58oN68KquARLBl6rjA2vdhwl77KkPPOr3O
-    RwIbDAAKCRBAl26vQ30FtdxYAJsFjU+xbex7gevyGQ2/mhqidES4MwCggqQyo+w1
-    Twx6DKLF+3rF5nf1F3Q=
-    =PBAe
-    -----END PGP PUBLIC KEY BLOCK-----
+::
+
+      -----BEGIN PGP PUBLIC KEY BLOCK-----
+      Version: GnuPG v1
+      mQGiBEFEnz8RBAC7LstGsKD7McXZgd58oN68KquARLBl6rjA2vdhwl77KkPPOr3O
+      RwIbDAAKCRBAl26vQ30FtdxYAJsFjU+xbex7gevyGQ2/mhqidES4MwCggqQyo+w1
+      Twx6DKLF+3rF5nf1F3Q=
+      =PBAe
+      -----END PGP PUBLIC KEY BLOCK-----
 
 * replace the mirror from apt pulls repository data
 
   - lets consider we have a local mirror at ``mymirror.local`` but otherwise following the usual paths
 
-That would be specified as::
+That would be specified as
+::
+
   apt_source:
     version: 1
     apt_mirror: http://mymirror.local/ubuntu/
