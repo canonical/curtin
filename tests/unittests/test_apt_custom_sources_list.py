@@ -270,7 +270,8 @@ class TestAptSourceConfigSourceList(TestCase):
 
         self._apt_source_list(cfg, EXPECTED_PRIMSEC_CONTENT)
 
-    def test_apt_srcl_custom(self):
+    @staticmethod
+    def test_apt_srcl_custom():
         """test_apt_srcl_custom - Test rendering a custom source template"""
         cfg = yaml.safe_load(YAML_TEXT_CUSTOM_SL)
 
