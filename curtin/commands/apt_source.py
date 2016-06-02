@@ -296,7 +296,7 @@ def add_key_raw(key):
     try:
         util.subp(('apt-key', 'add', '-'), key.encode())
     except util.ProcessExecutionError:
-        raise ValueError('failed to add key')
+        raise ValueError('failed to add apt GPG Key to apt keyring')
 
 
 def add_key(ent):
