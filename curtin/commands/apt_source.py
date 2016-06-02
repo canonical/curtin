@@ -44,6 +44,13 @@ APT_LISTS = "/var/lib/apt/lists"
 APT_CONFIG_FN = "/etc/apt/apt.conf.d/94curtin-config"
 APT_PROXY_FN = "/etc/apt/apt.conf.d/95curtin-proxy"
 
+# Default keyserver to use
+DEFAULT_KEYSERVER = "keyserver.ubuntu.com"
+
+# Default old archive names - those fix for the cloud-image curtin runs in
+DEFAULT_MIRRORS = {"PRIMARY": "archive.ubuntu.com/ubuntu",
+                   "SECURITY": "security.ubuntu.com/ubuntu"}
+
 # matcher used in template rendering functions
 BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
@@ -187,10 +194,7 @@ def mirror2lists_fileprefix(mirror):
 
 def rename_apt_lists(new_mirrors):
     """rename_apt_lists - rename apt lists to preserve old cache data"""
-    # archive names are fix for the cloud-image curtin runs in
-    old_mirrors = {"PRIMARY": "archive.ubuntu.com/ubuntu",
-                   "SECURITY": "security.ubuntu.com/ubuntu"}
-    for (name, omirror) in old_mirrors.items():
+    for (name, omirror) in DEFAULT_MIRRORS.items():
         nmirror = new_mirrors.get(name)
         if not nmirror:
             continue
@@ -306,7 +310,7 @@ def add_key(ent):
     The latter will as a first step fetched to get the raw key
     """
     if 'keyid' in ent and 'key' not in ent:
-        keyserver = "keyserver.ubuntu.com"
+        keyserver = DEFAULT_KEYSERVER
         if 'keyserver' in ent:
             keyserver = ent['keyserver']
 
