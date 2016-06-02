@@ -199,7 +199,11 @@ def rename_apt_lists(new_mirrors):
         for filename in glob.glob("%s_*" % oprefix):
             newname = "%s%s" % (nprefix, filename[olen:])
             LOG.info("Renaming apt list %s to %s", filename, newname)
-            os.rename(filename, newname)
+            try:
+                os.rename(filename, newname)
+            except OSError as error:
+                # since this is a best effort task, warn but don't fail
+                LOG.warn("failed to renaming apt list: %s", error)
 
 
 def get_release():
