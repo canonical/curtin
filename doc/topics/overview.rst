@@ -61,7 +61,7 @@ Network Discovery and Setup
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Networking is done in a similar fashion to partitioning.  A series of commands, specified in the config are run.  At the end of these commands, a interfaces(5) style file is expected to be written to ``OUTPUT_INTERFACES``.
 
-Note, that as with fstab, this file is not copied verbatim to the target filesystem, but rather made availble to the OS customization stage.  That stage may just copy the file verbatim, but may also parse it, and use that as input.
+Note, that as with fstab, this file is not copied verbatum to the target filesystem, but rather made availble to the OS customization stage.  That stage may just copy the file verbatum, but may also parse it, and use that as input.
 
 **Config Example**::
 

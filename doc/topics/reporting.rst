@@ -154,7 +154,7 @@ And then run your install with appropriate config, like::
 Legacy Reporter
 ---------------
 The legacy 'reporter' config entry is still supported.  This was utilized by
-MAAS for start/end and posting of the install log at the end of installation.
+MAAS for start/end and posting of the install log at the end of isntallation.
 
 Its configuration looks like this:
 
