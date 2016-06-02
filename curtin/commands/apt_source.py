@@ -301,8 +301,8 @@ def add_key_raw(key):
 
 def add_key(ent):
     """
-    add key to the system as defiend in ent (if any)
-    suppords raw keys or keyid's
+    Add key to the system as defined in ent (if any).
+    Supports raw keys or keyid's
     The latter will as a first step fetched to get the raw key
     """
     if 'keyid' in ent and 'key' not in ent:
