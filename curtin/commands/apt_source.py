@@ -47,9 +47,9 @@ APT_PROXY_FN = "/etc/apt/apt.conf.d/95curtin-proxy"
 # Default keyserver to use
 DEFAULT_KEYSERVER = "keyserver.ubuntu.com"
 
-# Default old archive names - those fix for the cloud-image curtin runs in
-DEFAULT_MIRRORS = {"PRIMARY": "archive.ubuntu.com/ubuntu",
-                   "SECURITY": "security.ubuntu.com/ubuntu"}
+# Default archive mirror - those fix for the cloud-image curtin runs in
+DEFAULT_MIRRORS = {"PRIMARY": "http://archive.ubuntu.com/ubuntu",
+                   "SECURITY": "http://security.ubuntu.com/ubuntu"}
 
 # matcher used in template rendering functions
 BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
@@ -384,7 +384,7 @@ def find_apt_mirror_info(cfg):
        If the generic apt_mirror is given that is defining for both
     """
 
-    mirror_info = None
+    mirror_info = DEFAULT_MIRRORS
     mirror = cfg.get("apt_mirror", None)
     if mirror is not None:
         mirror_info = {'PRIMARY': mirror,
@@ -395,11 +395,6 @@ def find_apt_mirror_info(cfg):
         if pmirror is not None:
             mirror_info = {'PRIMARY': pmirror,
                            'SECURITY': smirror}
-
-    # default fallback if nothing is specified
-    if mirror_info is None:
-        mirror_info = {'PRIMARY': 'http://archive.ubuntu.com/ubuntu',
-                       'SECURITY': 'http://security.ubuntu.com/ubuntu'}
 
     # less complex replacements use only MIRROR, derive from primary
     mirror_info["MIRROR"] = mirror_info["PRIMARY"]
