@@ -328,6 +328,26 @@ class TestAptSourceConfig(TestCase):
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
 
+    def test_apt_src_keyid_keyserver(self):
+        """test_apt_src_keyid_keyserver - Test custom keyserver"""
+        keyid = "03683F77"
+        params = self._get_default_params()
+        cfg = {self.aptlistfile: {'keyid': keyid,
+                                  'keyserver': 'test.random.com'}}
+
+        # in some test environments only *.ubuntu.com is reachable
+        # so mock the call and check if the config got there
+        with mock.patch.object(apt_source, 'getkeybyid',
+                               return_value="fakekey") as mockgetkey:
+            with mock.patch.object(apt_source, 'add_key_raw') as mockadd:
+                apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
+
+        mockgetkey.assert_called_with('03683F77', 'test.random.com')
+        mockadd.assert_called_with('fakekey')
+
+        # filename should be ignored on key only
+        self.assertFalse(os.path.isfile(self.aptlistfile))
+
     def test_apt_src_longkeyid_real(self):
         """test_apt_src_longkeyid_real Test long keyid including key content"""
         keyid = "B59D 5F15 97A5 04B7 E230  6DCA 0620 BBCF 0368 3F77"
