@@ -1,6 +1,3 @@
-early_commands:
- 10_aptsource: curtin apt-source custom
-
 # YAML example of an apt_source config.
 apt_source:
     version: 1
@@ -9,17 +6,19 @@ apt_source:
       # The key is the filename and will be prepended by /etc/apt/sources.list.d/
       # if it doesn't start with a '/'.
       # There are certain cases - where no content is written into a source.list
-      # file  where the filename will be ignored - yet it can still be used as
+      # file where the filename will be ignored - yet it can still be used as
       # index for merging.
-      # The value it maps to is a dictionary with the following optional entries:
+      # The values inside the entries consost of the following optional entries:
       #   'source': a sources.list entry (some variable replacements apply)
       #   'keyid': providing a key to import via shortid or fingerprint
       #   'key': providing a raw PGP key
+      #   'keyserver': specify an alternate keyserver to pull keys from that
+      #                were specified by keyid
       #   'filename': for compatibility with the older format (now the key to
       #               this dictionary is the filename). If specified this
       #               overwrites the filename given as key.
 
-      # the new format allows merging between multiple input files than a list
+      # The new format allows merging between multiple input files than a list
       # like:
       # cloud-config1
       # sources:
@@ -27,9 +26,9 @@ apt_source:
       # cloud-config2
       # sources:
       #    s2: {'key': 'key2'}
-      #    s1: {filename: 'foo'}
-      # this would be merged to
-      #sources:
+      #    s1: {'filename': 'foo'}
+      # This would be merged to
+      # sources:
       #    s1:
       #        filename: foo
       #        key: key1
