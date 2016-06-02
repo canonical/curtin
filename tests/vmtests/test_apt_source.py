@@ -8,7 +8,7 @@ from .releases import base_vm_classes as relbase
 
 
 class TestAptSrcAbs(VMBaseClass):
-    "TestAptSrcAbs - Basic tests for apt_sources features of curtin"
+    """TestAptSrcAbs - Basic tests for apt_sources features of curtin"""
     interactive = False
     # disk for early data collection at install stage
     extra_disks = ['1G']
@@ -28,7 +28,7 @@ class TestAptSrcAbs(VMBaseClass):
     secmirror = "http://security.ubuntu.com/ubuntu/"
 
     def test_output_files_exist(self):
-        "test_output_files_exist - Check if all output files exist"
+        """test_output_files_exist - Check if all output files exist"""
         self.output_files_exist(
             ["fstab", "ignorecount", "keyid-F430BBA5", "keylongid-F470A0AC",
              "keyraw-8280B242", "keyppa-03683F77", "aptconf", "sources.list",
@@ -37,7 +37,7 @@ class TestAptSrcAbs(VMBaseClass):
             ["smoser-ubuntu-ppa-%s.list" % self.release])
 
     def test_keys_imported(self):
-        "test_keys_imported - Check if all keys are imported correctly"
+        """test_keys_imported - Check if all keys are imported correctly"""
         self.check_file_regex("keyid-F430BBA5",
                               r"Launchpad PPA for Ubuntu Screen Profile")
         self.check_file_regex("keylongid-F470A0AC",
@@ -48,7 +48,7 @@ class TestAptSrcAbs(VMBaseClass):
                               r"Christian Ehrhardt")
 
     def test_source_files(self):
-        "test_source_files - Check generated .list files for correct content"
+        """test_source_files - Check generated .lists for correct content"""
         # hard coded deb lines
         self.check_file_strippedline("byobu-ppa.list",
                                      ("deb http://ppa.launchpad.net/byobu/"
@@ -66,20 +66,20 @@ class TestAptSrcAbs(VMBaseClass):
                                       "ppa/ubuntu %s main" % self.release))
 
     def test_ignore_count(self):
-        "test_ignore_count - Check for files that should not be created"
+        """test_ignore_count - Check for files that should not be created"""
         self.check_file_strippedline("ignorecount", "0")
 
     def test_apt_conf(self):
-        "test_apt_conf - Check if the selected apt conf was set"
+        """test_apt_conf - Check if the selected apt conf was set"""
         self.check_file_strippedline("aptconf", 'Acquire::Retries "3";')
 
 
 class TestAptSrcCustom(TestAptSrcAbs):
-    "TestAptSrcNormal - tests valid in the custom sources.list case"
+    """TestAptSrcNormal - tests valid in the custom sources.list case"""
     conf_file = "examples/tests/apt_source_custom.yaml"
 
     def test_custom_source_list(self):
-        "test_custom_source_list - Check custom sources.list with replacement"
+        """test_custom_source_list - Check custom sources with replacement"""
         self.check_file_strippedline("sources.list",
                                      "deb %s %s main restricted" %
                                      (self.mirror, self.release))
@@ -97,21 +97,21 @@ class TestAptSrcCustom(TestAptSrcAbs):
 
 
 class TestAptSrcPreserve(TestAptSrcAbs):
-    "TestAptSrcPreserve - tests valid in the preserved sources.list case"
+    """TestAptSrcPreserve - tests valid in the preserved sources.list case"""
     conf_file = "examples/tests/apt_source_preserve.yaml"
 
     def test_preserved_source_list(self):
-        "test_preserved_source_list - Check sources.list to be preserved as-is"
+        """test_preserved_source_list - Check sources to be preserved as-is"""
         self.check_file_regex("sources.list",
                               r"this file is written by cloud-init")
 
 
 class TestAptSrcBuiltin(TestAptSrcAbs):
-    "TestAptSrcPreserve - tests valid for the builtin sources.list template"
+    """TestAptSrcPreserve - tests for the builtin sources.list template"""
     conf_file = "examples/tests/apt_source_builtin.yaml"
 
     def test_builtin_source_list(self):
-        "test_builtin_source_list - Check builtin source.list with replacement"
+        """test_builtin_source_list - Check builtin sources with replacement"""
         self.check_file_regex("sources.list",
                               r"this file is written by curtin")
 
