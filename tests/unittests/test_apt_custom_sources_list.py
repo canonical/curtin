@@ -5,14 +5,11 @@ import logging
 import os
 import shutil
 import tempfile
-import yaml
 
 from unittest import TestCase
 
-try:
-    from unittest import mock
-except ImportError:
-    import mock
+import yaml
+import mock
 
 from curtin import util
 from curtin.commands import apt_source
