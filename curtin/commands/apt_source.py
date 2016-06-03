@@ -23,7 +23,6 @@ import glob
 import os
 import re
 import sys
-import traceback
 
 from curtin.log import LOG
 from curtin import (config, util)
