@@ -334,7 +334,7 @@ class TestAptSourceConfig(TestCase):
 
         # in some test environments only *.ubuntu.com is reachable
         # so mock the call and check if the config got there
-        with mock.patch.object(apt_source, 'getkeybyid',
+        with mock.patch.object(util, 'getkeybyid',
                                return_value="fakekey") as mockgetkey:
             with mock.patch.object(apt_source, 'add_key_raw') as mockadd:
                 apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)

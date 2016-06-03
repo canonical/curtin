@@ -144,44 +144,6 @@ def handle_apt_source(cfg):
             LOG.warn("Add source error: %s", ':'.join(error))
 
 
-def gpg_export_armour(key):
-    """Export gpg key, armoured key gets returned"""
-    (armour, _) = util.subp(["gpg", "--export", "--armour", key], capture=True)
-    return armour
-
-
-def gpg_recv_key(key, keyserver=DEFAULT_KEYSERVER):
-    """Receive gpg key from the specified keyserver"""
-    try:
-        util.subp(["gpg", "--keyserver", keyserver, "--recv", key],
-                  capture=True)
-    except util.ProcessExecutionError as error:
-        raise ValueError('Failed to import key %s from server %s - error %s' %
-                         (key, keyserver, error))
-
-
-def gpg_delete_key(key):
-    """Delete the specified key from the local gpg ring"""
-    util.subp(["gpg", "--batch", "--yes", "--delete-keys", key], capture=False)
-
-
-def getkeybyid(keyid, keyserver):
-    """get gpg keyid from keyserver"""
-    armour = gpg_export_armour(keyid)
-    if not armour:
-        try:
-            gpg_recv_key(keyid, keyserver=keyserver)
-        except ValueError:
-            LOG.exception('Failed to obtain gpg key %s', keyid)
-            raise
-
-        armour = gpg_export_armour(keyid)
-        # delete just imported key to leave environment as it was before
-        gpg_delete_key(keyid)
-
-    return armour.rstrip('\n')
-
-
 def mirrorurl_to_apt_fileprefix(mirror):
     """ mirrorurl_to_apt_fileprefix
         Convert a mirror url to the fule prefix used by apt on disk to
@@ -323,7 +285,7 @@ def add_key(ent):
         if 'keyserver' in ent:
             keyserver = ent['keyserver']
 
-        ent['key'] = getkeybyid(ent['keyid'], keyserver)
+        ent['key'] = util.getkeybyid(ent['keyid'], keyserver)
 
     if 'key' in ent:
         add_key_raw(ent['key'])
