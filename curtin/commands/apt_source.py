@@ -349,16 +349,15 @@ def apt_source(args):
 
     apt_source_cfg = cfg.get("apt_source")
     # if no apt_source config section is available, do nothing
-    if apt_source_cfg is None:
+    if apt_source_cfg:
+        try:
+            handle_apt_source(apt_source_cfg)
+        except (RuntimeError, TypeError, ValueError) as error:
+            sys.stderr.write("Failed to configure apt_source: '%s'\n" % error)
+            traceback.print_exc()
+            sys.exit(1)
+    else:
         LOG.info("No apt_source custom config provided, skipping")
-        sys.exit(0)
-
-    try:
-        handle_apt_source(apt_source_cfg)
-    except (RuntimeError, TypeError, ValueError) as error:
-        sys.stderr.write("Failed to configure apt_source: '%s'\n" % error)
-        traceback.print_exc()
-        sys.exit(1)
 
     sys.exit(0)
 
