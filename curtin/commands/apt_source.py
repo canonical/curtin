@@ -193,6 +193,10 @@ def generate_sources_list(cfg, release, mirrors):
     if template is None:
         template = DEFAULT_TEMPLATE
 
+    try:
+        os.rename("/etc/apt/sources.list", "/etc/apt/sources.list.curtin")
+    except OSError:
+        LOG.exception("failed to backup /etc/apt/sources.list")
     util.render_string_to_file(template, '/etc/apt/sources.list', params)
 
 
