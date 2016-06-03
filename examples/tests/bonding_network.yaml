@@ -26,6 +26,8 @@ network:
           subnets:
               - type: static
                 address: 10.23.23.2/24
+              - type: static
+                address: 10.23.24.2/24
 
 curthooks_commands:
     # use curtin to disable open-iscsi ifupdown hooks for precise; they're

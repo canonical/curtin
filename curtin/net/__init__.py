@@ -331,7 +331,14 @@ def iface_add_subnet(iface, subnet):
 
 
 # TODO: switch to valid_map for attrs
-def iface_add_attrs(iface):
+def iface_add_attrs(iface, index):
+    # If the index is non-zero, this is an alias interface. Alias interfaces
+    # represent additional interface addresses, and should not have additional
+    # attributes. (extra attributes here are almost always either incorrect,
+    # or are applied to the parent interface.) So if this is an alias, stop
+    # right here.
+    if index != 0:
+        return ""
     content = ""
     ignore_map = [
         'control',
@@ -432,13 +439,13 @@ def render_interfaces(network_state):
 
                 content += iface_start_entry(iface, index)
                 content += iface_add_subnet(iface, subnet)
-                content += iface_add_attrs(iface)
+                content += iface_add_attrs(iface, index)
         else:
             # ifenslave docs say to auto the slave devices
             if 'bond-master' in iface:
                 content += "auto {name}\n".format(**iface)
             content += "iface {name} {inet} {mode}\n".format(**iface)
-            content += iface_add_attrs(iface)
+            content += iface_add_attrs(iface, index)
 
     for route in network_state.get('routes'):
         content += render_route(route)

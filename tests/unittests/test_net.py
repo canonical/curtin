@@ -517,6 +517,10 @@ network:
                 hwaddress 52:54:00:12:34:06
                 bond-slaves none
 
+            auto bond0:1
+            iface bond0:1 inet static
+                address 10.23.24.2/24
+
             source /etc/network/interfaces.d/*.cfg
             """)
         net_ifaces = net.render_interfaces(ns.network_state)
@@ -549,7 +553,6 @@ network:
             auto interface1:1
             iface interface1:1 inet static
                 address 192.168.14.4/24
-                mtu 1492
 
             allow-hotplug interface2
             iface interface2 inet static
