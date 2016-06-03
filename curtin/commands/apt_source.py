@@ -182,8 +182,8 @@ def getkeybyid(keyid, keyserver):
     return armour.rstrip('\n')
 
 
-def mirror2lists_fileprefix(mirror):
-    """ mirror2lists_fileprefix
+def mirrorurl_to_apt_fileprefix(mirror):
+    """ mirrorurl_to_apt_fileprefix
         Convert a mirror url to the fule prefix used by apt on disk to
         store cache information for that mirror.
         To do so do:
@@ -207,8 +207,8 @@ def rename_apt_lists(new_mirrors):
         nmirror = new_mirrors.get(name)
         if not nmirror:
             continue
-        oprefix = os.path.join(APT_LISTS, mirror2lists_fileprefix(omirror))
-        nprefix = os.path.join(APT_LISTS, mirror2lists_fileprefix(nmirror))
+        oprefix = os.path.join(APT_LISTS, mirrorurl_to_apt_fileprefix(omirror))
+        nprefix = os.path.join(APT_LISTS, mirrorurl_to_apt_fileprefix(nmirror))
         if oprefix == nprefix:
             continue
         olen = len(oprefix)
