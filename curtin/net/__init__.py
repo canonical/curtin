@@ -430,10 +430,14 @@ def render_interfaces(network_state):
                 iface['index'] = index
                 iface['mode'] = subnet['type']
                 iface['control'] = subnet.get('control', 'auto')
+                subnet_inet = 'inet'
                 if iface['mode'].endswith('6'):
-                    iface['inet'] += '6'
+                    # This is a request for DHCPv6.
+                    subnet_inet += '6'
                 elif iface['mode'] == 'static' and ":" in subnet['address']:
-                    iface['inet'] += '6'
+                    # This is a static IPv6 address.
+                    subnet_inet += '6'
+                iface['inet'] = subnet_inet
                 if iface['mode'].startswith('dhcp'):
                     iface['mode'] = 'dhcp'
 
