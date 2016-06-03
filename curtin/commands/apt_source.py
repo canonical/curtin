@@ -19,7 +19,6 @@ Handling the setup of apt related tasks like proxies, PGP keys, repositories.
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
-import collections
 import glob
 import os
 import re
@@ -49,9 +48,6 @@ DEFAULT_KEYSERVER = "keyserver.ubuntu.com"
 # Default archive mirror - those fix for the cloud-image curtin runs in
 DEFAULT_MIRRORS = {"PRIMARY": "http://archive.ubuntu.com/ubuntu",
                    "SECURITY": "http://security.ubuntu.com/ubuntu"}
-
-# matcher used in template rendering functions
-BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 DEFAULT_TEMPLATE = """
 ## Note, this file is written by curtin at install time. It should not end
@@ -184,68 +180,6 @@ def rename_apt_lists(new_mirrors):
                 LOG.warn("failed to rename apt list: %s", exc_info=True)
 
 
-def basic_render(content, params):
-    """This does simple replacement of bash variable like templates.
-
-    It identifies patterns like ${a} or $a and can also identify patterns like
-    ${a.b} or $a.b which will look for a key 'b' in the dictionary rooted
-    by key 'a'.
-    """
-
-    def replacer(match):
-        """ replacer
-            replacer used in regex match to replace content
-        """
-        # Only 1 of the 2 groups will actually have a valid entry.
-        name = match.group(1)
-        if name is None:
-            name = match.group(2)
-        if name is None:
-            raise RuntimeError("Match encountered but no valid group present")
-        path = collections.deque(name.split("."))
-        selected_params = params
-        while len(path) > 1:
-            key = path.popleft()
-            if not isinstance(selected_params, dict):
-                raise TypeError("Can not traverse into"
-                                " non-dictionary '%s' of type %s while"
-                                " looking for subkey '%s'"
-                                % (selected_params,
-                                   selected_params.__class__.__name__,
-                                   key))
-            selected_params = selected_params[key]
-        key = path.popleft()
-        if not isinstance(selected_params, dict):
-            raise TypeError("Can not extract key '%s' from non-dictionary"
-                            " '%s' of type %s"
-                            % (key, selected_params,
-                               selected_params.__class__.__name__))
-        return str(selected_params[key])
-
-    return BASIC_MATCHER.sub(replacer, content)
-
-
-def render_string_to_file(content, outfn, params, mode=0o644):
-    """ render_string_to_file
-        render a string to a file following replacement rules as defined
-        in basic_render
-    """
-    if not outfn or not content:
-        return
-    rendered = render_string(content, params)
-    util.write_file(outfn, rendered, mode=mode)
-
-
-def render_string(content, params):
-    """ render_string
-        render a string following replacement rules as defined in basic_render
-        returning the string
-    """
-    if not params:
-        params = {}
-    return basic_render(content, params)
-
-
 def generate_sources_list(cfg, release, mirrors):
     """ generate_sources_list
         create a source.list file based on a custom or default template
@@ -259,7 +193,7 @@ def generate_sources_list(cfg, release, mirrors):
     if template is None:
         template = DEFAULT_TEMPLATE
 
-    render_string_to_file(template, '/etc/apt/sources.list', params)
+    util.render_string_to_file(template, '/etc/apt/sources.list', params)
 
 
 def add_key_raw(key):
@@ -322,7 +256,7 @@ def add_sources(srcdict, template_params=None, aa_repo_match=None):
             errorlist.append(["", "missing source"])
             continue
         source = ent['source']
-        source = render_string(source, template_params)
+        source = util.render_string(source, template_params)
 
         if not ent['filename'].startswith("/"):
             ent['filename'] = os.path.join("/etc/apt/sources.list.d/",

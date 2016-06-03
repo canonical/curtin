@@ -16,11 +16,13 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import collections
 import errno
 import glob
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import stat
@@ -34,6 +36,9 @@ _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
 _INSTALLED_MAIN = '/usr/bin/curtin'
 
 _LSB_RELEASE = {}
+
+# matcher used in template rendering functions
+BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 
 def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
@@ -876,6 +881,68 @@ def getkeybyid(keyid, keyserver):
         gpg_delete_key(keyid)
 
     return armour.rstrip('\n')
+
+
+def basic_render(content, params):
+    """This does simple replacement of bash variable like templates.
+
+    It identifies patterns like ${a} or $a and can also identify patterns like
+    ${a.b} or $a.b which will look for a key 'b' in the dictionary rooted
+    by key 'a'.
+    """
+
+    def replacer(match):
+        """ replacer
+            replacer used in regex match to replace content
+        """
+        # Only 1 of the 2 groups will actually have a valid entry.
+        name = match.group(1)
+        if name is None:
+            name = match.group(2)
+        if name is None:
+            raise RuntimeError("Match encountered but no valid group present")
+        path = collections.deque(name.split("."))
+        selected_params = params
+        while len(path) > 1:
+            key = path.popleft()
+            if not isinstance(selected_params, dict):
+                raise TypeError("Can not traverse into"
+                                " non-dictionary '%s' of type %s while"
+                                " looking for subkey '%s'"
+                                % (selected_params,
+                                   selected_params.__class__.__name__,
+                                   key))
+            selected_params = selected_params[key]
+        key = path.popleft()
+        if not isinstance(selected_params, dict):
+            raise TypeError("Can not extract key '%s' from non-dictionary"
+                            " '%s' of type %s"
+                            % (key, selected_params,
+                               selected_params.__class__.__name__))
+        return str(selected_params[key])
+
+    return BASIC_MATCHER.sub(replacer, content)
+
+
+def render_string_to_file(content, outfn, params, mode=0o644):
+    """ render_string_to_file
+        render a string to a file following replacement rules as defined
+        in basic_render
+    """
+    if not outfn or not content:
+        return
+    rendered = render_string(content, params)
+    write_file(outfn, rendered, mode=mode)
+
+
+def render_string(content, params):
+    """ render_string
+        render a string following replacement rules as defined in basic_render
+        returning the string
+    """
+    if not params:
+        params = {}
+    return basic_render(content, params)
 
 
 # vi: ts=4 expandtab syntax=python
