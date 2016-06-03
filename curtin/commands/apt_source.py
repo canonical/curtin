@@ -24,7 +24,6 @@ import glob
 import os
 import re
 import sys
-import tempfile
 import traceback
 
 from curtin.log import LOG
@@ -53,21 +52,6 @@ DEFAULT_MIRRORS = {"PRIMARY": "http://archive.ubuntu.com/ubuntu",
 
 # matcher used in template rendering functions
 BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
-
-# A temporary shell program to get a given gpg key
-# from a given keyserver
-EXPORT_GPG_KEYID = """
-    k=${1} ks=${2};
-    exec 2>/dev/null
-    [ -n "$k" ] || exit 1;
-    armour=$(gpg --export --armour "${k}")
-    if [ -z "${armour}" ]; then
-       gpg --keyserver ${ks} --recv "${k}" >/dev/null &&
-          armour=$(gpg --export --armour "${k}") &&
-          gpg --batch --yes --delete-keys "${k}"
-    fi
-    [ -n "${armour}" ] && echo "${armour}"
-"""
 
 DEFAULT_TEMPLATE = """
 ## Note, this file is written by curtin at install time. It should not end
@@ -160,17 +144,42 @@ def handle_apt_source(cfg):
             LOG.warn("Add source error: %s", ':'.join(error))
 
 
-# get gpg keyid from keyserver
+def gpg_export_armour(key):
+    """Export gpg key, armoured key gets returned"""
+    (armour, _) = util.subp(["gpg", "--export", "--armour", key], capture=True)
+    return armour
+
+
+def gpg_recv_key(key, keyserver=DEFAULT_KEYSERVER):
+    """Receive gpg key from the specified keyserver"""
+    try:
+        util.subp(["gpg", "--keyserver", keyserver, "--recv", key],
+                  capture=True)
+    except util.ProcessExecutionError as error:
+        raise ValueError('Failed to import key %s from server %s - error %s' %
+                         (key, keyserver, error))
+
+
+def gpg_delete_key(key):
+    """Delete the specified key from the local gpg ring"""
+    util.subp(["gpg", "--batch", "--yes", "--delete-keys", key], capture=False)
+
+
 def getkeybyid(keyid, keyserver):
-    """ getkeybyid
-        try to get the raw PGP key data by it's id via network
-    """
-    with tempfile.NamedTemporaryFile(suffix='.sh', mode="w+", ) as fileh:
-        fileh.write(EXPORT_GPG_KEYID)
-        fileh.flush()
-        cmd = ['/bin/sh', fileh.name, keyid, keyserver]
-        (stdout, _) = util.subp(cmd, capture=True)
-        return stdout.strip()
+    """get gpg keyid from keyserver"""
+    armour = gpg_export_armour(keyid)
+    if not armour:
+        try:
+            gpg_recv_key(keyid, keyserver=keyserver)
+        except ValueError:
+            LOG.exception('Failed to obtain gpg key %s', keyid)
+            raise
+
+        armour = gpg_export_armour(keyid)
+        # delete just imported key to leave environment as it was before
+        gpg_delete_key(keyid)
+
+    return armour.rstrip('\n')
 
 
 def mirror2lists_fileprefix(mirror):
@@ -344,7 +353,7 @@ def add_sources(srcdict, template_params=None, aa_repo_match=None):
         # keys can be added without specifying a source
         try:
             add_key(ent)
-        except ValueError as detail:
+        except (ValueError, util.ProcessExecutionError) as detail:
             errorlist.append([ent, detail])
 
         if 'source' not in ent:
