@@ -352,9 +352,8 @@ def apt_source(args):
     if apt_source_cfg:
         try:
             handle_apt_source(apt_source_cfg)
-        except (RuntimeError, TypeError, ValueError) as error:
-            sys.stderr.write("Failed to configure apt_source: '%s'\n" % error)
-            traceback.print_exc()
+        except (RuntimeError, TypeError, ValueError):
+            LOG.exception("Failed to configure apt_source")
             sys.exit(1)
     else:
         LOG.info("No apt_source custom config provided, skipping")
