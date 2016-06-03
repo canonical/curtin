@@ -196,7 +196,7 @@ def generate_sources_list(cfg, release, mirrors):
     util.render_string_to_file(template, '/etc/apt/sources.list', params)
 
 
-def add_key_raw(key):
+def add_apt_key_raw(key):
     """
     actual adding of a key as defined in key argument
     to the system
@@ -208,7 +208,7 @@ def add_key_raw(key):
         raise ValueError('failed to add apt GPG Key to apt keyring')
 
 
-def add_key(ent):
+def add_apt_key(ent):
     """
     Add key to the system as defined in ent (if any).
     Supports raw keys or keyid's
@@ -222,7 +222,7 @@ def add_key(ent):
         ent['key'] = util.getkeybyid(ent['keyid'], keyserver)
 
     if 'key' in ent:
-        add_key_raw(ent['key'])
+        add_apt_key_raw(ent['key'])
 
 
 def add_sources(srcdict, template_params=None, aa_repo_match=None):
@@ -248,7 +248,7 @@ def add_sources(srcdict, template_params=None, aa_repo_match=None):
 
         # keys can be added without specifying a source
         try:
-            add_key(ent)
+            add_apt_key(ent)
         except (ValueError, util.ProcessExecutionError) as detail:
             errorlist.append([ent, detail])
 

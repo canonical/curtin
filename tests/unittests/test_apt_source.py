@@ -317,7 +317,7 @@ class TestAptSourceConfig(TestCase):
         params = self._get_default_params()
         cfg = {self.aptlistfile: {'keyid': keyid}}
 
-        with mock.patch.object(apt_source, 'add_key_raw') as mockobj:
+        with mock.patch.object(apt_source, 'add_apt_key_raw') as mockobj:
             apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
 
         mockobj.assert_called_with(EXPECTEDKEY)
@@ -336,7 +336,7 @@ class TestAptSourceConfig(TestCase):
         # so mock the call and check if the config got there
         with mock.patch.object(util, 'getkeybyid',
                                return_value="fakekey") as mockgetkey:
-            with mock.patch.object(apt_source, 'add_key_raw') as mockadd:
+            with mock.patch.object(apt_source, 'add_apt_key_raw') as mockadd:
                 apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
 
         mockgetkey.assert_called_with('03683F77', 'test.random.com')
@@ -351,7 +351,7 @@ class TestAptSourceConfig(TestCase):
         params = self._get_default_params()
         cfg = {self.aptlistfile: {'keyid': keyid}}
 
-        with mock.patch.object(apt_source, 'add_key_raw') as mockobj:
+        with mock.patch.object(apt_source, 'add_apt_key_raw') as mockobj:
             apt_source.add_sources(cfg, params, aa_repo_match=self.matcher)
 
         mockobj.assert_called_with(EXPECTEDKEY)
