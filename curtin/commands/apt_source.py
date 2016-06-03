@@ -134,8 +134,8 @@ def handle_apt_source(cfg):
         if matchcfg:
             matcher = re.compile(matchcfg).search
 
-        errors = add_sources(cfg['sources'], params,
-                             aa_repo_match=matcher)
+        errors = add_apt_sources(cfg['sources'], params,
+                                 aa_repo_match=matcher)
         for error in errors:
             LOG.warn("Add source error: %s", ':'.join(error))
 
@@ -229,7 +229,7 @@ def add_apt_key(ent):
         add_apt_key_raw(ent['key'])
 
 
-def add_sources(srcdict, template_params=None, aa_repo_match=None):
+def add_apt_sources(srcdict, template_params=None, aa_repo_match=None):
     """
     add entries in /etc/apt/sources.list.d for each abbreviated
     sources.list entry in 'srcdict'.  When rendering template, also
