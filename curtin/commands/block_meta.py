@@ -449,19 +449,20 @@ def disk_handler(info, storage_config):
 
         # Check state of current ptable, try to do this using blkid, but if
         # blkid fails then try to fall back to using parted.
+        _possible_errors = (util.ProcessExecutionError, StopIteration,
+                            IndexError, AttributeError)
         try:
             (out, _err) = util.subp(["blkid", "-o", "export", disk],
                                     capture=True)
-            current_ptable = list(filter(lambda x: "PTTYPE" in x,
-                                         out.splitlines()))[0].split("=")[-1]
-        except util.ProcessExecutionError:
+            current_ptable = next(l.split('=')[1] for l in out.splitlines()
+                                  if 'TYPE' in l)
+        except _possible_errors:
             try:
                 (out, _err) = util.subp(["parted", disk, "--script", "print"],
                                         capture=True)
-                current_ptable = next(l for l in out.splitlines()
-                                      if "Partition Table" in l).split()[-1]
-            except (util.ProcessExecutionError, StopIteration, IndexError,
-                    AttributeError):
+                current_ptable = next(l.split()[-1] for l in out.splitlines()
+                                      if "Partition Table" in l)
+            except _possible_errors:
                 raise ValueError("disk '%s' has no readable partition table or\
                     cannot be accessed, but preserve is set to true, so cannot\
                     continue")
