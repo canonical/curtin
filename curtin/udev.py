@@ -15,6 +15,9 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+from curtin import util
+
 
 def compose_udev_equality(key, value):
     """Return a udev comparison clause, like `ACTION=="add"`."""
@@ -51,4 +54,16 @@ def generate_udev_rule(interface, mac):
         ])
     return '%s\n' % rule
 
+
+def udevadm_settle(exists=None, timeout=None):
+    settle_cmd = ["udevadm", "settle"]
+    if exists:
+        # skip the settle if the requested path already exists
+        if os.path.exists(exists):
+            return
+        settle_cmd.extend(['--exit-if-exists=%s' % exists])
+    if timeout:
+        settle_cmd.extend(['--timeout=%s' % timeout])
+
+    util.subp(settle_cmd)
 # vi: ts=4 expandtab syntax=python

@@ -288,6 +288,16 @@ def load_file(path, mode="r"):
         return fp.read()
 
 
+def del_file(path):
+    try:
+        os.unlink(path)
+        LOG.debug("del_file: removed %s", path)
+    except OSError as e:
+        LOG.exception("del_file: %s did not exist.", path)
+        if e.errno != errno.ENOENT:
+            raise e
+
+
 def disable_daemons_in_root(target):
     contents = "\n".join(
         ['#!/bin/sh',

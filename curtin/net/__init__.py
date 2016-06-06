@@ -178,6 +178,16 @@ def parse_deb_config_data(ifaces, contents, src_dir, src_path):
                         "_source_path": src_path
                     }
                 ifaces[iface]['auto'] = True
+                ifaces[iface]['control'] = 'auto'
+        elif option.startswith('allow-'):
+            for iface in split[1:]:
+                if iface not in ifaces:
+                    ifaces[iface] = {
+                        # Include the source path this interface was found in.
+                        "_source_path": src_path
+                    }
+                ifaces[iface]['auto'] = False
+                ifaces[iface]['control'] = option.split('allow-')[-1]
         elif option == "iface":
             iface, family, method = split[1:4]
             if iface not in ifaces:
@@ -185,10 +195,8 @@ def parse_deb_config_data(ifaces, contents, src_dir, src_path):
                     # Include the source path this interface was found in.
                     "_source_path": src_path
                 }
-            elif 'family' in ifaces[iface]:
-                raise ParserError(
-                    "Interface %s can only be defined once. "
-                    "Re-defined in '%s'." % (iface, src_path))
+            # man (5) interfaces says we can have multiple iface stanzas
+            # all options are combined
             ifaces[iface]['family'] = family
             ifaces[iface]['method'] = method
             currif = iface
@@ -323,15 +331,23 @@ def iface_add_subnet(iface, subnet):
 
 
 # TODO: switch to valid_map for attrs
-def iface_add_attrs(iface):
+def iface_add_attrs(iface, index):
+    # If the index is non-zero, this is an alias interface. Alias interfaces
+    # represent additional interface addresses, and should not have additional
+    # attributes. (extra attributes here are almost always either incorrect,
+    # or are applied to the parent interface.) So if this is an alias, stop
+    # right here.
+    if index != 0:
+        return ""
     content = ""
     ignore_map = [
-        'type',
-        'name',
+        'control',
+        'index',
         'inet',
         'mode',
-        'index',
+        'name',
         'subnets',
+        'type',
     ]
     if iface['type'] not in ['bond', 'bridge']:
         ignore_map.append('mac_address')
@@ -359,6 +375,26 @@ def render_route(route):
 
     content += '\n'
     return content
+
+
+def iface_start_entry(iface, index):
+    fullname = iface['name']
+    if index != 0:
+        fullname += ":%s" % index
+
+    control = iface['control']
+    if control == "auto":
+        cverb = "auto"
+    elif control in ("hotplug",):
+        cverb = "allow-" + control
+    else:
+        cverb = "# control-" + control
+
+    subst = iface.copy()
+    subst.update({'fullname': fullname, 'cverb': cverb})
+
+    return ("{cverb} {fullname}\n"
+            "iface {fullname} {inet} {mode}\n").format(**subst)
 
 
 def render_interfaces(network_state):
@@ -393,55 +429,55 @@ def render_interfaces(network_state):
                     content += "\n"
                 iface['index'] = index
                 iface['mode'] = subnet['type']
+                iface['control'] = subnet.get('control', 'auto')
+                subnet_inet = 'inet'
                 if iface['mode'].endswith('6'):
-                    iface['inet'] += '6'
+                    # This is a request for DHCPv6.
+                    subnet_inet += '6'
                 elif iface['mode'] == 'static' and ":" in subnet['address']:
-                    iface['inet'] += '6'
+                    # This is a static IPv6 address.
+                    subnet_inet += '6'
+                iface['inet'] = subnet_inet
                 if iface['mode'].startswith('dhcp'):
                     iface['mode'] = 'dhcp'
 
-                if index == 0:
-                    if subnet['type'] != 'manual':
-                        content += "auto {name}\n".format(**iface)
-                    content += "iface {name} {inet} {mode}\n".format(**iface)
-                else:
-                    if subnet['type'] != 'manual':
-                        content += "auto {name}:{index}\n".format(**iface)
-                    content += \
-                        "iface {name}:{index} {inet} {mode}\n".format(**iface)
-
+                content += iface_start_entry(iface, index)
                 content += iface_add_subnet(iface, subnet)
-                content += iface_add_attrs(iface)
+                content += iface_add_attrs(iface, index)
         else:
+            # ifenslave docs say to auto the slave devices
             if 'bond-master' in iface:
                 content += "auto {name}\n".format(**iface)
             content += "iface {name} {inet} {mode}\n".format(**iface)
-            content += iface_add_attrs(iface)
+            content += iface_add_attrs(iface, index)
 
     for route in network_state.get('routes'):
         content += render_route(route)
 
     # global replacements until v2 format
     content = content.replace('mac_address', 'hwaddress')
+
+    # Play nice with others and source eni config files
+    content += "\nsource /etc/network/interfaces.d/*.cfg\n"
+
     return content
 
 
 def render_network_state(target, network_state):
     eni = 'etc/network/interfaces'
     netrules = 'etc/udev/rules.d/70-persistent-net.rules'
+    cc = 'etc/cloud/cloud.cfg.d/curtin-disable-cloudinit-networking.cfg'
 
     eni = os.path.sep.join((target, eni,))
-    util.ensure_dir(os.path.dirname(eni))
-    with open(eni, 'w+') as f:
-        LOG.info('Writing ' + eni)
-        f.write(render_interfaces(network_state))
+    LOG.info('Writing ' + eni)
+    util.write_file(eni, content=render_interfaces(network_state))
 
     netrules = os.path.sep.join((target, netrules,))
-    util.ensure_dir(os.path.dirname(netrules))
-    persistent_net_rules = render_persistent_net(network_state)
-    if len(persistent_net_rules) > 0:
-        with open(netrules, 'w+') as f:
-            LOG.info('Writing ' + netrules)
-            f.write(persistent_net_rules)
+    LOG.info('Writing ' + netrules)
+    util.write_file(netrules, content=render_persistent_net(network_state))
+
+    cc_disable = os.path.sep.join((target, cc,))
+    LOG.info('Writing ' + cc_disable)
+    util.write_file(cc_disable, content='network: {config: disabled}\n')
 
 # vi: ts=4 expandtab syntax=python

@@ -1,4 +1,3 @@
-showtrace: true
 storage:
   version: 1
   config:
@@ -14,43 +13,34 @@ storage:
        size: 1MB
        device: sda
        flag: bios_grub
-       number: 1
      - id: sda1
        type: partition
-       size: 3GB
+       size: 2GB
        device: sda
-       number: 2  # XXX: we really need to stop using id with DiskPartnum
-       uuid: deadbeef-dead-beef-dead-deadbeefaaa1
      - id: sda2
        type: partition
        size: 1GB
        device: sda
-       number: 3  # XXX: we really need to stop using id with DiskPartnum
-       uuid: deadbeef-dead-beef-dead-deadbeefaaa2
      - id: sda3
        type: partition
        size: 1GB
        device: sda
-       number: 4  # XXX: we really need to stop using id with DiskPartnum
-       uuid: deadbeef-dead-beef-dead-deadbeefaaa3
      - id: sda4
        type: partition
        size: 1GB
        device: sda
-       number: 5  # XXX: we really need to stop using id with DiskPartnum
-       uuid: deadbeef-dead-beef-dead-deadbeefaaa4
      - id: sda5
        type: partition
        size: 1GB
        device: sda
-       number: 6  # XXX: we really need to stop using id with DiskPartnum
-       uuid: deadbeef-dead-beef-dead-deadbeefaaa5
      - id: sda6
        type: partition
        size: 1GB
        device: sda
-       number: 7  # XXX: we really need to stop using id with DiskPartnum
-       uuid: deadbeef-dead-beef-dead-deadbeefaaa6
+     - id: sda7
+       type: partition
+       size: 1GB
+       device: sda
      - id: sdb
        type: disk
        model: QEMU HARDDISK
@@ -66,7 +56,6 @@ storage:
        type: partition
        size: 3GB
        device: sdc
-       uuid: deadbeef-dead-beef-dead-deadbeefaac1
      - id: mddevice
        name: md0
        type: raid
@@ -94,29 +83,30 @@ storage:
        backing_device: sdc1
        cache_device: sdb
        cache_mode: writearound
-     - id: sda1_fs
+     - id: sda1_extradisk
        type: format
        fstype: ext4
        volume: sda1
-       uuid: deadbeef-dead-beef-dead-deadbeeffff1
+     - id: sda7_boot
+       type: format
+       fstype: ext4
+       volume: sda7
      - id: bcache_raid_storage
        type: format
        fstype: ext4
        volume: bcache1_raid
-       uuid: deadbeef-dead-beef-dead-deadbeefcac1
      - id: bcache_normal_storage
        type: format
        fstype: ext4
        volume: bcache_normal
-       uuid: deadbeef-dead-beef-dead-deadbeefcac2
      - id: bcachefoo_fulldiskascache_storage
        type: format
        fstype: ext4
        volume: bcachefoo
-     - id: sda1_mount
+     - id: bcache_root
        type: mount
        path: /
-       device: sda1_fs
+       device: bcachefoo_fulldiskascache_storage
      - id: bcache1_raid_mount
        type: mount
        path: /media/data
@@ -127,5 +117,9 @@ storage:
        device: bcache_normal_storage
      - id: sda1_non_root_mount
        type: mount
-       path: /media/bcachefoo_fulldiskascache_storage
-       device: bcachefoo_fulldiskascache_storage
+       path: /media/sda1
+       device: sda1_extradisk
+     - id: sda7_boot_mount
+       type: mount
+       path: /boot
+       device: sda7_boot

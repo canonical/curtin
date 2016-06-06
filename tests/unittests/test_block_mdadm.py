@@ -88,10 +88,15 @@ class TestBlockMdadmCreate(MdadmTestBase):
     def prepare_mock(self, md_devname, raidlevel, devices, spares):
         side_effects = []
         expected_calls = []
+        hostname = 'ubuntu'
 
         # don't mock anything if raidlevel and spares mismatch
         if spares and raidlevel not in mdadm.SPARE_RAID_LEVELS:
             return (side_effects, expected_calls)
+
+        side_effects.append((hostname, ""))  # hostname -s
+        expected_calls.append(call(["hostname", "-s"],
+                                   capture=True, rcs=[0]))
 
         # prepare side-effects
         for d in devices + spares:
@@ -104,10 +109,12 @@ class TestBlockMdadmCreate(MdadmTestBase):
         side_effects.append(("", ""))  # udevadm control --stop-exec-queue
         expected_calls.append(call(["udevadm", "control",
                                     "--stop-exec-queue"]))
+
         side_effects.append(("", ""))  # mdadm create
         # build command how mdadm_create does
         cmd = (["mdadm", "--create", md_devname, "--run",
-               "--level=%s" % raidlevel, "--raid-devices=%s" % len(devices)] +
+                "--homehost=%s" % hostname, "--level=%s" % raidlevel,
+                "--raid-devices=%s" % len(devices)] +
                devices)
         if spares:
             cmd += ["--spare-devices=%s" % len(spares)] + spares
