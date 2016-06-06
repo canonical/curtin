@@ -311,19 +311,34 @@ class TestAptSourceConfig(TestCase):
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
 
-    def test_apt_src_keyid_real(self):
-        """test_apt_src_keyid_real - Test keyid including key content"""
-        keyid = "03683F77"
+    def apt_src_keyid_real(self, cfg, expectedkey):
+        """apt_src_keyid_real
+        Test specification of a keyid without source including
+        up to addition of the key (add_apt_key_raw mocked to keep the
+        environment as is)
+        """
         params = self._get_default_params()
-        cfg = {self.aptlistfile: {'keyid': keyid}}
-
         with mock.patch.object(apt_source, 'add_apt_key_raw') as mockobj:
             apt_source.add_apt_sources(cfg, params, aa_repo_match=self.matcher)
 
-        mockobj.assert_called_with(EXPECTEDKEY)
+        mockobj.assert_called_with(expectedkey)
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
+
+    def test_apt_src_keyid_real(self):
+        """test_apt_src_keyid_real - Test keyid including key add"""
+        keyid = "03683F77"
+        cfg = {self.aptlistfile: {'keyid': keyid}}
+
+        self.apt_src_keyid_real(cfg, EXPECTEDKEY)
+
+    def test_apt_src_longkeyid_real(self):
+        """test_apt_src_longkeyid_real Test long keyid including key add"""
+        keyid = "B59D 5F15 97A5 04B7 E230  6DCA 0620 BBCF 0368 3F77"
+        cfg = {self.aptlistfile: {'keyid': keyid}}
+
+        self.apt_src_keyid_real(cfg, EXPECTEDKEY)
 
     def test_apt_src_keyid_keyserver(self):
         """test_apt_src_keyid_keyserver - Test custom keyserver"""
@@ -342,20 +357,6 @@ class TestAptSourceConfig(TestCase):
 
         mockgetkey.assert_called_with('03683F77', 'test.random.com')
         mockadd.assert_called_with('fakekey')
-
-        # filename should be ignored on key only
-        self.assertFalse(os.path.isfile(self.aptlistfile))
-
-    def test_apt_src_longkeyid_real(self):
-        """test_apt_src_longkeyid_real Test long keyid including key content"""
-        keyid = "B59D 5F15 97A5 04B7 E230  6DCA 0620 BBCF 0368 3F77"
-        params = self._get_default_params()
-        cfg = {self.aptlistfile: {'keyid': keyid}}
-
-        with mock.patch.object(apt_source, 'add_apt_key_raw') as mockobj:
-            apt_source.add_apt_sources(cfg, params, aa_repo_match=self.matcher)
-
-        mockobj.assert_called_with(EXPECTEDKEY)
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
