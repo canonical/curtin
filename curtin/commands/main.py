@@ -25,9 +25,10 @@ from .. import log
 from .. import util
 from ..deps import install_deps
 
-SUB_COMMAND_MODULES = ['apply_net', 'block-meta', 'curthooks', 'extract',
-                       'hook', 'in-target', 'install', 'mkfs', 'net-meta',
-                       'pack', 'swap', 'system-install', 'system-upgrade']
+SUB_COMMAND_MODULES = [
+    'apply_net', 'block-meta', 'block-wipe', 'curthooks', 'extract',
+    'hook', 'in-target', 'install', 'mkfs', 'net-meta',
+    'pack', 'swap', 'system-install', 'system-upgrade']
 
 
 def add_subcmd(subparser, subcmd):
@@ -117,9 +118,9 @@ def maybe_install_deps(args, stacktrace=True, verbosity=0):
     return
 
 
-def main(args=None):
-    if args is None:
-        args = sys.argv
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
 
     stacktrace = (os.environ.get('CURTIN_STACKTRACE', "0").lower()
                   not in ("0", "false", ""))
@@ -129,7 +130,7 @@ def main(args=None):
     except ValueError:
         verbosity = 1
 
-    maybe_install_deps(sys.argv[1:], stacktrace=stacktrace,
+    maybe_install_deps(argv, stacktrace=stacktrace,
                        verbosity=verbosity)
 
     # Above here, only standard library modules can be assumed.
@@ -140,7 +141,7 @@ def main(args=None):
     subps = parser.add_subparsers(dest="subcmd")
     for subcmd in SUB_COMMAND_MODULES:
         add_subcmd(subps, subcmd)
-    args = parser.parse_args(sys.argv[1:])
+    args = parser.parse_args(argv)
 
     # merge config flags into a single config dictionary
     cfg_opts = args.main_cfgopts
@@ -201,8 +202,8 @@ def main(args=None):
         stack_prefix = stack_prefix[1:]
     os.environ["CURTIN_REPORTSTACK"] = stack_prefix
     args.reportstack = events.ReportEventStack(
-        name=stack_prefix, description="curtin command %s" % args.subcmd,
-        reporting_enabled=True)
+        name=stack_prefix, reporting_enabled=True, level="DEBUG",
+        description="curtin command %s" % args.subcmd)
 
     try:
         with args.reportstack:

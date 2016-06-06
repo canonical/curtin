@@ -6,8 +6,6 @@ import os
 
 
 class TestMdadmAbs(VMBaseClass):
-    install_timeout = 600
-    boot_timeout = 100
     interactive = False
     extra_disks = ['10G', '10G', '10G', '10G']
     active_mdadm = "1"
@@ -18,6 +16,7 @@ class TestMdadmAbs(VMBaseClass):
         mdadm --detail --scan | grep -c ubuntu > mdadm_active1
         grep -c active /proc/mdstat > mdadm_active2
         ls /dev/disk/by-dname > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
         """)]
 
     def test_mdadm_output_files_exist(self):
@@ -34,7 +33,7 @@ class TestMdadmAbs(VMBaseClass):
 
 class TestMdadmBcacheAbs(TestMdadmAbs):
     conf_file = "examples/tests/raid5bcache.yaml"
-    disk_to_check = {'md0': 0, 'sda': 2}
+    disk_to_check = [('md0', 0), ('sda', 2)]
 
     collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
@@ -43,6 +42,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
         cat /proc/mounts > proc_mounts
         cat /proc/partitions > proc_partitions
+        find /etc/network/interfaces.d > find_interfacesd
         """)]
     fstab_expected = {
         '/dev/bcache0': '/',
@@ -68,12 +68,29 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
 
 
+class PreciseHWETTestRaid5Bcache(relbase.precise_hwe_t, TestMdadmBcacheAbs):
+    # FIXME: off due to failing install: RUN_ARRAY failed: Invalid argument
+    __test__ = False
+
+
 class TrustyTestRaid5Bcache(relbase.trusty, TestMdadmBcacheAbs):
     __test__ = True
     # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
     # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
     # when dname works on trusty, then we need to re-enable by removing line.
-    disk_to_check = {'md0': 0}
+    disk_to_check = [('md0', 0)]
+
+
+class TrustyHWEUTestRaid5Bcache(relbase.trusty_hwe_u, TrustyTestRaid5Bcache):
+    __test__ = True
+
+
+class TrustyHWEVTestRaid5Bcache(relbase.trusty_hwe_v, TrustyTestRaid5Bcache):
+    __test__ = True
+
+
+class TrustyHWEWTestRaid5Bcache(relbase.trusty_hwe_w, TrustyTestRaid5Bcache):
+    __test__ = False
 
 
 class VividTestRaid5Bcache(relbase.vivid, TestMdadmBcacheAbs):

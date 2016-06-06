@@ -18,7 +18,7 @@ class TestNetParserData(TestCase):
             #  address 192.168.1.1
             """)
         ifaces = {}
-        net.parse_deb_config_data(ifaces, contents, '')
+        net.parse_deb_config_data(ifaces, contents, '', '')
         self.assertEqual({}, ifaces)
 
     def test_parse_deb_config_data_basic(self):
@@ -29,7 +29,8 @@ class TestNetParserData(TestCase):
             hwaddress aa:bb:cc:dd:ee:ff
             """)
         ifaces = {}
-        net.parse_deb_config_data(ifaces, contents, '')
+        net.parse_deb_config_data(
+            ifaces, contents, '', '/etc/network/interfaces')
         self.assertEqual({
             'eth0': {
                 'auto': False,
@@ -38,6 +39,7 @@ class TestNetParserData(TestCase):
                 'address': '192.168.1.2',
                 'netmask': '255.255.255.0',
                 'hwaddress': 'aa:bb:cc:dd:ee:ff',
+                '_source_path': '/etc/network/interfaces',
                 },
             }, ifaces)
 
@@ -48,31 +50,24 @@ class TestNetParserData(TestCase):
             iface eth1 inet manual
             """)
         ifaces = {}
-        net.parse_deb_config_data(ifaces, contents, '')
+        net.parse_deb_config_data(
+            ifaces, contents, '', '/etc/network/interfaces')
         self.assertEqual({
             'eth0': {
                 'auto': True,
+                'control': 'auto',
                 'family': 'inet',
                 'method': 'manual',
+                '_source_path': '/etc/network/interfaces',
                 },
             'eth1': {
                 'auto': True,
                 'family': 'inet',
+                'control': 'auto',
                 'method': 'manual',
+                '_source_path': '/etc/network/interfaces',
                 },
             }, ifaces)
-
-    def test_parse_deb_config_data_error_on_redefine(self):
-        contents = dedent("""\
-            iface eth0 inet static
-            address 192.168.1.2
-            iface eth0 inet static
-            address 192.168.1.3
-            """)
-        ifaces = {}
-        self.assertRaises(
-            net.ParserError,
-            net.parse_deb_config_data, ifaces, contents, '')
 
     def test_parse_deb_config_data_commands(self):
         contents = dedent("""\
@@ -87,7 +82,8 @@ class TestNetParserData(TestCase):
             post-down postdown1
             """)
         ifaces = {}
-        net.parse_deb_config_data(ifaces, contents, '')
+        net.parse_deb_config_data(
+            ifaces, contents, '', '/etc/network/interfaces')
         self.assertEqual({
             'eth0': {
                 'auto': False,
@@ -99,6 +95,7 @@ class TestNetParserData(TestCase):
                 'pre-down': ['predown1'],
                 'down': ['down1', 'down2'],
                 'post-down': ['postdown1'],
+                '_source_path': '/etc/network/interfaces',
                 },
             }, ifaces)
 
@@ -109,7 +106,8 @@ class TestNetParserData(TestCase):
             dns-search curtin local
             """)
         ifaces = {}
-        net.parse_deb_config_data(ifaces, contents, '')
+        net.parse_deb_config_data(
+            ifaces, contents, '', '/etc/network/interfaces')
         self.assertEqual({
             'eth0': {
                 'auto': False,
@@ -119,6 +117,7 @@ class TestNetParserData(TestCase):
                     'nameservers': ['192.168.1.1', '192.168.1.2'],
                     'search': ['curtin', 'local'],
                     },
+                '_source_path': '/etc/network/interfaces',
                 },
             }, ifaces)
 
@@ -137,17 +136,20 @@ class TestNetParserData(TestCase):
             bridge_portprio eth1 1
             """)
         ifaces = {}
-        net.parse_deb_config_data(ifaces, contents, '')
+        net.parse_deb_config_data(
+            ifaces, contents, '', '/etc/network/interfaces')
         self.assertEqual({
             'eth0': {
                 'auto': False,
                 'family': 'inet',
                 'method': 'manual',
+                '_source_path': '/etc/network/interfaces',
                 },
             'eth1': {
                 'auto': False,
                 'family': 'inet',
                 'method': 'manual',
+                '_source_path': '/etc/network/interfaces',
                 },
             'br0': {
                 'auto': False,
@@ -167,6 +169,67 @@ class TestNetParserData(TestCase):
                         'eth1': '1'
                         },
                     },
+                '_source_path': '/etc/network/interfaces',
+                },
+            }, ifaces)
+
+    def test_parse_deb_config_data_bond(self):
+        contents = dedent("""\
+            iface eth0 inet manual
+            bond-master bond0
+            bond-primary eth0
+            bond-mode active-backup
+            iface eth1 inet manual
+            bond-master bond0
+            bond-primary eth0
+            bond-mode active-backup
+            iface bond0 inet static
+            address 192.168.1.1
+            netmask 255.255.255.0
+            bond-slaves none
+            bond-primary eth0
+            bond-mode active-backup
+            bond-miimon 100
+            """)
+        ifaces = {}
+        net.parse_deb_config_data(
+            ifaces, contents, '', '/etc/network/interfaces')
+        self.assertEqual({
+            'eth0': {
+                'auto': False,
+                'family': 'inet',
+                'method': 'manual',
+                'bond': {
+                    'master': 'bond0',
+                    'primary': 'eth0',
+                    'mode': 'active-backup',
+                    },
+                '_source_path': '/etc/network/interfaces',
+                },
+            'eth1': {
+                'auto': False,
+                'family': 'inet',
+                'method': 'manual',
+                'bond': {
+                    'master': 'bond0',
+                    'primary': 'eth0',
+                    'mode': 'active-backup',
+                    },
+                '_source_path': '/etc/network/interfaces',
+                },
+            'bond0': {
+                'auto': False,
+                'family': 'inet',
+                'method': 'static',
+                'address': '192.168.1.1',
+                'netmask': '255.255.255.0',
+                'bond': {
+                    'slaves': 'none',
+                    'primary': 'eth0',
+                    'mode': 'active-backup',
+                    'miimon': '100',
+                    },
+                '_source_path': '/etc/network/interfaces',
                 },
             }, ifaces)
 
@@ -199,13 +262,13 @@ class TestNetParser(TestCase):
         ifaces = None
         if parse:
             ifaces = {}
-            net.parse_deb_config_data(ifaces, contents, '')
+            net.parse_deb_config_data(ifaces, contents, '', path)
         return path, ifaces
 
     def test_parse_deb_config(self):
         path, data = self.make_config()
-        expected = net.parse_deb_config(path)
-        self.assertEqual(data, expected)
+        observed = net.parse_deb_config(path)
+        self.assertEqual(data, observed)
 
     def test_parse_deb_config_source(self):
         path, data = self.make_config(name='interfaces2')
@@ -219,9 +282,27 @@ class TestNetParser(TestCase):
             'auto': False,
             'family': 'inet',
             'method': 'manual',
+            '_source_path': i_path,
             }
-        expected = net.parse_deb_config(i_path)
-        self.assertEqual(data, expected)
+        observed = net.parse_deb_config(i_path)
+        self.assertEqual(data, observed)
+
+    def test_parse_deb_config_source_with_glob(self):
+        path, data = self.make_config(name='eth0')
+        contents = dedent("""\
+            source eth*
+            iface eth1 inet manual
+            """)
+        i_path, _ = self.make_config(
+            contents=contents, parse=False)
+        data['eth1'] = {
+            'auto': False,
+            'family': 'inet',
+            'method': 'manual',
+            '_source_path': i_path,
+            }
+        observed = net.parse_deb_config(i_path)
+        self.assertEqual(data, observed)
 
     def test_parse_deb_config_source_dir(self):
         subdir = os.path.join(self.target, 'interfaces.d')
@@ -239,9 +320,70 @@ class TestNetParser(TestCase):
             'auto': False,
             'family': 'inet',
             'method': 'manual',
+            '_source_path': i_path,
             }
-        expected = net.parse_deb_config(i_path)
-        self.assertEqual(data, expected)
+        observed = net.parse_deb_config(i_path)
+        self.assertEqual(data, observed)
+
+    def test_parse_deb_config_source_dir_glob(self):
+        subdir = os.path.join(self.target, 'interfaces0.d')
+        os.mkdir(subdir)
+        self.make_config(
+            path=subdir, name='eth0', contents="iface eth0 inet manual")
+        self.make_config(
+            path=subdir, name='eth1', contents="iface eth1 inet manual")
+        subdir2 = os.path.join(self.target, 'interfaces1.d')
+        os.mkdir(subdir2)
+        self.make_config(
+            path=subdir2, name='eth2', contents="iface eth2 inet manual")
+        self.make_config(
+            path=subdir2, name='eth3', contents="iface eth3 inet manual")
+        contents = dedent("""\
+            source-directory interfaces*.d
+            """)
+        i_path, _ = self.make_config(
+            contents=contents, parse=False)
+        data = {
+            'eth0': {
+                'auto': False,
+                'family': 'inet',
+                'method': 'manual',
+                '_source_path': os.path.join(subdir, "eth0"),
+                },
+            'eth1': {
+                'auto': False,
+                'family': 'inet',
+                'method': 'manual',
+                '_source_path': os.path.join(subdir, "eth1"),
+                },
+            'eth2': {
+                'auto': False,
+                'family': 'inet',
+                'method': 'manual',
+                '_source_path': os.path.join(subdir2, "eth2"),
+                },
+            'eth3': {
+                'auto': False,
+                'family': 'inet',
+                'method': 'manual',
+                '_source_path': os.path.join(subdir2, "eth3"),
+                },
+        }
+        observed = net.parse_deb_config(i_path)
+        self.assertEqual(data, observed)
+
+    def test_parse_deb_config_source_dir_glob_ignores_none_matching(self):
+        subdir = os.path.join(self.target, 'interfaces0.d')
+        os.mkdir(subdir)
+        self.make_config(
+            path=subdir, name='.eth0', contents="iface eth0 inet manual")
+        contents = dedent("""\
+            source-directory interfaces*.d
+            """)
+        i_path, _ = self.make_config(
+            contents=contents, parse=False)
+        observed = net.parse_deb_config(i_path)
+        self.assertEqual({}, observed)
 
 
 class TestNetConfig(TestCase):
@@ -279,12 +421,14 @@ network:
         with open(self.config_f, 'w') as fp:
             fp.write(self.config)
 
-    def get_net_config(self):
-        cfg = yaml.safe_load(self.config)
+    def get_net_config(self, config=None):
+        if config is None:
+            config = self.config
+        cfg = yaml.safe_load(config)
         return cfg.get('network')
 
-    def get_net_state(self):
-        net_cfg = self.get_net_config()
+    def get_net_state(self, config=None):
+        net_cfg = self.get_net_config(config)
         version = net_cfg.get('version')
         config = net_cfg.get('config')
         ns = network_state.NetworkState(version=version, config=config)
@@ -310,9 +454,10 @@ network:
 
     def test_render_persistent_net(self):
         ns = self.get_net_state()
-        udev_rules = ('SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ' +
-                      'ATTR{address}=="cf:d6:af:48:e8:80", NAME="eth1"\n' +
-                      'SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ' +
+        udev_rules = ('# Autogenerated by curtin\n'
+                      'SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", '
+                      'ATTR{address}=="cf:d6:af:48:e8:80", NAME="eth1"\n'
+                      'SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", '
                       'ATTR{address}=="c0:d6:9f:2c:e8:80", NAME="eth0"\n')
         persist_net_rules = net.render_persistent_net(ns.network_state)
         self.assertEqual(sorted(udev_rules.split('\n')),
@@ -320,18 +465,149 @@ network:
 
     def test_render_interfaces(self):
         ns = self.get_net_state()
-        ifaces = ('auto eth0\n' + 'iface eth0 inet dhcp\n\n' +
-                  'auto eth0:1\n' +
-                  'iface eth0:1 inet static\n' +
-                  '    address 192.168.21.3/24\n' +
-                  '    dns-nameservers 8.8.8.8 8.8.4.4\n' +
-                  '    dns-search barley.maas sach.maas\n\n' +
-                  'auto eth1\n' + 'iface eth1 inet manual\n\n' +
-                  'dns-nameservers 1.2.3.4 5.6.7.8\n' +
-                  'dns-search wark.maas\n')
+        ifaces = dedent("""\
+            auto lo
+            iface lo inet loopback
+                dns-nameservers 1.2.3.4 5.6.7.8
+                dns-search wark.maas
+
+            auto eth0
+            iface eth0 inet dhcp
+
+            auto eth0:1
+            iface eth0:1 inet static
+                address 192.168.21.3/24
+                dns-nameservers 8.8.8.8 8.8.4.4
+                dns-search barley.maas sach.maas
+
+            iface eth1 inet manual
+
+            source /etc/network/interfaces.d/*.cfg
+            """)
         net_ifaces = net.render_interfaces(ns.network_state)
         print(ns.network_state.get('interfaces'))
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
+
+    def test_render_interfaces_bonds(self):
+        bond_config = open('examples/tests/bonding_network.yaml', 'r').read()
+
+        ns = self.get_net_state(bond_config)
+        ifaces = dedent("""\
+            auto lo
+            iface lo inet loopback
+
+            auto interface0
+            iface interface0 inet dhcp
+
+            auto interface1
+            iface interface1 inet manual
+                bond-mode active-backup
+                bond-master bond0
+
+            auto interface2
+            iface interface2 inet manual
+                bond-mode active-backup
+                bond-master bond0
+
+            auto bond0
+            iface bond0 inet static
+                address 10.23.23.2/24
+                bond-mode active-backup
+                hwaddress 52:54:00:12:34:06
+                bond-slaves none
+
+            auto bond0:1
+            iface bond0:1 inet static
+                address 10.23.24.2/24
+
+            source /etc/network/interfaces.d/*.cfg
+            """)
+        net_ifaces = net.render_interfaces(ns.network_state)
+        print("\n".join(list(map(str,
+                                 enumerate(sorted(ifaces.split('\n')))))))
+        print("\n^^ LOCAL -- RENDER vv")
+        print("\n".join(list(map(str,
+                                 enumerate(sorted(net_ifaces.split('\n')))))))
+        print(ns.network_state.get('interfaces'))
+        self.assertEqual(sorted(ifaces.split('\n')),
+                         sorted(net_ifaces.split('\n')))
+
+    def test_render_interfaces_iscsiroot(self):
+        iscsi_config = open('examples/network-iscsiroot.yaml', 'r').read()
+
+        ns = self.get_net_state(iscsi_config)
+        ifaces = dedent("""\
+            auto lo
+            iface lo inet loopback
+
+            # control-manual interface0
+            iface interface0 inet dhcp
+
+            auto interface1
+            iface interface1 inet static
+                address 192.168.14.2/24
+                gateway 192.168.14.1
+                mtu 1492
+
+            auto interface1:1
+            iface interface1:1 inet static
+                address 192.168.14.4/24
+
+            allow-hotplug interface2
+            iface interface2 inet static
+                gateway 10.11.12.1
+                address 10.11.12.13/22
+
+            source /etc/network/interfaces.d/*.cfg
+            """)
+        net_ifaces = net.render_interfaces(ns.network_state)
+        print("\n".join(sorted(ifaces.split('\n'))))
+        print("\n^^ LOCAL -- RENDER vv")
+        print("\n".join(sorted(net_ifaces.split('\n'))))
+        print(ns.network_state.get('interfaces'))
+        self.assertEqual(sorted(ifaces.split('\n')),
+                         sorted(net_ifaces.split('\n')))
+
+    def test_render_interfaces_ipv6_aliases(self):
+        ipv6_aliases_config = '''
+# YAML example of a simple network config
+network:
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: eth0
+          mac_address: "c0:d6:9f:2c:e8:80"
+          subnets:
+              - type: static
+                address: fde9:8f83:4a81:1:0:1:0:6/64
+              - type: static
+                address: 192.168.0.1/24
+'''
+
+        ns = self.get_net_state(ipv6_aliases_config)
+        ifaces = dedent("""\
+            auto lo
+            iface lo inet loopback
+
+            auto eth0
+            iface eth0 inet6 static
+                address fde9:8f83:4a81:1:0:1:0:6/64
+
+            auto eth0:1
+            iface eth0:1 inet static
+                address 192.168.0.1/24
+
+            source /etc/network/interfaces.d/*.cfg
+            """)
+        net_ifaces = net.render_interfaces(ns.network_state)
+        print("\n".join(sorted(ifaces.split('\n'))))
+        print("\n^^ LOCAL -- RENDER vv")
+        print("\n".join(sorted(net_ifaces.split('\n'))))
+        print(ns.network_state.get('interfaces'))
+        self.assertEqual(sorted(ifaces.split('\n')),
+                         sorted(net_ifaces.split('\n')))
+
 
 # vi: ts=4 expandtab syntax=python

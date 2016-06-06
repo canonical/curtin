@@ -49,8 +49,6 @@ def ifconfig_to_dict(ifconfig):
 class TestNetworkAbs(VMBaseClass):
     interactive = False
     conf_file = "examples/tests/bonding_network.yaml"
-    install_timeout = 600
-    boot_timeout = 600
     extra_disks = []
     extra_nics = []
     collect_scripts = [textwrap.dedent("""
@@ -61,6 +59,7 @@ class TestNetworkAbs(VMBaseClass):
         ip -o route show > ip_route_show
         route -n > route_n
         dpkg-query -W -f '${Status}' ifenslave > ifenslave_installed
+        find /etc/network/interfaces.d > find_interfacesd
         """)]
 
     def test_output_files_exist(self):
@@ -204,8 +203,31 @@ class TestNetworkAbs(VMBaseClass):
                 self.assertEqual(gw_ip, gw)
 
 
+class PreciseHWETTestBonding(relbase.precise_hwe_t, TestNetworkAbs):
+    __test__ = True
+    # package names on precise are different, need to check on ifenslave-2.6
+    collect_scripts = TestNetworkAbs.collect_scripts + [textwrap.dedent("""
+             cd OUTPUT_COLLECT_D
+             dpkg-query -W -f '${Status}' ifenslave-2.6 > ifenslave_installed
+             """)]
+
+
 class TrustyTestBonding(relbase.trusty, TestNetworkAbs):
     __test__ = False
+
+
+class TrustyHWEUTestBonding(relbase.trusty_hwe_u, TrustyTestBonding):
+    __test__ = True
+
+
+class TrustyHWEVTestBonding(relbase.trusty_hwe_v, TrustyTestBonding):
+    # Working, but off by default to safe test suite runtime
+    # oldest/newest HWE-* covered above/below
+    __test__ = False
+
+
+class TrustyHWEWTestBonding(relbase.trusty_hwe_w, TrustyTestBonding):
+    __test__ = True
 
 
 class VividTestBonding(relbase.vivid, TestNetworkAbs):
@@ -213,4 +235,8 @@ class VividTestBonding(relbase.vivid, TestNetworkAbs):
 
 
 class WilyTestBonding(relbase.wily, TestNetworkAbs):
+    __test__ = True
+
+
+class XenialTestBonding(relbase.xenial, TestNetworkAbs):
     __test__ = True

@@ -8,13 +8,16 @@ rel="$(lsb_release -sc)"
 case "$(uname -m)" in
   i?86|x86_64) qemu="qemu-system-x86";;
   ppc*) qemu="qemu-system-ppc";;
+  s390x) qemu="qemu-system-s390x";;
 esac
 DEPS=(
   cloud-image-utils
   make
   python3
   python3-nose
+  python3-simplestreams
   python3-yaml
+  ovmf
   simplestreams
   $qemu
   ubuntu-cloudimage-keyring

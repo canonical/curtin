@@ -30,6 +30,7 @@ REQUIRED_EXECUTABLES = [
     ('file', 'file'),
     ('lvcreate', 'lvm2'),
     ('mdadm', 'mdadm'),
+    ('mkfs.vfat', 'dosfstools'),
     ('mkfs.btrfs', 'btrfs-tools'),
     ('mkfs.ext4', 'e2fsprogs'),
     ('mkfs.xfs', 'xfsprogs'),
@@ -153,7 +154,8 @@ def install_deps(verbosity=False, dry_run=False, allow_daemons=True):
 
     ret = 0
     try:
-        install_packages(missing_pkgs, allow_daemons=allow_daemons)
+        install_packages(missing_pkgs, allow_daemons=allow_daemons,
+                         aptopts=["--no-install-recommends"])
     except ProcessExecutionError as e:
         sys.stderr.write("%s\n" % e)
         ret = e.exit_code

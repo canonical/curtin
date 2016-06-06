@@ -11,6 +11,7 @@ TAPDEVS=( )
 # OVS_CLEANUP gets populated with bridge:devname pairs used with ovs
 OVS_CLEANUP=( )
 MAC_PREFIX="52:54:00:12:34"
+KVM="kvm"
 declare -A KVM_DEVOPTS
 
 error() { echo "$@" 1>&2; }
@@ -35,9 +36,9 @@ cleanup() {
             debug 1 "removing" "$item"
             name="${item%:*}"
             if $DRY_RUN; then
-            	error ip tuntap del mode tap "$name"
+                error ip tuntap del mode tap "$name"
             else
-            	ip tuntap del mode tap "$name"
+                ip tuntap del mode tap "$name"
             fi
             [ $? -eq 0 ] || error "failed removal of $name"
         done
@@ -48,9 +49,9 @@ cleanup() {
             # will refuse to add the same name.
             error "cleaning up ovs ports: ${OVS_CLEANUP[@]}"
             if ${DRY_RUN}; then
-            	error sudo "$0" tap-control ovs-cleanup "${OVS_CLEANUP[@]}"
+                error sudo "$0" tap-control ovs-cleanup "${OVS_CLEANUP[@]}"
             else
-            	sudo "$0" tap-control ovs-cleanup "${OVS_CLEANUP[@]}"
+                sudo "$0" tap-control ovs-cleanup "${OVS_CLEANUP[@]}"
             fi
         fi
     fi
@@ -102,13 +103,13 @@ isdevopt() {
     local model="$1" input="${2%%=*}"
     local out="" opt="" opts=()
     if [ -z "${KVM_DEVOPTS[$model]}" ]; then
-        out=$(kvm -device "$model,?" 2>&1) &&
-            out=$(echo "$out" | sed -e "s,${model}[.],," -e 's,=.*,,') &&
+        out=$($KVM -device "$model,?" 2>&1) &&
+            out=$(echo "$out" | sed -e "s,[^.]*[.],," -e 's,=.*,,') &&
             KVM_DEVOPTS[$model]="$out" ||
             { error "bad device model $model?"; exit 1; }
     fi
     opts=( ${KVM_DEVOPTS[$model]} )
-    for opt in "${KVM_DEVOPTS[@]}"; do
+    for opt in "${opts[@]}"; do
         [ "$input" = "$opt" ] && return 0
     done
     return 1
@@ -194,15 +195,15 @@ make_nics() {
         }
         if [ "$btype" = "ovs" ]; then
             ovs-vsctl add-port "$bridge" "$tap" 1>&2 || {
-            	error "failed: ovs-vsctl add-port $bridge $tap";
-            	ovs-vsctl del-port "$bridge" "$tap"
-            	return 1;
+                error "failed: ovs-vsctl add-port $bridge $tap";
+                ovs-vsctl del-port "$bridge" "$tap"
+                return 1;
             }
         else
             ip link set "$tap" master "$bridge" 1>&2 || {
-            	error "failed to add tap '$tap' to '$bridge'"
-            	ip tuntap del mode tap "$tap";
-            	return 1
+                error "failed to add tap '$tap' to '$bridge'"
+                ip tuntap del mode tap "$tap";
+                return 1
             }
         fi
         echo "$tap:$btype"
@@ -223,6 +224,21 @@ ovs_cleanup() {
     return $errors
 }
 
+quote_cmd() {
+    local quote='"' x="" vline=""
+    for x in "$@"; do
+        if [ "${x#* }" != "${x}" ]; then
+            if [ "${x#*$quote}" = "${x}" ]; then
+                x="\"$x\""
+            else
+                x="'$x'"
+            fi
+        fi
+        vline="${vline} $x"
+    done
+    echo "$vline"
+}
+
 main() {
     local short_opts="hd:n:v"
     local long_opts="help,dowait,disk:,dry-run,kvm:,no-dowait,netdev:,verbose"
@@ -231,10 +247,10 @@ main() {
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
         eval set -- "${getopt_out}" || { bad_Usage; return 1; }
 
-    local bridge="$DEF_BRIDGE"
+    local bridge="$DEF_BRIDGE" oifs="$IFS"
     local netdevs="" need_tap="" ret="" p="" i="" pt="" cur="" conn=""
     local kvm="" kvmcmd="" archopts=""
-    local def_diskif=${DEF_DISKIF:-"virtio"}
+    local def_disk_driver=${DEF_DISK_DRIVER:-"virtio-blk"}
     local def_netmodel=${DEF_NETMODEL:-"virtio-net-pci"}
 
     archopts=( )
@@ -258,14 +274,14 @@ main() {
         case "$cur" in
             -h|--help) Usage; exit 0;;
             -d|--disk)
-            	diskdevs[${#diskdevs[@]}]="$next"; shift;;
-               --dry-run) DRY_RUN=true;;
-               --kvm) kvm="$next"; shift;;
+                diskdevs[${#diskdevs[@]}]="$next"; shift;;
+            --dry-run) DRY_RUN=true;;
+            --kvm) kvm="$next"; shift;;
             -n|--netdev)
-            	netdevs[${#netdevs[@]}]=$next; shift;;
+                netdevs[${#netdevs[@]}]=$next; shift;;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
-               --dowait) dowait=true;;
-               --no-dowait) dowait=false;;
+            --dowait) dowait=true;;
+            --no-dowait) dowait=false;;
             --) shift; break;;
         esac
         shift;
@@ -274,39 +290,103 @@ main() {
     [ ${#netdevs[@]} -eq 0 ] && netdevs=( "${DEF_BRIDGE}" )
     pt=( "$@" )
 
-    local kvm_pkg=""
+    local kvm_pkg="" virtio_scsi_bus="virtio-scsi-pci"
     [ -n "$kvm" ] && kvm_pkg="none"
     case $(uname -m) in
         i?86)
             [ -n "$kvm" ] ||
-            	{ kvm="qemu-system-i386"; kvm_pkg="qemu-system-x86"; }
+                { kvm="qemu-system-i386"; kvm_pkg="qemu-system-x86"; }
             ;;
         x86_64)
             [ -n "$kvm" ] ||
-            	{ kvm="qemu-system-x86_64"; kvm_pkg="qemu-system-x86"; }
+                { kvm="qemu-system-x86_64"; kvm_pkg="qemu-system-x86"; }
+            ;;
+        s390x)
+            [ -n "$kvm" ] ||
+                { kvm="qemu-system-s390x"; kvm_pkg="qemu-system-misc"; }
+            def_netmodel=${DEF_NETMODEL:-"virtio-net-ccw"}
+            virtio_scsi_bus="virtio-scsi-ccw"
             ;;
         ppc64*)
             [ -n "$kvm" ] ||
-            	{ kvm="qemu-system-ppc64"; kvm_pkg="qemu-system-ppc"; }
-            def_netmodel="spapr-vlan"
+                { kvm="qemu-system-ppc64"; kvm_pkg="qemu-system-ppc"; }
+            def_netmodel="virtio-net-pci"
             # virtio seems functional on in 14.10, but might want scsi here
             #def_diskif="scsi"
             archopts=( "${archopts[@]}" -machine pseries,usb=off )
             archopts=( "${archopts[@]}" -device spapr-vscsi )
             ;;
-        *) kvm=qemu-system-$(uname -r);;
+        *) kvm=qemu-system-$(uname -m);;
     esac
+    KVM="$kvm"
     kvmcmd=( $kvm -enable-kvm )
 
-    local out="" fmt=""
-    for i in "${diskdevs[@]}"; do
-        if [ -f "$i" ]; then
-            out=$(LANG=C qemu-img info "$i") &&
+    local out="" fmt="" bus="" unit="" index="" serial="" driver="" devopts=""
+    local busorindex="" driveopts="" cur="" val="" file=""
+    for((i=0;i<${#diskdevs[@]};i++)); do
+        cur=${diskdevs[$i]}
+        IFS=","; set -- $cur; IFS="$oifs"
+        driver=""
+        id=$(printf "disk%02d" "$i")
+        file=""
+        fmt=""
+        bus=""
+        unit=""
+        index=""
+        serial=""
+        for tok in "$@"; do
+            [ "${tok#*=}" = "${tok}" -a -f "${tok}" -a -z "$file" ] && file="$tok"
+            val=${tok#*=}
+            case "$tok" in
+                driver=*) driver=$val;;
+                if=virtio) driver=virtio-blk;;
+                if=scsi) driver=scsi-hd;;
+                if=pflash) driver=;;
+                if=sd|if=mtd|floppy) fail "do not know what to do with $tok on $cur";;
+                id=*) id=$val;;
+                file=*) file=$val;;
+                format=*) fmt=$val;;
+                serial=*) serial=$val;;
+                bus=*) bus=$val;;
+                unit=*) unit=$val;;
+                index=*) index=$val;;
+            esac
+        done
+        [ -z "$file" ] && fail "did not read a file from $cur"
+        if [ -f "$file" -a -z "$fmt" ]; then
+            out=$(LANG=C qemu-img info "$file") &&
                 fmt=$(echo "$out" | awk '$0 ~ /^file format:/ { print $3 }') ||
-                { error "failed to determine format of $i"; return 1; }
+                { error "failed to determine format of $file"; return 1; }
         fi
-        diskargs[${#diskargs[@]}]="-drive";
-        diskargs[${#diskargs[@]}]="if=${def_diskif},file=$i,format=$fmt";
+        if [ -z "$driver" ]; then
+            driver="$def_disk_driver"
+        fi
+        if [ -z "$serial" ]; then
+            serial="${file##*/}"
+        fi
+
+        # make sure we add either bus= or index=
+        if [ -n "$bus" -o "$unit" ] && [ -n "$index" ]; then
+            fail "bus and index cant be specified together: $cur"
+        elif [ -z "$bus" -a -z "$unit" -a -z "$index" ]; then
+            index=$i
+        elif [ -n "$bus" -a -z "$unit" ]; then
+            unit=$i
+        fi
+
+        busorindex="${bus:+bus=$bus,unit=$unit}${index:+index=${index}}"
+        diskopts="file=${file},id=$id,if=none,format=$fmt,$busorindex"
+        devopts="$driver,drive=$id${serial:+,serial=${serial}}"
+        for tok in "$@"; do
+            case "$tok" in
+                id=*|if=*|driver=*|$file) continue;;
+                serial=*|bus=*|unit=*|index=*) continue;;
+            esac
+            isdevopt "$driver" "$tok" && devopts="${devopts},$tok" ||
+                diskopts="${diskopts},${tok}"
+        done
+
+        diskargs=( "${diskargs[@]}" -drive "$diskopts" -device "$devopts" )
     done
 
     local mnics_vflag=""
@@ -316,7 +396,7 @@ main() {
     # now go through and split out options
     # -device virtio-net-pci,netdev=virtnet0,mac=52:54:31:15:63:02
     # -netdev type=tap,id=virtnet0,vhost=on,script=/etc/kvm/kvm-ifup.br0,downscript=no
-    local oifs="$IFS" netopts="" devopts="" id="" need_taps=0 model=""
+    local netopts="" devopts="" id="" need_taps=0 model=""
     local device_args netdev_args
     device_args=( )
     netdev_args=( )
@@ -348,20 +428,20 @@ main() {
         for tok in "$@"; do
             [ "${tok#model=}" = "${tok}" ] && continue
             case "${tok#model=}" in
-            	virtio) model=virtio-net-pci;;
-            	*) model=${tok#model=};;
+                virtio) model=virtio-net-pci;;
+                *) model=${tok#model=};;
             esac
         done
 
         for tok in "$@"; do
             case "$tok" in
-            	mac=*) mac="${tok#mac=}"; continue;;
-            	macaddr=*) mac=${tok#macaddr=}; continue;;
-            	model=*) continue;;
+                mac=*) mac="${tok#mac=}"; continue;;
+                macaddr=*) mac=${tok#macaddr=}; continue;;
+                model=*) continue;;
             esac
 
             isdevopt "$model" "$tok" && devopts="${devopts},$tok" ||
-            	netopts="${netopts},${tok}"
+                netopts="${netopts},${tok}"
         done
         devopts=${devopts#,}
         netopts=${netopts#,}
@@ -403,22 +483,31 @@ main() {
 
     if [ $need_taps -ne 0 ]; then
         local missing="" missing_pkgs="" reqs="" req="" pkgs="" pkg=""
+        for i in "${connections[*]}"; do
+            [ "$i" = "user" -o -e "/sys/class/net/dev/$i" ] ||
+                missing="${missing} $i"
+        done
+        [ -z "$missing" ] || {
+            error "cannot create connection on ${missing# }."
+            error "bridges do not exist.";
+            return 1;
+        }
         error "creating tap devices: ${connections[*]}"
         if $DRY_RUN; then
             error "sudo $0 tap-control make-nics" \
-            	$mnics_vflag "${connections[@]}"
+                $mnics_vflag "${connections[@]}"
             taps=""
             for((i=0;i<${#connections[@]};i++)); do
-            	if [ "${connections[$i]}" = "user" ]; then
-            		taps="${taps} skip"
-            	else
-            		taps="${taps} dryruntap$i:brctl"
-            	fi
+                if [ "${connections[$i]}" = "user" ]; then
+                    taps="${taps} skip"
+                else
+                    taps="${taps} dryruntap$i:brctl"
+                fi
             done
         else
             taps=$(sudo "$0" tap-control make-nics \
                    ${mnics_vflag} "${connections[@]}") ||
-            	{ error "$failed to make-nics ${connections[*]}"; return 1; }
+                { error "$failed to make-nics ${connections[*]}"; return 1; }
         fi
         TAPDEVS=( ${taps} )
         for((i=0;i<${#TAPDEVS[@]};i++)); do
@@ -444,11 +533,15 @@ main() {
                   -netdev "${netdev_args[$i]}")
     done
 
-    cmd=( "${kvmcmd[@]}" "${archopts[@]}" "${netargs[@]}"
-           "${diskargs[@]}" "${pt[@]}" )
-    error "${cmd[@]}"
+    local bus_devices
+    bus_devices=( -device "$virtio_scsi_bus,id=virtio-scsi-xkvm" )
+    cmd=( "${kvmcmd[@]}" "${archopts[@]}" "${bus_devices[@]}"
+          "${netargs[@]}"
+          "${diskargs[@]}" "${pt[@]}" )
+    local pcmd=$(quote_cmd "${cmd[@]}")
+    error "$pcmd"
     ${DRY_RUN} && return 0
-    
+
     if $dowait; then
         "${cmd[@]}" &
         KVM_PID=$!

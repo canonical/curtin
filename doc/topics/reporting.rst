@@ -67,10 +67,13 @@ provide curtin with config like::
       consumer_secret: "cs_foo"
       token_key: "tk_foo"
       token_secret: "tk_secret"
+      level: INFO
 
 The ``endpoint`` key is required. Oauth information (consumer_key,
 consumer_secret, token_key, token_secret) is not required, but if provided
-then oauth will be used to authenticate to the endpoint on each post.
+then oauth will be used to authenticate to the endpoint on each post. If level
+is specified then all messages with a lower priority than specified will be
+ignored. Default is INFO.
 
 Example Events
 ~~~~~~~~~~~~~~
@@ -81,7 +84,8 @@ The following is an example event that would be posted::
    "timestamp": 1440688425.6038516,
    "event_type": "start",
    "name": "cmd-install",
-   "description": "curtin command install"
+   "description": "curtin command install",
+   "level": "INFO"
   }
 
 

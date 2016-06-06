@@ -154,8 +154,12 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
         err = ('Raidlevel does not support spare devices: ' + str(raidlevel))
         raise ValueError(err)
 
+    (hostname, _err) = util.subp(["hostname", "-s"], rcs=[0], capture=True)
+
     cmd = ["mdadm", "--create", md_devname, "--run",
-           "--level=%s" % raidlevel, "--raid-devices=%s" % len(devices)]
+           "--homehost=%s" % hostname.strip(),
+           "--level=%s" % raidlevel,
+           "--raid-devices=%s" % len(devices)]
     if md_name:
         cmd.append("--name=%s" % md_name)
 
@@ -174,7 +178,22 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
     # Create the raid device
     util.subp(["udevadm", "settle"])
     util.subp(["udevadm", "control", "--stop-exec-queue"])
-    util.subp(cmd, capture=True)
+    try:
+        util.subp(cmd, capture=True)
+    except util.ProcessExecutionError:
+        # frequent issues by modules being missing (LP: #1519470) - add debug
+        LOG.debug('mdadm_create failed - extra debug regarding md modules')
+        (out, _err) = util.subp(["lsmod"], capture=True)
+        if not _err:
+            LOG.debug('modules loaded: \n%s' % out)
+        raidmodpath = '/lib/modules/%s/kernel/drivers/md' % os.uname()[2]
+        (out, _err) = util.subp(["find", raidmodpath],
+                                rcs=[0, 1], capture=True)
+        if out:
+            LOG.debug('available md modules: \n%s' % out)
+        else:
+            LOG.debug('no available md modules found')
+        raise
     util.subp(["udevadm", "control", "--start-exec-queue"])
     util.subp(["udevadm", "settle",
                "--exit-if-exists=%s" % md_devname])
@@ -270,7 +289,7 @@ def md_sysfs_attr(md_devname, attrname):
 
     attrdata = ''
     #  /sys/class/block/<md_short>/md
-    sysmd = sys_block_path(dev_short(md_devname)) + "/md"
+    sysmd = sys_block_path(md_devname, "md")
 
     #  /sys/class/block/<md_short>/md/attrname
     sysfs_attr_path = os.path.join(sysmd, attrname)
@@ -462,14 +481,7 @@ def md_read_run_mdadm_map():
 
 
 def md_get_spares_list(devpath):
-    assert_valid_devpath(devpath)
-
-    sysfs_md = sys_block_path(devpath) + '/md'
-
-    if not os.path.exists(sysfs_md):
-        raise ValueError('Cannot find md sysfs directory: ' +
-                         sysfs_md)
-
+    sysfs_md = sys_block_path(devpath, "md")
     spares = [dev_path(dev[4:])
               for dev in os.listdir(sysfs_md)
               if (dev.startswith('dev-') and
@@ -481,12 +493,7 @@ def md_get_spares_list(devpath):
 
 
 def md_get_devices_list(devpath):
-    assert_valid_devpath(devpath)
-
-    sysfs_md = sys_block_path(devpath) + '/md'
-    if not os.path.exists(sysfs_md):
-        raise ValueError('Cannot find md sysfs directory: ' +
-                         sysfs_md)
+    sysfs_md = sys_block_path(devpath, "md")
     devices = [dev_path(dev[4:])
                for dev in os.listdir(sysfs_md)
                if (dev.startswith('dev-') and

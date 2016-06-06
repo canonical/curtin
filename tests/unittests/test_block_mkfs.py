@@ -13,6 +13,9 @@ class TestBlockMkfs(TestCase):
                 "uuid": self.test_uuid}
 
     def _assert_same_flags(self, call, expected):
+        print("call:\n{}".format(call))
+        print("expected:\n{}".format(expected))
+
         for flag in expected:
             if type(flag) == list:
                 flag_name = flag[0]
@@ -38,6 +41,7 @@ class TestBlockMkfs(TestCase):
         # Pretend we are on wily as there are no known edge cases for it
         mock_util.lsb_release.return_value = {"codename": release}
         mock_os.path.exists.return_value = True
+        mock_block.get_blockdev_sector_size.return_value = (512, 512)
 
         mkfs.mkfs_from_config("/dev/null", config, strict=strict)
         self.assertTrue(mock_util.subp.called)
@@ -79,7 +83,13 @@ class TestBlockMkfs(TestCase):
     def test_mkfs_fat(self):
         conf = self._get_config("fat32")
         expected_flags = [["-n", "format1"], ["-F", "32"]]
-        self._run_mkfs_with_config(conf, "mkfs.fat", expected_flags)
+        self._run_mkfs_with_config(conf, "mkfs.vfat", expected_flags)
+
+    def test_mkfs_vfat(self):
+        """Ensure we can use vfat without fatsize"""
+        conf = self._get_config("vfat")
+        expected_flags = [["-n", "format1"], ]
+        self._run_mkfs_with_config(conf, "mkfs.vfat", expected_flags)
 
     def test_mkfs_invalid_fstype(self):
         """Do not proceed if fstype is None or invalid"""
@@ -115,6 +125,7 @@ class TestBlockMkfs(TestCase):
     @mock.patch("curtin.block.mkfs.os")
     def test_mkfs_kwargs(self, mock_os, mock_util, mock_block):
         """Ensure that kwargs are being followed"""
+        mock_block.get_blockdev_sector_size.return_value = (512, 512)
         mkfs.mkfs("/dev/null", "ext4", [], uuid=self.test_uuid,
                   label="testlabel", force=True)
         expected_flags = ["-F", ["-L", "testlabel"], ["-U", self.test_uuid]]
@@ -134,10 +145,12 @@ class TestBlockMkfs(TestCase):
             mock_os.path.exists.return_value = True
             mkfs.mkfs(None, "ext4")
 
+    @mock.patch("curtin.block.mkfs.block")
     @mock.patch("curtin.block.mkfs.util")
     @mock.patch("curtin.block.mkfs.os")
-    def test_mkfs_generates_uuid(self, mock_os, mock_util):
+    def test_mkfs_generates_uuid(self, mock_os, mock_util, mock_block):
         """Ensure that block.mkfs generates and returns a uuid if None is
            provided"""
+        mock_block.get_blockdev_sector_size.return_value = (512, 512)
         uuid = mkfs.mkfs("/dev/null", "ext4")
         self.assertIsNotNone(uuid)
