@@ -5,6 +5,7 @@ import glob
 import os
 import re
 import shutil
+import socket
 import tempfile
 
 from unittest import TestCase
@@ -59,6 +60,7 @@ class TestAptSourceConfig(TestCase):
         self.aptlistfile3 = os.path.join(self.tmp, "single-deb3.list")
         self.join = os.path.join
         self.matcher = re.compile(ADD_APT_REPO_MATCH).search
+        self.orig_gpg_recv_key = util.gpg_recv_key
 
     @staticmethod
     def _get_default_params():
@@ -318,10 +320,28 @@ class TestAptSourceConfig(TestCase):
         environment as is)
         """
         params = self._get_default_params()
-        with mock.patch.object(apt_source, 'add_apt_key_raw') as mockobj:
-            apt_source.add_apt_sources(cfg, params, aa_repo_match=self.matcher)
 
-        mockobj.assert_called_with(expectedkey)
+        def fake_gpg_recv_key(keyid, keyserver):
+            """try original gpg_recv_key, but allow fall back"""
+            try:
+                self.orig_gpg_recv_key(keyid, keyserver)
+            except ValueError:
+                # if this is a networking issue mock it's effect
+                testsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                try:
+                    testsock.connect((keyserver, 80))
+                    testsock.close()
+                except socket.error:
+                    # as fallback add the known key as a working recv would
+                    util.subp(("gpg", "--import", "-"), EXPECTEDKEY)
+
+        with mock.patch.object(apt_source, 'add_apt_key_raw') as mockkey:
+            with mock.patch.object(util, 'gpg_recv_key',
+                                   side_effect=fake_gpg_recv_key):
+                apt_source.add_apt_sources(cfg, params,
+                                           aa_repo_match=self.matcher)
+
+        mockkey.assert_called_with(expectedkey)
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
