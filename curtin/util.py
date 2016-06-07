@@ -866,7 +866,7 @@ def gpg_delete_key(key):
     subp(["gpg", "--batch", "--yes", "--delete-keys", key], capture=True)
 
 
-def getkeybyid(keyid, keyserver):
+def gpg_getkeybyid(keyid, keyserver):
     """get gpg keyid from keyserver"""
     armour = gpg_export_armour(keyid)
     if not armour:
