@@ -171,7 +171,7 @@ def rename_apt_lists(new_mirrors):
         olen = len(oprefix)
         for filename in glob.glob("%s_*" % oprefix):
             newname = "%s%s" % (nprefix, filename[olen:])
-            LOG.info("Renaming apt list %s to %s", filename, newname)
+            LOG.debug("Renaming apt list %s to %s", filename, newname)
             try:
                 os.rename(filename, newname)
             except OSError:
