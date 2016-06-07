@@ -176,7 +176,7 @@ def rename_apt_lists(new_mirrors):
                 os.rename(filename, newname)
             except OSError:
                 # since this is a best effort task, warn with but don't fail
-                LOG.warn("failed to rename apt list: %s", exc_info=True)
+                LOG.warn("Failed to rename apt list:", exc_info=True)
 
 
 def generate_sources_list(cfg, release, mirrors):
