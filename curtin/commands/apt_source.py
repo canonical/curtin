@@ -119,8 +119,8 @@ def handle_apt_source(cfg):
 
     try:
         apply_apt_proxy_config(cfg, APT_PROXY_FN, APT_CONFIG_FN)
-    except (IOError, OSError) as error:
-        LOG.warn("failed to proxy or apt config info: %s", error)
+    except (IOError, OSError):
+        LOG.exception("Failed to apply proxy or apt config info:")
 
     # Process 'apt_source -> sources {dict}'
     if 'sources' in cfg:
