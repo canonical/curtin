@@ -141,7 +141,7 @@ def handle_apt_source(cfg):
 
 def mirrorurl_to_apt_fileprefix(mirror):
     """ mirrorurl_to_apt_fileprefix
-        Convert a mirror url to the fule prefix used by apt on disk to
+        Convert a mirror url to the file prefix used by apt on disk to
         store cache information for that mirror.
         To do so do:
         - take off ???://
