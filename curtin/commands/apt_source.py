@@ -110,7 +110,7 @@ def handle_apt_source(cfg):
     """
     release = util.lsb_release()['codename']
     mirrors = find_apt_mirror_info(cfg)
-    LOG.debug("Mirror info: %s", mirrors)
+    LOG.debug("Apt Mirror info: %s", mirrors)
 
     if not config.value_as_boolean(cfg.get('apt_preserve_sources_list',
                                            False)):
