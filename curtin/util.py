@@ -883,7 +883,7 @@ def gpg_getkeybyid(keyid, keyserver):
     return armour.rstrip('\n')
 
 
-def basic_render(content, params):
+def basic_template_render(content, params):
     """This does simple replacement of bash variable like templates.
 
     It identifies patterns like ${a} or $a and can also identify patterns like
@@ -927,7 +927,7 @@ def basic_render(content, params):
 def render_string_to_file(content, outfn, params, mode=0o644):
     """ render_string_to_file
         render a string to a file following replacement rules as defined
-        in basic_render
+        in basic_template_render
     """
     if not outfn or not content:
         return
@@ -937,12 +937,12 @@ def render_string_to_file(content, outfn, params, mode=0o644):
 
 def render_string(content, params):
     """ render_string
-        render a string following replacement rules as defined in basic_render
-        returning the string
+        render a string following replacement rules as defined in
+        basic_template_render returning the string
     """
     if not params:
         params = {}
-    return basic_render(content, params)
+    return basic_template_render(content, params)
 
 
 # vi: ts=4 expandtab syntax=python
