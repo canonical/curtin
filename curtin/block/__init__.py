@@ -19,7 +19,6 @@ import errno
 import os
 import stat
 import shlex
-import string
 import tempfile
 import itertools
 
@@ -494,25 +493,26 @@ def lookup_disk(serial):
 def sysfs_partition_data(blockdev=None, sysfs_path=None):
     # given block device or sysfs_path, return a list of tuples
     # of (kernel_name, number, offset, size)
-    if blockdev is None and sysfs_path is None:
-        raise ValueError("Blockdev and sysfs_path cannot both be None")
-
-    partnum = None
     if blockdev:
+        blockdev = os.path.normpath(blockdev)
         sysfs_path = sys_block_path(blockdev)
+    elif sysfs_path:
+        # use normpath to ensure that paths with trailing slash work
+        sysfs_path = os.path.normpath(sysfs_path)
+        blockdev = os.path.join('/dev', os.path.basename(sysfs_path))
+    else:
+        raise ValueError("Blockdev and sysfs_path cannot both be None")
 
     # queue property is only on parent devices, ie, we can't read
     # /sys/class/block/vda/vda1/queue/* as queue is only on the
     # parent device
+    partnum = None
     sysfs_prefix = sysfs_path
-    if blockdev:
-        (parent, _partnum) = get_blockdev_for_partition(blockdev)
-        if _partnum:
-            sysfs_prefix = sys_block_path(parent)
-            partnum = int(_partnum)
-    elif os.path.exists(os.path.join(sysfs_path, 'partition')):
-        (sysfs_prefix, _part_kname) = os.path.split(sysfs_path)
-        partnum = int(_part_kname.strip(string.ascii_letters))
+
+    (parent, _partnum) = get_blockdev_for_partition(blockdev)
+    if _partnum:
+        sysfs_prefix = sys_block_path(parent)
+        partnum = int(_partnum)
 
     block_size = int(util.load_file(os.path.join(
         sysfs_prefix, 'queue/logical_block_size')))
