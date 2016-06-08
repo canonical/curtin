@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 VERBOSITY=0
 TEMP_D=""
@@ -23,11 +23,16 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
            --add  F[:T] add file 'F' to the curtin archive at T
       -a | --append     append args to kernel cmdline (--kernel)
       -A | --arch   A   assume guest kernel architecture A
-      -d | --disk   D   add a disk 'D' format (path[:size][:driver][:bsize])
+      -d | --disk   D   add a disk 'D' format
+                        (path[:size][:driver][:bsize][:devopts])
                         driver can be specified without size using path::driver
                         driver defaults to virtio-blk
                         bsize <logical>[,<physical>][,<min_io_size>]
                         bsize defaults to 512b sector size
+                        opts is a comma delimitted list of property=value
+                        elements. Examine qemu-kvm -device scsi-hd,? for 
+                        details.
+           --vnc D      use -vnc D (mutually exclusive with --silent)
            --uefi   N   enable uefi boot method, store nvram at N
       -h | --help       show this message
       -i | --initrd F   use initramfs F
@@ -280,7 +285,7 @@ main() {
         case "$cur" in
                --add) addfiles[${#addfiles[@]}]="$next"; shift;;
             -a|--append) uappend="$next"; shift;;
-            -A|--arch) arch_hint="$next"; shift;;	       
+            -A|--arch) arch_hint="$next"; shift;;       
             -d|--disk) disks[${#disks[@]}]="$next"; shift;;
             -h|--help) Usage ; exit 0;;
             -i|--initrd) initrd="$next"; shift;;
@@ -388,25 +393,27 @@ main() {
         { error "failed to get dir for $0"; return 1; }
 
     local disk="" src="" size="" fmt="" out="" id="" driver="" if=""
-    local split_input=""
+    local split_input="" serial=""
     disk_args=( )
     id=1
     for disk in "${disks[@]}"; do
         ((id++))
-
         # 1=src
         # 2=src:size
         # 3=src:size:driver
         # 4=src:size:driver:bsize
+        # 5=src:size:driver:bsize:devopts
         src=$(echo $disk | awk -F: '{print $1}')
         size=$(echo $disk | awk -F: '{print $2}')
         driver=$(echo $disk | awk -F: '{print $3}')
         bsize=$(echo $disk | awk -F: '{print $4}')
+        devopts=$(echo $disk | awk -F: '{print $5}')
         
         if [ -z "${src}" ]; then
             error "Failed to provide disk source"
             exit 1
         fi
+        disk_serial="`basename $src`"
 
         if [ -z "${size}" ]; then
             size=5G
@@ -418,6 +425,14 @@ main() {
         
         if [ -z "${bsize}" ]; then
             bsize="512"
+        fi
+
+        # generate wwn for scsi disks if not in devopts
+        if [ "${driver}" == "scsi-hd" ]; then
+            if ! echo $devopts | grep -q wwn ; then
+                wwn="$(random_wwn)"
+                devopts="${devopts}wwn=$wwn"
+            fi
         fi
 
         if [ ! -f "$src" ]; then
@@ -441,7 +456,7 @@ main() {
             "file=${src},if=none,cache=unsafe,format=$fmt,id=drv${id},index=$id" )
 
         disk_args=( "${disk_args[@]}" "-device"
-            "${driver},drive=drv${id},serial=dev${id},${bs_args}" )
+            "${driver},drive=drv${id},serial=${disk_serial},${bs_args},${devopts}" )
         
     done
 
@@ -557,7 +572,9 @@ main() {
         # if this is a partition image, root=/dev/vda. else root=/dev/vda1
         # this hack is necessary because LABEL even UUID  might be the same
         # in the boot image and the target (if re-using target)
-        if tmp=$(blkid "$bootimg_dist" -ovalue -s UUID) && [ -n "$tmp" ]; then
+        local bottom=$(qemu-img info --backing-chain "$bootimg_dist" |
+                       grep ^image | tail -n1 | awk '{print $2}')
+        if tmp=$(blkid "$bottom" -ovalue -s UUID) && [ -n "$tmp" ]; then
             root="/dev/vda"
         else
             root="/dev/vda1"
@@ -586,17 +603,19 @@ main() {
     local cmd serial_args="" chardev_arg=""
     [ "${serial_log}" = "none" ] && serial_log=""
     if [ -n "${serial_log}" ]; then
-	if [ "${arch_hint}" = "s390x" ]; then
-	    if [ "${serial_log}" = "stdio" ]; then
-		chardev_arg="stdio"
-	    else
-		chardev_arg="file,path=${serial_log}"
-	    fi
-	    serial_args="-nodefaults -chardev ${chardev_arg},id=charconsole0 -device sclpconsole,chardev=charconsole0,id=console0"
-	else
-	    serial_args="-serial file:${serial_log}"
-	fi
+        if [ "${arch_hint}" = "s390x" ]; then
+            if [ "${serial_log}" = "stdio" ]; then
+                chardev_arg="stdio"
+            else
+                chardev_arg="file,path=${serial_log}"
+            fi
+                serial_args="-nodefaults -chardev ${chardev_arg},id=charconsole0 -device sclpconsole,chardev=charconsole0,id=console0"
+        else
+            serial_args="-serial file:${serial_log}"
+            #debug mode serial_args="-serial ${serial_log} -monitor stdio"
+        fi
     fi
+    # -monitor stdio 
     cmd=( 
         xkvm "${pt[@]}" "${netargs[@]}" --
         "${bios_opts[@]}"
@@ -625,6 +644,11 @@ main() {
     return $ret
 }
 
+random_wwn() {
+    # wwn must be a int64, less than (1 << 63) - 1
+    # we achieve this by combining 4 (1 << 15) ints
+    printf "0x%04x%04x%04x%04x" $RANDOM $RANDOM $RANDOM $RANDOM
+}
 
 round_up() {
     local size="${1}"

@@ -48,6 +48,7 @@ if not os.path.exists(OVMF_CODE):
 
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
+OUTPUT_DISK_NAME = 'output_disk.img'
 
 _TOPDIR = None
 
@@ -327,7 +328,7 @@ class TempDir(object):
 
         # create output disk, mount ro
         logger.debug('Creating output disk')
-        self.output_disk = os.path.join(self.boot, "output_disk.img")
+        self.output_disk = os.path.join(self.boot, OUTPUT_DISK_NAME)
         subprocess.check_call(["qemu-img", "create", "-f", TARGET_IMAGE_FORMAT,
                               self.output_disk, "10M"],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
@@ -345,6 +346,7 @@ class VMBaseClass(TestCase):
     __test__ = False
     arch_skip = []
     disk_block_size = 512
+    disk_driver = 'virtio-blk'
     disk_to_check = {}
     fstab_expected = {}
     extra_kern_args = None
@@ -438,21 +440,39 @@ class VMBaseClass(TestCase):
             netdevs.extend(["--netdev=" + DEFAULT_BRIDGE])
 
         # build disk arguments
-        # --disk source:size:driver:block_size
+        sc = util.load_file(cls.conf_file)
+        storage_config = yaml.load(sc)['storage']['config']
+        cls.wwns = ["wwn=%s" % x.get('wwn') for x in storage_config
+                    if 'wwn' in x]
+
+        target_disk = "{}:{}:{}:{}:".format(cls.td.target_disk,
+                                            "",
+                                            cls.disk_driver,
+                                            cls.disk_block_size)
+        if len(cls.wwns):
+            target_disk += cls.wwns[0]
+
+        # --disk source:size:driver:block_size:devopts
         extra_disks = []
         for (disk_no, disk_sz) in enumerate(cls.extra_disks):
             dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
-            extra_disks.extend(
-                ['--disk', '{}:{}:{}:{}'.format(dpath, disk_sz, "",
-                                                cls.disk_block_size)])
+            extra_disk = '{}:{}:{}:{}:'.format(dpath, disk_sz,
+                                               cls.disk_driver,
+                                               cls.disk_block_size)
+            if len(cls.wwns):
+                w_index = disk_no + 1
+                if w_index < len(cls.wwns):
+                    extra_disk += cls.wwns[w_index]
+
+            extra_disks.extend(['--disk', extra_disk])
 
         # build nvme disk args if needed
         nvme_disks = []
         for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
             dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
             nvme_disks.extend(
-                ['--disk', '{}:{}:nvme:{}'.format(dpath, disk_sz,
-                                                  cls.disk_block_size)])
+                ['--disk', '{}:{}:nvme:{}:{}'.format(dpath, disk_sz,
+                                                     cls.disk_block_size, "")])
 
         # proxy config
         configs = [cls.conf_file]
@@ -477,9 +497,6 @@ class VMBaseClass(TestCase):
             shutil.copy(OVMF_VARS, nvram)
             cmd.extend(["--uefi", nvram])
 
-        # --disk source:size:driver:block_size
-        target_disk = "{}:{}:{}:{}".format(cls.td.target_disk, "", "",
-                                           cls.disk_block_size)
         cmd.extend(netdevs + ["--disk", target_disk] +
                    extra_disks + nvme_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
@@ -534,22 +551,36 @@ class VMBaseClass(TestCase):
         bsize_args = "logical_block_size={}".format(cls.disk_block_size)
         bsize_args += ",physical_block_size={}".format(cls.disk_block_size)
         bsize_args += ",min_io_size={}".format(cls.disk_block_size)
-        disk_driver = "virtio-blk"
 
         target_disks = []
-        for (disk_no, disk) in enumerate([cls.td.target_disk,
-                                          cls.td.output_disk]):
-            d = '--disk={},driver={},format={},{}'.format(disk, disk_driver,
+        for (disk_no, disk) in enumerate([cls.td.target_disk]):
+            d = '--disk={},driver={},format={},{}'.format(disk,
+                                                          cls.disk_driver,
                                                           TARGET_IMAGE_FORMAT,
                                                           bsize_args)
+            if len(cls.wwns):
+                d += ",%s" % cls.wwns[0]
             target_disks.extend([d])
+
+        # output disk is always virtio-blk, with serial of output_disk.img
+        output_disk = '--disk={},driver={},format={},{},'.format(
+            cls.td.output_disk, 'virtio-blk',
+            TARGET_IMAGE_FORMAT, bsize_args,
+            'serial=%s' % cls.td.output_disk)
+        target_disks.extend([output_disk])
 
         extra_disks = []
         for (disk_no, disk_sz) in enumerate(cls.extra_disks):
             dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
-            d = '--disk={},driver={},format={},{}'.format(dpath, disk_driver,
+            d = '--disk={},driver={},format={},{}'.format(dpath,
+                                                          cls.disk_driver,
                                                           TARGET_IMAGE_FORMAT,
                                                           bsize_args)
+            if len(cls.wwns):
+                w_index = disk_no + 1
+                if w_index < len(cls.wwns):
+                    d += ",%s" % cls.wwns[w_index]
+
             extra_disks.extend([d])
 
         nvme_disks = []
@@ -940,9 +971,9 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
               'content': yaml.dump(base_cloudconfig, indent=1)},
              {'type': 'text/cloud-config', 'content': ssh_keys}]
 
-    output_dir_macro = 'OUTPUT_COLLECT_D'
     output_dir = '/mnt/output'
-    output_device = '/dev/vdb'
+    output_dir_macro = 'OUTPUT_COLLECT_D'
+    output_device = '/dev/disk/by-id/virtio-%s' % OUTPUT_DISK_NAME
 
     collect_prep = textwrap.dedent("mkdir -p " + output_dir)
     collect_post = textwrap.dedent(
@@ -950,7 +981,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
 
     # failsafe poweroff runs on precise only, where power_state does
     # not exist.
-    precise_poweroff = textwrap.dedent("""#!/bin/sh
+    precise_poweroff = textwrap.dedent("""#!/bin/sh -x
         [ "$(lsb_release -sc)" = "precise" ] || exit 0;
         shutdown -P now "Shutting down on precise"
         """)
@@ -960,7 +991,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
 
     for part in scripts:
         if not part.startswith("#!"):
-            part = "#!/bin/sh\n" + part
+            part = "#!/bin/sh -x\n" + part
         part = part.replace(output_dir_macro, output_dir)
         logger.debug('Cloud config archive content (pre-json):' + part)
         parts.append({'content': part, 'type': 'text/x-shellscript'})
