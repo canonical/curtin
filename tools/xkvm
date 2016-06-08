@@ -377,13 +377,13 @@ main() {
         fi
 
         busorindex="${bus:+bus=$bus,unit=$unit}${index:+index=${index}}"
-        diskopts="file=${file},format=$fmt,id=$id,if=none,$busorindex"
+        diskopts="file=${file},id=$id,if=none,format=$fmt,$busorindex"
         devopts="$driver,drive=$id${serial:+,serial=${serial}}"
         for tok in "$@"; do
             case "$tok" in
                 id=*|if=*|driver=*|$file|file=*) continue;;
-                serial=*|bus=*|unit=*|index=*) continue;;
                 fmt=*|format=*) continue;;
+                serial=*|bus=*|unit=*|index=*) continue;;
             esac
             isdevopt "$driver" "$tok" && devopts="${devopts},$tok" ||
                 diskopts="${diskopts},${tok}"

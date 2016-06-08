@@ -38,6 +38,7 @@ DEFAULT_SSTREAM_OPTS = [
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
 IMAGE_SYNCS = []
+TARGET_IMAGE_FORMAT = "raw"
 OVMF_CODE = "/usr/share/OVMF/OVMF_CODE.fd"
 OVMF_VARS = "/usr/share/OVMF/OVMF_VARS.fd"
 # precise -> vivid don't have split UEFI firmware, fallback
@@ -227,7 +228,7 @@ def get_images(src_url, local_d, release, arch, krel=None, sync=True):
                if not os.path.exists(path)]
 
     if len(missing):
-        raise FileNotFoundError("missing files for ftypes: %s" % missing)
+        raise ValueError("missing files for ftypes: %s" % missing)
 
     return ftypes
 
@@ -313,7 +314,7 @@ class TempDir(object):
         # create target disk
         logger.debug('Creating target disk')
         self.target_disk = os.path.join(self.disks, "install_disk.img")
-        subprocess.check_call(["qemu-img", "create", "-f", "qcow2",
+        subprocess.check_call(["qemu-img", "create", "-f", TARGET_IMAGE_FORMAT,
                               self.target_disk, "10G"],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
@@ -327,7 +328,7 @@ class TempDir(object):
         # create output disk, mount ro
         logger.debug('Creating output disk')
         self.output_disk = os.path.join(self.boot, "output_disk.img")
-        subprocess.check_call(["qemu-img", "create", "-f", "raw",
+        subprocess.check_call(["qemu-img", "create", "-f", TARGET_IMAGE_FORMAT,
                               self.output_disk, "10M"],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
         subprocess.check_call(["mkfs.ext2", "-F", self.output_disk],
@@ -343,6 +344,7 @@ class TempDir(object):
 class VMBaseClass(TestCase):
     __test__ = False
     arch_skip = []
+    disk_block_size = 512
     disk_to_check = {}
     fstab_expected = {}
     extra_kern_args = None
@@ -436,16 +438,21 @@ class VMBaseClass(TestCase):
             netdevs.extend(["--netdev=" + DEFAULT_BRIDGE])
 
         # build disk arguments
+        # --disk source:size:driver:block_size
         extra_disks = []
         for (disk_no, disk_sz) in enumerate(cls.extra_disks):
             dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
-            extra_disks.extend(['--disk', '{}:{}'.format(dpath, disk_sz)])
+            extra_disks.extend(
+                ['--disk', '{}:{}:{}:{}'.format(dpath, disk_sz, "",
+                                                cls.disk_block_size)])
 
         # build nvme disk args if needed
         nvme_disks = []
         for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
             dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
-            nvme_disks.extend(['--disk', '{}:{}:nvme'.format(dpath, disk_sz)])
+            nvme_disks.extend(
+                ['--disk', '{}:{}:nvme:{}'.format(dpath, disk_sz,
+                                                  cls.disk_block_size)])
 
         # proxy config
         configs = [cls.conf_file]
@@ -470,7 +477,10 @@ class VMBaseClass(TestCase):
             shutil.copy(OVMF_VARS, nvram)
             cmd.extend(["--uefi", nvram])
 
-        cmd.extend(netdevs + ["--disk", cls.td.target_disk] +
+        # --disk source:size:driver:block_size
+        target_disk = "{}:{}:{}:{}".format(cls.td.target_disk, "", "",
+                                           cls.disk_block_size)
+        cmd.extend(netdevs + ["--disk", target_disk] +
                    extra_disks + nvme_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "-vv", "install"] +
@@ -521,22 +531,43 @@ class VMBaseClass(TestCase):
         extra_disks = [x if ":" not in x else x.split(':')[0]
                        for x in extra_disks]
         # create --disk params for nvme disks
+        bsize_args = "logical_block_size={}".format(cls.disk_block_size)
+        bsize_args += ",physical_block_size={}".format(cls.disk_block_size)
+        bsize_args += ",min_io_size={}".format(cls.disk_block_size)
+        disk_driver = "virtio-blk"
+
+        target_disks = []
+        for (disk_no, disk) in enumerate([cls.td.target_disk,
+                                          cls.td.output_disk]):
+            d = '--disk={},driver={},format={},{}'.format(disk, disk_driver,
+                                                          TARGET_IMAGE_FORMAT,
+                                                          bsize_args)
+            target_disks.extend([d])
+
+        extra_disks = []
+        for (disk_no, disk_sz) in enumerate(cls.extra_disks):
+            dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
+            d = '--disk={},driver={},format={},{}'.format(dpath, disk_driver,
+                                                          TARGET_IMAGE_FORMAT,
+                                                          bsize_args)
+            extra_disks.extend([d])
+
         nvme_disks = []
+        disk_driver = 'nvme'
         for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
             dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
-            nvme_disks.extend(
-                ['-drive',
-                 'file={},if=none,cache=unsafe,format=raw,id=drv{}'.format(
-                     dpath, disk_no),
-                 '-device', 'nvme,drive=drv{},serial=NVM{}'.format(
-                     disk_no, disk_no)])
+            d = '--disk={},driver={},format={},{}'.format(dpath, disk_driver,
+                                                          TARGET_IMAGE_FORMAT,
+                                                          bsize_args)
+            nvme_disks.extend([d])
+
         # create xkvm cmd
         cmd = (["tools/xkvm", "-v", dowait] + netdevs +
-               ["--disk", cls.td.target_disk, "--disk", cls.td.output_disk] +
-               extra_disks +
+               target_disks + extra_disks + nvme_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
-                "-m", "1024"] + nvme_disks)
+                "-m", "1024"])
+
         if not cls.interactive:
             if cls.arch == 's390x':
                 cmd.extend([
@@ -625,6 +656,10 @@ class VMBaseClass(TestCase):
         return expected
 
     @classmethod
+    def parse_deb_config(cls, path):
+        return curtin_net.parse_deb_config(path)
+
+    @classmethod
     def get_network_state(cls):
         return cls.network_state
 
@@ -665,6 +700,15 @@ class VMBaseClass(TestCase):
             data = fp.read()
         self.assertRegex(data, regex)
 
+    # To get rid of deprecation warning in python 3.
+    def assertRegex(self, s, r):
+        try:
+            # Python 3.
+            super(VMBaseClass, self).assertRegex(s, r)
+        except AttributeError:
+            # Python 2.
+            self.assertRegexpMatches(s, r)
+
     def get_blkid_data(self, blkid_file):
         with open(os.path.join(self.td.collect, blkid_file)) as fp:
             data = fp.read()
@@ -700,6 +744,15 @@ class VMBaseClass(TestCase):
                     link = diskname + "-part" + str(part)
                     self.assertIn(link, contents)
                 self.assertIn(diskname, contents)
+
+    def test_interfacesd_eth0_removed(self):
+        """ Check that curtin has removed /etc/network/interfaces.d/eth0.cfg
+            by examining the output of a find /etc/network > find_interfaces.d
+        """
+        fpath = os.path.join(self.td.collect, "find_interfacesd")
+        interfacesd = util.load_file(fpath)
+        self.assertNotIn("/etc/network/interfaces.d/eth0.cfg",
+                         interfacesd.split("\n"))
 
     def run(self, result):
         super(VMBaseClass, self).run(result)
@@ -800,6 +853,9 @@ class PsuedoVMBaseClass(VMBaseClass):
     def test_dname(self):
         pass
 
+    def test_interfacesd_eth0_removed(self):
+        pass
+
     def _maybe_raise(self, exc):
         if self.allow_test_fails:
             raise exc
@@ -871,6 +927,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
         'password': 'passw0rd',
         'chpasswd': {'expire': False},
         'power_state': {'mode': 'poweroff'},
+        'network': {'config': 'disabled'},
     }
 
     ssh_keys, _err = util.subp(['tools/ssh-keys-list', 'cloud-config'],

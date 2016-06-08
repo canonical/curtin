@@ -86,7 +86,13 @@ family_flag_mappings = {
     "quiet": {"ext": "-q",
               "ntfs": "-q",
               "reiserfs": "-q",
-              "xfs": "--quiet"}
+              "xfs": "--quiet"},
+    "sectorsize": {
+        "btrfs": "--sectorsize",
+        "ext": "-b",
+        "fat": "-S",
+        "ntfs": "--sector-size",
+        "reiserfs": "--block-size"}
 }
 
 release_flag_mapping_overrides = {
@@ -155,6 +161,16 @@ def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False):
         raise ValueError("need '%s' but it could not be found" % mkfs_cmd)
 
     cmd = [mkfs_cmd]
+
+    # use device logical block size to ensure properly formated filesystems
+    (logical_bsize, physical_bsize) = block.get_blockdev_sector_size(path)
+    if logical_bsize > 512:
+        cmd.extend(get_flag_mapping("sectorsize", fs_family,
+                                    param=str(logical_bsize),
+                                    strict=strict))
+        # mkfs.vfat doesn't calculate this right for non-512b sector size
+        # lp:1569576 , d-i uses the same setting.
+        cmd.extend(["-s", "1"])
 
     if force:
         cmd.extend(get_flag_mapping("force", fs_family, strict=strict))

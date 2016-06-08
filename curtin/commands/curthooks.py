@@ -149,6 +149,42 @@ def clean_cloud_init(target):
         os.unlink(dpkg_cfg)
 
 
+def _maybe_remove_legacy_eth0(target,
+                              path="/etc/network/interfaces.d/eth0.cfg"):
+    """Ubuntu cloud images previously included a 'eth0.cfg' that had
+       hard coded content.  That file would interfere with the rendered
+       configuration if it was present.
+
+       if the file does not exist do nothing.
+       If the file exists:
+         - with known content, remove it and warn
+         - with unknown content, leave it and warn
+    """
+
+    cfg = os.path.sep.join([target, path])
+    if not os.path.exists(cfg):
+        LOG.warn('Failed to find legacy conf file %s', cfg)
+        return
+
+    bmsg = "Dynamic networking config may not apply."
+    try:
+        contents = util.load_file(cfg)
+        known_contents = ["auto eth0", "iface eth0 inet dhcp"]
+        lines = [f.strip() for f in contents.splitlines()
+                 if not f.startswith("#")]
+        if lines == known_contents:
+            util.del_file(cfg)
+            msg = "removed %s with known contents" % cfg
+        else:
+            msg = (bmsg + " '%s' exists with user configured content." % cfg)
+    except:
+        msg = bmsg + " %s exists, but could not be read." % cfg
+        LOG.exception(msg)
+        return
+
+    LOG.warn(msg)
+
+
 def setup_zipl(cfg, target):
     if platform.machine() != 's390x':
         return
@@ -350,6 +386,7 @@ def setup_grub(cfg, target):
     if 'grub_install_devices' in cfg and 'install_devices' not in grubcfg:
         grubcfg['install_devices'] = cfg['grub_install_devices']
 
+    LOG.debug("setup grub on target %s", target)
     # if there is storage config, look for devices tagged with 'grub_device'
     storage_cfg_odict = None
     try:
@@ -490,6 +527,7 @@ def copy_mdadm_conf(mdadm_conf, target):
         LOG.warn("mdadm config must be specified, not copying")
         return
 
+    LOG.info("copying mdadm.conf into target")
     shutil.copy(mdadm_conf, os.path.sep.join([target,
                 'etc/mdadm/mdadm.conf']))
 
@@ -519,6 +557,8 @@ def apply_networking(target, state):
     else:
         LOG.debug("copying interfaces")
         copy_interfaces(interfaces, target)
+
+    _maybe_remove_legacy_eth0(target)
 
 
 def copy_interfaces(interfaces, target):
@@ -767,6 +807,20 @@ def curthooks(args):
         apt_config(cfg, target)
         disable_overlayroot(cfg, target)
 
+    # packages may be needed prior to installing kernel
+    install_missing_packages(cfg, target)
+
+    # If a mdadm.conf file was created by block_meta than it needs to be copied
+    # onto the target system
+    mdadm_location = os.path.join(os.path.split(state['fstab'])[0],
+                                  "mdadm.conf")
+    if os.path.exists(mdadm_location):
+        copy_mdadm_conf(mdadm_location, target)
+        # as per https://bugs.launchpad.net/ubuntu/+source/mdadm/+bug/964052
+        # reconfigure mdadm
+        util.subp(['chroot', target, 'dpkg-reconfigure',
+                   '--frontend=noninteractive', 'mdadm'], data=None)
+
     with events.ReportEventStack(
             name=stack_prefix, reporting_enabled=True, level="INFO",
             description="installing kernel"):
@@ -797,8 +851,6 @@ def curthooks(args):
             description="configuring multipath"):
         detect_and_handle_multipath(cfg, target)
 
-    install_missing_packages(cfg, target)
-
     with events.ReportEventStack(
             name=stack_prefix, reporting_enabled=True, level="INFO",
             description="updating packages on target system"):
@@ -813,17 +865,6 @@ def curthooks(args):
     if os.path.exists(crypttab_location):
         copy_crypttab(crypttab_location, target)
         update_initramfs(target)
-
-    # If a mdadm.conf file was created by block_meta than it needs to be copied
-    # onto the target system
-    mdadm_location = os.path.join(os.path.split(state['fstab'])[0],
-                                  "mdadm.conf")
-    if os.path.exists(mdadm_location):
-        copy_mdadm_conf(mdadm_location, target)
-        # as per https://bugs.launchpad.net/ubuntu/+source/mdadm/+bug/964052
-        # reconfigure mdadm
-        util.subp(['chroot', target, 'dpkg-reconfigure',
-                   '--frontend=noninteractive', 'mdadm'], data=None)
 
     # If udev dname rules were created, copy them to target
     udev_rules_d = os.path.join(state['scratch'], "rules.d")
