@@ -499,6 +499,19 @@ def has_pkg_installed(pkg, target=None):
         return False
 
 
+def get_package_version(pkg, target=None):
+    chroot = []
+    if target is not None:
+        chroot = ['chroot', target]
+    try:
+        out, _ = subp(chroot + ['dpkg-query', '--show', '--showformat',
+                                '${Version}', pkg],
+                      capture=True)
+        return out.rstrip()
+    except ProcessExecutionError:
+        return None
+
+
 def find_newer(src, files):
     mtime = os.stat(src).st_mtime
     return [f for f in files if

@@ -413,7 +413,6 @@ main() {
             error "Failed to provide disk source"
             exit 1
         fi
-        disk_serial="`basename $src`"
 
         if [ -z "${size}" ]; then
             size=5G
@@ -427,14 +426,6 @@ main() {
             bsize="512"
         fi
 
-        # generate wwn for scsi disks if not in devopts
-        if [ "${driver}" == "scsi-hd" ]; then
-            if ! echo $devopts | grep -q wwn ; then
-                wwn="$(random_wwn)"
-                devopts="${devopts}wwn=$wwn"
-            fi
-        fi
-
         if [ ! -f "$src" ]; then
             qemu-img create -f raw "${src}" "$size" ||
                 { error "failed create $src of size $size"; return 1; }
@@ -443,6 +434,11 @@ main() {
             out=$(LANG=C qemu-img info "$src") &&
                 fmt=$(echo "$out" | awk '$0 ~ /^file format:/ { print $3 }') ||
                 { error "failed to determine format of $src"; return 1; }
+        fi
+
+        # prepend comma if passing devopts
+        if [ -n "${devopts}" ]; then
+            devopts=",${devopts}"
         fi
 
         # set logical/physical size blocksz is logical:phys
@@ -456,7 +452,7 @@ main() {
             "file=${src},if=none,cache=unsafe,format=$fmt,id=drv${id},index=$id" )
 
         disk_args=( "${disk_args[@]}" "-device"
-            "${driver},drive=drv${id},serial=${disk_serial},${bs_args},${devopts}" )
+            "${driver},drive=drv${id},${bs_args}${devopts}" )
         
     done
 

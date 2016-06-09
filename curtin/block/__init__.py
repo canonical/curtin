@@ -356,6 +356,7 @@ def get_scsi_wwid(device, replace_whitespace=False):
         cmd.append('--replace-whitespace')
     try:
         (out, err) = util.subp(cmd, capture=True)
+        LOG.debug("scsi_id output raw:\n%s", out)
         scsi_wwid = out.rstrip('\n')
         return scsi_wwid
     except util.ProcessExecutionError as e:
@@ -478,7 +479,8 @@ def lookup_disk(serial):
     serial_udev = serial.replace(' ', '_')
     LOG.info('Processing serial %s via udev to %s', serial, serial_udev)
 
-    disks = list(filter(lambda x: serial_udev in x, os.listdir("/dev/disk/by-id/")))
+    disks = list(filter(lambda x: serial_udev in x,
+                        os.listdir("/dev/disk/by-id/")))
     if not disks or len(disks) < 1:
         raise ValueError("no disk with serial '%s' found" % serial_udev)
 

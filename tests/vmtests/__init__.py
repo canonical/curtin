@@ -446,7 +446,7 @@ class VMBaseClass(TestCase):
         storage_config = yaml.load(sc)['storage']['config']
         cls.wwns = ["wwn=%s" % x.get('wwn') for x in storage_config
                     if 'wwn' in x]
-        cls.disk_serials = ["serial=\"%s\"" % x.get('serial')
+        cls.disk_serials = ["serial=%s" % x.get('serial')
                             for x in storage_config if 'serial' in x]
 
         target_disk = "{}:{}:{}:{}:".format(cls.td.target_disk,
@@ -483,7 +483,8 @@ class VMBaseClass(TestCase):
         for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
             dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
             nvme_disk = '{}:{}:nvme:{}:{}'.format(dpath, disk_sz,
-                                                  cls.disk_block_size, "")
+                                                  cls.disk_block_size,
+                                                  "serial=nvme-%d" % disk_no)
             disks.extend(['--disk', nvme_disk])
 
         # proxy config
@@ -576,13 +577,6 @@ class VMBaseClass(TestCase):
 
             target_disks.extend([d])
 
-        # output disk is always virtio-blk, with serial of output_disk.img
-        output_disk = '--disk={},driver={},format={},{},'.format(
-            cls.td.output_disk, 'virtio-blk',
-            TARGET_IMAGE_FORMAT, bsize_args,
-            'serial=%s' % cls.td.output_disk)
-        target_disks.extend([output_disk])
-
         extra_disks = []
         for (disk_no, disk_sz) in enumerate(cls.extra_disks):
             dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
@@ -615,6 +609,13 @@ class VMBaseClass(TestCase):
             target_disks = target_disks * 2
             extra_disks = extra_disks * 2
             nvme_disks = nvme_disks * 2
+
+        # output disk is always virtio-blk, with serial of output_disk.img
+        output_disk = '--disk={},driver={},format={},{},{}'.format(
+            cls.td.output_disk, 'virtio-blk',
+            TARGET_IMAGE_FORMAT, bsize_args,
+            'serial=%s' % cls.td.output_disk)
+        target_disks.extend([output_disk])
 
         # create xkvm cmd
         cmd = (["tools/xkvm", "-v", dowait] + netdevs +
