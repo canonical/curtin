@@ -474,9 +474,13 @@ def lookup_disk(serial):
     """
     # Get all volumes in /dev/disk/by-id/ containing the serial string. The
     # string specified can be either in the short or long serial format
-    disks = list(filter(lambda x: serial in x, os.listdir("/dev/disk/by-id/")))
+    # hack, some serials have spaces, udev usually converts ' ' -> '_'
+    serial_udev = serial.replace(' ', '_')
+    LOG.info('Processing serial %s via udev to %s', serial, serial_udev)
+
+    disks = list(filter(lambda x: serial_udev in x, os.listdir("/dev/disk/by-id/")))
     if not disks or len(disks) < 1:
-        raise ValueError("no disk with serial '%s' found" % serial)
+        raise ValueError("no disk with serial '%s' found" % serial_udev)
 
     # Sort by length and take the shortest path name, as the longer path names
     # will be the partitions on the disk. Then use os.path.realpath to
@@ -486,7 +490,7 @@ def lookup_disk(serial):
 
     if not os.path.exists(path):
         raise ValueError("path '%s' to block device for disk with serial '%s' \
-            does not exist" % (path, serial))
+            does not exist" % (path, serial_udev))
     return path
 
 

@@ -345,21 +345,22 @@ class TempDir(object):
 class VMBaseClass(TestCase):
     __test__ = False
     arch_skip = []
+    boot_timeout = 300
+    collect_scripts = []
+    conf_file = "examples/tests/basic.yaml"
     disk_block_size = 512
     disk_driver = 'virtio-blk'
     disk_to_check = {}
-    fstab_expected = {}
+    extra_disks = []
     extra_kern_args = None
+    fstab_expected = {}
+    image_store_class = ImageStore
+    install_timeout = 3000
+    interactive = False
+    multipath = False
+    nvme_disks = []
     recorded_errors = 0
     recorded_failures = 0
-    image_store_class = ImageStore
-    collect_scripts = []
-    interactive = False
-    conf_file = "examples/tests/basic.yaml"
-    extra_disks = []
-    nvme_disks = []
-    boot_timeout = 300
-    install_timeout = 3000
     uefi = False
 
     # these get set from base_vm_classes
@@ -440,10 +441,13 @@ class VMBaseClass(TestCase):
             netdevs.extend(["--netdev=" + DEFAULT_BRIDGE])
 
         # build disk arguments
+        disks = []
         sc = util.load_file(cls.conf_file)
         storage_config = yaml.load(sc)['storage']['config']
         cls.wwns = ["wwn=%s" % x.get('wwn') for x in storage_config
                     if 'wwn' in x]
+        cls.disk_serials = ["serial=\"%s\"" % x.get('serial')
+                            for x in storage_config if 'serial' in x]
 
         target_disk = "{}:{}:{}:{}:".format(cls.td.target_disk,
                                             "",
@@ -452,8 +456,12 @@ class VMBaseClass(TestCase):
         if len(cls.wwns):
             target_disk += cls.wwns[0]
 
+        if len(cls.disk_serials):
+            target_disk += cls.disk_serials[0]
+
+        disks.extend(['--disk', target_disk])
+
         # --disk source:size:driver:block_size:devopts
-        extra_disks = []
         for (disk_no, disk_sz) in enumerate(cls.extra_disks):
             dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
             extra_disk = '{}:{}:{}:{}:'.format(dpath, disk_sz,
@@ -464,15 +472,19 @@ class VMBaseClass(TestCase):
                 if w_index < len(cls.wwns):
                     extra_disk += cls.wwns[w_index]
 
-            extra_disks.extend(['--disk', extra_disk])
+            if len(cls.disk_serials):
+                w_index = disk_no + 1
+                if w_index < len(cls.disk_serials):
+                    extra_disk += cls.disk_serials[w_index]
+
+            disks.extend(['--disk', extra_disk])
 
         # build nvme disk args if needed
-        nvme_disks = []
         for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
             dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
-            nvme_disks.extend(
-                ['--disk', '{}:{}:nvme:{}:{}'.format(dpath, disk_sz,
-                                                     cls.disk_block_size, "")])
+            nvme_disk = '{}:{}:nvme:{}:{}'.format(dpath, disk_sz,
+                                                  cls.disk_block_size, "")
+            disks.extend(['--disk', nvme_disk])
 
         # proxy config
         configs = [cls.conf_file]
@@ -497,8 +509,10 @@ class VMBaseClass(TestCase):
             shutil.copy(OVMF_VARS, nvram)
             cmd.extend(["--uefi", nvram])
 
-        cmd.extend(netdevs + ["--disk", target_disk] +
-                   extra_disks + nvme_disks +
+        if cls.multipath:
+            disks = disks * 2
+
+        cmd.extend(netdevs + disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "-vv", "install"] +
                    ["--config=%s" % f for f in configs] +
@@ -544,9 +558,6 @@ class VMBaseClass(TestCase):
             cls.tearDownClass()
             raise
 
-        # drop the size parameter if present in extra_disks
-        extra_disks = [x if ":" not in x else x.split(':')[0]
-                       for x in extra_disks]
         # create --disk params for nvme disks
         bsize_args = "logical_block_size={}".format(cls.disk_block_size)
         bsize_args += ",physical_block_size={}".format(cls.disk_block_size)
@@ -560,6 +571,9 @@ class VMBaseClass(TestCase):
                                                           bsize_args)
             if len(cls.wwns):
                 d += ",%s" % cls.wwns[0]
+            if len(cls.disk_serials):
+                d += ",%s" % cls.disk_serials[0]
+
             target_disks.extend([d])
 
         # output disk is always virtio-blk, with serial of output_disk.img
@@ -581,6 +595,11 @@ class VMBaseClass(TestCase):
                 if w_index < len(cls.wwns):
                     d += ",%s" % cls.wwns[w_index]
 
+            if len(cls.disk_serials):
+                w_index = disk_no + 1
+                if w_index < len(cls.disk_serials):
+                    d += ",%s" % cls.disk_serials[w_index]
+
             extra_disks.extend([d])
 
         nvme_disks = []
@@ -591,6 +610,11 @@ class VMBaseClass(TestCase):
                                                           TARGET_IMAGE_FORMAT,
                                                           bsize_args)
             nvme_disks.extend([d])
+
+        if cls.multipath:
+            target_disks = target_disks * 2
+            extra_disks = extra_disks * 2
+            nvme_disks = nvme_disks * 2
 
         # create xkvm cmd
         cmd = (["tools/xkvm", "-v", dowait] + netdevs +
