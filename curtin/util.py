@@ -847,23 +847,35 @@ def get_platform_arch():
 
 def gpg_export_armour(key):
     """Export gpg key, armoured key gets returned"""
-    (armour, _) = subp(["gpg", "--export", "--armour", key], capture=True)
+    try:
+        (armour, _) = subp(["gpg", "--export", "--armour", key],
+                           capture=True)
+    except ProcessExecutionError as error:
+        # debug, since it happens for any key not on the system initially
+        LOG.debug('Failed to export armoured key "%s": %s', key, error)
+        armour = None
     return armour
 
 
 def gpg_recv_key(key, keyserver):
     """Receive gpg key from the specified keyserver"""
+    LOG.debug('Receive gpg key "%s"', key)
     try:
         subp(["gpg", "--keyserver", keyserver, "--recv", key],
              capture=True)
     except ProcessExecutionError as error:
-        raise ValueError('Failed to import key %s from server %s - error %s' %
+        raise ValueError(('Failed to import key "%s" '
+                          'from server "%s" - error %s') %
                          (key, keyserver, error))
 
 
 def gpg_delete_key(key):
     """Delete the specified key from the local gpg ring"""
-    subp(["gpg", "--batch", "--yes", "--delete-keys", key], capture=True)
+    try:
+        subp(["gpg", "--batch", "--yes", "--delete-keys", key],
+             capture=True)
+    except ProcessExecutionError as error:
+        LOG.warn('Failed delete key "%s": %s', key, error)
 
 
 def gpg_getkeybyid(keyid, keyserver):
@@ -872,13 +884,13 @@ def gpg_getkeybyid(keyid, keyserver):
     if not armour:
         try:
             gpg_recv_key(keyid, keyserver=keyserver)
+            armour = gpg_export_armour(keyid)
         except ValueError:
             LOG.exception('Failed to obtain gpg key %s', keyid)
             raise
-
-        armour = gpg_export_armour(keyid)
-        # delete just imported key to leave environment as it was before
-        gpg_delete_key(keyid)
+        finally:
+            # delete just imported key to leave environment as it was before
+            gpg_delete_key(keyid)
 
     return armour.rstrip('\n')
 
