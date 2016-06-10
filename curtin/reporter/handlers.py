@@ -83,14 +83,6 @@ class WebHookHandler(ReportingHandler):
         if ev_level < self.level:
             return
         data = event.as_dict()
-        # Add 'started: ' and 'finished: ' to description strings if needed
-        if event.event_type == 'start':
-            data['description'] = 'started: ' + data['description']
-        elif event.event_type == 'finish':
-            if event.result == 'SUCCESS':
-                data['description'] = 'finished: ' + data['description']
-            else:
-                data['description'] = 'failed: ' + data['description']
         try:
             return self.oauth_helper.geturl(
                 url=self.endpoint, data=data,

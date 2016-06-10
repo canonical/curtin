@@ -722,11 +722,13 @@ class VMBaseClass(TestCase):
         self.assertTrue(len(data) > 0)
         first_event = data[0]
         self.assertEqual(first_event['event_type'], 'start')
-        self.assertTrue(first_event['description'].startswith('started: '))
+        next_event = data[1]
+        self.assertEqual(next_event['event_type'], 'finish')
+        # make sure we don't have that timestamp bug
+        self.assertNotEqual(first_event['timestamp'], next_event['timestamp'])
         final_event = data[-1]
         self.assertEqual(final_event['event_type'], 'finish')
         self.assertEqual(final_event['name'], 'cmd-install/stage-late')
-        self.assertTrue(final_event['description'].startswith('finished: '))
 
     def run(self, result):
         super(VMBaseClass, self).run(result)
@@ -929,7 +931,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
         shutdown -P now "Shutting down on precise"
         """)
 
-    scripts = ([collect_prep] + [copy_rootdir] + collect_scripts + 
+    scripts = ([collect_prep] + [copy_rootdir] + collect_scripts +
                [collect_post] + [precise_poweroff])
 
     for part in scripts:
