@@ -614,7 +614,7 @@ class VMBaseClass(TestCase):
         output_disk = '--disk={},driver={},format={},{},{}'.format(
             cls.td.output_disk, 'virtio-blk',
             TARGET_IMAGE_FORMAT, bsize_args,
-            'serial=%s' % cls.td.output_disk)
+            'serial=%s' % os.path.basename(cls.td.output_disk))
         target_disks.extend([output_disk])
 
         # create xkvm cmd
