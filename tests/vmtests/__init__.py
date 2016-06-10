@@ -358,6 +358,7 @@ class VMBaseClass(TestCase):
     install_timeout = 3000
     interactive = False
     multipath = False
+    multipath_num_paths = 2
     nvme_disks = []
     recorded_errors = 0
     recorded_failures = 0
@@ -511,7 +512,7 @@ class VMBaseClass(TestCase):
             cmd.extend(["--uefi", nvram])
 
         if cls.multipath:
-            disks = disks * 2
+            disks = disks * cls.multipath_num_paths
 
         cmd.extend(netdevs + disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
@@ -606,9 +607,9 @@ class VMBaseClass(TestCase):
             nvme_disks.extend([d])
 
         if cls.multipath:
-            target_disks = target_disks * 2
-            extra_disks = extra_disks * 2
-            nvme_disks = nvme_disks * 2
+            target_disks = target_disks * cls.multipath_num_paths
+            extra_disks = extra_disks * cls.multipath_num_paths
+            nvme_disks = nvme_disks * cls.multipath_num_paths
 
         # output disk is always virtio-blk, with serial of output_disk.img
         output_disk = '--disk={},driver={},format={},{},{}'.format(
