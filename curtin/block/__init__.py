@@ -185,7 +185,9 @@ def get_blockdev_for_partition(devpath):
     if not os.path.exists(syspath):
         syspath2 = "/sys/class/block/cciss!%s" % bname
         if not os.path.exists(syspath2):
-            raise ValueError("%s had no syspath (%s)" % (devpath, syspath))
+            err = OSError("%s had no syspath (%s)" % (devpath, syspath))
+            err.errno = errno.ENOENT
+            raise err
         syspath = syspath2
 
     ptpath = os.path.join(syspath, "partition")
