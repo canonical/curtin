@@ -444,8 +444,8 @@ class VMBaseClass(TestCase):
         disks = []
         sc = util.load_file(cls.conf_file)
         storage_config = yaml.load(sc).get('storage', {}).get('config', {})
-        cls.wwns = ["wwn=%s" % x.get('wwn') for x in storage_config
-                    if 'wwn' in x]
+        cls.disk_wwns = ["wwn=%s" % x.get('wwn') for x in storage_config
+                         if 'wwn' in x]
         cls.disk_serials = ["serial=%s" % x.get('serial')
                             for x in storage_config if 'serial' in x]
 
@@ -453,8 +453,8 @@ class VMBaseClass(TestCase):
                                             "",
                                             cls.disk_driver,
                                             cls.disk_block_size)
-        if len(cls.wwns):
-            target_disk += cls.wwns[0]
+        if len(cls.disk_wwns):
+            target_disk += cls.disk_wwns[0]
 
         if len(cls.disk_serials):
             target_disk += cls.disk_serials[0]
@@ -467,10 +467,10 @@ class VMBaseClass(TestCase):
             extra_disk = '{}:{}:{}:{}:'.format(dpath, disk_sz,
                                                cls.disk_driver,
                                                cls.disk_block_size)
-            if len(cls.wwns):
+            if len(cls.disk_wwns):
                 w_index = disk_no + 1
-                if w_index < len(cls.wwns):
-                    extra_disk += cls.wwns[w_index]
+                if w_index < len(cls.disk_wwns):
+                    extra_disk += cls.disk_wwns[w_index]
 
             if len(cls.disk_serials):
                 w_index = disk_no + 1
@@ -570,8 +570,8 @@ class VMBaseClass(TestCase):
                                                           cls.disk_driver,
                                                           TARGET_IMAGE_FORMAT,
                                                           bsize_args)
-            if len(cls.wwns):
-                d += ",%s" % cls.wwns[0]
+            if len(cls.disk_wwns):
+                d += ",%s" % cls.disk_wwns[0]
             if len(cls.disk_serials):
                 d += ",%s" % cls.disk_serials[0]
 
@@ -584,10 +584,10 @@ class VMBaseClass(TestCase):
                                                           cls.disk_driver,
                                                           TARGET_IMAGE_FORMAT,
                                                           bsize_args)
-            if len(cls.wwns):
+            if len(cls.disk_wwns):
                 w_index = disk_no + 1
-                if w_index < len(cls.wwns):
-                    d += ",%s" % cls.wwns[w_index]
+                if w_index < len(cls.disk_wwns):
+                    d += ",%s" % cls.disk_wwns[w_index]
 
             if len(cls.disk_serials):
                 w_index = disk_no + 1
