@@ -161,34 +161,56 @@ def block_find_sysfs_path(devname):
     return devname_sysfs
 
 
-def get_holders(devname):
-    # Look up any block device holders.
-    # Handle devices and partitions as devnames (vdb, md0, vdb7)
-    devname_sysfs = block_find_sysfs_path(devname)
-    if devname_sysfs:
-        holders = os.listdir(os.path.join(devname_sysfs, 'holders'))
-        LOG.debug("devname '%s' had holders: %s", devname, ','.join(holders))
-        return holders
+def get_holders(devname=None, sysfs_path=None):
+    """
+    Look up any block device holders.
+    Can handle devices and partitions as devnames (vdb, md0, vdb7)
+    Can also handle devices and partitions by path in /sys/
+    Will not raise io errors if holders cannot be found
+    """
+    if not devname and not sysfs_path:
+        raise ValueError("either devname or sysfs_path must be supplied")
 
-    LOG.debug('get_holders: did not find sysfs path for %s', devname)
-    return []
+    # get sysfs path if missing
+    if not sysfs_path:
+        # forgive value errors as well, since block_find_sysfs_path throws them
+        # in some cases
+        with util.forgive_io_err(
+                extra_errors=ValueError,
+                msg="Could not get sysfs path to {}".format(devname)):
+            sysfs_path = block_find_sysfs_path(devname)
+
+    if not sysfs_path:
+        LOG.debug('get_holders: did not find sysfs path for %s', devname)
+        return []
+
+    # get holders
+    holders = []
+    with util.forgive_io_err(
+            msg="could not get holders for {}".format(sysfs_path)):
+        holders = os.listdir(os.path.join(sysfs_path, 'holders'))
+
+    LOG.debug("devname '%s' had holders: %s", devname, ','.join(holders))
+    return holders
 
 
 def clear_holders(sys_block_path):
-    holders = os.listdir(os.path.join(sys_block_path, "holders"))
+    """
+    Shutdown all storage layers holding device in /sys/block path.
+    Ignore IO errors encountered, as installation should be able to continue in
+    many cases when not everything was able to be shut down.
+    """
+    holders = get_holders(sysfs_path=sys_block_path)
     LOG.info("clear_holders running on '%s', with holders '%s'" %
              (sys_block_path, holders))
     for holder in holders:
         # get path to holder in /sys/block, then clear it
-        try:
+        # ignore io errors as something may have already caused the holder
+        # device to go away
+        with util.forgive_io_err("could not find {}".format(holder)):
             holder_realpath = os.path.realpath(
                 os.path.join(sys_block_path, "holders", holder))
             clear_holders(holder_realpath)
-        except IOError as e:
-            # something might have already caused the holder to go away
-            if util.is_file_not_found_exc(e):
-                pass
-            pass
 
     # detect what type of holder is using this volume and shut it down, need to
     # find more robust name of doing detection
@@ -475,24 +497,26 @@ def disk_handler(info, storage_config):
             os.path.split(prt)[0] for prt in
             glob.glob("/sys/block/%s/*/partition" % disk_kname))
         for partition in syspath_partitions:
-            clear_holders(partition)
-            with open(os.path.join(partition, "dev"), "r") as fp:
-                block_no = fp.read().rstrip()
-            partition_path = os.path.realpath(
-                os.path.join("/dev/block", block_no))
-            try:
+            with util.forgive_io_err(
+                    msg="could not clear holders on: %s%s" %
+                    (disk_kname, partition)):
+                clear_holders(partition)
+                with open(os.path.join(partition, "dev"), "r") as fp:
+                    block_no = fp.read().rstrip()
+            # in some cases the block dev may not be available when it is
+            # to be erased. since it is possible that installation can
+            # still continue without having wiped the partition, don't
+            # crash here (LP:1579572)
+            with util.forgive_io_err(
+                    msg="could not wipe: %s%s" % (disk_kname, partition)):
+                partition_path = os.path.realpath(
+                    os.path.join("/dev/block", block_no))
                 block.wipe_volume(partition_path, mode=info.get('wipe'))
-            except IOError as e:
-                # in some cases the block dev may not be available when it is
-                # to be erased. since it is possible that installation can
-                # still continue without having wiped the partition, don't
-                # crash here (LP:1579572)
-                if not util.is_file_not_found_exc(e):
-                    LOG.warn("could not wipe volume at %s" % partition_path)
-                    raise
 
-        clear_holders("/sys/block/%s" % disk_kname)
-        block.wipe_volume(disk, mode=info.get('wipe'))
+        with util.forgive_io_err(msg="could not clear holders on %s" % disk):
+            clear_holders("/sys/block/%s" % disk_kname)
+        with util.forgive_io_err(msg="could not wipe: %s" % disk):
+            block.wipe_volume(disk, mode=info.get('wipe'))
 
     # Create partition table on disk
     if info.get('ptable'):
@@ -1011,7 +1035,7 @@ def bcache_handler(info, storage_config):
                           bcache_device, expected)
                 return
             LOG.debug('bcache device path not found: %s', expected)
-            local_holders = get_holders(bcache_device)
+            local_holders = get_holders(devname=bcache_device)
             LOG.debug('got initial holders being "%s"', local_holders)
             if len(local_holders) == 0:
                 raise ValueError("holders == 0 , expected non-zero")
@@ -1074,7 +1098,7 @@ def bcache_handler(info, storage_config):
 
         # via the holders we can identify which bcache device we just created
         # for a given backing device
-        holders = get_holders(backing_device)
+        holders = get_holders(devname=backing_device)
         if len(holders) != 1:
             err = ('Invalid number {} of holding devices:'
                    ' "{}"'.format(len(holders), holders))

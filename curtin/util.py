@@ -16,6 +16,7 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import contextlib
 import errno
 import glob
 import json
@@ -777,8 +778,28 @@ def try_import_module(import_str, default=None):
 
 
 def is_file_not_found_exc(exc):
-    return (isinstance(exc, IOError) and
+    return (isinstance(exc, (OSError, IOError)) and
             exc.errno in (errno.ENOENT, errno.ENXIO))
+
+
+@contextlib.contextmanager
+def forgive_io_err(extra_errors=(), msg=None):
+    """
+    context manager to supress io errors
+    additional errors to supress can be specified in extra_errors
+    a message can be provided
+    """
+    if isinstance(extra_errors, list):
+        extra_errors = tuple(extra_errors)
+    if not isinstance(extra_errors, tuple):
+        extra_errors = (extra_errors,)
+    try:
+        yield
+    except (IOError, OSError) + extra_errors as e:
+        if not (is_file_not_found_exc(e) or type(e) in extra_errors):
+            raise
+        if msg:
+            LOG.info("io error ignored: {}".format(msg))
 
 
 def lsb_release():
