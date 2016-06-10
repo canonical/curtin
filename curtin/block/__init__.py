@@ -62,6 +62,7 @@ def dev_path(devname):
 def sys_block_path(devname, add=None, strict=True):
     toks = ['/sys/class/block']
     # insert parent dev if devname is partition
+    devname = os.path.normpath(devname)
     (parent, partnum) = get_blockdev_for_partition(devname)
     if partnum:
         toks.append(dev_short(parent))
