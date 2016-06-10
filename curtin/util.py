@@ -507,7 +507,17 @@ def get_package_version(pkg, target=None):
         out, _ = subp(chroot + ['dpkg-query', '--show', '--showformat',
                                 '${Version}', pkg],
                       capture=True)
-        return out.rstrip()
+        raw = out.rstrip()
+        upstream = raw.split('-')[0]
+        major, minor, micro = upstream.split(".", 2)
+        version = {
+            'major': major,
+            'minor': minor,
+            'micro': micro,
+            'raw': raw,
+            'upstream': upstream,
+        }
+        return version
     except ProcessExecutionError:
         return None
 
