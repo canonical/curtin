@@ -443,7 +443,7 @@ class VMBaseClass(TestCase):
         # build disk arguments
         disks = []
         sc = util.load_file(cls.conf_file)
-        storage_config = yaml.load(sc)['storage']['config']
+        storage_config = yaml.load(sc).get('storage', {}).get('config', {})
         cls.wwns = ["wwn=%s" % x.get('wwn') for x in storage_config
                     if 'wwn' in x]
         cls.disk_serials = ["serial=%s" % x.get('serial')
