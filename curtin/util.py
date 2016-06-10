@@ -16,7 +16,6 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
-import contextlib
 import errno
 import glob
 import json
@@ -777,29 +776,28 @@ def try_import_module(import_str, default=None):
         return default
 
 
+class ForgiveIoError(object):
+    errors = (IOError, OSError)
+
+    def __init__(self, extra_errors=()):
+        if not isinstance(extra_errors, (tuple, list, set)):
+            extra_errors = (extra_errors,)
+        self.extra_errors = extra_errors
+        self.caught = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, etype, value, trace):
+        self.caught.append(value)
+        return (isinstance(value, self.extra_errors) or
+                is_file_not_found_exc(value))
+
+
 def is_file_not_found_exc(exc):
-    return (isinstance(exc, (OSError, IOError)) and
+    return (isinstance(exc, ForgiveIoError.errors) and
+            hasattr(exc, 'errno') and
             exc.errno in (errno.ENOENT, errno.ENXIO))
-
-
-@contextlib.contextmanager
-def forgive_io_err(extra_errors=(), msg=None):
-    """
-    context manager to supress io errors
-    additional errors to supress can be specified in extra_errors
-    a message can be provided
-    """
-    if isinstance(extra_errors, list):
-        extra_errors = tuple(extra_errors)
-    if not isinstance(extra_errors, tuple):
-        extra_errors = (extra_errors,)
-    try:
-        yield
-    except (IOError, OSError) + extra_errors as e:
-        if not (is_file_not_found_exc(e) or type(e) in extra_errors):
-            raise
-        if msg:
-            LOG.info("io error ignored: {}".format(msg))
 
 
 def lsb_release():
