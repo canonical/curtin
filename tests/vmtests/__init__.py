@@ -567,44 +567,39 @@ class VMBaseClass(TestCase):
 
         target_disks = []
         for (disk_no, disk) in enumerate([cls.td.target_disk]):
-            d = '--disk={},driver={},format={},{}'.format(disk,
-                                                          cls.disk_driver,
-                                                          TARGET_IMAGE_FORMAT,
-                                                          bsize_args)
+            disk = '--disk={},driver={},format={},{}'.format(
+                disk, cls.disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
             if len(cls.disk_wwns):
-                d += ",%s" % cls.disk_wwns[0]
+                disk += ",%s" % cls.disk_wwns[0]
             if len(cls.disk_serials):
-                d += ",%s" % cls.disk_serials[0]
+                disk += ",%s" % cls.disk_serials[0]
 
-            target_disks.extend([d])
+            target_disks.extend([disk])
 
         extra_disks = []
         for (disk_no, disk_sz) in enumerate(cls.extra_disks):
             dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
-            d = '--disk={},driver={},format={},{}'.format(dpath,
-                                                          cls.disk_driver,
-                                                          TARGET_IMAGE_FORMAT,
-                                                          bsize_args)
+            disk = '--disk={},driver={},format={},{}'.format(
+                dpath, cls.disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
             if len(cls.disk_wwns):
                 w_index = disk_no + 1
                 if w_index < len(cls.disk_wwns):
-                    d += ",%s" % cls.disk_wwns[w_index]
+                    disk += ",%s" % cls.disk_wwns[w_index]
 
             if len(cls.disk_serials):
                 w_index = disk_no + 1
                 if w_index < len(cls.disk_serials):
-                    d += ",%s" % cls.disk_serials[w_index]
+                    disk += ",%s" % cls.disk_serials[w_index]
 
-            extra_disks.extend([d])
+            extra_disks.extend([disk])
 
         nvme_disks = []
         disk_driver = 'nvme'
         for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
             dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
-            d = '--disk={},driver={},format={},{}'.format(dpath, disk_driver,
-                                                          TARGET_IMAGE_FORMAT,
-                                                          bsize_args)
-            nvme_disks.extend([d])
+            disk = '--disk={},driver={},format={},{}'.format(
+                dpath, disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
+            nvme_disks.extend([disk])
 
         if cls.multipath:
             target_disks = target_disks * cls.multipath_num_paths
