@@ -356,7 +356,7 @@ def get_scsi_wwid(device, replace_whitespace=False):
         cmd.append('--replace-whitespace')
     try:
         (out, err) = util.subp(cmd, capture=True)
-        LOG.debug("scsi_id output raw:\n%s", out)
+        LOG.debug("scsi_id output raw:\n%s\nerror:\n%s", out, err)
         scsi_wwid = out.rstrip('\n')
         return scsi_wwid
     except util.ProcessExecutionError as e:
