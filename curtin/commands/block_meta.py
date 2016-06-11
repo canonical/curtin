@@ -17,9 +17,8 @@
 
 from collections import OrderedDict
 from curtin import (block, config, util)
-from curtin.block import mdadm
+from curtin.block import (mdadm, mkfs, clear_holders)
 from curtin.log import LOG
-from curtin.block import mkfs
 from curtin.reporter import events
 
 from . import populate_one_subcmd
@@ -28,7 +27,6 @@ from curtin.udev import compose_udev_equality, udevadm_settle
 import glob
 import os
 import platform
-import re
 import sys
 import tempfile
 import time
@@ -129,78 +127,13 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
     return "mbr"
 
 
-def block_find_sysfs_path(devname):
-    # return the path in sys for device named devname
-    # support either short name ('sda') or full path /dev/sda
-    #  sda -> /sys/class/block/sda
-    #  sda1 -> /sys/class/block/sda/sda1
-    if not devname:
-        raise ValueError("empty devname provided to find_sysfs_path")
-
-    sys_class_block = '/sys/class/block/'
-    basename = os.path.basename(devname)
-    # try without parent blockdevice, then prepend parent
-    paths = [
-        os.path.join(sys_class_block, basename),
-        os.path.join(sys_class_block,
-                     re.split('[\d+]', basename)[0], basename),
-    ]
-
-    # find path to devname directory in sysfs
-    devname_sysfs = None
-    for path in paths:
-        if os.path.exists(path):
-            devname_sysfs = path
-
-    if devname_sysfs is None:
-        err = ('No sysfs path to device:'
-               ' {}'.format(devname_sysfs))
-        LOG.error(err)
-        raise ValueError(err)
-
-    return devname_sysfs
-
-
-def get_holders(devname=None, sysfs_path=None):
-    """
-    Look up any block device holders.
-    Can handle devices and partitions as devnames (vdb, md0, vdb7)
-    Can also handle devices and partitions by path in /sys/
-    Will not raise io errors if holders cannot be found
-    """
-    if not devname and not sysfs_path:
-        raise ValueError("either devname or sysfs_path must be supplied")
-
-    # get sysfs path if missing
-    if not sysfs_path:
-        # forgive value errors as well, since block_find_sysfs_path throws them
-        # in some cases
-        with util.forgive_io_err(
-                extra_errors=ValueError,
-                msg="Could not get sysfs path to {}".format(devname)):
-            sysfs_path = block_find_sysfs_path(devname)
-
-    if not sysfs_path:
-        LOG.debug('get_holders: did not find sysfs path for %s', devname)
-        return []
-
-    # get holders
-    holders = []
-    with util.forgive_io_err(
-            msg="could not get holders for {}".format(sysfs_path)):
-        holders = os.listdir(os.path.join(sysfs_path, 'holders'))
-
-    LOG.debug("devname '%s' had holders: %s", devname, ','.join(holders))
-    return holders
-
-
-def clear_holders(sys_block_path):
+def old_clear_holders(sys_block_path):
     """
     Shutdown all storage layers holding device in /sys/block path.
     Ignore IO errors encountered, as installation should be able to continue in
     many cases when not everything was able to be shut down.
     """
-    holders = get_holders(sysfs_path=sys_block_path)
+    holders = clear_holders.get_holders(sysfs_path=sys_block_path)
     LOG.info("clear_holders running on '%s', with holders '%s'" %
              (sys_block_path, holders))
     for holder in holders:
@@ -497,26 +430,23 @@ def disk_handler(info, storage_config):
             os.path.split(prt)[0] for prt in
             glob.glob("/sys/block/%s/*/partition" % disk_kname))
         for partition in syspath_partitions:
-            with util.forgive_io_err(
-                    msg="could not clear holders on: %s%s" %
-                    (disk_kname, partition)):
-                clear_holders(partition)
-                with open(os.path.join(partition, "dev"), "r") as fp:
-                    block_no = fp.read().rstrip()
+            clear_holders.check_clear(partition)
             # in some cases the block dev may not be available when it is
             # to be erased. since it is possible that installation can
             # still continue without having wiped the partition, don't
             # crash here (LP:1579572)
-            with util.forgive_io_err(
-                    msg="could not wipe: %s%s" % (disk_kname, partition)):
+            catcher = util.ForgiveIoError()
+            with catcher:
+                with open(os.path.join(partition, "dev"), "r") as fp:
+                    block_no = fp.read().rstrip()
                 partition_path = os.path.realpath(
                     os.path.join("/dev/block", block_no))
                 block.wipe_volume(partition_path, mode=info.get('wipe'))
+            for e in catcher.caught:
+                LOG.warn('while running wipe_volume, caught: {}'.format(e))
 
-        with util.forgive_io_err(msg="could not clear holders on %s" % disk):
-            clear_holders("/sys/block/%s" % disk_kname)
-        with util.forgive_io_err(msg="could not wipe: %s" % disk):
-            block.wipe_volume(disk, mode=info.get('wipe'))
+        clear_holders.check_clear(disk)
+        block.wipe_volume(disk, mode=info.get('wipe'))
 
     # Create partition table on disk
     if info.get('ptable'):
@@ -1035,9 +965,11 @@ def bcache_handler(info, storage_config):
                           bcache_device, expected)
                 return
             LOG.debug('bcache device path not found: %s', expected)
-            local_holders = get_holders(devname=bcache_device)
+            (local_holders, _err) = clear_holders.get_holders(bcache_device)
             LOG.debug('got initial holders being "%s"', local_holders)
             if len(local_holders) == 0:
+                for e in _err:
+                    LOG.error('get_holders encountered error: {}'.format(e))
                 raise ValueError("holders == 0 , expected non-zero")
         except (OSError, IndexError, ValueError):
             # Some versions of bcache-tools will register the bcache device as
@@ -1065,7 +997,7 @@ def bcache_handler(info, storage_config):
 
     if cache_device:
         # /sys/class/block/XXX/YYY/
-        cache_device_sysfs = block_find_sysfs_path(cache_device)
+        cache_device_sysfs = block.sys_block_path(cache_device)
 
         if os.path.exists(os.path.join(cache_device_sysfs, "bcache")):
             LOG.debug('caching device already exists at {}/bcache. Read '
@@ -1090,7 +1022,7 @@ def bcache_handler(info, storage_config):
         ensure_bcache_is_registered(cache_device, target_sysfs_path)
 
     if backing_device:
-        backing_device_sysfs = block_find_sysfs_path(backing_device)
+        backing_device_sysfs = block.sys_block_path(backing_device)
         target_sysfs_path = os.path.join(backing_device_sysfs, "bcache")
         if not os.path.exists(os.path.join(backing_device_sysfs, "bcache")):
             util.subp(["make-bcache", "-B", backing_device])
@@ -1098,8 +1030,10 @@ def bcache_handler(info, storage_config):
 
         # via the holders we can identify which bcache device we just created
         # for a given backing device
-        holders = get_holders(devname=backing_device)
+        (holders, _err) = clear_holders.get_holders(backing_device)
         if len(holders) != 1:
+            for e in _err:
+                LOG.error('get_holders encountered error: {}'.format(e))
             err = ('Invalid number {} of holding devices:'
                    ' "{}"'.format(len(holders), holders))
             LOG.error(err)
