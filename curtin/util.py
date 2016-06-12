@@ -785,11 +785,20 @@ class ForgiveIoError(object):
         self.extra_errors = extra_errors
         self.caught = []
 
+    def add_exc(self, excs):
+        if not isinstance(excs, (list, tuple)):
+            excs = [excs]
+        for exc in excs:
+            self.caught.append(str(exc))
+
     def __enter__(self):
-        return self
+        pass
 
     def __exit__(self, etype, value, trace):
-        self.caught.append(value)
+        if etype is None:
+            return
+
+        self.add_exc(value)
         return (isinstance(value, self.extra_errors) or
                 is_file_not_found_exc(value))
 
