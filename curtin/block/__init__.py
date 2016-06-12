@@ -47,6 +47,7 @@ def is_block_device(path):
 
 
 def dev_short(devname):
+    devname = os.path.normpath(devname)
     if os.path.sep in devname:
         return os.path.basename(devname)
     return devname
