@@ -23,23 +23,40 @@ from curtin import (block, util)
 from curtin.log import LOG
 
 import errno
+import functools
 import os
 
 
-def split_vg_lv_name(full_name):
+def split_vg_lv_name(full):
     """
     Break full logical volume device name into volume group and logical volume
     """
     # FIXME: when block.lvm is written this should be moved there
-    return (None, None)
+    # just using .split('-') will not work because when a logical volume or
+    # volume group has a name containing a '-', '--' is used to denote this in
+    # the /sys/block/{name}/dm/name (LP:1591573)
+
+    # get index of first - not followed by or preceeded by another -
+    indx = None
+    try:
+        indx = next(i + 1 for (i, c) in enumerate(full[1:-1])
+                    if c == '-' and '-' not in (full[i], full[i + 2]))
+    except StopIteration:
+        pass
+
+    if not indx:
+        raise ValueError("vg-lv full name does not contain a '-': {}'".format(
+            full))
+
+    return (full[:indx], full[indx + 1:])
 
 
 def shutdown_bcache(device):
-    pass
+    return (None, [])
 
 
 def shutdown_mdadm(device):
-    pass
+    return (None, [])
 
 
 def shutdown_lvm(device):
@@ -54,12 +71,15 @@ def shutdown_lvm(device):
     """
     # lvm devices have a dm directory that containes a file 'name' containing
     # '{volume group}-{logical volume}'. The volume can be freed using lvremove
-
     catcher = util.ForgiveIoError()
     with catcher:
+        (vg_name, lv_name) = (None, None)
         name_file = os.path.join(device, 'dm', 'name')
         full_name = util.load_file(name_file)
-        (vg_name, lv_name) = split_vg_lv_name(full_name)
+        try:
+            (vg_name, lv_name) = split_vg_lv_name(full_name)
+        except ValueError:
+            pass
         if vg_name is None or lv_name is None:
             raise OSError(errno.ENOENT,
                           'file: {} missing or has invalid contents'.format(
@@ -82,7 +102,7 @@ def shutdown_lvm(device):
     # is most likely not an issue. However, we will record the error and pass
     # it up the clear_holders stack so that if other clear_holders calls fail
     # and this is a potential cause it will be written to install log
-    cmd = ["lvremove", "--force", "--force", "{}/{}".format(vg_name, lv_name)]
+    cmd = ['lvremove', '--force', '--force', '{}/{}'.format(vg_name, lv_name)]
     try:
         util.subp(cmd)
     except util.ProcessExecutionError as e:
@@ -92,7 +112,8 @@ def shutdown_lvm(device):
 
     # The underlying volume can be freed of its lvm metadata using
     # block.wipe_volume with wipe mode 'pvremove'
-    return (None, catcher.caught)
+    wipe_func = functools.partial(block.wipe_volume, mode='pvremove')
+    return (wipe_func, catcher.caught)
 
 
 def get_holders(device):
