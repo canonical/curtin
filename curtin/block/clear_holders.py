@@ -51,7 +51,8 @@ def split_vg_lv_name(full):
         raise ValueError("vg-lv full name does not contain a '-': {}'".format(
             full))
 
-    return (full[:indx], full[indx + 1:])
+    return (full[:indx].replace('--', '-'),
+            full[indx + 1:].replace('--', '-'))
 
 
 def shutdown_bcache(device):
@@ -92,16 +93,11 @@ def shutdown_lvm(device):
     # attached two has been damaged by a disk being wiped or other storage
     # volumes being shut down.
 
-    # We do not need to and should not remove the volume group here, as it
-    # should be possible for a user to destroy some logical volumes in a
-    # volume group, but set 'preserve: true' on the volgroup itself and
-    # the data in other logical volumes on the volgroup
-
     # if something has already destroyed the logical volume, such as another
     # partition being forcibly removed from the volume group, then lvremove
     # will return 5.
 
-    # If this happens, then we should not halt installation, it
+    # if this happens, then we should not halt installation, it
     # is most likely not an issue. However, we will record the error and pass
     # it up the clear_holders stack so that if other clear_holders calls fail
     # and this is a potential cause it will be written to install log
@@ -113,6 +109,10 @@ def shutdown_lvm(device):
         catcher.add_exc(e)
         if not (hasattr(e, 'exit_code') and e.exit_code == 5):
             raise
+
+    # if this was the last logical volume for the volume group, remove the
+    # volume group
+    # FIXME
 
     # The underlying volume can be freed of its lvm metadata using
     # block.wipe_volume with wipe mode 'pvremove'
@@ -211,8 +211,6 @@ def clear_holders(device):
     # device.
     dev_path = block.dev_path(block.dev_short(device))
     for wipe_cmd in wipe_cmds:
-        LOG.info('clear_holders running wipe fn: {} on dev {}'
-                 .format(wipe_cmd, dev_path))
         with catcher:
             wipe_cmd(dev_path)
 
