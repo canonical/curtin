@@ -411,14 +411,6 @@ class TrustyHWEWTestNetworkStatic(relbase.trusty_hwe_w,
     __test__ = False
 
 
-class VividTestNetwork(relbase.vivid, TestNetworkAbs):
-    __test__ = True
-
-
-class VividTestNetworkStatic(relbase.vivid, TestNetworkStaticAbs):
-    __test__ = True
-
-
 class WilyTestNetwork(relbase.wily, TestNetworkAbs):
     __test__ = True
 
@@ -432,6 +424,14 @@ class XenialTestNetwork(relbase.xenial, TestNetworkAbs):
 
 
 class XenialTestNetworkStatic(relbase.xenial, TestNetworkStaticAbs):
+    __test__ = True
+
+
+class YakketyTestNetwork(relbase.yakkety, TestNetworkAbs):
+    __test__ = True
+
+
+class YakketyTestNetworkStatic(relbase.yakkety, TestNetworkStaticAbs):
     __test__ = True
 
 
@@ -455,15 +455,15 @@ class TrustyTestNetworkVlan(relbase.trusty, TestNetworkVlanAbs):
     __test__ = True
 
 
-class VividTestNetworkVlan(relbase.vivid, TestNetworkVlanAbs):
-    __test__ = True
-
-
 class WilyTestNetworkVlan(relbase.wily, TestNetworkVlanAbs):
     __test__ = True
 
 
 class XenialTestNetworkVlan(relbase.xenial, TestNetworkVlanAbs):
+    __test__ = True
+
+
+class YakketyTestNetworkVlan(relbase.yakkety, TestNetworkVlanAbs):
     __test__ = True
 
 
@@ -477,13 +477,13 @@ class TrustyTestNetworkENISource(relbase.trusty, TestNetworkENISource):
     __test__ = True
 
 
-class VividTestNetworkENISource(relbase.vivid, TestNetworkENISource):
-    __test__ = True
-
-
 class WilyTestNetworkENISource(relbase.wily, TestNetworkENISource):
     __test__ = True
 
 
 class XenialTestNetworkENISource(relbase.xenial, TestNetworkENISource):
+    __test__ = True
+
+
+class YakketyTestNetworkENISource(relbase.yakkety, TestNetworkENISource):
     __test__ = True

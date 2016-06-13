@@ -230,13 +230,13 @@ class TrustyHWEWTestBonding(relbase.trusty_hwe_w, TrustyTestBonding):
     __test__ = True
 
 
-class VividTestBonding(relbase.vivid, TestNetworkAbs):
-    __test__ = True
-
-
 class WilyTestBonding(relbase.wily, TestNetworkAbs):
     __test__ = True
 
 
 class XenialTestBonding(relbase.xenial, TestNetworkAbs):
+    __test__ = True
+
+
+class YakketyTestBonding(relbase.yakkety, TestNetworkAbs):
     __test__ = True
