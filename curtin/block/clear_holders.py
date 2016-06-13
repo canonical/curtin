@@ -19,7 +19,7 @@
 # top of a block device, making it possible to reuse the block device without
 # having to reboot the system
 
-from curtin import (block, util)
+from curtin import (block, util, udev)
 from curtin.log import LOG
 
 import errno
@@ -55,8 +55,44 @@ def split_vg_lv_name(full):
             full[indx + 1:].replace('--', '-'))
 
 
+def get_bcache_using_dev(device):
+    """
+    Get the /sys/fs/bcache/ path of the bcache volume using specified device
+
+    The specified device can either be a device held by bcache or the bcache
+    device itself
+
+    Device can be specified either as a path in /dev or a path in /sys/block
+    """
+    sysfs_path = block.sys_block_path(device)
+    bcache_cache_d = os.path.realpath(os.path.join(
+        sysfs_path, 'bcache', 'cache'))
+    if not os.path.exists(bcache_cache_d):
+        raise OSError(2, 'Could not find /sys/fs path for bcache: {}'
+                      .format(sysfs_path))
+    return bcache_cache_d
+
+
 def shutdown_bcache(device):
-    return (None, [])
+    """
+    Shut down bcache for specified bcache device or bcache backing/cache
+    device
+
+    Will not io errors but will collect and return them
+
+    May return a function that should be run by the caller on the underlying
+    block device to wipe out the bcache superblock
+    """
+    catcher = util.ForgiveIoError()
+    bcache_sysfs = None
+    with catcher:
+        bcache_sysfs = get_bcache_using_dev(device)
+    if bcache_sysfs is not None:
+        LOG.debug('stopping bcache at: {}'.format(bcache_sysfs))
+        with catcher:
+            util.write_file(os.path.join(bcache_sysfs, 'stop'), '1')
+    wipe_func = functools.partial(block.wipe_volume, mode='superblock')
+    return (wipe_func, catcher.caught)
 
 
 def shutdown_mdadm(device):
@@ -70,6 +106,7 @@ def shutdown_mdadm(device):
     catcher = util.ForgiveIoError(ValueError)
     with catcher:
         blockdev = block.dev_path(block.dev_short(device))
+        LOG.debug('using mdadm.mdadm_stop on dev: {}'.format(blockdev))
         block.mdadm.mdadm_stop(blockdev)
         block.mdadm.mdadm_remove(blockdev)
     return (None, catcher.caught)
@@ -221,6 +258,9 @@ def clear_holders(device):
     for wipe_cmd in wipe_cmds:
         with catcher:
             wipe_cmd(dev_path)
+
+    # make sure changes are fully applied before looking for remaining holders
+    udev.udevadm_settle()
 
     # only return true if there are no remaining holders or if the path to this
     # device in /sys/block no longer exists because it was shut down
