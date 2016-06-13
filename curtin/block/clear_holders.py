@@ -60,7 +60,19 @@ def shutdown_bcache(device):
 
 
 def shutdown_mdadm(device):
-    return (None, [])
+    """
+    Shutdown specified mdadm device. Device can be either a blockdev or a path
+    in /sys/block
+
+    Will not raise io errors, or errors from mdadm.assert_valid_devpath, but
+    will collect and return them
+    """
+    catcher = util.ForgiveIoError(ValueError)
+    with catcher:
+        blockdev = block.dev_path(block.dev_short(device))
+        block.mdadm.mdadm_stop(blockdev)
+        block.mdadm.mdadm_remove(blockdev)
+    return (None, catcher.caught)
 
 
 def shutdown_lvm(device):
@@ -70,8 +82,8 @@ def shutdown_lvm(device):
 
     Will not raise io errors, but will collect and return them
 
-    May return a partial function that should be run by the caller on the
-    underlying block device
+    May return a function that should be run by the caller on the underlying
+    block device to wipe out lvm pv superblock
     """
     # lvm devices have a dm directory that containes a file 'name' containing
     # '{volume group}-{logical volume}'. The volume can be freed using lvremove
@@ -109,10 +121,6 @@ def shutdown_lvm(device):
         catcher.add_exc(e)
         if not (hasattr(e, 'exit_code') and e.exit_code == 5):
             raise
-
-    # if this was the last logical volume for the volume group, remove the
-    # volume group
-    # FIXME
 
     # The underlying volume can be freed of its lvm metadata using
     # block.wipe_volume with wipe mode 'pvremove'
@@ -196,9 +204,9 @@ def clear_holders(device):
     # wiping, run them, and log the output
     wipe_cmds = []
     holder_types = {
-        'bcache': shutdown_bcache,
-        'md': shutdown_mdadm,
         'dm': shutdown_lvm,
+        'md': shutdown_mdadm,
+        'bcache': shutdown_bcache,
     }
     for (type_name, handler) in holder_types.items():
         if os.path.exists(os.path.join(device, type_name)):
