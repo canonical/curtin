@@ -55,7 +55,7 @@ def resolve_alias(alias):
 
 
 def interfaces_basic_dhcp(devices, macs=None):
-    # return network configuration that says to dhcp on provided devies
+    # return network configuration that says to dhcp on provided devices
     if macs is None:
         macs = {}
         for dev in devices:
