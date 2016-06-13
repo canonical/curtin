@@ -480,4 +480,9 @@ def render_network_state(target, network_state):
     LOG.info('Writing ' + cc_disable)
     util.write_file(cc_disable, content='network: {config: disabled}\n')
 
+
+def get_interface_mac(ifname):
+    """Returns the string value of an interface's MAC Address"""
+    return read_sys_net(ifname, "address", enoent=False)
+
 # vi: ts=4 expandtab syntax=python
