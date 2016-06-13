@@ -145,14 +145,14 @@ def net_meta(args):
         content = config.dump_config(interfaces_custom(args))
 
     else:
-        raise Exception("Unexpected network config mode '%s'" % args.mode)
+        raise Exception("Unexpected network config mode '%s'." % args.mode)
 
     if not target:
         raise Exception(
             "No target given for mode = '%s'.  No where to write content: %s" %
             (args.mode, content))
 
-    LOG.debug("writing to file %s with network config: %s" % (target, content))
+    LOG.debug("writing to file %s with network config: %s", target, content)
     if target == "-":
         sys.stdout.write(content)
     else:
