@@ -189,22 +189,6 @@ def old_clear_holders(sys_block_path):
                 fp.write("1")
         udevadm_settle()
 
-    if os.path.exists(os.path.join(sys_block_path, "md")):
-        # md device
-        block_dev = os.path.join("/dev/", os.path.split(sys_block_path)[-1])
-        # if these fail its okay, the array might not be assembled and thats
-        # fine
-        mdadm.mdadm_stop(block_dev)
-        mdadm.mdadm_remove(block_dev)
-
-    elif os.path.exists(os.path.join(sys_block_path, "dm")):
-        # Shut down any volgroups
-        with open(os.path.join(sys_block_path, "dm", "name"), "r") as fp:
-            name = fp.read().split('-')
-        util.subp(["lvremove", "--force", name[0].rstrip(), name[1].rstrip()],
-                  rcs=[0, 5])
-        util.subp(["vgremove", name[0].rstrip()], rcs=[0, 5, 6])
-
 
 def devsync(devpath):
     LOG.debug('devsync for %s', devpath)
