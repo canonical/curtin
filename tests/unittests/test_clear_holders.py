@@ -87,7 +87,7 @@ class TestClearHolders(TestCase):
         (wipe, _err) = clear_holders.shutdown_bcache(fake_bcache_dev)
         self.assertEqual(len(_err), 0)
         mock_write_file.assert_called_with(
-                os.path.join(fake_bcache_sys, 'stop'), '1')
+            os.path.join(fake_bcache_sys, 'stop'), '1')
         self.assertEqual(len(wipe), 3)
         for p in ['/dev/vda', '/dev/vdb', '/dev/vdc']:
             partial = {'func': block.wipe_volume, 'args': [p],
