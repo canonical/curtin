@@ -60,7 +60,6 @@ class TestAptSourceConfig(TestCase):
         self.aptlistfile3 = os.path.join(self.tmp, "single-deb3.list")
         self.join = os.path.join
         self.matcher = re.compile(ADD_APT_REPO_MATCH).search
-        self.orig_gpg_recv_key = gpg.gpg_recv_key
 
     @staticmethod
     def _get_default_params():
