@@ -117,16 +117,15 @@ def shutdown_mdadm(device):
     Shutdown specified mdadm device. Device can be either a blockdev or a path
     in /sys/block
 
-    Will not raise io errors, or errors from mdadm.assert_valid_devpath, but
-    will collect and return them
+    May raise process execution errors, but these should be allowed, since this
+    function should not have been run by clear_holders unless there was a valid
+    mdadm device to shut down
     """
-    catcher = util.ForgiveIoError(ValueError)
-    with catcher:
-        blockdev = block.dev_path(block.dev_short(device))
-        LOG.debug('using mdadm.mdadm_stop on dev: {}'.format(blockdev))
-        block.mdadm.mdadm_stop(blockdev)
-        block.mdadm.mdadm_remove(blockdev)
-    return (None, catcher.caught)
+    blockdev = block.dev_path(block.dev_short(device))
+    LOG.debug('using mdadm.mdadm_stop on dev: {}'.format(blockdev))
+    block.mdadm.mdadm_stop(blockdev)
+    block.mdadm.mdadm_remove(blockdev)
+    return (None, [])
 
 
 def shutdown_lvm(device):
@@ -150,9 +149,9 @@ def shutdown_lvm(device):
         except ValueError:
             pass
         if vg_name is None or lv_name is None:
-            raise OSError(errno.ENOENT,
-                          'file: {} missing or has invalid contents'.format(
-                             name_file))
+            raise OSError(
+                errno.ENOENT,
+                'file: {} missing or has invalid contents'.format(name_file))
 
     # use two --force flags here in case the volume group that this lv is
     # attached two has been damaged by a disk being wiped or other storage
