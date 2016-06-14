@@ -101,8 +101,8 @@ def shutdown_bcache(device):
                          for p in glob.glob(glob_expr))
     # generate wipe functions
     LOG.debug('shutdown_bcache needs to wipe: {}'.format(wipe_devs))
-    wipe = (functools.partial(block.wipe_volume, dev, mode='superblock')
-            for dev in wipe_devs)
+    wipe = [functools.partial(block.wipe_volume, dev, mode='superblock')
+            for dev in wipe_devs]
 
     # stop the bcache device via sysfs
     LOG.debug('stopping bcache at: {}'.format(bcache_sysfs))
@@ -308,3 +308,5 @@ def check_clear(device):
         log_fn('clear_holders encountered error: {}'.format(e))
     if not res:
         raise OSError('could not clear holders for device: {}'.format(device))
+    LOG.info('clear_holders finished successfully on device: {}'
+             .format(device))
