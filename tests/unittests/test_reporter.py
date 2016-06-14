@@ -129,7 +129,6 @@ class TestReporter(TestCase):
         event = events.ReportingEvent(events.START_EVENT_TYPE, 'test_event',
                                       'test event', level='INFO')
         res_dict = event.as_dict()
-        res_dict['description'] = 'started: ' + res_dict['description']
         webhook_handler = handlers.WebHookHandler('127.0.0.1:8000')
         webhook_handler.publish_event(event)
         webhook_handler.oauth_helper.geturl.assert_called_with(
