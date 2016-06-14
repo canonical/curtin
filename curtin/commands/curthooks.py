@@ -238,7 +238,7 @@ def run_zipl(cfg, target):
 
 def install_kernel(cfg, target):
     kernel_cfg = cfg.get('kernel', {'package': None,
-                                    'fallback-package': None,
+                                    'fallback-package': "linux-generic",
                                     'mapping': {}})
     if kernel_cfg is not None:
         kernel_package = kernel_cfg.get('package')
