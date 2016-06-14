@@ -127,69 +127,6 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
     return "mbr"
 
 
-def old_clear_holders(sys_block_path):
-    """
-    Shutdown all storage layers holding device in /sys/block path.
-    Ignore IO errors encountered, as installation should be able to continue in
-    many cases when not everything was able to be shut down.
-    """
-    holders = clear_holders.get_holders(sysfs_path=sys_block_path)
-    LOG.info("clear_holders running on '%s', with holders '%s'" %
-             (sys_block_path, holders))
-    for holder in holders:
-        # get path to holder in /sys/block, then clear it
-        # ignore io errors as something may have already caused the holder
-        # device to go away
-        with util.forgive_io_err("could not find {}".format(holder)):
-            holder_realpath = os.path.realpath(
-                os.path.join(sys_block_path, "holders", holder))
-            clear_holders(holder_realpath)
-
-    # detect what type of holder is using this volume and shut it down, need to
-    # find more robust name of doing detection
-    if "bcache" in sys_block_path:
-        # bcache device
-        part_devs = []
-        for part_dev in glob.glob(os.path.join(sys_block_path,
-                                               "slaves", "*", "dev")):
-            with open(part_dev, "r") as fp:
-                part_dev_id = fp.read().rstrip()
-                part_devs.append(
-                    os.path.split(os.path.realpath(os.path.join("/dev/block",
-                                  part_dev_id)))[-1])
-        for cache_dev in glob.glob("/sys/fs/bcache/*/bdev*"):
-            for part_dev in part_devs:
-                if part_dev in os.path.realpath(cache_dev):
-                    # This is our bcache device, stop it, wait for udev to
-                    # settle
-                    with open(os.path.join(os.path.split(cache_dev)[0],
-                              "stop"), "w") as fp:
-                        LOG.info("stopping: %s" % fp)
-                        fp.write("1")
-                        udevadm_settle()
-                    break
-        for part_dev in part_devs:
-            block.wipe_volume(os.path.join("/dev", part_dev),
-                              mode="superblock")
-
-    if os.path.exists(os.path.join(sys_block_path, "bcache")):
-        # bcache device that isn't running, if it were, we would have found it
-        # when we looked for holders
-        try:
-            with open(os.path.join(sys_block_path, "bcache", "set", "stop"),
-                      "w") as fp:
-                LOG.info("stopping: %s" % fp)
-                fp.write("1")
-        except IOError as e:
-            if not util.is_file_not_found_exc(e):
-                raise e
-            with open(os.path.join(sys_block_path, "bcache", "stop"),
-                      "w") as fp:
-                LOG.info("stopping: %s" % fp)
-                fp.write("1")
-        udevadm_settle()
-
-
 def devsync(devpath):
     LOG.debug('devsync for %s', devpath)
     util.subp(['partprobe', devpath], rcs=[0, 1])
