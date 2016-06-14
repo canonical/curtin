@@ -454,8 +454,8 @@ def setup_grub(cfg, target):
 
     # UEFI requires grub-efi-{arch}. If a signed version of that package
     # exists then it will be installed.
-    arch = util.get_architecture()
     if util.is_uefi_bootable():
+        arch = util.get_architecture()
         pkgs = ['grub-efi-%s' % arch]
 
         # Architecture might support a signed UEFI loader
@@ -469,9 +469,6 @@ def setup_grub(cfg, target):
 
         # Install the UEFI packages needed for the architecture
         util.install_packages(pkgs, target=target)
-    elif arch == "amd64":
-        util.install_packages(["grub-pc"], target=target)
-
 
     env = os.environ.copy()
 
