@@ -1,7 +1,3 @@
-"""
-apt_source.py
-Handling the setup of apt related tasks like proxies, PGP keys, repositories.
-"""
 #   Copyright (C) 2016 Canonical Ltd.
 #
 #   Author: Christian Ehrhardt <christian.ehrhardt@canonical.com>
@@ -18,6 +14,10 @@ Handling the setup of apt related tasks like proxies, PGP keys, repositories.
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+"""
+apt_source.py
+Handling the setup of apt related tasks like proxies, PGP keys, repositories.
+"""
 
 import glob
 import os
