@@ -154,8 +154,12 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
         err = ('Raidlevel does not support spare devices: ' + str(raidlevel))
         raise ValueError(err)
 
+    (hostname, _err) = util.subp(["hostname", "-s"], rcs=[0], capture=True)
+
     cmd = ["mdadm", "--create", md_devname, "--run",
-           "--level=%s" % raidlevel, "--raid-devices=%s" % len(devices)]
+           "--homehost=%s" % hostname.strip(),
+           "--level=%s" % raidlevel,
+           "--raid-devices=%s" % len(devices)]
     if md_name:
         cmd.append("--name=%s" % md_name)
 

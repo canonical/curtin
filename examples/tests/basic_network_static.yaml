@@ -4,7 +4,7 @@ network:
     config:
         # Physical interfaces.
         - type: physical
-          name: eth0
+          name: interface0
           mac_address: "52:54:00:12:34:00"
           subnets:
               - type: static

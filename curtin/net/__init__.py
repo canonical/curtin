@@ -195,10 +195,8 @@ def parse_deb_config_data(ifaces, contents, src_dir, src_path):
                     # Include the source path this interface was found in.
                     "_source_path": src_path
                 }
-            elif 'family' in ifaces[iface]:
-                raise ParserError(
-                    "Interface %s can only be defined once. "
-                    "Re-defined in '%s'." % (iface, src_path))
+            # man (5) interfaces says we can have multiple iface stanzas
+            # all options are combined
             ifaces[iface]['family'] = family
             ifaces[iface]['method'] = method
             currif = iface
@@ -333,7 +331,14 @@ def iface_add_subnet(iface, subnet):
 
 
 # TODO: switch to valid_map for attrs
-def iface_add_attrs(iface):
+def iface_add_attrs(iface, index):
+    # If the index is non-zero, this is an alias interface. Alias interfaces
+    # represent additional interface addresses, and should not have additional
+    # attributes. (extra attributes here are almost always either incorrect,
+    # or are applied to the parent interface.) So if this is an alias, stop
+    # right here.
+    if index != 0:
+        return ""
     content = ""
     ignore_map = [
         'control',
@@ -425,28 +430,36 @@ def render_interfaces(network_state):
                 iface['index'] = index
                 iface['mode'] = subnet['type']
                 iface['control'] = subnet.get('control', 'auto')
+                subnet_inet = 'inet'
                 if iface['mode'].endswith('6'):
-                    iface['inet'] += '6'
+                    # This is a request for DHCPv6.
+                    subnet_inet += '6'
                 elif iface['mode'] == 'static' and ":" in subnet['address']:
-                    iface['inet'] += '6'
+                    # This is a static IPv6 address.
+                    subnet_inet += '6'
+                iface['inet'] = subnet_inet
                 if iface['mode'].startswith('dhcp'):
                     iface['mode'] = 'dhcp'
 
                 content += iface_start_entry(iface, index)
                 content += iface_add_subnet(iface, subnet)
-                content += iface_add_attrs(iface)
+                content += iface_add_attrs(iface, index)
         else:
             # ifenslave docs say to auto the slave devices
             if 'bond-master' in iface:
                 content += "auto {name}\n".format(**iface)
             content += "iface {name} {inet} {mode}\n".format(**iface)
-            content += iface_add_attrs(iface)
+            content += iface_add_attrs(iface, index)
 
     for route in network_state.get('routes'):
         content += render_route(route)
 
     # global replacements until v2 format
     content = content.replace('mac_address', 'hwaddress')
+
+    # Play nice with others and source eni config files
+    content += "\nsource /etc/network/interfaces.d/*.cfg\n"
+
     return content
 
 
@@ -466,5 +479,10 @@ def render_network_state(target, network_state):
     cc_disable = os.path.sep.join((target, cc,))
     LOG.info('Writing ' + cc_disable)
     util.write_file(cc_disable, content='network: {config: disabled}\n')
+
+
+def get_interface_mac(ifname):
+    """Returns the string value of an interface's MAC Address"""
+    return read_sys_net(ifname, "address", enoent=False)
 
 # vi: ts=4 expandtab syntax=python
