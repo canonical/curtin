@@ -23,7 +23,7 @@ class ReportingHandler(object):
 
 
 class LogHandler(ReportingHandler):
-    """Publishes events to the cloud-init log at the ``INFO`` log level."""
+    """Publishes events to the curtin log at the ``DEBUG`` log level."""
 
     def __init__(self, level="DEBUG"):
         super(LogHandler, self).__init__()
@@ -39,9 +39,9 @@ class LogHandler(ReportingHandler):
         self.level = level
 
     def publish_event(self, event):
-        """Publish an event to the ``INFO`` log level."""
+        """Publish an event to the ``DEBUG`` log level."""
         logger = logging.getLogger(
-            '.'.join(['cloudinit', 'reporting', event.event_type, event.name]))
+            '.'.join(['curtin', 'reporting', event.event_type, event.name]))
         logger.log(self.level, event.as_string())
 
 
@@ -55,7 +55,7 @@ class PrintHandler(ReportingHandler):
 class WebHookHandler(ReportingHandler):
     def __init__(self, endpoint, consumer_key=None, token_key=None,
                  token_secret=None, consumer_secret=None, timeout=None,
-                 retries=None, level="INFO"):
+                 retries=None, level="DEBUG"):
         super(WebHookHandler, self).__init__()
 
         self.oauth_helper = url_helper.OauthUrlHelper(
@@ -72,15 +72,6 @@ class WebHookHandler(ReportingHandler):
         self.headers = {'Content-Type': 'application/json'}
 
     def publish_event(self, event):
-        if isinstance(event.level, int):
-            ev_level = event.level
-        else:
-            try:
-                ev_level = getattr(logging, event.level.upper())
-            except:
-                ev_level = logging.INFO
-        if ev_level < self.level:
-            return
         try:
             return self.oauth_helper.geturl(
                 url=self.endpoint, data=event.as_dict(),
