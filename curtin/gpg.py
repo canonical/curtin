@@ -71,4 +71,4 @@ def gpg_getkeybyid(keyid, keyserver='keyserver.ubuntu.com'):
             # delete just imported key to leave environment as it was before
             gpg_delete_key(keyid)
 
-    return armour.rstrip('\n')
+    return armour
