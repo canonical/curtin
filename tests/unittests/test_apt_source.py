@@ -13,6 +13,7 @@ import mock
 from mock import call
 
 from curtin import util
+from curtin import gpg
 from curtin.commands import apt_source
 
 
@@ -59,7 +60,7 @@ class TestAptSourceConfig(TestCase):
         self.aptlistfile3 = os.path.join(self.tmp, "single-deb3.list")
         self.join = os.path.join
         self.matcher = re.compile(ADD_APT_REPO_MATCH).search
-        self.orig_gpg_recv_key = util.gpg_recv_key
+        self.orig_gpg_recv_key = gpg.gpg_recv_key
 
     @staticmethod
     def _get_default_params():
@@ -321,7 +322,7 @@ class TestAptSourceConfig(TestCase):
         params = self._get_default_params()
 
         with mock.patch.object(apt_source, 'add_apt_key_raw') as mockkey:
-            with mock.patch.object(util, 'gpg_getkeybyid',
+            with mock.patch.object(gpg, 'gpg_getkeybyid',
                                    return_value=expectedkey) as mockgetkey:
                 apt_source.add_apt_sources(cfg, params,
                                            aa_repo_match=self.matcher)
@@ -366,7 +367,7 @@ class TestAptSourceConfig(TestCase):
 
         # in some test environments only *.ubuntu.com is reachable
         # so mock the call and check if the config got there
-        with mock.patch.object(util, 'gpg_getkeybyid',
+        with mock.patch.object(gpg, 'gpg_getkeybyid',
                                return_value="fakekey") as mockgetkey:
             with mock.patch.object(apt_source, 'add_apt_key_raw') as mockadd:
                 apt_source.add_apt_sources(cfg, params,

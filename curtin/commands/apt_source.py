@@ -25,7 +25,7 @@ import re
 import sys
 
 from curtin.log import LOG
-from curtin import (config, util)
+from curtin import (config, util, gpg)
 
 from . import populate_one_subcmd
 
@@ -222,7 +222,7 @@ def add_apt_key(ent):
         if 'keyserver' in ent:
             keyserver = ent['keyserver']
 
-        ent['key'] = util.gpg_getkeybyid(ent['keyid'], keyserver)
+        ent['key'] = gpg.gpg_getkeybyid(ent['keyid'], keyserver)
 
     if 'key' in ent:
         add_apt_key_raw(ent['key'])
