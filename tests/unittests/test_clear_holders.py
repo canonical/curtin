@@ -1,8 +1,11 @@
 from unittest import TestCase
+import mock
+
 from curtin.block import clear_holders
 from curtin import block
+
+import errno
 import os
-import mock
 
 
 class TestClearHolders(TestCase):
@@ -54,6 +57,10 @@ class TestClearHolders(TestCase):
     @mock.patch('curtin.block.clear_holders.get_bcache_using_dev')
     def test_shutdown_bcache(self, mock_get_bcache_dev, mock_glob,
                              mock_write_file, mock_log, mock_functools):
+        """
+        Ensure that shutdown_bcache works as expected even when errors
+        encountered
+        """
         fake_bcache_dev = '/dev/bcache0'
         fake_bcache_sys = '/sys/fs/bcache/fakebcache'
         bcache0_held = [
@@ -65,9 +72,11 @@ class TestClearHolders(TestCase):
             for p in ['vda', 'vdc']
         ]
 
+        no_sysfs_path_err = OSError(errno.ENOENT, 'no sysfs path')
+
         def _bcache_using_dev(dev):
             if dev != fake_bcache_dev:
-                raise OSError(2, 'no sysfs path')
+                raise no_sysfs_path_err
             return fake_bcache_sys
 
         mock_get_bcache_dev.side_effect = _bcache_using_dev
@@ -84,3 +93,20 @@ class TestClearHolders(TestCase):
             partial = {'func': block.wipe_volume, 'args': [p],
                        'kwargs': {'mode': 'superblock'}}
             self.assertIn(partial, wipe)
+
+        # ensure that shutdown_bcache exits gracefully if the specified bcache
+        # device was not found
+        (wipe, _err) = clear_holders.shutdown_bcache('/dev/null')
+        self.assertIsNone(wipe)
+        self.assertEqual(len(_err), 1)
+        self.assertEqual(str(no_sysfs_path_err), _err[0])
+
+    @mock.patch('curtin.block.clear_holders.block.mdadm')
+    def test_shutdown_mdadm(self, mock_mdadm):
+        """Ensure that shutdown_mdadm makes the correct calls to mdadm"""
+        md_dev = '/sys/class/block/null'
+        (wipe, _err) = clear_holders.shutdown_mdadm(md_dev)
+        self.assertIsNone(wipe)
+        self.assertEqual(len(_err), 0)
+        mock_mdadm.mdadm_stop.assert_called_with('/dev/null')
+        mock_mdadm.mdadm_remove.assert_called_with('/dev/null')
