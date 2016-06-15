@@ -170,3 +170,25 @@ class TestClearHolders(TestCase):
         self.assertEqual(len(res), 0)
         self.assertEqual(len(_err), 1)
         self.assertEqual(str(expected_err), _err[0])
+
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.clear_holders')
+    def test_check_clear(self, mock_clear_holders, mock_log):
+        errors = [str(e) for e in
+                  [IOError(errno.ENOENT, 'test1'),
+                   OSError(errno.ENXIO, 'test2')]]
+        mock_clear_holders.return_value = (True, errors)
+        clear_holders.check_clear('/dev/null')
+        mock_clear_holders.assert_called_with('/dev/null')
+        self.assertFalse(mock_log.error.called)
+        self.assertTrue(mock_log.warn.called)
+        mock_log.warn.assert_called_with(
+            'clear_holders encountered error: {}'.format(errors[1]))
+        mock_log.info.assert_called_with(
+            'clear_holders finished successfully on device: /dev/null')
+
+        # check that error is raised if clear_holders failed
+        mock_clear_holders.return_value = (False, errors)
+        with self.assertRaises(OSError):
+            clear_holders.check_clear('/dev/null')
+        self.assertTrue(mock_log.error.called)
