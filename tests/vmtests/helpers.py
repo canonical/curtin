@@ -117,3 +117,113 @@ def find_releases():
                 if getattr(test_case, 'release', ''):
                     releases.add(getattr(test_case, 'release'))
     return sorted(releases)
+
+
+def _parse_ifconfig_xenial(ifconfig_out):
+    ifaces = {}
+    combined_fields = {'addr': 'address', 'Bcast': 'broadcast',
+                       'Mask': 'netmask', 'MTU': 'mtu',
+                       'encap': 'link_encap'}
+    boolmap = {'RUNNING': 'running', 'UP': 'up', 'MULTICAST': 'multicast'}
+
+    for line in ifconfig_out.splitlines():
+        if not line:
+            continue
+        if not line.startswith(" "):
+            cur_iface = line.split()[0].rstrip(":")
+            cur_data = {'inet6': [], 'interface': cur_iface}
+            for t in boolmap.values():
+                cur_data[t] = False
+            ifaces[cur_iface] = cur_data
+
+        toks = line.split()
+
+        if toks[0] == "inet6":
+            cidr = toks[2]
+            address, prefixlen = cidr.split("/")
+            scope = toks[3].split(":")[1]
+            cur_ipv6 = {'address': address, 'scope': scope, 'prefixlen': prefixlen}
+            cur_data['inet6'].append(cur_ipv6)
+            continue
+
+        for i in range(0, len(toks)):
+            cur_tok = toks[i]
+            try:
+                next_tok = toks[i+1]
+            except IndexError:
+                next_tok = None
+
+            if cur_tok == "HWaddr":
+                cur_data['mac_address'] = next_tok
+            elif ":" in cur_tok:
+                key, _colon, val = cur_tok.partition(":")
+                if key in combined_fields:
+                    cur_data[combined_fields[key]] = val
+            elif cur_tok in boolmap:
+                cur_data[boolmap[cur_tok]] = True
+
+        if 'mtu' in cur_data:
+            cur_data['mtu'] = int(cur_data['mtu'])
+
+    return ifaces
+
+
+def _parse_ifconfig_yakkety(ifconfig_out):
+    fmap = {'mtu': 'mtu', 'inet': 'address',
+            'netmask': 'netmask', 'broadcast': 'broadcast',
+            'ether': 'mac_address'}
+    boolmap = {'RUNNING': 'running', 'UP': 'up', 'MULTICAST': 'multicast',
+               'BROADCAST': 'broadcast_flag'}
+
+    ifaces = {}
+    for line in ifconfig_out.splitlines():
+        if not line:
+            continue
+        if not line.startswith(" "):
+            cur_iface = line.split()[0].rstrip(":")
+            cur_data = {'inet6': [], 'interface': cur_iface}
+            for t in boolmap.values():
+                cur_data[t] = False
+            ifaces[cur_iface] = cur_data
+
+        toks = line.split()
+        if toks[0] == "inet6":
+            cur_ipv6 = {'address': toks[1]}
+            cur_data['inet6'].append(cur_ipv6)
+
+        for i in range(0, len(toks)):
+            cur_tok = toks[i]
+            try:
+                next_tok = toks[i+1]
+            except IndexError:
+                next_tok = None
+            if cur_tok in fmap:
+                cur_data[fmap[cur_tok]] = next_tok
+            elif cur_tok in ('prefixlen', 'scopeid'):
+                cur_ipv6[cur_tok] = next_tok
+                cur_data['inet6'].append
+            elif cur_tok.startswith("flags="):
+                # flags=4163<UP,BROADCAST,RUNNING,MULTICAST>
+                flags = cur_tok[cur_tok.find("<") + 1:
+                                cur_tok.rfind(">")].split(",")
+                for flag in flags:
+                    if flag in boolmap:
+                        cur_data[boolmap[flag]] = True
+            elif cur_tok == "(Ethernet)":
+                cur_data['link_encap'] = 'Ethernet'
+
+        if 'mtu' in cur_data:
+            cur_data['mtu'] = int(cur_data['mtu'])
+
+    return ifaces
+
+
+def ifconfig_to_dict(ifconfig_a):
+    # if the first token of the first line ends in a ':' then assume yakkety
+    line = ifconfig_a.lstrip().splitlines()[0]
+    if line.split()[0].endswith(":"):
+        return _parse_ifconfig_yakkety(ifconfig_a)
+    else:
+        return _parse_ifconfig_xenial(ifconfig_a)
+
+
