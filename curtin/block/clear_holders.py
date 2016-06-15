@@ -130,13 +130,14 @@ def shutdown_mdadm(device):
 
 def shutdown_lvm(device):
     """
-    Shutdown specified lvm device. Device must be given as a path in /sys/block
-    or /sys/virtual/block/.
+    Shutdown specified lvm device. Device may be given as a path in /sys/block
+    or in /dev
 
     Will not raise io errors, but will collect and return them
 
     May return a function that should be run by the caller to wipe out metadata
     """
+    device = block.sys_block_path(device)
     # lvm devices have a dm directory that containes a file 'name' containing
     # '{volume group}-{logical volume}'. The volume can be freed using lvremove
     catcher = util.ForgiveIoError()
@@ -148,10 +149,12 @@ def shutdown_lvm(device):
             (vg_name, lv_name) = split_vg_lv_name(full_name)
         except ValueError:
             pass
-        if vg_name is None or lv_name is None:
-            raise OSError(
-                errno.ENOENT,
-                'file: {} missing or has invalid contents'.format(name_file))
+
+    if vg_name is None or lv_name is None:
+        err = OSError(errno.ENOENT, 'file: {} missing or has invalid contents'
+                      .format(name_file))
+        catcher.add_exc(err)
+        return (None, catcher.caught)
 
     # use two --force flags here in case the volume group that this lv is
     # attached two has been damaged by a disk being wiped or other storage
