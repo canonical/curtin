@@ -110,3 +110,36 @@ class TestClearHolders(TestCase):
         self.assertEqual(len(_err), 0)
         mock_mdadm.mdadm_stop.assert_called_with('/dev/null')
         mock_mdadm.mdadm_remove.assert_called_with('/dev/null')
+
+    @mock.patch('curtin.block.clear_holders.block.sys_block_path')
+    @mock.patch('curtin.block.clear_holders.functools')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.util.subp')
+    @mock.patch('curtin.block.clear_holders.util.load_file')
+    def test_shutdown_lvm(self, mock_load_file, mock_subp, mock_log,
+                          mock_functools, mock_sys_block_path):
+        lvm_path = '/dev/dm-0'
+        # this file seems to contain a newline at the end which threw off an
+        # earlier version of shutdown_lvm, so check that it works with one in
+        # place
+        mock_load_file.return_value = 'vg--one-lv--one\n'
+        mock_sys_block_path.return_value = '/sys/block/dm-0'
+        mock_functools.partial.side_effect = self._mock_functools
+        (wipe, _err) = clear_holders.shutdown_lvm(lvm_path)
+        self.assertEqual(len(_err), 0)
+        mock_subp.assert_called_with(['lvremove', '--force', '--force',
+                                      'vg-one/lv-one'])
+        self.assertEqual(wipe, {'func': block.wipe_volume, 'args': [lvm_path],
+                                'kwargs': {'mode': 'pvremove'}})
+
+        # shutdown_lvm should give up if unable to parse lvm volgroup - logical
+        # volume name
+        mock_load_file.return_value = 'invalidname'
+        (wipe, _err) = clear_holders.shutdown_lvm(lvm_path)
+        self.assertIsNone(wipe)
+        self.assertEqual(len(_err), 1)
+        real_err = OSError(errno.ENOENT,
+                           'file: {}{} missing or has invalid contents'
+                           .format(mock_sys_block_path.return_value,
+                                   '/dm/name'))
+        self.assertEqual(str(real_err), _err[0])
