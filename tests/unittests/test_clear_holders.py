@@ -118,6 +118,7 @@ class TestClearHolders(TestCase):
     @mock.patch('curtin.block.clear_holders.util.load_file')
     def test_shutdown_lvm(self, mock_load_file, mock_subp, mock_log,
                           mock_functools, mock_sys_block_path):
+        """Ensure that shutdown_lvm works as expected"""
         lvm_path = '/dev/dm-0'
         # this file seems to contain a newline at the end which threw off an
         # earlier version of shutdown_lvm, so check that it works with one in
@@ -143,3 +144,29 @@ class TestClearHolders(TestCase):
                            .format(mock_sys_block_path.return_value,
                                    '/dm/name'))
         self.assertEqual(str(real_err), _err[0])
+
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.os')
+    @mock.patch('curtin.block.clear_holders.block.sys_block_path')
+    def test_get_holders(self, mock_sys_block_path, mock_os, mock_log):
+        """Test that get_holders works and handles errors correctly"""
+        dev_path = '/dev/fake'
+        sys_path = '/sys/block/fake'
+        holders = ['vda', 'vdb']
+        mock_sys_block_path.return_value = sys_path
+        mock_os.listdir.return_value = holders
+        (res, _err) = clear_holders.get_holders(dev_path)
+        mock_sys_block_path.assert_called_with(dev_path)
+        self.assertEqual(res, holders)
+        self.assertEqual(len(_err), 0)
+        # test error handling
+        expected_err = OSError(errno.ENOENT, 'no sysfs path')
+
+        def _fail_sys_block_path(dev):
+            raise expected_err
+
+        mock_sys_block_path.side_effect = _fail_sys_block_path
+        (res, _err) = clear_holders.get_holders(dev_path)
+        self.assertEqual(len(res), 0)
+        self.assertEqual(len(_err), 1)
+        self.assertEqual(str(expected_err), _err[0])
