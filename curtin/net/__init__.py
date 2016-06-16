@@ -444,6 +444,10 @@ def render_interfaces(network_state):
                 content += iface_start_entry(iface, index)
                 content += iface_add_subnet(iface, subnet)
                 content += iface_add_attrs(iface, index)
+                if len(subnets) > 1 and index == 0:
+                    for i in range(1, len(subnets)):
+                        content += "    post-up ifup %s:%s\n" % (iface['name'],
+                                                               i) 
         else:
             # ifenslave docs say to auto the slave devices
             if 'bond-master' in iface:
