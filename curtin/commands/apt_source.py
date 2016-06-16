@@ -259,10 +259,10 @@ def add_apt_sources(srcdict, target, template_params=None, aa_repo_match=None):
         try:
             add_apt_key(ent, target)
         except (ValueError, util.ProcessExecutionError) as detail:
-            errorlist.append([ent, detail])
+            errorlist.append([str(detail)])
 
         if 'source' not in ent:
-            errorlist.append(["", "missing source"])
+            errorlist.append(["missing source"])
             continue
         source = ent['source']
         source = util.render_string(source, template_params)
