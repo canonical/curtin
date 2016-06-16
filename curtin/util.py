@@ -795,14 +795,17 @@ def is_file_not_found_exc(exc):
     return (isinstance(exc, IOError) and exc.errno == errno.ENOENT)
 
 
-def lsb_release():
+def lsb_release(target=None):
     fmap = {'Codename': 'codename', 'Description': 'description',
             'Distributor ID': 'id', 'Release': 'release'}
+    chroot = []
+    if target is not None:
+        chroot = ['chroot', target]
     global _LSB_RELEASE
     if not _LSB_RELEASE:
         data = {}
         try:
-            out, err = subp(['lsb_release', '--all'], capture=True)
+            out, err = subp(chroot + ['lsb_release', '--all'], capture=True)
             for line in out.splitlines():
                 fname, tok, val = line.partition(":")
                 if fname in fmap:
