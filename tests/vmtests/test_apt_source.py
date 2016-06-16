@@ -10,19 +10,26 @@ from .releases import base_vm_classes as relbase
 class TestAptSrcAbs(VMBaseClass):
     """TestAptSrcAbs - Basic tests for apt_sources features of curtin"""
     interactive = False
-    # disk for early data collection at install stage
-    extra_disks = ['1G']
+    extra_disks = []
     fstab_expected = {}
     disk_to_check = []
-    # copy over the early collected data to the "normal" place of output data
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         ls /dev/disk/by-dname > ls_dname
         find /etc/network/interfaces.d > find_interfacesd
-        mkdir -p /mnt/earlyoutput
-        mount LABEL=earlyoutput /mnt/earlyoutput
-        cp /mnt/earlyoutput/* .
+        apt-key list "F430BBA5" > keyid-F430BBA5
+        apt-key list "03683F77" > keyppa-03683F77
+        apt-key list "F470A0AC" > keylongid-F470A0AC
+        apt-key list "8280B242" > keyraw-8280B242
+        cp /etc/apt/sources.list.d/byobu-ppa.list .
+        cp /etc/apt/sources.list.d/my-repo2.list .
+        cp /etc/apt/sources.list.d/my-repo4.list .
+        cp /etc/apt/sources.list.d/smoser-ubuntu-ppa-xenial.list .
+        find /etc/apt/sources.list.d/ -maxdepth 1 -name "*ignore*" | wc -l > ic
+        apt-config dump | grep Retries > aptconf
+        cp /etc/apt/sources.list sources.list
+
         """)]
     mirror = "http://us.archive.ubuntu.com/ubuntu/"
     secmirror = "http://security.ubuntu.com/ubuntu/"
@@ -30,7 +37,7 @@ class TestAptSrcAbs(VMBaseClass):
     def test_output_files_exist(self):
         """test_output_files_exist - Check if all output files exist"""
         self.output_files_exist(
-            ["fstab", "ignorecount", "keyid-F430BBA5", "keylongid-F470A0AC",
+            ["fstab", "ic", "keyid-F430BBA5", "keylongid-F470A0AC",
              "keyraw-8280B242", "keyppa-03683F77", "aptconf", "sources.list",
              "byobu-ppa.list", "my-repo2.list", "my-repo4.list"])
         self.output_files_exist(
@@ -67,7 +74,7 @@ class TestAptSrcAbs(VMBaseClass):
 
     def test_ignore_count(self):
         """test_ignore_count - Check for files that should not be created"""
-        self.check_file_strippedline("ignorecount", "0")
+        self.check_file_strippedline("ic", "0")
 
     def test_apt_conf(self):
         """test_apt_conf - Check if the selected apt conf was set"""
