@@ -104,21 +104,22 @@ deb-src $SECURITY $RELEASE-security multiverse
 """
 
 
-def handle_apt_source(cfg):
+def handle_apt_source(cfg, target):
     """ handle_apt_source
         process the custom config for apt_sources
     """
-    release = util.lsb_release()['codename']
+    release = util.lsb_release(target=target)['codename']
     mirrors = find_apt_mirror_info(cfg)
     LOG.debug("Apt Mirror info: %s", mirrors)
 
     if not config.value_as_boolean(cfg.get('apt_preserve_sources_list',
                                            False)):
-        generate_sources_list(cfg, release, mirrors)
-        rename_apt_lists(mirrors)
+        generate_sources_list(cfg, release, mirrors, target)
+        rename_apt_lists(mirrors, target)
 
     try:
-        apply_apt_proxy_config(cfg, APT_PROXY_FN, APT_CONFIG_FN)
+        apply_apt_proxy_config(cfg, target + APT_PROXY_FN,
+                               target + APT_CONFIG_FN)
     except (IOError, OSError):
         LOG.exception("Failed to apply proxy or apt config info:")
 
@@ -133,8 +134,8 @@ def handle_apt_source(cfg):
         if matchcfg:
             matcher = re.compile(matchcfg).search
 
-        errors = add_apt_sources(cfg['sources'], params,
-                                 aa_repo_match=matcher)
+        errors = add_apt_sources(cfg['sources'], target,
+                                 template_params=params, aa_repo_match=matcher)
         for error in errors:
             LOG.warn("Add source error: %s", ':'.join(error))
 
@@ -158,14 +159,16 @@ def mirrorurl_to_apt_fileprefix(mirror):
     return string
 
 
-def rename_apt_lists(new_mirrors):
+def rename_apt_lists(new_mirrors, target):
     """rename_apt_lists - rename apt lists to preserve old cache data"""
     for (name, omirror) in DEFAULT_MIRRORS.items():
         nmirror = new_mirrors.get(name)
         if not nmirror:
             continue
-        oprefix = os.path.join(APT_LISTS, mirrorurl_to_apt_fileprefix(omirror))
-        nprefix = os.path.join(APT_LISTS, mirrorurl_to_apt_fileprefix(nmirror))
+        oprefix = os.path.join(target, APT_LISTS,
+                               mirrorurl_to_apt_fileprefix(omirror))
+        nprefix = os.path.join(target, APT_LISTS,
+                               mirrorurl_to_apt_fileprefix(nmirror))
         if oprefix == nprefix:
             continue
         olen = len(oprefix)
@@ -179,7 +182,7 @@ def rename_apt_lists(new_mirrors):
                 LOG.warn("Failed to rename apt list:", exc_info=True)
 
 
-def generate_sources_list(cfg, release, mirrors):
+def generate_sources_list(cfg, release, mirrors, target):
     """ generate_sources_list
         create a source.list file based on a custom or default template
         by replacing mirrors and release in the template
@@ -193,25 +196,28 @@ def generate_sources_list(cfg, release, mirrors):
         template = DEFAULT_TEMPLATE
 
     try:
-        os.rename("/etc/apt/sources.list", "/etc/apt/sources.list.curtin")
+        os.rename(target + "/etc/apt/sources.list",
+                  target + "/etc/apt/sources.list.curtin")
     except OSError:
-        LOG.exception("failed to backup /etc/apt/sources.list")
-    util.render_string_to_file(template, '/etc/apt/sources.list', params)
+        LOG.exception("failed to backup %s/etc/apt/sources.list", target)
+    util.render_string_to_file(template, target+'/etc/apt/sources.list',
+                               params)
 
 
-def add_apt_key_raw(key):
+def add_apt_key_raw(key, target):
     """
     actual adding of a key as defined in key argument
     to the system
     """
     LOG.info("Adding key:\n'%s'", key)
     try:
-        util.subp(('apt-key', 'add', '-'), key.encode())
+        with util.RunInChroot(target, allow_daemons=True) as in_chroot:
+            in_chroot(['apt-key', 'add', '-'], data=key.encode())
     except util.ProcessExecutionError:
         raise ValueError('failed to add apt GPG Key to apt keyring')
 
 
-def add_apt_key(ent):
+def add_apt_key(ent, target):
     """
     Add key to the system as defined in ent (if any).
     Supports raw keys or keyid's
@@ -225,10 +231,10 @@ def add_apt_key(ent):
         ent['key'] = gpg.gpg_getkeybyid(ent['keyid'], keyserver)
 
     if 'key' in ent:
-        add_apt_key_raw(ent['key'])
+        add_apt_key_raw(ent['key'], target)
 
 
-def add_apt_sources(srcdict, template_params=None, aa_repo_match=None):
+def add_apt_sources(srcdict, target, template_params=None, aa_repo_match=None):
     """
     add entries in /etc/apt/sources.list.d for each abbreviated
     sources.list entry in 'srcdict'.  When rendering template, also
@@ -251,7 +257,7 @@ def add_apt_sources(srcdict, template_params=None, aa_repo_match=None):
 
         # keys can be added without specifying a source
         try:
-            add_apt_key(ent)
+            add_apt_key(ent, target)
         except (ValueError, util.ProcessExecutionError) as detail:
             errorlist.append([ent, detail])
 
@@ -267,18 +273,20 @@ def add_apt_sources(srcdict, template_params=None, aa_repo_match=None):
 
         if aa_repo_match(source):
             try:
-                util.subp(["add-apt-repository", source])
+                with util.RunInChroot(target, allow_daemons=True) as in_chroot:
+                    in_chroot(["add-apt-repository", source])
             except util.ProcessExecutionError as err:
                 errorlist.append([source,
                                   ("add-apt-repository failed. " + str(err))])
             continue
 
+        sourcefn = target + ent['filename']
         try:
             contents = "%s\n" % (source)
-            util.write_file(ent['filename'], contents, omode="a")
+            util.write_file(sourcefn, contents, omode="a")
         except IOError as detail:
             errorlist.append([source,
-                              "failed write to file %s: %s" % (ent['filename'],
+                              "failed write to file %s: %s" % (sourcefn,
                                                                detail)])
 
     return errorlist
@@ -352,7 +360,7 @@ def apt_source(args):
         state = util.load_command_environment()
         target = state['target']
 
-    if args.target is None:
+    if target is None:
         sys.stderr.write("Unable to find target.  "
                          "Use --target or set TARGET_MOUNT_POINT\n")
         sys.exit(2)
@@ -361,8 +369,8 @@ def apt_source(args):
     # if no apt_source config section is available, do nothing
     if apt_source_cfg:
         try:
-            with util.ChrootableTarget(target):
-                handle_apt_source(apt_source_cfg)
+            with util.ChrootableTarget(target, allow_daemons=True):
+                handle_apt_source(apt_source_cfg, target)
         except (RuntimeError, TypeError, ValueError):
             LOG.exception("Failed to configure apt_source")
             sys.exit(1)

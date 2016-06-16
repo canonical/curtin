@@ -16,6 +16,8 @@ from curtin.commands import apt_source
 
 LOG = logging.getLogger(__name__)
 
+TARGET = "/"
+
 YAML_TEXT_CUSTOM_SL = """
 apt_mirror: http://archive.ubuntu.com/ubuntu
 apt_custom_sources_list: |
@@ -242,10 +244,10 @@ class TestAptSourceConfigSourceList(TestCase):
             with mock.patch.object(os, 'rename'):
                 with mock.patch.object(util, 'lsb_release',
                                        return_value={'codename': 'fakerel'}):
-                    apt_source.handle_apt_source(cfg)
+                    apt_source.handle_apt_source(cfg, TARGET)
 
         mockwrite.assert_called_once_with(
-            '/etc/apt/sources.list',
+            TARGET + '/etc/apt/sources.list',
             expected,
             mode=420)
 
@@ -277,10 +279,10 @@ class TestAptSourceConfigSourceList(TestCase):
             with mock.patch.object(os, 'rename'):
                 with mock.patch.object(util, 'lsb_release',
                                        return_value={'codename': 'fakerel'}):
-                    apt_source.handle_apt_source(cfg)
+                    apt_source.handle_apt_source(cfg, TARGET)
 
         mockwrite.assert_called_once_with(
-            '/etc/apt/sources.list',
+            TARGET + '/etc/apt/sources.list',
             EXPECTED_CONVERTED_CONTENT,
             mode=420)
 
