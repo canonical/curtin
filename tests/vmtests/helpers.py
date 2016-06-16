@@ -120,6 +120,35 @@ def find_releases():
 
 
 def _parse_ifconfig_xenial(ifconfig_out):
+    """Parse ifconfig output from xenial or earlier and return a dictionary.
+    given content like below, return:
+    {'eth0': {'address': '10.8.1.78',
+              'broadcast': '10.8.1.255',
+              'inet6': [{'address': 'fe80::216:3eff:fe63:c05d',
+                         'prefixlen': '64',
+                         'scope': 'Link'},
+                        {'address': 'fdec:2922:2f07:0:216:3eff:fe63:c05d',
+                         'prefixlen': '64',
+                         'scope': 'Global'}],
+              'interface': 'eth0',
+              'link_encap': 'Ethernet',
+              'mac_address': '00:16:3e:63:c0:5d',
+              'mtu': 1500,
+              'multicast': True,
+              'netmask': '255.255.255.0',
+              'running': True,
+              'up': True}}
+
+    eth0  Link encap:Ethernet  HWaddr 00:16:3e:63:c0:5d
+          inet addr:10.8.1.78  Bcast:10.8.1.255  Mask:255.255.255.0
+          inet6 addr: fe80::216:3eff:fe63:c05d/64 Scope:Link
+          inet6 addr: fdec:2922:2f07:0:216:3eff:fe63:c05d/64 Scope:Global
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:21503 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:11346 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:31556357 (31.5 MB)  TX bytes:870943 (870.9 KB)
+    """
     ifaces = {}
     combined_fields = {'addr': 'address', 'Bcast': 'broadcast',
                        'Mask': 'netmask', 'MTU': 'mtu',
@@ -170,6 +199,31 @@ def _parse_ifconfig_xenial(ifconfig_out):
 
 
 def _parse_ifconfig_yakkety(ifconfig_out):
+    """Parse ifconfig output from yakkety or later(?) and return a dictionary.
+
+    given ifconfig output like below, return:
+    {'ens2': {'address': '10.5.0.78',
+              'broadcast': '10.5.255.255',
+              'broadcast_flag': True,
+              'inet6': [{'address': 'fe80::f816:3eff:fe05:9673',
+                         'prefixlen': '64', 'scopeid': '0x20<link>'},
+                        {'address': 'fe80::f816:3eff:fe05:9673',
+                         'prefixlen': '64', 'scopeid': '0x20<link>'}],
+              'interface': 'ens2', 'link_encap': 'Ethernet',
+              'mac_address': 'fa:16:3e:05:96:73', 'mtu': 1500,
+              'multicast': True, 'netmask': '255.255.0.0',
+              'running': True, 'up': True}}
+
+    ens2: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+            inet 10.5.0.78  netmask 255.255.0.0  broadcast 10.5.255.255
+            inet6 fe80::f816:3eff:fe05:9673  prefixlen 64  scopeid 0x20<link>
+            inet6 fe80::f816:3eff:fe05:9673  prefixlen 64  scopeid 0x20<link>
+            ether fa:16:3e:05:96:73  txqueuelen 1000  (Ethernet)
+            RX packets 33196  bytes 48916947 (48.9 MB)
+            RX errors 0  dropped 0  overruns 0  frame 0
+            TX packets 5458  bytes 411486 (411.4 KB)
+            TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    """
     fmap = {'mtu': 'mtu', 'inet': 'address',
             'netmask': 'netmask', 'broadcast': 'broadcast',
             'ether': 'mac_address'}
@@ -221,6 +275,19 @@ def _parse_ifconfig_yakkety(ifconfig_out):
 
 def ifconfig_to_dict(ifconfig_a):
     # if the first token of the first line ends in a ':' then assume yakkety
+    # parse ifconfig output and return a dictionary.
+    #
+    # return a dictionary of network information like:
+    #  {'ens2': {'address': '10.5.0.78', 'broadcast': '10.5.255.255',
+    #         'broadcast_flag': True,
+    #         'inet6': [{'address': 'fe80::f816:3eff:fe05:9673',
+    #                    'prefixlen': '64', 'scopeid': '0x20<link>'},
+    #                   {'address': 'fe80::f816:3eff:fe05:9673',
+    #                    'prefixlen': '64', 'scopeid': '0x20<link>'}],
+    #         'interface': 'ens2', 'link_encap': 'Ethernet',
+    #         'mac_address': 'fa:16:3e:05:96:73', 'mtu': 1500,
+    #         'multicast': True, 'netmask': '255.255.0.0',
+    #         'running': True, 'up': True}}
     line = ifconfig_a.lstrip().splitlines()[0]
     if line.split()[0].endswith(":"):
         return _parse_ifconfig_yakkety(ifconfig_a)
