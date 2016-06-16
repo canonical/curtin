@@ -81,7 +81,7 @@ def in_target_main(args):
     sys.exit(ret)
 
 
-def POPULATE_SUBCMD(parser):
+def populate_subcmd(parser):
     populate_one_subcmd(parser, CMD_ARGUMENTS, in_target_main)
 
 # vi: ts=4 expandtab syntax=python

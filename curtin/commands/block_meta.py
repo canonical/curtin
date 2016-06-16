@@ -1342,7 +1342,7 @@ def meta_simple(args):
     return 0
 
 
-def POPULATE_SUBCMD(parser):
+def populate_subcmd(parser):
     populate_one_subcmd(parser, CMD_ARGUMENTS, block_meta)
 
 # vi: ts=4 expandtab syntax=python

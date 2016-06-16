@@ -366,7 +366,7 @@ CMD_ARGUMENTS = (
 )
 
 
-def POPULATE_SUBCMD(parser):
+def populate_subcmd(parser):
     """Populate subcommand option parsing for apt_source"""
     populate_one_subcmd(parser, CMD_ARGUMENTS, apt_source)
 

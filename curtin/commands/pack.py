@@ -58,7 +58,7 @@ def pack_main(args):
     sys.exit(0)
 
 
-def POPULATE_SUBCMD(parser):
+def populate_subcmd(parser):
     populate_one_subcmd(parser, CMD_ARGUMENTS, pack_main)
 
 # vi: ts=4 expandtab syntax=python
