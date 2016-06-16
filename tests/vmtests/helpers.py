@@ -142,7 +142,8 @@ def _parse_ifconfig_xenial(ifconfig_out):
             cidr = toks[2]
             address, prefixlen = cidr.split("/")
             scope = toks[3].split(":")[1]
-            cur_ipv6 = {'address': address, 'scope': scope, 'prefixlen': prefixlen}
+            cur_ipv6 = {'address': address, 'scope': scope,
+                        'prefixlen': prefixlen}
             cur_data['inet6'].append(cur_ipv6)
             continue
 
@@ -225,5 +226,3 @@ def ifconfig_to_dict(ifconfig_a):
         return _parse_ifconfig_yakkety(ifconfig_a)
     else:
         return _parse_ifconfig_xenial(ifconfig_a)
-
-
