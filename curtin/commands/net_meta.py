@@ -20,6 +20,7 @@ import os
 import sys
 
 from curtin import net
+from curtin.log import LOG
 import curtin.util as util
 import curtin.config as config
 
@@ -53,23 +54,20 @@ def resolve_alias(alias):
         raise ValueError("'%s' is not an alias: %s", alias, DEVNAME_ALIASES)
 
 
-def interfaces_basic_dhcp(devices):
-    content = '\n'.join(
-        [("# This file describes the network interfaces available on "
-         "your system"),
-         "# and how to activate them. For more information see interfaces(5).",
-         "",
-         "# The loopback network interface",
-         "auto lo",
-         "iface lo inet loopback",
-         ])
+def interfaces_basic_dhcp(devices, macs=None):
+    # return network configuration that says to dhcp on provided devices
+    if macs is None:
+        macs = {}
+        for dev in devices:
+            macs[dev] = net.get_interface_mac(dev)
 
-    for d in devices:
-        content += '\n'.join(("", "", "auto %s" % d,
-                              "iface %s inet dhcp" % d,))
-    content += "\n"
+    config = []
+    for dev in devices:
+        config.append({
+            'type': 'physical', 'name': dev, 'mac_address': macs.get(dev),
+            'subnets': [{'type': 'dhcp4'}]})
 
-    return content
+    return {'network': {'version': 1, 'config': config}}
 
 
 def interfaces_custom(args):
@@ -81,7 +79,7 @@ def interfaces_custom(args):
         raise Exception("network configuration is required by mode '%s' "
                         "but not provided in the config file" % 'custom')
 
-    return config.dump_config({'network': network_config})
+    return {'network': network_config}
 
 
 def net_meta(args):
@@ -124,6 +122,9 @@ def net_meta(args):
             else:
                 devices.append(dev)
 
+    LOG.debug("net-meta mode is '%s'.  devices=%s", args.mode, devices)
+
+    output_network_config = os.environ.get("OUTPUT_NETWORK_CONFIG", "")
     if args.mode == "copy":
         if not args.target:
             raise argparse.ArgumentTypeError("mode 'copy' requires --target")
@@ -131,21 +132,31 @@ def net_meta(args):
         t_eni = os.path.sep.join((args.target, "etc/network/interfaces",))
         with open(t_eni, "r") as fp:
             content = fp.read()
+        LOG.warn("net-meta mode is 'copy', static network interfaces files"
+                 "can be brittle.  Copied interfaces: %s", content)
+        target = args.output
 
     elif args.mode == "dhcp":
-        content = interfaces_basic_dhcp(devices)
-    elif args.mode == 'custom':
-        content = interfaces_custom(args)
-        # if we have a config, write it out to OUTPUT_NETWORK_CONFIG
-        output_network_config = os.environ.get("OUTPUT_NETWORK_CONFIG", "")
-        if output_network_config:
-            with open(output_network_config, "w") as fp:
-                fp.write(content)
+        target = output_network_config
+        content = config.dump_config(interfaces_basic_dhcp(devices))
 
-    if args.output == "-":
+    elif args.mode == 'custom':
+        target = output_network_config
+        content = config.dump_config(interfaces_custom(args))
+
+    else:
+        raise Exception("Unexpected network config mode '%s'." % args.mode)
+
+    if not target:
+        raise Exception(
+            "No target given for mode = '%s'.  No where to write content: %s" %
+            (args.mode, content))
+
+    LOG.debug("writing to file %s with network config: %s", target, content)
+    if target == "-":
         sys.stdout.write(content)
     else:
-        with open(args.output, "w") as fp:
+        with open(target, "w") as fp:
             fp.write(content)
 
     sys.exit(0)
