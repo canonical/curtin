@@ -346,11 +346,23 @@ def apt_source(args):
     if args.mode != CUSTOM:
         raise NotImplementedError("mode=%s is not implemented" % args.mode)
 
+    if args.target is not None:
+        target = args.target
+    else:
+        state = util.load_command_environment()
+        target = state['target']
+
+    if args.target is None:
+        sys.stderr.write("Unable to find target.  "
+                         "Use --target or set TARGET_MOUNT_POINT\n")
+        sys.exit(2)
+
     apt_source_cfg = cfg.get("apt_source")
     # if no apt_source config section is available, do nothing
     if apt_source_cfg:
         try:
-            handle_apt_source(apt_source_cfg)
+            with util.ChrootableTarget(target):
+                handle_apt_source(apt_source_cfg)
         except (RuntimeError, TypeError, ValueError):
             LOG.exception("Failed to configure apt_source")
             sys.exit(1)
@@ -361,8 +373,12 @@ def apt_source(args):
 
 
 CMD_ARGUMENTS = (
-    ('mode', {'help': 'meta-mode to use',
-              'choices': [CUSTOM]}),
+    ((('-t', '--target'),
+      {'help': 'chroot to target. default is env[TARGET_MOUNT_POINT]',
+       'action': 'store', 'metavar': 'TARGET',
+       'default': os.environ.get('TARGET_MOUNT_POINT')}),
+     ('mode', {'help': 'meta-mode to use', 'choices': [CUSTOM]}),
+     )
 )
 
 

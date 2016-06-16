@@ -51,11 +51,11 @@ CONFIG_BUILTIN = {
     'sources': {},
     'stages': ['early', 'partitioning', 'network', 'extract', 'curthooks',
                'hook', 'late'],
-    'early_commands': {'builtin': ['curtin', 'apt-source', 'custom']},
     'extract_commands': {'builtin': ['curtin', 'extract']},
     'hook_commands': {'builtin': ['curtin', 'hook']},
     'partitioning_commands': {
-        'builtin': ['curtin', 'block-meta', 'simple']},
+        'builtin': ['curtin', 'block-meta', 'simple'],
+        'builtin-apt-source': ['curtin', 'apt-source', 'custom']},
     'curthooks_commands': {'builtin': ['curtin', 'curthooks']},
     'late_commands': {'builtin': []},
     'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
