@@ -122,22 +122,15 @@ def find_releases():
 def _parse_ifconfig_xenial(ifconfig_out):
     """Parse ifconfig output from xenial or earlier and return a dictionary.
     given content like below, return:
-    {'eth0': {'address': '10.8.1.78',
-              'broadcast': '10.8.1.255',
+    {'eth0': {'address': '10.8.1.78', 'broadcast': '10.8.1.255',
               'inet6': [{'address': 'fe80::216:3eff:fe63:c05d',
-                         'prefixlen': '64',
-                         'scope': 'Link'},
+                         'prefixlen': '64', 'scope': 'Link'},
                         {'address': 'fdec:2922:2f07:0:216:3eff:fe63:c05d',
-                         'prefixlen': '64',
-                         'scope': 'Global'}],
-              'interface': 'eth0',
-              'link_encap': 'Ethernet',
-              'mac_address': '00:16:3e:63:c0:5d',
-              'mtu': 1500,
-              'multicast': True,
-              'netmask': '255.255.255.0',
-              'running': True,
-              'up': True}}
+                         'prefixlen': '64', 'scope': 'Global'}],
+              'interface': 'eth0', 'link_encap': 'Ethernet',
+              'mac_address': '00:16:3e:63:c0:5d', 'mtu': 1500,
+              'multicast': True, 'netmask': '255.255.255.0',
+              'running': True, 'up': True}}
 
     eth0  Link encap:Ethernet  HWaddr 00:16:3e:63:c0:5d
           inet addr:10.8.1.78  Bcast:10.8.1.255  Mask:255.255.255.0
