@@ -238,7 +238,7 @@ def run_zipl(cfg, target):
 
 def install_kernel(cfg, target):
     kernel_cfg = cfg.get('kernel', {'package': None,
-                                    'fallback-package': None,
+                                    'fallback-package': "linux-generic",
                                     'mapping': {}})
     if kernel_cfg is not None:
         kernel_package = kernel_cfg.get('package')
@@ -270,7 +270,7 @@ def install_kernel(cfg, target):
             LOG.warn("Couldn't detect kernel package to install for %s."
                      % kernel)
             if kernel_fallback is not None:
-                util.install_packages([kernel_fallback])
+                util.install_packages([kernel_fallback], target=target)
             return
 
         package = "linux-{flavor}{map_suffix}".format(
