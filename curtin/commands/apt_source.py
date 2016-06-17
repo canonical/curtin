@@ -361,6 +361,8 @@ def apt_source(args):
     apt_source_cfg = cfg.get("apt_source")
     # if no apt_source config section is available, do nothing
     if apt_source_cfg:
+        LOG.info("Handling apt_source to target %s with config %s",
+                 target, apt_source_cfg)
         try:
             with util.ChrootableTarget(target, allow_daemons=True):
                 handle_apt_source(apt_source_cfg, target)
