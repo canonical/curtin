@@ -281,6 +281,9 @@ def add_apt_sources(srcdict, target, template_params=None, aa_repo_match=None):
             LOG.exception("failed write to file %s: %s", sourcefn, detail)
             raise
 
+    util.apt_update(target=target, force=True,
+                    comment="apt-source changed config")
+
     return
 
 
