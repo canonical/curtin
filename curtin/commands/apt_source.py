@@ -256,7 +256,6 @@ def add_apt_sources(srcdict, target, template_params=None, aa_repo_match=None):
         add_apt_key(ent, target)
 
         if 'source' not in ent:
-            LOG.warn(["missing source"])
             continue
         source = ent['source']
         source = util.render_string(source, template_params)
