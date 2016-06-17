@@ -134,10 +134,8 @@ def handle_apt_source(cfg, target):
         if matchcfg:
             matcher = re.compile(matchcfg).search
 
-        errors = add_apt_sources(cfg['sources'], target,
-                                 template_params=params, aa_repo_match=matcher)
-        for error in errors:
-            LOG.warn("Add source error: %s", ':'.join(error))
+        add_apt_sources(cfg['sources'], target,
+                        template_params=params, aa_repo_match=matcher)
 
 
 def mirrorurl_to_apt_fileprefix(mirror):
@@ -214,7 +212,8 @@ def add_apt_key_raw(key, target):
         with util.RunInChroot(target, allow_daemons=True) as in_chroot:
             in_chroot(['apt-key', 'add', '-'], data=key.encode())
     except util.ProcessExecutionError:
-        raise ValueError('failed to add apt GPG Key to apt keyring')
+        LOG.exception("failed to add apt GPG Key to apt keyring")
+        raise
 
 
 def add_apt_key(ent, target):
@@ -246,7 +245,6 @@ def add_apt_sources(srcdict, target, template_params=None, aa_repo_match=None):
     if aa_repo_match is None:
         raise ValueError('did not get a valid repo matcher')
 
-    errorlist = []
     if not isinstance(srcdict, dict):
         raise TypeError('unknown apt_sources format: %s' % (srcdict))
 
@@ -255,14 +253,10 @@ def add_apt_sources(srcdict, target, template_params=None, aa_repo_match=None):
         if 'filename' not in ent:
             ent['filename'] = filename
 
-        # keys can be added without specifying a source
-        try:
-            add_apt_key(ent, target)
-        except (ValueError, util.ProcessExecutionError) as detail:
-            errorlist.append([str(detail)])
+        add_apt_key(ent, target)
 
         if 'source' not in ent:
-            errorlist.append(["missing source"])
+            LOG.warn(["missing source"])
             continue
         source = ent['source']
         source = util.render_string(source, template_params)
@@ -275,9 +269,9 @@ def add_apt_sources(srcdict, target, template_params=None, aa_repo_match=None):
             try:
                 with util.RunInChroot(target, allow_daemons=True) as in_chroot:
                     in_chroot(["add-apt-repository", source])
-            except util.ProcessExecutionError as err:
-                errorlist.append([source,
-                                  ("add-apt-repository failed. " + str(err))])
+            except util.ProcessExecutionError:
+                LOG.exception("add-apt-repository failed.")
+                raise
             continue
 
         sourcefn = target + ent['filename']
@@ -285,11 +279,10 @@ def add_apt_sources(srcdict, target, template_params=None, aa_repo_match=None):
             contents = "%s\n" % (source)
             util.write_file(sourcefn, contents, omode="a")
         except IOError as detail:
-            errorlist.append([source,
-                              "failed write to file %s: %s" % (sourcefn,
-                                                               detail)])
+            LOG.exception("failed write to file %s: %s", sourcefn, detail)
+            raise
 
-    return errorlist
+    return
 
 
 def find_apt_mirror_info(cfg):
