@@ -393,7 +393,7 @@ class VMBaseClass(TestCase):
         cls.td = TempDir(
             name=cls.__name__,
             user_data=generate_user_data(collect_scripts=cls.collect_scripts))
-        logger.info('Using tempdir: %s . Image = %s.', cls.td.tmpdir,
+        logger.info('Using tempdir: %s , Image: %s', cls.td.tmpdir,
                     img_verstr)
         cls.install_log = os.path.join(cls.td.logs, 'install-serial.log')
         cls.boot_log = os.path.join(cls.td.logs, 'boot-serial.log')
