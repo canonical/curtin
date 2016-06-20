@@ -223,6 +223,7 @@ def get_images(src_url, local_d, release, arch, krel=None, sync=True):
                          "Expected=%s" % (found, expected))
     for item in results:
         ftypes[item['ftype']] = item['item_url']
+        last_item = item
 
     missing = [(ftype, path) for ftype, path in ftypes.items()
                if not os.path.exists(path)]
@@ -230,7 +231,11 @@ def get_images(src_url, local_d, release, arch, krel=None, sync=True):
     if len(missing):
         raise ValueError("missing files for ftypes: %s" % missing)
 
-    return ftypes
+    # trusty amd64/hwe-p 20150101
+    version_info = ('%(release)s %(arch)s/%(subarch)s %(version_name)s' %
+                    last_item)
+
+    return version_info, ftypes
 
 
 class ImageStore:
@@ -256,16 +261,17 @@ class ImageStore:
         self.url = pathlib.Path(self.base_dir).as_uri()
 
     def get_image(self, release, arch, krel=None):
-        """Return local path for root image, kernel and initrd, tarball."""
+        """Return tuple of version info, and paths for root image,
+           kernel, initrd, tarball."""
         if krel is None:
             krel = release
-        ftypes = get_images(
+        ver_info, ftypes = get_images(
             self.source_url, self.base_dir, release, arch, krel, self.sync)
         root_image_path = ftypes['vmtest.root-image']
         kernel_path = ftypes['boot-kernel']
         initrd_path = ftypes['boot-initrd']
         tarball = ftypes['vmtest.root-tgz']
-        return (root_image_path, kernel_path, initrd_path, tarball)
+        return (ver_info, root_image_path, kernel_path, initrd_path, tarball)
 
 
 class TempDir(object):
@@ -380,15 +386,15 @@ class VMBaseClass(TestCase):
         # Disable sync if env var is set.
         image_store.sync = get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False)
         logger.debug("Image sync = %s", image_store.sync)
-        (boot_img, boot_kernel, boot_initrd, tarball) = image_store.get_image(
-            cls.release, cls.arch, cls.krel)
+        (img_verstr, boot_img, boot_kernel, boot_initrd, tarball) = (
+            image_store.get_image(cls.release, cls.arch, cls.krel))
 
         # set up tempdir
         cls.td = TempDir(
             name=cls.__name__,
             user_data=generate_user_data(collect_scripts=cls.collect_scripts))
-        logger.info('Using tempdir: {}'.format(cls.td.tmpdir))
-
+        logger.info('Using tempdir: %s . Image = %s.', cls.td.tmpdir,
+                    img_verstr)
         cls.install_log = os.path.join(cls.td.logs, 'install-serial.log')
         cls.boot_log = os.path.join(cls.td.logs, 'boot-serial.log')
         logger.debug('Install console log: {}'.format(cls.install_log))
@@ -788,10 +794,14 @@ class PsuedoImageStore(object):
         self.base_dir = base_dir
 
     def get_image(self, release, arch, krel=None):
-        """Return local path for root image, kernel and initrd, tarball."""
+        """Return tuple of version info, and paths for root image,
+           kernel, initrd, tarball."""
         names = ['psuedo-root-image', 'psuedo-kernel', 'psuedo-initrd',
                  'psuedo-tarball']
-        return [os.path.join(self.base_dir, release, arch, f) for f in names]
+        version_info = "psuedo-%s-%s/%s" % (release, arch, krel)
+        return (
+            [version_info] +
+            [os.path.join(self.base_dir, release, arch, f) for f in names])
 
 
 class PsuedoVMBaseClass(VMBaseClass):
