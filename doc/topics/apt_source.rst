@@ -94,6 +94,8 @@ What do we need for that:
 That would be specified as
 ::
 
+  curthooks_commands:
+    00-apt-source: curtin apt-source custom
   apt_source:
     version: 1
     apt_mirror: http://mymirror.local/ubuntu/
