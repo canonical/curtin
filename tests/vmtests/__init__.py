@@ -798,9 +798,8 @@ class PsuedoImageStore(object):
            kernel, initrd, tarball."""
         names = ['psuedo-root-image', 'psuedo-kernel', 'psuedo-initrd',
                  'psuedo-tarball']
-        version_info = "psuedo-%s-%s/%s" % (release, arch, krel)
         return (
-            [version_info] +
+            "psuedo-%s %s/hwe-P 20160101" % (release, arch),
             [os.path.join(self.base_dir, release, arch, f) for f in names])
 
 
