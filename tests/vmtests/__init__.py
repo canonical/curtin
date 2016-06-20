@@ -352,6 +352,7 @@ class VMBaseClass(TestCase):
     recorded_failures = 0
     image_store_class = ImageStore
     collect_scripts = []
+    boot_cloudconf = None
     interactive = False
     conf_file = "examples/tests/basic.yaml"
     extra_disks = []
@@ -386,7 +387,8 @@ class VMBaseClass(TestCase):
         # set up tempdir
         cls.td = TempDir(
             name=cls.__name__,
-            user_data=generate_user_data(collect_scripts=cls.collect_scripts))
+            user_data=generate_user_data(collect_scripts=cls.collect_scripts,
+                                         boot_cloudconf=cls.boot_cloudconf))
         logger.info('Using tempdir: {}'.format(cls.td.tmpdir))
 
         cls.install_log = os.path.join(cls.td.logs, 'install-serial.log')
@@ -916,7 +918,8 @@ def get_apt_proxy():
     return None
 
 
-def generate_user_data(collect_scripts=None, apt_proxy=None):
+def generate_user_data(collect_scripts=None, apt_proxy=None,
+                       boot_cloudconf=None):
     # this returns the user data for the *booted* system
     # its a cloud-config-archive type, which is
     # just a list of parts.  the 'x-shellscript' parts
@@ -940,6 +943,10 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
     parts = [{'type': 'text/cloud-config',
               'content': yaml.dump(base_cloudconfig, indent=1)},
              {'type': 'text/cloud-config', 'content': ssh_keys}]
+
+    if boot_cloudconf is not None:
+        parts.append({'type': 'text/cloud-config', 'content':
+                      yaml.dump(boot_cloudconf, indent=1)})
 
     output_dir_macro = 'OUTPUT_COLLECT_D'
     output_dir = '/mnt/output'
