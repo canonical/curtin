@@ -1,4 +1,6 @@
 showtrace: true
+curthooks_commands:
+    00-apt-source: curtin apt-source custom
 apt_source:
   version: 1
   apt_primary_mirror: http://us.archive.ubuntu.com/ubuntu/

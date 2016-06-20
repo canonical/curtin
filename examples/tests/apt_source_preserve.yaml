@@ -1,4 +1,6 @@
 showtrace: true
+curthooks_commands:
+    00-apt-source: curtin apt-source custom
 apt_source:
   version: 1
   # this is like the other apr_source test but with preserve true
