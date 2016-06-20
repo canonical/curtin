@@ -2,11 +2,11 @@
 APT Source
 ==========
 
-This part of curtin is meant to allow influencing the apt behaviour in the curtin install stage.
+This part of curtin is meant to allow influencing the apt behaviour and configuration.
 
 By default - if no apt_source config is provided - it does nothing. That keeps behavior compatible on upgrades.
 
-It is not meant to carry over into the installed environment. For that there is a similar feature in cloud-init which can be exploited via seeds for cloud-init as already done by clouds, MAAS and others.
+The feature has a target argument which - by default - is used to modify the environment that curtin currently installs (@TARGET_MOUNT_POINT).
 
 Features
 --------
@@ -35,7 +35,7 @@ Features
 Configuration
 -------------
 
-The general configuration is under an element called ``apt_source``.
+The general configuration of the apt_source feature is under an element called ``apt_source``.
 
 This can have various global subelements as listed in the examples below - for example ``apt_primary_mirror: http://us.archive.ubuntu.com/ubuntu/``. These global configurations are valid throughput all of the apt_source feature.
 
@@ -109,15 +109,32 @@ That would be specified as
           =PBAe
           -----END PGP PUBLIC KEY BLOCK-----
 
+Please also read the section ``Dependencies`` below to avoid loosing some of the configuration content on first boot.
+
 The file examples/apt-source.yaml holds various further examples that can be configured with this feature.
 
 Timing
 ------
-The feature is implemented at the stage of the early commands to be ready in the install environment for any stage following.
+The feature is implemented at the stage of curthooks_commands, after which runs just after curtin has extracted the image to the target.
 
-It is called by a early_commands builtin.
+To do so it is called by a curthooks_commands builtin called ``builtin-apt-source`` which can be overwritten to modify it.
 As mentioned before it does nothing if not explicitly configured, but if there is ever the need to even disable that one could overwrite that builtin like:
 
-network_commands:
-  builtin: null
-  10_yourcmd: whatever you wanted instead
+curthooks_commands:
+  builtin-apt-source: null
+
+As those sections are executed in an alphanumerically ordered fashing you can even inside the curthooks stage insert custom command before or after this feature as needed.
+
+Dependencies
+------------
+Cloud-init has a similar feature and depending on he case one has to use the one or the other.
+There is one case where one has to be careful, that is when curtin has to modify a newly installed environment.
+In that on the first boot cloud-init will run and - by its default configuration - overwrite /etc/apt/sources.list again.
+So if your curtin config wanted to control /etc/apt/sources.list you likely want to seed the following cloud-init with ``apt_preserve_sources_list: true``.
+That will avoid conflicts between both tools in regard to that file.
+
+Target
+------
+As mentioned before the default target will be TARGET_MOUNT_POINT, but if every needed it can be run directly via ``curtin apt-source`` or overwriting the builtin at ``builtin-apt-source`` with a custom target.
+To do so add ``target /you/own/target``.
+This target should have at least a minimal system with apt installed for the functionality to work.
