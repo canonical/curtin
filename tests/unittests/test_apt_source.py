@@ -283,8 +283,7 @@ class TestAptSourceConfig(TestCase):
             self._add_apt_sources(cfg, TARGET, template_params=params,
                                   aa_repo_match=self.matcher)
 
-        mockobj.assert_called_with(['apt-key', 'add', '-'],
-                                   data=b'fakekey 4321')
+        mockobj.assert_any_call(['apt-key', 'add', '-'], data=b'fakekey 4321')
 
         self.assertTrue(os.path.isfile(self.aptlistfile))
 
@@ -305,8 +304,7 @@ class TestAptSourceConfig(TestCase):
             self._add_apt_sources(cfg, TARGET, template_params=params,
                                   aa_repo_match=self.matcher)
 
-        mockobj.assert_called_once_with(['apt-key', 'add', '-'],
-                                        data=b'fakekey 4242')
+        mockobj.assert_any_call(['apt-key', 'add', '-'], data=b'fakekey 4242')
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
@@ -321,8 +319,7 @@ class TestAptSourceConfig(TestCase):
             self._add_apt_sources(cfg, TARGET, template_params=params,
                                   aa_repo_match=self.matcher)
 
-        mockobj.assert_called_with(['apt-key', 'add', '-'],
-                                   data=b'fakekey 1212')
+        mockobj.assert_any_call(['apt-key', 'add', '-'], data=b'fakekey 1212')
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
@@ -401,8 +398,8 @@ class TestAptSourceConfig(TestCase):
         with mock.patch.object(util, 'subp') as mockobj:
             self._add_apt_sources(cfg, TARGET, template_params=params,
                                   aa_repo_match=self.matcher)
-        mockobj.assert_called_once_with(['add-apt-repository',
-                                         'ppa:smoser/cloud-init-test'])
+        mockobj.assert_any_call(['add-apt-repository',
+                                 'ppa:smoser/cloud-init-test'])
 
         # adding ppa should ignore filename (uses add-apt-repository)
         self.assertFalse(os.path.isfile(self.aptlistfile))
