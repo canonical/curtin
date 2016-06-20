@@ -388,7 +388,9 @@ class VMBaseClass(TestCase):
         logger.debug("Image sync = %s", image_store.sync)
         img_verstr, (boot_img, boot_kernel, boot_initrd, tarball) = (
             image_store.get_image(cls.release, cls.arch, cls.krel))
-
+        logger.debug("Image %s\n  boot=%s\n  kernel=%s\n  initrd=%s\n"
+                     "  tarball=%s\n", img_verstr, boot_img, boot_kernel,
+                     boot_initrd, tarball)
         # set up tempdir
         cls.td = TempDir(
             name=cls.__name__,
