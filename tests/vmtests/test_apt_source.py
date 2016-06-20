@@ -31,6 +31,7 @@ class TestAptSrcAbs(VMBaseClass):
         cp /etc/apt/sources.list sources.list
 
         """)]
+    boot_cloudconf = {'apt_preserve_sources_list': True}
     mirror = "http://us.archive.ubuntu.com/ubuntu/"
     secmirror = "http://security.ubuntu.com/ubuntu/"
 
