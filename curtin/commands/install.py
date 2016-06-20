@@ -52,16 +52,13 @@ CONFIG_BUILTIN = {
     'stages': ['early', 'partitioning', 'network', 'extract', 'curthooks',
                'hook', 'late'],
     'early_commands': {},
-    'partitioning_commands': {
-        'builtin-block-meta': ['curtin', 'block-meta', 'simple']},
-    'network_commands': {'builtin-net-meta': ['curtin', 'net-meta', 'auto']},
-    'extract_commands': {'builtin-extract': ['curtin', 'extract']},
-    'curthooks_commands': {'builtin-apt-source': ['curtin', 'apt-source',
-                                                  'custom'],
-                           'builtin-curthooks': ['curtin', 'curthooks']},
-    'hook_commands': {'builtin-hook': ['curtin', 'hook']},
-    'late_commands': {'builtin-late': []},
-    'apply_net_commands': {'builtin-apply-net': []},
+    'partitioning_commands': {'builtin': ['curtin', 'block-meta', 'simple']},
+    'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
+    'extract_commands': {'builtin': ['curtin', 'extract']},
+    'curthooks_commands': {'builtin': ['curtin', 'curthooks']},
+    'hook_commands': {'builtin': ['curtin', 'hook']},
+    'late_commands': {'builtin': []},
+    'apply_net_commands': {'builtin': []},
     'install': {'log_file': INSTALL_LOG},
 }
 
