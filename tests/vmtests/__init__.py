@@ -386,7 +386,7 @@ class VMBaseClass(TestCase):
         # Disable sync if env var is set.
         image_store.sync = get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False)
         logger.debug("Image sync = %s", image_store.sync)
-        (img_verstr, boot_img, boot_kernel, boot_initrd, tarball) = (
+        img_verstr, (boot_img, boot_kernel, boot_initrd, tarball) = (
             image_store.get_image(cls.release, cls.arch, cls.krel))
 
         # set up tempdir
