@@ -107,6 +107,7 @@ class TestAptSrcCustom(TestAptSrcAbs):
 class TestAptSrcPreserve(TestAptSrcAbs):
     """TestAptSrcPreserve - tests valid in the preserved sources.list case"""
     conf_file = "examples/tests/apt_source_preserve.yaml"
+    boot_cloudconf = None
 
     def test_preserved_source_list(self):
         """test_preserved_source_list - Check sources to be preserved as-is"""
