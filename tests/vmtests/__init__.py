@@ -271,7 +271,7 @@ class ImageStore:
         kernel_path = ftypes['boot-kernel']
         initrd_path = ftypes['boot-initrd']
         tarball = ftypes['vmtest.root-tgz']
-        return (ver_info, root_image_path, kernel_path, initrd_path, tarball)
+        return ver_info, (root_image_path, kernel_path, initrd_path, tarball)
 
 
 class TempDir(object):
