@@ -19,6 +19,7 @@ import argparse
 import datetime
 import json
 import sys
+import base64
 
 
 #  An event:
@@ -65,12 +66,29 @@ def format_record(msg, event):
     return msg.format(**event)
 
 
-def generate_records(j, blame_sort=False, print_format="%d seconds in %D"):
+def dump_event_files(event):
+    content = {k: v for k, v in event.items() if k not in ['content']}
+    files = content['files']
+    for f in files:
+        fname = f['path']
+        fcontent = base64.b64decode(f['content']).decode('ascii')
+        print("%s:\n%s" % (fname, fcontent))
+
+
+def generate_records(j, blame_sort=False, print_format="%d seconds in %D",
+                     dump_files=False):
     records = []
     timestamps = {}
     total_time = 0
     for event in j:
         name = event.get('name')
+        if 'files' in event:
+            print('Event with files: %s %s @ %s' % (event['event_type'],
+                                                    event['name'],
+                                                    event['timestamp']))
+            if dump_files:
+                dump_event_files(event)
+
         if event['event_type'] == 'start':
             timestamps[name] = {'start': event['timestamp']}
         else:
@@ -96,6 +114,10 @@ def main():
                         default=False,
                         dest='blame_sort',
                         help='sort events by total time.')
+    parser.add_argument('--dumpfiles', action='store_true',
+                        default=False,
+                        dest='dump_files',
+                        help='dump content of any posted files')
     parser.add_argument('--format', action='store',
                         dest='print_format',
                         default='%d seconds in %D',
@@ -116,7 +138,8 @@ def main():
         sys.exit(1)
 
     records = generate_records(j, blame_sort=opts.blame_sort,
-                               print_format=opts.print_format)
+                               print_format=opts.print_format,
+                               dump_files=opts.dump_files)
     summary = []
     if opts.blame_sort is True:
         summary = records[-1:]
