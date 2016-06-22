@@ -475,9 +475,19 @@ class VMBaseClass(TestCase):
         reporting_config = os.path.join(cls.td.install, 'reporting.cfg')
         localhost_url = 'http://' + get_lan_ip() + ':8000/'
         with open(reporting_config, 'w') as fp:
-            fp.write(json.dumps({'reporting': {
-                'test': {'type': 'webhook', 'endpoint': localhost_url,
-                         'level': 'INFO'}}}))
+            fp.write(json.dumps({
+                'install': {
+                    'log_file': '/tmp/install.log',
+                    'post_files': ['/tmp/install.log'],
+                },
+                'reporting': {
+                    'maas': {
+                        'level': 'DEBUG',
+                        'type': 'webhook',
+                        'endpoint': localhost_url,
+                    },
+                },
+            }))
         configs.append(reporting_config)
 
         cmd.extend(netdevs + ["--disk", cls.td.target_disk] +
@@ -723,12 +733,16 @@ class VMBaseClass(TestCase):
         first_event = data[0]
         self.assertEqual(first_event['event_type'], 'start')
         next_event = data[1]
-        self.assertEqual(next_event['event_type'], 'finish')
         # make sure we don't have that timestamp bug
         self.assertNotEqual(first_event['timestamp'], next_event['timestamp'])
         final_event = data[-1]
         self.assertEqual(final_event['event_type'], 'finish')
-        self.assertEqual(final_event['name'], 'cmd-install/stage-late')
+        self.assertEqual(final_event['name'], 'cmd-install')
+
+        # check for install log
+        [events_with_files] = [ev.get('files', []) for ev in data]
+        self.assertEqual(1, len(events_with_files))
+        self.assertEqual('/tmp/install.log', events_with_files.get('path'))
 
     def run(self, result):
         super(VMBaseClass, self).run(result)
