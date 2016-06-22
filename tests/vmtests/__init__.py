@@ -535,8 +535,8 @@ class VMBaseClass(TestCase):
         logger.debug('')
         try:
             if os.path.exists(cls.install_log):
-                with open(cls.install_log) as l:
-                    install_log = l.read()
+                with open(cls.install_log, 'rb') as l:
+                    install_log = l.read().decode('utf-8', errors='replace')
                 errmsg, errors = check_install_log(install_log)
                 if errmsg:
                     for e in errors:
