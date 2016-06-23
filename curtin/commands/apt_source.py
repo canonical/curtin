@@ -227,7 +227,7 @@ def add_apt_key(ent, target):
         if 'keyserver' in ent:
             keyserver = ent['keyserver']
 
-        ent['key'] = gpg.gpg_getkeybyid(ent['keyid'], keyserver)
+        ent['key'] = gpg.getkeybyid(ent['keyid'], keyserver)
 
     if 'key' in ent:
         add_apt_key_raw(ent['key'], target)

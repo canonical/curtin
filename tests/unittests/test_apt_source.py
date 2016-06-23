@@ -333,7 +333,7 @@ class TestAptSourceConfig(TestCase):
         params = self._get_default_params()
 
         with mock.patch.object(apt_source, 'add_apt_key_raw') as mockkey:
-            with mock.patch.object(gpg, 'gpg_getkeybyid',
+            with mock.patch.object(gpg, 'getkeybyid',
                                    return_value=expectedkey) as mockgetkey:
                 self._add_apt_sources(cfg, TARGET, template_params=params,
                                       aa_repo_match=self.matcher)
@@ -378,7 +378,7 @@ class TestAptSourceConfig(TestCase):
 
         # in some test environments only *.ubuntu.com is reachable
         # so mock the call and check if the config got there
-        with mock.patch.object(gpg, 'gpg_getkeybyid',
+        with mock.patch.object(gpg, 'getkeybyid',
                                return_value="fakekey") as mockgetkey:
             with mock.patch.object(apt_source, 'add_apt_key_raw') as mockadd:
                 self._add_apt_sources(cfg, TARGET, template_params=params,
