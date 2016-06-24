@@ -28,6 +28,7 @@ class TestSimple(VMBaseClass):
            cp /var/log/cloud-init-output.log .
         fi
         cp /var/log/cloud-init.log .
+        find /etc/network/interfaces.d > find_interfacesd
         """)]
 
     def test_output_files_exist(self):
