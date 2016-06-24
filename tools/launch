@@ -579,8 +579,9 @@ main() {
 
         local console_name=""
         case "${arch_hint}" in
-            s390x) console_name="ttyS0";;
+            s390x) console_name="";;
             ppc64*) console_name="hvc0";;
+            *) console_name="ttyS0";;
         esac
         if [ -n "$console_name" ]; then
             append="${append} console=${console_name}"
