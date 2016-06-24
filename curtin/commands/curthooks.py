@@ -642,12 +642,13 @@ def detect_and_handle_multipath(cfg, target):
     try:
         # check in-target version
         pkg_ver = util.get_package_version('multipath-tools', target)
-        val = 1000 * int(pkg_ver['major']) + 100 * int(pkg_ver['minor'])
-        LOG.debug("multipath version is val=%s major=%s minor=%s micro=%s",
-                  val, pkg_ver['major'], pkg_ver['minor'], pkg_ver['micro'])
-        # multipath-tools versions < 1.5.0 do _NOT_ want whitespace replaced
+        sem_ver = pkg_ver['semantic_version']
+        LOG.debug("multipath version is sem_ver=%s major=%s minor=%s micro=%s",
+                  sem_ver, pkg_ver['major'], pkg_ver['minor'],
+                  pkg_ver['micro'])
+        # multipath-tools versions < 0.5.0 do _NOT_ want whitespace replaced
         # i.e. 0.4.X in Trusty.
-        if val < 500:
+        if sem_ver < 500:
             replace_spaces = False
     except Exception as e:
         LOG.warn("failed reading multipath-tools version, "

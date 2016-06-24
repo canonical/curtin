@@ -499,7 +499,49 @@ def has_pkg_installed(pkg, target=None):
         return False
 
 
-def get_package_version(pkg, target=None):
+def parse_dpkg_version(raw, name=None, semx=None):
+    """Parse a dpkg version string into various parts and calcualate a
+       numerical value of the version for use in comparing package versions
+
+       returns a dictionary with the results
+    """
+    if semx is None:
+        semx = (10000, 100, 1)
+
+    upstream = raw.split('-')[0]
+    toks = upstream.split(".", 2)
+    if len(toks) == 3:
+        major, minor, micro = toks
+    elif len(toks) == 2:
+        major, minor, micro = (toks[0], toks[1], 0)
+    elif len(toks) == 1:
+        major, minor, micro = (toks[0], 0, 0)
+
+    version = {
+        'major': major,
+        'minor': minor,
+        'micro': micro,
+        'raw': raw,
+        'upstream': upstream,
+    }
+    if name:
+        version['name'] = name
+
+    if semx:
+        try:
+            version['sematic_version'] = int(
+                int(major) * semx[0] + int(minor) * semx[1] +
+                int(micro) * semx[2])
+        except (ValueError, IndexError):
+            version['sematic_version'] = None
+
+    return version
+
+
+def get_package_version(pkg, target=None, semx=None):
+    """Use dpkg-query to extract package pkg's version string
+       and parse the version string into a dictionary
+    """
     chroot = []
     if target is not None:
         chroot = ['chroot', target]
@@ -508,16 +550,7 @@ def get_package_version(pkg, target=None):
                                 '${Version}', pkg],
                       capture=True)
         raw = out.rstrip()
-        upstream = raw.split('-')[0]
-        major, minor, micro = upstream.split(".", 2)
-        version = {
-            'major': major,
-            'minor': minor,
-            'micro': micro,
-            'raw': raw,
-            'upstream': upstream,
-        }
-        return version
+        return parse_dpkg_version(raw, name=pkg, semx=semx)
     except ProcessExecutionError:
         return None
 
