@@ -16,19 +16,24 @@ Usage() {
     cat <<EOF
 Usage: ${0##*/} [ options ] boot-image curtin install [args]
 
-   boot the image 'boot-image', so that it will run 
+   boot the image 'boot-image', so that it will run
       curtin install [args]
    after booting. 'curtin install [args]' can be any command'
-  
+
    options:
            --add  F[:T] add file 'F' to the curtin archive at T
       -a | --append     append args to kernel cmdline (--kernel)
       -A | --arch   A   assume guest kernel architecture A
-      -d | --disk   D   add a disk 'D' format (path[:size][:driver][:bsize])
+      -d | --disk   D   add a disk 'D' format
+                        (path[:size][:driver][:bsize][:devopts])
                         driver can be specified without size using path::driver
                         driver defaults to virtio-blk
                         bsize <logical>[,<physical>][,<min_io_size>]
                         bsize defaults to 512b sector size
+                        opts is a comma delimitted list of property=value
+                        elements. Examine qemu-kvm -device scsi-hd,? for
+                        details.
+           --vnc D      use -vnc D (mutually exclusive with --silent)
            --uefi   N   enable uefi boot method, store nvram at N
       -h | --help       show this message
       -i | --initrd F   use initramfs F
@@ -191,7 +196,7 @@ start_http() {
     # starts a web service at 'port' that serves files in 'pubdir'
     # waits until it is verified to be lisenting at ip
     # if port is not provided, '$tries' random ports are tried.
-    # 
+    #
     # sets HTTP_PID and returns in _RET the port selected.
     local pubdir="$1" ip="$2" port="$3" tries="${4:-5}" i=""
     [ -z "$ip" ] && ip="localhost"
@@ -215,7 +220,7 @@ start_http() {
         [ "$port" = "random" ] && port=$(($pmin+($RANDOM%($pmax+1-$pmin))))
         debug 2 "trying http server $ip:$port"
         _start_http "$pubdir" "$ip" "$port" &&
-            HTTP_PID="$_RET" && _RET="$port" && 
+            HTTP_PID="$_RET" && _RET="$port" &&
             debug 1 "serving $pubdir at http://$ip:$port/ in pid $HTTP_PID" &&
             return 0
         ret=$?
@@ -284,7 +289,7 @@ main() {
         case "$cur" in
                --add) addfiles[${#addfiles[@]}]="$next"; shift;;
             -a|--append) uappend="$next"; shift;;
-            -A|--arch) arch_hint="$next"; shift;;	       
+            -A|--arch) arch_hint="$next"; shift;;
             -d|--disk) disks[${#disks[@]}]="$next"; shift;;
             -h|--help) Usage ; exit 0;;
             -i|--initrd) initrd="$next"; shift;;
@@ -341,10 +346,10 @@ main() {
     if [ -n "$bios" ]; then
         bios_opts=(  -drive "if=pflash,format=raw,file=$bios" )
     elif [ -n "$uefi" ]; then
-        case `lsb_release -sc` in 
+        case `lsb_release -sc` in
             precise|trusty|vivid)
                 # for non-split UEFI firmware, the code and
-                # var space are in the same file.  We must 
+                # var space are in the same file.  We must
                 # make a copy so we can retain modifications.
                 local ovmf_code="/usr/share/ovmf/OVMF.fd"
                 local ovmf_var=$ovmf_code
@@ -393,21 +398,22 @@ main() {
         { error "failed to get dir for $0"; return 1; }
 
     local disk="" src="" size="" fmt="" out="" id="" driver="" if=""
-    local split_input=""
+    local split_input="" serial=""
     disk_args=( )
     id=1
     for disk in "${disks[@]}"; do
         ((id++))
-
         # 1=src
         # 2=src:size
         # 3=src:size:driver
         # 4=src:size:driver:bsize
+        # 5=src:size:driver:bsize:devopts
         src=$(echo $disk | awk -F: '{print $1}')
         size=$(echo $disk | awk -F: '{print $2}')
         driver=$(echo $disk | awk -F: '{print $3}')
         bsize=$(echo $disk | awk -F: '{print $4}')
-        
+        devopts=$(echo $disk | awk -F: '{print $5}')
+
         if [ -z "${src}" ]; then
             error "Failed to provide disk source"
             exit 1
@@ -420,7 +426,7 @@ main() {
         if [ -z "${driver}" ]; then
             driver="virtio-blk"
         fi
-        
+
         if [ -z "${bsize}" ]; then
             bsize="512"
         fi
@@ -435,6 +441,11 @@ main() {
                 { error "failed to determine format of $src"; return 1; }
         fi
 
+        # prepend comma if passing devopts
+        if [ -n "${devopts}" ]; then
+            devopts=",${devopts}"
+        fi
+
         # set logical/physical size blocksz is logical:phys
         local logbs=$(round_up ${bsize%%:*})
         local phybs=$(round_up ${bsize##*:})
@@ -446,8 +457,8 @@ main() {
             "file=${src},if=none,cache=unsafe,format=$fmt,id=drv${id},index=$id" )
 
         disk_args=( "${disk_args[@]}" "-device"
-            "${driver},drive=drv${id},serial=dev${id},${bs_args}" )
-        
+            "${driver},drive=drv${id},${bs_args}${devopts}" )
+
     done
 
     get_my_ip || { error "failed to get your ip. set IP_ADDR"; return 1; }
@@ -591,18 +602,20 @@ main() {
     local cmd serial_args="" chardev_arg=""
     [ "${serial_log}" = "none" ] && serial_log=""
     if [ -n "${serial_log}" ]; then
-	if [ "${arch_hint}" = "s390x" ]; then
-	    if [ "${serial_log}" = "stdio" ]; then
-		chardev_arg="stdio"
-	    else
-		chardev_arg="file,path=${serial_log}"
-	    fi
-	    serial_args="-nodefaults -chardev ${chardev_arg},id=charconsole0 -device sclpconsole,chardev=charconsole0,id=console0"
-	else
-	    serial_args="-serial file:${serial_log}"
-	fi
+        if [ "${arch_hint}" = "s390x" ]; then
+            if [ "${serial_log}" = "stdio" ]; then
+                chardev_arg="stdio"
+            else
+                chardev_arg="file,path=${serial_log}"
+            fi
+                serial_args="-nodefaults -chardev ${chardev_arg},id=charconsole0 -device sclpconsole,chardev=charconsole0,id=console0"
+        else
+            serial_args="-serial file:${serial_log}"
+            #debug mode serial_args="-serial ${serial_log} -monitor stdio"
+        fi
     fi
-    cmd=( 
+    # -monitor stdio
+    cmd=(
         xkvm "${pt[@]}" "${netargs[@]}" --
         "${bios_opts[@]}"
         -m ${mem} ${serial_args} ${video}
@@ -630,6 +643,11 @@ main() {
     return $ret
 }
 
+random_wwn() {
+    # wwn must be a int64, less than (1 << 63) - 1
+    # we achieve this by combining 4 (1 << 15) ints
+    printf "0x%04x%04x%04x%04x" $RANDOM $RANDOM $RANDOM $RANDOM
+}
 
 round_up() {
     local size="${1}"

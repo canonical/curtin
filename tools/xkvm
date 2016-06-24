@@ -77,14 +77,14 @@ Usage: ${0##*/} [ options ] -- kvm-args [ ... ]
 
    NETDEV:
     Above, 'NETDEV' is a comma delimited string
-    The first field must be 
+    The first field must be
      * bridge name: (br0 or virbr0): attach a device to this bridge
      * literal 'user': use qemu user networking
-    
+
     Additional fields are optional, and can be anything that is acceptable
     to kvm either as:
       * '-device virtio-net-pci' option (see 'kvm -device virtio-net-pci,?')
-      * '-net [user|tap]' option 
+      * '-net [user|tap]' option
 
    Example:
      * xkvm --netdev br0,macaddr=:05 -- -drive file=disk.img,if=virtio -curses
@@ -529,7 +529,7 @@ main() {
 
     netargs=()
     for((i=0;i<${#device_args[@]};i++)); do
-        netargs=( "${netargs[@]}" -device "${device_args[$i]}" 
+        netargs=( "${netargs[@]}" -device "${device_args[$i]}"
                   -netdev "${netdev_args[$i]}")
     done
 
