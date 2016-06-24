@@ -156,9 +156,10 @@ apt_source:
     # security: http://security.ubuntu.com/ubuntu
 
     # Provide a custom template for rendering sources.list
-    # by default it will use a builtin default template
-    # These full source.list templates can use the following variables which
-    # will be replaced (all have sane ubuntu defaults, see above for details):
+    # without one provided curtin will try to modify the sources.list it find
+    # in the target at /etc/apt/.
+    # Within these source.list templates you can use the following replacement
+    # variables (all have sane ubuntu defaults, see above for details):
     # $RELEASE, $MIRROR, $PRIMARY, $SECURITY
     apt_custom_sources_list: | # written by curtin custom template
       deb $MIRROR $RELEASE main restricted

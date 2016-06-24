@@ -117,13 +117,14 @@ The file examples/apt-source.yaml holds various further examples that can be con
 
 Timing
 ------
-The feature is implemented at the stage of curthooks_commands, after which runs just after curtin has extracted the image to the target.
+The feature is intended implemented at the stage of curthooks_commands, after which runs just after curtin has extracted the image to the target.
 
-To do so it is called by a curthooks_commands builtin called ``builtin-apt-source`` which can be overwritten to modify it.
-As mentioned before it does nothing if not explicitly configured, but if there is ever the need to even disable that one could overwrite that builtin like:
+To do so it should be called as a curthooks_commands.
+Here an example.
 
 curthooks_commands:
-  builtin-apt-source: null
+    00-apt-source: curtin apt-source custom
+    ... your apt-source config
 
 As those sections are executed in an alphanumerically ordered fashing you can even inside the curthooks stage insert custom command before or after this feature as needed.
 
@@ -132,11 +133,15 @@ Dependencies
 Cloud-init has a similar feature and depending on he case one has to use the one or the other.
 There is one case where one has to be careful, that is when curtin has to modify a newly installed environment.
 In that on the first boot cloud-init will run and - by its default configuration - overwrite /etc/apt/sources.list again.
-So if your curtin config wanted to control /etc/apt/sources.list you likely want to seed the following cloud-init with ``apt_preserve_sources_list: true``.
+So if your curtin config wanted to control /etc/apt/sources.list content you likely want to seed the following cloud-init with ``apt_preserve_sources_list: true``.
 That will avoid conflicts between both tools in regard to that file.
+
+Cloud-init might need to resolve dependencies and install packages in the ephemeral environment to run curtin.
+Therefore it is recommended to seed the install environment with proper apt configuration via cloud-init.
 
 Target
 ------
 As mentioned before the default target will be TARGET_MOUNT_POINT, but if every needed it can be run directly via ``curtin apt-source`` or overwriting the builtin at ``builtin-apt-source`` with a custom target.
 To do so add ``target /you/own/target``.
 This target should have at least a minimal system with apt installed for the functionality to work.
+Combined with the option to call the apt-source subcommand at a different stage if needed this gives you full control what and when to change.
