@@ -18,6 +18,7 @@ LOG = logging.getLogger(__name__)
 
 TARGET = "/"
 
+# Input and expected output for the custom template
 YAML_TEXT_CUSTOM_SL = """
 apt_mirror: http://archive.ubuntu.com/ubuntu
 apt_custom_sources_list: |
@@ -34,7 +35,6 @@ apt_custom_sources_list: |
     # FIND_SOMETHING_SPECIAL
 """
 
-# the custom and builtin templates converted on mocked fakerel
 EXPECTED_CONVERTED_CONTENT = """
 ## Note, this file is written by curtin at install time. It should not end
 ## up on the installed system itself.
@@ -48,175 +48,33 @@ deb http://archive.ubuntu.com/ubuntu fakerel-security multiverse
 # FIND_SOMETHING_SPECIAL
 """
 
+# mocked to be independent to the unittest system
+MOCKED_APT_SRC_LIST = """
+deb http://archive.ubuntu.com/ubuntu/ notouched main restricted
+deb-src http://archive.ubuntu.com/ubuntu/ notouched main restricted
+deb http://archive.ubuntu.com/ubuntu/ notouched-updates main restricted
+deb http://security.ubuntu.com/ubuntu notouched-security main restricted
+"""
+
 EXPECTED_BASE_CONTENT = ("""
-## Note, this file is written by curtin at install time. It should not end
-## up on the installed system itself.
-#
-# See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
-# newer versions of the distribution.
-deb http://archive.ubuntu.com/ubuntu fakerel main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerel main restricted
-
-## Major bug fix updates produced after the final release of the
-## distribution.
-deb http://archive.ubuntu.com/ubuntu fakerel-updates main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerel-updates main restricted
-
-## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
-## team. Also, please note that software in universe WILL NOT receive any
-## review or updates from the Ubuntu security team.
-deb http://archive.ubuntu.com/ubuntu fakerel universe
-deb-src http://archive.ubuntu.com/ubuntu fakerel universe
-deb http://archive.ubuntu.com/ubuntu fakerel-updates universe
-deb-src http://archive.ubuntu.com/ubuntu fakerel-updates universe
-
-## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
-## team, and may not be under a free licence. Please satisfy yourself as to
-## your rights to use the software. Also, please note that software in
-## multiverse WILL NOT receive any review or updates from the Ubuntu
-## security team.
-deb http://archive.ubuntu.com/ubuntu fakerel multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerel multiverse
-deb http://archive.ubuntu.com/ubuntu fakerel-updates multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerel-updates multiverse
-
-## N.B. software from this repository may not have been tested as
-## extensively as that contained in the main release, although it includes
-## newer versions of some applications which may provide useful features.
-## Also, please note that software in backports WILL NOT receive any review
-## or updates from the Ubuntu security team.
-deb http://archive.ubuntu.com/ubuntu fakerel-backports"""
-                         """ main restricted universe multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerel-backports"""
-                         """ main restricted universe multiverse
-
-deb http://security.ubuntu.com/ubuntu fakerel-security main restricted
-deb-src http://security.ubuntu.com/ubuntu fakerel-security main restricted
-deb http://security.ubuntu.com/ubuntu fakerel-security universe
-deb-src http://security.ubuntu.com/ubuntu fakerel-security universe
-deb http://security.ubuntu.com/ubuntu fakerel-security multiverse
-deb-src http://security.ubuntu.com/ubuntu fakerel-security multiverse
-
-## Uncomment the following two lines to add software from Canonical's
-## 'partner' repository.
-## This software is not part of Ubuntu, but is offered by Canonical and the
-## respective vendors as a service to Ubuntu users.
-# deb http://archive.canonical.com/ubuntu fakerel partner
-# deb-src http://archive.canonical.com/ubuntu fakerel partner
+deb http://archive.ubuntu.com/ubuntu/ notouched main restricted
+deb-src http://archive.ubuntu.com/ubuntu/ notouched main restricted
+deb http://archive.ubuntu.com/ubuntu/ notouched-updates main restricted
+deb http://security.ubuntu.com/ubuntu notouched-security main restricted
 """)
 
 EXPECTED_MIRROR_CONTENT = ("""
-## Note, this file is written by curtin at install time. It should not end
-## up on the installed system itself.
-#
-# See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
-# newer versions of the distribution.
-deb http://archive.ubuntu.com/ubuntu fakerel main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerel main restricted
-
-## Major bug fix updates produced after the final release of the
-## distribution.
-deb http://archive.ubuntu.com/ubuntu fakerel-updates main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerel-updates main restricted
-
-## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
-## team. Also, please note that software in universe WILL NOT receive any
-## review or updates from the Ubuntu security team.
-deb http://archive.ubuntu.com/ubuntu fakerel universe
-deb-src http://archive.ubuntu.com/ubuntu fakerel universe
-deb http://archive.ubuntu.com/ubuntu fakerel-updates universe
-deb-src http://archive.ubuntu.com/ubuntu fakerel-updates universe
-
-## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
-## team, and may not be under a free licence. Please satisfy yourself as to
-## your rights to use the software. Also, please note that software in
-## multiverse WILL NOT receive any review or updates from the Ubuntu
-## security team.
-deb http://archive.ubuntu.com/ubuntu fakerel multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerel multiverse
-deb http://archive.ubuntu.com/ubuntu fakerel-updates multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerel-updates multiverse
-
-## N.B. software from this repository may not have been tested as
-## extensively as that contained in the main release, although it includes
-## newer versions of some applications which may provide useful features.
-## Also, please note that software in backports WILL NOT receive any review
-## or updates from the Ubuntu security team.
-deb http://archive.ubuntu.com/ubuntu fakerel-backports"""
-                           """ main restricted universe multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerel-backports"""
-                           """ main restricted universe multiverse
-
-deb http://archive.ubuntu.com/ubuntu fakerel-security main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerel-security main restricted
-deb http://archive.ubuntu.com/ubuntu fakerel-security universe
-deb-src http://archive.ubuntu.com/ubuntu fakerel-security universe
-deb http://archive.ubuntu.com/ubuntu fakerel-security multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerel-security multiverse
-
-## Uncomment the following two lines to add software from Canonical's
-## 'partner' repository.
-## This software is not part of Ubuntu, but is offered by Canonical and the
-## respective vendors as a service to Ubuntu users.
-# deb http://archive.canonical.com/ubuntu fakerel partner
-# deb-src http://archive.canonical.com/ubuntu fakerel partner
+deb http://test.archive.ubuntu.com/ubuntu/ notouched main restricted
+deb-src http://test.archive.ubuntu.com/ubuntu/ notouched main restricted
+deb http://test.archive.ubuntu.com/ubuntu/ notouched-updates main restricted
+deb http://test.archive.ubuntu.com/ubuntu notouched-security main restricted
 """)
 
 EXPECTED_PRIMSEC_CONTENT = ("""
-## Note, this file is written by curtin at install time. It should not end
-## up on the installed system itself.
-#
-# See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
-# newer versions of the distribution.
-deb http://archive.ubuntu.com/ubuntu fakerel main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerel main restricted
-
-## Major bug fix updates produced after the final release of the
-## distribution.
-deb http://archive.ubuntu.com/ubuntu fakerel-updates main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerel-updates main restricted
-
-## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
-## team. Also, please note that software in universe WILL NOT receive any
-## review or updates from the Ubuntu security team.
-deb http://archive.ubuntu.com/ubuntu fakerel universe
-deb-src http://archive.ubuntu.com/ubuntu fakerel universe
-deb http://archive.ubuntu.com/ubuntu fakerel-updates universe
-deb-src http://archive.ubuntu.com/ubuntu fakerel-updates universe
-
-## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
-## team, and may not be under a free licence. Please satisfy yourself as to
-## your rights to use the software. Also, please note that software in
-## multiverse WILL NOT receive any review or updates from the Ubuntu
-## security team.
-deb http://archive.ubuntu.com/ubuntu fakerel multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerel multiverse
-deb http://archive.ubuntu.com/ubuntu fakerel-updates multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerel-updates multiverse
-
-## N.B. software from this repository may not have been tested as
-## extensively as that contained in the main release, although it includes
-## newer versions of some applications which may provide useful features.
-## Also, please note that software in backports WILL NOT receive any review
-## or updates from the Ubuntu security team.
-deb http://archive.ubuntu.com/ubuntu fakerel-backports"""
-                            """ main restricted universe multiverse
-deb-src http://archive.ubuntu.com/ubuntu fakerel-backports"""
-                            """ main restricted universe multiverse
-
-deb http://security.ubuntu.com/ubuntu fakerel-security main restricted
-deb-src http://security.ubuntu.com/ubuntu fakerel-security main restricted
-deb http://security.ubuntu.com/ubuntu fakerel-security universe
-deb-src http://security.ubuntu.com/ubuntu fakerel-security universe
-deb http://security.ubuntu.com/ubuntu fakerel-security multiverse
-deb-src http://security.ubuntu.com/ubuntu fakerel-security multiverse
-
-## Uncomment the following two lines to add software from Canonical's
-## 'partner' repository.
-## This software is not part of Ubuntu, but is offered by Canonical and the
-## respective vendors as a service to Ubuntu users.
-# deb http://archive.canonical.com/ubuntu fakerel partner
-# deb-src http://archive.canonical.com/ubuntu fakerel partner
+deb http://test.archive.ubuntu.com/ubuntu/ notouched main restricted
+deb-src http://test.archive.ubuntu.com/ubuntu/ notouched main restricted
+deb http://test.archive.ubuntu.com/ubuntu/ notouched-updates main restricted
+deb http://test.security.ubuntu.com/ubuntu notouched-security main restricted
 """)
 
 
@@ -244,7 +102,10 @@ class TestAptSourceConfigSourceList(TestCase):
             with mock.patch.object(os, 'rename'):
                 with mock.patch.object(util, 'lsb_release',
                                        return_value={'codename': 'fakerel'}):
-                    apt_source.handle_apt_source(cfg, TARGET)
+                    # make test independent to executing system
+                    with mock.patch.object(util, 'load_file',
+                                           return_value=MOCKED_APT_SRC_LIST):
+                        apt_source.handle_apt_source(cfg, TARGET)
 
         mockwrite.assert_called_once_with(
             TARGET + '/etc/apt/sources.list',
@@ -252,20 +113,20 @@ class TestAptSourceConfigSourceList(TestCase):
             mode=420)
 
     def test_apt_source_list(self):
-        """test_apt_source_list - Test builtin sources without parms"""
+        """test_apt_source_list - Test with neither custom sources nor parms"""
         cfg = {}
 
         self._apt_source_list(cfg, EXPECTED_BASE_CONTENT)
 
     def test_apt_source_list_mirror(self):
-        """test_apt_source_list_mirror - Test builtin sources with mirror"""
-        cfg = {'apt_mirror': 'http://archive.ubuntu.com/ubuntu'}
+        """test_apt_source_list_mirror - Test specifying mirrors"""
+        cfg = {'apt_mirror': 'http://test.archive.ubuntu.com/ubuntu'}
         self._apt_source_list(cfg, EXPECTED_MIRROR_CONTENT)
 
     def test_apt_source_list_psm(self):
-        """test_apt_source_list_psm - Test builtin with prim+sec mirrors"""
-        cfg = {'apt_primary_mirror': 'http://archive.ubuntu.com/ubuntu',
-               'apt_security_mirror': 'http://security.ubuntu.com/ubuntu'}
+        """test_apt_source_list_psm - Test specifying prim+sec mirrors"""
+        cfg = {'apt_primary_mirror': 'http://test.archive.ubuntu.com/ubuntu',
+               'apt_security_mirror': 'http://test.security.ubuntu.com/ubuntu'}
 
         self._apt_source_list(cfg, EXPECTED_PRIMSEC_CONTENT)
 

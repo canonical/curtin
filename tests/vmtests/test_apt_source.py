@@ -88,6 +88,7 @@ class TestAptSrcCustom(TestAptSrcAbs):
 
     def test_custom_source_list(self):
         """test_custom_source_list - Check custom sources with replacement"""
+        # check that all replacements happened
         self.check_file_strippedline("sources.list",
                                      "deb %s %s main restricted" %
                                      (self.mirror, self.release))
@@ -100,6 +101,7 @@ class TestAptSrcCustom(TestAptSrcAbs):
         self.check_file_strippedline("sources.list",
                                      "deb %s %s-security multiverse" %
                                      (self.secmirror, self.release))
+        # check for something that guarantees us to come from our test
         self.check_file_strippedline("sources.list",
                                      "# nice line to check in test")
 
@@ -111,6 +113,7 @@ class TestAptSrcPreserve(TestAptSrcAbs):
 
     def test_preserved_source_list(self):
         """test_preserved_source_list - Check sources to be preserved as-is"""
+        # curtin didn't touch it, so we should find what curtin set as default
         self.check_file_regex("sources.list",
                               r"this file is written by cloud-init")
 
@@ -121,8 +124,11 @@ class TestAptSrcBuiltin(TestAptSrcAbs):
 
     def test_builtin_source_list(self):
         """test_builtin_source_list - Check builtin sources with replacement"""
+        # we set us.archive which is non default, check for that
+        # this will catch if a target ever changes the expected defaults we
+        # have to replace in case there is no custom template
         self.check_file_regex("sources.list",
-                              r"this file is written by curtin")
+                              r"us.archive.ubuntu.com")
 
 
 class XenialTestAptSrcCustom(relbase.xenial, TestAptSrcCustom):
