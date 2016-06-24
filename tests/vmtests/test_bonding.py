@@ -1,4 +1,4 @@
-from . import VMBaseClass, logger
+from . import VMBaseClass, logger, helpers
 from .releases import base_vm_classes as relbase
 
 import ipaddress
@@ -6,44 +6,6 @@ import os
 import re
 import textwrap
 import yaml
-
-
-def iface_extract(input):
-    mo = re.search(r'^(?P<interface>\w+|\w+:\d+)\s+' +
-                   r'Link encap:(?P<link_encap>\S+)\s+' +
-                   r'(HWaddr\s+(?P<mac_address>\S+))?' +
-                   r'(\s+inet addr:(?P<address>\S+))?' +
-                   r'(\s+Bcast:(?P<broadcast>\S+)\s+)?' +
-                   r'(Mask:(?P<netmask>\S+)\s+)?',
-                   input, re.MULTILINE)
-
-    mtu = re.search(r'(\s+MTU:(?P<mtu>\d+)\s+)\s+', input, re.MULTILINE)
-    mtu_info = mtu.groupdict('')
-    mtu_info['mtu'] = int(mtu_info['mtu'])
-
-    if mo:
-        info = mo.groupdict('')
-        info['running'] = False
-        info['up'] = False
-        info['multicast'] = False
-        if 'RUNNING' in input:
-            info['running'] = True
-        if 'UP' in input:
-            info['up'] = True
-        if 'MULTICAST' in input:
-            info['multicast'] = True
-        info.update(mtu_info)
-        return info
-    return {}
-
-
-def ifconfig_to_dict(ifconfig):
-    interfaces = {}
-    for iface in [iface_extract(iface) for iface in ifconfig.split('\n\n')
-                  if iface.strip()]:
-        interfaces[iface['interface']] = iface
-
-    return interfaces
 
 
 class TestNetworkAbs(VMBaseClass):
@@ -96,7 +58,7 @@ class TestNetworkAbs(VMBaseClass):
             ifconfig_a = fp.read()
             logger.debug('ifconfig -a:\n{}'.format(ifconfig_a))
 
-        ifconfig_dict = ifconfig_to_dict(ifconfig_a)
+        ifconfig_dict = helpers.ifconfig_to_dict(ifconfig_a)
         logger.debug('parsed ifcfg dict:\n{}'.format(
             yaml.dump(ifconfig_dict, default_flow_style=False, indent=4)))
 
@@ -230,13 +192,13 @@ class TrustyHWEWTestBonding(relbase.trusty_hwe_w, TrustyTestBonding):
     __test__ = True
 
 
-class VividTestBonding(relbase.vivid, TestNetworkAbs):
-    __test__ = True
-
-
 class WilyTestBonding(relbase.wily, TestNetworkAbs):
     __test__ = True
 
 
 class XenialTestBonding(relbase.xenial, TestNetworkAbs):
+    __test__ = True
+
+
+class YakketyTestBonding(relbase.yakkety, TestNetworkAbs):
     __test__ = True

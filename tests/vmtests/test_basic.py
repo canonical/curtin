@@ -223,13 +223,13 @@ class TrustyHWEWTestBasic(relbase.trusty_hwe_w, TrustyTestBasic):
     __test__ = False
 
 
-class VividTestBasic(relbase.vivid, TestBasicAbs):
-    __test__ = True
-
-
 class WilyTestBasic(relbase.wily, TestBasicAbs):
     __test__ = True
 
 
 class XenialTestBasic(relbase.xenial, TestBasicAbs):
+    __test__ = True
+
+
+class YakketyTestBasic(relbase.yakkety, TestBasicAbs):
     __test__ = True

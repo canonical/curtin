@@ -444,6 +444,10 @@ def render_interfaces(network_state):
                 content += iface_start_entry(iface, index)
                 content += iface_add_subnet(iface, subnet)
                 content += iface_add_attrs(iface, index)
+                if len(subnets) > 1 and index == 0:
+                    for i in range(1, len(subnets)):
+                        content += "    post-up ifup %s:%s\n" % (iface['name'],
+                                                                 i)
         else:
             # ifenslave docs say to auto the slave devices
             if 'bond-master' in iface:
@@ -479,5 +483,10 @@ def render_network_state(target, network_state):
     cc_disable = os.path.sep.join((target, cc,))
     LOG.info('Writing ' + cc_disable)
     util.write_file(cc_disable, content='network: {config: disabled}\n')
+
+
+def get_interface_mac(ifname):
+    """Returns the string value of an interface's MAC Address"""
+    return read_sys_net(ifname, "address", enoent=False)
 
 # vi: ts=4 expandtab syntax=python

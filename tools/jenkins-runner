@@ -7,6 +7,7 @@ export CURTIN_VMTEST_KEEP_DATA_PASS=$pkeep
 export CURTIN_VMTEST_KEEP_DATA_FAIL=$fkeep
 export CURTIN_VMTEST_TOPDIR="$topdir"
 export CURTIN_VMTEST_LOG=${CURTIN_VMTEST_LOG:-"$topdir/debug.log"}
+export IMAGE_DIR=${IMAGE_DIR:-/srv/images}
 
 fail() { echo "$@" 1>&2; exit 1; }
 
@@ -24,6 +25,15 @@ start_s=$(date +%s)
 for v in ${!CURTIN_*}; do
    echo "$v=${!v}"
 done
+
+# avoid LOG info by running python3 tests/vmtests/image_sync.py
+# rather than python3 -m tests.vmtests.image_sync (LP: #1594465)
+echo "Working with images in $IMAGE_DIR"
+fmt="  %(release)-7s %(arch)s/%(subarch)s %(version_name)-10s"
+PYTHONPATH="$PWD" python3 tests/vmtests/image_sync.py query \
+    --output-format="$fmt" "$IMAGE_DIR" ftype=root-image.gz ||
+    { echo "WARNING: error querying images in $IMAGE_DIR" 1>&2; }
+
 echo "$(date -R): vmtest start: nosetests3 $*"
 nosetests3 "$@"
 ret=$?

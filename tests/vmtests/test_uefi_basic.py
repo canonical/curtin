@@ -108,11 +108,11 @@ class WilyUefiTestBasic(relbase.wily, TestBasicAbs):
     __test__ = True
 
 
-class VividUefiTestBasic(relbase.vivid, TestBasicAbs):
+class XenialUefiTestBasic(relbase.xenial, TestBasicAbs):
     __test__ = True
 
 
-class XenialUefiTestBasic(relbase.xenial, TestBasicAbs):
+class YakketyUefiTestBasic(relbase.yakkety, TestBasicAbs):
     __test__ = True
 
 
@@ -124,13 +124,13 @@ class TrustyUefiTestBasic4k(TrustyUefiTestBasic):
     disk_block_size = 4096
 
 
-class VividUefiTestBasic4k(VividUefiTestBasic):
-    disk_block_size = 4096
-
-
 class WilyUefiTestBasic4k(WilyUefiTestBasic):
     disk_block_size = 4096
 
 
 class XenialUefiTestBasic4k(XenialUefiTestBasic):
+    disk_block_size = 4096
+
+
+class YakketyUefiTestBasic4k(YakketyUefiTestBasic):
     disk_block_size = 4096
