@@ -529,11 +529,11 @@ def parse_dpkg_version(raw, name=None, semx=None):
 
     if semx:
         try:
-            version['sematic_version'] = int(
+            version['semantic_version'] = int(
                 int(major) * semx[0] + int(minor) * semx[1] +
                 int(micro) * semx[2])
         except (ValueError, IndexError):
-            version['sematic_version'] = None
+            version['semantic_version'] = None
 
     return version
 
