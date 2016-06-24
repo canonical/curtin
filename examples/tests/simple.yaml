@@ -34,22 +34,3 @@ xxx_storage:
     path: /
     type: mount
   version: 1
-
-bucket:
-  - &cleanup_1536810 |
-    ls -l /boot/ || :
-    for f in /boot/initrd*; do
-       [ -L "$f" ] && link=1 || link=0
-       [ -e "$f" ] && exist=1 || exist=0
-       case "${link}${exist}" in
-          11) echo "$f: existing link";;
-          10) echo "$f: dangling link";;
-          01) echo "$f: existing file";;
-          00) echo "$f: non-existing file?";;
-       esac
-       echo "removing $f"
-       rm -f "$f"
-    done
-
-curthooks_commands:
-  aa_cleanup_tarball: ['curtin', 'in-target', '--', 'sh', '-c', *cleanup_1536810]
