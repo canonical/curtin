@@ -52,4 +52,4 @@ bucket:
     done
 
 curthooks_commands:
-  aa_cleanup_tarball: ['curtin', 'in-target', '--', 'sh', '-c', *cleanup_1436810]
+  aa_cleanup_tarball: ['curtin', 'in-target', '--', 'sh', '-c', *cleanup_1536810]
