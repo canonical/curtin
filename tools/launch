@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 VERBOSITY=0
 TEMP_D=""
@@ -15,10 +15,10 @@ Usage() {
     cat <<EOF
 Usage: ${0##*/} [ options ] boot-image curtin install [args]
 
-   boot the image 'boot-image', so that it will run 
+   boot the image 'boot-image', so that it will run
       curtin install [args]
    after booting. 'curtin install [args]' can be any command'
-  
+
    options:
            --add  F[:T] add file 'F' to the curtin archive at T
       -a | --append     append args to kernel cmdline (--kernel)
@@ -30,7 +30,7 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
                         bsize <logical>[,<physical>][,<min_io_size>]
                         bsize defaults to 512b sector size
                         opts is a comma delimitted list of property=value
-                        elements. Examine qemu-kvm -device scsi-hd,? for 
+                        elements. Examine qemu-kvm -device scsi-hd,? for
                         details.
            --vnc D      use -vnc D (mutually exclusive with --silent)
            --uefi   N   enable uefi boot method, store nvram at N
@@ -193,7 +193,7 @@ start_http() {
     # starts a web service at 'port' that serves files in 'pubdir'
     # waits until it is verified to be lisenting at ip
     # if port is not provided, '$tries' random ports are tried.
-    # 
+    #
     # sets HTTP_PID and returns in _RET the port selected.
     local pubdir="$1" ip="$2" port="$3" tries="${4:-5}" i=""
     [ -z "$ip" ] && ip="localhost"
@@ -217,7 +217,7 @@ start_http() {
         [ "$port" = "random" ] && port=$(($pmin+($RANDOM%($pmax+1-$pmin))))
         debug 2 "trying http server $ip:$port"
         _start_http "$pubdir" "$ip" "$port" &&
-            HTTP_PID="$_RET" && _RET="$port" && 
+            HTTP_PID="$_RET" && _RET="$port" &&
             debug 1 "serving $pubdir at http://$ip:$port/ in pid $HTTP_PID" &&
             return 0
         ret=$?
@@ -285,7 +285,7 @@ main() {
         case "$cur" in
                --add) addfiles[${#addfiles[@]}]="$next"; shift;;
             -a|--append) uappend="$next"; shift;;
-            -A|--arch) arch_hint="$next"; shift;;       
+            -A|--arch) arch_hint="$next"; shift;;
             -d|--disk) disks[${#disks[@]}]="$next"; shift;;
             -h|--help) Usage ; exit 0;;
             -i|--initrd) initrd="$next"; shift;;
@@ -341,10 +341,10 @@ main() {
     if [ -n "$bios" ]; then
         bios_opts=(  -drive "if=pflash,format=raw,file=$bios" )
     elif [ -n "$uefi" ]; then
-        case `lsb_release -sc` in 
+        case `lsb_release -sc` in
             precise|trusty|vivid)
                 # for non-split UEFI firmware, the code and
-                # var space are in the same file.  We must 
+                # var space are in the same file.  We must
                 # make a copy so we can retain modifications.
                 local ovmf_code="/usr/share/ovmf/OVMF.fd"
                 local ovmf_var=$ovmf_code
@@ -408,7 +408,7 @@ main() {
         driver=$(echo $disk | awk -F: '{print $3}')
         bsize=$(echo $disk | awk -F: '{print $4}')
         devopts=$(echo $disk | awk -F: '{print $5}')
-        
+
         if [ -z "${src}" ]; then
             error "Failed to provide disk source"
             exit 1
@@ -421,7 +421,7 @@ main() {
         if [ -z "${driver}" ]; then
             driver="virtio-blk"
         fi
-        
+
         if [ -z "${bsize}" ]; then
             bsize="512"
         fi
@@ -453,7 +453,7 @@ main() {
 
         disk_args=( "${disk_args[@]}" "-device"
             "${driver},drive=drv${id},${bs_args}${devopts}" )
-        
+
     done
 
     get_my_ip || { error "failed to get your ip. set IP_ADDR"; return 1; }
@@ -611,8 +611,8 @@ main() {
             #debug mode serial_args="-serial ${serial_log} -monitor stdio"
         fi
     fi
-    # -monitor stdio 
-    cmd=( 
+    # -monitor stdio
+    cmd=(
         xkvm "${pt[@]}" "${netargs[@]}" --
         "${bios_opts[@]}"
         -m ${mem} ${serial_args} ${video}
