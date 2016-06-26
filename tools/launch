@@ -8,6 +8,7 @@ HTTP_PORT_TRIES=${HTTP_PORT_TRIES:-5}
 HTTP_PORT_MIN=${HTTP_PORT_MIN:-12000}
 HTTP_PORT_MAX=${HTTP_PORT_MAX:-65500}
 MY_D=$(dirname "$0")
+DEFAULT_ROOT_ARG="root=LABEL=cloudimg-rootfs"
 
 error() { echo "$@" 1>&2; }
 
@@ -45,6 +46,8 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
                         directly through to qemu-system.
                         Note, qemu adds 5900 to port numbers. (:0 = port 5900)
            --serial-log F  : log to F (default 'serial.log')
+           --root-arg X pass 'X' through as the root= param when booting a
+                        kernel.  default: $DEFAULT_ROOT_PARAM
       -v | --verbose    be more verbose
            --no-install-deps  do not install insert '--install-deps'
                               on curtin command invocations
@@ -246,7 +249,7 @@ find_apt_proxy() {
 
 main() {
     local short_opts="a:A:d:h:i:k:n:p:v"
-    local long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi:,verbose,vnc:"
+    local long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,root-arg:,silent,serial-log:,uefi:,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -263,6 +266,7 @@ main() {
     local netdevs="" install_deps="--install-deps"
     local arch_hint=""
     local video="-curses -vga std" serial_log="serial.log"
+    local root_arg="$DEFAULT_ROOT_ARG"
     # dowait: run xkvm with a '&' and then 'wait' on the pid.
     #  the reason to do this or not do this has to do with interactivity
     #  if detached with &, then user input will not go to xkvm.
@@ -286,12 +290,16 @@ main() {
                --add) addfiles[${#addfiles[@]}]="$next"; shift;;
             -a|--append) uappend="$next"; shift;;
             -A|--arch) arch_hint="$next"; shift;;
+               --bios) bios="$2"; shift;;
             -d|--disk) disks[${#disks[@]}]="$next"; shift;;
+               --dowait) pt[${#pt[@]}]="$cur"; dowait=true;;
             -h|--help) Usage ; exit 0;;
             -i|--initrd) initrd="$next"; shift;;
-               --no-install-deps) install_deps="";;
             -k|--kernel) kernel="$next"; shift;;
                --mem) mem="$next"; shift;;
+            -n|--netdev) netdevs[${#netdevs[@]}]="$next"; shift;;
+               --no-dowait) pt[${#pt[@]}]="$cur"; dowait=false;;
+               --no-install-deps) install_deps="";;
                --power)
                 case "$next" in
                     off) pstate="poweroff";;
@@ -300,19 +308,16 @@ main() {
                     *) error "Invalid power state, must be: off, on, reboot";;
                 esac
                 shift;;
-            -n|--netdev) netdevs[${#netdevs[@]}]="$next"; shift;;
             -p|--publish) pubs[${#pub[@]}]="$next"; shift;;
-               --uefi) uefi="$2"; shift;;
-               --bios) bios="$2"; shift;;
+               --root-arg) root_arg="$next";;
+               --serial-log) serial_log="$next"; shift;;
                --silent) video="-nographic";;
+               --uefi) uefi="$2"; shift;;
+            -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
                --vnc)
                     video="-vnc $next"
                     debug 1 "VNC requested - $next"
                     shift;;
-               --serial-log) serial_log="$next"; shift;;
-            -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
-               --dowait) pt[${#pt[@]}]="$cur"; dowait=true;;
-               --no-dowait) pt[${#pt[@]}]="$cur"; dowait=false;;
             --) shift; break;;
         esac
         shift;
@@ -565,17 +570,15 @@ main() {
     seedargs=()
     if [ -n "$kernel" ]; then
         local append="" root=""
-        # if this is a partition image, root=/dev/vda. else root=/dev/vda1
-        # this hack is necessary because LABEL even UUID  might be the same
-        # in the boot image and the target (if re-using target)
-        local bottom=$(qemu-img info --backing-chain "$bootimg_dist" |
-                       grep ^image | tail -n1 | awk '{print $2}')
-        if tmp=$(blkid "$bottom" -ovalue -s UUID) && [ -n "$tmp" ]; then
-            root="/dev/vda"
-        else
-            root="/dev/vda1"
+        # Note: root_arg is by default done by LABEL.  This assumes
+        # a.) our root device is not multipath
+        # b.) no other disks attached will have this LABEL
+        # c.) the LABEL is in fact correct.
+        # all of these assumptions are true under vmtest.
+        if [ -z "$root_arg" ]; then
+            debug 1 "WARN: root_arg is empty with kernel."
         fi
-        append="root=$root ds=nocloud-net;seedfrom=$burl"
+        append="${root_arg:+${root_arg} }ds=nocloud-net;seedfrom=$burl"
         if [ "${arch_hint}" != "s390x" ]; then
             append="${append} console=ttyS0"
         fi
