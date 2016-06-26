@@ -1,11 +1,7 @@
-from . import VMBaseClass, logger
+from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
-import ipaddress
-import os
-import re
 import textwrap
-import yaml
 
 
 class TestSimple(VMBaseClass):
