@@ -33,11 +33,6 @@ class TestSimple(VMBaseClass):
 
 
 class TrustyTestSimple(relbase.trusty, TestSimple):
-    # FIXME PPC64: this fails because it ends up trying to
-    # boot with root=vdb1 rather than how we normally boot
-    # which is with root=UUID= .  so update-grub is  making
-    # some decision here that it doesn't make elsewhere
-    # (on xenial ppc64 or on other trusty arches)
     __test__ = True
 
 
