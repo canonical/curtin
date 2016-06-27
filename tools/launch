@@ -579,8 +579,15 @@ main() {
             debug 1 "WARN: root_arg is empty with kernel."
         fi
         append="${root_arg:+${root_arg} }ds=nocloud-net;seedfrom=$burl"
-        if [ "${arch_hint}" != "s390x" ]; then
-            append="${append} console=ttyS0"
+
+        local console_name=""
+        case "${arch_hint}" in
+            s390x) console_name="";;
+            ppc64*) console_name="hvc0";;
+            *) console_name="ttyS0";;
+        esac
+        if [ -n "$console_name" ]; then
+            append="${append} console=${console_name}"
         fi
         append="${append} $uappend"
         seedargs=( "${seedargs[@]}" -kernel "$kernel" )
