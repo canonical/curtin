@@ -345,7 +345,7 @@ main() {
                 if=sd|if=mtd|floppy) fail "do not know what to do with $tok on $cur";;
                 id=*) id=$val;;
                 file=*) file=$val;;
-                format=*) fmt=$val;;
+                fmt=*|format=*) fmt=$val;;
                 serial=*) serial=$val;;
                 bus=*) bus=$val;;
                 unit=*) unit=$val;;
@@ -357,6 +357,8 @@ main() {
             out=$(LANG=C qemu-img info "$file") &&
                 fmt=$(echo "$out" | awk '$0 ~ /^file format:/ { print $3 }') ||
                 { error "failed to determine format of $file"; return 1; }
+        else
+            fmt=raw
         fi
         if [ -z "$driver" ]; then
             driver="$def_disk_driver"
@@ -379,7 +381,8 @@ main() {
         devopts="$driver,drive=$id${serial:+,serial=${serial}}"
         for tok in "$@"; do
             case "$tok" in
-                id=*|if=*|driver=*|$file) continue;;
+                id=*|if=*|driver=*|$file|file=*) continue;;
+                fmt=*|format=*) continue;;
                 serial=*|bus=*|unit=*|index=*) continue;;
             esac
             isdevopt "$driver" "$tok" && devopts="${devopts},$tok" ||
