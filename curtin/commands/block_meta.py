@@ -475,11 +475,11 @@ def disk_handler(info, storage_config):
     if info.get('wipe') and info.get('wipe') != "none":
         # The disk has a lable, clear all partitions
         mdadm.mdadm_assemble(scan=True)
-        disk_kname = os.path.split(disk)[-1]
-        syspath_partitions = list(
-            os.path.split(prt)[0] for prt in
-            glob.glob("/sys/block/%s/*/partition" % disk_kname))
-        for partition in syspath_partitions:
+        disk_sysfs_path = block.sys_block_path(disk)
+        sysfs_partitions = list(
+            os.path.split(p)[0] for p in
+            glob.glob(os.path.join(disk_sysfs_path, '*', 'partition')))
+        for partition in sysfs_partitions:
             clear_holders(partition)
             with open(os.path.join(partition, "dev"), "r") as fp:
                 block_no = fp.read().rstrip()
@@ -487,7 +487,7 @@ def disk_handler(info, storage_config):
                 os.path.join("/dev/block", block_no))
             block.wipe_volume(partition_path, mode=info.get('wipe'))
 
-        clear_holders("/sys/block/%s" % disk_kname)
+        clear_holders(disk_sysfs_path)
         block.wipe_volume(disk, mode=info.get('wipe'))
 
     # Create partition table on disk
@@ -545,10 +545,11 @@ def partition_handler(info, storage_config):
 
     disk_kname = os.path.split(
         get_path_to_storage_volume(device, storage_config))[-1]
+    disk_sysfs_path = block.sys_block_path(disk)
     # consider the disks logical sector size when calculating sectors
     try:
-        prefix = "/sys/block/%s/queue/" % disk_kname
-        with open(prefix + "logical_block_size", "r") as f:
+        lbs_path = os.path.join(disk_sysfs_path, 'queue', 'logical_block_size')
+        with open(lbs_path, 'r') as f:
             l = f.readline()
             logical_block_size_bytes = int(l)
     except:
@@ -566,18 +567,16 @@ def partition_handler(info, storage_config):
                     extended_part_no = determine_partition_number(
                         key, storage_config)
                     break
-            partition_kname = determine_partition_kname(
-                disk_kname, extended_part_no)
-            previous_partition = "/sys/block/%s/%s/" % \
-                (disk_kname, partition_kname)
+            pnum = extended_part_no
         else:
             pnum = find_previous_partition(device, info['id'], storage_config)
-            LOG.debug("previous partition number for '%s' found to be '%s'",
-                      info.get('id'), pnum)
-            partition_kname = determine_partition_kname(disk_kname, pnum)
-            previous_partition = "/sys/block/%s/%s/" % \
-                (disk_kname, partition_kname)
+
+        LOG.debug("previous partition number for '%s' found to be '%s'",
+                  info.get('id'), pnum)
+        partition_kname = determine_partition_kname(disk_kname, pnum)
+        previous_partition = os.path.join(disk_sysfs_path, partition_kname)
         LOG.debug("previous partition: {}".format(previous_partition))
+
         # XXX: sys/block/X/{size,start} is *ALWAYS* in 512b value
         previous_size = util.load_file(os.path.join(previous_partition,
                                                     "size"))
