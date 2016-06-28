@@ -66,7 +66,10 @@ def sys_block_path(devname, add=None, strict=True):
     if partnum:
         toks.append(dev_short(parent))
 
-    toks.append(dev_short(devname))
+    dev_kname = dev_short(devname)
+    if os.path.split(devname)[0].endswith('cciss'):
+        dev_kname = 'cciss!{}'.format(dev_kname)
+    toks.append(dev_kname)
 
     if add is not None:
         toks.append(add)
