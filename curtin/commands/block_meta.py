@@ -28,7 +28,6 @@ from curtin.udev import compose_udev_equality, udevadm_settle
 import glob
 import os
 import platform
-import re
 import sys
 import tempfile
 import time
@@ -129,42 +128,10 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
     return "mbr"
 
 
-def block_find_sysfs_path(devname):
-    # return the path in sys for device named devname
-    # support either short name ('sda') or full path /dev/sda
-    #  sda -> /sys/class/block/sda
-    #  sda1 -> /sys/class/block/sda/sda1
-    if not devname:
-        raise ValueError("empty devname provided to find_sysfs_path")
-
-    sys_class_block = '/sys/class/block/'
-    basename = os.path.basename(devname)
-    # try without parent blockdevice, then prepend parent
-    paths = [
-        os.path.join(sys_class_block, basename),
-        os.path.join(sys_class_block,
-                     re.split('[\d+]', basename)[0], basename),
-    ]
-
-    # find path to devname directory in sysfs
-    devname_sysfs = None
-    for path in paths:
-        if os.path.exists(path):
-            devname_sysfs = path
-
-    if devname_sysfs is None:
-        err = ('No sysfs path to device:'
-               ' {}'.format(devname_sysfs))
-        LOG.error(err)
-        raise ValueError(err)
-
-    return devname_sysfs
-
-
 def get_holders(devname):
     # Look up any block device holders.
     # Handle devices and partitions as devnames (vdb, md0, vdb7)
-    devname_sysfs = block_find_sysfs_path(devname)
+    devname_sysfs = block.sys_block_path(devname)
     if devname_sysfs:
         holders = os.listdir(os.path.join(devname_sysfs, 'holders'))
         LOG.debug("devname '%s' had holders: %s", devname, ','.join(holders))
@@ -1032,7 +999,7 @@ def bcache_handler(info, storage_config):
 
     if cache_device:
         # /sys/class/block/XXX/YYY/
-        cache_device_sysfs = block_find_sysfs_path(cache_device)
+        cache_device_sysfs = block.sys_block_path(cache_device)
 
         if os.path.exists(os.path.join(cache_device_sysfs, "bcache")):
             LOG.debug('caching device already exists at {}/bcache. Read '
@@ -1057,7 +1024,7 @@ def bcache_handler(info, storage_config):
         ensure_bcache_is_registered(cache_device, target_sysfs_path)
 
     if backing_device:
-        backing_device_sysfs = block_find_sysfs_path(backing_device)
+        backing_device_sysfs = block.sys_block_path(backing_device)
         target_sysfs_path = os.path.join(backing_device_sysfs, "bcache")
         if not os.path.exists(os.path.join(backing_device_sysfs, "bcache")):
             util.subp(["make-bcache", "-B", backing_device])
