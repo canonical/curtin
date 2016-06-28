@@ -130,6 +130,19 @@ class TestSysBlockPath(TestCase):
         self.assertEqual('/sys/class/block/foodev/md/b',
                          block.sys_block_path("foodev", "/md/b", strict=False))
 
+    @mock.patch('curtin.block.get_blockdev_for_partition')
+    @mock.patch('os.path.exists')
+    def test_cciss_sysfs_path(self, m_os_path_exists, m_get_blk):
+        m_os_path_exists.return_value = True
+        m_get_blk.return_value = ('cciss!c0d0', None)
+        self.assertEqual('/sys/class/block/cciss!c0d0',
+                         block.sys_block_path('/dev/cciss!c0d0'))
+        self.assertEqual('/sys/class/block/cciss!c0d0',
+                         block.sys_block_path('/dev/cciss/c0d0'))
+        m_get_blk.return_value = ('cciss!c0d0', 1)
+        self.assertEqual('/sys/class/block/cciss!c0d0/cciss!c0d0p1',
+                         block.sys_block_path('/dev/cciss/c0d0p1'))
+
 
 class TestWipeFile(TestCase):
     def __init__(self, *args, **kwargs):
