@@ -42,6 +42,10 @@ storage:
         path: /dev/vdc
         name: sparedisk
         wipe: superblock
+      - id: sparedisk_fat_fmt_id
+        type: format
+        fstype: fat32
+        volume: sparedisk_id
       - id: btrfs_disk_id
         type: disk
         path: /dev/vdd
