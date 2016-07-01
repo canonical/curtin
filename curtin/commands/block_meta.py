@@ -543,7 +543,6 @@ def partition_handler(info, storage_config):
         partition_kname = determine_partition_kname(disk_kname, pnum)
         previous_partition = os.path.join(disk_sysfs_path, partition_kname)
         LOG.debug("previous partition: {}".format(previous_partition))
-
         # XXX: sys/block/X/{size,start} is *ALWAYS* in 512b value
         previous_size = util.load_file(os.path.join(previous_partition,
                                                     "size"))
