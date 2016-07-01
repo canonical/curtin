@@ -6,6 +6,7 @@ import shutil
 
 from curtin import util
 from curtin import block
+from curtin.commands import block_meta
 
 
 class TestBlock(TestCase):
@@ -219,5 +220,19 @@ class TestWipeFile(TestCase):
             block.wipe_file(trgfile, reader=fp.read)
         found = util.load_file(trgfile)
         self.assertEqual(data, found)
+
+
+class TestBlockMetaMisc(TestCase):
+    """Tests for some of the block meta functions to get disk info"""
+    def test_determine_partition_kname(self):
+        part_knames = [(('sda', 1), 'sda1'),
+                       (('vda', 1), 'vda1'),
+                       (('nvme0n1', 1), 'nvme0n1p1'),
+                       (('mmcblk0', 1), 'mmcblk0p1'),
+                       (('cciss!c0d0', 1), 'cciss!c0d0p1')]
+        for ((disk_kname, part_number), part_kname) in part_knames:
+            self.assertEqual(
+                block_meta.determine_partition_kname(disk_kname, part_number),
+                part_kname)
 
 # vi: ts=4 expandtab syntax=python
