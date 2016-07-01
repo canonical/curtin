@@ -233,7 +233,7 @@ def devsync(devpath):
 
 
 def determine_partition_kname(disk_kname, partition_number):
-    for dev_type in ["nvme", "mmcblk"]:
+    for dev_type in ["nvme", "mmcblk", "cciss"]:
         if disk_kname.startswith(dev_type):
             partition_number = "p%s" % partition_number
             break
