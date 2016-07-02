@@ -39,6 +39,23 @@ class TestBlock(TestCase):
         self.assertEqual(sorted(mountpoints),
                          sorted(["/mnt", "/sys"]))
 
+    @mock.patch('curtin.block._lsblock')
+    def test_get_blockdev_sector_size(self, mock_lsblk):
+        mock_lsblk.return_value = {
+            'sda':  {'LOG-SEC': '512', 'PHY-SEC': '4096',
+                     'device_path': '/dev/sda'},
+            'sda1': {'LOG-SEC': '512', 'PHY-SEC': '4096',
+                     'device_path': '/dev/sda1'},
+            'dm-0': {'LOG-SEC': '512', 'PHY-SEC': '512',
+                     'device_path': '/dev/dm-0'},
+        }
+        for (devpath, expected) in [('/dev/sda', (512, 4096)),
+                                    ('/dev/sda1', (512, 4096)),
+                                    ('/dev/dm-0', (512, 512))]:
+            res = block.get_blockdev_sector_size(devpath)
+            mock_lsblk.assert_called_with([devpath])
+            self.assertEqual(res, expected)
+
     @mock.patch("curtin.block.os.path.realpath")
     @mock.patch("curtin.block.os.path.exists")
     @mock.patch("curtin.block.os.listdir")
