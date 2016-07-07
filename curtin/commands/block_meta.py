@@ -232,14 +232,6 @@ def devsync(devpath):
     raise OSError('Failed to find device at path: %s', devpath)
 
 
-def determine_partition_kname(disk_kname, partition_number):
-    for dev_type in ["nvme", "mmcblk", "cciss"]:
-        if disk_kname.startswith(dev_type):
-            partition_number = "p%s" % partition_number
-            break
-    return "%s%s" % (disk_kname, partition_number)
-
-
 def determine_partition_number(partition_id, storage_config):
     vol = storage_config.get(partition_id)
     partnumber = vol.get('number')
@@ -336,7 +328,7 @@ def get_path_to_storage_volume(volume, storage_config):
         disk_block_path = get_path_to_storage_volume(vol.get('device'),
                                                      storage_config)
         (base_path, disk_kname) = os.path.split(disk_block_path)
-        partition_kname = determine_partition_kname(disk_kname, partnumber)
+        partition_kname = block.partition_kname(disk_kname, partnumber)
         volume_path = os.path.join(base_path, partition_kname)
         devsync_vol = os.path.join(disk_block_path)
 
@@ -540,7 +532,7 @@ def partition_handler(info, storage_config):
 
         LOG.debug("previous partition number for '%s' found to be '%s'",
                   info.get('id'), pnum)
-        partition_kname = determine_partition_kname(disk_kname, pnum)
+        partition_kname = block.partition_kname(disk_kname, pnum)
         previous_partition = os.path.join(disk_sysfs_path, partition_kname)
         LOG.debug("previous partition: {}".format(previous_partition))
         # XXX: sys/block/X/{size,start} is *ALWAYS* in 512b value
