@@ -203,7 +203,8 @@ def clear_holders(sys_block_path):
 
     if os.path.exists(os.path.join(sys_block_path, "md")):
         # md device
-        block_dev = os.path.join("/dev/", os.path.split(sys_block_path)[-1])
+        # block.kname_to_path designed to work on sysfs path also
+        block_dev = block.kname_to_path(sys_block_path)
         # if these fail its okay, the array might not be assembled and thats
         # fine
         mdadm.mdadm_stop(block_dev)
@@ -327,9 +328,9 @@ def get_path_to_storage_volume(volume, storage_config):
         partnumber = determine_partition_number(vol.get('id'), storage_config)
         disk_block_path = get_path_to_storage_volume(vol.get('device'),
                                                      storage_config)
-        (base_path, disk_kname) = os.path.split(disk_block_path)
+        disk_kname = block.path_to_kname(disk_block_path)
         partition_kname = block.partition_kname(disk_kname, partnumber)
-        volume_path = os.path.join(base_path, partition_kname)
+        volume_path = block.kname_to_path(partition_kname)
         devsync_vol = os.path.join(disk_block_path)
 
     elif vol.get('type') == "disk":
@@ -378,13 +379,15 @@ def get_path_to_storage_volume(volume, storage_config):
         # block devs are in the slaves dir there. Then, those blockdevs can be
         # checked against the kname of the devs in the config for the desired
         # bcache device. This is not very elegant though
-        backing_device_kname = os.path.split(get_path_to_storage_volume(
-            vol.get('backing_device'), storage_config))[-1]
+        backing_device_path = get_path_to_storage_volume(
+            vol.get('backing_device'), storage_config)
+        backing_device_kname = block.path_to_kname(backing_device_path)
         sys_path = list(filter(lambda x: backing_device_kname in x,
                                glob.glob("/sys/block/bcache*/slaves/*")))[0]
         while "bcache" not in os.path.split(sys_path)[-1]:
             sys_path = os.path.split(sys_path)[0]
-        volume_path = os.path.join("/dev", os.path.split(sys_path)[-1])
+        # kname to path designed to work on sysfs paths as well
+        volume_path = block.kname_to_path(sys_path)
         LOG.debug('got bcache volume path {}'.format(volume_path))
 
     else:
@@ -501,9 +504,7 @@ def partition_handler(info, storage_config):
 
     disk = get_path_to_storage_volume(device, storage_config)
     partnumber = determine_partition_number(info.get('id'), storage_config)
-
-    disk_kname = os.path.split(
-        get_path_to_storage_volume(device, storage_config))[-1]
+    disk_kname = block.path_to_kname(disk)
     disk_sysfs_path = block.sys_block_path(disk)
     # consider the disks logical sector size when calculating sectors
     try:
