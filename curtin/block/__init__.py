@@ -59,17 +59,64 @@ def dev_path(devname):
         return '/dev/' + devname
 
 
+def path_to_kname(path):
+    """
+    converts a path in /dev or a path in /sys/block to the device kname,
+    taking special devices and unusal naming schemes into account
+    """
+    # in case caller has gotten a path to a link instead of the actual device,
+    # or caller specified a path with a trailing slash.
+    # only do this if given a path though, if kname is already specified then
+    # this would cause a failure where the function should still be able to run
+    if os.path.sep in path:
+        path = os.path.normpath(path)
+        path = os.path.realpath(path)
+    # the test for 'os.path.sep in path' that was in dev_short is not needed,
+    # as os.path.basename will not modify arg if os.path.sep not in it
+    # note that because this uses of.path.basename instead of
+    # get_dev_name_entry, it will also work on paths to /sys/block
+    dev_kname = os.path.basename(path)
+    # cciss devices need to have 'cciss!' prepended, but only if path wasn't in
+    # form /dev/cciss!cXdX (a link which does not exist on all systems)
+    if 'cciss' in path and 'cciss' not in dev_kname:
+        dev_kname = 'cciss!{}'.format(dev_kname)
+    return dev_kname
+
+
+def kname_to_path(kname):
+    """
+    converts a kname to a path in /dev, taking special devices and unusual
+    naming schemes into account
+    """
+    # as the old dev_path function was intended to work if given something that
+    # was already a dev path, preserve this behavior
+    if is_valid_device(kname):
+        return kname
+    # if there is a separator in the kname, only take the latter part
+    kname = os.path.basename(kname)
+    toks = ['/dev']
+    # adding '/dev' to path is not sufficient to handle cciss devices and
+    # possibly other special devices which have not been encountered yet
+    cciss_prefix = 'cciss!'
+    if kname.startswith(cciss_prefix) and len(kname) > len(cciss_prefix):
+        toks.extend(['cciss', kname[len(cciss_prefix):]])
+    else:
+        toks.append(kname)
+    # make sure path we get is correct
+    path = os.path.join(toks)
+    if not is_valid_device(path):
+        raise OSError('could not get path to dev from kname: {}'.format(kname))
+    return path
+
+
 def sys_block_path(devname, add=None, strict=True):
     toks = ['/sys/class/block']
     # insert parent dev if devname is partition
     (parent, partnum) = get_blockdev_for_partition(devname)
     if partnum:
-        toks.append(dev_short(parent))
+        toks.append(path_to_kname(parent))
 
-    dev_kname = dev_short(devname)
-    if os.path.split(devname)[0].endswith('cciss'):
-        dev_kname = 'cciss!{}'.format(dev_kname)
-    toks.append(dev_kname)
+    toks.append(path_to_kname(devname))
 
     if add is not None:
         toks.append(add)
@@ -175,21 +222,21 @@ def get_installable_blockdevs(include_removable=False, min_size=1024**3):
 
 
 def get_blockdev_for_partition(devpath):
-    # convert an entry in /dev/ to parent disk and partition number
-    # if devpath is a block device and not a partition, return (devpath, None)
-
-    # input of /dev/vdb or /dev/disk/by-label/foo
-    # rpath is hopefully a real-ish path in /dev (vda, sdb..)
+    # normalize path
+    rpath = os.path.normpath(devpath)
     rpath = os.path.realpath(devpath)
 
-    bname = os.path.basename(rpath)
-    syspath = "/sys/class/block/%s" % bname
+    # convert an entry in /dev/ to parent disk and partition number
+    # if devpath is a block device and not a partition, return (devpath, None)
+    base = '/sys/class/block'
 
+    # input of /dev/vdb, /dev/disk/by-label/foo, /sys/block/foo,
+    # /sys/block/class/foo, or just foo
+    syspath = os.path.join(base, path_to_kname(devpath))
+
+    # don't need to try out multiple sysfs paths as path_to_kname handles cciss
     if not os.path.exists(syspath):
-        syspath2 = "/sys/class/block/cciss!%s" % bname
-        if not os.path.exists(syspath2):
-            raise ValueError("%s had no syspath (%s)" % (devpath, syspath))
-        syspath = syspath2
+        raise ValueError("%s had no syspath (%s)" % (devpath, syspath))
 
     ptpath = os.path.join(syspath, "partition")
     if not os.path.exists(ptpath):
