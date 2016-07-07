@@ -253,9 +253,11 @@ class TestBlockKnames(TestCase):
             if os.path.sep in path:
                 mock_os_realpath.assert_called_with(os.path.normpath(path))
 
+    @mock.patch('curtin.block.os.path.exists')
     @mock.patch('curtin.block.os.path.realpath')
     @mock.patch('curtin.block.is_valid_device')
-    def test_kname_to_path(self, mock_is_valid_device, mock_os_realpath):
+    def test_kname_to_path(self, mock_is_valid_device, mock_os_realpath,
+                           mock_exists):
         kname_paths = [('sda', '/dev/sda'),
                        ('sda1', '/dev/sda1'),
                        ('/dev/sda', '/dev/sda'),
@@ -268,6 +270,7 @@ class TestBlockKnames(TestCase):
                        ('mmcblk0p1', '/dev/mmcblk0p1'),
                        ('/sys/block/dm-9/', '/dev/dm-9')]
 
+        mock_exists.return_value = True
         mock_os_realpath.side_effect = lambda x: x.replace('!', '/')
         # first call to is_valid_device needs to return false for nonpaths
         mock_is_valid_device.side_effect = lambda x: x.startswith('/dev')
