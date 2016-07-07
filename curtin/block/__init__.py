@@ -80,6 +80,7 @@ def path_to_kname(path):
     # form /dev/cciss!cXdX (a link which does not exist on all systems)
     if 'cciss' in path and 'cciss' not in dev_kname:
         dev_kname = 'cciss!{}'.format(dev_kname)
+    LOG.debug("path_to_kname input: '{}' output: '{}'".format(path, dev_kname))
     return dev_kname
 
 
@@ -90,8 +91,10 @@ def kname_to_path(kname):
     """
     # as the old dev_path function was intended to work if given something that
     # was already a dev path, preserve this behavior
-    if is_valid_device(kname):
-        return os.path.realpath(kname)
+    if os.path.exists(kname) and is_valid_device(kname):
+        path = kname
+        LOG.debug("kname_to_path input: '{}' output: '{}'".format(kname, path))
+        return os.path.realpath(path)
     # if there is a separator in the kname, only take the latter part
     kname = os.path.normpath(kname)
     kname = os.path.basename(kname)
@@ -105,8 +108,9 @@ def kname_to_path(kname):
         toks.append(kname)
     # make sure path we get is correct
     path = os.sep.join(toks)
-    if not is_valid_device(path):
+    if not (os.path.exists(path) and is_valid_device(path)):
         raise OSError('could not get path to dev from kname: {}'.format(kname))
+    LOG.debug("kname_to_path input: '{}' output: '{}'".format(kname, path))
     return os.path.realpath(path)
 
 
