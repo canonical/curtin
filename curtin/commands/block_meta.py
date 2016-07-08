@@ -309,8 +309,8 @@ def make_dname(volume, storage_config):
     rule.append("SYMLINK+=\"disk/by-dname/%s\"" % dname)
     LOG.debug("Writing dname udev rule '{}'".format(str(rule)))
     util.ensure_dir(rules_dir)
-    with open(os.path.join(rules_dir, volume), "w") as fp:
-        fp.write(', '.join(rule))
+    rule_file = os.path.join(rules_dir, '{}.rules'.format(dname))
+    util.write_file(rule_file, ', '.join(rule))
 
 
 def get_path_to_storage_volume(volume, storage_config):
