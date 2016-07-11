@@ -310,13 +310,13 @@ def make_dname(volume, storage_config):
 
     # dname should be sanitized before writing rule, in case maas has emitted a
     # dname with a special character. if any changes were made, a warning will
-    # be emitted in log. only letters, numbers and '-' are permitted, as this
-    # will be used for a device path.
+    # be emitted in log. only letters, numbers and '-' and '_' are permitted,
+    # as this will be used for a device path. spaces are also not permitted
     #
     # note: this sanitization is done here instead of for all name attributes
     #       at the beginning of storage configuration, as some devices, such as
     #       lvm devices may use the name attribute and may permit special chars
-    valid = string.digits + string.ascii_letters
+    valid = string.digits + string.ascii_letters + '-_'
     sanitized = ''.join(c if c in valid else '-' for c in dname)
     if sanitized != dname:
         LOG.warn("dname modified to remove invalid chars. old: '{}' new: '{}'"
