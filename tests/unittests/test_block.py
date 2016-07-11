@@ -4,6 +4,8 @@ import mock
 import tempfile
 import shutil
 
+from collections import OrderedDict
+
 from curtin import util
 from curtin import block
 
@@ -55,6 +57,19 @@ class TestBlock(TestCase):
             res = block.get_blockdev_sector_size(devpath)
             mock_lsblk.assert_called_with([devpath])
             self.assertEqual(res, expected)
+
+        # test that fallback works and gives right return
+        mock_lsblk.return_value = OrderedDict()
+        mock_lsblk.return_value.update({
+            'vda': {'LOG-SEC': '4096', 'PHY-SEC': '4096',
+                    'device_path': '/dev/vda'},
+        })
+        mock_lsblk.return_value.update({
+            'vda1': {'LOG-SEC': '512', 'PHY-SEC': '512',
+                     'device_path': '/dev/vda1'},
+        })
+        res = block.get_blockdev_sector_size('/dev/vda2')
+        self.assertEqual(res, (4096, 4096))
 
     @mock.patch("curtin.block.os.path.realpath")
     @mock.patch("curtin.block.os.path.exists")
