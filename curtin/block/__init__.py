@@ -433,7 +433,7 @@ def get_blockdev_sector_size(devpath):
             parent = k
             break
     else:
-        parent = info.keys()[0]
+        parent = list(info.keys())[0]
 
     return (int(info[parent]['LOG-SEC']), int(info[parent]['PHY-SEC']))
 
