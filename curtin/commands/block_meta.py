@@ -28,6 +28,7 @@ from curtin.udev import compose_udev_equality, udevadm_settle
 import glob
 import os
 import platform
+import string
 import sys
 import tempfile
 import time
@@ -306,10 +307,25 @@ def make_dname(volume, storage_config):
         volgroup_name = storage_config.get(vol.get('volgroup')).get('name')
         dname = "%s-%s" % (volgroup_name, dname)
         rule.append(compose_udev_equality("ENV{DM_NAME}", dname))
-    rule.append("SYMLINK+=\"disk/by-dname/%s\"" % dname)
+
+    # dname should be sanitized before writing rule, in case maas has emitted a
+    # dname with a special character. if any changes were made, a warning will
+    # be emitted in log. only letters, numbers and '-' are permitted, as this
+    # will be used for a device path.
+    #
+    # note: this sanitization is done here instead of for all name attributes
+    #       at the beginning of storage configuration, as some devices, such as
+    #       lvm devices may use the name attribute and may permit special chars
+    valid = string.digits + string.ascii_letters
+    sanitized = ''.join(c if c in valid else '-' for c in dname)
+    if sanitized != dname:
+        LOG.warn("dname modified to remove invalid chars. old: '{}' new: '{}'"
+                 .format(dname, sanitized))
+
+    rule.append("SYMLINK+=\"disk/by-dname/%s\"" % sanitized)
     LOG.debug("Writing dname udev rule '{}'".format(str(rule)))
     util.ensure_dir(rules_dir)
-    rule_file = os.path.join(rules_dir, '{}.rules'.format(dname))
+    rule_file = os.path.join(rules_dir, '{}.rules'.format(sanitized))
     util.write_file(rule_file, ', '.join(rule))
 
 
