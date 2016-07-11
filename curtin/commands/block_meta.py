@@ -282,7 +282,7 @@ def make_dname(volume, storage_config):
     # we may not always be able to find a uniq identifier on devices with names
     if not ptuuid and vol.get('type') in ["disk", "partition"]:
         LOG.warning("Can't find a uuid for volume: {}. Skipping dname.".format(
-            dname))
+            volume))
         return
 
     rule = [
@@ -307,6 +307,9 @@ def make_dname(volume, storage_config):
         volgroup_name = storage_config.get(vol.get('volgroup')).get('name')
         dname = "%s-%s" % (volgroup_name, dname)
         rule.append(compose_udev_equality("ENV{DM_NAME}", dname))
+    else:
+        raise ValueError('cannot make dname for device with type: {}'
+                         .format(vol.get('type')))
 
     # dname should be sanitized before writing rule, in case maas has emitted a
     # dname with a special character. if any changes were made, a warning will
@@ -319,8 +322,9 @@ def make_dname(volume, storage_config):
     valid = string.digits + string.ascii_letters + '-_'
     sanitized = ''.join(c if c in valid else '-' for c in dname)
     if sanitized != dname:
-        LOG.warn("dname modified to remove invalid chars. old: '{}' new: '{}'"
-                 .format(dname, sanitized))
+        LOG.warning(
+            "dname modified to remove invalid chars. old: '{}' new: '{}'"
+            .format(dname, sanitized))
 
     rule.append("SYMLINK+=\"disk/by-dname/%s\"" % sanitized)
     LOG.debug("Writing dname udev rule '{}'".format(str(rule)))
