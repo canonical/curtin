@@ -333,7 +333,7 @@ def apt(args):
 
     apt_cfg = cfg.get("apt_source")
     # if no apt config section is available, do nothing
-    if apt_cfg:
+    if apt_cfg is not None:
         LOG.info("Standalone command handling apt to target %s with config %s",
                  target, apt_cfg)
         try:

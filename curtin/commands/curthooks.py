@@ -132,12 +132,12 @@ def apt_config(cfg, target):
             util.write_file(sources_list, content)
 
     apt_cfg = cfg.get("apt_source")
-    if apt_cfg:
+    if apt_cfg is not None:
         LOG.info("curthooks handling apt to target %s with config %s",
                  target, apt_cfg)
+        apt.handle_apt(apt_cfg, target)
     else:
         LOG.info("No apt config provided, skipping")
-    apt.handle_apt(apt_cfg, target)
 
 
 def disable_overlayroot(cfg, target):
