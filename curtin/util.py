@@ -491,6 +491,28 @@ def has_pkg_available(pkg, target=None):
     return False
 
 
+def get_installed_packages(target=None):
+    cmd = []
+    if target is not None:
+        cmd = ['chroot', target]
+    cmd.extend(['dpkg-query', '--list'])
+
+    (out, _) = subp(cmd, capture=True)
+    if isinstance(out, bytes):
+        out = out.decode()
+
+    pkgs_inst = set()
+    for line in out.splitlines():
+        try:
+            (state, pkg, _) = line.split(None, 2)
+        except ValueError:
+            continue
+        if state.startswith("hi") or state.startswith("ii"):
+            pkgs_inst.add(re.sub(":.*", "", pkg))
+
+    return pkgs_inst
+
+
 def has_pkg_installed(pkg, target=None):
     chroot = []
     if target is not None:

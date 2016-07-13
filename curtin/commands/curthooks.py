@@ -16,10 +16,8 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import copy
-import glob
 import os
 import platform
-import re
 import sys
 import shutil
 import textwrap
@@ -92,47 +90,54 @@ def write_files(cfg, target):
 
 
 def apt_config(cfg, target):
-    # cfg['apt_proxy']
+    predef_apt_cfg = cfg.get("apt_source")
+    # translate old into new format
+    if predef_apt_cfg is None:
+        cfg['apt_source'] = {}
+        predef_apt_cfg = cfg.get("apt_source")
 
-    proxy_cfg_path = os.path.sep.join(
-        [target, '/etc/apt/apt.conf.d/90curtin-aptproxy'])
     if cfg.get('apt_proxy') is not None:
-        content = 'Acquire::http::Proxy "%s";\n' % cfg['apt_proxy']
-        LOG.info("writing apt_proxy %s for config %s",
-                 content, cfg['apt_proxy'])
-        util.write_file(
-            proxy_cfg_path,
-            content=content)
-    else:
-        if os.path.isfile(proxy_cfg_path):
-            os.unlink(proxy_cfg_path)
+        if predef_apt_cfg.get('apt_proxy') is not None:
+            msg = ("Error in apt_proxy configuration: "
+                   "old and new format of apt features "
+                   "are mutually exclusive")
+            LOG.error(msg)
+            raise ValueError(msg)
 
-    # cfg['apt_mirrors']
-    # apt_mirrors:
-    #  ubuntu_archive: http://local.archive/ubuntu
-    #  ubuntu_security: http://local.archive/ubuntu
-    sources_list = os.path.sep.join([target, '/etc/apt/sources.list'])
-    if (isinstance(cfg.get('apt_mirrors'), dict) and
-            os.path.isfile(sources_list)):
-        repls = [
-            ('ubuntu_archive', r'http://\S*[.]*archive.ubuntu.com/\S*'),
-            ('ubuntu_security', r'http://security.ubuntu.com/\S*'),
-        ]
-        content = None
-        for name, regex in repls:
-            mirror = cfg['apt_mirrors'].get(name)
-            if not mirror:
-                continue
+        cfg['apt_source']['apt_proxy'] = cfg.get('apt_proxy')
+        LOG.info("Transferred %s into new format: %s", cfg.get('apt_proxy'),
+                 cfg.get('apt_source'))
+        del cfg['apt_proxy']
 
-            if content is None:
-                with open(sources_list) as fp:
-                    content = fp.read()
-                util.write_file(sources_list + ".dist", content)
+    if cfg.get('apt_mirrors') is not None:
+        if predef_apt_cfg.get('apt_mirror') is not None:
+            msg = ("Error in apt_mirror configuration: "
+                   "old and new format of apt features "
+                   "are mutually exclusive")
+            LOG.error(msg)
+            raise ValueError(msg)
 
-            content = re.sub(regex, mirror + " ", content)
+        old = cfg.get('apt_mirrors')
+        cfg['apt_source']['apt_primary_mirror'] = old.get('ubuntu_archive')
+        cfg['apt_source']['apt_security_mirror'] = old.get('ubuntu_security')
+        LOG.info("Transferred %s into new format: %s", cfg.get('apt_mirror'),
+                 cfg.get('apt_source'))
+        del cfg['apt_mirrors']
 
-        if content is not None:
-            util.write_file(sources_list, content)
+    if cfg.get('debconf_selections') is not None:
+        if predef_apt_cfg.get('debconf_selections') is not None:
+            msg = ("Error in debconf_selections configuration: "
+                   "old and new format of apt features "
+                   "are mutually exclusive")
+            LOG.error(msg)
+            raise ValueError(msg)
+
+        selsets = cfg.get('debconf_selections')
+        cfg['apt_source']['debconf_selections'] = selsets
+        LOG.info("Transferred %s into new format: %s",
+                 cfg.get('debconf_selections'),
+                 cfg.get('apt_source'))
+        del cfg['debconf_selections']
 
     apt_cfg = cfg.get("apt_source")
     if apt_cfg is not None:
@@ -150,15 +155,6 @@ def disable_overlayroot(cfg, target):
     if disable and os.path.exists(local_conf):
         LOG.debug("renaming %s to %s", local_conf, local_conf + ".old")
         shutil.move(local_conf, local_conf + ".old")
-
-
-def clean_cloud_init(target):
-    flist = glob.glob(
-        os.path.sep.join([target, "/etc/cloud/cloud.cfg.d/*dpkg*"]))
-
-    LOG.debug("cleaning cloud-init config from: %s" % flist)
-    for dpkg_cfg in flist:
-        os.unlink(dpkg_cfg)
 
 
 def _maybe_remove_legacy_eth0(target,
@@ -303,86 +299,6 @@ def install_kernel(cfg, target):
             else:
                 LOG.warn("Kernel package '%s' not available and no fallback."
                          " System may not boot.", package)
-
-
-def apply_debconf_selections(cfg, target):
-    # debconf_selections:
-    #  set1: |
-    #   cloud-init cloud-init/datasources multiselect MAAS
-    #  set2: pkg pkg/value string bar
-    selsets = cfg.get('debconf_selections')
-    if not selsets:
-        LOG.debug("debconf_selections was not set in config")
-        return
-
-    # for each entry in selections, chroot and apply them.
-    # keep a running total of packages we've seen.
-    pkgs_cfgd = set()
-    for key, content in selsets.items():
-        LOG.debug("setting for %s, %s" % (key, content))
-        util.subp(['chroot', target, 'debconf-set-selections'],
-                  data=content.encode())
-        for line in content.splitlines():
-            if line.startswith("#"):
-                continue
-            pkg = re.sub(r"[:\s].*", "", line)
-            pkgs_cfgd.add(pkg)
-
-    pkgs_installed = get_installed_packages(target)
-
-    LOG.debug("pkgs_cfgd: %s" % pkgs_cfgd)
-    LOG.debug("pkgs_installed: %s" % pkgs_installed)
-    need_reconfig = pkgs_cfgd.intersection(pkgs_installed)
-
-    if len(need_reconfig) == 0:
-        LOG.debug("no need for reconfig")
-        return
-
-    # For any packages that are already installed, but have preseed data
-    # we populate the debconf database, but the filesystem configuration
-    # would be preferred on a subsequent dpkg-reconfigure.
-    # so, what we have to do is "know" information about certain packages
-    # to unconfigure them.
-    unhandled = []
-    to_config = []
-    for pkg in need_reconfig:
-        if pkg in CONFIG_CLEANERS:
-            LOG.debug("unconfiguring %s" % pkg)
-            CONFIG_CLEANERS[pkg](target)
-            to_config.append(pkg)
-        else:
-            unhandled.append(pkg)
-
-    if len(unhandled):
-        LOG.warn("The following packages were installed and preseeded, "
-                 "but cannot be unconfigured: %s", unhandled)
-
-    if len(to_config):
-        util.subp(['chroot', target, 'dpkg-reconfigure',
-                   '--frontend=noninteractive'] +
-                  list(to_config), data=None)
-
-
-def get_installed_packages(target=None):
-    cmd = []
-    if target is not None:
-        cmd = ['chroot', target]
-    cmd.extend(['dpkg-query', '--list'])
-
-    (out, _err) = util.subp(cmd, capture=True)
-    if isinstance(out, bytes):
-        out = out.decode()
-
-    pkgs_inst = set()
-    for line in out.splitlines():
-        try:
-            (state, pkg, other) = line.split(None, 2)
-        except ValueError:
-            continue
-        if state.startswith("hi") or state.startswith("ii"):
-            pkgs_inst.add(re.sub(":.*", "", pkg))
-
-    return pkgs_inst
 
 
 def setup_grub(cfg, target):
@@ -753,7 +669,7 @@ def install_missing_packages(cfg, target):
     }
 
     needed_packages = []
-    installed_packages = get_installed_packages(target)
+    installed_packages = util.get_installed_packages(target)
     for cust_cfg, pkg_reqs in custom_configs.items():
         if cust_cfg not in cfg:
             continue
@@ -856,7 +772,6 @@ def curthooks(args):
         setup_zipl(cfg, target)
         install_kernel(cfg, target)
         run_zipl(cfg, target)
-        apply_debconf_selections(cfg, target)
 
         restore_dist_interfaces(cfg, target)
 
@@ -918,9 +833,5 @@ def curthooks(args):
 def POPULATE_SUBCMD(parser):
     populate_one_subcmd(parser, CMD_ARGUMENTS, curthooks)
 
-
-CONFIG_CLEANERS = {
-    'cloud-init': clean_cloud_init,
-}
 
 # vi: ts=4 expandtab syntax=python

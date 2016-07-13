@@ -462,10 +462,10 @@ class TestAptSourceConfig(TestCase):
             apt.apply_apt_proxy_config(cfg, "proxyfn", "notused")
 
         mockobj.assert_called_with('proxyfn',
-                                   ('Acquire::HTTP::Proxy "foobar1";\n'
-                                    'Acquire::HTTP::Proxy "foobar2";\n'
-                                    'Acquire::FTP::Proxy "foobar3";\n'
-                                    'Acquire::HTTPS::Proxy "foobar4";\n'))
+                                   ('Acquire::http::Proxy "foobar1";\n'
+                                    'Acquire::http::Proxy "foobar2";\n'
+                                    'Acquire::ftp::Proxy "foobar3";\n'
+                                    'Acquire::https::Proxy "foobar4";\n'))
 
 
 # vi: ts=4 expandtab

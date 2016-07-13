@@ -59,6 +59,8 @@ def handle_apt(cfg, target):
     mirrors = find_apt_mirror_info(cfg)
     LOG.debug("Apt Mirror info: %s", mirrors)
 
+    apply_debconf_selections(cfg, target)
+
     if not config.value_as_boolean(cfg.get('apt_preserve_sources_list',
                                            False)):
         generate_sources_list(cfg, release, mirrors, target)
@@ -83,6 +85,74 @@ def handle_apt(cfg, target):
 
         add_apt_sources(cfg['sources'], target,
                         template_params=params, aa_repo_match=matcher)
+
+
+def apply_debconf_selections(cfg, target):
+    """apply_debconf_selections - push content to debconf"""
+    # debconf_selections:
+    #  set1: |
+    #   cloud-init cloud-init/datasources multiselect MAAS
+    #  set2: pkg pkg/value string bar
+    selsets = cfg.get('debconf_selections')
+    if not selsets:
+        LOG.debug("debconf_selections was not set in config")
+        return
+
+    # for each entry in selections, chroot and apply them.
+    # keep a running total of packages we've seen.
+    pkgs_cfgd = set()
+    for key, content in selsets.items():
+        LOG.debug("setting for %s, %s", key, content)
+        util.subp(['chroot', target, 'debconf-set-selections'],
+                  data=content.encode())
+        for line in content.splitlines():
+            if line.startswith("#"):
+                continue
+            pkg = re.sub(r"[:\s].*", "", line)
+            pkgs_cfgd.add(pkg)
+
+    pkgs_installed = util.get_installed_packages(target)
+
+    LOG.debug("pkgs_cfgd: %s", pkgs_cfgd)
+    LOG.debug("pkgs_installed: %s", pkgs_installed)
+    need_reconfig = pkgs_cfgd.intersection(pkgs_installed)
+
+    if len(need_reconfig) == 0:
+        LOG.debug("no need for reconfig")
+        return
+
+    # For any packages that are already installed, but have preseed data
+    # we populate the debconf database, but the filesystem configuration
+    # would be preferred on a subsequent dpkg-reconfigure.
+    # so, what we have to do is "know" information about certain packages
+    # to unconfigure them.
+    unhandled = []
+    to_config = []
+    for pkg in need_reconfig:
+        if pkg in CONFIG_CLEANERS:
+            LOG.debug("unconfiguring %s", pkg)
+            CONFIG_CLEANERS[pkg](target)
+            to_config.append(pkg)
+        else:
+            unhandled.append(pkg)
+
+    if len(unhandled):
+        LOG.warn("The following packages were installed and preseeded, "
+                 "but cannot be unconfigured: %s", unhandled)
+
+    if len(to_config):
+        util.subp(['chroot', target, 'dpkg-reconfigure',
+                   '--frontend=noninteractive'] +
+                  list(to_config), data=None)
+
+
+def clean_cloud_init(target):
+    flist = glob.glob(
+        os.path.sep.join([target, "/etc/cloud/cloud.cfg.d/*dpkg*"]))
+
+    LOG.debug("cleaning cloud-init config from: %s" % flist)
+    for dpkg_cfg in flist:
+        os.unlink(dpkg_cfg)
 
 
 def mirrorurl_to_apt_fileprefix(mirror):
@@ -286,21 +356,25 @@ def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
        Applies any apt*proxy config from if specified
     """
     # Set up any apt proxy
-    cfgs = (('apt_proxy', 'Acquire::HTTP::Proxy "%s";'),
-            ('apt_http_proxy', 'Acquire::HTTP::Proxy "%s";'),
-            ('apt_ftp_proxy', 'Acquire::FTP::Proxy "%s";'),
-            ('apt_https_proxy', 'Acquire::HTTPS::Proxy "%s";'))
+    cfgs = (('apt_proxy', 'Acquire::http::Proxy "%s";'),
+            ('apt_http_proxy', 'Acquire::http::Proxy "%s";'),
+            ('apt_ftp_proxy', 'Acquire::ftp::Proxy "%s";'),
+            ('apt_https_proxy', 'Acquire::https::Proxy "%s";'))
 
     proxies = [fmt % cfg.get(name) for (name, fmt) in cfgs if cfg.get(name)]
     if len(proxies):
+        LOG.info("write apt proxy info to %s", proxy_fname)
         util.write_file(proxy_fname, '\n'.join(proxies) + '\n')
     elif os.path.isfile(proxy_fname):
         util.del_file(proxy_fname)
+        LOG.info("no apt proxy configured, removed %s", proxy_fname)
 
     if cfg.get('apt_config', None):
+        LOG.info("write apt config info to %s", config_fname)
         util.write_file(config_fname, cfg.get('apt_config'))
     elif os.path.isfile(config_fname):
         util.del_file(config_fname)
+        LOG.info("no apt config configured, removed %s", config_fname)
 
 
 def apt(args):
@@ -361,5 +435,9 @@ CMD_ARGUMENTS = (
 def POPULATE_SUBCMD(parser):
     """Populate subcommand option parsing for apt"""
     populate_one_subcmd(parser, CMD_ARGUMENTS, apt)
+
+CONFIG_CLEANERS = {
+    'cloud-init': clean_cloud_init,
+}
 
 # vi: ts=4 expandtab syntax=python
