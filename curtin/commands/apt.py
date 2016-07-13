@@ -39,7 +39,7 @@ APT_LISTS = "/var/lib/apt/lists"
 
 # Files to store proxy information
 APT_CONFIG_FN = "/etc/apt/apt.conf.d/94curtin-config"
-APT_PROXY_FN = "/etc/apt/apt.conf.d/95curtin-proxy"
+APT_PROXY_FN = "/etc/apt/apt.conf.d/90curtin-aptproxy"
 
 # Default keyserver to use
 DEFAULT_KEYSERVER = "keyserver.ubuntu.com"
