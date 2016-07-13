@@ -96,10 +96,13 @@ def apt_config(cfg, target):
 
     proxy_cfg_path = os.path.sep.join(
         [target, '/etc/apt/apt.conf.d/90curtin-aptproxy'])
-    if cfg.get('apt_proxy'):
+    if cfg.get('apt_proxy') is not None:
+        content = 'Acquire::HTTP::Proxy "%s";\n' % cfg['apt_proxy']
+        LOG.info("writing apt_proxy %s for config %s",
+                 content, cfg['apt_proxy'])
         util.write_file(
             proxy_cfg_path,
-            content='Acquire::HTTP::Proxy "%s";\n' % cfg['apt_proxy'])
+            content=content)
     else:
         if os.path.isfile(proxy_cfg_path):
             os.unlink(proxy_cfg_path)
