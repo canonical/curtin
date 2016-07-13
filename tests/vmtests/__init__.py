@@ -370,6 +370,7 @@ class VMBaseClass(TestCase):
     recorded_errors = 0
     recorded_failures = 0
     uefi = False
+    proxy = None
 
     # these get set from base_vm_classes
     release = None
@@ -500,11 +501,11 @@ class VMBaseClass(TestCase):
 
         # proxy config
         configs = [cls.conf_file]
-        proxy = get_apt_proxy()
-        if get_apt_proxy is not None:
+        cls.proxy = get_apt_proxy()
+        if cls.proxy is not None:
             proxy_config = os.path.join(cls.td.install, 'proxy.cfg')
             with open(proxy_config, "w") as fp:
-                fp.write(json.dumps({'apt_proxy': proxy}) + "\n")
+                fp.write(json.dumps({'apt_proxy': cls.proxy}) + "\n")
             configs.append(proxy_config)
 
         if cls.uefi:
