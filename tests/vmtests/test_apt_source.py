@@ -1,5 +1,5 @@
 """ test_apt_source
-    Collection of tests for the apt_source configuration features
+    Collection of tests for the apt configuration features
 """
 import textwrap
 
@@ -8,7 +8,7 @@ from .releases import base_vm_classes as relbase
 
 
 class TestAptSrcAbs(VMBaseClass):
-    """TestAptSrcAbs - Basic tests for apt_sources features of curtin"""
+    """TestAptSrcAbs - Basic tests for apt features of curtin"""
     interactive = False
     extra_disks = []
     fstab_expected = {}

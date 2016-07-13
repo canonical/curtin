@@ -426,8 +426,8 @@ class TestAptSourceConfig(TestCase):
 
     def test_mir_apt_list_rename(self):
         """test_mir_apt_list_rename - Test find mirror and apt list renaming"""
-        cfg = {"apt_primary_mirror": "http://us.archive.ubuntu.com/ubuntu/",
-               "apt_security_mirror": "http://security.ubuntu.com/ubuntu/"}
+        cfg = {"primary": "http://us.archive.ubuntu.com/ubuntu/",
+               "security": "http://security.ubuntu.com/ubuntu/"}
         mirrors = apt.find_apt_mirror_info(cfg)
 
         self.assertEqual(mirrors['MIRROR'],
@@ -453,10 +453,10 @@ class TestAptSourceConfig(TestCase):
     @staticmethod
     def test_apt_proxy():
         """test_mir_apt_list_rename - Test apt_*proxy configuration"""
-        cfg = {"apt_proxy": "foobar1",
-               "apt_http_proxy": "foobar2",
-               "apt_ftp_proxy": "foobar3",
-               "apt_https_proxy": "foobar4"}
+        cfg = {"proxy": "foobar1",
+               "http_proxy": "foobar2",
+               "ftp_proxy": "foobar3",
+               "https_proxy": "foobar4"}
 
         with mock.patch.object(util, 'write_file') as mockobj:
             apt.apply_apt_proxy_config(cfg, "proxyfn", "notused")

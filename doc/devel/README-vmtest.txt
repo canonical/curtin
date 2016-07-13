@@ -90,13 +90,13 @@ Note:
     The tests themselves don't actually have to run as root, but the
     test setup does.
   * the 'tools' directory must be in your path.
-  * test will set apt_proxy in the guests to the value of
-    'apt_proxy' environment variable.  If that is not set it will 
+  * test will set apt: { proxy } in the guests to the value of
+    'apt_proxy' environment variable.  If that is not set it will
     look at the host's apt config and read 'Acquire::HTTP::Proxy'
 
 == Environment Variables ==
 Some environment variables affect the running of vmtest
-  * apt_proxy: 
+  * apt_proxy:
     test will set apt_proxy in the guests to the value of 'apt_proxy'.
     If that is not set it will look at the host's apt config and read
     'Acquire::HTTP::Proxy'

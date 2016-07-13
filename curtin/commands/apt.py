@@ -51,7 +51,7 @@ DEFAULT_MIRRORS = {"PRIMARY": "http://archive.ubuntu.com/ubuntu",
 
 def handle_apt(cfg, target):
     """ handle_apt
-        process the custom config for apt_sources. This can be called from
+        process the custom config for apt. This can be called from
         curthooks if a global apt config was provided or via the "apt"
         standalone command.
     """
@@ -61,7 +61,7 @@ def handle_apt(cfg, target):
 
     apply_debconf_selections(cfg, target)
 
-    if not config.value_as_boolean(cfg.get('apt_preserve_sources_list',
+    if not config.value_as_boolean(cfg.get('preserve_sources_list',
                                            False)):
         generate_sources_list(cfg, release, mirrors, target)
         rename_apt_lists(mirrors, target)
@@ -217,7 +217,7 @@ def generate_sources_list(cfg, release, mirrors, target):
     for k in mirrors:
         params[k] = mirrors[k]
 
-    tmpl = cfg.get('apt_custom_sources_list', None)
+    tmpl = cfg.get('custom_sources_list', None)
     if tmpl is None:
         LOG.info("No custom template provided, fall back to modify"
                  "mirrors in %s on the target system", aptsrc)
@@ -284,7 +284,7 @@ def add_apt_sources(srcdict, target, template_params=None, aa_repo_match=None):
         raise ValueError('did not get a valid repo matcher')
 
     if not isinstance(srcdict, dict):
-        raise TypeError('unknown apt_sources format: %s' % (srcdict))
+        raise TypeError('unknown apt format: %s' % (srcdict))
 
     for filename in srcdict:
         ent = srcdict[filename]
@@ -334,16 +334,11 @@ def find_apt_mirror_info(cfg):
     """
 
     mirror_info = DEFAULT_MIRRORS
-    mirror = cfg.get("apt_mirror", None)
-    if mirror is not None:
-        mirror_info = {'PRIMARY': mirror,
-                       'SECURITY': mirror}
-    else:
-        pmirror = cfg.get("apt_primary_mirror", None)
-        smirror = cfg.get("apt_security_mirror", pmirror)
-        if pmirror is not None:
-            mirror_info = {'PRIMARY': pmirror,
-                           'SECURITY': smirror}
+    pmirror = cfg.get("primary", None)
+    smirror = cfg.get("security", pmirror)
+    if pmirror is not None:
+        mirror_info = {'PRIMARY': pmirror,
+                       'SECURITY': smirror}
 
     # less complex replacements use only MIRROR, derive from primary
     mirror_info["MIRROR"] = mirror_info["PRIMARY"]
@@ -356,10 +351,10 @@ def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
        Applies any apt*proxy config from if specified
     """
     # Set up any apt proxy
-    cfgs = (('apt_proxy', 'Acquire::http::Proxy "%s";'),
-            ('apt_http_proxy', 'Acquire::http::Proxy "%s";'),
-            ('apt_ftp_proxy', 'Acquire::ftp::Proxy "%s";'),
-            ('apt_https_proxy', 'Acquire::https::Proxy "%s";'))
+    cfgs = (('proxy', 'Acquire::http::Proxy "%s";'),
+            ('http_proxy', 'Acquire::http::Proxy "%s";'),
+            ('ftp_proxy', 'Acquire::ftp::Proxy "%s";'),
+            ('https_proxy', 'Acquire::https::Proxy "%s";'))
 
     proxies = [fmt % cfg.get(name) for (name, fmt) in cfgs if cfg.get(name)]
     if len(proxies):
@@ -369,9 +364,9 @@ def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
         util.del_file(proxy_fname)
         LOG.info("no apt proxy configured, removed %s", proxy_fname)
 
-    if cfg.get('apt_config', None):
+    if cfg.get('conf', None):
         LOG.info("write apt config info to %s", config_fname)
-        util.write_file(config_fname, cfg.get('apt_config'))
+        util.write_file(config_fname, cfg.get('conf'))
     elif os.path.isfile(config_fname):
         util.del_file(config_fname)
         LOG.info("no apt config configured, removed %s", config_fname)
@@ -380,7 +375,7 @@ def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
 def apt(args):
     """ apt
         Main entry point for curtin apt standalone command
-        Handling of apt_source: dict as custom config for apt. This allows
+        Handling of apt: dict as custom config for apt. This allows
         writing custom source.list files, adding ppa's and PGP keys.
         It is especially useful to provide a fully isolated derived repository.
         This reads the global config (again) as handled by curthooks, but with
@@ -405,7 +400,7 @@ def apt(args):
                          "Use --target or set TARGET_MOUNT_POINT\n")
         sys.exit(2)
 
-    apt_cfg = cfg.get("apt_source")
+    apt_cfg = cfg.get("apt")
     # if no apt config section is available, do nothing
     if apt_cfg is not None:
         LOG.info("Standalone command handling apt to target %s with config %s",

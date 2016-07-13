@@ -4,7 +4,7 @@ APT Source
 
 This part of curtin is meant to allow influencing the apt behaviour and configuration.
 
-By default - if no apt_source config is provided - it does nothing. That keeps behavior compatible on upgrades.
+By default - if no apt config is provided - it does nothing. That keeps behavior compatible on upgrades.
 
 The feature has a target argument which - by default - is used to modify the environment that curtin currently installs (@TARGET_MOUNT_POINT).
 
@@ -35,9 +35,9 @@ Features
 Configuration
 -------------
 
-The general configuration of the apt_source feature is under an element called ``apt_source``.
+The general configuration of the apt feature is under an element called ``apt``.
 
-This can have various global subelements as listed in the examples below - for example ``apt_primary_mirror: http://us.archive.ubuntu.com/ubuntu/``. These global configurations are valid throughput all of the apt_source feature.
+This can have various global subelements as listed in the examples below - for example ``primary: http://us.archive.ubuntu.com/ubuntu/``. These global configurations are valid throughput all of the apt feature.
 
 Then there is a section ``sources`` which can hold a number of subelements itself.
 The key is the filename and will be prepended by /etc/apt/sources.list.d/ if it doesn't start with a ``/``.
@@ -94,9 +94,8 @@ What do we need for that:
 That would be specified as
 ::
 
-  apt_source:
-    version: 1
-    apt_mirror: http://mymirror.local/ubuntu/
+  apt:
+    primary: http://mymirror.local/ubuntu/
     sources:
       localrepokey:
         key: | # full key as block
@@ -123,7 +122,7 @@ Dependencies
 Cloud-init has a similar feature and depending on he case one has to use the one or the other.
 There is one case where one has to be careful, that is when curtin has to modify a newly installed environment.
 In that on the first boot cloud-init will run and - by its default configuration - overwrite /etc/apt/sources.list again.
-So if your curtin config wanted to control /etc/apt/sources.list content you likely want to seed the following cloud-init with ``apt_preserve_sources_list: true``.
+So if your curtin config wanted to control /etc/apt/sources.list content you likely want to seed the following cloud-init with ``preserve_sources_list: true``.
 That will avoid conflicts between both tools in regard to that file.
 
 Cloud-init might need to resolve dependencies and install packages in the ephemeral environment to run curtin.

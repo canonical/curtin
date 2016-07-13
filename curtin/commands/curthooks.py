@@ -90,27 +90,27 @@ def write_files(cfg, target):
 
 
 def apt_config(cfg, target):
-    predef_apt_cfg = cfg.get("apt_source")
+    predef_apt_cfg = cfg.get("apt")
     # translate old into new format
     if predef_apt_cfg is None:
-        cfg['apt_source'] = {}
-        predef_apt_cfg = cfg.get("apt_source")
+        cfg['apt'] = {}
+        predef_apt_cfg = cfg.get("apt")
 
     if cfg.get('apt_proxy') is not None:
-        if predef_apt_cfg.get('apt_proxy') is not None:
+        if predef_apt_cfg.get('proxy') is not None:
             msg = ("Error in apt_proxy configuration: "
                    "old and new format of apt features "
                    "are mutually exclusive")
             LOG.error(msg)
             raise ValueError(msg)
 
-        cfg['apt_source']['apt_proxy'] = cfg.get('apt_proxy')
+        cfg['apt']['proxy'] = cfg.get('apt_proxy')
         LOG.info("Transferred %s into new format: %s", cfg.get('apt_proxy'),
-                 cfg.get('apt_source'))
+                 cfg.get('apte'))
         del cfg['apt_proxy']
 
     if cfg.get('apt_mirrors') is not None:
-        if predef_apt_cfg.get('apt_mirror') is not None:
+        if predef_apt_cfg.get('mirrors') is not None:
             msg = ("Error in apt_mirror configuration: "
                    "old and new format of apt features "
                    "are mutually exclusive")
@@ -118,10 +118,10 @@ def apt_config(cfg, target):
             raise ValueError(msg)
 
         old = cfg.get('apt_mirrors')
-        cfg['apt_source']['apt_primary_mirror'] = old.get('ubuntu_archive')
-        cfg['apt_source']['apt_security_mirror'] = old.get('ubuntu_security')
+        cfg['apt']['primary'] = old.get('ubuntu_archive')
+        cfg['apt']['security'] = old.get('ubuntu_security')
         LOG.info("Transferred %s into new format: %s", cfg.get('apt_mirror'),
-                 cfg.get('apt_source'))
+                 cfg.get('apt'))
         del cfg['apt_mirrors']
 
     if cfg.get('debconf_selections') is not None:
@@ -133,13 +133,13 @@ def apt_config(cfg, target):
             raise ValueError(msg)
 
         selsets = cfg.get('debconf_selections')
-        cfg['apt_source']['debconf_selections'] = selsets
+        cfg['apt']['debconf_selections'] = selsets
         LOG.info("Transferred %s into new format: %s",
                  cfg.get('debconf_selections'),
-                 cfg.get('apt_source'))
+                 cfg.get('apt'))
         del cfg['debconf_selections']
 
-    apt_cfg = cfg.get("apt_source")
+    apt_cfg = cfg.get("apt")
     if apt_cfg is not None:
         LOG.info("curthooks handling apt to target %s with config %s",
                  target, apt_cfg)

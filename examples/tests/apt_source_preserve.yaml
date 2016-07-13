@@ -1,17 +1,16 @@
 showtrace: true
-apt_source:
-  version: 1
+apt:
   # this is like the other apr_source test but with preserve true
-  apt_preserve_sources_list: true
-  apt_primary_mirror: http://us.archive.ubuntu.com/ubuntu/
-  apt_security_mirror: http://security.ubuntu.com/ubuntu/
-  apt_custom_sources_list: | # written by curtin custom template
+  preserve_sources_list: true
+  primary: http://us.archive.ubuntu.com/ubuntu/
+  security: http://security.ubuntu.com/ubuntu/
+  custom_sources_list: | # written by curtin custom template
     deb $MIRROR $RELEASE main restricted
     deb-src $MIRROR $RELEASE main restricted
     deb $PRIMARY $RELEASE universe restricted
     deb $SECURITY $RELEASE-security multiverse
     # nice line to check in test
-  apt_config: | # APT config
+  conf: | # APT config
     ACQUIRE {
       Retries "3";
     };

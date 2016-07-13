@@ -1,9 +1,8 @@
 showtrace: true
-apt_source:
-  version: 1
-  apt_primary_mirror: http://us.archive.ubuntu.com/ubuntu/
-  apt_security_mirror: http://security.ubuntu.com/ubuntu/
-  apt_config: | # APT config
+apt:
+  primary: http://us.archive.ubuntu.com/ubuntu/
+  security: http://security.ubuntu.com/ubuntu/
+  conf: | # APT config
     ACQUIRE {
       Retries "3";
     };

@@ -20,8 +20,8 @@ TARGET = "/"
 
 # Input and expected output for the custom template
 YAML_TEXT_CUSTOM_SL = """
-apt_mirror: http://archive.ubuntu.com/ubuntu
-apt_custom_sources_list: |
+mirrors: http://archive.ubuntu.com/ubuntu
+custom_sources_list: |
 
     ## Note, this file is written by curtin at install time. It should not end
     ## up on the installed system itself.
@@ -44,7 +44,7 @@ EXPECTED_CONVERTED_CONTENT = """
 deb http://archive.ubuntu.com/ubuntu fakerel main restricted
 deb-src http://archive.ubuntu.com/ubuntu fakerel main restricted
 deb http://archive.ubuntu.com/ubuntu fakerel universe restricted
-deb http://archive.ubuntu.com/ubuntu fakerel-security multiverse
+deb http://security.ubuntu.com/ubuntu fakerel-security multiverse
 # FIND_SOMETHING_SPECIAL
 """
 
@@ -111,15 +111,10 @@ class TestAptSourceConfigSourceList(TestCase):
 
         self._apt_source_list(cfg, EXPECTED_BASE_CONTENT)
 
-    def test_apt_source_list_mirror(self):
-        """test_apt_source_list_mirror - Test specifying mirrors"""
-        cfg = {'apt_mirror': 'http://test.archive.ubuntu.com/ubuntu'}
-        self._apt_source_list(cfg, EXPECTED_MIRROR_CONTENT)
-
     def test_apt_source_list_psm(self):
         """test_apt_source_list_psm - Test specifying prim+sec mirrors"""
-        cfg = {'apt_primary_mirror': 'http://test.archive.ubuntu.com/ubuntu',
-               'apt_security_mirror': 'http://test.security.ubuntu.com/ubuntu'}
+        cfg = {'primary': 'http://test.archive.ubuntu.com/ubuntu',
+               'security': 'http://test.security.ubuntu.com/ubuntu'}
 
         self._apt_source_list(cfg, EXPECTED_PRIMSEC_CONTENT)
 
