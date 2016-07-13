@@ -36,9 +36,9 @@ def add_subcmd(subparser, subcmd):
     subcmd_full = "curtin.commands.%s" % modname
     __import__(subcmd_full)
     try:
-        popfunc = getattr(sys.modules[subcmd_full], 'populate_subcmd')
+        popfunc = getattr(sys.modules[subcmd_full], 'POPULATE_SUBCMD')
     except AttributeError:
-        raise AttributeError("No 'populate_subcmd' in %s" % subcmd_full)
+        raise AttributeError("No 'POPULATE_SUBCMD' in %s" % subcmd_full)
 
     popfunc(subparser.add_parser(subcmd))
 

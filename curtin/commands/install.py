@@ -452,7 +452,7 @@ CMD_ARGUMENTS = (
 )
 
 
-def populate_subcmd(parser):
+def POPULATE_SUBCMD(parser):
     populate_one_subcmd(parser, CMD_ARGUMENTS, cmd_install)
 
 # vi: ts=4 expandtab syntax=python
