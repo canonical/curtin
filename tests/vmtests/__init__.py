@@ -361,12 +361,8 @@ class VMBaseClass(TestCase):
     extra_kern_args = None
     fstab_expected = {}
     image_store_class = ImageStore
-<<<<<<< TREE
-    collect_scripts = []
     boot_cloudconf = None
-=======
     install_timeout = 3000
->>>>>>> MERGE-SOURCE
     interactive = False
     multipath = False
     multipath_num_paths = 2
@@ -1011,14 +1007,11 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
               'content': yaml.dump(base_cloudconfig, indent=1)},
              {'type': 'text/cloud-config', 'content': ssh_keys}]
 
-<<<<<<< TREE
     if boot_cloudconf is not None:
         parts.append({'type': 'text/cloud-config', 'content':
                       yaml.dump(boot_cloudconf, indent=1)})
 
-=======
     output_dir = '/mnt/output'
->>>>>>> MERGE-SOURCE
     output_dir_macro = 'OUTPUT_COLLECT_D'
     output_device = '/dev/disk/by-id/virtio-%s' % OUTPUT_DISK_NAME
 
