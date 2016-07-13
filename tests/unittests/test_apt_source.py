@@ -14,7 +14,7 @@ from mock import call
 
 from curtin import util
 from curtin import gpg
-from curtin.commands import apt_source
+from curtin.commands import apt
 
 
 EXPECTEDKEY = u"""-----BEGIN PGP PUBLIC KEY BLOCK-----
@@ -51,7 +51,7 @@ def load_tfile(filename):
 
 class TestAptSourceConfig(TestCase):
     """ TestAptSourceConfig
-    Main Class to test apt_source configs
+    Main Class to test apt configs
     """
     def setUp(self):
         super(TestAptSourceConfig, self).setUp()
@@ -66,7 +66,7 @@ class TestAptSourceConfig(TestCase):
     @staticmethod
     def _add_apt_sources(*args, **kwargs):
         with mock.patch.object(util, 'apt_update'):
-            apt_source.add_apt_sources(*args, **kwargs)
+            apt.add_apt_sources(*args, **kwargs)
 
     @staticmethod
     def _get_default_params():
@@ -332,7 +332,7 @@ class TestAptSourceConfig(TestCase):
         """
         params = self._get_default_params()
 
-        with mock.patch.object(apt_source, 'add_apt_key_raw') as mockkey:
+        with mock.patch.object(apt, 'add_apt_key_raw') as mockkey:
             with mock.patch.object(gpg, 'getkeybyid',
                                    return_value=expectedkey) as mockgetkey:
                 self._add_apt_sources(cfg, TARGET, template_params=params,
@@ -380,7 +380,7 @@ class TestAptSourceConfig(TestCase):
         # so mock the call and check if the config got there
         with mock.patch.object(gpg, 'getkeybyid',
                                return_value="fakekey") as mockgetkey:
-            with mock.patch.object(apt_source, 'add_apt_key_raw') as mockadd:
+            with mock.patch.object(apt, 'add_apt_key_raw') as mockadd:
                 self._add_apt_sources(cfg, TARGET, template_params=params,
                                       aa_repo_match=self.matcher)
 
@@ -428,7 +428,7 @@ class TestAptSourceConfig(TestCase):
         """test_mir_apt_list_rename - Test find mirror and apt list renaming"""
         cfg = {"apt_primary_mirror": "http://us.archive.ubuntu.com/ubuntu/",
                "apt_security_mirror": "http://security.ubuntu.com/ubuntu/"}
-        mirrors = apt_source.find_apt_mirror_info(cfg)
+        mirrors = apt.find_apt_mirror_info(cfg)
 
         self.assertEqual(mirrors['MIRROR'],
                          "http://us.archive.ubuntu.com/ubuntu/")
@@ -446,7 +446,7 @@ class TestAptSourceConfig(TestCase):
         with mock.patch.object(os, 'rename') as mockren:
             with mock.patch.object(glob, 'glob',
                                    return_value=[fromfn]):
-                apt_source.rename_apt_lists(mirrors, TARGET)
+                apt.rename_apt_lists(mirrors, TARGET)
 
         mockren.assert_any_call(fromfn, tofn)
 
@@ -459,7 +459,7 @@ class TestAptSourceConfig(TestCase):
                "apt_https_proxy": "foobar4"}
 
         with mock.patch.object(util, 'write_file') as mockobj:
-            apt_source.apply_apt_proxy_config(cfg, "proxyfn", "notused")
+            apt.apply_apt_proxy_config(cfg, "proxyfn", "notused")
 
         mockobj.assert_called_with('proxyfn',
                                    ('Acquire::HTTP::Proxy "foobar1";\n'

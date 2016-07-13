@@ -32,6 +32,7 @@ from curtin import swap
 from curtin import util
 from curtin import net
 from curtin.reporter import events
+from curtin.commands import apt
 
 from . import populate_one_subcmd
 
@@ -129,6 +130,14 @@ def apt_config(cfg, target):
 
         if content is not None:
             util.write_file(sources_list, content)
+
+    apt_cfg = cfg.get("apt_source")
+    if apt_cfg:
+        LOG.info("curthooks handling apt to target %s with config %s",
+                 target, apt_cfg)
+    else:
+        LOG.info("No apt config provided, skipping")
+    apt.handle_apt(apt_cfg, target)
 
 
 def disable_overlayroot(cfg, target):

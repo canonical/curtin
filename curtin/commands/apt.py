@@ -15,7 +15,7 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 """
-apt_source.py
+apt.py
 Handling the setup of apt related tasks like proxies, PGP keys, repositories.
 """
 
@@ -49,9 +49,11 @@ DEFAULT_MIRRORS = {"PRIMARY": "http://archive.ubuntu.com/ubuntu",
                    "SECURITY": "http://security.ubuntu.com/ubuntu"}
 
 
-def handle_apt_source(cfg, target):
-    """ handle_apt_source
-        process the custom config for apt_sources
+def handle_apt(cfg, target):
+    """ handle_apt
+        process the custom config for apt_sources. This can be called from
+        curthooks if a global apt config was provided or via the "apt"
+        standalone command.
     """
     release = util.lsb_release(target=target)['codename']
     mirrors = find_apt_mirror_info(cfg)
@@ -301,14 +303,17 @@ def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
         util.del_file(config_fname)
 
 
-def apt_source(args):
-    """ apt_source
-        Main entry point for curtin apt_source
+def apt(args):
+    """ apt
+        Main entry point for curtin apt standalone command
         Handling of apt_source: dict as custom config for apt. This allows
         writing custom source.list files, adding ppa's and PGP keys.
-        It is especially useful to provide a fully isolated derived repository
+        It is especially useful to provide a fully isolated derived repository.
+        This reads the global config (again) as handled by curthooks, but with
+        the option to specify a different "target". If --config is set that
+        this is used instead.
     """
-    #  curtin apt-source custom
+    #  curtin apt custom
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
 
@@ -326,19 +331,19 @@ def apt_source(args):
                          "Use --target or set TARGET_MOUNT_POINT\n")
         sys.exit(2)
 
-    apt_source_cfg = cfg.get("apt_source")
-    # if no apt_source config section is available, do nothing
-    if apt_source_cfg:
-        LOG.info("Handling apt_source to target %s with config %s",
-                 target, apt_source_cfg)
+    apt_cfg = cfg.get("apt_source")
+    # if no apt config section is available, do nothing
+    if apt_cfg:
+        LOG.info("Standalone command handling apt to target %s with config %s",
+                 target, apt_cfg)
         try:
             with util.ChrootableTarget(target, allow_daemons=True):
-                handle_apt_source(apt_source_cfg, target)
+                handle_apt(apt_cfg, target)
         except (RuntimeError, TypeError, ValueError):
             LOG.exception("Failed to configure apt_source")
             sys.exit(1)
     else:
-        LOG.info("No apt_source custom config provided, skipping")
+        LOG.info("No apt custom config provided, skipping")
 
     sys.exit(0)
 
@@ -354,7 +359,7 @@ CMD_ARGUMENTS = (
 
 
 def POPULATE_SUBCMD(parser):
-    """Populate subcommand option parsing for apt_source"""
-    populate_one_subcmd(parser, CMD_ARGUMENTS, apt_source)
+    """Populate subcommand option parsing for apt"""
+    populate_one_subcmd(parser, CMD_ARGUMENTS, apt)
 
 # vi: ts=4 expandtab syntax=python

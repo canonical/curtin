@@ -1,9 +1,4 @@
 # YAML example of an apt_source config.
-# One has to trigger the apt-source handling. An early curthook is recommended
-# as it is the earliest stage where the target environment is available.
-# A --target can be specified to set where the apt-source config is applied
-curthooks_commands:
-    00-apt-source: curtin apt-source custom
 apt_source:
     version: 1
     sources:

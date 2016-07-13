@@ -12,7 +12,7 @@ import yaml
 import mock
 
 from curtin import util
-from curtin.commands import apt_source
+from curtin.commands import apt
 
 LOG = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ class TestAptSourceConfigSourceList(TestCase):
                     # make test independent to executing system
                     with mock.patch.object(util, 'load_file',
                                            return_value=MOCKED_APT_SRC_LIST):
-                        apt_source.handle_apt_source(cfg, TARGET)
+                        apt.handle_apt(cfg, TARGET)
 
         mockwrite.assert_called_once_with(
             TARGET + '/etc/apt/sources.list',
@@ -133,7 +133,7 @@ class TestAptSourceConfigSourceList(TestCase):
             with mock.patch.object(os, 'rename'):
                 with mock.patch.object(util, 'lsb_release',
                                        return_value={'codename': 'fakerel'}):
-                    apt_source.handle_apt_source(cfg, TARGET)
+                    apt.handle_apt(cfg, TARGET)
 
         mockwrite.assert_called_once_with(
             TARGET + '/etc/apt/sources.list',

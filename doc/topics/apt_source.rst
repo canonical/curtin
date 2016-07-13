@@ -94,8 +94,6 @@ What do we need for that:
 That would be specified as
 ::
 
-  curthooks_commands:
-    00-apt-source: curtin apt-source custom
   apt_source:
     version: 1
     apt_mirror: http://mymirror.local/ubuntu/
@@ -117,16 +115,8 @@ The file examples/apt-source.yaml holds various further examples that can be con
 
 Timing
 ------
-The feature is intended implemented at the stage of curthooks_commands, after which runs just after curtin has extracted the image to the target.
-
-To do so it should be called as a curthooks_commands.
-Here an example.
-
-curthooks_commands:
-    00-apt-source: curtin apt-source custom
-    ... your apt-source config
-
-As those sections are executed in an alphanumerically ordered fashing you can even inside the curthooks stage insert custom command before or after this feature as needed.
+The feature is implemented at the stage of curthooks_commands, after which runs just after curtin has extracted the image to the target.
+It can be ran as standalong command "curtin apt custom --config {}"
 
 Dependencies
 ------------
