@@ -8,6 +8,7 @@ HTTP_PORT_TRIES=${HTTP_PORT_TRIES:-5}
 HTTP_PORT_MIN=${HTTP_PORT_MIN:-12000}
 HTTP_PORT_MAX=${HTTP_PORT_MAX:-65500}
 MY_D=$(dirname "$0")
+DEFAULT_ROOT_ARG="root=LABEL=cloudimg-rootfs"
 
 error() { echo "$@" 1>&2; }
 
@@ -15,19 +16,24 @@ Usage() {
     cat <<EOF
 Usage: ${0##*/} [ options ] boot-image curtin install [args]
 
-   boot the image 'boot-image', so that it will run 
+   boot the image 'boot-image', so that it will run
       curtin install [args]
    after booting. 'curtin install [args]' can be any command'
-  
+
    options:
            --add  F[:T] add file 'F' to the curtin archive at T
       -a | --append     append args to kernel cmdline (--kernel)
       -A | --arch   A   assume guest kernel architecture A
-      -d | --disk   D   add a disk 'D' format (path[:size][:driver][:bsize])
+      -d | --disk   D   add a disk 'D' format
+                        (path[:size][:driver][:bsize][:devopts])
                         driver can be specified without size using path::driver
                         driver defaults to virtio-blk
                         bsize <logical>[,<physical>][,<min_io_size>]
                         bsize defaults to 512b sector size
+                        opts is a comma delimitted list of property=value
+                        elements. Examine qemu-kvm -device scsi-hd,? for
+                        details.
+           --vnc D      use -vnc D (mutually exclusive with --silent)
            --uefi   N   enable uefi boot method, store nvram at N
       -h | --help       show this message
       -i | --initrd F   use initramfs F
@@ -40,6 +46,8 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
                         directly through to qemu-system.
                         Note, qemu adds 5900 to port numbers. (:0 = port 5900)
            --serial-log F  : log to F (default 'serial.log')
+           --root-arg X pass 'X' through as the root= param when booting a
+                        kernel.  default: $DEFAULT_ROOT_PARAM
       -v | --verbose    be more verbose
            --no-install-deps  do not install insert '--install-deps'
                               on curtin command invocations
@@ -188,7 +196,7 @@ start_http() {
     # starts a web service at 'port' that serves files in 'pubdir'
     # waits until it is verified to be lisenting at ip
     # if port is not provided, '$tries' random ports are tried.
-    # 
+    #
     # sets HTTP_PID and returns in _RET the port selected.
     local pubdir="$1" ip="$2" port="$3" tries="${4:-5}" i=""
     [ -z "$ip" ] && ip="localhost"
@@ -212,7 +220,7 @@ start_http() {
         [ "$port" = "random" ] && port=$(($pmin+($RANDOM%($pmax+1-$pmin))))
         debug 2 "trying http server $ip:$port"
         _start_http "$pubdir" "$ip" "$port" &&
-            HTTP_PID="$_RET" && _RET="$port" && 
+            HTTP_PID="$_RET" && _RET="$port" &&
             debug 1 "serving $pubdir at http://$ip:$port/ in pid $HTTP_PID" &&
             return 0
         ret=$?
@@ -241,7 +249,7 @@ find_apt_proxy() {
 
 main() {
     local short_opts="a:A:d:h:i:k:n:p:v"
-    local long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi:,verbose,vnc:"
+    local long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,root-arg:,silent,serial-log:,uefi:,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -258,6 +266,7 @@ main() {
     local netdevs="" install_deps="--install-deps"
     local arch_hint=""
     local video="-curses -vga std" serial_log="serial.log"
+    local root_arg="$DEFAULT_ROOT_ARG"
     # dowait: run xkvm with a '&' and then 'wait' on the pid.
     #  the reason to do this or not do this has to do with interactivity
     #  if detached with &, then user input will not go to xkvm.
@@ -280,13 +289,17 @@ main() {
         case "$cur" in
                --add) addfiles[${#addfiles[@]}]="$next"; shift;;
             -a|--append) uappend="$next"; shift;;
-            -A|--arch) arch_hint="$next"; shift;;	       
+            -A|--arch) arch_hint="$next"; shift;;
+               --bios) bios="$2"; shift;;
             -d|--disk) disks[${#disks[@]}]="$next"; shift;;
+               --dowait) pt[${#pt[@]}]="$cur"; dowait=true;;
             -h|--help) Usage ; exit 0;;
             -i|--initrd) initrd="$next"; shift;;
-               --no-install-deps) install_deps="";;
             -k|--kernel) kernel="$next"; shift;;
                --mem) mem="$next"; shift;;
+            -n|--netdev) netdevs[${#netdevs[@]}]="$next"; shift;;
+               --no-dowait) pt[${#pt[@]}]="$cur"; dowait=false;;
+               --no-install-deps) install_deps="";;
                --power)
                 case "$next" in
                     off) pstate="poweroff";;
@@ -295,19 +308,16 @@ main() {
                     *) error "Invalid power state, must be: off, on, reboot";;
                 esac
                 shift;;
-            -n|--netdev) netdevs[${#netdevs[@]}]="$next"; shift;;
             -p|--publish) pubs[${#pub[@]}]="$next"; shift;;
-               --uefi) uefi="$2"; shift;;
-               --bios) bios="$2"; shift;;
+               --root-arg) root_arg="$next";;
+               --serial-log) serial_log="$next"; shift;;
                --silent) video="-nographic";;
+               --uefi) uefi="$2"; shift;;
+            -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
                --vnc)
                     video="-vnc $next"
                     debug 1 "VNC requested - $next"
                     shift;;
-               --serial-log) serial_log="$next"; shift;;
-            -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
-               --dowait) pt[${#pt[@]}]="$cur"; dowait=true;;
-               --no-dowait) pt[${#pt[@]}]="$cur"; dowait=false;;
             --) shift; break;;
         esac
         shift;
@@ -336,10 +346,10 @@ main() {
     if [ -n "$bios" ]; then
         bios_opts=(  -drive "if=pflash,format=raw,file=$bios" )
     elif [ -n "$uefi" ]; then
-        case `lsb_release -sc` in 
+        case `lsb_release -sc` in
             precise|trusty|vivid)
                 # for non-split UEFI firmware, the code and
-                # var space are in the same file.  We must 
+                # var space are in the same file.  We must
                 # make a copy so we can retain modifications.
                 local ovmf_code="/usr/share/ovmf/OVMF.fd"
                 local ovmf_var=$ovmf_code
@@ -388,21 +398,22 @@ main() {
         { error "failed to get dir for $0"; return 1; }
 
     local disk="" src="" size="" fmt="" out="" id="" driver="" if=""
-    local split_input=""
+    local split_input="" serial=""
     disk_args=( )
     id=1
     for disk in "${disks[@]}"; do
         ((id++))
-
         # 1=src
         # 2=src:size
         # 3=src:size:driver
         # 4=src:size:driver:bsize
+        # 5=src:size:driver:bsize:devopts
         src=$(echo $disk | awk -F: '{print $1}')
         size=$(echo $disk | awk -F: '{print $2}')
         driver=$(echo $disk | awk -F: '{print $3}')
         bsize=$(echo $disk | awk -F: '{print $4}')
-        
+        devopts=$(echo $disk | awk -F: '{print $5}')
+
         if [ -z "${src}" ]; then
             error "Failed to provide disk source"
             exit 1
@@ -415,7 +426,7 @@ main() {
         if [ -z "${driver}" ]; then
             driver="virtio-blk"
         fi
-        
+
         if [ -z "${bsize}" ]; then
             bsize="512"
         fi
@@ -430,6 +441,11 @@ main() {
                 { error "failed to determine format of $src"; return 1; }
         fi
 
+        # prepend comma if passing devopts
+        if [ -n "${devopts}" ]; then
+            devopts=",${devopts}"
+        fi
+
         # set logical/physical size blocksz is logical:phys
         local logbs=$(round_up ${bsize%%:*})
         local phybs=$(round_up ${bsize##*:})
@@ -441,8 +457,8 @@ main() {
             "file=${src},if=none,cache=unsafe,format=$fmt,id=drv${id},index=$id" )
 
         disk_args=( "${disk_args[@]}" "-device"
-            "${driver},drive=drv${id},serial=dev${id},${bs_args}" )
-        
+            "${driver},drive=drv${id},${bs_args}${devopts}" )
+
     done
 
     get_my_ip || { error "failed to get your ip. set IP_ADDR"; return 1; }
@@ -554,17 +570,24 @@ main() {
     seedargs=()
     if [ -n "$kernel" ]; then
         local append="" root=""
-        # if this is a partition image, root=/dev/vda. else root=/dev/vda1
-        # this hack is necessary because LABEL even UUID  might be the same
-        # in the boot image and the target (if re-using target)
-        if tmp=$(blkid "$bootimg_dist" -ovalue -s UUID) && [ -n "$tmp" ]; then
-            root="/dev/vda"
-        else
-            root="/dev/vda1"
+        # Note: root_arg is by default done by LABEL.  This assumes
+        # a.) our root device is not multipath
+        # b.) no other disks attached will have this LABEL
+        # c.) the LABEL is in fact correct.
+        # all of these assumptions are true under vmtest.
+        if [ -z "$root_arg" ]; then
+            debug 1 "WARN: root_arg is empty with kernel."
         fi
-        append="root=$root ds=nocloud-net;seedfrom=$burl"
-        if [ "${arch_hint}" != "s390x" ]; then
-            append="${append} console=ttyS0"
+        append="${root_arg:+${root_arg} }ds=nocloud-net;seedfrom=$burl"
+
+        local console_name=""
+        case "${arch_hint}" in
+            s390x) console_name="";;
+            ppc64*) console_name="hvc0";;
+            *) console_name="ttyS0";;
+        esac
+        if [ -n "$console_name" ]; then
+            append="${append} console=${console_name}"
         fi
         append="${append} $uappend"
         seedargs=( "${seedargs[@]}" -kernel "$kernel" )
@@ -586,18 +609,20 @@ main() {
     local cmd serial_args="" chardev_arg=""
     [ "${serial_log}" = "none" ] && serial_log=""
     if [ -n "${serial_log}" ]; then
-	if [ "${arch_hint}" = "s390x" ]; then
-	    if [ "${serial_log}" = "stdio" ]; then
-		chardev_arg="stdio"
-	    else
-		chardev_arg="file,path=${serial_log}"
-	    fi
-	    serial_args="-nodefaults -chardev ${chardev_arg},id=charconsole0 -device sclpconsole,chardev=charconsole0,id=console0"
-	else
-	    serial_args="-serial file:${serial_log}"
-	fi
+        if [ "${arch_hint}" = "s390x" ]; then
+            if [ "${serial_log}" = "stdio" ]; then
+                chardev_arg="stdio"
+            else
+                chardev_arg="file,path=${serial_log}"
+            fi
+                serial_args="-nodefaults -chardev ${chardev_arg},id=charconsole0 -device sclpconsole,chardev=charconsole0,id=console0"
+        else
+            serial_args="-serial file:${serial_log}"
+            #debug mode serial_args="-serial ${serial_log} -monitor stdio"
+        fi
     fi
-    cmd=( 
+    # -monitor stdio
+    cmd=(
         xkvm "${pt[@]}" "${netargs[@]}" --
         "${bios_opts[@]}"
         -m ${mem} ${serial_args} ${video}
@@ -625,6 +650,11 @@ main() {
     return $ret
 }
 
+random_wwn() {
+    # wwn must be a int64, less than (1 << 63) - 1
+    # we achieve this by combining 4 (1 << 15) ints
+    printf "0x%04x%04x%04x%04x" $RANDOM $RANDOM $RANDOM $RANDOM
+}
 
 round_up() {
     local size="${1}"

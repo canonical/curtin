@@ -50,3 +50,7 @@ class TrustyBcacheBasic(relbase.trusty, TestBcacheBasic):
 
 class XenialBcacheBasic(relbase.xenial, TestBcacheBasic):
     __test__ = True
+
+
+class YakketyBcacheBasic(relbase.yakkety, TestBcacheBasic):
+    __test__ = True
