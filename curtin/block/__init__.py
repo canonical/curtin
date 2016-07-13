@@ -506,13 +506,11 @@ def sysfs_partition_data(blockdev=None, sysfs_path=None):
     # queue property is only on parent devices, ie, we can't read
     # /sys/class/block/vda/vda1/queue/* as queue is only on the
     # parent device
-    partnum = None
     sysfs_prefix = sysfs_path
-
-    (parent, _partnum) = get_blockdev_for_partition(blockdev)
-    if _partnum:
+    (parent, partnum) = get_blockdev_for_partition(blockdev)
+    if partnum:
         sysfs_prefix = sys_block_path(parent)
-        partnum = int(_partnum)
+        partnum = int(partnum)
 
     block_size = int(util.load_file(os.path.join(
         sysfs_prefix, 'queue/logical_block_size')))
