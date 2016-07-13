@@ -354,9 +354,10 @@ def apply_debconf_selections(cfg, target):
         LOG.warn("The following packages were installed and preseeded, "
                  "but cannot be unconfigured: %s", unhandled)
 
-    util.subp(['chroot', target, 'dpkg-reconfigure',
-               '--frontend=noninteractive'] +
-              list(to_config), data=None)
+    if len(to_config):
+        util.subp(['chroot', target, 'dpkg-reconfigure',
+                   '--frontend=noninteractive'] +
+                  list(to_config), data=None)
 
 
 def get_installed_packages(target=None):
