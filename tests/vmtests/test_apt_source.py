@@ -32,8 +32,8 @@ class TestAptSrcAbs(VMBaseClass):
 
         """)]
     boot_cloudconf = {'apt_preserve_sources_list': True}
-    mirror = "http://us.archive.ubuntu.com/ubuntu/"
-    secmirror = "http://security.ubuntu.com/ubuntu/"
+    mirror = "http://us.archive.ubuntu.com/ubuntu"
+    secmirror = "http://security.ubuntu.com/ubuntu"
 
     def test_output_files_exist(self):
         """test_output_files_exist - Check if all output files exist"""

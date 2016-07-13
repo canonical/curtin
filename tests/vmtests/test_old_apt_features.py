@@ -46,8 +46,8 @@ class TestOldAptAbs(VMBaseClass):
 
     def test_mirrors(self):
         """test_mirrors - Check for mirrors placed in source.list"""
-        exp_mirror = "http://us.archive.ubuntu.com/ubuntu/"
-        exp_secmirror = "http://archive.ubuntu.com/ubuntu/"
+        exp_mirror = "http://us.archive.ubuntu.com/ubuntu"
+        exp_secmirror = "http://archive.ubuntu.com/ubuntu"
 
         self.check_file_strippedline("sources.list",
                                      "deb %s %s" %

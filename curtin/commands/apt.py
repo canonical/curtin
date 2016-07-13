@@ -45,8 +45,8 @@ APT_PROXY_FN = "/etc/apt/apt.conf.d/90curtin-aptproxy"
 DEFAULT_KEYSERVER = "keyserver.ubuntu.com"
 
 # Default archive mirror
-DEFAULT_MIRRORS = {"PRIMARY": "http://archive.ubuntu.com/ubuntu",
-                   "SECURITY": "http://security.ubuntu.com/ubuntu"}
+DEFAULT_MIRRORS = {"PRIMARY": "http://archive.ubuntu.com/ubuntu/",
+                   "SECURITY": "http://security.ubuntu.com/ubuntu/"}
 
 
 def handle_apt(cfg, target):
@@ -217,7 +217,7 @@ def generate_sources_list(cfg, release, mirrors, target):
     for k in mirrors:
         params[k] = mirrors[k]
 
-    tmpl = cfg.get('custom_sources_list', None)
+    tmpl = cfg.get('sources_list', None)
     if tmpl is None:
         LOG.info("No custom template provided, fall back to modify"
                  "mirrors in %s on the target system", aptsrc)

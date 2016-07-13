@@ -21,7 +21,7 @@ TARGET = "/"
 # Input and expected output for the custom template
 YAML_TEXT_CUSTOM_SL = """
 mirrors: http://archive.ubuntu.com/ubuntu
-custom_sources_list: |
+sources_list: |
 
     ## Note, this file is written by curtin at install time. It should not end
     ## up on the installed system itself.
@@ -41,10 +41,10 @@ EXPECTED_CONVERTED_CONTENT = """
 #
 # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
 # newer versions of the distribution.
-deb http://archive.ubuntu.com/ubuntu fakerel main restricted
-deb-src http://archive.ubuntu.com/ubuntu fakerel main restricted
-deb http://archive.ubuntu.com/ubuntu fakerel universe restricted
-deb http://security.ubuntu.com/ubuntu fakerel-security multiverse
+deb http://archive.ubuntu.com/ubuntu/ fakerel main restricted
+deb-src http://archive.ubuntu.com/ubuntu/ fakerel main restricted
+deb http://archive.ubuntu.com/ubuntu/ fakerel universe restricted
+deb http://security.ubuntu.com/ubuntu/ fakerel-security multiverse
 # FIND_SOMETHING_SPECIAL
 """
 
@@ -53,28 +53,28 @@ MOCKED_APT_SRC_LIST = """
 deb http://archive.ubuntu.com/ubuntu/ notouched main restricted
 deb-src http://archive.ubuntu.com/ubuntu/ notouched main restricted
 deb http://archive.ubuntu.com/ubuntu/ notouched-updates main restricted
-deb http://security.ubuntu.com/ubuntu notouched-security main restricted
+deb http://security.ubuntu.com/ubuntu/ notouched-security main restricted
 """
 
 EXPECTED_BASE_CONTENT = ("""
 deb http://archive.ubuntu.com/ubuntu/ notouched main restricted
 deb-src http://archive.ubuntu.com/ubuntu/ notouched main restricted
 deb http://archive.ubuntu.com/ubuntu/ notouched-updates main restricted
-deb http://security.ubuntu.com/ubuntu notouched-security main restricted
+deb http://security.ubuntu.com/ubuntu/ notouched-security main restricted
 """)
 
 EXPECTED_MIRROR_CONTENT = ("""
 deb http://test.archive.ubuntu.com/ubuntu/ notouched main restricted
 deb-src http://test.archive.ubuntu.com/ubuntu/ notouched main restricted
 deb http://test.archive.ubuntu.com/ubuntu/ notouched-updates main restricted
-deb http://test.archive.ubuntu.com/ubuntu notouched-security main restricted
+deb http://test.archive.ubuntu.com/ubuntu/ notouched-security main restricted
 """)
 
 EXPECTED_PRIMSEC_CONTENT = ("""
 deb http://test.archive.ubuntu.com/ubuntu/ notouched main restricted
 deb-src http://test.archive.ubuntu.com/ubuntu/ notouched main restricted
 deb http://test.archive.ubuntu.com/ubuntu/ notouched-updates main restricted
-deb http://test.security.ubuntu.com/ubuntu notouched-security main restricted
+deb http://test.security.ubuntu.com/ubuntu/ notouched-security main restricted
 """)
 
 
@@ -113,8 +113,8 @@ class TestAptSourceConfigSourceList(TestCase):
 
     def test_apt_source_list_psm(self):
         """test_apt_source_list_psm - Test specifying prim+sec mirrors"""
-        cfg = {'primary': 'http://test.archive.ubuntu.com/ubuntu',
-               'security': 'http://test.security.ubuntu.com/ubuntu'}
+        cfg = {'primary': 'http://test.archive.ubuntu.com/ubuntu/',
+               'security': 'http://test.security.ubuntu.com/ubuntu/'}
 
         self._apt_source_list(cfg, EXPECTED_PRIMSEC_CONTENT)
 

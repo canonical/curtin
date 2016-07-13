@@ -139,8 +139,8 @@ apt:
   # a custom (e.g. localized) mirror that will be set in sources.list and
   # deb / deb-src lines
   # one can set primary and security mirror to different url's
-  primary: http://us.archive.ubuntu.com/ubuntu/
-  security: http://security.ubuntu.com/ubuntu/
+  primary: http://us.archive.ubuntu.com/ubuntu
+  security: http://security.ubuntu.com/ubuntu
   # secondary is optional
   # if none at all are specified it will use:
   # primary: http://archive.ubuntu.com/ubuntu

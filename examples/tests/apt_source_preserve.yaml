@@ -2,9 +2,9 @@ showtrace: true
 apt:
   # this is like the other apr_source test but with preserve true
   preserve_sources_list: true
-  primary: http://us.archive.ubuntu.com/ubuntu/
-  security: http://security.ubuntu.com/ubuntu/
-  custom_sources_list: | # written by curtin custom template
+  primary: http://us.archive.ubuntu.com/ubuntu
+  security: http://security.ubuntu.com/ubuntu
+  sources_list: | # written by curtin custom template
     deb $MIRROR $RELEASE main restricted
     deb-src $MIRROR $RELEASE main restricted
     deb $PRIMARY $RELEASE universe restricted
