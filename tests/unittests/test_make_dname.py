@@ -186,4 +186,15 @@ class TestMakeDname(TestCase):
             self.rule_file.format(res_dname),
             self._formatted_rule(rule_identifiers, res_dname))
 
+    def test_sanitize_dname(self):
+        unsanitized_to_sanitized = [
+            ('main_disk', 'main_disk'),
+            ('main-disk', 'main-disk'),
+            ('main/disk', 'main-disk'),
+            ('main disk', 'main-disk'),
+            ('m.a/i*n#  d~i+sk', 'm-a-i-n---d-i-sk'),
+        ]
+        for (unsanitized, sanitized) in unsanitized_to_sanitized:
+            self.assertEqual(block_meta.sanitize_dname(unsanitized), sanitized)
+
 # vi: ts=4 expandtab syntax=python

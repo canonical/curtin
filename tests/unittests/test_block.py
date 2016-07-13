@@ -136,8 +136,6 @@ class TestSysBlockPath(TestCase):
         m_os_path_exists.return_value = True
         m_get_blk.return_value = ('cciss!c0d0', None)
         self.assertEqual('/sys/class/block/cciss!c0d0',
-                         block.sys_block_path('/dev/cciss!c0d0'))
-        self.assertEqual('/sys/class/block/cciss!c0d0',
                          block.sys_block_path('/dev/cciss/c0d0'))
         m_get_blk.return_value = ('cciss!c0d0', 1)
         self.assertEqual('/sys/class/block/cciss!c0d0/cciss!c0d0p1',
@@ -235,7 +233,7 @@ class TestBlockKnames(TestCase):
 
     @mock.patch('curtin.block.os.path.realpath')
     def test_path_to_kname(self, mock_os_realpath):
-        mock_os_realpath.side_effect = lambda x: x
+        mock_os_realpath.side_effect = lambda x: os.path.normpath(x)
         path_knames = [('/dev/sda', 'sda'),
                        ('/dev/sda1', 'sda1'),
                        ('/dev////dm-0/', 'dm-0'),
@@ -244,14 +242,14 @@ class TestBlockKnames(TestCase):
                        ('/dev/nvme0n0p1', 'nvme0n0p1'),
                        ('/sys/block/vdb', 'vdb'),
                        ('/sys/block/vdb/vdb2/', 'vdb2'),
-                       ('/dev/cciss!c0d0', 'cciss!c0d0'),
                        ('/dev/cciss/c0d0', 'cciss!c0d0'),
                        ('/dev/cciss/c0d0p1/', 'cciss!c0d0p1'),
+                       ('/sys/class/block/cciss!c0d0p1', 'cciss!c0d0p1'),
                        ('nvme0n1p4', 'nvme0n1p4')]
         for (path, expected_kname) in path_knames:
             self.assertEqual(block.path_to_kname(path), expected_kname)
             if os.path.sep in path:
-                mock_os_realpath.assert_called_with(os.path.normpath(path))
+                mock_os_realpath.assert_called_with(path)
 
     @mock.patch('curtin.block.os.path.exists')
     @mock.patch('curtin.block.os.path.realpath')
@@ -261,14 +259,9 @@ class TestBlockKnames(TestCase):
         kname_paths = [('sda', '/dev/sda'),
                        ('sda1', '/dev/sda1'),
                        ('/dev/sda', '/dev/sda'),
-                       ('/sys/block/sda/sda1/', '/dev/sda1'),
-                       ('/sys/class/block/cciss!c0d0/cciss!c0d0p1',
-                        '/dev/cciss/c0d0p1'),
                        ('cciss!c0d0p1', '/dev/cciss/c0d0p1'),
                        ('/dev/cciss/c0d0', '/dev/cciss/c0d0'),
-                       ('/sys/block/cciss!c0d1', '/dev/cciss/c0d1'),
-                       ('mmcblk0p1', '/dev/mmcblk0p1'),
-                       ('/sys/block/dm-9/', '/dev/dm-9')]
+                       ('mmcblk0p1', '/dev/mmcblk0p1')]
 
         mock_exists.return_value = True
         mock_os_realpath.side_effect = lambda x: x.replace('!', '/')

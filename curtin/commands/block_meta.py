@@ -204,10 +204,8 @@ def clear_holders(sys_block_path):
 
     if os.path.exists(os.path.join(sys_block_path, "md")):
         # md device
-        # block.kname_to_path designed to work on sysfs path also
-        block_dev = block.kname_to_path(sys_block_path)
-        # if these fail its okay, the array might not be assembled and thats
-        # fine
+        block_dev_kname = block.path_to_kname(sys_block_path)
+        block_dev = block.kname_to_path(block_dev_kname)
         mdadm.mdadm_stop(block_dev)
         mdadm.mdadm_remove(block_dev)
 
@@ -265,6 +263,18 @@ def determine_partition_number(partition_id, storage_config):
     return partnumber
 
 
+def sanitize_dname(dname):
+    """
+    dnames should be sanitized before writing rule files, in case maas has
+    emitted a dname with a special character
+
+    only letters, numbers and '-' and '_' are permitted, as this will be
+    used for a device path. spaces are also not permitted
+    """
+    valid = string.digits + string.ascii_letters + '-_'
+    return ''.join(c if c in valid else '-' for c in dname)
+
+
 def make_dname(volume, storage_config):
     state = util.load_command_environment()
     rules_dir = os.path.join(state['scratch'], "rules.d")
@@ -311,16 +321,10 @@ def make_dname(volume, storage_config):
         raise ValueError('cannot make dname for device with type: {}'
                          .format(vol.get('type')))
 
-    # dname should be sanitized before writing rule, in case maas has emitted a
-    # dname with a special character. if any changes were made, a warning will
-    # be emitted in log. only letters, numbers and '-' and '_' are permitted,
-    # as this will be used for a device path. spaces are also not permitted
-    #
     # note: this sanitization is done here instead of for all name attributes
     #       at the beginning of storage configuration, as some devices, such as
     #       lvm devices may use the name attribute and may permit special chars
-    valid = string.digits + string.ascii_letters + '-_'
-    sanitized = ''.join(c if c in valid else '-' for c in dname)
+    sanitized = sanitize_dname(dname)
     if sanitized != dname:
         LOG.warning(
             "dname modified to remove invalid chars. old: '{}' new: '{}'"
@@ -406,8 +410,8 @@ def get_path_to_storage_volume(volume, storage_config):
                                glob.glob("/sys/block/bcache*/slaves/*")))[0]
         while "bcache" not in os.path.split(sys_path)[-1]:
             sys_path = os.path.split(sys_path)[0]
-        # kname to path designed to work on sysfs paths as well
-        volume_path = block.kname_to_path(sys_path)
+        bcache_kname = block.path_to_kname(sys_path)
+        volume_path = block.kname_to_path(bcache_kname)
         LOG.debug('got bcache volume path {}'.format(volume_path))
 
     else:
@@ -459,7 +463,7 @@ def disk_handler(info, storage_config):
         mdadm.mdadm_assemble(scan=True)
         disk_sysfs_path = block.sys_block_path(disk)
         sysfs_partitions = list(
-            os.path.split(p)[0] for p in
+            os.path.split(prt)[0] for prt in
             glob.glob(os.path.join(disk_sysfs_path, '*', 'partition')))
         for partition in sysfs_partitions:
             clear_holders(partition)

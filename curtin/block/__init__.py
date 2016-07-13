@@ -62,24 +62,19 @@ def dev_path(devname):
 def path_to_kname(path):
     """
     converts a path in /dev or a path in /sys/block to the device kname,
-    taking special devices and unusal naming schemes into account
+    taking special devices and unusual naming schemes into account
     """
-    # in case caller has gotten a path to a link instead of the actual device,
-    # or caller specified a path with a trailing slash.
+    # if path given is a link, get real path
     # only do this if given a path though, if kname is already specified then
     # this would cause a failure where the function should still be able to run
     if os.path.sep in path:
-        path = os.path.normpath(path)
         path = os.path.realpath(path)
-    # the test for 'os.path.sep in path' that was in dev_short is not needed,
-    # as os.path.basename will not modify arg if os.path.sep not in it
-    # note that because this uses of.path.basename instead of
-    # get_dev_name_entry, it will also work on paths to /sys/block
+    # using basename here ensures that the function will work given a path in
+    # /dev, a kname, or a path in /sys/block as an arg
     dev_kname = os.path.basename(path)
-    # cciss devices need to have 'cciss!' prepended, but only if path wasn't in
-    # form /dev/cciss!cXdX (a link which does not exist on all systems)
-    if 'cciss' in path and 'cciss' not in dev_kname:
-        dev_kname = 'cciss!{}'.format(dev_kname)
+    # cciss devices need to have 'cciss!' prepended
+    if path.startswith('/dev/cciss'):
+        dev_kname = 'cciss!' + dev_kname
     LOG.debug("path_to_kname input: '{}' output: '{}'".format(path, dev_kname))
     return dev_kname
 
@@ -89,29 +84,19 @@ def kname_to_path(kname):
     converts a kname to a path in /dev, taking special devices and unusual
     naming schemes into account
     """
-    # as the old dev_path function was intended to work if given something that
-    # was already a dev path, preserve this behavior
+    # if given something that is already a dev path, return it
     if os.path.exists(kname) and is_valid_device(kname):
         path = kname
         LOG.debug("kname_to_path input: '{}' output: '{}'".format(kname, path))
         return os.path.realpath(path)
-    # if there is a separator in the kname, only take the latter part
-    kname = os.path.normpath(kname)
-    kname = os.path.basename(kname)
-    toks = ['/dev']
     # adding '/dev' to path is not sufficient to handle cciss devices and
     # possibly other special devices which have not been encountered yet
-    cciss_prefix = 'cciss!'
-    if kname.startswith(cciss_prefix) and len(kname) > len(cciss_prefix):
-        toks.extend(['cciss', kname[len(cciss_prefix):]])
-    else:
-        toks.append(kname)
+    path = os.path.realpath(os.sep.join(['/dev'] + kname.split('!')))
     # make sure path we get is correct
-    path = os.sep.join(toks)
     if not (os.path.exists(path) and is_valid_device(path)):
         raise OSError('could not get path to dev from kname: {}'.format(kname))
     LOG.debug("kname_to_path input: '{}' output: '{}'".format(kname, path))
-    return os.path.realpath(path)
+    return path
 
 
 def partition_kname(disk_kname, partition_number):
