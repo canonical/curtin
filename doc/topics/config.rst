@@ -2,7 +2,7 @@
 Curtin Configuration
 ====================
 
-Curtin exposes a number of configuration options for controlling curtin
+Curtin exposes a number of configuration options for controlling Curtin
 behavior during installation.
 
 
@@ -42,7 +42,7 @@ Configure APT mirrors for ``ubuntu_archive`` and ``ubuntu_security``
 
 **ubuntu_security**: *<http://local.archive/ubuntu>*
 
-If the target OS includes /etc/apt/sources.list, curtin will replace
+If the target OS includes /etc/apt/sources.list, Curtin will replace
 the default values for each key set with the supplied mirror URL.
 
 **Example**::
@@ -65,12 +65,12 @@ Curtin will configure an APT HTTP proxy in the target OS
 
 block-meta
 ~~~~~~~~~~
-Configure how curtin selects and configures disks on the target
+Configure how Curtin selects and configures disks on the target
 system without providing a custom configuration (mode=simple).
 
 **devices**: *<List of block devices for use>*
 
-The ``devices`` parameter is a list of block device paths that curtin may
+The ``devices`` parameter is a list of block device paths that Curtin may
 select from with choosing where to install the OS.
 
 **boot-partition**: *<dictionary of configuration>*
@@ -190,7 +190,7 @@ install
 ~~~~~~~
 Configure Curtin's install options.
 
-**log_file**: *<path to write curtin's install.log data>*
+**log_file**: *<path to write Curtin's install.log data>*
 
 Curtin logs install progress by default to /var/log/curtin/install.log
 
@@ -279,7 +279,7 @@ multipath
 Curtin will detect and autoconfigure multipath by default to enable
 boot for systems with multipath.  Curtin does not apply any advanced
 configuration or tuning, rather it uses distro defaults and provides
-enough configuration to eable booting.
+enough configuration to enable booting.
 
 **mode**: *<['auto', ['disabled']>*
 
@@ -350,7 +350,7 @@ power state change.
 
 reporting
 ~~~~~~~~~
-Configure installation reporting (Reporting section for details)
+Configure installation reporting (see Reporting section for details).
 
 **Example**::
 
@@ -372,7 +372,7 @@ If True, then Curtin will restore the interfaces file into the target.
 
 **Example**::
 
-  resrore_dist_interfaces: True
+  restore_dist_interfaces: True
 
 
 sources
@@ -384,10 +384,10 @@ configures the method used to copy the image to the target system.
 
 ``source URI`` may be one of:
 
-- **dd-**:  Use the ``dd`` program to write image to target
-- **cp://**: Use rsync to copy source directory to target.
-- **file://**: Use tar to extract source to target
-- **http[s]://**: Use wget | tar to extract source to target
+- **dd-**:  Use ``dd`` command to write image to target.
+- **cp://**: Use ``rsync`` command to copy source directory to target.
+- **file://**: Use ``tar`` command to extract source to target.
+- **http[s]://**: Use ``wget | tar`` commands to extract source to target.
 
 **Example Cloud-image**::
 
@@ -417,7 +417,11 @@ Curtin installation executes in stages.  At each stage, Curtin will look for
 a list of commands to run at each stage by reading in from the Curtin config
 *<stage_name>_commands* which is a dictionary and each key contains a list
 of commands to run.  Users may override the stages value to control
-what curtin stages execute.  The following stages are defined in Curtin and 
+what curtin stages execute.  During each stage, the commands are executed
+in C Locale sort order.  Users should name keys in a NN-XXX format where NN
+is a two-digit number to exercise control over execution order.
+
+The following stages are defined in Curtin and 
 run by default.
 
 - **early**: *Preparing for Installation*
@@ -459,19 +463,32 @@ this stage does nothing.
   # Skip the whole install and just run `mystage`
   stages: ['early', 'late', 'mystage']
   mystage_commands:
-     builtin: ['/usr/bin/foo']
+     00-cmd: ['/usr/bin/foo']
 
 **Example Early and Late commands**::
 
   early_commands:
-      builtin:  ['cat', '/proc/partitions']
+      99-cmd:  ['echo', 'I ran last']
+      00-cmd:  ['echo', 'I ran first']
   late_commands:
-      buildin: ['curtin', 'in-target' '--', 'touch', '/etc/disable_overlayroot']
+      50-cmd: ['curtin', 'in-target' '--', 'touch', '/etc/disable_overlayroot']
     
 
 swap
 ~~~~
 Curtin can configure a swapfile on the filesystem in the target system.
+Size settings can be integer or string values with suffix.  Curtin
+supports the following suffixes which multiply the value.
+
+- **B**: *1*
+- **K[B]**: *1 << 10*
+- **M[B]**: *1 << 20*
+- **G[B]**: *1 << 10*
+- **T[B]**: *1 << 10*
+
+Curtin will use a heuristic to configure the swapfile size if the ``size``
+parameter is not set to a specific value.  The ``maxsize`` sets the upper
+bound of the heuristic calculation.
 
 **filename**: *<path to swap file>* 
 
@@ -483,14 +500,15 @@ Configure the max size of the swapfile, defaults to 8GB
 
 **size**: *<Size string>*
 
-Configure the exact size of the swapfile
+Configure the exact size of the swapfile.  Setting ``size`` to 0 will
+disable swap.
 
 **Example**::
 
   swap:
     filename: swap.img
     size: None
-    maxsize: 4G
+    maxsize: 4GB
 
 
 system_upgrade
@@ -509,7 +527,7 @@ False.
 write_files
 ~~~~~~~~~~~
 Curtin supports writing out arbitrary data to a file.
-``write_files`` accepts a list of entries formated as follows:
+``write_files`` accepts a dictionary of entries formatted as follows:
 
 **path**: *<path and filename to save content>*
 
@@ -517,11 +535,11 @@ Specify the name and location of where to write the content.
 
 **permissions**: *<Unix permission string>*
 
-Specify the permissions mode string for the file.
+Specify the permissions mode as an integer or string of numbers.
 
 **content**: *<data>*
 
-Specify the content.  Some prefixes can be used, such as !!binary
+Specify the content.
 
 **Example**::
 
