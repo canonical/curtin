@@ -411,7 +411,9 @@ def find_apt_mirror_info(cfg):
        If the generic apt_mirror is given that is defining for both
     """
     pmirror = get_mirror(cfg, "primary")
+    LOG.info("got primary mirror: %s", pmirror)
     smirror = get_mirror(cfg, "security")
+    LOG.info("got security mirror: %s", smirror)
 
     # Note: curtin has no cloud-datasource fallback
 

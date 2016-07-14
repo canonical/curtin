@@ -467,5 +467,31 @@ class TestAptSourceConfig(TestCase):
                                     'Acquire::ftp::Proxy "foobar3";\n'
                                     'Acquire::https::Proxy "foobar4";\n'))
 
+    def test_mirror_search(self):
+        """test_mirror_search - Test searching mirrors in a list
+            mock checks to avoid relying on network connectivity"""
+        pmir = "http://us.archive.ubuntu.com/ubuntu/"
+        smir = "http://security.ubuntu.com/ubuntu/"
+        cfg = {"primary_search":
+               ["pfailme",
+                pmir],
+               "security_search":
+               ["sfailme",
+                smir]}
+
+        with mock.patch.object(apt, 'search_for_mirror',
+                               side_effect=[pmir, smir]) as mocksearch:
+            mirrors = apt.find_apt_mirror_info(cfg)
+
+        calls = [call(["pfailme", pmir]),
+                 call(["sfailme", smir])]
+        mocksearch.assert_has_calls(calls)
+
+        self.assertEqual(mirrors['MIRROR'],
+                         pmir)
+        self.assertEqual(mirrors['PRIMARY'],
+                         pmir)
+        self.assertEqual(mirrors['SECURITY'],
+                         smir)
 
 # vi: ts=4 expandtab
