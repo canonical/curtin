@@ -585,11 +585,6 @@ class TestAptSourceConfig(TestCase):
                  call(cfg, 'security')]
         mockgm.assert_has_calls(calls)
 
-        # should not be called, since primary is specified
-        with mock.patch.object(apt, 'search_for_mirror_dns') as mocksdns:
-            mirrors = apt.find_apt_mirror_info(cfg)
-        mocksdns.assert_not_called()
-
         # this should be the winner by priority, despite config order
         with mock.patch.object(apt, 'search_for_mirror',
                                side_effect=[pmir, smir]) as mocksearch:
