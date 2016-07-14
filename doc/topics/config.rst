@@ -483,8 +483,8 @@ supports the following suffixes which multiply the value.
 - **B**: *1*
 - **K[B]**: *1 << 10*
 - **M[B]**: *1 << 20*
-- **G[B]**: *1 << 10*
-- **T[B]**: *1 << 10*
+- **G[B]**: *1 << 30*
+- **T[B]**: *1 << 40*
 
 Curtin will use a heuristic to configure the swapfile size if the ``size``
 parameter is not set to a specific value.  The ``maxsize`` sets the upper
