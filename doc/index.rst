@@ -13,6 +13,7 @@ Contents:
    :maxdepth: 2
 
    topics/overview
+   topics/config
    topics/networking
    topics/storage
    topics/reporting
