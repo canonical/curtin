@@ -325,6 +325,84 @@ def add_apt_sources(srcdict, target, template_params=None, aa_repo_match=None):
     return
 
 
+def search_for_mirror(candidates):
+    """
+    Search through a list of mirror urls for one that works
+    This needs to return quickly.
+    """
+    if candidates is None:
+        return None
+
+    for cand in candidates:
+        try:
+            if util.is_resolvable_url(cand):
+                return cand
+        except Exception:
+            pass
+    return None
+
+
+def search_for_mirror_dns(enabled, mirrortext):
+    "builds a list of potential mirror to check"
+    if enabled is None or config.value_as_boolean(enabled) is False:
+        return None
+
+    mydom = ""
+    doms = []
+
+    # curtin has no fqdn/hostname in config as cloud-init
+    # but if we got a hostname by dhcp, then search its domain portion first
+    (fqdn, _) = util.subp(["hostname", "--fqdn"], rcs=[0], capture=True)
+    mydom = ".".join(fqdn.split(".")[1:])
+    if mydom:
+        doms.append(".%s" % mydom)
+
+    doms.extend((".localdomain", "",))
+
+    potential_mirror_list = []
+    # for curtin just ubuntu instead of fetching from datasource
+    distro = "ubuntu"
+    mirrorfmt = "http://%s-%s%s/%s" % (distro, mirrortext, "%s", distro)
+    for post in doms:
+        potential_mirror_list.append(mirrorfmt % (post))
+
+    return search_for_mirror(potential_mirror_list)
+
+
+def update_mirror_info(pmirror, smirror):
+    """sets security mirror to primary if not defined.
+       returns defaults if no mirrors are defined"""
+    if pmirror is not None:
+        if smirror is None:
+            smirror = pmirror
+        return {'PRIMARY': pmirror,
+                'SECURITY': smirror}
+    return DEFAULT_MIRRORS
+
+
+def get_mirror(cfg, mirrortype):
+    """pass the three potential stages of mirror specification
+       returns None is neither of them found anything otherwise the first
+       hit is returned"""
+    # directly specified
+    mirror = cfg.get(mirrortype, None)
+    if mirror is None:
+        # list of mirrors to try to resolve
+        mirror = search_for_mirror(cfg.get("%s_search" % mirrortype, None))
+
+    if mirror is None:
+        # search for predfined dns patterns
+        if mirrortype == "primary":
+            pattern = "mirror"
+        else:
+            pattern = "%s-mirror" % mirrortype
+        mirror = search_for_mirror_dns(cfg.get("%s_search_dns" % mirrortype,
+                                               None),
+                                       pattern)
+
+    return mirror
+
+
 def find_apt_mirror_info(cfg):
     """find_apt_mirror_info
        find an apt_mirror given the cfg provided.
@@ -332,13 +410,12 @@ def find_apt_mirror_info(cfg):
        If only primary is given security is assumed to be equal to primary
        If the generic apt_mirror is given that is defining for both
     """
+    pmirror = get_mirror(cfg, "primary")
+    smirror = get_mirror(cfg, "security")
 
-    mirror_info = DEFAULT_MIRRORS
-    pmirror = cfg.get("primary", None)
-    smirror = cfg.get("security", pmirror)
-    if pmirror is not None:
-        mirror_info = {'PRIMARY': pmirror,
-                       'SECURITY': smirror}
+    # Note: curtin has no cloud-datasource fallback
+
+    mirror_info = update_mirror_info(pmirror, smirror)
 
     # less complex replacements use only MIRROR, derive from primary
     mirror_info["MIRROR"] = mirror_info["PRIMARY"]

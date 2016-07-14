@@ -24,11 +24,19 @@ import os
 import platform
 import re
 import shutil
+import socket
 import subprocess
 import stat
 import sys
 import tempfile
 import time
+
+# avoid the dependency to python3-six as used in cloud-init for now
+try:
+    import urlparse
+except ImportError:
+    # python3
+    from urllib.parse import urlparse
 
 from .log import LOG
 
@@ -36,6 +44,8 @@ _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
 _INSTALLED_MAIN = '/usr/bin/curtin'
 
 _LSB_RELEASE = {}
+
+_DNS_REDIRECT_IP = None
 
 # matcher used in template rendering functions
 BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
@@ -986,6 +996,54 @@ def render_string(content, params):
     if not params:
         params = {}
     return basic_template_render(content, params)
+
+
+def is_resolvable(name):
+    """determine if a url is resolvable, return a boolean
+    This also attempts to be resilent against dns redirection.
+
+    Note, that normal nsswitch resolution is used here.  So in order
+    to avoid any utilization of 'search' entries in /etc/resolv.conf
+    we have to append '.'.
+
+    The top level 'invalid' domain is invalid per RFC.  And example.com
+    should also not exist.  The random entry will be resolved inside
+    the search list.
+    """
+    global _DNS_REDIRECT_IP
+    if _DNS_REDIRECT_IP is None:
+        badips = set()
+        badnames = ("does-not-exist.example.com.", "example.invalid.")
+        badresults = {}
+        for iname in badnames:
+            try:
+                result = socket.getaddrinfo(iname, None, 0, 0,
+                                            socket.SOCK_STREAM,
+                                            socket.AI_CANONNAME)
+                badresults[iname] = []
+                for (_, _, _, cname, sockaddr) in result:
+                    badresults[iname].append("%s: %s" % (cname, sockaddr[0]))
+                    badips.add(sockaddr[0])
+            except (socket.gaierror, socket.error):
+                pass
+        _DNS_REDIRECT_IP = badips
+        if badresults:
+            LOG.debug("detected dns redirection: %s", badresults)
+
+    try:
+        result = socket.getaddrinfo(name, None)
+        # check first result's sockaddr field
+        addr = result[0][4][0]
+        if addr in _DNS_REDIRECT_IP:
+            return False
+        return True
+    except (socket.gaierror, socket.error):
+        return False
+
+
+def is_resolvable_url(url):
+    """determine if this url is resolvable (existing or ip)."""
+    return is_resolvable(urlparse.urlparse(url).hostname)
 
 
 # vi: ts=4 expandtab syntax=python
