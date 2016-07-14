@@ -344,7 +344,7 @@ def search_for_mirror(candidates):
 
 def search_for_mirror_dns(enabled, mirrortext):
     "builds a list of potential mirror to check"
-    if enabled is None or config.value_as_boolean(enabled) is False:
+    if enabled is None or not enabled:
         return None
 
     mydom = ""

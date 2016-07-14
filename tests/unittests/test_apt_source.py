@@ -494,4 +494,49 @@ class TestAptSourceConfig(TestCase):
         self.assertEqual(mirrors['SECURITY'],
                          smir)
 
+    def test_mirror_search_dns(self):
+        """test_mirror_search_dns - Test searching dns patterns"""
+        pmir = "phit"
+        smir = "shit"
+        cfg = {"primary_search_dns": True,
+               "security_search_dns": True}
+
+        with mock.patch.object(apt, 'get_mirror') as mockgm:
+            mirrors = apt.find_apt_mirror_info(cfg)
+        calls = [call(cfg, 'primary'),
+                 call(cfg, 'security')]
+        mockgm.assert_has_calls(calls)
+
+        with mock.patch.object(apt, 'search_for_mirror_dns') as mocksdns:
+            mirrors = apt.find_apt_mirror_info(cfg)
+        calls = [call(True, 'mirror'),
+                 call(True, 'security-mirror')]
+        mocksdns.assert_has_calls(calls)
+
+        # first return is for the non-dns call before
+        with mock.patch.object(apt, 'search_for_mirror',
+                               side_effect=[None, pmir, None, smir]) as mockse:
+            with mock.patch.object(util, 'subp',
+                                   return_value=('host.sub.com', '')) as mocks:
+                mirrors = apt.find_apt_mirror_info(cfg)
+
+        calls = [call(None),
+                 call(['http://ubuntu-mirror.sub.com/ubuntu',
+                       'http://ubuntu-mirror.localdomain/ubuntu',
+                       'http://ubuntu-mirror/ubuntu']),
+                 call(None),
+                 call(['http://ubuntu-security-mirror.sub.com/ubuntu',
+                       'http://ubuntu-security-mirror.localdomain/ubuntu',
+                       'http://ubuntu-security-mirror/ubuntu'])]
+        mockse.assert_has_calls(calls)
+        mocks.assert_called_with(['hostname', '--fqdn'], capture=True, rcs=[0])
+
+        self.assertEqual(mirrors['MIRROR'],
+                         pmir)
+        self.assertEqual(mirrors['PRIMARY'],
+                         pmir)
+        self.assertEqual(mirrors['SECURITY'],
+                         smir)
+
+
 # vi: ts=4 expandtab
