@@ -184,9 +184,38 @@ def shutdown_lvm(device):
     return (wipe_func, catcher.caught)
 
 
+def _subfile_exists(subfile, basedir):
+    """tests if 'subfile' exists under basedir"""
+    return os.path.exists(os.path.join(basedir, subfile))
+
+
+# types of devices that could be encountered by clear holders and functions to
+# identify them and shut them down
+# both ident and shutdown methods should have a signature taking 1 parameter
+# for sysfs path to device to operate on
+# a none type for shutdown means take no action
+DEV_TYPES = (
+    {'name': 'partition', 'shutdown': None,
+     'ident': functools.partial(_subfile_exists, 'partition')},
+    # FIXME: below is not the best way to identify lvm, it should be replaced
+    #        once there is a method in place to differentiate plain
+    #        devicemapper from lvm controlled devicemapper
+    {'name': 'lvm', 'shutdown': shutdown_lvm,
+     'ident': functools.partial(_subfile_exists, 'dm')},
+    {'name': 'raid', 'shutdown': shutdown_mdadm,
+     'ident': functools.partial(_subfile_exists, 'md')},
+    {'name': 'bcache', 'shutdown': shutdown_bcache,
+     'ident': functools.partial(_subfile_exists, 'bcache')},
+)
+
+# anything that is not identified can assumed to be a 'disk' or similar
+# which does not requre special action to shutdown
+DEFAULT_DEV_TYPE = {'name': 'disk', 'ident': lambda x: True, 'shutdown': None}
+
+
 def get_holders(device):
     """
-    Look up any block device holders.
+    Look up any block device holders, return list of knames
     Can handle devices and partitions as devnames (vdb, md0, vdb7)
     Can also handle devices and partitions by path in /sys/
     Will not raise io errors, but will collect and return them
@@ -210,7 +239,35 @@ def get_holders(device):
         holders = os.listdir(os.path.join(sysfs_path, 'holders'))
 
     LOG.debug("devname '%s' had holders: %s", device, ','.join(holders))
-    return (holders, catcher.caught)
+    # return (holders, catcher.caught)
+    return holders
+
+
+def gen_holders_tree(device):
+    """
+    starting from a base device generate a tree representing the current
+    storage hirearchy
+
+    can take input as path in /dev /sys/block or a knam
+    """
+    device = block.sys_block_path(device)
+    res = {
+        'device': device,
+        'holders': [gen_holders_tree(h) for h in
+                    [block.sys_block_path(h) for h in get_holders(device)]],
+        'dev_type': next((t for t in DEV_TYPES if t['ident'](device)),
+                         DEFAULT_DEV_TYPE),
+    }
+    return res
+
+
+def merge_holders_tree(holders_trees):
+    """
+    merge holders tress together, detecting if holding devices are sharing
+    multiple base devices, such as a lvm partition across multiple backing
+    devices
+    """
+    pass
 
 
 def clear_holders(device):
