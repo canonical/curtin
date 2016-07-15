@@ -1,4 +1,5 @@
 from unittest import TestCase
+import unittest
 import mock
 
 from curtin.block import clear_holders
@@ -8,6 +9,7 @@ import errno
 import os
 
 
+@unittest.skip
 class TestClearHolders(TestCase):
 
     def test_split_vg_lv_name(self):
