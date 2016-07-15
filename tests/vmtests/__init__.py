@@ -508,8 +508,8 @@ class VMBaseClass(TestCase):
                 fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)
 
-            # make our own copy so we can store guest modified values
-            cmd.extend(["--uefi-nvram", nvram])
+            nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
+            cmd.extend(["--uefi-nvram=%s" % nvram])
 
         if cls.multipath:
             disks = disks * cls.multipath_num_paths
