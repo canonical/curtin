@@ -39,12 +39,6 @@ DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
 IMAGE_SYNCS = []
 TARGET_IMAGE_FORMAT = "raw"
-OVMF_CODE = "/usr/share/OVMF/OVMF_CODE.fd"
-OVMF_VARS = "/usr/share/OVMF/OVMF_VARS.fd"
-# precise -> vivid don't have split UEFI firmware, fallback
-if not os.path.exists(OVMF_CODE):
-    OVMF_CODE = "/usr/share/ovmf/OVMF.fd"
-    OVMF_VARS = OVMF_CODE
 
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
@@ -515,9 +509,7 @@ class VMBaseClass(TestCase):
             configs.append(grub_config)
 
             # make our own copy so we can store guest modified values
-            nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
-            shutil.copy(OVMF_VARS, nvram)
-            cmd.extend(["--uefi", nvram])
+            cmd.extend(["--uefi-nvram", nvram])
 
         if cls.multipath:
             disks = disks * cls.multipath_num_paths
@@ -640,13 +632,7 @@ class VMBaseClass(TestCase):
 
         if cls.uefi:
             logger.debug("Testcase requested booting with UEFI")
-            uefi_opts = ["-drive", "if=pflash,format=raw,file=" + nvram]
-            if OVMF_CODE != OVMF_VARS:
-                # reorder opts, code then writable space
-                uefi_opts = (["-drive",
-                              "if=pflash,format=raw,readonly,file=" +
-                              OVMF_CODE] + uefi_opts)
-            cmd.extend(uefi_opts)
+            cmd.extend(["--uefi-nvram=%s" % nvram])
 
         # run vm with installed system, fail if timeout expires
         try:

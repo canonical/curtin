@@ -75,6 +75,10 @@ Usage: ${0##*/} [ options ] -- kvm-args [ ... ]
       -d | --disk  DISK.img   attach DISK.img as a disk (via virtio)
            --dry-run          only report what would be done
 
+           --uefi             boot with efi
+           --uefi-nvram=FILE  boot with efi, using nvram settings in FILE
+                              if FILE not present, copy from defaults.
+
    NETDEV:
     Above, 'NETDEV' is a comma delimited string
     The first field must be
@@ -239,9 +243,57 @@ quote_cmd() {
     echo "$vline"
 }
 
+get_bios_opts() {
+    # get_bios_opts(bios, uefi, nvram)
+    # bios is a explicit bios to boot.
+    # uefi is boolean indicating uefi
+    # nvram is optional and indicates a p
+    local bios="$1" uefi="${2:-false}" nvram="$3"
+    local ovmf_dir="/usr/share/OVMF"
+    local bios_opts="" pflash_common="if=pflash,format=raw"
+    unset _RET
+    _RET=( )
+    if [ -n "$bios" ]; then
+        _RET=( -drive "${pflash_common},file=$bios" )
+        return 0
+    elif $uefi; then
+        local ovmf_code="/usr/share/ovmf/OVMF.fd"
+        local ovmf_var="${ovmf_code}"
+        if [ -f "$ovmf_dir/OVMF_VARS.fd" ]; then
+            # use the split UEFI code and vars (anything newer than vivid)
+            ovmf_code="$ovmf_dir/OVMF_CODE.fd"
+            ovmf_var="$ovmf_dir/OVMF_VARS.fd"
+        fi
+        [ -f "$ovmf_code" ] || {
+            error "uefi support requires ovmf bios: apt-get install -qy ovmf"
+            return 1;
+        }
+        if [ -n "$nvram" ]; then
+            # user specified where to write nvram data in --uefi-nvram
+            # pre-populate it with the OVMF_VARS.fd template
+            if [ ! -f "$nvram" ]; then
+                cp -a "${ovmf_var}" "${nvram}" || {
+                    error "failed to create OVMF nvram file: '$nvram'"
+                    return 1;
+                }
+            fi
+        else
+            nvram="$ovmf_var"
+        fi
+
+        unset _RET
+        _RET=( -drive "${pflash_common},file=$ovmf_code,readonly" )
+        if [ "$nvram" != "$ovmf_var" ]; then
+            # to ensure bootability firmware must be first, then variables
+            _RET=( "${_RET[@]}" -drive "${pflash_common},file=$nvram" )
+        fi
+        return 0
+    fi
+}
+
 main() {
     local short_opts="hd:n:v"
-    local long_opts="help,dowait,disk:,dry-run,kvm:,no-dowait,netdev:,verbose"
+    local long_opts="bios:,help,dowait,disk:,dry-run,kvm:,no-dowait,netdev:,uefi,uefi-nvram:,verbose"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -252,6 +304,7 @@ main() {
     local kvm="" kvmcmd="" archopts=""
     local def_disk_driver=${DEF_DISK_DRIVER:-"virtio-blk"}
     local def_netmodel=${DEF_NETMODEL:-"virtio-net-pci"}
+    local bios="" uefi=false uefi_nvram=""
 
     archopts=( )
     kvmcmd=( )
@@ -282,6 +335,9 @@ main() {
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
             --dowait) dowait=true;;
             --no-dowait) dowait=false;;
+            --bios) bios="$next"; shift;;
+            --uefi) uefi=true;;
+            --uefi-nvram) uefi=true; uefi_nvram="$next"; shift;;
             --) shift; break;;
         esac
         shift;
@@ -320,6 +376,15 @@ main() {
     esac
     KVM="$kvm"
     kvmcmd=( $kvm -enable-kvm )
+
+    local bios_opts=""
+    if [ -n "$bios" ] && $uefi; then
+        error "--uefi (or --uefi-nvram) is incompatible with --bios"
+        return 1
+    fi
+    get_bios_opts "$bios" "$uefi" "$uefi_nvram" ||
+        { error "failed to get bios opts"; return 1; }
+    bios_opts=( "${_RET[@]}" )
 
     local out="" fmt="" bus="" unit="" index="" serial="" driver="" devopts=""
     local busorindex="" driveopts="" cur="" val="" file=""
@@ -538,7 +603,9 @@ main() {
 
     local bus_devices
     bus_devices=( -device "$virtio_scsi_bus,id=virtio-scsi-xkvm" )
-    cmd=( "${kvmcmd[@]}" "${archopts[@]}" "${bus_devices[@]}"
+    cmd=( "${kvmcmd[@]}" "${archopts[@]}" 
+          "${bios_opts[@]}"
+          "${bus_devices[@]}"
           "${netargs[@]}"
           "${diskargs[@]}" "${pt[@]}" )
     local pcmd=$(quote_cmd "${cmd[@]}")
