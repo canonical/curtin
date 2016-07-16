@@ -128,7 +128,8 @@ class TestReporter(TestCase):
     def test_webhook_handler(self, mock_url_helper):
         event = events.ReportingEvent(events.START_EVENT_TYPE, 'test_event',
                                       'test event', level='INFO')
-        webhook_handler = handlers.WebHookHandler('127.0.0.1:8000')
+        webhook_handler = handlers.WebHookHandler('127.0.0.1:8000',
+                                                  level='INFO')
         webhook_handler.publish_event(event)
         webhook_handler.oauth_helper.geturl.assert_called_with(
             url='127.0.0.1:8000', data=event.as_dict(),
@@ -136,7 +137,6 @@ class TestReporter(TestCase):
         event.level = 'DEBUG'
         webhook_handler.oauth_helper.geturl.called = False
         webhook_handler.publish_event(event)
-        self.assertFalse(webhook_handler.oauth_helper.geturl.called)
         webhook_handler = handlers.WebHookHandler('127.0.0.1:8000',
                                                   level="INVALID")
         self.assertEquals(webhook_handler.level, 30)
@@ -194,3 +194,24 @@ class TestReporter(TestCase):
                              base64.b64encode(test_data).decode())
         finally:
             os.remove(tmp[1])
+
+    @patch('curtin.url_helper.OauthUrlHelper')
+    def test_webhook_handler_post_files(self, mock_url_helper):
+        test_data = b'abcdefg'
+        tmp = tempfile.mkstemp()
+        tmpfname = tmp[1]
+        try:
+            with open(tmpfname, 'wb') as fp:
+                fp.write(test_data)
+            event = events.FinishReportingEvent('test_event_name',
+                                                'test event description',
+                                                post_files=[tmpfname],
+                                                level='INFO')
+            webhook_handler = handlers.WebHookHandler('127.0.0.1:8000',
+                                                      level='INFO')
+            webhook_handler.publish_event(event)
+            webhook_handler.oauth_helper.geturl.assert_called_with(
+                url='127.0.0.1:8000', data=event.as_dict(),
+                headers=webhook_handler.headers, retries=None)
+        finally:
+            os.remove(tmpfname)

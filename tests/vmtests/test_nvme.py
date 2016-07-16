@@ -33,6 +33,7 @@ class TestNvmeAbs(VMBaseClass):
         cat /etc/fstab > fstab
         mkdir -p /dev/disk/by-dname
         ls /dev/disk/by-dname/ > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
 
         v=""
         out=$(apt-config shell v Acquire::HTTP::Proxy)
@@ -73,13 +74,13 @@ class TrustyTestNvme(relbase.trusty, TestNvmeAbs):
         print("test_ptable does not work for Trusty")
 
 
-class VividTestNvme(relbase.vivid, TestNvmeAbs):
-    __test__ = True
-
-
 class WilyTestNvme(relbase.wily, TestNvmeAbs):
     __test__ = True
 
 
 class XenialTestNvme(relbase.xenial, TestNvmeAbs):
+    __test__ = True
+
+
+class YakketyTestNvme(relbase.yakkety, TestNvmeAbs):
     __test__ = True

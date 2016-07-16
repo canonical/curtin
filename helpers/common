@@ -356,15 +356,17 @@ pt_prep() {
     local cmd="" isblk=false
     [ -b "$target" ] && isblk=true
 
+    local pprep="1" proot="2"
     wipedev "$target" ||
         { error "failed to clear $target"; return 1; }
 
     cmd=(
         sgdisk
-           --new "1::+8M"  --typecode=1:4100
-           --new "2::$end" --typecode=2:8300
+           --new "${pprep}::+8M"  "--typecode=${pprep}:4100"
+           --new "${proot}::$end" "--typecode=${proot}:8300"
            "$target"
     )
+    debug 1 "partitioning '$target' with ${cmd[*]}"
     "${cmd[@]}" ||
         fail "Failed to create GPT partitions (${cmd[*]})"
 
@@ -374,13 +376,13 @@ pt_prep() {
     if $isblk; then
         blockdev --rereadpt "$target"
         udevadm settle
-        assert_partitions "$target" 1 2 ||
+        assert_partitions "$target" "${proot}" "${pprep}"  ||
             { error "$target missing partitions: $_RET"; return 1; }
         # wipe the full prep partition
-        wipe_partitions --full "$target" 1 ||
+        wipe_partitions --full "$target" "${pprep}" ||
             { error "$target: failed to wipe full PReP partition"; return 1;}
-        wipe_partitions "$target" 2 ||
-            { error "$target: failed to wipe partition 2"; return 1;}
+        wipe_partitions "$target" "${proot}" ||
+            { error "$target: failed to wipe partition ${proot}"; return 1;}
     fi
 
     return 0
@@ -695,6 +697,12 @@ install_grub() {
             "${grub_name}" "${grub_target}" "$nvram" </dev/null ||
             { error "failed to install grub!"; return 1; }
     else
+        # Note: dpkg-reconfigure calls grub-install on ppc64
+        # this means that using '--no-nvram' below ends up
+        # failing very oddly.  This is because grub's post-inst
+        # runs grub-install with no target.  That ends up
+        # updating nvram badly, and then the grub-install would
+        # not fix it because of the no-nvram there.
         debug 1 "installing ${grub_name} to: ${grubdevs[*]}"
         chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
             pkg=$1; shift;

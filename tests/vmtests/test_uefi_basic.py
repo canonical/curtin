@@ -23,6 +23,7 @@ class TestBasicAbs(VMBaseClass):
         cat /etc/fstab > fstab
         mkdir -p /dev/disk/by-dname
         ls /dev/disk/by-dname/ > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
         ls /sys/firmware/efi/ > ls_sys_firmware_efi
         cat /sys/class/block/vda/queue/logical_block_size > vda_lbs
         cat /sys/class/block/vda/queue/physical_block_size > vda_pbs
@@ -107,11 +108,11 @@ class WilyUefiTestBasic(relbase.wily, TestBasicAbs):
     __test__ = True
 
 
-class VividUefiTestBasic(relbase.vivid, TestBasicAbs):
+class XenialUefiTestBasic(relbase.xenial, TestBasicAbs):
     __test__ = True
 
 
-class XenialUefiTestBasic(relbase.xenial, TestBasicAbs):
+class YakketyUefiTestBasic(relbase.yakkety, TestBasicAbs):
     __test__ = True
 
 
@@ -123,13 +124,13 @@ class TrustyUefiTestBasic4k(TrustyUefiTestBasic):
     disk_block_size = 4096
 
 
-class VividUefiTestBasic4k(VividUefiTestBasic):
-    disk_block_size = 4096
-
-
 class WilyUefiTestBasic4k(WilyUefiTestBasic):
     disk_block_size = 4096
 
 
 class XenialUefiTestBasic4k(XenialUefiTestBasic):
+    disk_block_size = 4096
+
+
+class YakketyUefiTestBasic4k(YakketyUefiTestBasic):
     disk_block_size = 4096

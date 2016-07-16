@@ -288,6 +288,16 @@ def load_file(path, mode="r"):
         return fp.read()
 
 
+def del_file(path):
+    try:
+        os.unlink(path)
+        LOG.debug("del_file: removed %s", path)
+    except OSError as e:
+        LOG.exception("del_file: %s did not exist.", path)
+        if e.errno != errno.ENOENT:
+            raise e
+
+
 def disable_daemons_in_root(target):
     contents = "\n".join(
         ['#!/bin/sh',
@@ -487,6 +497,62 @@ def has_pkg_installed(pkg, target=None):
         return out.rstrip() == "ii"
     except ProcessExecutionError:
         return False
+
+
+def parse_dpkg_version(raw, name=None, semx=None):
+    """Parse a dpkg version string into various parts and calcualate a
+       numerical value of the version for use in comparing package versions
+
+       returns a dictionary with the results
+    """
+    if semx is None:
+        semx = (10000, 100, 1)
+
+    upstream = raw.split('-')[0]
+    toks = upstream.split(".", 2)
+    if len(toks) == 3:
+        major, minor, micro = toks
+    elif len(toks) == 2:
+        major, minor, micro = (toks[0], toks[1], 0)
+    elif len(toks) == 1:
+        major, minor, micro = (toks[0], 0, 0)
+
+    version = {
+        'major': major,
+        'minor': minor,
+        'micro': micro,
+        'raw': raw,
+        'upstream': upstream,
+    }
+    if name:
+        version['name'] = name
+
+    if semx:
+        try:
+            version['semantic_version'] = int(
+                int(major) * semx[0] + int(minor) * semx[1] +
+                int(micro) * semx[2])
+        except (ValueError, IndexError):
+            version['semantic_version'] = None
+
+    return version
+
+
+def get_package_version(pkg, target=None, semx=None):
+    """Use dpkg-query to extract package pkg's version string
+       and parse the version string into a dictionary
+    """
+    chroot = []
+    if target is not None:
+        chroot = ['chroot', target]
+    try:
+        out, _ = subp(chroot + ['dpkg-query', '--show', '--showformat',
+                                '${Version}', pkg],
+                      capture=True)
+        raw = out.rstrip()
+        return parse_dpkg_version(raw, name=pkg, semx=semx)
+    except ProcessExecutionError:
+        return None
 
 
 def find_newer(src, files):
