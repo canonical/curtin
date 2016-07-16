@@ -254,7 +254,8 @@ def gen_holders_tree(device):
     res = {
         'device': device,
         'holders': [gen_holders_tree(h) for h in
-                    [block.sys_block_path(h) for h in get_holders(device)]],
+                    ([block.sys_block_path(h) for h in get_holders(device)] +
+                     block.get_sysfs_partitions(device))],
         'dev_type': next((t for t in DEV_TYPES if t['ident'](device)),
                          DEFAULT_DEV_TYPE),
     }
