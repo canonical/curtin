@@ -211,6 +211,17 @@ def get_blockdev_for_partition(devpath):
     return (diskdevpath, ptnum)
 
 
+def get_sysfs_partitions(device):
+    """
+    get a list of sysfs paths for partitions under a block device
+    accepts input as a device kname, sysfs path, or dev path
+    returns empty list if no partitions available
+    """
+    sysfs_path = sys_block_path(device)
+    return [sys_block_path(kname) for kname in os.listdir(sysfs_path)
+            if os.path.exists(os.path.join(sysfs_path, kname, 'partition'))]
+
+
 def get_pardevs_on_blockdevs(devs):
     # return a dict of partitions with their info that are on provided devs
     if devs is None:

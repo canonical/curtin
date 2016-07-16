@@ -346,11 +346,7 @@ def disk_handler(info, storage_config):
     if info.get('wipe') and info.get('wipe') != "none":
         # The disk has a lable, clear all partitions
         mdadm.mdadm_assemble(scan=True)
-        disk_kname = os.path.split(disk)[-1]
-        syspath_partitions = list(
-            os.path.split(prt)[0] for prt in
-            glob.glob("/sys/block/%s/*/partition" % disk_kname))
-        for partition in syspath_partitions:
+        for partition in block.get_sysfs_partitions(disk):
             clear_holders.check_clear(partition)
             # in some cases the block dev may not be available when it is
             # to be erased. since it is possible that installation can
