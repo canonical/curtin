@@ -5,6 +5,7 @@ import glob
 import os
 import re
 import shutil
+import socket
 import tempfile
 
 from unittest import TestCase
@@ -600,5 +601,38 @@ class TestAptSourceConfig(TestCase):
         self.assertEqual(mirrors['SECURITY'],
                          smir)
 
+    def test_url_resolvable(self):
+        """test_url_resolvable - Test resolving urls"""
+
+        with mock.patch.object(util, 'is_resolvable') as mockresolve:
+            util.is_resolvable_url("http://1.2.3.4/ubuntu")
+        mockresolve.assert_called_with("1.2.3.4")
+
+        with mock.patch.object(util, 'is_resolvable') as mockresolve:
+            util.is_resolvable_url("http://us.archive.ubuntu.com/ubuntu")
+        mockresolve.assert_called_with("us.archive.ubuntu.com")
+
+        bad = [(None, None, None, "badname", ["10.3.2.1"])]
+        good = [(None, None, None, "goodname", ["10.2.3.4"])]
+        with mock.patch.object(socket, 'getaddrinfo',
+                               side_effect=[bad, bad, good,
+                                            good]) as mocksock:
+            ret = util.is_resolvable_url("http://us.archive.ubuntu.com/ubuntu")
+            ret2 = util.is_resolvable_url("http://1.2.3.4/ubuntu")
+        calls = [call('does-not-exist.example.com.', None, 0, 0, 1, 2),
+                 call('example.invalid.', None, 0, 0, 1, 2),
+                 call('us.archive.ubuntu.com', None),
+                 call('1.2.3.4', None)]
+        mocksock.assert_has_calls(calls)
+        self.assertTrue(ret)
+        self.assertTrue(ret2)
+
+        # side effect need only bad ret after initial call
+        with mock.patch.object(socket, 'getaddrinfo',
+                               side_effect=[bad]) as mocksock:
+            ret3 = util.is_resolvable_url("http://failme.com/ubuntu")
+        calls = [call('failme.com', None)]
+        mocksock.assert_has_calls(calls)
+        self.assertFalse(ret3)
 #
 # vi: ts=4 expandtab
