@@ -141,8 +141,35 @@ apt:
   # one can set primary and security mirror to different url's
   primary: http://us.archive.ubuntu.com/ubuntu
   security: http://security.ubuntu.com/ubuntu
-  # secondary is optional
-  # if none at all are specified it will use:
+  # security is optional, if not defined it is set to the value of primary
+  primary_search:
+    - http://cool.but-sometimes-unreachable.com/ubuntu
+    - http://us.archive.ubuntu.com/ubuntu
+  security_search:
+    - http://security.ubuntu.com/ubuntu
+    - http://falbackrouting.security.ubuntu.com/ubuntu
+  # via the primary_search and security_search one can define lists that are
+  # tried one by one. The first with a working DNS resolution (or if it is an
+  # IP) will be picked. That way one can keep one configuration for multiple
+  # subenvironments that select the working one.
+  #
+  primary_search_dns: True
+  security_search_dns: True
+  # This will search for <distro>-mirror locally and at the fqdn of the system.
+  # If resolving that will be used as archive. That allows configuring local
+  # mirrors via providing certin DNS names via a local nameserver.
+  # These can even be set to resolve to the public names of defaults like
+  # archive.ubuntu.com as long as they are reachable from the target.
+  # For security it will search <distro>-security-mirror
+  #
+  # If multiple of a category are given
+  #   1. primary
+  #   2. primary_search
+  #   3. primary_search_dn
+  #are given the first defining a valid mirror wins (in the
+  # order as defined here, not the one it is listed in the config).
+  # 
+  # if no mirrors are specified at all, or all lookups fail it will use:
   # primary: http://archive.ubuntu.com/ubuntu
   # security: http://security.ubuntu.com/ubuntu
 
