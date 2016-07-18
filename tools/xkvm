@@ -248,7 +248,7 @@ get_bios_opts() {
     # bios is a explicit bios to boot.
     # uefi is boolean indicating uefi
     # nvram is optional and indicates that ovmf vars should be copied
-    #  to that file if it does not exist. if it exists, use it.
+    # to that file if it does not exist. if it exists, use it.
     local bios="$1" uefi="${2:-false}" nvram="$3"
     local ovmf_dir="/usr/share/OVMF"
     local bios_opts="" pflash_common="if=pflash,format=raw"
