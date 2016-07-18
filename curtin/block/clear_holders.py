@@ -245,13 +245,10 @@ def get_holders(device):
 
 def gen_holders_tree(device):
     """
-    starting from a base device generate a tree representing the current
-    storage hirearchy
-
-    can take input as path in /dev /sys/block or a knam
+    generate a tree representing the current storage hirearchy above 'device'
     """
     device = block.sys_block_path(device)
-    res = {
+    return {
         'device': device,
         'holders': [gen_holders_tree(h) for h in
                     ([block.sys_block_path(h) for h in get_holders(device)] +
@@ -259,16 +256,86 @@ def gen_holders_tree(device):
         'dev_type': next((t for t in DEV_TYPES if t['ident'](device)),
                          DEFAULT_DEV_TYPE),
     }
-    return res
 
 
-def merge_holders_tree(holders_trees):
+def gen_multibase_holders_tree(holders_tree):
     """
-    merge holders tress together, detecting if holding devices are sharing
-    multiple base devices, such as a lvm partition across multiple backing
-    devices
+    generate holders tree with base empty node to link unrelated bases
     """
-    pass
+    return {
+        'device': None,
+        'dev_type': DEFAULT_DEV_TYPE,
+        'holders': [gen_holders_tree(dev) for dev in holders_tree],
+    }
+
+
+def plan_shutdown_holder_tree(holders_tree):
+    """
+    plan best order to shut down holders in, taking into account high level
+    storage layers that may have many devices below them
+
+    returns a list of tuples, with the first entry being a function to run to
+    shutdown the device and the second being a log message to output
+
+    can accept either a single storage tree or a list of storage trees assumed
+    to start at an equal place in storage hirearchy (i.e. a list of trees
+    starting from disk)
+    """
+    # holds a temporary registry of holders to allow cross references
+    # key = device sysfs path, value = {} of priority level, shutdown function
+    reg = {}
+
+    # normalize to list of trees
+    if not isinstance(holders_tree, (list, tuple)):
+        holders_tree = [holders_tree]
+
+    holders_tree_rebased = {
+        'device': None,
+        'dev_type': DEFAULT_DEV_TYPE,
+        'holders': holders_tree,
+    }
+
+    def flatten_holders_tree(tree, level=0):
+        device = tree['device']
+        dev_type = tree['dev_type']
+
+        # always go with highest level if current device has been
+        # encountered already. since the device and everything above it is
+        # re-added to the registry it ensures that any increase of level
+        # required here will propagate down the tree
+        # this handles a scenario like mdadm + bcache, where the backing
+        # device for bcache is a 3nd level item like mdadm, but the cache
+        # device is 1st level (disk) or second level (partition), ensuring
+        # that the bcache item is always considered higher level than
+        # anything else regardless of whether it was added to the tree via
+        # the cache device or backing device first
+        if device in reg:
+            level = max(reg[device]['level'], level)
+
+        # create shutdown function if any is needed and add to registry
+        log_msg = ("shutdown running on holder type: '{}' syspath: '{}'"
+                   .format(dev_type['name'], device))
+        shutdown_fn = None
+        if dev_type['shutdown']:
+            shutdown_fn = functools.partial(dev_type['shutdown'], device)
+        reg[device] = {'level': level, 'shutdown': shutdown_fn, 'log': log_msg}
+
+        # handle holders above this level
+        for holder in tree['holders']:
+            flatten_holders_tree(holder, level=level + 1)
+
+    # flatten the holders tree into the registry
+    flatten_holders_tree(holders_tree_rebased)
+
+    # make dict of only items that have a shutdown function defined
+    requiring_shutdown = {k: v for k, v in reg.items() if v['shutdown']}
+
+    def sort_shutdown_functions(key):
+        entry = requiring_shutdown[key]
+        return -1 * entry['level']
+
+    return [(requiring_shutdown[k]['shutdown'], requiring_shutdown[k]['log'])
+            for k in sorted(requiring_shutdown, key=sort_shutdown_functions)]
 
 
 def clear_holders(device):
