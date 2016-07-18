@@ -6,6 +6,9 @@ import textwrap
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
+from unittest import SkipTest
+from curtin import util
+
 
 class TestAptSrcAbs(VMBaseClass):
     """TestAptSrcAbs - Basic tests for apt features of curtin"""
@@ -118,17 +121,45 @@ class TestAptSrcPreserve(TestAptSrcAbs):
                               r"this file is written by cloud-init")
 
 
-class TestAptSrcBuiltin(TestAptSrcAbs):
-    """TestAptSrcPreserve - tests for the builtin sources.list template"""
+class TestAptSrcModify(TestAptSrcAbs):
+    """TestAptSrcModify - tests the builtin which modified sources.list"""
     conf_file = "examples/tests/apt_source_builtin.yaml"
 
-    def test_builtin_source_list(self):
-        """test_builtin_source_list - Check builtin sources with replacement"""
+    def test_modified_source_list(self):
+        """test_modified_source_list - Check sources with replacement"""
         # we set us.archive which is non default, check for that
         # this will catch if a target ever changes the expected defaults we
         # have to replace in case there is no custom template
         self.check_file_regex("sources.list",
                               r"us.archive.ubuntu.com")
+        self.check_file_regex("sources.list",
+                              r"security.ubuntu.com")
+
+
+class TestAptSrcSearch(TestAptSrcAbs):
+    """TestAptSrcSearch - tests checking a list of mirror options"""
+    conf_file = "examples/tests/apt_source_search.yaml"
+
+    def test_mirror_search(self):
+        """test_mirror_search
+           Check searching through a mirror list
+           This is checked in the test (late) intentionally.
+           No matter if resolution worked or failed it shouldn't fail
+           fatally (python error and trace).
+           We just can't rely on the content to be found in that case
+           so we skip the check then."""
+        res1 = util.is_resolvable_url("http://does.not.exist/ubuntu")
+        res2 = util.is_resolvable_url("http://does.also.not.exist/ubuntu")
+        res3 = util.is_resolvable_url("http://us.archive.ubuntu.com/ubuntu")
+        res4 = util.is_resolvable_url("http://security.ubuntu.com/ubuntu")
+        if res1 or res2 or not res3 or not res4:
+            raise SkipTest(("Name resolution not as required"
+                            "(%s, %s, %s, %s)" % (res1, res2, res3, res4)))
+
+        self.check_file_regex("sources.list",
+                              r"us.archive.ubuntu.com")
+        self.check_file_regex("sources.list",
+                              r"security.ubuntu.com")
 
 
 class XenialTestAptSrcCustom(relbase.xenial, TestAptSrcCustom):
@@ -145,8 +176,15 @@ class XenialTestAptSrcPreserve(relbase.xenial, TestAptSrcPreserve):
     __test__ = True
 
 
-class XenialTestAptSrcBuiltin(relbase.xenial, TestAptSrcBuiltin):
-    """ XenialTestAptSrcBuiltin
-        Apt_source Test for Xenial using the builtin template
+class XenialTestAptSrcModify(relbase.xenial, TestAptSrcModify):
+    """ XenialTestAptSrcModify
+        Apt_source Test for Xenial modifying the sources.list of the image
+    """
+    __test__ = True
+
+
+class XenialTestAptSrcSearch(relbase.xenial, TestAptSrcSearch):
+    """ XenialTestAptSrcModify
+        Apt_source Test for Xenial searching for mirrors
     """
     __test__ = True
