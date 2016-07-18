@@ -463,16 +463,17 @@ def disk_handler(info, storage_config):
                 current_ptable = next(l.split()[-1] for l in out.splitlines()
                                       if "Partition Table" in l)
             except _possible_errors:
-                raise ValueError("disk '%s' has no readable partition table or\
-                    cannot be accessed, but preserve is set to true, so cannot\
-                    continue")
+                raise ValueError("disk '%s' has no readable partition table "
+                                 "or cannot be accessed, but preserve is set "
+                                 "to true, so cannot continue" % disk)
         if not (current_ptable == ptable or
                 (current_ptable == "dos" and ptable == "msdos")):
-            raise ValueError("disk '%s' does not have correct \
-                partition table, but preserve is set to true, so not \
-                creating table, so not creating table." % info.get('id'))
-        LOG.info("disk '%s' marked to be preserved, so keeping partition \
-                 table")
+            raise ValueError("disk '%s' does not have correct "
+                             "partition table, but preserve is "
+                             "set to true, so not creating table."
+                             % info.get('id'))
+        LOG.info("disk '%s' marked to be preserved, so keeping partition "
+                 "table" % disk)
         return
 
     # Wipe the disk
