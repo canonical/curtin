@@ -7,6 +7,7 @@ export CURTIN_VMTEST_KEEP_DATA_PASS=$pkeep
 export CURTIN_VMTEST_KEEP_DATA_FAIL=$fkeep
 export CURTIN_VMTEST_TOPDIR="$topdir"
 export CURTIN_VMTEST_LOG=${CURTIN_VMTEST_LOG:-"$topdir/debug.log"}
+export CURTIN_VMTEST_PARALLEL=${CURTIN_VMTEST_PARALLEL}
 export IMAGE_DIR=${IMAGE_DIR:-/srv/images}
 
 fail() { echo "$@" 1>&2; exit 1; }
@@ -26,6 +27,11 @@ for v in ${!CURTIN_*}; do
    echo "$v=${!v}"
 done
 
+pargs=( )
+if [ -n "$CURTIN_VMTEST_PARALLEL" ]; then
+    pargs=( --process-timeout=86400 "--processes=${CURTIN_VMTEST_PARALLEL}" )
+fi
+
 # avoid LOG info by running python3 tests/vmtests/image_sync.py
 # rather than python3 -m tests.vmtests.image_sync (LP: #1594465)
 echo "Working with images in $IMAGE_DIR"
@@ -34,8 +40,8 @@ PYTHONPATH="$PWD" python3 tests/vmtests/image_sync.py query \
     --output-format="$fmt" "$IMAGE_DIR" ftype=root-image.gz ||
     { echo "WARNING: error querying images in $IMAGE_DIR" 1>&2; }
 
-echo "$(date -R): vmtest start: nosetests3 $*"
-nosetests3 "$@"
+echo "$(date -R): vmtest start: nosetests3 ${pargs[*]} $*"
+nosetests3 "${pargs[@]}" "$@"
 ret=$?
 end_s=$(date +%s)
 echo "$(date -R): vmtest end [$ret] in $(($end_s-$start_s))s"

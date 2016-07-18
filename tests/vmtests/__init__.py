@@ -351,7 +351,7 @@ class TempDir(object):
 class VMBaseClass(TestCase):
     __test__ = False
     arch_skip = []
-    boot_timeout = 300
+    boot_timeout = int(os.environ.get(CURTIN_VMTEST_BOOT_TIMEOUT, 300))
     collect_scripts = []
     conf_file = "examples/tests/basic.yaml"
     disk_block_size = 512
@@ -361,7 +361,7 @@ class VMBaseClass(TestCase):
     extra_kern_args = None
     fstab_expected = {}
     image_store_class = ImageStore
-    install_timeout = 3000
+    install_timeout = int(os.environ.get(CURTIN_VMTEST_BOOT_TIMEOUT, 3000))
     interactive = False
     multipath = False
     multipath_num_paths = 2
