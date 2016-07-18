@@ -33,7 +33,7 @@ import time
 
 # avoid the dependency to python3-six as used in cloud-init for now
 try:
-    import urlparse
+    from urlparse import urlparse
 except ImportError:
     # python3
     from urllib.parse import urlparse
