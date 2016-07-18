@@ -32,7 +32,6 @@ class TestAptSrcAbs(VMBaseClass):
         find /etc/apt/sources.list.d/ -maxdepth 1 -name "*ignore*" | wc -l > ic
         apt-config dump | grep Retries > aptconf
         cp /etc/apt/sources.list sources.list
-
         """)]
     boot_cloudconf = {'apt_preserve_sources_list': True}
     mirror = "http://us.archive.ubuntu.com/ubuntu"
@@ -162,6 +161,39 @@ class TestAptSrcSearch(TestAptSrcAbs):
                               r"security.ubuntu.com")
 
 
+class TestAptSrcSearchDNS(VMBaseClass):
+    """TestAptSrcSearchDNS - tests checking for predefined DNS names"""
+    interactive = False
+    extra_disks = []
+    fstab_expected = {}
+    conf_file = "examples/tests/apt_source_search_dns.yaml"
+    disk_to_check = []
+    collect_scripts = [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        cat /etc/fstab > fstab
+        ls /dev/disk/by-dname > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
+        cp /etc/apt/sources.list.d/dnssearch.list.disabled .
+        """)]
+    boot_cloudconf = {'apt_preserve_sources_list': True}
+
+    def test_output_files_exist(self):
+        """test_output_files_exist - Check if all output files exist"""
+        self.output_files_exist(["fstab", "dnssearch.list.disabled"])
+
+    def test_mirror_search_dns(self):
+        """test_mirror_search_dns - tests checking for predefined DNS names"""
+        # these should be the first it got resolved, so they should be in the
+        # sources.list file. We want to see that .lcoaldomain was not picked
+        # but instead what we added to the temp /etc/hosts
+        self.check_file_regex("dnssearch.list.disabled",
+                              r"ubuntu-mirror/ubuntu.*multiverse")
+        self.check_file_regex("dnssearch.list.disabled",
+                              r"ubuntu-mirror/ubuntu.*universe")
+        self.check_file_regex("dnssearch.list.disabled",
+                              r"ubuntu-security-mirror/ubuntu.*main")
+
+
 class XenialTestAptSrcCustom(relbase.xenial, TestAptSrcCustom):
     """ XenialTestAptSrcCustom
        Apt_source Test for Xenial with a custom template
@@ -186,5 +218,12 @@ class XenialTestAptSrcModify(relbase.xenial, TestAptSrcModify):
 class XenialTestAptSrcSearch(relbase.xenial, TestAptSrcSearch):
     """ XenialTestAptSrcModify
         Apt_source Test for Xenial searching for mirrors
+    """
+    __test__ = True
+
+
+class XenialTestAptSrcSearchDNS(relbase.xenial, TestAptSrcSearchDNS):
+    """ XenialTestAptSrcModify
+        Apt_source Test for Xenial searching for predefined DNS names
     """
     __test__ = True
