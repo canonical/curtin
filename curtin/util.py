@@ -1043,7 +1043,7 @@ def is_resolvable(name):
 
 def is_resolvable_url(url):
     """determine if this url is resolvable (existing or ip)."""
-    return is_resolvable(urlparse.urlparse(url).hostname)
+    return is_resolvable(urlparse(url).hostname)
 
 
 # vi: ts=4 expandtab syntax=python
