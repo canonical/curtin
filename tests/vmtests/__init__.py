@@ -499,8 +499,11 @@ class VMBaseClass(TestCase):
                 fp.write(json.dumps({'apt_proxy': proxy}) + "\n")
             configs.append(proxy_config)
 
+        uefi_flags = []
         if cls.uefi:
             logger.debug("Testcase requested launching with UEFI")
+            nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
+            uefi_flags = ["--uefi-nvram=%s" % nvram]
 
             # always attempt to update target nvram (via grub)
             grub_config = os.path.join(cls.td.install, 'grub.cfg')
@@ -508,13 +511,10 @@ class VMBaseClass(TestCase):
                 fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)
 
-            nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
-            cmd.extend(["--uefi-nvram=%s" % nvram])
-
         if cls.multipath:
             disks = disks * cls.multipath_num_paths
 
-        cmd.extend(netdevs + disks +
+        cmd.extend(uefi_flags + netdevs + disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "-vv", "install"] +
                    ["--config=%s" % f for f in configs] +
@@ -614,7 +614,8 @@ class VMBaseClass(TestCase):
         target_disks.extend([output_disk])
 
         # create xkvm cmd
-        cmd = (["tools/xkvm", "-v", dowait] + netdevs +
+        cmd = (["tools/xkvm", "-v", dowait] +
+               uefi_flags + netdevs +
                target_disks + extra_disks + nvme_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
@@ -629,10 +630,6 @@ class VMBaseClass(TestCase):
                     "sclpconsole,chardev=charconsole0,id=console0"])
             else:
                 cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
-
-        if cls.uefi:
-            logger.debug("Testcase requested booting with UEFI")
-            cmd.extend(["--uefi-nvram=%s" % nvram])
 
         # run vm with installed system, fail if timeout expires
         try:
