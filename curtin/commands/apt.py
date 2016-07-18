@@ -352,10 +352,15 @@ def search_for_mirror_dns(enabled, mirrortext):
 
     # curtin has no fqdn/hostname in config as cloud-init
     # but if we got a hostname by dhcp, then search its domain portion first
-    (fqdn, _) = util.subp(["hostname", "--fqdn"], rcs=[0], capture=True)
-    mydom = ".".join(fqdn.split(".")[1:])
-    if mydom:
-        doms.append(".%s" % mydom)
+    try:
+        (fqdn, _) = util.subp(["hostname", "--fqdn"], rcs=[0], capture=True)
+        mydom = ".".join(fqdn.split(".")[1:])
+        if mydom:
+            doms.append(".%s" % mydom)
+    except util.ProcessExecutionError:
+        # this can happen if /etc/hostname isn't set up properly yet
+        # so log, but don't fail
+        LOG.exception("failed to get fqdn")
 
     doms.extend((".localdomain", "",))
 
