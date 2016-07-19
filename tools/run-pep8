@@ -1,6 +1,11 @@
 #!/bin/bash
 
-pycheck_dirs=( "curtin/" "tests/" "tools/curtin-log-print")
+pycheck_dirs=(
+    "curtin/"
+    "tests/"
+    "tools/curtin-log-print"
+    "tools/report_webhook_logger.py"
+)
 bin_files=( )
 CR="
 "

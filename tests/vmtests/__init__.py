@@ -486,9 +486,14 @@ class VMBaseClass(TestCase):
             shutil.copy(OVMF_VARS, nvram)
             cmd.extend(["--uefi", nvram])
 
+        # set reporting logger
+        cls.reporting_log = os.path.join(cls.td.logs, 'webhooks-events.json')
+        reporting_logger = CaptureReporting(cls.reporting_log)
+
         # write reporting config
         reporting_config = os.path.join(cls.td.install, 'reporting.cfg')
-        localhost_url = 'http://' + get_lan_ip() + ':8000/'
+        localhost_url = ('http://' + get_lan_ip() +
+                         ':{:d}/'.format(reporting_logger.port))
         with open(reporting_config, 'w') as fp:
             fp.write(json.dumps({
                 'install': {
@@ -504,10 +509,6 @@ class VMBaseClass(TestCase):
                 },
             }))
         configs.append(reporting_config)
-
-        # set reporting logger
-        cls.reporting_log = os.path.join(cls.td.logs, 'webhooks-events.json')
-        reporting_logger = CaptureReporting(cls.reporting_log)
 
         # --disk source:size:driver:block_size
         target_disk = "{}:{}:{}:{}".format(cls.td.target_disk, "", "",
