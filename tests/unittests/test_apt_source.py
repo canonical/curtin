@@ -545,6 +545,29 @@ class TestAptSourceConfig(TestCase):
         self.assertEqual(mirrors['SECURITY'],
                          smir)
 
+    def test_mirror_arches_sysdefault(self):
+        """test_mirror_arches - Test arches falling back to sys default"""
+        # the global defaults
+        pmir = "http://archive.ubuntu.com/ubuntu/"
+        smir = "http://security.ubuntu.com/ubuntu/"
+        cfg = {"primary": [{'arches': ["thisarchdoesntexist_64"],
+                            "uri": "notthis"},
+                           {'arches': ["thisarchdoesntexist"],
+                            "uri": "notthiseither"}],
+               "security": [{'arches': ["thisarchdoesntexist"],
+                             "uri": "nothat"},
+                            {'arches': ["thisarchdoesntexist_64"],
+                             "uri": "nothateither"}]}
+
+        mirrors = apt.find_apt_mirror_info(cfg)
+
+        self.assertEqual(mirrors['MIRROR'],
+                         pmir)
+        self.assertEqual(mirrors['PRIMARY'],
+                         pmir)
+        self.assertEqual(mirrors['SECURITY'],
+                         smir)
+
     def test_mirror_search(self):
         """test_mirror_search - Test searching mirrors in a list
             mock checks to avoid relying on network connectivity"""
