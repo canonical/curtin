@@ -389,11 +389,16 @@ def get_mirror(cfg, mirrortype):
     """pass the three potential stages of mirror specification
        returns None is neither of them found anything otherwise the first
        hit is returned"""
+    # select the mirror specification (if-any)
+    mcfg = cfg.get(mirrortype, None)
+    if mcfg is None:
+        return None
+
     # directly specified
-    mirror = cfg.get(mirrortype, None)
+    mirror = mcfg.get("uri", None)
     if mirror is None:
         # list of mirrors to try to resolve
-        mirror = search_for_mirror(cfg.get("%s_search" % mirrortype, None))
+        mirror = search_for_mirror(mcfg.get("search", None))
 
     if mirror is None:
         # search for predfined dns patterns
@@ -401,9 +406,7 @@ def get_mirror(cfg, mirrortype):
             pattern = "mirror"
         else:
             pattern = "%s-mirror" % mirrortype
-        mirror = search_for_mirror_dns(cfg.get("%s_search_dns" % mirrortype,
-                                               None),
-                                       pattern)
+        mirror = search_for_mirror_dns(mcfg.get("search_dns", None), pattern)
 
     return mirror
 
