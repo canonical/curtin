@@ -56,7 +56,7 @@ def handle_apt(cfg, target):
         standalone command.
     """
     release = util.lsb_release(target=target)['codename']
-    mirrors = find_apt_mirror_info(cfg)
+    mirrors = find_apt_mirror_info(cfg, target)
     LOG.debug("Apt Mirror info: %s", mirrors)
 
     apply_debconf_selections(cfg, target)
@@ -385,12 +385,30 @@ def update_mirror_info(pmirror, smirror):
     return DEFAULT_MIRRORS
 
 
-def get_mirror(cfg, mirrortype):
+def get_arch_mirrorconfig(cfg, mirrortype, arch):
+    """out of a list of potential mirror configurations select
+       and return the one matching the architecture (or default)"""
+    # select the mirror specification (if-any)
+    mirror_cfg_list = cfg.get(mirrortype, None)
+    if mirror_cfg_list is None:
+        return None
+
+    # select the specification matching the target arch
+    default = None
+    for mirror_cfg_elem in mirror_cfg_list:
+        arches = mirror_cfg_elem.get("arches")
+        if arch in arches:
+            return mirror_cfg_elem
+        if "default" in arches:
+            default = mirror_cfg_elem
+    return default
+
+
+def get_mirror(cfg, mirrortype, arch):
     """pass the three potential stages of mirror specification
        returns None is neither of them found anything otherwise the first
        hit is returned"""
-    # select the mirror specification (if-any)
-    mcfg = cfg.get(mirrortype, None)
+    mcfg = get_arch_mirrorconfig(cfg, mirrortype, arch)
     if mcfg is None:
         return None
 
@@ -411,16 +429,19 @@ def get_mirror(cfg, mirrortype):
     return mirror
 
 
-def find_apt_mirror_info(cfg):
+def find_apt_mirror_info(cfg, target=None):
     """find_apt_mirror_info
        find an apt_mirror given the cfg provided.
        It can check for separate config of primary and security mirrors
        If only primary is given security is assumed to be equal to primary
        If the generic apt_mirror is given that is defining for both
     """
-    pmirror = get_mirror(cfg, "primary")
+
+    arch = util.get_architecture(target)
+    LOG.info("got arch for mirror selection: %s", arch)
+    pmirror = get_mirror(cfg, "primary", arch)
     LOG.info("got primary mirror: %s", pmirror)
-    smirror = get_mirror(cfg, "security")
+    smirror = get_mirror(cfg, "security", arch)
     LOG.info("got security mirror: %s", smirror)
 
     # Note: curtin has no cloud-datasource fallback
