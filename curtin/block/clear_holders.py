@@ -258,17 +258,6 @@ def gen_holders_tree(device):
     }
 
 
-def gen_multibase_holders_tree(holders_tree):
-    """
-    generate holders tree with base empty node to link unrelated bases
-    """
-    return {
-        'device': None,
-        'dev_type': DEFAULT_DEV_TYPE,
-        'holders': [gen_holders_tree(dev) for dev in holders_tree],
-    }
-
-
 def plan_shutdown_holder_tree(holders_tree):
     """
     plan best order to shut down holders in, taking into account high level
@@ -336,6 +325,42 @@ def plan_shutdown_holder_tree(holders_tree):
 
     return [(requiring_shutdown[k]['shutdown'], requiring_shutdown[k]['log'])
             for k in sorted(requiring_shutdown, key=sort_shutdown_functions)]
+
+
+def format_holders_tree_old(holders_tree):
+    """draw a nice diagram of the holders tree"""
+    lines = []
+
+    def add_holder_to_formatted(tree, indent=0, row=0, line_positions=[]):
+        line_positions.append(indent * 4)
+        spacing = ''.join("|" if i in line_positions else " "
+                          for i in range(indent * 4 + 1))
+        lines.append("{indent}-{devname}".format(
+            indent=spacing, devname=block.dev_short(tree['device'])))
+        for holder in tree['holders']:
+            add_holder_to_formatted(holder, indent=indent + 1, row=row + 1,
+                                    line_positions=line_positions)
+
+    add_holder_to_formatted(holders_tree)
+
+    return '\n'.join(lines)
+
+
+def format_holders_tree(holders_tree):
+    """draw a nice dirgram of the holders tree"""
+    spacers = (('`-- ', ' ' * 4), ('|-- ', '|' + ' ' * 3))
+
+    def format_tree(tree):
+        result = [block.dev_short(tree['device'])]
+        holders = tree['holders']
+        for (holder_no, holder) in enumerate(holders):
+            spacer_style = spacers[min(len(holders) - (holder_no + 1), 1)]
+            subtree_lines = format_tree(holder)
+            for (line_no, line) in enumerate(subtree_lines):
+                result.append(spacer_style[min(line_no, 1)] + line)
+        return result
+
+    return '\n'.join(format_tree(holders_tree))
 
 
 def clear_holders(device):
