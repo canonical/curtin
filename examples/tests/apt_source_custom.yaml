@@ -1,7 +1,9 @@
 showtrace: true
 apt:
-  primary: http://us.archive.ubuntu.com/ubuntu
-  security: http://security.ubuntu.com/ubuntu
+  primary:
+    uri: http://us.archive.ubuntu.com/ubuntu
+  security:
+    uri: http://security.ubuntu.com/ubuntu
   sources_list: | # written by curtin custom template
     deb $MIRROR $RELEASE main restricted
     deb-src $MIRROR $RELEASE main restricted

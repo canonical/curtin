@@ -1,7 +1,9 @@
 showtrace: true
 apt:
-  primary: http://us.archive.ubuntu.com/ubuntu
-  security: http://security.ubuntu.com/ubuntu
+  primary:
+    uri: http://us.archive.ubuntu.com/ubuntu
+  security:
+    uri: http://security.ubuntu.com/ubuntu
   conf: | # APT config
     ACQUIRE {
       Retries "3";

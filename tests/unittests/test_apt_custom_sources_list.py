@@ -113,8 +113,8 @@ class TestAptSourceConfigSourceList(TestCase):
 
     def test_apt_source_list_psm(self):
         """test_apt_source_list_psm - Test specifying prim+sec mirrors"""
-        cfg = {'primary': 'http://test.archive.ubuntu.com/ubuntu/',
-               'security': 'http://test.security.ubuntu.com/ubuntu/'}
+        cfg = {'primary': {'uri': 'http://test.archive.ubuntu.com/ubuntu/'},
+               'security': {'uri': 'http://test.security.ubuntu.com/ubuntu/'}}
 
         self._apt_source_list(cfg, EXPECTED_PRIMSEC_CONTENT)
 

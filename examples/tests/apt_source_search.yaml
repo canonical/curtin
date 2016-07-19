@@ -1,13 +1,15 @@
 showtrace: true
 apt:
-  primary_search:
-    - http://does.not.exist/ubuntu
-    - http://does.also.not.exist/ubuntu
-    - http://us.archive.ubuntu.com/ubuntu
-  security_search:
-    - http://does.not.exist/ubuntu
-    - http://does.also.not.exist/ubuntu
-    - http://security.ubuntu.com/ubuntu
+  primary:
+    search:
+      - http://does.not.exist/ubuntu
+      - http://does.also.not.exist/ubuntu
+      - http://us.archive.ubuntu.com/ubuntu
+  security:
+    search:
+      - http://does.not.exist/ubuntu
+      - http://does.also.not.exist/ubuntu
+      - http://security.ubuntu.com/ubuntu
   conf: | # APT config
     ACQUIRE {
       Retries "3";

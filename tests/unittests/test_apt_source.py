@@ -427,8 +427,8 @@ class TestAptSourceConfig(TestCase):
 
     def test_mir_apt_list_rename(self):
         """test_mir_apt_list_rename - Test find mirror and apt list renaming"""
-        cfg = {"primary": "http://us.archive.ubuntu.com/ubuntu/",
-               "security": "http://security.ubuntu.com/ubuntu/"}
+        cfg = {'primary': {'uri': 'http://us.archive.ubuntu.com/ubuntu/'},
+               'security': {'uri': 'http://security.ubuntu.com/ubuntu/'}}
         mirrors = apt.find_apt_mirror_info(cfg)
 
         self.assertEqual(mirrors['MIRROR'],
@@ -473,8 +473,8 @@ class TestAptSourceConfig(TestCase):
             mock checks to avoid relying on network connectivity"""
         pmir = "http://us.archive.ubuntu.com/ubuntu/"
         smir = "http://security.ubuntu.com/ubuntu/"
-        cfg = {"primary_search": ["pfailme", pmir],
-               "security_search": ["sfailme", smir]}
+        cfg = {"primary": {"search": ["pfailme", pmir]},
+               "security": {"search": ["sfailme", smir]}}
 
         with mock.patch.object(apt, 'search_for_mirror',
                                side_effect=[pmir, smir]) as mocksearch:
@@ -495,8 +495,8 @@ class TestAptSourceConfig(TestCase):
         """test_mirror_search_dns - Test searching dns patterns"""
         pmir = "phit"
         smir = "shit"
-        cfg = {"primary_search_dns": True,
-               "security_search_dns": True}
+        cfg = {"primary": {"search_dns": True},
+               "security": {"search_dns": True}}
 
         with mock.patch.object(apt, 'get_mirror') as mockgm:
             mirrors = apt.find_apt_mirror_info(cfg)
@@ -539,12 +539,12 @@ class TestAptSourceConfig(TestCase):
         """test_mirror_search_many3 - Test all three mirrors specs at once"""
         pmir = "http://us.archive.ubuntu.com/ubuntu/"
         smir = "http://security.ubuntu.com/ubuntu/"
-        cfg = {"primary": pmir,
-               "security": smir,
-               "primary_search_dns": True,
-               "security_search_dns": True,
-               "primary_search": ["pfailme", "foo"],
-               "security_search": ["sfailme", "bar"]}
+        cfg = {"primary": {"uri": pmir,
+                           "search_dns": True,
+                           "search": ["pfailme", "foo"]},
+               "security": {"uri": smir,
+                            "search_dns": True,
+                            "search": ["sfailme", "bar"]}}
 
         # should be called once per type, despite three configs each
         with mock.patch.object(apt, 'get_mirror') as mockgm:
@@ -574,10 +574,10 @@ class TestAptSourceConfig(TestCase):
         """test_mirror_search_many2 - Test the two search specs at once"""
         pmir = "http://us.archive.ubuntu.com/ubuntu/"
         smir = "http://security.ubuntu.com/ubuntu/"
-        cfg = {"primary_search_dns": True,
-               "security_search_dns": True,
-               "primary_search": ["pfailme", pmir],
-               "security_search": ["sfailme", smir]}
+        cfg = {"primary": {"search_dns": True,
+                           "search": ["pfailme", pmir]},
+               "security": {"search_dns": True,
+                            "search": ["sfailme", smir]}}
 
         # should be called once per type, despite three configs each
         with mock.patch.object(apt, 'get_mirror') as mockgm:
