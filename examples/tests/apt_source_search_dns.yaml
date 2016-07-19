@@ -6,9 +6,11 @@ early_commands:
  xx_prep_fake_dns_search2: 'echo "$(getent ahosts security.ubuntu.com | cut --fields=1 --delimiter " " | grep -v : | head -n 1) ubuntu-security-mirror" >> /etc/hosts'
 apt:
   primary:
-    search_dns: True
+    - arches: [default]
+      search_dns: True
   security:
-    search_dns: True
+    - arches: [default]
+      search_dns: True
   # avoiding issues with these fake mirrors we only set them in a disabled list
   preserve_sources_list: true
   sources:

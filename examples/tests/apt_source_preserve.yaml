@@ -3,9 +3,11 @@ apt:
   # this is like the other apr_source test but with preserve true
   preserve_sources_list: true
   primary:
-    uri: http://us.archive.ubuntu.com/ubuntu
+    - arches: [default]
+      uri: http://us.archive.ubuntu.com/ubuntu
   security:
-    uri: http://security.ubuntu.com/ubuntu
+    - arches: [default]
+      uri: http://security.ubuntu.com/ubuntu
   sources_list: | # written by curtin custom template
     deb $MIRROR $RELEASE main restricted
     deb-src $MIRROR $RELEASE main restricted

@@ -71,10 +71,10 @@ deb http://test.archive.ubuntu.com/ubuntu/ notouched-security main restricted
 """)
 
 EXPECTED_PRIMSEC_CONTENT = ("""
-deb http://test.archive.ubuntu.com/ubuntu/ notouched main restricted
-deb-src http://test.archive.ubuntu.com/ubuntu/ notouched main restricted
-deb http://test.archive.ubuntu.com/ubuntu/ notouched-updates main restricted
-deb http://test.security.ubuntu.com/ubuntu/ notouched-security main restricted
+deb http://tst.archive.ubuntu.com/ubuntu/ notouched main restricted
+deb-src http://tst.archive.ubuntu.com/ubuntu/ notouched main restricted
+deb http://tst.archive.ubuntu.com/ubuntu/ notouched-updates main restricted
+deb http://tst.security.ubuntu.com/ubuntu/ notouched-security main restricted
 """)
 
 
@@ -90,16 +90,20 @@ class TestAptSourceConfigSourceList(TestCase):
     def _apt_source_list(cfg, expected):
         "_apt_source_list - Test rendering from template (generic)"
 
-        with mock.patch.object(util, 'write_file') as mockwrite:
-            # keep it side effect free and avoid permission errors
-            with mock.patch.object(os, 'rename'):
-                with mock.patch.object(util, 'lsb_release',
-                                       return_value={'codename': 'fakerel'}):
+        with mock.patch.object(util, 'get_architecture',
+                               return_value="na-but-match-default") as mockga:
+            with mock.patch.object(util, 'write_file') as mockwrite:
+                # keep it side effect free and avoid permission errors
+                with mock.patch.object(os, 'rename'):
                     # make test independent to executing system
                     with mock.patch.object(util, 'load_file',
                                            return_value=MOCKED_APT_SRC_LIST):
-                        apt.handle_apt(cfg, TARGET)
+                        with mock.patch.object(util, 'lsb_release',
+                                               return_value={'codename':
+                                                             'fakerel'}):
+                            apt.handle_apt(cfg, TARGET)
 
+        mockga.assert_called_with("/")
         mockwrite.assert_called_once_with(
             TARGET + '/etc/apt/sources.list',
             expected,
@@ -113,8 +117,10 @@ class TestAptSourceConfigSourceList(TestCase):
 
     def test_apt_source_list_psm(self):
         """test_apt_source_list_psm - Test specifying prim+sec mirrors"""
-        cfg = {'primary': {'uri': 'http://test.archive.ubuntu.com/ubuntu/'},
-               'security': {'uri': 'http://test.security.ubuntu.com/ubuntu/'}}
+        cfg = {'primary': [{'arches': ["default"],
+                            'uri': 'http://tst.archive.ubuntu.com/ubuntu/'}],
+               'security': [{'arches': ["default"],
+                             'uri': 'http://tst.security.ubuntu.com/ubuntu/'}]}
 
         self._apt_source_list(cfg, EXPECTED_PRIMSEC_CONTENT)
 
@@ -123,13 +129,17 @@ class TestAptSourceConfigSourceList(TestCase):
         """test_apt_srcl_custom - Test rendering a custom source template"""
         cfg = yaml.safe_load(YAML_TEXT_CUSTOM_SL)
 
-        with mock.patch.object(util, 'write_file') as mockwrite:
-            # keep it side effect free and avoid permission errors
-            with mock.patch.object(os, 'rename'):
-                with mock.patch.object(util, 'lsb_release',
-                                       return_value={'codename': 'fakerel'}):
-                    apt.handle_apt(cfg, TARGET)
+        with mock.patch.object(util, 'get_architecture',
+                               return_value="na-but-match-default") as mockga:
+            with mock.patch.object(util, 'write_file') as mockwrite:
+                # keep it side effect free and avoid permission errors
+                with mock.patch.object(os, 'rename'):
+                    with mock.patch.object(util, 'lsb_release',
+                                           return_value={'codename':
+                                                         'fakerel'}):
+                        apt.handle_apt(cfg, TARGET)
 
+        mockga.assert_called_with("/")
         mockwrite.assert_called_once_with(
             TARGET + '/etc/apt/sources.list',
             EXPECTED_CONVERTED_CONTENT,
