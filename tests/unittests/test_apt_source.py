@@ -488,6 +488,19 @@ class TestAptSourceConfig(TestCase):
         self.assertEqual(mirrors['SECURITY'],
                          smir)
 
+    def test_mirror_default(self):
+        """test_mirror_default - Test without defining a mirror"""
+        pmir = "http://archive.ubuntu.com/ubuntu/"
+        smir = "http://security.ubuntu.com/ubuntu/"
+        mirrors = apt.find_apt_mirror_info({})
+
+        self.assertEqual(mirrors['MIRROR'],
+                         pmir)
+        self.assertEqual(mirrors['PRIMARY'],
+                         pmir)
+        self.assertEqual(mirrors['SECURITY'],
+                         smir)
+
     def test_mirror_search(self):
         """test_mirror_search - Test searching mirrors in a list
             mock checks to avoid relying on network connectivity"""
