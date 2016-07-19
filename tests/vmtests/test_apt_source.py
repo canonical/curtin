@@ -122,7 +122,7 @@ class TestAptSrcPreserve(TestAptSrcAbs):
 
 class TestAptSrcModify(TestAptSrcAbs):
     """TestAptSrcModify - tests the builtin which modified sources.list"""
-    conf_file = "examples/tests/apt_source_builtin.yaml"
+    conf_file = "examples/tests/apt_source_modify.yaml"
 
     def test_modified_source_list(self):
         """test_modified_source_list - Check sources with replacement"""
