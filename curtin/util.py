@@ -304,6 +304,14 @@ def del_file(path):
             raise e
 
 
+def get_relative_path(path):
+    """remove leading slashes to make absolute path relative"""
+    path = os.path.normpath(path)
+    while path.startswith('/'):
+        path = path[1:]
+    return path
+
+
 def disable_daemons_in_root(target):
     contents = "\n".join(
         ['#!/bin/sh',
