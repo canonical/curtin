@@ -37,7 +37,9 @@ Configuration
 
 The general configuration of the apt feature is under an element called ``apt``.
 
-This can have various global subelements as listed in the examples below - for example ``primary: http://us.archive.ubuntu.com/ubuntu/``. These global configurations are valid throughput all of the apt feature.
+This can have various "global" subelements as listed in the examples below.
+These global configurations are valid throughput all of the apt feature.
+So for exmaple a global specification of ``primary`` for a mirror will apply to all rendered sources entries.
 
 Then there is a section ``sources`` which can hold a number of subelements itself.
 The key is the filename and will be prepended by /etc/apt/sources.list.d/ if it doesn't start with a ``/``.
@@ -95,7 +97,9 @@ That would be specified as
 ::
 
   apt:
-    primary: http://mymirror.local/ubuntu/
+    primary:
+      - arches [default]
+        uri: http://mymirror.local/ubuntu/
     sources:
       localrepokey:
         key: | # full key as block
