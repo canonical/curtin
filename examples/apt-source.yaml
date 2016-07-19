@@ -141,30 +141,37 @@ apt:
   # one can set primary and security mirror to different uri's
   # the child elements to the keys primary and secondary are equivalent
   primary:
-    uri: http://us.archive.ubuntu.com/ubuntu
-    # uri is just defining the target as-is
-    search:
-      - http://cool.but-sometimes-unreachable.com/ubuntu
-      - http://us.archive.ubuntu.com/ubuntu
-    # via search one can define lists that are
-    # tried one by one. The first with a working DNS resolution (or if it is an
-    # IP) will be picked. That way one can keep one configuration for multiple
-    # subenvironments that select the working one.
-    #
-    search_dns: True
-    # This will search for <distro>-mirror locally and at the fqdn of the system.
-    # If resolving that will be used as archive. That allows configuring local
-    # mirrors via providing certin DNS names via a local nameserver.
-    # These can even be set to resolve to the public names of defaults like
-    # archive.ubuntu.com as long as they are reachable from the target.
-    # For security it will search <distro>-security-mirror
-    #
-    # If multiple of a category are given
-    #   1. uri
-    #   2. search
-    #   3. search_dns
-    # are given the first defining a valid mirror wins (in the
-    # order as defined here, not the one it is listed in the config).
+    # arches is list of architectures the following config applies to
+    # the special keyword "default" applies to any architecture not explicitly
+    # listed.
+      - arches: [amd64, i386, default]
+      # uri is just defining the target as-is
+      uri: http://us.archive.ubuntu.com/ubuntu
+      #
+      # via search one can define lists that are
+      # tried one by one. The first with a working DNS resolution (or if it is an
+      # IP) will be picked. That way one can keep one configuration for multiple
+      # subenvironments that select the working one.
+      search:
+        - http://cool.but-sometimes-unreachable.com/ubuntu
+        - http://us.archive.ubuntu.com/ubuntu
+      #
+      # This will search for <distro>-mirror locally and at the fqdn of the system.
+      # If resolving that will be used as archive. That allows configuring local
+      # mirrors via providing certin DNS names via a local nameserver.
+      # These can even be set to resolve to the public names of defaults like
+      # archive.ubuntu.com as long as they are reachable from the target.
+      # For security it will search <distro>-security-mirror
+      search_dns: True
+      #
+      # If multiple of a category are given
+      #   1. uri
+      #   2. search
+      #   3. search_dns
+      # are given the first defining a valid mirror wins (in the
+      # order as defined here, not the one it is listed in the config).
+    - arches: [s390x, arm64]
+      # as above, allowing to have one config for different per arch mirrors
   # security is optional, if not defined it is set to the value of primary
   security:
     uri: http://security.ubuntu.com/ubuntu
