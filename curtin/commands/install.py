@@ -79,8 +79,8 @@ def copy_install_log(logfile, target, log_target_path):
         return
 
     LOG.debug('Copying curtin install log to target')
-    shutil.copy(logfile, os.path.join(
-        target, util.get_relative_path(log_target_path)))
+    target = os.path.sep.join([target, log_target_path])
+    shutil.copy(logfile, os.path.normpath(target))
 
 
 def writeline(fname, output):
