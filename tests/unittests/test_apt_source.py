@@ -470,6 +470,24 @@ class TestAptSourceConfig(TestCase):
                                     'Acquire::ftp::Proxy "foobar3";\n'
                                     'Acquire::https::Proxy "foobar4";\n'))
 
+    def test_mirror(self):
+        """test_mirror - Test defining a mirror"""
+        pmir = "http://us.archive.ubuntu.com/ubuntu/"
+        smir = "http://security.ubuntu.com/ubuntu/"
+        cfg = {"primary": [{'arches': ["default"],
+                            "uri": pmir}],
+               "security": [{'arches': ["default"],
+                             "uri": smir}]}
+
+        mirrors = apt.find_apt_mirror_info(cfg)
+
+        self.assertEqual(mirrors['MIRROR'],
+                         pmir)
+        self.assertEqual(mirrors['PRIMARY'],
+                         pmir)
+        self.assertEqual(mirrors['SECURITY'],
+                         smir)
+
     def test_mirror_search(self):
         """test_mirror_search - Test searching mirrors in a list
             mock checks to avoid relying on network connectivity"""
