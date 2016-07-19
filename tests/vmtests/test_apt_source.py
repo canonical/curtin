@@ -121,7 +121,7 @@ class TestAptSrcPreserve(TestAptSrcAbs):
 
 
 class TestAptSrcModify(TestAptSrcAbs):
-    """TestAptSrcModify - tests the builtin which modified sources.list"""
+    """TestAptSrcModify - tests imodifying sources.list"""
     conf_file = "examples/tests/apt_source_modify.yaml"
 
     def test_modified_source_list(self):
@@ -133,6 +133,12 @@ class TestAptSrcModify(TestAptSrcAbs):
                               r"us.archive.ubuntu.com")
         self.check_file_regex("sources.list",
                               r"security.ubuntu.com")
+
+
+class TestAptSrcModifyArches(TestAptSrcModify):
+    """TestAptSrcModify - tests modifying sources.list with per arch mirror"""
+    # same test, just different yaml to specify the mirrors per arch
+    conf_file = "examples/tests/apt_source_modify_arches.yaml"
 
 
 class TestAptSrcSearch(TestAptSrcAbs):
@@ -225,5 +231,12 @@ class XenialTestAptSrcSearch(relbase.xenial, TestAptSrcSearch):
 class XenialTestAptSrcSearchDNS(relbase.xenial, TestAptSrcSearchDNS):
     """ XenialTestAptSrcModify
         Apt_source Test for Xenial searching for predefined DNS names
+    """
+    __test__ = True
+
+
+class XenialTestAptSrcModifyArches(relbase.xenial, TestAptSrcModifyArches):
+    """ XenialTestAptSrcModifyArches
+        Apt_source Test for Xenial checking per arch mirror specification
     """
     __test__ = True
