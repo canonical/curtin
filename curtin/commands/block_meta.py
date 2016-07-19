@@ -348,26 +348,7 @@ def disk_handler(info, storage_config):
         return
 
     # Wipe the disk
-    if info.get('wipe') and info.get('wipe') != "none":
-        # The disk has a lable, clear all partitions
-        mdadm.mdadm_assemble(scan=True)
-        for partition in block.get_sysfs_partitions(disk):
-            clear_holders.check_clear(partition)
-            # in some cases the block dev may not be available when it is
-            # to be erased. since it is possible that installation can
-            # still continue without having wiped the partition, don't
-            # crash here (LP:1579572)
-            catcher = util.ForgiveIoError()
-            with catcher:
-                with open(os.path.join(partition, "dev"), "r") as fp:
-                    block_no = fp.read().rstrip()
-                partition_path = os.path.realpath(
-                    os.path.join("/dev/block", block_no))
-                block.wipe_volume(partition_path, mode=info.get('wipe'))
-            for e in catcher.caught:
-                LOG.warn('while running wipe_volume, caught: {}'.format(e))
-
-        clear_holders.check_clear(disk)
+    if config.value_as_boolean(info.get('wipe')):
         block.wipe_volume(disk, mode=info.get('wipe'))
 
     # Create partition table on disk
@@ -556,7 +537,7 @@ def partition_handler(info, storage_config):
 
     # Wipe the partition if told to do so, do not wipe dos extended partitions
     # as this may damage the disk partition table
-    if info.get('wipe') and info.get('wipe') != "none":
+    if config.value_as_boolean(info.get('wipe')):
         if info.get('flag') == "extended":
             LOG.warn("not wiping extended partition %s" % info.get('id'))
         else:
@@ -1045,6 +1026,17 @@ def meta_custom(args):
 
     # set up reportstack
     stack_prefix = state.get('report_stack_prefix', '')
+
+    # shut down any already existing storage layers above any disks used in
+    # config that have 'wipe' set
+    # before doing anything, mdadm has to be started in case there is a md
+    # device that needs to be detected so it can be properly removed
+    mdadm.mdadm_assemble(scan=True)
+    disk_paths = [get_path_to_storage_volume(k, storage_config_dict)
+                  for (k, v) in storage_config_dict.items()
+                  if v.get('type') == 'disk' and
+                  config.value_as_boolean(v.get('wipe'))]
+    clear_holders.clear_holders(disk_paths)
 
     for item_id, command in storage_config_dict.items():
         handler = command_handlers.get(command['type'])
