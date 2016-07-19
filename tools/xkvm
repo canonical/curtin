@@ -273,13 +273,18 @@ get_bios_opts() {
             # user specified where to write nvram data in --uefi-nvram
             # pre-populate it with the OVMF_VARS.fd template
             if [ ! -f "$nvram" ]; then
+                debug 1 "copying ovmf vars from '$ovmf_var' to '$nvram'"
                 cp -a "${ovmf_var}" "${nvram}" || {
                     error "failed to create OVMF nvram file: '$nvram'"
                     return 1;
                 }
+            else
+                debug 1 "re-using existing nvram file '$nvram'."
             fi
         else
             nvram="$ovmf_var"
+            debug 1 "uefi specified without nvram storage." \
+                "Settings likely will not persist. nvram=$nvram."
         fi
 
         unset _RET
