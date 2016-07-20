@@ -868,11 +868,9 @@ def bcache_handler(info, storage_config):
                           bcache_device, expected)
                 return
             LOG.debug('bcache device path not found: %s', expected)
-            (local_holders, _err) = clear_holders.get_holders(bcache_device)
+            local_holders = clear_holders.get_holders(bcache_device)
             LOG.debug('got initial holders being "%s"', local_holders)
             if len(local_holders) == 0:
-                for e in _err:
-                    LOG.error('get_holders encountered error: {}'.format(e))
                 raise ValueError("holders == 0 , expected non-zero")
         except (OSError, IndexError, ValueError):
             # Some versions of bcache-tools will register the bcache device as
@@ -933,10 +931,8 @@ def bcache_handler(info, storage_config):
 
         # via the holders we can identify which bcache device we just created
         # for a given backing device
-        (holders, _err) = clear_holders.get_holders(backing_device)
+        holders = clear_holders.get_holders(backing_device)
         if len(holders) != 1:
-            for e in _err:
-                LOG.error('get_holders encountered error: {}'.format(e))
             err = ('Invalid number {} of holding devices:'
                    ' "{}"'.format(len(holders), holders))
             LOG.error(err)
