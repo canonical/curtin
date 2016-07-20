@@ -118,8 +118,10 @@ def apt_config(cfg, target):
             raise ValueError(msg)
 
         old = cfg.get('apt_mirrors')
-        cfg['apt']['primary'] = old.get('ubuntu_archive')
-        cfg['apt']['security'] = old.get('ubuntu_security')
+        cfg['apt']['primary'] = [{"arches": ["default"],
+                                  "uri": old.get('ubuntu_archive')}]
+        cfg['apt']['security'] = [{"arches": ["default"],
+                                  "uri": old.get('ubuntu_security')}]
         LOG.info("Transferred %s into new format: %s", cfg.get('apt_mirror'),
                  cfg.get('apt'))
         del cfg['apt_mirrors']
