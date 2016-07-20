@@ -182,13 +182,13 @@ def gen_holders_tree(device):
     generate a tree representing the current storage hirearchy above 'device'
     """
     device = block.sys_block_path(device)
+    holder_paths = ([block.sys_block_path(h) for h in get_holders(device)] +
+                    block.get_sysfs_partitions(device))
+    dev_type = next((t for t in DEV_TYPES if t['ident'](device)),
+                    DEFAULT_DEV_TYPE)
     return {
-        'device': device,
-        'holders': [gen_holders_tree(h) for h in
-                    ([block.sys_block_path(h) for h in get_holders(device)] +
-                     block.get_sysfs_partitions(device))],
-        'dev_type': next((t for t in DEV_TYPES if t['ident'](device)),
-                         DEFAULT_DEV_TYPE),
+        'device': device, 'dev_type': dev_type,
+        'holders': [gen_holders_tree(h) for h in holder_paths],
     }
 
 
@@ -285,6 +285,8 @@ def clear_holders(base_paths):
     A single device or list of devices can be specified.
     Device paths can be specified either as paths in /dev or /sys/block
     """
+    if not isinstance(base_paths, (list, tuple)):
+        base_paths = [base_paths]
     holder_trees = []
     for path in base_paths:
         tree = gen_holders_tree(path)
