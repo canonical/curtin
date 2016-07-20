@@ -44,9 +44,25 @@ APT_PROXY_FN = "/etc/apt/apt.conf.d/90curtin-aptproxy"
 # Default keyserver to use
 DEFAULT_KEYSERVER = "keyserver.ubuntu.com"
 
-# Default archive mirror
-DEFAULT_MIRRORS = {"PRIMARY": "http://archive.ubuntu.com/ubuntu/",
-                   "SECURITY": "http://security.ubuntu.com/ubuntu/"}
+# Default archive mirrors
+PRIMARY_ARCH_MIRRORS = {"PRIMARY": "http://archive.ubuntu.com/ubuntu/",
+                        "SECURITY": "http://security.ubuntu.com/ubuntu/"}
+PORTS_MIRRORS = {"PRIMARY": "http://ports.ubuntu.com/ubuntu-ports",
+                 "SECURITY": "http://ports.ubuntu.com/ubuntu-ports"}
+PRIMARY_ARCHES = ['amd64', 'i386']
+PORTS_ARCHES = ['s390x', 'arm64', 'armhf', 'powerpc', 'ppc64el']
+
+
+def get_default_mirrors(target=None):
+    """returns the default mirrors for the target. These depend on the
+       architecture, for more see:
+       https://wiki.ubuntu.com/UbuntuDevelopment/PackageArchive#Ports"""
+    arch = util.get_architecture(target)
+    if arch in PRIMARY_ARCHES:
+        return PRIMARY_ARCH_MIRRORS
+    if arch in PORTS_ARCHES:
+        return PORTS_MIRRORS
+    raise ValueError("No default mirror known for arch %s" % arch)
 
 
 def handle_apt(cfg, target):
@@ -176,7 +192,8 @@ def mirrorurl_to_apt_fileprefix(mirror):
 
 def rename_apt_lists(new_mirrors, target):
     """rename_apt_lists - rename apt lists to preserve old cache data"""
-    for (name, omirror) in DEFAULT_MIRRORS.items():
+    default_mirrors = get_default_mirrors(target)
+    for (name, omirror) in default_mirrors.items():
         nmirror = new_mirrors.get(name)
         if not nmirror:
             continue
@@ -212,6 +229,7 @@ def generate_sources_list(cfg, release, mirrors, target):
         create a source.list file based on a custom or default template
         by replacing mirrors and release in the template
     """
+    default_mirrors = get_default_mirrors(target)
     aptsrc = "/etc/apt/sources.list"
     params = {'RELEASE': release}
     for k in mirrors:
@@ -227,9 +245,9 @@ def generate_sources_list(cfg, release, mirrors, target):
         # - no reason to replace "release" as it is from target anyway
         # - The less we depend upon, the more stable this is against changes
         # - warn if expected original content wasn't found
-        tmpl = mirror_to_placeholder(tmpl, DEFAULT_MIRRORS['PRIMARY'],
+        tmpl = mirror_to_placeholder(tmpl, default_mirrors['PRIMARY'],
                                      "$MIRROR")
-        tmpl = mirror_to_placeholder(tmpl, DEFAULT_MIRRORS['SECURITY'],
+        tmpl = mirror_to_placeholder(tmpl, default_mirrors['SECURITY'],
                                      "$SECURITY")
     try:
         os.rename(target + aptsrc,
@@ -374,7 +392,7 @@ def search_for_mirror_dns(enabled, mirrortext):
     return search_for_mirror(potential_mirror_list)
 
 
-def update_mirror_info(pmirror, smirror):
+def update_mirror_info(pmirror, smirror, target=None):
     """sets security mirror to primary if not defined.
        returns defaults if no mirrors are defined"""
     if pmirror is not None:
@@ -382,7 +400,7 @@ def update_mirror_info(pmirror, smirror):
             smirror = pmirror
         return {'PRIMARY': pmirror,
                 'SECURITY': smirror}
-    return DEFAULT_MIRRORS
+    return get_default_mirrors(target)
 
 
 def get_arch_mirrorconfig(cfg, mirrortype, arch):
@@ -446,7 +464,7 @@ def find_apt_mirror_info(cfg, target=None):
 
     # Note: curtin has no cloud-datasource fallback
 
-    mirror_info = update_mirror_info(pmirror, smirror)
+    mirror_info = update_mirror_info(pmirror, smirror, target)
 
     # less complex replacements use only MIRROR, derive from primary
     mirror_info["MIRROR"] = mirror_info["PRIMARY"]
