@@ -84,11 +84,12 @@ def shutdown_bcache(device):
     """
     try:
         bcache_sysfs = get_bcache_using_dev(device)
-    except OSError as e:
+    except OSError:
         # bcache not running, so nothing need be done
         return
     LOG.debug('stopping bcache at: {}'.format(bcache_sysfs))
-    util.write_file(os.path.join(bcache_sysfs, 'stop'), '1')
+    with open(os.path.join(bcache_sysfs, 'stop'), 'w') as fp:
+        fp.write('1')
 
 
 def shutdown_mdadm(device):
