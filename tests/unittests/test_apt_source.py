@@ -756,5 +756,86 @@ class TestAptSourceConfig(TestCase):
         calls = [call('failme.com', None)]
         mocksock.assert_has_calls(calls)
         self.assertFalse(ret3)
+
+    def test_disable_pockets(self):
+        """test_disable_pockets - disable_pockets with many configurations"""
+        release = "xenial"
+        orig = """deb http://ubuntu.com//ubuntu xenial main
+deb http://ubuntu.com//ubuntu xenial-updates main
+deb http://ubuntu.com//ubuntu xenial-security main
+deb-src http://ubuntu.com//ubuntu universe multiverse
+deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+
+        # disable nothing
+        cfg = {"disable_pockets": []}
+        expect = """deb http://ubuntu.com//ubuntu xenial main
+deb http://ubuntu.com//ubuntu xenial-updates main
+deb http://ubuntu.com//ubuntu xenial-security main
+deb-src http://ubuntu.com//ubuntu universe multiverse
+deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+        result = apt.disable_pockets(cfg, orig, release)
+        self.assertEqual(expect, result)
+
+        # single disable
+        cfg = {"disable_pockets": ["updates"]}
+        expect = """deb http://ubuntu.com//ubuntu xenial main
+# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
+deb http://ubuntu.com//ubuntu xenial-security main
+deb-src http://ubuntu.com//ubuntu universe multiverse
+deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+        result = apt.disable_pockets(cfg, orig, release)
+        self.assertEqual(expect, result)
+
+        # multi disable
+        cfg = {"disable_pockets": ["updates", "security"]}
+        expect = """deb http://ubuntu.com//ubuntu xenial main
+# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
+# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
+deb-src http://ubuntu.com//ubuntu universe multiverse
+deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+        result = apt.disable_pockets(cfg, orig, release)
+        self.assertEqual(expect, result)
+
+        # multi line disable (same pocket multiple times in input)
+        cfg = {"disable_pockets": ["updates", "security"]}
+        orig = """deb http://ubuntu.com//ubuntu xenial main
+deb http://ubuntu.com//ubuntu xenial-updates main
+deb http://ubuntu.com//ubuntu xenial-security main
+deb-src http://ubuntu.com//ubuntu universe multiverse
+deb http://UBUNTU.com//ubuntu xenial-updates main
+deb http://UBUNTU.COM//ubuntu xenial-updates main
+deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+        expect = """deb http://ubuntu.com//ubuntu xenial main
+# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
+# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
+deb-src http://ubuntu.com//ubuntu universe multiverse
+# pocket disabled by curtin: deb http://UBUNTU.com//ubuntu xenial-updates main
+# pocket disabled by curtin: deb http://UBUNTU.COM//ubuntu xenial-updates main
+deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+        result = apt.disable_pockets(cfg, orig, release)
+        self.assertEqual(expect, result)
+
+        # comment in input
+        cfg = {"disable_pockets": ["updates", "security"]}
+        orig = """deb http://ubuntu.com//ubuntu xenial main
+deb http://ubuntu.com//ubuntu xenial-updates main
+deb http://ubuntu.com//ubuntu xenial-security main
+deb-src http://ubuntu.com//ubuntu universe multiverse
+#foo
+#deb http://UBUNTU.com//ubuntu xenial-updates main
+deb http://UBUNTU.COM//ubuntu xenial-updates main
+deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+        expect = """deb http://ubuntu.com//ubuntu xenial main
+# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
+# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
+deb-src http://ubuntu.com//ubuntu universe multiverse
+#foo
+#deb http://UBUNTU.com//ubuntu xenial-updates main
+# pocket disabled by curtin: deb http://UBUNTU.COM//ubuntu xenial-updates main
+deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+        result = apt.disable_pockets(cfg, orig, release)
+        self.assertEqual(expect, result)
+
+
 #
 # vi: ts=4 expandtab
