@@ -846,9 +846,6 @@ def bcache_handler(info, storage_config):
         raise ValueError("backing device and cache device for bcache"
                          " must be specified")
 
-    # The bcache module is not loaded when bcache is installed by apt-get, so
-    # we will load it now
-    util.subp(["modprobe", "bcache"])
     bcache_sysfs = "/sys/fs/bcache"
     udevadm_settle(exists=bcache_sysfs)
 
@@ -1025,9 +1022,13 @@ def meta_custom(args):
 
     # shut down any already existing storage layers above any disks used in
     # config that have 'wipe' set
+
     # before doing anything, mdadm has to be started in case there is a md
     # device that needs to be detected so it can be properly removed
     mdadm.mdadm_assemble(scan=True)
+    # also, the bcache module should be loaded so any bcache superblock present
+    # are presented to clear_holders properly
+    util.subp(['modprobe', 'bcache'])
     disk_paths = [get_path_to_storage_volume(k, storage_config_dict)
                   for (k, v) in storage_config_dict.items()
                   if v.get('type') == 'disk' and
