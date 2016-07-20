@@ -121,7 +121,7 @@ class TestAptSrcPreserve(TestAptSrcAbs):
 
 
 class TestAptSrcModify(TestAptSrcAbs):
-    """TestAptSrcModify - tests imodifying sources.list"""
+    """TestAptSrcModify - tests modifying sources.list"""
     conf_file = "examples/tests/apt_source_modify.yaml"
 
     def test_modified_source_list(self):
@@ -133,6 +133,22 @@ class TestAptSrcModify(TestAptSrcAbs):
                               r"us.archive.ubuntu.com")
         self.check_file_regex("sources.list",
                               r"security.ubuntu.com")
+
+
+class TestAptSrcDisablePockets(TestAptSrcAbs):
+    """TestAptSrcDisablePockets - tests disabling a pocket in sources.list"""
+    conf_file = "examples/tests/apt_source_modify_disable_pocket.yaml"
+
+    def test_disabled_pocket(self):
+        """test_disabled_pocket - Check if pockets were disabled"""
+        # two not disabled
+        self.check_file_regex("sources.list",
+                              r"deb.*us.archive.ubuntu.com")
+        self.check_file_regex("sources.list",
+                              r"deb.*security.ubuntu.com")
+        # updates disabled
+        self.check_file_regex("sources.list",
+                              r"# pocket disabled by curtin:.*-updates")
 
 
 class TestAptSrcModifyArches(TestAptSrcModify):
@@ -238,5 +254,12 @@ class XenialTestAptSrcSearchDNS(relbase.xenial, TestAptSrcSearchDNS):
 class XenialTestAptSrcModifyArches(relbase.xenial, TestAptSrcModifyArches):
     """ XenialTestAptSrcModifyArches
         Apt_source Test for Xenial checking per arch mirror specification
+    """
+    __test__ = True
+
+
+class XenialTestAptSrcDisablePockets(relbase.xenial, TestAptSrcDisablePockets):
+    """ XenialTestAptSrcDisablePockets
+        Apt_source Test for Xenial disabling a pocket
     """
     __test__ = True
