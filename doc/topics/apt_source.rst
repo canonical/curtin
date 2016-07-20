@@ -93,6 +93,8 @@ What do we need for that:
 
   - lets consider we have a local mirror at ``mymirror.local`` but otherwise following the usual paths
 
+  - make an example with a partial mirror that doesn't mirror the backports pocket, so backports have to be disabled
+
 That would be specified as
 ::
 
@@ -100,6 +102,7 @@ That would be specified as
     primary:
       - arches [default]
         uri: http://mymirror.local/ubuntu/
+    disable_pockets: [backports]
     sources:
       localrepokey:
         key: | # full key as block
