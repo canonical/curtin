@@ -173,7 +173,7 @@ def get_holders(device):
     sysfs_path = block.sys_block_path(device)
     # get holders
     holders = os.listdir(os.path.join(sysfs_path, 'holders'))
-    LOG.debug("devname '%s' had holders: %s", device, ','.join(holders))
+    LOG.debug("devname '%s' had holders: %s", device, holders)
     return holders
 
 
@@ -287,11 +287,9 @@ def clear_holders(base_paths):
     """
     if not isinstance(base_paths, (list, tuple)):
         base_paths = [base_paths]
-    holder_trees = []
-    for path in base_paths:
-        tree = gen_holders_tree(path)
-        LOG.info("Holders for device %s:\n%s", path, format_holders_tree(tree))
-        holder_trees.append(tree)
+    holder_trees = [gen_holders_tree(path) for path in base_paths]
+    LOG.info('Current device storage tree:\n%s',
+             '\n'.join(format_holders_tree(tree) for tree in holder_trees))
     ordered_shutdowns = plan_shutdown_holder_trees(holder_trees)
     for (shutdown_function, log_message) in ordered_shutdowns:
         LOG.info(log_message)
