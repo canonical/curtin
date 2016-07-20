@@ -257,44 +257,53 @@ get_bios_opts() {
     if [ -n "$bios" ]; then
         _RET=( -drive "${pflash_common},file=$bios" )
         return 0
-    elif $uefi; then
-        local ovmf_code="/usr/share/ovmf/OVMF.fd"
-        local ovmf_var="${ovmf_code}"
-        if [ -f "$ovmf_dir/OVMF_VARS.fd" ]; then
-            # use the split UEFI code and vars (anything newer than vivid)
-            ovmf_code="$ovmf_dir/OVMF_CODE.fd"
-            ovmf_var="$ovmf_dir/OVMF_VARS.fd"
-        fi
-        [ -f "$ovmf_code" ] || {
-            error "uefi support requires ovmf bios: apt-get install -qy ovmf"
-            return 1;
-        }
-        if [ -n "$nvram" ]; then
-            # user specified where to write nvram data in --uefi-nvram
-            # pre-populate it with the OVMF_VARS.fd template
-            if [ ! -f "$nvram" ]; then
-                debug 1 "copying ovmf vars from '$ovmf_var' to '$nvram'"
-                cp -a "${ovmf_var}" "${nvram}" || {
-                    error "failed to create OVMF nvram file: '$nvram'"
-                    return 1;
-                }
-            else
-                debug 1 "re-using existing nvram file '$nvram'."
-            fi
-        else
-            nvram="$ovmf_var"
-            debug 1 "uefi specified without nvram storage." \
-                "Settings likely will not persist. nvram=$nvram."
-        fi
-
-        unset _RET
-        _RET=( -drive "${pflash_common},file=$ovmf_code,readonly" )
-        if [ "$nvram" != "$ovmf_var" ]; then
-            # to ensure bootability firmware must be first, then variables
-            _RET=( "${_RET[@]}" -drive "${pflash_common},file=$nvram" )
-        fi
+    elif ! $uefi; then
         return 0
     fi
+
+    # ovmf in older releases (14.04) shipped only a single file
+    #   /usr/share/ovmf/OVMF.fd
+    # newer ovmf ships split files
+    #   /usr/share/OVMF/OVMF_CODE.fd
+    #   /usr/share/OVMF/OVMF_VARS.fd
+    # with single file, pass only one file and read-write
+    # with split, pass code as readonly and vars as read-write
+    local joined="/usr/share/ovmf/OVMF.fd"
+    local code="/usr/share/OVMF/OVMF_CODE.fd"
+    local vars="/usr/share/OVMF/OVMF_VARS.fd"
+    local split="" nvram_src=""
+    if [ -e "$code" -o -e "$vars" ]; then
+        split=true
+        nvram_src="$code"
+    elif [ -e "$joined" ]; then
+        split=false
+        nvram_src="$joined"
+    elif [ -n "$nvram" -a -e "$nvram" ]; then
+        error "WARN: nvram given, but did not find expected ovmf files."
+        error "      assuming this is code and vars (OVMF.fd)"
+        split=false
+    else
+        error "uefi support requires ovmf bios: apt-get install -qy ovmf"
+        return 1
+    fi
+
+    if [ -n "$nvram" ]; then
+        if [ ! -f "$nvram" ]; then
+            cp "$nvram_src" "$nvram" || 
+                { error "failed copy $nvram_src to $nvram"; return 1; }
+            debug 1 "copied $nvram_src to $nvram"
+        fi
+    else
+    	debug 1 "uefi without --uefi-nvram storage." \
+                "nvram settings likely will not persist."
+        nvram="${nvram_src}"
+    fi
+
+    if $split; then
+        # to ensure bootability firmware must be first, then variables
+        _RET=( -drive "${pflash_common},file=$code,readonly" )
+    fi
+    _RET=( "${_RET[@]}" -drive "${pflash_common},file=$nvram" )
 }
 
 main() {
