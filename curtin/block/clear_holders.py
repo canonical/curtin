@@ -68,7 +68,7 @@ def get_bcache_using_dev(device):
     bcache_cache_d = os.path.realpath(os.path.join(
         sysfs_path, 'bcache', 'cache'))
     if not os.path.exists(bcache_cache_d):
-        raise OSError(2, 'Could not find /sys/fs path for bcache: {}'
+        raise OSError('Could not find /sys/fs path for bcache: {}'
                       .format(sysfs_path))
     return bcache_cache_d
 
@@ -82,7 +82,11 @@ def shutdown_bcache(device):
 
     May return a function that should be run by the caller to wipe out metadata
     """
-    bcache_sysfs = get_bcache_using_dev(device)
+    try:
+        bcache_sysfs = get_bcache_using_dev(device)
+    except OSError as e:
+        # bcache not running, so nothing need be done
+        return
     LOG.debug('stopping bcache at: {}'.format(bcache_sysfs))
     util.write_file(os.path.join(bcache_sysfs, 'stop'), '1')
 
@@ -133,6 +137,15 @@ def shutdown_lvm(device):
                '{}/{}'.format(vg_name, lv_name)], rcs=[0, 5])
 
 
+def wipe_superblock(device):
+    """
+    Wrapper for block.wipe_volume compatible with shutdown function interface
+    """
+    device = block.dev_path(block.dev_short(device))
+    LOG.info('wiping superblock on %s', device)
+    block.wipe_volume(device, mode='superblock')
+
+
 def _subfile_exists(subfile, basedir):
     """tests if 'subfile' exists under basedir"""
     return os.path.exists(os.path.join(basedir, subfile))
@@ -144,7 +157,7 @@ def _subfile_exists(subfile, basedir):
 # for sysfs path to device to operate on
 # a none type for shutdown means take no action
 DEV_TYPES = (
-    {'name': 'partition', 'shutdown': None,
+    {'name': 'partition', 'shutdown': wipe_superblock,
      'ident': functools.partial(_subfile_exists, 'partition')},
     # FIXME: below is not the best way to identify lvm, it should be replaced
     #        once there is a method in place to differentiate plain
@@ -159,7 +172,8 @@ DEV_TYPES = (
 
 # anything that is not identified can assumed to be a 'disk' or similar
 # which does not requre special action to shutdown
-DEFAULT_DEV_TYPE = {'name': 'disk', 'ident': lambda x: True, 'shutdown': None}
+DEFAULT_DEV_TYPE = {'name': 'disk', 'ident': lambda x: True,
+                    'shutdown': wipe_superblock}
 
 
 def get_holders(device):
@@ -239,7 +253,7 @@ def plan_shutdown_holder_trees(holders_trees):
         log_msg = ("shutdown running on holder type: '{}' syspath: '{}'"
                    .format(dev_type['name'], device))
         shutdown_fn = None
-        if dev_type['shutdown']:
+        if dev_type['shutdown'] and device is not None:
             shutdown_fn = functools.partial(dev_type['shutdown'], device)
         reg[device] = {'level': level, 'shutdown': shutdown_fn, 'log': log_msg}
 
