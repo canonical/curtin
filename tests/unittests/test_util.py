@@ -1,6 +1,5 @@
 from unittest import TestCase
 import mock
-import errno
 import os
 import stat
 import shutil
@@ -282,36 +281,5 @@ class TestSetUnExecutable(TestCase):
         self.tmpd = tempfile.mkdtemp()
         bogus = os.path.join(self.tmpd, 'bogus')
         self.assertRaises(ValueError, util.set_unexecutable, bogus, True)
-
-
-class TestForgiveIOError(TestCase):
-
-    def test_is_file_not_found_exc(self):
-        """Ensure that is_file_not_found_exc works as expected"""
-        fnf_err = [OSError(errno.ENOENT, ''), IOError(errno.ENOENT, ''),
-                   OSError(errno.ENXIO, ''), IOError(errno.ENXIO, '')]
-        invalid = [ValueError(''), util.ProcessExecutionError(),
-                   ValueError(errno.ENOENT, ''), OSError(errno.EPERM, '')]
-        for e in fnf_err:
-            self.assertTrue(util.is_file_not_found_exc(e))
-        for e in invalid:
-            self.assertFalse(util.is_file_not_found_exc(e))
-
-    def test_forgive_io_error(self):
-        """Ensure that util.ForgiveIoError catches errors"""
-        catcher = util.ForgiveIoError()
-        err = IOError(errno.ENOENT, 'test')
-        err2 = IOError(errno.ENOENT, 'test2')
-        with catcher:
-            raise err
-        self.assertEqual(len(catcher.caught), 1)
-        self.assertEqual(catcher.caught[0], str(err))
-        with self.assertRaises(ValueError):
-            with catcher:
-                raise ValueError('test')
-        self.assertEqual(len(catcher.caught), 2)
-        catcher.add_exc(err2)
-        self.assertEqual(len(catcher.caught), 3)
-        self.assertEqual(catcher.caught[2], str(err2))
 
 # vi: ts=4 expandtab syntax=python

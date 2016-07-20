@@ -842,37 +842,9 @@ def try_import_module(import_str, default=None):
         return default
 
 
-class ForgiveIoError(object):
-    errors = (IOError, OSError)
-
-    def __init__(self, extra_errors=()):
-        if not isinstance(extra_errors, (tuple, list, set)):
-            extra_errors = (extra_errors,)
-        self.extra_errors = extra_errors
-        self.caught = []
-
-    def add_exc(self, excs):
-        if not isinstance(excs, (list, tuple)):
-            excs = [excs]
-        for exc in excs:
-            self.caught.append(str(exc))
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, etype, value, trace):
-        if etype is None:
-            return
-
-        self.add_exc(value)
-        return (isinstance(value, self.extra_errors) or
-                is_file_not_found_exc(value))
-
-
 def is_file_not_found_exc(exc):
-    return (isinstance(exc, ForgiveIoError.errors) and
-            hasattr(exc, 'errno') and
-            exc.errno in (errno.ENOENT, errno.ENXIO))
+    return (isinstance(exc, (IOError, OSError)) and
+            hasattr(exc, 'errno') and exc.errno in (errno.ENOENT, errno.ENXIO))
 
 
 def lsb_release():
