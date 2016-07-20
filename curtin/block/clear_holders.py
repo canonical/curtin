@@ -22,9 +22,7 @@
 from curtin import (block, util, udev)
 from curtin.log import LOG
 
-import errno
 import functools
-import glob
 import os
 
 
@@ -84,32 +82,9 @@ def shutdown_bcache(device):
 
     May return a function that should be run by the caller to wipe out metadata
     """
-    catcher = util.ForgiveIoError()
-    bcache_sysfs = None
-    with catcher:
-        bcache_sysfs = get_bcache_using_dev(device)
-    if bcache_sysfs is None:
-        return (None, catcher.caught)
-
-    # emit wipe functions for all involved devices, since the bcache holder
-    # will dissappear soon, and we will lose the data to determine which disks
-    # need to be wiped
-    wipe_devs = set()
-    glob_expr = os.path.join(bcache_sysfs, 'bdev*/dev/slaves/*')
-    with catcher:
-        wipe_devs.update(block.dev_path(block.dev_short(p))
-                         for p in glob.glob(glob_expr))
-    # generate wipe functions
-    LOG.debug('shutdown_bcache needs to wipe: {}'.format(wipe_devs))
-    wipe = [functools.partial(block.wipe_volume, dev, mode='superblock')
-            for dev in wipe_devs]
-
-    # stop the bcache device via sysfs
+    bcache_sysfs = get_bcache_using_dev(device)
     LOG.debug('stopping bcache at: {}'.format(bcache_sysfs))
-    with catcher:
-        util.write_file(os.path.join(bcache_sysfs, 'stop'), '1')
-
-    return (wipe, catcher.caught)
+    util.write_file(os.path.join(bcache_sysfs, 'stop'), '1')
 
 
 def shutdown_mdadm(device):
@@ -125,7 +100,6 @@ def shutdown_mdadm(device):
     LOG.debug('using mdadm.mdadm_stop on dev: {}'.format(blockdev))
     block.mdadm.mdadm_stop(blockdev)
     block.mdadm.mdadm_remove(blockdev)
-    return (None, [])
 
 
 def shutdown_lvm(device):
@@ -140,48 +114,23 @@ def shutdown_lvm(device):
     device = block.sys_block_path(device)
     # lvm devices have a dm directory that containes a file 'name' containing
     # '{volume group}-{logical volume}'. The volume can be freed using lvremove
-    catcher = util.ForgiveIoError()
-    with catcher:
-        (vg_name, lv_name) = (None, None)
-        name_file = os.path.join(device, 'dm', 'name')
-        full_name = util.load_file(name_file)
-        try:
-            (vg_name, lv_name) = split_vg_lv_name(full_name)
-        except ValueError:
-            pass
-
-    if vg_name is None or lv_name is None:
-        err = OSError(errno.ENOENT, 'file: {} missing or has invalid contents'
-                      .format(name_file))
-        catcher.add_exc(err)
-        return (None, catcher.caught)
-
+    (vg_name, lv_name) = (None, None)
+    name_file = os.path.join(device, 'dm', 'name')
+    full_name = util.load_file(name_file)
+    (vg_name, lv_name) = split_vg_lv_name(full_name)
     # use two --force flags here in case the volume group that this lv is
     # attached two has been damaged by a disk being wiped or other storage
     # volumes being shut down.
-
     # if something has already destroyed the logical volume, such as another
     # partition being forcibly removed from the volume group, then lvremove
     # will return 5.
-
     # if this happens, then we should not halt installation, it
     # is most likely not an issue. However, we will record the error and pass
     # it up the clear_holders stack so that if other clear_holders calls fail
     # and this is a potential cause it will be written to install log
-    cmd = ['lvremove', '--force', '--force', '{}/{}'.format(vg_name, lv_name)]
     LOG.debug('running lvremove on {}/{}'.format(vg_name, lv_name))
-    try:
-        util.subp(cmd)
-    except util.ProcessExecutionError as e:
-        catcher.add_exc(e)
-        if not (hasattr(e, 'exit_code') and e.exit_code == 5):
-            raise
-
-    # The underlying volume can be freed of its lvm metadata using
-    # block.wipe_volume with wipe mode 'pvremove'
-    blockdev = block.dev_path(block.dev_short(device))
-    wipe_func = functools.partial(block.wipe_volume, blockdev, mode='pvremove')
-    return (wipe_func, catcher.caught)
+    util.subp(['lvremove', '--force', '--force',
+               '{}/{}'.format(vg_name, lv_name)], rcs=[0, 5])
 
 
 def _subfile_exists(subfile, basedir):
@@ -220,26 +169,11 @@ def get_holders(device):
     Can also handle devices and partitions by path in /sys/
     Will not raise io errors, but will collect and return them
     """
-    holders = []
-    catcher = util.ForgiveIoError()
-    sysfs_path = None
-
-    # get sysfs path if missing
     # block.sys_block_path works when given a /sys or /dev path
-    with catcher:
-        sysfs_path = block.sys_block_path(device)
-
-    # block.sys_block_path may have failed
-    if not sysfs_path:
-        LOG.info('get_holders: did not find sysfs path for %s', device)
-        return (holders, catcher.caught)
-
+    sysfs_path = block.sys_block_path(device)
     # get holders
-    with catcher:
-        holders = os.listdir(os.path.join(sysfs_path, 'holders'))
-
+    holders = os.listdir(os.path.join(sysfs_path, 'holders'))
     LOG.debug("devname '%s' had holders: %s", device, ','.join(holders))
-    # return (holders, catcher.caught)
     return holders
 
 
@@ -258,7 +192,7 @@ def gen_holders_tree(device):
     }
 
 
-def plan_shutdown_holder_tree(holders_tree):
+def plan_shutdown_holder_trees(holders_trees):
     """
     plan best order to shut down holders in, taking into account high level
     storage layers that may have many devices below them
@@ -275,13 +209,13 @@ def plan_shutdown_holder_tree(holders_tree):
     reg = {}
 
     # normalize to list of trees
-    if not isinstance(holders_tree, (list, tuple)):
-        holders_tree = [holders_tree]
+    if not isinstance(holders_trees, (list, tuple)):
+        holders_trees = [holders_trees]
 
     holders_tree_rebased = {
         'device': None,
         'dev_type': DEFAULT_DEV_TYPE,
-        'holders': holders_tree,
+        'holders': holders_trees,
     }
 
     def flatten_holders_tree(tree, level=0):
@@ -329,6 +263,7 @@ def plan_shutdown_holder_tree(holders_tree):
 
 def format_holders_tree(holders_tree):
     """draw a nice dirgram of the holders tree"""
+    # spacer styles based on output of 'tree --charset=ascii'
     spacers = (('`-- ', ' ' * 4), ('|-- ', '|' + ' ' * 3))
 
     def format_tree(tree):
@@ -344,102 +279,19 @@ def format_holders_tree(holders_tree):
     return '\n'.join(format_tree(holders_tree))
 
 
-def clear_holders(device):
+def clear_holders(base_paths):
     """
-    Shutdown all storage layers holding specified device.
-    Device can be specified either with a path in /dev or /sys/block
-
-    Will supress all io errors encountered while removing holders, as there may
-    be situations in which shutting down one holding device may remove another,
-    causing it to disappear. Once all handlers have been run, check if all
-    holders have been shut down.
-
-    Returns True is all holders could be shut down sucessfully, False
-    otherwise. Also returns a list of all IOErrors encountered and ignored
-    while running.
+    Clear all storage layers depending on the devices specified in 'base_paths'
+    A single device or list of devices can be specified.
+    Device paths can be specified either as paths in /dev or /sys/block
     """
-    catcher = util.ForgiveIoError()
-
-    # block.sys_block_path works when given a /sys path as well
-    with catcher:
-        device = block.sys_block_path(device)
-
-    (holders, _err) = get_holders(device)
-    catcher.add_exc(_err)
-    LOG.info("clear_holders running on '%s', with holders '%s'" %
-             (device, holders))
-
-    # go through all found holders, get their real path, detect what type they
-    # are, and shut them down
-    for holder in holders:
-        # get realpath, skip holder if cannot get it, as holder may be gone
-        # already
-        holder_realpath = None
-        with catcher:
-            holder_realpath = os.path.realpath(os.path.join(
-                device, "holders", holder))
-        if not holder_realpath:
-            continue
-
-        # run clear holders on all found holders, if it fails, give up
-        (res, _err) = clear_holders(holder_realpath)
-        catcher.add_exc(_err)
-        if not res:
-            return (False, catcher.caught)
-
-    # detect holder type, if holder returns any functions to be called for disk
-    # wiping, run them, and log the output
-    wipe_cmds = []
-    holder_types = {
-        'dm': shutdown_lvm,
-        'md': shutdown_mdadm,
-        'bcache': shutdown_bcache,
-    }
-    for (type_name, handler) in holder_types.items():
-        if os.path.exists(os.path.join(device, type_name)):
-            (wipe_cmd, _err) = handler(device)
-            catcher.add_exc(_err)
-            if wipe_cmd is not None:
-                if isinstance(wipe_cmd, (list, tuple)):
-                    wipe_cmds.extend(wipe_cmd)
-                else:
-                    wipe_cmds.append(wipe_cmd)
-
-    # if any wipe commands were generated by clear handlers, run them
-    # they are run here instead of during shutdown functions since it
-    # is possible that a single device may have multiple layers on top of it
-    # that need to be shutdown correctly before wiping
-    for wipe_cmd in wipe_cmds:
-        with catcher:
-            wipe_cmd()
-
-    # make sure changes are fully applied before looking for remaining holders
-    udev.udevadm_settle()
-
-    # only return true if there are no remaining holders or if the path to this
-    # device in /sys/block no longer exists because it was shut down
-    (holders, _err) = get_holders(device)
-    catcher.add_exc(_err)
-    res = ((not os.path.exists(device)) or
-           (len(holders) == 0 and (len(_err) == 0)))
-    if not res:
-        catcher.add_exc(OSError('device: {} still has holders: {}'.format(
-            device, holders)))
-    return (res, catcher.caught)
-
-
-def check_clear(device):
-    """
-    Run clear_holders on device.
-
-    If clear_holders fails, dump all exceptions caught by clear_holders to log
-    and raise an OSError
-    """
-    (res, _err) = clear_holders(device)
-    log_fn = LOG.warn if res else LOG.error
-    for e in _err:
-        log_fn('clear_holders encountered error: {}'.format(e))
-    if not res:
-        raise OSError('could not clear holders for device: {}'.format(device))
-    LOG.info('clear_holders finished successfully on device: {}'
-             .format(device))
+    holder_trees = []
+    for path in base_paths:
+        tree = gen_holders_tree(path)
+        LOG.info("Holders for device %s:\n%s", path, format_holders_tree(tree))
+        holder_trees.append(tree)
+    ordered_shutdowns = plan_shutdown_holder_trees(holder_trees)
+    for (shutdown_function, log_message) in ordered_shutdowns:
+        LOG.info(log_message)
+        shutdown_function()
+        udev.udevadm_settle()
