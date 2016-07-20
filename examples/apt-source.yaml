@@ -136,6 +136,15 @@ apt:
   # then any "mirrors" configuration above will have no effect
   preserve_sources_list: false
 
+  # disable_pockets by default it is an empty list, so nothing is removed.
+  # If given, those pockets are removed from source.list post all other
+  # modifications (pockets are even disabled if no other modification was made,
+  # but not if is preserve_sources_list is active).
+  # There is a special alias “RELEASE” for the release pocket which
+  # actually is (and can be given as) “”
+  # Lines don’t get deleted, but disabled by being converted to a comment.
+  disable_pockets: [updates, backports]
+
   # a custom (e.g. localized) mirror that will be set in sources.list and
   # deb / deb-src lines
   # one can set primary and security mirror to different uri's
