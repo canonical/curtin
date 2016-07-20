@@ -20,7 +20,12 @@ TARGET = "/"
 
 # Input and expected output for the custom template
 YAML_TEXT_CUSTOM_SL = """
-mirrors: http://archive.ubuntu.com/ubuntu
+primary:
+  - arches: [default]
+    uri: http://test.ubuntu.com/ubuntu/
+security:
+  - arches: [default]
+    uri: http://testsec.ubuntu.com/ubuntu/
 sources_list: |
 
     ## Note, this file is written by curtin at install time. It should not end
@@ -41,40 +46,40 @@ EXPECTED_CONVERTED_CONTENT = """
 #
 # See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
 # newer versions of the distribution.
-deb http://archive.ubuntu.com/ubuntu/ fakerel main restricted
-deb-src http://archive.ubuntu.com/ubuntu/ fakerel main restricted
-deb http://archive.ubuntu.com/ubuntu/ fakerel universe restricted
-deb http://security.ubuntu.com/ubuntu/ fakerel-security multiverse
+deb http://test.ubuntu.com/ubuntu/ fakerel main restricted
+deb-src http://test.ubuntu.com/ubuntu/ fakerel main restricted
+deb http://test.ubuntu.com/ubuntu/ fakerel universe restricted
+deb http://testsec.ubuntu.com/ubuntu/ fakerel-security multiverse
 # FIND_SOMETHING_SPECIAL
 """
 
 # mocked to be independent to the unittest system
 MOCKED_APT_SRC_LIST = """
-deb http://archive.ubuntu.com/ubuntu/ notouched main restricted
-deb-src http://archive.ubuntu.com/ubuntu/ notouched main restricted
-deb http://archive.ubuntu.com/ubuntu/ notouched-updates main restricted
-deb http://security.ubuntu.com/ubuntu/ notouched-security main restricted
+deb http://test.ubuntu.com/ubuntu/ notouched main restricted
+deb-src http://test.ubuntu.com/ubuntu/ notouched main restricted
+deb http://test.ubuntu.com/ubuntu/ notouched-updates main restricted
+deb http://testsec.ubuntu.com/ubuntu/ notouched-security main restricted
 """
 
 EXPECTED_BASE_CONTENT = ("""
-deb http://archive.ubuntu.com/ubuntu/ notouched main restricted
-deb-src http://archive.ubuntu.com/ubuntu/ notouched main restricted
-deb http://archive.ubuntu.com/ubuntu/ notouched-updates main restricted
-deb http://security.ubuntu.com/ubuntu/ notouched-security main restricted
+deb http://test.ubuntu.com/ubuntu/ notouched main restricted
+deb-src http://test.ubuntu.com/ubuntu/ notouched main restricted
+deb http://test.ubuntu.com/ubuntu/ notouched-updates main restricted
+deb http://testsec.ubuntu.com/ubuntu/ notouched-security main restricted
 """)
 
 EXPECTED_MIRROR_CONTENT = ("""
-deb http://test.archive.ubuntu.com/ubuntu/ notouched main restricted
-deb-src http://test.archive.ubuntu.com/ubuntu/ notouched main restricted
-deb http://test.archive.ubuntu.com/ubuntu/ notouched-updates main restricted
-deb http://test.archive.ubuntu.com/ubuntu/ notouched-security main restricted
+deb http://test.ubuntu.com/ubuntu/ notouched main restricted
+deb-src http://test.ubuntu.com/ubuntu/ notouched main restricted
+deb http://test.ubuntu.com/ubuntu/ notouched-updates main restricted
+deb http://test.ubuntu.com/ubuntu/ notouched-security main restricted
 """)
 
 EXPECTED_PRIMSEC_CONTENT = ("""
-deb http://tst.archive.ubuntu.com/ubuntu/ notouched main restricted
-deb-src http://tst.archive.ubuntu.com/ubuntu/ notouched main restricted
-deb http://tst.archive.ubuntu.com/ubuntu/ notouched-updates main restricted
-deb http://tst.security.ubuntu.com/ubuntu/ notouched-security main restricted
+deb http://test.ubuntu.com/ubuntu/ notouched main restricted
+deb-src http://test.ubuntu.com/ubuntu/ notouched main restricted
+deb http://test.ubuntu.com/ubuntu/ notouched-updates main restricted
+deb http://testsec.ubuntu.com/ubuntu/ notouched-security main restricted
 """)
 
 
@@ -90,8 +95,10 @@ class TestAptSourceConfigSourceList(TestCase):
     def _apt_source_list(cfg, expected):
         "_apt_source_list - Test rendering from template (generic)"
 
+        arch = util.get_architecture()
+        # would fail inside the unittest context
         with mock.patch.object(util, 'get_architecture',
-                               return_value="na-but-match-default") as mockga:
+                               return_value=arch) as mockga:
             with mock.patch.object(util, 'write_file') as mockwrite:
                 # keep it side effect free and avoid permission errors
                 with mock.patch.object(os, 'rename'):
@@ -118,9 +125,9 @@ class TestAptSourceConfigSourceList(TestCase):
     def test_apt_source_list_psm(self):
         """test_apt_source_list_psm - Test specifying prim+sec mirrors"""
         cfg = {'primary': [{'arches': ["default"],
-                            'uri': 'http://tst.archive.ubuntu.com/ubuntu/'}],
+                            'uri': 'http://test.ubuntu.com/ubuntu/'}],
                'security': [{'arches': ["default"],
-                             'uri': 'http://tst.security.ubuntu.com/ubuntu/'}]}
+                             'uri': 'http://testsec.ubuntu.com/ubuntu/'}]}
 
         self._apt_source_list(cfg, EXPECTED_PRIMSEC_CONTENT)
 
@@ -129,8 +136,10 @@ class TestAptSourceConfigSourceList(TestCase):
         """test_apt_srcl_custom - Test rendering a custom source template"""
         cfg = yaml.safe_load(YAML_TEXT_CUSTOM_SL)
 
+        arch = util.get_architecture()
+        # would fail inside the unittest context
         with mock.patch.object(util, 'get_architecture',
-                               return_value="na-but-match-default") as mockga:
+                               return_value=arch) as mockga:
             with mock.patch.object(util, 'write_file') as mockwrite:
                 # keep it side effect free and avoid permission errors
                 with mock.patch.object(os, 'rename'):

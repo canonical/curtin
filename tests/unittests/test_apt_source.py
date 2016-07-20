@@ -76,7 +76,7 @@ class TestAptSourceConfig(TestCase):
         """
         params = {}
         params['RELEASE'] = util.lsb_release()['codename']
-        params['MIRROR'] = "http://archive.ubuntu.com/ubuntu"
+        params['MIRROR'] = apt.get_default_mirrors()["PRIMARY"]
         return params
 
     def _myjoin(self, *args, **kwargs):
@@ -101,7 +101,7 @@ class TestAptSourceConfig(TestCase):
 
         contents = load_tfile(filename)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
-                                  ("deb", "http://archive.ubuntu.com/ubuntu",
+                                  ("deb", "http://test.ubuntu.com/ubuntu",
                                    "karmic-backports",
                                    "main universe multiverse restricted"),
                                   contents, flags=re.IGNORECASE))
@@ -109,7 +109,7 @@ class TestAptSourceConfig(TestCase):
     def test_apt_src_basic(self):
         """test_apt_src_basic - Test fix deb source string"""
         cfg = {self.aptlistfile: {'source':
-                                  ('deb http://archive.ubuntu.com/ubuntu'
+                                  ('deb http://test.ubuntu.com/ubuntu'
                                    ' karmic-backports'
                                    ' main universe multiverse restricted')}}
         self._apt_src_basic(self.aptlistfile, cfg)
@@ -117,15 +117,15 @@ class TestAptSourceConfig(TestCase):
     def test_apt_src_basic_tri(self):
         """test_apt_src_basic_tri - Test multiple fix deb source strings"""
         cfg = {self.aptlistfile: {'source':
-                                  ('deb http://archive.ubuntu.com/ubuntu'
+                                  ('deb http://test.ubuntu.com/ubuntu'
                                    ' karmic-backports'
                                    ' main universe multiverse restricted')},
                self.aptlistfile2: {'source':
-                                   ('deb http://archive.ubuntu.com/ubuntu'
+                                   ('deb http://test.ubuntu.com/ubuntu'
                                     ' precise-backports'
                                     ' main universe multiverse restricted')},
                self.aptlistfile3: {'source':
-                                   ('deb http://archive.ubuntu.com/ubuntu'
+                                   ('deb http://test.ubuntu.com/ubuntu'
                                     ' lucid-backports'
                                     ' main universe multiverse restricted')}}
         self._apt_src_basic(self.aptlistfile, cfg)
@@ -133,13 +133,13 @@ class TestAptSourceConfig(TestCase):
         # extra verify on two extra files of this test
         contents = load_tfile(self.aptlistfile2)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
-                                  ("deb", "http://archive.ubuntu.com/ubuntu",
+                                  ("deb", "http://test.ubuntu.com/ubuntu",
                                    "precise-backports",
                                    "main universe multiverse restricted"),
                                   contents, flags=re.IGNORECASE))
         contents = load_tfile(self.aptlistfile3)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
-                                  ("deb", "http://archive.ubuntu.com/ubuntu",
+                                  ("deb", "http://test.ubuntu.com/ubuntu",
                                    "lucid-backports",
                                    "main universe multiverse restricted"),
                                   contents, flags=re.IGNORECASE))
@@ -446,10 +446,13 @@ class TestAptSourceConfig(TestCase):
         fromfn = ("%s/archive.ubuntu.com_%s" % (pre, post))
         tofn = ("%s/us.archive.ubuntu.com_%s" % (pre, post))
 
-        with mock.patch.object(os, 'rename') as mockren:
-            with mock.patch.object(glob, 'glob',
-                                   return_value=[fromfn]):
-                apt.rename_apt_lists(mirrors, TARGET)
+        arch = util.get_architecture()
+        # get_architecture would fail inside the unittest context
+        with mock.patch.object(util, 'get_architecture', return_value=arch):
+            with mock.patch.object(os, 'rename') as mockren:
+                with mock.patch.object(glob, 'glob',
+                                       return_value=[fromfn]):
+                    apt.rename_apt_lists(mirrors, TARGET)
 
         mockren.assert_any_call(fromfn, tofn)
 
@@ -490,8 +493,9 @@ class TestAptSourceConfig(TestCase):
 
     def test_mirror_default(self):
         """test_mirror_default - Test without defining a mirror"""
-        pmir = "http://archive.ubuntu.com/ubuntu/"
-        smir = "http://security.ubuntu.com/ubuntu/"
+        default_mirrors = apt.get_default_mirrors()
+        pmir = default_mirrors["PRIMARY"]
+        smir = default_mirrors["SECURITY"]
         mirrors = apt.find_apt_mirror_info({})
 
         self.assertEqual(mirrors['MIRROR'],
@@ -547,9 +551,9 @@ class TestAptSourceConfig(TestCase):
 
     def test_mirror_arches_sysdefault(self):
         """test_mirror_arches - Test arches falling back to sys default"""
-        # the global defaults
-        pmir = "http://archive.ubuntu.com/ubuntu/"
-        smir = "http://security.ubuntu.com/ubuntu/"
+        default_mirrors = apt.get_default_mirrors()
+        pmir = default_mirrors["PRIMARY"]
+        smir = default_mirrors["SECURITY"]
         cfg = {"primary": [{'arches': ["thisarchdoesntexist_64"],
                             "uri": "notthis"},
                            {'arches': ["thisarchdoesntexist"],
