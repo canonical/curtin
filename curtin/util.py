@@ -977,17 +977,6 @@ def basic_template_render(content, params):
     return BASIC_MATCHER.sub(replacer, content)
 
 
-def render_string_to_file(content, outfn, params, mode=0o644):
-    """ render_string_to_file
-        render a string to a file following replacement rules as defined
-        in basic_template_render
-    """
-    if not outfn or not content:
-        return
-    rendered = render_string(content, params)
-    write_file(outfn, rendered, mode=mode)
-
-
 def render_string(content, params):
     """ render_string
         render a string following replacement rules as defined in

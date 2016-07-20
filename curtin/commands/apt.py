@@ -224,6 +224,30 @@ def mirror_to_placeholder(tmpl, mirror, placeholder):
     return tmpl.replace(mirror, placeholder)
 
 
+def disable_pockets(cfg, src, release):
+    """reads the config for pockets to be disabled and removes those
+       from the template"""
+    retsrc = src
+    pockets_to_disable = cfg.get('disable_pockets', None)
+    if pockets_to_disable is not None:
+        for pocket in pockets_to_disable:
+            LOG.info("Disabling pocket %s", pocket)
+            if pocket == "RELEASE":
+                releasepocket = release
+            else:
+                releasepocket = "%s-%s" % (release, pocket)
+
+            newsrc = ""
+            for line in retsrc.splitlines(True):
+                cols = line.split()
+                if not line.startswith("#") and cols[2] == releasepocket:
+                    line = '# pocket disabled by curtin: %s' % line
+                newsrc += line
+            retsrc = newsrc
+
+    return retsrc
+
+
 def generate_sources_list(cfg, release, mirrors, target):
     """ generate_sources_list
         create a source.list file based on a custom or default template
@@ -254,8 +278,10 @@ def generate_sources_list(cfg, release, mirrors, target):
                   target + aptsrc + ".curtin")
     except OSError:
         LOG.exception("failed to backup %s/%s", target, aptsrc)
-    util.render_string_to_file(tmpl, target+aptsrc,
-                               params)
+
+    rendered = util.render_string(tmpl, params)
+    disabled = disable_pockets(cfg, rendered, release)
+    util.write_file(target+aptsrc, disabled, mode=0o644)
 
 
 def add_apt_key_raw(key, target):
