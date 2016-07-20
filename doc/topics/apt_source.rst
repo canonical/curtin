@@ -119,6 +119,24 @@ Please also read the section ``Dependencies`` below to avoid loosing some of the
 
 The file examples/apt-source.yaml holds various further examples that can be configured with this feature.
 
+Common snippets
+---------------
+This is a collection of additional ideas people can use the feature for customizing their to-be-installed system.
+
+* enable proposed on installing
+  apt:
+    sources:
+      proposed.list: deb $MIRROR $RELEASE-proposed main restricted universe multiverse
+
+* Make debug symbols available
+  apt:
+    sources:
+      ddebs.list: |
+        deb http://ddebs.ubuntu.com $RELEASE main restricted universe multiverse
+        deb http://ddebs.ubuntu.com $RELEASE-updates main restricted universe multiverse
+        deb http://ddebs.ubuntu.com $RELEASE-security main restricted universe multiverse
+        deb http://ddebs.ubuntu.com $RELEASE-proposed main restricted universe multiverse
+
 Timing
 ------
 The feature is implemented at the stage of curthooks_commands, after which runs just after curtin has extracted the image to the target.
