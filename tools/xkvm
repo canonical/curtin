@@ -294,8 +294,8 @@ get_bios_opts() {
             debug 1 "copied $nvram_src to $nvram"
         fi
     else
-    	debug 1 "uefi without --uefi-nvram storage." \
-                "nvram settings likely will not persist."
+        debug 1 "uefi without --uefi-nvram storage." \
+            "nvram settings likely will not persist."
         nvram="${nvram_src}"
     fi
 
