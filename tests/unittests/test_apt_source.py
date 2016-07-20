@@ -427,26 +427,36 @@ class TestAptSourceConfig(TestCase):
 
     def test_mir_apt_list_rename(self):
         """test_mir_apt_list_rename - Test find mirror and apt list renaming"""
+        pre = "/var/lib/apt/lists"
+        # filenames are archive dependent
+        arch = util.get_architecture()
+        if arch in apt.PRIMARY_ARCHES:
+            component = "ubuntu"
+            archive = "archive.ubuntu.com"
+        else:
+            component = "ubuntu-ports"
+            archive = "ports.ubuntu.com"
+
         cfg = {'primary': [{'arches': ["default"],
-                            'uri': 'http://us.archive.ubuntu.com/ubuntu/'}],
+                            'uri':
+                            'http://test.ubuntu.com/%s/' % component}],
                'security': [{'arches': ["default"],
-                             'uri': 'http://security.ubuntu.com/ubuntu/'}]}
+                             'uri':
+                             'http://testsec.ubuntu.com/%s/' % component}]}
+        post = ("%s_dists_%s-updates_InRelease" %
+                (component, util.lsb_release()['codename']))
+        fromfn = ("%s/%s_%s" % (pre, archive, post))
+        tofn = ("%s/test.ubuntu.com_%s" % (pre, post))
+
         mirrors = apt.find_apt_mirror_info(cfg)
 
         self.assertEqual(mirrors['MIRROR'],
-                         "http://us.archive.ubuntu.com/ubuntu/")
+                         "http://test.ubuntu.com/%s/" % component)
         self.assertEqual(mirrors['PRIMARY'],
-                         "http://us.archive.ubuntu.com/ubuntu/")
+                         "http://test.ubuntu.com/%s/" % component)
         self.assertEqual(mirrors['SECURITY'],
-                         "http://security.ubuntu.com/ubuntu/")
+                         "http://testsec.ubuntu.com/%s/" % component)
 
-        pre = "/var/lib/apt/lists"
-        post = ("ubuntu_dists_%s-proposed_InRelease" %
-                util.lsb_release()['codename'])
-        fromfn = ("%s/archive.ubuntu.com_%s" % (pre, post))
-        tofn = ("%s/us.archive.ubuntu.com_%s" % (pre, post))
-
-        arch = util.get_architecture()
         # get_architecture would fail inside the unittest context
         with mock.patch.object(util, 'get_architecture', return_value=arch):
             with mock.patch.object(os, 'rename') as mockren:
