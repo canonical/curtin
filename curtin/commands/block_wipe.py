@@ -22,15 +22,9 @@ from . import populate_one_subcmd
 
 def wipe_main(args):
     #  curtin clear-holders device [device2 [device3]]
+    if args.clearholders:
+        block.clear_holders.clear_holders(args.devices)
     for blockdev in args.devices:
-        if args.clearholders:
-            (res, _err) = block.clear_holders.clear_holders(blockdev)
-            if not res:
-                sys.stderr.write('failed clear_holders() on dev {}'
-                                 .format(blockdev))
-                for e in _err:
-                    sys.stderr.write('clear_holders err: {}'.format(e))
-                continue
         try:
             block.wipe_volume(blockdev, mode=args.mode)
         except Exception as e:
@@ -44,7 +38,7 @@ def wipe_main(args):
 CMD_ARGUMENTS = (
     ((('-m', '--mode'),
       {'help': 'mode for wipe.', 'action': 'store',
-       'default': 'superblocks',
+       'default': 'superblock',
        'choices': ['zero', 'superblock', 'superblock-recursive', 'random']}),
      (('-c', '--clearholders'),
       {'help': 'shut down storage layers depending on specified devices',
