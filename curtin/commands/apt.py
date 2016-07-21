@@ -163,6 +163,7 @@ def apply_debconf_selections(cfg, target):
 
 
 def clean_cloud_init(target):
+    """clean out any local cloud-init config"""
     flist = glob.glob(
         os.path.sep.join([target, "/etc/cloud/cloud.cfg.d/*dpkg*"]))
 
