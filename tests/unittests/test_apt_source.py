@@ -614,15 +614,17 @@ class TestAptSourceConfig(TestCase):
         cfg = {"primary": [{'arches': ["default"],
                             "search_dns": True}],
                "security": [{'arches': ["default"],
-                            "search_dns": True}]}
+                             "search_dns": True}]}
 
-        with mock.patch.object(apt, 'get_mirror') as mockgm:
+        with mock.patch.object(apt, 'get_mirror',
+                               return_value="http://mocked/foo") as mockgm:
             mirrors = apt.find_apt_mirror_info(cfg)
         calls = [call(cfg, 'primary', util.get_architecture()),
                  call(cfg, 'security', util.get_architecture())]
         mockgm.assert_has_calls(calls)
 
-        with mock.patch.object(apt, 'search_for_mirror_dns') as mocksdns:
+        with mock.patch.object(apt, 'search_for_mirror_dns',
+                               return_value="http://mocked/foo") as mocksdns:
             mirrors = apt.find_apt_mirror_info(cfg)
         calls = [call(True, 'mirror'),
                  call(True, 'security-mirror')]
@@ -667,7 +669,8 @@ class TestAptSourceConfig(TestCase):
                              "search": ["sfailme", "bar"]}]}
 
         # should be called once per type, despite three configs each
-        with mock.patch.object(apt, 'get_mirror') as mockgm:
+        with mock.patch.object(apt, 'get_mirror',
+                               return_value="http://mocked/foo") as mockgm:
             mirrors = apt.find_apt_mirror_info(cfg)
         calls = [call(cfg, 'primary', util.get_architecture()),
                  call(cfg, 'security', util.get_architecture())]
@@ -702,7 +705,8 @@ class TestAptSourceConfig(TestCase):
                              "search": ["sfailme", smir]}]}
 
         # should be called once per type, despite three configs each
-        with mock.patch.object(apt, 'get_mirror') as mockgm:
+        with mock.patch.object(apt, 'get_mirror',
+                               return_value="http://mocked/foo") as mockgm:
             mirrors = apt.find_apt_mirror_info(cfg)
         calls = [call(cfg, 'primary', util.get_architecture()),
                  call(cfg, 'security', util.get_architecture())]
