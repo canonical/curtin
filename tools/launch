@@ -34,7 +34,6 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
                         elements. Examine qemu-kvm -device scsi-hd,? for
                         details.
            --vnc D      use -vnc D (mutually exclusive with --silent)
-           --uefi   N   enable uefi boot method, store nvram at N
       -h | --help       show this message
       -i | --initrd F   use initramfs F
       -k | --kernel F   use kernel K
@@ -51,6 +50,10 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
       -v | --verbose    be more verbose
            --no-install-deps  do not install insert '--install-deps'
                               on curtin command invocations
+
+    the following are passed through to xkvm:
+        --uefi-nvram
+        --bios
 
    use of --kernel/--initrd will seed cloud-init via cmdline
    rather than the local datasource
@@ -249,7 +252,7 @@ find_apt_proxy() {
 
 main() {
     local short_opts="a:A:d:h:i:k:n:p:v"
-    local long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,root-arg:,silent,serial-log:,uefi:,verbose,vnc:"
+    local long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,root-arg:,silent,serial-log:,uefi-nvram:,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -262,7 +265,7 @@ main() {
     local tmp="" top_d
     local initrd="" kernel="" uappend="" iargs="" disk_args=""
     local pubs="" disks="" pstate="null"
-    local uefi="" bios="" bsize="512"
+    local bsize="512"
     local netdevs="" install_deps="--install-deps"
     local arch_hint=""
     local video="-curses -vga std" serial_log="serial.log"
@@ -290,7 +293,6 @@ main() {
                --add) addfiles[${#addfiles[@]}]="$next"; shift;;
             -a|--append) uappend="$next"; shift;;
             -A|--arch) arch_hint="$next"; shift;;
-               --bios) bios="$2"; shift;;
             -d|--disk) disks[${#disks[@]}]="$next"; shift;;
                --dowait) pt[${#pt[@]}]="$cur"; dowait=true;;
             -h|--help) Usage ; exit 0;;
@@ -312,7 +314,9 @@ main() {
                --root-arg) root_arg="$next";;
                --serial-log) serial_log="$next"; shift;;
                --silent) video="-nographic";;
-               --uefi) uefi="$2"; shift;;
+            --uefi-nvram|--bios)
+                # handle all --opt=* pass through here.
+                pt[${#pt[@]}]="$cur=$next";;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
                --vnc)
                     video="-vnc $next"
@@ -339,48 +343,6 @@ main() {
 
     trap cleanup EXIT
     register_signal_handlers
-
-    local bios_opts=""
-
-    bios_opts=( )
-    if [ -n "$bios" ]; then
-        bios_opts=(  -drive "if=pflash,format=raw,file=$bios" )
-    elif [ -n "$uefi" ]; then
-        case `lsb_release -sc` in
-            precise|trusty|vivid)
-                # for non-split UEFI firmware, the code and
-                # var space are in the same file.  We must
-                # make a copy so we can retain modifications.
-                local ovmf_code="/usr/share/ovmf/OVMF.fd"
-                local ovmf_var=$ovmf_code
-                ;;
-            *)
-                # anything newer than vivid has split UEFI firmware
-                local ovmf_code="/usr/share/OVMF/OVMF_CODE.fd"
-                local ovmf_var="/usr/share/OVMF/OVMF_VARS.fd"
-                ;;
-        esac
-        [ -f "$ovmf_code" ] || {
-            error "no --uefi requires ovmf bios: apt-get install ovmf"
-            return 1;
-        }
-        # user specified where to write nvram data in --uefi param
-        # pre-populate it with the OVMF_VARS.fd template
-        local nvram=${uefi}
-        cp -a "${ovmf_var}" "${nvram}" || {
-            error "failed to create OVMF nvram file: '$nvram'"
-            return 1;
-        }
-        # default to the rw copy of UEFI code
-        local uefi_opts="-drive file=$nvram,if=pflash,format=raw"
-        # if firmware is split, use readonly-code section
-        if [ "$ovmf_code" != "$ovmf_var" ]; then
-            # to ensure bootability, re-order firmware, code then variables
-            uefi_opts="-drive file=$ovmf_code,if=pflash,format=raw,readonly $uefi_opts"
-        fi
-
-        bios_opts=( $uefi_opts )
-    fi
 
     if [ "${#disks[@]}" -eq 0 ]; then
         disks=( "${TEMP_D}/disk1.img" )
@@ -624,7 +586,6 @@ main() {
     # -monitor stdio
     cmd=(
         xkvm "${pt[@]}" "${netargs[@]}" --
-        "${bios_opts[@]}"
         -m ${mem} ${serial_args} ${video}
         -drive "file=$bootimg,if=none,cache=unsafe,format=qcow2,id=boot,index=0"
         -device "virtio-blk,drive=boot"
