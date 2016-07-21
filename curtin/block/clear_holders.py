@@ -211,8 +211,10 @@ def holder_types(tree):
     """
     get flattened list of all holder types present in holders_tree
     """
-    name = tree['dev_type']['name']
-    return [name] + [holder_types(h) for h in tree['holders']]
+    types = [tree['dev_type']['name']]
+    for holder in tree['holders']:
+        types.extend(holder_types(holder))
+    return types
 
 
 def plan_shutdown_holder_trees(holders_trees):
