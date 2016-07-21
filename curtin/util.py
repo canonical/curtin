@@ -31,11 +31,13 @@ import sys
 import tempfile
 import time
 
-# avoid the dependency to python3-six as used in cloud-init for now
+# avoid the dependency to python3-six as used in cloud-init
 try:
     from urlparse import urlparse
 except ImportError:
     # python3
+    # avoid triggering pylint, https://github.com/PyCQA/pylint/issues/769
+    # pylint:disable=import-error,no-name-in-module
     from urllib.parse import urlparse
 
 from .log import LOG
