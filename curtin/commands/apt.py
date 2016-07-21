@@ -167,7 +167,7 @@ def clean_cloud_init(target):
     flist = glob.glob(
         os.path.sep.join([target, "/etc/cloud/cloud.cfg.d/*dpkg*"]))
 
-    LOG.debug("cleaning cloud-init config from: %s" % flist)
+    LOG.debug("cleaning cloud-init config from: %s", flist)
     for dpkg_cfg in flist:
         os.unlink(dpkg_cfg)
 
