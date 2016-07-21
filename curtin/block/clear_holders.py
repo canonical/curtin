@@ -299,14 +299,32 @@ def clear_holders(base_paths):
     Clear all storage layers depending on the devices specified in 'base_paths'
     A single device or list of devices can be specified.
     Device paths can be specified either as paths in /dev or /sys/block
+    Will throw OSError if any holders could not be shut down
     """
+    # handle single path
     if not isinstance(base_paths, (list, tuple)):
         base_paths = [base_paths]
+
+    # get current holders and plan how to shut them down
     holder_trees = [gen_holders_tree(path) for path in base_paths]
     LOG.info('Current device storage tree:\n%s',
              '\n'.join(format_holders_tree(tree) for tree in holder_trees))
     ordered_shutdowns = plan_shutdown_holder_trees(holder_trees)
+
+    # run shutdown functions
     for (shutdown_function, log_message) in ordered_shutdowns:
         LOG.info(log_message)
         shutdown_function()
         udev.udevadm_settle()
+
+    # make sure nothing but disks and partitions remains in tree
+    def assert_no_remaining_holders(holders_tree):
+        if holders_tree['dev_type']['name'] not in [None, 'disk', 'partition']:
+            raise OSError('clear_holders could not shut down {} dev at {}'
+                          .format(holders_tree['dev_type']['name'],
+                                  holders_tree['device']))
+        for holder in holders_tree['holders']:
+            assert_no_remaining_holders(holder)
+
+    for path in base_paths:
+        assert_no_remaining_holders(gen_holders_tree(path))
