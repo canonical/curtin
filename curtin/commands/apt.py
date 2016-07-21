@@ -524,7 +524,7 @@ def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
         LOG.info("no apt config configured, removed %s", config_fname)
 
 
-def apt(args):
+def apt_command(args):
     """ apt
         Main entry point for curtin apt standalone command
         Handling of apt: dict as custom config for apt. This allows
@@ -581,7 +581,7 @@ CMD_ARGUMENTS = (
 
 def POPULATE_SUBCMD(parser):
     """Populate subcommand option parsing for apt"""
-    populate_one_subcmd(parser, CMD_ARGUMENTS, apt)
+    populate_one_subcmd(parser, CMD_ARGUMENTS, apt_command)
 
 CONFIG_CLEANERS = {
     'cloud-init': clean_cloud_init,
