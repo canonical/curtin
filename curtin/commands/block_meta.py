@@ -1034,6 +1034,7 @@ def meta_custom(args):
                   if v.get('type') == 'disk' and
                   config.value_as_boolean(v.get('wipe'))]
     clear_holders.clear_holders(disk_paths)
+    clear_holders.assert_clear(disk_paths)
 
     for item_id, command in storage_config_dict.items():
         handler = command_handlers.get(command['type'])

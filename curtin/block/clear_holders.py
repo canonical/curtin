@@ -207,6 +207,14 @@ def gen_holders_tree(device):
     }
 
 
+def holder_types(tree):
+    """
+    get flattened list of all holder types present in holders_tree
+    """
+    name = tree['dev_type']['name']
+    return [name] + [holder_types(h) for h in tree['holders']]
+
+
 def plan_shutdown_holder_trees(holders_trees):
     """
     plan best order to shut down holders in, taking into account high level
@@ -294,6 +302,20 @@ def format_holders_tree(holders_tree):
     return '\n'.join(format_tree(holders_tree))
 
 
+def assert_clear(base_paths):
+    """
+    Check if all paths in base_paths are clear to use
+    Raises OSError if any holders still present
+    """
+    valid = ('disk', 'partition')
+    if not isinstance(base_paths, (list, tuple)):
+        base_paths = [base_paths]
+    for holders_tree in [gen_holders_tree(p) for p in base_paths]:
+        if any(h not in valid for h in holder_types(holders_tree)):
+            raise OSError('Storage not clear, remaining:\n{}'
+                          .format(format_holders_tree(holders_tree)))
+
+
 def clear_holders(base_paths):
     """
     Clear all storage layers depending on the devices specified in 'base_paths'
@@ -316,15 +338,3 @@ def clear_holders(base_paths):
         LOG.info(log_message)
         shutdown_function()
         udev.udevadm_settle()
-
-    # make sure nothing but disks and partitions remains in tree
-    def assert_no_remaining_holders(holders_tree):
-        if holders_tree['dev_type']['name'] not in [None, 'disk', 'partition']:
-            raise OSError('clear_holders could not shut down {} dev at {}'
-                          .format(holders_tree['dev_type']['name'],
-                                  holders_tree['device']))
-        for holder in holders_tree['holders']:
-            assert_no_remaining_holders(holder)
-
-    for path in base_paths:
-        assert_no_remaining_holders(gen_holders_tree(path))
