@@ -323,7 +323,7 @@ def disk_handler(info, storage_config):
     disk = get_path_to_storage_volume(info.get('id'), storage_config)
 
     # Handle preserve flag
-    if info.get('preserve'):
+    if config.value_as_boolean(info.get('preserve')):
         if not ptable:
             # Don't need to check state, return
             return
@@ -490,9 +490,9 @@ def partition_handler(info, storage_config):
         length_sectors = length_sectors + (logdisks * alignment_offset)
 
     # Handle preserve flag
-    if info.get('preserve'):
+    if config.value_as_boolean(info.get('preserve')):
         return
-    elif storage_config.get(device).get('preserve'):
+    elif config.value_as_boolean(storage_config.get(device).get('preserve')):
         raise NotImplementedError("Partition '%s' is not marked to be \
             preserved, but device '%s' is. At this time, preserving devices \
             but not also the partitions on the devices is not supported, \
@@ -559,7 +559,7 @@ def format_handler(info, storage_config):
     volume_path = get_path_to_storage_volume(volume, storage_config)
 
     # Handle preserve flag
-    if info.get('preserve'):
+    if config.value_as_boolean(info.get('preserve')):
         # Volume marked to be preserved, not formatting
         return
 
@@ -641,7 +641,7 @@ def lvm_volgroup_handler(info, storage_config):
                             storage_config))
 
     # Handle preserve flag
-    if info.get('preserve'):
+    if config.value_as_boolean(info.get('preserve')):
         # LVM will probably be offline, so start it
         util.subp(["vgchange", "-a", "y"])
         # Verify that volgroup exists and contains all specified devices
@@ -672,7 +672,7 @@ def lvm_partition_handler(info, storage_config):
         raise ValueError("lvm partition name must be specified")
 
     # Handle preserve flag
-    if info.get('preserve'):
+    if config.value_as_boolean(info.get('preserve')):
         (out, _err) = util.subp(["lvdisplay", "-C", "--separator", "=", "-o",
                                 "lv_name,vg_name", "--noheadings"],
                                 capture=True)
@@ -790,7 +790,7 @@ def raid_handler(info, storage_config):
                   zip(spare_devices, spare_device_paths)))
 
     # Handle preserve flag
-    if info.get('preserve'):
+    if config.value_as_boolean(info.get('preserve')):
         # check if the array is already up, if not try to assemble
         if not mdadm.md_check(md_devname, raidlevel,
                               device_paths, spare_device_paths):
@@ -1032,7 +1032,8 @@ def meta_custom(args):
     disk_paths = [get_path_to_storage_volume(k, storage_config_dict)
                   for (k, v) in storage_config_dict.items()
                   if v.get('type') == 'disk' and
-                  config.value_as_boolean(v.get('wipe'))]
+                  config.value_as_boolean(v.get('wipe')) and
+                  not config.value_as_boolean(v.get('preserve'))]
     clear_holders.clear_holders(disk_paths)
     clear_holders.assert_clear(disk_paths)
 
