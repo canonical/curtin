@@ -75,6 +75,10 @@ Usage: ${0##*/} [ options ] -- kvm-args [ ... ]
       -d | --disk  DISK.img   attach DISK.img as a disk (via virtio)
            --dry-run          only report what would be done
 
+           --uefi             boot with efi
+           --uefi-nvram=FILE  boot with efi, using nvram settings in FILE
+                              if FILE not present, copy from defaults.
+
    NETDEV:
     Above, 'NETDEV' is a comma delimited string
     The first field must be
@@ -239,9 +243,78 @@ quote_cmd() {
     echo "$vline"
 }
 
+get_bios_opts() {
+    # get_bios_opts(bios, uefi, nvram)
+    # bios is a explicit bios to boot.
+    # uefi is boolean indicating uefi
+    # nvram is optional and indicates that ovmf vars should be copied
+    # to that file if it does not exist. if it exists, use it.
+    local bios="$1" uefi="${2:-false}" nvram="$3"
+    local ovmf_dir="/usr/share/OVMF"
+    local bios_opts="" pflash_common="if=pflash,format=raw"
+    unset _RET
+    _RET=( )
+    if [ -n "$bios" ]; then
+        _RET=( -drive "${pflash_common},file=$bios" )
+        return 0
+    elif ! $uefi; then
+        return 0
+    fi
+
+    # ovmf in older releases (14.04) shipped only a single file
+    #   /usr/share/ovmf/OVMF.fd
+    # newer ovmf ships split files
+    #   /usr/share/OVMF/OVMF_CODE.fd
+    #   /usr/share/OVMF/OVMF_VARS.fd
+    # with single file, pass only one file and read-write
+    # with split, pass code as readonly and vars as read-write
+    local joined="/usr/share/ovmf/OVMF.fd"
+    local code="/usr/share/OVMF/OVMF_CODE.fd"
+    local vars="/usr/share/OVMF/OVMF_VARS.fd"
+    local split="" nvram_src=""
+    if [ -e "$code" -o -e "$vars" ]; then
+        split=true
+        nvram_src="$vars"
+    elif [ -e "$joined" ]; then
+        split=false
+        nvram_src="$joined"
+    elif [ -n "$nvram" -a -e "$nvram" ]; then
+        error "WARN: nvram given, but did not find expected ovmf files."
+        error "      assuming this is code and vars (OVMF.fd)"
+        split=false
+    else
+        error "uefi support requires ovmf bios: apt-get install -qy ovmf"
+        return 1
+    fi
+
+    if [ -n "$nvram" ]; then
+        if [ ! -f "$nvram" ]; then
+            cp "$nvram_src" "$nvram" || 
+                { error "failed copy $nvram_src to $nvram"; return 1; }
+            debug 1 "copied $nvram_src to $nvram"
+        fi
+    else
+        debug 1 "uefi without --uefi-nvram storage." \
+            "nvram settings likely will not persist."
+        nvram="${nvram_src}"
+    fi
+
+    if [ ! -w "$nvram" ]; then
+        debug 1 "nvram file ${nvram} is readonly"
+        nvram_ro="readonly"
+    fi
+
+    if $split; then
+        # to ensure bootability firmware must be first, then variables
+        _RET=( -drive "${pflash_common},file=$code,readonly" )
+    fi
+    _RET=( "${_RET[@]}"
+           -drive "${pflash_common},file=$nvram${nvram_ro:+,${nvram_ro}}" )
+}
+
 main() {
     local short_opts="hd:n:v"
-    local long_opts="help,dowait,disk:,dry-run,kvm:,no-dowait,netdev:,verbose"
+    local long_opts="bios:,help,dowait,disk:,dry-run,kvm:,no-dowait,netdev:,uefi,uefi-nvram:,verbose"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -252,6 +325,7 @@ main() {
     local kvm="" kvmcmd="" archopts=""
     local def_disk_driver=${DEF_DISK_DRIVER:-"virtio-blk"}
     local def_netmodel=${DEF_NETMODEL:-"virtio-net-pci"}
+    local bios="" uefi=false uefi_nvram=""
 
     archopts=( )
     kvmcmd=( )
@@ -282,6 +356,9 @@ main() {
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
             --dowait) dowait=true;;
             --no-dowait) dowait=false;;
+            --bios) bios="$next"; shift;;
+            --uefi) uefi=true;;
+            --uefi-nvram) uefi=true; uefi_nvram="$next"; shift;;
             --) shift; break;;
         esac
         shift;
@@ -320,6 +397,15 @@ main() {
     esac
     KVM="$kvm"
     kvmcmd=( $kvm -enable-kvm )
+
+    local bios_opts=""
+    if [ -n "$bios" ] && $uefi; then
+        error "--uefi (or --uefi-nvram) is incompatible with --bios"
+        return 1
+    fi
+    get_bios_opts "$bios" "$uefi" "$uefi_nvram" ||
+        { error "failed to get bios opts"; return 1; }
+    bios_opts=( "${_RET[@]}" )
 
     local out="" fmt="" bus="" unit="" index="" serial="" driver="" devopts=""
     local busorindex="" driveopts="" cur="" val="" file=""
@@ -538,7 +624,9 @@ main() {
 
     local bus_devices
     bus_devices=( -device "$virtio_scsi_bus,id=virtio-scsi-xkvm" )
-    cmd=( "${kvmcmd[@]}" "${archopts[@]}" "${bus_devices[@]}"
+    cmd=( "${kvmcmd[@]}" "${archopts[@]}" 
+          "${bios_opts[@]}"
+          "${bus_devices[@]}"
           "${netargs[@]}"
           "${diskargs[@]}" "${pt[@]}" )
     local pcmd=$(quote_cmd "${cmd[@]}")
