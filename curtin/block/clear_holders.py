@@ -207,16 +207,6 @@ def gen_holders_tree(device):
     }
 
 
-def holder_types(tree):
-    """
-    get flattened list of all holder types present in holders_tree
-    """
-    types = [tree['dev_type']['name']]
-    for holder in tree['holders']:
-        types.extend(holder_types(holder))
-    return types
-
-
 def plan_shutdown_holder_trees(holders_trees):
     """
     plan best order to shut down holders in, taking into account high level
@@ -305,15 +295,23 @@ def format_holders_tree(holders_tree):
 
 
 def assert_clear(base_paths):
-    """
-    Check if all paths in base_paths are clear to use
-    Raises OSError if any holders still present
-    """
+    """Check if all paths in base_paths are clear to use"""
+
+    def holder_types(tree):
+        # get flattened list of all holder types present in holders_tree and
+        # the device they are present on
+        types = [(tree['dev_type']['name'], tree['device'])]
+        for holder in tree['holders']:
+            types.extend(holder_types(holder))
+        return types
+
     valid = ('disk', 'partition')
     if not isinstance(base_paths, (list, tuple)):
         base_paths = [base_paths]
+    base_paths = [block.sys_block_path(path) for path in base_paths]
     for holders_tree in [gen_holders_tree(p) for p in base_paths]:
-        if any(h not in valid for h in holder_types(holders_tree)):
+        if any(holder_type not in valid and path not in base_paths
+               for (holder_type, path) in holder_types(holders_tree)):
             raise OSError('Storage not clear, remaining:\n{}'
                           .format(format_holders_tree(holders_tree)))
 
