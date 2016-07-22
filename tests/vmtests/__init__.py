@@ -40,15 +40,10 @@ DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
 IMAGE_SYNCS = []
 TARGET_IMAGE_FORMAT = "raw"
-OVMF_CODE = "/usr/share/OVMF/OVMF_CODE.fd"
-OVMF_VARS = "/usr/share/OVMF/OVMF_VARS.fd"
-# precise -> vivid don't have split UEFI firmware, fallback
-if not os.path.exists(OVMF_CODE):
-    OVMF_CODE = "/usr/share/ovmf/OVMF.fd"
-    OVMF_VARS = OVMF_CODE
 
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
+OUTPUT_DISK_NAME = 'output_disk.img'
 
 _TOPDIR = None
 
@@ -334,7 +329,7 @@ class TempDir(object):
 
         # create output disk, mount ro
         logger.debug('Creating output disk')
-        self.output_disk = os.path.join(self.boot, "output_disk.img")
+        self.output_disk = os.path.join(self.boot, OUTPUT_DISK_NAME)
         subprocess.check_call(["qemu-img", "create", "-f", TARGET_IMAGE_FORMAT,
                               self.output_disk, "10M"],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
@@ -351,20 +346,23 @@ class TempDir(object):
 class VMBaseClass(TestCase):
     __test__ = False
     arch_skip = []
+    boot_timeout = 300
+    collect_scripts = []
+    conf_file = "examples/tests/basic.yaml"
     disk_block_size = 512
+    disk_driver = 'virtio-blk'
     disk_to_check = {}
-    fstab_expected = {}
+    extra_disks = []
     extra_kern_args = None
+    fstab_expected = {}
+    image_store_class = ImageStore
+    install_timeout = 3000
+    interactive = False
+    multipath = False
+    multipath_num_paths = 2
+    nvme_disks = []
     recorded_errors = 0
     recorded_failures = 0
-    image_store_class = ImageStore
-    collect_scripts = []
-    interactive = False
-    conf_file = "examples/tests/basic.yaml"
-    extra_disks = []
-    nvme_disks = []
-    boot_timeout = 300
-    install_timeout = 3000
     uefi = False
 
     # these get set from base_vm_classes
@@ -447,21 +445,51 @@ class VMBaseClass(TestCase):
             netdevs.extend(["--netdev=" + DEFAULT_BRIDGE])
 
         # build disk arguments
-        # --disk source:size:driver:block_size
-        extra_disks = []
+        disks = []
+        sc = util.load_file(cls.conf_file)
+        storage_config = yaml.load(sc).get('storage', {}).get('config', {})
+        cls.disk_wwns = ["wwn=%s" % x.get('wwn') for x in storage_config
+                         if 'wwn' in x]
+        cls.disk_serials = ["serial=%s" % x.get('serial')
+                            for x in storage_config if 'serial' in x]
+
+        target_disk = "{}:{}:{}:{}:".format(cls.td.target_disk,
+                                            "",
+                                            cls.disk_driver,
+                                            cls.disk_block_size)
+        if len(cls.disk_wwns):
+            target_disk += cls.disk_wwns[0]
+
+        if len(cls.disk_serials):
+            target_disk += cls.disk_serials[0]
+
+        disks.extend(['--disk', target_disk])
+
+        # --disk source:size:driver:block_size:devopts
         for (disk_no, disk_sz) in enumerate(cls.extra_disks):
             dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
-            extra_disks.extend(
-                ['--disk', '{}:{}:{}:{}'.format(dpath, disk_sz, "",
-                                                cls.disk_block_size)])
+            extra_disk = '{}:{}:{}:{}:'.format(dpath, disk_sz,
+                                               cls.disk_driver,
+                                               cls.disk_block_size)
+            if len(cls.disk_wwns):
+                w_index = disk_no + 1
+                if w_index < len(cls.disk_wwns):
+                    extra_disk += cls.disk_wwns[w_index]
+
+            if len(cls.disk_serials):
+                w_index = disk_no + 1
+                if w_index < len(cls.disk_serials):
+                    extra_disk += cls.disk_serials[w_index]
+
+            disks.extend(['--disk', extra_disk])
 
         # build nvme disk args if needed
-        nvme_disks = []
         for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
             dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
-            nvme_disks.extend(
-                ['--disk', '{}:{}:nvme:{}'.format(dpath, disk_sz,
-                                                  cls.disk_block_size)])
+            nvme_disk = '{}:{}:nvme:{}:{}'.format(dpath, disk_sz,
+                                                  cls.disk_block_size,
+                                                  "serial=nvme-%d" % disk_no)
+            disks.extend(['--disk', nvme_disk])
 
         # proxy config
         configs = [cls.conf_file]
@@ -472,8 +500,11 @@ class VMBaseClass(TestCase):
                 fp.write(json.dumps({'apt_proxy': proxy}) + "\n")
             configs.append(proxy_config)
 
+        uefi_flags = []
         if cls.uefi:
             logger.debug("Testcase requested launching with UEFI")
+            nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
+            uefi_flags = ["--uefi-nvram=%s" % nvram]
 
             # always attempt to update target nvram (via grub)
             grub_config = os.path.join(cls.td.install, 'grub.cfg')
@@ -481,10 +512,8 @@ class VMBaseClass(TestCase):
                 fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)
 
-            # make our own copy so we can store guest modified values
-            nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
-            shutil.copy(OVMF_VARS, nvram)
-            cmd.extend(["--uefi", nvram])
+        if cls.multipath:
+            disks = disks * cls.multipath_num_paths
 
         # set reporting logger
         cls.reporting_log = os.path.join(cls.td.logs, 'webhooks-events.json')
@@ -510,18 +539,14 @@ class VMBaseClass(TestCase):
             }))
         configs.append(reporting_config)
 
-        # --disk source:size:driver:block_size
-        target_disk = "{}:{}:{}:{}".format(cls.td.target_disk, "", "",
-                                           cls.disk_block_size)
-        cmd.extend(netdevs + ["--disk", target_disk] +
-                   extra_disks + nvme_disks +
+        cmd.extend(uefi_flags + netdevs + disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "-vv", "install"] +
                    ["--config=%s" % f for f in configs] +
                    [install_src])
 
         # run vm with installer
-        lout_path = os.path.join(cls.td.logs, "install-launch.out")
+        lout_path = os.path.join(cls.td.logs, "install-launch.log")
         logger.info('Running curtin installer: {}'.format(cls.install_log))
         try:
             with open(lout_path, "wb") as fpout:
@@ -561,42 +586,62 @@ class VMBaseClass(TestCase):
             cls.tearDownClass()
             raise
 
-        # drop the size parameter if present in extra_disks
-        extra_disks = [x if ":" not in x else x.split(':')[0]
-                       for x in extra_disks]
         # create --disk params for nvme disks
         bsize_args = "logical_block_size={}".format(cls.disk_block_size)
         bsize_args += ",physical_block_size={}".format(cls.disk_block_size)
         bsize_args += ",min_io_size={}".format(cls.disk_block_size)
-        disk_driver = "virtio-blk"
 
         target_disks = []
-        for (disk_no, disk) in enumerate([cls.td.target_disk,
-                                          cls.td.output_disk]):
-            d = '--disk={},driver={},format={},{}'.format(disk, disk_driver,
-                                                          TARGET_IMAGE_FORMAT,
-                                                          bsize_args)
-            target_disks.extend([d])
+        for (disk_no, disk) in enumerate([cls.td.target_disk]):
+            disk = '--disk={},driver={},format={},{}'.format(
+                disk, cls.disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
+            if len(cls.disk_wwns):
+                disk += ",%s" % cls.disk_wwns[0]
+            if len(cls.disk_serials):
+                disk += ",%s" % cls.disk_serials[0]
+
+            target_disks.extend([disk])
 
         extra_disks = []
         for (disk_no, disk_sz) in enumerate(cls.extra_disks):
             dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
-            d = '--disk={},driver={},format={},{}'.format(dpath, disk_driver,
-                                                          TARGET_IMAGE_FORMAT,
-                                                          bsize_args)
-            extra_disks.extend([d])
+            disk = '--disk={},driver={},format={},{}'.format(
+                dpath, cls.disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
+            if len(cls.disk_wwns):
+                w_index = disk_no + 1
+                if w_index < len(cls.disk_wwns):
+                    disk += ",%s" % cls.disk_wwns[w_index]
+
+            if len(cls.disk_serials):
+                w_index = disk_no + 1
+                if w_index < len(cls.disk_serials):
+                    disk += ",%s" % cls.disk_serials[w_index]
+
+            extra_disks.extend([disk])
 
         nvme_disks = []
         disk_driver = 'nvme'
         for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
             dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
-            d = '--disk={},driver={},format={},{}'.format(dpath, disk_driver,
-                                                          TARGET_IMAGE_FORMAT,
-                                                          bsize_args)
-            nvme_disks.extend([d])
+            disk = '--disk={},driver={},format={},{}'.format(
+                dpath, disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
+            nvme_disks.extend([disk])
+
+        if cls.multipath:
+            target_disks = target_disks * cls.multipath_num_paths
+            extra_disks = extra_disks * cls.multipath_num_paths
+            nvme_disks = nvme_disks * cls.multipath_num_paths
+
+        # output disk is always virtio-blk, with serial of output_disk.img
+        output_disk = '--disk={},driver={},format={},{},{}'.format(
+            cls.td.output_disk, 'virtio-blk',
+            TARGET_IMAGE_FORMAT, bsize_args,
+            'serial=%s' % os.path.basename(cls.td.output_disk))
+        target_disks.extend([output_disk])
 
         # create xkvm cmd
-        cmd = (["tools/xkvm", "-v", dowait] + netdevs +
+        cmd = (["tools/xkvm", "-v", dowait] +
+               uefi_flags + netdevs +
                target_disks + extra_disks + nvme_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
@@ -612,21 +657,11 @@ class VMBaseClass(TestCase):
             else:
                 cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
 
-        if cls.uefi:
-            logger.debug("Testcase requested booting with UEFI")
-            uefi_opts = ["-drive", "if=pflash,format=raw,file=" + nvram]
-            if OVMF_CODE != OVMF_VARS:
-                # reorder opts, code then writable space
-                uefi_opts = (["-drive",
-                              "if=pflash,format=raw,readonly,file=" +
-                              OVMF_CODE] + uefi_opts)
-            cmd.extend(uefi_opts)
-
         # run vm with installed system, fail if timeout expires
         try:
             logger.info('Booting target image: {}'.format(cls.boot_log))
             logger.debug('{}'.format(" ".join(cmd)))
-            xout_path = os.path.join(cls.td.logs, "boot-xkvm.out")
+            xout_path = os.path.join(cls.td.logs, "boot-xkvm.log")
             with open(xout_path, "wb") as fpout:
                 cls.boot_system(cmd, console_log=cls.boot_log, proc_out=fpout,
                                 timeout=cls.boot_timeout, purpose="first_boot")
@@ -999,9 +1034,9 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
               'content': yaml.dump(base_cloudconfig, indent=1)},
              {'type': 'text/cloud-config', 'content': ssh_keys}]
 
-    output_dir_macro = 'OUTPUT_COLLECT_D'
     output_dir = '/mnt/output'
-    output_device = '/dev/vdb'
+    output_dir_macro = 'OUTPUT_COLLECT_D'
+    output_device = '/dev/disk/by-id/virtio-%s' % OUTPUT_DISK_NAME
 
     collect_prep = textwrap.dedent("mkdir -p " + output_dir)
     collect_post = textwrap.dedent(
@@ -1012,7 +1047,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
 
     # failsafe poweroff runs on precise only, where power_state does
     # not exist.
-    precise_poweroff = textwrap.dedent("""#!/bin/sh
+    precise_poweroff = textwrap.dedent("""#!/bin/sh -x
         [ "$(lsb_release -sc)" = "precise" ] || exit 0;
         shutdown -P now "Shutting down on precise"
         """)

@@ -379,9 +379,14 @@ def get_path_to_storage_volume(volume, storage_config):
         if vol.get('serial'):
             volume_path = block.lookup_disk(vol.get('serial'))
         elif vol.get('path'):
-            volume_path = vol.get('path')
+            # resolve any symlinks to the dev_kname so sys/class/block access
+            # is valid.  ie, there are no udev generated values in sysfs
+            volume_path = os.path.realpath(vol.get('path'))
+        elif vol.get('wwn'):
+            by_wwn = '/dev/disk/by-id/wwn-%s' % vol.get('wwn')
+            volume_path = os.path.realpath(by_wwn)
         else:
-            raise ValueError("serial number or path to block dev must be \
+            raise ValueError("serial, wwn or path to block dev must be \
                 specified to identify disk")
 
     elif vol.get('type') == "lvm_partition":
