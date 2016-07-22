@@ -157,24 +157,24 @@ def _subfile_exists(subfile, basedir):
 # both ident and shutdown methods should have a signature taking 1 parameter
 # for sysfs path to device to operate on
 # a none type for shutdown means take no action
-DEV_TYPES = (
-    {'name': 'partition', 'shutdown': wipe_superblock,
-     'ident': functools.partial(_subfile_exists, 'partition')},
+DEV_TYPES = {
+    'partition': {'shutdown': wipe_superblock,
+                  'ident': functools.partial(_subfile_exists, 'partition')},
     # FIXME: below is not the best way to identify lvm, it should be replaced
     #        once there is a method in place to differentiate plain
     #        devicemapper from lvm controlled devicemapper
-    {'name': 'lvm', 'shutdown': shutdown_lvm,
-     'ident': functools.partial(_subfile_exists, 'dm')},
-    {'name': 'raid', 'shutdown': shutdown_mdadm,
-     'ident': functools.partial(_subfile_exists, 'md')},
-    {'name': 'bcache', 'shutdown': shutdown_bcache,
-     'ident': functools.partial(_subfile_exists, 'bcache')},
-)
+    'lvm': {'shutdown': shutdown_lvm,
+            'ident': functools.partial(_subfile_exists, 'dm')},
+    'raid': {'shutdown': shutdown_mdadm,
+             'ident': functools.partial(_subfile_exists, 'md')},
+    'bcache': {'shutdown': shutdown_bcache,
+               'ident': functools.partial(_subfile_exists, 'bcache')},
+    'disk': {'ident': lambda x: False, 'shutdown': wipe_superblock},
+}
 
 # anything that is not identified can assumed to be a 'disk' or similar
 # which does not requre special action to shutdown
-DEFAULT_DEV_TYPE = {'name': 'disk', 'ident': lambda x: True,
-                    'shutdown': wipe_superblock}
+DEFAULT_DEV_TYPE = 'disk'
 
 
 def get_holders(device):
@@ -199,7 +199,7 @@ def gen_holders_tree(device):
     device = block.sys_block_path(device)
     holder_paths = ([block.sys_block_path(h) for h in get_holders(device)] +
                     block.get_sysfs_partitions(device))
-    dev_type = next((t for t in DEV_TYPES if t['ident'](device)),
+    dev_type = next((k for k, v in DEV_TYPES.items() if v['ident'](device)),
                     DEFAULT_DEV_TYPE)
     return {
         'device': device, 'dev_type': dev_type,
@@ -235,7 +235,7 @@ def plan_shutdown_holder_trees(holders_trees):
 
     def flatten_holders_tree(tree, level=0):
         device = tree['device']
-        dev_type = tree['dev_type']
+        dev_type = DEV_TYPES.get(tree['dev_type'])
 
         # always go with highest level if current device has been
         # encountered already. since the device and everything above it is
@@ -252,7 +252,7 @@ def plan_shutdown_holder_trees(holders_trees):
 
         # create shutdown function if any is needed and add to registry
         log_msg = ("shutdown running on holder type: '{}' syspath: '{}'"
-                   .format(dev_type['name'], device))
+                   .format(tree['dev_type'], device))
         shutdown_fn = None
         if dev_type['shutdown'] and device is not None:
             shutdown_fn = functools.partial(dev_type['shutdown'], device)
@@ -300,7 +300,7 @@ def assert_clear(base_paths):
     def holder_types(tree):
         # get flattened list of all holder types present in holders_tree and
         # the device they are present on
-        types = [(tree['dev_type']['name'], tree['device'])]
+        types = [(tree['dev_type'], tree['device'])]
         for holder in tree['holders']:
             types.extend(holder_types(holder))
         return types
