@@ -473,6 +473,7 @@ network:
 
             auto eth0
             iface eth0 inet dhcp
+                post-up ifup eth0:1
 
             auto eth0:1
             iface eth0:1 inet static
@@ -516,6 +517,7 @@ network:
                 bond-mode active-backup
                 hwaddress 52:54:00:12:34:06
                 bond-slaves none
+                post-up ifup bond0:1
 
             auto bond0:1
             iface bond0:1 inet static
@@ -549,6 +551,7 @@ network:
                 address 192.168.14.2/24
                 gateway 192.168.14.1
                 mtu 1492
+                post-up ifup interface1:1
 
             auto interface1:1
             iface interface1:1 inet static
@@ -594,6 +597,7 @@ network:
             auto eth0
             iface eth0 inet6 static
                 address fde9:8f83:4a81:1:0:1:0:6/64
+                post-up ifup eth0:1
 
             auto eth0:1
             iface eth0:1 inet static
