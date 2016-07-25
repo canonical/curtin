@@ -102,7 +102,7 @@ That would be specified as
     primary:
       - arches [default]
         uri: http://mymirror.local/ubuntu/
-    disable_pockets: [backports]
+    disable_pockets: [$RELEASE-backports]
     sources:
       localrepokey:
         key: | # full key as block

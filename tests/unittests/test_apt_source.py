@@ -780,8 +780,18 @@ deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         result = apt.disable_pockets(cfg, orig, release)
         self.assertEqual(expect, result)
 
-        # single disable
-        cfg = {"disable_pockets": ["updates"]}
+        # single disable release pocket
+        cfg = {"disable_pockets": ["$RELEASE"]}
+        expect = """# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial main
+deb http://ubuntu.com//ubuntu xenial-updates main
+deb http://ubuntu.com//ubuntu xenial-security main
+deb-src http://ubuntu.com//ubuntu universe multiverse
+deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+        result = apt.disable_pockets(cfg, orig, release)
+        self.assertEqual(expect, result)
+
+        # single disable other pocket
+        cfg = {"disable_pockets": ["$RELEASE-updates"]}
         expect = """deb http://ubuntu.com//ubuntu xenial main
 # pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -791,7 +801,7 @@ deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         self.assertEqual(expect, result)
 
         # multi disable
-        cfg = {"disable_pockets": ["updates", "security"]}
+        cfg = {"disable_pockets": ["$RELEASE-updates", "$RELEASE-security"]}
         expect = """deb http://ubuntu.com//ubuntu xenial main
 # pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
 # pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
@@ -801,7 +811,7 @@ deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         self.assertEqual(expect, result)
 
         # multi line disable (same pocket multiple times in input)
-        cfg = {"disable_pockets": ["updates", "security"]}
+        cfg = {"disable_pockets": ["$RELEASE-updates", "$RELEASE-security"]}
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -820,7 +830,7 @@ deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         self.assertEqual(expect, result)
 
         # comment in input
-        cfg = {"disable_pockets": ["updates", "security"]}
+        cfg = {"disable_pockets": ["$RELEASE-updates", "$RELEASE-security"]}
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -837,6 +847,32 @@ deb-src http://ubuntu.com//ubuntu universe multiverse
 #deb http://UBUNTU.com//ubuntu xenial-updates main
 # pocket disabled by curtin: deb http://UBUNTU.COM//ubuntu xenial-updates main
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+        result = apt.disable_pockets(cfg, orig, release)
+        self.assertEqual(expect, result)
+
+        # single disable custom pocket
+        cfg = {"disable_pockets": ["foobar"]}
+        orig = """deb http://ubuntu.com//ubuntu xenial main
+deb http://ubuntu.com//ubuntu xenial-updates main
+deb http://ubuntu.com//ubuntu xenial-security main
+deb http://ubuntu.com/ubuntu/ foobar main"""
+        expect = """deb http://ubuntu.com//ubuntu xenial main
+deb http://ubuntu.com//ubuntu xenial-updates main
+deb http://ubuntu.com//ubuntu xenial-security main
+# pocket disabled by curtin: deb http://ubuntu.com/ubuntu/ foobar main"""
+        result = apt.disable_pockets(cfg, orig, release)
+        self.assertEqual(expect, result)
+
+        # single disable non existing pocket
+        cfg = {"disable_pockets": ["foobar"]}
+        orig = """deb http://ubuntu.com//ubuntu xenial main
+deb http://ubuntu.com//ubuntu xenial-updates main
+deb http://ubuntu.com//ubuntu xenial-security main
+deb http://ubuntu.com/ubuntu/ notfoobar main"""
+        expect = """deb http://ubuntu.com//ubuntu xenial main
+deb http://ubuntu.com//ubuntu xenial-updates main
+deb http://ubuntu.com//ubuntu xenial-security main
+deb http://ubuntu.com/ubuntu/ notfoobar main"""
         result = apt.disable_pockets(cfg, orig, release)
         self.assertEqual(expect, result)
 

@@ -233,11 +233,8 @@ def disable_pockets(cfg, src, release):
     pockets_to_disable = cfg.get('disable_pockets', None)
     if pockets_to_disable is not None:
         for pocket in pockets_to_disable:
-            LOG.info("Disabling pocket %s", pocket)
-            if pocket == "RELEASE":
-                releasepocket = release
-            else:
-                releasepocket = "%s-%s" % (release, pocket)
+            releasepocket = util.render_string(pocket, {'RELEASE': release})
+            LOG.info("Disabling pocket %s as %s", pocket, releasepocket)
 
             newsrc = ""
             for line in retsrc.splitlines(True):

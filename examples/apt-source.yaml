@@ -137,13 +137,16 @@ apt:
   preserve_sources_list: false
 
   # disable_pockets by default it is an empty list, so nothing is removed.
-  # If given, those pockets are removed from source.list post all other
-  # modifications (pockets are even disabled if no other modification was made,
-  # but not if is preserve_sources_list is active).
-  # There is a special alias “RELEASE” for the release pocket which
-  # actually is (and can be given as) “”
-  # Lines don’t get deleted, but disabled by being converted to a comment.
-  disable_pockets: [updates, backports]
+  # If given, those pockets are removed from source.list after all other
+  # modifications have been made.
+  # pockets are even disabled if no other modification was made,
+  # but not if is preserve_sources_list is active.
+  # There is a special alias “$RELEASE” as in the sources that will be replace
+  # by the matching release.
+  # Note: Lines don’t get deleted, but disabled by being converted to a comment.
+  # The following example disables all defaults except $RELEASE-security. On top
+  # it disables a custom pocket called "mypocket"
+  disable_pockets: [$RELEASE-updates, $RELEASE-backports, $RELEASE, mypocket]
 
   # a custom (e.g. localized) mirror that will be set in sources.list and
   # deb / deb-src lines
