@@ -32,8 +32,8 @@ class TestAptSrcAbs(VMBaseClass):
         find /etc/apt/sources.list.d/ -maxdepth 1 -name "*ignore*" | wc -l > ic
         apt-config dump | grep Retries > aptconf
         cp /etc/apt/sources.list sources.list
+        cp /etc/cloud/cloud.cfg.d/curtin-preserve-sources.list .
         """)]
-    boot_cloudconf = {'apt_preserve_sources_list': True}
     mirror = "http://us.archive.ubuntu.com/ubuntu"
     secmirror = "http://security.ubuntu.com/ubuntu"
 
@@ -42,7 +42,8 @@ class TestAptSrcAbs(VMBaseClass):
         self.output_files_exist(
             ["fstab", "ic", "keyid-F430BBA5", "keylongid-F470A0AC",
              "keyraw-8280B242", "keyppa-03683F77", "aptconf", "sources.list",
-             "byobu-ppa.list", "my-repo2.list", "my-repo4.list"])
+             "byobu-ppa.list", "my-repo2.list", "my-repo4.list",
+             "curtin-preserve-sources.list"])
         self.output_files_exist(
             ["smoser-ubuntu-ppa-%s.list" % self.release])
 
@@ -56,6 +57,11 @@ class TestAptSrcAbs(VMBaseClass):
                               r"Launchpad PPA for Scott Moser")
         self.check_file_regex("keyraw-8280B242",
                               r"Christian Ehrhardt")
+
+    def test_preserve_source(self):
+        """test_preserve_source - no clobbering sources.list by cloud-init"""
+        self.check_file_regex("curtin-preserve-sources.list",
+                              "preserve_sources_list.*false")
 
     def test_source_files(self):
         """test_source_files - Check generated .lists for correct content"""
@@ -197,7 +203,6 @@ class TestAptSrcSearchDNS(VMBaseClass):
         find /etc/network/interfaces.d > find_interfacesd
         cp /etc/apt/sources.list.d/dnssearch.list.disabled .
         """)]
-    boot_cloudconf = {'apt_preserve_sources_list': True}
 
     def test_output_files_exist(self):
         """test_output_files_exist - Check if all output files exist"""

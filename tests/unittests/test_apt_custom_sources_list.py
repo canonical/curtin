@@ -10,6 +10,7 @@ from unittest import TestCase
 
 import yaml
 import mock
+from mock import call
 
 from curtin import util
 from curtin.commands import apt
@@ -111,10 +112,16 @@ class TestAptSourceConfigSourceList(TestCase):
                             apt.handle_apt(cfg, TARGET)
 
         mockga.assert_called_with("/")
-        mockwrite.assert_called_once_with(
-            TARGET + '/etc/apt/sources.list',
-            expected,
-            mode=420)
+
+        cloudfile = '/etc/cloud/cloud.cfg.d/curtin-preserve-sources.list'
+        cloudconf = yaml.dump({'apt_preserve_sources_list': False}, indent=1)
+        calls = [call(TARGET + '/etc/apt/sources.list',
+                      expected,
+                      mode=0o644),
+                 call(TARGET + cloudfile,
+                      cloudconf,
+                      mode=0o644)]
+        mockwrite.assert_has_calls(calls)
 
     def test_apt_source_list(self):
         """test_apt_source_list - Test with neither custom sources nor parms"""
@@ -149,10 +156,15 @@ class TestAptSourceConfigSourceList(TestCase):
                         apt.handle_apt(cfg, TARGET)
 
         mockga.assert_called_with("/")
-        mockwrite.assert_called_once_with(
-            TARGET + '/etc/apt/sources.list',
-            EXPECTED_CONVERTED_CONTENT,
-            mode=420)
+        cloudfile = '/etc/cloud/cloud.cfg.d/curtin-preserve-sources.list'
+        cloudconf = yaml.dump({'apt_preserve_sources_list': False}, indent=1)
+        calls = [call(TARGET + '/etc/apt/sources.list',
+                      EXPECTED_CONVERTED_CONTENT,
+                      mode=0o644),
+                 call(TARGET + cloudfile,
+                      cloudconf,
+                      mode=0o644)]
+        mockwrite.assert_has_calls(calls)
 
 
 # vi: ts=4 expandtab
