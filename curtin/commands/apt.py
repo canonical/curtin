@@ -300,7 +300,7 @@ def generate_sources_list(cfg, release, mirrors, target):
     util.subp(['mkdir', '-p', target + clouddir])
     cloudfile = clouddir + "/" + "curtin-preserve-sources.list"
     # this has to work with old versions of cloud-init as well, so use old key
-    cloudconf = yaml.dump({'apt_preserve_sources_list': False}, indent=1)
+    cloudconf = yaml.dump({'apt_preserve_sources_list': True}, indent=1)
     util.write_file(target+cloudfile, cloudconf, mode=0o644)
 
 

@@ -61,7 +61,7 @@ class TestAptSrcAbs(VMBaseClass):
     def test_preserve_source(self):
         """test_preserve_source - no clobbering sources.list by cloud-init"""
         self.check_file_regex("curtin-preserve-sources.list",
-                              "apt_preserve_sources_list.*false")
+                              "apt_preserve_sources_list.*true")
 
     def test_source_files(self):
         """test_source_files - Check generated .lists for correct content"""
