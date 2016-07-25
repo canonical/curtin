@@ -662,7 +662,8 @@ def wipe_volume(path, mode="superblock"):
         # then it exits with 5. That is also okay, because we might be
         # wiping something that is already blank
         cmds = []
-        cmds.append(["pvremove", "--force", "--force", "--yes", path])
+        cmds.append((["pvremove", "--force", "--force", "--yes", path],
+                     [0, 5]))
 
         # the lvm tools lvscan, vgscan and pvscan on ubuntu precise do not
         # support the flag --cache. the flag is present for the tools in ubuntu
@@ -684,10 +685,10 @@ def wipe_volume(path, mode="superblock"):
         for cmd in [['pvscan'], ['vgscan', '--mknodes']]:
             if release_code >= 14.04:
                 cmd.append('--cache')
-            cmds.append(cmd)
+            cmds.append((cmd, [0]))
 
-        for cmd in cmds:
-            util.subp(cmd, rcs=[0, 5], capture=True)
+        for (cmd, rcs) in cmds:
+            util.subp(cmd, rcs=rcs, capture=True)
 
     elif mode == "zero":
         wipe_file(path)
