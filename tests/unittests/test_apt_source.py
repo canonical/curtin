@@ -782,7 +782,8 @@ deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
 
         # single disable release suite
         cfg = {"disable_suites": ["$RELEASE"]}
-        expect = """# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial main
+        expect = """\
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
