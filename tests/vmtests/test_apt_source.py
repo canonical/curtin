@@ -142,11 +142,11 @@ class TestAptSrcModify(TestAptSrcAbs):
 
 
 class TestAptSrcDisablePockets(TestAptSrcAbs):
-    """TestAptSrcDisablePockets - tests disabling a pocket in sources.list"""
-    conf_file = "examples/tests/apt_source_modify_disable_pocket.yaml"
+    """TestAptSrcDisablePockets - tests disabling a suite in sources.list"""
+    conf_file = "examples/tests/apt_source_modify_disable_suite.yaml"
 
-    def test_disabled_pocket(self):
-        """test_disabled_pocket - Check if pockets were disabled"""
+    def test_disabled_suite(self):
+        """test_disabled_suite - Check if suites were disabled"""
         # two not disabled
         self.check_file_regex("sources.list",
                               r"deb.*us.archive.ubuntu.com")
@@ -154,7 +154,7 @@ class TestAptSrcDisablePockets(TestAptSrcAbs):
                               r"deb.*security.ubuntu.com")
         # updates disabled
         self.check_file_regex("sources.list",
-                              r"# pocket disabled by curtin:.*-updates")
+                              r"# suite disabled by curtin:.*-updates")
 
 
 class TestAptSrcModifyArches(TestAptSrcModify):
@@ -265,6 +265,6 @@ class XenialTestAptSrcModifyArches(relbase.xenial, TestAptSrcModifyArches):
 
 class XenialTestAptSrcDisablePockets(relbase.xenial, TestAptSrcDisablePockets):
     """ XenialTestAptSrcDisablePockets
-        Apt_source Test for Xenial disabling a pocket
+        Apt_source Test for Xenial disabling a suite
     """
     __test__ = True

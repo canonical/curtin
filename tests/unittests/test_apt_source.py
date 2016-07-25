@@ -761,8 +761,8 @@ class TestAptSourceConfig(TestCase):
         mocksock.assert_has_calls(calls)
         self.assertFalse(ret3)
 
-    def test_disable_pockets(self):
-        """test_disable_pockets - disable_pockets with many configurations"""
+    def test_disable_suites(self):
+        """test_disable_suites - disable_suites with many configurations"""
         release = "xenial"
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
@@ -771,47 +771,47 @@ deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
 
         # disable nothing
-        cfg = {"disable_pockets": []}
+        cfg = {"disable_suites": []}
         expect = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_pockets(cfg, orig, release)
+        result = apt.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
-        # single disable release pocket
-        cfg = {"disable_pockets": ["$RELEASE"]}
-        expect = """# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial main
+        # single disable release suite
+        cfg = {"disable_suites": ["$RELEASE"]}
+        expect = """# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_pockets(cfg, orig, release)
+        result = apt.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
-        # single disable other pocket
-        cfg = {"disable_pockets": ["$RELEASE-updates"]}
+        # single disable other suite
+        cfg = {"disable_suites": ["$RELEASE-updates"]}
         expect = """deb http://ubuntu.com//ubuntu xenial main
-# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_pockets(cfg, orig, release)
+        result = apt.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
         # multi disable
-        cfg = {"disable_pockets": ["$RELEASE-updates", "$RELEASE-security"]}
+        cfg = {"disable_suites": ["$RELEASE-updates", "$RELEASE-security"]}
         expect = """deb http://ubuntu.com//ubuntu xenial main
-# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
-# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_pockets(cfg, orig, release)
+        result = apt.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
-        # multi line disable (same pocket multiple times in input)
-        cfg = {"disable_pockets": ["$RELEASE-updates", "$RELEASE-security"]}
+        # multi line disable (same suite multiple times in input)
+        cfg = {"disable_suites": ["$RELEASE-updates", "$RELEASE-security"]}
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -820,17 +820,17 @@ deb http://UBUNTU.com//ubuntu xenial-updates main
 deb http://UBUNTU.COM//ubuntu xenial-updates main
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         expect = """deb http://ubuntu.com//ubuntu xenial main
-# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
-# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
-# pocket disabled by curtin: deb http://UBUNTU.com//ubuntu xenial-updates main
-# pocket disabled by curtin: deb http://UBUNTU.COM//ubuntu xenial-updates main
+# suite disabled by curtin: deb http://UBUNTU.com//ubuntu xenial-updates main
+# suite disabled by curtin: deb http://UBUNTU.COM//ubuntu xenial-updates main
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_pockets(cfg, orig, release)
+        result = apt.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
         # comment in input
-        cfg = {"disable_pockets": ["$RELEASE-updates", "$RELEASE-security"]}
+        cfg = {"disable_suites": ["$RELEASE-updates", "$RELEASE-security"]}
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -840,18 +840,18 @@ deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://UBUNTU.COM//ubuntu xenial-updates main
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         expect = """deb http://ubuntu.com//ubuntu xenial main
-# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
-# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 #foo
 #deb http://UBUNTU.com//ubuntu xenial-updates main
-# pocket disabled by curtin: deb http://UBUNTU.COM//ubuntu xenial-updates main
+# suite disabled by curtin: deb http://UBUNTU.COM//ubuntu xenial-updates main
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_pockets(cfg, orig, release)
+        result = apt.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
-        # single disable custom pocket
-        cfg = {"disable_pockets": ["foobar"]}
+        # single disable custom suite
+        cfg = {"disable_suites": ["foobar"]}
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -859,12 +859,12 @@ deb http://ubuntu.com/ubuntu/ foobar main"""
         expect = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
-# pocket disabled by curtin: deb http://ubuntu.com/ubuntu/ foobar main"""
-        result = apt.disable_pockets(cfg, orig, release)
+# suite disabled by curtin: deb http://ubuntu.com/ubuntu/ foobar main"""
+        result = apt.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
-        # single disable non existing pocket
-        cfg = {"disable_pockets": ["foobar"]}
+        # single disable non existing suite
+        cfg = {"disable_suites": ["foobar"]}
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -873,41 +873,41 @@ deb http://ubuntu.com/ubuntu/ notfoobar main"""
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb http://ubuntu.com/ubuntu/ notfoobar main"""
-        result = apt.disable_pockets(cfg, orig, release)
+        result = apt.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
-        # single disable pocket with option
-        cfg = {"disable_pockets": ["$RELEASE-updates"]}
+        # single disable suite with option
+        cfg = {"disable_suites": ["$RELEASE-updates"]}
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb [a=b] http://ubu.com//ubu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         expect = """deb http://ubuntu.com//ubuntu xenial main
-# pocket disabled by curtin: deb [a=b] http://ubu.com//ubu xenial-updates main
+# suite disabled by curtin: deb [a=b] http://ubu.com//ubu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_pockets(cfg, orig, release)
+        result = apt.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
-        # single disable pocket with more options
-        cfg = {"disable_pockets": ["updates"]}
+        # single disable suite with more options
+        cfg = {"disable_suites": ["updates"]}
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb [a=b c=d] http://ubu.com//ubu updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         expect = """deb http://ubuntu.com//ubuntu xenial main
-# pocket disabled by curtin: deb [a=b c=d] http://ubu.com//ubu updates main
+# suite disabled by curtin: deb [a=b c=d] http://ubu.com//ubu updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_pockets(cfg, orig, release)
+        result = apt.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
-        # single disable pocket while options at others
-        cfg = {"disable_pockets": ["$RELEASE-security"]}
+        # single disable suite while options at others
+        cfg = {"disable_suites": ["$RELEASE-security"]}
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb [arch=foo] http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -915,10 +915,10 @@ deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         expect = """deb http://ubuntu.com//ubuntu xenial main
 deb [arch=foo] http://ubuntu.com//ubuntu xenial-updates main
-# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_pockets(cfg, orig, release)
+        result = apt.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
 #

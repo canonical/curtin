@@ -226,15 +226,15 @@ def mirror_to_placeholder(tmpl, mirror, placeholder):
     return tmpl.replace(mirror, placeholder)
 
 
-def disable_pockets(cfg, src, release):
-    """reads the config for pockets to be disabled and removes those
+def disable_suites(cfg, src, release):
+    """reads the config for suites to be disabled and removes those
        from the template"""
     retsrc = src
-    pockets_to_disable = cfg.get('disable_pockets', None)
-    if pockets_to_disable is not None:
-        for pocket in pockets_to_disable:
-            releasepocket = util.render_string(pocket, {'RELEASE': release})
-            LOG.info("Disabling pocket %s as %s", pocket, releasepocket)
+    suites_to_disable = cfg.get('disable_suites', None)
+    if suites_to_disable is not None:
+        for suite in suites_to_disable:
+            releasesuite = util.render_string(suite, {'RELEASE': release})
+            LOG.info("Disabling suite %s as %s", suite, releasesuite)
 
             newsrc = ""
             for line in retsrc.splitlines(True):
@@ -243,7 +243,7 @@ def disable_pockets(cfg, src, release):
                     continue
 
                 # sources.list allow options in cols[1] which can have spaces
-                # so the actual pocket can be [2] or later
+                # so the actual suite can be [2] or later
                 cols = line.split()
                 pcol = 2
                 if cols[1].startswith("["):
@@ -252,8 +252,8 @@ def disable_pockets(cfg, src, release):
                         if col.endswith("]"):
                             break
 
-                if cols[pcol] == releasepocket:
-                    line = '# pocket disabled by curtin: %s' % line
+                if cols[pcol] == releasesuite:
+                    line = '# suite disabled by curtin: %s' % line
                 newsrc += line
             retsrc = newsrc
 
@@ -292,7 +292,7 @@ def generate_sources_list(cfg, release, mirrors, target):
         LOG.exception("failed to backup %s/%s", target, aptsrc)
 
     rendered = util.render_string(tmpl, params)
-    disabled = disable_pockets(cfg, rendered, release)
+    disabled = disable_suites(cfg, rendered, release)
     util.write_file(target+aptsrc, disabled, mode=0o644)
 
     # protect the just generated sources.list from cloud-init

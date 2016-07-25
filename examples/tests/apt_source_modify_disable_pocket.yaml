@@ -6,7 +6,7 @@ apt:
   security:
     - arches: [default]
       uri: http://security.ubuntu.com/ubuntu
-  disable_pockets: [$RELEASE-updates]
+  disable_suites: [$RELEASE-updates]
   conf: | # APT config
     ACQUIRE {
       Retries "3";
