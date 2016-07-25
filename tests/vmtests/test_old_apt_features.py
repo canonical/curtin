@@ -46,7 +46,7 @@ class TestOldAptAbs(VMBaseClass):
     def test_preserve_source(self):
         """test_preserve_source - no clobbering sources.list by cloud-init"""
         self.check_file_regex("curtin-preserve-sources.list",
-                              "preserve_sources_list.*false")
+                              "apt_preserve_sources_list.*false")
 
     def test_debconf(self):
         """test_debconf - Check if debconf is in place"""
