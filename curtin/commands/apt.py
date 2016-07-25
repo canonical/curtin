@@ -239,7 +239,15 @@ def disable_pockets(cfg, src, release):
             newsrc = ""
             for line in retsrc.splitlines(True):
                 cols = line.split()
-                if not line.startswith("#") and cols[2] == releasepocket:
+                # sources.list allow options in cols[1] which can have spaces
+                # so the actual pocket can be [2] or later
+                pcol = 2
+                if cols[1].startswith("["):
+                    for col in cols[1:]:
+                        pcol += 1
+                        if col.endswith("]"):
+                            break
+                if not line.startswith("#") and cols[pcol] == releasepocket:
                     line = '# pocket disabled by curtin: %s' % line
                 newsrc += line
             retsrc = newsrc
