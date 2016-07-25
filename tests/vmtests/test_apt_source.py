@@ -32,7 +32,7 @@ class TestAptSrcAbs(VMBaseClass):
         find /etc/apt/sources.list.d/ -maxdepth 1 -name "*ignore*" | wc -l > ic
         apt-config dump | grep Retries > aptconf
         cp /etc/apt/sources.list sources.list
-        cp /etc/cloud/cloud.cfg.d/curtin-preserve-sources.list .
+        cp /etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg .
         """)]
     mirror = "http://us.archive.ubuntu.com/ubuntu"
     secmirror = "http://security.ubuntu.com/ubuntu"
@@ -43,7 +43,7 @@ class TestAptSrcAbs(VMBaseClass):
             ["fstab", "ic", "keyid-F430BBA5", "keylongid-F470A0AC",
              "keyraw-8280B242", "keyppa-03683F77", "aptconf", "sources.list",
              "byobu-ppa.list", "my-repo2.list", "my-repo4.list",
-             "curtin-preserve-sources.list"])
+             "curtin-preserve-sources.cfg"])
         self.output_files_exist(
             ["smoser-ubuntu-ppa-%s.list" % self.release])
 
@@ -60,7 +60,7 @@ class TestAptSrcAbs(VMBaseClass):
 
     def test_preserve_source(self):
         """test_preserve_source - no clobbering sources.list by cloud-init"""
-        self.check_file_regex("curtin-preserve-sources.list",
+        self.check_file_regex("curtin-preserve-sources.cfg",
                               "apt_preserve_sources_list.*true")
 
     def test_source_files(self):

@@ -113,7 +113,7 @@ class TestAptSourceConfigSourceList(TestCase):
 
         mockga.assert_called_with("/")
 
-        cloudfile = '/etc/cloud/cloud.cfg.d/curtin-preserve-sources.list'
+        cloudfile = '/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg'
         cloudconf = yaml.dump({'apt_preserve_sources_list': True}, indent=1)
         calls = [call(TARGET + '/etc/apt/sources.list',
                       expected,
@@ -156,7 +156,7 @@ class TestAptSourceConfigSourceList(TestCase):
                         apt.handle_apt(cfg, TARGET)
 
         mockga.assert_called_with("/")
-        cloudfile = '/etc/cloud/cloud.cfg.d/curtin-preserve-sources.list'
+        cloudfile = '/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg'
         cloudconf = yaml.dump({'apt_preserve_sources_list': True}, indent=1)
         calls = [call(TARGET + '/etc/apt/sources.list',
                       EXPECTED_CONVERTED_CONTENT,

@@ -25,7 +25,7 @@ class TestOldAptAbs(VMBaseClass):
         apt-config dump > aptconf
         cp /etc/apt/apt.conf.d/90curtin-aptproxy .
         cp /etc/apt/sources.list .
-        cp /etc/cloud/cloud.cfg.d/curtin-preserve-sources.list .
+        cp /etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg .
         """)]
     arch = util.get_architecture()
     if arch in ['amd64', 'i386']:
@@ -41,11 +41,11 @@ class TestOldAptAbs(VMBaseClass):
         """test_output_files_exist - Check if all output files exist"""
         self.output_files_exist(
             ["debc", "aptconf", "sources.list", "90curtin-aptproxy",
-             "curtin-preserve-sources.list"])
+             "curtin-preserve-sources.cfg"])
 
     def test_preserve_source(self):
         """test_preserve_source - no clobbering sources.list by cloud-init"""
-        self.check_file_regex("curtin-preserve-sources.list",
+        self.check_file_regex("curtin-preserve-sources.cfg",
                               "apt_preserve_sources_list.*true")
 
     def test_debconf(self):
