@@ -226,7 +226,9 @@ class TestBlockKnames(TestCase):
                        (('vda', 1), 'vda1'),
                        (('nvme0n1', 1), 'nvme0n1p1'),
                        (('mmcblk0', 1), 'mmcblk0p1'),
-                       (('cciss!c0d0', 1), 'cciss!c0d0p1')]
+                       (('cciss!c0d0', 1), 'cciss!c0d0p1'),
+                       (('dm-0', 1), 'dm-0p1'),
+                       (('mpath1', 2), 'mpath1p2')]
         for ((disk_kname, part_number), part_kname) in part_knames:
             self.assertEqual(block.partition_kname(disk_kname, part_number),
                              part_kname)
