@@ -144,14 +144,8 @@ It can be ran as standalong command "curtin apt custom --config {}"
 
 Dependencies
 ------------
-Cloud-init has a similar feature and depending on he case one has to use the one or the other.
-There is one case where one has to be careful, that is when curtin has to modify a newly installed environment.
-In that on the first boot cloud-init will run and - by its default configuration - overwrite /etc/apt/sources.list again.
-So if your curtin config wanted to control /etc/apt/sources.list content you likely want to seed the following cloud-init with ``preserve_sources_list: true``.
-That will avoid conflicts between both tools in regard to that file.
-
 Cloud-init might need to resolve dependencies and install packages in the ephemeral environment to run curtin.
-Therefore it is recommended to seed the install environment with proper apt configuration via cloud-init.
+Therefore it is recommended to not only configure curtin for the target, but also the install environment with proper apt configuration via cloud-init.
 
 Target
 ------
