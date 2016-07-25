@@ -222,7 +222,6 @@ def get_installable_blockdevs(include_removable=False, min_size=1024**3):
 
 def get_blockdev_for_partition(devpath):
     # normalize path
-    rpath = os.path.normpath(devpath)
     rpath = os.path.realpath(devpath)
 
     # convert an entry in /dev/ to parent disk and partition number
