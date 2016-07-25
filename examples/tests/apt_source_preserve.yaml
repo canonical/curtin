@@ -1,6 +1,6 @@
 showtrace: true
 apt:
-  # this is like the other apr_source test but with preserve true
+  # this is like the other apt_source test but with preserve true
   preserve_sources_list: true
   primary:
     - arches: [default]
