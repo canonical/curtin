@@ -876,6 +876,50 @@ deb http://ubuntu.com/ubuntu/ notfoobar main"""
         result = apt.disable_pockets(cfg, orig, release)
         self.assertEqual(expect, result)
 
+        # single disable pocket with option
+        cfg = {"disable_pockets": ["$RELEASE-updates"]}
+        orig = """deb http://ubuntu.com//ubuntu xenial main
+deb [a=b] http://ubu.com//ubu xenial-updates main
+deb http://ubuntu.com//ubuntu xenial-security main
+deb-src http://ubuntu.com//ubuntu universe multiverse
+deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+        expect = """deb http://ubuntu.com//ubuntu xenial main
+# pocket disabled by curtin: deb [a=b] http://ubu.com//ubu xenial-updates main
+deb http://ubuntu.com//ubuntu xenial-security main
+deb-src http://ubuntu.com//ubuntu universe multiverse
+deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+        result = apt.disable_pockets(cfg, orig, release)
+        self.assertEqual(expect, result)
+
+        # single disable pocket with more options
+        cfg = {"disable_pockets": ["updates"]}
+        orig = """deb http://ubuntu.com//ubuntu xenial main
+deb [a=b c=d] http://ubu.com//ubu updates main
+deb http://ubuntu.com//ubuntu xenial-security main
+deb-src http://ubuntu.com//ubuntu universe multiverse
+deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+        expect = """deb http://ubuntu.com//ubuntu xenial main
+# pocket disabled by curtin: deb [a=b c=d] http://ubu.com//ubu updates main
+deb http://ubuntu.com//ubuntu xenial-security main
+deb-src http://ubuntu.com//ubuntu universe multiverse
+deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+        result = apt.disable_pockets(cfg, orig, release)
+        self.assertEqual(expect, result)
+
+        # single disable pocket while options at others
+        cfg = {"disable_pockets": ["$RELEASE-security"]}
+        orig = """deb http://ubuntu.com//ubuntu xenial main
+deb [arch=foo] http://ubuntu.com//ubuntu xenial-updates main
+deb http://ubuntu.com//ubuntu xenial-security main
+deb-src http://ubuntu.com//ubuntu universe multiverse
+deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+        expect = """deb http://ubuntu.com//ubuntu xenial main
+deb [arch=foo] http://ubuntu.com//ubuntu xenial-updates main
+# pocket disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
+deb-src http://ubuntu.com//ubuntu universe multiverse
+deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
+        result = apt.disable_pockets(cfg, orig, release)
+        self.assertEqual(expect, result)
 
 #
 # vi: ts=4 expandtab
