@@ -42,8 +42,7 @@ class TestAptSrcAbs(VMBaseClass):
         self.output_files_exist(
             ["fstab", "ic", "keyid-F430BBA5", "keylongid-F470A0AC",
              "keyraw-8280B242", "keyppa-03683F77", "aptconf", "sources.list",
-             "byobu-ppa.list", "my-repo2.list", "my-repo4.list",
-             "curtin-preserve-sources.cfg"])
+             "byobu-ppa.list", "my-repo2.list", "my-repo4.list"])
         self.output_files_exist(
             ["smoser-ubuntu-ppa-%s.list" % self.release])
 
@@ -60,6 +59,7 @@ class TestAptSrcAbs(VMBaseClass):
 
     def test_preserve_source(self):
         """test_preserve_source - no clobbering sources.list by cloud-init"""
+        self.output_files_exist(["curtin-preserve-sources.cfg"])
         self.check_file_regex("curtin-preserve-sources.cfg",
                               "apt_preserve_sources_list.*true")
 
@@ -124,6 +124,11 @@ class TestAptSrcPreserve(TestAptSrcAbs):
         # curtin didn't touch it, so we should find what curtin set as default
         self.check_file_regex("sources.list",
                               r"this file is written by cloud-init")
+
+    # overwrite inherited check to match situation here
+    def test_preserve_source(self):
+        """test_preserve_source - check apt_preserve_sources_list not set"""
+        self.output_files_dont_exist(["curtin-preserve-sources.cfg"])
 
 
 class TestAptSrcModify(TestAptSrcAbs):

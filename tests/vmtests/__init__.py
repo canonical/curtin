@@ -754,6 +754,11 @@ class VMBaseClass(TestCase):
             logger.debug('checking file %s', f)
             self.assertTrue(os.path.exists(os.path.join(self.td.collect, f)))
 
+    def output_files_dont_exist(self, files):
+        for f in files:
+            logger.debug('checking file %s', f)
+            self.assertFalse(os.path.exists(os.path.join(self.td.collect, f)))
+
     def check_file_strippedline(self, filename, search):
         with open(os.path.join(self.td.collect, filename), "r") as fp:
             data = list(i.strip() for i in fp.readlines())
