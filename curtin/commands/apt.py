@@ -306,6 +306,7 @@ def generate_sources_list(cfg, release, mirrors, target):
     except IOError:
         LOG.exception("Failed to protect source.list from cloud-init in (%s)",
                       target+cloudfile)
+        raise
 
 
 def add_apt_key_raw(key, target):
@@ -584,7 +585,7 @@ def apt_command(args):
         try:
             with util.ChrootableTarget(target, allow_daemons=True):
                 handle_apt(apt_cfg, target)
-        except (RuntimeError, TypeError, ValueError):
+        except (RuntimeError, TypeError, ValueError, IOError):
             LOG.exception("Failed to configure apt_source")
             sys.exit(1)
     else:
