@@ -170,11 +170,6 @@ class TestAptSrcModifyArches(TestAptSrcModify):
     conf_file = "examples/tests/apt_source_modify_arches.yaml"
 
 
-class TestAptSrcModifyCMD(TestAptSrcModify):
-    """TestAptSrcModify - like TestAptSrcModify, but via standaline command"""
-    conf_file = "examples/tests/apt_source_command.yaml"
-
-
 class TestAptSrcSearch(TestAptSrcAbs):
     """TestAptSrcSearch - tests checking a list of mirror options"""
     conf_file = "examples/tests/apt_source_search.yaml"
@@ -278,12 +273,5 @@ class XenialTestAptSrcModifyArches(relbase.xenial, TestAptSrcModifyArches):
 class XenialTestAptSrcDisablePockets(relbase.xenial, TestAptSrcDisablePockets):
     """ XenialTestAptSrcDisablePockets
         apt feature Test for Xenial disabling a suite
-    """
-    __test__ = True
-
-
-class XenialTestAptSrcModifyCMD(relbase.xenial, TestAptSrcModifyCMD):
-    """ XenialTestAptSrcModifyCMD
-        apt feature Test for Xenial using the standalone command
     """
     __test__ = True

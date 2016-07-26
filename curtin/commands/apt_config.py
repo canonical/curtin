@@ -19,6 +19,7 @@ apt.py
 Handling the setup of apt related tasks like proxies, PGP keys, repositories.
 """
 
+import argparse
 import glob
 import os
 import re
@@ -66,7 +67,7 @@ def get_default_mirrors(target=None):
 
 def handle_apt(cfg, target):
     """ handle_apt
-        process the config forapt_config. This can be called from
+        process the config for apt_config. This can be called from
         curthooks if a global apt config was provided or via the "apt"
         standalone command.
     """
@@ -666,11 +667,14 @@ def translate_old_apt_features(cfg):
 
 
 CMD_ARGUMENTS = (
-    ((('-t', '--target'),
+    ((('-c', '--config'),
+      {'help': 'read configuration from cfg', 'action': util.MergedCmdAppend,
+       'metavar': 'FILE', 'type': argparse.FileType("rb"),
+       'dest': 'cfgopts', 'default': []}),
+     (('-t', '--target'),
       {'help': 'chroot to target. default is env[TARGET_MOUNT_POINT]',
        'action': 'store', 'metavar': 'TARGET',
-       'default': os.environ.get('TARGET_MOUNT_POINT')}),
-     )
+       'default': os.environ.get('TARGET_MOUNT_POINT')}),)
 )
 
 
