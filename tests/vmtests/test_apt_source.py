@@ -77,11 +77,11 @@ class TestAptSrcAbs(VMBaseClass):
         self.check_file_strippedline("my-repo2.list", "deb %s %s multiverse" %
                                      (self.mirror, self.release))
         # auto creation by apt-add-repository
-        self.check_file_strippedline("curtin-dev-ubuntu-test-archive-%s.list" %
-                                     self.release,
-                                     ("http://ppa.launchpad.net/"
-                                      "curtin-dev/test-archive/ubuntu"
-                                      " %s main" % self.release))
+        self.check_file_regex("curtin-dev-ubuntu-test-archive-%s.list" %
+                              self.release,
+                              (r"http://ppa.launchpad.net/"
+                               r"curtin-dev/test-archive/ubuntu"
+                               r" %s main" % self.release))
 
     def test_ignore_count(self):
         """test_ignore_count - Check for files that should not be created"""
