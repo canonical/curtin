@@ -290,7 +290,7 @@ def generate_sources_list(cfg, release, mirrors, target):
     if tmpl is None:
         LOG.info("No custom template provided, fall back to modify"
                  "mirrors in %s on the target system", aptsrc)
-        tmpl = util.load_file(target+aptsrc)
+        tmpl = util.load_file(target + aptsrc)
         # Strategy if no custom template was provided:
         # - Only replacing mirrors
         # - no reason to replace "release" as it is from target anyway
@@ -308,7 +308,7 @@ def generate_sources_list(cfg, release, mirrors, target):
 
     rendered = util.render_string(tmpl, params)
     disabled = disable_suites(cfg, rendered, release)
-    util.write_file(target+aptsrc, disabled, mode=0o644)
+    util.write_file(target + aptsrc, disabled, mode=0o644)
 
     # protect the just generated sources.list from cloud-init
     clouddir = "/etc/cloud/cloud.cfg.d"
@@ -317,10 +317,10 @@ def generate_sources_list(cfg, release, mirrors, target):
     cloudconf = yaml.dump({'apt_preserve_sources_list': True}, indent=1)
     util.subp(['mkdir', '-p', target + clouddir], rcs=[0, 1])
     try:
-        util.write_file(target+cloudfile, cloudconf, mode=0o644)
+        util.write_file(target + cloudfile, cloudconf, mode=0o644)
     except IOError:
         LOG.exception("Failed to protect source.list from cloud-init in (%s)",
-                      target+cloudfile)
+                      target + cloudfile)
         raise
 
 
