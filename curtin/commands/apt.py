@@ -588,7 +588,8 @@ def apt_command(args):
         LOG.debug("Handling apt to target %s with config %s",
                   target, apt_cfg)
         try:
-            with util.ChrootableTarget(target, allow_daemons=True):
+            with util.ChrootableTarget(target, allow_daemons=False,
+                                       sys_resolvconf=True):
                 handle_apt(apt_cfg, target)
         except (RuntimeError, TypeError, ValueError, IOError):
             LOG.exception("Failed to configure apt features '%s'", apt_cfg)
