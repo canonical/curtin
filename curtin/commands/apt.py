@@ -552,14 +552,14 @@ def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
 
     proxies = [fmt % cfg.get(name) for (name, fmt) in cfgs if cfg.get(name)]
     if len(proxies):
-        LOG.info("write apt proxy info to %s", proxy_fname)
+        LOG.debug("write apt proxy info to %s", proxy_fname)
         util.write_file(proxy_fname, '\n'.join(proxies) + '\n')
     elif os.path.isfile(proxy_fname):
         util.del_file(proxy_fname)
         LOG.debug("no apt proxy configured, removed %s", proxy_fname)
 
     if cfg.get('conf', None):
-        LOG.info("write apt config info to %s", config_fname)
+        LOG.debug("write apt config info to %s", config_fname)
         util.write_file(config_fname, cfg.get('conf'))
     elif os.path.isfile(config_fname):
         util.del_file(config_fname)
