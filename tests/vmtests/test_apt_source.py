@@ -22,13 +22,14 @@ class TestAptSrcAbs(VMBaseClass):
         ls /dev/disk/by-dname > ls_dname
         find /etc/network/interfaces.d > find_interfacesd
         apt-key list "F430BBA5" > keyid-F430BBA5
-        apt-key list "03683F77" > keyppa-03683F77
+        apt-key list "0165013E" > keyppa-0165013E
         apt-key list "F470A0AC" > keylongid-F470A0AC
         apt-key list "8280B242" > keyraw-8280B242
-        cp /etc/apt/sources.list.d/byobu-ppa.list .
+        ls -laF /etc/apt/sources.list.d/ > sources.list.d
+        cp /etc/apt/sources.list.d/curtin-dev-ppa.list .
         cp /etc/apt/sources.list.d/my-repo2.list .
         cp /etc/apt/sources.list.d/my-repo4.list .
-        cp /etc/apt/sources.list.d/smoser-ubuntu-ppa-xenial.list .
+        cp /etc/apt/sources.list.d/curtin-dev-ubuntu-test-archive-xenial.list .
         find /etc/apt/sources.list.d/ -maxdepth 1 -name "*ignore*" | wc -l > ic
         apt-config dump | grep Retries > aptconf
         cp /etc/apt/sources.list sources.list
@@ -41,10 +42,10 @@ class TestAptSrcAbs(VMBaseClass):
         """test_output_files_exist - Check if all output files exist"""
         self.output_files_exist(
             ["fstab", "ic", "keyid-F430BBA5", "keylongid-F470A0AC",
-             "keyraw-8280B242", "keyppa-03683F77", "aptconf", "sources.list",
-             "byobu-ppa.list", "my-repo2.list", "my-repo4.list"])
+             "keyraw-8280B242", "keyppa-0165013E", "aptconf", "sources.list",
+             "curtin-dev-ppa.list", "my-repo2.list", "my-repo4.list"])
         self.output_files_exist(
-            ["smoser-ubuntu-ppa-%s.list" % self.release])
+            ["curtin-dev-ubuntu-test-archive-%s.list" % self.release])
 
     def test_keys_imported(self):
         """test_keys_imported - Check if all keys are imported correctly"""
@@ -52,8 +53,8 @@ class TestAptSrcAbs(VMBaseClass):
                               r"Launchpad PPA for Ubuntu Screen Profile")
         self.check_file_regex("keylongid-F470A0AC",
                               r"Ryan Harper")
-        self.check_file_regex("keyppa-03683F77",
-                              r"Launchpad PPA for Scott Moser")
+        self.check_file_regex("keyppa-0165013E",
+                              r"Launchpad PPA for curtin developers")
         self.check_file_regex("keyraw-8280B242",
                               r"Christian Ehrhardt")
 
@@ -66,20 +67,21 @@ class TestAptSrcAbs(VMBaseClass):
     def test_source_files(self):
         """test_source_files - Check generated .lists for correct content"""
         # hard coded deb lines
-        self.check_file_strippedline("byobu-ppa.list",
-                                     ("deb http://ppa.launchpad.net/byobu/"
-                                      "ppa/ubuntu xenial main"))
+        self.check_file_strippedline("curtin-dev-ppa.list",
+                                     ("deb http://ppa.launchpad.net/curtin-dev"
+                                      "/test-archive/ubuntu xenial main"))
         self.check_file_strippedline("my-repo4.list",
-                                     ("deb http://ppa.launchpad.net/alestic/"
-                                      "ppa/ubuntu xenial main"))
+                                     ("deb http://ppa.launchpad.net/curtin-dev"
+                                      "/test-archive/ubuntu xenial main"))
         # mirror and release replacement in deb line
         self.check_file_strippedline("my-repo2.list", "deb %s %s multiverse" %
                                      (self.mirror, self.release))
         # auto creation by apt-add-repository
-        self.check_file_strippedline("smoser-ubuntu-ppa-%s.list" %
+        self.check_file_strippedline("curtin-dev-ubuntu-test-archive-%s.list" %
                                      self.release,
-                                     ("deb http://ppa.launchpad.net/smoser/"
-                                      "ppa/ubuntu %s main" % self.release))
+                                     ("deb http://ppa.launchpad.net/"
+                                      "curtin-dev/test-archive/ubuntu"
+                                      " %s main" % self.release))
 
     def test_ignore_count(self):
         """test_ignore_count - Check for files that should not be created"""

@@ -12,17 +12,17 @@ apt:
       Retries "3";
     };
   sources:
-    byobu-ppa.list:
-      source: "deb http://ppa.launchpad.net/byobu/ppa/ubuntu xenial main"
+    curtin-dev-ppa.list:
+      source: "deb http://ppa.launchpad.net/curtin-dev/test-archive/ubuntu xenial main"
       keyid: F430BBA5
     ignored1:
-      source: "ppa:smoser/ppa"
+      source: "ppa:curtin-dev/test-archive"
     my-repo2.list:
       source: deb $MIRROR $RELEASE multiverse
     ignored3:
       keyid: 0E72 9061 0D2F 6DC4 D65E  A921 9A31 4EC5 F470 A0AC
     my-repo4.list:
-      source: deb http://ppa.launchpad.net/alestic/ppa/ubuntu xenial main
+      source: deb http://ppa.launchpad.net/curtin-dev/test-archive/ubuntu xenial main
       key: |
          -----BEGIN PGP PUBLIC KEY BLOCK-----
          Version: GnuPG v1

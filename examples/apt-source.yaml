@@ -35,11 +35,11 @@ apt:
     #    s2:
     #        key: key2
 
-    byobu-ppa.list:
-      source: "deb http://ppa.launchpad.net/byobu/ppa/ubuntu xenial main"
+    curtin-dev-ppa.list:
+      source: "deb http://ppa.launchpad.net/curtin-dev/test-archive/ubuntu xenial main"
       keyid: F430BBA5 # GPG key ID published on a key server
     # adding a source.list line, importing a gpg key for a given key id and
-    # storing the deb entry in /etc/apt/sources.list.d/byobu-ppa.list
+    # storing the deb entry in /etc/apt/sources.list.d/curtin-dev-ppa.list
 
     # PPA shortcut:
     #  * Setup correct apt sources.list line
@@ -49,7 +49,7 @@ apt:
     #  this requires 'add-apt-repository'
     #  due to that the filename key is ignored in this case
     ignored1:
-      source: "ppa:smoser/ppa"    # Quote the string
+      source: "ppa:curtin-dev/test-archive"    # Quote the string
 
     # additional custom deb source config:
     #  * Creates a file in /etc/apt/sources.list.d/ for the sources list entry
@@ -69,11 +69,11 @@ apt:
     my-repo2.list:
       source: deb $MIRROR $RELEASE multiverse
 
-    # this would have the same end effect as 'ppa:byobu/ppa'
+    # this would have the same end effect as 'ppa:curtin-dev/test-archive'
     my-repo3.list:
-      source: "deb http://ppa.launchpad.net/byobu/ppa/ubuntu xenial main"
+      source: "deb http://ppa.launchpad.net/curtin-dev/test-archive/ubuntu xenial main"
       keyid: F430BBA5 # GPG key ID published on a key server
-      filename: byobu-ppa.list
+      filename: curtin-dev-ppa.list
 
     # this would only import the key without adding a ppa or other source spec
     # since this doesn't generate a source.list file the filename key is ignored
@@ -91,7 +91,7 @@ apt:
     #  * Providing the PGP key here is the most robust method for
     #    specifying a key, as it removes dependency on a remote key server
     my-repo4.list:
-      source: deb http://ppa.launchpad.net/alestic/ppa/ubuntu xenial main
+      source: deb http://ppa.launchpad.net/curtin-dev/test-archive/ubuntu xenial main
       key: | # The value needs to start with -----BEGIN PGP PUBLIC KEY BLOCK-----
          -----BEGIN PGP PUBLIC KEY BLOCK-----
          Version: SKS 1.0.10
