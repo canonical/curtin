@@ -30,8 +30,6 @@ from curtin import (config, util, gpg)
 
 from . import populate_one_subcmd
 
-CUSTOM = 'custom'
-
 # this will match 'XXX:YYY' (ie, 'cloud-archive:foo' or 'ppa:bar')
 ADD_APT_REPO_MATCH = r"^[\w-]+:\w"
 
@@ -68,7 +66,7 @@ def get_default_mirrors(target=None):
 
 def handle_apt(cfg, target):
     """ handle_apt
-        process the custom config for apt. This can be called from
+        process the config for apt. This can be called from
         curthooks if a global apt config was provided or via the "apt"
         standalone command.
     """
@@ -567,21 +565,11 @@ def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
 
 
 def apt_command(args):
-    """ apt
-        Main entry point for curtin apt standalone command
-        Handling of apt: dict as custom config for apt. This allows
-        writing custom source.list files, adding ppa's and PGP keys.
-        It is especially useful to provide a fully isolated derived repository.
-        This reads the global config (again) as handled by curthooks, but with
-        the option to specify a different "target". If --config is set that
-        this is used instead.
-    """
-    #  curtin apt custom
-    state = util.load_command_environment()
-    cfg = config.load_command_config(args, state)
-
-    if args.mode != CUSTOM:
-        raise NotImplementedError("mode=%s is not implemented" % args.mode)
+    """ Main entry point for curtin apt standalone command
+        This does not read the global config as handled by curthooks, but
+        instead one can specify a different "target" and a new cfg via --config
+        """
+    cfg = config.load_command_config(args, {})
 
     if args.target is not None:
         target = args.target
@@ -603,7 +591,7 @@ def apt_command(args):
             with util.ChrootableTarget(target, allow_daemons=True):
                 handle_apt(apt_cfg, target)
         except (RuntimeError, TypeError, ValueError, IOError):
-            LOG.exception("Failed to configure apt_source")
+            LOG.exception("Failed to configure apt features '%s'", apt_cfg)
             sys.exit(1)
     else:
         LOG.info("No apt config provided, skipping")
@@ -671,7 +659,6 @@ CMD_ARGUMENTS = (
       {'help': 'chroot to target. default is env[TARGET_MOUNT_POINT]',
        'action': 'store', 'metavar': 'TARGET',
        'default': os.environ.get('TARGET_MOUNT_POINT')}),
-     ('mode', {'help': 'meta-mode to use', 'choices': [CUSTOM]}),
      )
 )
 
