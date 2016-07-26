@@ -251,7 +251,7 @@ def disable_suites(cfg, src, release):
         for suite in suites_to_disable:
             suite = map_known_suites(suite)
             releasesuite = util.render_string(suite, {'RELEASE': release})
-            LOG.info("Disabling suite %s as %s", suite, releasesuite)
+            LOG.debug("Disabling suite %s as %s", suite, releasesuite)
 
             newsrc = ""
             for line in retsrc.splitlines(True):
@@ -331,7 +331,7 @@ def add_apt_key_raw(key, target):
     actual adding of a key as defined in key argument
     to the system
     """
-    LOG.info("Adding key:\n'%s'", key)
+    LOG.debug("Adding key:\n'%s'", key)
     try:
         with util.RunInChroot(target, allow_daemons=True) as in_chroot:
             in_chroot(['apt-key', 'add', '-'], data=key.encode())
@@ -524,11 +524,11 @@ def find_apt_mirror_info(cfg, target=None):
     """
 
     arch = util.get_architecture(target)
-    LOG.info("got arch for mirror selection: %s", arch)
+    LOG.debug("got arch for mirror selection: %s", arch)
     pmirror = get_mirror(cfg, "primary", arch)
-    LOG.info("got primary mirror: %s", pmirror)
+    LOG.debug("got primary mirror: %s", pmirror)
     smirror = get_mirror(cfg, "security", arch)
-    LOG.info("got security mirror: %s", smirror)
+    LOG.debug("got security mirror: %s", smirror)
 
     # Note: curtin has no cloud-datasource fallback
 
@@ -556,14 +556,14 @@ def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
         util.write_file(proxy_fname, '\n'.join(proxies) + '\n')
     elif os.path.isfile(proxy_fname):
         util.del_file(proxy_fname)
-        LOG.info("no apt proxy configured, removed %s", proxy_fname)
+        LOG.debug("no apt proxy configured, removed %s", proxy_fname)
 
     if cfg.get('conf', None):
         LOG.info("write apt config info to %s", config_fname)
         util.write_file(config_fname, cfg.get('conf'))
     elif os.path.isfile(config_fname):
         util.del_file(config_fname)
-        LOG.info("no apt config configured, removed %s", config_fname)
+        LOG.debug("no apt config configured, removed %s", config_fname)
 
 
 def apt_command(args):
@@ -597,8 +597,8 @@ def apt_command(args):
     apt_cfg = cfg.get("apt")
     # if no apt config section is available, do nothing
     if apt_cfg is not None:
-        LOG.info("Standalone command handling apt to target %s with config %s",
-                 target, apt_cfg)
+        LOG.debug("Handling apt to target %s with config %s",
+                  target, apt_cfg)
         try:
             with util.ChrootableTarget(target, allow_daemons=True):
                 handle_apt(apt_cfg, target)
@@ -606,7 +606,7 @@ def apt_command(args):
             LOG.exception("Failed to configure apt_source")
             sys.exit(1)
     else:
-        LOG.info("No apt custom config provided, skipping")
+        LOG.info("No apt config provided, skipping")
 
     sys.exit(0)
 
