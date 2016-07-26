@@ -207,4 +207,59 @@ class TestWipeFile(TestCase):
         found = util.load_file(trgfile)
         self.assertEqual(data, found)
 
+
+class TestWipeVolume(TestCase):
+    dev = '/dev/null'
+
+    @mock.patch('curtin.block.util')
+    def test_wipe_pvremove(self, mock_util):
+
+        def _test_pvremove_cmds(call_args_slice, cache=True):
+            cache_arg = ['--cache'] if cache else []
+            calls = (
+                mock.call(
+                    ['pvremove', '--force', '--force', '--yes', self.dev],
+                    rcs=[0, 5], capture=True),
+                mock.call(['pvscan'] + cache_arg, rcs=[0], capture=True),
+                mock.call(['vgscan', '--mknodes'] + cache_arg, rcs=[0],
+                          capture=True),
+            )
+
+            for (expected, actual) in zip(calls, call_args_slice):
+                self.assertEqual(expected, actual)
+
+        for (count, (release_str, cache)) in enumerate(
+                [('12.04', False), ('14.04', True), ('12.10', False),
+                 ('15.04', True), ('16.04', True), ('16.10', True),
+                 ('17.04', True), ('UNAVAILABLE', True)]):
+            mock_util.lsb_release.return_value = {'release': release_str}
+            block.wipe_volume(self.dev, mode='pvremove')
+            self.assertEqual(len(mock_util.subp.call_args_list),
+                             3 * (count + 1))
+            _test_pvremove_cmds(
+                mock_util.subp.call_args_list[3 * count:3 * count + 3],
+                cache=cache)
+
+    @mock.patch('curtin.block.quick_zero')
+    def test_wipe_superblock(self, mock_quick_zero):
+        block.wipe_volume(self.dev, mode='superblock')
+        mock_quick_zero.assert_called_with(self.dev, partitions=False)
+        block.wipe_volume(self.dev, mode='superblock-recursive')
+        mock_quick_zero.assert_called_with(self.dev, partitions=True)
+
+    @mock.patch('curtin.block.open')
+    @mock.patch('curtin.block.wipe_file')
+    def test_wipe_zero_random(self, mock_wipe_file, mock_open):
+        block.wipe_volume(self.dev, mode='zero')
+        mock_wipe_file.assert_called_with(self.dev)
+        mock_open.return_value = mock.MagicMock()
+        block.wipe_volume(self.dev, mode='random')
+        mock_open.assert_called_with('/dev/urandom', 'rb')
+        mock_wipe_file.assert_called_with(
+            self.dev, reader=mock_open.return_value.__enter__().read)
+
+    def test_bad_input(self):
+        with self.assertRaises(ValueError):
+            block.wipe_volume(self.dev, mode='invalidmode')
+
 # vi: ts=4 expandtab syntax=python
