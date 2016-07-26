@@ -95,9 +95,13 @@ def GenServerHandlerWithResultFile(file_path):
     return ExtendedServerHandler
 
 
-def get_httpd(port=DEFAULT_PORT, result_file=None):
+def get_httpd(port=None, result_file=None):
     # avoid 'Address already in use' after ctrl-c
     socketserver.TCPServer.allow_reuse_address = True
+
+    # get first available port if none specified
+    if port is None:
+        port = 0
 
     if result_file:
         Handler = GenServerHandlerWithResultFile(result_file)
@@ -134,11 +138,14 @@ class CaptureReporting:
 
     def __init__(self, result_file):
         self.result_file = result_file
+        self.httpd = get_httpd(result_file=self.result_file,
+                               port=None)
+        self.httpd.server_activate()
+        (self.bind_addr, self.port) = self.httpd.server_address
 
     def __enter__(self):
         if os.path.exists(self.result_file):
             os.remove(self.result_file)
-        self.httpd = get_httpd(result_file=self.result_file)
         self.worker = threading.Thread(target=self.httpd.serve_forever)
         self.worker.start()
         return self

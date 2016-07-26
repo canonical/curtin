@@ -20,7 +20,7 @@ from curtin.commands.install import INSTALL_PASS_MSG
 
 from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
-from .helpers import check_call, TimeoutExpired
+from .helpers import check_call, TimeoutExpired, ifconfig_to_dict
 from unittest import TestCase, SkipTest
 
 IMAGE_SRC_URL = os.environ.get(
@@ -515,9 +515,14 @@ class VMBaseClass(TestCase):
         if cls.multipath:
             disks = disks * cls.multipath_num_paths
 
+        # set reporting logger
+        cls.reporting_log = os.path.join(cls.td.logs, 'webhooks-events.json')
+        reporting_logger = CaptureReporting(cls.reporting_log)
+
         # write reporting config
         reporting_config = os.path.join(cls.td.install, 'reporting.cfg')
-        localhost_url = 'http://' + get_lan_ip() + ':8000/'
+        localhost_url = ('http://' + get_lan_ip() +
+                         ':{:d}/'.format(reporting_logger.port))
         with open(reporting_config, 'w') as fp:
             fp.write(json.dumps({
                 'install': {
@@ -533,10 +538,6 @@ class VMBaseClass(TestCase):
                 },
             }))
         configs.append(reporting_config)
-
-        # set reporting logger
-        cls.reporting_log = os.path.join(cls.td.logs, 'webhooks-events.json')
-        reporting_logger = CaptureReporting(cls.reporting_log)
 
         cmd.extend(uefi_flags + netdevs + disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
@@ -1127,12 +1128,17 @@ def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):
 
 
 def get_lan_ip():
-    out = subprocess.check_output(['ip', 'addr'])
-    out = out.decode()
-    line = next(l for l in out.splitlines() if 'inet' in l and 'global' in l)
-    addr = line.split()[1]
-    if '/' in addr:
-        addr = addr[:addr.index('/')]
+    (out, _) = util.subp(['ifconfig'], capture=True)
+    info = ifconfig_to_dict(out)
+    for k, v in info.items():
+        if (k == 'lo' or v.get('link_encap') == 'Local' or
+                not v.get('up') or not v.get('running') or
+                'address' not in v):
+            continue
+        addr = v.get('address')
+        break
+    else:
+        raise OSError('could not get local ip address')
     return addr
 
 
