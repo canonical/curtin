@@ -168,6 +168,11 @@ class TestAptSrcModifyArches(TestAptSrcModify):
     conf_file = "examples/tests/apt_source_modify_arches.yaml"
 
 
+class TestAptSrcModifyCMD(TestAptSrcModify):
+    """TestAptSrcModify - like TestAptSrcModify, but via standaline command"""
+    conf_file = "examples/tests/apt_source_command.yaml"
+
+
 class TestAptSrcSearch(TestAptSrcAbs):
     """TestAptSrcSearch - tests checking a list of mirror options"""
     conf_file = "examples/tests/apt_source_search.yaml"
@@ -228,48 +233,55 @@ class TestAptSrcSearchDNS(VMBaseClass):
 
 class XenialTestAptSrcCustom(relbase.xenial, TestAptSrcCustom):
     """ XenialTestAptSrcCustom
-       Apt_source Test for Xenial with a custom template
+       apt feature Test for Xenial with a custom template
     """
     __test__ = True
 
 
 class XenialTestAptSrcPreserve(relbase.xenial, TestAptSrcPreserve):
     """ XenialTestAptSrcPreserve
-       Apt_source Test for Xenial with apt_preserve_sources_list enabled
+       apt feature Test for Xenial with apt_preserve_sources_list enabled
     """
     __test__ = True
 
 
 class XenialTestAptSrcModify(relbase.xenial, TestAptSrcModify):
     """ XenialTestAptSrcModify
-        Apt_source Test for Xenial modifying the sources.list of the image
+        apt feature Test for Xenial modifying the sources.list of the image
     """
     __test__ = True
 
 
 class XenialTestAptSrcSearch(relbase.xenial, TestAptSrcSearch):
     """ XenialTestAptSrcModify
-        Apt_source Test for Xenial searching for mirrors
+        apt feature Test for Xenial searching for mirrors
     """
     __test__ = True
 
 
 class XenialTestAptSrcSearchDNS(relbase.xenial, TestAptSrcSearchDNS):
     """ XenialTestAptSrcModify
-        Apt_source Test for Xenial searching for predefined DNS names
+        apt feature Test for Xenial searching for predefined DNS names
     """
     __test__ = True
 
 
 class XenialTestAptSrcModifyArches(relbase.xenial, TestAptSrcModifyArches):
     """ XenialTestAptSrcModifyArches
-        Apt_source Test for Xenial checking per arch mirror specification
+        apt feature Test for Xenial checking per arch mirror specification
     """
     __test__ = True
 
 
 class XenialTestAptSrcDisablePockets(relbase.xenial, TestAptSrcDisablePockets):
     """ XenialTestAptSrcDisablePockets
-        Apt_source Test for Xenial disabling a suite
+        apt feature Test for Xenial disabling a suite
+    """
+    __test__ = True
+
+
+class XenialTestAptSrcModifyCMD(relbase.xenial, TestAptSrcModifyCMD):
+    """ XenialTestAptSrcModifyCMD
+        apt feature Test for Xenial using the standalone command
     """
     __test__ = True

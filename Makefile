@@ -15,7 +15,7 @@ build:
 bin/curtin: curtin/pack.py tools/write-curtin
 	$(PYTHON) tools/write-curtin bin/curtin
 
-check: pep8 pyflakes pyflakes3 unittest checkcmd
+check: pep8 pyflakes pyflakes3 unittest
 
 coverage: coverageopts ?= $(DEFAULT_COVERAGEOPTS)
 coverage: unittest
@@ -28,9 +28,6 @@ pyflakes:
 
 pyflakes3:
 	@$(CWD)/tools/run-pyflakes3
-
-checkcmd:
-	@$(CWD)/tools/check-apt.sh
 
 unittest:
 	nosetests $(coverageopts) $(noseopts) tests/unittests
