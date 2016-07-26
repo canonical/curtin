@@ -29,6 +29,8 @@ FORMAT_JSON = 'JSON'
 VMTEST_CONTENT_ID = 'com.ubuntu.maas:daily:v2:download'
 VMTEST_JSON_PATH = "streams/v1/vmtest.json"
 
+DEFAULT_OUTPUT_FORMAT = (
+    "%(release)-7s %(arch)s/%(subarch)s %(version_name)-10s %(item_name)s")
 
 DEFAULT_ARCHES = {
     'i386': ['i386'],
@@ -397,7 +399,19 @@ def main_query(args):
     results = query(args.mirror_url, args.max_items, args.filters,
                     verbosity=vlevel)
     try:
-        print(util.json_dumps(results).decode())
+        if args.output_format == FORMAT_JSON:
+            print(util.json_dumps(results).decode())
+        else:
+            output = []
+            for item in results:
+                try:
+                    output.append(args.output_format % item)
+                except KeyError as e:
+                    sys.stderr.write("output format failed (%s) for: %s\n" %
+                                     (e, item))
+                    sys.exit(1)
+            for line in sorted(output):
+                print(line)
     except IOError as e:
         if e.errno == errno.EPIPE:
             sys.exit(0x80 | signal.SIGPIPE)
@@ -440,7 +454,7 @@ def main():
 
     fmt_group = query_p.add_mutually_exclusive_group()
     fmt_group.add_argument('--output-format', '-o', action='store',
-                           dest='output_format', default=None,
+                           dest='output_format', default=DEFAULT_OUTPUT_FORMAT,
                            help="specify output format per python str.format")
     fmt_group.add_argument('--json', action='store_const',
                            const=FORMAT_JSON, dest='output_format',

@@ -93,9 +93,13 @@ class TrustyHWEWTestRaid5Bcache(relbase.trusty_hwe_w, TrustyTestRaid5Bcache):
     __test__ = False
 
 
-class VividTestRaid5Bcache(relbase.vivid, TestMdadmBcacheAbs):
+class WilyTestRaid5Bcache(relbase.wily, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class WilyTestRaid5Bcache(relbase.wily, TestMdadmBcacheAbs):
+class XenialTestRaid5Bcache(relbase.xenial, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class YakketyTestRaid5Bcache(relbase.yakkety, TestMdadmBcacheAbs):
     __test__ = True

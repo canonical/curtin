@@ -130,15 +130,15 @@ class TrustyHWEUTestMdadmBcache(relbase.trusty_hwe_u, TrustyTestMdadmBcache):
     __test__ = True
 
 
-class VividTestMdadmBcache(relbase.vivid, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 class WilyTestMdadmBcache(relbase.wily, TestMdadmBcacheAbs):
     __test__ = True
 
 
 class XenialTestMdadmBcache(relbase.xenial, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class YakketyTestMdadmBcache(relbase.yakkety, TestMdadmBcacheAbs):
     __test__ = True
 
 
@@ -170,15 +170,15 @@ class TrustyHWEUTestMirrorboot(relbase.trusty_hwe_u, TrustyTestMirrorboot):
     __test__ = True
 
 
-class VividTestMirrorboot(relbase.vivid, TestMirrorbootAbs):
-    __test__ = True
-
-
 class WilyTestMirrorboot(relbase.wily, TestMirrorbootAbs):
     __test__ = True
 
 
 class XenialTestMirrorboot(relbase.xenial, TestMirrorbootAbs):
+    __test__ = True
+
+
+class YakketyTestMirrorboot(relbase.yakkety, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -211,15 +211,15 @@ class TrustyHWEUTestRaid5Boot(relbase.trusty_hwe_u, TrustyTestRaid5Boot):
     __test__ = True
 
 
-class VividTestRaid5boot(relbase.vivid, TestRaid5bootAbs):
-    __test__ = True
-
-
 class WilyTestRaid5boot(relbase.wily, TestRaid5bootAbs):
     __test__ = True
 
 
 class XenialTestRaid5boot(relbase.xenial, TestRaid5bootAbs):
+    __test__ = True
+
+
+class YakketyTestRaid5boot(relbase.yakkety, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -264,15 +264,15 @@ class TrustyHWEUTestRaid6boot(relbase.trusty_hwe_u, TrustyTestRaid6boot):
     __test__ = True
 
 
-class VividTestRaid6boot(relbase.vivid, TestRaid6bootAbs):
-    __test__ = True
-
-
 class WilyTestRaid6boot(relbase.wily, TestRaid6bootAbs):
     __test__ = True
 
 
 class XenialTestRaid6boot(relbase.xenial, TestRaid6bootAbs):
+    __test__ = True
+
+
+class YakketyTestRaid6boot(relbase.yakkety, TestRaid6bootAbs):
     __test__ = True
 
 
@@ -305,15 +305,15 @@ class TrustyHWEUTestRaid10boot(relbase.trusty_hwe_u, TrustyTestRaid10boot):
     __test__ = True
 
 
-class VividTestRaid10boot(relbase.vivid, TestRaid10bootAbs):
-    __test__ = True
-
-
 class WilyTestRaid10boot(relbase.wily, TestRaid10bootAbs):
     __test__ = True
 
 
 class XenialTestRaid10boot(relbase.xenial, TestRaid10bootAbs):
+    __test__ = True
+
+
+class YakketyTestRaid10boot(relbase.yakkety, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -403,13 +403,13 @@ class TrustyHWEUTestAllindata(relbase.trusty_hwe_u, TrustyTestAllindata):
     __test__ = False  # lukes=no does not disable mounting of device
 
 
-class VividTestAllindata(relbase.vivid, TestAllindataAbs):
-    __test__ = True
-
-
 class WilyTestAllindata(relbase.wily, TestAllindataAbs):
     __test__ = True
 
 
 class XenialTestAllindata(relbase.xenial, TestAllindataAbs):
+    __test__ = True
+
+
+class YakketyTestAllindata(relbase.yakkety, TestAllindataAbs):
     __test__ = True
