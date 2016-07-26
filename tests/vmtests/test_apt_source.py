@@ -29,7 +29,7 @@ class TestAptSrcAbs(VMBaseClass):
         cp /etc/apt/sources.list.d/curtin-dev-ppa.list .
         cp /etc/apt/sources.list.d/my-repo2.list .
         cp /etc/apt/sources.list.d/my-repo4.list .
-        cp /etc/apt/sources.list.d/curtin-dev-ubuntu-test-archive-xenial.list .
+        cp /etc/apt/sources.list.d/curtin-dev-ubuntu-test-archive-*.list .
         find /etc/apt/sources.list.d/ -maxdepth 1 -name "*ignore*" | wc -l > ic
         apt-config dump | grep Retries > aptconf
         cp /etc/apt/sources.list sources.list

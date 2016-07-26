@@ -20,7 +20,7 @@ class TestAptConfigCMD(VMBaseClass):
         cat /etc/fstab > fstab
         ls /dev/disk/by-dname > ls_dname
         find /etc/network/interfaces.d > find_interfacesd
-        cp /etc/apt/sources.list.d/curtin-dev-ubuntu-test-archive-xenial.list .
+        cp /etc/apt/sources.list.d/curtin-dev-ubuntu-test-archive-*.list .
         cp /etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg .
         apt-cache policy | grep proposed > proposed-enabled
         """)]
