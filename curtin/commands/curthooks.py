@@ -90,57 +90,7 @@ def write_files(cfg, target):
 
 
 def apt_config(cfg, target):
-    predef_apt_cfg = cfg.get("apt")
-    # translate old into new format
-    if predef_apt_cfg is None:
-        cfg['apt'] = {}
-        predef_apt_cfg = cfg.get("apt")
-
-    if cfg.get('apt_proxy') is not None:
-        if predef_apt_cfg.get('proxy') is not None:
-            msg = ("Error in apt_proxy configuration: "
-                   "old and new format of apt features "
-                   "are mutually exclusive")
-            LOG.error(msg)
-            raise ValueError(msg)
-
-        cfg['apt']['proxy'] = cfg.get('apt_proxy')
-        LOG.info("Transferred %s into new format: %s", cfg.get('apt_proxy'),
-                 cfg.get('apte'))
-        del cfg['apt_proxy']
-
-    if cfg.get('apt_mirrors') is not None:
-        if predef_apt_cfg.get('mirrors') is not None:
-            msg = ("Error in apt_mirror configuration: "
-                   "old and new format of apt features "
-                   "are mutually exclusive")
-            LOG.error(msg)
-            raise ValueError(msg)
-
-        old = cfg.get('apt_mirrors')
-        cfg['apt']['primary'] = [{"arches": ["default"],
-                                  "uri": old.get('ubuntu_archive')}]
-        cfg['apt']['security'] = [{"arches": ["default"],
-                                  "uri": old.get('ubuntu_security')}]
-        LOG.info("Transferred %s into new format: %s", cfg.get('apt_mirror'),
-                 cfg.get('apt'))
-        del cfg['apt_mirrors']
-
-    if cfg.get('debconf_selections') is not None:
-        if predef_apt_cfg.get('debconf_selections') is not None:
-            msg = ("Error in debconf_selections configuration: "
-                   "old and new format of apt features "
-                   "are mutually exclusive")
-            LOG.error(msg)
-            raise ValueError(msg)
-
-        selsets = cfg.get('debconf_selections')
-        cfg['apt']['debconf_selections'] = selsets
-        LOG.info("Transferred %s into new format: %s",
-                 cfg.get('debconf_selections'),
-                 cfg.get('apt'))
-        del cfg['debconf_selections']
-
+    cfg = apt.translate_old_apt_features(cfg)
     apt_cfg = cfg.get("apt")
     if apt_cfg is not None:
         LOG.info("curthooks handling apt to target %s with config %s",
