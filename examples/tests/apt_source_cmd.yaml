@@ -1,0 +1,11 @@
+showtrace: true
+# this config actually doesn't do anything, so it can be used for minimal
+# command testing runnign some of the code in that scope
+apt:
+  preserve_sources_list: true
+  primary:
+    - arches: [default]
+      uri: http://us.archive.ubuntu.com/ubuntu
+  security:
+    - arches: [default]
+      uri: http://security.ubuntu.com/ubuntu
