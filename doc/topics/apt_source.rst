@@ -140,18 +140,13 @@ This is a collection of additional ideas people can use the feature for customiz
 Timing
 ------
 The feature is implemented at the stage of curthooks_commands, after which runs just after curtin has extracted the image to the target.
-It can be ran as standalong command "curtin -v --config <yourconfigfile> apt".
-This will pick up the target from the environment variable that is set by curtin, if you want to use it to a different target or outside of usual curtin handling you can add --target <path> to it to overwrite the target path.
+It can be ran as standalong command "curtin -v --config <yourconfigfile> apt-config".
+
+This will pick up the target from the environment variable that is set by curtin, if you want to use it to a different target or outside of usual curtin handling you can add ``--target <path>`` to it to overwrite the target path.
+This target should have at least a minimal system with apt and dpkg installed for the functionality to work.
 
 
 Dependencies
 ------------
 Cloud-init might need to resolve dependencies and install packages in the ephemeral environment to run curtin.
 Therefore it is recommended to not only configure curtin for the target, but also the install environment with proper apt configuration via cloud-init.
-
-Target
-------
-As mentioned before the default target will be TARGET_MOUNT_POINT, but if every needed it can be run directly via ``curtin apt-source`` or overwriting the builtin at ``builtin-apt-source`` with a custom target.
-To do so add ``target /you/own/target``.
-This target should have at least a minimal system with apt installed for the functionality to work.
-Combined with the option to call the apt-source subcommand at a different stage if needed this gives you full control what and when to change.

@@ -13,7 +13,7 @@ import mock
 from mock import call
 
 from curtin import util
-from curtin.commands import apt
+from curtin.commands import apt_config
 
 LOG = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ class TestAptSourceConfigSourceList(TestCase):
                         with mock.patch.object(util, 'lsb_release',
                                                return_value={'codename':
                                                              'fakerel'}):
-                            apt.handle_apt(cfg, TARGET)
+                            apt_config.handle_apt(cfg, TARGET)
 
         mockga.assert_called_with("/")
 
@@ -153,7 +153,7 @@ class TestAptSourceConfigSourceList(TestCase):
                     with mock.patch.object(util, 'lsb_release',
                                            return_value={'codename':
                                                          'fakerel'}):
-                        apt.handle_apt(cfg, TARGET)
+                        apt_config.handle_apt(cfg, TARGET)
 
         mockga.assert_called_with("/")
         cloudfile = '/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg'

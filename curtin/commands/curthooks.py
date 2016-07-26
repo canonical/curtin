@@ -30,7 +30,7 @@ from curtin import swap
 from curtin import util
 from curtin import net
 from curtin.reporter import events
-from curtin.commands import apt
+from curtin.commands import apt_config
 
 from . import populate_one_subcmd
 
@@ -89,13 +89,13 @@ def write_files(cfg, target):
                                          info.get('perms', "0644")))
 
 
-def apt_config(cfg, target):
-    cfg = apt.translate_old_apt_features(cfg)
+def do_apt_config(cfg, target):
+    cfg = apt_config.translate_old_apt_features(cfg)
     apt_cfg = cfg.get("apt")
     if apt_cfg is not None:
         LOG.info("curthooks handling apt to target %s with config %s",
                  target, apt_cfg)
-        apt.handle_apt(apt_cfg, target)
+        apt_config.handle_apt(apt_cfg, target)
     else:
         LOG.info("No apt config provided, skipping")
 
@@ -701,7 +701,7 @@ def curthooks(args):
             name=stack_prefix, reporting_enabled=True, level="INFO",
             description="writing config files and configuring apt"):
         write_files(cfg, target)
-        apt_config(cfg, target)
+        do_apt_config(cfg, target)
         disable_overlayroot(cfg, target)
 
     # packages may be needed prior to installing kernel

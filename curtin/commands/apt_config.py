@@ -66,7 +66,7 @@ def get_default_mirrors(target=None):
 
 def handle_apt(cfg, target):
     """ handle_apt
-        process the config for apt. This can be called from
+        process the config forapt_config. This can be called from
         curthooks if a global apt config was provided or via the "apt"
         standalone command.
     """
@@ -565,7 +565,7 @@ def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
 
 
 def apt_command(args):
-    """ Main entry point for curtin apt standalone command
+    """ Main entry point for curtin apt-config standalone command
         This does not read the global config as handled by curthooks, but
         instead one can specify a different "target" and a new cfg via --config
         """
@@ -665,7 +665,7 @@ CMD_ARGUMENTS = (
 
 
 def POPULATE_SUBCMD(parser):
-    """Populate subcommand option parsing for apt"""
+    """Populate subcommand option parsing for apt-config"""
     populate_one_subcmd(parser, CMD_ARGUMENTS, apt_command)
 
 CONFIG_CLEANERS = {

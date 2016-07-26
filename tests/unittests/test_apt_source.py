@@ -15,7 +15,7 @@ from mock import call
 
 from curtin import util
 from curtin import gpg
-from curtin.commands import apt
+from curtin.commands import apt_config
 
 
 EXPECTEDKEY = u"""-----BEGIN PGP PUBLIC KEY BLOCK-----
@@ -67,7 +67,7 @@ class TestAptSourceConfig(TestCase):
     @staticmethod
     def _add_apt_sources(*args, **kwargs):
         with mock.patch.object(util, 'apt_update'):
-            apt.add_apt_sources(*args, **kwargs)
+            apt_config.add_apt_sources(*args, **kwargs)
 
     @staticmethod
     def _get_default_params():
@@ -76,7 +76,7 @@ class TestAptSourceConfig(TestCase):
         """
         params = {}
         params['RELEASE'] = util.lsb_release()['codename']
-        params['MIRROR'] = apt.get_default_mirrors()["PRIMARY"]
+        params['MIRROR'] = apt_config.get_default_mirrors()["PRIMARY"]
         return params
 
     def _myjoin(self, *args, **kwargs):
@@ -333,7 +333,7 @@ class TestAptSourceConfig(TestCase):
         """
         params = self._get_default_params()
 
-        with mock.patch.object(apt, 'add_apt_key_raw') as mockkey:
+        with mock.patch.object(apt_config, 'add_apt_key_raw') as mockkey:
             with mock.patch.object(gpg, 'getkeybyid',
                                    return_value=expectedkey) as mockgetkey:
                 self._add_apt_sources(cfg, TARGET, template_params=params,
@@ -381,7 +381,7 @@ class TestAptSourceConfig(TestCase):
         # so mock the call and check if the config got there
         with mock.patch.object(gpg, 'getkeybyid',
                                return_value="fakekey") as mockgetkey:
-            with mock.patch.object(apt, 'add_apt_key_raw') as mockadd:
+            with mock.patch.object(apt_config, 'add_apt_key_raw') as mockadd:
                 self._add_apt_sources(cfg, TARGET, template_params=params,
                                       aa_repo_match=self.matcher)
 
@@ -430,7 +430,7 @@ class TestAptSourceConfig(TestCase):
         pre = "/var/lib/apt/lists"
         # filenames are archive dependent
         arch = util.get_architecture()
-        if arch in apt.PRIMARY_ARCHES:
+        if arch in apt_config.PRIMARY_ARCHES:
             component = "ubuntu"
             archive = "archive.ubuntu.com"
         else:
@@ -448,7 +448,7 @@ class TestAptSourceConfig(TestCase):
         fromfn = ("%s/%s_%s" % (pre, archive, post))
         tofn = ("%s/test.ubuntu.com_%s" % (pre, post))
 
-        mirrors = apt.find_apt_mirror_info(cfg)
+        mirrors = apt_config.find_apt_mirror_info(cfg)
 
         self.assertEqual(mirrors['MIRROR'],
                          "http://test.ubuntu.com/%s/" % component)
@@ -462,7 +462,7 @@ class TestAptSourceConfig(TestCase):
             with mock.patch.object(os, 'rename') as mockren:
                 with mock.patch.object(glob, 'glob',
                                        return_value=[fromfn]):
-                    apt.rename_apt_lists(mirrors, TARGET)
+                    apt_config.rename_apt_lists(mirrors, TARGET)
 
         mockren.assert_any_call(fromfn, tofn)
 
@@ -475,7 +475,7 @@ class TestAptSourceConfig(TestCase):
                "https_proxy": "foobar4"}
 
         with mock.patch.object(util, 'write_file') as mockobj:
-            apt.apply_apt_proxy_config(cfg, "proxyfn", "notused")
+            apt_config.apply_apt_proxy_config(cfg, "proxyfn", "notused")
 
         mockobj.assert_called_with('proxyfn',
                                    ('Acquire::http::Proxy "foobar1";\n'
@@ -492,7 +492,7 @@ class TestAptSourceConfig(TestCase):
                "security": [{'arches': ["default"],
                              "uri": smir}]}
 
-        mirrors = apt.find_apt_mirror_info(cfg)
+        mirrors = apt_config.find_apt_mirror_info(cfg)
 
         self.assertEqual(mirrors['MIRROR'],
                          pmir)
@@ -503,10 +503,10 @@ class TestAptSourceConfig(TestCase):
 
     def test_mirror_default(self):
         """test_mirror_default - Test without defining a mirror"""
-        default_mirrors = apt.get_default_mirrors()
+        default_mirrors = apt_config.get_default_mirrors()
         pmir = default_mirrors["PRIMARY"]
         smir = default_mirrors["SECURITY"]
-        mirrors = apt.find_apt_mirror_info({})
+        mirrors = apt_config.find_apt_mirror_info({})
 
         self.assertEqual(mirrors['MIRROR'],
                          pmir)
@@ -528,7 +528,7 @@ class TestAptSourceConfig(TestCase):
                             {'arches': ["default"],
                              "uri": "nothat"}]}
 
-        mirrors = apt.find_apt_mirror_info(cfg)
+        mirrors = apt_config.find_apt_mirror_info(cfg)
 
         self.assertEqual(mirrors['MIRROR'],
                          pmir)
@@ -550,7 +550,7 @@ class TestAptSourceConfig(TestCase):
                             {'arches': ["default"],
                              "uri": smir}]}
 
-        mirrors = apt.find_apt_mirror_info(cfg)
+        mirrors = apt_config.find_apt_mirror_info(cfg)
 
         self.assertEqual(mirrors['MIRROR'],
                          pmir)
@@ -561,7 +561,7 @@ class TestAptSourceConfig(TestCase):
 
     def test_mirror_arches_sysdefault(self):
         """test_mirror_arches - Test arches falling back to sys default"""
-        default_mirrors = apt.get_default_mirrors()
+        default_mirrors = apt_config.get_default_mirrors()
         pmir = default_mirrors["PRIMARY"]
         smir = default_mirrors["SECURITY"]
         cfg = {"primary": [{'arches': ["thisarchdoesntexist_64"],
@@ -573,7 +573,7 @@ class TestAptSourceConfig(TestCase):
                             {'arches': ["thisarchdoesntexist_64"],
                              "uri": "nothateither"}]}
 
-        mirrors = apt.find_apt_mirror_info(cfg)
+        mirrors = apt_config.find_apt_mirror_info(cfg)
 
         self.assertEqual(mirrors['MIRROR'],
                          pmir)
@@ -592,9 +592,9 @@ class TestAptSourceConfig(TestCase):
                "security": [{'arches': ["default"],
                              "search": ["sfailme", smir]}]}
 
-        with mock.patch.object(apt, 'search_for_mirror',
+        with mock.patch.object(apt_config, 'search_for_mirror',
                                side_effect=[pmir, smir]) as mocksearch:
-            mirrors = apt.find_apt_mirror_info(cfg)
+            mirrors = apt_config.find_apt_mirror_info(cfg)
 
         calls = [call(["pfailme", pmir]),
                  call(["sfailme", smir])]
@@ -616,26 +616,26 @@ class TestAptSourceConfig(TestCase):
                "security": [{'arches': ["default"],
                              "search_dns": True}]}
 
-        with mock.patch.object(apt, 'get_mirror',
+        with mock.patch.object(apt_config, 'get_mirror',
                                return_value="http://mocked/foo") as mockgm:
-            mirrors = apt.find_apt_mirror_info(cfg)
+            mirrors = apt_config.find_apt_mirror_info(cfg)
         calls = [call(cfg, 'primary', util.get_architecture()),
                  call(cfg, 'security', util.get_architecture())]
         mockgm.assert_has_calls(calls)
 
-        with mock.patch.object(apt, 'search_for_mirror_dns',
+        with mock.patch.object(apt_config, 'search_for_mirror_dns',
                                return_value="http://mocked/foo") as mocksdns:
-            mirrors = apt.find_apt_mirror_info(cfg)
+            mirrors = apt_config.find_apt_mirror_info(cfg)
         calls = [call(True, 'mirror'),
                  call(True, 'security-mirror')]
         mocksdns.assert_has_calls(calls)
 
         # first return is for the non-dns call before
-        with mock.patch.object(apt, 'search_for_mirror',
+        with mock.patch.object(apt_config, 'search_for_mirror',
                                side_effect=[None, pmir, None, smir]) as mockse:
             with mock.patch.object(util, 'subp',
                                    return_value=('host.sub.com', '')) as mocks:
-                mirrors = apt.find_apt_mirror_info(cfg)
+                mirrors = apt_config.find_apt_mirror_info(cfg)
 
         calls = [call(None),
                  call(['http://ubuntu-mirror.sub.com/ubuntu',
@@ -669,21 +669,21 @@ class TestAptSourceConfig(TestCase):
                              "search": ["sfailme", "bar"]}]}
 
         # should be called once per type, despite three configs each
-        with mock.patch.object(apt, 'get_mirror',
+        with mock.patch.object(apt_config, 'get_mirror',
                                return_value="http://mocked/foo") as mockgm:
-            mirrors = apt.find_apt_mirror_info(cfg)
+            mirrors = apt_config.find_apt_mirror_info(cfg)
         calls = [call(cfg, 'primary', util.get_architecture()),
                  call(cfg, 'security', util.get_architecture())]
         mockgm.assert_has_calls(calls)
 
         # should not be called, since primary is specified
-        with mock.patch.object(apt, 'search_for_mirror_dns') as mocksdns:
-            mirrors = apt.find_apt_mirror_info(cfg)
-        mocksdns.assert_not_called()
+        with mock.patch.object(apt_config, 'search_for_mirror_dns') as mockdns:
+            mirrors = apt_config.find_apt_mirror_info(cfg)
+        mockdns.assert_not_called()
 
         # should not be called, since primary is specified
-        with mock.patch.object(apt, 'search_for_mirror') as mockse:
-            mirrors = apt.find_apt_mirror_info(cfg)
+        with mock.patch.object(apt_config, 'search_for_mirror') as mockse:
+            mirrors = apt_config.find_apt_mirror_info(cfg)
         mockse.assert_not_called()
 
         self.assertEqual(mirrors['MIRROR'],
@@ -705,17 +705,17 @@ class TestAptSourceConfig(TestCase):
                              "search": ["sfailme", smir]}]}
 
         # should be called once per type, despite three configs each
-        with mock.patch.object(apt, 'get_mirror',
+        with mock.patch.object(apt_config, 'get_mirror',
                                return_value="http://mocked/foo") as mockgm:
-            mirrors = apt.find_apt_mirror_info(cfg)
+            mirrors = apt_config.find_apt_mirror_info(cfg)
         calls = [call(cfg, 'primary', util.get_architecture()),
                  call(cfg, 'security', util.get_architecture())]
         mockgm.assert_has_calls(calls)
 
         # this should be the winner by priority, despite config order
-        with mock.patch.object(apt, 'search_for_mirror',
+        with mock.patch.object(apt_config, 'search_for_mirror',
                                side_effect=[pmir, smir]) as mocksearch:
-            mirrors = apt.find_apt_mirror_info(cfg)
+            mirrors = apt_config.find_apt_mirror_info(cfg)
         calls = [call(["pfailme", pmir]),
                  call(["sfailme", smir])]
         mocksearch.assert_has_calls(calls)
@@ -777,7 +777,7 @@ deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
         # single disable release suite
@@ -788,7 +788,7 @@ deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
         # single disable other suite
@@ -798,7 +798,7 @@ deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
         # multi disable
@@ -808,7 +808,7 @@ deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
 # suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
         # multi line disable (same suite multiple times in input)
@@ -827,7 +827,7 @@ deb-src http://ubuntu.com//ubuntu universe multiverse
 # suite disabled by curtin: deb http://UBUNTU.com//ubuntu xenial-updates main
 # suite disabled by curtin: deb http://UBUNTU.COM//ubuntu xenial-updates main
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
         # comment in input
@@ -848,7 +848,7 @@ deb-src http://ubuntu.com//ubuntu universe multiverse
 #deb http://UBUNTU.com//ubuntu xenial-updates main
 # suite disabled by curtin: deb http://UBUNTU.COM//ubuntu xenial-updates main
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
         # single disable custom suite
@@ -861,7 +861,7 @@ deb http://ubuntu.com/ubuntu/ foobar main"""
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 # suite disabled by curtin: deb http://ubuntu.com/ubuntu/ foobar main"""
-        result = apt.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
         # single disable non existing suite
@@ -874,7 +874,7 @@ deb http://ubuntu.com/ubuntu/ notfoobar main"""
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb http://ubuntu.com/ubuntu/ notfoobar main"""
-        result = apt.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
         # single disable suite with option
@@ -889,7 +889,7 @@ deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
         # single disable suite with more options and auto $RELEASE expansion
@@ -905,7 +905,7 @@ http://ubu.com//ubu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
         # single disable suite while options at others
@@ -920,7 +920,7 @@ deb [arch=foo] http://ubuntu.com//ubuntu xenial-updates main
 # suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
 #
