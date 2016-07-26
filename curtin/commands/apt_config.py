@@ -386,6 +386,8 @@ def add_apt_sources(srcdict, target, template_params=None, aa_repo_match=None):
         if not ent['filename'].startswith("/"):
             ent['filename'] = os.path.join("/etc/apt/sources.list.d/",
                                            ent['filename'])
+        if not ent['filename'].endswith(".list"):
+            ent['filename'] += ".list"
 
         if aa_repo_match(source):
             try:

@@ -17,7 +17,8 @@ apt:
       keyid: F430BBA5
     ignored1:
       source: "ppa:curtin-dev/test-archive"
-    my-repo2.list:
+    # intentionally dropped the .list here, has to be added by the code
+    my-repo2:
       source: deb $MIRROR $RELEASE multiverse
     ignored3:
       keyid: 0E72 9061 0D2F 6DC4 D65E  A921 9A31 4EC5 F470 A0AC
