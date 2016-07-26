@@ -892,15 +892,16 @@ deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         result = apt.disable_suites(cfg, orig, release)
         self.assertEqual(expect, result)
 
-        # single disable suite with more options
+        # single disable suite with more options and auto $RELEASE expansion
         cfg = {"disable_suites": ["updates"]}
         orig = """deb http://ubuntu.com//ubuntu xenial main
-deb [a=b c=d] http://ubu.com//ubu updates main
+deb [a=b c=d] http://ubu.com//ubu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         expect = """deb http://ubuntu.com//ubuntu xenial main
-# suite disabled by curtin: deb [a=b c=d] http://ubu.com//ubu updates main
+# suite disabled by curtin: deb [a=b c=d] \
+http://ubu.com//ubu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""

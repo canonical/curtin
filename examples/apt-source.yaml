@@ -143,10 +143,17 @@ apt:
   # but not if is preserve_sources_list is active.
   # There is a special alias “$RELEASE” as in the sources that will be replace
   # by the matching release.
+  # To ease configuration and improve readability the following common ubuntu
+  # suites will be automatically mapped to their full definition.
+  # updates   => $RELEASE-updates
+  # backports => $RELEASE-backports
+  # security  => $RELEASE-security
+  # proposed  => $RELEASE-proposed
+  # release   => $RELEASE
   # Note: Lines don’t get deleted, but disabled by being converted to a comment.
   # The following example disables all defaults except $RELEASE-security. On top
   # it disables a custom suite called "mysuite"
-  disable_suites: [$RELEASE-updates, $RELEASE-backports, $RELEASE, mysuite]
+  disable_suites: [$RELEASE-updates, backports, $RELEASE, mysuite]
 
   # a custom (e.g. localized) mirror that will be set in sources.list and
   # deb / deb-src lines

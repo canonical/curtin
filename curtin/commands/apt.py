@@ -226,6 +226,22 @@ def mirror_to_placeholder(tmpl, mirror, placeholder):
     return tmpl.replace(mirror, placeholder)
 
 
+def map_known_suites(suite):
+    """there are a few default names which will be auto-extended.
+       This comes at the inability to use those names literally as suites,
+       but on the other hand increases readability of the cfg quite a lot"""
+    mapping = {'updates': '$RELEASE-updates',
+               'backports': '$RELEASE-backports',
+               'security': '$RELEASE-security',
+               'proposed': '$RELEASE-proposed',
+               'release': '$RELEASE'}
+    try:
+        retsuite = mapping[suite]
+    except KeyError:
+        retsuite = suite
+    return retsuite
+
+
 def disable_suites(cfg, src, release):
     """reads the config for suites to be disabled and removes those
        from the template"""
@@ -233,6 +249,7 @@ def disable_suites(cfg, src, release):
     suites_to_disable = cfg.get('disable_suites', None)
     if suites_to_disable is not None:
         for suite in suites_to_disable:
+            suite = map_known_suites(suite)
             releasesuite = util.render_string(suite, {'RELEASE': release})
             LOG.info("Disabling suite %s as %s", suite, releasesuite)
 
