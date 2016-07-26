@@ -1,5 +1,6 @@
 showtrace: true
 apt:
+  preserve_sources_list: false
   primary:
     - arches: [default]
       uri: http://us.archive.ubuntu.com/ubuntu

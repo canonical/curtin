@@ -79,7 +79,7 @@ class TestAptSrcAbs(VMBaseClass):
         # auto creation by apt-add-repository
         self.check_file_strippedline("curtin-dev-ubuntu-test-archive-%s.list" %
                                      self.release,
-                                     ("deb http://ppa.launchpad.net/"
+                                     ("http://ppa.launchpad.net/"
                                       "curtin-dev/test-archive/ubuntu"
                                       " %s main" % self.release))
 

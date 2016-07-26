@@ -12,7 +12,7 @@ apt:
     - arches: [default]
       search_dns: True
   # avoiding issues with these fake mirrors we only set them in a disabled list
-  preserve_sources_list: true
+  # this is the default now preserve_sources_list: true
   sources:
     dnssearch.list.disabled:
       source: |

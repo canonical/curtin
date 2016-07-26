@@ -1,7 +1,7 @@
 showtrace: true
 apt:
   # this is like the other apt_source test but with preserve true
-  preserve_sources_list: true
+  # this is the default now preserve_sources_list: true
   primary:
     - arches: [default]
       uri: http://us.archive.ubuntu.com/ubuntu

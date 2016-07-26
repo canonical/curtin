@@ -21,6 +21,7 @@ TARGET = "/"
 
 # Input and expected output for the custom template
 YAML_TEXT_CUSTOM_SL = """
+preserve_sources_list: false
 primary:
   - arches: [default]
     uri: http://test.ubuntu.com/ubuntu/
@@ -125,13 +126,14 @@ class TestAptSourceConfigSourceList(TestCase):
 
     def test_apt_source_list(self):
         """test_apt_source_list - Test with neither custom sources nor parms"""
-        cfg = {}
+        cfg = {'preserve_sources_list': False}
 
         self._apt_source_list(cfg, EXPECTED_BASE_CONTENT)
 
     def test_apt_source_list_psm(self):
         """test_apt_source_list_psm - Test specifying prim+sec mirrors"""
-        cfg = {'primary': [{'arches': ["default"],
+        cfg = {'preserve_sources_list': False,
+               'primary': [{'arches': ["default"],
                             'uri': 'http://test.ubuntu.com/ubuntu/'}],
                'security': [{'arches': ["default"],
                              'uri': 'http://testsec.ubuntu.com/ubuntu/'}]}

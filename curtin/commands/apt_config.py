@@ -77,7 +77,7 @@ def handle_apt(cfg, target):
     apply_debconf_selections(cfg, target)
 
     if not config.value_as_boolean(cfg.get('preserve_sources_list',
-                                           False)):
+                                           True)):
         generate_sources_list(cfg, release, mirrors, target)
         rename_apt_lists(mirrors, target)
 
@@ -636,6 +636,16 @@ def translate_old_apt_features(cfg):
         LOG.debug("Transferred %s into new format: %s", cfg.get('apt_mirror'),
                   cfg.get('apt'))
         del cfg['apt_mirrors']
+        # to work this also needs to disable the default protection
+        psl = predef_apt_cfg.get('preserve_sources_list')
+        if psl is not None:
+            if config.value_as_boolean(psl) is True:
+                msg = ("Error in apt_mirror configuration: "
+                       "apt_mirrors and preserve_sources_list: True "
+                       "are mutually exclusive")
+                LOG.error(msg)
+                raise ValueError(msg)
+        cfg['apt']['preserve_sources_list'] = False
 
     if cfg.get('debconf_selections') is not None:
         if predef_apt_cfg.get('debconf_selections') is not None:

@@ -132,8 +132,10 @@ apt:
   #
 
   # Preserve existing /etc/apt/sources.list
-  # Default: overwrite sources_list with mirror. If this is true
+  # Default: True - do not overwrite sources_list. If staying at true
   # then any "mirrors" configuration above will have no effect
+  # Set to False to affect sources.list with the configuration. Without only
+  # extra source specifications will be written into /etc/apt/sources.list.d/.
   preserve_sources_list: false
 
   # disable_suites by default it is an empty list, so nothing is removed.
