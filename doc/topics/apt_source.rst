@@ -140,7 +140,9 @@ This is a collection of additional ideas people can use the feature for customiz
 Timing
 ------
 The feature is implemented at the stage of curthooks_commands, after which runs just after curtin has extracted the image to the target.
-It can be ran as standalong command "curtin apt custom --config {}"
+It can be ran as standalong command "curtin -v --config <yourconfigfile> apt".
+This will pick up the target from the environment variable that is set by curtin, if you want to use it to a different target or outside of usual curtin handling you can add --target <path> to it to overwrite the target path.
+
 
 Dependencies
 ------------
