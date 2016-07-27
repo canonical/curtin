@@ -312,11 +312,9 @@ def generate_sources_list(cfg, release, mirrors, target):
     util.write_file(target + aptsrc, disabled, mode=0o644)
 
     # protect the just generated sources.list from cloud-init
-    clouddir = "/etc/cloud/cloud.cfg.d"
-    cloudfile = clouddir + "/" + "curtin-preserve-sources.cfg"
+    cloudfile = "/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg"
     # this has to work with older cloud-init as well, so use old key
     cloudconf = yaml.dump({'apt_preserve_sources_list': True}, indent=1)
-    util.subp(['mkdir', '-p', target + clouddir], rcs=[0, 1])
     try:
         util.write_file(target + cloudfile, cloudconf, mode=0o644)
     except IOError:
