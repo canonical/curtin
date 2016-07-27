@@ -49,6 +49,29 @@ def load_tfile(filename):
 
     return content
 
+class PseudoRunInChroot(object):
+    def __init__(self, args, **kwargs):
+        print("HEY: %s" % ' '.join(args))
+        if len(args) > 0:
+            self.target = args[0]
+        else:
+            self.target = kwargs.get('target')
+        
+    def __call__(self, args, **kwargs):
+        if self.target != "/":
+            chroot = ["chroot", self.target]
+        else:
+            chroot = []
+        return util.subp(chroot + args, **kwargs)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return
+
+RunInChrootStr = "curtin.commands.apt_config.util.RunInChroot"
+
 
 class TestAptSourceConfig(TestCase):
     """ TestAptSourceConfig
@@ -227,6 +250,7 @@ class TestAptSourceConfig(TestCase):
                                    "xenial", "main"),
                                   contents, flags=re.IGNORECASE))
 
+    @mock.patch(RunInChrootStr, new=PseudoRunInChroot)
     def test_apt_src_keyid(self):
         """test_apt_src_keyid - Test source + keyid with filename being set"""
         cfg = {self.aptlistfile: {'source': ('deb '
@@ -236,6 +260,7 @@ class TestAptSourceConfig(TestCase):
                                   'keyid': "03683F77"}}
         self._apt_src_keyid(self.aptlistfile, cfg, 1)
 
+    @mock.patch(RunInChrootStr, new=PseudoRunInChroot)
     def test_apt_src_keyid_tri(self):
         """test_apt_src_keyid_tri - Test multiple src+keyid+filen overwrites"""
         cfg = {self.aptlistfile:  {'source': ('deb '
@@ -271,6 +296,7 @@ class TestAptSourceConfig(TestCase):
                                    "xenial", "multiverse"),
                                   contents, flags=re.IGNORECASE))
 
+    @mock.patch(RunInChrootStr, new=PseudoRunInChroot)
     def test_apt_src_key(self):
         """test_apt_src_key - Test source + key"""
         params = self._get_default_params()
@@ -296,6 +322,7 @@ class TestAptSourceConfig(TestCase):
                                    "xenial", "main"),
                                   contents, flags=re.IGNORECASE))
 
+    @mock.patch(RunInChrootStr, new=PseudoRunInChroot)
     def test_apt_src_keyonly(self):
         """test_apt_src_keyonly - Test key without source"""
         params = self._get_default_params()
@@ -310,6 +337,7 @@ class TestAptSourceConfig(TestCase):
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
 
+    @mock.patch(RunInChrootStr, new=PseudoRunInChroot)
     def test_apt_src_keyidonly(self):
         """test_apt_src_keyidonly - Test keyid without source"""
         params = self._get_default_params()
@@ -391,6 +419,7 @@ class TestAptSourceConfig(TestCase):
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
 
+    @mock.patch(RunInChrootStr, new=PseudoRunInChroot)
     def test_apt_src_ppa(self):
         """test_apt_src_ppa - Test specification of a ppa"""
         params = self._get_default_params()
@@ -405,6 +434,8 @@ class TestAptSourceConfig(TestCase):
         # adding ppa should ignore filename (uses add-apt-repository)
         self.assertFalse(os.path.isfile(self.aptlistfile))
 
+
+    @mock.patch(RunInChrootStr, new=PseudoRunInChroot)
     def test_apt_src_ppa_tri(self):
         """test_apt_src_ppa_tri - Test specification of multiple ppa's"""
         params = self._get_default_params()

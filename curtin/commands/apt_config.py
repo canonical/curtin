@@ -337,7 +337,7 @@ def add_apt_key_raw(key, target):
     """
     LOG.debug("Adding key:\n'%s'", key)
     try:
-        with util.RunInChroot(target, allow_daemons=True) as in_chroot:
+        with util.RunInChroot(target) as in_chroot:
             in_chroot(['apt-key', 'add', '-'], data=key.encode())
     except util.ProcessExecutionError:
         LOG.exception("failed to add apt GPG Key to apt keyring")
@@ -396,7 +396,7 @@ def add_apt_sources(srcdict, target, template_params=None, aa_repo_match=None):
 
         if aa_repo_match(source):
             try:
-                with util.RunInChroot(target, allow_daemons=True) as in_chroot:
+                with util.RunInChroot(target, sys_resolvconf=True) as in_chroot:
                     in_chroot(["add-apt-repository", source])
             except util.ProcessExecutionError:
                 LOG.exception("add-apt-repository failed.")
@@ -596,8 +596,7 @@ def apt_command(args):
         LOG.debug("Handling apt to target %s with config %s",
                   target, apt_cfg)
         try:
-            with util.ChrootableTarget(target, allow_daemons=False,
-                                       sys_resolvconf=True):
+            with util.ChrootableTarget(target, sys_resolvconf=True):
                 handle_apt(apt_cfg, target)
         except (RuntimeError, TypeError, ValueError, IOError):
             LOG.exception("Failed to configure apt features '%s'", apt_cfg)
