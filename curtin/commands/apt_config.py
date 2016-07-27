@@ -16,7 +16,7 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 """
 apt.py
-Handling the setup of apt related tasks like proxies, PGP keys, repositories.
+Handle the setup of apt related tasks like proxies, mirrors, repositories.
 """
 
 import argparse
@@ -117,10 +117,13 @@ def apply_debconf_selections(cfg, target):
     # for each entry in selections, chroot and apply them.
     # keep a running total of packages we've seen.
     pkgs_cfgd = set()
+
+    chroot = [] if target == "/" else ['chroot', target]
+
+    set_selections = chroot + ['debconf-set-selections']
     for key, content in selsets.items():
         LOG.debug("setting for %s, %s", key, content)
-        util.subp(['chroot', target, 'debconf-set-selections'],
-                  data=content.encode())
+        util.subp(set_selections, data=content.encode())
         for line in content.splitlines():
             if line.startswith("#"):
                 continue
@@ -157,8 +160,7 @@ def apply_debconf_selections(cfg, target):
                  "but cannot be unconfigured: %s", unhandled)
 
     if len(to_config):
-        util.subp(['chroot', target, 'dpkg-reconfigure',
-                   '--frontend=noninteractive'] +
+        util.subp(chroot + ['dpkg-reconfigure' '--frontend=noninteractive'] +
                   list(to_config), data=None)
 
 
