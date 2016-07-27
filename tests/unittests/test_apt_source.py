@@ -816,48 +816,48 @@ deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
 
         # disable nothing
-        cfg = {"disable_suites": []}
+        disabled = []
         expect = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(disabled, orig, release)
         self.assertEqual(expect, result)
 
         # single disable release suite
-        cfg = {"disable_suites": ["$RELEASE"]}
+        disabled = ["$RELEASE"]
         expect = """\
 # suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(disabled, orig, release)
         self.assertEqual(expect, result)
 
         # single disable other suite
-        cfg = {"disable_suites": ["$RELEASE-updates"]}
+        disabled = ["$RELEASE-updates"]
         expect = """deb http://ubuntu.com//ubuntu xenial main
 # suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(disabled, orig, release)
         self.assertEqual(expect, result)
 
         # multi disable
-        cfg = {"disable_suites": ["$RELEASE-updates", "$RELEASE-security"]}
+        disabled = ["$RELEASE-updates", "$RELEASE-security"]
         expect = """deb http://ubuntu.com//ubuntu xenial main
 # suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
 # suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(disabled, orig, release)
         self.assertEqual(expect, result)
 
         # multi line disable (same suite multiple times in input)
-        cfg = {"disable_suites": ["$RELEASE-updates", "$RELEASE-security"]}
+        disabled = ["$RELEASE-updates", "$RELEASE-security"]
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -872,11 +872,11 @@ deb-src http://ubuntu.com//ubuntu universe multiverse
 # suite disabled by curtin: deb http://UBUNTU.com//ubuntu xenial-updates main
 # suite disabled by curtin: deb http://UBUNTU.COM//ubuntu xenial-updates main
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(disabled, orig, release)
         self.assertEqual(expect, result)
 
         # comment in input
-        cfg = {"disable_suites": ["$RELEASE-updates", "$RELEASE-security"]}
+        disabled = ["$RELEASE-updates", "$RELEASE-security"]
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -893,11 +893,11 @@ deb-src http://ubuntu.com//ubuntu universe multiverse
 #deb http://UBUNTU.com//ubuntu xenial-updates main
 # suite disabled by curtin: deb http://UBUNTU.COM//ubuntu xenial-updates main
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(disabled, orig, release)
         self.assertEqual(expect, result)
 
         # single disable custom suite
-        cfg = {"disable_suites": ["foobar"]}
+        disabled = ["foobar"]
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -906,11 +906,11 @@ deb http://ubuntu.com/ubuntu/ foobar main"""
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 # suite disabled by curtin: deb http://ubuntu.com/ubuntu/ foobar main"""
-        result = apt_config.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(disabled, orig, release)
         self.assertEqual(expect, result)
 
         # single disable non existing suite
-        cfg = {"disable_suites": ["foobar"]}
+        disabled = ["foobar"]
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -919,11 +919,11 @@ deb http://ubuntu.com/ubuntu/ notfoobar main"""
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb http://ubuntu.com/ubuntu/ notfoobar main"""
-        result = apt_config.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(disabled, orig, release)
         self.assertEqual(expect, result)
 
         # single disable suite with option
-        cfg = {"disable_suites": ["$RELEASE-updates"]}
+        disabled = ["$RELEASE-updates"]
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb [a=b] http://ubu.com//ubu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -934,11 +934,11 @@ deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(disabled, orig, release)
         self.assertEqual(expect, result)
 
         # single disable suite with more options and auto $RELEASE expansion
-        cfg = {"disable_suites": ["updates"]}
+        disabled = ["updates"]
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb [a=b c=d] http://ubu.com//ubu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -950,11 +950,11 @@ http://ubu.com//ubu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(disabled, orig, release)
         self.assertEqual(expect, result)
 
         # single disable suite while options at others
-        cfg = {"disable_suites": ["$RELEASE-security"]}
+        disabled = ["$RELEASE-security"]
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb [arch=foo] http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -965,7 +965,7 @@ deb [arch=foo] http://ubuntu.com//ubuntu xenial-updates main
 # suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(cfg, orig, release)
+        result = apt_config.disable_suites(disabled, orig, release)
         self.assertEqual(expect, result)
 
 #

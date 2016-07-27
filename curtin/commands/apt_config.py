@@ -247,37 +247,38 @@ def map_known_suites(suite):
     return retsuite
 
 
-def disable_suites(cfg, src, release):
+def disable_suites(disabled, src, release):
     """reads the config for suites to be disabled and removes those
        from the template"""
+    if not disabled:
+        return src
+
     retsrc = src
-    suites_to_disable = cfg.get('disable_suites', None)
-    if suites_to_disable is not None:
-        for suite in suites_to_disable:
-            suite = map_known_suites(suite)
-            releasesuite = util.render_string(suite, {'RELEASE': release})
-            LOG.debug("Disabling suite %s as %s", suite, releasesuite)
+    for suite in disabled:
+        suite = map_known_suites(suite)
+        releasesuite = util.render_string(suite, {'RELEASE': release})
+        LOG.debug("Disabling suite %s as %s", suite, releasesuite)
 
-            newsrc = ""
-            for line in retsrc.splitlines(True):
-                if line.startswith("#"):
-                    newsrc += line
-                    continue
-
-                # sources.list allow options in cols[1] which can have spaces
-                # so the actual suite can be [2] or later
-                cols = line.split()
-                pcol = 2
-                if cols[1].startswith("["):
-                    for col in cols[1:]:
-                        pcol += 1
-                        if col.endswith("]"):
-                            break
-
-                if cols[pcol] == releasesuite:
-                    line = '# suite disabled by curtin: %s' % line
+        newsrc = ""
+        for line in retsrc.splitlines(True):
+            if line.startswith("#"):
                 newsrc += line
-            retsrc = newsrc
+                continue
+
+            # sources.list allow options in cols[1] which can have spaces
+            # so the actual suite can be [2] or later
+            cols = line.split()
+            pcol = 2
+            if cols[1].startswith("["):
+                for col in cols[1:]:
+                    pcol += 1
+                    if col.endswith("]"):
+                        break
+
+            if cols[pcol] == releasesuite:
+                line = '# suite disabled by curtin: %s' % line
+            newsrc += line
+        retsrc = newsrc
 
     return retsrc
 
@@ -314,7 +315,7 @@ def generate_sources_list(cfg, release, mirrors, target):
         LOG.exception("failed to backup %s/%s", target, aptsrc)
 
     rendered = util.render_string(tmpl, params)
-    disabled = disable_suites(cfg, rendered, release)
+    disabled = disable_suites(cfg.get('disable_suites'), rendered, release)
     util.write_file(target + aptsrc, disabled, mode=0o644)
 
     # protect the just generated sources.list from cloud-init
