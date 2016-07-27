@@ -73,7 +73,7 @@ def get_bcache_using_dev(device):
     return bcache_cache_d
 
 
-def shutdown_bcache(device):
+def shutdown_bcache(state, device):
     """
     Shut down bcache for specified bcache device or bcache backing/cache
     device
@@ -92,7 +92,7 @@ def shutdown_bcache(device):
         fp.write('1')
 
 
-def shutdown_mdadm(device):
+def shutdown_mdadm(state, device):
     """
     Shutdown specified mdadm device. Device can be either a blockdev or a path
     in /sys/block
@@ -107,7 +107,7 @@ def shutdown_mdadm(device):
     block.mdadm.mdadm_remove(blockdev)
 
 
-def shutdown_lvm(device):
+def shutdown_lvm(state, device):
     """
     Shutdown specified lvm device. Device may be given as a path in /sys/block
     or in /dev
@@ -138,7 +138,7 @@ def shutdown_lvm(device):
                '{}/{}'.format(vg_name, lv_name)], rcs=[0, 5])
 
 
-def wipe_superblock(device):
+def wipe_superblock(state, device):
     """
     Wrapper for block.wipe_volume compatible with shutdown function interface
     """
@@ -154,9 +154,6 @@ def _subfile_exists(subfile, basedir):
 
 # types of devices that could be encountered by clear holders and functions to
 # identify them and shut them down
-# both ident and shutdown methods should have a signature taking 1 parameter
-# for sysfs path to device to operate on
-# a none type for shutdown means take no action
 DEV_TYPES = {
     'partition': {'shutdown': wipe_superblock,
                   'ident': functools.partial(_subfile_exists, 'partition')},
@@ -212,8 +209,8 @@ def plan_shutdown_holder_trees(holders_trees):
     plan best order to shut down holders in, taking into account high level
     storage layers that may have many devices below them
 
-    returns a list of tuples, with the first entry being a function to run to
-    shutdown the device and the second being a log message to output
+    returns a sorted list of descriptions of storage config entries including
+    their path in /sys/block and their dev type
 
     can accept either a single storage tree or a list of storage trees assumed
     to start at an equal place in storage hirearchy (i.e. a list of trees
@@ -227,15 +224,8 @@ def plan_shutdown_holder_trees(holders_trees):
     if not isinstance(holders_trees, (list, tuple)):
         holders_trees = [holders_trees]
 
-    holders_tree_rebased = {
-        'device': None,
-        'dev_type': DEFAULT_DEV_TYPE,
-        'holders': holders_trees,
-    }
-
     def flatten_holders_tree(tree, level=0):
         device = tree['device']
-        dev_type = DEV_TYPES.get(tree['dev_type'])
 
         # always go with highest level if current device has been
         # encountered already. since the device and everything above it is
@@ -250,30 +240,19 @@ def plan_shutdown_holder_trees(holders_trees):
         if device in reg:
             level = max(reg[device]['level'], level)
 
-        # create shutdown function if any is needed and add to registry
-        log_msg = ("shutdown running on holder type: '{}' syspath: '{}'"
-                   .format(tree['dev_type'], device))
-        shutdown_fn = None
-        if dev_type['shutdown'] and device is not None:
-            shutdown_fn = functools.partial(dev_type['shutdown'], device)
-        reg[device] = {'level': level, 'shutdown': shutdown_fn, 'log': log_msg}
+        reg[device] = {'level': level, 'device': device,
+                       'dev_type': tree['dev_type']}
 
         # handle holders above this level
         for holder in tree['holders']:
             flatten_holders_tree(holder, level=level + 1)
 
     # flatten the holders tree into the registry
-    flatten_holders_tree(holders_tree_rebased)
+    for holders_tree in holders_trees:
+        flatten_holders_tree(holders_tree)
 
-    # make dict of only items that have a shutdown function defined
-    requiring_shutdown = {k: v for k, v in reg.items() if v['shutdown']}
-
-    def sort_shutdown_functions(key):
-        entry = requiring_shutdown[key]
-        return -1 * entry['level']
-
-    return [(requiring_shutdown[k]['shutdown'], requiring_shutdown[k]['log'])
-            for k in sorted(requiring_shutdown, key=sort_shutdown_functions)]
+    # return list of entry dicts with highest level first
+    return [reg[k] for k in sorted(reg, key=lambda x: reg[x]['level'] * -1)]
 
 
 def format_holders_tree(holders_tree):
@@ -331,10 +310,15 @@ def clear_holders(base_paths):
     holder_trees = [gen_holders_tree(path) for path in base_paths]
     LOG.info('Current device storage tree:\n%s',
              '\n'.join(format_holders_tree(tree) for tree in holder_trees))
-    ordered_shutdowns = plan_shutdown_holder_trees(holder_trees)
+    ordered_devs = plan_shutdown_holder_trees(holder_trees)
 
     # run shutdown functions
-    for (shutdown_function, log_message) in ordered_shutdowns:
-        LOG.info(log_message)
-        shutdown_function()
+    for dev_info in ordered_devs:
+        dev_type = DEV_TYPES.get(dev_info['dev_type'])
+        shutdown_function = dev_type.get('shutdown')
+        if not shutdown_function:
+            continue
+        LOG.info("shutdown running on holder type: '%s' syspath: '%s'",
+                 dev_info['dev_type'], dev_info['device'])
+        shutdown_function({}, dev_info['device'])
         udev.udevadm_settle()
