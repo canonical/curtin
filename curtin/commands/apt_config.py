@@ -196,14 +196,18 @@ def mirrorurl_to_apt_fileprefix(mirror):
 def rename_apt_lists(new_mirrors, target):
     """rename_apt_lists - rename apt lists to preserve old cache data"""
     default_mirrors = get_default_mirrors(target)
+
+    # os.path.normpath("//asdf") == "//asdf"
+    pre = re.sub(r"[/]+", "/",
+                 os.path.normpath(os.path.sep.join([target, APT_LISTS])))
+
     for (name, omirror) in default_mirrors.items():
         nmirror = new_mirrors.get(name)
         if not nmirror:
             continue
-        oprefix = os.path.join(target, APT_LISTS,
-                               mirrorurl_to_apt_fileprefix(omirror))
-        nprefix = os.path.join(target, APT_LISTS,
-                               mirrorurl_to_apt_fileprefix(nmirror))
+
+        oprefix = pre + os.path.sep + mirrorurl_to_apt_fileprefix(omirror)
+        nprefix = pre + os.path.sep + mirrorurl_to_apt_fileprefix(nmirror)
         if oprefix == nprefix:
             continue
         olen = len(oprefix)

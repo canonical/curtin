@@ -466,9 +466,54 @@ class TestAptSourceConfig(TestCase):
 
         mockren.assert_any_call(fromfn, tofn)
 
+    @mock.patch("curtin.commands.apt_config.util.get_architecture")
+    def test_mir_apt_list_rename_non_slash(self, m_get_architecture):
+        target = os.path.join(self.tmp, "rename_non_slash")
+        apt_lists_d = os.path.join(target, "./" + apt_config.APT_LISTS)
+
+        m_get_architecture.return_value = 'amd64'
+
+        mirror_path = "some/random/path/"
+        primary = "http://test.ubuntu.com/" + mirror_path
+        security = "http://test-security.ubuntu.com/" + mirror_path
+        mirrors = {'PRIMARY': primary, 'SECURITY': security}
+
+        # these match default archive prefixes
+        opri_pre = "archive.ubuntu.com_ubuntu_dists_xenial"
+        osec_pre = "security.ubuntu.com_ubuntu_dists_xenial"
+        # this one won't match and should not be renamed defaults.
+        other_pre = "dl.google.com_linux_chrome_deb_dists_stable"
+        # these are our new expected prefixes
+        npri_pre = "test.ubuntu.com_some_random_path_dists_xenial"
+        nsec_pre = "test-security.ubuntu.com_some_random_path_dists_xenial"
+
+        files = [
+            # orig prefix, new prefix, suffix
+            (opri_pre, npri_pre, "_main_binary-amd64_Packages"),
+            (opri_pre, npri_pre, "_main_binary-amd64_InRelease"),
+            (opri_pre, npri_pre, "-updates_main_binary-amd64_Packages"),
+            (opri_pre, npri_pre, "-updates_main_binary-amd64_InRelease"),
+            (other_pre, other_pre, "_main_binary-amd64_Packages"),
+            (other_pre, other_pre, "_Release"),
+            (other_pre, other_pre, "_Release.gpg"),
+            (osec_pre, nsec_pre, "_InRelease"),
+            (osec_pre, nsec_pre, "_main_binary-amd64_Packages"),
+            (osec_pre, nsec_pre, "_universe_binary-amd64_Packages"),
+        ]
+
+        expected = sorted([npre + suff for opre, npre, suff in files])
+        # create files
+        for (opre, npre, suff) in files:
+            fpath = os.path.join(apt_lists_d, opre + suff)
+            util.write_file(fpath, content=fpath)
+
+        apt_config.rename_apt_lists(mirrors, target)
+        found = sorted(os.listdir(apt_lists_d))
+        self.assertEqual(expected, found)
+
     @staticmethod
     def test_apt_proxy():
-        """test_mir_apt_list_rename - Test apt_*proxy configuration"""
+        """test_apt_proxy - Test apt_*proxy configuration"""
         cfg = {"proxy": "foobar1",
                "http_proxy": "foobar2",
                "ftp_proxy": "foobar3",
