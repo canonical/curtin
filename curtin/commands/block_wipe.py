@@ -36,7 +36,7 @@ def wipe_main(args):
 CMD_ARGUMENTS = (
     ((('-m', '--mode'),
       {'help': 'mode for wipe.', 'action': 'store',
-       'default': 'superblocks',
+       'default': 'superblock',
        'choices': ['zero', 'superblock', 'superblock-recursive', 'random']}),
      ('devices',
       {'help': 'devices to wipe', 'default': [], 'nargs': '+'}),
