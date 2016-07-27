@@ -273,24 +273,26 @@ def format_holders_tree(holders_tree):
     return '\n'.join(format_tree(holders_tree))
 
 
+def get_holder_types(tree):
+    """
+    get flattened list of types of holders in holders tree and the devices
+    they correspond to
+    """
+    types = [(tree['dev_type'], tree['device'])]
+    for holder in tree['holders']:
+        types.extend(get_holder_types(holder))
+    return types
+
+
 def assert_clear(base_paths):
     """Check if all paths in base_paths are clear to use"""
-
-    def holder_types(tree):
-        # get flattened list of all holder types present in holders_tree and
-        # the device they are present on
-        types = [(tree['dev_type'], tree['device'])]
-        for holder in tree['holders']:
-            types.extend(holder_types(holder))
-        return types
-
     valid = ('disk', 'partition')
     if not isinstance(base_paths, (list, tuple)):
         base_paths = [base_paths]
     base_paths = [block.sys_block_path(path) for path in base_paths]
     for holders_tree in [gen_holders_tree(p) for p in base_paths]:
         if any(holder_type not in valid and path not in base_paths
-               for (holder_type, path) in holder_types(holders_tree)):
+               for (holder_type, path) in get_holder_types(holders_tree)):
             raise OSError('Storage not clear, remaining:\n{}'
                           .format(format_holders_tree(holders_tree)))
 
@@ -312,6 +314,20 @@ def clear_holders(base_paths):
              '\n'.join(format_holders_tree(tree) for tree in holder_trees))
     ordered_devs = plan_shutdown_holder_trees(holder_trees)
 
+    # some state about holders environment passed shutdown functions
+    state = {}
+
+    # get present holder types to decide what state information is relevant
+    present_types = []
+    for holder_tree in holder_trees:
+        present_types.extend(get_holder_types(holder_tree))
+
+    # if there are any lvm devices present then get mapping of lvm names to
+    # devicemapper names
+    if any(dev for (dev_type, dev) in present_types if dev_type == 'lvm'):
+        # state['lvm_dm_mappings'] = get_lvm_dm_mappings()
+        pass
+
     # run shutdown functions
     for dev_info in ordered_devs:
         dev_type = DEV_TYPES.get(dev_info['dev_type'])
@@ -320,5 +336,5 @@ def clear_holders(base_paths):
             continue
         LOG.info("shutdown running on holder type: '%s' syspath: '%s'",
                  dev_info['dev_type'], dev_info['device'])
-        shutdown_function({}, dev_info['device'])
+        shutdown_function(state, dev_info['device'])
         udev.udevadm_settle()
