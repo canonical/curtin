@@ -17,7 +17,6 @@ network:
         # Bridge
         - type: bridge
           name: br0
-          mac_address: "52:54:00:12:34:06"
           bridge_interfaces:
             - eth1
             - eth2
