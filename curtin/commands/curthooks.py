@@ -498,12 +498,11 @@ def setup_grub(cfg, target):
         util.subp(args + instdevs, env=env)
 
 
-def update_initramfs(target, all_kernels=False):
+def update_initramfs(target=None, all_kernels=False):
     cmd = ['update-initramfs', '-u']
     if all_kernels:
         cmd.extend(['-k', 'all'])
-    with util.RunInChroot(target) as in_chroot:
-        in_chroot(cmd)
+    util.subp(cmd, target=target)
 
 
 def copy_fstab(fstab, target):
