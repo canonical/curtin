@@ -19,39 +19,12 @@
 # top of a block device, making it possible to reuse the block device without
 # having to reboot the system
 
-from curtin import (block, util, udev)
+from curtin import (block, udev, util)
+from curtin.block import lvm
 from curtin.log import LOG
 
 import functools
 import os
-
-
-def split_vg_lv_name(full):
-    """
-    Break full logical volume device name into volume group and logical volume
-    """
-    # FIXME: when block.lvm is written this should be moved there
-    # just using .split('-') will not work because when a logical volume or
-    # volume group has a name containing a '-', '--' is used to denote this in
-    # the /sys/block/{name}/dm/name (LP:1591573)
-
-    # handle newline if present
-    full = full.strip()
-
-    # get index of first - not followed by or preceeded by another -
-    indx = None
-    try:
-        indx = next(i + 1 for (i, c) in enumerate(full[1:-1])
-                    if c == '-' and '-' not in (full[i], full[i + 2]))
-    except StopIteration:
-        pass
-
-    if not indx:
-        raise ValueError("vg-lv full name does not contain a '-': {}'".format(
-            full))
-
-    return (full[:indx].replace('--', '-'),
-            full[indx + 1:].replace('--', '-'))
 
 
 def get_bcache_using_dev(device):
@@ -92,21 +65,6 @@ def shutdown_bcache(state, device):
         fp.write('1')
 
 
-def shutdown_mdadm(state, device):
-    """
-    Shutdown specified mdadm device. Device can be either a blockdev or a path
-    in /sys/block
-
-    May raise process execution errors, but these should be allowed, since this
-    function should not have been run by clear_holders unless there was a valid
-    mdadm device to shut down
-    """
-    blockdev = block.dev_path(block.dev_short(device))
-    LOG.debug('using mdadm.mdadm_stop on dev: {}'.format(blockdev))
-    block.mdadm.mdadm_stop(blockdev)
-    block.mdadm.mdadm_remove(blockdev)
-
-
 def shutdown_lvm(state, device):
     """
     Shutdown specified lvm device. Device may be given as a path in /sys/block
@@ -122,7 +80,7 @@ def shutdown_lvm(state, device):
     (vg_name, lv_name) = (None, None)
     name_file = os.path.join(device, 'dm', 'name')
     full_name = util.load_file(name_file)
-    (vg_name, lv_name) = split_vg_lv_name(full_name)
+    (vg_name, lv_name) = lvm.split_vg_lv_name(full_name)
     # use two --force flags here in case the volume group that this lv is
     # attached two has been damaged by a disk being wiped or other storage
     # volumes being shut down.
@@ -136,6 +94,21 @@ def shutdown_lvm(state, device):
     LOG.debug('running lvremove on {}/{}'.format(vg_name, lv_name))
     util.subp(['lvremove', '--force', '--force',
                '{}/{}'.format(vg_name, lv_name)], rcs=[0, 5])
+
+
+def shutdown_mdadm(state, device):
+    """
+    Shutdown specified mdadm device. Device can be either a blockdev or a path
+    in /sys/block
+
+    May raise process execution errors, but these should be allowed, since this
+    function should not have been run by clear_holders unless there was a valid
+    mdadm device to shut down
+    """
+    blockdev = block.dev_path(block.dev_short(device))
+    LOG.debug('using mdadm.mdadm_stop on dev: {}'.format(blockdev))
+    block.mdadm.mdadm_stop(blockdev)
+    block.mdadm.mdadm_remove(blockdev)
 
 
 def wipe_superblock(state, device):
@@ -170,7 +143,6 @@ DEV_TYPES = {
 }
 
 # anything that is not identified can assumed to be a 'disk' or similar
-# which does not requre special action to shutdown
 DEFAULT_DEV_TYPE = 'disk'
 
 
@@ -325,8 +297,7 @@ def clear_holders(base_paths):
     # if there are any lvm devices present then get mapping of lvm names to
     # devicemapper names
     if any(dev for (dev_type, dev) in present_types if dev_type == 'lvm'):
-        # state['lvm_dm_mappings'] = get_lvm_dm_mappings()
-        pass
+        state['lvm_dm_mappings'] = lvm.get_lvm_dm_mappings()
 
     # run shutdown functions
     for dev_info in ordered_devs:

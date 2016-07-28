@@ -17,7 +17,7 @@
 
 from collections import OrderedDict
 from curtin import (block, config, util)
-from curtin.block import (mdadm, mkfs, clear_holders)
+from curtin.block import (mdadm, mkfs, clear_holders, lvm)
 from curtin.log import LOG
 from curtin.reporter import events
 
@@ -645,22 +645,14 @@ def lvm_volgroup_handler(info, storage_config):
         # LVM will probably be offline, so start it
         util.subp(["vgchange", "-a", "y"])
         # Verify that volgroup exists and contains all specified devices
-        current_paths = []
-        (out, _err) = util.subp(["pvdisplay", "-C", "--separator", "=", "-o",
-                                "vg_name,pv_name", "--noheadings"],
-                                capture=True)
-        for line in out.splitlines():
-            if name in line:
-                current_paths.append(line.split("=")[-1])
-        if set(current_paths) != set(device_paths):
-            raise ValueError("volgroup '%s' marked to be preserved, but does \
-                             not exist or does not contain the right physical \
-                             volumes" % info.get('id'))
+        if set(lvm.get_pvols_in_volgroup(name)) != set(device_paths):
+            raise ValueError("volgroup '%s' marked to be preserved, but does "
+                             "not exist or does not contain the right "
+                             "physical volumes" % info.get('id'))
     else:
         # Create vgrcreate command and run
-        cmd = ["vgcreate", name]
-        cmd.extend(device_paths)
-        util.subp(cmd)
+        # capture output to avoid printing it to log
+        util.subp(['vgcreate', name] + device_paths, capture=True)
 
 
 def lvm_partition_handler(info, storage_config):
@@ -673,25 +665,17 @@ def lvm_partition_handler(info, storage_config):
 
     # Handle preserve flag
     if config.value_as_boolean(info.get('preserve')):
-        (out, _err) = util.subp(["lvdisplay", "-C", "--separator", "=", "-o",
-                                "lv_name,vg_name", "--noheadings"],
-                                capture=True)
-        found = False
-        for line in out.splitlines():
-            if name in line:
-                if volgroup == line.split("=")[-1]:
-                    found = True
-                    break
-        if not found:
-            raise ValueError("lvm partition '%s' marked to be preserved, but \
-                             does not exist or does not mach storage \
-                             configuration" % info.get('id'))
+        if name not in lvm.get_lvols_in_volgroup(volgroup):
+            raise ValueError("lvm partition '%s' marked to be preserved, but "
+                             "does not exist or does not mach storage "
+                             "configuration" % info.get('id'))
     elif storage_config.get(info.get('volgroup')).get('preserve'):
-        raise NotImplementedError("Lvm Partition '%s' is not marked to be \
-            preserved, but volgroup '%s' is. At this time, preserving \
-            volgroups but not also the lvm partitions on the volgroup is \
-            not supported, because of the possibility of damaging lvm \
-            partitions intended to be preserved." % (info.get('id'), volgroup))
+        raise NotImplementedError(
+            "Lvm Partition '%s' is not marked to be preserved, but volgroup "
+            "'%s' is. At this time, preserving volgroups but not also the lvm "
+            "partitions on the volgroup is not supported, because of the "
+            "possibility of damaging lvm  partitions intended to be "
+            "preserved." % (info.get('id'), volgroup))
     else:
         cmd = ["lvcreate", volgroup, "-n", name]
         if info.get('size'):
@@ -702,8 +686,8 @@ def lvm_partition_handler(info, storage_config):
         util.subp(cmd)
 
     if info.get('ptable'):
-        raise ValueError("Partition tables on top of lvm logical volumes is \
-                         not supported")
+        raise ValueError("Partition tables on top of lvm logical volumes is "
+                         "not supported")
 
     make_dname(info.get('id'), storage_config)
 
