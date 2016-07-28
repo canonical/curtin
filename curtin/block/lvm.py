@@ -40,35 +40,11 @@ def get_lvols_in_volgroup(vg_name):
     return _filter_lvm_info('lvdisplay', 'vg_name', 'lv_name', vg_name)
 
 
-def get_lvm_dm_mappings():
-    """
-    get mappings between lvm volumes/volgroups and device mapper backing devs
-    """
-    return {}
-
-
-def split_vg_lv_name(full):
-    """
-    Break full logical volume device name into volume group and logical volume
-    """
-    # just using .split('-') will not work because when a logical volume or
-    # volume group has a name containing a '-', '--' is used to denote this in
-    # the /sys/block/{name}/dm/name (LP:1591573)
-
-    # handle newline if present
-    full = full.strip()
-
-    # get index of first - not followed by or preceeded by another -
-    indx = None
-    try:
-        indx = next(i + 1 for (i, c) in enumerate(full[1:-1])
-                    if c == '-' and '-' not in (full[i], full[i + 2]))
-    except StopIteration:
-        pass
-
-    if not indx:
-        raise ValueError("vg-lv full name does not contain a '-': {}'".format(
-            full))
-
-    return (full[:indx].replace('--', '-'),
-            full[indx + 1:].replace('--', '-'))
+def split_lvm_name(full):
+    """split full lvm name into tuple of (volgroup, lv_name)"""
+    sep = '='
+    # 'dmsetup splitname' is the authoratative source for lvm name parsing
+    (out, _) = util.subp(['dmsetup', 'splitname', full, '-c', '--noheadings',
+                          '--separator', sep, '-o', 'vg_name,lv_name'],
+                         capture=True)
+    return out.strip().split(sep)

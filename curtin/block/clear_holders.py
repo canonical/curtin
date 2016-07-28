@@ -46,7 +46,7 @@ def get_bcache_using_dev(device):
     return bcache_cache_d
 
 
-def shutdown_bcache(state, device):
+def shutdown_bcache(device):
     """
     Shut down bcache for specified bcache device or bcache backing/cache
     device
@@ -65,7 +65,7 @@ def shutdown_bcache(state, device):
         fp.write('1')
 
 
-def shutdown_lvm(state, device):
+def shutdown_lvm(device):
     """
     Shutdown specified lvm device. Device may be given as a path in /sys/block
     or in /dev
@@ -79,8 +79,7 @@ def shutdown_lvm(state, device):
     # '{volume group}-{logical volume}'. The volume can be freed using lvremove
     (vg_name, lv_name) = (None, None)
     name_file = os.path.join(device, 'dm', 'name')
-    full_name = util.load_file(name_file)
-    (vg_name, lv_name) = lvm.split_vg_lv_name(full_name)
+    (vg_name, lv_name) = lvm.split_lvm_name(util.load_file(name_file))
     # use two --force flags here in case the volume group that this lv is
     # attached two has been damaged by a disk being wiped or other storage
     # volumes being shut down.
@@ -96,7 +95,7 @@ def shutdown_lvm(state, device):
                '{}/{}'.format(vg_name, lv_name)], rcs=[0, 5])
 
 
-def shutdown_mdadm(state, device):
+def shutdown_mdadm(device):
     """
     Shutdown specified mdadm device. Device can be either a blockdev or a path
     in /sys/block
@@ -111,7 +110,7 @@ def shutdown_mdadm(state, device):
     block.mdadm.mdadm_remove(blockdev)
 
 
-def wipe_superblock(state, device):
+def wipe_superblock(device):
     """
     Wrapper for block.wipe_volume compatible with shutdown function interface
     """
@@ -286,19 +285,6 @@ def clear_holders(base_paths):
              '\n'.join(format_holders_tree(tree) for tree in holder_trees))
     ordered_devs = plan_shutdown_holder_trees(holder_trees)
 
-    # some state about holders environment passed shutdown functions
-    state = {}
-
-    # get present holder types to decide what state information is relevant
-    present_types = []
-    for holder_tree in holder_trees:
-        present_types.extend(get_holder_types(holder_tree))
-
-    # if there are any lvm devices present then get mapping of lvm names to
-    # devicemapper names
-    if any(dev for (dev_type, dev) in present_types if dev_type == 'lvm'):
-        state['lvm_dm_mappings'] = lvm.get_lvm_dm_mappings()
-
     # run shutdown functions
     for dev_info in ordered_devs:
         dev_type = DEV_TYPES.get(dev_info['dev_type'])
@@ -307,5 +293,5 @@ def clear_holders(base_paths):
             continue
         LOG.info("shutdown running on holder type: '%s' syspath: '%s'",
                  dev_info['dev_type'], dev_info['device'])
-        shutdown_function(state, dev_info['device'])
+        shutdown_function(dev_info['device'])
         udev.udevadm_settle()
