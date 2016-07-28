@@ -399,10 +399,8 @@ class ChrootableTarget(object):
         kwargs['target'] = self.target
         return subp(*args, **kwargs)
 
-
-class RunInChroot(ChrootableTarget):
-    def __call__(self, *args, **kwargs):
-        return self.subp(*args, **kwargs)
+    def path(self, path):
+        return target_path(self.target, path)
 
 
 def is_exe(fpath):
@@ -643,8 +641,8 @@ def apt_update(target=None, env=None, force=False, comment=None,
             'update']
 
         # do not using 'run_apt_command' so we can use 'retries' to subp
-        with RunInChroot(target, allow_daemons=True) as inchroot:
-            inchroot(update_cmd, env=env, retries=retries)
+        with ChrootableTarget(target, allow_daemons=True) as inchroot:
+            inchroot.subp(update_cmd, env=env, retries=retries)
     finally:
         for fname, perms in restore_perms:
             os.chmod(fname, perms)
@@ -681,9 +679,8 @@ def run_apt_command(mode, args=None, aptopts=None, env=None, target=None,
         return env, cmd
 
     apt_update(target, env=env, comment=' '.join(cmd))
-    ric = RunInChroot(target, allow_daemons=allow_daemons)
-    with ric as inchroot:
-        return inchroot(cmd, env=env)
+    with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
+        return inchroot.subp(cmd, env=env)
 
 
 def system_upgrade(aptopts=None, target=None, env=None, allow_daemons=False):
