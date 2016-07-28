@@ -1026,9 +1026,12 @@ def is_resolvable(name):
         # check first result's sockaddr field
         addr = result[0][4][0]
         if addr in _DNS_REDIRECT_IP:
+            LOG.debug("dns %s in _DNS_REDIRECT_IP", name)
             return False
+        LOG.debug("dns %s resolved to '%s'", name, result)
         return True
     except (socket.gaierror, socket.error):
+        LOG.debug("dns %s failed to resolve", name)
         return False
 
 

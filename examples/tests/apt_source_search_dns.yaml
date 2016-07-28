@@ -4,6 +4,10 @@ early_commands:
  xx_prep_fake_dns_search0: 'echo foo.bar > /etc/hostname'
  xx_prep_fake_dns_search1: 'echo "$(getent ahosts us.archive.ubuntu.com | cut --fields=1 --delimiter " " | grep -v : | head -n 1) ubuntu-mirror" >> /etc/hosts'
  xx_prep_fake_dns_search2: 'echo "$(getent ahosts security.ubuntu.com | cut --fields=1 --delimiter " " | grep -v : | head -n 1) ubuntu-security-mirror" >> /etc/hosts'
+curthooks_commands:
+ aa_prep_fake_dns_search0: ['curtin', 'in-target', '--', 'sh', '-c', 'echo foo.bar > /etc/hostname']
+ aa_prep_fake_dns_search1: ['curtin', 'in-target', '--', 'sh', '-c', 'echo "$(getent ahosts us.archive.ubuntu.com | cut --fields=1 --delimiter " " | grep -v : | head -n 1) ubuntu-mirror" >> /etc/hosts']
+ aa_prep_fake_dns_search2: ['curtin', 'in-target', '--', 'sh', '-c', 'echo "$(getent ahosts security.ubuntu.com | cut --fields=1 --delimiter " " | grep -v : | head -n 1) ubuntu-security-mirror" >> /etc/hosts']
 apt:
   primary:
     - arches: [default]

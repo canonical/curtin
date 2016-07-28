@@ -426,9 +426,11 @@ def search_for_mirror(candidates):
     if candidates is None:
         return None
 
+    LOG.debug("search for mirror in candidates: '%s'", candidates)
     for cand in candidates:
         try:
             if util.is_resolvable_url(cand):
+                LOG.debug("found working mirror: '%s'", cand)
                 return cand
         except Exception:
             pass
