@@ -885,30 +885,37 @@ def is_file_not_found_exc(exc):
     return (isinstance(exc, IOError) and exc.errno == errno.ENOENT)
 
 
-def lsb_release(target=None):
+def _lsb_release(chroot):
     fmap = {'Codename': 'codename', 'Description': 'description',
             'Distributor ID': 'id', 'Release': 'release'}
-    chroot = []
+
+    data = {}
+    try:
+        out, _ = subp(chroot + ['lsb_release', '--all'], capture=True)
+        for line in out.splitlines():
+            fname, _, val = line.partition(":")
+            if fname in fmap:
+                data[fmap[fname]] = val.strip()
+        missing = [k for k in fmap.values() if k not in data]
+        if len(missing):
+            LOG.warn("Missing fields in lsb_release --all output: %s",
+                     ','.join(missing))
+
+    except ProcessExecutionError as err:
+        LOG.warn("Unable to get lsb_release --all: %s", err)
+        data = {v: "UNAVAILABLE" for v in fmap.values()}
+
+    return data
+
+
+def lsb_release(target=None):
     if target is not None:
-        chroot = ['chroot', target]
+        # do not use cache if target is provided
+        return _lsb_release(['chroot', target])
+
     global _LSB_RELEASE
     if not _LSB_RELEASE:
-        data = {}
-        try:
-            out, err = subp(chroot + ['lsb_release', '--all'], capture=True)
-            for line in out.splitlines():
-                fname, tok, val = line.partition(":")
-                if fname in fmap:
-                    data[fmap[fname]] = val.strip()
-            missing = [k for k in fmap.values() if k not in data]
-            if len(missing):
-                LOG.warn("Missing fields in lsb_release --all output: %s",
-                         ','.join(missing))
-
-        except ProcessExecutionError as e:
-            LOG.warn("Unable to get lsb_release --all: %s", e)
-            data = {v: "UNAVAILABLE" for v in fmap.values()}
-
+        data = _lsb_release([])
         _LSB_RELEASE.update(data)
     return _LSB_RELEASE
 
