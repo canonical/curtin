@@ -346,7 +346,7 @@ def apply_debconf_selections(cfg, target):
                  "but cannot be unconfigured: %s", unhandled)
 
     util.subp(['dpkg-reconfigure', '--frontend=noninteractive'] +
-              list(to_config), data=None)
+              list(to_config), data=None, target=target)
 
 
 def get_installed_packages(target=None):
@@ -825,8 +825,8 @@ def curthooks(args):
         copy_mdadm_conf(mdadm_location, target)
         # as per https://bugs.launchpad.net/ubuntu/+source/mdadm/+bug/964052
         # reconfigure mdadm
-        util.subp(['chroot', target, 'dpkg-reconfigure',
-                   '--frontend=noninteractive', 'mdadm'], data=None)
+        util.subp(['dpkg-reconfigure', '--frontend=noninteractive', 'mdadm'],
+                  data=None, target=target)
 
     with events.ReportEventStack(
             name=stack_prefix, reporting_enabled=True, level="INFO",
