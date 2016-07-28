@@ -53,11 +53,10 @@ PRIMARY_ARCHES = ['amd64', 'i386']
 PORTS_ARCHES = ['s390x', 'arm64', 'armhf', 'powerpc', 'ppc64el']
 
 
-def get_default_mirrors(target=None):
+def get_default_mirrors(arch):
     """returns the default mirrors for the target. These depend on the
        architecture, for more see:
        https://wiki.ubuntu.com/UbuntuDevelopment/PackageArchive#Ports"""
-    arch = util.get_architecture(target)
     if arch in PRIMARY_ARCHES:
         return PRIMARY_ARCH_MIRRORS
     if arch in PORTS_ARCHES:
@@ -195,7 +194,7 @@ def mirrorurl_to_apt_fileprefix(mirror):
 
 def rename_apt_lists(new_mirrors, target):
     """rename_apt_lists - rename apt lists to preserve old cache data"""
-    default_mirrors = get_default_mirrors(target)
+    default_mirrors = get_default_mirrors(util.get_architecture(target))
 
     # os.path.normpath("//asdf//bar/asdf") == "//asdf/bar/asdf"
     pre = re.sub(r"^[/]+", "/",
@@ -288,7 +287,7 @@ def generate_sources_list(cfg, release, mirrors, target):
         create a source.list file based on a custom or default template
         by replacing mirrors and release in the template
     """
-    default_mirrors = get_default_mirrors(target)
+    default_mirrors = get_default_mirrors(util.get_architecture(target))
     aptsrc = "/etc/apt/sources.list"
     params = {'RELEASE': release}
     for k in mirrors:
@@ -477,7 +476,7 @@ def update_mirror_info(pmirror, smirror, target=None):
             smirror = pmirror
         return {'PRIMARY': pmirror,
                 'SECURITY': smirror}
-    return get_default_mirrors(target)
+    return get_default_mirrors(util.get_architecture(target))
 
 
 def get_arch_mirrorconfig(cfg, mirrortype, arch):

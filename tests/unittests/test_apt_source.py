@@ -100,7 +100,8 @@ class TestAptSourceConfig(TestCase):
         """
         params = {}
         params['RELEASE'] = util.lsb_release()['codename']
-        params['MIRROR'] = apt_config.get_default_mirrors()["PRIMARY"]
+        arch = util.get_architecture()
+        params['MIRROR'] = apt_config.get_default_mirrors(arch)["PRIMARY"]
         return params
 
     def _myjoin(self, *args, **kwargs):
@@ -579,7 +580,8 @@ class TestAptSourceConfig(TestCase):
 
     def test_mirror_default(self):
         """test_mirror_default - Test without defining a mirror"""
-        default_mirrors = apt_config.get_default_mirrors()
+        arch = util.get_architecture()
+        default_mirrors = apt_config.get_default_mirrors(arch)
         pmir = default_mirrors["PRIMARY"]
         smir = default_mirrors["SECURITY"]
         mirrors = apt_config.find_apt_mirror_info({})
@@ -637,7 +639,8 @@ class TestAptSourceConfig(TestCase):
 
     def test_mirror_arches_sysdefault(self):
         """test_mirror_arches - Test arches falling back to sys default"""
-        default_mirrors = apt_config.get_default_mirrors()
+        arch = util.get_architecture()
+        default_mirrors = apt_config.get_default_mirrors(arch)
         pmir = default_mirrors["PRIMARY"]
         smir = default_mirrors["SECURITY"]
         cfg = {"primary": [{'arches': ["thisarchdoesntexist_64"],
