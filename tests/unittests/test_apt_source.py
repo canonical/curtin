@@ -49,6 +49,7 @@ def load_tfile(filename):
 
     return content
 
+
 class PseudoRunInChroot(object):
     def __init__(self, args, **kwargs):
         print("HEY: %s" % ' '.join(args))
@@ -56,7 +57,7 @@ class PseudoRunInChroot(object):
             self.target = args[0]
         else:
             self.target = kwargs.get('target')
-        
+
     def __call__(self, args, **kwargs):
         if self.target != "/":
             chroot = ["chroot", self.target]
@@ -433,7 +434,6 @@ class TestAptSourceConfig(TestCase):
 
         # adding ppa should ignore filename (uses add-apt-repository)
         self.assertFalse(os.path.isfile(self.aptlistfile))
-
 
     @mock.patch(RunInChrootStr, new=PseudoRunInChroot)
     def test_apt_src_ppa_tri(self):

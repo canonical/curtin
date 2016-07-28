@@ -396,7 +396,8 @@ def add_apt_sources(srcdict, target, template_params=None, aa_repo_match=None):
 
         if aa_repo_match(source):
             try:
-                with util.RunInChroot(target, sys_resolvconf=True) as in_chroot:
+                with util.RunInChroot(target,
+                                      sys_resolvconf=True) as in_chroot:
                     in_chroot(["add-apt-repository", source])
             except util.ProcessExecutionError:
                 LOG.exception("add-apt-repository failed.")
