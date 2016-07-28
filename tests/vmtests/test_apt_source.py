@@ -196,38 +196,6 @@ class TestAptSrcSearch(TestAptSrcAbs):
                               r"security.ubuntu.com")
 
 
-class TestAptSrcSearchDNS(VMBaseClass):
-    """TestAptSrcSearchDNS - tests checking for predefined DNS names"""
-    interactive = False
-    extra_disks = []
-    fstab_expected = {}
-    conf_file = "examples/tests/apt_source_search_dns.yaml"
-    disk_to_check = []
-    collect_scripts = [textwrap.dedent("""
-        cd OUTPUT_COLLECT_D
-        cat /etc/fstab > fstab
-        ls /dev/disk/by-dname > ls_dname
-        find /etc/network/interfaces.d > find_interfacesd
-        cp /etc/apt/sources.list.d/dnssearch.list.disabled .
-        """)]
-
-    def test_output_files_exist(self):
-        """test_output_files_exist - Check if all output files exist"""
-        self.output_files_exist(["fstab", "dnssearch.list.disabled"])
-
-    def test_mirror_search_dns(self):
-        """test_mirror_search_dns - tests checking for predefined DNS names"""
-        # these should be the first it got resolved, so they should be in the
-        # sources.list file. We want to see that .lcoaldomain was not picked
-        # but instead what we added to the temp /etc/hosts
-        self.check_file_regex("dnssearch.list.disabled",
-                              r"ubuntu-mirror/ubuntu.*multiverse")
-        self.check_file_regex("dnssearch.list.disabled",
-                              r"ubuntu-mirror/ubuntu.*universe")
-        self.check_file_regex("dnssearch.list.disabled",
-                              r"ubuntu-security-mirror/ubuntu.*main")
-
-
 class XenialTestAptSrcCustom(relbase.xenial, TestAptSrcCustom):
     """ XenialTestAptSrcCustom
        apt feature Test for Xenial with a custom template
@@ -254,17 +222,6 @@ class XenialTestAptSrcSearch(relbase.xenial, TestAptSrcSearch):
         apt feature Test for Xenial searching for mirrors
     """
     __test__ = True
-
-
-class XenialTestAptSrcSearchDNS(relbase.xenial, TestAptSrcSearchDNS):
-    """ XenialTestAptSrcModify
-        apt feature Test for Xenial searching for predefined DNS names
-    """
-    # FIXME: For now disabled as apt-get doesn't properly work in the target
-    # environment with the dns name just faked in /etc/hosts
-    # ping & wget working, apt-get doesn't
-    # Testable after failed Test with qemu-ndb + chroot into install target
-    __test__ = False
 
 
 class XenialTestAptSrcModifyArches(relbase.xenial, TestAptSrcModifyArches):

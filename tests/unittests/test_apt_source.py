@@ -686,118 +686,29 @@ class TestAptSourceConfig(TestCase):
         self.assertEqual(mirrors['SECURITY'],
                          smir)
 
-    def test_mirror_search_dns(self):
-        """test_mirror_search_dns - Test searching dns patterns"""
-        pmir = "phit"
-        smir = "shit"
-        cfg = {"primary": [{'arches': ["default"],
-                            "search_dns": True}],
-               "security": [{'arches': ["default"],
-                             "search_dns": True}]}
-
-        with mock.patch.object(apt_config, 'get_mirror',
-                               return_value="http://mocked/foo") as mockgm:
-            mirrors = apt_config.find_apt_mirror_info(cfg)
-        calls = [call(cfg, 'primary', util.get_architecture()),
-                 call(cfg, 'security', util.get_architecture())]
-        mockgm.assert_has_calls(calls)
-
-        with mock.patch.object(apt_config, 'search_for_mirror_dns',
-                               return_value="http://mocked/foo") as mocksdns:
-            mirrors = apt_config.find_apt_mirror_info(cfg)
-        calls = [call(True, 'mirror'),
-                 call(True, 'security-mirror')]
-        mocksdns.assert_has_calls(calls)
-
-        # first return is for the non-dns call before
-        with mock.patch.object(apt_config, 'search_for_mirror',
-                               side_effect=[None, pmir, None, smir]) as mockse:
-            with mock.patch.object(util, 'subp',
-                                   return_value=('host.sub.com', '')) as mocks:
-                mirrors = apt_config.find_apt_mirror_info(cfg)
-
-        calls = [call(None),
-                 call(['http://ubuntu-mirror.sub.com/ubuntu',
-                       'http://ubuntu-mirror.localdomain/ubuntu',
-                       'http://ubuntu-mirror/ubuntu']),
-                 call(None),
-                 call(['http://ubuntu-security-mirror.sub.com/ubuntu',
-                       'http://ubuntu-security-mirror.localdomain/ubuntu',
-                       'http://ubuntu-security-mirror/ubuntu'])]
-        mockse.assert_has_calls(calls)
-        mocks.assert_called_with(['hostname', '--fqdn'], capture=True, rcs=[0])
-
-        self.assertEqual(mirrors['MIRROR'],
-                         pmir)
-        self.assertEqual(mirrors['PRIMARY'],
-                         pmir)
-        self.assertEqual(mirrors['SECURITY'],
-                         smir)
-
-    def test_mirror_search_many3(self):
-        """test_mirror_search_many3 - Test all three mirrors specs at once"""
+    def test_mirror_search_many2(self):
+        """test_mirror_search_many3 - Test both mirrors specs at once"""
         pmir = "http://us.archive.ubuntu.com/ubuntu/"
         smir = "http://security.ubuntu.com/ubuntu/"
         cfg = {"primary": [{'arches': ["default"],
                             "uri": pmir,
-                            "search_dns": True,
                             "search": ["pfailme", "foo"]}],
                "security": [{'arches': ["default"],
                              "uri": smir,
-                             "search_dns": True,
                              "search": ["sfailme", "bar"]}]}
 
-        # should be called once per type, despite three configs each
+        # should be called only once per type, despite two mirror configs
         with mock.patch.object(apt_config, 'get_mirror',
                                return_value="http://mocked/foo") as mockgm:
             mirrors = apt_config.find_apt_mirror_info(cfg)
         calls = [call(cfg, 'primary', util.get_architecture()),
                  call(cfg, 'security', util.get_architecture())]
         mockgm.assert_has_calls(calls)
-
-        # should not be called, since primary is specified
-        with mock.patch.object(apt_config, 'search_for_mirror_dns') as mockdns:
-            mirrors = apt_config.find_apt_mirror_info(cfg)
-        mockdns.assert_not_called()
 
         # should not be called, since primary is specified
         with mock.patch.object(apt_config, 'search_for_mirror') as mockse:
             mirrors = apt_config.find_apt_mirror_info(cfg)
         mockse.assert_not_called()
-
-        self.assertEqual(mirrors['MIRROR'],
-                         pmir)
-        self.assertEqual(mirrors['PRIMARY'],
-                         pmir)
-        self.assertEqual(mirrors['SECURITY'],
-                         smir)
-
-    def test_mirror_search_many2(self):
-        """test_mirror_search_many2 - Test the two search specs at once"""
-        pmir = "http://us.archive.ubuntu.com/ubuntu/"
-        smir = "http://security.ubuntu.com/ubuntu/"
-        cfg = {"primary": [{'arches': ["default"],
-                            "search_dns": True,
-                            "search": ["pfailme", pmir]}],
-               "security": [{'arches': ["default"],
-                             "search_dns": True,
-                             "search": ["sfailme", smir]}]}
-
-        # should be called once per type, despite three configs each
-        with mock.patch.object(apt_config, 'get_mirror',
-                               return_value="http://mocked/foo") as mockgm:
-            mirrors = apt_config.find_apt_mirror_info(cfg)
-        calls = [call(cfg, 'primary', util.get_architecture()),
-                 call(cfg, 'security', util.get_architecture())]
-        mockgm.assert_has_calls(calls)
-
-        # this should be the winner by priority, despite config order
-        with mock.patch.object(apt_config, 'search_for_mirror',
-                               side_effect=[pmir, smir]) as mocksearch:
-            mirrors = apt_config.find_apt_mirror_info(cfg)
-        calls = [call(["pfailme", pmir]),
-                 call(["sfailme", smir])]
-        mocksearch.assert_has_calls(calls)
 
         self.assertEqual(mirrors['MIRROR'],
                          pmir)

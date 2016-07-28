@@ -177,20 +177,11 @@ apt:
         - http://cool.but-sometimes-unreachable.com/ubuntu
         - http://us.archive.ubuntu.com/ubuntu
       #
-      # This will search for <distro>-mirror locally and at the fqdn of the system.
-      # If resolving that will be used as archive. That allows configuring local
-      # mirrors via providing certin DNS names via a local nameserver.
-      # These can even be set to resolve to the public names of defaults like
-      # archive.ubuntu.com as long as they are reachable from the target.
-      # For security it will search <distro>-security-mirror
-      search_dns: True
-      #
       # If multiple of a category are given
       #   1. uri
       #   2. search
-      #   3. search_dns
-      # are given the first defining a valid mirror wins (in the
-      # order as defined here, not the one it is listed in the config).
+      # the first defining a valid mirror wins (in the order as defined here,
+      # not the one it is listed in the config).
     - arches: [s390x, arm64]
       # as above, allowing to have one config for different per arch mirrors
   # security is optional, if not defined it is set to the value of primary

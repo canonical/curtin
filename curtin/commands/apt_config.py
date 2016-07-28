@@ -436,38 +436,6 @@ def search_for_mirror(candidates):
     return None
 
 
-def search_for_mirror_dns(enabled, mirrortext):
-    "builds a list of potential mirror to check"
-    if enabled is None or not enabled:
-        return None
-
-    mydom = ""
-    doms = []
-
-    # curtin has no fqdn/hostname in config as cloud-init
-    # but if we got a hostname by dhcp, then search its domain portion first
-    try:
-        (fqdn, _) = util.subp(["hostname", "--fqdn"], rcs=[0], capture=True)
-        mydom = ".".join(fqdn.split(".")[1:])
-        if mydom:
-            doms.append(".%s" % mydom)
-    except util.ProcessExecutionError:
-        # this can happen if /etc/hostname isn't set up properly yet
-        # so log, but don't fail
-        LOG.info("failed to get fqdn")
-
-    doms.extend((".localdomain", "",))
-
-    potential_mirror_list = []
-    # for curtin just ubuntu instead of fetching from datasource
-    distro = "ubuntu"
-    mirrorfmt = "http://%s-%s%s/%s" % (distro, mirrortext, "%s", distro)
-    for post in doms:
-        potential_mirror_list.append(mirrorfmt % (post))
-
-    return search_for_mirror(potential_mirror_list)
-
-
 def update_mirror_info(pmirror, smirror, arch):
     """sets security mirror to primary if not defined.
        returns defaults if no mirrors are defined"""
@@ -508,17 +476,11 @@ def get_mirror(cfg, mirrortype, arch):
 
     # directly specified
     mirror = mcfg.get("uri", None)
+
+    # fallback to search if specified
     if mirror is None:
         # list of mirrors to try to resolve
         mirror = search_for_mirror(mcfg.get("search", None))
-
-    if mirror is None:
-        # search for predfined dns patterns
-        if mirrortype == "primary":
-            pattern = "mirror"
-        else:
-            pattern = "%s-mirror" % mirrortype
-        mirror = search_for_mirror_dns(mcfg.get("search_dns", None), pattern)
 
     return mirror
 
