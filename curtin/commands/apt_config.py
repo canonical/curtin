@@ -468,7 +468,7 @@ def search_for_mirror_dns(enabled, mirrortext):
     return search_for_mirror(potential_mirror_list)
 
 
-def update_mirror_info(pmirror, smirror, target=None):
+def update_mirror_info(pmirror, smirror, arch):
     """sets security mirror to primary if not defined.
        returns defaults if no mirrors are defined"""
     if pmirror is not None:
@@ -476,7 +476,7 @@ def update_mirror_info(pmirror, smirror, target=None):
             smirror = pmirror
         return {'PRIMARY': pmirror,
                 'SECURITY': smirror}
-    return get_default_mirrors(util.get_architecture(target))
+    return get_default_mirrors(arch)
 
 
 def get_arch_mirrorconfig(cfg, mirrortype, arch):
@@ -540,7 +540,7 @@ def find_apt_mirror_info(cfg, target=None):
 
     # Note: curtin has no cloud-datasource fallback
 
-    mirror_info = update_mirror_info(pmirror, smirror, target)
+    mirror_info = update_mirror_info(pmirror, smirror, arch)
 
     # less complex replacements use only MIRROR, derive from primary
     mirror_info["MIRROR"] = mirror_info["PRIMARY"]
