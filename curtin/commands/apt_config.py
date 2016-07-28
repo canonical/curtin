@@ -453,7 +453,7 @@ def search_for_mirror_dns(enabled, mirrortext):
     except util.ProcessExecutionError:
         # this can happen if /etc/hostname isn't set up properly yet
         # so log, but don't fail
-        LOG.exception("failed to get fqdn")
+        LOG.info("failed to get fqdn")
 
     doms.extend((".localdomain", "",))
 
