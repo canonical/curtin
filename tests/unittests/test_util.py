@@ -121,12 +121,13 @@ class TestLsbRelease(TestCase):
         rdata = {'id': 'Ubuntu', 'description': 'Ubuntu 14.04.2 LTS',
                  'codename': 'trusty', 'release': '14.04'}
 
-        def fake_subp(cmd, capture=False):
+        def fake_subp(cmd, capture=False, target=None):
             return output, 'No LSB modules are available.'
 
         mock_subp.side_effect = fake_subp
         found = util.lsb_release()
-        mock_subp.assert_called_with(['lsb_release', '--all'], capture=True)
+        mock_subp.assert_called_with(
+            ['lsb_release', '--all'], capture=True, target=None)
         self.assertEqual(found, rdata)
 
     @mock.patch("curtin.util.subp")
@@ -201,6 +202,25 @@ class TestSubp(TestCase):
         (out, err) = util.subp(self.stdin2out, data=b'')
         self.assertEqual(err, None)
         self.assertEqual(out, None)
+
+    @mock.patch("curtin.util.subprocess.Popen")
+    def test_with_target_gets_chroot(self, m_popen):
+        noexist_pname = "mocked-away-does-not-matter"
+        sp = mock.Mock()
+        m_popen.return_value = sp
+        sp.communicate.return_value = (b'out-foo', b'err-foo')
+        sp.returncode = 0
+
+        ret = util.subp([noexist_pname], target="/mytarget",
+                        capture=True, decode=None)
+        self.assertTrue(m_popen.called)
+        self.assertEqual(1, m_popen.call_count)
+        self.assertTrue(sp.communicate.called)
+
+        # Popen should have been called with chroot
+        args, kwargs = m_popen.call_args
+        self.assertEqual(['chroot', '/mytarget', noexist_pname], args[0])
+        self.assertEqual((b'out-foo', b'err-foo'), ret)
 
 
 class TestHuman2Bytes(TestCase):
@@ -281,5 +301,47 @@ class TestSetUnExecutable(TestCase):
         self.tmpd = tempfile.mkdtemp()
         bogus = os.path.join(self.tmpd, 'bogus')
         self.assertRaises(ValueError, util.set_unexecutable, bogus, True)
+
+
+class TestTargetPath(TestCase):
+    def test_target_empty_string(self):
+        self.assertEqual("/etc/passwd", util.target_path("", "/etc/passwd"))
+
+    def test_target_non_string_raises(self):
+        self.assertRaises(ValueError, util.target_path, False)
+        self.assertRaises(ValueError, util.target_path, 9)
+        self.assertRaises(ValueError, util.target_path, True)
+
+    def test_lots_of_slashes_is_slash(self):
+        self.assertEqual("/", util.target_path("/"))
+        self.assertEqual("/", util.target_path("//"))
+        self.assertEqual("/", util.target_path("///"))
+        self.assertEqual("/", util.target_path("////"))
+
+    def test_empty_string_is_slash(self):
+        self.assertEqual("/", util.target_path(""))
+
+    def test_recognizes_relative(self):
+        self.assertEqual("/", util.target_path("/foo/../"))
+        self.assertEqual("/", util.target_path("/foo//bar/../../"))
+
+    def test_no_path(self):
+        self.assertEqual("/my/target", util.target_path("/my/target"))
+
+    def test_no_target_no_path(self):
+        self.assertEqual("/", util.target_path(None))
+
+    def test_no_target_with_path(self):
+        self.assertEqual("/my/path", util.target_path(None, "/my/path"))
+
+    def test_trailing_slash(self):
+        self.assertEqual("/my/target/my/path",
+                         util.target_path("/my/target/", "/my/path"))
+
+    def test_bunch_of_slashes_in_path(self):
+        self.assertEqual("/target/my/path/",
+                         util.target_path("/target/", "//my/path/"))
+        self.assertEqual("/target/my/path/",
+                         util.target_path("/target/", "///my/path/"))
 
 # vi: ts=4 expandtab syntax=python

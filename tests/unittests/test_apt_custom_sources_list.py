@@ -116,10 +116,10 @@ class TestAptSourceConfigSourceList(TestCase):
 
         cloudfile = '/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg'
         cloudconf = yaml.dump({'apt_preserve_sources_list': True}, indent=1)
-        calls = [call(TARGET + '/etc/apt/sources.list',
+        calls = [call(util.target_path(TARGET, '/etc/apt/sources.list'),
                       expected,
                       mode=0o644),
-                 call(TARGET + cloudfile,
+                 call(util.target_path(TARGET, cloudfile),
                       cloudconf,
                       mode=0o644)]
         mockwrite.assert_has_calls(calls)
@@ -160,11 +160,9 @@ class TestAptSourceConfigSourceList(TestCase):
         mockga.assert_called_with("/")
         cloudfile = '/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg'
         cloudconf = yaml.dump({'apt_preserve_sources_list': True}, indent=1)
-        calls = [call(TARGET + '/etc/apt/sources.list',
-                      EXPECTED_CONVERTED_CONTENT,
-                      mode=0o644),
-                 call(TARGET + cloudfile,
-                      cloudconf,
+        calls = [call(util.target_path(TARGET, '/etc/apt/sources.list'),
+                      EXPECTED_CONVERTED_CONTENT, mode=0o644),
+                 call(util.target_path(TARGET, cloudfile), cloudconf,
                       mode=0o644)]
         mockwrite.assert_has_calls(calls)
 

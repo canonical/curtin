@@ -53,10 +53,12 @@ PRIMARY_ARCHES = ['amd64', 'i386']
 PORTS_ARCHES = ['s390x', 'arm64', 'armhf', 'powerpc', 'ppc64el']
 
 
-def get_default_mirrors(arch):
+def get_default_mirrors(arch=None):
     """returns the default mirrors for the target. These depend on the
        architecture, for more see:
        https://wiki.ubuntu.com/UbuntuDevelopment/PackageArchive#Ports"""
+    if arch is None:
+        arch = util.get_architecture()
     if arch in PRIMARY_ARCHES:
         return PRIMARY_ARCH_MIRRORS
     if arch in PORTS_ARCHES:
@@ -64,14 +66,15 @@ def get_default_mirrors(arch):
     raise ValueError("No default mirror known for arch %s" % arch)
 
 
-def handle_apt(cfg, target):
+def handle_apt(cfg, target=None):
     """ handle_apt
         process the config for apt_config. This can be called from
         curthooks if a global apt config was provided or via the "apt"
         standalone command.
     """
     release = util.lsb_release(target=target)['codename']
-    mirrors = find_apt_mirror_info(cfg, target)
+    arch = util.get_architecture(target)
+    mirrors = find_apt_mirror_info(cfg, arch)
     LOG.debug("Apt Mirror info: %s", mirrors)
 
     apply_debconf_selections(cfg, target)
@@ -102,7 +105,7 @@ def handle_apt(cfg, target):
                         template_params=params, aa_repo_match=matcher)
 
 
-def apply_debconf_selections(cfg, target):
+def apply_debconf_selections(cfg, target=None):
     """apply_debconf_selections - push content to debconf"""
     # debconf_selections:
     #  set1: |
@@ -117,12 +120,10 @@ def apply_debconf_selections(cfg, target):
     # keep a running total of packages we've seen.
     pkgs_cfgd = set()
 
-    chroot = [] if target == "/" else ['chroot', target]
-
-    set_selections = chroot + ['debconf-set-selections']
     for key, content in selsets.items():
         LOG.debug("setting for %s, %s", key, content)
-        util.subp(set_selections, data=content.encode())
+        util.subp(['debconf-set-selections'],
+                  data=content.encode(), target=target)
         for line in content.splitlines():
             if line.startswith("#"):
                 continue
@@ -159,14 +160,14 @@ def apply_debconf_selections(cfg, target):
                  "but cannot be unconfigured: %s", unhandled)
 
     if len(to_config):
-        util.subp(chroot + ['dpkg-reconfigure' '--frontend=noninteractive'] +
-                  list(to_config), data=None)
+        util.subp(['dpkg-reconfigure' '--frontend=noninteractive'] +
+                  list(to_config), data=None, target=target)
 
 
 def clean_cloud_init(target):
     """clean out any local cloud-init config"""
     flist = glob.glob(
-        os.path.sep.join([target, "/etc/cloud/cloud.cfg.d/*dpkg*"]))
+        util.target_path(target, "/etc/cloud/cloud.cfg.d/*dpkg*"))
 
     LOG.debug("cleaning cloud-init config from: %s", flist)
     for dpkg_cfg in flist:
@@ -192,14 +193,11 @@ def mirrorurl_to_apt_fileprefix(mirror):
     return string
 
 
-def rename_apt_lists(new_mirrors, target):
+def rename_apt_lists(new_mirrors, target=None):
     """rename_apt_lists - rename apt lists to preserve old cache data"""
     default_mirrors = get_default_mirrors(util.get_architecture(target))
 
-    # os.path.normpath("//asdf//bar/asdf") == "//asdf/bar/asdf"
-    pre = re.sub(r"^[/]+", "/",
-                 os.path.normpath(os.path.sep.join([target, APT_LISTS])))
-
+    pre = util.target_path(target, APT_LISTS)
     for (name, omirror) in default_mirrors.items():
         nmirror = new_mirrors.get(name)
         if not nmirror:
@@ -282,7 +280,7 @@ def disable_suites(disabled, src, release):
     return retsrc
 
 
-def generate_sources_list(cfg, release, mirrors, target):
+def generate_sources_list(cfg, release, mirrors, target=None):
     """ generate_sources_list
         create a source.list file based on a custom or default template
         by replacing mirrors and release in the template
@@ -297,7 +295,7 @@ def generate_sources_list(cfg, release, mirrors, target):
     if tmpl is None:
         LOG.info("No custom template provided, fall back to modify"
                  "mirrors in %s on the target system", aptsrc)
-        tmpl = util.load_file(target + aptsrc)
+        tmpl = util.load_file(util.target_path(target, aptsrc))
         # Strategy if no custom template was provided:
         # - Only replacing mirrors
         # - no reason to replace "release" as it is from target anyway
@@ -307,43 +305,42 @@ def generate_sources_list(cfg, release, mirrors, target):
                                      "$MIRROR")
         tmpl = mirror_to_placeholder(tmpl, default_mirrors['SECURITY'],
                                      "$SECURITY")
-    try:
-        os.rename(target + aptsrc,
-                  target + aptsrc + ".curtin")
-    except OSError:
-        LOG.exception("failed to backup %s/%s", target, aptsrc)
+
+    orig = util.target_path(target, aptsrc)
+    if os.path.exists(orig):
+        os.rename(orig, orig + ".curtin.old")
 
     rendered = util.render_string(tmpl, params)
     disabled = disable_suites(cfg.get('disable_suites'), rendered, release)
-    util.write_file(target + aptsrc, disabled, mode=0o644)
+    util.write_file(util.target_path(target, aptsrc), disabled, mode=0o644)
 
     # protect the just generated sources.list from cloud-init
     cloudfile = "/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg"
     # this has to work with older cloud-init as well, so use old key
     cloudconf = yaml.dump({'apt_preserve_sources_list': True}, indent=1)
     try:
-        util.write_file(target + cloudfile, cloudconf, mode=0o644)
+        util.write_file(util.target_path(target, cloudfile),
+                        cloudconf, mode=0o644)
     except IOError:
         LOG.exception("Failed to protect source.list from cloud-init in (%s)",
-                      target + cloudfile)
+                      util.target_path(target, cloudfile))
         raise
 
 
-def add_apt_key_raw(key, target):
+def add_apt_key_raw(key, target=None):
     """
     actual adding of a key as defined in key argument
     to the system
     """
     LOG.debug("Adding key:\n'%s'", key)
     try:
-        with util.RunInChroot(target) as in_chroot:
-            in_chroot(['apt-key', 'add', '-'], data=key.encode())
+        util.subp(['apt-key', 'add', '-'], data=key.encode(), target=target)
     except util.ProcessExecutionError:
         LOG.exception("failed to add apt GPG Key to apt keyring")
         raise
 
 
-def add_apt_key(ent, target):
+def add_apt_key(ent, target=None):
     """
     Add key to the system as defined in ent (if any).
     Supports raw keys or keyid's
@@ -360,7 +357,8 @@ def add_apt_key(ent, target):
         add_apt_key_raw(ent['key'], target)
 
 
-def add_apt_sources(srcdict, target, template_params=None, aa_repo_match=None):
+def add_apt_sources(srcdict, target=None, template_params=None,
+                    aa_repo_match=None):
     """
     add entries in /etc/apt/sources.list.d for each abbreviated
     sources.list entry in 'srcdict'.  When rendering template, also
@@ -403,7 +401,7 @@ def add_apt_sources(srcdict, target, template_params=None, aa_repo_match=None):
                 raise
             continue
 
-        sourcefn = target + ent['filename']
+        sourcefn = util.target_path(target, ent['filename'])
         try:
             contents = "%s\n" % (source)
             util.write_file(sourcefn, contents, omode="a")
@@ -485,7 +483,7 @@ def get_mirror(cfg, mirrortype, arch):
     return mirror
 
 
-def find_apt_mirror_info(cfg, target=None):
+def find_apt_mirror_info(cfg, arch=None):
     """find_apt_mirror_info
        find an apt_mirror given the cfg provided.
        It can check for separate config of primary and security mirrors
@@ -493,8 +491,9 @@ def find_apt_mirror_info(cfg, target=None):
        If the generic apt_mirror is given that is defining for both
     """
 
-    arch = util.get_architecture(target)
-    LOG.debug("got arch for mirror selection: %s", arch)
+    if arch is None:
+        arch = util.get_architecture()
+        LOG.debug("got arch for mirror selection: %s", arch)
     pmirror = get_mirror(cfg, "primary", arch)
     LOG.debug("got primary mirror: %s", pmirror)
     smirror = get_mirror(cfg, "security", arch)

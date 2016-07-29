@@ -210,47 +210,45 @@ def install_kernel(cfg, target):
     mapping = copy.deepcopy(KERNEL_MAPPING)
     config.merge_config(mapping, kernel_cfg.get('mapping', {}))
 
-    with util.RunInChroot(target) as in_chroot:
+    if kernel_package:
+        util.install_packages([kernel_package], target=target)
+        return
 
-        if kernel_package:
-            util.install_packages([kernel_package], target=target)
-            return
+    # uname[2] is kernel name (ie: 3.16.0-7-generic)
+    # version gets X.Y.Z, flavor gets anything after second '-'.
+    kernel = os.uname()[2]
+    codename, _ = util.subp(['lsb_release', '--codename', '--short'],
+                            capture=True, target=target)
+    codename = codename.strip()
+    version, _, flavor = kernel.split('-', 2)
 
-        # uname[2] is kernel name (ie: 3.16.0-7-generic)
-        # version gets X.Y.Z, flavor gets anything after second '-'.
-        kernel = os.uname()[2]
-        codename, err = in_chroot(['lsb_release', '--codename', '--short'],
-                                  capture=True)
-        codename = codename.strip()
-        version, abi, flavor = kernel.split('-', 2)
+    try:
+        map_suffix = mapping[codename][version]
+    except KeyError:
+        LOG.warn("Couldn't detect kernel package to install for %s."
+                 % kernel)
+        if kernel_fallback is not None:
+            util.install_packages([kernel_fallback], target=target)
+        return
 
-        try:
-            map_suffix = mapping[codename][version]
-        except KeyError:
-            LOG.warn("Couldn't detect kernel package to install for %s."
-                     % kernel)
-            if kernel_fallback is not None:
-                util.install_packages([kernel_fallback], target=target)
-            return
+    package = "linux-{flavor}{map_suffix}".format(
+        flavor=flavor, map_suffix=map_suffix)
 
-        package = "linux-{flavor}{map_suffix}".format(
-            flavor=flavor, map_suffix=map_suffix)
-
-        if util.has_pkg_available(package, target):
-            if util.has_pkg_installed(package, target):
-                LOG.debug("Kernel package '%s' already installed", package)
-            else:
-                LOG.debug("installing kernel package '%s'", package)
-                util.install_packages([package], target=target)
+    if util.has_pkg_available(package, target):
+        if util.has_pkg_installed(package, target):
+            LOG.debug("Kernel package '%s' already installed", package)
         else:
-            if kernel_fallback is not None:
-                LOG.info("Kernel package '%s' not available.  "
-                         "Installing fallback package '%s'.",
-                         package, kernel_fallback)
-                util.install_packages([kernel_fallback], target=target)
-            else:
-                LOG.warn("Kernel package '%s' not available and no fallback."
-                         " System may not boot.", package)
+            LOG.debug("installing kernel package '%s'", package)
+            util.install_packages([package], target=target)
+    else:
+        if kernel_fallback is not None:
+            LOG.info("Kernel package '%s' not available.  "
+                     "Installing fallback package '%s'.",
+                     package, kernel_fallback)
+            util.install_packages([kernel_fallback], target=target)
+        else:
+            LOG.warn("Kernel package '%s' not available and no fallback."
+                     " System may not boot.", package)
 
 
 def setup_grub(cfg, target):

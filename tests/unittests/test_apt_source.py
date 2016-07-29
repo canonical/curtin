@@ -239,7 +239,8 @@ class TestAptSourceConfig(TestCase):
         # check if it added the right ammount of keys
         calls = []
         for _ in range(keynum):
-            calls.append(call(['apt-key', 'add', '-'], data=b'fakekey 1234'))
+            calls.append(call(['apt-key', 'add', '-'], data=b'fakekey 1234',
+                              target=TARGET))
         mockobj.assert_has_calls(calls, any_order=True)
 
         self.assertTrue(os.path.isfile(filename))
@@ -312,7 +313,8 @@ class TestAptSourceConfig(TestCase):
             self._add_apt_sources(cfg, TARGET, template_params=params,
                                   aa_repo_match=self.matcher)
 
-        mockobj.assert_any_call(['apt-key', 'add', '-'], data=b'fakekey 4321')
+        mockobj.assert_any_call(['apt-key', 'add', '-'], data=b'fakekey 4321',
+                                target=TARGET)
 
         self.assertTrue(os.path.isfile(self.aptlistfile))
 
@@ -334,7 +336,8 @@ class TestAptSourceConfig(TestCase):
             self._add_apt_sources(cfg, TARGET, template_params=params,
                                   aa_repo_match=self.matcher)
 
-        mockobj.assert_any_call(['apt-key', 'add', '-'], data=b'fakekey 4242')
+        mockobj.assert_any_call(['apt-key', 'add', '-'], data=b'fakekey 4242',
+                                target=TARGET)
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
@@ -350,7 +353,8 @@ class TestAptSourceConfig(TestCase):
             self._add_apt_sources(cfg, TARGET, template_params=params,
                                   aa_repo_match=self.matcher)
 
-        mockobj.assert_any_call(['apt-key', 'add', '-'], data=b'fakekey 1212')
+        mockobj.assert_any_call(['apt-key', 'add', '-'], data=b'fakekey 1212',
+                                target=TARGET)
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
@@ -480,7 +484,7 @@ class TestAptSourceConfig(TestCase):
         fromfn = ("%s/%s_%s" % (pre, archive, post))
         tofn = ("%s/test.ubuntu.com_%s" % (pre, post))
 
-        mirrors = apt_config.find_apt_mirror_info(cfg)
+        mirrors = apt_config.find_apt_mirror_info(cfg, arch)
 
         self.assertEqual(mirrors['MIRROR'],
                          "http://test.ubuntu.com/%s/" % component)
@@ -569,7 +573,7 @@ class TestAptSourceConfig(TestCase):
                "security": [{'arches': ["default"],
                              "uri": smir}]}
 
-        mirrors = apt_config.find_apt_mirror_info(cfg)
+        mirrors = apt_config.find_apt_mirror_info(cfg, 'amd64')
 
         self.assertEqual(mirrors['MIRROR'],
                          pmir)
@@ -584,7 +588,7 @@ class TestAptSourceConfig(TestCase):
         default_mirrors = apt_config.get_default_mirrors(arch)
         pmir = default_mirrors["PRIMARY"]
         smir = default_mirrors["SECURITY"]
-        mirrors = apt_config.find_apt_mirror_info({})
+        mirrors = apt_config.find_apt_mirror_info({}, arch)
 
         self.assertEqual(mirrors['MIRROR'],
                          pmir)
@@ -606,7 +610,7 @@ class TestAptSourceConfig(TestCase):
                             {'arches': ["default"],
                              "uri": "nothat"}]}
 
-        mirrors = apt_config.find_apt_mirror_info(cfg)
+        mirrors = apt_config.find_apt_mirror_info(cfg, 'amd64')
 
         self.assertEqual(mirrors['MIRROR'],
                          pmir)
@@ -628,7 +632,7 @@ class TestAptSourceConfig(TestCase):
                             {'arches': ["default"],
                              "uri": smir}]}
 
-        mirrors = apt_config.find_apt_mirror_info(cfg)
+        mirrors = apt_config.find_apt_mirror_info(cfg, 'amd64')
 
         self.assertEqual(mirrors['MIRROR'],
                          pmir)
@@ -636,6 +640,23 @@ class TestAptSourceConfig(TestCase):
                          pmir)
         self.assertEqual(mirrors['SECURITY'],
                          smir)
+
+    @mock.patch("curtin.commands.apt_config.util.get_architecture")
+    def test_get_default_mirrors_non_intel_no_arg(self, m_get_architecture):
+        arch = 'ppc64el'
+        m_get_architecture.return_value = arch
+        expected = {'PRIMARY': 'http://ports.ubuntu.com/ubuntu-ports',
+                    'SECURITY': 'http://ports.ubuntu.com/ubuntu-ports'}
+        self.assertEqual(expected, apt_config.get_default_mirrors(arch))
+
+    @mock.patch("curtin.commands.apt_config.util.get_architecture")
+    def test_get_default_mirrors_non_intel_with_arch(self, m_get_architecture):
+        arch = 'ppc64el'
+        found = apt_config.get_default_mirrors(arch)
+
+        expected = {'PRIMARY': 'http://ports.ubuntu.com/ubuntu-ports',
+                    'SECURITY': 'http://ports.ubuntu.com/ubuntu-ports'}
+        self.assertEqual(expected, found)
 
     def test_mirror_arches_sysdefault(self):
         """test_mirror_arches - Test arches falling back to sys default"""
@@ -652,7 +673,7 @@ class TestAptSourceConfig(TestCase):
                             {'arches': ["thisarchdoesntexist_64"],
                              "uri": "nothateither"}]}
 
-        mirrors = apt_config.find_apt_mirror_info(cfg)
+        mirrors = apt_config.find_apt_mirror_info(cfg, 'amd64')
 
         self.assertEqual(mirrors['MIRROR'],
                          pmir)
@@ -673,7 +694,7 @@ class TestAptSourceConfig(TestCase):
 
         with mock.patch.object(apt_config, 'search_for_mirror',
                                side_effect=[pmir, smir]) as mocksearch:
-            mirrors = apt_config.find_apt_mirror_info(cfg)
+            mirrors = apt_config.find_apt_mirror_info(cfg, 'amd64')
 
         calls = [call(["pfailme", pmir]),
                  call(["sfailme", smir])]
@@ -697,17 +718,18 @@ class TestAptSourceConfig(TestCase):
                              "uri": smir,
                              "search": ["sfailme", "bar"]}]}
 
+        arch = 'amd64'
+
         # should be called only once per type, despite two mirror configs
         with mock.patch.object(apt_config, 'get_mirror',
                                return_value="http://mocked/foo") as mockgm:
-            mirrors = apt_config.find_apt_mirror_info(cfg)
-        calls = [call(cfg, 'primary', util.get_architecture()),
-                 call(cfg, 'security', util.get_architecture())]
+            mirrors = apt_config.find_apt_mirror_info(cfg, arch)
+        calls = [call(cfg, 'primary', arch), call(cfg, 'security', arch)]
         mockgm.assert_has_calls(calls)
 
         # should not be called, since primary is specified
         with mock.patch.object(apt_config, 'search_for_mirror') as mockse:
-            mirrors = apt_config.find_apt_mirror_info(cfg)
+            mirrors = apt_config.find_apt_mirror_info(cfg, arch)
         mockse.assert_not_called()
 
         self.assertEqual(mirrors['MIRROR'],

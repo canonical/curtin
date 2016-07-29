@@ -40,6 +40,11 @@ except ImportError:
     # pylint:disable=import-error,no-name-in-module
     from urllib.parse import urlparse
 
+try:
+    string_types = (basestring,)
+except NameError:
+    string_types = (str,)
+
 from .log import LOG
 
 _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
@@ -54,12 +59,15 @@ BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 
 def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
-          logstring=False, decode="replace"):
+          logstring=False, decode="replace", target=None):
     if rcs is None:
         rcs = [0]
 
     devnull_fp = None
     try:
+        if not is_target_slash(target):
+            args = ['chroot', target] + list(args)
+
         if not logstring:
             LOG.debug(("Running command %s with allowed return codes %s"
                        " (shell=%s, capture=%s)"), args, rcs, shell, capture)
@@ -328,7 +336,7 @@ def disable_daemons_in_root(target):
          'done',
          ''])
 
-    fpath = os.path.join(target, "usr/sbin/policy-rc.d")
+    fpath = target_path(target, "/usr/sbin/policy-rc.d")
 
     if os.path.isfile(fpath):
         return False
@@ -339,7 +347,7 @@ def disable_daemons_in_root(target):
 
 def undisable_daemons_in_root(target):
     try:
-        os.unlink(os.path.join(target, "usr/sbin/policy-rc.d"))
+        os.unlink(target_path(target, "/usr/sbin/policy-rc.d"))
     except OSError as e:
         if e.errno != errno.ENOENT:
             raise
@@ -351,7 +359,7 @@ class ChrootableTarget(object):
     def __init__(self, target, allow_daemons=False, sys_resolvconf=True):
         if target is None:
             target = "/"
-        self.target = os.path.abspath(target)
+        self.target = target_path(target)
         self.mounts = ["/dev", "/proc", "/sys"]
         self.umounts = []
         self.disabled_daemons = False
@@ -368,13 +376,14 @@ class ChrootableTarget(object):
         if not self.allow_daemons:
             self.disabled_daemons = disable_daemons_in_root(self.target)
 
-        target_etc = os.path.join(self.target, "etc")
+        rconf = target_path(self.target, "/etc/resolv.conf")
+        target_etc = os.path.dirname(rconf)
         if self.target != "/" and os.path.isdir(target_etc):
             # never muck with resolv.conf on /
             rconf = os.path.join(target_etc, "resolv.conf")
             rtd = None
             try:
-                rtd = tempfile.mkdtemp(dir=os.path.dirname(rconf))
+                rtd = tempfile.mkdtemp(dir=target_etc)
                 tmp = os.path.join(rtd, "resolv.conf")
                 os.rename(rconf, tmp)
                 self.rconf_d = rtd
@@ -398,19 +407,19 @@ class ChrootableTarget(object):
         for p in reversed(self.umounts):
             do_umount(p)
 
-        rconf = os.path.join(self.target, "etc", "resolv.conf")
+        rconf = target_path(self.target, "/etc/resolv.conf")
         if self.sys_resolvconf and self.rconf_d:
             os.rename(os.path.join(self.rconf_d, "resolv.conf"), rconf)
             shutil.rmtree(self.rconf_d)
 
+    def subp(self, *args, **kwargs):
+        kwargs['target'] = self.target
+        return subp(*args, **kwargs)
+
 
 class RunInChroot(ChrootableTarget):
-    def __call__(self, args, **kwargs):
-        if self.target != "/":
-            chroot = ["chroot", self.target]
-        else:
-            chroot = []
-        return subp(chroot + args, **kwargs)
+    def __call__(self, *args, **kwargs):
+        self.subp(*args, **kwargs)
 
 
 def is_exe(fpath):
@@ -419,14 +428,13 @@ def is_exe(fpath):
 
 
 def which(program, search=None, target=None):
-    if target is None or os.path.realpath(target) == "/":
-        target = "/"
+    target = target_path(target)
 
     if os.path.sep in program:
         # if program had a '/' in it, then do not search PATH
         # 'which' does consider cwd here. (cd / && which bin/ls) = bin/ls
         # so effectively we set cwd to / (or target)
-        if is_exe(os.path.sep.join((target, program,))):
+        if is_exe(target_path(target, program)):
             return program
 
     if search is None:
@@ -441,8 +449,9 @@ def which(program, search=None, target=None):
     search = [os.path.abspath(p) for p in search]
 
     for path in search:
-        if is_exe(os.path.sep.join((target, path, program,))):
-            return os.path.sep.join((path, program,))
+        ppath = os.path.sep.join((path, program))
+        if is_exe(target_path(target, ppath)):
+            return ppath
 
     return None
 
@@ -484,19 +493,13 @@ def get_paths(curtin_exe=None, lib=None, helpers=None):
 
 
 def get_architecture(target=None):
-    chroot = []
-    if target is not None:
-        chroot = ['chroot', target]
-    out, _ = subp(chroot + ['dpkg', '--print-architecture'],
-                  capture=True)
+    out, _ = subp(['dpkg', '--print-architecture'], capture=True,
+                  target=target)
     return out.strip()
 
 
 def has_pkg_available(pkg, target=None):
-    chroot = []
-    if target is not None:
-        chroot = ['chroot', target]
-    out, _ = subp(chroot + ['apt-cache', 'pkgnames'], capture=True)
+    out, _ = subp(['apt-cache', 'pkgnames'], capture=True, target=target)
     for item in out.splitlines():
         if pkg == item.strip():
             return True
@@ -504,12 +507,7 @@ def has_pkg_available(pkg, target=None):
 
 
 def get_installed_packages(target=None):
-    cmd = []
-    if target is not None:
-        cmd = ['chroot', target]
-    cmd.extend(['dpkg-query', '--list'])
-
-    (out, _) = subp(cmd, capture=True)
+    (out, _) = subp(['dpkg-query', '--list'], target=target, capture=True)
     if isinstance(out, bytes):
         out = out.decode()
 
@@ -526,13 +524,10 @@ def get_installed_packages(target=None):
 
 
 def has_pkg_installed(pkg, target=None):
-    chroot = []
-    if target is not None:
-        chroot = ['chroot', target]
     try:
-        out, _ = subp(chroot + ['dpkg-query', '--show', '--showformat',
-                                '${db:Status-Abbrev}', pkg],
-                      capture=True)
+        out, _ = subp(['dpkg-query', '--show', '--showformat',
+                       '${db:Status-Abbrev}', pkg],
+                      capture=True, target=target)
         return out.rstrip() == "ii"
     except ProcessExecutionError:
         return False
@@ -581,13 +576,9 @@ def get_package_version(pkg, target=None, semx=None):
     """Use dpkg-query to extract package pkg's version string
        and parse the version string into a dictionary
     """
-    chroot = []
-    if target is not None:
-        chroot = ['chroot', target]
     try:
-        out, _ = subp(chroot + ['dpkg-query', '--show', '--showformat',
-                                '${Version}', pkg],
-                      capture=True)
+        out, _ = subp(['dpkg-query', '--show', '--showformat',
+                       '${Version}', pkg], capture=True, target=target)
         raw = out.rstrip()
         return parse_dpkg_version(raw, name=pkg, semx=semx)
     except ProcessExecutionError:
@@ -639,11 +630,11 @@ def apt_update(target=None, env=None, force=False, comment=None,
     if comment.endswith("\n"):
         comment = comment[:-1]
 
-    marker = os.path.join(target, marker)
+    marker = target_path(target, marker)
     # if marker exists, check if there are files that would make it obsolete
-    listfiles = [os.path.join(target, "etc/apt/sources.list")]
+    listfiles = [target_path(target, "/etc/apt/sources.list")]
     listfiles += glob.glob(
-        os.path.join(target, "etc/apt/sources.list.d/*.list"))
+        target_path(target, "etc/apt/sources.list.d/*.list"))
 
     if os.path.exists(marker) and not force:
         if len(find_newer(marker, listfiles)) == 0:
@@ -651,7 +642,7 @@ def apt_update(target=None, env=None, force=False, comment=None,
 
     restore_perms = []
 
-    abs_tmpdir = tempfile.mkdtemp(dir=os.path.join(target, 'tmp'))
+    abs_tmpdir = tempfile.mkdtemp(dir=target_path(target, "/tmp"))
     try:
         abs_slist = abs_tmpdir + "/sources.list"
         abs_slistd = abs_tmpdir + "/sources.list.d"
@@ -660,8 +651,8 @@ def apt_update(target=None, env=None, force=False, comment=None,
         ch_slistd = ch_tmpdir + "/sources.list.d"
 
         # this file gets executed on apt-get update sometimes. (LP: #1527710)
-        motd_update = os.path.join(
-            target, "usr/lib/update-notifier/update-motd-updates-available")
+        motd_update = target_path(
+            target, "/usr/lib/update-notifier/update-motd-updates-available")
         pmode = set_unexecutable(motd_update)
         if pmode is not None:
             restore_perms.append((motd_update, pmode),)
@@ -755,7 +746,7 @@ def run_hook_if_exists(target, hook):
     """
     Look for "hook" in "target" and run it
     """
-    target_hook = os.path.join(target, 'curtin', hook)
+    target_hook = target_path(target, '/curtin/' + hook)
     if os.path.isfile(target_hook):
         LOG.debug("running %s" % target_hook)
         subp([target_hook])
@@ -885,13 +876,13 @@ def is_file_not_found_exc(exc):
     return (isinstance(exc, IOError) and exc.errno == errno.ENOENT)
 
 
-def _lsb_release(chroot):
+def _lsb_release(target=None):
     fmap = {'Codename': 'codename', 'Description': 'description',
             'Distributor ID': 'id', 'Release': 'release'}
 
     data = {}
     try:
-        out, _ = subp(chroot + ['lsb_release', '--all'], capture=True)
+        out, _ = subp(['lsb_release', '--all'], capture=True, target=target)
         for line in out.splitlines():
             fname, _, val = line.partition(":")
             if fname in fmap:
@@ -909,13 +900,13 @@ def _lsb_release(chroot):
 
 
 def lsb_release(target=None):
-    if target is not None:
-        # do not use cache if target is provided
-        return _lsb_release(['chroot', target])
+    if not is_target_slash(target):
+        # do not use or update cache if target is provided
+        return _lsb_release(target)
 
     global _LSB_RELEASE
     if not _LSB_RELEASE:
-        data = _lsb_release([])
+        data = _lsb_release()
         _LSB_RELEASE.update(data)
     return _LSB_RELEASE
 
@@ -1045,6 +1036,32 @@ def is_resolvable(name):
 def is_resolvable_url(url):
     """determine if this url is resolvable (existing or ip)."""
     return is_resolvable(urlparse(url).hostname)
+
+
+def is_target_slash(target):
+    return target_path(target) == "/"
+
+
+def target_path(target, path=None):
+    # return 'path' inside target, accepting target as None
+    if target in (None, ""):
+        target = "/"
+    elif not isinstance(target, string_types):
+        raise ValueError("Unexpected input for target: %s" % target)
+    else:
+        target = os.path.abspath(target)
+        # abspath("//") returns "//" specifically for 2 slashes.
+        if target.startswith("//"):
+            target = target[1:]
+
+    if not path:
+        return target
+
+    # os.path.join("/etc", "/foo") returns "/foo". Chomp all leading /.
+    while len(path) and path[0] == "/":
+        path = path[1:]
+
+    return os.path.join(target, path)
 
 
 # vi: ts=4 expandtab syntax=python
