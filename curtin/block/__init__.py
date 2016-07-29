@@ -423,7 +423,18 @@ def get_blockdev_sector_size(devpath):
     """
     info = _lsblock([devpath])
     LOG.debug('get_blockdev_sector_size: info:\n%s' % util.json_dumps(info))
-    [parent] = info
+    # (LP: 1598310) The call to _lsblock() may return multiple results.
+    # If it does, then search for a result with the correct device path.
+    # If no such device is found among the results, then fall back to previous
+    # behavior, which was taking the first of the results
+    assert len(info) > 0
+    for (k, v) in info.items():
+        if v.get('device_path') == devpath:
+            parent = k
+            break
+    else:
+        parent = list(info.keys())[0]
+
     return (int(info[parent]['LOG-SEC']), int(info[parent]['PHY-SEC']))
 
 

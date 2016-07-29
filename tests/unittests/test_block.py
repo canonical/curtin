@@ -4,6 +4,8 @@ import mock
 import tempfile
 import shutil
 
+from collections import OrderedDict
+
 from curtin import util
 from curtin import block
 
@@ -38,6 +40,36 @@ class TestBlock(TestCase):
         self.assertTrue(mock_lsblk.called)
         self.assertEqual(sorted(mountpoints),
                          sorted(["/mnt", "/sys"]))
+
+    @mock.patch('curtin.block._lsblock')
+    def test_get_blockdev_sector_size(self, mock_lsblk):
+        mock_lsblk.return_value = {
+            'sda':  {'LOG-SEC': '512', 'PHY-SEC': '4096',
+                     'device_path': '/dev/sda'},
+            'sda1': {'LOG-SEC': '512', 'PHY-SEC': '4096',
+                     'device_path': '/dev/sda1'},
+            'dm-0': {'LOG-SEC': '512', 'PHY-SEC': '512',
+                     'device_path': '/dev/dm-0'},
+        }
+        for (devpath, expected) in [('/dev/sda', (512, 4096)),
+                                    ('/dev/sda1', (512, 4096)),
+                                    ('/dev/dm-0', (512, 512))]:
+            res = block.get_blockdev_sector_size(devpath)
+            mock_lsblk.assert_called_with([devpath])
+            self.assertEqual(res, expected)
+
+        # test that fallback works and gives right return
+        mock_lsblk.return_value = OrderedDict()
+        mock_lsblk.return_value.update({
+            'vda': {'LOG-SEC': '4096', 'PHY-SEC': '4096',
+                    'device_path': '/dev/vda'},
+        })
+        mock_lsblk.return_value.update({
+            'vda1': {'LOG-SEC': '512', 'PHY-SEC': '512',
+                     'device_path': '/dev/vda1'},
+        })
+        res = block.get_blockdev_sector_size('/dev/vda2')
+        self.assertEqual(res, (4096, 4096))
 
     @mock.patch("curtin.block.os.path.realpath")
     @mock.patch("curtin.block.os.path.exists")
