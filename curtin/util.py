@@ -65,7 +65,7 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
 
     devnull_fp = None
     try:
-        if not is_target_slash(target):
+        if target_path(target) != "/":
             args = ['chroot', target] + list(args)
 
         if not logstring:
@@ -369,7 +369,7 @@ class ChrootableTarget(object):
 
     def __enter__(self):
         for p in self.mounts:
-            tpath = os.path.join(self.target, p[1:])
+            tpath = target_path(self.target, p)
             if do_mount(p, tpath, opts='--bind'):
                 self.umounts.append(tpath)
 
@@ -401,7 +401,7 @@ class ChrootableTarget(object):
             undisable_daemons_in_root(self.target)
 
         # if /dev is to be unmounted, udevadm settle (LP: #1462139)
-        if os.path.join(self.target, "dev") in self.umounts:
+        if target_path(self.target, "/dev") in self.umounts:
             subp(['udevadm', 'settle'])
 
         for p in reversed(self.umounts):
@@ -416,10 +416,8 @@ class ChrootableTarget(object):
         kwargs['target'] = self.target
         return subp(*args, **kwargs)
 
-
-class RunInChroot(ChrootableTarget):
-    def __call__(self, *args, **kwargs):
-        self.subp(*args, **kwargs)
+    def path(self, path):
+        return target_path(self.target, path)
 
 
 def is_exe(fpath):
@@ -508,13 +506,11 @@ def has_pkg_available(pkg, target=None):
 
 def get_installed_packages(target=None):
     (out, _) = subp(['dpkg-query', '--list'], target=target, capture=True)
-    if isinstance(out, bytes):
-        out = out.decode()
 
     pkgs_inst = set()
     for line in out.splitlines():
         try:
-            (state, pkg, _) = line.split(None, 2)
+            (state, pkg, other) = line.split(None, 2)
         except ValueError:
             continue
         if state.startswith("hi") or state.startswith("ii"):
@@ -677,8 +673,8 @@ def apt_update(target=None, env=None, force=False, comment=None,
             'update']
 
         # do not using 'run_apt_command' so we can use 'retries' to subp
-        with RunInChroot(target, allow_daemons=True) as inchroot:
-            inchroot(update_cmd, env=env, retries=retries)
+        with ChrootableTarget(target, allow_daemons=True) as inchroot:
+            inchroot.subp(update_cmd, env=env, retries=retries)
     finally:
         for fname, perms in restore_perms:
             os.chmod(fname, perms)
@@ -715,9 +711,8 @@ def run_apt_command(mode, args=None, aptopts=None, env=None, target=None,
         return env, cmd
 
     apt_update(target, env=env, comment=' '.join(cmd))
-    ric = RunInChroot(target, allow_daemons=allow_daemons)
-    with ric as inchroot:
-        return inchroot(cmd, env=env)
+    with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
+        return inchroot.subp(cmd, env=env)
 
 
 def system_upgrade(aptopts=None, target=None, env=None, allow_daemons=False):
@@ -900,7 +895,7 @@ def _lsb_release(target=None):
 
 
 def lsb_release(target=None):
-    if not is_target_slash(target):
+    if target_path(target) != "/":
         # do not use or update cache if target is provided
         return _lsb_release(target)
 
@@ -1036,10 +1031,6 @@ def is_resolvable(name):
 def is_resolvable_url(url):
     """determine if this url is resolvable (existing or ip)."""
     return is_resolvable(urlparse(url).hostname)
-
-
-def is_target_slash(target):
-    return target_path(target) == "/"
 
 
 def target_path(target, path=None):

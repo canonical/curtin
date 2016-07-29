@@ -50,28 +50,15 @@ def load_tfile(filename):
     return content
 
 
-class PseudoRunInChroot(object):
-    def __init__(self, args, **kwargs):
-        print("HEY: %s" % ' '.join(args))
-        if len(args) > 0:
-            self.target = args[0]
-        else:
-            self.target = kwargs.get('target')
-
-    def __call__(self, args, **kwargs):
-        if self.target != "/":
-            chroot = ["chroot", self.target]
-        else:
-            chroot = []
-        return util.subp(chroot + args, **kwargs)
-
+class PseudoChrootableTarget(util.ChrootableTarget):
+    # no-ops the mounting and modifying that ChrootableTarget does
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         return
 
-RunInChrootStr = "curtin.commands.apt_config.util.RunInChroot"
+ChrootableTargetStr = "curtin.commands.apt_config.util.ChrootableTarget"
 
 
 class TestAptSourceConfig(TestCase):
@@ -231,8 +218,8 @@ class TestAptSourceConfig(TestCase):
         """
         params = self._get_default_params()
 
-        with mock.patch.object(util, 'subp',
-                               return_value=('fakekey 1234', '')) as mockobj:
+        with mock.patch("curtin.util.subp",
+                        return_value=('fakekey 1234', '')) as mockobj:
             self._add_apt_sources(cfg, TARGET, template_params=params,
                                   aa_repo_match=self.matcher)
 
@@ -253,7 +240,7 @@ class TestAptSourceConfig(TestCase):
                                    "xenial", "main"),
                                   contents, flags=re.IGNORECASE))
 
-    @mock.patch(RunInChrootStr, new=PseudoRunInChroot)
+    @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_keyid(self):
         """test_apt_src_keyid - Test source + keyid with filename being set"""
         cfg = {self.aptlistfile: {'source': ('deb '
@@ -263,7 +250,7 @@ class TestAptSourceConfig(TestCase):
                                   'keyid': "03683F77"}}
         self._apt_src_keyid(self.aptlistfile, cfg, 1)
 
-    @mock.patch(RunInChrootStr, new=PseudoRunInChroot)
+    @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_keyid_tri(self):
         """test_apt_src_keyid_tri - Test multiple src+keyid+filen overwrites"""
         cfg = {self.aptlistfile:  {'source': ('deb '
@@ -299,7 +286,7 @@ class TestAptSourceConfig(TestCase):
                                    "xenial", "multiverse"),
                                   contents, flags=re.IGNORECASE))
 
-    @mock.patch(RunInChrootStr, new=PseudoRunInChroot)
+    @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_key(self):
         """test_apt_src_key - Test source + key"""
         params = self._get_default_params()
@@ -326,7 +313,7 @@ class TestAptSourceConfig(TestCase):
                                    "xenial", "main"),
                                   contents, flags=re.IGNORECASE))
 
-    @mock.patch(RunInChrootStr, new=PseudoRunInChroot)
+    @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_keyonly(self):
         """test_apt_src_keyonly - Test key without source"""
         params = self._get_default_params()
@@ -342,7 +329,7 @@ class TestAptSourceConfig(TestCase):
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
 
-    @mock.patch(RunInChrootStr, new=PseudoRunInChroot)
+    @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_keyidonly(self):
         """test_apt_src_keyidonly - Test keyid without source"""
         params = self._get_default_params()
@@ -425,22 +412,22 @@ class TestAptSourceConfig(TestCase):
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
 
-    @mock.patch(RunInChrootStr, new=PseudoRunInChroot)
+    @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_ppa(self):
         """test_apt_src_ppa - Test specification of a ppa"""
         params = self._get_default_params()
         cfg = {self.aptlistfile: {'source': 'ppa:smoser/cloud-init-test'}}
 
-        with mock.patch.object(util, 'subp') as mockobj:
+        with mock.patch("curtin.util.subp") as mockobj:
             self._add_apt_sources(cfg, TARGET, template_params=params,
                                   aa_repo_match=self.matcher)
         mockobj.assert_any_call(['add-apt-repository',
-                                 'ppa:smoser/cloud-init-test'])
+                                 'ppa:smoser/cloud-init-test'], target=TARGET)
 
         # adding ppa should ignore filename (uses add-apt-repository)
         self.assertFalse(os.path.isfile(self.aptlistfile))
 
-    @mock.patch(RunInChrootStr, new=PseudoRunInChroot)
+    @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_ppa_tri(self):
         """test_apt_src_ppa_tri - Test specification of multiple ppa's"""
         params = self._get_default_params()
@@ -448,12 +435,15 @@ class TestAptSourceConfig(TestCase):
                self.aptlistfile2: {'source': 'ppa:smoser/cloud-init-test2'},
                self.aptlistfile3: {'source': 'ppa:smoser/cloud-init-test3'}}
 
-        with mock.patch.object(util, 'subp') as mockobj:
+        with mock.patch("curtin.util.subp") as mockobj:
             self._add_apt_sources(cfg, TARGET, template_params=params,
                                   aa_repo_match=self.matcher)
-        calls = [call(['add-apt-repository', 'ppa:smoser/cloud-init-test']),
-                 call(['add-apt-repository', 'ppa:smoser/cloud-init-test2']),
-                 call(['add-apt-repository', 'ppa:smoser/cloud-init-test3'])]
+        calls = [call(['add-apt-repository', 'ppa:smoser/cloud-init-test'],
+                      target=TARGET),
+                 call(['add-apt-repository', 'ppa:smoser/cloud-init-test2'],
+                      target=TARGET),
+                 call(['add-apt-repository', 'ppa:smoser/cloud-init-test3'],
+                      target=TARGET)]
         mockobj.assert_has_calls(calls, any_order=True)
 
         # adding ppa should ignore all filenames (uses add-apt-repository)

@@ -192,8 +192,8 @@ parameters = root=%s
 def run_zipl(cfg, target):
     if platform.machine() != 's390x':
         return
-    with util.RunInChroot(target) as in_chroot:
-        in_chroot(['zipl'])
+    with util.ChrootableTarget(target) as in_chroot:
+        in_chroot.subp(['zipl'])
 
 
 def install_kernel(cfg, target):
@@ -220,7 +220,7 @@ def install_kernel(cfg, target):
     codename, _ = util.subp(['lsb_release', '--codename', '--short'],
                             capture=True, target=target)
     codename = codename.strip()
-    version, _, flavor = kernel.split('-', 2)
+    version, abi, flavor = kernel.split('-', 2)
 
     try:
         map_suffix = mapping[codename][version]
@@ -377,12 +377,11 @@ def setup_grub(cfg, target):
         util.subp(args + instdevs, env=env)
 
 
-def update_initramfs(target, all_kernels=False):
+def update_initramfs(target=None, all_kernels=False):
     cmd = ['update-initramfs', '-u']
     if all_kernels:
         cmd.extend(['-k', 'all'])
-    with util.RunInChroot(target) as in_chroot:
-        in_chroot(cmd)
+    util.subp(cmd, target=target)
 
 
 def copy_fstab(fstab, target):
@@ -583,8 +582,8 @@ def detect_and_handle_multipath(cfg, target):
 
         # FIXME: this assumes grub. need more generic way to update root=
         util.ensure_dir(os.path.sep.join([target, os.path.dirname(grub_dev)]))
-        with util.RunInChroot(target) as in_chroot:
-            in_chroot(['update-grub'])
+        with util.ChrootableTarget(target) as in_chroot:
+            in_chroot.subp(['update-grub'])
 
     else:
         LOG.warn("Not sure how this will boot")
@@ -713,8 +712,8 @@ def curthooks(args):
         copy_mdadm_conf(mdadm_location, target)
         # as per https://bugs.launchpad.net/ubuntu/+source/mdadm/+bug/964052
         # reconfigure mdadm
-        util.subp(['chroot', target, 'dpkg-reconfigure',
-                   '--frontend=noninteractive', 'mdadm'], data=None)
+        util.subp(['dpkg-reconfigure', '--frontend=noninteractive', 'mdadm'],
+                  data=None, target=target)
 
     with events.ReportEventStack(
             name=stack_prefix, reporting_enabled=True, level="INFO",
