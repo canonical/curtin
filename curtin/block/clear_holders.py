@@ -30,11 +30,6 @@ import os
 def get_bcache_using_dev(device):
     """
     Get the /sys/fs/bcache/ path of the bcache volume using specified device
-
-    The specified device can either be a device held by bcache or the bcache
-    device itself
-
-    Device can be specified either as a path in /dev or a path in /sys/block
     """
     # FIXME: when block.bcache is written this should be moved there
     sysfs_path = block.sys_block_path(device)
@@ -48,12 +43,7 @@ def get_bcache_using_dev(device):
 
 def shutdown_bcache(device):
     """
-    Shut down bcache for specified bcache device or bcache backing/cache
-    device
-
-    Will not io errors but will collect and return them
-
-    May return a function that should be run by the caller to wipe out metadata
+    Shut down bcache for specified bcache device
     """
     try:
         bcache_sysfs = get_bcache_using_dev(device)
@@ -67,17 +57,11 @@ def shutdown_bcache(device):
 
 def shutdown_lvm(device):
     """
-    Shutdown specified lvm device. Device may be given as a path in /sys/block
-    or in /dev
-
-    Will not raise io errors, but will collect and return them
-
-    May return a function that should be run by the caller to wipe out metadata
+    Shutdown specified lvm device.
     """
     device = block.sys_block_path(device)
     # lvm devices have a dm directory that containes a file 'name' containing
     # '{volume group}-{logical volume}'. The volume can be freed using lvremove
-    (vg_name, lv_name) = (None, None)
     name_file = os.path.join(device, 'dm', 'name')
     (vg_name, lv_name) = lvm.split_lvm_name(util.load_file(name_file))
     # use two --force flags here in case the volume group that this lv is
@@ -97,12 +81,7 @@ def shutdown_lvm(device):
 
 def shutdown_mdadm(device):
     """
-    Shutdown specified mdadm device. Device can be either a blockdev or a path
-    in /sys/block
-
-    May raise process execution errors, but these should be allowed, since this
-    function should not have been run by clear_holders unless there was a valid
-    mdadm device to shut down
+    Shutdown specified mdadm device.
     """
     blockdev = block.dev_path(block.dev_short(device))
     LOG.debug('using mdadm.mdadm_stop on dev: {}'.format(blockdev))
@@ -114,9 +93,25 @@ def wipe_superblock(device):
     """
     Wrapper for block.wipe_volume compatible with shutdown function interface
     """
-    device = block.dev_path(block.dev_short(device))
+    blockdev = block.dev_path(block.dev_short(device))
     LOG.info('wiping superblock on %s', device)
-    block.wipe_volume(device, mode='superblock')
+    # when operating on a disk that used to have a dos part table with an
+    # extended partition, attempting to wipe the extended partition will result
+    # in a ENXIO err even though the actual device does exist
+    # if the block dev is possibly an extended partition ignore the err
+    try:
+        block.wipe_volume(blockdev, mode='superblock')
+    except OSError as err:
+        # if not file not found then something went wrong
+        if not util.is_file_not_found_exc(err):
+            raise
+        # trusty report 0 for size of extended part, newer report 2 sectors
+        # partition file must exist to be a partition
+        # partition number must be <= 4 to be on a dos disk
+        if not (int(util.load_file(os.path.join(device, 'size'))) in [0, 2] and
+                os.path.exists(os.path.join(device, 'partition')) and
+                int(util.load_file(os.path.join(device, 'partition'))) <= 4):
+            raise
 
 
 def _subfile_exists(subfile, basedir):
