@@ -232,8 +232,8 @@ parameters = root=%s
 def run_zipl(cfg, target):
     if platform.machine() != 's390x':
         return
-    with util.RunInChroot(target) as in_chroot:
-        in_chroot(['zipl'])
+    with util.ChrootableTarget(target) as in_chroot:
+        in_chroot.subp(['zipl'])
 
 
 def install_kernel(cfg, target):
@@ -250,7 +250,7 @@ def install_kernel(cfg, target):
     mapping = copy.deepcopy(KERNEL_MAPPING)
     config.merge_config(mapping, kernel_cfg.get('mapping', {}))
 
-    with util.RunInChroot(target) as in_chroot:
+    with util.ChrootableTarget(target) as in_chroot:
 
         if kernel_package:
             util.install_packages([kernel_package], target=target)
@@ -259,8 +259,8 @@ def install_kernel(cfg, target):
         # uname[2] is kernel name (ie: 3.16.0-7-generic)
         # version gets X.Y.Z, flavor gets anything after second '-'.
         kernel = os.uname()[2]
-        codename, err = in_chroot(['lsb_release', '--codename', '--short'],
-                                  capture=True)
+        codename, err = in_chroot.subp(
+            ['lsb_release', '--codename', '--short'], capture=True)
         codename = codename.strip()
         version, abi, flavor = kernel.split('-', 2)
 
@@ -308,8 +308,8 @@ def apply_debconf_selections(cfg, target):
     pkgs_cfgd = set()
     for key, content in selsets.items():
         LOG.debug("setting for %s, %s" % (key, content))
-        util.subp(['chroot', target, 'debconf-set-selections'],
-                  data=content.encode())
+        util.subp(['debconf-set-selections'], data=content.encode(),
+                  target=target)
         for line in content.splitlines():
             if line.startswith("#"):
                 continue
@@ -345,20 +345,12 @@ def apply_debconf_selections(cfg, target):
         LOG.warn("The following packages were installed and preseeded, "
                  "but cannot be unconfigured: %s", unhandled)
 
-    util.subp(['chroot', target, 'dpkg-reconfigure',
-               '--frontend=noninteractive'] +
-              list(to_config), data=None)
+    util.subp(['dpkg-reconfigure', '--frontend=noninteractive'] +
+              list(to_config), data=None, target=target)
 
 
 def get_installed_packages(target=None):
-    cmd = []
-    if target is not None:
-        cmd = ['chroot', target]
-    cmd.extend(['dpkg-query', '--list'])
-
-    (out, _err) = util.subp(cmd, capture=True)
-    if isinstance(out, bytes):
-        out = out.decode()
+    (out, _) = util.subp(['dpkg-query', '--list'], target=target, capture=True)
 
     pkgs_inst = set()
     for line in out.splitlines():
@@ -498,12 +490,11 @@ def setup_grub(cfg, target):
         util.subp(args + instdevs, env=env)
 
 
-def update_initramfs(target, all_kernels=False):
+def update_initramfs(target=None, all_kernels=False):
     cmd = ['update-initramfs', '-u']
     if all_kernels:
         cmd.extend(['-k', 'all'])
-    with util.RunInChroot(target) as in_chroot:
-        in_chroot(cmd)
+    util.subp(cmd, target=target)
 
 
 def copy_fstab(fstab, target):
@@ -704,8 +695,8 @@ def detect_and_handle_multipath(cfg, target):
 
         # FIXME: this assumes grub. need more generic way to update root=
         util.ensure_dir(os.path.sep.join([target, os.path.dirname(grub_dev)]))
-        with util.RunInChroot(target) as in_chroot:
-            in_chroot(['update-grub'])
+        with util.ChrootableTarget(target) as in_chroot:
+            in_chroot.subp(['update-grub'])
 
     else:
         LOG.warn("Not sure how this will boot")
@@ -834,8 +825,8 @@ def curthooks(args):
         copy_mdadm_conf(mdadm_location, target)
         # as per https://bugs.launchpad.net/ubuntu/+source/mdadm/+bug/964052
         # reconfigure mdadm
-        util.subp(['chroot', target, 'dpkg-reconfigure',
-                   '--frontend=noninteractive', 'mdadm'], data=None)
+        util.subp(['dpkg-reconfigure', '--frontend=noninteractive', 'mdadm'],
+                  data=None, target=target)
 
     with events.ReportEventStack(
             name=stack_prefix, reporting_enabled=True, level="INFO",
