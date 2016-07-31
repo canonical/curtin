@@ -162,6 +162,17 @@ class TestSysBlockPath(TestCase):
         self.assertEqual('/sys/class/block/foodev/md/b',
                          block.sys_block_path("foodev", "/md/b", strict=False))
 
+    @mock.patch('curtin.block.get_blockdev_for_partition')
+    @mock.patch('os.path.exists')
+    def test_cciss_sysfs_path(self, m_os_path_exists, m_get_blk):
+        m_os_path_exists.return_value = True
+        m_get_blk.return_value = ('cciss!c0d0', None)
+        self.assertEqual('/sys/class/block/cciss!c0d0',
+                         block.sys_block_path('/dev/cciss/c0d0'))
+        m_get_blk.return_value = ('cciss!c0d0', 1)
+        self.assertEqual('/sys/class/block/cciss!c0d0/cciss!c0d0p1',
+                         block.sys_block_path('/dev/cciss/c0d0p1'))
+
 
 class TestWipeFile(TestCase):
     def __init__(self, *args, **kwargs):
@@ -238,5 +249,67 @@ class TestWipeFile(TestCase):
             block.wipe_file(trgfile, reader=fp.read)
         found = util.load_file(trgfile)
         self.assertEqual(data, found)
+
+
+class TestBlockKnames(TestCase):
+    """Tests for some of the kname functions in block"""
+    def test_determine_partition_kname(self):
+        part_knames = [(('sda', 1), 'sda1'),
+                       (('vda', 1), 'vda1'),
+                       (('nvme0n1', 1), 'nvme0n1p1'),
+                       (('mmcblk0', 1), 'mmcblk0p1'),
+                       (('cciss!c0d0', 1), 'cciss!c0d0p1'),
+                       (('dm-0', 1), 'dm-0p1'),
+                       (('mpath1', 2), 'mpath1p2')]
+        for ((disk_kname, part_number), part_kname) in part_knames:
+            self.assertEqual(block.partition_kname(disk_kname, part_number),
+                             part_kname)
+
+    @mock.patch('curtin.block.os.path.realpath')
+    def test_path_to_kname(self, mock_os_realpath):
+        mock_os_realpath.side_effect = lambda x: os.path.normpath(x)
+        path_knames = [('/dev/sda', 'sda'),
+                       ('/dev/sda1', 'sda1'),
+                       ('/dev////dm-0/', 'dm-0'),
+                       ('vdb', 'vdb'),
+                       ('/dev/mmcblk0p1', 'mmcblk0p1'),
+                       ('/dev/nvme0n0p1', 'nvme0n0p1'),
+                       ('/sys/block/vdb', 'vdb'),
+                       ('/sys/block/vdb/vdb2/', 'vdb2'),
+                       ('/dev/cciss/c0d0', 'cciss!c0d0'),
+                       ('/dev/cciss/c0d0p1/', 'cciss!c0d0p1'),
+                       ('/sys/class/block/cciss!c0d0p1', 'cciss!c0d0p1'),
+                       ('nvme0n1p4', 'nvme0n1p4')]
+        for (path, expected_kname) in path_knames:
+            self.assertEqual(block.path_to_kname(path), expected_kname)
+            if os.path.sep in path:
+                mock_os_realpath.assert_called_with(path)
+
+    @mock.patch('curtin.block.os.path.exists')
+    @mock.patch('curtin.block.os.path.realpath')
+    @mock.patch('curtin.block.is_valid_device')
+    def test_kname_to_path(self, mock_is_valid_device, mock_os_realpath,
+                           mock_exists):
+        kname_paths = [('sda', '/dev/sda'),
+                       ('sda1', '/dev/sda1'),
+                       ('/dev/sda', '/dev/sda'),
+                       ('cciss!c0d0p1', '/dev/cciss/c0d0p1'),
+                       ('/dev/cciss/c0d0', '/dev/cciss/c0d0'),
+                       ('mmcblk0p1', '/dev/mmcblk0p1')]
+
+        mock_exists.return_value = True
+        mock_os_realpath.side_effect = lambda x: x.replace('!', '/')
+        # first call to is_valid_device needs to return false for nonpaths
+        mock_is_valid_device.side_effect = lambda x: x.startswith('/dev')
+        for (kname, expected_path) in kname_paths:
+            self.assertEqual(block.kname_to_path(kname), expected_path)
+            mock_is_valid_device.assert_called_with(expected_path)
+
+        # test failure
+        mock_is_valid_device.return_value = False
+        mock_is_valid_device.side_effect = None
+        for (kname, expected_path) in kname_paths:
+            with self.assertRaises(OSError):
+                block.kname_to_path(kname)
 
 # vi: ts=4 expandtab syntax=python
