@@ -58,7 +58,7 @@ PYTHONPATH="$PWD" python3 tests/vmtests/image_sync.py query \
     --output-format="$fmt" "$IMAGE_DIR" ftype=root-image.gz ||
     { echo "WARNING: error querying images in $IMAGE_DIR" 1>&2; }
 
-echo "$(date -R): vmtest start: nosetests3 ${pargs[*]} $*"
+echo "$(date -R): vmtest start: nosetests3 ${pargs[*]} ${ntargs[*]}"
 nosetests3 "${pargs[@]}" "${ntargs[@]}"
 ret=$?
 end_s=$(date +%s)
