@@ -59,7 +59,7 @@ PYTHONPATH="$PWD" python3 tests/vmtests/image_sync.py query \
     { echo "WARNING: error querying images in $IMAGE_DIR" 1>&2; }
 
 echo "$(date -R): vmtest start: nosetests3 ${pargs[*]} $*"
-nosetests3 "${pargs[@]}" "$@"
+nosetests3 "${pargs[@]}" "${ntargs[@]}"
 ret=$?
 end_s=$(date +%s)
 echo "$(date -R): vmtest end [$ret] in $(($end_s-$start_s))s"
