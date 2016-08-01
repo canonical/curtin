@@ -78,6 +78,7 @@ family_flag_mappings = {
              "swap": "--uuid"},
     "force": {"btrfs": "--force",
               "ext": "-F",
+              "fat": "-I",
               "ntfs": "--force",
               "reiserfs": "-f",
               "swap": "--force",
