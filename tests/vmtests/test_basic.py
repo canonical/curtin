@@ -13,7 +13,8 @@ class TestBasicAbs(VMBaseClass):
     conf_file = "examples/tests/basic.yaml"
     extra_disks = ['128G', '128G', '4G']
     nvme_disks = ['4G']
-    disk_to_check = [('main_disk', 1), ('main_disk', 2)]
+    disk_to_check = [('main_disk_with_in---valid--dname', 1),
+                     ('main_disk_with_in---valid--dname', 2)]
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda > blkid_output_vda

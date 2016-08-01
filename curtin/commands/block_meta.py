@@ -27,6 +27,7 @@ from curtin.udev import compose_udev_equality, udevadm_settle
 import glob
 import os
 import platform
+import string
 import sys
 import tempfile
 import time
@@ -141,14 +142,6 @@ def devsync(devpath):
     raise OSError('Failed to find device at path: %s', devpath)
 
 
-def determine_partition_kname(disk_kname, partition_number):
-    for dev_type in ["nvme", "mmcblk"]:
-        if disk_kname.startswith(dev_type):
-            partition_number = "p%s" % partition_number
-            break
-    return "%s%s" % (disk_kname, partition_number)
-
-
 def determine_partition_number(partition_id, storage_config):
     vol = storage_config.get(partition_id)
     partnumber = vol.get('number')
@@ -180,6 +173,18 @@ def determine_partition_number(partition_id, storage_config):
     return partnumber
 
 
+def sanitize_dname(dname):
+    """
+    dnames should be sanitized before writing rule files, in case maas has
+    emitted a dname with a special character
+
+    only letters, numbers and '-' and '_' are permitted, as this will be
+    used for a device path. spaces are also not permitted
+    """
+    valid = string.digits + string.ascii_letters + '-_'
+    return ''.join(c if c in valid else '-' for c in dname)
+
+
 def make_dname(volume, storage_config):
     state = util.load_command_environment()
     rules_dir = os.path.join(state['scratch'], "rules.d")
@@ -197,7 +202,7 @@ def make_dname(volume, storage_config):
     # we may not always be able to find a uniq identifier on devices with names
     if not ptuuid and vol.get('type') in ["disk", "partition"]:
         LOG.warning("Can't find a uuid for volume: {}. Skipping dname.".format(
-            dname))
+            volume))
         return
 
     rule = [
@@ -222,11 +227,24 @@ def make_dname(volume, storage_config):
         volgroup_name = storage_config.get(vol.get('volgroup')).get('name')
         dname = "%s-%s" % (volgroup_name, dname)
         rule.append(compose_udev_equality("ENV{DM_NAME}", dname))
-    rule.append("SYMLINK+=\"disk/by-dname/%s\"" % dname)
+    else:
+        raise ValueError('cannot make dname for device with type: {}'
+                         .format(vol.get('type')))
+
+    # note: this sanitization is done here instead of for all name attributes
+    #       at the beginning of storage configuration, as some devices, such as
+    #       lvm devices may use the name attribute and may permit special chars
+    sanitized = sanitize_dname(dname)
+    if sanitized != dname:
+        LOG.warning(
+            "dname modified to remove invalid chars. old: '{}' new: '{}'"
+            .format(dname, sanitized))
+
+    rule.append("SYMLINK+=\"disk/by-dname/%s\"" % sanitized)
     LOG.debug("Writing dname udev rule '{}'".format(str(rule)))
     util.ensure_dir(rules_dir)
-    with open(os.path.join(rules_dir, volume), "w") as fp:
-        fp.write(', '.join(rule))
+    rule_file = os.path.join(rules_dir, '{}.rules'.format(sanitized))
+    util.write_file(rule_file, ', '.join(rule))
 
 
 def get_path_to_storage_volume(volume, storage_config):
@@ -244,9 +262,9 @@ def get_path_to_storage_volume(volume, storage_config):
         partnumber = determine_partition_number(vol.get('id'), storage_config)
         disk_block_path = get_path_to_storage_volume(vol.get('device'),
                                                      storage_config)
-        (base_path, disk_kname) = os.path.split(disk_block_path)
-        partition_kname = determine_partition_kname(disk_kname, partnumber)
-        volume_path = os.path.join(base_path, partition_kname)
+        disk_kname = block.path_to_kname(disk_block_path)
+        partition_kname = block.partition_kname(disk_kname, partnumber)
+        volume_path = block.kname_to_path(partition_kname)
         devsync_vol = os.path.join(disk_block_path)
 
     elif vol.get('type') == "disk":
@@ -295,13 +313,15 @@ def get_path_to_storage_volume(volume, storage_config):
         # block devs are in the slaves dir there. Then, those blockdevs can be
         # checked against the kname of the devs in the config for the desired
         # bcache device. This is not very elegant though
-        backing_device_kname = os.path.split(get_path_to_storage_volume(
-            vol.get('backing_device'), storage_config))[-1]
+        backing_device_path = get_path_to_storage_volume(
+            vol.get('backing_device'), storage_config)
+        backing_device_kname = block.path_to_kname(backing_device_path)
         sys_path = list(filter(lambda x: backing_device_kname in x,
                                glob.glob("/sys/block/bcache*/slaves/*")))[0]
         while "bcache" not in os.path.split(sys_path)[-1]:
             sys_path = os.path.split(sys_path)[0]
-        volume_path = os.path.join("/dev", os.path.split(sys_path)[-1])
+        bcache_kname = block.path_to_kname(sys_path)
+        volume_path = block.kname_to_path(bcache_kname)
         LOG.debug('got bcache volume path {}'.format(volume_path))
 
     else:
@@ -413,13 +433,12 @@ def partition_handler(info, storage_config):
 
     disk = get_path_to_storage_volume(device, storage_config)
     partnumber = determine_partition_number(info.get('id'), storage_config)
-
-    disk_kname = os.path.split(
-        get_path_to_storage_volume(device, storage_config))[-1]
+    disk_kname = block.path_to_kname(disk)
+    disk_sysfs_path = block.sys_block_path(disk)
     # consider the disks logical sector size when calculating sectors
     try:
-        prefix = "/sys/block/%s/queue/" % disk_kname
-        with open(prefix + "logical_block_size", "r") as f:
+        lbs_path = os.path.join(disk_sysfs_path, 'queue', 'logical_block_size')
+        with open(lbs_path, 'r') as f:
             l = f.readline()
             logical_block_size_bytes = int(l)
     except:
@@ -437,17 +456,14 @@ def partition_handler(info, storage_config):
                     extended_part_no = determine_partition_number(
                         key, storage_config)
                     break
-            partition_kname = determine_partition_kname(
-                disk_kname, extended_part_no)
-            previous_partition = "/sys/block/%s/%s/" % \
-                (disk_kname, partition_kname)
+            pnum = extended_part_no
         else:
             pnum = find_previous_partition(device, info['id'], storage_config)
-            LOG.debug("previous partition number for '%s' found to be '%s'",
-                      info.get('id'), pnum)
-            partition_kname = determine_partition_kname(disk_kname, pnum)
-            previous_partition = "/sys/block/%s/%s/" % \
-                (disk_kname, partition_kname)
+
+        LOG.debug("previous partition number for '%s' found to be '%s'",
+                  info.get('id'), pnum)
+        partition_kname = block.partition_kname(disk_kname, pnum)
+        previous_partition = os.path.join(disk_sysfs_path, partition_kname)
         LOG.debug("previous partition: {}".format(previous_partition))
         # XXX: sys/block/X/{size,start} is *ALWAYS* in 512b value
         previous_size = util.load_file(os.path.join(previous_partition,
