@@ -228,11 +228,12 @@ class TestWipeVolume(TestCase):
             for (expected, actual) in zip(calls, call_args_slice):
                 self.assertEqual(expected, actual)
 
-        for (count, (release_str, cache)) in enumerate(
-                [('12.04', False), ('14.04', True), ('12.10', False),
-                 ('15.04', True), ('16.04', True), ('16.10', True),
-                 ('17.04', True), ('UNAVAILABLE', True)]):
-            mock_util.lsb_release.return_value = {'release': release_str}
+        for (count, (codename, cache)) in enumerate(
+                [('precise', False), ('trusty', True),
+                 ('vivid', True), ('wily', True), ('xenial', True),
+                 ('yakkety', True), ('UNAVAILABLE', True),
+                 (None, True)]):
+            mock_util.lsb_release.return_value = {'codename': codename}
             block.wipe_volume(self.dev, mode='pvremove')
             self.assertEqual(len(mock_util.subp.call_args_list),
                              3 * (count + 1))
