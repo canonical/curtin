@@ -7,7 +7,7 @@ storage:
         ptable: msdos
         model: QEMU HARDDISK
         path: /dev/vdb
-        name: main_disk
+        name: main_disk_with_in/\&valid@#dname
         wipe: superblock
         grub_device: true
       - id: sda1

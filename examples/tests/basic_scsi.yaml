@@ -6,7 +6,7 @@ storage:
         type: disk
         ptable: msdos
         wwn: '0x39cc071e72c64cc4'
-        name: main_disk
+        name: main_disk_with_in/\&valid@#dname
         wipe: superblock
         grub_device: true
       - id: sda1
