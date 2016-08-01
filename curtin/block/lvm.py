@@ -18,6 +18,7 @@
 # This module provides some helper functions for manipulating lvm devices
 
 from curtin import util
+from curtin.log import LOG
 
 
 def _filter_lvm_info(lvtool, match_field, query_field, match_key):
@@ -48,3 +49,28 @@ def split_lvm_name(full):
                           '--separator', sep, '-o', 'vg_name,lv_name'],
                          capture=True)
     return out.strip().split(sep)
+
+
+def lvm_scan():
+    """run full scan for volgroups, logical volumes and physical volumes"""
+    # the lvm tools lvscan, vgscan and pvscan on ubuntu precise do not
+    # support the flag --cache. the flag is present for the tools in ubuntu
+    # trusty and later. since lvmetad is used in current releases of
+    # ubuntu, the --cache flag is needed to ensure that the data cached by
+    # lvmetad is updated.
+
+    # if we are unable to determine the version of ubuntu we are running
+    # on, we are much more likely to be correct in using the --cache flag,
+    # as every supported release except for precise supports the --cache
+    # flag, and most releases being installed now are either trusty or
+    # xenial
+    release_code_str = util.lsb_release().get('release')
+    if release_code_str is None or release_code_str == 'UNAVAILABLE':
+        LOG.warn('unable to find release number, assuming trusty or later')
+        release_code_str = '14.04'
+    release_code = float(release_code_str)
+
+    for cmd in [['pvscan'], ['vgscan', '--mknodes'], ['lvscan', '--all']]:
+        if release_code >= 14.04:
+            cmd.append('--cache')
+        util.subp(cmd, capture=True)

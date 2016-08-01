@@ -664,6 +664,9 @@ def lvm_volgroup_handler(info, storage_config):
         # capture output to avoid printing it to log
         util.subp(['vgcreate', name] + device_paths, capture=True)
 
+    # refresh lvmetad
+    lvm.lvm_scan()
+
 
 def lvm_partition_handler(info, storage_config):
     volgroup = storage_config.get(info.get('volgroup')).get('name')
@@ -672,6 +675,9 @@ def lvm_partition_handler(info, storage_config):
         raise ValueError("lvm volgroup for lvm partition must be specified")
     if not name:
         raise ValueError("lvm partition name must be specified")
+    if info.get('ptable'):
+        raise ValueError("Partition tables on top of lvm logical volumes is "
+                         "not supported")
 
     # Handle preserve flag
     if config.value_as_boolean(info.get('preserve')):
@@ -695,9 +701,8 @@ def lvm_partition_handler(info, storage_config):
 
         util.subp(cmd)
 
-    if info.get('ptable'):
-        raise ValueError("Partition tables on top of lvm logical volumes is "
-                         "not supported")
+    # refresh lvmetad
+    lvm.lvm_scan()
 
     make_dname(info.get('id'), storage_config)
 

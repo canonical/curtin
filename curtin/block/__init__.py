@@ -23,8 +23,9 @@ import tempfile
 import itertools
 
 from curtin import util
-from curtin.udev import udevadm_settle
+from curtin.block import lvm
 from curtin.log import LOG
+from curtin.udev import udevadm_settle
 
 
 def get_dev_name_entry(devname):
@@ -676,33 +677,9 @@ def wipe_volume(path, mode="superblock"):
         # If pvremove is run and there is no label on the system,
         # then it exits with 5. That is also okay, because we might be
         # wiping something that is already blank
-        cmds = []
-        cmds.append(["pvremove", "--force", "--force", "--yes", path])
-
-        # the lvm tools lvscan, vgscan and pvscan on ubuntu precise do not
-        # support the flag --cache. the flag is present for the tools in ubuntu
-        # trusty and later. since lvmetad is used in current releases of
-        # ubuntu, the --cache flag is needed to ensure that the data cached by
-        # lvmetad is updated.
-
-        # if we are unable to determine the version of ubuntu we are running
-        # on, we are much more likely to be correct in using the --cache flag,
-        # as every supported release except for precise supports the --cache
-        # flag, and most releases being installed now are either trusty or
-        # xenial
-        release_code_str = util.lsb_release().get('release')
-        if release_code_str is None or release_code_str == 'UNAVAILABLE':
-            LOG.warn('unable to find release number, assuming trusty or later')
-            release_code_str = '14.04'
-        release_code = float(release_code_str)
-
-        for cmd in [['pvscan'], ['vgscan', '--mknodes']]:
-            if release_code >= 14.04:
-                cmd.append('--cache')
-            cmds.append(cmd)
-
-        for cmd in cmds:
-            util.subp(cmd, rcs=[0, 5], capture=True)
+        util.subp(['pvremove', '--force', '--force', '--yes', path],
+                  rcs=[0, 5], capture=True)
+        lvm.lvm_scan()
 
     elif mode == "zero":
         wipe_file(path)

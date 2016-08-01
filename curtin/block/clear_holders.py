@@ -65,18 +65,12 @@ def shutdown_lvm(device):
     name_file = os.path.join(device, 'dm', 'name')
     (vg_name, lv_name) = lvm.split_lvm_name(util.load_file(name_file))
     # use two --force flags here in case the volume group that this lv is
-    # attached two has been damaged by a disk being wiped or other storage
-    # volumes being shut down.
-    # if something has already destroyed the logical volume, such as another
-    # partition being forcibly removed from the volume group, then lvremove
-    # will return 5.
-    # if this happens, then we should not halt installation, it
-    # is most likely not an issue. However, we will record the error and pass
-    # it up the clear_holders stack so that if other clear_holders calls fail
-    # and this is a potential cause it will be written to install log
+    # attached two has been damaged
     LOG.debug('running lvremove on {}/{}'.format(vg_name, lv_name))
     util.subp(['lvremove', '--force', '--force',
                '{}/{}'.format(vg_name, lv_name)], rcs=[0, 5])
+    # refresh lvmetad
+    lvm.lvm_scan()
 
 
 def shutdown_mdadm(device):
