@@ -23,7 +23,6 @@ from curtin import (block, udev, util)
 from curtin.block import lvm
 from curtin.log import LOG
 
-import functools
 import os
 
 
@@ -108,25 +107,37 @@ def wipe_superblock(device):
             raise
 
 
-def _subfile_exists(subfile, basedir):
-    """tests if 'subfile' exists under basedir"""
-    return os.path.exists(os.path.join(basedir, subfile))
+def identify_lvm(device):
+    """determine if specified device is a lvm device"""
+    return block.path_to_kname(device).startswith('dm')
+
+
+def identify_mdadm(device):
+    """determine if specified device is a mdadm device"""
+    return block.path_to_kname(device).startswith('md')
+
+
+def identify_bcache(device):
+    """determine if specified device is a bcache device"""
+    return block.path_to_kname(device).startswith('bcache')
+
+
+def identify_partition(device):
+    """determine if specified device is a partition"""
+    path = os.path.join(block.sys_block_path(device), 'partition')
+    return os.path.exists(path)
 
 
 # types of devices that could be encountered by clear holders and functions to
 # identify them and shut them down
 DEV_TYPES = {
-    'partition': {'shutdown': wipe_superblock,
-                  'ident': functools.partial(_subfile_exists, 'partition')},
+    'partition': {'shutdown': wipe_superblock, 'ident': identify_partition},
     # FIXME: below is not the best way to identify lvm, it should be replaced
     #        once there is a method in place to differentiate plain
     #        devicemapper from lvm controlled devicemapper
-    'lvm': {'shutdown': shutdown_lvm,
-            'ident': functools.partial(_subfile_exists, 'dm')},
-    'raid': {'shutdown': shutdown_mdadm,
-             'ident': functools.partial(_subfile_exists, 'md')},
-    'bcache': {'shutdown': shutdown_bcache,
-               'ident': functools.partial(_subfile_exists, 'bcache')},
+    'lvm': {'shutdown': shutdown_lvm, 'ident': identify_lvm},
+    'raid': {'shutdown': shutdown_mdadm, 'ident': identify_mdadm},
+    'bcache': {'shutdown': shutdown_bcache, 'ident': identify_bcache},
     'disk': {'ident': lambda x: False, 'shutdown': wipe_superblock},
 }
 
@@ -137,9 +148,6 @@ DEFAULT_DEV_TYPE = 'disk'
 def get_holders(device):
     """
     Look up any block device holders, return list of knames
-    Can handle devices and partitions as devnames (vdb, md0, vdb7)
-    Can also handle devices and partitions by path in /sys/
-    Will not raise io errors, but will collect and return them
     """
     # block.sys_block_path works when given a /sys or /dev path
     sysfs_path = block.sys_block_path(device)
