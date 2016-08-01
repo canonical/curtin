@@ -17,19 +17,37 @@ if [ -d "$topdir" ]; then
 fi
 mkdir -p "$topdir" || fail "failed mkdir $topdir"
 
-if [ $# -eq 0 ]; then
-   set -- -vv --nologcapture tests/vmtests/
-fi
-
 start_s=$(date +%s)
 # dump CURTIN* variables just for info
 for v in ${!CURTIN_*}; do
    echo "$v=${!v}"
 done
 
+parallel=${CURTIN_VMTEST_PARALLEL}
+ntargs=( )
+while [ $# -ne 0 ]; do
+    case "$1" in
+        -p|--parallel) parallel="$2"; shift;;
+        --parallel=*) parallel=${1#*=};;
+        -p[0-9]|-p-1|-p[0-9][0-9]) parallel=${1#-p};;
+        --)
+            shift
+            break
+            ;;
+        *) ntargs[${#ntargs[@]}]="$1";;
+    esac
+    shift;
+done
+
+if [ ${#ntargs[@]} -eq 0 ]; then
+   set -- -vv --nologcapture tests/vmtests/
+fi
+
+ntargs=( "${ntargs[@]}" "$@" )
+
 pargs=( )
-if [ -n "$CURTIN_VMTEST_PARALLEL" ]; then
-    pargs=( --process-timeout=86400 "--processes=${CURTIN_VMTEST_PARALLEL}" )
+if [ -n "$parallel" -a "$parallel" != "0" -a "$parallel" != "1" ]; then
+    pargs=( --process-timeout=86400 "--processes=$parallel" )
 fi
 
 # avoid LOG info by running python3 tests/vmtests/image_sync.py
