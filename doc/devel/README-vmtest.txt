@@ -141,6 +141,20 @@ Some environment variables affect the running of vmtest
     'virbr0' or 'lxcbr0' to use those bridges and then be able to ssh
     in directly.
 
+  * CURTIN_VMTEST_BOOT_TIMEOUT: default 300
+    timeout before giving up on the boot of the installed system.
+
+  * CURTIN_VMTEST_INSTALL_TIMEOUT: default 3000
+    timeout before giving up on installation.
+  
+  * CURTIN_VMTEST_PARALLEL: default ''
+    only supported through ./tools/jenkins-runner .
+       -1 : then run one per core.
+        0 or '': then run with no parallel
+       >0 : run with N processes
+    this modifies the  invocation of nosetets to add '--processes' and other
+    necessary nose arguments (--process-timeout)
+
   * IMAGE_DIR: default /srv/images
     vmtest keeps a mirror of maas ephemeral images in this directory.
 
