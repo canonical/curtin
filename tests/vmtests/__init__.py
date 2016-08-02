@@ -44,6 +44,8 @@ TARGET_IMAGE_FORMAT = "raw"
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 OUTPUT_DISK_NAME = 'output_disk.img'
+BOOT_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_BOOT_TIMEOUT", 300))
+INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
 
 _TOPDIR = None
 
@@ -346,7 +348,7 @@ class TempDir(object):
 class VMBaseClass(TestCase):
     __test__ = False
     arch_skip = []
-    boot_timeout = 300
+    boot_timeout = BOOT_TIMEOUT
     collect_scripts = []
     conf_file = "examples/tests/basic.yaml"
     disk_block_size = 512
@@ -356,7 +358,7 @@ class VMBaseClass(TestCase):
     extra_kern_args = None
     fstab_expected = {}
     image_store_class = ImageStore
-    install_timeout = 3000
+    install_timeout = INSTALL_TIMEOUT
     interactive = False
     multipath = False
     multipath_num_paths = 2

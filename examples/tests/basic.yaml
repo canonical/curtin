@@ -7,7 +7,7 @@ storage:
         ptable: msdos
         model: QEMU HARDDISK
         path: /dev/vdb
-        name: main_disk
+        name: main_disk_with_in/\&valid@#dname
         wipe: superblock
         grub_device: true
       - id: sda1
@@ -42,6 +42,10 @@ storage:
         path: /dev/vdc
         name: sparedisk
         wipe: superblock
+      - id: sparedisk_fat_fmt_id
+        type: format
+        fstype: fat32
+        volume: sparedisk_id
       - id: btrfs_disk_id
         type: disk
         path: /dev/vdd
