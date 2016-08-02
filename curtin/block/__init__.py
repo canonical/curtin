@@ -237,7 +237,7 @@ def get_blockdev_for_partition(devpath):
 
     # don't need to try out multiple sysfs paths as path_to_kname handles cciss
     if not os.path.exists(syspath):
-        raise ValueError("%s had no syspath (%s)" % (devpath, syspath))
+        raise OSError("%s had no syspath (%s)" % (devpath, syspath))
 
     ptpath = os.path.join(syspath, "partition")
     if not os.path.exists(ptpath):
