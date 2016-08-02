@@ -16,10 +16,11 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 import argparse
+import base64
 import datetime
 import json
+import os
 import sys
-import base64
 
 
 #  An event:
@@ -71,8 +72,11 @@ def dump_event_files(event):
     files = content['files']
     for f in files:
         fname = f['path']
+        fn_local = os.path.basename(fname)
         fcontent = base64.b64decode(f['content']).decode('ascii')
-        print("%s:\n%s" % (fname, fcontent))
+        print("wrote %s" % (fn_local))
+        with open(fn_local, 'w') as fh:
+            fh.write(fcontent)
 
 
 def generate_records(j, blame_sort=False, print_format="%d seconds in %D",
