@@ -1037,20 +1037,23 @@ def meta_custom(args):
 
     # shut down any already existing storage layers above any disks used in
     # config that have 'wipe' set
-
-    # before doing anything, mdadm has to be started in case there is a md
-    # device that needs to be detected so it can be properly removed
-    mdadm.mdadm_assemble(scan=True)
-    # also, the bcache module should be loaded so any bcache superblock present
-    # are presented to clear_holders properly
-    util.subp(['modprobe', 'bcache'])
-    disk_paths = [get_path_to_storage_volume(k, storage_config_dict)
-                  for (k, v) in storage_config_dict.items()
-                  if v.get('type') == 'disk' and
-                  config.value_as_boolean(v.get('wipe')) and
-                  not config.value_as_boolean(v.get('preserve'))]
-    clear_holders.clear_holders(disk_paths)
-    clear_holders.assert_clear(disk_paths)
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level='INFO',
+            description="removing previous storage devices"):
+        # before doing anything, mdadm has to be started in case there is a md
+        # device that needs to be detected so it can be properly removed
+        mdadm.mdadm_assemble(scan=True)
+        # also, the bcache module should be loaded so any bcache superblock
+        # present are presented to clear_holders properly
+        util.subp(['modprobe', 'bcache'])
+        disk_paths = [get_path_to_storage_volume(k, storage_config_dict)
+                      for (k, v) in storage_config_dict.items()
+                      if v.get('type') == 'disk' and
+                      config.value_as_boolean(v.get('wipe')) and
+                      not config.value_as_boolean(v.get('preserve'))]
+        clear_holders.clear_holders(disk_paths)
+        # if anything was not properly shut down, stop installation
+        clear_holders.assert_clear(disk_paths)
 
     for item_id, command in storage_config_dict.items():
         handler = command_handlers.get(command['type'])
