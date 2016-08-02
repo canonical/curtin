@@ -16,17 +16,29 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import collections
 import errno
 import glob
 import json
 import os
 import platform
+import re
 import shutil
+import socket
 import subprocess
 import stat
 import sys
 import tempfile
 import time
+
+# avoid the dependency to python3-six as used in cloud-init
+try:
+    from urlparse import urlparse
+except ImportError:
+    # python3
+    # avoid triggering pylint, https://github.com/PyCQA/pylint/issues/769
+    # pylint:disable=import-error,no-name-in-module
+    from urllib.parse import urlparse
 
 try:
     string_types = (basestring,)
@@ -39,6 +51,11 @@ _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
 _INSTALLED_MAIN = '/usr/bin/curtin'
 
 _LSB_RELEASE = {}
+
+_DNS_REDIRECT_IP = None
+
+# matcher used in template rendering functions
+BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 
 def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
@@ -487,6 +504,21 @@ def has_pkg_available(pkg, target=None):
     return False
 
 
+def get_installed_packages(target=None):
+    (out, _) = subp(['dpkg-query', '--list'], target=target, capture=True)
+
+    pkgs_inst = set()
+    for line in out.splitlines():
+        try:
+            (state, pkg, other) = line.split(None, 2)
+        except ValueError:
+            continue
+        if state.startswith("hi") or state.startswith("ii"):
+            pkgs_inst.add(re.sub(":.*", "", pkg))
+
+    return pkgs_inst
+
+
 def has_pkg_installed(pkg, target=None):
     try:
         out, _ = subp(['dpkg-query', '--show', '--showformat',
@@ -840,27 +872,37 @@ def is_file_not_found_exc(exc):
             hasattr(exc, 'errno') and exc.errno in (errno.ENOENT, errno.ENXIO))
 
 
-def lsb_release():
+def _lsb_release(target=None):
     fmap = {'Codename': 'codename', 'Description': 'description',
             'Distributor ID': 'id', 'Release': 'release'}
+
+    data = {}
+    try:
+        out, _ = subp(['lsb_release', '--all'], capture=True, target=target)
+        for line in out.splitlines():
+            fname, _, val = line.partition(":")
+            if fname in fmap:
+                data[fmap[fname]] = val.strip()
+        missing = [k for k in fmap.values() if k not in data]
+        if len(missing):
+            LOG.warn("Missing fields in lsb_release --all output: %s",
+                     ','.join(missing))
+
+    except ProcessExecutionError as err:
+        LOG.warn("Unable to get lsb_release --all: %s", err)
+        data = {v: "UNAVAILABLE" for v in fmap.values()}
+
+    return data
+
+
+def lsb_release(target=None):
+    if target_path(target) != "/":
+        # do not use or update cache if target is provided
+        return _lsb_release(target)
+
     global _LSB_RELEASE
     if not _LSB_RELEASE:
-        data = {}
-        try:
-            out, err = subp(['lsb_release', '--all'], capture=True)
-            for line in out.splitlines():
-                fname, tok, val = line.partition(":")
-                if fname in fmap:
-                    data[fmap[fname]] = val.strip()
-            missing = [k for k in fmap.values() if k not in data]
-            if len(missing):
-                LOG.warn("Missing fields in lsb_release --all output: %s",
-                         ','.join(missing))
-
-        except ProcessExecutionError as e:
-            LOG.warn("Unable to get lsb_release --all: %s", e)
-            data = {v: "UNAVAILABLE" for v in fmap.values()}
-
+        data = _lsb_release()
         _LSB_RELEASE.update(data)
     return _LSB_RELEASE
 
@@ -888,6 +930,108 @@ def get_platform_arch():
         'aarch64': 'arm64',
     }
     return platform2arch.get(platform.machine(), platform.machine())
+
+
+def basic_template_render(content, params):
+    """This does simple replacement of bash variable like templates.
+
+    It identifies patterns like ${a} or $a and can also identify patterns like
+    ${a.b} or $a.b which will look for a key 'b' in the dictionary rooted
+    by key 'a'.
+    """
+
+    def replacer(match):
+        """ replacer
+            replacer used in regex match to replace content
+        """
+        # Only 1 of the 2 groups will actually have a valid entry.
+        name = match.group(1)
+        if name is None:
+            name = match.group(2)
+        if name is None:
+            raise RuntimeError("Match encountered but no valid group present")
+        path = collections.deque(name.split("."))
+        selected_params = params
+        while len(path) > 1:
+            key = path.popleft()
+            if not isinstance(selected_params, dict):
+                raise TypeError("Can not traverse into"
+                                " non-dictionary '%s' of type %s while"
+                                " looking for subkey '%s'"
+                                % (selected_params,
+                                   selected_params.__class__.__name__,
+                                   key))
+            selected_params = selected_params[key]
+        key = path.popleft()
+        if not isinstance(selected_params, dict):
+            raise TypeError("Can not extract key '%s' from non-dictionary"
+                            " '%s' of type %s"
+                            % (key, selected_params,
+                               selected_params.__class__.__name__))
+        return str(selected_params[key])
+
+    return BASIC_MATCHER.sub(replacer, content)
+
+
+def render_string(content, params):
+    """ render_string
+        render a string following replacement rules as defined in
+        basic_template_render returning the string
+    """
+    if not params:
+        params = {}
+    return basic_template_render(content, params)
+
+
+def is_resolvable(name):
+    """determine if a url is resolvable, return a boolean
+    This also attempts to be resilent against dns redirection.
+
+    Note, that normal nsswitch resolution is used here.  So in order
+    to avoid any utilization of 'search' entries in /etc/resolv.conf
+    we have to append '.'.
+
+    The top level 'invalid' domain is invalid per RFC.  And example.com
+    should also not exist.  The random entry will be resolved inside
+    the search list.
+    """
+    global _DNS_REDIRECT_IP
+    if _DNS_REDIRECT_IP is None:
+        badips = set()
+        badnames = ("does-not-exist.example.com.", "example.invalid.")
+        badresults = {}
+        for iname in badnames:
+            try:
+                result = socket.getaddrinfo(iname, None, 0, 0,
+                                            socket.SOCK_STREAM,
+                                            socket.AI_CANONNAME)
+                badresults[iname] = []
+                for (_, _, _, cname, sockaddr) in result:
+                    badresults[iname].append("%s: %s" % (cname, sockaddr[0]))
+                    badips.add(sockaddr[0])
+            except (socket.gaierror, socket.error):
+                pass
+        _DNS_REDIRECT_IP = badips
+        if badresults:
+            LOG.debug("detected dns redirection: %s", badresults)
+
+    try:
+        result = socket.getaddrinfo(name, None)
+        # check first result's sockaddr field
+        addr = result[0][4][0]
+        if addr in _DNS_REDIRECT_IP:
+            LOG.debug("dns %s in _DNS_REDIRECT_IP", name)
+            return False
+        LOG.debug("dns %s resolved to '%s'", name, result)
+        return True
+    except (socket.gaierror, socket.error):
+        LOG.debug("dns %s failed to resolve", name)
+        return False
+
+
+def is_resolvable_url(url):
+    """determine if this url is resolvable (existing or ip)."""
+    return is_resolvable(urlparse(url).hostname)
 
 
 def target_path(target, path=None):

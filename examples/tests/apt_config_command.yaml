@@ -1,0 +1,85 @@
+# This pushes curtin through a automatic installation
+# where no storage configuration is necessary.
+# exercising the standalong curtin apt-config command
+-placeholder_simple_install: unused
+bucket:
+  - &run_with_stdin |
+    #!/bin/sh
+    input="$1"
+    shift
+    printf "%s\n" "$input" | "$@"
+
+  - &run_apt_config_file |
+    #!/bin/sh
+    # take the first argument, write it to a tmp file and execute
+    # curtin apt --config=<tmpfile> "$@"
+    set -e
+    config="$1"
+    shift
+    TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX")
+    trap cleanup EXIT
+    cleanup() { [ -z "${TEMP_D}" || rm -Rf "${TEMP_D}"; }
+    cfg_file="${TEMP_D}/curtin-apt.conf"
+    printf "%s\n" "$config" > "${cfg_file}"
+    curtin apt-config "--config=${cfg_file}" "$@"
+
+  - &apt_config_ppa |
+    # this is just a large string
+    apt:
+      sources:
+        ignored:
+           source: "ppa:curtin-dev/test-archive"
+        curtin-test1.list:
+           source: "deb $MIRROR $RELEASE-proposed main"
+
+  - &apt_config_source |
+    apt:
+      preserve_sources_list: false
+      sources:
+        ignored:
+           source: "ppa:curtin-dev/test-archive"
+           # apt-add-repositroy adds the key anyway, but lets pass that code
+           # path of adding once more in this scope
+           key: |
+             -----BEGIN PGP PUBLIC KEY BLOCK-----
+             Version: GnuPG v1
+
+             mQINBFazYtEBEADXrW53tDOvwcnHwchLapTKK89+wBWR2qQKXx5Mymtjkrb688Fs
+             ciXcCsvClnNGJ9bEhrJTucyb7WF0KcDVQcvOd0C4HOSEAc0DANBu1Mdp/tmCWuiW
+             1TbbhomyHAcHNdbuSZeMDh5xi9M3DYPVq72PwYwjrE4lotVxHeX5nYEH304U+5nJ
+             tBNpVon91k3ItymQ6Jii+9gVoQ7ujiH1/Gw4/J/1/5zQ3C1mOjq68vLunz5iw1Kn
+             7TMVyID6qwq2UFEgudpseLfFZcb/p7KgI0m3S/OViwzSc44m63ggTPMmbeHW51xA
+             1rpUChSU+cm0cJ4tNtAcYHRYRltWAo/3J1OzB6Ut5P7vIC5r+QcCyyMbku9NjYaw
+             dWX4DDKqW3is3qJ/7EeOKPL4N8wuKwuWUC7s2wqsIZL8EmsvR+ZOnTJ3bHZFvsLg
+             p/OKqmhxMGYXiXOWDOEJ+vwboPxrvhD90JZl8weNGPnpla+EkxRDBSpEb31Vgt5X
+             AIoxE7XxwfuXS3MGMA7fSqkGPGHfSLYQFFk+CAIeTUV+ypKW94hIxXKgqRxa7dxz
+             Ymqs+wgIGaWJCnx7z1Kpd3HD9iTAYjyWyhlQ/Tjt43kwUBdALhTL0vYUTGQyTgKt
+             tAriVf5bqHb6Hj5PS5YZQ/+YoCUI2OTrAWWNyH9rIEZGsFc30oJFPHj3fQARAQAB
+             tCNMYXVuY2hwYWQgUFBBIGZvciBjdXJ0aW4gZGV2ZWxvcGVyc4kCOAQTAQIAIgUC
+             VrNi0QIbAwYLCQgHAwIGFQgCCQoLBBYCAwECHgECF4AACgkQVf58jAFlAT4TGg//
+             SV7vWmkJqr5TSlT9JqCBfmtFjgudxTGG8XM2zwnta+m/3YVOMo0ZjyGL4fUKjCmN
+             eh6eYihwpRtfdawziaEOydDxNfdjwscV4Qcy7FjHX+DQnNzQyzK+WgWRJwNWloCw
+             skg2tF+EDRajalTRjHJAn+5zAilXVn71T/hhOCxkF0PBiH9s/e7pW/KcgBEC1MYV
+             Fs0fLST8SYhsIxttVRWuRkJDrtEY1zeVhkvk+PN6UuCY6/gyRSQ1rhhBF3ePqiba
+             CmLiUjnJMEm1OJOkuD33IMNPKQi99TZhr8y3AGCcrmAQtJsYLvVDPcsOsjGQHXP4
+             2qQXK+jE/AAUycCQ6tgrAqCcUNQiClP8xUPkZOiDNvVMiPvIj/s79ShkoRaWLMb7
+             n9jyDOhs3L7dtmKQwHWq9qJ56fzx1L0/jxSanzm+ZJ/Q7t6E/GFxY1RsAk7xtI1C
+             SzSmrGKmtlbWlOyqqQb6zhULIJpaXvh/GaYyo0xI3rA+QvPDt/fgUJEBiSidwabW
+             Q8JU9iI5HXQxbVq1gSdy/z31fue5JuZSqjnjCjgho/UrXa4i1RPtqsY3FoTk7Hmo
+             C1z2cJc8HQI8JnEX/4qJXvPMRM2JsMD9DqvgsUJG5M9Qchy8cymYY+xeiBVYzJI+
+             WHCq6LHqnVxYZ+RM858lSsD6wetN44vguIjL3qJJ+wU=
+        curtin-test1.list:
+           source: "deb $MIRROR $RELEASE-proposed main"
+
+# into ephemeral environment
+early_commands:
+ 00_add_archive: [sh, -c, *run_with_stdin, "curtin-apt",
+                  *apt_config_ppa, curtin, apt-config, --config=-, --target=/]
+ # tests itself by installing a packet only available in that ppa
+ 00_install_package: [apt-get, install, --assume-yes, smello]
+
+# into target environment
+late_commands:
+ 00_add_archive: [sh, -c, *run_apt_config_file, "curtin-apt-file",
+                  *apt_config_source]
+ 00_install_package: [curtin, in-target, --, apt-get, install, --assume-yes, smello]
