@@ -52,6 +52,9 @@ def shutdown_bcache(device):
         # single cache device is used on two backing devices, because the same
         # bcache device in /sys/fs/bcache/ represents itself as two block devs
         # in /sys/block
+        LOG.warn("shutdown_bcache did not find /sys/fs/ path for bcache dev: "
+                 "'%s'. assuming caused by shared cache device, continuing",
+                 device)
         return
     LOG.debug('stopping bcache at: {}'.format(bcache_sysfs))
     with open(os.path.join(bcache_sysfs, 'stop'), 'w') as fp:
