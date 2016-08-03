@@ -43,6 +43,8 @@ TARGET_IMAGE_FORMAT = "raw"
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 OUTPUT_DISK_NAME = 'output_disk.img'
+BOOT_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_BOOT_TIMEOUT", 300))
+INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
 
 _TOPDIR = None
 
@@ -345,7 +347,7 @@ class TempDir(object):
 class VMBaseClass(TestCase):
     __test__ = False
     arch_skip = []
-    boot_timeout = 300
+    boot_timeout = BOOT_TIMEOUT
     collect_scripts = []
     conf_file = "examples/tests/basic.yaml"
     disk_block_size = 512
@@ -355,7 +357,8 @@ class VMBaseClass(TestCase):
     extra_kern_args = None
     fstab_expected = {}
     image_store_class = ImageStore
-    install_timeout = 3000
+    boot_cloudconf = None
+    install_timeout = INSTALL_TIMEOUT
     interactive = False
     multipath = False
     multipath_num_paths = 2
@@ -363,6 +366,7 @@ class VMBaseClass(TestCase):
     recorded_errors = 0
     recorded_failures = 0
     uefi = False
+    proxy = None
 
     # these get set from base_vm_classes
     release = None
@@ -392,7 +396,8 @@ class VMBaseClass(TestCase):
         # set up tempdir
         cls.td = TempDir(
             name=cls.__name__,
-            user_data=generate_user_data(collect_scripts=cls.collect_scripts))
+            user_data=generate_user_data(collect_scripts=cls.collect_scripts,
+                                         boot_cloudconf=cls.boot_cloudconf))
         logger.info('Using tempdir: %s , Image: %s', cls.td.tmpdir,
                     img_verstr)
         cls.install_log = os.path.join(cls.td.logs, 'install-serial.log')
@@ -492,11 +497,11 @@ class VMBaseClass(TestCase):
 
         # proxy config
         configs = [cls.conf_file]
-        proxy = get_apt_proxy()
-        if get_apt_proxy is not None:
+        cls.proxy = get_apt_proxy()
+        if cls.proxy is not None:
             proxy_config = os.path.join(cls.td.install, 'proxy.cfg')
             with open(proxy_config, "w") as fp:
-                fp.write(json.dumps({'apt_proxy': proxy}) + "\n")
+                fp.write(json.dumps({'apt_proxy': cls.proxy}) + "\n")
             configs.append(proxy_config)
 
         uefi_flags = []
@@ -731,7 +736,13 @@ class VMBaseClass(TestCase):
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
         for f in files:
+            logger.debug('checking file %s', f)
             self.assertTrue(os.path.exists(os.path.join(self.td.collect, f)))
+
+    def output_files_dont_exist(self, files):
+        for f in files:
+            logger.debug('checking file %s', f)
+            self.assertFalse(os.path.exists(os.path.join(self.td.collect, f)))
 
     def check_file_strippedline(self, filename, search):
         with open(os.path.join(self.td.collect, filename), "r") as fp:
@@ -961,7 +972,8 @@ def get_apt_proxy():
     return None
 
 
-def generate_user_data(collect_scripts=None, apt_proxy=None):
+def generate_user_data(collect_scripts=None, apt_proxy=None,
+                       boot_cloudconf=None):
     # this returns the user data for the *booted* system
     # its a cloud-config-archive type, which is
     # just a list of parts.  the 'x-shellscript' parts
@@ -985,6 +997,10 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
     parts = [{'type': 'text/cloud-config',
               'content': yaml.dump(base_cloudconfig, indent=1)},
              {'type': 'text/cloud-config', 'content': ssh_keys}]
+
+    if boot_cloudconf is not None:
+        parts.append({'type': 'text/cloud-config', 'content':
+                      yaml.dump(boot_cloudconf, indent=1)})
 
     output_dir = '/mnt/output'
     output_dir_macro = 'OUTPUT_COLLECT_D'

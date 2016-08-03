@@ -90,13 +90,13 @@ Note:
     The tests themselves don't actually have to run as root, but the
     test setup does.
   * the 'tools' directory must be in your path.
-  * test will set apt_proxy in the guests to the value of
-    'apt_proxy' environment variable.  If that is not set it will 
+  * test will set apt: { proxy } in the guests to the value of
+    'apt_proxy' environment variable.  If that is not set it will
     look at the host's apt config and read 'Acquire::HTTP::Proxy'
 
 == Environment Variables ==
 Some environment variables affect the running of vmtest
-  * apt_proxy: 
+  * apt_proxy:
     test will set apt_proxy in the guests to the value of 'apt_proxy'.
     If that is not set it will look at the host's apt config and read
     'Acquire::HTTP::Proxy'
@@ -141,6 +141,20 @@ Some environment variables affect the running of vmtest
     'virbr0' or 'lxcbr0' to use those bridges and then be able to ssh
     in directly.
 
+  * CURTIN_VMTEST_BOOT_TIMEOUT: default 300
+    timeout before giving up on the boot of the installed system.
+
+  * CURTIN_VMTEST_INSTALL_TIMEOUT: default 3000
+    timeout before giving up on installation.
+
+  * CURTIN_VMTEST_PARALLEL: default ''
+    only supported through ./tools/jenkins-runner .
+       -1 : then run one per core.
+        0 or '': then run with no parallel
+       >0 : run with N processes
+    this modifies the  invocation of nosetets to add '--processes' and other
+    necessary nose arguments (--process-timeout)
+
   * IMAGE_DIR: default /srv/images
     vmtest keeps a mirror of maas ephemeral images in this directory.
 
@@ -150,3 +164,58 @@ Some environment variables affect the running of vmtest
 Environment 'boolean' values:
    For boolean environment variables the value is considered True
    if it is any value other than case insensitive 'false', '' or "0"
+
+
+== Test Class Variables ==
+The base VMBaseClass defines several variables that help creating a new test
+easily. Among those the common ones are:
+
+Generic:
+- arch_skip
+  If a test is not supported on an architecture it can list the arch in this
+  variable to auto-skip the test if executed on that arch.
+- conf_file
+  The configuration that will be processed by this vmtest.
+- extra_kern_args
+  Extra arguments to the guest kernel on boot.
+
+Data Collection:
+- collect_scripts
+  The commands run when booting into the installed environment to collect the
+  data for the test to verify a proper execution.
+- boot_cloudconf
+  Extra cloud-init config content for the install phase.
+  This allows to gather content of the install phase if needed for test
+  verification.
+
+
+Disk Setup:
+- disk_block_size = 512
+- disk_driver = 'virtio-blk'
+  Used to set up the disks for the virtual environment used by the vmtest.
+  Will set the values used in extra_disks if not specified there.
+- extra_disks
+  A list of extra disks to be created for the testcase. The definition is
+  dpath:size:driver:block_size
+- multipath = False
+- multipath_num_paths = 2
+  Details for the (virtual) multipath setup
+- nvme_disks
+  a shortcut to provide extra disks with the nvme driver
+
+Timeouts:
+- boot_timeout
+- install_timeout
+  Usually set via CURTIN_VMTEST_BOOT_TIMEOUT/CURTIN_VMTEST_INSTALL_TIMEOUT
+  (see above) environment var, but can be overwritten by a testcase if needed.
+
+Checks:
+- disk_to_check
+  A disk name that is verified to be existing after the installation.
+- fstab_expected
+
+Release:
+- release = None
+- krel = None
+  Those two define the distribution and kernel release to be tested and are
+  usually set by importing and inheriting from tests/vmtests/releases.py

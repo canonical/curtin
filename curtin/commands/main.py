@@ -27,7 +27,7 @@ from ..deps import install_deps
 
 SUB_COMMAND_MODULES = [
     'apply_net', 'block-meta', 'block-wipe', 'curthooks', 'extract',
-    'hook', 'in-target', 'install', 'mkfs', 'net-meta',
+    'hook', 'in-target', 'install', 'mkfs', 'net-meta', 'apt-config',
     'pack', 'swap', 'system-install', 'system-upgrade']
 
 
