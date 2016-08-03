@@ -67,9 +67,9 @@ def lvm_scan():
     release = util.lsb_release().get('codename')
     if release in [None, 'UNAVAILABLE']:
         LOG.warn('unable to find release number, assuming trusty or later')
-        release = 'trusty'
+        release = 'xenial'
 
     for cmd in [['pvscan'], ['vgscan', '--mknodes']]:
-        if release != 'precise':
+        if release not in ['precise', 'trusty']:
             cmd.append('--cache')
         util.subp(cmd, capture=True)
