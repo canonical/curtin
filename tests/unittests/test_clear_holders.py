@@ -1,32 +1,10 @@
 from unittest import TestCase
-import unittest
 import mock
 
 from curtin.block import clear_holders
-from curtin import block
-
-import errno
-import os
 
 
-@unittest.skip
 class TestClearHolders(TestCase):
-
-    def test_split_vg_lv_name(self):
-        """Ensure that split_vg_lv_name works for all possible lvm names"""
-        names = ['volgroup-lvol', 'vol--group-lvol', 'test--one-test--two',
-                 'test--one--two-lvname']
-        split_names = [('volgroup', 'lvol'), ('vol-group', 'lvol'),
-                       ('test-one', 'test-two'), ('test-one-two', 'lvname')]
-        for name, split in zip(names, split_names):
-            self.assertEqual(clear_holders.split_vg_lv_name(name), split)
-
-        with self.assertRaises(ValueError):
-            clear_holders.split_vg_lv_name('test')
-        with self.assertRaises(ValueError):
-            clear_holders.split_vg_lv_name('-test')
-        with self.assertRaises(ValueError):
-            clear_holders.split_vg_lv_name('test-')
 
     @mock.patch('curtin.block.clear_holders.block')
     @mock.patch('curtin.block.clear_holders.os')
@@ -44,153 +22,43 @@ class TestClearHolders(TestCase):
             mock_os.path.realpath.return_value = '/dev/null'
             clear_holders.get_bcache_using_dev('/dev/vda')
 
-    def _mock_functools(self, func, *args, **kwargs):
-        res = {'func': func}
-        if args is not None:
-            res.update({'args': list(args)})
-        if kwargs is not None:
-            res.update({'kwargs': dict(kwargs)})
-        return res
-
-    @mock.patch('curtin.block.clear_holders.functools')
     @mock.patch('curtin.block.clear_holders.LOG')
-    @mock.patch('curtin.block.clear_holders.util.write_file')
-    @mock.patch('curtin.block.clear_holders.glob')
+    @mock.patch('curtin.block.clear_holders.open')
     @mock.patch('curtin.block.clear_holders.get_bcache_using_dev')
-    def test_shutdown_bcache(self, mock_get_bcache_dev, mock_glob,
-                             mock_write_file, mock_log, mock_functools):
-        """
-        Ensure that shutdown_bcache works as expected even when errors
-        encountered
-        """
-        fake_bcache_dev = '/dev/bcache0'
-        fake_bcache_sys = '/sys/fs/bcache/fakebcache'
-        bcache0_held = [
-            os.path.join(fake_bcache_sys, 'bdev0/dev/slaves', p)
-            for p in ['vda', 'vdb']
-        ]
-        bcache1_held = [
-            os.path.join(fake_bcache_sys, 'bdev1/dev/slaves', p)
-            for p in ['vda', 'vdc']
-        ]
-
-        no_sysfs_path_err = OSError(errno.ENOENT, 'no sysfs path')
-
-        def _bcache_using_dev(dev):
-            if dev != fake_bcache_dev:
-                raise no_sysfs_path_err
-            return fake_bcache_sys
-
-        mock_get_bcache_dev.side_effect = _bcache_using_dev
-        mock_functools.partial.side_effect = self._mock_functools
-        mock_glob.glob.return_value = bcache0_held + bcache1_held
-
-        # ensure that correct wipe statements returned and bcache is stopped
-        (wipe, _err) = clear_holders.shutdown_bcache(fake_bcache_dev)
-        self.assertEqual(len(_err), 0)
-        mock_write_file.assert_called_with(
-            os.path.join(fake_bcache_sys, 'stop'), '1')
-        self.assertEqual(len(wipe), 3)
-        for p in ['/dev/vda', '/dev/vdb', '/dev/vdc']:
-            partial = {'func': block.wipe_volume, 'args': [p],
-                       'kwargs': {'mode': 'superblock'}}
-            self.assertIn(partial, wipe)
-
-        # ensure that shutdown_bcache exits gracefully if the specified bcache
-        # device was not found
-        (wipe, _err) = clear_holders.shutdown_bcache('/dev/null')
-        self.assertIsNone(wipe)
-        self.assertEqual(len(_err), 1)
-        self.assertEqual(str(no_sysfs_path_err), _err[0])
-
-    @mock.patch('curtin.block.clear_holders.block.mdadm')
-    def test_shutdown_mdadm(self, mock_mdadm):
-        """Ensure that shutdown_mdadm makes the correct calls to mdadm"""
-        md_dev = '/sys/class/block/null'
-        (wipe, _err) = clear_holders.shutdown_mdadm(md_dev)
-        self.assertIsNone(wipe)
-        self.assertEqual(len(_err), 0)
-        mock_mdadm.mdadm_stop.assert_called_with('/dev/null')
-        mock_mdadm.mdadm_remove.assert_called_with('/dev/null')
-
-    @mock.patch('curtin.block.clear_holders.block.sys_block_path')
-    @mock.patch('curtin.block.clear_holders.functools')
-    @mock.patch('curtin.block.clear_holders.LOG')
-    @mock.patch('curtin.block.clear_holders.util.subp')
-    @mock.patch('curtin.block.clear_holders.util.load_file')
-    def test_shutdown_lvm(self, mock_load_file, mock_subp, mock_log,
-                          mock_functools, mock_sys_block_path):
-        """Ensure that shutdown_lvm works as expected"""
-        lvm_path = '/dev/dm-0'
-        # this file seems to contain a newline at the end which threw off an
-        # earlier version of shutdown_lvm, so check that it works with one in
-        # place
-        mock_load_file.return_value = 'vg--one-lv--one\n'
-        mock_sys_block_path.return_value = '/sys/block/dm-0'
-        mock_functools.partial.side_effect = self._mock_functools
-        (wipe, _err) = clear_holders.shutdown_lvm(lvm_path)
-        self.assertEqual(len(_err), 0)
-        mock_subp.assert_called_with(['lvremove', '--force', '--force',
-                                      'vg-one/lv-one'])
-        self.assertEqual(wipe, {'func': block.wipe_volume, 'args': [lvm_path],
-                                'kwargs': {'mode': 'pvremove'}})
-
-        # shutdown_lvm should give up if unable to parse lvm volgroup - logical
-        # volume name
-        mock_load_file.return_value = 'invalidname'
-        (wipe, _err) = clear_holders.shutdown_lvm(lvm_path)
-        self.assertIsNone(wipe)
-        self.assertEqual(len(_err), 1)
-        real_err = OSError(errno.ENOENT,
-                           'file: {}{} missing or has invalid contents'
-                           .format(mock_sys_block_path.return_value,
-                                   '/dm/name'))
-        self.assertEqual(str(real_err), _err[0])
+    def test_shutdown_bcache(self, mock_get_bcache, mock_open, mock_log):
+        """test clear_holders.shutdown_bcache"""
+        bcache_sys_block = '/sys/block/bcache0'
+        mock_get_bcache.return_value = '/dev/null'
+        clear_holders.shutdown_bcache(bcache_sys_block)
+        mock_get_bcache.assert_called_with(bcache_sys_block)
+        self.assertTrue(mock_log.debug.called)
+        self.assertFalse(mock_log.warn.called)
+        mock_open.assert_called_with('/dev/null/stop', 'w')
 
     @mock.patch('curtin.block.clear_holders.LOG')
-    @mock.patch('curtin.block.clear_holders.os')
-    @mock.patch('curtin.block.clear_holders.block.sys_block_path')
-    def test_get_holders(self, mock_sys_block_path, mock_os, mock_log):
-        """Test that get_holders works and handles errors correctly"""
-        dev_path = '/dev/fake'
-        sys_path = '/sys/block/fake'
-        holders = ['vda', 'vdb']
-        mock_sys_block_path.return_value = sys_path
-        mock_os.listdir.return_value = holders
-        (res, _err) = clear_holders.get_holders(dev_path)
-        mock_sys_block_path.assert_called_with(dev_path)
-        self.assertEqual(res, holders)
-        self.assertEqual(len(_err), 0)
-        # test error handling
-        expected_err = OSError(errno.ENOENT, 'no sysfs path')
+    @mock.patch('curtin.block.clear_holders.open')
+    @mock.patch('curtin.block.clear_holders.get_bcache_using_dev')
+    def test_shutdown_bcache_err(self, mock_get_bcache, mock_open, mock_log):
+        """ensure that clear_holders.shutdown_bcache catches OSError"""
+        # this is the only of the shutdown handlers that has a need to for
+        # passing on an error, because there are some cases where a single
+        # bcache device can have multiple knames, such as when there are
+        # multiple backing devices sharing a single cache device, and therefore
+        # clear_holders may attempt to shutdown the same bcache device twice
 
-        def _fail_sys_block_path(dev):
-            raise expected_err
+        def raise_os_err(_):
+            raise OSError('test')
 
-        mock_sys_block_path.side_effect = _fail_sys_block_path
-        (res, _err) = clear_holders.get_holders(dev_path)
-        self.assertEqual(len(res), 0)
-        self.assertEqual(len(_err), 1)
-        self.assertEqual(str(expected_err), _err[0])
-
-    @mock.patch('curtin.block.clear_holders.LOG')
-    @mock.patch('curtin.block.clear_holders.clear_holders')
-    def test_check_clear(self, mock_clear_holders, mock_log):
-        errors = [str(e) for e in
-                  [IOError(errno.ENOENT, 'test1'),
-                   OSError(errno.ENXIO, 'test2')]]
-        mock_clear_holders.return_value = (True, errors)
-        clear_holders.check_clear('/dev/null')
-        mock_clear_holders.assert_called_with('/dev/null')
-        self.assertFalse(mock_log.error.called)
+        mock_get_bcache.side_effect = raise_os_err
+        clear_holders.shutdown_bcache('/dev/null')
+        self.assertFalse(mock_open.called)
+        self.assertFalse(mock_log.debug.called)
         self.assertTrue(mock_log.warn.called)
-        mock_log.warn.assert_called_with(
-            'clear_holders encountered error: {}'.format(errors[1]))
-        mock_log.info.assert_called_with(
-            'clear_holders finished successfully on device: /dev/null')
 
-        # check that error is raised if clear_holders failed
-        mock_clear_holders.return_value = (False, errors)
-        with self.assertRaises(OSError):
-            clear_holders.check_clear('/dev/null')
-        self.assertTrue(mock_log.error.called)
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.block.sys_block_path')
+    @mock.patch('curtin.block.clear_holders.lvm')
+    @mock.patch('curtin.block.clear_holders.util')
+    def test_shutdown_lvm(self, mock_util, mock_lvm, mock_syspath, mock_log):
+        """test clear_holders.shutdown_lvm"""
+        pass
