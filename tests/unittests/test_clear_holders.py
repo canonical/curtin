@@ -61,4 +61,55 @@ class TestClearHolders(TestCase):
     @mock.patch('curtin.block.clear_holders.util')
     def test_shutdown_lvm(self, mock_util, mock_lvm, mock_syspath, mock_log):
         """test clear_holders.shutdown_lvm"""
-        pass
+        device = '/dev/null'
+        vg_name = 'volgroup1'
+        lv_name = 'lvol1'
+        mock_syspath.return_value = device
+        mock_util.load_file.return_value = '-'.join((vg_name, lv_name))
+        mock_lvm.split_lvm_name.return_value = (vg_name, lv_name)
+        mock_lvm.get_lvols_in_volgroup.return_value = ['lvol2']
+        clear_holders.shutdown_lvm(device)
+        mock_syspath.assert_called_with(device)
+        mock_util.load_file.assert_called_with(device + '/dm/name')
+        mock_lvm.split_lvm_name.assert_called_with(
+            '-'.join((vg_name, lv_name)))
+        self.assertTrue(mock_log.debug.called)
+        mock_util.subp.assert_called_with(
+            ['lvremove', '--force', '--force', '/'.join((vg_name, lv_name))],
+            rcs=[0, 5])
+        mock_lvm.get_lvols_in_volgroup.assert_called_with(vg_name)
+        self.assertEqual(len(mock_util.subp.call_args_list), 1)
+        self.assertTrue(mock_lvm.lvm_scan.called)
+        mock_lvm.get_lvols_in_volgroup.return_value = []
+        clear_holders.shutdown_lvm(device)
+        mock_util.subp.assert_called_with(
+            ['vgremove', '--force', '--force', vg_name], rcs=[0, 5])
+
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.block')
+    def test_shutdown_mdadm(self, mock_block, mock_log):
+        """test clear_holders.shutdown_mdadm"""
+        device = '/dev/null'
+        syspath = '/sys/block/null'
+        mock_block.dev_short.return_value = 'null'
+        mock_block.dev_path.return_value = device
+        clear_holders.shutdown_mdadm(syspath)
+        mock_block.mdadm.mdadm_stop.assert_called_with(device)
+        mock_block.mdadm.mdadm_remove.assert_called_with(device)
+        self.assertTrue(mock_log.debug.called)
+
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.util')
+    @mock.patch('curtin.block.clear_holders.block')
+    def test_clear_holders_wipe_superblock(self, mock_block,
+                                           mock_util, mock_log):
+        """test clear_holders.wipe_superblock handles errors right"""
+        device = '/dev/null'
+        syspath = '/sys/block/null'
+        mock_block.dev_short.return_value = 'null'
+        mock_block.dev_path.return_value = device
+        clear_holders.wipe_superblock(syspath)
+        mock_block.dev_short.assert_called_with(syspath)
+        mock_block.wipe_volume.assert_called_with(device, mode='superblock')
+        self.assertFalse(mock_util.is_file_not_found_exc.called)
+        self.assertTrue(mock_log.info.called)
