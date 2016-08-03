@@ -737,7 +737,6 @@ def wipe_volume(path, mode="superblock"):
         util.subp(['pvremove', '--force', '--force', '--yes', path],
                   rcs=[0, 5], capture=True)
         lvm.lvm_scan()
-
     elif mode == "zero":
         wipe_file(path)
     elif mode == "random":

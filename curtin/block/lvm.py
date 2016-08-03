@@ -64,13 +64,12 @@ def lvm_scan():
     # as every supported release except for precise supports the --cache
     # flag, and most releases being installed now are either trusty or
     # xenial
-    release_code_str = util.lsb_release().get('release')
-    if release_code_str is None or release_code_str == 'UNAVAILABLE':
+    release = util.lsb_release().get('codename')
+    if release in [None, 'UNAVAILABLE']:
         LOG.warn('unable to find release number, assuming trusty or later')
-        release_code_str = '14.04'
-    release_code = float(release_code_str)
+        release = 'trusty'
 
-    for cmd in [['pvscan'], ['vgscan', '--mknodes'], ['lvscan', '--all']]:
-        if release_code >= 14.04:
+    for cmd in [['pvscan'], ['vgscan', '--mknodes']]:
+        if release != 'precise':
             cmd.append('--cache')
         util.subp(cmd, capture=True)

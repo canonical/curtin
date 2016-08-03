@@ -251,6 +251,41 @@ class TestWipeFile(TestCase):
         self.assertEqual(data, found)
 
 
+class TestWipeVolume(TestCase):
+    dev = '/dev/null'
+
+    @mock.patch('curtin.block.lvm')
+    @mock.patch('curtin.block.util')
+    def test_wipe_pvremove(self, mock_util, mock_lvm):
+        block.wipe_volume(self.dev, mode='pvremove')
+        mock_util.subp.assert_called_with(
+            ['pvremove', '--force', '--force', '--yes', self.dev], rcs=[0, 5],
+            capture=True)
+        self.assertTrue(mock_lvm.lvm_scan.called)
+
+    @mock.patch('curtin.block.quick_zero')
+    def test_wipe_superblock(self, mock_quick_zero):
+        block.wipe_volume(self.dev, mode='superblock')
+        mock_quick_zero.assert_called_with(self.dev, partitions=False)
+        block.wipe_volume(self.dev, mode='superblock-recursive')
+        mock_quick_zero.assert_called_with(self.dev, partitions=True)
+
+    @mock.patch('curtin.block.open')
+    @mock.patch('curtin.block.wipe_file')
+    def test_wipe_zero_random(self, mock_wipe_file, mock_open):
+        block.wipe_volume(self.dev, mode='zero')
+        mock_wipe_file.assert_called_with(self.dev)
+        mock_open.return_value = mock.MagicMock()
+        block.wipe_volume(self.dev, mode='random')
+        mock_open.assert_called_with('/dev/urandom', 'rb')
+        mock_wipe_file.assert_called_with(
+            self.dev, reader=mock_open.return_value.__enter__().read)
+
+    def test_bad_input(self):
+        with self.assertRaises(ValueError):
+            block.wipe_volume(self.dev, mode='invalidmode')
+
+
 class TestBlockKnames(TestCase):
     """Tests for some of the kname functions in block"""
     def test_determine_partition_kname(self):
