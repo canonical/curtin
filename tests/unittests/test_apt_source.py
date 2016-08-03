@@ -451,11 +451,14 @@ class TestAptSourceConfig(TestCase):
         self.assertFalse(os.path.isfile(self.aptlistfile2))
         self.assertFalse(os.path.isfile(self.aptlistfile3))
 
-    def test_mir_apt_list_rename(self):
+    @mock.patch("curtin.commands.apt_config.util.get_architecture")
+    def test_mir_apt_list_rename(self, m_get_architecture):
         """test_mir_apt_list_rename - Test find mirror and apt list renaming"""
         pre = "/var/lib/apt/lists"
         # filenames are archive dependent
+
         arch = 's390x'
+        m_get_architecture.return_value = arch
         component = "ubuntu-ports"
         archive = "ports.ubuntu.com"
 
