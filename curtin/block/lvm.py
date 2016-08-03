@@ -66,7 +66,7 @@ def lvm_scan():
     # xenial
     release = util.lsb_release().get('codename')
     if release in [None, 'UNAVAILABLE']:
-        LOG.warn('unable to find release number, assuming trusty or later')
+        LOG.warn('unable to find release number, assuming xenial or later')
         release = 'xenial'
 
     for cmd in [['pvscan'], ['vgscan', '--mknodes']]:
