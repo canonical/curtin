@@ -455,13 +455,9 @@ class TestAptSourceConfig(TestCase):
         """test_mir_apt_list_rename - Test find mirror and apt list renaming"""
         pre = "/var/lib/apt/lists"
         # filenames are archive dependent
-        arch = util.get_architecture()
-        if arch in apt_config.PRIMARY_ARCHES:
-            component = "ubuntu"
-            archive = "archive.ubuntu.com"
-        else:
-            component = "ubuntu-ports"
-            archive = "ports.ubuntu.com"
+        arch = 's390x'
+        component = "ubuntu-ports"
+        archive = "ports.ubuntu.com"
 
         cfg = {'primary': [{'arches': ["default"],
                             'uri':
@@ -483,12 +479,10 @@ class TestAptSourceConfig(TestCase):
         self.assertEqual(mirrors['SECURITY'],
                          "http://testsec.ubuntu.com/%s/" % component)
 
-        # get_architecture would fail inside the unittest context
-        with mock.patch.object(util, 'get_architecture', return_value=arch):
-            with mock.patch.object(os, 'rename') as mockren:
-                with mock.patch.object(glob, 'glob',
-                                       return_value=[fromfn]):
-                    apt_config.rename_apt_lists(mirrors, TARGET)
+        with mock.patch.object(os, 'rename') as mockren:
+            with mock.patch.object(glob, 'glob',
+                                   return_value=[fromfn]):
+                apt_config.rename_apt_lists(mirrors, TARGET)
 
         mockren.assert_any_call(fromfn, tofn)
 
@@ -589,25 +583,19 @@ class TestAptSourceConfig(TestCase):
 
     def test_mirror_arches(self):
         """test_mirror_arches - Test arches selection of mirror"""
-        pmir = "http://us.archive.ubuntu.com/ubuntu/"
-        smir = "http://security.ubuntu.com/ubuntu/"
-        cfg = {"primary": [{'arches': ["default"],
-                            "uri": "notthis"},
-                           {'arches': [util.get_architecture()],
-                            "uri": pmir}],
-               "security": [{'arches': [util.get_architecture()],
-                             "uri": smir},
-                            {'arches': ["default"],
-                             "uri": "nothat"}]}
+        pmir = "http://my-primary.ubuntu.com/ubuntu/"
+        smir = "http://my-security.ubuntu.com/ubuntu/"
+        arch = 'ppc64el'
+        cfg = {"primary": [{'arches': ["default"], "uri": "notthis-primary"},
+                           {'arches': [arch], "uri": pmir}],
+               "security": [{'arches': ["default"], "uri": "nothis-security"},
+                            {'arches': [arch], "uri": smir}]}
 
-        mirrors = apt_config.find_apt_mirror_info(cfg, 'amd64')
+        mirrors = apt_config.find_apt_mirror_info(cfg, arch)
 
-        self.assertEqual(mirrors['MIRROR'],
-                         pmir)
-        self.assertEqual(mirrors['PRIMARY'],
-                         pmir)
-        self.assertEqual(mirrors['SECURITY'],
-                         smir)
+        self.assertEqual(mirrors['PRIMARY'], pmir)
+        self.assertEqual(mirrors['MIRROR'], pmir)
+        self.assertEqual(mirrors['SECURITY'], smir)
 
     def test_mirror_arches_default(self):
         """test_mirror_arches - Test falling back to default arch"""
@@ -632,17 +620,15 @@ class TestAptSourceConfig(TestCase):
                          smir)
 
     @mock.patch("curtin.commands.apt_config.util.get_architecture")
-    def test_get_default_mirrors_non_intel_no_arg(self, m_get_architecture):
+    def test_get_default_mirrors_non_intel_no_arch(self, m_get_architecture):
         arch = 'ppc64el'
         m_get_architecture.return_value = arch
         expected = {'PRIMARY': 'http://ports.ubuntu.com/ubuntu-ports',
                     'SECURITY': 'http://ports.ubuntu.com/ubuntu-ports'}
-        self.assertEqual(expected, apt_config.get_default_mirrors(arch))
+        self.assertEqual(expected, apt_config.get_default_mirrors())
 
-    @mock.patch("curtin.commands.apt_config.util.get_architecture")
-    def test_get_default_mirrors_non_intel_with_arch(self, m_get_architecture):
-        arch = 'ppc64el'
-        found = apt_config.get_default_mirrors(arch)
+    def test_get_default_mirrors_non_intel_with_arch(self):
+        found = apt_config.get_default_mirrors('ppc64el')
 
         expected = {'PRIMARY': 'http://ports.ubuntu.com/ubuntu-ports',
                     'SECURITY': 'http://ports.ubuntu.com/ubuntu-ports'}
@@ -663,14 +649,11 @@ class TestAptSourceConfig(TestCase):
                             {'arches': ["thisarchdoesntexist_64"],
                              "uri": "nothateither"}]}
 
-        mirrors = apt_config.find_apt_mirror_info(cfg, 'amd64')
+        mirrors = apt_config.find_apt_mirror_info(cfg, arch)
 
-        self.assertEqual(mirrors['MIRROR'],
-                         pmir)
-        self.assertEqual(mirrors['PRIMARY'],
-                         pmir)
-        self.assertEqual(mirrors['SECURITY'],
-                         smir)
+        self.assertEqual(mirrors['MIRROR'], pmir)
+        self.assertEqual(mirrors['PRIMARY'], pmir)
+        self.assertEqual(mirrors['SECURITY'], smir)
 
     def test_mirror_search(self):
         """test_mirror_search - Test searching mirrors in a list

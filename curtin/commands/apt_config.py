@@ -60,9 +60,9 @@ def get_default_mirrors(arch=None):
     if arch is None:
         arch = util.get_architecture()
     if arch in PRIMARY_ARCHES:
-        return PRIMARY_ARCH_MIRRORS
+        return PRIMARY_ARCH_MIRRORS.copy()
     if arch in PORTS_ARCHES:
-        return PORTS_MIRRORS
+        return PORTS_MIRRORS.copy()
     raise ValueError("No default mirror known for arch %s" % arch)
 
 
