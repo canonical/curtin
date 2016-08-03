@@ -135,23 +135,6 @@ def identify_partition(device):
     return os.path.exists(path)
 
 
-# types of devices that could be encountered by clear holders and functions to
-# identify them and shut them down
-DEV_TYPES = {
-    'partition': {'shutdown': wipe_superblock, 'ident': identify_partition},
-    # FIXME: below is not the best way to identify lvm, it should be replaced
-    #        once there is a method in place to differentiate plain
-    #        devicemapper from lvm controlled devicemapper
-    'lvm': {'shutdown': shutdown_lvm, 'ident': identify_lvm},
-    'raid': {'shutdown': shutdown_mdadm, 'ident': identify_mdadm},
-    'bcache': {'shutdown': shutdown_bcache, 'ident': identify_bcache},
-    'disk': {'ident': lambda x: False, 'shutdown': wipe_superblock},
-}
-
-# anything that is not identified can assumed to be a 'disk' or similar
-DEFAULT_DEV_TYPE = 'disk'
-
-
 def get_holders(device):
     """
     Look up any block device holders, return list of knames
@@ -299,3 +282,20 @@ def clear_holders(base_paths):
                  dev_info['dev_type'], dev_info['device'])
         shutdown_function(dev_info['device'])
         udev.udevadm_settle()
+
+
+# anything that is not identified can assumed to be a 'disk' or similar
+DEFAULT_DEV_TYPE = 'disk'
+
+# types of devices that could be encountered by clear holders and functions to
+# identify them and shut them down
+DEV_TYPES = {
+    'partition': {'shutdown': wipe_superblock, 'ident': identify_partition},
+    # FIXME: below is not the best way to identify lvm, it should be replaced
+    #        once there is a method in place to differentiate plain
+    #        devicemapper from lvm controlled devicemapper
+    'lvm': {'shutdown': shutdown_lvm, 'ident': identify_lvm},
+    'raid': {'shutdown': shutdown_mdadm, 'ident': identify_mdadm},
+    'bcache': {'shutdown': shutdown_bcache, 'ident': identify_bcache},
+    'disk': {'ident': lambda x: False, 'shutdown': wipe_superblock},
+}
