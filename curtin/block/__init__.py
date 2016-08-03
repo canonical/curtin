@@ -738,10 +738,10 @@ def wipe_volume(path, mode="superblock"):
         release = util.lsb_release().get('codename')
         if release in [None, 'UNAVAILABLE']:
             LOG.warn('unable to find release number, assuming trusty or later')
-            release = 'trusty'
+            release = 'xenial'
 
         for cmd in [['pvscan'], ['vgscan', '--mknodes']]:
-            if release != 'precise':
+            if release not in ['precise', 'trusty']:
                 cmd.append('--cache')
             cmds.append((cmd, [0]))
 

@@ -272,7 +272,7 @@ class TestWipeVolume(TestCase):
                 self.assertEqual(expected, actual)
 
         for (count, (codename, cache)) in enumerate(
-                [('precise', False), ('trusty', True),
+                [('precise', False), ('trusty', False),
                  ('vivid', True), ('wily', True), ('xenial', True),
                  ('yakkety', True), ('UNAVAILABLE', True),
                  (None, True)]):
