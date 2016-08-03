@@ -20,14 +20,17 @@
 from curtin import util
 from curtin.log import LOG
 
+# separator to use for lvm/dm tools
+_sep = '='
+
 
 def _filter_lvm_info(lvtool, match_field, query_field, match_key):
     """filter output of pv/vg/lvdisplay tools"""
-    sep = '='
-    (out, _) = util.subp([lvtool, '-C', '--separator', sep, '--noheadings',
+    (out, _) = util.subp([lvtool, '-C', '--separator', _sep, '--noheadings',
                           '-o', ','.join([match_field, query_field])],
                          capture=True)
-    return [qf for (mf, qf) in [l.strip().split(sep) for l in out.splitlines()]
+    return [qf for (mf, qf) in
+            [l.strip().split(_sep) for l in out.strip().splitlines()]
             if mf == match_key]
 
 
@@ -43,12 +46,11 @@ def get_lvols_in_volgroup(vg_name):
 
 def split_lvm_name(full):
     """split full lvm name into tuple of (volgroup, lv_name)"""
-    sep = '='
     # 'dmsetup splitname' is the authoratative source for lvm name parsing
     (out, _) = util.subp(['dmsetup', 'splitname', full, '-c', '--noheadings',
-                          '--separator', sep, '-o', 'vg_name,lv_name'],
+                          '--separator', _sep, '-o', 'vg_name,lv_name'],
                          capture=True)
-    return out.strip().split(sep)
+    return out.strip().split(_sep)
 
 
 def lvm_scan():
