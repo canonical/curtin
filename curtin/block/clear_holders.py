@@ -68,6 +68,9 @@ def shutdown_lvm(device):
     LOG.debug('running lvremove on {}/{}'.format(vg_name, lv_name))
     util.subp(['lvremove', '--force', '--force',
                '{}/{}'.format(vg_name, lv_name)], rcs=[0, 5])
+    # if that was the last lvol in the volgroup, get rid of volgroup
+    if len(lvm.get_lvols_in_volgroup(vg_name)) == 0:
+        util.subp(['vgremove', '--force', '--force', vg_name], rcs=[0, 5])
     # refresh lvmetad
     lvm.lvm_scan()
 
