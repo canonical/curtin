@@ -133,6 +133,7 @@ class TestClearHolders(TestCase):
     @mock.patch('curtin.block.clear_holders.block')
     @mock.patch('curtin.block.clear_holders.os')
     def test_get_holders(self, mock_os, mock_block, mock_log):
+        """test clear_holders.get_holders"""
         sysfs_path = '/sys/block/null'
         device = '/dev/null'
         mock_block.sys_block_path.return_value = sysfs_path
@@ -142,3 +143,9 @@ class TestClearHolders(TestCase):
         mock_os.path.join.assert_called_with(sysfs_path, 'holders')
         self.assertTrue(mock_log.debug.called)
         mock_os.listdir.assert_called_with(os.path.join(sysfs_path, 'holders'))
+
+    @mock.patch('curtin.block.clear_holders.block')
+    @mock.patch('curtin.block.clear_holders.get_holders')
+    def test_gen_holders_tree(self, mock_get_holders, mock_block):
+        """test clear_holders.gen_holders_tree"""
+        pass
