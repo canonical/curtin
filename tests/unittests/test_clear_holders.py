@@ -3,9 +3,70 @@ import mock
 
 from curtin.block import clear_holders
 import os
+import textwrap
 
 
 class TestClearHolders(TestCase):
+    example_holders_trees = [
+        [{'device': '/sys/class/block/sda', 'holders':
+          [{'device': '/sys/class/block/sda/sda1', 'holders': [],
+            'dev_type': 'partition'},
+           {'device': '/sys/class/block/sda/sda2', 'holders': [],
+            'dev_type': 'partition'},
+           {'device': '/sys/class/block/sda/sda5', 'holders':
+            [{'device': '/sys/class/block/dm-0', 'holders':
+              [{'device': '/sys/class/block/dm-1', 'holders': [],
+                'dev_type': 'lvm'},
+               {'device': '/sys/class/block/dm-2', 'holders':
+                [{'device': '/sys/class/block/dm-3', 'holders': [],
+                  'dev_type': 'lvm'}],
+                'dev_type': 'lvm'}],
+              'dev_type': 'lvm'}],
+            'dev_type': 'partition'}],
+          'dev_type': 'disk'}],
+        [{"device": "/sys/class/block/vdb", "holders":
+          [{"device": "/sys/class/block/vdb/vdb1", "holders": [],
+            "dev_type": "partition"},
+           {"device": "/sys/class/block/vdb/vdb2", "holders": [],
+            "dev_type": "partition"},
+           {"device": "/sys/class/block/vdb/vdb3", "holders":
+            [{"device": "/sys/class/block/md0", "holders":
+              [{"device": "/sys/class/block/bcache1", "holders": [],
+                "dev_type": "bcache"}],
+              "dev_type": "raid"}],
+            "dev_type": "partition"},
+           {"device": "/sys/class/block/vdb/vdb4", "holders":
+            [{"device": "/sys/class/block/md0", "holders":
+              [{"device": "/sys/class/block/bcache1", "holders": [],
+                "dev_type": "bcache"}],
+              "dev_type": "raid"}],
+            "dev_type": "partition"},
+           {"device": "/sys/class/block/vdb/vdb5", "holders":
+            [{"device": "/sys/class/block/md0", "holders":
+              [{"device": "/sys/class/block/bcache1", "holders": [],
+                "dev_type": "bcache"}],
+              "dev_type": "raid"}],
+            "dev_type": "partition"},
+           {"device": "/sys/class/block/vdb/vdb6", "holders":
+            [{"device": "/sys/class/block/bcache1", "holders": [],
+              "dev_type": "bcache"},
+             {"device": "/sys/class/block/bcache2", "holders": [],
+              "dev_type": "bcache"}],
+            "dev_type": "partition"},
+           {"device": "/sys/class/block/vdb/vdb7", "holders":
+            [{"device": "/sys/class/block/bcache2", "holders": [],
+              "dev_type": "bcache"}],
+            "dev_type": "partition"},
+           {"device": "/sys/class/block/vdb/vdb8", "holders": [],
+            "dev_type": "partition"}],
+          "dev_type": "disk"},
+         {"device": "/sys/class/block/vdc", "holders": [],
+          "dev_type": "disk"},
+         {"device": "/sys/class/block/vdd", "holders":
+          [{"device": "/sys/class/block/vdd/vdd1", "holders": [],
+            "dev_type": "partition"}],
+          "dev_type": "disk"}],
+    ]
 
     @mock.patch('curtin.block.clear_holders.block')
     @mock.patch('curtin.block.clear_holders.os')
@@ -144,8 +205,113 @@ class TestClearHolders(TestCase):
         self.assertTrue(mock_log.debug.called)
         mock_os.listdir.assert_called_with(os.path.join(sysfs_path, 'holders'))
 
-    @mock.patch('curtin.block.clear_holders.block')
-    @mock.patch('curtin.block.clear_holders.get_holders')
-    def test_gen_holders_tree(self, mock_get_holders, mock_block):
-        """test clear_holders.gen_holders_tree"""
-        pass
+    def test_plan_shutdown_holders_trees(self):
+        """
+        make sure clear_holdrs.plan_shutdown_holders_tree orders shutdown
+        functions correctly and uses the appropriate shutdown function for each
+        dev type
+        """
+        # trees that have been generated, checked for correctness,
+        # and the order that they should be shut down in (by level)
+        test_trees_and_orders = [
+            (self.example_holders_trees[0][0],
+             ({'dm-3'}, {'dm-1', 'dm-2'}, {'dm-0'}, {'sda5', 'sda2', 'sda1'},
+              {'sda'})),
+            (self.example_holders_trees[1],
+             ({'bcache1'}, {'bcache2', 'md0'},
+              {'vdb1', 'vdb2', 'vdb3', 'vdb4', 'vdb5', 'vdb6', 'vdb7', 'vdb8',
+               'vdd1'},
+              {'vdb', 'vdc', 'vdd'}))
+        ]
+        for tree, correct_order in test_trees_and_orders:
+            res = clear_holders.plan_shutdown_holder_trees(tree)
+            for level in correct_order:
+                self.assertEqual({os.path.basename(e['device'])
+                                  for e in res[:len(level)]}, level)
+                res = res[len(level):]
+
+    def test_format_holders_tree(self):
+        """test output of clear_holders.format_holders_tree"""
+        test_trees_and_results = [
+            (self.example_holders_trees[0][0],
+             textwrap.dedent("""
+                 sda
+                 |-- sda1
+                 |-- sda2
+                 `-- sda5
+                     `-- dm-0
+                         |-- dm-1
+                         `-- dm-2
+                             `-- dm-3
+                 """).strip()),
+            (self.example_holders_trees[1][0],
+             textwrap.dedent("""
+                 vdb
+                 |-- vdb1
+                 |-- vdb2
+                 |-- vdb3
+                 |   `-- md0
+                 |       `-- bcache1
+                 |-- vdb4
+                 |   `-- md0
+                 |       `-- bcache1
+                 |-- vdb5
+                 |   `-- md0
+                 |       `-- bcache1
+                 |-- vdb6
+                 |   |-- bcache1
+                 |   `-- bcache2
+                 |-- vdb7
+                 |   `-- bcache2
+                 `-- vdb8
+                 """).strip()),
+            (self.example_holders_trees[1][1], 'vdc'),
+            (self.example_holders_trees[1][2],
+             textwrap.dedent("""
+                 vdd
+                 `-- vdd1
+                 """).strip())
+        ]
+        for tree, result in test_trees_and_results:
+            self.assertEqual(clear_holders.format_holders_tree(tree), result)
+
+    def test_get_holder_types(self):
+        """test clear_holders.get_holder_types"""
+        test_trees_and_results = [
+            (self.example_holders_trees[0][0],
+             {('disk', '/sys/class/block/sda'),
+              ('partition', '/sys/class/block/sda/sda1'),
+              ('partition', '/sys/class/block/sda/sda2'),
+              ('partition', '/sys/class/block/sda/sda5'),
+              ('lvm', '/sys/class/block/dm-0'),
+              ('lvm', '/sys/class/block/dm-1'),
+              ('lvm', '/sys/class/block/dm-2'),
+              ('lvm', '/sys/class/block/dm-3')}),
+            (self.example_holders_trees[1][0],
+             {('disk', '/sys/class/block/vdb'),
+              ('partition', '/sys/class/block/vdb/vdb1'),
+              ('partition', '/sys/class/block/vdb/vdb2'),
+              ('partition', '/sys/class/block/vdb/vdb3'),
+              ('partition', '/sys/class/block/vdb/vdb4'),
+              ('partition', '/sys/class/block/vdb/vdb5'),
+              ('partition', '/sys/class/block/vdb/vdb6'),
+              ('partition', '/sys/class/block/vdb/vdb7'),
+              ('partition', '/sys/class/block/vdb/vdb8'),
+              ('raid', '/sys/class/block/md0'),
+              ('bcache', '/sys/class/block/bcache1'),
+              ('bcache', '/sys/class/block/bcache2')})
+        ]
+        for tree, result in test_trees_and_results:
+            self.assertEqual(clear_holders.get_holder_types(tree), result)
+
+    @mock.patch('curtin.block.clear_holders.block.sys_block_path')
+    @mock.patch('curtin.block.clear_holders.gen_holders_tree')
+    def test_assert_clear(self, mock_gen_holders_tree, mock_syspath):
+        mock_gen_holders_tree.return_value = self.example_holders_trees[0][0]
+        mock_syspath.side_effect = lambda x: x
+        device = '/dev/null'
+        with self.assertRaises(OSError):
+            clear_holders.assert_clear(device)
+            mock_gen_holders_tree.assert_called_with(device)
+        mock_gen_holders_tree.return_value = self.example_holders_trees[1][1]
+        clear_holders.assert_clear(device)
