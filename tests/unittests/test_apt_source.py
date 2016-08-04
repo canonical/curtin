@@ -984,10 +984,20 @@ class TestDebconfSelections(TestCase):
 
     @mock.patch("curtin.commands.apt_config.util.subp")
     def test_dpkg_reconfigure_does_reconfigure(self, m_subp):
-        apt_config.dpkg_reconfigure(['pkga', 'cloud-init'])
+        target = "/foo-target"
+
+        # due to the way the cleaners are called (via dictionary reference)
+        # mocking clean_cloud_init directly does not work.  So we mock
+        # the CONFIG_CLEANERS dictionary and assert our cleaner is called.
+        ci_cleaner = mock.MagicMock()
+        with mock.patch.dict("curtin.commands.apt_config.CONFIG_CLEANERS",
+                             values={'cloud-init': ci_cleaner}, clear=True):
+            apt_config.dpkg_reconfigure(['pkga', 'cloud-init'],
+                                        target=target)
         # cloud-init is actually the only package we have a cleaner for
         # so for now, its the only one that should reconfigured
         m_subp.assert_called()
+        ci_cleaner.assert_called_with(target)
         self.assertEqual(m_subp.call_count, 1)
         found = m_subp.call_args_list[0][0][0]
         expected = ['dpkg-reconfigure', '--frontend=noninteractive',
