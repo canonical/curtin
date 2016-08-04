@@ -911,5 +911,98 @@ deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         result = apt_config.disable_suites(disabled, orig, release)
         self.assertEqual(expect, result)
 
+
+class TestDebconfSelections(TestCase):
+
+    @mock.patch("curtin.commands.apt_config.debconf_set_selections")
+    def test_no_set_sel_if_none_to_set(self, m_set_sel):
+        apt_config.apply_debconf_selections({'foo': 'bar'})
+        m_set_sel.assert_not_called()
+
+    @mock.patch("curtin.commands.apt_config.debconf_set_selections")
+    @mock.patch("curtin.commands.apt_config.util.get_installed_packages")
+    def test_set_sel_call_has_expected_input(self, m_get_inst, m_set_sel):
+        data = {
+            'set1': 'pkga pkga/q1 mybool false',
+            'set2': ('pkgb\tpkgb/b1\tstr\tthis is a string\n'
+                     'pkgc\tpkgc/ip\tstring\t10.0.0.1')}
+        lines = '\n'.join(data.values()).split('\n')
+
+        m_get_inst.return_value = ["adduser", "apparmor"]
+        m_set_sel.return_value = None
+
+        apt_config.apply_debconf_selections({'debconf_selections': data})
+        m_get_inst.assert_called()
+        self.assertEqual(m_set_sel.call_count, 1)
+
+        # assumes called with *args value.
+        selections = m_set_sel.call_args_list[0][0][0].decode()
+
+        missing = [l for l in lines if l not in selections.splitlines()]
+        self.assertEqual([], missing)
+
+    @mock.patch("curtin.commands.apt_config.dpkg_reconfigure")
+    @mock.patch("curtin.commands.apt_config.debconf_set_selections")
+    @mock.patch("curtin.commands.apt_config.util.get_installed_packages")
+    def test_reconfigure_if_intersection(self, m_get_inst, m_set_sel,
+                                         m_dpkg_r):
+        data = {
+            'set1': 'pkga pkga/q1 mybool false',
+            'set2': ('pkgb\tpkgb/b1\tstr\tthis is a string\n'
+                     'pkgc\tpkgc/ip\tstring\t10.0.0.1'),
+            'cloud-init': ('cloud-init cloud-init/datasources'
+                           'multiselect MAAS')}
+
+        m_set_sel.return_value = None
+        m_get_inst.return_value = ["adduser", "apparmor", "pkgb",
+                                   "cloud-init", 'zdog']
+
+        apt_config.apply_debconf_selections({'debconf_selections': data})
+
+        # reconfigure should be called with the intersection
+        # of (packages in config, packages installed)
+        self.assertEqual(m_dpkg_r.call_count, 1)
+        # assumes called with *args (dpkg_reconfigure([a,b,c], target=))
+        packages = m_dpkg_r.call_args_list[0][0][0]
+        self.assertEqual(set(['cloud-init', 'pkgb']), set(packages))
+
+    @mock.patch("curtin.commands.apt_config.dpkg_reconfigure")
+    @mock.patch("curtin.commands.apt_config.debconf_set_selections")
+    @mock.patch("curtin.commands.apt_config.util.get_installed_packages")
+    def test_reconfigure_if_no_intersection(self, m_get_inst, m_set_sel,
+                                            m_dpkg_r):
+        data = {'set1': 'pkga pkga/q1 mybool false'}
+
+        m_get_inst.return_value = ["adduser", "apparmor", "pkgb",
+                                   "cloud-init", 'zdog']
+        m_set_sel.return_value = None
+
+        apt_config.apply_debconf_selections({'debconf_selections': data})
+
+        m_get_inst.assert_called()
+        self.assertEqual(m_dpkg_r.call_count, 0)
+
+    @mock.patch("curtin.commands.apt_config.util.subp")
+    def test_dpkg_reconfigure_does_reconfigure(self, m_subp):
+        apt_config.dpkg_reconfigure(['pkga', 'cloud-init'])
+        # cloud-init is actually the only package we have a cleaner for
+        # so for now, its the only one that should reconfigured
+        m_subp.assert_called()
+        self.assertEqual(m_subp.call_count, 1)
+        found = m_subp.call_args_list[0][0][0]
+        expected = ['dpkg-reconfigure', '--frontend=noninteractive',
+                    'cloud-init']
+        self.assertEqual(expected, found)
+
+    @mock.patch("curtin.commands.apt_config.util.subp")
+    def test_dpkg_reconfigure_not_done_on_no_data(self, m_subp):
+        apt_config.dpkg_reconfigure([])
+        m_subp.assert_not_called()
+
+    @mock.patch("curtin.commands.apt_config.util.subp")
+    def test_dpkg_reconfigure_not_done_if_no_cleaners(self, m_subp):
+        apt_config.dpkg_reconfigure(['pkgfoo', 'pkgbar'])
+        m_subp.assert_not_called()
+
 #
 # vi: ts=4 expandtab
