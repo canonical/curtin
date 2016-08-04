@@ -239,9 +239,9 @@ def get_holder_types(tree):
     get flattened list of types of holders in holders tree and the devices
     they correspond to
     """
-    types = [(tree['dev_type'], tree['device'])]
+    types = {(tree['dev_type'], tree['device'])}
     for holder in tree['holders']:
-        types.extend(get_holder_types(holder))
+        types.update(get_holder_types(holder))
     return types
 
 
