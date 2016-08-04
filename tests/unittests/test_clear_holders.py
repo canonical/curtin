@@ -2,6 +2,7 @@ from unittest import TestCase
 import mock
 
 from curtin.block import clear_holders
+import os
 
 
 class TestClearHolders(TestCase):
@@ -98,11 +99,12 @@ class TestClearHolders(TestCase):
         mock_block.mdadm.mdadm_remove.assert_called_with(device)
         self.assertTrue(mock_log.debug.called)
 
+    @mock.patch('curtin.block.clear_holders.os')
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.util')
     @mock.patch('curtin.block.clear_holders.block')
-    def test_clear_holders_wipe_superblock(self, mock_block,
-                                           mock_util, mock_log):
+    def test_clear_holders_wipe_superblock(self, mock_block, mock_util,
+                                           mock_log, mock_os):
         """test clear_holders.wipe_superblock handles errors right"""
         device = '/dev/null'
         syspath = '/sys/block/null'
@@ -113,3 +115,30 @@ class TestClearHolders(TestCase):
         mock_block.wipe_volume.assert_called_with(device, mode='superblock')
         self.assertFalse(mock_util.is_file_not_found_exc.called)
         self.assertTrue(mock_log.info.called)
+
+        def raise_os_error(blockdev, mode=None):
+            raise OSError('test')
+
+        mock_block.wipe_volume.side_effect = raise_os_error
+        mock_util.is_file_not_found_exc.return_value = True
+        mock_util.load_file.return_value = '2'
+        mock_os.path.exists.return_value = True
+        clear_holders.wipe_superblock(syspath)
+
+        mock_util.is_file_not_found_exc.return_value = False
+        with self.assertRaises(OSError):
+            clear_holders.wipe_superblock(syspath)
+
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.block')
+    @mock.patch('curtin.block.clear_holders.os')
+    def test_get_holders(self, mock_os, mock_block, mock_log):
+        sysfs_path = '/sys/block/null'
+        device = '/dev/null'
+        mock_block.sys_block_path.return_value = sysfs_path
+        mock_os.path.join.side_effect = os.path.join
+        clear_holders.get_holders(device)
+        mock_block.sys_block_path.assert_called_with(device)
+        mock_os.path.join.assert_called_with(sysfs_path, 'holders')
+        self.assertTrue(mock_log.debug.called)
+        mock_os.listdir.assert_called_with(os.path.join(sysfs_path, 'holders'))
