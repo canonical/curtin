@@ -105,6 +105,36 @@ def handle_apt(cfg, target=None):
                         template_params=params, aa_repo_match=matcher)
 
 
+def debconf_set_selections(selections, target=None):
+    util.subp(['debconf-set-selections'], data=selections, target=target,
+              capture=True)
+
+
+def dpkg_reconfigure(packages, target=None):
+    # For any packages that are already installed, but have preseed data
+    # we populate the debconf database, but the filesystem configuration
+    # would be preferred on a subsequent dpkg-reconfigure.
+    # so, what we have to do is "know" information about certain packages
+    # to unconfigure them.
+    unhandled = []
+    to_config = []
+    for pkg in packages:
+        if pkg in CONFIG_CLEANERS:
+            LOG.debug("unconfiguring %s", pkg)
+            CONFIG_CLEANERS[pkg](target)
+            to_config.append(pkg)
+        else:
+            unhandled.append(pkg)
+
+    if len(unhandled):
+        LOG.warn("The following packages were installed and preseeded, "
+                 "but cannot be unconfigured: %s", unhandled)
+
+    if len(to_config):
+        util.subp(['dpkg-reconfigure', '--frontend=noninteractive'] +
+                  list(to_config), data=None, target=target, capture=True)
+
+
 def apply_debconf_selections(cfg, target=None):
     """apply_debconf_selections - push content to debconf"""
     # debconf_selections:
@@ -116,14 +146,13 @@ def apply_debconf_selections(cfg, target=None):
         LOG.debug("debconf_selections was not set in config")
         return
 
-    # for each entry in selections, chroot and apply them.
-    # keep a running total of packages we've seen.
-    pkgs_cfgd = set()
+    selections = '\n'.join(
+        [selsets[key] for key in sorted(selsets.keys())])
+    debconf_set_selections(selections.encode() + b"\n", target=target)
 
+    # get a complete list of packages listed in input
+    pkgs_cfgd = set()
     for key, content in selsets.items():
-        LOG.debug("setting for %s, %s", key, content)
-        util.subp(['debconf-set-selections'],
-                  data=content.encode(), target=target)
         for line in content.splitlines():
             if line.startswith("#"):
                 continue
@@ -140,28 +169,7 @@ def apply_debconf_selections(cfg, target=None):
         LOG.debug("no need for reconfig")
         return
 
-    # For any packages that are already installed, but have preseed data
-    # we populate the debconf database, but the filesystem configuration
-    # would be preferred on a subsequent dpkg-reconfigure.
-    # so, what we have to do is "know" information about certain packages
-    # to unconfigure them.
-    unhandled = []
-    to_config = []
-    for pkg in need_reconfig:
-        if pkg in CONFIG_CLEANERS:
-            LOG.debug("unconfiguring %s", pkg)
-            CONFIG_CLEANERS[pkg](target)
-            to_config.append(pkg)
-        else:
-            unhandled.append(pkg)
-
-    if len(unhandled):
-        LOG.warn("The following packages were installed and preseeded, "
-                 "but cannot be unconfigured: %s", unhandled)
-
-    if len(to_config):
-        util.subp(['dpkg-reconfigure' '--frontend=noninteractive'] +
-                  list(to_config), data=None, target=target)
+    dpkg_reconfigure(need_reconfig, target=target)
 
 
 def clean_cloud_init(target):

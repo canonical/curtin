@@ -26,6 +26,7 @@ class TestOldAptAbs(VMBaseClass):
         cp /etc/apt/apt.conf.d/90curtin-aptproxy .
         cp /etc/apt/sources.list .
         cp /etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg .
+        cp /etc/cloud/cloud.cfg.d/90_dpkg.cfg .
         """)]
     arch = util.get_architecture()
     if arch in ['amd64', 'i386']:
@@ -41,7 +42,7 @@ class TestOldAptAbs(VMBaseClass):
         """test_output_files_exist - Check if all output files exist"""
         self.output_files_exist(
             ["debc", "aptconf", "sources.list", "90curtin-aptproxy",
-             "curtin-preserve-sources.cfg"])
+             "curtin-preserve-sources.cfg", "90_dpkg.cfg"])
 
     def test_preserve_source(self):
         """test_preserve_source - no clobbering sources.list by cloud-init"""
@@ -71,6 +72,14 @@ class TestOldAptAbs(VMBaseClass):
                                      "deb %s %s-security" %
                                      (self.exp_secmirror, self.release) +
                                      " main restricted universe multiverse")
+
+    def test_cloudinit_seeded(self):
+        content = self.load_collect_file("90_dpkg.cfg")
+        # not the greatest test, but we seeded NoCloud as the only datasource
+        # in examples/tests/test_old_apt_features.yaml.  Just verify that
+        # there are no others there.
+        self.assertIn("nocloud", content.lower())
+        self.assertNotIn("maas", content.lower())
 
 
 class XenialTestOldApt(relbase.xenial, TestOldAptAbs):
