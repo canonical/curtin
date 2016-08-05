@@ -104,7 +104,7 @@ def wipe_superblock(device):
     # if the block dev is possibly an extended partition ignore the err
     try:
         block.wipe_volume(blockdev, mode='superblock')
-    except OSError as err:
+    except (OSError, IOError) as err:
         # if not file not found then something went wrong
         if not util.is_file_not_found_exc(err):
             raise
