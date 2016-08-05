@@ -24,7 +24,6 @@ from curtin.block import lvm
 from curtin.log import LOG
 
 import os
-import time
 
 
 def get_bcache_using_dev(device):
@@ -91,15 +90,6 @@ def shutdown_mdadm(device):
     LOG.debug('using mdadm.mdadm_stop on dev: {}'.format(blockdev))
     block.mdadm.mdadm_stop(blockdev)
     block.mdadm.mdadm_remove(blockdev)
-    # mdadm may not have shut down immediately, so we poll till it does, or
-    # until 20 seconds is over
-    for _ in range(20):
-        if not block.is_block_device(blockdev):
-            break
-        time.sleep(1)
-    else:
-        raise OSError('mdadm device {} did not shut down after 20 seconds'
-                      .format(blockdev))
 
 
 def wipe_superblock(device):
