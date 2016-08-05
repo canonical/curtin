@@ -869,7 +869,8 @@ def try_import_module(import_str, default=None):
 
 def is_file_not_found_exc(exc):
     return (isinstance(exc, (IOError, OSError)) and
-            hasattr(exc, 'errno') and exc.errno in (errno.ENOENT, errno.ENXIO))
+            hasattr(exc, 'errno') and
+            exc.errno in (errno.ENOENT, errno.EIO, errno.ENXIO))
 
 
 def _lsb_release(target=None):
