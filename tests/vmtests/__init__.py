@@ -744,15 +744,15 @@ class VMBaseClass(TestCase):
             logger.debug('checking file %s', f)
             self.assertFalse(os.path.exists(os.path.join(self.td.collect, f)))
 
+    def load_collect_file(self, filename, mode="r"):
+        with open(os.path.join(self.td.collect, filename), mode) as fp:
+            return fp.read()
+        
     def check_file_strippedline(self, filename, search):
-        with open(os.path.join(self.td.collect, filename), "r") as fp:
-            data = list(i.strip() for i in fp.readlines())
-        self.assertIn(search, data)
+        self.assertIn(search, self.load_collect_file(filename).splitlines())
 
     def check_file_regex(self, filename, regex):
-        with open(os.path.join(self.td.collect, filename), "r") as fp:
-            data = fp.read()
-        self.assertRegex(data, regex)
+        self.assertRegex(self.load_collect_file(filename), regex)
 
     # To get rid of deprecation warning in python 3.
     def assertRegex(self, s, r):
