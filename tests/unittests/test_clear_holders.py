@@ -147,18 +147,24 @@ class TestClearHolders(TestCase):
         mock_util.subp.assert_called_with(
             ['vgremove', '--force', '--force', vg_name], rcs=[0, 5])
 
+    @mock.patch('curtin.block.clear_holders.time')
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.block')
-    def test_shutdown_mdadm(self, mock_block, mock_log):
+    def test_shutdown_mdadm(self, mock_block, mock_log, mock_time):
         """test clear_holders.shutdown_mdadm"""
         device = '/dev/null'
         syspath = '/sys/block/null'
         mock_block.dev_short.return_value = 'null'
         mock_block.dev_path.return_value = device
+        mock_block.is_block_device.return_value = False
         clear_holders.shutdown_mdadm(syspath)
         mock_block.mdadm.mdadm_stop.assert_called_with(device)
         mock_block.mdadm.mdadm_remove.assert_called_with(device)
         self.assertTrue(mock_log.debug.called)
+        mock_block.is_block_device.return_value = True
+        with self.assertRaises(OSError):
+            clear_holders.shutdown_mdadm(syspath)
+        self.assertEqual(len(mock_time.sleep.call_args_list), 20)
 
     @mock.patch('curtin.block.clear_holders.os')
     @mock.patch('curtin.block.clear_holders.LOG')
