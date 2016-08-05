@@ -749,6 +749,7 @@ class VMBaseClass(TestCase):
             return fp.read()
 
     def check_file_strippedline(self, filename, search):
+        lines = self.load_collect_file(filename).splitlines()
         self.assertIn(search, [i.strip() for i in lines])
 
     def check_file_regex(self, filename, regex):
