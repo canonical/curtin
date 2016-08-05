@@ -747,7 +747,7 @@ class VMBaseClass(TestCase):
     def load_collect_file(self, filename, mode="r"):
         with open(os.path.join(self.td.collect, filename), mode) as fp:
             return fp.read()
-        
+
     def check_file_strippedline(self, filename, search):
         self.assertIn(search, self.load_collect_file(filename).splitlines())
 
