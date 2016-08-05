@@ -8,3 +8,4 @@ apt_mirrors:
 debconf_selections:
   set1: |
     debconf debconf/priority select low
+  cloudinit: "cloud-init cloud-init/datasources multiselect NoCloud"
