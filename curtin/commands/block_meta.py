@@ -1040,12 +1040,7 @@ def meta_custom(args):
     with events.ReportEventStack(
             name=stack_prefix, reporting_enabled=True, level='INFO',
             description="removing previous storage devices"):
-        # before doing anything, mdadm has to be started in case there is a md
-        # device that needs to be detected so it can be properly removed
-        mdadm.mdadm_assemble(scan=True)
-        # also, the bcache module should be loaded so any bcache superblock
-        # present are presented to clear_holders properly
-        util.subp(['modprobe', 'bcache'])
+        clear_holders.start_clear_holders_deps()
         disk_paths = [get_path_to_storage_volume(k, storage_config_dict)
                       for (k, v) in storage_config_dict.items()
                       if v.get('type') == 'disk' and

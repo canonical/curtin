@@ -287,6 +287,15 @@ def clear_holders(base_paths):
         udev.udevadm_settle()
 
 
+def start_clear_holders_deps():
+    """prepare system for clear holders to be able to scan old devices"""
+    # a mdadm scan has to be started in case there is a md device that needs to
+    # be detected
+    block.mdadm.mdadm_assemble(scan=True)
+    # the bcache module needs to be present to properly detect bcache devs
+    util.subp(['modprobe', 'bcache'])
+
+
 # anything that is not identified can assumed to be a 'disk' or similar
 DEFAULT_DEV_TYPE = 'disk'
 
