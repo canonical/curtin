@@ -86,7 +86,7 @@ def shutdown_mdadm(device):
     """
     Shutdown specified mdadm device.
     """
-    blockdev = block.dev_path(block.dev_short(device))
+    blockdev = block.kname_to_path(block.path_to_kname(device))
     LOG.debug('using mdadm.mdadm_stop on dev: {}'.format(blockdev))
     block.mdadm.mdadm_stop(blockdev)
     block.mdadm.mdadm_remove(blockdev)
@@ -96,7 +96,7 @@ def wipe_superblock(device):
     """
     Wrapper for block.wipe_volume compatible with shutdown function interface
     """
-    blockdev = block.dev_path(block.dev_short(device))
+    blockdev = block.kname_to_path(block.path_to_kname(device))
     LOG.info('wiping superblock on %s', device)
     # when operating on a disk that used to have a dos part table with an
     # extended partition, attempting to wipe the extended partition will result
@@ -119,7 +119,24 @@ def wipe_superblock(device):
 
 def identify_lvm(device):
     """determine if specified device is a lvm device"""
-    return block.path_to_kname(device).startswith('dm')
+    kname = block.path_to_kname(device)
+    if not kname.startswith('dm'):
+        return False
+    blockdev = block.kname_to_path(kname)
+    (out, _) = util.subp(['dmsetup', 'info', blockdev, '-C', '-o', 'uuid',
+                          '--noheadings'], capture=True)
+    return out.startswith('LVM')
+
+
+def identify_crypt(device):
+    """determine if specified device is dm-crypt device"""
+    kname = block.path_to_kname(device)
+    if not kname.startswith('dm'):
+        return False
+    blockdev = block.kname_to_path(kname)
+    (out, _) = util.subp(['dmsetup', 'info', blockdev, '-C', '-o', 'uuid',
+                          '--noheadings'], capture=True)
+    return out.startswith('CRYPT')
 
 
 def identify_mdadm(device):
@@ -155,7 +172,7 @@ def gen_holders_tree(device):
     generate a tree representing the current storage hirearchy above 'device'
     """
     device = block.sys_block_path(device)
-    dev_name = block.dev_short(device)
+    dev_name = block.path_to_kname(device)
     holder_paths = ([block.sys_block_path(h) for h in get_holders(device)] +
                     block.get_sysfs_partitions(device))
     dev_type = next((k for k, v in DEV_TYPES.items() if v['ident'](device)),
