@@ -855,7 +855,9 @@ def human2bytes(size):
 
 def bytes2human(size):
     """convert size in bytes to human readable"""
-    if not (isinstance(size, (int, float)) and int(size) == size):
+    if not (isinstance(size, (int, float)) and
+            int(size) == size and
+            int(size) >= 0):
         raise ValueError('size must be a integral value')
     mpliers = {'B': 1, 'K': 2 ** 10, 'M': 2 ** 20, 'G': 2 ** 30, 'T': 2 ** 40}
     unit_order = sorted(mpliers, key=lambda x: -1 * mpliers[x])
