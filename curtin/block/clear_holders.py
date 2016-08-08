@@ -82,6 +82,13 @@ def shutdown_lvm(device):
     lvm.lvm_scan()
 
 
+def shutdown_crypt(device):
+    """
+    Shutdown specified cryptsetup device
+    """
+    pass
+
+
 def shutdown_mdadm(device):
     """
     Shutdown specified mdadm device.
@@ -325,6 +332,7 @@ DEV_TYPES = {
     #        once there is a method in place to differentiate plain
     #        devicemapper from lvm controlled devicemapper
     'lvm': {'shutdown': shutdown_lvm, 'ident': identify_lvm},
+    'crypt': {'shutdown': shutdown_crypt, 'ident': identify_crypt},
     'raid': {'shutdown': shutdown_mdadm, 'ident': identify_mdadm},
     'bcache': {'shutdown': shutdown_bcache, 'ident': identify_bcache},
     'disk': {'ident': lambda x: False, 'shutdown': wipe_superblock},
