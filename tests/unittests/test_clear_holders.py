@@ -8,63 +8,63 @@ import textwrap
 
 class TestClearHolders(TestCase):
     example_holders_trees = [
-        [{'device': '/sys/class/block/sda', 'holders':
-          [{'device': '/sys/class/block/sda/sda1', 'holders': [],
-            'dev_type': 'partition'},
-           {'device': '/sys/class/block/sda/sda2', 'holders': [],
-            'dev_type': 'partition'},
-           {'device': '/sys/class/block/sda/sda5', 'holders':
-            [{'device': '/sys/class/block/dm-0', 'holders':
-              [{'device': '/sys/class/block/dm-1', 'holders': [],
-                'dev_type': 'lvm'},
-               {'device': '/sys/class/block/dm-2', 'holders':
-                [{'device': '/sys/class/block/dm-3', 'holders': [],
-                  'dev_type': 'lvm'}],
+        [{'device': '/sys/class/block/sda', 'name': 'sda', 'holders':
+          [{'device': '/sys/class/block/sda/sda1', 'name': 'sda1',
+            'holders': [], 'dev_type': 'partition'},
+           {'device': '/sys/class/block/sda/sda2', 'name': 'sda2',
+            'holders': [], 'dev_type': 'partition'},
+           {'device': '/sys/class/block/sda/sda5', 'name': 'sda5', 'holders':
+            [{'device': '/sys/class/block/dm-0', 'name': 'dm-0', 'holders':
+              [{'device': '/sys/class/block/dm-1', 'name': 'dm-1',
+                'holders': [], 'dev_type': 'lvm'},
+               {'device': '/sys/class/block/dm-2', 'name': 'dm-2', 'holders':
+                [{'device': '/sys/class/block/dm-3', 'name': 'dm-3',
+                  'holders': [], 'dev_type': 'lvm'}],
                 'dev_type': 'lvm'}],
               'dev_type': 'lvm'}],
             'dev_type': 'partition'}],
           'dev_type': 'disk'}],
-        [{"device": "/sys/class/block/vdb", "holders":
-          [{"device": "/sys/class/block/vdb/vdb1", "holders": [],
-            "dev_type": "partition"},
-           {"device": "/sys/class/block/vdb/vdb2", "holders": [],
-            "dev_type": "partition"},
-           {"device": "/sys/class/block/vdb/vdb3", "holders":
-            [{"device": "/sys/class/block/md0", "holders":
-              [{"device": "/sys/class/block/bcache1", "holders": [],
-                "dev_type": "bcache"}],
+        [{"device": "/sys/class/block/vdb", 'name': 'vdb', "holders":
+          [{"device": "/sys/class/block/vdb/vdb1", 'name': 'vdb1',
+            "holders": [], "dev_type": "partition"},
+           {"device": "/sys/class/block/vdb/vdb2", 'name': 'vdb2',
+            "holders": [], "dev_type": "partition"},
+           {"device": "/sys/class/block/vdb/vdb3", 'name': 'vdb3', "holders":
+            [{"device": "/sys/class/block/md0", 'name': 'md0', "holders":
+              [{"device": "/sys/class/block/bcache1", 'name': 'bcache1',
+                "holders": [], "dev_type": "bcache"}],
               "dev_type": "raid"}],
             "dev_type": "partition"},
-           {"device": "/sys/class/block/vdb/vdb4", "holders":
-            [{"device": "/sys/class/block/md0", "holders":
-              [{"device": "/sys/class/block/bcache1", "holders": [],
-                "dev_type": "bcache"}],
+           {"device": "/sys/class/block/vdb/vdb4", 'name': 'vdb4', "holders":
+            [{"device": "/sys/class/block/md0", 'name': 'md0', "holders":
+              [{"device": "/sys/class/block/bcache1", 'name': 'bcache1',
+                "holders": [], "dev_type": "bcache"}],
               "dev_type": "raid"}],
             "dev_type": "partition"},
-           {"device": "/sys/class/block/vdb/vdb5", "holders":
-            [{"device": "/sys/class/block/md0", "holders":
-              [{"device": "/sys/class/block/bcache1", "holders": [],
-                "dev_type": "bcache"}],
+           {"device": "/sys/class/block/vdb/vdb5", 'name': 'vdb5', "holders":
+            [{"device": "/sys/class/block/md0", 'name': 'md0', "holders":
+              [{"device": "/sys/class/block/bcache1", 'name': 'bcache1',
+                "holders": [], "dev_type": "bcache"}],
               "dev_type": "raid"}],
             "dev_type": "partition"},
-           {"device": "/sys/class/block/vdb/vdb6", "holders":
-            [{"device": "/sys/class/block/bcache1", "holders": [],
-              "dev_type": "bcache"},
-             {"device": "/sys/class/block/bcache2", "holders": [],
-              "dev_type": "bcache"}],
+           {"device": "/sys/class/block/vdb/vdb6", 'name': 'vdb6', "holders":
+            [{"device": "/sys/class/block/bcache1", 'name': 'bcache1',
+              "holders": [], "dev_type": "bcache"},
+             {"device": "/sys/class/block/bcache2", 'name': 'bcache2',
+              "holders": [], "dev_type": "bcache"}],
             "dev_type": "partition"},
-           {"device": "/sys/class/block/vdb/vdb7", "holders":
-            [{"device": "/sys/class/block/bcache2", "holders": [],
-              "dev_type": "bcache"}],
+           {"device": "/sys/class/block/vdb/vdb7", 'name': 'vdb7', "holders":
+            [{"device": "/sys/class/block/bcache2", 'name': 'bcache2',
+              "holders": [], "dev_type": "bcache"}],
             "dev_type": "partition"},
-           {"device": "/sys/class/block/vdb/vdb8", "holders": [],
-            "dev_type": "partition"}],
+           {"device": "/sys/class/block/vdb/vdb8", 'name': 'vdb8',
+            "holders": [], "dev_type": "partition"}],
           "dev_type": "disk"},
-         {"device": "/sys/class/block/vdc", "holders": [],
+         {"device": "/sys/class/block/vdc", 'name': 'vdc', "holders": [],
           "dev_type": "disk"},
-         {"device": "/sys/class/block/vdd", "holders":
-          [{"device": "/sys/class/block/vdd/vdd1", "holders": [],
-            "dev_type": "partition"}],
+         {"device": "/sys/class/block/vdd", 'name': 'vdd', "holders":
+          [{"device": "/sys/class/block/vdd/vdd1", 'name': 'vdd1',
+            "holders": [], "dev_type": "partition"}],
           "dev_type": "disk"}],
     ]
 
