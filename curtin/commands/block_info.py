@@ -16,7 +16,8 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 from . import populate_one_subcmd
-from curtin import block
+from curtin import (block, util)
+import os
 
 
 def block_info_main(args):
@@ -25,19 +26,44 @@ def block_info_main(args):
     if not all(block.is_block_device(d) for d in args.devices):
         raise ValueError('invalid device(s)')
 
-    holders_trees = [block.clear_holders.gen_holders_tree(d)
-                     for d in args.devices]
+    def add_size_to_holders_tree(tree):
+        size_file = os.path.join(tree['device'], 'size')
+        # size file is always represented in 512 byte sectors even if
+        # underlying disk uses a larger logical_block_size
+        size = ((512 * int(util.load_file(size_file)))
+                if os.path.exists(size_file) else None)
+        tree['size'] = util.bytes2human(size) if args.human else str(size)
+        for holder in tree['holders']:
+            add_size_to_holders_tree(holder)
+        return tree
 
-    def add_size_to_name(tree):
-        pass
+    def format_name(tree):
+        res = {
+            'name': ' - '.join((tree['name'], tree['dev_type'], tree['size'])),
+            'holders': []
+        }
+        for holder in tree['holders']:
+            res['holders'].append(format_name(holder))
+        return res
 
-    print('\n'.join(block.clear_holders.format_holders_tree(t)
-                    for t in holders_trees))
+    trees = [add_size_to_holders_tree(t) for t in
+             [block.clear_holders.gen_holders_tree(d) for d in args.devices]]
+
+    if args.json:
+        print(util.json_dumps(trees))
+    else:
+        print('\n'.join(block.clear_holders.format_holders_tree(t) for t in
+                        [format_name(tree) for tree in trees]))
+
+    return 0
 
 
 CMD_ARGUMENTS = (
     ('devices',
      {'help': 'devices to get info for', 'default': [], 'nargs': '+'}),
+    ('--human',
+     {'help': 'output size in human readable format', 'default': False,
+      'action': 'store_true'}),
     (('-j', '--json'),
      {'help': 'output data in json format', 'default': False,
       'action': 'store_true'}),
