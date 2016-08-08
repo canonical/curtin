@@ -63,13 +63,13 @@ class TrustyTestLvm(relbase.trusty, TestLvmAbs):
         print("test_dname does not work for Trusty")
 
 
-class VividTestLvm(relbase.vivid, TestLvmAbs):
-    __test__ = True
-
-
 class WilyTestLvm(relbase.wily, TestLvmAbs):
     __test__ = True
 
 
 class XenialTestLvm(relbase.xenial, TestLvmAbs):
+    __test__ = True
+
+
+class YakketyTestLvm(relbase.yakkety, TestLvmAbs):
     __test__ = True

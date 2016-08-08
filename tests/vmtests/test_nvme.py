@@ -11,8 +11,6 @@ class TestNvmeAbs(VMBaseClass):
     ]
     interactive = False
     conf_file = "examples/tests/nvme.yaml"
-    install_timeout = 600
-    boot_timeout = 120
     extra_disks = []
     nvme_disks = ['4G', '4G']
     disk_to_check = [('main_disk', 1), ('main_disk', 2), ('main_disk', 15),
@@ -74,13 +72,13 @@ class TrustyTestNvme(relbase.trusty, TestNvmeAbs):
         print("test_ptable does not work for Trusty")
 
 
-class VividTestNvme(relbase.vivid, TestNvmeAbs):
-    __test__ = True
-
-
 class WilyTestNvme(relbase.wily, TestNvmeAbs):
     __test__ = True
 
 
 class XenialTestNvme(relbase.xenial, TestNvmeAbs):
+    __test__ = True
+
+
+class YakketyTestNvme(relbase.yakkety, TestNvmeAbs):
     __test__ = True

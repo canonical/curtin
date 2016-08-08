@@ -34,7 +34,11 @@ if __name__ == '__main__':
                         print(" removing vmtest file %s" % fpath)
                         os.unlink(fpath)
 
-    releases = find_releases()
+    arg_releases = [r for r in sys.argv[1:] if r != "--clean"]
+    if len(arg_releases):
+        releases = arg_releases
+    else:
+        releases = find_releases()
     release_filter = 'release~{}'.format('|'.join(releases))
     my_filters = ['arch=' + DEFAULT_ARCH, release_filter] + ITEM_NAME_FILTERS
     # Sync images.

@@ -46,6 +46,10 @@ class _XenialBase(_ReleaseBase):
     release = "xenial"
 
 
+class _YakketyBase(_ReleaseBase):
+    release = "yakkety"
+
+
 class _Releases(object):
     precise = _PreciseBase
     precise_hwe_t = _PreciseHWET
@@ -56,6 +60,7 @@ class _Releases(object):
     vivid = _VividBase
     wily = _WilyBase
     xenial = _XenialBase
+    yakkety = _YakketyBase
 
 base_vm_classes = _Releases
 
