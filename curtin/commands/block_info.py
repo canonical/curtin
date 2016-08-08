@@ -16,15 +16,31 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 from . import populate_one_subcmd
+from curtin import block
 
 
 def block_info_main(args):
-    pass
+    if not args.devices:
+        raise ValueError('devices to scan must be specified')
+    if not all(block.is_block_device(d) for d in args.devices):
+        raise ValueError('invalid device(s)')
+
+    holders_trees = [block.clear_holders.gen_holders_tree(d)
+                     for d in args.devices]
+
+    def add_size_to_name(tree):
+        pass
+
+    print('\n'.join(block.clear_holders.format_holders_tree(t)
+                    for t in holders_trees))
 
 
 CMD_ARGUMENTS = (
     ('devices',
      {'help': 'devices to get info for', 'default': [], 'nargs': '+'}),
+    (('-j', '--json'),
+     {'help': 'output data in json format', 'default': False,
+      'action': 'store_true'}),
 )
 
 
