@@ -572,31 +572,33 @@ def lookup_disk(serial):
 def sysfs_partition_data(blockdev=None, sysfs_path=None):
     # given block device or sysfs_path, return a list of tuples
     # of (kernel_name, number, offset, size)
-    if blockdev is None and sysfs_path is None:
-        raise ValueError("Blockdev and sysfs_path cannot both be None")
-
     if blockdev:
+        blockdev = os.path.normpath(blockdev)
         sysfs_path = sys_block_path(blockdev)
-
-    ptdata = []
-    # /sys/class/block/dev has entries of 'kname' for each partition
+    elif sysfs_path:
+        # use normpath to ensure that paths with trailing slash work
+        sysfs_path = os.path.normpath(sysfs_path)
+        blockdev = os.path.join('/dev', os.path.basename(sysfs_path))
+    else:
+        raise ValueError("Blockdev and sysfs_path cannot both be None")
 
     # queue property is only on parent devices, ie, we can't read
     # /sys/class/block/vda/vda1/queue/* as queue is only on the
     # parent device
-    (parent, partnum) = get_blockdev_for_partition(blockdev)
     sysfs_prefix = sysfs_path
+    (parent, partnum) = get_blockdev_for_partition(blockdev)
     if partnum:
         sysfs_prefix = sys_block_path(parent)
+        partnum = int(partnum)
 
-    block_size = int(util.load_file(os.path.join(sysfs_prefix,
-                                    'queue/logical_block_size')))
-
-    block_size = int(
-        util.load_file(os.path.join(sysfs_path, 'queue/logical_block_size')))
+    block_size = int(util.load_file(os.path.join(
+        sysfs_prefix, 'queue/logical_block_size')))
     unit = block_size
-    for d in os.listdir(sysfs_path):
-        partd = os.path.join(sysfs_path, d)
+
+    # /sys/class/block/dev has entries of 'kname' for each partition
+    ptdata = []
+    for d in os.listdir(sysfs_prefix):
+        partd = os.path.join(sysfs_prefix, d)
         data = {}
         for sfile in ('partition', 'start', 'size'):
             dfile = os.path.join(partd, sfile)
@@ -605,8 +607,9 @@ def sysfs_partition_data(blockdev=None, sysfs_path=None):
             data[sfile] = int(util.load_file(dfile))
         if 'partition' not in data:
             continue
-        ptdata.append((d, data['partition'], data['start'] * unit,
-                       data['size'] * unit,))
+        if partnum is None or data['partition'] == partnum:
+            ptdata.append((d, data['partition'], data['start'] * unit,
+                           data['size'] * unit,))
 
     return ptdata
 
