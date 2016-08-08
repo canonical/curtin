@@ -86,14 +86,15 @@ def shutdown_crypt(device):
     """
     Shutdown specified cryptsetup device
     """
-    pass
+    blockdev = block.sysfs_to_devpath(device)
+    util.subp(['cryptsetup', 'remove', blockdev], capture=True)
 
 
 def shutdown_mdadm(device):
     """
     Shutdown specified mdadm device.
     """
-    blockdev = block.kname_to_path(block.path_to_kname(device))
+    blockdev = block.sysfs_to_devpath(device)
     LOG.debug('using mdadm.mdadm_stop on dev: {}'.format(blockdev))
     block.mdadm.mdadm_stop(blockdev)
     block.mdadm.mdadm_remove(blockdev)
@@ -103,7 +104,7 @@ def wipe_superblock(device):
     """
     Wrapper for block.wipe_volume compatible with shutdown function interface
     """
-    blockdev = block.kname_to_path(block.path_to_kname(device))
+    blockdev = block.sysfs_to_devpath(device)
     LOG.info('wiping superblock on %s', device)
     # when operating on a disk that used to have a dos part table with an
     # extended partition, attempting to wipe the extended partition will result

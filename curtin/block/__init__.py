@@ -110,6 +110,14 @@ def partition_kname(disk_kname, partition_number):
     return "%s%s" % (disk_kname, partition_number)
 
 
+def sysfs_to_devpath(sysfs_path):
+    """convert a path in /sys/class/block to a path in /dev"""
+    path = kname_to_path(path_to_kname(sysfs_path))
+    if not is_block_device(path):
+        raise ValueError('could not find blockdev for sys path: {}'
+                         .format(sysfs_path))
+
+
 def sys_block_path(devname, add=None, strict=True):
     toks = ['/sys/class/block']
     # insert parent dev if devname is partition

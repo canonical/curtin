@@ -153,8 +153,7 @@ class TestClearHolders(TestCase):
         """test clear_holders.shutdown_mdadm"""
         device = '/dev/null'
         syspath = '/sys/block/null'
-        mock_block.path_to_kname.return_value = 'null'
-        mock_block.kname_to_path.return_value = device
+        mock_block.sysfs_to_devpath.return_value = device
         clear_holders.shutdown_mdadm(syspath)
         mock_block.mdadm.mdadm_stop.assert_called_with(device)
         mock_block.mdadm.mdadm_remove.assert_called_with(device)
@@ -169,10 +168,9 @@ class TestClearHolders(TestCase):
         """test clear_holders.wipe_superblock handles errors right"""
         device = '/dev/null'
         syspath = '/sys/block/null'
-        mock_block.path_to_kname.return_value = 'null'
-        mock_block.kname_to_path.return_value = device
+        mock_block.sysfs_to_devpath.return_value = device
         clear_holders.wipe_superblock(syspath)
-        mock_block.path_to_kname.assert_called_with(syspath)
+        mock_block.sysfs_to_devpath.assert_called_with(syspath)
         mock_block.wipe_volume.assert_called_with(device, mode='superblock')
         self.assertFalse(mock_util.is_file_not_found_exc.called)
         self.assertTrue(mock_log.info.called)
