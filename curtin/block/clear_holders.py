@@ -26,6 +26,14 @@ from curtin.block import lvm
 from curtin.log import LOG
 
 
+def get_dmsetup_uuid(device):
+    """get the dm uuid for a specified dmsetup device"""
+    blockdev = block.sysfs_to_devpath(device)
+    (out, _) = util.subp(['dmsetup', 'info', blockdev, '-C', '-o', 'uuid',
+                          '--noheadings'], capture=True)
+    return out.strip()
+
+
 def get_bcache_using_dev(device):
     """
     Get the /sys/fs/bcache/ path of the bcache volume using specified device
@@ -127,24 +135,14 @@ def wipe_superblock(device):
 
 def identify_lvm(device):
     """determine if specified device is a lvm device"""
-    kname = block.path_to_kname(device)
-    if not kname.startswith('dm'):
-        return False
-    blockdev = block.kname_to_path(kname)
-    (out, _) = util.subp(['dmsetup', 'info', blockdev, '-C', '-o', 'uuid',
-                          '--noheadings'], capture=True)
-    return out.startswith('LVM')
+    return (block.path_to_kname(device).startswith('dm') and
+            get_dmsetup_uuid(device).startswith('LVM'))
 
 
 def identify_crypt(device):
     """determine if specified device is dm-crypt device"""
-    kname = block.path_to_kname(device)
-    if not kname.startswith('dm'):
-        return False
-    blockdev = block.kname_to_path(kname)
-    (out, _) = util.subp(['dmsetup', 'info', blockdev, '-C', '-o', 'uuid',
-                          '--noheadings'], capture=True)
-    return out.startswith('CRYPT')
+    return (block.path_to_kname(device).startswith('dm') and
+            get_dmsetup_uuid(device).startswith('CRYPT'))
 
 
 def identify_mdadm(device):
