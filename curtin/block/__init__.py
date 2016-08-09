@@ -116,6 +116,7 @@ def sysfs_to_devpath(sysfs_path):
     if not is_block_device(path):
         raise ValueError('could not find blockdev for sys path: {}'
                          .format(sysfs_path))
+    return path
 
 
 def sys_block_path(devname, add=None, strict=True):
