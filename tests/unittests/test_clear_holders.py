@@ -115,7 +115,7 @@ class TestClearHolders(TestCase):
         clear_holders.shutdown_bcache('/dev/null')
         self.assertFalse(mock_open.called)
         self.assertFalse(mock_log.debug.called)
-        self.assertTrue(mock_log.warn.called)
+        self.assertTrue(mock_log.warning.called)
 
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.block.sys_block_path')

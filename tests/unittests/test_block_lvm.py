@@ -26,12 +26,12 @@ class TestBlockLvm(TestCase):
             """.format(matchfield_good=self.vg_name,
                        query_good1=query_results[0],
                        query_good2=query_results[1],
-                       sep=lvm._sep), "")
+                       sep=lvm._SEP), "")
         result_list = lvm._filter_lvm_info(lvtool_name, match_name,
                                            query_name, self.vg_name)
         self.assertEqual(len(result_list), 2)
         mock_util.subp.assert_called_with(
-            [lvtool_name, '-C', '--separator', lvm._sep, '--noheadings', '-o',
+            [lvtool_name, '-C', '--separator', lvm._SEP, '--noheadings', '-o',
              '{},{}'.format(match_name, query_name)], capture=True)
         self.assertEqual(result_list, query_results)
         # make sure _filter_lvm_info can fail gracefully if no match
@@ -61,13 +61,13 @@ class TestBlockLvm(TestCase):
         full_name = '{}-{}'.format(self.vg_name, lv_name)
         mock_util.subp.return_value = (
             '  {vg_name}{sep}{lv_name} '.format(
-                vg_name=self.vg_name, lv_name=lv_name, sep=lvm._sep), '')
+                vg_name=self.vg_name, lv_name=lv_name, sep=lvm._SEP), '')
         (res_vg_name, res_lv_name) = lvm.split_lvm_name(full_name)
         self.assertEqual(res_vg_name, self.vg_name)
         self.assertEqual(res_lv_name, lv_name)
         mock_util.subp.assert_called_with(
             ['dmsetup', 'splitname', full_name, '-c', '--noheadings',
-             '--separator', lvm._sep, '-o', 'vg_name,lv_name'], capture=True)
+             '--separator', lvm._SEP, '-o', 'vg_name,lv_name'], capture=True)
 
     @mock.patch('curtin.block.lvm.util')
     def test_lvm_scan(self, mock_util):

@@ -21,16 +21,16 @@ from curtin import util
 from curtin.log import LOG
 
 # separator to use for lvm/dm tools
-_sep = '='
+_SEP = '='
 
 
 def _filter_lvm_info(lvtool, match_field, query_field, match_key):
     """filter output of pv/vg/lvdisplay tools"""
-    (out, _) = util.subp([lvtool, '-C', '--separator', _sep, '--noheadings',
+    (out, _) = util.subp([lvtool, '-C', '--separator', _SEP, '--noheadings',
                           '-o', ','.join([match_field, query_field])],
                          capture=True)
     return [qf for (mf, qf) in
-            [l.strip().split(_sep) for l in out.strip().splitlines()]
+            [l.strip().split(_SEP) for l in out.strip().splitlines()]
             if mf == match_key]
 
 
@@ -48,9 +48,9 @@ def split_lvm_name(full):
     """split full lvm name into tuple of (volgroup, lv_name)"""
     # 'dmsetup splitname' is the authoratative source for lvm name parsing
     (out, _) = util.subp(['dmsetup', 'splitname', full, '-c', '--noheadings',
-                          '--separator', _sep, '-o', 'vg_name,lv_name'],
+                          '--separator', _SEP, '-o', 'vg_name,lv_name'],
                          capture=True)
-    return out.strip().split(_sep)
+    return out.strip().split(_SEP)
 
 
 def lvm_scan():
@@ -68,7 +68,7 @@ def lvm_scan():
     # xenial
     release = util.lsb_release().get('codename')
     if release in [None, 'UNAVAILABLE']:
-        LOG.warn('unable to find release number, assuming xenial or later')
+        LOG.warning('unable to find release number, assuming xenial or later')
         release = 'xenial'
 
     for cmd in [['pvscan'], ['vgscan', '--mknodes']]:

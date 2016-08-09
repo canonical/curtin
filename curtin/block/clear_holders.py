@@ -19,11 +19,11 @@
 # top of a block device, making it possible to reuse the block device without
 # having to reboot the system
 
+import os
+
 from curtin import (block, udev, util)
 from curtin.block import lvm
 from curtin.log import LOG
-
-import os
 
 
 def get_bcache_using_dev(device):
@@ -52,13 +52,13 @@ def shutdown_bcache(device):
         # single cache device is used on two backing devices, because the same
         # bcache device in /sys/fs/bcache/ represents itself as two block devs
         # in /sys/block
-        LOG.warn("shutdown_bcache did not find /sys/fs/ path for bcache dev: "
-                 "'%s'. assuming caused by shared cache device, continuing",
-                 device)
+        LOG.warning("shutdown_bcache did not find /sys/fs/ path for bcache "
+                    "dev: '%s'. assuming caused by shared cache device, "
+                    "continuing", device)
         return
-    LOG.debug('stopping bcache at: {}'.format(bcache_sysfs))
-    with open(os.path.join(bcache_sysfs, 'stop'), 'w') as fp:
-        fp.write('1')
+    LOG.debug('stopping bcache at: %s', bcache_sysfs)
+    with open(os.path.join(bcache_sysfs, 'stop'), 'w') as file_pointer:
+        file_pointer.write('1')
 
 
 def shutdown_lvm(device):
@@ -72,7 +72,7 @@ def shutdown_lvm(device):
     (vg_name, lv_name) = lvm.split_lvm_name(util.load_file(name_file))
     # use two --force flags here in case the volume group that this lv is
     # attached two has been damaged
-    LOG.debug('running lvremove on {}/{}'.format(vg_name, lv_name))
+    LOG.debug('running lvremove on %s/%s', vg_name, lv_name)
     util.subp(['lvremove', '--force', '--force',
                '{}/{}'.format(vg_name, lv_name)], rcs=[0, 5])
     # if that was the last lvol in the volgroup, get rid of volgroup
@@ -95,7 +95,7 @@ def shutdown_mdadm(device):
     Shutdown specified mdadm device.
     """
     blockdev = block.sysfs_to_devpath(device)
-    LOG.debug('using mdadm.mdadm_stop on dev: {}'.format(blockdev))
+    LOG.debug('using mdadm.mdadm_stop on dev: %s', blockdev)
     block.mdadm.mdadm_stop(blockdev)
     block.mdadm.mdadm_remove(blockdev)
 
@@ -212,6 +212,10 @@ def plan_shutdown_holder_trees(holders_trees):
         holders_trees = [holders_trees]
 
     def flatten_holders_tree(tree, level=0):
+        """
+        add entries from holders tree to registry with level key corresponding
+        to how many layers from raw disks the current device is at
+        """
         device = tree['device']
 
         # always go with highest level if current device has been
@@ -248,6 +252,7 @@ def format_holders_tree(holders_tree):
     spacers = (('`-- ', ' ' * 4), ('|-- ', '|' + ' ' * 3))
 
     def format_tree(tree):
+        """format entry and any subentries"""
         result = [tree['name']]
         holders = tree['holders']
         for (holder_no, holder) in enumerate(holders):
@@ -329,9 +334,6 @@ DEFAULT_DEV_TYPE = 'disk'
 # identify them and shut them down
 DEV_TYPES = {
     'partition': {'shutdown': wipe_superblock, 'ident': identify_partition},
-    # FIXME: below is not the best way to identify lvm, it should be replaced
-    #        once there is a method in place to differentiate plain
-    #        devicemapper from lvm controlled devicemapper
     'lvm': {'shutdown': shutdown_lvm, 'ident': identify_lvm},
     'crypt': {'shutdown': shutdown_crypt, 'ident': identify_crypt},
     'raid': {'shutdown': shutdown_mdadm, 'ident': identify_mdadm},
