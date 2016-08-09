@@ -15,18 +15,20 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 from . import populate_one_subcmd
 from curtin import (block, util)
-import os
 
 
 def block_info_main(args):
+    """get information about block devices, similar to lsblk"""
     if not args.devices:
         raise ValueError('devices to scan must be specified')
     if not all(block.is_block_device(d) for d in args.devices):
         raise ValueError('invalid device(s)')
 
     def add_size_to_holders_tree(tree):
+        """add size information to generated holders trees"""
         size_file = os.path.join(tree['device'], 'size')
         # size file is always represented in 512 byte sectors even if
         # underlying disk uses a larger logical_block_size
@@ -38,6 +40,7 @@ def block_info_main(args):
         return tree
 
     def format_name(tree):
+        """format information for human readable display"""
         res = {
             'name': ' - '.join((tree['name'], tree['dev_type'], tree['size'])),
             'holders': []
@@ -49,11 +52,9 @@ def block_info_main(args):
     trees = [add_size_to_holders_tree(t) for t in
              [block.clear_holders.gen_holders_tree(d) for d in args.devices]]
 
-    if args.json:
-        print(util.json_dumps(trees))
-    else:
-        print('\n'.join(block.clear_holders.format_holders_tree(t) for t in
-                        [format_name(tree) for tree in trees]))
+    print(util.json_dumps(trees) if args.json else
+          '\n'.join(block.clear_holders.format_holders_tree(t) for t in
+                    [format_name(tree) for tree in trees]))
 
     return 0
 
