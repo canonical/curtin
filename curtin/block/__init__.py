@@ -633,25 +633,39 @@ def get_part_table_type(device):
     check the type of partition table present on the specified device
     returns None if no ptable was present or device could not be read
     """
-    # Check state of current ptable, try to do this using blkid, but if
-    # blkid fails then try to fall back to using parted.
-    _possible_errors = (util.ProcessExecutionError, StopIteration,
-                        IndexError, AttributeError)
-    current_ptable = None
-    try:
-        (out, _err) = util.subp(["blkid", "-o", "export", device],
-                                capture=True)
-        current_ptable = next(l.split('=')[1] for l in out.splitlines()
-                              if 'TYPE' in l)
-    except _possible_errors:
-        try:
-            (out, _err) = util.subp(["parted", device, "--script", "print"],
-                                    capture=True)
-            current_ptable = next(l.split()[-1] for l in out.splitlines()
-                                  if "Partition Table" in l)
-        except _possible_errors:
-            pass
-    return current_ptable
+    return ('gpt' if check_efi_signature(device) else
+            'dos' if check_dos_signature(device) else None)
+
+
+def check_dos_signature(device):
+    """
+    check if there is a dos partition table signature present on device
+    """
+    return (is_block_device(device) and util.file_size(device) >= 0x200 and
+            (util.load_file(device, mode='rb', read_len=2, offset=0x1fe) ==
+                b'\x55\xAA'))
+
+
+def check_efi_signature(device):
+    """
+    check if there is a gpt partition table signature present on device
+    """
+    return (is_block_device(device) and util.file_size(device) >= 0x400 and
+            (util.load_file(device, mode='rb', read_len=8, offset=0x200) ==
+                b'EFI PART'))
+
+
+def is_extended_partition(device):
+    """
+    check if the specified device path is a dos extended partition
+    """
+    # an extended partition must be on a dos disk, must be a partition, must be
+    # within the first 4 partitions and will have a valid dos signature,
+    # because the format of the extended partition matches that of a real mbr
+    (parent_dev, part_number) = get_blockdev_for_partition(device)
+    return (get_part_table_type(parent_dev) in ['dos', 'msdos'] and
+            part_number is not None and int(part_number) <= 4 and
+            check_dos_signature(device))
 
 
 def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
@@ -667,13 +681,11 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
         def readfunc(size):
             return buf
 
+    size = util.file_size(path)
+    LOG.debug("%s is %s bytes. wiping with buflen=%s",
+              path, size, buflen)
+
     with open(path, "rb+") as fp:
-        # get the size by seeking to end.
-        fp.seek(0, 2)
-        size = fp.tell()
-        LOG.debug("%s is %s bytes. wiping with buflen=%s",
-                  path, size, buflen)
-        fp.seek(0)
         while True:
             pbuf = readfunc(buflen)
             pos = fp.tell()
