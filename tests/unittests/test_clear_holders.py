@@ -202,18 +202,18 @@ class TestClearHolders(TestCase):
         self.assertTrue(mock_log.debug.called)
 
     @mock.patch('curtin.block.clear_holders.LOG')
-    @mock.patch('curtin.block.clear_holders.util')
     @mock.patch('curtin.block.clear_holders.block')
-    def test_clear_holders_wipe_superblock(self, mock_block, mock_util,
-                                           mock_log):
+    def test_clear_holders_wipe_superblock(self, mock_block, mock_log):
         """test clear_holders.wipe_superblock handles errors right"""
         mock_block.sysfs_to_devpath.return_value = self.test_blockdev
+        mock_block.is_extended_partition.return_value = True
+        clear_holders.wipe_superblock(self.test_syspath)
+        self.assertFalse(mock_block.wipe_volume.called)
+        mock_block.is_extended_partition.return_value = False
         clear_holders.wipe_superblock(self.test_syspath)
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
         mock_block.wipe_volume.assert_called_with(
             self.test_blockdev, mode='superblock')
-        self.assertFalse(mock_util.is_file_not_found_exc.called)
-        self.assertTrue(mock_log.info.called)
 
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.block')
