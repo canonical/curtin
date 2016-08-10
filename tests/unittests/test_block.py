@@ -351,10 +351,10 @@ class TestBlockKnames(TestCase):
 
 class TestPartTableSignature(TestCase):
     blockdev = '/dev/null'
-    dos_content = b'\x00' * 0x1fe + b'\x55\xAA' + b'\x00' * 0x200
+    dos_content = b'\x00' * 0x1fe + b'\x55\xAA' + b'\x00' * 0xf00
     gpt_content = b'\x00' * 0x200 + b'EFI PART' + b'\x00' * (0x200 - 8)
     gpt_content_4k = b'\x00' * 0x800 + b'EFI PART' + b'\x00' * (0x800 - 8)
-    null_content = b'\x00' * 0x400
+    null_content = b'\x00' * 0xf00
 
     def _test_util_load_file(self, content, device, mode, read_len, offset):
         return (bytes if 'b' in mode else str)(content[offset:offset+read_len])
@@ -394,18 +394,20 @@ class TestPartTableSignature(TestCase):
     def test_check_efi_signature(self, mock_util, mock_get_sector_size,
                                  mock_is_block_device):
         """test block.check_efi_signature"""
-        mock_get_sector_size.return_value = (0x200, 0x200)
-        for (is_block, f_size, contents, expected) in [
-                (True, 0x400, self.gpt_content, True),
-                (False, 0x400, self.gpt_content, False),
-                (True, 0, self.gpt_content, False),
-                (True, 0x400, self.dos_content, False),
-                (True, 0x200, self.null_content, False)]:
-            mock_util.load_file.side_effect = (
-                functools.partial(self._test_util_load_file, contents))
-            mock_util.file_size.return_value = f_size
-            mock_is_block_device.return_value = is_block
-            (self.assertTrue if expected else self.assertFalse)(
-                block.check_efi_signature(self.blockdev))
+        for (sector_size, gpt_dat) in zip(
+                (0x200, 0x800), (self.gpt_content, self.gpt_content_4k)):
+            mock_get_sector_size.return_value = (sector_size, sector_size)
+            for (is_block, f_size, contents, expected) in [
+                    (True, 2 * sector_size, gpt_dat, True),
+                    (False, 2 * sector_size, gpt_dat, False),
+                    (True, 0, gpt_dat, False),
+                    (True, 2 * sector_size, self.dos_content, False),
+                    (True, 2 * sector_size, self.null_content, False)]:
+                mock_util.load_file.side_effect = (
+                    functools.partial(self._test_util_load_file, contents))
+                mock_util.file_size.return_value = f_size
+                mock_is_block_device.return_value = is_block
+                (self.assertTrue if expected else self.assertFalse)(
+                    block.check_efi_signature(self.blockdev))
 
 # vi: ts=4 expandtab syntax=python
