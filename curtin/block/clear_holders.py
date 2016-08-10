@@ -107,10 +107,10 @@ def wipe_superblock(device):
     blockdev = block.sysfs_to_devpath(device)
     # when operating on a disk that used to have a dos part table with an
     # extended partition, attempting to wipe the extended partition will fail
-    if block.is_extended_partition(device):
-        LOG.info('not wiping extended partition: %s', device)
+    if block.is_extended_partition(blockdev):
+        LOG.info('not wiping extended partition: %s', blockdev)
     else:
-        LOG.info('wiping superblock on %s', device)
+        LOG.info('wiping superblock on %s', blockdev)
         block.wipe_volume(blockdev, mode='superblock')
 
 
