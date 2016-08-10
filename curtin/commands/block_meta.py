@@ -338,57 +338,35 @@ def get_path_to_storage_volume(volume, storage_config):
 
 
 def disk_handler(info, storage_config):
+    _dos_names = ['dos', 'msdos']
     ptable = info.get('ptable')
-
     disk = get_path_to_storage_volume(info.get('id'), storage_config)
 
-    # Handle preserve flag
     if config.value_as_boolean(info.get('preserve')):
-        if not ptable:
-            # Don't need to check state, return
-            return
-
-        # Check state of current ptable, try to do this using blkid, but if
-        # blkid fails then try to fall back to using parted.
-        _possible_errors = (util.ProcessExecutionError, StopIteration,
-                            IndexError, AttributeError)
-        try:
-            (out, _err) = util.subp(["blkid", "-o", "export", disk],
-                                    capture=True)
-            current_ptable = next(l.split('=')[1] for l in out.splitlines()
-                                  if 'TYPE' in l)
-        except _possible_errors:
-            try:
-                (out, _err) = util.subp(["parted", disk, "--script", "print"],
-                                        capture=True)
-                current_ptable = next(l.split()[-1] for l in out.splitlines()
-                                      if "Partition Table" in l)
-            except _possible_errors:
-                raise ValueError("disk '%s' has no readable partition table "
-                                 "or cannot be accessed, but preserve is set "
-                                 "to true, so cannot continue" % disk)
-        if not (current_ptable == ptable or
-                (current_ptable == "dos" and ptable == "msdos")):
-            raise ValueError("disk '%s' does not have correct "
-                             "partition table, but preserve is "
-                             "set to true, so not creating table."
-                             % info.get('id'))
+        # Handle preserve flag, verifying if ptable specified in config
+        if config.value_as_boolean(ptable):
+            current_ptable = block.get_part_table_type(disk)
+            if not ((ptable in _dos_names and current_ptable in _dos_names) or
+                    (ptable == 'gpt' and current_ptable == 'gpt')):
+                raise ValueError(
+                    "disk '%s' does not have correct partition table or "
+                    "cannot be read, but preserve is set to true. "
+                    "cannot continue installation." % info.get('id'))
         LOG.info("disk '%s' marked to be preserved, so keeping partition "
                  "table" % disk)
-        return
-
-    # Wipe the disk
-    if config.value_as_boolean(info.get('wipe')):
-        block.wipe_volume(disk, mode=info.get('wipe'))
-
-    # Create partition table on disk
-    if info.get('ptable'):
-        LOG.info("labeling device: '%s' with '%s' partition table", disk,
-                 ptable)
-        if ptable == "gpt":
-            util.subp(["sgdisk", "--clear", disk])
-        elif ptable == "msdos":
-            util.subp(["parted", disk, "--script", "mklabel", "msdos"])
+    else:
+        # wipe the disk and create the partition table if instructed to do so
+        if config.value_as_boolean(info.get('wipe')):
+            block.wipe_volume(disk, mode=info.get('wipe'))
+        if config.value_as_boolean(ptable):
+            LOG.info("labeling device: '%s' with '%s' partition table", disk,
+                     ptable)
+            if ptable == "gpt":
+                util.subp(["sgdisk", "--clear", disk])
+            elif ptable in _dos_names:
+                util.subp(["parted", disk, "--script", "mklabel", "msdos"])
+            else:
+                raise ValueError('invalid partition table type: %s', ptable)
 
     # Make the name if needed
     if info.get('name'):
