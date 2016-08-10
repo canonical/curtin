@@ -15,7 +15,7 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
-from curtin import (block, log)
+from curtin import block
 from . import populate_one_subcmd
 
 
@@ -25,13 +25,19 @@ def clear_holders_main(args):
             len(args.devices) == 0):
         raise ValueError('invalid devices specified')
     block.clear_holders.start_clear_holders_deps()
-    block.clear_holders.clear_holders(args.devices)
+    block.clear_holders.clear_holders(args.devices, try_preserve=args.preserve)
+    if args.try_preserve:
+        print('ran clear_holders attempting to preserve data. however, '
+              'hotplug support for some devices may cause holders to restart ')
     block.clear_holders.assert_clear(args.devices)
 
 
 CMD_ARGUMENTS = (
     (('devices',
       {'help': 'devices to free', 'default': [], 'nargs': '+'}),
+     (('-p', '--preserve'),
+      {'help': 'try to shut down holders without erasing anything',
+       'default': False, 'action': 'store_true'}),
      )
 )
 
