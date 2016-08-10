@@ -233,6 +233,11 @@ def get_installable_blockdevs(include_removable=False, min_size=1024**3):
 
 
 def get_blockdev_for_partition(devpath):
+    """
+    find the parent device for a partition.
+    returns a tuple of the parent block device and the partition number
+    if device is not a partition, None will be returned for partition number
+    """
     # normalize path
     rpath = os.path.realpath(devpath)
 
@@ -621,6 +626,32 @@ def sysfs_partition_data(blockdev=None, sysfs_path=None):
                            data['size'] * unit,))
 
     return ptdata
+
+
+def get_part_table_type(device):
+    """
+    check the type of partition table present on the specified device
+    returns None if no ptable was present or device could not be read
+    """
+    # Check state of current ptable, try to do this using blkid, but if
+    # blkid fails then try to fall back to using parted.
+    _possible_errors = (util.ProcessExecutionError, StopIteration,
+                        IndexError, AttributeError)
+    current_ptable = None
+    try:
+        (out, _err) = util.subp(["blkid", "-o", "export", device],
+                                capture=True)
+        current_ptable = next(l.split('=')[1] for l in out.splitlines()
+                              if 'TYPE' in l)
+    except _possible_errors:
+        try:
+            (out, _err) = util.subp(["parted", device, "--script", "print"],
+                                    capture=True)
+            current_ptable = next(l.split()[-1] for l in out.splitlines()
+                                  if "Partition Table" in l)
+        except _possible_errors:
+            pass
+    return current_ptable
 
 
 def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
