@@ -692,10 +692,11 @@ def check_efi_signature(device):
     """
     check if there is a gpt partition table signature present on device
     """
-    return (is_block_device(device) and util.file_size(device) >= 0x400 and
+    sector_size = get_blockdev_sector_size(device)[0]
+    return (is_block_device(device) and
+            util.file_size(device) >= 2 * sector_size and
             (util.load_file(device, mode='rb', read_len=8,
-                            offset=get_blockdev_sector_size(device)[0]) ==
-             b'EFI PART'))
+                            offset=sector_size) == b'EFI PART'))
 
 
 def is_extended_partition(device):
