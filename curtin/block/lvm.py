@@ -15,7 +15,9 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
-# This module provides some helper functions for manipulating lvm devices
+"""
+This module provides some helper functions for manipulating lvm devices
+"""
 
 from curtin import util
 from curtin.log import LOG

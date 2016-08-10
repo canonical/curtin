@@ -15,9 +15,11 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
-# This module provides a mechanism for shutting down virtual storage layers on
-# top of a block device, making it possible to reuse the block device without
-# having to reboot the system
+"""
+This module provides a mechanism for shutting down virtual storage layers on
+top of a block device, making it possible to reuse the block device without
+having to reboot the system
+"""
 
 import os
 
