@@ -29,16 +29,25 @@ from curtin.udev import udevadm_settle
 
 
 def get_dev_name_entry(devname):
+    """
+    convert device name to path in /dev
+    """
     bname = devname.split('/dev/')[-1]
     return (bname, "/dev/" + bname)
 
 
 def is_valid_device(devname):
+    """
+    check if device is a valid device
+    """
     devent = get_dev_name_entry(devname)[1]
     return is_block_device(devent)
 
 
 def is_block_device(path):
+    """
+    check if path is a blcok device
+    """
     try:
         return stat.S_ISBLK(os.stat(path).st_mode)
     except OSError as e:
@@ -48,6 +57,9 @@ def is_block_device(path):
 
 
 def dev_short(devname):
+    """
+    get short form of device name
+    """
     devname = os.path.normpath(devname)
     if os.path.sep in devname:
         return os.path.basename(devname)
@@ -55,6 +67,9 @@ def dev_short(devname):
 
 
 def dev_path(devname):
+    """
+    convert device name to path in /dev
+    """
     if devname.startswith('/dev/'):
         return devname
     else:
@@ -102,7 +117,9 @@ def kname_to_path(kname):
 
 
 def partition_kname(disk_kname, partition_number):
-    """Add number to disk_kname prepending a 'p' if needed"""
+    """
+    Add number to disk_kname prepending a 'p' if needed
+    """
     for dev_type in ['nvme', 'mmcblk', 'cciss', 'mpath', 'dm']:
         if disk_kname.startswith(dev_type):
             partition_number = "p%s" % partition_number
@@ -111,7 +128,9 @@ def partition_kname(disk_kname, partition_number):
 
 
 def sysfs_to_devpath(sysfs_path):
-    """convert a path in /sys/class/block to a path in /dev"""
+    """
+    convert a path in /sys/class/block to a path in /dev
+    """
     path = kname_to_path(path_to_kname(sysfs_path))
     if not is_block_device(path):
         raise ValueError('could not find blockdev for sys path: {}'
@@ -120,6 +139,9 @@ def sysfs_to_devpath(sysfs_path):
 
 
 def sys_block_path(devname, add=None, strict=True):
+    """
+    get path to device in /sys/class/block
+    """
     toks = ['/sys/class/block']
     # insert parent dev if devname is partition
     devname = os.path.normpath(devname)
@@ -144,6 +166,9 @@ def sys_block_path(devname, add=None, strict=True):
 
 
 def _lsblock_pairs_to_dict(lines):
+    """
+    parse lsblock output and convert to dict
+    """
     ret = {}
     for line in lines.splitlines():
         toks = shlex.split(line)
@@ -159,6 +184,9 @@ def _lsblock_pairs_to_dict(lines):
 
 
 def _lsblock(args=None):
+    """
+    get lsblock data as dict
+    """
     # lsblk  --help | sed -n '/Available/,/^$/p' |
     #     sed -e 1d -e '$d' -e 's,^[ ]\+,,' -e 's, .*,,' | sort
     keys = ['ALIGNMENT', 'DISC-ALN', 'DISC-GRAN', 'DISC-MAX', 'DISC-ZERO',
@@ -181,8 +209,10 @@ def _lsblock(args=None):
 
 
 def get_unused_blockdev_info():
-    # return a list of unused block devices. These are devices that
-    # do not have anything mounted on them.
+    """
+    return a list of unused block devices.
+    These are devices that do not have anything mounted on them.
+    """
 
     # get a list of top level block devices, then iterate over it to get
     # devices dependent on those.  If the lsblk call for that specific
@@ -198,7 +228,9 @@ def get_unused_blockdev_info():
 
 
 def get_devices_for_mp(mountpoint):
-    # return a list of devices (full paths) used by the provided mountpoint
+    """
+    return a list of devices (full paths) used by the provided mountpoint
+    """
     bdinfo = _lsblock()
     found = set()
     for devname, data in bdinfo.items():
@@ -219,6 +251,9 @@ def get_devices_for_mp(mountpoint):
 
 
 def get_installable_blockdevs(include_removable=False, min_size=1024**3):
+    """
+    find blockdevs suitable for installation
+    """
     good = []
     unused = get_unused_blockdev_info()
     for devname, data in unused.items():
@@ -284,7 +319,9 @@ def get_sysfs_partitions(device):
 
 
 def get_pardevs_on_blockdevs(devs):
-    # return a dict of partitions with their info that are on provided devs
+    """
+    return a dict of partitions with their info that are on provided devs
+    """
     if devs is None:
         devs = []
     devs = [get_dev_name_entry(d)[1] for d in devs]
@@ -319,7 +356,9 @@ def stop_all_unused_multipath_devices():
 
 
 def rescan_block_devices():
-    # run 'blockdev --rereadpt' for all block devices not currently mounted
+    """
+    run 'blockdev --rereadpt' for all block devices not currently mounted
+    """
     unused = get_unused_blockdev_info()
     devices = []
     for devname, data in unused.items():
@@ -347,6 +386,9 @@ def rescan_block_devices():
 
 
 def blkid(devs=None, cache=True):
+    """
+    get data about block devices from blkid and convert to dict
+    """
     if devs is None:
         devs = []
 
@@ -643,7 +685,7 @@ def check_dos_signature(device):
     """
     return (is_block_device(device) and util.file_size(device) >= 0x200 and
             (util.load_file(device, mode='rb', read_len=2, offset=0x1fe) ==
-                b'\x55\xAA'))
+             b'\x55\xAA'))
 
 
 def check_efi_signature(device):
@@ -652,7 +694,7 @@ def check_efi_signature(device):
     """
     return (is_block_device(device) and util.file_size(device) >= 0x400 and
             (util.load_file(device, mode='rb', read_len=8, offset=0x200) ==
-                b'EFI PART'))
+             b'EFI PART'))
 
 
 def is_extended_partition(device):
@@ -669,10 +711,12 @@ def is_extended_partition(device):
 
 
 def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
-    # wipe the existing file at path.
-    #  if reader is provided, it will be called as a 'reader(buflen)'
-    #  to provide data for each write.  Otherwise, zeros are used.
-    #  writes will be done in size of buflen.
+    """
+    wipe the existing file at path.
+    if reader is provided, it will be called as a 'reader(buflen)'
+    to provide data for each write.  Otherwise, zeros are used.
+    writes will be done in size of buflen.
+    """
     if reader:
         readfunc = reader
     else:
@@ -702,9 +746,11 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
 
 
 def quick_zero(path, partitions=True):
-    # zero 1M at front, 1M at end, and 1M at front
-    # if this is a block device and partitions is true, then
-    # zero 1M at front and end of each partition.
+    """
+    zero 1M at front, 1M at end, and 1M at front
+    if this is a block device and partitions is true, then
+    zero 1M at front and end of each partition.
+    """
     buflen = 1024
     count = 1024
     zero_size = buflen * count
@@ -724,6 +770,9 @@ def quick_zero(path, partitions=True):
 
 
 def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False):
+    """
+    write zeros to file at specified offsets
+    """
     bmsg = "{path} (size={size}): "
     m_short = bmsg + "{tot} bytes from {offset} > size."
     m_badoff = bmsg + "invalid offset {offset}."
