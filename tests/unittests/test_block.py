@@ -399,6 +399,7 @@ class TestPartTableSignature(TestCase):
             mock_get_sector_size.return_value = (sector_size, sector_size)
             for (is_block, f_size, contents, expected) in [
                     (True, 2 * sector_size, gpt_dat, True),
+                    (True, 1 * sector_size, gpt_dat, False),
                     (False, 2 * sector_size, gpt_dat, False),
                     (True, 0, gpt_dat, False),
                     (True, 2 * sector_size, self.dos_content, False),
