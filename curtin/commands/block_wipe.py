@@ -21,9 +21,6 @@ from . import populate_one_subcmd
 
 
 def wipe_main(args):
-    #  curtin clear-holders device [device2 [device3]]
-    if args.clearholders:
-        block.clear_holders.clear_holders(args.devices)
     for blockdev in args.devices:
         try:
             block.wipe_volume(blockdev, mode=args.mode)
@@ -40,9 +37,6 @@ CMD_ARGUMENTS = (
       {'help': 'mode for wipe.', 'action': 'store',
        'default': 'superblock',
        'choices': ['zero', 'superblock', 'superblock-recursive', 'random']}),
-     (('-c', '--clearholders'),
-      {'help': 'shut down storage layers depending on specified devices',
-       'action': 'store_true', 'default': False}),
      ('devices',
       {'help': 'devices to wipe', 'default': [], 'nargs': '+'}),
      )
