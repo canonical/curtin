@@ -95,11 +95,6 @@ class TestClearHolders(TestCase):
         bcache_dir = clear_holders.get_bcache_using_dev(self.test_blockdev)
         self.assertEqual(bcache_dir, fake_bcache)
 
-        # test that path is verified before return
-        with self.assertRaises(OSError):
-            mock_os.path.realpath.return_value = self.test_blockdev
-            clear_holders.get_bcache_using_dev(self.test_blockdev)
-
     @mock.patch('curtin.block.clear_holders.get_dmsetup_uuid')
     @mock.patch('curtin.block.clear_holders.block')
     def test_differentiate_lvm_and_crypt(
@@ -131,26 +126,6 @@ class TestClearHolders(TestCase):
         self.assertTrue(mock_log.debug.called)
         self.assertFalse(mock_log.warn.called)
         mock_open.assert_called_with(self.test_blockdev + '/stop', 'w')
-
-    @mock.patch('curtin.block.clear_holders.LOG')
-    @mock.patch('curtin.block.clear_holders.open')
-    @mock.patch('curtin.block.clear_holders.get_bcache_using_dev')
-    def test_shutdown_bcache_err(self, mock_get_bcache, mock_open, mock_log):
-        """ensure that clear_holders.shutdown_bcache catches OSError"""
-        # this is the only of the shutdown handlers that has a need to for
-        # passing on an error, because there are some cases where a single
-        # bcache device can have multiple knames, such as when there are
-        # multiple backing devices sharing a single cache device, and therefore
-        # clear_holders may attempt to shutdown the same bcache device twice
-
-        def raise_os_err(_):
-            raise OSError('test')
-
-        mock_get_bcache.side_effect = raise_os_err
-        clear_holders.shutdown_bcache(self.test_blockdev)
-        self.assertFalse(mock_open.called)
-        self.assertFalse(mock_log.debug.called)
-        self.assertTrue(mock_log.warning.called)
 
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.block.sys_block_path')

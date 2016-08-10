@@ -40,33 +40,23 @@ def get_bcache_using_dev(device):
     """
     # FIXME: when block.bcache is written this should be moved there
     sysfs_path = block.sys_block_path(device)
-    bcache_cache_d = os.path.realpath(os.path.join(
-        sysfs_path, 'bcache', 'cache'))
-    if not os.path.exists(bcache_cache_d):
-        raise OSError('Could not find /sys/fs path for bcache: {}'
-                      .format(sysfs_path))
-    return bcache_cache_d
+    return os.path.realpath(os.path.join(sysfs_path, 'bcache', 'cache'))
 
 
 def shutdown_bcache(device):
     """
     Shut down bcache for specified bcache device
     """
-    try:
-        bcache_sysfs = get_bcache_using_dev(device)
-    except OSError:
-        # bcache not running, so nothing need be done
-        # this happens whenever we are shutting down a bcache system where a
-        # single cache device is used on two backing devices, because the same
-        # bcache device in /sys/fs/bcache/ represents itself as two block devs
-        # in /sys/block
-        LOG.warning("shutdown_bcache did not find /sys/fs/ path for bcache "
-                    "dev: '%s'. assuming caused by shared cache device, "
-                    "continuing", device)
-        return
-    LOG.debug('stopping bcache at: %s', bcache_sysfs)
-    with open(os.path.join(bcache_sysfs, 'stop'), 'w') as file_pointer:
-        file_pointer.write('1')
+    bcache_sysfs = get_bcache_using_dev(device)
+    if not os.path.exists(bcache_sysfs):
+        # bcache not running or module not loaded, so nothing needs to be done
+        LOG.info("shutdown_bcache did not find /sys/fs path for bcache dev: "
+                 "'%s', so bcache has already been shut down. continuing",
+                 device)
+    else:
+        LOG.debug('stopping bcache at: %s', bcache_sysfs)
+        with open(os.path.join(bcache_sysfs, 'stop'), 'w') as file_pointer:
+            file_pointer.write('1')
 
 
 def shutdown_lvm(device):
