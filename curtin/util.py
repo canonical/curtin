@@ -308,9 +308,17 @@ def write_file(filename, content, mode=0o644, omode="w"):
     os.chmod(filename, mode)
 
 
-def load_file(path, mode="r"):
+def load_file(path, mode="r", read_len=None, offset=0):
     with open(path, mode) as fp:
-        return fp.read()
+        fp.seek(offset)
+        return fp.read(read_len) if read_len else fp.read()
+
+
+def file_size(path):
+    """get the size of a file"""
+    with open(path, 'rb') as fp:
+        fp.seek(0, 2)
+        return fp.tell()
 
 
 def del_file(path):
