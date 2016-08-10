@@ -268,7 +268,7 @@ def assert_clear(base_paths):
                           .format(format_holders_tree(holders_tree)))
 
 
-def clear_holders(base_paths):
+def clear_holders(base_paths, try_preserve=False):
     """
     Clear all storage layers depending on the devices specified in 'base_paths'
     A single device or list of devices can be specified.
@@ -290,6 +290,11 @@ def clear_holders(base_paths):
         dev_type = DEV_TYPES.get(dev_info['dev_type'])
         shutdown_function = dev_type.get('shutdown')
         if not shutdown_function:
+            continue
+        if try_preserve and shutdown_function in DATA_DESTROYING_HANDLERS:
+            LOG.info('shutdown function for holder type: %s is destructive. '
+                     'attempting to preserve data, so not skipping' %
+                     dev_info['dev_type'])
             continue
         LOG.info("shutdown running on holder type: '%s' syspath: '%s'",
                  dev_info['dev_type'], dev_info['device'])
@@ -319,3 +324,5 @@ DEV_TYPES = {
     'bcache': {'shutdown': shutdown_bcache, 'ident': identify_bcache},
     'disk': {'ident': lambda x: False, 'shutdown': wipe_superblock},
 }
+
+DATA_DESTROYING_HANDLERS = [wipe_superblock]
