@@ -116,7 +116,7 @@ def wipe_superblock(device):
     LOG.info('wiping superblock on %s', device)
     # when operating on a disk that used to have a dos part table with an
     # extended partition, attempting to wipe the extended partition will result
-    # in a ENXIO err even though the actual device does exist
+    # in a ENXIO or EIO err even though the actual device does exist
     # if the block dev is possibly an extended partition ignore the err
     try:
         block.wipe_volume(blockdev, mode='superblock')
@@ -124,12 +124,13 @@ def wipe_superblock(device):
         # if not file not found then something went wrong
         if not util.is_file_not_found_exc(err):
             raise
-        # trusty report 0 for size of extended part, newer report 2 sectors
-        # partition file must exist to be a partition
-        # partition number must be <= 4 to be on a dos disk
-        if not (int(util.load_file(os.path.join(device, 'size'))) in [0, 2] and
-                os.path.exists(os.path.join(device, 'partition')) and
-                int(util.load_file(os.path.join(device, 'partition'))) <= 4):
+        # the parent disk must have a dos partition table
+        # must be within the first 4 partitions on device
+        (parent_dev, part_number) = block.get_blockdev_for_partition(blockdev)
+        device_ptable_type = block.get_part_table_type(parent_dev)
+        if not (device_ptable_type in ['dos', 'msdos'] and
+                part_number is not None and
+                int(part_number) > 4):
             raise
 
 

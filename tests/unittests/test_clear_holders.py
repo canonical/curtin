@@ -201,12 +201,11 @@ class TestClearHolders(TestCase):
         mock_block.mdadm.mdadm_remove.assert_called_with(self.test_blockdev)
         self.assertTrue(mock_log.debug.called)
 
-    @mock.patch('curtin.block.clear_holders.os')
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.util')
     @mock.patch('curtin.block.clear_holders.block')
     def test_clear_holders_wipe_superblock(self, mock_block, mock_util,
-                                           mock_log, mock_os):
+                                           mock_log):
         """test clear_holders.wipe_superblock handles errors right"""
         mock_block.sysfs_to_devpath.return_value = self.test_blockdev
         clear_holders.wipe_superblock(self.test_syspath)
@@ -215,19 +214,6 @@ class TestClearHolders(TestCase):
             self.test_blockdev, mode='superblock')
         self.assertFalse(mock_util.is_file_not_found_exc.called)
         self.assertTrue(mock_log.info.called)
-
-        def raise_os_error(blockdev, mode=None):
-            raise OSError('test')
-
-        mock_block.wipe_volume.side_effect = raise_os_error
-        mock_util.is_file_not_found_exc.return_value = True
-        mock_util.load_file.return_value = '2'
-        mock_os.path.exists.return_value = True
-        clear_holders.wipe_superblock(self.test_syspath)
-
-        mock_util.is_file_not_found_exc.return_value = False
-        with self.assertRaises(OSError):
-            clear_holders.wipe_superblock(self.test_syspath)
 
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.block')
