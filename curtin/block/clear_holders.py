@@ -353,7 +353,11 @@ def start_clear_holders_deps():
     # be detected
     block.mdadm.mdadm_assemble(scan=True)
     # the bcache module needs to be present to properly detect bcache devs
-    util.subp(['modprobe', 'bcache'])
+    # on some systems (precise without hwe kernel) it may not be possible to
+    # lad the bcache module bcause it is not present in the kernel. if this
+    # happens then there is no need to halt installation, as the bcache devices
+    # will never appear and will never prevent the disk from being reformatted
+    util.subp(['modprobe', 'bcache'], rcs=[0, 1])
 
 
 # anything that is not identified can assumed to be a 'disk' or similar
