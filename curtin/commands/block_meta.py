@@ -540,10 +540,11 @@ def partition_handler(info, storage_config):
         raise ValueError("parent partition has invalid partition table")
 
     # Wipe the partition if told to do so, do not wipe dos extended partitions
-    # as this may damage the disk partition table
+    # as this may damage the extended partition table
     if config.value_as_boolean(info.get('wipe')):
         if info.get('flag') == "extended":
-            LOG.warn("not wiping extended partition %s" % info.get('id'))
+            LOG.warn("extended partitions do not need wiping, so skipping: "
+                     "'%s'" % info.get('id'))
         else:
             block.wipe_volume(
                 get_path_to_storage_volume(info.get('id'), storage_config),

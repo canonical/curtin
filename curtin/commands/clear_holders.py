@@ -20,7 +20,9 @@ from . import populate_one_subcmd
 
 
 def clear_holders_main(args):
-    """wrapper for clear_holders accepting cli args"""
+    """
+    wrapper for clear_holders accepting cli args
+    """
     if (not all(block.is_block_device(device) for device in args.devices) or
             len(args.devices) == 0):
         raise ValueError('invalid devices specified')

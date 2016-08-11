@@ -27,7 +27,9 @@ _SEP = '='
 
 
 def _filter_lvm_info(lvtool, match_field, query_field, match_key):
-    """filter output of pv/vg/lvdisplay tools"""
+    """
+    filter output of pv/vg/lvdisplay tools
+    """
     (out, _) = util.subp([lvtool, '-C', '--separator', _SEP, '--noheadings',
                           '-o', ','.join([match_field, query_field])],
                          capture=True)
@@ -37,17 +39,23 @@ def _filter_lvm_info(lvtool, match_field, query_field, match_key):
 
 
 def get_pvols_in_volgroup(vg_name):
-    """get physical volumes used by volgroup"""
+    """
+    get physical volumes used by volgroup
+    """
     return _filter_lvm_info('pvdisplay', 'vg_name', 'pv_name', vg_name)
 
 
 def get_lvols_in_volgroup(vg_name):
-    """get logical volumes in volgroup"""
+    """
+    get logical volumes in volgroup
+    """
     return _filter_lvm_info('lvdisplay', 'vg_name', 'lv_name', vg_name)
 
 
 def split_lvm_name(full):
-    """split full lvm name into tuple of (volgroup, lv_name)"""
+    """
+    split full lvm name into tuple of (volgroup, lv_name)
+    """
     # 'dmsetup splitname' is the authoratative source for lvm name parsing
     (out, _) = util.subp(['dmsetup', 'splitname', full, '-c', '--noheadings',
                           '--separator', _SEP, '-o', 'vg_name,lv_name'],
@@ -56,7 +64,9 @@ def split_lvm_name(full):
 
 
 def lvm_scan():
-    """run full scan for volgroups, logical volumes and physical volumes"""
+    """
+    run full scan for volgroups, logical volumes and physical volumes
+    """
     # the lvm tools lvscan, vgscan and pvscan on ubuntu precise do not
     # support the flag --cache. the flag is present for the tools in ubuntu
     # trusty and later. since lvmetad is used in current releases of

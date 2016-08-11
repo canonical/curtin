@@ -29,7 +29,9 @@ from curtin.log import LOG
 
 
 def get_dmsetup_uuid(device):
-    """get the dm uuid for a specified dmsetup device"""
+    """
+    get the dm uuid for a specified dmsetup device
+    """
     blockdev = block.sysfs_to_devpath(device)
     (out, _) = util.subp(['dmsetup', 'info', blockdev, '-C', '-o', 'uuid',
                           '--noheadings'], capture=True)
@@ -63,6 +65,10 @@ def shutdown_bcache(device):
         return
 
     LOG.debug('stopping bcache at: %s', bcache_sysfs)
+    # it is not possible to use util.write_file here, as it runs os.chmod on a
+    # file after writing. since this file and the directory it is in will cease
+    # to exist as soon as the write is finished, the os.chmod call will result
+    # in a file not found error
     with open(os.path.join(bcache_sysfs, 'stop'), 'w') as file_pointer:
         file_pointer.write('1')
 
@@ -114,36 +120,47 @@ def wipe_superblock(device):
     # when operating on a disk that used to have a dos part table with an
     # extended partition, attempting to wipe the extended partition will fail
     if block.is_extended_partition(blockdev):
-        LOG.info('not wiping extended partition: %s', blockdev)
+        LOG.info("extended partitions do not need wiping, so skipping: '%s'",
+                 blockdev)
     else:
         LOG.info('wiping superblock on %s', blockdev)
         block.wipe_volume(blockdev, mode='superblock')
 
 
 def identify_lvm(device):
-    """determine if specified device is a lvm device"""
+    """
+    determine if specified device is a lvm device
+    """
     return (block.path_to_kname(device).startswith('dm') and
             get_dmsetup_uuid(device).startswith('LVM'))
 
 
 def identify_crypt(device):
-    """determine if specified device is dm-crypt device"""
+    """
+    determine if specified device is dm-crypt device
+    """
     return (block.path_to_kname(device).startswith('dm') and
             get_dmsetup_uuid(device).startswith('CRYPT'))
 
 
 def identify_mdadm(device):
-    """determine if specified device is a mdadm device"""
+    """
+    determine if specified device is a mdadm device
+    """
     return block.path_to_kname(device).startswith('md')
 
 
 def identify_bcache(device):
-    """determine if specified device is a bcache device"""
+    """
+    determine if specified device is a bcache device
+    """
     return block.path_to_kname(device).startswith('bcache')
 
 
 def identify_partition(device):
-    """determine if specified device is a partition"""
+    """
+    determine if specified device is a partition
+    """
     path = os.path.join(block.sys_block_path(device), 'partition')
     return os.path.exists(path)
 
@@ -166,8 +183,22 @@ def gen_holders_tree(device):
     """
     device = block.sys_block_path(device)
     dev_name = block.path_to_kname(device)
+    # the holders for a device should consist of the devices in the holders/
+    # dir in sysfs and any partitions on the device. this ensures that a
+    # storage tree starting from a disk will include all devices holding the
+    # disk's partitions
     holder_paths = ([block.sys_block_path(h) for h in get_holders(device)] +
                     block.get_sysfs_partitions(device))
+    # the DEV_TYPE registry contains a function under the key 'ident' for each
+    # device type entry that returns true if the device passed to it is of the
+    # correct type. there should never be a situation in which multiple
+    # identify functions return true. therefore, it will always work to take
+    # the device type with the first identify function that returns true as the
+    # device type for the current device. in the event that no identify
+    # functions return true, the device will be treated as a disk
+    # (DEFAULT_DEV_TYPE). the identify function for disk never returns true.
+    # the next() builtin in python will not raise a StopIteration exception if
+    # there is a default value defined
     dev_type = next((k for k, v in DEV_TYPES.items() if v['ident'](device)),
                     DEFAULT_DEV_TYPE)
     return {
@@ -232,12 +263,16 @@ def plan_shutdown_holder_trees(holders_trees):
 
 
 def format_holders_tree(holders_tree):
-    """draw a nice dirgram of the holders tree"""
+    """
+    draw a nice dirgram of the holders tree
+    """
     # spacer styles based on output of 'tree --charset=ascii'
     spacers = (('`-- ', ' ' * 4), ('|-- ', '|' + ' ' * 3))
 
     def format_tree(tree):
-        """format entry and any subentries"""
+        """
+        format entry and any subentries
+        """
         result = [tree['name']]
         holders = tree['holders']
         for (holder_no, holder) in enumerate(holders):
@@ -262,7 +297,9 @@ def get_holder_types(tree):
 
 
 def assert_clear(base_paths):
-    """Check if all paths in base_paths are clear to use"""
+    """
+    Check if all paths in base_paths are clear to use
+    """
     valid = ('disk', 'partition')
     if not isinstance(base_paths, (list, tuple)):
         base_paths = [base_paths]
@@ -309,7 +346,9 @@ def clear_holders(base_paths, try_preserve=False):
 
 
 def start_clear_holders_deps():
-    """prepare system for clear holders to be able to scan old devices"""
+    """
+    prepare system for clear holders to be able to scan old devices
+    """
     # a mdadm scan has to be started in case there is a md device that needs to
     # be detected
     block.mdadm.mdadm_assemble(scan=True)

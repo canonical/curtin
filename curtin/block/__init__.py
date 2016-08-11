@@ -46,7 +46,7 @@ def is_valid_device(devname):
 
 def is_block_device(path):
     """
-    check if path is a blcok device
+    check if path is a block device
     """
     try:
         return stat.S_ISBLK(os.stat(path).st_mode)
@@ -651,21 +651,17 @@ def sysfs_partition_data(blockdev=None, sysfs_path=None):
         sysfs_prefix, 'queue/logical_block_size')))
     unit = block_size
 
-    # /sys/class/block/dev has entries of 'kname' for each partition
     ptdata = []
-    for d in os.listdir(sysfs_prefix):
-        partd = os.path.join(sysfs_prefix, d)
+    for part_sysfs in get_sysfs_partitions(sysfs_prefix):
         data = {}
         for sfile in ('partition', 'start', 'size'):
-            dfile = os.path.join(partd, sfile)
+            dfile = os.path.join(part_sysfs, sfile)
             if not os.path.isfile(dfile):
                 continue
             data[sfile] = int(util.load_file(dfile))
-        if 'partition' not in data:
-            continue
         if partnum is None or data['partition'] == partnum:
-            ptdata.append((d, data['partition'], data['start'] * unit,
-                           data['size'] * unit,))
+            ptdata.append((path_to_kname(part_sysfs), data['partition'],
+                           data['start'] * unit, data['size'] * unit,))
 
     return ptdata
 
@@ -675,6 +671,9 @@ def get_part_table_type(device):
     check the type of partition table present on the specified device
     returns None if no ptable was present or device could not be read
     """
+    # it is neccessary to look for the gpt signature first, then the dos
+    # signature, because a gpt formatted disk usually has a valid mbr to
+    # protect the disk from being modified by older partitioning tools
     return ('gpt' if check_efi_signature(device) else
             'dos' if check_dos_signature(device) else None)
 
@@ -683,6 +682,11 @@ def check_dos_signature(device):
     """
     check if there is a dos partition table signature present on device
     """
+    # the last 2 bytes of a dos partition table have the signature with the
+    # value 0xAA55. the dos partition table is always 0x200 bytes long, even if
+    # the underlying disk uses a larger logical block size, so the start of
+    # this signature must be at 0x1fe
+    # https://en.wikipedia.org/wiki/Master_boot_record#Sector_layout
     return (is_block_device(device) and util.file_size(device) >= 0x200 and
             (util.load_file(device, mode='rb', read_len=2, offset=0x1fe) ==
              b'\x55\xAA'))
@@ -692,6 +696,13 @@ def check_efi_signature(device):
     """
     check if there is a gpt partition table signature present on device
     """
+    # the gpt partition table header is always on lba 1, regardless of the
+    # logical block size used by the underlying disk. therefore, a static
+    # offset cannot be used, the offset to the start of the table header is
+    # always the sector size of the disk
+    # the start of the gpt partition table header shoult have the signaure
+    # 'EFI PART'.
+    # https://en.wikipedia.org/wiki/GUID_Partition_Table
     sector_size = get_blockdev_sector_size(device)[0]
     return (is_block_device(device) and
             util.file_size(device) >= 2 * sector_size and
