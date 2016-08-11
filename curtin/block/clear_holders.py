@@ -28,6 +28,21 @@ from curtin.block import lvm
 from curtin.log import LOG
 
 
+def _define_handlers_registry():
+    """
+    returns instantiated dev_types
+    """
+    return {
+        'partition': {'shutdown': wipe_superblock,
+                      'ident': identify_partition},
+        'lvm': {'shutdown': shutdown_lvm, 'ident': identify_lvm},
+        'crypt': {'shutdown': shutdown_crypt, 'ident': identify_crypt},
+        'raid': {'shutdown': shutdown_mdadm, 'ident': identify_mdadm},
+        'bcache': {'shutdown': shutdown_bcache, 'ident': identify_bcache},
+        'disk': {'ident': lambda x: False, 'shutdown': wipe_superblock},
+    }
+
+
 def get_dmsetup_uuid(device):
     """
     get the dm uuid for a specified dmsetup device
@@ -357,16 +372,8 @@ def start_clear_holders_deps():
 
 # anything that is not identified can assumed to be a 'disk' or similar
 DEFAULT_DEV_TYPE = 'disk'
-
+# handlers that should not be run if an attempt is being made to preserve data
+DATA_DESTROYING_HANDLERS = [wipe_superblock]
 # types of devices that could be encountered by clear holders and functions to
 # identify them and shut them down
-DEV_TYPES = {
-    'partition': {'shutdown': wipe_superblock, 'ident': identify_partition},
-    'lvm': {'shutdown': shutdown_lvm, 'ident': identify_lvm},
-    'crypt': {'shutdown': shutdown_crypt, 'ident': identify_crypt},
-    'raid': {'shutdown': shutdown_mdadm, 'ident': identify_mdadm},
-    'bcache': {'shutdown': shutdown_bcache, 'ident': identify_bcache},
-    'disk': {'ident': lambda x: False, 'shutdown': wipe_superblock},
-}
-
-DATA_DESTROYING_HANDLERS = [wipe_superblock]
+DEV_TYPES = _define_handlers_registry()
