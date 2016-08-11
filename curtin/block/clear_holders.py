@@ -49,16 +49,22 @@ def shutdown_bcache(device):
     """
     Shut down bcache for specified bcache device
     """
+    bcache_shutdown_message = ('shutdown_bcache running on {} has determined '
+                               'that the device has already been shut down '
+                               'during handling of another bcache dev. '
+                               'skipping'.format(device))
+    if not os.path.exists(device):
+        LOG.info(bcache_shutdown_message)
+        return
+
     bcache_sysfs = get_bcache_using_dev(device)
     if not os.path.exists(bcache_sysfs):
-        # bcache not running or module not loaded, so nothing needs to be done
-        LOG.info("shutdown_bcache did not find /sys/fs path for bcache dev: "
-                 "'%s', so bcache has already been shut down. continuing",
-                 device)
-    else:
-        LOG.debug('stopping bcache at: %s', bcache_sysfs)
-        with open(os.path.join(bcache_sysfs, 'stop'), 'w') as file_pointer:
-            file_pointer.write('1')
+        LOG.info(bcache_shutdown_message)
+        return
+
+    LOG.debug('stopping bcache at: %s', bcache_sysfs)
+    with open(os.path.join(bcache_sysfs, 'stop'), 'w') as file_pointer:
+        file_pointer.write('1')
 
 
 def shutdown_lvm(device):
