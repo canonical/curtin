@@ -65,12 +65,7 @@ def shutdown_bcache(device):
         return
 
     LOG.debug('stopping bcache at: %s', bcache_sysfs)
-    # it is not possible to use util.write_file here, as it runs os.chmod on a
-    # file after writing. since this file and the directory it is in will cease
-    # to exist as soon as the write is finished, the os.chmod call will result
-    # in a file not found error
-    with open(os.path.join(bcache_sysfs, 'stop'), 'w') as file_pointer:
-        file_pointer.write('1')
+    util.write_file(os.path.join(bcache_sysfs, 'stop'), '1', mode=None)
 
 
 def shutdown_lvm(device):

@@ -302,10 +302,15 @@ def ensure_dir(path, mode=None):
 
 
 def write_file(filename, content, mode=0o644, omode="w"):
+    """
+    write 'content' to file at 'filename' using python open mode 'omode'.
+    if mode is not set, then chmod file to mode. mode is 644 by default
+    """
     ensure_dir(os.path.dirname(filename))
     with open(filename, omode) as fp:
         fp.write(content)
-    os.chmod(filename, mode)
+    if mode:
+        os.chmod(filename, mode)
 
 
 def load_file(path, mode="r", read_len=None, offset=0):

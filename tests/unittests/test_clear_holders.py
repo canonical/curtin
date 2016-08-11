@@ -115,12 +115,12 @@ class TestClearHolders(TestCase):
             mock_block.path_to_kname.assert_called_with(self.test_syspath)
             mock_get_dmsetup_uuid.assert_called_with(self.test_syspath)
 
+    @mock.patch('curtin.block.clear_holders.util')
     @mock.patch('curtin.block.clear_holders.os')
     @mock.patch('curtin.block.clear_holders.LOG')
-    @mock.patch('curtin.block.clear_holders.open')
     @mock.patch('curtin.block.clear_holders.get_bcache_using_dev')
-    def test_shutdown_bcache(self, mock_get_bcache, mock_open,
-                             mock_log, mock_os):
+    def test_shutdown_bcache(self, mock_get_bcache, mock_log, mock_os,
+                             mock_util):
         """test clear_holders.shutdown_bcache"""
         mock_os.path.exists.return_value = True
         mock_os.path.join.side_effect = os.path.join
@@ -129,7 +129,8 @@ class TestClearHolders(TestCase):
         mock_get_bcache.assert_called_with(self.test_syspath)
         self.assertTrue(mock_log.debug.called)
         self.assertFalse(mock_log.warn.called)
-        mock_open.assert_called_with(self.test_blockdev + '/stop', 'w')
+        mock_util.write_file.assert_called_with(self.test_blockdev + '/stop',
+                                                '1', mode=None)
 
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.block.sys_block_path')
