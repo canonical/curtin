@@ -349,7 +349,7 @@ def iface_add_attrs(iface, index):
         'subnets',
         'type',
     ]
-    if iface['type'] not in ['bond', 'bridge']:
+    if iface['type'] not in ['bond', 'bridge', 'vlan']:
         ignore_map.append('mac_address')
 
     for key, value in iface.items():
@@ -361,20 +361,48 @@ def iface_add_attrs(iface, index):
     return content
 
 
-def render_route(route):
-    content = "up route add"
+def render_route(route, indent=""):
+    """When rendering routes for an iface, in some cases applying a route
+    may result in the route command returning non-zero which produces
+    some confusing output for users manually using ifup/ifdown[1].  To
+    that end, we will optionally include an '|| true' postfix to each
+    route line allowing users to work with ifup/ifdown without using
+    --force option.
+
+    We may at somepoint not want to emit this additional postfix, and
+    add a 'strict' flag to this function.  When called with strict=True,
+    then we will not append the postfix.
+
+    1. http://askubuntu.com/questions/168033/
+             how-to-set-static-routes-in-ubuntu-server
+    """
+    content = []
+    up = indent + "post-up route add"
+    down = indent + "pre-down route del"
+    or_true = " || true"
     mapping = {
         'network': '-net',
         'netmask': 'netmask',
         'gateway': 'gw',
         'metric': 'metric',
     }
-    for k in ['network', 'netmask', 'gateway', 'metric']:
-        if k in route:
-            content += " %s %s" % (mapping[k], route[k])
-
-    content += '\n'
-    return content
+    if route['network'] == '0.0.0.0' and route['netmask'] == '0.0.0.0':
+        default_gw = " default gw %s" % route['gateway']
+        content.append(up + default_gw + or_true)
+        content.append(down + default_gw + or_true)
+    elif route['network'] == '::' and route['netmask'] == 0:
+        # ipv6!
+        default_gw = " -A inet6 default gw %s" % route['gateway']
+        content.append(up + default_gw + or_true)
+        content.append(down + default_gw + or_true)
+    else:
+        route_line = ""
+        for k in ['network', 'netmask', 'gateway', 'metric']:
+            if k in route:
+                route_line += " %s %s" % (mapping[k], route[k])
+        content.append(up + route_line + or_true)
+        content.append(down + route_line + or_true)
+    return "\n".join(content)
 
 
 def iface_start_entry(iface, index):
@@ -444,22 +472,26 @@ def render_interfaces(network_state):
                 content += iface_start_entry(iface, index)
                 content += iface_add_subnet(iface, subnet)
                 content += iface_add_attrs(iface, index)
+
+                for route in subnet.get('routes', []):
+                    content += render_route(route, indent="    ") + '\n'
+
                 if len(subnets) > 1 and index == 0:
+                    tmpl = "    post-up ifup %s:%s\n"
                     for i in range(1, len(subnets)):
-                        content += "    post-up ifup %s:%s\n" % (iface['name'],
-                                                                 i)
+                        content += tmpl % (iface['name'], i)
         else:
             # ifenslave docs say to auto the slave devices
             if 'bond-master' in iface:
                 content += "auto {name}\n".format(**iface)
             content += "iface {name} {inet} {mode}\n".format(**iface)
-            content += iface_add_attrs(iface, index)
+            content += iface_add_attrs(iface, 0)
 
     for route in network_state.get('routes'):
         content += render_route(route)
 
     # global replacements until v2 format
-    content = content.replace('mac_address', 'hwaddress')
+    content = content.replace('mac_address', 'hwaddress ether')
 
     # Play nice with others and source eni config files
     content += "\nsource /etc/network/interfaces.d/*.cfg\n"

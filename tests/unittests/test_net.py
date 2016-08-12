@@ -515,7 +515,7 @@ network:
             iface bond0 inet static
                 address 10.23.23.2/24
                 bond-mode active-backup
-                hwaddress 52:54:00:12:34:06
+                hwaddress ether 52:54:00:12:34:06
                 bond-slaves none
                 post-up ifup bond0:1
 
