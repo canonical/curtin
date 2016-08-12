@@ -198,12 +198,12 @@ class TestNetworkIPV6Abs(VMBaseClass):
                 self.assertEqual(gw_ip, gw)
 
 
-class TestNetworkStaticAbs(TestNetworkIPV6Abs):
-    conf_file = "examples/tests/basic_network_static.yaml"
+class TestNetworkIPV6StaticAbs(TestNetworkIPV6Abs):
+    conf_file = "examples/tests/basic_network_static_ipv6.yaml"
 
 
-class TestNetworkVlanAbs(TestNetworkIPV6Abs):
-    conf_file = "examples/tests/vlan_network.yaml"
+class TestNetworkIPV6VlanAbs(TestNetworkIPV6Abs):
+    conf_file = "examples/tests/vlan_network_ipv6.yaml"
     collect_scripts = TestNetworkIPV6Abs.collect_scripts + [textwrap.dedent("""
              cd OUTPUT_COLLECT_D
              dpkg-query -W -f '${Status}' vlan > vlan_installed
@@ -244,7 +244,7 @@ class TestNetworkVlanAbs(TestNetworkIPV6Abs):
             self.check_file_regex(link_file, vlan_msg)
 
 
-class TestNetworkENISource(TestNetworkIPV6Abs):
+class TestNetworkIPV6ENISource(TestNetworkIPV6Abs):
     """ Curtin now emits a source /etc/network/interfaces.d/*.cfg
         line.  This test exercises this feature by emitting additional
         network configuration in /etc/network/interfaces.d/eth2.cfg
@@ -265,7 +265,7 @@ class TestNetworkENISource(TestNetworkIPV6Abs):
         with what was actually configured (which we capture via ifconfig)
     """
 
-    conf_file = "examples/tests/network_source.yaml"
+    conf_file = "examples/tests/network_source_ipv6.yaml"
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         ifconfig -a > ifconfig_a
@@ -324,78 +324,62 @@ class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkIPV6Abs):
     __test__ = False
 
 
-class PreciseHWETTestNetworkStatic(relbase.precise_hwe_t,
-                                   TestNetworkStaticAbs):
+class PreciseHWETTestNetworkIPV6Static(relbase.precise_hwe_t,
+                                      TestNetworkIPV6StaticAbs):
     # FIXME: off due to hang at test: Starting execute cloud user/final scripts
     __test__ = False
 
 
-class TrustyTestNetwork(relbase.trusty, TestNetworkIPV6Abs):
+class TrustyTestNetworkIPV6(relbase.trusty, TestNetworkIPV6Abs):
     __test__ = True
 
 
-class TrustyTestNetworkStatic(relbase.trusty, TestNetworkStaticAbs):
+class TrustyTestNetworkIPV6Static(relbase.trusty, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
-class TrustyHWEUTestNetwork(relbase.trusty_hwe_u, TrustyTestNetwork):
+class TrustyHWEUTestNetworkIPV6(relbase.trusty_hwe_u, TrustyTestNetworkIPV6):
     # Working, off by default to safe test suite runtime, covered by bonding
     __test__ = False
 
 
-class TrustyHWEUTestNetworkStatic(relbase.trusty_hwe_u,
-                                  TestNetworkStaticAbs):
+class TrustyHWEUTestNetworkIPV6Static(relbase.trusty_hwe_u,
+                                      TestNetworkIPV6StaticAbs):
     # Working, off by default to safe test suite runtime, covered by bonding
     __test__ = False
 
 
-class TrustyHWEVTestNetwork(relbase.trusty_hwe_v, TrustyTestNetwork):
+class TrustyHWEVTestNetworkIPV6(relbase.trusty_hwe_v, TrustyTestNetworkIPV6):
     # Working, off by default to safe test suite runtime, covered by bonding
     __test__ = False
 
 
-class TrustyHWEVTestNetworkStatic(relbase.trusty_hwe_v,
-                                  TestNetworkStaticAbs):
+class TrustyHWEVTestNetworkIPV6Static(relbase.trusty_hwe_v,
+                                      TestNetworkIPV6StaticAbs):
     # Working, off by default to safe test suite runtime, covered by bonding
     __test__ = False
 
 
-class TrustyHWEWTestNetwork(relbase.trusty_hwe_w, TrustyTestNetwork):
+class TrustyHWEWTestNetworkIPV6(relbase.trusty_hwe_w, TrustyTestNetworkIPV6):
     # Working, off by default to safe test suite runtime, covered by bonding
     __test__ = False
 
 
-class TrustyHWEWTestNetworkStatic(relbase.trusty_hwe_w,
-                                  TestNetworkStaticAbs):
+class TrustyHWEWTestNetworkIPV6Static(relbase.trusty_hwe_w,
+                                      TestNetworkIPV6StaticAbs):
     # Working, off by default to safe test suite runtime, covered by bonding
     __test__ = False
 
 
-class VividTestNetwork(relbase.vivid, TestNetworkIPV6Abs):
+class XenialTestNetworkIPV6(relbase.xenial, TestNetworkIPV6Abs):
     __test__ = True
 
 
-class VividTestNetworkStatic(relbase.vivid, TestNetworkStaticAbs):
+class XenialTestNetworkIPV6Static(relbase.xenial, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
-class WilyTestNetwork(relbase.wily, TestNetworkIPV6Abs):
-    __test__ = False
-
-
-class WilyTestNetworkStatic(relbase.wily, TestNetworkStaticAbs):
-    __test__ = False
-
-
-class XenialTestNetwork(relbase.xenial, TestNetworkIPV6Abs):
-    __test__ = True
-
-
-class XenialTestNetworkStatic(relbase.xenial, TestNetworkStaticAbs):
-    __test__ = True
-
-
-class PreciseTestNetworkVlan(relbase.precise, TestNetworkVlanAbs):
+class PreciseTestNetworkIPV6Vlan(relbase.precise, TestNetworkIPV6VlanAbs):
     __test__ = True
 
     # precise ip -d link show output is different (of course)
@@ -411,39 +395,24 @@ class PreciseTestNetworkVlan(relbase.precise, TestNetworkVlanAbs):
             self.check_file_regex(link_file, vlan_msg)
 
 
-class TrustyTestNetworkVlan(relbase.trusty, TestNetworkVlanAbs):
+class TrustyTestNetworkIPV6Vlan(relbase.trusty, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
-class VividTestNetworkVlan(relbase.vivid, TestNetworkVlanAbs):
+class XenialTestNetworkIPV6Vlan(relbase.xenial, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
-class WilyTestNetworkVlan(relbase.wily, TestNetworkVlanAbs):
-    __test__ = False
-
-
-class XenialTestNetworkVlan(relbase.xenial, TestNetworkVlanAbs):
-    __test__ = True
-
-
-class PreciseTestNetworkENISource(relbase.precise, TestNetworkENISource):
+class PreciseTestNetworkIPV6ENISource(relbase.precise,
+                                      TestNetworkIPV6ENISource):
     __test__ = False
     # not working, still debugging though; possible older ifupdown doesn't
     # like the multiple iface method.
 
 
-class TrustyTestNetworkENISource(relbase.trusty, TestNetworkENISource):
+class TrustyTestNetworkIPV6ENISource(relbase.trusty, TestNetworkIPV6ENISource):
     __test__ = True
 
 
-class VividTestNetworkENISource(relbase.vivid, TestNetworkENISource):
-    __test__ = True
-
-
-class WilyTestNetworkENISource(relbase.wily, TestNetworkENISource):
-    __test__ = True
-
-
-class XenialTestNetworkENISource(relbase.xenial, TestNetworkENISource):
+class XenialTestNetworkIPV6ENISource(relbase.xenial, TestNetworkIPV6ENISource):
     __test__ = True

@@ -3,8 +3,10 @@ network:
   config:
     - name: interface0
       type: physical
+      mac_address: BC:76:4E:06:96:B3
     - name: interface1
       type: physical
+      mac_address: BC:76:4E:04:88:41
     - type: bond
       bond_interfaces:
         - interface0
@@ -18,7 +20,6 @@ network:
       name: bond0.108
       vlan_id: '108'
       vlan_link: bond0
-      mac_address: BC:76:4E:06:96:B3
       subnets:
         - type: static
           address: 65.61.151.38
@@ -38,7 +39,6 @@ network:
       name: bond0.208
       vlan_id: '208'
       vlan_link: bond0
-      mac_address: BC:76:4E:04:88:41
       subnets:
         - address: 10.184.225.122
           netmask: 255.255.255.252
