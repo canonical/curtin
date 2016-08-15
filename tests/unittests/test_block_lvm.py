@@ -69,14 +69,20 @@ class TestBlockLvm(TestCase):
             ['dmsetup', 'splitname', full_name, '-c', '--noheadings',
              '--separator', lvm._SEP, '-o', 'vg_name,lv_name'], capture=True)
 
+    @mock.patch('curtin.block.lvm.lvmetad_running')
     @mock.patch('curtin.block.lvm.util')
-    def test_lvm_scan(self, mock_util):
+    def test_lvm_scan(self, mock_util, mock_lvmetad):
         """check that lvm_scan formats commands correctly for each release"""
-        for (count, (codename, use_cache)) in enumerate(
-                [('precise', False), ('trusty', False), ('vivid', True),
-                 ('wily', True), ('xenial', True), ('yakkety', True),
-                 ('UNAVAILABLE', True), (None, True)]):
+        for (count, (codename, lvmetad_status, use_cache)) in enumerate(
+                [('precise', False, False), ('precise', True, False),
+                 ('trusty', False, False), ('trusty', True, True),
+                 ('vivid', False, False), ('vivid', True, True),
+                 ('wily', False, False), ('wily', True, True),
+                 ('xenial', False, False), ('xenial', True, True),
+                 ('yakkety', True, True), ('UNAVAILABLE', True, True),
+                 (None, True, True), (None, False, False)]):
             mock_util.lsb_release.return_value = {'codename': codename}
+            mock_lvmetad.return_value = lvmetad_status
             lvm.lvm_scan()
             self.assertEqual(
                 len(mock_util.subp.call_args_list), 2 * (count + 1))

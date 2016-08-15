@@ -21,6 +21,7 @@ This module provides some helper functions for manipulating lvm devices
 
 from curtin import util
 from curtin.log import LOG
+import os
 
 # separator to use for lvm/dm tools
 _SEP = '='
@@ -63,6 +64,14 @@ def split_lvm_name(full):
     return out.strip().split(_SEP)
 
 
+def lvmetad_running():
+    """
+    check if lvmetad is running
+    """
+    return os.path.exists(os.environ.get('LVM_LVMETAD_PIDFILE',
+                                         '/run/lvmetad.pid'))
+
+
 def lvm_scan():
     """
     run full scan for volgroups, logical volumes and physical volumes
@@ -73,17 +82,15 @@ def lvm_scan():
     # ubuntu, the --cache flag is needed to ensure that the data cached by
     # lvmetad is updated.
 
-    # if we are unable to determine the version of ubuntu we are running
-    # on, we are much more likely to be correct in using the --cache flag,
-    # as every supported release except for precise supports the --cache
-    # flag, and most releases being installed now are either trusty or
-    # xenial
+    # before appending the cache flag though, check if lvmetad is running. this
+    # ensures that we do the right thing even if lvmetad is supported but is
+    # not running
     release = util.lsb_release().get('codename')
     if release in [None, 'UNAVAILABLE']:
         LOG.warning('unable to find release number, assuming xenial or later')
         release = 'xenial'
 
     for cmd in [['pvscan'], ['vgscan', '--mknodes']]:
-        if release not in ['precise', 'trusty']:
+        if release != 'precise' and lvmetad_running():
             cmd.append('--cache')
         util.subp(cmd, capture=True)
