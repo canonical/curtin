@@ -1,4 +1,4 @@
-from . import VMBaseClass, logger
+from . import VMBaseClass, logger, helpers
 from .releases import base_vm_classes as relbase
 
 import ipaddress
@@ -17,13 +17,22 @@ class TestNetworkIPV6Abs(VMBaseClass):
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         ifconfig -a > ifconfig_a
+        ip link show > ip_link_show
+        ip a > ip_a
+        cp -av /etc/sysctl.d .
+        find /etc/network/interfaces.d > find_interfacesd
         cp -av /etc/network/interfaces .
         cp -av /etc/network/interfaces.d .
         cp /etc/resolv.conf .
         cp -av /etc/udev/rules.d/70-persistent-net.rules .
         ip -o route show > ip_route_show
+        ip -6 -o route show > ip_6_route_show
         route -n > route_n
+        route -6 -n > route_6_n
         cp -av /run/network ./run_network
+        grep . -r /sys/class/net/bond0/ > sysfs_bond0
+        grep . -r /sys/class/net/bond0.108/ > sysfs_bond0.108
+        grep . -r /sys/class/net/bond0.208/ > sysfs_bond0.208
         """)]
 
     def test_output_files_exist(self):
@@ -78,10 +87,14 @@ class TestNetworkIPV6Abs(VMBaseClass):
         for ifname in expected_ifaces.keys():
             iface = expected_ifaces.get(ifname)
             for k, v in iface.get('dns', {}).items():
-                dns_line = '{} {}'.format(
-                    k.replace('nameservers', 'nameserver'), " ".join(v))
-                logger.debug('dns_line:{}'.format(dns_line))
-                self.assertTrue(dns_line in resolv_lines)
+                print('k=%s v=%s' % (k, v))
+                if ' ' in v:
+                    v = v.split()
+                for ns in v:
+                    dns_line = '{} {}'.format(
+                        k.replace('nameservers', 'nameserver'), ns)
+                    logger.debug('dns_line:{}'.format(dns_line))
+                    self.assertTrue(dns_line in resolv_lines)
 
     def test_ifconfig_output(self):
         '''check ifconfig output with test input'''
@@ -114,43 +127,72 @@ class TestNetworkIPV6Abs(VMBaseClass):
             route_n = fp.read()
             logger.debug("route -n:\n{}".format(route_n))
 
+        with open(os.path.join(self.td.collect, "route_6_n")) as fp:
+            route_6_n = fp.read()
+            logger.debug("route -6 -n:\n{}".format(route_6_n))
+
+        routes = {
+            '4': route_n,
+            '6': route_6_n,
+        }
         interfaces = network_state.get('interfaces')
         for iface in interfaces.values():
             subnets = iface.get('subnets', {})
             if subnets:
                 for index, subnet in zip(range(0, len(subnets)), subnets):
                     iface['index'] = index
-                    if index == 0:
+                    # ipv6 address can be configured without another iface
+                    # kernel entry (there will be no eth0:1 for ipv6 subnets)
+                    # FIXME: we need a subnet_is_ipv4/subnet_is_ipv6 method
+                    # and this if ipv4 and index != 0; then use name+index
+                    # else, just ifname
+                    if index == 0 or ":" in subnet.get('address', ""):
                         ifname = "{name}".format(**iface)
                     else:
                         ifname = "{name}:{index}".format(**iface)
 
-                    self.check_interface(iface,
+                    print('checking on ifname: %s idx=%s' % (ifname, index))
+                    self.check_interface(ifname,
+                                         index,
+                                         iface,
                                          ifconfig_dict.get(ifname),
-                                         route_n)
+                                         routes)
             else:
-                iface['index'] = 0
-                self.check_interface(iface,
+                index = 0
+                iface['index'] = index
+                print('checking on iface["name"]: %s idx=%s' % (iface['name'],
+                                                                index))
+                self.check_interface(iface['name'],
+                                     index,
+                                     iface,
                                      ifconfig_dict.get(iface['name']),
-                                     route_n)
+                                     routes)
 
-    def check_interface(self, iface, ifconfig, route_n):
+    def check_interface(self, ifname, index, iface, ifconfig, routes):
         logger.debug(
-            'testing iface:\n{}\n\nifconfig:\n{}'.format(iface, ifconfig))
+            'testing ifname:{}\niface:\n{}\n\nifconfig:\n{}'.format(ifname,
+                                                                    iface,
+                                                                    ifconfig))
         subnets = iface.get('subnets', {})
-        if subnets and iface['index'] != 0:
-            ifname = "{name}:{index}".format(**iface)
-        else:
-            ifname = "{name}".format(**iface)
 
+        # FIXME: remove check?
         # initial check, do we have the correct iface ?
         logger.debug('ifname={}'.format(ifname))
         logger.debug("ifconfig['interface']={}".format(ifconfig['interface']))
         self.assertEqual(ifname, ifconfig['interface'])
 
-        # check physical interface attributes
-        for key in ['mac_address', 'mtu']:
+        # check physical interface attributes (skip bond members, macs change)
+        if iface['type'] in ['physical'] and 'bond-master' not in iface:
+            for key in ['mac_address']:
+                print("checking mac on iface: %s" % iface['name'])
+                if key in iface and iface[key]:
+                    self.assertEqual(iface[key].lower(),
+                                     ifconfig[key].lower())
+
+        # we can check mtu on all interfaces
+        for key in ['mtu']:
             if key in iface and iface[key]:
+                print("checking mtu on iface: %s" % iface['name'])
                 self.assertEqual(iface[key],
                                  ifconfig[key])
 
@@ -163,38 +205,78 @@ class TestNetworkIPV6Abs(VMBaseClass):
         # check subnet related attributes, and specifically only
         # the subnet specified by iface['index']
         subnets = iface.get('subnets', {})
+        config_inet_iface = None
+        found_inet_iface = None
         if subnets:
-            subnet = __get_subnet(subnets, iface['index'])
+            subnet = __get_subnet(subnets, index)
+            print('validating subnet idx=%s: \n%s' % (index, subnet))
             if 'address' in subnet and subnet['address']:
+                # we will create to ipaddress.IPvXInterface objects
+                # one based on config, and other from collected data
+                # and compare.
+                config_ipstr = subnet['address']
+                if 'netmask' in subnet:
+                    config_ipstr += "/%s" % subnet['netmask']
+
+                # One more bit is how to construct the
+                # right Version interface, detecting on ":" in address
+                # detect ipv6 or v4
                 if ':' in subnet['address']:
-                    inet_iface = ipaddress.IPv6Interface(
-                        subnet['address'])
+                    config_inet_iface = ipaddress.IPv6Interface(config_ipstr)
+                    # if we're v6, the ifconfig dict has a list of ipv6
+                    # addresses found on the interface, we walk this list
+                    # looking for a matching address, or it wasn't found
+                    for inet6 in ifconfig.get('inet6', []):
+                        # we've a match, now contruct the ipaddress interface
+                        if inet6['address'] == subnet['address']:
+                            found_ipstr = inet6['address']
+                            if 'netmask' in subnet:
+                                found_ipstr += "/%s" % inet6.get('prefixlen')
+                            found_inet_iface = (
+                                ipaddress.IPv6Interface(found_ipstr))
                 else:
-                    inet_iface = ipaddress.IPv4Interface(
-                        subnet['address'])
+                    # boring ipv4
+                    config_inet_iface = ipaddress.IPv4Interface(config_ipstr)
 
-                # check ip addr
-                self.assertEqual(str(inet_iface.ip),
-                                 ifconfig['address'])
+                    found_ipstr = "%s/%s" % (ifconfig['address'],
+                                             ifconfig['netmask'])
+                    found_inet_iface = ipaddress.IPv4Interface(found_ipstr)
 
-                self.assertEqual(str(inet_iface.netmask),
-                                 ifconfig['netmask'])
+                # check ipaddress interface matches (config vs. found)
+                self.assertIsNotNone(config_inet_iface)
+                self.assertIsNotNone(found_inet_iface)
+                self.assertEqual(config_inet_iface, found_inet_iface)
 
-                self.assertEqual(
-                    str(inet_iface.network.broadcast_address),
-                    ifconfig['broadcast'])
+            def __find_gw_config(subnet):
+                gateways = []
+                if 'gateway' in subnet:
+                    gateways.append(subnet.get('gateway'))
+                for route in subnet.get('routes', []):
+                    gateways += __find_gw_config(route)
+                return gateways
 
-            # handle gateway by looking at routing table
-            if 'gateway' in subnet and subnet['gateway']:
-                gw_ip = subnet['gateway']
-                gateways = [line for line in route_n.split('\n')
-                            if 'UG' in line and gw_ip in line]
-                logger.debug('matching gateways:\n{}'.format(gateways))
-                self.assertEqual(len(gateways), 1)
-                [gateways] = gateways
-                (dest, gw, genmask, flags, metric, ref, use, iface) = \
-                    gateways.split()
-                logger.debug('expected gw:{} found gw:{}'.format(gw_ip, gw))
+            # handle gateways by looking at routing table
+            for gw_ip in __find_gw_config(subnet):
+                logger.debug('found a gateway in subnet config: %s', gw_ip)
+                if ":" in gw_ip:
+                    route_d = routes['6']
+                else:
+                    route_d = routes['4']
+
+                found_gws = [line for line in route_d.split('\n')
+                             if 'UG' in line and gw_ip in line]
+                logger.debug('found a gateway in guest output:\n%s', found_gws)
+
+                # FIXME: handle multiple gateways (default and otherwise)
+                self.assertEqual(len(found_gws), 1)
+                [found_gws] = found_gws
+                if ":" in gw_ip:
+                    (dest, gw, flags, metric, ref, use, iface) = \
+                        found_gws.split()
+                else:
+                    (dest, gw, genmask, flags, metric, ref, use, iface) = \
+                        found_gws.split()
+                logger.debug('configured gw:%s found gw:%s', gw_ip, gw)
                 self.assertEqual(gw_ip, gw)
 
 
@@ -207,29 +289,30 @@ class TestNetworkIPV6VlanAbs(TestNetworkIPV6Abs):
     collect_scripts = TestNetworkIPV6Abs.collect_scripts + [textwrap.dedent("""
              cd OUTPUT_COLLECT_D
              dpkg-query -W -f '${Status}' vlan > vlan_installed
-             ip -d link show eth1.2667 > ip_link_show_eth1.2667
-             ip -d link show eth1.2668 > ip_link_show_eth1.2668
-             ip -d link show eth1.2669 > ip_link_show_eth1.2669
-             ip -d link show eth1.2670 > ip_link_show_eth1.2670
+             ip -d link show interface1.2667 > ip_link_show_interface1.2667
+             ip -d link show interface1.2668 > ip_link_show_interface1.2668
+             ip -d link show interface1.2669 > ip_link_show_interface1.2669
+             ip -d link show interface1.2670 > ip_link_show_interface1.2670
              """)]
 
     def get_vlans(self):
         network_state = self.get_network_state()
-        logger.debug('get_vlans ns:\n{}'.format(
-            yaml.dump(network_state, default_flow_style=False, indent=4)))
+        logger.debug('get_vlans ns:\n%s', yaml.dump(network_state,
+                                                    default_flow_style=False,
+                                                    indent=4))
         interfaces = network_state.get('interfaces')
         return [iface for iface in interfaces.values()
                 if iface['type'] == 'vlan']
 
     def test_output_files_exist_vlan(self):
-        link_files = ["ip_link_show_{}".format(vlan['name'])
+        link_files = ["ip_link_show_%s" % vlan['name']
                       for vlan in self.get_vlans()]
         self.output_files_exist(["vlan_installed"] + link_files)
 
     def test_vlan_installed(self):
         with open(os.path.join(self.td.collect, "vlan_installed")) as fp:
             status = fp.read().strip()
-            logger.debug('vlan installed?: {}'.format(status))
+            logger.debug('vlan installed?: %s', status)
             self.assertEqual('install ok installed', status)
 
     def test_vlan_enabled(self):
@@ -269,6 +352,8 @@ class TestNetworkIPV6ENISource(TestNetworkIPV6Abs):
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         ifconfig -a > ifconfig_a
+        ip link show > ip_link_show
+        ip a > ip_a
         cp -av /etc/network/interfaces .
         cp -a /etc/network/interfaces.d .
         cp /etc/resolv.conf .
@@ -321,11 +406,11 @@ class TestNetworkIPV6ENISource(TestNetworkIPV6Abs):
 
 class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkIPV6Abs):
     # FIXME: off due to hang at test: Starting execute cloud user/final scripts
-    __test__ = False
+    __test__ = True
 
 
 class PreciseHWETTestNetworkIPV6Static(relbase.precise_hwe_t,
-                                      TestNetworkIPV6StaticAbs):
+                                       TestNetworkIPV6StaticAbs):
     # FIXME: off due to hang at test: Starting execute cloud user/final scripts
     __test__ = False
 

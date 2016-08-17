@@ -28,9 +28,8 @@ from curtin import futil
 from curtin.log import LOG
 from curtin import swap
 from curtin import util
-from curtin import net
 from curtin.reporter import events
-from curtin.commands import apt_config
+from curtin.commands import apply_net, apt_config
 
 from . import populate_one_subcmd
 
@@ -107,6 +106,49 @@ def disable_overlayroot(cfg, target):
     if disable and os.path.exists(local_conf):
         LOG.debug("renaming %s to %s", local_conf, local_conf + ".old")
         shutil.move(local_conf, local_conf + ".old")
+
+
+def _disable_ipv6_privacy_extensions(target,
+                                     path="etc/sysctl.d/10-ipv6-privacy.conf"):
+
+    """Ubuntu server image sets a preference to use IPv6 privacy extensions
+       by default; this races with the cloud-image desire to disable them.
+       Resolve this by allowing the cloud-image setting to win. """
+
+    if path.startswith("/"):
+        raise ValueError("path parameter must not start with '/': %s", path)
+
+    cfg = os.path.sep.join([target, path])
+    if not os.path.exists(cfg):
+        LOG.warn('Failed to find legacy conf file %s', cfg)
+        return
+
+    bmsg = "Disabling IPv6 privacy extensions config may not apply."
+    try:
+        contents = util.load_file(cfg)
+        known_contents = ["net.ipv6.conf.all.use_tempaddr = 2",
+                          "net.ipv6.conf.default.use_tempaddr = 2"]
+        lines = [f.strip() for f in contents.splitlines()
+                 if not f.startswith("#")]
+        if lines == known_contents:
+            LOG.info('deleting file: %s', cfg)
+            util.del_file(cfg)
+            msg = "removed %s with known contents" % cfg
+            curtin_contents = '\n'.join(
+                ["# IPv6 Privacy Extensions (RFC 4941)",
+                 "# Disabled by curtin",
+                 "# net.ipv6.conf.all.use_tempaddr = 2",
+                 "# net.ipv6.conf.default.use_tempaddr = 2"])
+            util.write_file(cfg, content=curtin_contents)
+        else:
+            LOG.info('skipping, content didnt match')
+            LOG.info(lines)
+            LOG.info(known_contents)
+            msg = (bmsg + " '%s' exists with user configured content." % cfg)
+    except:
+        msg = bmsg + " %s exists, but could not be read." % cfg
+        LOG.exception(msg)
+        return
 
 
 def _maybe_remove_legacy_eth0(target,
@@ -411,7 +453,6 @@ def copy_mdadm_conf(mdadm_conf, target):
 
 
 def apply_networking(target, state):
-    netstate = state.get('network_state')
     netconf = state.get('network_config')
     interfaces = state.get('interfaces')
 
@@ -422,21 +463,19 @@ def apply_networking(target, state):
                 return True
         return False
 
-    ns = None
-    if is_valid_src(netstate):
-        LOG.debug("applying network_state")
-        ns = net.network_state.from_state_file(netstate)
-    elif is_valid_src(netconf):
+    if is_valid_src(netconf):
         LOG.debug("applying network_config")
-        ns = net.parse_net_config(netconf)
-
-    if ns is not None:
-        net.render_network_state(target=target, network_state=ns)
+        # postup_alias = apply_net.detect_postup_alias(target=target)
+        postup_alias = False
+        apply_net.apply_net(target, network_state=None, network_config=netconf,
+                            postup_alias=postup_alias)
     else:
         LOG.debug("copying interfaces")
         copy_interfaces(interfaces, target)
 
     _maybe_remove_legacy_eth0(target)
+    LOG.info('attempting to remove ipv6 privacy extensions')
+    _disable_ipv6_privacy_extensions(target)
 
 
 def copy_interfaces(interfaces, target):

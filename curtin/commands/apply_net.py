@@ -19,6 +19,7 @@ import os
 import sys
 
 from .. import log
+import curtin.config as config
 import curtin.net as net
 import curtin.util as util
 from . import populate_one_subcmd
@@ -27,7 +28,8 @@ from . import populate_one_subcmd
 LOG = log.LOG
 
 
-def apply_net(target, network_state=None, network_config=None):
+def apply_net(target, network_state=None, network_config=None,
+              postup_alias=None):
     if network_state is None and network_config is None:
         msg = "Must provide at least config or state"
         sys.stderr.write(msg + "\n")
@@ -43,7 +45,31 @@ def apply_net(target, network_state=None, network_config=None):
     elif network_config:
         ns = net.parse_net_config(network_config)
 
-    net.render_network_state(target=target, network_state=ns)
+    net.render_network_state(target=target, network_state=ns,
+                             postup_alias=postup_alias)
+
+
+def detect_postup_alias(target):
+    try:
+        LOG.info('Checking target for version of ifupdown package')
+        # check in-target version
+        pkg_ver = util.get_package_version('ifupdown',
+                                           target=target)
+        if pkg_ver is None:
+            raise Exception('Failed to get package version')
+
+        LOG.debug("get_package_version:\n%s", pkg_ver)
+        LOG.debug("ifupdown version is %s (major=%s minor=%s micro=%s)",
+                  pkg_ver['semantic_version'], pkg_ver['major'],
+                  pkg_ver['minor'], pkg_ver['micro'])
+        # ifupdown versions < 0.8.6 need ifup alias to prevent 120 second
+        # timeout, i.e. 0.7.47 in Trusty uses them.
+        if pkg_ver['semantic_version'] < 806:
+            return True
+    except Exception:
+        LOG.warn("Failed reading ifupdown pkg version (using defaults)")
+
+    return False
 
 
 def apply_net_main(args):
@@ -71,11 +97,17 @@ def apply_net_main(args):
         sys.stderr.write("Must provide at least config or state\n")
         sys.exit(2)
 
+    postup_alias = False
+    if args.postup_alias is not None:
+        postup_alias = config.value_as_boolean(args.postup_alias)
+    else:
+        postup_alias = detect_postup_alias(target=state['target'])
     LOG.info('Applying network configuration')
     try:
         apply_net(target=state['target'],
                   network_state=state['network_state'],
-                  network_config=state['network_config'])
+                  network_config=state['network_config'],
+                  postup_alias=postup_alias)
     except Exception:
         LOG.exception('failed to apply network config')
 
@@ -90,10 +122,15 @@ CMD_ARGUMENTS = (
       'metavar': 'NETSTATE', 'action': 'store',
       'default': os.environ.get('OUTPUT_NETWORK_STATE')}),
      (('-t', '--target'),
-      {'help': ('target filesystem root to add swap file to. '
+      {'help': ('target filesystem root to configure networking to. '
                 'default is env["TARGET_MOUNT_POINT"]'),
        'metavar': 'TARGET', 'action': 'store',
        'default': os.environ.get('TARGET_MOUNT_POINT')}),
+     (('-a', '--postup-alias'),
+      {'help': ('target filesystem check for postup alias config. '
+                'default is not set'),
+       'metavar': 'POST', 'action': 'store',
+       'default': None}),
      (('-c', '--net-config'),
       {'help': ('file to read containing curtin network config.'
                 'defaults to env["OUTPUT_NETWORK_CONFIG"]'),

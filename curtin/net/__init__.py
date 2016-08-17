@@ -299,7 +299,7 @@ def render_persistent_net(network_state):
             mac = iface.get('mac_address', '')
             # len(macaddr) == 2 * 6 + 5 == 17
             if ifname and mac and len(mac) == 17:
-                content += generate_udev_rule(ifname, mac)
+                content += generate_udev_rule(ifname, mac.lower())
 
     return content
 
@@ -406,11 +406,13 @@ def render_route(route, indent=""):
 
 
 def iface_start_entry(iface, index):
+    print(iface)
     fullname = iface['name']
-    if index != 0:
+    if index != 0 and '6' not in iface['inet']:
         fullname += ":%s" % index
 
     control = iface['control']
+    print("control=%s" % control)
     if control == "auto":
         cverb = "auto"
     elif control in ("hotplug",):
@@ -418,6 +420,7 @@ def iface_start_entry(iface, index):
     else:
         cverb = "# control-" + control
 
+    print("cverb=%s" % cverb)
     subst = iface.copy()
     subst.update({'fullname': fullname, 'cverb': cverb})
 
@@ -425,7 +428,7 @@ def iface_start_entry(iface, index):
             "iface {fullname} {inet} {mode}\n").format(**subst)
 
 
-def render_interfaces(network_state):
+def render_interfaces(network_state, postup_alias=False):
     ''' Given state, emit etc/network/interfaces content '''
 
     content = ""
@@ -451,13 +454,17 @@ def render_interfaces(network_state):
         if content[-2:] != "\n\n":
             content += "\n"
         subnets = iface.get('subnets', {})
+        print('looking iface: %s' % iface['name'])
         if subnets:
+            print('subnets!')
             for index, subnet in zip(range(0, len(subnets)), subnets):
                 if content[-2:] != "\n\n":
                     content += "\n"
                 iface['index'] = index
                 iface['mode'] = subnet['type']
                 iface['control'] = subnet.get('control', 'auto')
+                print("subnet['control'] = %s" % subnet.get('control',
+                                                            'allow-auto'))
                 subnet_inet = 'inet'
                 if iface['mode'].endswith('6'):
                     # This is a request for DHCPv6.
@@ -476,13 +483,16 @@ def render_interfaces(network_state):
                 for route in subnet.get('routes', []):
                     content += render_route(route, indent="    ") + '\n'
 
-                if len(subnets) > 1 and index == 0:
-                    tmpl = "    post-up ifup %s:%s\n"
-                    for i in range(1, len(subnets)):
-                        content += tmpl % (iface['name'], i)
+                # disable on ifupdown >= 0.8.6
+                if postup_alias:
+                    if len(subnets) > 1 and index == 0:
+                        tmpl = "    post-up ifup %s:%s\n"
+                        for i in range(1, len(subnets)):
+                            content += tmpl % (iface['name'], i)
+
         else:
             # ifenslave docs say to auto the slave devices
-            if 'bond-master' in iface:
+            if 'bond-master' in iface or 'bond-slaves' in iface:
                 content += "auto {name}\n".format(**iface)
             content += "iface {name} {inet} {mode}\n".format(**iface)
             content += iface_add_attrs(iface, 0)
@@ -499,14 +509,15 @@ def render_interfaces(network_state):
     return content
 
 
-def render_network_state(target, network_state):
+def render_network_state(target, network_state, postup_alias=None):
     eni = 'etc/network/interfaces'
     netrules = 'etc/udev/rules.d/70-persistent-net.rules'
     cc = 'etc/cloud/cloud.cfg.d/curtin-disable-cloudinit-networking.cfg'
 
     eni = os.path.sep.join((target, eni,))
     LOG.info('Writing ' + eni)
-    util.write_file(eni, content=render_interfaces(network_state))
+    util.write_file(eni, content=render_interfaces(network_state,
+                                                   postup_alias=postup_alias))
 
     netrules = os.path.sep.join((target, netrules,))
     LOG.info('Writing ' + netrules)
