@@ -14,6 +14,7 @@ Contents:
 
    topics/overview
    topics/config
+   topics/apt_source
    topics/networking
    topics/storage
    topics/reporting

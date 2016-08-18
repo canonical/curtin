@@ -161,7 +161,7 @@ Some environment variables affect the running of vmtest
   If set to true, each run will attempt a sync of images.
   If you want to make sure images are always up to date, then set to true.
 
-- ``CURTIN_VMTEST_BRIDGE``: default 'user'
+- ``CURTIN_VMTEST_BRIDGE``: ``user``
 
   The network devices will be attached to this bridge.  The default is
   ``user``, which means to use qemu user mode networking.  Set it to
@@ -208,20 +208,38 @@ The base VMBaseClass defines several variables that help creating a new test
 easily. Among those the common ones are:
 
 Generic:
-	- ``arch_skip``: If a test is not supported on an architecture it can list
-                     the arch in this variable to auto-skip the test if
-                     executed on that arch.
-    - ``conf_file``: The configuration that will be processed by this vmtest.
-    - ``extra_kern_args``: Extra arguments to the guest kernel on boot.
+
+- ``arch_skip``: 
+
+  If a test is not supported on an architecture it can list the arch in this
+  variable to auto-skip the test if executed on that arch.
+
+- ``conf_file``:
+
+  The configuration that will be processed by this vmtest.
+
+- ``extra_kern_args``:
+
+  Extra arguments to the guest kernel on boot.
 
 Data Collection:
-	- ``collect_scripts``: The commands run when booting into the installed
-                           environment to collect the data for the test to
-                           verify a proper execution.
-    - ``boot_cloudconf``: Extra cloud-init config content for the install
-                          phase.  This allows to gather content of the install
-                          phase if needed for test verification.
+
+- ``collect_scripts``:
+
+  The commands run when booting into the installed environment to collect the
+  data for the test to verify a proper execution.
+
+- ``boot_cloudconf``:
+
+  Extra cloud-init config content for the install phase.  This allows to gather
+  content of the install phase if needed for test verification.
 
 Disk Setup:
-	- ``disk_block_size``:  Default block size ``512`` bytes.
-    - ``disk_driver``:  Default block device driver is ``virtio-blk``.
+
+- ``disk_block_size``:
+
+  Default block size ``512`` bytes.
+
+- ``disk_driver``:
+
+  Default block device driver is ``virtio-blk``.
