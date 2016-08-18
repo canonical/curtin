@@ -84,16 +84,29 @@ class TestNetworkIPV6Abs(VMBaseClass):
         '''
         expected_ifaces = self.get_expected_etc_resolvconf()
         logger.debug('parsed eni ifaces:\n{}'.format(expected_ifaces))
+
+        def _mk_dns_lines(dns_type, config):
+            """ nameservers get a line per ns
+                search is a space-separated list """
+            lines = []
+            if dns_type == 'nameservers':
+                if ' ' in config:
+                    config = config.split()
+                for ns in config:
+                    lines.append("nameserver %s" % ns)
+            elif dns_type == 'search':
+                if isinstance(config, list):
+                    config = " ".join(config)
+                lines.append("search %s" % config)
+
+            return lines
+
         for ifname in expected_ifaces.keys():
             iface = expected_ifaces.get(ifname)
             for k, v in iface.get('dns', {}).items():
                 print('k=%s v=%s' % (k, v))
-                if ' ' in v:
-                    v = v.split()
-                for ns in v:
-                    dns_line = '{} {}'.format(
-                        k.replace('nameservers', 'nameserver'), ns)
-                    logger.debug('dns_line:{}'.format(dns_line))
+                for dns_line in _mk_dns_lines(k, v):
+                    logger.debug('dns_line:%s', dns_line)
                     self.assertTrue(dns_line in resolv_lines)
 
     def test_ifconfig_output(self):
@@ -406,13 +419,12 @@ class TestNetworkIPV6ENISource(TestNetworkIPV6Abs):
 
 class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkIPV6Abs):
     # FIXME: off due to hang at test: Starting execute cloud user/final scripts
-    __test__ = True
+    __test__ = False
 
 
 class PreciseHWETTestNetworkIPV6Static(relbase.precise_hwe_t,
                                        TestNetworkIPV6StaticAbs):
-    # FIXME: off due to hang at test: Starting execute cloud user/final scripts
-    __test__ = False
+    __test__ = True
 
 
 class TrustyTestNetworkIPV6(relbase.trusty, TestNetworkIPV6Abs):
