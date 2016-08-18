@@ -33,6 +33,8 @@ FEATURES = [
     'SUBCOMMAND_SYSTEM_INSTALL',
     # subcommand 'system-upgrade' is present
     'SUBCOMMAND_SYSTEM_UPGRADE',
+    # supports new format of apt configuration
+    'APT_CONFIG_V1',
 ]
 
 __version__ = "0.1.0"

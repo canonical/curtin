@@ -59,14 +59,63 @@ def dev_path(devname):
         return '/dev/' + devname
 
 
+def path_to_kname(path):
+    """
+    converts a path in /dev or a path in /sys/block to the device kname,
+    taking special devices and unusual naming schemes into account
+    """
+    # if path given is a link, get real path
+    # only do this if given a path though, if kname is already specified then
+    # this would cause a failure where the function should still be able to run
+    if os.path.sep in path:
+        path = os.path.realpath(path)
+    # using basename here ensures that the function will work given a path in
+    # /dev, a kname, or a path in /sys/block as an arg
+    dev_kname = os.path.basename(path)
+    # cciss devices need to have 'cciss!' prepended
+    if path.startswith('/dev/cciss'):
+        dev_kname = 'cciss!' + dev_kname
+    LOG.debug("path_to_kname input: '{}' output: '{}'".format(path, dev_kname))
+    return dev_kname
+
+
+def kname_to_path(kname):
+    """
+    converts a kname to a path in /dev, taking special devices and unusual
+    naming schemes into account
+    """
+    # if given something that is already a dev path, return it
+    if os.path.exists(kname) and is_valid_device(kname):
+        path = kname
+        LOG.debug("kname_to_path input: '{}' output: '{}'".format(kname, path))
+        return os.path.realpath(path)
+    # adding '/dev' to path is not sufficient to handle cciss devices and
+    # possibly other special devices which have not been encountered yet
+    path = os.path.realpath(os.sep.join(['/dev'] + kname.split('!')))
+    # make sure path we get is correct
+    if not (os.path.exists(path) and is_valid_device(path)):
+        raise OSError('could not get path to dev from kname: {}'.format(kname))
+    LOG.debug("kname_to_path input: '{}' output: '{}'".format(kname, path))
+    return path
+
+
+def partition_kname(disk_kname, partition_number):
+    """Add number to disk_kname prepending a 'p' if needed"""
+    for dev_type in ['nvme', 'mmcblk', 'cciss', 'mpath', 'dm']:
+        if disk_kname.startswith(dev_type):
+            partition_number = "p%s" % partition_number
+            break
+    return "%s%s" % (disk_kname, partition_number)
+
+
 def sys_block_path(devname, add=None, strict=True):
     toks = ['/sys/class/block']
     # insert parent dev if devname is partition
     (parent, partnum) = get_blockdev_for_partition(devname)
     if partnum:
-        toks.append(dev_short(parent))
+        toks.append(path_to_kname(parent))
 
-    toks.append(dev_short(devname))
+    toks.append(path_to_kname(devname))
 
     if add is not None:
         toks.append(add)
@@ -172,21 +221,20 @@ def get_installable_blockdevs(include_removable=False, min_size=1024**3):
 
 
 def get_blockdev_for_partition(devpath):
-    # convert an entry in /dev/ to parent disk and partition number
-    # if devpath is a block device and not a partition, return (devpath, None)
-
-    # input of /dev/vdb or /dev/disk/by-label/foo
-    # rpath is hopefully a real-ish path in /dev (vda, sdb..)
+    # normalize path
     rpath = os.path.realpath(devpath)
 
-    bname = os.path.basename(rpath)
-    syspath = "/sys/class/block/%s" % bname
+    # convert an entry in /dev/ to parent disk and partition number
+    # if devpath is a block device and not a partition, return (devpath, None)
+    base = '/sys/class/block'
 
+    # input of /dev/vdb, /dev/disk/by-label/foo, /sys/block/foo,
+    # /sys/block/class/foo, or just foo
+    syspath = os.path.join(base, path_to_kname(devpath))
+
+    # don't need to try out multiple sysfs paths as path_to_kname handles cciss
     if not os.path.exists(syspath):
-        syspath2 = "/sys/class/block/cciss!%s" % bname
-        if not os.path.exists(syspath2):
-            raise ValueError("%s had no syspath (%s)" % (devpath, syspath))
-        syspath = syspath2
+        raise ValueError("%s had no syspath (%s)" % (devpath, syspath))
 
     ptpath = os.path.join(syspath, "partition")
     if not os.path.exists(ptpath):
@@ -356,6 +404,7 @@ def get_scsi_wwid(device, replace_whitespace=False):
         cmd.append('--replace-whitespace')
     try:
         (out, err) = util.subp(cmd, capture=True)
+        LOG.debug("scsi_id output raw:\n%s\nerror:\n%s", out, err)
         scsi_wwid = out.rstrip('\n')
         return scsi_wwid
     except util.ProcessExecutionError as e:
@@ -422,7 +471,18 @@ def get_blockdev_sector_size(devpath):
     """
     info = _lsblock([devpath])
     LOG.debug('get_blockdev_sector_size: info:\n%s' % util.json_dumps(info))
-    [parent] = info
+    # (LP: 1598310) The call to _lsblock() may return multiple results.
+    # If it does, then search for a result with the correct device path.
+    # If no such device is found among the results, then fall back to previous
+    # behavior, which was taking the first of the results
+    assert len(info) > 0
+    for (k, v) in info.items():
+        if v.get('device_path') == devpath:
+            parent = k
+            break
+    else:
+        parent = list(info.keys())[0]
+
     return (int(info[parent]['LOG-SEC']), int(info[parent]['PHY-SEC']))
 
 
@@ -474,9 +534,14 @@ def lookup_disk(serial):
     """
     # Get all volumes in /dev/disk/by-id/ containing the serial string. The
     # string specified can be either in the short or long serial format
-    disks = list(filter(lambda x: serial in x, os.listdir("/dev/disk/by-id/")))
+    # hack, some serials have spaces, udev usually converts ' ' -> '_'
+    serial_udev = serial.replace(' ', '_')
+    LOG.info('Processing serial %s via udev to %s', serial, serial_udev)
+
+    disks = list(filter(lambda x: serial_udev in x,
+                        os.listdir("/dev/disk/by-id/")))
     if not disks or len(disks) < 1:
-        raise ValueError("no disk with serial '%s' found" % serial)
+        raise ValueError("no disk with serial '%s' found" % serial_udev)
 
     # Sort by length and take the shortest path name, as the longer path names
     # will be the partitions on the disk. Then use os.path.realpath to
@@ -486,7 +551,7 @@ def lookup_disk(serial):
 
     if not os.path.exists(path):
         raise ValueError("path '%s' to block device for disk with serial '%s' \
-            does not exist" % (path, serial))
+            does not exist" % (path, serial_udev))
     return path
 
 
@@ -577,7 +642,7 @@ def quick_zero(path, partitions=True):
     offsets = [0, -zero_size]
     is_block = is_block_device(path)
     if not (is_block or os.path.isfile(path)):
-        raise ValueError("%s: not an existing file or block device")
+        raise ValueError("%s: not an existing file or block device", path)
 
     if partitions and is_block:
         ptdata = sysfs_partition_data(path)

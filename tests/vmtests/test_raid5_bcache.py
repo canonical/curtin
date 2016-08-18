@@ -16,6 +16,7 @@ class TestMdadmAbs(VMBaseClass):
         mdadm --detail --scan | grep -c ubuntu > mdadm_active1
         grep -c active /proc/mdstat > mdadm_active2
         ls /dev/disk/by-dname > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
         """)]
 
     def test_mdadm_output_files_exist(self):
@@ -41,6 +42,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
         cat /proc/mounts > proc_mounts
         cat /proc/partitions > proc_partitions
+        find /etc/network/interfaces.d > find_interfacesd
         """)]
     fstab_expected = {
         '/dev/bcache0': '/',
@@ -91,9 +93,13 @@ class TrustyHWEWTestRaid5Bcache(relbase.trusty_hwe_w, TrustyTestRaid5Bcache):
     __test__ = False
 
 
-class VividTestRaid5Bcache(relbase.vivid, TestMdadmBcacheAbs):
+class WilyTestRaid5Bcache(relbase.wily, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class WilyTestRaid5Bcache(relbase.wily, TestMdadmBcacheAbs):
+class XenialTestRaid5Bcache(relbase.xenial, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class YakketyTestRaid5Bcache(relbase.yakkety, TestMdadmBcacheAbs):
     __test__ = True

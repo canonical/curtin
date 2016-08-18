@@ -12,6 +12,7 @@ class TestLvmAbs(VMBaseClass):
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         ls /dev/disk/by-dname > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
         """)]
@@ -62,9 +63,13 @@ class TrustyTestLvm(relbase.trusty, TestLvmAbs):
         print("test_dname does not work for Trusty")
 
 
-class VividTestLvm(relbase.vivid, TestLvmAbs):
+class WilyTestLvm(relbase.wily, TestLvmAbs):
     __test__ = True
 
 
-class WilyTestLvm(relbase.wily, TestLvmAbs):
+class XenialTestLvm(relbase.xenial, TestLvmAbs):
+    __test__ = True
+
+
+class YakketyTestLvm(relbase.yakkety, TestLvmAbs):
     __test__ = True
