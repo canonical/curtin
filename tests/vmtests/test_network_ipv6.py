@@ -4,14 +4,20 @@ from .releases import base_vm_classes as relbase
 import ipaddress
 import os
 import re
-import subprocess
 import textwrap
 import yaml
 
 
 class TestNetworkIPV6Abs(VMBaseClass):
-    interactive = False
+    """ IPV6 complex testing.  The configuration exercises
+        - ipv4 and ipv6 address on same interface
+        - bonding in LACP mode
+        - unconfigured subnets on bond
+        - vlans over bonds
+        - all IP is static
+    """
     conf_file = "examples/network-ipv6-bond-vlan.yaml"
+    interactive = False
     extra_disks = []
     extra_nics = []
     collect_scripts = [textwrap.dedent("""
@@ -30,9 +36,9 @@ class TestNetworkIPV6Abs(VMBaseClass):
         route -n > route_n
         route -6 -n > route_6_n
         cp -av /run/network ./run_network
-        grep . -r /sys/class/net/bond0/ > sysfs_bond0
-        grep . -r /sys/class/net/bond0.108/ > sysfs_bond0.108
-        grep . -r /sys/class/net/bond0.208/ > sysfs_bond0.208
+        grep . -r /sys/class/net/bond0/ > sysfs_bond0 || :
+        grep . -r /sys/class/net/bond0.108/ > sysfs_bond0.108 || :
+        grep . -r /sys/class/net/bond0.208/ > sysfs_bond0.208 || :
         """)]
 
     def test_output_files_exist(self):
@@ -269,7 +275,8 @@ class TestNetworkIPV6Abs(VMBaseClass):
                 return gateways
 
             # handle gateways by looking at routing table
-            for gw_ip in __find_gw_config(subnet):
+            configured_gws = __find_gw_config(subnet)
+            for gw_ip in configured_gws:
                 logger.debug('found a gateway in subnet config: %s', gw_ip)
                 if ":" in gw_ip:
                     route_d = routes['6']
@@ -280,141 +287,16 @@ class TestNetworkIPV6Abs(VMBaseClass):
                              if 'UG' in line and gw_ip in line]
                 logger.debug('found a gateway in guest output:\n%s', found_gws)
 
-                # FIXME: handle multiple gateways (default and otherwise)
-                self.assertEqual(len(found_gws), 1)
-                [found_gws] = found_gws
-                if ":" in gw_ip:
-                    (dest, gw, flags, metric, ref, use, iface) = \
-                        found_gws.split()
-                else:
-                    (dest, gw, genmask, flags, metric, ref, use, iface) = \
-                        found_gws.split()
-                logger.debug('configured gw:%s found gw:%s', gw_ip, gw)
-                self.assertEqual(gw_ip, gw)
-
-
-class TestNetworkIPV6StaticAbs(TestNetworkIPV6Abs):
-    conf_file = "examples/tests/basic_network_static_ipv6.yaml"
-
-
-class TestNetworkIPV6VlanAbs(TestNetworkIPV6Abs):
-    conf_file = "examples/tests/vlan_network_ipv6.yaml"
-    collect_scripts = TestNetworkIPV6Abs.collect_scripts + [textwrap.dedent("""
-             cd OUTPUT_COLLECT_D
-             dpkg-query -W -f '${Status}' vlan > vlan_installed
-             ip -d link show interface1.2667 > ip_link_show_interface1.2667
-             ip -d link show interface1.2668 > ip_link_show_interface1.2668
-             ip -d link show interface1.2669 > ip_link_show_interface1.2669
-             ip -d link show interface1.2670 > ip_link_show_interface1.2670
-             """)]
-
-    def get_vlans(self):
-        network_state = self.get_network_state()
-        logger.debug('get_vlans ns:\n%s', yaml.dump(network_state,
-                                                    default_flow_style=False,
-                                                    indent=4))
-        interfaces = network_state.get('interfaces')
-        return [iface for iface in interfaces.values()
-                if iface['type'] == 'vlan']
-
-    def test_output_files_exist_vlan(self):
-        link_files = ["ip_link_show_%s" % vlan['name']
-                      for vlan in self.get_vlans()]
-        self.output_files_exist(["vlan_installed"] + link_files)
-
-    def test_vlan_installed(self):
-        with open(os.path.join(self.td.collect, "vlan_installed")) as fp:
-            status = fp.read().strip()
-            logger.debug('vlan installed?: %s', status)
-            self.assertEqual('install ok installed', status)
-
-    def test_vlan_enabled(self):
-
-        # we must have at least one
-        self.assertGreaterEqual(len(self.get_vlans()), 1)
-
-        # did they get configured?
-        for vlan in self.get_vlans():
-            link_file = "ip_link_show_" + vlan['name']
-            vlan_msg = "vlan protocol 802.1Q id " + str(vlan['vlan_id'])
-            self.check_file_regex(link_file, vlan_msg)
-
-
-class TestNetworkIPV6ENISource(TestNetworkIPV6Abs):
-    """ Curtin now emits a source /etc/network/interfaces.d/*.cfg
-        line.  This test exercises this feature by emitting additional
-        network configuration in /etc/network/interfaces.d/eth2.cfg
-
-        This relies on the network_config.yaml of the TestClass to
-        define a spare nic with no configuration.  This ensures that
-        a udev rule for eth2 is emitted so we can reference the interface
-        in our injected configuration.
-
-        Note, ifupdown allows multiple stanzas with the same iface name
-        and combines the options together during ifup.  We rely on this
-        feature allowing etc/network/interfaces to have an unconfigured
-        iface eth2 inet manual line, and then defer the configuration
-        to /etc/network/interfaces.d/eth2.cfg
-
-        This testcase then uses curtin.net.deb_parse_config method to
-        extract information about what curtin wrote and compare that
-        with what was actually configured (which we capture via ifconfig)
-    """
-
-    conf_file = "examples/tests/network_source_ipv6.yaml"
-    collect_scripts = [textwrap.dedent("""
-        cd OUTPUT_COLLECT_D
-        ifconfig -a > ifconfig_a
-        ip link show > ip_link_show
-        ip a > ip_a
-        cp -av /etc/network/interfaces .
-        cp -a /etc/network/interfaces.d .
-        cp /etc/resolv.conf .
-        cp -av /etc/udev/rules.d/70-persistent-net.rules .
-        ip -o route show > ip_route_show
-        route -n > route_n
-        """)]
-
-    def test_source_cfg_exists(self):
-        """Test that our curthooks wrote our injected config."""
-        self.output_files_exist(["interfaces.d/eth2.cfg"])
-
-    def test_etc_network_interfaces_source_cfg(self):
-        """ Compare injected configuration as parsed by curtin matches
-            how ifup configured the interface."""
-        # interfaces uses absolute paths, fix for test-case
-        interfaces = os.path.join(self.td.collect, "interfaces")
-        cmd = ['sed', '-i.orig', '-e', 's,/etc/network/,,g',
-               '{}'.format(interfaces)]
-        subprocess.check_call(cmd, stderr=subprocess.STDOUT)
-
-        curtin_ifaces = self.parse_deb_config(interfaces)
-        logger.debug('parsed eni dict:\n{}'.format(
-            yaml.dump(curtin_ifaces, default_flow_style=False, indent=4)))
-        print('parsed eni dict:\n{}'.format(
-            yaml.dump(curtin_ifaces, default_flow_style=False, indent=4)))
-
-        with open(os.path.join(self.td.collect, "ifconfig_a")) as fp:
-            ifconfig_a = fp.read()
-            logger.debug('ifconfig -a:\n{}'.format(ifconfig_a))
-
-        ifconfig_dict = helpers.ifconfig_to_dict(ifconfig_a)
-        logger.debug('parsed ifconfig dict:\n{}'.format(
-            yaml.dump(ifconfig_dict, default_flow_style=False, indent=4)))
-        print('parsed ifconfig dict:\n{}'.format(
-            yaml.dump(ifconfig_dict, default_flow_style=False, indent=4)))
-
-        iface = 'eth2'
-        self.assertTrue(iface in curtin_ifaces)
-
-        expected_address = curtin_ifaces[iface].get('address', None)
-        self.assertIsNotNone(expected_address)
-
-        # handle CIDR notation
-        def _nocidr(addr):
-            return addr.split("/")[0]
-        actual_address = ifconfig_dict[iface].get('address', "")
-        self.assertEqual(_nocidr(expected_address), _nocidr(actual_address))
+                self.assertEqual(len(found_gws), len(configured_gws))
+                for fgw in found_gws:
+                    if ":" in gw_ip:
+                        (dest, gw, flags, metric, ref, use, iface) = \
+                            fgw.split()
+                    else:
+                        (dest, gw, genmask, flags, metric, ref, use, iface) = \
+                            fgw.split()
+                    logger.debug('configured gw:%s found gw:%s', gw_ip, gw)
+                    self.assertEqual(gw_ip, gw)
 
 
 class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkIPV6Abs):
@@ -422,26 +304,11 @@ class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkIPV6Abs):
     __test__ = False
 
 
-class PreciseHWETTestNetworkIPV6Static(relbase.precise_hwe_t,
-                                       TestNetworkIPV6StaticAbs):
-    __test__ = True
-
-
 class TrustyTestNetworkIPV6(relbase.trusty, TestNetworkIPV6Abs):
     __test__ = True
 
 
-class TrustyTestNetworkIPV6Static(relbase.trusty, TestNetworkIPV6StaticAbs):
-    __test__ = True
-
-
 class TrustyHWEUTestNetworkIPV6(relbase.trusty_hwe_u, TrustyTestNetworkIPV6):
-    # Working, off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
-class TrustyHWEUTestNetworkIPV6Static(relbase.trusty_hwe_u,
-                                      TestNetworkIPV6StaticAbs):
     # Working, off by default to safe test suite runtime, covered by bonding
     __test__ = False
 
@@ -451,19 +318,7 @@ class TrustyHWEVTestNetworkIPV6(relbase.trusty_hwe_v, TrustyTestNetworkIPV6):
     __test__ = False
 
 
-class TrustyHWEVTestNetworkIPV6Static(relbase.trusty_hwe_v,
-                                      TestNetworkIPV6StaticAbs):
-    # Working, off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
 class TrustyHWEWTestNetworkIPV6(relbase.trusty_hwe_w, TrustyTestNetworkIPV6):
-    # Working, off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
-class TrustyHWEWTestNetworkIPV6Static(relbase.trusty_hwe_w,
-                                      TestNetworkIPV6StaticAbs):
     # Working, off by default to safe test suite runtime, covered by bonding
     __test__ = False
 
@@ -472,44 +327,5 @@ class XenialTestNetworkIPV6(relbase.xenial, TestNetworkIPV6Abs):
     __test__ = True
 
 
-class XenialTestNetworkIPV6Static(relbase.xenial, TestNetworkIPV6StaticAbs):
-    __test__ = True
-
-
-class PreciseTestNetworkIPV6Vlan(relbase.precise, TestNetworkIPV6VlanAbs):
-    __test__ = True
-
-    # precise ip -d link show output is different (of course)
-    def test_vlan_enabled(self):
-
-        # we must have at least one
-        self.assertGreaterEqual(len(self.get_vlans()), 1)
-
-        # did they get configured?
-        for vlan in self.get_vlans():
-            link_file = "ip_link_show_" + vlan['name']
-            vlan_msg = "vlan id " + str(vlan['vlan_id'])
-            self.check_file_regex(link_file, vlan_msg)
-
-
-class TrustyTestNetworkIPV6Vlan(relbase.trusty, TestNetworkIPV6VlanAbs):
-    __test__ = True
-
-
-class XenialTestNetworkIPV6Vlan(relbase.xenial, TestNetworkIPV6VlanAbs):
-    __test__ = True
-
-
-class PreciseTestNetworkIPV6ENISource(relbase.precise,
-                                      TestNetworkIPV6ENISource):
-    __test__ = False
-    # not working, still debugging though; possible older ifupdown doesn't
-    # like the multiple iface method.
-
-
-class TrustyTestNetworkIPV6ENISource(relbase.trusty, TestNetworkIPV6ENISource):
-    __test__ = True
-
-
-class XenialTestNetworkIPV6ENISource(relbase.xenial, TestNetworkIPV6ENISource):
+class YakketyTestNetworkIPV6(relbase.yakkety, TestNetworkIPV6Abs):
     __test__ = True
