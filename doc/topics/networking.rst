@@ -308,7 +308,6 @@ has the following keys:
 - ``destination``: IPv4 network address with CIDR netmask notation.
 - ``gateway``: IPv4 gateway address with CIDR netmask notation.
 - ``metric``: Integer which sets the network metric value for this route.
-- ``device``: Specify the network device that will deliver packets for this route.
 
 **Route Example**::
 
