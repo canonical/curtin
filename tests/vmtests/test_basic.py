@@ -225,7 +225,8 @@ class TrustyHWEWTestBasic(relbase.trusty_hwe_w, TrustyTestBasic):
 
 
 class WilyTestBasic(relbase.wily, TestBasicAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestBasic(relbase.xenial, TestBasicAbs):
