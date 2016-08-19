@@ -348,6 +348,7 @@ def iface_add_attrs(iface, index):
         'name',
         'subnets',
         'type',
+        'v4',
     ]
     if iface['type'] not in ['bond', 'bridge', 'vlan']:
         ignore_map.append('mac_address')
@@ -455,6 +456,7 @@ def render_interfaces(network_state, postup_alias=False):
             content += "\n"
         subnets = iface.get('subnets', {})
         print('looking iface: %s' % iface['name'])
+        v4 = 0
         if subnets:
             print('subnets!')
             for index, subnet in zip(range(0, len(subnets)), subnets):
@@ -463,20 +465,24 @@ def render_interfaces(network_state, postup_alias=False):
                 iface['index'] = index
                 iface['mode'] = subnet['type']
                 iface['control'] = subnet.get('control', 'auto')
-                print("subnet['control'] = %s" % subnet.get('control',
-                                                            'allow-auto'))
+                print("subnet['control'] = %s" % subnet.get('control'))
                 subnet_inet = 'inet'
-                if iface['mode'].endswith('6'):
+                if subnet['type'] != 'manual':
+                    v4 += 1
+                if subnet['type'].endswith('6'):
                     # This is a request for DHCPv6.
                     subnet_inet += '6'
-                elif iface['mode'] == 'static' and ":" in subnet['address']:
+                    v4 -= 1
+                elif subnet['type'] == 'static' and ":" in subnet['address']:
                     # This is a static IPv6 address.
                     subnet_inet += '6'
+                    v4 -= 1
+
                 iface['inet'] = subnet_inet
-                if iface['mode'].startswith('dhcp'):
+                if subnet['type'].startswith('dhcp'):
                     iface['mode'] = 'dhcp'
 
-                content += iface_start_entry(iface, index)
+                content += iface_start_entry(iface, v4 - 1)
                 content += iface_add_subnet(iface, subnet)
                 content += iface_add_attrs(iface, index)
 
@@ -484,18 +490,23 @@ def render_interfaces(network_state, postup_alias=False):
                     content += render_route(route, indent="    ") + '\n'
 
                 # disable on ifupdown >= 0.8.6
-                if postup_alias:
+                if False:
                     if len(subnets) > 1 and index == 0:
-                        tmpl = "    post-up ifup %s:%s\n"
+                        tmpl = "    post-up ifup %s"
                         for i in range(1, len(subnets)):
-                            content += tmpl % (iface['name'], i)
-
+                            if subnets[i]['type'] != 'manual':
+                                content += tmpl % iface['name']
+                                if v4 > 1:
+                                    content += ":%s" % (v4 - 1)
+                                content += "\n"
         else:
             # ifenslave docs say to auto the slave devices
             if 'bond-master' in iface or 'bond-slaves' in iface:
                 content += "auto {name}\n".format(**iface)
             content += "iface {name} {inet} {mode}\n".format(**iface)
             content += iface_add_attrs(iface, 0)
+
+        print('iface=%s has %d v4 addresses in total' % (iface['name'], v4))
 
     for route in network_state.get('routes'):
         content += render_route(route)

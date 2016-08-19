@@ -108,85 +108,6 @@ def disable_overlayroot(cfg, target):
         shutil.move(local_conf, local_conf + ".old")
 
 
-def _disable_ipv6_privacy_extensions(target,
-                                     path="etc/sysctl.d/10-ipv6-privacy.conf"):
-
-    """Ubuntu server image sets a preference to use IPv6 privacy extensions
-       by default; this races with the cloud-image desire to disable them.
-       Resolve this by allowing the cloud-image setting to win. """
-
-    if path.startswith("/"):
-        raise ValueError("path parameter must not start with '/': %s", path)
-
-    cfg = os.path.sep.join([target, path])
-    if not os.path.exists(cfg):
-        LOG.warn('Failed to find legacy conf file %s', cfg)
-        return
-
-    bmsg = "Disabling IPv6 privacy extensions config may not apply."
-    try:
-        contents = util.load_file(cfg)
-        known_contents = ["net.ipv6.conf.all.use_tempaddr = 2",
-                          "net.ipv6.conf.default.use_tempaddr = 2"]
-        lines = [f.strip() for f in contents.splitlines()
-                 if not f.startswith("#")]
-        if lines == known_contents:
-            LOG.info('deleting file: %s', cfg)
-            util.del_file(cfg)
-            msg = "removed %s with known contents" % cfg
-            curtin_contents = '\n'.join(
-                ["# IPv6 Privacy Extensions (RFC 4941)",
-                 "# Disabled by curtin",
-                 "# net.ipv6.conf.all.use_tempaddr = 2",
-                 "# net.ipv6.conf.default.use_tempaddr = 2"])
-            util.write_file(cfg, content=curtin_contents)
-        else:
-            LOG.info('skipping, content didnt match')
-            LOG.info(lines)
-            LOG.info(known_contents)
-            msg = (bmsg + " '%s' exists with user configured content." % cfg)
-    except:
-        msg = bmsg + " %s exists, but could not be read." % cfg
-        LOG.exception(msg)
-        return
-
-
-def _maybe_remove_legacy_eth0(target,
-                              path="/etc/network/interfaces.d/eth0.cfg"):
-    """Ubuntu cloud images previously included a 'eth0.cfg' that had
-       hard coded content.  That file would interfere with the rendered
-       configuration if it was present.
-
-       if the file does not exist do nothing.
-       If the file exists:
-         - with known content, remove it and warn
-         - with unknown content, leave it and warn
-    """
-
-    cfg = os.path.sep.join([target, path])
-    if not os.path.exists(cfg):
-        LOG.warn('Failed to find legacy conf file %s', cfg)
-        return
-
-    bmsg = "Dynamic networking config may not apply."
-    try:
-        contents = util.load_file(cfg)
-        known_contents = ["auto eth0", "iface eth0 inet dhcp"]
-        lines = [f.strip() for f in contents.splitlines()
-                 if not f.startswith("#")]
-        if lines == known_contents:
-            util.del_file(cfg)
-            msg = "removed %s with known contents" % cfg
-        else:
-            msg = (bmsg + " '%s' exists with user configured content." % cfg)
-    except:
-        msg = bmsg + " %s exists, but could not be read." % cfg
-        LOG.exception(msg)
-        return
-
-    LOG.warn(msg)
-
-
 def setup_zipl(cfg, target):
     if platform.machine() != 's390x':
         return
@@ -464,18 +385,13 @@ def apply_networking(target, state):
         return False
 
     if is_valid_src(netconf):
-        LOG.debug("applying network_config")
-        # postup_alias = apply_net.detect_postup_alias(target=target)
-        postup_alias = False
+        LOG.info("applying network_config")
+        postup_alias = apply_net.detect_postup_alias(target=target)
         apply_net.apply_net(target, network_state=None, network_config=netconf,
                             postup_alias=postup_alias)
     else:
         LOG.debug("copying interfaces")
         copy_interfaces(interfaces, target)
-
-    _maybe_remove_legacy_eth0(target)
-    LOG.info('attempting to remove ipv6 privacy extensions')
-    _disable_ipv6_privacy_extensions(target)
 
 
 def copy_interfaces(interfaces, target):

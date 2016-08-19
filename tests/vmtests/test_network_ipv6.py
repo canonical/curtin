@@ -156,19 +156,36 @@ class TestNetworkIPV6Abs(VMBaseClass):
         }
         interfaces = network_state.get('interfaces')
         for iface in interfaces.values():
+            print("network_state iface: %s" % iface)
             subnets = iface.get('subnets', {})
+            v4 = 0
             if subnets:
                 for index, subnet in zip(range(0, len(subnets)), subnets):
+                    print('curr subnet: %s' % subnet)
                     iface['index'] = index
                     # ipv6 address can be configured without another iface
                     # kernel entry (there will be no eth0:1 for ipv6 subnets)
                     # FIXME: we need a subnet_is_ipv4/subnet_is_ipv6 method
                     # and this if ipv4 and index != 0; then use name+index
                     # else, just ifname
+                    if subnet['type'] != 'manual':
+                        print("v4=%d -> %d" % (v4, v4 + 1))
+                        v4 += 1
+                    if subnet['type'].endswith('6'):
+                        # This is a request for DHCPv6.
+                        v4 -= 1
+                        print("v4=%d -> %d" % (v4, v4 - 1))
+                    elif (subnet['type'] == 'static' and
+                          ":" in subnet['address']):
+                        v4 -= 1
+                        print("v4=%d -> %d" % (v4, v4 - 1))
+
                     if index == 0 or ":" in subnet.get('address', ""):
                         ifname = "{name}".format(**iface)
                     else:
-                        ifname = "{name}:{index}".format(**iface)
+                        ifname = "{name}".format(**iface)
+                        if v4 > 1:
+                            ifname += ":%s" % (v4 - 1)
 
                     print('checking on ifname: %s idx=%s' % (ifname, index))
                     self.check_interface(ifname,

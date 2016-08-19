@@ -4,7 +4,6 @@ from .test_network_ipv6 import TestNetworkIPV6Abs
 
 import os
 import subprocess
-import textwrap
 import yaml
 
 
