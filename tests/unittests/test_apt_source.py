@@ -911,6 +911,20 @@ deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         result = apt_config.disable_suites(disabled, orig, release)
         self.assertEqual(expect, result)
 
+    def test_disable_suites_blank_lines(self):
+        """test_disable_suites_blank_lines - ensure blank lines allowed"""
+        lines = ["deb %(repo)s %(rel)s main universe",
+                 "",
+                 "deb %(repo)s %(rel)s-updates main universe",
+                 "   # random comment",
+                 "#comment here",
+                 ""]
+        rel = "trusty"
+        repo = 'http://example.com/mirrors/ubuntu'
+        orig = "\n".join(lines) % {'repo': repo, 'rel': rel}
+        self.assertEqual(
+            orig, apt_config.disable_suites(["proposed"], orig, rel))
+
 
 class TestDebconfSelections(TestCase):
 

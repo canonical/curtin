@@ -271,17 +271,19 @@ def disable_suites(disabled, src, release):
                 continue
 
             # sources.list allow options in cols[1] which can have spaces
-            # so the actual suite can be [2] or later
+            # so the actual suite can be [2] or later. example:
+            # deb [ arch=amd64,armel k=v ] http://example.com/debian
             cols = line.split()
-            pcol = 2
-            if cols[1].startswith("["):
-                for col in cols[1:]:
-                    pcol += 1
-                    if col.endswith("]"):
-                        break
+            if len(cols) > 1:
+                pcol = 2
+                if cols[1].startswith("["):
+                    for col in cols[1:]:
+                        pcol += 1
+                        if col.endswith("]"):
+                            break
 
-            if cols[pcol] == releasesuite:
-                line = '# suite disabled by curtin: %s' % line
+                if cols[pcol] == releasesuite:
+                    line = '# suite disabled by curtin: %s' % line
             newsrc += line
         retsrc = newsrc
 
