@@ -105,7 +105,8 @@ class TrustyUefiTestBasic(relbase.trusty, TestBasicAbs):
 
 
 class WilyUefiTestBasic(relbase.wily, TestBasicAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialUefiTestBasic(relbase.xenial, TestBasicAbs):
@@ -125,6 +126,8 @@ class TrustyUefiTestBasic4k(TrustyUefiTestBasic):
 
 
 class WilyUefiTestBasic4k(WilyUefiTestBasic):
+    # EOL - 2016-07-28
+    __test__ = False
     disk_block_size = 4096
 
 

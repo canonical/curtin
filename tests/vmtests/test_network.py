@@ -374,11 +374,13 @@ class TrustyHWEWTestNetworkStatic(relbase.trusty_hwe_w,
 
 
 class WilyTestNetwork(relbase.wily, TestNetworkAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class WilyTestNetworkStatic(relbase.wily, TestNetworkStaticAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestNetwork(relbase.xenial, TestNetworkAbs):
@@ -418,7 +420,8 @@ class TrustyTestNetworkVlan(relbase.trusty, TestNetworkVlanAbs):
 
 
 class WilyTestNetworkVlan(relbase.wily, TestNetworkVlanAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestNetworkVlan(relbase.xenial, TestNetworkVlanAbs):
@@ -440,7 +443,8 @@ class TrustyTestNetworkENISource(relbase.trusty, TestNetworkENISource):
 
 
 class WilyTestNetworkENISource(relbase.wily, TestNetworkENISource):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestNetworkENISource(relbase.xenial, TestNetworkENISource):
