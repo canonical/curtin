@@ -473,10 +473,9 @@ network:
 
             auto eth0
             iface eth0 inet dhcp
-                post-up ifup eth0:1
 
-            auto eth0:1
-            iface eth0:1 inet static
+            auto eth0
+            iface eth0 inet static
                 address 192.168.21.3/24
                 dns-nameservers 8.8.8.8 8.8.4.4
                 dns-search barley.maas sach.maas
@@ -485,7 +484,7 @@ network:
 
             source /etc/network/interfaces.d/*.cfg
             """)
-        net_ifaces = net.render_interfaces(ns.network_state, postup_alias=True)
+        net_ifaces = net.render_interfaces(ns.network_state)
         print(ns.network_state.get('interfaces'))
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
@@ -517,15 +516,14 @@ network:
                 bond-mode active-backup
                 hwaddress ether 52:54:00:12:34:06
                 bond-slaves none
-                post-up ifup bond0:1
 
-            auto bond0:1
-            iface bond0:1 inet static
+            auto bond0
+            iface bond0 inet static
                 address 10.23.24.2/24
 
             source /etc/network/interfaces.d/*.cfg
             """)
-        net_ifaces = net.render_interfaces(ns.network_state, postup_alias=True)
+        net_ifaces = net.render_interfaces(ns.network_state)
         print("\n".join(list(map(str,
                                  enumerate(sorted(ifaces.split('\n')))))))
         print("\n^^ LOCAL -- RENDER vv")
@@ -551,10 +549,9 @@ network:
                 address 192.168.14.2/24
                 gateway 192.168.14.1
                 mtu 1492
-                post-up ifup interface1:1
 
-            auto interface1:1
-            iface interface1:1 inet static
+            auto interface1
+            iface interface1 inet static
                 address 192.168.14.4/24
 
             allow-hotplug interface2
@@ -564,7 +561,7 @@ network:
 
             source /etc/network/interfaces.d/*.cfg
             """)
-        net_ifaces = net.render_interfaces(ns.network_state, postup_alias=True)
+        net_ifaces = net.render_interfaces(ns.network_state)
         print("\n".join(sorted(ifaces.split('\n'))))
         print("\n^^ LOCAL -- RENDER vv")
         print("\n".join(sorted(net_ifaces.split('\n'))))
@@ -597,15 +594,14 @@ network:
             auto eth0
             iface eth0 inet6 static
                 address fde9:8f83:4a81:1:0:1:0:6/64
-                post-up ifup eth0:1
 
-            auto eth0:1
-            iface eth0:1 inet static
+            auto eth0
+            iface eth0 inet static
                 address 192.168.0.1/24
 
             source /etc/network/interfaces.d/*.cfg
             """)
-        net_ifaces = net.render_interfaces(ns.network_state, postup_alias=True)
+        net_ifaces = net.render_interfaces(ns.network_state)
         print("\n".join(sorted(ifaces.split('\n'))))
         print("\n^^ LOCAL -- RENDER vv")
         print("\n".join(sorted(net_ifaces.split('\n'))))

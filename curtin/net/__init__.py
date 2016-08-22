@@ -406,10 +406,7 @@ def render_route(route, indent=""):
 
 
 def iface_start_entry(iface, index):
-    print(iface)
     fullname = iface['name']
-    if index != 0 and '6' not in iface['inet']:
-        fullname += ":%s" % index
 
     control = iface['control']
     print("control=%s" % control)
@@ -460,7 +457,7 @@ def iface_add_postup(interface, alias_idx):
     return content
 
 
-def render_interfaces(network_state, postup_alias=False):
+def render_interfaces(network_state):
     ''' Given state, emit etc/network/interfaces content '''
 
     content = ""
@@ -495,13 +492,8 @@ def render_interfaces(network_state, postup_alias=False):
                 iface['index'] = index
                 iface['mode'] = subnet['type']
                 iface['control'] = subnet.get('control', 'auto')
-                print("subnet['control'] = %s" % subnet.get('control'))
                 subnet_inet = 'inet'
-                if subnet['type'].endswith('6'):
-                    # This is a request for DHCPv6.
-                    subnet_inet += '6'
-                elif subnet['type'] == 'static' and ":" in subnet['address']:
-                    # This is a static IPv6 address.
+                if subnet_is_ipv6(subnet):
                     subnet_inet += '6'
                 iface['inet'] = subnet_inet
                 if subnet['type'].startswith('dhcp'):
@@ -514,20 +506,12 @@ def render_interfaces(network_state, postup_alias=False):
                 for route in subnet.get('routes', []):
                     content += render_route(route, indent="    ") + '\n'
 
-                # disable on ifupdown >= 0.8.6
-                # on the *first* interface add and post-up ifup on other
-                # aliased interfaces
-                if postup_alias:
-                    print('add postup index=%s' % index)
-                    content += iface_add_postup(iface, index)
-
         else:
             # ifenslave docs say to auto the slave devices
             if 'bond-master' in iface or 'bond-slaves' in iface:
                 content += "auto {name}\n".format(**iface)
             content += "iface {name} {inet} {mode}\n".format(**iface)
             content += iface_add_attrs(iface, 0)
-
 
     for route in network_state.get('routes'):
         content += render_route(route)
@@ -541,15 +525,14 @@ def render_interfaces(network_state, postup_alias=False):
     return content
 
 
-def render_network_state(target, network_state, postup_alias=None):
+def render_network_state(target, network_state):
     eni = 'etc/network/interfaces'
     netrules = 'etc/udev/rules.d/70-persistent-net.rules'
     cc = 'etc/cloud/cloud.cfg.d/curtin-disable-cloudinit-networking.cfg'
 
     eni = os.path.sep.join((target, eni,))
     LOG.info('Writing ' + eni)
-    util.write_file(eni, content=render_interfaces(network_state,
-                                                   postup_alias=postup_alias))
+    util.write_file(eni, content=render_interfaces(network_state))
 
     netrules = os.path.sep.join((target, netrules,))
     LOG.info('Writing ' + netrules)

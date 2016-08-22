@@ -386,9 +386,7 @@ def apply_networking(target, state):
 
     if is_valid_src(netconf):
         LOG.info("applying network_config")
-        postup_alias = apply_net.detect_postup_alias(target=target)
-        apply_net.apply_net(target, network_state=None, network_config=netconf,
-                            postup_alias=postup_alias)
+        apply_net.apply_net(target, network_state=None, network_config=netconf)
     else:
         LOG.debug("copying interfaces")
         copy_interfaces(interfaces, target)
