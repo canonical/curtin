@@ -485,7 +485,7 @@ network:
 
             source /etc/network/interfaces.d/*.cfg
             """)
-        net_ifaces = net.render_interfaces(ns.network_state)
+        net_ifaces = net.render_interfaces(ns.network_state, postup_alias=True)
         print(ns.network_state.get('interfaces'))
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
@@ -525,7 +525,7 @@ network:
 
             source /etc/network/interfaces.d/*.cfg
             """)
-        net_ifaces = net.render_interfaces(ns.network_state)
+        net_ifaces = net.render_interfaces(ns.network_state, postup_alias=True)
         print("\n".join(list(map(str,
                                  enumerate(sorted(ifaces.split('\n')))))))
         print("\n^^ LOCAL -- RENDER vv")
@@ -564,7 +564,7 @@ network:
 
             source /etc/network/interfaces.d/*.cfg
             """)
-        net_ifaces = net.render_interfaces(ns.network_state)
+        net_ifaces = net.render_interfaces(ns.network_state, postup_alias=True)
         print("\n".join(sorted(ifaces.split('\n'))))
         print("\n^^ LOCAL -- RENDER vv")
         print("\n".join(sorted(net_ifaces.split('\n'))))
@@ -605,7 +605,7 @@ network:
 
             source /etc/network/interfaces.d/*.cfg
             """)
-        net_ifaces = net.render_interfaces(ns.network_state)
+        net_ifaces = net.render_interfaces(ns.network_state, postup_alias=True)
         print("\n".join(sorted(ifaces.split('\n'))))
         print("\n^^ LOCAL -- RENDER vv")
         print("\n".join(sorted(net_ifaces.split('\n'))))
