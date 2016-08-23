@@ -609,5 +609,50 @@ network:
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
 
+    def test_render_interfaces_ipv4_multiple_alias(self):
+        network_yaml = '''
+network:
+    version: 1
+    config:
+        # multi_v4_alias: multiple v4 addrs on same interface
+        - type: physical
+          name: interface1
+          mac_address: "52:54:00:12:34:02"
+          subnets:
+              - type: dhcp
+              - type: static
+                address: 192.168.2.2/22
+                gateway: 192.168.2.1
+              - type: static
+                address: 10.23.23.7/23
+                gateway: 10.23.23.1
+'''
+
+        ns = self.get_net_state(network_yaml)
+        ifaces = dedent("""\
+            auto lo
+            iface lo inet loopback
+
+            auto interface1
+            iface interface1 inet dhcp
+
+            auto interface1
+            iface interface1 inet static
+                address 192.168.2.2/22
+                gateway 192.168.2.1
+
+            auto interface1
+            iface interface1 inet static
+                address 10.23.23.7/23
+                gateway 10.23.23.1
+
+            source /etc/network/interfaces.d/*.cfg
+            """)
+        net_ifaces = net.render_interfaces(ns.network_state)
+        print(net_ifaces)
+        print(ifaces)
+        self.assertEqual(sorted(ifaces.split('\n')),
+                         sorted(net_ifaces.split('\n')))
+
 
 # vi: ts=4 expandtab syntax=python

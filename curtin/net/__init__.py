@@ -409,7 +409,6 @@ def iface_start_entry(iface, index):
     fullname = iface['name']
 
     control = iface['control']
-    print("control=%s" % control)
     if control == "auto":
         cverb = "auto"
     elif control in ("hotplug",):
@@ -417,7 +416,6 @@ def iface_start_entry(iface, index):
     else:
         cverb = "# control-" + control
 
-    print("cverb=%s" % cverb)
     subst = iface.copy()
     subst.update({'fullname': fullname, 'cverb': cverb})
 
@@ -450,7 +448,6 @@ def iface_add_postup(interface, alias_idx):
     for idx, subnet in [(idx, sn) for (idx, sn) in enumerate(subnets)
                         if idx != 0 and subnet_is_ipv4(sn)]:
         if idx == alias_idx:
-            print('post-up add alias: %s:%s' % ((idx, subnet)))
             content += tmpl % (interface['name'], idx)
             break
 
@@ -483,9 +480,7 @@ def render_interfaces(network_state):
         if content[-2:] != "\n\n":
             content += "\n"
         subnets = iface.get('subnets', {})
-        print('looking iface: %s' % iface['name'])
         if subnets:
-            print('subnets!')
             for index, subnet in enumerate(subnets):
                 if content[-2:] != "\n\n":
                     content += "\n"

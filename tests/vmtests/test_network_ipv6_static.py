@@ -1,9 +1,9 @@
 from .releases import base_vm_classes as relbase
-from .test_network_ipv6 import TestNetworkIPV6Abs
+from .test_network_static import TestNetworkStaticAbs
 
 
 # reuse basic network tests but with different config (static, no dhcp)
-class TestNetworkIPV6StaticAbs(TestNetworkIPV6Abs):
+class TestNetworkIPV6StaticAbs(TestNetworkStaticAbs):
     conf_file = "examples/tests/basic_network_static_ipv6.yaml"
 
 
