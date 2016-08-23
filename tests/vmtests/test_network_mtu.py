@@ -41,8 +41,8 @@ class TestNetworkMtuAbs(TestNetworkIPV6Abs):
             keys:  'device', and 'ipv6'.  """
 
         mtu_fn = {
-          'device': "%s_dev_mtu" % ifname,
-          'ipv6': "%s_ipv6_mtu" % ifname,
+            'device': "%s_dev_mtu" % ifname,
+            'ipv6': "%s_ipv6_mtu" % ifname,
         }
         mtu_val = {}
         for fnk in mtu_fn.keys():
