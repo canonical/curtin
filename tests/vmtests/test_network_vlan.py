@@ -2,7 +2,6 @@ from . import logger
 from .releases import base_vm_classes as relbase
 from .test_network import TestNetworkBaseTestsAbs
 
-import os
 import textwrap
 import yaml
 
@@ -34,10 +33,9 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
         self.output_files_exist(["vlan_installed"] + link_files)
 
     def test_vlan_installed(self):
-        with open(os.path.join(self.td.collect, "vlan_installed")) as fp:
-            status = fp.read().strip()
-            logger.debug('vlan installed?: %s', status)
-            self.assertEqual('install ok installed', status)
+        status = self.load_collect_file("vlan_installed").strip()
+        logger.debug('vlan installed?: %s', status)
+        self.assertEqual('install ok installed', status)
 
     def test_vlan_enabled(self):
 
