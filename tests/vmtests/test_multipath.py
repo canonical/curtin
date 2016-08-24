@@ -1,7 +1,6 @@
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
-import os
 import textwrap
 
 
@@ -37,17 +36,10 @@ class TestMultipathBasicAbs(VMBaseClass):
         """)]
 
     def test_multipath_disks_match(self):
-        sda = os.path.join(self.td.collect, 'holders_sda')
-        sdb = os.path.join(self.td.collect, 'holders_sdb')
-        self.assertTrue(os.path.exists(sda))
-        self.assertTrue(os.path.exists(sdb))
-        with open(sda, 'r') as fp:
-            sda_data = fp.read()
-            print('sda holders:\n%s' % sda_data)
-        with open(sda, 'r') as fp:
-            sdb_data = fp.read()
-            print('sdb holders:\n%s' % sda_data)
-
+        sda_data = self.load_collect_file("holders_sda")
+        print('sda holders:\n%s' % sda_data)
+        sdb_data = self.load_collect_file("holders_sdb")
+        print('sdb holders:\n%s' % sdb_data)
         self.assertEqual(sda_data, sdb_data)
 
 
