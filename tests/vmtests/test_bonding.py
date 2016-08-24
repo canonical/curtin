@@ -2,7 +2,6 @@ from . import VMBaseClass, logger, helpers
 from .releases import base_vm_classes as relbase
 
 import ipaddress
-import os
 import re
 import textwrap
 import yaml
@@ -33,15 +32,13 @@ class TestNetworkAbs(VMBaseClass):
                                  "route_n"])
 
     def test_ifenslave_installed(self):
-        with open(os.path.join(self.td.collect, "ifenslave_installed")) as fp:
-            status = fp.read().strip()
-            logger.debug('ifenslave installed: {}'.format(status))
-            self.assertEqual('install ok installed', status)
+        status = self.load_collect_file('ifenslave_installed').strip()
+        logger.debug('ifenslave installed: {}'.format(status))
+        self.assertEqual('install ok installed', status)
 
     def test_etc_network_interfaces(self):
-        with open(os.path.join(self.td.collect, "interfaces")) as fp:
-            eni = fp.read()
-            logger.debug('etc/network/interfaces:\n{}'.format(eni))
+        eni = self.load_collect_file("interfaces")
+        logger.debug('etc/network/interfaces:\n{}'.format(eni))
 
         expected_eni = self.get_expected_etc_network_interfaces()
         eni_lines = eni.split('\n')
@@ -54,30 +51,27 @@ class TestNetworkAbs(VMBaseClass):
         logger.debug('expected_network_state:\n{}'.format(
             yaml.dump(network_state, default_flow_style=False, indent=4)))
 
-        with open(os.path.join(self.td.collect, "ifconfig_a")) as fp:
-            ifconfig_a = fp.read()
-            logger.debug('ifconfig -a:\n{}'.format(ifconfig_a))
+        ifconfig_a = self.load_collect_file("ifconfig_a")
+        logger.debug('ifconfig -a:\n{}'.format(ifconfig_a))
 
         ifconfig_dict = helpers.ifconfig_to_dict(ifconfig_a)
         logger.debug('parsed ifcfg dict:\n{}'.format(
             yaml.dump(ifconfig_dict, default_flow_style=False, indent=4)))
 
-        with open(os.path.join(self.td.collect, "ip_route_show")) as fp:
-            ip_route_show = fp.read()
-            logger.debug("ip route show:\n{}".format(ip_route_show))
-            for line in [line for line in ip_route_show.split('\n')
-                         if 'src' in line]:
-                m = re.search(r'^(?P<network>\S+)\sdev\s' +
-                              r'(?P<devname>\S+)\s+' +
-                              r'proto kernel\s+scope link' +
-                              r'\s+src\s(?P<src_ip>\S+)',
-                              line)
-                route_info = m.groupdict('')
-                logger.debug(route_info)
+        ip_route_show = self.load_collect_file("ip_route_show")
+        logger.debug("ip route show:\n{}".format(ip_route_show))
+        for line in [line for line in ip_route_show.split('\n')
+                     if 'src' in line]:
+            m = re.search(r'^(?P<network>\S+)\sdev\s' +
+                          r'(?P<devname>\S+)\s+' +
+                          r'proto kernel\s+scope link' +
+                          r'\s+src\s(?P<src_ip>\S+)',
+                          line)
+            route_info = m.groupdict('')
+            logger.debug(route_info)
 
-        with open(os.path.join(self.td.collect, "route_n")) as fp:
-            route_n = fp.read()
-            logger.debug("route -n:\n{}".format(route_n))
+        route_n = self.load_collect_file("route_n")
+        logger.debug("route -n:\n{}".format(route_n))
 
         interfaces = network_state.get('interfaces')
         for iface in interfaces.values():
