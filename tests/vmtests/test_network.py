@@ -119,7 +119,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             logger.debug('ip a:\n{}'.format(ip_a))
 
         ip_dict = helpers.ip_a_to_dict(ip_a)
-        logger.debug('parsed ip_a dict:\n{}'.format(
+        print('parsed ip_a dict:\n{}'.format(
             yaml.dump(ip_dict, default_flow_style=False, indent=4)))
 
         with open(os.path.join(self.td.collect, "ip_route_show")) as fp:
@@ -149,22 +149,22 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         }
         interfaces = network_state.get('interfaces')
         for iface in interfaces.values():
-            print("network_state iface: %s" % iface)
+            print("\nnetwork_state iface: %s" % (
+                yaml.dump(iface, default_flow_style=False, indent=4)))
             self.check_interface(iface['name'],
                                  iface,
                                  ip_dict.get(iface['name']),
                                  routes)
 
     def check_interface(self, ifname, iface, ipcfg, routes):
-        logger.debug(
-            'testing ifname:{}\niface:\n{}\n\nipcfg:\n{}'.format(ifname,
-                                                                 iface,
-                                                                 ipcfg))
+        print('check_interface: testing '
+              'ifname:{}\niface:\n{}\n\nipcfg:\n{}'.format(ifname, iface,
+                                                           ipcfg))
         # FIXME: remove check?
         # initial check, do we have the correct iface ?
-        logger.debug('ifname={}'.format(ifname))
-        logger.debug("ipcfg['interface']={}".format(ipcfg['interface']))
+        print('ifname={}'.format(ifname))
         self.assertEqual(ifname, ipcfg['interface'])
+        print("ipcfg['interface']={}".format(ipcfg['interface']))
 
         # check physical interface attributes (skip bond members, macs change)
         if iface['type'] in ['physical'] and 'bond-master' not in iface:
@@ -182,7 +182,10 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
                                  int(ipcfg[key]))
 
         # check subnet related attributes
-        for subnet in iface.get('subnets', []):
+        subnets = iface.get('subnets')
+        if subnets is None:
+            subnets = []
+        for subnet in subnets:
             config_inet_iface = None
             found_inet_iface = None
             print('validating subnet:\n%s' % subnet)
@@ -209,12 +212,18 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
                     addresses = ipcfg.get('inet4', [])
 
                 # find a matching
+                print('found addresses: %s' % addresses)
                 for ip in addresses:
-                    if ip['address'] == subnet['address']:
+                    print('cur ip=%s\nsubnet=%s' % (ip, subnet))
+                    # drop /CIDR if present for matching
+                    if (ip['address'].split("/")[0] ==
+                       subnet['address'].split("/")[0]):
+                        print('found a match!')
                         found_ipstr = ip['address']
-                        if 'netmask' in subnet:
+                        if ('netmask' in subnet or '/' in subnet['address']):
                             found_ipstr += "/%s" % ip.get('prefixlen')
                         found_inet_iface = ip_func(found_ipstr)
+                        print('returning inet iface')
                         break
 
                 # check ipaddress interface matches (config vs. found)

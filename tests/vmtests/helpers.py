@@ -305,6 +305,18 @@ def _parse_ip_a(ip_a):
         'brd': 'broadcast',
         'link/ether': 'mac_address',
     }
+    interface_fields = [
+        'group',
+        'master',
+        'mtu',
+        'qdisc',
+        'qlen',
+        'state',
+    ]
+    inet_fields = [
+        'valid_lft',
+        'preferred_left'
+    ]
     boolmap = {
         'BROADCAST': 'broadcast',
         'LOOPBACK': 'loopback',
@@ -326,16 +338,14 @@ def _parse_ip_a(ip_a):
                 'inet6': [],
                 'interface': cur_iface
             }
+            # vlan's get a fancy name <iface name>@<vlan_link>
+            if '@' in cur_iface:
+                cur_iface, vlan_link = cur_iface.split("@")
+                cur_data.update({'interface': cur_iface,
+                                 'vlan_link': vlan_link})
             for t in boolmap.values():
                 # <BROADCAST,MULTICAST,UP,LOWER_UP>
                 cur_data[t] = t.upper() in line[2]
-
-            cur_data['mtu'] = int(toks[4])
-            cur_data['qdisc'] = toks[6]
-            cur_data['state'] = toks[8]
-            cur_data['group'] = toks[10]
-            if 'qlen' in line:
-                cur_data['qlen'] = int(toks[12])
             ifaces[cur_iface] = cur_data
 
         for i in range(0, len(toks)):
@@ -348,6 +358,9 @@ def _parse_ip_a(ip_a):
             # parse link/ether, brd
             if cur_tok in combined_fields.keys():
                 cur_data[combined_fields[cur_tok]] = next_tok
+            # mtu an other interface line key/value pairs
+            elif cur_tok in interface_fields:
+                cur_data[cur_tok] = next_tok
             elif cur_tok.startswith("inet"):
                 cidr = toks[1]
                 address, prefixlen = cidr.split("/")
@@ -368,8 +381,11 @@ def _parse_ip_a(ip_a):
                     cur_data['inet4'].append(cur_ipv4)
 
                 continue
-            elif cur_tok == 'valid_lft':
-                # FIXME: dont skip address lifetime
+            elif cur_tok in inet_fields:
+                if ":" in address:
+                    cur_ipv6[cur_tok] = next_tok
+                else:
+                    cur_ipv4[cur_tok] = next_tok
                 continue
 
     return ifaces
