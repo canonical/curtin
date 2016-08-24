@@ -49,9 +49,8 @@ class TestNetworkENISource(TestNetworkBaseTestsAbs):
         print('parsed eni dict:\n{}'.format(
             yaml.dump(curtin_ifaces, default_flow_style=False, indent=4)))
 
-        with open(os.path.join(self.td.collect, "ifconfig_a")) as fp:
-            ifconfig_a = fp.read()
-            logger.debug('ifconfig -a:\n{}'.format(ifconfig_a))
+        ifconfig_a = self.load_collect_file("ifconfig_a")
+        logger.debug('ifconfig -a:\n{}'.format(ifconfig_a))
 
         ifconfig_dict = helpers.ifconfig_to_dict(ifconfig_a)
         logger.debug('parsed ifconfig dict:\n{}'.format(
