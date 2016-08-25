@@ -64,7 +64,8 @@ class TrustyTestLvm(relbase.trusty, TestLvmAbs):
 
 
 class WilyTestLvm(relbase.wily, TestLvmAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestLvm(relbase.xenial, TestLvmAbs):

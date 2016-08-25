@@ -2,6 +2,7 @@ from . import VMBaseClass, logger, helpers
 from .releases import base_vm_classes as relbase
 
 import ipaddress
+import os
 import re
 import textwrap
 import yaml
@@ -13,6 +14,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
     extra_nics = []
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
+        echo "waiting for ipv6 to settle" && sleep 5
         ifconfig -a > ifconfig_a
         ip link show > ip_link_show
         ip a > ip_a
@@ -26,6 +28,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         route -n > route_n
         route -6 -n > route_6_n
         cp -av /run/network ./run_network
+        cp -av /var/log/upstart ./upstart ||:
+        sleep 10 && ip a > ip_a
         """)]
 
     def test_output_files_exist(self):
@@ -42,8 +46,9 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         ])
 
     def test_etc_network_interfaces(self):
-        eni = self.load_collect_file("interfaces")
-        logger.debug('etc/network/interfaces:\n{}'.format(eni))
+        with open(os.path.join(self.td.collect, "interfaces")) as fp:
+            eni = fp.read()
+            logger.debug('etc/network/interfaces:\n{}'.format(eni))
 
         expected_eni = self.get_expected_etc_network_interfaces()
         eni_lines = eni.split('\n')
@@ -51,8 +56,9 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             self.assertTrue(line in eni_lines)
 
     def test_etc_resolvconf(self):
-        resolvconf = self.load_collect_file("resolv.conf")
-        logger.debug('etc/resolv.conf:\n{}'.format(resolvconf))
+        with open(os.path.join(self.td.collect, "resolv.conf")) as fp:
+            resolvconf = fp.read()
+            logger.debug('etc/resolv.conf:\n{}'.format(resolvconf))
 
         resolv_lines = resolvconf.split('\n')
         logger.debug('resolv.conf lines:\n{}'.format(resolv_lines))
@@ -111,30 +117,34 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         logger.debug('expected_network_state:\n{}'.format(
             yaml.dump(network_state, default_flow_style=False, indent=4)))
 
-        ip_a = self.load_collect_file("ip_a")
-        logger.debug('ip a:\n{}'.format(ip_a))
+        with open(os.path.join(self.td.collect, "ip_a")) as fp:
+            ip_a = fp.read()
+            logger.debug('ip a:\n{}'.format(ip_a))
 
         ip_dict = helpers.ip_a_to_dict(ip_a)
         print('parsed ip_a dict:\n{}'.format(
             yaml.dump(ip_dict, default_flow_style=False, indent=4)))
 
-        ip_route_show = self.load_collect_file("ip_route_show")
-        logger.debug("ip route show:\n{}".format(ip_route_show))
-        for line in [line for line in ip_route_show.split('\n')
-                     if 'src' in line]:
-            m = re.search(r'^(?P<network>\S+)\sdev\s' +
-                          r'(?P<devname>\S+)\s+' +
-                          r'proto kernel\s+scope link' +
-                          r'\s+src\s(?P<src_ip>\S+)',
-                          line)
-            route_info = m.groupdict('')
-            logger.debug(route_info)
+        with open(os.path.join(self.td.collect, "ip_route_show")) as fp:
+            ip_route_show = fp.read()
+            logger.debug("ip route show:\n{}".format(ip_route_show))
+            for line in [line for line in ip_route_show.split('\n')
+                         if 'src' in line]:
+                m = re.search(r'^(?P<network>\S+)\sdev\s' +
+                              r'(?P<devname>\S+)\s+' +
+                              r'proto kernel\s+scope link' +
+                              r'\s+src\s(?P<src_ip>\S+)',
+                              line)
+                route_info = m.groupdict('')
+                logger.debug(route_info)
 
-        route_n = self.load_collect_file("route_n")
-        logger.debug("route -n:\n{}".format(route_n))
+        with open(os.path.join(self.td.collect, "route_n")) as fp:
+            route_n = fp.read()
+            logger.debug("route -n:\n{}".format(route_n))
 
-        route_6_n = self.load_collect_file("route_6_n")
-        logger.debug("route -6 -n:\n{}".format(route_6_n))
+        with open(os.path.join(self.td.collect, "route_6_n")) as fp:
+            route_6_n = fp.read()
+            logger.debug("route -6 -n:\n{}".format(route_6_n))
 
         routes = {
             '4': route_n,
@@ -234,6 +244,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
 
             # handle gateways by looking at routing table
             configured_gws = __find_gw_config(subnet)
+            print('iface:%s configured_gws: %s' % (ifname, configured_gws))
             for gw_ip in configured_gws:
                 logger.debug('found a gateway in subnet config: %s', gw_ip)
                 if ":" in gw_ip:
@@ -243,8 +254,10 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
 
                 found_gws = [line for line in route_d.split('\n')
                              if 'UG' in line and gw_ip in line]
-                logger.debug('found a gateway in guest output:\n%s', found_gws)
+                logger.debug('found gateways in guest output:\n%s', found_gws)
 
+                print('found_gws: %s\nexpected: %s' % (found_gws,
+                                                       configured_gws))
                 self.assertEqual(len(found_gws), len(configured_gws))
                 for fgw in found_gws:
                     if ":" in gw_ip:
