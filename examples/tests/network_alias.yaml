@@ -11,7 +11,7 @@ network:
                 address: 192.168.1.2/24
                 mtu: 1501
               - type: static
-                address: 2001:4800:78ff:1b:be76:4eff:fe06:1000
+                address: 2001:4800:78ff:1b:be76:4eff:fe06:ffac
                 netmask: 'ffff:ffff:ffff:ffff::'
                 mtu: 1480
         # multi_v4_alias: multiple v4 addrs on same interface
@@ -19,7 +19,6 @@ network:
           name: interface1
           mac_address: "52:54:00:12:34:02"
           subnets:
-              - type: dhcp
               - type: static
                 address: 192.168.2.2/22
                 routes:
@@ -62,8 +61,7 @@ network:
                 routes:
                   - gateway: 10.99.99.1
                     netmask: 255.255.254.0
-                    network: 10.99.99.0
-              - type: dhcp
+                    network: 10.99.98.0
               - type: static
                 address: 2001:4800:78ff:1b:be76:4eff:beef:4000
                 netmask: 'ffff:ffff:ffff:ffff::'
@@ -99,7 +97,6 @@ network:
                   - gateway: 10.17.142.1
                     netmask: 255.255.254.0
                     network: 10.17.142.0
-              - type: dhcp
         # multi_v6_and_v4_mix_order: multiple v4 and v6 addr, mixed order
         - type: physical
           name: interface5
@@ -108,7 +105,6 @@ network:
               - type: static
                 address: 2001:4800:78ff:1b:be76:4eff:baaf:a000
                 netmask: 'ffff:ffff:ffff:ffff::'
-              - type: dhcp
               - type: static
                 address: 2001:4800:78ff:1b:be76:4eff:baaf:c000
                 netmask: 'ffff:ffff:ffff:ffff::'

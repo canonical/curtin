@@ -494,6 +494,9 @@ def render_interfaces(network_state):
                 if subnet['type'].startswith('dhcp'):
                     iface['mode'] = 'dhcp'
 
+                if "auto %s\n" % (iface['name']) in content:
+                    iface['control'] = 'alias'
+
                 content += iface_start_entry(iface, index)
                 content += iface_add_subnet(iface, subnet)
                 content += iface_add_attrs(iface, index)

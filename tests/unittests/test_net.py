@@ -474,7 +474,7 @@ network:
             auto eth0
             iface eth0 inet dhcp
 
-            auto eth0
+            # control-alias eth0
             iface eth0 inet static
                 address 192.168.21.3/24
                 dns-nameservers 8.8.8.8 8.8.4.4
@@ -517,7 +517,7 @@ network:
                 hwaddress ether 52:54:00:12:34:06
                 bond-slaves none
 
-            auto bond0
+            # control-alias bond0
             iface bond0 inet static
                 address 10.23.24.2/24
 
@@ -550,7 +550,7 @@ network:
                 gateway 192.168.14.1
                 mtu 1492
 
-            auto interface1
+            # control-alias interface1
             iface interface1 inet static
                 address 192.168.14.4/24
 
@@ -595,7 +595,7 @@ network:
             iface eth0 inet6 static
                 address fde9:8f83:4a81:1:0:1:0:6/64
 
-            auto eth0
+            # control-alias eth0
             iface eth0 inet static
                 address 192.168.0.1/24
 
@@ -636,12 +636,12 @@ network:
             auto interface1
             iface interface1 inet dhcp
 
-            auto interface1
+            # control-alias interface1
             iface interface1 inet static
                 address 192.168.2.2/22
                 gateway 192.168.2.1
 
-            auto interface1
+            # control-alias interface1
             iface interface1 inet static
                 address 10.23.23.7/23
                 gateway 10.23.23.1

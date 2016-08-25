@@ -10,7 +10,7 @@ class TestNetworkAliasAbs(TestNetworkBaseTestsAbs):
 
 class PreciseHWETTestNetworkAlias(relbase.precise_hwe_t, TestNetworkAliasAbs):
     # FIXME: off due to hang at test: Starting execute cloud user/final scripts
-    __test__ = False
+    __test__ = True
 
 
 class TrustyTestNetworkAlias(relbase.trusty, TestNetworkAliasAbs):
