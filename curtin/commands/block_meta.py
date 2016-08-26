@@ -17,9 +17,8 @@
 
 from collections import OrderedDict
 from curtin import (block, config, util)
-from curtin.block import mdadm
+from curtin.block import (mdadm, mkfs, clear_holders, lvm)
 from curtin.log import LOG
-from curtin.block import mkfs
 from curtin.reporter import events
 
 from . import populate_one_subcmd
@@ -127,95 +126,6 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
         return 'prep'
 
     return "mbr"
-
-
-def get_holders(devname):
-    # Look up any block device holders.
-    # Handle devices and partitions as devnames (vdb, md0, vdb7)
-    devname_sysfs = block.sys_block_path(devname)
-    if devname_sysfs:
-        holders = os.listdir(os.path.join(devname_sysfs, 'holders'))
-        LOG.debug("devname '%s' had holders: %s", devname, ','.join(holders))
-        return holders
-
-    LOG.debug('get_holders: did not find sysfs path for %s', devname)
-    return []
-
-
-def clear_holders(sys_block_path):
-    holders = os.listdir(os.path.join(sys_block_path, "holders"))
-    LOG.info("clear_holders running on '%s', with holders '%s'" %
-             (sys_block_path, holders))
-    for holder in holders:
-        # get path to holder in /sys/block, then clear it
-        try:
-            holder_realpath = os.path.realpath(
-                os.path.join(sys_block_path, "holders", holder))
-            clear_holders(holder_realpath)
-        except IOError as e:
-            # something might have already caused the holder to go away
-            if util.is_file_not_found_exc(e):
-                pass
-            pass
-
-    # detect what type of holder is using this volume and shut it down, need to
-    # find more robust name of doing detection
-    if "bcache" in sys_block_path:
-        # bcache device
-        part_devs = []
-        for part_dev in glob.glob(os.path.join(sys_block_path,
-                                               "slaves", "*", "dev")):
-            with open(part_dev, "r") as fp:
-                part_dev_id = fp.read().rstrip()
-                part_devs.append(
-                    os.path.split(os.path.realpath(os.path.join("/dev/block",
-                                  part_dev_id)))[-1])
-        for cache_dev in glob.glob("/sys/fs/bcache/*/bdev*"):
-            for part_dev in part_devs:
-                if part_dev in os.path.realpath(cache_dev):
-                    # This is our bcache device, stop it, wait for udev to
-                    # settle
-                    with open(os.path.join(os.path.split(cache_dev)[0],
-                              "stop"), "w") as fp:
-                        LOG.info("stopping: %s" % fp)
-                        fp.write("1")
-                        udevadm_settle()
-                    break
-        for part_dev in part_devs:
-            block.wipe_volume(os.path.join("/dev", part_dev),
-                              mode="superblock")
-
-    if os.path.exists(os.path.join(sys_block_path, "bcache")):
-        # bcache device that isn't running, if it were, we would have found it
-        # when we looked for holders
-        try:
-            with open(os.path.join(sys_block_path, "bcache", "set", "stop"),
-                      "w") as fp:
-                LOG.info("stopping: %s" % fp)
-                fp.write("1")
-        except IOError as e:
-            if not util.is_file_not_found_exc(e):
-                raise e
-            with open(os.path.join(sys_block_path, "bcache", "stop"),
-                      "w") as fp:
-                LOG.info("stopping: %s" % fp)
-                fp.write("1")
-        udevadm_settle()
-
-    if os.path.exists(os.path.join(sys_block_path, "md")):
-        # md device
-        block_dev_kname = block.path_to_kname(sys_block_path)
-        block_dev = block.kname_to_path(block_dev_kname)
-        mdadm.mdadm_stop(block_dev)
-        mdadm.mdadm_remove(block_dev)
-
-    elif os.path.exists(os.path.join(sys_block_path, "dm")):
-        # Shut down any volgroups
-        with open(os.path.join(sys_block_path, "dm", "name"), "r") as fp:
-            name = fp.read().split('-')
-        util.subp(["lvremove", "--force", name[0].rstrip(), name[1].rstrip()],
-                  rcs=[0, 5])
-        util.subp(["vgremove", name[0].rstrip()], rcs=[0, 5, 6])
 
 
 def devsync(devpath):
@@ -428,72 +338,35 @@ def get_path_to_storage_volume(volume, storage_config):
 
 
 def disk_handler(info, storage_config):
+    _dos_names = ['dos', 'msdos']
     ptable = info.get('ptable')
-
     disk = get_path_to_storage_volume(info.get('id'), storage_config)
 
-    # Handle preserve flag
-    if info.get('preserve'):
-        if not ptable:
-            # Don't need to check state, return
-            return
-
-        # Check state of current ptable, try to do this using blkid, but if
-        # blkid fails then try to fall back to using parted.
-        _possible_errors = (util.ProcessExecutionError, StopIteration,
-                            IndexError, AttributeError)
-        try:
-            (out, _err) = util.subp(["blkid", "-o", "export", disk],
-                                    capture=True)
-            current_ptable = next(l.split('=')[1] for l in out.splitlines()
-                                  if 'TYPE' in l)
-        except _possible_errors:
-            try:
-                (out, _err) = util.subp(["parted", disk, "--script", "print"],
-                                        capture=True)
-                current_ptable = next(l.split()[-1] for l in out.splitlines()
-                                      if "Partition Table" in l)
-            except _possible_errors:
-                raise ValueError("disk '%s' has no readable partition table "
-                                 "or cannot be accessed, but preserve is set "
-                                 "to true, so cannot continue" % disk)
-        if not (current_ptable == ptable or
-                (current_ptable == "dos" and ptable == "msdos")):
-            raise ValueError("disk '%s' does not have correct "
-                             "partition table, but preserve is "
-                             "set to true, so not creating table."
-                             % info.get('id'))
+    if config.value_as_boolean(info.get('preserve')):
+        # Handle preserve flag, verifying if ptable specified in config
+        if config.value_as_boolean(ptable):
+            current_ptable = block.get_part_table_type(disk)
+            if not ((ptable in _dos_names and current_ptable in _dos_names) or
+                    (ptable == 'gpt' and current_ptable == 'gpt')):
+                raise ValueError(
+                    "disk '%s' does not have correct partition table or "
+                    "cannot be read, but preserve is set to true. "
+                    "cannot continue installation." % info.get('id'))
         LOG.info("disk '%s' marked to be preserved, so keeping partition "
                  "table" % disk)
-        return
-
-    # Wipe the disk
-    if info.get('wipe') and info.get('wipe') != "none":
-        # The disk has a lable, clear all partitions
-        mdadm.mdadm_assemble(scan=True)
-        disk_sysfs_path = block.sys_block_path(disk)
-        sysfs_partitions = list(
-            os.path.split(prt)[0] for prt in
-            glob.glob(os.path.join(disk_sysfs_path, '*', 'partition')))
-        for partition in sysfs_partitions:
-            clear_holders(partition)
-            with open(os.path.join(partition, "dev"), "r") as fp:
-                block_no = fp.read().rstrip()
-            partition_path = os.path.realpath(
-                os.path.join("/dev/block", block_no))
-            block.wipe_volume(partition_path, mode=info.get('wipe'))
-
-        clear_holders(disk_sysfs_path)
-        block.wipe_volume(disk, mode=info.get('wipe'))
-
-    # Create partition table on disk
-    if info.get('ptable'):
-        LOG.info("labeling device: '%s' with '%s' partition table", disk,
-                 ptable)
-        if ptable == "gpt":
-            util.subp(["sgdisk", "--clear", disk])
-        elif ptable == "msdos":
-            util.subp(["parted", disk, "--script", "mklabel", "msdos"])
+    else:
+        # wipe the disk and create the partition table if instructed to do so
+        if config.value_as_boolean(info.get('wipe')):
+            block.wipe_volume(disk, mode=info.get('wipe'))
+        if config.value_as_boolean(ptable):
+            LOG.info("labeling device: '%s' with '%s' partition table", disk,
+                     ptable)
+            if ptable == "gpt":
+                util.subp(["sgdisk", "--clear", disk])
+            elif ptable in _dos_names:
+                util.subp(["parted", disk, "--script", "mklabel", "msdos"])
+            else:
+                raise ValueError('invalid partition table type: %s', ptable)
 
     # Make the name if needed
     if info.get('name'):
@@ -621,9 +494,9 @@ def partition_handler(info, storage_config):
         length_sectors = length_sectors + (logdisks * alignment_offset)
 
     # Handle preserve flag
-    if info.get('preserve'):
+    if config.value_as_boolean(info.get('preserve')):
         return
-    elif storage_config.get(device).get('preserve'):
+    elif config.value_as_boolean(storage_config.get(device).get('preserve')):
         raise NotImplementedError("Partition '%s' is not marked to be \
             preserved, but device '%s' is. At this time, preserving devices \
             but not also the partitions on the devices is not supported, \
@@ -666,11 +539,16 @@ def partition_handler(info, storage_config):
     else:
         raise ValueError("parent partition has invalid partition table")
 
-    # Wipe the partition if told to do so
-    if info.get('wipe') and info.get('wipe') != "none":
-        block.wipe_volume(
-            get_path_to_storage_volume(info.get('id'), storage_config),
-            mode=info.get('wipe'))
+    # Wipe the partition if told to do so, do not wipe dos extended partitions
+    # as this may damage the extended partition table
+    if config.value_as_boolean(info.get('wipe')):
+        if info.get('flag') == "extended":
+            LOG.warn("extended partitions do not need wiping, so skipping: "
+                     "'%s'" % info.get('id'))
+        else:
+            block.wipe_volume(
+                get_path_to_storage_volume(info.get('id'), storage_config),
+                mode=info.get('wipe'))
     # Make the name if needed
     if storage_config.get(device).get('name') and partition_type != 'extended':
         make_dname(info.get('id'), storage_config)
@@ -686,7 +564,7 @@ def format_handler(info, storage_config):
     volume_path = get_path_to_storage_volume(volume, storage_config)
 
     # Handle preserve flag
-    if info.get('preserve'):
+    if config.value_as_boolean(info.get('preserve')):
         # Volume marked to be preserved, not formatting
         return
 
@@ -768,26 +646,21 @@ def lvm_volgroup_handler(info, storage_config):
                             storage_config))
 
     # Handle preserve flag
-    if info.get('preserve'):
+    if config.value_as_boolean(info.get('preserve')):
         # LVM will probably be offline, so start it
         util.subp(["vgchange", "-a", "y"])
         # Verify that volgroup exists and contains all specified devices
-        current_paths = []
-        (out, _err) = util.subp(["pvdisplay", "-C", "--separator", "=", "-o",
-                                "vg_name,pv_name", "--noheadings"],
-                                capture=True)
-        for line in out.splitlines():
-            if name in line:
-                current_paths.append(line.split("=")[-1])
-        if set(current_paths) != set(device_paths):
-            raise ValueError("volgroup '%s' marked to be preserved, but does \
-                             not exist or does not contain the right physical \
-                             volumes" % info.get('id'))
+        if set(lvm.get_pvols_in_volgroup(name)) != set(device_paths):
+            raise ValueError("volgroup '%s' marked to be preserved, but does "
+                             "not exist or does not contain the right "
+                             "physical volumes" % info.get('id'))
     else:
         # Create vgrcreate command and run
-        cmd = ["vgcreate", name]
-        cmd.extend(device_paths)
-        util.subp(cmd)
+        # capture output to avoid printing it to log
+        util.subp(['vgcreate', name] + device_paths, capture=True)
+
+    # refresh lvmetad
+    lvm.lvm_scan()
 
 
 def lvm_partition_handler(info, storage_config):
@@ -797,28 +670,23 @@ def lvm_partition_handler(info, storage_config):
         raise ValueError("lvm volgroup for lvm partition must be specified")
     if not name:
         raise ValueError("lvm partition name must be specified")
+    if info.get('ptable'):
+        raise ValueError("Partition tables on top of lvm logical volumes is "
+                         "not supported")
 
     # Handle preserve flag
-    if info.get('preserve'):
-        (out, _err) = util.subp(["lvdisplay", "-C", "--separator", "=", "-o",
-                                "lv_name,vg_name", "--noheadings"],
-                                capture=True)
-        found = False
-        for line in out.splitlines():
-            if name in line:
-                if volgroup == line.split("=")[-1]:
-                    found = True
-                    break
-        if not found:
-            raise ValueError("lvm partition '%s' marked to be preserved, but \
-                             does not exist or does not mach storage \
-                             configuration" % info.get('id'))
+    if config.value_as_boolean(info.get('preserve')):
+        if name not in lvm.get_lvols_in_volgroup(volgroup):
+            raise ValueError("lvm partition '%s' marked to be preserved, but "
+                             "does not exist or does not mach storage "
+                             "configuration" % info.get('id'))
     elif storage_config.get(info.get('volgroup')).get('preserve'):
-        raise NotImplementedError("Lvm Partition '%s' is not marked to be \
-            preserved, but volgroup '%s' is. At this time, preserving \
-            volgroups but not also the lvm partitions on the volgroup is \
-            not supported, because of the possibility of damaging lvm \
-            partitions intended to be preserved." % (info.get('id'), volgroup))
+        raise NotImplementedError(
+            "Lvm Partition '%s' is not marked to be preserved, but volgroup "
+            "'%s' is. At this time, preserving volgroups but not also the lvm "
+            "partitions on the volgroup is not supported, because of the "
+            "possibility of damaging lvm  partitions intended to be "
+            "preserved." % (info.get('id'), volgroup))
     else:
         cmd = ["lvcreate", volgroup, "-n", name]
         if info.get('size'):
@@ -828,9 +696,8 @@ def lvm_partition_handler(info, storage_config):
 
         util.subp(cmd)
 
-    if info.get('ptable'):
-        raise ValueError("Partition tables on top of lvm logical volumes is \
-                         not supported")
+    # refresh lvmetad
+    lvm.lvm_scan()
 
     make_dname(info.get('id'), storage_config)
 
@@ -917,7 +784,7 @@ def raid_handler(info, storage_config):
                   zip(spare_devices, spare_device_paths)))
 
     # Handle preserve flag
-    if info.get('preserve'):
+    if config.value_as_boolean(info.get('preserve')):
         # check if the array is already up, if not try to assemble
         if not mdadm.md_check(md_devname, raidlevel,
                               device_paths, spare_device_paths):
@@ -973,9 +840,6 @@ def bcache_handler(info, storage_config):
         raise ValueError("backing device and cache device for bcache"
                          " must be specified")
 
-    # The bcache module is not loaded when bcache is installed by apt-get, so
-    # we will load it now
-    util.subp(["modprobe", "bcache"])
     bcache_sysfs = "/sys/fs/bcache"
     udevadm_settle(exists=bcache_sysfs)
 
@@ -995,7 +859,7 @@ def bcache_handler(info, storage_config):
                           bcache_device, expected)
                 return
             LOG.debug('bcache device path not found: %s', expected)
-            local_holders = get_holders(bcache_device)
+            local_holders = clear_holders.get_holders(bcache_device)
             LOG.debug('got initial holders being "%s"', local_holders)
             if len(local_holders) == 0:
                 raise ValueError("holders == 0 , expected non-zero")
@@ -1058,7 +922,7 @@ def bcache_handler(info, storage_config):
 
         # via the holders we can identify which bcache device we just created
         # for a given backing device
-        holders = get_holders(backing_device)
+        holders = clear_holders.get_holders(backing_device)
         if len(holders) != 1:
             err = ('Invalid number {} of holding devices:'
                    ' "{}"'.format(len(holders), holders))
@@ -1149,6 +1013,21 @@ def meta_custom(args):
 
     # set up reportstack
     stack_prefix = state.get('report_stack_prefix', '')
+
+    # shut down any already existing storage layers above any disks used in
+    # config that have 'wipe' set
+    with events.ReportEventStack(
+            name=stack_prefix, reporting_enabled=True, level='INFO',
+            description="removing previous storage devices"):
+        clear_holders.start_clear_holders_deps()
+        disk_paths = [get_path_to_storage_volume(k, storage_config_dict)
+                      for (k, v) in storage_config_dict.items()
+                      if v.get('type') == 'disk' and
+                      config.value_as_boolean(v.get('wipe')) and
+                      not config.value_as_boolean(v.get('preserve'))]
+        clear_holders.clear_holders(disk_paths)
+        # if anything was not properly shut down, stop installation
+        clear_holders.assert_clear(disk_paths)
 
     for item_id, command in storage_config_dict.items():
         handler = command_handlers.get(command['type'])

@@ -257,6 +257,25 @@ class TestHuman2Bytes(TestCase):
     def test_GB_equals_G(self):
         self.assertEqual(util.human2bytes("3GB"), util.human2bytes("3G"))
 
+    def test_b2h_errors(self):
+        self.assertRaises(ValueError, util.bytes2human, 10.4)
+        self.assertRaises(ValueError, util.bytes2human, 'notint')
+        self.assertRaises(ValueError, util.bytes2human, -1)
+        self.assertRaises(ValueError, util.bytes2human, -1.0)
+
+    def test_b2h_values(self):
+        self.assertEqual('10G', util.bytes2human(10 * self.GB))
+        self.assertEqual('10M', util.bytes2human(10 * self.MB))
+        self.assertEqual('1000B', util.bytes2human(1000))
+        self.assertEqual('1K', util.bytes2human(1024))
+        self.assertEqual('1K', util.bytes2human(1024.0))
+        self.assertEqual('1T', util.bytes2human(float(1024 * self.GB)))
+
+    def test_h2b_b2b(self):
+        for size_str in ['10G', '20G', '2T', '12K', '1M', '1023K']:
+            self.assertEqual(
+                util.bytes2human(util.human2bytes(size_str)), size_str)
+
 
 class TestSetUnExecutable(TestCase):
     tmpf = None
