@@ -35,9 +35,11 @@ IFUPDOWN_IPV6_MTU_PRE_HOOK = """#!/bin/sh -e
 [ -n "${IF_MTU}" ] || exit 0
 
 read CUR_DEV_MTU </sys/class/net/${IFACE}/mtu ||:
-read CUR_IPV6_MTU </proc/sys/net/ipv6/conf/${IFACE}/mtu ||:
+# /bin/sh does not like read from /proc/sys/net/ipv6/conf/$IFACE/mtu
+CUR_IPV6_MTU=$(sysctl -n net.ipv6.conf.${IFACE}.mtu ||:)
 [ -n "${CUR_DEV_MTU}" ] && echo ${CUR_DEV_MTU} > /run/network/${IFACE}_dev.mtu
-[ -n "${CUR_IPV6_MTU}" ] && echo $CUR_IPV6_MTU > /run/network/${IFACE}_ipv6.mtu
+[ -n "${CUR_IPV6_MTU}" ] && 
+  echo ${CUR_IPV6_MTU} > /run/network/${IFACE}_ipv6.mtu
 exit 0
 """
 
@@ -52,7 +54,8 @@ IFUPDOWN_IPV6_MTU_POST_HOOK = """#!/bin/sh -e
 read PRE_DEV_MTU </run/network/${IFACE}_dev.mtu ||:
 read CUR_DEV_MTU </sys/class/net/${IFACE}/mtu ||:
 read PRE_IPV6_MTU </run/network/${IFACE}_ipv6.mtu ||:
-read CUR_IPV6_MTU </proc/sys/net/ipv6/conf/${IFACE}/mtu ||:
+# /bin/sh does not like read from /proc/sys/net/ipv6/conf/$IFACE/mtu
+CUR_IPV6_MTU=$(sysctl -n net.ipv6.conf.${IFACE}.mtu ||:)
 
 if [ "${ADDRFAM}" = "inet6" ]; then
   # We need to check the underlying interface MTU and
@@ -61,7 +64,7 @@ if [ "${ADDRFAM}" = "inet6" ]; then
       ip link set ${IFACE} mtu ${IF_MTU}
   fi
   # sysctl -q -e -w net.ipv6.conf.${IFACE}.mtu=${IF_MTU}
-  echo ${PRE_IPV6_MTU} >/proc/sys/net/ipv6/conf/${IFACE}/mtu ||:
+  echo ${IF_MTU} >/proc/sys/net/ipv6/conf/${IFACE}/mtu ||:
 
 elif [ "${ADDRFAM}" = "inet" ]; then
   # handle the clobber case where inet mtu changes v6 mtu.
@@ -69,7 +72,7 @@ elif [ "${ADDRFAM}" = "inet" ]; then
   # if needed.  If v6 mtu was larger, it get's clamped down
   # to the dev MTU value.
   if [ ${PRE_IPV6_MTU} -lt ${CUR_IPV6_MTU} ]; then
-    # sysctl -q -e -w net.ipv6.conf.${IFACE}.mtu=${IF_MTU}
+    # sysctl -q -e -w net.ipv6.conf.${IFACE}.mtu=${PRE_IPV6_MTU}
     echo ${PRE_IPV6_MTU} >/proc/sys/net/ipv6/conf/${IFACE}/mtu ||:
   fi
 fi
@@ -117,7 +120,7 @@ def _patch_ifupdown_ipv6_mtu_hook(target,
 
     for hook in ['prehook', 'posthook']:
         fn = hookfn[hook]
-        cfg = util.target_path([target, fn])
+        cfg = util.target_path(target, path=fn)
         LOG.info('Injecting fix for ipv6 mtu settings: %s', cfg)
         util.write_file(cfg, contents[hook], mode=0o755)
 
@@ -129,7 +132,7 @@ def _disable_ipv6_privacy_extensions(target,
        by default; this races with the cloud-image desire to disable them.
        Resolve this by allowing the cloud-image setting to win. """
 
-    cfg = util.target_path([target, path])
+    cfg = util.target_path(target, path=path)
     if not os.path.exists(cfg):
         LOG.warn('Failed to find ipv6 privacy conf file %s', cfg)
         return
@@ -174,7 +177,7 @@ def _maybe_remove_legacy_eth0(target,
          - with unknown content, leave it and warn
     """
 
-    cfg = util.target_path([target, path])
+    cfg = util.target_path(target, path=path)
     if not os.path.exists(cfg):
         LOG.warn('Failed to find legacy network conf file %s', cfg)
         return
