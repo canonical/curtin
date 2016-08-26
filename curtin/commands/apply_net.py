@@ -78,6 +78,7 @@ def apply_net_main(args):
                   network_config=state['network_config'])
     except Exception:
         LOG.exception('failed to apply network config')
+        return 1
 
     LOG.info('Applied network configuration successfully')
     sys.exit(0)
