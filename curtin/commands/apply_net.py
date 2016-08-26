@@ -26,7 +26,7 @@ from . import populate_one_subcmd
 
 LOG = log.LOG
 
-IFUPDOWN_IPV6_MTU_PRE_HOOK = """#!/bin/sh -e
+IFUPDOWN_IPV6_MTU_PRE_HOOK = """#!/bin/bash -e
 # injected by curtin installer
 
 [ "${IFACE}" != "lo" ] || exit 0
@@ -35,15 +35,14 @@ IFUPDOWN_IPV6_MTU_PRE_HOOK = """#!/bin/sh -e
 [ -n "${IF_MTU}" ] || exit 0
 
 read CUR_DEV_MTU </sys/class/net/${IFACE}/mtu ||:
-# /bin/sh does not like read from /proc/sys/net/ipv6/conf/$IFACE/mtu
-CUR_IPV6_MTU=$(sysctl -n net.ipv6.conf.${IFACE}.mtu ||:)
+read CUR_IPV6_MTU </proc/sys/net/ipv6/conf/${IFACE}/mtu ||:
 [ -n "${CUR_DEV_MTU}" ] && echo ${CUR_DEV_MTU} > /run/network/${IFACE}_dev.mtu
 [ -n "${CUR_IPV6_MTU}" ] &&
   echo ${CUR_IPV6_MTU} > /run/network/${IFACE}_ipv6.mtu
 exit 0
 """
 
-IFUPDOWN_IPV6_MTU_POST_HOOK = """#!/bin/sh -e
+IFUPDOWN_IPV6_MTU_POST_HOOK = """#!/bin/bash -e
 # injected by curtin installer
 
 [ "${IFACE}" != "lo" ] || exit 0
@@ -54,8 +53,7 @@ IFUPDOWN_IPV6_MTU_POST_HOOK = """#!/bin/sh -e
 read PRE_DEV_MTU </run/network/${IFACE}_dev.mtu ||:
 read CUR_DEV_MTU </sys/class/net/${IFACE}/mtu ||:
 read PRE_IPV6_MTU </run/network/${IFACE}_ipv6.mtu ||:
-# /bin/sh does not like read from /proc/sys/net/ipv6/conf/$IFACE/mtu
-CUR_IPV6_MTU=$(sysctl -n net.ipv6.conf.${IFACE}.mtu ||:)
+read CUR_IPV6_MTU </proc/sys/net/ipv6/conf/${IFACE}/mtu ||:
 
 if [ "${ADDRFAM}" = "inet6" ]; then
   # We need to check the underlying interface MTU and
