@@ -49,14 +49,14 @@ class TestNetworkENISource(TestNetworkBaseTestsAbs):
         print('parsed eni dict:\n{}'.format(
             yaml.dump(curtin_ifaces, default_flow_style=False, indent=4)))
 
-        ifconfig_a = self.load_collect_file("ifconfig_a")
-        logger.debug('ifconfig -a:\n{}'.format(ifconfig_a))
+        ip_a = self.load_collect_file("ip_a")
+        logger.debug('ip a:\n{}'.format(ip_a))
 
-        ifconfig_dict = helpers.ifconfig_to_dict(ifconfig_a)
-        logger.debug('parsed ifconfig dict:\n{}'.format(
-            yaml.dump(ifconfig_dict, default_flow_style=False, indent=4)))
-        print('parsed ifconfig dict:\n{}'.format(
-            yaml.dump(ifconfig_dict, default_flow_style=False, indent=4)))
+        ip_a_dict = helpers.ip_a_to_dict(ip_a)
+        logger.debug('parsed ip_a dict:\n{}'.format(
+            yaml.dump(ip_a_dict, default_flow_style=False, indent=4)))
+        print('parsed ip_a dict:\n{}'.format(
+            yaml.dump(ip_a_dict, default_flow_style=False, indent=4)))
 
         iface = 'interface2'
         self.assertTrue(iface in curtin_ifaces)
@@ -67,7 +67,9 @@ class TestNetworkENISource(TestNetworkBaseTestsAbs):
         # handle CIDR notation
         def _nocidr(addr):
             return addr.split("/")[0]
-        actual_address = ifconfig_dict[iface].get('address', "")
+
+        [actual_address] = [ip.get('address') for ip in
+                            ip_a_dict[iface].get('inet4', [])]
         self.assertEqual(_nocidr(expected_address), _nocidr(actual_address))
 
 

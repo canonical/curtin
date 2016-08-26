@@ -405,7 +405,7 @@ def render_route(route, indent=""):
     return "\n".join(content)
 
 
-def iface_start_entry(iface, index):
+def iface_start_entry(iface):
     fullname = iface['name']
 
     control = iface['control']
@@ -431,27 +431,6 @@ def subnet_is_ipv6(subnet):
     elif subnet['type'] == 'static' and ":" in subnet['address']:
         return True
     return False
-
-
-def subnet_is_ipv4(subnet):
-    return not subnet_is_ipv6(subnet)
-
-
-def list_ipv4_subnets(subnets):
-    return [sn for sn in subnets if subnet_is_ipv4(sn)]
-
-
-def iface_add_postup(interface, alias_idx):
-    content = ""
-    tmpl = "    post-up ifup %s:%s\n"
-    subnets = interface.get('subnets', [])
-    for idx, subnet in [(idx, sn) for (idx, sn) in enumerate(subnets)
-                        if idx != 0 and subnet_is_ipv4(sn)]:
-        if idx == alias_idx:
-            content += tmpl % (interface['name'], idx)
-            break
-
-    return content
 
 
 def render_interfaces(network_state):
@@ -494,10 +473,12 @@ def render_interfaces(network_state):
                 if subnet['type'].startswith('dhcp'):
                     iface['mode'] = 'dhcp'
 
+                # do not emit multiple 'auto $IFACE' lines as older (precise)
+                # ifupdown complains
                 if "auto %s\n" % (iface['name']) in content:
                     iface['control'] = 'alias'
 
-                content += iface_start_entry(iface, index)
+                content += iface_start_entry(iface)
                 content += iface_add_subnet(iface, subnet)
                 content += iface_add_attrs(iface, index)
 
