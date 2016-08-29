@@ -1,7 +1,6 @@
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
-import os
 import textwrap
 
 
@@ -29,7 +28,7 @@ class TestMultipathBasicAbs(VMBaseClass):
         ls -al /dev/disk/by-uuid/ > ls_uuid
         ls -al /dev/disk/by-id/ > ls_disk_id
         readlink -f /sys/class/block/sda/holders/dm-0 > holders_sda
-        readlink /sys/class/block/sdb/holders/dm-0 > holders_sdb
+        readlink -f /sys/class/block/sdb/holders/dm-0 > holders_sdb
         cat /etc/fstab > fstab
         mkdir -p /dev/disk/by-dname
         ls /dev/disk/by-dname/ > ls_dname
@@ -37,17 +36,10 @@ class TestMultipathBasicAbs(VMBaseClass):
         """)]
 
     def test_multipath_disks_match(self):
-        sda = os.path.join(self.td.collect, 'holders_sda')
-        sdb = os.path.join(self.td.collect, 'holders_sdb')
-        self.assertTrue(os.path.exists(sda))
-        self.assertTrue(os.path.exists(sdb))
-        with open(sda, 'r') as fp:
-            sda_data = fp.read()
-            print('sda holders:\n%s' % sda_data)
-        with open(sda, 'r') as fp:
-            sdb_data = fp.read()
-            print('sdb holders:\n%s' % sda_data)
-
+        sda_data = self.load_collect_file("holders_sda")
+        print('sda holders:\n%s' % sda_data)
+        sdb_data = self.load_collect_file("holders_sdb")
+        print('sdb holders:\n%s' % sdb_data)
         self.assertEqual(sda_data, sdb_data)
 
 
