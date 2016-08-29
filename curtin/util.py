@@ -143,6 +143,8 @@ def subp(*args, **kwargs):
         a list of times to sleep in between retries.  After each failure
         subp will sleep for N seconds and then try again.  A value of [1, 3]
         means to run, sleep 1, run, sleep 3, run and then return exit code.
+    :param target:
+        run the command as 'chroot target <args>'
     """
     retries = []
     if "retries" in kwargs:
@@ -1080,6 +1082,14 @@ def target_path(target, path=None):
         path = path[1:]
 
     return os.path.join(target, path)
+
+
+class RunInChroot(ChrootableTarget):
+    """Backwards compatibility for RunInChroot (LP: #1617375).
+    It needs to work like:
+        with RunInChroot("/target") as in_chroot:
+            in_chroot(["your", "chrooted", "command"])"""
+    __call__ = ChrootableTarget.subp
 
 
 # vi: ts=4 expandtab syntax=python
