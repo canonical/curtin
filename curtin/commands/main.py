@@ -26,9 +26,10 @@ from .. import util
 from ..deps import install_deps
 
 SUB_COMMAND_MODULES = [
-    'apply_net', 'block-meta', 'block-wipe', 'curthooks', 'extract',
-    'hook', 'in-target', 'install', 'mkfs', 'net-meta', 'apt-config',
-    'pack', 'swap', 'system-install', 'system-upgrade']
+    'apply_net', 'block-info', 'block-meta', 'block-wipe', 'curthooks',
+    'clear-holders', 'extract', 'hook', 'in-target', 'install', 'mkfs',
+    'net-meta', 'apt-config', 'pack', 'swap', 'system-install',
+    'system-upgrade']
 
 
 def add_subcmd(subparser, subcmd):

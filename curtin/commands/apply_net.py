@@ -232,6 +232,7 @@ def apply_net_main(args):
 
     except Exception:
         LOG.exception('failed to apply network config')
+        return 1
 
     LOG.info('Applied network configuration successfully')
     sys.exit(0)
