@@ -9,7 +9,7 @@ By default - if no apt config is provided - it does nothing. That keeps behavior
 The feature has an optional target argument which - by default - is used to modify the environment that curtin currently installs (@TARGET_MOUNT_POINT).
 
 Features
---------
+~~~~~~~~
 
 * Add PGP keys to the APT trusted keyring
 
@@ -39,7 +39,7 @@ Features
 
 
 Configuration
--------------
+~~~~~~~~~~~~~
 
 The general configuration of the apt feature is under an element called ``apt``.
 
@@ -53,7 +53,8 @@ Then there is a section ``sources`` which can hold any number of source subeleme
 The key is the filename and will be prepended by /etc/apt/sources.list.d/ if it doesn't start with a ``/``.
 There are certain cases - where no content is written into a source.list file where the filename will be ignored - yet it can still be used as index for merging.
 
-The values inside the entries consist of the following optional entries::
+The values inside the entries consist of the following optional entries
+
 * ``source``: a sources.list entry (some variable replacements apply)
 
 * ``keyid``: providing a key to import via shortid or fingerprint
@@ -62,7 +63,8 @@ The values inside the entries consist of the following optional entries::
 
 * ``keyserver``: specify an alternate keyserver to pull keys from that were specified by keyid
 
-The section "sources" is is a dictionary (unlike most block/net configs which are lists). This format allows merging between multiple input files than a list like::
+The section "sources" is is a dictionary (unlike most block/net configs which are lists). This format allows merging between multiple input files than a list like ::
+
   sources:
      s1: {'key': 'key1', 'source': 'source1'}
 
@@ -101,8 +103,7 @@ For that we need to:
 
   - make an example with a partial mirror that doesn't mirror the backports suite, so backports have to be disabled
 
-That would be specified as
-::
+That would be specified as ::
 
   apt:
     primary:
@@ -125,26 +126,31 @@ The file examples/apt-source.yaml holds various further examples that can be con
 
 
 Common snippets
----------------
+~~~~~~~~~~~~~~~
 This is a collection of additional ideas people can use the feature for customizing their to-be-installed system.
 
 * enable proposed on installing
-  apt:
-    sources:
-      proposed.list: deb $MIRROR $RELEASE-proposed main restricted universe multiverse
+
+::
+
+ apt:
+   sources:
+     proposed.list: deb $MIRROR $RELEASE-proposed main restricted universe multiverse
 
 * Make debug symbols available
-  apt:
-    sources:
-      ddebs.list: |
-        deb http://ddebs.ubuntu.com $RELEASE main restricted universe multiverse
-        deb http://ddebs.ubuntu.com $RELEASE-updates main restricted universe multiverse
-        deb http://ddebs.ubuntu.com $RELEASE-security main restricted universe multiverse
-        deb http://ddebs.ubuntu.com $RELEASE-proposed main restricted universe multiverse
 
+::
+
+ apt:
+   sources:
+     ddebs.list: |
+       deb http://ddebs.ubuntu.com $RELEASE main restricted universe multiverse
+       deb http://ddebs.ubuntu.com $RELEASE-updates main restricted universe multiverse
+       deb http://ddebs.ubuntu.com $RELEASE-security main restricted universe multiverse
+       deb http://ddebs.ubuntu.com $RELEASE-proposed main restricted universe multiverse
 
 Timing
-------
+~~~~~~
 The feature is implemented at the stage of curthooks_commands, which runs just after curtin has extracted the image to the target.
 Additionally it can be ran as standalong command "curtin -v --config <yourconfigfile> apt-config".
 
@@ -153,6 +159,6 @@ This target should have at least a minimal system with apt, apt-add-repository a
 
 
 Dependencies
-------------
+~~~~~~~~~~~~
 Cloud-init might need to resolve dependencies and install packages in the ephemeral environment to run curtin.
 Therefore it is recommended to not only provide an apt configuration to curtin for the target, but also one to the install environment via cloud-init.

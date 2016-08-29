@@ -20,7 +20,7 @@ Install Environment boot
 ~~~~~~~~~~~~~~~~~~~~~~~~
 At the moment, curtin doesn't address how the system that it is running on is booted.  It could be booted from a live-cd or from a pxe boot environment.  It could even be booted off a disk in the system (although installation to that disk would probably break things).
 
-Curtin's assumption is that a fairly rich linux (Ubuntu) environment is booted.
+Curtin's assumption is that a fairly rich Linux (Ubuntu) environment is booted.
 
 Early Commands
 ~~~~~~~~~~~~~~
@@ -38,13 +38,13 @@ Early commands are executed on the system, and non-zero exit status will termina
 
 Partitioning
 ~~~~~~~~~~~~
-Partitioning covers setting up filesystems on the system.  A series of commands are run serially in order.  At the end, a fstab formated file must be populated in ``OUTPUT_FSTAB`` that contains mount information, and the filesystems are expected to be mounted at the ``TARGET_MOUNT_POINT``.
+Partitioning covers setting up filesystems on the system.  A series of commands are run serially in order.  At the end, a fstab formatted file must be populated in ``OUTPUT_FSTAB`` that contains mount information, and the filesystems are expected to be mounted at the ``TARGET_MOUNT_POINT``.
 
 Any commands can be used to create this filesystem, but curtin contains some tools to facilitate with this process.
 
 **Config Example**::
 
- paritioning_commands:
+ partitioning_commands:
   10_wipe_filesystems: curtin wipe --quick --all-unused-disks
   50_setup_raid: curtin disk-setup --all-disks raid0 /
 
@@ -53,7 +53,7 @@ Any commands can be used to create this filesystem, but curtin contains some too
 Partitioning commands have the following environment variables available to them:
 
 - ``WORKING_DIR``: This is simply for some sort of inter-command state.  It will be the same directory for each command run and will only be deleted at the end of all partitioning_commands.
-- ``OUTPUT_FSTAB``: This is the target path for a fstab file.  After all partitioning commands have been run, a file should exist, formated per fstab(5) that describes how the filesystems should be mounted.
+- ``OUTPUT_FSTAB``: This is the target path for a fstab file.  After all partitioning commands have been run, a file should exist, formatted per fstab(5) that describes how the filesystems should be mounted.
 - ``TARGET_MOUNT_POINT``:
 
 
@@ -61,7 +61,7 @@ Network Discovery and Setup
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Networking is done in a similar fashion to partitioning.  A series of commands, specified in the config are run.  At the end of these commands, a interfaces(5) style file is expected to be written to ``OUTPUT_INTERFACES``.
 
-Note, that as with fstab, this file is not copied verbatum to the target filesystem, but rather made availble to the OS customization stage.  That stage may just copy the file verbatum, but may also parse it, and use that as input.
+Note, that as with fstab, this file is not copied verbatim to the target filesystem, but rather made available to the OS customization stage.  That stage may just copy the file verbatim, but may also parse it, and use that as input.
 
 **Config Example**::
 
@@ -73,7 +73,7 @@ Note, that as with fstab, this file is not copied verbatum to the target filesys
 Networking commands have the following environment variables available to them:
 
 - ``WORKING_DIR``: This is simply for some sort of inter-command state.  It will be the same directory for each command run and will only be deleted at the end of all network_commands.
-- ``OUTPUT_INTERFACES``: This is the target path for an interfaces style file. After all commands have been run, a file should exist, formated per interfaces(5) that describes the systems network setup.
+- ``OUTPUT_INTERFACES``: This is the target path for an interfaces style file. After all commands have been run, a file should exist, formatted per interfaces(5) that describes the systems network setup.
 
 Extraction of sources
 ~~~~~~~~~~~~~~~~~~~~~
@@ -84,7 +84,7 @@ Sources are the things to install.  Curtin prefers to install root filesystem ta
  sources:
   05_primary: http://cloud-images.ubuntu.com/releases/precise/release/ubuntu-12.04-server-cloudimg-amd64-root.tar.gz
 
-Given the source above, curtin will essentiall do a::
+Given the source above, curtin will essentially do a::
 
  wget $URL | tar -Sxvzf 
 
