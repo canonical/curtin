@@ -39,7 +39,7 @@ class TestBasicAbs(VMBaseClass):
              "proc_partitions"])
 
     def test_sys_firmware_efi(self):
-        sys_efi_expected = [
+        sys_efi_possible = [
             'config_table',
             'efivars',
             'fw_platform_size',
@@ -51,7 +51,10 @@ class TestBasicAbs(VMBaseClass):
         ]
         efi_lines = self.load_collect_file(
             "ls_sys_firmware_efi").strip().split('\n')
-        self.assertEqual(sorted(sys_efi_expected), sorted(efi_lines))
+
+        # sys/firmware/efi contents differ based on kernel and configuration
+        for efi_line in efi_lines:
+            self.assertIn(efi_line, sys_efi_possible)
 
     def test_disk_block_sizes(self):
         """ Test disk logical and physical block size are match
