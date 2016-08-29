@@ -28,7 +28,7 @@ class TestMultipathBasicAbs(VMBaseClass):
         ls -al /dev/disk/by-uuid/ > ls_uuid
         ls -al /dev/disk/by-id/ > ls_disk_id
         readlink -f /sys/class/block/sda/holders/dm-0 > holders_sda
-        readlink /sys/class/block/sdb/holders/dm-0 > holders_sdb
+        readlink -f /sys/class/block/sdb/holders/dm-0 > holders_sdb
         cat /etc/fstab > fstab
         mkdir -p /dev/disk/by-dname
         ls /dev/disk/by-dname/ > ls_dname
