@@ -363,4 +363,37 @@ class TestTargetPath(TestCase):
         self.assertEqual("/target/my/path/",
                          util.target_path("/target/", "///my/path/"))
 
+
+class TestRunInChroot(TestCase):
+    """Test the legacy 'RunInChroot'.
+
+    The test works by mocking ChrootableTarget's __enter__ to do nothing.
+    The assumptions made are:
+      a.) RunInChroot is a subclass of ChrootableTarget
+      b.) ChrootableTarget's __exit__ only un-does work that its __enter__
+          did.  Meaning for our mocked case, it does nothing."""
+
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_run_in_chroot_with_target_slash(self):
+        with util.RunInChroot("/") as i:
+            print("i=%s" % i)
+            out, err = i(['echo', 'HI MOM'], capture=True)
+        self.assertEqual('HI MOM\n', out)
+
+
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    @mock.patch("curtin.util.subp")
+    def test_run_in_chroot_with_target(self, m_subp):
+        my_stdout = "my output"
+        my_stderr = "my stderr"
+        cmd = ['echo', 'HI MOM']
+        target = "/foo"
+        m_subp.return_value = (my_stdout, my_stderr)
+        with util.RunInChroot(target) as i:
+            out, err = i(cmd)
+        self.assertEqual(my_stdout, out)
+        self.assertEqual(my_stderr, err)
+        m_subp.assert_called_with(cmd, target=target)
+
+
 # vi: ts=4 expandtab syntax=python
