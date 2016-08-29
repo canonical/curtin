@@ -73,7 +73,8 @@ class TrustyTestNvme(relbase.trusty, TestNvmeAbs):
 
 
 class WilyTestNvme(relbase.wily, TestNvmeAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestNvme(relbase.xenial, TestNvmeAbs):

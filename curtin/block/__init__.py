@@ -23,21 +23,31 @@ import tempfile
 import itertools
 
 from curtin import util
-from curtin.udev import udevadm_settle
+from curtin.block import lvm
 from curtin.log import LOG
+from curtin.udev import udevadm_settle
 
 
 def get_dev_name_entry(devname):
+    """
+    convert device name to path in /dev
+    """
     bname = devname.split('/dev/')[-1]
     return (bname, "/dev/" + bname)
 
 
 def is_valid_device(devname):
+    """
+    check if device is a valid device
+    """
     devent = get_dev_name_entry(devname)[1]
     return is_block_device(devent)
 
 
 def is_block_device(path):
+    """
+    check if path is a block device
+    """
     try:
         return stat.S_ISBLK(os.stat(path).st_mode)
     except OSError as e:
@@ -47,12 +57,19 @@ def is_block_device(path):
 
 
 def dev_short(devname):
+    """
+    get short form of device name
+    """
+    devname = os.path.normpath(devname)
     if os.path.sep in devname:
         return os.path.basename(devname)
     return devname
 
 
 def dev_path(devname):
+    """
+    convert device name to path in /dev
+    """
     if devname.startswith('/dev/'):
         return devname
     else:
@@ -100,7 +117,9 @@ def kname_to_path(kname):
 
 
 def partition_kname(disk_kname, partition_number):
-    """Add number to disk_kname prepending a 'p' if needed"""
+    """
+    Add number to disk_kname prepending a 'p' if needed
+    """
     for dev_type in ['nvme', 'mmcblk', 'cciss', 'mpath', 'dm']:
         if disk_kname.startswith(dev_type):
             partition_number = "p%s" % partition_number
@@ -108,9 +127,24 @@ def partition_kname(disk_kname, partition_number):
     return "%s%s" % (disk_kname, partition_number)
 
 
+def sysfs_to_devpath(sysfs_path):
+    """
+    convert a path in /sys/class/block to a path in /dev
+    """
+    path = kname_to_path(path_to_kname(sysfs_path))
+    if not is_block_device(path):
+        raise ValueError('could not find blockdev for sys path: {}'
+                         .format(sysfs_path))
+    return path
+
+
 def sys_block_path(devname, add=None, strict=True):
+    """
+    get path to device in /sys/class/block
+    """
     toks = ['/sys/class/block']
     # insert parent dev if devname is partition
+    devname = os.path.normpath(devname)
     (parent, partnum) = get_blockdev_for_partition(devname)
     if partnum:
         toks.append(path_to_kname(parent))
@@ -132,6 +166,9 @@ def sys_block_path(devname, add=None, strict=True):
 
 
 def _lsblock_pairs_to_dict(lines):
+    """
+    parse lsblock output and convert to dict
+    """
     ret = {}
     for line in lines.splitlines():
         toks = shlex.split(line)
@@ -147,6 +184,9 @@ def _lsblock_pairs_to_dict(lines):
 
 
 def _lsblock(args=None):
+    """
+    get lsblock data as dict
+    """
     # lsblk  --help | sed -n '/Available/,/^$/p' |
     #     sed -e 1d -e '$d' -e 's,^[ ]\+,,' -e 's, .*,,' | sort
     keys = ['ALIGNMENT', 'DISC-ALN', 'DISC-GRAN', 'DISC-MAX', 'DISC-ZERO',
@@ -169,8 +209,10 @@ def _lsblock(args=None):
 
 
 def get_unused_blockdev_info():
-    # return a list of unused block devices. These are devices that
-    # do not have anything mounted on them.
+    """
+    return a list of unused block devices.
+    These are devices that do not have anything mounted on them.
+    """
 
     # get a list of top level block devices, then iterate over it to get
     # devices dependent on those.  If the lsblk call for that specific
@@ -186,7 +228,9 @@ def get_unused_blockdev_info():
 
 
 def get_devices_for_mp(mountpoint):
-    # return a list of devices (full paths) used by the provided mountpoint
+    """
+    return a list of devices (full paths) used by the provided mountpoint
+    """
     bdinfo = _lsblock()
     found = set()
     for devname, data in bdinfo.items():
@@ -207,6 +251,9 @@ def get_devices_for_mp(mountpoint):
 
 
 def get_installable_blockdevs(include_removable=False, min_size=1024**3):
+    """
+    find blockdevs suitable for installation
+    """
     good = []
     unused = get_unused_blockdev_info()
     for devname, data in unused.items():
@@ -221,6 +268,11 @@ def get_installable_blockdevs(include_removable=False, min_size=1024**3):
 
 
 def get_blockdev_for_partition(devpath):
+    """
+    find the parent device for a partition.
+    returns a tuple of the parent block device and the partition number
+    if device is not a partition, None will be returned for partition number
+    """
     # normalize path
     rpath = os.path.realpath(devpath)
 
@@ -234,7 +286,7 @@ def get_blockdev_for_partition(devpath):
 
     # don't need to try out multiple sysfs paths as path_to_kname handles cciss
     if not os.path.exists(syspath):
-        raise ValueError("%s had no syspath (%s)" % (devpath, syspath))
+        raise OSError("%s had no syspath (%s)" % (devpath, syspath))
 
     ptpath = os.path.join(syspath, "partition")
     if not os.path.exists(ptpath):
@@ -255,8 +307,21 @@ def get_blockdev_for_partition(devpath):
     return (diskdevpath, ptnum)
 
 
+def get_sysfs_partitions(device):
+    """
+    get a list of sysfs paths for partitions under a block device
+    accepts input as a device kname, sysfs path, or dev path
+    returns empty list if no partitions available
+    """
+    sysfs_path = sys_block_path(device)
+    return [sys_block_path(kname) for kname in os.listdir(sysfs_path)
+            if os.path.exists(os.path.join(sysfs_path, kname, 'partition'))]
+
+
 def get_pardevs_on_blockdevs(devs):
-    # return a dict of partitions with their info that are on provided devs
+    """
+    return a dict of partitions with their info that are on provided devs
+    """
     if devs is None:
         devs = []
     devs = [get_dev_name_entry(d)[1] for d in devs]
@@ -291,7 +356,9 @@ def stop_all_unused_multipath_devices():
 
 
 def rescan_block_devices():
-    # run 'blockdev --rereadpt' for all block devices not currently mounted
+    """
+    run 'blockdev --rereadpt' for all block devices not currently mounted
+    """
     unused = get_unused_blockdev_info()
     devices = []
     for devname, data in unused.items():
@@ -319,6 +386,9 @@ def rescan_block_devices():
 
 
 def blkid(devs=None, cache=True):
+    """
+    get data about block devices from blkid and convert to dict
+    """
     if devs is None:
         devs = []
 
@@ -558,50 +628,108 @@ def lookup_disk(serial):
 def sysfs_partition_data(blockdev=None, sysfs_path=None):
     # given block device or sysfs_path, return a list of tuples
     # of (kernel_name, number, offset, size)
-    if blockdev is None and sysfs_path is None:
-        raise ValueError("Blockdev and sysfs_path cannot both be None")
-
     if blockdev:
+        blockdev = os.path.normpath(blockdev)
         sysfs_path = sys_block_path(blockdev)
-
-    ptdata = []
-    # /sys/class/block/dev has entries of 'kname' for each partition
+    elif sysfs_path:
+        # use normpath to ensure that paths with trailing slash work
+        sysfs_path = os.path.normpath(sysfs_path)
+        blockdev = os.path.join('/dev', os.path.basename(sysfs_path))
+    else:
+        raise ValueError("Blockdev and sysfs_path cannot both be None")
 
     # queue property is only on parent devices, ie, we can't read
     # /sys/class/block/vda/vda1/queue/* as queue is only on the
     # parent device
-    (parent, partnum) = get_blockdev_for_partition(blockdev)
     sysfs_prefix = sysfs_path
+    (parent, partnum) = get_blockdev_for_partition(blockdev)
     if partnum:
         sysfs_prefix = sys_block_path(parent)
+        partnum = int(partnum)
 
-    block_size = int(util.load_file(os.path.join(sysfs_prefix,
-                                    'queue/logical_block_size')))
-
-    block_size = int(
-        util.load_file(os.path.join(sysfs_path, 'queue/logical_block_size')))
+    block_size = int(util.load_file(os.path.join(
+        sysfs_prefix, 'queue/logical_block_size')))
     unit = block_size
-    for d in os.listdir(sysfs_path):
-        partd = os.path.join(sysfs_path, d)
+
+    ptdata = []
+    for part_sysfs in get_sysfs_partitions(sysfs_prefix):
         data = {}
         for sfile in ('partition', 'start', 'size'):
-            dfile = os.path.join(partd, sfile)
+            dfile = os.path.join(part_sysfs, sfile)
             if not os.path.isfile(dfile):
                 continue
             data[sfile] = int(util.load_file(dfile))
-        if 'partition' not in data:
-            continue
-        ptdata.append((d, data['partition'], data['start'] * unit,
-                       data['size'] * unit,))
+        if partnum is None or data['partition'] == partnum:
+            ptdata.append((path_to_kname(part_sysfs), data['partition'],
+                           data['start'] * unit, data['size'] * unit,))
 
     return ptdata
 
 
+def get_part_table_type(device):
+    """
+    check the type of partition table present on the specified device
+    returns None if no ptable was present or device could not be read
+    """
+    # it is neccessary to look for the gpt signature first, then the dos
+    # signature, because a gpt formatted disk usually has a valid mbr to
+    # protect the disk from being modified by older partitioning tools
+    return ('gpt' if check_efi_signature(device) else
+            'dos' if check_dos_signature(device) else None)
+
+
+def check_dos_signature(device):
+    """
+    check if there is a dos partition table signature present on device
+    """
+    # the last 2 bytes of a dos partition table have the signature with the
+    # value 0xAA55. the dos partition table is always 0x200 bytes long, even if
+    # the underlying disk uses a larger logical block size, so the start of
+    # this signature must be at 0x1fe
+    # https://en.wikipedia.org/wiki/Master_boot_record#Sector_layout
+    return (is_block_device(device) and util.file_size(device) >= 0x200 and
+            (util.load_file(device, mode='rb', read_len=2, offset=0x1fe) ==
+             b'\x55\xAA'))
+
+
+def check_efi_signature(device):
+    """
+    check if there is a gpt partition table signature present on device
+    """
+    # the gpt partition table header is always on lba 1, regardless of the
+    # logical block size used by the underlying disk. therefore, a static
+    # offset cannot be used, the offset to the start of the table header is
+    # always the sector size of the disk
+    # the start of the gpt partition table header shoult have the signaure
+    # 'EFI PART'.
+    # https://en.wikipedia.org/wiki/GUID_Partition_Table
+    sector_size = get_blockdev_sector_size(device)[0]
+    return (is_block_device(device) and
+            util.file_size(device) >= 2 * sector_size and
+            (util.load_file(device, mode='rb', read_len=8,
+                            offset=sector_size) == b'EFI PART'))
+
+
+def is_extended_partition(device):
+    """
+    check if the specified device path is a dos extended partition
+    """
+    # an extended partition must be on a dos disk, must be a partition, must be
+    # within the first 4 partitions and will have a valid dos signature,
+    # because the format of the extended partition matches that of a real mbr
+    (parent_dev, part_number) = get_blockdev_for_partition(device)
+    return (get_part_table_type(parent_dev) in ['dos', 'msdos'] and
+            part_number is not None and int(part_number) <= 4 and
+            check_dos_signature(device))
+
+
 def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
-    # wipe the existing file at path.
-    #  if reader is provided, it will be called as a 'reader(buflen)'
-    #  to provide data for each write.  Otherwise, zeros are used.
-    #  writes will be done in size of buflen.
+    """
+    wipe the existing file at path.
+    if reader is provided, it will be called as a 'reader(buflen)'
+    to provide data for each write.  Otherwise, zeros are used.
+    writes will be done in size of buflen.
+    """
     if reader:
         readfunc = reader
     else:
@@ -610,13 +738,11 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
         def readfunc(size):
             return buf
 
+    size = util.file_size(path)
+    LOG.debug("%s is %s bytes. wiping with buflen=%s",
+              path, size, buflen)
+
     with open(path, "rb+") as fp:
-        # get the size by seeking to end.
-        fp.seek(0, 2)
-        size = fp.tell()
-        LOG.debug("%s is %s bytes. wiping with buflen=%s",
-                  path, size, buflen)
-        fp.seek(0)
         while True:
             pbuf = readfunc(buflen)
             pos = fp.tell()
@@ -633,9 +759,11 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
 
 
 def quick_zero(path, partitions=True):
-    # zero 1M at front, 1M at end, and 1M at front
-    # if this is a block device and partitions is true, then
-    # zero 1M at front and end of each partition.
+    """
+    zero 1M at front, 1M at end, and 1M at front
+    if this is a block device and partitions is true, then
+    zero 1M at front and end of each partition.
+    """
     buflen = 1024
     count = 1024
     zero_size = buflen * count
@@ -655,6 +783,9 @@ def quick_zero(path, partitions=True):
 
 
 def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False):
+    """
+    write zeros to file at specified offsets
+    """
     bmsg = "{path} (size={size}): "
     m_short = bmsg + "{tot} bytes from {offset} > size."
     m_badoff = bmsg + "invalid offset {offset}."
@@ -716,15 +847,13 @@ def wipe_volume(path, mode="superblock"):
     if mode == "pvremove":
         # We need to use --force --force in case it's already in a volgroup and
         # pvremove doesn't want to remove it
-        cmds = []
-        cmds.append(["pvremove", "--force", "--force", "--yes", path])
-        cmds.append(["pvscan", "--cache"])
-        cmds.append(["vgscan", "--mknodes", "--cache"])
+
         # If pvremove is run and there is no label on the system,
         # then it exits with 5. That is also okay, because we might be
         # wiping something that is already blank
-        for cmd in cmds:
-            util.subp(cmd, rcs=[0, 5], capture=True)
+        util.subp(['pvremove', '--force', '--force', '--yes', path],
+                  rcs=[0, 5], capture=True)
+        lvm.lvm_scan()
     elif mode == "zero":
         wipe_file(path)
     elif mode == "random":
