@@ -376,10 +376,8 @@ class TestRunInChroot(TestCase):
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_run_in_chroot_with_target_slash(self):
         with util.RunInChroot("/") as i:
-            print("i=%s" % i)
             out, err = i(['echo', 'HI MOM'], capture=True)
         self.assertEqual('HI MOM\n', out)
-
 
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     @mock.patch("curtin.util.subp")
