@@ -837,6 +837,7 @@ def wipe_volume(path, mode="superblock"):
     :param path: a path to a block device
     :param mode: how to wipe it.
        pvremove: wipe a lvm physical volume
+       mdadm: wipe out mdadm metadata
        zero: write zeros to the entire volume
        random: write random data (/dev/urandom) to the entire volume
        superblock: zero the beginning and the end of the volume
@@ -854,6 +855,11 @@ def wipe_volume(path, mode="superblock"):
         util.subp(['pvremove', '--force', '--force', '--yes', path],
                   rcs=[0, 5], capture=True)
         lvm.lvm_scan()
+    elif mode == "mdadm":
+        # using the --force flag here will cause mdadm to attempt to wipe the
+        # area, even if it does not look like there is a valid mdadm superblock
+        # there, which could be useful for systems with damaged mdadm metadata
+        util.subp(['mdadm', '--zero-superblock', '--force'], capture=True)
     elif mode == "zero":
         wipe_file(path)
     elif mode == "random":
