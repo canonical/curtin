@@ -264,12 +264,6 @@ class TestWipeVolume(TestCase):
             capture=True)
         self.assertTrue(mock_lvm.lvm_scan.called)
 
-    @mock.patch('curtin.block.util')
-    def test_wipe_mdadm(self, mock_util):
-        block.wipe_volume(self.dev, mode='mdadm')
-        mock_util.subp.assert_called_with(['mdadm', '--zero-superblock',
-                                           '--force'], capture=True)
-
     @mock.patch('curtin.block.quick_zero')
     def test_wipe_superblock(self, mock_quick_zero):
         block.wipe_volume(self.dev, mode='superblock')
