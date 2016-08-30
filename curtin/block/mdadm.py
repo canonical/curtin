@@ -124,7 +124,7 @@ def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False,
     # if spares is non-empt list append of /dev/xxx
     cmd = ["mdadm", "--assemble"]
     if scan:
-        cmd += ['--scan']
+        cmd += ['--scan', '-v']
     else:
         valid_mdname(md_devname)
         cmd += [md_devname, "--run"] + devices
@@ -132,7 +132,13 @@ def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False,
             cmd += spares
 
     try:
-        util.subp(cmd, capture=True)
+        # mdadm assemble returns 1 when no arrays are found. this might not be
+        # an error depending on the situation this function was called in, so
+        # accept a return code of 1
+        # mdadm assemble returns 2 when called on an array that is already
+        # assembled. this is not an error, so accept return code of 2
+        # all other return codes can be accepted with ignore_error set to true
+        util.subp(cmd, capture=True, rcs=[0, 1, 2])
     except util.ProcessExecutionError:
         if not ignore_error:
             raise

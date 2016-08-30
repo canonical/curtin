@@ -34,14 +34,16 @@ class TestBlockMdadmAssemble(MdadmTestBase):
     def test_mdadm_assemble_scan(self):
         mdadm.mdadm_assemble(scan=True)
         self.mock_util.subp.assert_called_with(
-            ["mdadm", "--assemble", "--scan"], capture=True)
+            ["mdadm", "--assemble", "--scan", "-v"], capture=True,
+            rcs=[0, 1, 2])
         self.assertTrue(self.mock_udev.udevadm_settle.called)
 
     def test_mdadm_assemble_md_devname(self):
         md_devname = "/dev/md0"
         mdadm.mdadm_assemble(md_devname=md_devname)
         self.mock_util.subp.assert_called_with(
-            ["mdadm", "--assemble", md_devname, "--run"], capture=True)
+            ["mdadm", "--assemble", md_devname, "--run"], capture=True,
+            rcs=[0, 1, 2])
         self.assertTrue(self.mock_udev.udevadm_settle.called)
 
     def test_mdadm_assemble_md_devname_short(self):
@@ -60,7 +62,7 @@ class TestBlockMdadmAssemble(MdadmTestBase):
         mdadm.mdadm_assemble(md_devname=md_devname, devices=devices)
         self.mock_util.subp.assert_called_with(
             ["mdadm", "--assemble", md_devname, "--run"] + devices,
-            capture=True)
+            capture=True, rcs=[0, 1, 2])
         self.assertTrue(self.mock_udev.udevadm_settle.called)
 
 
