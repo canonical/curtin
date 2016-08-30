@@ -28,7 +28,7 @@ import shlex
 from subprocess import CalledProcessError
 
 from curtin.block import (dev_short, dev_path, is_valid_device, sys_block_path)
-from curtin import util
+from curtin import (util, udev)
 from curtin.log import LOG
 
 NOSPARE_RAID_LEVELS = [
@@ -117,7 +117,8 @@ MDADM_USE_EXPORT = util.lsb_release()['codename'] not in ['precise', 'trusty']
 #
 
 
-def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False):
+def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False,
+                   ignore_error=False):
     # md_devname is a /dev/XXXX
     # devices is non-empty list of /dev/xxx
     # if spares is non-empt list append of /dev/xxx
@@ -130,8 +131,13 @@ def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False):
         if spares:
             cmd += spares
 
-    util.subp(cmd, capture=True, rcs=[0, 1, 2])
-    util.subp(["udevadm", "settle"])
+    try:
+        util.subp(cmd, capture=True)
+    except util.ProcessExecutionError:
+        if not ignore_error:
+            raise
+
+    udev.udevadm_settle()
 
 
 def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
