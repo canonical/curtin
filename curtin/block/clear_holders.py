@@ -369,7 +369,7 @@ def start_clear_holders_deps():
     # but there was not enough to start the array, the call to wipe_volume on
     # all disks and partitions should be sufficient to remove the mdadm
     # metadata
-    block.mdadm.mdadm_assemble(scan=True, ignore_error=True)
+    block.mdadm.mdadm_assemble(scan=True, ignore_errors=True)
     # the bcache module needs to be present to properly detect bcache devs
     # on some systems (precise without hwe kernel) it may not be possible to
     # lad the bcache module bcause it is not present in the kernel. if this

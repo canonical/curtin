@@ -118,7 +118,7 @@ MDADM_USE_EXPORT = util.lsb_release()['codename'] not in ['precise', 'trusty']
 
 
 def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False,
-                   ignore_error=False):
+                   ignore_errors=False):
     # md_devname is a /dev/XXXX
     # devices is non-empty list of /dev/xxx
     # if spares is non-empt list append of /dev/xxx
@@ -140,7 +140,8 @@ def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False,
         # all other return codes can be accepted with ignore_error set to true
         util.subp(cmd, capture=True, rcs=[0, 1, 2])
     except util.ProcessExecutionError:
-        if not ignore_error:
+        LOG.warning("mdadm_assemble had unexpected return code")
+        if not ignore_errors:
             raise
 
     udev.udevadm_settle()
