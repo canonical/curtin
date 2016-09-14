@@ -2,6 +2,7 @@ from unittest import TestCase
 from mock import call, patch
 from curtin.block import dev_short
 from curtin.block import mdadm
+from curtin import util
 import os
 import subprocess
 
@@ -64,6 +65,19 @@ class TestBlockMdadmAssemble(MdadmTestBase):
             ["mdadm", "--assemble", md_devname, "--run"] + devices,
             capture=True, rcs=[0, 1, 2])
         self.assertTrue(self.mock_udev.udevadm_settle.called)
+
+    def test_mdadm_assemble_exec_error(self):
+
+        def _raise_pexec_error(*args, **kwargs):
+            raise util.ProcessExecutionError()
+
+        self.mock_util.ProcessExecutionError = util.ProcessExecutionError
+        self.mock_util.subp.side_effect = _raise_pexec_error
+        with self.assertRaises(util.ProcessExecutionError):
+            mdadm.mdadm_assemble(scan=True, ignore_errors=False)
+        self.mock_util.subp.assert_called_with(
+            ['mdadm', '--assemble', '--scan', '-v'], capture=True,
+            rcs=[0, 1, 2])
 
 
 class TestBlockMdadmCreate(MdadmTestBase):
