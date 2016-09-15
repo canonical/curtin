@@ -319,3 +319,11 @@ class TestClearHolders(TestCase):
             mock_gen_holders_tree.assert_called_with(device)
         mock_gen_holders_tree.return_value = self.example_holders_trees[1][1]
         clear_holders.assert_clear(device)
+
+    @mock.patch('curtin.block.clear_holders.block.mdadm')
+    @mock.patch('curtin.block.clear_holders.util')
+    def test_start_clear_holders_deps(self, mock_util, mock_mdadm):
+        clear_holders.start_clear_holders_deps()
+        mock_mdadm.mdadm_assemble.assert_called_with(
+            scan=True, ignore_errors=True)
+        mock_util.subp.assert_called_with(['modprobe', 'bcache'], rcs=[0, 1])
