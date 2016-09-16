@@ -11,6 +11,30 @@ from curtin import util
 from curtin import block
 
 
+class mocked_open(object):
+    # older versions of mock can't really mock the builtin 'open' easily.
+    def __init__(self):
+        self.mocked = None
+
+    def __enter__(self):
+        if self.mocked:
+            return self.mocked.start()
+
+        py2_p = '__builtin__.open'
+        py3_p = 'builtins.open'
+        try:
+            self.mocked = mock.patch(py2_p, new_callable=mock.mock_open())
+            return self.mocked.start()
+        except ImportError:
+            self.mocked = mock.patch(py3_p, new_callable=mock.mock_open())
+            return self.mocked.start()
+
+    def __exit__(self, etype, value, trace):
+        if self.mocked:
+            self.mocked.stop()
+        self.mocked = None
+
+
 class TestBlock(TestCase):
 
     @mock.patch("curtin.block.util")
@@ -273,33 +297,19 @@ class TestWipeVolume(TestCase):
 
     @mock.patch('curtin.block.wipe_file')
     def test_wipe_zero(self, mock_wipe_file):
-        try:
-            p = mock.patch('__builtin__.open', new_callable=mock.mock_open())
-            mock_open = p.start()
-        except ImportError:
-            p = mock.patch('builtins.open', new_callable=mock.mock_open())
-            mock_open = p.start()
-
-        block.wipe_volume(self.dev, mode='zero')
-        mock_wipe_file.assert_called_with(self.dev)
-        mock_open.return_value = mock.MagicMock()
-        p.stop()
+        with mocked_open() as mock_open:
+            block.wipe_volume(self.dev, mode='zero')
+            mock_wipe_file.assert_called_with(self.dev)
+            mock_open.return_value = mock.MagicMock()
 
     @mock.patch('curtin.block.wipe_file')
     def test_wipe_random(self, mock_wipe_file):
-        try:
-            p = mock.patch('__builtin__.open', new_callable=mock.mock_open())
-            mock_open = p.start()
-        except ImportError:
-            p = mock.patch('builtins.open', new_callable=mock.mock_open())
-            mock_open = p.start()
-
-        mock_open.return_value = mock.MagicMock()
-        block.wipe_volume(self.dev, mode='random')
-        mock_open.assert_called_with('/dev/urandom', 'rb')
-        mock_wipe_file.assert_called_with(
-            self.dev, reader=mock_open.return_value.__enter__().read)
-        p.stop()
+        with mocked_open() as mock_open:
+            mock_open.return_value = mock.MagicMock()
+            block.wipe_volume(self.dev, mode='random')
+            mock_open.assert_called_with('/dev/urandom', 'rb')
+            mock_wipe_file.assert_called_with(
+                self.dev, reader=mock_open.return_value.__enter__().read)
 
     def test_bad_input(self):
         with self.assertRaises(ValueError):
