@@ -271,16 +271,38 @@ class TestWipeVolume(TestCase):
         block.wipe_volume(self.dev, mode='superblock-recursive')
         mock_quick_zero.assert_called_with(self.dev, partitions=True)
 
-    @mock.patch('curtin.block.open')
     @mock.patch('curtin.block.wipe_file')
-    def test_wipe_zero_random(self, mock_wipe_file, mock_open):
+    def test_wipe_zero(self, mock_wipe_file):
+        try:
+            p = mock.patch('__builtin__.open', new_callable=mock.mock_open())
+            mock_open = p.start()
+        except ImportError:
+            p = mock.patch('builtins.open', new_callable=mock.mock_open())
+            mock_open = p.start()
+
         block.wipe_volume(self.dev, mode='zero')
         mock_wipe_file.assert_called_with(self.dev)
+        mock_open.return_value = mock.MagicMock()
+
+        p.stop()
+
+    @mock.patch('curtin.block.wipe_file')
+    def test_wipe_random(self, mock_wipe_file):
+        try:
+            p = mock.patch('__builtin__.open', new_callable=mock.mock_open())
+            mock_open = p.start()
+        except ImportError:
+            p = mock.patch('builtins.open', new_callable=mock.mock_open())
+            mock_open = p.start()
+
         mock_open.return_value = mock.MagicMock()
         block.wipe_volume(self.dev, mode='random')
         mock_open.assert_called_with('/dev/urandom', 'rb')
         mock_wipe_file.assert_called_with(
             self.dev, reader=mock_open.return_value.__enter__().read)
+
+        p.stop()
+
 
     def test_bad_input(self):
         with self.assertRaises(ValueError):
