@@ -360,8 +360,16 @@ def start_clear_holders_deps():
     prepare system for clear holders to be able to scan old devices
     """
     # a mdadm scan has to be started in case there is a md device that needs to
-    # be detected
-    block.mdadm.mdadm_assemble(scan=True)
+    # be detected. if the scan fails, it is either because there are no mdadm
+    # devices on the system, or because there is a mdadm device in a damaged
+    # state that could not be started. due to the nature of mdadm tools, it is
+    # difficult to know which is the case. if any errors did occur, then ignore
+    # them, since no action needs to be taken if there were no mdadm devices on
+    # the system, and in the case where there is some mdadm metadata on a disk,
+    # but there was not enough to start the array, the call to wipe_volume on
+    # all disks and partitions should be sufficient to remove the mdadm
+    # metadata
+    block.mdadm.mdadm_assemble(scan=True, ignore_errors=True)
     # the bcache module needs to be present to properly detect bcache devs
     # on some systems (precise without hwe kernel) it may not be possible to
     # lad the bcache module bcause it is not present in the kernel. if this
