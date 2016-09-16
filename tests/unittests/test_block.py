@@ -283,7 +283,6 @@ class TestWipeVolume(TestCase):
         block.wipe_volume(self.dev, mode='zero')
         mock_wipe_file.assert_called_with(self.dev)
         mock_open.return_value = mock.MagicMock()
-
         p.stop()
 
     @mock.patch('curtin.block.wipe_file')
@@ -300,9 +299,7 @@ class TestWipeVolume(TestCase):
         mock_open.assert_called_with('/dev/urandom', 'rb')
         mock_wipe_file.assert_called_with(
             self.dev, reader=mock_open.return_value.__enter__().read)
-
         p.stop()
-
 
     def test_bad_input(self):
         with self.assertRaises(ValueError):
