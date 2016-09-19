@@ -7,6 +7,7 @@ import shutil
 
 from collections import OrderedDict
 
+from .helpers import mocked_open
 from curtin import util
 from curtin import block
 
@@ -271,16 +272,21 @@ class TestWipeVolume(TestCase):
         block.wipe_volume(self.dev, mode='superblock-recursive')
         mock_quick_zero.assert_called_with(self.dev, partitions=True)
 
-    @mock.patch('curtin.block.open')
     @mock.patch('curtin.block.wipe_file')
-    def test_wipe_zero_random(self, mock_wipe_file, mock_open):
-        block.wipe_volume(self.dev, mode='zero')
-        mock_wipe_file.assert_called_with(self.dev)
-        mock_open.return_value = mock.MagicMock()
-        block.wipe_volume(self.dev, mode='random')
-        mock_open.assert_called_with('/dev/urandom', 'rb')
-        mock_wipe_file.assert_called_with(
-            self.dev, reader=mock_open.return_value.__enter__().read)
+    def test_wipe_zero(self, mock_wipe_file):
+        with mocked_open() as mock_open:
+            block.wipe_volume(self.dev, mode='zero')
+            mock_wipe_file.assert_called_with(self.dev)
+            mock_open.return_value = mock.MagicMock()
+
+    @mock.patch('curtin.block.wipe_file')
+    def test_wipe_random(self, mock_wipe_file):
+        with mocked_open() as mock_open:
+            mock_open.return_value = mock.MagicMock()
+            block.wipe_volume(self.dev, mode='random')
+            mock_open.assert_called_with('/dev/urandom', 'rb')
+            mock_wipe_file.assert_called_with(
+                self.dev, reader=mock_open.return_value.__enter__().read)
 
     def test_bad_input(self):
         with self.assertRaises(ValueError):
