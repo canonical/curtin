@@ -6,47 +6,51 @@ class _ReleaseBase(object):
     arch = get_platform_arch()
 
 
-class _PreciseBase(_ReleaseBase):
+class _UbuntuBase(_ReleaseBase):
+    distro = "ubuntu"
+
+
+class _PreciseBase(_UbuntuBase):
     release = "precise"
 
 
-class _PreciseHWET(_ReleaseBase):
+class _PreciseHWET(_UbuntuBase):
     release = "precise"
     krel = "trusty"
 
 
-class _TrustyBase(_ReleaseBase):
+class _TrustyBase(_UbuntuBase):
     release = "trusty"
 
 
-class _TrustyHWEU(_ReleaseBase):
+class _TrustyHWEU(_UbuntuBase):
     release = "trusty"
     krel = "utopic"
 
 
-class _TrustyHWEV(_ReleaseBase):
+class _TrustyHWEV(_UbuntuBase):
     release = "trusty"
     krel = "vivid"
 
 
-class _TrustyHWEW(_ReleaseBase):
+class _TrustyHWEW(_UbuntuBase):
     release = "trusty"
     krel = "wily"
 
 
-class _VividBase(_ReleaseBase):
+class _VividBase(_UbuntuBase):
     release = "vivid"
 
 
-class _WilyBase(_ReleaseBase):
+class _WilyBase(_UbuntuBase):
     release = "wily"
 
 
-class _XenialBase(_ReleaseBase):
+class _XenialBase(_UbuntuBase):
     release = "xenial"
 
 
-class _YakketyBase(_ReleaseBase):
+class _YakketyBase(_UbuntuBase):
     release = "yakkety"
 
 
