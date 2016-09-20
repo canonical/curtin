@@ -24,6 +24,9 @@ import traceback
 from .. import log
 from .. import util
 from ..deps import install_deps
+import curtin.version
+
+VERSIONSTR = curtin.version.version_string()
 
 SUB_COMMAND_MODULES = [
     'apply_net', 'block-info', 'block-meta', 'block-wipe', 'curthooks',
@@ -57,7 +60,7 @@ class NoHelpParser(argparse.ArgumentParser):
 
 def get_main_parser(stacktrace=False, verbosity=0,
                     parser_class=argparse.ArgumentParser):
-    parser = parser_class(prog='curtin')
+    parser = parser_class(prog='curtin', epilog='Version %s' % VERSIONSTR)
     parser.add_argument('--showtrace', action='store_true', default=stacktrace)
     parser.add_argument('-v', '--verbose', action='count', default=verbosity,
                         dest='verbosity')
@@ -180,6 +183,7 @@ def main(argv=None):
         sys.exit(1)
 
     log.basicConfig(stream=args.log_file, verbosity=verbosity)
+    log.LOG.error('curtin v. %s started' % VERSIONSTR)
 
     paths = util.get_paths()
 
