@@ -169,7 +169,7 @@ def sync_images(src_url, base_dir, filters, verbosity=0):
     return
 
 
-def get_images(src_url, local_d, release, arch, krel=None, sync=True):
+def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True):
     # ensure that the image items (roottar, kernel, initrd)
     # we need for release and arch are available in base_dir.
     # returns updated ftypes dictionary {ftype: item_url}
@@ -182,7 +182,7 @@ def get_images(src_url, local_d, release, arch, krel=None, sync=True):
         'boot-initrd': ''
     }
     common_filters = ['release=%s' % release, 'krel=%s' % krel,
-                      'arch=%s' % arch]
+                      'arch=%s' % arch, 'os=%s' % distro]
     filters = ['ftype~(%s)' % ("|".join(ftypes.keys()))] + common_filters
 
     if sync:
@@ -208,7 +208,8 @@ def get_images(src_url, local_d, release, arch, krel=None, sync=True):
         # try to fix this with a sync
         logger.info(fail_msg + "  Attempting to fix with an image sync. (%s)",
                     query_str)
-        return get_images(src_url, local_d, release, arch, krel, sync=True)
+        return get_images(src_url, local_d, distro, release, arch,
+                          krel=krel, sync=True)
     elif not results:
         raise ValueError("Nothing found in query: %s" % query_str)
 
@@ -257,13 +258,14 @@ class ImageStore:
             os.makedirs(self.base_dir)
         self.url = pathlib.Path(self.base_dir).as_uri()
 
-    def get_image(self, release, arch, krel=None):
+    def get_image(self, distro, release, arch, krel=None):
         """Return tuple of version info, and paths for root image,
            kernel, initrd, tarball."""
         if krel is None:
             krel = release
         ver_info, ftypes = get_images(
-            self.source_url, self.base_dir, release, arch, krel, self.sync)
+            self.source_url, self.base_dir, distro, release, arch,
+            krel=krel, sync=self.sync)
         root_image_path = ftypes['vmtest.root-image']
         kernel_path = ftypes['boot-kernel']
         initrd_path = ftypes['boot-initrd']
@@ -389,7 +391,7 @@ class VMBaseClass(TestCase):
         image_store.sync = get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False)
         logger.debug("Image sync = %s", image_store.sync)
         img_verstr, (boot_img, boot_kernel, boot_initrd, tarball) = (
-            image_store.get_image(cls.release, cls.arch, cls.krel))
+            image_store.get_image(cls.distro, cls.release, cls.arch, cls.krel))
         logger.debug("Image %s\n  boot=%s\n  kernel=%s\n  initrd=%s\n"
                      "  tarball=%s\n", img_verstr, boot_img, boot_kernel,
                      boot_initrd, tarball)
@@ -842,7 +844,7 @@ class PsuedoImageStore(object):
         self.source_url = source_url
         self.base_dir = base_dir
 
-    def get_image(self, release, arch, krel=None):
+    def get_image(self, distro, release, arch, krel=None):
         """Return tuple of version info, and paths for root image,
            kernel, initrd, tarball."""
         names = ['psuedo-root-image', 'psuedo-kernel', 'psuedo-initrd',
