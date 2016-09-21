@@ -10,6 +10,24 @@ class _UbuntuBase(_ReleaseBase):
     distro = "ubuntu"
 
 
+class _CentosFromUbuntuBase(_ReleaseBase):
+    # base for installing centos tarballs from ubuntu base
+    distro = "ubuntu"
+    target_distro = "centos"
+
+
+class _Centos70FromXenialBase(_CentosFromUbuntuBase):
+    # release for boot
+    release = "xenial"
+    # release for target
+    target_release = "centos70"
+
+
+class _Centos66FromXenialBase(_CentosFromUbuntuBase):
+    release = "xenial"
+    target_release = "centos66"
+
+
 class _PreciseBase(_UbuntuBase):
     release = "precise"
 
@@ -66,6 +84,13 @@ class _Releases(object):
     xenial = _XenialBase
     yakkety = _YakketyBase
 
+
+class _CentosReleases(object):
+    centos70fromxenial = _Centos70FromXenialBase
+    centos66fromxenial = _Centos66FromXenialBase
+
+
 base_vm_classes = _Releases
+centos_base_vm_classes = _CentosReleases
 
 # vi: ts=4 expandtab syntax=python
