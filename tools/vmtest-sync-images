@@ -12,7 +12,7 @@ sys.path.insert(1, os.path.realpath(os.path.join(
 from tests.vmtests import (
     IMAGE_DIR, IMAGE_SRC_URL, sync_images)
 from tests.vmtests.image_sync import ITEM_NAME_FILTERS
-from tests.vmtests.helpers import find_releases
+from tests.vmtests.helpers import find_releases_by_distro
 from curtin.util import get_platform_arch
 
 DEFAULT_ARCH = get_platform_arch()
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     if len(arg_releases):
         releases = arg_releases
     else:
-        releases = find_releases()
+        releases = find_releases_by_distro.get('ubuntu', [])
     release_filter = 'release~{}'.format('|'.join(releases))
     my_filters = ['arch=' + DEFAULT_ARCH, release_filter] + ITEM_NAME_FILTERS
     # Sync images.
