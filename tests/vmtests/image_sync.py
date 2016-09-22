@@ -25,7 +25,7 @@ IMAGE_SRC_URL = os.environ.get(
 IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
 
 KEYRING = '/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg'
-ITEM_NAME_FILTERS = ['ftype~(root-image.gz|boot-initrd|boot-kernel)']
+ITEM_NAME_FILTERS = ['ftype~(root-image.gz|boot-initrd|boot-kernel|root-tgz)']
 FORMAT_JSON = 'JSON'
 VMTEST_CONTENT_IDS = [
     "com.ubuntu.maas:daily:v2:download",
