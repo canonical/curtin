@@ -226,7 +226,10 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
         tver_data = products_version_get(target, pedigree)
         titems = tver_data.get('items')
 
-        if ('root-image.gz' in titems and
+        if not titems or 'root-image.gz' not in titems:
+            return
+
+        if (titems['root-image.gz']['ftype'] == 'root-image.gz' and
                 not (ri_name in titems and rtgz_name in titems)):
             # generate the root-image and root-tgz
             derived_items = generate_root_derived(
@@ -235,6 +238,16 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
             for fname, item in derived_items.items():
                 self.insert_item(item, src, target, pedigree + (fname,),
                                  FakeContentSource(item['path']))
+        elif (titems['root-image.gz']['ftype'] == 'root-tgz' and
+                rtgz_name not in titems):
+            # already have the root tgz, just need to add content as a
+            # vmtest.root-tgz
+            # TODO: may need to generate the vmtest.root-image at some point in
+            #       the future
+            self.insert_item(
+                {'ftype': rtgz_name, 'path': titems['root-image.gz']['path']},
+                src, target, pedigree + (rtgz_name,),
+                FakeContentSource(titems['root-image.gz']['path']))
 
     def get_file_info(self, path):
         # check and see if we might know checksum and size
