@@ -22,11 +22,15 @@ from curtin import util
 IMAGE_SRC_URL = os.environ.get(
     'IMAGE_SRC_URL',
     "http://maas.ubuntu.com/images/ephemeral-v2/daily/streams/v1/index.sjson")
+IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
 
 KEYRING = '/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg'
 ITEM_NAME_FILTERS = ['ftype~(root-image.gz|boot-initrd|boot-kernel)']
 FORMAT_JSON = 'JSON'
-VMTEST_CONTENT_ID = 'com.ubuntu.maas:daily:v2:download'
+VMTEST_CONTENT_IDS = [
+    "com.ubuntu.maas:daily:v2:download",
+    "com.ubuntu.maas:daily:centos-bases-download"
+]
 VMTEST_JSON_PATH = "streams/v1/vmtest.json"
 
 DEFAULT_OUTPUT_FORMAT = (
@@ -264,7 +268,7 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
         # for our vmtest content id, we want to write
         # a vmtest.json in streams/v1/vmtest.json that can be queried
         # even though it will not appear in index
-        if target['content_id'] == VMTEST_CONTENT_ID:
+        if target['content_id'] in VMTEST_CONTENT_IDS:
             self.store.insert_content(VMTEST_JSON_PATH,
                                       util.json_dumps(target))
 

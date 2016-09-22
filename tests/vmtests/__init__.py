@@ -19,14 +19,10 @@ from curtin.commands.install import INSTALL_PASS_MSG
 
 from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
+from .image_sync import (IMAGE_SRC_URL, IMAGE_DIR)
 from .helpers import check_call, TimeoutExpired
 from unittest import TestCase, SkipTest
 
-IMAGE_SRC_URL = os.environ.get(
-    'IMAGE_SRC_URL',
-    "http://maas.ubuntu.com/images/ephemeral-v2/daily/streams/v1/index.sjson")
-
-IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
 try:
     IMAGES_TO_KEEP = int(os.environ.get("IMAGES_TO_KEEP", 1))
 except ValueError:
