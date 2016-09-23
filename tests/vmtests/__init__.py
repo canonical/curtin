@@ -850,11 +850,16 @@ class PsuedoVMBaseClass(VMBaseClass):
     def get_test_files(cls):
         """Return tuple of version info, and paths for root image,
            kernel, initrd, tarball."""
-        names = ['psuedo-root-image', 'psuedo-kernel', 'psuedo-initrd',
-                 'psuedo-tarball']
-        return (
-            "psuedo-%s %s/hwe-P 20160101" % (cls.release, cls.arch),
-            [os.path.join(IMAGE_DIR, cls.release, cls.arch, f) for f in names])
+
+        def get_psuedo_path(name):
+            return os.path.join(IMAGE_DIR, cls.release, cls.arch, name)
+
+        return {
+            'vmtest.root-image': get_psuedo_path('psuedo-root-image'),
+            'boot-kernel': get_psuedo_path('psuedo-kernel'),
+            'boot-initrd': get_psuedo_path('psuedo-initrd'),
+            'vmtest.root-tgz': get_psuedo_path('psuedo-root-tgz')
+        }
 
     @classmethod
     def boot_system(cls, cmd, console_log, proc_out, timeout, purpose):
