@@ -27,11 +27,10 @@ IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
 KEYRING = '/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg'
 ITEM_NAME_FILTERS = ['ftype~(root-image.gz|boot-initrd|boot-kernel|root-tgz)']
 FORMAT_JSON = 'JSON'
-VMTEST_CONTENT_IDS = [
-    "com.ubuntu.maas:daily:v2:download",
-    "com.ubuntu.maas:daily:centos-bases-download"
-]
-VMTEST_JSON_PATH = "streams/v1/vmtest.json"
+VMTEST_CONTENT_ID_PATH_MAP = {
+    "com.ubuntu.maas:daily:v2:download": "streams/v1/ubuntu.json",
+    "com.ubuntu.maas:daily:centos-bases-download": "streams/v1/centos.json",
+}
 
 DEFAULT_OUTPUT_FORMAT = (
     "%(release)-7s %(arch)s/%(subarch)s %(version_name)-10s %(item_name)s")
@@ -279,11 +278,11 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
         self.store.insert_content(path, content)
 
         # for our vmtest content id, we want to write
-        # a vmtest.json in streams/v1/vmtest.json that can be queried
+        # a json file in streams/v1/<distro>.json that can be queried
         # even though it will not appear in index
-        if target['content_id'] in VMTEST_CONTENT_IDS:
-            self.store.insert_content(VMTEST_JSON_PATH,
-                                      util.json_dumps(target))
+        vmtest_json = VMTEST_CONTENT_ID_PATH_MAP.get(target['content_id'])
+        if vmtest_json:
+            self.store.insert_content(vmtest_json, util.json_dumps(target))
 
     def insert_index_entry(self, data, src, pedigree, contentsource):
         # this is overridden, because the default implementation
@@ -394,20 +393,17 @@ def query_ptree(ptree, max_num=None, ifilters=None, path2url=None):
 def query(mirror, max_items=1, filter_list=None, verbosity=0):
     if filter_list is None:
         filter_list = []
-
     ifilters = filters.get_filters(filter_list)
 
     def fpath(path):
-        # return the full path to a local file in the mirror
         return os.path.join(mirror, path)
 
-    try:
-        stree = sutil.load_content(util.load_file(fpath(VMTEST_JSON_PATH)))
-    except OSError:
-        raise
-    results = query_ptree(stree, max_num=max_items, ifilters=ifilters,
-                          path2url=fpath)
-    return results
+    def get_stree(path):
+        return sutil.load_content(util.load_file(fpath(path)))
+
+    return next((query_ptree(get_stree(path), max_num=max_items,
+                             ifilters=ifilters, path2url=fpath)
+                 for path in VMTEST_CONTENT_ID_PATH_MAP.values()), None)
 
 
 def main_query(args):
