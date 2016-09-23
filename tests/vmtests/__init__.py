@@ -165,23 +165,28 @@ def sync_images(src_url, base_dir, filters, verbosity=0):
     return
 
 
-def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True):
+def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
+               ftypes=None):
     # ensure that the image items (roottar, kernel, initrd)
     # we need for release and arch are available in base_dir.
     # returns updated ftypes dictionary {ftype: item_url}
-    if krel is None:
-        krel = release
-    ftypes = {
-        'vmtest.root-image': '',
-        'vmtest.root-tgz': '',
-        'boot-kernel': '',
-        'boot-initrd': ''
-    }
-    common_filters = ['release=%s' % release, 'krel=%s' % krel,
+    if not ftypes:
+        ftypes = {
+            'vmtest.root-image': '',
+            'vmtest.root-tgz': '',
+            'boot-kernel': '',
+            'boot-initrd': ''
+        }
+    elif isinstance(ftypes, (list, tuple)):
+        ftypes = dict().fromkeys(ftypes)
+
+    common_filters = ['release=%s' % release,
                       'arch=%s' % arch, 'os=%s' % distro]
+    if krel:
+        common_filters.append('krel=%s' % krel)
     filters = ['ftype~(%s)' % ("|".join(ftypes.keys()))] + common_filters
 
-    if sync:
+    if sync and False:
         imagesync_mirror(output_d=local_d, source=src_url,
                          mirror_filters=common_filters,
                          max_items=IMAGES_TO_KEEP)
@@ -205,7 +210,7 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True):
         logger.info(fail_msg + "  Attempting to fix with an image sync. (%s)",
                     query_str)
         return get_images(src_url, local_d, distro, release, arch,
-                          krel=krel, sync=True)
+                          krel=krel, sync=True, ftypes=ftypes)
     elif not results:
         raise ValueError("Nothing found in query: %s" % query_str)
 
@@ -254,19 +259,11 @@ class ImageStore:
             os.makedirs(self.base_dir)
         self.url = pathlib.Path(self.base_dir).as_uri()
 
-    def get_image(self, distro, release, arch, krel=None):
+    def get_image(self, distro, release, arch, krel=None, ftypes=None):
         """Return tuple of version info, and paths for root image,
            kernel, initrd, tarball."""
-        if krel is None:
-            krel = release
-        ver_info, ftypes = get_images(
-            self.source_url, self.base_dir, distro, release, arch,
-            krel=krel, sync=self.sync)
-        root_image_path = ftypes['vmtest.root-image']
-        kernel_path = ftypes['boot-kernel']
-        initrd_path = ftypes['boot-initrd']
-        tarball = ftypes['vmtest.root-tgz']
-        return ver_info, (root_image_path, kernel_path, initrd_path, tarball)
+        return get_images(self.source_url, self.base_dir, distro, release,
+                          arch, krel=krel, sync=self.sync, ftypes=ftypes)
 
 
 class TempDir(object):
@@ -370,6 +367,7 @@ class VMBaseClass(TestCase):
     release = None
     arch = None
     krel = None
+    distro = None
 
     @classmethod
     def setUpClass(cls):
@@ -386,11 +384,9 @@ class VMBaseClass(TestCase):
         # Disable sync if env var is set.
         image_store.sync = get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False)
         logger.debug("Image sync = %s", image_store.sync)
-        img_verstr, (boot_img, boot_kernel, boot_initrd, tarball) = (
-            image_store.get_image(cls.distro, cls.release, cls.arch, cls.krel))
-        logger.debug("Image %s\n  boot=%s\n  kernel=%s\n  initrd=%s\n"
-                     "  tarball=%s\n", img_verstr, boot_img, boot_kernel,
-                     boot_initrd, tarball)
+        img_verstr, ftypes = image_store.get_image(
+            cls.distro, cls.release, cls.arch, cls.krel)
+        logger.debug("Image %s\n, ftypes: %s\n", img_verstr, ftypes)
         # set up tempdir
         cls.td = TempDir(
             name=cls.__name__,
@@ -420,8 +416,8 @@ class VMBaseClass(TestCase):
             cmd.extend(["--append=" + cls.extra_kern_args])
 
         # publish the root tarball
-        install_src = "PUBURL/" + os.path.basename(tarball)
-        cmd.append("--publish=%s" % tarball)
+        install_src = "PUBURL/" + os.path.basename(ftypes['vmtest.root-tgz'])
+        cmd.append("--publish=%s" % ftypes['vmtest.root-tgz'])
 
         # check for network configuration
         cls.network_state = curtin_net.parse_net_config(cls.conf_file)
@@ -518,8 +514,9 @@ class VMBaseClass(TestCase):
             disks = disks * cls.multipath_num_paths
 
         cmd.extend(uefi_flags + netdevs + disks +
-                   [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
-                    boot_initrd, "--", "curtin", "-vv", "install"] +
+                   [ftypes['vmtest.root-image'], "--kernel=%s" %
+                       ftypes['boot-kernel'], "--initrd=%s" %
+                    ftypes['boot-initrd'], "--", "curtin", "-vv", "install"] +
                    ["--config=%s" % f for f in configs] +
                    [install_src])
 
