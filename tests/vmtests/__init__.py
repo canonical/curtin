@@ -4,7 +4,6 @@ import errno
 import logging
 import json
 import os
-import pathlib
 import random
 import re
 import shutil
@@ -33,6 +32,7 @@ DEFAULT_SSTREAM_OPTS = [
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
+CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", False)
 IMAGE_SYNCS = []
 TARGET_IMAGE_FORMAT = "raw"
 
@@ -237,35 +237,6 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
     return version_info, ftypes
 
 
-class ImageStore:
-    """Local mirror of MAAS images simplestreams data."""
-
-    # By default sync on demand.
-    sync = True
-
-    # images are expected in dirs named <release>/<arch>/YYYYMMDD[.X]
-    image_dir_re = re.compile(r"^[0-9]{4}[01][0-9][0123][0-9]([.][0-9])*$")
-
-    def __init__(self, source_url, base_dir):
-        """Initialize the ImageStore.
-
-        source_url is the simplestreams source from where the images will be
-        downloaded.
-        base_dir is the target dir in the filesystem to keep the mirror.
-        """
-        self.source_url = source_url
-        self.base_dir = base_dir
-        if not os.path.isdir(self.base_dir):
-            os.makedirs(self.base_dir)
-        self.url = pathlib.Path(self.base_dir).as_uri()
-
-    def get_image(self, distro, release, arch, krel=None, ftypes=None):
-        """Return tuple of version info, and paths for root image,
-           kernel, initrd, tarball."""
-        return get_images(self.source_url, self.base_dir, distro, release,
-                          arch, krel=krel, sync=self.sync, ftypes=ftypes)
-
-
 class TempDir(object):
     boot = None
     collect = None
@@ -351,7 +322,6 @@ class VMBaseClass(TestCase):
     extra_disks = []
     extra_kern_args = None
     fstab_expected = {}
-    image_store_class = ImageStore
     boot_cloudconf = None
     install_timeout = INSTALL_TIMEOUT
     interactive = False
@@ -374,18 +344,16 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def get_test_files(cls):
-        image_store = cls.image_store_class(IMAGE_SRC_URL, IMAGE_DIR)
-        image_store.sync = get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False)
-        logger.debug("Image sync = %s", image_store.sync)
-        img_verstr, ftypes = image_store.get_image(
-            cls.distro, cls.release, cls.arch,
+        img_verstr, ftypes = get_images(
+            IMAGE_SRC_URL, IMAGE_DIR, cls.distro, cls.release, cls.arch,
             krel=cls.krel if cls.krel else cls.release,
             ftypes=('boot-initrd', 'boot-kernel', 'vmtest.root-image'))
         logger.debug("Install Image %s\n, ftypes: %s\n", img_verstr, ftypes)
         logger.info("Install Image: %s", img_verstr)
         if not cls.target_krel and cls.krel:
             cls.target_krel = cls.krel
-        img_verstr, found = image_store.get_image(
+        img_verstr, found = get_images(
+            IMAGE_SRC_URL, IMAGE_DIR,
             cls.target_distro if cls.target_distro else cls.distro,
             cls.target_release if cls.target_release else cls.release,
             cls.arch, krel=cls.target_krel, ftypes=('vmtest.root-tgz',))
@@ -849,21 +817,6 @@ class VMBaseClass(TestCase):
                                     separators=(',', ': ')) + "\n")
 
 
-class PsuedoImageStore(object):
-    def __init__(self, source_url, base_dir):
-        self.source_url = source_url
-        self.base_dir = base_dir
-
-    def get_image(self, distro, release, arch, krel=None):
-        """Return tuple of version info, and paths for root image,
-           kernel, initrd, tarball."""
-        names = ['psuedo-root-image', 'psuedo-kernel', 'psuedo-initrd',
-                 'psuedo-tarball']
-        return (
-            "psuedo-%s %s/hwe-P 20160101" % (release, arch),
-            [os.path.join(self.base_dir, release, arch, f) for f in names])
-
-
 class PsuedoVMBaseClass(VMBaseClass):
     # This mimics much of the VMBaseClass just with faster setUpClass
     # The tests here will fail only if CURTIN_VMTEST_DEBUG_ALLOW_FAIL
@@ -871,7 +824,6 @@ class PsuedoVMBaseClass(VMBaseClass):
     # during a 'make vmtest' (keeping it running) but not to break test.
     #
     # boot_timeouts is a dict of {'purpose': 'mesg'}
-    image_store_class = PsuedoImageStore
     # boot_results controls what happens when boot_system is called
     # a dictionary with key of the 'purpose'
     # inside each dictionary:
@@ -893,6 +845,16 @@ class PsuedoVMBaseClass(VMBaseClass):
         with open(os.path.join(self.td.collect, "fstab")) as fp:
             fp.write('\n'.join(("# psuedo fstab",
                                 "LABEL=root / ext4 defaults 0 1")))
+
+    @classmethod
+    def get_test_files(cls):
+        """Return tuple of version info, and paths for root image,
+           kernel, initrd, tarball."""
+        names = ['psuedo-root-image', 'psuedo-kernel', 'psuedo-initrd',
+                 'psuedo-tarball']
+        return (
+            "psuedo-%s %s/hwe-P 20160101" % (cls.release, cls.arch),
+            [os.path.join(IMAGE_DIR, cls.release, cls.arch, f) for f in names])
 
     @classmethod
     def boot_system(cls, cmd, console_log, proc_out, timeout, purpose):
