@@ -398,12 +398,10 @@ def query(mirror, max_items=1, filter_list=None, verbosity=0):
     def fpath(path):
         return os.path.join(mirror, path)
 
-    def get_stree(path):
-        return sutil.load_content(util.load_file(fpath(path)))
-
-    return next((query_ptree(get_stree(path), max_num=max_items,
-                             ifilters=ifilters, path2url=fpath)
-                 for path in VMTEST_CONTENT_ID_PATH_MAP.values()), None)
+    return next((q for q in (
+        query_ptree(sutil.load_content(util.load_file(fpath(path))),
+                    max_num=max_items, ifilters=ifilters, path2url=fpath)
+        for path in VMTEST_CONTENT_ID_PATH_MAP.values()) if q), None)
 
 
 def main_query(args):
