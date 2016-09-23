@@ -385,7 +385,8 @@ class VMBaseClass(TestCase):
         image_store.sync = get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False)
         logger.debug("Image sync = %s", image_store.sync)
         img_verstr, ftypes = image_store.get_image(
-            cls.distro, cls.release, cls.arch, cls.krel)
+            cls.distro, cls.release, cls.arch,
+            cls.krel if cls.krel else cls.release)
         logger.debug("Image %s\n, ftypes: %s\n", img_verstr, ftypes)
         # set up tempdir
         cls.td = TempDir(
