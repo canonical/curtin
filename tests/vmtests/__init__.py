@@ -368,6 +368,31 @@ class VMBaseClass(TestCase):
     arch = None
     krel = None
     distro = None
+    target_distro = None
+    target_release = None
+    target_krel = None
+
+    @classmethod
+    def get_test_files(cls):
+        image_store = cls.image_store_class(IMAGE_SRC_URL, IMAGE_DIR)
+        image_store.sync = get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False)
+        logger.debug("Image sync = %s", image_store.sync)
+        img_verstr, ftypes = image_store.get_image(
+            cls.distro, cls.release, cls.arch,
+            krel=cls.krel if cls.krel else cls.release,
+            ftypes=('boot-initrd', 'boot-kernel', 'vmtest.root-image'))
+        logger.debug("Install Image %s\n, ftypes: %s\n", img_verstr, ftypes)
+        logger.info("Install Image: %s", img_verstr)
+        if not cls.target_krel and cls.krel:
+            cls.target_krel = cls.krel
+        img_verstr, found = image_store.get_image(
+            cls.target_distro if cls.target_distro else cls.distro,
+            cls.target_release if cls.target_release else cls.release,
+            cls.arch, krel=cls.target_krel, ftypes=('vmtest.root-tgz',))
+        logger.debug("Target Tarball %s\n, ftypes: %s\n", img_verstr, found)
+        logger.info("Target Tarball: %s", img_verstr)
+        ftypes.update(found)
+        return ftypes
 
     @classmethod
     def setUpClass(cls):
@@ -379,26 +404,17 @@ class VMBaseClass(TestCase):
 
         setup_start = time.time()
         logger.info('Starting setup for testclass: {}'.format(cls.__name__))
-        # get boot img
-        image_store = cls.image_store_class(IMAGE_SRC_URL, IMAGE_DIR)
-        # Disable sync if env var is set.
-        image_store.sync = get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False)
-        logger.debug("Image sync = %s", image_store.sync)
-        img_verstr, ftypes = image_store.get_image(
-            cls.distro, cls.release, cls.arch,
-            cls.krel if cls.krel else cls.release)
-        logger.debug("Image %s\n, ftypes: %s\n", img_verstr, ftypes)
         # set up tempdir
         cls.td = TempDir(
             name=cls.__name__,
             user_data=generate_user_data(collect_scripts=cls.collect_scripts,
                                          boot_cloudconf=cls.boot_cloudconf))
-        logger.info('Using tempdir: %s , Image: %s', cls.td.tmpdir,
-                    img_verstr)
+        logger.info('Using tempdir: %s', cls.td.tmpdir)
         cls.install_log = os.path.join(cls.td.logs, 'install-serial.log')
         cls.boot_log = os.path.join(cls.td.logs, 'boot-serial.log')
         logger.debug('Install console log: {}'.format(cls.install_log))
         logger.debug('Boot console log: {}'.format(cls.boot_log))
+        ftypes = cls.get_test_files()
 
         # if interactive, launch qemu without 'background & wait'
         if cls.interactive:
