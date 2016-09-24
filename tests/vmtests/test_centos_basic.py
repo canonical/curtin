@@ -30,3 +30,11 @@ class Centos70FromXenialTestBasic(relbase.centos70fromxenial,
 
     def test_dname(self):
         print("probably dname isnot going to work in centos out of the box")
+
+
+class Centos66FromXenialTestBasic(relbase.centos66fromxenial,
+                                  CentosTestBasicAbs):
+    __test__ = True
+
+    def test_dname(self):
+        print("probably dname isnot going to work in centos out of the box")
