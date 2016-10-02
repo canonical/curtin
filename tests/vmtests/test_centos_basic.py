@@ -1,40 +1,26 @@
 from . import VMBaseClass
 from .releases import centos_base_vm_classes as relbase
 
-import textwrap
-
 
 # FIXME: should eventually be integrated with the real TestBasic
 class CentosTestBasicAbs(VMBaseClass):
     __test__ = False
-    interactive = False
     # FIXME: get this working with a non-custom test yaml
     #       (and put it in examples/)
-    conf_file = "/tmp/basic.yaml"
-    extra_disks = ['10G']
-    disks_to_check = [('main_disk', 1), ('main_disk', 2)]
-    collect_scripts = [textwrap.dedent("""
-        cd OUTPUT_COLLECT_D
-        mkdir -p /dev/disk/by-dname
-        ls /dev/disk/by-dname/ > ls_dname
-        """)]
+    conf_file = "examples/tests/centos_basic.yaml"
+    collect_scripts = []
 
-    def test_output_files_exist(self):
-        self.output_files_exist(["ls_dname"])
+    def test_dname(self):
+        pass
 
 
 # FIXME: this naming scheme needs to be replaced
 class Centos70FromXenialTestBasic(relbase.centos70fromxenial,
                                   CentosTestBasicAbs):
     __test__ = True
-
-    def test_dname(self):
-        print("probably dname isnot going to work in centos out of the box")
+    extra_kern_args = "BOOTIF=eth0-52:54:00:12:34:00"
 
 
 class Centos66FromXenialTestBasic(relbase.centos66fromxenial,
                                   CentosTestBasicAbs):
     __test__ = True
-
-    def test_dname(self):
-        print("probably dname isnot going to work in centos out of the box")
