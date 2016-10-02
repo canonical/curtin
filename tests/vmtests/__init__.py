@@ -215,11 +215,11 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
         raise ValueError("Nothing found in query: %s" % query_str)
 
     missing = []
-    expected = sorted(ftypes.keys())
     found = sorted(f.get('ftype') for f in results)
-    if expected != found:
-        raise ValueError("Query returned unexpected ftypes=%s. "
-                         "Expected=%s" % (found, expected))
+    for ftype in ftypes.keys():
+        if ftype not in found:
+            raise ValueError("Expected ftype '{}' but not in results"
+                             .format(ftype))
     for item in results:
         ftypes[item['ftype']] = item['item_url']
         last_item = item
@@ -990,15 +990,17 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
     collect_post = textwrap.dedent(
         'tar -C "%s" -cf "%s" .' % (output_dir, output_device))
 
-    # failsafe poweroff runs on precise only, where power_state does
+    # failsafe poweroff runs on precise and centos only, where power_state does
     # not exist.
-    precise_poweroff = textwrap.dedent("""#!/bin/sh -x
-        [ "$(lsb_release -sc)" = "precise" ] || exit 0;
-        shutdown -P now "Shutting down on precise"
+    failsafe_poweroff = textwrap.dedent("""#!/bin/sh -x
+        [ -e /etc/centos-release -o -e /etc/redhat-release ] &&
+            { shutdown -P now "Shutting down on centos"; }
+        [ "$(lsb_release -sc)" = "precise" ] &&
+            { shutdown -P now "Shutting down on precise"; }
         """)
 
     scripts = ([collect_prep] + collect_scripts + [collect_post] +
-               [precise_poweroff])
+               [failsafe_poweroff])
 
     for part in scripts:
         if not part.startswith("#!"):
