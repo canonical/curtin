@@ -1,4 +1,6 @@
 showtrace: true
+hook_commands:
+    builtin: null
 network:
     version: 1
     config:
@@ -9,7 +11,3 @@ network:
               - type: static
                 address: 10.0.2.15/24
                 gateway: 10.0.2.2
-debconf_selections:
-    maas: |
-        cloud-init cloud-init/maas-metadata-url none none
-        cloud-init cloud-init/maas-metadata-credentials none oauth_token_key=none&oauth_consumer_key=none&oauth_token_secret=none
