@@ -36,4 +36,7 @@ class Centos70FromXenialTestBasic(relbase.centos70fromxenial,
 
 class Centos66FromXenialTestBasic(relbase.centos66fromxenial,
                                   CentosTestBasicAbs):
-    __test__ = True
+    __test__ = False
+    # FIXME: test is disabled because the grub config script in target
+    #        specifies drive using hd(1,0) syntax, which breaks when the
+    #        installation medium is removed. other than this, the install works
