@@ -118,6 +118,9 @@ def find_releases_by_distro():
     for mts in module_test_suites:
         for class_test_suite in mts:
             for test_case in class_test_suite:
+                # skip disabled tests
+                if not getattr(test_case, '__test__', False):
+                    continue
                 for (dist, rel) in (
                         (getattr(test_case, a, None) for a in attrs)
                         for attrs in (('distro', 'release'),
