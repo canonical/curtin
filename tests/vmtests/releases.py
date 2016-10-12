@@ -10,9 +10,8 @@ class _UbuntuBase(_ReleaseBase):
     distro = "ubuntu"
 
 
-class _CentosFromUbuntuBase(_ReleaseBase):
+class _CentosFromUbuntuBase(_UbuntuBase):
     # base for installing centos tarballs from ubuntu base
-    distro = "ubuntu"
     target_distro = "centos"
 
 
