@@ -186,7 +186,7 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
         common_filters.append('krel=%s' % krel)
     filters = ['ftype~(%s)' % ("|".join(ftypes.keys()))] + common_filters
 
-    if sync and False:
+    if sync:
         imagesync_mirror(output_d=local_d, source=src_url,
                          mirror_filters=common_filters,
                          max_items=IMAGES_TO_KEEP)
