@@ -242,7 +242,9 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
             # already have the root tgz, just need to add content as a
             # vmtest.root-tgz
             # TODO: may need to generate the vmtest.root-image at some point in
-            #       the future
+            #       the future if there is a need to use the centos image as an
+            #       ephemeral environment rather than installing centos from
+            #       an ubuntu ephemeral image
             self.insert_item(
                 {'ftype': rtgz_name, 'path': titems['root-image.gz']['path']},
                 src, target, pedigree + (rtgz_name,),

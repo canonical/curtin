@@ -101,11 +101,11 @@ def check_call(cmd, signal=signal.SIGTERM, **kwargs):
 
 def find_releases_by_distro():
     """
-    Return a dict distros that are tested and releases tested in each
+    Returns a dictionary of distros and the distro releases that will be tested
     """
     # Use the TestLoder to load all test cases defined within tests/vmtests/
     # and figure out what distros and releases they are testing. Any tests
-    # which are disabled will be skipped.
+    # which are disabled will be excluded.
     loader = TestLoader()
     # dir with the vmtest modules (i.e. tests/vmtests/)
     tests_dir = os.path.dirname(__file__)
