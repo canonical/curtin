@@ -28,8 +28,9 @@ KEYRING = '/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg'
 ITEM_NAME_FILTERS = ['ftype~(root-image.gz|boot-initrd|boot-kernel|root-tgz)']
 FORMAT_JSON = 'JSON'
 VMTEST_CONTENT_ID_PATH_MAP = {
-    "com.ubuntu.maas:daily:v2:download": "streams/v1/vmtests.json",
-    "com.ubuntu.maas:daily:centos-bases-download": "streams/v1/centos.json",
+    "com.ubuntu.maas:daily:v2:download": "streams/v1/vmtest.json",
+    "com.ubuntu.maas:daily:centos-bases-download":
+        "streams/v1/vmtest-centos.json",
 }
 
 DEFAULT_OUTPUT_FORMAT = (
