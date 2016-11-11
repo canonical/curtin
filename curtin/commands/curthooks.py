@@ -160,79 +160,6 @@ def run_zipl(cfg, target):
         in_chroot.subp(['zipl'])
 
 
-def machine_uses_uboot():
-    """Detects if the running machine uses uboot.
-
-    Code ported flash-kernel.
-    """
-    uboot_machines = [
-        "APM X-Gene Mustang board",
-        "Buffalo Linkstation LiveV3 (LS-CHL)",
-        "Buffalo Linkstation Mini",
-        "Buffalo Linkstation Pro/Live",
-        "Buffalo/Revogear Kurobox Pro",
-        "D-Link DNS-323",
-        "Freescale MX53 LOCO Board",
-        "Genesi Efika Smartbook",
-        "Genesi EfikaMX nettop",
-        "GLAN Tank",
-        "GTA02",
-        "Calxeda Highbank",
-        "Calxeda ECX-2000",
-        "HP Media Vault mv2120",
-        "HP ProLiant m400 Server Cartridge",
-        "HP ProLiant m800 Server Cartridge",
-        "HP t5325 Thin Client",
-        "Lanner EM7210",
-        "Linksys NSLU2",
-        "Marvell Armada XP Development Board",
-        "Marvell DB-78x00-BP Development Board",
-        "Marvell GuruPlug Reference Board",
-        "Marvell OpenRD Base Board",
-        "Marvell OpenRD Client Board",
-        "Marvell OpenRD Ultimate Board",
-        "Marvell SheevaPlug Reference Board",
-        "Marvell eSATA SheevaPlug Reference Board",
-        "OMAP3 Beagle Board",
-        "OMAP4 Panda board",
-        "TI OMAP4 PandaBoard",
-        "QNAP TS-109/TS-209",
-        "QNAP TS-119/TS-219",
-        "QNAP TS-409",
-        "QNAP TS-41x",
-        "SAMSUNG SSDK5440 board based on EXYNOS5440",
-        "SAMSUNG SD5v1 board based on EXYNOS5440",
-        "Seagate FreeAgent DockStar",
-        "Thecus N2100",
-        "Toshiba AC100 / Dynabook AZ",
-        "grouper",
-        "QCT APQ8064 MAKO",
-        "Wandboard i.MX6 Quad Board",
-        "Dummy Virtual Machine",
-        "linux,dummy-virt",
-        "Foundation-v8A",
-        "BCM2709",
-        "Raspberry Pi 2 Model B",
-        "Raspberry Pi 2 Model B Rev 1.1",
-    ]
-
-    if os.path.exists('/proc/device-tree/model'):
-        machine = open('/proc/device-tree/model', 'r').readline()
-        # Remove non-printable characters
-        machine = ''.join([i for i in machine if i.isprintable()])
-    else:
-        with open('/proc/cpuinfo', 'r') as f:
-            machine = None
-            machine_regex = re.compile('^Hardware\s*:\s*(?P<machine>.*)')
-            for line in f:
-                m = machine_regex.search(line)
-                if m:
-                    machine = m.group('machine')
-                    break
-
-    return machine in uboot_machines
-
-
 def install_kernel(cfg, target):
     kernel_cfg = cfg.get('kernel', {'package': None,
                                     'fallback-package': "linux-generic",
@@ -249,8 +176,20 @@ def install_kernel(cfg, target):
 
     # Machines using u-boot need u-boot-tools installed before the kernel
     # otherwise kernel installation fails. See LP:1640519
-    if machine_uses_uboot():
-        util.install_packages(['u-boot-tools'], target=target)
+    if not util.is_uefi_bootable() and 'arm' in util.get_architecture():
+        # Install flash-kernel into the ephemeral environment so Curtin can
+        # detect if u-boot-tools should be installed in the target system.
+        util.install_packages(['flash-kernel'])
+        has_uboot, _ = util.subp(
+            [
+                'export FK_DIR=/usr/share/flash-kernel;'
+                '. ${FK_DIR}/functions;'
+                'check_supported "$(get_cpuinfo_hardware)"'
+                '&& echo "true" || echo "false"'
+            ],
+            capture=True, shell=True)
+        if out.strip() == "true":
+            util.install_packages(['u-boot-tools'], target=target)
 
     if kernel_package:
         util.install_packages([kernel_package], target=target)
