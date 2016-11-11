@@ -18,7 +18,6 @@
 import copy
 import os
 import platform
-import re
 import sys
 import shutil
 import textwrap
