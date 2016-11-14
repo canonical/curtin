@@ -173,22 +173,29 @@ def install_kernel(cfg, target):
     mapping = copy.deepcopy(KERNEL_MAPPING)
     config.merge_config(mapping, kernel_cfg.get('mapping', {}))
 
-    # Machines using u-boot need u-boot-tools installed before the kernel
-    # otherwise kernel installation fails. See LP:1640519
+    # Machines using flash-kernel may need additional dependencies installed
+    # before running. Run those checks in the ephemeral environment so the
+    # target only has required packages installed.  See LP:1640519
     if not util.is_uefi_bootable() and 'arm' in util.get_architecture():
-        # Install flash-kernel into the ephemeral environment so Curtin can
-        # detect if u-boot-tools should be installed in the target system.
         util.install_packages(['flash-kernel'])
-        has_uboot, _ = util.subp(
-            [
-                'export FK_DIR=/usr/share/flash-kernel;'
-                '. ${FK_DIR}/functions;'
-                'check_supported "$(get_cpuinfo_hardware)"'
-                '&& echo "true" || echo "false"'
-            ],
-            capture=True, shell=True)
-        if out.strip() == "true":
-            util.install_packages(['u-boot-tools'], target=target)
+        try:
+            fk_packages, _ = util.subp(
+                [
+                    'export FK_DIR=/usr/share/flash-kernel;'
+                    '. ${FK_DIR}/functions;'
+                    'machine="$(get_cpuinfo_hardware)";'
+                    'get_machine_field "${machine}" "Required-packages";'
+                ],
+                capture=True, shell=True)
+        except util.ProcessExecutionError:
+            # get_machine_field gives a non-zero return code when there are no
+            # required packages. This causes subp to raise an exception which
+            # we can safely ignore.
+            pass
+        else:
+            if fk_packages.strip() != '':
+                util.install_packages(
+                    ['flash-kernel'] + fk_packages.split(), target=target)
 
     if kernel_package:
         util.install_packages([kernel_package], target=target)
