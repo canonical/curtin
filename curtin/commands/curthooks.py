@@ -183,19 +183,21 @@ def install_kernel(cfg, target):
                 [
                     'export FK_DIR=/usr/share/flash-kernel;'
                     '. ${FK_DIR}/functions;'
+                    'check_supported;'
                     'machine="$(get_cpuinfo_hardware)";'
-                    'get_machine_field "${machine}" "Required-packages";'
+                    'get_machine_field "${machine}" "Required-packages" ||:;'
                 ],
                 capture=True, shell=True)
         except util.ProcessExecutionError:
-            # get_machine_field gives a non-zero return code when there are no
-            # required packages. This causes subp to raise an exception which
-            # we can safely ignore.
+            # check_supported gives a non-zero return code when the machine
+            # isn't supported by flash-kernel. get_machine_field also returns
+            # a non-zero return code when no additional packages are required.
+            # It's ignored so flash-kernel is installed if its supported even
+            # if it doesn't require additional packages.
             pass
         else:
-            if fk_packages.strip() != '':
-                util.install_packages(
-                    ['flash-kernel'] + fk_packages.split(), target=target)
+            util.install_packages(
+                ['flash-kernel'] + fk_packages.split(), target=target)
 
     if kernel_package:
         util.install_packages([kernel_package], target=target)
