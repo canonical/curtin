@@ -183,8 +183,8 @@ def install_kernel(cfg, target):
                 [
                     'export FK_DIR=/usr/share/flash-kernel;'
                     '. ${FK_DIR}/functions;'
-                    'check_supported;'
                     'machine="$(get_cpuinfo_hardware)";'
+                    'check_supported "${machine}";'
                     'get_machine_field "${machine}" "Required-packages" ||:;'
                 ],
                 capture=True, shell=True)
