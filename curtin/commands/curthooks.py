@@ -177,7 +177,7 @@ def install_kernel(cfg, target):
     # before running. Run those checks in the ephemeral environment so the
     # target only has required packages installed.  See LP:1640519
     if not util.is_uefi_bootable() and 'arm' in util.get_architecture():
-        util.install_packages(['flash-kernel'])
+        util.install_packages(['flash-kernel'], target="/")
         try:
             fk_packages, _ = util.subp(
                 [
