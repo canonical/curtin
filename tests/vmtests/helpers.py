@@ -67,6 +67,7 @@ class Command(object):
 
         return 0
 
+
 try:
     TimeoutExpired = subprocess.TimeoutExpired
 except AttributeError:
