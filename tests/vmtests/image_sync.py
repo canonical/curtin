@@ -27,10 +27,10 @@ IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
 KEYRING = '/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg'
 ITEM_NAME_FILTERS = ['ftype~(root-image.gz|boot-initrd|boot-kernel|root-tgz)']
 FORMAT_JSON = 'JSON'
+STREAM_BASE = 'com.ubuntu.maas:daily'
 VMTEST_CONTENT_ID_PATH_MAP = {
-    "com.ubuntu.maas:daily:v2:download": "streams/v1/vmtest.json",
-    "com.ubuntu.maas:daily:centos-bases-download":
-        "streams/v1/vmtest-centos.json",
+    STREAM_BASE + ":v2:download": "streams/v1/vmtest.json",
+    STREAM_BASE + ":centos-bases-download": "streams/v1/vmtest-centos.json",
 }
 
 DEFAULT_OUTPUT_FORMAT = (
