@@ -177,23 +177,10 @@ def install_kernel(cfg, target):
     # before running. Run those checks in the ephemeral environment so the
     # target only has required packages installed.  See LP:1640519
     if not util.is_uefi_bootable() and 'arm' in util.get_architecture():
-        util.install_packages(['flash-kernel'])
         try:
-            fk_packages, _ = util.subp(
-                [
-                    'export FK_DIR=/usr/share/flash-kernel;'
-                    '. ${FK_DIR}/functions;'
-                    'machine="$(get_cpuinfo_hardware)";'
-                    'check_supported "${machine}";'
-                    'get_machine_field "${machine}" "Required-Packages" ||:;'
-                ],
-                capture=True, shell=True)
+            fk_packages, _ = util.subp(['prep-flash-kernel'], capture=True)
         except util.ProcessExecutionError:
-            # check_supported gives a non-zero return code when the machine
-            # isn't supported by flash-kernel. get_machine_field also returns
-            # a non-zero return code when no additional packages are required.
-            # It's ignored so flash-kernel is installed if its supported even
-            # if it doesn't require additional packages.
+            # Ignore errors
             pass
         else:
             util.install_packages(
