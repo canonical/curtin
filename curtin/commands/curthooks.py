@@ -185,7 +185,7 @@ def install_kernel(cfg, target):
                     '. ${FK_DIR}/functions;'
                     'machine="$(get_cpuinfo_hardware)";'
                     'check_supported "${machine}";'
-                    'get_machine_field "${machine}" "Required-packages" ||:;'
+                    'get_machine_field "${machine}" "Required-Packages" ||:;'
                 ],
                 capture=True, shell=True)
         except util.ProcessExecutionError:
