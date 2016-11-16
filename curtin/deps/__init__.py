@@ -53,7 +53,7 @@ else:
     REQUIRED_IMPORTS.append(
         ('import oauthlib.oauth1', 'python-oauthlib', 'python3-oauthlib'),)
 
-if is_uefi_bootable() and 'arm' in get_architecture():
+if not is_uefi_bootable() and 'arm' in get_architecture():
     REQUIRED_EXECUTABLES.append('flash-kernel', 'flash-kernel')
 
 
