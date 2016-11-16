@@ -661,6 +661,7 @@ def POPULATE_SUBCMD(parser):
     """Populate subcommand option parsing for apt-config"""
     populate_one_subcmd(parser, CMD_ARGUMENTS, apt_command)
 
+
 CONFIG_CLEANERS = {
     'cloud-init': clean_cloud_init,
 }
