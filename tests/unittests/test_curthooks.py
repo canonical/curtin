@@ -101,7 +101,8 @@ class TestCurthooksInstallKernel(CurthooksBase):
         self.mock_instpkg.assert_has_calls(inst_calls)
 
         print('subp calls: %s' % self.mock_subp.mock_calls)
-        self.assertTrue(self.mock_subp.called)
+        self.mock_subp.assert_called_once_with(
+            ['prep-flash-kernel'], capture=True)
 
     def test_install_kernel_flash_kernel_unsupported(self):
         kernel_package = self.kernel_cfg.get('kernel', {}).get('package', {})
@@ -127,7 +128,8 @@ class TestCurthooksInstallKernel(CurthooksBase):
         self.mock_instpkg.assert_has_calls(inst_calls)
 
         print('subp calls: %s' % self.mock_subp.mock_calls)
-        self.assertTrue(self.mock_subp.called)
+        self.mock_subp.assert_called_once_with(
+            ['prep-flash-kernel'], capture=True)
 
     def test_install_kernel_flash_kernel_no_reqs(self):
         no_required_packages = ""
@@ -156,7 +158,8 @@ class TestCurthooksInstallKernel(CurthooksBase):
         self.mock_instpkg.assert_has_calls(inst_calls)
 
         print('subp calls: %s' % self.mock_subp.mock_calls)
-        self.assertTrue(self.mock_subp.called)
+        self.mock_subp.assert_called_once_with(
+            ['prep-flash-kernel'], capture=True)
 
 
 # vi: ts=4 expandtab syntax=python

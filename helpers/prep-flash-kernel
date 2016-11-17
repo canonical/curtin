@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/sh -e
 # Return the list of packages flash-kernel requires for this machine if
 # supported. If not supported return a non-zero return code.
 
