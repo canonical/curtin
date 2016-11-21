@@ -183,8 +183,7 @@ def install_kernel(cfg, target):
             # Ignore errors
             pass
         else:
-            util.install_packages(
-                ['flash-kernel'] + fk_packages.split(), target=target)
+            util.install_packages(fk_packages.split(), target=target)
 
     if kernel_package:
         util.install_packages([kernel_package], target=target)
