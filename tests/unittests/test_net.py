@@ -1,10 +1,12 @@
 from unittest import TestCase
+import mock
 import os
 import shutil
 import tempfile
 import yaml
 
 from curtin import net
+from curtin import config
 import curtin.net.network_state as network_state
 from textwrap import dedent
 
@@ -653,6 +655,63 @@ network:
         print(ifaces)
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
+
+    @mock.patch('curtin.util.get_package_version')
+    def test_netconfig_passthrough_available(self, mock_pkgver):
+        mock_pkgver.return_value = {
+            'major': '0',
+            'minor': '7',
+            'micro': '8',
+            'name': 'cloud-init',
+            'raw': '0.7.8-15-g6e45ffb-0ubuntu1',
+            'semantic_version': 708,
+            'upstream': '0.7.8'
+        }
+        pt_avail = net.netconfig_passthrough_available(self.target)
+        self.assertTrue(pt_avail)
+
+    @mock.patch('curtin.util.get_package_version')
+    def test_netconfig_passthrough_available_older(self, mock_pkgver):
+        mock_pkgver.return_value = {
+            'major': '0',
+            'minor': '7',
+            'micro': '5',
+            'name': 'cloud-init',
+            'raw': '0.7.5-1-0ubuntu1',
+            'semantic_version': 705,
+            'upstream': '0.7.5'
+        }
+        pt_avail = net.netconfig_passthrough_available(self.target)
+        self.assertFalse(pt_avail)
+
+    @mock.patch('curtin.util.get_package_version')
+    def test_netconfig_passthrough_available_none(self, mock_pkgver):
+        mock_pkgver.return_value = None
+        pt_avail = net.netconfig_passthrough_available(self.target)
+        self.assertFalse(pt_avail)
+
+    @mock.patch('curtin.util.get_package_version')
+    def test_netconfig_passthrough_available_nondict(self, mock_pkgver):
+        mock_pkgver.return_value = []
+        pt_avail = net.netconfig_passthrough_available(self.target)
+        self.assertFalse(pt_avail)
+
+    @mock.patch('curtin.util.write_file')
+    def test_render_netconfig_passthrough(self, mock_writefile):
+        netcfg = yaml.safe_load(self.config)
+        pt_config = 'etc/cloud/cloud.cfg.d/curtin-networking.cfg'
+        target_config = os.path.sep.join((self.target, pt_config),)
+
+        net.render_netconfig_passthrough(self.target, netconfig=netcfg)
+
+        content = config.dump_config(netcfg)
+        mock_writefile.assert_called_with(target_config, content=content)
+
+    def test_render_netconfig_passthrough_nonetcfg(self):
+        netcfg = None
+        self.assertRaises(ValueError,
+                          net.render_netconfig_passthrough,
+                          self.target, netconfig=netcfg)
 
 
 # vi: ts=4 expandtab syntax=python
