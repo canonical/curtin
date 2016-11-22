@@ -94,8 +94,7 @@ class TestCurthooksInstallKernel(CurthooksBase):
         # 2) install kernel_cfg.get('package')
         print('install_pkgs calls:\n%s' % self.mock_instpkg.mock_calls)
         inst_calls = [
-            call(['flash-kernel'] + required_packages.split(),
-                 target=self.target),  # required_packages install
+            call(required_packages.split(), target=self.target),
             call([kernel_package], target=self.target)]
 
         self.mock_instpkg.assert_has_calls(inst_calls)
@@ -151,8 +150,7 @@ class TestCurthooksInstallKernel(CurthooksBase):
         # 2) install kernel_cfg.get('package')
         print('install_pkgs calls:\n%s' % self.mock_instpkg.mock_calls)
         inst_calls = [
-            call(['flash-kernel'] + no_required_packages.split(),
-                 target=self.target),  # required_packages install
+            call(no_required_packages.split(), target=self.target),
             call([kernel_package], target=self.target)]
 
         self.mock_instpkg.assert_has_calls(inst_calls)
