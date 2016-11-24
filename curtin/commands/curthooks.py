@@ -356,7 +356,8 @@ def update_initramfs(target=None, all_kernels=False):
     cmd = ['update-initramfs', '-u']
     if all_kernels:
         cmd.extend(['-k', 'all'])
-    util.subp(cmd, target=target)
+    with util.ChrootableTarget(target) as in_chroot:
+        in_chroot.subp(cmd)
 
 
 def copy_fstab(fstab, target):
