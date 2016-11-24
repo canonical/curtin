@@ -54,7 +54,7 @@ else:
         ('import oauthlib.oauth1', 'python-oauthlib', 'python3-oauthlib'),)
 
 if not is_uefi_bootable() and 'arm' in get_architecture():
-    REQUIRED_EXECUTABLES.append('flash-kernel', 'flash-kernel')
+    REQUIRED_EXECUTABLES.append(('flash-kernel', 'flash-kernel'))
 
 
 class MissingDeps(Exception):
