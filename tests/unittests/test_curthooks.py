@@ -1,3 +1,4 @@
+import os
 from unittest import TestCase
 from mock import call, patch
 import shutil
@@ -159,5 +160,44 @@ class TestCurthooksInstallKernel(CurthooksBase):
         self.mock_subp.assert_called_once_with(
             ['prep-flash-kernel'], capture=True)
 
+
+class TestUpdateInitramfs(CurthooksBase):
+    def setUp(self):
+        super(TestUpdateInitramfs, self).setUp()
+        self.add_patch('curtin.util.subp', 'mock_subp')
+        self.target = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.target)
+
+    def _mnt_call(self, point):
+        target = os.path.join(self.target, point)
+        return call(['mount', '--bind', '/%s' % point, target])
+
+    def test_mounts_and_runs(self):
+        curthooks.update_initramfs(self.target)
+
+        print('subp calls: %s' % self.mock_subp.mock_calls)
+        subp_calls = [
+            self._mnt_call('dev'),
+            self._mnt_call('proc'),
+            self._mnt_call('sys'),
+            call(['update-initramfs', '-u'], target=self.target),
+            call(['udevadm', 'settle']),
+        ]
+        self.mock_subp.assert_has_calls(subp_calls)
+
+    def test_mounts_and_runs_for_all_kernels(self):
+        curthooks.update_initramfs(self.target, True)
+
+        print('subp calls: %s' % self.mock_subp.mock_calls)
+        subp_calls = [
+            self._mnt_call('dev'),
+            self._mnt_call('proc'),
+            self._mnt_call('sys'),
+            call(['update-initramfs', '-u', '-k', 'all'], target=self.target),
+            call(['udevadm', 'settle']),
+        ]
+        self.mock_subp.assert_has_calls(subp_calls)
 
 # vi: ts=4 expandtab syntax=python
