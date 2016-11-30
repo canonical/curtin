@@ -495,6 +495,11 @@ class VMBaseClass(TestCase):
                 fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)
 
+        excfg = os.environ.get("CURTIN_VMTEST_EXTRA_CONFIG", False)
+        if excfg:
+            configs.append(excfg)
+            logger.debug('Added extra config {}'.format(excfg))
+
         if cls.multipath:
             disks = disks * cls.multipath_num_paths
 
