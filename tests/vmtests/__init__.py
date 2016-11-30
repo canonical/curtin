@@ -911,17 +911,19 @@ def check_install_log(install_log):
                    'Installation\ failed',
                    'ImportError: No module named.*',
                    'Unexpected error while running command',
-                   'E: Unable to locate package.*']))
+                   'E: Unable to locate package.*',
+                   'Traceback.*most recent call last.*:']))
 
     install_is_ok = re.findall(install_pass, install_log)
+    # always scan for errors
+    errors = re.findall(install_fail, install_log)
     if len(install_is_ok) == 0:
-        errors = re.findall(install_fail, install_log)
-        if len(errors) > 0:
-            for e in errors:
-                logger.error(e)
-            errmsg = ('Errors during curtin installer')
-        else:
-            errmsg = ('Failed to verify Installation is OK')
+        errmsg = ('Failed to verify Installation is OK')
+
+    if len(errors) > 0:
+        for e in errors:
+            logger.error(e)
+        errmsg = ('Errors during curtin installer')
 
     return errmsg, errors
 
