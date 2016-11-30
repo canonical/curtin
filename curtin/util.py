@@ -374,13 +374,11 @@ def undisable_daemons_in_root(target):
         if e.errno != errno.ENOENT:
             raise
         return False
-
     return True
 
 
 class ChrootableTarget(object):
-    def __init__(self, target, allow_daemons=False, sys_resolvconf=True,
-                 clean_gpg_daemons=False):
+    def __init__(self, target, allow_daemons=False, sys_resolvconf=True):
         if target is None:
             target = "/"
         self.target = target_path(target)
@@ -390,8 +388,6 @@ class ChrootableTarget(object):
         self.allow_daemons = allow_daemons
         self.sys_resolvconf = sys_resolvconf
         self.rconf_d = None
-        self.clean_gpg_daemons = clean_gpg_daemons
-        self.time_entered = 0
 
     def __enter__(self):
         for p in self.mounts:
@@ -401,9 +397,6 @@ class ChrootableTarget(object):
 
         if not self.allow_daemons:
             self.disabled_daemons = disable_daemons_in_root(self.target)
-
-        if self.clean_gpg_daemons:
-            self.time_entered = time.time()
 
         rconf = target_path(self.target, "/etc/resolv.conf")
         target_etc = os.path.dirname(rconf)
@@ -428,15 +421,6 @@ class ChrootableTarget(object):
     def __exit__(self, etype, value, trace):
         if self.disabled_daemons:
             undisable_daemons_in_root(self.target)
-
-        # workaround to gnupg >=Y spawning daemons (LP: #1645680)
-        if self.clean_gpg_daemons and self.time_entered is not 0:
-            seconds_since = time.time() - self.time_entered + 1
-            subp(['killall', '--wait', '--quiet', '--younger-than',
-                  '%ds' % seconds_since, 'dirmngr'], rcs=[0, 1])
-            seconds_since = time.time() - self.time_entered + 1
-            subp(['killall', '--wait', '--quiet', '--younger-than',
-                  '%ds' % seconds_since, 'gpg-agent'], rcs=[0, 1])
 
         # if /dev is to be unmounted, udevadm settle (LP: #1462139)
         if target_path(self.target, "/dev") in self.umounts:
