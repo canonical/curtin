@@ -195,6 +195,32 @@ Some environment variables affect the running of vmtest
 
   Controls the number of images of each release retained in the IMAGE_DIR.
 
+- ``CURTIN_VMTEST_EXTRA_CONFIG``: default ''
+
+  This can be set to a valid path to a config yaml.
+  That can be used to change behaviour of the tests however a current debugging
+  session needs it. The following example shows how it can be used for tests
+  against a ppa, but this can also be used to test proposed or actually any
+  modification to ephemeral or target as needed.::
+
+  # example ppa to test into install environment
+  early_commands:
+    10_add_ppa: ['sh', '-xc', 'DEBIAN_FRONTEND=noninteractive add-apt-repository --yes <yourppa>']
+    # update & upgrade what is there already
+    97_update: ['apt-get', 'update']
+    98_upgrade: ['sh', '-xc', 'DEBIAN_FRONTEND=noninteractive apt-get upgrade --yes']
+  # example ppa into target environment via apt feature
+  apt:
+    sources:
+      ignored1:
+        source: "<yourppa>"
+  # example of any other modification
+  early_commands:
+    01_something: ['sh', '-xc', '<yourcommand>']
+  # in target
+  late_commands:
+    02_something: ['sh', '-xc', 'curtin in-target -- <yourcommand>']
+
 Environment 'boolean' values
 ============================
 
