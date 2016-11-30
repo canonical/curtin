@@ -29,39 +29,30 @@ class TestGetFlashKernelPkgs(CurthooksBase):
         self.add_patch('curtin.util.is_uefi_bootable', 'mock_is_uefi_bootable')
 
     def test__returns_none_when_uefi(self):
-        self.mock_is_uefi_bootable.return_value = True
-
-        self.assertIsNone(curthooks.get_flash_kernel_pkgs())
-
+        self.assertIsNone(curthooks.get_flash_kernel_pkgs(uefi=True))
         self.assertFalse(self.mock_subp.called)
 
     def test__returns_none_when_not_arm(self):
-        self.mock_is_uefi_bootable.return_value = False
-        self.mock_get_architecture.return_value = 'amd64'
-
-        self.assertIsNone(curthooks.get_flash_kernel_pkgs())
-
+        self.assertIsNone(curthooks.get_flash_kernel_pkgs('amd64', False))
         self.assertFalse(self.mock_subp.called)
 
     def test__returns_none_on_error(self):
-        self.mock_is_uefi_bootable.return_value = False
-        self.mock_get_architecture.return_value = 'arm64'
         self.mock_subp.side_effect = util.ProcessExecutionError()
-
-        self.assertIsNone(curthooks.get_flash_kernel_pkgs())
-
+        self.assertIsNone(curthooks.get_flash_kernel_pkgs('arm64', False))
         self.mock_subp.assert_called_with(
             ['list-flash-kernel-packages'], capture=True)
 
     def test__returns_flash_kernel_pkgs(self):
-        self.mock_is_uefi_bootable.return_value = False
-        self.mock_get_architecture.return_value = 'arm64'
         self.mock_subp.return_value = 'u-boot-tools', ''
-
-        self.assertEquals('u-boot-tools', curthooks.get_flash_kernel_pkgs())
-
+        self.assertEquals(
+            'u-boot-tools', curthooks.get_flash_kernel_pkgs('arm64', False))
         self.mock_subp.assert_called_with(
             ['list-flash-kernel-packages'], capture=True)
+
+    def test__calls_get_arch_and_is_uefi_bootable_when_undef(self):
+        curthooks.get_flash_kernel_pkgs()
+        self.mock_get_architecture.assert_called_once_with()
+        self.mock_is_uefi_bootable.assert_called_once_with()
 
 
 class TestCurthooksInstallKernel(CurthooksBase):

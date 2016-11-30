@@ -159,10 +159,14 @@ def run_zipl(cfg, target):
         in_chroot.subp(['zipl'])
 
 
-def get_flash_kernel_pkgs():
-    if util.is_uefi_bootable():
+def get_flash_kernel_pkgs(arch=None, uefi=None):
+    if arch is None:
+        arch = util.get_architecture()
+    if uefi is None:
+        uefi = util.is_uefi_bootable()
+    if uefi:
         return None
-    if not util.get_architecture().startswith('arm'):
+    if not arch.startswith('arm'):
         return None
 
     try:
