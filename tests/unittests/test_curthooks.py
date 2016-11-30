@@ -21,144 +21,84 @@ class CurthooksBase(TestCase):
         setattr(self, attr, p)
 
 
+class TestGetFlashKernelPkgs(CurthooksBase):
+    def setUp(self):
+        super(TestGetFlashKernelPkgs, self).setUp()
+        self.add_patch('curtin.util.subp', 'mock_subp')
+        self.add_patch('curtin.util.get_architecture', 'mock_get_architecture')
+        self.add_patch('curtin.util.is_uefi_bootable', 'mock_is_uefi_bootable')
+
+    def test__returns_none_when_uefi(self):
+        self.mock_is_uefi_bootable.return_value = True
+
+        self.assertIsNone(curthooks.get_flash_kernel_pkgs())
+
+        self.assertFalse(self.mock_subp.called)
+
+    def test__returns_none_when_not_arm(self):
+        self.mock_is_uefi_bootable.return_value = False
+        self.mock_get_architecture.return_value = 'amd64'
+
+        self.assertIsNone(curthooks.get_flash_kernel_pkgs())
+
+        self.assertFalse(self.mock_subp.called)
+
+    def test__returns_none_on_error(self):
+        self.mock_is_uefi_bootable.return_value = False
+        self.mock_get_architecture.return_value = 'arm64'
+        self.mock_subp.side_effect = util.ProcessExecutionError()
+
+        self.assertIsNone(curthooks.get_flash_kernel_pkgs())
+
+        self.mock_subp.assert_called_with(
+            ['list-flash-kernel-packages'], capture=True)
+
+    def test__returns_flash_kernel_pkgs(self):
+        self.mock_is_uefi_bootable.return_value = False
+        self.mock_get_architecture.return_value = 'arm64'
+        self.mock_subp.return_value = 'u-boot-tools', ''
+
+        self.assertEquals('u-boot-tools', curthooks.get_flash_kernel_pkgs())
+
+        self.mock_subp.assert_called_with(
+            ['list-flash-kernel-packages'], capture=True)
+
+
 class TestCurthooksInstallKernel(CurthooksBase):
     def setUp(self):
         super(TestCurthooksInstallKernel, self).setUp()
         self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
-        self.add_patch('curtin.util.subp', 'mock_subp')
         self.add_patch('curtin.util.install_packages', 'mock_instpkg')
-        self.add_patch('curtin.util.get_architecture', 'mock_getarch')
-        self.add_patch('curtin.util.is_uefi_bootable', 'mock_isuefi')
+        self.add_patch(
+            'curtin.commands.curthooks.get_flash_kernel_pkgs',
+            'mock_get_flash_kernel_pkgs')
 
         self.kernel_cfg = {'kernel': {'package': 'mock-linux-kernel',
                                       'fallback-package': 'mock-fallback',
                                       'mapping': {}}}
-        self.target = tempfile.mkdtemp()
+        # Tests don't actually install anything so we just need a name
+        self.target = tempfile.mktemp()
 
-    def tearDown(self):
-        shutil.rmtree(self.target)
-
-    def test_install_kernel_flash_kernel_non_arm(self):
+    def test__installs_flash_kernel_packages_when_needed(self):
         kernel_package = self.kernel_cfg.get('kernel', {}).get('package', {})
-
-        self.mock_isuefi.return_value = False
-        self.mock_getarch.return_value = 'ppc64el'
-        self.mock_instpkg.return_value = ("", "")
+        self.mock_get_flash_kernel_pkgs.return_value = 'u-boot-tools'
 
         curthooks.install_kernel(self.kernel_cfg, self.target)
 
-        # 1) install kernel_cfg.get('package')
-        print('install_pkgs calls:\n%s' % self.mock_instpkg.mock_calls)
-        inst_calls = [call([kernel_package], target=self.target)]
-
-        self.mock_instpkg.assert_has_calls(inst_calls)
-
-        print('subp calls: %s' % self.mock_subp.mock_calls)
-        self.assertFalse(self.mock_subp.called)
-
-    def test_install_kernel_flash_kernel_uefi(self):
-        kernel_package = self.kernel_cfg.get('kernel', {}).get('package', {})
-
-        self.mock_isuefi.return_value = True
-        self.mock_getarch.return_value = 'ppc64el'
-        self.mock_instpkg.return_value = ("", "")
-
-        curthooks.install_kernel(self.kernel_cfg, self.target)
-
-        # 1) install kernel_cfg.get('package')
-        print('install_pkgs calls:\n%s' % self.mock_instpkg.mock_calls)
-        inst_calls = [call([kernel_package], target=self.target)]
-
-        self.mock_instpkg.assert_has_calls(inst_calls)
-
-        print('subp calls: %s' % self.mock_subp.mock_calls)
-        self.assertFalse(self.mock_subp.called)
-
-    def test_install_kernel_flash_kernel(self):
-        required_packages = "foobar"
-        kernel_package = self.kernel_cfg.get('kernel', {}).get('package', {})
-
-        self.mock_isuefi.return_value = False
-        self.mock_getarch.return_value = 'arm64'
-        self.mock_instpkg.return_value = ("", "")
-        self.mock_subp.side_effect = iter([(required_packages, "")])
-
-        curthooks.install_kernel(self.kernel_cfg, self.target)
-
-        print('isuefi calls: %s' % self.mock_isuefi.mock_calls)
-        self.mock_isuefi.assert_called_with()
-
-        print('getarch calls: %s' % self.mock_getarch.mock_calls)
-        self.mock_getarch.assert_called_with()
-
-        # 1) install required_packages
-        # 2) install kernel_cfg.get('package')
-        print('install_pkgs calls:\n%s' % self.mock_instpkg.mock_calls)
         inst_calls = [
-            call(required_packages.split(), target=self.target),
+            call(['u-boot-tools'], target=self.target),
             call([kernel_package], target=self.target)]
 
         self.mock_instpkg.assert_has_calls(inst_calls)
 
-        print('subp calls: %s' % self.mock_subp.mock_calls)
-        self.mock_subp.assert_called_once_with(
-            ['prep-flash-kernel'], capture=True)
-
-    def test_install_kernel_flash_kernel_unsupported(self):
+    def test__installs_kernel_package(self):
         kernel_package = self.kernel_cfg.get('kernel', {}).get('package', {})
-
-        self.mock_isuefi.return_value = False
-        self.mock_getarch.return_value = 'arm64'
-        self.mock_instpkg.return_value = ("", "")
-        self.mock_subp.side_effect = iter([util.ProcessExecutionError])
+        self.mock_get_flash_kernel_pkgs.return_value = None
 
         curthooks.install_kernel(self.kernel_cfg, self.target)
 
-        print('isuefi calls: %s' % self.mock_isuefi.mock_calls)
-        self.mock_isuefi.assert_called_with()
-
-        print('getarch calls: %s' % self.mock_getarch.mock_calls)
-        self.mock_getarch.assert_called_with()
-
-        # skip install required_packages as machine is unsupported
-        # 2) install kernel_cfg.get('package')
-        print('install_pkgs calls:\n%s' % self.mock_instpkg.mock_calls)
-        inst_calls = [
-            call([kernel_package], target=self.target)]
-        self.mock_instpkg.assert_has_calls(inst_calls)
-
-        print('subp calls: %s' % self.mock_subp.mock_calls)
-        self.mock_subp.assert_called_once_with(
-            ['prep-flash-kernel'], capture=True)
-
-    def test_install_kernel_flash_kernel_no_reqs(self):
-        no_required_packages = ""
-        kernel_package = self.kernel_cfg.get('kernel', {}).get('package', {})
-
-        self.mock_isuefi.return_value = False
-        self.mock_getarch.return_value = 'arm64'
-        self.mock_instpkg.return_value = ("", "")
-        self.mock_subp.side_effect = iter([(no_required_packages, "")])
-        curthooks.install_kernel(self.kernel_cfg, self.target)
-
-        print('isuefi calls: %s' % self.mock_isuefi.mock_calls)
-        self.mock_isuefi.assert_called_with()
-
-        print('getarch calls: %s' % self.mock_getarch.mock_calls)
-        self.mock_getarch.assert_called_with()
-
-        # 1) install required_packages
-        # 2) install kernel_cfg.get('package')
-        print('install_pkgs calls:\n%s' % self.mock_instpkg.mock_calls)
-        inst_calls = [
-            call(no_required_packages.split(), target=self.target),
-            call([kernel_package], target=self.target)]
-
-        self.mock_instpkg.assert_has_calls(inst_calls)
-
-        print('subp calls: %s' % self.mock_subp.mock_calls)
-        self.mock_subp.assert_called_once_with(
-            ['prep-flash-kernel'], capture=True)
+        self.mock_instpkg.assert_called_with(
+            [kernel_package], target=self.target)
 
 
 class TestUpdateInitramfs(CurthooksBase):

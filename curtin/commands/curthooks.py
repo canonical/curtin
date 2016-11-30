@@ -159,6 +159,21 @@ def run_zipl(cfg, target):
         in_chroot.subp(['zipl'])
 
 
+def get_flash_kernel_pkgs():
+    if util.is_uefi_bootable():
+        return None
+    if not util.get_architecture().startswith('arm'):
+        return None
+
+    try:
+        fk_packages, _ = util.subp(
+            ['list-flash-kernel-packages'], capture=True)
+        return fk_packages
+    except util.ProcessExecutionError:
+        # Ignore errors
+        return None
+
+
 def install_kernel(cfg, target):
     kernel_cfg = cfg.get('kernel', {'package': None,
                                     'fallback-package': "linux-generic",
@@ -176,14 +191,9 @@ def install_kernel(cfg, target):
     # Machines using flash-kernel may need additional dependencies installed
     # before running. Run those checks in the ephemeral environment so the
     # target only has required packages installed.  See LP:1640519
-    if not util.is_uefi_bootable() and 'arm' in util.get_architecture():
-        try:
-            fk_packages, _ = util.subp(['prep-flash-kernel'], capture=True)
-        except util.ProcessExecutionError:
-            # Ignore errors
-            pass
-        else:
-            util.install_packages(fk_packages.split(), target=target)
+    fk_packages = get_flash_kernel_pkgs()
+    if fk_packages:
+        util.install_packages(fk_packages.split(), target=target)
 
     if kernel_package:
         util.install_packages([kernel_package], target=target)
