@@ -403,11 +403,15 @@ def add_apt_sources(srcdict, target=None, template_params=None,
             ent['filename'] += ".list"
 
         if aa_repo_match(source):
-            try:
-                with util.ChrootableTarget(
-                        target, sys_resolvconf=True) as in_chroot:
-                    time_entered = time.time()
+            with util.ChrootableTarget(
+                    target, sys_resolvconf=True) as in_chroot:
+                time_entered = time.time()
+                try:
                     in_chroot.subp(["add-apt-repository", source])
+                except util.ProcessExecutionError:
+                    LOG.exception("add-apt-repository failed.")
+                    raise
+                finally:
                     # workaround to gnupg >=2.x spawning daemons (LP: #1645680)
                     seconds_since = time.time() - time_entered + 1
                     in_chroot.subp(['killall', '--wait', '--quiet',
@@ -417,10 +421,6 @@ def add_apt_sources(srcdict, target=None, template_params=None,
                     in_chroot.subp(['killall', '--wait', '--quiet',
                                     '--younger-than', '%ds' % seconds_since,
                                     'gpg-agent'], rcs=[0, 1])
-
-            except util.ProcessExecutionError:
-                LOG.exception("add-apt-repository failed.")
-                raise
             continue
 
         sourcefn = util.target_path(target, ent['filename'])
