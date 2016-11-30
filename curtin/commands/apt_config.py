@@ -404,7 +404,8 @@ def add_apt_sources(srcdict, target=None, template_params=None,
         if aa_repo_match(source):
             try:
                 with util.ChrootableTarget(
-                        target, sys_resolvconf=True) as in_chroot:
+                        target, sys_resolvconf=True,
+                        clean_gpg_daemons=True) as in_chroot:
                     in_chroot.subp(["add-apt-repository", source])
             except util.ProcessExecutionError:
                 LOG.exception("add-apt-repository failed.")
