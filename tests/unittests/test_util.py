@@ -1,4 +1,4 @@
-from unittest import TestCase
+from unittest import TestCase, skipIf
 import mock
 import os
 import stat
@@ -6,6 +6,7 @@ import shutil
 import tempfile
 
 from curtin import util
+from .helpers import simple_mocked_open
 
 
 class TestLogTimer(TestCase):
@@ -459,5 +460,35 @@ class TestRunInChroot(TestCase):
         self.assertEqual(my_stderr, err)
         m_subp.assert_called_with(cmd, target=target)
 
+
+class TestLoadFile(TestCase):
+    """Test utility 'load_file'"""
+
+    def test_load_file_simple(self):
+        fname = 'test.cfg'
+        contents = "#curtin-config"
+        with simple_mocked_open(content=contents) as m_open:
+            loaded_contents = util.load_file(fname)
+            self.assertEqual(contents, loaded_contents)
+            m_open.assert_called_with(fname, 'rb')
+
+    @skipIf(mock.__version__ < '2.0.0', "mock version < 2.0.0")
+    def test_load_file_handles_utf8(self):
+        fname = 'test.cfg'
+        contents = b'd\xc3\xa9j\xc8\xa7'
+        with simple_mocked_open(content=contents) as m_open:
+            with open(fname, 'rb') as f:
+                self.assertEqual(f.read(), contents)
+            m_open.assert_called_with(fname, 'rb')
+
+    @skipIf(mock.__version__ < '2.0.0', "mock version < 2.0.0")
+    @mock.patch('curtin.util.decode_binary')
+    def test_load_file_respects_decode_false(self, mock_decode):
+        fname = 'test.cfg'
+        contents = b'start \xc3\xa9 end'
+        with simple_mocked_open(contents):
+            loaded_contents = util.load_file(fname, decode=False)
+            self.assertEqual(type(loaded_contents), bytes)
+            self.assertEqual(loaded_contents, contents)
 
 # vi: ts=4 expandtab syntax=python
