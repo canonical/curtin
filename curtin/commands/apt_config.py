@@ -416,11 +416,8 @@ def add_apt_sources(srcdict, target=None, template_params=None,
                     seconds_since = time.time() - time_entered + 1
                     in_chroot.subp(['killall', '--wait', '--quiet',
                                     '--younger-than', '%ds' % seconds_since,
-                                    'dirmngr'], rcs=[0, 1])
-                    seconds_since = time.time() - time_entered + 1
-                    in_chroot.subp(['killall', '--wait', '--quiet',
-                                    '--younger-than', '%ds' % seconds_since,
-                                    'gpg-agent'], rcs=[0, 1])
+                                    '--regexp', '(dirmngr|gpg-agent)'],
+                                   rcs=[0, 1])
             continue
 
         sourcefn = util.target_path(target, ent['filename'])
