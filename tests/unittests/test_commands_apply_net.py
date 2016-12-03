@@ -180,3 +180,48 @@ class TestApplyNetPatchIfupdown(ApplyNetTestBase):
             call(postcfg, postcontents, mode=mode),
         ]
         mock_write.assert_has_calls(hook_calls)
+
+    @patch('curtin.util.write_file')
+    def test_apply_ipv6_mtu_hook_write_fail(self, mock_write):
+        target = 'mytarget'
+        prehookfn = 'if-pre-up.d/mtuipv6'
+        posthookfn = 'if-up.d/mtuipv6'
+        mock_write.side_effect = (Exception)
+
+        self.assertRaises(Exception,
+                          apply_net._patch_ifupdown_ipv6_mtu_hook,
+                          target,
+                          prehookfn=prehookfn,
+                          posthookfn=posthookfn)
+
+    @patch('curtin.util.write_file')
+    def test_apply_ipv6_mtu_hook_invalid_target(self, mock_write):
+        """ Test that an invalid target will fail to build a
+            proper path for util.write_file
+        """
+        target = {}
+        prehookfn = 'if-pre-up.d/mtuipv6'
+        posthookfn = 'if-up.d/mtuipv6'
+        mock_write.side_effect = (Exception)
+
+        self.assertRaises(ValueError,
+                          apply_net._patch_ifupdown_ipv6_mtu_hook,
+                          target,
+                          prehookfn=prehookfn,
+                          posthookfn=posthookfn)
+
+    @patch('curtin.util.write_file')
+    def test_apply_ipv6_mtu_hook_invalid_prepost_fn(self, mock_write):
+        """ Test that invalid prepost filenames will fail to build a
+            proper path for util.write_file
+        """
+        target = "mytarget"
+        prehookfn = {'a': 1}
+        posthookfn = {'b': 2}
+        mock_write.side_effect = (Exception)
+
+        self.assertRaises(ValueError,
+                          apply_net._patch_ifupdown_ipv6_mtu_hook,
+                          target,
+                          prehookfn=prehookfn,
+                          posthookfn=posthookfn)
