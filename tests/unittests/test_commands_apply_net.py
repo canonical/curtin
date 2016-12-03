@@ -225,3 +225,149 @@ class TestApplyNetPatchIfupdown(ApplyNetTestBase):
                           target,
                           prehookfn=prehookfn,
                           posthookfn=posthookfn)
+
+
+class TestApplyNetPatchIpv6Priv(ApplyNetTestBase):
+
+    @patch('curtin.util.del_file')
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    @patch('curtin.util.write_file')
+    def test_disable_ipv6_priv_extentions(self, mock_write, mock_ospath,
+                                          mock_load, mock_del):
+        target = 'mytarget'
+        path = 'etc/sysctl.d/10-ipv6-privacy.conf'
+        ipv6_priv_contents = (
+            'net.ipv6.conf.all.use_tempaddr = 2\n'
+            'net.ipv6.conf.default.use_tempaddr = 2')
+        expected_ipv6_priv_contents = '\n'.join(
+            ["# IPv6 Privacy Extensions (RFC 4941)",
+             "# Disabled by curtin",
+             "# net.ipv6.conf.all.use_tempaddr = 2",
+             "# net.ipv6.conf.default.use_tempaddr = 2"])
+        mock_ospath.exists.return_value = True
+        mock_load.side_effect = [ipv6_priv_contents]
+
+        apply_net._disable_ipv6_privacy_extensions(target)
+
+        cfg = util.target_path(target, path=path)
+        mock_write.assert_called_with(cfg, expected_ipv6_priv_contents)
+
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    def test_disable_ipv6_priv_extentions_decoderror(self, mock_ospath,
+                                                     mock_load):
+        target = 'mytarget'
+        mock_ospath.exists.return_value = True
+
+        # simulate loading of binary data
+        mock_load.side_effect = (Exception)
+
+        self.assertRaises(Exception,
+                          apply_net._disable_ipv6_privacy_extensions,
+                          target)
+
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    def test_disable_ipv6_priv_extentions_nomatch(self, mock_ospath,
+                                                  mock_load):
+
+        target = 'mytarget'
+        path = 'etc/sysctl.d/10-ipv6-privacy.conf'
+        ipv6_priv_contents = "No match"
+
+        mock_ospath.return_value = True
+        mock_load.side_effect = [ipv6_priv_contents]
+
+        self.assertRaises(Exception,
+                          apply_net._disable_ipv6_privacy_extensions,
+                          target)
+
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    def test_disable_ipv6_priv_extentions_notfound(self, mock_ospath,
+                                                   mock_load):
+        target = 'mytarget'
+        path = 'foo.conf'
+        mock_ospath.exists.return_value = False
+
+        apply_net._disable_ipv6_privacy_extensions(target, path=path)
+
+        # source file not found
+        cfg = util.target_path(target, path)
+        mock_ospath.exists.assert_called_with(cfg)
+        mock_load.assert_not_called()
+
+
+class TestApplyNetRemoveLegacyEth0(ApplyNetTestBase):
+
+    @patch('curtin.util.del_file')
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    def test_remove_legacy_eth0(self, mock_ospath, mock_load, mock_del):
+        target = 'mytarget'
+        path = 'eth0.cfg'
+        cfg = util.target_path(target, path)
+        legacy_eth0_contents = (
+            'auto eth0\n'
+            'iface eth0 inet dhcp')
+
+        mock_ospath.exists.return_value = True
+        mock_load.side_effect = [legacy_eth0_contents]
+
+        apply_net._maybe_remove_legacy_eth0(target, path)
+
+        mock_del.assert_called_with(cfg)
+
+    @patch('curtin.util.del_file')
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    def test_remove_legacy_eth0_nomatch(self, mock_ospath, mock_load,
+                                        mock_del):
+        target = 'mytarget'
+        path = 'eth0.cfg'
+        cfg = util.target_path(target, path)
+        legacy_eth0_contents = "nomatch"
+        mock_ospath.exists.return_value = True
+        mock_load.side_effect = [legacy_eth0_contents]
+
+        self.assertRaises(Exception,
+                          apply_net._maybe_remove_legacy_eth0,
+                          target, path)
+
+        mock_del.assert_not_called()
+
+    @patch('curtin.util.del_file')
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    def test_remove_legacy_eth0_badload(self, mock_ospath, mock_load,
+                                        mock_del):
+        target = 'mytarget'
+        path = 'eth0.cfg'
+        cfg = util.target_path(target, path)
+        legacy_eth0_contents = "nomatch"
+        mock_ospath.exists.return_value = True
+        mock_load.side_effect = (Exception)
+
+        self.assertRaises(Exception,
+                          apply_net._maybe_remove_legacy_eth0,
+                          target, path)
+
+        mock_del.assert_not_called()
+
+    @patch('curtin.util.del_file')
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    def test_remove_legacy_eth0_notfound(self, mock_ospath, mock_load,
+                                         mock_del):
+        target = 'mytarget'
+        path = 'eth0.conf'
+        mock_ospath.exists.return_value = False
+
+        apply_net._maybe_remove_legacy_eth0(target, path)
+
+        # source file not found
+        cfg = util.target_path(target, path)
+        mock_ospath.exists.assert_called_with(cfg)
+        mock_load.assert_not_called()
+        mock_del.assert_not_called()
