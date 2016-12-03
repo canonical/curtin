@@ -21,6 +21,7 @@ import sys
 from .. import log
 import curtin.net as net
 import curtin.util as util
+from curtin import config
 from . import populate_one_subcmd
 
 
@@ -89,12 +90,33 @@ def apply_net(target, network_state=None, network_config=None):
         sys.stderr.write(msg + "\n")
         raise Exception(msg)
 
+    passthrough = False
     if network_state:
         ns = net.network_state.from_state_file(network_state)
+        # FIXME: pass-through not supported unless we create
+        # a network_state -> network_config step
     elif network_config:
-        ns = net.parse_net_config(network_config)
+        netcfg = config.load_config(network_config)
 
-    net.render_network_state(target=target, network_state=ns)
+        # curtin will pass-through the netconfig into the target
+        # for rendering at runtime, unless:
+        #   1) target OS does not support (cloud-init too old)
+        #   2) config disables passthrough
+        passthrough = netcfg.get('network', {}).get('passthrough', None)
+        LOG.debug('netcfg set passthrough to: %s', passthrough)
+        if not passthrough:
+            LOG.debug('testing in-target cloud-init version for support')
+            passthrough = net.netconfig_passthrough_available(target)
+            LOG.debug('passthrough via in-target: %s', passthrough)
+
+        if passthrough:
+            LOG.info('Passing network configuration through to target')
+            net.render_netconfig_passthrough(target, netconfig=netcfg)
+        else:
+            ns = net.parse_net_config_data(netcfg.get('network', {}))
+
+    if not passthrough:
+        net.render_network_state(target=target, network_state=ns)
 
     _maybe_remove_legacy_eth0(target)
     LOG.info('Attempting to remove ipv6 privacy extensions')

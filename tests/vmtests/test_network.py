@@ -1,6 +1,8 @@
 from . import VMBaseClass, logger, helpers
 from .releases import base_vm_classes as relbase
 
+from curtin import net, util
+
 import ipaddress
 import os
 import re
@@ -29,6 +31,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         route -6 -n > route_6_n
         cp -av /run/network ./run_network
         cp -av /var/log/upstart ./upstart ||:
+        cp -av /etc/cloud ./etc_cloud
+        dpkg-query -W -f '${Version}' cloud-init > dpkg_cloud-init_version
         sleep 10 && ip a > ip_a
         """)]
 
@@ -54,6 +58,41 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         eni_lines = eni.split('\n')
         for line in expected_eni.split('\n'):
             self.assertTrue(line in eni_lines)
+
+    def test_network_passthrough(self):
+        cc_disabled = 'cloud.cfg.d/curtin-disable-cloudinit-networking.cfg'
+        cc_passthrough = "cloud.cfg.d/curtin-networking.cfg"
+
+        print('loading collected cloud-init dpkg version string')
+        version_string = self.load_collect_file('dpkg_cloud-init_version')
+        print('c-i version: %s' % version_string)
+        pkg_ver = util.parse_dpkg_version(version_string)
+        print('parsed:\n%s' % pkg_ver)
+
+        available = net.netconfig_passthrough_available(None, pkg_ver=pkg_ver)
+        if available:
+            print('passthrough was available')
+            pt_file = os.path.join(self.td.collect, 'ect_cloud',
+                                   cc_passthrough)
+            print('checking if passthrough file written')
+            self.assertTrue(os.path.exists(pt_file))
+
+            # compare
+            original = util.load_file(self.conf_file)
+            intarget = util.load_file(pt_file)
+        else:
+            print('passthrough not available')
+            cc_disable_file = os.path.join(self.td.collect, 'etc_cloud',
+                                           cc_disabled)
+            print('checking if network:disable file written')
+            self.assertTrue(os.path.exists(cc_disable_file))
+
+            # compare
+            original = 'network: {config: disabled}\n'
+            intarget = util.load_file(cc_disable_file)
+
+        print('checking cloud-init network-cfg content')
+        self.assertEqual(original, intarget)
 
     def test_etc_resolvconf(self):
         with open(os.path.join(self.td.collect, "resolv.conf")) as fp:

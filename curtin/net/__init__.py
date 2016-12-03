@@ -504,7 +504,54 @@ def render_interfaces(network_state):
     return content
 
 
+def netconfig_passthrough_available(target, pkg_ver=None):
+    """
+    Determine if curtin can pass networking config
+    into the target for cloud-init to consume.
+
+    This is available on cloud-init 0.7.6 and newer
+    """
+    LOG.debug('Checking in-target cloud-init version')
+    if pkg_ver is None:
+        pkg_ver = util.get_package_version('cloud-init', target=target)
+
+    if not isinstance(pkg_ver, dict):
+        LOG.debug('cloud-init not available in target=%s', target)
+        return False
+
+    LOG.debug("get_package_version:\n%s", pkg_ver)
+    LOG.debug("cloud-init version is '%s' (major=%s minor=%s micro=%s)",
+              pkg_ver.get('semantic_version'), pkg_ver.get('major'),
+              pkg_ver.get('minor'), pkg_ver.get('micro'))
+    # cloud-init versions < 0.7.6 do _NOT_ want whitespace replaced
+    # i.e. 0.7.6 in Trusty.
+    if pkg_ver.get('semantic_version', 0) < 706:
+        return False
+
+    return True
+
+
+def render_netconfig_passthrough(target, netconfig=None):
+    """
+    Extract original network config and pass it
+    through to cloud-init in target
+    """
+    LOG.debug("generating passthrough netconfig")
+    cc = 'etc/cloud/cloud.cfg.d/curtin-networking.cfg'
+    if not isinstance(netconfig, dict):
+        raise ValueError('Network config must be a dictionary')
+
+    if 'network' not in netconfig:
+        raise ValueError('Network config must contain the key \'network\'')
+
+    content = config.dump_config(netconfig)
+    cc_passthrough = os.path.sep.join((target, cc,))
+    LOG.info('Writing ' + cc_passthrough)
+    util.write_file(cc_passthrough, content=content)
+
+
 def render_network_state(target, network_state):
+    LOG.debug("generating eni from netconfig")
     eni = 'etc/network/interfaces'
     netrules = 'etc/udev/rules.d/70-persistent-net.rules'
     cc = 'etc/cloud/cloud.cfg.d/curtin-disable-cloudinit-networking.cfg'
