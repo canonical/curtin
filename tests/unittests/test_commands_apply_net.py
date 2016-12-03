@@ -1,8 +1,9 @@
 from unittest import TestCase
-from mock import patch
+from mock import patch, call
 import copy
 
 from curtin.commands import apply_net
+from curtin import util
 
 
 class ApplyNetTestBase(TestCase):
@@ -154,3 +155,28 @@ class TestApplyNet(ApplyNetTestBase):
         self.mock_legacy.assert_called_with(self.target)
         self.mock_ipv6_priv.assert_called_with(self.target)
         self.mock_ipv6_mtu.assert_called_with(self.target)
+
+
+class TestApplyNetPatchIfupdown(ApplyNetTestBase):
+
+    @patch('curtin.util.write_file')
+    def test_apply_ipv6_mtu_hook(self, mock_write):
+        target = 'mytarget'
+        prehookfn = 'if-pre-up.d/mtuipv6'
+        posthookfn = 'if-up.d/mtuipv6'
+        mode = 0o755
+
+        apply_net._patch_ifupdown_ipv6_mtu_hook(target,
+                                                prehookfn=prehookfn,
+                                                posthookfn=posthookfn)
+
+        precfg = util.target_path(target, path=prehookfn)
+        postcfg = util.target_path(target, path=posthookfn)
+        precontents = apply_net.IFUPDOWN_IPV6_MTU_PRE_HOOK
+        postcontents = apply_net.IFUPDOWN_IPV6_MTU_POST_HOOK
+
+        hook_calls = [
+            call(precfg, precontents, mode=mode),
+            call(postcfg, postcontents, mode=mode),
+        ]
+        mock_write.assert_has_calls(hook_calls)
