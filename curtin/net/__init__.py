@@ -402,7 +402,7 @@ def render_route(route, indent=""):
                 route_line += " %s %s" % (mapping[k], route[k])
         content.append(up + route_line + or_true)
         content.append(down + route_line + or_true)
-    return "\n".join(content)
+    return "\n".join(content) + "\n"
 
 
 def iface_start_entry(iface):
