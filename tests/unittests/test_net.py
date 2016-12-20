@@ -659,9 +659,9 @@ network:
         conf = [
             {'name': 'eth0', 'type': 'physical',
              'subnets': [{
-                'address': '172.23.31.42/26',
-                'dns_nameservers': [], 'gateway': '172.23.31.2',
-                'type': 'static'}]},
+                 'address': '172.23.31.42/26',
+                 'dns_nameservers': [], 'gateway': '172.23.31.2',
+                 'type': 'static'}]},
             {'type': 'route', 'id': 4,
              'metric': 0, 'destination': '10.0.0.0/12',
              'gateway': '172.23.31.1'},
@@ -698,7 +698,8 @@ network:
         ns = network_state.NetworkState(version=1, config=conf)
         ns.parse_config()
         found = net.render_interfaces(ns.network_state).split('\n')
-        self.assertEqual(sorted([line for line in expected if line]),
+        self.assertEqual(
+            sorted([line for line in expected if line]),
             sorted([line for line in found if line]))
 
 # vi: ts=4 expandtab syntax=python
