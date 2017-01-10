@@ -186,6 +186,7 @@ def _disable_ipv6_privacy_extensions(target,
         msg = (bmsg + " '%s' exists with user configured content." % cfg)
         raise ValueError(msg)
 
+
 def _maybe_remove_legacy_eth0(target,
                               path="etc/network/interfaces.d/eth0.cfg"):
     """Ubuntu cloud images previously included a 'eth0.cfg' that had

@@ -273,7 +273,6 @@ class TestApplyNetPatchIpv6Priv(ApplyNetTestBase):
                                                   mock_load):
 
         target = 'mytarget'
-        path = 'etc/sysctl.d/10-ipv6-privacy.conf'
         ipv6_priv_contents = "No match"
 
         mock_ospath.return_value = True
@@ -326,7 +325,6 @@ class TestApplyNetRemoveLegacyEth0(ApplyNetTestBase):
                                         mock_del):
         target = 'mytarget'
         path = 'eth0.cfg'
-        cfg = util.target_path(target, path)
         legacy_eth0_contents = "nomatch"
         mock_ospath.exists.return_value = True
         mock_load.side_effect = [legacy_eth0_contents]
@@ -344,8 +342,6 @@ class TestApplyNetRemoveLegacyEth0(ApplyNetTestBase):
                                         mock_del):
         target = 'mytarget'
         path = 'eth0.cfg'
-        cfg = util.target_path(target, path)
-        legacy_eth0_contents = "nomatch"
         mock_ospath.exists.return_value = True
         mock_load.side_effect = (Exception)
 
