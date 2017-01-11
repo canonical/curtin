@@ -2,7 +2,6 @@ from .releases import base_vm_classes as relbase
 from .test_network import TestNetworkBaseTestsAbs
 
 import textwrap
-import unittest
 
 
 class TestNetworkIPV6Abs(TestNetworkBaseTestsAbs):
