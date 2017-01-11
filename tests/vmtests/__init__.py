@@ -717,7 +717,9 @@ class VMBaseClass(TestCase):
     def output_files_exist(self, files):
         for f in files:
             logger.debug('checking file %s', f)
-            self.assertTrue(os.path.exists(os.path.join(self.td.collect, f)))
+            fullpath = os.path.join(self.td.collect, f)
+            print('checking file %s' % fullpath)
+            self.assertTrue(os.path.exists(fullpath))
 
     def output_files_dont_exist(self, files):
         for f in files:

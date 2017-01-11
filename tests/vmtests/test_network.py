@@ -1,8 +1,9 @@
 from . import VMBaseClass, logger, helpers
 from .releases import base_vm_classes as relbase
 
-from curtin import net, util
+from curtin import net, util, config
 
+import glob
 import ipaddress
 import os
 import re
@@ -24,7 +25,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         cp -av /etc/network/interfaces .
         cp -av /etc/network/interfaces.d .
         cp /etc/resolv.conf .
-        cp -av /etc/udev/rules.d/70-persistent-net.rules .
+        cp -av /etc/udev/rules.d/70-persistent-net.rules . ||:
         ip -o route show > ip_route_show
         ip -6 -o route show > ip_6_route_show
         route -n > route_n
@@ -32,13 +33,13 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         cp -av /run/network ./run_network
         cp -av /var/log/upstart ./upstart ||:
         cp -av /etc/cloud ./etc_cloud
+        cp -av /var/log/cloud*.log ./
         dpkg-query -W -f '${Version}' cloud-init > dpkg_cloud-init_version
         sleep 10 && ip a > ip_a
         """)]
 
     def test_output_files_exist(self):
         self.output_files_exist([
-            "70-persistent-net.rules",
             "find_interfacesd",
             "ifconfig_a",
             "interfaces",
@@ -49,14 +50,30 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             "route_n",
         ])
 
-    def test_etc_network_interfaces(self):
-        with open(os.path.join(self.td.collect, "interfaces")) as fp:
+    def read_eni(self):
+        eni = ""
+        eni_cfg = ""
+
+        eni_file = os.path.join(self.td.collect, "interfaces")
+        eni_dir = os.path.join(self.td.collect, "interfaces.d", "*.cfg")
+        with open(eni_file) as fp:
             eni = fp.read()
             logger.debug('etc/network/interfaces:\n{}'.format(eni))
+        for cfg in glob.glob(eni_dir):
+            with open(cfg) as fp:
+                eni_cfg += fp.read()
 
+        return (eni, eni_cfg)
+
+    def test_etc_network_interfaces(self):
+        eni, eni_cfg = self.read_eni()
         expected_eni = self.get_expected_etc_network_interfaces()
-        eni_lines = eni.split('\n')
-        for line in expected_eni.split('\n'):
+        eni_lines = eni.split('\n') + eni_cfg.split('\n')
+        print("\n".join(eni_lines))
+        for line in [l for l in expected_eni.split('\n') if len(l) > 0]:
+            if line.startswith("#"):
+                continue
+            print('expected line:\n%s' % line)
             self.assertTrue(line in eni_lines)
 
     def test_network_passthrough(self):
@@ -72,24 +89,26 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         available = net.netconfig_passthrough_available(None, pkg_ver=pkg_ver)
         if available:
             print('passthrough was available')
-            pt_file = os.path.join(self.td.collect, 'ect_cloud',
+            pt_file = os.path.join(self.td.collect, 'etc_cloud',
                                    cc_passthrough)
-            print('checking if passthrough file written')
+            print('checking if passthrough file written: %s' % pt_file)
             self.assertTrue(os.path.exists(pt_file))
 
             # compare
-            original = util.load_file(self.conf_file)
-            intarget = util.load_file(pt_file)
+            original = {'network':
+                        config.load_config(self.conf_file).get('network')}
+            intarget = config.load_config(pt_file)
         else:
             print('passthrough not available')
             cc_disable_file = os.path.join(self.td.collect, 'etc_cloud',
                                            cc_disabled)
-            print('checking if network:disable file written')
+            print('checking if network:disable file written: %s' %
+                  cc_disable_file)
             self.assertTrue(os.path.exists(cc_disable_file))
 
             # compare
-            original = 'network: {config: disabled}\n'
-            intarget = util.load_file(cc_disable_file)
+            original = {'network': {'config': 'disabled'}}
+            intarget = config.load_config(cc_disable_file)
 
         print('checking cloud-init network-cfg content')
         self.assertEqual(original, intarget)

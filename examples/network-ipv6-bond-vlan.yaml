@@ -3,10 +3,10 @@ network:
   config:
     - name: interface0
       type: physical
-      mac_address: BC:76:4E:06:96:B3
+      mac_address: bc:76:4e:06:96:b3
     - name: interface1
       type: physical
-      mac_address: BC:76:4E:04:88:41
+      mac_address: bc:76:4e:04:88:41
     - type: bond
       bond_interfaces:
         - interface0
