@@ -17,8 +17,14 @@
 import os
 import sys
 
-from curtin.util import (which, install_packages, lsb_release,
-                         ProcessExecutionError)
+from curtin.util import (
+    ProcessExecutionError,
+    get_architecture,
+    install_packages,
+    is_uefi_bootable,
+    lsb_release,
+    which,
+)
 
 REQUIRED_IMPORTS = [
     # import string to execute, python2 package, python3 package
@@ -46,6 +52,9 @@ if lsb_release()['codename'] == "precise":
 else:
     REQUIRED_IMPORTS.append(
         ('import oauthlib.oauth1', 'python-oauthlib', 'python3-oauthlib'),)
+
+if not is_uefi_bootable() and 'arm' in get_architecture():
+    REQUIRED_EXECUTABLES.append(('flash-kernel', 'flash-kernel'))
 
 
 class MissingDeps(Exception):

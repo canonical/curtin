@@ -519,8 +519,8 @@ class VMBaseClass(TestCase):
             raise
         finally:
             if os.path.exists(cls.install_log):
-                with open(cls.install_log, 'rb') as l:
-                    content = l.read().decode('utf-8', errors='replace')
+                with open(cls.install_log, 'rb') as lfh:
+                    content = lfh.read().decode('utf-8', errors='replace')
                 logger.debug('install serial console output:\n%s', content)
             else:
                 logger.warn("Boot for install did not produce a console log.")
@@ -528,8 +528,8 @@ class VMBaseClass(TestCase):
         logger.debug('')
         try:
             if os.path.exists(cls.install_log):
-                with open(cls.install_log, 'rb') as l:
-                    install_log = l.read().decode('utf-8', errors='replace')
+                with open(cls.install_log, 'rb') as lfh:
+                    install_log = lfh.read().decode('utf-8', errors='replace')
                 errmsg, errors = check_install_log(install_log)
                 if errmsg:
                     for e in errors:
@@ -630,8 +630,8 @@ class VMBaseClass(TestCase):
             raise e
         finally:
             if os.path.exists(cls.boot_log):
-                with open(cls.boot_log, 'rb') as l:
-                    content = l.read().decode('utf-8', errors='replace')
+                with open(cls.boot_log, 'rb') as lfh:
+                    content = lfh.read().decode('utf-8', errors='replace')
                 logger.debug('boot serial console output:\n%s', content)
             else:
                     logger.warn("Booting after install not produce"

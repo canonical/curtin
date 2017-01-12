@@ -80,6 +80,18 @@ class WilyTestNvme(relbase.wily, TestNvmeAbs):
 class XenialTestNvme(relbase.xenial, TestNvmeAbs):
     __test__ = True
 
+    @classmethod
+    def setUpClass(cls):
+        import unittest
+        import datetime
+        if datetime.date.today() < datetime.date(2017, 1, 21):
+            raise unittest.SkipTest(
+                "#1651602 not expected to be fixed in Xenial yet")
+        if datetime.date.today() > datetime.date(2017, 1, 30):
+            raise RuntimeError(
+                "Please remove the LP: #1651602 workaround in XenialTestNvme")
+        super().setUpClass()
+
 
 class YakketyTestNvme(relbase.yakkety, TestNvmeAbs):
     __test__ = True
