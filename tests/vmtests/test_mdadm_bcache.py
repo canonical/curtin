@@ -221,6 +221,21 @@ class YakketyTestMirrorbootPartitions(relbase.yakkety,
     __test__ = True
 
 
+class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
+    # alternative config for more complex setup
+    conf_file = "examples/tests/mirrorboot-uefi.yaml"
+    # initialize secondary disk
+    extra_disks = ['200G']
+    disk_to_check = [('main_disk', 1),
+                     ('second_disk', 1),
+                     ('md0', 2)]
+    uefi = True
+
+
+class XenialTestMirrorbootPartitionsUEFI(TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
