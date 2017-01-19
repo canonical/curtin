@@ -159,6 +159,25 @@ def run_zipl(cfg, target):
         in_chroot.subp(['zipl'])
 
 
+def get_flash_kernel_pkgs(arch=None, uefi=None):
+    if arch is None:
+        arch = util.get_architecture()
+    if uefi is None:
+        uefi = util.is_uefi_bootable()
+    if uefi:
+        return None
+    if not arch.startswith('arm'):
+        return None
+
+    try:
+        fk_packages, _ = util.subp(
+            ['list-flash-kernel-packages'], capture=True)
+        return fk_packages
+    except util.ProcessExecutionError:
+        # Ignore errors
+        return None
+
+
 def install_kernel(cfg, target):
     kernel_cfg = cfg.get('kernel', {'package': None,
                                     'fallback-package': "linux-generic",
@@ -172,6 +191,13 @@ def install_kernel(cfg, target):
 
     mapping = copy.deepcopy(KERNEL_MAPPING)
     config.merge_config(mapping, kernel_cfg.get('mapping', {}))
+
+    # Machines using flash-kernel may need additional dependencies installed
+    # before running. Run those checks in the ephemeral environment so the
+    # target only has required packages installed.  See LP:1640519
+    fk_packages = get_flash_kernel_pkgs()
+    if fk_packages:
+        util.install_packages(fk_packages.split(), target=target)
 
     if kernel_package:
         util.install_packages([kernel_package], target=target)
@@ -344,7 +370,8 @@ def update_initramfs(target=None, all_kernels=False):
     cmd = ['update-initramfs', '-u']
     if all_kernels:
         cmd.extend(['-k', 'all'])
-    util.subp(cmd, target=target)
+    with util.ChrootableTarget(target) as in_chroot:
+        in_chroot.subp(cmd)
 
 
 def copy_fstab(fstab, target):
@@ -532,11 +559,6 @@ def detect_and_handle_multipath(cfg, target):
             'GRUB_DISABLE_LINUX_UUID=true',
             ''])
         util.write_file(grub_cfg, content=msg)
-
-        # FIXME: this assumes grub. need more generic way to update root=
-        util.ensure_dir(os.path.sep.join([target, os.path.dirname(grub_dev)]))
-        with util.ChrootableTarget(target) as in_chroot:
-            in_chroot.subp(['update-grub'])
 
     else:
         LOG.warn("Not sure how this will boot")

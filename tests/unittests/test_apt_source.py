@@ -58,6 +58,7 @@ class PseudoChrootableTarget(util.ChrootableTarget):
     def __exit__(self, exc_type, exc_value, traceback):
         return
 
+
 ChrootableTargetStr = "curtin.commands.apt_config.util.ChrootableTarget"
 
 

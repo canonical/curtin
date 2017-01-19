@@ -34,8 +34,8 @@ def version_string():
         try:
             out = subprocess.check_output(['bzr', 'revno'])
             revno = "bzr%s" % out.decode('utf-8').strip()
-        except subprocess.CalledProcessError as e:
-            pass 
+        except subprocess.CalledProcessError:
+            pass
 
     version = old_version
     if revno:
