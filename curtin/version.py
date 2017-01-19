@@ -13,11 +13,12 @@ def version_string():
         """
         if os.path.exists(pathfile):
             return os.getcwd()
-        elif 'PYTHONPATH' in os.environ:
-            for path in os.environ['PYTHONPATH'].split(":"):
-                curpath = os.path.join(path, pathfile)
-                if os.path.exists(curpath):
-                    return os.path.dirname(curpath)
+        else:
+            path = os.path.abspath(os.path.sep.join(
+                                   [__file__, '..', '..']))
+            curpath = os.path.join(path, pathfile)
+            if os.path.exists(curpath):
+                return os.path.dirname(curpath)
 
         return None
 
@@ -30,8 +31,11 @@ def version_string():
     revno = None
     if bzrdir:
         os.chdir(bzrdir)
-        out = subprocess.check_output(['bzr', 'revno'])
-        revno = "bzr%s" % out.decode('ascii').strip()
+        try:
+            out = subprocess.check_output(['bzr', 'revno'])
+            revno = "bzr%s" % out.decode('utf-8').strip()
+        except subprocess.CalledProcessError as e:
+            pass 
 
     version = old_version
     if revno:
