@@ -145,8 +145,6 @@ class TestMultipath(CurthooksBase):
                        'mock_blk_get_scsi_wwid')
         self.add_patch('curtin.block.get_blockdev_for_partition',
                        'mock_blk_get_blockdev_for_partition')
-        self.add_patch('curtin.util.ChrootableTarget',
-                       'mock_chroot')
         self.add_patch('curtin.commands.curthooks.update_initramfs',
                        'mock_update_initramfs')
         self.target = tempfile.mkdtemp()
@@ -170,9 +168,10 @@ class TestMultipath(CurthooksBase):
 
     def _detect_and_handle_multipath(self, multipath_version=None,
                                      replace_spaces=None):
-        self.mock_subp.side_effect = [
+        self.mock_subp.side_effect = iter([
             (multipath_version, None),
-        ]
+            (None, None),
+        ])
 
         target_dev = '/dev/sdz'
         partno = 1
@@ -194,10 +193,11 @@ class TestMultipath(CurthooksBase):
         curthooks.detect_and_handle_multipath({}, self.target)
 
         self.mock_instpkg.assert_has_calls([
-                call(['multipath-tools-boot'], target=self.target)])
+            call(['multipath-tools-boot'], target=self.target)])
         self.mock_blk_get_scsi_wwid.assert_has_calls([
             call(target_dev, replace_whitespace=replace_spaces)])
-        self.mock_chroot.assert_has_calls([call(self.target)])
+        self.mock_subp.assert_has_calls([call(['update-grub'],
+                                        target=self.target)])
         self.mock_update_initramfs.assert_has_calls([
             call(self.target, all_kernels=True)])
 
@@ -222,11 +222,13 @@ class TestMultipath(CurthooksBase):
             with open(path) as fh:
                 self.assertIn(matchstr, fh.readlines())
 
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_install_multipath_dont_replace_whitespace(self):
         # validate that for multipath version 0.4.9, we do NOT replace spaces
         self._detect_and_handle_multipath(multipath_version='0.4.9',
                                           replace_spaces=False)
 
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_install_multipath_replace_whitespace(self):
         # validate that for multipath version 0.5.0, we DO replace spaces
         self._detect_and_handle_multipath(multipath_version='0.5.0',

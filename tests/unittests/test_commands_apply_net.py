@@ -55,7 +55,7 @@ class TestApplyNet(ApplyNetTestBase):
             'dns': {
                 'nameservers': [],
                 'search': [],
-             }
+            }
         }
 
     # def tearDown(self):
