@@ -165,7 +165,7 @@ def sync_images(src_url, base_dir, filters, verbosity=0):
     return
 
 
-def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
+def get_images(src_url, local_d, distro, release, arch, krel=None, sync=False,
                ftypes=None):
     # ensure that the image items (roottar, kernel, initrd)
     # we need for release and arch are available in base_dir.
@@ -186,7 +186,9 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
         common_filters.append('krel=%s' % krel)
     filters = ['ftype~(%s)' % ("|".join(ftypes.keys()))] + common_filters
 
+    # only sync if requested, allow env to override
     if sync:
+        logger.info('Syncing images from %s with filters=%s', src_url, filters)
         imagesync_mirror(output_d=local_d, source=src_url,
                          mirror_filters=common_filters,
                          max_items=IMAGES_TO_KEEP)
@@ -347,6 +349,7 @@ class VMBaseClass(TestCase):
         img_verstr, ftypes = get_images(
             IMAGE_SRC_URL, IMAGE_DIR, cls.distro, cls.release, cls.arch,
             krel=cls.krel if cls.krel else cls.release,
+            sync=CURTIN_VMTEST_IMAGE_SYNC,
             ftypes=('boot-initrd', 'boot-kernel', 'vmtest.root-image'))
         logger.debug("Install Image %s\n, ftypes: %s\n", img_verstr, ftypes)
         logger.info("Install Image: %s", img_verstr)
@@ -356,7 +359,8 @@ class VMBaseClass(TestCase):
             IMAGE_SRC_URL, IMAGE_DIR,
             cls.target_distro if cls.target_distro else cls.distro,
             cls.target_release if cls.target_release else cls.release,
-            cls.arch, krel=cls.target_krel, ftypes=('vmtest.root-tgz',))
+            cls.arch, krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
+            ftypes=('vmtest.root-tgz',))
         logger.debug("Target Tarball %s\n, ftypes: %s\n", img_verstr, found)
         logger.info("Target Tarball: %s", img_verstr)
         ftypes.update(found)
