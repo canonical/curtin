@@ -492,8 +492,8 @@ main() {
         cmdargs=( curtin $install_deps "${cmdargs[@]:1}" )
     fi
 
-    PYTHONPATH="${top_d}${PYTHONPATH:+${PYTHONPATH}}" \
-        "${top_d}/bin/curtin" pack "${addargs[@]}" -- \
+    local curtin_exe="${CURTIN_VMTEST_CURTIN_EXE:-${top_d}/bin/curtin}"
+    ${curtin_exe} pack "${addargs[@]}" -- \
         "${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
         { error "failed to pack"; return 1; }
 
