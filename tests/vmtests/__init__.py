@@ -18,7 +18,7 @@ from curtin.commands.install import INSTALL_PASS_MSG
 
 from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
-from .image_sync import (IMAGE_SRC_URL, IMAGE_DIR)
+from .image_sync import (IMAGE_SRC_URL, IMAGE_DIR, ITEM_NAME_FILTERS)
 from .helpers import check_call, TimeoutExpired
 from unittest import TestCase, SkipTest
 
@@ -32,7 +32,7 @@ DEFAULT_SSTREAM_OPTS = [
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
-CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", False)
+CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", True)
 IMAGE_SYNCS = []
 TARGET_IMAGE_FORMAT = "raw"
 
@@ -165,7 +165,7 @@ def sync_images(src_url, base_dir, filters, verbosity=0):
     return
 
 
-def get_images(src_url, local_d, distro, release, arch, krel=None, sync=False,
+def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
                ftypes=None):
     # ensure that the image items (roottar, kernel, initrd)
     # we need for release and arch are available in base_dir.
@@ -186,14 +186,22 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=False,
         common_filters.append('krel=%s' % krel)
     filters = ['ftype~(%s)' % ("|".join(ftypes.keys()))] + common_filters
 
-    # only sync if requested, allow env to override
-    if sync:
-        logger.info('Syncing images from %s with filters=%s', src_url, filters)
+    if util.is_true(sync):
+        # sync with the default items + common filters to ensure we get
+        # everything in one go.
+        sync_filters = common_filters + ITEM_NAME_FILTERS
+        logger.info('Syncing images from %s with filters=%s', src_url,
+                    sync_filters)
         imagesync_mirror(output_d=local_d, source=src_url,
-                         mirror_filters=filters,
+                         mirror_filters=sync_filters,
                          max_items=IMAGES_TO_KEEP, verbosity=1)
+    else:
+        logger.info('Image sync disabled, sync=%s', sync)
+        logger.info('env var CURTIN_VMTEST_IMAGE_SYNC=%s',
+                    CURTIN_VMTEST_IMAGE_SYNC)
 
-    query_str = 'query = %s' % (' '.join(filters))
+    query_cmd = 'python3 tests/vmtests/image_sync.py'
+    query_str = '%s query %s %s' % (query_cmd, local_d, ' '.join(filters))
     logger.debug('Query %s for image. %s', local_d, query_str)
     fail_msg = None
 
@@ -207,14 +215,15 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=False,
         results = None
         fail_msg = str(e)
 
-    if not results and not sync:
+    if not results and util.is_true(sync):
         # try to fix this with a sync
         logger.info(fail_msg + "  Attempting to fix with an image sync. (%s)",
                     query_str)
         return get_images(src_url, local_d, distro, release, arch,
                           krel=krel, sync=True, ftypes=ftypes)
     elif not results:
-        raise ValueError("Nothing found in query: %s" % query_str)
+        raise ValueError("Required images not found and "
+                         "syncing disabled:\n%s" % query_str)
 
     missing = []
     found = sorted(f.get('ftype') for f in results)

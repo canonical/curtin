@@ -63,6 +63,9 @@ _DNS_REDIRECT_IP = None
 # matcher used in template rendering functions
 BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
+TRUE_STRINGS = ('true', '1', 'on', 'yes')
+FALSE_STRINGS = ('false', '0', 'off', 'no')
+
 
 def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
           logstring=False, decode="replace", target=None):
@@ -1099,6 +1102,28 @@ class RunInChroot(ChrootableTarget):
         with RunInChroot("/target") as in_chroot:
             in_chroot(["your", "chrooted", "command"])"""
     __call__ = ChrootableTarget.subp
+
+
+def is_true(val, addons=None):
+    if isinstance(val, (bool)):
+        return val is True
+    check_set = TRUE_STRINGS
+    if addons:
+        check_set = list(check_set) + addons
+    if val.lower().strip() in check_set:
+        return True
+    return False
+
+
+def is_false(val, addons=None):
+    if isinstance(val, (bool)):
+        return val is False
+    check_set = FALSE_STRINGS
+    if addons:
+        check_set = list(check_set) + addons
+    if val.lower().strip() in check_set:
+        return True
+    return False
 
 
 # vi: ts=4 expandtab syntax=python

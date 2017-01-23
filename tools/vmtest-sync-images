@@ -42,7 +42,8 @@ if __name__ == '__main__':
     arch_filters = ['arch={}'.format(DEFAULT_ARCH)]
     filter_sets = []
     if len(arg_releases):
-        filter_sets.append([_fmt_list_filter('release', arg_releases)])
+        filter_sets.append([_fmt_list_filter('release', arg_releases),
+                            _fmt_list_filter('krel', arg_releases)])
     else:
         for distname, distro in find_releases_by_distro().items():
             f = ['os={}'.format(distname),
