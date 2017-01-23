@@ -190,8 +190,8 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=False,
     if sync:
         logger.info('Syncing images from %s with filters=%s', src_url, filters)
         imagesync_mirror(output_d=local_d, source=src_url,
-                         mirror_filters=common_filters,
-                         max_items=IMAGES_TO_KEEP)
+                         mirror_filters=filters,
+                         max_items=IMAGES_TO_KEEP, verbosity=1)
 
     query_str = 'query = %s' % (' '.join(filters))
     logger.debug('Query %s for image. %s', local_d, query_str)
@@ -346,6 +346,7 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def get_test_files(cls):
+        # extract paths to the host environment to be used
         img_verstr, ftypes = get_images(
             IMAGE_SRC_URL, IMAGE_DIR, cls.distro, cls.release, cls.arch,
             krel=cls.krel if cls.krel else cls.release,
@@ -355,6 +356,8 @@ class VMBaseClass(TestCase):
         logger.info("Install Image: %s", img_verstr)
         if not cls.target_krel and cls.krel:
             cls.target_krel = cls.krel
+
+        # extract paths to the target OS tarball to be used
         img_verstr, found = get_images(
             IMAGE_SRC_URL, IMAGE_DIR,
             cls.target_distro if cls.target_distro else cls.distro,
