@@ -4,6 +4,7 @@ import subprocess
 
 _PACKAGED_VERSION = '@@PACKAGED_VERSION@@'
 
+
 def version_string():
     """ Extract a version string from curtin source or version file"""
     def _find_path(pathfile):
