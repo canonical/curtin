@@ -32,7 +32,7 @@ DEFAULT_SSTREAM_OPTS = [
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
-CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", False)
+CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", True)
 IMAGE_SYNCS = []
 TARGET_IMAGE_FORMAT = "raw"
 
@@ -165,11 +165,13 @@ def sync_images(src_url, base_dir, filters, verbosity=0):
     return
 
 
-def get_images(src_url, local_d, distro, release, arch, krel=None, sync=False,
-               ftypes=None):
+def get_images(src_url, local_d, distro, release, arch, krel=None,
+               sync="on_missing", ftypes=None):
     # ensure that the image items (roottar, kernel, initrd)
     # we need for release and arch are available in base_dir.
-    # returns updated ftypes dictionary {ftype: item_url}
+    #
+    # returns ftype dictionary with path to each ftype as values
+    # {ftype: item_url}
     if not ftypes:
         ftypes = {
             'vmtest.root-image': '',
@@ -178,7 +180,7 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=False,
             'boot-initrd': ''
         }
     elif isinstance(ftypes, (list, tuple)):
-        ftypes = dict().fromkeys(ftypes)
+        ftypes = dict().fromkeys(ftypes, '')
 
     common_filters = ['release=%s' % release,
                       'arch=%s' % arch, 'os=%s' % distro]
@@ -186,8 +188,8 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=False,
         common_filters.append('krel=%s' % krel)
     filters = ['ftype~(%s)' % ("|".join(ftypes.keys()))] + common_filters
 
-    # only sync if requested, allow env to override
-    if sync:
+    # sync when true, missing items will be sycned unless sync=False
+    if sync is True:
         logger.info('Syncing images from %s with filters=%s', src_url, filters)
         imagesync_mirror(output_d=local_d, source=src_url,
                          mirror_filters=filters,
@@ -207,7 +209,7 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=False,
         results = None
         fail_msg = str(e)
 
-    if not results and not sync:
+    if not results and sync in ['on_missing', True]:
         # try to fix this with a sync
         logger.info(fail_msg + "  Attempting to fix with an image sync. (%s)",
                     query_str)
@@ -346,7 +348,7 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def get_test_files(cls):
-        # extract paths to the host environment to be used
+        # get local absolute filesystem paths for each of the needed file types
         img_verstr, ftypes = get_images(
             IMAGE_SRC_URL, IMAGE_DIR, cls.distro, cls.release, cls.arch,
             krel=cls.krel if cls.krel else cls.release,
@@ -357,7 +359,8 @@ class VMBaseClass(TestCase):
         if not cls.target_krel and cls.krel:
             cls.target_krel = cls.krel
 
-        # extract paths to the target OS tarball to be used
+        # get local absoluate filesystem paths for the OS tarball to be
+        # installed
         img_verstr, found = get_images(
             IMAGE_SRC_URL, IMAGE_DIR,
             cls.target_distro if cls.target_distro else cls.distro,
