@@ -21,7 +21,6 @@ import shutil
 import tempfile
 
 from . import util
-import curtin.version
 
 CALL_ENTRY_POINT_SH_HEADER = """
 #!/bin/sh
@@ -141,11 +140,6 @@ def pack(fdout=None, command=None, paths=None, copy_files=None,
         shutil.copytree(paths['helpers'], os.path.join(exdir, "helpers"))
         shutil.copytree(paths['lib'], os.path.join(exdir, "curtin"),
                         ignore=not_dot_py)
-
-        # write out version string
-        version_file = os.path.join(exdir, ".version")
-        with open(version_file, "w") as vfh:
-            vfh.write(curtin.version.version_string())
 
         write_exe_wrapper(entrypoint='curtin.commands.main',
                           path=os.path.join(bindir, 'curtin'),

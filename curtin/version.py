@@ -16,8 +16,8 @@ def version_string():
         if os.path.exists(pathfile):
             return os.getcwd()
         else:
-            path = os.path.abspath(os.path.sep.join(
-                                   [__file__, '..', '..']))
+            path = os.path.abspath(os.path.join(
+                                   __file__, '..', '..'))
             curpath = os.path.join(path, pathfile)
             if os.path.exists(curpath):
                 return os.path.dirname(curpath)
@@ -27,23 +27,26 @@ def version_string():
     if not _PACKAGED_VERSION.startswith('@@'):
         return _PACKAGED_VERSION
 
-    dotversion = '.version'
-    dotpath = _find_path(dotversion)
-    if dotpath:
-        return open(os.path.join(dotpath, dotversion), 'r').read().strip()
-
     bzrdir = _find_path('.bzr')
-    revno = None
+    revno = dpkg_version = None
     if bzrdir:
-        os.chdir(bzrdir)
         try:
-            out = subprocess.check_output(['bzr', 'revno'])
+            out = subprocess.check_output(['bzr', 'revno'], cwd=bzrdir)
             revno = "bzr%s" % out.decode('utf-8').strip()
         except subprocess.CalledProcessError:
             pass
-
+    else:
+        try:
+            out = subprocess.check_output(['dpkg-query', '--show',
+                                           '--showformat', '${Version}',
+                                           'curtin-common'])
+            dpkg_version = out.decode('utf-8').strip()
+        except subprocess.CalledProcessError:
+            pass
     version = old_version
     if revno:
         version += "~%s" % revno
+    if dpkg_version:
+        version = dpkg_version
 
     return version
