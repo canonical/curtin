@@ -327,7 +327,7 @@ def load_file(path, mode="rb", read_len=None, offset=0, decode=True):
             fp.seek(offset)
         contents = fp.read(read_len) if read_len else fp.read()
 
-    if decode:
+    if decode and 'b' in mode:
         return decode_binary(contents)
     else:
         return contents
@@ -335,8 +335,6 @@ def load_file(path, mode="rb", read_len=None, offset=0, decode=True):
 
 def decode_binary(blob, encoding='utf-8', errors='replace'):
     # Converts a binary type into a text type using given encoding.
-    if isinstance(blob, string_types):
-        return blob
     return blob.decode(encoding, errors=errors)
 
 
