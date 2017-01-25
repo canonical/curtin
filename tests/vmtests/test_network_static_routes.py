@@ -21,19 +21,22 @@ class TrustyTestNetworkStaticRoutes(relbase.trusty,
 
 class TrustyHWEUTestNetworkStaticRoutes(relbase.trusty_hwe_u,
                                         TrustyTestNetworkStaticRoutes):
-    # Working, off by default to safe test suite runtime, covered by bonding
+    # Working, off by default to save test suite runtime, covered by
+    # TrustyTestNetworkStaticRoutes
     __test__ = False
 
 
 class TrustyHWEVTestNetworkStaticRoutes(relbase.trusty_hwe_v,
                                         TrustyTestNetworkStaticRoutes):
-    # Working, off by default to safe test suite runtime, covered by bonding
+    # Working, off by default to save test suite runtime, covered by
+    # TrustyTestNetworkStaticRoutes
     __test__ = False
 
 
 class TrustyHWEWTestNetworkStaticRoutes(relbase.trusty_hwe_w,
                                         TrustyTestNetworkStaticRoutes):
-    # Working, off by default to safe test suite runtime, covered by bonding
+    # Working, off by default to save test suite runtime, covered by
+    # TrustyTestNetworkStaticRoutes
     __test__ = False
 
 
