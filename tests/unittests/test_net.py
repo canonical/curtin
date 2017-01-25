@@ -666,7 +666,7 @@ network:
              'metric': 0, 'destination': '10.0.0.0/12',
              'gateway': '172.23.31.1'},
             {'type': 'route', 'id': 5,
-             'metric': 0, 'destination': '192.168.2.0/16',
+             'metric': 0, 'destination': '192.168.2.0/24',
              'gateway': '172.23.31.1'},
             {'type': 'route', 'id': 6,
              'metric': 1, 'destination': '10.0.200.0/16',
@@ -684,9 +684,9 @@ network:
              '172.23.31.1 metric 0 || true'),
             ('pre-down route del -net 10.0.0.0 netmask 255.240.0.0 gw '
              '172.23.31.1 metric 0 || true'),
-            ('post-up route add -net 192.168.2.0 netmask 255.255.0.0 gw '
+            ('post-up route add -net 192.168.2.0 netmask 255.255.255.0 gw '
              '172.23.31.1 metric 0 || true'),
-            ('pre-down route del -net 192.168.2.0 netmask 255.255.0.0 gw '
+            ('pre-down route del -net 192.168.2.0 netmask 255.255.255.0 gw '
              '172.23.31.1 metric 0 || true'),
             ('post-up route add -net 10.0.200.0 netmask 255.255.0.0 gw '
              '172.23.31.1 metric 1 || true'),
