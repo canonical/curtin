@@ -654,5 +654,52 @@ network:
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
 
+    def test_routes_rendered(self):
+        # as reported in bug 1649652
+        conf = [
+            {'name': 'eth0', 'type': 'physical',
+             'subnets': [{
+                 'address': '172.23.31.42/26',
+                 'dns_nameservers': [], 'gateway': '172.23.31.2',
+                 'type': 'static'}]},
+            {'type': 'route', 'id': 4,
+             'metric': 0, 'destination': '10.0.0.0/12',
+             'gateway': '172.23.31.1'},
+            {'type': 'route', 'id': 5,
+             'metric': 0, 'destination': '192.168.2.0/24',
+             'gateway': '172.23.31.1'},
+            {'type': 'route', 'id': 6,
+             'metric': 1, 'destination': '10.0.200.0/16',
+             'gateway': '172.23.31.1'},
+        ]
+
+        expected = [
+            'auto lo',
+            'iface lo inet loopback',
+            'auto eth0',
+            'iface eth0 inet static',
+            '    address 172.23.31.42/26',
+            '    gateway 172.23.31.2',
+            ('post-up route add -net 10.0.0.0 netmask 255.240.0.0 gw '
+             '172.23.31.1 metric 0 || true'),
+            ('pre-down route del -net 10.0.0.0 netmask 255.240.0.0 gw '
+             '172.23.31.1 metric 0 || true'),
+            ('post-up route add -net 192.168.2.0 netmask 255.255.255.0 gw '
+             '172.23.31.1 metric 0 || true'),
+            ('pre-down route del -net 192.168.2.0 netmask 255.255.255.0 gw '
+             '172.23.31.1 metric 0 || true'),
+            ('post-up route add -net 10.0.200.0 netmask 255.255.0.0 gw '
+             '172.23.31.1 metric 1 || true'),
+            ('pre-down route del -net 10.0.200.0 netmask 255.255.0.0 gw '
+             '172.23.31.1 metric 1 || true'),
+            'source /etc/network/interfaces.d/*.cfg',
+        ]
+
+        ns = network_state.NetworkState(version=1, config=conf)
+        ns.parse_config()
+        found = net.render_interfaces(ns.network_state).split('\n')
+        self.assertEqual(
+            sorted([line for line in expected if line]),
+            sorted([line for line in found if line]))
 
 # vi: ts=4 expandtab syntax=python
