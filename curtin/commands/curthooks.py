@@ -560,11 +560,6 @@ def detect_and_handle_multipath(cfg, target):
             ''])
         util.write_file(grub_cfg, content=msg)
 
-        # FIXME: this assumes grub. need more generic way to update root=
-        util.ensure_dir(os.path.sep.join([target, os.path.dirname(grub_dev)]))
-        with util.ChrootableTarget(target) as in_chroot:
-            in_chroot.subp(['update-grub'])
-
     else:
         LOG.warn("Not sure how this will boot")
 
