@@ -1104,26 +1104,4 @@ class RunInChroot(ChrootableTarget):
     __call__ = ChrootableTarget.subp
 
 
-def is_true(val, addons=None):
-    if isinstance(val, (bool)):
-        return val is True
-    check_set = TRUE_STRINGS
-    if addons:
-        check_set = list(check_set) + addons
-    if val.lower().strip() in check_set:
-        return True
-    return False
-
-
-def is_false(val, addons=None):
-    if isinstance(val, (bool)):
-        return val is False
-    check_set = FALSE_STRINGS
-    if addons:
-        check_set = list(check_set) + addons
-    if val.lower().strip() in check_set:
-        return True
-    return False
-
-
 # vi: ts=4 expandtab syntax=python

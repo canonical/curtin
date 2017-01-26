@@ -32,7 +32,7 @@ DEFAULT_SSTREAM_OPTS = [
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
-CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", True)
+CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", "1")
 IMAGE_SYNCS = []
 TARGET_IMAGE_FORMAT = "raw"
 
@@ -165,7 +165,7 @@ def sync_images(src_url, base_dir, filters, verbosity=0):
     return
 
 
-def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
+def get_images(src_url, local_d, distro, release, arch, krel=None, sync="1",
                ftypes=None):
     # ensure that the image items (roottar, kernel, initrd)
     # we need for release and arch are available in base_dir.
@@ -188,7 +188,7 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
         common_filters.append('krel=%s' % krel)
     filters = ['ftype~(%s)' % ("|".join(ftypes.keys()))] + common_filters
 
-    if util.is_true(sync):
+    if sync == "1":
         # sync with the default items + common filters to ensure we get
         # everything in one go.
         sync_filters = common_filters + ITEM_NAME_FILTERS
@@ -217,12 +217,12 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
         results = None
         fail_msg = str(e)
 
-    if not results and util.is_true(sync):
+    if not results and sync == "1":
         # try to fix this with a sync
         logger.info(fail_msg + "  Attempting to fix with an image sync. (%s)",
                     query_str)
         return get_images(src_url, local_d, distro, release, arch,
-                          krel=krel, sync=True, ftypes=ftypes)
+                          krel=krel, sync="1", ftypes=ftypes)
     elif not results:
         raise ValueError("Required images not found and "
                          "syncing disabled:\n%s" % query_str)
