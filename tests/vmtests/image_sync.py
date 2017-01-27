@@ -11,6 +11,7 @@ from simplestreams import filters
 import argparse
 import errno
 import hashlib
+import json
 import os
 import shutil
 import signal
@@ -211,6 +212,14 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
             except IOError as e:
                 if e.errno != errno.ENOENT:
                     raise
+            except json.decoder.JSONDecodeError as e:
+                jsonfile = os.path.join(self.out_d, dpath)
+                sys.stderr.write("Decode error in:\n  "
+                                 "content_id=%s\n  "
+                                 "JSON filepath=%s\n" % (content_id,
+                                                         jsonfile))
+                sys.stderr.flush()
+                raise
 
         if path:
             return {}
