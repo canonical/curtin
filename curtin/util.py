@@ -63,9 +63,6 @@ _DNS_REDIRECT_IP = None
 # matcher used in template rendering functions
 BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
-TRUE_STRINGS = ('true', '1', 'on', 'yes')
-FALSE_STRINGS = ('false', '0', 'off', 'no')
-
 
 def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
           logstring=False, decode="replace", target=None):
