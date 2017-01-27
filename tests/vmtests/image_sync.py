@@ -404,7 +404,8 @@ def query(mirror, max_items=1, filter_list=None, verbosity=0):
     return next((q for q in (
         query_ptree(sutil.load_content(util.load_file(fpath(path))),
                     max_num=max_items, ifilters=ifilters, path2url=fpath)
-        for path in VMTEST_CONTENT_ID_PATH_MAP.values()) if q), None)
+        for path in VMTEST_CONTENT_ID_PATH_MAP.values() if os.path.exists(
+            fpath(path))) if q), [])
 
 
 def main_query(args):

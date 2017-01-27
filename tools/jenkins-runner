@@ -3,6 +3,7 @@
 topdir="${CURTIN_VMTEST_TOPDIR:-${WORKSPACE:-$PWD}/output}"
 pkeep=${CURTIN_VMTEST_KEEP_DATA_PASS:-logs,collect}
 fkeep=${CURTIN_VMTEST_KEEP_DATA_FAIL:-logs,collect}
+export CURTIN_VMTEST_IMAGE_SYNC=${CURTIN_VMTEST_IMAGE_SYNC:-0}
 export CURTIN_VMTEST_KEEP_DATA_PASS=$pkeep
 export CURTIN_VMTEST_KEEP_DATA_FAIL=$fkeep
 export CURTIN_VMTEST_TOPDIR="$topdir"
@@ -58,7 +59,8 @@ echo "Working with images in $IMAGE_DIR"
 fmt="  %(release)-7s %(arch)s/%(subarch)s %(version_name)-10s"
 PYTHONPATH="$PWD" python3 tests/vmtests/image_sync.py query \
     --output-format="$fmt" "$IMAGE_DIR" ftype=root-image.gz ||
-    { echo "WARNING: error querying images in $IMAGE_DIR" 1>&2; }
+    { ret=$?; echo "FATAL: error querying images in $IMAGE_DIR" 1>&2;
+      exit $ret; }
 
 echo "$(date -R): vmtest start: nosetests3 ${pargs[*]} ${ntargs[*]}"
 nosetests3 "${pargs[@]}" "${ntargs[@]}"
