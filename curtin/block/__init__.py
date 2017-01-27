@@ -165,6 +165,18 @@ def sys_block_path(devname, add=None, strict=True):
     return os.path.normpath(path)
 
 
+def get_holders(device):
+    """
+    Look up any block device holders, return list of knames
+    """
+    # block.sys_block_path works when given a /sys or /dev path
+    sysfs_path = sys_block_path(device)
+    # get holders
+    holders = os.listdir(os.path.join(sysfs_path, 'holders'))
+    LOG.debug("devname '%s' had holders: %s", device, holders)
+    return holders
+
+
 def _lsblock_pairs_to_dict(lines):
     """
     parse lsblock output and convert to dict
@@ -742,7 +754,17 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
     LOG.debug("%s is %s bytes. wiping with buflen=%s",
               path, size, buflen)
 
-    with open(path, "rb+") as fp:
+    try:
+        fd = os.open(path, os.O_RDWR | os.O_EXCL)
+    except OSError:
+        LOG.exception("Failed to exclusively open device")
+        holders = get_holders(path)
+        LOG.error('Device holders with exclusive access: %s', holders)
+        mount_points = util.device_is_mounted(path)
+        LOG.error('Device mounts: %s', mount_points)
+        raise
+
+    with os.fdopen(fd, "rb+") as fp:
         while True:
             pbuf = readfunc(buflen)
             pos = fp.tell()
@@ -772,11 +794,18 @@ def quick_zero(path, partitions=True):
     if not (is_block or os.path.isfile(path)):
         raise ValueError("%s: not an existing file or block device", path)
 
+    pt_names = []
     if partitions and is_block:
         ptdata = sysfs_partition_data(path)
         for kname, ptnum, start, size in ptdata:
-            offsets.append(start)
-            offsets.append(start + size - zero_size)
+            pt_names.append(dev_path(kname))
+            # offsets.append(start)
+            # offsets.append(start + size - zero_size)
+        pt_names.reverse()
+
+    for pt in pt_names:
+        LOG.debug('Wiping partition: %s', pt)
+        quick_zero(pt, partitions=False)
 
     LOG.debug("wiping 1M on %s at offsets %s", path, offsets)
     return zero_file_at_offsets(path, offsets, buflen=buflen, count=count)
@@ -796,7 +825,19 @@ def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False):
     buf = b'\0' * buflen
     tot = buflen * count
     msg_vals = {'path': path, 'tot': buflen * count}
-    with open(path, "rb+") as fp:
+
+    # ensure we're the only open fd on the device
+    try:
+        fd = os.open(path, os.O_RDWR | os.O_EXCL)
+    except OSError:
+        LOG.exception("Failed to exclusively open device")
+        holders = get_holders(path)
+        LOG.error('Device holders with exclusive access: %s', holders)
+        mount_points = util.device_is_mounted(path)
+        LOG.error('Device mounts: %s', mount_points)
+        raise
+
+    with os.fdopen(fd, "rb+") as fp:
         # get the size by seeking to end.
         fp.seek(0, 2)
         size = fp.tell()
