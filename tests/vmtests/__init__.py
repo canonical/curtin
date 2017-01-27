@@ -192,16 +192,11 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync="1",
         # sync with the default items + common filters to ensure we get
         # everything in one go.
         sync_filters = common_filters + ITEM_NAME_FILTERS
-        logger.info('Syncing images from %s with filters=%s', src_url,
-                    sync_filters)
+        logger.debug('Syncing images from %s with filters=%s', src_url,
+                     sync_filters)
         imagesync_mirror(output_d=local_d, source=src_url,
                          mirror_filters=sync_filters,
                          max_items=IMAGES_TO_KEEP, verbosity=1)
-    else:
-        logger.info('Image sync disabled, sync=%s', sync)
-        logger.info('env var CURTIN_VMTEST_IMAGE_SYNC=%s',
-                    CURTIN_VMTEST_IMAGE_SYNC)
-
     query_cmd = 'python3 tests/vmtests/image_sync.py'
     query_str = '%s query %s %s' % (query_cmd, local_d, ' '.join(filters))
     logger.debug('Query %s for image. %s', local_d, query_str)
@@ -368,7 +363,7 @@ class VMBaseClass(TestCase):
         if not cls.target_krel and cls.krel:
             cls.target_krel = cls.krel
 
-        # get local absoluate filesystem paths for the OS tarball to be
+        # get local absolute filesystem paths for the OS tarball to be
         # installed
         img_verstr, found = get_images(
             IMAGE_SRC_URL, IMAGE_DIR,
