@@ -103,6 +103,14 @@ def check_call(cmd, signal=signal.SIGTERM, **kwargs):
 def find_releases_by_distro():
     """
     Returns a dictionary of distros and the distro releases that will be tested
+
+    distros:
+        ubuntu:
+            releases: []
+            krels: []
+        centos:
+            releases: []
+            krels: []
     """
     # Use the TestLoder to load all test cases defined within tests/vmtests/
     # and figure out what distros and releases they are testing. Any tests
@@ -115,20 +123,33 @@ def find_releases_by_distro():
     # Find all test modules defined in curtin/tests/vmtests/
     module_test_suites = loader.discover(tests_dir, top_level_dir=root_dir)
     # find all distros and releases tested for each distro
-    distros = {}
+    releases = []
+    krels = []
+    rel_by_dist = {}
     for mts in module_test_suites:
         for class_test_suite in mts:
             for test_case in class_test_suite:
                 # skip disabled tests
                 if not getattr(test_case, '__test__', False):
                     continue
-                for (dist, rel) in (
+                for (dist, rel, krel) in (
                         (getattr(test_case, a, None) for a in attrs)
-                        for attrs in (('distro', 'release'),
-                                      ('target_distro', 'target_release'))):
+                        for attrs in (('distro', 'release', 'krel'),
+                                      ('target_distro', 'target_release',
+                                       'krel'))):
+
                     if dist and rel:
-                        distros[dist] = distros.get(dist, set()).union((rel,))
-    return {k: sorted(v) for (k, v) in distros.items()}
+                        distro = rel_by_dist.get(dist, {'releases': [],
+                                                        'krels': []})
+                        releases = distro.get('releases')
+                        krels = distro.get('krels')
+                        if rel not in releases:
+                            releases.append(rel)
+                        if krel and krel not in krels:
+                            krels.append(krel)
+                        rel_by_dist.update({dist: distro})
+
+    return rel_by_dist
 
 
 def _parse_ip_a(ip_a):

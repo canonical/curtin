@@ -196,8 +196,6 @@ class TestMultipath(CurthooksBase):
             call(['multipath-tools-boot'], target=self.target)])
         self.mock_blk_get_scsi_wwid.assert_has_calls([
             call(target_dev, replace_whitespace=replace_spaces)])
-        self.mock_subp.assert_has_calls([call(['update-grub'],
-                                        target=self.target)])
         self.mock_update_initramfs.assert_has_calls([
             call(self.target, all_kernels=True)])
 
