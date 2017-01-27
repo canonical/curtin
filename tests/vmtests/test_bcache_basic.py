@@ -49,6 +49,14 @@ class XenialBcacheBasic(relbase.xenial, TestBcacheBasic):
     __test__ = True
 
 
+class XenialHWEYBcacheBasic(relbase.xenial_hwe_y, TestBcacheBasic):
+    __test__ = True
+
+
+class XenialHWEZBcacheBasic(relbase.xenial_hwe_z, TestBcacheBasic):
+    __test__ = True
+
+
 class YakketyBcacheBasic(relbase.yakkety, TestBcacheBasic):
     __test__ = True
 

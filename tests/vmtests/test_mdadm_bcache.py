@@ -141,6 +141,14 @@ class XenialTestMdadmBcache(relbase.xenial, TestMdadmBcacheAbs):
     __test__ = True
 
 
+class XenialHWEYTestMdadmBcache(relbase.xenial_hwe_y, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class XenialHWEZTestMdadmBcache(relbase.xenial_hwe_z, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 class YakketyTestMdadmBcache(relbase.yakkety, TestMdadmBcacheAbs):
     __test__ = True
 
@@ -186,6 +194,14 @@ class XenialTestMirrorboot(relbase.xenial, TestMirrorbootAbs):
     __test__ = True
 
 
+class XenialHWEYTestMirrorboot(relbase.xenial_hwe_y, TestMirrorbootAbs):
+    __test__ = True
+
+
+class XenialHWEZTestMirrorboot(relbase.xenial_hwe_z, TestMirrorbootAbs):
+    __test__ = True
+
+
 class YakketyTestMirrorboot(relbase.yakkety, TestMirrorbootAbs):
     __test__ = True
 
@@ -225,6 +241,16 @@ class TrustyHWEXTestMirrorbootPartitions(relbase.trusty_hwe_x,
 
 class XenialTestMirrorbootPartitions(relbase.xenial,
                                      TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
+class XenialHWEYTestMirrorbootPartitions(relbase.xenial_hwe_y,
+                                         TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
+class XenialHWEZTestMirrorbootPartitions(relbase.xenial_hwe_z,
+                                         TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
@@ -273,6 +299,14 @@ class WilyTestRaid5boot(relbase.wily, TestRaid5bootAbs):
 
 
 class XenialTestRaid5boot(relbase.xenial, TestRaid5bootAbs):
+    __test__ = True
+
+
+class XenialHWEYTestRaid5boot(relbase.xenial_hwe_y, TestRaid5bootAbs):
+    __test__ = True
+
+
+class XenialHWEZTestRaid5boot(relbase.xenial_hwe_z, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -334,6 +368,14 @@ class XenialTestRaid6boot(relbase.xenial, TestRaid6bootAbs):
     __test__ = True
 
 
+class XenialHWEYTestRaid6boot(relbase.xenial_hwe_y, TestRaid6bootAbs):
+    __test__ = True
+
+
+class XenialHWEZTestRaid6boot(relbase.xenial_hwe_z, TestRaid6bootAbs):
+    __test__ = True
+
+
 class YakketyTestRaid6boot(relbase.yakkety, TestRaid6bootAbs):
     __test__ = True
 
@@ -377,6 +419,14 @@ class WilyTestRaid10boot(relbase.wily, TestRaid10bootAbs):
 
 
 class XenialTestRaid10boot(relbase.xenial, TestRaid10bootAbs):
+    __test__ = True
+
+
+class XenialHWEYTestRaid10boot(relbase.xenial_hwe_y, TestRaid10bootAbs):
+    __test__ = True
+
+
+class XenialHWEZTestRaid10boot(relbase.xenial_hwe_z, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -480,6 +530,14 @@ class WilyTestAllindata(relbase.wily, TestAllindataAbs):
 
 
 class XenialTestAllindata(relbase.xenial, TestAllindataAbs):
+    __test__ = True
+
+
+class XenialHWEYTestAllindata(relbase.xenial_hwe_y, TestAllindataAbs):
+    __test__ = True
+
+
+class XenialHWEZTestAllindata(relbase.xenial_hwe_z, TestAllindataAbs):
     __test__ = True
 
 

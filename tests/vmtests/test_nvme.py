@@ -94,6 +94,14 @@ class XenialTestNvme(relbase.xenial, TestNvmeAbs):
     __test__ = True
 
 
+class XenialHWEYTestNvme(relbase.xenial_hwe_y, TestNvmeAbs):
+    __test__ = True
+
+
+class XenialHWEZTestNvme(relbase.xenial_hwe_z, TestNvmeAbs):
+    __test__ = True
+
+
 class YakketyTestNvme(relbase.yakkety, TestNvmeAbs):
     __test__ = True
 

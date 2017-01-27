@@ -82,6 +82,14 @@ class XenialTestLvm(relbase.xenial, TestLvmAbs):
     __test__ = True
 
 
+class XenialHWEYTestLvm(relbase.xenial_hwe_y, TestLvmAbs):
+    __test__ = True
+
+
+class XenialHWEZTestLvm(relbase.xenial_hwe_z, TestLvmAbs):
+    __test__ = True
+
+
 class YakketyTestLvm(relbase.yakkety, TestLvmAbs):
     __test__ = True
 

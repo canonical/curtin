@@ -219,6 +219,14 @@ class XenialTestBasic(relbase.xenial, TestBasicAbs):
     __test__ = True
 
 
+class XenialHWEYTestBasic(relbase.xenial_hwe_y, TestBasicAbs):
+    __test__ = True
+
+
+class XenialHWEZTestBasic(relbase.xenial_hwe_z, TestBasicAbs):
+    __test__ = True
+
+
 class YakketyTestBasic(relbase.yakkety, TestBasicAbs):
     __test__ = True
 
@@ -333,6 +341,14 @@ class TestBasicScsiAbs(TestBasicAbs):
 
 
 class XenialTestScsiBasic(relbase.xenial, TestBasicScsiAbs):
+    __test__ = True
+
+
+class XenialHWEYTestScsiBasic(relbase.xenial_hwe_y, TestBasicScsiAbs):
+    __test__ = True
+
+
+class XenialHWEZTestScsiBasic(relbase.xenial_hwe_z, TestBasicScsiAbs):
     __test__ = True
 
 

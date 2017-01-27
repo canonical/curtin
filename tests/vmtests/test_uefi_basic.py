@@ -108,6 +108,14 @@ class XenialUefiTestBasic(relbase.xenial, TestBasicAbs):
     __test__ = True
 
 
+class XenialHWEYUefiTestBasic(relbase.xenial_hwe_y, TestBasicAbs):
+    __test__ = True
+
+
+class XenialHWEZUefiTestBasic(relbase.xenial_hwe_z, TestBasicAbs):
+    __test__ = True
+
+
 class YakketyUefiTestBasic(relbase.yakkety, TestBasicAbs):
     __test__ = True
 
@@ -131,6 +139,14 @@ class WilyUefiTestBasic4k(WilyUefiTestBasic):
 
 
 class XenialUefiTestBasic4k(XenialUefiTestBasic):
+    disk_block_size = 4096
+
+
+class XenialHWEYUefiTestBasic4k(XenialHWEYUefiTestBasic):
+    disk_block_size = 4096
+
+
+class XenialHWEZUefiTestBasic4k(XenialHWEZUefiTestBasic):
     disk_block_size = 4096
 
 

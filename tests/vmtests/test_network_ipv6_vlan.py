@@ -30,6 +30,16 @@ class XenialTestNetworkIPV6Vlan(relbase.xenial, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
+class XenialHWEYTestNetworkIPV6Vlan(relbase.xenial_hwe_y,
+                                    TestNetworkIPV6VlanAbs):
+    __test__ = True
+
+
+class XenialHWEZTestNetworkIPV6Vlan(relbase.xenial_hwe_z,
+                                    TestNetworkIPV6VlanAbs):
+    __test__ = True
+
+
 class YakketyTestNetworkIPV6Vlan(relbase.yakkety, TestNetworkIPV6VlanAbs):
     __test__ = True
 

@@ -21,6 +21,16 @@ class XenialTestNetworkIPV6ENISource(relbase.xenial, TestNetworkIPV6ENISource):
     __test__ = True
 
 
+class XenialHWEYTestNetworkIPV6ENISource(relbase.xenial_hwe_y,
+                                         TestNetworkIPV6ENISource):
+    __test__ = True
+
+
+class XenialHWEZTestNetworkIPV6ENISource(relbase.xenial_hwe_z,
+                                         TestNetworkIPV6ENISource):
+    __test__ = True
+
+
 class YakketyTestNetworkIPV6ENISource(relbase.yakkety,
                                       TestNetworkIPV6ENISource):
     __test__ = True

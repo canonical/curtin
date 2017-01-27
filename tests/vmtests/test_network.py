@@ -331,6 +331,14 @@ class XenialTestNetworkBasic(relbase.xenial, TestNetworkBasicAbs):
     __test__ = True
 
 
+class XenialHWEYTestNetworkBasic(relbase.xenial_hwe_y, TestNetworkBasicAbs):
+    __test__ = True
+
+
+class XenialHWEZTestNetworkBasic(relbase.xenial_hwe_z, TestNetworkBasicAbs):
+    __test__ = True
+
+
 class YakketyTestNetworkBasic(relbase.yakkety, TestNetworkBasicAbs):
     __test__ = True
 
