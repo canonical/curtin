@@ -178,8 +178,7 @@ _start_http() {
     local found="" hpid="" ret=""
     contents="$$:$(date +%s.%N)"
     echo "$contents" > "$pubdir/$statfile"
-    ( set -eb; cd "$pubdir" &&
-        exec python -m SimpleHTTPServer "$port" ) >"$pubdir/ws.log" 2>&1 &
+    "${TOOLS_D}/webserv" "$port" "$pubdir" >"$pubdir/ws.log" 2>&1 &
     hpid=$!
     HTTP_PID=$hpid  # set so cleanup cleans up during wget
     debug 3 "checking web service [pid=$hpid] on $burl"
@@ -359,6 +358,8 @@ main() {
     tmp=$(dirname "$0") && top_d=$(cd "$tmp" && cd .. && pwd) ||
         { error "failed to get dir for $0"; return 1; }
 
+    TOOLS_D=$(dirname "$0")
+
     local disk="" src="" size="" fmt="" out="" id="" driver="" if=""
     local split_input="" serial=""
     disk_args=( )
@@ -492,8 +493,8 @@ main() {
         cmdargs=( curtin $install_deps "${cmdargs[@]:1}" )
     fi
 
-    PYTHONPATH="${top_d}${PYTHONPATH:+${PYTHONPATH}}" \
-        "${top_d}/bin/curtin" pack "${addargs[@]}" -- \
+    local curtin_exe="${CURTIN_VMTEST_CURTIN_EXE:-${top_d}/bin/curtin}"
+    ${curtin_exe} pack "${addargs[@]}" -- \
         "${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
         { error "failed to pack"; return 1; }
 
