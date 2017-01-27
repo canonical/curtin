@@ -19,7 +19,7 @@ from curtin.commands.install import INSTALL_PASS_MSG
 
 from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
-from .image_sync import (IMAGE_SRC_URL, IMAGE_DIR)
+from .image_sync import (IMAGE_SRC_URL, IMAGE_DIR, ITEM_NAME_FILTERS)
 from .helpers import check_call, TimeoutExpired
 from unittest import TestCase, SkipTest
 
@@ -33,7 +33,7 @@ DEFAULT_SSTREAM_OPTS = [
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
-CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", False)
+CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", "1")
 IMAGE_SYNCS = []
 TARGET_IMAGE_FORMAT = "raw"
 
@@ -166,11 +166,13 @@ def sync_images(src_url, base_dir, filters, verbosity=0):
     return
 
 
-def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
+def get_images(src_url, local_d, distro, release, arch, krel=None, sync="1",
                ftypes=None):
     # ensure that the image items (roottar, kernel, initrd)
     # we need for release and arch are available in base_dir.
-    # returns updated ftypes dictionary {ftype: item_url}
+    #
+    # returns ftype dictionary with path to each ftype as values
+    # {ftype: item_url}
     if not ftypes:
         ftypes = {
             'vmtest.root-image': '',
@@ -179,7 +181,7 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
             'boot-initrd': ''
         }
     elif isinstance(ftypes, (list, tuple)):
-        ftypes = dict().fromkeys(ftypes)
+        ftypes = dict().fromkeys(ftypes, '')
 
     common_filters = ['release=%s' % release,
                       'arch=%s' % arch, 'os=%s' % distro]
@@ -187,12 +189,17 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
         common_filters.append('krel=%s' % krel)
     filters = ['ftype~(%s)' % ("|".join(ftypes.keys()))] + common_filters
 
-    if sync:
+    if sync == "1":
+        # sync with the default items + common filters to ensure we get
+        # everything in one go.
+        sync_filters = common_filters + ITEM_NAME_FILTERS
+        logger.debug('Syncing images from %s with filters=%s', src_url,
+                     sync_filters)
         imagesync_mirror(output_d=local_d, source=src_url,
-                         mirror_filters=common_filters,
-                         max_items=IMAGES_TO_KEEP)
-
-    query_str = 'query = %s' % (' '.join(filters))
+                         mirror_filters=sync_filters,
+                         max_items=IMAGES_TO_KEEP, verbosity=1)
+    query_cmd = 'python3 tests/vmtests/image_sync.py'
+    query_str = '%s query %s %s' % (query_cmd, local_d, ' '.join(filters))
     logger.debug('Query %s for image. %s', local_d, query_str)
     fail_msg = None
 
@@ -206,14 +213,15 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
         results = None
         fail_msg = str(e)
 
-    if not results and not sync:
+    if not results and sync == "1":
         # try to fix this with a sync
         logger.info(fail_msg + "  Attempting to fix with an image sync. (%s)",
                     query_str)
         return get_images(src_url, local_d, distro, release, arch,
-                          krel=krel, sync=True, ftypes=ftypes)
+                          krel=krel, sync="1", ftypes=ftypes)
     elif not results:
-        raise ValueError("Nothing found in query: %s" % query_str)
+        raise ValueError("Required images not found and "
+                         "syncing disabled:\n%s" % query_str)
 
     missing = []
     found = sorted(f.get('ftype') for f in results)
@@ -345,19 +353,25 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def get_test_files(cls):
+        # get local absolute filesystem paths for each of the needed file types
         img_verstr, ftypes = get_images(
             IMAGE_SRC_URL, IMAGE_DIR, cls.distro, cls.release, cls.arch,
             krel=cls.krel if cls.krel else cls.release,
+            sync=CURTIN_VMTEST_IMAGE_SYNC,
             ftypes=('boot-initrd', 'boot-kernel', 'vmtest.root-image'))
         logger.debug("Install Image %s\n, ftypes: %s\n", img_verstr, ftypes)
         logger.info("Install Image: %s", img_verstr)
         if not cls.target_krel and cls.krel:
             cls.target_krel = cls.krel
+
+        # get local absolute filesystem paths for the OS tarball to be
+        # installed
         img_verstr, found = get_images(
             IMAGE_SRC_URL, IMAGE_DIR,
             cls.target_distro if cls.target_distro else cls.distro,
             cls.target_release if cls.target_release else cls.release,
-            cls.arch, krel=cls.target_krel, ftypes=('vmtest.root-tgz',))
+            cls.arch, krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
+            ftypes=('vmtest.root-tgz',))
         logger.debug("Target Tarball %s\n, ftypes: %s\n", img_verstr, found)
         logger.info("Target Tarball: %s", img_verstr)
         ftypes.update(found)
