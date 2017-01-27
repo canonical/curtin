@@ -36,7 +36,7 @@ class TrustyTestBonding(relbase.trusty, TestNetworkBondingAbs):
     __test__ = False
 
 
-class TrustyHWEUTestBonding(relbase.trusty_hwe_u, TrustyTestBonding):
+class TrustyHWEXTestBonding(relbase.trusty_hwe_x, TrustyTestBonding):
     __test__ = True
 
 
@@ -60,4 +60,8 @@ class XenialTestBonding(relbase.xenial, TestNetworkBondingAbs):
 
 
 class YakketyTestBonding(relbase.yakkety, TestNetworkBondingAbs):
+    __test__ = True
+
+
+class ZestyTestBonding(relbase.zesty, TestNetworkBondingAbs):
     __test__ = True

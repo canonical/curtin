@@ -55,6 +55,16 @@ class _TrustyHWEW(_UbuntuBase):
     krel = "wily"
 
 
+class _TrustyHWEX(_UbuntuBase):
+    release = "trusty"
+    krel = "xenial"
+
+
+class _TrustyFromXenial(_UbuntuBase):
+    release = "xenial"
+    target_release = "trusty"
+
+
 class _VividBase(_UbuntuBase):
     release = "vivid"
 
@@ -71,6 +81,10 @@ class _YakketyBase(_UbuntuBase):
     release = "yakkety"
 
 
+class _ZestyBase(_UbuntuBase):
+    release = "zesty"
+
+
 class _Releases(object):
     precise = _PreciseBase
     precise_hwe_t = _PreciseHWET
@@ -78,10 +92,13 @@ class _Releases(object):
     trusty_hwe_u = _TrustyHWEU
     trusty_hwe_v = _TrustyHWEV
     trusty_hwe_w = _TrustyHWEW
+    trusty_hwe_x = _TrustyHWEX
+    trustyfromxenial = _TrustyFromXenial
     vivid = _VividBase
     wily = _WilyBase
     xenial = _XenialBase
     yakkety = _YakketyBase
+    zesty = _ZestyBase
 
 
 class _CentosReleases(object):

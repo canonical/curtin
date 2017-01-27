@@ -223,6 +223,10 @@ class YakketyTestBasic(relbase.yakkety, TestBasicAbs):
     __test__ = True
 
 
+class ZestyTestBasic(relbase.zesty, TestBasicAbs):
+    __test__ = True
+
+
 class TestBasicScsiAbs(TestBasicAbs):
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
@@ -329,4 +333,12 @@ class TestBasicScsiAbs(TestBasicAbs):
 
 
 class XenialTestScsiBasic(relbase.xenial, TestBasicScsiAbs):
+    __test__ = True
+
+
+class YakketyTestScsiBasic(relbase.yakkety, TestBasicScsiAbs):
+    __test__ = True
+
+
+class ZestyTestScsiBasic(relbase.zesty, TestBasicScsiAbs):
     __test__ = True

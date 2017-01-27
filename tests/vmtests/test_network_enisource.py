@@ -89,3 +89,7 @@ class XenialTestNetworkENISource(relbase.xenial, TestNetworkENISource):
 
 class YakketyTestNetworkENISource(relbase.yakkety, TestNetworkENISource):
     __test__ = True
+
+
+class ZestyTestNetworkENISource(relbase.zesty, TestNetworkENISource):
+    __test__ = True

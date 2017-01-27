@@ -147,9 +147,17 @@ class TrustyHWEWTestNetworkMtu(relbase.trusty_hwe_w, TrustyTestNetworkMtu):
     __test__ = False
 
 
+class TrustyHWEXTestNetworkMtu(relbase.trusty_hwe_x, TrustyTestNetworkMtu):
+    __test__ = True
+
+
 class XenialTestNetworkMtu(relbase.xenial, TestNetworkMtuAbs):
     __test__ = True
 
 
 class YakketyTestNetworkMtu(relbase.yakkety, TestNetworkMtuAbs):
+    __test__ = True
+
+
+class ZestyTestNetworkMtu(relbase.zesty, TestNetworkMtuAbs):
     __test__ = True
