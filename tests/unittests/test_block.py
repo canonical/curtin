@@ -365,8 +365,8 @@ class TestPartTableSignature(TestCase):
     gpt_content_4k = b'\x00' * 0x800 + b'EFI PART' + b'\x00' * (0x800 - 8)
     null_content = b'\x00' * 0xf00
 
-    def _test_util_load_file(self, content, device, mode, read_len, offset):
-        return (bytes if 'b' in mode else str)(content[offset:offset+read_len])
+    def _test_util_load_file(self, content, device, read_len, offset, decode):
+        return (bytes if not decode else str)(content[offset:offset+read_len])
 
     @mock.patch('curtin.block.check_dos_signature')
     @mock.patch('curtin.block.check_efi_signature')

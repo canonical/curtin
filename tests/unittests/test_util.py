@@ -470,7 +470,7 @@ class TestLoadFile(TestCase):
         with simple_mocked_open(content=contents) as m_open:
             loaded_contents = util.load_file(fname, decode=False)
             self.assertEqual(contents, loaded_contents)
-            m_open.assert_called_with(fname, 'r')
+            m_open.assert_called_with(fname, 'rb')
 
     @skipIf(mock.__version__ < '2.0.0', "mock version < 2.0.0")
     def test_load_file_handles_utf8(self):

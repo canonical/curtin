@@ -322,13 +322,12 @@ def write_file(filename, content, mode=0o644, omode="w"):
 
 
 def load_file(path, read_len=None, offset=0, decode=True):
-    mode = "rb" if decode else "r"
-    with open(path, mode) as fp:
+    with open(path, "rb") as fp:
         if offset:
             fp.seek(offset)
         contents = fp.read(read_len) if read_len else fp.read()
 
-    if decode and 'b' in mode:
+    if decode:
         return decode_binary(contents)
     else:
         return contents
