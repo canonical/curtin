@@ -468,7 +468,7 @@ class TestLoadFile(TestCase):
         fname = 'test.cfg'
         contents = "#curtin-config"
         with simple_mocked_open(content=contents) as m_open:
-            loaded_contents = util.load_file(fname, mode='r')
+            loaded_contents = util.load_file(fname, decode=False)
             self.assertEqual(contents, loaded_contents)
             m_open.assert_called_with(fname, 'r')
 

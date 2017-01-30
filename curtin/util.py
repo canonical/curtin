@@ -321,7 +321,8 @@ def write_file(filename, content, mode=0o644, omode="w"):
         os.chmod(filename, mode)
 
 
-def load_file(path, mode="rb", read_len=None, offset=0, decode=True):
+def load_file(path, read_len=None, offset=0, decode=True):
+    mode = "rb" if decode else "r"
     with open(path, mode) as fp:
         if offset:
             fp.seek(offset)

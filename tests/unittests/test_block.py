@@ -209,7 +209,8 @@ class TestWipeFile(TestCase):
         myfile = self.tfile("def_zero")
         util.write_file(myfile, flen * b'\1', omode="wb")
         block.wipe_file(myfile)
-        found = util.load_file(myfile, mode="rb", decode=False)
+        with open(myfile, mode="rb") as fh:
+            found = fh.read()
         self.assertEqual(found, flen * b'\0')
 
     def test_reader_used(self):
@@ -222,7 +223,8 @@ class TestWipeFile(TestCase):
         # populate with nulls
         util.write_file(myfile, flen * b'\0', omode="wb")
         block.wipe_file(myfile, reader=reader, buflen=flen)
-        found = util.load_file(myfile, mode="rb", decode=False)
+        with open(myfile, mode="rb") as fh:
+            found = fh.read()
         self.assertEqual(found, flen * b'\1')
 
     def test_reader_twice(self):
@@ -238,7 +240,8 @@ class TestWipeFile(TestCase):
         myfile = self.tfile("reader_twice")
         util.write_file(myfile, flen * b'\xff', omode="wb")
         block.wipe_file(myfile, reader=reader, buflen=20)
-        found = util.load_file(myfile, mode="rb", decode=False)
+        with open(myfile, mode="rb") as fh:
+            found = fh.read()
         self.assertEqual(found, expected)
 
     def test_reader_fhandle(self):

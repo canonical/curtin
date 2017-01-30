@@ -42,7 +42,7 @@ def load_tfile(filename):
     load file and return content after decoding
     """
     try:
-        content = util.load_file(filename, mode="r")
+        content = util.load_file(filename, decode=True)
     except Exception as error:
         print('failed to load file content for test: %s' % error)
         raise
