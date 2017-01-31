@@ -15,12 +15,14 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+from contextlib import contextmanager
 import errno
-import os
-import stat
-import shlex
-import tempfile
 import itertools
+import os
+import shlex
+import stat
+import sys
+import tempfile
 
 from curtin import util
 from curtin.block import lvm
@@ -735,6 +737,36 @@ def is_extended_partition(device):
             check_dos_signature(device))
 
 
+@contextmanager
+def exclusive_open(path):
+    """
+    Obtain an exclusive file-handle to the file/device specified
+    """
+    mode = 'rb+'
+    fd = None
+    try:
+        fd = os.open(path, os.O_RDWR | os.O_EXCL)
+        try:
+            fd_needs_closing = True
+            with os.fdopen(fd, mode) as fo:
+                yield fo
+            fd_needs_closing = False
+        except OSError:
+            LOG.exception("Failed to create file-object from fd")
+            raise
+        finally:
+            # python2 leaves fd open if there os.fdopen fails
+            if fd_needs_closing and sys.version_info.major == 2:
+                os.close(fd)
+    except OSError:
+        LOG.exception("Failed to exclusively open path: %s", path)
+        holders = get_holders(path)
+        LOG.error('Device holders with exclusive access: %s', holders)
+        mount_points = util.list_device_mounts(path)
+        LOG.error('Device mounts: %s', mount_points)
+        raise
+
+
 def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
     """
     wipe the existing file at path.
@@ -754,17 +786,7 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
     LOG.debug("%s is %s bytes. wiping with buflen=%s",
               path, size, buflen)
 
-    try:
-        fd = os.open(path, os.O_RDWR | os.O_EXCL)
-    except OSError:
-        LOG.exception("Failed to exclusively open device")
-        holders = get_holders(path)
-        LOG.error('Device holders with exclusive access: %s', holders)
-        mount_points = util.device_is_mounted(path)
-        LOG.error('Device mounts: %s', mount_points)
-        raise
-
-    with os.fdopen(fd, "rb+") as fp:
+    with exclusive_open(path) as fp:
         while True:
             pbuf = readfunc(buflen)
             pos = fp.tell()
@@ -798,13 +820,12 @@ def quick_zero(path, partitions=True):
     if partitions and is_block:
         ptdata = sysfs_partition_data(path)
         for kname, ptnum, start, size in ptdata:
-            pt_names.append(dev_path(kname))
-            # offsets.append(start)
-            # offsets.append(start + size - zero_size)
+            pt_names.append((dev_path(kname), kname, ptnum))
         pt_names.reverse()
 
-    for pt in pt_names:
-        LOG.debug('Wiping partition: %s', pt)
+    for (pt, kname, ptnum) in pt_names:
+        LOG.debug('Wiping path: dev:%s kname:%s partnum:%s',
+                  pt, kname, ptnum)
         quick_zero(pt, partitions=False)
 
     LOG.debug("wiping 1M on %s at offsets %s", path, offsets)
@@ -826,18 +847,7 @@ def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False):
     tot = buflen * count
     msg_vals = {'path': path, 'tot': buflen * count}
 
-    # ensure we're the only open fd on the device
-    try:
-        fd = os.open(path, os.O_RDWR | os.O_EXCL)
-    except OSError:
-        LOG.exception("Failed to exclusively open device")
-        holders = get_holders(path)
-        LOG.error('Device holders with exclusive access: %s', holders)
-        mount_points = util.device_is_mounted(path)
-        LOG.error('Device mounts: %s', mount_points)
-        raise
-
-    with os.fdopen(fd, "rb+") as fp:
+    with exclusive_open(path) as fp:
         # get the size by seeking to end.
         fp.seek(0, 2)
         size = fp.tell()

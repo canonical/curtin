@@ -139,12 +139,12 @@ def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False,
         # mdadm assemble returns 2 when called on an array that is already
         # assembled. this is not an error, so accept return code of 2
         # all other return codes can be accepted with ignore_error set to true
-        scan, _err = util.subp(cmd, capture=True, rcs=[0, 1, 2])
-        LOG.debug('mdadm assemble scan results:\n%s\n%s', scan, _err)
-        scan, _err = util.subp(['mdadm', '--detail', '--scan', '-v'],
-                               capture=True, rcs=[0, 1])
+        scan, err = util.subp(cmd, capture=True, rcs=[0, 1, 2])
+        LOG.debug('mdadm assemble scan results:\n%s\n%s', scan, err)
+        scan, err = util.subp(['mdadm', '--detail', '--scan', '-v'],
+                              capture=True, rcs=[0, 1])
         LOG.debug('mdadm detail scan after assemble:\n%s\n%s',
-                  scan, _err)
+                  scan, err)
     except util.ProcessExecutionError:
         LOG.warning("mdadm_assemble had unexpected return code")
         if not ignore_errors:
@@ -257,17 +257,17 @@ def mdadm_stop(devpath):
     assert_valid_devpath(devpath)
 
     LOG.info("mdadm stopping: %s" % devpath)
-    out, _err = util.subp(["mdadm", "--stop", devpath], capture=True)
-    LOG.debug("mdadm stop:\n%s\n%s", out, _err)
+    out, err = util.subp(["mdadm", "--stop", devpath], capture=True)
+    LOG.debug("mdadm stop:\n%s\n%s", out, err)
 
 
 def mdadm_remove(devpath):
     assert_valid_devpath(devpath)
 
     LOG.info("mdadm removing: %s" % devpath)
-    out, _err = util.subp(["mdadm", "--remove", devpath],
-                          rcs=[0], capture=True)
-    LOG.debug("mdadm remove:\n%s\n%s", out, _err)
+    out, err = util.subp(["mdadm", "--remove", devpath],
+                         rcs=[0], capture=True)
+    LOG.debug("mdadm remove:\n%s\n%s", out, err)
 
 
 def mdadm_query_detail(md_devname, export=MDADM_USE_EXPORT):

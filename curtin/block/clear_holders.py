@@ -69,7 +69,7 @@ def umount_device(device):
     mounted on top of the devices mountpoint
     """
     proc_mounts = block.get_proc_mounts()
-    mount_entries = [entry for entry in proc_mounts if device in entry]
+    mount_entries = [entry for entry in proc_mounts if device == entry[0]]
     if len(mount_entries) > 0:
         for me in mount_entries:
             LOG.debug('Device is mounted: %s', me)
