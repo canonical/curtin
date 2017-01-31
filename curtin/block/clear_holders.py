@@ -63,25 +63,6 @@ def get_bcache_using_dev(device):
     return os.path.realpath(os.path.join(sysfs_path, 'bcache', 'cache'))
 
 
-def umount_device(device):
-    """
-    Attempt to unmount a device and any other devices which may be
-    mounted on top of the devices mountpoint
-    """
-    proc_mounts = block.get_proc_mounts()
-    mount_entries = [entry for entry in proc_mounts if device == entry[0]]
-    if len(mount_entries) > 0:
-        for me in mount_entries:
-            LOG.debug('Device is mounted: %s', me)
-            mount_point = me[1]
-            submounts = [entry for entry in proc_mounts
-                         if mount_point in entry[1]]
-            umount_list = sorted(submounts, key=lambda x: x[1], reverse=True)
-            for mp in [m[1] for m in umount_list]:
-                LOG.debug('Umounting submounts at: %s', mp)
-                util.do_umount(mp)
-
-
 def shutdown_bcache(device):
     """
     Shut down bcache for specified bcache device
@@ -94,7 +75,6 @@ def shutdown_bcache(device):
         LOG.info(bcache_shutdown_message)
         return
 
-    umount_device(device)
     bcache_sysfs = get_bcache_using_dev(device)
     if not os.path.exists(bcache_sysfs):
         LOG.info(bcache_shutdown_message)
@@ -109,7 +89,6 @@ def shutdown_lvm(device):
     Shutdown specified lvm device.
     """
     device = block.sys_block_path(device)
-    umount_device(device)
     # lvm devices have a dm directory that containes a file 'name' containing
     # '{volume group}-{logical volume}'. The volume can be freed using lvremove
     name_file = os.path.join(device, 'dm', 'name')
@@ -131,7 +110,6 @@ def shutdown_crypt(device):
     Shutdown specified cryptsetup device
     """
     blockdev = block.sysfs_to_devpath(device)
-    umount_device(blockdev)
     util.subp(['cryptsetup', 'remove', blockdev], capture=True)
 
 
@@ -140,7 +118,6 @@ def shutdown_mdadm(device):
     Shutdown specified mdadm device.
     """
     blockdev = block.sysfs_to_devpath(device)
-    umount_device(blockdev)
     LOG.debug('using mdadm.mdadm_stop on dev: %s', blockdev)
     mdadm.mdadm_stop(blockdev)
     mdadm.mdadm_remove(blockdev)
@@ -151,7 +128,6 @@ def wipe_superblock(device):
     Wrapper for block.wipe_volume compatible with shutdown function interface
     """
     blockdev = block.sysfs_to_devpath(device)
-    umount_device(blockdev)
     # when operating on a disk that used to have a dos part table with an
     # extended partition, attempting to wipe the extended partition will fail
     if block.is_extended_partition(blockdev):
