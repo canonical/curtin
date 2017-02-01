@@ -793,9 +793,7 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
     with exclusive_open(path) as fp:
         while True:
             pbuf = readfunc(buflen)
-            print(type(pbuf))
             pos = fp.tell()
-            print(type(pos))
             if len(pbuf) != buflen and len(pbuf) + pos < size:
                 raise ValueError(
                     "short read on reader got %d expected %d after %d" %
