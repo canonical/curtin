@@ -34,17 +34,26 @@ class TestBlockMdadmAssemble(MdadmTestBase):
 
     def test_mdadm_assemble_scan(self):
         mdadm.mdadm_assemble(scan=True)
-        self.mock_util.subp.assert_called_with(
-            ["mdadm", "--assemble", "--scan", "-v"], capture=True,
-            rcs=[0, 1, 2])
+        assemble_calls = [
+            call(["mdadm", "--assemble", "--scan", "-v"], capture=True,
+                 rcs=[0, 1, 2]),
+            call(["mdadm", "--detail", "--scan", "-v"], capture=True,
+                 rcs=[0, 1]),
+        ]
+        self.mock_util.subp.assert_has_calls(assemble_calls)
         self.assertTrue(self.mock_udev.udevadm_settle.called)
 
     def test_mdadm_assemble_md_devname(self):
         md_devname = "/dev/md0"
         mdadm.mdadm_assemble(md_devname=md_devname)
-        self.mock_util.subp.assert_called_with(
-            ["mdadm", "--assemble", md_devname, "--run"], capture=True,
-            rcs=[0, 1, 2])
+
+        assemble_calls = [
+            call(["mdadm", "--assemble", md_devname, "--run"],
+                 capture=True, rcs=[0, 1, 2]),
+            call(["mdadm", "--detail", "--scan", "-v"], capture=True,
+                 rcs=[0, 1]),
+        ]
+        self.mock_util.subp.assert_has_calls(assemble_calls)
         self.assertTrue(self.mock_udev.udevadm_settle.called)
 
     def test_mdadm_assemble_md_devname_short(self):
@@ -61,9 +70,13 @@ class TestBlockMdadmAssemble(MdadmTestBase):
         md_devname = "/dev/md0"
         devices = ["/dev/vdc1", "/dev/vdd1"]
         mdadm.mdadm_assemble(md_devname=md_devname, devices=devices)
-        self.mock_util.subp.assert_called_with(
-            ["mdadm", "--assemble", md_devname, "--run"] + devices,
-            capture=True, rcs=[0, 1, 2])
+        assemble_calls = [
+            call(["mdadm", "--assemble", md_devname, "--run"] + devices,
+                 capture=True, rcs=[0, 1, 2]),
+            call(["mdadm", "--detail", "--scan", "-v"], capture=True,
+                 rcs=[0, 1]),
+        ]
+        self.mock_util.subp.assert_has_calls(assemble_calls)
         self.assertTrue(self.mock_udev.udevadm_settle.called)
 
     def test_mdadm_assemble_exec_error(self):
@@ -85,10 +98,12 @@ class TestBlockMdadmCreate(MdadmTestBase):
         super(TestBlockMdadmCreate, self).setUp()
         self.add_patch('curtin.block.mdadm.util', 'mock_util')
         self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
+        self.add_patch('curtin.block.mdadm.get_holders', 'mock_holders')
 
         # Common mock settings
         self.mock_valid.return_value = True
         self.mock_util.lsb_release.return_value = {'codename': 'precise'}
+        self.mock_holders.return_value = []
 
     def prepare_mock(self, md_devname, raidlevel, devices, spares):
         side_effects = []
@@ -333,7 +348,7 @@ class TestBlockMdadmStop(MdadmTestBase):
         device = "/dev/vdc"
         mdadm.mdadm_stop(device)
         expected_calls = [
-            call(["mdadm", "--stop", device], rcs=[0, 1], capture=True),
+            call(["mdadm", "--stop", device], capture=True),
         ]
         self.mock_util.subp.assert_has_calls(expected_calls)
 
@@ -359,7 +374,7 @@ class TestBlockMdadmRemove(MdadmTestBase):
         device = "/dev/vdc"
         mdadm.mdadm_remove(device)
         expected_calls = [
-            call(["mdadm", "--remove", device], rcs=[0, 1], capture=True),
+            call(["mdadm", "--remove", device], rcs=[0], capture=True),
         ]
         self.mock_util.subp.assert_has_calls(expected_calls)
 

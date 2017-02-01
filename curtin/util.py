@@ -274,6 +274,19 @@ def is_mounted(target, src=None, opts=None):
     return False
 
 
+def list_device_mounts(device):
+    # return mount entry if device is in /proc/mounts
+    mounts = ""
+    with open("/proc/mounts", "r") as fp:
+        mounts = fp.read()
+
+    dev_mounts = []
+    for line in mounts.splitlines():
+        if line.split()[0] == device:
+            dev_mounts.append(line)
+    return dev_mounts
+
+
 def do_mount(src, target, opts=None):
     # mount src at target with opts and return True
     # if already mounted, return False
