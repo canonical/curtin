@@ -742,8 +742,12 @@ def exclusive_open(path):
     """
     Obtain an exclusive file-handle to the file/device specified
     """
+    print('exclusive_open running')
     mode = 'rb+'
     fd = None
+    if not os.path.exists(path):
+        raise ValueError("No such file at path: %s" % path)
+
     try:
         fd = os.open(path, os.O_RDWR | os.O_EXCL)
         try:
@@ -789,7 +793,9 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
     with exclusive_open(path) as fp:
         while True:
             pbuf = readfunc(buflen)
+            print(type(pbuf))
             pos = fp.tell()
+            print(type(pos))
             if len(pbuf) != buflen and len(pbuf) + pos < size:
                 raise ValueError(
                     "short read on reader got %d expected %d after %d" %
