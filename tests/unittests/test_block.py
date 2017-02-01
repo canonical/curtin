@@ -4,6 +4,7 @@ import os
 import mock
 import tempfile
 import shutil
+import sys
 
 from collections import OrderedDict
 
@@ -254,6 +255,77 @@ class TestWipeFile(TestCase):
             block.wipe_file(trgfile, reader=fp.read)
         found = util.load_file(trgfile)
         self.assertEqual(data, found)
+
+    def test_exclusive_open_raise_missing(self):
+        myfile = self.tfile("no-such-file")
+
+        with self.assertRaises(ValueError):
+            with block.exclusive_open(myfile) as fp:
+                fp.close()
+
+    @mock.patch('os.close')
+    @mock.patch('os.fdopen')
+    @mock.patch('os.open')
+    def test_exclusive_open(self, mock_os_open, mock_os_fdopen, mock_os_close):
+        flen = 1024
+        myfile = self.tfile("my_exclusive_file")
+        util.write_file(myfile, flen * b'\1', omode="wb")
+        mock_fd = 3
+        mock_os_open.return_value = mock_fd
+
+        with block.exclusive_open(myfile) as fp:
+            fp.close()
+
+        mock_os_open.assert_called_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_os_fdopen.assert_called_with(mock_fd, 'rb+')
+        self.assertEqual([], mock_os_close.call_args_list)
+
+    @mock.patch('os.close')
+    @mock.patch('curtin.util.list_device_mounts')
+    @mock.patch('curtin.block.get_holders')
+    @mock.patch('os.open')
+    def test_exclusive_open_non_exclusive_exception(self, mock_os_open,
+                                                    mock_holders,
+                                                    mock_list_mounts,
+                                                    mock_os_close):
+        flen = 1024
+        myfile = self.tfile("my_exclusive_file")
+        util.write_file(myfile, flen * b'\1', omode="wb")
+        mock_os_open.side_effect = OSError("NO_O_EXCL")
+        mock_holders.return_value = ['md1']
+        mock_list_mounts.return_value = []
+
+        with self.assertRaises(OSError):
+            with block.exclusive_open(myfile) as fp:
+                fp.close()
+
+        mock_os_open.assert_called_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_holders.assert_called_with(myfile)
+        mock_list_mounts.assert_called_with(myfile)
+        self.assertEqual([], mock_os_close.call_args_list)
+
+    @mock.patch('os.close')
+    @mock.patch('os.fdopen')
+    @mock.patch('os.open')
+    def test_exclusive_open_fdopen_failure(self, mock_os_open,
+                                           mock_os_fdopen, mock_os_close):
+        flen = 1024
+        myfile = self.tfile("my_exclusive_file")
+        util.write_file(myfile, flen * b'\1', omode="wb")
+        mock_fd = 3
+        mock_os_open.return_value = mock_fd
+        mock_os_fdopen.side_effect = OSError("EBADF")
+
+        with self.assertRaises(OSError):
+            with block.exclusive_open(myfile) as fp:
+                fp.close()
+
+        mock_os_open.assert_called_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_os_fdopen.assert_called_with(mock_fd, 'rb+')
+        if sys.version_info.major == 2:
+            mock_os_close.assert_called_with(mock_fd)
+        else:
+            self.assertEqual([], mock_os_close.call_args_list)
 
 
 class TestWipeVolume(TestCase):
