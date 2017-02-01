@@ -77,16 +77,6 @@ class _XenialBase(_UbuntuBase):
     release = "xenial"
 
 
-class _XenialHWEY(_UbuntuBase):
-    release = "xenial"
-    krel = "yakkety"
-
-
-class _XenialHWEZ(_UbuntuBase):
-    release = "xenial"
-    krel = "zesty"
-
-
 class _YakketyBase(_UbuntuBase):
     release = "yakkety"
 
@@ -107,8 +97,6 @@ class _Releases(object):
     vivid = _VividBase
     wily = _WilyBase
     xenial = _XenialBase
-    xenial_hwe_y = _XenialHWEY
-    xenial_hwe_z = _XenialHWEZ
     yakkety = _YakketyBase
     zesty = _ZestyBase
 

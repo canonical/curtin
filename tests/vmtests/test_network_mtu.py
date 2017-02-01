@@ -155,14 +155,6 @@ class XenialTestNetworkMtu(relbase.xenial, TestNetworkMtuAbs):
     __test__ = True
 
 
-class XenialHWEYTestNetworkMtu(relbase.xenial_hwe_y, TestNetworkMtuAbs):
-    __test__ = True
-
-
-class XenialHWEZTestNetworkMtu(relbase.xenial_hwe_z, TestNetworkMtuAbs):
-    __test__ = True
-
-
 class YakketyTestNetworkMtu(relbase.yakkety, TestNetworkMtuAbs):
     __test__ = True
 

@@ -51,16 +51,6 @@ class XenialTestMultipathBasic(relbase.xenial, TestMultipathBasicAbs):
     __test__ = True
 
 
-class XenialHWEYTestMultipathBasic(relbase.xenial_hwe_y,
-                                   TestMultipathBasicAbs):
-    __test__ = True
-
-
-class XenialHWEZTestMultipathBasic(relbase.xenial_hwe_z,
-                                   TestMultipathBasicAbs):
-    __test__ = True
-
-
 class YakketyTestMultipathBasic(relbase.yakkety, TestMultipathBasicAbs):
     __test__ = True
 

@@ -59,14 +59,6 @@ class XenialTestBonding(relbase.xenial, TestNetworkBondingAbs):
     __test__ = True
 
 
-class XenialHWEYTestBonding(relbase.xenial_hwe_y, TestNetworkBondingAbs):
-    __test__ = True
-
-
-class XenialHWEZTestBonding(relbase.xenial_hwe_z, TestNetworkBondingAbs):
-    __test__ = True
-
-
 class YakketyTestBonding(relbase.yakkety, TestNetworkBondingAbs):
     __test__ = True
 

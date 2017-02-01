@@ -103,14 +103,6 @@ class XenialTestRaid5Bcache(relbase.xenial, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class XenialHWEYTestRaid5Bcache(relbase.xenial_hwe_y, TestMdadmBcacheAbs):
-    __test__ = True
-
-
-class XenialHWEZTestRaid5Bcache(relbase.xenial_hwe_z, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 class YakketyTestRaid5Bcache(relbase.yakkety, TestMdadmBcacheAbs):
     __test__ = True
 

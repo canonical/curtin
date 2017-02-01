@@ -49,14 +49,6 @@ class XenialTestNetworkIPV6(relbase.xenial, TestNetworkIPV6Abs):
     __test__ = True
 
 
-class XenialHWEYTestNetworkIPV6(relbase.xenial_hwe_y, TestNetworkIPV6Abs):
-    __test__ = True
-
-
-class XenialHWEZTestNetworkIPV6(relbase.xenial_hwe_z, TestNetworkIPV6Abs):
-    __test__ = True
-
-
 class YakketyTestNetworkIPV6(relbase.yakkety, TestNetworkIPV6Abs):
     __test__ = True
 
