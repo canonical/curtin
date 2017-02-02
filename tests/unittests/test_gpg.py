@@ -41,16 +41,17 @@ class TestCurtinGpg(TestCase):
         keyserver = 'keyserver.ubuntu.com'
         mock_subp.side_effect = iter([("", "")])
 
-        gpg.recv_key(key, keyserver)
+        gpg.recv_key(key, keyserver, )
         mock_subp.assert_called_with(["gpg", "--keyserver", keyserver,
                                       "--recv", key], capture=True,
-                                     retries=(1, 2, 5, 10))
+                                     retries=None)
 
     @patch('time.sleep')
     @patch('curtin.util._subp')
     def test_recv_key_retry_raises(self, mock_under_subp, mock_sleep):
         key = 'DEADBEEF'
         keyserver = 'keyserver.ubuntu.com'
+        retries = (1, 2, 5, 10)
         mock_under_subp.side_effect = iter([
             util.ProcessExecutionError(),  # 1
             util.ProcessExecutionError(),  # 2
@@ -60,7 +61,7 @@ class TestCurtinGpg(TestCase):
         ])
 
         with self.assertRaises(ValueError):
-            gpg.recv_key(key, keyserver)
+            gpg.recv_key(key, keyserver, retries=retries)
 
         print("_subp calls: %s" % mock_under_subp.call_args_list)
         print("sleep calls: %s" % mock_sleep.call_args_list)
@@ -91,7 +92,7 @@ class TestCurtinGpg(TestCase):
             ("", ""),
         ])
 
-        gpg.recv_key(key, keyserver)
+        gpg.recv_key(key, keyserver, retries=[1])
 
         print("_subp calls: %s" % mock_under_subp.call_args_list)
         print("sleep calls: %s" % mock_sleep.call_args_list)
@@ -128,7 +129,8 @@ class TestCurtinGpg(TestCase):
         gpg.getkeybyid(key, keyserver=keyserver)
 
         mock_export.assert_has_calls([call(key), call(key)])
-        mock_recv.assert_has_calls([call(key, keyserver=keyserver)])
+        mock_recv.assert_has_calls([
+            call(key, keyserver=keyserver, retries=None)])
         mock_del.assert_has_calls([call(key)])
 
     @patch('curtin.gpg.delete_key')
@@ -167,5 +169,6 @@ class TestCurtinGpg(TestCase):
             gpg.getkeybyid(key, keyserver=keyserver)
 
         mock_export.assert_has_calls([call(key)])
-        mock_recv.assert_has_calls([call(key, keyserver=keyserver)])
+        mock_recv.assert_has_calls([
+            call(key, keyserver=keyserver, retries=None)])
         mock_del.assert_has_calls([call(key)])
