@@ -41,7 +41,7 @@ def recv_key(key, keyserver):
     LOG.debug('Receive gpg key "%s"', key)
     try:
         util.subp(["gpg", "--keyserver", keyserver, "--recv", key],
-                  capture=True)
+                  capture=True, retries=(1, 2, 5, 10))
     except util.ProcessExecutionError as error:
         raise ValueError(('Failed to import key "%s" '
                           'from server "%s" - error %s') %
