@@ -155,6 +155,9 @@ def subp(*args, **kwargs):
     retries = []
     if "retries" in kwargs:
         retries = kwargs.pop("retries")
+        if not retries:
+            # allow retries=None
+            retries = []
 
     if args:
         cmd = args[0]
