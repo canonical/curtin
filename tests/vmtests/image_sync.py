@@ -11,12 +11,18 @@ from simplestreams import filters
 import argparse
 import errno
 import hashlib
-import json
 import os
 import shutil
 import signal
 import sys
 import tempfile
+
+try:
+    from json.decoder import JSONDecodeError
+except ImportError:
+    # python3.4 (trusty) does not have a JSONDecodeError
+    # and raises simple ValueError on decode fail.
+    JSONDecodeError = ValueError
 
 from curtin import util
 
@@ -212,7 +218,7 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
             except IOError as e:
                 if e.errno != errno.ENOENT:
                     raise
-            except json.decoder.JSONDecodeError as e:
+            except JSONDecodeError as e:
                 jsonfile = os.path.join(self.out_d, dpath)
                 sys.stderr.write("Decode error in:\n  "
                                  "content_id=%s\n  "
