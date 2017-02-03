@@ -41,7 +41,7 @@ class TestCurtinGpg(TestCase):
         keyserver = 'keyserver.ubuntu.com'
         mock_subp.side_effect = iter([("", "")])
 
-        gpg.recv_key(key, keyserver, )
+        gpg.recv_key(key, keyserver)
         mock_subp.assert_called_with(["gpg", "--keyserver", keyserver,
                                       "--recv", key], capture=True,
                                      retries=None)
@@ -52,31 +52,18 @@ class TestCurtinGpg(TestCase):
         key = 'DEADBEEF'
         keyserver = 'keyserver.ubuntu.com'
         retries = (1, 2, 5, 10)
+        nr_calls = 5
         mock_under_subp.side_effect = iter([
-            util.ProcessExecutionError(),  # 1
-            util.ProcessExecutionError(),  # 2
-            util.ProcessExecutionError(),  # 3
-            util.ProcessExecutionError(),  # 4
-            util.ProcessExecutionError(),  # Final call
-        ])
+            util.ProcessExecutionError()] * nr_calls)
 
         with self.assertRaises(ValueError):
             gpg.recv_key(key, keyserver, retries=retries)
 
         print("_subp calls: %s" % mock_under_subp.call_args_list)
         print("sleep calls: %s" % mock_sleep.call_args_list)
-        expected_calls = [
+        expected_calls = nr_calls * [
             call(["gpg", "--keyserver", keyserver, "--recv", key],
-                 capture=True),
-            call(["gpg", "--keyserver", keyserver, "--recv", key],
-                 capture=True),
-            call(["gpg", "--keyserver", keyserver, "--recv", key],
-                 capture=True),
-            call(["gpg", "--keyserver", keyserver, "--recv", key],
-                 capture=True),
-            call(["gpg", "--keyserver", keyserver, "--recv", key],
-                 capture=True),
-        ]
+                 capture=True)]
         mock_under_subp.assert_has_calls(expected_calls)
 
         expected_calls = [call(1), call(2), call(5), call(10)]
@@ -87,6 +74,7 @@ class TestCurtinGpg(TestCase):
     def test_recv_key_retry_works(self, mock_under_subp, mock_sleep):
         key = 'DEADBEEF'
         keyserver = 'keyserver.ubuntu.com'
+        nr_calls = 2
         mock_under_subp.side_effect = iter([
             util.ProcessExecutionError(),  # 1
             ("", ""),
@@ -96,12 +84,9 @@ class TestCurtinGpg(TestCase):
 
         print("_subp calls: %s" % mock_under_subp.call_args_list)
         print("sleep calls: %s" % mock_sleep.call_args_list)
-        expected_calls = [
+        expected_calls = nr_calls * [
             call(["gpg", "--keyserver", keyserver, "--recv", key],
-                 capture=True),
-            call(["gpg", "--keyserver", keyserver, "--recv", key],
-                 capture=True),
-        ]
+                 capture=True)]
         mock_under_subp.assert_has_calls(expected_calls)
         mock_sleep.assert_has_calls([call(1)])
 
