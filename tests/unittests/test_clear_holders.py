@@ -172,13 +172,14 @@ class TestClearHolders(TestCase):
             ['cryptsetup', 'remove', self.test_blockdev], capture=True)
 
     @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.mdadm')
     @mock.patch('curtin.block.clear_holders.block')
-    def test_shutdown_mdadm(self, mock_block, mock_log):
+    def test_shutdown_mdadm(self, mock_block, mock_mdadm, mock_log):
         """test clear_holders.shutdown_mdadm"""
         mock_block.sysfs_to_devpath.return_value = self.test_blockdev
         clear_holders.shutdown_mdadm(self.test_syspath)
-        mock_block.mdadm.mdadm_stop.assert_called_with(self.test_blockdev)
-        mock_block.mdadm.mdadm_remove.assert_called_with(self.test_blockdev)
+        mock_mdadm.mdadm_stop.assert_called_with(self.test_blockdev)
+        mock_mdadm.mdadm_remove.assert_called_with(self.test_blockdev)
         self.assertTrue(mock_log.debug.called)
 
     @mock.patch('curtin.block.clear_holders.LOG')
@@ -320,7 +321,7 @@ class TestClearHolders(TestCase):
         mock_gen_holders_tree.return_value = self.example_holders_trees[1][1]
         clear_holders.assert_clear(device)
 
-    @mock.patch('curtin.block.clear_holders.block.mdadm')
+    @mock.patch('curtin.block.clear_holders.mdadm')
     @mock.patch('curtin.block.clear_holders.util')
     def test_start_clear_holders_deps(self, mock_util, mock_mdadm):
         clear_holders.start_clear_holders_deps()
