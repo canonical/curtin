@@ -363,7 +363,12 @@ def setup_grub(cfg, target):
                 LOG.debug("NOT enabling UEFI nvram updates")
                 LOG.debug("Target system may not boot")
         args.append(target)
-        util.subp(args + instdevs, env=env)
+
+        # capture stdout and stderr joined.
+        join_stdout_err = ['sh', '-c', 'exec "$0" "$@" 2>&1']
+        out, _err = util.subp(
+            join_stdout_err + args + instdevs, env=env, capture=True)
+        LOG.debug("%s\n%s\n", args, out)
 
 
 def update_initramfs(target=None, all_kernels=False):
