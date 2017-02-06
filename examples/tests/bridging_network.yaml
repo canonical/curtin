@@ -42,10 +42,3 @@ network:
               - type: static
                 address: 192.168.14.2/24
 
-curthooks_commands:
-    # use curtin to inject a eni config file outside of the network yaml
-    # this allows us to test user installed configurations outside of
-    # curtin's control
-    iscsi_cleanup: ['curtin', 'in-target', '--', 'sh', '-c', 'if [ "`lsb_release -sc`" = "precise" ]; then rm -f /etc/network/if-down.d/open-iscsi /etc/network/if-up.d/open-iscsi; fi']
-    # XXX: Remove me after LP:1576858 is released
-    aa_pre: ['curtin', 'in-target', '--', 'sh', '-c', "add-apt-repository -y ppa:raharper/bugfixes; apt-get update; apt-get install bridge-utils"]

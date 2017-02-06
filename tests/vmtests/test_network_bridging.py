@@ -38,30 +38,10 @@ default_bridge_params_uncheckable = [
     'bridge_waitport',  # ifupdown variable
 ]
 
-xenial_bridge_params_uncheckable = [
-    'bridge_ageing',  # dead in kernel; not settable
-] + default_bridge_params_uncheckable
-
-
-wily_bridge_params_uncheckable = [] + default_bridge_params_uncheckable
-
-
-vivid_bridge_params_uncheckable = [] + default_bridge_params_uncheckable
-
-
-trusty_bridge_params_uncheckable = [] + default_bridge_params_uncheckable
-
-
-precise_bridge_params_uncheckable = [] + default_bridge_params_uncheckable
-
-
 # attrs we cannot validate
 release_to_bridge_params_uncheckable = {
-    'xenial': xenial_bridge_params_uncheckable,
-    'wily': wily_bridge_params_uncheckable,
-    'vivid': vivid_bridge_params_uncheckable,
-    'trusty': trusty_bridge_params_uncheckable,
-    'precise': precise_bridge_params_uncheckable,
+    'xenial': ['bridge_ageing'],
+    'yakkety': ['bridge_ageing'],
 }
 
 
@@ -156,8 +136,9 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
             return br0
 
         def _get_bridge_params(br):
-            bridge_params_uncheckable = \
-                release_to_bridge_params_uncheckable.get(self.release)
+            bridge_params_uncheckable = default_bridge_params_uncheckable
+            bridge_params_uncheckable.extend(
+                release_to_bridge_params_uncheckable.get(self.release, []))
             return [p for p in br.keys()
                     if (p.startswith('bridge_') and
                         p not in bridge_params_uncheckable)]
@@ -193,35 +174,7 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
             _check_bridge_param(sysfs_vals, param, br0)
 
 
-class PreciseHWETTestBridging(relbase.precise_hwe_t, TestBridgeNetworkAbs):
-    __test__ = False
-
-
-class TrustyTestBridging(relbase.trusty, TestBridgeNetworkAbs):
-    __test__ = False
-
-
-class TrustyHWEUTestBridging(relbase.trusty_hwe_u, TrustyTestBridging):
-    __test__ = True
-
-
-class TrustyHWEVTestBridging(relbase.trusty_hwe_v, TrustyTestBridging):
-    # Working, but off by default to safe test suite runtime
-    # oldest/newest HWE-* covered above/below
-    __test__ = False
-
-
-class TrustyHWEWTestBridging(relbase.trusty_hwe_w, TrustyTestBridging):
-    __test__ = True
-
-
-class VividTestBridging(relbase.vivid, TestBridgeNetworkAbs):
-    __test__ = True
-
-
-class WilyTestBridging(relbase.wily, TestBridgeNetworkAbs):
-    __test__ = True
-
-
-class XenialTestBridging(relbase.xenial, TestBridgeNetworkAbs):
+# only testing Yakkety or newer as older releases do not yet
+# have updated ifupdown/bridge-utils packages;
+class YakketyTestBridging(relbase.yakkety, TestBridgeNetworkAbs):
     __test__ = True
