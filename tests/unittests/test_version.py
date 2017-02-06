@@ -60,14 +60,6 @@ class TestCurtinVersion(CurtinVersionBase):
         ver_string = version.version_string()
         self.assertEqual(old_version, ver_string)
 
-    def test_dpkg_version(self):
-        self.mock_path.exists.return_value = False
-        dpkg_version = "7.12.23_curtin_2ubunt29"
-        self.mock_subp.return_value = dpkg_version.encode("utf-8")
-
-        ver_string = version.version_string()
-        self.assertEqual(dpkg_version, ver_string)
-
     def test_dpkg_version_exception(self):
         self.mock_path.exists.return_value = True
         self.mock_subp.side_effect = subprocess.CalledProcessError(1, '')

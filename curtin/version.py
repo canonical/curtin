@@ -7,46 +7,20 @@ _PACKAGED_VERSION = '@@PACKAGED_VERSION@@'
 
 def version_string():
     """ Extract a version string from curtin source or version file"""
-    def _find_path(pathfile):
-        """ Check for file existance and return dirpath
-            Search PYTHONPATH, as curtin is typically
-            launched with PYTHONPATH set, as with curtin pack
-            executables.
-        """
-        if os.path.exists(pathfile):
-            return os.getcwd()
-        else:
-            path = os.path.abspath(os.path.join(
-                                   __file__, '..', '..'))
-            curpath = os.path.join(path, pathfile)
-            if os.path.exists(curpath):
-                return os.path.dirname(curpath)
-
-        return None
 
     if not _PACKAGED_VERSION.startswith('@@'):
         return _PACKAGED_VERSION
 
-    bzrdir = _find_path('.bzr')
     revno = dpkg_version = None
-    if bzrdir:
+    version = old_version
+    bzrdir = os.path.abspath(os.path.join(__file__, '..', '..', '.bzr'))
+    if os.path.isdir(bzrdir):
         try:
             out = subprocess.check_output(['bzr', 'revno'], cwd=bzrdir)
-            revno = "bzr%s" % out.decode('utf-8').strip()
+            revno = out.decode('utf-8').strip()
+            if revno:
+                version += "~bzr%s" % revno
         except subprocess.CalledProcessError:
             pass
-    else:
-        try:
-            out = subprocess.check_output(['dpkg-query', '--show',
-                                           '--showformat', '${Version}',
-                                           'curtin-common'])
-            dpkg_version = out.decode('utf-8').strip()
-        except subprocess.CalledProcessError:
-            pass
-    version = old_version
-    if revno:
-        version += "~%s" % revno
-    if dpkg_version:
-        version = dpkg_version
 
     return version
