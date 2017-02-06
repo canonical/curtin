@@ -227,8 +227,9 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
                 if remove is True:
                     sys.stderr.write("Removing offending file: %s\n" %
                                      jsonfile)
-                    sys.stderr.flush()
                     util.del_file(jsonfile)
+                    sys.stderr.write("Trying to load products again...\n")
+                    sys.stderr.flush()
                     return self.load_products(path=path, content_id=content_id,
                                               remove=False)
                 raise
