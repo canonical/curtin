@@ -207,7 +207,7 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
         # overridden from ObjectStoreMirrorWriter
         return self.data_path + os.path.sep + "references.json"
 
-    def load_products(self, path=None, content_id=None):
+    def load_products(self, path=None, content_id=None, remove=True):
         # overridden from ObjectStoreMirrorWriter
         # the reason is that we have copied here from trunk
         # is bug 1511364 which is not fixed in all ubuntu versions
@@ -224,7 +224,13 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
                                  "content_id=%s\n  "
                                  "JSON filepath=%s\n" % (content_id,
                                                          jsonfile))
-                sys.stderr.flush()
+                if remove is True:
+                    sys.stderr.write("Removing offending file: %s\n" %
+                                     jsonfile)
+                    sys.stderr.flush()
+                    util.del_file(jsonfile)
+                    return self.load_products(path=path, content_id=content_id,
+                                              remove=False)
                 raise
 
         if path:
