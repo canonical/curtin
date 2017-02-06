@@ -1,0 +1,22 @@
+showtrace: true
+network:
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: interface0
+          mac_address: "52:54:00:12:34:00"
+          subnets:
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:fe06:96b3
+                netmask: 'ffff:ffff:ffff:ffff::'
+                routes:
+                  - gateway: 2001:4800:78ff:1b::1
+                    netmask: '::'
+                    network: '::'
+        - type: nameserver
+          address:
+            - 10.0.2.3
+          search:
+            - wark.maas
+            - foobar.maas

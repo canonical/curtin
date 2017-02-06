@@ -3,7 +3,6 @@ from . import (
     get_apt_proxy)
 from .releases import base_vm_classes as relbase
 
-import os
 import re
 import textwrap
 
@@ -13,7 +12,8 @@ class TestBasicAbs(VMBaseClass):
     conf_file = "examples/tests/basic.yaml"
     extra_disks = ['128G', '128G', '4G']
     nvme_disks = ['4G']
-    disk_to_check = [('main_disk', 1), ('main_disk', 2)]
+    disk_to_check = [('main_disk_with_in---valid--dname', 1),
+                     ('main_disk_with_in---valid--dname', 2)]
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda > blkid_output_vda
@@ -46,21 +46,17 @@ class TestBasicAbs(VMBaseClass):
     def test_partition_numbers(self):
         # vde should have partitions 1 and 10
         disk = "vde"
-        proc_partitions_path = os.path.join(self.td.collect,
-                                            'proc_partitions')
-        self.assertTrue(os.path.exists(proc_partitions_path))
         found = []
-        with open(proc_partitions_path, 'r') as fp:
-            for line in fp.readlines():
-                if disk in line:
-                    found.append(line.split()[3])
+        proc_partitions = self.load_collect_file('proc_partitions')
+        for line in proc_partitions.splitlines():
+            if disk in line:
+                found.append(line.split()[3])
         # /proc/partitions should have 3 lines with 'vde' in them.
         expected = [disk + s for s in ["", "1", "10"]]
         self.assertEqual(found, expected)
 
     def test_partitions(self):
-        with open(os.path.join(self.td.collect, "fstab")) as fp:
-            fstab_lines = fp.readlines()
+        fstab_lines = self.load_collect_file('fstab').splitlines()
         print("\n".join(fstab_lines))
         # Test that vda1 is on /
         blkid_info = self.get_blkid_data("blkid_output_vda1")
@@ -93,12 +89,8 @@ class TestBasicAbs(VMBaseClass):
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
-        with open(os.path.join(self.td.collect,
-                  "btrfs_show_super_vdd"), "r") as fp:
-            btrfs_show_super = fp.read()
-
-        with open(os.path.join(self.td.collect, "ls_uuid"), "r") as fp:
-            ls_uuid = fp.read()
+        btrfs_show_super = self.load_collect_file('btrfs_show_super_vdd')
+        ls_uuid = self.load_collect_file("ls_uuid")
 
         # extract uuid from btrfs superblock
         btrfs_fsid = [line for line in btrfs_show_super.split('\n')
@@ -122,8 +114,7 @@ class TestBasicAbs(VMBaseClass):
 
     def test_proxy_set(self):
         expected = get_apt_proxy()
-        with open(os.path.join(self.td.collect, "apt-proxy")) as fp:
-            apt_proxy_found = fp.read().rstrip()
+        apt_proxy_found = self.load_collect_file("apt-proxy").rstrip()
         if expected:
             # the proxy should have gotten set through
             self.assertIn(expected, apt_proxy_found)
@@ -156,12 +147,8 @@ class PreciseTestBasic(relbase.precise, TestBasicAbs):
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
-        with open(os.path.join(self.td.collect,
-                  "btrfs_show_super_vdd"), "r") as fp:
-            btrfs_show_super = fp.read()
-
-        with open(os.path.join(self.td.collect, "ls_uuid"), "r") as fp:
-            ls_uuid = fp.read()
+        btrfs_show_super = self.load_collect_file("btrfs_show_super_vdd")
+        ls_uuid = self.load_collect_file("ls_uuid")
 
         # extract uuid from btrfs superblock
         btrfs_fsid = re.findall('.*uuid:\ (.*)\n', btrfs_show_super)
@@ -224,7 +211,8 @@ class TrustyHWEWTestBasic(relbase.trusty_hwe_w, TrustyTestBasic):
 
 
 class WilyTestBasic(relbase.wily, TestBasicAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestBasic(relbase.xenial, TestBasicAbs):
@@ -273,21 +261,17 @@ class TestBasicScsiAbs(TestBasicAbs):
     def test_partition_numbers(self):
         # vde should have partitions 1 and 10
         disk = "sdd"
-        proc_partitions_path = os.path.join(self.td.collect,
-                                            'proc_partitions')
-        self.assertTrue(os.path.exists(proc_partitions_path))
         found = []
-        with open(proc_partitions_path, 'r') as fp:
-            for line in fp.readlines():
-                if disk in line:
-                    found.append(line.split()[3])
+        proc_partitions = self.load_collect_file('proc_partitions')
+        for line in proc_partitions.splitlines():
+            if disk in line:
+                found.append(line.split()[3])
         # /proc/partitions should have 3 lines with 'vde' in them.
         expected = [disk + s for s in ["", "1", "10"]]
         self.assertEqual(found, expected)
 
     def test_partitions(self):
-        with open(os.path.join(self.td.collect, "fstab")) as fp:
-            fstab_lines = fp.readlines()
+        fstab_lines = self.load_collect_file('fstab').splitlines()
         print("\n".join(fstab_lines))
         # Test that vda1 is on /
         blkid_info = self.get_blkid_data("blkid_output_sda1")
@@ -320,12 +304,8 @@ class TestBasicScsiAbs(TestBasicAbs):
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
-        with open(os.path.join(self.td.collect,
-                  "btrfs_show_super_sdc"), "r") as fp:
-            btrfs_show_super = fp.read()
-
-        with open(os.path.join(self.td.collect, "ls_uuid"), "r") as fp:
-            ls_uuid = fp.read()
+        btrfs_show_super = self.load_collect_file("btrfs_show_super_sdc")
+        ls_uuid = self.load_collect_file("ls_uuid")
 
         # extract uuid from btrfs superblock
         btrfs_fsid = [line for line in btrfs_show_super.split('\n')

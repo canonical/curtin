@@ -1,6 +1,6 @@
 from . import logger
 from .releases import base_vm_classes as relbase
-from .test_network import TestNetworkAbs
+from .test_network import TestNetworkBaseTestsAbs
 from curtin import util
 
 import os
@@ -109,9 +109,10 @@ def sysfs_to_dict(input):
             [x.split(":")for x in data.split("\n") if len(x) > 0]}
 
 
-class TestBridgeNetworkAbs(TestNetworkAbs):
+class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
     conf_file = "examples/tests/bridging_network.yaml"
-    collect_scripts = TestNetworkAbs.collect_scripts + [textwrap.dedent("""
+    collect_scripts = TestNetworkBaseTestsAbs.collect_scripts + [
+        textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         grep -r . /sys/class/net/br0 > sysfs_br0
         grep -r . /sys/class/net/br0/brif/eth1 > sysfs_br0_eth1

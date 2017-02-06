@@ -16,10 +16,8 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import copy
-import glob
 import os
 import platform
-import re
 import sys
 import shutil
 import textwrap
@@ -30,8 +28,8 @@ from curtin import futil
 from curtin.log import LOG
 from curtin import swap
 from curtin import util
-from curtin import net
 from curtin.reporter import events
+from curtin.commands import apply_net, apt_config
 
 from . import populate_one_subcmd
 
@@ -90,45 +88,15 @@ def write_files(cfg, target):
                                          info.get('perms', "0644")))
 
 
-def apt_config(cfg, target):
-    # cfg['apt_proxy']
-
-    proxy_cfg_path = os.path.sep.join(
-        [target, '/etc/apt/apt.conf.d/90curtin-aptproxy'])
-    if cfg.get('apt_proxy'):
-        util.write_file(
-            proxy_cfg_path,
-            content='Acquire::HTTP::Proxy "%s";\n' % cfg['apt_proxy'])
+def do_apt_config(cfg, target):
+    cfg = apt_config.translate_old_apt_features(cfg)
+    apt_cfg = cfg.get("apt")
+    if apt_cfg is not None:
+        LOG.info("curthooks handling apt to target %s with config %s",
+                 target, apt_cfg)
+        apt_config.handle_apt(apt_cfg, target)
     else:
-        if os.path.isfile(proxy_cfg_path):
-            os.unlink(proxy_cfg_path)
-
-    # cfg['apt_mirrors']
-    # apt_mirrors:
-    #  ubuntu_archive: http://local.archive/ubuntu
-    #  ubuntu_security: http://local.archive/ubuntu
-    sources_list = os.path.sep.join([target, '/etc/apt/sources.list'])
-    if (isinstance(cfg.get('apt_mirrors'), dict) and
-            os.path.isfile(sources_list)):
-        repls = [
-            ('ubuntu_archive', r'http://\S*[.]*archive.ubuntu.com/\S*'),
-            ('ubuntu_security', r'http://security.ubuntu.com/\S*'),
-        ]
-        content = None
-        for name, regex in repls:
-            mirror = cfg['apt_mirrors'].get(name)
-            if not mirror:
-                continue
-
-            if content is None:
-                with open(sources_list) as fp:
-                    content = fp.read()
-                util.write_file(sources_list + ".dist", content)
-
-            content = re.sub(regex, mirror + " ", content)
-
-        if content is not None:
-            util.write_file(sources_list, content)
+        LOG.info("No apt config provided, skipping")
 
 
 def disable_overlayroot(cfg, target):
@@ -138,51 +106,6 @@ def disable_overlayroot(cfg, target):
     if disable and os.path.exists(local_conf):
         LOG.debug("renaming %s to %s", local_conf, local_conf + ".old")
         shutil.move(local_conf, local_conf + ".old")
-
-
-def clean_cloud_init(target):
-    flist = glob.glob(
-        os.path.sep.join([target, "/etc/cloud/cloud.cfg.d/*dpkg*"]))
-
-    LOG.debug("cleaning cloud-init config from: %s" % flist)
-    for dpkg_cfg in flist:
-        os.unlink(dpkg_cfg)
-
-
-def _maybe_remove_legacy_eth0(target,
-                              path="/etc/network/interfaces.d/eth0.cfg"):
-    """Ubuntu cloud images previously included a 'eth0.cfg' that had
-       hard coded content.  That file would interfere with the rendered
-       configuration if it was present.
-
-       if the file does not exist do nothing.
-       If the file exists:
-         - with known content, remove it and warn
-         - with unknown content, leave it and warn
-    """
-
-    cfg = os.path.sep.join([target, path])
-    if not os.path.exists(cfg):
-        LOG.warn('Failed to find legacy conf file %s', cfg)
-        return
-
-    bmsg = "Dynamic networking config may not apply."
-    try:
-        contents = util.load_file(cfg)
-        known_contents = ["auto eth0", "iface eth0 inet dhcp"]
-        lines = [f.strip() for f in contents.splitlines()
-                 if not f.startswith("#")]
-        if lines == known_contents:
-            util.del_file(cfg)
-            msg = "removed %s with known contents" % cfg
-        else:
-            msg = (bmsg + " '%s' exists with user configured content." % cfg)
-    except:
-        msg = bmsg + " %s exists, but could not be read." % cfg
-        LOG.exception(msg)
-        return
-
-    LOG.warn(msg)
 
 
 def setup_zipl(cfg, target):
@@ -232,8 +155,27 @@ parameters = root=%s
 def run_zipl(cfg, target):
     if platform.machine() != 's390x':
         return
-    with util.RunInChroot(target) as in_chroot:
-        in_chroot(['zipl'])
+    with util.ChrootableTarget(target) as in_chroot:
+        in_chroot.subp(['zipl'])
+
+
+def get_flash_kernel_pkgs(arch=None, uefi=None):
+    if arch is None:
+        arch = util.get_architecture()
+    if uefi is None:
+        uefi = util.is_uefi_bootable()
+    if uefi:
+        return None
+    if not arch.startswith('arm'):
+        return None
+
+    try:
+        fk_packages, _ = util.subp(
+            ['list-flash-kernel-packages'], capture=True)
+        return fk_packages
+    except util.ProcessExecutionError:
+        # Ignore errors
+        return None
 
 
 def install_kernel(cfg, target):
@@ -250,126 +192,52 @@ def install_kernel(cfg, target):
     mapping = copy.deepcopy(KERNEL_MAPPING)
     config.merge_config(mapping, kernel_cfg.get('mapping', {}))
 
-    with util.RunInChroot(target) as in_chroot:
+    # Machines using flash-kernel may need additional dependencies installed
+    # before running. Run those checks in the ephemeral environment so the
+    # target only has required packages installed.  See LP:1640519
+    fk_packages = get_flash_kernel_pkgs()
+    if fk_packages:
+        util.install_packages(fk_packages.split(), target=target)
 
-        if kernel_package:
-            util.install_packages([kernel_package], target=target)
-            return
-
-        # uname[2] is kernel name (ie: 3.16.0-7-generic)
-        # version gets X.Y.Z, flavor gets anything after second '-'.
-        kernel = os.uname()[2]
-        codename, err = in_chroot(['lsb_release', '--codename', '--short'],
-                                  capture=True)
-        codename = codename.strip()
-        version, abi, flavor = kernel.split('-', 2)
-
-        try:
-            map_suffix = mapping[codename][version]
-        except KeyError:
-            LOG.warn("Couldn't detect kernel package to install for %s."
-                     % kernel)
-            if kernel_fallback is not None:
-                util.install_packages([kernel_fallback], target=target)
-            return
-
-        package = "linux-{flavor}{map_suffix}".format(
-            flavor=flavor, map_suffix=map_suffix)
-
-        if util.has_pkg_available(package, target):
-            if util.has_pkg_installed(package, target):
-                LOG.debug("Kernel package '%s' already installed", package)
-            else:
-                LOG.debug("installing kernel package '%s'", package)
-                util.install_packages([package], target=target)
-        else:
-            if kernel_fallback is not None:
-                LOG.info("Kernel package '%s' not available.  "
-                         "Installing fallback package '%s'.",
-                         package, kernel_fallback)
-                util.install_packages([kernel_fallback], target=target)
-            else:
-                LOG.warn("Kernel package '%s' not available and no fallback."
-                         " System may not boot.", package)
-
-
-def apply_debconf_selections(cfg, target):
-    # debconf_selections:
-    #  set1: |
-    #   cloud-init cloud-init/datasources multiselect MAAS
-    #  set2: pkg pkg/value string bar
-    selsets = cfg.get('debconf_selections')
-    if not selsets:
-        LOG.debug("debconf_selections was not set in config")
+    if kernel_package:
+        util.install_packages([kernel_package], target=target)
         return
 
-    # for each entry in selections, chroot and apply them.
-    # keep a running total of packages we've seen.
-    pkgs_cfgd = set()
-    for key, content in selsets.items():
-        LOG.debug("setting for %s, %s" % (key, content))
-        util.subp(['chroot', target, 'debconf-set-selections'],
-                  data=content.encode())
-        for line in content.splitlines():
-            if line.startswith("#"):
-                continue
-            pkg = re.sub(r"[:\s].*", "", line)
-            pkgs_cfgd.add(pkg)
+    # uname[2] is kernel name (ie: 3.16.0-7-generic)
+    # version gets X.Y.Z, flavor gets anything after second '-'.
+    kernel = os.uname()[2]
+    codename, _ = util.subp(['lsb_release', '--codename', '--short'],
+                            capture=True, target=target)
+    codename = codename.strip()
+    version, abi, flavor = kernel.split('-', 2)
 
-    pkgs_installed = get_installed_packages(target)
-
-    LOG.debug("pkgs_cfgd: %s" % pkgs_cfgd)
-    LOG.debug("pkgs_installed: %s" % pkgs_installed)
-    need_reconfig = pkgs_cfgd.intersection(pkgs_installed)
-
-    if len(need_reconfig) == 0:
-        LOG.debug("no need for reconfig")
+    try:
+        map_suffix = mapping[codename][version]
+    except KeyError:
+        LOG.warn("Couldn't detect kernel package to install for %s."
+                 % kernel)
+        if kernel_fallback is not None:
+            util.install_packages([kernel_fallback], target=target)
         return
 
-    # For any packages that are already installed, but have preseed data
-    # we populate the debconf database, but the filesystem configuration
-    # would be preferred on a subsequent dpkg-reconfigure.
-    # so, what we have to do is "know" information about certain packages
-    # to unconfigure them.
-    unhandled = []
-    to_config = []
-    for pkg in need_reconfig:
-        if pkg in CONFIG_CLEANERS:
-            LOG.debug("unconfiguring %s" % pkg)
-            CONFIG_CLEANERS[pkg](target)
-            to_config.append(pkg)
+    package = "linux-{flavor}{map_suffix}".format(
+        flavor=flavor, map_suffix=map_suffix)
+
+    if util.has_pkg_available(package, target):
+        if util.has_pkg_installed(package, target):
+            LOG.debug("Kernel package '%s' already installed", package)
         else:
-            unhandled.append(pkg)
-
-    if len(unhandled):
-        LOG.warn("The following packages were installed and preseeded, "
-                 "but cannot be unconfigured: %s", unhandled)
-
-    util.subp(['chroot', target, 'dpkg-reconfigure',
-               '--frontend=noninteractive'] +
-              list(to_config), data=None)
-
-
-def get_installed_packages(target=None):
-    cmd = []
-    if target is not None:
-        cmd = ['chroot', target]
-    cmd.extend(['dpkg-query', '--list'])
-
-    (out, _err) = util.subp(cmd, capture=True)
-    if isinstance(out, bytes):
-        out = out.decode()
-
-    pkgs_inst = set()
-    for line in out.splitlines():
-        try:
-            (state, pkg, other) = line.split(None, 2)
-        except ValueError:
-            continue
-        if state.startswith("hi") or state.startswith("ii"):
-            pkgs_inst.add(re.sub(":.*", "", pkg))
-
-    return pkgs_inst
+            LOG.debug("installing kernel package '%s'", package)
+            util.install_packages([package], target=target)
+    else:
+        if kernel_fallback is not None:
+            LOG.info("Kernel package '%s' not available.  "
+                     "Installing fallback package '%s'.",
+                     package, kernel_fallback)
+            util.install_packages([kernel_fallback], target=target)
+        else:
+            LOG.warn("Kernel package '%s' not available and no fallback."
+                     " System may not boot.", package)
 
 
 def setup_grub(cfg, target):
@@ -498,12 +366,12 @@ def setup_grub(cfg, target):
         util.subp(args + instdevs, env=env)
 
 
-def update_initramfs(target, all_kernels=False):
+def update_initramfs(target=None, all_kernels=False):
     cmd = ['update-initramfs', '-u']
     if all_kernels:
         cmd.extend(['-k', 'all'])
-    with util.RunInChroot(target) as in_chroot:
-        in_chroot(cmd)
+    with util.ChrootableTarget(target) as in_chroot:
+        in_chroot.subp(cmd)
 
 
 def copy_fstab(fstab, target):
@@ -533,7 +401,6 @@ def copy_mdadm_conf(mdadm_conf, target):
 
 
 def apply_networking(target, state):
-    netstate = state.get('network_state')
     netconf = state.get('network_config')
     interfaces = state.get('interfaces')
 
@@ -544,21 +411,12 @@ def apply_networking(target, state):
                 return True
         return False
 
-    ns = None
-    if is_valid_src(netstate):
-        LOG.debug("applying network_state")
-        ns = net.network_state.from_state_file(netstate)
-    elif is_valid_src(netconf):
-        LOG.debug("applying network_config")
-        ns = net.parse_net_config(netconf)
-
-    if ns is not None:
-        net.render_network_state(target=target, network_state=ns)
+    if is_valid_src(netconf):
+        LOG.info("applying network_config")
+        apply_net.apply_net(target, network_state=None, network_config=netconf)
     else:
         LOG.debug("copying interfaces")
         copy_interfaces(interfaces, target)
-
-    _maybe_remove_legacy_eth0(target)
 
 
 def copy_interfaces(interfaces, target):
@@ -702,11 +560,6 @@ def detect_and_handle_multipath(cfg, target):
             ''])
         util.write_file(grub_cfg, content=msg)
 
-        # FIXME: this assumes grub. need more generic way to update root=
-        util.ensure_dir(os.path.sep.join([target, os.path.dirname(grub_dev)]))
-        with util.RunInChroot(target) as in_chroot:
-            in_chroot(['update-grub'])
-
     else:
         LOG.warn("Not sure how this will boot")
 
@@ -740,7 +593,7 @@ def install_missing_packages(cfg, target):
     }
 
     needed_packages = []
-    installed_packages = get_installed_packages(target)
+    installed_packages = util.get_installed_packages(target)
     for cust_cfg, pkg_reqs in custom_configs.items():
         if cust_cfg not in cfg:
             continue
@@ -820,7 +673,7 @@ def curthooks(args):
             name=stack_prefix, reporting_enabled=True, level="INFO",
             description="writing config files and configuring apt"):
         write_files(cfg, target)
-        apt_config(cfg, target)
+        do_apt_config(cfg, target)
         disable_overlayroot(cfg, target)
 
     # packages may be needed prior to installing kernel
@@ -834,8 +687,8 @@ def curthooks(args):
         copy_mdadm_conf(mdadm_location, target)
         # as per https://bugs.launchpad.net/ubuntu/+source/mdadm/+bug/964052
         # reconfigure mdadm
-        util.subp(['chroot', target, 'dpkg-reconfigure',
-                   '--frontend=noninteractive', 'mdadm'], data=None)
+        util.subp(['dpkg-reconfigure', '--frontend=noninteractive', 'mdadm'],
+                  data=None, target=target)
 
     with events.ReportEventStack(
             name=stack_prefix, reporting_enabled=True, level="INFO",
@@ -843,7 +696,6 @@ def curthooks(args):
         setup_zipl(cfg, target)
         install_kernel(cfg, target)
         run_zipl(cfg, target)
-        apply_debconf_selections(cfg, target)
 
         restore_dist_interfaces(cfg, target)
 
@@ -905,9 +757,5 @@ def curthooks(args):
 def POPULATE_SUBCMD(parser):
     populate_one_subcmd(parser, CMD_ARGUMENTS, curthooks)
 
-
-CONFIG_CLEANERS = {
-    'cloud-init': clean_cloud_init,
-}
 
 # vi: ts=4 expandtab syntax=python

@@ -1,0 +1,56 @@
+network:
+  version: 1
+  config:
+    - name: interface0
+      type: physical
+      mac_address: BC:76:4E:06:96:B3
+    - name: interface1
+      type: physical
+      mac_address: BC:76:4E:04:88:41
+    - type: bond
+      bond_interfaces:
+        - interface0
+        - interface1
+      name: bond0
+      params:
+        bond_miimon: 100
+        bond_mode: 802.3ad
+        bond_xmit_hash_policy: layer3+4
+    - type: vlan
+      name: bond0.108
+      vlan_id: '108'
+      vlan_link: bond0
+      subnets:
+        - type: static
+          address: 65.61.151.38
+          netmask: 255.255.255.252
+          routes:
+            - gateway: 65.61.151.37
+              netmask: 0.0.0.0
+              network: 0.0.0.0
+        - type: static
+          address: 2001:4800:78ff:1b:be76:4eff:fe06:96b3
+          netmask: 'ffff:ffff:ffff:ffff::'
+          routes:
+            - gateway: 2001:4800:78ff:1b::1
+              netmask: '::'
+              network: '::'
+    - type: vlan
+      name: bond0.208
+      vlan_id: '208'
+      vlan_link: bond0
+      subnets:
+        - address: 10.184.225.122
+          netmask: 255.255.255.252
+          type: static
+          routes:
+            - gateway: 10.184.225.121
+              netmask: 255.240.0.0
+              network: 10.176.0.0
+            - gateway: 10.184.225.121
+              netmask: 255.240.0.0
+              network: 10.208.0.0
+    - type: nameserver
+      address: 72.3.128.240
+    - type: nameserver
+      address: 72.3.128.241
