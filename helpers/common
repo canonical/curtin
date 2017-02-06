@@ -699,7 +699,7 @@ install_grub() {
             "${grub_name}" "${grub_target}" "$nvram" </dev/null ||
             { error "failed to install grub!"; return 1; }
 
-        chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -exc '
+        chroot "$mp" sh -exc '
             echo "after grub-install efiboot settings"
             efibootmgr' -- </dev/null ||
             { error "failed to list efi boot entries!"; return 1; }
