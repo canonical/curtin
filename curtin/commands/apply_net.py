@@ -160,7 +160,7 @@ def _disable_ipv6_privacy_extensions(target,
     except:
         msg = bmsg + " %s exists, but could not be read." % cfg
         LOG.exception(msg)
-        return
+        raise
 
 
 def _maybe_remove_legacy_eth0(target,
@@ -194,7 +194,7 @@ def _maybe_remove_legacy_eth0(target,
     except:
         msg = bmsg + " %s exists, but could not be read." % cfg
         LOG.exception(msg)
-        return
+        raise
 
     LOG.warn(msg)
 
