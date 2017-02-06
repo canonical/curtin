@@ -393,6 +393,8 @@ def rescan_block_devices():
         # FIXME: its less than ideal to swallow this error, but until
         # we fix LP: #1489521 we kind of need to.
         LOG.warn("Error rescanning devices, possibly known issue LP: #1489521")
+        # Reformatting the execption output so as to not trigger
+        # vmtest scanning for Unexepected errors in install logfile
         LOG.warn("cmd: %s\nstdout:%s\nstderr:%s\nexit_code:%s", e.cmd,
                  e.stdout, e.stderr, e.exit_code)
 

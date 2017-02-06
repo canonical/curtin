@@ -32,7 +32,7 @@ def block_info_main(args):
         size_file = os.path.join(tree['device'], 'size')
         # size file is always represented in 512 byte sectors even if
         # underlying disk uses a larger logical_block_size
-        size = ((512 * int(util.load_file(size_file, decode=False)))
+        size = ((512 * int(util.load_file(size_file)))
                 if os.path.exists(size_file) else None)
         tree['size'] = util.bytes2human(size) if args.human else str(size)
         for holder in tree['holders']:
