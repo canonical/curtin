@@ -122,6 +122,13 @@ class TestBasicAbs(VMBaseClass):
             # no proxy, so the output of apt-config dump should be empty
             self.assertEqual("", apt_proxy_found)
 
+    def test_curtin_install_version(self):
+        installed_version = self.get_install_log_curtin_version()
+        print('Install log version: %s' % installed_version)
+        source_version = self.get_curtin_version()
+        print('Source repo version: %s' % source_version)
+        self.assertEqual(source_version, installed_version)
+
 
 class PreciseTestBasic(relbase.precise, TestBasicAbs):
     __test__ = True
