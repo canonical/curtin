@@ -183,8 +183,8 @@ def main(argv=None):
         sys.exit(1)
 
     log.basicConfig(stream=args.log_file, verbosity=verbosity)
-    log.LOG.error('curtin v. %s started' % VERSIONSTR)
-    log.LOG.error('LANG=%s', os.environ.get('LANG'))
+    log.LOG.info('curtin v. %s started' % VERSIONSTR)
+    log.LOG.debug('debug=%s', os.environ.get('LANG'))
 
     paths = util.get_paths()
 
