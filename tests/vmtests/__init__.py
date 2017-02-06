@@ -546,10 +546,11 @@ class VMBaseClass(TestCase):
                     install_log = lfh.read().decode('utf-8', errors='replace')
                 errmsg, errors = check_install_log(install_log)
                 if errmsg:
+                    logger.error('Found error: ' + errmsg)
                     for e in errors:
-                        logger.error(e)
-                    logger.error(errmsg)
-                    raise Exception(cls.__name__ + ":" + errmsg)
+                        logger.error('Context:\n' + e)
+                    raise Exception(cls.__name__ + ":" + errmsg +
+                                    '\n'.join(errors))
                 else:
                     logger.info('Install OK')
             else:
@@ -912,6 +913,14 @@ class PsuedoVMBaseClass(VMBaseClass):
             raise exc
 
 
+def find_error_context(err_match, contents, nrchars=200):
+    context_start = err_match.start() - nrchars
+    context_end = err_match.end() + nrchars
+    # extract contents, split into lines, drop the first and last partials
+    # recombine and return
+    return "\n".join(contents[context_start:context_end].splitlines()[1:-1])
+
+
 def check_install_log(install_log):
     # look if install is OK via curtin 'Installation ok"
     # if we dont find that, scan for known error messages and report
@@ -925,17 +934,18 @@ def check_install_log(install_log):
                    'Installation\ failed',
                    'ImportError: No module named.*',
                    'Unexpected error while running command',
-                   'E: Unable to locate package.*']))
+                   'E: Unable to locate package.*',
+                   'Traceback.*most recent call last.*:']))
 
     install_is_ok = re.findall(install_pass, install_log)
+    # always scan for errors
+    found_errors = re.finditer(install_fail, install_log)
     if len(install_is_ok) == 0:
-        errors = re.findall(install_fail, install_log)
-        if len(errors) > 0:
-            for e in errors:
-                logger.error(e)
-            errmsg = ('Errors during curtin installer')
-        else:
-            errmsg = ('Failed to verify Installation is OK')
+        errmsg = ('Failed to verify Installation is OK')
+
+    for e in found_errors:
+        errors.append(find_error_context(e, install_log))
+        errmsg = ('Errors during curtin installer')
 
     return errmsg, errors
 
@@ -1011,6 +1021,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
             { shutdown -P now "Shutting down on centos"; }
         [ "$(lsb_release -sc)" = "precise" ] &&
             { shutdown -P now "Shutting down on precise"; }
+        exit 0;
         """)
 
     scripts = ([collect_prep] + collect_scripts + [collect_post] +

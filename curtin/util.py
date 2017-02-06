@@ -337,11 +337,21 @@ def write_file(filename, content, mode=0o644, omode="w"):
         os.chmod(filename, mode)
 
 
-def load_file(path, mode="r", read_len=None, offset=0):
-    with open(path, mode) as fp:
+def load_file(path, read_len=None, offset=0, decode=True):
+    with open(path, "rb") as fp:
         if offset:
             fp.seek(offset)
-        return fp.read(read_len) if read_len else fp.read()
+        contents = fp.read(read_len) if read_len else fp.read()
+
+    if decode:
+        return decode_binary(contents)
+    else:
+        return contents
+
+
+def decode_binary(blob, encoding='utf-8', errors='replace'):
+    # Converts a binary type into a text type using given encoding.
+    return blob.decode(encoding, errors=errors)
 
 
 def file_size(path):

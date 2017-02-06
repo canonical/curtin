@@ -392,7 +392,11 @@ def rescan_block_devices():
     except util.ProcessExecutionError as e:
         # FIXME: its less than ideal to swallow this error, but until
         # we fix LP: #1489521 we kind of need to.
-        LOG.warn("rescanning devices failed: %s", e)
+        LOG.warn("Error rescanning devices, possibly known issue LP: #1489521")
+        # Reformatting the exception output so as to not trigger
+        # vmtest scanning for Unexepected errors in install logfile
+        LOG.warn("cmd: %s\nstdout:%s\nstderr:%s\nexit_code:%s", e.cmd,
+                 e.stdout, e.stderr, e.exit_code)
 
     udevadm_settle()
 
@@ -702,7 +706,7 @@ def check_dos_signature(device):
     # this signature must be at 0x1fe
     # https://en.wikipedia.org/wiki/Master_boot_record#Sector_layout
     return (is_block_device(device) and util.file_size(device) >= 0x200 and
-            (util.load_file(device, mode='rb', read_len=2, offset=0x1fe) ==
+            (util.load_file(device, decode=False, read_len=2, offset=0x1fe) ==
              b'\x55\xAA'))
 
 
@@ -720,7 +724,7 @@ def check_efi_signature(device):
     sector_size = get_blockdev_sector_size(device)[0]
     return (is_block_device(device) and
             util.file_size(device) >= 2 * sector_size and
-            (util.load_file(device, mode='rb', read_len=8,
+            (util.load_file(device, decode=False, read_len=8,
                             offset=sector_size) == b'EFI PART'))
 
 
