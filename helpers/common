@@ -682,7 +682,7 @@ install_grub() {
         debug 1 "curtin uefi: installing ${grub_name} to: /boot/efi"
         chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -exc '
             echo "before grub-install efiboot settings"
-            efibootmgr
+            efibootmgr || echo "WARN: efibootmgr exited $?"
             dpkg-reconfigure "$1"
             update-grub
             # grub-install in 12.04 does not contain --no-nvram, --target,
@@ -699,9 +699,10 @@ install_grub() {
             "${grub_name}" "${grub_target}" "$nvram" </dev/null ||
             { error "failed to install grub!"; return 1; }
 
-        chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -exc '
+        chroot "$mp" sh -exc '
             echo "after grub-install efiboot settings"
-            efibootmgr' -- </dev/null ||
+            efibootmgr || echo "WARN: efibootmgr exited $?"
+            ' -- </dev/null ||
             { error "failed to list efi boot entries!"; return 1; }
     else
         # Note: dpkg-reconfigure calls grub-install on ppc64
