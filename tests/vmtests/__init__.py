@@ -21,7 +21,7 @@ from curtin.commands.install import INSTALL_PASS_MSG
 from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
 from .image_sync import (IMAGE_SRC_URL, IMAGE_DIR, ITEM_NAME_FILTERS)
-from .helpers import check_call, TimeoutExpired, ifconfig_to_dict
+from .helpers import check_call, TimeoutExpired, ip_a_to_dict
 from unittest import TestCase, SkipTest
 
 try:
@@ -1174,14 +1174,17 @@ def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):
 
 
 def get_lan_ip():
-    (out, _) = util.subp(['ifconfig'], capture=True)
-    info = ifconfig_to_dict(out)
+    (out, _) = util.subp(['ip', 'a'], capture=True)
+    info = ip_a_to_dict(out)
     for k, v in info.items():
         if (k == 'lo' or v.get('link_encap') == 'Local' or
                 not v.get('up') or not v.get('running') or
                 'address' not in v):
             continue
         addr = v.get('address')
+        if (k == 'lo' or v['up'] == "false" or 'inet4' not in v):
+            continue
+        addr = v.get('inet4')[0].get('address')
         break
     else:
         raise OSError('could not get local ip address')
