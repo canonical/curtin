@@ -746,7 +746,6 @@ def exclusive_open(path):
     """
     Obtain an exclusive file-handle to the file/device specified
     """
-    print('exclusive_open running')
     mode = 'rb+'
     fd = None
     if not os.path.exists(path):
