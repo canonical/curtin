@@ -11,7 +11,7 @@ def version_string():
     if not _PACKAGED_VERSION.startswith('@@'):
         return _PACKAGED_VERSION
 
-    revno = dpkg_version = None
+    revno = None
     version = old_version
     bzrdir = os.path.abspath(os.path.join(__file__, '..', '..', '.bzr'))
     if os.path.isdir(bzrdir):
