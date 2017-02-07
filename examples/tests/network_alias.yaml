@@ -1,0 +1,125 @@
+showtrace: true
+network:
+    version: 1
+    config:
+        # no-alias: single v4 and v6 on same interface
+        - type: physical
+          name: interface0
+          mac_address: "52:54:00:12:34:00"
+          subnets:
+              - type: static
+                address: 192.168.1.2/24
+                mtu: 1501
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:fe06:ffac
+                netmask: 'ffff:ffff:ffff:ffff::'
+                mtu: 1480
+        # multi_v4_alias: multiple v4 addrs on same interface
+        - type: physical
+          name: interface1
+          mac_address: "52:54:00:12:34:02"
+          subnets:
+              - type: static
+                address: 192.168.2.2/22
+                routes:
+                  - network: 192.168.0.0
+                    netmask: 255.255.252.0
+                    gateway: 192.168.2.1
+              - type: static
+                address: 10.23.23.7/23
+                routes:
+                  - gateway: 10.23.23.1
+                    netmask: 255.255.254.0
+                    network: 10.23.22.0
+        # multi_v6_alias: multiple v6 addrs on same interface
+        - type: physical
+          name: interface2
+          mac_address: "52:54:00:12:34:04"
+          subnets:
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:dead:1000
+                netmask: 'ffff:ffff:ffff:ffff::'
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:dead:2000
+                netmask: 'ffff:ffff:ffff:ffff::'
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:dead:3000
+                netmask: 'ffff:ffff:ffff:ffff::'
+        # multi_v4_and_v6_alias: multiple v4 and v6 addrs on same interface
+        - type: physical
+          name: interface3
+          mac_address: "52:54:00:12:34:06"
+          subnets:
+              - type: static
+                address: 192.168.7.7/22
+                routes:
+                  - network: 192.168.0.0
+                    netmask: 255.255.252.0
+                    gateway: 192.168.7.1
+              - type: static
+                address: 10.99.99.23/23
+                routes:
+                  - gateway: 10.99.99.1
+                    netmask: 255.255.254.0
+                    network: 10.99.98.0
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:beef:4000
+                netmask: 'ffff:ffff:ffff:ffff::'
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:beef:5000
+                netmask: 'ffff:ffff:ffff:ffff::'
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:beef:6000
+                netmask: 'ffff:ffff:ffff:ffff::'
+        # multi_v6_and_v4_revorder_alias: multiple v4 and v6 addr, rev order
+        - type: physical
+          name: interface4
+          mac_address: "52:54:00:12:34:08"
+          subnets:
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:debe:7000
+                netmask: 'ffff:ffff:ffff:ffff::'
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:debe:8000
+                netmask: 'ffff:ffff:ffff:ffff::'
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:debe:9000
+                netmask: 'ffff:ffff:ffff:ffff::'
+              - type: static
+                address: 192.168.100.100/22
+                routes:
+                  - network: 192.168.0.0
+                    netmask: 255.255.252.0
+                    gateway: 192.168.100.1
+              - type: static
+                address: 10.17.142.2/23
+                routes:
+                  - gateway: 10.17.142.1
+                    netmask: 255.255.254.0
+                    network: 10.17.142.0
+        # multi_v6_and_v4_mix_order: multiple v4 and v6 addr, mixed order
+        - type: physical
+          name: interface5
+          mac_address: "52:54:00:12:34:0a"
+          subnets:
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:baaf:a000
+                netmask: 'ffff:ffff:ffff:ffff::'
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:baaf:c000
+                netmask: 'ffff:ffff:ffff:ffff::'
+              - type: static
+                address: 192.168.200.200/22
+                routes:
+                  - network: 192.168.0.0
+                    netmask: 255.255.252.0
+                    gateway: 192.168.200.1
+              - type: static
+                address: 10.252.2.2/23
+                routes:
+                  - gateway: 10.252.2.1
+                    netmask: 255.255.254.0
+                    network: 10.252.2.0
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:baaf:b000
+                netmask: 'ffff:ffff:ffff:ffff::'

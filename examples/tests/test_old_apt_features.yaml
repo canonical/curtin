@@ -1,0 +1,11 @@
+showtrace: true
+# apt_proxy gets configured by tools/launch and tests/vmtests/__init__.py
+apt_mirrors:
+# we need a mirror that works (even in CI) but isn't the default
+  ubuntu_archive: http://us.archive.ubuntu.com/ubuntu
+  ubuntu_security: http://archive.ubuntu.com/ubuntu
+# set some key that surely is available to a non-default value
+debconf_selections:
+  set1: |
+    debconf debconf/priority select low
+  cloudinit: "cloud-init cloud-init/datasources multiselect NoCloud"

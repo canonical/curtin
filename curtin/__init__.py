@@ -33,6 +33,12 @@ FEATURES = [
     'SUBCOMMAND_SYSTEM_INSTALL',
     # subcommand 'system-upgrade' is present
     'SUBCOMMAND_SYSTEM_UPGRADE',
+    # supports new format of apt configuration
+    'APT_CONFIG_V1',
+    # has version module
+    'HAS_VERSION_MODULE',
 ]
+
+__version__ = "0.1.0"
 
 # vi: ts=4 expandtab syntax=python

@@ -1,11 +1,14 @@
 from unittest import TestCase
+import functools
 import os
 import mock
 import tempfile
 import shutil
+import sys
 
 from collections import OrderedDict
 
+from .helpers import simple_mocked_open
 from curtin import util
 from curtin import block
 
@@ -207,7 +210,7 @@ class TestWipeFile(TestCase):
         myfile = self.tfile("def_zero")
         util.write_file(myfile, flen * b'\1', omode="wb")
         block.wipe_file(myfile)
-        found = util.load_file(myfile, mode="rb")
+        found = util.load_file(myfile, decode=False)
         self.assertEqual(found, flen * b'\0')
 
     def test_reader_used(self):
@@ -220,7 +223,7 @@ class TestWipeFile(TestCase):
         # populate with nulls
         util.write_file(myfile, flen * b'\0', omode="wb")
         block.wipe_file(myfile, reader=reader, buflen=flen)
-        found = util.load_file(myfile, mode="rb")
+        found = util.load_file(myfile, decode=False)
         self.assertEqual(found, flen * b'\1')
 
     def test_reader_twice(self):
@@ -236,7 +239,7 @@ class TestWipeFile(TestCase):
         myfile = self.tfile("reader_twice")
         util.write_file(myfile, flen * b'\xff', omode="wb")
         block.wipe_file(myfile, reader=reader, buflen=20)
-        found = util.load_file(myfile, mode="rb")
+        found = util.load_file(myfile, decode=False)
         self.assertEqual(found, expected)
 
     def test_reader_fhandle(self):
@@ -250,6 +253,115 @@ class TestWipeFile(TestCase):
         found = util.load_file(trgfile)
         self.assertEqual(data, found)
 
+    def test_exclusive_open_raise_missing(self):
+        myfile = self.tfile("no-such-file")
+
+        with self.assertRaises(ValueError):
+            with block.exclusive_open(myfile) as fp:
+                fp.close()
+
+    @mock.patch('os.close')
+    @mock.patch('os.fdopen')
+    @mock.patch('os.open')
+    def test_exclusive_open(self, mock_os_open, mock_os_fdopen, mock_os_close):
+        flen = 1024
+        myfile = self.tfile("my_exclusive_file")
+        util.write_file(myfile, flen * b'\1', omode="wb")
+        mock_fd = 3
+        mock_os_open.return_value = mock_fd
+
+        with block.exclusive_open(myfile) as fp:
+            fp.close()
+
+        mock_os_open.assert_called_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_os_fdopen.assert_called_with(mock_fd, 'rb+')
+        self.assertEqual([], mock_os_close.call_args_list)
+
+    @mock.patch('os.close')
+    @mock.patch('curtin.util.list_device_mounts')
+    @mock.patch('curtin.block.get_holders')
+    @mock.patch('os.open')
+    def test_exclusive_open_non_exclusive_exception(self, mock_os_open,
+                                                    mock_holders,
+                                                    mock_list_mounts,
+                                                    mock_os_close):
+        flen = 1024
+        myfile = self.tfile("my_exclusive_file")
+        util.write_file(myfile, flen * b'\1', omode="wb")
+        mock_os_open.side_effect = OSError("NO_O_EXCL")
+        mock_holders.return_value = ['md1']
+        mock_list_mounts.return_value = []
+
+        with self.assertRaises(OSError):
+            with block.exclusive_open(myfile) as fp:
+                fp.close()
+
+        mock_os_open.assert_called_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_holders.assert_called_with(myfile)
+        mock_list_mounts.assert_called_with(myfile)
+        self.assertEqual([], mock_os_close.call_args_list)
+
+    @mock.patch('os.close')
+    @mock.patch('os.fdopen')
+    @mock.patch('os.open')
+    def test_exclusive_open_fdopen_failure(self, mock_os_open,
+                                           mock_os_fdopen, mock_os_close):
+        flen = 1024
+        myfile = self.tfile("my_exclusive_file")
+        util.write_file(myfile, flen * b'\1', omode="wb")
+        mock_fd = 3
+        mock_os_open.return_value = mock_fd
+        mock_os_fdopen.side_effect = OSError("EBADF")
+
+        with self.assertRaises(OSError):
+            with block.exclusive_open(myfile) as fp:
+                fp.close()
+
+        mock_os_open.assert_called_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_os_fdopen.assert_called_with(mock_fd, 'rb+')
+        if sys.version_info.major == 2:
+            mock_os_close.assert_called_with(mock_fd)
+        else:
+            self.assertEqual([], mock_os_close.call_args_list)
+
+
+class TestWipeVolume(TestCase):
+    dev = '/dev/null'
+
+    @mock.patch('curtin.block.lvm')
+    @mock.patch('curtin.block.util')
+    def test_wipe_pvremove(self, mock_util, mock_lvm):
+        block.wipe_volume(self.dev, mode='pvremove')
+        mock_util.subp.assert_called_with(
+            ['pvremove', '--force', '--force', '--yes', self.dev], rcs=[0, 5],
+            capture=True)
+        self.assertTrue(mock_lvm.lvm_scan.called)
+
+    @mock.patch('curtin.block.quick_zero')
+    def test_wipe_superblock(self, mock_quick_zero):
+        block.wipe_volume(self.dev, mode='superblock')
+        mock_quick_zero.assert_called_with(self.dev, partitions=False)
+        block.wipe_volume(self.dev, mode='superblock-recursive')
+        mock_quick_zero.assert_called_with(self.dev, partitions=True)
+
+    @mock.patch('curtin.block.wipe_file')
+    def test_wipe_zero(self, mock_wipe_file):
+        with simple_mocked_open():
+            block.wipe_volume(self.dev, mode='zero')
+            mock_wipe_file.assert_called_with(self.dev)
+
+    @mock.patch('curtin.block.wipe_file')
+    def test_wipe_random(self, mock_wipe_file):
+        with simple_mocked_open() as mock_open:
+            block.wipe_volume(self.dev, mode='random')
+            mock_open.assert_called_with('/dev/urandom', 'rb')
+            mock_wipe_file.assert_called_with(
+                self.dev, reader=mock_open.return_value.__enter__().read)
+
+    def test_bad_input(self):
+        with self.assertRaises(ValueError):
+            block.wipe_volume(self.dev, mode='invalidmode')
+
 
 class TestBlockKnames(TestCase):
     """Tests for some of the kname functions in block"""
@@ -260,6 +372,7 @@ class TestBlockKnames(TestCase):
                        (('mmcblk0', 1), 'mmcblk0p1'),
                        (('cciss!c0d0', 1), 'cciss!c0d0p1'),
                        (('dm-0', 1), 'dm-0p1'),
+                       (('md0', 1), 'md0p1'),
                        (('mpath1', 2), 'mpath1p2')]
         for ((disk_kname, part_number), part_kname) in part_knames:
             self.assertEqual(block.partition_kname(disk_kname, part_number),
@@ -271,6 +384,7 @@ class TestBlockKnames(TestCase):
         path_knames = [('/dev/sda', 'sda'),
                        ('/dev/sda1', 'sda1'),
                        ('/dev////dm-0/', 'dm-0'),
+                       ('/dev/md0p1', 'md0p1'),
                        ('vdb', 'vdb'),
                        ('/dev/mmcblk0p1', 'mmcblk0p1'),
                        ('/dev/nvme0n0p1', 'nvme0n0p1'),
@@ -311,5 +425,68 @@ class TestBlockKnames(TestCase):
         for (kname, expected_path) in kname_paths:
             with self.assertRaises(OSError):
                 block.kname_to_path(kname)
+
+
+class TestPartTableSignature(TestCase):
+    blockdev = '/dev/null'
+    dos_content = b'\x00' * 0x1fe + b'\x55\xAA' + b'\x00' * 0xf00
+    gpt_content = b'\x00' * 0x200 + b'EFI PART' + b'\x00' * (0x200 - 8)
+    gpt_content_4k = b'\x00' * 0x800 + b'EFI PART' + b'\x00' * (0x800 - 8)
+    null_content = b'\x00' * 0xf00
+
+    def _test_util_load_file(self, content, device, read_len, offset, decode):
+        return (bytes if not decode else str)(content[offset:offset+read_len])
+
+    @mock.patch('curtin.block.check_dos_signature')
+    @mock.patch('curtin.block.check_efi_signature')
+    def test_gpt_part_table_type(self, mock_check_efi, mock_check_dos):
+        """test block.get_part_table_type logic"""
+        for (has_dos, has_efi, expected) in [(True, True, 'gpt'),
+                                             (True, False, 'dos'),
+                                             (False, False, None)]:
+            mock_check_dos.return_value = has_dos
+            mock_check_efi.return_value = has_efi
+            self.assertEqual(
+                block.get_part_table_type(self.blockdev), expected)
+
+    @mock.patch('curtin.block.is_block_device')
+    @mock.patch('curtin.block.util')
+    def test_check_dos_signature(self, mock_util, mock_is_block_device):
+        """test block.check_dos_signature"""
+        for (is_block, f_size, contents, expected) in [
+                (True, 0x200, self.dos_content, True),
+                (False, 0x200, self.dos_content, False),
+                (True, 0, self.dos_content, False),
+                (True, 0x400, self.dos_content, True),
+                (True, 0x200, self.null_content, False)]:
+            mock_util.load_file.side_effect = (
+                functools.partial(self._test_util_load_file, contents))
+            mock_util.file_size.return_value = f_size
+            mock_is_block_device.return_value = is_block
+            (self.assertTrue if expected else self.assertFalse)(
+                block.check_dos_signature(self.blockdev))
+
+    @mock.patch('curtin.block.is_block_device')
+    @mock.patch('curtin.block.get_blockdev_sector_size')
+    @mock.patch('curtin.block.util')
+    def test_check_efi_signature(self, mock_util, mock_get_sector_size,
+                                 mock_is_block_device):
+        """test block.check_efi_signature"""
+        for (sector_size, gpt_dat) in zip(
+                (0x200, 0x800), (self.gpt_content, self.gpt_content_4k)):
+            mock_get_sector_size.return_value = (sector_size, sector_size)
+            for (is_block, f_size, contents, expected) in [
+                    (True, 2 * sector_size, gpt_dat, True),
+                    (True, 1 * sector_size, gpt_dat, False),
+                    (False, 2 * sector_size, gpt_dat, False),
+                    (True, 0, gpt_dat, False),
+                    (True, 2 * sector_size, self.dos_content, False),
+                    (True, 2 * sector_size, self.null_content, False)]:
+                mock_util.load_file.side_effect = (
+                    functools.partial(self._test_util_load_file, contents))
+                mock_util.file_size.return_value = f_size
+                mock_is_block_device.return_value = is_block
+                (self.assertTrue if expected else self.assertFalse)(
+                    block.check_efi_signature(self.blockdev))
 
 # vi: ts=4 expandtab syntax=python

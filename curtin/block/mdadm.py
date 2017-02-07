@@ -28,7 +28,8 @@ import shlex
 from subprocess import CalledProcessError
 
 from curtin.block import (dev_short, dev_path, is_valid_device, sys_block_path)
-from curtin import util
+from curtin.block import get_holders
+from curtin import (util, udev)
 from curtin.log import LOG
 
 NOSPARE_RAID_LEVELS = [
@@ -117,21 +118,39 @@ MDADM_USE_EXPORT = util.lsb_release()['codename'] not in ['precise', 'trusty']
 #
 
 
-def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False):
+def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False,
+                   ignore_errors=False):
     # md_devname is a /dev/XXXX
     # devices is non-empty list of /dev/xxx
     # if spares is non-empt list append of /dev/xxx
     cmd = ["mdadm", "--assemble"]
     if scan:
-        cmd += ['--scan']
+        cmd += ['--scan', '-v']
     else:
         valid_mdname(md_devname)
         cmd += [md_devname, "--run"] + devices
         if spares:
             cmd += spares
 
-    util.subp(cmd, capture=True, rcs=[0, 1, 2])
-    util.subp(["udevadm", "settle"])
+    try:
+        # mdadm assemble returns 1 when no arrays are found. this might not be
+        # an error depending on the situation this function was called in, so
+        # accept a return code of 1
+        # mdadm assemble returns 2 when called on an array that is already
+        # assembled. this is not an error, so accept return code of 2
+        # all other return codes can be accepted with ignore_error set to true
+        scan, err = util.subp(cmd, capture=True, rcs=[0, 1, 2])
+        LOG.debug('mdadm assemble scan results:\n%s\n%s', scan, err)
+        scan, err = util.subp(['mdadm', '--detail', '--scan', '-v'],
+                              capture=True, rcs=[0, 1])
+        LOG.debug('mdadm detail scan after assemble:\n%s\n%s',
+                  scan, err)
+    except util.ProcessExecutionError:
+        LOG.warning("mdadm_assemble had unexpected return code")
+        if not ignore_errors:
+            raise
+
+    udev.udevadm_settle()
 
 
 def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
@@ -164,6 +183,11 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
         cmd.append("--name=%s" % md_name)
 
     for device in devices:
+        # mdadm can be sticky, double check
+        holders = get_holders(device)
+        if len(holders) > 0:
+            LOG.warning('Detected holders during mdadm creation: %s', holders)
+            raise OSError('Failed to remove holders from %s', device)
         # Zero out device superblock just in case device has been used for raid
         # before, as this will cause many issues
         util.subp(["mdadm", "--zero-superblock", device], capture=True)
@@ -193,7 +217,12 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
             LOG.debug('available md modules: \n%s' % out)
         else:
             LOG.debug('no available md modules found')
+
+        for dev in devices + spares:
+            h = get_holders(dev)
+            LOG.debug('Device %s has holders: %s', dev, h)
         raise
+
     util.subp(["udevadm", "control", "--start-exec-queue"])
     util.subp(["udevadm", "settle",
                "--exit-if-exists=%s" % md_devname])
@@ -228,14 +257,17 @@ def mdadm_stop(devpath):
     assert_valid_devpath(devpath)
 
     LOG.info("mdadm stopping: %s" % devpath)
-    util.subp(["mdadm", "--stop", devpath], rcs=[0, 1], capture=True)
+    out, err = util.subp(["mdadm", "--stop", devpath], capture=True)
+    LOG.debug("mdadm stop:\n%s\n%s", out, err)
 
 
 def mdadm_remove(devpath):
     assert_valid_devpath(devpath)
 
     LOG.info("mdadm removing: %s" % devpath)
-    util.subp(["mdadm", "--remove", devpath], rcs=[0, 1], capture=True)
+    out, err = util.subp(["mdadm", "--remove", devpath],
+                         rcs=[0], capture=True)
+    LOG.debug("mdadm remove:\n%s\n%s", out, err)
 
 
 def mdadm_query_detail(md_devname, export=MDADM_USE_EXPORT):
