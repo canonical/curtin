@@ -24,7 +24,8 @@ class TestPack(TestCase):
     def setUpClass(cls):
         cls.tmpd = tempfile.mkdtemp(prefix="curtin-%s." % cls.__name__)
         cls.pack_out = os.path.join(cls.tmpd, "pack-out")
-        util.subp(['curtin', 'pack', '--output={}'.format(cls.pack_out)])
+        util.subp([sys.executable, '-m', 'curtin.commands.main',
+                   'pack', '--output={}'.format(cls.pack_out)])
         os.chmod(cls.pack_out, 0o755)
         util.subp([cls.pack_out, 'extract', '--no-execute'], capture=True,
                   cwd=cls.tmpd)
