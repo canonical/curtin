@@ -111,7 +111,7 @@ class TestPack(TestCase):
         cfg = {
             'stages': ['early'],
             'early_commands': {
-                'mycmd': ["sh", "-c", "echo " + mystr + "; exit 1;"]
+                'mycmd': ["sh", "-c", "echo " + mystr + "; exit 9;"]
             }}
 
         out, err, rc, log_contents = self.run_install(cfg)
@@ -120,6 +120,7 @@ class TestPack(TestCase):
         self.assertIn(version.version_string(), out)
         self.assertIn(version.version_string(), log_contents)
         self.assertIn(mystr, out)
+        # rc is not expected to match the 'exit 9' above, but should not be 0.
         self.assertNotEqual(0, rc)
 
         self.assertIn(INSTALL_START_MSG, out)
