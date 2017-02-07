@@ -759,7 +759,7 @@ class VMBaseClass(TestCase):
             r'curtin: Installation started.[^(]*\((?P<version>[^)]*)\).*')
         version = None
         for line in self.load_log_file(self.install_log).splitlines():
-            vermatch = startre.match(line)
+            vermatch = startre.search(line)
             if vermatch:
                 version = vermatch.group('version')
                 break
