@@ -13,6 +13,7 @@ import time
 import yaml
 import curtin.net as curtin_net
 import curtin.util as util
+import curtin.version
 
 from curtin.commands.install import INSTALL_PASS_MSG
 
@@ -747,6 +748,23 @@ class VMBaseClass(TestCase):
     def load_collect_file(self, filename, mode="r"):
         with open(os.path.join(self.td.collect, filename), mode) as fp:
             return fp.read()
+
+    def load_log_file(self, filename):
+        with open(filename, 'rb') as l:
+            return l.read().decode('utf-8', errors='replace')
+
+    def get_install_log_curtin_version(self):
+        # "curtin v. 0.1.0~bzr426 started"
+        install_log = self.load_log_file(self.install_log)
+        curtin_vers = [line for line in install_log.splitlines()
+                       if 'curtin v.' in line and line.endswith('started')]
+        for ver in curtin_vers:
+            version = ver.split('curtin v. ')[-1].split(' started')[0]
+            if len(version) > 0:
+                return version
+
+    def get_curtin_version(self):
+        return curtin.version.version_string()
 
     def check_file_strippedline(self, filename, search):
         lines = self.load_collect_file(filename).splitlines()
