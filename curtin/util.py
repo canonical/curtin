@@ -65,7 +65,7 @@ BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 
 def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
-          logstring=False, decode="replace", target=None):
+          logstring=False, decode="replace", target=None, cwd=None):
     if rcs is None:
         rcs = [0]
 
@@ -93,7 +93,7 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
             stdin = subprocess.PIPE
         sp = subprocess.Popen(args, stdout=stdout,
                               stderr=stderr, stdin=stdin,
-                              env=env, shell=shell)
+                              env=env, shell=shell, cwd=cwd)
         (out, err) = sp.communicate(data)
 
         # Just ensure blank instead of none.

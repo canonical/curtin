@@ -780,14 +780,16 @@ class VMBaseClass(TestCase):
             return l.read().decode('utf-8', errors='replace')
 
     def get_install_log_curtin_version(self):
-        # "curtin v. 0.1.0~bzr426 started"
-        install_log = self.load_log_file(self.install_log)
-        curtin_vers = [line for line in install_log.splitlines()
-                       if 'curtin v.' in line and line.endswith('started')]
-        for ver in curtin_vers:
-            version = ver.split('curtin v. ')[-1].split(' started')[0]
-            if len(version) > 0:
-                return version
+        # curtin: Installation started. (%s)
+        startre = re.compile(
+            r'curtin: Installation started.[^(]*\((?P<version>[^)]*)\).*')
+        version = None
+        for line in self.load_log_file(self.install_log).splitlines():
+            vermatch = startre.search(line)
+            if vermatch:
+                version = vermatch.group('version')
+                break
+        return version
 
     def get_curtin_version(self):
         return curtin.version.version_string()
@@ -1179,7 +1181,7 @@ def get_lan_ip():
     (routes, _) = util.subp(['route', '-n'], capture=True)
     gwdevs = [route.split()[-1] for route in routes.splitlines()
               if route.startswith('0.0.0.0') and 'UG' in route]
-    if len(gwdevs) > 0: 
+    if len(gwdevs) > 0:
         dev = gwdevs.pop()
         addr = info[dev].get('inet4')[0].get('address')
     else:
