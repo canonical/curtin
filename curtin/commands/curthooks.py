@@ -626,7 +626,7 @@ def install_missing_packages(cfg, target):
     }
 
     for pkg, cmd in arch_packages.get(platform.machine(), []):
-        if not util.which(program, target=target):
+        if not util.which(cmd, target=target):
             if pkg not in needed_packages:
                 needed_packages.append(pkg)
 
