@@ -750,8 +750,8 @@ class VMBaseClass(TestCase):
             return fp.read()
 
     def load_log_file(self, filename):
-        with open(filename, 'rb') as l:
-            return l.read().decode('utf-8', errors='replace')
+        with open(filename, 'rb') as fp:
+            return fp.read().decode('utf-8', errors='replace')
 
     def get_install_log_curtin_version(self):
         # curtin: Installation started. (%s)
