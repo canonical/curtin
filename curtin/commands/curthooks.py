@@ -622,7 +622,7 @@ def install_missing_packages(cfg, target):
                 needed_packages.append(pkg)
 
     arch_packages = {
-        's390x': [('zipl', 'zipl')],
+        's390x': [('s390-tools', 'zipl')],
     }
 
     for pkg, cmd in arch_packages.get(platform.machine(), []):
