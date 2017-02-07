@@ -30,17 +30,17 @@ class TrustyTestNetworkIPV6(relbase.trusty, TestNetworkIPV6Abs):
     __test__ = True
 
 
-class TrustyHWEXTestNetworkIPV6(relbase.trusty_hwe_x, TrustyTestNetworkIPV6):
-    # Working, off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
 class TrustyHWEVTestNetworkIPV6(relbase.trusty_hwe_v, TrustyTestNetworkIPV6):
     # Working, off by default to safe test suite runtime, covered by bonding
     __test__ = False
 
 
 class TrustyHWEWTestNetworkIPV6(relbase.trusty_hwe_w, TrustyTestNetworkIPV6):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
+class TrustyHWEXTestNetworkIPV6(relbase.trusty_hwe_x, TrustyTestNetworkIPV6):
     # Working, off by default to safe test suite runtime, covered by bonding
     __test__ = False
 

@@ -17,6 +17,11 @@ class TrustyTestNetworkIPV6ENISource(relbase.trusty, TestNetworkIPV6ENISource):
     __test__ = True
 
 
+class TrustyHWEXTestNetworkIPV6ENISource(relbase.trusty_hwe_x,
+                                         TestNetworkIPV6ENISource):
+    __test__ = True
+
+
 class XenialTestNetworkIPV6ENISource(relbase.xenial, TestNetworkIPV6ENISource):
     __test__ = True
 

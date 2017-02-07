@@ -83,6 +83,11 @@ class TrustyTestNetworkENISource(relbase.trusty, TestNetworkENISource):
     __test__ = True
 
 
+class TrustyHWEXTestNetworkENISource(relbase.trusty_hwe_x,
+                                     TestNetworkENISource):
+    __test__ = True
+
+
 class XenialTestNetworkENISource(relbase.xenial, TestNetworkENISource):
     __test__ = True
 

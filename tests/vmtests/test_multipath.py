@@ -47,6 +47,11 @@ class TrustyTestMultipathBasic(relbase.trusty, TestMultipathBasicAbs):
     __test__ = True
 
 
+class TrustyHWEXTestMultipathBasic(relbase.trusty_hwe_x,
+                                   TestMultipathBasicAbs):
+    __test__ = True
+
+
 class XenialTestMultipathBasic(relbase.xenial, TestMultipathBasicAbs):
     __test__ = True
 

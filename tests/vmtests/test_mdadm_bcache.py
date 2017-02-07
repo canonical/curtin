@@ -124,10 +124,6 @@ class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):
         print("test_ptable does not work for Trusty")
 
 
-class TrustyHWEUTestMdadmBcache(relbase.trusty_hwe_u, TrustyTestMdadmBcache):
-    __test__ = True
-
-
 class TrustyHWEXTestMdadmBcache(relbase.trusty_hwe_x, TrustyTestMdadmBcache):
     __test__ = True
 

@@ -32,6 +32,10 @@ class TrustyHWEWTestNetworkAlias(relbase.trusty_hwe_w, TrustyTestNetworkAlias):
     __test__ = False
 
 
+class TrustyHWEXTestNetworkAlias(relbase.trusty_hwe_x, TrustyTestNetworkAlias):
+    __test__ = True
+
+
 class XenialTestNetworkAlias(relbase.xenial, TestNetworkAliasAbs):
     __test__ = True
 
