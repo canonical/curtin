@@ -1176,16 +1176,12 @@ def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):
 def get_lan_ip():
     (out, _) = util.subp(['ip', 'a'], capture=True)
     info = ip_a_to_dict(out)
-    for k, v in info.items():
-        if (k == 'lo' or v.get('link_encap') == 'Local' or
-                not v.get('up') or not v.get('running') or
-                'address' not in v):
-            continue
-        addr = v.get('address')
-        if (k == 'lo' or v['up'] == "false" or 'inet4' not in v):
-            continue
-        addr = v.get('inet4')[0].get('address')
-        break
+    (routes, _) = util.subp(['route', '-n'], capture=True)
+    gwdevs = [route.split()[-1] for route in routes.splitlines()
+              if route.startswith('0.0.0.0') and 'UG' in route]
+    if len(gwdevs) > 0: 
+        dev = gwdevs.pop()
+        addr = info[dev].get('inet4')[0].get('address')
     else:
         raise OSError('could not get local ip address')
     return addr
