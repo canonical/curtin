@@ -1,0 +1,30 @@
+#!/usr/bin/python3
+# python2 or python3 web server.
+# Usage: webserv [port [dir]]
+#  run a webserver serving 'dir' at root on 'port'
+#
+#  port defaults to 8000
+#  dir defaults to current dir.
+import os
+import socket
+import sys
+try:
+    from BaseHTTPServer import HTTPServer
+    from SimpleHTTPServer import SimpleHTTPRequestHandler
+except ImportError:
+    from http.server import HTTPServer, SimpleHTTPRequestHandler
+
+
+class HTTPServerV6(HTTPServer):
+    address_family = socket.AF_INET6
+
+
+if __name__ == "__main__":
+    port = 8000
+    if len(sys.argv) > 1:
+        port = int(sys.argv[1])
+    if len(sys.argv) > 2:
+        dir = sys.argv[2]
+        os.chdir(dir)
+    server = HTTPServerV6(("::", port), SimpleHTTPRequestHandler)
+    server.serve_forever()

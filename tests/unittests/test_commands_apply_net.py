@@ -1,8 +1,9 @@
 from unittest import TestCase
-from mock import patch
+from mock import patch, call
 import copy
 
 from curtin.commands import apply_net
+from curtin import util
 
 
 class ApplyNetTestBase(TestCase):
@@ -54,7 +55,7 @@ class TestApplyNet(ApplyNetTestBase):
             'dns': {
                 'nameservers': [],
                 'search': [],
-             }
+            }
         }
 
     # def tearDown(self):
@@ -154,3 +155,215 @@ class TestApplyNet(ApplyNetTestBase):
         self.mock_legacy.assert_called_with(self.target)
         self.mock_ipv6_priv.assert_called_with(self.target)
         self.mock_ipv6_mtu.assert_called_with(self.target)
+
+
+class TestApplyNetPatchIfupdown(ApplyNetTestBase):
+
+    @patch('curtin.util.write_file')
+    def test_apply_ipv6_mtu_hook(self, mock_write):
+        target = 'mytarget'
+        prehookfn = 'if-pre-up.d/mtuipv6'
+        posthookfn = 'if-up.d/mtuipv6'
+        mode = 0o755
+
+        apply_net._patch_ifupdown_ipv6_mtu_hook(target,
+                                                prehookfn=prehookfn,
+                                                posthookfn=posthookfn)
+
+        precfg = util.target_path(target, path=prehookfn)
+        postcfg = util.target_path(target, path=posthookfn)
+        precontents = apply_net.IFUPDOWN_IPV6_MTU_PRE_HOOK
+        postcontents = apply_net.IFUPDOWN_IPV6_MTU_POST_HOOK
+
+        hook_calls = [
+            call(precfg, precontents, mode=mode),
+            call(postcfg, postcontents, mode=mode),
+        ]
+        mock_write.assert_has_calls(hook_calls)
+
+    @patch('curtin.util.write_file')
+    def test_apply_ipv6_mtu_hook_write_fail(self, mock_write):
+        target = 'mytarget'
+        prehookfn = 'if-pre-up.d/mtuipv6'
+        posthookfn = 'if-up.d/mtuipv6'
+        mock_write.side_effect = (Exception)
+
+        self.assertRaises(Exception,
+                          apply_net._patch_ifupdown_ipv6_mtu_hook,
+                          target,
+                          prehookfn=prehookfn,
+                          posthookfn=posthookfn)
+
+    @patch('curtin.util.write_file')
+    def test_apply_ipv6_mtu_hook_invalid_target(self, mock_write):
+        """ Test that an invalid target will fail to build a
+            proper path for util.write_file
+        """
+        target = {}
+        prehookfn = 'if-pre-up.d/mtuipv6'
+        posthookfn = 'if-up.d/mtuipv6'
+        mock_write.side_effect = (Exception)
+
+        self.assertRaises(ValueError,
+                          apply_net._patch_ifupdown_ipv6_mtu_hook,
+                          target,
+                          prehookfn=prehookfn,
+                          posthookfn=posthookfn)
+
+    @patch('curtin.util.write_file')
+    def test_apply_ipv6_mtu_hook_invalid_prepost_fn(self, mock_write):
+        """ Test that invalid prepost filenames will fail to build a
+            proper path for util.write_file
+        """
+        target = "mytarget"
+        prehookfn = {'a': 1}
+        posthookfn = {'b': 2}
+        mock_write.side_effect = (Exception)
+
+        self.assertRaises(ValueError,
+                          apply_net._patch_ifupdown_ipv6_mtu_hook,
+                          target,
+                          prehookfn=prehookfn,
+                          posthookfn=posthookfn)
+
+
+class TestApplyNetPatchIpv6Priv(ApplyNetTestBase):
+
+    @patch('curtin.util.del_file')
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    @patch('curtin.util.write_file')
+    def test_disable_ipv6_priv_extentions(self, mock_write, mock_ospath,
+                                          mock_load, mock_del):
+        target = 'mytarget'
+        path = 'etc/sysctl.d/10-ipv6-privacy.conf'
+        ipv6_priv_contents = (
+            'net.ipv6.conf.all.use_tempaddr = 2\n'
+            'net.ipv6.conf.default.use_tempaddr = 2')
+        expected_ipv6_priv_contents = '\n'.join(
+            ["# IPv6 Privacy Extensions (RFC 4941)",
+             "# Disabled by curtin",
+             "# net.ipv6.conf.all.use_tempaddr = 2",
+             "# net.ipv6.conf.default.use_tempaddr = 2"])
+        mock_ospath.exists.return_value = True
+        mock_load.side_effect = [ipv6_priv_contents]
+
+        apply_net._disable_ipv6_privacy_extensions(target)
+
+        cfg = util.target_path(target, path=path)
+        mock_write.assert_called_with(cfg, expected_ipv6_priv_contents)
+
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    def test_disable_ipv6_priv_extentions_decoderror(self, mock_ospath,
+                                                     mock_load):
+        target = 'mytarget'
+        mock_ospath.exists.return_value = True
+
+        # simulate loading of binary data
+        mock_load.side_effect = (Exception)
+
+        self.assertRaises(Exception,
+                          apply_net._disable_ipv6_privacy_extensions,
+                          target)
+
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    def test_disable_ipv6_priv_extentions_nomatch(self, mock_ospath,
+                                                  mock_load):
+
+        target = 'mytarget'
+        ipv6_priv_contents = "No match"
+
+        mock_ospath.return_value = True
+        mock_load.side_effect = [ipv6_priv_contents]
+
+        self.assertRaises(Exception,
+                          apply_net._disable_ipv6_privacy_extensions,
+                          target)
+
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    def test_disable_ipv6_priv_extentions_notfound(self, mock_ospath,
+                                                   mock_load):
+        target = 'mytarget'
+        path = 'foo.conf'
+        mock_ospath.exists.return_value = False
+
+        apply_net._disable_ipv6_privacy_extensions(target, path=path)
+
+        # source file not found
+        cfg = util.target_path(target, path)
+        mock_ospath.exists.assert_called_with(cfg)
+        mock_load.assert_not_called()
+
+
+class TestApplyNetRemoveLegacyEth0(ApplyNetTestBase):
+
+    @patch('curtin.util.del_file')
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    def test_remove_legacy_eth0(self, mock_ospath, mock_load, mock_del):
+        target = 'mytarget'
+        path = 'eth0.cfg'
+        cfg = util.target_path(target, path)
+        legacy_eth0_contents = (
+            'auto eth0\n'
+            'iface eth0 inet dhcp')
+
+        mock_ospath.exists.return_value = True
+        mock_load.side_effect = [legacy_eth0_contents]
+
+        apply_net._maybe_remove_legacy_eth0(target, path)
+
+        mock_del.assert_called_with(cfg)
+
+    @patch('curtin.util.del_file')
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    def test_remove_legacy_eth0_nomatch(self, mock_ospath, mock_load,
+                                        mock_del):
+        target = 'mytarget'
+        path = 'eth0.cfg'
+        legacy_eth0_contents = "nomatch"
+        mock_ospath.exists.return_value = True
+        mock_load.side_effect = [legacy_eth0_contents]
+
+        self.assertRaises(Exception,
+                          apply_net._maybe_remove_legacy_eth0,
+                          target, path)
+
+        mock_del.assert_not_called()
+
+    @patch('curtin.util.del_file')
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    def test_remove_legacy_eth0_badload(self, mock_ospath, mock_load,
+                                        mock_del):
+        target = 'mytarget'
+        path = 'eth0.cfg'
+        mock_ospath.exists.return_value = True
+        mock_load.side_effect = (Exception)
+
+        self.assertRaises(Exception,
+                          apply_net._maybe_remove_legacy_eth0,
+                          target, path)
+
+        mock_del.assert_not_called()
+
+    @patch('curtin.util.del_file')
+    @patch('curtin.util.load_file')
+    @patch('os.path')
+    def test_remove_legacy_eth0_notfound(self, mock_ospath, mock_load,
+                                         mock_del):
+        target = 'mytarget'
+        path = 'eth0.conf'
+        mock_ospath.exists.return_value = False
+
+        apply_net._maybe_remove_legacy_eth0(target, path)
+
+        # source file not found
+        cfg = util.target_path(target, path)
+        mock_ospath.exists.assert_called_with(cfg)
+        mock_load.assert_not_called()
+        mock_del.assert_not_called()

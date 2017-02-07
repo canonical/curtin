@@ -1,0 +1,82 @@
+showtrace: true
+storage:
+  version: 1
+  config:
+     - id: sda
+       type: disk
+       ptable: msdos
+       model: QEMU HARDDISK
+       path: /dev/vdb
+       name: main_disk
+       grub_device: true
+       wipe: superblock
+     - id: sdb
+       type: disk
+       ptable: msdos
+       model: QEMU HARDDISK
+       path: /dev/vdc
+       name: second_disk
+       wipe: superblock
+     - id: sda-part1
+       name: sda-part1
+       type: partition
+       size: 5GB
+       number: 1
+       device: sda
+       uuid: bbfd7fc9-fd0c-4151-99d4-a48c148c46b1
+       wipe: superblock
+     - id: sdb-part1
+       name: sdb-part1
+       type: partition
+       size: 5GB
+       number: 1
+       device: sdb
+       uuid: b37f57af-52b9-4ffc-98cf-08b7f7f4bed1
+       wipe: superblock
+     - id: md0
+       name: md0
+       type: raid
+       ptable: gpt
+       raidlevel: 1
+       devices:
+         - sda-part1
+         - sdb-part1
+       spare_devices: []
+     - device: md0
+       id: md0-part1
+       name: md0-part1
+       number: 1
+       offset: 4194304B
+       size: 2GB
+       type: partition
+       uuid: 4f4fa336-2762-48e4-ae54-9451141665cd
+       wipe: superblock
+     - device: md0
+       id: md0-part2
+       name: md0-part2
+       number: 2
+       size: 2GB
+       type: partition
+       uuid: c2d21fd3-3cde-4432-8eab-f08594bbe76e
+       wipe: superblock
+     - fstype: ext4
+       id: md0-part1_format
+       label: ''
+       type: format
+       uuid: c4024546-ad9d-4d85-adfa-c4b22611baa8
+       volume: md0-part1
+     - fstype: swap
+       id: md0-part2_format
+       label: ''
+       type: format
+       uuid: f68507ce-6d3d-4087-83e8-d8e531d7ec7d
+       volume: md0-part2
+     - device: md0-part1_format
+       id: md0-part1_mount
+       options: ''
+       path: /
+       type: mount
+     - device: md0-part2_format
+       id: md0-part2_mount
+       options: ''
+       type: mount
