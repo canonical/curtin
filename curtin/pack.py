@@ -21,6 +21,7 @@ import shutil
 import tempfile
 
 from . import util
+from . import version
 
 CALL_ENTRY_POINT_SH_HEADER = """
 #!/bin/sh
@@ -143,6 +144,13 @@ def pack(fdout=None, command=None, paths=None, copy_files=None,
         write_exe_wrapper(entrypoint='curtin.commands.main',
                           path=os.path.join(bindir, 'curtin'),
                           deps_check_entry="curtin.deps.check")
+
+        packed_version = version.version_string()
+        ver_file = os.path.join(exdir, 'curtin', 'version.py')
+        util.write_file(
+            ver_file,
+            util.load_file(ver_file).replace("@@PACKED_VERSION@@",
+                                             packed_version))
 
         for archpath, filepath in copy_files:
             target = os.path.abspath(os.path.join(exdir, archpath))
