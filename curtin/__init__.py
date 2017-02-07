@@ -36,7 +36,9 @@ FEATURES = [
     # supports new format of apt configuration
     'APT_CONFIG_V1',
     # supports passing network config to target
-    'NETWORK_PASSTHROUGH'
+    'NETWORK_PASSTHROUGH',
+    # has version module
+    'HAS_VERSION_MODULE',
 ]
 
 __version__ = "0.1.0"
