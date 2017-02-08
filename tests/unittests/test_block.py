@@ -502,7 +502,7 @@ class TestNonAscii(TestCase):
                b'OPT-IO="0" OWNER="root" PHY-SEC="512" RM="0" RO="0" '
                b'ROTA="0" RQ-SIZE="128" SIZE="500107862016" '
                b'STATE="running" TYPE="disk" UUID=""').decode('utf-8')
-        err = b''
+        err = b''.decode()
         mock_subp.return_value = (out, err)
         out = block._lsblock()
 
@@ -511,7 +511,7 @@ class TestNonAscii(TestCase):
         # we use shlex on blkid, so cover that it might output non-ascii
         out = (b'/dev/sda2: UUID="19ac97d5-6973-4193-9a09-2e6bbfa38262" '
                b'LABEL="\xc3\xb8foo" TYPE="ext4"').decode('utf-8')
-        err = b''
+        err = b''.decode()
         mock_subp.return_value = (out, err)
         block.blkid()
 

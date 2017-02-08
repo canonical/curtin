@@ -94,6 +94,7 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
         sp = subprocess.Popen(args, stdout=stdout,
                               stderr=stderr, stdin=stdin,
                               env=env, shell=shell, cwd=cwd)
+        # communicate in python2 returns str, python3 returns bytes
         (out, err) = sp.communicate(data)
 
         # Just ensure blank instead of none.
@@ -151,6 +152,14 @@ def subp(*args, **kwargs):
         means to run, sleep 1, run, sleep 3, run and then return exit code.
     :param target:
         run the command as 'chroot target <args>'
+
+    :return
+        if not capturing, return is (None, None)
+        if capturing, stdout and stderr are returned.
+            if decode:
+                python2 unicode or python3 string
+            if not decode:
+                python2 string or python3 bytes
     """
     retries = []
     if "retries" in kwargs:
