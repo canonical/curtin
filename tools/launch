@@ -236,10 +236,8 @@ find_apt_proxy() {
     # pick an apt proxy for the guest
     local out=""
 
-    return 1
-
-    # if user set uncommon 'apt_proxy', then trust it
-    [ -n "$apt_proxy" ] && echo "$apt_proxy" && return 0
+    # if user set uncommon 'apt_proxy', including empty string, then trust it
+    [ "${apt_proxy+set}" = set ] && echo "$apt_proxy" && return 0
 
     # see if the host has an apt proxy configured, and use it
     if command -v apt-config >/dev/null 2>&1; then

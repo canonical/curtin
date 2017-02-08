@@ -380,9 +380,7 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def getHostBridgeIp(cls, bridge):
-        out = subprocess.check_output(['ip', 'a'])
-        if isinstance(out, bytes):
-            out = out.decode()
+        out, _ = utils.subp(['ip', 'a'], capture=True, decode='replace')
         ip_a_dict = ip_a_to_dict(out)
         try:
             ip_dict = ip_a_dict[bridge]
@@ -578,9 +576,7 @@ class VMBaseClass(TestCase):
             # path:size:block_size:serial=,port=,cport=
             cls._iscsi_disks = list()
             for (disk_no, disk_sz) in enumerate(cls.iscsi_disks):
-                uuid = subprocess.check_output(['uuidgen'])
-                if isinstance(uuid, bytes):
-                    uuid = uuid.decode()
+                uuid = util.subp(['uuidgen'], capture=True, decode='replace')
                 uuid = uuid.rstrip()
                 target = 'curtin_%s' % uuid
                 cls._iscsi_disks.append(target)
@@ -798,16 +794,15 @@ class VMBaseClass(TestCase):
         else:
             for target in cls._iscsi_disks:
                 logger.debug('Removing iSCSI target %s', target)
-                tgtadm_out = subprocess.check_output(
-                    ['tgtadm', '--lld', 'iscsi',
-                     '--control-port', cls.tgtd_control_port,
-                     '--mode', 'target', '--op', 'show'])
-                if isinstance(tgtadm_out, bytes):
-                    tgtadm_out = tgtadm_out.decode()
+                tgtadm_out = utils.subp(
+                    ['tgtadm', '--lld=iscsi',
+                     '--control-port=%s' % cls.tgtd_control_port,
+                     '--mode=target', '--op=show'],
+                    capture=True, decode='replace')
 
                 # match target name to TID
                 tid = None
-                for line in tgtadm_out:
+                for line in tgtadm_out.splitlines():
                     # new target stanza
                     m = re.match(r'Target (\d+): (\S+)', line)
                     if m and target in m.group(2):
@@ -818,8 +813,7 @@ class VMBaseClass(TestCase):
                     cmd = ['tgtadm', '--lld', 'iscsi',
                            '--control-port', cls.tgtd_control_port,
                            '--mode', 'target', '--tid', tid, '--op', 'delete']
-                    subprocess.check_call(cmd, stdout=DEVNULL,
-                                          stderr=subprocess.STDOUT)
+                    util.subp(cmd, capture=False)
                 else:
                     logger.warn('Unable to determine target ID for ' +
                                 'target %s. It will need to be manually ' +
