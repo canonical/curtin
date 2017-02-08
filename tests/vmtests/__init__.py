@@ -766,7 +766,12 @@ class VMBaseClass(TestCase):
         return version
 
     def get_curtin_version(self):
-        return curtin.version.version_string()
+        curtin_exe = os.environ.get('CURTIN_VMTEST_CURTIN_EXE', 'bin/curtin')
+        # use shell=True to allow for CURTIN_VMTEST_CURTIN_EXE to have
+        # spaces in it ("lxc exec container curtin").  That could cause
+        # issues for non shell-friendly chars.
+        out, _err = util.subp(curtin_exe + "version", shell=True, capture=True)
+        return out.strip()
 
     def check_file_strippedline(self, filename, search):
         lines = self.load_collect_file(filename).splitlines()
