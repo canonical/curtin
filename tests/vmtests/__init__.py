@@ -561,7 +561,7 @@ class VMBaseClass(TestCase):
             else:
                 logger.info('Install Failed')
                 raise Exception("No install log was produced")
-        except:
+        except Exception:
             cls.tearDownClass()
             raise
 
@@ -660,7 +660,7 @@ class VMBaseClass(TestCase):
         # mount output disk
         try:
             cls.td.collect_output()
-        except:
+        except Exception:
             cls.tearDownClass()
             raise
         logger.info(
