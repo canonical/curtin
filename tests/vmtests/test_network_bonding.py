@@ -36,17 +36,19 @@ class TrustyTestBonding(relbase.trusty, TestNetworkBondingAbs):
     __test__ = False
 
 
-class TrustyHWEUTestBonding(relbase.trusty_hwe_u, TrustyTestBonding):
-    __test__ = True
-
-
 class TrustyHWEVTestBonding(relbase.trusty_hwe_v, TrustyTestBonding):
-    # Working, but off by default to safe test suite runtime
+    # Working, but off by default to save test suite runtime
     # oldest/newest HWE-* covered above/below
     __test__ = False
 
 
 class TrustyHWEWTestBonding(relbase.trusty_hwe_w, TrustyTestBonding):
+    # Working, but off by default to save test suite runtime
+    # oldest/newest HWE-* covered above/below
+    __test__ = False
+
+
+class TrustyHWEXTestBonding(relbase.trusty_hwe_x, TrustyTestBonding):
     __test__ = True
 
 
@@ -60,4 +62,8 @@ class XenialTestBonding(relbase.xenial, TestNetworkBondingAbs):
 
 
 class YakketyTestBonding(relbase.yakkety, TestNetworkBondingAbs):
+    __test__ = True
+
+
+class ZestyTestBonding(relbase.zesty, TestNetworkBondingAbs):
     __test__ = True
