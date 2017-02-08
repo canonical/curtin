@@ -181,11 +181,13 @@ def get_holders(device):
 
 def _shlex_split(str_in):
     # shlex.split takes a string
-    # but in python2, we need it as a unicode
+    # but in python2 if input here is a unicode, encode it to a string.
     # http://stackoverflow.com/questions/2365411/
     #     python-convert-unicode-to-ascii-without-errors
     if sys.version_info.major == 2:
-        return shlex.split(str_in.encode('utf-8'))
+        if isinstance(str_in, unicode):
+            str_in = str_in.encode('utf-8')
+        return shlex.split(str_in)
     else:
         return shlex.split(str_in)
 
