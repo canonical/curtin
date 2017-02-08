@@ -99,6 +99,10 @@ class TrustyUefiTestBasic(relbase.trusty, TestBasicAbs):
         print("test_ptable does not work for Trusty")
 
 
+class TrustyHWEXUefiTestBasic(relbase.trusty_hwe_x, TrustyUefiTestBasic):
+    __test__ = True
+
+
 class WilyUefiTestBasic(relbase.wily, TestBasicAbs):
     # EOL - 2016-07-28
     __test__ = False
@@ -112,12 +116,20 @@ class YakketyUefiTestBasic(relbase.yakkety, TestBasicAbs):
     __test__ = True
 
 
+class ZestyUefiTestBasic(relbase.zesty, TestBasicAbs):
+    __test__ = True
+
+
 class PreciseUefiTestBasic4k(PreciseUefiTestBasic):
     disk_block_size = 4096
 
 
 class TrustyUefiTestBasic4k(TrustyUefiTestBasic):
     disk_block_size = 4096
+
+
+class TrustyHWEXUefiTestBasic4k(relbase.trusty_hwe_x, TrustyUefiTestBasic4k):
+    __test__ = True
 
 
 class WilyUefiTestBasic4k(WilyUefiTestBasic):
@@ -131,4 +143,8 @@ class XenialUefiTestBasic4k(XenialUefiTestBasic):
 
 
 class YakketyUefiTestBasic4k(YakketyUefiTestBasic):
+    disk_block_size = 4096
+
+
+class ZestyUefiTestBasic4k(ZestyUefiTestBasic):
     disk_block_size = 4096

@@ -36,6 +36,11 @@ class TrustyHWEWTestNetworkStatic(relbase.trusty_hwe_w,
     __test__ = False
 
 
+class TrustyHWEXTestNetworkStatic(relbase.trusty_hwe_x,
+                                  TrustyTestNetworkStatic):
+    __test__ = True
+
+
 class XenialTestNetworkStatic(relbase.xenial, TestNetworkStaticAbs):
     __test__ = True
 

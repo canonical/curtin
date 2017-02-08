@@ -26,9 +26,18 @@ class TrustyTestNetworkIPV6Vlan(relbase.trusty, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
+class TrustyHWEXTestNetworkIPV6Vlan(relbase.trusty_hwe_x,
+                                    TestNetworkIPV6VlanAbs):
+    __test__ = True
+
+
 class XenialTestNetworkIPV6Vlan(relbase.xenial, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
 class YakketyTestNetworkIPV6Vlan(relbase.yakkety, TestNetworkIPV6VlanAbs):
+    __test__ = True
+
+
+class ZestyTestNetworkIPV6Vlan(relbase.zesty, TestNetworkIPV6VlanAbs):
     __test__ = True
