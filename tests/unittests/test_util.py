@@ -1,4 +1,4 @@
-from unittest import TestCase
+from unittest import TestCase, skipIf
 import mock
 import os
 import stat
@@ -6,6 +6,7 @@ import shutil
 import tempfile
 
 from curtin import util
+from .helpers import simple_mocked_open
 
 
 class TestLogTimer(TestCase):
@@ -151,6 +152,13 @@ class TestSubp(TestCase):
     utf8_valid = b'start \xc3\xa9 end'
     utf8_valid_2 = b'd\xc3\xa9j\xc8\xa7'
 
+    try:
+        decode_type = unicode
+        nodecode_type = str
+    except NameError:
+        decode_type = str
+        nodecode_type = bytes
+
     def printf_cmd(self, *args):
         # bash's printf supports \xaa.  So does /usr/bin/printf
         # but by using bash, we remove dependency on another program.
@@ -163,7 +171,7 @@ class TestSubp(TestCase):
         (out, _err) = util.subp(cmd, capture=True)
         self.assertEqual(out, self.utf8_valid_2.decode('utf-8'))
 
-    def test_subp_target_as_different_fors_of_slash_works(self):
+    def test_subp_target_as_different_forms_of_slash_works(self):
         # passing target=/ in any form should work.
 
         # it is assumed that if chroot was used, then test case would
@@ -186,25 +194,31 @@ class TestSubp(TestCase):
     def test_subp_respects_decode_false(self):
         (out, err) = util.subp(self.stdin2out, capture=True, decode=False,
                                data=self.utf8_valid)
-        self.assertTrue(isinstance(out, bytes))
-        self.assertTrue(isinstance(err, bytes))
+        self.assertTrue(isinstance(out, self.nodecode_type))
+        self.assertTrue(isinstance(err, self.nodecode_type))
         self.assertEqual(out, self.utf8_valid)
 
     def test_subp_decode_ignore(self):
         # this executes a string that writes invalid utf-8 to stdout
-        (out, _err) = util.subp(self.printf_cmd('abc\\xaadef'),
-                                capture=True, decode='ignore')
+        (out, err) = util.subp(self.printf_cmd('abc\\xaadef'),
+                               capture=True, decode='ignore')
+        self.assertTrue(isinstance(out, self.decode_type))
+        self.assertTrue(isinstance(err, self.decode_type))
         self.assertEqual(out, 'abcdef')
 
     def test_subp_decode_strict_valid_utf8(self):
-        (out, _err) = util.subp(self.stdin2out, capture=True,
-                                decode='strict', data=self.utf8_valid)
+        (out, err) = util.subp(self.stdin2out, capture=True,
+                               decode='strict', data=self.utf8_valid)
         self.assertEqual(out, self.utf8_valid.decode('utf-8'))
+        self.assertTrue(isinstance(out, self.decode_type))
+        self.assertTrue(isinstance(err, self.decode_type))
 
     def test_subp_decode_invalid_utf8_replaces(self):
-        (out, _err) = util.subp(self.stdin2out, capture=True,
-                                data=self.utf8_invalid)
+        (out, err) = util.subp(self.stdin2out, capture=True,
+                               data=self.utf8_invalid)
         expected = self.utf8_invalid.decode('utf-8', errors='replace')
+        self.assertTrue(isinstance(out, self.decode_type))
+        self.assertTrue(isinstance(err, self.decode_type))
         self.assertEqual(out, expected)
 
     def test_subp_decode_strict_raises(self):
@@ -459,5 +473,35 @@ class TestRunInChroot(TestCase):
         self.assertEqual(my_stderr, err)
         m_subp.assert_called_with(cmd, target=target)
 
+
+class TestLoadFile(TestCase):
+    """Test utility 'load_file'"""
+
+    def test_load_file_simple(self):
+        fname = 'test.cfg'
+        contents = "#curtin-config"
+        with simple_mocked_open(content=contents) as m_open:
+            loaded_contents = util.load_file(fname, decode=False)
+            self.assertEqual(contents, loaded_contents)
+            m_open.assert_called_with(fname, 'rb')
+
+    @skipIf(mock.__version__ < '2.0.0', "mock version < 2.0.0")
+    def test_load_file_handles_utf8(self):
+        fname = 'test.cfg'
+        contents = b'd\xc3\xa9j\xc8\xa7'
+        with simple_mocked_open(content=contents) as m_open:
+            with open(fname, 'rb') as f:
+                self.assertEqual(f.read(), contents)
+            m_open.assert_called_with(fname, 'rb')
+
+    @skipIf(mock.__version__ < '2.0.0', "mock version < 2.0.0")
+    @mock.patch('curtin.util.decode_binary')
+    def test_load_file_respects_decode_false(self, mock_decode):
+        fname = 'test.cfg'
+        contents = b'start \xc3\xa9 end'
+        with simple_mocked_open(contents):
+            loaded_contents = util.load_file(fname, decode=False)
+            self.assertEqual(type(loaded_contents), bytes)
+            self.assertEqual(loaded_contents, contents)
 
 # vi: ts=4 expandtab syntax=python

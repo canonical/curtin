@@ -509,6 +509,11 @@ class VMBaseClass(TestCase):
                 fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)
 
+        excfg = os.environ.get("CURTIN_VMTEST_EXTRA_CONFIG", False)
+        if excfg:
+            configs.append(excfg)
+            logger.debug('Added extra config {}'.format(excfg))
+
         if cls.multipath:
             disks = disks * cls.multipath_num_paths
 
@@ -546,10 +551,11 @@ class VMBaseClass(TestCase):
                     install_log = lfh.read().decode('utf-8', errors='replace')
                 errmsg, errors = check_install_log(install_log)
                 if errmsg:
+                    logger.error('Found error: ' + errmsg)
                     for e in errors:
-                        logger.error(e)
-                    logger.error(errmsg)
-                    raise Exception(cls.__name__ + ":" + errmsg)
+                        logger.error('Context:\n' + e)
+                    raise Exception(cls.__name__ + ":" + errmsg +
+                                    '\n'.join(errors))
                 else:
                     logger.info('Install OK')
             else:
@@ -742,6 +748,31 @@ class VMBaseClass(TestCase):
         with open(os.path.join(self.td.collect, filename), mode) as fp:
             return fp.read()
 
+    def load_log_file(self, filename):
+        with open(filename, 'rb') as fp:
+            return fp.read().decode('utf-8', errors='replace')
+
+    def get_install_log_curtin_version(self):
+        # curtin: Installation started. (%s)
+        startre = re.compile(
+            r'curtin: Installation started.[^(]*\((?P<version>[^)]*)\).*')
+        version = None
+        for line in self.load_log_file(self.install_log).splitlines():
+            vermatch = startre.search(line)
+            if vermatch:
+                version = vermatch.group('version')
+                break
+        return version
+
+    def get_curtin_version(self):
+        curtin_exe = os.environ.get('CURTIN_VMTEST_CURTIN_EXE', 'bin/curtin')
+        # use shell=True to allow for CURTIN_VMTEST_CURTIN_EXE to have
+        # spaces in it ("lxc exec container curtin").  That could cause
+        # issues for non shell-friendly chars.
+        vercmd = ' '.join([curtin_exe, "version"])
+        out, _err = util.subp(vercmd, shell=True, capture=True)
+        return out.strip()
+
     def check_file_strippedline(self, filename, search):
         lines = self.load_collect_file(filename).splitlines()
         self.assertIn(search, [i.strip() for i in lines])
@@ -912,6 +943,14 @@ class PsuedoVMBaseClass(VMBaseClass):
             raise exc
 
 
+def find_error_context(err_match, contents, nrchars=200):
+    context_start = err_match.start() - nrchars
+    context_end = err_match.end() + nrchars
+    # extract contents, split into lines, drop the first and last partials
+    # recombine and return
+    return "\n".join(contents[context_start:context_end].splitlines()[1:-1])
+
+
 def check_install_log(install_log):
     # look if install is OK via curtin 'Installation ok"
     # if we dont find that, scan for known error messages and report
@@ -925,17 +964,18 @@ def check_install_log(install_log):
                    'Installation\ failed',
                    'ImportError: No module named.*',
                    'Unexpected error while running command',
-                   'E: Unable to locate package.*']))
+                   'E: Unable to locate package.*',
+                   'Traceback.*most recent call last.*:']))
 
     install_is_ok = re.findall(install_pass, install_log)
+    # always scan for errors
+    found_errors = re.finditer(install_fail, install_log)
     if len(install_is_ok) == 0:
-        errors = re.findall(install_fail, install_log)
-        if len(errors) > 0:
-            for e in errors:
-                logger.error(e)
-            errmsg = ('Errors during curtin installer')
-        else:
-            errmsg = ('Failed to verify Installation is OK')
+        errmsg = ('Failed to verify Installation is OK')
+
+    for e in found_errors:
+        errors.append(find_error_context(e, install_log))
+        errmsg = ('Errors during curtin installer')
 
     return errmsg, errors
 
@@ -1011,6 +1051,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
             { shutdown -P now "Shutting down on centos"; }
         [ "$(lsb_release -sc)" = "precise" ] &&
             { shutdown -P now "Shutting down on precise"; }
+        exit 0;
         """)
 
     scripts = ([collect_prep] + collect_scripts + [collect_post] +

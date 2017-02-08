@@ -14,28 +14,32 @@
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+
+import contextlib
+import imp
+import importlib
 import mock
 
 
-class mocked_open(object):
-    # older versions of mock can't really mock the builtin 'open' easily.
-    def __init__(self):
-        self.mocked = None
-
-    def __enter__(self):
-        if self.mocked:
-            return self.mocked.start()
-
-        py2_p = '__builtin__.open'
-        py3_p = 'builtins.open'
+def builtin_module_name():
+    options = ('builtins', '__builtin__')
+    for name in options:
         try:
-            self.mocked = mock.patch(py2_p, new_callable=mock.mock_open())
-            return self.mocked.start()
+            imp.find_module(name)
         except ImportError:
-            self.mocked = mock.patch(py3_p, new_callable=mock.mock_open())
-            return self.mocked.start()
+            continue
+        else:
+            print('importing and returning: %s' % name)
+            importlib.import_module(name)
+            return name
 
-    def __exit__(self, etype, value, trace):
-        if self.mocked:
-            self.mocked.stop()
-        self.mocked = None
+
+@contextlib.contextmanager
+def simple_mocked_open(content=None):
+    if not content:
+        content = ''
+    m_open = mock.mock_open(read_data=content)
+    mod_name = builtin_module_name()
+    m_patch = '{}.open'.format(mod_name)
+    with mock.patch(m_patch, m_open, create=True):
+        yield m_open
