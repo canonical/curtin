@@ -6,6 +6,7 @@ import tempfile
 
 from curtin.commands import curthooks
 from curtin import util
+from curtin.reporter import events
 
 
 class CurthooksBase(TestCase):
@@ -142,10 +143,9 @@ class TestInstallMissingPkgs(CurthooksBase):
                        'mock_load_cmd_evn')
         self.add_patch('curtin.util.which', 'mock_which')
         self.add_patch('curtin.util.install_packages', 'mock_install_packages')
-        self.add_patch('curtin.reporter.events.ReportEventStack',
-                       'mock_event_stack')
 
-    def test_install_packages_s390x(self):
+    @patch.object(events, 'ReportEventStack')
+    def test_install_packages_s390x(self, mock_events):
 
         self.mock_machine.return_value = "s390x"
         self.mock_which.return_value = False
@@ -155,7 +155,8 @@ class TestInstallMissingPkgs(CurthooksBase):
         self.mock_install_packages.assert_called_with(['s390-tools'],
                                                       target=target)
 
-    def test_install_packages_s390x_has_zipl(self):
+    @patch.object(events, 'ReportEventStack')
+    def test_install_packages_s390x_has_zipl(self, mock_events):
 
         self.mock_machine.return_value = "s390x"
         self.mock_which.return_value = True
@@ -164,7 +165,8 @@ class TestInstallMissingPkgs(CurthooksBase):
         curthooks.install_missing_packages(cfg, target=target)
         self.assertEqual([], self.mock_install_packages.call_args_list)
 
-    def test_install_packages_x86_64_no_zipl(self):
+    @patch.object(events, 'ReportEventStack')
+    def test_install_packages_x86_64_no_zipl(self, mock_events):
 
         self.mock_machine.return_value = "x86_64"
         target = "not-a-real-target"
