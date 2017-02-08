@@ -131,4 +131,46 @@ class TestUpdateInitramfs(CurthooksBase):
         ]
         self.mock_subp.assert_has_calls(subp_calls)
 
+
+class TestInstallMissingPkgs(CurthooksBase):
+    def setUp(self):
+        super(TestInstallMissingPkgs, self).setUp()
+        self.add_patch('platform.machine', 'mock_machine')
+        self.add_patch('curtin.util.get_installed_packages',
+                       'mock_get_installed_packages')
+        self.add_patch('curtin.util.load_command_environment',
+                       'mock_load_cmd_evn')
+        self.add_patch('curtin.util.which', 'mock_which')
+        self.add_patch('curtin.util.install_packages', 'mock_install_packages')
+        self.add_patch('curtin.reporter.events.ReportEventStack',
+                       'mock_event_stack')
+
+    def test_install_packages_s390x(self):
+
+        self.mock_machine.return_value = "s390x"
+        self.mock_which.return_value = False
+        target = "not-a-real-target"
+        cfg = {}
+        curthooks.install_missing_packages(cfg, target=target)
+        self.mock_install_packages.assert_called_with(['s390-tools'],
+                                                      target=target)
+
+    def test_install_packages_s390x_has_zipl(self):
+
+        self.mock_machine.return_value = "s390x"
+        self.mock_which.return_value = True
+        target = "not-a-real-target"
+        cfg = {}
+        curthooks.install_missing_packages(cfg, target=target)
+        self.assertEqual([], self.mock_install_packages.call_args_list)
+
+    def test_install_packages_x86_64_no_zipl(self):
+
+        self.mock_machine.return_value = "x86_64"
+        target = "not-a-real-target"
+        cfg = {}
+        curthooks.install_missing_packages(cfg, target=target)
+        self.assertEqual([], self.mock_install_packages.call_args_list)
+
+
 # vi: ts=4 expandtab syntax=python
