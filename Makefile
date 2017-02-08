@@ -15,7 +15,9 @@ build:
 bin/curtin: curtin/pack.py tools/write-curtin
 	$(PYTHON) tools/write-curtin bin/curtin
 
-check: pep8 pyflakes pyflakes3 unittest
+check: unittest
+
+style-check: pep8 pyflakes pyflakes3
 
 coverage: coverageopts ?= $(DEFAULT_COVERAGEOPTS)
 coverage: unittest
@@ -52,4 +54,4 @@ sync-images:
 clean:
 	rm -rf doc/_build
 
-.PHONY: all clean test pyflakes pyflakes3 pep8 build
+.PHONY: all clean test pyflakes pyflakes3 pep8 build style-check

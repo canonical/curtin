@@ -436,7 +436,7 @@ class ChrootableTarget(object):
                 os.rename(rconf, tmp)
                 self.rconf_d = rtd
                 shutil.copy("/etc/resolv.conf", rconf)
-            except:
+            except Exception:
                 if rtd:
                     shutil.rmtree(rtd)
                     self.rconf_d = None

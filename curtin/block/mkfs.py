@@ -210,7 +210,7 @@ def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False):
     if fs_family not in family_flag_mappings['uuid']:
         try:
             uuid = block.blkid()[path]['UUID']
-        except:
+        except Exception:
             pass
 
     # return uuid, may be none if it could not be specified and blkid could not

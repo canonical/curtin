@@ -557,7 +557,7 @@ def get_root_device(dev, fpath="curtin"):
             if os.path.isdir(curtin_dir):
                 target = dev_path
                 break
-        except:
+        except Exception:
             pass
         finally:
             if mp:
