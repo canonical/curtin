@@ -185,8 +185,12 @@ def _shlex_split(str_in):
     # http://stackoverflow.com/questions/2365411/
     #     python-convert-unicode-to-ascii-without-errors
     if sys.version_info.major == 2:
-        if isinstance(str_in, unicode):
-            str_in = str_in.encode('utf-8')
+        try:
+            if isinstance(str_in, unicode):
+                str_in = str_in.encode('utf-8')
+        except NameError:
+            pass
+
         return shlex.split(str_in)
     else:
         return shlex.split(str_in)
