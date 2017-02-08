@@ -1,0 +1,72 @@
+storage:
+   version: 1
+   config:
+      - id: sda
+        type: disk
+        ptable: msdos
+        model: QEMU HARDDISK
+        path: /dev/vdb
+        name: main_disk
+        wipe: superblock
+        grub_device: true
+      - id: sda1
+        type: partition
+        number: 1
+        size: 3GB
+        device: sda
+        flag: boot
+      - id: sda2
+        type: partition
+        number: 2
+        size: 1GB
+        device: sda
+      - id: sda1_root
+        type: format
+        fstype: ext4
+        volume: sda1
+      - id: sda2_home
+        type: format
+        fstype: ext4
+        volume: sda2
+      - id: sda1_mount
+        type: mount
+        path: /
+        device: sda1_root
+      - id: sda2_mount
+        type: mount
+        path: /home
+        device: sda2_home
+      - id: sdb
+        type: disk
+        path: iscsi:__RFC4173__
+        name: iscsi_disk 
+        ptable: msdos
+        wipe: superblock
+      - id: disk0-part1
+        type: partition
+        number: 1
+        size: 2GB
+        device: sdb
+        flag: boot
+      - id: sdb-part1-fs1
+        type: format
+        fstype: ext4
+        label: cloud-image
+        volume: disk0-part1
+      - id: sdb-part1-fs1-mount0
+        type: mount
+        path: /mnt/iscsi
+        device: sdb-part1-fs1
+network:
+   version: 1
+   config:
+      - type: physical
+        name: interface0
+        mac_address: "52:54:00:12:34:00"
+        subnets:
+           - type: dhcp
+write_files:
+   f1:
+      path: /mnt/iscsi/testfile
+      content: "test"
+      permissions: 0777

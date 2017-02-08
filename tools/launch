@@ -236,6 +236,8 @@ find_apt_proxy() {
     # pick an apt proxy for the guest
     local out=""
 
+    return 1
+
     # if user set uncommon 'apt_proxy', then trust it
     [ -n "$apt_proxy" ] && echo "$apt_proxy" && return 0
 
@@ -371,6 +373,7 @@ main() {
         # 3=src:size:driver
         # 4=src:size:driver:bsize
         # 5=src:size:driver:bsize:devopts
+        # 6=src:size:iscsi:bsize:target:control_port
         src=$(echo $disk | awk -F: '{print $1}')
         size=$(echo $disk | awk -F: '{print $2}')
         driver=$(echo $disk | awk -F: '{print $3}')
@@ -402,6 +405,32 @@ main() {
             out=$(LANG=C qemu-img info "$src") &&
                 fmt=$(echo "$out" | awk '$0 ~ /^file format:/ { print $3 }') ||
                 { error "failed to determine format of $src"; return 1; }
+        fi
+
+        # We do not pass iSCSI disks down to qemu, as that will use
+        # qemu's iSCSI target layer and not the host tgt
+        if [ "${driver}" == "iscsi" ]; then
+            iscsi_disk=$(echo $disk | awk -F: '{print $5}')
+            tgtd_cport=$(echo $disk | awk -F: '{print $6}')
+
+            while [ 1 == 1 ]; do
+                # use next target ID
+                # this is racy, potentially, but we iterate until it works
+                iscsi_tid=$(tgtadm --control-port ${tgtd_cport} --lld iscsi --mode target --op show | awk -F' ' '/^Target/ {tid=$2} END{gsub(":","",tid); print tid+1}')
+
+                tgtadm --control-port ${tgtd_cport} --lld iscsi --mode target --op new --tid ${iscsi_tid} --targetname ${iscsi_disk} ||
+                    continue
+
+                # assume LUN 1?
+                tgtadm --control-port ${tgtd_cport} --lld iscsi --mode logicalunit --op new --tid ${iscsi_tid} --backing-store ${src} --device-type disk --lun 1 ||
+                    { error "Unable to create TGT LUN. Does a prior configuration need to be cleaned up?"; return 1; }
+
+                tgtadm --control-port ${tgtd_cport} --lld iscsi --mode target --op bind --tid ${iscsi_tid} -I ALL ||
+                    { error "Unable to set TGT target ACL. Does a prior configuration need to be cleaned up?"; return 1; }
+                
+                break
+            done
+            continue
         fi
 
         # prepend comma if passing devopts

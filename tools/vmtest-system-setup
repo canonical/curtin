@@ -21,6 +21,7 @@ DEPS=(
   simplestreams
   $qemu
   ubuntu-cloudimage-keyring
+  tgt
 )
 
 apt_get() {

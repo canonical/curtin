@@ -8,6 +8,7 @@ import random
 import re
 import shutil
 import subprocess
+import tempfile
 import textwrap
 import time
 import yaml
@@ -20,7 +21,7 @@ from curtin.commands.install import INSTALL_PASS_MSG
 from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
 from .image_sync import (IMAGE_SRC_URL, IMAGE_DIR, ITEM_NAME_FILTERS)
-from .helpers import check_call, TimeoutExpired
+from .helpers import check_call, TimeoutExpired, ip_a_to_dict
 from unittest import TestCase, SkipTest
 
 try:
@@ -337,6 +338,7 @@ class VMBaseClass(TestCase):
     multipath = False
     multipath_num_paths = 2
     nvme_disks = []
+    iscsi_disks = []
     recorded_errors = 0
     recorded_failures = 0
     uefi = False
@@ -376,6 +378,33 @@ class VMBaseClass(TestCase):
         logger.info("Target Tarball: %s", img_verstr)
         ftypes.update(found)
         return ftypes
+
+    @classmethod
+    def getHostBridgeIp(cls, bridge):
+        out = subprocess.check_output(['ip', 'a'])
+        if isinstance(out, bytes):
+            out = out.decode()
+        ip_a_dict = ip_a_to_dict(out)
+        try:
+            ip_dict = ip_a_dict[bridge]
+            try:
+                for ip in ip_dict['inet4']:
+                    if ip['scope'] != 'global':
+                        continue
+                    return ip['address']
+            except KeyError:
+                try:
+                    for ip in ip_dict['inet6']:
+                        if ip['scope'] != 'global':
+                            continue
+                        return ip['address']
+                except KeyError:
+                    raise ValueError('Unable to determine IP for bridge %s' %
+                                     bridge)
+        except KeyError:
+            raise ValueError('Unable to find bridge {}'.format(bridge))
+
+        raise ValueError('Unable to determine IP for bridge %s' % bridge)
 
     @classmethod
     def setUpClass(cls):
@@ -488,6 +517,88 @@ class VMBaseClass(TestCase):
                                                   cls.disk_block_size,
                                                   "serial=nvme-%d" % disk_no)
             disks.extend(['--disk', nvme_disk])
+
+        # build iscsi disk args if needed
+        if len(cls.iscsi_disks) > 0:
+            portal_v4 = os.environ.get("CURTIN_VMTEST_ISCSI_PORTAL_V4",
+                                       False)
+            portal_v6 = os.environ.get("CURTIN_VMTEST_ISCSI_PORTAL_V6",
+                                       False)
+            if not portal_v4 and not portal_v6:
+                raise SkipTest("No ISCSI portal specified in the " +
+                               "environment (CURTIN_VMTEST_ISCSI_PORTAL_V4 " +
+                               "or CURTIN_VMTEST_ISCSI_PORTAL_V6). " +
+                               "Skipping iSCSI tests.")
+            if portal_v4 and portal_v6:
+                raise SkipTest("Both IPv4 and IPv6 ISCSI portals specified " +
+                               "in the environment (CURTIN_VMTEST_ISCSI_PORTAL_V4 " +
+                               "and CURTIN_VMTEST_ISCSI_PORTAL_V6), " +
+                               "which is unsupported. Skipping iSCSI tests.")
+
+            cls.tgtd_control_port = os.environ.get(
+                "CURTIN_VMTEST_TGTD_CONTROL_PORT", False)
+            if not cls.tgtd_control_port:
+                raise SkipTest("No tgtd control port specified in the " +
+                               "environment " +
+                               "(CURTIN_VMTEST_TGTD_CONTROL_PORT). " +
+                               "Skipping iSCSI tests.")
+
+            # note that TGT_IPC_SOCKET also needs to be set for
+            # successful communication
+
+            if portal_v4:
+                m = re.match(r'(?P<ip>(\d{,3}.){3}\d{,3})(:(?P<port>\d+))?',
+                              portal_v4)
+                if not m:
+                    raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V4 in " +
+                                     "environment is not in IP:PORT format.")
+            else:
+                m = re.match(
+                    r'[(?P<ip>([a-f0-9]{,4}:){5}[a-f0-9]{,4})](:(?P<port>\d+))?',
+                    portal_v6)
+                if not m:
+                    raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V6 in " +
+                                     "environment is not in [IP]:PORT format.")
+            cls.tgtd_ip = m.group('ip')
+            try:
+                cls.tgtd_port = m.group('port')
+            except IndexError:
+                cls.tgtd_port = '3260'
+
+            # copy testcase YAML to a temporary file in order to replace
+            # placeholders
+            temp_yaml = tempfile.NamedTemporaryFile(prefix=cls.td.tmpdir + '/',
+                                                    delete=False)
+            logger.debug("iSCSI YAML is at %s" % temp_yaml.name)
+            shutil.copyfile(cls.conf_file, temp_yaml.name)
+            cls.conf_file = temp_yaml.name
+
+            # path:size:block_size:serial=,port=,cport=
+            cls._iscsi_disks = dict()
+            for (disk_no, disk_sz) in enumerate(cls.iscsi_disks):
+                uuid = subprocess.check_output(['uuidgen'])
+                if isinstance(uuid, bytes):
+                    uuid = uuid.decode()
+                uuid = uuid.rstrip()
+                target = 'curtin_%s' % uuid
+                dpath = os.path.join(cls.td.disks, '%s.img' % (target))
+                iscsi_disk = '{}:{}:iscsi:{}:{}:{}'.format(
+                    dpath, disk_sz, cls.disk_block_size,
+                    target, cls.tgtd_control_port)
+                disks.extend(['--disk', iscsi_disk])
+
+                # replace next __RFC4173__ placeholder in YAML
+                with tempfile.NamedTemporaryFile() as temp_yaml:
+                    shutil.copyfile(cls.conf_file, temp_yaml.name)
+                    with open(cls.conf_file, 'w+') as f:
+                        for line in temp_yaml:
+                            if '__RFC4173__' in line:
+                                # assumes LUN 1
+                                line = line.replace('__RFC4173__',
+                                                    '%s::%s:1:%s' %
+                                                    (cls.tgtd_ip,
+                                                     cls.tgtd_port, target))
+                            f.write(line)
 
         # proxy config
         configs = [cls.conf_file]
@@ -607,6 +718,9 @@ class VMBaseClass(TestCase):
                 dpath, disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
             nvme_disks.extend([disk])
 
+        # unlike NVMe disks, we do not want to configure the iSCSI disks
+        # via KVM, which would use qemu's iSCSI target layer.
+
         if cls.multipath:
             target_disks = target_disks * cls.multipath_num_paths
             extra_disks = extra_disks * cls.multipath_num_paths
@@ -669,6 +783,27 @@ class VMBaseClass(TestCase):
             cls.__name__, time.time() - setup_start)
 
     @classmethod
+    def cleanIscsiState(cls, result, keep_pass, keep_fail):
+        if result:
+            keep = keep_pass
+        else:
+            keep = keep_fail
+
+        if 'disks' in keep or (len(keep) == 1 and keep[0] == 'all'):
+            logger.info('Not removing iSCSI disks from tgt, they will ' +
+                        'need to be removed manually.')
+        else:
+            for (disk_no, _) in enumerate(cls.iscsi_disks):
+                logger.debug('Removing iSCSI target %d', disk_no + 1)
+                subprocess.check_call(['tgtadm', '--lld', 'iscsi',
+                                       '--control-port', cls.tgtd_control_port, 
+                                       '--mode', 'target',
+                                       '--tid', str(disk_no + 1),
+                                       '--op', 'delete'],
+                                      stdout=DEVNULL,
+                                      stderr=subprocess.STDOUT)
+
+    @classmethod
     def tearDownClass(cls):
         success = False
         sfile = os.path.exists(cls.td.success_file)
@@ -684,6 +819,10 @@ class VMBaseClass(TestCase):
         clean_working_dir(cls.td.tmpdir, success,
                           keep_pass=KEEP_DATA['pass'],
                           keep_fail=KEEP_DATA['fail'])
+
+        cls.cleanIscsiState(success,
+                            keep_pass=KEEP_DATA['pass'],
+                            keep_fail=KEEP_DATA['fail'])
 
     @classmethod
     def expected_interfaces(cls):
@@ -976,7 +1115,8 @@ def check_install_log(install_log):
 def get_apt_proxy():
     # get setting for proxy. should have same result as in tools/launch
     apt_proxy = os.environ.get('apt_proxy')
-    if apt_proxy:
+    # running with apt_proxy= should work
+    if apt_proxy is not None:
         return apt_proxy
 
     get_apt_config = textwrap.dedent("""
