@@ -531,9 +531,10 @@ class VMBaseClass(TestCase):
                                "Skipping iSCSI tests.")
             if portal_v4 and portal_v6:
                 raise SkipTest("Both IPv4 and IPv6 ISCSI portals specified " +
-                               "in the environment (CURTIN_VMTEST_ISCSI_PORTAL_V4 " +
-                               "and CURTIN_VMTEST_ISCSI_PORTAL_V6), " +
-                               "which is unsupported. Skipping iSCSI tests.")
+                               "in the environment " +
+                               "(CURTIN_VMTEST_ISCSI_PORTAL_V4 and " +
+                               "CURTIN_VMTEST_ISCSI_PORTAL_V6), which is " +
+                               "unsupported. Skipping iSCSI tests.")
 
             cls.tgtd_control_port = os.environ.get(
                 "CURTIN_VMTEST_TGTD_CONTROL_PORT", False)
@@ -548,17 +549,19 @@ class VMBaseClass(TestCase):
 
             if portal_v4:
                 m = re.match(r'(?P<ip>(\d{,3}.){3}\d{,3})(:(?P<port>\d+))?',
-                              portal_v4)
+                             portal_v4)
                 if not m:
                     raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V4 in " +
                                      "environment is not in IP:PORT format.")
             else:
-                m = re.match(
-                    r'[(?P<ip>([a-f0-9]{,4}:){5}[a-f0-9]{,4})](:(?P<port>\d+))?',
-                    portal_v6)
+                r = re.compile(r'''
+                    (?P<ip>([a-f0-9]{,4}:){5}[a-f0-9]{,4})
+                    (:(?P<port>\d+))?
+                    ''', re.VERBOSE)
+                m = re.match(r, portal_v6)
                 if not m:
                     raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V6 in " +
-                                     "environment is not in [IP]:PORT format.")
+                                     "environment is not in IP:PORT format.")
             cls.tgtd_ip = m.group('ip')
             try:
                 cls.tgtd_port = m.group('port')
@@ -574,13 +577,14 @@ class VMBaseClass(TestCase):
             cls.conf_file = temp_yaml.name
 
             # path:size:block_size:serial=,port=,cport=
-            cls._iscsi_disks = dict()
+            cls._iscsi_disks = list()
             for (disk_no, disk_sz) in enumerate(cls.iscsi_disks):
                 uuid = subprocess.check_output(['uuidgen'])
                 if isinstance(uuid, bytes):
                     uuid = uuid.decode()
                 uuid = uuid.rstrip()
                 target = 'curtin_%s' % uuid
+                cls._iscsi_disks.append(target)
                 dpath = os.path.join(cls.td.disks, '%s.img' % (target))
                 iscsi_disk = '{}:{}:iscsi:{}:{}:{}'.format(
                     dpath, disk_sz, cls.disk_block_size,
@@ -793,15 +797,34 @@ class VMBaseClass(TestCase):
             logger.info('Not removing iSCSI disks from tgt, they will ' +
                         'need to be removed manually.')
         else:
-            for (disk_no, _) in enumerate(cls.iscsi_disks):
-                logger.debug('Removing iSCSI target %d', disk_no + 1)
-                subprocess.check_call(['tgtadm', '--lld', 'iscsi',
-                                       '--control-port', cls.tgtd_control_port, 
-                                       '--mode', 'target',
-                                       '--tid', str(disk_no + 1),
-                                       '--op', 'delete'],
-                                      stdout=DEVNULL,
-                                      stderr=subprocess.STDOUT)
+            for target in cls._iscsi_disks:
+                logger.debug('Removing iSCSI target %s', target)
+                tgtadm_out = subprocess.check_output(
+                    ['tgtadm', '--lld', 'iscsi',
+                     '--control-port', cls.tgtd_control_port,
+                     '--mode', 'target', '--op', 'show'])
+                if isinstance(tgtadm_out, bytes):
+                    tgtadm_out = tgtadm_out.decode()
+
+                # match target name to TID
+                tid = None
+                for line in tgtadm_out:
+                    # new target stanza
+                    m = re.match(r'Target (\d+): (\S+)', line)
+                    if m and target in m.group(2):
+                        tid = m.group(1)
+                        break
+
+                if tid:
+                    cmd = ['tgtadm', '--lld', 'iscsi',
+                           '--control-port', cls.tgtd_control_port,
+                           '--mode', 'target', '--tid', tid, '--op', 'delete']
+                    subprocess.check_call(cmd, stdout=DEVNULL,
+                                          stderr=subprocess.STDOUT)
+                else:
+                    logger.warn('Unable to determine target ID for ' +
+                                'target %s. It will need to be manually ' +
+                                'removed.', target)
 
     @classmethod
     def tearDownClass(cls):

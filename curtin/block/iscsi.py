@@ -97,8 +97,6 @@ def ensure_disk_connected(rfc4173, write_config=True):
     if rfc4173 not in _ISCSI_DISKS:
         i = IscsiDisk(rfc4173)
         i.connect()
-        # LUN 0 is the controller
-        # if write_config and i.lun != '0':
         if write_config:
             state = util.load_command_environment()
             # A nodes directory will be created in the same directory as the
@@ -119,11 +117,9 @@ def ensure_disk_connected(rfc4173, write_config=True):
 
     i = _ISCSI_DISKS[rfc4173]
 
-    # LUN 0 is a controller
-    # if i.lun != '0' and not os.path.exists(i.devdisk_path):
     if not os.path.exists(i.devdisk_path):
-        raise ValueError('Unable to find iSCSI disk for target ' +
-                         '(%s) by path (%s)' % (i.target, i.devdisk_path))
+        LOG.warn('Unable to find iSCSI disk for target (%s) by path (%s)',
+                 i.target, i.devdisk_path)
 
     return i
 
