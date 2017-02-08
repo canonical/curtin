@@ -489,4 +489,30 @@ class TestPartTableSignature(TestCase):
                 (self.assertTrue if expected else self.assertFalse)(
                     block.check_efi_signature(self.blockdev))
 
+
+class TestNonAscii(TestCase):
+    @mock.patch('curtin.block.util.subp')
+    def test_lsblk(self, mock_subp):
+        # lsblk can write non-ascii data, causing shlex to blow up
+        out = (b'ALIGNMENT="0" DISC-ALN="0" DISC-GRAN="512" '
+               b'DISC-MAX="2147450880" DISC-ZERO="0" FSTYPE="" '
+               b'GROUP="root" KNAME="sda" LABEL="" LOG-SEC="512" '
+               b'MAJ:MIN="8:0" MIN-IO="512" MODE="\xc3\xb8---------" '
+               b'MODEL="Samsung SSD 850 " MOUNTPOINT="" NAME="sda" '
+               b'OPT-IO="0" OWNER="root" PHY-SEC="512" RM="0" RO="0" '
+               b'ROTA="0" RQ-SIZE="128" SIZE="500107862016" '
+               b'STATE="running" TYPE="disk" UUID=""').decode('utf-8')
+        err = b''.decode()
+        mock_subp.return_value = (out, err)
+        out = block._lsblock()
+
+    @mock.patch('curtin.block.util.subp')
+    def test_blkid(self, mock_subp):
+        # we use shlex on blkid, so cover that it might output non-ascii
+        out = (b'/dev/sda2: UUID="19ac97d5-6973-4193-9a09-2e6bbfa38262" '
+               b'LABEL="\xc3\xb8foo" TYPE="ext4"').decode('utf-8')
+        err = b''.decode()
+        mock_subp.return_value = (out, err)
+        block.blkid()
+
 # vi: ts=4 expandtab syntax=python

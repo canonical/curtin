@@ -423,7 +423,7 @@ def partition_handler(info, storage_config):
         lbs_path = os.path.join(disk_sysfs_path, 'queue', 'logical_block_size')
         with open(lbs_path, 'r') as f:
             logical_block_size_bytes = int(f.readline())
-    except:
+    except Exception:
         logical_block_size_bytes = 512
     LOG.debug(
         "{} logical_block_size_bytes: {}".format(disk_kname,

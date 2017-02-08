@@ -33,7 +33,7 @@ class LogHandler(ReportingHandler):
             input_level = level
             try:
                 level = getattr(logging, level.upper())
-            except:
+            except Exception:
                 LOG.warn("invalid level '%s', using WARN", input_level)
                 level = logging.WARN
         self.level = level
@@ -66,7 +66,7 @@ class WebHookHandler(ReportingHandler):
         self.retries = retries
         try:
             self.level = getattr(logging, level.upper())
-        except:
+        except Exception:
             LOG.warn("invalid level '%s', using WARN", level)
             self.level = logging.WARN
         self.headers = {'Content-Type': 'application/json'}
