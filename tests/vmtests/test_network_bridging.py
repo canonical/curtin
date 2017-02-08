@@ -178,3 +178,7 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
 # have updated ifupdown/bridge-utils packages;
 class YakketyTestBridging(relbase.yakkety, TestBridgeNetworkAbs):
     __test__ = True
+
+
+class ZestyTestBridging(relbase.zesty, TestBridgeNetworkAbs):
+    __test__ = True
