@@ -533,14 +533,6 @@ class VMBaseClass(TestCase):
                                "CURTIN_VMTEST_ISCSI_PORTAL_V6), which is " +
                                "unsupported. Skipping iSCSI tests.")
 
-            cls.tgtd_control_port = os.environ.get(
-                "CURTIN_VMTEST_TGTD_CONTROL_PORT", False)
-            if not cls.tgtd_control_port:
-                raise SkipTest("No tgtd control port specified in the " +
-                               "environment " +
-                               "(CURTIN_VMTEST_TGTD_CONTROL_PORT). " +
-                               "Skipping iSCSI tests.")
-
             # note that TGT_IPC_SOCKET also needs to be set for
             # successful communication
 
@@ -568,28 +560,29 @@ class VMBaseClass(TestCase):
             # copy testcase YAML to a temporary file in order to replace
             # placeholders
             temp_yaml = tempfile.NamedTemporaryFile(prefix=cls.td.tmpdir + '/',
-                                                    delete=False)
+                                                    mode='w+t', delete=False)
             logger.debug("iSCSI YAML is at %s" % temp_yaml.name)
             shutil.copyfile(cls.conf_file, temp_yaml.name)
             cls.conf_file = temp_yaml.name
 
+            # we implicitly assume testcase YAML is in the same order as
+            # iscsi_disks in the testcase
             # path:size:block_size:serial=,port=,cport=
             cls._iscsi_disks = list()
             for (disk_no, disk_sz) in enumerate(cls.iscsi_disks):
-                uuid = util.subp(['uuidgen'], capture=True, decode='replace')
+                uuid, _ = util.subp(['uuidgen'], capture=True, decode='replace')
                 uuid = uuid.rstrip()
                 target = 'curtin_%s' % uuid
                 cls._iscsi_disks.append(target)
                 dpath = os.path.join(cls.td.disks, '%s.img' % (target))
-                iscsi_disk = '{}:{}:iscsi:{}:{}:{}'.format(
-                    dpath, disk_sz, cls.disk_block_size,
-                    target, cls.tgtd_control_port)
+                iscsi_disk = '{}:{}:iscsi:{}:{}'.format(
+                    dpath, disk_sz, cls.disk_block_size, target)
                 disks.extend(['--disk', iscsi_disk])
 
                 # replace next __RFC4173__ placeholder in YAML
-                with tempfile.NamedTemporaryFile() as temp_yaml:
+                with tempfile.NamedTemporaryFile(mode='w+t') as temp_yaml:
                     shutil.copyfile(cls.conf_file, temp_yaml.name)
-                    with open(cls.conf_file, 'w+') as f:
+                    with open(cls.conf_file, 'w+t') as f:
                         for line in temp_yaml:
                             if '__RFC4173__' in line:
                                 # assumes LUN 1
@@ -795,9 +788,7 @@ class VMBaseClass(TestCase):
             for target in cls._iscsi_disks:
                 logger.debug('Removing iSCSI target %s', target)
                 tgtadm_out = utils.subp(
-                    ['tgtadm', '--lld=iscsi',
-                     '--control-port=%s' % cls.tgtd_control_port,
-                     '--mode=target', '--op=show'],
+                    ['tgtadm', '--lld=iscsi', '--mode=target', '--op=show'],
                     capture=True, decode='replace')
 
                 # match target name to TID
@@ -810,10 +801,8 @@ class VMBaseClass(TestCase):
                         break
 
                 if tid:
-                    cmd = ['tgtadm', '--lld', 'iscsi',
-                           '--control-port', cls.tgtd_control_port,
-                           '--mode', 'target', '--tid', tid, '--op', 'delete']
-                    util.subp(cmd, capture=False)
+                    util.subp(['tgtadm', '--lld=iscsi',
+                               '--mode=target', '--tid=%s' % tid, '--op=delete'])
                 else:
                     logger.warn('Unable to determine target ID for ' +
                                 'target %s. It will need to be manually ' +
