@@ -570,7 +570,8 @@ class VMBaseClass(TestCase):
             # path:size:block_size:serial=,port=,cport=
             cls._iscsi_disks = list()
             for (disk_no, disk_sz) in enumerate(cls.iscsi_disks):
-                uuid, _ = util.subp(['uuidgen'], capture=True, decode='replace')
+                uuid, _ = util.subp(['uuidgen'], capture=True,
+                                    decode='replace')
                 uuid = uuid.rstrip()
                 target = 'curtin_%s' % uuid
                 cls._iscsi_disks.append(target)
@@ -582,7 +583,7 @@ class VMBaseClass(TestCase):
                 # replace next __RFC4173__ placeholder in YAML
                 with tempfile.NamedTemporaryFile(mode='w+t') as temp_yaml:
                     shutil.copyfile(cls.conf_file, temp_yaml.name)
-                    with open(cls.conf_file, 'w+t') as f:
+                    with open(cls.conf_file, 'w+t') as conf:
                         for line in temp_yaml:
                             if '__RFC4173__' in line:
                                 # assumes LUN 1
@@ -590,7 +591,7 @@ class VMBaseClass(TestCase):
                                                     '%s::%s:1:%s' %
                                                     (cls.tgtd_ip,
                                                      cls.tgtd_port, target))
-                            f.write(line)
+                            conf.write(line)
 
         # proxy config
         configs = [cls.conf_file]
@@ -787,7 +788,7 @@ class VMBaseClass(TestCase):
         else:
             for target in cls._iscsi_disks:
                 logger.debug('Removing iSCSI target %s', target)
-                tgtadm_out = util.subp(
+                tgtadm_out, _ = util.subp(
                     ['tgtadm', '--lld=iscsi', '--mode=target', '--op=show'],
                     capture=True, decode='replace')
 
