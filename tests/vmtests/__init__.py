@@ -380,7 +380,7 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def getHostBridgeIp(cls, bridge):
-        out, _ = utils.subp(['ip', 'a'], capture=True, decode='replace')
+        out, _ = util.subp(['ip', 'a'], capture=True, decode='replace')
         ip_a_dict = ip_a_to_dict(out)
         try:
             ip_dict = ip_a_dict[bridge]
@@ -787,7 +787,7 @@ class VMBaseClass(TestCase):
         else:
             for target in cls._iscsi_disks:
                 logger.debug('Removing iSCSI target %s', target)
-                tgtadm_out = utils.subp(
+                tgtadm_out = util.subp(
                     ['tgtadm', '--lld=iscsi', '--mode=target', '--op=show'],
                     capture=True, decode='replace')
 
@@ -801,8 +801,8 @@ class VMBaseClass(TestCase):
                         break
 
                 if tid:
-                    util.subp(['tgtadm', '--lld=iscsi',
-                               '--mode=target', '--tid=%s' % tid, '--op=delete'])
+                    util.subp(['tgtadm', '--lld=iscsi', '--mode=target',
+                               '--tid=%s' % tid, '--op=delete'])
                 else:
                     logger.warn('Unable to determine target ID for ' +
                                 'target %s. It will need to be manually ' +
