@@ -621,6 +621,15 @@ def install_missing_packages(cfg, target):
                pkg not in installed_packages:
                 needed_packages.append(pkg)
 
+    arch_packages = {
+        's390x': [('s390-tools', 'zipl')],
+    }
+
+    for pkg, cmd in arch_packages.get(platform.machine(), []):
+        if not util.which(cmd, target=target):
+            if pkg not in needed_packages:
+                needed_packages.append(pkg)
+
     if needed_packages:
         state = util.load_command_environment()
         with events.ReportEventStack(

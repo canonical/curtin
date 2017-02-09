@@ -13,7 +13,6 @@ import time
 import yaml
 import curtin.net as curtin_net
 import curtin.util as util
-import curtin.version
 
 from tools.report_webhook_logger import CaptureReporting
 from curtin.commands.install import INSTALL_PASS_MSG
@@ -588,7 +587,7 @@ class VMBaseClass(TestCase):
             else:
                 logger.info('Install Failed')
                 raise Exception("No install log was produced")
-        except:
+        except Exception:
             cls.tearDownClass()
             raise
 
@@ -687,7 +686,7 @@ class VMBaseClass(TestCase):
         # mount output disk
         try:
             cls.td.collect_output()
-        except:
+        except Exception:
             cls.tearDownClass()
             raise
         logger.info(
@@ -776,8 +775,8 @@ class VMBaseClass(TestCase):
             return fp.read()
 
     def load_log_file(self, filename):
-        with open(filename, 'rb') as l:
-            return l.read().decode('utf-8', errors='replace')
+        with open(filename, 'rb') as fp:
+            return fp.read().decode('utf-8', errors='replace')
 
     def get_install_log_curtin_version(self):
         # curtin: Installation started. (%s)
@@ -792,7 +791,13 @@ class VMBaseClass(TestCase):
         return version
 
     def get_curtin_version(self):
-        return curtin.version.version_string()
+        curtin_exe = os.environ.get('CURTIN_VMTEST_CURTIN_EXE', 'bin/curtin')
+        # use shell=True to allow for CURTIN_VMTEST_CURTIN_EXE to have
+        # spaces in it ("lxc exec container curtin").  That could cause
+        # issues for non shell-friendly chars.
+        vercmd = ' '.join([curtin_exe, "version"])
+        out, _err = util.subp(vercmd, shell=True, capture=True)
+        return out.strip()
 
     def check_file_strippedline(self, filename, search):
         lines = self.load_collect_file(filename).splitlines()

@@ -152,6 +152,13 @@ class TestSubp(TestCase):
     utf8_valid = b'start \xc3\xa9 end'
     utf8_valid_2 = b'd\xc3\xa9j\xc8\xa7'
 
+    try:
+        decode_type = unicode
+        nodecode_type = str
+    except NameError:
+        decode_type = str
+        nodecode_type = bytes
+
     def printf_cmd(self, *args):
         # bash's printf supports \xaa.  So does /usr/bin/printf
         # but by using bash, we remove dependency on another program.
@@ -164,7 +171,7 @@ class TestSubp(TestCase):
         (out, _err) = util.subp(cmd, capture=True)
         self.assertEqual(out, self.utf8_valid_2.decode('utf-8'))
 
-    def test_subp_target_as_different_fors_of_slash_works(self):
+    def test_subp_target_as_different_forms_of_slash_works(self):
         # passing target=/ in any form should work.
 
         # it is assumed that if chroot was used, then test case would
@@ -187,25 +194,31 @@ class TestSubp(TestCase):
     def test_subp_respects_decode_false(self):
         (out, err) = util.subp(self.stdin2out, capture=True, decode=False,
                                data=self.utf8_valid)
-        self.assertTrue(isinstance(out, bytes))
-        self.assertTrue(isinstance(err, bytes))
+        self.assertTrue(isinstance(out, self.nodecode_type))
+        self.assertTrue(isinstance(err, self.nodecode_type))
         self.assertEqual(out, self.utf8_valid)
 
     def test_subp_decode_ignore(self):
         # this executes a string that writes invalid utf-8 to stdout
-        (out, _err) = util.subp(self.printf_cmd('abc\\xaadef'),
-                                capture=True, decode='ignore')
+        (out, err) = util.subp(self.printf_cmd('abc\\xaadef'),
+                               capture=True, decode='ignore')
+        self.assertTrue(isinstance(out, self.decode_type))
+        self.assertTrue(isinstance(err, self.decode_type))
         self.assertEqual(out, 'abcdef')
 
     def test_subp_decode_strict_valid_utf8(self):
-        (out, _err) = util.subp(self.stdin2out, capture=True,
-                                decode='strict', data=self.utf8_valid)
+        (out, err) = util.subp(self.stdin2out, capture=True,
+                               decode='strict', data=self.utf8_valid)
         self.assertEqual(out, self.utf8_valid.decode('utf-8'))
+        self.assertTrue(isinstance(out, self.decode_type))
+        self.assertTrue(isinstance(err, self.decode_type))
 
     def test_subp_decode_invalid_utf8_replaces(self):
-        (out, _err) = util.subp(self.stdin2out, capture=True,
-                                data=self.utf8_invalid)
+        (out, err) = util.subp(self.stdin2out, capture=True,
+                               data=self.utf8_invalid)
         expected = self.utf8_invalid.decode('utf-8', errors='replace')
+        self.assertTrue(isinstance(out, self.decode_type))
+        self.assertTrue(isinstance(err, self.decode_type))
         self.assertEqual(out, expected)
 
     def test_subp_decode_strict_raises(self):

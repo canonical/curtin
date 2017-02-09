@@ -72,7 +72,7 @@ def clear_install_log(logfile):
     util.ensure_dir(os.path.dirname(logfile))
     try:
         open(logfile, 'w').close()
-    except:
+    except Exception:
         pass
 
 
@@ -256,8 +256,8 @@ def apply_power_state(pstate):
         try:
             util.subp(cmd)
             os._exit(0)
-        except:
-            LOG.warn("%s returned non-zero" % cmd)
+        except Exception as e:
+            LOG.warn("%s returned non-zero: %s" % (cmd, e))
             os._exit(1)
     return
 
