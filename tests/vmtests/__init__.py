@@ -317,6 +317,9 @@ class TempDir(object):
         subprocess.check_call(['tar', '-C', self.collect, '-xf',
                                self.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
+        # make sure output collect dir is usable my user
+        subprocess.check_call(['chmod', '-R', 'u+rwX', self.collect],
+                              stdout=DEVNULL, stderr=subprocess.STDOUT)
 
 
 class VMBaseClass(TestCase):
