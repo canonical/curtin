@@ -522,15 +522,15 @@ class VMBaseClass(TestCase):
             portal_v6 = os.environ.get("CURTIN_VMTEST_ISCSI_PORTAL_V6",
                                        False)
             if not portal_v4 and not portal_v6:
-                raise SkipTest("No ISCSI portal specified in the " +
-                               "environment (CURTIN_VMTEST_ISCSI_PORTAL_V4 " +
-                               "or CURTIN_VMTEST_ISCSI_PORTAL_V6). " +
+                raise SkipTest("No ISCSI portal specified in the "
+                               "environment (CURTIN_VMTEST_ISCSI_PORTAL_V4 "
+                               "or CURTIN_VMTEST_ISCSI_PORTAL_V6). "
                                "Skipping iSCSI tests.")
             if portal_v4 and portal_v6:
-                raise SkipTest("Both IPv4 and IPv6 ISCSI portals specified " +
-                               "in the environment " +
-                               "(CURTIN_VMTEST_ISCSI_PORTAL_V4 and " +
-                               "CURTIN_VMTEST_ISCSI_PORTAL_V6), which is " +
+                raise SkipTest("Both IPv4 and IPv6 ISCSI portals specified "
+                               "in the environment "
+                               "(CURTIN_VMTEST_ISCSI_PORTAL_V4 and "
+                               "CURTIN_VMTEST_ISCSI_PORTAL_V6), which is "
                                "unsupported. Skipping iSCSI tests.")
 
             # note that TGT_IPC_SOCKET also needs to be set for
@@ -540,7 +540,7 @@ class VMBaseClass(TestCase):
                 m = re.match(r'(?P<ip>(\d{,3}.){3}\d{,3})(:(?P<port>\d+))?',
                              portal_v4)
                 if not m:
-                    raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V4 in " +
+                    raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V4 in "
                                      "environment is not in IP:PORT format.")
             else:
                 r = re.compile(r'''
@@ -549,7 +549,7 @@ class VMBaseClass(TestCase):
                     ''', re.VERBOSE)
                 m = re.match(r, portal_v6)
                 if not m:
-                    raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V6 in " +
+                    raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V6 in "
                                      "environment is not in IP:PORT format.")
             cls.tgtd_ip = m.group('ip')
             try:
@@ -783,7 +783,7 @@ class VMBaseClass(TestCase):
             keep = keep_fail
 
         if 'disks' in keep or (len(keep) == 1 and keep[0] == 'all'):
-            logger.info('Not removing iSCSI disks from tgt, they will ' +
+            logger.info('Not removing iSCSI disks from tgt, they will '
                         'need to be removed manually.')
         else:
             for target in cls._iscsi_disks:
@@ -805,8 +805,8 @@ class VMBaseClass(TestCase):
                     util.subp(['tgtadm', '--lld=iscsi', '--mode=target',
                                '--tid=%s' % tid, '--op=delete'])
                 else:
-                    logger.warn('Unable to determine target ID for ' +
-                                'target %s. It will need to be manually ' +
+                    logger.warn('Unable to determine target ID for '
+                                'target %s. It will need to be manually '
                                 'removed.', target)
 
     @classmethod

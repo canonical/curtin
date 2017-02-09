@@ -58,7 +58,7 @@ def iscsiadm_discovery(portal, port):
 
 
 def iscsiadm_login(target, portal, port):
-    LOG.debug('iscsiadm_login: ' +
+    LOG.debug('iscsiadm_login: '
               'target=%s portal=%s', target, portal)
 
     cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
@@ -69,7 +69,7 @@ def iscsiadm_login(target, portal, port):
 
 
 def iscsiadm_set_automatic(target, portal, port):
-    LOG.debug('iscsiadm_set_automatic: ' +
+    LOG.debug('iscsiadm_set_automatic: '
               'target=%s portal=%s', target, portal)
 
     cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
@@ -80,7 +80,7 @@ def iscsiadm_set_automatic(target, portal, port):
 
 
 def iscsiadm_logout(target, portal=None, port=None):
-    LOG.debug('iscsiadm_logout: ' +
+    LOG.debug('iscsiadm_logout: '
               'target=%s portal=%s', target, portal)
 
     cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
@@ -137,7 +137,7 @@ def disconnect_target_disks(target_root_path):
 
 
 def kname_is_iscsi(kname):
-    LOG.debug('kname_is_iscsi: ' +
+    LOG.debug('kname_is_iscsi: '
               'looking up kname %s', kname)
     by_path = "/dev/disk/by-path"
     for path in os.listdir(by_path):
@@ -146,7 +146,7 @@ def kname_is_iscsi(kname):
             path_target = os.path.realpath(
                 os.path.sep.join([by_path, os.readlink(path_link)]))
             if kname in path_target and 'iscsi' in path:
-                LOG.debug('kname_is_iscsi: ' +
+                LOG.debug('kname_is_iscsi: '
                           'found by-path link %s for kname %s', path, kname)
                 return True
     LOG.debug('kname_is_iscsi: no iscsi disk found for kname %s' % kname)
@@ -173,17 +173,17 @@ class IscsiDisk:
                ''', re.VERBOSE)
         m = r.match(rfc4173)
         if m is None:
-            raise ValueError('iSCSI disks must be specified as ' +
-                             'iscsi:[user:password[:initiatoruser:' +
-                             'initiatorpassword]@]' +
+            raise ValueError('iSCSI disks must be specified as '
+                             'iscsi:[user:password[:initiatoruser:'
+                             'initiatorpassword]@]'
                              'ip:proto:port:lun:targetname')
 
         if m.group('proto') and m.group('proto') != '6':
-            LOG.warn('Specified protocol for iSCSI (%s) is unsupported, ' +
+            LOG.warn('Specified protocol for iSCSI (%s) is unsupported, '
                      'assuming 6 (TCP)', m.group('proto'))
 
         if not m.group('ip') or not m.group('targetname'):
-            raise ValueError('Both IP and targetname must be specified for ' +
+            raise ValueError('Both IP and targetname must be specified for '
                              'iSCSI disks')
 
         self._user = m.group('user')
