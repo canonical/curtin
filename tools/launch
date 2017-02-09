@@ -249,6 +249,39 @@ find_apt_proxy() {
     return 1
 }
 
+get_tgt_tid() {
+    # retry until we successfully register a tid in tgtadm, return it.
+    # disk is like: src:size:iscsi:bsize:target
+    local disk="$1" src="$2" out="" tid="" lun="1" ret=""
+    while true; do
+        # use next target ID
+        # this is racy, potentially, but we iterate until it works
+        out=$(tgtadm --lld=iscsi --mode=target --op=show) ||
+            { error "Failed to show iscsi devices"; return 1; }
+
+        tid=$(echo "$out" |
+            awk -F' ' '/^Target/ {tid=$2} END{gsub(":","",tid); print tid+1}')
+
+        tgtadm --lld=iscsi --mode=target --op=new "--tid=$tid" \
+            "--targetname=$disk" || {
+            ret=$?
+            debug 1 "failed [$ret] in attempt to register tid=$tid " \
+                "targetname=$disk"
+            continue
+        }
+
+        # assume LUN 1?
+        tgtadm --lld=iscsi --mode=logicalunit --op=new "--tid=$tid" \
+            "--backing-store=$src" --device-type=disk "--lun=$lun" || {
+            error "Unable to create TGT LUN $lun backed by '$src'. tid=$tid."
+            error "Does a prior config need to be cleaned up?"
+            return 1
+        }
+        _RET="$tid"
+        return 0
+    done
+}
+
 main() {
     local short_opts="a:A:d:h:i:k:n:p:v"
     local long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,root-arg:,silent,serial-log:,uefi-nvram:,verbose,vnc:"
@@ -408,26 +441,15 @@ main() {
         # We do not pass iSCSI disks down to qemu, as that will use
         # qemu's iSCSI target layer and not the host tgt
         if [ "${driver}" == "iscsi" ]; then
-            iscsi_disk=$(echo $disk | awk -F: '{print $5}')
-
-            while [ 1 == 1 ]; do
-                # use next target ID
-                # this is racy, potentially, but we iterate until it works
-                iscsi_tid=$(tgtadm --lld=iscsi --mode=target --op=show | awk -F' ' '/^Target/ {tid=$2} END{gsub(":","",tid); print tid+1}')
-
-                tgtadm --lld=iscsi --mode=target --op=new --tid=${iscsi_tid} --targetname=${iscsi_disk} ||
-                    continue
-
-                # assume LUN 1?
-                tgtadm --lld=iscsi --mode=logicalunit --op=new --tid=${iscsi_tid} --backing-store=${src} --device-type=disk --lun=1 ||
-                    { error "Unable to create TGT LUN. Does a prior configuration need to be cleaned up?"; return 1; }
-
-                tgtadm --lld=iscsi --mode=target --op=bind --tid=${iscsi_tid} -I ALL ||
-                    { error "Unable to set TGT target ACL. Does a prior configuration need to be cleaned up?"; return 1; }
-                
-                break
-            done
-            continue
+            local iscsi_disk="" tid=""
+            iscsi_disk=$(echo "$disk" | awk -F: '{print $5}') &&
+                [ -n "$iscsi_disk" ] || {
+                error "empty disk for iscsi disk '$disk'"
+                return 1
+            }
+            get_tgt_tid "$iscsi_disk" || return
+            tid="$_RET"
+            debug 1 "registered $disk to tgt tid=$tid"
         fi
 
         # prepend comma if passing devopts
