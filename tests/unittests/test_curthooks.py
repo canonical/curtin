@@ -78,8 +78,8 @@ class TestCurthooksInstallKernel(CurthooksBase):
         curthooks.install_kernel(self.kernel_cfg, self.target)
 
         inst_calls = [
-            call(['u-boot-tools'], target=self.target),
-            call([kernel_package], target=self.target)]
+            call(['u-boot-tools'], retries=(1, 2, 5, 10), target=self.target),
+            call([kernel_package], retries=(1, 2, 5, 10), target=self.target)]
 
         self.mock_instpkg.assert_has_calls(inst_calls)
 
@@ -90,7 +90,7 @@ class TestCurthooksInstallKernel(CurthooksBase):
         curthooks.install_kernel(self.kernel_cfg, self.target)
 
         self.mock_instpkg.assert_called_with(
-            [kernel_package], target=self.target)
+            [kernel_package], target=self.target, retries=(1, 2, 5, 10))
 
 
 class TestUpdateInitramfs(CurthooksBase):
@@ -153,6 +153,7 @@ class TestInstallMissingPkgs(CurthooksBase):
         cfg = {}
         curthooks.install_missing_packages(cfg, target=target)
         self.mock_install_packages.assert_called_with(['s390-tools'],
+                                                      retries=(1, 2, 5, 10),
                                                       target=target)
 
     @patch.object(events, 'ReportEventStack')

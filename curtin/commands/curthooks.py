@@ -64,6 +64,8 @@ KERNEL_MAPPING = {
     }
 }
 
+APT_RETRIES = (1, 2, 5, 10)
+
 
 def write_files(cfg, target):
     # this takes 'write_files' entry in config and writes files in the target
@@ -197,10 +199,12 @@ def install_kernel(cfg, target):
     # target only has required packages installed.  See LP:1640519
     fk_packages = get_flash_kernel_pkgs()
     if fk_packages:
-        util.install_packages(fk_packages.split(), target=target)
+        util.install_packages(fk_packages.split(), target=target,
+                              retries=APT_RETRIES)
 
     if kernel_package:
-        util.install_packages([kernel_package], target=target)
+        util.install_packages([kernel_package], target=target,
+                              retries=APT_RETRIES)
         return
 
     # uname[2] is kernel name (ie: 3.16.0-7-generic)
@@ -217,7 +221,8 @@ def install_kernel(cfg, target):
         LOG.warn("Couldn't detect kernel package to install for %s."
                  % kernel)
         if kernel_fallback is not None:
-            util.install_packages([kernel_fallback], target=target)
+            util.install_packages([kernel_fallback], target=target,
+                                  retries=APT_RETRIES)
         return
 
     package = "linux-{flavor}{map_suffix}".format(
@@ -228,13 +233,15 @@ def install_kernel(cfg, target):
             LOG.debug("Kernel package '%s' already installed", package)
         else:
             LOG.debug("installing kernel package '%s'", package)
-            util.install_packages([package], target=target)
+            util.install_packages([package], target=target,
+                                  retries=APT_RETRIES)
     else:
         if kernel_fallback is not None:
             LOG.info("Kernel package '%s' not available.  "
                      "Installing fallback package '%s'.",
                      package, kernel_fallback)
-            util.install_packages([kernel_fallback], target=target)
+            util.install_packages([kernel_fallback], target=target,
+                                  retries=APT_RETRIES)
         else:
             LOG.warn("Kernel package '%s' not available and no fallback."
                      " System may not boot.", package)
@@ -336,7 +343,7 @@ def setup_grub(cfg, target):
             pkgs.append("shim-signed")
 
         # Install the UEFI packages needed for the architecture
-        util.install_packages(pkgs, target=target)
+        util.install_packages(pkgs, target=target, retries=APT_RETRIES)
 
     env = os.environ.copy()
 
@@ -500,7 +507,7 @@ def detect_and_handle_multipath(cfg, target):
 
     LOG.info("Detected multipath devices. Installing support via %s", mppkgs)
 
-    util.install_packages(mppkgs, target=target)
+    util.install_packages(mppkgs, target=target, retries=APT_RETRIES)
     replace_spaces = True
     try:
         # check in-target version
@@ -637,7 +644,8 @@ def install_missing_packages(cfg, target):
                 reporting_enabled=True, level="INFO",
                 description="Installing packages on target system: " +
                 str(needed_packages)):
-            util.install_packages(needed_packages, target=target)
+            util.install_packages(needed_packages, target=target,
+                                  retries=APT_RETRIES)
 
 
 def system_upgrade(cfg, target):

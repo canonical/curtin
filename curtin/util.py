@@ -743,7 +743,7 @@ def apt_update(target=None, env=None, force=False, comment=None,
 
 
 def run_apt_command(mode, args=None, aptopts=None, env=None, target=None,
-                    execute=True, allow_daemons=False):
+                    execute=True, allow_daemons=False, retries=None):
     opts = ['--quiet', '--assume-yes',
             '--option=Dpkg::options::=--force-unsafe-io',
             '--option=Dpkg::Options::=--force-confold']
@@ -769,7 +769,7 @@ def run_apt_command(mode, args=None, aptopts=None, env=None, target=None,
 
     apt_update(target, env=env, comment=' '.join(cmd))
     with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
-        return inchroot.subp(cmd, env=env)
+        return inchroot.subp(cmd, env=env, retries=retries)
 
 
 def system_upgrade(aptopts=None, target=None, env=None, allow_daemons=False):
@@ -782,12 +782,12 @@ def system_upgrade(aptopts=None, target=None, env=None, allow_daemons=False):
 
 
 def install_packages(pkglist, aptopts=None, target=None, env=None,
-                     allow_daemons=False):
+                     allow_daemons=False, retries=None):
     if isinstance(pkglist, str):
         pkglist = [pkglist]
     return run_apt_command(
-        'install', args=pkglist,
-        aptopts=aptopts, target=target, env=env, allow_daemons=allow_daemons)
+        'install', args=pkglist, aptopts=aptopts, target=target, env=env,
+        allow_daemons=allow_daemons, retries=retries)
 
 
 def is_uefi_bootable():
