@@ -164,8 +164,7 @@ def install_deps(verbosity=False, dry_run=False, allow_daemons=True):
     ret = 0
     try:
         install_packages(missing_pkgs, allow_daemons=allow_daemons,
-                         aptopts=["--no-install-recommends"],
-                         retries=(1, 2, 5, 10))
+                         aptopts=["--no-install-recommends"])
     except ProcessExecutionError as e:
         sys.stderr.write("%s\n" % e)
         ret = e.exit_code

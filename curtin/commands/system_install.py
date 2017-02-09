@@ -33,7 +33,7 @@ def system_install_pkgs_main(args):
     try:
         util.install_packages(
             pkglist=args.packages, target=args.target,
-            allow_daemons=args.allow_daemons, retries=(1, 2, 5, 10))
+            allow_daemons=args.allow_daemons)
     except util.ProcessExecutionError as e:
         LOG.warn("system install failed for %s: %s" % (args.packages, e))
         exit_code = e.exit_code

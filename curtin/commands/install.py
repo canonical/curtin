@@ -298,7 +298,7 @@ def apply_kexec(kexec, target):
         raise TypeError("kexec is not a dict.")
 
     if not util.which('kexec'):
-        util.install_packages('kexec-tools', retries=(1, 2, 5, 10))
+        util.install_packages('kexec-tools')
 
     if not os.path.isfile(target_grubcfg):
         raise ValueError("%s does not exist in target" % grubcfg)
