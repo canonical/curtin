@@ -422,7 +422,7 @@ main() {
                 tgtadm --lld=iscsi --mode=logicalunit --op=new --tid=${iscsi_tid} --backing-store=${src} --device-type=disk --lun=1 ||
                     { error "Unable to create TGT LUN. Does a prior configuration need to be cleaned up?"; return 1; }
 
-                tgtadm --lld=iscsi --mode=target --op=bind --tid=${iscsi_tid} -I=ALL ||
+                tgtadm --lld=iscsi --mode=target --op=bind --tid=${iscsi_tid} -I ALL ||
                     { error "Unable to set TGT target ACL. Does a prior configuration need to be cleaned up?"; return 1; }
                 
                 break
