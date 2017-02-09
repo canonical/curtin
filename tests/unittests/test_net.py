@@ -702,4 +702,51 @@ network:
             sorted([line for line in expected if line]),
             sorted([line for line in found if line]))
 
+    def test_render_interfaces_bridges(self):
+        bridge_config = open(
+            'examples/tests/bridging_network.yaml', 'r').read()
+
+        ns = self.get_net_state(bridge_config)
+        ifaces = dedent("""\
+            auto lo
+            iface lo inet loopback
+
+            auto eth0
+            iface eth0 inet dhcp
+
+            iface eth1 inet manual
+
+            iface eth2 inet manual
+
+            auto br0
+            iface br0 inet static
+                address 192.168.14.2/24
+                bridge_ports eth1 eth2
+                bridge_gcint 2
+                bridge_pathcost eth1 50
+                bridge_pathcost eth2 75
+                bridge_portprio eth1 28
+                bridge_portprio eth2 14
+                bridge_bridgeprio 22
+                bridge_ageing 250
+                bridge_maxage 10
+                bridge_fd 1
+                bridge_waitport 1 eth1
+                bridge_waitport 2 eth2
+                bridge_stp off
+                bridge_hello 1
+
+            source /etc/network/interfaces.d/*.cfg
+            """)
+        net_ifaces = net.render_interfaces(ns.network_state)
+        print("\n".join(list(map(str,
+                                 enumerate(sorted(ifaces.split('\n')))))))
+        print("\n^^ LOCAL -- RENDER vv")
+        print("\n".join(list(map(str,
+                                 enumerate(sorted(net_ifaces.split('\n')))))))
+        print(ns.network_state.get('interfaces'))
+        self.assertEqual(sorted(ifaces.split('\n')),
+                         sorted(net_ifaces.split('\n')))
+
+
 # vi: ts=4 expandtab syntax=python
