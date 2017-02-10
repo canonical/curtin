@@ -147,7 +147,9 @@ class CaptureReporting:
         self.httpd = get_httpd(result_file=self.result_file,
                                port=None)
         self.httpd.server_activate()
-        (self.bind_addr, self.port) = self.httpd.server_address
+        # socket.AF_INET6 returns
+        # (host, port, flowinfo, scopeid)
+        (self.bind_addr, self.port, _, _) = self.httpd.server_address
 
     def __enter__(self):
         if os.path.exists(self.result_file):
