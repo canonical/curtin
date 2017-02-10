@@ -425,7 +425,8 @@ class TestAptSourceConfig(TestCase):
             self._add_apt_sources(cfg, TARGET, template_params=params,
                                   aa_repo_match=self.matcher)
         mockobj.assert_any_call(['add-apt-repository',
-                                 'ppa:smoser/cloud-init-test'], target=TARGET)
+                                 'ppa:smoser/cloud-init-test'],
+                                retries=(1, 2, 5, 10), target=TARGET)
 
         # adding ppa should ignore filename (uses add-apt-repository)
         self.assertFalse(os.path.isfile(self.aptlistfile))
@@ -442,11 +443,11 @@ class TestAptSourceConfig(TestCase):
             self._add_apt_sources(cfg, TARGET, template_params=params,
                                   aa_repo_match=self.matcher)
         calls = [call(['add-apt-repository', 'ppa:smoser/cloud-init-test'],
-                      target=TARGET),
+                      retries=(1, 2, 5, 10), target=TARGET),
                  call(['add-apt-repository', 'ppa:smoser/cloud-init-test2'],
-                      target=TARGET),
+                      retries=(1, 2, 5, 10), target=TARGET),
                  call(['add-apt-repository', 'ppa:smoser/cloud-init-test3'],
-                      target=TARGET)]
+                      retries=(1, 2, 5, 10), target=TARGET)]
         mockobj.assert_has_calls(calls, any_order=True)
 
         # adding ppa should ignore all filenames (uses add-apt-repository)
