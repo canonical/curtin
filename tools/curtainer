@@ -32,10 +32,11 @@ inside() {
     shift
     [ "$1" = "-" ] && { close_in=false; shift; }
     set -- lxc exec --mode=non-interactive "$n" -- "$@"
-    debug 1 "$close_in: $*"
     if ${close_in}; then
+        debug 1 "$* </dev/null"
         "$@" </dev/null
     else
+        debug 1 "$*"
         "$@"
     fi
 }
@@ -93,11 +94,11 @@ main() {
     src="$1"
     name="$2"
     
-    lxc launch "$src" "$name" || failrc "failed lxc launch $src $name"
+    lxc launch "$src" "$name" || fail "failed lxc launch $src $name"
     CONTAINER=$name
 
     wait_for_ready "$name" $maxwait $VERBOSITY ||
-        failrc "$name did not become ready after $maxwait"
+        fail "$name did not become ready after $maxwait"
 
     if $proposed; then
         mirror=$(inside $name awk '$1 == "deb" { print $2; exit(0); }' \
@@ -119,16 +120,17 @@ main() {
 
     line="Acquire::Languages \"none\";"
     fname="/etc/apt/apt.conf.d/99notranslations"
-    inside "$name" sh -c 'echo "$1" > "$2"' -- "$line" "$fname" ||
+    inside "$name" sh -c '
+        rm -f /var/lib/apt/lists/*Translation*;
+        echo "$1" > "$2"' -- "$line" "$fname" ||
         error "failed to disable translations"
-    inside "$name" rm -f /var/lib/apt/lists/*Translation* ||
-        error "failed to delete translations"
     inside "$name" sed -i '/^deb-src/s/^/#/' /etc/apt/sources.list ||
         error "failed to disable deb-src entries"
 
     inside "$name" $eatmydata apt-get -q update ||
         fail "failed apt-get update"
     inside "$name" $eatmydata \
+        env DEBIAN_FRONTEND=noninteractive \
         apt-get install --no-install-recommends -qy curtin ||
         fail "failed apt-get install --no-install-recommends -qy curtin"
     CONTAINER=""
