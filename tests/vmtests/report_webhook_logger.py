@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import socket
 try:
     # python2
     import SimpleHTTPServer as http_server
@@ -51,7 +52,12 @@ def write_event_string(target, event_str):
         json.dump(data, fp)
 
 
+class HTTPServerV6(socketserver.TCPServer):
+    address_family = socket.AF_INET6
+
+
 class ServerHandler(http_server.SimpleHTTPRequestHandler):
+    address_family = socket.AF_INET6
     result_log_file = None
 
     def log_request(self, code, size=None):
@@ -107,7 +113,7 @@ def get_httpd(port=None, result_file=None):
         Handler = GenServerHandlerWithResultFile(result_file)
     else:
         Handler = ServerHandler
-    httpd = socketserver.TCPServer(("", port), Handler)
+    httpd = HTTPServerV6(("::", port), Handler)
     httpd.allow_reuse_address = True
 
     return httpd
@@ -154,7 +160,8 @@ class CaptureReporting:
         self.httpd.shutdown()
 
 
-if __name__ == "__main__":
+def mainloop():
+    addr = port = None
     if len(sys.argv) > 2:
         port = int(sys.argv[2])
         addr = sys.argv[1]
@@ -164,11 +171,15 @@ if __name__ == "__main__":
     else:
         port = DEFAULT_PORT
     info = {
-        'interface': addr or "localhost",
+        'interface': addr or "::",
         'port': port,
-        'endpoint': "http://" + (addr or "localhost") + ":%s" % port
+        'endpoint': "http://" + (addr or "[::1]") + ":%s" % port
     }
     print("Serving at: %(endpoint)s" % info)
     print("Post to this with:\n%s\n" % (EXAMPLE_CONFIG % info))
     run_server(port=port, log_data=True)
     sys.exit(0)
+
+
+if __name__ == "__main__":
+    mainloop()

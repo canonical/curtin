@@ -14,7 +14,7 @@ import yaml
 import curtin.net as curtin_net
 import curtin.util as util
 
-from tools.report_webhook_logger import CaptureReporting
+from .report_webhook_logger import CaptureReporting
 from curtin.commands.install import INSTALL_PASS_MSG
 
 from .image_sync import query as imagesync_query
