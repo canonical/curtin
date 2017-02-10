@@ -4,7 +4,7 @@ pycheck_dirs=(
     "curtin/"
     "tests/"
     "tools/curtin-log-print"
-    "tools/report_webhook_logger.py"
+    "tools/report_webhook_logger"
 )
 bin_files=( )
 CR="

@@ -12,7 +12,7 @@ pycheck_dirs=(
     "tests/unittests/"
     $vmtests
     "tools/curtin-log-print"
-    "tools/report_webhook_logger.py"
+    "tools/report_webhook_logger"
 )
 
 set -f
