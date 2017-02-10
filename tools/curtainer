@@ -1,0 +1,140 @@
+#!/bin/bash
+
+VERBOSITY=0
+CONTAINER=""
+
+error() { echo "$@" 1>&2; }
+fail() { local r=$?;  [ $r -eq 0 ] && r=1; failrc "$r" "$@"; }
+failrc() { local r=$1; shift; [ $# -eq 0 ] || error "$@"; exit $r; }
+
+Usage() {
+    cat <<EOF
+Usage: ${0##*/} [ options ] <image> name
+
+   start a container of image (ubuntu-daily:xenial) and install curtin.
+
+   options:
+      --proposed    enable proposed
+      --daily       enable daily curtin archive
+EOF
+}
+
+bad_Usage() { Usage 1>&2; [ $# -eq 0 ] || error "$@"; return 1; }
+cleanup() {
+    if [ -n "$CONTAINER" ]; then
+        debug 1 "deleting container $CONTAINER"
+        lxc delete --force "$CONTAINER"
+    fi
+}
+
+inside() {
+    local n="$1" close_in=true
+    shift
+    [ "$1" = "-" ] && { close_in=false; shift; }
+    set -- lxc exec --mode=non-interactive "$n" -- "$@"
+    if ${close_in}; then
+        debug 1 "$* </dev/null"
+        "$@" </dev/null
+    else
+        debug 1 "$*"
+        "$@"
+    fi
+}
+
+wait_for_ready() {
+    local n="$1" max="${2:-30}" debug=${3}
+    inside "$n" - /bin/sh -s $max $debug <<"EOF"
+max=$1; debug=${2:-0};
+i=0;
+while [ ! -e /run/cloud-init/result.json ] && i=$(($i+1)); do
+    [ $i -ge $max ] && exit 1
+    [ "$debug" = "0" ] || echo -n .
+    sleep 1
+done
+[ "$debug" = "0" ] || echo "[done after $i]"
+exit 0
+}
+EOF
+}
+
+debug() {
+    local level=${1}; shift;
+    [ "${level}" -gt "${VERBOSITY}" ] && return
+    error "${@}"
+}
+
+main() {
+    local short_opts="hv"
+    local long_opts="help,proposed,daily,verbose"
+    local getopt_out=""
+    getopt_out=$(getopt --name "${0##*/}" \
+        --options "${short_opts}" --long "${long_opts}" -- "$@") &&
+        eval set -- "${getopt_out}" ||
+        { bad_Usage; return; }
+
+    local cur="" next=""
+    local proposed=false daily=false src="" name="" maxwait=30
+    local eatmydata="eatmydata"
+
+    while [ $# -ne 0 ]; do
+        cur="$1"; next="$2";
+        case "$cur" in
+            -h|--help) Usage ; exit 0;;
+               --proposed) proposed=true;;
+               --daily) daily=true;;
+            -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
+            --) shift; break;;
+        esac
+        shift;
+    done
+
+    [ $# -eq 2 ] || { bad_Usage "expected 2 args, got $#: $*"; return; }
+
+    trap cleanup EXIT 
+    src="$1"
+    name="$2"
+    
+    lxc launch "$src" "$name" || fail "failed lxc launch $src $name"
+    CONTAINER=$name
+
+    wait_for_ready "$name" $maxwait $VERBOSITY ||
+        fail "$name did not become ready after $maxwait"
+
+    if $proposed; then
+        mirror=$(inside $name awk '$1 == "deb" { print $2; exit(0); }' \
+            /etc/apt/sources.list) &&
+            rel=$(inside $name lsb_release -sc) ||
+            fail "failed to get mirror in $name"
+        line="deb $mirror $rel-proposed main universe"
+        debug 1 "enabling proposed: $line"
+        local fname="/etc/apt/sources.list.d/proposed.list"
+        inside "$name" sh -c "echo $line > $fname" ||
+            fail "failed adding proposed to sources.list"
+    fi
+    if $daily; then
+        local daily_ppa="ppa:curtin-dev/daily"
+        debug 1 "enabling daily: $daily_ppa"
+        inside "$name" add-apt-repository --yes "${daily_ppa}" ||
+            fail "failed add-apt-repository for daily."
+    fi
+
+    line="Acquire::Languages \"none\";"
+    fname="/etc/apt/apt.conf.d/99notranslations"
+    inside "$name" sh -c '
+        rm -f /var/lib/apt/lists/*Translation*;
+        echo "$1" > "$2"' -- "$line" "$fname" ||
+        error "failed to disable translations"
+    inside "$name" sed -i '/^deb-src/s/^/#/' /etc/apt/sources.list ||
+        error "failed to disable deb-src entries"
+
+    inside "$name" $eatmydata apt-get -q update ||
+        fail "failed apt-get update"
+    inside "$name" $eatmydata \
+        env DEBIAN_FRONTEND=noninteractive \
+        apt-get install --no-install-recommends -qy curtin ||
+        fail "failed apt-get install --no-install-recommends -qy curtin"
+    CONTAINER=""
+}
+
+main "$@"
+# vi: ts=4 expandtab
