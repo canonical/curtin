@@ -117,10 +117,12 @@ main() {
             fail "failed add-apt-repository for daily."
     fi
 
-    line="Acquire::Languages 'none'\;"
-    fname="/etc/apt/apt.conf.d/99translations"
-    inside "$name" sh -c "echo $line > $fname" ||
+    line="Acquire::Languages \"none\";"
+    fname="/etc/apt/apt.conf.d/99notranslations"
+    inside "$name" sh -c 'echo "$1" > "$2"' -- "$line" "$fname" ||
         error "failed to disable translations"
+    inside "$name" rm -f /var/lib/apt/lists/*Translation* ||
+        error "failed to delete translations"
     inside "$name" sed -i '/^deb-src/s/^/#/' /etc/apt/sources.list ||
         error "failed to disable deb-src entries"
 
