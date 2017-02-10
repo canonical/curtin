@@ -274,9 +274,8 @@ class TestSubp(TestCase):
             type(sp).returncode = mreturncodes
             ret = util.subp(cmd, **kwargs)
 
-        # popen should only ever be called once
+        # popen may be called once or > 1 for retries, but must be called.
         self.assertTrue(m_popen.called)
-        self.assertEqual(len(returncodes), m_popen.call_count)
         # communicate() needs to have been called.
         self.assertTrue(sp.communicate.called)
 
