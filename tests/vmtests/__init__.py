@@ -14,12 +14,13 @@ import yaml
 import curtin.net as curtin_net
 import curtin.util as util
 
+from .report_webhook_logger import CaptureReporting
 from curtin.commands.install import INSTALL_PASS_MSG
 
 from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
 from .image_sync import (IMAGE_SRC_URL, IMAGE_DIR, ITEM_NAME_FILTERS)
-from .helpers import check_call, TimeoutExpired
+from .helpers import check_call, TimeoutExpired, ip_a_to_dict
 from unittest import TestCase, SkipTest
 
 try:
@@ -316,6 +317,9 @@ class TempDir(object):
         subprocess.check_call(['tar', '-C', self.collect, '-xf',
                                self.output_disk],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
+        # make sure collect output dir is usable by non-root
+        subprocess.check_call(['chmod', '-R', 'u+rwX', self.collect],
+                              stdout=DEVNULL, stderr=subprocess.STDOUT)
 
 
 class VMBaseClass(TestCase):
@@ -517,6 +521,30 @@ class VMBaseClass(TestCase):
         if cls.multipath:
             disks = disks * cls.multipath_num_paths
 
+        # set reporting logger
+        cls.reporting_log = os.path.join(cls.td.logs, 'webhooks-events.json')
+        reporting_logger = CaptureReporting(cls.reporting_log)
+
+        # write reporting config
+        reporting_config = os.path.join(cls.td.install, 'reporting.cfg')
+        localhost_url = ('http://' + get_lan_ip() +
+                         ':{:d}/'.format(reporting_logger.port))
+        with open(reporting_config, 'w') as fp:
+            fp.write(json.dumps({
+                'install': {
+                    'log_file': '/tmp/install.log',
+                    'post_files': ['/tmp/install.log'],
+                },
+                'reporting': {
+                    'maas': {
+                        'level': 'DEBUG',
+                        'type': 'webhook',
+                        'endpoint': localhost_url,
+                    },
+                },
+            }))
+        configs.append(reporting_config)
+
         cmd.extend(uefi_flags + netdevs + disks +
                    [ftypes['vmtest.root-image'], "--kernel=%s" %
                        ftypes['boot-kernel'], "--initrd=%s" %
@@ -529,9 +557,10 @@ class VMBaseClass(TestCase):
         logger.info('Running curtin installer: {}'.format(cls.install_log))
         try:
             with open(lout_path, "wb") as fpout:
-                cls.boot_system(cmd, timeout=cls.install_timeout,
-                                console_log=cls.install_log, proc_out=fpout,
-                                purpose="install")
+                with reporting_logger:
+                    cls.boot_system(cmd, timeout=cls.install_timeout,
+                                    console_log=cls.install_log,
+                                    proc_out=fpout, purpose="install")
         except TimeoutExpired:
             logger.error('Curtin installer failed with timeout')
             cls.tearDownClass()
@@ -825,6 +854,25 @@ class VMBaseClass(TestCase):
                     self.assertIn(link, contents)
                 self.assertIn(diskname, contents)
 
+    def test_reporting_data(self):
+        with open(self.reporting_log, 'r') as fp:
+            data = json.load(fp)
+        self.assertTrue(len(data) > 0)
+        first_event = data[0]
+        self.assertEqual(first_event['event_type'], 'start')
+        next_event = data[1]
+        # make sure we don't have that timestamp bug
+        self.assertNotEqual(first_event['timestamp'], next_event['timestamp'])
+        final_event = data[-1]
+        self.assertEqual(final_event['event_type'], 'finish')
+        self.assertEqual(final_event['name'], 'cmd-install')
+        # check for install log
+        [events_with_files] = [ev for ev in data if 'files' in ev]
+        self.assertIn('files',  events_with_files)
+        [files] = events_with_files.get('files', [])
+        self.assertIn('path', files)
+        self.assertEqual('/tmp/install.log', files.get('path', ''))
+
     def test_interfacesd_eth0_removed(self):
         """ Check that curtin has removed /etc/network/interfaces.d/eth0.cfg
             by examining the output of a find /etc/network > find_interfaces.d
@@ -938,6 +986,9 @@ class PsuedoVMBaseClass(VMBaseClass):
     def test_interfacesd_eth0_removed(self):
         pass
 
+    def test_reporting_data(self):
+        pass
+
     def _maybe_raise(self, exc):
         if self.allow_test_fails:
             raise exc
@@ -1044,6 +1095,9 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
     collect_post = textwrap.dedent(
         'tar -C "%s" -cf "%s" .' % (output_dir, output_device))
 
+    # copy /root for curtin config and install.log
+    copy_rootdir = textwrap.dedent("cp -a /root " + output_dir)
+
     # failsafe poweroff runs on precise and centos only, where power_state does
     # not exist.
     failsafe_poweroff = textwrap.dedent("""#!/bin/sh -x
@@ -1054,8 +1108,8 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
         exit 0;
         """)
 
-    scripts = ([collect_prep] + collect_scripts + [collect_post] +
-               [failsafe_poweroff])
+    scripts = ([collect_prep] + [copy_rootdir] + collect_scripts +
+               [collect_post] + [failsafe_poweroff])
 
     for part in scripts:
         if not part.startswith("#!"):
@@ -1127,6 +1181,20 @@ def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):
         logger.info("%s[%s]: boot took %.02f seconds. returned %s",
                     name, purpose, end - start, ret)
     return ret
+
+
+def get_lan_ip():
+    (out, _) = util.subp(['ip', 'a'], capture=True)
+    info = ip_a_to_dict(out)
+    (routes, _) = util.subp(['route', '-n'], capture=True)
+    gwdevs = [route.split()[-1] for route in routes.splitlines()
+              if route.startswith('0.0.0.0') and 'UG' in route]
+    if len(gwdevs) > 0:
+        dev = gwdevs.pop()
+        addr = info[dev].get('inet4')[0].get('address')
+    else:
+        raise OSError('could not get local ip address')
+    return addr
 
 
 apply_keep_settings()

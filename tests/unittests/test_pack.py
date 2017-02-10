@@ -68,6 +68,7 @@ class TestPack(TestCase):
             mcfg['install'] = {'log_file': log_file}
             mcfg['sources'] = {'testsrc': src_url}
             util.write_file(cfg_file, json.dumps(mcfg))
+            print(json.dumps(mcfg))
             try:
                 out, err = self.run_main(['install', '--config=' + cfg_file])
                 rc = 0

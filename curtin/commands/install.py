@@ -76,6 +76,20 @@ def clear_install_log(logfile):
         pass
 
 
+def copy_install_log(logfile, target, log_target_path):
+    """Copy curtin install log file to target system"""
+    if not logfile:
+        LOG.warn('Cannot copy curtin install log to target, no log exists')
+        return
+
+    LOG.debug('Copying curtin install log to target')
+    target = os.path.sep.join([target, log_target_path])
+    if os.path.exists(target):
+        shutil.copy(logfile, os.path.normpath(target))
+    else:
+        LOG.debug('install log file not at path: %s', target)
+
+
 def writeline_and_stdout(logfile, message):
     writeline(logfile, message)
     out = sys.stdout
@@ -432,6 +446,10 @@ def cmd_install(args):
         legacy_reporter.report_failure(exp_msg)
         raise e
     finally:
+        log_target_path = instcfg.get('save_install_log',
+                                      '/root/curtin-install.log')
+        if log_target_path:
+            copy_install_log(logfile, workingd.target, log_target_path)
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))
         mounted = block.get_mountpoints()
