@@ -45,6 +45,12 @@ INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
 
 _TOPDIR = None
 
+IPV4_PORTAL_REGEX = re.compile(r'(?P<ip>(\d{,3}.){3}\d{,3})(:(?P<port>\d+))?')
+IPV6_PORTAL_REGEX = re.compile(r'''
+                               (?P<ip>([a-f0-9]{,4}:){5}[a-f0-9]{,4})
+                               (:(?P<port>\d+))?
+                               ''', re.VERBOSE)
+
 
 def remove_empty_dir(dirpath):
     if os.path.exists(dirpath):
@@ -404,6 +410,84 @@ class VMBaseClass(TestCase):
         raise ValueError('Unable to determine IP for bridge %s' % bridge)
 
     @classmethod
+    def build_iscs_disks(cls):
+        disks = []
+        if len(cls.iscsi_disks) == 0:
+            return disks
+
+        portal_v4 = os.environ.get("CURTIN_VMTEST_ISCSI_PORTAL_V4",
+                                   False)
+        portal_v6 = os.environ.get("CURTIN_VMTEST_ISCSI_PORTAL_V6",
+                                   False)
+        if not portal_v4 and not portal_v6:
+            raise SkipTest("No ISCSI portal specified in the "
+                           "environment (CURTIN_VMTEST_ISCSI_PORTAL_V4 "
+                           "or CURTIN_VMTEST_ISCSI_PORTAL_V6). "
+                           "Skipping iSCSI tests.")
+        if portal_v4 and portal_v6:
+            raise SkipTest("Both IPv4 and IPv6 ISCSI portals specified "
+                           "in the environment "
+                           "(CURTIN_VMTEST_ISCSI_PORTAL_V4 and "
+                           "CURTIN_VMTEST_ISCSI_PORTAL_V6), which is "
+                           "unsupported. Skipping iSCSI tests.")
+
+        # note that TGT_IPC_SOCKET also needs to be set for
+        # successful communication
+
+        if portal_v4:
+            m = re.match(IPV4_PORTAL_REGEX, portal_v4)
+            if not m:
+                raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V4 in "
+                                 "environment is not in IP:PORT format.")
+        else:
+            m = re.match(IPV6_PORTAL_REGEX, portal_v6)
+            if not m:
+                raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V6 in "
+                                 "environment is not in IP:PORT format.")
+        cls.tgtd_ip = m.group('ip')
+        try:
+            cls.tgtd_port = m.group('port')
+        except IndexError:
+            cls.tgtd_port = '3260'
+
+        # copy testcase YAML to a temporary file in order to replace
+        # placeholders
+        temp_yaml = tempfile.NamedTemporaryFile(prefix=cls.td.tmpdir + '/',
+                                                mode='w+t', delete=False)
+        logger.debug("iSCSI YAML is at %s" % temp_yaml.name)
+        shutil.copyfile(cls.conf_file, temp_yaml.name)
+        cls.conf_file = temp_yaml.name
+
+        # we implicitly assume testcase YAML is in the same order as
+        # iscsi_disks in the testcase
+        # path:size:block_size:serial=,port=,cport=
+        cls._iscsi_disks = list()
+        for (disk_no, disk_sz) in enumerate(cls.iscsi_disks):
+            uuid, _ = util.subp(['uuidgen'], capture=True,
+                                decode='replace')
+            uuid = uuid.rstrip()
+            target = 'curtin_%s' % uuid
+            cls._iscsi_disks.append(target)
+            dpath = os.path.join(cls.td.disks, '%s.img' % (target))
+            iscsi_disk = '{}:{}:iscsi:{}:{}'.format(
+                dpath, disk_sz, cls.disk_block_size, target)
+            disks.extend(['--disk', iscsi_disk])
+
+            # replace next __RFC4173__ placeholder in YAML
+            with tempfile.NamedTemporaryFile(mode='w+t') as temp_yaml:
+                shutil.copyfile(cls.conf_file, temp_yaml.name)
+                with open(cls.conf_file, 'w+t') as conf:
+                    for line in temp_yaml:
+                        if '__RFC4173__' in line:
+                            # assumes LUN 1
+                            line = line.replace('__RFC4173__',
+                                                '%s::%s:1:%s' %
+                                                (cls.tgtd_ip,
+                                                 cls.tgtd_port, target))
+                        conf.write(line)
+        return disks
+
+    @classmethod
     def setUpClass(cls):
         # check if we should skip due to host arch
         if cls.arch in cls.arch_skip:
@@ -516,82 +600,7 @@ class VMBaseClass(TestCase):
             disks.extend(['--disk', nvme_disk])
 
         # build iscsi disk args if needed
-        if len(cls.iscsi_disks) > 0:
-            portal_v4 = os.environ.get("CURTIN_VMTEST_ISCSI_PORTAL_V4",
-                                       False)
-            portal_v6 = os.environ.get("CURTIN_VMTEST_ISCSI_PORTAL_V6",
-                                       False)
-            if not portal_v4 and not portal_v6:
-                raise SkipTest("No ISCSI portal specified in the "
-                               "environment (CURTIN_VMTEST_ISCSI_PORTAL_V4 "
-                               "or CURTIN_VMTEST_ISCSI_PORTAL_V6). "
-                               "Skipping iSCSI tests.")
-            if portal_v4 and portal_v6:
-                raise SkipTest("Both IPv4 and IPv6 ISCSI portals specified "
-                               "in the environment "
-                               "(CURTIN_VMTEST_ISCSI_PORTAL_V4 and "
-                               "CURTIN_VMTEST_ISCSI_PORTAL_V6), which is "
-                               "unsupported. Skipping iSCSI tests.")
-
-            # note that TGT_IPC_SOCKET also needs to be set for
-            # successful communication
-
-            if portal_v4:
-                m = re.match(r'(?P<ip>(\d{,3}.){3}\d{,3})(:(?P<port>\d+))?',
-                             portal_v4)
-                if not m:
-                    raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V4 in "
-                                     "environment is not in IP:PORT format.")
-            else:
-                r = re.compile(r'''
-                    (?P<ip>([a-f0-9]{,4}:){5}[a-f0-9]{,4})
-                    (:(?P<port>\d+))?
-                    ''', re.VERBOSE)
-                m = re.match(r, portal_v6)
-                if not m:
-                    raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V6 in "
-                                     "environment is not in IP:PORT format.")
-            cls.tgtd_ip = m.group('ip')
-            try:
-                cls.tgtd_port = m.group('port')
-            except IndexError:
-                cls.tgtd_port = '3260'
-
-            # copy testcase YAML to a temporary file in order to replace
-            # placeholders
-            temp_yaml = tempfile.NamedTemporaryFile(prefix=cls.td.tmpdir + '/',
-                                                    mode='w+t', delete=False)
-            logger.debug("iSCSI YAML is at %s" % temp_yaml.name)
-            shutil.copyfile(cls.conf_file, temp_yaml.name)
-            cls.conf_file = temp_yaml.name
-
-            # we implicitly assume testcase YAML is in the same order as
-            # iscsi_disks in the testcase
-            # path:size:block_size:serial=,port=,cport=
-            cls._iscsi_disks = list()
-            for (disk_no, disk_sz) in enumerate(cls.iscsi_disks):
-                uuid, _ = util.subp(['uuidgen'], capture=True,
-                                    decode='replace')
-                uuid = uuid.rstrip()
-                target = 'curtin_%s' % uuid
-                cls._iscsi_disks.append(target)
-                dpath = os.path.join(cls.td.disks, '%s.img' % (target))
-                iscsi_disk = '{}:{}:iscsi:{}:{}'.format(
-                    dpath, disk_sz, cls.disk_block_size, target)
-                disks.extend(['--disk', iscsi_disk])
-
-                # replace next __RFC4173__ placeholder in YAML
-                with tempfile.NamedTemporaryFile(mode='w+t') as temp_yaml:
-                    shutil.copyfile(cls.conf_file, temp_yaml.name)
-                    with open(cls.conf_file, 'w+t') as conf:
-                        for line in temp_yaml:
-                            if '__RFC4173__' in line:
-                                # assumes LUN 1
-                                line = line.replace('__RFC4173__',
-                                                    '%s::%s:1:%s' %
-                                                    (cls.tgtd_ip,
-                                                     cls.tgtd_port, target))
-                            conf.write(line)
+        disks.extend(cls.build_iscsi_disks())
 
         # proxy config
         configs = [cls.conf_file]
@@ -790,7 +799,7 @@ class VMBaseClass(TestCase):
                 logger.debug('Removing iSCSI target %s', target)
                 tgtadm_out, _ = util.subp(
                     ['tgtadm', '--lld=iscsi', '--mode=target', '--op=show'],
-                    capture=True, decode='replace')
+                    capture=True)
 
                 # match target name to TID
                 tid = None
@@ -1129,8 +1138,7 @@ def check_install_log(install_log):
 def get_apt_proxy():
     # get setting for proxy. should have same result as in tools/launch
     apt_proxy = os.environ.get('apt_proxy')
-    # running with apt_proxy= should work
-    if apt_proxy is not None:
+    if apt_proxy:
         return apt_proxy
 
     get_apt_config = textwrap.dedent("""

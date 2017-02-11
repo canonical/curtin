@@ -53,7 +53,7 @@ if [ -n "$parallel" -a "$parallel" != "0" -a "$parallel" != "1" ]; then
     pargs=( --process-timeout=86400 "--processes=$parallel" )
 fi
 
-if command -v "tgtd" >/dev/null 2>&1; then
+if [ -z "$TGT_IPC_SOCKET" ] && command -v "tgtd" >/dev/null 2>&1; then
     tgtdir="$topdir/tgt.d"
     ./tools/find-tgt "$tgtdir" ||
         fail "could not start a tgt service"

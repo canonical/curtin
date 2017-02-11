@@ -30,13 +30,25 @@ from curtin import (util, udev)
 from curtin.log import LOG
 
 _ISCSI_DISKS = {}
+RFC4173_REGEX = re.compile(
+                r'''
+                iscsi:
+                (?:(?P<user>\S*?):(?P<password>\S*?)
+                    (?::(?P<initiatoruser>\S*?):(?P<initiatorpassword>\S*?))?
+                @)?                 # optional authentication
+                (?P<ip>\S*):        # greedy so ipv6 IPs are matched
+                (?P<proto>\S*?):
+                (?P<port>\S*?):
+                (?P<lun>\S*?):
+                (?P<targetname>\S*) # greedy so entire suffix is matched
+                ''', re.VERBOSE)
 
 
 def iscsiadm_sessions():
     cmd = ["iscsiadm", "--mode=session", "--op=show"]
     # rc 21 indicates no sessions currently exist, which is not
     # inherently incorrect (if not logged in yet)
-    out, _ = util.subp(cmd, rcs=[0, 21], capture=True)
+    out, _ = util.subp(cmd, rcs=[0, 21])
     return out
 
 
@@ -52,25 +64,22 @@ def iscsiadm_discovery(portal, port):
 
     try:
         util.subp(cmd, capture=True)
-    except util.ProcessExecutionError:
-        LOG.warning("iscsiadm_discovery had unexpected return code")
+    except util.ProcessExecutionError as e:
+        LOG.warning("iscsiadm_discovery to %s:%s failed with exit code %d",
+                    portal, port, e.exit_code)
         raise
 
 
 def iscsiadm_login(target, portal, port):
-    LOG.debug('iscsiadm_login: '
-              'target=%s portal=%s', target, portal)
+    LOG.debug('iscsiadm_login: target=%s portal=%s', target, portal)
 
     cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
            '--portal=%s:%s' % (portal, port), '--login']
     util.subp(cmd)
 
-    udev.udevadm_settle()
-
 
 def iscsiadm_set_automatic(target, portal, port):
-    LOG.debug('iscsiadm_set_automatic: '
-              'target=%s portal=%s', target, portal)
+    LOG.debug('iscsiadm_set_automatic: target=%s portal=%s', target, portal)
 
     cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
            '--portal=%s:%s' % (portal, port), '--op=update',
@@ -80,8 +89,7 @@ def iscsiadm_set_automatic(target, portal, port):
 
 
 def iscsiadm_logout(target, portal=None, port=None):
-    LOG.debug('iscsiadm_logout: '
-              'target=%s portal=%s', target, portal)
+    LOG.debug('iscsiadm_logout: target=%s portal=%s', target, portal)
 
     cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
            '--logout']
@@ -92,36 +100,51 @@ def iscsiadm_logout(target, portal=None, port=None):
     udev.udevadm_settle()
 
 
+def target_nodes_directory(state, iscsi_disk):
+    # we just want to copy in the nodes portion
+    target_nodes_location = os.path.dirname(
+        os.path.join(os.path.split(state['fstab'])[0],
+                     iscsi_disk.etciscsi_nodefile[len('/etc/iscsi/'):]))
+    os.makedirs(target_nodes_location)
+    return target_nodes_location
+
+
+def save_iscsi_config(iscsi_disk):
+    state = util.load_command_environment()
+    # A nodes directory will be created in the same directory as the
+    # fstab in the configuration. This will then be copied onto the
+    # system later
+    if state['fstab']:
+        target_nodes_location = target_nodes_directory(state, iscsi_disk)
+        shutil.copy(iscsi_disk.etciscsi_nodefile, target_nodes_location)
+    else:
+        LOG.info("fstab configuration is not present in environment, "
+                 "so cannot locate an appropriate directory to write "
+                 "iSCSI node file in so not writing iSCSI node file")
+
+
 def ensure_disk_connected(rfc4173, write_config=True):
     global _ISCSI_DISKS
-    if rfc4173 not in _ISCSI_DISKS:
-        i = IscsiDisk(rfc4173)
-        i.connect()
+    iscsi_disk = _ISCSI_DISKS.get(rfc4173)
+    if not iscsi_disk:
+        iscsi_disk = IscsiDisk(rfc4173)
+        try:
+            iscsi_disk.connect()
+        except util.ProcessExecutionError:
+            LOG.error('Unable to connect to iSCSI disk (%s)' % rfc4173)
+            # what should we do in this case?
+            raise
         if write_config:
-            state = util.load_command_environment()
-            # A nodes directory will be created in the same directory as the
-            # fstab in the configuration. This will then be copied onto the
-            # system later
-            if state['fstab']:
-                # we just want to copy in the nodes portion
-                target_nodes_location = os.path.dirname(
-                    os.path.join(os.path.split(state['fstab'])[0],
-                                 i.etciscsi_nodefile[len('/etc/iscsi/'):]))
-                os.makedirs(target_nodes_location)
-                shutil.copy(i.etciscsi_nodefile, target_nodes_location)
-            else:
-                LOG.info("fstab configuration is not present in environment, \
-                          so cannot locate an appropriate directory to write \
-                          iSCSI node file in so not writing iSCSI node file")
-        _ISCSI_DISKS.update({rfc4173: i})
+            save_iscsi_config(iscsi_disk)
+        _ISCSI_DISKS.update({rfc4173: iscsi_disk})
 
-    i = _ISCSI_DISKS[rfc4173]
-
-    if not os.path.exists(i.devdisk_path):
+    # this is just a sanity check that the disk is actually present and
+    # the above did what we expected
+    if not os.path.exists(iscsi_disk.devdisk_path):
         LOG.warn('Unable to find iSCSI disk for target (%s) by path (%s)',
-                 i.target, i.devdisk_path)
+                 iscsi_disk.target, iscsi_disk.devdisk_path)
 
-    return i
+    return iscsi_disk
 
 
 def connected_disks():
@@ -131,47 +154,44 @@ def connected_disks():
 
 def disconnect_target_disks(target_root_path):
     target_nodes_path = os.path.sep.join([target_root_path, 'etc/iscsi/nodes'])
+    failed = False
     if os.path.exists(target_nodes_path):
         for target in os.listdir(target_nodes_path):
-            iscsiadm_logout(target)
+            try:
+                iscsiadm_logout(target)
+            except util.ProcessExecutionError:
+                failed = True
+                LOG.warn("Unable to logout of iSCSI target %s", target)
+
+    if failed:
+        raise util.ProcessExecutionError(
+            "Unable to logout of all iSCSI targets")
 
 
+# Verifies that a /dev/disk/by-path symlink matching the udev pattern
+# for iSCSI disks is pointing at @kname
 def kname_is_iscsi(kname):
     LOG.debug('kname_is_iscsi: '
               'looking up kname %s', kname)
     by_path = "/dev/disk/by-path"
     for path in os.listdir(by_path):
-        path_link = os.path.sep.join([by_path, path])
-        if os.path.islink(path_link):
-            path_target = os.path.realpath(
-                os.path.sep.join([by_path, os.readlink(path_link)]))
-            if kname in path_target and 'iscsi' in path:
-                LOG.debug('kname_is_iscsi: '
-                          'found by-path link %s for kname %s', path, kname)
-                return True
+        path_target = os.path.realpath(os.path.sep.join([by_path, path]))
+        if kname in path_target and 'iscsi' in path:
+            LOG.debug('kname_is_iscsi: '
+                      'found by-path link %s for kname %s', path, kname)
+            return True
     LOG.debug('kname_is_iscsi: no iscsi disk found for kname %s' % kname)
     return False
 
 
-class IscsiDisk:
+class IscsiDisk(object):
     # Per Debian bug 804162, the iscsi specifier looks like
     # TARGETSPEC=ip:proto:port:lun:targetname
     # root=iscsi:$TARGETSPEC
     # root=iscsi:user:password@$TARGETSPEC
     # root=iscsi:user:password:initiatoruser:initiatorpassword@$TARGETSPEC
     def __init__(self, rfc4173):
-        r = re.compile(r'''
-               iscsi:
-               (?:(?P<user>\S*?):(?P<password>\S*?)
-                   (?::(?P<initiatoruser>\S*?):(?P<initiatorpassword>\S*?))?
-               @)?                 # optional authentication
-               (?P<ip>\S*):        # greedy so ipv6 IPs are matched
-               (?P<proto>\S*?):
-               (?P<port>\S*?):
-               (?P<lun>\S*?):
-               (?P<targetname>\S*) # greedy so entire suffix is matched
-               ''', re.VERBOSE)
-        m = r.match(rfc4173)
+        m = RFC4173_REGEX.match(rfc4173)
         if m is None:
             raise ValueError('iSCSI disks must be specified as '
                              'iscsi:[user:password[:initiatoruser:'
@@ -186,54 +206,15 @@ class IscsiDisk:
             raise ValueError('Both IP and targetname must be specified for '
                              'iSCSI disks')
 
-        self._user = m.group('user')
-        self._password = m.group('password')
-        self._iuser = m.group('initiatoruser')
-        self._ipassword = m.group('initiatorpassword')
-        self._portal = m.group('ip')
-        self._proto = '6'
-        self._port = m.group('port') if m.group('port') else 3260
-        self._lun = int(m.group('lun')) if m.group('lun') else 0
-        self._target = m.group('targetname')
-
-    # could have other class methods to obtain an object from a dict,
-    # e.g.
-
-    @property
-    def user(self):
-        return self._user
-
-    @property
-    def password(self):
-        return self._password
-
-    @property
-    def initiatoruser(self):
-        return self._iuser
-
-    @property
-    def initiatorpassword(self):
-        return self._ipassword
-
-    @property
-    def portal(self):
-        return self._portal
-
-    @property
-    def proto(self):
-        return self._proto
-
-    @property
-    def port(self):
-        return self._port
-
-    @property
-    def lun(self):
-        return self._lun
-
-    @property
-    def target(self):
-        return self._target
+        self.user = m.group('user')
+        self.password = m.group('password')
+        self.iuser = m.group('initiatoruser')
+        self.ipassword = m.group('initiatorpassword')
+        self.portal = m.group('ip')
+        self.proto = '6'
+        self.port = m.group('port') if m.group('port') else 3260
+        self.lun = int(m.group('lun')) if m.group('lun') else 0
+        self.target = m.group('targetname')
 
     @property
     def etciscsi_nodefile(self):
@@ -249,16 +230,18 @@ class IscsiDisk:
         if self.target in iscsiadm_sessions():
             return
 
-        iscsiadm_discovery(self._portal, self._port)
+        iscsiadm_discovery(self.portal, self.port)
 
-        iscsiadm_login(self._target, self._portal, self._port)
+        iscsiadm_login(self.target, self.portal, self.port)
 
-        iscsiadm_set_automatic(self._target, self._portal, self._port)
+        udev.udevadm_settle(self.devdisk_path)
+
+        iscsiadm_set_automatic(self.target, self.portal, self.port)
 
     def disconnect(self):
         if self.target not in iscsiadm_sessions():
             return
 
-        iscsiadm_logout(self._target, self._portal, self._port)
+        iscsiadm_logout(self.target, self.portal, self.port)
 
 # vi: ts=4 expandtab syntax=python

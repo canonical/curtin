@@ -267,6 +267,7 @@ get_tgt_tid() {
             ret=$?
             debug 1 "failed [$ret] in attempt to register tid=$tid " \
                 "targetname=$disk"
+            sleep 0.1
             continue
         }
 
@@ -562,6 +563,8 @@ main() {
         printf '#cloud-config\napt_proxy: "%s"\n' "$tmp" > "${TEMP_D}/cc-proxy"
         ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-proxy"
     fi
+
+    ccfiles[${#ccfiles[@]}]=/home/nacc/work/ubuntu-standalone-builder/build-config.yaml
 
     if command -v ssh-keys-list >/dev/null 2>&1; then
         ssh-keys-list cloud-config > "${TEMP_D}/cc-ssh-keys" &&
