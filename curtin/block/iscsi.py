@@ -30,18 +30,17 @@ from curtin import (util, udev)
 from curtin.log import LOG
 
 _ISCSI_DISKS = {}
-RFC4173_REGEX = re.compile(
-                r'''
-                iscsi:
-                (?:(?P<user>\S*?):(?P<password>\S*?)
-                    (?::(?P<initiatoruser>\S*?):(?P<initiatorpassword>\S*?))?
-                @)?                 # optional authentication
-                (?P<ip>\S*):        # greedy so ipv6 IPs are matched
-                (?P<proto>\S*?):
-                (?P<port>\S*?):
-                (?P<lun>\S*?):
-                (?P<targetname>\S*) # greedy so entire suffix is matched
-                ''', re.VERBOSE)
+RFC4173_REGEX = re.compile(r'''
+    iscsi:
+    (?:(?P<user>\S*?):(?P<password>\S*?)
+        (?::(?P<initiatoruser>\S*?):(?P<initiatorpassword>\S*?))?
+    @)?                 # optional authentication
+    (?P<ip>\S*):        # greedy so ipv6 IPs are matched
+    (?P<proto>\S*?):
+    (?P<port>\S*?):
+    (?P<lun>\S*?):
+    (?P<targetname>\S*) # greedy so entire suffix is matched
+    ''', re.VERBOSE)
 
 
 def iscsiadm_sessions():
