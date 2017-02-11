@@ -47,7 +47,7 @@ def iscsiadm_sessions():
     cmd = ["iscsiadm", "--mode=session", "--op=show"]
     # rc 21 indicates no sessions currently exist, which is not
     # inherently incorrect (if not logged in yet)
-    out, _ = util.subp(cmd, rcs=[0, 21])
+    out, _ = util.subp(cmd, rcs=[0, 21], capture=True)
     return out
 
 
@@ -62,7 +62,7 @@ def iscsiadm_discovery(portal, port):
            "--portal=%s:%s" % (portal, port)]
 
     try:
-        util.subp(cmd, capture=True)
+        util.subp(cmd)
     except util.ProcessExecutionError as e:
         LOG.warning("iscsiadm_discovery to %s:%s failed with exit code %d",
                     portal, port, e.exit_code)

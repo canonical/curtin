@@ -278,6 +278,14 @@ get_tgt_tid() {
             error "Does a prior config need to be cleaned up?"
             return 1
         }
+
+        tgtadm --lld=iscsi --mode=target --op=bind "--tid=$tid" \
+            -I ALL || {
+            error "Unable to set TGT target ACL to ALL."
+            error "Does a prior config need to be cleaned up?"
+            return 1
+        }
+
         _RET="$tid"
         return 0
     done
