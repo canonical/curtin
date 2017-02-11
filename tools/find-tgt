@@ -20,7 +20,7 @@ Usage: ${0##*/} out_dir [ipv4addr]
      pid: pidfile for the started tgt
      tgt.log: log file
      socket: the socket used for TGT_IPC_SOCKET
-     info: TGT_IPC_SOCKET and other info.
+     info: bash snippet to export TGT_IPC_SOCKET and other info.
 EOF
 }
 
@@ -101,9 +101,9 @@ while [ $tries -le 100 ]; do
         else
             error "grabbed $port in $pid on try $tries"
             {
-            echo "TGT_PID=$pid"
-            echo "TGT_IPC_SOCKET=$socket"
-            echo "ISCSI_PORTAL_V4=$portal"
+            echo "export TGT_PID=$pid"
+            echo "export TGT_IPC_SOCKET=$socket"
+            echo "export CURTIN_VMTEST_ISCSI_PORTAL_V4=$portal"
             } > "$info"
             echo "$pid" > "$pidfile"
             TGT_PID=""

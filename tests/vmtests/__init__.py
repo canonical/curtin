@@ -424,12 +424,12 @@ class VMBaseClass(TestCase):
         portal_v6 = os.environ.get("CURTIN_VMTEST_ISCSI_PORTAL_V6",
                                    False)
         if not portal_v4 and not portal_v6:
-            raise SkipTest("No ISCSI portal specified in the "
+            raise SkipTest("No iSCSI portal specified in the "
                            "environment (CURTIN_VMTEST_ISCSI_PORTAL_V4 "
                            "or CURTIN_VMTEST_ISCSI_PORTAL_V6). "
                            "Skipping iSCSI tests.")
         if portal_v4 and portal_v6:
-            raise SkipTest("Both IPv4 and IPv6 ISCSI portals specified "
+            raise SkipTest("Both IPv4 and IPv6 iSCSI portals specified "
                            "in the environment "
                            "(CURTIN_VMTEST_ISCSI_PORTAL_V4 and "
                            "CURTIN_VMTEST_ISCSI_PORTAL_V6), which is "
