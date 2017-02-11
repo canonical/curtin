@@ -451,6 +451,7 @@ main() {
             get_tgt_tid "$iscsi_disk" || return
             tid="$_RET"
             debug 1 "registered $disk to tgt tid=$tid"
+            continue
         fi
 
         # prepend comma if passing devopts

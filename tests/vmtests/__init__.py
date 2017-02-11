@@ -410,7 +410,7 @@ class VMBaseClass(TestCase):
         raise ValueError('Unable to determine IP for bridge %s' % bridge)
 
     @classmethod
-    def build_iscs_disks(cls):
+    def build_iscsi_disks(cls):
         disks = []
         if len(cls.iscsi_disks) == 0:
             return disks
@@ -1138,7 +1138,7 @@ def check_install_log(install_log):
 def get_apt_proxy():
     # get setting for proxy. should have same result as in tools/launch
     apt_proxy = os.environ.get('apt_proxy')
-    if apt_proxy:
+    if apt_proxy is not None:
         return apt_proxy
 
     get_apt_config = textwrap.dedent("""
