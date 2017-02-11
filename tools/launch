@@ -565,8 +565,6 @@ main() {
         ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-proxy"
     fi
 
-    ccfiles[${#ccfiles[@]}]=/home/nacc/work/ubuntu-standalone-builder/build-config.yaml
-
     if command -v ssh-keys-list >/dev/null 2>&1; then
         ssh-keys-list cloud-config > "${TEMP_D}/cc-ssh-keys" &&
             ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-ssh-keys" ||
