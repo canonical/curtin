@@ -448,7 +448,7 @@ main() {
                 error "empty disk for iscsi disk '$disk'"
                 return 1
             }
-            get_tgt_tid "$iscsi_disk" || return
+            get_tgt_tid "$iscsi_disk" "$src" || return
             tid="$_RET"
             debug 1 "registered $disk to tgt tid=$tid"
             continue
