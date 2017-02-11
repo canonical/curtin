@@ -73,7 +73,7 @@ class NetworkState:
 
         required_keys = NETWORK_STATE_REQUIRED_KEYS[state['version']]
         if not self.valid_command(state, required_keys):
-            msg = 'Invalid state, missing keys: {}'.format(required_keys)
+            msg = 'Invalid state, missing keys: %s' % (required_keys)
             LOG.error(msg)
             raise Exception(msg)
 
@@ -113,7 +113,7 @@ class NetworkState:
             'name',
         ]
         if not self.valid_command(command, required_keys):
-            LOG.warn('Skipping Invalid command: {}'.format(command))
+            LOG.warn('Skipping Invalid command: %s', command)
             LOG.debug(self.dump_network_state())
             return
 
@@ -240,10 +240,22 @@ class NetworkState:
             iface br0 inet static
                     address 10.10.10.1
                     netmask 255.255.255.0
-                    bridge_ports eth0 eth1
-                    bridge_stp off
-                    bridge_fd 0
-                    bridge_maxwait 0
+                    bridge_ports eth1 eth2
+                    bridge_ageing: 250
+                    bridge_bridgeprio: 22
+                    bridge_fd: 1
+                    bridge_gcint: 2
+                    bridge_hello: 1
+                    bridge_hw: 00:11:22:33:44:55
+                    bridge_maxage: 10
+                    bridge_maxwait: 0
+                    bridge_pathcost: eth1 50
+                    bridge_pathcost: eth2 75
+                    bridge_portprio: eth1 64
+                    bridge_portprio: eth2 192
+                    bridge_stp: 'off'
+                    bridge_waitport: 1 eth1
+                    bridge_waitport: 2 eth2
 
         bridge_params = [
             "bridge_ports",
@@ -267,8 +279,8 @@ class NetworkState:
             'params',
         ]
         if not self.valid_command(command, required_keys):
-            print('Skipping Invalid command: {}'.format(command))
-            print(self.dump_network_state())
+            LOG.warn('Skipping Invalid command: %s', command)
+            LOG.warn(self.dump_network_state())
             return
 
         # find one of the bridge port ifaces to get mac_addr
@@ -288,7 +300,7 @@ class NetworkState:
         self.handle_physical(command)
         iface = interfaces.get(command.get('name'), {})
         iface['bridge_ports'] = command['bridge_interfaces']
-        for param, val in command.get('params').items():
+        for param, val in command.get('params', {}).items():
             iface.update({param: val})
 
         interfaces.update({iface['name']: iface})
@@ -298,8 +310,8 @@ class NetworkState:
             'address',
         ]
         if not self.valid_command(command, required_keys):
-            print('Skipping Invalid command: {}'.format(command))
-            print(self.dump_network_state())
+            LOG.warn('Skipping Invalid command: %s', command)
+            LOG.warn(self.dump_network_state())
             return
 
         dns = self.network_state.get('dns')
@@ -321,8 +333,8 @@ class NetworkState:
             'destination',
         ]
         if not self.valid_command(command, required_keys):
-            print('Skipping Invalid command: {}'.format(command))
-            print(self.dump_network_state())
+            LOG.warn('Skipping Invalid command: %s', command)
+            LOG.warn(self.dump_network_state())
             return
 
         routes = self.network_state.get('routes')

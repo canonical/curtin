@@ -84,6 +84,10 @@ class FinishReportingEvent(ReportingEvent):
         self.post_files = post_files
         if result not in status:
             raise ValueError("Invalid result: %s" % result)
+        if self.result == status.WARN:
+            self.level = "WARN"
+        elif self.result == status.FAIL:
+            self.level = "ERROR"
 
     def as_string(self):
         return '{0}: {1}: {2}: {3}'.format(
@@ -95,10 +99,6 @@ class FinishReportingEvent(ReportingEvent):
         data['result'] = self.result
         if self.post_files:
             data['files'] = _collect_file_info(self.post_files)
-        if self.result == status.WARN:
-            data['level'] = "WARN"
-        elif self.result == status.FAIL:
-            data['level'] = "ERROR"
         return data
 
 
@@ -122,10 +122,6 @@ def report_finish_event(event_name, event_description,
 
     See :py:func:`.report_event` for parameter details.
     """
-    if result == status.SUCCESS:
-        event_description = "finished: " + event_description
-    else:
-        event_description = "failed: " + event_description
     event = FinishReportingEvent(event_name, event_description, result,
                                  post_files=post_files, level=level)
     return report_event(event)
@@ -141,7 +137,6 @@ def report_start_event(event_name, event_description, level=None):
     :param event_description:
         A human-readable description of the event that has occurred.
     """
-    event_description = "started: " + event_description
     event = ReportingEvent(START_EVENT_TYPE, event_name, event_description,
                            level=level)
     return report_event(event)

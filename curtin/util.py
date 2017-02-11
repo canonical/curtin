@@ -213,8 +213,9 @@ class ProcessExecutionError(IOError):
                     'Command: %(cmd)s\n'
                     'Exit code: %(exit_code)s\n'
                     'Reason: %(reason)s\n'
-                    'Stdout: %(stdout)r\n'
-                    'Stderr: %(stderr)r')
+                    'Stdout: %(stdout)s\n'
+                    'Stderr: %(stderr)s')
+    stdout_indent_level = 8
 
     def __init__(self, stdout=None, stderr=None,
                  exit_code=None, cmd=None,
@@ -235,14 +236,14 @@ class ProcessExecutionError(IOError):
             self.exit_code = exit_code
 
         if not stderr:
-            self.stderr = ''
+            self.stderr = "''"
         else:
-            self.stderr = stderr
+            self.stderr = self._indent_text(stderr)
 
         if not stdout:
-            self.stdout = ''
+            self.stdout = "''"
         else:
-            self.stdout = stdout
+            self.stdout = self._indent_text(stdout)
 
         if reason:
             self.reason = reason
@@ -258,6 +259,11 @@ class ProcessExecutionError(IOError):
             'reason': self.reason,
         }
         IOError.__init__(self, message)
+
+    def _indent_text(self, text):
+        if type(text) == bytes:
+            text = text.decode()
+        return text.replace('\n', '\n' + ' ' * self.stdout_indent_level)
 
 
 class LogTimer(object):
