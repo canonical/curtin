@@ -1138,7 +1138,7 @@ def check_install_log(install_log):
 def get_apt_proxy():
     # get setting for proxy. should have same result as in tools/launch
     apt_proxy = os.environ.get('apt_proxy')
-    if apt_proxy is not None:
+    if apt_proxy:
         return apt_proxy
 
     get_apt_config = textwrap.dedent("""
