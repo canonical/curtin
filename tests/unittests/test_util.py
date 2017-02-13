@@ -152,6 +152,13 @@ class TestSubp(TestCase):
     utf8_valid = b'start \xc3\xa9 end'
     utf8_valid_2 = b'd\xc3\xa9j\xc8\xa7'
 
+    try:
+        decode_type = unicode
+        nodecode_type = str
+    except NameError:
+        decode_type = str
+        nodecode_type = bytes
+
     def printf_cmd(self, *args):
         # bash's printf supports \xaa.  So does /usr/bin/printf
         # but by using bash, we remove dependency on another program.
@@ -164,7 +171,7 @@ class TestSubp(TestCase):
         (out, _err) = util.subp(cmd, capture=True)
         self.assertEqual(out, self.utf8_valid_2.decode('utf-8'))
 
-    def test_subp_target_as_different_fors_of_slash_works(self):
+    def test_subp_target_as_different_forms_of_slash_works(self):
         # passing target=/ in any form should work.
 
         # it is assumed that if chroot was used, then test case would
@@ -184,28 +191,46 @@ class TestSubp(TestCase):
 
         self.assertNotEqual(exc, None)
 
+    def test_rcs_not_in_list_raise(self):
+        exc = None
+        try:
+            util.subp(self.exit_with_value + ["9"], rcs=["8", "0"])
+        except util.ProcessExecutionError as e:
+            self.assertEqual(9, e.exit_code)
+            exc = e
+        self.assertNotEqual(exc, None)
+
+    def test_rcs_other_than_zero_work(self):
+        _out, _err = util.subp(self.exit_with_value + ["9"], rcs=[9])
+
     def test_subp_respects_decode_false(self):
         (out, err) = util.subp(self.stdin2out, capture=True, decode=False,
                                data=self.utf8_valid)
-        self.assertTrue(isinstance(out, bytes))
-        self.assertTrue(isinstance(err, bytes))
+        self.assertTrue(isinstance(out, self.nodecode_type))
+        self.assertTrue(isinstance(err, self.nodecode_type))
         self.assertEqual(out, self.utf8_valid)
 
     def test_subp_decode_ignore(self):
         # this executes a string that writes invalid utf-8 to stdout
-        (out, _err) = util.subp(self.printf_cmd('abc\\xaadef'),
-                                capture=True, decode='ignore')
+        (out, err) = util.subp(self.printf_cmd('abc\\xaadef'),
+                               capture=True, decode='ignore')
+        self.assertTrue(isinstance(out, self.decode_type))
+        self.assertTrue(isinstance(err, self.decode_type))
         self.assertEqual(out, 'abcdef')
 
     def test_subp_decode_strict_valid_utf8(self):
-        (out, _err) = util.subp(self.stdin2out, capture=True,
-                                decode='strict', data=self.utf8_valid)
+        (out, err) = util.subp(self.stdin2out, capture=True,
+                               decode='strict', data=self.utf8_valid)
         self.assertEqual(out, self.utf8_valid.decode('utf-8'))
+        self.assertTrue(isinstance(out, self.decode_type))
+        self.assertTrue(isinstance(err, self.decode_type))
 
     def test_subp_decode_invalid_utf8_replaces(self):
-        (out, _err) = util.subp(self.stdin2out, capture=True,
-                                data=self.utf8_invalid)
+        (out, err) = util.subp(self.stdin2out, capture=True,
+                               data=self.utf8_invalid)
         expected = self.utf8_invalid.decode('utf-8', errors='replace')
+        self.assertTrue(isinstance(out, self.decode_type))
+        self.assertTrue(isinstance(err, self.decode_type))
         self.assertEqual(out, expected)
 
     def test_subp_decode_strict_raises(self):
@@ -227,13 +252,18 @@ class TestSubp(TestCase):
         self.assertEqual(out, None)
 
     def _subp_wrap_popen(self, cmd, kwargs,
-                         returncode=0, stdout=b'', stderr=b''):
+                         stdout=b'', stderr=b'', returncodes=None):
         # mocks the subprocess.Popen as expected from subp
         # checks that subp returned the output of 'communicate' and
         # returns the (args, kwargs) that Popen() was called with.
+        # returncodes is a list to cover, one for each expected call
+
+        if returncodes is None:
+            returncodes = [0]
 
         capture = kwargs.get('capture')
 
+        mreturncodes = mock.PropertyMock(side_effect=iter(returncodes))
         with mock.patch("curtin.util.subprocess.Popen") as m_popen:
             sp = mock.Mock()
             m_popen.return_value = sp
@@ -241,12 +271,11 @@ class TestSubp(TestCase):
                 sp.communicate.return_value = (stdout, stderr)
             else:
                 sp.communicate.return_value = (None, None)
-            sp.returncode = returncode
+            type(sp).returncode = mreturncodes
             ret = util.subp(cmd, **kwargs)
 
-        # popen should only ever be called once
+        # popen may be called once or > 1 for retries, but must be called.
         self.assertTrue(m_popen.called)
-        self.assertEqual(1, m_popen.call_count)
         # communicate() needs to have been called.
         self.assertTrue(sp.communicate.called)
 
@@ -262,32 +291,55 @@ class TestSubp(TestCase):
             # if capture is false, then return is None, None
             self.assertEqual((None, None), ret)
 
-        popen_args, popen_kwargs = m_popen.call_args
-
         # if target is not provided or is /, chroot should not be used
+        calls = m_popen.call_args_list
+        popen_args, popen_kwargs = calls[-1]
         target = util.target_path(kwargs.get('target', None))
         if target == "/":
             self.assertEqual(cmd, popen_args[0])
         else:
             self.assertEqual(['chroot', target] + list(cmd), popen_args[0])
-        return m_popen.call_args
+        return calls
 
     def test_with_target_gets_chroot(self):
         args, kwargs = self._subp_wrap_popen(["my-command"],
-                                             {'target': "/mytarget"})
+                                             {'target': "/mytarget"})[0]
         self.assertIn('chroot', args[0])
 
     def test_with_target_as_slash_does_not_chroot(self):
         args, kwargs = self._subp_wrap_popen(
-            ['whatever'], {'capture': True, 'target': "/"})
+            ['whatever'], {'capture': True, 'target': "/"})[0]
         self.assertNotIn('chroot', args[0])
 
     def test_with_no_target_does_not_chroot(self):
-        args, kwargs = self._subp_wrap_popen(['whatever'], {'capture': True})
+        r = self._subp_wrap_popen(['whatever'], {'capture': True})
+        args, kwargs = r[0]
         # note this path is reasonably tested with all of the above
         # tests that do not mock Popen as if we did try to chroot the
         # unit tests would fail unless they were run as root.
         self.assertNotIn('chroot', args[0])
+
+    def test_retry_none_does_not_retry(self):
+        rcfail = 7
+        try:
+            self._subp_wrap_popen(
+                ['succeeds-second-time'], {'capture': True, 'retries': None},
+                returncodes=[rcfail, 0])
+            raise Exception("did not raise a ProcessExecutionError!")
+        except util.ProcessExecutionError as e:
+            self.assertEqual(e.exit_code, rcfail)
+
+    def test_retry_does_retry(self):
+        # test subp with retries does retry
+        rcs = [7, 8, 9, 0]
+        # these are our very short sleeps
+        retries = [0] * len(rcs)
+        r = self._subp_wrap_popen(
+            ['succeeds-eventually'], {'capture': True, 'retries': retries},
+            returncodes=rcs)
+        # r is a list of all args, kwargs to Popen that happend.
+        # since we fail a few times, it needs to have been called again.
+        self.assertEqual(len(r), len(rcs))
 
 
 class TestHuman2Bytes(TestCase):

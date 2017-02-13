@@ -24,15 +24,15 @@ import traceback
 from .. import log
 from .. import util
 from ..deps import install_deps
-import curtin.version
+from .. import version
 
-VERSIONSTR = curtin.version.version_string()
+VERSIONSTR = version.version_string()
 
 SUB_COMMAND_MODULES = [
     'apply_net', 'block-info', 'block-meta', 'block-wipe', 'curthooks',
     'clear-holders', 'extract', 'hook', 'in-target', 'install', 'mkfs',
     'net-meta', 'apt-config', 'pack', 'swap', 'system-install',
-    'system-upgrade']
+    'system-upgrade', 'version']
 
 
 def add_subcmd(subparser, subcmd):
@@ -183,8 +183,6 @@ def main(argv=None):
         sys.exit(1)
 
     log.basicConfig(stream=args.log_file, verbosity=verbosity)
-    log.LOG.info('curtin v. %s started' % VERSIONSTR)
-    log.LOG.debug('debug=%s', os.environ.get('LANG'))
 
     paths = util.get_paths()
 

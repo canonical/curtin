@@ -160,8 +160,27 @@ def _disable_ipv6_privacy_extensions(target,
     bmsg = "Disabling IPv6 privacy extensions config may not apply."
     try:
         contents = util.load_file(cfg)
-    except:
-        msg = bmsg + " %s exists, but could not be read." % cfg
+        known_contents = ["net.ipv6.conf.all.use_tempaddr = 2",
+                          "net.ipv6.conf.default.use_tempaddr = 2"]
+        lines = [f.strip() for f in contents.splitlines()
+                 if not f.startswith("#")]
+        if lines == known_contents:
+            LOG.info('deleting file: %s', cfg)
+            util.del_file(cfg)
+            msg = "removed %s with known contents" % cfg
+            curtin_contents = '\n'.join(
+                ["# IPv6 Privacy Extensions (RFC 4941)",
+                 "# Disabled by curtin",
+                 "# net.ipv6.conf.all.use_tempaddr = 2",
+                 "# net.ipv6.conf.default.use_tempaddr = 2"])
+            util.write_file(cfg, curtin_contents)
+        else:
+            LOG.info('skipping, content didnt match')
+            LOG.debug("found content:\n%s", lines)
+            LOG.debug("expected contents:\n%s", known_contents)
+            msg = (bmsg + " '%s' exists with user configured content." % cfg)
+    except Exception as e:
+        msg = bmsg + " %s exists, but could not be read. %s" % (cfg, e)
         LOG.exception(msg)
         raise
 
@@ -207,7 +226,15 @@ def _maybe_remove_legacy_eth0(target,
     bmsg = "Dynamic networking config may not apply."
     try:
         contents = util.load_file(cfg)
-    except:
+        known_contents = ["auto eth0", "iface eth0 inet dhcp"]
+        lines = [f.strip() for f in contents.splitlines()
+                 if not f.startswith("#")]
+        if lines == known_contents:
+            util.del_file(cfg)
+            msg = "removed %s with known contents" % cfg
+        else:
+            msg = (bmsg + " '%s' exists with user configured content." % cfg)
+    except Exception:
         msg = bmsg + " %s exists, but could not be read." % cfg
         LOG.exception(msg)
         raise

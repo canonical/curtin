@@ -1,0 +1,116 @@
+#!/bin/bash
+
+VERBOSITY=2
+
+error() { echo "$@" 1>&2; }
+rerror() { local r=$?; [ $r -eq 0 ] && r=1; error "$@"; return $r; }
+fail() { local r=$?;  [ $r -eq 0 ] && r=1; failrc "$r" "$@"; }
+failrc() { local r=$1; shift; [ $# -eq 0 ] || error "$@"; exit $r; }
+
+debug() {
+    local level=${1}; shift;
+    [ "${level}" -gt "${VERBOSITY}" ] && return
+    error "${@}"
+}
+
+Usage() {
+    cat <<EOF
+Usage: ${0##*/} [ options ] container [command [args]]
+
+   run command in container with provided args.
+
+   This is most useful as a program provided to vmtest
+     CURTIN_VMTEST_CURTIN_EXE="${0} container curtin" ./tools/jenkins-runner
+
+   if 'command and arg1' is 'curtin pack', then it will
+   read --add arguments to curtin pack, and copy them into a tmpdir container
+   and adjust the command and args to reference the copied paths.
+
+   also can be called by
+     CURTIN_PACK_CONTAINER=container ${0##*/} [command [args]]
+EOF
+}
+
+bad_Usage() { Usage 1>&2; [ $# -eq 0 ] || error "$@"; return 1; }
+
+inside() {
+    local n="$1" close_in=true
+    shift
+    [ "$1" = "-" ] && { close_in=false; shift; }
+    set -- lxc exec --mode=non-interactive "$n" -- "$@"
+    debug 1 "$@"
+    if ${close_in}; then
+        "$@" </dev/null
+    else
+        "$@"
+    fi
+}
+
+send() {
+    local name="$1" prefix="$2" arg="$3"
+    local afile="" fpath=""
+    # take ARCHIVE_PATH:FILE_PATH as 'arg'
+    # push FILE_PATH into $name/prefix/$archive_path
+    # return prefix/archive_path
+    afile=${arg%%:*}
+    fpath=${arg#*:}
+    lxc file push --create-dirs "$fpath" "$name/$prefix/$afile"
+    _RET="$afile:$prefix/$afile"
+}
+
+packrun() {
+    local name="$1" tmpd="" ret=$?
+    shift
+    cmd=()
+    while [ $# -ne 0 ]; do
+        case "$1" in
+            --) break;;
+            -a|--add)
+                from="$1 $2"
+                arg="$2"
+                shift 2 || { rerror "failed shift 2 on $1"; return; }
+                ;;
+            --add=*) from="$1"; arg=${1#*=}; shift;;
+            *) cmd[${#cmd[@]}]="$1"; shift; continue;;
+        esac
+        if [ -z "$tmpd" ]; then
+            tmpd=$(inside "$name" mktemp -d) ||
+                { rerror "failed to make tmpdir in $name"; return; }
+        fi
+        send "$name" "$tmpd" "$arg" ||
+            { rerror "failed send $arg"; return; }
+        debug 1 "changed $from => --add=${_RET}"
+        cmd[${#cmd[@]}]="--add=${_RET}"
+    done
+    cmd=( "${cmd[@]}" "$@" )
+    inside "$name" "${cmd[@]}"
+    ret=$?
+    inside "$name" rm -Rf "$tmpd" || {
+        rerror "failed removing tmpdir in $name";
+        return;
+    }
+    return $ret
+}
+
+[ "$1" = "-h" -o "$1" = "--help" ] && { Usage; exit 0; }
+
+if [ -n "${CURTIN_PACK_CONTAINER}" ]; then
+    container="${CURTIN_PACK_CONTAINER}"
+    [ $# -gt 0 ] ||
+        fail "must give command (CURTIN_PACK_CONTAINER=${container})"
+else
+    [ $# -gt 1 ] ||
+        fail "must give container and command (or set CURTIN_PACK_CONTAINER)"
+    container="$1"
+    shift
+fi
+out=$(lxc info "$container") ||
+    fail "failed 'lxc info $container'. container '$container' does not exist?"
+
+if [ "${1##*/}" = "curtin" -a "$2" = "pack" ]; then
+    packrun "$container" "$@"
+else
+    inside "$container" "$@"
+fi
+
+# vi: ts=4 expandtab

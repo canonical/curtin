@@ -381,9 +381,17 @@ class TrustyHWEWTestNetworkBasic(relbase.trusty_hwe_w, TrustyTestNetworkBasic):
     __test__ = False
 
 
+class TrustyHWEXTestNetworkBasic(relbase.trusty_hwe_x, TrustyTestNetworkBasic):
+    __test__ = True
+
+
 class XenialTestNetworkBasic(relbase.xenial, TestNetworkBasicAbs):
     __test__ = True
 
 
 class YakketyTestNetworkBasic(relbase.yakkety, TestNetworkBasicAbs):
+    __test__ = True
+
+
+class ZestyTestNetworkBasic(relbase.zesty, TestNetworkBasicAbs):
     __test__ = True

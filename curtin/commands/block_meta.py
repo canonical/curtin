@@ -423,7 +423,7 @@ def partition_handler(info, storage_config):
         lbs_path = os.path.join(disk_sysfs_path, 'queue', 'logical_block_size')
         with open(lbs_path, 'r') as f:
             logical_block_size_bytes = int(f.readline())
-    except:
+    except Exception:
         logical_block_size_bytes = 512
     LOG.debug(
         "{} logical_block_size_bytes: {}".format(disk_kname,
@@ -602,7 +602,8 @@ def mount_handler(info, storage_config):
         # Figure out what point should be
         while len(path) > 0 and path[0] == "/":
             path = path[1:]
-        mount_point = os.path.join(state['target'], path)
+        mount_point = os.path.sep.join([state['target'], path])
+        mount_point = os.path.normpath(mount_point)
 
         # Create mount point if does not exist
         util.ensure_dir(mount_point)

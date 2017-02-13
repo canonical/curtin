@@ -621,6 +621,15 @@ def install_missing_packages(cfg, target):
                pkg not in installed_packages:
                 needed_packages.append(pkg)
 
+    arch_packages = {
+        's390x': [('s390-tools', 'zipl')],
+    }
+
+    for pkg, cmd in arch_packages.get(platform.machine(), []):
+        if not util.which(cmd, target=target):
+            if pkg not in needed_packages:
+                needed_packages.append(pkg)
+
     if needed_packages:
         state = util.load_command_environment()
         with events.ReportEventStack(
@@ -675,7 +684,8 @@ def curthooks(args):
     stack_prefix = state.get('report_stack_prefix', '')
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/writing-config',
+            reporting_enabled=True, level="INFO",
             description="writing config files and configuring apt"):
         write_files(cfg, target)
         do_apt_config(cfg, target)
@@ -696,7 +706,8 @@ def curthooks(args):
                   data=None, target=target)
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/installing-kernel',
+            reporting_enabled=True, level="INFO",
             description="installing kernel"):
         setup_zipl(cfg, target)
         install_kernel(cfg, target)
@@ -705,27 +716,38 @@ def curthooks(args):
         restore_dist_interfaces(cfg, target)
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/setting-up-swap',
+            reporting_enabled=True, level="INFO",
             description="setting up swap"):
         add_swap(cfg, target, state.get('fstab'))
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
-            description="apply networking"):
+            name=stack_prefix + '/apply-networking-config',
+            reporting_enabled=True, level="INFO",
+            description="apply networking config"):
         apply_networking(target, state)
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/writing-etc-fstab',
+            reporting_enabled=True, level="INFO",
             description="writing etc/fstab"):
         copy_fstab(state.get('fstab'), target)
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/configuring-multipath',
+            reporting_enabled=True, level="INFO",
             description="configuring multipath"):
         detect_and_handle_multipath(cfg, target)
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/installing-missing-packages',
+            reporting_enabled=True, level="INFO",
+            description="installing missing packages"):
+        install_missing_packages(cfg, target)
+
+    with events.ReportEventStack(
+            name=stack_prefix + '/system-upgrade',
+            reporting_enabled=True, level="INFO",
             description="updating packages on target system"):
         system_upgrade(cfg, target)
 

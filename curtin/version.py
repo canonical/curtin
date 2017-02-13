@@ -3,6 +3,7 @@ import os
 import subprocess
 
 _PACKAGED_VERSION = '@@PACKAGED_VERSION@@'
+_PACKED_VERSION = '@@PACKED_VERSION@@'
 
 
 def version_string():
@@ -10,6 +11,9 @@ def version_string():
 
     if not _PACKAGED_VERSION.startswith('@@'):
         return _PACKAGED_VERSION
+
+    if not _PACKED_VERSION.startswith('@@'):
+        return _PACKED_VERSION
 
     revno = None
     version = old_version
