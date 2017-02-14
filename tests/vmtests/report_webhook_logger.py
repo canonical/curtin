@@ -42,11 +42,10 @@ def render_event_string(event_str):
 
 
 def write_event_string(target, event_str):
-    try:
+    data = []
+    if os.path.exists(target):
         with open(target, 'r') as fp:
             data = json.load(fp)
-    except:
-        data = []
     data.append(json.loads(event_str))
     with open(target, 'w') as fp:
         json.dump(data, fp)
