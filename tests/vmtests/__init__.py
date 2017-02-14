@@ -14,6 +14,7 @@ import time
 import yaml
 import curtin.net as curtin_net
 import curtin.util as util
+from curtin.block import iscsi
 
 from .report_webhook_logger import CaptureReporting
 from curtin.commands.install import INSTALL_PASS_MSG
@@ -45,12 +46,6 @@ BOOT_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_BOOT_TIMEOUT", 300))
 INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
 
 _TOPDIR = None
-
-IPV4_PORTAL_REGEX = re.compile(r'(?P<ip>(\d{,3}.){3}\d{,3})(:(?P<port>\d+))?')
-IPV6_PORTAL_REGEX = re.compile(r'''
-                               (?P<ip>([a-f0-9]{,4}:){5}[a-f0-9]{,4})
-                               (:(?P<port>\d+))?
-                               ''', re.VERBOSE)
 
 
 def remove_empty_dir(dirpath):
@@ -434,25 +429,19 @@ class VMBaseClass(TestCase):
                            "(CURTIN_VMTEST_ISCSI_PORTAL_V4 and "
                            "CURTIN_VMTEST_ISCSI_PORTAL_V6), which is "
                            "unsupported. Skipping iSCSI tests.")
+        portal = portal_v4 if portal_v4 else portal_v6
 
         # note that TGT_IPC_SOCKET also needs to be set for
         # successful communication
 
-        if portal_v4:
-            m = re.match(IPV4_PORTAL_REGEX, portal_v4)
-            if not m:
+        if not iscsi.is_valid_iscsi_portal(portal):
+            if portal_v4:
                 raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V4 in "
                                  "environment is not in IP:PORT format.")
-        else:
-            m = re.match(IPV6_PORTAL_REGEX, portal_v6)
-            if not m:
+            else:
                 raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V6 in "
-                                 "environment is not in IP:PORT format.")
-        cls.tgtd_ip = m.group('ip')
-        try:
-            cls.tgtd_port = m.group('port')
-        except IndexError:
-            cls.tgtd_port = '3260'
+                                 "environment is not in [IP]:PORT format.")
+        cls.tgtd_ip, cls.tgtd_port = portal.rsplit(':', 1)
 
         # copy testcase YAML to a temporary file in order to replace
         # placeholders

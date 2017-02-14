@@ -1107,6 +1107,32 @@ def is_resolvable(name):
         return False
 
 
+def is_valid_ipv4_address(addr):
+    try:
+        socket.inet_pton(socket.AF_INET, addr)
+    except AttributeError:  # no inet_pton
+        try:
+            socket.inet_aton(addr)
+        except socket.error:
+            return False
+        return addr.count('.') == 3
+    except socket.error:
+        return False
+    return True
+
+
+def is_valid_ipv6_address(addr):
+    try:
+        socket.inet_pton(socket.AF_INET6, addr)
+    except socket.error:
+        return False
+    return True
+
+
+def is_valid_ip_address(addr):
+    return is_valid_ipv4_address(addr) or is_valid_ipv6_address(addr)
+
+
 def is_resolvable_url(url):
     """determine if this url is resolvable (existing or ip)."""
     return is_resolvable(urlparse(url).hostname)

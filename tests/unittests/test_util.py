@@ -543,4 +543,71 @@ class TestLoadFile(TestCase):
             self.assertEqual(type(loaded_contents), bytes)
             self.assertEqual(loaded_contents, contents)
 
+
+class TestIpAddress(TestCase):
+    """Test utility 'is_valid_ip{,v4,v6}_address'"""
+
+    def test_is_valid_ip_address(self):
+        self.assertFalse(util.is_valid_ip_address('192.168'))
+        self.assertTrue(util.is_valid_ip_address('69.89.31.226'))
+        self.assertTrue(util.is_valid_ip_address('254.254.254.254'))
+        self.assertTrue(util.is_valid_ip_address('2001:db8::1'))
+        self.assertTrue(util.is_valid_ip_address('::1'))
+        self.assertTrue(util.is_valid_ip_address(
+            '1200:0000:AB00:1234:0000:2552:7777:1313'))
+        self.assertFalse(util.is_valid_ip_address(
+            '1200::AB00:1234::2552:7777:1313'))
+        self.assertTrue(util.is_valid_ip_address(
+            '21DA:D3:0:2F3B:2AA:FF:FE28:9C5A'))
+        self.assertFalse(util.is_valid_ip_address(
+            '1200:0000:AB00:1234:O000:2552:7777:1313'))
+        self.assertTrue(util.is_valid_ip_address(
+            '2002:4559:1FE2::4559:1FE2'))
+        self.assertTrue(util.is_valid_ip_address(
+            '2002:4559:1fe2:0:0:0:4559:1fe2'))
+        self.assertTrue(util.is_valid_ip_address(
+            '2002:4559:1FE2:0000:0000:0000:4559:1FE2'))
+
+    def test_is_valid_ipv4_address(self):
+        self.assertFalse(util.is_valid_ipv4_address('192.168'))
+        self.assertTrue(util.is_valid_ipv4_address('69.89.31.226'))
+        self.assertTrue(util.is_valid_ipv4_address('254.254.254.254'))
+        self.assertFalse(util.is_valid_ipv4_address('2001:db8::1'))
+        self.assertFalse(util.is_valid_ipv4_address('::1'))
+        self.assertFalse(util.is_valid_ipv4_address(
+            '1200:0000:AB00:1234:0000:2552:7777:1313'))
+        self.assertFalse(util.is_valid_ipv4_address(
+            '1200::AB00:1234::2552:7777:1313'))
+        self.assertFalse(util.is_valid_ipv4_address(
+            '21DA:D3:0:2F3B:2AA:FF:FE28:9C5A'))
+        self.assertFalse(util.is_valid_ipv4_address(
+            '1200:0000:AB00:1234:O000:2552:7777:1313'))
+        self.assertFalse(util.is_valid_ipv4_address(
+            '2002:4559:1FE2::4559:1FE2'))
+        self.assertFalse(util.is_valid_ipv4_address(
+            '2002:4559:1fe2:0:0:0:4559:1fe2'))
+        self.assertFalse(util.is_valid_ipv4_address(
+            '2002:4559:1FE2:0000:0000:0000:4559:1FE2'))
+
+    def test_is_valid_ipv6_address(self):
+        self.assertFalse(util.is_valid_ipv6_address('192.168'))
+        self.assertFalse(util.is_valid_ipv6_address('69.89.31.226'))
+        self.assertFalse(util.is_valid_ipv6_address('254.254.254.254'))
+        self.assertTrue(util.is_valid_ipv6_address('2001:db8::1'))
+        self.assertTrue(util.is_valid_ipv6_address('::1'))
+        self.assertTrue(util.is_valid_ipv6_address(
+            '1200:0000:AB00:1234:0000:2552:7777:1313'))
+        self.assertFalse(util.is_valid_ipv6_address(
+            '1200::AB00:1234::2552:7777:1313'))
+        self.assertTrue(util.is_valid_ipv6_address(
+            '21DA:D3:0:2F3B:2AA:FF:FE28:9C5A'))
+        self.assertFalse(util.is_valid_ipv6_address(
+            '1200:0000:AB00:1234:O000:2552:7777:1313'))
+        self.assertTrue(util.is_valid_ipv6_address(
+            '2002:4559:1FE2::4559:1FE2'))
+        self.assertTrue(util.is_valid_ipv6_address(
+            '2002:4559:1fe2:0:0:0:4559:1fe2'))
+        self.assertTrue(util.is_valid_ipv6_address(
+            '2002:4559:1FE2:0000:0000:0000:4559:1FE2'))
+
 # vi: ts=4 expandtab syntax=python

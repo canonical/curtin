@@ -32,15 +32,48 @@ from curtin.log import LOG
 _ISCSI_DISKS = {}
 RFC4173_REGEX = re.compile(r'''
     iscsi:
-    (?:(?P<user>\S*?):(?P<password>\S*?)
-        (?::(?P<initiatoruser>\S*?):(?P<initiatorpassword>\S*?))?
+    (?:(?P<user>[^:]*?):(?P<password>[^:]*?)
+        (?::(?P<initiatoruser>[^:]*?):(?P<initiatorpassword>[^:]*?))?
     @)?                 # optional authentication
     (?P<ip>\S*):        # greedy so ipv6 IPs are matched
-    (?P<proto>\S*?):
-    (?P<port>\S*?):
-    (?P<lun>\S*?):
+    (?P<proto>[^:]*?):
+    (?P<port>[^:]*?):
+    (?P<lun>[^:]*?):
     (?P<targetname>\S*) # greedy so entire suffix is matched
     ''', re.VERBOSE)
+
+ISCSI_PORTAL_REGEX = re.compile(
+    r'(\[(?P<ip6>\S*)\]|(?P<ip4>[^:]*)):(?P<port>[^:]*)')
+
+
+# @portal is of the form: (IPV4|[IPV6]):PORT
+def is_valid_iscsi_portal(portal):
+    try:
+        if not isinstance(portal, basestring):
+            return False
+    except NameError:
+        if not isinstance(portal, str):
+            return False
+
+    m = re.match(ISCSI_PORTAL_REGEX, portal)
+    if m is None:
+        return False
+
+    if not m.group('ip6') and not m.group('ip4'):
+        return False
+
+    if m.group('ip6') and not util.is_valid_ipv6_address(m.group('ip6')):
+        return False
+
+    if m.group('ip4') and not util.is_valid_ipv4_address(m.group('ip4')):
+        return False
+
+    try:
+        int(m.group('port'))
+    except ValueError:
+        return False
+
+    return True
 
 
 def iscsiadm_sessions():
@@ -51,7 +84,7 @@ def iscsiadm_sessions():
     return out
 
 
-def iscsiadm_discovery(portal, port):
+def iscsiadm_discovery(portal):
     # only supported type for now
     type = 'sendtargets'
 
@@ -59,41 +92,42 @@ def iscsiadm_discovery(portal, port):
         raise ValueError("Portal must be specified for discovery")
 
     cmd = ["iscsiadm", "--mode=discovery", "--type=%s" % type,
-           "--portal=%s:%s" % (portal, port)]
+           "--portal=%s" % portal]
 
     try:
         util.subp(cmd)
     except util.ProcessExecutionError as e:
-        LOG.warning("iscsiadm_discovery to %s:%s failed with exit code %d",
-                    portal, port, e.exit_code)
+        LOG.warning("iscsiadm_discovery to %s failed with exit code %d",
+                    portal, e.exit_code)
         raise
 
 
-def iscsiadm_login(target, portal, port):
+def iscsiadm_login(target, portal):
     LOG.debug('iscsiadm_login: target=%s portal=%s', target, portal)
 
     cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
-           '--portal=%s:%s' % (portal, port), '--login']
+           '--portal=%s' % portal, '--login']
     util.subp(cmd)
 
 
-def iscsiadm_set_automatic(target, portal, port):
+def iscsiadm_set_automatic(target, portal):
     LOG.debug('iscsiadm_set_automatic: target=%s portal=%s', target, portal)
 
     cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
-           '--portal=%s:%s' % (portal, port), '--op=update',
+           '--portal=%s' % portal, '--op=update',
            '--name=node.startup', '--value=automatic']
 
     util.subp(cmd)
 
 
-def iscsiadm_logout(target, portal=None, port=None):
+def iscsiadm_logout(target, portal=None):
     LOG.debug('iscsiadm_logout: target=%s portal=%s', target, portal)
 
     cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
            '--logout']
+    # no portal implies logout of all portals
     if portal:
-        cmd += ['--portal=%s:%s' % (portal, port)]
+        cmd += ['--portal=%s' % portal]
     util.subp(cmd)
 
     udev.udevadm_settle()
@@ -209,38 +243,64 @@ class IscsiDisk(object):
         self.password = m.group('password')
         self.iuser = m.group('initiatoruser')
         self.ipassword = m.group('initiatorpassword')
-        self.portal = m.group('ip')
+        if not util.is_valid_ip_address(m.group('ip')):
+            raise ValueError('Specified iSCSI IP (%s) is not valid' %
+                             m.group('ip'))
+        self.ip = m.group('ip')
         self.proto = '6'
-        self.port = m.group('port') if m.group('port') else 3260
+        try:
+            self.port = int(m.group('port')) if m.group('port') else 3260
+        except ValueError:
+            raise ValueError('Specified iSCSI port (%s) is not an integer' %
+                             m.group('port'))
         self.lun = int(m.group('lun')) if m.group('lun') else 0
         self.target = m.group('targetname')
+
+        # put IPv6 addresses in [] to disambiguate
+        if util.is_valid_ipv4_address(self.ip):
+            portal = '%s:%s' % (self.ip, self.port)
+        else:
+            portal = '[%s]:%s' % (self.ip, self.port)
+        if not is_valid_iscsi_portal(portal):
+            raise ValueError('Specified iSCSI portal (%s) is invalid' % portal)
+        self.portal = portal
+
+    def __str__(self):
+        rep = 'iscsi'
+        if self.user:
+            rep += ':%s:PASSWORD' % self.user
+        if self.iuser:
+            rep += ':%s:IPASSWORD' % self.iuser
+        rep += ':%s:%s:%s:%s:%s' % (self.ip, self.proto, self.port,
+                                    self.lun, self.target)
+        return rep
 
     @property
     def etciscsi_nodefile(self):
         return '/etc/iscsi/nodes/%s/%s,%s,%s/default' % (
-            self.target, self.portal, self.port, self.lun)
+            self.target, self.ip, self.port, self.lun)
 
     @property
     def devdisk_path(self):
-        return '/dev/disk/by-path/ip-%s:%s-iscsi-%s-lun-%s' % (
-            self.portal, self.port, self.target, self.lun)
+        return '/dev/disk/by-path/ip-%s-iscsi-%s-lun-%s' % (
+            self.portal, self.target, self.lun)
 
     def connect(self):
         if self.target in iscsiadm_sessions():
             return
 
-        iscsiadm_discovery(self.portal, self.port)
+        iscsiadm_discovery(self.portal)
 
-        iscsiadm_login(self.target, self.portal, self.port)
+        iscsiadm_login(self.target, self.portal)
 
         udev.udevadm_settle(self.devdisk_path)
 
-        iscsiadm_set_automatic(self.target, self.portal, self.port)
+        iscsiadm_set_automatic(self.target, self.portal)
 
     def disconnect(self):
         if self.target not in iscsiadm_sessions():
             return
 
-        iscsiadm_logout(self.target, self.portal, self.port)
+        iscsiadm_logout(self.target, self.portal)
 
 # vi: ts=4 expandtab syntax=python

@@ -274,7 +274,6 @@ def get_path_to_storage_volume(volume, storage_config):
             volume_path = block.lookup_disk(vol.get('serial'))
         elif vol.get('path'):
             if vol.get('path').startswith('iscsi:'):
-                LOG.warn('NACC: connecting iscsi disk %s', vol.get('path'))
                 i = iscsi.ensure_disk_connected(vol.get('path'))
                 volume_path = os.path.realpath(i.devdisk_path)
             else:
