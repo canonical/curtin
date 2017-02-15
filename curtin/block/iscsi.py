@@ -127,15 +127,12 @@ def iscsiadm_set_automatic(target, portal):
     util.subp(cmd, capture=True, log_captured=True)
 
 
-def iscsiadm_logout(target, portal=None):
+def iscsiadm_logout(target, portal):
     LOG.debug('iscsiadm_logout: target=%s portal=%s', target, portal)
 
     cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
-           '--logout']
-    # no portal implies logout of all portals
-    if portal:
-        cmd += ['--portal=%s' % portal]
-    util.subp(cmd)
+           '--portal=%s' % portal, '--logout']
+    util.subp(cmd, capture=True, log_captured=True)
 
     udev.udevadm_settle()
 
@@ -197,11 +194,14 @@ def disconnect_target_disks(target_root_path=None):
     fails = []
     if os.path.exists(target_nodes_path):
         for target in os.listdir(target_nodes_path):
-            try:
-                iscsiadm_logout(target)
-            except util.ProcessExecutionError as e:
-                fails.append(target)
-                LOG.warn("Unable to logout of iSCSI target %s: %s", target, e)
+            # conn is "ip,port,lun"
+            for conn in os.listdir(os.path.sep.join(target_nodes_path, target)):
+                ip, port, _ = conn.split(',')
+                try:
+                    iscsiadm_logout(target, '%s:%s' % (ip, port))
+                except util.ProcessExecutionError as e:
+                    fails.append(target)
+                    LOG.warn("Unable to logout of iSCSI target %s: %s", target, e)
 
     if fails:
         raise RuntimeError(
