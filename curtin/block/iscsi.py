@@ -36,44 +36,51 @@ RFC4173_REGEX = re.compile(r'''
         (?::(?P<initiatoruser>[^:]*?):(?P<initiatorpassword>[^:]*?))?
     @)?                 # optional authentication
     (?P<ip>\S*):        # greedy so ipv6 IPs are matched
-    (?P<proto>[^:]*?):
-    (?P<port>[^:]*?):
-    (?P<lun>[^:]*?):
+    (?P<proto>[^:]*):
+    (?P<port>[^:]*):
+    (?P<lun>[^:]*):
     (?P<targetname>\S*) # greedy so entire suffix is matched
     ''', re.VERBOSE)
 
 ISCSI_PORTAL_REGEX = re.compile(
-    r'(\[(?P<ip6>\S*)\]|(?P<ip4>[^:]*)):(?P<port>[^:]*)')
+    r'(\[(?P<ip6>\S*)\]|(?P<ip4>[^:]*)):(?P<port>[\d]+)')
 
 
 # @portal is of the form: (IPV4|[IPV6]):PORT
-def is_valid_iscsi_portal(portal):
-    try:
-        if not isinstance(portal, basestring):
-            return False
-    except NameError:
-        if not isinstance(portal, str):
-            return False
+def assert_valid_iscsi_portal(portal):
+    if not isinstance(portal, util.string_types):
+        raise ValueError("iSCSI portal (%s) is not a string" % portal)
 
     m = re.match(ISCSI_PORTAL_REGEX, portal)
     if m is None:
-        return False
+        raise ValueError("iSCSI portal (%s) is not in the format "
+                         "(IPV4|[IPV6]):PORT", portal)
 
     if not m.group('ip6') and not m.group('ip4'):
-        return False
+        raise ValueError("Unable to determine IP from iSCSI portal (%s)" %
+                         portal)
 
-    if m.group('ip6') and not util.is_valid_ipv6_address(m.group('ip6')):
-        return False
+    if m.group('ip6'):
+        if util.is_valid_ipv6_address(m.group('ip6')):
+            ip = m.group('ip6')
+        else:
+            raise ValueError("Invalid IPv6 address (%s) in iSCSI portal (%s)" %
+                             (m.group('ip6'), portal))
 
-    if m.group('ip4') and not util.is_valid_ipv4_address(m.group('ip4')):
-        return False
+    if m.group('ip4'):
+        if util.is_valid_ipv4_address(m.group('ip4')):
+            ip = m.group('ip4')
+        else:
+            raise ValueError("Invalid IPv4 address (%s) in iSCSI portal (%s)" %
+                             (m.group('ip4'), portal))
 
     try:
-        int(m.group('port'))
+        port = int(m.group('port'))
     except ValueError:
-        return False
+        raise ValueError("iSCSI portal (%s) port (%s) is not an integer" %
+                         (portal, m.group('port')))
 
-    return True
+    return ip, port
 
 
 def iscsiadm_sessions():
@@ -185,27 +192,25 @@ def connected_disks():
     return _ISCSI_DISKS
 
 
-def disconnect_target_disks(target_root_path):
-    target_nodes_path = os.path.sep.join([target_root_path, 'etc/iscsi/nodes'])
-    failed = False
+def disconnect_target_disks(target_root_path=None):
+    target_nodes_path = util.target_path(target_root_path, '/etc/iscsi/nodes')
+    fails = []
     if os.path.exists(target_nodes_path):
         for target in os.listdir(target_nodes_path):
             try:
                 iscsiadm_logout(target)
-            except util.ProcessExecutionError:
-                failed = True
-                LOG.warn("Unable to logout of iSCSI target %s", target)
+            except util.ProcessExecutionError as e:
+                fails.append(target)
+                LOG.warn("Unable to logout of iSCSI target %s: %s", target, e)
 
-    if failed:
-        raise util.ProcessExecutionError(
-            "Unable to logout of all iSCSI targets")
+    if fails:
+        raise util.RunTimeError(
+            "Unable to logout of iSCSI targets: %s" % ', '.join(fails))
 
 
 # Verifies that a /dev/disk/by-path symlink matching the udev pattern
 # for iSCSI disks is pointing at @kname
 def kname_is_iscsi(kname):
-    LOG.debug('kname_is_iscsi: '
-              'looking up kname %s', kname)
     by_path = "/dev/disk/by-path"
     for path in os.listdir(by_path):
         path_target = os.path.realpath(os.path.sep.join([by_path, path]))
@@ -261,8 +266,7 @@ class IscsiDisk(object):
             portal = '%s:%s' % (self.ip, self.port)
         else:
             portal = '[%s]:%s' % (self.ip, self.port)
-        if not is_valid_iscsi_portal(portal):
-            raise ValueError('Specified iSCSI portal (%s) is invalid' % portal)
+        assert_valid_iscsi_portal(portal)
         self.portal = portal
 
     def __str__(self):

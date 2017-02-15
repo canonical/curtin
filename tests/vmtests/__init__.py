@@ -434,14 +434,16 @@ class VMBaseClass(TestCase):
         # note that TGT_IPC_SOCKET also needs to be set for
         # successful communication
 
-        if not iscsi.is_valid_iscsi_portal(portal):
+        try:
+            cls.tgtd_ip, cls.tgtd_port = \
+                iscsi.assert_iscsi_portal_is_valid(portal)
+        except ValueError as e:
             if portal_v4:
-                raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V4 in "
-                                 "environment is not in IP:PORT format.")
+                raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V4 is invalid: "
+                                 "%s", e.msg)
             else:
-                raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V6 in "
-                                 "environment is not in [IP]:PORT format.")
-        cls.tgtd_ip, cls.tgtd_port = portal.rsplit(':', 1)
+                raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V6 is invalid: "
+                                 "%s", e.msg)
 
         # copy testcase YAML to a temporary file in order to replace
         # placeholders
@@ -819,7 +821,8 @@ class VMBaseClass(TestCase):
                     ['tgtadm', '--lld=iscsi', '--mode=target', '--op=show'],
                     capture=True)
 
-                # match target name to TID
+                # match target name to TID, e.g.:
+                # Target 4: curtin_59b5507d-1a6d-4b15-beda-3484f2a7d399
                 tid = None
                 for line in tgtadm_out.splitlines():
                     # new target stanza
