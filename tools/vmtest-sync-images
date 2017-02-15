@@ -3,7 +3,9 @@
 # It keeps only the latest copy of the available images.
 import os
 import shutil
+import subprocess
 import sys
+import time
 
 # Fix path so we can import ImageStore class.
 sys.path.insert(1, os.path.realpath(os.path.join(
@@ -23,6 +25,13 @@ def _fmt_list_filter(filter_name, matches):
 
 
 if __name__ == '__main__':
+    cmd = ['pgrep', '-c', 'jenkins-runner']
+    time_sleep = 600
+    while subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]:
+        print("Not syncing while jenkins-runner is running. \
+               Sleeping %s seconds." % time_sleep)
+        time.sleep(time_sleep)
+
     if len(sys.argv) > 1 and sys.argv[1] == "--clean":
         print("cleaning image dir %s" % IMAGE_DIR)
         for subd in (".vmtest-data", "streams"):
