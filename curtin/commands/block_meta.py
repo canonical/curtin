@@ -76,18 +76,23 @@ def write_image_to_disk(source, dev):
     """
     Write disk image to block device
     """
+    LOG.info('writing image to disk %s, %s', source, dev)
     (devname, devnode) = block.get_dev_name_entry(dev)
     util.subp(args=['sh', '-c',
                     ('wget "$1" --progress=dot:mega -O - |'
-                     'smtar -SxOf - | dd of="$2"'),
+                     'smtar | dd bs=1M of="$2"'),
                     '--', source, devnode])
     util.subp(['partprobe', devnode])
     udevadm_settle()
-    for fpath in ["curtin", "system-data/snap/ubuntu-core"]:
+    snap_paths = ["system-data/snap/ubuntu-core", "system-data"]
+    LOG.info('Checking for root device')
+    for fpath in ["curtin"] + snap_paths:
         root_dev = block.get_root_device([devname, ], fpath=fpath)
+        LOG.info('fpath=%s root_dev=%s', fpath, root_dev)
         if fpath == "curtin" and root_dev:
             return root_dev
-        elif fpath == "system-data/snap/ubuntu-core" and root_dev is not None:
+        elif fpath in snap_paths and root_dev is not None:
+            LOG.info('fpath is snap_path, no root needed')
             # snappy needs no root stuff
             return None
 
