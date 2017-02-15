@@ -27,9 +27,9 @@ def _fmt_list_filter(filter_name, matches):
 if __name__ == '__main__':
     cmd = ['pgrep', '-c', 'jenkins-runner']
     time_sleep = 600
-    while subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]:
-        print("Not syncing while jenkins-runner is running. \
-               Sleeping %s seconds." % time_sleep)
+    while not subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]:
+        print("Not syncing while jenkins-runner is running. " +
+               "Sleeping %s seconds." % time_sleep)
         time.sleep(time_sleep)
 
     if len(sys.argv) > 1 and sys.argv[1] == "--clean":
