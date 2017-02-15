@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+#   Copyright (C) 2016 Canonical Ltd.
+#
+#   Author: Ryan Harper <ryan.harper@canonical.com>
+#
+#   Curtin is free software: you can redistribute it and/or modify it under
+#   the terms of the GNU Affero General Public License as published by the
+#   Free Software Foundation, either version 3 of the License, or (at your
+#   option) any later version.
+#
+#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
+#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
+#   more details.
+#
+#   You should have received a copy of the GNU Affero General Public License
+#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+from collections import OrderedDict
+import argparse
+import base64
+import datetime
+import json
+import os
+import sys
+
+#  An event:
+'''
+{
+        "description": "executing late commands",
+        "event_type": "start",
+        "level": "INFO",
+        "name": "cmd-install/stage-late"
+        "origin": "curtin",
+        "timestamp": 1461164249.1590767,
+},
+
+    {
+        "description": "executing late commands",
+        "event_type": "finish",
+        "level": "INFO",
+        "name": "cmd-install/stage-late",
+        "origin": "curtin",
+        "result": "SUCCESS",
+        "timestamp": 1461164249.1590767
+    }
+
+'''
+format_key = {
+    '%d': 'delta',
+    '%D': 'description',
+    '%E': 'elapsed',
+    '%e': 'event_type',
+    '%I': 'indent',
+    '%l': 'level',
+    '%n': 'name',
+    '%o': 'origin',
+    '%r': 'result',
+    '%t': 'timestamp',
+    '%T': 'total_time',
+}
+
+formatting_help = " ".join(["{}: {}".format(k.replace('%', '%%'), v)
+                           for k, v in format_key.items()])
+
+
+def format_record(msg, event):
+    for i, j in format_key.items():
+        if i in msg:
+            msg = msg.replace(i, "{%s}" % j)
+    return msg.format(**event)
+
+
+def dump_event_files(event):
+    content = {k: v for k, v in event.items() if k not in ['content']}
+    files = content['files']
+    saved = []
+    for f in files:
+        fname = f['path']
+        fn_local = os.path.basename(fname)
+        fcontent = base64.b64decode(f['content']).decode('ascii')
+        with open(fn_local, 'w') as fh:
+            fh.write(fcontent)
+        saved.append(fn_local)
+
+    return saved
+
+
+def generate_records(j, blame_sort=False, print_format="%d seconds in %I%D",
+                     dump_files=False, log_datafiles=False):
+
+    dumped_files = []
+    records = []
+    start_time = None
+    timestamps = OrderedDict()
+    total_time = 0.0
+    for event in j:
+        name = event.get('name')
+        event['indent'] = '|' + ' ' * (name.count('/') - 1) + '`->'
+        if 'files' in event:
+            if dump_files:
+                dumped_files += dump_event_files(event)
+
+        if event['event_type'] == 'start':
+            timestamps[name] = {'start': event['timestamp']}
+            start = datetime.datetime.utcfromtimestamp(
+                timestamps[name]['start'])
+            event['delta'] = "{:08.5f}".format(total_time)
+            # Initial start event has different record format
+            if '/' not in event['name']:
+                start_time = datetime.datetime.utcfromtimestamp(
+                    event['timestamp'])
+                elapsed = start - start_time
+                event['elapsed'] = "{:08.5f}".format(elapsed.total_seconds())
+                records.append(format_record('[%d] %D', event))
+            else:
+                elapsed = start - start_time
+                event['elapsed'] = "{:08.5f}".format(elapsed.total_seconds())
+                if '%e' in print_format:
+                    records.append(format_record(print_format, event))
+        else:
+            timestamps[name].update({'finish': event['timestamp']})
+            start = datetime.datetime.utcfromtimestamp(
+                timestamps[name]['start'])
+            end = datetime.datetime.utcfromtimestamp(
+                timestamps[name]['finish'])
+            delta = end - start
+            elapsed = start - start_time + delta
+            event['elapsed'] = "{:08.5f}".format(elapsed.total_seconds())
+            # don't the main event's time to total time, it's already counted
+            if '/' not in event['name']:
+                total_time += delta.total_seconds()
+            event['delta'] = "{:008.5f}".format(delta.total_seconds())
+            timestamps[name].update({
+                'delta': event['delta'],
+                'elapsed': event['elapsed']})
+            records.append(format_record(print_format, event))
+
+    records.append(' ---\n%3.5f seconds total time' % total_time)
+    if log_datafiles:
+        with open('timestamps.json', 'w') as fh:
+            fh.write(json.dumps(timestamps, indent=4))
+
+        with open('records.json', 'w') as fh:
+            fh.write(json.dumps(records, indent=4))
+
+    if dumped_files:
+        records.append('\nSaved event file(s):')
+        for f in dumped_files:
+            records.append('  %s' % f)
+
+    return records
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='curtin-print-log - pretty print and sort curtin logs',
+        prog='curtin-print-log')
+    parser.add_argument('--dumpfiles', action='store_true',
+                        default=False,
+                        dest='dump_files',
+                        help='dump content of any posted files')
+    parser.add_argument('--save-processing-data', action='store_true',
+                        default=False,
+                        dest='log_datafiles',
+                        help='save the processing data')
+    parser.add_argument('--format', action='store',
+                        dest='print_format',
+                        default='%I%D @%Es +%ds',
+                        help='specify formatting of output. ' +
+                        formatting_help)
+    parser.add_argument('infile', nargs='?', type=argparse.FileType('r'),
+                        help='Path to log to parse. Use - for stdin')
+
+    opts = parser.parse_args(sys.argv[1:])
+    if not opts.infile:
+        parser.print_help()
+        sys.exit(1)
+
+    try:
+        j = json.load(opts.infile)
+    except json.JSONDecodeError:
+        print("Input must be valid JSON")
+        sys.exit(1)
+
+    sj = sorted(j, key=lambda x: x['timestamp'])
+    records = generate_records(sj, print_format=opts.print_format,
+                               dump_files=opts.dump_files,
+                               log_datafiles=opts.log_datafiles)
+    print('The total time elapsed since completing an event is printed'
+          ' after the "@" character.')
+    print('The time the event takes is printed after the "+" character.')
+    print()
+    print("\n".join(records))
+
+
+if __name__ == '__main__':
+    main()

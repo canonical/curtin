@@ -2,7 +2,6 @@ from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
 import textwrap
-import os
 
 
 class TestMdadmAbs(VMBaseClass):
@@ -16,6 +15,7 @@ class TestMdadmAbs(VMBaseClass):
         mdadm --detail --scan | grep -c ubuntu > mdadm_active1
         grep -c active /proc/mdstat > mdadm_active2
         ls /dev/disk/by-dname > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
         """)]
 
     def test_mdadm_output_files_exist(self):
@@ -55,6 +55,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         cat /sys/block/bcache1/bcache/cache_mode >> bcache_cache_mode
         cat /sys/block/bcache2/bcache/cache_mode >> bcache_cache_mode
         cat /proc/mounts > proc_mounts
+        find /etc/network/interfaces.d > find_interfacesd
         """)]
     fstab_expected = {
         '/dev/vda1': '/media/sda1',
@@ -80,17 +81,16 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         bcache_cset_uuid = None
         found = {}
         for bcache_super in bcache_supers:
-            with open(os.path.join(self.td.collect, bcache_super), "r") as fp:
-                for line in fp.read().splitlines():
-                    if line != "" and line.split()[0] == "cset.uuid":
-                        bcache_cset_uuid = line.split()[-1].rstrip()
-                        if bcache_cset_uuid in found:
-                            found[bcache_cset_uuid].append(bcache_super)
-                        else:
-                            found[bcache_cset_uuid] = [bcache_super]
+            for line in self.load_collect_file(bcache_super).splitlines():
+                if line != "" and line.split()[0] == "cset.uuid":
+                    bcache_cset_uuid = line.split()[-1].rstrip()
+                    if bcache_cset_uuid in found:
+                        found[bcache_cset_uuid].append(bcache_super)
+                    else:
+                        found[bcache_cset_uuid] = [bcache_super]
             self.assertIsNotNone(bcache_cset_uuid)
-            with open(os.path.join(self.td.collect, "bcache_ls"), "r") as fp:
-                self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
+            self.assertTrue(bcache_cset_uuid in
+                            self.load_collect_file("bcache_ls").splitlines())
 
         # one cset.uuid for all devices
         self.assertEqual(len(found), 1)
@@ -124,19 +124,24 @@ class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):
         print("test_ptable does not work for Trusty")
 
 
-class TrustyHWEUTestMdadmBcache(relbase.trusty_hwe_u, TrustyTestMdadmBcache):
-    __test__ = True
-
-
-class VividTestMdadmBcache(relbase.vivid, TestMdadmBcacheAbs):
+class TrustyHWEXTestMdadmBcache(relbase.trusty_hwe_x, TrustyTestMdadmBcache):
     __test__ = True
 
 
 class WilyTestMdadmBcache(relbase.wily, TestMdadmBcacheAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestMdadmBcache(relbase.xenial, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class YakketyTestMdadmBcache(relbase.yakkety, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class ZestyTestMdadmBcache(relbase.zesty, TestMdadmBcacheAbs):
     __test__ = True
 
 
@@ -163,20 +168,69 @@ class TrustyTestMirrorboot(relbase.trusty, TestMirrorbootAbs):
         print("test_ptable does not work for Trusty")
 
 
-class TrustyHWEUTestMirrorboot(relbase.trusty_hwe_u, TrustyTestMirrorboot):
+class TrustyHWEXTestMirrorboot(relbase.trusty_hwe_x, TrustyTestMirrorboot):
     # This tests kernel upgrade in target
     __test__ = True
 
 
-class VividTestMirrorboot(relbase.vivid, TestMirrorbootAbs):
-    __test__ = True
-
-
 class WilyTestMirrorboot(relbase.wily, TestMirrorbootAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestMirrorboot(relbase.xenial, TestMirrorbootAbs):
+    __test__ = True
+
+
+class YakketyTestMirrorboot(relbase.yakkety, TestMirrorbootAbs):
+    __test__ = True
+
+
+class ZestyTestMirrorboot(relbase.zesty, TestMirrorbootAbs):
+    __test__ = True
+
+
+class TestMirrorbootPartitionsAbs(TestMdadmAbs):
+    # alternative config for more complex setup
+    conf_file = "examples/tests/mirrorboot-msdos-partition.yaml"
+    # initialize secondary disk
+    extra_disks = ['10G']
+    disk_to_check = [('main_disk', 1),
+                     ('second_disk', 1),
+                     ('md0', 2)]
+
+
+class TrustyTestMirrorbootPartitions(relbase.trusty,
+                                     TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+    # FIXME(LP: #1523037): dname does not work on trusty
+    # when dname works on trusty, then we need to re-enable by removing line.
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
+
+    def test_ptable(self):
+        print("test_ptable does not work for Trusty")
+
+
+class TrustyHWEXTestMirrorbootPartitions(relbase.trusty_hwe_x,
+                                         TrustyTestMirrorbootPartitions):
+    # This tests kernel upgrade in target
+    __test__ = True
+
+
+class XenialTestMirrorbootPartitions(relbase.xenial,
+                                     TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
+class YakketyTestMirrorbootPartitions(relbase.yakkety,
+                                      TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
+class ZestyTestMirrorbootPartitions(relbase.zesty,
+                                    TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
@@ -204,20 +258,25 @@ class TrustyTestRaid5Boot(relbase.trusty, TestRaid5bootAbs):
         print("test_ptable does not work for Trusty")
 
 
-class TrustyHWEUTestRaid5Boot(relbase.trusty_hwe_u, TrustyTestRaid5Boot):
+class TrustyHWEXTestRaid5Boot(relbase.trusty_hwe_x, TrustyTestRaid5Boot):
     # This tests kernel upgrade in target
     __test__ = True
 
 
-class VividTestRaid5boot(relbase.vivid, TestRaid5bootAbs):
-    __test__ = True
-
-
 class WilyTestRaid5boot(relbase.wily, TestRaid5bootAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestRaid5boot(relbase.xenial, TestRaid5bootAbs):
+    __test__ = True
+
+
+class YakketyTestRaid5boot(relbase.yakkety, TestRaid5bootAbs):
+    __test__ = True
+
+
+class ZestyTestRaid5boot(relbase.zesty, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -258,19 +317,24 @@ class TrustyTestRaid6boot(relbase.trusty, TestRaid6bootAbs):
         print("test_ptable does not work for Trusty")
 
 
-class TrustyHWEUTestRaid6boot(relbase.trusty_hwe_u, TrustyTestRaid6boot):
-    __test__ = True
-
-
-class VividTestRaid6boot(relbase.vivid, TestRaid6bootAbs):
+class TrustyHWEXTestRaid6boot(relbase.trusty_hwe_x, TrustyTestRaid6boot):
     __test__ = True
 
 
 class WilyTestRaid6boot(relbase.wily, TestRaid6bootAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestRaid6boot(relbase.xenial, TestRaid6bootAbs):
+    __test__ = True
+
+
+class YakketyTestRaid6boot(relbase.yakkety, TestRaid6bootAbs):
+    __test__ = True
+
+
+class ZestyTestRaid6boot(relbase.zesty, TestRaid6bootAbs):
     __test__ = True
 
 
@@ -299,19 +363,24 @@ class TrustyTestRaid10boot(relbase.trusty, TestRaid10bootAbs):
         print("test_ptable does not work for Trusty")
 
 
-class TrustyHWEUTestRaid10boot(relbase.trusty_hwe_u, TrustyTestRaid10boot):
-    __test__ = True
-
-
-class VividTestRaid10boot(relbase.vivid, TestRaid10bootAbs):
+class TrustyHWEXTestRaid10boot(relbase.trusty_hwe_x, TrustyTestRaid10boot):
     __test__ = True
 
 
 class WilyTestRaid10boot(relbase.wily, TestRaid10bootAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestRaid10boot(relbase.xenial, TestRaid10bootAbs):
+    __test__ = True
+
+
+class YakketyTestRaid10boot(relbase.yakkety, TestRaid10bootAbs):
+    __test__ = True
+
+
+class ZestyTestRaid10boot(relbase.zesty, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -397,17 +466,22 @@ class TrustyTestAllindata(relbase.trusty, TestAllindataAbs):
         print("test_ptable does not work for Trusty")
 
 
-class TrustyHWEUTestAllindata(relbase.trusty_hwe_u, TrustyTestAllindata):
+class TrustyHWEXTestAllindata(relbase.trusty_hwe_x, TrustyTestAllindata):
     __test__ = False  # lukes=no does not disable mounting of device
 
 
-class VividTestAllindata(relbase.vivid, TestAllindataAbs):
-    __test__ = True
-
-
 class WilyTestAllindata(relbase.wily, TestAllindataAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestAllindata(relbase.xenial, TestAllindataAbs):
+    __test__ = True
+
+
+class YakketyTestAllindata(relbase.yakkety, TestAllindataAbs):
+    __test__ = True
+
+
+class ZestyTestAllindata(relbase.zesty, TestAllindataAbs):
     __test__ = True

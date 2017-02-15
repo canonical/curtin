@@ -11,8 +11,6 @@ class TestNvmeAbs(VMBaseClass):
     ]
     interactive = False
     conf_file = "examples/tests/nvme.yaml"
-    install_timeout = 600
-    boot_timeout = 120
     extra_disks = []
     nvme_disks = ['4G', '4G']
     disk_to_check = [('main_disk', 1), ('main_disk', 2), ('main_disk', 15),
@@ -33,6 +31,7 @@ class TestNvmeAbs(VMBaseClass):
         cat /etc/fstab > fstab
         mkdir -p /dev/disk/by-dname
         ls /dev/disk/by-dname/ > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
 
         v=""
         out=$(apt-config shell v Acquire::HTTP::Proxy)
@@ -73,13 +72,31 @@ class TrustyTestNvme(relbase.trusty, TestNvmeAbs):
         print("test_ptable does not work for Trusty")
 
 
-class VividTestNvme(relbase.vivid, TestNvmeAbs):
+class TrustyHWEXTestNvme(relbase.trusty_hwe_x, TestNvmeAbs):
     __test__ = True
+
+    # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
+    # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
+    # when dname works on trusty, then we need to re-enable by removing line.
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
+
+    def test_ptable(self):
+        print("test_ptable does not work for Trusty")
 
 
 class WilyTestNvme(relbase.wily, TestNvmeAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestNvme(relbase.xenial, TestNvmeAbs):
+    __test__ = True
+
+
+class YakketyTestNvme(relbase.yakkety, TestNvmeAbs):
+    __test__ = True
+
+
+class ZestyTestNvme(relbase.zesty, TestNvmeAbs):
     __test__ = True

@@ -2,7 +2,6 @@ from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
 import textwrap
-import os
 
 
 class TestMdadmAbs(VMBaseClass):
@@ -16,6 +15,7 @@ class TestMdadmAbs(VMBaseClass):
         mdadm --detail --scan | grep -c ubuntu > mdadm_active1
         grep -c active /proc/mdstat > mdadm_active2
         ls /dev/disk/by-dname > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
         """)]
 
     def test_mdadm_output_files_exist(self):
@@ -41,6 +41,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
         cat /proc/mounts > proc_mounts
         cat /proc/partitions > proc_partitions
+        find /etc/network/interfaces.d > find_interfacesd
         """)]
     fstab_expected = {
         '/dev/bcache0': '/',
@@ -53,14 +54,12 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
 
     def test_bcache_status(self):
         bcache_cset_uuid = None
-        fname = os.path.join(self.td.collect, "bcache_super_vda2")
-        with open(fname, "r") as fp:
-            for line in fp.read().splitlines():
-                if line != "" and line.split()[0] == "cset.uuid":
-                    bcache_cset_uuid = line.split()[-1].rstrip()
+        for line in self.load_collect_file("bcache_super_vda2").splitlines():
+            if line != "" and line.split()[0] == "cset.uuid":
+                bcache_cset_uuid = line.split()[-1].rstrip()
         self.assertIsNotNone(bcache_cset_uuid)
-        with open(os.path.join(self.td.collect, "bcache_ls"), "r") as fp:
-            self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
+        self.assertTrue(bcache_cset_uuid in
+                        self.load_collect_file("bcache_ls").splitlines())
 
     def test_bcache_cachemode(self):
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
@@ -80,20 +79,33 @@ class TrustyTestRaid5Bcache(relbase.trusty, TestMdadmBcacheAbs):
 
 
 class TrustyHWEUTestRaid5Bcache(relbase.trusty_hwe_u, TrustyTestRaid5Bcache):
-    __test__ = True
+    __test__ = False
 
 
 class TrustyHWEVTestRaid5Bcache(relbase.trusty_hwe_v, TrustyTestRaid5Bcache):
-    __test__ = True
+    __test__ = False
 
 
 class TrustyHWEWTestRaid5Bcache(relbase.trusty_hwe_w, TrustyTestRaid5Bcache):
     __test__ = False
 
 
-class VividTestRaid5Bcache(relbase.vivid, TestMdadmBcacheAbs):
+class TrustyHWEXTestRaid5Bcache(relbase.trusty_hwe_x, TrustyTestRaid5Bcache):
     __test__ = True
 
 
 class WilyTestRaid5Bcache(relbase.wily, TestMdadmBcacheAbs):
+    # EOL - 2016-07-28
+    __test__ = False
+
+
+class XenialTestRaid5Bcache(relbase.xenial, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class YakketyTestRaid5Bcache(relbase.yakkety, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class ZestyTestRaid5Bcache(relbase.zesty, TestMdadmBcacheAbs):
     __test__ = True

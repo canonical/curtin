@@ -474,8 +474,8 @@ network:
             auto eth0
             iface eth0 inet dhcp
 
-            auto eth0:1
-            iface eth0:1 inet static
+            # control-alias eth0
+            iface eth0 inet static
                 address 192.168.21.3/24
                 dns-nameservers 8.8.8.8 8.8.4.4
                 dns-search barley.maas sach.maas
@@ -497,16 +497,16 @@ network:
             auto lo
             iface lo inet loopback
 
-            auto eth0
-            iface eth0 inet dhcp
+            auto interface0
+            iface interface0 inet dhcp
 
-            auto eth1
-            iface eth1 inet manual
+            auto interface1
+            iface interface1 inet manual
                 bond-mode active-backup
                 bond-master bond0
 
-            auto eth2
-            iface eth2 inet manual
+            auto interface2
+            iface interface2 inet manual
                 bond-mode active-backup
                 bond-master bond0
 
@@ -514,8 +514,12 @@ network:
             iface bond0 inet static
                 address 10.23.23.2/24
                 bond-mode active-backup
-                hwaddress 52:54:00:12:34:06
+                hwaddress ether 52:54:00:12:34:06
                 bond-slaves none
+
+            # control-alias bond0
+            iface bond0 inet static
+                address 10.23.24.2/24
 
             source /etc/network/interfaces.d/*.cfg
             """)
@@ -537,22 +541,21 @@ network:
             auto lo
             iface lo inet loopback
 
-            # control-manual eth0
-            iface eth0 inet dhcp
+            # control-manual interface0
+            iface interface0 inet dhcp
 
-            auto eth1
-            iface eth1 inet static
+            auto interface1
+            iface interface1 inet static
                 address 192.168.14.2/24
                 gateway 192.168.14.1
                 mtu 1492
 
-            auto eth1:1
-            iface eth1:1 inet static
+            # control-alias interface1
+            iface interface1 inet static
                 address 192.168.14.4/24
-                mtu 1492
 
-            allow-hotplug eth2
-            iface eth2 inet static
+            allow-hotplug interface2
+            iface interface2 inet static
                 gateway 10.11.12.1
                 address 10.11.12.13/22
 
@@ -565,5 +568,185 @@ network:
         print(ns.network_state.get('interfaces'))
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
+
+    def test_render_interfaces_ipv6_aliases(self):
+        ipv6_aliases_config = '''
+# YAML example of a simple network config
+network:
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: eth0
+          mac_address: "c0:d6:9f:2c:e8:80"
+          subnets:
+              - type: static
+                address: fde9:8f83:4a81:1:0:1:0:6/64
+              - type: static
+                address: 192.168.0.1/24
+'''
+
+        ns = self.get_net_state(ipv6_aliases_config)
+        ifaces = dedent("""\
+            auto lo
+            iface lo inet loopback
+
+            auto eth0
+            iface eth0 inet6 static
+                address fde9:8f83:4a81:1:0:1:0:6/64
+
+            # control-alias eth0
+            iface eth0 inet static
+                address 192.168.0.1/24
+
+            source /etc/network/interfaces.d/*.cfg
+            """)
+        net_ifaces = net.render_interfaces(ns.network_state)
+        print("\n".join(sorted(ifaces.split('\n'))))
+        print("\n^^ LOCAL -- RENDER vv")
+        print("\n".join(sorted(net_ifaces.split('\n'))))
+        print(ns.network_state.get('interfaces'))
+        self.assertEqual(sorted(ifaces.split('\n')),
+                         sorted(net_ifaces.split('\n')))
+
+    def test_render_interfaces_ipv4_multiple_alias(self):
+        network_yaml = '''
+network:
+    version: 1
+    config:
+        # multi_v4_alias: multiple v4 addrs on same interface
+        - type: physical
+          name: interface1
+          mac_address: "52:54:00:12:34:02"
+          subnets:
+              - type: dhcp
+              - type: static
+                address: 192.168.2.2/22
+                gateway: 192.168.2.1
+              - type: static
+                address: 10.23.23.7/23
+                gateway: 10.23.23.1
+'''
+
+        ns = self.get_net_state(network_yaml)
+        ifaces = dedent("""\
+            auto lo
+            iface lo inet loopback
+
+            auto interface1
+            iface interface1 inet dhcp
+
+            # control-alias interface1
+            iface interface1 inet static
+                address 192.168.2.2/22
+                gateway 192.168.2.1
+
+            # control-alias interface1
+            iface interface1 inet static
+                address 10.23.23.7/23
+                gateway 10.23.23.1
+
+            source /etc/network/interfaces.d/*.cfg
+            """)
+        net_ifaces = net.render_interfaces(ns.network_state)
+        print(net_ifaces)
+        print(ifaces)
+        self.assertEqual(sorted(ifaces.split('\n')),
+                         sorted(net_ifaces.split('\n')))
+
+    def test_routes_rendered(self):
+        # as reported in bug 1649652
+        conf = [
+            {'name': 'eth0', 'type': 'physical',
+             'subnets': [{
+                 'address': '172.23.31.42/26',
+                 'dns_nameservers': [], 'gateway': '172.23.31.2',
+                 'type': 'static'}]},
+            {'type': 'route', 'id': 4,
+             'metric': 0, 'destination': '10.0.0.0/12',
+             'gateway': '172.23.31.1'},
+            {'type': 'route', 'id': 5,
+             'metric': 0, 'destination': '192.168.2.0/24',
+             'gateway': '172.23.31.1'},
+            {'type': 'route', 'id': 6,
+             'metric': 1, 'destination': '10.0.200.0/16',
+             'gateway': '172.23.31.1'},
+        ]
+
+        expected = [
+            'auto lo',
+            'iface lo inet loopback',
+            'auto eth0',
+            'iface eth0 inet static',
+            '    address 172.23.31.42/26',
+            '    gateway 172.23.31.2',
+            ('post-up route add -net 10.0.0.0 netmask 255.240.0.0 gw '
+             '172.23.31.1 metric 0 || true'),
+            ('pre-down route del -net 10.0.0.0 netmask 255.240.0.0 gw '
+             '172.23.31.1 metric 0 || true'),
+            ('post-up route add -net 192.168.2.0 netmask 255.255.255.0 gw '
+             '172.23.31.1 metric 0 || true'),
+            ('pre-down route del -net 192.168.2.0 netmask 255.255.255.0 gw '
+             '172.23.31.1 metric 0 || true'),
+            ('post-up route add -net 10.0.200.0 netmask 255.255.0.0 gw '
+             '172.23.31.1 metric 1 || true'),
+            ('pre-down route del -net 10.0.200.0 netmask 255.255.0.0 gw '
+             '172.23.31.1 metric 1 || true'),
+            'source /etc/network/interfaces.d/*.cfg',
+        ]
+
+        ns = network_state.NetworkState(version=1, config=conf)
+        ns.parse_config()
+        found = net.render_interfaces(ns.network_state).split('\n')
+        self.assertEqual(
+            sorted([line for line in expected if line]),
+            sorted([line for line in found if line]))
+
+    def test_render_interfaces_bridges(self):
+        bridge_config = open(
+            'examples/tests/bridging_network.yaml', 'r').read()
+
+        ns = self.get_net_state(bridge_config)
+        ifaces = dedent("""\
+            auto lo
+            iface lo inet loopback
+
+            auto eth0
+            iface eth0 inet dhcp
+
+            iface eth1 inet manual
+
+            iface eth2 inet manual
+
+            auto br0
+            iface br0 inet static
+                address 192.168.14.2/24
+                bridge_ports eth1 eth2
+                bridge_gcint 2
+                bridge_pathcost eth1 50
+                bridge_pathcost eth2 75
+                bridge_portprio eth1 28
+                bridge_portprio eth2 14
+                bridge_bridgeprio 22
+                bridge_ageing 250
+                bridge_maxage 10
+                bridge_fd 1
+                bridge_waitport 1 eth1
+                bridge_waitport 2 eth2
+                bridge_stp off
+                bridge_hello 1
+
+            source /etc/network/interfaces.d/*.cfg
+            """)
+        net_ifaces = net.render_interfaces(ns.network_state)
+        print("\n".join(list(map(str,
+                                 enumerate(sorted(ifaces.split('\n')))))))
+        print("\n^^ LOCAL -- RENDER vv")
+        print("\n".join(list(map(str,
+                                 enumerate(sorted(net_ifaces.split('\n')))))))
+        print(ns.network_state.get('interfaces'))
+        self.assertEqual(sorted(ifaces.split('\n')),
+                         sorted(net_ifaces.split('\n')))
+
 
 # vi: ts=4 expandtab syntax=python

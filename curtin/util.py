@@ -16,17 +16,40 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import collections
 import errno
 import glob
 import json
 import os
 import platform
+import re
 import shutil
+import socket
 import subprocess
 import stat
 import sys
 import tempfile
 import time
+
+# avoid the dependency to python3-six as used in cloud-init
+try:
+    from urlparse import urlparse
+except ImportError:
+    # python3
+    # avoid triggering pylint, https://github.com/PyCQA/pylint/issues/769
+    # pylint:disable=import-error,no-name-in-module
+    from urllib.parse import urlparse
+
+try:
+    string_types = (basestring,)
+except NameError:
+    string_types = (str,)
+
+try:
+    numeric_types = (int, float, long)
+except NameError:
+    # python3 does not have a long type.
+    numeric_types = (int, float)
 
 from .log import LOG
 
@@ -35,14 +58,22 @@ _INSTALLED_MAIN = '/usr/bin/curtin'
 
 _LSB_RELEASE = {}
 
+_DNS_REDIRECT_IP = None
+
+# matcher used in template rendering functions
+BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
+
 
 def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
-          logstring=False, decode="replace"):
+          logstring=False, decode="replace", target=None, cwd=None):
     if rcs is None:
         rcs = [0]
 
     devnull_fp = None
     try:
+        if target_path(target) != "/":
+            args = ['chroot', target] + list(args)
+
         if not logstring:
             LOG.debug(("Running command %s with allowed return codes %s"
                        " (shell=%s, capture=%s)"), args, rcs, shell, capture)
@@ -62,7 +93,8 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
             stdin = subprocess.PIPE
         sp = subprocess.Popen(args, stdout=stdout,
                               stderr=stderr, stdin=stdin,
-                              env=env, shell=shell)
+                              env=env, shell=shell, cwd=cwd)
+        # communicate in python2 returns str, python3 returns bytes
         (out, err) = sp.communicate(data)
 
         # Just ensure blank instead of none.
@@ -118,10 +150,23 @@ def subp(*args, **kwargs):
         a list of times to sleep in between retries.  After each failure
         subp will sleep for N seconds and then try again.  A value of [1, 3]
         means to run, sleep 1, run, sleep 3, run and then return exit code.
+    :param target:
+        run the command as 'chroot target <args>'
+
+    :return
+        if not capturing, return is (None, None)
+        if capturing, stdout and stderr are returned.
+            if decode:
+                python2 unicode or python3 string
+            if not decode:
+                python2 string or python3 bytes
     """
     retries = []
     if "retries" in kwargs:
         retries = kwargs.pop("retries")
+        if not retries:
+            # allow retries=None
+            retries = []
 
     if args:
         cmd = args[0]
@@ -168,8 +213,9 @@ class ProcessExecutionError(IOError):
                     'Command: %(cmd)s\n'
                     'Exit code: %(exit_code)s\n'
                     'Reason: %(reason)s\n'
-                    'Stdout: %(stdout)r\n'
-                    'Stderr: %(stderr)r')
+                    'Stdout: %(stdout)s\n'
+                    'Stderr: %(stderr)s')
+    stdout_indent_level = 8
 
     def __init__(self, stdout=None, stderr=None,
                  exit_code=None, cmd=None,
@@ -190,14 +236,14 @@ class ProcessExecutionError(IOError):
             self.exit_code = exit_code
 
         if not stderr:
-            self.stderr = ''
+            self.stderr = "''"
         else:
-            self.stderr = stderr
+            self.stderr = self._indent_text(stderr)
 
         if not stdout:
-            self.stdout = ''
+            self.stdout = "''"
         else:
-            self.stdout = stdout
+            self.stdout = self._indent_text(stdout)
 
         if reason:
             self.reason = reason
@@ -213,6 +259,11 @@ class ProcessExecutionError(IOError):
             'reason': self.reason,
         }
         IOError.__init__(self, message)
+
+    def _indent_text(self, text):
+        if type(text) == bytes:
+            text = text.decode()
+        return text.replace('\n', '\n' + ' ' * self.stdout_indent_level)
 
 
 class LogTimer(object):
@@ -239,6 +290,19 @@ def is_mounted(target, src=None, opts=None):
         if line.split()[1] == os.path.abspath(target):
             return True
     return False
+
+
+def list_device_mounts(device):
+    # return mount entry if device is in /proc/mounts
+    mounts = ""
+    with open("/proc/mounts", "r") as fp:
+        mounts = fp.read()
+
+    dev_mounts = []
+    for line in mounts.splitlines():
+        if line.split()[0] == device:
+            dev_mounts.append(line)
+    return dev_mounts
 
 
 def do_mount(src, target, opts=None):
@@ -277,15 +341,49 @@ def ensure_dir(path, mode=None):
 
 
 def write_file(filename, content, mode=0o644, omode="w"):
+    """
+    write 'content' to file at 'filename' using python open mode 'omode'.
+    if mode is not set, then chmod file to mode. mode is 644 by default
+    """
     ensure_dir(os.path.dirname(filename))
     with open(filename, omode) as fp:
         fp.write(content)
-    os.chmod(filename, mode)
+    if mode:
+        os.chmod(filename, mode)
 
 
-def load_file(path, mode="r"):
-    with open(path, mode) as fp:
-        return fp.read()
+def load_file(path, read_len=None, offset=0, decode=True):
+    with open(path, "rb") as fp:
+        if offset:
+            fp.seek(offset)
+        contents = fp.read(read_len) if read_len else fp.read()
+
+    if decode:
+        return decode_binary(contents)
+    else:
+        return contents
+
+
+def decode_binary(blob, encoding='utf-8', errors='replace'):
+    # Converts a binary type into a text type using given encoding.
+    return blob.decode(encoding, errors=errors)
+
+
+def file_size(path):
+    """get the size of a file"""
+    with open(path, 'rb') as fp:
+        fp.seek(0, 2)
+        return fp.tell()
+
+
+def del_file(path):
+    try:
+        os.unlink(path)
+        LOG.debug("del_file: removed %s", path)
+    except OSError as e:
+        LOG.exception("del_file: %s did not exist.", path)
+        if e.errno != errno.ENOENT:
+            raise e
 
 
 def disable_daemons_in_root(target):
@@ -301,7 +399,7 @@ def disable_daemons_in_root(target):
          'done',
          ''])
 
-    fpath = os.path.join(target, "usr/sbin/policy-rc.d")
+    fpath = target_path(target, "/usr/sbin/policy-rc.d")
 
     if os.path.isfile(fpath):
         return False
@@ -312,7 +410,7 @@ def disable_daemons_in_root(target):
 
 def undisable_daemons_in_root(target):
     try:
-        os.unlink(os.path.join(target, "usr/sbin/policy-rc.d"))
+        os.unlink(target_path(target, "/usr/sbin/policy-rc.d"))
     except OSError as e:
         if e.errno != errno.ENOENT:
             raise
@@ -324,7 +422,7 @@ class ChrootableTarget(object):
     def __init__(self, target, allow_daemons=False, sys_resolvconf=True):
         if target is None:
             target = "/"
-        self.target = os.path.abspath(target)
+        self.target = target_path(target)
         self.mounts = ["/dev", "/proc", "/sys"]
         self.umounts = []
         self.disabled_daemons = False
@@ -334,25 +432,26 @@ class ChrootableTarget(object):
 
     def __enter__(self):
         for p in self.mounts:
-            tpath = os.path.join(self.target, p[1:])
+            tpath = target_path(self.target, p)
             if do_mount(p, tpath, opts='--bind'):
                 self.umounts.append(tpath)
 
         if not self.allow_daemons:
             self.disabled_daemons = disable_daemons_in_root(self.target)
 
-        target_etc = os.path.join(self.target, "etc")
+        rconf = target_path(self.target, "/etc/resolv.conf")
+        target_etc = os.path.dirname(rconf)
         if self.target != "/" and os.path.isdir(target_etc):
             # never muck with resolv.conf on /
             rconf = os.path.join(target_etc, "resolv.conf")
             rtd = None
             try:
-                rtd = tempfile.mkdtemp(dir=os.path.dirname(rconf))
+                rtd = tempfile.mkdtemp(dir=target_etc)
                 tmp = os.path.join(rtd, "resolv.conf")
                 os.rename(rconf, tmp)
                 self.rconf_d = rtd
                 shutil.copy("/etc/resolv.conf", rconf)
-            except:
+            except Exception:
                 if rtd:
                     shutil.rmtree(rtd)
                     self.rconf_d = None
@@ -365,25 +464,23 @@ class ChrootableTarget(object):
             undisable_daemons_in_root(self.target)
 
         # if /dev is to be unmounted, udevadm settle (LP: #1462139)
-        if os.path.join(self.target, "dev") in self.umounts:
+        if target_path(self.target, "/dev") in self.umounts:
             subp(['udevadm', 'settle'])
 
         for p in reversed(self.umounts):
             do_umount(p)
 
-        rconf = os.path.join(self.target, "etc", "resolv.conf")
+        rconf = target_path(self.target, "/etc/resolv.conf")
         if self.sys_resolvconf and self.rconf_d:
             os.rename(os.path.join(self.rconf_d, "resolv.conf"), rconf)
             shutil.rmtree(self.rconf_d)
 
+    def subp(self, *args, **kwargs):
+        kwargs['target'] = self.target
+        return subp(*args, **kwargs)
 
-class RunInChroot(ChrootableTarget):
-    def __call__(self, args, **kwargs):
-        if self.target != "/":
-            chroot = ["chroot", self.target]
-        else:
-            chroot = []
-        return subp(chroot + args, **kwargs)
+    def path(self, path):
+        return target_path(self.target, path)
 
 
 def is_exe(fpath):
@@ -392,14 +489,13 @@ def is_exe(fpath):
 
 
 def which(program, search=None, target=None):
-    if target is None or os.path.realpath(target) == "/":
-        target = "/"
+    target = target_path(target)
 
     if os.path.sep in program:
         # if program had a '/' in it, then do not search PATH
         # 'which' does consider cwd here. (cd / && which bin/ls) = bin/ls
         # so effectively we set cwd to / (or target)
-        if is_exe(os.path.sep.join((target, program,))):
+        if is_exe(target_path(target, program)):
             return program
 
     if search is None:
@@ -414,8 +510,9 @@ def which(program, search=None, target=None):
     search = [os.path.abspath(p) for p in search]
 
     for path in search:
-        if is_exe(os.path.sep.join((target, path, program,))):
-            return os.path.sep.join((path, program,))
+        ppath = os.path.sep.join((path, program))
+        if is_exe(target_path(target, ppath)):
+            return ppath
 
     return None
 
@@ -457,36 +554,94 @@ def get_paths(curtin_exe=None, lib=None, helpers=None):
 
 
 def get_architecture(target=None):
-    chroot = []
-    if target is not None:
-        chroot = ['chroot', target]
-    out, _ = subp(chroot + ['dpkg', '--print-architecture'],
-                  capture=True)
+    out, _ = subp(['dpkg', '--print-architecture'], capture=True,
+                  target=target)
     return out.strip()
 
 
 def has_pkg_available(pkg, target=None):
-    chroot = []
-    if target is not None:
-        chroot = ['chroot', target]
-    out, _ = subp(chroot + ['apt-cache', 'pkgnames'], capture=True)
+    out, _ = subp(['apt-cache', 'pkgnames'], capture=True, target=target)
     for item in out.splitlines():
         if pkg == item.strip():
             return True
     return False
 
 
+def get_installed_packages(target=None):
+    (out, _) = subp(['dpkg-query', '--list'], target=target, capture=True)
+
+    pkgs_inst = set()
+    for line in out.splitlines():
+        try:
+            (state, pkg, other) = line.split(None, 2)
+        except ValueError:
+            continue
+        if state.startswith("hi") or state.startswith("ii"):
+            pkgs_inst.add(re.sub(":.*", "", pkg))
+
+    return pkgs_inst
+
+
 def has_pkg_installed(pkg, target=None):
-    chroot = []
-    if target is not None:
-        chroot = ['chroot', target]
     try:
-        out, _ = subp(chroot + ['dpkg-query', '--show', '--showformat',
-                                '${db:Status-Abbrev}', pkg],
-                      capture=True)
+        out, _ = subp(['dpkg-query', '--show', '--showformat',
+                       '${db:Status-Abbrev}', pkg],
+                      capture=True, target=target)
         return out.rstrip() == "ii"
     except ProcessExecutionError:
         return False
+
+
+def parse_dpkg_version(raw, name=None, semx=None):
+    """Parse a dpkg version string into various parts and calcualate a
+       numerical value of the version for use in comparing package versions
+
+       returns a dictionary with the results
+    """
+    if semx is None:
+        semx = (10000, 100, 1)
+
+    upstream = raw.split('-')[0]
+    toks = upstream.split(".", 2)
+    if len(toks) == 3:
+        major, minor, micro = toks
+    elif len(toks) == 2:
+        major, minor, micro = (toks[0], toks[1], 0)
+    elif len(toks) == 1:
+        major, minor, micro = (toks[0], 0, 0)
+
+    version = {
+        'major': major,
+        'minor': minor,
+        'micro': micro,
+        'raw': raw,
+        'upstream': upstream,
+    }
+    if name:
+        version['name'] = name
+
+    if semx:
+        try:
+            version['semantic_version'] = int(
+                int(major) * semx[0] + int(minor) * semx[1] +
+                int(micro) * semx[2])
+        except (ValueError, IndexError):
+            version['semantic_version'] = None
+
+    return version
+
+
+def get_package_version(pkg, target=None, semx=None):
+    """Use dpkg-query to extract package pkg's version string
+       and parse the version string into a dictionary
+    """
+    try:
+        out, _ = subp(['dpkg-query', '--show', '--showformat',
+                       '${Version}', pkg], capture=True, target=target)
+        raw = out.rstrip()
+        return parse_dpkg_version(raw, name=pkg, semx=semx)
+    except ProcessExecutionError:
+        return None
 
 
 def find_newer(src, files):
@@ -534,11 +689,11 @@ def apt_update(target=None, env=None, force=False, comment=None,
     if comment.endswith("\n"):
         comment = comment[:-1]
 
-    marker = os.path.join(target, marker)
+    marker = target_path(target, marker)
     # if marker exists, check if there are files that would make it obsolete
-    listfiles = [os.path.join(target, "etc/apt/sources.list")]
+    listfiles = [target_path(target, "/etc/apt/sources.list")]
     listfiles += glob.glob(
-        os.path.join(target, "etc/apt/sources.list.d/*.list"))
+        target_path(target, "etc/apt/sources.list.d/*.list"))
 
     if os.path.exists(marker) and not force:
         if len(find_newer(marker, listfiles)) == 0:
@@ -546,7 +701,7 @@ def apt_update(target=None, env=None, force=False, comment=None,
 
     restore_perms = []
 
-    abs_tmpdir = tempfile.mkdtemp(dir=os.path.join(target, 'tmp'))
+    abs_tmpdir = tempfile.mkdtemp(dir=target_path(target, "/tmp"))
     try:
         abs_slist = abs_tmpdir + "/sources.list"
         abs_slistd = abs_tmpdir + "/sources.list.d"
@@ -555,8 +710,8 @@ def apt_update(target=None, env=None, force=False, comment=None,
         ch_slistd = ch_tmpdir + "/sources.list.d"
 
         # this file gets executed on apt-get update sometimes. (LP: #1527710)
-        motd_update = os.path.join(
-            target, "usr/lib/update-notifier/update-motd-updates-available")
+        motd_update = target_path(
+            target, "/usr/lib/update-notifier/update-motd-updates-available")
         pmode = set_unexecutable(motd_update)
         if pmode is not None:
             restore_perms.append((motd_update, pmode),)
@@ -581,8 +736,8 @@ def apt_update(target=None, env=None, force=False, comment=None,
             'update']
 
         # do not using 'run_apt_command' so we can use 'retries' to subp
-        with RunInChroot(target, allow_daemons=True) as inchroot:
-            inchroot(update_cmd, env=env, retries=retries)
+        with ChrootableTarget(target, allow_daemons=True) as inchroot:
+            inchroot.subp(update_cmd, env=env, retries=retries)
     finally:
         for fname, perms in restore_perms:
             os.chmod(fname, perms)
@@ -619,9 +774,8 @@ def run_apt_command(mode, args=None, aptopts=None, env=None, target=None,
         return env, cmd
 
     apt_update(target, env=env, comment=' '.join(cmd))
-    ric = RunInChroot(target, allow_daemons=allow_daemons)
-    with ric as inchroot:
-        return inchroot(cmd, env=env)
+    with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
+        return inchroot.subp(cmd, env=env)
 
 
 def system_upgrade(aptopts=None, target=None, env=None, allow_daemons=False):
@@ -650,7 +804,7 @@ def run_hook_if_exists(target, hook):
     """
     Look for "hook" in "target" and run it
     """
-    target_hook = os.path.join(target, 'curtin', hook)
+    target_hook = target_path(target, '/curtin/' + hook)
     if os.path.isfile(target_hook):
         LOG.debug("running %s" % target_hook)
         subp([target_hook])
@@ -762,6 +916,21 @@ def human2bytes(size):
     return val
 
 
+def bytes2human(size):
+    """convert size in bytes to human readable"""
+    if not isinstance(size, numeric_types):
+        raise ValueError('size must be a numeric value, not %s', type(size))
+    isize = int(size)
+    if isize != size:
+        raise ValueError('size "%s" is not a whole number.' % size)
+    if isize < 0:
+        raise ValueError('size "%d" < 0.' % isize)
+    mpliers = {'B': 1, 'K': 2 ** 10, 'M': 2 ** 20, 'G': 2 ** 30, 'T': 2 ** 40}
+    unit_order = sorted(mpliers, key=lambda x: -1 * mpliers[x])
+    unit = next((u for u in unit_order if (isize / mpliers[u]) >= 1), 'B')
+    return str(int(isize / mpliers[unit])) + unit
+
+
 def import_module(import_str):
     """Import a module."""
     __import__(import_str)
@@ -777,30 +946,42 @@ def try_import_module(import_str, default=None):
 
 
 def is_file_not_found_exc(exc):
-    return (isinstance(exc, IOError) and exc.errno == errno.ENOENT)
+    return (isinstance(exc, (IOError, OSError)) and
+            hasattr(exc, 'errno') and
+            exc.errno in (errno.ENOENT, errno.EIO, errno.ENXIO))
 
 
-def lsb_release():
+def _lsb_release(target=None):
     fmap = {'Codename': 'codename', 'Description': 'description',
             'Distributor ID': 'id', 'Release': 'release'}
+
+    data = {}
+    try:
+        out, _ = subp(['lsb_release', '--all'], capture=True, target=target)
+        for line in out.splitlines():
+            fname, _, val = line.partition(":")
+            if fname in fmap:
+                data[fmap[fname]] = val.strip()
+        missing = [k for k in fmap.values() if k not in data]
+        if len(missing):
+            LOG.warn("Missing fields in lsb_release --all output: %s",
+                     ','.join(missing))
+
+    except ProcessExecutionError as err:
+        LOG.warn("Unable to get lsb_release --all: %s", err)
+        data = {v: "UNAVAILABLE" for v in fmap.values()}
+
+    return data
+
+
+def lsb_release(target=None):
+    if target_path(target) != "/":
+        # do not use or update cache if target is provided
+        return _lsb_release(target)
+
     global _LSB_RELEASE
     if not _LSB_RELEASE:
-        data = {}
-        try:
-            out, err = subp(['lsb_release', '--all'], capture=True)
-            for line in out.splitlines():
-                fname, tok, val = line.partition(":")
-                if fname in fmap:
-                    data[fmap[fname]] = val.strip()
-            missing = [k for k in fmap.values() if k not in data]
-            if len(missing):
-                LOG.warn("Missing fields in lsb_release --all output: %s",
-                         ','.join(missing))
-
-        except ProcessExecutionError as e:
-            LOG.warn("Unable to get lsb_release --all: %s", e)
-            data = {v: "UNAVAILABLE" for v in fmap.values()}
-
+        data = _lsb_release()
         _LSB_RELEASE.update(data)
     return _LSB_RELEASE
 
@@ -815,8 +996,7 @@ class MergedCmdAppend(argparse.Action):
 
 
 def json_dumps(data):
-    return json.dumps(data, indent=1, sort_keys=True,
-                      separators=(',', ': ')).encode('utf-8')
+    return json.dumps(data, indent=1, sort_keys=True, separators=(',', ': '))
 
 
 def get_platform_arch():
@@ -828,5 +1008,138 @@ def get_platform_arch():
         'aarch64': 'arm64',
     }
     return platform2arch.get(platform.machine(), platform.machine())
+
+
+def basic_template_render(content, params):
+    """This does simple replacement of bash variable like templates.
+
+    It identifies patterns like ${a} or $a and can also identify patterns like
+    ${a.b} or $a.b which will look for a key 'b' in the dictionary rooted
+    by key 'a'.
+    """
+
+    def replacer(match):
+        """ replacer
+            replacer used in regex match to replace content
+        """
+        # Only 1 of the 2 groups will actually have a valid entry.
+        name = match.group(1)
+        if name is None:
+            name = match.group(2)
+        if name is None:
+            raise RuntimeError("Match encountered but no valid group present")
+        path = collections.deque(name.split("."))
+        selected_params = params
+        while len(path) > 1:
+            key = path.popleft()
+            if not isinstance(selected_params, dict):
+                raise TypeError("Can not traverse into"
+                                " non-dictionary '%s' of type %s while"
+                                " looking for subkey '%s'"
+                                % (selected_params,
+                                   selected_params.__class__.__name__,
+                                   key))
+            selected_params = selected_params[key]
+        key = path.popleft()
+        if not isinstance(selected_params, dict):
+            raise TypeError("Can not extract key '%s' from non-dictionary"
+                            " '%s' of type %s"
+                            % (key, selected_params,
+                               selected_params.__class__.__name__))
+        return str(selected_params[key])
+
+    return BASIC_MATCHER.sub(replacer, content)
+
+
+def render_string(content, params):
+    """ render_string
+        render a string following replacement rules as defined in
+        basic_template_render returning the string
+    """
+    if not params:
+        params = {}
+    return basic_template_render(content, params)
+
+
+def is_resolvable(name):
+    """determine if a url is resolvable, return a boolean
+    This also attempts to be resilent against dns redirection.
+
+    Note, that normal nsswitch resolution is used here.  So in order
+    to avoid any utilization of 'search' entries in /etc/resolv.conf
+    we have to append '.'.
+
+    The top level 'invalid' domain is invalid per RFC.  And example.com
+    should also not exist.  The random entry will be resolved inside
+    the search list.
+    """
+    global _DNS_REDIRECT_IP
+    if _DNS_REDIRECT_IP is None:
+        badips = set()
+        badnames = ("does-not-exist.example.com.", "example.invalid.")
+        badresults = {}
+        for iname in badnames:
+            try:
+                result = socket.getaddrinfo(iname, None, 0, 0,
+                                            socket.SOCK_STREAM,
+                                            socket.AI_CANONNAME)
+                badresults[iname] = []
+                for (_, _, _, cname, sockaddr) in result:
+                    badresults[iname].append("%s: %s" % (cname, sockaddr[0]))
+                    badips.add(sockaddr[0])
+            except (socket.gaierror, socket.error):
+                pass
+        _DNS_REDIRECT_IP = badips
+        if badresults:
+            LOG.debug("detected dns redirection: %s", badresults)
+
+    try:
+        result = socket.getaddrinfo(name, None)
+        # check first result's sockaddr field
+        addr = result[0][4][0]
+        if addr in _DNS_REDIRECT_IP:
+            LOG.debug("dns %s in _DNS_REDIRECT_IP", name)
+            return False
+        LOG.debug("dns %s resolved to '%s'", name, result)
+        return True
+    except (socket.gaierror, socket.error):
+        LOG.debug("dns %s failed to resolve", name)
+        return False
+
+
+def is_resolvable_url(url):
+    """determine if this url is resolvable (existing or ip)."""
+    return is_resolvable(urlparse(url).hostname)
+
+
+def target_path(target, path=None):
+    # return 'path' inside target, accepting target as None
+    if target in (None, ""):
+        target = "/"
+    elif not isinstance(target, string_types):
+        raise ValueError("Unexpected input for target: %s" % target)
+    else:
+        target = os.path.abspath(target)
+        # abspath("//") returns "//" specifically for 2 slashes.
+        if target.startswith("//"):
+            target = target[1:]
+
+    if not path:
+        return target
+
+    # os.path.join("/etc", "/foo") returns "/foo". Chomp all leading /.
+    while len(path) and path[0] == "/":
+        path = path[1:]
+
+    return os.path.join(target, path)
+
+
+class RunInChroot(ChrootableTarget):
+    """Backwards compatibility for RunInChroot (LP: #1617375).
+    It needs to work like:
+        with RunInChroot("/target") as in_chroot:
+            in_chroot(["your", "chrooted", "command"])"""
+    __call__ = ChrootableTarget.subp
+
 
 # vi: ts=4 expandtab syntax=python

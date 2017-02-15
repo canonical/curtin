@@ -12,6 +12,7 @@ class TestLvmAbs(VMBaseClass):
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         ls /dev/disk/by-dname > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
         """)]
@@ -62,9 +63,28 @@ class TrustyTestLvm(relbase.trusty, TestLvmAbs):
         print("test_dname does not work for Trusty")
 
 
-class VividTestLvm(relbase.vivid, TestLvmAbs):
+class TrustyHWEXTestLvm(relbase.trusty_hwe_x, TestLvmAbs):
     __test__ = True
+
+    # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
+    # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
+    # when dname works on trusty, then we need to re-enable by removing line.
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
 
 
 class WilyTestLvm(relbase.wily, TestLvmAbs):
+    # EOL - 2016-07-28
+    __test__ = False
+
+
+class XenialTestLvm(relbase.xenial, TestLvmAbs):
+    __test__ = True
+
+
+class YakketyTestLvm(relbase.yakkety, TestLvmAbs):
+    __test__ = True
+
+
+class ZestyTestLvm(relbase.zesty, TestLvmAbs):
     __test__ = True

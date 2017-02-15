@@ -2,7 +2,6 @@ from . import (VMBaseClass)
 
 from .releases import base_vm_classes as relbase
 
-import os
 import textwrap
 
 
@@ -12,7 +11,7 @@ class TestBasicAbs(VMBaseClass):
     conf_file = "examples/tests/uefi_basic.yaml"
     extra_disks = []
     uefi = True
-    disk_to_check = [('main_disk', 1), ('main_disk', 2)]
+    disk_to_check = [('main_disk', 1), ('main_disk', 2), ('main_disk', 3)]
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda > blkid_output_vda
@@ -23,6 +22,7 @@ class TestBasicAbs(VMBaseClass):
         cat /etc/fstab > fstab
         mkdir -p /dev/disk/by-dname
         ls /dev/disk/by-dname/ > ls_dname
+        find /etc/network/interfaces.d > find_interfacesd
         ls /sys/firmware/efi/ > ls_sys_firmware_efi
         cat /sys/class/block/vda/queue/logical_block_size > vda_lbs
         cat /sys/class/block/vda/queue/physical_block_size > vda_pbs
@@ -39,7 +39,7 @@ class TestBasicAbs(VMBaseClass):
              "proc_partitions"])
 
     def test_sys_firmware_efi(self):
-        sys_efi_expected = [
+        sys_efi_possible = [
             'config_table',
             'efivars',
             'fw_platform_size',
@@ -49,22 +49,20 @@ class TestBasicAbs(VMBaseClass):
             'systab',
             'vars',
         ]
-        sys_efi = self.td.collect + "ls_sys_firmware_efi"
-        if (os.path.exists(sys_efi)):
-            with open(sys_efi) as fp:
-                efi_lines = fp.read().strip().split('\n')
-                self.assertEqual(sorted(sys_efi_expected),
-                                 sorted(efi_lines))
+        efi_lines = self.load_collect_file(
+            "ls_sys_firmware_efi").strip().split('\n')
+
+        # sys/firmware/efi contents differ based on kernel and configuration
+        for efi_line in efi_lines:
+            self.assertIn(efi_line, sys_efi_possible)
 
     def test_disk_block_sizes(self):
         """ Test disk logical and physical block size are match
             the class block size.
         """
         for bs in ['lbs', 'pbs']:
-            with open(os.path.join(self.td.collect,
-                      'vda_' + bs), 'r') as fp:
-                size = int(fp.read())
-                self.assertEqual(self.disk_block_size, size)
+            size = int(self.load_collect_file('vda_' + bs))
+            self.assertEqual(self.disk_block_size, size)
 
     def test_disk_block_size_with_blockdev(self):
         """ validate maas setting
@@ -74,10 +72,8 @@ class TestBasicAbs(VMBaseClass):
         --getbsz                  get blocksize
         """
         for syscall in ['getss', 'getpbsz']:
-            with open(os.path.join(self.td.collect,
-                      'vda_blockdev_' + syscall), 'r') as fp:
-                size = int(fp.read())
-                self.assertEqual(self.disk_block_size, size)
+            size = int(self.load_collect_file('vda_blockdev_' + syscall))
+            self.assertEqual(self.disk_block_size, size)
 
 
 class PreciseUefiTestBasic(relbase.precise, TestBasicAbs):
@@ -103,15 +99,24 @@ class TrustyUefiTestBasic(relbase.trusty, TestBasicAbs):
         print("test_ptable does not work for Trusty")
 
 
+class TrustyHWEXUefiTestBasic(relbase.trusty_hwe_x, TrustyUefiTestBasic):
+    __test__ = True
+
+
 class WilyUefiTestBasic(relbase.wily, TestBasicAbs):
-    __test__ = True
-
-
-class VividUefiTestBasic(relbase.vivid, TestBasicAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialUefiTestBasic(relbase.xenial, TestBasicAbs):
+    __test__ = True
+
+
+class YakketyUefiTestBasic(relbase.yakkety, TestBasicAbs):
+    __test__ = True
+
+
+class ZestyUefiTestBasic(relbase.zesty, TestBasicAbs):
     __test__ = True
 
 
@@ -123,13 +128,23 @@ class TrustyUefiTestBasic4k(TrustyUefiTestBasic):
     disk_block_size = 4096
 
 
-class VividUefiTestBasic4k(VividUefiTestBasic):
-    disk_block_size = 4096
+class TrustyHWEXUefiTestBasic4k(relbase.trusty_hwe_x, TrustyUefiTestBasic4k):
+    __test__ = True
 
 
 class WilyUefiTestBasic4k(WilyUefiTestBasic):
+    # EOL - 2016-07-28
+    __test__ = False
     disk_block_size = 4096
 
 
 class XenialUefiTestBasic4k(XenialUefiTestBasic):
+    disk_block_size = 4096
+
+
+class YakketyUefiTestBasic4k(YakketyUefiTestBasic):
+    disk_block_size = 4096
+
+
+class ZestyUefiTestBasic4k(ZestyUefiTestBasic):
     disk_block_size = 4096

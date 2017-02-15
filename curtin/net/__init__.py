@@ -299,7 +299,7 @@ def render_persistent_net(network_state):
             mac = iface.get('mac_address', '')
             # len(macaddr) == 2 * 6 + 5 == 17
             if ifname and mac and len(mac) == 17:
-                content += generate_udev_rule(ifname, mac)
+                content += generate_udev_rule(ifname, mac.lower())
 
     return content
 
@@ -331,7 +331,14 @@ def iface_add_subnet(iface, subnet):
 
 
 # TODO: switch to valid_map for attrs
-def iface_add_attrs(iface):
+def iface_add_attrs(iface, index):
+    # If the index is non-zero, this is an alias interface. Alias interfaces
+    # represent additional interface addresses, and should not have additional
+    # attributes. (extra attributes here are almost always either incorrect,
+    # or are applied to the parent interface.) So if this is an alias, stop
+    # right here.
+    if index != 0:
+        return ""
     content = ""
     ignore_map = [
         'control',
@@ -342,38 +349,80 @@ def iface_add_attrs(iface):
         'subnets',
         'type',
     ]
-    if iface['type'] not in ['bond', 'bridge']:
+
+    # These values require repetitive printing
+    # of the key for each value
+    multiline_keys = [
+        'bridge_pathcost',
+        'bridge_portprio',
+        'bridge_waitport',
+    ]
+
+    def add_entry(key, value):
+        if type(value) == list:
+            value = " ".join([str(v) for v in value])
+        return "    {} {}\n".format(key, value)
+
+    if iface['type'] not in ['bond', 'bridge', 'vlan']:
         ignore_map.append('mac_address')
 
     for key, value in iface.items():
         if value and key not in ignore_map:
-            if type(value) == list:
-                value = " ".join(value)
-            content += "    {} {}\n".format(key, value)
+            if key in multiline_keys:
+                for v in value:
+                    content += add_entry(key, v)
+            else:
+                content += add_entry(key, value)
 
     return content
 
 
-def render_route(route):
-    content = "up route add"
+def render_route(route, indent=""):
+    """When rendering routes for an iface, in some cases applying a route
+    may result in the route command returning non-zero which produces
+    some confusing output for users manually using ifup/ifdown[1].  To
+    that end, we will optionally include an '|| true' postfix to each
+    route line allowing users to work with ifup/ifdown without using
+    --force option.
+
+    We may at somepoint not want to emit this additional postfix, and
+    add a 'strict' flag to this function.  When called with strict=True,
+    then we will not append the postfix.
+
+    1. http://askubuntu.com/questions/168033/
+             how-to-set-static-routes-in-ubuntu-server
+    """
+    content = []
+    up = indent + "post-up route add"
+    down = indent + "pre-down route del"
+    or_true = " || true"
     mapping = {
         'network': '-net',
         'netmask': 'netmask',
         'gateway': 'gw',
         'metric': 'metric',
     }
-    for k in ['network', 'netmask', 'gateway', 'metric']:
-        if k in route:
-            content += " %s %s" % (mapping[k], route[k])
+    if route['network'] == '0.0.0.0' and route['netmask'] == '0.0.0.0':
+        default_gw = " default gw %s" % route['gateway']
+        content.append(up + default_gw + or_true)
+        content.append(down + default_gw + or_true)
+    elif route['network'] == '::' and route['netmask'] == 0:
+        # ipv6!
+        default_gw = " -A inet6 default gw %s" % route['gateway']
+        content.append(up + default_gw + or_true)
+        content.append(down + default_gw + or_true)
+    else:
+        route_line = ""
+        for k in ['network', 'netmask', 'gateway', 'metric']:
+            if k in route:
+                route_line += " %s %s" % (mapping[k], route[k])
+        content.append(up + route_line + or_true)
+        content.append(down + route_line + or_true)
+    return "\n".join(content) + "\n"
 
-    content += '\n'
-    return content
 
-
-def iface_start_entry(iface, index):
+def iface_start_entry(iface):
     fullname = iface['name']
-    if index != 0:
-        fullname += ":%s" % index
 
     control = iface['control']
     if control == "auto":
@@ -388,6 +437,16 @@ def iface_start_entry(iface, index):
 
     return ("{cverb} {fullname}\n"
             "iface {fullname} {inet} {mode}\n").format(**subst)
+
+
+def subnet_is_ipv6(subnet):
+    # 'static6' or 'dhcp6'
+    if subnet['type'].endswith('6'):
+        # This is a request for DHCPv6.
+        return True
+    elif subnet['type'] == 'static' and ":" in subnet['address']:
+        return True
+    return False
 
 
 def render_interfaces(network_state):
@@ -417,34 +476,43 @@ def render_interfaces(network_state):
             content += "\n"
         subnets = iface.get('subnets', {})
         if subnets:
-            for index, subnet in zip(range(0, len(subnets)), subnets):
+            for index, subnet in enumerate(subnets):
                 if content[-2:] != "\n\n":
                     content += "\n"
                 iface['index'] = index
                 iface['mode'] = subnet['type']
                 iface['control'] = subnet.get('control', 'auto')
-                if iface['mode'].endswith('6'):
-                    iface['inet'] += '6'
-                elif iface['mode'] == 'static' and ":" in subnet['address']:
-                    iface['inet'] += '6'
-                if iface['mode'].startswith('dhcp'):
+                subnet_inet = 'inet'
+                if subnet_is_ipv6(subnet):
+                    subnet_inet += '6'
+                iface['inet'] = subnet_inet
+                if subnet['type'].startswith('dhcp'):
                     iface['mode'] = 'dhcp'
 
-                content += iface_start_entry(iface, index)
+                # do not emit multiple 'auto $IFACE' lines as older (precise)
+                # ifupdown complains
+                if "auto %s\n" % (iface['name']) in content:
+                    iface['control'] = 'alias'
+
+                content += iface_start_entry(iface)
                 content += iface_add_subnet(iface, subnet)
-                content += iface_add_attrs(iface)
+                content += iface_add_attrs(iface, index)
+
+                for route in subnet.get('routes', []):
+                    content += render_route(route, indent="    ") + '\n'
+
         else:
             # ifenslave docs say to auto the slave devices
-            if 'bond-master' in iface:
+            if 'bond-master' in iface or 'bond-slaves' in iface:
                 content += "auto {name}\n".format(**iface)
             content += "iface {name} {inet} {mode}\n".format(**iface)
-            content += iface_add_attrs(iface)
+            content += iface_add_attrs(iface, 0)
 
     for route in network_state.get('routes'):
         content += render_route(route)
 
     # global replacements until v2 format
-    content = content.replace('mac_address', 'hwaddress')
+    content = content.replace('mac_address', 'hwaddress ether')
 
     # Play nice with others and source eni config files
     content += "\nsource /etc/network/interfaces.d/*.cfg\n"
@@ -468,5 +536,10 @@ def render_network_state(target, network_state):
     cc_disable = os.path.sep.join((target, cc,))
     LOG.info('Writing ' + cc_disable)
     util.write_file(cc_disable, content='network: {config: disabled}\n')
+
+
+def get_interface_mac(ifname):
+    """Returns the string value of an interface's MAC Address"""
+    return read_sys_net(ifname, "address", enoent=False)
 
 # vi: ts=4 expandtab syntax=python

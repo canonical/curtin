@@ -12,10 +12,14 @@ sys.path.insert(1, os.path.realpath(os.path.join(
 from tests.vmtests import (
     IMAGE_DIR, IMAGE_SRC_URL, sync_images)
 from tests.vmtests.image_sync import ITEM_NAME_FILTERS
-from tests.vmtests.helpers import find_releases
+from tests.vmtests.helpers import find_releases_by_distro
 from curtin.util import get_platform_arch
 
 DEFAULT_ARCH = get_platform_arch()
+
+
+def _fmt_list_filter(filter_name, matches):
+    return '~'.join((filter_name, '|'.join(matches)))
 
 
 if __name__ == '__main__':
@@ -34,8 +38,24 @@ if __name__ == '__main__':
                         print(" removing vmtest file %s" % fpath)
                         os.unlink(fpath)
 
-    releases = find_releases()
-    release_filter = 'release~{}'.format('|'.join(releases))
-    my_filters = ['arch=' + DEFAULT_ARCH, release_filter] + ITEM_NAME_FILTERS
+    arg_releases = [r for r in sys.argv[1:] if r != "--clean"]
+    arch_filters = ['arch={}'.format(DEFAULT_ARCH)]
+    filter_sets = []
+    if len(arg_releases):
+        filter_sets.append([_fmt_list_filter('release', arg_releases),
+                            _fmt_list_filter('krel', arg_releases)])
+    else:
+        for distname, distro in find_releases_by_distro().items():
+            f = ['os={}'.format(distname),
+                 _fmt_list_filter('release', distro.get('releases'))]
+            # ensure we fetch release=x krel=x items
+            krels = distro.get('krels')
+            if krels:
+                krels = set(krels).union(set(distro.get('releases')))
+                f.append(_fmt_list_filter('krel', krels))
+            filter_sets.extend([f])
+
     # Sync images.
-    sync_images(IMAGE_SRC_URL, IMAGE_DIR, filters=my_filters, verbosity=1)
+    for filter_set in filter_sets:
+        sync_images(IMAGE_SRC_URL, IMAGE_DIR, verbosity=2,
+                    filters=filter_set + ITEM_NAME_FILTERS + arch_filters)
