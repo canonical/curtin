@@ -64,8 +64,9 @@ _DNS_REDIRECT_IP = None
 BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 
-def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
-          logstring=False, decode="replace", target=None, cwd=None):
+def _subp(args, data=None, rcs=None, env=None, capture=False,
+          log_captured=False, shell=False, logstring=False, decode="replace",
+          target=None, cwd=None):
     if rcs is None:
         rcs = [0]
 
@@ -116,6 +117,9 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
         if devnull_fp:
             devnull_fp.close()
 
+    if capture and log_captured:
+        LOG.debug("Command returned stdout=%s, stderr=%s", out, err)
+
     rc = sp.returncode  # pylint: disable=E1101
     if rc not in rcs:
         raise ProcessExecutionError(stdout=out, stderr=err,
@@ -137,6 +141,10 @@ def subp(*args, **kwargs):
     :param capture:
         boolean indicating if output should be captured.  If True, then stderr
         and stdout will be returned.  If False, they will not be redirected.
+    :param log_captured:
+        boolean indicating if output should be logged on capture.  If
+        True, then stderr and stdout will be logged at DEBUG level.  If
+        False, they will not be logged.
     :param shell: boolean indicating if this should be run with a shell.
     :param logstring:
         the command will be logged to DEBUG.  If it contains info that should

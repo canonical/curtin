@@ -87,7 +87,7 @@ def iscsiadm_sessions():
     cmd = ["iscsiadm", "--mode=session", "--op=show"]
     # rc 21 indicates no sessions currently exist, which is not
     # inherently incorrect (if not logged in yet)
-    out, _ = util.subp(cmd, rcs=[0, 21], capture=True)
+    out, _ = util.subp(cmd, rcs=[0, 21], capture=True, log_captured=True)
     return out
 
 
@@ -102,7 +102,7 @@ def iscsiadm_discovery(portal):
            "--portal=%s" % portal]
 
     try:
-        util.subp(cmd)
+        util.subp(cmd, capture=True, log_captured=True)
     except util.ProcessExecutionError as e:
         LOG.warning("iscsiadm_discovery to %s failed with exit code %d",
                     portal, e.exit_code)
@@ -114,7 +114,7 @@ def iscsiadm_login(target, portal):
 
     cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
            '--portal=%s' % portal, '--login']
-    util.subp(cmd)
+    util.subp(cmd, capture=True, log_captured=True)
 
 
 def iscsiadm_set_automatic(target, portal):
@@ -124,7 +124,7 @@ def iscsiadm_set_automatic(target, portal):
            '--portal=%s' % portal, '--op=update',
            '--name=node.startup', '--value=automatic']
 
-    util.subp(cmd)
+    util.subp(cmd, capture=True, log_captured=True)
 
 
 def iscsiadm_logout(target, portal=None):
