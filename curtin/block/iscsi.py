@@ -204,7 +204,7 @@ def disconnect_target_disks(target_root_path=None):
                 LOG.warn("Unable to logout of iSCSI target %s: %s", target, e)
 
     if fails:
-        raise util.RunTimeError(
+        raise RuntimeError(
             "Unable to logout of iSCSI targets: %s" % ', '.join(fails))
 
 

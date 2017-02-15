@@ -436,14 +436,14 @@ class VMBaseClass(TestCase):
 
         try:
             cls.tgtd_ip, cls.tgtd_port = \
-                iscsi.assert_iscsi_portal_is_valid(portal)
+                iscsi.assert_valid_iscsi_portal(portal)
         except ValueError as e:
             if portal_v4:
                 raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V4 is invalid: "
-                                 "%s", e.msg)
+                                 "%s", e)
             else:
                 raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V6 is invalid: "
-                                 "%s", e.msg)
+                                 "%s", e)
 
         # copy testcase YAML to a temporary file in order to replace
         # placeholders
