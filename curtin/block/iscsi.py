@@ -121,7 +121,7 @@ def iscsiadm_authenticate(target, portal, user=None, password=None,
                           iuser=None, ipassword=None):
     LOG.debug('iscsiadm_authenticate: target=%s portal=%s '
               'user=%s password=HIDDEN iuser=%s ipassword=HIDDEN',
-              target, portal, user, password, iuser, ipassword)
+              target, portal, user, iuser)
 
     if iuser or ipassword:
         cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
