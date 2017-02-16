@@ -142,7 +142,7 @@ def iscsiadm_authenticate(target, portal, user=None, password=None,
                    '--name=discovery.sendtargets.auth.password',
                    '--value=%s' % ipassword]
             util.subp(cmd, capture=True, log_captured=True)
- 
+
     if user or password:
         cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
                '--portal=%s' % portal, '--op=update',
