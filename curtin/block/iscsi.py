@@ -119,13 +119,49 @@ def iscsiadm_set_automatic(target, portal):
 
 def iscsiadm_authenticate(target, portal, user=None, password=None,
                           iuser=None, ipassword=None):
-    LOG.debug('iscsiadm_set_automatic: target=%s portal=%s', target, portal)
+    LOG.debug('iscsiadm_authenticate: target=%s portal=%s '
+              'user=%s password=HIDDEN iuser=%s ipassword=HIDDEN',
+              target, portal, user, password, iuser, ipassword)
 
-    cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
-           '--portal=%s' % portal, '--op=update',
-           '--name=node.startup', '--value=automatic']
+    if iuser or ipassword:
+        cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
+               '--portal=%s' % portal, '--op=update',
+               '--name=discovery.sendtargets.auth.authmethod', '--value=CHAP']
+        util.subp(cmd, capture=True, log_captured=True)
 
-    util.subp(cmd, capture=True, log_captured=True)
+        if iuser:
+            cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
+                   '--portal=%s' % portal, '--op=update',
+                   '--name=discovery.sendtargets.auth.username',
+                   '--value=%s' % iuser]
+            util.subp(cmd, capture=True, log_captured=True)
+
+        if ipassword:
+            cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
+                   '--portal=%s' % portal, '--op=update',
+                   '--name=discovery.sendtargets.auth.password',
+                   '--value=%s' % ipassword]
+            util.subp(cmd, capture=True, log_captured=True)
+ 
+    if user or password:
+        cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
+               '--portal=%s' % portal, '--op=update',
+               '--name=node.session.auth.authmethod', '--value=CHAP']
+        util.subp(cmd, capture=True, log_captured=True)
+
+        if iuser:
+            cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
+                   '--portal=%s' % portal, '--op=update',
+                   '--name=node.session.auth.username',
+                   '--value=%s' % iuser]
+            util.subp(cmd, capture=True, log_captured=True)
+
+        if ipassword:
+            cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
+                   '--portal=%s' % portal, '--op=update',
+                   '--name=node.session.auth.password',
+                   '--value=%s' % ipassword]
+            util.subp(cmd, capture=True, log_captured=True)
 
 
 def iscsiadm_logout(target, portal):
