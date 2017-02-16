@@ -251,8 +251,8 @@ find_apt_proxy() {
 
 get_tgt_tid() {
     # retry until we successfully register a tid in tgtadm, return it.
-    # disk is like: src:size:iscsi:bsize:target
-    local disk="$1" src="$2" out="" tid="" lun="1" ret=""
+    local target="$1" src="$2" out="" tid="" lun="1" ret=""
+    local user="$3" password="$4" iuser="$5" ipassword="$6"
     while true; do
         # use next target ID
         # this is racy, potentially, but we iterate until it works
@@ -263,10 +263,10 @@ get_tgt_tid() {
             awk -F' ' '/^Target/ {tid=$2} END{gsub(":","",tid); print tid+1}')
 
         tgtadm --lld=iscsi --mode=target --op=new "--tid=$tid" \
-            "--targetname=$disk" || {
+            "--targetname=$target" || {
             ret=$?
             debug 1 "failed [$ret] in attempt to register tid=$tid " \
-                "targetname=$disk"
+                "targetname=$target"
             sleep 0.1
             continue
         }
@@ -279,9 +279,54 @@ get_tgt_tid() {
             return 1
         }
 
+        if [ -n "$user" ]; then
+            tgtadm --lld=iscsi --mode=account --op=show | grep -q "${user}"
+            if [ $? != 0 ]; then
+                tgtadm --lld=iscsi --mode=account --op=new "--user=${user}" \
+                    "--password=${password}" || {
+                    RC=$?
+                    error "Unable to create TGT user (${user}:${password}): ${RC}"
+                    error "Does a prior config need to be cleaned up?"
+                    return 1
+                }
+             
+                tgtadm --lld=iscsi --mode=account --op=bind "--tid=$tid" \
+                    "--user=${user}" --outgoing || {
+                    RC=$?
+                    error "Unable to set TGT target ${tid} target auth " \
+                          "user to ${user}: ${RC}."
+                    error "Does a prior config need to be cleaned up?"
+                    return 1
+                }
+            fi
+        fi
+
+        if [ -n "$iuser" ]; then
+            tgtadm --lld=iscsi --mode=account --op=show | grep -q "${iuser}"
+            if [ $? != 0 ]; then
+                tgtadm --lld=iscsi --mode=account --op=new "--user=${iuser}" \
+                    "--password=${ipassword}" || {
+                    RC=$?
+                    error "Unable to create TGT user (${iuser}:${ipassword}): ${RC}"
+                    error "Does a prior config need to be cleaned up?"
+                    return 1
+                }
+             
+                tgtadm --lld=iscsi --mode=account --op=bind "--tid=$tid" \
+                    "--user=${iuser}" || {
+                    RC=$?
+                    error "Unable to set TGT target ${tid} initiator user " \
+                          "to ${iuser}: ${RC}."
+                    error "Does a prior config need to be cleaned up?"
+                    return 1
+                }
+            fi
+        fi
+
+        # set all initiators to be able to authenticate
         tgtadm --lld=iscsi --mode=target --op=bind "--tid=$tid" \
             -I ALL || {
-            error "Unable to set TGT target ACL to ALL."
+            error "Unable to set TGT target ${tid} ACL to ALL."
             error "Does a prior config need to be cleaned up?"
             return 1
         }
@@ -414,6 +459,7 @@ main() {
         # 4=src:size:driver:bsize
         # 5=src:size:driver:bsize:devopts
         # 6=src:size:iscsi:bsize:target
+        # 7=src:size:iscsi:bsize:target:user:password:iuser:ipassword
         src=$(echo $disk | awk -F: '{print $1}')
         size=$(echo $disk | awk -F: '{print $2}')
         driver=$(echo $disk | awk -F: '{print $3}')
@@ -450,13 +496,31 @@ main() {
         # We do not pass iSCSI disks down to qemu, as that will use
         # qemu's iSCSI target layer and not the host tgt
         if [ "${driver}" == "iscsi" ]; then
-            local iscsi_disk="" tid=""
-            iscsi_disk=$(echo "$disk" | awk -F: '{print $5}') &&
-                [ -n "$iscsi_disk" ] || {
-                error "empty disk for iscsi disk '$disk'"
+            local target="" tid="" user="" password=""
+            local iuser="" ipassword=""
+            target=$(echo "$disk" | awk -F: '{print $5}') &&
+                [ -n "$target" ] || {
+                error "empty target for iSCSI disk '$disk'"
                 return 1
             }
-            get_tgt_tid "$iscsi_disk" "$src" || return
+            user=$(echo "$disk" | awk -F: '{print $6}')
+            password=$(echo "$disk" | awk -F: '{print $7}')
+            [ -n "$user" -a -n "$password" ] || \
+                [ -z "$user" -a -z "$password" ] || {
+                error "both target user ($user) and password ($password) " \
+                      "must be specified for iSCSI disk '$disk'"
+                return 1
+            }
+            iuser=$(echo "$disk" | awk -F: '{print $8}')
+            ipassword=$(echo "$disk" | awk -F: '{print $9}')
+            [ -n "$iuser" -a -n "$ipassword" ] || \
+                [ -z "$iuser" -a -z "$ipassword" ] || {
+                error "both initiator user ($iuser) and password ($ipassword) " \
+                      "must be specified for iSCSI disk '$disk'"
+                return 1
+            }
+            get_tgt_tid "$target" "$src" "$user" "$password" \
+                "$iuser" "$ipassword" || return
             tid="$_RET"
             debug 1 "registered $disk to tgt tid=$tid"
             continue

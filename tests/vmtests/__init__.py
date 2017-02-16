@@ -457,15 +457,38 @@ class VMBaseClass(TestCase):
         # iscsi_disks in the testcase
         # path:size:block_size:serial=,port=,cport=
         cls._iscsi_disks = list()
-        for (disk_no, disk_sz) in enumerate(cls.iscsi_disks):
+        for (disk_no, disk_dict) in enumerate(cls.iscsi_disks):
+            try:
+                disk_sz = disk_dict['size']
+            except KeyError:
+                raise ValueError('No size specified for iSCSI disk')
+            try:
+                disk_user, disk_password = disk_dict['auth'].split(':')
+                if len(disk_user) == 0 and len(disk_password) > 0:
+                    raise ValueError('Specifying iSCSI target password '
+                                     'without user is invalid')
+            except KeyError:
+                disk_user = ''
+                disk_password = ''
+
+            try:
+                disk_iuser, disk_ipassword = disk_dict['iauth'].split(':')
+                if len(disk_iuser) == 0 and len(disk_ipassword) > 0:
+                    raise ValueError('Specifying iSCSI initiator password '
+                                     'without user is invalid')
+            except KeyError:
+                disk_iuser = ''
+                disk_ipassword = ''
+
             uuid, _ = util.subp(['uuidgen'], capture=True,
                                 decode='replace')
             uuid = uuid.rstrip()
             target = 'curtin_%s' % uuid
             cls._iscsi_disks.append(target)
             dpath = os.path.join(cls.td.disks, '%s.img' % (target))
-            iscsi_disk = '{}:{}:iscsi:{}:{}'.format(
-                dpath, disk_sz, cls.disk_block_size, target)
+            iscsi_disk = '{}:{}:iscsi:{}:{}:{}:{}:{}:{}'.format(
+                dpath, disk_sz, cls.disk_block_size, target,
+                disk_user, disk_password, disk_iuser, disk_ipassword)
             disks.extend(['--disk', iscsi_disk])
 
             # replace next __RFC4173__ placeholder in YAML
@@ -474,11 +497,24 @@ class VMBaseClass(TestCase):
                 with open(cls.conf_file, 'w+t') as conf:
                     for line in temp_yaml:
                         if '__RFC4173__' in line:
+                            actual_rfc4173 = ''
+                            if len(disk_user) > 0:
+                                actual_rfc4173 += '%s:%s' % (disk_user,
+                                                             disk_password)
+                            if len(disk_iuser) > 0:
+                                # empty target user/password
+                                if len(actual_rfc4173) == 0:
+                                    actual_rfc4173 += '::'
+                                actual_rfc4173 += ':%s:%s' % (disk_iuser,
+                                                              disk_ipassword)
+                            # any auth specified?
+                            if len(actual_rfc4173) > 0:
+                                actual_rfc4173 += '@'
                             # assumes LUN 1
-                            line = line.replace('__RFC4173__',
-                                                '%s::%s:1:%s' %
-                                                (cls.tgtd_ip,
-                                                 cls.tgtd_port, target))
+                            actual_rfc4173 += '%s::%s:1:%s' % (
+                                              cls.tgtd_ip,
+                                              cls.tgtd_port, target)
+                            line = line.replace('__RFC4173__', actual_rfc4173)
                         conf.write(line)
         return disks
 
