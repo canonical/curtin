@@ -75,11 +75,15 @@ def write_image_to_disk(source, dev):
     """
     Write disk image to block device
     """
+    extractor = {
+        'dd-tgz': '|smtar -SxOzf -',
+        'dd-xz': '|zcat'
+    }
     (devname, devnode) = block.get_dev_name_entry(dev)
     util.subp(args=['sh', '-c',
-                    ('wget "$1" --progress=dot:mega -O - |'
-                     'tar -SxOzf - | dd of="$2"'),
-                    '--', source, devnode])
+                    ('wget "$1" --progress=dot:mega -O - ' +
+                     extractor[source['type']] + '| dd of="$2"'),
+                    '--', source['uri'], devnode])
     util.subp(['partprobe', devnode])
     udevadm_settle()
     return block.get_root_device([devname, ])
