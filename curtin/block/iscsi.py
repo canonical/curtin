@@ -30,23 +30,24 @@ from curtin import (util, udev)
 from curtin.log import LOG
 
 _ISCSI_DISKS = {}
-RFC4173_REGEX = re.compile(r'''
-    iscsi:
-    (?:(?P<user>[^:]*?):(?P<password>[^:]*?)
+RFC4173_AUTH_REGEX = re.compile(r'''^
+    (?P<user>[^:]*?):(?P<password>[^:]*?)
         (?::(?P<initiatoruser>[^:]*?):(?P<initiatorpassword>[^:]*?))?
-    @)?                 # optional authentication
-    (?P<ip>\S*):        # greedy so ipv6 IPs are matched
+    $
+    ''', re.VERBOSE)
+
+RFC4173_TARGET_REGEX = re.compile(r'''^
+    (?P<host>[^@]*):        # greedy so ipv6 IPs are matched
     (?P<proto>[^:]*):
     (?P<port>[^:]*):
     (?P<lun>[^:]*):
     (?P<targetname>\S*) # greedy so entire suffix is matched
-    ''', re.VERBOSE)
+    $''', re.VERBOSE)
 
-ISCSI_PORTAL_REGEX = re.compile(
-    r'(\[(?P<ip6>\S*)\]|(?P<ip4>[^:]*)):(?P<port>[\d]+)')
+ISCSI_PORTAL_REGEX = re.compile(r'^(?P<host>\S*):(?P<port>\d+)$')
 
 
-# @portal is of the form: (IPV4|[IPV6]):PORT
+# @portal is of the form: HOST:PORT
 def assert_valid_iscsi_portal(portal):
     if not isinstance(portal, util.string_types):
         raise ValueError("iSCSI portal (%s) is not a string" % portal)
@@ -54,25 +55,14 @@ def assert_valid_iscsi_portal(portal):
     m = re.match(ISCSI_PORTAL_REGEX, portal)
     if m is None:
         raise ValueError("iSCSI portal (%s) is not in the format "
-                         "(IPV4|[IPV6]):PORT", portal)
+                         "(HOST:PORT)" % portal)
 
-    if not m.group('ip6') and not m.group('ip4'):
-        raise ValueError("Unable to determine IP from iSCSI portal (%s)" %
-                         portal)
-
-    if m.group('ip6'):
-        if util.is_valid_ipv6_address(m.group('ip6')):
-            ip = m.group('ip6')
-        else:
+    host = m.group('host')
+    if host.startswith('[') and host.endswith(']'):
+        host = host[1:-1]
+        if not util.is_valid_ipv6_address(host):
             raise ValueError("Invalid IPv6 address (%s) in iSCSI portal (%s)" %
-                             (m.group('ip6'), portal))
-
-    if m.group('ip4'):
-        if util.is_valid_ipv4_address(m.group('ip4')):
-            ip = m.group('ip4')
-        else:
-            raise ValueError("Invalid IPv4 address (%s) in iSCSI portal (%s)" %
-                             (m.group('ip4'), portal))
+                             (host, portal))
 
     try:
         port = int(m.group('port'))
@@ -80,7 +70,7 @@ def assert_valid_iscsi_portal(portal):
         raise ValueError("iSCSI portal (%s) port (%s) is not an integer" %
                          (portal, m.group('port')))
 
-    return ip, port
+    return host, port
 
 
 def iscsiadm_sessions():
@@ -118,6 +108,17 @@ def iscsiadm_login(target, portal):
 
 
 def iscsiadm_set_automatic(target, portal):
+    LOG.debug('iscsiadm_set_automatic: target=%s portal=%s', target, portal)
+
+    cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
+           '--portal=%s' % portal, '--op=update',
+           '--name=node.startup', '--value=automatic']
+
+    util.subp(cmd, capture=True, log_captured=True)
+
+
+def iscsiadm_authenticate(target, portal, user=None, password=None,
+                          iuser=None, ipassword=None):
     LOG.debug('iscsiadm_set_automatic: target=%s portal=%s', target, portal)
 
     cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
@@ -194,14 +195,16 @@ def disconnect_target_disks(target_root_path=None):
     fails = []
     if os.path.exists(target_nodes_path):
         for target in os.listdir(target_nodes_path):
-            # conn is "ip,port,lun"
-            for conn in os.listdir(os.path.sep.join(target_nodes_path, target)):
-                ip, port, _ = conn.split(',')
+            # conn is "host,port,lun"
+            for conn in os.listdir(
+                            os.path.sep.join([target_nodes_path, target])):
+                host, port, _ = conn.split(',')
                 try:
-                    iscsiadm_logout(target, '%s:%s' % (ip, port))
+                    iscsiadm_logout(target, '%s:%s' % (host, port))
                 except util.ProcessExecutionError as e:
                     fails.append(target)
-                    LOG.warn("Unable to logout of iSCSI target %s: %s", target, e)
+                    LOG.warn("Unable to logout of iSCSI target %s: %s",
+                             target, e)
 
     if fails:
         raise RuntimeError(
@@ -224,48 +227,86 @@ def kname_is_iscsi(kname):
 
 class IscsiDisk(object):
     # Per Debian bug 804162, the iscsi specifier looks like
-    # TARGETSPEC=ip:proto:port:lun:targetname
+    # TARGETSPEC=host:proto:port:lun:targetname
     # root=iscsi:$TARGETSPEC
     # root=iscsi:user:password@$TARGETSPEC
     # root=iscsi:user:password:initiatoruser:initiatorpassword@$TARGETSPEC
     def __init__(self, rfc4173):
-        m = RFC4173_REGEX.match(rfc4173)
-        if m is None:
-            raise ValueError('iSCSI disks must be specified as '
+        auth_m = None
+        _rfc4173 = rfc4173
+        if not rfc4173.startswith('iscsi:'):
+            raise ValueError('iSCSI specification (%s) did not start with '
+                             'iscsi:. iSCSI disks must be specified as '
                              'iscsi:[user:password[:initiatoruser:'
                              'initiatorpassword]@]'
-                             'ip:proto:port:lun:targetname')
+                             'host:proto:port:lun:targetname' % _rfc4173)
+        rfc4173 = rfc4173[6:]
+        if '@' in rfc4173:
+            if rfc4173.count('@') != 1:
+                raise ValueError('Only one @ symbol allowed in iSCSI disk '
+                                 'specification (%s). iSCSI disks must be '
+                                 'specified as'
+                                 'iscsi:[user:password[:initiatoruser:'
+                                 'initiatorpassword]@]'
+                                 'host:proto:port:lun:targetname' % _rfc4173)
+            auth, target = rfc4173.split('@')
+            auth_m = RFC4173_AUTH_REGEX.match(auth)
+            if auth_m is None:
+                raise ValueError('Invalid authentication specified for iSCSI '
+                                 'disk (%s). iSCSI disks must be specified as '
+                                 'iscsi:[user:password[:initiatoruser:'
+                                 'initiatorpassword]@]'
+                                 'host:proto:port:lun:targetname' % _rfc4173)
+        else:
+            target = rfc4173
 
-        if m.group('proto') and m.group('proto') != '6':
+        target_m = RFC4173_TARGET_REGEX.match(target)
+        if target_m is None:
+            raise ValueError('Invalid target specified for iSCSI disk (%s). '
+                             'iSCSI disks must be specified as '
+                             'iscsi:[user:password[:initiatoruser:'
+                             'initiatorpassword]@]'
+                             'host:proto:port:lun:targetname' % _rfc4173)
+
+        if target_m.group('proto') and target_m.group('proto') != '6':
             LOG.warn('Specified protocol for iSCSI (%s) is unsupported, '
-                     'assuming 6 (TCP)', m.group('proto'))
+                     'assuming 6 (TCP)', target_m.group('proto'))
 
-        if not m.group('ip') or not m.group('targetname'):
-            raise ValueError('Both IP and targetname must be specified for '
+        if not target_m.group('host') or not target_m.group('targetname'):
+            raise ValueError('Both host and targetname must be specified for '
                              'iSCSI disks')
 
-        self.user = m.group('user')
-        self.password = m.group('password')
-        self.iuser = m.group('initiatoruser')
-        self.ipassword = m.group('initiatorpassword')
-        if not util.is_valid_ip_address(m.group('ip')):
-            raise ValueError('Specified iSCSI IP (%s) is not valid' %
-                             m.group('ip'))
-        self.ip = m.group('ip')
+        if auth_m:
+            self.user = auth_m.group('user')
+            self.password = auth_m.group('password')
+            self.iuser = auth_m.group('initiatoruser')
+            self.ipassword = auth_m.group('initiatorpassword')
+        else:
+            self.user = None
+            self.password = None
+            self.iuser = None
+            self.ipassword = None
+
+        self.host = target_m.group('host')
         self.proto = '6'
+        self.lun = int(target_m.group('lun')) if target_m.group('lun') else 0
+        self.target = target_m.group('targetname')
+
         try:
-            self.port = int(m.group('port')) if m.group('port') else 3260
+            self.port = int(target_m.group('port')) if target_m.group('port') \
+                 else 3260
+
         except ValueError:
             raise ValueError('Specified iSCSI port (%s) is not an integer' %
-                             m.group('port'))
-        self.lun = int(m.group('lun')) if m.group('lun') else 0
-        self.target = m.group('targetname')
+                             target_m.group('port'))
 
-        # put IPv6 addresses in [] to disambiguate
-        if util.is_valid_ipv4_address(self.ip):
-            portal = '%s:%s' % (self.ip, self.port)
-        else:
-            portal = '[%s]:%s' % (self.ip, self.port)
+        portal = '%s:%s' % (self.host, self.port)
+        if self.host.startswith('[') and self.host.endswith(']'):
+            self.host = self.host[1:-1]
+            if not util.is_valid_ipv6_address(self.host):
+                raise ValueError('Specified iSCSI IPv6 address (%s) is not '
+                                 'valid' % self.host)
+            portal = '[%s]:%s' % (self.host, self.port)
         assert_valid_iscsi_portal(portal)
         self.portal = portal
 
@@ -275,14 +316,14 @@ class IscsiDisk(object):
             rep += ':%s:PASSWORD' % self.user
         if self.iuser:
             rep += ':%s:IPASSWORD' % self.iuser
-        rep += ':%s:%s:%s:%s:%s' % (self.ip, self.proto, self.port,
+        rep += ':%s:%s:%s:%s:%s' % (self.host, self.proto, self.port,
                                     self.lun, self.target)
         return rep
 
     @property
     def etciscsi_nodefile(self):
         return '/etc/iscsi/nodes/%s/%s,%s,%s/default' % (
-            self.target, self.ip, self.port, self.lun)
+            self.target, self.host, self.port, self.lun)
 
     @property
     def devdisk_path(self):
@@ -294,6 +335,9 @@ class IscsiDisk(object):
             return
 
         iscsiadm_discovery(self.portal)
+
+        iscsiadm_authenticate(self.target, self.portal, self.user,
+                              self.password, self.iuser, self.ipassword)
 
         iscsiadm_login(self.target, self.portal)
 
