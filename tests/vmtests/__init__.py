@@ -45,6 +45,8 @@ INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
 
 _TOPDIR = None
 
+UC16_IMAGE = os.path.join(IMAGE_DIR,
+                          'ubuntu-core-16/amd64/20170217/root-image.xz')
 
 def remove_empty_dir(dirpath):
     if os.path.exists(dirpath):
@@ -381,8 +383,7 @@ class VMBaseClass(TestCase):
             logger.info("Target Tarball: %s", img_verstr)
         else:
             logger.info('get-testfiles UC16 hack!')
-            found = {'root-image.xz':
-                     'ubuntu-core-16/amd64/20170217/root-image.xz'}
+            found = {'root-image.xz': UC16_IMAGE }
         ftypes.update(found)
         return ftypes
 
