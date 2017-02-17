@@ -821,7 +821,7 @@ def sanitize_source(source):
     if type(source) is dict:
         # already sanitized?
         return source
-    supported = ['tgz', 'dd-tgz']
+    supported = ['tgz', 'dd-tgz', 'dd-bz2', 'dd-gz', 'dd-xz', 'dd-raw']
     deftype = 'tgz'
     for i in supported:
         prefix = i + ":"
@@ -844,7 +844,7 @@ def get_dd_images(sources):
         if type(sources[i]) is not dict:
             continue
         if sources[i]['type'].startswith('dd-'):
-            src.append(sources[i]['uri'])
+            src.append(sources[i])
     return src
 
 

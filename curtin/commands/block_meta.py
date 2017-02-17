@@ -76,11 +76,18 @@ def write_image_to_disk(source, dev):
     Write disk image to block device
     """
     LOG.info('writing image to disk %s, %s', source, dev)
+    extractor = {
+        'dd-tgz': '|smtar -SxOzf -',
+        'dd-bz2': '|bzcat',
+        'dd-gz': '|zcat',
+        'dd-xz': '|xzcat',
+        'dd-raw': ''
+    }
     (devname, devnode) = block.get_dev_name_entry(dev)
     util.subp(args=['sh', '-c',
-                    ('wget "$1" --progress=dot:mega -O - |'
-                     'smtar | dd bs=1M of="$2"'),
-                    '--', source, devnode])
+                    ('wget "$1" --progress=dot:mega -O - ' +
+                     extractor[source['type']] + '| dd bs=1M of="$2"'),
+                    '--', source['uri'], devnode])
     util.subp(['partprobe', devnode])
     udevadm_settle()
     snap_paths = ["system-data/snap/ubuntu-core", "system-data"]
