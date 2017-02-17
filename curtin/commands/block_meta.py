@@ -77,7 +77,10 @@ def write_image_to_disk(source, dev):
     """
     extractor = {
         'dd-tgz': '|smtar -SxOzf -',
-        'dd-xz': '|zcat'
+        'dd-bz2': '|bzcat',
+        'dd-gz': '|zcat',
+        'dd-xz': '|xzcat',
+        'dd-raw': ''
     }
     (devname, devnode) = block.get_dev_name_entry(dev)
     util.subp(args=['sh', '-c',
