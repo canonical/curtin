@@ -86,14 +86,11 @@ def write_image_to_disk(source, dev):
     snap_paths = ["system-data/snap/ubuntu-core", "system-data"]
     LOG.info('Checking for root device')
     for fpath in ["curtin"] + snap_paths:
+        LOG.debug('Looking for fpath=%s on device=%s', fpath, devname)
         root_dev = block.get_root_device([devname, ], fpath=fpath)
-        LOG.info('fpath=%s root_dev=%s', fpath, root_dev)
-        if fpath == "curtin" and root_dev:
+        if root_dev:
+            LOG.debug('found root on %s', root_dev)
             return root_dev
-        elif fpath in snap_paths and root_dev is not None:
-            LOG.info('fpath is snap_path, no root needed')
-            # snappy needs no root stuff
-            return None
 
     if root_dev is None:
         raise ValueError("Could not find root device")

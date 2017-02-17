@@ -7,12 +7,12 @@
 
 # make sync-images
 # 
-DATE=20170209
+DATE=20170215.1
 ROOT=/srv/images/xenial/amd64/${DATE}/vmtest.root-image 
 KERNEL=/srv/images/xenial/amd64/${DATE}/xenial/generic/boot-kernel 
 INITRD=/srv/images/xenial/amd64/${DATE}/xenial/generic/boot-initrd 
 PUBLISH=`pwd`/ubuntu-core-16-amd64.img.xz
-DISK="snappy.img"
+DISK=${1-"snappy.img"}
 
 # the ::dd-tgz tells curtin that it doesn't have to extract a root tarball
 ./tools/launch $ROOT \
@@ -25,4 +25,6 @@ DISK="snappy.img"
   --serial telnet:localhost:2447,nowait,server \
   --silent \
   --power=off \
-   curtin install PUBURL/`basename $PUBLISH`
+  -- curtin -vv install \
+  --config ${2} \
+  PUBURL`basename $PUBLISH`

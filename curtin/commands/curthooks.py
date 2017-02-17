@@ -662,6 +662,69 @@ def system_upgrade(cfg, target):
     util.system_upgrade(target=target)
 
 
+def snappy_curthooks(cfg, target=None):
+    """ Ubuntu-Core 16 images cannot execute standard curthooks
+        Instead we copy in any cloud-init configuration to
+        the 'LABEL=writable' partition mounted at target.
+
+    cloudconfig:
+      cfg-datasource:
+        path: /etc/cloud/cloud.cfg.d/10-maas-datasource.cfg
+        content:
+         |
+         #cloud-cfg
+         datasource_list: [ MAAS ]
+      cfg-maas:
+        path: /etc/cloud/cloud.cfg.d/11-maas-config.cfg
+        content:
+         |
+         #cloud-cfg
+         apt_preserve_sources_list: true
+         apt_proxy: http://10.245.168.2:8000/
+         manage_etc_hosts: false
+         manual_cache_clean: true
+         reporting:
+           maas: { consumer_key: 8cW9kadrWZcZvx8uWP,
+                   endpoint: 'http://XXX',
+                   token_key: jD57DB9VJYmDePCRkq,
+                   token_secret: mGFFMk6YFLA3h34QHCv22FjENV8hJkRX,
+                   type: webhook}
+         system_info:
+          package_mirrors:
+          - arches: [i386, amd64]
+            failsafe: {primary: 'http://archive.ubuntu.com/ubuntu',
+                       security: 'http://security.ubuntu.com/ubuntu'}
+            search:
+              primary: ['http://archive.ubuntu.com/ubuntu']
+              security: ['http://archive.ubuntu.com/ubuntu']
+          - arches: [default]
+            failsafe: {primary: 'http://ports.ubuntu.com/ubuntu-ports',
+                       security: 'http://ports.ubuntu.com/ubuntu-ports'}
+            search:
+              primary: ['http://ports.ubuntu.com/ubuntu-ports']
+              security: ['http://ports.ubuntu.com/ubuntu-ports']
+    """
+    cloudconfig = cfg.get('cloudconfig', None)
+    LOG.debug('snappy cloud-config:\n%s', cloudconfig)
+    if cloudconfig:
+        # re-use write_files format and adjust target
+        # to prepend 'system-data' for snappy path
+        snappy_target = os.path.join(target, "system-data")
+        cloudinit_disable = os.path.join(snappy_target,
+                                         'etc/cloud/cloud-init.disabled')
+        util.del_file(cloudinit_disable)
+        LOG.debug('Calling write_files with cloudconfig @ %s', snappy_target)
+        write_files({'write_files': cloudconfig}, snappy_target)
+
+    return 0
+
+
+def target_is_snappy(target):
+    if target:
+        return os.path.exists(os.path.join(target, 'system-data'))
+    return False
+
+
 def curthooks(args):
     state = util.load_command_environment()
 
@@ -682,6 +745,15 @@ def curthooks(args):
 
     cfg = config.load_command_config(args, state)
     stack_prefix = state.get('report_stack_prefix', '')
+
+    if target_is_snappy(target):
+        LOG.info('Target is Snappy!')
+        with events.ReportEventStack(
+                name=stack_prefix, reporting_enabled=True, level="INFO",
+                description="Configuring Ubuntu-Core for first boot"):
+            LOG.info('Running Ubuntu-Core curthooks')
+            rv = snappy_curthooks(cfg, target)
+        sys.exit(rv)
 
     with events.ReportEventStack(
             name=stack_prefix + '/writing-config',
