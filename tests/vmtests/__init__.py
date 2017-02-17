@@ -1114,8 +1114,9 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
     failsafe_poweroff = textwrap.dedent("""#!/bin/sh -x
         [ -e /etc/centos-release -o -e /etc/redhat-release ] &&
             { shutdown -P now "Shutting down on centos"; }
-        [ "$(lsb_release -sc)" = "precise" ] &&
-            { shutdown -P now "Shutting down on precise"; }
+        if grep -i -q precise /etc/os-release; then
+            shutdown -P now "Shutting down on precise";
+        fi
         exit 0;
         """)
 

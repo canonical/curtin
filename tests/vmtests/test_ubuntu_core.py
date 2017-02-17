@@ -11,6 +11,9 @@ class TestUbuntuCoreAbs(VMBaseClass):
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         snap list > snap_list
+        cp /run/cloud-init ./run_cloud_init |:
+        cp -a /home . |:
+        cp -a /var/lib/extrausers . |:
         """)]
 
     def test_output_files_exist(self):
