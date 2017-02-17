@@ -16,13 +16,30 @@ class TestUbuntuCoreAbs(VMBaseClass):
         find /etc/network/interfaces.d > find_interfacesd
         snap list > snap_list
         cp -a /run/cloud-init ./run_cloud_init |:
-        cp -a /etc/cloud ./ect_cloud |:
+        cp -a /etc/cloud ./etc_cloud |:
         cp -a /home . |:
         cp -a /var/lib/extrausers . |:
         """)]
 
     def test_output_files_exist(self):
         self.output_files_exist(["snap_list"])
+
+    def test_ubuntu_core_snaps_installed(self):
+        snap_list = self.load_collect_file('snap_list')
+        print(snap_list)
+        for snap in ['core', 'pc', 'pc-kernel', 'hello',
+                     'part-cython', 'part-numpy']:
+            print('check for "%s"' % snap) 
+            self.assertIn(snap, snap_list)
+            
+    def test_ubuntu_core_extrausers(self):
+        extrausers_passwd = self.load_collect_file('extrausers/passwd')
+        self.assertIn('ubuntu', extrausers_passwd)
+
+    def test_ubuntu_core_ds_identify(self):
+        run_ci_config = self.load_collect_file('run_cloud_init/cloud.cfg')
+        expected_config = "datasource_list: [ NoCloud, None ]\n"
+        self.assertEqual(expected_config, run_ci_config)
 
 
 class UbuntuCore16TestUbuntuCore(relbase.uc16fromxenial, TestUbuntuCoreAbs):
