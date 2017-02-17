@@ -10,8 +10,13 @@ class TestUbuntuCoreAbs(VMBaseClass):
     conf_file = "examples/tests/ubuntu_core.yaml"
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
+        cat /proc/partitions > proc_partitions
+        ls -al /dev/disk/by-uuid/ > ls_uuid
+        cat /etc/fstab > fstab
+        find /etc/network/interfaces.d > find_interfacesd
         snap list > snap_list
-        cp /run/cloud-init ./run_cloud_init |:
+        cp -a /run/cloud-init ./run_cloud_init |:
+        cp -a /etc/cloud ./ect_cloud |:
         cp -a /home . |:
         cp -a /var/lib/extrausers . |:
         """)]
