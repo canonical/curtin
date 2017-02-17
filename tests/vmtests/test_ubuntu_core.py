@@ -29,9 +29,9 @@ class TestUbuntuCoreAbs(VMBaseClass):
         print(snap_list)
         for snap in ['core', 'pc', 'pc-kernel', 'hello',
                      'part-cython', 'part-numpy']:
-            print('check for "%s"' % snap) 
+            print('check for "%s"' % snap)
             self.assertIn(snap, snap_list)
-            
+
     def test_ubuntu_core_extrausers(self):
         extrausers_passwd = self.load_collect_file('extrausers/passwd')
         self.assertIn('ubuntu', extrausers_passwd)
