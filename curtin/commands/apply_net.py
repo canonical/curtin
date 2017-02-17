@@ -109,9 +109,9 @@ def apply_net(target, network_state=None, network_config=None):
         if not passthrough:
             v2_required = netcfg.get('network', {}).get('version', None) == 2
             LOG.debug('testing in-target cloud-init version for support')
-            passthrough = (net.netconfig_passthrough_v2_available(target)
-                           if v2_required else
-                           net.netconfig_passthrough_available(target))
+            passthrough = (net.netconfig_passthrough_available(target) and
+                           (not v2_required or
+                            net.netconfig_passthrough_v2_available(target)))
             LOG.debug('passthrough via in-target: %s', passthrough)
 
         if passthrough:
