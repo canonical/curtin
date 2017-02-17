@@ -425,8 +425,12 @@ class VMBaseClass(TestCase):
             cmd.extend(["--append=" + cls.extra_kern_args])
 
         # publish the root tarball
-        install_src = "PUBURL/" + os.path.basename(ftypes['vmtest.root-tgz'])
-        cmd.append("--publish=%s" % ftypes['vmtest.root-tgz'])
+        install_src = "PUBURL/" + os.path.basename(ftypes[cls.target_ftype])
+        if cls.target_ftype == 'vmtest.root-tgz':
+            cmd.append("--publish=%s" % ftypes['vmtest.root-tgz'])
+        else:
+            cmd.append("--publish=%s::dd-xz" % ftypes[cls.target_ftype])
+        logger.info("Publishing src as %s", cmd[-1])
 
         # check for network configuration
         cls.network_state = curtin_net.parse_net_config(cls.conf_file)
