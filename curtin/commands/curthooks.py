@@ -712,7 +712,8 @@ def snappy_curthooks(cfg, target=None):
         snappy_target = os.path.join(target, "system-data")
         cloudinit_disable = os.path.join(snappy_target,
                                          'etc/cloud/cloud-init.disabled')
-        util.del_file(cloudinit_disable)
+        if os.path.exists(cloudinit_disable):
+            util.del_file(cloudinit_disable)
         LOG.debug('Calling write_files with cloudconfig @ %s', snappy_target)
         write_files({'write_files': cloudconfig}, snappy_target)
 
