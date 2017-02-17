@@ -414,22 +414,12 @@ class VMBaseClass(TestCase):
         if len(cls.iscsi_disks) == 0:
             return disks
 
-        portal_v4 = os.environ.get("CURTIN_VMTEST_ISCSI_PORTAL_V4",
+        portal = os.environ.get("CURTIN_VMTEST_ISCSI_PORTAL",
                                    False)
-        portal_v6 = os.environ.get("CURTIN_VMTEST_ISCSI_PORTAL_V6",
-                                   False)
-        if not portal_v4 and not portal_v6:
+        if not portal:
             raise SkipTest("No iSCSI portal specified in the "
-                           "environment (CURTIN_VMTEST_ISCSI_PORTAL_V4 "
-                           "or CURTIN_VMTEST_ISCSI_PORTAL_V6). "
+                           "environment (CURTIN_VMTEST_ISCSI_PORTAL). "
                            "Skipping iSCSI tests.")
-        if portal_v4 and portal_v6:
-            raise SkipTest("Both IPv4 and IPv6 iSCSI portals specified "
-                           "in the environment "
-                           "(CURTIN_VMTEST_ISCSI_PORTAL_V4 and "
-                           "CURTIN_VMTEST_ISCSI_PORTAL_V6), which is "
-                           "unsupported. Skipping iSCSI tests.")
-        portal = portal_v4 if portal_v4 else portal_v6
 
         # note that TGT_IPC_SOCKET also needs to be set for
         # successful communication
@@ -438,12 +428,7 @@ class VMBaseClass(TestCase):
             cls.tgtd_ip, cls.tgtd_port = \
                 iscsi.assert_valid_iscsi_portal(portal)
         except ValueError as e:
-            if portal_v4:
-                raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V4 is invalid: "
-                                 "%s", e)
-            else:
-                raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL_V6 is invalid: "
-                                 "%s", e)
+            raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL is invalid: %s", e)
 
         # copy testcase YAML to a temporary file in order to replace
         # placeholders

@@ -103,7 +103,7 @@ while [ $tries -le 100 ]; do
             {
             echo "export TGT_PID=$pid"
             echo "export TGT_IPC_SOCKET=$socket"
-            echo "export CURTIN_VMTEST_ISCSI_PORTAL_V4=$portal"
+            echo "export CURTIN_VMTEST_ISCSI_PORTAL=$portal"
             } > "$info"
             echo "$pid" > "$pidfile"
             error "To list targets on this tgt: "

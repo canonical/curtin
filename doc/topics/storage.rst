@@ -95,8 +95,8 @@ be an iSCSI disk specification and must be in the following format:
   time.
 .. note::
 
-  Curtin will treat it as an error if both the user and password are not
-  specified for either initiator or target authentication.
+  Curtin will treat it as an error if the user and password are not both
+  specified for initiator and target authentication.
 - ``host``: iSCSI server hosting the specified target. It can be a
   hostname, IPv4 or IPv6 address. If specified as an IPv6 address, it
   must be specified as ``[address]``.
