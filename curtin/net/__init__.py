@@ -531,13 +531,13 @@ def netconfig_passthrough_available(target, pkg_ver=None):
     return True
 
 
-def netconfig_passthrough_v2_available(target, feature='netconfig-v2'):
+def netconfig_passthrough_v2_available(target, feature='NETWORK_CONFIG_V2'):
     """
     Determine if curtin can pass v2 network config to in target cloud-init
     """
     LOG.debug('Checking in-target cloud-init features')
     cmd = ("from cloudinit import version;"
-           "print({} in getattr(version, 'FEATURE_FLAGS', []))"
+           "print({} in getattr(version, 'FEATURES', []))"
            .format(feature))
     with util.ChrootableTarget(target) as in_chroot:
 
