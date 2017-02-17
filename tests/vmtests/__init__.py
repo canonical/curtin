@@ -380,7 +380,7 @@ class VMBaseClass(TestCase):
             logger.debug("Target Tarball %s\n, ftypes: %s\n", img_verstr, found)
             logger.info("Target Tarball: %s", img_verstr)
         else:
-            LOG.info('get-testfiles UC16 hack!')
+            logger.info('get-testfiles UC16 hack!')
             found = {'root-image.xz':
                      'ubuntu-core-16/amd64/20170217/root-image.xz'}
         ftypes.update(found)
