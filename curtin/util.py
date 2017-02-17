@@ -821,7 +821,7 @@ def sanitize_source(source):
     if type(source) is dict:
         # already sanitized?
         return source
-    supported = ['tgz', 'dd-tgz', 'dd-xz']
+    supported = ['tgz', 'dd-tgz', 'dd-bz2', 'dd-gz', 'dd-xz', 'dd-raw']
     deftype = 'tgz'
     for i in supported:
         prefix = i + ":"
