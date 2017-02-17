@@ -118,7 +118,7 @@ class _CentosReleases(object):
     centos66fromxenial = _Centos66FromXenialBase
 
 
-class _UbuntuCoreRelease(object):
+class _UbuntuCoreReleases(object):
     uc16fromxenial = _UbuntuCore16FromXenialBase
 
 
