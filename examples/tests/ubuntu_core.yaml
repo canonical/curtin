@@ -1,0 +1,4 @@
+# This pushes curtin through a automatic installation
+# where no storage configuration is necessary.
+placeholder_simple_install: unused
+showtrace: true
