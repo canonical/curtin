@@ -300,7 +300,7 @@ get_tgt_tid() {
 }
 
 configure_tgt_auth() {
-    # retry until we successfully register a tid in tgtadm, return it.
+    # update a tgt target with authentication if specified
     local tid="$1" user="$2" password="$3" iuser="$4" ipassword="$5"
 
     if [ -n "$user" ]; then

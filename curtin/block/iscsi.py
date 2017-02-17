@@ -146,7 +146,7 @@ def iscsiadm_authenticate(target, portal, user=None, password=None,
                       logstring='iscsiadm --mode=node --targetname=%s '
                                 '--portal=%s --op=update '
                                 '--name=node.session.auth.password_in '
-                                '--value=HIDDEN')
+                                '--value=HIDDEN' % (target, portal))
 
     if user or password:
         cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
@@ -170,7 +170,7 @@ def iscsiadm_authenticate(target, portal, user=None, password=None,
                       logstring='iscsiadm --mode=node --targetname=%s '
                                 '--portal=%s --op=update '
                                 '--name=node.session.auth.password '
-                                '--value=HIDDEN')
+                                '--value=HIDDEN' % (target, portal))
 
 
 def iscsiadm_logout(target, portal):
