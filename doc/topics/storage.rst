@@ -79,7 +79,9 @@ that was specified.
 
 iSCSI disks are supported via a special path prefix of 'iscsi:'. If this
 prefix is found in the path specification for a disk, it is assumed to
-be an iSCSI disk specification and must be in the following format:
+be an iSCSI disk specification and must be in a RFC4173
+(https://tools.ietf.org/html/rfc4173) compliant format, with extensions
+from Debian for supporting authentication:
 
 ``iscsi:[user:password[:iuser:ipassword]@]host:proto:port:lun:targetname``
 

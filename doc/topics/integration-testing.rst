@@ -240,10 +240,14 @@ Some environment variables affect the running of vmtest
 - ``CURTIN_VMTEST_ISCSI_PORTAL``: default ''
 
   By default, iSCSI tests are skipped when running `make vmtest`, as
-  iSCSI server configuration is necessary. If an accessible iSCSI server
-  is available, it can be specified in this environment variable as
-  ``HOST:PORT``. ``HOST`` can be a hostname, IPv4 address or IPv6
-  address. If an IPv6 address is used, it must be enclosed in ``[]``.
+  iSCSI server configuration is necessary. ``tools/jenkins-runner`` will
+  configure a ``tgt`` server if possible and set the necessary
+  environment variables.
+
+  If an accessible iSCSI server is available, it can be specified in
+  this environment variable as ``HOST:PORT``. ``HOST`` can be a
+  hostname, IPv4 address or IPv6 address. If an IPv6 address is used, it
+  must be enclosed in ``[]``.
 
   Additionally, if a ``tgt`` server is running locally as the iSCSI
   server and is configured to listen on a non-default socket, it is
@@ -262,6 +266,10 @@ Some environment variables affect the running of vmtest
     ./tools/find-tgt output
     . output/info
     nosetests3 tests/vmtests/test_iscsi.py
+
+  Or, using ``jenkins-runner``:
+
+    ./tools/jenkins-runner tests/vmtests/test_iscsi.py
 
 Environment 'boolean' values
 ============================

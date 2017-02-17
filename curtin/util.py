@@ -65,8 +65,8 @@ BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 
 def _subp(args, data=None, rcs=None, env=None, capture=False,
-          log_captured=False, shell=False, logstring=False, decode="replace",
-          target=None, cwd=None):
+          shell=False, logstring=False, decode="replace",
+          target=None, cwd=None, log_captured=False):
     if rcs is None:
         rcs = [0]
 
@@ -1115,30 +1115,12 @@ def is_resolvable(name):
         return False
 
 
-def is_valid_ipv4_address(addr):
-    try:
-        socket.inet_pton(socket.AF_INET, addr)
-    except AttributeError:  # no inet_pton
-        try:
-            socket.inet_aton(addr)
-        except socket.error:
-            return False
-        return addr.count('.') == 3
-    except socket.error:
-        return False
-    return True
-
-
 def is_valid_ipv6_address(addr):
     try:
         socket.inet_pton(socket.AF_INET6, addr)
     except socket.error:
         return False
     return True
-
-
-def is_valid_ip_address(addr):
-    return is_valid_ipv4_address(addr) or is_valid_ipv6_address(addr)
 
 
 def is_resolvable_url(url):

@@ -107,10 +107,10 @@ while [ $tries -le 100 ]; do
             } > "$info"
             echo "$pid" > "$pidfile"
             error "To list targets on this tgt: "
-            error "TGT_IPC_SOCKET=$socket tgtadm --lld=iscsi --mode=target --op=show"
+            error "  TGT_IPC_SOCKET=$socket tgtadm --lld=iscsi --mode=target --op=show"
             error "For a client view of visible disks:"
-            error "iscsiadm --mode=discovery --type=sendtargets --portal=$portal"
-            error "iscsiadm --mode=node --portal=$portal --op=show"
+            error "  iscsiadm --mode=discovery --type=sendtargets --portal=$portal"
+            error "  iscsiadm --mode=node --portal=$portal --op=show"
             TGT_PID=""
             exit 0
         fi

@@ -120,8 +120,9 @@ def iscsiadm_set_automatic(target, portal):
 def iscsiadm_authenticate(target, portal, user=None, password=None,
                           iuser=None, ipassword=None):
     LOG.debug('iscsiadm_authenticate: target=%s portal=%s '
-              'user=%s password=HIDDEN iuser=%s ipassword=HIDDEN',
-              target, portal, user, iuser)
+              'user=%s password=%s iuser=%s ipassword=%s',
+              target, portal, user, "HIDDEN" if password else None,
+              iuser, "HIDDEN" if ipassword else None)
 
     if iuser or ipassword:
         cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
@@ -141,7 +142,11 @@ def iscsiadm_authenticate(target, portal, user=None, password=None,
                    '--portal=%s' % portal, '--op=update',
                    '--name=node.session.auth.password_in',
                    '--value=%s' % ipassword]
-            util.subp(cmd, capture=True, log_captured=True)
+            util.subp(cmd, capture=True, log_captured=True,
+                      logstring='iscsiadm --mode=node --targetname=%s '
+                                '--portal=%s --op=update '
+                                '--name=node.session.auth.password_in '
+                                '--value=HIDDEN')
 
     if user or password:
         cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
@@ -161,7 +166,11 @@ def iscsiadm_authenticate(target, portal, user=None, password=None,
                    '--portal=%s' % portal, '--op=update',
                    '--name=node.session.auth.password',
                    '--value=%s' % password]
-            util.subp(cmd, capture=True, log_captured=True)
+            util.subp(cmd, capture=True, log_captured=True,
+                      logstring='iscsiadm --mode=node --targetname=%s '
+                                '--portal=%s --op=update '
+                                '--name=node.session.auth.password '
+                                '--value=HIDDEN')
 
 
 def iscsiadm_logout(target, portal):
@@ -229,7 +238,7 @@ def connected_disks():
 def disconnect_target_disks(target_root_path=None):
     target_nodes_path = util.target_path(target_root_path, '/etc/iscsi/nodes')
     fails = []
-    if os.path.exists(target_nodes_path):
+    if os.path.isdir(target_nodes_path):
         for target in os.listdir(target_nodes_path):
             # conn is "host,port,lun"
             for conn in os.listdir(
