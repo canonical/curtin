@@ -353,6 +353,7 @@ class VMBaseClass(TestCase):
     target_distro = None
     target_release = None
     target_krel = None
+    target_ftype = "vmtest.root-tgz"
 
     @classmethod
     def get_test_files(cls):
@@ -369,14 +370,19 @@ class VMBaseClass(TestCase):
 
         # get local absolute filesystem paths for the OS tarball to be
         # installed
-        img_verstr, found = get_images(
-            IMAGE_SRC_URL, IMAGE_DIR,
-            cls.target_distro if cls.target_distro else cls.distro,
-            cls.target_release if cls.target_release else cls.release,
-            cls.arch, krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
-            ftypes=('vmtest.root-tgz',))
-        logger.debug("Target Tarball %s\n, ftypes: %s\n", img_verstr, found)
-        logger.info("Target Tarball: %s", img_verstr)
+        if cls.target_ftype == "vmtest.root-tgz":
+            img_verstr, found = get_images(
+                IMAGE_SRC_URL, IMAGE_DIR,
+                cls.target_distro if cls.target_distro else cls.distro,
+                cls.target_release if cls.target_release else cls.release,
+                cls.arch, krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
+                ftypes=('vmtest.root-tgz',))
+            logger.debug("Target Tarball %s\n, ftypes: %s\n", img_verstr, found)
+            logger.info("Target Tarball: %s", img_verstr)
+        else:
+            LOG.info('get-testfiles UC16 hack!')
+            found = {'root-image.xz':
+                     'ubuntu-core-16/amd64/20170217/root-image.xz'}
         ftypes.update(found)
         return ftypes
 
