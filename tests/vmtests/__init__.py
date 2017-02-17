@@ -495,8 +495,9 @@ class VMBaseClass(TestCase):
             with tempfile.NamedTemporaryFile(mode='w+t') as temp_yaml:
                 shutil.copyfile(cls.conf_file, temp_yaml.name)
                 with open(cls.conf_file, 'w+t') as conf:
+                    replaced = False
                     for line in temp_yaml:
-                        if '__RFC4173__' in line:
+                        if not replaced and '__RFC4173__' in line:
                             actual_rfc4173 = ''
                             if len(disk_user) > 0:
                                 actual_rfc4173 += '%s:%s' % (disk_user,
@@ -504,7 +505,7 @@ class VMBaseClass(TestCase):
                             if len(disk_iuser) > 0:
                                 # empty target user/password
                                 if len(actual_rfc4173) == 0:
-                                    actual_rfc4173 += '::'
+                                    actual_rfc4173 += ':'
                                 actual_rfc4173 += ':%s:%s' % (disk_iuser,
                                                               disk_ipassword)
                             # any auth specified?
@@ -515,6 +516,7 @@ class VMBaseClass(TestCase):
                                               cls.tgtd_ip,
                                               cls.tgtd_port, target)
                             line = line.replace('__RFC4173__', actual_rfc4173)
+                            replaced = True
                         conf.write(line)
         return disks
 

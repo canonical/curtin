@@ -74,7 +74,8 @@ nosetests3 "${pargs[@]}" "${ntargs[@]}"
 ret=$?
 end_s=$(date +%s)
 echo "$(date -R): vmtest end [$ret] in $(($end_s-$start_s))s"
-[ -n "${TGT_PID}" ] && kill -9 ${TGT_PID}
+[ $ret -eq 0 ] && [[ $pkeep == *"all"* ]] && [ -n "${TGT_PID}" ] && kill -9 ${TGT_PID}
+[ $ret -ne 0 ] && [[ $pfail == *"all"* ]] && [ -n "${TGT_PID}" ] && kill -9 ${TGT_PID}
 exit $ret
 
 # vi: ts=4 expandtab syntax=sh

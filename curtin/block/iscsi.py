@@ -126,20 +126,20 @@ def iscsiadm_authenticate(target, portal, user=None, password=None,
     if iuser or ipassword:
         cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
                '--portal=%s' % portal, '--op=update',
-               '--name=discovery.sendtargets.auth.authmethod', '--value=CHAP']
+               '--name=node.session.auth.authmethod', '--value=CHAP']
         util.subp(cmd, capture=True, log_captured=True)
 
         if iuser:
             cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
                    '--portal=%s' % portal, '--op=update',
-                   '--name=discovery.sendtargets.auth.username',
+                   '--name=node.session.auth.username_in',
                    '--value=%s' % iuser]
             util.subp(cmd, capture=True, log_captured=True)
 
         if ipassword:
             cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
                    '--portal=%s' % portal, '--op=update',
-                   '--name=discovery.sendtargets.auth.password',
+                   '--name=node.session.auth.password_in',
                    '--value=%s' % ipassword]
             util.subp(cmd, capture=True, log_captured=True)
 
@@ -149,18 +149,18 @@ def iscsiadm_authenticate(target, portal, user=None, password=None,
                '--name=node.session.auth.authmethod', '--value=CHAP']
         util.subp(cmd, capture=True, log_captured=True)
 
-        if iuser:
+        if user:
             cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
                    '--portal=%s' % portal, '--op=update',
                    '--name=node.session.auth.username',
-                   '--value=%s' % iuser]
+                   '--value=%s' % user]
             util.subp(cmd, capture=True, log_captured=True)
 
-        if ipassword:
+        if password:
             cmd = ['iscsiadm', '--mode=node', '--targetname=%s' % target,
                    '--portal=%s' % portal, '--op=update',
                    '--name=node.session.auth.password',
-                   '--value=%s' % ipassword]
+                   '--value=%s' % password]
             util.subp(cmd, capture=True, log_captured=True)
 
 
@@ -236,6 +236,7 @@ def disconnect_target_disks(target_root_path=None):
                             os.path.sep.join([target_nodes_path, target])):
                 host, port, _ = conn.split(',')
                 try:
+                    util.subp(['sync'])
                     iscsiadm_logout(target, '%s:%s' % (host, port))
                 except util.ProcessExecutionError as e:
                     fails.append(target)
@@ -385,6 +386,7 @@ class IscsiDisk(object):
         if self.target not in iscsiadm_sessions():
             return
 
+        util.subp(['sync'])
         iscsiadm_logout(self.target, self.portal)
 
 # vi: ts=4 expandtab syntax=python

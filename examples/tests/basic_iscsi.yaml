@@ -1,7 +1,7 @@
 storage:
    version: 1
    config:
-      - id: sda
+      - id: vdb
         type: disk
         ptable: msdos
         model: QEMU HARDDISK
@@ -9,113 +9,113 @@ storage:
         name: main_disk
         wipe: superblock
         grub_device: true
-      - id: sda1
+      - id: vdb1
         type: partition
         number: 1
         size: 3GB
-        device: sda
+        device: vdb
         flag: boot
-      - id: sda2
+      - id: vdb2
         type: partition
         number: 2
         size: 1GB
-        device: sda
-      - id: sda1_root
+        device: vdb
+      - id: vdb1_root
         type: format
         fstype: ext4
-        volume: sda1
-      - id: sda2_home
+        volume: vdb1
+      - id: vdb2_home
         type: format
         fstype: ext4
-        volume: sda2
-      - id: sda1_mount
+        volume: vdb2
+      - id: vdb1_mount
         type: mount
         path: /
-        device: sda1_root
-      - id: sda2_mount
+        device: vdb1_root
+      - id: vdb2_mount
         type: mount
         path: /home
-        device: sda2_home
-      - id: sdb
+        device: vdb2_home
+      - id: sda
         type: disk
         path: iscsi:__RFC4173__
         name: iscsi_disk1
         ptable: msdos
         wipe: superblock
-      - id: sdb-part1
+      - id: sda-part1
         type: partition
         number: 1
         size: 2GB
-        device: sdb
-      - id: sdb-part1-fs1
+        device: sda
+      - id: sda-part1-fs1
         type: format
         fstype: ext4
         label: cloud-image1
-        volume: sdb-part1
-      - id: sdb-part1-fs1-mount0
+        volume: sda-part1
+      - id: sda-part1-fs1-mount0
         type: mount
         path: /mnt/iscsi1
-        device: sdb-part1-fs1
-      - id: sdc
+        device: sda-part1-fs1
+      - id: sdb
         type: disk
         path: iscsi:__RFC4173__
         name: iscsi_disk2
         ptable: msdos
         wipe: superblock
-      - id: sdc-part1
+      - id: sdb-part1
         type: partition
         number: 1
         size: 3GB
-        device: sdc
-      - id: sdc-part1-fs1
+        device: sdb
+      - id: sdb-part1-fs1
         type: format
         fstype: ext4
         label: cloud-image2
-        volume: sdc-part1
-      - id: sdc-part1-fs1-mount0
+        volume: sdb-part1
+      - id: sdb-part1-fs1-mount0
         type: mount
         path: /mnt/iscsi2
-        device: sdc-part1-fs1
-      - id: sdd
+        device: sdb-part1-fs1
+      - id: sdc
         type: disk
         path: iscsi:__RFC4173__
         name: iscsi_disk3
         ptable: msdos
         wipe: superblock
-      - id: sdd-part1
+      - id: sdc-part1
         type: partition
         number: 1
         size: 4GB
-        device: sdd
-      - id: sdd-part1-fs1
+        device: sdc
+      - id: sdc-part1-fs1
         type: format
         fstype: ext4
         label: cloud-image3
-        volume: sdd-part1
-      - id: sdd-part1-fs1-mount0
+        volume: sdc-part1
+      - id: sdc-part1-fs1-mount0
         type: mount
         path: /mnt/iscsi3
-        device: sdd-part1-fs1
-      - id: sde
+        device: sdc-part1-fs1
+      - id: sdd
         type: disk
         path: iscsi:__RFC4173__
         name: iscsi_disk4
         ptable: msdos
         wipe: superblock
-      - id: sde-part1
+      - id: sdd-part1
         type: partition
         number: 1
         size: 5GB
-        device: sde
-      - id: sde-part1-fs1
+        device: sdd
+      - id: sdd-part1-fs1
         type: format
         fstype: ext4
         label: cloud-image4
-        volume: sde-part1
-      - id: sde-part1-fs1-mount0
+        volume: sdd-part1
+      - id: sdd-part1-fs1-mount0
         type: mount
-        path: /mnt/iscsi3
-        device: sde-part1-fs1
+        path: /mnt/iscsi4
+        device: sdd-part1-fs1
 network:
    version: 1
    config:
@@ -136,4 +136,8 @@ write_files:
    f3:
       path: /mnt/iscsi3/testfile
       content: "test3"
+      permissions: 0777
+   f4:
+      path: /mnt/iscsi4/testfile
+      content: "test4"
       permissions: 0777

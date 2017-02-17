@@ -259,6 +259,15 @@ get_tgt_tid() {
         out=$(tgtadm --lld=iscsi --mode=target --op=show) ||
             { error "Failed to show iscsi devices"; return 1; }
 
+        # are we re-using a target?
+        tid=$(echo "$out" |
+            awk -F' ' "/^Target.*$target/ {gsub(\":\",\"\",\$2); print \$2; exit;} ")
+
+        [ -n "${tid}" ] && {
+            _RET="$tid"
+            return 0
+        }
+
         tid=$(echo "$out" |
             awk -F' ' '/^Target/ {tid=$2} END{gsub(":","",tid); print tid+1}')
 
@@ -289,16 +298,15 @@ get_tgt_tid() {
                     error "Does a prior config need to be cleaned up?"
                     return 1
                 }
-             
-                tgtadm --lld=iscsi --mode=account --op=bind "--tid=$tid" \
-                    "--user=${user}" --outgoing || {
-                    RC=$?
-                    error "Unable to set TGT target ${tid} target auth " \
-                          "user to ${user}: ${RC}."
-                    error "Does a prior config need to be cleaned up?"
-                    return 1
-                }
-            fi
+            fi 
+            tgtadm --lld=iscsi --mode=account --op=bind "--tid=$tid" \
+                "--user=${user}" || {
+                RC=$?
+                error "Unable to set TGT target ${tid} target auth " \
+                      "user to ${user}: ${RC}."
+                error "Does a prior config need to be cleaned up?"
+                return 1
+            }
         fi
 
         if [ -n "$iuser" ]; then
@@ -311,16 +319,15 @@ get_tgt_tid() {
                     error "Does a prior config need to be cleaned up?"
                     return 1
                 }
-             
-                tgtadm --lld=iscsi --mode=account --op=bind "--tid=$tid" \
-                    "--user=${iuser}" || {
-                    RC=$?
-                    error "Unable to set TGT target ${tid} initiator user " \
-                          "to ${iuser}: ${RC}."
-                    error "Does a prior config need to be cleaned up?"
-                    return 1
-                }
-            fi
+            fi 
+            tgtadm --lld=iscsi --mode=account --op=bind "--tid=$tid" \
+                "--user=${iuser}" --outgoing || {
+                RC=$?
+                error "Unable to set TGT target ${tid} initiator user " \
+                      "to ${iuser}: ${RC}."
+                error "Does a prior config need to be cleaned up?"
+                return 1
+            }
         fi
 
         # set all initiators to be able to authenticate
