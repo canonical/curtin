@@ -17,5 +17,5 @@ class TestUbuntuCoreAbs(VMBaseClass):
         self.output_files_exist(["snap_list"])
 
 
-class UbuntuCore16TestUbuntuCore(relbase.uc16fromxenial, TestUbuntuCoreAbs)
+class UbuntuCore16TestUbuntuCore(relbase.uc16fromxenial, TestUbuntuCoreAbs):
     __test__ = True
