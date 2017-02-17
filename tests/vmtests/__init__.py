@@ -414,8 +414,7 @@ class VMBaseClass(TestCase):
         if len(cls.iscsi_disks) == 0:
             return disks
 
-        portal = os.environ.get("CURTIN_VMTEST_ISCSI_PORTAL",
-                                   False)
+        portal = os.environ.get("CURTIN_VMTEST_ISCSI_PORTAL", False)
         if not portal:
             raise SkipTest("No iSCSI portal specified in the "
                            "environment (CURTIN_VMTEST_ISCSI_PORTAL). "
