@@ -257,16 +257,17 @@ def disconnect_target_disks(target_root_path=None):
             "Unable to logout of iSCSI targets: %s" % ', '.join(fails))
 
 
-# Verifies that a /dev/disk/by-path symlink matching the udev pattern
+# Determines if a /dev/disk/by-path symlink matching the udev pattern
 # for iSCSI disks is pointing at @kname
 def kname_is_iscsi(kname):
     by_path = "/dev/disk/by-path"
-    for path in os.listdir(by_path):
-        path_target = os.path.realpath(os.path.sep.join([by_path, path]))
-        if kname in path_target and 'iscsi' in path:
-            LOG.debug('kname_is_iscsi: '
-                      'found by-path link %s for kname %s', path, kname)
-            return True
+    if os.path.isdir(by_path):
+        for path in os.listdir(by_path):
+            path_target = os.path.realpath(os.path.sep.join([by_path, path]))
+            if kname in path_target and 'iscsi' in path:
+                LOG.debug('kname_is_iscsi: '
+                          'found by-path link %s for kname %s', path, kname)
+                return True
     LOG.debug('kname_is_iscsi: no iscsi disk found for kname %s' % kname)
     return False
 
