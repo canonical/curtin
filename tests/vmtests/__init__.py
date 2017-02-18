@@ -342,7 +342,7 @@ class VMBaseClass(TestCase):
     multipath = False
     multipath_num_paths = 2
     nvme_disks = []
-    iscsi_disks = []
+    _iscsi_disks = list()
     recorded_errors = 0
     recorded_failures = 0
     uefi = False
@@ -440,7 +440,6 @@ class VMBaseClass(TestCase):
         # we implicitly assume testcase YAML is in the same order as
         # iscsi_disks in the testcase
         # path:size:block_size:serial=,port=,cport=
-        cls._iscsi_disks = list()
         for (disk_no, disk_dict) in enumerate(cls.iscsi_disks):
             try:
                 disk_sz = disk_dict['size']
