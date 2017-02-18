@@ -342,6 +342,7 @@ class VMBaseClass(TestCase):
     multipath = False
     multipath_num_paths = 2
     nvme_disks = []
+    iscsi_disks = []
     _iscsi_disks = list()
     recorded_errors = 0
     recorded_failures = 0
