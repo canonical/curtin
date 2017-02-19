@@ -537,7 +537,7 @@ def netconfig_passthrough_v2_available(target, feature='NETWORK_CONFIG_V2'):
     """
     LOG.debug('Checking in-target cloud-init features')
     cmd = ("from cloudinit import version;"
-           "print({} in getattr(version, 'FEATURES', []))"
+           "print('{}' in getattr(version, 'FEATURES', []))"
            .format(feature))
     with util.ChrootableTarget(target) as in_chroot:
 
