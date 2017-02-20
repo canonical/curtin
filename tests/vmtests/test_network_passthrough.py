@@ -12,6 +12,11 @@ class TestNetworkPassthroughAbs(TestNetworkBaseTestsAbs):
         pass
 
 
+class TestNetworkV2PassthroughAbs(TestNetworkPassthroughAbs):
+    """Test network passthrough with v2 netconfig"""
+    conf_file = "examples/tests/network_v2_passthrough.yaml"
+
+
 class PreciseHWETTestNetworkPassthrough(relbase.precise_hwe_t,
                                         TestNetworkPassthroughAbs):
     # cloud-init too old
@@ -30,3 +35,10 @@ class XenialTestNetworkPassthrough(relbase.xenial, TestNetworkPassthroughAbs):
 class YakketyTestNetworkPassthrough(relbase.yakkety,
                                     TestNetworkPassthroughAbs):
     __test__ = True
+
+
+class XenialTestNetworkV2Passthrough(
+        relbase.xenial, TestNetworkV2PassthroughAbs):
+    # test for v2 only available on xenial due to repo add syntax
+    __test__ = True
+    required_net_ifaces = ['52:54:00:12:34:00']
