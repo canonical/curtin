@@ -442,7 +442,7 @@ class VMBaseClass(TestCase):
             uuid, _ = util.subp(['uuidgen'], capture=True,
                                 decode='replace')
             uuid = uuid.rstrip()
-            target = 'curtin_%s' % uuid
+            target = 'curtin-%s' % uuid
             cls._iscsi_disks.append(target)
             dpath = os.path.join(cls.td.disks, '%s.img' % (target))
             iscsi_disk = '{}:{}:iscsi:{}:{}:{}:{}:{}:{}'.format(
@@ -819,7 +819,7 @@ class VMBaseClass(TestCase):
                     capture=True)
 
                 # match target name to TID, e.g.:
-                # Target 4: curtin_59b5507d-1a6d-4b15-beda-3484f2a7d399
+                # Target 4: curtin-59b5507d-1a6d-4b15-beda-3484f2a7d399
                 tid = None
                 for line in tgtadm_out.splitlines():
                     # new target stanza
