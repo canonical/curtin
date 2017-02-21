@@ -385,31 +385,6 @@ class VMBaseClass(TestCase):
         return ftypes
 
     @classmethod
-    def getHostBridgeIp(cls, bridge):
-        out, _ = util.subp(['ip', 'a'], capture=True, decode='replace')
-        ip_a_dict = ip_a_to_dict(out)
-        try:
-            ip_dict = ip_a_dict[bridge]
-            try:
-                for ip in ip_dict['inet4']:
-                    if ip['scope'] != 'global':
-                        continue
-                    return ip['address']
-            except KeyError:
-                try:
-                    for ip in ip_dict['inet6']:
-                        if ip['scope'] != 'global':
-                            continue
-                        return ip['address']
-                except KeyError:
-                    raise ValueError('Unable to determine IP for bridge %s' %
-                                     bridge)
-        except KeyError:
-            raise ValueError('Unable to find bridge {}'.format(bridge))
-
-        raise ValueError('Unable to determine IP for bridge %s' % bridge)
-
-    @classmethod
     def build_iscsi_disks(cls):
         disks = []
         if len(cls.iscsi_disks) == 0:
