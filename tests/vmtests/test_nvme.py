@@ -26,6 +26,10 @@ class TestNvmeAbs(VMBaseClass):
         blkid -o export /dev/vda1 > blkid_output_vda1
         blkid -o export /dev/vda2 > blkid_output_vda2
         btrfs-show-super /dev/vdd > btrfs_show_super_vdd
+        [ -s btrfs_show_super_vdd ] || {
+           f="btrfs_show_super_vdd";
+           btrfs-debug-tree -r /dev/vdd | awk '/uuid/ {print $2}' > $f;
+        }
         cat /proc/partitions > proc_partitions
         ls -al /dev/disk/by-uuid/ > ls_uuid
         cat /etc/fstab > fstab

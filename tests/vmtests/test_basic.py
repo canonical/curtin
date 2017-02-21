@@ -20,6 +20,10 @@ class TestBasicAbs(VMBaseClass):
         blkid -o export /dev/vda1 > blkid_output_vda1
         blkid -o export /dev/vda2 > blkid_output_vda2
         btrfs-show-super /dev/vdd > btrfs_show_super_vdd
+        [ -s btrfs_show_super_vdd ] || {
+           f="btrfs_show_super_vdd";
+           btrfs-debug-tree -r /dev/vdd | awk '/uuid/ {print $2}' > $f;
+        }
         cat /proc/partitions > proc_partitions
         ls -al /dev/disk/by-uuid/ > ls_uuid
         cat /etc/fstab > fstab
@@ -234,6 +238,10 @@ class TestBasicScsiAbs(TestBasicAbs):
         blkid -o export /dev/sda1 > blkid_output_sda1
         blkid -o export /dev/sda2 > blkid_output_sda2
         btrfs-show-super /dev/sdc > btrfs_show_super_sdc
+        [ -s btrfs_show_super_sdc ] || {
+           f="btrfs_show_super_sdc";
+           btrfs-debug-tree -r /dev/sdc | awk '/uuid/ {print $2}' > $f;
+        }
         cat /proc/partitions > proc_partitions
         ls -al /dev/disk/by-uuid/ > ls_uuid
         ls -al /dev/disk/by-id/ > ls_disk_id
