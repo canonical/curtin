@@ -343,7 +343,6 @@ class VMBaseClass(TestCase):
     multipath_num_paths = 2
     nvme_disks = []
     iscsi_disks = []
-    _iscsi_disks = list()
     recorded_errors = 0
     recorded_failures = 0
     uefi = False
@@ -386,6 +385,7 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def build_iscsi_disks(cls):
+        cls._iscsi_disks = list()
         disks = []
         if len(cls.iscsi_disks) == 0:
             return disks
