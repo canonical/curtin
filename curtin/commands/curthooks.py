@@ -546,13 +546,12 @@ def detect_and_handle_multipath(cfg, target):
     update_initramfs(target, all_kernels=True)
 
 
-def install_missing_packages(cfg, target):
-    ''' describe which operation types will require specific packages
-
-    'custom_config_key': {
-         'pkg1': ['op_name_1', 'op_name_2', ...]
-     }
-    '''
+def detect_required_packages(cfg):
+    """
+    detect packages that will be required in-target by custom config items
+    """
+    # NOTE: this functionality may be useful in general, and when multi-distro
+    #       curtooks is developed could be moved into its own module with a cli
     custom_configs = {
         'storage': {
             'lvm2': ['lvm_volgroup', 'lvm_partition'],
@@ -570,29 +569,53 @@ def install_missing_packages(cfg, target):
         'btrfs-tools': ['btrfs'],
     }
 
-    needed_packages = []
-    installed_packages = util.get_installed_packages(target)
-    for cust_cfg, pkg_reqs in custom_configs.items():
-        if cust_cfg not in cfg:
-            continue
+    def detect_v1_config_required(cust_cfg, pkg_reqs):
+        """
+        detect required packages for v1 config
+        """
+        result = []
 
         all_types = set(
             operation['type']
             for operation in cfg[cust_cfg]['config']
             )
         for pkg, types in pkg_reqs.items():
-            if set(types).intersection(all_types) and \
-               pkg not in installed_packages:
-                needed_packages.append(pkg)
+            if set(types).intersection(all_types):
+                result.append(pkg)
 
         format_types = set(
             [operation['fstype']
              for operation in cfg[cust_cfg]['config']
              if operation['type'] == 'format'])
         for pkg, fstypes in format_configs.items():
-            if set(fstypes).intersection(format_types) and \
-               pkg not in installed_packages:
-                needed_packages.append(pkg)
+            if set(fstypes).intersection(format_types):
+                result.append(pkg)
+
+        return result
+
+    needed_packages = []
+
+    # detect v1 config deps
+    for cust_cfg, pkg_reqs in custom_configs.items():
+        if (not isinstance(cfg.get(cust_cfg), dict) or
+                cfg[cust_cfg].get('version') != 1):
+            continue
+        needed_packages.extend(detect_v1_config_required(cust_cfg, pkg_reqs))
+
+    return needed_packages
+
+
+def install_missing_packages(cfg, target):
+    ''' describe which operation types will require specific packages
+
+    'custom_config_key': {
+         'pkg1': ['op_name_1', 'op_name_2', ...]
+     }
+    '''
+
+    installed_packages = util.get_installed_packages(target)
+    needed_packages = [pkg for pkg in detect_required_packages(cfg)
+                       if pkg not in installed_packages]
 
     if needed_packages:
         state = util.load_command_environment()
