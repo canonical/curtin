@@ -8,11 +8,13 @@ import random
 import re
 import shutil
 import subprocess
+import tempfile
 import textwrap
 import time
 import yaml
 import curtin.net as curtin_net
 import curtin.util as util
+from curtin.block import iscsi
 
 from .report_webhook_logger import CaptureReporting
 from curtin.commands.install import INSTALL_PASS_MSG
@@ -340,6 +342,7 @@ class VMBaseClass(TestCase):
     multipath = False
     multipath_num_paths = 2
     nvme_disks = []
+    iscsi_disks = []
     recorded_errors = 0
     recorded_failures = 0
     uefi = False
@@ -379,6 +382,102 @@ class VMBaseClass(TestCase):
         logger.info("Target Tarball: %s", img_verstr)
         ftypes.update(found)
         return ftypes
+
+    @classmethod
+    def build_iscsi_disks(cls):
+        cls._iscsi_disks = list()
+        disks = []
+        if len(cls.iscsi_disks) == 0:
+            return disks
+
+        portal = os.environ.get("CURTIN_VMTEST_ISCSI_PORTAL", False)
+        if not portal:
+            raise SkipTest("No iSCSI portal specified in the "
+                           "environment (CURTIN_VMTEST_ISCSI_PORTAL). "
+                           "Skipping iSCSI tests.")
+
+        # note that TGT_IPC_SOCKET also needs to be set for
+        # successful communication
+
+        try:
+            cls.tgtd_ip, cls.tgtd_port = \
+                iscsi.assert_valid_iscsi_portal(portal)
+        except ValueError as e:
+            raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL is invalid: %s", e)
+
+        # copy testcase YAML to a temporary file in order to replace
+        # placeholders
+        temp_yaml = tempfile.NamedTemporaryFile(prefix=cls.td.tmpdir + '/',
+                                                mode='w+t', delete=False)
+        logger.debug("iSCSI YAML is at %s" % temp_yaml.name)
+        shutil.copyfile(cls.conf_file, temp_yaml.name)
+        cls.conf_file = temp_yaml.name
+
+        # we implicitly assume testcase YAML is in the same order as
+        # iscsi_disks in the testcase
+        # path:size:block_size:serial=,port=,cport=
+        for (disk_no, disk_dict) in enumerate(cls.iscsi_disks):
+            try:
+                disk_sz = disk_dict['size']
+            except KeyError:
+                raise ValueError('No size specified for iSCSI disk')
+            try:
+                disk_user, disk_password = disk_dict['auth'].split(':')
+                if len(disk_user) == 0 and len(disk_password) > 0:
+                    raise ValueError('Specifying iSCSI target password '
+                                     'without user is invalid')
+            except KeyError:
+                disk_user = ''
+                disk_password = ''
+
+            try:
+                disk_iuser, disk_ipassword = disk_dict['iauth'].split(':')
+                if len(disk_iuser) == 0 and len(disk_ipassword) > 0:
+                    raise ValueError('Specifying iSCSI initiator password '
+                                     'without user is invalid')
+            except KeyError:
+                disk_iuser = ''
+                disk_ipassword = ''
+
+            uuid, _ = util.subp(['uuidgen'], capture=True,
+                                decode='replace')
+            uuid = uuid.rstrip()
+            target = 'curtin-%s' % uuid
+            cls._iscsi_disks.append(target)
+            dpath = os.path.join(cls.td.disks, '%s.img' % (target))
+            iscsi_disk = '{}:{}:iscsi:{}:{}:{}:{}:{}:{}'.format(
+                dpath, disk_sz, cls.disk_block_size, target,
+                disk_user, disk_password, disk_iuser, disk_ipassword)
+            disks.extend(['--disk', iscsi_disk])
+
+            # replace next __RFC4173__ placeholder in YAML
+            with tempfile.NamedTemporaryFile(mode='w+t') as temp_yaml:
+                shutil.copyfile(cls.conf_file, temp_yaml.name)
+                with open(cls.conf_file, 'w+t') as conf:
+                    replaced = False
+                    for line in temp_yaml:
+                        if not replaced and '__RFC4173__' in line:
+                            actual_rfc4173 = ''
+                            if len(disk_user) > 0:
+                                actual_rfc4173 += '%s:%s' % (disk_user,
+                                                             disk_password)
+                            if len(disk_iuser) > 0:
+                                # empty target user/password
+                                if len(actual_rfc4173) == 0:
+                                    actual_rfc4173 += ':'
+                                actual_rfc4173 += ':%s:%s' % (disk_iuser,
+                                                              disk_ipassword)
+                            # any auth specified?
+                            if len(actual_rfc4173) > 0:
+                                actual_rfc4173 += '@'
+                            # assumes LUN 1
+                            actual_rfc4173 += '%s::%s:1:%s' % (
+                                              cls.tgtd_ip,
+                                              cls.tgtd_port, target)
+                            line = line.replace('__RFC4173__', actual_rfc4173)
+                            replaced = True
+                        conf.write(line)
+        return disks
 
     @classmethod
     def setUpClass(cls):
@@ -491,6 +590,9 @@ class VMBaseClass(TestCase):
                                                   cls.disk_block_size,
                                                   "serial=nvme-%d" % disk_no)
             disks.extend(['--disk', nvme_disk])
+
+        # build iscsi disk args if needed
+        disks.extend(cls.build_iscsi_disks())
 
         # proxy config
         configs = [cls.conf_file]
@@ -635,6 +737,9 @@ class VMBaseClass(TestCase):
                 dpath, disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
             nvme_disks.extend([disk])
 
+        # unlike NVMe disks, we do not want to configure the iSCSI disks
+        # via KVM, which would use qemu's iSCSI target layer.
+
         if cls.multipath:
             target_disks = target_disks * cls.multipath_num_paths
             extra_disks = extra_disks * cls.multipath_num_paths
@@ -697,6 +802,41 @@ class VMBaseClass(TestCase):
             cls.__name__, time.time() - setup_start)
 
     @classmethod
+    def cleanIscsiState(cls, result, keep_pass, keep_fail):
+        if result:
+            keep = keep_pass
+        else:
+            keep = keep_fail
+
+        if 'disks' in keep or (len(keep) == 1 and keep[0] == 'all'):
+            logger.info('Not removing iSCSI disks from tgt, they will '
+                        'need to be removed manually.')
+        else:
+            for target in cls._iscsi_disks:
+                logger.debug('Removing iSCSI target %s', target)
+                tgtadm_out, _ = util.subp(
+                    ['tgtadm', '--lld=iscsi', '--mode=target', '--op=show'],
+                    capture=True)
+
+                # match target name to TID, e.g.:
+                # Target 4: curtin-59b5507d-1a6d-4b15-beda-3484f2a7d399
+                tid = None
+                for line in tgtadm_out.splitlines():
+                    # new target stanza
+                    m = re.match(r'Target (\d+): (\S+)', line)
+                    if m and target in m.group(2):
+                        tid = m.group(1)
+                        break
+
+                if tid:
+                    util.subp(['tgtadm', '--lld=iscsi', '--mode=target',
+                               '--tid=%s' % tid, '--op=delete'])
+                else:
+                    logger.warn('Unable to determine target ID for '
+                                'target %s. It will need to be manually '
+                                'removed.', target)
+
+    @classmethod
     def tearDownClass(cls):
         success = False
         sfile = os.path.exists(cls.td.success_file)
@@ -712,6 +852,10 @@ class VMBaseClass(TestCase):
         clean_working_dir(cls.td.tmpdir, success,
                           keep_pass=KEEP_DATA['pass'],
                           keep_fail=KEEP_DATA['fail'])
+
+        cls.cleanIscsiState(success,
+                            keep_pass=KEEP_DATA['pass'],
+                            keep_fail=KEEP_DATA['fail'])
 
     @classmethod
     def expected_interfaces(cls):
