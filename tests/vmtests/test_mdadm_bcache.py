@@ -144,6 +144,12 @@ class YakketyTestMdadmBcache(relbase.yakkety, TestMdadmBcacheAbs):
 class ZestyTestMdadmBcache(relbase.zesty, TestMdadmBcacheAbs):
     __test__ = True
 
+    @classmethod
+    def setUpClass(cls):
+        cls.skip_by_date(cls.__name__, cls.release, "1667078",
+                         (2017, 3, 22), (2017, 3, 31))
+        super().setUpClass()
+
 
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup

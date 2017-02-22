@@ -480,6 +480,17 @@ class VMBaseClass(TestCase):
         return disks
 
     @classmethod
+    def skip_by_date(cls, clsname, release, bugnum, fixby, removeby):
+        if datetime.date.today() < datetime.date(*fixby):
+            raise SkipTest(
+                "LP: #%s not expected to be fixed in %s yet" % (bugnum,
+                                                                release))
+        if datetime.date.today() > datetime.date(*removeby):
+            raise RuntimeError(
+                "Please remove the LP: #%s workaround in %s",
+                bugnum, clsname)
+
+    @classmethod
     def setUpClass(cls):
         # check if we should skip due to host arch
         if cls.arch in cls.arch_skip:
