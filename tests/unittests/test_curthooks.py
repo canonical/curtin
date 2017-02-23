@@ -75,3 +75,13 @@ class TestDetectRequiredPackages(unittest.TestCase):
             (((), ('bond', 'bridge')), ('ifenslave', 'bridge-utils')),
             (((), ('vlan', 'bridge')), ('bridge-utils', 'vlan')),
         ))
+
+    def test_mixed_v1_detect(self):
+        self._test_req_mappings((
+            ((('raid', 'bcache', 'ext4'), ('vlan',)),
+             ('mdadm', 'bcache-tools', 'e2fsprogs', 'vlan')),
+            ((('lvm_partition', 'lvm_volgroup', 'xfs'), ('bridge', 'bond')),
+             ('lvm2', 'xfsprogs', 'bridge-utils', 'ifenslave')),
+            ((('ext4', 'ext3', 'btrfs'), ('bond',)),
+             ('e2fsprogs', 'btrfs-tools', 'ifenslave')),
+        ))
