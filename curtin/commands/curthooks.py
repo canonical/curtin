@@ -590,7 +590,8 @@ def detect_required_packages(cfg):
         """
         detect required packages for v2 net config
         """
-        pass
+        return set(pkg_reqs.get(dev_type) for dev_type in cust_cfg
+                   if dev_type in pkg_reqs and cust_cfg[dev_type])
 
     custom_configs = {
         'storage': {
@@ -607,7 +608,9 @@ def detect_required_packages(cfg):
                     'bridge-utils': ['bridge']}},
             2: {'handler': detect_v2_net_reqs,
                 'pkg_reqs': {
-                }}}
+                    'bridges': 'bridge-utils',
+                    'vlans': 'vlan',
+                    'bonds': 'ifenslave'}}}
     }
     needed_packages = []
 
