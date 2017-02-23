@@ -552,29 +552,14 @@ def detect_required_packages(cfg):
     """
     # NOTE: this functionality may be useful in general, and when multi-distro
     #       curtooks is developed could be moved into its own module with a cli
-    custom_configs = {
-        'storage': {
-            'lvm2': ['lvm_volgroup', 'lvm_partition'],
-            'mdadm': ['raid'],
-            'bcache-tools': ['bcache']},
-        'network': {
-            'vlan': ['vlan'],
-            'ifenslave': ['bond'],
-            'bridge-utils': ['bridge']},
-    }
 
-    format_configs = {
-        'xfsprogs': ['xfs'],
-        'e2fsprogs': ['ext2', 'ext3', 'ext4'],
-        'btrfs-tools': ['btrfs'],
-    }
-
-    def detect_v1_config_required(cust_cfg, pkg_reqs):
+    def detect_v1_reqs(cust_cfg, pkg_reqs):
         """
         detect required packages for v1 config
         """
         result = []
 
+        # get reqs by operation type
         all_types = set(
             operation['type']
             for operation in cfg[cust_cfg]['config']
@@ -583,24 +568,66 @@ def detect_required_packages(cfg):
             if set(types).intersection(all_types):
                 result.append(pkg)
 
+        # check deps required by format operations
+        # NOTE: it may make sense to move this into block.mkfs and extended
+        #       it at some point, to keep info about formats in one place
+        v1_storage_format_configs = {
+            'xfsprogs': ['xfs'],
+            'e2fsprogs': ['ext2', 'ext3', 'ext4'],
+            'btrfs-tools': ['btrfs'],
+        }
         format_types = set(
             [operation['fstype']
              for operation in cfg[cust_cfg]['config']
              if operation['type'] == 'format'])
-        for pkg, fstypes in format_configs.items():
+        for pkg, fstypes in v1_storage_format_configs.items():
             if set(fstypes).intersection(format_types):
                 result.append(pkg)
 
         return result
 
+    def detect_v2_net_reqs(cust_cfg, pkg_reqs):
+        """
+        detect required packages for v2 net config
+        """
+        pass
+
+    custom_configs = {
+        'storage': {
+            1: {'handler': detect_v1_reqs,
+                'pkg_reqs': {
+                    'lvm2': ['lvm_volgroup', 'lvm_partition'],
+                    'mdadm': ['raid'],
+                    'bcache-tools': ['bcache']}}},
+        'network': {
+            1: {'handler': detect_v1_reqs,
+                'pkg_reqs': {
+                    'vlan': ['vlan'],
+                    'ifenslave': ['bond'],
+                    'bridge-utils': ['bridge']}},
+            2: {'handler': detect_v2_net_reqs,
+                'pkg_reqs': {
+                }}}
+    }
     needed_packages = []
 
-    # detect v1 config deps
-    for cust_cfg, pkg_reqs in custom_configs.items():
-        if (not isinstance(cfg.get(cust_cfg), dict) or
-                cfg[cust_cfg].get('version') != 1):
+    for cust_cfg, version_pkg_reqs in custom_configs.items():
+        # skip missing or invalid custom config items
+        if not isinstance(cfg.get(cust_cfg), dict):
             continue
-        needed_packages.extend(detect_v1_config_required(cust_cfg, pkg_reqs))
+
+        # ensure that version is supported
+        version = cfg[cust_cfg].get('version')
+        if not isinstance(version, int) or version not in version_pkg_reqs:
+            LOG.warning('skipping pkg req detection for cfg item: %s '
+                        'because version: %s not supported by '
+                        'detect_required_packages', cust_cfg, version)
+            continue
+
+        # make call to handler
+        req_data = version_pkg_reqs[version]
+        found_reqs = req_data['handler'](cust_cfg, req_data['pkg_reqs'])
+        needed_packages.extend(found_reqs)
 
     return needed_packages
 
