@@ -11,9 +11,8 @@ apt:
             keyid: 2B91B36D
 network:
     version: 2
-    config:
-        ethernets:
-            interface0:
-                match:
-                    mac_address: "52:54:00:12:34:00"
-                dhcp4: true
+    ethernets:
+        interface0:
+            match:
+                mac_address: "52:54:00:12:34:00"
+            dhcp4: true
