@@ -257,6 +257,7 @@ class TempDir(object):
     output_disk = None
 
     def __init__(self, name, user_data):
+        self.restored = False
         # Create tmpdir
         self.tmpdir = os.path.join(_topdir(), name)
 
@@ -606,8 +607,9 @@ class VMBaseClass(TestCase):
         cls.proxy = get_apt_proxy()
         if cls.proxy is not None:
             proxy_config = os.path.join(cls.td.install, 'proxy.cfg')
-            with open(proxy_config, "w") as fp:
-                fp.write(json.dumps({'apt_proxy': cls.proxy}) + "\n")
+            if not os.path.exists(proxy_config):
+                with open(proxy_config, "w") as fp:
+                    fp.write(json.dumps({'apt_proxy': cls.proxy}) + "\n")
             configs.append(proxy_config)
 
         uefi_flags = []
@@ -618,8 +620,9 @@ class VMBaseClass(TestCase):
 
             # always attempt to update target nvram (via grub)
             grub_config = os.path.join(cls.td.install, 'grub.cfg')
-            with open(grub_config, "w") as fp:
-                fp.write(json.dumps({'grub': {'update_nvram': True}}))
+            if not os.path.exists(grub_config):
+                with open(grub_config, "w") as fp:
+                    fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)
 
         excfg = os.environ.get("CURTIN_VMTEST_EXTRA_CONFIG", False)
@@ -638,20 +641,21 @@ class VMBaseClass(TestCase):
         reporting_config = os.path.join(cls.td.install, 'reporting.cfg')
         localhost_url = ('http://' + get_lan_ip() +
                          ':{:d}/'.format(reporting_logger.port))
-        with open(reporting_config, 'w') as fp:
-            fp.write(json.dumps({
-                'install': {
-                    'log_file': '/tmp/install.log',
-                    'post_files': ['/tmp/install.log'],
-                },
-                'reporting': {
-                    'maas': {
-                        'level': 'DEBUG',
-                        'type': 'webhook',
-                        'endpoint': localhost_url,
+        if not os.path.exists(reporting_config):
+            with open(reporting_config, 'w') as fp:
+                fp.write(json.dumps({
+                    'install': {
+                        'log_file': '/tmp/install.log',
+                        'post_files': ['/tmp/install.log'],
                     },
-                },
-            }))
+                    'reporting': {
+                        'maas': {
+                            'level': 'DEBUG',
+                            'type': 'webhook',
+                            'endpoint': localhost_url,
+                        },
+                    },
+                }))
         configs.append(reporting_config)
 
         cmd.extend(uefi_flags + netdevs + disks +
@@ -662,7 +666,7 @@ class VMBaseClass(TestCase):
                    [install_src])
 
         # don't run the vm stages if we're just re-running testcases on output
-        if cls.td.reloaded:
+        if cls.td.restored:
             logger.info('Using existing outputdata, skipping install/boot')
             return
 
