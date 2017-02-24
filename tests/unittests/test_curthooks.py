@@ -168,3 +168,14 @@ class TestDetectRequiredPackages(unittest.TestCase):
                 'items': ('vlan', 'bridge')}},
              ('vlan', 'bridge-utils')),
         ))
+
+    def test_mixed_storage_v1_network_v2_detect(self):
+        self._test_req_mappings((
+            ({'network': {
+                'version': 2,
+                'items': ('bridge', 'vlan')},
+             'storage': {
+                 'version': 1,
+                 'items': ('raid', 'bcache', 'ext4')}},
+             ('vlan', 'bridge-utils', 'mdadm', 'bcache-tools', 'e2fsprogs')),
+        ))
