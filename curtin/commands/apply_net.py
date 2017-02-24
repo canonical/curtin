@@ -106,7 +106,7 @@ def apply_net(target, network_state=None, network_config=None):
         #      (cloud-init too old)
         passthrough = netcfg.get('network', {}).get('passthrough', None)
         LOG.debug('netcfg set passthrough to: %s', passthrough)
-        if not passthrough:
+        if passthrough is None:
             v2_required = netcfg.get('network', {}).get('version', None) == 2
             LOG.debug('testing in-target cloud-init version for support')
             passthrough = (net.netconfig_passthrough_available(target) and
