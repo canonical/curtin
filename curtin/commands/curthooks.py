@@ -590,8 +590,8 @@ def detect_required_packages(cfg):
         """
         detect required packages for v2 net config
         """
-        return set(pkg_reqs.get(dev_type) for dev_type in cust_cfg
-                   if dev_type in pkg_reqs and cust_cfg[dev_type])
+        return set(pkg_reqs.get(dev_type) for dev_type in cfg[cust_cfg]
+                   if dev_type in pkg_reqs and cfg[cust_cfg][dev_type])
 
     custom_configs = {
         'storage': {
