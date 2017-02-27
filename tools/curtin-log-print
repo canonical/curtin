@@ -77,7 +77,7 @@ def dump_event_files(event):
     for f in files:
         fname = f['path']
         fn_local = os.path.basename(fname)
-        fcontent = base64.b64decode(f['content']).decode('ascii')
+        fcontent = base64.b64decode(f['content']).decode('utf-8')
         with open(fn_local, 'w') as fh:
             fh.write(fcontent)
         saved.append(fn_local)

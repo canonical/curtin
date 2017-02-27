@@ -525,7 +525,7 @@ def netconfig_passthrough_available(target, pkg_ver=None):
     Determine if curtin can pass networking config
     into the target for cloud-init to consume.
 
-    This is available on cloud-init 0.7.6 and newer
+    This is available on cloud-init 0.7.9-25 and newer
     """
     LOG.debug('Checking in-target cloud-init version')
     if pkg_ver is None:
@@ -539,10 +539,11 @@ def netconfig_passthrough_available(target, pkg_ver=None):
     LOG.debug("cloud-init version is '%s' (major=%s minor=%s micro=%s)",
               pkg_ver.get('semantic_version'), pkg_ver.get('major'),
               pkg_ver.get('minor'), pkg_ver.get('micro'))
-    # cloud-init versions < 0.7.6 do _NOT_ want whitespace replaced
-    # i.e. 0.7.6 in Trusty.
-    if pkg_ver.get('semantic_version', 0) < 706:
+    # 7.9-25
+    if pkg_ver.get('semantic_version', 0) < 707:
         return False
+    # if int(pkg_ver.get('distance', 0)) < 25:
+    #    return False
 
     return True
 

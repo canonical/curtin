@@ -95,6 +95,8 @@ def apply_net(target, network_state=None, network_config=None):
         ns = net.network_state.from_state_file(network_state)
         # FIXME: pass-through not supported unless we create
         # a network_state -> network_config step
+        raise ValueError('Not Supported; network_state -> network_config'
+                         'needed')
     elif network_config:
         netcfg = config.load_config(network_config)
 
@@ -105,9 +107,9 @@ def apply_net(target, network_state=None, network_config=None):
         passthrough = netcfg.get('network', {}).get('passthrough', None)
         LOG.debug('netcfg set passthrough to: %s', passthrough)
         if not passthrough:
-            LOG.debug('testing in-target cloud-init version for support')
+            LOG.info('testing in-target cloud-init version for support')
             passthrough = net.netconfig_passthrough_available(target)
-            LOG.debug('passthrough via in-target: %s', passthrough)
+            LOG.info('passthrough via in-target: %s', passthrough)
 
         if passthrough:
             LOG.info('Passing network configuration through to target')
@@ -238,16 +240,6 @@ def _maybe_remove_legacy_eth0(target,
         msg = bmsg + " %s exists, but could not be read." % cfg
         LOG.exception(msg)
         raise
-
-    known_contents = ["auto eth0", "iface eth0 inet dhcp"]
-    lines = [f.strip() for f in contents.splitlines()
-             if not f.startswith("#")]
-    if lines == known_contents:
-        util.del_file(cfg)
-        msg = "removed %s with known contents" % cfg
-    else:
-        msg = (bmsg + " '%s' exists with user configured content." % cfg)
-        raise ValueError(msg)
 
     LOG.warn(msg)
 

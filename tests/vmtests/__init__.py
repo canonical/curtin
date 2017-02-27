@@ -516,7 +516,7 @@ class VMBaseClass(TestCase):
         excfg = os.environ.get("CURTIN_VMTEST_EXTRA_CONFIG", False)
         if excfg:
             configs.append(excfg)
-            logger.debug('Added extra config {}'.format(excfg))
+            logger.info('Injection extra config from env:\n%s', excfg)
 
         if cls.multipath:
             disks = disks * cls.multipath_num_paths

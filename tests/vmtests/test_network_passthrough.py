@@ -30,3 +30,7 @@ class XenialTestNetworkPassthrough(relbase.xenial, TestNetworkPassthroughAbs):
 class YakketyTestNetworkPassthrough(relbase.yakkety,
                                     TestNetworkPassthroughAbs):
     __test__ = True
+
+
+class ZestyTestNetworkPassthrough(relbase.zesty, TestNetworkPassthroughAbs):
+    __test__ = True

@@ -1,6 +1,7 @@
 from . import VMBaseClass, logger, helpers
 from .releases import base_vm_classes as relbase
 
+from unittest import SkipTest
 from curtin import net, util, config
 
 import glob
@@ -36,6 +37,9 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         cp -av /var/log/cloud*.log ./
         dpkg-query -W -f '${Version}' cloud-init > dpkg_cloud-init_version
         sleep 10 && ip a > ip_a
+        cp -av /etc/netplan . ||:
+        networkctl > networkctl
+        cp -a /run/systemd/network ./run_systemd_network ||:
         """)]
 
     def test_output_files_exist(self):
@@ -66,12 +70,23 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         return (eni, eni_cfg)
 
     def test_etc_network_interfaces(self):
+        curtin_disable = "cloud.cfg.d/curtin-disable-cloudinit-networking.cfg"
+        ci_disable_network = os.path.join(self.td.collect, "etc_cloud",
+                                          curtin_disable)
+                                          
+        if not os.path.exists(ci_disable_network):
+            reason = ("{}: using net-passthrough; "
+                      "deferring to cloud-init".format(self.__name__))
+            raise SkipTest(reason)
+
         eni, eni_cfg = self.read_eni()
         expected_eni = self.get_expected_etc_network_interfaces()
         eni_lines = eni.split('\n') + eni_cfg.split('\n')
         print("\n".join(eni_lines))
         for line in [l for l in expected_eni.split('\n') if len(l) > 0]:
             if line.startswith("#"):
+                continue
+            if "hwaddress ether" in line:
                 continue
             print('expected line:\n%s' % line)
             self.assertTrue(line in eni_lines)
