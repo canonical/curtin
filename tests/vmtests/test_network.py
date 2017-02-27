@@ -37,7 +37,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         cp -av /var/log/cloud*.log ./
         dpkg-query -W -f '${Version}' cloud-init > dpkg_cloud-init_version
         sleep 10 && ip a > ip_a
-        cp -av /etc/netplan . ||:
+        cp -av /etc/netplan ./etc_netplan ||:
         networkctl > networkctl
         cp -a /run/systemd/network ./run_systemd_network ||:
         """)]
@@ -69,14 +69,23 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
 
         return (eni, eni_cfg)
 
+    def _network_renderer(self):
+        """ Determine if target uses eni/ifupdown or netplan/networkd """
+
+        etc_netplan = os.path.join(self.td.collect, 'etc_netplan')
+        networkd = os.path.join(self.td.collect, 'run_systemd_network')
+
+        if (len(os.listdir(etc_netplan)) > 0 and
+            len(os.listdir(networkd)) > 0):
+            return 'systemd-networkd'
+
+        return 'ifupdown'
+
+
     def test_etc_network_interfaces(self):
-        curtin_disable = "cloud.cfg.d/curtin-disable-cloudinit-networking.cfg"
-        ci_disable_network = os.path.join(self.td.collect, "etc_cloud",
-                                          curtin_disable)
-                                          
-        if not os.path.exists(ci_disable_network):
+        if self._network_renderer() != "ifupdown":
             reason = ("{}: using net-passthrough; "
-                      "deferring to cloud-init".format(self.__name__))
+                      "deferring to cloud-init".format(self.__class__))
             raise SkipTest(reason)
 
         eni, eni_cfg = self.read_eni()
@@ -220,19 +229,6 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         ip_dict = helpers.ip_a_to_dict(ip_a)
         print('parsed ip_a dict:\n{}'.format(
             yaml.dump(ip_dict, default_flow_style=False, indent=4)))
-
-        with open(os.path.join(self.td.collect, "ip_route_show")) as fp:
-            ip_route_show = fp.read()
-            logger.debug("ip route show:\n{}".format(ip_route_show))
-            for line in [line for line in ip_route_show.split('\n')
-                         if 'src' in line]:
-                m = re.search(r'^(?P<network>\S+)\sdev\s' +
-                              r'(?P<devname>\S+)\s+' +
-                              r'proto kernel\s+scope link' +
-                              r'\s+src\s(?P<src_ip>\S+)',
-                              line)
-                route_info = m.groupdict('')
-                logger.debug(route_info)
 
         with open(os.path.join(self.td.collect, "route_n")) as fp:
             route_n = fp.read()

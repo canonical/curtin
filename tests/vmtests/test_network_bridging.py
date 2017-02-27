@@ -114,7 +114,6 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
             self.assertEqual('install ok installed', status)
 
     def test_bridge_params(self):
-        """ Test if configure bridge params match values on the device """
 
         def _load_sysfs_bridge_data():
             sysfs_br0 = sysfs_to_dict(os.path.join(self.td.collect,
@@ -144,6 +143,7 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
                         p not in bridge_params_uncheckable)]
 
         def _check_bridge_param(sysfs_vals, p, br):
+            print('Checking bridge %s param %s' % (br, p))
             value = br.get(param)
             if param in ['bridge_stp']:
                 if value in ['off', '0']:
@@ -152,25 +152,36 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
                     value = 1
                 else:
                     print('bridge_stp not in known val list')
+            elif param in ['bridge_portprio']:
+                if self._network_renderer() == "systemd-networkd":
+                    reason = ("{}: skip until lp#1668347 is fixed".format(self.__class__))
+                    logger.warn('Skipping: %s', reason)
+                    print(reason)
+                    return
 
             print('key=%s value=%s' % (param, value))
             if type(value) == list:
                 for subval in value:
                     (port, pval) = subval.split(" ")
-                    print('key=%s port=%s pval=%s' % (param, port, pval))
+                    print('param=%s port=%s pval=%s' % (param, port, pval))
                     sys_file_val = _get_sysfs_value(sysfs_vals, br0['name'],
                                                     param, port)
 
-                    self.assertEqual(int(pval), int(sys_file_val))
+                    self.assertEqual(int(pval), int(sys_file_val),
+                                     "Source cfg: %s=%s on port %s" % (param,
+                                                                       value, 
+                                                                       port))
             else:
                 sys_file_val = _get_sysfs_value(sysfs_vals, br0['name'],
                                                 param, port=None)
-                self.assertEqual(int(value), int(sys_file_val))
+                self.assertEqual(int(value), int(sys_file_val),
+                                 "Source cfg: %s=%s" % (param, value))
 
         sysfs_vals = _load_sysfs_bridge_data()
-        print(sysfs_vals)
+        # print(sysfs_vals)
         br0 = _get_bridge_config()
         for param in _get_bridge_params(br0):
+            print('Checking param %s' % param)
             _check_bridge_param(sysfs_vals, param, br0)
 
 
