@@ -3,7 +3,6 @@ from . import (
     get_apt_proxy)
 from .releases import base_vm_classes as relbase
 
-import re
 import textwrap
 
 
@@ -19,7 +18,8 @@ class TestBasicAbs(VMBaseClass):
         blkid -o export /dev/vda > blkid_output_vda
         blkid -o export /dev/vda1 > blkid_output_vda1
         blkid -o export /dev/vda2 > blkid_output_vda2
-        btrfs-show-super /dev/vdd > btrfs_show_super_vdd
+        f="btrfs_uuid_vdd"
+        btrfs-debug-tree -r /dev/vdd | awk '/^uuid/ {print $2}' | grep "-" > $f
         cat /proc/partitions > proc_partitions
         ls -al /dev/disk/by-uuid/ > ls_uuid
         cat /etc/fstab > fstab
@@ -36,7 +36,7 @@ class TestBasicAbs(VMBaseClass):
     def test_output_files_exist(self):
         self.output_files_exist(
             ["blkid_output_vda", "blkid_output_vda1", "blkid_output_vda2",
-             "btrfs_show_super_vdd", "fstab", "ls_dname", "ls_uuid",
+             "btrfs_uuid_vdd", "fstab", "ls_dname", "ls_uuid",
              "proc_partitions"])
 
     def test_ptable(self):
@@ -89,15 +89,12 @@ class TestBasicAbs(VMBaseClass):
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
-        btrfs_show_super = self.load_collect_file('btrfs_show_super_vdd')
+        btrfs_uuid = self.load_collect_file('btrfs_uuid_vdd').strip()
         ls_uuid = self.load_collect_file("ls_uuid")
 
         # extract uuid from btrfs superblock
-        btrfs_fsid = [line for line in btrfs_show_super.split('\n')
-                      if line.startswith('fsid\t\t')]
-        self.assertEqual(len(btrfs_fsid), 1)
-        btrfs_uuid = btrfs_fsid[0].split()[1]
         self.assertTrue(btrfs_uuid is not None)
+        self.assertEqual(len(btrfs_uuid), 36)
 
         # extract uuid from /dev/disk/by-uuid on /dev/vdd
         # parsing ls -al output on /dev/disk/by-uuid:
@@ -138,7 +135,8 @@ class PreciseTestBasic(relbase.precise, TestBasicAbs):
         blkid -o export /dev/vda > blkid_output_vda
         blkid -o export /dev/vda1 > blkid_output_vda1
         blkid -o export /dev/vda2 > blkid_output_vda2
-        btrfs-show /dev/vdd > btrfs_show_super_vdd
+        f="btrfs_uuid_vdd"
+        btrfs-show /dev/vdd | awk '/uuid/ {print $4}' > $f
         cat /proc/partitions > proc_partitions
         ls -al /dev/disk/by-uuid/ > ls_uuid
         cat /etc/fstab > fstab
@@ -154,15 +152,11 @@ class PreciseTestBasic(relbase.precise, TestBasicAbs):
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
-        btrfs_show_super = self.load_collect_file("btrfs_show_super_vdd")
+        btrfs_uuid = self.load_collect_file("btrfs_uuid_vdd").strip()
         ls_uuid = self.load_collect_file("ls_uuid")
 
-        # extract uuid from btrfs superblock
-        btrfs_fsid = re.findall('.*uuid:\ (.*)\n', btrfs_show_super)
-
-        self.assertEqual(len(btrfs_fsid), 1)
-        btrfs_uuid = btrfs_fsid.pop()
         self.assertTrue(btrfs_uuid is not None)
+        self.assertEqual(len(btrfs_uuid), 36)
 
         # extract uuid from /dev/disk/by-uuid on /dev/vdd
         # parsing ls -al output on /dev/disk/by-uuid:
@@ -233,7 +227,8 @@ class TestBasicScsiAbs(TestBasicAbs):
         blkid -o export /dev/sda > blkid_output_sda
         blkid -o export /dev/sda1 > blkid_output_sda1
         blkid -o export /dev/sda2 > blkid_output_sda2
-        btrfs-show-super /dev/sdc > btrfs_show_super_sdc
+        f="btrfs_uuid_sdc"
+        btrfs-debug-tree -r /dev/sdc | awk '/^uuid/ {print $2}' | grep "-" > $f
         cat /proc/partitions > proc_partitions
         ls -al /dev/disk/by-uuid/ > ls_uuid
         ls -al /dev/disk/by-id/ > ls_disk_id
@@ -251,7 +246,7 @@ class TestBasicScsiAbs(TestBasicAbs):
     def test_output_files_exist(self):
         self.output_files_exist(
             ["blkid_output_sda", "blkid_output_sda1", "blkid_output_sda2",
-             "btrfs_show_super_sdc", "fstab", "ls_dname", "ls_uuid",
+             "btrfs_uuid_sdc", "fstab", "ls_dname", "ls_uuid",
              "ls_disk_id", "proc_partitions"])
 
     def test_ptable(self):
@@ -304,15 +299,12 @@ class TestBasicScsiAbs(TestBasicAbs):
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
-        btrfs_show_super = self.load_collect_file("btrfs_show_super_sdc")
+        btrfs_uuid = self.load_collect_file("btrfs_uuid_sdc").strip()
         ls_uuid = self.load_collect_file("ls_uuid")
 
         # extract uuid from btrfs superblock
-        btrfs_fsid = [line for line in btrfs_show_super.split('\n')
-                      if line.startswith('fsid\t\t')]
-        self.assertEqual(len(btrfs_fsid), 1)
-        btrfs_uuid = btrfs_fsid[0].split()[1]
         self.assertTrue(btrfs_uuid is not None)
+        self.assertEqual(len(btrfs_uuid), 36)
 
         # extract uuid from /dev/disk/by-uuid on /dev/sdc
         # parsing ls -al output on /dev/disk/by-uuid:

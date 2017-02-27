@@ -26,6 +26,7 @@ import sys
 import tempfile
 
 from curtin import block
+from curtin.block import iscsi
 from curtin import config
 from curtin import util
 from curtin import version
@@ -452,6 +453,8 @@ def cmd_install(args):
             copy_install_log(logfile, workingd.target, log_target_path)
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))
+        # need to do some processing on iscsi disks to disconnect?
+        iscsi.disconnect_target_disks(workingd.target)
         mounted = block.get_mountpoints()
         mounted.sort(key=lambda x: -1 * x.count("/"))
         for d in filter(lambda x: workingd.target in x, mounted):

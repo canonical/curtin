@@ -44,6 +44,7 @@ REQUIRED_EXECUTABLES = [
     ('sgdisk', 'gdisk'),
     ('udevadm', 'udev'),
     ('make-bcache', 'bcache-tools'),
+    ('iscsiadm', 'open-iscsi'),
 ]
 
 if lsb_release()['codename'] == "precise":

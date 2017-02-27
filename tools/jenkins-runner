@@ -3,6 +3,8 @@
 topdir="${CURTIN_VMTEST_TOPDIR:-${WORKSPACE:-$PWD}/output}"
 pkeep=${CURTIN_VMTEST_KEEP_DATA_PASS:-logs,collect}
 fkeep=${CURTIN_VMTEST_KEEP_DATA_FAIL:-logs,collect}
+reuse=${CURTIN_VMTEST_REUSE_TOPDIR:-0}
+export CURTIN_VMTEST_REUSE_TOPDIR=$reuse
 export CURTIN_VMTEST_IMAGE_SYNC=${CURTIN_VMTEST_IMAGE_SYNC:-0}
 export CURTIN_VMTEST_KEEP_DATA_PASS=$pkeep
 export CURTIN_VMTEST_KEEP_DATA_FAIL=$fkeep
@@ -13,10 +15,12 @@ export IMAGE_DIR=${IMAGE_DIR:-/srv/images}
 
 fail() { echo "$@" 1>&2; exit 1; }
 
-if [ -d "$topdir" ]; then
-    fail "topdir '$topdir' existed."
+if [ "$reuse" != "1" ]; then
+    if [ -d "$topdir" ]; then
+        fail "topdir '$topdir' existed."
+    fi
+    mkdir -p "$topdir" || fail "failed mkdir $topdir"
 fi
-mkdir -p "$topdir" || fail "failed mkdir $topdir"
 
 start_s=$(date +%s)
 parallel=${CURTIN_VMTEST_PARALLEL}
@@ -53,6 +57,13 @@ if [ -n "$parallel" -a "$parallel" != "0" -a "$parallel" != "1" ]; then
     pargs=( --process-timeout=86400 "--processes=$parallel" )
 fi
 
+if [ -z "$TGT_IPC_SOCKET" ] && command -v "tgtd" >/dev/null 2>&1; then
+    tgtdir="$topdir/tgt.d"
+    ./tools/find-tgt "$tgtdir" ||
+        fail "could not start a tgt service"
+    . "$tgtdir/info"
+fi
+
 # avoid LOG info by running python3 tests/vmtests/image_sync.py
 # rather than python3 -m tests.vmtests.image_sync (LP: #1594465)
 echo "Working with images in $IMAGE_DIR"
@@ -67,6 +78,8 @@ nosetests3 "${pargs[@]}" "${ntargs[@]}"
 ret=$?
 end_s=$(date +%s)
 echo "$(date -R): vmtest end [$ret] in $(($end_s-$start_s))s"
+[ $ret -eq 0 ] && [[ $pkeep == *"all"* ]] || [ -n "${TGT_PID}" ] && kill -9 ${TGT_PID}
+[ $ret -ne 0 ] && [[ $pfail == *"all"* ]] || [ -n "${TGT_PID}" ] && kill -9 ${TGT_PID}
 exit $ret
 
 # vi: ts=4 expandtab syntax=sh

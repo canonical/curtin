@@ -8,11 +8,13 @@ import random
 import re
 import shutil
 import subprocess
+import tempfile
 import textwrap
 import time
 import yaml
 import curtin.net as curtin_net
 import curtin.util as util
+from curtin.block import iscsi
 
 from .report_webhook_logger import CaptureReporting
 from curtin.commands.install import INSTALL_PASS_MSG
@@ -255,16 +257,9 @@ class TempDir(object):
     output_disk = None
 
     def __init__(self, name, user_data):
+        self.restored = False
         # Create tmpdir
         self.tmpdir = os.path.join(_topdir(), name)
-        try:
-            os.mkdir(self.tmpdir)
-        except OSError as e:
-            if e.errno == errno.EEXIST:
-                raise ValueError("name '%s' already exists in %s" %
-                                 (name, _topdir))
-            else:
-                raise e
 
         # make subdirs
         self.collect = os.path.join(self.tmpdir, "collect")
@@ -275,11 +270,29 @@ class TempDir(object):
 
         self.dirs = (self.collect, self.install, self.boot, self.logs,
                      self.disks)
-        for d in self.dirs:
-            os.mkdir(d)
 
         self.success_file = os.path.join(self.logs, "success")
         self.errors_file = os.path.join(self.logs, "errors.json")
+        self.target_disk = os.path.join(self.disks, "install_disk.img")
+        self.seed_disk = os.path.join(self.boot, "seed.img")
+        self.output_disk = os.path.join(self.boot, OUTPUT_DISK_NAME)
+
+        if os.path.exists(self.tmpdir):
+            self.restored = True
+            logger.info('Found existing TempDir, restored: %s' % self.tmpdir)
+            return
+
+        try:
+            os.mkdir(self.tmpdir)
+        except OSError as e:
+            if e.errno == errno.EEXIST:
+                raise ValueError("name '%s' already exists in %s" %
+                                 (name, _topdir))
+            else:
+                raise e
+
+        for d in self.dirs:
+            os.mkdir(d)
 
         # write cloud-init for installed system
         meta_data_file = os.path.join(self.install, "meta-data")
@@ -291,21 +304,18 @@ class TempDir(object):
 
         # create target disk
         logger.debug('Creating target disk')
-        self.target_disk = os.path.join(self.disks, "install_disk.img")
         subprocess.check_call(["qemu-img", "create", "-f", TARGET_IMAGE_FORMAT,
                               self.target_disk, "10G"],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
         # create seed.img for installed system's cloud init
         logger.debug('Creating seed disk')
-        self.seed_disk = os.path.join(self.boot, "seed.img")
         subprocess.check_call(["cloud-localds", self.seed_disk,
                               user_data_file, meta_data_file],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
         # create output disk, mount ro
         logger.debug('Creating output disk')
-        self.output_disk = os.path.join(self.boot, OUTPUT_DISK_NAME)
         subprocess.check_call(["qemu-img", "create", "-f", TARGET_IMAGE_FORMAT,
                               self.output_disk, "10M"],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
@@ -340,6 +350,7 @@ class VMBaseClass(TestCase):
     multipath = False
     multipath_num_paths = 2
     nvme_disks = []
+    iscsi_disks = []
     recorded_errors = 0
     recorded_failures = 0
     uefi = False
@@ -381,6 +392,102 @@ class VMBaseClass(TestCase):
         return ftypes
 
     @classmethod
+    def build_iscsi_disks(cls):
+        cls._iscsi_disks = list()
+        disks = []
+        if len(cls.iscsi_disks) == 0:
+            return disks
+
+        portal = os.environ.get("CURTIN_VMTEST_ISCSI_PORTAL", False)
+        if not portal:
+            raise SkipTest("No iSCSI portal specified in the "
+                           "environment (CURTIN_VMTEST_ISCSI_PORTAL). "
+                           "Skipping iSCSI tests.")
+
+        # note that TGT_IPC_SOCKET also needs to be set for
+        # successful communication
+
+        try:
+            cls.tgtd_ip, cls.tgtd_port = \
+                iscsi.assert_valid_iscsi_portal(portal)
+        except ValueError as e:
+            raise ValueError("CURTIN_VMTEST_ISCSI_PORTAL is invalid: %s", e)
+
+        # copy testcase YAML to a temporary file in order to replace
+        # placeholders
+        temp_yaml = tempfile.NamedTemporaryFile(prefix=cls.td.tmpdir + '/',
+                                                mode='w+t', delete=False)
+        logger.debug("iSCSI YAML is at %s" % temp_yaml.name)
+        shutil.copyfile(cls.conf_file, temp_yaml.name)
+        cls.conf_file = temp_yaml.name
+
+        # we implicitly assume testcase YAML is in the same order as
+        # iscsi_disks in the testcase
+        # path:size:block_size:serial=,port=,cport=
+        for (disk_no, disk_dict) in enumerate(cls.iscsi_disks):
+            try:
+                disk_sz = disk_dict['size']
+            except KeyError:
+                raise ValueError('No size specified for iSCSI disk')
+            try:
+                disk_user, disk_password = disk_dict['auth'].split(':')
+                if len(disk_user) == 0 and len(disk_password) > 0:
+                    raise ValueError('Specifying iSCSI target password '
+                                     'without user is invalid')
+            except KeyError:
+                disk_user = ''
+                disk_password = ''
+
+            try:
+                disk_iuser, disk_ipassword = disk_dict['iauth'].split(':')
+                if len(disk_iuser) == 0 and len(disk_ipassword) > 0:
+                    raise ValueError('Specifying iSCSI initiator password '
+                                     'without user is invalid')
+            except KeyError:
+                disk_iuser = ''
+                disk_ipassword = ''
+
+            uuid, _ = util.subp(['uuidgen'], capture=True,
+                                decode='replace')
+            uuid = uuid.rstrip()
+            target = 'curtin-%s' % uuid
+            cls._iscsi_disks.append(target)
+            dpath = os.path.join(cls.td.disks, '%s.img' % (target))
+            iscsi_disk = '{}:{}:iscsi:{}:{}:{}:{}:{}:{}'.format(
+                dpath, disk_sz, cls.disk_block_size, target,
+                disk_user, disk_password, disk_iuser, disk_ipassword)
+            disks.extend(['--disk', iscsi_disk])
+
+            # replace next __RFC4173__ placeholder in YAML
+            with tempfile.NamedTemporaryFile(mode='w+t') as temp_yaml:
+                shutil.copyfile(cls.conf_file, temp_yaml.name)
+                with open(cls.conf_file, 'w+t') as conf:
+                    replaced = False
+                    for line in temp_yaml:
+                        if not replaced and '__RFC4173__' in line:
+                            actual_rfc4173 = ''
+                            if len(disk_user) > 0:
+                                actual_rfc4173 += '%s:%s' % (disk_user,
+                                                             disk_password)
+                            if len(disk_iuser) > 0:
+                                # empty target user/password
+                                if len(actual_rfc4173) == 0:
+                                    actual_rfc4173 += ':'
+                                actual_rfc4173 += ':%s:%s' % (disk_iuser,
+                                                              disk_ipassword)
+                            # any auth specified?
+                            if len(actual_rfc4173) > 0:
+                                actual_rfc4173 += '@'
+                            # assumes LUN 1
+                            actual_rfc4173 += '%s::%s:1:%s' % (
+                                              cls.tgtd_ip,
+                                              cls.tgtd_port, target)
+                            line = line.replace('__RFC4173__', actual_rfc4173)
+                            replaced = True
+                        conf.write(line)
+        return disks
+
+    @classmethod
     def setUpClass(cls):
         # check if we should skip due to host arch
         if cls.arch in cls.arch_skip:
@@ -400,7 +507,6 @@ class VMBaseClass(TestCase):
         cls.boot_log = os.path.join(cls.td.logs, 'boot-serial.log')
         logger.debug('Install console log: {}'.format(cls.install_log))
         logger.debug('Boot console log: {}'.format(cls.boot_log))
-        ftypes = cls.get_test_files()
 
         # if interactive, launch qemu without 'background & wait'
         if cls.interactive:
@@ -419,6 +525,7 @@ class VMBaseClass(TestCase):
             cmd.extend(["--append=" + cls.extra_kern_args])
 
         # publish the root tarball
+        ftypes = cls.get_test_files()
         install_src = "PUBURL/" + os.path.basename(ftypes['vmtest.root-tgz'])
         cmd.append("--publish=%s" % ftypes['vmtest.root-tgz'])
 
@@ -492,13 +599,17 @@ class VMBaseClass(TestCase):
                                                   "serial=nvme-%d" % disk_no)
             disks.extend(['--disk', nvme_disk])
 
+        # build iscsi disk args if needed
+        disks.extend(cls.build_iscsi_disks())
+
         # proxy config
         configs = [cls.conf_file]
         cls.proxy = get_apt_proxy()
         if cls.proxy is not None:
             proxy_config = os.path.join(cls.td.install, 'proxy.cfg')
-            with open(proxy_config, "w") as fp:
-                fp.write(json.dumps({'apt_proxy': cls.proxy}) + "\n")
+            if not os.path.exists(proxy_config):
+                with open(proxy_config, "w") as fp:
+                    fp.write(json.dumps({'apt_proxy': cls.proxy}) + "\n")
             configs.append(proxy_config)
 
         uefi_flags = []
@@ -509,8 +620,9 @@ class VMBaseClass(TestCase):
 
             # always attempt to update target nvram (via grub)
             grub_config = os.path.join(cls.td.install, 'grub.cfg')
-            with open(grub_config, "w") as fp:
-                fp.write(json.dumps({'grub': {'update_nvram': True}}))
+            if not os.path.exists(grub_config):
+                with open(grub_config, "w") as fp:
+                    fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)
 
         excfg = os.environ.get("CURTIN_VMTEST_EXTRA_CONFIG", False)
@@ -529,20 +641,21 @@ class VMBaseClass(TestCase):
         reporting_config = os.path.join(cls.td.install, 'reporting.cfg')
         localhost_url = ('http://' + get_lan_ip() +
                          ':{:d}/'.format(reporting_logger.port))
-        with open(reporting_config, 'w') as fp:
-            fp.write(json.dumps({
-                'install': {
-                    'log_file': '/tmp/install.log',
-                    'post_files': ['/tmp/install.log'],
-                },
-                'reporting': {
-                    'maas': {
-                        'level': 'DEBUG',
-                        'type': 'webhook',
-                        'endpoint': localhost_url,
+        if not os.path.exists(reporting_config):
+            with open(reporting_config, 'w') as fp:
+                fp.write(json.dumps({
+                    'install': {
+                        'log_file': '/tmp/install.log',
+                        'post_files': ['/tmp/install.log'],
                     },
-                },
-            }))
+                    'reporting': {
+                        'maas': {
+                            'level': 'DEBUG',
+                            'type': 'webhook',
+                            'endpoint': localhost_url,
+                        },
+                    },
+                }))
         configs.append(reporting_config)
 
         cmd.extend(uefi_flags + netdevs + disks +
@@ -551,6 +664,11 @@ class VMBaseClass(TestCase):
                     ftypes['boot-initrd'], "--", "curtin", "-vv", "install"] +
                    ["--config=%s" % f for f in configs] +
                    [install_src])
+
+        # don't run the vm stages if we're just re-running testcases on output
+        if cls.td.restored:
+            logger.info('Using existing outputdata, skipping install/boot')
+            return
 
         # run vm with installer
         lout_path = os.path.join(cls.td.logs, "install-launch.log")
@@ -635,6 +753,9 @@ class VMBaseClass(TestCase):
                 dpath, disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
             nvme_disks.extend([disk])
 
+        # unlike NVMe disks, we do not want to configure the iSCSI disks
+        # via KVM, which would use qemu's iSCSI target layer.
+
         if cls.multipath:
             target_disks = target_disks * cls.multipath_num_paths
             extra_disks = extra_disks * cls.multipath_num_paths
@@ -697,6 +818,41 @@ class VMBaseClass(TestCase):
             cls.__name__, time.time() - setup_start)
 
     @classmethod
+    def cleanIscsiState(cls, result, keep_pass, keep_fail):
+        if result:
+            keep = keep_pass
+        else:
+            keep = keep_fail
+
+        if 'disks' in keep or (len(keep) == 1 and keep[0] == 'all'):
+            logger.info('Not removing iSCSI disks from tgt, they will '
+                        'need to be removed manually.')
+        else:
+            for target in cls._iscsi_disks:
+                logger.debug('Removing iSCSI target %s', target)
+                tgtadm_out, _ = util.subp(
+                    ['tgtadm', '--lld=iscsi', '--mode=target', '--op=show'],
+                    capture=True)
+
+                # match target name to TID, e.g.:
+                # Target 4: curtin-59b5507d-1a6d-4b15-beda-3484f2a7d399
+                tid = None
+                for line in tgtadm_out.splitlines():
+                    # new target stanza
+                    m = re.match(r'Target (\d+): (\S+)', line)
+                    if m and target in m.group(2):
+                        tid = m.group(1)
+                        break
+
+                if tid:
+                    util.subp(['tgtadm', '--lld=iscsi', '--mode=target',
+                               '--tid=%s' % tid, '--op=delete'])
+                else:
+                    logger.warn('Unable to determine target ID for '
+                                'target %s. It will need to be manually '
+                                'removed.', target)
+
+    @classmethod
     def tearDownClass(cls):
         success = False
         sfile = os.path.exists(cls.td.success_file)
@@ -712,6 +868,10 @@ class VMBaseClass(TestCase):
         clean_working_dir(cls.td.tmpdir, success,
                           keep_pass=KEEP_DATA['pass'],
                           keep_fail=KEEP_DATA['fail'])
+
+        cls.cleanIscsiState(success,
+                            keep_pass=KEEP_DATA['pass'],
+                            keep_fail=KEEP_DATA['fail'])
 
     @classmethod
     def expected_interfaces(cls):
