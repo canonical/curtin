@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERBOSITY=2
+VERBOSITY=0
 
 error() { echo "$@" 1>&2; }
 rerror() { local r=$?; [ $r -eq 0 ] && r=1; error "$@"; return $r; }
