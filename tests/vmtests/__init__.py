@@ -357,6 +357,9 @@ class VMBaseClass(TestCase):
     target_release = None
     target_krel = None
 
+    def shortDescription(self):
+        return None
+
     @classmethod
     def get_test_files(cls):
         # get local absolute filesystem paths for each of the needed file types
