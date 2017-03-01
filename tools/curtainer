@@ -136,7 +136,8 @@ main() {
     if $daily; then
         local daily_ppa="ppa:curtin-dev/daily"
         debug 1 "enabling daily: $daily_ppa"
-        inside "$name" add-apt-repository --yes "${daily_ppa}" ||
+        inside "$name" add-apt-repository --enable-source --yes \
+            "${daily_ppa}" ||
             fail "failed add-apt-repository for daily."
     fi
 
@@ -161,6 +162,7 @@ main() {
 
     if [ "${getsource}" != "none" ]; then
         local isrcd="/tmp/curtin-source"
+        debug 1 "getting source for curtin to $getsource"
         inside "$name" $eatmydata sh -ec '
             target="$1"
             d=$(mktemp -d)
@@ -173,10 +175,10 @@ main() {
             ' -- "$isrcd"
         mkdir "$getsource" || fail "failed to create dir '$getsource'"
         inside "$name" tar -C "$isrcd" -cf - . |
-            tar -C "$getsource" -xf -
-        inside "$name" rm -Rf "$target"
-        
-        debug 0 "curtin source at $getsource"
+            tar -C "$getsource" -xf - ||
+            fail "failed to copy source out to $getsource"
+        inside "$name" rm -Rf "$isrcd" ||
+            fail "failed removal of extract dir"
     fi
 
     
