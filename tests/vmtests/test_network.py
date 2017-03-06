@@ -19,27 +19,32 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         echo "waiting for ipv6 to settle" && sleep 5
-        ifconfig -a > ifconfig_a
-        ip link show > ip_link_show
-        ip a > ip_a
+        route -n | tee first_route_n
+        ifconfig -a | tee ifconfig_a
+        ip link show | tee ip_link_show
+        ip a | tee  ip_a
         find /etc/network/interfaces.d > find_interfacesd
         cp -av /etc/network/interfaces .
         cp -av /etc/network/interfaces.d .
         cp /etc/resolv.conf .
         cp -av /etc/udev/rules.d/70-persistent-net.rules . ||:
-        ip -o route show > ip_route_show
-        ip -6 -o route show > ip_6_route_show
-        route -n > route_n
-        route -6 -n > route_6_n
+        ip -o route show | tee ip_route_show
+        ip -6 -o route show | tee ip_6_route_show
+        route -n |tee route_n
+        route -6 -n |tee route_6_n
         cp -av /run/network ./run_network
         cp -av /var/log/upstart ./upstart ||:
         cp -av /etc/cloud ./etc_cloud
         cp -av /var/log/cloud*.log ./
-        dpkg-query -W -f '${Version}' cloud-init > dpkg_cloud-init_version
-        sleep 10 && ip a > ip_a
-        cp -av /etc/netplan ./etc_netplan ||:
-        networkctl > networkctl
-        cp -a /run/systemd/network ./run_systemd_network ||:
+        dpkg-query -W -f '${Version}' cloud-init |tee dpkg_cloud-init_version
+        mkdir -p etc_netplan
+        cp -av /etc/netplan/* ./etc_netplan/ ||:
+        networkctl |tee networkctl
+        mkdir -p run_systemd_network
+        cp -a /run/systemd/network/* ./run_systemd_network/ ||:
+        cp -a /run/systemd/netif ./run_systemd_netif ||:
+        cp -a /run/systemd/resolve ./run_systemd_resolve ||:
+        cp -a /etc/systemd ./etc_systemd ||:
         """)]
 
     def test_output_files_exist(self):
@@ -77,8 +82,10 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
 
         if (len(os.listdir(etc_netplan)) > 0 and
             len(os.listdir(networkd)) > 0):
+            print('Network Renderer: systemd-networkd')
             return 'systemd-networkd'
 
+        print('Network Renderer: ifupdown')
         return 'ifupdown'
 
 
@@ -138,9 +145,17 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         self.assertEqual(original, intarget)
 
     def test_etc_resolvconf(self):
-        with open(os.path.join(self.td.collect, "resolv.conf")) as fp:
+        render2resolvconf = {
+            'ifupdown': "resolv.conf",
+            'systemd-networkd': "run_systemd_resolve/resolv.conf"
+        }
+        resolvconfpath = render2resolvconf.get(self._network_renderer(), None)
+        self.assertTrue(resolvconfpath is not None)
+        logger.debug('Selected path to resolvconf: %s', resolvconfpath) 
+
+        with open(os.path.join(self.td.collect, resolvconfpath)) as fp:
             resolvconf = fp.read()
-            logger.debug('etc/resolv.conf:\n{}'.format(resolvconf))
+        logger.debug('etc/resolv.conf:\n{}'.format(resolvconf))
 
         resolv_lines = resolvconf.split('\n')
         logger.debug('resolv.conf lines:\n{}'.format(resolv_lines))
