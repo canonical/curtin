@@ -30,7 +30,7 @@ def _jenkins_runner_active():
 
 if __name__ == '__main__':
     while _jenkins_runner_active() == 0:
-        time_sleep = random.randint(60, 300)
+        time_sleep = random.randint(5, 60)
         print("Not syncing while jenkins-runner is running. " +
                "Sleeping %s seconds." % time_sleep)
         time.sleep(time_sleep)
