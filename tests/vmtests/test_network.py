@@ -37,6 +37,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         cp -av /etc/cloud ./etc_cloud
         cp -av /var/log/cloud*.log ./
         dpkg-query -W -f '${Version}' cloud-init |tee dpkg_cloud-init_version
+        dpkg-query -W -f '${Version}' nplan |tee dpkg_nplan_version
         mkdir -p etc_netplan
         cp -av /etc/netplan/* ./etc_netplan/ ||:
         networkctl |tee networkctl
@@ -45,6 +46,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         cp -a /run/systemd/netif ./run_systemd_netif ||:
         cp -a /run/systemd/resolve ./run_systemd_resolve ||:
         cp -a /etc/systemd ./etc_systemd ||:
+        journalctl --no-pager -b -x > journalctl_out
         """)]
 
     def test_output_files_exist(self):
