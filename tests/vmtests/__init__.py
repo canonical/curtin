@@ -805,6 +805,18 @@ class VMBaseClass(TestCase):
                     logger.warn("Booting after install not produce"
                                 " a console log.")
 
+        # capture curtin log and webhook timings
+        if os.path.exists(cls.reporting_log):
+            cmd = ["tools/curtin-log-print", "--dumpfiles", "--outfolder",
+                   cls.td.logs, cls.reporting_log]
+            curtin_log_file = os.path.join(cls.td.logs, "curtin-install.log")
+            curtin_log_print_out, _ = util.subp(cmd, capture=True)
+
+            with open(curtin_log_file, "w") as fp:
+                fp.write(curtin_log_print_out)
+        else:
+            logger.warn("Webhook reporting log does not exist.")
+
         # mount output disk
         try:
             cls.td.collect_output()

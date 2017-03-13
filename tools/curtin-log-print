@@ -70,13 +70,15 @@ def format_record(msg, event):
     return msg.format(**event)
 
 
-def dump_event_files(event):
+def dump_event_files(event, out_folder):
     content = {k: v for k, v in event.items() if k not in ['content']}
     files = content['files']
     saved = []
     for f in files:
         fname = f['path']
         fn_local = os.path.basename(fname)
+        if out_folder:
+            fn_local = os.path.join(out_folder, fn_local)
         fcontent = base64.b64decode(f['content']).decode('ascii')
         with open(fn_local, 'w') as fh:
             fh.write(fcontent)
@@ -86,7 +88,7 @@ def dump_event_files(event):
 
 
 def generate_records(j, blame_sort=False, print_format="%d seconds in %I%D",
-                     dump_files=False, log_datafiles=False):
+                     dump_files=False, log_datafiles=False, out_folder=None):
 
     dumped_files = []
     records = []
@@ -98,7 +100,7 @@ def generate_records(j, blame_sort=False, print_format="%d seconds in %I%D",
         event['indent'] = '|' + ' ' * (name.count('/') - 1) + '`->'
         if 'files' in event:
             if dump_files:
-                dumped_files += dump_event_files(event)
+                dumped_files += dump_event_files(event, out_folder)
 
         if event['event_type'] == 'start':
             timestamps[name] = {'start': event['timestamp']}
@@ -168,6 +170,10 @@ def main():
                         default='%I%D @%Es +%ds',
                         help='specify formatting of output. ' +
                         formatting_help)
+    parser.add_argument('--outfolder', action='store',
+                        dest='out_folder',
+                        default='',
+                        help='folder to store results')
     parser.add_argument('infile', nargs='?', type=argparse.FileType('r'),
                         help='Path to log to parse. Use - for stdin')
 
@@ -185,7 +191,8 @@ def main():
     sj = sorted(j, key=lambda x: x['timestamp'])
     records = generate_records(sj, print_format=opts.print_format,
                                dump_files=opts.dump_files,
-                               log_datafiles=opts.log_datafiles)
+                               log_datafiles=opts.log_datafiles,
+                               out_folder=opts.out_folder)
     print('The total time elapsed since completing an event is printed'
           ' after the "@" character.')
     print('The time the event takes is printed after the "+" character.')
