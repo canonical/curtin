@@ -76,9 +76,7 @@ def dump_event_files(event, out_folder):
     saved = []
     for f in files:
         fname = f['path']
-        fn_local = os.path.basename(fname)
-        if out_folder:
-            fn_local = os.path.join(out_folder, fn_local)
+        fn_local = os.path.join(out_folder, os.path.basename(fname))
         fcontent = base64.b64decode(f['content']).decode('ascii')
         with open(fn_local, 'w') as fh:
             fh.write(fcontent)
@@ -88,7 +86,8 @@ def dump_event_files(event, out_folder):
 
 
 def generate_records(j, blame_sort=False, print_format="%d seconds in %I%D",
-                     dump_files=False, log_datafiles=False, out_folder=None):
+                     dump_files=False, log_datafiles=False,
+                     out_folder=os.getcwd()):
 
     dumped_files = []
     records = []
