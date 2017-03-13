@@ -172,7 +172,7 @@ def main():
                         formatting_help)
     parser.add_argument('--outfolder', action='store',
                         dest='out_folder',
-                        default='',
+                        default=os.getcwd(),
                         help='folder to store results')
     parser.add_argument('infile', nargs='?', type=argparse.FileType('r'),
                         help='Path to log to parse. Use - for stdin')
@@ -193,11 +193,18 @@ def main():
                                dump_files=opts.dump_files,
                                log_datafiles=opts.log_datafiles,
                                out_folder=opts.out_folder)
-    print('The total time elapsed since completing an event is printed'
-          ' after the "@" character.')
-    print('The time the event takes is printed after the "+" character.')
-    print()
+
+    output = 'The total time elapsed since completing an event is printed' \
+             ' after the "@" character.\n' \
+             'The time the event takes is printed after the "+" character.\n\n'
+
+    print(output)
     print("\n".join(records))
+
+    curint_install_log = os.path.join(opts.out_folder, 'curtin-install.log')
+    with open(curint_install_log, "w") as fp:
+        fp.write(output)
+        fp.write("\n".join(records))
 
 
 if __name__ == '__main__':
