@@ -70,15 +70,13 @@ def format_record(msg, event):
     return msg.format(**event)
 
 
-def dump_event_files(event, out_folder):
+def dump_event_files(event, dump_folder):
     content = {k: v for k, v in event.items() if k not in ['content']}
     files = content['files']
     saved = []
     for f in files:
         fname = f['path']
-        fn_local = os.path.basename(fname)
-        if out_folder:
-            fn_local = os.path.join(out_folder, fn_local)
+        fn_local = os.path.join(dump_folder, os.path.basename(fname))
         fcontent = base64.b64decode(f['content']).decode('ascii')
         with open(fn_local, 'w') as fh:
             fh.write(fcontent)
@@ -88,7 +86,7 @@ def dump_event_files(event, out_folder):
 
 
 def generate_records(j, blame_sort=False, print_format="%d seconds in %I%D",
-                     dump_files=False, log_datafiles=False, out_folder=False):
+                     dump_files=False, log_datafiles=False):
 
     dumped_files = []
     records = []
@@ -100,7 +98,7 @@ def generate_records(j, blame_sort=False, print_format="%d seconds in %I%D",
         event['indent'] = '|' + ' ' * (name.count('/') - 1) + '`->'
         if 'files' in event:
             if dump_files:
-                dumped_files += dump_event_files(event, out_folder)
+                dumped_files += dump_event_files(event, dump_files)
 
         if event['event_type'] == 'start':
             timestamps[name] = {'start': event['timestamp']}
@@ -157,14 +155,10 @@ def main():
     parser = argparse.ArgumentParser(
         description='curtin-print-log - pretty print and sort curtin logs',
         prog='curtin-print-log')
-    parser.add_argument('--dumpfiles', action='store_true',
+    parser.add_argument('--dumpfiles', action='store',
                         default=False,
                         dest='dump_files',
                         help='dump content of any posted files')
-    parser.add_argument('--outfolder', action='store',
-                        default=False,
-                        dest='out_folder',
-                        help='folder to store results')
     parser.add_argument('--save-processing-data', action='store_true',
                         default=False,
                         dest='log_datafiles',
@@ -191,8 +185,7 @@ def main():
     sj = sorted(j, key=lambda x: x['timestamp'])
     records = generate_records(sj, print_format=opts.print_format,
                                dump_files=opts.dump_files,
-                               log_datafiles=opts.log_datafiles,
-                               out_folder=opts.out_folder)
+                               log_datafiles=opts.log_datafiles)
     print('The total time elapsed since completing an event is printed'
           ' after the "@" character.')
     print('The time the event takes is printed after the "+" character.')
