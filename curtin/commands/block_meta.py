@@ -1149,7 +1149,7 @@ def meta_simple(args):
                 LOG.warn("No non-removable, installable devices found. List "
                          "populated with removable devices allowed: %s",
                          devices)
-    else:
+    elif len(devices) == 0 and devpath:
         devices = [devpath,]
 
     if len(devices) > 1:
