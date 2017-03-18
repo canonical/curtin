@@ -58,9 +58,10 @@ def block_meta(args):
     # main entry point for the block-meta command.
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
-    if args.mode == CUSTOM or cfg.get("storage") is not None:
+    dd_images = util.get_dd_images(cfg.get('sources', {}))
+    if (args.mode == CUSTOM or cfg.get("storage") is not None) and len(dd_images) == 0:
         meta_custom(args)
-    elif args.mode in (SIMPLE, SIMPLE_BOOT):
+    elif args.mode in (SIMPLE, SIMPLE_BOOT) or len(dd_images) > 0:
         meta_simple(args)
     else:
         raise NotImplementedError("mode=%s is not implemented" % args.mode)
@@ -1088,6 +1089,18 @@ def meta_simple(args):
     state = util.load_command_environment()
 
     cfg = config.load_command_config(args, state)
+    devpath = None
+    if cfg.get("storage") is not None:
+        for i in cfg["storage"]["config"]:
+            serial = i.get("serial")
+            if serial is None:
+                continue
+            grub = i.get("grub_device")
+            diskPath = block.lookup_disk(serial)
+            if grub is True:
+                devpath = diskPath
+            if config.value_as_boolean(i.get('wipe')):
+                block.wipe_volume(diskPath, mode=i.get('wipe'))
 
     if args.target is not None:
         state['target'] = args.target
@@ -1116,7 +1129,7 @@ def meta_simple(args):
     # all multipath devices to exclusively use one of paths as a target disk.
     block.stop_all_unused_multipath_devices()
 
-    if len(devices) == 0:
+    if len(devices) == 0 and devpath is None:
         devices = block.get_installable_blockdevs()
         LOG.warn("'%s' mode, no devices given. unused list: %s",
                  args.mode, devices)
@@ -1136,6 +1149,8 @@ def meta_simple(args):
                 LOG.warn("No non-removable, installable devices found. List "
                          "populated with removable devices allowed: %s",
                          devices)
+    elif len(devices) == 0 and devpath:
+        devices = [devpath,]
 
     if len(devices) > 1:
         if args.devices is not None:
