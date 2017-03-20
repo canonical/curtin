@@ -59,7 +59,8 @@ def block_meta(args):
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
     dd_images = util.get_dd_images(cfg.get('sources', {}))
-    if (args.mode == CUSTOM or cfg.get("storage") is not None) and len(dd_images) == 0:
+    if ((args.mode == CUSTOM or cfg.get("storage") is not None) and
+            len(dd_images) == 0):
         meta_custom(args)
     elif args.mode in (SIMPLE, SIMPLE_BOOT) or len(dd_images) > 0:
         meta_simple(args)
@@ -1150,7 +1151,7 @@ def meta_simple(args):
                          "populated with removable devices allowed: %s",
                          devices)
     elif len(devices) == 0 and devpath:
-        devices = [devpath,]
+        devices = [devpath]
 
     if len(devices) > 1:
         if args.devices is not None:
