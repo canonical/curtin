@@ -8,7 +8,7 @@ class TestExportsFeatures(TestCase):
         self.assertIn('STORAGE_CONFIG_V1', curtin.FEATURES)
 
     def test_has_storage_v1_dd(self):
-        self.assertIn('NETWORK_CONFIG_V1_DD', curtin.FEATURES)
+        self.assertIn('STORAGE_CONFIG_V1_DD', curtin.FEATURES)
 
     def test_has_network_v1(self):
         self.assertIn('NETWORK_CONFIG_V1', curtin.FEATURES)
