@@ -662,62 +662,74 @@ def system_upgrade(cfg, target):
     util.system_upgrade(target=target)
 
 
-def snappy_curthooks(cfg, target=None):
-    """ Ubuntu-Core 16 images cannot execute standard curthooks
-        Instead we copy in any cloud-init configuration to
-        the 'LABEL=writable' partition mounted at target.
+def handle_cloudconfig(cfg, target=None):
+    """write cloud-init configuration files into target
+
+    cloudconfig format is a dictionary of keys and values of content
 
     cloudconfig:
       cfg-datasource:
-        path: /etc/cloud/cloud.cfg.d/10-maas-datasource.cfg
         content:
          |
          #cloud-cfg
          datasource_list: [ MAAS ]
       cfg-maas:
-        path: /etc/cloud/cloud.cfg.d/11-maas-config.cfg
         content:
          |
          #cloud-cfg
-         apt_preserve_sources_list: true
-         apt_proxy: http://10.245.168.2:8000/
-         manage_etc_hosts: false
-         manual_cache_clean: true
          reporting:
            maas: { consumer_key: 8cW9kadrWZcZvx8uWP,
                    endpoint: 'http://XXX',
                    token_key: jD57DB9VJYmDePCRkq,
                    token_secret: mGFFMk6YFLA3h34QHCv22FjENV8hJkRX,
                    type: webhook}
-         system_info:
-          package_mirrors:
-          - arches: [i386, amd64]
-            failsafe: {primary: 'http://archive.ubuntu.com/ubuntu',
-                       security: 'http://security.ubuntu.com/ubuntu'}
-            search:
-              primary: ['http://archive.ubuntu.com/ubuntu']
-              security: ['http://archive.ubuntu.com/ubuntu']
-          - arches: [default]
-            failsafe: {primary: 'http://ports.ubuntu.com/ubuntu-ports',
-                       security: 'http://ports.ubuntu.com/ubuntu-ports'}
-            search:
-              primary: ['http://ports.ubuntu.com/ubuntu-ports']
-              security: ['http://ports.ubuntu.com/ubuntu-ports']
     """
+    # check that cfg is dict
+    if not isinstance(cfg, dict):
+        raise ValueError("cloudconfig configuration is not in dict format")
+
+    # for each item in the dict
+    #   generate a path based on item key
+    #   if path is already in the item, LOG warning, and use generated path
+    for cfgname, cfgvalue in cfg.items():
+        cfgpath = "50-cloudconfig-%s.cfg" % cfgname
+        if 'path' in cfgvalue:
+            LOG.warning("cloudconfig ignoring 'path' key in config")
+        cfgvalue['path'] = cfgpath
+
+    # call write_files
+    # re-use write_files format and adjust target to prepend
+    # 'system-data/etc/cloud/cloud.cfg.d' prefix for snappy
+    LOG.debug('Calling write_files with cloudconfig @ %s', target)
+    LOG.debug('snappy cloud-config:\n%s', cfg)
+    write_files({'write_files': cfg}, target)
+
+
+def snappy_curthooks(cfg, target=None):
+    """ Ubuntu-Core 16 images cannot execute standard curthooks
+        Instead we copy in any cloud-init configuration to
+        the 'LABEL=writable' partition mounted at target.
+    """
+
+    snappy_target = os.path.join(target, "system-data")
+    cc_target = os.path.join(snappy_target, 'etc/cloud/cloud.cfg.d')
+
     cloudconfig = cfg.get('cloudconfig', None)
-    LOG.debug('snappy cloud-config:\n%s', cloudconfig)
     if cloudconfig:
-        # re-use write_files format and adjust target
-        # to prepend 'system-data' for snappy path
-        snappy_target = os.path.join(target, "system-data")
+        # remove cloud-init.disabled, if found
         cloudinit_disable = os.path.join(snappy_target,
                                          'etc/cloud/cloud-init.disabled')
         if os.path.exists(cloudinit_disable):
             util.del_file(cloudinit_disable)
-        LOG.debug('Calling write_files with cloudconfig @ %s', snappy_target)
-        write_files({'write_files': cloudconfig}, snappy_target)
 
-    return 0
+        handle_cloudconfig(cloudconfig, target=cc_target)
+
+    netconfig = cfg.get('network', None)
+    if netconfig:
+        LOG.info('Writing network configuration')
+        snappy_netconfig = os.path.join(cc_target, "50-network-config.cfg")
+        util.write_file(snappy_netconfig,
+                        content=config.dump_config(netconfig))
 
 
 def target_is_snappy(target):
@@ -760,17 +772,6 @@ def curthooks(args):
             name=stack_prefix + '/writing-config',
             reporting_enabled=True, level="INFO",
             description="writing config files and configuring apt"):
-
-        # dd- images provide their own curthooks which
-        # run in-target, so skip it here if source dd-*
-        # is set.
-        sources = cfg.get('sources')
-        if isinstance(sources, dict):
-            sources = [sources[k] for k in sorted(sources.keys())]
-        for source in sources:
-            if source['type'].startswith('dd-'):
-                LOG.debug('found a dd source, skipping curthooks')
-                return
 
         write_files(cfg, target)
         do_apt_config(cfg, target)
