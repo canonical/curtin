@@ -38,6 +38,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         cp -av /var/log/cloud*.log ./
         dpkg-query -W -f '${Version}' cloud-init |tee dpkg_cloud-init_version
         dpkg-query -W -f '${Version}' nplan |tee dpkg_nplan_version
+        dpkg-query -W -f '${Version}' systemd |tee dpkg_systemd_version
         mkdir -p etc_netplan
         cp -av /etc/netplan/* ./etc_netplan/ ||:
         networkctl |tee networkctl
