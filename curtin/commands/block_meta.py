@@ -90,17 +90,8 @@ def write_image_to_disk(source, dev):
                     '--', source['uri'], devnode])
     util.subp(['partprobe', devnode])
     udevadm_settle()
-    snap_paths = ["system-data/snap/ubuntu-core", "system-data"]
-    LOG.info('Checking for root device')
-    for fpath in ["curtin"] + snap_paths:
-        LOG.debug('Looking for fpath=%s on device=%s', fpath, devname)
-        root_dev = block.get_root_device([devname, ], fpath=fpath)
-        if root_dev:
-            LOG.debug('found root on %s', root_dev)
-            return root_dev
-
-    if root_dev is None:
-        raise ValueError("Could not find root device")
+    paths = ["curtin", "system-data/snap/ubuntu-core", "system-data"]
+    return block.get_root_device([devname], paths=paths)
 
 
 def get_bootpt_cfg(cfg, enabled=False, fstype=None, root_fstype=None):
