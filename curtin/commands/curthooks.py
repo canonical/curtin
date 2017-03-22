@@ -773,7 +773,6 @@ def curthooks(args):
             name=stack_prefix + '/writing-config',
             reporting_enabled=True, level="INFO",
             description="writing config files and configuring apt"):
-
         write_files(cfg, target)
         do_apt_config(cfg, target)
         disable_overlayroot(cfg, target)
