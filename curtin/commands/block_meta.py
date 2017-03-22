@@ -77,10 +77,10 @@ def write_image_to_disk(source, dev):
     """
     LOG.info('writing image to disk %s, %s', source, dev)
     extractor = {
-        'dd-tgz': '|tar -SxOzf -',
-        'dd-txz': '|tar -SxOJf -',
-        'dd-tbz': '|tar -SxOjf -',
-        'dd-tar': '|smtar -SxOf -',
+        'dd-tgz': '|tar -xOzf -',
+        'dd-txz': '|tar -xOJf -',
+        'dd-tbz': '|tar -xOjf -',
+        'dd-tar': '|smtar -xOf -',
         'dd-bz2': '|bzcat',
         'dd-gz': '|zcat',
         'dd-xz': '|xzcat',

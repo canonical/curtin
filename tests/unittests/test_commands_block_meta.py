@@ -69,6 +69,29 @@ class TestBlockMetaSimple(BlockMetaTestBase):
         self.mock_block_get_root_device.assert_called_with([devname],
                                                            paths=paths)
 
+    def test_write_image_to_disk_ddtgz(self):
+        source = {
+            'type': 'dd-tgz',
+            'uri': 'http://myhost/curtin-unittest-dd.tgz'
+        }
+        devname = "fakedisk1p1"
+        devnode = "/dev/" + devname
+        self.mock_block_get_dev_name_entry.return_value = (devname, devnode)
+
+        block_meta.write_image_to_disk(source, devname)
+
+        wget = ['sh', '-c',
+                'wget "$1" --progress=dot:mega -O - |'
+                'tar -xOzf -| dd bs=4M of="$2"',
+                '--', source['uri'], devnode]
+        self.mock_block_get_dev_name_entry.assert_called_with(devname)
+        self.mock_subp.assert_has_calls([call(args=wget),
+                                         call(['partprobe', devnode]),
+                                         call(['udevadm', 'settle'])])
+        paths = ["curtin", "system-data/snap/ubuntu-core", "system-data"]
+        self.mock_block_get_root_device.assert_called_with([devname],
+                                                           paths=paths)
+
     @patch('curtin.commands.block_meta.write_image_to_disk')
     def test_meta_simple_calls_write_img(self, mock_write_image):
         devname = "fakedisk1p1"
