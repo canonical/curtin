@@ -288,5 +288,34 @@ class TestUbuntuCoreHooks(CurthooksBase):
                                            content=netcfg)
         self.assertEqual(len(mock_del_file.call_args_list), 0)
 
+    @patch('curtin.commands.curthooks.write_files')
+    def test_handle_cloudconfig(self, mock_write_files):
+        cc_target = "tmpXXXX/systemd-data/etc/cloud/cloud.cfg.d"
+        cloudconfig = {
+            'file1': {
+                'content': "Hello World!\n",
+            },
+            'foobar': {
+                'path': '/sys/wark',
+                'content': "Engauge!\n",
+            }
+        }
+
+        expected_cfg = {
+            'write_files': {
+                'file1': {
+                    'path': '50-cloudconfig-file1.cfg',
+                    'content': cloudconfig['file1']['content']},
+                'foobar': {
+                    'path': '50-cloudconfig-foobar.cfg',
+                    'content': cloudconfig['foobar']['content']}
+            }
+        }
+        curthooks.handle_cloudconfig(cloudconfig, target=cc_target)
+        mock_write_files.assert_called_with(expected_cfg, cc_target)
+
+    def test_handle_cloudconfig_bad_config(self):
+        with self.assertRaises(ValueError):
+            curthooks.handle_cloudconfig([], target="foobar")
 
 # vi: ts=4 expandtab syntax=python
