@@ -83,7 +83,6 @@ fi
 
 # now we have work to do
 zopt=""
-unpack=""
 TEMPF=$(mktemp) || fail "mktemp failed"
 trap cleanup EXIT
 head -c "$BUFLEN" > "$TEMPF" || fail "FAILED: head -c '$BUFLEN'"
@@ -94,28 +93,13 @@ file_out=$(LANG=C file --mime-type "$TEMPF")
 # my.tar.gz: application/gzip
 # my.tar.xz: application/x-xz
 # my.tar.Z:  application/x-compress
-file_inside=$(LANG=C file -z --mime-type "$TEMPF")
-# my.tar.xz: application/x-tar
-# my.img: application/octet-stream
 if [ $? -eq 0 ]; then
     case "$file_out" in
-       */x-bzip2|*/bzip2) zopt="--bzip2";;
-       */x-gzip|*/gzip) zopt="--gzip";;
-       */x-xz|*/xz) zopt="--xz";;
-       */x-compress|*/compress) zopt="--compress";;
-       *) zopt="";;
-    esac  
-    case "$file_inside" in
-        */x-tar|*/tar) unpack="tar";;
-        *)
-            case $zopt in
-              --bzip2) unpack="bunzip2 --stdout";;
-              --gzip) unpack="gunzip --stdout";;
-              --xz) unpack="unxz --stdout";;
-              --compress) unpack="uncompress --stdout";;
-              *) unpack="tee";;
-            esac
-            zopt=""
+        */x-bzip2|*/bzip2) zopt="--bzip2";;
+        */x-gzip|*/gzip) zopt="--gzip";;
+        */x-xz|*/xz) zopt="--xz";;
+        */x-compress|*/compress) zopt="--compress";;
+        *) zopt="";;
     esac
 else
     error "WARN: 'file' failed on input"
@@ -124,9 +108,9 @@ if [ "$size" -lt "$BUFLEN" ]; then
     # input was less than BUFLEN chars, so we just exec tar with input from it
     exec < "$TEMPF"
     rm -f "$TEMPF"
-    exec $unpack $zopt "$@"
+    exec tar $zopt "$@"
 else
-    ( cat "$TEMPF" && rm "$TEMPF" && exec cat ) | exec $unpack $zopt "$@"
+    ( cat "$TEMPF" && rm "$TEMPF" && exec cat ) | exec tar $zopt "$@"
 fi
 
 # vi: ts=4 expandtab syntax=sh
