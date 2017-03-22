@@ -732,8 +732,10 @@ def ubuntu_core_curthooks(cfg, target=None):
 
 
 def target_is_ubuntu_core(target):
+    """Check if Ubuntu-Core specific directory is present at target"""
     if target:
-        return os.path.exists(os.path.join(target, 'system-data'))
+        return os.path.exists(os.path.join(target, 'system-data',
+                                                   'var/lib/snapd'))
     return False
 
 

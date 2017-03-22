@@ -93,7 +93,7 @@ def write_image_to_disk(source, dev):
                     '--', source['uri'], devnode])
     util.subp(['partprobe', devnode])
     udevadm_settle()
-    paths = ["curtin", "system-data/snap/ubuntu-core", "system-data"]
+    paths = ["curtin", "system-data/var/lib/snapd"]
     return block.get_root_device([devname], paths=paths)
 
 

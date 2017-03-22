@@ -65,7 +65,7 @@ class TestBlockMetaSimple(BlockMetaTestBase):
         self.mock_subp.assert_has_calls([call(args=wget),
                                          call(['partprobe', devnode]),
                                          call(['udevadm', 'settle'])])
-        paths = ["curtin", "system-data/snap/ubuntu-core", "system-data"]
+        paths = ["curtin", "system-data/var/lib/snapd"]
         self.mock_block_get_root_device.assert_called_with([devname],
                                                            paths=paths)
 
@@ -88,7 +88,7 @@ class TestBlockMetaSimple(BlockMetaTestBase):
         self.mock_subp.assert_has_calls([call(args=wget),
                                          call(['partprobe', devnode]),
                                          call(['udevadm', 'settle'])])
-        paths = ["curtin", "system-data/snap/ubuntu-core", "system-data"]
+        paths = ["curtin", "system-data/var/lib/snapd"]
         self.mock_block_get_root_device.assert_called_with([devname],
                                                            paths=paths)
 

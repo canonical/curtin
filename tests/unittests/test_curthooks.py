@@ -187,7 +187,8 @@ class TestUbuntuCoreHooks(CurthooksBase):
 
     def test_target_is_ubuntu_core(self):
         self.target = tempfile.mkdtemp()
-        ubuntu_core_path = os.path.join(self.target, 'system-data')
+        ubuntu_core_path = os.path.join(self.target, 'system-data',
+                                        'var/lib/snapd')
         util.ensure_dir(ubuntu_core_path)
         self.assertTrue(os.path.isdir(ubuntu_core_path))
         is_core = curthooks.target_is_ubuntu_core(self.target)
