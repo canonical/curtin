@@ -709,7 +709,7 @@ def handle_cloudconfig(cfg, target=None):
 
     # re-use write_files format and adjust target to prepend
     LOG.debug('Calling write_files with cloudconfig @ %s', target)
-    LOG.info('Injecting cloud-config:\n%s', cfg)
+    LOG.debug('Injecting cloud-config:\n%s', cfg)
     write_files({'write_files': cfg}, target)
 
 
@@ -744,8 +744,8 @@ def ubuntu_core_curthooks(cfg, target=None):
 def target_is_ubuntu_core(target):
     """Check if Ubuntu-Core specific directory is present at target"""
     if target:
-        return os.path.exists(os.path.join(target, 'system-data',
-                                                   'var/lib/snapd'))
+        return os.path.exists(util.target_path(target,
+                                               'system-data/var/lib/snapd'))
     return False
 
 
@@ -775,7 +775,6 @@ def curthooks(args):
         with events.ReportEventStack(
                 name=stack_prefix, reporting_enabled=True, level="INFO",
                 description="Configuring Ubuntu-Core for first boot"):
-            LOG.info('Running Ubuntu-Core curthooks')
             rv = ubuntu_core_curthooks(cfg, target)
         sys.exit(rv)
 

@@ -1191,8 +1191,7 @@ def meta_simple(args):
         # we have at least one dd-able image
         # we will only take the first one
         rootdev = write_image_to_disk(dd_images[0], devname)
-        if rootdev:
-            util.subp(['mount', rootdev, state['target']])
+        util.subp(['mount', rootdev, state['target']])
         return 0
 
     # helper partition will forcibly set up partition there

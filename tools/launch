@@ -566,9 +566,9 @@ main() {
     # tok in pubs looks like file[:pubname][:stype]
     # link them into the temp dir for publishing
     for tok in "${pubs[@]}"; do
-        src=$(echo $tok | awk -F: '{print $1}')
-        pub=$(echo $tok | awk -F: '{print $2}')
-        stype=$(echo $tok | awk -F: '{print $3}')
+        src=$(echo "${tok}" | awk -F: '{print $1}')
+        pub=$(echo "${tok}" | awk -F: '{print $2}')
+        stype=$(echo "${tok}" | awk -F: '{print $3}')
         fpath=$(readlink -f "$src") ||
             { error "'$src': failed to get path"; return 1; }
         if [ -z "$pub" ]; then
