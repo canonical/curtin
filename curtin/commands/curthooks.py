@@ -395,6 +395,16 @@ def copy_crypttab(crypttab, target):
     shutil.copy(crypttab, os.path.sep.join([target, 'etc/crypttab']))
 
 
+def copy_iscsi_conf(nodes_dir, target):
+    if not nodes_dir:
+        LOG.warn("nodes directory must be specified, not copying")
+        return
+
+    LOG.info("copying iscsi nodes database into target")
+    shutil.copytree(nodes_dir, os.path.sep.join([target,
+                    'etc/iscsi/nodes']))
+
+
 def copy_mdadm_conf(mdadm_conf, target):
     if not mdadm_conf:
         LOG.warn("mdadm config must be specified, not copying")
@@ -779,6 +789,14 @@ def curthooks(args):
 
     # packages may be needed prior to installing kernel
     install_missing_packages(cfg, target)
+
+    # If a /etc/iscsi/nodes/... file was created by block_meta then it
+    # needs to be copied onto the target system
+    nodes_location = os.path.join(os.path.split(state['fstab'])[0],
+                                  "nodes")
+    if os.path.exists(nodes_location):
+        copy_iscsi_conf(nodes_location, target)
+        # do we need to reconfigure open-iscsi?
 
     # If a mdadm.conf file was created by block_meta than it needs to be copied
     # onto the target system

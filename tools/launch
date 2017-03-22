@@ -249,6 +249,105 @@ find_apt_proxy() {
     return 1
 }
 
+get_tgt_tid() {
+    # retry until we successfully register a tid in tgtadm, return it.
+    local target="$1" src="$2" out="" tid="" lun="1" ret=""
+    while true; do
+        # use next target ID
+        # this is racy, potentially, but we iterate until it works
+        out=$(tgtadm --lld=iscsi --mode=target --op=show) ||
+            { error "Failed to show iscsi devices"; return 1; }
+
+        # are we re-using a target?
+        tid=$(echo "$out" |
+            awk -F' ' "/^Target.*$target/ {gsub(\":\",\"\",\$2); print \$2; exit;} ")
+
+        [ -n "${tid}" ] && {
+            _RET="$tid"
+            return 0
+        }
+
+        tid=$(echo "$out" |
+            awk -F' ' '/^Target/ {tid=$2} END{gsub(":","",tid); print tid+1}')
+
+        tgtadm --lld=iscsi --mode=target --op=new "--tid=$tid" \
+            "--targetname=$target" || {
+            ret=$?
+            debug 1 "failed [$ret] in attempt to register tid=$tid " \
+                "targetname=$target"
+            sleep 0.1
+            continue
+        }
+
+        # assume LUN 1?
+        tgtadm --lld=iscsi --mode=logicalunit --op=new "--tid=$tid" \
+            "--backing-store=$src" --device-type=disk "--lun=$lun" || {
+            error "Unable to create TGT LUN $lun backed by '$src'. tid=$tid."
+            error "Does a prior config need to be cleaned up?"
+            return 1
+        }
+
+        # set all initiators to be able to authenticate
+        tgtadm --lld=iscsi --mode=target --op=bind "--tid=$tid" -I ALL || {
+            error "Unable to set TGT target ${tid} ACL to ALL."
+            error "Does a prior config need to be cleaned up?"
+            return 1
+        }
+
+        _RET="$tid"
+        return 0
+    done
+}
+
+configure_tgt_auth() {
+    # update a tgt target with authentication if specified
+    local tid="$1" user="$2" password="$3" iuser="$4" ipassword="$5"
+
+    if [ -n "$user" ]; then
+        tgtadm --lld=iscsi --mode=account --op=show | grep -q "${user}"
+        if [ $? != 0 ]; then
+            tgtadm --lld=iscsi --mode=account --op=new "--user=${user}" \
+                "--password=${password}" || {
+                RC=$?
+                error "Unable to create TGT user (${user}:${password}): ${RC}"
+                error "Does a prior config need to be cleaned up?"
+                return 1
+            }
+        fi 
+        tgtadm --lld=iscsi --mode=account --op=bind "--tid=$tid" \
+            "--user=${user}" || {
+            RC=$?
+            error "Unable to set TGT target ${tid} target auth " \
+                  "user to ${user}: ${RC}."
+            error "Does a prior config need to be cleaned up?"
+            return 1
+        }
+    fi
+
+    if [ -n "$iuser" ]; then
+        tgtadm --lld=iscsi --mode=account --op=show | grep -q "${iuser}"
+        if [ $? != 0 ]; then
+            tgtadm --lld=iscsi --mode=account --op=new "--user=${iuser}" \
+                "--password=${ipassword}" || {
+                RC=$?
+                error "Unable to create TGT user (${iuser}:${ipassword}): ${RC}"
+                error "Does a prior config need to be cleaned up?"
+                return 1
+            }
+        fi 
+        tgtadm --lld=iscsi --mode=account --op=bind "--tid=$tid" \
+            "--user=${iuser}" --outgoing || {
+            RC=$?
+            error "Unable to set TGT target ${tid} initiator user " \
+                  "to ${iuser}: ${RC}."
+            error "Does a prior config need to be cleaned up?"
+            return 1
+        }
+    fi
+
+    return 0
+}
+
 main() {
     local short_opts="a:A:d:h:i:k:n:p:v"
     local long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,root-arg:,silent,serial-log:,uefi-nvram:,verbose,vnc:"
@@ -371,6 +470,8 @@ main() {
         # 3=src:size:driver
         # 4=src:size:driver:bsize
         # 5=src:size:driver:bsize:devopts
+        # 6=src:size:iscsi:bsize:target
+        # 7=src:size:iscsi:bsize:target:user:password:iuser:ipassword
         src=$(echo $disk | awk -F: '{print $1}')
         size=$(echo $disk | awk -F: '{print $2}')
         driver=$(echo $disk | awk -F: '{print $3}')
@@ -402,6 +503,40 @@ main() {
             out=$(LANG=C qemu-img info "$src") &&
                 fmt=$(echo "$out" | awk '$0 ~ /^file format:/ { print $3 }') ||
                 { error "failed to determine format of $src"; return 1; }
+        fi
+
+        # We do not pass iSCSI disks down to qemu, as that will use
+        # qemu's iSCSI target layer and not the host tgt
+        if [ "${driver}" == "iscsi" ]; then
+            local target="" tid="" user="" password=""
+            local iuser="" ipassword=""
+            target=$(echo "$disk" | awk -F: '{print $5}') &&
+                [ -n "$target" ] || {
+                error "empty target for iSCSI disk '$disk'"
+                return 1
+            }
+            user=$(echo "$disk" | awk -F: '{print $6}')
+            password=$(echo "$disk" | awk -F: '{print $7}')
+            [ -n "$user" -a -n "$password" ] || \
+                [ -z "$user" -a -z "$password" ] || {
+                error "both target user ($user) and password ($password) " \
+                      "must be specified for iSCSI disk '$disk'"
+                return 1
+            }
+            iuser=$(echo "$disk" | awk -F: '{print $8}')
+            ipassword=$(echo "$disk" | awk -F: '{print $9}')
+            [ -n "$iuser" -a -n "$ipassword" ] || \
+                [ -z "$iuser" -a -z "$ipassword" ] || {
+                error "both initiator user ($iuser) and password ($ipassword) " \
+                      "must be specified for iSCSI disk '$disk'"
+                return 1
+            }
+            get_tgt_tid "$target" "$src" || return
+            tid="$_RET"
+            configure_tgt_auth "$tid" "$user" "$password" \
+                "$iuser" "$ipassword" || return
+            debug 1 "registered $disk to tgt tid=$tid"
+            continue
         fi
 
         # prepend comma if passing devopts

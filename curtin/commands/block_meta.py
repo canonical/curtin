@@ -17,7 +17,7 @@
 
 from collections import OrderedDict
 from curtin import (block, config, util)
-from curtin.block import (mdadm, mkfs, clear_holders, lvm)
+from curtin.block import (mdadm, mkfs, clear_holders, lvm, iscsi)
 from curtin.log import LOG
 from curtin.reporter import events
 
@@ -58,9 +58,11 @@ def block_meta(args):
     # main entry point for the block-meta command.
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
-    if args.mode == CUSTOM or cfg.get("storage") is not None:
+    dd_images = util.get_dd_images(cfg.get('sources', {}))
+    if ((args.mode == CUSTOM or cfg.get("storage") is not None) and
+            len(dd_images) == 0):
         meta_custom(args)
-    elif args.mode in (SIMPLE, SIMPLE_BOOT):
+    elif args.mode in (SIMPLE, SIMPLE_BOOT) or len(dd_images) > 0:
         meta_simple(args)
     else:
         raise NotImplementedError("mode=%s is not implemented" % args.mode)
@@ -285,9 +287,14 @@ def get_path_to_storage_volume(volume, storage_config):
         if vol.get('serial'):
             volume_path = block.lookup_disk(vol.get('serial'))
         elif vol.get('path'):
-            # resolve any symlinks to the dev_kname so sys/class/block access
-            # is valid.  ie, there are no udev generated values in sysfs
-            volume_path = os.path.realpath(vol.get('path'))
+            if vol.get('path').startswith('iscsi:'):
+                i = iscsi.ensure_disk_connected(vol.get('path'))
+                volume_path = os.path.realpath(i.devdisk_path)
+            else:
+                # resolve any symlinks to the dev_kname so
+                # sys/class/block access is valid.  ie, there are no
+                # udev generated values in sysfs
+                volume_path = os.path.realpath(vol.get('path'))
         elif vol.get('wwn'):
             by_wwn = '/dev/disk/by-id/wwn-%s' % vol.get('wwn')
             volume_path = os.path.realpath(by_wwn)
@@ -641,7 +648,22 @@ def mount_handler(info, storage_config):
                 options = "sw"
             else:
                 path = "/%s" % path
-                options = "defaults"
+                if volume.get('type') == "partition":
+                    disk_block_path = get_path_to_storage_volume(
+                        volume.get('device'), storage_config)
+                    disk_kname = block.path_to_kname(disk_block_path)
+                    if iscsi.kname_is_iscsi(disk_kname):
+                        options = "_netdev"
+                    else:
+                        options = "defaults"
+                elif volume.get('type') == "disk":
+                    disk_kname = block.path_to_kname(location)
+                    if iscsi.kname_is_iscsi(disk_kname):
+                        options = "_netdev"
+                    else:
+                        options = "defaults"
+                else:
+                    options = "defaults"
 
             if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32",
                                             "fat64"]:
@@ -1080,6 +1102,18 @@ def meta_simple(args):
     state = util.load_command_environment()
 
     cfg = config.load_command_config(args, state)
+    devpath = None
+    if cfg.get("storage") is not None:
+        for i in cfg["storage"]["config"]:
+            serial = i.get("serial")
+            if serial is None:
+                continue
+            grub = i.get("grub_device")
+            diskPath = block.lookup_disk(serial)
+            if grub is True:
+                devpath = diskPath
+            if config.value_as_boolean(i.get('wipe')):
+                block.wipe_volume(diskPath, mode=i.get('wipe'))
 
     if args.target is not None:
         state['target'] = args.target
@@ -1108,7 +1142,7 @@ def meta_simple(args):
     # all multipath devices to exclusively use one of paths as a target disk.
     block.stop_all_unused_multipath_devices()
 
-    if len(devices) == 0:
+    if len(devices) == 0 and devpath is None:
         devices = block.get_installable_blockdevs()
         LOG.warn("'%s' mode, no devices given. unused list: %s",
                  args.mode, devices)
@@ -1128,6 +1162,8 @@ def meta_simple(args):
                 LOG.warn("No non-removable, installable devices found. List "
                          "populated with removable devices allowed: %s",
                          devices)
+    elif len(devices) == 0 and devpath:
+        devices = [devpath]
 
     if len(devices) > 1:
         if args.devices is not None:

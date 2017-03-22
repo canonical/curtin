@@ -103,6 +103,10 @@ Running
 Running tests is done most simply by::
 
   make vmtest
+.. note::
+
+  By default, the vmtests for iSCSI will be skipped (see Environment
+  Variable section for details).
 
 If you wish to all tests in test_network.py, do so with::
 
@@ -233,6 +237,40 @@ Some environment variables affect the running of vmtest
   late_commands:
     02_something: ['sh', '-xc', 'curtin in-target -- <yourcommand>']
 
+- ``CURTIN_VMTEST_ISCSI_PORTAL``: default ''
+
+  By default, iSCSI tests are skipped when running `make vmtest`, as
+  iSCSI server configuration is necessary. ``tools/jenkins-runner`` will
+  configure a ``tgt`` server if possible and set the necessary
+  environment variables.
+
+  If an accessible iSCSI server is available, it can be specified in
+  this environment variable as ``HOST:PORT``. ``HOST`` can be a
+  hostname, IPv4 address or IPv6 address. If an IPv6 address is used, it
+  must be enclosed in ``[]``.
+
+  Additionally, if a ``tgt`` server is running locally as the iSCSI
+  server and is configured to listen on a non-default socket, it is
+  necessary to specify ``TGT_IPC_SOCKET`` to indicate the path to the
+  socket in use.
+
+  As iSCSI server configuration by-hand can be difficult, there is a
+  script in ``tools/find-tgt`` which can be used to run a local ``tgt``
+  server. It will find an available port and use the default route-able
+  IPv4 address on the system. The script takes a directory as parameter,
+  and will emit a ``info`` file in that directory which can be sourced as
+  a shell script to set the relevant environment variables needed to run
+  the iSCSI vmtests. For example::
+
+    mkdir output
+    ./tools/find-tgt output
+    . output/info
+    nosetests3 tests/vmtests/test_iscsi.py
+
+  Or, using ``jenkins-runner``:
+
+    ./tools/jenkins-runner tests/vmtests/test_iscsi.py
+
 Environment 'boolean' values
 ============================
 
@@ -281,3 +319,7 @@ Disk Setup:
 - ``disk_driver``:
 
   Default block device driver is ``virtio-blk``.
+
+iSCSI Setup:
+
+- ``iscsi_disks``:

@@ -29,7 +29,8 @@ from .. import version
 VERSIONSTR = version.version_string()
 
 SUB_COMMAND_MODULES = [
-    'apply_net', 'block-info', 'block-meta', 'block-wipe', 'curthooks',
+    'apply_net', 'block-attach-iscsi', 'block-detach-iscsi',
+    'block-info', 'block-meta', 'block-wipe', 'curthooks',
     'clear-holders', 'extract', 'hook', 'in-target', 'install', 'mkfs',
     'net-meta', 'apt-config', 'pack', 'swap', 'system-install',
     'system-upgrade', 'version']

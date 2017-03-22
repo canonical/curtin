@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERBOSITY=2
+VERBOSITY=0
 
 error() { echo "$@" 1>&2; }
 rerror() { local r=$?; [ $r -eq 0 ] && r=1; error "$@"; return $r; }
@@ -48,13 +48,24 @@ inside() {
 
 send() {
     local name="$1" prefix="$2" arg="$3"
-    local afile="" fpath=""
+    local afile="" fpath="" dname=""
     # take ARCHIVE_PATH:FILE_PATH as 'arg'
     # push FILE_PATH into $name/prefix/$archive_path
     # return prefix/archive_path
     afile=${arg%%:*}
     fpath=${arg#*:}
-    lxc file push --create-dirs "$fpath" "$name/$prefix/$afile"
+    dname=$(dirname "${prefix}/${afile}")
+    # older lxc (2.0.9) do not have --create-dirs option to file push
+    # so create the directory ourselves.
+    inside "$name" mkdir -p "$dname" || {
+        rerror "failed to create '$dname' in container '$name'"
+        return
+    }
+
+    lxc file push "$fpath" "$name/$prefix/$afile" || {
+        rerror "failed: lxc file push '$fpath' '$name/$prefix/$afile'"
+        return
+    }
     _RET="$afile:$prefix/$afile"
 }
 
@@ -78,7 +89,7 @@ packrun() {
                 { rerror "failed to make tmpdir in $name"; return; }
         fi
         send "$name" "$tmpd" "$arg" ||
-            { rerror "failed send $arg"; return; }
+            { rerror "failed send($name, $tmpd, $arg)"; return; }
         debug 1 "changed $from => --add=${_RET}"
         cmd[${#cmd[@]}]="--add=${_RET}"
     done
