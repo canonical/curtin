@@ -217,6 +217,29 @@ class TestUbuntuCoreHooks(CurthooksBase):
         self.assertEqual(len(mock_del_file.call_args_list), 0)
         self.assertEqual(len(mock_write_file.call_args_list), 0)
 
+    @patch('curtin.commands.curthooks.handle_cloudconfig')
+    def test_curthooks_cloud_config_remove_disabled(self, mock_handle_cc):
+        self.target = tempfile.mkdtemp()
+        uc_cloud = os.path.join(self.target, 'system-data', 'etc/cloud')
+        cc_disabled = os.path.join(uc_cloud, 'cloud-init.disabled')
+        cc_path = os.path.join(uc_cloud, 'cloud.cfg.d')
+
+        util.ensure_dir(uc_cloud)
+        util.write_file(cc_disabled, content="# disable cloud-init\n")
+        cfg = {
+            'cloudconfig': {
+                'file1': {
+                    'content': "Hello World!\n",
+                }
+            }
+        }
+        self.assertTrue(os.path.exists(cc_disabled))
+        curthooks.ubuntu_core_curthooks(cfg, target=self.target)
+
+        mock_handle_cc.assert_called_with(cfg.get('cloudconfig'),
+                                          target=cc_path)
+        self.assertFalse(os.path.exists(cc_disabled))
+
     @patch('curtin.util.write_file')
     @patch('curtin.util.del_file')
     @patch('curtin.commands.curthooks.handle_cloudconfig')
