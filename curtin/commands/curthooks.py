@@ -697,27 +697,25 @@ def handle_cloudconfig(cfg, target=None):
             LOG.warning("cloudconfig ignoring 'path' key in config")
         cfgvalue['path'] = cfgpath
 
-    # call write_files
     # re-use write_files format and adjust target to prepend
-    # 'system-data/etc/cloud/cloud.cfg.d' prefix for snappy
     LOG.debug('Calling write_files with cloudconfig @ %s', target)
-    LOG.debug('snappy cloud-config:\n%s', cfg)
+    LOG.info('Injecting cloud-config:\n%s', cfg)
     write_files({'write_files': cfg}, target)
 
 
-def snappy_curthooks(cfg, target=None):
+def ubuntu_core_curthooks(cfg, target=None):
     """ Ubuntu-Core 16 images cannot execute standard curthooks
         Instead we copy in any cloud-init configuration to
         the 'LABEL=writable' partition mounted at target.
     """
 
-    snappy_target = os.path.join(target, "system-data")
-    cc_target = os.path.join(snappy_target, 'etc/cloud/cloud.cfg.d')
+    ubuntu_core_target = os.path.join(target, "system-data")
+    cc_target = os.path.join(ubuntu_core_target, 'etc/cloud/cloud.cfg.d')
 
     cloudconfig = cfg.get('cloudconfig', None)
     if cloudconfig:
         # remove cloud-init.disabled, if found
-        cloudinit_disable = os.path.join(snappy_target,
+        cloudinit_disable = os.path.join(ubuntu_core_target,
                                          'etc/cloud/cloud-init.disabled')
         if os.path.exists(cloudinit_disable):
             util.del_file(cloudinit_disable)
@@ -727,12 +725,13 @@ def snappy_curthooks(cfg, target=None):
     netconfig = cfg.get('network', None)
     if netconfig:
         LOG.info('Writing network configuration')
-        snappy_netconfig = os.path.join(cc_target, "50-network-config.cfg")
-        util.write_file(snappy_netconfig,
+        ubuntu_core_netconfig = os.path.join(cc_target,
+                                             "50-network-config.cfg")
+        util.write_file(ubuntu_core_netconfig,
                         content=config.dump_config(netconfig))
 
 
-def target_is_snappy(target):
+def target_is_ubuntu_core(target):
     if target:
         return os.path.exists(os.path.join(target, 'system-data'))
     return False
@@ -759,13 +758,13 @@ def curthooks(args):
     cfg = config.load_command_config(args, state)
     stack_prefix = state.get('report_stack_prefix', '')
 
-    if target_is_snappy(target):
-        LOG.info('Target is Snappy!')
+    if target_is_ubuntu_core(target):
+        LOG.info('Detected Ubuntu-Core image, running hooks')
         with events.ReportEventStack(
                 name=stack_prefix, reporting_enabled=True, level="INFO",
                 description="Configuring Ubuntu-Core for first boot"):
             LOG.info('Running Ubuntu-Core curthooks')
-            rv = snappy_curthooks(cfg, target)
+            rv = ubuntu_core_curthooks(cfg, target)
         sys.exit(rv)
 
     with events.ReportEventStack(

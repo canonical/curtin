@@ -175,4 +175,68 @@ class TestInstallMissingPkgs(CurthooksBase):
         self.assertEqual([], self.mock_install_packages.call_args_list)
 
 
+class TestUbuntuCoreHooks(CurthooksBase):
+    def setUp(self):
+        super(TestUbuntuCoreHooks, self).setUp()
+        self.target = None
+
+    def tearDown(self):
+        if self.target:
+            shutil.rmtree(self.target)
+
+    def test_target_is_ubuntu_core(self):
+        self.target = tempfile.mkdtemp()
+        ubuntu_core_path = os.path.join(self.target, 'system-data')
+        util.ensure_dir(ubuntu_core_path)
+        self.assertTrue(os.path.isdir(ubuntu_core_path))
+        is_core = curthooks.target_is_ubuntu_core(self.target)
+        self.assertTrue(is_core)
+
+    def test_target_is_ubuntu_core_no_target(self):
+        is_core = curthooks.target_is_ubuntu_core(self.target)
+        self.assertFalse(is_core)
+
+    def test_target_is_ubuntu_core_noncore_target(self):
+        self.target = tempfile.mkdtemp()
+        non_core_path = os.path.join(self.target, 'curtin')
+        util.ensure_dir(non_core_path)
+        self.assertTrue(os.path.isdir(non_core_path))
+        is_core = curthooks.target_is_ubuntu_core(self.target)
+        self.assertFalse(is_core)
+
+    @patch('curtin.util.write_file')
+    @patch('curtin.util.del_file')
+    @patch('curtin.commands.curthooks.handle_cloudconfig')
+    def test_curthooks_no_config(self, mock_handle_cc, mock_del_file,
+                                 mock_write_file):
+        self.target = tempfile.mkdtemp()
+        config = {}
+        curthooks.ubuntu_core_curthooks(config, target=self.target)
+        self.assertEqual(len(mock_handle_cc.call_args_list), 0)
+        self.assertEqual(len(mock_del_file.call_args_list), 0)
+        self.assertEqual(len(mock_write_file.call_args_list), 0)
+
+    @patch('curtin.util.write_file')
+    @patch('curtin.util.del_file')
+    @patch('curtin.commands.curthooks.handle_cloudconfig')
+    def test_curthooks_cloud_config(self, mock_handle_cc, mock_del_file,
+                                    mock_write_file):
+        self.target = tempfile.mkdtemp()
+        config = {
+            'cloudconfig': {
+                'file1': {
+                    'content': "Hello World!\n",
+                }
+            }
+        }
+        curthooks.ubuntu_core_curthooks(config, target=self.target)
+
+        self.assertEqual(len(mock_del_file.call_args_list), 0)
+        cc_path = os.path.join(self.target,
+                               'system-data/etc/cloud/cloud.cfg.d')
+        mock_handle_cc.assert_called_with(config.get('cloudconfig'),
+                                          target=cc_path)
+        self.assertEqual(len(mock_write_file.call_args_list), 0)
+
+
 # vi: ts=4 expandtab syntax=python
