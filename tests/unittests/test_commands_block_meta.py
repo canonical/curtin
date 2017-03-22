@@ -59,7 +59,7 @@ class TestBlockMetaSimple(BlockMetaTestBase):
         block_meta.write_image_to_disk(source, devname)
 
         wget = ['sh', '-c',
-                'wget "$1" --progress=dot:mega -O - |xzcat| dd bs=1M of="$2"',
+                'wget "$1" --progress=dot:mega -O - |xzcat| dd bs=4M of="$2"',
                 '--', source['uri'], devnode]
         self.mock_block_get_dev_name_entry.assert_called_with(devname)
         self.mock_subp.assert_has_calls([call(args=wget),

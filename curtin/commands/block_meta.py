@@ -77,7 +77,10 @@ def write_image_to_disk(source, dev):
     """
     LOG.info('writing image to disk %s, %s', source, dev)
     extractor = {
-        'dd-tgz': '|smtar -SxOzf -',
+        'dd-tgz': '|tar -SxOzf -',
+        'dd-txz': '|tar -SxOJf -',
+        'dd-tbz': '|tar -SxOjf -',
+        'dd-tar': '|smtar -SxOf -',
         'dd-bz2': '|bzcat',
         'dd-gz': '|zcat',
         'dd-xz': '|xzcat',
@@ -86,7 +89,7 @@ def write_image_to_disk(source, dev):
     (devname, devnode) = block.get_dev_name_entry(dev)
     util.subp(args=['sh', '-c',
                     ('wget "$1" --progress=dot:mega -O - ' +
-                     extractor[source['type']] + '| dd bs=1M of="$2"'),
+                     extractor[source['type']] + '| dd bs=4M of="$2"'),
                     '--', source['uri'], devnode])
     util.subp(['partprobe', devnode])
     udevadm_settle()
