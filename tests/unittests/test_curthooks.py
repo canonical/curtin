@@ -6,6 +6,7 @@ import tempfile
 
 from curtin.commands import curthooks
 from curtin import util
+from curtin import config
 from curtin.reporter import events
 
 
@@ -210,8 +211,8 @@ class TestUbuntuCoreHooks(CurthooksBase):
     def test_curthooks_no_config(self, mock_handle_cc, mock_del_file,
                                  mock_write_file):
         self.target = tempfile.mkdtemp()
-        config = {}
-        curthooks.ubuntu_core_curthooks(config, target=self.target)
+        cfg = {}
+        curthooks.ubuntu_core_curthooks(cfg, target=self.target)
         self.assertEqual(len(mock_handle_cc.call_args_list), 0)
         self.assertEqual(len(mock_del_file.call_args_list), 0)
         self.assertEqual(len(mock_write_file.call_args_list), 0)
@@ -222,21 +223,47 @@ class TestUbuntuCoreHooks(CurthooksBase):
     def test_curthooks_cloud_config(self, mock_handle_cc, mock_del_file,
                                     mock_write_file):
         self.target = tempfile.mkdtemp()
-        config = {
+        cfg = {
             'cloudconfig': {
                 'file1': {
                     'content': "Hello World!\n",
                 }
             }
         }
-        curthooks.ubuntu_core_curthooks(config, target=self.target)
+        curthooks.ubuntu_core_curthooks(cfg, target=self.target)
 
         self.assertEqual(len(mock_del_file.call_args_list), 0)
         cc_path = os.path.join(self.target,
                                'system-data/etc/cloud/cloud.cfg.d')
-        mock_handle_cc.assert_called_with(config.get('cloudconfig'),
+        mock_handle_cc.assert_called_with(cfg.get('cloudconfig'),
                                           target=cc_path)
         self.assertEqual(len(mock_write_file.call_args_list), 0)
+
+    @patch('curtin.util.write_file')
+    @patch('curtin.util.del_file')
+    @patch('curtin.commands.curthooks.handle_cloudconfig')
+    def test_curthooks_net_config(self, mock_handle_cc, mock_del_file,
+                                  mock_write_file):
+        self.target = tempfile.mkdtemp()
+        cfg = {
+            'network': {
+                'version': '1',
+                'config': [{'type': 'physical',
+                            'name': 'eth0', 'subnets': [{'type': 'dhcp4'}]}]
+            }
+        }
+        curthooks.ubuntu_core_curthooks(cfg, target=self.target)
+
+        self.assertEqual(len(mock_del_file.call_args_list), 0)
+        self.assertEqual(len(mock_handle_cc.call_args_list), 0)
+        netcfg_path = os.path.join(self.target,
+                                   'system-data',
+                                   'etc/cloud/cloud.cfg.d',
+                                   '50-network-config.cfg')
+        netcfg = config.dump_config(cfg.get('network'))
+        mock_write_file.assert_called_with(netcfg_path,
+                                           content=netcfg)
+        self.assertEqual(len(mock_del_file.call_args_list), 0)
 
 
 # vi: ts=4 expandtab syntax=python
