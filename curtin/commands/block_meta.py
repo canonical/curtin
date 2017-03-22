@@ -1159,9 +1159,6 @@ def meta_simple(args):
             util.subp(['mount', rootdev, state['target']])
         return 0
 
-    print(dd_images)
-    raise Exception('AIEE!!')
-
     # helper partition will forcibly set up partition there
     ptcmd = ['partition', '--format=' + ptfmt]
     if bootpt['enabled']:
