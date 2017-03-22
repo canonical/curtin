@@ -43,4 +43,4 @@ class TestUbuntuCoreAbs(VMBaseClass):
 
 
 class UbuntuCore16TestUbuntuCore(relbase.uc16fromxenial, TestUbuntuCoreAbs):
-    __test__ = True
+    __test__ = False
