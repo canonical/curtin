@@ -77,14 +77,26 @@ def write_image_to_disk(source, dev):
     """
     Write disk image to block device
     """
+    LOG.info('writing image to disk %s, %s', source, dev)
+    extractor = {
+        'dd-tgz': '|tar -xOzf -',
+        'dd-txz': '|tar -xOJf -',
+        'dd-tbz': '|tar -xOjf -',
+        'dd-tar': '|smtar -xOf -',
+        'dd-bz2': '|bzcat',
+        'dd-gz': '|zcat',
+        'dd-xz': '|xzcat',
+        'dd-raw': ''
+    }
     (devname, devnode) = block.get_dev_name_entry(dev)
     util.subp(args=['sh', '-c',
-                    ('wget "$1" --progress=dot:mega -O - |'
-                     'tar -SxOzf - | dd of="$2"'),
-                    '--', source, devnode])
+                    ('wget "$1" --progress=dot:mega -O - ' +
+                     extractor[source['type']] + '| dd bs=4M of="$2"'),
+                    '--', source['uri'], devnode])
     util.subp(['partprobe', devnode])
     udevadm_settle()
-    return block.get_root_device([devname, ])
+    paths = ["curtin", "system-data/var/lib/snapd"]
+    return block.get_root_device([devname], paths=paths)
 
 
 def get_bootpt_cfg(cfg, enabled=False, fstype=None, root_fstype=None):
