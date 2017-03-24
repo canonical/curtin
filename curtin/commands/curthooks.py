@@ -775,8 +775,8 @@ def curthooks(args):
         with events.ReportEventStack(
                 name=stack_prefix, reporting_enabled=True, level="INFO",
                 description="Configuring Ubuntu-Core for first boot"):
-            rv = ubuntu_core_curthooks(cfg, target)
-        sys.exit(rv)
+            ubuntu_core_curthooks(cfg, target)
+        sys.exit(0)
 
     with events.ReportEventStack(
             name=stack_prefix + '/writing-config',
