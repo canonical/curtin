@@ -15,11 +15,23 @@ class _CentosFromUbuntuBase(_UbuntuBase):
     target_distro = "centos"
 
 
+class _UbuntuCoreUbuntuBase(_UbuntuBase):
+    # base for installing UbuntuCore root-image.xz from ubuntu base
+    target_distro = "ubuntu-core-16"
+
+
 class _Centos70FromXenialBase(_CentosFromUbuntuBase):
     # release for boot
     release = "xenial"
     # release for target
     target_release = "centos70"
+
+
+class _UbuntuCore16FromXenialBase(_UbuntuCoreUbuntuBase):
+    # release for boot
+    release = "xenial"
+    # release for target
+    target_release = "ubuntu-core-16"
 
 
 class _Centos66FromXenialBase(_CentosFromUbuntuBase):
@@ -106,7 +118,12 @@ class _CentosReleases(object):
     centos66fromxenial = _Centos66FromXenialBase
 
 
+class _UbuntuCoreReleases(object):
+    uc16fromxenial = _UbuntuCore16FromXenialBase
+
+
 base_vm_classes = _Releases
 centos_base_vm_classes = _CentosReleases
+ubuntu_core_base_vm_classes = _UbuntuCoreReleases
 
 # vi: ts=4 expandtab syntax=python

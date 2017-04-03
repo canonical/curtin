@@ -540,10 +540,15 @@ def get_multipath_wwids():
     return multipath_wwids
 
 
-def get_root_device(dev, fpath="curtin"):
+def get_root_device(dev, paths=None):
     """
-    Get root partition for specified device, based on presence of /curtin.
+    Get root partition for specified device, based on presence of any
+    paths in the provided paths list:
     """
+    if paths is None:
+        paths = ["curtin"]
+    LOG.debug('Searching for filesystem on %s containing one of: %s',
+              dev, paths)
     partitions = get_pardevs_on_blockdevs(dev)
     target = None
     tmp_mount = tempfile.mkdtemp()
@@ -553,10 +558,13 @@ def get_root_device(dev, fpath="curtin"):
         try:
             util.do_mount(dev_path, tmp_mount)
             mp = tmp_mount
-            curtin_dir = os.path.join(tmp_mount, fpath)
-            if os.path.isdir(curtin_dir):
-                target = dev_path
-                break
+            for path in paths:
+                fullpath = os.path.join(tmp_mount, path)
+                if os.path.isdir(fullpath):
+                    target = dev_path
+                    LOG.debug("Found path '%s' on device '%s'",
+                              path, dev_path)
+                    break
         except Exception:
             pass
         finally:
@@ -564,9 +572,10 @@ def get_root_device(dev, fpath="curtin"):
                 util.do_umount(mp)
 
     os.rmdir(tmp_mount)
-
     if target is None:
-        raise ValueError("Could not find root device")
+        raise ValueError(
+            "Did not find any filesystem on %s that contained one of %s" %
+            (dev, paths))
     return target
 
 
