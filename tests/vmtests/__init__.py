@@ -632,7 +632,7 @@ class VMBaseClass(TestCase):
         # proxy config
         configs = [cls.conf_file]
         cls.proxy = get_apt_proxy()
-        if cls.proxy is not None:
+        if cls.proxy is not None and not cls.td.restored:
             proxy_config = os.path.join(cls.td.install, 'proxy.cfg')
             if not os.path.exists(proxy_config):
                 with open(proxy_config, "w") as fp:
@@ -668,7 +668,7 @@ class VMBaseClass(TestCase):
         reporting_config = os.path.join(cls.td.install, 'reporting.cfg')
         localhost_url = ('http://' + get_lan_ip() +
                          ':{:d}/'.format(reporting_logger.port))
-        if not os.path.exists(reporting_config):
+        if not os.path.exists(reporting_config) and not cls.td.restored:
             with open(reporting_config, 'w') as fp:
                 fp.write(json.dumps({
                     'install': {
