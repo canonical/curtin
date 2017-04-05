@@ -40,7 +40,7 @@ class TestBasicAbs(VMBaseClass):
         #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
         ls_uuid = self.load_collect_file("ls_uuid")
         uuid = [line.split()[8] for line in ls_uuid.split('\n')
-                if kname in line]
+                if ("../../" + kname) in line.split()]
         self.assertEqual(len(uuid), 1)
         uuid = uuid.pop()
         self.assertTrue(uuid is not None)
