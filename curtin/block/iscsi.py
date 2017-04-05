@@ -37,7 +37,7 @@ RFC4173_AUTH_REGEX = re.compile(r'''^
     ''', re.VERBOSE)
 
 RFC4173_TARGET_REGEX = re.compile(r'''^
-    (?P<host>[^@]*):        # greedy so ipv6 IPs are matched
+    (?P<host>[^@:\[\]]*|\[[^@]*\]): # greedy so ipv6 IPs are matched
     (?P<proto>[^:]*):
     (?P<port>[^:]*):
     (?P<lun>[^:]*):
