@@ -607,6 +607,7 @@ def format_handler(info, storage_config):
     device_type = storage_config.get(volume).get('type')
     LOG.debug('Formated device type: %s', device_type)
     if device_type == 'bcache':
+        # other devs have a udev watch on them. Not bcache (LP: #1680597).
         LOG.debug('Detected bcache device format, calling udevadm trigger to '
                   'generate by-uuid symlinks on "%s"', volume_path)
         udevadm_trigger([volume_path])
