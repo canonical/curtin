@@ -22,7 +22,7 @@ from curtin.log import LOG
 from curtin.reporter import events
 
 from . import populate_one_subcmd
-from curtin.udev import compose_udev_equality, udevadm_settle
+from curtin.udev import compose_udev_equality, udevadm_settle, udevadm_trigger
 
 import glob
 import os
@@ -603,6 +603,14 @@ def format_handler(info, storage_config):
     # Make filesystem using block library
     LOG.debug("mkfs {} info: {}".format(volume_path, info))
     mkfs.mkfs_from_config(volume_path, info)
+
+    device_type = storage_config.get(volume).get('type')
+    LOG.debug('Formated device type: %s', device_type)
+    if device_type == 'bcache':
+        # other devs have a udev watch on them. Not bcache (LP: #1680597).
+        LOG.debug('Detected bcache device format, calling udevadm trigger to '
+                  'generate by-uuid symlinks on "%s"', volume_path)
+        udevadm_trigger([volume_path])
 
 
 def mount_handler(info, storage_config):
