@@ -18,6 +18,7 @@ class TestBcacheBasic(VMBaseClass):
         cat /proc/mounts > proc_mounts
         cat /proc/partitions > proc_partitions
         find /etc/network/interfaces.d > find_interfacesd
+        cat /proc/cmdline > cmdline
         """)]
 
     def test_bcache_output_files_exist(self):
@@ -35,6 +36,9 @@ class TestBcacheBasic(VMBaseClass):
 
     def test_bcache_cachemode(self):
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
+
+    def test_proc_cmdline_root_by_uuid(self):
+        self.check_file_regex("cmdline", r"root=UUID=")
 
 
 class PreciseHWETBcacheBasic(relbase.precise_hwe_t, TestBcacheBasic):
