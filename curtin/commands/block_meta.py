@@ -48,6 +48,8 @@ CMD_ARGUMENTS = (
        'default': os.environ.get('TARGET_MOUNT_POINT')}),
      ('--boot-fstype', {'help': 'boot partition filesystem type',
                         'choices': ['ext4', 'ext3'], 'default': None}),
+     ('--umount', {'help': 'unmount any mounted filesystems before exit',
+                   'action': 'store_true', 'default': False}),
      ('mode', {'help': 'meta-mode to use',
                'choices': [CUSTOM, SIMPLE, SIMPLE_BOOT]}),
      )
@@ -1100,6 +1102,8 @@ def meta_custom(args):
                           (item_id, type(error).__name__, error))
                 raise
 
+    if args.umount:
+        util.do_umount(state['target'], recursive=True)
     return 0
 
 
@@ -1284,6 +1288,9 @@ def meta_simple(args):
                      ('cloudimg-rootfs', args.fstype))
     else:
         LOG.info("fstab not in environment, so not writing")
+
+    if args.umount:
+        util.do_umount(state['target'], recursive=True)
 
     return 0
 
