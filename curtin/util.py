@@ -204,7 +204,7 @@ def load_command_environment(env=os.environ, strict=False):
                'report_stack_prefix': 'CURTIN_REPORTSTACK'}
 
     if strict:
-        missing = [k for k in mapping if k not in env]
+        missing = [k for k in mapping.values() if k not in env]
         if len(missing):
             raise KeyError("missing environment vars: %s" % missing)
 
