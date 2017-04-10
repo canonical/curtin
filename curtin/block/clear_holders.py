@@ -56,16 +56,28 @@ def get_dmsetup_uuid(device):
 
 def get_bcache_using_dev(device):
     """
-    Get the /sys/fs/bcache/ path of the bcache volume using specified device
+    Get the /sys/fs/bcache/ path of the bcache cache device bound to
+    specified device
     """
     # FIXME: when block.bcache is written this should be moved there
     sysfs_path = block.sys_block_path(device)
     return os.path.realpath(os.path.join(sysfs_path, 'bcache', 'cache'))
 
 
+def get_bcache_sys_path(device):
+    """
+    Get the /sys/class/block/<device>/bcache path if present
+    """
+    sysfs_path = block.sys_block_path(device)
+    return os.path.realpath(os.path.join(sysfs_path, 'bcache'))
+
+
 def shutdown_bcache(device):
     """
     Shut down bcache for specified bcache device
+
+    1. Stop the cacheset that `device` is connected to
+    2. Stop the 'device'
     """
     bcache_shutdown_message = ('shutdown_bcache running on {} has determined '
                                'that the device has already been shut down '
@@ -75,13 +87,38 @@ def shutdown_bcache(device):
         LOG.info(bcache_shutdown_message)
         return
 
-    bcache_sysfs = get_bcache_using_dev(device)
-    if not os.path.exists(bcache_sysfs):
-        LOG.info(bcache_shutdown_message)
-        return
+    # stop cacheset if it exists
+    bcache_cache_sysfs = get_bcache_using_dev(device)
+    if not os.path.exists(bcache_cache_sysfs):
+        LOG.info('bcache cache set already removed: %s',
+                 os.path.basename(bcache_cache_sysfs))
+    else:
+        LOG.info('stopping bcache cache set at: %s', bcache_cache_sysfs)
+        util.write_file(os.path.join(bcache_cache_sysfs, 'stop'),
+                        '1', mode=None)
+        try:
+            util.wait_for_removal(bcache_cache_sysfs)
+        except OSError:
+            LOG.info('Failed to stop bcache cacheset %s', bcache_cache_sysfs)
+            raise
 
-    LOG.debug('stopping bcache at: %s', bcache_sysfs)
-    util.write_file(os.path.join(bcache_sysfs, 'stop'), '1', mode=None)
+    # after stopping cache set, we may need to stop the device
+    if not os.path.exists(device):
+        LOG.info('bcache block device already removed: %s', device)
+        return
+    else:
+        bcache_block_sysfs = get_bcache_sys_path(device)
+        LOG.info('stopping bcache block device at: %s', bcache_block_sysfs)
+        util.write_file(os.path.join(bcache_block_sysfs, 'stop'),
+                        '1', mode=None)
+        try:
+            util.wait_for_removal(device)
+        except OSError:
+            LOG.info('Failed to stop bcache block device %s',
+                     bcache_block_sysfs)
+            raise
+
+    return
 
 
 def shutdown_lvm(device):

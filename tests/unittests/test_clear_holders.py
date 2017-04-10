@@ -115,22 +115,49 @@ class TestClearHolders(TestCase):
             mock_block.path_to_kname.assert_called_with(self.test_syspath)
             mock_get_dmsetup_uuid.assert_called_with(self.test_syspath)
 
+    @mock.patch('curtin.block.clear_holders.get_bcache_sys_path')
     @mock.patch('curtin.block.clear_holders.util')
     @mock.patch('curtin.block.clear_holders.os')
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.get_bcache_using_dev')
     def test_shutdown_bcache(self, mock_get_bcache, mock_log, mock_os,
-                             mock_util):
+                             mock_util, mock_get_bcache_block):
         """test clear_holders.shutdown_bcache"""
+        #
+        # pass in a sysfs path to a bcache block device,
+        # determine the bcache cset it is part of (or not)
+        # 1) stop the cset device (if it's enabled)
+        # 2) wait on cset to be removed if it was present
+        # 3) stop the block device (if it's still present after stopping cset)
+        # 4) wait on bcache block device to be removed
+        #
+
+        device = self.test_syspath
+        bcache_cset_uuid = 'c08ae789-a964-46fb-a66e-650f0ae78f94'
+
         mock_os.path.exists.return_value = True
         mock_os.path.join.side_effect = os.path.join
-        mock_get_bcache.return_value = self.test_blockdev
-        clear_holders.shutdown_bcache(self.test_syspath)
-        mock_get_bcache.assert_called_with(self.test_syspath)
-        self.assertTrue(mock_log.debug.called)
+        # os.path.realpath on symlink of /sys/class/block/null/bcache/cache ->
+        # to /sys/fs/bcache/cset_UUID
+        mock_get_bcache.return_value = '/sys/fs/bcache/' + bcache_cset_uuid
+        mock_get_bcache_block.return_value = device + '/bcache'
+
+        clear_holders.shutdown_bcache(device)
+
+        mock_get_bcache.assert_called_with(device)
+        mock_get_bcache_block.assert_called_with(device)
+
+        self.assertTrue(mock_log.info.called)
         self.assertFalse(mock_log.warn.called)
-        mock_util.write_file.assert_called_with(self.test_blockdev + '/stop',
-                                                '1', mode=None)
+        mock_util.wait_for_removal.assert_has_calls([
+                mock.call('/sys/fs/bcache/' + bcache_cset_uuid),
+                mock.call(device)])
+
+        mock_util.write_file.assert_has_calls([
+                mock.call('/sys/fs/bcache/%s/stop' % bcache_cset_uuid,
+                          '1', mode=None),
+                mock.call(device + '/bcache/stop',
+                          '1', mode=None)])
 
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.block.sys_block_path')
