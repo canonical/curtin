@@ -89,11 +89,21 @@ class TestClearHolders(TestCase):
     def test_get_bcache_using_dev(self, mock_os, mock_block):
         """Ensure that get_bcache_using_dev works"""
         fake_bcache = '/sys/fs/bcache/fake'
+        mock_os.path.join.side_effect = os.path.join
+        mock_block.sys_block_path.return_value = self.test_syspath
         mock_os.path.realpath.return_value = fake_bcache
-        mock_os.path.exists.side_effect = lambda x: x == fake_bcache
-        mock_block.sys_block_path.return_value = self.test_blockdev
+
         bcache_dir = clear_holders.get_bcache_using_dev(self.test_blockdev)
+        mock_os.path.realpath.assert_called_with(self.test_syspath +
+                                                 '/bcache/cache')
         self.assertEqual(bcache_dir, fake_bcache)
+
+    @mock.patch('curtin.block.clear_holders.block')
+    def test_get_bcache_sys_path(self, mock_block):
+        fake_backing = '/sys/class/block/fake'
+        mock_block.sys_block_path.return_value = fake_backing
+        bcache_dir = clear_holders.get_bcache_sys_path("/dev/fake")
+        self.assertEqual(bcache_dir, fake_backing + "/bcache")
 
     @mock.patch('curtin.block.clear_holders.get_dmsetup_uuid')
     @mock.patch('curtin.block.clear_holders.block')
@@ -158,6 +168,152 @@ class TestClearHolders(TestCase):
                           '1', mode=None),
                 mock.call(device + '/bcache/stop',
                           '1', mode=None)])
+
+    @mock.patch('curtin.block.clear_holders.get_bcache_sys_path')
+    @mock.patch('curtin.block.clear_holders.util')
+    @mock.patch('curtin.block.clear_holders.os')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.get_bcache_using_dev')
+    def test_shutdown_bcache_non_sysfs_device(self, mock_get_bcache, mock_log,
+                                              mock_os, mock_util,
+                                              mock_get_bcache_block):
+        device = "/dev/fakenull"
+        with self.assertRaises(ValueError):
+            clear_holders.shutdown_bcache(device)
+
+        self.assertEqual(0, len(mock_get_bcache.call_args_list))
+        self.assertEqual(0, len(mock_log.call_args_list))
+        self.assertEqual(0, len(mock_os.call_args_list))
+        self.assertEqual(0, len(mock_util.call_args_list))
+        self.assertEqual(0, len(mock_get_bcache_block.call_args_list))
+
+    @mock.patch('curtin.block.clear_holders.get_bcache_sys_path')
+    @mock.patch('curtin.block.clear_holders.util')
+    @mock.patch('curtin.block.clear_holders.os')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.get_bcache_using_dev')
+    def test_shutdown_bcache_no_device(self, mock_get_bcache, mock_log,
+                                       mock_os, mock_util,
+                                       mock_get_bcache_block):
+        device = "/sys/class/block/null"
+        mock_os.path.exists.return_value = False
+
+        clear_holders.shutdown_bcache(device)
+
+        self.assertEqual(1, len(mock_log.info.call_args_list))
+        self.assertEqual(1, len(mock_os.path.exists.call_args_list))
+        self.assertEqual(0, len(mock_get_bcache.call_args_list))
+        self.assertEqual(0, len(mock_util.call_args_list))
+        self.assertEqual(0, len(mock_get_bcache_block.call_args_list))
+
+    @mock.patch('curtin.block.clear_holders.get_bcache_sys_path')
+    @mock.patch('curtin.block.clear_holders.util')
+    @mock.patch('curtin.block.clear_holders.os')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.get_bcache_using_dev')
+    def test_shutdown_bcache_no_cset(self, mock_get_bcache, mock_log,
+                                     mock_os, mock_util,
+                                     mock_get_bcache_block):
+        device = "/sys/class/block/null"
+        mock_os.path.exists.side_effect = iter([
+                True,   # backing device exists
+                False,  # cset device not present (already removed)
+                True,   # backing device (still) exists
+        ])
+        mock_get_bcache.return_value = '/sys/fs/bcache/fake'
+        mock_get_bcache_block.return_value = device + '/bcache'
+        mock_os.path.join.side_effect = os.path.join
+
+        clear_holders.shutdown_bcache(device)
+
+        self.assertEqual(2, len(mock_log.info.call_args_list))
+        self.assertEqual(3, len(mock_os.path.exists.call_args_list))
+        self.assertEqual(1, len(mock_get_bcache.call_args_list))
+        self.assertEqual(1, len(mock_get_bcache_block.call_args_list))
+        self.assertEqual(1, len(mock_util.write_file.call_args_list))
+        self.assertEqual(1, len(mock_util.wait_for_removal.call_args_list))
+
+        mock_get_bcache.assert_called_with(device)
+        mock_get_bcache_block.assert_called_with(device)
+        mock_util.write_file.assert_called_with(device + '/bcache/stop',
+                                                '1', mode=None)
+        mock_util.wait_for_removal.assert_called_with(device)
+
+    @mock.patch('curtin.block.clear_holders.get_bcache_sys_path')
+    @mock.patch('curtin.block.clear_holders.util')
+    @mock.patch('curtin.block.clear_holders.os')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.get_bcache_using_dev')
+    def test_shutdown_bcache_delete_cset_and_backing(self, mock_get_bcache,
+                                                     mock_log, mock_os,
+                                                     mock_util,
+                                                     mock_get_bcache_block):
+        device = "/sys/class/block/null"
+        mock_os.path.exists.side_effect = iter([
+                True,  # backing device exists
+                True,  # cset device not present (already removed)
+                True,  # backing device (still) exists
+        ])
+        cset = '/sys/fs/bcache/fake'
+        mock_get_bcache.return_value = cset
+        mock_get_bcache_block.return_value = device + '/bcache'
+        mock_os.path.join.side_effect = os.path.join
+
+        clear_holders.shutdown_bcache(device)
+
+        self.assertEqual(2, len(mock_log.info.call_args_list))
+        self.assertEqual(3, len(mock_os.path.exists.call_args_list))
+        self.assertEqual(1, len(mock_get_bcache.call_args_list))
+        self.assertEqual(1, len(mock_get_bcache_block.call_args_list))
+        self.assertEqual(2, len(mock_util.write_file.call_args_list))
+        self.assertEqual(2, len(mock_util.wait_for_removal.call_args_list))
+
+        mock_get_bcache.assert_called_with(device)
+        mock_get_bcache_block.assert_called_with(device)
+        mock_util.write_file.assert_has_calls([
+            mock.call(cset + '/stop', '1', mode=None),
+            mock.call(device + '/bcache/stop', '1', mode=None)])
+        mock_util.wait_for_removal.assert_has_calls([
+            mock.call(cset),
+            mock.call(device)
+        ])
+
+    @mock.patch('curtin.block.clear_holders.get_bcache_sys_path')
+    @mock.patch('curtin.block.clear_holders.util')
+    @mock.patch('curtin.block.clear_holders.os')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.get_bcache_using_dev')
+    def test_shutdown_bcache_delete_cset_no_backing(self, mock_get_bcache,
+                                                    mock_log, mock_os,
+                                                    mock_util,
+                                                    mock_get_bcache_block):
+        device = "/sys/class/block/null"
+        mock_os.path.exists.side_effect = iter([
+                True,   # backing device exists
+                True,   # cset device not present (already removed)
+                False,  # backing device is removed with cset
+        ])
+        cset = '/sys/fs/bcache/fake'
+        mock_get_bcache.return_value = cset
+        mock_get_bcache_block.return_value = device + '/bcache'
+        mock_os.path.join.side_effect = os.path.join
+
+        clear_holders.shutdown_bcache(device)
+
+        self.assertEqual(2, len(mock_log.info.call_args_list))
+        self.assertEqual(3, len(mock_os.path.exists.call_args_list))
+        self.assertEqual(1, len(mock_get_bcache.call_args_list))
+        self.assertEqual(0, len(mock_get_bcache_block.call_args_list))
+        self.assertEqual(1, len(mock_util.write_file.call_args_list))
+        self.assertEqual(1, len(mock_util.wait_for_removal.call_args_list))
+
+        mock_get_bcache.assert_called_with(device)
+        mock_util.write_file.assert_has_calls([
+            mock.call(cset + '/stop', '1', mode=None),
+        ])
+        mock_util.wait_for_removal.assert_has_calls([
+            mock.call(cset)
+        ])
 
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.block.sys_block_path')

@@ -614,4 +614,73 @@ class TestLoadCommandEnvironment(TestCase):
         except KeyError as e:
             self.fail("unexpected key error raised: %s" % e)
 
+class TestWaitForRemoval(TestCase):
+    def test_wait_for_removal_missing_path(self):
+        with self.assertRaises(ValueError):
+            util.wait_for_removal(None)
+        
+    @mock.patch('curtin.util.time')
+    @mock.patch('curtin.util.os')
+    def test_wait_for_removal(self, mock_os, mock_time):
+        path = "/file/to/remove"
+        mock_os.path.exists.side_effect = iter([
+            True,    # File is not yet removed
+            False,   # File has  been removed
+        ])
+
+        util.wait_for_removal(path)
+            
+        
+        self.assertEqual(2, len(mock_os.path.exists.call_args_list))
+        self.assertEqual(1, len(mock_time.sleep.call_args_list))
+        mock_os.path.exists.assert_has_calls([
+            mock.call(path),
+            mock.call(path),
+        ])
+        mock_time.sleep.assert_has_calls([
+            mock.call(1),
+        ])
+
+    @mock.patch('curtin.util.time')
+    @mock.patch('curtin.util.os')
+    def test_wait_for_removal_timesout(self, mock_os, mock_time):
+        path = "/file/to/remove"
+        mock_os.path.exists.return_value = True
+
+        with self.assertRaises(OSError):
+            util.wait_for_removal(path)
+        
+        self.assertEqual(5, len(mock_os.path.exists.call_args_list))
+        self.assertEqual(4, len(mock_time.sleep.call_args_list))
+        mock_os.path.exists.assert_has_calls(5 * [mock.call(path)])
+        mock_time.sleep.assert_has_calls([
+            mock.call(1),
+            mock.call(3),
+            mock.call(5),
+            mock.call(7),
+        ])
+
+    @mock.patch('curtin.util.time')
+    @mock.patch('curtin.util.os')
+    def test_wait_for_removal_custom_retry(self, mock_os, mock_time):
+        path = "/file/to/remove"
+        timeout = 100
+        mock_os.path.exists.side_effect = iter([
+            True,    # File is not yet removed
+            False,   # File has  been removed
+        ])
+
+        util.wait_for_removal(path, retries=[timeout])
+            
+        self.assertEqual(2, len(mock_os.path.exists.call_args_list))
+        self.assertEqual(1, len(mock_time.sleep.call_args_list))
+        mock_os.path.exists.assert_has_calls([
+            mock.call(path),
+            mock.call(path),
+        ])
+        mock_time.sleep.assert_has_calls([
+            mock.call(timeout),
+        ])
+
+
 # vi: ts=4 expandtab syntax=python

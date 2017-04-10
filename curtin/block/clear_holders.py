@@ -79,10 +79,16 @@ def shutdown_bcache(device):
     1. Stop the cacheset that `device` is connected to
     2. Stop the 'device'
     """
+    if not device.startswith('/sys/class/block'):
+        raise ValueError('Invalid Device (%s): '
+                         'Device path must start with /sys/class/block/',
+                         device)
+
     bcache_shutdown_message = ('shutdown_bcache running on {} has determined '
                                'that the device has already been shut down '
                                'during handling of another bcache dev. '
                                'skipping'.format(device))
+
     if not os.path.exists(device):
         LOG.info(bcache_shutdown_message)
         return
@@ -90,10 +96,10 @@ def shutdown_bcache(device):
     # stop cacheset if it exists
     bcache_cache_sysfs = get_bcache_using_dev(device)
     if not os.path.exists(bcache_cache_sysfs):
-        LOG.info('bcache cache set already removed: %s',
+        LOG.info('bcache cacheset already removed: %s',
                  os.path.basename(bcache_cache_sysfs))
     else:
-        LOG.info('stopping bcache cache set at: %s', bcache_cache_sysfs)
+        LOG.info('stopping bcache cacheset at: %s', bcache_cache_sysfs)
         util.write_file(os.path.join(bcache_cache_sysfs, 'stop'),
                         '1', mode=None)
         try:
@@ -104,17 +110,17 @@ def shutdown_bcache(device):
 
     # after stopping cache set, we may need to stop the device
     if not os.path.exists(device):
-        LOG.info('bcache block device already removed: %s', device)
+        LOG.info('bcache backing device already removed: %s', device)
         return
     else:
         bcache_block_sysfs = get_bcache_sys_path(device)
-        LOG.info('stopping bcache block device at: %s', bcache_block_sysfs)
+        LOG.info('stopping bcache backing device at: %s', bcache_block_sysfs)
         util.write_file(os.path.join(bcache_block_sysfs, 'stop'),
                         '1', mode=None)
         try:
             util.wait_for_removal(device)
         except OSError:
-            LOG.info('Failed to stop bcache block device %s',
+            LOG.info('Failed to stop bcache backing device %s',
                      bcache_block_sysfs)
             raise
 

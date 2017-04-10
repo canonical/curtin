@@ -196,7 +196,7 @@ def subp(*args, **kwargs):
 
 def wait_for_removal(path, retries=[1, 3, 5, 7]):
     if not path:
-        return
+        raise ValueError('wait_for_removal: missing path parameter')
 
     # Retry with waits between checking for existence
     LOG.debug('waiting for %s to be removed', path)
