@@ -175,4 +175,5 @@ class XenialTestNvmeBcache(relbase.xenial, TestNvmeBcacheAbs):
 
 
 class ZestyTestNvmeBcache(relbase.zesty, TestNvmeBcacheAbs):
+    __test__ = True
 
