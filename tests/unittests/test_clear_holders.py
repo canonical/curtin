@@ -9,6 +9,7 @@ import textwrap
 class TestClearHolders(TestCase):
     test_blockdev = '/dev/null'
     test_syspath = '/sys/class/block/null'
+    remove_retries = [0.2] * 150  # clear_holders defaults to 30 seconds
     example_holders_trees = [
         [{'device': '/sys/class/block/sda', 'name': 'sda', 'holders':
           [{'device': '/sys/class/block/sda/sda1', 'name': 'sda1',
@@ -98,10 +99,13 @@ class TestClearHolders(TestCase):
                                                  '/bcache/cache')
         self.assertEqual(bcache_dir, fake_bcache)
 
+    @mock.patch('curtin.block.clear_holders.os')
     @mock.patch('curtin.block.clear_holders.block')
-    def test_get_bcache_sys_path(self, mock_block):
+    def test_get_bcache_sys_path(self, mock_block, mock_os):
         fake_backing = '/sys/class/block/fake'
         mock_block.sys_block_path.return_value = fake_backing
+        mock_os.path.join.side_effect = os.path.join
+        mock_os.path.exists.return_value = True
         bcache_dir = clear_holders.get_bcache_sys_path("/dev/fake")
         self.assertEqual(bcache_dir, fake_backing + "/bcache")
 
@@ -160,8 +164,9 @@ class TestClearHolders(TestCase):
         self.assertTrue(mock_log.info.called)
         self.assertFalse(mock_log.warn.called)
         mock_util.wait_for_removal.assert_has_calls([
-                mock.call('/sys/fs/bcache/' + bcache_cset_uuid),
-                mock.call(device)])
+                mock.call('/sys/fs/bcache/' + bcache_cset_uuid,
+                          retries=self.remove_retries),
+                mock.call(device, retries=self.remove_retries)])
 
         mock_util.write_file.assert_has_calls([
                 mock.call('/sys/fs/bcache/%s/stop' % bcache_cset_uuid,
@@ -237,7 +242,8 @@ class TestClearHolders(TestCase):
         mock_get_bcache_block.assert_called_with(device)
         mock_util.write_file.assert_called_with(device + '/bcache/stop',
                                                 '1', mode=None)
-        mock_util.wait_for_removal.assert_called_with(device)
+        retries = self.remove_retries
+        mock_util.wait_for_removal.assert_called_with(device, retries=retries)
 
     @mock.patch('curtin.block.clear_holders.get_bcache_sys_path')
     @mock.patch('curtin.block.clear_holders.util')
@@ -274,8 +280,8 @@ class TestClearHolders(TestCase):
             mock.call(cset + '/stop', '1', mode=None),
             mock.call(device + '/bcache/stop', '1', mode=None)])
         mock_util.wait_for_removal.assert_has_calls([
-            mock.call(cset),
-            mock.call(device)
+            mock.call(cset, retries=self.remove_retries),
+            mock.call(device, retries=self.remove_retries)
         ])
 
     @mock.patch('curtin.block.clear_holders.get_bcache_sys_path')
@@ -312,7 +318,7 @@ class TestClearHolders(TestCase):
             mock.call(cset + '/stop', '1', mode=None),
         ])
         mock_util.wait_for_removal.assert_has_calls([
-            mock.call(cset)
+            mock.call(cset, retries=self.remove_retries)
         ])
 
     @mock.patch('curtin.block.clear_holders.LOG')

@@ -21,6 +21,7 @@ top of a block device, making it possible to reuse the block device without
 having to reboot the system
 """
 
+import errno
 import os
 
 from curtin import (block, udev, util)
@@ -54,22 +55,38 @@ def get_dmsetup_uuid(device):
     return out.strip()
 
 
-def get_bcache_using_dev(device):
+def get_bcache_using_dev(device, strict=True):
     """
     Get the /sys/fs/bcache/ path of the bcache cache device bound to
     specified device
     """
     # FIXME: when block.bcache is written this should be moved there
     sysfs_path = block.sys_block_path(device)
-    return os.path.realpath(os.path.join(sysfs_path, 'bcache', 'cache'))
+    path = os.path.realpath(os.path.join(sysfs_path, 'bcache', 'cache'))
+    if strict and not os.path.exists(path):
+        err = OSError(
+            "device '{}' did not have existing syspath '{}'".format(
+                device, path))
+        err.errno = errno.ENOENT
+        raise err
+
+    return path
 
 
-def get_bcache_sys_path(device):
+def get_bcache_sys_path(device, strict=True):
     """
-    Get the /sys/class/block/<device>/bcache path if present
+    Get the /sys/class/block/<device>/bcache path
     """
     sysfs_path = block.sys_block_path(device)
-    return os.path.realpath(os.path.join(sysfs_path, 'bcache'))
+    path = os.path.join(sysfs_path, 'bcache')
+    if strict and not os.path.exists(path):
+        err = OSError(
+            "device '{}' did not have existing syspath '{}'".format(
+                device, path))
+        err.errno = errno.ENOENT
+        raise err
+
+    return path
 
 
 def shutdown_bcache(device):
@@ -84,6 +101,13 @@ def shutdown_bcache(device):
                          'Device path must start with /sys/class/block/',
                          device)
 
+    # bcache device removal should be fast but in an extreme
+    # case, might require the cache device to flush large
+    # amounts of data to a backing device.  The strategy here
+    # is to wait for approximately 30 seconds but to check
+    # frequently since curtin cannot proceed until devices
+    # cleared.
+    removal_retries = [0.2] * 150  # 30 seconds total
     bcache_shutdown_message = ('shutdown_bcache running on {} has determined '
                                'that the device has already been shut down '
                                'during handling of another bcache dev. '
@@ -103,7 +127,7 @@ def shutdown_bcache(device):
         util.write_file(os.path.join(bcache_cache_sysfs, 'stop'),
                         '1', mode=None)
         try:
-            util.wait_for_removal(bcache_cache_sysfs)
+            util.wait_for_removal(bcache_cache_sysfs, retries=removal_retries)
         except OSError:
             LOG.info('Failed to stop bcache cacheset %s', bcache_cache_sysfs)
             raise
@@ -118,7 +142,7 @@ def shutdown_bcache(device):
         util.write_file(os.path.join(bcache_block_sysfs, 'stop'),
                         '1', mode=None)
         try:
-            util.wait_for_removal(device)
+            util.wait_for_removal(device, retries=removal_retries)
         except OSError:
             LOG.info('Failed to stop bcache backing device %s',
                      bcache_block_sysfs)
