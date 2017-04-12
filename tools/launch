@@ -725,7 +725,7 @@ main() {
     # -monitor stdio
     cmd=(
         xkvm "${pt[@]}" "${netargs[@]}" --
-        -m ${mem} ${serial_args} ${video}
+        -smp 2 -m ${mem} ${serial_args} ${video}
         -drive "file=$bootimg,if=none,cache=unsafe,format=qcow2,id=boot,index=0"
         -device "virtio-blk,drive=boot"
         "${disk_args[@]}"
