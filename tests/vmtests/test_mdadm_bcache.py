@@ -250,11 +250,6 @@ class XenialTestMirrorbootPartitionsUEFI(relbase.xenial,
     __test__ = True
 
 
-class ZestyTestMirrorbootPartitionsUEFI(relbase.zesty,
-                                        TestMirrorbootPartitionsUEFIAbs):
-    __test__ = True
-
-
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
