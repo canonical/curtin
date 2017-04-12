@@ -16,6 +16,10 @@ class TestMdadmAbs(VMBaseClass):
         grep -c active /proc/mdstat > mdadm_active2
         ls /dev/disk/by-dname > ls_dname
         find /etc/network/interfaces.d > find_interfacesd
+        cat /proc/mdstat | tee mdstat
+        cat /proc/partitions | tee procpartitions
+        ls -1 /sys/class/block | tee sys_class_block
+        ls -1 /dev/md* | tee dev_md
         """)]
 
     def test_mdadm_output_files_exist(self):
@@ -238,10 +242,12 @@ class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot-uefi.yaml"
     # initialize secondary disk
-    extra_disks = ['200G']
-    disk_to_check = [('main_disk', 1),
-                     ('second_disk', 1),
-                     ('md0', 2)]
+    extra_disks = ['10G']
+    disk_to_check = [('main_disk', 2),
+                     ('second_disk', 3),
+                     ('md0', 0),
+                     ('md1', 1)]
+    active_mdadm = "2"
     uefi = True
 
 

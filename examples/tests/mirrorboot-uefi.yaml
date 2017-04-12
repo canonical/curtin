@@ -7,12 +7,14 @@ storage:
     type: disk
     wipe: superblock
     path: /dev/vdb
+    name: main_disk
   - id: sdb
     name: sdb
     ptable: gpt
     type: disk
     wipe: superblock
     path: /dev/vdc
+    name: second_disk
   - device: sda
     flag: boot
     id: sda-part1
