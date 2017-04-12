@@ -232,7 +232,8 @@ class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
     uefi = True
 
 
-class XenialTestMirrorbootPartitionsUEFI(TestMirrorbootPartitionsUEFIAbs):
+class XenialTestMirrorbootPartitionsUEFI(relbase.xenial,
+                                         TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
 
 
