@@ -6,6 +6,8 @@ import tempfile
 
 from curtin.commands import curthooks
 from curtin import util
+from curtin import config
+from curtin.reporter import events
 
 
 class CurthooksBase(TestCase):
@@ -130,5 +132,191 @@ class TestUpdateInitramfs(CurthooksBase):
             call(['udevadm', 'settle']),
         ]
         self.mock_subp.assert_has_calls(subp_calls)
+
+
+class TestInstallMissingPkgs(CurthooksBase):
+    def setUp(self):
+        super(TestInstallMissingPkgs, self).setUp()
+        self.add_patch('platform.machine', 'mock_machine')
+        self.add_patch('curtin.util.get_installed_packages',
+                       'mock_get_installed_packages')
+        self.add_patch('curtin.util.load_command_environment',
+                       'mock_load_cmd_evn')
+        self.add_patch('curtin.util.which', 'mock_which')
+        self.add_patch('curtin.util.install_packages', 'mock_install_packages')
+
+    @patch.object(events, 'ReportEventStack')
+    def test_install_packages_s390x(self, mock_events):
+
+        self.mock_machine.return_value = "s390x"
+        self.mock_which.return_value = False
+        target = "not-a-real-target"
+        cfg = {}
+        curthooks.install_missing_packages(cfg, target=target)
+        self.mock_install_packages.assert_called_with(['s390-tools'],
+                                                      target=target)
+
+    @patch.object(events, 'ReportEventStack')
+    def test_install_packages_s390x_has_zipl(self, mock_events):
+
+        self.mock_machine.return_value = "s390x"
+        self.mock_which.return_value = True
+        target = "not-a-real-target"
+        cfg = {}
+        curthooks.install_missing_packages(cfg, target=target)
+        self.assertEqual([], self.mock_install_packages.call_args_list)
+
+    @patch.object(events, 'ReportEventStack')
+    def test_install_packages_x86_64_no_zipl(self, mock_events):
+
+        self.mock_machine.return_value = "x86_64"
+        target = "not-a-real-target"
+        cfg = {}
+        curthooks.install_missing_packages(cfg, target=target)
+        self.assertEqual([], self.mock_install_packages.call_args_list)
+
+
+class TestUbuntuCoreHooks(CurthooksBase):
+    def setUp(self):
+        super(TestUbuntuCoreHooks, self).setUp()
+        self.target = None
+
+    def tearDown(self):
+        if self.target:
+            shutil.rmtree(self.target)
+
+    def test_target_is_ubuntu_core(self):
+        self.target = tempfile.mkdtemp()
+        ubuntu_core_path = os.path.join(self.target, 'system-data',
+                                        'var/lib/snapd')
+        util.ensure_dir(ubuntu_core_path)
+        self.assertTrue(os.path.isdir(ubuntu_core_path))
+        is_core = curthooks.target_is_ubuntu_core(self.target)
+        self.assertTrue(is_core)
+
+    def test_target_is_ubuntu_core_no_target(self):
+        is_core = curthooks.target_is_ubuntu_core(self.target)
+        self.assertFalse(is_core)
+
+    def test_target_is_ubuntu_core_noncore_target(self):
+        self.target = tempfile.mkdtemp()
+        non_core_path = os.path.join(self.target, 'curtin')
+        util.ensure_dir(non_core_path)
+        self.assertTrue(os.path.isdir(non_core_path))
+        is_core = curthooks.target_is_ubuntu_core(self.target)
+        self.assertFalse(is_core)
+
+    @patch('curtin.util.write_file')
+    @patch('curtin.util.del_file')
+    @patch('curtin.commands.curthooks.handle_cloudconfig')
+    def test_curthooks_no_config(self, mock_handle_cc, mock_del_file,
+                                 mock_write_file):
+        self.target = tempfile.mkdtemp()
+        cfg = {}
+        curthooks.ubuntu_core_curthooks(cfg, target=self.target)
+        self.assertEqual(len(mock_handle_cc.call_args_list), 0)
+        self.assertEqual(len(mock_del_file.call_args_list), 0)
+        self.assertEqual(len(mock_write_file.call_args_list), 0)
+
+    @patch('curtin.commands.curthooks.handle_cloudconfig')
+    def test_curthooks_cloud_config_remove_disabled(self, mock_handle_cc):
+        self.target = tempfile.mkdtemp()
+        uc_cloud = os.path.join(self.target, 'system-data', 'etc/cloud')
+        cc_disabled = os.path.join(uc_cloud, 'cloud-init.disabled')
+        cc_path = os.path.join(uc_cloud, 'cloud.cfg.d')
+
+        util.ensure_dir(uc_cloud)
+        util.write_file(cc_disabled, content="# disable cloud-init\n")
+        cfg = {
+            'cloudconfig': {
+                'file1': {
+                    'content': "Hello World!\n",
+                }
+            }
+        }
+        self.assertTrue(os.path.exists(cc_disabled))
+        curthooks.ubuntu_core_curthooks(cfg, target=self.target)
+
+        mock_handle_cc.assert_called_with(cfg.get('cloudconfig'),
+                                          target=cc_path)
+        self.assertFalse(os.path.exists(cc_disabled))
+
+    @patch('curtin.util.write_file')
+    @patch('curtin.util.del_file')
+    @patch('curtin.commands.curthooks.handle_cloudconfig')
+    def test_curthooks_cloud_config(self, mock_handle_cc, mock_del_file,
+                                    mock_write_file):
+        self.target = tempfile.mkdtemp()
+        cfg = {
+            'cloudconfig': {
+                'file1': {
+                    'content': "Hello World!\n",
+                }
+            }
+        }
+        curthooks.ubuntu_core_curthooks(cfg, target=self.target)
+
+        self.assertEqual(len(mock_del_file.call_args_list), 0)
+        cc_path = os.path.join(self.target,
+                               'system-data/etc/cloud/cloud.cfg.d')
+        mock_handle_cc.assert_called_with(cfg.get('cloudconfig'),
+                                          target=cc_path)
+        self.assertEqual(len(mock_write_file.call_args_list), 0)
+
+    @patch('curtin.util.write_file')
+    @patch('curtin.util.del_file')
+    @patch('curtin.commands.curthooks.handle_cloudconfig')
+    def test_curthooks_net_config(self, mock_handle_cc, mock_del_file,
+                                  mock_write_file):
+        self.target = tempfile.mkdtemp()
+        cfg = {
+            'network': {
+                'version': '1',
+                'config': [{'type': 'physical',
+                            'name': 'eth0', 'subnets': [{'type': 'dhcp4'}]}]
+            }
+        }
+        curthooks.ubuntu_core_curthooks(cfg, target=self.target)
+
+        self.assertEqual(len(mock_del_file.call_args_list), 0)
+        self.assertEqual(len(mock_handle_cc.call_args_list), 0)
+        netcfg_path = os.path.join(self.target,
+                                   'system-data',
+                                   'etc/cloud/cloud.cfg.d',
+                                   '50-network-config.cfg')
+        netcfg = config.dump_config(cfg.get('network'))
+        mock_write_file.assert_called_with(netcfg_path,
+                                           content=netcfg)
+        self.assertEqual(len(mock_del_file.call_args_list), 0)
+
+    @patch('curtin.commands.curthooks.write_files')
+    def test_handle_cloudconfig(self, mock_write_files):
+        cc_target = "tmpXXXX/systemd-data/etc/cloud/cloud.cfg.d"
+        cloudconfig = {
+            'file1': {
+                'content': "Hello World!\n",
+            },
+            'foobar': {
+                'path': '/sys/wark',
+                'content': "Engauge!\n",
+            }
+        }
+
+        expected_cfg = {
+            'write_files': {
+                'file1': {
+                    'path': '50-cloudconfig-file1.cfg',
+                    'content': cloudconfig['file1']['content']},
+                'foobar': {
+                    'path': '50-cloudconfig-foobar.cfg',
+                    'content': cloudconfig['foobar']['content']}
+            }
+        }
+        curthooks.handle_cloudconfig(cloudconfig, target=cc_target)
+        mock_write_files.assert_called_with(expected_cfg, cc_target)
+
+    def test_handle_cloudconfig_bad_config(self):
+        with self.assertRaises(ValueError):
+            curthooks.handle_cloudconfig([], target="foobar")
 
 # vi: ts=4 expandtab syntax=python

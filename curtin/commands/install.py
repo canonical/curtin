@@ -26,8 +26,10 @@ import sys
 import tempfile
 
 from curtin import block
+from curtin.block import iscsi
 from curtin import config
 from curtin import util
+from curtin import version
 from curtin.log import LOG
 from curtin.reporter.legacy import load_reporter
 from curtin.reporter import events
@@ -35,7 +37,10 @@ from . import populate_one_subcmd
 
 INSTALL_LOG = "/var/log/curtin/install.log"
 
+INSTALL_START_MSG = ("curtin: Installation started. (%s)" %
+                     version.version_string())
 INSTALL_PASS_MSG = "curtin: Installation finished."
+INSTALL_FAIL_MSG = "curtin: Installation failed with exception: {exception}"
 
 STAGE_DESCRIPTIONS = {
     'early': 'preparing for installation',
@@ -68,8 +73,33 @@ def clear_install_log(logfile):
     util.ensure_dir(os.path.dirname(logfile))
     try:
         open(logfile, 'w').close()
-    except:
+    except Exception:
         pass
+
+
+def copy_install_log(logfile, target, log_target_path):
+    """Copy curtin install log file to target system"""
+    if not logfile:
+        LOG.warn('Cannot copy curtin install log to target, no log exists')
+        return
+
+    LOG.debug('Copying curtin install log to target')
+    target = os.path.sep.join([target, log_target_path])
+    if os.path.exists(target):
+        shutil.copy(logfile, os.path.normpath(target))
+    else:
+        LOG.debug('install log file not at path: %s', target)
+
+
+def writeline_and_stdout(logfile, message):
+    writeline(logfile, message)
+    out = sys.stdout
+    msg = message + "\n"
+    if hasattr(out, 'buffer'):
+        out = out.buffer  # pylint: disable=no-member
+        msg = msg.encode()
+    out.write(msg)
+    out.flush()
 
 
 def writeline(fname, output):
@@ -227,8 +257,8 @@ def apply_power_state(pstate):
         try:
             util.subp(cmd)
             os._exit(0)
-        except:
-            LOG.warn("%s returned non-zero" % cmd)
+        except Exception as e:
+            LOG.warn("%s returned non-zero: %s" % (cmd, e))
             os._exit(1)
     return
 
@@ -341,6 +371,8 @@ def cmd_install(args):
         src = util.sanitize_source(source)
         cfg['sources']["%02d_cmdline" % len(cfg['sources'])] = src
 
+    LOG.info(INSTALL_START_MSG)
+    LOG.debug('LANG=%s', os.environ.get('LANG'))
     LOG.debug("merged config: %s" % cfg)
     if not len(cfg.get('sources', [])):
         raise util.BadUsage("no sources provided to install")
@@ -376,6 +408,7 @@ def cmd_install(args):
     legacy_reporter = load_reporter(cfg)
     legacy_reporter.files = post_files
 
+    writeline_and_stdout(logfile, INSTALL_START_MSG)
     args.reportstack.post_files = post_files
     try:
         dd_images = util.get_dd_images(cfg.get('sources', {}))
@@ -405,24 +438,23 @@ def cmd_install(args):
             cfg['power_state'] = {'mode': 'reboot', 'delay': 'now',
                                   'message': "'rebooting with kexec'"}
 
-        writeline(logfile, INSTALL_PASS_MSG)
-        out = sys.stdout
-        msg = "%s\n" % INSTALL_PASS_MSG
-        if hasattr(out, 'buffer'):
-            out = out.buffer
-            msg = msg.encode()
-        out.write(msg)
-        out.flush()
+        writeline_and_stdout(logfile, INSTALL_PASS_MSG)
         legacy_reporter.report_success()
     except Exception as e:
-        exp_msg = "Installation failed with exception: %s" % e
+        exp_msg = INSTALL_FAIL_MSG.format(exception=e)
         writeline(logfile, exp_msg)
         LOG.error(exp_msg)
         legacy_reporter.report_failure(exp_msg)
         raise e
     finally:
+        log_target_path = instcfg.get('save_install_log',
+                                      '/root/curtin-install.log')
+        if log_target_path:
+            copy_install_log(logfile, workingd.target, log_target_path)
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))
+        # need to do some processing on iscsi disks to disconnect?
+        iscsi.disconnect_target_disks(workingd.target)
         mounted = block.get_mountpoints()
         mounted.sort(key=lambda x: -1 * x.count("/"))
         for d in filter(lambda x: workingd.target in x, mounted):

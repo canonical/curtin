@@ -17,6 +17,13 @@ import signal
 import sys
 import tempfile
 
+try:
+    from json.decoder import JSONDecodeError
+except ImportError:
+    # python3.4 (trusty) does not have a JSONDecodeError
+    # and raises simple ValueError on decode fail.
+    JSONDecodeError = ValueError
+
 from curtin import util
 
 IMAGE_SRC_URL = os.environ.get(
@@ -200,7 +207,7 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
         # overridden from ObjectStoreMirrorWriter
         return self.data_path + os.path.sep + "references.json"
 
-    def load_products(self, path=None, content_id=None):
+    def load_products(self, path=None, content_id=None, remove=True):
         # overridden from ObjectStoreMirrorWriter
         # the reason is that we have copied here from trunk
         # is bug 1511364 which is not fixed in all ubuntu versions
@@ -211,6 +218,21 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
             except IOError as e:
                 if e.errno != errno.ENOENT:
                     raise
+            except JSONDecodeError as e:
+                jsonfile = os.path.join(self.out_d, dpath)
+                sys.stderr.write("Decode error in:\n  "
+                                 "content_id=%s\n  "
+                                 "JSON filepath=%s\n" % (content_id,
+                                                         jsonfile))
+                if remove is True:
+                    sys.stderr.write("Removing offending file: %s\n" %
+                                     jsonfile)
+                    util.del_file(jsonfile)
+                    sys.stderr.write("Trying to load products again...\n")
+                    sys.stderr.flush()
+                    return self.load_products(path=path, content_id=content_id,
+                                              remove=False)
+                raise
 
         if path:
             return {}
@@ -404,7 +426,8 @@ def query(mirror, max_items=1, filter_list=None, verbosity=0):
     return next((q for q in (
         query_ptree(sutil.load_content(util.load_file(fpath(path))),
                     max_num=max_items, ifilters=ifilters, path2url=fpath)
-        for path in VMTEST_CONTENT_ID_PATH_MAP.values()) if q), None)
+        for path in VMTEST_CONTENT_ID_PATH_MAP.values() if os.path.exists(
+            fpath(path))) if q), [])
 
 
 def main_query(args):

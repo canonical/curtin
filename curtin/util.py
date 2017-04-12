@@ -64,8 +64,9 @@ _DNS_REDIRECT_IP = None
 BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 
-def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
-          logstring=False, decode="replace", target=None):
+def _subp(args, data=None, rcs=None, env=None, capture=False,
+          shell=False, logstring=False, decode="replace",
+          target=None, cwd=None, log_captured=False):
     if rcs is None:
         rcs = [0]
 
@@ -93,7 +94,8 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
             stdin = subprocess.PIPE
         sp = subprocess.Popen(args, stdout=stdout,
                               stderr=stderr, stdin=stdin,
-                              env=env, shell=shell)
+                              env=env, shell=shell, cwd=cwd)
+        # communicate in python2 returns str, python3 returns bytes
         (out, err) = sp.communicate(data)
 
         # Just ensure blank instead of none.
@@ -114,6 +116,9 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
     finally:
         if devnull_fp:
             devnull_fp.close()
+
+    if capture and log_captured:
+        LOG.debug("Command returned stdout=%s, stderr=%s", out, err)
 
     rc = sp.returncode  # pylint: disable=E1101
     if rc not in rcs:
@@ -136,6 +141,10 @@ def subp(*args, **kwargs):
     :param capture:
         boolean indicating if output should be captured.  If True, then stderr
         and stdout will be returned.  If False, they will not be redirected.
+    :param log_captured:
+        boolean indicating if output should be logged on capture.  If
+        True, then stderr and stdout will be logged at DEBUG level.  If
+        False, they will not be logged.
     :param shell: boolean indicating if this should be run with a shell.
     :param logstring:
         the command will be logged to DEBUG.  If it contains info that should
@@ -151,10 +160,21 @@ def subp(*args, **kwargs):
         means to run, sleep 1, run, sleep 3, run and then return exit code.
     :param target:
         run the command as 'chroot target <args>'
+
+    :return
+        if not capturing, return is (None, None)
+        if capturing, stdout and stderr are returned.
+            if decode:
+                python2 unicode or python3 string
+            if not decode:
+                python2 string or python3 bytes
     """
     retries = []
     if "retries" in kwargs:
         retries = kwargs.pop("retries")
+        if not retries:
+            # allow retries=None
+            retries = []
 
     if args:
         cmd = args[0]
@@ -184,7 +204,7 @@ def load_command_environment(env=os.environ, strict=False):
                'report_stack_prefix': 'CURTIN_REPORTSTACK'}
 
     if strict:
-        missing = [k for k in mapping if k not in env]
+        missing = [k for k in mapping.values() if k not in env]
         if len(missing):
             raise KeyError("missing environment vars: %s" % missing)
 
@@ -201,8 +221,9 @@ class ProcessExecutionError(IOError):
                     'Command: %(cmd)s\n'
                     'Exit code: %(exit_code)s\n'
                     'Reason: %(reason)s\n'
-                    'Stdout: %(stdout)r\n'
-                    'Stderr: %(stderr)r')
+                    'Stdout: %(stdout)s\n'
+                    'Stderr: %(stderr)s')
+    stdout_indent_level = 8
 
     def __init__(self, stdout=None, stderr=None,
                  exit_code=None, cmd=None,
@@ -223,14 +244,14 @@ class ProcessExecutionError(IOError):
             self.exit_code = exit_code
 
         if not stderr:
-            self.stderr = ''
+            self.stderr = "''"
         else:
-            self.stderr = stderr
+            self.stderr = self._indent_text(stderr)
 
         if not stdout:
-            self.stdout = ''
+            self.stdout = "''"
         else:
-            self.stdout = stdout
+            self.stdout = self._indent_text(stdout)
 
         if reason:
             self.reason = reason
@@ -246,6 +267,11 @@ class ProcessExecutionError(IOError):
             'reason': self.reason,
         }
         IOError.__init__(self, message)
+
+    def _indent_text(self, text):
+        if type(text) == bytes:
+            text = text.decode()
+        return text.replace('\n', '\n' + ' ' * self.stdout_indent_level)
 
 
 class LogTimer(object):
@@ -272,6 +298,19 @@ def is_mounted(target, src=None, opts=None):
         if line.split()[1] == os.path.abspath(target):
             return True
     return False
+
+
+def list_device_mounts(device):
+    # return mount entry if device is in /proc/mounts
+    mounts = ""
+    with open("/proc/mounts", "r") as fp:
+        mounts = fp.read()
+
+    dev_mounts = []
+    for line in mounts.splitlines():
+        if line.split()[0] == device:
+            dev_mounts.append(line)
+    return dev_mounts
 
 
 def do_mount(src, target, opts=None):
@@ -321,11 +360,21 @@ def write_file(filename, content, mode=0o644, omode="w"):
         os.chmod(filename, mode)
 
 
-def load_file(path, mode="r", read_len=None, offset=0):
-    with open(path, mode) as fp:
+def load_file(path, read_len=None, offset=0, decode=True):
+    with open(path, "rb") as fp:
         if offset:
             fp.seek(offset)
-        return fp.read(read_len) if read_len else fp.read()
+        contents = fp.read(read_len) if read_len else fp.read()
+
+    if decode:
+        return decode_binary(contents)
+    else:
+        return contents
+
+
+def decode_binary(blob, encoding='utf-8', errors='replace'):
+    # Converts a binary type into a text type using given encoding.
+    return blob.decode(encoding, errors=errors)
 
 
 def file_size(path):
@@ -410,7 +459,7 @@ class ChrootableTarget(object):
                 os.rename(rconf, tmp)
                 self.rconf_d = rtd
                 shutil.copy("/etc/resolv.conf", rconf)
-            except:
+            except Exception:
                 if rtd:
                     shutil.rmtree(rtd)
                     self.rconf_d = None
@@ -780,7 +829,8 @@ def sanitize_source(source):
     if type(source) is dict:
         # already sanitized?
         return source
-    supported = ['tgz', 'dd-tgz']
+    supported = ['tgz', 'dd-tgz', 'dd-tbz', 'dd-txz', 'dd-tar', 'dd-bz2',
+                 'dd-gz', 'dd-xz', 'dd-raw']
     deftype = 'tgz'
     for i in supported:
         prefix = i + ":"
@@ -803,7 +853,7 @@ def get_dd_images(sources):
         if type(sources[i]) is not dict:
             continue
         if sources[i]['type'].startswith('dd-'):
-            src.append(sources[i]['uri'])
+            src.append(sources[i])
     return src
 
 
@@ -1064,6 +1114,14 @@ def is_resolvable(name):
     except (socket.gaierror, socket.error):
         LOG.debug("dns %s failed to resolve", name)
         return False
+
+
+def is_valid_ipv6_address(addr):
+    try:
+        socket.inet_pton(socket.AF_INET6, addr)
+    except socket.error:
+        return False
+    return True
 
 
 def is_resolvable_url(url):

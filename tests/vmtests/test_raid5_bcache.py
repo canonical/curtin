@@ -79,15 +79,19 @@ class TrustyTestRaid5Bcache(relbase.trusty, TestMdadmBcacheAbs):
 
 
 class TrustyHWEUTestRaid5Bcache(relbase.trusty_hwe_u, TrustyTestRaid5Bcache):
-    __test__ = True
+    __test__ = False
 
 
 class TrustyHWEVTestRaid5Bcache(relbase.trusty_hwe_v, TrustyTestRaid5Bcache):
-    __test__ = True
+    __test__ = False
 
 
 class TrustyHWEWTestRaid5Bcache(relbase.trusty_hwe_w, TrustyTestRaid5Bcache):
     __test__ = False
+
+
+class TrustyHWEXTestRaid5Bcache(relbase.trusty_hwe_x, TrustyTestRaid5Bcache):
+    __test__ = True
 
 
 class WilyTestRaid5Bcache(relbase.wily, TestMdadmBcacheAbs):
@@ -100,4 +104,8 @@ class XenialTestRaid5Bcache(relbase.xenial, TestMdadmBcacheAbs):
 
 
 class YakketyTestRaid5Bcache(relbase.yakkety, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class ZestyTestRaid5Bcache(relbase.zesty, TestMdadmBcacheAbs):
     __test__ = True

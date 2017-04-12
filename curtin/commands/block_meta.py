@@ -17,12 +17,12 @@
 
 from collections import OrderedDict
 from curtin import (block, config, util)
-from curtin.block import (mdadm, mkfs, clear_holders, lvm)
+from curtin.block import (mdadm, mkfs, clear_holders, lvm, iscsi)
 from curtin.log import LOG
 from curtin.reporter import events
 
 from . import populate_one_subcmd
-from curtin.udev import compose_udev_equality, udevadm_settle
+from curtin.udev import compose_udev_equality, udevadm_settle, udevadm_trigger
 
 import glob
 import os
@@ -58,9 +58,11 @@ def block_meta(args):
     # main entry point for the block-meta command.
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
-    if args.mode == CUSTOM or cfg.get("storage") is not None:
+    dd_images = util.get_dd_images(cfg.get('sources', {}))
+    if ((args.mode == CUSTOM or cfg.get("storage") is not None) and
+            len(dd_images) == 0):
         meta_custom(args)
-    elif args.mode in (SIMPLE, SIMPLE_BOOT):
+    elif args.mode in (SIMPLE, SIMPLE_BOOT) or len(dd_images) > 0:
         meta_simple(args)
     else:
         raise NotImplementedError("mode=%s is not implemented" % args.mode)
@@ -75,14 +77,26 @@ def write_image_to_disk(source, dev):
     """
     Write disk image to block device
     """
+    LOG.info('writing image to disk %s, %s', source, dev)
+    extractor = {
+        'dd-tgz': '|tar -xOzf -',
+        'dd-txz': '|tar -xOJf -',
+        'dd-tbz': '|tar -xOjf -',
+        'dd-tar': '|smtar -xOf -',
+        'dd-bz2': '|bzcat',
+        'dd-gz': '|zcat',
+        'dd-xz': '|xzcat',
+        'dd-raw': ''
+    }
     (devname, devnode) = block.get_dev_name_entry(dev)
     util.subp(args=['sh', '-c',
-                    ('wget "$1" --progress=dot:mega -O - |'
-                     'tar -SxOzf - | dd of="$2"'),
-                    '--', source, devnode])
+                    ('wget "$1" --progress=dot:mega -O - ' +
+                     extractor[source['type']] + '| dd bs=4M of="$2"'),
+                    '--', source['uri'], devnode])
     util.subp(['partprobe', devnode])
     udevadm_settle()
-    return block.get_root_device([devname, ])
+    paths = ["curtin", "system-data/var/lib/snapd"]
+    return block.get_root_device([devname], paths=paths)
 
 
 def get_bootpt_cfg(cfg, enabled=False, fstype=None, root_fstype=None):
@@ -273,9 +287,14 @@ def get_path_to_storage_volume(volume, storage_config):
         if vol.get('serial'):
             volume_path = block.lookup_disk(vol.get('serial'))
         elif vol.get('path'):
-            # resolve any symlinks to the dev_kname so sys/class/block access
-            # is valid.  ie, there are no udev generated values in sysfs
-            volume_path = os.path.realpath(vol.get('path'))
+            if vol.get('path').startswith('iscsi:'):
+                i = iscsi.ensure_disk_connected(vol.get('path'))
+                volume_path = os.path.realpath(i.devdisk_path)
+            else:
+                # resolve any symlinks to the dev_kname so
+                # sys/class/block access is valid.  ie, there are no
+                # udev generated values in sysfs
+                volume_path = os.path.realpath(vol.get('path'))
         elif vol.get('wwn'):
             by_wwn = '/dev/disk/by-id/wwn-%s' % vol.get('wwn')
             volume_path = os.path.realpath(by_wwn)
@@ -367,6 +386,11 @@ def disk_handler(info, storage_config):
                 util.subp(["parted", disk, "--script", "mklabel", "msdos"])
             else:
                 raise ValueError('invalid partition table type: %s', ptable)
+        holders = clear_holders.get_holders(disk)
+        if len(holders) > 0:
+            LOG.info('Detected block holders on disk %s: %s', disk, holders)
+            clear_holders.clear_holders(disk)
+            clear_holders.assert_clear(disk)
 
     # Make the name if needed
     if info.get('name'):
@@ -418,7 +442,7 @@ def partition_handler(info, storage_config):
         lbs_path = os.path.join(disk_sysfs_path, 'queue', 'logical_block_size')
         with open(lbs_path, 'r') as f:
             logical_block_size_bytes = int(f.readline())
-    except:
+    except Exception:
         logical_block_size_bytes = 512
     LOG.debug(
         "{} logical_block_size_bytes: {}".format(disk_kname,
@@ -538,6 +562,15 @@ def partition_handler(info, storage_config):
     else:
         raise ValueError("parent partition has invalid partition table")
 
+    # check if we've triggered hidden metadata like md, lvm or bcache
+    part_kname = get_path_to_storage_volume(info.get('id'), storage_config)
+    holders = clear_holders.get_holders(part_kname)
+    if len(holders) > 0:
+        LOG.debug('Detected block holders on partition %s: %s', part_kname,
+                  holders)
+        clear_holders.clear_holders(part_kname)
+        clear_holders.assert_clear(part_kname)
+
     # Wipe the partition if told to do so, do not wipe dos extended partitions
     # as this may damage the extended partition table
     if config.value_as_boolean(info.get('wipe')):
@@ -571,6 +604,14 @@ def format_handler(info, storage_config):
     LOG.debug("mkfs {} info: {}".format(volume_path, info))
     mkfs.mkfs_from_config(volume_path, info)
 
+    device_type = storage_config.get(volume).get('type')
+    LOG.debug('Formated device type: %s', device_type)
+    if device_type == 'bcache':
+        # other devs have a udev watch on them. Not bcache (LP: #1680597).
+        LOG.debug('Detected bcache device format, calling udevadm trigger to '
+                  'generate by-uuid symlinks on "%s"', volume_path)
+        udevadm_trigger([volume_path])
+
 
 def mount_handler(info, storage_config):
     state = util.load_command_environment()
@@ -588,7 +629,8 @@ def mount_handler(info, storage_config):
         # Figure out what point should be
         while len(path) > 0 and path[0] == "/":
             path = path[1:]
-        mount_point = os.path.join(state['target'], path)
+        mount_point = os.path.sep.join([state['target'], path])
+        mount_point = os.path.normpath(mount_point)
 
         # Create mount point if does not exist
         util.ensure_dir(mount_point)
@@ -599,22 +641,33 @@ def mount_handler(info, storage_config):
     # Add volume to fstab
     if state['fstab']:
         with open(state['fstab'], "a") as fp:
-            if volume.get('type') in ["raid", "bcache",
-                                      "disk", "lvm_partition"]:
-                location = get_path_to_storage_volume(volume.get('id'),
-                                                      storage_config)
-            elif volume.get('type') in ["partition", "dm_crypt"]:
-                location = "UUID=%s" % block.get_volume_uuid(volume_path)
-            else:
-                raise ValueError("cannot write fstab for volume type '%s'" %
-                                 volume.get("type"))
+            location = get_path_to_storage_volume(volume.get('id'),
+                                                  storage_config)
+            uuid = block.get_volume_uuid(volume_path)
+            if len(uuid) > 0:
+                location = "UUID=%s" % uuid
 
             if filesystem.get('fstype') == "swap":
                 path = "none"
                 options = "sw"
             else:
                 path = "/%s" % path
-                options = "defaults"
+                if volume.get('type') == "partition":
+                    disk_block_path = get_path_to_storage_volume(
+                        volume.get('device'), storage_config)
+                    disk_kname = block.path_to_kname(disk_block_path)
+                    if iscsi.kname_is_iscsi(disk_kname):
+                        options = "_netdev"
+                    else:
+                        options = "defaults"
+                elif volume.get('type') == "disk":
+                    disk_kname = block.path_to_kname(location)
+                    if iscsi.kname_is_iscsi(disk_kname):
+                        options = "_netdev"
+                    else:
+                        options = "defaults"
+                else:
+                    options = "defaults"
 
             if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32",
                                             "fat64"]:
@@ -1053,6 +1106,18 @@ def meta_simple(args):
     state = util.load_command_environment()
 
     cfg = config.load_command_config(args, state)
+    devpath = None
+    if cfg.get("storage") is not None:
+        for i in cfg["storage"]["config"]:
+            serial = i.get("serial")
+            if serial is None:
+                continue
+            grub = i.get("grub_device")
+            diskPath = block.lookup_disk(serial)
+            if grub is True:
+                devpath = diskPath
+            if config.value_as_boolean(i.get('wipe')):
+                block.wipe_volume(diskPath, mode=i.get('wipe'))
 
     if args.target is not None:
         state['target'] = args.target
@@ -1081,7 +1146,7 @@ def meta_simple(args):
     # all multipath devices to exclusively use one of paths as a target disk.
     block.stop_all_unused_multipath_devices()
 
-    if len(devices) == 0:
+    if len(devices) == 0 and devpath is None:
         devices = block.get_installable_blockdevs()
         LOG.warn("'%s' mode, no devices given. unused list: %s",
                  args.mode, devices)
@@ -1101,6 +1166,8 @@ def meta_simple(args):
                 LOG.warn("No non-removable, installable devices found. List "
                          "populated with removable devices allowed: %s",
                          devices)
+    elif len(devices) == 0 and devpath:
+        devices = [devpath]
 
     if len(devices) > 1:
         if args.devices is not None:

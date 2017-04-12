@@ -654,5 +654,99 @@ network:
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
 
+    def test_routes_rendered(self):
+        # as reported in bug 1649652
+        conf = [
+            {'name': 'eth0', 'type': 'physical',
+             'subnets': [{
+                 'address': '172.23.31.42/26',
+                 'dns_nameservers': [], 'gateway': '172.23.31.2',
+                 'type': 'static'}]},
+            {'type': 'route', 'id': 4,
+             'metric': 0, 'destination': '10.0.0.0/12',
+             'gateway': '172.23.31.1'},
+            {'type': 'route', 'id': 5,
+             'metric': 0, 'destination': '192.168.2.0/24',
+             'gateway': '172.23.31.1'},
+            {'type': 'route', 'id': 6,
+             'metric': 1, 'destination': '10.0.200.0/16',
+             'gateway': '172.23.31.1'},
+        ]
+
+        expected = [
+            'auto lo',
+            'iface lo inet loopback',
+            'auto eth0',
+            'iface eth0 inet static',
+            '    address 172.23.31.42/26',
+            '    gateway 172.23.31.2',
+            ('post-up route add -net 10.0.0.0 netmask 255.240.0.0 gw '
+             '172.23.31.1 metric 0 || true'),
+            ('pre-down route del -net 10.0.0.0 netmask 255.240.0.0 gw '
+             '172.23.31.1 metric 0 || true'),
+            ('post-up route add -net 192.168.2.0 netmask 255.255.255.0 gw '
+             '172.23.31.1 metric 0 || true'),
+            ('pre-down route del -net 192.168.2.0 netmask 255.255.255.0 gw '
+             '172.23.31.1 metric 0 || true'),
+            ('post-up route add -net 10.0.200.0 netmask 255.255.0.0 gw '
+             '172.23.31.1 metric 1 || true'),
+            ('pre-down route del -net 10.0.200.0 netmask 255.255.0.0 gw '
+             '172.23.31.1 metric 1 || true'),
+            'source /etc/network/interfaces.d/*.cfg',
+        ]
+
+        ns = network_state.NetworkState(version=1, config=conf)
+        ns.parse_config()
+        found = net.render_interfaces(ns.network_state).split('\n')
+        self.assertEqual(
+            sorted([line for line in expected if line]),
+            sorted([line for line in found if line]))
+
+    def test_render_interfaces_bridges(self):
+        bridge_config = open(
+            'examples/tests/bridging_network.yaml', 'r').read()
+
+        ns = self.get_net_state(bridge_config)
+        ifaces = dedent("""\
+            auto lo
+            iface lo inet loopback
+
+            auto eth0
+            iface eth0 inet dhcp
+
+            iface eth1 inet manual
+
+            iface eth2 inet manual
+
+            auto br0
+            iface br0 inet static
+                address 192.168.14.2/24
+                bridge_ports eth1 eth2
+                bridge_gcint 2
+                bridge_pathcost eth1 50
+                bridge_pathcost eth2 75
+                bridge_portprio eth1 28
+                bridge_portprio eth2 14
+                bridge_bridgeprio 22
+                bridge_ageing 250
+                bridge_maxage 10
+                bridge_fd 1
+                bridge_waitport 1 eth1
+                bridge_waitport 2 eth2
+                bridge_stp off
+                bridge_hello 1
+
+            source /etc/network/interfaces.d/*.cfg
+            """)
+        net_ifaces = net.render_interfaces(ns.network_state)
+        print("\n".join(list(map(str,
+                                 enumerate(sorted(ifaces.split('\n')))))))
+        print("\n^^ LOCAL -- RENDER vv")
+        print("\n".join(list(map(str,
+                                 enumerate(sorted(net_ifaces.split('\n')))))))
+        print(ns.network_state.get('interfaces'))
+        self.assertEqual(sorted(ifaces.split('\n')),
+                         sorted(net_ifaces.split('\n')))
+
 
 # vi: ts=4 expandtab syntax=python

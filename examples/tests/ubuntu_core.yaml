@@ -1,0 +1,13 @@
+# This pushes curtin through a automatic installation
+# where no storage configuration is necessary.
+placeholder_simple_install: unused
+showtrace: true
+cloudconfig:
+  curtin_vmtest:
+    path: /etc/cloud/cloud.cfg.d/99-curtin-vmtest.cfg
+    content:
+      |
+      #cloud-config
+      snappy:
+        email: raharper@gmail.com
+        packages: [hello, part-numpy, part-cython]

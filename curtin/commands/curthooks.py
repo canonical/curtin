@@ -363,7 +363,12 @@ def setup_grub(cfg, target):
                 LOG.debug("NOT enabling UEFI nvram updates")
                 LOG.debug("Target system may not boot")
         args.append(target)
-        util.subp(args + instdevs, env=env)
+
+        # capture stdout and stderr joined.
+        join_stdout_err = ['sh', '-c', 'exec "$0" "$@" 2>&1']
+        out, _err = util.subp(
+            join_stdout_err + args + instdevs, env=env, capture=True)
+        LOG.debug("%s\n%s\n", args, out)
 
 
 def update_initramfs(target=None, all_kernels=False):
@@ -388,6 +393,16 @@ def copy_crypttab(crypttab, target):
         return
 
     shutil.copy(crypttab, os.path.sep.join([target, 'etc/crypttab']))
+
+
+def copy_iscsi_conf(nodes_dir, target):
+    if not nodes_dir:
+        LOG.warn("nodes directory must be specified, not copying")
+        return
+
+    LOG.info("copying iscsi nodes database into target")
+    shutil.copytree(nodes_dir, os.path.sep.join([target,
+                    'etc/iscsi/nodes']))
 
 
 def copy_mdadm_conf(mdadm_conf, target):
@@ -560,11 +575,6 @@ def detect_and_handle_multipath(cfg, target):
             ''])
         util.write_file(grub_cfg, content=msg)
 
-        # FIXME: this assumes grub. need more generic way to update root=
-        util.ensure_dir(os.path.sep.join([target, os.path.dirname(grub_dev)]))
-        with util.ChrootableTarget(target) as in_chroot:
-            in_chroot.subp(['update-grub'])
-
     else:
         LOG.warn("Not sure how this will boot")
 
@@ -621,6 +631,15 @@ def install_missing_packages(cfg, target):
                pkg not in installed_packages:
                 needed_packages.append(pkg)
 
+    arch_packages = {
+        's390x': [('s390-tools', 'zipl')],
+    }
+
+    for pkg, cmd in arch_packages.get(platform.machine(), []):
+        if not util.which(cmd, target=target):
+            if pkg not in needed_packages:
+                needed_packages.append(pkg)
+
     if needed_packages:
         state = util.load_command_environment()
         with events.ReportEventStack(
@@ -653,6 +672,83 @@ def system_upgrade(cfg, target):
     util.system_upgrade(target=target)
 
 
+def handle_cloudconfig(cfg, target=None):
+    """write cloud-init configuration files into target
+
+    cloudconfig format is a dictionary of keys and values of content
+
+    cloudconfig:
+      cfg-datasource:
+        content:
+         |
+         #cloud-cfg
+         datasource_list: [ MAAS ]
+      cfg-maas:
+        content:
+         |
+         #cloud-cfg
+         reporting:
+           maas: { consumer_key: 8cW9kadrWZcZvx8uWP,
+                   endpoint: 'http://XXX',
+                   token_key: jD57DB9VJYmDePCRkq,
+                   token_secret: mGFFMk6YFLA3h34QHCv22FjENV8hJkRX,
+                   type: webhook}
+    """
+    # check that cfg is dict
+    if not isinstance(cfg, dict):
+        raise ValueError("cloudconfig configuration is not in dict format")
+
+    # for each item in the dict
+    #   generate a path based on item key
+    #   if path is already in the item, LOG warning, and use generated path
+    for cfgname, cfgvalue in cfg.items():
+        cfgpath = "50-cloudconfig-%s.cfg" % cfgname
+        if 'path' in cfgvalue:
+            LOG.warning("cloudconfig ignoring 'path' key in config")
+        cfgvalue['path'] = cfgpath
+
+    # re-use write_files format and adjust target to prepend
+    LOG.debug('Calling write_files with cloudconfig @ %s', target)
+    LOG.debug('Injecting cloud-config:\n%s', cfg)
+    write_files({'write_files': cfg}, target)
+
+
+def ubuntu_core_curthooks(cfg, target=None):
+    """ Ubuntu-Core 16 images cannot execute standard curthooks
+        Instead we copy in any cloud-init configuration to
+        the 'LABEL=writable' partition mounted at target.
+    """
+
+    ubuntu_core_target = os.path.join(target, "system-data")
+    cc_target = os.path.join(ubuntu_core_target, 'etc/cloud/cloud.cfg.d')
+
+    cloudconfig = cfg.get('cloudconfig', None)
+    if cloudconfig:
+        # remove cloud-init.disabled, if found
+        cloudinit_disable = os.path.join(ubuntu_core_target,
+                                         'etc/cloud/cloud-init.disabled')
+        if os.path.exists(cloudinit_disable):
+            util.del_file(cloudinit_disable)
+
+        handle_cloudconfig(cloudconfig, target=cc_target)
+
+    netconfig = cfg.get('network', None)
+    if netconfig:
+        LOG.info('Writing network configuration')
+        ubuntu_core_netconfig = os.path.join(cc_target,
+                                             "50-network-config.cfg")
+        util.write_file(ubuntu_core_netconfig,
+                        content=config.dump_config(netconfig))
+
+
+def target_is_ubuntu_core(target):
+    """Check if Ubuntu-Core specific directory is present at target"""
+    if target:
+        return os.path.exists(util.target_path(target,
+                                               'system-data/var/lib/snapd'))
+    return False
+
+
 def curthooks(args):
     state = util.load_command_environment()
 
@@ -674,8 +770,17 @@ def curthooks(args):
     cfg = config.load_command_config(args, state)
     stack_prefix = state.get('report_stack_prefix', '')
 
+    if target_is_ubuntu_core(target):
+        LOG.info('Detected Ubuntu-Core image, running hooks')
+        with events.ReportEventStack(
+                name=stack_prefix, reporting_enabled=True, level="INFO",
+                description="Configuring Ubuntu-Core for first boot"):
+            ubuntu_core_curthooks(cfg, target)
+        sys.exit(0)
+
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/writing-config',
+            reporting_enabled=True, level="INFO",
             description="writing config files and configuring apt"):
         write_files(cfg, target)
         do_apt_config(cfg, target)
@@ -683,6 +788,14 @@ def curthooks(args):
 
     # packages may be needed prior to installing kernel
     install_missing_packages(cfg, target)
+
+    # If a /etc/iscsi/nodes/... file was created by block_meta then it
+    # needs to be copied onto the target system
+    nodes_location = os.path.join(os.path.split(state['fstab'])[0],
+                                  "nodes")
+    if os.path.exists(nodes_location):
+        copy_iscsi_conf(nodes_location, target)
+        # do we need to reconfigure open-iscsi?
 
     # If a mdadm.conf file was created by block_meta than it needs to be copied
     # onto the target system
@@ -696,7 +809,8 @@ def curthooks(args):
                   data=None, target=target)
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/installing-kernel',
+            reporting_enabled=True, level="INFO",
             description="installing kernel"):
         setup_zipl(cfg, target)
         install_kernel(cfg, target)
@@ -705,27 +819,38 @@ def curthooks(args):
         restore_dist_interfaces(cfg, target)
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/setting-up-swap',
+            reporting_enabled=True, level="INFO",
             description="setting up swap"):
         add_swap(cfg, target, state.get('fstab'))
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
-            description="apply networking"):
+            name=stack_prefix + '/apply-networking-config',
+            reporting_enabled=True, level="INFO",
+            description="apply networking config"):
         apply_networking(target, state)
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/writing-etc-fstab',
+            reporting_enabled=True, level="INFO",
             description="writing etc/fstab"):
         copy_fstab(state.get('fstab'), target)
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/configuring-multipath',
+            reporting_enabled=True, level="INFO",
             description="configuring multipath"):
         detect_and_handle_multipath(cfg, target)
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/installing-missing-packages',
+            reporting_enabled=True, level="INFO",
+            description="installing missing packages"):
+        install_missing_packages(cfg, target)
+
+    with events.ReportEventStack(
+            name=stack_prefix + '/system-upgrade',
+            reporting_enabled=True, level="INFO",
             description="updating packages on target system"):
         system_upgrade(cfg, target)
 

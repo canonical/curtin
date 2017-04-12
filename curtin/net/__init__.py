@@ -349,14 +349,30 @@ def iface_add_attrs(iface, index):
         'subnets',
         'type',
     ]
+
+    # These values require repetitive printing
+    # of the key for each value
+    multiline_keys = [
+        'bridge_pathcost',
+        'bridge_portprio',
+        'bridge_waitport',
+    ]
+
+    def add_entry(key, value):
+        if type(value) == list:
+            value = " ".join([str(v) for v in value])
+        return "    {} {}\n".format(key, value)
+
     if iface['type'] not in ['bond', 'bridge', 'vlan']:
         ignore_map.append('mac_address')
 
     for key, value in iface.items():
         if value and key not in ignore_map:
-            if type(value) == list:
-                value = " ".join(value)
-            content += "    {} {}\n".format(key, value)
+            if key in multiline_keys:
+                for v in value:
+                    content += add_entry(key, v)
+            else:
+                content += add_entry(key, value)
 
     return content
 
@@ -402,7 +418,7 @@ def render_route(route, indent=""):
                 route_line += " %s %s" % (mapping[k], route[k])
         content.append(up + route_line + or_true)
         content.append(down + route_line + or_true)
-    return "\n".join(content)
+    return "\n".join(content) + "\n"
 
 
 def iface_start_entry(iface):

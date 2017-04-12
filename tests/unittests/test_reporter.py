@@ -147,8 +147,7 @@ class TestReporter(TestCase):
         event_dict = self._get_reported_event(mock_report_event).as_dict()
         self.assertEqual(event_dict.get('name'), self.ev_name)
         self.assertEqual(event_dict.get('level'), 'INFO')
-        self.assertEqual(event_dict.get('description'),
-                         'started: ' + self.ev_desc)
+        self.assertEqual(event_dict.get('description'), self.ev_desc)
         self.assertEqual(event_dict.get('event_type'), events.START_EVENT_TYPE)
 
     @patch('curtin.reporter.events.report_event')
@@ -157,8 +156,7 @@ class TestReporter(TestCase):
         event = self._get_reported_event(mock_report_event)
         self.assertIsInstance(event, events.FinishReportingEvent)
         event_dict = event.as_dict()
-        self.assertEqual(event_dict.get('description'),
-                         'finished: ' + self.ev_desc)
+        self.assertEqual(event_dict.get('description'), self.ev_desc)
 
     @patch('curtin.reporter.events.report_event')
     def test_report_finished_event_levelset(self, mock_report_event):
@@ -166,15 +164,13 @@ class TestReporter(TestCase):
                                    result=events.status.FAIL)
         event_dict = self._get_reported_event(mock_report_event).as_dict()
         self.assertEqual(event_dict.get('level'), 'ERROR')
-        self.assertEqual(event_dict.get('description'),
-                         'failed: ' + self.ev_desc)
+        self.assertEqual(event_dict.get('description'), self.ev_desc)
 
         events.report_finish_event(self.ev_name, self.ev_desc,
                                    result=events.status.WARN)
         event_dict = self._get_reported_event(mock_report_event).as_dict()
         self.assertEqual(event_dict.get('level'), 'WARN')
-        self.assertEqual(event_dict.get('description'),
-                         'failed: ' + self.ev_desc)
+        self.assertEqual(event_dict.get('description'), self.ev_desc)
 
     @patch('curtin.reporter.events.report_event')
     def test_report_finished_post_files(self, mock_report_event):

@@ -3,7 +3,6 @@ from . import (
     get_apt_proxy)
 from .releases import base_vm_classes as relbase
 
-import re
 import textwrap
 
 
@@ -19,7 +18,8 @@ class TestBasicAbs(VMBaseClass):
         blkid -o export /dev/vda > blkid_output_vda
         blkid -o export /dev/vda1 > blkid_output_vda1
         blkid -o export /dev/vda2 > blkid_output_vda2
-        btrfs-show-super /dev/vdd > btrfs_show_super_vdd
+        f="btrfs_uuid_vdd"
+        btrfs-debug-tree -r /dev/vdd | awk '/^uuid/ {print $2}' | grep "-" > $f
         cat /proc/partitions > proc_partitions
         ls -al /dev/disk/by-uuid/ > ls_uuid
         cat /etc/fstab > fstab
@@ -33,10 +33,24 @@ class TestBasicAbs(VMBaseClass):
         echo "$v" > apt-proxy
         """)]
 
+    def _kname_to_uuid(self, kname):
+        # extract uuid from /dev/disk/by-uuid on /dev/<kname>
+        # parsing ls -al output on /dev/disk/by-uuid:
+        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
+        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
+        ls_uuid = self.load_collect_file("ls_uuid")
+        uuid = [line.split()[8] for line in ls_uuid.split('\n')
+                if ("../../" + kname) in line.split()]
+        self.assertEqual(len(uuid), 1)
+        uuid = uuid.pop()
+        self.assertTrue(uuid is not None)
+        self.assertEqual(len(uuid), 36)
+        return uuid
+
     def test_output_files_exist(self):
         self.output_files_exist(
             ["blkid_output_vda", "blkid_output_vda1", "blkid_output_vda2",
-             "btrfs_show_super_vdd", "fstab", "ls_dname", "ls_uuid",
+             "btrfs_uuid_vdd", "fstab", "ls_dname", "ls_uuid",
              "proc_partitions"])
 
     def test_ptable(self):
@@ -79,9 +93,10 @@ class TestBasicAbs(VMBaseClass):
         self.assertEqual(fstab_entry.split(' ')[1], "/home")
 
         # Test whole disk vdd is mounted at /btrfs
+        uuid = self._kname_to_uuid('vdd')
         fstab_entry = None
         for line in fstab_lines:
-            if "/dev/vdd" in line:
+            if uuid in line:
                 fstab_entry = line
                 break
         self.assertIsNotNone(fstab_entry)
@@ -89,28 +104,17 @@ class TestBasicAbs(VMBaseClass):
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
-        btrfs_show_super = self.load_collect_file('btrfs_show_super_vdd')
-        ls_uuid = self.load_collect_file("ls_uuid")
+        btrfs_uuid = self.load_collect_file('btrfs_uuid_vdd').strip()
 
         # extract uuid from btrfs superblock
-        btrfs_fsid = [line for line in btrfs_show_super.split('\n')
-                      if line.startswith('fsid\t\t')]
-        self.assertEqual(len(btrfs_fsid), 1)
-        btrfs_uuid = btrfs_fsid[0].split()[1]
         self.assertTrue(btrfs_uuid is not None)
+        self.assertEqual(len(btrfs_uuid), 36)
 
-        # extract uuid from /dev/disk/by-uuid on /dev/vdd
-        # parsing ls -al output on /dev/disk/by-uuid:
-        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
-        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
-        vdd_uuid = [line.split()[8] for line in ls_uuid.split('\n')
-                    if 'vdd' in line]
-        self.assertEqual(len(vdd_uuid), 1)
-        vdd_uuid = vdd_uuid.pop()
-        self.assertTrue(vdd_uuid is not None)
+        # extract uuid from ls_uuid by kname
+        kname_uuid = self._kname_to_uuid('vdd')
 
         # compare them
-        self.assertEqual(vdd_uuid, btrfs_uuid)
+        self.assertEqual(kname_uuid, btrfs_uuid)
 
     def test_proxy_set(self):
         expected = get_apt_proxy()
@@ -122,6 +126,13 @@ class TestBasicAbs(VMBaseClass):
             # no proxy, so the output of apt-config dump should be empty
             self.assertEqual("", apt_proxy_found)
 
+    def test_curtin_install_version(self):
+        installed_version = self.get_install_log_curtin_version()
+        print('Install log version: %s' % installed_version)
+        source_version = self.get_curtin_version()
+        print('Source repo version: %s' % source_version)
+        self.assertEqual(source_version, installed_version)
+
 
 class PreciseTestBasic(relbase.precise, TestBasicAbs):
     __test__ = True
@@ -131,7 +142,8 @@ class PreciseTestBasic(relbase.precise, TestBasicAbs):
         blkid -o export /dev/vda > blkid_output_vda
         blkid -o export /dev/vda1 > blkid_output_vda1
         blkid -o export /dev/vda2 > blkid_output_vda2
-        btrfs-show /dev/vdd > btrfs_show_super_vdd
+        f="btrfs_uuid_vdd"
+        btrfs-show /dev/vdd | awk '/uuid/ {print $4}' > $f
         cat /proc/partitions > proc_partitions
         ls -al /dev/disk/by-uuid/ > ls_uuid
         cat /etc/fstab > fstab
@@ -147,28 +159,16 @@ class PreciseTestBasic(relbase.precise, TestBasicAbs):
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
-        btrfs_show_super = self.load_collect_file("btrfs_show_super_vdd")
-        ls_uuid = self.load_collect_file("ls_uuid")
+        btrfs_uuid = self.load_collect_file("btrfs_uuid_vdd").strip()
 
-        # extract uuid from btrfs superblock
-        btrfs_fsid = re.findall('.*uuid:\ (.*)\n', btrfs_show_super)
-
-        self.assertEqual(len(btrfs_fsid), 1)
-        btrfs_uuid = btrfs_fsid.pop()
         self.assertTrue(btrfs_uuid is not None)
+        self.assertEqual(len(btrfs_uuid), 36)
 
-        # extract uuid from /dev/disk/by-uuid on /dev/vdd
-        # parsing ls -al output on /dev/disk/by-uuid:
-        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
-        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
-        vdd_uuid = [line.split()[8] for line in ls_uuid.split('\n')
-                    if 'vdd' in line]
-        self.assertEqual(len(vdd_uuid), 1)
-        vdd_uuid = vdd_uuid.pop()
-        self.assertTrue(vdd_uuid is not None)
+        # extract uuid from ls_uuid by kname
+        kname_uuid = self._kname_to_uuid('vdd')
 
         # compare them
-        self.assertEqual(vdd_uuid, btrfs_uuid)
+        self.assertEqual(kname_uuid, btrfs_uuid)
 
     def test_ptable(self):
         print("test_ptable does not work for Precise")
@@ -195,19 +195,8 @@ class PreciseHWETTestBasic(relbase.precise_hwe_t, PreciseTestBasic):
     __test__ = False
 
 
-class TrustyHWEUTestBasic(relbase.trusty_hwe_u, TrustyTestBasic):
-    # off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
-class TrustyHWEVTestBasic(relbase.trusty_hwe_v, TrustyTestBasic):
-    # off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
-class TrustyHWEWTestBasic(relbase.trusty_hwe_w, TrustyTestBasic):
-    # off by default to safe test suite runtime, covered by bonding
-    __test__ = False
+class TrustyHWEXTestBasic(relbase.trusty_hwe_x, TrustyTestBasic):
+    __test__ = True
 
 
 class WilyTestBasic(relbase.wily, TestBasicAbs):
@@ -223,6 +212,10 @@ class YakketyTestBasic(relbase.yakkety, TestBasicAbs):
     __test__ = True
 
 
+class ZestyTestBasic(relbase.zesty, TestBasicAbs):
+    __test__ = True
+
+
 class TestBasicScsiAbs(TestBasicAbs):
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
@@ -233,7 +226,8 @@ class TestBasicScsiAbs(TestBasicAbs):
         blkid -o export /dev/sda > blkid_output_sda
         blkid -o export /dev/sda1 > blkid_output_sda1
         blkid -o export /dev/sda2 > blkid_output_sda2
-        btrfs-show-super /dev/sdc > btrfs_show_super_sdc
+        f="btrfs_uuid_sdc"
+        btrfs-debug-tree -r /dev/sdc | awk '/^uuid/ {print $2}' | grep "-" > $f
         cat /proc/partitions > proc_partitions
         ls -al /dev/disk/by-uuid/ > ls_uuid
         ls -al /dev/disk/by-id/ > ls_disk_id
@@ -251,7 +245,7 @@ class TestBasicScsiAbs(TestBasicAbs):
     def test_output_files_exist(self):
         self.output_files_exist(
             ["blkid_output_sda", "blkid_output_sda1", "blkid_output_sda2",
-             "btrfs_show_super_sdc", "fstab", "ls_dname", "ls_uuid",
+             "btrfs_uuid_sdc", "fstab", "ls_dname", "ls_uuid",
              "ls_disk_id", "proc_partitions"])
 
     def test_ptable(self):
@@ -294,9 +288,10 @@ class TestBasicScsiAbs(TestBasicAbs):
         self.assertEqual(fstab_entry.split(' ')[1], "/home")
 
         # Test whole disk sdc is mounted at /btrfs
+        uuid = self._kname_to_uuid('sdc')
         fstab_entry = None
         for line in fstab_lines:
-            if "/dev/sdc" in line:
+            if uuid in line:
                 fstab_entry = line
                 break
         self.assertIsNotNone(fstab_entry)
@@ -304,29 +299,26 @@ class TestBasicScsiAbs(TestBasicAbs):
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
-        btrfs_show_super = self.load_collect_file("btrfs_show_super_sdc")
-        ls_uuid = self.load_collect_file("ls_uuid")
+        btrfs_uuid = self.load_collect_file("btrfs_uuid_sdc").strip()
 
         # extract uuid from btrfs superblock
-        btrfs_fsid = [line for line in btrfs_show_super.split('\n')
-                      if line.startswith('fsid\t\t')]
-        self.assertEqual(len(btrfs_fsid), 1)
-        btrfs_uuid = btrfs_fsid[0].split()[1]
         self.assertTrue(btrfs_uuid is not None)
+        self.assertEqual(len(btrfs_uuid), 36)
 
-        # extract uuid from /dev/disk/by-uuid on /dev/sdc
-        # parsing ls -al output on /dev/disk/by-uuid:
-        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
-        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
-        uuid = [line.split()[8] for line in ls_uuid.split('\n')
-                if 'sdc' in line]
-        self.assertEqual(len(uuid), 1)
-        uuid = uuid.pop()
-        self.assertTrue(uuid is not None)
+        # extract uuid from ls_uuid by kname
+        kname_uuid = self._kname_to_uuid('sdc')
 
         # compare them
-        self.assertEqual(uuid, btrfs_uuid)
+        self.assertEqual(kname_uuid, btrfs_uuid)
 
 
 class XenialTestScsiBasic(relbase.xenial, TestBasicScsiAbs):
+    __test__ = True
+
+
+class YakketyTestScsiBasic(relbase.yakkety, TestBasicScsiAbs):
+    __test__ = True
+
+
+class ZestyTestScsiBasic(relbase.zesty, TestBasicScsiAbs):
     __test__ = True

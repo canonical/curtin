@@ -25,6 +25,7 @@ import os
 
 from curtin import (block, udev, util)
 from curtin.block import lvm
+from curtin.block import mdadm
 from curtin.log import LOG
 
 
@@ -118,8 +119,8 @@ def shutdown_mdadm(device):
     """
     blockdev = block.sysfs_to_devpath(device)
     LOG.debug('using mdadm.mdadm_stop on dev: %s', blockdev)
-    block.mdadm.mdadm_stop(blockdev)
-    block.mdadm.mdadm_remove(blockdev)
+    mdadm.mdadm_stop(blockdev)
+    mdadm.mdadm_remove(blockdev)
 
 
 def wipe_superblock(device):
@@ -369,7 +370,7 @@ def start_clear_holders_deps():
     # but there was not enough to start the array, the call to wipe_volume on
     # all disks and partitions should be sufficient to remove the mdadm
     # metadata
-    block.mdadm.mdadm_assemble(scan=True, ignore_errors=True)
+    mdadm.mdadm_assemble(scan=True, ignore_errors=True)
     # the bcache module needs to be present to properly detect bcache devs
     # on some systems (precise without hwe kernel) it may not be possible to
     # lad the bcache module bcause it is not present in the kernel. if this

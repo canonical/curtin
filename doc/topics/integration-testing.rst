@@ -103,6 +103,10 @@ Running
 Running tests is done most simply by::
 
   make vmtest
+.. note::
+
+  By default, the vmtests for iSCSI will be skipped (see Environment
+  Variable section for details).
 
 If you wish to all tests in test_network.py, do so with::
 
@@ -123,6 +127,18 @@ Some environment variables affect the running of vmtest
     test will set apt: { proxy } in the guests to the value of ``apt_proxy``
     environment variable.  If that is not set it will look at the host's apt
     config and read ``Acquire::HTTP::Proxy``
+
+- ``CURTIN_VMTEST_CURTIN_EXE``: Defaults to ''
+
+    This is the path to the curtin executable that should be used
+    for testing.  It will need to set any environment that is needed
+    and correctly pack itself.  The default 'curtin' command in bin/
+    or installed by ``apt-get install curtin`` should work.
+
+    If the value is unset or empty, then curtin from <topdir>/bin is used.
+
+    So to run vmtest on an installed version of curtin with, you can
+    simply set this variable to 'curtin' or '/usr/bin/curtin'
 
 - ``CURTIN_VMTEST_KEEP_DATA_PASS``: Defaults to none.
 - ``CURTIN_VMTEST_KEEP_DATA_FAIL``: Defaults to all.
@@ -195,6 +211,66 @@ Some environment variables affect the running of vmtest
 
   Controls the number of images of each release retained in the IMAGE_DIR.
 
+- ``CURTIN_VMTEST_EXTRA_CONFIG``: default ''
+
+  This can be set to a valid path to a config yaml.
+  That can be used to change behaviour of the tests however a current debugging
+  session needs it. The following example shows how it can be used for tests
+  against a ppa, but this can also be used to test proposed or actually any
+  modification to ephemeral or target as needed.::
+
+  # example ppa to test into install environment
+  early_commands:
+    10_add_ppa: ['sh', '-xc', 'DEBIAN_FRONTEND=noninteractive add-apt-repository --yes <yourppa>']
+    # update & upgrade what is there already
+    97_update: ['apt-get', 'update']
+    98_upgrade: ['sh', '-xc', 'DEBIAN_FRONTEND=noninteractive apt-get upgrade --yes']
+  # example ppa into target environment via apt feature
+  apt:
+    sources:
+      ignored1:
+        source: "<yourppa>"
+  # example of any other modification
+  early_commands:
+    01_something: ['sh', '-xc', '<yourcommand>']
+  # in target
+  late_commands:
+    02_something: ['sh', '-xc', 'curtin in-target -- <yourcommand>']
+
+- ``CURTIN_VMTEST_ISCSI_PORTAL``: default ''
+
+  By default, iSCSI tests are skipped when running `make vmtest`, as
+  iSCSI server configuration is necessary. ``tools/jenkins-runner`` will
+  configure a ``tgt`` server if possible and set the necessary
+  environment variables.
+
+  If an accessible iSCSI server is available, it can be specified in
+  this environment variable as ``HOST:PORT``. ``HOST`` can be a
+  hostname, IPv4 address or IPv6 address. If an IPv6 address is used, it
+  must be enclosed in ``[]``.
+
+  Additionally, if a ``tgt`` server is running locally as the iSCSI
+  server and is configured to listen on a non-default socket, it is
+  necessary to specify ``TGT_IPC_SOCKET`` to indicate the path to the
+  socket in use.
+
+  As iSCSI server configuration by-hand can be difficult, there is a
+  script in ``tools/find-tgt`` which can be used to run a local ``tgt``
+  server. It will find an available port and use the default route-able
+  IPv4 address on the system. The script takes a directory as parameter,
+  and will emit a ``info`` file in that directory which can be sourced as
+  a shell script to set the relevant environment variables needed to run
+  the iSCSI vmtests. For example::
+
+    mkdir output
+    ./tools/find-tgt output
+    . output/info
+    nosetests3 tests/vmtests/test_iscsi.py
+
+  Or, using ``jenkins-runner``:
+
+    ./tools/jenkins-runner tests/vmtests/test_iscsi.py
+
 Environment 'boolean' values
 ============================
 
@@ -243,3 +319,7 @@ Disk Setup:
 - ``disk_driver``:
 
   Default block device driver is ``virtio-blk``.
+
+iSCSI Setup:
+
+- ``iscsi_disks``:

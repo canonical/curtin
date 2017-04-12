@@ -15,11 +15,23 @@ class _CentosFromUbuntuBase(_UbuntuBase):
     target_distro = "centos"
 
 
+class _UbuntuCoreUbuntuBase(_UbuntuBase):
+    # base for installing UbuntuCore root-image.xz from ubuntu base
+    target_distro = "ubuntu-core-16"
+
+
 class _Centos70FromXenialBase(_CentosFromUbuntuBase):
     # release for boot
     release = "xenial"
     # release for target
     target_release = "centos70"
+
+
+class _UbuntuCore16FromXenialBase(_UbuntuCoreUbuntuBase):
+    # release for boot
+    release = "xenial"
+    # release for target
+    target_release = "ubuntu-core-16"
 
 
 class _Centos66FromXenialBase(_CentosFromUbuntuBase):
@@ -55,6 +67,16 @@ class _TrustyHWEW(_UbuntuBase):
     krel = "wily"
 
 
+class _TrustyHWEX(_UbuntuBase):
+    release = "trusty"
+    krel = "xenial"
+
+
+class _TrustyFromXenial(_UbuntuBase):
+    release = "xenial"
+    target_release = "trusty"
+
+
 class _VividBase(_UbuntuBase):
     release = "vivid"
 
@@ -71,6 +93,10 @@ class _YakketyBase(_UbuntuBase):
     release = "yakkety"
 
 
+class _ZestyBase(_UbuntuBase):
+    release = "zesty"
+
+
 class _Releases(object):
     precise = _PreciseBase
     precise_hwe_t = _PreciseHWET
@@ -78,10 +104,13 @@ class _Releases(object):
     trusty_hwe_u = _TrustyHWEU
     trusty_hwe_v = _TrustyHWEV
     trusty_hwe_w = _TrustyHWEW
+    trusty_hwe_x = _TrustyHWEX
+    trustyfromxenial = _TrustyFromXenial
     vivid = _VividBase
     wily = _WilyBase
     xenial = _XenialBase
     yakkety = _YakketyBase
+    zesty = _ZestyBase
 
 
 class _CentosReleases(object):
@@ -89,7 +118,12 @@ class _CentosReleases(object):
     centos66fromxenial = _Centos66FromXenialBase
 
 
+class _UbuntuCoreReleases(object):
+    uc16fromxenial = _UbuntuCore16FromXenialBase
+
+
 base_vm_classes = _Releases
 centos_base_vm_classes = _CentosReleases
+ubuntu_core_base_vm_classes = _UbuntuCoreReleases
 
 # vi: ts=4 expandtab syntax=python
