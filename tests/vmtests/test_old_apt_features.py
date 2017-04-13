@@ -96,7 +96,8 @@ class TestOldAptAbs(VMBaseClass):
 
         components = sorted(["main", "restricted", "universe", "multiverse"])
         self.assertEqual(components,
-                         sorted(data[self.exp_secmirror][self.release]))
+                         sorted(data[self.exp_secmirror]['%s-security' %
+                                self.release]))
         self.assertEqual(components,
                          sorted(data[self.exp_mirror][self.release]))
 
