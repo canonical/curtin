@@ -348,7 +348,7 @@ class TestBlockMdadmStop(MdadmTestBase):
         device = "/dev/vdc"
         mdadm.mdadm_stop(device)
         expected_calls = [
-            call(["mdadm", "--stop", device], capture=True),
+            call(["mdadm", "--manage", "--stop", device], capture=True)
         ]
         self.mock_util.subp.assert_has_calls(expected_calls)
 

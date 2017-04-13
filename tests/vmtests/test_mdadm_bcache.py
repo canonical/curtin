@@ -246,7 +246,7 @@ class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
     disk_to_check = [('main_disk', 2),
                      ('second_disk', 3),
                      ('md0', 0),
-                     ('md1', 1)]
+                     ('md1', 0)]
     active_mdadm = "2"
     uefi = True
 

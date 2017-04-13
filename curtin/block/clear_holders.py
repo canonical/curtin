@@ -22,6 +22,7 @@ having to reboot the system
 """
 
 import os
+import time
 
 from curtin import (block, udev, util)
 from curtin.block import lvm
@@ -120,7 +121,34 @@ def shutdown_mdadm(device):
     blockdev = block.sysfs_to_devpath(device)
     LOG.debug('using mdadm.mdadm_stop on dev: %s', blockdev)
     mdadm.mdadm_stop(blockdev)
-    mdadm.mdadm_remove(blockdev)
+
+    # mdadm stop operation is asynchronous so we must wait
+    # for the kernel to release resources.  In some cases,
+    # for example when an array is syncing, the kernel md
+    # driver may leave kernel sysfs resources around which
+    # prevent /sys/class/block/mdX/ files from being removed.
+    # However, it does not interfere with subsequent arrays
+    # from using /dev/mdX.  Until a kernel driver fix[1] is applied
+    # and SRU'ed we instead check /proc/mdstat to see if an
+    # array has been stoppped.  This is handled in mdadm.md_present()
+    # 1. https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1682456
+    try:
+        retries = [0.4] * 150  # 60 seconds total
+        for num, wait in enumerate(retries):
+            if mdadm.md_present(block.path_to_kname(blockdev)):
+                LOG.debug('sleeping %s', wait)
+                time.sleep(wait)
+            else:
+                LOG.debug('%s has been removed', blockdev)
+                break
+
+        if mdadm.md_present(block.path_to_kname(blockdev)):
+            raise OSError('Timeout exceeded for removal of %s', blockdev)
+
+    except OSError:
+        LOG.info('Failed to stop mdadm device %s', device)
+        util.subp(['cat', '/proc/mdstat'])
+        raise
 
 
 def wipe_superblock(device):

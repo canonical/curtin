@@ -257,7 +257,8 @@ def mdadm_stop(devpath):
     assert_valid_devpath(devpath)
 
     LOG.info("mdadm stopping: %s" % devpath)
-    out, err = util.subp(["mdadm", "--stop", devpath], capture=True)
+    out, err = util.subp(["mdadm", "--manage", "--stop", devpath],
+                         capture=True)
     LOG.debug("mdadm stop:\n%s\n%s", out, err)
 
 
@@ -291,6 +292,17 @@ def mdadm_detail_scan():
     (out, _err) = util.subp(["mdadm", "--detail", "--scan"], capture=True)
     if not _err:
         return out
+
+
+def md_present(mdname):
+    """Check if mdname is present in /proc/mdstat"""
+    valid_mdname(mdname)
+    mdstat = util.load_file('/proc/mdstat')
+    present = [line for line in mdstat.splitlines()
+               if line.startswith(mdname)]
+    if len(present) > 0:
+        return True
+    return False
 
 
 # ------------------------------ #

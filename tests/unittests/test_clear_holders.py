@@ -171,15 +171,20 @@ class TestClearHolders(TestCase):
         mock_util.subp.assert_called_with(
             ['cryptsetup', 'remove', self.test_blockdev], capture=True)
 
+    @mock.patch('curtin.block.clear_holders.time')
+    @mock.patch('curtin.block.clear_holders.util')
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.mdadm')
     @mock.patch('curtin.block.clear_holders.block')
-    def test_shutdown_mdadm(self, mock_block, mock_mdadm, mock_log):
+    def test_shutdown_mdadm(self, mock_block, mock_mdadm, mock_log, mock_util,
+                            mock_time):
         """test clear_holders.shutdown_mdadm"""
         mock_block.sysfs_to_devpath.return_value = self.test_blockdev
+        mock_block.path_to_kname.return_value = self.test_blockdev
+        mock_mdadm.md_present.return_value = False
         clear_holders.shutdown_mdadm(self.test_syspath)
         mock_mdadm.mdadm_stop.assert_called_with(self.test_blockdev)
-        mock_mdadm.mdadm_remove.assert_called_with(self.test_blockdev)
+        mock_mdadm.md_present.assert_called_with(self.test_blockdev)
         self.assertTrue(mock_log.debug.called)
 
     @mock.patch('curtin.block.clear_holders.LOG')
