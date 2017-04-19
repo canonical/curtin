@@ -78,16 +78,21 @@ def clear_install_log(logfile):
 
 def copy_install_log(logfile, target, log_target_path):
     """Copy curtin install log file to target system"""
+    basemsg = 'Cannot copy curtin install log "%s" to target.' % logfile
     if not logfile:
-        LOG.warn('Cannot copy curtin install log to target, no log exists')
+        LOG.warn(basemsg)
+        return
+    if not os.path.isfile(logfile):
+        LOG.warn(basemsg + "  file does not exist."
         return
 
-    LOG.debug('Copying curtin install log to target')
-    target = os.path.sep.join([target, log_target_path])
-    if os.path.exists(target):
-        shutil.copy(logfile, os.path.normpath(target))
-    else:
-        LOG.debug('install log file not at path: %s', target)
+    LOG.debug('Copying curtin install log from %s to target/%s',
+              logfile, log_target_path)
+    util.write_file(
+        filename=util.target_path(target, log_target_path),
+        content=util.load_file(logfile),
+        mode=0o400)
+        
 
 
 def writeline_and_stdout(logfile, message):
