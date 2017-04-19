@@ -66,4 +66,13 @@ def udevadm_settle(exists=None, timeout=None):
         settle_cmd.extend(['--timeout=%s' % timeout])
 
     util.subp(settle_cmd)
+
+
+def udevadm_trigger(devices):
+    if devices is None:
+        devices = []
+    util.subp(['udevadm', 'trigger'] + list(devices))
+    udevadm_settle()
+
+
 # vi: ts=4 expandtab syntax=python

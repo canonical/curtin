@@ -10,6 +10,29 @@ from .releases import base_vm_classes as relbase
 from curtin import util
 
 
+def sources_to_dict(lines):
+    # read a sources.list file, return a dictionary like
+    #  {'mirror1': {'suite1': [comp1, comp2], 'suite2': [comp3]}
+    #   'mirror2': {'xenial': [main, universe, multiverse]}}
+    found = {}
+    for line in lines:
+        try:
+            toks = line.split()
+            deb, mirror, suite = toks[0:3]
+            components = toks[3:]
+        except ValueError:
+            continue
+        if deb != "deb":
+            continue
+        if mirror not in found:
+            found[mirror] = {}
+        if suite not in found[mirror]:
+            found[mirror][suite] = []
+
+        found[mirror][suite].extend(components)
+    return found
+
+
 class TestOldAptAbs(VMBaseClass):
     """TestOldAptAbs - Basic tests for old apt features of curtin"""
     interactive = False
@@ -66,15 +89,17 @@ class TestOldAptAbs(VMBaseClass):
 
     def test_mirrors(self):
         """test_mirrors - Check for mirrors placed in source.list"""
+        lines = self.load_collect_file('sources.list').splitlines()
+        data = sources_to_dict(lines)
+        self.assertIn(self.exp_secmirror, data)
+        self.assertIn(self.exp_mirror, data)
 
-        self.check_file_strippedline("sources.list",
-                                     "deb %s %s" %
-                                     (self.exp_mirror, self.release) +
-                                     " main restricted universe multiverse")
-        self.check_file_strippedline("sources.list",
-                                     "deb %s %s-security" %
-                                     (self.exp_secmirror, self.release) +
-                                     " main restricted universe multiverse")
+        components = sorted(["main", "restricted", "universe", "multiverse"])
+        self.assertEqual(
+            components,
+            sorted(data[self.exp_secmirror]['%s-security' % self.release]))
+        self.assertEqual(components,
+                         sorted(data[self.exp_mirror][self.release]))
 
     def test_cloudinit_seeded(self):
         content = self.load_collect_file("90_dpkg.cfg")
