@@ -523,7 +523,7 @@ class VMBaseClass(TestCase):
             nr_cpus = 1
             logger.debug('Setting cpus to default value: %s', nr_cpus)
 
-        return nr_cpus
+        return str(nr_cpus)
         
 
     @classmethod
@@ -556,7 +556,7 @@ class VMBaseClass(TestCase):
 
         # create launch cmd
         cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait,
-               "--smp=%s" % cls.get_config_smp()]
+               "--smp=" % cls.get_config_smp()]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -814,7 +814,7 @@ class VMBaseClass(TestCase):
                target_disks + extra_disks + nvme_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
-                "-smp %s" % cls.get_config_smp(),
+                "-smp",  cls.get_config_smp(),
                 "-m", "1024"])
 
         if not cls.interactive:
