@@ -83,7 +83,7 @@ def copy_install_log(logfile, target, log_target_path):
         LOG.warn(basemsg)
         return
     if not os.path.isfile(logfile):
-        LOG.warn(basemsg + "  file does not exist."
+        LOG.warn(basemsg + "  file does not exist.")
         return
 
     LOG.debug('Copying curtin install log from %s to target/%s',
