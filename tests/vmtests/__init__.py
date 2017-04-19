@@ -335,7 +335,7 @@ class VMBaseClass(TestCase):
     conf_file = "examples/tests/basic.yaml"
     nr_cpus = None
     dirty_disks = False
-    dirty_disk_config = "example/tests/dirty_disks_config.yaml"
+    dirty_disk_config = "examples/tests/dirty_disks_config.yaml"
     disk_block_size = 512
     disk_driver = 'virtio-blk'
     disk_to_check = {}
@@ -514,7 +514,7 @@ class VMBaseClass(TestCase):
             nr_cpus = cls.nr_cpus
             logger.debug('Setting cpus from class value: %s', nr_cpus)
 
-        env_cpus = os.environ.get("CURTIN_VMTEST_NR_CPUS", nr_cpus)
+        env_cpus = os.environ.get("CURTIN_VMTEST_NR_CPUS", None)
         if env_cpus:
             nr_cpus = env_cpus
             logger.debug('Setting cpus from '
