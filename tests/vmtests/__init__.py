@@ -809,12 +809,12 @@ class VMBaseClass(TestCase):
         target_disks.extend([output_disk])
 
         # create xkvm cmd
-        cmd = (["tools/xkvm", "-v", dowait,
-                "--smp=%s" % cls.get_config_smp()] +
+        cmd = (["tools/xkvm", "-v", dowait] +
                uefi_flags + netdevs +
                target_disks + extra_disks + nvme_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
+                "-smp %s" % cls.get_config_smp(),
                 "-m", "1024"])
 
         if not cls.interactive:
