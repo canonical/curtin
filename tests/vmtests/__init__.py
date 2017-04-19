@@ -556,7 +556,7 @@ class VMBaseClass(TestCase):
 
         # create launch cmd
         cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait,
-               "--smp %s" % cls.get_config_smp()]
+               "--smp=%s" % cls.get_config_smp()]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -810,7 +810,7 @@ class VMBaseClass(TestCase):
 
         # create xkvm cmd
         cmd = (["tools/xkvm", "-v", dowait,
-                "--smp %s" % cls.get_config_smp()] +
+                "--smp=%s" % cls.get_config_smp()] +
                uefi_flags + netdevs +
                target_disks + extra_disks + nvme_disks +
                ["--", "-drive",
