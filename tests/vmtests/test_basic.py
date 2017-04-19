@@ -8,6 +8,7 @@ import textwrap
 
 class TestBasicAbs(VMBaseClass):
     interactive = False
+    smp = 2
     conf_file = "examples/tests/basic.yaml"
     extra_disks = ['128G', '128G', '4G']
     nvme_disks = ['4G']

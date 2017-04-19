@@ -350,6 +350,7 @@ class VMBaseClass(TestCase):
     recorded_failures = 0
     uefi = False
     proxy = None
+    smp = 1
 
     # these get set from base_vm_classes
     release = None
@@ -531,7 +532,8 @@ class VMBaseClass(TestCase):
             dowait = "--dowait"
 
         # create launch cmd
-        cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait]
+        cmd = ["tools/launch", "--arch=" + cls.arch, dowait
+               "--smp" + cls.smp, "-v"]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
