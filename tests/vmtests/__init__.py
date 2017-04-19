@@ -333,6 +333,7 @@ class VMBaseClass(TestCase):
     boot_timeout = BOOT_TIMEOUT
     collect_scripts = []
     conf_file = "examples/tests/basic.yaml"
+    cpus = None
     disk_block_size = 512
     disk_driver = 'virtio-blk'
     disk_to_check = {}
@@ -350,7 +351,6 @@ class VMBaseClass(TestCase):
     recorded_failures = 0
     uefi = False
     proxy = None
-    smp = 1
 
     # these get set from base_vm_classes
     release = None
@@ -504,6 +504,27 @@ class VMBaseClass(TestCase):
                 bugnum, clsname)
 
     @classmethod
+    def get_config_smp(cls):
+        """Get number of cpus to use for guest"""
+
+        cpus = None
+        if cls.cpus:
+            cpus = cls.cpus
+            logger.debug('Setting cpus from class value: %s', cpus)
+
+        env_cpus = os.environ.get("CURTIN_VMTEST_NR_CPUS", cpus)
+        if env_cpus:
+            cpus = env_cpus
+            logger.debug('Setting cpus from '
+                         ' env["CURTIN_VMTEST_NR_CPUS"] value: %s', cpus)
+        if not cpus:
+            cpus = 1
+            logger.debug('Setting cpus to default value: %s', cpus)
+
+        return cpus
+        
+
+    @classmethod
     def setUpClass(cls):
         # check if we should skip due to host arch
         if cls.arch in cls.arch_skip:
@@ -532,8 +553,8 @@ class VMBaseClass(TestCase):
             dowait = "--dowait"
 
         # create launch cmd
-        cmd = ["tools/launch", "--arch=" + cls.arch, dowait
-               "--smp" + cls.smp, "-v"]
+        cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait,
+               "--smp=%s" % cls.get_config_smp()]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -782,7 +803,8 @@ class VMBaseClass(TestCase):
         target_disks.extend([output_disk])
 
         # create xkvm cmd
-        cmd = (["tools/xkvm", "-v", dowait] +
+        cmd = (["tools/xkvm", "-v", dowait,
+                "--smp=%s" % cls.get_config_smp()] +
                uefi_flags + netdevs +
                target_disks + extra_disks + nvme_disks +
                ["--", "-drive",

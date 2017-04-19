@@ -203,6 +203,11 @@ Some environment variables affect the running of vmtest
     This modifies the  invocation of nosetets to add '--processes' and other
     necessary nose arguments (--process-timeout)
 
+- ``CURTIN_VMTEST_NR_CPUS``: default ''
+
+    Allow environment to override the number of virtual cpus to allocate
+    in the target virtual machines.
+
 - ``IMAGE_DIR``: default /srv/images
 
   Vmtest keeps a mirror of maas ephemeral images in this directory.
