@@ -333,7 +333,7 @@ class VMBaseClass(TestCase):
     boot_timeout = BOOT_TIMEOUT
     collect_scripts = []
     conf_file = "examples/tests/basic.yaml"
-    cpus = None
+    nr_cpus = None
     dirty_disks = False
     dirty_disk_config = "example/tests/dirty_disks_config.yaml"
     disk_block_size = 512
@@ -509,21 +509,21 @@ class VMBaseClass(TestCase):
     def get_config_smp(cls):
         """Get number of cpus to use for guest"""
 
-        cpus = None
-        if cls.cpus:
-            cpus = cls.cpus
-            logger.debug('Setting cpus from class value: %s', cpus)
+        nr_cpus = None
+        if cls.nr_cpus:
+            nr_cpus = cls.nr_cpus
+            logger.debug('Setting cpus from class value: %s', nr_cpus)
 
-        env_cpus = os.environ.get("CURTIN_VMTEST_NR_CPUS", cpus)
+        env_cpus = os.environ.get("CURTIN_VMTEST_NR_CPUS", nr_cpus)
         if env_cpus:
-            cpus = env_cpus
+            nr_cpus = env_cpus
             logger.debug('Setting cpus from '
-                         ' env["CURTIN_VMTEST_NR_CPUS"] value: %s', cpus)
-        if not cpus:
-            cpus = 1
-            logger.debug('Setting cpus to default value: %s', cpus)
+                         ' env["CURTIN_VMTEST_NR_CPUS"] value: %s', nr_cpus)
+        if not nr_cpus:
+            nr_cpus = 1
+            logger.debug('Setting cpus to default value: %s', nr_cpus)
 
-        return cpus
+        return nr_cpus
         
 
     @classmethod
@@ -556,7 +556,7 @@ class VMBaseClass(TestCase):
 
         # create launch cmd
         cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait,
-               "--smp=%s" % cls.get_config_smp()]
+               "--smp %s" % cls.get_config_smp()]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -810,7 +810,7 @@ class VMBaseClass(TestCase):
 
         # create xkvm cmd
         cmd = (["tools/xkvm", "-v", dowait,
-                "--smp=%s" % cls.get_config_smp()] +
+                "--smp %s" % cls.get_config_smp()] +
                uefi_flags + netdevs +
                target_disks + extra_disks + nvme_disks +
                ["--", "-drive",
