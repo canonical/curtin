@@ -334,6 +334,8 @@ class VMBaseClass(TestCase):
     collect_scripts = []
     conf_file = "examples/tests/basic.yaml"
     cpus = None
+    dirty_disks = False
+    dirty_disk_config = "example/tests/dirty_disks_config.yaml"
     disk_block_size = 512
     disk_driver = 'virtio-blk'
     disk_to_check = {}
@@ -664,6 +666,10 @@ class VMBaseClass(TestCase):
             with open(grub_config, "w") as fp:
                 fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)
+
+        if cls.dirty_disks and storage_config:
+            logger.debug("Injecting early_command to dirty storage devices")
+            configs.append(cls.dirty_disk_config)
 
         excfg = os.environ.get("CURTIN_VMTEST_EXTRA_CONFIG", False)
         if excfg:
