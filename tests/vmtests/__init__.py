@@ -556,7 +556,7 @@ class VMBaseClass(TestCase):
 
         # create launch cmd
         cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait,
-               "--smp=" % cls.get_config_smp()]
+               "--smp=" + cls.get_config_smp()]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
