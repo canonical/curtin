@@ -92,7 +92,6 @@ def copy_install_log(logfile, target, log_target_path):
         filename=util.target_path(target, log_target_path),
         content=util.load_file(logfile),
         mode=0o400)
-        
 
 
 def writeline_and_stdout(logfile, message):
