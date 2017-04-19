@@ -452,10 +452,10 @@ def cmd_install(args):
     finally:
         log_target_path = instcfg.get('save_install_log',
                                       '/root/curtin-install.log')
-        if log_target_path:
-            copy_install_log(logfile, workingd.target, log_target_path)
         # need to do some processing on iscsi disks to disconnect?
         iscsi.disconnect_target_disks(workingd.target)
+        if log_target_path:
+            copy_install_log(logfile, workingd.target, log_target_path)
         util.do_umount(workingd.target, recursive=True)
         shutil.rmtree(workingd.top)
 
