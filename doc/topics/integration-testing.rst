@@ -96,6 +96,7 @@ In order to run vmtest you'll need some dependencies.  To get them, you
 can run::
 
   make vmtest-deps
+  make sync-images   # Uses the IMAGE_DIR environment variable mentioned below
 
 Running
 =======

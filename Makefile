@@ -36,10 +36,7 @@ unittest:
 	nosetests3 $(coverageopts) $(noseopts) tests/unittests
 
 docs:
-	@which sphinx-build || \
-		{ echo "need sphinx-build. get it:"; \
-		  echo "   apt-get install -qy python3-sphinx"; exit 1; } 1>&2
-	make -C doc html
+	tox -e docs
 
 # By default don't sync images when running all tests.
 vmtest:
