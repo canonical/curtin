@@ -36,6 +36,7 @@ unittest:
 	nosetests3 $(coverageopts) $(noseopts) tests/unittests
 
 docs:
+	@which tox > /dev/null || sudo apt install -y --no-install-recommends tox
 	tox -e docs
 
 # By default don't sync images when running all tests.
