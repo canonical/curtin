@@ -364,8 +364,9 @@ class VMBaseClass(TestCase):
     def shortDescription(self):
         return None
 
-    def collect_output(self):
-        self.td.collect_output()
+    @classmethod
+    def collect_output(cls):
+        cls.td.collect_output()
 
     @classmethod
     def get_test_files(cls):
