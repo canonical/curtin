@@ -37,8 +37,11 @@ unittest:
 
 docs:
 	@which sphinx-build || \
-		{ echo "need sphinx-build. get it:"; \
-		  echo "   apt-get install -qy python3-sphinx"; exit 1; } 1>&2
+		{ echo "Missing sphinx-build. Installing python3-sphinx..."; \
+		  sleep 3; sudo apt-get install -qy python3-sphinx; }
+	@[ -d /usr/lib/python3/dist-packages/sphinx_rtd_theme ] || \
+		{ echo "Missing python3-sphinx-rtd-theme. Installing..."; \
+		  sleep 3; sudo apt-get install -qy python3-sphinx-rtd-theme; }
 	make -C doc html
 
 # By default don't sync images when running all tests.
