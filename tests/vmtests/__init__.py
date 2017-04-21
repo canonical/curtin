@@ -819,8 +819,9 @@ class VMBaseClass(TestCase):
                                 " a console log.")
 
         # capture curtin install log and webhook timings
-        util.subp(["tools/curtin-log-print", "--dumpfiles", cls.td.logs,
-                   cls.reporting_log], capture=True)
+        if os.path.exists(cls.reporting_log):
+            util.subp(["tools/curtin-log-print", "--dumpfiles", cls.td.logs,
+                      cls.reporting_log], capture=True)
 
         # mount output disk
         try:
