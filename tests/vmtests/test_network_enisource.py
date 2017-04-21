@@ -2,7 +2,6 @@ from . import logger, helpers
 from .releases import base_vm_classes as relbase
 from .test_network import TestNetworkBaseTestsAbs
 
-import os
 import subprocess
 import yaml
 
@@ -38,7 +37,7 @@ class TestNetworkENISource(TestNetworkBaseTestsAbs):
         """ Compare injected configuration as parsed by curtin matches
             how ifup configured the interface."""
         # interfaces uses absolute paths, fix for test-case
-        interfaces = os.path.join(self.td.collect, "interfaces")
+        interfaces = self.collect_path("interfaces")
         cmd = ['sed', '-i.orig', '-e', 's,/etc/network/,,g',
                '{}'.format(interfaces)]
         subprocess.check_call(cmd, stderr=subprocess.STDOUT)

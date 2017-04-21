@@ -937,19 +937,23 @@ class VMBaseClass(TestCase):
         return boot_log_wrap(cls.__name__, myboot, cmd, console_log, timeout,
                              purpose)
 
+    def collect_path(self, path):
+        # return a full path to the collected file
+        # prepending ./ makes '/root/file' or 'root/file' work as expected.
+        return os.path.normpath(os.path.join(self.td.collect, "./" + path))
+
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
-        for f in files:
-            logger.debug('checking file %s', f)
-            self.assertTrue(os.path.exists(os.path.join(self.td.collect, f)))
+        missing = [f for f in files
+                   if not os.path.exists(self.collect_path(f))]
+        self.assertEqual(missing, [])
 
     def output_files_dont_exist(self, files):
-        for f in files:
-            logger.debug('checking file %s', f)
-            self.assertFalse(os.path.exists(os.path.join(self.td.collect, f)))
+        found = [f for f in files if os.path.exists(self.collect_path(f))]
+        self.assertEqual(found, [])
 
     def load_collect_file(self, filename, mode="r"):
-        with open(os.path.join(self.td.collect, filename), mode) as fp:
+        with open(self.collect_path(filename), mode) as fp:
             return fp.read()
 
     def load_log_file(self, filename):
@@ -994,8 +998,7 @@ class VMBaseClass(TestCase):
             self.assertRegexpMatches(s, r)
 
     def get_blkid_data(self, blkid_file):
-        with open(os.path.join(self.td.collect, blkid_file)) as fp:
-            data = fp.read()
+        data = self.load_collect_file(blkid_file)
         ret = {}
         for line in data.splitlines():
             if line == "":
@@ -1005,29 +1008,27 @@ class VMBaseClass(TestCase):
         return ret
 
     def test_fstab(self):
-        if (os.path.exists(self.td.collect + "fstab") and
-                self.fstab_expected is not None):
-            with open(os.path.join(self.td.collect, "fstab")) as fp:
-                fstab_lines = fp.readlines()
-            fstab_entry = None
-            for line in fstab_lines:
-                for device, mntpoint in self.fstab_expected.items():
-                        if device in line:
-                            fstab_entry = line
-                            self.assertIsNotNone(fstab_entry)
-                            self.assertEqual(fstab_entry.split(' ')[1],
-                                             mntpoint)
+        if self.fstab_expected is None:
+            return
+        fstab_lines = self.load_collect_file("fstab")
+        fstab_entry = None
+        for line in fstab_lines.splitlines():
+            for device, mntpoint in self.fstab_expected.items():
+                    if device in line:
+                        fstab_entry = line
+                        self.assertIsNotNone(fstab_entry)
+                        self.assertEqual(fstab_entry.split(' ')[1],
+                                         mntpoint)
 
     def test_dname(self):
-        fpath = os.path.join(self.td.collect, "ls_dname")
-        if (os.path.exists(fpath) and self.disk_to_check is not None):
-            with open(fpath, "r") as fp:
-                contents = fp.read().splitlines()
-            for diskname, part in self.disk_to_check:
-                if part is not 0:
-                    link = diskname + "-part" + str(part)
-                    self.assertIn(link, contents)
-                self.assertIn(diskname, contents)
+        if self.disk_to_check is None:
+            return
+        contents = self.load_collect_file("ls_dname")
+        for diskname, part in self.disk_to_check:
+            if part is not 0:
+                link = diskname + "-part" + str(part)
+                self.assertIn(link, contents)
+            self.assertIn(diskname, contents)
 
     def test_reporting_data(self):
         with open(self.reporting_log, 'r') as fp:
@@ -1052,8 +1053,7 @@ class VMBaseClass(TestCase):
         """ Check that curtin has removed /etc/network/interfaces.d/eth0.cfg
             by examining the output of a find /etc/network > find_interfaces.d
         """
-        fpath = os.path.join(self.td.collect, "find_interfacesd")
-        interfacesd = util.load_file(fpath)
+        interfacesd = self.load_collect_file("find_interfacesd")
         self.assertNotIn("/etc/network/interfaces.d/eth0.cfg",
                          interfacesd.split("\n"))
 
@@ -1110,7 +1110,7 @@ class PsuedoVMBaseClass(VMBaseClass):
 
     def collect_output(self):
         logger.debug('Psuedo extracting output disk')
-        with open(os.path.join(self.td.collect, "fstab")) as fp:
+        with open(self.collect_path("fstab")) as fp:
             fp.write('\n'.join(("# psuedo fstab",
                                 "LABEL=root / ext4 defaults 0 1")))
 
