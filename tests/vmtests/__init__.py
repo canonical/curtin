@@ -946,11 +946,11 @@ class VMBaseClass(TestCase):
     def output_files_exist(self, files):
         missing = [f for f in files
                    if not os.path.exists(self.collect_path(f))]
-        self.assertEqual(missing, [])
+        self.assertEqual([], missing)
 
     def output_files_dont_exist(self, files):
         found = [f for f in files if os.path.exists(self.collect_path(f))]
-        self.assertEqual(found, [])
+        self.assertEqual([], found)
 
     def load_collect_file(self, filename, mode="r"):
         with open(self.collect_path(filename), mode) as fp:
