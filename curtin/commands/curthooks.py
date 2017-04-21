@@ -583,6 +583,95 @@ def detect_and_handle_multipath(cfg, target):
     update_initramfs(target, all_kernels=True)
 
 
+def detect_required_packages(cfg):
+    """
+    detect packages that will be required in-target by custom config items
+    """
+    # NOTE: this functionality may be useful in general, and when multi-distro
+    #       curtooks is developed could be moved into its own module with a cli
+
+    def detect_v1_reqs(cust_cfg, pkg_reqs):
+        """
+        detect required packages for v1 config
+        """
+        result = []
+
+        # get reqs by operation type
+        all_types = set(
+            operation['type']
+            for operation in cfg[cust_cfg]['config']
+            )
+        for pkg, types in pkg_reqs.items():
+            if set(types).intersection(all_types):
+                result.append(pkg)
+
+        # check deps required by format operations
+        # NOTE: it may make sense to move this into block.mkfs and extended
+        #       it at some point, to keep info about formats in one place
+        v1_storage_format_configs = {
+            'xfsprogs': ['xfs'],
+            'e2fsprogs': ['ext2', 'ext3', 'ext4'],
+            'btrfs-tools': ['btrfs'],
+        }
+        format_types = set(
+            [operation['fstype']
+             for operation in cfg[cust_cfg]['config']
+             if operation['type'] == 'format'])
+        for pkg, fstypes in v1_storage_format_configs.items():
+            if set(fstypes).intersection(format_types):
+                result.append(pkg)
+
+        return result
+
+    def detect_v2_net_reqs(cust_cfg, pkg_reqs):
+        """
+        detect required packages for v2 net config
+        """
+        return set(pkg_reqs.get(dev_type) for dev_type in cfg[cust_cfg]
+                   if dev_type in pkg_reqs and cfg[cust_cfg][dev_type])
+
+    custom_configs = {
+        'storage': {
+            1: {'handler': detect_v1_reqs,
+                'pkg_reqs': {
+                    'lvm2': ['lvm_volgroup', 'lvm_partition'],
+                    'mdadm': ['raid'],
+                    'bcache-tools': ['bcache']}}},
+        'network': {
+            1: {'handler': detect_v1_reqs,
+                'pkg_reqs': {
+                    'vlan': ['vlan'],
+                    'ifenslave': ['bond'],
+                    'bridge-utils': ['bridge']}},
+            2: {'handler': detect_v2_net_reqs,
+                'pkg_reqs': {
+                    'bridges': 'bridge-utils',
+                    'vlans': 'vlan',
+                    'bonds': 'ifenslave'}}}
+    }
+    needed_packages = []
+
+    for cust_cfg, version_pkg_reqs in custom_configs.items():
+        # skip missing or invalid custom config items
+        if not isinstance(cfg.get(cust_cfg), dict):
+            continue
+
+        # ensure that version is supported
+        version = cfg[cust_cfg].get('version')
+        if not isinstance(version, int) or version not in version_pkg_reqs:
+            LOG.warning('skipping pkg req detection for cfg item: %s '
+                        'because version: %s not supported by '
+                        'detect_required_packages', cust_cfg, version)
+            continue
+
+        # make call to handler
+        req_data = version_pkg_reqs[version]
+        found_reqs = req_data['handler'](cust_cfg, req_data['pkg_reqs'])
+        needed_packages.extend(found_reqs)
+
+    return needed_packages
+
+
 def install_missing_packages(cfg, target):
     ''' describe which operation types will require specific packages
 
@@ -590,46 +679,10 @@ def install_missing_packages(cfg, target):
          'pkg1': ['op_name_1', 'op_name_2', ...]
      }
     '''
-    custom_configs = {
-        'storage': {
-            'lvm2': ['lvm_volgroup', 'lvm_partition'],
-            'mdadm': ['raid'],
-            'bcache-tools': ['bcache']},
-        'network': {
-            'vlan': ['vlan'],
-            'ifenslave': ['bond'],
-            'bridge-utils': ['bridge']},
-    }
 
-    format_configs = {
-        'xfsprogs': ['xfs'],
-        'e2fsprogs': ['ext2', 'ext3', 'ext4'],
-        'btrfs-tools': ['btrfs'],
-    }
-
-    needed_packages = []
     installed_packages = util.get_installed_packages(target)
-    for cust_cfg, pkg_reqs in custom_configs.items():
-        if cust_cfg not in cfg:
-            continue
-
-        all_types = set(
-            operation['type']
-            for operation in cfg[cust_cfg]['config']
-            )
-        for pkg, types in pkg_reqs.items():
-            if set(types).intersection(all_types) and \
-               pkg not in installed_packages:
-                needed_packages.append(pkg)
-
-        format_types = set(
-            [operation['fstype']
-             for operation in cfg[cust_cfg]['config']
-             if operation['type'] == 'format'])
-        for pkg, fstypes in format_configs.items():
-            if set(fstypes).intersection(format_types) and \
-               pkg not in installed_packages:
-                needed_packages.append(pkg)
+    needed_packages = [pkg for pkg in detect_required_packages(cfg)
+                       if pkg not in installed_packages]
 
     arch_packages = {
         's390x': [('s390-tools', 'zipl')],
@@ -787,7 +840,11 @@ def curthooks(args):
         disable_overlayroot(cfg, target)
 
     # packages may be needed prior to installing kernel
-    install_missing_packages(cfg, target)
+    with events.ReportEventStack(
+            name=stack_prefix + '/installing-missing-packages',
+            reporting_enabled=True, level="INFO",
+            description="installing missing packages"):
+        install_missing_packages(cfg, target)
 
     # If a /etc/iscsi/nodes/... file was created by block_meta then it
     # needs to be copied onto the target system
@@ -815,8 +872,13 @@ def curthooks(args):
         setup_zipl(cfg, target)
         install_kernel(cfg, target)
         run_zipl(cfg, target)
-
         restore_dist_interfaces(cfg, target)
+
+    with events.ReportEventStack(
+            name=stack_prefix + '/system-upgrade',
+            reporting_enabled=True, level="INFO",
+            description="updating packages on target system"):
+        system_upgrade(cfg, target)
 
     with events.ReportEventStack(
             name=stack_prefix + '/setting-up-swap',
@@ -841,18 +903,6 @@ def curthooks(args):
             reporting_enabled=True, level="INFO",
             description="configuring multipath"):
         detect_and_handle_multipath(cfg, target)
-
-    with events.ReportEventStack(
-            name=stack_prefix + '/installing-missing-packages',
-            reporting_enabled=True, level="INFO",
-            description="installing missing packages"):
-        install_missing_packages(cfg, target)
-
-    with events.ReportEventStack(
-            name=stack_prefix + '/system-upgrade',
-            reporting_enabled=True, level="INFO",
-            description="updating packages on target system"):
-        system_upgrade(cfg, target)
 
     # If a crypttab file was created by block_meta than it needs to be copied
     # onto the target system, and update_initramfs() needs to be run, so that

@@ -1,0 +1,18 @@
+showtrace: true
+system_upgrade:
+    enabled: true
+apt:
+    preserve_sources_list: false
+    sources:
+        cloud-init-test-repo.list:
+            # FIXME: this should be switched to curtin-dev or cloud-init-dev
+            #        for use on jenkins, and should not be signed with my key
+            source: "deb http://ppa.launchpad.net/wesley-wiedenmeier/test/ubuntu xenial main"
+            keyid: 2B91B36D
+network:
+    version: 2
+    ethernets:
+        interface0:
+            match:
+                mac_address: "52:54:00:12:34:00"
+            dhcp4: true

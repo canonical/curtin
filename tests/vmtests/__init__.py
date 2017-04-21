@@ -356,6 +356,7 @@ class VMBaseClass(TestCase):
     iscsi_disks = []
     recorded_errors = 0
     recorded_failures = 0
+    required_net_ifaces = None
     uefi = False
     proxy = None
 
@@ -556,21 +557,29 @@ class VMBaseClass(TestCase):
             cmd.append("--publish=%s::dd-xz" % ftypes[cls.target_ftype])
         logger.info("Publishing src as %s", cmd[-1])
 
-        # check for network configuration
-        cls.network_state = curtin_net.parse_net_config(cls.conf_file)
-        logger.debug("Network state: {}".format(cls.network_state))
+        # build network device list, either from required_net_ifaces or from
+        # detection of mac_addresses in storage config
+        if isinstance(cls.required_net_ifaces, (list, tuple)):
+            # get mac addresses from required_net_ifaces
+            macs = cls.required_net_ifaces
+        else:
+            # check for network configuration
+            cls.network_state = curtin_net.parse_net_config(cls.conf_file)
+            logger.debug("Network state: {}".format(cls.network_state))
 
-        # build -n arg list with macaddrs from net_config physical config
-        macs = []
-        interfaces = {}
-        if cls.network_state:
-            interfaces = cls.network_state.get('interfaces')
-        for ifname in interfaces:
-            logger.debug("Interface name: {}".format(ifname))
-            iface = interfaces.get(ifname)
-            hwaddr = iface.get('mac_address')
-            if hwaddr:
-                macs.append(hwaddr)
+            # build -n arg list with macaddrs from net_config physical config
+            macs = []
+            interfaces = {}
+            if cls.network_state:
+                interfaces = cls.network_state.get('interfaces')
+            for ifname in interfaces:
+                logger.debug("Interface name: {}".format(ifname))
+                iface = interfaces.get(ifname)
+                hwaddr = iface.get('mac_address')
+                if hwaddr:
+                    macs.append(hwaddr)
+
+        # construct netdev args list
         netdevs = []
         if len(macs) > 0:
             for mac in macs:

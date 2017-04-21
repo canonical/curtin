@@ -548,6 +548,31 @@ def netconfig_passthrough_available(target, pkg_ver=None):
     return True
 
 
+def netconfig_passthrough_v2_available(target, feature='NETWORK_CONFIG_V2'):
+    """
+    Determine if curtin can pass v2 network config to in target cloud-init
+    """
+    LOG.debug('Checking in-target cloud-init features')
+    cmd = ("from cloudinit import version;"
+           "print('{}' in getattr(version, 'FEATURES', []))"
+           .format(feature))
+    with util.ChrootableTarget(target) as in_chroot:
+
+        def run_cmd(cmd):
+            (out, _) = in_chroot.subp(cmd, capture=True)
+            return out.strip()
+
+        cloud_init_path = util.which('cloud-init', target=target)
+        if not cloud_init_path:
+            LOG.debug('cloud-init not available in target=%s', target)
+            return False
+
+        script_shebang = run_cmd(['head', '-n1', cloud_init_path])
+        python = script_shebang.split('/')[-1]
+        feature_available = run_cmd([python, '-c', cmd])
+        return config.value_as_boolean(feature_available)
+
+
 def render_netconfig_passthrough(target, netconfig=None):
     """
     Extract original network config and pass it

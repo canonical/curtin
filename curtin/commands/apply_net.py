@@ -104,12 +104,17 @@ def apply_net(target, network_state=None, network_config=None):
         # for rendering at runtime, unless:
         #   1) target OS does not support (cloud-init too old)
         #   2) config disables passthrough
+        #   3) we have v2 netconfig and target OS does not support v2
+        #      (cloud-init too old)
         passthrough = netcfg.get('network', {}).get('passthrough', None)
         LOG.debug('netcfg set passthrough to: %s', passthrough)
-        if not passthrough:
-            LOG.info('testing in-target cloud-init version for support')
-            passthrough = net.netconfig_passthrough_available(target)
-            LOG.info('passthrough via in-target: %s', passthrough)
+        if passthrough is None:
+            v2_required = netcfg.get('network', {}).get('version', None) == 2
+            LOG.debug('testing in-target cloud-init version for support')
+            passthrough = (net.netconfig_passthrough_available(target) and
+                           (not v2_required or
+                            net.netconfig_passthrough_v2_available(target)))
+            LOG.debug('passthrough via in-target: %s', passthrough)
 
         if passthrough:
             LOG.info('Passing network configuration through to target')
