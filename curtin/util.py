@@ -351,11 +351,18 @@ def do_mount(src, target, opts=None):
     return True
 
 
-def do_umount(mountpoint):
-    if not is_mounted(mountpoint):
-        return False
-    subp(['umount', mountpoint])
-    return True
+def do_umount(mountpoint, recursive=False):
+    # unmount mountpoint. if recursive, unmount all mounts under it.
+    # return boolean indicating if mountpoint was previously mounted.
+    mp = os.path.abspath(mountpoint)
+    ret = False
+    for line in reversed(load_file("/proc/mounts", decode=True).splitlines()):
+        curmp = line.split()[1]
+        if curmp == mp or (recursive and curmp.startswith(mp + os.path.sep)):
+            subp(['umount', curmp])
+        if curmp == mp:
+            ret = True
+    return ret
 
 
 def ensure_dir(path, mode=None):

@@ -818,6 +818,10 @@ class VMBaseClass(TestCase):
                     logger.warn("Booting after install not produce"
                                 " a console log.")
 
+        # capture curtin install log and webhook timings
+        util.subp(["tools/curtin-log-print", "--dumpfiles", cls.td.logs,
+                   cls.reporting_log], capture=True)
+
         # mount output disk
         try:
             cls.td.collect_output()
