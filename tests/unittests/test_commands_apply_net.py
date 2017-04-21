@@ -1,6 +1,7 @@
 from unittest import TestCase
 from mock import patch, call
 import copy
+import os
 
 from curtin.commands import apply_net
 from curtin import util
@@ -72,14 +73,9 @@ class TestApplyNet(ApplyNetTestBase):
     def test_apply_net_target_and_state(self):
         self.mock_ns_from_file.return_value = self.ns
 
-        apply_net.apply_net(self.target, network_state=self.ns,
-                            network_config=None)
-
-        self.mock_net_renderstate.assert_called_with(target=self.target,
-                                                     network_state=self.ns)
-        self.mock_legacy.assert_called_with(self.target)
-        self.mock_ipv6_priv.assert_called_with(self.target)
-        self.mock_ipv6_mtu.assert_called_with(self.target)
+        self.assertRaises(ValueError,
+                          apply_net.apply_net, self.target, 
+                          network_state=self.ns, network_config=None)
 
     def test_apply_net_target_and_config(self):
         self.mock_load_config.return_value = self.network_config
@@ -326,6 +322,7 @@ class TestApplyNetRemoveLegacyEth0(ApplyNetTestBase):
         target = 'mytarget'
         path = 'eth0.cfg'
         legacy_eth0_contents = "nomatch"
+        mock_ospath.join.side_effect = os.path.join
         mock_ospath.exists.return_value = True
         mock_load.side_effect = [legacy_eth0_contents]
 

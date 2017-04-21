@@ -96,7 +96,7 @@ def apply_net(target, network_state=None, network_config=None):
         # FIXME: pass-through not supported unless we create
         # a network_state -> network_config step
         raise ValueError('Not Supported; network_state -> network_config'
-                         'needed')
+                         ' needed')
     elif network_config:
         netcfg = config.load_config(network_config)
 
