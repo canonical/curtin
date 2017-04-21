@@ -74,7 +74,7 @@ class TestApplyNet(ApplyNetTestBase):
         self.mock_ns_from_file.return_value = self.ns
 
         self.assertRaises(ValueError,
-                          apply_net.apply_net, self.target, 
+                          apply_net.apply_net, self.target,
                           network_state=self.ns, network_config=None)
 
     def test_apply_net_target_and_config(self):

@@ -154,7 +154,8 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
                     print('bridge_stp not in known val list')
             elif param in ['bridge_portprio']:
                 if self._network_renderer() == "systemd-networkd":
-                    reason = ("{}: skip until lp#1668347 is fixed".format(self.__class__))
+                    reason = ("%s: skip until lp#1668347"
+                              " is fixed" % self.__class__)
                     logger.warn('Skipping: %s', reason)
                     print(reason)
                     return
@@ -167,10 +168,8 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
                     sys_file_val = _get_sysfs_value(sysfs_vals, br0['name'],
                                                     param, port)
 
-                    self.assertEqual(int(pval), int(sys_file_val),
-                                     "Source cfg: %s=%s on port %s" % (param,
-                                                                       value, 
-                                                                       port))
+                    msg = "Source cfg: %s=%s on port %s" % (param, value, port)
+                    self.assertEqual(int(pval), int(sys_file_val), msg)
             else:
                 sys_file_val = _get_sysfs_value(sysfs_vals, br0['name'],
                                                 param, port=None)

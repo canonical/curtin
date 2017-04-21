@@ -83,14 +83,12 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         etc_netplan = os.path.join(self.td.collect, 'etc_netplan')
         networkd = os.path.join(self.td.collect, 'run_systemd_network')
 
-        if (len(os.listdir(etc_netplan)) > 0 and
-            len(os.listdir(networkd)) > 0):
+        if len(os.listdir(etc_netplan)) > 0 and len(os.listdir(networkd)) > 0:
             print('Network Renderer: systemd-networkd')
             return 'systemd-networkd'
 
         print('Network Renderer: ifupdown')
         return 'ifupdown'
-
 
     def test_etc_network_interfaces(self):
         if self._network_renderer() != "ifupdown":
@@ -154,7 +152,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         }
         resolvconfpath = render2resolvconf.get(self._network_renderer(), None)
         self.assertTrue(resolvconfpath is not None)
-        logger.debug('Selected path to resolvconf: %s', resolvconfpath) 
+        logger.debug('Selected path to resolvconf: %s', resolvconfpath)
 
         with open(os.path.join(self.td.collect, resolvconfpath)) as fp:
             resolvconf = fp.read()
