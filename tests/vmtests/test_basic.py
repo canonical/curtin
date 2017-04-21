@@ -31,8 +31,6 @@ class TestBasicAbs(VMBaseClass):
         out=$(apt-config shell v Acquire::HTTP::Proxy)
         eval "$out"
         echo "$v" > apt-proxy
-        cp /root/curtin-install.log .
-        cp /root/curtin-install-cfg.yaml .
         """)]
 
     def _kname_to_uuid(self, kname):
@@ -54,7 +52,7 @@ class TestBasicAbs(VMBaseClass):
             ["blkid_output_vda", "blkid_output_vda1", "blkid_output_vda2",
              "btrfs_uuid_vdd", "fstab", "ls_dname", "ls_uuid",
              "proc_partitions",
-             "curtin-install-log", "curtin-install-cfg.yaml"])
+             "root/curtin-install.log", "root/curtin-install-cfg.yaml"])
 
     def test_ptable(self):
         blkid_info = self.get_blkid_data("blkid_output_vda")
