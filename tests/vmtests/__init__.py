@@ -364,6 +364,9 @@ class VMBaseClass(TestCase):
     def shortDescription(self):
         return None
 
+    def collect_output(self):
+        self.td.collect_output()
+
     @classmethod
     def get_test_files(cls):
         # get local absolute filesystem paths for each of the needed file types
@@ -1114,7 +1117,7 @@ class PsuedoVMBaseClass(VMBaseClass):
             fp.write('\n'.join(("# psuedo fstab",
                                 "LABEL=root / ext4 defaults 0 1")))
         logger.debug('Psudeo webhooks-events.json')
-        with open(os.path.join(self.td.collect, 'webhooks-events.json')) as fp:
+        with open(os.path.join(self.td.logs, 'webhooks-events.json')) as fp:
             fp.write('[]')
 
     @classmethod
