@@ -115,7 +115,7 @@ If you wish to all tests in test_network.py, do so with::
 
 Or run a single test with::
 
-  nosetests3 tests/vmtests/test_network.py:WilyTestBasic
+  nosetests3 tests/vmtests/test_network.py::XenialTestNetworkBasic
 
 
 Environment Variables
