@@ -352,7 +352,7 @@ configure_tgt_auth() {
 main() {
     local short_opts="a:A:d:h:i:k:n:p:s:v"
     local
-    long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,root-arg:,silent,serial-log:,smp:uefi-nvram:,verbose,vnc:"
+    long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,root-arg:,silent,serial-log:,smp:,uefi-nvram:,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
