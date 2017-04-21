@@ -819,9 +819,8 @@ class VMBaseClass(TestCase):
                                 " a console log.")
 
         # capture curtin install log and webhook timings
-        if os.path.exists(cls.reporting_log):
-            util.subp(["tools/curtin-log-print", "--dumpfiles", cls.td.logs,
-                      cls.reporting_log], capture=True)
+        util.subp(["tools/curtin-log-print", "--dumpfiles", cls.td.logs,
+                  cls.reporting_log], capture=True)
 
         # mount output disk
         try:
@@ -1114,6 +1113,9 @@ class PsuedoVMBaseClass(VMBaseClass):
         with open(os.path.join(self.td.collect, "fstab")) as fp:
             fp.write('\n'.join(("# psuedo fstab",
                                 "LABEL=root / ext4 defaults 0 1")))
+        logger.debug('Psudeo webhooks-events.json')
+        with open(os.path.join(self.td.collect, 'webhooks-events.json')) as fp:
+            fp.write('[]')
 
     @classmethod
     def get_test_files(cls):
