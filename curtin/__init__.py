@@ -29,6 +29,8 @@ FEATURES = [
     'REPORTING_EVENTS_WEBHOOK',
     # install supports the 'storage' config version 1
     'STORAGE_CONFIG_V1',
+    # install supports the 'storage' config version 1 for DD images
+    'STORAGE_CONFIG_V1_DD',
     # subcommand 'system-install' is present
     'SUBCOMMAND_SYSTEM_INSTALL',
     # subcommand 'system-upgrade' is present

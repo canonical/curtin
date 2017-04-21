@@ -31,13 +31,30 @@ class TestBasicAbs(VMBaseClass):
         out=$(apt-config shell v Acquire::HTTP::Proxy)
         eval "$out"
         echo "$v" > apt-proxy
+        cp /root/curtin-install.log .
+        cp /root/curtin-install-cfg.yaml .
         """)]
+
+    def _kname_to_uuid(self, kname):
+        # extract uuid from /dev/disk/by-uuid on /dev/<kname>
+        # parsing ls -al output on /dev/disk/by-uuid:
+        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
+        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
+        ls_uuid = self.load_collect_file("ls_uuid")
+        uuid = [line.split()[8] for line in ls_uuid.split('\n')
+                if ("../../" + kname) in line.split()]
+        self.assertEqual(len(uuid), 1)
+        uuid = uuid.pop()
+        self.assertTrue(uuid is not None)
+        self.assertEqual(len(uuid), 36)
+        return uuid
 
     def test_output_files_exist(self):
         self.output_files_exist(
             ["blkid_output_vda", "blkid_output_vda1", "blkid_output_vda2",
              "btrfs_uuid_vdd", "fstab", "ls_dname", "ls_uuid",
-             "proc_partitions"])
+             "proc_partitions",
+             "curtin-install-log", "curtin-install-cfg.yaml"])
 
     def test_ptable(self):
         blkid_info = self.get_blkid_data("blkid_output_vda")
@@ -79,9 +96,10 @@ class TestBasicAbs(VMBaseClass):
         self.assertEqual(fstab_entry.split(' ')[1], "/home")
 
         # Test whole disk vdd is mounted at /btrfs
+        uuid = self._kname_to_uuid('vdd')
         fstab_entry = None
         for line in fstab_lines:
-            if "/dev/vdd" in line:
+            if uuid in line:
                 fstab_entry = line
                 break
         self.assertIsNotNone(fstab_entry)
@@ -90,24 +108,16 @@ class TestBasicAbs(VMBaseClass):
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
         btrfs_uuid = self.load_collect_file('btrfs_uuid_vdd').strip()
-        ls_uuid = self.load_collect_file("ls_uuid")
 
         # extract uuid from btrfs superblock
         self.assertTrue(btrfs_uuid is not None)
         self.assertEqual(len(btrfs_uuid), 36)
 
-        # extract uuid from /dev/disk/by-uuid on /dev/vdd
-        # parsing ls -al output on /dev/disk/by-uuid:
-        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
-        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
-        vdd_uuid = [line.split()[8] for line in ls_uuid.split('\n')
-                    if 'vdd' in line]
-        self.assertEqual(len(vdd_uuid), 1)
-        vdd_uuid = vdd_uuid.pop()
-        self.assertTrue(vdd_uuid is not None)
+        # extract uuid from ls_uuid by kname
+        kname_uuid = self._kname_to_uuid('vdd')
 
         # compare them
-        self.assertEqual(vdd_uuid, btrfs_uuid)
+        self.assertEqual(kname_uuid, btrfs_uuid)
 
     def test_proxy_set(self):
         expected = get_apt_proxy()
@@ -153,23 +163,15 @@ class PreciseTestBasic(relbase.precise, TestBasicAbs):
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
         btrfs_uuid = self.load_collect_file("btrfs_uuid_vdd").strip()
-        ls_uuid = self.load_collect_file("ls_uuid")
 
         self.assertTrue(btrfs_uuid is not None)
         self.assertEqual(len(btrfs_uuid), 36)
 
-        # extract uuid from /dev/disk/by-uuid on /dev/vdd
-        # parsing ls -al output on /dev/disk/by-uuid:
-        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
-        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
-        vdd_uuid = [line.split()[8] for line in ls_uuid.split('\n')
-                    if 'vdd' in line]
-        self.assertEqual(len(vdd_uuid), 1)
-        vdd_uuid = vdd_uuid.pop()
-        self.assertTrue(vdd_uuid is not None)
+        # extract uuid from ls_uuid by kname
+        kname_uuid = self._kname_to_uuid('vdd')
 
         # compare them
-        self.assertEqual(vdd_uuid, btrfs_uuid)
+        self.assertEqual(kname_uuid, btrfs_uuid)
 
     def test_ptable(self):
         print("test_ptable does not work for Precise")
@@ -289,9 +291,10 @@ class TestBasicScsiAbs(TestBasicAbs):
         self.assertEqual(fstab_entry.split(' ')[1], "/home")
 
         # Test whole disk sdc is mounted at /btrfs
+        uuid = self._kname_to_uuid('sdc')
         fstab_entry = None
         for line in fstab_lines:
-            if "/dev/sdc" in line:
+            if uuid in line:
                 fstab_entry = line
                 break
         self.assertIsNotNone(fstab_entry)
@@ -300,24 +303,16 @@ class TestBasicScsiAbs(TestBasicAbs):
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
         btrfs_uuid = self.load_collect_file("btrfs_uuid_sdc").strip()
-        ls_uuid = self.load_collect_file("ls_uuid")
 
         # extract uuid from btrfs superblock
         self.assertTrue(btrfs_uuid is not None)
         self.assertEqual(len(btrfs_uuid), 36)
 
-        # extract uuid from /dev/disk/by-uuid on /dev/sdc
-        # parsing ls -al output on /dev/disk/by-uuid:
-        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
-        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
-        uuid = [line.split()[8] for line in ls_uuid.split('\n')
-                if 'sdc' in line]
-        self.assertEqual(len(uuid), 1)
-        uuid = uuid.pop()
-        self.assertTrue(uuid is not None)
+        # extract uuid from ls_uuid by kname
+        kname_uuid = self._kname_to_uuid('sdc')
 
         # compare them
-        self.assertEqual(uuid, btrfs_uuid)
+        self.assertEqual(kname_uuid, btrfs_uuid)
 
 
 class XenialTestScsiBasic(relbase.xenial, TestBasicScsiAbs):

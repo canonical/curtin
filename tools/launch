@@ -60,7 +60,7 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
 
    Example:
     * boot myboot.img, and install my-root.tar.gz
-      ${0##*/} myboot.img --publish my-root.tar.gz curtin \
+      ${0##*/} myboot.img --publish my-root.tar.gz curtin \\
          install PUBURL/my-root.tar.gz
 
 EOF
@@ -563,17 +563,19 @@ main() {
     ip=${_RET}
 
     local tok src pub fpath
-    # tok in pubs looks like file[:pubname]
+    # tok in pubs looks like file[:pubname][:stype]
     # link them into the temp dir for publishing
     for tok in "${pubs[@]}"; do
-        case "$tok" in
-            *:*) src="${tok%:*}"; pub="${tok##*:}";;
-            *) src=${tok}; pub="";;
-        esac
+        src=$(echo "${tok}" | awk -F: '{print $1}')
+        pub=$(echo "${tok}" | awk -F: '{print $2}')
+        stype=$(echo "${tok}" | awk -F: '{print $3}')
         fpath=$(readlink -f "$src") ||
             { error "'$src': failed to get path"; return 1; }
-        if [ -n "$pub" ]; then
+        if [ -z "$pub" ]; then
             pub="${src##*/}"
+        fi
+        if [ -z "$stype" ]; then
+            stype="tgz"
         fi
         ln -sf "$fpath" "${TEMP_D}/${pub}"
     done
@@ -582,9 +584,10 @@ main() {
         { error "failed to start http service"; return 1; }
     http_port=$_RET
     burl="http://$ip:${http_port}/"
-    # now replace PUBURL anywhere in cmdargs
+    # now replace PUBURL anywhere in cmdargs, and prefix with
+    # source type (tgz or dd-tgz)
     for((i=0;i<${#cmdargs[@]};i++)); do
-        cmdargs[$i]=${cmdargs[$i]//PUBURL/$burl}
+        cmdargs[$i]=${cmdargs[$i]//PUBURL/${stype}:$burl}
     done
 
     local addargs="" f=""

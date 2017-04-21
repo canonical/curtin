@@ -47,6 +47,9 @@ INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
 
 _TOPDIR = None
 
+UC16_IMAGE = os.path.join(IMAGE_DIR,
+                          'ubuntu-core-16/amd64/20170217/root-image.xz')
+
 
 def remove_empty_dir(dirpath):
     if os.path.exists(dirpath):
@@ -364,6 +367,10 @@ class VMBaseClass(TestCase):
     target_distro = None
     target_release = None
     target_krel = None
+    target_ftype = "vmtest.root-tgz"
+
+    def shortDescription(self):
+        return None
 
     @classmethod
     def get_test_files(cls):
@@ -380,14 +387,19 @@ class VMBaseClass(TestCase):
 
         # get local absolute filesystem paths for the OS tarball to be
         # installed
-        img_verstr, found = get_images(
-            IMAGE_SRC_URL, IMAGE_DIR,
-            cls.target_distro if cls.target_distro else cls.distro,
-            cls.target_release if cls.target_release else cls.release,
-            cls.arch, krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
-            ftypes=('vmtest.root-tgz',))
-        logger.debug("Target Tarball %s\n, ftypes: %s\n", img_verstr, found)
-        logger.info("Target Tarball: %s", img_verstr)
+        if cls.target_ftype == "vmtest.root-tgz":
+            img_verstr, found = get_images(
+                IMAGE_SRC_URL, IMAGE_DIR,
+                cls.target_distro if cls.target_distro else cls.distro,
+                cls.target_release if cls.target_release else cls.release,
+                cls.arch, krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
+                ftypes=('vmtest.root-tgz',))
+            logger.debug("Target Tarball %s\n, ftypes: %s\n",
+                         img_verstr, found)
+            logger.info("Target Tarball: %s", img_verstr)
+        else:
+            logger.info('get-testfiles UC16 hack!')
+            found = {'root-image.xz': UC16_IMAGE}
         ftypes.update(found)
         return ftypes
 
@@ -488,6 +500,17 @@ class VMBaseClass(TestCase):
         return disks
 
     @classmethod
+    def skip_by_date(cls, clsname, release, bugnum, fixby, removeby):
+        if datetime.date.today() < datetime.date(*fixby):
+            raise SkipTest(
+                "LP: #%s not expected to be fixed in %s yet" % (bugnum,
+                                                                release))
+        if datetime.date.today() > datetime.date(*removeby):
+            raise RuntimeError(
+                "Please remove the LP: #%s workaround in %s",
+                bugnum, clsname)
+
+    @classmethod
     def setUpClass(cls):
         # check if we should skip due to host arch
         if cls.arch in cls.arch_skip:
@@ -507,6 +530,7 @@ class VMBaseClass(TestCase):
         cls.boot_log = os.path.join(cls.td.logs, 'boot-serial.log')
         logger.debug('Install console log: {}'.format(cls.install_log))
         logger.debug('Boot console log: {}'.format(cls.boot_log))
+        ftypes = cls.get_test_files()
 
         # if interactive, launch qemu without 'background & wait'
         if cls.interactive:
@@ -525,9 +549,12 @@ class VMBaseClass(TestCase):
             cmd.extend(["--append=" + cls.extra_kern_args])
 
         # publish the root tarball
-        ftypes = cls.get_test_files()
-        install_src = "PUBURL/" + os.path.basename(ftypes['vmtest.root-tgz'])
-        cmd.append("--publish=%s" % ftypes['vmtest.root-tgz'])
+        install_src = "PUBURL/" + os.path.basename(ftypes[cls.target_ftype])
+        if cls.target_ftype == 'vmtest.root-tgz':
+            cmd.append("--publish=%s" % ftypes['vmtest.root-tgz'])
+        else:
+            cmd.append("--publish=%s::dd-xz" % ftypes[cls.target_ftype])
+        logger.info("Publishing src as %s", cmd[-1])
 
         # check for network configuration
         cls.network_state = curtin_net.parse_net_config(cls.conf_file)
@@ -806,6 +833,10 @@ class VMBaseClass(TestCase):
             else:
                     logger.warn("Booting after install not produce"
                                 " a console log.")
+
+        # capture curtin install log and webhook timings
+        util.subp(["tools/curtin-log-print", "--dumpfiles", cls.td.logs,
+                   cls.reporting_log], capture=True)
 
         # mount output disk
         try:
@@ -1264,8 +1295,9 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
     failsafe_poweroff = textwrap.dedent("""#!/bin/sh -x
         [ -e /etc/centos-release -o -e /etc/redhat-release ] &&
             { shutdown -P now "Shutting down on centos"; }
-        [ "$(lsb_release -sc)" = "precise" ] &&
-            { shutdown -P now "Shutting down on precise"; }
+        if grep -i -q precise /etc/os-release; then
+            shutdown -P now "Shutting down on precise";
+        fi
         exit 0;
         """)
 

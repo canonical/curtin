@@ -93,12 +93,12 @@ class TestBlockIscsiPortalParsing(TestCase):
         self.assertEquals(i.lun, 0)
         self.assertEquals(i.target, 'target')
 
-        i = iscsi.IscsiDisk('iscsi:fe80:::::target')
+        i = iscsi.IscsiDisk('iscsi:[fe80::]::::target')
         self.assertEquals(i.user, None)
         self.assertEquals(i.password, None)
         self.assertEquals(i.iuser, None)
         self.assertEquals(i.ipassword, None)
-        self.assertEquals(i.host, 'fe80:')
+        self.assertEquals(i.host, 'fe80::')
         self.assertEquals(i.proto, '6')
         self.assertEquals(i.port, 3260)
         self.assertEquals(i.lun, 0)
@@ -119,7 +119,8 @@ class TestBlockIscsiPortalParsing(TestCase):
         with self.assertRaisesRegexp(ValueError, 'Specified iSCSI port'):
             iscsi.IscsiDisk('iscsi:192.168.1.12::ABCD::target')
         with self.assertRaisesRegexp(ValueError, 'Specified iSCSI port'):
-            iscsi.IscsiDisk('iscsi:fe80::a634:d9ff:fe40:768a:6::ABCD::target')
+            iscsi.IscsiDisk('iscsi:[fe80::a634:d9ff:fe40:768a:6]::ABCD::'
+                            'target')
         with self.assertRaisesRegexp(ValueError, 'Specified iSCSI port'):
             iscsi.IscsiDisk('iscsi:test.example.com::ABCD::target')
 
@@ -127,7 +128,7 @@ class TestBlockIscsiPortalParsing(TestCase):
         with self.assertRaisesRegexp(ValueError, 'Both host and targetname'):
             iscsi.IscsiDisk('iscsi:192.168.1.12::::')
         with self.assertRaisesRegexp(ValueError, 'Both host and targetname'):
-            iscsi.IscsiDisk('iscsi:fe80::a634:d9ff:fe40:768a:6::::')
+            iscsi.IscsiDisk('iscsi:[fe80::a634:d9ff:fe40:768a:6]::::')
         with self.assertRaisesRegexp(ValueError, 'Both host and targetname'):
             iscsi.IscsiDisk('iscsi:test.example.com::::')
 
@@ -140,7 +141,8 @@ class TestBlockIscsiPortalParsing(TestCase):
         with self.assertRaises(ValueError):
             iscsi.IscsiDisk('iscsi:user@192.168.1.12::::target')
         with self.assertRaises(ValueError):
-            iscsi.IscsiDisk('iscsi:user@fe80::a634:d9ff:fe40:768a:6::::target')
+            iscsi.IscsiDisk('iscsi:user@[fe80::a634:d9ff:fe40:768a:6]::::'
+                            'target')
         with self.assertRaises(ValueError):
             iscsi.IscsiDisk('iscsi:user@test.example.com::::target')
 
@@ -149,7 +151,7 @@ class TestBlockIscsiPortalParsing(TestCase):
             iscsi.IscsiDisk('iscsi:user:password:iuser@192.168.1.12::::target')
         with self.assertRaises(ValueError):
             iscsi.IscsiDisk('iscsi:user:password:iuser@'
-                            'fe80::a634:d9ff:fe40:768a:6::::target')
+                            '[fe80::a634:d9ff:fe40:768a:6]::::target')
         with self.assertRaises(ValueError):
             iscsi.IscsiDisk(
                 'iscsi:user:password:iuser@test.example.com::::target')
@@ -431,5 +433,45 @@ class TestBlockIscsiPortalParsing(TestCase):
         self.assertEquals(i.port, 3260)
         self.assertEquals(i.lun, 1)
         self.assertEquals(i.target, 'target')
+
+    # LP: #1679222
+    def test_iscsi_target_parsing(self):
+        i = iscsi.IscsiDisk(
+            'iscsi:192.168.1.12::::iqn.2017-04.com.example.test:target-name')
+        self.assertEquals(i.user, None)
+        self.assertEquals(i.password, None)
+        self.assertEquals(i.iuser, None)
+        self.assertEquals(i.ipassword, None)
+        self.assertEquals(i.host, '192.168.1.12')
+        self.assertEquals(i.proto, '6')
+        self.assertEquals(i.port, 3260)
+        self.assertEquals(i.lun, 0)
+        self.assertEquals(i.target, 'iqn.2017-04.com.example.test:target-name')
+
+        i = iscsi.IscsiDisk(
+            'iscsi:[fe80::a634:d9ff:fe40:768a:6]::::'
+            'iqn.2017-04.com.example.test:target-name')
+        self.assertEquals(i.user, None)
+        self.assertEquals(i.password, None)
+        self.assertEquals(i.iuser, None)
+        self.assertEquals(i.ipassword, None)
+        self.assertEquals(i.host, 'fe80::a634:d9ff:fe40:768a:6')
+        self.assertEquals(i.proto, '6')
+        self.assertEquals(i.port, 3260)
+        self.assertEquals(i.lun, 0)
+        self.assertEquals(i.target, 'iqn.2017-04.com.example.test:target-name')
+
+        i = iscsi.IscsiDisk(
+            'iscsi:test.example.com::::'
+            'iqn.2017-04.com.example.test:target-name')
+        self.assertEquals(i.user, None)
+        self.assertEquals(i.password, None)
+        self.assertEquals(i.iuser, None)
+        self.assertEquals(i.ipassword, None)
+        self.assertEquals(i.host, 'test.example.com')
+        self.assertEquals(i.proto, '6')
+        self.assertEquals(i.port, 3260)
+        self.assertEquals(i.lun, 0)
+        self.assertEquals(i.target, 'iqn.2017-04.com.example.test:target-name')
 
 # vi: ts=4 expandtab syntax=python
