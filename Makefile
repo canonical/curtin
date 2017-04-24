@@ -35,14 +35,14 @@ unittest:
 	nosetests $(coverageopts) $(noseopts) tests/unittests
 	nosetests3 $(coverageopts) $(noseopts) tests/unittests
 
-docs:
-	@which sphinx-build || \
-		{ echo "Missing sphinx-build. Installing python3-sphinx..."; \
-		  sleep 3; sudo apt-get install -qy python3-sphinx; }
-	@[ -d /usr/lib/python3/dist-packages/sphinx_rtd_theme ] || \
-		{ echo "Missing python3-sphinx-rtd-theme. Installing..."; \
-		  sleep 3; sudo apt-get install -qy python3-sphinx-rtd-theme; }
+docs: check-doc-deps
 	make -C doc html
+
+check-doc-deps:
+	@which sphinx-build && $(PYTHON) -c 'import sphinx_rtd_theme' || \
+		{ echo "Missing doc dependencies. Install with:"; \
+		  pkgs="python3-sphinx-rtd-theme python3-sphinx"; \
+		  echo sudo apt-get install -qy $$pkgs ; exit 1; }
 
 # By default don't sync images when running all tests.
 vmtest:
@@ -57,4 +57,4 @@ sync-images:
 clean:
 	rm -rf doc/_build
 
-.PHONY: all clean test pyflakes pyflakes3 pep8 build style-check
+.PHONY: all clean test pyflakes pyflakes3 pep8 build style-check check-doc-deps
