@@ -23,6 +23,7 @@ network:
               - type: dhcp4
         - type: physical
           name: interface1
+          mtu: 1492
           mac_address: "52:54:00:12:34:02"
           subnets:
               - type: static
