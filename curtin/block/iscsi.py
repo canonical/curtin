@@ -271,6 +271,18 @@ def kname_is_iscsi(kname):
     LOG.debug('kname_is_iscsi: no iscsi disk found for kname %s' % kname)
     return False
 
+# Determines if the volume_path's kname is backed by iSCSI or (in the
+# case of LVM/DM) if any of its slaves are backed by iSCSI
+def volpath_is_iscsi(volume_path):
+    volume_path_kname = block.path_to_kname(volume_path)
+    volume_path_slaves = ("/sys/class/block/%s/slaves" %
+                          volume_path_kname)
+    knames = [volume_path_kname]
+    if os.path.exists(volume_path_slaves):
+        knames.extend([block.path_to_kname(p) for p in
+                       os.listdir(volume_path_slaves)])
+    return any([kname_is_iscsi(kname) for kname in knames])
+
 
 class IscsiDisk(object):
     # Per Debian bug 804162, the iscsi specifier looks like

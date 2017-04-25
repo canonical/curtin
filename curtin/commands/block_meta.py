@@ -646,14 +646,7 @@ def mount_handler(info, storage_config):
         # If the volume_path's kname is backed by iSCSI or (in the case of
         # LVM/DM) if any of its slaves are backed by iSCSI, then we need to
         # append _netdev to the fstab line
-        volume_path_kname = block.path_to_kname(volume_path)
-        volume_path_slaves = ("/sys/class/block/%s/slaves" %
-                              volume_path_kname)
-        knames = [volume_path_kname]
-        if os.path.exists(volume_path_slaves):
-            knames.extend([block.path_to_kname(p) for p in
-                           os.listdir(volume_path_slaves)])
-        if any([iscsi.kname_is_iscsi(kname) for kname in knames]):
+        if iscsi.volpath_is_iscsi(volume_path):
             options.append("_netdev")
     else:
         path = "none"
