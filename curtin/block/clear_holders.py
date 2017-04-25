@@ -206,8 +206,10 @@ def shutdown_mdadm(device):
             raise OSError('Timeout exceeded for removal of %s', blockdev)
 
     except OSError:
-        LOG.info('Failed to stop mdadm device %s', device)
-        util.subp(['cat', '/proc/mdstat'])
+        LOG.critical('Failed to stop mdadm device %s', device)
+        if os.path.exists('/proc/mdstat'):
+            out, _ = util.subp(['cat', '/proc/mdstat'], capture=True)
+            LOG.critical(out)
         raise
 
 

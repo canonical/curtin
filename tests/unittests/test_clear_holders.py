@@ -376,6 +376,56 @@ class TestClearHolders(TestCase):
         mock_mdadm.md_present.assert_called_with(self.test_blockdev)
         self.assertTrue(mock_log.debug.called)
 
+    @mock.patch('curtin.block.clear_holders.os')
+    @mock.patch('curtin.block.clear_holders.time')
+    @mock.patch('curtin.block.clear_holders.util')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.mdadm')
+    @mock.patch('curtin.block.clear_holders.block')
+    def test_shutdown_mdadm_fail_raises_oserror(self, mock_block, mock_mdadm,
+                                                mock_log, mock_util, mock_time,
+                                                mock_os):
+        """test clear_holders.shutdown_mdadm raises OSError on failure"""
+        mock_block.sysfs_to_devpath.return_value = self.test_blockdev
+        mock_block.path_to_kname.return_value = self.test_blockdev
+        mock_mdadm.md_present.return_value = True
+        mock_util.subp.return_value = ("", "")
+        mock_os.path.exists.return_value = True
+
+        with self.assertRaises(OSError):
+            clear_holders.shutdown_mdadm(self.test_syspath)
+
+        mock_mdadm.mdadm_stop.assert_called_with(self.test_blockdev)
+        mock_mdadm.md_present.assert_called_with(self.test_blockdev)
+        mock_util.subp.assert_called_with(['cat', '/proc/mdstat'],
+                                          capture=True)
+        self.assertTrue(mock_log.debug.called)
+        self.assertTrue(mock_log.critical.called)
+
+    @mock.patch('curtin.block.clear_holders.os')
+    @mock.patch('curtin.block.clear_holders.time')
+    @mock.patch('curtin.block.clear_holders.util')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.mdadm')
+    @mock.patch('curtin.block.clear_holders.block')
+    def test_shutdown_mdadm_fails_no_proc_mdstat(self, mock_block, mock_mdadm,
+                                                 mock_log, mock_util,
+                                                 mock_time, mock_os):
+        """test clear_holders.shutdown_mdadm handles no /proc/mdstat"""
+        mock_block.sysfs_to_devpath.return_value = self.test_blockdev
+        mock_block.path_to_kname.return_value = self.test_blockdev
+        mock_mdadm.md_present.return_value = True
+        mock_os.path.exists.return_value = False
+
+        with self.assertRaises(OSError):
+            clear_holders.shutdown_mdadm(self.test_syspath)
+
+        mock_mdadm.mdadm_stop.assert_called_with(self.test_blockdev)
+        mock_mdadm.md_present.assert_called_with(self.test_blockdev)
+        self.assertEqual([], mock_util.subp.call_args_list)
+        self.assertTrue(mock_log.debug.called)
+        self.assertTrue(mock_log.critical.called)
+
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.block')
     def test_clear_holders_wipe_superblock(self, mock_block, mock_log):
