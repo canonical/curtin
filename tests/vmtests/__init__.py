@@ -528,7 +528,6 @@ class VMBaseClass(TestCase):
             logger.debug('Setting cpus to default value: %s', nr_cpus)
 
         return str(nr_cpus)
-        
 
     @classmethod
     def setUpClass(cls):
