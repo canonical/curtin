@@ -30,6 +30,9 @@ from curtin.block import lvm
 from curtin.block import mdadm
 from curtin.log import LOG
 
+# poll frequenty, but wait up to 60 seconds total
+MDADM_RELEASE_RETRIES = [0.4] * 150
+
 
 def _define_handlers_registry():
     """
@@ -189,13 +192,11 @@ def shutdown_mdadm(device):
     LOG.debug('using mdadm.mdadm_stop on dev: %s', blockdev)
     mdadm.mdadm_stop(blockdev)
 
-    # mdadm stop operation is asynchronous so we must wait for the kernel to 
+    # mdadm stop operation is asynchronous so we must wait for the kernel to
     # release resources. For more details see  lp:1682456
     try:
-        retries = [0.4] * 150  # 60 seconds total
-        for num, wait in enumerate(retries):
+        for num, wait in enumerate(MDADM_RELEASE_RETRIES):
             if mdadm.md_present(block.path_to_kname(blockdev)):
-                LOG.debug('sleeping %s', wait)
                 time.sleep(wait)
             else:
                 LOG.debug('%s has been removed', blockdev)
