@@ -299,11 +299,9 @@ def md_present(mdname):
     if not mdname:
         raise ValueError('md_present requires a valid md name')
 
-    # python2 and 3 differ on exceptions when failing to open a file
-    error_to_catch = getattr(__builtins__, 'FileNotFoundError', IOError)
     try:
         mdstat = util.load_file('/proc/mdstat')
-    except error_to_catch:
+    except IOError:
         LOG.warning('Failed to read /proc/mdstat; '
                     'md modules might not be loaded')
         return False

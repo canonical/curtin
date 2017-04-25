@@ -1012,9 +1012,7 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
 
     def test_md_present_no_proc_mdstat(self):
         mdname = 'md0'
-        # python2 and 3 differ on failure to open a file
-        error_to_raise = getattr(__builtins__, 'FileNotFoundError', IOError)
-        self.mock_util.side_effect = error_to_raise
+        self.mock_util.side_effect = IOError
 
         md_is_present = mdadm.md_present(mdname)
         self.assertFalse(md_is_present)
