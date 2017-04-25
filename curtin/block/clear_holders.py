@@ -189,16 +189,8 @@ def shutdown_mdadm(device):
     LOG.debug('using mdadm.mdadm_stop on dev: %s', blockdev)
     mdadm.mdadm_stop(blockdev)
 
-    # mdadm stop operation is asynchronous so we must wait
-    # for the kernel to release resources.  In some cases,
-    # for example when an array is syncing, the kernel md
-    # driver may leave kernel sysfs resources around which
-    # prevent /sys/class/block/mdX/ files from being removed.
-    # However, it does not interfere with subsequent arrays
-    # from using /dev/mdX.  Until a kernel driver fix[1] is applied
-    # and SRU'ed we instead check /proc/mdstat to see if an
-    # array has been stoppped.  This is handled in mdadm.md_present()
-    # 1. https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1682456
+    # mdadm stop operation is asynchronous so we must wait for the kernel to 
+    # release resources. For more details see  lp:1682456
     try:
         retries = [0.4] * 150  # 60 seconds total
         for num, wait in enumerate(retries):
