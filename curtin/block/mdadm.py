@@ -296,10 +296,21 @@ def mdadm_detail_scan():
 
 def md_present(mdname):
     """Check if mdname is present in /proc/mdstat"""
-    valid_mdname(mdname)
-    mdstat = util.load_file('/proc/mdstat')
+    if not mdname:
+        raise ValueError('md_present requires a valid md name')
+
+    # python2 and 3 differ on exceptions when failing to open a file
+    error_to_catch = getattr(__builtins__, 'FileNotFoundError', IOError)
+    try:
+        mdstat = util.load_file('/proc/mdstat')
+    except error_to_catch:
+        LOG.warning('Failed to read /proc/mdstat; '
+                    'md modules might not be loaded')
+        return False
+
+    md_kname = dev_short(mdname)
     present = [line for line in mdstat.splitlines()
-               if line.startswith(mdname)]
+               if line.startswith(md_kname)]
     if len(present) > 0:
         return True
     return False
