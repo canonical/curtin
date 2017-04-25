@@ -194,6 +194,27 @@ def subp(*args, **kwargs):
     return _subp(*args, **kwargs)
 
 
+def wait_for_removal(path, retries=[1, 3, 5, 7]):
+    if not path:
+        raise ValueError('wait_for_removal: missing path parameter')
+
+    # Retry with waits between checking for existence
+    LOG.debug('waiting for %s to be removed', path)
+    for num, wait in enumerate(retries):
+        if not os.path.exists(path):
+            LOG.debug('%s has been removed', path)
+            return
+        LOG.debug('sleeping %s', wait)
+        time.sleep(wait)
+
+    # final check
+    if not os.path.exists(path):
+        LOG.debug('%s has been removed', path)
+        return
+
+    raise OSError('Timeout exceeded for removal of %s', path)
+
+
 def load_command_environment(env=os.environ, strict=False):
 
     mapping = {'scratch': 'WORKING_DIR', 'fstab': 'OUTPUT_FSTAB',
@@ -204,7 +225,7 @@ def load_command_environment(env=os.environ, strict=False):
                'report_stack_prefix': 'CURTIN_REPORTSTACK'}
 
     if strict:
-        missing = [k for k in mapping if k not in env]
+        missing = [k for k in mapping.values() if k not in env]
         if len(missing):
             raise KeyError("missing environment vars: %s" % missing)
 

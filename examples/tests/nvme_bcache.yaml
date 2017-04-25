@@ -1,0 +1,114 @@
+showtrace: true
+storage:
+  config:
+  - grub_device: true
+    id: sda
+    model: LOGICAL VOLUME
+    name: sda
+    ptable: gpt
+    path: /dev/vdb
+    type: disk
+    wipe: superblock
+  - id: sdb
+    model: LOGICAL VOLUME
+    name: sdb
+    path: /dev/vdc
+    type: disk
+    wipe: superblock
+  - id: nvme0n1
+    model: INTEL SSDPEDME400G4
+    name: nvme0n1
+    ptable: gpt
+    path: /dev/nvme0n1
+    type: disk
+    wipe: superblock
+  - device: sda
+    flag: boot
+    id: sda-part1
+    name: sda-part1
+    number: 1
+    offset: 4194304B
+    size: 536870912B
+    type: partition
+    uuid: 9f0fda16-c096-4cee-82ac-4f5f294253a2
+    wipe: superblock
+  - device: sda
+    flag: boot
+    id: sda-part2
+    name: sda-part2
+    number: 2
+    size: 1G
+    type: partition
+    uuid: 7dbb079c-60e5-4900-b3ca-4a92c5cbd6d3
+    wipe: superblock
+  - device: sda
+    id: sda-part3
+    name: sda-part3
+    number: 3
+    size: 5G
+    type: partition
+    uuid: 560de16e-6dc1-4e85-8e66-aaf1062dabcd
+    wipe: superblock
+  - device: nvme0n1
+    id: nvme0n1-part1
+    name: nvme0n1-part1
+    number: 1
+    offset: 4194304B
+    size: 5G
+    type: partition
+    uuid: 9692359a-8a6d-4fa2-bbe6-48b97c4c8832
+    wipe: superblock
+  - backing_device: sda-part3
+    cache_device: nvme0n1-part1
+    cache_mode: writeback
+    id: bcache1
+    name: bcache1
+    type: bcache
+  - backing_device: sdb
+    cache_device: nvme0n1-part1
+    cache_mode: writeback
+    id: bcache2
+    name: bcache2
+    type: bcache
+  - fstype: fat32
+    id: sda-part1_format
+    label: efi
+    type: format
+    uuid: e23b3115-228d-410c-a2b0-5bffeaf1c1d0
+    volume: sda-part1
+  - fstype: ext4
+    id: sda-part2_format
+    label: boot
+    type: format
+    uuid: 8940edad-7882-4978-91a6-5f80f95ea4e8
+    volume: sda-part2
+  - fstype: ext4
+    id: bcache1_format
+    label: root
+    type: format
+    uuid: 627296af-d976-4baf-8abc-b388143d4dd3
+    volume: bcache1
+  - fstype: xfs
+    id: bcache2_format
+    label: ''
+    type: format
+    uuid: ada2cfb1-cfad-4d66-99ff-ea3e79790233
+    volume: bcache2
+  - device: bcache1_format
+    id: bcache1_mount
+    path: /
+    type: mount
+  - device: sda-part2_format
+    id: sda-part2_mount
+    path: /boot
+    type: mount
+  - device: sda-part1_format
+    id: sda-part1_mount
+    path: /boot/efi
+    type: mount
+  - device: bcache2_format
+    id: bcache2_mount
+    options: ''
+    path: /srv
+    type: mount
+  version: 1

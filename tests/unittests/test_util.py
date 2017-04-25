@@ -568,4 +568,119 @@ class TestIpAddress(TestCase):
         self.assertTrue(util.is_valid_ipv6_address(
             '2002:4559:1FE2:0000:0000:0000:4559:1FE2'))
 
+
+class TestLoadCommandEnvironment(TestCase):
+    def setUp(self):
+        self.tmpd = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmpd)
+        all_names = {
+            'CONFIG',
+            'OUTPUT_FSTAB',
+            'OUTPUT_INTERFACES',
+            'OUTPUT_NETWORK_CONFIG',
+            'OUTPUT_NETWORK_STATE',
+            'CURTIN_REPORTSTACK',
+            'WORKING_DIR',
+            'TARGET_MOUNT_POINT',
+        }
+        self.full_env = {v: os.path.join(self.tmpd, v.lower())
+                         for v in all_names}
+
+    def test_strict_with_missing(self):
+        my_env = self.full_env.copy()
+        del my_env['OUTPUT_FSTAB']
+        del my_env['WORKING_DIR']
+        exc = None
+        try:
+            util.load_command_environment(my_env, strict=True)
+        except KeyError as e:
+            self.assertIn("OUTPUT_FSTAB", str(e))
+            self.assertIn("WORKING_DIR", str(e))
+            exc = e
+
+        self.assertTrue(exc)
+
+    def test_nostrict_with_missing(self):
+        my_env = self.full_env.copy()
+        del my_env['OUTPUT_FSTAB']
+        try:
+            util.load_command_environment(my_env, strict=False)
+        except KeyError as e:
+            self.fail("unexpected key error raised: %s" % e)
+
+    def test_full_and_strict(self):
+        try:
+            util.load_command_environment(self.full_env, strict=False)
+        except KeyError as e:
+            self.fail("unexpected key error raised: %s" % e)
+
+
+class TestWaitForRemoval(TestCase):
+    def test_wait_for_removal_missing_path(self):
+        with self.assertRaises(ValueError):
+            util.wait_for_removal(None)
+
+    @mock.patch('curtin.util.time')
+    @mock.patch('curtin.util.os')
+    def test_wait_for_removal(self, mock_os, mock_time):
+        path = "/file/to/remove"
+        mock_os.path.exists.side_effect = iter([
+            True,    # File is not yet removed
+            False,   # File has  been removed
+        ])
+
+        util.wait_for_removal(path)
+
+        self.assertEqual(2, len(mock_os.path.exists.call_args_list))
+        self.assertEqual(1, len(mock_time.sleep.call_args_list))
+        mock_os.path.exists.assert_has_calls([
+            mock.call(path),
+            mock.call(path),
+        ])
+        mock_time.sleep.assert_has_calls([
+            mock.call(1),
+        ])
+
+    @mock.patch('curtin.util.time')
+    @mock.patch('curtin.util.os')
+    def test_wait_for_removal_timesout(self, mock_os, mock_time):
+        path = "/file/to/remove"
+        mock_os.path.exists.return_value = True
+
+        with self.assertRaises(OSError):
+            util.wait_for_removal(path)
+
+        self.assertEqual(5, len(mock_os.path.exists.call_args_list))
+        self.assertEqual(4, len(mock_time.sleep.call_args_list))
+        mock_os.path.exists.assert_has_calls(5 * [mock.call(path)])
+        mock_time.sleep.assert_has_calls([
+            mock.call(1),
+            mock.call(3),
+            mock.call(5),
+            mock.call(7),
+        ])
+
+    @mock.patch('curtin.util.time')
+    @mock.patch('curtin.util.os')
+    def test_wait_for_removal_custom_retry(self, mock_os, mock_time):
+        path = "/file/to/remove"
+        timeout = 100
+        mock_os.path.exists.side_effect = iter([
+            True,    # File is not yet removed
+            False,   # File has  been removed
+        ])
+
+        util.wait_for_removal(path, retries=[timeout])
+
+        self.assertEqual(2, len(mock_os.path.exists.call_args_list))
+        self.assertEqual(1, len(mock_time.sleep.call_args_list))
+        mock_os.path.exists.assert_has_calls([
+            mock.call(path),
+            mock.call(path),
+        ])
+        mock_time.sleep.assert_has_calls([
+            mock.call(timeout),
+        ])
+
+
 # vi: ts=4 expandtab syntax=python

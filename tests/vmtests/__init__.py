@@ -368,6 +368,10 @@ class VMBaseClass(TestCase):
         return None
 
     @classmethod
+    def collect_output(cls):
+        cls.td.collect_output()
+
+    @classmethod
     def get_test_files(cls):
         # get local absolute filesystem paths for each of the needed file types
         img_verstr, ftypes = get_images(
@@ -850,10 +854,15 @@ class VMBaseClass(TestCase):
 
         # mount output disk
         try:
-            cls.td.collect_output()
-        except Exception:
+            cls.collect_output()
+        except Exception as e:
             cls.tearDownClass()
             raise
+
+        # capture curtin install log and webhook timings
+        util.subp(["tools/curtin-log-print", "--dumpfiles", cls.td.logs,
+                   cls.reporting_log], capture=True)
+
         logger.info(
             "%s: setUpClass finished. took %.02f seconds. Running testcases.",
             cls.__name__, time.time() - setup_start)
@@ -1134,11 +1143,17 @@ class PsuedoVMBaseClass(VMBaseClass):
     allow_test_fails = get_env_var_bool('CURTIN_VMTEST_DEBUG_ALLOW_FAIL',
                                         False)
 
-    def collect_output(self):
+    @classmethod
+    def collect_output(cls):
         logger.debug('Psuedo extracting output disk')
-        with open(os.path.join(self.td.collect, "fstab")) as fp:
+        with open(os.path.join(cls.td.collect, "fstab"), "w") as fp:
             fp.write('\n'.join(("# psuedo fstab",
                                 "LABEL=root / ext4 defaults 0 1")))
+
+        logger.debug('Psudeo webhooks-events.json')
+        webhooks = os.path.join(cls.td.logs, 'webhooks-events.json')
+        with open(webhooks, "w") as fp:
+            fp.write('[]')
 
     @classmethod
     def get_test_files(cls):
