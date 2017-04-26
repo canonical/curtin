@@ -301,10 +301,13 @@ def md_present(mdname):
 
     try:
         mdstat = util.load_file('/proc/mdstat')
-    except IOError:
-        LOG.warning('Failed to read /proc/mdstat; '
-                    'md modules might not be loaded')
-        return False
+    except IOError as e:
+        if util.is_file_not_found_exc(e):
+            LOG.warning('Failed to read /proc/mdstat; '
+                        'md modules might not be loaded')
+            return False
+        else:
+            raise e
 
     md_kname = dev_short(mdname)
     present = [line for line in mdstat.splitlines()

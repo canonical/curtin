@@ -397,8 +397,7 @@ class TestClearHolders(TestCase):
 
         mock_mdadm.mdadm_stop.assert_called_with(self.test_blockdev)
         mock_mdadm.md_present.assert_called_with(self.test_blockdev)
-        mock_util.subp.assert_called_with(['cat', '/proc/mdstat'],
-                                          capture=True)
+        mock_util.load_file.assert_called_with('/proc/mdstat')
         self.assertTrue(mock_log.debug.called)
         self.assertTrue(mock_log.critical.called)
 
