@@ -738,7 +738,7 @@ def ubuntu_core_curthooks(cfg, target=None):
         ubuntu_core_netconfig = os.path.join(cc_target,
                                              "50-network-config.cfg")
         util.write_file(ubuntu_core_netconfig,
-                        content=config.dump_config(netconfig))
+                        content=config.dump_config({'network': netconfig}))
 
 
 def target_is_ubuntu_core(target):
