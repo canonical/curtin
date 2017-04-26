@@ -195,7 +195,7 @@ def shutdown_mdadm(device):
     # mdadm stop operation is asynchronous so we must wait for the kernel to
     # release resources. For more details see  lp:1682456
     try:
-        for num, wait in enumerate(MDADM_RELEASE_RETRIES):
+        for wait in MDADM_RELEASE_RETRIES:
             if mdadm.md_present(block.path_to_kname(blockdev)):
                 time.sleep(wait)
             else:
