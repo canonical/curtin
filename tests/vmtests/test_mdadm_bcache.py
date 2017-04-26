@@ -145,6 +145,10 @@ class ZestyTestMdadmBcache(relbase.zesty, TestMdadmBcacheAbs):
     __test__ = True
 
 
+class ArtfulTestMdadmBcache(relbase.artful, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot.yaml"
@@ -187,6 +191,10 @@ class YakketyTestMirrorboot(relbase.yakkety, TestMirrorbootAbs):
 
 
 class ZestyTestMirrorboot(relbase.zesty, TestMirrorbootAbs):
+    __test__ = True
+
+
+class ArtfulTestMirrorboot(relbase.artful, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -234,6 +242,11 @@ class ZestyTestMirrorbootPartitions(relbase.zesty,
     __test__ = True
 
 
+class ArtfulTestMirrorbootPartitions(relbase.artful,
+                                     TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
@@ -277,6 +290,10 @@ class YakketyTestRaid5boot(relbase.yakkety, TestRaid5bootAbs):
 
 
 class ZestyTestRaid5boot(relbase.zesty, TestRaid5bootAbs):
+    __test__ = True
+
+
+class ArtfulTestRaid5boot(relbase.artful, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -338,6 +355,10 @@ class ZestyTestRaid6boot(relbase.zesty, TestRaid6bootAbs):
     __test__ = True
 
 
+class ArtfulTestRaid6boot(relbase.artful, TestRaid6bootAbs):
+    __test__ = True
+
+
 class TestRaid10bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid10boot.yaml"
@@ -381,6 +402,10 @@ class YakketyTestRaid10boot(relbase.yakkety, TestRaid10bootAbs):
 
 
 class ZestyTestRaid10boot(relbase.zesty, TestRaid10bootAbs):
+    __test__ = True
+
+
+class ArtfulTestRaid10boot(relbase.artful, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -484,4 +509,8 @@ class YakketyTestAllindata(relbase.yakkety, TestAllindataAbs):
 
 
 class ZestyTestAllindata(relbase.zesty, TestAllindataAbs):
+    __test__ = True
+
+
+class ArtfulTestAllindata(relbase.artful, TestAllindataAbs):
     __test__ = True
