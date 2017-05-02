@@ -656,46 +656,6 @@ network:
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
 
-    @mock.patch('curtin.util.get_package_version')
-    def test_netconfig_passthrough_available(self, mock_pkgver):
-        mock_pkgver.return_value = {
-            'major': '0',
-            'minor': '7',
-            'micro': '8',
-            'name': 'cloud-init',
-            'raw': '0.7.8-15-g6e45ffb-0ubuntu1',
-            'semantic_version': 708,
-            'upstream': '0.7.8'
-        }
-        pt_avail = net.netconfig_passthrough_available(self.target)
-        self.assertTrue(pt_avail)
-
-    @mock.patch('curtin.util.get_package_version')
-    def test_netconfig_passthrough_available_older(self, mock_pkgver):
-        mock_pkgver.return_value = {
-            'major': '0',
-            'minor': '7',
-            'micro': '5',
-            'name': 'cloud-init',
-            'raw': '0.7.5-1-0ubuntu1',
-            'semantic_version': 705,
-            'upstream': '0.7.5'
-        }
-        pt_avail = net.netconfig_passthrough_available(self.target)
-        self.assertFalse(pt_avail)
-
-    @mock.patch('curtin.util.get_package_version')
-    def test_netconfig_passthrough_available_none(self, mock_pkgver):
-        mock_pkgver.return_value = None
-        pt_avail = net.netconfig_passthrough_available(self.target)
-        self.assertFalse(pt_avail)
-
-    @mock.patch('curtin.util.get_package_version')
-    def test_netconfig_passthrough_available_nondict(self, mock_pkgver):
-        mock_pkgver.return_value = []
-        pt_avail = net.netconfig_passthrough_available(self.target)
-        self.assertFalse(pt_avail)
-
     @mock.patch('curtin.util.write_file')
     def test_render_netconfig_passthrough(self, mock_writefile):
         netcfg = yaml.safe_load(self.config)
