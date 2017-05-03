@@ -176,7 +176,6 @@ class TestApplyNet(ApplyNetTestBase):
         self.mock_ipv6_priv.assert_called_with(self.target)
         self.mock_ipv6_mtu.assert_called_with(self.target)
 
-
     def test_apply_net_disable_passthrough(self):
         nc = copy.deepcopy(self.network_config)
         nc['network']['passthrough'] = False
