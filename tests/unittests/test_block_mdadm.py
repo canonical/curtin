@@ -5,6 +5,7 @@ from curtin.block import mdadm
 from curtin import util
 import os
 import subprocess
+import textwrap
 
 
 class MdadmTestBase(TestCase):
@@ -348,7 +349,7 @@ class TestBlockMdadmStop(MdadmTestBase):
         device = "/dev/vdc"
         mdadm.mdadm_stop(device)
         expected_calls = [
-            call(["mdadm", "--stop", device], capture=True),
+            call(["mdadm", "--manage", "--stop", device], capture=True)
         ]
         self.mock_util.subp.assert_has_calls(expected_calls)
 
@@ -943,5 +944,97 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         with self.assertRaises(ValueError):
             mdadm.md_check(md_devname, raidlevel, devices=devices,
                            spares=spares)
+
+    def test_md_present(self):
+        mdname = 'md0'
+        self.mock_util.load_file.return_value = textwrap.dedent("""
+        Personalities : [raid1] [linear] [multipath] [raid0] [raid6] [raid5]
+        [raid4] [raid10]
+        md0 : active raid1 vdc1[1] vda2[0]
+              3143680 blocks super 1.2 [2/2] [UU]
+
+        unused devices: <none>
+        """)
+
+        md_is_present = mdadm.md_present(mdname)
+
+        self.assertTrue(md_is_present)
+        self.mock_util.load_file.assert_called_with('/proc/mdstat')
+
+    def test_md_present_not_found(self):
+        mdname = 'md1'
+        self.mock_util.load_file.return_value = textwrap.dedent("""
+        Personalities : [raid1] [linear] [multipath] [raid0] [raid6] [raid5]
+        [raid4] [raid10]
+        md0 : active raid1 vdc1[1] vda2[0]
+              3143680 blocks super 1.2 [2/2] [UU]
+
+        unused devices: <none>
+        """)
+
+        md_is_present = mdadm.md_present(mdname)
+
+        self.assertFalse(md_is_present)
+        self.mock_util.load_file.assert_called_with('/proc/mdstat')
+
+    def test_md_present_not_found_check_matching(self):
+        mdname = 'md1'
+        found_mdname = 'md10'
+        self.mock_util.load_file.return_value = textwrap.dedent("""
+        Personalities : [raid1] [linear] [multipath] [raid0] [raid6] [raid5]
+        [raid4] [raid10]
+        md10 : active raid1 vdc1[1] vda2[0]
+               3143680 blocks super 1.2 [2/2] [UU]
+
+        unused devices: <none>
+        """)
+
+        md_is_present = mdadm.md_present(mdname)
+
+        self.assertFalse(md_is_present,
+                         "%s mistakenly matched %s" % (mdname, found_mdname))
+        self.mock_util.load_file.assert_called_with('/proc/mdstat')
+
+    def test_md_present_with_dev_path(self):
+        mdname = '/dev/md0'
+        self.mock_util.load_file.return_value = textwrap.dedent("""
+        Personalities : [raid1] [linear] [multipath] [raid0] [raid6] [raid5]
+        [raid4] [raid10]
+        md0 : active raid1 vdc1[1] vda2[0]
+              3143680 blocks super 1.2 [2/2] [UU]
+
+        unused devices: <none>
+        """)
+
+        md_is_present = mdadm.md_present(mdname)
+
+        self.assertTrue(md_is_present)
+        self.mock_util.load_file.assert_called_with('/proc/mdstat')
+
+    def test_md_present_none(self):
+        mdname = ''
+        self.mock_util.load_file.return_value = textwrap.dedent("""
+        Personalities : [raid1] [linear] [multipath] [raid0] [raid6] [raid5]
+        [raid4] [raid10]
+        md0 : active raid1 vdc1[1] vda2[0]
+              3143680 blocks super 1.2 [2/2] [UU]
+
+        unused devices: <none>
+        """)
+
+        with self.assertRaises(ValueError):
+            mdadm.md_present(mdname)
+
+        # util.load_file should NOT have been called
+        self.assertEqual([], self.mock_util.call_args_list)
+
+    def test_md_present_no_proc_mdstat(self):
+        mdname = 'md0'
+        self.mock_util.side_effect = IOError
+
+        md_is_present = mdadm.md_present(mdname)
+        self.assertFalse(md_is_present)
+        self.mock_util.load_file.assert_called_with('/proc/mdstat')
+
 
 # vi: ts=4 expandtab syntax=python

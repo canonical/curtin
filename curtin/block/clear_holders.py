@@ -23,11 +23,15 @@ having to reboot the system
 
 import errno
 import os
+import time
 
 from curtin import (block, udev, util)
 from curtin.block import lvm
 from curtin.block import mdadm
 from curtin.log import LOG
+
+# poll frequenty, but wait up to 60 seconds total
+MDADM_RELEASE_RETRIES = [0.4] * 150
 
 
 def _define_handlers_registry():
@@ -187,7 +191,25 @@ def shutdown_mdadm(device):
     blockdev = block.sysfs_to_devpath(device)
     LOG.debug('using mdadm.mdadm_stop on dev: %s', blockdev)
     mdadm.mdadm_stop(blockdev)
-    mdadm.mdadm_remove(blockdev)
+
+    # mdadm stop operation is asynchronous so we must wait for the kernel to
+    # release resources. For more details see  LP: #1682456
+    try:
+        for wait in MDADM_RELEASE_RETRIES:
+            if mdadm.md_present(block.path_to_kname(blockdev)):
+                time.sleep(wait)
+            else:
+                LOG.debug('%s has been removed', blockdev)
+                break
+
+        if mdadm.md_present(block.path_to_kname(blockdev)):
+            raise OSError('Timeout exceeded for removal of %s', blockdev)
+
+    except OSError:
+        LOG.critical('Failed to stop mdadm device %s', device)
+        if os.path.exists('/proc/mdstat'):
+            LOG.critical("/proc/mdstat:\n%s", util.load_file('/proc/mdstat'))
+        raise
 
 
 def wipe_superblock(device):
