@@ -10,10 +10,6 @@ early_commands:
               TARGET_MOUNT_POINT=/tmp/my.bdir/target,
               WORKING_DIR=/tmp/my.bdir/work.d, 
               curtin, --showtrace, -v, block-meta, --umount, custom]
-late_commands:
-  ccc: [dmesg]
-  ddd: [cat, /proc/mounts]
-  eee: [cat, /proc/mdstat]
 
 storage:
   config:
