@@ -977,6 +977,24 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         self.assertFalse(md_is_present)
         self.mock_util.load_file.assert_called_with('/proc/mdstat')
 
+    def test_md_present_not_found_check_matching(self):
+        mdname = 'md1'
+        found_mdname = 'md10' 
+        self.mock_util.load_file.return_value = textwrap.dedent("""
+        Personalities : [raid1] [linear] [multipath] [raid0] [raid6] [raid5]
+        [raid4] [raid10]
+        md10 : active raid1 vdc1[1] vda2[0]
+               3143680 blocks super 1.2 [2/2] [UU]
+
+        unused devices: <none>
+        """)
+
+        md_is_present = mdadm.md_present(mdname)
+
+        self.assertFalse(md_is_present,
+                         "%s mistakenly matched %s" %(mdname, found_mdname))
+        self.mock_util.load_file.assert_called_with('/proc/mdstat')
+
     def test_md_present_with_dev_path(self):
         mdname = '/dev/md0'
         self.mock_util.load_file.return_value = textwrap.dedent("""

@@ -310,8 +310,10 @@ def md_present(mdname):
             raise e
 
     md_kname = dev_short(mdname)
+    # Find lines like:
+    # md10 : active raid1 vdc1[1] vda2[0]
     present = [line for line in mdstat.splitlines()
-               if line.startswith(md_kname)]
+               if line.split(":")[0].rstrip() == md_kname]
     if len(present) > 0:
         return True
     return False
