@@ -534,14 +534,20 @@ def netconfig_passthrough_available(target, feature='NETWORK_CONFIG_V2'):
             (out, _) = in_chroot.subp(cmd, capture=True)
             return out.strip()
 
-        cloud_init_path = util.which('cloud-init', target=target)
-        if not cloud_init_path:
-            LOG.debug('cloud-init not available in target=%s', target)
+        python = util.which('python3', target=target)
+        if not python:
+            python = util.which('python', target=target)
+            if not python:
+                LOG.warning('Target does not have python interpreter')
+                return False
+
+        try:
+            feature_available = run_cmd([python, '-c', cmd])
+        except util.ProcessExecutionError:
+            print('wark')
+            LOG.exception("An error occurred while probing cloudinit features")
             return False
 
-        script_shebang = run_cmd(['head', '-n1', cloud_init_path])
-        python = script_shebang.split('/')[-1]
-        feature_available = run_cmd([python, '-c', cmd])
         available = config.value_as_boolean(feature_available)
         LOG.debug('%s available? %s', feature, available)
         return available
