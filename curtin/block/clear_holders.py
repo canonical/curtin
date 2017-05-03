@@ -208,8 +208,7 @@ def shutdown_mdadm(device):
     except OSError:
         LOG.critical('Failed to stop mdadm device %s', device)
         if os.path.exists('/proc/mdstat'):
-            out = util.load_file('/proc/mdstat')
-            LOG.critical(out)
+            LOG.critical("/proc/mdstat:\n%s", util.load_file('/proc/mdstat'))
         raise
 
 
