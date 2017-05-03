@@ -2,7 +2,7 @@ from . import VMBaseClass, logger, helpers
 from .releases import base_vm_classes as relbase
 
 from unittest import SkipTest
-from curtin import net, util, config
+from curtin import config
 
 import glob
 import ipaddress
@@ -39,6 +39,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         dpkg-query -W -f '${Version}' cloud-init |tee dpkg_cloud-init_version
         dpkg-query -W -f '${Version}' nplan |tee dpkg_nplan_version
         dpkg-query -W -f '${Version}' systemd |tee dpkg_systemd_version
+        V=/usr/lib/python*/dist-packages/cloudinit/version.py;
+        grep -c NETWORK_CONFIG_V2 $V > cloudinit_passthrough_available
         mkdir -p etc_netplan
         cp -av /etc/netplan/* ./etc_netplan/ ||:
         networkctl |tee networkctl
@@ -112,13 +114,10 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         cc_disabled = 'cloud.cfg.d/curtin-disable-cloudinit-networking.cfg'
         cc_passthrough = "cloud.cfg.d/curtin-networking.cfg"
 
-        print('loading collected cloud-init dpkg version string')
-        version_string = self.load_collect_file('dpkg_cloud-init_version')
-        print('c-i version: %s' % version_string)
-        pkg_ver = util.parse_dpkg_version(version_string)
-        print('parsed:\n%s' % pkg_ver)
+        avail_str = self.load_collect_file('cloudinitpassthrough_available')
+        available = int(avail_str) == 1
+        print('avail_str=%s available=%s' % (avail_str, available))
 
-        available = net.netconfig_passthrough_available(None, pkg_ver=pkg_ver)
         if available:
             print('passthrough was available')
             pt_file = os.path.join(self.td.collect, 'etc_cloud',
