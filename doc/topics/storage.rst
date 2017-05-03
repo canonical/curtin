@@ -95,10 +95,12 @@ extensions from Debian for supporting authentication:
 - ``ipassword``: Password to authenticate with, if needed, for iSCSI
   target authentication. Only CHAP authentication is supported at this
   time.
+
 .. note::
 
   Curtin will treat it as an error if the user and password are not both
   specified for initiator and target authentication.
+
 - ``host``: iSCSI server hosting the specified target. It can be a
   hostname, IPv4 or IPv6 address. If specified as an IPv6 address, it
   must be specified as ``[address]``.
@@ -111,6 +113,7 @@ extensions from Debian for supporting authentication:
   specified, ``0`` is assumed.
 - ``targetname``: Specifies the iSCSI target to connect to, by its name
   on the iSCSI server.
+
 .. note::
 
   Curtin will treat it as an error if the host and targetname are not
