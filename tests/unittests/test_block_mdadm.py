@@ -979,7 +979,7 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
 
     def test_md_present_not_found_check_matching(self):
         mdname = 'md1'
-        found_mdname = 'md10' 
+        found_mdname = 'md10'
         self.mock_util.load_file.return_value = textwrap.dedent("""
         Personalities : [raid1] [linear] [multipath] [raid0] [raid6] [raid5]
         [raid4] [raid10]
@@ -992,7 +992,7 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         md_is_present = mdadm.md_present(mdname)
 
         self.assertFalse(md_is_present,
-                         "%s mistakenly matched %s" %(mdname, found_mdname))
+                         "%s mistakenly matched %s" % (mdname, found_mdname))
         self.mock_util.load_file.assert_called_with('/proc/mdstat')
 
     def test_md_present_with_dev_path(self):
