@@ -331,13 +331,20 @@ class TestBlockMdadmExamine(MdadmTestBase):
 class TestBlockMdadmStop(MdadmTestBase):
     def setUp(self):
         super(TestBlockMdadmStop, self).setUp()
-        self.add_patch('curtin.block.mdadm.util', 'mock_util')
+        self.add_patch('curtin.block.mdadm.util.lsb_release', 'mock_util_lsb')
+        self.add_patch('curtin.block.mdadm.util.subp', 'mock_util_subp')
+        self.add_patch('curtin.block.mdadm.util.write_file',
+                       'mock_util_write_file')
         self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
+        self.add_patch('curtin.block.mdadm.sys_block_path',
+                       'mock_sys_block_path')
+        self.add_patch('curtin.block.mdadm.md_sysfs_attr',
+                       'mock_md_sysfs_attr')
 
         # Common mock settings
         self.mock_valid.return_value = True
-        self.mock_util.lsb_release.return_value = {'codename': 'xenial'}
-        self.mock_util.subp.side_effect = [
+        self.mock_util_lsb.return_value = {'codename': 'xenial'}
+        self.mock_util_subp.side_effect = [
             ("", ""),  # mdadm stop device
         ]
 
@@ -346,12 +353,13 @@ class TestBlockMdadmStop(MdadmTestBase):
             mdadm.mdadm_stop(None)
 
     def test_mdadm_stop(self):
-        device = "/dev/vdc"
+        device = "/dev/md0"
+        self.mock_sys_block_path.return_value = device.split("/")[-1]
         mdadm.mdadm_stop(device)
         expected_calls = [
             call(["mdadm", "--manage", "--stop", device], capture=True)
         ]
-        self.mock_util.subp.assert_has_calls(expected_calls)
+        self.mock_util_subp.assert_has_calls(expected_calls)
 
 
 class TestBlockMdadmRemove(MdadmTestBase):

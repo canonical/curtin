@@ -253,13 +253,49 @@ def mdadm_examine(devpath, export=MDADM_USE_EXPORT):
     return data
 
 
-def mdadm_stop(devpath):
+def mdadm_stop(devpath, retries=None):
     assert_valid_devpath(devpath)
+    if not retries:
+        retries = [0.2] * 60
+
+    md_kname = dev_short(devpath)
+    sync_action = md_sysfs_attr_path(md_kname, 'sync_action')
+    sync_max = md_sysfs_attr_path(md_kname, 'sync_max')
+    sync_min = md_sysfs_attr_path(md_kname, 'sync_min')
 
     LOG.info("mdadm stopping: %s" % devpath)
-    out, err = util.subp(["mdadm", "--manage", "--stop", devpath],
-                         capture=True)
-    LOG.debug("mdadm stop:\n%s\n%s", out, err)
+    for (attempt, wait) in enumerate(retries):
+        try:
+            LOG.debug('mdadm stop on %s attempt %s', devpath, attempt)
+            # An array in 'resync' state may not be stoppable, attempt to 
+            # cancel an ongoing resync
+            if md_sysfs_attr(md_kname, 'sync_action') != "idle":
+                LOG.debug("mdadm: setting array sync_action=idle")
+                util.write_file(sync_action, content="idle")
+
+            # Setting the sync_{max,min} may can help prevent the array from
+            # changing back to 'resync' which may prevent the array from being
+            # stopped
+            if md_sysfs_attr(md_kname, 'sync_max') != "0":
+                LOG.debug("mdadm: setting array sync_{min,max}=0")
+                util.write_file(sync_max, content="0")
+                util.write_file(sync_min, content="0")
+            
+            # one wonders why this command doesn't do any of the above itself?
+            out, err = util.subp(["mdadm", "--manage", "--stop", devpath],
+                                 capture=True)
+            LOG.debug("mdadm stop:\n%s\n%s", out, err)
+            return
+
+        except util.ProcessExecutionError:
+            LOG.debug("mdadm stop:\n%s\n%s", out, err)
+            if os.path.exists('/proc/mdstat'):
+                LOG.critical("/proc/mdstat:\n%s",
+                             util.load_file('/proc/mdstat'))
+            LOG.debug("mdadm stop failed, retrying in %s seconds", wait)
+            time.sleep(wait)
+
+    raise OSError('Failed to stop mdadm device %s', devpath)
 
 
 def mdadm_remove(devpath):
@@ -341,16 +377,20 @@ def assert_valid_devpath(devpath):
         raise ValueError("Invalid devpath: '%s'" % devpath)
 
 
-def md_sysfs_attr(md_devname, attrname):
-    if not valid_mdname(md_devname):
-        raise ValueError('Invalid md devicename: [{}]'.format(md_devname))
-
-    attrdata = ''
+def md_sysfs_attr_path(md_devname, attrname):
     #  /sys/class/block/<md_short>/md
     sysmd = sys_block_path(md_devname, "md")
 
     #  /sys/class/block/<md_short>/md/attrname
-    sysfs_attr_path = os.path.join(sysmd, attrname)
+    return os.path.join(sysmd, attrname)
+
+
+def md_sysfs_attr(md_devname, attrname):
+    attrdata = ''
+    if not valid_mdname(md_devname):
+        raise ValueError('Invalid md devicename: [{}]'.format(md_devname))
+
+    sysfs_attr_path = md_sysfs_attr_path(md_devname, attrname)
     if os.path.isfile(sysfs_attr_path):
         attrdata = util.load_file(sysfs_attr_path).strip()
 
