@@ -110,36 +110,48 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             print('expected line:\n%s' % line)
             self.assertTrue(line in eni_lines)
 
-    def test_network_passthrough(self):
-        cc_disabled = 'cloud.cfg.d/curtin-disable-cloudinit-networking.cfg'
+    def test_cloudinit_network_passthrough(self):
         cc_passthrough = "cloud.cfg.d/curtin-networking.cfg"
 
         avail_str = self.load_collect_file('cloudinit_passthrough_available')
         available = int(avail_str) == 1
         print('avail_str=%s available=%s' % (avail_str, available))
 
+        if not available:
+            raise SkipTest('not available on %s', self.__class__)
+
+        print('passthrough was available')
+        pt_file = os.path.join(self.td.collect, 'etc_cloud',
+                               cc_passthrough)
+        print('checking if passthrough file written: %s' % pt_file)
+        self.assertTrue(os.path.exists(pt_file))
+
+        # compare
+        original = {'network':
+                    config.load_config(self.conf_file).get('network')}
+        intarget = config.load_config(pt_file)
+        self.assertEqual(original, intarget)
+
+    def test_cloudinit_network_disabled(self):
+        cc_disabled = 'cloud.cfg.d/curtin-disable-cloudinit-networking.cfg'
+
+        avail_str = self.load_collect_file('cloudinit_passthrough_available')
+        available = int(avail_str) == 1
+        print('avail_str=%s available=%s' % (avail_str, available))
+
         if available:
-            print('passthrough was available')
-            pt_file = os.path.join(self.td.collect, 'etc_cloud',
-                                   cc_passthrough)
-            print('checking if passthrough file written: %s' % pt_file)
-            self.assertTrue(os.path.exists(pt_file))
+            raise SkipTest('passthrough available on %s', self.__class__)
 
-            # compare
-            original = {'network':
-                        config.load_config(self.conf_file).get('network')}
-            intarget = config.load_config(pt_file)
-        else:
-            print('passthrough not available')
-            cc_disable_file = os.path.join(self.td.collect, 'etc_cloud',
-                                           cc_disabled)
-            print('checking if network:disable file written: %s' %
-                  cc_disable_file)
-            self.assertTrue(os.path.exists(cc_disable_file))
+        print('passthrough not available')
+        cc_disable_file = os.path.join(self.td.collect, 'etc_cloud',
+                                       cc_disabled)
+        print('checking if network:disable file written: %s' %
+              cc_disable_file)
+        self.assertTrue(os.path.exists(cc_disable_file))
 
-            # compare
-            original = {'network': {'config': 'disabled'}}
-            intarget = config.load_config(cc_disable_file)
+        # compare
+        original = {'network': {'config': 'disabled'}}
+        intarget = config.load_config(cc_disable_file)
 
         print('checking cloud-init network-cfg content')
         self.assertEqual(original, intarget)
