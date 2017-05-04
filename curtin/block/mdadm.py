@@ -258,10 +258,9 @@ def mdadm_stop(devpath, retries=None):
     if not retries:
         retries = [0.2] * 60
 
-    md_kname = dev_short(devpath)
-    sync_action = md_sysfs_attr_path(md_kname, 'sync_action')
-    sync_max = md_sysfs_attr_path(md_kname, 'sync_max')
-    sync_min = md_sysfs_attr_path(md_kname, 'sync_min')
+    sync_action = md_sysfs_attr_path(devpath, 'sync_action')
+    sync_max = md_sysfs_attr_path(devpath, 'sync_max')
+    sync_min = md_sysfs_attr_path(devpath, 'sync_min')
 
     LOG.info("mdadm stopping: %s" % devpath)
     for (attempt, wait) in enumerate(retries):
@@ -269,14 +268,14 @@ def mdadm_stop(devpath, retries=None):
             LOG.debug('mdadm stop on %s attempt %s', devpath, attempt)
             # An array in 'resync' state may not be stoppable, attempt to 
             # cancel an ongoing resync
-            if md_sysfs_attr(md_kname, 'sync_action') != "idle":
+            if md_sysfs_attr(devpath, 'sync_action') != "idle":
                 LOG.debug("mdadm: setting array sync_action=idle")
                 util.write_file(sync_action, content="idle")
 
             # Setting the sync_{max,min} may can help prevent the array from
             # changing back to 'resync' which may prevent the array from being
             # stopped
-            if md_sysfs_attr(md_kname, 'sync_max') != "0":
+            if md_sysfs_attr(devpath, 'sync_max') != "0":
                 LOG.debug("mdadm: setting array sync_{min,max}=0")
                 util.write_file(sync_max, content="0")
                 util.write_file(sync_min, content="0")
