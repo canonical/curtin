@@ -534,13 +534,13 @@ def netconfig_passthrough_available(target, feature='NETWORK_CONFIG_V2'):
             (out, _) = in_chroot.subp(cmd, capture=True)
             return out.strip()
 
-        python = util.which('python3', target=target)
-        if not python:
-            python = util.which('python', target=target)
-            if not python:
-                LOG.warning('Target does not have python interpreter')
-                return False
+        cloudinit = util.which('cloud-init', target=target)
+        if not cloudinit:
+            LOG.warning('Target does not have cloud-init installed')
+            return False
 
+        python = util.load_file(
+            util.target_path(target, path=cloudinit)).splitlines()[0]
         try:
             feature_available = run_cmd([python, '-c', cmd])
         except util.ProcessExecutionError:
