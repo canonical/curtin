@@ -57,6 +57,7 @@ _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
 _INSTALLED_MAIN = '/usr/bin/curtin'
 
 _LSB_RELEASE = {}
+_HAS_UNSHARE_PID = None
 
 _DNS_REDIRECT_IP = None
 
@@ -79,7 +80,7 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
     has_unshare = None
     euid = os.geteuid()
     if unshare_pid is None:
-        if tpath == "/" and euid == 0:
+        if tpath != "/" and euid == 0:
             has_unshare = _has_unshare_pid()
             if has_unshare:
                 unshare_pid = True
@@ -155,12 +156,18 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
 
 
 def _has_unshare_pid():
+    global _HAS_UNSHARE_PID
+    if _HAS_UNSHARE_PID is not None:
+        return _HAS_UNSHARE_PID
+
     if not which('unshare'):
+        _HAS_UNSHARE_PID = False
         return False
     out, err = subp(["unshare", "--help"], capture=True, decode=False,
                     unshare_pid=False)
     joined = b'\n'.join([out, err])
-    return b'--fork' in joined and b'--pid' in joined
+    _HAS_UNSHARE_PID = b'--fork' in joined and b'--pid' in joined
+    return _HAS_UNSHARE_PID
 
 
 def subp(*args, **kwargs):
