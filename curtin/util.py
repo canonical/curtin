@@ -72,9 +72,10 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
     devnull_fp = None
 
     tpath = target_path(target)
+    chroot_args = [] if tpath == "/" else ['chroot', target]
 
-    # unshare_pid is None, then use unshare_pid if 
-    #  euid is 0, command is available, and chroot would be used.
+    # if unshare_pid is None, then:
+    #  use unshare_pid if euid is 0, 'unshare' is available, and target != /
     has_unshare = None
     euid = os.geteuid()
     if unshare_pid is None:
@@ -95,10 +96,9 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
                 "subp given unshare_pid=%s but no unshare command (cmd=%s)" %
                 (unshare_pid, args))
 
-        args = ['unshare', '--fork', '--pid', '--']
+    unshare_args = ['unshare', '--fork', '--pid', '--'] if unshare_pid else []
 
-    if tpath != "/":
-        args = ['chroot', target] + list(args)
+    args = unshare_args + chroot_args + list(args)
 
     if not logstring:
         LOG.debug(("Running command %s with allowed return codes %s"
@@ -160,7 +160,7 @@ def _has_unshare_pid():
     out, err = subp(["unshare", "--help"], capture=True, decode=False,
                     unshare_pid=False)
     joined = b'\n'.join([out, err])
-    return '--fork' in joined and '--pid' in joined
+    return b'--fork' in joined and b'--pid' in joined
 
 
 def subp(*args, **kwargs):
