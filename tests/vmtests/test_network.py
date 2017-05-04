@@ -118,7 +118,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         print('avail_str=%s available=%s' % (avail_str, available))
 
         if not available:
-            raise SkipTest('not available on %s', self.__class__)
+            raise SkipTest('not available on %s' % self.__class__)
 
         print('passthrough was available')
         pt_file = os.path.join(self.td.collect, 'etc_cloud',
@@ -140,7 +140,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         print('avail_str=%s available=%s' % (avail_str, available))
 
         if available:
-            raise SkipTest('passthrough available on %s', self.__class__)
+            raise SkipTest('passthrough available on %s' % self.__class__)
 
         print('passthrough not available')
         cc_disable_file = os.path.join(self.td.collect, 'etc_cloud',
