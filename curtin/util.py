@@ -66,21 +66,47 @@ BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 def _subp(args, data=None, rcs=None, env=None, capture=False,
           shell=False, logstring=False, decode="replace",
-          target=None, cwd=None, log_captured=False):
+          target=None, cwd=None, log_captured=False, unshare_pid=False):
     if rcs is None:
         rcs = [0]
-
     devnull_fp = None
-    try:
-        if target_path(target) != "/":
-            args = ['chroot', target] + list(args)
 
-        if not logstring:
-            LOG.debug(("Running command %s with allowed return codes %s"
-                       " (shell=%s, capture=%s)"), args, rcs, shell, capture)
-        else:
-            LOG.debug(("Running hidden command to protect sensitive "
+    tpath = target_path(target)
+
+    # unshare_pid is None, then use unshare_pid if 
+    #  euid is 0, command is available, and chroot would be used.
+    has_unshare = None
+    euid = os.geteuid()
+    if unshare_pid is None:
+        if tpath == "/" and euid == 0:
+            has_unshare = _has_unshare_pid()
+            if has_unshare:
+                unshare_pid = True
+
+    if unshare_pid:
+        if euid != 0:
+            raise RuntimeError(
+                "subp given unshare_pid=%s but euid (%s) != 0. (cmd=%s)" %
+                (unshare_pid, euid, args))
+        if has_unshare is None:
+            has_unshare = _has_unshare_pid()
+        if not has_unshare:
+            raise RuntimeError(
+                "subp given unshare_pid=%s but no unshare command (cmd=%s)" %
+                (unshare_pid, args))
+
+        args = ['unshare', '--fork', '--pid', '--']
+
+    if tpath != "/":
+        args = ['chroot', target] + list(args)
+
+    if not logstring:
+        LOG.debug(("Running command %s with allowed return codes %s"
+                   " (shell=%s, capture=%s)"), args, rcs, shell, capture)
+    else:
+        LOG.debug(("Running hidden command to protect sensitive "
                        "input/output logstring: %s"), logstring)
+    try:
         stdin = None
         stdout = None
         stderr = None
@@ -128,6 +154,15 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
     return (out, err)
 
 
+def _has_unshare_pid():
+    if not which('unshare'):
+        return False
+    out, err = subp(["unshare", "--help"], capture=True, decode=False,
+                    unshare_pid=False)
+    joined = b'\n'.join([out, err])
+    return '--fork' in joined and '--pid' in joined
+
+
 def subp(*args, **kwargs):
     """Run a subprocess.
 
@@ -160,6 +195,10 @@ def subp(*args, **kwargs):
         means to run, sleep 1, run, sleep 3, run and then return exit code.
     :param target:
         run the command as 'chroot target <args>'
+    :param unshare_pid:
+        unshare the pid namespace.
+        default value (None) is to unshare pid namespace if possible
+        and target != /
 
     :return
         if not capturing, return is (None, None)
