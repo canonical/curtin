@@ -114,7 +114,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         cc_disabled = 'cloud.cfg.d/curtin-disable-cloudinit-networking.cfg'
         cc_passthrough = "cloud.cfg.d/curtin-networking.cfg"
 
-        avail_str = self.load_collect_file('cloudinitpassthrough_available')
+        avail_str = self.load_collect_file('cloudinit_passthrough_available')
         available = int(avail_str) == 1
         print('avail_str=%s available=%s' % (avail_str, available))
 
