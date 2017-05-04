@@ -66,7 +66,7 @@ BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 def _subp(args, data=None, rcs=None, env=None, capture=False,
           shell=False, logstring=False, decode="replace",
-          target=None, cwd=None, log_captured=False, unshare_pid=False):
+          target=None, cwd=None, log_captured=False, unshare_pid=None):
     if rcs is None:
         rcs = [0]
     devnull_fp = None
