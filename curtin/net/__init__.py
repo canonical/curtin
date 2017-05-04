@@ -539,8 +539,13 @@ def netconfig_passthrough_available(target, feature='NETWORK_CONFIG_V2'):
             LOG.warning('Target does not have cloud-init installed')
             return False
 
+        # read shebang from cloud-init and extract python path
+        # #!/usr/bin/python
+        # #! /usr/bin/python3
+        # #!/usr/bin/env python
         python = util.load_file(
-            util.target_path(target, path=cloudinit)).splitlines()[0]
+            util.target_path(target,
+                path=cloudinit)).splitlines()[0].split("#!")[-1]
         try:
             feature_available = run_cmd([python, '-c', cmd])
         except util.ProcessExecutionError:
