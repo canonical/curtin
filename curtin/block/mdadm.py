@@ -292,6 +292,7 @@ def mdadm_stop(devpath, retries=None):
             out, err = util.subp(["mdadm", "--manage", "--stop", devpath],
                                  capture=True)
             LOG.debug("mdadm stop:\n%s\n%s", out, err)
+            LOG.info("mdadm stopped %s after %s attempts", devpath, attempt+1)
             return
 
         except util.ProcessExecutionError:
