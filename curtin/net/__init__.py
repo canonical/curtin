@@ -543,9 +543,8 @@ def netconfig_passthrough_available(target, feature='NETWORK_CONFIG_V2'):
         # #!/usr/bin/python
         # #! /usr/bin/python3
         # #!/usr/bin/env python
-        python = util.load_file(
-            util.target_path(target,
-                path=cloudinit)).splitlines()[0].split("#!")[-1].strip()
+        python = util.load_file(util.target_path(target, path=cloudinit))
+        python = python.splitlines()[0].split("#!")[-1].strip()
         try:
             feature_available = run_cmd([python, '-c', cmd])
         except util.ProcessExecutionError:
