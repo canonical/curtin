@@ -26,6 +26,7 @@ import os
 import re
 import shlex
 from subprocess import CalledProcessError
+import time
 
 from curtin.block import (dev_short, dev_path, is_valid_device, sys_block_path)
 from curtin.block import get_holders
@@ -265,10 +266,10 @@ def mdadm_stop(devpath, retries=None):
     LOG.info("mdadm stopping: %s" % devpath)
     for (attempt, wait) in enumerate(retries):
         try:
-            LOG.debug('mdadm stop on %s attempt %s', devpath, attempt)
-            # An array in 'resync' state may not be stoppable, attempt to 
+            LOG.debug('mdadm: stop on %s attempt %s', devpath, attempt)
+            # An array in 'resync' state may not be stoppable, attempt to
             # cancel an ongoing resync
-            val = md_sysfs_attr(devpath, 'sync_action') 
+            val = md_sysfs_attr(devpath, 'sync_action')
             LOG.debug('%s/sync_max = %s', sync_action, val)
             if val != "idle":
                 LOG.debug("mdadm: setting array sync_action=idle")
@@ -277,7 +278,7 @@ def mdadm_stop(devpath, retries=None):
             # Setting the sync_{max,min} may can help prevent the array from
             # changing back to 'resync' which may prevent the array from being
             # stopped
-            val = md_sysfs_attr(devpath, 'sync_max') 
+            val = md_sysfs_attr(devpath, 'sync_max')
             LOG.debug('%s/sync_max = %s', sync_max, val)
             if val != "0":
                 LOG.debug("mdadm: setting array sync_{min,max}=0")
@@ -285,23 +286,25 @@ def mdadm_stop(devpath, retries=None):
                     util.write_file(sync_max, content="0")
                     util.write_file(sync_min, content="0")
                 except IOError:
-                    LOG.warning('Failed to set sync_{max,min} values')
+                    LOG.warning('mdadm: failed to set sync_{max,min} values')
                     pass
-            
+
             # one wonders why this command doesn't do any of the above itself?
             out, err = util.subp(["mdadm", "--manage", "--stop", devpath],
                                  capture=True)
-            LOG.debug("mdadm stop:\n%s\n%s", out, err)
-            LOG.info("mdadm stopped %s after %s attempts", devpath, attempt+1)
+            LOG.debug("mdadm stop command output:\n%s\n%s", out, err)
+            LOG.info("mdadm: successfully stopped %s after %s attempt(s)",
+                     devpath, attempt+1)
             return
 
         except util.ProcessExecutionError:
-            LOG.debug("mdadm stop:\n%s\n%s", out, err)
-            if os.path.exists('/proc/mdstat'):
+            LOG.warning("mdadm stop failed, retrying ")
+            if os.path.isfile('/proc/mdstat'):
                 LOG.critical("/proc/mdstat:\n%s",
                              util.load_file('/proc/mdstat'))
-            LOG.debug("mdadm stop failed, retrying in %s seconds", wait)
+            LOG.debug("mdadm: stop failed, retrying in %s seconds", wait)
             time.sleep(wait)
+            pass
 
     raise OSError('Failed to stop mdadm device %s', devpath)
 
