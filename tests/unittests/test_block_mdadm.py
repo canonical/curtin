@@ -378,7 +378,8 @@ class TestBlockMdadmStop(MdadmTestBase):
         ]
         self.mock_util_load_file.assert_has_calls(expected_reads)
 
-    def test_mdadm_stop_retry(self):
+    @patch('curtin.block.mdadm.time.sleep')
+    def test_mdadm_stop_retry(self, mock_sleep):
         device = "/dev/md10"
         self._set_sys_path(device)
         self.mock_util_load_file.side_effect = iter([
@@ -413,6 +414,84 @@ class TestBlockMdadmStop(MdadmTestBase):
             call(self.sys_path + '/sync_max', content='0'),
             call(self.sys_path + '/sync_min', content='0'),
         ]
+        self.mock_util_write_file.assert_has_calls(expected_writes)
+
+    @patch('curtin.block.mdadm.time.sleep')
+    def test_mdadm_stop_retry_sysfs_write_fail(self, mock_sleep):
+        device = "/dev/md126"
+        self._set_sys_path(device)
+        self.mock_util_load_file.side_effect = iter([
+            "resync", "max",
+            "proc/mdstat output",
+            "idle", "0",
+        ])
+        self.mock_util_subp.side_effect = iter([
+            util.ProcessExecutionError(),
+            ("mdadm stopped %s" % device, ''),
+        ])
+        # sometimes we fail to modify sysfs attrs
+        self.mock_util_write_file.side_effect = iter([
+            "",         # write to sync_action OK
+            IOError(),  # write to sync_max FAIL
+        ])
+
+        mdadm.mdadm_stop(device)
+
+        expected_calls = [
+            call(["mdadm", "--manage", "--stop", device], capture=True),
+            call(["mdadm", "--manage", "--stop", device], capture=True)
+        ]
+        self.mock_util_subp.assert_has_calls(expected_calls)
+
+        expected_reads = [
+            call(self.sys_path + '/sync_action'),
+            call(self.sys_path + '/sync_max'),
+            call('/proc/mdstat'),
+            call(self.sys_path + '/sync_action'),
+            call(self.sys_path + '/sync_max'),
+        ]
+        self.mock_util_load_file.assert_has_calls(expected_reads)
+
+        expected_writes = [
+            call(self.sys_path + '/sync_action', content='idle'),
+        ]
+        self.mock_util_write_file.assert_has_calls(expected_writes)
+
+    @patch('curtin.block.mdadm.time.sleep')
+    def test_mdadm_stop_retry_exhausted(self, mock_sleep):
+        device = "/dev/md/37"
+        retries = 60
+        self._set_sys_path(device)
+        self.mock_util_load_file.side_effect = iter([
+            "resync", "max",
+            "proc/mdstat output",
+        ] * retries)
+        self.mock_util_subp.side_effect = iter([
+            util.ProcessExecutionError(),
+        ] * retries)
+        # sometimes we fail to modify sysfs attrs
+        self.mock_util_write_file.side_effect = iter([
+            "", IOError()] * retries)
+
+        with self.assertRaises(OSError):
+            mdadm.mdadm_stop(device)
+
+        expected_calls = [
+            call(["mdadm", "--manage", "--stop", device], capture=True),
+        ] * retries
+        self.mock_util_subp.assert_has_calls(expected_calls)
+
+        expected_reads = [
+            call(self.sys_path + '/sync_action'),
+            call(self.sys_path + '/sync_max'),
+            call('/proc/mdstat'),
+        ] * retries
+        self.mock_util_load_file.assert_has_calls(expected_reads)
+
+        expected_writes = [
+            call(self.sys_path + '/sync_action', content='idle'),
+            call(self.sys_path + '/sync_max', content='0'),
+        ] * retries
         self.mock_util_write_file.assert_has_calls(expected_writes)
 
 
