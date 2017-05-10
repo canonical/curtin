@@ -350,13 +350,35 @@ def setup_grub(cfg, target):
         instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
     else:
         instdevs = ["none"]
+
+    if util.is_uefi_bootable() and grubcfg.get('update_nvram', True):
+        if grubcfg.get('clear_uefi_loaders', True):
+            with util.ChrootableTarget(target) as in_chroot:
+                stdout, _ = in_chroot.subp(['efibootmgr', '-v'], capture=True)
+            current_uefi_boot = util.get_efibootmgr_value(
+                stdout, 'BootCurrent')
+            loaders = util.get_file_efi_loaders(stdout)
+            if current_uefi_boot in loaders:
+                loaders.remove(current_uefi_boot)
+            if loaders:
+                with util.ChrootableTarget(target) as in_chroot:
+                    for loader in loaders:
+                        LOG.debug("removing old UEFI entry: %s" % loader)
+                        in_chroot.subp(
+                            ['efibootmgr', '-B', '-b', loader], capture=True)
+        else:
+            LOG.debug("Skipped removing old UEFI entries.")
+            LOG.debug(
+                "Some UEFI entries might no longer exists and "
+                "should be removed.")
+
     LOG.debug("installing grub to %s [replace_default=%s]",
               instdevs, replace_default)
     with util.ChrootableTarget(target):
         args = ['install-grub']
         if util.is_uefi_bootable():
             args.append("--uefi")
-            if grubcfg.get('update_nvram', False):
+            if grubcfg.get('update_nvram', True):
                 LOG.debug("GRUB UEFI enabling NVRAM updates")
                 args.append("--update-nvram")
             else:
@@ -369,6 +391,27 @@ def setup_grub(cfg, target):
         out, _err = util.subp(
             join_stdout_err + args + instdevs, env=env, capture=True)
         LOG.debug("%s\n%s\n", args, out)
+
+    if util.is_uefi_bootable() and grubcfg.get('update_nvram', True):
+        if grubcfg.get('reorder_uefi', True):
+            with util.ChrootableTarget(target) as in_chroot:
+                stdout, _ = in_chroot.subp(['efibootmgr'], capture=True)
+                currently_booted = util.get_efibootmgr_value(
+                    stdout, 'BootCurrent')
+                if currently_booted:
+                    boot_order = util.get_efibootmgr_value(
+                        stdout, 'BootOrder').split(',')
+                    if currently_booted in boot_order:
+                        boot_order.remove(currently_booted)
+                    boot_order = [currently_booted] + boot_order
+                    new_boot_order = ','.join(boot_order)
+                    LOG.debug(
+                        "Setting currently booted %s as the first "
+                        "UEFI loader." % currently_booted)
+                    in_chroot.subp(['efibootmgr', '-o', new_boot_order])
+        else:
+            LOG.debug("Skipped reordering of UEFI boot methods.")
+            LOG.debug("Currently booted UEFI loader might no longer boot.")
 
 
 def update_initramfs(target=None, all_kernels=False):

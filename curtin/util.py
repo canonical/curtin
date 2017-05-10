@@ -836,6 +836,25 @@ def is_uefi_bootable():
     return os.path.exists('/sys/firmware/efi') is True
 
 
+def get_efibootmgr_value(output, key):
+    """Parses the `output` from 'efibootmgr' to return value for `key`."""
+    for line in output.splitlines():
+        split = line.split(':')
+        if len(split) == 2:
+            curr_key = split[0].strip()
+            value = split[1].strip()
+            if curr_key == key:
+                return value
+
+
+def get_file_efi_loaders(output):
+    """Parses the `output` from 'efibootmgr -v' to return all loaders that
+    exist in '\EFI' path."""
+    return re.findall(
+        r"^Boot(?P<hex>[0-9a-fA-F]{4})\*?\s*\S+\s+.*File\(\\EFI.*$",
+        output, re.MULTILINE)
+
+
 def run_hook_if_exists(target, hook):
     """
     Look for "hook" in "target" and run it
