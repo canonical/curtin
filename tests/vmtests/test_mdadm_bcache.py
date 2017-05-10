@@ -16,6 +16,10 @@ class TestMdadmAbs(VMBaseClass):
         grep -c active /proc/mdstat > mdadm_active2
         ls /dev/disk/by-dname > ls_dname
         find /etc/network/interfaces.d > find_interfacesd
+        cat /proc/mdstat | tee mdstat
+        cat /proc/partitions | tee procpartitions
+        ls -1 /sys/class/block | tee sys_class_block
+        ls -1 /dev/md* | tee dev_md
         """)]
 
     def test_mdadm_output_files_exist(self):
@@ -244,6 +248,47 @@ class ZestyTestMirrorbootPartitions(relbase.zesty,
 
 class ArtfulTestMirrorbootPartitions(relbase.artful,
                                      TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
+class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
+    # alternative config for more complex setup
+    conf_file = "examples/tests/mirrorboot-uefi.yaml"
+    # initialize secondary disk
+    extra_disks = ['10G']
+    disk_to_check = [('main_disk', 2),
+                     ('second_disk', 3),
+                     ('md0', 0),
+                     ('md1', 0)]
+    active_mdadm = "2"
+    uefi = True
+
+
+class TrustyTestMirrorbootPartitionsUEFI(relbase.trusty,
+                                         TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+    # FIXME(LP: #1523037): dname does not work on trusty
+    # when dname works on trusty, then we need to re-enable by removing line.
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
+
+    def test_ptable(self):
+        print("test_ptable does not work for Trusty")
+
+
+class XenialTestMirrorbootPartitionsUEFI(relbase.xenial,
+                                         TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
+class ZestyTestMirrorbootPartitionsUEFI(relbase.zesty,
+                                        TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
+class ArtfulTestMirrorbootPartitionsUEFI(relbase.artful,
+                                         TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
 
 
