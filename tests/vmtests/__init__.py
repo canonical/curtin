@@ -942,10 +942,11 @@ class VMBaseClass(TestCase):
         return boot_log_wrap(cls.__name__, myboot, cmd, console_log, timeout,
                              purpose)
 
-    def collect_path(self, path):
+    @classmethod
+    def collect_path(cls, path):
         # return a full path to the collected file
         # prepending ./ makes '/root/file' or 'root/file' work as expected.
-        return os.path.normpath(os.path.join(self.td.collect, "./" + path))
+        return os.path.normpath(os.path.join(cls.td.collect, "./" + path))
 
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
@@ -1118,7 +1119,7 @@ class PsuedoVMBaseClass(VMBaseClass):
     @classmethod
     def collect_output(cls):
         logger.debug('Psuedo extracting output disk')
-        with open(self.collect_path("fstab"), "w") as fp:
+        with open(cls.collect_path("fstab"), "w") as fp:
             fp.write('\n'.join(("# psuedo fstab",
                                 "LABEL=root / ext4 defaults 0 1")))
 
