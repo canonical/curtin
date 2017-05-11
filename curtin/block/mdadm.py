@@ -257,7 +257,8 @@ def mdadm_stop(devpath):
     assert_valid_devpath(devpath)
 
     LOG.info("mdadm stopping: %s" % devpath)
-    out, err = util.subp(["mdadm", "--stop", devpath], capture=True)
+    out, err = util.subp(["mdadm", "--manage", "--stop", devpath],
+                         capture=True)
     LOG.debug("mdadm stop:\n%s\n%s", out, err)
 
 
@@ -291,6 +292,31 @@ def mdadm_detail_scan():
     (out, _err) = util.subp(["mdadm", "--detail", "--scan"], capture=True)
     if not _err:
         return out
+
+
+def md_present(mdname):
+    """Check if mdname is present in /proc/mdstat"""
+    if not mdname:
+        raise ValueError('md_present requires a valid md name')
+
+    try:
+        mdstat = util.load_file('/proc/mdstat')
+    except IOError as e:
+        if util.is_file_not_found_exc(e):
+            LOG.warning('Failed to read /proc/mdstat; '
+                        'md modules might not be loaded')
+            return False
+        else:
+            raise e
+
+    md_kname = dev_short(mdname)
+    # Find lines like:
+    # md10 : active raid1 vdc1[1] vda2[0]
+    present = [line for line in mdstat.splitlines()
+               if line.split(":")[0].rstrip() == md_kname]
+    if len(present) > 0:
+        return True
+    return False
 
 
 # ------------------------------ #
