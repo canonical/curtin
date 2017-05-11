@@ -1,5 +1,12 @@
+import mock
+import os
+import os.path
+import shutil
+
+from tempfile import mkdtemp
 from unittest import TestCase
 from curtin.block import iscsi
+from curtin.util import write_file
 
 
 class TestBlockIscsiPortalParsing(TestCase):
@@ -473,5 +480,94 @@ class TestBlockIscsiPortalParsing(TestCase):
         self.assertEquals(i.port, 3260)
         self.assertEquals(i.lun, 0)
         self.assertEquals(i.target, 'iqn.2017-04.com.example.test:target-name')
+
+
+@mock.patch("curtin.block.iscsi.os.listdir")
+@mock.patch("curtin.block.iscsi.os.path.realpath")
+@mock.patch("curtin.block.iscsi.os.path.exists")
+class TestBlockIscsiVolPath(TestCase):
+    # non-iscsi backed disk returns false
+    # regular iscsi-backed disk returns true
+    # layered setup without an iscsi member returns false
+    # layered setup with an iscsi member returns true
+
+    def generate_tmpdir(self, kname, slaves, is_iscsi):
+        self._tmpdir = mkdtemp()
+        self.addCleanup(shutil.rmtree, self._tmpdir)
+
+        by_path = os.path.join(self._tmpdir, 'dev/disk/by-path')
+        slaves_path = os.path.join(self._tmpdir,
+                                   'sys/class/block/%s/slaves' % kname)
+        dev_path = os.path.join(self._tmpdir, 'dev')
+
+        os.makedirs(by_path)
+        os.makedirs(slaves_path)
+
+        write_file(os.path.join(dev_path, kname), "")
+        for slave in slaves:
+            write_file(os.path.join(dev_path, slave), "")
+
+        if is_iscsi:
+            prefix = "iscsi"
+        else:
+            prefix = "pci"
+
+        if len(slaves) > 0:
+            os.symlink(os.path.join(dev_path, kname),
+                       os.path.join(by_path, kname))
+            for slave in slaves:
+                os.symlink(os.path.join(dev_path, slave),
+                           os.path.join(by_path,
+                                        "%s-layered-disk-%s" %
+                                        (prefix, slave)))
+                os.symlink(os.path.join(dev_path, slave),
+                           os.path.join(slaves_path, slave))
+        else:
+            os.symlink(os.path.join(dev_path, kname),
+                       os.path.join(by_path, "%s-disk" % prefix))
+
+    def setUp(self):
+        super(TestBlockIscsiVolPath, self).setUp()
+        self.real_listdir = os.listdir
+        self.real_realpath = os.path.realpath
+        self.real_path_exists = os.path.exists
+
+    def setMocks(self, mock_path_exists, mock_realpath, mock_listdir):
+        mock_listdir.side_effect = \
+            lambda x: self.real_listdir(os.path.join(self._tmpdir, x[1:]))
+        mock_realpath.side_effect = \
+            lambda x: self.real_realpath(os.path.join(self._tmpdir, x[1:]))
+        mock_path_exists.side_effect = \
+            lambda x: self.real_path_exists(os.path.join(self._tmpdir, x[1:]))
+
+    def test_iscsi_volpath_is_iscsi_noiscsi(self, mock_path_exists,
+                                            mock_realpath, mock_listdir):
+        self.setMocks(mock_path_exists, mock_realpath, mock_listdir)
+        self.generate_tmpdir(kname='sda', slaves=[], is_iscsi=False)
+        self.assertEquals(iscsi.volpath_is_iscsi('/dev/sda'), False)
+
+    def test_iscsi_volpath_is_iscsi_iscsi(self, mock_path_exists,
+                                          mock_realpath, mock_listdir):
+        self.setMocks(mock_path_exists, mock_realpath, mock_listdir)
+        self.generate_tmpdir(kname='sdb', slaves=[], is_iscsi=True)
+        self.assertEquals(iscsi.volpath_is_iscsi('/dev/sdb'), True)
+
+    def test_iscsi_volpath_is_iscsi_layered_noiscsi(self,
+                                                    mock_path_exists,
+                                                    mock_realpath,
+                                                    mock_listdir):
+        self.setMocks(mock_path_exists, mock_realpath, mock_listdir)
+        self.generate_tmpdir(kname='md0', slaves=['slave1', 'slave2'],
+                             is_iscsi=False)
+        self.assertEquals(iscsi.volpath_is_iscsi('/dev/md0'), False)
+
+    def test_iscsi_volpath_is_iscsi_layered_iscsi(self,
+                                                  mock_path_exists,
+                                                  mock_realpath,
+                                                  mock_listdir):
+        self.setMocks(mock_path_exists, mock_realpath, mock_listdir)
+        self.generate_tmpdir(kname='md1', slaves=['slave3', 'slave4'],
+                             is_iscsi=True)
+        self.assertEquals(iscsi.volpath_is_iscsi('/dev/md1'), True)
 
 # vi: ts=4 expandtab syntax=python
