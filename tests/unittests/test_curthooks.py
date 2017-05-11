@@ -1,8 +1,9 @@
 import os
 from unittest import TestCase
-from mock import call, patch
+from mock import call, patch, MagicMock
 import shutil
 import tempfile
+from textwrap import dedent
 
 from curtin.commands import curthooks
 from curtin import util
@@ -174,6 +175,225 @@ class TestInstallMissingPkgs(CurthooksBase):
         cfg = {}
         curthooks.install_missing_packages(cfg, target=target)
         self.assertEqual([], self.mock_install_packages.call_args_list)
+
+
+class TestSetupGrub(CurthooksBase):
+
+    def setUp(self):
+        super(TestSetupGrub, self).setUp()
+        self.target = tempfile.mkdtemp()
+        self.add_patch('curtin.util.lsb_release', 'mock_lsb_release')
+        self.mock_lsb_release.return_value = {
+            'codename': 'xenial',
+        }
+        self.add_patch('curtin.util.is_uefi_bootable',
+                       'mock_is_uefi_bootable')
+        self.mock_is_uefi_bootable.return_value = False
+        self.add_patch('curtin.util.subp', 'mock_subp')
+        self.subp_output = []
+        self.mock_subp.side_effect = self.subp_output
+        self.add_patch('curtin.commands.block_meta.devsync', 'mock_devsync')
+        self.add_patch('curtin.util.get_architecture', 'mock_arch')
+        self.mock_arch.return_value = 'amd64'
+        self.add_patch('curtin.util.ChrootableTarget', 'mock_chroot')
+        self.mock_in_chroot = MagicMock()
+        self.mock_in_chroot.__enter__.return_value = self.mock_in_chroot
+        self.in_chroot_subp_output = []
+        self.mock_in_chroot_subp = self.mock_in_chroot.subp
+        self.mock_in_chroot_subp.side_effect = self.in_chroot_subp_output
+        self.mock_chroot.return_value = self.mock_in_chroot
+
+    def tearDown(self):
+        shutil.rmtree(self.target)
+
+    def test_uses_old_grub_install_devices_in_cfg(self):
+        cfg = {
+            'grub_install_devices': ['/dev/vdb']
+        }
+        self.subp_output.append(('', ''))
+        curthooks.setup_grub(cfg, self.target)
+        self.assertEquals(
+            ([
+                'sh', '-c', 'exec "$0" "$@" 2>&1',
+                'install-grub', self.target, '/dev/vdb'],),
+            self.mock_subp.call_args_list[0][0])
+
+    def test_uses_install_devices_in_grubcfg(self):
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+            },
+        }
+        self.subp_output.append(('', ''))
+        curthooks.setup_grub(cfg, self.target)
+        self.assertEquals(
+            ([
+                'sh', '-c', 'exec "$0" "$@" 2>&1',
+                'install-grub', self.target, '/dev/vdb'],),
+            self.mock_subp.call_args_list[0][0])
+
+    def test_uses_grub_install_on_storage_config(self):
+        cfg = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {
+                        'id': 'vdb',
+                        'type': 'disk',
+                        'grub_device': True,
+                        'path': '/dev/vdb',
+                    }
+                ]
+            },
+        }
+        self.subp_output.append(('', ''))
+        curthooks.setup_grub(cfg, self.target)
+        self.assertEquals(
+            ([
+                'sh', '-c', 'exec "$0" "$@" 2>&1',
+                'install-grub', self.target, '/dev/vdb'],),
+            self.mock_subp.call_args_list[0][0])
+
+    def test_grub_install_installs_to_none_if_install_devices_None(self):
+        cfg = {
+            'grub': {
+                'install_devices': None,
+            },
+        }
+        self.subp_output.append(('', ''))
+        curthooks.setup_grub(cfg, self.target)
+        self.assertEquals(
+            ([
+                'sh', '-c', 'exec "$0" "$@" 2>&1',
+                'install-grub', self.target, 'none'],),
+            self.mock_subp.call_args_list[0][0])
+
+    def test_grub_install_uefi_installs_signed_packages_for_amd64(self):
+        self.add_patch('curtin.util.install_packages', 'mock_install')
+        self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
+        self.mock_is_uefi_bootable.return_value = True
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+                'update_nvram': False,
+            },
+        }
+        self.subp_output.append(('', ''))
+        self.mock_arch.return_value = 'amd64'
+        self.mock_haspkg.return_value = True
+        curthooks.setup_grub(cfg, self.target)
+        self.assertEquals(
+            (['grub-efi-amd64', 'grub-efi-amd64-signed', 'shim-signed'],),
+            self.mock_install.call_args_list[0][0])
+        self.assertEquals(
+            ([
+                'sh', '-c', 'exec "$0" "$@" 2>&1',
+                'install-grub', '--uefi', self.target, '/dev/vdb'],),
+            self.mock_subp.call_args_list[0][0])
+
+    def test_grub_install_uefi_installs_packages_for_arm64(self):
+        self.add_patch('curtin.util.install_packages', 'mock_install')
+        self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
+        self.mock_is_uefi_bootable.return_value = True
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+                'update_nvram': False,
+            },
+        }
+        self.subp_output.append(('', ''))
+        self.mock_arch.return_value = 'arm64'
+        self.mock_haspkg.return_value = False
+        curthooks.setup_grub(cfg, self.target)
+        self.assertEquals(
+            (['grub-efi-arm64'],),
+            self.mock_install.call_args_list[0][0])
+        self.assertEquals(
+            ([
+                'sh', '-c', 'exec "$0" "$@" 2>&1',
+                'install-grub', '--uefi', self.target, '/dev/vdb'],),
+            self.mock_subp.call_args_list[0][0])
+
+    def test_grub_install_uefi_updates_nvram_skips_clear_and_reorder(self):
+        self.add_patch('curtin.util.install_packages', 'mock_install')
+        self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
+        self.mock_is_uefi_bootable.return_value = True
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+                'update_nvram': True,
+                'clear_uefi_loaders': False,
+                'reorder_uefi': False,
+            },
+        }
+        self.subp_output.append(('', ''))
+        self.mock_haspkg.return_value = False
+        curthooks.setup_grub(cfg, self.target)
+        self.assertEquals(
+            ([
+                'sh', '-c', 'exec "$0" "$@" 2>&1',
+                'install-grub', '--uefi', '--update-nvram',
+                self.target, '/dev/vdb'],),
+            self.mock_subp.call_args_list[0][0])
+
+    def test_grub_install_uefi_updates_nvram_clears_old_loaders(self):
+        self.add_patch('curtin.util.install_packages', 'mock_install')
+        self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
+        self.mock_is_uefi_bootable.return_value = True
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+                'update_nvram': True,
+                'clear_uefi_loaders': True,
+                'reorder_uefi': False,
+            },
+        }
+        self.subp_output.append(('', ''))
+        self.in_chroot_subp_output.append((dedent(
+            """\
+            BootCurrent: 0000
+            Timeout: 1 seconds
+            BootOrder: 0000,0001,0002
+            Boot0000* ubuntu HD(1,GPT,040f33cd,0x800,0x100000)\
+            /File(\\EFI\\ubuntu\\shimx64.efi)
+            Boot0001* centos HD(1,GPT,040f33cd,0x800,0x100000)\
+            /File(\\EFI\\centos\\shimx64.efi)
+            Boot0002* UEFI:Network Device BBS(131,,0x0)
+            """), ''))
+        self.in_chroot_subp_output.append(('', ''))
+        self.mock_haspkg.return_value = False
+        curthooks.setup_grub(cfg, self.target)
+        self.assertEquals(
+            (['efibootmgr', '-B', '-b', '0001'],),
+            self.mock_in_chroot_subp.call_args_list[1][0])
+
+    def test_grub_install_uefi_updates_nvram_reorders_loaders(self):
+        self.add_patch('curtin.util.install_packages', 'mock_install')
+        self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
+        self.mock_is_uefi_bootable.return_value = True
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+                'update_nvram': True,
+                'clear_uefi_loaders': False,
+                'reorder_uefi': True,
+            },
+        }
+        self.subp_output.append(('', ''))
+        self.in_chroot_subp_output.append((dedent(
+            """\
+            BootCurrent: 0001
+            Timeout: 1 seconds
+            BootOrder: 0000,0001
+            Boot0000* ubuntu
+            Boot0001* UEFI:Network Device
+            """), ''))
+        self.in_chroot_subp_output.append(('', ''))
+        self.mock_haspkg.return_value = False
+        curthooks.setup_grub(cfg, self.target)
+        self.assertEquals(
+            (['efibootmgr', '-o', '0001,0000'],),
+            self.mock_in_chroot_subp.call_args_list[1][0])
 
 
 class TestUbuntuCoreHooks(CurthooksBase):
