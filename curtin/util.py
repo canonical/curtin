@@ -80,11 +80,17 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
     except RuntimeError as e:
         raise RuntimeError("Unable to unshare pid (cmd=%s): %s" % (args, e))
 
+    if shell:
+        if isinstance(args, string_types):
+            args = ['sh', '-c', args]
+        else:
+            args = ['sh', '-c'] + args
+ 
     args = unshare_args + chroot_args + list(args)
 
     if not logstring:
         LOG.debug(("Running command %s with allowed return codes %s"
-                   " (shell=%s, capture=%s)"), args, rcs, shell, capture)
+                   " (capture=%s)"), args, rcs, capture)
     else:
         LOG.debug(("Running hidden command to protect sensitive "
                    "input/output logstring: %s"), logstring)
@@ -102,7 +108,7 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
             stdin = subprocess.PIPE
         sp = subprocess.Popen(args, stdout=stdout,
                               stderr=stderr, stdin=stdin,
-                              env=env, shell=shell, cwd=cwd)
+                              env=env, shell=False, cwd=cwd)
         # communicate in python2 returns str, python3 returns bytes
         (out, err) = sp.communicate(data)
 
