@@ -689,7 +689,7 @@ class TestGetEFIBootMGR(TestCase):
     def setUp(self):
         super(TestGetEFIBootMGR, self).setUp()
         mock_chroot = mock.patch(
-            'curtin.util.ChrootableTarget', autospec=True)
+            'curtin.util.ChrootableTarget', autospec=False)
         self.mock_chroot = mock_chroot.start()
         self.addCleanup(mock_chroot.stop)
         self.mock_in_chroot = mock.MagicMock()

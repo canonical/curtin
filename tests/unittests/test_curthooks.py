@@ -14,10 +14,10 @@ class CurthooksBase(TestCase):
     def setUp(self):
         super(CurthooksBase, self).setUp()
 
-    def add_patch(self, target, attr):
+    def add_patch(self, target, attr, autospec=True):
         """Patches specified target object and sets it as attr on test
         instance also schedules cleanup"""
-        m = patch(target, autospec=True)
+        m = patch(target, autospec=autospec)
         p = m.start()
         self.addCleanup(m.stop)
         setattr(self, attr, p)
@@ -190,16 +190,17 @@ class TestSetupGrub(CurthooksBase):
         self.mock_is_uefi_bootable.return_value = False
         self.add_patch('curtin.util.subp', 'mock_subp')
         self.subp_output = []
-        self.mock_subp.side_effect = self.subp_output
+        self.mock_subp.side_effect = iter(self.subp_output)
         self.add_patch('curtin.commands.block_meta.devsync', 'mock_devsync')
         self.add_patch('curtin.util.get_architecture', 'mock_arch')
         self.mock_arch.return_value = 'amd64'
-        self.add_patch('curtin.util.ChrootableTarget', 'mock_chroot')
+        self.add_patch(
+            'curtin.util.ChrootableTarget', 'mock_chroot', autospec=False)
         self.mock_in_chroot = MagicMock()
         self.mock_in_chroot.__enter__.return_value = self.mock_in_chroot
         self.in_chroot_subp_output = []
         self.mock_in_chroot_subp = self.mock_in_chroot.subp
-        self.mock_in_chroot_subp.side_effect = self.in_chroot_subp_output
+        self.mock_in_chroot_subp.side_effect = iter(self.in_chroot_subp_output)
         self.mock_chroot.return_value = self.mock_in_chroot
 
     def tearDown(self):
