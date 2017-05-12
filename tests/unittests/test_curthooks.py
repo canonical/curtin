@@ -3,7 +3,6 @@ from unittest import TestCase
 from mock import call, patch, MagicMock
 import shutil
 import tempfile
-from textwrap import dedent
 
 from curtin.commands import curthooks
 from curtin import util
@@ -314,20 +313,31 @@ class TestSetupGrub(CurthooksBase):
                 'install-grub', '--uefi', self.target, '/dev/vdb'],),
             self.mock_subp.call_args_list[0][0])
 
-    def test_grub_install_uefi_updates_nvram_skips_clear_and_reorder(self):
+    def test_grub_install_uefi_updates_nvram_skips_remove_and_reorder(self):
         self.add_patch('curtin.util.install_packages', 'mock_install')
         self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
+        self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
         self.mock_is_uefi_bootable.return_value = True
         cfg = {
             'grub': {
                 'install_devices': ['/dev/vdb'],
                 'update_nvram': True,
-                'clear_uefi_loaders': False,
+                'remove_old_uefi_loaders': False,
                 'reorder_uefi': False,
             },
         }
         self.subp_output.append(('', ''))
         self.mock_haspkg.return_value = False
+        self.mock_efibootmgr.return_value = {
+            'current': '0000',
+            'entries': {
+                '0000': {
+                    'name': 'ubuntu',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+                }
+            }
+        }
         curthooks.setup_grub(cfg, self.target)
         self.assertEquals(
             ([
@@ -336,64 +346,91 @@ class TestSetupGrub(CurthooksBase):
                 self.target, '/dev/vdb'],),
             self.mock_subp.call_args_list[0][0])
 
-    def test_grub_install_uefi_updates_nvram_clears_old_loaders(self):
+    def test_grub_install_uefi_updates_nvram_removes_old_loaders(self):
         self.add_patch('curtin.util.install_packages', 'mock_install')
         self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
+        self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
         self.mock_is_uefi_bootable.return_value = True
         cfg = {
             'grub': {
                 'install_devices': ['/dev/vdb'],
                 'update_nvram': True,
-                'clear_uefi_loaders': True,
+                'remove_old_uefi_loaders': True,
                 'reorder_uefi': False,
             },
         }
         self.subp_output.append(('', ''))
-        self.in_chroot_subp_output.append((dedent(
-            """\
-            BootCurrent: 0000
-            Timeout: 1 seconds
-            BootOrder: 0000,0001,0002
-            Boot0000* ubuntu HD(1,GPT,040f33cd,0x800,0x100000)\
-            /File(\\EFI\\ubuntu\\shimx64.efi)
-            Boot0001* centos HD(1,GPT,040f33cd,0x800,0x100000)\
-            /File(\\EFI\\centos\\shimx64.efi)
-            Boot0002* UEFI:Network Device BBS(131,,0x0)
-            """), ''))
+        self.mock_efibootmgr.return_value = {
+            'current': '0000',
+            'entries': {
+                '0000': {
+                    'name': 'ubuntu',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+                },
+                '0001': {
+                    'name': 'centos',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\centos\\shimx64.efi)'),
+                },
+                '0002': {
+                    'name': 'sles',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\sles\\shimx64.efi)'),
+                },
+            }
+        }
+        self.in_chroot_subp_output.append(('', ''))
         self.in_chroot_subp_output.append(('', ''))
         self.mock_haspkg.return_value = False
         curthooks.setup_grub(cfg, self.target)
         self.assertEquals(
-            (['efibootmgr', '-B', '-b', '0001'],),
-            self.mock_in_chroot_subp.call_args_list[1][0])
+            ['efibootmgr', '-B', '-b'],
+            self.mock_in_chroot_subp.call_args_list[0][0][0][:3])
+        self.assertEquals(
+            ['efibootmgr', '-B', '-b'],
+            self.mock_in_chroot_subp.call_args_list[1][0][0][:3])
+        self.assertEquals(
+            set(['0001', '0002']),
+            set([
+                self.mock_in_chroot_subp.call_args_list[0][0][0][3],
+                self.mock_in_chroot_subp.call_args_list[1][0][0][3]]))
 
     def test_grub_install_uefi_updates_nvram_reorders_loaders(self):
         self.add_patch('curtin.util.install_packages', 'mock_install')
         self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
+        self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
         self.mock_is_uefi_bootable.return_value = True
         cfg = {
             'grub': {
                 'install_devices': ['/dev/vdb'],
                 'update_nvram': True,
-                'clear_uefi_loaders': False,
+                'remove_old_uefi_loaders': False,
                 'reorder_uefi': True,
             },
         }
         self.subp_output.append(('', ''))
-        self.in_chroot_subp_output.append((dedent(
-            """\
-            BootCurrent: 0001
-            Timeout: 1 seconds
-            BootOrder: 0000,0001
-            Boot0000* ubuntu
-            Boot0001* UEFI:Network Device
-            """), ''))
+        self.mock_efibootmgr.return_value = {
+            'current': '0001',
+            'order': ['0000', '0001'],
+            'entries': {
+                '0000': {
+                    'name': 'ubuntu',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+                },
+                '0001': {
+                    'name': 'UEFI:Network Device',
+                    'path': 'BBS(131,,0x0)',
+                },
+            }
+        }
         self.in_chroot_subp_output.append(('', ''))
         self.mock_haspkg.return_value = False
         curthooks.setup_grub(cfg, self.target)
         self.assertEquals(
             (['efibootmgr', '-o', '0001,0000'],),
-            self.mock_in_chroot_subp.call_args_list[1][0])
+            self.mock_in_chroot_subp.call_args_list[0][0])
 
 
 class TestUbuntuCoreHooks(CurthooksBase):
