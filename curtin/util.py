@@ -865,7 +865,7 @@ def get_efibootmgr(target):
         'BootOrder': 'order',
     }
     with ChrootableTarget(target) as in_chroot:
-        stdout, _ = in_chroot.subp(['efibootmgr', '-v'])
+        stdout, _ = in_chroot.subp(['efibootmgr', '-v'], capture=True)
         output = {}
         for line in stdout.splitlines():
             split = line.split(':')
