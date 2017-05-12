@@ -80,11 +80,11 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
     except RuntimeError as e:
         raise RuntimeError("Unable to unshare pid (cmd=%s): %s" % (args, e))
 
-    if shell:
-        if isinstance(args, string_types):
+    if isinstance(args, string_types):
+        if shell:
             args = ['sh', '-c', args]
         else:
-            args = ['sh', '-c'] + args
+            args = [args]
  
     args = unshare_args + chroot_args + list(args)
 
