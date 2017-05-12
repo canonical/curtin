@@ -389,14 +389,16 @@ def assert_valid_devpath(devpath):
 
 
 def md_sysfs_attr_path(md_devname, attrname):
-    #  /sys/class/block/<md_short>/md
+    """ Return the path to a md device attribute under the 'md' dir """
+    # build /sys/class/block/<md_short>/md
     sysmd = sys_block_path(md_devname, "md")
 
-    #  /sys/class/block/<md_short>/md/attrname
+    # append attrname
     return os.path.join(sysmd, attrname)
 
 
 def md_sysfs_attr(md_devname, attrname):
+    """ Return the attribute str of an md device found under the 'md' dir """
     attrdata = ''
     if not valid_mdname(md_devname):
         raise ValueError('Invalid md devicename: [{}]'.format(md_devname))
