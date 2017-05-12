@@ -27,7 +27,9 @@ import re
 import shutil
 
 from curtin import (util, udev)
-from curtin.block import path_to_kname
+from curtin.block import (get_device_slave_knames,
+                          path_to_kname)
+
 from curtin.log import LOG
 
 _ISCSI_DISKS = {}
@@ -273,16 +275,20 @@ def kname_is_iscsi(kname):
     return False
 
 
-# Determines if the volume_path's kname is backed by iSCSI or (in the
-# case of LVM/DM) if any of its slaves are backed by iSCSI
 def volpath_is_iscsi(volume_path):
-    volume_path_kname = path_to_kname(volume_path)
-    volume_path_slaves = ("/sys/class/block/%s/slaves" %
-                          volume_path_kname)
-    knames = [volume_path_kname]
-    if os.path.exists(volume_path_slaves):
-        knames.extend([path_to_kname(p) for p in
-                       os.listdir(volume_path_slaves)])
+    """ Determine if the volume_path's kname is backed by iSCSI.
+        Recursively check volume_path's slave devices as well in
+        case volume_path is a stacked block device (like LVM/MD)
+
+        returns a boolean
+    """
+    if not volume_path:
+        raise ValueError("Missing volume_path parameter")
+
+    volume_path_slaves = get_device_slave_knames(volume_path)
+    LOG.debug('volume_path=%s found slaves: %s', volume_path,
+              volume_path_slaves)
+    knames = [path_to_kname(volume_path)] + volume_path_slaves
     return any([kname_is_iscsi(kname) for kname in knames])
 
 
