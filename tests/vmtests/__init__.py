@@ -1018,9 +1018,11 @@ class VMBaseClass(TestCase):
     def test_fstab(self):
         if self.fstab_expected is None:
             return
-        fstab_lines = self.load_collect_file("fstab")
+        path = self.collect_path("fstab")
+        if not os.path.exists(path):
+            return
         fstab_entry = None
-        for line in fstab_lines.splitlines():
+        for line in util.load_file(path).splitlines():
             for device, mntpoint in self.fstab_expected.items():
                     if device in line:
                         fstab_entry = line
@@ -1031,7 +1033,10 @@ class VMBaseClass(TestCase):
     def test_dname(self):
         if self.disk_to_check is None:
             return
-        contents = self.load_collect_file("ls_dname")
+        path = self.collect_path("ls_dname")
+        if not os.path.exists(path):
+            return
+        contents = util.load_file(path)
         for diskname, part in self.disk_to_check:
             if part is not 0:
                 link = diskname + "-part" + str(part)
