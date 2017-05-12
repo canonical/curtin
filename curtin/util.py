@@ -75,29 +75,10 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
     tpath = target_path(target)
     chroot_args = [] if tpath == "/" else ['chroot', target]
 
-    # if unshare_pid is None, then:
-    #  use unshare_pid if euid is 0, 'unshare' is available, and target != /
-    has_unshare = None
-    euid = os.geteuid()
-    if unshare_pid is None:
-        if tpath != "/" and euid == 0:
-            has_unshare = _has_unshare_pid()
-            if has_unshare:
-                unshare_pid = True
-
-    if unshare_pid:
-        if euid != 0:
-            raise RuntimeError(
-                "subp given unshare_pid=%s but euid (%s) != 0. (cmd=%s)" %
-                (unshare_pid, euid, args))
-        if has_unshare is None:
-            has_unshare = _has_unshare_pid()
-        if not has_unshare:
-            raise RuntimeError(
-                "subp given unshare_pid=%s but no unshare command (cmd=%s)" %
-                (unshare_pid, args))
-
-    unshare_args = ['unshare', '--fork', '--pid', '--'] if unshare_pid else []
+    try:
+        unshare_args = _get_unshare_pid_args(unshare_pid, tpath)
+    except RuntimeError as e:
+        raise RuntimeError("Unable to unshare pid (cmd=%s): %s" % (args, e))
 
     args = unshare_args + chroot_args + list(args)
 
@@ -106,7 +87,7 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
                    " (shell=%s, capture=%s)"), args, rcs, shell, capture)
     else:
         LOG.debug(("Running hidden command to protect sensitive "
-                       "input/output logstring: %s"), logstring)
+                   "input/output logstring: %s"), logstring)
     try:
         stdin = None
         stdout = None
@@ -168,6 +149,48 @@ def _has_unshare_pid():
     joined = b'\n'.join([out, err])
     _HAS_UNSHARE_PID = b'--fork' in joined and b'--pid' in joined
     return _HAS_UNSHARE_PID
+
+
+def _get_unshare_pid_args(unshare_pid=None, target=None, euid=None):
+    """Get args for calling unshare for a pid.
+
+    If unshare_pid is False, return empty list.
+    If unshare_pid is True, check if it is usable.
+    if unshare_pid is None, then unshare if
+       * euid is 0
+       * 'unshare' with '--fork' and '--pid' is available.
+       * target != /
+    """
+    if unshare_pid is not None and not unshare_pid:
+        # given a false-ish other than None means no.
+        return []
+
+    if euid is None:
+        euid = os.geteuid()
+
+    tpath = target_path(target)
+
+    unshare_pid_in = unshare_pid
+    if unshare_pid is None:
+        unshare_pid = False
+        if tpath != "/" and euid == 0:
+            if _has_unshare_pid():
+                unshare_pid = True
+
+    if not unshare_pid:
+        return []
+
+    # either unshare was passed in as True, or None and turned to True.
+    if euid != 0:
+        raise RuntimeError(
+            "given unshare_pid=%s but euid (%s) != 0." %
+            (unshare_pid_in, euid))
+
+    if not _has_unshare_pid():
+        raise RuntimeError(
+            "given unshare_pid=%s but no unshare command." % unshare_pid_in)
+
+    return ['unshare', '--fork', '--pid', '--']
 
 
 def subp(*args, **kwargs):
