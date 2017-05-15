@@ -12,6 +12,7 @@ class TestBasicIscsiAbs(VMBaseClass):
         {'size': '5G', 'auth': 'user:passw0rd', 'iauth': 'iuser:ipassw0rd'},
         {'size': '6G', 'iauth': 'iuser:ipassw0rd'}]
     conf_file = "examples/tests/basic_iscsi.yaml"
+    nr_testfiles = 4
 
     collect_scripts = [textwrap.dedent(
         """
@@ -32,11 +33,14 @@ class TestBasicIscsiAbs(VMBaseClass):
 
     def test_iscsi_testfiles(self):
         # add check by SN or UUID that the iSCSI disks are attached?
-        for testfile in ["testfile%s" % t for t in range(1, 5)]:
+        testfiles = ["testfile%s" % t for t in range(1, self.nr_testfiles + 1)]
+        for testfile in testfiles:
             self.output_files_exist([testfile])
             expected_content = "test%s" % testfile[-1]
             content = self.load_collect_file(testfile).strip()
-            self.assertEqual(expected_content, content)
+            self.assertEqual(expected_content, content,
+                             "Checking %s, expected:\n%s\nfound:\n%s" %
+                             (testfile, expected_content, )
 
 
 class PreciseTestIscsiBasic(relbase.precise, TestBasicIscsiAbs):

@@ -11,6 +11,7 @@ class TestLvmIscsiAbs(TestBasicIscsiAbs, TestLvmAbs):
         {'size': '6G'},
         {'size': '5G', 'auth': 'user:passw0rd', 'iauth': 'iuser:ipassw0rd'}]
     conf_file = "examples/tests/lvm_iscsi.yaml"
+    nr_testfiles = 4
 
     collect_scripts = TestBasicIscsiAbs.collect_scripts + [textwrap.dedent(
         """

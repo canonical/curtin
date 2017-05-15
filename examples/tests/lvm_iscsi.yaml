@@ -166,6 +166,6 @@ write_files:
       content: "test3"
       permissions: 0777
    f4:
-      path: /mnt/iscsi3/testfile
+      path: /mnt/iscsi4/testfile
       content: "test4"
       permissions: 0777

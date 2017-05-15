@@ -12,6 +12,7 @@ class TestMdadmIscsiAbs(TestBasicIscsiAbs, TestMdadmAbs):
         {'size': '5G', 'auth': 'user:passw0rd', 'iauth': 'iuser:ipassw0rd'},
         {'size': '5G', 'iauth': 'iuser:ipassw0rd'}]
     conf_file = "examples/tests/mdadm_iscsi.yaml"
+    nr_testfiles = 1
 
     collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent(
         """
