@@ -193,9 +193,14 @@ def get_device_slave_knames(device):
     # the underlying devices
     if os.path.exists(slaves_dir_path):
         LOG.debug('exists: %s', slaves_dir_path)
-        for slave_kname in os.listdir(slaves_dir_path):
-            LOG.debug('recursing: %s', slaves_dir_path)
-            slave_knames.extend(get_device_slave_knames(slave_kname))
+        slaves = os.listdir(slaves_dir_path)
+        if len(slaves) > 0:
+            for slave_kname in slaves:
+                LOG.debug('recursing: %s', slaves_dir_path)
+                slave_knames.extend(get_device_slave_knames(slave_kname))
+        else:
+            LOG.debug('slaves dir exists, but empty; adding self')
+            slave_knames.extend([path_to_kname(device)])
 
         LOG.debug('returning knames: %s', slave_knames)
         return slave_knames
