@@ -8,7 +8,7 @@ class TestMdadmAbs(VMBaseClass):
     interactive = False
     extra_disks = []
     active_mdadm = "1"
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts += [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         mdadm --detail --scan > mdadm_status

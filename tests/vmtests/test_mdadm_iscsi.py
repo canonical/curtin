@@ -5,7 +5,7 @@ from .test_iscsi import TestBasicIscsiAbs
 import textwrap
 
 
-class TestMdadmIscsiAbs(TestBasicIscsiAbs, TestMdadmAbs):
+class TestMdadmIscsiAbs(TestMdadmAbs, TestBasicIscsiAbs):
     interactive = False
     iscsi_disks = [
         {'size': '5G', 'auth': 'user:passw0rd'},
@@ -14,7 +14,7 @@ class TestMdadmIscsiAbs(TestBasicIscsiAbs, TestMdadmAbs):
     conf_file = "examples/tests/mdadm_iscsi.yaml"
     nr_testfiles = 1
 
-    collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent(
+    collect_scripts += [textwrap.dedent(
         """
         cd OUTPUT_COLLECT_D
         ls -al /sys/class/block/md*/slaves/  > md_slaves
