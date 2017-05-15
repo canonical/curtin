@@ -192,25 +192,18 @@ def get_device_slave_knames(device):
     # if we find a 'slaves' dir, recurse and check
     # the underlying devices
     if os.path.exists(slaves_dir_path):
-        LOG.debug('exists: %s', slaves_dir_path)
         slaves = os.listdir(slaves_dir_path)
         if len(slaves) > 0:
             for slave_kname in slaves:
-                LOG.debug('recursing: %s', slaves_dir_path)
                 slave_knames.extend(get_device_slave_knames(slave_kname))
         else:
-            LOG.debug('slaves dir exists, but empty; adding self')
             slave_knames.extend([path_to_kname(device)])
 
-        LOG.debug('returning knames: %s', slave_knames)
         return slave_knames
     else:
-        LOG.debug('no slaves: %s', slaves_dir_path)
         # if a device has no 'slaves' attribute then
         # we've found the underlying device, return
         # the kname of the device
-        LOG.debug('no slaves: returning device kname: %s',
-                  path_to_kname(device))
         return [path_to_kname(device)]
 
 
