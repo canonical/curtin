@@ -28,7 +28,7 @@ class TestBasicIscsiAbs(VMBaseClass):
     def test_fstab_has_netdev_option(self):
         self.output_files_exist(["fstab"])
         fstab = self.load_collect_file("fstab").strip()
-        self.assertTrue("_netdev" in fstab.splitlines())
+        self.assertTrue(any(["_netdev" in line for line in fstab.splitlines()]))
 
     def test_iscsi_testfiles(self):
         # add check by SN or UUID that the iSCSI disks are attached?
