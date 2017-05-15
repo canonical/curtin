@@ -9,6 +9,8 @@ class TestBcacheBasic(VMBaseClass):
         "s390x",  # lp:1565029
     ]
     conf_file = "examples/tests/bcache_basic.yaml"
+    nr_cpus = 2
+    dirty_disks = True
     extra_disks = ['2G']
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D

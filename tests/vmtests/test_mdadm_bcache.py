@@ -262,6 +262,8 @@ class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
                      ('md1', 0)]
     active_mdadm = "2"
     uefi = True
+    nr_cpus = 2
+    dirty_disks = True
 
 
 class TrustyTestMirrorbootPartitionsUEFI(relbase.trusty,

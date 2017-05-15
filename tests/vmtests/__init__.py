@@ -333,6 +333,9 @@ class VMBaseClass(TestCase):
     boot_timeout = BOOT_TIMEOUT
     collect_scripts = []
     conf_file = "examples/tests/basic.yaml"
+    nr_cpus = None
+    dirty_disks = False
+    dirty_disk_config = "examples/tests/dirty_disks_config.yaml"
     disk_block_size = 512
     disk_driver = 'virtio-blk'
     disk_to_check = {}
@@ -507,6 +510,26 @@ class VMBaseClass(TestCase):
                 bugnum, clsname)
 
     @classmethod
+    def get_config_smp(cls):
+        """Get number of cpus to use for guest"""
+
+        nr_cpus = None
+        if cls.nr_cpus:
+            nr_cpus = cls.nr_cpus
+            logger.debug('Setting cpus from class value: %s', nr_cpus)
+
+        env_cpus = os.environ.get("CURTIN_VMTEST_NR_CPUS", None)
+        if env_cpus:
+            nr_cpus = env_cpus
+            logger.debug('Setting cpus from '
+                         ' env["CURTIN_VMTEST_NR_CPUS"] value: %s', nr_cpus)
+        if not nr_cpus:
+            nr_cpus = 1
+            logger.debug('Setting cpus to default value: %s', nr_cpus)
+
+        return str(nr_cpus)
+
+    @classmethod
     def setUpClass(cls):
         # check if we should skip due to host arch
         if cls.arch in cls.arch_skip:
@@ -535,7 +558,8 @@ class VMBaseClass(TestCase):
             dowait = "--dowait"
 
         # create launch cmd
-        cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait]
+        cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait,
+               "--smp=" + cls.get_config_smp()]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -645,6 +669,10 @@ class VMBaseClass(TestCase):
             with open(grub_config, "w") as fp:
                 fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)
+
+        if cls.dirty_disks and storage_config:
+            logger.debug("Injecting early_command to dirty storage devices")
+            configs.append(cls.dirty_disk_config)
 
         excfg = os.environ.get("CURTIN_VMTEST_EXTRA_CONFIG", False)
         if excfg:
@@ -789,6 +817,7 @@ class VMBaseClass(TestCase):
                target_disks + extra_disks + nvme_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
+                "-smp",  cls.get_config_smp(),
                 "-m", "1024"])
 
         if not cls.interactive:

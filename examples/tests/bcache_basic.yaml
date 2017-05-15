@@ -1,4 +1,5 @@
 showtrace: true
+
 storage:
   config:
   - id: id_rotary0
