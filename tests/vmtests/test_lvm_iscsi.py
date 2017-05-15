@@ -20,6 +20,32 @@ class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):
         ls -al /sys/class/block/dm*/slaves/  > dm_slaves
         """)]
 
+    fstab_expected = {
+        'UUID=6de56115-9500-424b-8151-221b270ec708': '/mnt/iscsi1',
+        'UUID=9604e4c4-e5ae-40dd-ab1f-940de6b59047': '/mnt/iscsi2',
+        'UUID=18bec31c-09a8-4a02-91c6-e9bf6efb6fad': '/mnt/iscsi3',
+        'UUID=a98f706b-b064-4682-8eb2-6c2c1284060c': '/mnt/iscsi4',
+    }
+    disk_to_check = [('main_disk', 1),
+                     ('main_disk', 5),
+                     ('main_disk', 6),
+                     ('vg1-lv1', 0),
+                     ('vg1-lv2', 0),
+                     ('vg2-lv3', 0),
+                     ('vg2-lv4', 0)]
+
+    def test_lvs(self):
+        self.check_file_strippedline("lvs", "lv1=vg1")
+        self.check_file_strippedline("lvs", "lv2=vg1")
+        self.check_file_strippedline("lvs", "lv3=vg2")
+        self.check_file_strippedline("lvs", "lv4=vg2")
+
+    def test_pvs(self):
+        self.check_file_strippedline("pvs", "vg1=/dev/sda5")
+        self.check_file_strippedline("pvs", "vg1=/dev/sda6")
+        self.check_file_strippedline("pvs", "vg1=/dev/sdb5")
+        self.check_file_strippedline("pvs", "vg1=/dev/sdb6")
+
 
 class PreciseTestIscsiLvm(relbase.precise, TestLvmIscsiAbs):
     __test__ = True

@@ -75,13 +75,15 @@ storage:
       - id: lv1_fs
         name: storage
         type: format
-        fstype: fat32
+        fstype: ext4
         volume: lvmpart1
+        uuid: 6de56115-9500-424b-8151-221b270ec708
       - id: lv2_fs
         name: storage
         type: format
         fstype: ext3
         volume: lvmpart2
+        uuid: 9604e4c4-e5ae-40dd-ab1f-940de6b59047
       - id: lv1_mount
         type: mount
         path: /mnt/iscsi1
@@ -129,13 +131,15 @@ storage:
       - id: lv3_fs
         name: storage
         type: format
-        fstype: fat32
+        fstype: ext4
         volume: lvmpart3
+        uuid: 18bec31c-09a8-4a02-91c6-e9bf6efb6fad
       - id: lv4_fs
         name: storage
         type: format
         fstype: ext3
         volume: lvmpart4
+        uuid: a98f706b-b064-4682-8eb2-6c2c1284060c
       - id: lv3_mount
         type: mount
         path: /mnt/iscsi3
