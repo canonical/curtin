@@ -14,7 +14,9 @@ class TestMdadmIscsiAbs(TestMdadmAbs, TestBasicIscsiAbs):
     conf_file = "examples/tests/mdadm_iscsi.yaml"
     nr_testfiles = 1
 
-    collect_scripts += [textwrap.dedent(
+    collect_scripts = TestMdadmAbs.collect_scripts +
+                      TestBasicIscsiAbs.collect_scripts +
+                      [textwrap.dedent(
         """
         cd OUTPUT_COLLECT_D
         ls -al /sys/class/block/md*/slaves/  > md_slaves

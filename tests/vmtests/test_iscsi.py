@@ -14,7 +14,7 @@ class TestBasicIscsiAbs(VMBaseClass):
     conf_file = "examples/tests/basic_iscsi.yaml"
     nr_testfiles = 4
 
-    collect_scripts += [textwrap.dedent(
+    collect_scripts = [textwrap.dedent(
         """
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
