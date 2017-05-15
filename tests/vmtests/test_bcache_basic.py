@@ -65,3 +65,7 @@ class YakketyBcacheBasic(relbase.yakkety, TestBcacheBasic):
 
 class ZestyBcacheBasic(relbase.zesty, TestBcacheBasic):
     __test__ = True
+
+
+class ArtfulBcacheBasic(relbase.artful, TestBcacheBasic):
+    __test__ = True

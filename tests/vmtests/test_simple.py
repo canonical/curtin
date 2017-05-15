@@ -46,3 +46,7 @@ class YakketyTestSimple(relbase.yakkety, TestSimple):
 
 class ZestyTestSimple(relbase.zesty, TestSimple):
     __test__ = True
+
+
+class ArtfulTestSimple(relbase.artful, TestSimple):
+    __test__ = True

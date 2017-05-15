@@ -98,3 +98,7 @@ class YakketyTestNetworkENISource(relbase.yakkety, TestNetworkENISource):
 
 class ZestyTestNetworkENISource(relbase.zesty, TestNetworkENISource):
     __test__ = True
+
+
+class ArtfulTestNetworkENISource(relbase.artful, TestNetworkENISource):
+    __test__ = True
