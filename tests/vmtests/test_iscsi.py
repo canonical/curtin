@@ -20,10 +20,8 @@ class TestBasicIscsiAbs(VMBaseClass):
         cat /etc/fstab > fstab
         ls /dev/disk/by-dname/ > ls_dname
         find /etc/network/interfaces.d > find_interfacesd
-        cat /mnt/iscsi1/testfile > testfile1
-        cat /mnt/iscsi2/testfile > testfile2
-        cat /mnt/iscsi3/testfile > testfile3
-        cat /mnt/iscsi4/testfile > testfile4
+        bash -c \
+        'for f in /mnt/iscsi*; do cat $f/testfile > testfile${f: -1}; done'
         """)]
 
     def test_fstab_has_netdev_option(self):

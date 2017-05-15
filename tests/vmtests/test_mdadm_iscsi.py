@@ -15,8 +15,7 @@ class TestMdadmIscsiAbs(TestMdadmAbs, TestBasicIscsiAbs):
     nr_testfiles = 1
 
     collect_scripts = TestMdadmAbs.collect_scripts
-    collect_scripts += TestBasicIscsiAbs.collect_scripts
-    collect_scripts += [textwrap.dedent(
+    collect_scripts += TestBasicIscsiAbs.collect_scripts + [textwrap.dedent(
         """
         cd OUTPUT_COLLECT_D
         ls -al /sys/class/block/md*/slaves/  > md_slaves
