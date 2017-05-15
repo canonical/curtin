@@ -337,3 +337,7 @@ class YakketyTestNetworkBasic(relbase.yakkety, TestNetworkBasicAbs):
 
 class ZestyTestNetworkBasic(relbase.zesty, TestNetworkBasicAbs):
     __test__ = True
+
+
+class ArtfulTestNetworkBasic(relbase.artful, TestNetworkBasicAbs):
+    __test__ = True

@@ -161,3 +161,7 @@ class YakketyTestNetworkMtu(relbase.yakkety, TestNetworkMtuAbs):
 
 class ZestyTestNetworkMtu(relbase.zesty, TestNetworkMtuAbs):
     __test__ = True
+
+
+class ArtfulTestNetworkMtu(relbase.artful, TestNetworkMtuAbs):
+    __test__ = True
