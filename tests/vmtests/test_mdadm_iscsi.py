@@ -1,10 +1,11 @@
-from . import VMBaseClass
 from .releases import base_vm_classes as relbase
+from .test_mdadm_bcache import TestMdadmAbs
+from .test_iscsi import TestBasicIscsiAbs
 
 import textwrap
 
 
-class TestMdadmIscsiAbs(VMBaseClass):
+class TestMdadmIscsiAbs(TestBasicIscsiAbs, TestMdadmAbs):
     interactive = False
     iscsi_disks = [
         {'size': '5G', 'auth': 'user:passw0rd'},
@@ -12,18 +13,11 @@ class TestMdadmIscsiAbs(VMBaseClass):
         {'size': '5G', 'iauth': 'iuser:ipassw0rd'}]
     conf_file = "examples/tests/mdadm_iscsi.yaml"
 
-    collect_scripts = [textwrap.dedent(
+    collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent(
         """
         cd OUTPUT_COLLECT_D
-        cat /etc/fstab > fstab
-        ls /dev/disk/by-dname/ > ls_dname
-        find /etc/network/interfaces.d > find_interfacesd
-        cat /mnt/iscsi1/testfile > testfile1
+        ls -al /sys/class/block/md*/slaves/  > md_slaves
         """)]
-
-    def test_output_files_exist(self):
-        # add check by SN or UUID that the iSCSI disks are attached?
-        self.output_files_exist(["fstab", "testfile1"])
 
 
 class PreciseTestIscsiMdadm(relbase.precise, TestMdadmIscsiAbs):

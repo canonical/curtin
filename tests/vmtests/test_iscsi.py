@@ -25,10 +25,18 @@ class TestBasicIscsiAbs(VMBaseClass):
         cat /mnt/iscsi4/testfile > testfile4
         """)]
 
-    def test_output_files_exist(self):
+    def test_fstab_has_netdev_option(self):
+        self.output_files_exist(["fstab"])
+        fstab = self.load_collect_file("fstab").strip()
+        self.assertTrue("_netdev" in fstab.splitlines())
+
+    def test_iscsi_testfiles(self):
         # add check by SN or UUID that the iSCSI disks are attached?
-        self.output_files_exist(["fstab", "testfile1", "testfile2",
-                                 "testfile3", "testfile4"])
+        for testfile in ["testfile%s" % t for t in range(1, 5)]:
+            self.output_files_exist([testfile])
+            expected_content = "test%s" % testfile[-1]
+            content = self.load_collect_file(testfile).strip()
+            self.assertEqual(expected_content, content)
 
 
 class PreciseTestIscsiBasic(relbase.precise, TestBasicIscsiAbs):
