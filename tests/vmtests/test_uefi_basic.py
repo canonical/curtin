@@ -120,6 +120,10 @@ class ZestyUefiTestBasic(relbase.zesty, TestBasicAbs):
     __test__ = True
 
 
+class ArtfulUefiTestBasic(relbase.artful, TestBasicAbs):
+    __test__ = True
+
+
 class PreciseUefiTestBasic4k(PreciseUefiTestBasic):
     disk_block_size = 4096
 
@@ -147,4 +151,8 @@ class YakketyUefiTestBasic4k(YakketyUefiTestBasic):
 
 
 class ZestyUefiTestBasic4k(ZestyUefiTestBasic):
+    disk_block_size = 4096
+
+
+class ArtfulUefiTestBasic4k(ArtfulUefiTestBasic):
     disk_block_size = 4096

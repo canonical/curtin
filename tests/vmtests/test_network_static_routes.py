@@ -48,3 +48,12 @@ class XenialTestNetworkStaticRoutes(relbase.xenial,
 class YakketyTestNetworkStaticRoutes(relbase.yakkety,
                                      TestNetworkStaticRoutesAbs):
     __test__ = True
+
+
+class ZestyTestNetworkStaticRoutes(relbase.zesty, TestNetworkStaticRoutesAbs):
+    __test__ = True
+
+
+class ArtfulTestNetworkStaticRoutes(relbase.artful,
+                                    TestNetworkStaticRoutesAbs):
+    __test__ = True
