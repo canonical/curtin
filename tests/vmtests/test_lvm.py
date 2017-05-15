@@ -88,3 +88,7 @@ class YakketyTestLvm(relbase.yakkety, TestLvmAbs):
 
 class ZestyTestLvm(relbase.zesty, TestLvmAbs):
     __test__ = True
+
+
+class ArtfulTestLvm(relbase.artful, TestLvmAbs):
+    __test__ = True

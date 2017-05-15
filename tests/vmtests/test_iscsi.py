@@ -49,3 +49,7 @@ class YakketyTestIscsiBasic(relbase.yakkety, TestBasicIscsiAbs):
 
 class ZestyTestIscsiBasic(relbase.zesty, TestBasicIscsiAbs):
     __test__ = True
+
+
+class ArtfulTestIscsiBasic(relbase.artful, TestBasicIscsiAbs):
+    __test__ = True
