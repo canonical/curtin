@@ -51,7 +51,8 @@ class TestBasicAbs(VMBaseClass):
         self.output_files_exist(
             ["blkid_output_vda", "blkid_output_vda1", "blkid_output_vda2",
              "btrfs_uuid_vdd", "fstab", "ls_dname", "ls_uuid",
-             "proc_partitions"])
+             "proc_partitions",
+             "root/curtin-install.log", "root/curtin-install-cfg.yaml"])
 
     def test_ptable(self):
         blkid_info = self.get_blkid_data("blkid_output_vda")
@@ -216,6 +217,10 @@ class ZestyTestBasic(relbase.zesty, TestBasicAbs):
     __test__ = True
 
 
+class ArtfulTestBasic(relbase.artful, TestBasicAbs):
+    __test__ = True
+
+
 class TestBasicScsiAbs(TestBasicAbs):
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
@@ -321,4 +326,8 @@ class YakketyTestScsiBasic(relbase.yakkety, TestBasicScsiAbs):
 
 
 class ZestyTestScsiBasic(relbase.zesty, TestBasicScsiAbs):
+    __test__ = True
+
+
+class ArtfulTestScsiBasic(relbase.artful, TestBasicScsiAbs):
     __test__ = True

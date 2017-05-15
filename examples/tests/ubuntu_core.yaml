@@ -11,3 +11,35 @@ cloudconfig:
       snappy:
         email: raharper@gmail.com
         packages: [hello, part-numpy, part-cython]
+
+network:
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: interface0
+          mac_address: "52:54:00:12:34:00"
+          subnets:
+              - type: dhcp4
+        - type: physical
+          name: interface1
+          mtu: 1492
+          mac_address: "52:54:00:12:34:02"
+          subnets:
+              - type: static
+                address: 10.0.2.100/24
+              - type: static
+                address: 10.0.3.100/24
+              - type: static
+                address: 10.0.4.100/24
+              - type: static
+                address: 10.0.5.100/24
+              - type: static
+                address: 10.0.2.200/24
+                dns_nameservers:
+                  - 8.8.8.8
+                dns_search:
+                  - barley.maas
+        - type: physical
+          name: interface2
+          mac_address: "52:54:00:12:34:04"

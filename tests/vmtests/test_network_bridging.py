@@ -182,3 +182,7 @@ class YakketyTestBridging(relbase.yakkety, TestBridgeNetworkAbs):
 
 class ZestyTestBridging(relbase.zesty, TestBridgeNetworkAbs):
     __test__ = True
+
+
+class ArtfulTestBridging(relbase.artful, TestBridgeNetworkAbs):
+    __test__ = True
