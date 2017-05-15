@@ -94,7 +94,6 @@ def path_to_kname(path):
     # cciss devices need to have 'cciss!' prepended
     if path.startswith('/dev/cciss'):
         dev_kname = 'cciss!' + dev_kname
-    LOG.debug("path_to_kname input: '{}' output: '{}'".format(path, dev_kname))
     return dev_kname
 
 
@@ -106,7 +105,6 @@ def kname_to_path(kname):
     # if given something that is already a dev path, return it
     if os.path.exists(kname) and is_valid_device(kname):
         path = kname
-        LOG.debug("kname_to_path input: '{}' output: '{}'".format(kname, path))
         return os.path.realpath(path)
     # adding '/dev' to path is not sufficient to handle cciss devices and
     # possibly other special devices which have not been encountered yet
@@ -114,7 +112,6 @@ def kname_to_path(kname):
     # make sure path we get is correct
     if not (os.path.exists(path) and is_valid_device(path)):
         raise OSError('could not get path to dev from kname: {}'.format(kname))
-    LOG.debug("kname_to_path input: '{}' output: '{}'".format(kname, path))
     return path
 
 
