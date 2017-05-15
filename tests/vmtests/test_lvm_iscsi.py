@@ -43,8 +43,8 @@ class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):
     def test_pvs(self):
         self.check_file_strippedline("pvs", "vg1=/dev/sda5")
         self.check_file_strippedline("pvs", "vg1=/dev/sda6")
-        self.check_file_strippedline("pvs", "vg1=/dev/sdb5")
-        self.check_file_strippedline("pvs", "vg1=/dev/sdb6")
+        self.check_file_strippedline("pvs", "vg2=/dev/sdb5")
+        self.check_file_strippedline("pvs", "vg2=/dev/sdb6")
 
 
 class PreciseTestIscsiLvm(relbase.precise, TestLvmIscsiAbs):
