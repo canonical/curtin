@@ -85,7 +85,7 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
             args = ['sh', '-c', args]
         else:
             args = [args]
- 
+
     args = unshare_args + chroot_args + list(args)
 
     if not logstring:
