@@ -74,19 +74,16 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
 
     tpath = target_path(target)
     chroot_args = [] if tpath == "/" else ['chroot', target]
+    sh_args = ['sh', '-c'] if shell else []
+    if isinstance(args, string_types):
+        args = [args]
 
     try:
         unshare_args = _get_unshare_pid_args(unshare_pid, tpath)
     except RuntimeError as e:
         raise RuntimeError("Unable to unshare pid (cmd=%s): %s" % (args, e))
 
-    if isinstance(args, string_types):
-        if shell:
-            args = ['sh', '-c', args]
-        else:
-            args = [args]
-
-    args = unshare_args + chroot_args + list(args)
+    args = unshare_args + chroot_args + sh_args + list(args)
 
     if not logstring:
         LOG.debug(("Running command %s with allowed return codes %s"
