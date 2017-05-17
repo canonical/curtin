@@ -911,6 +911,9 @@ def bcache_handler(info, storage_config):
             if os.path.exists(expected):
                 LOG.debug('Found bcache dev %s at expected path %s',
                           bcache_device, expected)
+                bcache_info = util.dir2dict(expected)
+                LOG.debug("expected bcache sysfs info:\n%s",
+                          config.dump_config(bcache_info))
                 return
             LOG.debug('bcache device path not found: %s', expected)
             local_holders = clear_holders.get_holders(bcache_device)
@@ -971,6 +974,7 @@ def bcache_handler(info, storage_config):
         backing_device_sysfs = block.sys_block_path(backing_device)
         target_sysfs_path = os.path.join(backing_device_sysfs, "bcache")
         if not os.path.exists(os.path.join(backing_device_sysfs, "bcache")):
+            LOG.debug('Creating a backing device')
             util.subp(["make-bcache", "-B", backing_device])
         ensure_bcache_is_registered(backing_device, target_sysfs_path)
 
@@ -981,6 +985,12 @@ def bcache_handler(info, storage_config):
             err = ('Invalid number {} of holding devices:'
                    ' "{}"'.format(len(holders), holders))
             LOG.error(err)
+            out, _ = util.subp(['ls', '-al', '/sys/class/block/bcache*'],
+                               capture=True, rcs=[0, 1])
+            LOG.error(out)
+            out, _ = util.subp(['ls', '-al', '/sys/fs/bcache/*'],
+                               capture=True, rcs=[0, 1])
+            LOG.error(out)
             raise ValueError(err)
         [bcache_dev] = holders
         LOG.debug('The just created bcache device is {}'.format(holders))
