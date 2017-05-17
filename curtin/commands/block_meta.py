@@ -926,7 +926,10 @@ def bcache_handler(info, storage_config):
         if bcache_sys_path.startswith('/sys/fs/bcache'):
             LOG.debug('We registered a bcache cache device!')
             # we execpt a cacheN symlink to point to bcache_device/bcache
-            cache_links = [l for l in os.listdir(bcache_sys_path)
+            sys_path_links = [os.path.join(bcache_sys_path, l)
+                              for l in contents]
+            LOG.debug('looking for cache link in: %s', sys_path_links)
+            cache_links = [l for l in sys_path_links
                            if os.path.islink(l) and l.startswith('cache')]
             LOG.debug('Found cache links: %s', cache_links)
             for link in cache_links:
@@ -1007,8 +1010,8 @@ def bcache_handler(info, storage_config):
             # soon as we run make-bcache using udev rules, so wait for udev to
             # settle, then try to locate the dev, on older versions we need to
             # register it manually though
-            LOG.debug('bcache device was not registered, registering %s at '
-                      '/sys/fs/bcache/register', bcache_device)
+            LOG.exception('bcache device was not registered, registering %s '
+                          'at /sys/fs/bcache/register', bcache_device)
             try:
                 register_bcache(bcache_device)
                 time.sleep(retry+1)
