@@ -1187,20 +1187,4 @@ class RunInChroot(ChrootableTarget):
     __call__ = ChrootableTarget.subp
 
 
-def dir2dict(startdir, prefix=None):
-    flist = {}
-    if prefix is None:
-        prefix = startdir
-    for root, dirs, files in os.walk(startdir):
-        for fname in files:
-            fpath = os.path.join(root, fname)
-            key = fpath[len(prefix):]
-            try:
-                flist[key] = load_file(fpath)
-            except Exception:
-                flist[key] = None
-                pass
-    return flist
-
-
 # vi: ts=4 expandtab syntax=python
