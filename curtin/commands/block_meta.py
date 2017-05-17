@@ -920,14 +920,13 @@ def bcache_handler(info, storage_config):
         # /sys/class/block/<bdev>/bcache/cache -> # .../block/bcacheN
         # /sys/class/block/<bdev>/bcache/dev -> # .../block/bcacheN
 
-        contents = os.listdir(bcache_sys_path)
-        LOG.debug('sys_path %s contents: %s', bcache_sys_path, contents)
-
+        LOG.debug('Validating bcache device, path: %s, %s',
+                  bcache_device, bcache_sys_path)
         if bcache_sys_path.startswith('/sys/fs/bcache'):
             LOG.debug('We registered a bcache cache device!')
-            # we execpt a cacheN symlink to point to bcache_device/bcache
+            # we expect a cacheN symlink to point to bcache_device/bcache
             sys_path_links = [os.path.join(bcache_sys_path, l)
-                              for l in contents]
+                              for l in os.listdir(bcache_sys_path)]
             LOG.debug('looking for cache link in: %s', sys_path_links)
             cache_links = [l for l in sys_path_links
                            if os.path.islink(l) and (
@@ -936,39 +935,26 @@ def bcache_handler(info, storage_config):
             for link in cache_links:
                 target = os.readlink(link)
                 LOG.debug('symlink %s -> %s', link, target)
-                if link == 'set':
-                    bcache_set_uuid = os.path.basename(target)
-                    LOG.debug('found cset.uuid = %s', bcache_set_uuid)
-                if link.startswith('cache'):
-                    # cacheN  -> ../../../devices/.../<bcache_device>/bcache
-                    # basename(dirname(readlink(link)))
-                    target_cache_device = os.path.basename(
-                        os.path.dirname(target))
-                    LOG.debug('matches? bcache_device=%s target_device=%s',
-                              bcache_device, target_cache_device)
+                # cacheN  -> ../../../devices/.../<bcache_device>/bcache
+                # basename(dirname(readlink(link)))
+                target_cache_device = os.path.basename(
+                    os.path.dirname(target))
+                LOG.debug('matches? bcache_device=%s target_device=%s',
+                          bcache_device, target_cache_device)
                 return True
         elif bcache_sys_path.startswith('/sys/class/block'):
-            release = util.lsb_release()['codename']
-            LOG.debug('Must be a backing dev? release=%s', release)
-
-            bcache_cache = os.path.join(bcache_sys_path, 'cache')
+            LOG.debug('We registered a bcache backing device!')
+            # we expect a 'dev' symlink to point to the bcacheN device
             bcache_dev = os.path.join(bcache_sys_path, 'dev')
-            if os.path.islink(bcache_cache):
-                bcache_cache_link = (
-                    os.path.basename(os.readlink(bcache_cache)))
-                LOG.debug('bcache device %s using cset: %s', bcache_sys_path,
-                          bcache_cache_link)
-            else:
-                LOG.debug('didnt find "cache" attribute: %s',
-                          bcache_cache)
             if os.path.islink(bcache_dev):
                 bcache_dev_link = (
                     os.path.basename(os.readlink(bcache_dev)))
-                LOG.debug('bcache device %s using bcache dev: %s',
+                LOG.debug('bcache device %s using bcache kname: %s',
                           bcache_sys_path, bcache_dev_link)
             else:
-                LOG.debug('didnt find "dev" attribute: %s',
+                LOG.debug('didnt find "dev" attribute on: %s',
                           bcache_dev)
+                return False
 
             # we validate the holders here as backing devices need a
             local_holders = clear_holders.get_holders(bcache_device)
@@ -978,6 +964,7 @@ def bcache_handler(info, storage_config):
                 LOG.debug('bcache device not yet registered,'
                           ' no holders, retry')
                 return False
+
             return True
         else:
             LOG.error('expected path does not appear to be a bcache device')
