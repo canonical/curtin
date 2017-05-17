@@ -1195,7 +1195,11 @@ def dir2dict(startdir, prefix=None):
         for fname in files:
             fpath = os.path.join(root, fname)
             key = fpath[len(prefix):]
-            flist[key] = load_file(fpath)
+            try:
+                flist[key] = load_file(fpath)
+            except OSError, PermissionError as e:
+                flist[key] = None
+                pass
     return flist
 
 
