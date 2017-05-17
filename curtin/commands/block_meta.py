@@ -908,6 +908,56 @@ def bcache_handler(info, storage_config):
             time.sleep(1)
             pass
 
+    def _validate_bcache(bcache_device, bcache_sys_path):
+        """ check if bcache is ready, dump info """
+        # cache
+        # /sys/class/block/<cdev>/bcache/set -> # .../fs/bcache/uuid
+
+        # backing
+        # /sys/class/block/<bdev>/bcache/cache -> # .../fs/bcache/uuid
+        # /sys/class/block/<bdev>/bcache/dev -> # .../block/bcacheN
+
+        bcache_set = os.path.join(bcache_sys_path, 'set')
+        LOG.debug('bcache dir contents: %s', os.listdir(bcache_sys_path))
+        if os.path.islink(bcache_set):
+            LOG.debug('We registered a bcache cache device!')
+            bcache_set_uuid = os.path.basename(os.readlink(bcache_set))
+            LOG.debug('found cset.uuid = %s', bcache_set_uuid)
+            return True
+        else:
+            release = util.lsb_release()['codename']
+            LOG.debug('didnt find "set" attribte: %s', bcache_set)
+            LOG.debug('Must be a backing dev? release=%s', release)
+
+            bcache_cache = os.path.join(bcache_sys_path, 'cache')
+            bcache_dev = os.path.join(bcache_sys_path, 'dev')
+            if os.path.islink(bcache_cache):
+                bcache_cache_link = (
+                    os.path.basename(os.readlink(bcache_cache)))
+                LOG.debug('bcache device %s using cset: %s', bcache_sys_path,
+                          bcache_cache_link)
+            else:
+                LOG.debug('didnt find "cache" attribute: %s',
+                          bcache_cache)
+            if os.path.islink(bcache_dev):
+                bcache_dev_link = (
+                    os.path.basename(os.readlink(bcache_dev)))
+                LOG.debug('bcache device %s using bcache dev: %s',
+                          bcache_sys_path, bcache_dev_link)
+            else:
+                LOG.debug('didnt find "dev" attribute: %s',
+                          bcache_dev)
+
+            # we validate the holders here as backing devices need a
+            local_holders = clear_holders.get_holders(bcache_device)
+            LOG.debug('blk holders of bcache dev %s: "%s"',
+                      bcache_device, local_holders)
+            if len(local_holders) == 0:
+                LOG.debug('bcache device not yet registered,'
+                          ' no holders, retry')
+                return False
+            return True
+
     def ensure_bcache_is_registered(bcache_device, expected, retry=0):
         # find the actual bcache device name via sysfs using the
         # backing device's holders directory.
@@ -919,41 +969,8 @@ def bcache_handler(info, storage_config):
             if os.path.exists(expected):
                 LOG.debug('Found bcache dev %s at expected path %s',
                           bcache_device, expected)
-                # cache
-                # /sys/class/block/<cdev>/bcache/set -> # .../fs/bcache/uuid
-
-                # backing
-                # /sys/class/block/<bdev>/bcache/cache -> # .../fs/bcache/uuid
-                # /sys/class/block/<bdev>/bcache/dev -> # .../block/bcacheN
-
-                bcache_set = os.path.join(expected, 'set')
-                if os.path.islink(bcache_set):
-                    LOG.debug('We registered a bcache cache device!')
-                    bcache_set_uuid = os.path.basename(os.readlink(bcache_set))
-                    LOG.debug('found cset.uuid = %s', bcache_set_uuid)
-                    return
-                else:
-                    bcache_cache = os.path.join(expected, 'cache')
-                    bcache_dev = os.path.join(expected, 'dev')
-                    if os.path.islink(bcache_cache):
-                        bcache_cache_link = (
-                            os.path.basename(os.readlink(bcache_cache)))
-                        LOG.debug('bcache device %s using cset: %s', expected,
-                                  bcache_cache_link)
-                    if os.path.islink(bcache_dev):
-                        bcache_dev_link = (
-                            os.path.basename(os.readlink(bcache_dev)))
-                        LOG.debug('bcache device %s using bcache dev: %s',
-                                  expected, bcache_dev_link)
-
-                # we validate the holders here as backing devices need a
-                local_holders = clear_holders.get_holders(bcache_device)
-                LOG.debug('blk holders of bcache dev %s: "%s"',
-                          bcache_device, local_holders)
-                if len(local_holders) == 0:
-                    LOG.debug('bcache device not yet registered,'
-                              ' no holders, retry')
-                    raise ValueError("holders == 0 , expected non-zero")
+                if not _validate_bcache(bcache_device, expected):
+                    raise ValueError("Failed to validate bcache device")
 
             else:
                 LOG.debug('bcache device path not found: %s', expected)
@@ -975,6 +992,9 @@ def bcache_handler(info, storage_config):
                 register_bcache(bcache_device)
                 time.sleep(retry+1)
                 udevadm_settle(exists=expected)
+                LOG.debug('After register, sleep and settle, '
+                          'path exists, moving forward?')
+                _validate_bcache(bcache_device, expected)
             except (IOError):
                 # device creation is notoriously racy and this can trigger
                 # "Invalid argument" IOErrors if it got created in "the
