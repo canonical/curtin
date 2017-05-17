@@ -911,15 +911,21 @@ def bcache_handler(info, storage_config):
             if os.path.exists(expected):
                 LOG.debug('Found bcache dev %s at expected path %s',
                           bcache_device, expected)
-                bcache_info = util.dir2dict(expected)
+                #bcache_info = util.dir2dict(expected)
                 LOG.debug("expected bcache sysfs info:\n%s",
                           config.dump_config(bcache_info))
-                return
-            LOG.debug('bcache device path not found: %s', expected)
+            else:
+                LOG.debug('bcache device path not found: %s', expected)
+
+            # also validate the holder info in ensure so we can retry
             local_holders = clear_holders.get_holders(bcache_device)
             LOG.debug('got initial holders being "%s"', local_holders)
             if len(local_holders) == 0:
                 raise ValueError("holders == 0 , expected non-zero")
+
+            # if bcache path exists and holders are > 0 we can return
+            return
+
         except (OSError, IndexError, ValueError):
             # Some versions of bcache-tools will register the bcache device as
             # soon as we run make-bcache using udev rules, so wait for udev to
