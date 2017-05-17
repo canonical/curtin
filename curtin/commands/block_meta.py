@@ -910,23 +910,41 @@ def bcache_handler(info, storage_config):
 
     def _validate_bcache(bcache_device, bcache_sys_path):
         """ check if bcache is ready, dump info """
-        # cache
+        # cacheset
+        # /sys/fs/bcache/<uuid>
+
+        # cache device
         # /sys/class/block/<cdev>/bcache/set -> # .../fs/bcache/uuid
 
         # backing
-        # /sys/class/block/<bdev>/bcache/cache -> # .../fs/bcache/uuid
+        # /sys/class/block/<bdev>/bcache/cache -> # .../block/bcacheN
         # /sys/class/block/<bdev>/bcache/dev -> # .../block/bcacheN
 
-        bcache_set = os.path.join(bcache_sys_path, 'set')
-        LOG.debug('bcache dir contents: %s', os.listdir(bcache_sys_path))
-        if os.path.islink(bcache_set):
+        contents = os.listdir(bcache_sys_path)
+        LOG.debug('sys_path %s contents: %s', bcache_sys_path, contents)
+
+        if bcache_sys_path.startswith('/sys/fs/bcache'):
             LOG.debug('We registered a bcache cache device!')
-            bcache_set_uuid = os.path.basename(os.readlink(bcache_set))
-            LOG.debug('found cset.uuid = %s', bcache_set_uuid)
-            return True
-        else:
+            # we execpt a cacheN symlink to point to bcache_device/bcache
+            cache_links = [l for l in os.listdir(bcache_sys_path)
+                           if os.path.islink(l) and l.startswith('cache')]
+            LOG.debug('Found cache links: %s', cache_links)
+            for link in cache_links:
+                target = os.readlink(link)
+                LOG.debug('symlink %s -> %s', link, target)
+                if link == 'set':
+                    bcache_set_uuid = os.path.basename(target)
+                    LOG.debug('found cset.uuid = %s', bcache_set_uuid)
+                if link.startswith('cache'):
+                    # cacheN  -> ../../../devices/.../<bcache_device>/bcache
+                    # basename(dirname(readlink(link)))
+                    target_cache_device = os.path.basename(
+                        os.path.dirname(target))
+                    LOG.debug('matches? bcache_device=%s target_device=%s',
+                              bcache_device, target_cache_device)
+                return True
+        elif bcache_sys_path.startswith('/sys/class/block'):
             release = util.lsb_release()['codename']
-            LOG.debug('didnt find "set" attribte: %s', bcache_set)
             LOG.debug('Must be a backing dev? release=%s', release)
 
             bcache_cache = os.path.join(bcache_sys_path, 'cache')
@@ -957,6 +975,9 @@ def bcache_handler(info, storage_config):
                           ' no holders, retry')
                 return False
             return True
+        else:
+            LOG.error('expected path does not appear to be a bcache device')
+            return False
 
     def ensure_bcache_is_registered(bcache_device, expected, retry=0):
         # find the actual bcache device name via sysfs using the
