@@ -144,7 +144,7 @@ def sys_block_path(devname, add=None, strict=True):
     toks = ['/sys/class/block']
     # insert parent dev if devname is partition
     devname = os.path.normpath(devname)
-    (parent, partnum) = get_blockdev_for_partition(devname)
+    (parent, partnum) = get_blockdev_for_partition(devname, strict=strict)
     if partnum:
         toks.append(path_to_kname(parent))
 
@@ -295,7 +295,7 @@ def get_installable_blockdevs(include_removable=False, min_size=1024**3):
     return good
 
 
-def get_blockdev_for_partition(devpath):
+def get_blockdev_for_partition(devpath, strict=True):
     """
     find the parent device for a partition.
     returns a tuple of the parent block device and the partition number
@@ -313,7 +313,7 @@ def get_blockdev_for_partition(devpath):
     syspath = os.path.join(base, path_to_kname(devpath))
 
     # don't need to try out multiple sysfs paths as path_to_kname handles cciss
-    if not os.path.exists(syspath):
+    if strict and not os.path.exists(syspath):
         raise OSError("%s had no syspath (%s)" % (devpath, syspath))
 
     ptpath = os.path.join(syspath, "partition")
