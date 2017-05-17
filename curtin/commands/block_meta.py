@@ -930,7 +930,8 @@ def bcache_handler(info, storage_config):
                               for l in contents]
             LOG.debug('looking for cache link in: %s', sys_path_links)
             cache_links = [l for l in sys_path_links
-                           if os.path.islink(l) and l.startswith('cache')]
+                           if os.path.islink(l) and (
+                              os.path.basename(l).startswith('cache'))]
             LOG.debug('Found cache links: %s', cache_links)
             for link in cache_links:
                 target = os.readlink(link)
