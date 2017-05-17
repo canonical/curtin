@@ -795,7 +795,7 @@ def exclusive_open(path):
         LOG.error('Device holders with exclusive access: %s', holders)
         mount_points = util.list_device_mounts(path)
         LOG.error('Device mounts: %s', mount_points)
-        out, err = util.subp(['lsof', path], capture=True)
+        out, err = util.subp(['lsof', path], capture=True, rcs=[0,1])
         LOG.error('lsof %s: stdout: %s\n stderr: %s', path, out, err)
         raise
 
