@@ -1197,7 +1197,7 @@ def dir2dict(startdir, prefix=None):
             key = fpath[len(prefix):]
             try:
                 flist[key] = load_file(fpath)
-            except OSError, PermissionError as e:
+            except Exception:
                 flist[key] = None
                 pass
     return flist
