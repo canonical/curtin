@@ -912,8 +912,8 @@ def bcache_handler(info, storage_config):
                 LOG.debug('Found bcache dev %s at expected path %s',
                           bcache_device, expected)
                 #bcache_info = util.dir2dict(expected)
-                LOG.debug("expected bcache sysfs info:\n%s",
-                          config.dump_config(bcache_info))
+                #LOG.debug("expected bcache sysfs info:\n%s",
+                #          config.dump_config(bcache_info))
             else:
                 LOG.debug('bcache device path not found: %s', expected)
 
