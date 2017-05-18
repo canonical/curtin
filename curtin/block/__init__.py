@@ -197,7 +197,7 @@ def get_device_slave_knames(device):
             for slave_kname in slaves:
                 slave_knames.extend(get_device_slave_knames(slave_kname))
         else:
-            slave_knames.extend([path_to_kname(device)])
+            slave_knames.append(path_to_kname(device))
 
         return slave_knames
     else:
