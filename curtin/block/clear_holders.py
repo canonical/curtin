@@ -244,8 +244,20 @@ def wipe_superblock(device):
         LOG.info("extended partitions do not need wiping, so skipping: '%s'",
                  blockdev)
     else:
+        retries = [1, 3, 5, 7]
         LOG.info('wiping superblock on %s', blockdev)
-        block.wipe_volume(blockdev, mode='superblock')
+        for attempt, wait in enumerate(retries):
+            LOG.debug('wipe attempt %s', attempt + 1)
+            try:
+                block.wipe_volume(blockdev, mode='superblock')
+            except OSError:
+                if attempt + 1 >= len(retries):
+                    raise
+                else:
+                    LOG.debug('Failed to wipe volume, '
+                              'waiting %s seconds to retry', wait)
+                    time.sleep(wait)
+                    pass
 
 
 def identify_lvm(device):

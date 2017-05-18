@@ -795,6 +795,8 @@ def exclusive_open(path):
         LOG.error('Device holders with exclusive access: %s', holders)
         mount_points = util.list_device_mounts(path)
         LOG.error('Device mounts: %s', mount_points)
+        fusers = util.fuser_mount(path)
+        LOG.error('Possible users of %s:\n%s', path, fusers)
         raise
 
 

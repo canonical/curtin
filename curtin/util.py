@@ -334,6 +334,51 @@ def list_device_mounts(device):
     return dev_mounts
 
 
+def fuser_mount(path):
+    """ Execute fuser to determine open file handles from mountpoint path
+
+        Use verbose mode and then combine stdout, stderr from fuser into
+        a dictionary:
+
+        {pid: "fuser-details"}
+
+    """
+    fuser_output = {}
+    try:
+        stdout, stderr = subp(['fuser', '-v', '-m', path], capture=True)
+    except ProcessExecutionError as e:
+        LOG.debug('fuser returned non-zero: %s', e.stderr)
+        return None
+
+    # fuse writes pids (kernel or number) for each process which has an open
+    # file handle against the path specified
+    pidlist = stdout.split()
+
+    """
+    fuser writes a header in verbose mode, we'll ignore that but the
+    order if the input is <mountpoint> <user> <pid*> <access> <command>
+
+    note that <pid> is not present in stderr, it's only in stdout.  Also
+    only the entry with pid=kernel entry will contain the mountpoint
+
+    # Combined stdout and stderr look like:
+    #                      USER        PID ACCESS COMMAND
+    # /home:               root     kernel mount /
+    #                      root          1 .rce. systemd
+    #
+    # This would return
+    #
+    {
+        'kernel': ['/home', 'root', 'mount', '/'],
+        '1': ['root', '1', '.rce.', 'systemd'],
+    }
+    """
+    for (pid, status) in zip(pidlist, stderr.splitlines()[1:]):
+        fuser_output[pid] = status.split()
+
+    return fuser_output
+
+
 def do_mount(src, target, opts=None):
     # mount src at target with opts and return True
     # if already mounted, return False
