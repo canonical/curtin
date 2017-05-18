@@ -790,7 +790,7 @@ def exclusive_open(path):
             if fd_needs_closing and sys.version_info.major == 2:
                 os.close(fd)
     except OSError:
-        LOG.exception("Failed to exclusively open path: %s", path)
+        LOG.error("Failed to exclusively open path: %s", path)
         holders = get_holders(path)
         LOG.error('Device holders with exclusive access: %s', holders)
         mount_points = util.list_device_mounts(path)

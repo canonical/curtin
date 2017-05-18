@@ -250,6 +250,8 @@ def wipe_superblock(device):
             LOG.debug('wipe attempt %s', attempt + 1)
             try:
                 block.wipe_volume(blockdev, mode='superblock')
+                LOG.debug('wipe was successful')
+                return
             except OSError:
                 if attempt + 1 >= len(retries):
                     raise
