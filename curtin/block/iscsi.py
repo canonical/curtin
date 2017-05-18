@@ -283,7 +283,7 @@ def volpath_is_iscsi(volume_path):
         returns a boolean
     """
     if not volume_path:
-        raise ValueError("Missing volume_path parameter")
+        raise ValueError("Invalid input for volume_path: '%s'", volume_path)
 
     volume_path_slaves = get_device_slave_knames(volume_path)
     LOG.debug('volume_path=%s found slaves: %s', volume_path,
