@@ -44,6 +44,7 @@ DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 OUTPUT_DISK_NAME = 'output_disk.img'
 BOOT_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_BOOT_TIMEOUT", 300))
 INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
+REUSE_TOPDIR = bool(int(os.environ.get("CURTIN_VMTEST_REUSE_TOPDIR", 0)))
 
 _TOPDIR = None
 
@@ -260,16 +261,9 @@ class TempDir(object):
     output_disk = None
 
     def __init__(self, name, user_data):
+        self.restored = REUSE_TOPDIR
         # Create tmpdir
         self.tmpdir = os.path.join(_topdir(), name)
-        try:
-            os.mkdir(self.tmpdir)
-        except OSError as e:
-            if e.errno == errno.EEXIST:
-                raise ValueError("name '%s' already exists in %s" %
-                                 (name, _topdir))
-            else:
-                raise e
 
         # make subdirs
         self.collect = os.path.join(self.tmpdir, "collect")
@@ -280,11 +274,24 @@ class TempDir(object):
 
         self.dirs = (self.collect, self.install, self.boot, self.logs,
                      self.disks)
-        for d in self.dirs:
-            os.mkdir(d)
 
         self.success_file = os.path.join(self.logs, "success")
         self.errors_file = os.path.join(self.logs, "errors.json")
+        self.target_disk = os.path.join(self.disks, "install_disk.img")
+        self.seed_disk = os.path.join(self.boot, "seed.img")
+        self.output_disk = os.path.join(self.boot, OUTPUT_DISK_NAME)
+
+        if self.restored:
+            if os.path.exists(self.tmpdir):
+                logger.info('Reusing existing TempDir: %s', self.tmpdir)
+                return
+            else:
+                raise ValueError("REUSE_TOPDIR set, but TempDir not found:"
+                                 " %s" % self.tmpdir)
+
+        os.mkdir(self.tmpdir)
+        for d in self.dirs:
+            os.mkdir(d)
 
         # write cloud-init for installed system
         meta_data_file = os.path.join(self.install, "meta-data")
@@ -296,21 +303,18 @@ class TempDir(object):
 
         # create target disk
         logger.debug('Creating target disk')
-        self.target_disk = os.path.join(self.disks, "install_disk.img")
         subprocess.check_call(["qemu-img", "create", "-f", TARGET_IMAGE_FORMAT,
                               self.target_disk, "10G"],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
         # create seed.img for installed system's cloud init
         logger.debug('Creating seed disk')
-        self.seed_disk = os.path.join(self.boot, "seed.img")
         subprocess.check_call(["cloud-localds", self.seed_disk,
                               user_data_file, meta_data_file],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
         # create output disk, mount ro
         logger.debug('Creating output disk')
-        self.output_disk = os.path.join(self.boot, OUTPUT_DISK_NAME)
         subprocess.check_call(["qemu-img", "create", "-f", TARGET_IMAGE_FORMAT,
                               self.output_disk, "10M"],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
@@ -549,7 +553,6 @@ class VMBaseClass(TestCase):
         cls.boot_log = os.path.join(cls.td.logs, 'boot-serial.log')
         logger.debug('Install console log: {}'.format(cls.install_log))
         logger.debug('Boot console log: {}'.format(cls.boot_log))
-        ftypes = cls.get_test_files()
 
         # if interactive, launch qemu without 'background & wait'
         if cls.interactive:
@@ -569,6 +572,7 @@ class VMBaseClass(TestCase):
             cmd.extend(["--append=" + cls.extra_kern_args])
 
         # publish the root tarball
+        ftypes = cls.get_test_files()
         install_src = "PUBURL/" + os.path.basename(ftypes[cls.target_ftype])
         if cls.target_ftype == 'vmtest.root-tgz':
             cmd.append("--publish=%s" % ftypes['vmtest.root-tgz'])
@@ -652,10 +656,11 @@ class VMBaseClass(TestCase):
         # proxy config
         configs = [cls.conf_file]
         cls.proxy = get_apt_proxy()
-        if cls.proxy is not None:
+        if cls.proxy is not None and not cls.td.restored:
             proxy_config = os.path.join(cls.td.install, 'proxy.cfg')
-            with open(proxy_config, "w") as fp:
-                fp.write(json.dumps({'apt_proxy': cls.proxy}) + "\n")
+            if not os.path.exists(proxy_config):
+                with open(proxy_config, "w") as fp:
+                    fp.write(json.dumps({'apt_proxy': cls.proxy}) + "\n")
             configs.append(proxy_config)
 
         uefi_flags = []
@@ -666,8 +671,9 @@ class VMBaseClass(TestCase):
 
             # always attempt to update target nvram (via grub)
             grub_config = os.path.join(cls.td.install, 'grub.cfg')
-            with open(grub_config, "w") as fp:
-                fp.write(json.dumps({'grub': {'update_nvram': True}}))
+            if not os.path.exists(grub_config):
+                with open(grub_config, "w") as fp:
+                    fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)
 
         if cls.dirty_disks and storage_config:
@@ -690,20 +696,21 @@ class VMBaseClass(TestCase):
         reporting_config = os.path.join(cls.td.install, 'reporting.cfg')
         localhost_url = ('http://' + get_lan_ip() +
                          ':{:d}/'.format(reporting_logger.port))
-        with open(reporting_config, 'w') as fp:
-            fp.write(json.dumps({
-                'install': {
-                    'log_file': '/tmp/install.log',
-                    'post_files': ['/tmp/install.log'],
-                },
-                'reporting': {
-                    'maas': {
-                        'level': 'DEBUG',
-                        'type': 'webhook',
-                        'endpoint': localhost_url,
+        if not os.path.exists(reporting_config) and not cls.td.restored:
+            with open(reporting_config, 'w') as fp:
+                fp.write(json.dumps({
+                    'install': {
+                        'log_file': '/tmp/install.log',
+                        'post_files': ['/tmp/install.log'],
                     },
-                },
-            }))
+                    'reporting': {
+                        'maas': {
+                            'level': 'DEBUG',
+                            'type': 'webhook',
+                            'endpoint': localhost_url,
+                        },
+                    },
+                }))
         configs.append(reporting_config)
 
         cmd.extend(uefi_flags + netdevs + disks +
@@ -712,6 +719,11 @@ class VMBaseClass(TestCase):
                     ftypes['boot-initrd'], "--", "curtin", "-vv", "install"] +
                    ["--config=%s" % f for f in configs] +
                    [install_src])
+
+        # don't run the vm stages if we're just re-running testcases on output
+        if cls.td.restored:
+            logger.info('Using existing outputdata, skipping install/boot')
+            return
 
         # run vm with installer
         lout_path = os.path.join(cls.td.logs, "install-launch.log")
