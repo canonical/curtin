@@ -42,7 +42,7 @@ class TestNvmeAbs(VMBaseClass):
         self.output_files_exist(["ls_nvme", "ls_dname", "ls_dev_nvme"])
 
     def test_nvme_device_names(self):
-        ls_nvme = os.path.join(self.td.collect, 'ls_nvme')
+        ls_nvme = self.collect_path('ls_nvme')
         # trusty and vivid do not have sys/class/nvme but
         # nvme devices do work
         if os.path.getsize(ls_nvme) > 0:
@@ -146,7 +146,7 @@ class TestNvmeBcacheAbs(VMBaseClass):
         self.output_files_exist(["ls_nvme", "ls_dname", "ls_dev_nvme"])
 
     def test_nvme_device_names(self):
-        ls_nvme = os.path.join(self.td.collect, 'ls_nvme')
+        ls_nvme = self.collect_path('ls_nvme')
         # trusty and vivid do not have sys/class/nvme but
         # nvme devices do work
         if os.path.getsize(ls_nvme) > 0:
