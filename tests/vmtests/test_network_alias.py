@@ -50,3 +50,7 @@ class YakketyTestNetworkAlias(relbase.yakkety, TestNetworkAliasAbs):
 
 class ZestyTestNetworkAlias(relbase.zesty, TestNetworkAliasAbs):
     __test__ = True
+
+
+class ArtfulTestNetworkAlias(relbase.artful, TestNetworkAliasAbs):
+    __test__ = True

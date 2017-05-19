@@ -640,6 +640,19 @@ def mount_handler(info, storage_config):
         # Mount volume
         util.subp(['mount', volume_path, mount_point])
 
+        path = "/%s" % path
+
+        options = ["defaults"]
+        # If the volume_path's kname is backed by iSCSI or (in the case of
+        # LVM/DM) if any of its slaves are backed by iSCSI, then we need to
+        # append _netdev to the fstab line
+        if iscsi.volpath_is_iscsi(volume_path):
+            LOG.debug("Marking volume_path:%s as '_netdev'", volume_path)
+            options.append("_netdev")
+    else:
+        path = "none"
+        options = ["sw"]
+
     # Add volume to fstab
     if state['fstab']:
         with open(state['fstab'], "a") as fp:
@@ -649,34 +662,13 @@ def mount_handler(info, storage_config):
             if len(uuid) > 0:
                 location = "UUID=%s" % uuid
 
-            if filesystem.get('fstype') == "swap":
-                path = "none"
-                options = "sw"
-            else:
-                path = "/%s" % path
-                if volume.get('type') == "partition":
-                    disk_block_path = get_path_to_storage_volume(
-                        volume.get('device'), storage_config)
-                    disk_kname = block.path_to_kname(disk_block_path)
-                    if iscsi.kname_is_iscsi(disk_kname):
-                        options = "_netdev"
-                    else:
-                        options = "defaults"
-                elif volume.get('type') == "disk":
-                    disk_kname = block.path_to_kname(location)
-                    if iscsi.kname_is_iscsi(disk_kname):
-                        options = "_netdev"
-                    else:
-                        options = "defaults"
-                else:
-                    options = "defaults"
-
             if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32",
                                             "fat64"]:
                 fstype = "vfat"
             else:
                 fstype = filesystem.get('fstype')
-            fp.write("%s %s %s %s 0 0\n" % (location, path, fstype, options))
+            fp.write("%s %s %s %s 0 0\n" % (location, path, fstype,
+                                            ",".join(options)))
     else:
         LOG.info("fstab not in environment, so not writing")
 

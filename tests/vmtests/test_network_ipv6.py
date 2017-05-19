@@ -55,3 +55,7 @@ class YakketyTestNetworkIPV6(relbase.yakkety, TestNetworkIPV6Abs):
 
 class ZestyTestNetworkIPV6(relbase.zesty, TestNetworkIPV6Abs):
     __test__ = True
+
+
+class ArtfulTestNetworkIPV6(relbase.artful, TestNetworkIPV6Abs):
+    __test__ = True

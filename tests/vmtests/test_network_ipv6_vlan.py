@@ -41,3 +41,7 @@ class YakketyTestNetworkIPV6Vlan(relbase.yakkety, TestNetworkIPV6VlanAbs):
 
 class ZestyTestNetworkIPV6Vlan(relbase.zesty, TestNetworkIPV6VlanAbs):
     __test__ = True
+
+
+class ArtfulTestNetworkIPV6Vlan(relbase.artful, TestNetworkIPV6VlanAbs):
+    __test__ = True
