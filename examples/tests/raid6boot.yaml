@@ -4,6 +4,7 @@ storage:
   config:
      - id: sda
        type: disk
+       wipe: superblock
        ptable: gpt
        model: QEMU HARDDISK
        path: /dev/vdb
@@ -20,6 +21,7 @@ storage:
        device: sda
      - id: sdb
        type: disk
+       wipe: superblock
        ptable: gpt
        model: QEMU HARDDISK
        path: /dev/vdc
@@ -30,6 +32,7 @@ storage:
        device: sdb
      - id: sdc
        type: disk
+       wipe: superblock
        ptable: gpt
        model: QEMU HARDDISK
        path: /dev/vdd
@@ -40,6 +43,7 @@ storage:
        device: sdc
      - id: sdd
        type: disk
+       wipe: superblock
        ptable: gpt
        model: QEMU HARDDISK
        path: /dev/vde

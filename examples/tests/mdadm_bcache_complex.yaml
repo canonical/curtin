@@ -4,6 +4,7 @@ storage:
      - grub_device: true
        id: sda
        type: disk
+       wipe: superblock
        ptable: gpt
        model: QEMU HARDDISK
        path: /dev/vdb
@@ -43,11 +44,13 @@ storage:
        device: sda
      - id: sdb
        type: disk
+       wipe: superblock
        model: QEMU HARDDISK
        path: /dev/vdc
        name: second_disk
      - id: sdc
        type: disk
+       wipe: superblock
        ptable: gpt
        model: QEMU HARDDISK
        path: /dev/vdd
