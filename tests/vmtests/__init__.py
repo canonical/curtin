@@ -44,7 +44,7 @@ DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 OUTPUT_DISK_NAME = 'output_disk.img'
 BOOT_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_BOOT_TIMEOUT", 300))
 INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
-REUSE_TOPDIR = int(os.environ.get("CURTIN_VMTEST_REUSE_TOPDIR", 0))
+REUSE_TOPDIR = bool(int(os.environ.get("CURTIN_VMTEST_REUSE_TOPDIR", 0)))
 
 _TOPDIR = None
 
