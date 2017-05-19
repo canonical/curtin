@@ -108,7 +108,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             if "hwaddress ether" in line:
                 continue
             print('expected line:\n%s' % line)
-            self.assertTrue(line in eni_lines)
+            self.assertTrue(line in eni_lines, "not in eni: %s" % line)
 
     def test_cloudinit_network_passthrough(self):
         cc_passthrough = "cloud.cfg.d/curtin-networking.cfg"
@@ -273,9 +273,10 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         for iface in interfaces.values():
             print("\nnetwork_state iface: %s" % (
                 yaml.dump(iface, default_flow_style=False, indent=4)))
+            ipcfg = ip_dict.get(iface['name'], {})
             self.check_interface(iface['name'],
                                  iface,
-                                 ip_dict.get(iface['name']),
+                                 ip_dict.get(iface['name'], {}),
                                  routes)
 
     def check_interface(self, ifname, iface, ipcfg, routes):
@@ -285,8 +286,9 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         # FIXME: remove check?
         # initial check, do we have the correct iface ?
         print('ifname={}'.format(ifname))
-        self.assertEqual(ifname, ipcfg['interface'])
+        self.assertTrue(type(ipcfg) == dict, "%s is not dict" % (ipcfg))
         print("ipcfg['interface']={}".format(ipcfg['interface']))
+        self.assertEqual(ifname, ipcfg['interface'])
 
         # check physical interface attributes (skip bond members, macs change)
         if iface['type'] in ['physical'] and 'bond-master' not in iface:
