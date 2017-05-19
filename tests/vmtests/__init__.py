@@ -286,8 +286,8 @@ class TempDir(object):
                 logger.info('Reusing existing TempDir: %s', self.tmpdir)
                 return
             else:
-                raise ValueError("REUSE_TOPDIR set, but TempDir "
-                                 "(%s) not found" % self.tmpdir)
+                raise ValueError("REUSE_TOPDIR set, but TempDir not found:"
+                                 " %s" % self.tmpdir)
 
         os.mkdir(self.tmpdir)
         for d in self.dirs:
