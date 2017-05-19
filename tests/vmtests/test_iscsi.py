@@ -33,10 +33,13 @@ class TestBasicIscsiAbs(VMBaseClass):
     def test_iscsi_testfiles(self):
         # add check by SN or UUID that the iSCSI disks are attached?
         testfiles = ["testfile%s" % t for t in range(1, self.nr_testfiles + 1)]
+
+        # make sure all required files are present:
         print('Expecting testfiles: %s' % testfiles)
+        self.output_files_exist(testfiles)
+
         for testfile in testfiles:
-            print('check for file %s' % testfile)
-            self.output_files_exist([testfile])
+            print('checking file content: %s' % testfile)
             expected_content = "test%s" % testfile[-1]
             content = self.load_collect_file(testfile).strip()
             self.assertEqual(expected_content, content,
