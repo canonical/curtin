@@ -44,6 +44,7 @@ DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 OUTPUT_DISK_NAME = 'output_disk.img'
 BOOT_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_BOOT_TIMEOUT", 300))
 INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
+REUSE_TOPDIR = int(os.environ.get("CURTIN_VMTEST_REUSE_TOPDIR", 0))
 
 _TOPDIR = None
 
@@ -260,7 +261,7 @@ class TempDir(object):
     output_disk = None
 
     def __init__(self, name, user_data):
-        self.restored = False
+        self.restored = REUSE_TOPDIR
         # Create tmpdir
         self.tmpdir = os.path.join(_topdir(), name)
 
@@ -280,20 +281,15 @@ class TempDir(object):
         self.seed_disk = os.path.join(self.boot, "seed.img")
         self.output_disk = os.path.join(self.boot, OUTPUT_DISK_NAME)
 
-        if os.path.exists(self.tmpdir):
-            self.restored = True
-            logger.info('Found existing TempDir, restored: %s' % self.tmpdir)
-            return
-
-        try:
-            os.mkdir(self.tmpdir)
-        except OSError as e:
-            if e.errno == errno.EEXIST:
-                raise ValueError("name '%s' already exists in %s" %
-                                 (name, _topdir))
+        if self.restored:
+            if os.path.exists(self.tmpdir):
+                logger.info('Reusing existing TempDir: %s', self.tmpdir)
+                return
             else:
-                raise e
+                raise ValueError("REUSE_TOPDIR set, but tmpdir (%s) not found",
+                                 self.tmpdir)
 
+        os.mkdir(self.tmpdir)
         for d in self.dirs:
             os.mkdir(d)
 
