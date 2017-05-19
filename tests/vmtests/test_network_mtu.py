@@ -1,8 +1,6 @@
 from .releases import base_vm_classes as relbase
 from .test_network_ipv6 import TestNetworkIPV6Abs
-from curtin import util
 
-import os
 import textwrap
 
 
@@ -46,8 +44,7 @@ class TestNetworkMtuAbs(TestNetworkIPV6Abs):
         }
         mtu_val = {}
         for fnk in mtu_fn.keys():
-            fn = os.path.join(self.td.collect, mtu_fn[fnk])
-            mtu_val.update({fnk: int(util.load_file(fn))})
+            mtu_val.update({fnk: int(self.load_collect_file(mtu_fn[fnk]))})
 
         return mtu_val
 
