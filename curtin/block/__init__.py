@@ -176,6 +176,34 @@ def get_holders(device):
     return holders
 
 
+def get_device_slave_knames(device):
+    """
+    Find the underlying knames of a given device by walking sysfs
+    recursively.
+
+    Returns a list of knames
+    """
+    slave_knames = []
+    slaves_dir_path = os.path.join(sys_block_path(device), 'slaves')
+
+    # if we find a 'slaves' dir, recurse and check
+    # the underlying devices
+    if os.path.exists(slaves_dir_path):
+        slaves = os.listdir(slaves_dir_path)
+        if len(slaves) > 0:
+            for slave_kname in slaves:
+                slave_knames.extend(get_device_slave_knames(slave_kname))
+        else:
+            slave_knames.append(path_to_kname(device))
+
+        return slave_knames
+    else:
+        # if a device has no 'slaves' attribute then
+        # we've found the underlying device, return
+        # the kname of the device
+        return [path_to_kname(device)]
+
+
 def _shlex_split(str_in):
     # shlex.split takes a string
     # but in python2 if input here is a unicode, encode it to a string.

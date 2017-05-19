@@ -973,14 +973,18 @@ class VMBaseClass(TestCase):
 
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
-        for f in files:
-            logger.debug('checking file %s', f)
-            self.assertTrue(os.path.exists(os.path.join(self.td.collect, f)))
+        logger.debug('checking files: %s', files)
+        results = {f: os.path.exists(os.path.join(self.td.collect, f))
+                   for f in files}
+        logger.debug('results: %s', results)
+        self.assertTrue(False not in results.values())
 
     def output_files_dont_exist(self, files):
-        for f in files:
-            logger.debug('checking file %s', f)
-            self.assertFalse(os.path.exists(os.path.join(self.td.collect, f)))
+        logger.debug('checking files: %s', files)
+        results = {f: os.path.exists(os.path.join(self.td.collect, f))
+                   for f in files}
+        logger.debug('results: %s', results)
+        self.assertTrue(True not in results.values())
 
     def load_collect_file(self, filename, mode="r"):
         with open(os.path.join(self.td.collect, filename), mode) as fp:
