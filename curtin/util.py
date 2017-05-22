@@ -342,16 +342,17 @@ def fuser_mount(path):
 
         {pid: "fuser-details"}
 
+        path may also be a kernel devpath (e.g. /dev/sda)
+
     """
     fuser_output = {}
     try:
-        stdout, stderr = subp(['fuser', '-v', '-m', path], capture=True)
+        stdout, stderr = subp(['fuser', '--verbose', '--mount', path],
+                              capture=True)
     except ProcessExecutionError as e:
         LOG.debug('fuser returned non-zero: %s', e.stderr)
         return None
 
-    # fuse writes pids (kernel or number) for each process which has an open
-    # file handle against the path specified
     pidlist = stdout.split()
 
     """
@@ -373,6 +374,10 @@ def fuser_mount(path):
         '1': ['root', '1', '.rce.', 'systemd'],
     }
     """
+    # Note that fuser only writes PIDS to stdout. Each PID value is
+    # 'kernel' or an integer and indicates a process which has an open
+    # file handle against the path specified path. All other output
+    # is sent to stderr.  This code below will merge the two as needed.
     for (pid, status) in zip(pidlist, stderr.splitlines()[1:]):
         fuser_output[pid] = status.split()
 
