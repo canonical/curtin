@@ -923,14 +923,13 @@ def bcache_handler(info, storage_config):
         # /sys/class/block/<bdev>/bcache/cache -> # .../block/bcacheN
         # /sys/class/block/<bdev>/bcache/dev -> # .../block/bcacheN
 
-        LOG.debug('Validating bcache device, path: %s, %s',
-                  bcache_device, bcache_sys_path)
         if bcache_sys_path.startswith('/sys/fs/bcache'):
-            LOG.debug('We registered a bcache cache device!')
+            LOG.debug("validating bcache caching device '%s' from sys_path"
+                      " '%s'", bcache_device, bcache_sys_path)
             # we expect a cacheN symlink to point to bcache_device/bcache
             sys_path_links = [os.path.join(bcache_sys_path, l)
                               for l in os.listdir(bcache_sys_path)]
-            LOG.debug('looking for cache link in: %s', sys_path_links)
+            LOG.debug('Looking for cache link in: %s', sys_path_links)
             cache_links = [l for l in sys_path_links
                            if os.path.islink(l) and (
                               os.path.basename(l).startswith('cache'))]
@@ -947,11 +946,12 @@ def bcache_handler(info, storage_config):
                               bcache_device, target_cache_device)
                     return
                 else:
-                    msg = ('cache symlink %s ' % target_cache_device +
+                    msg = ('Cache symlink %s ' % target_cache_device +
                            'points to incorrect device: %s' % bcache_device)
                     raise OSError(msg)
         elif bcache_sys_path.startswith('/sys/class/block'):
-            LOG.debug('We registered a bcache backing device!')
+            LOG.debug("validating bcache backing device '%s' from sys_path"
+                      " '%s'", bcache_device, bcache_sys_path)
             # we expect a 'dev' symlink to point to the bcacheN device
             bcache_dev = os.path.join(bcache_sys_path, 'dev')
             if os.path.islink(bcache_dev):
@@ -977,6 +977,8 @@ def bcache_handler(info, storage_config):
                 return OSError(msg)
 
         else:
+            LOG.debug("Failed to validate bcache device '%s' from sys_path"
+                      " '%s'", bcache_device, bcache_sys_path)
             msg = ('sysfs path %s does not appear to be a bcache device' %
                    bcache_sys_path)
             return ValueError(msg)
