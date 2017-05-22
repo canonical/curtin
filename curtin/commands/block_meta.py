@@ -983,55 +983,59 @@ def bcache_handler(info, storage_config):
                    bcache_sys_path)
             return ValueError(msg)
 
-    def ensure_bcache_is_registered(bcache_device, expected, retry=1):
-        # find the actual bcache device name via sysfs using the
-        # backing device's holders directory.
-        LOG.debug('check just created bcache %s if it is registered, try=%s',
-                  bcache_device, retry)
-        try:
-            time.sleep(retry)
-            udevadm_settle(exists=expected)
-            if os.path.exists(expected):
-                LOG.debug('Found bcache dev %s at expected path %s',
-                          bcache_device, expected)
-                _validate_bcache(bcache_device, expected)
-            else:
-                msg = 'bcache device path not found: %s' % expected
-                LOG.debug(msg)
-                raise ValueError(msg)
+    def ensure_bcache_is_registered(bcache_device, expected, retry=None):
+        """ Test that bcache_device is found at an expected path and
+            re-register the device if it's not ready.
 
-            # if bcache path exists and holders are > 0 we can return
-            LOG.debug('bcache dev %s has non-zero holders, register OK!',
-                      bcache_device)
-            return
+            Retry the validation and registration as needed.
+        """
+        if not retry:
+            retry = [0.2] * 60
 
-        except (OSError, IndexError, ValueError):
-            # Some versions of bcache-tools will register the bcache device as
-            # soon as we run make-bcache using udev rules, so wait for udev to
-            # settle, then try to locate the dev, on older versions we need to
-            # register it manually though
-            LOG.debug('bcache device was not registered, registering %s '
-                      'at /sys/fs/bcache/register', bcache_device)
+        for attempt, wait in enumerate(retry):
+            # find the actual bcache device name via sysfs using the
+            # backing device's holders directory.
+            LOG.debug('check just created bcache %s if it is registered,'
+                      ' try=%s', bcache_device, attempt + 1)
             try:
-                register_bcache(bcache_device)
-                time.sleep(retry)
+                # we sleep first as settle may return immediately
+                time.sleep(wait)
                 udevadm_settle(exists=expected)
-                LOG.debug('After register, sleep and settle, '
-                          'path exists, moving forward?')
-                _validate_bcache(bcache_device, expected)
-            except (IOError):
-                # device creation is notoriously racy and this can trigger
-                # "Invalid argument" IOErrors if it got created in "the
-                # meantime" - just restart the function a few times to
-                # check it all again
-                if retry < 6:
-                    ensure_bcache_is_registered(bcache_device,
-                                                expected, (retry + 1))
+                if os.path.exists(expected):
+                    LOG.debug('Found bcache dev %s at expected path %s',
+                              bcache_device, expected)
+                    _validate_bcache(bcache_device, expected)
                 else:
-                    LOG.debug('Repetive error registering the bcache dev %s',
-                              bcache_device)
-                    raise ValueError("bcache device %s can't be registered",
-                                     bcache_device)
+                    msg = 'bcache device path not found: %s' % expected
+                    LOG.debug(msg)
+                    raise ValueError(msg)
+
+                # if bcache path exists and holders are > 0 we can return
+                LOG.debug('bcache dev %s has non-zero holders, register OK!',
+                          bcache_device)
+                return
+
+            except (OSError, IndexError, ValueError):
+                # Some versions of bcache-tools will register the bcache device
+                # as soon as we run make-bcache using udev rules, so wait for
+                # udev to settle, then try to locate the dev, on older versions
+                # we need to register it manually though
+                LOG.debug('bcache device was not registered, registering %s '
+                          'at /sys/fs/bcache/register', bcache_device)
+                try:
+                    register_bcache(bcache_device)
+                except (IOError):
+                    # device creation is notoriously racy and this can trigger
+                    # "Invalid argument" IOErrors if it got created in "the
+                    # meantime" - just restart the function a few times to
+                    # check it all again
+                    LOG.debug('IOError during re-registration, expected')
+                    pass
+
+        # we've exhausted our retries
+        LOG.debug('Repetive error registering the bcache dev %s',
+                  bcache_device)
+        raise ValueError("bcache device %s can't be registered", bcache_device)
 
     if cache_device:
         # /sys/class/block/XXX/YYY/
