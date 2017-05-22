@@ -68,11 +68,11 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         eni = ""
         eni_cfg = ""
 
-        eni_file = os.path.join(self.td.collect, "interfaces")
+        eni = self.load_collect_file("interfaces")
+        logger.debug('etc/network/interfaces:\n{}'.format(eni))
+
+        # we don't use collect_path as we're building a glob
         eni_dir = os.path.join(self.td.collect, "interfaces.d", "*.cfg")
-        with open(eni_file) as fp:
-            eni = fp.read()
-            logger.debug('etc/network/interfaces:\n{}'.format(eni))
         for cfg in glob.glob(eni_dir):
             with open(cfg) as fp:
                 eni_cfg += fp.read()
@@ -82,8 +82,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
     def _network_renderer(self):
         """ Determine if target uses eni/ifupdown or netplan/networkd """
 
-        etc_netplan = os.path.join(self.td.collect, 'etc_netplan')
-        networkd = os.path.join(self.td.collect, 'run_systemd_network')
+        etc_netplan = self.collect_path('etc_netplan')
+        networkd = self.collect_path('run_systemd_network')
 
         if len(os.listdir(etc_netplan)) > 0 and len(os.listdir(networkd)) > 0:
             print('Network Renderer: systemd-networkd')
@@ -100,6 +100,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
 
         eni, eni_cfg = self.read_eni()
         expected_eni = self.get_expected_etc_network_interfaces()
+
         eni_lines = eni.split('\n') + eni_cfg.split('\n')
         print("\n".join(eni_lines))
         for line in [l for l in expected_eni.split('\n') if len(l) > 0]:
@@ -165,8 +166,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         self.assertTrue(resolvconfpath is not None)
         logger.debug('Selected path to resolvconf: %s', resolvconfpath)
 
-        with open(os.path.join(self.td.collect, resolvconfpath)) as fp:
-            resolvconf = fp.read()
+        resolvconf = self.load_collect_file(resolvconfpath)
         logger.debug('etc/resolv.conf:\n{}'.format(resolvconf))
 
         resolv_lines = resolvconf.split('\n')
@@ -249,21 +249,30 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         logger.debug('expected_network_state:\n{}'.format(
             yaml.dump(network_state, default_flow_style=False, indent=4)))
 
-        with open(os.path.join(self.td.collect, "ip_a")) as fp:
-            ip_a = fp.read()
-            logger.debug('ip a:\n{}'.format(ip_a))
+        ip_a = self.load_collect_file("ip_a")
+        logger.debug('ip a:\n{}'.format(ip_a))
 
         ip_dict = helpers.ip_a_to_dict(ip_a)
         print('parsed ip_a dict:\n{}'.format(
             yaml.dump(ip_dict, default_flow_style=False, indent=4)))
 
-        with open(os.path.join(self.td.collect, "route_n")) as fp:
-            route_n = fp.read()
-            logger.debug("route -n:\n{}".format(route_n))
+        route_n = self.load_collect_file("route_n")
+        logger.debug("route -n:\n{}".format(route_n))
 
-        with open(os.path.join(self.td.collect, "route_6_n")) as fp:
-            route_6_n = fp.read()
-            logger.debug("route -6 -n:\n{}".format(route_6_n))
+        route_6_n = self.load_collect_file("route_6_n")
+        logger.debug("route -6 -n:\n{}".format(route_6_n))
+
+        ip_route_show = self.load_collect_file("ip_route_show")
+        logger.debug("ip route show:\n{}".format(ip_route_show))
+        for line in [line for line in ip_route_show.split('\n')
+                     if 'src' in line]:
+            m = re.search(r'^(?P<network>\S+)\sdev\s' +
+                          r'(?P<devname>\S+)\s+' +
+                          r'proto kernel\s+scope link' +
+                          r'\s+src\s(?P<src_ip>\S+)',
+                          line)
+            route_info = m.groupdict('')
+            logger.debug(route_info)
 
         routes = {
             '4': route_n,
@@ -276,7 +285,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             ipcfg = ip_dict.get(iface['name'], {})
             self.check_interface(iface['name'],
                                  iface,
-                                 ip_dict.get(iface['name'], {}),
+                                 ipcfg,
                                  routes)
 
     def check_interface(self, ifname, iface, ipcfg, routes):
