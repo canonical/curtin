@@ -909,10 +909,9 @@ def bcache_handler(info, storage_config):
         read the bcacheN holders list, which should contain
         the backing device kname.
 
-        In either case, returning True indicates successful
-        registration of a device.  Returning False indicates
-        that the device was not correctly registered with
-        the bcache layer.
+        In either case, if we fail to find the correct
+        symlinks in sysfs, this method will raise
+        an OSError indicating the missing attribute.
         """
         # cacheset
         # /sys/fs/bcache/<uuid>
@@ -943,12 +942,14 @@ def bcache_handler(info, storage_config):
                 # basename(dirname(readlink(link)))
                 target_cache_device = os.path.basename(
                     os.path.dirname(target))
-                LOG.debug('matches? bcache_device=%s target_device=%s',
-                          bcache_device, target_cache_device)
                 if os.path.basename(bcache_device) == target_cache_device:
-                    return True
+                    LOG.debug('Found match: bcache_device=%s target_device=%s',
+                              bcache_device, target_cache_device)
+                    return
                 else:
-                    return False
+                    msg = ('cache symlink %s ' % target_cache_device +
+                           'points to incorrect device: %s' % bcache_device)
+                    raise OSError(msg)
         elif bcache_sys_path.startswith('/sys/class/block'):
             LOG.debug('We registered a bcache backing device!')
             # we expect a 'dev' symlink to point to the bcacheN device
@@ -966,33 +967,32 @@ def bcache_handler(info, storage_config):
                 if os.path.basename(bcache_device) in slaves:
                     LOG.debug('bcache device %s found in slaves',
                               os.path.basename(bcache_device))
-                    return True
+                    return
                 else:
-                    LOG.warning('Failed to find bcache device in slaves')
-                    return False
+                    msg = ('Failed to find bcache device %s' % bcache_device +
+                           'in slaves list %s' % slaves)
+                    raise OSError(msg)
             else:
-                LOG.debug('didnt find "dev" attribute on: %s',
-                          bcache_dev)
-                return False
+                msg = 'didnt find "dev" attribute on: %s', bcache_dev
+                return OSError(msg)
 
         else:
-            LOG.error('expected path does not appear to be a bcache device')
-            return False
+            msg = ('sysfs path %s does not appear to be a bcache device' %
+                   bcache_sys_path)
+            return ValueError(msg)
 
-    def ensure_bcache_is_registered(bcache_device, expected, retry=0):
+    def ensure_bcache_is_registered(bcache_device, expected, retry=1):
         # find the actual bcache device name via sysfs using the
         # backing device's holders directory.
         LOG.debug('check just created bcache %s if it is registered, try=%s',
-                  bcache_device, retry+1)
+                  bcache_device, retry)
         try:
-            time.sleep(retry+1)
+            time.sleep(retry)
             udevadm_settle(exists=expected)
             if os.path.exists(expected):
                 LOG.debug('Found bcache dev %s at expected path %s',
                           bcache_device, expected)
-                if not _validate_bcache(bcache_device, expected):
-                    raise ValueError("Failed to validate bcache device")
-
+                _validate_bcache(bcache_device, expected)
             else:
                 msg = 'bcache device path not found: %s' % expected
                 LOG.debug(msg)
@@ -1012,7 +1012,7 @@ def bcache_handler(info, storage_config):
                       'at /sys/fs/bcache/register', bcache_device)
             try:
                 register_bcache(bcache_device)
-                time.sleep(retry+1)
+                time.sleep(retry)
                 udevadm_settle(exists=expected)
                 LOG.debug('After register, sleep and settle, '
                           'path exists, moving forward?')
@@ -1022,9 +1022,9 @@ def bcache_handler(info, storage_config):
                 # "Invalid argument" IOErrors if it got created in "the
                 # meantime" - just restart the function a few times to
                 # check it all again
-                if retry < 5:
+                if retry < 6:
                     ensure_bcache_is_registered(bcache_device,
-                                                expected, (retry+1))
+                                                expected, (retry + 1))
                 else:
                     LOG.debug('Repetive error registering the bcache dev %s',
                               bcache_device)
@@ -1052,8 +1052,6 @@ def bcache_handler(info, storage_config):
             LOG.debug('out=[{}]'.format(out))
             [cset_uuid] = [line.split()[-1] for line in out.split("\n")
                            if line.startswith('Set UUID:')]
-
-        # FIXME, validate cset_uuid is UUID
 
         target_sysfs_path = '/sys/fs/bcache/%s' % cset_uuid
         ensure_bcache_is_registered(cache_device, target_sysfs_path)
