@@ -1028,20 +1028,22 @@ def bcache_handler(info, storage_config):
                           'at /sys/fs/bcache/register', bcache_device)
                 try:
                     register_bcache(bcache_device)
-                except (IOError):
+                except IOError:
                     # device creation is notoriously racy and this can trigger
                     # "Invalid argument" IOErrors if it got created in "the
                     # meantime" - just restart the function a few times to
                     # check it all again
                     pass
 
-            LOG.debug("bcaceh device not ready, waiting %ss", wait)
+            LOG.debug("bcache dev %s not ready, waiting %ss",
+                      bcache_device, wait)
             time.sleep(wait)
 
         # we've exhausted our retries
-        LOG.warning('Repetive error registering the bcache dev %s',
+        LOG.warning('Repetitive error registering the bcache dev %s',
                     bcache_device)
-        raise ValueError("bcache device %s can't be registered", bcache_device)
+        raise RuntimeError("bcache device %s can't be registered" % 
+                           bcache_device)
 
     if cache_device:
         # /sys/class/block/XXX/YYY/
