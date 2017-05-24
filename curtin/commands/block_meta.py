@@ -35,7 +35,7 @@ import time
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
-BCACHE_REGISTRATION_RETRY = [0.2] * 60
+BCACHE_REGISTRATION_RETRY = [1] * 60
 
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
