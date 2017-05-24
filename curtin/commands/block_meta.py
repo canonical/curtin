@@ -933,7 +933,8 @@ def bcache_handler(info, storage_config):
             cache_links = [l for l in sys_path_links
                            if os.path.islink(l) and (
                               os.path.basename(l).startswith('cache'))]
-            if len(cache_links):
+
+            if len(cache_links) == 0:
                 msg = ('Failed to any cache links in %s:%s' % (
                        bcache_sys_path, sys_path_links))
                 raise OSError(msg)
@@ -1002,8 +1003,6 @@ def bcache_handler(info, storage_config):
             LOG.debug('check just created bcache %s if it is registered,'
                       ' try=%s', bcache_device, attempt + 1)
             try:
-                LOG.debug("waiting before retrying: %s", wait)
-                time.sleep(wait)
                 udevadm_settle()
                 if os.path.exists(expected):
                     LOG.debug('Found bcache dev %s at expected path %s',
@@ -1035,6 +1034,9 @@ def bcache_handler(info, storage_config):
                     # meantime" - just restart the function a few times to
                     # check it all again
                     pass
+
+            LOG.debug("bcaceh device not ready, waiting %ss", wait)
+            time.sleep(wait)
 
         # we've exhausted our retries
         LOG.warning('Repetive error registering the bcache dev %s',
