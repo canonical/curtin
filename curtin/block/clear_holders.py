@@ -247,19 +247,21 @@ def wipe_superblock(device):
         retries = [1, 3, 5, 7]
         LOG.info('wiping superblock on %s', blockdev)
         for attempt, wait in enumerate(retries):
-            LOG.debug('wipe attempt %s', attempt + 1)
+            LOG.debug('wiping %s attempt %s/%s',
+                      blockdev, attempt + 1, retries)
             try:
                 block.wipe_volume(blockdev, mode='superblock')
-                LOG.debug('wipe was successful')
+                LOG.debug('successfully wiped device %d on attempt %s/%s',
+                          blockdev, attempt + 1, retries)
                 return
             except OSError:
                 if attempt + 1 >= len(retries):
                     raise
                 else:
-                    LOG.debug('Failed to wipe volume, '
-                              'waiting %s seconds to retry', wait)
+                    LOG.debug("wiping device '%s' failed on attempt"
+                              " %s/%s. sleeping %ss before retry",
+                              blockdev, attempt + 1, retries)
                     time.sleep(wait)
-                    pass
 
 
 def identify_lvm(device):
