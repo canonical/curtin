@@ -1002,7 +1002,8 @@ def bcache_handler(info, storage_config):
             LOG.debug('check just created bcache %s if it is registered,'
                       ' try=%s', bcache_device, attempt + 1)
             try:
-                # wait on the event queue to flush
+                LOG.debug("waiting before retrying: %s", wait)
+                time.sleep(wait)
                 udevadm_settle()
                 if os.path.exists(expected):
                     LOG.debug('Found bcache dev %s at expected path %s',
@@ -1034,8 +1035,6 @@ def bcache_handler(info, storage_config):
                     # meantime" - just restart the function a few times to
                     # check it all again
                     pass
-                # we may have attempted, let's wait before trying again
-                time.sleep(wait)
 
         # we've exhausted our retries
         LOG.warning('Repetive error registering the bcache dev %s',
