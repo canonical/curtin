@@ -259,8 +259,8 @@ def wipe_superblock(device):
                     raise
                 else:
                     LOG.debug("wiping device '%s' failed on attempt"
-                              " %s/%s. sleeping %ss before retry",
-                              blockdev, attempt + 1, len(retries))
+                              " %s/%s.  sleeping %ss before retry",
+                              blockdev, attempt + 1, len(retries), wait)
                     time.sleep(wait)
 
 
