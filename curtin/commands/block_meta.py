@@ -35,6 +35,7 @@ import time
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
+BCACHE_REGISTRATION_RETRY = [0.2] * 60
 
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
@@ -929,14 +930,17 @@ def bcache_handler(info, storage_config):
             # we expect a cacheN symlink to point to bcache_device/bcache
             sys_path_links = [os.path.join(bcache_sys_path, l)
                               for l in os.listdir(bcache_sys_path)]
-            LOG.debug('Looking for cache link in: %s', sys_path_links)
             cache_links = [l for l in sys_path_links
                            if os.path.islink(l) and (
                               os.path.basename(l).startswith('cache'))]
-            LOG.debug('Found cache links: %s', cache_links)
+            if len(cache_links):
+                msg = ('Failed to any cache links in %s:%s' % (
+                       bcache_sys_path, sys_path_links))
+                raise OSError(msg)
+
             for link in cache_links:
                 target = os.readlink(link)
-                LOG.debug('symlink %s -> %s', link, target)
+                LOG.debug('Resolving symlink %s -> %s', link, target)
                 # cacheN  -> ../../../devices/.../<bcache_device>/bcache
                 # basename(dirname(readlink(link)))
                 target_cache_device = os.path.basename(
@@ -990,7 +994,7 @@ def bcache_handler(info, storage_config):
             Retry the validation and registration as needed.
         """
         if not retry:
-            retry = [0.2] * 60
+            retry = BCACHE_REGISTRATION_RETRY
 
         for attempt, wait in enumerate(retry):
             # find the actual bcache device name via sysfs using the
@@ -998,9 +1002,8 @@ def bcache_handler(info, storage_config):
             LOG.debug('check just created bcache %s if it is registered,'
                       ' try=%s', bcache_device, attempt + 1)
             try:
-                # we sleep first as settle may return immediately
-                time.sleep(wait)
-                udevadm_settle(exists=expected)
+                # wait on the event queue to flush
+                udevadm_settle()
                 if os.path.exists(expected):
                     LOG.debug('Found bcache dev %s at expected path %s',
                               bcache_device, expected)
@@ -1011,8 +1014,9 @@ def bcache_handler(info, storage_config):
                     raise ValueError(msg)
 
                 # if bcache path exists and holders are > 0 we can return
-                LOG.debug('bcache dev %s has non-zero holders, register OK!',
-                          bcache_device)
+                LOG.debug('bcache dev %s at path %s successfully registered'
+                          ' on attempt %s/%s',  bcache_device, expected,
+                          attempt + 1, len(retry))
                 return
 
             except (OSError, IndexError, ValueError):
@@ -1029,12 +1033,13 @@ def bcache_handler(info, storage_config):
                     # "Invalid argument" IOErrors if it got created in "the
                     # meantime" - just restart the function a few times to
                     # check it all again
-                    LOG.debug('IOError during re-registration, expected')
                     pass
+                # we may have attempted, let's wait before trying again
+                time.sleep(wait)
 
         # we've exhausted our retries
-        LOG.debug('Repetive error registering the bcache dev %s',
-                  bcache_device)
+        LOG.warning('Repetive error registering the bcache dev %s',
+                    bcache_device)
         raise ValueError("bcache device %s can't be registered", bcache_device)
 
     if cache_device:
