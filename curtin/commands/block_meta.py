@@ -35,7 +35,7 @@ import time
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
-BCACHE_REGISTRATION_RETRY = [1] * 60
+BCACHE_REGISTRATION_RETRY = [0.2] * 60
 
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
@@ -935,7 +935,7 @@ def bcache_handler(info, storage_config):
                               os.path.basename(l).startswith('cache'))]
 
             if len(cache_links) == 0:
-                msg = ('Failed to any cache links in %s:%s' % (
+                msg = ('Failed to find any cache links in %s:%s' % (
                        bcache_sys_path, sys_path_links))
                 raise OSError(msg)
 
