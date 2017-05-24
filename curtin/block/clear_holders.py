@@ -248,11 +248,11 @@ def wipe_superblock(device):
         LOG.info('wiping superblock on %s', blockdev)
         for attempt, wait in enumerate(retries):
             LOG.debug('wiping %s attempt %s/%s',
-                      blockdev, attempt + 1, retries)
+                      blockdev, attempt + 1, len(retries))
             try:
                 block.wipe_volume(blockdev, mode='superblock')
                 LOG.debug('successfully wiped device %s on attempt %s/%s',
-                          blockdev, attempt + 1, retries)
+                          blockdev, attempt + 1, len(retries))
                 return
             except OSError:
                 if attempt + 1 >= len(retries):
@@ -260,7 +260,7 @@ def wipe_superblock(device):
                 else:
                     LOG.debug("wiping device '%s' failed on attempt"
                               " %s/%s. sleeping %ss before retry",
-                              blockdev, attempt + 1, retries)
+                              blockdev, attempt + 1, len(retries))
                     time.sleep(wait)
 
 
