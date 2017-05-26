@@ -1042,7 +1042,7 @@ def bcache_handler(info, storage_config):
         # we've exhausted our retries
         LOG.warning('Repetitive error registering the bcache dev %s',
                     bcache_device)
-        raise RuntimeError("bcache device %s can't be registered" % 
+        raise RuntimeError("bcache device %s can't be registered" %
                            bcache_device)
 
     if cache_device:
