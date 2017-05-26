@@ -886,6 +886,59 @@ def is_uefi_bootable():
     return os.path.exists('/sys/firmware/efi') is True
 
 
+def get_efibootmgr(target):
+    """Return mapping of EFI information.
+
+    Calls `efibootmgr` inside the `target`.
+
+    Example output:
+        {
+            'current': '0000',
+            'timeout': '1 seconds',
+            'order': ['0000', '0001'],
+            'entries': {
+                '0000': {
+                    'name': 'ubuntu',
+                    'path': (
+                        'HD(1,GPT,0,0x8,0x1)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+                },
+                '0001': {
+                    'name': 'UEFI:Network Device',
+                    'path': 'BBS(131,,0x0)',
+                }
+            }
+        }
+    """
+    efikey_to_dict_key = {
+        'BootCurrent': 'current',
+        'Timeout': 'timeout',
+        'BootOrder': 'order',
+    }
+    with ChrootableTarget(target) as in_chroot:
+        stdout, _ = in_chroot.subp(['efibootmgr', '-v'], capture=True)
+        output = {}
+        for line in stdout.splitlines():
+            split = line.split(':')
+            if len(split) == 2:
+                key = split[0].strip()
+                output_key = efikey_to_dict_key.get(key, None)
+                if output_key:
+                    output[output_key] = split[1].strip()
+                    if output_key == 'order':
+                        output[output_key] = output[output_key].split(',')
+        output['entries'] = {
+            entry: {
+                'name': name.strip(),
+                'path': path.strip(),
+            }
+            for entry, name, path in re.findall(
+                r"^Boot(?P<entry>[0-9a-fA-F]{4})\*?\s(?P<name>.+)\t"
+                r"(?P<path>.*)$",
+                stdout, re.MULTILINE)
+        }
+        return output
+
+
 def run_hook_if_exists(target, hook):
     """
     Look for "hook" in "target" and run it
