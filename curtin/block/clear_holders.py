@@ -81,7 +81,7 @@ def get_bcache_sys_path(device, strict=True):
     """
     Get the /sys/class/block/<device>/bcache path
     """
-    sysfs_path = block.sys_block_path(device)
+    sysfs_path = block.sys_block_path(device, strict=strict)
     path = os.path.join(sysfs_path, 'bcache')
     if strict and not os.path.exists(path):
         err = OSError(
@@ -121,8 +121,12 @@ def shutdown_bcache(device):
         LOG.info(bcache_shutdown_message)
         return
 
+    # get slaves [vdb1, vdc], allow for slaves to not have bcache dir
+    slave_paths = [get_bcache_sys_path(k, strict=False) for k in
+                   os.listdir(os.path.join(device, 'slaves'))]
+
     # stop cacheset if it exists
-    bcache_cache_sysfs = get_bcache_using_dev(device)
+    bcache_cache_sysfs = get_bcache_using_dev(device, strict=False)
     if not os.path.exists(bcache_cache_sysfs):
         LOG.info('bcache cacheset already removed: %s',
                  os.path.basename(bcache_cache_sysfs))
@@ -136,17 +140,34 @@ def shutdown_bcache(device):
             LOG.info('Failed to stop bcache cacheset %s', bcache_cache_sysfs)
             raise
 
+        # let kernel settle before the next remove
+        udev.udevadm_settle()
+
     # after stopping cache set, we may need to stop the device
-    if not os.path.exists(device):
-        LOG.info('bcache backing device already removed: %s', device)
+    # both the dev and sysfs entry should be gone.
+
+    # we know the bcacheN device is really gone when we've removed:
+    #  /sys/class/block/{bcacheN}
+    #  /sys/class/block/slaveN1/bcache
+    #  /sys/class/block/slaveN2/bcache
+    bcache_block_sysfs = get_bcache_sys_path(device, strict=False)
+    to_check = [device] + slave_paths
+    found_devs = [os.path.exists(p) for p in to_check]
+    LOG.debug('os.path.exists on blockdevs:\n%s',
+              list(zip(to_check, found_devs)))
+    if not any(found_devs):
+        LOG.info('bcache backing device already removed: %s (%s)',
+                 bcache_block_sysfs, device)
+        LOG.debug('bcache slave paths checked: %s', slave_paths)
         return
     else:
-        bcache_block_sysfs = get_bcache_sys_path(device)
         LOG.info('stopping bcache backing device at: %s', bcache_block_sysfs)
         util.write_file(os.path.join(bcache_block_sysfs, 'stop'),
                         '1', mode=None)
         try:
-            util.wait_for_removal(device, retries=removal_retries)
+            # wait for them all to go away
+            for dev in [device, bcache_block_sysfs] + slave_paths:
+                util.wait_for_removal(dev, retries=removal_retries)
         except OSError:
             LOG.info('Failed to stop bcache backing device %s',
                      bcache_block_sysfs)
@@ -223,8 +244,24 @@ def wipe_superblock(device):
         LOG.info("extended partitions do not need wiping, so skipping: '%s'",
                  blockdev)
     else:
+        retries = [1, 3, 5, 7]
         LOG.info('wiping superblock on %s', blockdev)
-        block.wipe_volume(blockdev, mode='superblock')
+        for attempt, wait in enumerate(retries):
+            LOG.debug('wiping %s attempt %s/%s',
+                      blockdev, attempt + 1, len(retries))
+            try:
+                block.wipe_volume(blockdev, mode='superblock')
+                LOG.debug('successfully wiped device %s on attempt %s/%s',
+                          blockdev, attempt + 1, len(retries))
+                return
+            except OSError:
+                if attempt + 1 >= len(retries):
+                    raise
+                else:
+                    LOG.debug("wiping device '%s' failed on attempt"
+                              " %s/%s.  sleeping %ss before retry",
+                              blockdev, attempt + 1, len(retries), wait)
+                    time.sleep(wait)
 
 
 def identify_lvm(device):
