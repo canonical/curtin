@@ -25,6 +25,7 @@ import textwrap
 
 from curtin import config
 from curtin import block
+from curtin import net
 from curtin import futil
 from curtin.log import LOG
 from curtin import swap
@@ -648,112 +649,20 @@ def detect_and_handle_multipath(cfg, target):
     update_initramfs(target, all_kernels=True)
 
 
-def storage_config_required_packages(storage_config, mapping):
-
-    if not storage_config or not isinstance(storage_config, dict):
-        raise ValueError('Invalid storage configuration.  '
-                         'Must be a dict:\n %s' % storage_config)
-
-    if not mapping or not isinstance(mapping, dict):
-        raise ValueError('Invalid storage mapping.  Must be a dict')
-
-    if 'storage' in storage_config:
-        storage_config = storage_config.get('storage')
-
-    needed_packages = []
-
-    # get reqs by device operation type
-    dev_configs = set(operation['type']
-                      for operation in storage_config['config'])
-
-    for dev_type in dev_configs:
-        if dev_type in mapping:
-            needed_packages.extend(mapping[dev_type])
-
-    # for any format operations, check the fstype and 
-    # determine if we need any mkfs tools as well.
-    format_configs = set([operation['fstype']
-                         for operation in storage_config['config']
-                         if operation['type'] == 'format'])
-    for format_type in format_configs:
-        if format_type in mapping:
-            needed_packages.extend(mapping[format_type])
-
-    return needed_packages
-
-
-def network_config_required_packages(network_config, mapping):
-
-    if not network_config or not isinstance(network_config, dict):
-        raise ValueError('Invalid network configuration.  Must be a dict')
-
-    if not mapping or not isinstance(mapping, dict):
-        raise ValueError('Invalid network mapping.  Must be a dict')
-
-    # allow top-level 'network' key
-    if 'network' in network_config:
-        network_config = network_config.get('network')
-
-    # v1 has 'config' key and uses type: devtype elements
-    if 'config' in network_config:
-        dev_configs = set(device['type']
-                          for device in network_config['config'])
-    else:
-    # v2 has no config key
-        dev_configs = set(cfgtype for (cfgtype, cfg) in
-                          network_config.items() if cfgtype not in ['version'])
-        
-    needed_packages = []
-    for dev_type in dev_configs:
-        if dev_type in mapping:
-            needed_packages.extend(mapping[dev_type])
-
-    return needed_packages
-
-
 def detect_required_packages(cfg):
     """
     detect packages that will be required in-target by custom config items
     """
 
     mapping = {
-        'storage': {
-            1: {'handler': storage_config_required_packages,
-                'mapping': {
-                    'xfs': ['xfsprogs'],
-                    'ext2': ['e2fsprogs'],
-                    'ext3': ['e2fsprogs'],
-                    'ext4': ['e2fsprogs'],
-                    'btrfs': ['btrfs-tools'],
-                    'lvm_partition': ['lvm2'],
-                    'lvm_volgroup': ['lvm2'],
-                    'bcache': ['bcache-tools'],
-                    'raid': ['mdadm'],
-                },
-            },
-        },
-        'network': {
-            1: {'handler': network_config_required_packages,
-                'mapping': {
-                    'bridge': ['bridge-utils'],
-                    'bond': ['ifenslave'],
-                    'vlan': ['vlan'],
-                },
-            },
-            2: {'handler': network_config_required_packages,
-                'mapping': {             
-                    'bonds': ['ifenslave'],
-                    'bridges': ['bridge-utils'],
-                    'vlans': ['vlan']
-               },
-            },
-        },
+        'storage': block.detect_required_packages_mapping(),
+        'network': net.detect_required_packages_mapping(),
     }
 
     needed_packages = []
     for cfg_type, cfg_map in mapping.items():
 
-        # skip missing or invalid config items, configs may 
+        # skip missing or invalid config items, configs may
         # only have network or storage, not always both
         if not isinstance(cfg.get(cfg_type), dict):
             continue
@@ -768,8 +677,7 @@ def detect_required_packages(cfg):
         mapped_config = cfg_map[cfg_version]
         found_reqs = mapped_config['handler'](cfg, mapped_config['mapping'])
         needed_packages.extend(found_reqs)
-        
-        
+
     return needed_packages
 
 
