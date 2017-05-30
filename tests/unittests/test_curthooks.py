@@ -680,7 +680,7 @@ class TestUbuntuCoreHooks(CurthooksBase):
 
 
 class TestDetectRequiredPackages(TestCase):
-    config = {
+    test_config = {
         'storage': {
             1: {
                 'bcache': {
@@ -748,19 +748,19 @@ class TestDetectRequiredPackages(TestCase):
             version = item_confs['version']
             res[item] = {'version': version}
             if version == 1:
-                res[item]['config'] = [self.config[item][version][i]
+                res[item]['config'] = [self.test_config[item][version][i]
                                        for i in item_confs['items']]
             elif version == 2 and item == 'network':
                 for cfg_item in item_confs['items']:
-                    res[item].update(self.config[item][version][cfg_item])
+                    res[item].update(self.test_config[item][version][cfg_item])
             else:
                 raise NotImplementedError
         return res
 
     def _test_req_mappings(self, req_mappings):
         for (config_items, expected_reqs) in req_mappings:
-            config = self._fmt_config(config_items)
-            actual_reqs = curthooks.detect_required_packages(config)
+            cfg = self._fmt_config(config_items)
+            actual_reqs = curthooks.detect_required_packages(cfg)
             self.assertEqual(set(actual_reqs), set(expected_reqs),
                              'failed for config: {}'.format(config_items))
 
