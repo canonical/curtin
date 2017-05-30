@@ -129,13 +129,15 @@ class TestClearHolders(TestCase):
             mock_block.path_to_kname.assert_called_with(self.test_syspath)
             mock_get_dmsetup_uuid.assert_called_with(self.test_syspath)
 
+    @mock.patch('curtin.block.clear_holders.udev.udevadm_settle')
     @mock.patch('curtin.block.clear_holders.get_bcache_sys_path')
     @mock.patch('curtin.block.clear_holders.util')
     @mock.patch('curtin.block.clear_holders.os')
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.get_bcache_using_dev')
     def test_shutdown_bcache(self, mock_get_bcache, mock_log, mock_os,
-                             mock_util, mock_get_bcache_block):
+                             mock_util, mock_get_bcache_block,
+                             mock_udevadm_settle):
         """test clear_holders.shutdown_bcache"""
         #
         # pass in a sysfs path to a bcache block device,
