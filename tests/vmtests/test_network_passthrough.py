@@ -51,8 +51,29 @@ class ZestyTestNetworkPassthrough(relbase.zesty, TestNetworkPassthroughAbs):
     __test__ = True
 
 
+class ArtfulTestNetworkPassthrough(relbase.artful, TestNetworkPassthroughAbs):
+    __test__ = True
+
+
 class XenialTestNetworkV2Passthrough(relbase.xenial,
                                      TestNetworkV2PassthroughAbs):
-    # test for v2 only available on xenial due to repo add syntax
+    __test__ = True
+    required_net_ifaces = ['52:54:00:12:34:00']
+
+
+class YakketyTestNetworkV2Passthrough(relbase.yakkety,
+                                      TestNetworkV2PassthroughAbs):
+    __test__ = True
+    required_net_ifaces = ['52:54:00:12:34:00']
+
+
+class ZestyTestNetworkV2Passthrough(relbase.zesty,
+                                    TestNetworkV2PassthroughAbs):
+    __test__ = True
+    required_net_ifaces = ['52:54:00:12:34:00']
+
+
+class ArtfulTestNetworkV2Passthrough(relbase.artful,
+                                     TestNetworkV2PassthroughAbs):
     __test__ = True
     required_net_ifaces = ['52:54:00:12:34:00']
