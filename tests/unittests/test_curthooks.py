@@ -857,4 +857,9 @@ class TestDetectRequiredPackages(TestCase):
              ('vlan', 'bridge-utils', 'mdadm', 'bcache-tools', 'e2fsprogs')),
         ))
 
+    def test_invalid_version_in_config(self):
+        with self.assertRaises(ValueError):
+            curthooks.detect_required_packages({'network': {'version': 3}})
+
+
 # vi: ts=4 expandtab syntax=python
