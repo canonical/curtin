@@ -92,11 +92,11 @@ def apply_net(target, network_state=None, network_config=None):
 
     passthrough = False
     if network_state:
+        # NB: we cannot support passthrough until curtin can convert from
+        # network_state to network-config yaml
         ns = net.network_state.from_state_file(network_state)
-        # FIXME: pass-through not supported unless we create
-        # a network_state -> network_config step
-        raise ValueError('Not Supported; network_state -> network_config'
-                         ' needed')
+        raise ValueError('Not Supported; curtin lacks a network_state to '
+                         'network_config converter.')
     elif network_config:
         netcfg = config.load_config(network_config)
 
@@ -107,17 +107,20 @@ def apply_net(target, network_state=None, network_config=None):
         passthrough = netcfg.get('network', {}).get('passthrough', None)
         LOG.debug('netcfg set passthrough to: %s', passthrough)
         if passthrough is None:
-            LOG.debug('testing in-target cloud-init version for support')
+            LOG.info('Checking cloud-init in target [%s] for network '
+                     'configuration passthrough support.', target)
             passthrough = net.netconfig_passthrough_available(target)
-            LOG.debug('passthrough via in-target: %s', passthrough)
+            LOG.debug('passthrough available via in-target: %s', passthrough)
 
         if passthrough:
-            LOG.info('Passing network configuration through to target')
+            LOG.info('Passing network configuration through to target: %s',
+                     target)
             net.render_netconfig_passthrough(target, netconfig=netcfg)
         else:
             ns = net.parse_net_config_data(netcfg.get('network', {}))
 
     if not passthrough:
+        LOG.info('Rendering network configuration in target')
         net.render_network_state(target=target, network_state=ns)
 
     _maybe_remove_legacy_eth0(target)
