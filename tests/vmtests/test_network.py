@@ -223,12 +223,21 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
     def test_static_routes(self):
         '''check routing table'''
         network_state = self.get_network_state()
+
+        # if we're using passthrough then we can't load state
+        cc_passthrough = "cloud.cfg.d/curtin-networking.cfg"
+        pt_file = os.path.join(self.td.collect, 'etc_cloud', cc_passthrough)
+        print('checking if passthrough file written: %s' % pt_file)
+        if not network_state and os.path.exists(pt_file):
+            raise SkipTest('passthrough enabled, skipping %s' % self.__class__)
+
         ip_route_show = self.load_collect_file("ip_route_show")
         route_n = self.load_collect_file("route_n")
 
         print("ip route show:\n%s" % ip_route_show)
         print("route -n:\n%s" % route_n)
-        routes = network_state.get('routes')
+        routes = network_state.get('routes', [])
+        print("found routes: [%s]" % routes)
         for route in routes:
             print('Checking static route: %s' % route)
             destnet = (
