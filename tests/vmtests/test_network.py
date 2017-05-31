@@ -1,5 +1,6 @@
 from . import VMBaseClass, logger, helpers
 from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 
 from unittest import SkipTest
 from curtin import config
@@ -49,17 +50,16 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         cp -a /run/systemd/netif ./run_systemd_netif ||:
         cp -a /run/systemd/resolve ./run_systemd_resolve ||:
         cp -a /etc/systemd ./etc_systemd ||:
-        journalctl --no-pager -b -x > journalctl_out
+        journalctl --no-pager -b -x | tee journalctl_out
+        sleep 10 && ip a | tee  ip_a
         """)]
 
     def test_output_files_exist(self):
         self.output_files_exist([
             "find_interfacesd",
             "ifconfig_a",
-            "interfaces",
             "ip_a",
             "ip_route_show",
-            "resolv.conf",
             "route_6_n",
             "route_n",
         ])
@@ -97,6 +97,10 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             reason = ("{}: using net-passthrough; "
                       "deferring to cloud-init".format(self.__class__))
             raise SkipTest(reason)
+        self.output_files_exist(["interfaces"])
+        with open(os.path.join(self.td.collect, "interfaces")) as fp:
+            eni = fp.read()
+            logger.debug('etc/network/interfaces:\n{}'.format(eni))
 
         eni, eni_cfg = self.read_eni()
         expected_eni = self.get_expected_etc_network_interfaces()
@@ -415,6 +419,25 @@ class TestNetworkBasicAbs(TestNetworkBaseTestsAbs):
     conf_file = "examples/tests/basic_network.yaml"
 
 
+class CentosTestNetworkBasicAbs(TestNetworkBaseTestsAbs):
+    conf_file = "examples/tests/centos_basic.yaml"
+    extra_kern_args = "BOOTIF=eth0-52:54:00:12:34:00"
+    collect_scripts = TestNetworkBaseTestsAbs.collect_scripts + [
+        textwrap.dedent("""
+            cd OUTPUT_COLLECT_D
+            cp -a /etc/sysconfig/network-scripts .
+            cp -a /var/log/cloud-init* .
+            cp -a /var/lib/cloud ./var_lib_cloud
+            cp -a /run/cloud-init ./run_cloud-init
+        """)]
+
+    def test_etc_network_interfaces(self):
+        pass
+
+    def test_etc_resolvconf(self):
+        pass
+
+
 class PreciseHWETTestNetworkBasic(relbase.precise_hwe_t, TestNetworkBasicAbs):
     # FIXME: off due to hang at test: Starting execute cloud user/final scripts
     __test__ = False
@@ -456,4 +479,14 @@ class ZestyTestNetworkBasic(relbase.zesty, TestNetworkBasicAbs):
 
 
 class ArtfulTestNetworkBasic(relbase.artful, TestNetworkBasicAbs):
+    __test__ = True
+
+
+class Centos66TestNetworkBasic(centos_relbase.centos66fromxenial,
+                               CentosTestNetworkBasicAbs):
+    __test__ = True
+
+
+class Centos70TestNetworkBasic(centos_relbase.centos70fromxenial,
+                               CentosTestNetworkBasicAbs):
     __test__ = True
