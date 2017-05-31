@@ -822,7 +822,7 @@ def centos_network_curthooks(cfg, target=None):
                 util.del_file(config_path)
 
         LOG.info('Passing network configuration through')
-        centos_netconfig = os.path.join(cc_target, "50-network-config.cfg")
+        centos_netconfig = os.path.join(cc_target, "curtin-networking.cfg")
         util.write_file(centos_netconfig,
                         content=config.dump_config({'network': netconfig}))
 
