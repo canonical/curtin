@@ -1,5 +1,6 @@
 from .releases import base_vm_classes as relbase
 from .test_network import TestNetworkBaseTestsAbs
+from unittest import SkipTest
 
 
 class TestNetworkAliasAbs(TestNetworkBaseTestsAbs):
@@ -7,9 +8,10 @@ class TestNetworkAliasAbs(TestNetworkBaseTestsAbs):
     """
     conf_file = "examples/tests/network_alias.yaml"
 
-    # FIXME: cloud-init and curtin eni rendering differ
     def test_etc_network_interfaces(self):
-        pass
+        reason = ("%s: cloud-init and curtin eni rendering"
+                  " differ" % (self.__class__))
+        raise SkipTest(reason)
 
 
 class PreciseHWETTestNetworkAlias(relbase.precise_hwe_t, TestNetworkAliasAbs):
