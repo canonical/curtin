@@ -23,7 +23,6 @@ class ApplyNetTestBase(TestCase):
 class TestApplyNet(ApplyNetTestBase):
     def setUp(self):
         super(TestApplyNet, self).setUp()
-        # self.target = tempfile.mkdtemp()
 
         basepath = 'curtin.commands.apply_net.'
         self.add_patch(basepath + '_maybe_remove_legacy_eth0', 'mock_legacy')
@@ -58,9 +57,6 @@ class TestApplyNet(ApplyNetTestBase):
                 'search': [],
             }
         }
-
-    # def tearDown(self):
-    #    shutil.rmtree(self.target)
 
     def test_apply_net_notarget(self):
         self.assertRaises(Exception,
