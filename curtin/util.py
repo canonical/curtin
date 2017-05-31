@@ -1275,6 +1275,9 @@ def target_path(target, path=None):
     if not path:
         return target
 
+    if not isinstance(path, string_types):
+        raise ValueError("Unexpected input for path: %s" % path)
+
     # os.path.join("/etc", "/foo") returns "/foo". Chomp all leading /.
     while len(path) and path[0] == "/":
         path = path[1:]

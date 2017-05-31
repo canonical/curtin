@@ -1,11 +1,17 @@
 from .releases import base_vm_classes as relbase
 from .test_network import TestNetworkBaseTestsAbs
+from unittest import SkipTest
 
 
 class TestNetworkAliasAbs(TestNetworkBaseTestsAbs):
     """ Multi-ip address network testing
     """
     conf_file = "examples/tests/network_alias.yaml"
+
+    def test_etc_network_interfaces(self):
+        reason = ("%s: cloud-init and curtin eni rendering"
+                  " differ" % (self.__class__))
+        raise SkipTest(reason)
 
 
 class PreciseHWETTestNetworkAlias(relbase.precise_hwe_t, TestNetworkAliasAbs):

@@ -21,6 +21,7 @@ import sys
 from .. import log
 import curtin.net as net
 import curtin.util as util
+from curtin import config
 from . import populate_one_subcmd
 
 
@@ -89,12 +90,38 @@ def apply_net(target, network_state=None, network_config=None):
         sys.stderr.write(msg + "\n")
         raise Exception(msg)
 
+    passthrough = False
     if network_state:
+        # NB: we cannot support passthrough until curtin can convert from
+        # network_state to network-config yaml
         ns = net.network_state.from_state_file(network_state)
+        raise ValueError('Not Supported; curtin lacks a network_state to '
+                         'network_config converter.')
     elif network_config:
-        ns = net.parse_net_config(network_config)
+        netcfg = config.load_config(network_config)
 
-    net.render_network_state(target=target, network_state=ns)
+        # curtin will pass-through the netconfig into the target
+        # for rendering at runtime, unless:
+        #   1) target OS does not support (cloud-init too old)
+        #   2) config disables passthrough
+        passthrough = netcfg.get('network', {}).get('passthrough', None)
+        LOG.debug('netcfg set passthrough to: %s', passthrough)
+        if passthrough is None:
+            LOG.info('Checking cloud-init in target [%s] for network '
+                     'configuration passthrough support.', target)
+            passthrough = net.netconfig_passthrough_available(target)
+            LOG.debug('passthrough available via in-target: %s', passthrough)
+
+        if passthrough:
+            LOG.info('Passing network configuration through to target: %s',
+                     target)
+            net.render_netconfig_passthrough(target, netconfig=netcfg)
+        else:
+            ns = net.parse_net_config_data(netcfg.get('network', {}))
+
+    if not passthrough:
+        LOG.info('Rendering network configuration in target')
+        net.render_network_state(target=target, network_state=ns)
 
     _maybe_remove_legacy_eth0(target)
     LOG.info('Attempting to remove ipv6 privacy extensions')
@@ -161,6 +188,27 @@ def _disable_ipv6_privacy_extensions(target,
         msg = bmsg + " %s exists, but could not be read. %s" % (cfg, e)
         LOG.exception(msg)
         raise
+
+    known_contents = ["net.ipv6.conf.all.use_tempaddr = 2",
+                      "net.ipv6.conf.default.use_tempaddr = 2"]
+    lines = [f.strip() for f in contents.splitlines()
+             if not f.startswith("#")]
+    if lines == known_contents:
+        LOG.info('deleting file: %s', cfg)
+        util.del_file(cfg)
+        msg = "removed %s with known contents" % cfg
+        curtin_contents = '\n'.join(
+            ["# IPv6 Privacy Extensions (RFC 4941)",
+             "# Disabled by curtin",
+             "# net.ipv6.conf.all.use_tempaddr = 2",
+             "# net.ipv6.conf.default.use_tempaddr = 2"])
+        util.write_file(cfg, curtin_contents)
+    else:
+        LOG.info('skipping, content didnt match')
+        LOG.debug("found content:\n%s", lines)
+        LOG.debug("expected contents:\n%s", known_contents)
+        msg = (bmsg + " '%s' exists with user configured content." % cfg)
+        raise ValueError(msg)
 
 
 def _maybe_remove_legacy_eth0(target,
