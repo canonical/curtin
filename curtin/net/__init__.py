@@ -539,16 +539,15 @@ def netconfig_passthrough_available(target, feature='NETWORK_CONFIG_V2'):
             LOG.warning('Target does not have cloud-init installed')
             return False
 
-        # read shebang from cloud-init and extract python path
-        # #!/usr/bin/python
-        # #! /usr/bin/python3
-        # #!/usr/bin/env python
+        # here we read shebang from cloud-init and extract python path  as we
+        # cannot use the presence of the python package to determine  which
+        # python cloud-init will use. E.g trusty has python3 support but
+        # cloud-init uses python2.7
         python = util.load_file(util.target_path(target, path=cloudinit))
         python = python.splitlines()[0].split("#!")[-1].strip()
         try:
             feature_available = run_cmd([python, '-c', cmd])
         except util.ProcessExecutionError:
-            print('wark')
             LOG.exception("An error occurred while probing cloudinit features")
             return False
 
@@ -562,7 +561,7 @@ def render_netconfig_passthrough(target, netconfig=None):
     Extract original network config and pass it
     through to cloud-init in target
     """
-    LOG.debug("generating passthrough netconfig")
+    LOG.debug("rendering passthrough netconfig")
     cc = 'etc/cloud/cloud.cfg.d/curtin-networking.cfg'
     if not isinstance(netconfig, dict):
         raise ValueError('Network config must be a dictionary')
@@ -577,7 +576,7 @@ def render_netconfig_passthrough(target, netconfig=None):
 
 
 def render_network_state(target, network_state):
-    LOG.debug("generating eni from netconfig")
+    LOG.debug("rendering eni from netconfig")
     eni = 'etc/network/interfaces'
     netrules = 'etc/udev/rules.d/70-persistent-net.rules'
     cc = 'etc/cloud/cloud.cfg.d/curtin-disable-cloudinit-networking.cfg'
