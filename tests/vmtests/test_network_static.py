@@ -77,11 +77,11 @@ class ArtfulTestNetworkStatic(relbase.artful, TestNetworkStaticAbs):
     __test__ = True
 
 
-class Centos66TestNetworkBasic(centos_relbase.centos66fromxenial,
-                               CentosTestNetworkStaticAbs):
+class Centos66TestNetworkStatic(centos_relbase.centos66fromxenial,
+                                CentosTestNetworkStaticAbs):
     __test__ = True
 
 
-class Centos70TestNetworkBasic(centos_relbase.centos70fromxenial,
-                               CentosTestNetworkStaticAbs):
+class Centos70TestNetworkStatic(centos_relbase.centos70fromxenial,
+                                CentosTestNetworkStaticAbs):
     __test__ = True
