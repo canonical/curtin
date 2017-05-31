@@ -1,5 +1,6 @@
 from . import VMBaseClass, logger, helpers
 from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 
 import ipaddress
 import os
@@ -15,21 +16,21 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         echo "waiting for ipv6 to settle" && sleep 5
-        ifconfig -a > ifconfig_a
-        ip link show > ip_link_show
-        ip a > ip_a
+        ifconfig -a | cat > ifconfig_a
+        ip link show | cat > ip_link_show
+        ip a | cat > ip_a
         find /etc/network/interfaces.d > find_interfacesd
         cp -av /etc/network/interfaces .
         cp -av /etc/network/interfaces.d .
         cp /etc/resolv.conf .
         cp -av /etc/udev/rules.d/70-persistent-net.rules .
-        ip -o route show > ip_route_show
-        ip -6 -o route show > ip_6_route_show
-        route -n > route_n
-        route -6 -n > route_6_n
+        ip -o route show | cat > ip_route_show
+        ip -6 -o route show | cat > ip_6_route_show
+        route -n | cat > route_n
+        route -6 -n | cat > route_6_n
         cp -av /run/network ./run_network
         cp -av /var/log/upstart ./upstart ||:
-        sleep 10 && ip a > ip_a
+        sleep 10 && ip a | cat > ip_a
         """)]
 
     def test_output_files_exist(self):
@@ -37,15 +38,14 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             "70-persistent-net.rules",
             "find_interfacesd",
             "ifconfig_a",
-            "interfaces",
             "ip_a",
             "ip_route_show",
-            "resolv.conf",
             "route_6_n",
             "route_n",
         ])
 
     def test_etc_network_interfaces(self):
+        self.output_files_exist(["interfaces"])
         with open(os.path.join(self.td.collect, "interfaces")) as fp:
             eni = fp.read()
             logger.debug('etc/network/interfaces:\n{}'.format(eni))
@@ -56,6 +56,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             self.assertTrue(line in eni_lines)
 
     def test_etc_resolvconf(self):
+        self.output_files_exist(["resolv.conf"])
         with open(os.path.join(self.td.collect, "resolv.conf")) as fp:
             resolvconf = fp.read()
             logger.debug('etc/resolv.conf:\n{}'.format(resolvconf))
@@ -299,6 +300,25 @@ class TestNetworkBasicAbs(TestNetworkBaseTestsAbs):
     conf_file = "examples/tests/basic_network.yaml"
 
 
+class CentosTestNetworkBasicAbs(TestNetworkBaseTestsAbs):
+    conf_file = "examples/tests/centos_basic.yaml"
+    extra_kern_args = "BOOTIF=eth0-52:54:00:12:34:00"
+    collect_scripts = TestNetworkBaseTestsAbs.collect_scripts + [
+        textwrap.dedent("""
+            cd OUTPUT_COLLECT_D
+            cp -a /etc/sysconfig/network-scripts .
+            cp -a /var/log/cloud-init* .
+            cp -a /var/lib/cloud ./var_lib_cloud
+            cp -a /run/cloud-init ./run_cloud-init
+        """)]
+
+    def test_etc_network_interfaces(self):
+        pass
+
+    def test_etc_resolvconf(self):
+        pass
+
+
 class PreciseHWETTestNetworkBasic(relbase.precise_hwe_t, TestNetworkBasicAbs):
     # FIXME: off due to hang at test: Starting execute cloud user/final scripts
     __test__ = False
@@ -336,4 +356,14 @@ class YakketyTestNetworkBasic(relbase.yakkety, TestNetworkBasicAbs):
 
 
 class ZestyTestNetworkBasic(relbase.zesty, TestNetworkBasicAbs):
+    __test__ = True
+
+
+class Centos66TestNetworkBasic(centos_relbase.centos66fromxenial,
+                               CentosTestNetworkBasicAbs):
+    __test__ = True
+
+
+class Centos70TestNetworkBasic(centos_relbase.centos70fromxenial,
+                               CentosTestNetworkBasicAbs):
     __test__ = True
