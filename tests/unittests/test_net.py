@@ -724,8 +724,10 @@ network:
     @mock.patch('curtin.util.subp')
     @mock.patch('curtin.util.which')
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
-    def test_netconfig_passthrough_available_not(self, mock_which, mock_subp,
-                                                 mock_load_file):
+    def test_netconfig_passthrough_available_feature_not_found(self,
+                                                               mock_which,
+                                                               mock_subp,
+                                                               mock_load_file):
         cloud_init = '/usr/bin/cloud-init'
         python = '/usr/bin/python3'
         mock_which.return_value = cloud_init
