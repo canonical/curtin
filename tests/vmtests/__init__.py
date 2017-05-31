@@ -685,6 +685,12 @@ class VMBaseClass(TestCase):
             configs.append(excfg)
             logger.debug('Added extra config {}'.format(excfg))
 
+        if cls.target_distro == "centos":
+            centos_default = 'examples/tests/centos_defaults.yaml'
+            configs.append(centos_default)
+            logger.info('Detected centos, adding default config %s',
+                         centos_default)
+
         if cls.multipath:
             disks = disks * cls.multipath_num_paths
 
