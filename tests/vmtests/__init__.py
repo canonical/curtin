@@ -689,7 +689,7 @@ class VMBaseClass(TestCase):
             centos_default = 'examples/tests/centos_defaults.yaml'
             configs.append(centos_default)
             logger.info('Detected centos, adding default config %s',
-                         centos_default)
+                        centos_default)
 
         if cls.multipath:
             disks = disks * cls.multipath_num_paths
