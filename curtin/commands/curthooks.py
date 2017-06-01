@@ -848,7 +848,7 @@ def centos_network_curthooks(cfg, target=None):
                 '/cloud-init-0.7.9+123.g8ccf377-1.el7.centos.noarch.rpm')
             in_chroot.subp(['yum', '-y', 'install', 'epel-release'], env=env)
             in_chroot.subp(['yum', '-y', 'install', cloudinit,
-                            'python-oauthlib',
+                            'python-oauthlib', 'bridge-utils',
                             'libselinux-python'], env=env)
 
 

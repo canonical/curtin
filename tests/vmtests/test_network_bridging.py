@@ -1,5 +1,6 @@
 from . import logger
 from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 from .test_network import TestNetworkBaseTestsAbs
 from curtin import util
 
@@ -39,6 +40,7 @@ default_bridge_params_uncheckable = [
 
 # attrs we cannot validate
 release_to_bridge_params_uncheckable = {
+    'centos70': ['bridge_ageing'],
     'xenial': ['bridge_ageing'],
     'yakkety': ['bridge_ageing'],
 }
@@ -100,12 +102,12 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
         """)]
 
     def test_output_files_exist_bridge(self):
-        self.output_files_exist(["bridge-utils_installed",
-                                 "sysfs_br0",
+        self.output_files_exist(["sysfs_br0",
                                  "sysfs_br0_eth1",
                                  "sysfs_br0_eth2"])
 
     def test_bridge_utils_installed(self):
+        self.output_files_exist(["bridge-utils_installed"])
         status = self.load_collect_file("bridge-utils_installed").strip()
         logger.debug('bridge-utils installed: {}'.format(status))
         self.assertEqual('install ok installed', status)
@@ -176,6 +178,41 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
         for param in _get_bridge_params(br0):
             print('Checking param %s' % param)
             _check_bridge_param(sysfs_vals, param, br0)
+
+
+class CentosTestBridgeNetworkAbs(TestBridgeNetworkAbs):
+    extra_kern_args = "BOOTIF=eth0-52:54:00:12:34:00"
+    collect_scripts = TestBridgeNetworkAbs.collect_scripts + [
+        textwrap.dedent("""
+            cd OUTPUT_COLLECT_D
+            cp -a /etc/sysconfig/network-scripts .
+            cp -a /var/log/cloud-init* .
+            cp -a /var/lib/cloud ./var_lib_cloud
+            cp -a /run/cloud-init ./run_cloud-init
+            rpm -qf `which brctl` |tee bridge-utils_installed
+        """)]
+
+    def test_etc_network_interfaces(self):
+        pass
+
+    def test_etc_resolvconf(self):
+        pass
+
+    def test_bridge_utils_installed(self):
+        self.output_files_exist(["bridge-utils_installed"])
+        status = self.load_collect_file("bridge-utils_installed").strip()
+        logger.debug('bridge-utils installed: {}'.format(status))
+        self.assertTrue('bridge' in status)
+
+
+class Centos66TestBridgeNetwork(centos_relbase.centos66fromxenial,
+                                CentosTestBridgeNetworkAbs):
+    __test__ = True
+
+
+class Centos70TestBridgeNetwork(centos_relbase.centos70fromxenial,
+                                CentosTestBridgeNetworkAbs):
+    __test__ = True
 
 
 # only testing Yakkety or newer as older releases do not yet
