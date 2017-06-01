@@ -40,7 +40,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         dpkg-query -W -f '${Version}' cloud-init |tee dpkg_cloud-init_version
         dpkg-query -W -f '${Version}' nplan |tee dpkg_nplan_version
         dpkg-query -W -f '${Version}' systemd |tee dpkg_systemd_version
-        rpm -q --queryformat '%{VERSION}\n' cloud-init |tee rpm_cloud-init_version
+        rpm -q --queryformat '%{VERSION}\n' cloud-init |tee rpm_ci_version
         V=/usr/lib/python*/*-packages/cloudinit/version.py;
         grep -c NETWORK_CONFIG_V2 $V |tee cloudinit_passthrough_available
         mkdir -p etc_netplan
