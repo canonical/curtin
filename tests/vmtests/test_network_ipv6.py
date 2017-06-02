@@ -21,6 +21,7 @@ class TestNetworkIPV6Abs(TestNetworkBaseTestsAbs):
         grep . -r /sys/class/net/bond0.208/ > sysfs_bond0.208 || :
         """)]
 
+
 class CentosTestNetworkIPV6Abs(TestNetworkIPV6Abs):
     extra_kern_args = "BOOTIF=eth0-bc:76:4e:06:96:b3"
     collect_scripts = TestNetworkIPV6Abs.collect_scripts + [
