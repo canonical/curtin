@@ -169,6 +169,15 @@ Some environment variables affect the running of vmtest
   If you set this value, you must ensure that the directory is either
   non-existent or clean.
 
+- ``CURTIN_VMTEST_REUSE_TOPDIR``: default 0
+
+  If this variable is set to 1, then vmtest will detect if the test
+  specified already exists in the configured ``CURTIN_VMTEST_TOPDIR``
+  location.  If present, vmtest will skip executing the install and
+  boot phase of vmtest, and install just execute the unittests 
+  specified.  This allows developers to re-run unittests on existing
+  data that's already been collected.
+
 - ``CURTIN_VMTEST_LOG``: default $TMPDIR/vmtest-<timestamp>.log
 
   Vmtest writes extended log information to this file.
@@ -204,6 +213,11 @@ Some environment variables affect the running of vmtest
 
     This modifies the  invocation of nosetets to add '--processes' and other
     necessary nose arguments (--process-timeout)
+
+- ``CURTIN_VMTEST_NR_CPUS``: default ''
+
+    Allow environment to override the number of virtual cpus to allocate
+    in the target virtual machines.
 
 - ``IMAGE_DIR``: default /srv/images
 

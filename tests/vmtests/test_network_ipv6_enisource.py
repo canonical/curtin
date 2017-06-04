@@ -31,6 +31,9 @@ class YakketyTestNetworkIPV6ENISource(relbase.yakkety,
     __test__ = True
 
 
-class ZestyTestNetworkIPV6ENISource(relbase.zesty,
-                                    TestNetworkIPV6ENISource):
+class ZestyTestNetworkIPV6ENISource(relbase.zesty, TestNetworkIPV6ENISource):
+    __test__ = True
+
+
+class ArtfulTestNetworkIPV6ENISource(relbase.artful, TestNetworkIPV6ENISource):
     __test__ = True

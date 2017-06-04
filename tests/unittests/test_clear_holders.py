@@ -129,13 +129,15 @@ class TestClearHolders(TestCase):
             mock_block.path_to_kname.assert_called_with(self.test_syspath)
             mock_get_dmsetup_uuid.assert_called_with(self.test_syspath)
 
+    @mock.patch('curtin.block.clear_holders.udev.udevadm_settle')
     @mock.patch('curtin.block.clear_holders.get_bcache_sys_path')
     @mock.patch('curtin.block.clear_holders.util')
     @mock.patch('curtin.block.clear_holders.os')
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.get_bcache_using_dev')
     def test_shutdown_bcache(self, mock_get_bcache, mock_log, mock_os,
-                             mock_util, mock_get_bcache_block):
+                             mock_util, mock_get_bcache_block,
+                             mock_udevadm_settle):
         """test clear_holders.shutdown_bcache"""
         #
         # pass in a sysfs path to a bcache block device,
@@ -158,8 +160,8 @@ class TestClearHolders(TestCase):
 
         clear_holders.shutdown_bcache(device)
 
-        mock_get_bcache.assert_called_with(device)
-        mock_get_bcache_block.assert_called_with(device)
+        mock_get_bcache.assert_called_with(device, strict=False)
+        mock_get_bcache_block.assert_called_with(device, strict=False)
 
         self.assertTrue(mock_log.info.called)
         self.assertFalse(mock_log.warn.called)
@@ -236,15 +238,18 @@ class TestClearHolders(TestCase):
         self.assertEqual(1, len(mock_get_bcache.call_args_list))
         self.assertEqual(1, len(mock_get_bcache_block.call_args_list))
         self.assertEqual(1, len(mock_util.write_file.call_args_list))
-        self.assertEqual(1, len(mock_util.wait_for_removal.call_args_list))
+        self.assertEqual(2, len(mock_util.wait_for_removal.call_args_list))
 
-        mock_get_bcache.assert_called_with(device)
-        mock_get_bcache_block.assert_called_with(device)
+        mock_get_bcache.assert_called_with(device, strict=False)
+        mock_get_bcache_block.assert_called_with(device, strict=False)
         mock_util.write_file.assert_called_with(device + '/bcache/stop',
                                                 '1', mode=None)
         retries = self.remove_retries
-        mock_util.wait_for_removal.assert_called_with(device, retries=retries)
+        mock_util.wait_for_removal.assert_has_calls([
+            mock.call(device, retries=retries),
+            mock.call(device + '/bcache', retries=retries)])
 
+    @mock.patch('curtin.block.clear_holders.udev.udevadm_settle')
     @mock.patch('curtin.block.clear_holders.get_bcache_sys_path')
     @mock.patch('curtin.block.clear_holders.util')
     @mock.patch('curtin.block.clear_holders.os')
@@ -253,7 +258,8 @@ class TestClearHolders(TestCase):
     def test_shutdown_bcache_delete_cset_and_backing(self, mock_get_bcache,
                                                      mock_log, mock_os,
                                                      mock_util,
-                                                     mock_get_bcache_block):
+                                                     mock_get_bcache_block,
+                                                     mock_udevadm_settle):
         device = "/sys/class/block/null"
         mock_os.path.exists.side_effect = iter([
                 True,  # backing device exists
@@ -272,10 +278,10 @@ class TestClearHolders(TestCase):
         self.assertEqual(1, len(mock_get_bcache.call_args_list))
         self.assertEqual(1, len(mock_get_bcache_block.call_args_list))
         self.assertEqual(2, len(mock_util.write_file.call_args_list))
-        self.assertEqual(2, len(mock_util.wait_for_removal.call_args_list))
+        self.assertEqual(3, len(mock_util.wait_for_removal.call_args_list))
 
-        mock_get_bcache.assert_called_with(device)
-        mock_get_bcache_block.assert_called_with(device)
+        mock_get_bcache.assert_called_with(device, strict=False)
+        mock_get_bcache_block.assert_called_with(device, strict=False)
         mock_util.write_file.assert_has_calls([
             mock.call(cset + '/stop', '1', mode=None),
             mock.call(device + '/bcache/stop', '1', mode=None)])
@@ -284,6 +290,7 @@ class TestClearHolders(TestCase):
             mock.call(device, retries=self.remove_retries)
         ])
 
+    @mock.patch('curtin.block.clear_holders.udev.udevadm_settle')
     @mock.patch('curtin.block.clear_holders.get_bcache_sys_path')
     @mock.patch('curtin.block.clear_holders.util')
     @mock.patch('curtin.block.clear_holders.os')
@@ -292,7 +299,8 @@ class TestClearHolders(TestCase):
     def test_shutdown_bcache_delete_cset_no_backing(self, mock_get_bcache,
                                                     mock_log, mock_os,
                                                     mock_util,
-                                                    mock_get_bcache_block):
+                                                    mock_get_bcache_block,
+                                                    mock_udevadm_settle):
         device = "/sys/class/block/null"
         mock_os.path.exists.side_effect = iter([
                 True,   # backing device exists
@@ -309,11 +317,11 @@ class TestClearHolders(TestCase):
         self.assertEqual(2, len(mock_log.info.call_args_list))
         self.assertEqual(3, len(mock_os.path.exists.call_args_list))
         self.assertEqual(1, len(mock_get_bcache.call_args_list))
-        self.assertEqual(0, len(mock_get_bcache_block.call_args_list))
+        self.assertEqual(1, len(mock_get_bcache_block.call_args_list))
         self.assertEqual(1, len(mock_util.write_file.call_args_list))
         self.assertEqual(1, len(mock_util.wait_for_removal.call_args_list))
 
-        mock_get_bcache.assert_called_with(device)
+        mock_get_bcache.assert_called_with(device, strict=False)
         mock_util.write_file.assert_has_calls([
             mock.call(cset + '/stop', '1', mode=None),
         ])
@@ -360,16 +368,70 @@ class TestClearHolders(TestCase):
         mock_util.subp.assert_called_with(
             ['cryptsetup', 'remove', self.test_blockdev], capture=True)
 
+    @mock.patch('curtin.block.clear_holders.time')
+    @mock.patch('curtin.block.clear_holders.util')
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.mdadm')
     @mock.patch('curtin.block.clear_holders.block')
-    def test_shutdown_mdadm(self, mock_block, mock_mdadm, mock_log):
+    def test_shutdown_mdadm(self, mock_block, mock_mdadm, mock_log, mock_util,
+                            mock_time):
         """test clear_holders.shutdown_mdadm"""
         mock_block.sysfs_to_devpath.return_value = self.test_blockdev
+        mock_block.path_to_kname.return_value = self.test_blockdev
+        mock_mdadm.md_present.return_value = False
         clear_holders.shutdown_mdadm(self.test_syspath)
         mock_mdadm.mdadm_stop.assert_called_with(self.test_blockdev)
-        mock_mdadm.mdadm_remove.assert_called_with(self.test_blockdev)
+        mock_mdadm.md_present.assert_called_with(self.test_blockdev)
         self.assertTrue(mock_log.debug.called)
+
+    @mock.patch('curtin.block.clear_holders.os')
+    @mock.patch('curtin.block.clear_holders.time')
+    @mock.patch('curtin.block.clear_holders.util')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.mdadm')
+    @mock.patch('curtin.block.clear_holders.block')
+    def test_shutdown_mdadm_fail_raises_oserror(self, mock_block, mock_mdadm,
+                                                mock_log, mock_util, mock_time,
+                                                mock_os):
+        """test clear_holders.shutdown_mdadm raises OSError on failure"""
+        mock_block.sysfs_to_devpath.return_value = self.test_blockdev
+        mock_block.path_to_kname.return_value = self.test_blockdev
+        mock_mdadm.md_present.return_value = True
+        mock_util.subp.return_value = ("", "")
+        mock_os.path.exists.return_value = True
+
+        with self.assertRaises(OSError):
+            clear_holders.shutdown_mdadm(self.test_syspath)
+
+        mock_mdadm.mdadm_stop.assert_called_with(self.test_blockdev)
+        mock_mdadm.md_present.assert_called_with(self.test_blockdev)
+        mock_util.load_file.assert_called_with('/proc/mdstat')
+        self.assertTrue(mock_log.debug.called)
+        self.assertTrue(mock_log.critical.called)
+
+    @mock.patch('curtin.block.clear_holders.os')
+    @mock.patch('curtin.block.clear_holders.time')
+    @mock.patch('curtin.block.clear_holders.util')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.mdadm')
+    @mock.patch('curtin.block.clear_holders.block')
+    def test_shutdown_mdadm_fails_no_proc_mdstat(self, mock_block, mock_mdadm,
+                                                 mock_log, mock_util,
+                                                 mock_time, mock_os):
+        """test clear_holders.shutdown_mdadm handles no /proc/mdstat"""
+        mock_block.sysfs_to_devpath.return_value = self.test_blockdev
+        mock_block.path_to_kname.return_value = self.test_blockdev
+        mock_mdadm.md_present.return_value = True
+        mock_os.path.exists.return_value = False
+
+        with self.assertRaises(OSError):
+            clear_holders.shutdown_mdadm(self.test_syspath)
+
+        mock_mdadm.mdadm_stop.assert_called_with(self.test_blockdev)
+        mock_mdadm.md_present.assert_called_with(self.test_blockdev)
+        self.assertEqual([], mock_util.subp.call_args_list)
+        self.assertTrue(mock_log.debug.called)
+        self.assertTrue(mock_log.critical.called)
 
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.block')

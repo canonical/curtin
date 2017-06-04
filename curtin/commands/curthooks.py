@@ -18,6 +18,7 @@
 import copy
 import os
 import platform
+import re
 import sys
 import shutil
 import textwrap
@@ -240,6 +241,63 @@ def install_kernel(cfg, target):
                      " System may not boot.", package)
 
 
+def uefi_remove_old_loaders(grubcfg, target):
+    """Removes the old UEFI loaders from efibootmgr."""
+    efi_output = util.get_efibootmgr(target)
+    current_uefi_boot = efi_output.get('current', None)
+    old_efi_entries = {
+        entry: info
+        for entry, info in efi_output['entries'].items()
+        if re.match(r'^.*File\(\\EFI.*$', info['path'])
+    }
+    old_efi_entries.pop(current_uefi_boot, None)
+    remove_old_loaders = grubcfg.get('remove_old_uefi_loaders', True)
+    if old_efi_entries:
+        if remove_old_loaders:
+            with util.ChrootableTarget(target) as in_chroot:
+                for entry, info in old_efi_entries.items():
+                    LOG.debug("removing old UEFI entry: %s" % info['name'])
+                    in_chroot.subp(
+                        ['efibootmgr', '-B', '-b', entry], capture=True)
+        else:
+            LOG.debug(
+                "Skipped removing %d old UEFI entrie%s.",
+                len(old_efi_entries),
+                '' if len(old_efi_entries) == 1 else 's')
+            for info in old_efi_entries.values():
+                LOG.debug(
+                    "UEFI entry '%s' might no longer exist and "
+                    "should be removed.", info['name'])
+
+
+def uefi_reorder_loaders(grubcfg, target):
+    """Reorders the UEFI BootOrder to place BootCurrent first.
+
+    The specifically doesn't try to do to much. The order in which grub places
+    a new EFI loader is up to grub. This only moves the BootCurrent to the
+    front of the BootOrder.
+    """
+    if grubcfg.get('reorder_uefi', True):
+        efi_output = util.get_efibootmgr(target)
+        currently_booted = efi_output.get('current', None)
+        boot_order = efi_output.get('order', [])
+        if currently_booted:
+            if currently_booted in boot_order:
+                boot_order.remove(currently_booted)
+            boot_order = [currently_booted] + boot_order
+            new_boot_order = ','.join(boot_order)
+            LOG.debug(
+                "Setting currently booted %s as the first "
+                "UEFI loader.", currently_booted)
+            LOG.debug(
+                "New UEFI boot order: %s", new_boot_order)
+            with util.ChrootableTarget(target) as in_chroot:
+                in_chroot.subp(['efibootmgr', '-o', new_boot_order])
+    else:
+        LOG.debug("Skipped reordering of UEFI boot methods.")
+        LOG.debug("Currently booted UEFI loader might no longer boot.")
+
+
 def setup_grub(cfg, target):
     # target is the path to the mounted filesystem
 
@@ -350,13 +408,17 @@ def setup_grub(cfg, target):
         instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
     else:
         instdevs = ["none"]
+
+    if util.is_uefi_bootable() and grubcfg.get('update_nvram', True):
+        uefi_remove_old_loaders(grubcfg, target)
+
     LOG.debug("installing grub to %s [replace_default=%s]",
               instdevs, replace_default)
     with util.ChrootableTarget(target):
         args = ['install-grub']
         if util.is_uefi_bootable():
             args.append("--uefi")
-            if grubcfg.get('update_nvram', False):
+            if grubcfg.get('update_nvram', True):
                 LOG.debug("GRUB UEFI enabling NVRAM updates")
                 args.append("--update-nvram")
             else:
@@ -369,6 +431,9 @@ def setup_grub(cfg, target):
         out, _err = util.subp(
             join_stdout_err + args + instdevs, env=env, capture=True)
         LOG.debug("%s\n%s\n", args, out)
+
+    if util.is_uefi_bootable() and grubcfg.get('update_nvram', True):
+        uefi_reorder_loaders(grubcfg, target)
 
 
 def update_initramfs(target=None, all_kernels=False):

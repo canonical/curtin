@@ -61,3 +61,7 @@ class YakketyTestAptConfigCMDCMD(relbase.yakkety, TestAptConfigCMD):
 
 class ZestyTestAptConfigCMDCMD(relbase.zesty, TestAptConfigCMD):
     __test__ = True
+
+
+class ArtfulTestAptConfigCMDCMD(relbase.artful, TestAptConfigCMD):
+    __test__ = True
