@@ -166,7 +166,7 @@ class TestSubp(TestCase):
             "curtin.util._get_unshare_pid_args", return_value=[])
         self.mock_get_unshare_pid_args = mock_getunsh.start()
         self.addCleanup(mock_getunsh.stop)
-        
+
     def printf_cmd(self, *args):
         # bash's printf supports \xaa.  So does /usr/bin/printf
         # but by using bash, we remove dependency on another program.
@@ -362,8 +362,8 @@ class TestSubp(TestCase):
         self.assertEqual(
             [mock.call(my_kwargs['unshare_pid'], my_kwargs['target'])],
             self.mock_get_unshare_pid_args.call_args_list)
-        expected = my_unshare_cmd + ['chroot', '/target'] + \
-                   ['apt-get', 'install']
+        expected = (my_unshare_cmd + ['chroot', '/target'] +
+                    ['apt-get', 'install'])
         self.assertEqual(expected, args[0])
 
 
