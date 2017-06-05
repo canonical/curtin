@@ -160,6 +160,13 @@ class TestSubp(TestCase):
         decode_type = str
         nodecode_type = bytes
 
+    def setUp(self):
+        super(TestSubp, self).setUp()
+        mock_getunsh = mock.patch(
+            "curtin.util._get_unshare_pid_args", return_value=[])
+        self.mock_get_unshare_pid_args = mock_getunsh.start()
+        self.addCleanup(mock_getunsh.stop)
+        
     def printf_cmd(self, *args):
         # bash's printf supports \xaa.  So does /usr/bin/printf
         # but by using bash, we remove dependency on another program.
@@ -296,10 +303,12 @@ class TestSubp(TestCase):
         calls = m_popen.call_args_list
         popen_args, popen_kwargs = calls[-1]
         target = util.target_path(kwargs.get('target', None))
+        unshcmd = self.mock_get_unshare_pid_args.return_value
         if target == "/":
-            self.assertEqual(cmd, popen_args[0])
+            self.assertEqual(unshcmd + list(cmd), popen_args[0])
         else:
-            self.assertEqual(['chroot', target] + list(cmd), popen_args[0])
+            self.assertEqual(unshcmd + ['chroot', target] + list(cmd),
+                             popen_args[0])
         return calls
 
     def test_with_target_gets_chroot(self):
@@ -341,6 +350,99 @@ class TestSubp(TestCase):
         # r is a list of all args, kwargs to Popen that happend.
         # since we fail a few times, it needs to have been called again.
         self.assertEqual(len(r), len(rcs))
+
+    def test_unshare_pid_return_is_used(self):
+        """The return of _get_unshare_pid_return needs to be in command."""
+        my_unshare_cmd = ['do-unshare-command', 'arg0', 'arg1', '--']
+        self.mock_get_unshare_pid_args.return_value = my_unshare_cmd
+        my_kwargs = {'target': '/target', 'unshare_pid': True}
+        r = self._subp_wrap_popen(['apt-get', 'install'], my_kwargs)
+        self.assertEqual(1, len(r))
+        args, kwargs = r[0]
+        self.assertEqual(
+            [mock.call(my_kwargs['unshare_pid'], my_kwargs['target'])],
+            self.mock_get_unshare_pid_args.call_args_list)
+        expected = my_unshare_cmd + ['chroot', '/target'] + \
+                   ['apt-get', 'install']
+        self.assertEqual(expected, args[0])
+
+
+class TestGetUnsharePidArgs(TestCase):
+    """Test the internal implementation for when to unshare."""
+    expected_on = ['unshare', '--fork', '--pid', '--']
+    expected_off = []
+
+    def setUp(self):
+        super(TestGetUnsharePidArgs, self).setUp()
+        mock_hasunsh = mock.patch(
+            "curtin.util._has_unshare_pid", return_value=True)
+        self.mock_has_unshare_pid = mock_hasunsh.start()
+        self.addCleanup(mock_hasunsh.stop)
+        mock_geteuid = mock.patch(
+            "curtin.util.os.geteuid", return_value=0)
+        self.mock_geteuid = mock_geteuid.start()
+        self.addCleanup(mock_geteuid.stop)
+
+    def assertOff(self, result):
+        self.assertEqual(self.expected_off, result)
+
+    def assertOn(self, result):
+        self.assertEqual(self.expected_on, result)
+
+    def test_unshare_pid_none_and_not_root_means_off(self):
+        """If not root, then expect off."""
+        self.assertOff(util._get_unshare_pid_args(None, "/foo", 500))
+        self.assertOff(util._get_unshare_pid_args(None, "/", 500))
+
+        self.mock_geteuid.return_value = 500
+        self.assertOff(util._get_unshare_pid_args(None, "/"))
+        self.assertOff(
+            util._get_unshare_pid_args(unshare_pid=None, target="/foo"))
+
+    def test_unshare_pid_none_and_no_unshare_pid_means_off(self):
+        """No unshare support and unshare_pid is None means off."""
+        self.mock_has_unshare_pid.return_value = False
+        self.assertOff(util._get_unshare_pid_args(None, "/target", 0))
+
+    def test_unshare_pid_true_and_no_unshare_pid_raises(self):
+        """Passing unshare_pid in as True and no command should raise."""
+        self.mock_has_unshare_pid.return_value = False
+        expected_msg = 'no unshare command'
+        with self.assertRaisesRegexp(RuntimeError, expected_msg):
+            util._get_unshare_pid_args(True)
+
+        with self.assertRaisesRegexp(RuntimeError, expected_msg):
+            util._get_unshare_pid_args(True, "/foo", 0)
+
+    def test_unshare_pid_true_and_not_root_raises(self):
+        expected_msg = 'euid.* != 0'
+        with self.assertRaisesRegexp(RuntimeError, expected_msg):
+            util._get_unshare_pid_args(True, "/foo", 500)
+
+        self.mock_geteuid.return_value = 500
+        with self.assertRaisesRegexp(RuntimeError, expected_msg):
+            util._get_unshare_pid_args(True)
+
+        with self.assertRaisesRegexp(RuntimeError, expected_msg):
+            util._get_unshare_pid_args(True, "/foo")
+
+    def test_euid0_target_not_slash(self):
+        """If root and target is not /, then expect on."""
+        self.assertOn(util._get_unshare_pid_args(None, "/foo", 0))
+        self.assertOn(util._get_unshare_pid_args(None, target="/foo", euid=0))
+
+    def test_euid0_target_slash(self):
+        """If root and target is /, then expect off."""
+        self.assertOff(util._get_unshare_pid_args(None, "/", 0))
+        self.assertOff(util._get_unshare_pid_args(None, target=None, euid=0))
+
+    def test_unshare_pid_of_false_means_off(self):
+        """Any unshare_pid value false-ish other than None means no unshare."""
+        self.assertOff(
+            util._get_unshare_pid_args(unshare_pid=False, target=None))
+        self.assertOff(util._get_unshare_pid_args(False, "/target", 1))
+        self.assertOff(util._get_unshare_pid_args(False, "/", 0))
+        self.assertOff(util._get_unshare_pid_args("", "/target", 0))
 
 
 class TestHuman2Bytes(TestCase):

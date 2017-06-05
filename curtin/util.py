@@ -158,7 +158,7 @@ def _get_unshare_pid_args(unshare_pid=None, target=None, euid=None):
     """Get args for calling unshare for a pid.
 
     If unshare_pid is False, return empty list.
-    If unshare_pid is True, check if it is usable.
+    If unshare_pid is True, check if it is usable.  If not, raise exception.
     if unshare_pid is None, then unshare if
        * euid is 0
        * 'unshare' with '--fork' and '--pid' is available.
