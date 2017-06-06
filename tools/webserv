@@ -27,4 +27,8 @@ if __name__ == "__main__":
         dir = sys.argv[2]
         os.chdir(dir)
     server = HTTPServerV6(("::", port), SimpleHTTPRequestHandler)
+    # AF_INET6 address family, a four-tuple (host, port, flowinfo, scopeid)
+    host, port, flowinfo, scopeid = server.socket.getsockname()
+    sys.stdout.write("%s %s\n" % (host, port))
+    sys.stdout.flush()
     server.serve_forever()
