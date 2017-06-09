@@ -384,8 +384,6 @@ class TestSubp(TestCase):
 
 class TestGetUnsharePidArgs(TestCase):
     """Test the internal implementation for when to unshare."""
-    expected_on = ['unshare', '--fork', '--pid', '--']
-    expected_off = []
 
     def setUp(self):
         super(TestGetUnsharePidArgs, self).setUp()
@@ -399,10 +397,10 @@ class TestGetUnsharePidArgs(TestCase):
         self.addCleanup(mock_geteuid.stop)
 
     def assertOff(self, result):
-        self.assertEqual(self.expected_off, result)
+        self.assertEqual([], result)
 
     def assertOn(self, result):
-        self.assertEqual(self.expected_on, result)
+        self.assertEqual(['unshare', '--fork', '--pid', '--'], result)
 
     def test_unshare_pid_none_and_not_root_means_off(self):
         """If not root, then expect off."""
