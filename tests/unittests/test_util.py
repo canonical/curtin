@@ -439,7 +439,6 @@ class TestGetUnsharePidArgs(TestCase):
 
     def test_euid0_target_not_slash(self):
         """If root and target is not /, then expect on."""
-        self.assertOn(util._get_unshare_pid_args(None, "/foo", 0))
         self.assertOn(util._get_unshare_pid_args(None, target="/foo", euid=0))
 
     def test_euid0_target_slash(self):
