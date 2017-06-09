@@ -437,9 +437,6 @@ class TestGetUnsharePidArgs(TestCase):
         with self.assertRaisesRegexp(RuntimeError, expected_msg):
             util._get_unshare_pid_args(True)
 
-        with self.assertRaisesRegexp(RuntimeError, expected_msg):
-            util._get_unshare_pid_args(True, "/foo")
-
     def test_euid0_target_not_slash(self):
         """If root and target is not /, then expect on."""
         self.assertOn(util._get_unshare_pid_args(None, "/foo", 0))
