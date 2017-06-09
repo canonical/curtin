@@ -311,6 +311,21 @@ class TestSubp(TestCase):
                              popen_args[0])
         return calls
 
+    def test_args_can_be_a_tuple(self):
+        """subp can take a tuple for cmd rather than a list."""
+        my_cmd = tuple(['echo', 'hi', 'mom'])
+        calls = self._subp_wrap_popen(my_cmd, {})
+        args, kwargs = calls[0]
+        # subp was called with cmd as a tuple.  That may get converted to
+        # a list before subprocess.popen.  So only compare as lists.
+        self.assertEqual(1, len(calls))
+        self.assertEqual(list(my_cmd), list(args[0]))
+
+    def test_args_can_be_a_string(self):
+        """subp("cat") is acceptable, as suprocess.call("cat") works fine."""
+        out, err = util.subp("cat", data=b'hi mom', capture=True, decode=False)
+        self.assertEqual(b'hi mom', out)
+
     def test_with_target_gets_chroot(self):
         args, kwargs = self._subp_wrap_popen(["my-command"],
                                              {'target': "/mytarget"})[0]
@@ -415,6 +430,7 @@ class TestGetUnsharePidArgs(TestCase):
             util._get_unshare_pid_args(True, "/foo", 0)
 
     def test_unshare_pid_true_and_not_root_raises(self):
+        """When unshare_pid is True for non-root an error is raised."""
         expected_msg = 'euid.* != 0'
         with self.assertRaisesRegexp(RuntimeError, expected_msg):
             util._get_unshare_pid_args(True, "/foo", 500)
