@@ -1,0 +1,175 @@
+storage:
+   version: 1
+   config:
+      - id: vdb
+        type: disk
+        ptable: msdos
+        model: QEMU HARDDISK
+        path: /dev/vdb
+        name: main_disk
+        wipe: superblock
+        grub_device: true
+      - id: vdb1
+        type: partition
+        number: 1
+        size: 3GB
+        device: vdb
+        flag: boot
+      - id: vdb2
+        type: partition
+        number: 2
+        size: 1GB
+        device: vdb
+      - id: vdb1_root
+        type: format
+        fstype: ext4
+        volume: vdb1
+      - id: vdb2_home
+        type: format
+        fstype: ext4
+        volume: vdb2
+      - id: vdb1_mount
+        type: mount
+        path: /
+        device: vdb1_root
+      - id: vdb2_mount
+        type: mount
+        path: /home
+        device: vdb2_home
+      - id: sda
+        type: disk
+        path: iscsi:__RFC4173__
+        name: iscsi_disk1
+        ptable: msdos
+        wipe: superblock
+      - id: sda_extended
+        type: partition
+        size: 5G
+        flag: extended
+        device: sda
+      - id: sda1
+        type: partition
+        size: 2G
+        flag: logical
+        device: sda
+      - id: sda2
+        type: partition
+        size: 3G
+        flag: logical
+        device: sda
+      - id: volgroup1
+        name: vg1
+        type: lvm_volgroup
+        devices:
+            - sda1
+            - sda2
+      - id: lvmpart1
+        name: lv1
+        size: 1G
+        type: lvm_partition
+        volgroup: volgroup1
+      - id: lvmpart2
+        name: lv2
+        type: lvm_partition
+        volgroup: volgroup1
+      - id: lv1_fs
+        name: storage
+        type: format
+        fstype: ext4
+        volume: lvmpart1
+        uuid: 6de56115-9500-424b-8151-221b270ec708
+      - id: lv2_fs
+        name: storage
+        type: format
+        fstype: ext3
+        volume: lvmpart2
+        uuid: 9604e4c4-e5ae-40dd-ab1f-940de6b59047
+      - id: lv1_mount
+        type: mount
+        path: /mnt/iscsi1
+        device: lv1_fs
+      - id: lv2_mount
+        type: mount
+        path: /mnt/iscsi2
+        device: lv2_fs
+      - id: sdb
+        type: disk
+        path: iscsi:__RFC4173__
+        name: iscsi_disk2
+        ptable: msdos
+        wipe: superblock
+      - id: sdb_extended
+        type: partition
+        size: 4G
+        flag: extended
+        device: sdb
+      - id: sdb1
+        type: partition
+        size: 2G
+        flag: logical
+        device: sdb
+      - id: sdb2
+        type: partition
+        size: 2G
+        flag: logical
+        device: sdb
+      - id: volgroup2
+        name: vg2
+        type: lvm_volgroup
+        devices:
+            - sdb1
+            - sdb2
+      - id: lvmpart3
+        name: lv3
+        size: 1G
+        type: lvm_partition
+        volgroup: volgroup2
+      - id: lvmpart4
+        name: lv4
+        type: lvm_partition
+        volgroup: volgroup2
+      - id: lv3_fs
+        name: storage
+        type: format
+        fstype: ext4
+        volume: lvmpart3
+        uuid: 18bec31c-09a8-4a02-91c6-e9bf6efb6fad
+      - id: lv4_fs
+        name: storage
+        type: format
+        fstype: ext3
+        volume: lvmpart4
+        uuid: a98f706b-b064-4682-8eb2-6c2c1284060c
+      - id: lv3_mount
+        type: mount
+        path: /mnt/iscsi3
+        device: lv3_fs
+      - id: lv4_mount
+        type: mount
+        path: /mnt/iscsi4
+        device: lv4_fs
+network:
+   version: 1
+   config:
+      - type: physical
+        name: interface0
+        mac_address: "52:54:00:12:34:00"
+        subnets:
+           - type: dhcp
+write_files:
+   f1:
+      path: /mnt/iscsi1/testfile
+      content: "test1"
+      permissions: 0777
+   f2:
+      path: /mnt/iscsi2/testfile
+      content: "test2"
+      permissions: 0777
+   f3:
+      path: /mnt/iscsi3/testfile
+      content: "test3"
+      permissions: 0777
+   f4:
+      path: /mnt/iscsi4/testfile
+      content: "test4"
+      permissions: 0777

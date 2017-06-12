@@ -3,7 +3,6 @@ from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 
 import ipaddress
-import os
 import re
 import textwrap
 import yaml
@@ -45,21 +44,17 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         ])
 
     def test_etc_network_interfaces(self):
-        self.output_files_exist(["interfaces"])
-        with open(os.path.join(self.td.collect, "interfaces")) as fp:
-            eni = fp.read()
-            logger.debug('etc/network/interfaces:\n{}'.format(eni))
+        eni = self.load_collect_file("interfaces")
+        logger.debug('etc/network/interfaces:\n{}'.format(eni))
 
         expected_eni = self.get_expected_etc_network_interfaces()
         eni_lines = eni.split('\n')
         for line in expected_eni.split('\n'):
-            self.assertTrue(line in eni_lines)
+            self.assertTrue(line in eni_lines, msg="missing line: %s" % line)
 
     def test_etc_resolvconf(self):
-        self.output_files_exist(["resolv.conf"])
-        with open(os.path.join(self.td.collect, "resolv.conf")) as fp:
-            resolvconf = fp.read()
-            logger.debug('etc/resolv.conf:\n{}'.format(resolvconf))
+        resolvconf = self.load_collect_file("resolv.conf")
+        logger.debug('etc/resolv.conf:\n{}'.format(resolvconf))
 
         resolv_lines = resolvconf.split('\n')
         logger.debug('resolv.conf lines:\n{}'.format(resolv_lines))
@@ -141,34 +136,30 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         logger.debug('expected_network_state:\n{}'.format(
             yaml.dump(network_state, default_flow_style=False, indent=4)))
 
-        with open(os.path.join(self.td.collect, "ip_a")) as fp:
-            ip_a = fp.read()
-            logger.debug('ip a:\n{}'.format(ip_a))
+        ip_a = self.load_collect_file("ip_a")
+        logger.debug('ip a:\n{}'.format(ip_a))
 
         ip_dict = helpers.ip_a_to_dict(ip_a)
         print('parsed ip_a dict:\n{}'.format(
             yaml.dump(ip_dict, default_flow_style=False, indent=4)))
 
-        with open(os.path.join(self.td.collect, "ip_route_show")) as fp:
-            ip_route_show = fp.read()
-            logger.debug("ip route show:\n{}".format(ip_route_show))
-            for line in [line for line in ip_route_show.split('\n')
-                         if 'src' in line]:
-                m = re.search(r'^(?P<network>\S+)\sdev\s' +
-                              r'(?P<devname>\S+)\s+' +
-                              r'proto kernel\s+scope link' +
-                              r'\s+src\s(?P<src_ip>\S+)',
-                              line)
-                route_info = m.groupdict('')
-                logger.debug(route_info)
+        ip_route_show = self.load_collect_file("ip_route_show")
+        logger.debug("ip route show:\n{}".format(ip_route_show))
+        for line in [line for line in ip_route_show.split('\n')
+                     if 'src' in line]:
+            m = re.search(r'^(?P<network>\S+)\sdev\s' +
+                          r'(?P<devname>\S+)\s+' +
+                          r'proto kernel\s+scope link' +
+                          r'\s+src\s(?P<src_ip>\S+)',
+                          line)
+            route_info = m.groupdict('')
+            logger.debug(route_info)
 
-        with open(os.path.join(self.td.collect, "route_n")) as fp:
-            route_n = fp.read()
-            logger.debug("route -n:\n{}".format(route_n))
+        route_n = self.load_collect_file("route_n")
+        logger.debug("route -n:\n{}".format(route_n))
 
-        with open(os.path.join(self.td.collect, "route_6_n")) as fp:
-            route_6_n = fp.read()
-            logger.debug("route -6 -n:\n{}".format(route_6_n))
+        route_6_n = self.load_collect_file("route_6_n")
+        logger.debug("route -6 -n:\n{}".format(route_6_n))
 
         routes = {
             '4': route_n,
@@ -356,6 +347,10 @@ class YakketyTestNetworkBasic(relbase.yakkety, TestNetworkBasicAbs):
 
 
 class ZestyTestNetworkBasic(relbase.zesty, TestNetworkBasicAbs):
+    __test__ = True
+
+
+class ArtfulTestNetworkBasic(relbase.artful, TestNetworkBasicAbs):
     __test__ = True
 
 

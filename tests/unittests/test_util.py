@@ -4,6 +4,7 @@ import os
 import stat
 import shutil
 import tempfile
+from textwrap import dedent
 
 from curtin import util
 from .helpers import simple_mocked_open
@@ -681,6 +682,75 @@ class TestWaitForRemoval(TestCase):
         mock_time.sleep.assert_has_calls([
             mock.call(timeout),
         ])
+
+
+class TestGetEFIBootMGR(TestCase):
+
+    def setUp(self):
+        super(TestGetEFIBootMGR, self).setUp()
+        mock_chroot = mock.patch(
+            'curtin.util.ChrootableTarget', autospec=False)
+        self.mock_chroot = mock_chroot.start()
+        self.addCleanup(mock_chroot.stop)
+        self.mock_in_chroot = mock.MagicMock()
+        self.mock_in_chroot.__enter__.return_value = self.mock_in_chroot
+        self.in_chroot_subp_output = []
+        self.mock_in_chroot_subp = self.mock_in_chroot.subp
+        self.mock_in_chroot_subp.side_effect = self.in_chroot_subp_output
+        self.mock_chroot.return_value = self.mock_in_chroot
+
+    def test_calls_efibootmgr_verbose(self):
+        self.in_chroot_subp_output.append(('', ''))
+        util.get_efibootmgr('target')
+        self.assertEquals(
+            (['efibootmgr', '-v'],),
+            self.mock_in_chroot_subp.call_args_list[0][0])
+
+    def test_parses_output(self):
+        self.in_chroot_subp_output.append((dedent(
+            """\
+            BootCurrent: 0000
+            Timeout: 1 seconds
+            BootOrder: 0000,0002,0001,0003,0004,0005
+            Boot0000* ubuntu	HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)
+            Boot0001* CD/DVD Drive 	BBS(CDROM,,0x0)
+            Boot0002* Hard Drive 	BBS(HD,,0x0)
+            Boot0003* UEFI:CD/DVD Drive	BBS(129,,0x0)
+            Boot0004* UEFI:Removable Device	BBS(130,,0x0)
+            Boot0005* UEFI:Network Device	BBS(131,,0x0)
+            """), ''))
+        observed = util.get_efibootmgr('target')
+        self.assertEquals({
+            'current': '0000',
+            'timeout': '1 seconds',
+            'order': ['0000', '0002', '0001', '0003', '0004', '0005'],
+            'entries': {
+                '0000': {
+                    'name': 'ubuntu',
+                    'path': 'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)',
+                },
+                '0001': {
+                    'name': 'CD/DVD Drive',
+                    'path': 'BBS(CDROM,,0x0)',
+                },
+                '0002': {
+                    'name': 'Hard Drive',
+                    'path': 'BBS(HD,,0x0)',
+                },
+                '0003': {
+                    'name': 'UEFI:CD/DVD Drive',
+                    'path': 'BBS(129,,0x0)',
+                },
+                '0004': {
+                    'name': 'UEFI:Removable Device',
+                    'path': 'BBS(130,,0x0)',
+                },
+                '0005': {
+                    'name': 'UEFI:Network Device',
+                    'path': 'BBS(131,,0x0)',
+                },
+            }
+        }, observed)
 
 
 # vi: ts=4 expandtab syntax=python
