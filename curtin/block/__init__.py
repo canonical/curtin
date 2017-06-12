@@ -19,7 +19,6 @@ from contextlib import contextmanager
 import errno
 import itertools
 import os
-import shlex
 import stat
 import sys
 import tempfile
@@ -179,21 +178,32 @@ def get_holders(device):
     return holders
 
 
-def _shlex_split(str_in):
-    # shlex.split takes a string
-    # but in python2 if input here is a unicode, encode it to a string.
-    # http://stackoverflow.com/questions/2365411/
-    #     python-convert-unicode-to-ascii-without-errors
-    if sys.version_info.major == 2:
-        try:
-            if isinstance(str_in, unicode):
-                str_in = str_in.encode('utf-8')
-        except NameError:
-            pass
+def get_device_slave_knames(device):
+    """
+    Find the underlying knames of a given device by walking sysfs
+    recursively.
 
-        return shlex.split(str_in)
+    Returns a list of knames
+    """
+    slave_knames = []
+    slaves_dir_path = os.path.join(sys_block_path(device), 'slaves')
+
+    # if we find a 'slaves' dir, recurse and check
+    # the underlying devices
+    if os.path.exists(slaves_dir_path):
+        slaves = os.listdir(slaves_dir_path)
+        if len(slaves) > 0:
+            for slave_kname in slaves:
+                slave_knames.extend(get_device_slave_knames(slave_kname))
+        else:
+            slave_knames.append(path_to_kname(device))
+
+        return slave_knames
     else:
-        return shlex.split(str_in)
+        # if a device has no 'slaves' attribute then
+        # we've found the underlying device, return
+        # the kname of the device
+        return [path_to_kname(device)]
 
 
 def _lsblock_pairs_to_dict(lines):
@@ -202,7 +212,7 @@ def _lsblock_pairs_to_dict(lines):
     """
     ret = {}
     for line in lines.splitlines():
-        toks = _shlex_split(line)
+        toks = util.shlex_split(line)
         cur = {}
         for tok in toks:
             k, v = tok.split("=", 1)
@@ -443,7 +453,7 @@ def blkid(devs=None, cache=True):
     for line in out.splitlines():
         curdev, curdata = line.split(":", 1)
         data[curdev] = dict(tok.split('=', 1)
-                            for tok in _shlex_split(curdata))
+                            for tok in util.shlex_split(curdata))
     return data
 
 

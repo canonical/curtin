@@ -23,6 +23,7 @@ import json
 import os
 import platform
 import re
+import shlex
 import shutil
 import socket
 import subprocess
@@ -1185,6 +1186,40 @@ class RunInChroot(ChrootableTarget):
         with RunInChroot("/target") as in_chroot:
             in_chroot(["your", "chrooted", "command"])"""
     __call__ = ChrootableTarget.subp
+
+
+def shlex_split(str_in):
+    # shlex.split takes a string
+    # but in python2 if input here is a unicode, encode it to a string.
+    # http://stackoverflow.com/questions/2365411/
+    #     python-convert-unicode-to-ascii-without-errors
+    if sys.version_info.major == 2:
+        try:
+            if isinstance(str_in, unicode):
+                str_in = str_in.encode('utf-8')
+        except NameError:
+            pass
+
+        return shlex.split(str_in)
+    else:
+        return shlex.split(str_in)
+
+
+def load_shell_content(content, add_empty=False, empty_val=None):
+    """Given shell like syntax (key=value\nkey2=value2\n) in content
+       return the data in dictionary form.  If 'add_empty' is True
+       then add entries in to the returned dictionary for 'VAR='
+       variables.  Set their value to empty_val."""
+
+    data = {}
+    for line in shlex_split(content):
+        key, value = line.split("=", 1)
+        if not value:
+            value = empty_val
+        if add_empty or value:
+            data[key] = value
+
+    return data
 
 
 # vi: ts=4 expandtab syntax=python
