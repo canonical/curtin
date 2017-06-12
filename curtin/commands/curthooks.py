@@ -66,6 +66,19 @@ KERNEL_MAPPING = {
     }
 }
 
+CLOUD_INIT_YUM_REPO_TEMPLATE = """
+[group_cloud-init-cloud-init]
+name=Copr repo for cloud-init-curtin owned by @cloud-init
+baseurl=https://copr-be.cloud.fedoraproject.org/results/@cloud-init/cloud-init-curtin/epel-%s-$basearch/
+type=rpm-md
+skip_if_unavailable=True
+gpgcheck=1
+gpgkey=https://copr-be.cloud.fedoraproject.org/results/@cloud-init/cloud-init-curtin/pubkey.gpg
+repo_gpgcheck=0
+enabled=1
+enabled_metadata=1
+"""
+
 
 def write_files(cfg, target):
     # this takes 'write_files' entry in config and writes files in the target
@@ -826,6 +839,24 @@ def centos_network_curthooks(cfg, target=None):
         util.write_file(centos_netconfig,
                         content=config.dump_config({'network': netconfig}))
 
+    def cloud_init_repo(version):
+        if not version:
+            raise ValueError('Missing required version parameter')
+
+        return CLOUD_INIT_YUM_REPO_TEMPLATE % version
+
+    def centos_get_version_id(target):
+        os_release = util.target_path(target, 'etc/os-release')
+        os_rel_dict = util.load_shell_content(util.load_file(os_release))
+        return os_rel_dict['VERSION_ID']
+
+    cloud_init_yum_repo = (
+        util.target_path(target, 'etc/yum.repos.d/cloud-init-daily.repo'))
+    # Inject cloud-init daily yum repo
+    LOG.info('Injecting cloud-init daily repo')
+    util.write_file(cloud_init_yum_repo,
+                    content=cloud_init_repo(centos_get_version_id(target)))
+
     # ensure serial console
     LOG.info('Forcing serial console')
     grub_serial_cmdline = (
@@ -843,13 +874,9 @@ def centos_network_curthooks(cfg, target=None):
             env = os.environ.copy()
             env['http_proxy'] = 'http://squid.internal:3128/'
             env['https_proxy'] = 'https://squid.internal:3128/'
-            cloudinit = (
-                'http://people.canonical.com/~rharper/cloud-init/rpms/centos/7'
-                '/cloud-init-0.7.9+123.g8ccf377-1.el7.centos.noarch.rpm')
             in_chroot.subp(['yum', '-y', 'install', 'epel-release'], env=env)
-            in_chroot.subp(['yum', '-y', 'install', cloudinit,
-                            'python-oauthlib', 'bridge-utils',
-                            'libselinux-python'], env=env)
+            in_chroot.subp(['yum', '-y', 'install', 'cloud-init',
+                            'bridge-utils', 'libselinux-python'], env=env)
 
 
 def target_is_ubuntu_core(target):
