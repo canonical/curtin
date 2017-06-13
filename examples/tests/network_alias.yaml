@@ -20,11 +20,11 @@ network:
           mac_address: "52:54:00:12:34:02"
           subnets:
               - type: static
-                address: 192.168.2.2/22
+                address: 192.168.20.2/22
                 routes:
-                  - network: 192.168.0.0
+                  - network: 192.168.20.0
                     netmask: 255.255.252.0
-                    gateway: 192.168.2.1
+                    gateway: 192.168.20.1
               - type: static
                 address: 10.23.23.7/23
                 routes:
@@ -51,11 +51,11 @@ network:
           mac_address: "52:54:00:12:34:06"
           subnets:
               - type: static
-                address: 192.168.7.7/22
+                address: 192.168.80.8/22
                 routes:
-                  - network: 192.168.0.0
+                  - network: 192.168.80.0
                     netmask: 255.255.252.0
-                    gateway: 192.168.7.1
+                    gateway: 192.168.80.1
               - type: static
                 address: 10.99.99.23/23
                 routes:
@@ -88,7 +88,7 @@ network:
               - type: static
                 address: 192.168.100.100/22
                 routes:
-                  - network: 192.168.0.0
+                  - network: 192.168.100.0
                     netmask: 255.255.252.0
                     gateway: 192.168.100.1
               - type: static
@@ -111,7 +111,7 @@ network:
               - type: static
                 address: 192.168.200.200/22
                 routes:
-                  - network: 192.168.0.0
+                  - network: 192.168.200.0
                     netmask: 255.255.252.0
                     gateway: 192.168.200.1
               - type: static
