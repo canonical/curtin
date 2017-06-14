@@ -16,7 +16,7 @@ network:
           mac_address: "52:54:00:12:34:04"
         # Bond.
         - type: bond
-          name: bond0
+          name: bond1
           mac_address: "52:54:00:12:34:06"
           bond_interfaces:
             - interface1
