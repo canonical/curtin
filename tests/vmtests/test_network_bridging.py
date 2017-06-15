@@ -40,7 +40,8 @@ default_bridge_params_uncheckable = [
 
 # attrs we cannot validate
 release_to_bridge_params_uncheckable = {
-    'centos70': ['bridge_ageing'],
+    'centos70': ['bridge_fd', 'bridge_hello', 'bridge_hw', 'bridge_maxage',
+                 'bridge_pathcost', 'bridge_portprio'],
     'xenial': ['bridge_ageing'],
     'yakkety': ['bridge_ageing'],
 }
@@ -131,9 +132,11 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
             return br0
 
         def _get_bridge_params(br):
+            release = (
+                self.target_release if self.target_release else self.release)
             bridge_params_uncheckable = default_bridge_params_uncheckable
             bridge_params_uncheckable.extend(
-                release_to_bridge_params_uncheckable.get(self.release, []))
+                release_to_bridge_params_uncheckable.get(release, []))
             return [p for p in br.keys()
                     if (p.startswith('bridge_') and
                         p not in bridge_params_uncheckable)]
