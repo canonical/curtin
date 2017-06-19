@@ -1,7 +1,6 @@
 showtrace: true
 network:
     version: 1
-    passthrough: true
     config:
         # no-alias: single v4 and v6 on same interface
         - type: physical
