@@ -7,7 +7,6 @@ from curtin import config
 
 import glob
 import ipaddress
-import os
 import re
 import textwrap
 import yaml
@@ -98,12 +97,9 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             reason = ("{}: using net-passthrough; "
                       "deferring to cloud-init".format(self.__class__))
             raise SkipTest(reason)
-        self.output_files_exist(["interfaces"])
-        with open(os.path.join(self.td.collect, "interfaces")) as fp:
-            eni = fp.read()
-            logger.debug('etc/network/interfaces:\n{}'.format(eni))
 
         eni, eni_cfg = self.read_eni()
+        logger.debug('etc/network/interfaces:\n{}'.format(eni))
         expected_eni = self.get_expected_etc_network_interfaces()
 
         eni_lines = eni.split('\n') + eni_cfg.split('\n')

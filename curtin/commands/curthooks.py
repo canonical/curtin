@@ -815,6 +815,78 @@ def ubuntu_core_curthooks(cfg, target=None):
         util.write_file(ubuntu_core_netconfig,
                         content=config.dump_config({'network': netconfig}))
 
+def rpm_get_dist_id(target):
+    """Use rpm command to extract the '%rhel' distro macro which returns
+       the major os version id (6, 7, 8).  This works for centos or rhel
+    """
+    with util.ChrootableTarget(target) as in_chroot:
+        dist, _ = in_chroot.subp(['rpm', '-E', '%rhel'], capture=True)
+    return dist.rstrip()
+
+
+def centos_network_curthooks(cfg, target=None):
+    """ CentOS images execute standard curthooks but does not
+        support network configuration.  This hook allows network
+        passthrough to target to function
+    """
+    cc_target = os.path.join(target, 'etc/cloud/cloud.cfg.d')
+    netconfig = cfg.get('network', None)
+    if netconfig:
+        LOG.info('Removing embedded network configuration (if present)')
+        # remove ifcfg-* (except ifcfg-lo)
+        ifcfg_path = os.path.join(target, 'etc/sysconfig/network-scripts')
+        to_remove = [ifcfg for ifcfg in os.listdir(ifcfg_path)
+                     if ifcfg.startswith('ifcfg-') and ifcfg != "ifcfg-lo"]
+        for config_name in to_remove:
+            config_path = os.path.join(ifcfg_path, config_name)
+            if os.path.exists(config_path):
+                util.del_file(config_path)
+
+        apply_networking(target, network_config=netconfig)
+
+    def cloud_init_repo(version):
+        if not version:
+            raise ValueError('Missing required version parameter')
+
+        return CLOUD_INIT_YUM_REPO_TEMPLATE % version
+
+    # ensure serial console
+    LOG.info('Forcing serial console output')
+    grub_serial_cmdline = (
+        '\n# Added by curtin\n'
+        'GRUB_CMDLINE_LINUX_DEFAULT="console=tty0 crashkernel=auto '
+        'console=ttyS0,115200"\n')
+    etc_default_grub = os.path.join(target, 'etc/default/grub')
+    if os.path.exists(etc_default_grub):
+        # append serial console line
+        util.write_file(etc_default_grub,
+                        content=grub_serial_cmdline, omode='a')
+        # update grub2
+        with util.ChrootableTarget(target) as in_chroot:
+            in_chroot.subp(['grub2-mkconfig', '-o', '/boot/grub2/grub.cfg'])
+
+    # check if we need to install cloud-init
+    # from curtin.net import netconfig_passthrough_available
+    # if not netconfig_passthrough_available(target):
+    if True:  # FIXME: replace with lines above after merge
+        cloud_init_yum_repo = (
+            util.target_path(target, 'etc/yum.repos.d/cloud-init-daily.repo'))
+        # Inject cloud-init daily yum repo
+        LOG.info('Injecting cloud-init daily repo')
+        util.write_file(cloud_init_yum_repo,
+                        content=cloud_init_repo(rpm_get_dist_id(target)))
+
+        # we separate the installation of epel from cloud-init as cloud-init
+        # will depend on packages included in epel and yum needs to add the
+        # repository before we can install cloud-init
+        with util.ChrootableTarget(target) as in_chroot:
+            in_chroot.subp(['yum', '-y', 'install', 'epel-release'])
+            in_chroot.subp(['yum', '-y', 'install', 'cloud-init'])
+
+    # install bridge-utils, it's not installed by default
+    with util.ChrootableTarget(target) as in_chroot:
+        in_chroot.subp(['yum', '-y', 'install', 'bridge-utils'])
+
 
 def centos_network_curthooks(cfg, target=None):
     """ CentOS images execute standard curthooks but does not
@@ -895,6 +967,14 @@ def target_is_centos(target):
     return False
 
 
+def target_is_rhel(target):
+    """Check if RHEL specific file is present at target"""
+    if target:
+        return os.path.exists(util.target_path(target, 'etc/redhat-release'))
+
+    return False
+
+
 def curthooks(args):
     state = util.load_command_environment()
 
@@ -913,9 +993,9 @@ def curthooks(args):
 
     # if curtin-hooks hook exists in target we can defer to the in-target hooks
     if util.run_hook_if_exists(target, 'curtin-hooks'):
-        # temporarily run some additional hooks for centos
-        if target_is_centos(target):
-            LOG.info('Detected CentOS image, running extra hooks')
+        # run some additional hooks for centos/rhel 
+        if target_is_centos(target) or target_is_rhel(target):
+            LOG.info('Detected RHEL/CentOS image, running extra hooks')
             with events.ReportEventStack(
                     name=stack_prefix, reporting_enabled=True, level="INFO",
                     description="Configuring CentOS for first boot"):
