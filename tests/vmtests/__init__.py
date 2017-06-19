@@ -593,7 +593,7 @@ class VMBaseClass(TestCase):
             logger.debug("Interface name: {}".format(ifname))
             iface = interfaces.get(ifname)
             hwaddr = iface.get('mac_address')
-            if hwaddr:
+            if iface['type'] == 'physical' and hwaddr:
                 macs.append(hwaddr)
         netdevs = []
         if len(macs) > 0:
