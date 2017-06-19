@@ -386,6 +386,8 @@ def cmd_install(args):
 
     if cfg.get('http_proxy'):
         os.environ['http_proxy'] = cfg['http_proxy']
+    if cfg.get('https_proxy'):
+        os.environ['https_proxy'] = cfg['https_proxy']
 
     instcfg = cfg.get('install', {})
     logfile = instcfg.get('log_file')
