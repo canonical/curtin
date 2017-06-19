@@ -4,9 +4,6 @@ VERBOSITY=0
 TEMP_D=""
 HTTP_PID=""
 XKVM_PID=""
-HTTP_PORT_TRIES=${HTTP_PORT_TRIES:-5}
-HTTP_PORT_MIN=${HTTP_PORT_MIN:-12000}
-HTTP_PORT_MAX=${HTTP_PORT_MAX:-65500}
 MY_D=$(dirname "$0")
 DEFAULT_ROOT_ARG="root=LABEL=cloudimg-rootfs"
 
@@ -174,14 +171,39 @@ EOF
 }
 
 _start_http() {
-    local pubdir="$1" ip="$2" port="$3"
-    local statfile="_datesum" contents="" burl="http://$ip:$port"
-    local found="" hpid="" ret=""
+    local pubdir="$1" ip="$2" port_in="$3"
+    local statfile="_datesum" contents="" burl=""
+    local found="" hpid="" ret="" address="" log="$pubdir/ws.log"
     contents="$$:$(date +%s.%N)"
     echo "$contents" > "$pubdir/$statfile"
-    "${TOOLS_D}/webserv" "$port" "$pubdir" >"$pubdir/ws.log" 2>&1 &
+    "${TOOLS_D}/webserv" "${port_in}" "$pubdir" >"$log" 2>&1 &
     hpid=$!
     HTTP_PID=$hpid  # set so cleanup cleans up during wget
+    local i=""
+    for((i=0;i<600;i++)); do
+        if [ ! -d "/proc/$hpid" ]; then 
+            debug 1 "child webservice process '$hpid' died."
+            break
+        fi
+        if [ -s "$log" ]; then
+            read address port < "$log"
+            if [ -n "$port" ] && test "$port" -eq "$port" 2>/dev/null; then
+                debug 1 "read address=$address port=$port from $log on try $i"
+                break
+            else
+                debug 1 "port '$port' was not a number on try $i"
+            fi
+        else
+            debug 2 "$log did not exist or was empty. on try $i"
+        fi
+        sleep .1
+    done
+    [ -n "$port" ] || {
+        debug 1 "failed to read port after $i tries";
+        kill $hpid && HTTP_PID=""
+        return 1;
+    }
+    burl="http://$ip:$port"
     debug 3 "checking web service [pid=$hpid] on $burl"
     found=$(env -u http_proxy wget -q --waitretry=0.4 --retry-connrefused \
         --tries=10 "$burl/$statfile" --timeout=4 -O - 2>/dev/null) &&
@@ -203,24 +225,17 @@ start_http() {
     # sets HTTP_PID and returns in _RET the port selected.
     local pubdir="$1" ip="$2" port="$3" tries="${4:-5}" i=""
     [ -z "$ip" ] && ip="localhost"
-    local pmin="$HTTP_PORT_MIN" pmax="$HTTP_PORT_MAX" ret="" tried=""
+    local ret="" tried=""
     local ptries=""
     ptries=( )
-    if [ -n "$port" ]; then
+    if [ -n "$port" -a "$port" != "0" ]; then
         ptries=( $port )
-    elif [ $(($pmax-$pmin+1)) -le $tries ]; then
-        # if tries spans the whole range, then just try them all
-        local range=$(($pmax-$pmin+1))
-        for((i=0;i<$range;i++)); do
-            ptries[$i]=$((pmin+$i))
-        done
     else
         for((i=0;i<$tries;i++)); do
-            ptries[$i]="random"
+            ptries[$i]="0"
         done
     fi
     for port in "${ptries[@]}"; do
-        [ "$port" = "random" ] && port=$(($pmin+($RANDOM%($pmax+1-$pmin))))
         debug 2 "trying http server $ip:$port"
         _start_http "$pubdir" "$ip" "$port" &&
             HTTP_PID="$_RET" && _RET="$port" &&
@@ -351,7 +366,6 @@ configure_tgt_auth() {
 
 main() {
     local short_opts="a:A:d:h:i:k:n:p:s:v"
-    local
     long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,root-arg:,silent,serial-log:,smp:,uefi-nvram:,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
@@ -781,6 +795,7 @@ test_start_http() {
     # run this like:
     #  HTTP_PORT_MIN=59000 HTTP_PORT_MAX=63001 ./tools/launch \
     #     /tmp/smfoo localhost
+    TOOLS_D=${TOOLS_D:-${0%/*}}
     VERBOSITY=3
     trap cleanup EXIT
     register_signal_handlers
