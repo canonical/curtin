@@ -842,7 +842,7 @@ def centos_network_curthooks(cfg, target=None):
             if os.path.exists(config_path):
                 util.del_file(config_path)
 
-        apply_networking(target, network_config=netconfig)
+        apply_networking(target, netconfig)
 
     def cloud_init_repo(version):
         if not version:
