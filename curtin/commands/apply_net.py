@@ -103,14 +103,10 @@ def apply_net(target, network_state=None, network_config=None):
         # curtin will pass-through the netconfig into the target
         # for rendering at runtime, unless:
         #   1) target OS does not support (cloud-init too old)
-        #   2) config disables passthrough
-        passthrough = netcfg.get('network', {}).get('passthrough', None)
-        LOG.debug('netcfg set passthrough to: %s', passthrough)
-        if passthrough is None:
-            LOG.info('Checking cloud-init in target [%s] for network '
-                     'configuration passthrough support.', target)
-            passthrough = net.netconfig_passthrough_available(target)
-            LOG.debug('passthrough available via in-target: %s', passthrough)
+        LOG.info('Checking cloud-init in target [%s] for network '
+                 'configuration passthrough support.', target)
+        passthrough = net.netconfig_passthrough_available(target)
+        LOG.debug('passthrough available via in-target: %s', passthrough)
 
         if passthrough:
             LOG.info('Passing network configuration through to target: %s',
@@ -124,7 +120,6 @@ def apply_net(target, network_state=None, network_config=None):
         net.render_network_state(target=target, network_state=ns)
 
     _maybe_remove_legacy_eth0(target)
-    LOG.info('Attempting to remove ipv6 privacy extensions')
     _disable_ipv6_privacy_extensions(target)
     _patch_ifupdown_ipv6_mtu_hook(target)
 
@@ -157,6 +152,7 @@ def _disable_ipv6_privacy_extensions(target,
        by default; this races with the cloud-image desire to disable them.
        Resolve this by allowing the cloud-image setting to win. """
 
+    LOG.debug('Attempting to remove ipv6 privacy extensions')
     cfg = util.target_path(target, path=path)
     if not os.path.exists(cfg):
         LOG.warn('Failed to find ipv6 privacy conf file %s', cfg)
@@ -170,7 +166,7 @@ def _disable_ipv6_privacy_extensions(target,
         lines = [f.strip() for f in contents.splitlines()
                  if not f.startswith("#")]
         if lines == known_contents:
-            LOG.info('deleting file: %s', cfg)
+            LOG.info('Found expected contents, deleting file: %s', cfg)
             util.del_file(cfg)
             msg = "removed %s with known contents" % cfg
             curtin_contents = '\n'.join(
@@ -180,35 +176,15 @@ def _disable_ipv6_privacy_extensions(target,
                  "# net.ipv6.conf.default.use_tempaddr = 2"])
             util.write_file(cfg, curtin_contents)
         else:
-            LOG.info('skipping, content didnt match')
-            LOG.debug("found content:\n%s", lines)
-            LOG.debug("expected contents:\n%s", known_contents)
+            LOG.debug('skipping removal of %s, expected content not found',
+                      cfg)
+            LOG.debug("Found content in file %s:\n%s", cfg, lines)
+            LOG.debug("Expected contents in file %s:\n%s", cfg, known_contents)
             msg = (bmsg + " '%s' exists with user configured content." % cfg)
     except Exception as e:
         msg = bmsg + " %s exists, but could not be read. %s" % (cfg, e)
         LOG.exception(msg)
         raise
-
-    known_contents = ["net.ipv6.conf.all.use_tempaddr = 2",
-                      "net.ipv6.conf.default.use_tempaddr = 2"]
-    lines = [f.strip() for f in contents.splitlines()
-             if not f.startswith("#")]
-    if lines == known_contents:
-        LOG.info('deleting file: %s', cfg)
-        util.del_file(cfg)
-        msg = "removed %s with known contents" % cfg
-        curtin_contents = '\n'.join(
-            ["# IPv6 Privacy Extensions (RFC 4941)",
-             "# Disabled by curtin",
-             "# net.ipv6.conf.all.use_tempaddr = 2",
-             "# net.ipv6.conf.default.use_tempaddr = 2"])
-        util.write_file(cfg, curtin_contents)
-    else:
-        LOG.info('skipping, content didnt match')
-        LOG.debug("found content:\n%s", lines)
-        LOG.debug("expected contents:\n%s", known_contents)
-        msg = (bmsg + " '%s' exists with user configured content." % cfg)
-        raise ValueError(msg)
 
 
 def _maybe_remove_legacy_eth0(target,

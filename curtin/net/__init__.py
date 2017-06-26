@@ -567,7 +567,7 @@ def render_netconfig_passthrough(target, netconfig=None):
         raise ValueError('Network config must be a dictionary')
 
     if 'network' not in netconfig:
-        raise ValueError('Network config must contain the key \'network\'')
+        raise ValueError("Network config must contain the key 'network'")
 
     content = config.dump_config(netconfig)
     cc_passthrough = os.path.sep.join((target, cc,))
