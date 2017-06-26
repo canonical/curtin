@@ -504,23 +504,18 @@ network:
             auto interface1
             iface interface1 inet manual
                 bond-mode active-backup
-                bond-master bond0
+                bond-master bond1
 
             auto interface2
             iface interface2 inet manual
                 bond-mode active-backup
-                bond-master bond0
+                bond-master bond1
 
-            auto bond0
-            iface bond0 inet static
+            auto bond1
+            iface bond1 inet static
                 address 10.23.23.2/24
                 bond-mode active-backup
-                hwaddress ether 52:54:00:12:34:06
                 bond-slaves none
-
-            # control-alias bond0
-            iface bond0 inet static
-                address 10.23.24.2/24
 
             source /etc/network/interfaces.d/*.cfg
             """)
