@@ -825,13 +825,12 @@ def rpm_get_dist_id(target):
     return dist.rstrip()
 
 
-def centos_network_curthooks(cfg, target=None):
+def centos_network_curthooks(cfg, target=None, netcfg=None):
     """ CentOS images execute standard curthooks but does not
         support network configuration.  This hook allows network
         passthrough to target to function
     """
-    netconfig = cfg.get('network', None)
-    if netconfig:
+    if netcfg:
         LOG.info('Removing embedded network configuration (if present)')
         # remove ifcfg-* (except ifcfg-lo)
         ifcfg_path = os.path.join(target, 'etc/sysconfig/network-scripts')
@@ -842,8 +841,7 @@ def centos_network_curthooks(cfg, target=None):
             if os.path.exists(config_path):
                 util.del_file(config_path)
 
-        apply_net.apply_net(target, network_state=None,
-                            network_config=netconfig)
+        apply_net.apply_net(target, network_state=None, network_config=netcfg)
 
     def cloud_init_repo(version):
         if not version:
@@ -937,7 +935,8 @@ def curthooks(args):
             with events.ReportEventStack(
                     name=stack_prefix, reporting_enabled=True, level="INFO",
                     description="Configuring CentOS for first boot"):
-                centos_network_curthooks(cfg, target)
+                centos_network_curthooks(cfg, target,
+                                         netcfg=state['network_config'])
         sys.exit(0)
 
     if target_is_ubuntu_core(target):

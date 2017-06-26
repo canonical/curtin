@@ -7,6 +7,7 @@ from curtin import config
 
 import glob
 import ipaddress
+import os
 import re
 import textwrap
 import yaml
