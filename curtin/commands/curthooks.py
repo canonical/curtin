@@ -888,69 +888,6 @@ def centos_network_curthooks(cfg, target=None):
         in_chroot.subp(['yum', '-y', 'install', 'bridge-utils'])
 
 
-def centos_network_curthooks(cfg, target=None):
-    """ CentOS images execute standard curthooks but does not
-        support network configuration.  This hook allows network
-        passthrough to target to function
-    """
-    cc_target = os.path.join(target, 'etc/cloud/cloud.cfg.d')
-    netconfig = cfg.get('network', None)
-    if netconfig:
-        LOG.info('Removing embedded network configuration (if present)')
-        # remove ifcfg-* (except ifcfg-lo)
-        ifcfg_path = os.path.join(target, 'etc/sysconfig/network-scripts')
-        to_remove = [ifcfg for ifcfg in os.listdir(ifcfg_path)
-                     if ifcfg.startswith('ifcfg-') and ifcfg != "ifcfg-lo"]
-        for config_name in to_remove:
-            config_path = os.path.join(ifcfg_path, config_name)
-            if os.path.exists(config_path):
-                util.del_file(config_path)
-
-        LOG.info('Passing network configuration through')
-        centos_netconfig = os.path.join(cc_target, "curtin-networking.cfg")
-        util.write_file(centos_netconfig,
-                        content=config.dump_config({'network': netconfig}))
-
-    def cloud_init_repo(version):
-        if not version:
-            raise ValueError('Missing required version parameter')
-
-        return CLOUD_INIT_YUM_REPO_TEMPLATE % version
-
-    def centos_get_version_id(target):
-        os_release = util.target_path(target, 'etc/os-release')
-        os_rel_dict = util.load_shell_content(util.load_file(os_release))
-        return os_rel_dict['VERSION_ID']
-
-    cloud_init_yum_repo = (
-        util.target_path(target, 'etc/yum.repos.d/cloud-init-daily.repo'))
-    # Inject cloud-init daily yum repo
-    LOG.info('Injecting cloud-init daily repo')
-    util.write_file(cloud_init_yum_repo,
-                    content=cloud_init_repo(centos_get_version_id(target)))
-
-    # ensure serial console
-    LOG.info('Forcing serial console')
-    grub_serial_cmdline = (
-        '\n# Added by curtin\n'
-        'GRUB_CMDLINE_LINUX_DEFAULT="console=tty0 crashkernel=auto '
-        'console=ttyS0,115200"\n')
-    etc_default_grub = os.path.join(target, 'etc/default/grub')
-    if os.path.exists(etc_default_grub):
-        # append serial console line
-        util.write_file(etc_default_grub,
-                        content=grub_serial_cmdline, omode='a')
-        # update grub2
-        with util.ChrootableTarget(target) as in_chroot:
-            in_chroot.subp(['grub2-mkconfig', '-o', '/boot/grub2/grub.cfg'])
-            env = os.environ.copy()
-            env['http_proxy'] = 'http://squid.internal:3128/'
-            env['https_proxy'] = 'https://squid.internal:3128/'
-            in_chroot.subp(['yum', '-y', 'install', 'epel-release'], env=env)
-            in_chroot.subp(['yum', '-y', 'install', 'cloud-init',
-                            'bridge-utils', 'libselinux-python'], env=env)
-
-
 def target_is_ubuntu_core(target):
     """Check if Ubuntu-Core specific directory is present at target"""
     if target:
