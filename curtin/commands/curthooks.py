@@ -815,6 +815,7 @@ def ubuntu_core_curthooks(cfg, target=None):
         util.write_file(ubuntu_core_netconfig,
                         content=config.dump_config({'network': netconfig}))
 
+
 def rpm_get_dist_id(target):
     """Use rpm command to extract the '%rhel' distro macro which returns
        the major os version id (6, 7, 8).  This works for centos or rhel
@@ -829,7 +830,6 @@ def centos_network_curthooks(cfg, target=None):
         support network configuration.  This hook allows network
         passthrough to target to function
     """
-    cc_target = os.path.join(target, 'etc/cloud/cloud.cfg.d')
     netconfig = cfg.get('network', None)
     if netconfig:
         LOG.info('Removing embedded network configuration (if present)')
@@ -842,7 +842,8 @@ def centos_network_curthooks(cfg, target=None):
             if os.path.exists(config_path):
                 util.del_file(config_path)
 
-        apply_net.apply_net(target, network_state=None, network_config=netconf)
+        apply_net.apply_net(target, network_state=None,
+                            network_config=netconfig)
 
     def cloud_init_repo(version):
         if not version:
@@ -930,7 +931,7 @@ def curthooks(args):
 
     # if curtin-hooks hook exists in target we can defer to the in-target hooks
     if util.run_hook_if_exists(target, 'curtin-hooks'):
-        # run some additional hooks for centos/rhel 
+        # run some additional hooks for centos/rhel
         if target_is_centos(target) or target_is_rhel(target):
             LOG.info('Detected RHEL/CentOS image, running extra hooks')
             with events.ReportEventStack(
