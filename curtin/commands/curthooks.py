@@ -825,15 +825,22 @@ def rpm_get_dist_id(target):
     return dist.rstrip()
 
 
-def centos_network_curthooks(cfg, target=None, netcfg=None):
+def centos_network_curthooks(cfg, target=None):
     """ CentOS images execute standard curthooks but does not
         support network configuration.  This hook allows network
         passthrough to target to function
     """
+    def cloud_init_repo(version):
+        if not version:
+            raise ValueError('Missing required version parameter')
+
+        return CLOUD_INIT_YUM_REPO_TEMPLATE % version
+
+    netcfg = cfg.get('network', None)
     if netcfg:
         LOG.info('Removing embedded network configuration (if present)')
         # remove ifcfg-* (except ifcfg-lo)
-        ifcfg_path = os.path.join(target, 'etc/sysconfig/network-scripts')
+        ifcfg_path = util.target_path(target, 'etc/sysconfig/network-scripts')
         to_remove = [ifcfg for ifcfg in os.listdir(ifcfg_path)
                      if ifcfg.startswith('ifcfg-') and ifcfg != "ifcfg-lo"]
         for config_name in to_remove:
@@ -841,13 +848,43 @@ def centos_network_curthooks(cfg, target=None, netcfg=None):
             if os.path.exists(config_path):
                 util.del_file(config_path)
 
-        apply_net.apply_net(target, network_state=None, network_config=netcfg)
+        LOG.info('Checking cloud-init in target [%s] for network '
+                 'configuration passthrough support.', target)
+        passthrough = net.netconfig_passthrough_available(target)
+        LOG.debug('passthrough available via in-target: %s', passthrough)
 
-    def cloud_init_repo(version):
-        if not version:
-            raise ValueError('Missing required version parameter')
+        # if in-target cloud-init is not updated, upgrade via cloud-init repo
+        if not passthrough:
+            # update curthook environment with proxy values, if set
+            env = os.environ.copy()
+            chook_proxy = cfg.get('curthooks', {}).get('proxy', {})
+            for key, val in chook_proxy.items():
+                env[key] = val
 
-        return CLOUD_INIT_YUM_REPO_TEMPLATE % version
+            cloud_init_yum_repo = (
+                util.target_path(target,
+                                 'etc/yum.repos.d/cloud-init-daily.repo'))
+            # Inject cloud-init daily yum repo
+            LOG.info('Injecting cloud-init daily repo')
+            util.write_file(cloud_init_yum_repo,
+                            content=cloud_init_repo(rpm_get_dist_id(target)))
+
+            # we separate the installation of epel from cloud-init as
+            # cloud-init will depend on packages included in epel and yum needs
+            # to add the repository before we can install cloud-init
+            with util.ChrootableTarget(target) as in_chroot:
+                in_chroot.subp(['yum', '-y', 'install', 'epel-release'],
+                               env=env)
+                in_chroot.subp(['yum', '-y', 'install', 'cloud-init'],
+                               env=env)
+
+            # install bridge-utils, it's not installed by default
+            with util.ChrootableTarget(target) as in_chroot:
+                in_chroot.subp(['yum', '-y', 'install', 'bridge-utils'],
+                               env=env)
+
+    LOG.info('Passing network configuration through to target: %s', target)
+    net.render_netconfig_passthrough(target, netconfig=netcfg)
 
     # ensure serial console
     LOG.info('Forcing serial console output')
@@ -863,28 +900,6 @@ def centos_network_curthooks(cfg, target=None, netcfg=None):
         # update grub2
         with util.ChrootableTarget(target) as in_chroot:
             in_chroot.subp(['grub2-mkconfig', '-o', '/boot/grub2/grub.cfg'])
-
-    # check if we need to install cloud-init
-    # from curtin.net import netconfig_passthrough_available
-    # if not netconfig_passthrough_available(target):
-    if True:  # FIXME: replace with lines above after merge
-        cloud_init_yum_repo = (
-            util.target_path(target, 'etc/yum.repos.d/cloud-init-daily.repo'))
-        # Inject cloud-init daily yum repo
-        LOG.info('Injecting cloud-init daily repo')
-        util.write_file(cloud_init_yum_repo,
-                        content=cloud_init_repo(rpm_get_dist_id(target)))
-
-        # we separate the installation of epel from cloud-init as cloud-init
-        # will depend on packages included in epel and yum needs to add the
-        # repository before we can install cloud-init
-        with util.ChrootableTarget(target) as in_chroot:
-            in_chroot.subp(['yum', '-y', 'install', 'epel-release'])
-            in_chroot.subp(['yum', '-y', 'install', 'cloud-init'])
-
-    # install bridge-utils, it's not installed by default
-    with util.ChrootableTarget(target) as in_chroot:
-        in_chroot.subp(['yum', '-y', 'install', 'bridge-utils'])
 
 
 def target_is_ubuntu_core(target):
@@ -935,8 +950,7 @@ def curthooks(args):
             with events.ReportEventStack(
                     name=stack_prefix, reporting_enabled=True, level="INFO",
                     description="Configuring CentOS for first boot"):
-                centos_network_curthooks(cfg, target,
-                                         netcfg=state['network_config'])
+                centos_network_curthooks(cfg, target)
         sys.exit(0)
 
     if target_is_ubuntu_core(target):
