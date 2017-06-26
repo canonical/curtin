@@ -884,7 +884,7 @@ def centos_network_curthooks(cfg, target=None):
                                env=env)
 
     LOG.info('Passing network configuration through to target: %s', target)
-    net.render_netconfig_passthrough(target, netconfig=netcfg)
+    net.render_netconfig_passthrough(target, netconfig={'network': netcfg})
 
     # ensure serial console
     LOG.info('Forcing serial console output')
