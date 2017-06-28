@@ -1,2 +1,7 @@
 hook_commands:
     builtin: null
+
+late_commands:
+ 00_grub: [curtin, in-target, --, sed, -i.curtin, -e, 's|(hd1,0)|(hd0,0)|g',
+           -e, '$a serial --unit=0 --speed=115200\nterminal --timeout=5 serial console',
+           /boot/grub/grub.conf]
