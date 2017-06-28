@@ -32,7 +32,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         ip -o route show | tee ip_route_show
         ip -6 -o route show | tee ip_6_route_show
         route -n |tee route_n
-        route -6 -n |tee route_6_n
+        route -n -A inet6 |tee route_6_n
         cp -av /run/network ./run_network
         cp -av /var/log/upstart ./upstart ||:
         cp -av /etc/cloud ./etc_cloud
