@@ -40,6 +40,8 @@ default_bridge_params_uncheckable = [
 
 # attrs we cannot validate
 release_to_bridge_params_uncheckable = {
+    'centos66': ['bridge_fd', 'bridge_hello', 'bridge_hw', 'bridge_maxage',
+                 'bridge_pathcost', 'bridge_portprio'],
     'centos70': ['bridge_fd', 'bridge_hello', 'bridge_hw', 'bridge_maxage',
                  'bridge_pathcost', 'bridge_portprio'],
     'xenial': ['bridge_ageing'],
@@ -76,7 +78,7 @@ def _get_sysfs_value(sysfs_data, name, param, port=None):
     # Some of the kernel parameters are non-human values, in that
     # case convert them back to match values from the input YAML
     if param in bridge_param_divfactor:
-        sys_file_val = (sys_file_val / bridge_param_divfactor[param])
+        sys_file_val = round(sys_file_val / bridge_param_divfactor[param])
 
     return sys_file_val
 
