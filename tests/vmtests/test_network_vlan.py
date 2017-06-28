@@ -46,7 +46,7 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
         # did they get configured?
         for vlan in self.get_vlans():
             link_file = "ip_link_show_" + vlan['name']
-            vlan_msg = "vlan protocol 802.1Q id " + str(vlan['vlan_id'])
+            vlan_msg = "vlan.*id " + str(vlan['vlan_id'])
             self.check_file_regex(link_file, vlan_msg)
 
 
