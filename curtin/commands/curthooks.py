@@ -836,6 +836,11 @@ def centos_network_curthooks(cfg, target=None):
 
         return CLOUD_INIT_YUM_REPO_TEMPLATE % version
 
+    cloudconfig = cfg.get('cloudconfig', None)
+    if cloudconfig:
+        cc_target = util.target_path(target, 'etc/cloud/cloud.cfg.d')
+        handle_cloudconfig(cloudconfig, target=cc_target)
+
     netcfg = cfg.get('network', None)
     if netcfg:
         LOG.info('Removing embedded network configuration (if present)')
