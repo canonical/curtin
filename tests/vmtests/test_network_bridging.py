@@ -250,5 +250,3 @@ class ArtfulTestBridging(relbase.artful, TestBridgeNetworkAbs):
         cls.skip_by_date(cls.__name__, cls.release, "<NoBugYet>",
                          (2017, 7, 10), (2017, 7, 31))
         super().setUpClass()
-
-

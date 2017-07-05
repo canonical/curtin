@@ -72,6 +72,7 @@ class XenialTestNetworkIPV6(relbase.xenial, TestNetworkIPV6Abs):
         cls.skip_by_date(cls.__name__, cls.release, "1701097",
                          (2017, 7, 10), (2017, 7, 31))
 
+
 class YakketyTestNetworkIPV6(relbase.yakkety, TestNetworkIPV6Abs):
     __test__ = True
 
