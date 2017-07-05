@@ -883,28 +883,16 @@ def centos_network_curthooks(cfg, target=None):
                 in_chroot.subp(['yum', '-y', 'install', 'cloud-init'],
                                env=env)
 
-            # install bridge-utils, it's not installed by default
+            # install bridge-utils if needed
             with util.ChrootableTarget(target) as in_chroot:
-                in_chroot.subp(['yum', '-y', 'install', 'bridge-utils'],
-                               env=env)
+                out, _ = in_chroot.subp(['rpm', '-q', 'bridge-utils'],
+                                        capture=True, rcs=[0, 1], env=env)
+                if 'package bridge-utils is not installed' in out:
+                    in_chroot.subp(['yum', '-y', 'install', 'bridge-utils'],
+                                   env=env)
 
     LOG.info('Passing network configuration through to target: %s', target)
     net.render_netconfig_passthrough(target, netconfig={'network': netcfg})
-
-    # ensure serial console
-    LOG.info('Forcing serial console output')
-    grub_serial_cmdline = (
-        '\n# Added by curtin\n'
-        'GRUB_CMDLINE_LINUX_DEFAULT="console=tty0 crashkernel=auto '
-        'console=ttyS0,115200"\n')
-    etc_default_grub = os.path.join(target, 'etc/default/grub')
-    if os.path.exists(etc_default_grub):
-        # append serial console line
-        util.write_file(etc_default_grub,
-                        content=grub_serial_cmdline, omode='a')
-        # update grub2
-        with util.ChrootableTarget(target) as in_chroot:
-            in_chroot.subp(['grub2-mkconfig', '-o', '/boot/grub2/grub.cfg'])
 
 
 def target_is_ubuntu_core(target):
