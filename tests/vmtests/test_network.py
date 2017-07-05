@@ -94,10 +94,18 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         return 'ifupdown'
 
     def test_etc_network_interfaces(self):
-        if self._network_renderer() != "ifupdown":
+        avail_str = self.load_collect_file('cloudinit_passthrough_available')
+        pt_available = int(avail_str) == 1
+        print('avail_str=%s pt_available=%s' % (avail_str, pt_available))
+
+        if self._network_renderer() != "ifupdown" or pt_available:
             reason = ("{}: using net-passthrough; "
                       "deferring to cloud-init".format(self.__class__))
             raise SkipTest(reason)
+
+        if not pt_available:
+            raise SkipTest(
+                'network passthrough not available on %s' % self.__class__)
 
         eni, eni_cfg = self.read_eni()
         logger.debug('etc/network/interfaces:\n{}'.format(eni))

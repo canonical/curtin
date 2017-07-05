@@ -105,8 +105,11 @@ def apply_net(target, network_state=None, network_config=None):
         #   1) target OS does not support (cloud-init too old)
         LOG.info('Checking cloud-init in target [%s] for network '
                  'configuration passthrough support.', target)
-        passthrough = net.netconfig_passthrough_available(target)
-        LOG.debug('passthrough available via in-target: %s', passthrough)
+        try:
+            passthrough = net.netconfig_passthrough_available(target)
+            LOG.debug('passthrough available via in-target: %s', passthrough)
+        except util.ProcessExecutionError:
+            LOG.warning('Failed to determine if passthrough is available')
 
         if passthrough:
             LOG.info('Passing network configuration through to target: %s',

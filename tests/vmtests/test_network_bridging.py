@@ -225,10 +225,30 @@ class Centos70TestBridgeNetwork(centos_relbase.centos70fromxenial,
 class YakketyTestBridging(relbase.yakkety, TestBridgeNetworkAbs):
     __test__ = True
 
+    @classmethod
+    def setUpClass(cls):
+        cls.skip_by_date(cls.__name__, cls.release, "<NoBugYet>",
+                         (2017, 7, 10), (2017, 7, 31))
+        super().setUpClass()
+
 
 class ZestyTestBridging(relbase.zesty, TestBridgeNetworkAbs):
     __test__ = True
 
+    @classmethod
+    def setUpClass(cls):
+        cls.skip_by_date(cls.__name__, cls.release, "<NoBugYet>",
+                         (2017, 7, 10), (2017, 7, 31))
+        super().setUpClass()
+
 
 class ArtfulTestBridging(relbase.artful, TestBridgeNetworkAbs):
     __test__ = True
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skip_by_date(cls.__name__, cls.release, "<NoBugYet>",
+                         (2017, 7, 10), (2017, 7, 31))
+        super().setUpClass()
+
+

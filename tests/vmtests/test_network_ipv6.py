@@ -67,6 +67,10 @@ class TrustyHWEXTestNetworkIPV6(relbase.trusty_hwe_x, TrustyTestNetworkIPV6):
 class XenialTestNetworkIPV6(relbase.xenial, TestNetworkIPV6Abs):
     __test__ = True
 
+    @classmethod
+    def test_ip_output(cls):
+        cls.skip_by_date(cls.__name__, cls.release, "1701097",
+                         (2017, 7, 10), (2017, 7, 31))
 
 class YakketyTestNetworkIPV6(relbase.yakkety, TestNetworkIPV6Abs):
     __test__ = True
@@ -78,6 +82,11 @@ class ZestyTestNetworkIPV6(relbase.zesty, TestNetworkIPV6Abs):
 
 class ArtfulTestNetworkIPV6(relbase.artful, TestNetworkIPV6Abs):
     __test__ = True
+
+    @classmethod
+    def test_ip_output(cls):
+        cls.skip_by_date(cls.__name__, cls.release, "1701097",
+                         (2017, 7, 10), (2017, 7, 31))
 
 
 class Centos66TestNetworkIPV6(centos_relbase.centos66fromxenial,
