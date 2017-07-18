@@ -600,10 +600,16 @@ def get_interface_mac(ifname):
 
 def network_config_required_packages(network_config, mapping=None):
 
-    if not network_config or not isinstance(network_config, dict):
+    if network_config is None:
+        network_config = {}
+
+    if not isinstance(network_config, dict):
         raise ValueError('Invalid network configuration.  Must be a dict')
 
-    if not mapping or not isinstance(mapping, dict):
+    if mapping is None:
+        mapping = {}
+
+    if not isinstance(mapping, dict):
         raise ValueError('Invalid network mapping.  Must be a dict')
 
     # allow top-level 'network' key
