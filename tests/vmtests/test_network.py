@@ -122,7 +122,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             self.assertTrue(line in eni_lines, "not in eni: %s" % line)
 
     def test_cloudinit_network_passthrough(self):
-        cc_passthrough = "cloud.cfg.d/curtin-networking.cfg"
+        cc_passthrough = "cloud.cfg.d/50-curtin-networking.cfg"
 
         avail_str = self.load_collect_file('cloudinit_passthrough_available')
         available = int(avail_str) == 1
@@ -235,7 +235,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         network_state = self.get_network_state()
 
         # if we're using passthrough then we can't load state
-        cc_passthrough = "cloud.cfg.d/curtin-networking.cfg"
+        cc_passthrough = "cloud.cfg.d/50-curtin-networking.cfg"
         pt_file = os.path.join(self.td.collect, 'etc_cloud', cc_passthrough)
         print('checking if passthrough file written: %s' % pt_file)
         if not network_state and os.path.exists(pt_file):

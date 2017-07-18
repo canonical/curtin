@@ -811,7 +811,7 @@ def ubuntu_core_curthooks(cfg, target=None):
     if netconfig:
         LOG.info('Writing network configuration')
         ubuntu_core_netconfig = os.path.join(cc_target,
-                                             "50-network-config.cfg")
+                                             "50-curtin-networking.cfg")
         util.write_file(ubuntu_core_netconfig,
                         content=config.dump_config({'network': netconfig}))
 

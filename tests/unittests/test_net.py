@@ -771,7 +771,7 @@ network:
     @mock.patch('curtin.util.write_file')
     def test_render_netconfig_passthrough(self, mock_writefile):
         netcfg = yaml.safe_load(self.config)
-        pt_config = 'etc/cloud/cloud.cfg.d/curtin-networking.cfg'
+        pt_config = 'etc/cloud/cloud.cfg.d/50-curtin-networking.cfg'
         target_config = os.path.sep.join((self.target, pt_config),)
 
         net.render_netconfig_passthrough(self.target, netconfig=netcfg)

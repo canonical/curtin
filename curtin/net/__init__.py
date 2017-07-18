@@ -561,7 +561,7 @@ def render_netconfig_passthrough(target, netconfig=None):
     Extract original network config and pass it
     through to cloud-init in target
     """
-    cc = 'etc/cloud/cloud.cfg.d/curtin-networking.cfg'
+    cc = 'etc/cloud/cloud.cfg.d/50-curtin-networking.cfg'
     if not isinstance(netconfig, dict):
         raise ValueError('Network config must be a dictionary')
 

@@ -541,7 +541,7 @@ class TestUbuntuCoreHooks(CurthooksBase):
         netcfg_path = os.path.join(self.target,
                                    'system-data',
                                    'etc/cloud/cloud.cfg.d',
-                                   '50-network-config.cfg')
+                                   '50-curtin-networking.cfg')
         netcfg = config.dump_config({'network': cfg.get('network')})
         mock_write_file.assert_called_with(netcfg_path,
                                            content=netcfg)
