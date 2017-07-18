@@ -570,7 +570,7 @@ def render_netconfig_passthrough(target, netconfig=None):
 
     content = config.dump_config(netconfig)
     cc_passthrough = os.path.sep.join((target, cc,))
-    LOG.info('Writing ' + cc_passthrough)
+    LOG.info('Writing network config to %s: %s', cc, cc_passthrough)
     util.write_file(cc_passthrough, content=content)
 
 
