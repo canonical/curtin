@@ -74,9 +74,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
 
         # we don't use collect_path as we're building a glob
         eni_dir = os.path.join(self.td.collect, "interfaces.d", "*.cfg")
-        for cfg in glob.glob(eni_dir):
-            with open(cfg) as fp:
-                eni_cfg += fp.read()
+        eni_cfg = '\n'.join([self.load_collect_file(cfg)
+                             for cfg in glob.glob(eni_dir)])
 
         return (eni, eni_cfg)
 
