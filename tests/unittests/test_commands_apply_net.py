@@ -273,7 +273,7 @@ class TestApplyNetPatchIpv6Priv(ApplyNetTestBase):
         # source file not found
         cfg = util.target_path(target, path)
         mock_ospath.exists.assert_called_with(cfg)
-        mock_load.assert_not_called()
+        self.assertEqual(0, mock_load.call_count)
 
 
 class TestApplyNetRemoveLegacyEth0(ApplyNetTestBase):
@@ -312,7 +312,7 @@ class TestApplyNetRemoveLegacyEth0(ApplyNetTestBase):
                           apply_net._maybe_remove_legacy_eth0,
                           target, path)
 
-        mock_del.assert_not_called()
+        self.assertEqual(0, mock_del.call_count)
 
     @patch('curtin.util.del_file')
     @patch('curtin.util.load_file')
@@ -328,7 +328,7 @@ class TestApplyNetRemoveLegacyEth0(ApplyNetTestBase):
                           apply_net._maybe_remove_legacy_eth0,
                           target, path)
 
-        mock_del.assert_not_called()
+        self.assertEqual(0, mock_del.call_count)
 
     @patch('curtin.util.del_file')
     @patch('curtin.util.load_file')
@@ -344,5 +344,5 @@ class TestApplyNetRemoveLegacyEth0(ApplyNetTestBase):
         # source file not found
         cfg = util.target_path(target, path)
         mock_ospath.exists.assert_called_with(cfg)
-        mock_load.assert_not_called()
-        mock_del.assert_not_called()
+        self.assertEqual(0, mock_load.call_count)
+        self.assertEqual(0, mock_del.call_count)
