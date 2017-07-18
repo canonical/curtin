@@ -25,22 +25,22 @@ class TestApplyNet(ApplyNetTestBase):
         super(TestApplyNet, self).setUp()
 
         basepath = 'curtin.commands.apply_net.'
-        self.add_patch(basepath + '_maybe_remove_legacy_eth0', 'mock_legacy')
+        self.add_patch(basepath + '_maybe_remove_legacy_eth0', 'm_legacy')
         self.add_patch(basepath + '_disable_ipv6_privacy_extensions',
-                       'mock_ipv6_priv')
+                       'm_ipv6_priv')
         self.add_patch(basepath + '_patch_ifupdown_ipv6_mtu_hook',
-                       'mock_ipv6_mtu')
+                       'm_ipv6_mtu')
         self.add_patch('curtin.net.netconfig_passthrough_available',
-                       'mock_netpass_avail')
+                       'm_netpass_avail')
         self.add_patch('curtin.net.render_netconfig_passthrough',
-                       'mock_netpass_render')
+                       'm_netpass_render')
         self.add_patch('curtin.net.parse_net_config_data',
-                       'mock_net_parsedata')
+                       'm_net_parsedata')
         self.add_patch('curtin.net.render_network_state',
-                       'mock_net_renderstate')
+                       'm_net_renderstate')
         self.add_patch('curtin.net.network_state.from_state_file',
-                       'mock_ns_from_file')
-        self.add_patch('curtin.config.load_config', 'mock_load_config')
+                       'm_ns_from_file')
+        self.add_patch('curtin.config.load_config', 'm_load_config')
 
         self.target = "my_target"
         self.network_config = {
@@ -67,90 +67,90 @@ class TestApplyNet(ApplyNetTestBase):
                           apply_net.apply_net, "")
 
     def test_apply_net_target_and_state(self):
-        self.mock_ns_from_file.return_value = self.ns
+        self.m_ns_from_file.return_value = self.ns
 
         self.assertRaises(ValueError,
                           apply_net.apply_net, self.target,
                           network_state=self.ns, network_config=None)
 
     def test_apply_net_target_and_config(self):
-        self.mock_load_config.return_value = self.network_config
-        self.mock_netpass_avail.return_value = False
-        self.mock_net_parsedata.return_value = self.ns
+        self.m_load_config.return_value = self.network_config
+        self.m_netpass_avail.return_value = False
+        self.m_net_parsedata.return_value = self.ns
 
         apply_net.apply_net(self.target, network_state=None,
                             network_config=self.network_config)
 
-        self.mock_netpass_avail.assert_called_with(self.target)
+        self.m_netpass_avail.assert_called_with(self.target)
 
-        self.mock_net_renderstate.assert_called_with(target=self.target,
+        self.m_net_renderstate.assert_called_with(target=self.target,
                                                      network_state=self.ns)
-        self.mock_legacy.assert_called_with(self.target)
-        self.mock_ipv6_priv.assert_called_with(self.target)
-        self.mock_ipv6_mtu.assert_called_with(self.target)
+        self.m_legacy.assert_called_with(self.target)
+        self.m_ipv6_priv.assert_called_with(self.target)
+        self.m_ipv6_mtu.assert_called_with(self.target)
 
     def test_apply_net_target_and_config_passthrough(self):
-        self.mock_load_config.return_value = self.network_config
-        self.mock_netpass_avail.return_value = True
+        self.m_load_config.return_value = self.network_config
+        self.m_netpass_avail.return_value = True
 
         netcfg = "network_config.yaml"
         apply_net.apply_net(self.target, network_state=None,
                             network_config=netcfg)
 
-        self.assertFalse(self.mock_ns_from_file.called)
-        self.mock_load_config.assert_called_with(netcfg)
-        self.mock_netpass_avail.assert_called_with(self.target)
+        self.assertFalse(self.m_ns_from_file.called)
+        self.m_load_config.assert_called_with(netcfg)
+        self.m_netpass_avail.assert_called_with(self.target)
         nc = self.network_config
-        self.mock_netpass_render.assert_called_with(self.target, netconfig=nc)
+        self.m_netpass_render.assert_called_with(self.target, netconfig=nc)
 
-        self.assertFalse(self.mock_net_renderstate.called)
-        self.mock_legacy.assert_called_with(self.target)
-        self.mock_ipv6_priv.assert_called_with(self.target)
-        self.mock_ipv6_mtu.assert_called_with(self.target)
+        self.assertFalse(self.m_net_renderstate.called)
+        self.m_legacy.assert_called_with(self.target)
+        self.m_ipv6_priv.assert_called_with(self.target)
+        self.m_ipv6_mtu.assert_called_with(self.target)
 
     def test_apply_net_target_and_config_passthrough_nonet(self):
         nc = {'storage': {}}
-        self.mock_load_config.return_value = nc
-        self.mock_netpass_avail.return_value = True
+        self.m_load_config.return_value = nc
+        self.m_netpass_avail.return_value = True
 
         netcfg = "network_config.yaml"
 
         apply_net.apply_net(self.target, network_state=None,
                             network_config=netcfg)
 
-        self.assertFalse(self.mock_ns_from_file.called)
-        self.mock_load_config.assert_called_with(netcfg)
-        self.mock_netpass_avail.assert_called_with(self.target)
-        self.mock_netpass_render.assert_called_with(self.target, netconfig=nc)
+        self.assertFalse(self.m_ns_from_file.called)
+        self.m_load_config.assert_called_with(netcfg)
+        self.m_netpass_avail.assert_called_with(self.target)
+        self.m_netpass_render.assert_called_with(self.target, netconfig=nc)
 
-        self.assertFalse(self.mock_net_renderstate.called)
-        self.mock_legacy.assert_called_with(self.target)
-        self.mock_ipv6_priv.assert_called_with(self.target)
-        self.mock_ipv6_mtu.assert_called_with(self.target)
+        self.assertFalse(self.m_net_renderstate.called)
+        self.m_legacy.assert_called_with(self.target)
+        self.m_ipv6_priv.assert_called_with(self.target)
+        self.m_ipv6_mtu.assert_called_with(self.target)
 
     def test_apply_net_target_and_config_passthrough_v2_not_available(self):
         nc = copy.deepcopy(self.network_config)
         nc['network']['version'] = 2
-        self.mock_load_config.return_value = nc
-        self.mock_netpass_avail.return_value = False
-        self.mock_net_parsedata.return_value = self.ns
+        self.m_load_config.return_value = nc
+        self.m_netpass_avail.return_value = False
+        self.m_net_parsedata.return_value = self.ns
 
         netcfg = "network_config.yaml"
 
         apply_net.apply_net(self.target, network_state=None,
                             network_config=netcfg)
 
-        self.assertFalse(self.mock_ns_from_file.called)
-        self.mock_load_config.assert_called_with(netcfg)
-        self.mock_netpass_avail.assert_called_with(self.target)
-        self.assertFalse(self.mock_netpass_render.called)
-        self.mock_net_parsedata.assert_called_with(nc['network'])
+        self.assertFalse(self.m_ns_from_file.called)
+        self.m_load_config.assert_called_with(netcfg)
+        self.m_netpass_avail.assert_called_with(self.target)
+        self.assertFalse(self.m_netpass_render.called)
+        self.m_net_parsedata.assert_called_with(nc['network'])
 
-        self.mock_net_renderstate.assert_called_with(
+        self.m_net_renderstate.assert_called_with(
             target=self.target, network_state=self.ns)
-        self.mock_legacy.assert_called_with(self.target)
-        self.mock_ipv6_priv.assert_called_with(self.target)
-        self.mock_ipv6_mtu.assert_called_with(self.target)
+        self.m_legacy.assert_called_with(self.target)
+        self.m_ipv6_priv.assert_called_with(self.target)
+        self.m_ipv6_mtu.assert_called_with(self.target)
 
 
 class TestApplyNetPatchIfupdown(ApplyNetTestBase):
