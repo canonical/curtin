@@ -24,23 +24,20 @@ class TestApplyNet(ApplyNetTestBase):
     def setUp(self):
         super(TestApplyNet, self).setUp()
 
-        basepath = 'curtin.commands.apply_net.'
-        self.add_patch(basepath + '_maybe_remove_legacy_eth0', 'm_legacy')
-        self.add_patch(basepath + '_disable_ipv6_privacy_extensions',
-                       'm_ipv6_priv')
-        self.add_patch(basepath + '_patch_ifupdown_ipv6_mtu_hook',
-                       'm_ipv6_mtu')
-        self.add_patch('curtin.net.netconfig_passthrough_available',
-                       'm_netpass_avail')
-        self.add_patch('curtin.net.render_netconfig_passthrough',
-                       'm_netpass_render')
-        self.add_patch('curtin.net.parse_net_config_data',
-                       'm_net_parsedata')
-        self.add_patch('curtin.net.render_network_state',
-                       'm_net_renderstate')
-        self.add_patch('curtin.net.network_state.from_state_file',
-                       'm_ns_from_file')
-        self.add_patch('curtin.config.load_config', 'm_load_config')
+        base = 'curtin.commands.apply_net.'
+        patches = [
+            (base + '_maybe_remove_legacy_eth0', 'm_legacy'),
+            (base + '_disable_ipv6_privacy_extensions', 'm_ipv6_priv'),
+            (base + '_patch_ifupdown_ipv6_mtu_hook', 'm_ipv6_mtu'),
+            ('curtin.net.netconfig_passthrough_available', 'm_netpass_avail'),
+            ('curtin.net.render_netconfig_passthrough', 'm_netpass_render'),
+            ('curtin.net.parse_net_config_data', 'm_net_parsedata'),
+            ('curtin.net.render_network_state', 'm_net_renderstate'),
+            ('curtin.net.network_state.from_state_file', 'm_ns_from_file'),
+            ('curtin.config.load_config', 'm_load_config'),
+        ]
+        for (tgt, attr) in patches:
+            self.add_patch(tgt, attr)
 
         self.target = "my_target"
         self.network_config = {
@@ -84,7 +81,7 @@ class TestApplyNet(ApplyNetTestBase):
         self.m_netpass_avail.assert_called_with(self.target)
 
         self.m_net_renderstate.assert_called_with(target=self.target,
-                                                     network_state=self.ns)
+                                                  network_state=self.ns)
         self.m_legacy.assert_called_with(self.target)
         self.m_ipv6_priv.assert_called_with(self.target)
         self.m_ipv6_mtu.assert_called_with(self.target)
