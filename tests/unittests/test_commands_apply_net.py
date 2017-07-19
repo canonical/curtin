@@ -176,48 +176,46 @@ class TestApplyNetPatchIfupdown(ApplyNetTestBase):
 
     @patch('curtin.util.write_file')
     def test_apply_ipv6_mtu_hook_write_fail(self, mock_write):
+        """Write failure raises IOError"""
         target = 'mytarget'
         prehookfn = 'if-pre-up.d/mtuipv6'
         posthookfn = 'if-up.d/mtuipv6'
-        mock_write.side_effect = (Exception)
+        mock_write.side_effect = (IOError)
 
-        self.assertRaises(Exception,
+        self.assertRaises(IOError,
                           apply_net._patch_ifupdown_ipv6_mtu_hook,
                           target,
                           prehookfn=prehookfn,
                           posthookfn=posthookfn)
+        self.assertEqual(1, mock_write.call_count)
 
     @patch('curtin.util.write_file')
     def test_apply_ipv6_mtu_hook_invalid_target(self, mock_write):
-        """ Test that an invalid target will fail to build a
-            proper path for util.write_file
-        """
-        target = {}
+        """Invalid target path fail before calling util.write_file"""
+        invalid_target = {}
         prehookfn = 'if-pre-up.d/mtuipv6'
         posthookfn = 'if-up.d/mtuipv6'
-        mock_write.side_effect = (Exception)
 
         self.assertRaises(ValueError,
                           apply_net._patch_ifupdown_ipv6_mtu_hook,
-                          target,
+                          invalid_target,
                           prehookfn=prehookfn,
                           posthookfn=posthookfn)
+        self.assertEqual(0, mock_write.call_count)
 
     @patch('curtin.util.write_file')
     def test_apply_ipv6_mtu_hook_invalid_prepost_fn(self, mock_write):
-        """ Test that invalid prepost filenames will fail to build a
-            proper path for util.write_file
-        """
+        """Invalid prepost filenames fail before calling util.write_file"""
         target = "mytarget"
-        prehookfn = {'a': 1}
-        posthookfn = {'b': 2}
-        mock_write.side_effect = (Exception)
+        invalid_prehookfn = {'a': 1}
+        invalid_posthookfn = {'b': 2}
 
         self.assertRaises(ValueError,
                           apply_net._patch_ifupdown_ipv6_mtu_hook,
                           target,
-                          prehookfn=prehookfn,
-                          posthookfn=posthookfn)
+                          prehookfn=invalid_prehookfn,
+                          posthookfn=invalid_posthookfn)
+        self.assertEqual(0, mock_write.call_count)
 
 
 class TestApplyNetPatchIpv6Priv(ApplyNetTestBase):
