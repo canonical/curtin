@@ -650,54 +650,20 @@ network:
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
 
-    @mock.patch('curtin.util.load_file')
     @mock.patch('curtin.util.subp')
     @mock.patch('curtin.util.which')
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
-    def test_netconfig_passthrough_available(self, mock_which, mock_subp,
-                                             mock_load_file):
+    def test_netconfig_passthrough_available(self, mock_which, mock_subp):
         cloud_init = '/usr/bin/cloud-init'
-        python = '/usr/bin/python3'
         mock_which.return_value = cloud_init
-        mock_load_file.return_value = "#! %s" % python
-        mock_subp.return_value = ('True', '')
-        feature = 'NETWORK_CONFIG_V2'
-        expected_cmd = (
-            "from cloudinit import version;"
-            "print('%s' in getattr(version, 'FEATURES', []))" % feature)
+        mock_subp.return_value = ("NETWORK_CONFIG_V1\nNETWORK_CONFIG_V2\n", '')
 
         available = net.netconfig_passthrough_available(self.target)
 
         self.assertEqual(True, available,
                          "netconfig passthrough was NOT available")
         mock_which.assert_called_with('cloud-init', target=self.target)
-        mock_load_file.assert_called_with(self.target + cloud_init)
-        mock_subp.assert_called_with([python, '-c', expected_cmd],
-                                     capture=True, target=self.target)
-
-    @mock.patch('curtin.util.load_file')
-    @mock.patch('curtin.util.subp')
-    @mock.patch('curtin.util.which')
-    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
-    def test_netconfig_passthrough_available_no_py3(self, mock_which,
-                                                    mock_subp, mock_load_file):
-        cloud_init = '/usr/bin/cloud-init'
-        python = '/usr/bin/python'
-        mock_which.return_value = cloud_init
-        mock_load_file.return_value = "#! %s" % python
-        mock_subp.return_value = ('True', '')
-        feature = 'NETWORK_CONFIG_V2'
-        expected_cmd = (
-            "from cloudinit import version;"
-            "print('%s' in getattr(version, 'FEATURES', []))" % feature)
-
-        available = net.netconfig_passthrough_available(self.target)
-
-        self.assertEqual(True, available,
-                         "netconfig passthrough was available")
-        mock_which.assert_called_with('cloud-init', target=self.target)
-        mock_load_file.assert_called_with(self.target + cloud_init)
-        mock_subp.assert_called_with([python, '-c', expected_cmd],
+        mock_subp.assert_called_with([cloud_init, 'features'],
                                      capture=True, target=self.target)
 
     @mock.patch('curtin.net.LOG')
@@ -715,58 +681,42 @@ network:
         self.assertTrue(mock_log.warning.called)
         self.assertFalse(mock_subp.called)
 
-    @mock.patch('curtin.util.load_file')
     @mock.patch('curtin.util.subp')
     @mock.patch('curtin.util.which')
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_netconfig_passthrough_available_feature_not_found(self,
                                                                mock_which,
-                                                               mock_subp,
-                                                               mock_load_file):
+                                                               mock_subp):
         cloud_init = '/usr/bin/cloud-init'
-        python = '/usr/bin/python3'
         mock_which.return_value = cloud_init
-        mock_load_file.return_value = "#! %s" % python
-        mock_subp.return_value = ('False', '')
-        feature = 'NETWORK_CONFIG_V2'
-        expected_cmd = (
-            "from cloudinit import version;"
-            "print('%s' in getattr(version, 'FEATURES', []))" % feature)
+        mock_subp.return_value = ('NETWORK_CONFIG_V1\n', '')
 
         available = net.netconfig_passthrough_available(self.target)
 
         self.assertEqual(False, available,
                          "netconfig passthrough was available")
         mock_which.assert_called_with('cloud-init', target=self.target)
-        mock_load_file.assert_called_with(self.target + cloud_init)
-        mock_subp.assert_called_with([python, '-c', expected_cmd],
+        mock_subp.assert_called_with([cloud_init, 'features'],
                                      capture=True, target=self.target)
 
-    @mock.patch('curtin.util.load_file')
     @mock.patch('curtin.net.LOG')
     @mock.patch('curtin.util.subp')
     @mock.patch('curtin.util.which')
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_netconfig_passthrough_available_exc(self, mock_which, mock_subp,
-                                                 mock_log, mock_load_file):
+                                                 mock_log):
         cloud_init = '/usr/bin/cloud-init'
-        python = '/usr/bin/python3'
         mock_which.return_value = cloud_init
-        mock_load_file.return_value = "#! %s" % python
         mock_subp.side_effect = util.ProcessExecutionError
-        feature = 'NETWORK_CONFIG_V2'
-        expected_cmd = (
-            "from cloudinit import version;"
-            "print('%s' in getattr(version, 'FEATURES', []))" % feature)
 
         available = net.netconfig_passthrough_available(self.target)
 
         self.assertEqual(False, available,
                          "netconfig passthrough was available")
         mock_which.assert_called_with('cloud-init', target=self.target)
-        mock_subp.assert_called_with([python, '-c', expected_cmd],
+        mock_subp.assert_called_with([cloud_init, 'features'],
                                      capture=True, target=self.target)
-        self.assertTrue(mock_log.exception.called)
+        self.assertTrue(mock_log.warning.called)
 
     @mock.patch('curtin.util.write_file')
     def test_render_netconfig_passthrough(self, mock_writefile):

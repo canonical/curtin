@@ -524,35 +524,23 @@ def netconfig_passthrough_available(target, feature='NETWORK_CONFIG_V2'):
     """
     Determine if curtin can pass v2 network config to in target cloud-init
     """
-    LOG.debug('Checking in-target cloud-init features')
-    cmd = ("from cloudinit import version;"
-           "print('{}' in getattr(version, 'FEATURES', []))"
-           .format(feature))
+    LOG.debug('Checking in-target cloud-init for feature: %s', feature)
     with util.ChrootableTarget(target) as in_chroot:
-
-        def run_cmd(cmd):
-            (out, _) = in_chroot.subp(cmd, capture=True)
-            return out.strip()
 
         cloudinit = util.which('cloud-init', target=target)
         if not cloudinit:
             LOG.warning('Target does not have cloud-init installed')
             return False
 
-        # here we read shebang from cloud-init and extract python path  as we
-        # cannot use the presence of the python package to determine  which
-        # python cloud-init will use. E.g trusty has python3 support but
-        # cloud-init uses python2.7
-        python = util.load_file(util.target_path(target, path=cloudinit))
-        python = python.splitlines()[0].split("#!")[-1].strip()
+        available = False
         try:
-            feature_available = run_cmd([python, '-c', cmd])
-        except util.ProcessExecutionError:
-            LOG.exception("An error occurred while probing cloudinit features")
+            out, _ = in_chroot.subp([cloudinit, 'features'], capture=True)
+            available = feature in out.splitlines()
+        except util.ProcessExecutionError as e:
+            LOG.warning("Error during probing cloudinit features: %s", e)
             return False
 
-        available = config.value_as_boolean(feature_available)
-        LOG.debug('%s available? %s', feature, available)
+        LOG.debug('cloud-init feature %s available? %s', feature, available)
         return available
 
 
