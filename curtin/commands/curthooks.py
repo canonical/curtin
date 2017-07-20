@@ -16,6 +16,7 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import copy
+import glob
 import os
 import platform
 import re
@@ -844,14 +845,13 @@ def centos_network_curthooks(cfg, target=None):
     netcfg = cfg.get('network', None)
     if netcfg:
         LOG.info('Removing embedded network configuration (if present)')
+        ifcfgs = glob.glob(util.target_path(target,
+                                            'etc/sysconfig/network-scripts') +
+                           '/ifcfg-*')
         # remove ifcfg-* (except ifcfg-lo)
-        ifcfg_path = util.target_path(target, 'etc/sysconfig/network-scripts')
-        to_remove = [ifcfg for ifcfg in os.listdir(ifcfg_path)
-                     if ifcfg.startswith('ifcfg-') and ifcfg != "ifcfg-lo"]
-        for config_name in to_remove:
-            config_path = os.path.join(ifcfg_path, config_name)
-            if os.path.exists(config_path):
-                util.del_file(config_path)
+        for cfg in ifcfgs:
+            if os.path.basename(cfg) != "ifcfg-lo":
+                util.del_file(cfg)
 
         LOG.info('Checking cloud-init in target [%s] for network '
                  'configuration passthrough support.', target)
