@@ -168,7 +168,7 @@ def _disable_ipv6_privacy_extensions(target,
         lines = [f.strip() for f in contents.splitlines()
                  if not f.startswith("#")]
         if lines == known_contents:
-            LOG.info('Found expected contents, deleting file: %s', cfg)
+            LOG.info('Removing ipv6 privacy extension config file: %s', cfg)
             util.del_file(cfg)
             msg = "removed %s with known contents" % cfg
             curtin_contents = '\n'.join(
