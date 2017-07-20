@@ -826,9 +826,9 @@ def rpm_get_dist_id(target):
 
 
 def centos_network_curthooks(cfg, target=None):
-    """ CentOS images execute standard curthooks but does not
-        support network configuration.  This hook allows network
-        passthrough to target to function
+    """ CentOS images execute built-in curthooks which only supports
+        simple networking configuration.  This hook enables advanced
+        network configuration via config passthrough to the target.
     """
     def cloud_init_repo(version):
         if not version:
