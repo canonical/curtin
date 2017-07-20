@@ -885,13 +885,15 @@ def centos_network_curthooks(cfg, target=None):
 
             # install bridge-utils if needed
             with util.ChrootableTarget(target) as in_chroot:
-                out, _ = in_chroot.subp(['rpm', '-q', 'bridge-utils'],
-                                        capture=True, rcs=[0, 1], env=env)
-                if 'package bridge-utils is not installed' in out:
+                try:
+                    in_chroot.subp(['rpm', '-q', 'bridge-utils'],
+                                   capture=False, rcs=[0], env=env)
+                except util.ProcessExecutionError:
+                    LOG.info('Image missing bridge-utils package, installing')
                     in_chroot.subp(['yum', '-y', 'install', 'bridge-utils'],
                                    env=env)
 
-    LOG.info('Passing network configuration through to target: %s', target)
+    LOG.info('Passing network configuration through to target')
     net.render_netconfig_passthrough(target, netconfig={'network': netcfg})
 
 
