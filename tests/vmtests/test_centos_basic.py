@@ -10,23 +10,20 @@ class CentosTestBasicAbs(VMBaseClass):
     __test__ = False
     conf_file = "examples/tests/centos_basic.yaml"
     extra_kern_args = "BOOTIF=eth0-52:54:00:12:34:00"
+    # XXX: command | tee output is required for Centos under SELinux
+    # http://danwalsh.livejournal.com/22860.html
     collect_scripts = [textwrap.dedent(
         """
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         rpm -qa | cat >rpm_qa
-        # selinux is FUN!
         ifconfig -a | cat >ifconfig_a
         ip a | cat >ip_a
-        netstat -rn | cat >netstat_rn
-        echo $PIPESTATUS | cat >netstat_pipestatus
         cp -a /etc/sysconfig/network-scripts .
         cp -a /var/log/messages .
         cp -a /var/log/cloud-init* .
         cp -a /var/lib/cloud ./var_lib_cloud
         cp -a /run/cloud-init ./run_cloud-init
-        python2 -c 'from cloudinit import util; \
-                    print(util.subp(["netstat", "-rn"]))'
         """)]
     fstab_expected = {
         'LABEL=cloudimg-rootfs': '/',

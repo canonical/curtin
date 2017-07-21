@@ -5,9 +5,20 @@ hook_commands:
 override_centos_curthooks: True
 
 late_commands:
+
+# centos66 images include grub 0.97 which will detect vmtests ephemeral disk
+# and the install disk which leaves grub configured with two disks.  When
+# vmtest reboots into installed disk, there is only one disk and the grub
+# map is no longer valid.  Here in 00_grub, we switch hd1 to hd0.  MAAS
+# is not affected as their ephemeral image (iscsi or http) is not discovered
+# by grub and therefor the device.map doesn't contain a second device. Cent7
+# has grub2 which uses root by UUID
+# 
  00_grub: [curtin, in-target, --, sed, -i.curtin, -e, 's|(hd1,0)|(hd0,0)|g',
            -e, '$a serial --unit=0 --speed=115200\nterminal --timeout=5 serial console',
            /boot/grub/grub.conf]
+
+# vmtest requires a serial console output
  01_serial: [curtin, in-target, --, sh, -c,
              "echo 'GRUB_CMDLINE_LINUX_DEFAULT=\"console=tty0 crashkernel=auto
              console=ttyS0,115200\" >> /etc/default/grub';
