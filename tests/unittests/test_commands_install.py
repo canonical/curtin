@@ -1,5 +1,4 @@
 from unittest import TestCase
-from mock import patch
 import copy
 
 from curtin.commands import install

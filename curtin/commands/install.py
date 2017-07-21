@@ -383,7 +383,7 @@ def migrate_proxy_settings(cfg):
                 LOG.debug("legacy 'http_proxy' migrated to proxy/http_proxy")
                 proxy['http_proxy'] = hp
         del cfg['http_proxy']
-    
+
     cfg['proxy'] = proxy
 
 
