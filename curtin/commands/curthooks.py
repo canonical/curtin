@@ -935,13 +935,15 @@ def curthooks(args):
 
     # if curtin-hooks hook exists in target we can defer to the in-target hooks
     if util.run_hook_if_exists(target, 'curtin-hooks'):
-        # run some additional hooks for centos/rhel
-        if target_is_centos(target) or target_is_rhel(target):
-            LOG.info('Detected RHEL/CentOS image, running extra hooks')
-            with events.ReportEventStack(
-                    name=stack_prefix, reporting_enabled=True, level="INFO",
-                    description="Configuring CentOS for first boot"):
-                centos_network_curthooks(cfg, target)
+        # XXX: For vmtest use only
+        if cfg.get('override_centos_curthooks', {}):
+            if target_is_centos(target) or target_is_rhel(target):
+                LOG.info('Detected RHEL/CentOS image, running extra hooks')
+                with events.ReportEventStack(
+                        name=stack_prefix, reporting_enabled=True,
+                        level="INFO",
+                        description="Configuring CentOS for first boot"):
+                    centos_network_curthooks(cfg, target)
         sys.exit(0)
 
     if target_is_ubuntu_core(target):
