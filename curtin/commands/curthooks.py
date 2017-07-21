@@ -849,9 +849,9 @@ def centos_network_curthooks(cfg, target=None):
                                             'etc/sysconfig/network-scripts') +
                            '/ifcfg-*')
         # remove ifcfg-* (except ifcfg-lo)
-        for cfg in ifcfgs:
-            if os.path.basename(cfg) != "ifcfg-lo":
-                util.del_file(cfg)
+        for ifcfg in ifcfgs:
+            if os.path.basename(ifcfg) != "ifcfg-lo":
+                util.del_file(ifcfg)
 
         LOG.info('Checking cloud-init in target [%s] for network '
                  'configuration passthrough support.', target)
