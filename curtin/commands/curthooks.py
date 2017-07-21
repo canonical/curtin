@@ -68,13 +68,13 @@ KERNEL_MAPPING = {
 }
 
 CLOUD_INIT_YUM_REPO_TEMPLATE = """
-[group_cloud-init-cloud-init]
-name=Copr repo for cloud-init-curtin owned by @cloud-init
-baseurl=https://copr-be.cloud.fedoraproject.org/results/@cloud-init/cloud-init-curtin/epel-%s-$basearch/
+[group_cloud-init-el-stable]
+name=Copr repo for el-stable owned by @cloud-init
+baseurl=https://copr-be.cloud.fedoraproject.org/results/@cloud-init/el-stable/epel-%s-$basearch/
 type=rpm-md
 skip_if_unavailable=True
 gpgcheck=1
-gpgkey=https://copr-be.cloud.fedoraproject.org/results/@cloud-init/cloud-init-curtin/pubkey.gpg
+gpgkey=https://copr-be.cloud.fedoraproject.org/results/@cloud-init/el-stable/pubkey.gpg
 repo_gpgcheck=0
 enabled=1
 enabled_metadata=1
@@ -868,9 +868,8 @@ def centos_network_curthooks(cfg, target=None):
 
             cloud_init_yum_repo = (
                 util.target_path(target,
-                                 'etc/yum.repos.d/cloud-init-daily.repo'))
+                                 'etc/yum.repos.d/curtin-cloud-init.repo'))
             # Inject cloud-init daily yum repo
-            LOG.info('Injecting cloud-init daily repo')
             util.write_file(cloud_init_yum_repo,
                             content=cloud_init_repo(rpm_get_dist_id(target)))
 
@@ -880,8 +879,14 @@ def centos_network_curthooks(cfg, target=None):
             with util.ChrootableTarget(target) as in_chroot:
                 in_chroot.subp(['yum', '-y', 'install', 'epel-release'],
                                env=env)
+                in_chroot.subp(['yum', '-y', 'install',
+                                'cloud-init-el-release'], env=env)
                 in_chroot.subp(['yum', '-y', 'install', 'cloud-init'],
                                env=env)
+
+            # remove cloud-init el-stable bootstrap repo config as the
+            # cloud-init-el-release package points to the correct repo
+            util.del_file(cloud_init_yum_repo)
 
             # install bridge-utils if needed
             with util.ChrootableTarget(target) as in_chroot:
@@ -889,7 +894,7 @@ def centos_network_curthooks(cfg, target=None):
                     in_chroot.subp(['rpm', '-q', 'bridge-utils'],
                                    capture=False, rcs=[0], env=env)
                 except util.ProcessExecutionError:
-                    LOG.info('Image missing bridge-utils package, installing')
+                    LOG.debug('Image missing bridge-utils package, installing')
                     in_chroot.subp(['yum', '-y', 'install', 'bridge-utils'],
                                    env=env)
 
