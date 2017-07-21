@@ -536,8 +536,10 @@ def netconfig_passthrough_available(target, feature='NETWORK_CONFIG_V2'):
         try:
             out, _ = in_chroot.subp([cloudinit, 'features'], capture=True)
             available = feature in out.splitlines()
-        except util.ProcessExecutionError as e:
-            LOG.warning("Error during probing cloudinit features: %s", e)
+        except util.ProcessExecutionError:
+            # we explicitly don't rump the exception as this triggers
+            # vmtest failures when parsing the installation log file
+            LOG.warning("Failed to probe cloudinit features")
             return False
 
         LOG.debug('cloud-init feature %s available? %s', feature, available)
