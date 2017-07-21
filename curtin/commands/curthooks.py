@@ -1005,12 +1005,6 @@ def curthooks(args):
         restore_dist_interfaces(cfg, target)
 
     with events.ReportEventStack(
-            name=stack_prefix + '/system-upgrade',
-            reporting_enabled=True, level="INFO",
-            description="updating packages on target system"):
-        system_upgrade(cfg, target)
-
-    with events.ReportEventStack(
             name=stack_prefix + '/setting-up-swap',
             reporting_enabled=True, level="INFO",
             description="setting up swap"):
@@ -1033,6 +1027,12 @@ def curthooks(args):
             reporting_enabled=True, level="INFO",
             description="configuring multipath"):
         detect_and_handle_multipath(cfg, target)
+
+    with events.ReportEventStack(
+            name=stack_prefix + '/system-upgrade',
+            reporting_enabled=True, level="INFO",
+            description="updating packages on target system"):
+        system_upgrade(cfg, target)
 
     # If a crypttab file was created by block_meta than it needs to be copied
     # onto the target system, and update_initramfs() needs to be run, so that
