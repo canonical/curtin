@@ -860,12 +860,6 @@ def centos_network_curthooks(cfg, target=None):
 
         # if in-target cloud-init is not updated, upgrade via cloud-init repo
         if not passthrough:
-            # update curthook environment with proxy values, if set
-            env = os.environ.copy()
-            chook_proxy = cfg.get('curthooks', {}).get('proxy', {})
-            for key, val in chook_proxy.items():
-                env[key] = val
-
             cloud_init_yum_repo = (
                 util.target_path(target,
                                  'etc/yum.repos.d/curtin-cloud-init.repo'))
@@ -877,12 +871,10 @@ def centos_network_curthooks(cfg, target=None):
             # cloud-init will depend on packages included in epel and yum needs
             # to add the repository before we can install cloud-init
             with util.ChrootableTarget(target) as in_chroot:
-                in_chroot.subp(['yum', '-y', 'install', 'epel-release'],
-                               env=env)
+                in_chroot.subp(['yum', '-y', 'install', 'epel-release'])
                 in_chroot.subp(['yum', '-y', 'install',
-                                'cloud-init-el-release'], env=env)
-                in_chroot.subp(['yum', '-y', 'install', 'cloud-init'],
-                               env=env)
+                                'cloud-init-el-release'])
+                in_chroot.subp(['yum', '-y', 'install', 'cloud-init'])
 
             # remove cloud-init el-stable bootstrap repo config as the
             # cloud-init-el-release package points to the correct repo
@@ -892,11 +884,10 @@ def centos_network_curthooks(cfg, target=None):
             with util.ChrootableTarget(target) as in_chroot:
                 try:
                     in_chroot.subp(['rpm', '-q', 'bridge-utils'],
-                                   capture=False, rcs=[0], env=env)
+                                   capture=False, rcs=[0])
                 except util.ProcessExecutionError:
                     LOG.debug('Image missing bridge-utils package, installing')
-                    in_chroot.subp(['yum', '-y', 'install', 'bridge-utils'],
-                                   env=env)
+                    in_chroot.subp(['yum', '-y', 'install', 'bridge-utils'])
 
     LOG.info('Passing network configuration through to target')
     net.render_netconfig_passthrough(target, netconfig={'network': netcfg})
