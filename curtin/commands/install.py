@@ -366,6 +366,27 @@ def apply_kexec(kexec, target):
         return True
 
 
+def migrate_proxy_settings(cfg):
+    """Move the legacy proxy setting 'http_proxy' into cfg['proxy']."""
+    proxy = cfg.get('proxy', {})
+    if not isinstance(proxy, dict):
+        raise ValueError("'proxy' in config is not a dictionary: %s" % proxy)
+
+    if 'http_proxy' in cfg:
+        hp = cfg['http_proxy']
+        if hp:
+            if proxy.get('http_proxy', hp) != hp:
+                LOG.warn("legacy http_proxy setting (%s) differs from "
+                         "proxy/http_proxy (%s), using %s",
+                         hp, proxy['http_proxy'], proxy['http_proxy'])
+            else:
+                LOG.debug("legacy 'http_proxy' migrated to proxy/http_proxy")
+                proxy['http_proxy'] = hp
+        del cfg['http_proxy']
+
+    cfg['proxy'] = proxy
+
+
 def cmd_install(args):
     cfg = CONFIG_BUILTIN.copy()
     config.merge_config(cfg, args.config)
@@ -384,8 +405,10 @@ def cmd_install(args):
         # we default to tgz for old style sources config
         cfg['sources'][i] = util.sanitize_source(cfg['sources'][i])
 
-    if cfg.get('http_proxy'):
-        os.environ['http_proxy'] = cfg['http_proxy']
+    migrate_proxy_settings(cfg)
+    for k in ('http_proxy', 'https_proxy', 'no_proxy'):
+        if k in cfg['proxy']:
+            os.environ[k] = cfg['proxy'][k]
 
     instcfg = cfg.get('install', {})
     logfile = instcfg.get('log_file')
