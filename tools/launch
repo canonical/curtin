@@ -643,7 +643,7 @@ main() {
     done
 
     if ${proxy_config}; then
-        f="${TEMP_D}/proxy.yaml"
+        f="${TEMP_D}/launch-curtin-proxy.cfg"
         write_proxy_config "$f" ||
             { error "Failed to write proxy config to $f"; return 1; }
         curtin_extra[${#curtin_extra[@]}]="--config=$f"
