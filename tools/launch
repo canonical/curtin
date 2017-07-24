@@ -686,6 +686,8 @@ main() {
     done
 
     local curtin_exe="${CURTIN_VMTEST_CURTIN_EXE:-${top_d}/bin/curtin}"
+    debug 1 "pack command: ${curtin_exe} pack" "${addargs[@]}" -- \
+        "${cmdargs[@]}"
     ${curtin_exe} pack "${addargs[@]}" -- \
         "${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
         { error "failed to pack"; return 1; }
