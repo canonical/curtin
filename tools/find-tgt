@@ -112,6 +112,8 @@ echo "  iscsiadm --mode=discovery --type=sendtargets --portal=\${TGT_PORTAL}" 1>
 echo "  iscsiadm --mode=node --portal=\${TGT_PORTAL} --op=show" 1>&2
 EOF
             echo "$pid" > "$pidfile"
+            # source it so stderr gets usage messages.
+            . "$info"
             TGT_PID=""
             exit 0
         fi
