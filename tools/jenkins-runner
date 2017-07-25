@@ -80,6 +80,7 @@ if [ -n "$TGT_IPC_SOCKET" ]; then
 elif command -v tgtd >/dev/null 2>&1; then
     tgtdir="$topdir/tgt.d"
     mkdir -p "$tgtdir" || fail "failed to create $tgtdir"
+    rm -f "$tgtdir/info" || fail "failed to remove $tgtdir/info"
     ./tools/find-tgt "$tgtdir" >"${tgtdir}/find-tgt.log" 2>&1 || {
         cat "${tgtdir}/find-tgt.log" 1>&2
         fail "could not start a tgt service"
