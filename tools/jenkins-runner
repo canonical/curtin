@@ -17,7 +17,8 @@ export IMAGE_DIR=${IMAGE_DIR:-/srv/images}
 TGT_PID=""
 TGT_LOG_D=""
 
-fail() { echo "$@" 1>&2; exit 1; }
+error() { echo "$@" 1>&2; }
+fail() { [ $# -eq 0 ] || error "$@"; exit 1; }
 cleanup() {
     local ret=$?
     local keep_rules
