@@ -655,7 +655,7 @@ main() {
         # if this is a 'curtin' command, then insert any curtin_extra args.
         debug 1 "adding to curtin command: " "${curtin_extra[@]}"
         cmdargs=( curtin "${curtin_extra[@]}" "${cmdargs[@]:1}" )
-    elif [ "${curtin_extra[@]}" -ne 0 ]; then
+    elif [ "${#curtin_extra[@]}" -ne 0 ]; then
         debug 1 "command '${cmdargs[0]}' is not 'curtin'." \
             "Not adding additional curtin flags:" "${curtin_extra[@]}"
     fi
