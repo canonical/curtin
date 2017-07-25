@@ -100,17 +100,18 @@ while [ $tries -le 100 ]; do
             error "'$pidstgt' was listening on $portal, not $pid"
         else
             error "grabbed $port in $pid on try $tries"
-            {
-            echo "export TGT_PID=$pid"
-            echo "export TGT_IPC_SOCKET=$socket"
-            echo "export CURTIN_VMTEST_ISCSI_PORTAL=$portal"
-            } > "$info"
+            cat >"$info" <<EOF
+export TGT_PID=$pid
+export TGT_IPC_SOCKET=$socket
+export TGT_PORTAL=$portal
+export CURTIN_VMTEST_ISCSI_PORTAL=\${TGT_PORTAL}
+echo "To list targets on this tgt: " 1>&2
+echo "  TGT_IPC_SOCKET=\${TGT_IPC_SOCKET} tgtadm --lld=iscsi --mode=target --op=show" 1>&2
+echo "For a client view of visible disks:" 1>&2
+echo "  iscsiadm --mode=discovery --type=sendtargets --portal=\${TGT_PORTAL}" 1>&2
+echo "  iscsiadm --mode=node --portal=\${TGT_PORTAL} --op=show" 1>&2
+EOF
             echo "$pid" > "$pidfile"
-            error "To list targets on this tgt: "
-            error "  TGT_IPC_SOCKET=$socket tgtadm --lld=iscsi --mode=target --op=show"
-            error "For a client view of visible disks:"
-            error "  iscsiadm --mode=discovery --type=sendtargets --portal=$portal"
-            error "  iscsiadm --mode=node --portal=$portal --op=show"
             TGT_PID=""
             exit 0
         fi
