@@ -79,7 +79,7 @@ rm -f "$socket" "$pidfile" "$info" "$log"
 tries=1
 while [ $tries -le 100 ]; do
     # pick a port > 1024, and I think tgt needs one < 2^15 (32768)
-    port=$((($RANDOM%(32768-1024))+1024))
+    port=$((($RANDOM%(32767-1024))+1024+1))
 
     portal="$ipv4addr:$port"
     error "going for $portal"
