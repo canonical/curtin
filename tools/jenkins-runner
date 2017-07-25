@@ -93,8 +93,8 @@ else
     error "no tgtd command, iscsi tests will be skipped"
 fi
 
-# dump CURTIN_* and TGT_* variables just for info
-for v in ${!CURTIN_*} ${!TGT_*}; do
+# dump CURTIN_* and TGT_* and proxy variables just for info
+for v in ${!CURTIN_*} ${!TGT_*} http_proxy https_proxy no_proxy; do; do
    echo "$v=${!v}"
 done
 
