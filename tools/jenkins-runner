@@ -46,7 +46,7 @@ if [ ${#ntargs[@]} -eq 0 ]; then
 fi
 
 # dump CURTIN* variables just for info
-for v in ${!CURTIN_*}; do
+for v in ${!CURTIN_*} http_proxy https_proxy no_proxy; do
    echo "$v=${!v}"
 done
 

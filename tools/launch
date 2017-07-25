@@ -116,6 +116,18 @@ instance-id: 'inst-${RANDOM}'
 EOF
 }
 
+write_proxy_config() {
+    # write_proxy_config(file)
+    # write curtin proxy config settings to file
+    local out="$1" n=""
+    {
+    echo "proxy:"
+    for n in http_proxy https_proxy no_proxy; do
+        echo "  ${n}: \"${!n}\""
+    done
+    } > "${out}"
+}
+
 write_pstate_config() {
     local pstate="$1" config1="$2" config2="$3"
     cat > "$config1" <<EOF
@@ -366,7 +378,7 @@ configure_tgt_auth() {
 
 main() {
     local short_opts="a:A:d:h:i:k:n:p:s:v"
-    long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,root-arg:,silent,serial-log:,smp:,uefi-nvram:,verbose,vnc:"
+    long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,no-proxy-config,power:,publish:,root-arg:,silent,serial-log:,smp:,uefi-nvram:,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -384,6 +396,7 @@ main() {
     local arch_hint=""
     local video="-curses -vga std" serial_log="serial.log"
     local root_arg="$DEFAULT_ROOT_ARG"
+    local proxy_config=true curtin_extra=""
     # dowait: run xkvm with a '&' and then 'wait' on the pid.
     #  the reason to do this or not do this has to do with interactivity
     #  if detached with &, then user input will not go to xkvm.
@@ -416,6 +429,7 @@ main() {
             -n|--netdev) netdevs[${#netdevs[@]}]="$next"; shift;;
                --no-dowait) pt[${#pt[@]}]="$cur"; dowait=false;;
                --no-install-deps) install_deps="";;
+               --no-proxy-config) proxy_config=false;;
                --power)
                 case "$next" in
                     off) pstate="poweroff";;
@@ -451,6 +465,7 @@ main() {
     bootimg_dist="$1"
     shift
     cmdargs=( "$@" )
+    curtin_extra=( ${install_deps} )
 
     xkvm_check || return
     TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
@@ -579,6 +594,16 @@ main() {
     get_my_ip || { error "failed to get your ip. set IP_ADDR"; return 1; }
     ip=${_RET}
 
+    # put ip into no_proxy which will get into curtin proxy config
+    case ",${no_proxy:-}," in
+        ,,) export no_proxy="$ip"
+            debug 1 "exported no_proxy to $no_proxy";;
+        *,${ip},*)
+            debug 1 "no_proxy already contained ip $ip (${no_proxy})";;
+        *)  no_proxy="${no_proxy},${ip}"
+            debug 1 "added $ip to existing no_proxy (${no_proxy})";;
+    esac
+
     local tok src pub fpath
     # tok in pubs looks like file[:pubname][:stype]
     # link them into the temp dir for publishing
@@ -617,6 +642,24 @@ main() {
         fi
     done
 
+    if ${proxy_config}; then
+        f="${TEMP_D}/launch-curtin-proxy.cfg"
+        write_proxy_config "$f" ||
+            { error "Failed to write proxy config to $f"; return 1; }
+        curtin_extra[${#curtin_extra[@]}]="--config=$f"
+        debug 1 "proxy config has:"
+        debug 1 "$(cat $f)"
+    fi
+
+    if [ "${cmdargs[0]}" = "curtin" ]; then
+        # if this is a 'curtin' command, then insert any curtin_extra args.
+        debug 1 "adding to curtin command: " "${curtin_extra[@]}"
+        cmdargs=( curtin "${curtin_extra[@]}" "${cmdargs[@]:1}" )
+    elif [ "${#curtin_extra[@]}" -ne 0 ]; then
+        debug 1 "command '${cmdargs[0]}' is not 'curtin'." \
+            "Not adding additional curtin flags:" "${curtin_extra[@]}"
+    fi
+
     # We now pack up --config= options for the user
     # potentially should check to make sure they've not already done this
     # as this updating could then be destructive / annoying
@@ -642,13 +685,9 @@ main() {
         addargs[${#addargs[@]}]="--add=config/${fpath##*/}:$fpath"
     done
 
-    if [ "${cmdargs[0]}" = "curtin" -a -n "$install_deps" ]; then
-        # if this is a 'curtin' command, then also insert --install-deps
-        debug 1 "adding --install-deps to command"
-        cmdargs=( curtin $install_deps "${cmdargs[@]:1}" )
-    fi
-
     local curtin_exe="${CURTIN_VMTEST_CURTIN_EXE:-${top_d}/bin/curtin}"
+    debug 1 "pack command: ${curtin_exe} pack" "${addargs[@]}" -- \
+        "${cmdargs[@]}"
     ${curtin_exe} pack "${addargs[@]}" -- \
         "${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
         { error "failed to pack"; return 1; }
