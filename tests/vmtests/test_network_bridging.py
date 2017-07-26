@@ -223,7 +223,7 @@ class Centos70TestBridgeNetwork(centos_relbase.centos70fromxenial,
 # only testing Yakkety or newer as older releases do not yet
 # have updated ifupdown/bridge-utils packages;
 class YakketyTestBridging(relbase.yakkety, TestBridgeNetworkAbs):
-    __test__ = True
+    __test__ = False
 
     @classmethod
     def setUpClass(cls):

@@ -39,7 +39,7 @@ class XenialTestNetworkIPV6ENISource(relbase.xenial, TestNetworkIPV6ENISource):
 
 class YakketyTestNetworkIPV6ENISource(relbase.yakkety,
                                       TestNetworkIPV6ENISource):
-    __test__ = True
+    __test__ = False
 
     @classmethod
     def test_ip_output(cls):

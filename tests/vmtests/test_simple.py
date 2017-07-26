@@ -41,7 +41,7 @@ class XenialTestSimple(relbase.xenial, TestSimple):
 
 
 class YakketyTestSimple(relbase.yakkety, TestSimple):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestSimple(relbase.zesty, TestSimple):
