@@ -133,31 +133,6 @@ class CentosTestNetworkMtuAbs(TestNetworkMtuAbs):
     def test_etc_resolvconf(self):
         pass
 
-    @classmethod
-    def test_ip_output(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "1701097",
-                         (2017, 7, 10), (2017, 7, 31))
-
-    @classmethod
-    def test_ipv6_mtu_smaller_than_ipv4_v6_iface_first(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "1701097",
-                         (2017, 7, 10), (2017, 7, 31))
-
-    @classmethod
-    def test_ipv6_mtu_smaller_than_ipv4_non_default(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "1701097",
-                         (2017, 7, 10), (2017, 7, 31))
-
-    @classmethod
-    def test_ipv6_mtu_higher_than_default_no_ipv4_iface_up(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "1701097",
-                         (2017, 7, 10), (2017, 7, 31))
-
-    @classmethod
-    def test_ipv6_mtu_higher_than_default_no_ipv4_iface_v6_iface_first(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "1701097",
-                         (2017, 7, 10), (2017, 7, 31))
-
 
 class PreciseHWETTestNetworkMtu(relbase.precise_hwe_t, TestNetworkMtuAbs):
     # FIXME: Precise mtu / ipv6 is buggy
