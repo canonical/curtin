@@ -212,7 +212,7 @@ class XenialTestBasic(relbase.xenial, TestBasicAbs):
 
 
 class YakketyTestBasic(relbase.yakkety, TestBasicAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestBasic(relbase.zesty, TestBasicAbs):
@@ -324,7 +324,7 @@ class XenialTestScsiBasic(relbase.xenial, TestBasicScsiAbs):
 
 
 class YakketyTestScsiBasic(relbase.yakkety, TestBasicScsiAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestScsiBasic(relbase.zesty, TestBasicScsiAbs):

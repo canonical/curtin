@@ -94,7 +94,7 @@ class XenialTestNvme(relbase.xenial, TestNvmeAbs):
 
 
 class YakketyTestNvme(relbase.yakkety, TestNvmeAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestNvme(relbase.zesty, TestNvmeAbs):

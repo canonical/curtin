@@ -62,7 +62,7 @@ class XenialTestBonding(relbase.xenial, TestNetworkBondingAbs):
 
 
 class YakketyTestBonding(relbase.yakkety, TestNetworkBondingAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestBonding(relbase.zesty, TestNetworkBondingAbs):

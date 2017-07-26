@@ -104,7 +104,7 @@ class XenialTestRaid5Bcache(relbase.xenial, TestMdadmBcacheAbs):
 
 
 class YakketyTestRaid5Bcache(relbase.yakkety, TestMdadmBcacheAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestRaid5Bcache(relbase.zesty, TestMdadmBcacheAbs):

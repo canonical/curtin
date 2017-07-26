@@ -60,7 +60,7 @@ class XenialTestIscsiBasic(relbase.xenial, TestBasicIscsiAbs):
 
 
 class YakketyTestIscsiBasic(relbase.yakkety, TestBasicIscsiAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestIscsiBasic(relbase.zesty, TestBasicIscsiAbs):

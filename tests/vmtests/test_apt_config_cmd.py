@@ -56,7 +56,7 @@ class XenialTestAptConfigCMDCMD(relbase.xenial, TestAptConfigCMD):
 
 
 class YakketyTestAptConfigCMDCMD(relbase.yakkety, TestAptConfigCMD):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestAptConfigCMDCMD(relbase.zesty, TestAptConfigCMD):

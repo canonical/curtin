@@ -74,7 +74,7 @@ class XenialTestLvm(relbase.xenial, TestLvmAbs):
 
 
 class YakketyTestLvm(relbase.yakkety, TestLvmAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestLvm(relbase.zesty, TestLvmAbs):
