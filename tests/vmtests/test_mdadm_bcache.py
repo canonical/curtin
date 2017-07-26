@@ -142,7 +142,7 @@ class XenialTestMdadmBcache(relbase.xenial, TestMdadmBcacheAbs):
 
 
 class YakketyTestMdadmBcache(relbase.yakkety, TestMdadmBcacheAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestMdadmBcache(relbase.zesty, TestMdadmBcacheAbs):
@@ -191,7 +191,7 @@ class XenialTestMirrorboot(relbase.xenial, TestMirrorbootAbs):
 
 
 class YakketyTestMirrorboot(relbase.yakkety, TestMirrorbootAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestMirrorboot(relbase.zesty, TestMirrorbootAbs):
@@ -238,7 +238,7 @@ class XenialTestMirrorbootPartitions(relbase.xenial,
 
 class YakketyTestMirrorbootPartitions(relbase.yakkety,
                                       TestMirrorbootPartitionsAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestMirrorbootPartitions(relbase.zesty,
@@ -333,7 +333,7 @@ class XenialTestRaid5boot(relbase.xenial, TestRaid5bootAbs):
 
 
 class YakketyTestRaid5boot(relbase.yakkety, TestRaid5bootAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestRaid5boot(relbase.zesty, TestRaid5bootAbs):
@@ -395,7 +395,7 @@ class XenialTestRaid6boot(relbase.xenial, TestRaid6bootAbs):
 
 
 class YakketyTestRaid6boot(relbase.yakkety, TestRaid6bootAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestRaid6boot(relbase.zesty, TestRaid6bootAbs):
@@ -445,7 +445,7 @@ class XenialTestRaid10boot(relbase.xenial, TestRaid10bootAbs):
 
 
 class YakketyTestRaid10boot(relbase.yakkety, TestRaid10bootAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestRaid10boot(relbase.zesty, TestRaid10bootAbs):
@@ -552,7 +552,7 @@ class XenialTestAllindata(relbase.xenial, TestAllindataAbs):
 
 
 class YakketyTestAllindata(relbase.yakkety, TestAllindataAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestAllindata(relbase.zesty, TestAllindataAbs):

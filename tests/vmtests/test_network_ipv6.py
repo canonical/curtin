@@ -50,7 +50,7 @@ class XenialTestNetworkIPV6(relbase.xenial, TestNetworkIPV6Abs):
 
 
 class YakketyTestNetworkIPV6(relbase.yakkety, TestNetworkIPV6Abs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestNetworkIPV6(relbase.zesty, TestNetworkIPV6Abs):

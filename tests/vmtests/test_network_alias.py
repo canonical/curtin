@@ -41,7 +41,7 @@ class XenialTestNetworkAlias(relbase.xenial, TestNetworkAliasAbs):
 
 
 class YakketyTestNetworkAlias(relbase.yakkety, TestNetworkAliasAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestNetworkAlias(relbase.zesty, TestNetworkAliasAbs):

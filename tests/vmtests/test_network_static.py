@@ -46,7 +46,7 @@ class XenialTestNetworkStatic(relbase.xenial, TestNetworkStaticAbs):
 
 
 class YakketyTestNetworkStatic(relbase.yakkety, TestNetworkStaticAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyTestNetworkStatic(relbase.zesty, TestNetworkStaticAbs):
