@@ -60,11 +60,6 @@ class ZestyTestNetworkIPV6Static(relbase.zesty, TestNetworkIPV6StaticAbs):
 class ArtfulTestNetworkIPV6Static(relbase.artful, TestNetworkIPV6StaticAbs):
     __test__ = True
 
-    @classmethod
-    def test_ip_output(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "1701097",
-                         (2017, 7, 10), (2017, 7, 31))
-
 
 class Centos66TestNetworkIPV6Static(centos_relbase.centos66fromxenial,
                                     CentosTestNetworkIPV6StaticAbs):
