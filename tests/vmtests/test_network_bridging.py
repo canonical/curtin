@@ -222,31 +222,15 @@ class Centos70TestBridgeNetwork(centos_relbase.centos70fromxenial,
 
 # only testing Yakkety or newer as older releases do not yet
 # have updated ifupdown/bridge-utils packages;
-class YakketyTestBridging(relbase.yakkety, TestBridgeNetworkAbs):
-    __test__ = False
-
-    @classmethod
-    def setUpClass(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "<NoBugYet>",
-                         (2017, 7, 10), (2017, 7, 31))
-        super().setUpClass()
-
-
 class ZestyTestBridging(relbase.zesty, TestBridgeNetworkAbs):
     __test__ = True
 
     @classmethod
     def setUpClass(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "<NoBugYet>",
-                         (2017, 7, 10), (2017, 7, 31))
+        cls.skip_by_date(cls.__name__, cls.release, "1706752",
+                         fixby=(2017, 8, 10), removeby=(2017, 7, 31))
         super().setUpClass()
 
 
 class ArtfulTestBridging(relbase.artful, TestBridgeNetworkAbs):
     __test__ = True
-
-    @classmethod
-    def setUpClass(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "<NoBugYet>",
-                         (2017, 7, 10), (2017, 7, 31))
-        super().setUpClass()
