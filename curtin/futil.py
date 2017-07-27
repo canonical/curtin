@@ -78,3 +78,24 @@ def write_finfo(path, content, owner="-1:-1", perms="0644"):
         omode = "wb"
     write_file(path, content, mode=decode_perms(perms), omode=omode)
     chownbyname(path, u, g)
+
+
+def write_files(files, target):
+    # this takes 'write_files' entry in config and writes files in the target
+    # config entry example:
+    # f1:
+    #  path: /file1
+    #  content: !!binary |
+    #    f0VMRgIBAQAAAAAAAAAAAAIAPgABAAAAwARAAAAAAABAAAAAAAAAAJAVAAAAAAA
+    # f2: {path: /file2, content: "foobar", permissions: '0666'}
+    for (key, info) in files.items():
+        if not info.get('path'):
+            LOG.warn("Warning, write_files[%s] had no 'path' entry", key)
+            continue
+
+        write_finfo(path=target + os.path.sep + info['path'],
+                    content=info.get('content', ''),
+                    owner=info.get('owner', "-1:-1"),
+                    perms=info.get('permissions', info.get('perms', "0644")))
+
+

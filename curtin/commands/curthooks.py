@@ -81,29 +81,6 @@ enabled_metadata=1
 """
 
 
-def write_files(cfg, target):
-    # this takes 'write_files' entry in config and writes files in the target
-    # config entry example:
-    # f1:
-    #  path: /file1
-    #  content: !!binary |
-    #    f0VMRgIBAQAAAAAAAAAAAAIAPgABAAAAwARAAAAAAABAAAAAAAAAAJAVAAAAAAA
-    # f2: {path: /file2, content: "foobar", permissions: '0666'}
-    if 'write_files' not in cfg:
-        return
-
-    for (key, info) in cfg.get('write_files').items():
-        if not info.get('path'):
-            LOG.warn("Warning, write_files[%s] had no 'path' entry", key)
-            continue
-
-        futil.write_finfo(path=target + os.path.sep + info['path'],
-                          content=info.get('content', ''),
-                          owner=info.get('owner', "-1:-1"),
-                          perms=info.get('permissions',
-                                         info.get('perms', "0644")))
-
-
 def do_apt_config(cfg, target):
     cfg = apt_config.translate_old_apt_features(cfg)
     apt_cfg = cfg.get("apt")
@@ -157,15 +134,9 @@ ramdisk = /boot/initrd.img
 parameters = root=%s
 
 """ % root_arg
-    zipl_cfg = {
-        "write_files": {
-            "zipl_cfg": {
-                "path": "/etc/zipl.conf",
-                "content": zipl_conf,
-            }
-        }
-    }
-    write_files(zipl_cfg, target)
+    futil.write_files(
+        files={"path": "/etc/zipl.conf", "content": zipl_conf},
+        target=target)
 
 
 def run_zipl(cfg, target):
@@ -786,7 +757,7 @@ def handle_cloudconfig(cfg, target=None):
     # re-use write_files format and adjust target to prepend
     LOG.debug('Calling write_files with cloudconfig @ %s', target)
     LOG.debug('Injecting cloud-config:\n%s', cfg)
-    write_files({'write_files': cfg}, target)
+    futil.write_files(cfg, target)
 
 
 def ubuntu_core_curthooks(cfg, target=None):
@@ -957,8 +928,7 @@ def curthooks(args):
     with events.ReportEventStack(
             name=stack_prefix + '/writing-config',
             reporting_enabled=True, level="INFO",
-            description="writing config files and configuring apt"):
-        write_files(cfg, target)
+            description="configuring apt configuring apt"):
         do_apt_config(cfg, target)
         disable_overlayroot(cfg, target)
 
