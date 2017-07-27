@@ -20,6 +20,7 @@ import pwd
 import os
 
 from .util import write_file
+from .log import LOG
 
 
 def chownbyid(fname, uid=None, gid=None):

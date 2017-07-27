@@ -547,7 +547,7 @@ class TestUbuntuCoreHooks(CurthooksBase):
                                            content=netcfg)
         self.assertEqual(len(mock_del_file.call_args_list), 0)
 
-    @patch('curtin.commands.curthooks.write_files')
+    @patch('curtin.commands.curthooks.futil.write_files')
     def test_handle_cloudconfig(self, mock_write_files):
         cc_target = "tmpXXXX/systemd-data/etc/cloud/cloud.cfg.d"
         cloudconfig = {
@@ -561,14 +561,12 @@ class TestUbuntuCoreHooks(CurthooksBase):
         }
 
         expected_cfg = {
-            'write_files': {
-                'file1': {
-                    'path': '50-cloudconfig-file1.cfg',
-                    'content': cloudconfig['file1']['content']},
-                'foobar': {
-                    'path': '50-cloudconfig-foobar.cfg',
-                    'content': cloudconfig['foobar']['content']}
-            }
+            'file1': {
+                'path': '50-cloudconfig-file1.cfg',
+                'content': cloudconfig['file1']['content']},
+            'foobar': {
+                'path': '50-cloudconfig-foobar.cfg',
+                'content': cloudconfig['foobar']['content']}
         }
         curthooks.handle_cloudconfig(cloudconfig, target=cc_target)
         mock_write_files.assert_called_with(expected_cfg, cc_target)
