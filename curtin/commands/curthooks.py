@@ -16,6 +16,7 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import copy
+import glob
 import os
 import platform
 import re
@@ -25,6 +26,7 @@ import textwrap
 
 from curtin import config
 from curtin import block
+from curtin import net
 from curtin import futil
 from curtin.log import LOG
 from curtin import swap
@@ -64,6 +66,19 @@ KERNEL_MAPPING = {
         '4.4.0': '',
     }
 }
+
+CLOUD_INIT_YUM_REPO_TEMPLATE = """
+[group_cloud-init-el-stable]
+name=Copr repo for el-stable owned by @cloud-init
+baseurl=https://copr-be.cloud.fedoraproject.org/results/@cloud-init/el-stable/epel-%s-$basearch/
+type=rpm-md
+skip_if_unavailable=True
+gpgcheck=1
+gpgkey=https://copr-be.cloud.fedoraproject.org/results/@cloud-init/el-stable/pubkey.gpg
+repo_gpgcheck=0
+enabled=1
+enabled_metadata=1
+"""
 
 
 def write_files(cfg, target):
@@ -648,6 +663,38 @@ def detect_and_handle_multipath(cfg, target):
     update_initramfs(target, all_kernels=True)
 
 
+def detect_required_packages(cfg):
+    """
+    detect packages that will be required in-target by custom config items
+    """
+
+    mapping = {
+        'storage': block.detect_required_packages_mapping(),
+        'network': net.detect_required_packages_mapping(),
+    }
+
+    needed_packages = []
+    for cfg_type, cfg_map in mapping.items():
+
+        # skip missing or invalid config items, configs may
+        # only have network or storage, not always both
+        if not isinstance(cfg.get(cfg_type), dict):
+            continue
+
+        cfg_version = cfg[cfg_type].get('version')
+        if not isinstance(cfg_version, int) or cfg_version not in cfg_map:
+            msg = ('Supplied configuration version "%s", for config type'
+                   '"%s" is not present in the known mapping.' % (cfg_version,
+                                                                  cfg_type))
+            raise ValueError(msg)
+
+        mapped_config = cfg_map[cfg_version]
+        found_reqs = mapped_config['handler'](cfg, mapped_config['mapping'])
+        needed_packages.extend(found_reqs)
+
+    return needed_packages
+
+
 def install_missing_packages(cfg, target):
     ''' describe which operation types will require specific packages
 
@@ -655,46 +702,10 @@ def install_missing_packages(cfg, target):
          'pkg1': ['op_name_1', 'op_name_2', ...]
      }
     '''
-    custom_configs = {
-        'storage': {
-            'lvm2': ['lvm_volgroup', 'lvm_partition'],
-            'mdadm': ['raid'],
-            'bcache-tools': ['bcache']},
-        'network': {
-            'vlan': ['vlan'],
-            'ifenslave': ['bond'],
-            'bridge-utils': ['bridge']},
-    }
 
-    format_configs = {
-        'xfsprogs': ['xfs'],
-        'e2fsprogs': ['ext2', 'ext3', 'ext4'],
-        'btrfs-tools': ['btrfs'],
-    }
-
-    needed_packages = []
     installed_packages = util.get_installed_packages(target)
-    for cust_cfg, pkg_reqs in custom_configs.items():
-        if cust_cfg not in cfg:
-            continue
-
-        all_types = set(
-            operation['type']
-            for operation in cfg[cust_cfg]['config']
-            )
-        for pkg, types in pkg_reqs.items():
-            if set(types).intersection(all_types) and \
-               pkg not in installed_packages:
-                needed_packages.append(pkg)
-
-        format_types = set(
-            [operation['fstype']
-             for operation in cfg[cust_cfg]['config']
-             if operation['type'] == 'format'])
-        for pkg, fstypes in format_configs.items():
-            if set(fstypes).intersection(format_types) and \
-               pkg not in installed_packages:
-                needed_packages.append(pkg)
+    needed_packages = [pkg for pkg in detect_required_packages(cfg)
+                       if pkg not in installed_packages]
 
     arch_packages = {
         's390x': [('s390-tools', 'zipl')],
@@ -801,9 +812,85 @@ def ubuntu_core_curthooks(cfg, target=None):
     if netconfig:
         LOG.info('Writing network configuration')
         ubuntu_core_netconfig = os.path.join(cc_target,
-                                             "50-network-config.cfg")
+                                             "50-curtin-networking.cfg")
         util.write_file(ubuntu_core_netconfig,
                         content=config.dump_config({'network': netconfig}))
+
+
+def rpm_get_dist_id(target):
+    """Use rpm command to extract the '%rhel' distro macro which returns
+       the major os version id (6, 7, 8).  This works for centos or rhel
+    """
+    with util.ChrootableTarget(target) as in_chroot:
+        dist, _ = in_chroot.subp(['rpm', '-E', '%rhel'], capture=True)
+    return dist.rstrip()
+
+
+def centos_network_curthooks(cfg, target=None):
+    """ CentOS images execute built-in curthooks which only supports
+        simple networking configuration.  This hook enables advanced
+        network configuration via config passthrough to the target.
+    """
+    def cloud_init_repo(version):
+        if not version:
+            raise ValueError('Missing required version parameter')
+
+        return CLOUD_INIT_YUM_REPO_TEMPLATE % version
+
+    cloudconfig = cfg.get('cloudconfig', None)
+    if cloudconfig:
+        cc_target = util.target_path(target, 'etc/cloud/cloud.cfg.d')
+        handle_cloudconfig(cloudconfig, target=cc_target)
+
+    netcfg = cfg.get('network', None)
+    if netcfg:
+        LOG.info('Removing embedded network configuration (if present)')
+        ifcfgs = glob.glob(util.target_path(target,
+                                            'etc/sysconfig/network-scripts') +
+                           '/ifcfg-*')
+        # remove ifcfg-* (except ifcfg-lo)
+        for ifcfg in ifcfgs:
+            if os.path.basename(ifcfg) != "ifcfg-lo":
+                util.del_file(ifcfg)
+
+        LOG.info('Checking cloud-init in target [%s] for network '
+                 'configuration passthrough support.', target)
+        passthrough = net.netconfig_passthrough_available(target)
+        LOG.debug('passthrough available via in-target: %s', passthrough)
+
+        # if in-target cloud-init is not updated, upgrade via cloud-init repo
+        if not passthrough:
+            cloud_init_yum_repo = (
+                util.target_path(target,
+                                 'etc/yum.repos.d/curtin-cloud-init.repo'))
+            # Inject cloud-init daily yum repo
+            util.write_file(cloud_init_yum_repo,
+                            content=cloud_init_repo(rpm_get_dist_id(target)))
+
+            # we separate the installation of epel from cloud-init as
+            # cloud-init will depend on packages included in epel and yum needs
+            # to add the repository before we can install cloud-init
+            with util.ChrootableTarget(target) as in_chroot:
+                in_chroot.subp(['yum', '-y', 'install', 'epel-release'])
+                in_chroot.subp(['yum', '-y', 'install',
+                                'cloud-init-el-release'])
+                in_chroot.subp(['yum', '-y', 'install', 'cloud-init'])
+
+            # remove cloud-init el-stable bootstrap repo config as the
+            # cloud-init-el-release package points to the correct repo
+            util.del_file(cloud_init_yum_repo)
+
+            # install bridge-utils if needed
+            with util.ChrootableTarget(target) as in_chroot:
+                try:
+                    in_chroot.subp(['rpm', '-q', 'bridge-utils'],
+                                   capture=False, rcs=[0])
+                except util.ProcessExecutionError:
+                    LOG.debug('Image missing bridge-utils package, installing')
+                    in_chroot.subp(['yum', '-y', 'install', 'bridge-utils'])
+
+    LOG.info('Passing network configuration through to target')
+    net.render_netconfig_passthrough(target, netconfig={'network': netcfg})
 
 
 def target_is_ubuntu_core(target):
@@ -811,6 +898,22 @@ def target_is_ubuntu_core(target):
     if target:
         return os.path.exists(util.target_path(target,
                                                'system-data/var/lib/snapd'))
+    return False
+
+
+def target_is_centos(target):
+    """Check if CentOS specific file is present at target"""
+    if target:
+        return os.path.exists(util.target_path(target, 'etc/centos-release'))
+
+    return False
+
+
+def target_is_rhel(target):
+    """Check if RHEL specific file is present at target"""
+    if target:
+        return os.path.exists(util.target_path(target, 'etc/redhat-release'))
+
     return False
 
 
@@ -827,13 +930,21 @@ def curthooks(args):
                          "Use --target or set TARGET_MOUNT_POINT\n")
         sys.exit(2)
 
-    # if network-config hook exists in target,
-    # we do not run the builtin
-    if util.run_hook_if_exists(target, 'curtin-hooks'):
-        sys.exit(0)
-
     cfg = config.load_command_config(args, state)
     stack_prefix = state.get('report_stack_prefix', '')
+
+    # if curtin-hooks hook exists in target we can defer to the in-target hooks
+    if util.run_hook_if_exists(target, 'curtin-hooks'):
+        # XXX: For vmtest use only
+        if cfg.get('override_centos_curthooks', {}):
+            if target_is_centos(target) or target_is_rhel(target):
+                LOG.info('Detected RHEL/CentOS image, running extra hooks')
+                with events.ReportEventStack(
+                        name=stack_prefix, reporting_enabled=True,
+                        level="INFO",
+                        description="Configuring CentOS for first boot"):
+                    centos_network_curthooks(cfg, target)
+        sys.exit(0)
 
     if target_is_ubuntu_core(target):
         LOG.info('Detected Ubuntu-Core image, running hooks')
@@ -852,7 +963,11 @@ def curthooks(args):
         disable_overlayroot(cfg, target)
 
     # packages may be needed prior to installing kernel
-    install_missing_packages(cfg, target)
+    with events.ReportEventStack(
+            name=stack_prefix + '/installing-missing-packages',
+            reporting_enabled=True, level="INFO",
+            description="installing missing packages"):
+        install_missing_packages(cfg, target)
 
     # If a /etc/iscsi/nodes/... file was created by block_meta then it
     # needs to be copied onto the target system
@@ -880,7 +995,6 @@ def curthooks(args):
         setup_zipl(cfg, target)
         install_kernel(cfg, target)
         run_zipl(cfg, target)
-
         restore_dist_interfaces(cfg, target)
 
     with events.ReportEventStack(
@@ -906,12 +1020,6 @@ def curthooks(args):
             reporting_enabled=True, level="INFO",
             description="configuring multipath"):
         detect_and_handle_multipath(cfg, target)
-
-    with events.ReportEventStack(
-            name=stack_prefix + '/installing-missing-packages',
-            reporting_enabled=True, level="INFO",
-            description="installing missing packages"):
-        install_missing_packages(cfg, target)
 
     with events.ReportEventStack(
             name=stack_prefix + '/system-upgrade',
