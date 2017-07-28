@@ -826,24 +826,24 @@ def rpm_get_dist_id(target):
     return dist.rstrip()
 
 
-def centos_network_curthooks(cfg, target=None):
+def centos_apply_network_config(netcfg, target=None):
     """ CentOS images execute built-in curthooks which only supports
         simple networking configuration.  This hook enables advanced
         network configuration via config passthrough to the target.
     """
+
+    # FIXME: legacy in case called with a 'full' config.
+    #    possibly called by maas-images this way. remove after 2017-08-15.
+    if isinstance(netcfg.get('network'), dict):
+        netcfg = netcfg['network']
+
     def cloud_init_repo(version):
         if not version:
             raise ValueError('Missing required version parameter')
 
         return CLOUD_INIT_YUM_REPO_TEMPLATE % version
 
-    cloudconfig = cfg.get('cloudconfig', None)
-    if cloudconfig:
-        cc_target = util.target_path(target, 'etc/cloud/cloud.cfg.d')
-        handle_cloudconfig(cloudconfig, target=cc_target)
-
-    netcfg = cfg.get('network', None)
-    if netcfg:
+    if not netcfg:
         LOG.info('Removing embedded network configuration (if present)')
         ifcfgs = glob.glob(util.target_path(target,
                                             'etc/sysconfig/network-scripts') +
@@ -935,15 +935,21 @@ def curthooks(args):
 
     # if curtin-hooks hook exists in target we can defer to the in-target hooks
     if util.run_hook_if_exists(target, 'curtin-hooks'):
-        # XXX: For vmtest use only
-        if cfg.get('override_centos_curthooks', {}):
+        # FIXME: For testing only until maas images have curthooks
+        # that utilize centos_apply_network_config.
+        if cfg.get('_ammend_centos_curthooks'):
+            if cfg.get('cloudconfig'):
+                handle_cloudconfig(
+                    cfg['cloudconfig'],
+                    target=util.target_path(target, 'etc/cloud/cloud.cfg.d'))
+
             if target_is_centos(target) or target_is_rhel(target):
                 LOG.info('Detected RHEL/CentOS image, running extra hooks')
                 with events.ReportEventStack(
                         name=stack_prefix, reporting_enabled=True,
                         level="INFO",
                         description="Configuring CentOS for first boot"):
-                    centos_network_curthooks(cfg, target)
+                    centos_apply_network_config(cfg.get('network', {}), target)
         sys.exit(0)
 
     if target_is_ubuntu_core(target):
