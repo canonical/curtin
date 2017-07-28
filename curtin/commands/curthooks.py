@@ -843,7 +843,7 @@ def centos_apply_network_config(netcfg, target=None):
 
         return CLOUD_INIT_YUM_REPO_TEMPLATE % version
 
-    if not netcfg:
+    if netcfg:
         LOG.info('Removing embedded network configuration (if present)')
         ifcfgs = glob.glob(util.target_path(target,
                                             'etc/sysconfig/network-scripts') +
