@@ -720,7 +720,7 @@ def system_upgrade(cfg, target):
 
 
 def handle_cloudconfig(cfg, base_dir=None):
-    """write cloud-init configuration files into target
+    """write cloud-init configuration files into base_dir.
 
     cloudconfig format is a dictionary of keys and values of content
 
