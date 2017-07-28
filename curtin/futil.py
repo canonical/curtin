@@ -94,7 +94,6 @@ def write_files(files, target):
             LOG.warn("Warning, write_files[%s] had no 'path' entry", key)
             continue
 
-        # not using util.target_path here
         write_finfo(path=target_path(info['path']),
                     content=info.get('content', ''),
                     owner=info.get('owner', "-1:-1"),
