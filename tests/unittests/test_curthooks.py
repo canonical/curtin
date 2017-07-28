@@ -176,6 +176,33 @@ class TestInstallMissingPkgs(CurthooksBase):
         self.assertEqual([], self.mock_install_packages.call_args_list)
 
 
+class TestSetupZipl(CurthooksBase):
+
+    def setUp(self):
+        super(TestSetupZipl, self).setUp()
+        self.target = tempfile.mkdtemp()
+
+    @patch('curtin.block.get_devices_for_mp')
+    @patch('platform.machine')
+    def test_noop_non_s390x(self, m_machine, m_get_devices):
+        m_machine.return_value = 'non-s390x'
+        curthooks.setup_zipl(None, self.target)
+        self.assertEqual(0, m_get_devices.call_count)
+
+    @patch('curtin.block.get_devices_for_mp')
+    @patch('platform.machine')
+    def test_setup_zipl_writes_etc_zipl_conf(self, m_machine, m_get_devices):
+        m_machine.return_value = 's390x'
+        m_get_devices.return_value = ['/dev/mapper/ubuntu--vg-root']
+        curthooks.setup_zipl(None, self.target)
+        m_get_devices.assert_called_with(self.target)
+        with open(os.path.join(self.target, 'etc', 'zipl.conf')) as stream:
+            content = stream.read()
+        self.assertIn(
+            '# This has been modified by the MAAS curtin installer',
+            content)
+
+
 class TestSetupGrub(CurthooksBase):
 
     def setUp(self):
@@ -496,7 +523,7 @@ class TestUbuntuCoreHooks(CurthooksBase):
         curthooks.ubuntu_core_curthooks(cfg, target=self.target)
 
         mock_handle_cc.assert_called_with(cfg.get('cloudconfig'),
-                                          target=cc_path)
+                                          base_dir=cc_path)
         self.assertFalse(os.path.exists(cc_disabled))
 
     @patch('curtin.util.write_file')
@@ -518,7 +545,7 @@ class TestUbuntuCoreHooks(CurthooksBase):
         cc_path = os.path.join(self.target,
                                'system-data/etc/cloud/cloud.cfg.d')
         mock_handle_cc.assert_called_with(cfg.get('cloudconfig'),
-                                          target=cc_path)
+                                          base_dir=cc_path)
         self.assertEqual(len(mock_write_file.call_args_list), 0)
 
     @patch('curtin.util.write_file')
@@ -568,12 +595,12 @@ class TestUbuntuCoreHooks(CurthooksBase):
                 'path': '50-cloudconfig-foobar.cfg',
                 'content': cloudconfig['foobar']['content']}
         }
-        curthooks.handle_cloudconfig(cloudconfig, target=cc_target)
+        curthooks.handle_cloudconfig(cloudconfig, base_dir=cc_target)
         mock_write_files.assert_called_with(expected_cfg, cc_target)
 
     def test_handle_cloudconfig_bad_config(self):
         with self.assertRaises(ValueError):
-            curthooks.handle_cloudconfig([], target="foobar")
+            curthooks.handle_cloudconfig([], base_dir="foobar")
 
 
 class TestDetectRequiredPackages(TestCase):

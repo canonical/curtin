@@ -135,8 +135,8 @@ parameters = root=%s
 
 """ % root_arg
     futil.write_files(
-        files={"path": "/etc/zipl.conf", "content": zipl_conf},
-        target=target)
+        files={"zipl_conf": {"path": "/etc/zipl.conf", "content": zipl_conf}},
+        base_dir=target)
 
 
 def run_zipl(cfg, target):
@@ -719,7 +719,7 @@ def system_upgrade(cfg, target):
     util.system_upgrade(target=target)
 
 
-def handle_cloudconfig(cfg, target=None):
+def handle_cloudconfig(cfg, base_dir=None):
     """write cloud-init configuration files into target
 
     cloudconfig format is a dictionary of keys and values of content
@@ -755,9 +755,9 @@ def handle_cloudconfig(cfg, target=None):
         cfgvalue['path'] = cfgpath
 
     # re-use write_files format and adjust target to prepend
-    LOG.debug('Calling write_files with cloudconfig @ %s', target)
+    LOG.debug('Calling write_files with cloudconfig @ %s', base_dir)
     LOG.debug('Injecting cloud-config:\n%s', cfg)
-    futil.write_files(cfg, target)
+    futil.write_files(cfg, base_dir)
 
 
 def ubuntu_core_curthooks(cfg, target=None):
@@ -777,7 +777,7 @@ def ubuntu_core_curthooks(cfg, target=None):
         if os.path.exists(cloudinit_disable):
             util.del_file(cloudinit_disable)
 
-        handle_cloudconfig(cloudconfig, target=cc_target)
+        handle_cloudconfig(cloudconfig, base_dir=cc_target)
 
     netconfig = cfg.get('network', None)
     if netconfig:
@@ -811,7 +811,7 @@ def centos_network_curthooks(cfg, target=None):
     cloudconfig = cfg.get('cloudconfig', None)
     if cloudconfig:
         cc_target = util.target_path(target, 'etc/cloud/cloud.cfg.d')
-        handle_cloudconfig(cloudconfig, target=cc_target)
+        handle_cloudconfig(cloudconfig, base_dir=cc_target)
 
     netcfg = cfg.get('network', None)
     if netcfg:

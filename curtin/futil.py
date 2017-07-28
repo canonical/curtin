@@ -81,8 +81,11 @@ def write_finfo(path, content, owner="-1:-1", perms="0644"):
     chownbyname(path, u, g)
 
 
-def write_files(files, target):
-    """Write files to 'target' described in the dictionary 'files'.
+def write_files(files, base_dir=None):
+    """Write files described in the dictionary 'files'
+
+    paths are assumed under 'base_dir', which will default to '/'.
+    A trailing '/' will be applied if not present.
 
     files is a dictionary where each entry has:
        path: /file1
@@ -94,7 +97,7 @@ def write_files(files, target):
             LOG.warn("Warning, write_files[%s] had no 'path' entry", key)
             continue
 
-        write_finfo(path=target_path(info['path']),
+        write_finfo(path=target_path(base_dir, info['path']),
                     content=info.get('content', ''),
                     owner=info.get('owner', "-1:-1"),
                     perms=info.get('permissions', info.get('perms', "0644")))
