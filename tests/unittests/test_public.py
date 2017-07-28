@@ -2,6 +2,7 @@ from unittest import TestCase
 
 from curtin import block
 from curtin import config
+from curtin import futil
 from curtin import util
 
 from curtin.commands import curthooks
@@ -38,6 +39,10 @@ class TestPublicAPI(TestCase):
     def test_centos_apply_network_config(self):
         """MAAS images use centos_apply_network_config from cmd.curthooks."""
         self.assert_has_callables(curthooks, ['centos_apply_network_config'])
+
+    def test_futil(self):
+        """Verify exported attributes in curtin.futil."""
+        self.assert_has_callables(futil, ['write_files'])
 
 
 def _module_has(module, names, nfilter=None):
