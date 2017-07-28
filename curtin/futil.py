@@ -19,7 +19,7 @@ import grp
 import pwd
 import os
 
-from .util import write_file
+from .util import write_file, target_path
 from .log import LOG
 
 
@@ -82,21 +82,20 @@ def write_finfo(path, content, owner="-1:-1", perms="0644"):
 
 
 def write_files(files, target):
-    # this takes 'write_files' entry in config and writes files in the target
-    # config entry example:
-    # f1:
-    #  path: /file1
-    #  content: !!binary |
-    #    f0VMRgIBAQAAAAAAAAAAAAIAPgABAAAAwARAAAAAAABAAAAAAAAAAJAVAAAAAAA
-    # f2: {path: /file2, content: "foobar", permissions: '0666'}
+    """Write files to 'target' described in the dictionary 'files'.
+
+    files is a dictionary where each entry has:
+       path: /file1
+       content: (bytes or string)
+       permissions: (optional, default=0644)
+       owner: (optional, default -1:-1): string of 'uid:gid'."""
     for (key, info) in files.items():
         if not info.get('path'):
             LOG.warn("Warning, write_files[%s] had no 'path' entry", key)
             continue
 
-        write_finfo(path=target + os.path.sep + info['path'],
+        # not using util.target_path here
+        write_finfo(path=target_path(info['path']),
                     content=info.get('content', ''),
                     owner=info.get('owner', "-1:-1"),
                     perms=info.get('permissions', info.get('perms', "0644")))
-
-
