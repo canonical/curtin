@@ -81,29 +81,6 @@ enabled_metadata=1
 """
 
 
-def write_files(cfg, target):
-    # this takes 'write_files' entry in config and writes files in the target
-    # config entry example:
-    # f1:
-    #  path: /file1
-    #  content: !!binary |
-    #    f0VMRgIBAQAAAAAAAAAAAAIAPgABAAAAwARAAAAAAABAAAAAAAAAAJAVAAAAAAA
-    # f2: {path: /file2, content: "foobar", permissions: '0666'}
-    if 'write_files' not in cfg:
-        return
-
-    for (key, info) in cfg.get('write_files').items():
-        if not info.get('path'):
-            LOG.warn("Warning, write_files[%s] had no 'path' entry", key)
-            continue
-
-        futil.write_finfo(path=target + os.path.sep + info['path'],
-                          content=info.get('content', ''),
-                          owner=info.get('owner', "-1:-1"),
-                          perms=info.get('permissions',
-                                         info.get('perms', "0644")))
-
-
 def do_apt_config(cfg, target):
     cfg = apt_config.translate_old_apt_features(cfg)
     apt_cfg = cfg.get("apt")
@@ -157,15 +134,9 @@ ramdisk = /boot/initrd.img
 parameters = root=%s
 
 """ % root_arg
-    zipl_cfg = {
-        "write_files": {
-            "zipl_cfg": {
-                "path": "/etc/zipl.conf",
-                "content": zipl_conf,
-            }
-        }
-    }
-    write_files(zipl_cfg, target)
+    futil.write_files(
+        files={"zipl_conf": {"path": "/etc/zipl.conf", "content": zipl_conf}},
+        base_dir=target)
 
 
 def run_zipl(cfg, target):
@@ -748,8 +719,8 @@ def system_upgrade(cfg, target):
     util.system_upgrade(target=target)
 
 
-def handle_cloudconfig(cfg, target=None):
-    """write cloud-init configuration files into target
+def handle_cloudconfig(cfg, base_dir=None):
+    """write cloud-init configuration files into base_dir.
 
     cloudconfig format is a dictionary of keys and values of content
 
@@ -784,9 +755,9 @@ def handle_cloudconfig(cfg, target=None):
         cfgvalue['path'] = cfgpath
 
     # re-use write_files format and adjust target to prepend
-    LOG.debug('Calling write_files with cloudconfig @ %s', target)
+    LOG.debug('Calling write_files with cloudconfig @ %s', base_dir)
     LOG.debug('Injecting cloud-config:\n%s', cfg)
-    write_files({'write_files': cfg}, target)
+    futil.write_files(cfg, base_dir)
 
 
 def ubuntu_core_curthooks(cfg, target=None):
@@ -806,7 +777,7 @@ def ubuntu_core_curthooks(cfg, target=None):
         if os.path.exists(cloudinit_disable):
             util.del_file(cloudinit_disable)
 
-        handle_cloudconfig(cloudconfig, target=cc_target)
+        handle_cloudconfig(cloudconfig, base_dir=cc_target)
 
     netconfig = cfg.get('network', None)
     if netconfig:
@@ -840,7 +811,7 @@ def centos_network_curthooks(cfg, target=None):
     cloudconfig = cfg.get('cloudconfig', None)
     if cloudconfig:
         cc_target = util.target_path(target, 'etc/cloud/cloud.cfg.d')
-        handle_cloudconfig(cloudconfig, target=cc_target)
+        handle_cloudconfig(cloudconfig, base_dir=cc_target)
 
     netcfg = cfg.get('network', None)
     if netcfg:
@@ -957,8 +928,7 @@ def curthooks(args):
     with events.ReportEventStack(
             name=stack_prefix + '/writing-config',
             reporting_enabled=True, level="INFO",
-            description="writing config files and configuring apt"):
-        write_files(cfg, target)
+            description="configuring apt configuring apt"):
         do_apt_config(cfg, target)
         disable_overlayroot(cfg, target)
 
