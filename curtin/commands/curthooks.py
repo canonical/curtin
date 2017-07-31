@@ -912,7 +912,7 @@ def curthooks(args):
             if cfg.get('cloudconfig'):
                 handle_cloudconfig(
                     cfg['cloudconfig'],
-                    target=util.target_path(target, 'etc/cloud/cloud.cfg.d'))
+                    base_dir=util.target_path(target, 'etc/cloud/cloud.cfg.d'))
 
             if target_is_centos(target) or target_is_rhel(target):
                 LOG.info('Detected RHEL/CentOS image, running extra hooks')
