@@ -841,11 +841,11 @@ def centos_network_curthooks(cfg, target=None):
             # we separate the installation of epel from cloud-init as
             # cloud-init will depend on packages included in epel and yum needs
             # to add the repository before we can install cloud-init
+            YUM_CMD = ['yum', '-y', '--noplugins', 'install']
             with util.ChrootableTarget(target) as in_chroot:
-                in_chroot.subp(['yum', '-y', 'install', 'epel-release'])
-                in_chroot.subp(['yum', '-y', 'install',
-                                'cloud-init-el-release'])
-                in_chroot.subp(['yum', '-y', 'install', 'cloud-init'])
+                in_chroot.subp(YUM_CMD + ['epel-release'])
+                in_chroot.subp(YUM_CMD + ['cloud-init-el-release'])
+                in_chroot.subp(YUM_CMD + ['cloud-init'])
 
             # remove cloud-init el-stable bootstrap repo config as the
             # cloud-init-el-release package points to the correct repo
@@ -858,7 +858,7 @@ def centos_network_curthooks(cfg, target=None):
                                    capture=False, rcs=[0])
                 except util.ProcessExecutionError:
                     LOG.debug('Image missing bridge-utils package, installing')
-                    in_chroot.subp(['yum', '-y', 'install', 'bridge-utils'])
+                    in_chroot.subp(YUM_CMD + ['bridge-utils'])
 
     LOG.info('Passing network configuration through to target')
     net.render_netconfig_passthrough(target, netconfig={'network': netcfg})
