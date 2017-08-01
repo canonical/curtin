@@ -845,13 +845,13 @@ def centos_network_curthooks(cfg, target=None):
             retries = [1] * 30
             with util.ChrootableTarget(target) as in_chroot:
                 in_chroot.subp(YUM_CMD + ['ca-certificates'], capture=True,
-                               retries=retries)
+                               log_capture=True, retries=retries)
                 in_chroot.subp(YUM_CMD + ['epel-release'], capture=True,
-                               retries=retries)
+                               log_capture=True, retries=retries)
                 in_chroot.subp(YUM_CMD + ['cloud-init-el-release'],
-                               capture=True, retries=retries)
+                               log_capture=True, capture=True, retries=retries)
                 in_chroot.subp(YUM_CMD + ['cloud-init'], capture=True,
-                               retries=retries)
+                               log_capture=True, retries=retries)
 
             # remove cloud-init el-stable bootstrap repo config as the
             # cloud-init-el-release package points to the correct repo
@@ -865,7 +865,7 @@ def centos_network_curthooks(cfg, target=None):
                 except util.ProcessExecutionError:
                     LOG.debug('Image missing bridge-utils package, installing')
                     in_chroot.subp(YUM_CMD + ['bridge-utils'], capture=True,
-                                   retries=retries)
+                                   log_capture=True, retries=retries)
 
     LOG.info('Passing network configuration through to target')
     net.render_netconfig_passthrough(target, netconfig={'network': netcfg})
