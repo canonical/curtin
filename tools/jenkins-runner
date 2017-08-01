@@ -27,6 +27,10 @@ cleanup() {
     if [ -n "$TGT_PID" ]; then
         error "killing tgt process $TGT_PID"
         kill -9 ${TGT_PID};
+        if [ -e "${TGT_IPC_SOCKET}" ]; then
+            rm "${TGT_IPC_SOCKET}" ||
+                error "WARN: failed removal of $TGT_IPC_SOCKET"
+        fi
     fi
     if [ -n "$TGT_LOG_D" ]; then
         case ",${keep_rules}," in
