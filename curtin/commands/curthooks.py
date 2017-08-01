@@ -803,11 +803,6 @@ def centos_apply_network_config(netcfg, target=None):
         network configuration via config passthrough to the target.
     """
 
-    # FIXME: legacy in case called with a 'full' config.
-    #    possibly called by maas-images this way. remove after 2017-08-15.
-    if isinstance(netcfg.get('network'), dict):
-        netcfg = netcfg['network']
-
     def cloud_init_repo(version):
         if not version:
             raise ValueError('Missing required version parameter')
