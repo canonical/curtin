@@ -842,7 +842,7 @@ def centos_network_curthooks(cfg, target=None):
             # cloud-init will depend on packages included in epel and yum needs
             # to add the repository before we can install cloud-init
             YUM_CMD = ['yum', '-y', '--noplugins', 'install']
-            retries = [1] * 30 
+            retries = [1] * 30
             with util.ChrootableTarget(target) as in_chroot:
                 in_chroot.subp(YUM_CMD + ['ca-certificates'], capture=True,
                                retries=retries)
