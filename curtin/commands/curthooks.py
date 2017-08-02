@@ -833,14 +833,23 @@ def centos_apply_network_config(netcfg, target=None):
             util.write_file(cloud_init_yum_repo,
                             content=cloud_init_repo(rpm_get_dist_id(target)))
 
-            # we separate the installation of epel from cloud-init as
-            # cloud-init will depend on packages included in epel and yum needs
-            # to add the repository before we can install cloud-init
+            # we separate the installation of repository packages (epel,
+            # cloud-init-el-release) as we need a new invocation of yum
+            # to read the newly installed repo files.
+            YUM_CMD = ['yum', '-y', '--noplugins', 'install']
+            retries = [1] * 30
             with util.ChrootableTarget(target) as in_chroot:
-                in_chroot.subp(['yum', '-y', 'install', 'epel-release'])
-                in_chroot.subp(['yum', '-y', 'install',
-                                'cloud-init-el-release'])
-                in_chroot.subp(['yum', '-y', 'install', 'cloud-init'])
+                # ensure up-to-date ca-certificates to handle https mirror
+                # connections
+                in_chroot.subp(YUM_CMD + ['ca-certificates'], capture=True,
+                               log_captured=True, retries=retries)
+                in_chroot.subp(YUM_CMD + ['epel-release'], capture=True,
+                               log_captured=True, retries=retries)
+                in_chroot.subp(YUM_CMD + ['cloud-init-el-release'],
+                               log_captured=True, capture=True,
+                               retries=retries)
+                in_chroot.subp(YUM_CMD + ['cloud-init'], capture=True,
+                               log_captured=True, retries=retries)
 
             # remove cloud-init el-stable bootstrap repo config as the
             # cloud-init-el-release package points to the correct repo
@@ -853,7 +862,8 @@ def centos_apply_network_config(netcfg, target=None):
                                    capture=False, rcs=[0])
                 except util.ProcessExecutionError:
                     LOG.debug('Image missing bridge-utils package, installing')
-                    in_chroot.subp(['yum', '-y', 'install', 'bridge-utils'])
+                    in_chroot.subp(YUM_CMD + ['bridge-utils'], capture=True,
+                                   log_captured=True, retries=retries)
 
     LOG.info('Passing network configuration through to target')
     net.render_netconfig_passthrough(target, netconfig={'network': netcfg})
