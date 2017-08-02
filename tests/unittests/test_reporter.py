@@ -21,7 +21,6 @@ from __future__ import (
     unicode_literals,
     )
 
-from unittest import TestCase
 from mock import patch
 
 from curtin.reporter.legacy import (
@@ -39,13 +38,12 @@ from curtin import reporter
 from curtin.reporter import handlers
 from curtin import url_helper
 from curtin.reporter import events
+from .helpers import CiTestCase
 
-import os
-import tempfile
 import base64
 
 
-class TestLegacyReporter(TestCase):
+class TestLegacyReporter(CiTestCase):
 
     @patch('curtin.reporter.legacy.LOG')
     def test_load_reporter_logs_empty_cfg(self, mock_LOG):
@@ -72,7 +70,7 @@ class TestLegacyReporter(TestCase):
         self.assertTrue(mock_LOG.error.called)
 
 
-class TestMAASReporter(TestCase):
+class TestMAASReporter(CiTestCase):
     def test_load_factory_raises_exception_wrong_options(self):
         options = {'wrong': 'wrong'}
         self.assertRaises(
@@ -86,7 +84,7 @@ class TestMAASReporter(TestCase):
         self.assertIsInstance(reporter, MAASReporter)
 
 
-class TestReporter(TestCase):
+class TestReporter(CiTestCase):
     config = {'element1': {'type': 'webhook', 'level': 'INFO',
                            'consumer_key': "ck_foo",
                            'consumer_secret': 'cs_foo',
@@ -175,39 +173,32 @@ class TestReporter(TestCase):
     @patch('curtin.reporter.events.report_event')
     def test_report_finished_post_files(self, mock_report_event):
         test_data = b'abcdefg'
-        tmp = tempfile.mkstemp()
-        try:
-            with open(tmp[1], 'wb') as fp:
-                fp.write(test_data)
-            events.report_finish_event(self.ev_name, self.ev_desc,
-                                       post_files=[tmp[1]])
-            event = self._get_reported_event(mock_report_event)
-            files = event.as_dict().get('files')
-            self.assertTrue(len(files) == 1)
-            self.assertEqual(files[0].get('path'), tmp[1])
-            self.assertEqual(files[0].get('encoding'), 'base64')
-            self.assertEqual(files[0].get('content'),
-                             base64.b64encode(test_data).decode())
-        finally:
-            os.remove(tmp[1])
+        tmpfname = self.tmp_path('testfile')
+        with open(tmpfname, 'wb') as fp:
+            fp.write(test_data)
+        events.report_finish_event(self.ev_name, self.ev_desc,
+                                   post_files=[tmpfname])
+        event = self._get_reported_event(mock_report_event)
+        files = event.as_dict().get('files')
+        self.assertTrue(len(files) == 1)
+        self.assertEqual(files[0].get('path'), tmpfname)
+        self.assertEqual(files[0].get('encoding'), 'base64')
+        self.assertEqual(files[0].get('content'),
+                         base64.b64encode(test_data).decode())
 
     @patch('curtin.url_helper.OauthUrlHelper')
     def test_webhook_handler_post_files(self, mock_url_helper):
         test_data = b'abcdefg'
-        tmp = tempfile.mkstemp()
-        tmpfname = tmp[1]
-        try:
-            with open(tmpfname, 'wb') as fp:
-                fp.write(test_data)
-            event = events.FinishReportingEvent('test_event_name',
-                                                'test event description',
-                                                post_files=[tmpfname],
-                                                level='INFO')
-            webhook_handler = handlers.WebHookHandler('127.0.0.1:8000',
-                                                      level='INFO')
-            webhook_handler.publish_event(event)
-            webhook_handler.oauth_helper.geturl.assert_called_with(
-                url='127.0.0.1:8000', data=event.as_dict(),
-                headers=webhook_handler.headers, retries=None)
-        finally:
-            os.remove(tmpfname)
+        tmpfname = self.tmp_path('testfile')
+        with open(tmpfname, 'wb') as fp:
+            fp.write(test_data)
+        event = events.FinishReportingEvent('test_event_name',
+                                            'test event description',
+                                            post_files=[tmpfname],
+                                            level='INFO')
+        webhook_handler = handlers.WebHookHandler('127.0.0.1:8000',
+                                                  level='INFO')
+        webhook_handler.publish_event(event)
+        webhook_handler.oauth_helper.geturl.assert_called_with(
+            url='127.0.0.1:8000', data=event.as_dict(),
+            headers=webhook_handler.headers, retries=None)

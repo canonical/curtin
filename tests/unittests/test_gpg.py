@@ -1,12 +1,12 @@
-from unittest import TestCase
 from mock import call, patch
 import textwrap
 
 from curtin import gpg
 from curtin import util
+from .helpers import CiTestCase
 
 
-class TestCurtinGpg(TestCase):
+class TestCurtinGpg(CiTestCase):
 
     @patch('curtin.util.subp')
     def test_export_armour(self, mock_subp):

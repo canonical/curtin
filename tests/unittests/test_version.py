@@ -1,13 +1,13 @@
-from unittest import TestCase
 import mock
 import subprocess
 import os
 
 from curtin import version
 from curtin import __version__ as old_version
+from .helpers import CiTestCase
 
 
-class CurtinVersionBase(TestCase):
+class CurtinVersionBase(CiTestCase):
     def setUp(self):
         super(CurtinVersionBase, self).setUp()
 

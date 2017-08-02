@@ -1,10 +1,10 @@
 import mock
 
-from unittest import TestCase
 from curtin.block import iscsi
+from .helpers import CiTestCase
 
 
-class IscsiTestBase(TestCase):
+class IscsiTestBase(CiTestCase):
     def setUp(self):
         super(IscsiTestBase, self).setUp()
 

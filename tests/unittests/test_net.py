@@ -1,16 +1,14 @@
-from unittest import TestCase
 import mock
 import os
-import shutil
-import tempfile
 import yaml
 
 from curtin import config, net, util
 import curtin.net.network_state as network_state
+from .helpers import CiTestCase
 from textwrap import dedent
 
 
-class TestNetParserData(TestCase):
+class TestNetParserData(CiTestCase):
 
     def test_parse_deb_config_data_ignores_comments(self):
         contents = dedent("""\
@@ -235,13 +233,10 @@ class TestNetParserData(TestCase):
             }, ifaces)
 
 
-class TestNetParser(TestCase):
+class TestNetParser(CiTestCase):
 
     def setUp(self):
-        self.target = tempfile.mkdtemp()
-
-    def tearDown(self):
-        shutil.rmtree(self.target)
+        self.target = self.tmp_dir()
 
     def make_config(self, path=None, name=None, contents=None,
                     parse=True):
@@ -387,9 +382,9 @@ class TestNetParser(TestCase):
         self.assertEqual({}, observed)
 
 
-class TestNetConfig(TestCase):
+class TestNetConfig(CiTestCase):
     def setUp(self):
-        self.target = tempfile.mkdtemp()
+        self.target = self.tmp_dir()
         self.config_f = os.path.join(self.target, 'config')
         self.config = '''
 # YAML example of a simple network config
@@ -435,9 +430,6 @@ network:
         ns = network_state.NetworkState(version=version, config=config)
         ns.parse_config()
         return ns
-
-    def tearDown(self):
-        shutil.rmtree(self.target)
 
     def test_parse_net_config_data(self):
         ns = self.get_net_state()

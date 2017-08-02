@@ -1,14 +1,14 @@
-from unittest import TestCase
 from mock import call, patch
 from curtin.block import dev_short
 from curtin.block import mdadm
 from curtin import util
+from .helpers import CiTestCase
 import os
 import subprocess
 import textwrap
 
 
-class MdadmTestBase(TestCase):
+class MdadmTestBase(CiTestCase):
     def setUp(self):
         super(MdadmTestBase, self).setUp()
 

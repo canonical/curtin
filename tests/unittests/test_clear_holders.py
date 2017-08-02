@@ -1,12 +1,12 @@
-from unittest import TestCase
 import mock
-
-from curtin.block import clear_holders
 import os
 import textwrap
 
+from curtin.block import clear_holders
+from .helpers import CiTestCase
 
-class TestClearHolders(TestCase):
+
+class TestClearHolders(CiTestCase):
     test_blockdev = '/dev/null'
     test_syspath = '/sys/class/block/null'
     remove_retries = [0.2] * 150  # clear_holders defaults to 30 seconds

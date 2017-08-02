@@ -1,10 +1,10 @@
-from unittest import TestCase
 import copy
 
 from curtin.commands import install
+from .helpers import CiTestCase
 
 
-class TestMigrateProxy(TestCase):
+class TestMigrateProxy(CiTestCase):
     def test_legacy_moved_over(self):
         """Legacy setting should get moved over."""
         proxy = "http://my.proxy:3128"

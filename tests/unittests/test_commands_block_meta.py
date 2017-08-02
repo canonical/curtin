@@ -1,11 +1,11 @@
-from unittest import TestCase
 from mock import patch, call
 from argparse import Namespace
 
 from curtin.commands import block_meta
+from .helpers import CiTestCase
 
 
-class BlockMetaTestBase(TestCase):
+class BlockMetaTestBase(CiTestCase):
     def setUp(self):
         super(BlockMetaTestBase, self).setUp()
 
@@ -123,7 +123,6 @@ class TestBlockMetaSimple(BlockMetaTestBase):
 class TestBlockMeta(BlockMetaTestBase):
     def setUp(self):
         super(TestBlockMeta, self).setUp()
-        # self.target = tempfile.mkdtemp()
 
         basepath = 'curtin.commands.block_meta.'
         self.add_patch(basepath + 'get_path_to_storage_volume', 'mock_getpath')

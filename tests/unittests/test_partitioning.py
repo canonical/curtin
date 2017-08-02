@@ -1,6 +1,7 @@
-import unittest
+from unittest import skip
 import mock
 import curtin.commands.block_meta
+from .helpers import CiTestCase
 
 from sys import version_info
 if version_info.major == 2:
@@ -11,8 +12,8 @@ else:
 parted = None  # FIXME: remove these tests entirely. This is here for flake8
 
 
-@unittest.skip
-class TestBlock(unittest.TestCase):
+@skip
+class TestBlock(CiTestCase):
     storage_config = {
         "sda": {"id": "sda", "type": "disk", "ptable": "msdos",
                 "serial": "DISK_1", "grub_device": "True"},

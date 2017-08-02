@@ -1,13 +1,13 @@
-from unittest import TestCase
 from mock import patch, call
 import copy
 import os
 
 from curtin.commands import apply_net
 from curtin import util
+from .helpers import CiTestCase
 
 
-class ApplyNetTestBase(TestCase):
+class ApplyNetTestBase(CiTestCase):
     def setUp(self):
         super(ApplyNetTestBase, self).setUp()
 

@@ -1,16 +1,14 @@
-from unittest import TestCase, skipIf
+from unittest import skipIf
 import mock
 import os
 import stat
-import shutil
-import tempfile
 from textwrap import dedent
 
 from curtin import util
-from .helpers import simple_mocked_open
+from .helpers import CiTestCase, simple_mocked_open
 
 
-class TestLogTimer(TestCase):
+class TestLogTimer(CiTestCase):
     def test_logger_called(self):
         data = {}
 
@@ -24,15 +22,12 @@ class TestLogTimer(TestCase):
         self.assertIn("mymessage", data['msg'])
 
 
-class TestDisableDaemons(TestCase):
+class TestDisableDaemons(CiTestCase):
     prcpath = "usr/sbin/policy-rc.d"
 
     def setUp(self):
-        self.target = tempfile.mkdtemp()
+        self.target = self.tmp_dir()
         self.temp_prc = os.path.join(self.target, self.prcpath)
-
-    def tearDown(self):
-        shutil.rmtree(self.target)
 
     def test_disable_daemons_in_root_works(self):
         ret = util.disable_daemons_in_root(self.target)
@@ -55,7 +50,7 @@ class TestDisableDaemons(TestCase):
         self.assertTrue(os.path.exists(self.temp_prc))
 
 
-class TestWhich(TestCase):
+class TestWhich(CiTestCase):
     def setUp(self):
         self.orig_is_exe = util.is_exe
         util.is_exe = self.my_is_exe
@@ -103,7 +98,7 @@ class TestWhich(TestCase):
         self.assertEqual(found, "/usr/bin2/fuzz")
 
 
-class TestLsbRelease(TestCase):
+class TestLsbRelease(CiTestCase):
     def setUp(self):
         self._reset_cache()
 
@@ -143,7 +138,7 @@ class TestLsbRelease(TestCase):
         self.assertEqual(util.lsb_release(), expected)
 
 
-class TestSubp(TestCase):
+class TestSubp(CiTestCase):
 
     stdin2err = ['bash', '-c', 'cat >&2']
     stdin2out = ['cat']
@@ -382,7 +377,7 @@ class TestSubp(TestCase):
         self.assertEqual(expected, args[0])
 
 
-class TestGetUnsharePidArgs(TestCase):
+class TestGetUnsharePidArgs(CiTestCase):
     """Test the internal implementation for when to unshare."""
 
     def setUp(self):
@@ -455,7 +450,7 @@ class TestGetUnsharePidArgs(TestCase):
         self.assertOff(util._get_unshare_pid_args("", "/target", 0))
 
 
-class TestHuman2Bytes(TestCase):
+class TestHuman2Bytes(CiTestCase):
     GB = 1024 * 1024 * 1024
     MB = 1024 * 1024
 
@@ -509,52 +504,42 @@ class TestHuman2Bytes(TestCase):
                 util.bytes2human(util.human2bytes(size_str)), size_str)
 
 
-class TestSetUnExecutable(TestCase):
+class TestSetUnExecutable(CiTestCase):
     tmpf = None
     tmpd = None
 
-    def tearDown(self):
-        if self.tmpf:
-            if os.path.exists(self.tmpf):
-                os.unlink(self.tmpf)
-            self.tmpf = None
-        if self.tmpd:
-            shutil.rmtree(self.tmpd)
-            self.tmpd = None
-
-    def tempfile(self, data=None):
-        fp, self.tmpf = tempfile.mkstemp()
-        if data:
-            fp.write(data)
-        os.close(fp)
-        return self.tmpf
+    def setUp(self):
+        super(CiTestCase, self).setUp()
+        self.tmpd = self.tmp_dir()
 
     def test_change_needed_returns_original_mode(self):
-        tmpf = self.tempfile()
+        tmpf = self.tmp_path('testfile')
+        util.write_file(tmpf, '')
         os.chmod(tmpf, 0o755)
         ret = util.set_unexecutable(tmpf)
         self.assertEqual(ret, 0o0755)
 
     def test_no_change_needed_returns_none(self):
-        tmpf = self.tempfile()
+        tmpf = self.tmp_path('testfile')
+        util.write_file(tmpf, '')
         os.chmod(tmpf, 0o600)
         ret = util.set_unexecutable(tmpf)
         self.assertEqual(ret, None)
 
     def test_change_does_as_expected(self):
-        tmpf = self.tempfile()
+        tmpf = self.tmp_path('testfile')
+        util.write_file(tmpf, '')
         os.chmod(tmpf, 0o755)
         ret = util.set_unexecutable(tmpf)
         self.assertEqual(ret, 0o0755)
         self.assertEqual(stat.S_IMODE(os.stat(tmpf).st_mode), 0o0644)
 
     def test_strict_no_exists_raises_exception(self):
-        self.tmpd = tempfile.mkdtemp()
         bogus = os.path.join(self.tmpd, 'bogus')
         self.assertRaises(ValueError, util.set_unexecutable, bogus, True)
 
 
-class TestTargetPath(TestCase):
+class TestTargetPath(CiTestCase):
     def test_target_empty_string(self):
         self.assertEqual("/etc/passwd", util.target_path("", "/etc/passwd"))
 
@@ -596,7 +581,7 @@ class TestTargetPath(TestCase):
                          util.target_path("/target/", "///my/path/"))
 
 
-class TestRunInChroot(TestCase):
+class TestRunInChroot(CiTestCase):
     """Test the legacy 'RunInChroot'.
 
     The test works by mocking ChrootableTarget's __enter__ to do nothing.
@@ -626,7 +611,7 @@ class TestRunInChroot(TestCase):
         m_subp.assert_called_with(cmd, target=target)
 
 
-class TestLoadFile(TestCase):
+class TestLoadFile(CiTestCase):
     """Test utility 'load_file'"""
 
     def test_load_file_simple(self):
@@ -657,7 +642,7 @@ class TestLoadFile(TestCase):
             self.assertEqual(loaded_contents, contents)
 
 
-class TestIpAddress(TestCase):
+class TestIpAddress(CiTestCase):
     """Test utility 'is_valid_ip{,v4,v6}_address'"""
 
     def test_is_valid_ipv6_address(self):
@@ -682,10 +667,9 @@ class TestIpAddress(TestCase):
             '2002:4559:1FE2:0000:0000:0000:4559:1FE2'))
 
 
-class TestLoadCommandEnvironment(TestCase):
+class TestLoadCommandEnvironment(CiTestCase):
     def setUp(self):
-        self.tmpd = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, self.tmpd)
+        self.tmpd = self.tmp_dir()
         all_names = {
             'CONFIG',
             'OUTPUT_FSTAB',
@@ -728,7 +712,7 @@ class TestLoadCommandEnvironment(TestCase):
             self.fail("unexpected key error raised: %s" % e)
 
 
-class TestWaitForRemoval(TestCase):
+class TestWaitForRemoval(CiTestCase):
     def test_wait_for_removal_missing_path(self):
         with self.assertRaises(ValueError):
             util.wait_for_removal(None)
@@ -796,7 +780,7 @@ class TestWaitForRemoval(TestCase):
         ])
 
 
-class TestGetEFIBootMGR(TestCase):
+class TestGetEFIBootMGR(CiTestCase):
 
     def setUp(self):
         super(TestGetEFIBootMGR, self).setUp()
