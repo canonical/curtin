@@ -59,10 +59,6 @@ class XenialBcacheBasic(relbase.xenial, TestBcacheBasic):
     __test__ = True
 
 
-class YakketyBcacheBasic(relbase.yakkety, TestBcacheBasic):
-    __test__ = False
-
-
 class ZestyBcacheBasic(relbase.zesty, TestBcacheBasic):
     __test__ = True
 

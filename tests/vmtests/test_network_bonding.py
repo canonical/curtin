@@ -77,17 +77,8 @@ class TrustyHWEXTestBonding(relbase.trusty_hwe_x, TrustyTestBonding):
     __test__ = True
 
 
-class WilyTestBonding(relbase.wily, TestNetworkBondingAbs):
-    # EOL - 2016-07-28
-    __test__ = False
-
-
 class XenialTestBonding(relbase.xenial, TestNetworkBondingAbs):
     __test__ = True
-
-
-class YakketyTestBonding(relbase.yakkety, TestNetworkBondingAbs):
-    __test__ = False
 
 
 class ZestyTestBonding(relbase.zesty, TestNetworkBondingAbs):

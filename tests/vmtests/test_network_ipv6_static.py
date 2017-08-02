@@ -49,10 +49,6 @@ class XenialTestNetworkIPV6Static(relbase.xenial, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
-class YakketyTestNetworkIPV6Static(relbase.yakkety, TestNetworkIPV6StaticAbs):
-    __test__ = False
-
-
 class ZestyTestNetworkIPV6Static(relbase.zesty, TestNetworkIPV6StaticAbs):
     __test__ = True
 

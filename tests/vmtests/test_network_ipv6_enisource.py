@@ -37,16 +37,6 @@ class XenialTestNetworkIPV6ENISource(relbase.xenial, TestNetworkIPV6ENISource):
                          fixby=(2017, 8, 16), removeby=(2017, 8, 31))
 
 
-class YakketyTestNetworkIPV6ENISource(relbase.yakkety,
-                                      TestNetworkIPV6ENISource):
-    __test__ = False
-
-    @classmethod
-    def test_ip_output(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1701097",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
-
-
 class ZestyTestNetworkIPV6ENISource(relbase.zesty, TestNetworkIPV6ENISource):
     __test__ = True
 

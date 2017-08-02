@@ -100,10 +100,6 @@ class XenialTestNetworkVlan(relbase.xenial, TestNetworkVlanAbs):
     __test__ = True
 
 
-class YakketyTestNetworkVlan(relbase.yakkety, TestNetworkVlanAbs):
-    __test__ = False
-
-
 class ZestyTestNetworkVlan(relbase.zesty, TestNetworkVlanAbs):
     __test__ = True
 
