@@ -838,12 +838,14 @@ def centos_network_curthooks(cfg, target=None):
             util.write_file(cloud_init_yum_repo,
                             content=cloud_init_repo(rpm_get_dist_id(target)))
 
-            # we separate the installation of epel from cloud-init as
-            # cloud-init will depend on packages included in epel and yum needs
-            # to add the repository before we can install cloud-init
+            # we separate the installation of repository packages (epel,
+            # cloud-init-el-release) as we need a new invocation of yum
+            # to read the newly installed repo files.
             YUM_CMD = ['yum', '-y', '--noplugins', 'install']
             retries = [1] * 30
             with util.ChrootableTarget(target) as in_chroot:
+                # ensure up-to-date ca-certificates to handle https mirror
+                # connections
                 in_chroot.subp(YUM_CMD + ['ca-certificates'], capture=True,
                                log_captured=True, retries=retries)
                 in_chroot.subp(YUM_CMD + ['epel-release'], capture=True,
