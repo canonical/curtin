@@ -314,7 +314,6 @@ class XenialTestScsiBasic(relbase.xenial, TestBasicScsiAbs):
     __test__ = True
 
 
-
 class ZestyTestScsiBasic(relbase.zesty, TestBasicScsiAbs):
     __test__ = True
 
