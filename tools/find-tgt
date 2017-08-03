@@ -43,7 +43,7 @@ wait_for_tgtd() {
     local pid="$1" portal="$2"
     local tries=10 naplen=1 try=1
     local out="" pidstgt="" name="tgtd"
-    while [ $try -le $tries ]; do
+    while :; do
         # did we succesfully attach to the correct port?
         out=$(netstat --program --all --numeric 2>/dev/null) ||
             fail "failed to netstat --program --all --numeric"
@@ -61,6 +61,7 @@ wait_for_tgtd() {
             # nothing listening. retry.
             :
         fi
+        [ $try -le $tries ] || break
         try=$(($try+1))
         sleep $naplen
     done
