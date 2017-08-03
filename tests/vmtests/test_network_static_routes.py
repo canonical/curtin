@@ -53,11 +53,6 @@ class XenialTestNetworkStaticRoutes(relbase.xenial,
     __test__ = True
 
 
-class YakketyTestNetworkStaticRoutes(relbase.yakkety,
-                                     TestNetworkStaticRoutesAbs):
-    __test__ = False
-
-
 class ZestyTestNetworkStaticRoutes(relbase.zesty, TestNetworkStaticRoutesAbs):
     __test__ = True
 

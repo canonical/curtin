@@ -73,10 +73,6 @@ class XenialTestNetworkIPV6(relbase.xenial, TestNetworkIPV6Abs):
                          fixby=(2017, 8, 16), removeby=(2017, 8, 31))
 
 
-class YakketyTestNetworkIPV6(relbase.yakkety, TestNetworkIPV6Abs):
-    __test__ = False
-
-
 class ZestyTestNetworkIPV6(relbase.zesty, TestNetworkIPV6Abs):
     __test__ = True
 

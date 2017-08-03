@@ -56,10 +56,6 @@ class XenialTestMultipathBasic(relbase.xenial, TestMultipathBasicAbs):
     __test__ = True
 
 
-class YakketyTestMultipathBasic(relbase.yakkety, TestMultipathBasicAbs):
-    __test__ = False
-
-
 class ZestyTestMultipathBasic(relbase.zesty, TestMultipathBasicAbs):
     __test__ = True
 

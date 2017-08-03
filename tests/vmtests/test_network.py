@@ -477,10 +477,6 @@ class XenialTestNetworkBasic(relbase.xenial, TestNetworkBasicAbs):
     __test__ = True
 
 
-class YakketyTestNetworkBasic(relbase.yakkety, TestNetworkBasicAbs):
-    __test__ = False
-
-
 class ZestyTestNetworkBasic(relbase.zesty, TestNetworkBasicAbs):
     __test__ = True
 

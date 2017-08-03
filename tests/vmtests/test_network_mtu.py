@@ -197,10 +197,6 @@ class XenialTestNetworkMtu(relbase.xenial, TestNetworkMtuAbs):
     __test__ = True
 
 
-class YakketyTestNetworkMtu(relbase.yakkety, TestNetworkMtuAbs):
-    __test__ = False
-
-
 class ZestyTestNetworkMtu(relbase.zesty, TestNetworkMtuAbs):
     __test__ = True
 
