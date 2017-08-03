@@ -1,4 +1,3 @@
-from unittest import TestCase
 
 from curtin import block
 from curtin import config
@@ -6,9 +5,10 @@ from curtin import futil
 from curtin import util
 
 from curtin.commands import curthooks
+from .helpers import CiTestCase
 
 
-class TestPublicAPI(TestCase):
+class TestPublicAPI(CiTestCase):
     """Test entry points known to be used externally.
 
     Curtin's only known external library user is the curthooks

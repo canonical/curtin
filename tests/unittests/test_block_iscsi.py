@@ -1,23 +1,11 @@
 import mock
 
-from unittest import TestCase
 from curtin.block import iscsi
+from .helpers import CiTestCase
 
 
-class IscsiTestBase(TestCase):
-    def setUp(self):
-        super(IscsiTestBase, self).setUp()
+class TestBlockIscsiPortalParsing(CiTestCase):
 
-    def add_patch(self, target, attr):
-        """Patches specified target object and sets it as attr on test
-        instance also schedules cleanup"""
-        m = mock.patch(target, autospec=True)
-        p = m.start()
-        self.addCleanup(m.stop)
-        setattr(self, attr, p)
-
-
-class TestBlockIscsiPortalParsing(IscsiTestBase):
     def test_iscsi_portal_parsing_string(self):
         with self.assertRaisesRegexp(ValueError, 'not a string'):
             iscsi.assert_valid_iscsi_portal(1234)
@@ -490,7 +478,7 @@ class TestBlockIscsiPortalParsing(IscsiTestBase):
         self.assertEquals(i.target, 'iqn.2017-04.com.example.test:target-name')
 
 
-class TestBlockIscsiVolPath(IscsiTestBase):
+class TestBlockIscsiVolPath(CiTestCase):
     # non-iscsi backed disk returns false
     # regular iscsi-backed disk returns true
     # layered setup without an iscsi member returns false

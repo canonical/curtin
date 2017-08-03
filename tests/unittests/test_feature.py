@@ -1,9 +1,9 @@
-from unittest import TestCase
+from .helpers import CiTestCase
 
 import curtin
 
 
-class TestExportsFeatures(TestCase):
+class TestExportsFeatures(CiTestCase):
     def test_has_storage_v1(self):
         self.assertIn('STORAGE_CONFIG_V1', curtin.FEATURES)
 

@@ -1,10 +1,10 @@
 from curtin.block import lvm
 
-from unittest import TestCase
+from .helpers import CiTestCase
 import mock
 
 
-class TestBlockLvm(TestCase):
+class TestBlockLvm(CiTestCase):
     vg_name = 'ubuntu-volgroup'
 
     @mock.patch('curtin.block.lvm.util')

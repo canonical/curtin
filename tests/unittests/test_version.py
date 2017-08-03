@@ -1,28 +1,16 @@
-from unittest import TestCase
 import mock
 import subprocess
 import os
 
 from curtin import version
 from curtin import __version__ as old_version
+from .helpers import CiTestCase
 
 
-class CurtinVersionBase(TestCase):
-    def setUp(self):
-        super(CurtinVersionBase, self).setUp()
-
-    def add_patch(self, target, attr):
-        """Patches specified target object and sets it as attr on test
-        instance also schedules cleanup"""
-        m = mock.patch(target, autospec=True)
-        p = m.start()
-        self.addCleanup(m.stop)
-        setattr(self, attr, p)
-
-
-class TestCurtinVersion(CurtinVersionBase):
+class TestCurtinVersion(CiTestCase):
 
     def setUp(self):
+        super(TestCurtinVersion, self).setUp()
         self.add_patch('subprocess.check_output', 'mock_subp')
         self.add_patch('os.path', 'mock_path')
 

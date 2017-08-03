@@ -1,12 +1,12 @@
-from unittest import TestCase
 import copy
 import json
 import textwrap
 
 from curtin import config
+from .helpers import CiTestCase
 
 
-class TestMerge(TestCase):
+class TestMerge(CiTestCase):
     def test_merge_cfg_string(self):
         d1 = {'str1': 'str_one'}
         d2 = {'dict1': {'d1.e1': 'd1-e1'}}
@@ -16,7 +16,7 @@ class TestMerge(TestCase):
         self.assertEqual(d1, expected)
 
 
-class TestCmdArg2Cfg(TestCase):
+class TestCmdArg2Cfg(CiTestCase):
     def test_cmdarg_flat(self):
         self.assertEqual(config.cmdarg2cfg("foo=bar"), {'foo': 'bar'})
 
@@ -50,7 +50,7 @@ class TestCmdArg2Cfg(TestCase):
         self.assertEqual(via_merge, via_merge_cmdarg)
 
 
-class TestConfigArchive(TestCase):
+class TestConfigArchive(CiTestCase):
     def test_archive_dict(self):
         myarchive = _replace_consts(textwrap.dedent("""
             _ARCH_HEAD_

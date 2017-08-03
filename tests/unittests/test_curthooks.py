@@ -1,29 +1,14 @@
 import os
-from unittest import TestCase
 from mock import call, patch, MagicMock
-import shutil
-import tempfile
 
 from curtin.commands import curthooks
 from curtin import util
 from curtin import config
 from curtin.reporter import events
+from .helpers import CiTestCase
 
 
-class CurthooksBase(TestCase):
-    def setUp(self):
-        super(CurthooksBase, self).setUp()
-
-    def add_patch(self, target, attr, autospec=True):
-        """Patches specified target object and sets it as attr on test
-        instance also schedules cleanup"""
-        m = patch(target, autospec=autospec)
-        p = m.start()
-        self.addCleanup(m.stop)
-        setattr(self, attr, p)
-
-
-class TestGetFlashKernelPkgs(CurthooksBase):
+class TestGetFlashKernelPkgs(CiTestCase):
     def setUp(self):
         super(TestGetFlashKernelPkgs, self).setUp()
         self.add_patch('curtin.util.subp', 'mock_subp')
@@ -57,7 +42,7 @@ class TestGetFlashKernelPkgs(CurthooksBase):
         self.mock_is_uefi_bootable.assert_called_once_with()
 
 
-class TestCurthooksInstallKernel(CurthooksBase):
+class TestCurthooksInstallKernel(CiTestCase):
     def setUp(self):
         super(TestCurthooksInstallKernel, self).setUp()
         self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
@@ -70,7 +55,7 @@ class TestCurthooksInstallKernel(CurthooksBase):
                                       'fallback-package': 'mock-fallback',
                                       'mapping': {}}}
         # Tests don't actually install anything so we just need a name
-        self.target = tempfile.mktemp()
+        self.target = self.tmp_dir()
 
     def test__installs_flash_kernel_packages_when_needed(self):
         kernel_package = self.kernel_cfg.get('kernel', {}).get('package', {})
@@ -94,14 +79,11 @@ class TestCurthooksInstallKernel(CurthooksBase):
             [kernel_package], target=self.target)
 
 
-class TestUpdateInitramfs(CurthooksBase):
+class TestUpdateInitramfs(CiTestCase):
     def setUp(self):
         super(TestUpdateInitramfs, self).setUp()
         self.add_patch('curtin.util.subp', 'mock_subp')
-        self.target = tempfile.mkdtemp()
-
-    def tearDown(self):
-        shutil.rmtree(self.target)
+        self.target = self.tmp_dir()
 
     def _mnt_call(self, point):
         target = os.path.join(self.target, point)
@@ -134,7 +116,7 @@ class TestUpdateInitramfs(CurthooksBase):
         self.mock_subp.assert_has_calls(subp_calls)
 
 
-class TestInstallMissingPkgs(CurthooksBase):
+class TestInstallMissingPkgs(CiTestCase):
     def setUp(self):
         super(TestInstallMissingPkgs, self).setUp()
         self.add_patch('platform.machine', 'mock_machine')
@@ -176,11 +158,11 @@ class TestInstallMissingPkgs(CurthooksBase):
         self.assertEqual([], self.mock_install_packages.call_args_list)
 
 
-class TestSetupZipl(CurthooksBase):
+class TestSetupZipl(CiTestCase):
 
     def setUp(self):
         super(TestSetupZipl, self).setUp()
-        self.target = tempfile.mkdtemp()
+        self.target = self.tmp_dir()
 
     @patch('curtin.block.get_devices_for_mp')
     @patch('platform.machine')
@@ -203,11 +185,11 @@ class TestSetupZipl(CurthooksBase):
             content)
 
 
-class TestSetupGrub(CurthooksBase):
+class TestSetupGrub(CiTestCase):
 
     def setUp(self):
         super(TestSetupGrub, self).setUp()
-        self.target = tempfile.mkdtemp()
+        self.target = self.tmp_dir()
         self.add_patch('curtin.util.lsb_release', 'mock_lsb_release')
         self.mock_lsb_release.return_value = {
             'codename': 'xenial',
@@ -229,9 +211,6 @@ class TestSetupGrub(CurthooksBase):
         self.mock_in_chroot_subp = self.mock_in_chroot.subp
         self.mock_in_chroot_subp.side_effect = iter(self.in_chroot_subp_output)
         self.mock_chroot.return_value = self.mock_in_chroot
-
-    def tearDown(self):
-        shutil.rmtree(self.target)
 
     def test_uses_old_grub_install_devices_in_cfg(self):
         cfg = {
@@ -461,17 +440,13 @@ class TestSetupGrub(CurthooksBase):
             self.mock_in_chroot_subp.call_args_list[0][0])
 
 
-class TestUbuntuCoreHooks(CurthooksBase):
+class TestUbuntuCoreHooks(CiTestCase):
     def setUp(self):
         super(TestUbuntuCoreHooks, self).setUp()
         self.target = None
 
-    def tearDown(self):
-        if self.target:
-            shutil.rmtree(self.target)
-
     def test_target_is_ubuntu_core(self):
-        self.target = tempfile.mkdtemp()
+        self.target = self.tmp_dir()
         ubuntu_core_path = os.path.join(self.target, 'system-data',
                                         'var/lib/snapd')
         util.ensure_dir(ubuntu_core_path)
@@ -484,7 +459,7 @@ class TestUbuntuCoreHooks(CurthooksBase):
         self.assertFalse(is_core)
 
     def test_target_is_ubuntu_core_noncore_target(self):
-        self.target = tempfile.mkdtemp()
+        self.target = self.tmp_dir()
         non_core_path = os.path.join(self.target, 'curtin')
         util.ensure_dir(non_core_path)
         self.assertTrue(os.path.isdir(non_core_path))
@@ -496,7 +471,7 @@ class TestUbuntuCoreHooks(CurthooksBase):
     @patch('curtin.commands.curthooks.handle_cloudconfig')
     def test_curthooks_no_config(self, mock_handle_cc, mock_del_file,
                                  mock_write_file):
-        self.target = tempfile.mkdtemp()
+        self.target = self.tmp_dir()
         cfg = {}
         curthooks.ubuntu_core_curthooks(cfg, target=self.target)
         self.assertEqual(len(mock_handle_cc.call_args_list), 0)
@@ -505,7 +480,7 @@ class TestUbuntuCoreHooks(CurthooksBase):
 
     @patch('curtin.commands.curthooks.handle_cloudconfig')
     def test_curthooks_cloud_config_remove_disabled(self, mock_handle_cc):
-        self.target = tempfile.mkdtemp()
+        self.target = self.tmp_dir()
         uc_cloud = os.path.join(self.target, 'system-data', 'etc/cloud')
         cc_disabled = os.path.join(uc_cloud, 'cloud-init.disabled')
         cc_path = os.path.join(uc_cloud, 'cloud.cfg.d')
@@ -531,7 +506,7 @@ class TestUbuntuCoreHooks(CurthooksBase):
     @patch('curtin.commands.curthooks.handle_cloudconfig')
     def test_curthooks_cloud_config(self, mock_handle_cc, mock_del_file,
                                     mock_write_file):
-        self.target = tempfile.mkdtemp()
+        self.target = self.tmp_dir()
         cfg = {
             'cloudconfig': {
                 'file1': {
@@ -553,7 +528,7 @@ class TestUbuntuCoreHooks(CurthooksBase):
     @patch('curtin.commands.curthooks.handle_cloudconfig')
     def test_curthooks_net_config(self, mock_handle_cc, mock_del_file,
                                   mock_write_file):
-        self.target = tempfile.mkdtemp()
+        self.target = self.tmp_dir()
         cfg = {
             'network': {
                 'version': '1',
@@ -603,7 +578,7 @@ class TestUbuntuCoreHooks(CurthooksBase):
             curthooks.handle_cloudconfig([], base_dir="foobar")
 
 
-class TestDetectRequiredPackages(TestCase):
+class TestDetectRequiredPackages(CiTestCase):
     test_config = {
         'storage': {
             1: {

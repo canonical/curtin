@@ -1,19 +1,16 @@
-from unittest import TestCase
 import functools
 import os
 import mock
-import tempfile
-import shutil
 import sys
 
 from collections import OrderedDict
 
-from .helpers import simple_mocked_open
+from .helpers import CiTestCase, simple_mocked_open
 from curtin import util
 from curtin import block
 
 
-class TestBlock(TestCase):
+class TestBlock(CiTestCase):
 
     @mock.patch("curtin.block.util")
     def test_get_volume_uuid(self, mock_util):
@@ -103,7 +100,7 @@ class TestBlock(TestCase):
             block.lookup_disk(serial)
 
 
-class TestSysBlockPath(TestCase):
+class TestSysBlockPath(CiTestCase):
     @mock.patch("curtin.block.get_blockdev_for_partition")
     @mock.patch("os.path.exists")
     def test_existing_valid_devname(self, m_os_path_exists, m_get_blk):
@@ -177,19 +174,13 @@ class TestSysBlockPath(TestCase):
                          block.sys_block_path('/dev/cciss/c0d0p1'))
 
 
-class TestWipeFile(TestCase):
+class TestWipeFile(CiTestCase):
     def __init__(self, *args, **kwargs):
         super(TestWipeFile, self).__init__(*args, **kwargs)
 
-    def tfile(self, *args):
-        # return a temp file in a dir that will be cleaned up
-        tmpdir = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, tmpdir)
-        return os.path.sep.join([tmpdir] + list(args))
-
     def test_non_exist_raises_file_not_found(self):
         try:
-            p = self.tfile("enofile")
+            p = self.tmp_path("enofile")
             block.wipe_file(p)
             raise Exception("%s did not raise exception" % p)
         except Exception as e:
@@ -198,7 +189,7 @@ class TestWipeFile(TestCase):
 
     def test_non_exist_dir_raises_file_not_found(self):
         try:
-            p = self.tfile("enodir", "file")
+            p = self.tmp_path(os.path.sep.join(["enodir", "file"]))
             block.wipe_file(p)
             raise Exception("%s did not raise exception" % p)
         except Exception as e:
@@ -207,7 +198,7 @@ class TestWipeFile(TestCase):
 
     def test_default_is_zero(self):
         flen = 1024
-        myfile = self.tfile("def_zero")
+        myfile = self.tmp_path("def_zero")
         util.write_file(myfile, flen * b'\1', omode="wb")
         block.wipe_file(myfile)
         found = util.load_file(myfile, decode=False)
@@ -219,7 +210,7 @@ class TestWipeFile(TestCase):
         def reader(size):
             return size * b'\1'
 
-        myfile = self.tfile("reader_used")
+        myfile = self.tmp_path("reader_used")
         # populate with nulls
         util.write_file(myfile, flen * b'\0', omode="wb")
         block.wipe_file(myfile, reader=reader, buflen=flen)
@@ -236,15 +227,15 @@ class TestWipeFile(TestCase):
             data['x'] = data['x'][size:]
             return buf
 
-        myfile = self.tfile("reader_twice")
+        myfile = self.tmp_path("reader_twice")
         util.write_file(myfile, flen * b'\xff', omode="wb")
         block.wipe_file(myfile, reader=reader, buflen=20)
         found = util.load_file(myfile, decode=False)
         self.assertEqual(found, expected)
 
     def test_reader_fhandle(self):
-        srcfile = self.tfile("fhandle_src")
-        trgfile = self.tfile("fhandle_trg")
+        srcfile = self.tmp_path("fhandle_src")
+        trgfile = self.tmp_path("fhandle_trg")
         data = '\n'.join(["this is source file." for f in range(0, 10)] + [])
         util.write_file(srcfile, data)
         util.write_file(trgfile, 'a' * len(data))
@@ -254,7 +245,7 @@ class TestWipeFile(TestCase):
         self.assertEqual(data, found)
 
     def test_exclusive_open_raise_missing(self):
-        myfile = self.tfile("no-such-file")
+        myfile = self.tmp_path("no-such-file")
 
         with self.assertRaises(ValueError):
             with block.exclusive_open(myfile) as fp:
@@ -265,7 +256,7 @@ class TestWipeFile(TestCase):
     @mock.patch('os.open')
     def test_exclusive_open(self, mock_os_open, mock_os_fdopen, mock_os_close):
         flen = 1024
-        myfile = self.tfile("my_exclusive_file")
+        myfile = self.tmp_path("my_exclusive_file")
         util.write_file(myfile, flen * b'\1', omode="wb")
         mock_fd = 3
         mock_os_open.return_value = mock_fd
@@ -288,7 +279,7 @@ class TestWipeFile(TestCase):
                                                     mock_os_close,
                                                     mock_util_fuser):
         flen = 1024
-        myfile = self.tfile("my_exclusive_file")
+        myfile = self.tmp_path("my_exclusive_file")
         util.write_file(myfile, flen * b'\1', omode="wb")
         mock_os_open.side_effect = OSError("NO_O_EXCL")
         mock_holders.return_value = ['md1']
@@ -310,7 +301,7 @@ class TestWipeFile(TestCase):
     def test_exclusive_open_fdopen_failure(self, mock_os_open,
                                            mock_os_fdopen, mock_os_close):
         flen = 1024
-        myfile = self.tfile("my_exclusive_file")
+        myfile = self.tmp_path("my_exclusive_file")
         util.write_file(myfile, flen * b'\1', omode="wb")
         mock_fd = 3
         mock_os_open.return_value = mock_fd
@@ -328,7 +319,7 @@ class TestWipeFile(TestCase):
             self.assertEqual([], mock_os_close.call_args_list)
 
 
-class TestWipeVolume(TestCase):
+class TestWipeVolume(CiTestCase):
     dev = '/dev/null'
 
     @mock.patch('curtin.block.lvm')
@@ -366,7 +357,7 @@ class TestWipeVolume(TestCase):
             block.wipe_volume(self.dev, mode='invalidmode')
 
 
-class TestBlockKnames(TestCase):
+class TestBlockKnames(CiTestCase):
     """Tests for some of the kname functions in block"""
     def test_determine_partition_kname(self):
         part_knames = [(('sda', 1), 'sda1'),
@@ -430,7 +421,7 @@ class TestBlockKnames(TestCase):
                 block.kname_to_path(kname)
 
 
-class TestPartTableSignature(TestCase):
+class TestPartTableSignature(CiTestCase):
     blockdev = '/dev/null'
     dos_content = b'\x00' * 0x1fe + b'\x55\xAA' + b'\x00' * 0xf00
     gpt_content = b'\x00' * 0x200 + b'EFI PART' + b'\x00' * (0x200 - 8)
@@ -493,7 +484,7 @@ class TestPartTableSignature(TestCase):
                     block.check_efi_signature(self.blockdev))
 
 
-class TestNonAscii(TestCase):
+class TestNonAscii(CiTestCase):
     @mock.patch('curtin.block.util.subp')
     def test_lsblk(self, mock_subp):
         # lsblk can write non-ascii data, causing shlex to blow up
@@ -519,14 +510,7 @@ class TestNonAscii(TestCase):
         block.blkid()
 
 
-class TestSlaveKnames(TestCase):
-    def add_patch(self, target, attr, autospec=True):
-        """Patches specified target object and sets it as attr on test
-        instance also schedules cleanup"""
-        m = mock.patch(target, autospec=autospec)
-        p = m.start()
-        self.addCleanup(m.stop)
-        setattr(self, attr, p)
+class TestSlaveKnames(CiTestCase):
 
     def setUp(self):
         super(TestSlaveKnames, self).setUp()

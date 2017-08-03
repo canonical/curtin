@@ -1,10 +1,10 @@
 from curtin.block import mkfs
 
-from unittest import TestCase
+from .helpers import CiTestCase
 import mock
 
 
-class TestBlockMkfs(TestCase):
+class TestBlockMkfs(CiTestCase):
     test_uuid = "fb26cc6c-ae73-11e5-9e38-2fb63f0c3155"
 
     def _get_config(self, fstype):
