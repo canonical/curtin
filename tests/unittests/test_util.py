@@ -163,8 +163,8 @@ class TestSubp(CiTestCase):
     def setUp(self):
         super(TestSubp, self).setUp()
         self.add_patch(
-            'curtin.util._get_unshare_pid_args', 'mock_get_unshare_pid_args')
-        self.mock_get_unshare_pid_args.return_value = []
+            'curtin.util._get_unshare_pid_args', 'mock_get_unshare_pid_args',
+            return_value=[])
 
     def printf_cmd(self, *args):
         # bash's printf supports \xaa.  So does /usr/bin/printf
@@ -386,11 +386,12 @@ class TestGetUnsharePidArgs(CiTestCase):
 
     def setUp(self):
         super(TestGetUnsharePidArgs, self).setUp()
-        self.add_patch(
-            'curtin.util._has_unshare_pid', 'mock_has_unshare_pid')
-        self.mock_has_unshare_pid.return_value = True
-        self.add_patch('curtin.util.os.geteuid', 'mock_geteuid')
-        self.mock_geteuid.return_value = 0
+        self.add_patch('curtin.util._has_unshare_pid', 'mock_has_unshare_pid',
+                       return_value=True)
+        # our trusty tox environment with mock 1.0.1 will stack trace
+        # if autospec is not disabled here.
+        self.add_patch('curtin.util.os.geteuid', 'mock_geteuid',
+                       autospec=False, return_value=0)
 
     def assertOff(self, result):
         self.assertEqual([], result)

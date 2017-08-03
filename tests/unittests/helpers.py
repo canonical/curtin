@@ -52,10 +52,12 @@ def simple_mocked_open(content=None):
 class CiTestCase(TestCase):
     """Common testing class which all curtin unit tests subclass."""
 
-    def add_patch(self, target, attr, autospec=True):
+    def add_patch(self, target, attr, **kwargs):
         """Patches specified target object and sets it as attr on test
         instance also schedules cleanup"""
-        m = mock.patch(target, autospec=autospec)
+        if 'autospec' not in kwargs:
+            kwargs['autospec'] = True
+        m = mock.patch(target, **kwargs)
         p = m.start()
         self.addCleanup(m.stop)
         setattr(self, attr, p)
