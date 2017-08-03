@@ -236,6 +236,7 @@ class TestNetParserData(CiTestCase):
 class TestNetParser(CiTestCase):
 
     def setUp(self):
+        super(TestNetParser, self).setUp()
         self.target = self.tmp_dir()
 
     def make_config(self, path=None, name=None, contents=None,
@@ -384,6 +385,7 @@ class TestNetParser(CiTestCase):
 
 class TestNetConfig(CiTestCase):
     def setUp(self):
+        super(TestNetConfig, self).setUp()
         self.target = self.tmp_dir()
         self.config_f = os.path.join(self.target, 'config')
         self.config = '''

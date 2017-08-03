@@ -26,6 +26,7 @@ class TestDisableDaemons(CiTestCase):
     prcpath = "usr/sbin/policy-rc.d"
 
     def setUp(self):
+        super(TestDisableDaemons, self).setUp()
         self.target = self.tmp_dir()
         self.temp_prc = os.path.join(self.target, self.prcpath)
 
@@ -51,7 +52,9 @@ class TestDisableDaemons(CiTestCase):
 
 
 class TestWhich(CiTestCase):
+
     def setUp(self):
+        super(TestWhich, self).setUp()
         self.orig_is_exe = util.is_exe
         util.is_exe = self.my_is_exe
         self.orig_path = os.environ.get("PATH")
@@ -99,7 +102,9 @@ class TestWhich(CiTestCase):
 
 
 class TestLsbRelease(CiTestCase):
+
     def setUp(self):
+        super(TestLsbRelease, self).setUp()
         self._reset_cache()
 
     def _reset_cache(self):
@@ -664,7 +669,9 @@ class TestIpAddress(CiTestCase):
 
 
 class TestLoadCommandEnvironment(CiTestCase):
+
     def setUp(self):
+        super(TestLoadCommandEnvironment, self).setUp()
         self.tmpd = self.tmp_dir()
         all_names = {
             'CONFIG',
