@@ -98,7 +98,7 @@ else
 fi
 
 # dump CURTIN_* and TGT_* and proxy variables just for info
-for v in ${!CURTIN_*} ${!TGT_*} http_proxy https_proxy no_proxy; do; do
+for v in ${!CURTIN_*} ${!TGT_*} http_proxy https_proxy no_proxy; do
    echo "$v=${!v}"
 done
 
