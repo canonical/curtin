@@ -5,20 +5,7 @@ from curtin.commands import block_meta
 from .helpers import CiTestCase
 
 
-class BlockMetaTestBase(CiTestCase):
-    def setUp(self):
-        super(BlockMetaTestBase, self).setUp()
-
-    def add_patch(self, target, attr):
-        """Patches specified target object and sets it as attr on test
-        instance also schedules cleanup"""
-        m = patch(target, autospec=True)
-        p = m.start()
-        self.addCleanup(m.stop)
-        setattr(self, attr, p)
-
-
-class TestBlockMetaSimple(BlockMetaTestBase):
+class TestBlockMetaSimple(CiTestCase):
     def setUp(self):
         super(TestBlockMetaSimple, self).setUp()
         self.target = "my_target"
@@ -120,7 +107,8 @@ class TestBlockMetaSimple(BlockMetaTestBase):
             [call(['mount', devname, self.target])])
 
 
-class TestBlockMeta(BlockMetaTestBase):
+class TestBlockMeta(CiTestCase):
+
     def setUp(self):
         super(TestBlockMeta, self).setUp()
 

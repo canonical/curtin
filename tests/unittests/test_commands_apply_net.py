@@ -7,20 +7,8 @@ from curtin import util
 from .helpers import CiTestCase
 
 
-class ApplyNetTestBase(CiTestCase):
-    def setUp(self):
-        super(ApplyNetTestBase, self).setUp()
+class TestApplyNet(CiTestCase):
 
-    def add_patch(self, target, attr):
-        """Patches specified target object and sets it as attr on test
-        instance also schedules cleanup"""
-        m = patch(target, autospec=True)
-        p = m.start()
-        self.addCleanup(m.stop)
-        setattr(self, attr, p)
-
-
-class TestApplyNet(ApplyNetTestBase):
     def setUp(self):
         super(TestApplyNet, self).setUp()
 
@@ -150,7 +138,7 @@ class TestApplyNet(ApplyNetTestBase):
         self.m_ipv6_mtu.assert_called_with(self.target)
 
 
-class TestApplyNetPatchIfupdown(ApplyNetTestBase):
+class TestApplyNetPatchIfupdown(CiTestCase):
 
     @patch('curtin.util.write_file')
     def test_apply_ipv6_mtu_hook(self, mock_write):
@@ -218,7 +206,7 @@ class TestApplyNetPatchIfupdown(ApplyNetTestBase):
         self.assertEqual(0, mock_write.call_count)
 
 
-class TestApplyNetPatchIpv6Priv(ApplyNetTestBase):
+class TestApplyNetPatchIpv6Priv(CiTestCase):
 
     @patch('curtin.util.del_file')
     @patch('curtin.util.load_file')
@@ -274,7 +262,7 @@ class TestApplyNetPatchIpv6Priv(ApplyNetTestBase):
         self.assertEqual(0, mock_load.call_count)
 
 
-class TestApplyNetRemoveLegacyEth0(ApplyNetTestBase):
+class TestApplyNetRemoveLegacyEth0(CiTestCase):
 
     @patch('curtin.util.del_file')
     @patch('curtin.util.load_file')

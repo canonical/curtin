@@ -511,13 +511,6 @@ class TestNonAscii(CiTestCase):
 
 
 class TestSlaveKnames(CiTestCase):
-    def add_patch(self, target, attr, autospec=True):
-        """Patches specified target object and sets it as attr on test
-        instance also schedules cleanup"""
-        m = mock.patch(target, autospec=autospec)
-        p = m.start()
-        self.addCleanup(m.stop)
-        setattr(self, attr, p)
 
     def setUp(self):
         super(TestSlaveKnames, self).setUp()

@@ -52,6 +52,14 @@ def simple_mocked_open(content=None):
 class CiTestCase(TestCase):
     """Common testing class which all curtin unit tests subclass."""
 
+    def add_patch(self, target, attr, autospec=True):
+        """Patches specified target object and sets it as attr on test
+        instance also schedules cleanup"""
+        m = mock.patch(target, autospec=autospec)
+        p = m.start()
+        self.addCleanup(m.stop)
+        setattr(self, attr, p)
+
     def tmp_dir(self, dir=None, cleanup=True):
         """Return a full path to a temporary directory for the test run."""
         if dir is None:

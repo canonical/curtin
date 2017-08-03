@@ -157,10 +157,9 @@ class TestSubp(CiTestCase):
 
     def setUp(self):
         super(TestSubp, self).setUp()
-        mock_getunsh = mock.patch(
-            "curtin.util._get_unshare_pid_args", return_value=[])
-        self.mock_get_unshare_pid_args = mock_getunsh.start()
-        self.addCleanup(mock_getunsh.stop)
+        self.add_patch(
+            'curtin.util._get_unshare_pid_args', 'mock_get_unshare_pid_args')
+        self.mock_get_unshare_pid_args.return_value = []
 
     def printf_cmd(self, *args):
         # bash's printf supports \xaa.  So does /usr/bin/printf
@@ -382,14 +381,11 @@ class TestGetUnsharePidArgs(CiTestCase):
 
     def setUp(self):
         super(TestGetUnsharePidArgs, self).setUp()
-        mock_hasunsh = mock.patch(
-            "curtin.util._has_unshare_pid", return_value=True)
-        self.mock_has_unshare_pid = mock_hasunsh.start()
-        self.addCleanup(mock_hasunsh.stop)
-        mock_geteuid = mock.patch(
-            "curtin.util.os.geteuid", return_value=0)
-        self.mock_geteuid = mock_geteuid.start()
-        self.addCleanup(mock_geteuid.stop)
+        self.add_patch(
+            'curtin.util._has_unshare_pid', 'mock_has_unshare_pid')
+        self.mock_has_unshare_pid.return_value = True
+        self.add_patch('curtin.util.os.geteuid', 'mock_geteuid')
+        self.mock_geteuid.return_value = 0
 
     def assertOff(self, result):
         self.assertEqual([], result)
@@ -784,10 +780,8 @@ class TestGetEFIBootMGR(CiTestCase):
 
     def setUp(self):
         super(TestGetEFIBootMGR, self).setUp()
-        mock_chroot = mock.patch(
-            'curtin.util.ChrootableTarget', autospec=False)
-        self.mock_chroot = mock_chroot.start()
-        self.addCleanup(mock_chroot.stop)
+        self.add_patch(
+            'curtin.util.ChrootableTarget', 'mock_chroot', autospec=False)
         self.mock_in_chroot = mock.MagicMock()
         self.mock_in_chroot.__enter__.return_value = self.mock_in_chroot
         self.in_chroot_subp_output = []

@@ -8,20 +8,7 @@ from curtin.reporter import events
 from .helpers import CiTestCase
 
 
-class CurthooksBase(CiTestCase):
-    def setUp(self):
-        super(CurthooksBase, self).setUp()
-
-    def add_patch(self, target, attr, autospec=True):
-        """Patches specified target object and sets it as attr on test
-        instance also schedules cleanup"""
-        m = patch(target, autospec=autospec)
-        p = m.start()
-        self.addCleanup(m.stop)
-        setattr(self, attr, p)
-
-
-class TestGetFlashKernelPkgs(CurthooksBase):
+class TestGetFlashKernelPkgs(CiTestCase):
     def setUp(self):
         super(TestGetFlashKernelPkgs, self).setUp()
         self.add_patch('curtin.util.subp', 'mock_subp')
@@ -55,7 +42,7 @@ class TestGetFlashKernelPkgs(CurthooksBase):
         self.mock_is_uefi_bootable.assert_called_once_with()
 
 
-class TestCurthooksInstallKernel(CurthooksBase):
+class TestCurthooksInstallKernel(CiTestCase):
     def setUp(self):
         super(TestCurthooksInstallKernel, self).setUp()
         self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
@@ -92,7 +79,7 @@ class TestCurthooksInstallKernel(CurthooksBase):
             [kernel_package], target=self.target)
 
 
-class TestUpdateInitramfs(CurthooksBase):
+class TestUpdateInitramfs(CiTestCase):
     def setUp(self):
         super(TestUpdateInitramfs, self).setUp()
         self.add_patch('curtin.util.subp', 'mock_subp')
@@ -129,7 +116,7 @@ class TestUpdateInitramfs(CurthooksBase):
         self.mock_subp.assert_has_calls(subp_calls)
 
 
-class TestInstallMissingPkgs(CurthooksBase):
+class TestInstallMissingPkgs(CiTestCase):
     def setUp(self):
         super(TestInstallMissingPkgs, self).setUp()
         self.add_patch('platform.machine', 'mock_machine')
@@ -171,7 +158,7 @@ class TestInstallMissingPkgs(CurthooksBase):
         self.assertEqual([], self.mock_install_packages.call_args_list)
 
 
-class TestSetupZipl(CurthooksBase):
+class TestSetupZipl(CiTestCase):
 
     def setUp(self):
         super(TestSetupZipl, self).setUp()
@@ -198,7 +185,7 @@ class TestSetupZipl(CurthooksBase):
             content)
 
 
-class TestSetupGrub(CurthooksBase):
+class TestSetupGrub(CiTestCase):
 
     def setUp(self):
         super(TestSetupGrub, self).setUp()
@@ -453,7 +440,7 @@ class TestSetupGrub(CurthooksBase):
             self.mock_in_chroot_subp.call_args_list[0][0])
 
 
-class TestUbuntuCoreHooks(CurthooksBase):
+class TestUbuntuCoreHooks(CiTestCase):
     def setUp(self):
         super(TestUbuntuCoreHooks, self).setUp()
         self.target = None
