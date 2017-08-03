@@ -16,7 +16,6 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import contextlib
-import functools
 import imp
 import importlib
 import mock
@@ -60,7 +59,7 @@ class CiTestCase(TestCase):
                 prefix="curtin-ci-%s." % self.__class__.__name__)
         else:
             tmpd = tempfile.mkdtemp(dir=dir)
-        self.addCleanup(functools.partial(shutil.rmtree, tmpd))
+        self.addCleanup(shutil.rmtree, tmpd)
         return tmpd
 
     def tmp_path(self, path, _dir=None):
