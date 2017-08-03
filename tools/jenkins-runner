@@ -26,7 +26,7 @@ cleanup() {
     # kill a tgtd pid that was started here.
     if [ -n "$TGT_PID" ]; then
         kill -9 ${TGT_PID};
-        if [ -e "${TGT_IPC_SOCKET}" ]; then
+        if [ -n "${TGT_IPC_SOCKET}" ]; then
             # var is <path>/socket but the actual socket is <path>/socket.0
             rm -f "${TGT_IPC_SOCKET}" "${TGT_IPC_SOCKET}".* ||
                 error "WARN: failed removal of $TGT_IPC_SOCKET"
