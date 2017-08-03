@@ -21,6 +21,7 @@ import sys
 from .. import log
 import curtin.net as net
 import curtin.util as util
+from curtin import config
 from . import populate_one_subcmd
 
 
@@ -89,15 +90,38 @@ def apply_net(target, network_state=None, network_config=None):
         sys.stderr.write(msg + "\n")
         raise Exception(msg)
 
+    passthrough = False
     if network_state:
+        # NB: we cannot support passthrough until curtin can convert from
+        # network_state to network-config yaml
         ns = net.network_state.from_state_file(network_state)
+        raise ValueError('Not Supported; curtin lacks a network_state to '
+                         'network_config converter.')
     elif network_config:
-        ns = net.parse_net_config(network_config)
+        netcfg = config.load_config(network_config)
 
-    net.render_network_state(target=target, network_state=ns)
+        # curtin will pass-through the netconfig into the target
+        # for rendering at runtime unless the target OS does not
+        # support NETWORK_CONFIG_V2 feature.
+        LOG.info('Checking cloud-init in target [%s] for network '
+                 'configuration passthrough support.', target)
+        try:
+            passthrough = net.netconfig_passthrough_available(target)
+        except util.ProcessExecutionError:
+            LOG.warning('Failed to determine if passthrough is available')
+
+        if passthrough:
+            LOG.info('Passing network configuration through to target: %s',
+                     target)
+            net.render_netconfig_passthrough(target, netconfig=netcfg)
+        else:
+            ns = net.parse_net_config_data(netcfg.get('network', {}))
+
+    if not passthrough:
+        LOG.info('Rendering network configuration in target')
+        net.render_network_state(target=target, network_state=ns)
 
     _maybe_remove_legacy_eth0(target)
-    LOG.info('Attempting to remove ipv6 privacy extensions')
     _disable_ipv6_privacy_extensions(target)
     _patch_ifupdown_ipv6_mtu_hook(target)
 
@@ -130,6 +154,7 @@ def _disable_ipv6_privacy_extensions(target,
        by default; this races with the cloud-image desire to disable them.
        Resolve this by allowing the cloud-image setting to win. """
 
+    LOG.debug('Attempting to remove ipv6 privacy extensions')
     cfg = util.target_path(target, path=path)
     if not os.path.exists(cfg):
         LOG.warn('Failed to find ipv6 privacy conf file %s', cfg)
@@ -143,7 +168,7 @@ def _disable_ipv6_privacy_extensions(target,
         lines = [f.strip() for f in contents.splitlines()
                  if not f.startswith("#")]
         if lines == known_contents:
-            LOG.info('deleting file: %s', cfg)
+            LOG.info('Removing ipv6 privacy extension config file: %s', cfg)
             util.del_file(cfg)
             msg = "removed %s with known contents" % cfg
             curtin_contents = '\n'.join(
@@ -153,9 +178,10 @@ def _disable_ipv6_privacy_extensions(target,
                  "# net.ipv6.conf.default.use_tempaddr = 2"])
             util.write_file(cfg, curtin_contents)
         else:
-            LOG.info('skipping, content didnt match')
-            LOG.debug("found content:\n%s", lines)
-            LOG.debug("expected contents:\n%s", known_contents)
+            LOG.debug('skipping removal of %s, expected content not found',
+                      cfg)
+            LOG.debug("Found content in file %s:\n%s", cfg, lines)
+            LOG.debug("Expected contents in file %s:\n%s", cfg, known_contents)
             msg = (bmsg + " '%s' exists with user configured content." % cfg)
     except Exception as e:
         msg = bmsg + " %s exists, but could not be read. %s" % (cfg, e)

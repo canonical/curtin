@@ -1,0 +1,8 @@
+showtrace: true
+network:
+    version: 2
+    ethernets:
+        interface0:
+            match:
+                mac_address: "52:54:00:12:34:00"
+            dhcp4: true

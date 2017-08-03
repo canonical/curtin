@@ -176,6 +176,33 @@ class TestInstallMissingPkgs(CurthooksBase):
         self.assertEqual([], self.mock_install_packages.call_args_list)
 
 
+class TestSetupZipl(CurthooksBase):
+
+    def setUp(self):
+        super(TestSetupZipl, self).setUp()
+        self.target = tempfile.mkdtemp()
+
+    @patch('curtin.block.get_devices_for_mp')
+    @patch('platform.machine')
+    def test_noop_non_s390x(self, m_machine, m_get_devices):
+        m_machine.return_value = 'non-s390x'
+        curthooks.setup_zipl(None, self.target)
+        self.assertEqual(0, m_get_devices.call_count)
+
+    @patch('curtin.block.get_devices_for_mp')
+    @patch('platform.machine')
+    def test_setup_zipl_writes_etc_zipl_conf(self, m_machine, m_get_devices):
+        m_machine.return_value = 's390x'
+        m_get_devices.return_value = ['/dev/mapper/ubuntu--vg-root']
+        curthooks.setup_zipl(None, self.target)
+        m_get_devices.assert_called_with(self.target)
+        with open(os.path.join(self.target, 'etc', 'zipl.conf')) as stream:
+            content = stream.read()
+        self.assertIn(
+            '# This has been modified by the MAAS curtin installer',
+            content)
+
+
 class TestSetupGrub(CurthooksBase):
 
     def setUp(self):
@@ -496,7 +523,7 @@ class TestUbuntuCoreHooks(CurthooksBase):
         curthooks.ubuntu_core_curthooks(cfg, target=self.target)
 
         mock_handle_cc.assert_called_with(cfg.get('cloudconfig'),
-                                          target=cc_path)
+                                          base_dir=cc_path)
         self.assertFalse(os.path.exists(cc_disabled))
 
     @patch('curtin.util.write_file')
@@ -518,7 +545,7 @@ class TestUbuntuCoreHooks(CurthooksBase):
         cc_path = os.path.join(self.target,
                                'system-data/etc/cloud/cloud.cfg.d')
         mock_handle_cc.assert_called_with(cfg.get('cloudconfig'),
-                                          target=cc_path)
+                                          base_dir=cc_path)
         self.assertEqual(len(mock_write_file.call_args_list), 0)
 
     @patch('curtin.util.write_file')
@@ -541,13 +568,13 @@ class TestUbuntuCoreHooks(CurthooksBase):
         netcfg_path = os.path.join(self.target,
                                    'system-data',
                                    'etc/cloud/cloud.cfg.d',
-                                   '50-network-config.cfg')
+                                   '50-curtin-networking.cfg')
         netcfg = config.dump_config({'network': cfg.get('network')})
         mock_write_file.assert_called_with(netcfg_path,
                                            content=netcfg)
         self.assertEqual(len(mock_del_file.call_args_list), 0)
 
-    @patch('curtin.commands.curthooks.write_files')
+    @patch('curtin.commands.curthooks.futil.write_files')
     def test_handle_cloudconfig(self, mock_write_files):
         cc_target = "tmpXXXX/systemd-data/etc/cloud/cloud.cfg.d"
         cloudconfig = {
@@ -561,20 +588,202 @@ class TestUbuntuCoreHooks(CurthooksBase):
         }
 
         expected_cfg = {
-            'write_files': {
-                'file1': {
-                    'path': '50-cloudconfig-file1.cfg',
-                    'content': cloudconfig['file1']['content']},
-                'foobar': {
-                    'path': '50-cloudconfig-foobar.cfg',
-                    'content': cloudconfig['foobar']['content']}
-            }
+            'file1': {
+                'path': '50-cloudconfig-file1.cfg',
+                'content': cloudconfig['file1']['content']},
+            'foobar': {
+                'path': '50-cloudconfig-foobar.cfg',
+                'content': cloudconfig['foobar']['content']}
         }
-        curthooks.handle_cloudconfig(cloudconfig, target=cc_target)
+        curthooks.handle_cloudconfig(cloudconfig, base_dir=cc_target)
         mock_write_files.assert_called_with(expected_cfg, cc_target)
 
     def test_handle_cloudconfig_bad_config(self):
         with self.assertRaises(ValueError):
-            curthooks.handle_cloudconfig([], target="foobar")
+            curthooks.handle_cloudconfig([], base_dir="foobar")
+
+
+class TestDetectRequiredPackages(TestCase):
+    test_config = {
+        'storage': {
+            1: {
+                'bcache': {
+                    'type': 'bcache', 'name': 'bcache0', 'id': 'cache0',
+                    'backing_device': 'sda3', 'cache_device': 'sdb'},
+                'lvm_partition': {
+                    'id': 'lvol1', 'name': 'lv1', 'volgroup': 'vg1',
+                    'type': 'lvm_partition'},
+                'lvm_volgroup': {
+                    'id': 'vol1', 'name': 'vg1', 'devices': ['sda', 'sdb'],
+                    'type': 'lvm_volgroup'},
+                'raid': {
+                    'id': 'mddevice', 'name': 'md0', 'type': 'raid',
+                    'raidlevel': 5, 'devices': ['sda1', 'sdb1', 'sdc1']},
+                'ext2': {
+                    'id': 'format0', 'fstype': 'ext2', 'type': 'format'},
+                'ext3': {
+                    'id': 'format1', 'fstype': 'ext3', 'type': 'format'},
+                'ext4': {
+                    'id': 'format2', 'fstype': 'ext4', 'type': 'format'},
+                'btrfs': {
+                    'id': 'format3', 'fstype': 'btrfs', 'type': 'format'},
+                'xfs': {
+                    'id': 'format4', 'fstype': 'xfs', 'type': 'format'}}
+        },
+        'network': {
+            1: {
+                'bond': {
+                    'name': 'bond0', 'type': 'bond',
+                    'bond_interfaces': ['interface0', 'interface1'],
+                    'params': {'bond-mode': 'active-backup'},
+                    'subnets': [
+                        {'type': 'static', 'address': '10.23.23.2/24'},
+                        {'type': 'static', 'address': '10.23.24.2/24'}]},
+                'vlan': {
+                    'id': 'interface1.2667', 'mtu': 1500, 'name':
+                    'interface1.2667', 'type': 'vlan', 'vlan_id': 2667,
+                    'vlan_link': 'interface1',
+                    'subnets': [{'address': '10.245.184.2/24',
+                                 'dns_nameservers': [], 'type': 'static'}]},
+                'bridge': {
+                    'name': 'br0', 'bridge_interfaces': ['eth0', 'eth1'],
+                    'type': 'bridge', 'params': {
+                        'bridge_stp': 'off', 'bridge_fd': 0,
+                        'bridge_maxwait': 0},
+                    'subnets': [
+                        {'type': 'static', 'address': '192.168.14.2/24'},
+                        {'type': 'static', 'address': '2001:1::1/64'}]}},
+            2: {
+                'vlan': {
+                    'vlans': {
+                        'en-intra': {'id': 1, 'link': 'eno1', 'dhcp4': 'yes'},
+                        'en-vpn': {'id': 2, 'link': 'eno1'}}},
+                'bridge': {
+                    'bridges': {
+                        'br0': {
+                            'interfaces': ['wlp1s0', 'switchports'],
+                            'dhcp4': True}}}}
+        },
+    }
+
+    def _fmt_config(self, config_items):
+        res = {}
+        for item, item_confs in config_items.items():
+            version = item_confs['version']
+            res[item] = {'version': version}
+            if version == 1:
+                res[item]['config'] = [self.test_config[item][version][i]
+                                       for i in item_confs['items']]
+            elif version == 2 and item == 'network':
+                for cfg_item in item_confs['items']:
+                    res[item].update(self.test_config[item][version][cfg_item])
+            else:
+                raise NotImplementedError
+        return res
+
+    def _test_req_mappings(self, req_mappings):
+        for (config_items, expected_reqs) in req_mappings:
+            cfg = self._fmt_config(config_items)
+            actual_reqs = curthooks.detect_required_packages(cfg)
+            self.assertEqual(set(actual_reqs), set(expected_reqs),
+                             'failed for config: {}'.format(config_items))
+
+    def test_storage_v1_detect(self):
+        self._test_req_mappings((
+            ({'storage': {
+                'version': 1,
+                'items': ('lvm_partition', 'lvm_volgroup', 'btrfs', 'xfs')}},
+             ('lvm2', 'xfsprogs', 'btrfs-tools')),
+            ({'storage': {
+                'version': 1,
+                'items': ('raid', 'bcache', 'ext3', 'xfs')}},
+             ('mdadm', 'bcache-tools', 'e2fsprogs', 'xfsprogs')),
+            ({'storage': {
+                'version': 1,
+                'items': ('raid', 'lvm_volgroup', 'lvm_partition', 'ext3',
+                          'ext4', 'btrfs')}},
+             ('lvm2', 'mdadm', 'e2fsprogs', 'btrfs-tools')),
+            ({'storage': {
+                'version': 1,
+                'items': ('bcache', 'lvm_volgroup', 'lvm_partition', 'ext2')}},
+             ('bcache-tools', 'lvm2', 'e2fsprogs')),
+        ))
+
+    def test_network_v1_detect(self):
+        self._test_req_mappings((
+            ({'network': {
+                'version': 1,
+                'items': ('bridge',)}},
+             ('bridge-utils',)),
+            ({'network': {
+                'version': 1,
+                'items': ('vlan', 'bond')}},
+             ('vlan', 'ifenslave')),
+            ({'network': {
+                'version': 1,
+                'items': ('bond', 'bridge')}},
+             ('ifenslave', 'bridge-utils')),
+            ({'network': {
+                'version': 1,
+                'items': ('vlan', 'bridge', 'bond')}},
+             ('ifenslave', 'bridge-utils', 'vlan')),
+        ))
+
+    def test_mixed_v1_detect(self):
+        self._test_req_mappings((
+            ({'storage': {
+                'version': 1,
+                'items': ('raid', 'bcache', 'ext4')},
+              'network': {
+                  'version': 1,
+                  'items': ('vlan',)}},
+             ('mdadm', 'bcache-tools', 'e2fsprogs', 'vlan')),
+            ({'storage': {
+                'version': 1,
+                'items': ('lvm_partition', 'lvm_volgroup', 'xfs')},
+              'network': {
+                  'version': 1,
+                  'items': ('bridge', 'bond')}},
+             ('lvm2', 'xfsprogs', 'bridge-utils', 'ifenslave')),
+            ({'storage': {
+                'version': 1,
+                'items': ('ext3', 'ext4', 'btrfs')},
+              'network': {
+                  'version': 1,
+                  'items': ('bond', 'vlan')}},
+             ('e2fsprogs', 'btrfs-tools', 'vlan', 'ifenslave')),
+        ))
+
+    def test_network_v2_detect(self):
+        self._test_req_mappings((
+            ({'network': {
+                'version': 2,
+                'items': ('bridge',)}},
+             ('bridge-utils',)),
+            ({'network': {
+                'version': 2,
+                'items': ('vlan',)}},
+             ('vlan',)),
+            ({'network': {
+                'version': 2,
+                'items': ('vlan', 'bridge')}},
+             ('vlan', 'bridge-utils')),
+        ))
+
+    def test_mixed_storage_v1_network_v2_detect(self):
+        self._test_req_mappings((
+            ({'network': {
+                'version': 2,
+                'items': ('bridge', 'vlan')},
+             'storage': {
+                 'version': 1,
+                 'items': ('raid', 'bcache', 'ext4')}},
+             ('vlan', 'bridge-utils', 'mdadm', 'bcache-tools', 'e2fsprogs')),
+        ))
+
+    def test_invalid_version_in_config(self):
+        with self.assertRaises(ValueError):
+            curthooks.detect_required_packages({'network': {'version': 3}})
+
 
 # vi: ts=4 expandtab syntax=python

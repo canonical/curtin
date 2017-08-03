@@ -15,3 +15,6 @@ class TestExportsFeatures(TestCase):
 
     def test_has_reporting_events_webhook(self):
         self.assertIn('REPORTING_EVENTS_WEBHOOK', curtin.FEATURES)
+
+    def test_has_centos_apply_network_config(self):
+        self.assertIn('CENTOS_APPLY_NETWORK_CONFIG', curtin.FEATURES)

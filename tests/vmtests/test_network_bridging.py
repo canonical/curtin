@@ -1,5 +1,6 @@
 from . import logger
 from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 from .test_network import TestNetworkBaseTestsAbs
 from curtin import util
 
@@ -39,6 +40,10 @@ default_bridge_params_uncheckable = [
 
 # attrs we cannot validate
 release_to_bridge_params_uncheckable = {
+    'centos66': ['bridge_fd', 'bridge_hello', 'bridge_hw', 'bridge_maxage',
+                 'bridge_pathcost', 'bridge_portprio'],
+    'centos70': ['bridge_fd', 'bridge_hello', 'bridge_hw', 'bridge_maxage',
+                 'bridge_pathcost', 'bridge_portprio'],
     'xenial': ['bridge_ageing'],
     'yakkety': ['bridge_ageing'],
 }
@@ -73,7 +78,7 @@ def _get_sysfs_value(sysfs_data, name, param, port=None):
     # Some of the kernel parameters are non-human values, in that
     # case convert them back to match values from the input YAML
     if param in bridge_param_divfactor:
-        sys_file_val = (sys_file_val / bridge_param_divfactor[param])
+        sys_file_val = round(sys_file_val / bridge_param_divfactor[param])
 
     return sys_file_val
 
@@ -100,18 +105,17 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
         """)]
 
     def test_output_files_exist_bridge(self):
-        self.output_files_exist(["bridge-utils_installed",
-                                 "sysfs_br0",
+        self.output_files_exist(["sysfs_br0",
                                  "sysfs_br0_eth1",
                                  "sysfs_br0_eth2"])
 
     def test_bridge_utils_installed(self):
+        self.output_files_exist(["bridge-utils_installed"])
         status = self.load_collect_file("bridge-utils_installed").strip()
         logger.debug('bridge-utils installed: {}'.format(status))
         self.assertEqual('install ok installed', status)
 
     def test_bridge_params(self):
-        """ Test if configure bridge params match values on the device """
 
         def _load_sysfs_bridge_data():
             sysfs_br0 = sysfs_to_dict(self.collect_path("sysfs_br0"))
@@ -130,14 +134,17 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
             return br0
 
         def _get_bridge_params(br):
+            release = (
+                self.target_release if self.target_release else self.release)
             bridge_params_uncheckable = default_bridge_params_uncheckable
             bridge_params_uncheckable.extend(
-                release_to_bridge_params_uncheckable.get(self.release, []))
+                release_to_bridge_params_uncheckable.get(release, []))
             return [p for p in br.keys()
                     if (p.startswith('bridge_') and
                         p not in bridge_params_uncheckable)]
 
         def _check_bridge_param(sysfs_vals, p, br):
+            print('Checking bridge %s param %s' % (br, p))
             value = br.get(param)
             if param in ['bridge_stp']:
                 if value in ['off', '0']:
@@ -146,36 +153,83 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
                     value = 1
                 else:
                     print('bridge_stp not in known val list')
+            elif param in ['bridge_portprio']:
+                if self._network_renderer() == "systemd-networkd":
+                    reason = ("%s: skip until lp#1668347"
+                              " is fixed" % self.__class__)
+                    logger.warn('Skipping: %s', reason)
+                    print(reason)
+                    return
 
             print('key=%s value=%s' % (param, value))
             if type(value) == list:
                 for subval in value:
                     (port, pval) = subval.split(" ")
-                    print('key=%s port=%s pval=%s' % (param, port, pval))
+                    print('param=%s port=%s pval=%s' % (param, port, pval))
                     sys_file_val = _get_sysfs_value(sysfs_vals, br0['name'],
                                                     param, port)
 
-                    self.assertEqual(int(pval), int(sys_file_val))
+                    msg = "Source cfg: %s=%s on port %s" % (param, value, port)
+                    self.assertEqual(int(pval), int(sys_file_val), msg)
             else:
                 sys_file_val = _get_sysfs_value(sysfs_vals, br0['name'],
                                                 param, port=None)
-                self.assertEqual(int(value), int(sys_file_val))
+                self.assertEqual(int(value), int(sys_file_val),
+                                 "Source cfg: %s=%s" % (param, value))
 
         sysfs_vals = _load_sysfs_bridge_data()
-        print(sysfs_vals)
+        # print(sysfs_vals)
         br0 = _get_bridge_config()
         for param in _get_bridge_params(br0):
+            print('Checking param %s' % param)
             _check_bridge_param(sysfs_vals, param, br0)
+
+
+class CentosTestBridgeNetworkAbs(TestBridgeNetworkAbs):
+    extra_kern_args = "BOOTIF=eth0-52:54:00:12:34:00"
+    collect_scripts = TestBridgeNetworkAbs.collect_scripts + [
+        textwrap.dedent("""
+            cd OUTPUT_COLLECT_D
+            cp -a /etc/sysconfig/network-scripts .
+            cp -a /var/log/cloud-init* .
+            cp -a /var/lib/cloud ./var_lib_cloud
+            cp -a /run/cloud-init ./run_cloud-init
+            rpm -qf `which brctl` |tee bridge-utils_installed
+        """)]
+
+    def test_etc_network_interfaces(self):
+        pass
+
+    def test_etc_resolvconf(self):
+        pass
+
+    def test_bridge_utils_installed(self):
+        self.output_files_exist(["bridge-utils_installed"])
+        status = self.load_collect_file("bridge-utils_installed").strip()
+        logger.debug('bridge-utils installed: {}'.format(status))
+        self.assertTrue('bridge' in status)
+
+
+class Centos66TestBridgeNetwork(centos_relbase.centos66fromxenial,
+                                CentosTestBridgeNetworkAbs):
+    __test__ = True
+
+
+class Centos70TestBridgeNetwork(centos_relbase.centos70fromxenial,
+                                CentosTestBridgeNetworkAbs):
+    __test__ = True
 
 
 # only testing Yakkety or newer as older releases do not yet
 # have updated ifupdown/bridge-utils packages;
-class YakketyTestBridging(relbase.yakkety, TestBridgeNetworkAbs):
-    __test__ = True
-
-
 class ZestyTestBridging(relbase.zesty, TestBridgeNetworkAbs):
     __test__ = True
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skip_by_date(cls.__name__, cls.release, "1706752",
+                         fixby=(2017, 8, 10), removeby=(2017, 8, 31))
+        super().setUpClass()
 
 
 class ArtfulTestBridging(relbase.artful, TestBridgeNetworkAbs):

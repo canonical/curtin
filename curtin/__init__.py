@@ -23,6 +23,8 @@ KERNEL_CMDLINE_COPY_TO_INSTALL_SEP = "---"
 # can determine which features are supported.  Each entry should have
 # a consistent meaning.
 FEATURES = [
+    # curtin can apply centos networking via centos_apply_network_config
+    'CENTOS_APPLY_NETWORK_CONFIG',
     # install supports the 'network' config version 1
     'NETWORK_CONFIG_V1',
     # reporter supports 'webhook' type

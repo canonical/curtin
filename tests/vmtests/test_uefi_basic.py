@@ -113,7 +113,7 @@ class XenialUefiTestBasic(relbase.xenial, TestBasicAbs):
 
 
 class YakketyUefiTestBasic(relbase.yakkety, TestBasicAbs):
-    __test__ = True
+    __test__ = False
 
 
 class ZestyUefiTestBasic(relbase.zesty, TestBasicAbs):
