@@ -25,7 +25,6 @@ cleanup() {
     [ "$ret" -eq 0 ] && keep_rules="$pkeep" || keep_rules="$fkeep"
     # kill a tgtd pid that was started here.
     if [ -n "$TGT_PID" ]; then
-        error "killing tgt process $TGT_PID"
         kill -9 ${TGT_PID};
         if [ -e "${TGT_IPC_SOCKET}" ]; then
             # var is <path>/socket but the actual socket is <path>/socket.0
