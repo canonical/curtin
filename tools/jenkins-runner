@@ -90,7 +90,7 @@ elif command -v tgtd >/dev/null 2>&1; then
         fail "could not start a tgt service"
     }
     TGT_LOG_D="$tgtdir"
-    . "$tgtdir/info"
+    . "$tgtdir/info" >"$tgtdir/source-output.txt" 2>&1
     [ -n "$TGT_PID" ] || fail "find-tgt did not write TGT_PID"
     [ -d "/proc/${TGT_PID}" ] || fail "no tgtd process in /proc/${TGT_PID}"
 else
