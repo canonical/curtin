@@ -112,7 +112,7 @@ while [ $tries -le 100 ]; do
     port=$((($RANDOM%(32767-1024))+1024+1))
 
     portal="$ipv4addr:$port"
-    tried_ports="${tried_ports:+${tried_pors} }${port}"
+    tried_ports="${tried_ports:+${tried_ports} }${port}"
     error "going for $portal"
     TGT_IPC_SOCKET="$socket" \
         tgtd --debug=1 --foreground --iscsi "portal=$portal" >"$log" 2>&1 &
