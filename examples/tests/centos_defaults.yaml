@@ -1,6 +1,9 @@
 hook_commands:
     builtin: null
 
+# To force curtin to run centos_apply_network_config vmtest, uncomment
+# _ammend_centos_curthooks: True
+
 write_files:
   grub_serial_console:
     path: '/root/curtin-send-console-to-serial'
