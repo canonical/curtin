@@ -911,8 +911,8 @@ def curthooks(args):
 
     # if curtin-hooks hook exists in target we can defer to the in-target hooks
     if util.run_hook_if_exists(target, 'curtin-hooks'):
-        # FIXME: For testing only until maas images have curthooks
-        # that utilize centos_apply_network_config.
+        # For vmtests to force execute centos_apply_network_config, uncomment
+        # the value in examples/tests/centos_defaults.yaml
         if cfg.get('_ammend_centos_curthooks'):
             if cfg.get('cloudconfig'):
                 handle_cloudconfig(

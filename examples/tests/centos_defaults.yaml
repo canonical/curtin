@@ -1,9 +1,8 @@
 hook_commands:
     builtin: null
 
-# Force curtin to run centos_apply_network_config vmtest
-# FIXME: Remove this after maas images no longer need it.
-_ammend_centos_curthooks: True
+# To force curtin to run centos_apply_network_config vmtest, uncomment
+# _ammend_centos_curthooks: True
 
 write_files:
   grub_serial_console:
