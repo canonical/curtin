@@ -1339,7 +1339,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
 
     collect_prep = textwrap.dedent("mkdir -p " + output_dir)
     collect_post = textwrap.dedent("""\
-    	cd {output_dir}\n
+        cd {output_dir}\n
         # remove any symlinks, but archive information about them.
         # %Y target's file type, %P = path, %l = target of symlink
         find -type l -printf "%Y\t%P\t%l\n" > symlinks.txt
