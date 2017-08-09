@@ -104,6 +104,7 @@ class TestBasicAbs(VMBaseClass):
                 break
         self.assertIsNotNone(fstab_entry)
         self.assertEqual(fstab_entry.split(' ')[1], "/btrfs")
+        self.assertEqual(fstab_entry.split(' ')[3], "defaults,noatime")
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
@@ -294,7 +295,7 @@ class TestBasicScsiAbs(TestBasicAbs):
                 break
         self.assertIsNotNone(fstab_entry)
         self.assertEqual(fstab_entry.split(' ')[1], "/btrfs")
-        self.assertEqual(fstab_entry.split(' ')[2], "defaults,noatime")
+        self.assertEqual(fstab_entry.split(' ')[3], "defaults,noatime")
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
