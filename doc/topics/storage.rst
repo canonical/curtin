@@ -358,6 +358,10 @@ The ``device`` key refers to the ``id`` of the target device in the storage
 config. The target device must already contain a valid filesystem and be
 accessible.
 
+**options**: *<mount(3) options string>*
+
+The ``options`` key will replace the default options value of ``defaults``.
+
 .. note::
 
   If the specified device refers to an iSCSI device, the corresponding
@@ -370,6 +374,7 @@ accessible.
    type: mount
    path: /home
    device: disk0-part1-fs1
+   options: 'noatime,errors=remount-ro'
 
 Lvm Volgroup Command
 ~~~~~~~~~~~~~~~~~~~~

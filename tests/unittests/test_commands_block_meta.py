@@ -115,7 +115,11 @@ class TestBlockMeta(CiTestCase):
         basepath = 'curtin.commands.block_meta.'
         self.add_patch(basepath + 'get_path_to_storage_volume', 'mock_getpath')
         self.add_patch(basepath + 'make_dname', 'mock_make_dname')
+        self.add_patch('curtin.util.load_command_environment',
+                       'mock_load_env')
         self.add_patch('curtin.util.subp', 'mock_subp')
+        self.add_patch('curtin.util.ensure_dir', 'mock_ensure_dir')
+        self.add_patch('curtin.util.write_file', 'mock_write_file')
         self.add_patch('curtin.block.get_part_table_type',
                        'mock_block_get_part_table_type')
         self.add_patch('curtin.block.wipe_volume',
@@ -130,6 +134,10 @@ class TestBlockMeta(CiTestCase):
                        'mock_clear_holders')
         self.add_patch('curtin.block.clear_holders.assert_clear',
                        'mock_assert_clear')
+        self.add_patch('curtin.block.iscsi.volpath_is_iscsi',
+                       'mock_volpath_is_iscsi')
+        self.add_patch('curtin.block.get_volume_uuid',
+                       'mock_block_get_volume_uuid')
 
         self.target = "my_target"
         self.config = {
@@ -152,7 +160,20 @@ class TestBlockMeta(CiTestCase):
                      'size': '511705088B',
                      'type': 'partition',
                      'uuid': 'fc7ab24c-b6bf-460f-8446-d3ac362c0625',
-                     'wipe': 'superblock'}
+                     'wipe': 'superblock'},
+                    {'id': 'sda1-root',
+                     'type': 'format',
+                     'fstype': 'xfs',
+                     'volume': 'sda-part1'},
+                    {'id': 'sda-part1-mnt-root',
+                     'type': 'mount',
+                     'path': '/',
+                     'device': 'sda1-root'},
+                    {'id': 'sda-part1-mnt-root-ro',
+                     'type': 'mount',
+                     'path': '/readonly',
+                     'options': 'ro',
+                     'device': 'sda1-root'}
                 ],
             }
         }
@@ -206,3 +227,41 @@ class TestBlockMeta(CiTestCase):
         print("assert_clear: %s" % self.mock_assert_clear.call_args_list)
         self.mock_clear_holders.assert_called_with(part_kname)
         self.mock_assert_clear.assert_called_with(part_kname)
+
+    def test_mount_handler_defaults(self):
+        fstab = self.tmp_path('fstab')
+        self.mock_load_env.return_value = {'fstab': fstab,
+                                           'target': self.target}
+        disk_info = self.storage_config.get('sda')
+        fs_info = self.storage_config.get('sda1-root')
+        mount_info = self.storage_config.get('sda-part1-mnt-root')
+
+        self.mock_getpath.return_value = '/wark/xxx'
+        self.mock_volpath_is_iscsi.return_value = False
+
+        block_meta.mount_handler(mount_info, self.storage_config)
+        options = 'defaults'
+        expected = "%s %s %s %s 0 0\n" % (disk_info['path'],
+                                          mount_info['path'],
+                                          fs_info['fstype'], options)
+
+        self.mock_write_file.assert_called_with(fstab, expected, omode='a')
+
+    def test_mount_handler_uses_mount_options(self):
+        fstab = self.tmp_path('fstab')
+        self.mock_load_env.return_value = {'fstab': fstab,
+                                           'target': self.target}
+        disk_info = self.storage_config.get('sda')
+        fs_info = self.storage_config.get('sda1-root')
+        mount_info = self.storage_config.get('sda-part1-mnt-root-ro')
+
+        self.mock_getpath.return_value = '/wark/xxx'
+        self.mock_volpath_is_iscsi.return_value = False
+
+        block_meta.mount_handler(mount_info, self.storage_config)
+        options = 'ro'
+        expected = "%s %s %s %s 0 0\n" % (disk_info['path'],
+                                          mount_info['path'],
+                                          fs_info['fstype'], options)
+
+        self.mock_write_file.assert_called_with(fstab, expected, omode='a')

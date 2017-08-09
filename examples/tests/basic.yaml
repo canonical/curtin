@@ -59,6 +59,7 @@ storage:
       - id: btrfs_disk_mnt_id
         type: mount
         path: /btrfs
+        options: 'defaults,noatime'
         device: btrfs_disk_fmt_id
       - id: pnum_disk
         type: disk
