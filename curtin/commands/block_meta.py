@@ -634,7 +634,10 @@ def mount_handler(info, storage_config):
     state = util.load_command_environment()
     path = info.get('path')
     filesystem = storage_config.get(info.get('device'))
-    mount_options = info.get('options', 'defaults')
+    mount_options = info.get('options')
+    # handle unset, or empty('') strings
+    if not mount_options or len(mount_options) == 0:
+        mount_options = 'defaults'
 
     if not path and filesystem.get('fstype') != "swap":
         raise ValueError("path to mountpoint must be specified")

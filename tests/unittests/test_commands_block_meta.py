@@ -265,3 +265,23 @@ class TestBlockMeta(CiTestCase):
                                           fs_info['fstype'], options)
 
         self.mock_write_file.assert_called_with(fstab, expected, omode='a')
+
+    def test_mount_handler_empty_options_string(self):
+        fstab = self.tmp_path('fstab')
+        self.mock_load_env.return_value = {'fstab': fstab,
+                                           'target': self.target}
+        disk_info = self.storage_config.get('sda')
+        fs_info = self.storage_config.get('sda1-root')
+        mount_info = self.storage_config.get('sda-part1-mnt-root-ro')
+        mount_info['options'] = ''
+
+        self.mock_getpath.return_value = '/wark/xxx'
+        self.mock_volpath_is_iscsi.return_value = False
+
+        block_meta.mount_handler(mount_info, self.storage_config)
+        options = 'defaults'
+        expected = "%s %s %s %s 0 0\n" % (disk_info['path'],
+                                          mount_info['path'],
+                                          fs_info['fstype'], options)
+
+        self.mock_write_file.assert_called_with(fstab, expected, omode='a')
