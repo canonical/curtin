@@ -34,7 +34,7 @@ class XenialTestNetworkIPV6ENISource(relbase.xenial, TestNetworkIPV6ENISource):
     @classmethod
     def test_ip_output(cls):
         cls.skip_by_date(cls.__name__, cls.release, bugnum="1701097",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+                         fixby=(2017, 8, 20), removeby=(2017, 9, 15))
 
 
 class ZestyTestNetworkIPV6ENISource(relbase.zesty, TestNetworkIPV6ENISource):
@@ -43,7 +43,7 @@ class ZestyTestNetworkIPV6ENISource(relbase.zesty, TestNetworkIPV6ENISource):
     @classmethod
     def test_ip_output(cls):
         cls.skip_by_date(cls.__name__, cls.release, bugnum="1701097",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+                         fixby=(2017, 8, 20), removeby=(2017, 9, 15))
 
 
 class ArtfulTestNetworkIPV6ENISource(relbase.artful, TestNetworkIPV6ENISource):
@@ -52,4 +52,4 @@ class ArtfulTestNetworkIPV6ENISource(relbase.artful, TestNetworkIPV6ENISource):
     @classmethod
     def test_ip_output(cls):
         cls.skip_by_date(cls.__name__, cls.release, bugnum="1701097",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+                         fixby=(2017, 8, 20), removeby=(2017, 9, 15))

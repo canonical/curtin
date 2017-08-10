@@ -10,7 +10,7 @@ class TestNetworkMtuAbs(TestNetworkIPV6Abs):
 
     1.  devices default MTU to 1500, test if mtu under
         inet6 stanza can be set separately from device
-        mtu (works on Xenial and newer ifupdown), check
+        mtu (works on  and newer ifupdown), check
         via sysctl.
 
     2.  if ipv6 mtu is > than underlying device, this fails
@@ -136,27 +136,27 @@ class CentosTestNetworkMtuAbs(TestNetworkMtuAbs):
     @classmethod
     def test_ip_output(cls):
         cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+                         fixby=(2017, 8, 20), removeby=(2017, 9, 15))
 
     @classmethod
     def test_ipv6_mtu_smaller_than_ipv4_v6_iface_first(cls):
         cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+                         fixby=(2017, 8, 20), removeby=(2017, 9, 15))
 
     @classmethod
     def test_ipv6_mtu_smaller_than_ipv4_non_default(cls):
         cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+                         fixby=(2017, 8, 20), removeby=(2017, 9, 15))
 
     @classmethod
     def test_ipv6_mtu_higher_than_default_no_ipv4_iface_up(cls):
         cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+                         fixby=(2017, 8, 20), removeby=(2017, 9, 15))
 
     @classmethod
     def test_ipv6_mtu_higher_than_default_no_ipv4_iface_v6_iface_first(cls):
         cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+                         fixby=(2017, 8, 20), removeby=(2017, 9, 15))
 
 
 class PreciseHWETTestNetworkMtu(relbase.precise_hwe_t, TestNetworkMtuAbs):
@@ -193,7 +193,7 @@ class TrustyHWEXTestNetworkMtu(relbase.trusty_hwe_x, TrustyTestNetworkMtu):
     __test__ = True
 
 
-class XenialTestNetworkMtu(relbase.xenial, TestNetworkMtuAbs):
+class TestNetworkMtu(relbase.xenial, TestNetworkMtuAbs):
     __test__ = True
 
 
