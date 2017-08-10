@@ -358,7 +358,7 @@ The ``device`` key refers to the ``id`` of the target device in the storage
 config. The target device must already contain a valid filesystem and be
 accessible.
 
-**options**: *<mount(3) options string>*
+**options**: *<mount(8) comma-separated options string>*
 
 The ``options`` key will replace the default options value of ``defaults``.
 

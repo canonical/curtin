@@ -119,7 +119,6 @@ class TestBlockMeta(CiTestCase):
                        'mock_load_env')
         self.add_patch('curtin.util.subp', 'mock_subp')
         self.add_patch('curtin.util.ensure_dir', 'mock_ensure_dir')
-        self.add_patch('curtin.util.write_file', 'mock_write_file')
         self.add_patch('curtin.block.get_part_table_type',
                        'mock_block_get_part_table_type')
         self.add_patch('curtin.block.wipe_volume',
@@ -228,7 +227,9 @@ class TestBlockMeta(CiTestCase):
         self.mock_clear_holders.assert_called_with(part_kname)
         self.mock_assert_clear.assert_called_with(part_kname)
 
-    def test_mount_handler_defaults(self):
+    @patch('curtin.util.write_file')
+    def test_mount_handler_defaults(self, mock_write_file):
+        """Test mount_handler has defaults to 'defaults' for mount options"""
         fstab = self.tmp_path('fstab')
         self.mock_load_env.return_value = {'fstab': fstab,
                                            'target': self.target}
@@ -238,6 +239,7 @@ class TestBlockMeta(CiTestCase):
 
         self.mock_getpath.return_value = '/wark/xxx'
         self.mock_volpath_is_iscsi.return_value = False
+        self.mock_block_get_volume_uuid.return_value = None
 
         block_meta.mount_handler(mount_info, self.storage_config)
         options = 'defaults'
@@ -245,9 +247,11 @@ class TestBlockMeta(CiTestCase):
                                           mount_info['path'],
                                           fs_info['fstype'], options)
 
-        self.mock_write_file.assert_called_with(fstab, expected, omode='a')
+        mock_write_file.assert_called_with(fstab, expected, omode='a')
 
-    def test_mount_handler_uses_mount_options(self):
+    @patch('curtin.util.write_file')
+    def test_mount_handler_uses_mount_options(self, mock_write_file):
+        """Test mount_handler 'options' string is present in fstab entry"""
         fstab = self.tmp_path('fstab')
         self.mock_load_env.return_value = {'fstab': fstab,
                                            'target': self.target}
@@ -257,6 +261,7 @@ class TestBlockMeta(CiTestCase):
 
         self.mock_getpath.return_value = '/wark/xxx'
         self.mock_volpath_is_iscsi.return_value = False
+        self.mock_block_get_volume_uuid.return_value = None
 
         block_meta.mount_handler(mount_info, self.storage_config)
         options = 'ro'
@@ -264,9 +269,11 @@ class TestBlockMeta(CiTestCase):
                                           mount_info['path'],
                                           fs_info['fstype'], options)
 
-        self.mock_write_file.assert_called_with(fstab, expected, omode='a')
+        mock_write_file.assert_called_with(fstab, expected, omode='a')
 
-    def test_mount_handler_empty_options_string(self):
+    @patch('curtin.util.write_file')
+    def test_mount_handler_empty_options_string(self, mock_write_file):
+        """Test mount_handler with empty 'options' string, selects defaults"""
         fstab = self.tmp_path('fstab')
         self.mock_load_env.return_value = {'fstab': fstab,
                                            'target': self.target}
@@ -277,6 +284,7 @@ class TestBlockMeta(CiTestCase):
 
         self.mock_getpath.return_value = '/wark/xxx'
         self.mock_volpath_is_iscsi.return_value = False
+        self.mock_block_get_volume_uuid.return_value = None
 
         block_meta.mount_handler(mount_info, self.storage_config)
         options = 'defaults'
@@ -284,4 +292,34 @@ class TestBlockMeta(CiTestCase):
                                           mount_info['path'],
                                           fs_info['fstype'], options)
 
-        self.mock_write_file.assert_called_with(fstab, expected, omode='a')
+        mock_write_file.assert_called_with(fstab, expected, omode='a')
+
+    def test_mount_handler_appends_to_fstab(self):
+        """Test mount_handler appends fstab lines to existing file"""
+        fstab = self.tmp_path('fstab')
+        with open(fstab, 'w') as fh:
+            fh.write("#curtin-test\n")
+
+        self.mock_load_env.return_value = {'fstab': fstab,
+                                           'target': self.target}
+        disk_info = self.storage_config.get('sda')
+        fs_info = self.storage_config.get('sda1-root')
+        mount_info = self.storage_config.get('sda-part1-mnt-root-ro')
+        mount_info['options'] = ''
+
+        self.mock_getpath.return_value = '/wark/xxx'
+        self.mock_volpath_is_iscsi.return_value = False
+        self.mock_block_get_volume_uuid.return_value = None
+
+        block_meta.mount_handler(mount_info, self.storage_config)
+        options = 'defaults'
+        expected = "#curtin-test\n%s %s %s %s 0 0\n" % (disk_info['path'],
+                                                        mount_info['path'],
+                                                        fs_info['fstype'],
+                                                        options)
+
+        with open(fstab, 'r') as fh:
+            rendered_fstab = fh.read()
+
+        print(rendered_fstab)
+        self.assertEqual(rendered_fstab, expected)

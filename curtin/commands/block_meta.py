@@ -629,14 +629,13 @@ def mount_handler(info, storage_config):
 
     Mount specified device under target at 'path' and generate
     fstab entry.
-
     """
     state = util.load_command_environment()
     path = info.get('path')
     filesystem = storage_config.get(info.get('device'))
     mount_options = info.get('options')
     # handle unset, or empty('') strings
-    if not mount_options or len(mount_options) == 0:
+    if not mount_options:
         mount_options = 'defaults'
 
     if not path and filesystem.get('fstype') != "swap":
@@ -675,17 +674,15 @@ def mount_handler(info, storage_config):
 
     # Add volume to fstab
     if state['fstab']:
-        location = get_path_to_storage_volume(volume.get('id'),
-                                              storage_config)
         uuid = block.get_volume_uuid(volume_path)
-        if len(uuid) > 0:
-            location = "UUID=%s" % uuid
+        location = ("UUID=%s" % uuid) if uuid else (
+                    get_path_to_storage_volume(volume.get('id'),
+                                               storage_config))
 
-        if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32",
-                                        "fat64"]:
+        fstype = filesystem.get('fstype')
+        if fstype in ["fat", "fat12", "fat16", "fat32", "fat64"]:
             fstype = "vfat"
-        else:
-            fstype = filesystem.get('fstype')
+
         fstab_entry = "%s %s %s %s 0 0\n" % (location, path, fstype,
                                              ",".join(options))
         util.write_file(state['fstab'], fstab_entry, omode='a')
