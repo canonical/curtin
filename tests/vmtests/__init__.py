@@ -1338,8 +1338,13 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
     output_device = '/dev/disk/by-id/virtio-%s' % OUTPUT_DISK_NAME
 
     collect_prep = textwrap.dedent("mkdir -p " + output_dir)
-    collect_post = textwrap.dedent(
-        'tar -C "%s" -cf "%s" .' % (output_dir, output_device))
+    collect_post = textwrap.dedent("""\
+        cd {output_dir}\n
+        # remove any symlinks, but archive information about them.
+        # %Y target's file type, %P = path, %l = target of symlink
+        find -type l -printf "%Y\t%P\t%l\n" -delete > symlinks.txt
+        tar -cf "{output_device}" .
+        """).format(output_dir=output_dir, output_device=output_device)
 
     # copy /root for curtin config and install.log
     copy_rootdir = textwrap.dedent("cp -a /root " + output_dir)
