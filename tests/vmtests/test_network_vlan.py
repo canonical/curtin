@@ -106,7 +106,7 @@ class ZestyTestNetworkVlan(relbase.zesty, TestNetworkVlanAbs):
     @classmethod
     def setUpClass(cls):
         cls.skip_by_date(cls.__name__, cls.release, "ci-003c6678e",
-                         fixby=(2017, 8, 20), removeby=(2017, 9, 15))
+                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
         super().setUpClass()
 
 
