@@ -228,7 +228,7 @@ class ZestyTestBridging(relbase.zesty, TestBridgeNetworkAbs):
     @classmethod
     def setUpClass(cls):
         cls.skip_by_date(cls.__name__, cls.release, "1706752",
-                         fixby=(2017, 8, 20), removeby=(2017, 9, 15))
+                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
         super().setUpClass()
 
 
