@@ -272,9 +272,12 @@ def mdadm_stop(devpath, retries=None):
             val = md_sysfs_attr(devpath, 'sync_action')
             LOG.debug('%s/sync_max = %s', sync_action, val)
             if val != "idle":
-                LOG.debug("mdadm: setting array sync_action=idle")
-                util.write_file(sync_action, content="idle")
-
+                try:
+                    LOG.debug("mdadm: setting array sync_action=idle")
+                    util.write_file(sync_action, content="idle")
+                except (IOError, OSError):
+                    LOG.warning('mdadm: failed to set idle action')
+                    pass
             # Setting the sync_{max,min} may can help prevent the array from
             # changing back to 'resync' which may prevent the array from being
             # stopped
@@ -285,8 +288,8 @@ def mdadm_stop(devpath, retries=None):
                 try:
                     util.write_file(sync_max, content="0")
                     util.write_file(sync_min, content="0")
-                except IOError:
-                    LOG.warning('mdadm: failed to set sync_{max,min} values')
+                except (IOError, OSError):
+                    LOG.warning('mdadm: failed to set sync_{max,min} val')
                     pass
 
             # one wonders why this command doesn't do any of the above itself?
