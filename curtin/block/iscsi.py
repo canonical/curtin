@@ -243,6 +243,9 @@ def disconnect_target_disks(target_root_path=None):
     fails = []
     if os.path.isdir(target_nodes_path):
         for target in os.listdir(target_nodes_path):
+            if target not in iscsiadm_sessions():
+                LOG.debug('iscsi target %s not active, skipping', target)
+                continue
             # conn is "host,port,lun"
             for conn in os.listdir(
                             os.path.sep.join([target_nodes_path, target])):
@@ -254,7 +257,6 @@ def disconnect_target_disks(target_root_path=None):
                     fails.append(target)
                     LOG.warn("Unable to logout of iSCSI target %s: %s",
                              target, e)
-
     if fails:
         raise RuntimeError(
             "Unable to logout of iSCSI targets: %s" % ', '.join(fails))
