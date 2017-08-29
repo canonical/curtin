@@ -477,9 +477,9 @@ def cmd_install(args):
                                       '/root/curtin-install.log')
         if log_target_path:
             copy_install_log(logfile, workingd.target, log_target_path)
-        util.do_umount(workingd.target, recursive=True)
-        # disconnect iscsi targets, config is in ephemeral host
+        # disconnect iscsi targets before unmount
         iscsi.disconnect_target_disks('/')
+        util.do_umount(workingd.target, recursive=True)
         shutil.rmtree(workingd.top)
 
     apply_power_state(cfg.get('power_state'))
