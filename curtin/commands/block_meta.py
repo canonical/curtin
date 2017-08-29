@@ -653,14 +653,6 @@ def mount_handler(info, storage_config):
         mount_point = os.path.sep.join([state['target'], path])
         mount_point = os.path.normpath(mount_point)
 
-        # Create mount point if does not exist
-        util.ensure_dir(mount_point)
-
-        # Mount volume
-        util.subp(['mount', volume_path, mount_point])
-
-        path = "/%s" % path
-
         options = mount_options.split(",")
         # If the volume_path's kname is backed by iSCSI or (in the case of
         # LVM/DM) if any of its slaves are backed by iSCSI, then we need to
@@ -668,6 +660,24 @@ def mount_handler(info, storage_config):
         if iscsi.volpath_is_iscsi(volume_path):
             LOG.debug("Marking volume_path:%s as '_netdev'", volume_path)
             options.append("_netdev")
+
+        # Create mount point if does not exist
+        util.ensure_dir(mount_point)
+
+        # Mount volume, with options
+        try:
+            opts = ['-o', ','.join(options)]
+            util.subp(['mount', volume_path, mount_point, opts])
+        except util.ProcessExecutionError:
+            msg = ('Mount failed: %s @ %s with options %s' % (volume_path,
+                                                              mount_point,
+                                                              ",".join(opts)))
+            LOG.error(msg)
+            raise RuntimeError(msg)
+
+        # set path
+        path = "/%s" % path
+
     else:
         path = "none"
         options = ["sw"]
