@@ -257,6 +257,9 @@ def disconnect_target_disks(target_root_path=None):
                     fails.append(target)
                     LOG.warn("Unable to logout of iSCSI target %s: %s",
                              target, e)
+    else:
+        LOG.warning('Skipping disconnect: failed to find iscsi nodes path: %s',
+                    target_nodes_path)
     if fails:
         raise RuntimeError(
             "Unable to logout of iSCSI targets: %s" % ', '.join(fails))
@@ -416,9 +419,15 @@ class IscsiDisk(object):
 
     def disconnect(self):
         if self.target not in iscsiadm_sessions():
+            LOG.warning('Iscsi target %s not in active iscsi sessions',
+                        self.target)
             return
 
-        util.subp(['sync'])
-        iscsiadm_logout(self.target, self.portal)
+        try:
+            util.subp(['sync'])
+            iscsiadm_logout(self.target, self.portal)
+        except util.ProcessExecutionError as e:
+            LOG.warn("Unable to logout of iSCSI target %s from portal %s: %s",
+                     self.target, self.portal, e)
 
 # vi: ts=4 expandtab syntax=python
