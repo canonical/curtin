@@ -479,9 +479,8 @@ def cmd_install(args):
             copy_install_log(logfile, workingd.target, log_target_path)
         # unmount everything (including iscsi disks)
         util.do_umount(workingd.target, recursive=True)
-        # operate only on *known* iscsi devices that curtin created
-        for iscsi_disk in iscsi.connected_disks():
-            iscsi_disk.disconnect()
+        # disconnect iscsi sessions
+        iscsi.disconnect_target_disks('/')
         shutil.rmtree(workingd.top)
 
     apply_power_state(cfg.get('power_state'))
