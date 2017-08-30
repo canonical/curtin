@@ -477,8 +477,8 @@ def cmd_install(args):
                                       '/root/curtin-install.log')
         if log_target_path:
             copy_install_log(logfile, workingd.target, log_target_path)
-        # disconnect iscsi targets before unmount
-        iscsi.disconnect_target_disks('/')
+        # disconnect iscsi before unmounting
+        iscsi.disconnect_target_disks(workingd.target)
         util.do_umount(workingd.target, recursive=True)
         shutil.rmtree(workingd.top)
 
