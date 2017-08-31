@@ -249,9 +249,9 @@ def get_iscsi_disks_from_config(cfg):
         return []
 
     # Construct IscsiDisk objects for each iscsi volume present
-    iscsi_disks = [IscsiDisk(v['path']) for k, v in sconfig.items()
-                   if v['type'] == 'disk' and
-                   v.get('path', "").startswith('iscsi:')]
+    iscsi_disks = [IscsiDisk(disk['path']) for disk in sconfig
+                   if disk['type'] == 'disk' and
+                   disk.get('path', "").startswith('iscsi:')]
     LOG.debug('Found %s iscsi disks in storage config', len(iscsi_disks))
     return iscsi_disks
 
