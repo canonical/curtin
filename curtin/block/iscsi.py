@@ -238,6 +238,24 @@ def connected_disks():
     return _ISCSI_DISKS
 
 
+def get_iscsi_disks_from_config(cfg):
+    """Parse a curtin storage config and return a list
+       of iscsi disk objects for each configuration present
+    """
+    sconfig = cfg.get('storage', {}).get('config', {})
+    if not sconfig:
+        LOG.warning('Configuration dictionary did not contain'
+                    ' a storage configuration')
+        return []
+
+    # Construct IscsiDisk objects for each iscsi volume present
+    iscsi_disks = [IscsiDisk(v['path']) for k, v in sconfig.items()
+                   if v['type'] == 'disk' and
+                   v.get('path', "").startswith('iscsi:')]
+    LOG.debug('Found %s iscsi disks in storage config', len(iscsi_disks))
+    return iscsi_disks
+
+
 def disconnect_target_disks(target_root_path=None):
     target_nodes_path = util.target_path(target_root_path, '/etc/iscsi/nodes')
     fails = []
