@@ -276,8 +276,9 @@ def mdadm_stop(devpath, retries=None):
                     LOG.debug("mdadm: setting array sync_action=idle")
                     util.write_file(sync_action, content="idle")
                 except (IOError, OSError):
-                    LOG.warning('mdadm: failed to set idle action')
-                    pass
+                    LOG.warning("mdadm: error writing 'idle' to %s",
+                                sync_action)
+
             # Setting the sync_{max,min} may can help prevent the array from
             # changing back to 'resync' which may prevent the array from being
             # stopped
@@ -289,8 +290,8 @@ def mdadm_stop(devpath, retries=None):
                     util.write_file(sync_max, content="0")
                     util.write_file(sync_min, content="0")
                 except (IOError, OSError):
-                    LOG.warning('mdadm: failed to set sync_{max,min} val')
-                    pass
+                    LOG.warning('mdadm: error writing sync_{max,min} to %s,%s',
+                                sync_max, sync_min)
 
             # one wonders why this command doesn't do any of the above itself?
             out, err = util.subp(["mdadm", "--manage", "--stop", devpath],
