@@ -560,6 +560,84 @@ class TestBlockIscsiVolPath(CiTestCase):
             iscsi.volpath_is_iscsi(None)
 
 
+class TestBlockIscsiDiskFromConfig(CiTestCase):
+    # Test iscsi parsing of storage config for iscsi configure disks
+
+    def setUp(self):
+        super(TestBlockIscsiDiskFromConfig, self).setUp()
+        self.add_patch('curtin.block.iscsi.util.subp', 'mock_subp')
+
+    def test_parse_iscsi_disk_from_config(self):
+        """Test parsing iscsi volume path creates the same iscsi disk"""
+        target = 'curtin-659d5f45-4f23-46cb-b826-f2937b896e09'
+        iscsi_path = 'iscsi:10.245.168.20::20112:1:' + target
+        cfg = {
+            'storage': {
+                'config': [{'type': 'disk',
+                            'id': 'iscsidev1',
+                            'path': iscsi_path,
+                            'name': 'iscsi_disk1',
+                            'ptable': 'msdos',
+                            'wipe': 'superblock'}]
+                }
+        }
+        expected_iscsi_disk = iscsi.IscsiDisk(iscsi_path)
+        iscsi_disk = iscsi.get_iscsi_disks_from_config(cfg).pop()
+        # utilize IscsiDisk str method for equality check
+        self.assertEqual(str(expected_iscsi_disk), str(iscsi_disk))
+
+    def test_parse_iscsi_disk_from_config_no_iscsi(self):
+        """Test parsing storage config with no iscsi disks included"""
+        cfg = {
+            'storage': {
+                'config': [{'type': 'disk',
+                            'id': 'ssd1',
+                            'path': 'dev/slash/foo1',
+                            'name': 'the-fast-one',
+                            'ptable': 'gpt',
+                            'wipe': 'superblock'}]
+                }
+        }
+        expected_iscsi_disks = []
+        iscsi_disks = iscsi.get_iscsi_disks_from_config(cfg)
+        self.assertEqual(expected_iscsi_disks, iscsi_disks)
+
+    def test_parse_iscsi_disk_from_config_invalid_iscsi(self):
+        """Test parsing storage config with no iscsi disks included"""
+        cfg = {
+            'storage': {
+                'config': [{'type': 'disk',
+                            'id': 'iscsidev2',
+                            'path': 'iscsi:garbage',
+                            'name': 'noob-city',
+                            'ptable': 'msdos',
+                            'wipe': 'superblock'}]
+                }
+        }
+        with self.assertRaises(ValueError):
+            iscsi.get_iscsi_disks_from_config(cfg)
+
+    def test_parse_iscsi_disk_from_config_empty(self):
+        """Test parse_iscsi_disks handles empty/invalid config"""
+        expected_iscsi_disks = []
+        iscsi_disks = iscsi.get_iscsi_disks_from_config({})
+        self.assertEqual(expected_iscsi_disks, iscsi_disks)
+
+        cfg = {'storage': {'config': []}}
+        iscsi_disks = iscsi.get_iscsi_disks_from_config(cfg)
+        self.assertEqual(expected_iscsi_disks, iscsi_disks)
+
+    def test_parse_iscsi_disk_from_config_none(self):
+        """Test parse_iscsi_disks handles no config"""
+        expected_iscsi_disks = []
+        iscsi_disks = iscsi.get_iscsi_disks_from_config({})
+        self.assertEqual(expected_iscsi_disks, iscsi_disks)
+
+        cfg = None
+        iscsi_disks = iscsi.get_iscsi_disks_from_config(cfg)
+        self.assertEqual(expected_iscsi_disks, iscsi_disks)
+
+
 class TestBlockIscsiDisconnect(CiTestCase):
     # test that when disconnecting iscsi targets we
     # check that the target has an active session before

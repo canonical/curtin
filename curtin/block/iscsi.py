@@ -242,6 +242,9 @@ def get_iscsi_disks_from_config(cfg):
     """Parse a curtin storage config and return a list
        of iscsi disk objects for each configuration present
     """
+    if not cfg:
+        cfg = {}
+
     sconfig = cfg.get('storage', {}).get('config', {})
     if not sconfig:
         LOG.warning('Configuration dictionary did not contain'
