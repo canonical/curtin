@@ -136,27 +136,27 @@ class CentosTestNetworkMtuAbs(TestNetworkMtuAbs):
     @classmethod
     def test_ip_output(cls):
         cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 8, 20), removeby=(2017, 9, 15))
+                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
 
     @classmethod
     def test_ipv6_mtu_smaller_than_ipv4_v6_iface_first(cls):
         cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 8, 20), removeby=(2017, 9, 15))
+                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
 
     @classmethod
     def test_ipv6_mtu_smaller_than_ipv4_non_default(cls):
         cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 8, 20), removeby=(2017, 9, 15))
+                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
 
     @classmethod
     def test_ipv6_mtu_higher_than_default_no_ipv4_iface_up(cls):
         cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 8, 20), removeby=(2017, 9, 15))
+                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
 
     @classmethod
     def test_ipv6_mtu_higher_than_default_no_ipv4_iface_v6_iface_first(cls):
         cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 8, 20), removeby=(2017, 9, 15))
+                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
 
 
 class PreciseHWETTestNetworkMtu(relbase.precise_hwe_t, TestNetworkMtuAbs):

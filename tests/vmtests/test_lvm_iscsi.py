@@ -61,3 +61,7 @@ class XenialTestIscsiLvm(relbase.xenial, TestLvmIscsiAbs):
 
 class ZestyTestIscsiLvm(relbase.zesty, TestLvmIscsiAbs):
     __test__ = True
+
+
+class ArtfulTestIscsiLvm(relbase.artful, TestLvmIscsiAbs):
+    __test__ = True
