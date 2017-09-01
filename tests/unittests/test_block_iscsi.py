@@ -1,6 +1,8 @@
 import mock
+import os
 
 from curtin.block import iscsi
+from curtin import util
 from .helpers import CiTestCase
 
 
@@ -556,5 +558,184 @@ class TestBlockIscsiVolPath(CiTestCase):
     def test_volpath_is_iscsi_missing_param(self):
         with self.assertRaises(ValueError):
             iscsi.volpath_is_iscsi(None)
+
+
+class TestBlockIscsiDiskFromConfig(CiTestCase):
+    # Test iscsi parsing of storage config for iscsi configure disks
+
+    def setUp(self):
+        super(TestBlockIscsiDiskFromConfig, self).setUp()
+        self.add_patch('curtin.block.iscsi.util.subp', 'mock_subp')
+
+    def test_parse_iscsi_disk_from_config(self):
+        """Test parsing iscsi volume path creates the same iscsi disk"""
+        target = 'curtin-659d5f45-4f23-46cb-b826-f2937b896e09'
+        iscsi_path = 'iscsi:10.245.168.20::20112:1:' + target
+        cfg = {
+            'storage': {
+                'config': [{'type': 'disk',
+                            'id': 'iscsidev1',
+                            'path': iscsi_path,
+                            'name': 'iscsi_disk1',
+                            'ptable': 'msdos',
+                            'wipe': 'superblock'}]
+                }
+        }
+        expected_iscsi_disk = iscsi.IscsiDisk(iscsi_path)
+        iscsi_disk = iscsi.get_iscsi_disks_from_config(cfg).pop()
+        # utilize IscsiDisk str method for equality check
+        self.assertEqual(str(expected_iscsi_disk), str(iscsi_disk))
+
+    def test_parse_iscsi_disk_from_config_no_iscsi(self):
+        """Test parsing storage config with no iscsi disks included"""
+        cfg = {
+            'storage': {
+                'config': [{'type': 'disk',
+                            'id': 'ssd1',
+                            'path': 'dev/slash/foo1',
+                            'name': 'the-fast-one',
+                            'ptable': 'gpt',
+                            'wipe': 'superblock'}]
+                }
+        }
+        expected_iscsi_disks = []
+        iscsi_disks = iscsi.get_iscsi_disks_from_config(cfg)
+        self.assertEqual(expected_iscsi_disks, iscsi_disks)
+
+    def test_parse_iscsi_disk_from_config_invalid_iscsi(self):
+        """Test parsing storage config with no iscsi disks included"""
+        cfg = {
+            'storage': {
+                'config': [{'type': 'disk',
+                            'id': 'iscsidev2',
+                            'path': 'iscsi:garbage',
+                            'name': 'noob-city',
+                            'ptable': 'msdos',
+                            'wipe': 'superblock'}]
+                }
+        }
+        with self.assertRaises(ValueError):
+            iscsi.get_iscsi_disks_from_config(cfg)
+
+    def test_parse_iscsi_disk_from_config_empty(self):
+        """Test parse_iscsi_disks handles empty/invalid config"""
+        expected_iscsi_disks = []
+        iscsi_disks = iscsi.get_iscsi_disks_from_config({})
+        self.assertEqual(expected_iscsi_disks, iscsi_disks)
+
+        cfg = {'storage': {'config': []}}
+        iscsi_disks = iscsi.get_iscsi_disks_from_config(cfg)
+        self.assertEqual(expected_iscsi_disks, iscsi_disks)
+
+    def test_parse_iscsi_disk_from_config_none(self):
+        """Test parse_iscsi_disks handles no config"""
+        expected_iscsi_disks = []
+        iscsi_disks = iscsi.get_iscsi_disks_from_config({})
+        self.assertEqual(expected_iscsi_disks, iscsi_disks)
+
+        cfg = None
+        iscsi_disks = iscsi.get_iscsi_disks_from_config(cfg)
+        self.assertEqual(expected_iscsi_disks, iscsi_disks)
+
+
+class TestBlockIscsiDisconnect(CiTestCase):
+    # test that when disconnecting iscsi targets we
+    # check that the target has an active session before
+    # issuing a disconnect command
+
+    def setUp(self):
+        super(TestBlockIscsiDisconnect, self).setUp()
+        self.add_patch('curtin.block.iscsi.util.subp', 'mock_subp')
+        self.add_patch('curtin.block.iscsi.iscsiadm_sessions',
+                       'mock_iscsi_sessions')
+        # fake target_root + iscsi nodes dir
+        self.target_path = self.tmp_dir()
+        self.iscsi_nodes = os.path.join(self.target_path, 'etc/iscsi/nodes')
+        util.ensure_dir(self.iscsi_nodes)
+
+    def _fmt_disconnect(self, target, portal):
+        return ['iscsiadm', '--mode=node', '--targetname=%s' % target,
+                '--portal=%s' % portal, '--logout']
+
+    def _setup_nodes(self, sessions, connection):
+        # setup iscsi_nodes dir (<fakeroot>/etc/iscsi/nodes) with content
+        for s in sessions:
+            sdir = os.path.join(self.iscsi_nodes, s)
+            connpath = os.path.join(sdir, connection)
+            util.ensure_dir(sdir)
+            util.write_file(connpath, content="")
+
+    def test_disconnect_target_disk(self):
+        """Test iscsi disconnecting multiple sessions, all present"""
+
+        sessions = [
+            'curtin-53ab23ff-a887-449a-80a8-288151208091',
+            'curtin-94b62de1-c579-42c0-879e-8a28178e64c5',
+            'curtin-556aeecd-a227-41b7-83d7-2bb471c574b4',
+            'curtin-fd0f644b-7858-420f-9997-3ea2aefe87b9'
+        ]
+        connection = '10.245.168.20,16395,1'
+        self._setup_nodes(sessions, connection)
+
+        self.mock_iscsi_sessions.return_value = "\n".join(sessions)
+
+        iscsi.disconnect_target_disks(self.target_path)
+
+        expected_calls = []
+        for session in sessions:
+            (host, port, _) = connection.split(',')
+            disconnect = self._fmt_disconnect(session, "%s:%s" % (host, port))
+            calls = [
+                mock.call(['sync']),
+                mock.call(disconnect, capture=True, log_captured=True),
+                mock.call(['udevadm', 'settle']),
+            ]
+            expected_calls.extend(calls)
+
+        self.mock_subp.assert_has_calls(expected_calls, any_order=True)
+
+    def test_disconnect_target_disk_skip_disconnected(self):
+        """Test iscsi does not attempt to disconnect already closed sessions"""
+        sessions = [
+            'curtin-53ab23ff-a887-449a-80a8-288151208091',
+            'curtin-94b62de1-c579-42c0-879e-8a28178e64c5',
+            'curtin-556aeecd-a227-41b7-83d7-2bb471c574b4',
+            'curtin-fd0f644b-7858-420f-9997-3ea2aefe87b9'
+        ]
+        connection = '10.245.168.20,16395,1'
+        self._setup_nodes(sessions, connection)
+        # Test with all sessions are already disconnected
+        self.mock_iscsi_sessions.return_value = ""
+
+        iscsi.disconnect_target_disks(self.target_path)
+
+        self.mock_subp.assert_has_calls([], any_order=True)
+
+    @mock.patch('curtin.block.iscsi.iscsiadm_logout')
+    def test_disconnect_target_disk_raises_runtime_error(self, mock_logout):
+        """Test iscsi raises RuntimeError if we fail to logout"""
+        sessions = [
+            'curtin-53ab23ff-a887-449a-80a8-288151208091',
+        ]
+        connection = '10.245.168.20,16395,1'
+        self._setup_nodes(sessions, connection)
+        self.mock_iscsi_sessions.return_value = "\n".join(sessions)
+        mock_logout.side_effect = util.ProcessExecutionError()
+
+        with self.assertRaises(RuntimeError):
+            iscsi.disconnect_target_disks(self.target_path)
+
+        expected_calls = []
+        for session in sessions:
+            (host, port, _) = connection.split(',')
+            disconnect = self._fmt_disconnect(session, "%s:%s" % (host, port))
+            calls = [
+                mock.call(['sync']),
+                mock.call(disconnect, capture=True, log_captured=True),
+                mock.call(['udevadm', 'settle']),
+            ]
+            expected_calls.extend(calls)
+
+        self.mock_subp.assert_has_calls([], any_order=True)
 
 # vi: ts=4 expandtab syntax=python
