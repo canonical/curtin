@@ -877,8 +877,11 @@ class VMBaseClass(TestCase):
             raise
 
         # capture curtin install log and webhook timings
-        util.subp(["tools/curtin-log-print", "--dumpfiles", cls.td.logs,
-                   cls.reporting_log], capture=True)
+        try:
+            util.subp(["tools/curtin-log-print", "--dumpfiles", cls.td.logs,
+                      cls.reporting_log], capture=True)
+        except util.ProcessExecutionError as error:
+            logger.debug('tools/curtin-log-print failed: %s', error)
 
         logger.info(
             "%s: setUpClass finished. took %.02f seconds. Running testcases.",
