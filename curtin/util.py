@@ -1400,4 +1400,13 @@ def load_shell_content(content, add_empty=False, empty_val=None):
     return data
 
 
+def uses_systemd(target=None):
+    sdpath = target_path(target, path="/run/systemd/system")
+    try:
+        res = os.lstat(sdpath)
+        return stat.S_ISDIR(res.st_mode)
+    except Exception:
+        return False
+
+
 # vi: ts=4 expandtab syntax=python

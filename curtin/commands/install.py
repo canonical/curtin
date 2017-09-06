@@ -479,11 +479,9 @@ def cmd_install(args):
             copy_install_log(logfile, workingd.target, log_target_path)
         # unmount everything (including iscsi disks)
         util.do_umount(workingd.target, recursive=True)
-        # disconnect configured iscsi disks
-        LOG.info("Disconnecting iscsi targets (if present)")
-        for iscsi_disk in iscsi.get_iscsi_disks_from_config(cfg):
-            LOG.info("Attempting to disconnect %s", iscsi_disk)
-            iscsi_disk.disconnect()
+        # ensure iscsi service is running to handle disconnecting targets
+        if iscsi.get_iscsi_disks_from_config(cfg):
+            iscsi.restart_iscsi_service()
 
         shutil.rmtree(workingd.top)
 
