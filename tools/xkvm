@@ -124,10 +124,10 @@ qemu_supports_file_locking() {
     # hackily check if qemu has file.locking in -drive params (LP: #1716028)
     if [ -z "$_QEMU_SUPPORTS_FILE_LOCKING" ]; then
         local path=$(command -v "$KVM")
-        _QEMU_SUPPORTS_FILE_LOCKING=
         grep -q "file.locking=off" "$KVM" &&
             _QEMU_SUPPORTS_FILE_LOCKING=true ||
             _QEMU_SUPPORTS_FILE_LOCKING=false
+        debug 1 "qemu supports file locking = ${_QEMU_SUPPORTS_FILE_LOCKING}"
     fi
     [ "$_QEMU_SUPPORTS_FILE_LOCKING" = "true" ]
     return
@@ -486,8 +486,8 @@ main() {
                 serial=*|bus=*|unit=*|index=*) continue;;
                 file.locking=*)
                     qemu_supports_file_locking || {
-                        error "qemu has no file locking." \
-                            "Dropping '$tok' in $cur"
+                        debug 2 "qemu has no file locking." \
+                            "Dropping '$tok' from: $cur"
                         continue
                     };;
             esac
