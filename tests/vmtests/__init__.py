@@ -692,6 +692,7 @@ class VMBaseClass(TestCase):
                         centos_default)
 
         if cls.multipath:
+            disks = [d + ",file.locking=off" for d in disks]
             disks = disks * cls.multipath_num_paths
 
         # set reporting logger
