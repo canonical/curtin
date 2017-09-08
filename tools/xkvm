@@ -11,7 +11,8 @@ TAPDEVS=( )
 # OVS_CLEANUP gets populated with bridge:devname pairs used with ovs
 OVS_CLEANUP=( )
 MAC_PREFIX="52:54:00:12:34"
-_QEMU_SUPPORTS_FILE_LOCKING=""
+# allow this to be set externally.
+_QEMU_SUPPORTS_FILE_LOCKING="${_QEMU_SUPPORTS_FILE_LOCKING}"
 KVM="kvm"
 declare -A KVM_DEVOPTS
 
