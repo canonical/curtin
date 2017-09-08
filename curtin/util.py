@@ -58,6 +58,7 @@ _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
 _INSTALLED_MAIN = '/usr/bin/curtin'
 
 _LSB_RELEASE = {}
+_USES_SYSTEMD = None
 _HAS_UNSHARE_PID = None
 
 _DNS_REDIRECT_IP = None
@@ -1400,13 +1401,21 @@ def load_shell_content(content, add_empty=False, empty_val=None):
     return data
 
 
-def uses_systemd(target=None):
-    sdpath = target_path(target, path="/run/systemd/system")
-    try:
-        res = os.lstat(sdpath)
-        return stat.S_ISDIR(res.st_mode)
-    except Exception:
-        return False
+def uses_systemd(sdpath='/run/systemd/system'):
+    """ Check if current enviroment uses systemd """
+
+    global _USES_SYSTEMD
+    if _USES_SYSTEMD is None:
+        if not isinstance(sdpath, str):
+            raise ValueError("sdpath must be a string type")
+
+        try:
+            res = os.lstat(sdpath)
+            _USES_SYSTEMD = stat.S_ISDIR(res.st_mode)
+        except Exception:
+            _USES_SYSTEMD = False
+
+    return _USES_SYSTEMD
 
 
 # vi: ts=4 expandtab syntax=python
