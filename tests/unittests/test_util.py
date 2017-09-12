@@ -851,4 +851,55 @@ class TestGetEFIBootMGR(CiTestCase):
         }, observed)
 
 
+class TestUsesSystemd(CiTestCase):
+
+    def setUp(self):
+        super(TestUsesSystemd, self).setUp()
+        self._reset_cache()
+        self.add_patch('curtin.util.os.path.isdir', 'mock_isdir')
+
+    def _reset_cache(self):
+        util._USES_SYSTEMD = None
+
+    def test_uses_systemd_on_systemd(self):
+        """ Test that uses_systemd returns True if sdpath is a dir """
+        # systemd_enabled
+        self.mock_isdir.return_value = True
+        result = util.uses_systemd()
+        self.assertEqual(True, result)
+        self.assertEqual(1, len(self.mock_isdir.call_args_list))
+
+    def test_uses_systemd_cached(self):
+        """Test that we cache the uses_systemd result"""
+
+        # reset_cache should ensure it's unset
+        self.assertEqual(None, util._USES_SYSTEMD)
+
+        # systemd enabled
+        self.mock_isdir.return_value = True
+
+        # first time
+        first_result = util.uses_systemd()
+
+        # check the cache value
+        self.assertEqual(first_result, util._USES_SYSTEMD)
+
+        # second time
+        second_result = util.uses_systemd()
+
+        # results should match between tries
+        self.assertEqual(True, first_result)
+        self.assertEqual(True, second_result)
+
+        # isdir should only be called once
+        self.assertEqual(1, len(self.mock_isdir.call_args_list))
+
+    def test_uses_systemd_on_non_systemd(self):
+        """ Test that uses_systemd returns False if sdpath is not a dir """
+        # systemd not available
+        self.mock_isdir.return_value = False
+        result = util.uses_systemd()
+        self.assertEqual(False, result)
+
+
 # vi: ts=4 expandtab syntax=python
