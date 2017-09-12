@@ -856,7 +856,6 @@ class TestUsesSystemd(CiTestCase):
     def setUp(self):
         super(TestUsesSystemd, self).setUp()
         self._reset_cache()
-        self.sdpath = self.tmp_dir()
         self.add_patch('curtin.util.os.path.isdir', 'mock_isdir')
 
     def _reset_cache(self):
