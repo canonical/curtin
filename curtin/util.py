@@ -1401,19 +1401,15 @@ def load_shell_content(content, add_empty=False, empty_val=None):
     return data
 
 
-def uses_systemd(sdpath='/run/systemd/system'):
-    """ Check if current enviroment uses systemd """
+def uses_systemd():
+    """ Check if current enviroment uses systemd by testing if
+        /run/systemd/system is a directory; only present if
+        systemd is available on running system.
+    """
 
     global _USES_SYSTEMD
     if _USES_SYSTEMD is None:
-        if not isinstance(sdpath, str):
-            raise ValueError("sdpath must be a string type")
-
-        try:
-            res = os.lstat(sdpath)
-            _USES_SYSTEMD = stat.S_ISDIR(res.st_mode)
-        except Exception:
-            _USES_SYSTEMD = False
+        _USES_SYSTEMD = os.path.isdir('/run/systemd/system')
 
     return _USES_SYSTEMD
 
