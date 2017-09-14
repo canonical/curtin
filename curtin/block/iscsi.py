@@ -195,6 +195,15 @@ def target_nodes_directory(state, iscsi_disk):
     return target_nodes_location
 
 
+def restart_iscsi_service():
+    LOG.info('restarting iscsi service')
+    if util.uses_systemd():
+        cmd = ['systemctl', 'reload-or-restart', 'open-iscsi']
+    else:
+        cmd = ['service', 'open-iscsi', 'restart']
+    util.subp(cmd, capture=True)
+
+
 def save_iscsi_config(iscsi_disk):
     state = util.load_command_environment()
     # A nodes directory will be created in the same directory as the

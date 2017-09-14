@@ -58,6 +58,7 @@ _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
 _INSTALLED_MAIN = '/usr/bin/curtin'
 
 _LSB_RELEASE = {}
+_USES_SYSTEMD = None
 _HAS_UNSHARE_PID = None
 
 _DNS_REDIRECT_IP = None
@@ -1398,6 +1399,19 @@ def load_shell_content(content, add_empty=False, empty_val=None):
             data[key] = value
 
     return data
+
+
+def uses_systemd():
+    """ Check if current enviroment uses systemd by testing if
+        /run/systemd/system is a directory; only present if
+        systemd is available on running system.
+    """
+
+    global _USES_SYSTEMD
+    if _USES_SYSTEMD is None:
+        _USES_SYSTEMD = os.path.isdir('/run/systemd/system')
+
+    return _USES_SYSTEMD
 
 
 # vi: ts=4 expandtab syntax=python
