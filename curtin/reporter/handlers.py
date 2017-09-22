@@ -97,7 +97,7 @@ class JournaldHandler(ReportingHandler):
             SYSLOG_IDENTIFIER=self.identifier,
             CURTIN_EVENT_TYPE=event.event_type,
             CURTIN_NAME=event.name,
-            **extra,
+            **extra
             )
 
 
