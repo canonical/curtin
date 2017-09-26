@@ -713,7 +713,11 @@ class VMBaseClass(TestCase):
                         'maas': {
                             'level': 'DEBUG',
                             'type': 'webhook',
-                            'endpoint': localhost_url,
+                            'endpoint': localhost_url
+                        },
+                        'journald': {
+                            'level': 'DEBUG',
+                            'type': 'journald',
                         },
                     },
                 }))
@@ -1116,6 +1120,14 @@ class VMBaseClass(TestCase):
         [files] = events_with_files.get('files', [])
         self.assertIn('path', files)
         self.assertEqual('/tmp/install.log', files.get('path', ''))
+        # check for journald reporting output
+        # collect/root/journalctl.curtin_events.log
+        # collect/root/journalctl.curtin_events.json
+
+    def test_journal_reporting_output(self):
+        """Check that our journald reporting produces output"""
+        self.output_files_exist(['root/journalctl.curtin_events.log',
+                                 'root/journalctl.curtin_events.json'])
 
     def test_interfacesd_eth0_removed(self):
         """ Check that curtin has removed /etc/network/interfaces.d/eth0.cfg

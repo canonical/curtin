@@ -82,7 +82,18 @@ class WebHookHandler(ReportingHandler):
 
 class JournaldHandler(ReportingHandler):
 
-    def __init__(self, identifier="curtin_event"):
+    def __init__(self, level="DEBUG", identifier="curtin_event"):
+        super(JournaldHandler, self).__init__()
+        if isinstance(level, int):
+            pass
+        else:
+            input_level = level
+            try:
+                level = getattr(logging, level.upper())
+            except Exception:
+                LOG.warn("invalid level '%s', using WARN", input_level)
+                level = logging.WARN
+        self.level = level
         self.identifier = identifier
 
     def publish_event(self, event):
@@ -92,10 +103,11 @@ class JournaldHandler(ReportingHandler):
         if hasattr(event, 'result'):
             extra['CURTIN_RESULT'] = event.result
         journal.send(
-            event.description,
+            event.as_string(),
             PRIORITY=level,
             SYSLOG_IDENTIFIER=self.identifier,
             CURTIN_EVENT_TYPE=event.event_type,
+            CURTIN_MESSAGE=event.description,
             CURTIN_NAME=event.name,
             **extra
             )
