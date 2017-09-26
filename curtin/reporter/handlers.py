@@ -80,7 +80,29 @@ class WebHookHandler(ReportingHandler):
             LOG.warn("failed posting event: %s [%s]" % (event.as_string(), e))
 
 
+class JournaldHandler(ReportingHandler):
+
+    def __init__(self, identifier="curtin_event"):
+        self.identifier = identifier
+
+    def publish_event(self, event):
+        from systemd import journal
+        level = str(getattr(journal, "LOG_" + event.level, journal.LOG_DEBUG))
+        extra = {}
+        if hasattr(event, 'result'):
+            extra['CURTIN_RESULT'] = event.result
+        journal.send(
+            event.description,
+            PRIORITY=level,
+            SYSLOG_IDENTIFIER=self.identifier,
+            CURTIN_EVENT_TYPE=event.event_type,
+            CURTIN_NAME=event.name,
+            **extra
+            )
+
+
 available_handlers = DictRegistry()
 available_handlers.register_item('log', LogHandler)
 available_handlers.register_item('print', PrintHandler)
 available_handlers.register_item('webhook', WebHookHandler)
+available_handlers.register_item('journald', JournaldHandler)
