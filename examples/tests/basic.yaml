@@ -76,10 +76,3 @@ storage:
         number: 10
         size: 1GB
         device: pnum_disk
-
-late_commands:
- 00_copy_journal__log: ['sh', '-c',
-                        'journalctl -b -o short-precise --no-pager -t curtin_event > ${TARGET_MOUNT_POINT}/root/journalctl.curtin_events.log' ]
- 01_copy_journal_json: ['sh', '-c',
-                        "journalctl -b -o json-pretty --no-pager -t curtin_event | sed -e '1i [' -e 's|^}|},|g'  -e '$s|^},|}|' -e '$a]' > ${TARGET_MOUNT_POINT}/root/journalctl.curtin_events.json" ]
-

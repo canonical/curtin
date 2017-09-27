@@ -1121,11 +1121,6 @@ class VMBaseClass(TestCase):
         # collect/root/journalctl.curtin_events.log
         # collect/root/journalctl.curtin_events.json
 
-    def test_journal_reporting_output(self):
-        """Check that our journald reporting produces output"""
-        self.output_files_exist(['root/journalctl.curtin_events.log',
-                                 'root/journalctl.curtin_events.json'])
-
     def test_interfacesd_eth0_removed(self):
         """ Check that curtin has removed /etc/network/interfaces.d/eth0.cfg
             by examining the output of a find /etc/network > find_interfaces.d
