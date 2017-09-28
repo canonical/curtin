@@ -88,27 +88,6 @@ Given the source above, curtin will essentially do a::
 
  wget $URL | tar -Sxvzf 
 
-Hook for installed OS to customize itself
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-After extraction of sources, the source that was extracted is then given a chance to customize itself for the system.  This customization may include:
- - ensuring that appropriate device drivers are loaded on first boot
- - consuming the network interfaces file and applying its declarations.
- - ensuring that necessary packages 
-
-**Config Example**::
-
- config_hook: {{TARGET_MP}}/opt/curtin/config-hook
-
-**Command environment**
- - ``INTERFACES``: This is a path to the file created during networking stage
- - ``FSTAB``: This is a path to the file created during partitioning stage
- - ``CONFIG``: This is a path to the curtin config file.  It is provided so that additional configuration could be provided through to the OS customization.
-
-**Helpers**
-
-Curtin provides some helpers to make the OS customization easier.
- - `curtin in-target`: run the command while chrooted into the target.
-
 Final Commands
 ~~~~~~~~~~~~~~
 
