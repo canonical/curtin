@@ -97,7 +97,11 @@ class JournaldHandler(ReportingHandler):
         self.identifier = identifier
 
     def publish_event(self, event):
-        from systemd import journal
+        # for pylint on < trusty
+        try:
+            from systemd import journal
+        except ImportError:
+            raise
         level = str(getattr(journal, "LOG_" + event.level, journal.LOG_DEBUG))
         extra = {}
         if hasattr(event, 'result'):
@@ -117,8 +121,8 @@ available_handlers = DictRegistry()
 available_handlers.register_item('log', LogHandler)
 available_handlers.register_item('print', PrintHandler)
 available_handlers.register_item('webhook', WebHookHandler)
+# only add journald handler on systemd systems
 try:
     available_handlers.register_item('journald', JournaldHandler)
 except ImportError:
     print('journald report handler not supported; no systemd module')
-
