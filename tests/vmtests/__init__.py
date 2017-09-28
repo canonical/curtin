@@ -1434,12 +1434,10 @@ def tar_disks(tmpdir, outfile="disks.tar", diskmatch=".img"):
         outfile = os.path.join(disks_dir, outfile)
         disks = [os.path.join(disks_dir, disk) for disk in
                  os.listdir(disks_dir) if disk.endswith(diskmatch)]
-        cmd = ["tar", "--create",
-               "--file=%s" % outfile,
+        cmd = ["tar", "--create", "--file=%s" % outfile,
                "--verbose", "--remove-files", "--sparse"]
         cmd.extend(disks)
-        logger.info('Taring %s disks sparsely to %s',
-                    len(disks), outfile)
+        logger.info('Taring %s disks sparsely to %s', len(disks), outfile)
         util.subp(cmd, capture=True)
     else:
         logger.error('Failed to find "disks" dir under tmpdir: %s', tmpdir)
