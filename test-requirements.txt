@@ -2,4 +2,3 @@ mock
 nose
 pyflakes
 coverage
-systemd-python
