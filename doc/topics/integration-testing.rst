@@ -164,7 +164,7 @@ Some environment variables affect the running of vmtest
 - ``CURTIN_VMTEST_TAR_DISKS``: default 0
 
   Vmtest writes out disk image files sparsely into a disks directory
-  If this flag is set to non-zero number, vmtest will tar all disks in
+  If this flag is set to a non-zero number, vmtest will tar all disks in
   the directory into a single disks.tar and remove the sparse disk files.
 
 - ``CURTIN_VMTEST_TOPDIR``: default $TMPDIR/vmtest-<timestamp>
