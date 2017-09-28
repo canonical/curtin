@@ -117,4 +117,8 @@ available_handlers = DictRegistry()
 available_handlers.register_item('log', LogHandler)
 available_handlers.register_item('print', PrintHandler)
 available_handlers.register_item('webhook', WebHookHandler)
-available_handlers.register_item('journald', JournaldHandler)
+try:
+    available_handlers.register_item('journald', JournaldHandler)
+except ImportError:
+    print('journald report handler not supported; no systemd module')
+
