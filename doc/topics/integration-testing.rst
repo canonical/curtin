@@ -161,6 +161,12 @@ Some environment variables affect the running of vmtest
     - ``logs``: install and boot logs
     - ``collect``: data collected by the boot phase
 
+- ``CURTIN_VMTEST_TAR_DISKS``: default 0
+
+  Vmtest writes out disk image files sparsely into a disks directory
+  If this flag is set to a non-zero number, vmtest will tar all disks in
+  the directory into a single disks.tar and remove the sparse disk files.
+
 - ``CURTIN_VMTEST_TOPDIR``: default $TMPDIR/vmtest-<timestamp>
 
   Vmtest puts all test data under this value.  By default, it creates
