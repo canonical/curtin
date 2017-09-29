@@ -5,7 +5,7 @@ Curtin has built-in support for installation of Ubuntu.
 Other operating systems are supported through a mechanism called
 'curthooks' or 'curtin-hooks'.
 
-A curtin install runs through different stages.  See the stages_
+A curtin install runs through different stages.  See the Stages_
 documentation for function of each stage.
 The stages communicate with each other via data in a working working
 directory and environment variables as described in `Command Environment`_
@@ -14,6 +14,7 @@ Curtin handles partitioning, filesystem creation and target filesystem
 population for all operating systems. Curthooks are the mechanism provided
 so that the operating system can customize itself before reboot. This
 customization typically would need to include:
+
  - ensuring that appropriate device drivers are loaded on first boot
  - consuming the network interfaces file and applying its declarations.
  - ensuring that necessary packages are installed to utilize storage
@@ -55,10 +56,10 @@ and is in the format described in `Networking`_.
 The curtin-hooks program must read this configuration and then set up
 the installed system to use it.
 
-  If the installed system has cloud-init at version 17.1 or higher, it may
+If the installed system has cloud-init at version 17.1 or higher, it may
 be possible to simply copy this section into the target in
-/etc/cloud/cloud.cfg.d/ and let cloud-init render the correct networking
-on first boot.
+``/etc/cloud/cloud.cfg.d/`` and let cloud-init render the correct
+networking on first boot.
 
 Storage configuration
 ---------------------
