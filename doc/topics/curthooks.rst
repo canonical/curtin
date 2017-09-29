@@ -8,8 +8,8 @@ Other operating systems are supported through a mechanism called
 A curtin install runs through different stages.  See the 
 :ref:`Stages <stages>`
 documentation for function of each stage.
-The stages communicate with each other via data in a working working
-directory and environment variables as described in
+The stages communicate with each other via data in a working directory and
+environment variables as described in
 :ref:`Command Environment`.
 
 Curtin handles partitioning, filesystem creation and target filesystem
