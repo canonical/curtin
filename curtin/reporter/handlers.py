@@ -97,7 +97,7 @@ class JournaldHandler(ReportingHandler):
         self.identifier = identifier
 
     def publish_event(self, event):
-        # for pylint on < trusty
+        # Ubuntu older than precise will not have python-systemd installed.
         try:
             from systemd import journal
         except ImportError:
