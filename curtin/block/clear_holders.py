@@ -135,10 +135,10 @@ def shutdown_bcache(device):
         bcache_stop = os.path.join(bcache_cache_sysfs, 'stop')
         try:
             util.write_file(bcache_stop, '1', mode=None)
-        except (IOError, OSError):
+        except (IOError, OSError) as e:
             if not os.path.exists(bcache_stop):
-                LOG.debug('bcache stop file %s not present, device removed',
-                          bcache_stop)
+                LOG.debug('bcache stop file %s missing, device removed: %s',
+                          bcache_stop, e)
         try:
             util.wait_for_removal(bcache_cache_sysfs, retries=removal_retries)
         except OSError:
@@ -170,10 +170,10 @@ def shutdown_bcache(device):
         bcache_stop = os.path.join(bcache_block_sysfs, 'stop')
         try:
             util.write_file(bcache_stop, '1', mode=None)
-        except (IOError, OSError):
+        except (IOError, OSError) as e:
             if not os.path.exists(bcache_stop):
-                LOG.debug('bcache stop file %s not present, device removed',
-                          bcache_stop)
+                LOG.debug('bcache stop file %s missing, device removed: %s',
+                          bcache_stop, e)
         try:
             # wait for them all to go away
             for dev in [device, bcache_block_sysfs] + slave_paths:
