@@ -1,5 +1,5 @@
 ========================================
-Curthooks / New Operating System Support 
+Curthooks / New OS Support 
 ========================================
 Curtin has built-in support for installation of Ubuntu.
 Other operating systems are supported through a mechanism called
