@@ -37,9 +37,11 @@ environment, *not* the target environment.  A change of root to the
 target environment can be done with ``curtin in-target``.
 
 The hook is provided with some environment variables that can be used
-to find more information.
+to find more information.  See the :ref:`Command Environment` doc for
+details.  Specifically interesting to this stage are:.
 
- - ``INTERFACES``: This is a path to the file created during networking stage
+ - ``OUTPUT_NETWORK_CONFIG``: This is a path to the file created during
+   network discovery stage. 
  - ``FSTAB``: This is a path to the file created during partitioning stage
  - ``CONFIG``: This is a path to the curtin config file.  It is provided so
    that additional configuration could be provided through to the OS
@@ -55,7 +57,11 @@ Networking configuration
 Access to the network configuration that is desired is inside the config
 and is in the format described in :ref:`networking`.
 
-The curtin-hooks program must read this configuration and then set up
+.. TODO: We should guarantee that the presense
+         of network config v1 in the file OUTPUT_NETWORK_CONFIG.
+
+The curtin-hooks program must read the configuration from the
+path contained in ``OUTPUT_NETWORK_CONFIG`` and then set up
 the installed system to use it.
 
 If the installed system has cloud-init at version 17.1 or higher, it may
@@ -67,6 +73,12 @@ Storage configuration
 ---------------------
 Access to the storage configuration that was set up is inside the config
 and is in the format described in :ref:`storage`.
+
+.. TODO: We should guarantee that the presense
+         of storage config v1 in the file OUTPUT_STORAGE_CONFIG.
+         This would mean the user would not have to pull it out
+         of CONFIG.  We should guarantee its presense and format
+         even in the 'simple' path.
 
 To apply this storage configuration, the curthooks may need to:
 

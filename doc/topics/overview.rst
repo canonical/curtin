@@ -46,6 +46,9 @@ variables defined.
 - ``OUTPUT_FSTAB``: After partitioning and filesystem creation, this file
   will contain fstab(5) style content representing mounts.
 
+- ``CONFIG``: This variable contains a path to a yaml formatted file with
+  the fully rendered config.
+
 
 Early Commands
 ~~~~~~~~~~~~~~
