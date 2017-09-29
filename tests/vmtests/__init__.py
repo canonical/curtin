@@ -38,6 +38,7 @@ KEEP_DATA = {"pass": "none", "fail": "all"}
 CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", "1")
 IMAGE_SYNCS = []
 TARGET_IMAGE_FORMAT = "raw"
+TAR_DISKS = bool(int(os.environ.get("CURTIN_VMTEST_TAR_DISKS", "0")))
 
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
@@ -938,7 +939,8 @@ class VMBaseClass(TestCase):
         clean_working_dir(cls.td.tmpdir, success,
                           keep_pass=KEEP_DATA['pass'],
                           keep_fail=KEEP_DATA['fail'])
-
+        if TAR_DISKS:
+            tar_disks(cls.td.tmpdir)
         cls.cleanIscsiState(success,
                             keep_pass=KEEP_DATA['pass'],
                             keep_fail=KEEP_DATA['fail'])
@@ -1422,6 +1424,23 @@ def apply_keep_settings(success=None, fail=None):
 
     global KEEP_DATA
     KEEP_DATA.update(data)
+
+
+def tar_disks(tmpdir, outfile="disks.tar", diskmatch=".img"):
+    """ Tar up files in ``tmpdir``/disks that ends with the pattern supplied"""
+
+    disks_dir = os.path.join(tmpdir, "disks")
+    if os.path.exists(disks_dir):
+        outfile = os.path.join(disks_dir, outfile)
+        disks = [os.path.join(disks_dir, disk) for disk in
+                 os.listdir(disks_dir) if disk.endswith(diskmatch)]
+        cmd = ["tar", "--create", "--file=%s" % outfile,
+               "--verbose", "--remove-files", "--sparse"]
+        cmd.extend(disks)
+        logger.info('Taring %s disks sparsely to %s', len(disks), outfile)
+        util.subp(cmd, capture=True)
+    else:
+        logger.error('Failed to find "disks" dir under tmpdir: %s', tmpdir)
 
 
 def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):
