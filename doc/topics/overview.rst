@@ -44,7 +44,7 @@ variables defined.
   to the target.
 
 - ``OUTPUT_FSTAB``: After partitioning and filesystem creation, this file
-   will contain fstab(5) style content representing mounts.
+  will contain fstab(5) style content representing mounts.
 
 
 Early Commands

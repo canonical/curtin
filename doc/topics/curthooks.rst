@@ -26,15 +26,15 @@ customization typically would need to include:
 Image provided curtin-hooks
 ---------------------------
 An image provides curtin hooks support by containing a file
-`/curtin/curtin-hooks`.
+``/curtin/curtin-hooks``.
 
 If an Ubuntu image image contains this path it will override the builtin
 curtin support.
 
-The `curtin-hooks` program should be executable in the filesystem and
+The ``curtin-hooks`` program should be executable in the filesystem and
 will be executed without any arguments.  It will be executed in the install
 environment, *not* the target environment.  A change of root to the
-target environment can be done with `curtin in-target`.
+target environment can be done with ``curtin in-target``.
 
 The hook is provided with some environment variables that can be used
 to find more information.
@@ -53,7 +53,7 @@ that curtin ran with (ie, python2 or python3).
 Networking configuration
 ------------------------
 Access to the network configuration that is desired is inside the config
-and is in the format described in :ref:`networking`_.
+and is in the format described in :ref:`networking`.
 
 The curtin-hooks program must read this configuration and then set up
 the installed system to use it.
@@ -66,7 +66,7 @@ networking on first boot.
 Storage configuration
 ---------------------
 Access to the storage configuration that was set up is inside the config
-and is in the format described in :ref:`storage`_.
+and is in the format described in :ref:`storage`.
 
 To apply this storage configuration, the curthooks may need to:
 
