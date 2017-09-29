@@ -48,9 +48,5 @@ class XenialTestJournaldReporter(relbase.xenial, TestJournaldReporter):
     __test__ = True
 
 
-class ZestyTestJournaldReporter(relbase.zesty, TestJournaldReporter):
-    __test__ = True
-
-
 class ArtfulTestJournaldReporter(relbase.artful, TestJournaldReporter):
     __test__ = True

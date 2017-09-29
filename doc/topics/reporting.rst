@@ -86,11 +86,12 @@ provide curtin with config like::
     mylistener:
       type: journald
       identifier: "my_identifier"
+      level: DEBUG
 
 The event's fields are mapped to fields of the resulting journal entry
 as follows:
 
-- **description** maps to **MESSAGE**
+- **description** maps to **CURTIN_MESSAGE**
 - **level** maps to **PRIORITY**
 - **name** maps to **CURTIN_NAME**
 - **event_type** maps to **CURTIN_EVENT_TYPE**

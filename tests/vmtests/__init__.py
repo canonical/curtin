@@ -685,12 +685,11 @@ class VMBaseClass(TestCase):
             configs.append(excfg)
             logger.debug('Added extra config {}'.format(excfg))
 
-        distro_default_config = (
-            "examples/tests/%s_defaults.yaml" % cls.target_distro)
-        if os.path.exists(distro_default_config):
-            configs.append(distro_default_config)
-            logger.info('Adding distro default config %s',
-                        distro_default_config)
+        if cls.target_distro == "centos":
+            centos_default = 'examples/tests/centos_defaults.yaml'
+            configs.append(centos_default)
+            logger.info('Detected centos, adding default config %s',
+                        centos_default)
 
         if cls.multipath:
             disks = disks * cls.multipath_num_paths
@@ -714,7 +713,7 @@ class VMBaseClass(TestCase):
                         'maas': {
                             'level': 'DEBUG',
                             'type': 'webhook',
-                            'endpoint': localhost_url
+                            'endpoint': localhost_url,
                         },
                     },
                 }))
@@ -1117,9 +1116,6 @@ class VMBaseClass(TestCase):
         [files] = events_with_files.get('files', [])
         self.assertIn('path', files)
         self.assertEqual('/tmp/install.log', files.get('path', ''))
-        # check for journald reporting output
-        # collect/root/journalctl.curtin_events.log
-        # collect/root/journalctl.curtin_events.json
 
     def test_interfacesd_eth0_removed(self):
         """ Check that curtin has removed /etc/network/interfaces.d/eth0.cfg
