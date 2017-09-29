@@ -136,7 +136,7 @@ def shutdown_bcache(device):
         try:
             util.write_file(bcache_stop, '1', mode=None)
         except (IOError, OSError) as e:
-            if not os.path.exists(bcache_stop):
+            if e.errno == errno.ENOENT:
                 LOG.debug('bcache stop file %s missing, device removed: %s',
                           bcache_stop, e)
         try:
@@ -171,7 +171,7 @@ def shutdown_bcache(device):
         try:
             util.write_file(bcache_stop, '1', mode=None)
         except (IOError, OSError) as e:
-            if not os.path.exists(bcache_stop):
+            if e.errno == errno.ENOENT:
                 LOG.debug('bcache stop file %s missing, device removed: %s',
                           bcache_stop, e)
         try:
