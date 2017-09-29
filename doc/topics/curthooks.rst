@@ -21,10 +21,15 @@ customization typically would need to include:
    configuration or networking configuration.
  - making the system boot (running grub-install or equivalent).
 
+FOOO
+----
+
 Image provided curtin-hooks
 ---------------------------
 An image provides curtin hooks support by containing a file
 `/curtin/curtin-hooks`.
+
+Check out FOOO_
 
 If an Ubuntu image image contains this path it will override the builtin
 curtin support.
