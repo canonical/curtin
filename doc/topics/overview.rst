@@ -4,6 +4,8 @@ Overview
 
 Curtin is intended to be a bare bones "installer".   Its goal is to take data from a source, and get it onto disk as quick as possible and then boot it.  The key difference from traditional package based installers is that curtin assumes the thing its installing is intelligent and will do the right thing.
 
+.. _Stages:
+
 Stages
 ------
 A usage of curtin will go through the following stages:
@@ -47,6 +49,9 @@ Any commands can be used to create this filesystem, but curtin contains some too
  partitioning_commands:
   10_wipe_filesystems: curtin wipe --quick --all-unused-disks
   50_setup_raid: curtin disk-setup --all-disks raid0 /
+
+
+.. _commandenvironment:
 
 **Command environment**
 

@@ -5,10 +5,12 @@ Curtin has built-in support for installation of Ubuntu.
 Other operating systems are supported through a mechanism called
 'curthooks' or 'curtin-hooks'.
 
-A curtin install runs through different stages.  See the Stages_
+A curtin install runs through different stages.  See the 
+:ref:`Stages <stages>`
 documentation for function of each stage.
 The stages communicate with each other via data in a working working
-directory and environment variables as described in `Command Environment`_
+directory and environment variables as described in
+:ref:`commandenvironment`.
 
 Curtin handles partitioning, filesystem creation and target filesystem
 population for all operating systems. Curthooks are the mechanism provided
@@ -21,15 +23,10 @@ customization typically would need to include:
    configuration or networking configuration.
  - making the system boot (running grub-install or equivalent).
 
-FOOO
-----
-
 Image provided curtin-hooks
 ---------------------------
 An image provides curtin hooks support by containing a file
 `/curtin/curtin-hooks`.
-
-Check out FOOO_
 
 If an Ubuntu image image contains this path it will override the builtin
 curtin support.
@@ -56,7 +53,7 @@ that curtin ran with (ie, python2 or python3).
 Networking configuration
 ------------------------
 Access to the network configuration that is desired is inside the config
-and is in the format described in `Networking`_.
+and is in the format described in :ref:`networking`_.
 
 The curtin-hooks program must read this configuration and then set up
 the installed system to use it.
@@ -69,7 +66,7 @@ networking on first boot.
 Storage configuration
 ---------------------
 Access to the storage configuration that was set up is inside the config
-and is in the format described in `Storage`_.
+and is in the format described in :ref:`storage`_.
 
 To apply this storage configuration, the curthooks may need to:
 
