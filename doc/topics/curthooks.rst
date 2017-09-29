@@ -10,7 +10,7 @@ A curtin install runs through different stages.  See the
 documentation for function of each stage.
 The stages communicate with each other via data in a working working
 directory and environment variables as described in
-:ref:`commandenvironment`.
+:ref:`Command Environment`.
 
 Curtin handles partitioning, filesystem creation and target filesystem
 population for all operating systems. Curthooks are the mechanism provided

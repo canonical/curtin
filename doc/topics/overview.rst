@@ -24,6 +24,29 @@ At the moment, curtin doesn't address how the system that it is running on is bo
 
 Curtin's assumption is that a fairly rich Linux (Ubuntu) environment is booted.
 
+.. _Command Environment:
+
+Command Environment
+~~~~~~~~~~~~~~~~~~~
+Stages and commands invoked by curtin always have the following environment
+variables defined.
+
+- ``WORKING_DIR``: This is for inter-command state.  It will be the same
+  directory for each command run and will only be deleted at the end of the
+  install. Files referenced in other environment variables will be in
+  this directory.
+
+- ``TARGET_MOUNT_POINT``: The path in the filesystem where the target
+  filesystem will be mounted.
+
+- ``OUTPUT_NETWORK_CONFIG``: After the network discovery stage, this file
+  should contain networking config information that should then be written
+  to the target.
+
+- ``OUTPUT_FSTAB``: After partitioning and filesystem creation, this file
+   will contain fstab(5) style content representing mounts.
+
+
 Early Commands
 ~~~~~~~~~~~~~~
 Early commands are executed on the system, and non-zero exit status will terminate the installation process.  These commands are intended to be used for things like
@@ -51,34 +74,22 @@ Any commands can be used to create this filesystem, but curtin contains some too
   50_setup_raid: curtin disk-setup --all-disks raid0 /
 
 
-.. _commandenvironment:
+Network Discovery
+~~~~~~~~~~~~~~~~~
+Networking configuration is *discovered* in the 'network' stage.
+The default command run at this stage is ``curtin net-meta auto``.  After
+execution, it will write the discovered networking to the file specified
+in the environment variable ``OUTPUT_NETWORK_CONFIG``.  The format of this
+file is as described in :ref:`networking`.
 
-**Command environment**
+If curtin's config has a network section, the net-meta will simply parrot the
+data to the output file.  If there is no network section, then its default
+behavior is to copy existing config from the running environment.
 
-Partitioning commands have the following environment variables available to them:
-
-- ``WORKING_DIR``: This is simply for some sort of inter-command state.  It will be the same directory for each command run and will only be deleted at the end of all partitioning_commands.
-- ``OUTPUT_FSTAB``: This is the target path for a fstab file.  After all partitioning commands have been run, a file should exist, formatted per fstab(5) that describes how the filesystems should be mounted.
-- ``TARGET_MOUNT_POINT``:
-
-
-Network Discovery and Setup
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Networking is done in a similar fashion to partitioning.  A series of commands, specified in the config are run.  At the end of these commands, a interfaces(5) style file is expected to be written to ``OUTPUT_INTERFACES``.
-
-Note, that as with fstab, this file is not copied verbatim to the target filesystem, but rather made available to the OS customization stage.  That stage may just copy the file verbatim, but may also parse it, and use that as input.
-
-**Config Example**::
-
- network_commands:
-  10_netconf: curtin network copy-existing
-
-**Command environment**
-
-Networking commands have the following environment variables available to them:
-
-- ``WORKING_DIR``: This is simply for some sort of inter-command state.  It will be the same directory for each command run and will only be deleted at the end of all network_commands.
-- ``OUTPUT_INTERFACES``: This is the target path for an interfaces style file. After all commands have been run, a file should exist, formatted per interfaces(5) that describes the systems network setup.
+Note, that as with fstab, this file is not copied verbatim to the target
+filesystem, but rather made available to the OS customization stage.  That
+stage may just copy the file verbatim, but may also parse it, and apply the
+settings.
 
 Extraction of sources
 ~~~~~~~~~~~~~~~~~~~~~
