@@ -17,6 +17,7 @@ Contents:
    topics/apt_source
    topics/networking
    topics/storage
+   topics/curthooks
    topics/reporting
    topics/development
    topics/integration-testing
