@@ -38,18 +38,19 @@ target environment can be done with ``curtin in-target``.
 
 The hook is provided with some environment variables that can be used
 to find more information.  See the :ref:`Command Environment` doc for
-details.  Specifically interesting to this stage are:.
+details.  Specifically interesting to this stage are:
 
  - ``OUTPUT_NETWORK_CONFIG``: This is a path to the file created during
    network discovery stage. 
- - ``FSTAB``: This is a path to the file created during partitioning stage
+ - ``OUTPUT_FSTAB``: This is a path to the file created during partitioning
+   stage.
  - ``CONFIG``: This is a path to the curtin config file.  It is provided so
    that additional configuration could be provided through to the OS
    customization.
 
-**TODO**: We should add 'PYTHON' or 'CURTIN_PYTHON' to this environment
-so that the hook can easily run a python program with the same python
-that curtin ran with (ie, python2 or python3).
+.. **TODO**: We should add 'PYTHON' or 'CURTIN_PYTHON' to this environment
+   so that the hook can easily run a python program with the same python
+   that curtin ran with (ie, python2 or python3).
 
 
 Networking configuration
@@ -57,7 +58,7 @@ Networking configuration
 Access to the network configuration that is desired is inside the config
 and is in the format described in :ref:`networking`.
 
-.. TODO: We should guarantee that the presense
+.. TODO: We should guarantee that the presence
          of network config v1 in the file OUTPUT_NETWORK_CONFIG.
 
 The curtin-hooks program must read the configuration from the
@@ -74,16 +75,16 @@ Storage configuration
 Access to the storage configuration that was set up is inside the config
 and is in the format described in :ref:`storage`.
 
-.. TODO: We should guarantee that the presense
+.. TODO: We should guarantee that the presence
          of storage config v1 in the file OUTPUT_STORAGE_CONFIG.
          This would mean the user would not have to pull it out
-         of CONFIG.  We should guarantee its presense and format
+         of CONFIG.  We should guarantee its presence and format
          even in the 'simple' path.
 
 To apply this storage configuration, the curthooks may need to:
 
  * update /etc/fstab to add the expected mounts entries.  The environment
-   variable ``FSTAB`` contains a path to a file that may be suitable
+   variable ``OUTPUT_FSTAB`` contains a path to a file that may be suitable
    for use.
 
  * install any packages that are not already installed that are required
