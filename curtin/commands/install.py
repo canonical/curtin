@@ -120,7 +120,9 @@ class WorkingDir(object):
     def __init__(self, config):
         top_d = tempfile.mkdtemp()
         state_d = os.path.join(top_d, 'state')
-        target_d = os.path.join(top_d, 'target')
+        target_d = config.get('install', {}).get('target')
+        if not target_d:
+            target_d = os.path.join(top_d, 'target')
         scratch_d = os.path.join(top_d, 'scratch')
         for p in (state_d, target_d, scratch_d):
             os.mkdir(p)
@@ -477,6 +479,11 @@ def cmd_install(args):
                                       '/root/curtin-install.log')
         if log_target_path:
             copy_install_log(logfile, workingd.target, log_target_path)
+
+        if instcfg.get('unmount', "") == "disabled":
+            LOG.info('Skipping unmount: config disabled target unmounting')
+            return
+
         # unmount everything (including iscsi disks)
         util.do_umount(workingd.target, recursive=True)
 
