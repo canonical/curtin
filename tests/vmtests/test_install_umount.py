@@ -1,8 +1,8 @@
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
-import json
 import textwrap
+import yaml
 
 
 class TestInstallUnmount(VMBaseClass):
@@ -32,9 +32,29 @@ class TestInstallUnmount(VMBaseClass):
         """)]
 
     def test_proc_mounts_before_unmount(self):
-        self.output_file_exists([
-            'root/curtin_postinst_mounts.out',
-            'root/target_mount_point.sh'])
+        """Test TARGET_MOUNT_POINT value is in ephemeral /proc/mounts"""
+        self.output_files_exist([
+            'root/postinst_mounts.out',
+            'root/target.out'])
+
+        # read target mp and mounts
+        target_mp = self.load_collect_file('root/target.out').strip()
+        if "=" in target_mp:
+            target_mp = target_mp.split("=")[-1]
+        curtin_mounts = self.load_collect_file('root/postinst_mounts.out')
+        self.assertIn(target_mp, curtin_mounts)
+
+    def test_install_config_has_unmount_disabled(self):
+        """Test that install ran with unmount: disabled"""
+        collect_curtin_cfg = 'root/curtin-install-cfg.yaml'
+        self.output_files_exist([collect_curtin_cfg])
+        curtin_cfg = yaml.load(open(self.collect_path(collect_curtin_cfg)))
+
+        # check that we have
+        # install:
+        #   unmount: disabled
+        install_unmount = curtin_cfg.get('install', {}).get('unmount')
+        self.assertEqual(install_unmount, "disabled")
 
 
 class XenialTestInstallUnmount(relbase.xenial, TestInstallUnmount):
