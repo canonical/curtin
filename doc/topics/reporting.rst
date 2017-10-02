@@ -10,6 +10,7 @@ Events
 Reporting consists of notification of a series of 'events.  Each event has:
  - **event_type**: 'start' or 'finish'
  - **description**: human readable text
+ - **level**: the log level of the event, DEBUG/INFO/WARN etc.
  - **name**: and id for this event
  - **result**: only present when event_type is 'finish', its value is one of "SUCCESS", "WARN", or "FAIL".  A result of WARN indicates something is likely wrong, but a non-fatal error.  A result of "FAIL" is fatal.
  - **origin**: literal value 'curtin'
@@ -74,6 +75,34 @@ consumer_secret, token_key, token_secret) is not required, but if provided
 then oauth will be used to authenticate to the endpoint on each post. If level
 is specified then all messages with a lower priority than specified will be
 ignored. Default is INFO.
+
+Journald Reporter
+-----------------
+
+The journald reporter sends the events to systemd's `journald`_.  To enable,
+provide curtin with config like::
+
+  reporting:
+    mylistener:
+      type: journald
+      identifier: "my_identifier"
+      level: DEBUG
+
+The event's fields are mapped to fields of the resulting journal entry
+as follows:
+
+- **description** maps to **CURTIN_MESSAGE**
+- **level** maps to **PRIORITY**
+- **name** maps to **CURTIN_NAME**
+- **event_type** maps to **CURTIN_EVENT_TYPE**
+- **result**, if present, maps to **CURTIN_RESULT**
+
+The configured `identifier`, which defaults to "curtin_event", becomes
+the entry's **SYSLOG_IDENTIFIER**.
+
+The python-systemd package must be installed to use this handler.
+
+.. _`journald`: https://www.freedesktop.org/software/systemd/man/systemd-journald.service.html
 
 Example Events
 ~~~~~~~~~~~~~~
