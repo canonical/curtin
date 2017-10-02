@@ -39,8 +39,6 @@ class TestInstallUnmount(VMBaseClass):
 
         # read target mp and mounts
         target_mp = self.load_collect_file('root/target.out').strip()
-        if "=" in target_mp:
-            target_mp = target_mp.split("=")[-1]
         curtin_mounts = self.load_collect_file('root/postinst_mounts.out')
         self.assertIn(target_mp, curtin_mounts)
 
