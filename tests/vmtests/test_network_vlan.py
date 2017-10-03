@@ -103,12 +103,6 @@ class XenialTestNetworkVlan(relbase.xenial, TestNetworkVlanAbs):
 class ZestyTestNetworkVlan(relbase.zesty, TestNetworkVlanAbs):
     __test__ = True
 
-    @classmethod
-    def setUpClass(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "ci-003c6678e",
-                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
-        super().setUpClass()
-
 
 class ArtfulTestNetworkVlan(relbase.artful, TestNetworkVlanAbs):
     __test__ = True

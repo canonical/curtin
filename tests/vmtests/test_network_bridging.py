@@ -225,12 +225,6 @@ class Centos70TestBridgeNetwork(centos_relbase.centos70fromxenial,
 class ZestyTestBridging(relbase.zesty, TestBridgeNetworkAbs):
     __test__ = True
 
-    @classmethod
-    def setUpClass(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "1706752",
-                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
-        super().setUpClass()
-
 
 class ArtfulTestBridging(relbase.artful, TestBridgeNetworkAbs):
     __test__ = True

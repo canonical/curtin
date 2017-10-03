@@ -101,4 +101,4 @@ class ZestyTestNetworkENISource(relbase.zesty, TestNetworkENISource):
 
 
 class ArtfulTestNetworkENISource(relbase.artful, TestNetworkENISource):
-    __test__ = True
+    __test__ = False

@@ -3,6 +3,7 @@ from .releases import centos_base_vm_classes as centos_relbase
 from .test_network_ipv6 import TestNetworkIPV6Abs
 
 import textwrap
+import unittest
 
 
 class TestNetworkMtuAbs(TestNetworkIPV6Abs):
@@ -133,30 +134,25 @@ class CentosTestNetworkMtuAbs(TestNetworkMtuAbs):
     def test_etc_resolvconf(self):
         pass
 
-    @classmethod
+    @unittest.skip("Sysconfig does not support mixed v4/v6 MTU: LP:#1706973")
     def test_ip_output(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
+        pass
 
-    @classmethod
+    @unittest.skip("Sysconfig does not support mixed v4/v6 MTU: LP:#1706973")
     def test_ipv6_mtu_smaller_than_ipv4_v6_iface_first(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
+        pass
 
-    @classmethod
+    @unittest.skip("Sysconfig does not support mixed v4/v6 MTU: LP:#1706973")
     def test_ipv6_mtu_smaller_than_ipv4_non_default(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
+        pass
 
-    @classmethod
+    @unittest.skip("Sysconfig does not support mixed v4/v6 MTU: LP:#1706973")
     def test_ipv6_mtu_higher_than_default_no_ipv4_iface_up(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
+        pass
 
-    @classmethod
+    @unittest.skip("Sysconfig does not support mixed v4/v6 MTU: LP:#1706973")
     def test_ipv6_mtu_higher_than_default_no_ipv4_iface_v6_iface_first(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
+        pass
 
 
 class PreciseHWETTestNetworkMtu(relbase.precise_hwe_t, TestNetworkMtuAbs):
