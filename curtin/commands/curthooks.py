@@ -695,9 +695,9 @@ def install_missing_packages(cfg, target):
         codename, _ = util.subp(['lsb_release', '--codename', '--short'],
                                 capture=True, target=target)
         # drop the newline
-        codename = codename.strip().lower()
+        codename = codename.strip()
         LOG.debug('Target release codename: %s', codename)
-        if codename in ['artful']:
+        if codename == 'artful':
             LOG.debug("Skipping install of package 'ifenslave' to prevent"
                       " network configutation errors on release %s", codename)
             needed_packages.remove('ifenslave')
