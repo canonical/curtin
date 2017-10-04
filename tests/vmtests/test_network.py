@@ -297,7 +297,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
                 route_info = m.groupdict('')
                 logger.debug(route_info)
             else:
-                raise('No match in ip_route_show for line: %s', line)
+                raise('No match in ip_route_show for line: %s' % line)
 
         routes = {
             '4': route_n,
