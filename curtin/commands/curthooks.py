@@ -663,7 +663,7 @@ def detect_required_packages(cfg):
         found_reqs = mapped_config['handler'](cfg, mapped_config['mapping'])
         needed_packages.extend(found_reqs)
 
-    LOG.debug('Curtin config dependencies requires addtional packages: %s',
+    LOG.debug('Curtin config dependencies requires additional packages: %s',
               needed_packages)
     return needed_packages
 
