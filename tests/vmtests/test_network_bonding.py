@@ -97,8 +97,8 @@ class ArtfulTestBonding(relbase.artful, TestNetworkBondingAbs):
         """Confirm that ifenslave is not installed on artful"""
         status = self.load_collect_file("ifenslave_installed")
         logger.debug('ifenslave installed: [{}]'.format(status))
-        self.assertNotEqual('install ok installed', status)
-        self.assertEqual('', status)
+        self.assertEqual('', status,
+                         "ifenslave installed on Artful when it shouldn't be")
 
 
 class Centos66TestNetworkBonding(centos_relbase.centos66fromxenial,
