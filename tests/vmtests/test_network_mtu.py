@@ -200,6 +200,12 @@ class ZestyTestNetworkMtu(relbase.zesty, TestNetworkMtuAbs):
 class ArtfulTestNetworkMtu(relbase.artful, TestNetworkMtuAbs):
     __test__ = True
 
+    @classmethod
+    def setUpClass(cls):
+        cls.skip_by_date(cls.__name__, cls.release, "1671951",
+                         fixby=(2017, 10, 20), removeby=(2018, 1, 23))
+        super().setUpClass()
+
 
 class Centos66TestNetworkMtu(centos_relbase.centos66fromxenial,
                              CentosTestNetworkMtuAbs):

@@ -285,14 +285,19 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         ip_route_show = self.load_collect_file("ip_route_show")
         logger.debug("ip route show:\n{}".format(ip_route_show))
         for line in [line for line in ip_route_show.split('\n')
-                     if 'src' in line]:
+                     if 'src' in line and not line.startswith('default')]:
+            print('ip_route_show: line: %s' % line)
             m = re.search(r'^(?P<network>\S+)\sdev\s' +
                           r'(?P<devname>\S+)\s+' +
-                          r'proto kernel\s+scope link' +
-                          r'\s+src\s(?P<src_ip>\S+)',
+                          r'proto\s(?P<proto>\S+)\s+' +
+                          r'scope\s(?P<scope>\S+)\s+' +
+                          r'src\s(?P<src_ip>\S+)',
                           line)
-            route_info = m.groupdict('')
-            logger.debug(route_info)
+            if m:
+                route_info = m.groupdict('')
+                logger.debug(route_info)
+            else:
+                raise('No match in ip_route_show for line: %s', line)
 
         routes = {
             '4': route_n,
@@ -390,7 +395,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
                     gateways.append(subnet.get('gateway'))
                 for route in subnet.get('routes', []):
                     gateways += __find_gw_config(route)
-                return gateways
+                # drop duplicate gateways (static routes)
+                return list(set(gateways))
 
             # handle gateways by looking at routing table
             configured_gws = __find_gw_config(subnet)
@@ -408,7 +414,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
 
                 print('found_gws: %s\nexpected: %s' % (found_gws,
                                                        configured_gws))
-                self.assertEqual(len(found_gws), len(configured_gws))
+                # we only need to check that we found at least one as we walk
+                self.assertGreater(len(found_gws), 0)
                 for fgw in found_gws:
                     if ":" in gw_ip:
                         (dest, gw, flags, metric, ref, use, iface) = \

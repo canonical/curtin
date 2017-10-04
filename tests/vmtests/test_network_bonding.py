@@ -4,6 +4,7 @@ from .test_network import TestNetworkBaseTestsAbs
 from .releases import centos_base_vm_classes as centos_relbase
 
 import textwrap
+import unittest
 
 
 class TestNetworkBondingAbs(TestNetworkBaseTestsAbs):
@@ -87,6 +88,17 @@ class ZestyTestBonding(relbase.zesty, TestNetworkBondingAbs):
 
 class ArtfulTestBonding(relbase.artful, TestNetworkBondingAbs):
     __test__ = True
+
+    @unittest.skip("Artful does not install ifenslave")
+    def test_ifenslave_installed(self):
+        pass
+
+    def test_ifenslave_not_installed(self):
+        """Confirm that ifenslave is not installed on artful"""
+        status = self.load_collect_file("ifenslave_installed")
+        logger.debug('ifenslave installed: [{}]'.format(status))
+        self.assertNotEqual('install ok installed', status)
+        self.assertEqual('', status)
 
 
 class Centos66TestNetworkBonding(centos_relbase.centos66fromxenial,

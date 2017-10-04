@@ -663,6 +663,8 @@ def detect_required_packages(cfg):
         found_reqs = mapped_config['handler'](cfg, mapped_config['mapping'])
         needed_packages.extend(found_reqs)
 
+    LOG.debug('Curtin config dependencies requires addtional packages: %s',
+              needed_packages)
     return needed_packages
 
 
@@ -686,6 +688,19 @@ def install_missing_packages(cfg, target):
         if not util.which(cmd, target=target):
             if pkg not in needed_packages:
                 needed_packages.append(pkg)
+
+    # do not install ifenslave if target release is artful as it
+    # triggers an install of ifupdown which will break network rendering
+    if 'ifenslave' in needed_packages:
+        codename, _ = util.subp(['lsb_release', '--codename', '--short'],
+                                capture=True, target=target)
+        # drop the newline
+        codename = codename.strip().lower()
+        LOG.debug('Target release codename: %s', codename)
+        if codename in ['artful']:
+            LOG.debug("Skipping install of package 'ifenslave' to prevent"
+                      " network configutation errors on release %s", codename)
+            needed_packages.remove('ifenslave')
 
     if needed_packages:
         state = util.load_command_environment()
