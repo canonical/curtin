@@ -10,9 +10,6 @@ import unittest
 class TestNetworkBondingAbs(TestNetworkBaseTestsAbs):
     conf_file = "examples/tests/bonding_network.yaml"
 
-    def test_output_files_exist_ifenslave(self):
-        self.output_files_exist(["ifenslave_installed"])
-
     def test_ifenslave_installed(self):
         self.assertIn("ifenslave", self.debian_packages,
                       "ifenslave deb not installed")
