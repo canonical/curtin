@@ -694,10 +694,11 @@ def install_missing_packages(cfg, target):
     # ifenslave specifically causes issuse due to dependency on ifupdown.
     codename = util.lsb_release(target=target).get('codename')
     if codename == 'artful':
-        LOG.debug("Skipping install of package 'ifenslave' to prevent"
-                  " network configutation errors on release %s", codename)
         drops = set(['bridge-utils', 'ifenslave', 'vlan'])
-        needed_packages = needed_packages.difference(drops)
+        if needed_packages.union(drops):
+            LOG.debug("Skipping install of %s.  Not needed on artful.",
+                      needed_packages.union(drops))
+            needed_packages = needed_packages.difference(drops)
 
     if needed_packages:
         to_add = list(sorted(needed_packages))
