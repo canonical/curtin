@@ -692,10 +692,7 @@ def install_missing_packages(cfg, target):
     # do not install ifenslave if target release is artful as it
     # triggers an install of ifupdown which will break network rendering
     if 'ifenslave' in needed_packages:
-        codename, _ = util.subp(['lsb_release', '--codename', '--short'],
-                                capture=True, target=target)
-        # drop the newline
-        codename = codename.strip()
+        codename = util.lsb_release(target=target).get('codename')
         LOG.debug('Target release codename: %s', codename)
         if codename == 'artful':
             LOG.debug("Skipping install of package 'ifenslave' to prevent"
