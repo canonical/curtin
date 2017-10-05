@@ -360,7 +360,7 @@ class TestClearHolders(CiTestCase):
         clear_holders.shutdown_bcache(device)
 
         self.assertEqual(2, len(mock_log.info.call_args_list))
-        self.assertEqual(4, len(mock_os.path.exists.call_args_list))
+        self.assertEqual(3, len(mock_os.path.exists.call_args_list))
         self.assertEqual(1, len(mock_get_bcache.call_args_list))
         self.assertEqual(1, len(mock_get_bcache_block.call_args_list))
         self.assertEqual(1, len(mock_util.write_file.call_args_list))
