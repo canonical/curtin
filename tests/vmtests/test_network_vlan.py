@@ -30,6 +30,7 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
     def test_output_files_exist_vlan(self):
         link_files = ["ip_link_show_%s" % vlan['name']
                       for vlan in self.get_vlans()]
+        self.output_files_exist(link_files)
 
     def test_vlan_installed(self):
         self.assertIn("vlan", self.debian_packages, "vlan deb not installed")

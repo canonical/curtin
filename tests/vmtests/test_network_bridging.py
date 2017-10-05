@@ -237,6 +237,6 @@ class ArtfulTestBridging(relbase.artful, TestBridgeNetworkAbs):
         pass
 
     def test_bridge_utils_not_installed(self):
-        self.assertNotIn("bridge-utils" self.debian_packages,
+        self.assertNotIn("bridge-utils", self.debian_packages,
                          "bridge-utils is not expected in artful: %s" %
                          self.debian_packages.get('bridge-utils'))

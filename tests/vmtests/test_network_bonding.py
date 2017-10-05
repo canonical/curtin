@@ -4,7 +4,6 @@ from .test_network import TestNetworkBaseTestsAbs
 from .releases import centos_base_vm_classes as centos_relbase
 
 import textwrap
-import unittest
 
 
 class TestNetworkBondingAbs(TestNetworkBaseTestsAbs):
