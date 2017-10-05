@@ -1163,8 +1163,8 @@ class VMBaseClass(TestCase):
 
     @property
     def debian_packages(self):
-        if self._debian_packages is not None:
-            data = load_collect_file("debian-packages.txt")
+        if self._debian_packages is None:
+            data = self.load_collect_file("debian-packages.txt")
             pkgs = {}
             for line in data.splitlines():
                 # lines are <status>\t<
