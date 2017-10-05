@@ -135,24 +135,13 @@ class CentosTestNetworkMtuAbs(TestNetworkMtuAbs):
         pass
 
     @unittest.skip("Sysconfig does not support mixed v4/v6 MTU: LP:#1706973")
-    def test_ip_output(self):
+    def _nomixmtu(self):
         pass
 
-    @unittest.skip("Sysconfig does not support mixed v4/v6 MTU: LP:#1706973")
-    def test_ipv6_mtu_smaller_than_ipv4_v6_iface_first(self):
-        pass
-
-    @unittest.skip("Sysconfig does not support mixed v4/v6 MTU: LP:#1706973")
-    def test_ipv6_mtu_smaller_than_ipv4_non_default(self):
-        pass
-
-    @unittest.skip("Sysconfig does not support mixed v4/v6 MTU: LP:#1706973")
-    def test_ipv6_mtu_higher_than_default_no_ipv4_iface_up(self):
-        pass
-
-    @unittest.skip("Sysconfig does not support mixed v4/v6 MTU: LP:#1706973")
-    def test_ipv6_mtu_higher_than_default_no_ipv4_iface_v6_iface_first(self):
-        pass
+    test_ipv6_mtu_smaller_than_ipv4_v6_iface_first = _nomixmtu
+    test_ipv6_mtu_smaller_than_ipv4_non_default = _nomixmtu
+    test_ipv6_mtu_higher_than_default_no_ipv4_iface_up = _nomixmtu
+    test_ipv6_mtu_higher_than_default_no_ipv4_iface_v6_iface_first = _nomixmtu
 
 
 class PreciseHWETTestNetworkMtu(relbase.precise_hwe_t, TestNetworkMtuAbs):
