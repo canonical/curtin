@@ -19,7 +19,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
     extra_nics = []
     # XXX: command | tee output is required for Centos under SELinux
     # http://danwalsh.livejournal.com/22860.html
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         echo "waiting for ipv6 to settle" && sleep 5
         route -n | tee first_route_n

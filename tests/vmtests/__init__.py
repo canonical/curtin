@@ -336,7 +336,12 @@ class VMBaseClass(TestCase):
     __test__ = False
     arch_skip = []
     boot_timeout = BOOT_TIMEOUT
-    collect_scripts = []
+    collect_scripts = [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        dpkg-query --show \
+            --showformat='${db:Status-Abbrev}\t${Package}\t${Version}\n' \
+            > debian-packages.txt 2> debian-packges.txt.err
+    """)]
     conf_file = "examples/tests/basic.yaml"
     nr_cpus = None
     dirty_disks = False
