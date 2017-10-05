@@ -12,7 +12,6 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
     collect_scripts = TestNetworkBaseTestsAbs.collect_scripts + [
         textwrap.dedent("""
              cd OUTPUT_COLLECT_D
-             dpkg-query -W -f '${Status}' vlan > vlan_installed
              ip -d link show interface1.2667 |tee ip_link_show_interface1.2667
              ip -d link show interface1.2668 |tee ip_link_show_interface1.2668
              ip -d link show interface1.2669 |tee ip_link_show_interface1.2669
@@ -31,15 +30,11 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
     def test_output_files_exist_vlan(self):
         link_files = ["ip_link_show_%s" % vlan['name']
                       for vlan in self.get_vlans()]
-        self.output_files_exist(["vlan_installed"] + link_files)
 
     def test_vlan_installed(self):
-        status = self.load_collect_file("vlan_installed").strip()
-        logger.debug('vlan installed?: %s', status)
-        self.assertEqual('install ok installed', status)
+        self.assertIn("vlan", self.debian_packages, "vlan deb not installed")
 
     def test_vlan_enabled(self):
-
         # we must have at least one
         self.assertGreaterEqual(len(self.get_vlans()), 1)
 
