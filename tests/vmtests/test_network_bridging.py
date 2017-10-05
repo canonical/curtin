@@ -101,7 +101,6 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
         grep -r . /sys/class/net/br0 > sysfs_br0
         grep -r . /sys/class/net/br0/brif/eth1 > sysfs_br0_eth1
         grep -r . /sys/class/net/br0/brif/eth2 > sysfs_br0_eth2
-        dpkg-query -W -f '${Status}' bridge-utils 2>&1 > bridge-utils_installed
         """)]
 
     def test_output_files_exist_bridge(self):
@@ -110,10 +109,8 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
                                  "sysfs_br0_eth2"])
 
     def test_bridge_utils_installed(self):
-        self.output_files_exist(["bridge-utils_installed"])
-        status = self.load_collect_file("bridge-utils_installed").strip()
-        logger.debug('bridge-utils installed: {}'.format(status))
-        self.assertEqual('install ok installed', status)
+        self.assertIn("bridge-utils", self.debian_packages,
+                      "bridge-utilsi deb not installed")
 
     def test_bridge_params(self):
 
@@ -234,3 +231,12 @@ class ArtfulTestBridging(relbase.artful, TestBridgeNetworkAbs):
         cls.skip_by_date(cls.__name__, cls.release, "1721157",
                          fixby=(2017, 10, 16), removeby=(2017, 11, 16))
         super().setUpClass()
+
+    def test_bridge_utils_installed(self):
+        """bridge-utils not needed in artful."""
+        pass
+
+    def test_bridge_utils_not_installed(self):
+        self.assertNotIn("bridge-utils" self.debian_packages,
+                         "bridge-utils is not expected in artful: %s" %
+                         self.debian_packages.get('bridge-utils'))
