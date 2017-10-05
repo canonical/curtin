@@ -32,11 +32,9 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
                       for vlan in self.get_vlans()]
 
     def test_vlan_installed(self):
-        self.assertIn("vlan", self.debian_packages,
-                      "vlan deb not installed")
+        self.assertIn("vlan", self.debian_packages, "vlan deb not installed")
 
     def test_vlan_enabled(self):
-
         # we must have at least one
         self.assertGreaterEqual(len(self.get_vlans()), 1)
 
