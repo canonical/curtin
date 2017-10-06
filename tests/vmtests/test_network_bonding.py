@@ -8,19 +8,10 @@ import textwrap
 
 class TestNetworkBondingAbs(TestNetworkBaseTestsAbs):
     conf_file = "examples/tests/bonding_network.yaml"
-    collect_scripts = TestNetworkBaseTestsAbs.collect_scripts + [
-        textwrap.dedent("""
-        cd OUTPUT_COLLECT_D
-        dpkg-query -W -f '${Status}' ifenslave > ifenslave_installed
-        """)]
-
-    def test_output_files_exist_ifenslave(self):
-        self.output_files_exist(["ifenslave_installed"])
 
     def test_ifenslave_installed(self):
-        status = self.load_collect_file("ifenslave_installed")
-        logger.debug('ifenslave installed: {}'.format(status))
-        self.assertEqual('install ok installed', status)
+        self.assertIn("ifenslave", self.debian_packages,
+                      "ifenslave deb not installed")
 
 
 class CentosTestNetworkBondingAbs(TestNetworkBondingAbs):
@@ -49,12 +40,10 @@ class CentosTestNetworkBondingAbs(TestNetworkBondingAbs):
 
 class PreciseHWETTestBonding(relbase.precise_hwe_t, TestNetworkBondingAbs):
     __test__ = True
-    # package names on precise are different, need to check on ifenslave-2.6
-    collect_scripts = TestNetworkBondingAbs.collect_scripts + [
-        textwrap.dedent("""
-        cd OUTPUT_COLLECT_D
-        dpkg-query -W -f '${Status}' ifenslave-2.6 > ifenslave_installed
-        """)]
+
+    def test_ifenslave_installed(self):
+        self.assertIn("ifenslave-2.6", self.debian_packages,
+                      "ifenslave deb not installed")
 
 
 class TrustyTestBonding(relbase.trusty, TestNetworkBondingAbs):
@@ -87,6 +76,16 @@ class ZestyTestBonding(relbase.zesty, TestNetworkBondingAbs):
 
 class ArtfulTestBonding(relbase.artful, TestNetworkBondingAbs):
     __test__ = True
+
+    def test_ifenslave_installed(self):
+        """Artful should not have ifenslave installed."""
+        pass
+
+    def test_ifenslave_not_installed(self):
+        """Confirm that ifenslave is not installed on artful"""
+        self.assertNotIn('ifenslave', self.debian_packages,
+                         "ifenslave is not expected in artful: %s" %
+                         self.debian_packages.get('ifenslave'))
 
 
 class Centos66TestNetworkBonding(centos_relbase.centos66fromxenial,

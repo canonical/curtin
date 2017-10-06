@@ -336,7 +336,12 @@ class VMBaseClass(TestCase):
     __test__ = False
     arch_skip = []
     boot_timeout = BOOT_TIMEOUT
-    collect_scripts = []
+    collect_scripts = [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        dpkg-query --show \
+            --showformat='${db:Status-Abbrev}\t${Package}\t${Version}\n' \
+            > debian-packages.txt 2> debian-packages.txt.err
+    """)]
     conf_file = "examples/tests/basic.yaml"
     nr_cpus = None
     dirty_disks = False
@@ -368,6 +373,8 @@ class VMBaseClass(TestCase):
     target_release = None
     target_krel = None
     target_ftype = "vmtest.root-tgz"
+
+    _debian_packages = None
 
     def shortDescription(self):
         return None
@@ -1153,6 +1160,18 @@ class VMBaseClass(TestCase):
             with open(self.td.errors_file, "w") as fp:
                 fp.write(json.dumps(data, indent=2, sort_keys=True,
                                     separators=(',', ': ')) + "\n")
+
+    @property
+    def debian_packages(self):
+        if self._debian_packages is None:
+            data = self.load_collect_file("debian-packages.txt")
+            pkgs = {}
+            for line in data.splitlines():
+                # lines are <status>\t<
+                status, pkg, ver = line.split('\t')
+                pkgs[pkg] = {'status': status, 'version': ver}
+            self._debian_packages = pkgs
+        return self._debian_packages
 
 
 class PsuedoVMBaseClass(VMBaseClass):

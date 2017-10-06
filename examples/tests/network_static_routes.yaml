@@ -10,18 +10,13 @@ network:
               - address: 172.23.31.42/26
                 gateway: 172.23.31.2
                 type: static
-      - type: route
-        id: 4
-        metric: 0
-        destination: 10.0.0.0/12
-        gateway: 172.23.31.1
-      - type: route
-        id: 5
-        metric: 0
-        destination: 192.168.0.0/16
-        gateway: 172.23.31.1
-      - type: route
-        id: 6
-        metric: 1
-        destination: 10.200.0.0/16
-        gateway: 172.23.31.1
+                routes:
+                  - gateway: 172.23.31.1
+                    network: 10.0.0.0/12
+                    metric: 0
+                  - gateway: 172.23.31.1
+                    network: 192.168.0.0/16
+                    metric: 0
+                  - gateway: 172.23.31.1
+                    network: 10.200.0.0/16
+                    metric: 1
