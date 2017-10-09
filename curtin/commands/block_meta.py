@@ -384,7 +384,7 @@ def disk_handler(info, storage_config):
             LOG.info("labeling device: '%s' with '%s' partition table", disk,
                      ptable)
             if ptable == "gpt":
-                util.subp(["sgdisk", "--clear", disk])
+                util.subp(["sgdisk", "--zap-all", disk])
             elif ptable in _dos_names:
                 util.subp(["parted", disk, "--script", "mklabel", "msdos"])
             else:
