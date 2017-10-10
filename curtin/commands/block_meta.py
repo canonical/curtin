@@ -384,7 +384,8 @@ def disk_handler(info, storage_config):
             LOG.info("labeling device: '%s' with '%s' partition table", disk,
                      ptable)
             if ptable == "gpt":
-                util.subp(["sgdisk", "--zap-all", disk])
+                # there may be MBR partition data on disk, clear it
+                block.wipe_volume(disk, mode='superblock')
             elif ptable in _dos_names:
                 util.subp(["parted", disk, "--script", "mklabel", "msdos"])
             else:
