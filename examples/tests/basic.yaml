@@ -1,11 +1,5 @@
 showtrace: true
 
-early_commands:
-  # dirty a disk which has a GPT configuration to exercise curtin
-  # using sgdisk --zap-all instead of clear to handle disks which
-  # don't use wipe: superblock
-  blockmeta: ["parted", /dev/vde, "--script", "mklabel", "msdos"]
-
 storage:
     version: 1
     config:
