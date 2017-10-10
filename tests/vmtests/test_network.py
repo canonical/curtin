@@ -19,7 +19,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
     extra_nics = []
     # XXX: command | tee output is required for Centos under SELinux
     # http://danwalsh.livejournal.com/22860.html
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         echo "waiting for ipv6 to settle" && sleep 5
         route -n | tee first_route_n
@@ -39,9 +39,6 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         cp -av /var/log/upstart ./upstart ||:
         cp -av /etc/cloud ./etc_cloud
         cp -av /var/log/cloud*.log ./
-        dpkg-query -W -f '${Version}' cloud-init |tee dpkg_cloud-init_version
-        dpkg-query -W -f '${Version}' nplan |tee dpkg_nplan_version
-        dpkg-query -W -f '${Version}' systemd |tee dpkg_systemd_version
         rpm -q --queryformat '%{VERSION}\n' cloud-init |tee rpm_ci_version
         V=/usr/lib/python*/*-packages/cloudinit/version.py;
         grep -c NETWORK_CONFIG_V2 $V |tee cloudinit_passthrough_available
@@ -285,14 +282,19 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         ip_route_show = self.load_collect_file("ip_route_show")
         logger.debug("ip route show:\n{}".format(ip_route_show))
         for line in [line for line in ip_route_show.split('\n')
-                     if 'src' in line]:
+                     if 'src' in line and not line.startswith('default')]:
+            print('ip_route_show: line: %s' % line)
             m = re.search(r'^(?P<network>\S+)\sdev\s' +
                           r'(?P<devname>\S+)\s+' +
-                          r'proto kernel\s+scope link' +
-                          r'\s+src\s(?P<src_ip>\S+)',
+                          r'proto\s(?P<proto>\S+)\s+' +
+                          r'scope\s(?P<scope>\S+)\s+' +
+                          r'src\s(?P<src_ip>\S+)',
                           line)
-            route_info = m.groupdict('')
-            logger.debug(route_info)
+            if m:
+                route_info = m.groupdict('')
+                logger.debug(route_info)
+            else:
+                raise ValueError('Failed match ip_route_show line: %s' % line)
 
         routes = {
             '4': route_n,
@@ -390,7 +392,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
                     gateways.append(subnet.get('gateway'))
                 for route in subnet.get('routes', []):
                     gateways += __find_gw_config(route)
-                return gateways
+                # drop duplicate gateways (static routes)
+                return list(set(gateways))
 
             # handle gateways by looking at routing table
             configured_gws = __find_gw_config(subnet)
@@ -408,7 +411,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
 
                 print('found_gws: %s\nexpected: %s' % (found_gws,
                                                        configured_gws))
-                self.assertEqual(len(found_gws), len(configured_gws))
+                # we only need to check that we found at least one as we walk
+                self.assertGreater(len(found_gws), 0)
                 for fgw in found_gws:
                     if ":" in gw_ip:
                         (dest, gw, flags, metric, ref, use, iface) = \
