@@ -386,7 +386,7 @@ def disk_handler(info, storage_config):
             if ptable == "gpt":
                 # Wipe both MBR and GPT that may be present on the disk.
                 # N.B.: wipe_volume wipes 1M at front and end of the disk.
-                # This could destroy disk data in filesystem's that lived
+                # This could destroy disk data in filesystems that lived
                 # there.
                 block.wipe_volume(disk, mode='superblock')
             elif ptable in _dos_names:
