@@ -1,5 +1,4 @@
 showtrace: true
-
 storage:
     version: 1
     config:
@@ -65,6 +64,7 @@ storage:
         type: disk
         path: /dev/vde
         name: pnum_disk
+        wipe: superblock
         ptable: gpt
       - id: pnum_disk_p1
         type: partition
