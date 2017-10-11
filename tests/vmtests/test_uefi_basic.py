@@ -9,7 +9,7 @@ class TestBasicAbs(VMBaseClass):
     interactive = False
     arch_skip = ["s390x"]
     conf_file = "examples/tests/uefi_basic.yaml"
-    extra_disks = []
+    extra_disks = ['4G']
     uefi = True
     disk_to_check = [('main_disk', 1), ('main_disk', 2), ('main_disk', 3)]
     collect_scripts = [textwrap.dedent("""
