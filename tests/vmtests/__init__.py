@@ -1459,7 +1459,7 @@ def tar_disks(tmpdir, outfile="disks.tar", diskmatch=".img"):
         logger.info('Taring %s disks sparsely to %s', len(disks), outfile)
         util.subp(cmd, capture=True)
     else:
-        logger.error('Failed to find "disks" dir under tmpdir: %s', tmpdir)
+        logger.debug('No "disks" dir found in tmpdir: %s', tmpdir)
 
 
 def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):
