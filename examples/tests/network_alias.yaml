@@ -9,11 +9,9 @@ network:
           subnets:
               - type: static
                 address: 10.47.98.1/24
-                mtu: 1501
               - type: static
                 address: 2001:4800:78ff:1b:be76:4eff:fe06:ffac
                 netmask: 'ffff:ffff:ffff:ffff::'
-                mtu: 1480
         # multi_v4_alias: multiple v4 addrs on same interface
         - type: physical
           name: interface1
