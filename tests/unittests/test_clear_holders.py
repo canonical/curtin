@@ -1,3 +1,4 @@
+import errno
 import mock
 import os
 import textwrap
@@ -355,7 +356,8 @@ class TestClearHolders(CiTestCase):
         mock_os.path.join.side_effect = os.path.join
 
         # make writes to sysfs fail
-        mock_util.write_file.side_effect = OSError()
+        mock_util.write_file.side_effect = IOError(errno.ENOENT,
+                                                   "File not found")
 
         clear_holders.shutdown_bcache(device)
 
@@ -372,6 +374,49 @@ class TestClearHolders(CiTestCase):
         ])
         mock_util.wait_for_removal.assert_has_calls([
             mock.call(cset, retries=self.remove_retries)
+        ])
+
+    # test bcache shutdown raises exceptions
+    @mock.patch('curtin.block.clear_holders.udev.udevadm_settle')
+    @mock.patch('curtin.block.clear_holders.get_bcache_sys_path')
+    @mock.patch('curtin.block.clear_holders.util')
+    @mock.patch('curtin.block.clear_holders.os')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.get_bcache_using_dev')
+    def test_shutdown_bcache_stop_sysfs_write_fails_2(self, mock_get_bcache,
+                                                      mock_log, mock_os,
+                                                      mock_util,
+                                                      mock_get_bcache_block,
+                                                      mock_udevadm_settle):
+        """Test writes sysfs write failures not due to file not found fail"""
+        device = "/sys/class/block/null"
+        mock_os.path.exists.side_effect = iter([
+                True,   # backing device exists
+                True,   # cset device not present (already removed)
+                False,  # backing device is removed with cset
+                False,  # bcache/stop sysfs is missing (already removed)
+        ])
+        cset = '/sys/fs/bcache/fake'
+        mock_get_bcache.return_value = cset
+        mock_get_bcache_block.return_value = device + '/bcache'
+        mock_os.path.join.side_effect = os.path.join
+
+        # make writes to sysfs fail
+        mock_util.write_file.side_effect = OSError()
+
+        with self.assertRaises(OSError):
+            clear_holders.shutdown_bcache(device)
+
+        self.assertEqual(1, len(mock_log.info.call_args_list))
+        self.assertEqual(2, len(mock_os.path.exists.call_args_list))
+        self.assertEqual(1, len(mock_get_bcache.call_args_list))
+        self.assertEqual(0, len(mock_get_bcache_block.call_args_list))
+        self.assertEqual(1, len(mock_util.write_file.call_args_list))
+        self.assertEqual(0, len(mock_util.wait_for_removal.call_args_list))
+
+        mock_get_bcache.assert_called_with(device, strict=False)
+        mock_util.write_file.assert_has_calls([
+            mock.call(cset + '/stop', '1', mode=None),
         ])
 
     @mock.patch('curtin.block.clear_holders.LOG')

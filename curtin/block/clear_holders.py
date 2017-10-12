@@ -136,9 +136,14 @@ def shutdown_bcache(device):
         try:
             util.write_file(bcache_stop, '1', mode=None)
         except (IOError, OSError) as e:
+            # Note: if we get a write failure and the exception is that the
+            # file is not found; we log this expected behavior; any other
+            # exception is raised
             if e.errno == errno.ENOENT:
                 LOG.debug('bcache stop file %s missing, device removed: %s',
                           bcache_stop, e)
+            else:
+                raise e
         try:
             util.wait_for_removal(bcache_cache_sysfs, retries=removal_retries)
         except OSError:
@@ -171,9 +176,14 @@ def shutdown_bcache(device):
         try:
             util.write_file(bcache_stop, '1', mode=None)
         except (IOError, OSError) as e:
+            # Note: if we get a write failure and the exception is that the
+            # file is not found; we log this expected behavior; any other
+            # exception is raised
             if e.errno == errno.ENOENT:
                 LOG.debug('bcache stop file %s missing, device removed: %s',
                           bcache_stop, e)
+            else:
+                raise e
         try:
             # wait for them all to go away
             for dev in [device, bcache_block_sysfs] + slave_paths:
