@@ -376,49 +376,6 @@ class TestClearHolders(CiTestCase):
             mock.call(cset, retries=self.remove_retries)
         ])
 
-    # test bcache shutdown raises exceptions
-    @mock.patch('curtin.block.clear_holders.udev.udevadm_settle')
-    @mock.patch('curtin.block.clear_holders.get_bcache_sys_path')
-    @mock.patch('curtin.block.clear_holders.util')
-    @mock.patch('curtin.block.clear_holders.os')
-    @mock.patch('curtin.block.clear_holders.LOG')
-    @mock.patch('curtin.block.clear_holders.get_bcache_using_dev')
-    def test_shutdown_bcache_stop_sysfs_write_fails_2(self, mock_get_bcache,
-                                                      mock_log, mock_os,
-                                                      mock_util,
-                                                      mock_get_bcache_block,
-                                                      mock_udevadm_settle):
-        """Test writes sysfs write failures not due to file not found fail"""
-        device = "/sys/class/block/null"
-        mock_os.path.exists.side_effect = iter([
-                True,   # backing device exists
-                True,   # cset device not present (already removed)
-                False,  # backing device is removed with cset
-                False,  # bcache/stop sysfs is missing (already removed)
-        ])
-        cset = '/sys/fs/bcache/fake'
-        mock_get_bcache.return_value = cset
-        mock_get_bcache_block.return_value = device + '/bcache'
-        mock_os.path.join.side_effect = os.path.join
-
-        # make writes to sysfs fail
-        mock_util.write_file.side_effect = OSError()
-
-        with self.assertRaises(OSError):
-            clear_holders.shutdown_bcache(device)
-
-        self.assertEqual(1, len(mock_log.info.call_args_list))
-        self.assertEqual(2, len(mock_os.path.exists.call_args_list))
-        self.assertEqual(1, len(mock_get_bcache.call_args_list))
-        self.assertEqual(0, len(mock_get_bcache_block.call_args_list))
-        self.assertEqual(1, len(mock_util.write_file.call_args_list))
-        self.assertEqual(0, len(mock_util.wait_for_removal.call_args_list))
-
-        mock_get_bcache.assert_called_with(device, strict=False)
-        mock_util.write_file.assert_has_calls([
-            mock.call(cset + '/stop', '1', mode=None),
-        ])
-
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.block.sys_block_path')
     @mock.patch('curtin.block.clear_holders.lvm')
@@ -620,6 +577,41 @@ class TestClearHolders(CiTestCase):
         ]
         for tree, result in test_trees_and_results:
             self.assertEqual(clear_holders.format_holders_tree(tree), result)
+
+    @mock.patch('curtin.block.clear_holders.util.write_file')
+    def test_maybe_stop_bcache_device_raises_errors(self, m_write_file):
+        """Unexpected exceptions are raised by maybe_stop_bcache_device."""
+        m_write_file.side_effect = OSError(errno.EAGAIN, 'Unexpected errno')
+        with self.assertRaises(OSError) as cm:
+            clear_holders.maybe_stop_bcache_device('does/not/matter')
+        self.assertEqual('[Errno 11] Unexpected errno', str(cm.exception))
+        self.assertEqual(
+            mock.call('does/not/matter/stop', '1', mode=None),
+            m_write_file.call_args)
+
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.util.write_file')
+    def test_maybe_stop_bcache_device_handles_oserror(self, m_write_file,
+                                                      m_log):
+        """When OSError.NOENT is raised, log the condition and move on."""
+        m_write_file.side_effect = OSError(errno.ENOENT, 'Expected oserror')
+        clear_holders.maybe_stop_bcache_device('does/not/matter')
+        self.assertEqual(
+            'bcache stop file %s missing, device removed: %s',
+            m_log.debug.call_args[0][0])
+        self.assertEqual('does/not/matter/stop', m_log.debug.call_args[0][1])
+
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.util.write_file')
+    def test_maybe_stop_bcache_device_handles_ioerror(self, m_write_file,
+                                                      m_log):
+        """When IOError.NOENT is raised, log the condition and move on."""
+        m_write_file.side_effect = IOError(errno.ENOENT, 'Expected ioerror')
+        clear_holders.maybe_stop_bcache_device('does/not/matter')
+        self.assertEqual(
+            'bcache stop file %s missing, device removed: %s',
+            m_log.debug.call_args[0][0])
+        self.assertEqual('does/not/matter/stop', m_log.debug.call_args[0][1])
 
     def test_get_holder_types(self):
         """test clear_holders.get_holder_types"""

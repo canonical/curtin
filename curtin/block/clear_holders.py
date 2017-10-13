@@ -93,6 +93,22 @@ def get_bcache_sys_path(device, strict=True):
     return path
 
 
+def maybe_stop_bcache_device(device):
+    """Attempt to stop the provided device_path or raise unexpected errors."""
+    bcache_stop = os.path.join(device, 'stop')
+    try:
+        util.write_file(bcache_stop, '1', mode=None)
+    except (IOError, OSError) as e:
+        # Note: if we get a write failure and the exception is that the
+        # file is not found; we log this expected behavior; any other
+        # exception is raised
+        if e.errno == errno.ENOENT:
+            LOG.debug('bcache stop file %s missing, device removed: %s',
+                      bcache_stop, e)
+        else:
+            raise e
+
+
 def shutdown_bcache(device):
     """
     Shut down bcache for specified bcache device
@@ -132,18 +148,7 @@ def shutdown_bcache(device):
                  os.path.basename(bcache_cache_sysfs))
     else:
         LOG.info('stopping bcache cacheset at: %s', bcache_cache_sysfs)
-        bcache_stop = os.path.join(bcache_cache_sysfs, 'stop')
-        try:
-            util.write_file(bcache_stop, '1', mode=None)
-        except (IOError, OSError) as e:
-            # Note: if we get a write failure and the exception is that the
-            # file is not found; we log this expected behavior; any other
-            # exception is raised
-            if e.errno == errno.ENOENT:
-                LOG.debug('bcache stop file %s missing, device removed: %s',
-                          bcache_stop, e)
-            else:
-                raise e
+        maybe_stop_bcache_device(bcache_cache_sysfs)
         try:
             util.wait_for_removal(bcache_cache_sysfs, retries=removal_retries)
         except OSError:
@@ -172,18 +177,7 @@ def shutdown_bcache(device):
         return
     else:
         LOG.info('stopping bcache backing device at: %s', bcache_block_sysfs)
-        bcache_stop = os.path.join(bcache_block_sysfs, 'stop')
-        try:
-            util.write_file(bcache_stop, '1', mode=None)
-        except (IOError, OSError) as e:
-            # Note: if we get a write failure and the exception is that the
-            # file is not found; we log this expected behavior; any other
-            # exception is raised
-            if e.errno == errno.ENOENT:
-                LOG.debug('bcache stop file %s missing, device removed: %s',
-                          bcache_stop, e)
-            else:
-                raise e
+        maybe_stop_bcache_device(bcache_block_sysfs)
         try:
             # wait for them all to go away
             for dev in [device, bcache_block_sysfs] + slave_paths:
