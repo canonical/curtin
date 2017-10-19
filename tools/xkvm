@@ -460,7 +460,7 @@ main() {
             out=$(LANG=C qemu-img info "$file") &&
                 fmt=$(echo "$out" | awk '$0 ~ /^file format:/ { print $3 }') ||
                 { error "failed to determine format of $file"; return 1; }
-        else
+        elif [ -z "$fmt" ]; then
             fmt=raw
         fi
         if [ -z "$driver" ]; then
