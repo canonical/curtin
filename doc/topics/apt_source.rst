@@ -135,7 +135,9 @@ This is a collection of additional ideas people can use the feature for customiz
 
  apt:
    sources:
-     proposed.list: deb $MIRROR $RELEASE-proposed main restricted universe multiverse
+     proposed.list:
+       source: |
+         deb $MIRROR $RELEASE-proposed main restricted universe multiverse
 
 * Make debug symbols available
 
@@ -143,11 +145,12 @@ This is a collection of additional ideas people can use the feature for customiz
 
  apt:
    sources:
-     ddebs.list: |
-       deb http://ddebs.ubuntu.com $RELEASE main restricted universe multiverse
-       deb http://ddebs.ubuntu.com $RELEASE-updates main restricted universe multiverse
-       deb http://ddebs.ubuntu.com $RELEASE-security main restricted universe multiverse
-       deb http://ddebs.ubuntu.com $RELEASE-proposed main restricted universe multiverse
+     ddebs.list:
+       source: |
+         deb http://ddebs.ubuntu.com $RELEASE main restricted universe multiverse
+         deb http://ddebs.ubuntu.com $RELEASE-updates main restricted universe multiverse
+         deb http://ddebs.ubuntu.com $RELEASE-security main restricted universe multiverse
+         deb http://ddebs.ubuntu.com $RELEASE-proposed main restricted universe multiverse
 
 Timing
 ~~~~~~

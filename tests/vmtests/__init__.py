@@ -38,6 +38,7 @@ KEEP_DATA = {"pass": "none", "fail": "all"}
 CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", "1")
 IMAGE_SYNCS = []
 TARGET_IMAGE_FORMAT = "raw"
+TAR_DISKS = bool(int(os.environ.get("CURTIN_VMTEST_TAR_DISKS", "0")))
 
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
@@ -335,7 +336,12 @@ class VMBaseClass(TestCase):
     __test__ = False
     arch_skip = []
     boot_timeout = BOOT_TIMEOUT
-    collect_scripts = []
+    collect_scripts = [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        dpkg-query --show \
+            --showformat='${db:Status-Abbrev}\t${Package}\t${Version}\n' \
+            > debian-packages.txt 2> debian-packages.txt.err
+    """)]
     conf_file = "examples/tests/basic.yaml"
     nr_cpus = None
     dirty_disks = False
@@ -367,6 +373,8 @@ class VMBaseClass(TestCase):
     target_release = None
     target_krel = None
     target_ftype = "vmtest.root-tgz"
+
+    _debian_packages = None
 
     def shortDescription(self):
         return None
@@ -944,7 +952,8 @@ class VMBaseClass(TestCase):
         clean_working_dir(cls.td.tmpdir, success,
                           keep_pass=KEEP_DATA['pass'],
                           keep_fail=KEEP_DATA['fail'])
-
+        if TAR_DISKS:
+            tar_disks(cls.td.tmpdir)
         cls.cleanIscsiState(success,
                             keep_pass=KEEP_DATA['pass'],
                             keep_fail=KEEP_DATA['fail'])
@@ -1157,6 +1166,18 @@ class VMBaseClass(TestCase):
             with open(self.td.errors_file, "w") as fp:
                 fp.write(json.dumps(data, indent=2, sort_keys=True,
                                     separators=(',', ': ')) + "\n")
+
+    @property
+    def debian_packages(self):
+        if self._debian_packages is None:
+            data = self.load_collect_file("debian-packages.txt")
+            pkgs = {}
+            for line in data.splitlines():
+                # lines are <status>\t<
+                status, pkg, ver = line.split('\t')
+                pkgs[pkg] = {'status': status, 'version': ver}
+            self._debian_packages = pkgs
+        return self._debian_packages
 
 
 class PsuedoVMBaseClass(VMBaseClass):
@@ -1428,6 +1449,23 @@ def apply_keep_settings(success=None, fail=None):
 
     global KEEP_DATA
     KEEP_DATA.update(data)
+
+
+def tar_disks(tmpdir, outfile="disks.tar", diskmatch=".img"):
+    """ Tar up files in ``tmpdir``/disks that ends with the pattern supplied"""
+
+    disks_dir = os.path.join(tmpdir, "disks")
+    if os.path.exists(disks_dir):
+        outfile = os.path.join(disks_dir, outfile)
+        disks = [os.path.join(disks_dir, disk) for disk in
+                 os.listdir(disks_dir) if disk.endswith(diskmatch)]
+        cmd = ["tar", "--create", "--file=%s" % outfile,
+               "--verbose", "--remove-files", "--sparse"]
+        cmd.extend(disks)
+        logger.info('Taring %s disks sparsely to %s', len(disks), outfile)
+        util.subp(cmd, capture=True)
+    else:
+        logger.debug('No "disks" dir found in tmpdir: %s', tmpdir)
 
 
 def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):

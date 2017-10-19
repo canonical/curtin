@@ -36,3 +36,7 @@ class XenialTestIscsiMdadm(relbase.xenial, TestMdadmIscsiAbs):
 
 class ZestyTestIscsiMdadm(relbase.zesty, TestMdadmIscsiAbs):
     __test__ = True
+
+
+class ArtfulTestIscsiMdadm(relbase.artful, TestMdadmIscsiAbs):
+    __test__ = True
