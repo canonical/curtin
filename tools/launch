@@ -753,7 +753,7 @@ main() {
         seed="${TEMP_D}/seed.img"
         cloud-localds "$seed" "$udata" "$mdata" ||
             { error "failed cloud-localds"; return 1; }
-        seedargs=( "-drive" "file=${seed},if=virtio,media=cdrom" )
+        seedargs=( "--disk=file=${seed},if=virtio,media=cdrom" )
     fi
 
     local netargs
