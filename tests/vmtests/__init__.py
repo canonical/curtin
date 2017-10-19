@@ -833,10 +833,8 @@ class VMBaseClass(TestCase):
         cmd = (["tools/xkvm", "-v", dowait] +
                uefi_flags + netdevs +
                cls.mpath_diskargs(target_disks + extra_disks + nvme_disks) +
-               ["--", "-drive",
-                "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
-                "-smp",  cls.get_config_smp(),
-                "-m", "1024"])
+               ["--disk=file=%s,if=virtio,media=cdrom" % cls.td.seed_disk] +
+               ["--", "-smp",  cls.get_config_smp(), "-m", "1024"])
 
         if not cls.interactive:
             if cls.arch == 's390x':
