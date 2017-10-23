@@ -65,3 +65,11 @@ class ZestyBcacheBasic(relbase.zesty, TestBcacheBasic):
 
 class ArtfulBcacheBasic(relbase.artful, TestBcacheBasic):
     __test__ = True
+
+
+class XenialBcacheBasicBug(relbase.xenial, TestBcacheBasic):
+    conf_file = "examples/tests/bcache-wipe-xfs.yaml"
+    dirty_disks = False
+    nr_cpus = 2
+    extra_disks = ['10G']
+    __test__ = True

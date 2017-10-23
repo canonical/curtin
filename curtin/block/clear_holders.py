@@ -258,6 +258,19 @@ def wipe_superblock(device):
         LOG.info("extended partitions do not need wiping, so skipping: '%s'",
                  blockdev)
     else:
+        # some volumes will be claimed by the bcache layer but do not surface
+        # an actual /dev/bcacheN device which owns the parts (backing, cache)
+        # The result is that some volumes cannot be wiped while bcache claims
+        # the device.  Resolve this by stopping bcache layer on those volumes
+        # if present.
+        for bcache_path in ['bcache', 'bcache/set']:
+            stop_path = os.path.join(device, bcache_path)
+            if os.path.exists(stop_path):
+                LOG.debug('Attempting to release bcache layer from device: %s',
+                          device)
+                maybe_stop_bcache_device(stop_path)
+                continue
+
         retries = [1, 3, 5, 7]
         LOG.info('wiping superblock on %s', blockdev)
         for attempt, wait in enumerate(retries):
