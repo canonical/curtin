@@ -203,7 +203,7 @@ class ArtfulTestNetworkMtu(relbase.artful, TestNetworkMtuAbs):
     @classmethod
     def setUpClass(cls):
         cls.skip_by_date(cls.__name__, cls.release, "1671951",
-                         fixby=(2017, 10, 20), removeby=(2018, 1, 23))
+                         fixby=(2018, 1, 20), removeby=(2018, 2, 23))
         super().setUpClass()
 
 
