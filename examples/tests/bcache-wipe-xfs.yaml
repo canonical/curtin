@@ -1,16 +1,16 @@
 showtrace: true
 
 early_commands:
-  # running block-meta custom from the install environment
-  # inherits the CONFIG environment, so this works to actually prepare
-  # the disks exactly as in this config before the rest of the install
-  # will just blow it all away.  We have clean out other environment
-  # that could unintentionally mess things up.
-  blockmeta: [env, -u, OUTPUT_FSTAB, TARGET_MOUNT_POINT=/tmp/my.bdir/target,
+  # Create a partitioned disk with bcache metadata in one of the partitions.
+  # Then, wipe the partition table.  This leaves "buried" bcache data that
+  # would be seen as soon as the disk was partitioned and cause problems
+  # for curtin's use of the disk.
+  # This config recreates issue LP: #1718699
+  00_blockmeta: [env, -u, OUTPUT_FSTAB, TARGET_MOUNT_POINT=/tmp/my.bdir/target,
               WORKING_DIR=/tmp/my.bdir/work.d, curtin, --showtrace, -v,
               block-meta, --umount, custom]
-  clear_holders: [curtin, clear-holders, -p, /dev/vdb]
-  quick_erase_01: [curtin, block-wipe, -m, superblock, /dev/vdb]
+  01_clear_holders: [curtin, clear-holders, --preserve, /dev/vdb]
+  02_quick_erase: [curtin, block-wipe, --mode, superblock, /dev/vdb]
 
 storage:
   config:
