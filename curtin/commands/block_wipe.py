@@ -19,7 +19,7 @@ import sys
 import curtin.block as block
 from . import populate_one_subcmd
 from .. import log
- 
+
 LOG = log.LOG
 
 

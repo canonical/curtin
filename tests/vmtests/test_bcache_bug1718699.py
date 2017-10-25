@@ -1,8 +1,5 @@
-from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 from .test_bcache_basic import TestBcacheBasic
-
-import textwrap
 
 
 class TestBcacheBug1718699(TestBcacheBasic):
