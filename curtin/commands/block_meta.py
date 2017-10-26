@@ -548,6 +548,21 @@ def partition_handler(info, storage_config):
              info.get('id'), device, disk_ptable)
     LOG.debug("partnum: %s offset_sectors: %s length_sectors: %s",
               partnumber, offset_sectors, length_sectors)
+
+    # Wipe the partition if told to do so, do not wipe dos extended partitions
+    # as this may damage the extended partition table
+    if config.value_as_boolean(info.get('wipe')):
+        LOG.info("Preparing partition location on disk %s", disk)
+        if info.get('flag') == "extended":
+            LOG.warn("extended partitions do not need wiping, so skipping: "
+                     "'%s'" % info.get('id'))
+        else:
+            # wipe the start of the new partition first by zeroing 1M at the
+            # length of the previous partition
+            wipe_offset = int(offset_sectors * logical_block_size_bytes)
+            LOG.debug('Wiping 1M on %s at offset %s', disk, wipe_offset)
+            block.zero_file_at_offsets(disk, [wipe_offset])
+
     if disk_ptable == "msdos":
         if flag in ["extended", "logical", "primary"]:
             partition_type = flag
@@ -569,25 +584,6 @@ def partition_handler(info, storage_config):
     else:
         raise ValueError("parent partition has invalid partition table")
 
-    # check if we've triggered hidden metadata like md, lvm or bcache
-    part_kname = get_path_to_storage_volume(info.get('id'), storage_config)
-    holders = clear_holders.get_holders(part_kname)
-    if len(holders) > 0:
-        LOG.debug('Detected block holders on partition %s: %s', part_kname,
-                  holders)
-        clear_holders.clear_holders(part_kname)
-        clear_holders.assert_clear(part_kname)
-
-    # Wipe the partition if told to do so, do not wipe dos extended partitions
-    # as this may damage the extended partition table
-    if config.value_as_boolean(info.get('wipe')):
-        if info.get('flag') == "extended":
-            LOG.warn("extended partitions do not need wiping, so skipping: "
-                     "'%s'" % info.get('id'))
-        else:
-            block.wipe_volume(
-                get_path_to_storage_volume(info.get('id'), storage_config),
-                mode=info.get('wipe'))
     # Make the name if needed
     if storage_config.get(device).get('name') and partition_type != 'extended':
         make_dname(info.get('id'), storage_config)

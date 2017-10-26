@@ -18,11 +18,15 @@
 import sys
 import curtin.block as block
 from . import populate_one_subcmd
+from .. import log
+
+LOG = log.LOG
 
 
 def wipe_main(args):
     for blockdev in args.devices:
         try:
+            LOG.debug('Wiping volume %s with mode=%s', blockdev, args.mode)
             block.wipe_volume(blockdev, mode=args.mode)
         except Exception as e:
             sys.stderr.write(
