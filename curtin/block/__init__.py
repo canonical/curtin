@@ -776,7 +776,7 @@ def is_extended_partition(device):
 
 
 @contextmanager
-def exclusive_open(path):
+def exclusive_open(path, exclusive=True):
     """
     Obtain an exclusive file-handle to the file/device specified
     """
@@ -785,8 +785,11 @@ def exclusive_open(path):
     if not os.path.exists(path):
         raise ValueError("No such file at path: %s" % path)
 
+    flags = os.O_RDWR
+    if exclusive is True:
+        flags += os.O_EXCL
     try:
-        fd = os.open(path, os.O_RDWR | os.O_EXCL)
+        fd = os.open(path, flags)
         try:
             fd_needs_closing = True
             with os.fdopen(fd, mode) as fo:
@@ -892,11 +895,7 @@ def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False,
     msg_vals = {'path': path, 'tot': buflen * count}
 
     # allow caller to control if we require exclusive open
-    openfn = exclusive_open
-    if exclusive is False:
-        openfn = open
-
-    with openfn(path) as fp:
+    with exclusive_open(path, exclusive=exclusive) as fp:
         # get the size by seeking to end.
         fp.seek(0, 2)
         size = fp.tell()
