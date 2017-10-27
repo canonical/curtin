@@ -875,7 +875,8 @@ def quick_zero(path, partitions=True):
     return zero_file_at_offsets(path, offsets, buflen=buflen, count=count)
 
 
-def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False):
+def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False,
+                         exclusive=True):
     """
     write zeros to file at specified offsets
     """
@@ -890,7 +891,12 @@ def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False):
     tot = buflen * count
     msg_vals = {'path': path, 'tot': buflen * count}
 
-    with exclusive_open(path) as fp:
+    # allow caller to control if we require exclusive open
+    openfn = exclusive_open
+    if exclusive is False:
+        openfn = open
+
+    with openfn(path) as fp:
         # get the size by seeking to end.
         fp.seek(0, 2)
         size = fp.tell()

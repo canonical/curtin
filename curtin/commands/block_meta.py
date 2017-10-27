@@ -561,7 +561,10 @@ def partition_handler(info, storage_config):
             # length of the previous partition
             wipe_offset = int(offset_sectors * logical_block_size_bytes)
             LOG.debug('Wiping 1M on %s at offset %s', disk, wipe_offset)
-            block.zero_file_at_offsets(disk, [wipe_offset])
+            # We don't require exclusive access as we're wiping data at an
+            # offset and the current holder maybe part of the current storage
+            # configuration.
+            block.zero_file_at_offsets(disk, [wipe_offset], exclusive=False)
 
     if disk_ptable == "msdos":
         if flag in ["extended", "logical", "primary"]:
