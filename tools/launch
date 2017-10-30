@@ -583,11 +583,10 @@ main() {
               bs_args="${bs_args},physical_block_size=$phybs"
               bs_args="${bs_args},min_io_size=$logbs"
 
-        disk_args=( "${disk_args[@]}" "-drive"
-            "file=${src},if=none,cache=unsafe,format=$fmt,id=drv${id},index=$id" )
-
-        disk_args=( "${disk_args[@]}" "-device"
-            "${driver},drive=drv${id},${bs_args}${devopts}" )
+        t="file=${src},if=none,cache=unsafe,format=$fmt,"
+        t="${t}id=drv${id},index=$id,"
+        t="${t}driver=${driver},${bs_args}${devopts}"
+        disk_args[${#disk_args[@]}]="--disk=$t"
 
     done
 
@@ -754,7 +753,7 @@ main() {
         seed="${TEMP_D}/seed.img"
         cloud-localds "$seed" "$udata" "$mdata" ||
             { error "failed cloud-localds"; return 1; }
-        seedargs=( "-drive" "file=${seed},if=virtio,media=cdrom" )
+        seedargs=( "--disk=file=${seed},if=virtio,media=cdrom" )
     fi
 
     local netargs
@@ -779,13 +778,14 @@ main() {
         fi
     fi
     # -monitor stdio
+    local bootdisk="--disk=file=$bootimg,id=boot,index=1,cache=unsafe"
     cmd=(
-        xkvm "${pt[@]}" "${netargs[@]}" --
+        xkvm "${pt[@]}" "${netargs[@]}" 
+        "$bootdisk"
+        "${disk_args[@]}"
+        --
         -smp ${smp}
         -m ${mem} ${serial_args} ${video}
-        -drive "file=$bootimg,if=none,cache=unsafe,format=qcow2,id=boot,index=0"
-        -device "virtio-blk,drive=boot"
-        "${disk_args[@]}"
         "${seedargs[@]}"
         )
 
