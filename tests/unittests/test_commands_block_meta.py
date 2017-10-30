@@ -131,7 +131,7 @@ class TestBlockMeta(CiTestCase):
         self.add_patch('curtin.block.clear_holders.assert_clear',
                        'mock_assert_clear')
         self.add_patch('curtin.block.zero_file_at_offsets',
-                       'mock_block_zero_file_at_offsets')
+                       'mock_block_zero_file')
 
         self.target = "my_target"
         self.config = {
@@ -197,8 +197,8 @@ class TestBlockMeta(CiTestCase):
         block_meta.partition_handler(part_info, self.storage_config)
 
         part_offset = 2048 * 512
-        self.mock_block_zero_file_at_offsets.assert_called_with(disk_kname,
-                                                                [part_offset])
+        self.mock_block_zero_file.assert_called_with(disk_kname, [part_offset],
+                                                     exclusive=False)
         self.mock_subp.assert_called_with(['parted', disk_kname, '--script',
                                            'mkpart', 'primary', '2048s',
                                            '1001471s'], capture=True)
