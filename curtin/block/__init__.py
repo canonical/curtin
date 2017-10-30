@@ -778,7 +778,8 @@ def is_extended_partition(device):
 @contextmanager
 def exclusive_open(path, exclusive=True):
     """
-    Obtain an exclusive file-handle to the file/device specified
+    Obtain an exclusive file-handle to the file/device specified unless
+    caller specifics exclusive=False.
     """
     mode = 'rb+'
     fd = None
@@ -786,7 +787,7 @@ def exclusive_open(path, exclusive=True):
         raise ValueError("No such file at path: %s" % path)
 
     flags = os.O_RDWR
-    if exclusive is True:
+    if exclusive:
         flags += os.O_EXCL
     try:
         fd = os.open(path, flags)
