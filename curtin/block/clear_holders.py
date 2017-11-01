@@ -106,7 +106,7 @@ def maybe_stop_bcache_device(device):
         # we log the exception errno we got, but do not re-raise as
         # the calling process is watching whether the same sysfs path
         # is being removed;  if it fails to go away then we'll have
-        # a log of the execptions to debug.
+        # a log of the exceptions to debug.
         LOG.debug('Error writing to bcache stop file %s, device removed: %s',
                   bcache_stop, e)
 
