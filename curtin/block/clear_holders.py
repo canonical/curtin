@@ -101,7 +101,7 @@ def maybe_stop_bcache_device(device):
     except (IOError, OSError) as e:
         # Note: if we get any exceptions in the above exception classes
         # it is a result of attempting to write "1" into the sysfs path
-        # The range of errors changes depending on when we race with 
+        # The range of errors changes depending on when we race with
         # the kernel asynchronously removing the sysfs path. Therefore
         # we log the exception errno we got, but do not re-raise as
         # the calling process is watching whether the same sysfs path
