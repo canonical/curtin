@@ -580,11 +580,11 @@ class TestClearHolders(CiTestCase):
 
     @mock.patch('curtin.block.clear_holders.util.write_file')
     def test_maybe_stop_bcache_device_raises_errors(self, m_write_file):
-        """Unexpected exceptions are raised by maybe_stop_bcache_device."""
-        m_write_file.side_effect = OSError(errno.EAGAIN, 'Unexpected errno')
-        with self.assertRaises(OSError) as cm:
+        """Non-IO/OS exceptions are raised by maybe_stop_bcache_device."""
+        m_write_file.side_effect = ValueError('Crazy Value Error')
+        with self.assertRaises(ValueError) as cm:
             clear_holders.maybe_stop_bcache_device('does/not/matter')
-        self.assertEqual('[Errno 11] Unexpected errno', str(cm.exception))
+        self.assertEqual('Crazy Value Error', str(cm.exception))
         self.assertEqual(
             mock.call('does/not/matter/stop', '1', mode=None),
             m_write_file.call_args)
@@ -597,7 +597,7 @@ class TestClearHolders(CiTestCase):
         m_write_file.side_effect = OSError(errno.ENOENT, 'Expected oserror')
         clear_holders.maybe_stop_bcache_device('does/not/matter')
         self.assertEqual(
-            'bcache stop file %s missing, device removed: %s',
+            'Error writing to bcache stop file %s, device removed: %s',
             m_log.debug.call_args[0][0])
         self.assertEqual('does/not/matter/stop', m_log.debug.call_args[0][1])
 
@@ -609,7 +609,7 @@ class TestClearHolders(CiTestCase):
         m_write_file.side_effect = IOError(errno.ENOENT, 'Expected ioerror')
         clear_holders.maybe_stop_bcache_device('does/not/matter')
         self.assertEqual(
-            'bcache stop file %s missing, device removed: %s',
+            'Error writing to bcache stop file %s, device removed: %s',
             m_log.debug.call_args[0][0])
         self.assertEqual('does/not/matter/stop', m_log.debug.call_args[0][1])
 

@@ -99,14 +99,16 @@ def maybe_stop_bcache_device(device):
     try:
         util.write_file(bcache_stop, '1', mode=None)
     except (IOError, OSError) as e:
-        # Note: if we get a write failure and the exception is that the
-        # file is not found; we log this expected behavior; any other
-        # exception is raised
-        if e.errno == errno.ENOENT:
-            LOG.debug('bcache stop file %s missing, device removed: %s',
-                      bcache_stop, e)
-        else:
-            raise e
+        # Note: if we get any exceptions in the above exception classes
+        # it is a result of attempting to write "1" into the sysfs path
+        # The range of errors changes depending on when we race with
+        # the kernel asynchronously removing the sysfs path. Therefore
+        # we log the exception errno we got, but do not re-raise as
+        # the calling process is watching whether the same sysfs path
+        # is being removed;  if it fails to go away then we'll have
+        # a log of the exceptions to debug.
+        LOG.debug('Error writing to bcache stop file %s, device removed: %s',
+                  bcache_stop, e)
 
 
 def shutdown_bcache(device):
