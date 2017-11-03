@@ -155,11 +155,6 @@ class CentosTestNetworkMtuAbs(TestNetworkMtuAbs):
         pass
 
 
-class PreciseHWETTestNetworkMtu(relbase.precise_hwe_t, TestNetworkMtuAbs):
-    # FIXME: Precise mtu / ipv6 is buggy
-    __test__ = False
-
-
 class TrustyTestNetworkMtu(relbase.trusty, TestNetworkMtuAbs):
     __test__ = True
 

@@ -43,10 +43,6 @@ class TestBcacheBasic(VMBaseClass):
         self.check_file_regex("cmdline", r"root=UUID=")
 
 
-class PreciseHWETBcacheBasic(relbase.precise_hwe_t, TestBcacheBasic):
-    __test__ = True
-
-
 class TrustyBcacheBasic(relbase.trusty, TestBcacheBasic):
     __test__ = False  # covered by test_raid5_bcache
 

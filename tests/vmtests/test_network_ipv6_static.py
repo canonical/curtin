@@ -13,11 +13,6 @@ class CentosTestNetworkIPV6StaticAbs(CentosTestNetworkStaticAbs):
     conf_file = "examples/tests/basic_network_static_ipv6.yaml"
 
 
-class PreciseHWETTestNetworkIPV6Static(relbase.precise_hwe_t,
-                                       TestNetworkIPV6StaticAbs):
-    __test__ = True
-
-
 class TrustyTestNetworkIPV6Static(relbase.trusty, TestNetworkIPV6StaticAbs):
     __test__ = True
 

@@ -12,22 +12,6 @@ class CentosTestNetworkIPV6VlanAbs(CentosTestNetworkVlanAbs):
     conf_file = "examples/tests/vlan_network_ipv6.yaml"
 
 
-class PreciseTestNetworkIPV6Vlan(relbase.precise, TestNetworkIPV6VlanAbs):
-    __test__ = True
-
-    # precise ip -d link show output is different (of course)
-    def test_vlan_enabled(self):
-
-        # we must have at least one
-        self.assertGreaterEqual(len(self.get_vlans()), 1)
-
-        # did they get configured?
-        for vlan in self.get_vlans():
-            link_file = "ip_link_show_" + vlan['name']
-            vlan_msg = "vlan id " + str(vlan['vlan_id'])
-            self.check_file_regex(link_file, vlan_msg)
-
-
 class TrustyTestNetworkIPV6Vlan(relbase.trusty, TestNetworkIPV6VlanAbs):
     __test__ = True
 

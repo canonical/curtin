@@ -9,10 +9,6 @@ class TestBcacheBug1718699(TestBcacheBasic):
     extra_disks = ['10G']
 
 
-class PreciseTestBcacheBug1718699(relbase.precise_hwe_t, TestBcacheBug1718699):
-    __test__ = True
-
-
 class XenialTestBcacheBug1718699(relbase.xenial, TestBcacheBug1718699):
     __test__ = True
 

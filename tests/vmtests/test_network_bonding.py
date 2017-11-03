@@ -38,14 +38,6 @@ class CentosTestNetworkBondingAbs(TestNetworkBondingAbs):
         pass
 
 
-class PreciseHWETTestBonding(relbase.precise_hwe_t, TestNetworkBondingAbs):
-    __test__ = True
-
-    def test_ifenslave_installed(self):
-        self.assertIn("ifenslave-2.6", self.debian_packages,
-                      "ifenslave deb not installed")
-
-
 class TrustyTestBonding(relbase.trusty, TestNetworkBondingAbs):
     __test__ = False
 

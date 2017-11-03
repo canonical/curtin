@@ -53,11 +53,6 @@ class TestNvmeAbs(VMBaseClass):
             self.check_file_strippedline("ls_dev_nvme", "/dev/nvme1")
 
 
-class PreciseTestNvme(relbase.precise, TestNvmeAbs):
-    __test__ = False
-    # Precise kernel doesn't have NVME support, with TrustyHWE it would
-
-
 class TrustyTestNvme(relbase.trusty, TestNvmeAbs):
     __test__ = True
 

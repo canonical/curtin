@@ -76,16 +76,6 @@ class TestBasicAbs(VMBaseClass):
             self.assertEqual(self.disk_block_size, size)
 
 
-class PreciseUefiTestBasic(relbase.precise, TestBasicAbs):
-    __test__ = True
-
-    def test_ptable(self):
-        print("test_ptable does not work for Precise")
-
-    def test_dname(self):
-        print("test_dname does not work for Precise")
-
-
 class TrustyUefiTestBasic(relbase.trusty, TestBasicAbs):
     __test__ = True
 
@@ -113,10 +103,6 @@ class ZestyUefiTestBasic(relbase.zesty, TestBasicAbs):
 
 class ArtfulUefiTestBasic(relbase.artful, TestBasicAbs):
     __test__ = True
-
-
-class PreciseUefiTestBasic4k(PreciseUefiTestBasic):
-    disk_block_size = 4096
 
 
 class TrustyUefiTestBasic4k(TrustyUefiTestBasic):
