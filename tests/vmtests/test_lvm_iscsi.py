@@ -47,10 +47,6 @@ class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):
         self.check_file_strippedline("pvs", "vg2=/dev/sdb6")
 
 
-class PreciseTestIscsiLvm(relbase.precise, TestLvmIscsiAbs):
-    __test__ = True
-
-
 class TrustyTestIscsiLvm(relbase.trusty, TestLvmIscsiAbs):
     __test__ = True
 

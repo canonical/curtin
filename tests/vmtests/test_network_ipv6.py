@@ -40,11 +40,6 @@ class CentosTestNetworkIPV6Abs(TestNetworkIPV6Abs):
         pass
 
 
-class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkIPV6Abs):
-    # FIXME: off due to hang at test: Starting execute cloud user/final scripts
-    __test__ = False
-
-
 class TrustyTestNetworkIPV6(relbase.trusty, TestNetworkIPV6Abs):
     __test__ = True
 
