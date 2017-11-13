@@ -1,0 +1,28 @@
+# LP: #1731709
+# during install use write_files to write out a python program
+# that calls curtin.curthooks.write_files and feeds it yaml 
+# config to simulate older maas images which may have called
+# curthooks.write_files(cfg, target) pattern.
+write_files:
+    test_curthooks_input:
+      path: /tmp/writefiles.yaml
+      content: |
+        # this is my input yaml file
+        write_files:
+          testfile1:
+            path: /var/run/testfile1
+            content: "This is testfile1\n"
+    test_curthooks:
+      path: /tmp/test_curthooks.py
+      permissions: '0755'
+      content: |
+        #!/usr/bin/python3
+        import sys, yaml, os
+        from curtin import curthooks
+        cfg = yaml.load(open('/tmp/writefiles.yaml'))
+        target_path = os.env['TARGET_MOUNT_POINT']
+        curthooks.write_files(cfg, target_path)
+        print('Wrote %s to %s' % (cfg, target_path))
+
+late_commands:
+  01_runcurthooks: ['/tmp/test_curthooks.py']
