@@ -17,14 +17,15 @@ class TestCurthooksWriteFiles(VMBaseClass):
         fi
         cp /var/log/cloud-init.log .
         find /etc/network/interfaces.d > find_interfacesd
-        cp -a /root ./rootdir
         """)]
 
     def test_output_files_exist(self):
-        self.output_files_exist(["proc_partitions", "interfaces"])
+        self.output_files_exist(["interfaces", "cloud-init.log"])
 
     def test_curthooks_write_files(self):
-        self.assertTrue(False)
+        self.output_files_exist(["root/testfile1"])
+        content = self.load_collect_file("root/testfile1")
+        self.assertEqual("This is testfile1", content.strip())
 
 
 class XenialTestCurthooksWriteFiles(relbase.xenial, TestCurthooksWriteFiles):

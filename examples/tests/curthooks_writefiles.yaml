@@ -10,7 +10,7 @@ write_files:
         # this is my input yaml file
         write_files:
           testfile1:
-            path: /var/run/testfile1
+            path: /root/testfile1
             content: "This is testfile1\n"
     test_curthooks:
       path: /tmp/test_curthooks.py
@@ -18,11 +18,23 @@ write_files:
       content: |
         #!/usr/bin/python3
         import sys, yaml, os
-        from curtin import curthooks
-        cfg = yaml.load(open('/tmp/writefiles.yaml'))
-        target_path = os.env['TARGET_MOUNT_POINT']
+        from curtin.commands import curthooks
+        target_path = os.environ['TARGET_MOUNT_POINT']
+        print('Found TARGET_MOUNT_POINT=%s' % target_path)
+        ypath = target_path + '/tmp/writefiles.yaml'
+        cfg = yaml.load(open(ypath))
         curthooks.write_files(cfg, target_path)
         print('Wrote %s to %s' % (cfg, target_path))
 
+
+# call python3 in ephemeral to import curtin code use files written to target
+run_curthooks:
+  - &call_python3 |
+    echo $@
+    TP=${TARGET_MOUNT_POINT};
+    FILE=${TP}${1};
+    echo "running $FILE";
+    exec python3 $FILE
+
 late_commands:
-  01_runcurthooks: ['/tmp/test_curthooks.py']
+  01_runcurthooks: [sh, -c, *call_python3, 'curthook', '/tmp/test_curthooks.py']
