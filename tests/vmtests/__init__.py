@@ -417,12 +417,19 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def load_conf_file(cls):
-        logger.debug('Loading testcase config file: %s', cls.conf_file)
+        logger.info('Loading testcase config file: %s', cls.conf_file)
         confdata = util.load_file(cls.conf_file)
         # replace rootfs file system format with class value
         if cls.rootfs_format:
             logger.debug('Injecting rootfs format: %s', cls.rootfs_format)
             confdata = confdata.replace('__ROOTFS_FORMAT__', cls.rootfs_format)
+            temp_yaml = tempfile.NamedTemporaryFile(prefix=cls.td.tmpdir + '/',
+                                                    mode='w+t', delete=False)
+            shutil.copyfile(cls.conf_file, temp_yaml.name)
+            cls.conf_file = temp_yaml.name
+            logger.info('Updating class conf file %s', cls.conf_file)
+            with open(cls.conf_file, 'w+t') as fh:
+                fh.write(confdata)
 
         return confdata
 
@@ -691,7 +698,7 @@ class VMBaseClass(TestCase):
 
             # always attempt to update target nvram (via grub)
             grub_config = os.path.join(cls.td.install, 'grub.cfg')
-            if not os.path.exists(grub_config):
+            if not os.path.exists(grub_config) and not cls.td.restored:
                 with open(grub_config, "w") as fp:
                     fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)

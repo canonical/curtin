@@ -5,7 +5,6 @@ storage:
       - id: main_disk
         type: disk
         ptable: gpt
-        path: /dev/vdb
         name: root_disk
         wipe: superblock
         serial: '4cd98c5c-7761-4179'
@@ -13,7 +12,7 @@ storage:
       - id: main_disk_p1
         type: partition
         number: 1
-        size: 3GB
+        size: 4GB
         device: main_disk
         flag: boot
       - id: bios_boot
@@ -30,11 +29,12 @@ storage:
       - id: root_vg_lv1
         type: lvm_partition
         name: lv1_root
-        size: 3G
+        size: 3.5G
         volgroup: root_vg
       - id: lv1_root_fs
         type: format
         fstype: __ROOTFS_FORMAT__
+        uuid: 04836770-e989-460f-8774-8e277ddcb40f
         volume: root_vg_lv1
       - id: lvroot_mount
         path: /

@@ -75,7 +75,8 @@ family_flag_mappings = {
     "uuid": {"btrfs": "--uuid",
              "ext": "-U",
              "reiserfs": "--uuid",
-             "swap": "--uuid"},
+             "swap": "--uuid",
+             "xfs": "-m uuid=%s"},
     "force": {"btrfs": "--force",
               "ext": "-F",
               "fat": "-I",
@@ -127,9 +128,15 @@ def get_flag_mapping(flag_name, fs_family, param=None, strict=False):
             raise ValueError("flag '%s' not supported by fs family '%s'" %
                              flag_name, fs_family)
     else:
-        ret = [flag_sym]
-        if param is not None:
-            ret.append(param)
+        # xfs sets values via a param and key=value
+        if ' ' in flag_sym:
+            if param:
+                flag_sym = flag_sym.replace('%s', param)
+            ret.extend(flag_sym.split(' '))
+        else:
+            ret = [flag_sym]
+            if param is not None:
+                ret.append(param)
     return ret
 
 
