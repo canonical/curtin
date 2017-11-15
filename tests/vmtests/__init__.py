@@ -361,6 +361,7 @@ class VMBaseClass(TestCase):
     iscsi_disks = []
     recorded_errors = 0
     recorded_failures = 0
+    rootfs_format = None
     uefi = False
     proxy = None
 
@@ -413,6 +414,17 @@ class VMBaseClass(TestCase):
             found = {'root-image.xz': UC16_IMAGE}
         ftypes.update(found)
         return ftypes
+
+    @classmethod
+    def load_conf_file(cls):
+        logger.debug('Loading testcase config file: %s', cls.conf_file)
+        confdata = util.load_file(cls.conf_file)
+        # replace rootfs file system format with class value
+        if cls.rootfs_format:
+            logger.debug('Injecting rootfs format: %s', cls.rootfs_format)
+            confdata = confdata.replace('__ROOTFS_FORMAT__', cls.rootfs_format)
+
+        return confdata
 
     @classmethod
     def build_iscsi_disks(cls):
@@ -613,7 +625,7 @@ class VMBaseClass(TestCase):
 
         # build disk arguments
         disks = []
-        sc = util.load_file(cls.conf_file)
+        sc = cls.load_conf_file()
         storage_config = yaml.load(sc).get('storage', {}).get('config', {})
         cls.disk_wwns = ["wwn=%s" % x.get('wwn') for x in storage_config
                          if 'wwn' in x]
