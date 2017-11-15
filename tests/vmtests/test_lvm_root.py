@@ -31,7 +31,7 @@ class TestLvmRootAbs(VMBaseClass):
     }
 
     def test_output_files_exist(self):
-        self.output_files_exist( ["fstab"])
+        self.output_files_exist(["fstab"])
 
     def test_rootfs_format(self):
         self.output_files_exist(["lsblk.json"])
