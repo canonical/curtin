@@ -51,7 +51,7 @@ storage:
     type: format
     uuid: 0bea118f-558e-4235-8547-644c76078066
     volume: sda-part1
-  - fstype: ext4
+  - fstype: __BOOTFS_FORMAT__
     id: sda-part2_format
     label: ''
     type: format

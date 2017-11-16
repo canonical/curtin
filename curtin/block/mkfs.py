@@ -103,7 +103,8 @@ release_flag_mapping_overrides = {
         "force": {"btrfs": None},
         "uuid": {"btrfs": None}},
     "trusty": {
-        "uuid": {"btrfs": None}},
+        "uuid": {"btrfs": None,
+                 "xfs": None}},
 }
 
 

@@ -420,11 +420,16 @@ class VMBaseClass(TestCase):
         logger.info('Loading testcase config file: %s', cls.conf_file)
         confdata = util.load_file(cls.conf_file)
         # replace rootfs file system format with class value
-        if cls.rootfs_format:
-            logger.debug('Injecting rootfs format: %s', cls.rootfs_format)
-            confdata = confdata.replace('__ROOTFS_FORMAT__', cls.rootfs_format)
-            temp_yaml = tempfile.NamedTemporaryFile(prefix=cls.td.tmpdir + '/',
-                                                    mode='w+t', delete=False)
+        if cls.conf_replace:
+            logger.debug('Rendering conf template: %s', cls.conf_replace)
+            for k, v in cls.conf_replace.items():
+                confdata = confdata.replace(k, v)
+            suffix = ".yaml"
+            prefix = (cls.td.tmpdir + '/' +
+                      os.path.basename(cls.conf_file).replace(suffix, "-"))
+            temp_yaml = tempfile.NamedTemporaryFile(prefix=prefix,
+                                                    suffix=suffix, mode='w+t',
+                                                    delete=False)
             shutil.copyfile(cls.conf_file, temp_yaml.name)
             cls.conf_file = temp_yaml.name
             logger.info('Updating class conf file %s', cls.conf_file)
