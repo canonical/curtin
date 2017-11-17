@@ -79,3 +79,16 @@ class CiTestCase(TestCase):
         if _dir is None:
             _dir = self.tmp_dir()
         return os.path.normpath(os.path.abspath(os.path.join(_dir, path)))
+
+
+def dir2dict(startdir, prefix=None):
+    flist = {}
+    if prefix is None:
+        prefix = startdir
+    for root, dirs, files in os.walk(startdir):
+        for fname in files:
+            fpath = os.path.join(root, fname)
+            key = fpath[len(prefix):]
+            with open(fpath, "r") as fp:
+                flist[key] = fp.read()
+    return flist

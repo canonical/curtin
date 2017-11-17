@@ -36,6 +36,8 @@ from curtin.commands import apply_net, apt_config
 
 from . import populate_one_subcmd
 
+write_files = futil._legacy_write_files  # LP: #1731709
+
 CMD_ARGUMENTS = (
     ((('-t', '--target'),
       {'help': 'operate on target. default is env[TARGET_MOUNT_POINT]',
@@ -905,26 +907,6 @@ def target_is_rhel(target):
         return os.path.exists(util.target_path(target, 'etc/redhat-release'))
 
     return False
-
-
-def write_files(cfg, base_dir=None):
-    """Backwards compatibility for curthooks.write_files (LP: #1731709)
-    It needs to work like:
-        curthooks.write_files(cfg, target)
-    where cfg is a write_files dictionary and target is the
-    base directory under which the files will be written.
-    """
-    # this takes 'write_files' entry in config and writes files in the target
-    # config entry example:
-    # f1:
-    #  path: /file1
-    #  content: !!binary |
-    #    f0VMRgIBAQAAAAAAAAAAAAIAPgABAAAAwARAAAAAAABAAAAAAAAAAJAVAAAAAAA
-    # f2: {path: /file2, content: "foobar", permissions: '0666'}
-    if 'write_files' not in cfg:
-        return
-
-    futil.write_files(cfg.get('write_files'), base_dir=base_dir)
 
 
 def curthooks(args):
