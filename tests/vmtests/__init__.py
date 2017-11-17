@@ -361,7 +361,7 @@ class VMBaseClass(TestCase):
     iscsi_disks = []
     recorded_errors = 0
     recorded_failures = 0
-    rootfs_format = None
+    conf_replace = {}
     uefi = False
     proxy = None
 
