@@ -66,3 +66,7 @@ class ZestyTestLvm(relbase.zesty, TestLvmAbs):
 
 class ArtfulTestLvm(relbase.artful, TestLvmAbs):
     __test__ = True
+
+
+class BionicTestLvm(relbase.bionic, TestLvmAbs):
+    __test__ = True

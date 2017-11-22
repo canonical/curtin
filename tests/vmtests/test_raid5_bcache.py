@@ -99,3 +99,7 @@ class ZestyTestRaid5Bcache(relbase.zesty, TestMdadmBcacheAbs):
 
 class ArtfulTestRaid5Bcache(relbase.artful, TestMdadmBcacheAbs):
     __test__ = True
+
+
+class BionicTestRaid5Bcache(relbase.bionic, TestMdadmBcacheAbs):
+    __test__ = True

@@ -80,6 +80,10 @@ class _ArtfulBase(_UbuntuBase):
     release = "artful"
 
 
+class _BionicBase(_UbuntuBase):
+    release = "bionic"
+
+
 class _Releases(object):
     trusty = _TrustyBase
     trusty_hwe_u = _TrustyHWEU
@@ -90,6 +94,7 @@ class _Releases(object):
     xenial = _XenialBase
     zesty = _ZestyBase
     artful = _ArtfulBase
+    bionic = _BionicBase
 
 
 class _CentosReleases(object):

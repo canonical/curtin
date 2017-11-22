@@ -166,6 +166,10 @@ class ArtfulTestBasic(relbase.artful, TestBasicAbs):
     __test__ = True
 
 
+class BionicTestBasic(relbase.bionic, TestBasicAbs):
+    __test__ = True
+
+
 class TestBasicScsiAbs(TestBasicAbs):
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
@@ -271,4 +275,8 @@ class ZestyTestScsiBasic(relbase.zesty, TestBasicScsiAbs):
 
 
 class ArtfulTestScsiBasic(relbase.artful, TestBasicScsiAbs):
+    __test__ = True
+
+
+class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
     __test__ = True

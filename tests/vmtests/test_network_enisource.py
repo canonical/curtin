@@ -27,7 +27,7 @@ class TestNetworkENISource(TestNetworkBaseTestsAbs):
         extract information about what curtin wrote and compare that
         with what was actually configured (which we capture via ifconfig)
 
-        Note: This test is *not* valid for Artful as it has no ENI.
+        Note: This test is *not* valid for Artful and later does not have ENI.
     """
 
     conf_file = "examples/tests/network_source.yaml"

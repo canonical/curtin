@@ -88,6 +88,10 @@ class ArtfulTestNetworkVlan(relbase.artful, TestNetworkVlanAbs):
     __test__ = True
 
 
+class BionicTestNetworkVlan(relbase.bionic, TestNetworkVlanAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkVlan(centos_relbase.centos66fromxenial,
                               CentosTestNetworkVlanAbs):
     __test__ = True

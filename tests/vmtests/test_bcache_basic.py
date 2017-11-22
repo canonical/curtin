@@ -61,3 +61,7 @@ class ZestyBcacheBasic(relbase.zesty, TestBcacheBasic):
 
 class ArtfulBcacheBasic(relbase.artful, TestBcacheBasic):
     __test__ = True
+
+
+class BionicBcacheBasic(relbase.bionic, TestBcacheBasic):
+    __test__ = True

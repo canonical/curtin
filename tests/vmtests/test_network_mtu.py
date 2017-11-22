@@ -202,6 +202,16 @@ class ArtfulTestNetworkMtu(relbase.artful, TestNetworkMtuAbs):
         super().setUpClass()
 
 
+class BionicTestNetworkMtu(relbase.bionic, TestNetworkMtuAbs):
+    __test__ = True
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skip_by_date(cls.__name__, cls.release, "1671951",
+                         fixby=(2018, 1, 20), removeby=(2018, 2, 23))
+        super().setUpClass()
+
+
 class Centos66TestNetworkMtu(centos_relbase.centos66fromxenial,
                              CentosTestNetworkMtuAbs):
     __test__ = True

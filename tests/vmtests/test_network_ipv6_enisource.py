@@ -29,6 +29,10 @@ class ZestyTestNetworkIPV6ENISource(relbase.zesty, TestNetworkIPV6ENISource):
     __test__ = True
 
 
-# Artful no longer has eni/ifupdown
+# Artful and later no longer has eni/ifupdown
 class ArtfulTestNetworkIPV6ENISource(relbase.artful, TestNetworkIPV6ENISource):
+    __test__ = False
+
+
+class BionicTestNetworkIPV6ENISource(relbase.bionic, TestNetworkIPV6ENISource):
     __test__ = False

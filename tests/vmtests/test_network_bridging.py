@@ -234,3 +234,16 @@ class ArtfulTestBridging(relbase.artful, TestBridgeNetworkAbs):
         self.assertNotIn("bridge-utils", self.debian_packages,
                          "bridge-utils is not expected in artful: %s" %
                          self.debian_packages.get('bridge-utils'))
+
+
+class BionicTestBridging(relbase.bionic, TestBridgeNetworkAbs):
+    __test__ = True
+
+    def test_bridge_utils_installed(self):
+        """bridge-utils not needed in bionic."""
+        pass
+
+    def test_bridge_utils_not_installed(self):
+        self.assertNotIn("bridge-utils", self.debian_packages,
+                         "bridge-utils is not expected in bionic: %s" %
+                         self.debian_packages.get('bridge-utils'))

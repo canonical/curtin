@@ -50,3 +50,6 @@ class XenialTestJournaldReporter(relbase.xenial, TestJournaldReporter):
 
 class ArtfulTestJournaldReporter(relbase.artful, TestJournaldReporter):
     __test__ = True
+
+class BionicTestJournaldReporter(relbase.bionic, TestJournaldReporter):
+    __test__ = True

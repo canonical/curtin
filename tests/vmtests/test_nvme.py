@@ -91,6 +91,10 @@ class ArtfulTestNvme(relbase.artful, TestNvmeAbs):
     __test__ = True
 
 
+class BionicTestNvme(relbase.bionic, TestNvmeAbs):
+    __test__ = True
+
+
 class TestNvmeBcacheAbs(VMBaseClass):
     arch_skip = [
         "s390x",  # nvme is a pci device, no pci on s390x
@@ -169,4 +173,8 @@ class ZestyTestNvmeBcache(relbase.zesty, TestNvmeBcacheAbs):
 
 
 class ArtfulTestNvmeBcache(relbase.artful, TestNvmeBcacheAbs):
+    __test__ = True
+
+
+class BionicTestNvmeBcache(relbase.bionic, TestNvmeBcacheAbs):
     __test__ = True

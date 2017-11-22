@@ -105,6 +105,10 @@ class ArtfulUefiTestBasic(relbase.artful, TestBasicAbs):
     __test__ = True
 
 
+class BionicUefiTestBasic(relbase.bionic, TestBasicAbs):
+    __test__ = True
+
+
 class TrustyUefiTestBasic4k(TrustyUefiTestBasic):
     disk_block_size = 4096
 
@@ -122,4 +126,8 @@ class ZestyUefiTestBasic4k(ZestyUefiTestBasic):
 
 
 class ArtfulUefiTestBasic4k(ArtfulUefiTestBasic):
+    disk_block_size = 4096
+
+
+class BionicUefiTestBasic4k(BionicUefiTestBasic):
     disk_block_size = 4096
