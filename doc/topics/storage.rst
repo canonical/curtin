@@ -374,7 +374,7 @@ The ``options`` key will replace the default options value of ``defaults``.
   The kernel and user-space utilities may differ between the install
   environment and the runtime environment.  Not all kernels and user-space
   combinations will support all options.  Providing options for a mount point
-  will have both of the following effects.
+  will have both of the following effects:
 
   - ``curtin`` will mount the filesystems with the provided options during the installation.
 
