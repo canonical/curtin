@@ -360,15 +360,28 @@ The ``device`` key refers to the ``id`` of the target device in the storage
 config. The target device must already contain a valid filesystem and be
 accessible.
 
-**options**: *<mount(8) comma-separated options string>*
-
-The ``options`` key will replace the default options value of ``defaults``.
-
 .. note::
 
   If the specified device refers to an iSCSI device, the corresponding
   fstab entry will contain ``_netdev`` to indicate networking is
   required to mount this filesystem.
+
+**options**: *<mount(8) comma-separated options string>*
+
+The ``options`` key will replace the default options value of ``defaults``.
+
+.. warning:: 
+  The kernel and user-space utilities may differ between the install
+  environment and the runtime environment.  Not all kernels and user-space
+  combinations will support all options.  Providing options for a mount point
+  will have both of the following effects.
+
+  - ``curtin`` will mount the filesystems with the provided options during the installation.
+
+  - ``curtin`` will ensure the target OS uses the provided mount options by updating the target OS (/etc/fstab).
+
+  If either of the environments (install or target) do not have support for
+  the provided options, the behavior is undefined.
 
 **Config Example**::
 

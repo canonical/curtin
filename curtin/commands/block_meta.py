@@ -670,8 +670,9 @@ def mount_handler(info, storage_config):
         # Mount volume, with options
         try:
             opts = ['-o', ','.join(options)]
-            util.subp(['mount', volume_path, mount_point] + opts)
-        except util.ProcessExecutionError:
+            util.subp(['mount', volume_path, mount_point] + opts, capture=True)
+        except util.ProcessExecutionError as e:
+            LOG.exception(e)
             msg = ('Mount failed: %s @ %s with options %s' % (volume_path,
                                                               mount_point,
                                                               ",".join(opts)))
