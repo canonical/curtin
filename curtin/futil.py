@@ -18,6 +18,7 @@
 import grp
 import pwd
 import os
+import warnings
 
 from .util import write_file, target_path
 from .log import LOG
@@ -107,17 +108,9 @@ def _legacy_write_files(cfg, base_dir=None):
     """Backwards compatibility for curthooks.write_files (LP: #1731709)
     It needs to work like:
         curthooks.write_files(cfg, target)
-    where cfg is a write_files dictionary and target is the
-    base directory under which the files will be written.
+    cfg is a 'cfg' dictionary with a 'write_files' entry in it.
     """
-    # this takes 'write_files' entry in config and writes files in the target
-    # config entry example:
-    # f1:
-    #  path: /file1
-    #  content: !!binary |
-    #    f0VMRgIBAQAAAAAAAAAAAAIAPgABAAAAwARAAAAAAABAAAAAAAAAAJAVAAAAAAA
-    # f2: {path: /file2, content: "foobar", permissions: '0666'}
-    if 'write_files' not in cfg:
-        return
-
-    write_files(cfg.get('write_files'), base_dir=base_dir)
+    warnings.warn(
+        "write_files use from curtin.util is deprecated. "
+        "Please use curtin.futil.write_files.", DeprecationWarning)
+    return write_files(cfg.get('write_files', {}), base_dir=base_dir)

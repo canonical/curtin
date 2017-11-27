@@ -5,7 +5,7 @@ from curtin.commands import curthooks
 from curtin import util
 from curtin import config
 from curtin.reporter import events
-from .helpers import CiTestCase
+from .helpers import CiTestCase, dir2dict
 
 
 class TestGetFlashKernelPkgs(CiTestCase):
@@ -762,38 +762,23 @@ class TestDetectRequiredPackages(CiTestCase):
 
 
 class TestCurthooksWriteFiles(CiTestCase):
-    @patch('curtin.commands.curthooks.futil.write_files')
-    def test_handle_write_files_empty(self, mock_write_files):
+    def test_handle_write_files_empty(self):
         """ Test curthooks.write_files returns for empty config """
-        ret = curthooks.write_files({}, "/my/target")
+        tmpd = self.tmp_dir()
+        ret = curthooks.write_files({}, tmpd)
+        self.assertEqual({}, dir2dict(tmpd, prefix=tmpd))
         self.assertIsNone(ret)
-        self.assertEqual(0, len(mock_write_files.call_args_list))
 
-    @patch('curtin.commands.curthooks.futil.write_files')
-    def test_handle_write_files(self, mock_write_files):
+    def test_handle_write_files(self):
         """ Test curthooks.write_files works as it used to """
-        cc_target = "tmpXXXX/random/dir/used/by/maas"
-        cfg = {
-            'file1': {
-                'path': '/etc/default/hello.txt',
-                'content': "Hello World!\n",
-            },
-            'foobar': {
-                'path': '/sys/wark',
-                'content': "Engauge!\n",
-            }
-        }
-
-        expected_cfg = {
-            'file1': {
-                'path': '/etc/default/hello.txt',
-                'content': cfg['file1']['content']},
-            'foobar': {
-                'path': '/sys/wark',
-                'content': cfg['foobar']['content']}
-        }
-        curthooks.write_files({'write_files': cfg}, cc_target)
-        mock_write_files.assert_called_with(expected_cfg, base_dir=cc_target)
+        tmpd = self.tmp_dir()
+        cfg = {'file1': {'path': '/etc/default/hello.txt',
+                         'content': "Hello World!\n"},
+               'foobar': {'path': '/sys/wark', 'content': "Engauge!\n"}}
+        curthooks.write_files({'write_files': cfg}, tmpd)
+        self.assertEqual(
+            dict((cfg[i]['path'], cfg[i]['content']) for i in cfg.keys()),
+            dir2dict(tmpd, prefix=tmpd))
 
     @patch('curtin.commands.curthooks.futil.target_path')
     @patch('curtin.commands.curthooks.futil.write_finfo')

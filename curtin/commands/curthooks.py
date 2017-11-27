@@ -28,7 +28,6 @@ from curtin import config
 from curtin import block
 from curtin import net
 from curtin import futil
-from curtin.futil import _legacy_write_files as write_files
 from curtin.log import LOG
 from curtin import swap
 from curtin import util
@@ -36,6 +35,8 @@ from curtin.reporter import events
 from curtin.commands import apply_net, apt_config
 
 from . import populate_one_subcmd
+
+write_files = futil._legacy_write_files  # LP: #1731709
 
 CMD_ARGUMENTS = (
     ((('-t', '--target'),
