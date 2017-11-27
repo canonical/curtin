@@ -22,10 +22,6 @@ class TestMdadmIscsiAbs(TestMdadmAbs, TestBasicIscsiAbs):
         """)]
 
 
-class PreciseTestIscsiMdadm(relbase.precise, TestMdadmIscsiAbs):
-    __test__ = True
-
-
 class TrustyTestIscsiMdadm(relbase.trusty, TestMdadmIscsiAbs):
     __test__ = True
 
@@ -35,4 +31,8 @@ class XenialTestIscsiMdadm(relbase.xenial, TestMdadmIscsiAbs):
 
 
 class ZestyTestIscsiMdadm(relbase.zesty, TestMdadmIscsiAbs):
+    __test__ = True
+
+
+class ArtfulTestIscsiMdadm(relbase.artful, TestMdadmIscsiAbs):
     __test__ = True

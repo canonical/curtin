@@ -48,14 +48,6 @@ class TestLvmAbs(VMBaseClass):
             raise SkipTest("test_dname does not work for %s" % self.release)
 
 
-class PreciseTestLvm(relbase.precise, TestLvmAbs):
-    __test__ = True
-
-
-class PreciseHWETTestLvm(relbase.precise_hwe_t, PreciseTestLvm):
-    __test__ = True
-
-
 class TrustyTestLvm(relbase.trusty, TestLvmAbs):
     __test__ = True
 

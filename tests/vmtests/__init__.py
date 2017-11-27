@@ -38,6 +38,7 @@ KEEP_DATA = {"pass": "none", "fail": "all"}
 CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", "1")
 IMAGE_SYNCS = []
 TARGET_IMAGE_FORMAT = "raw"
+TAR_DISKS = bool(int(os.environ.get("CURTIN_VMTEST_TAR_DISKS", "0")))
 
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
@@ -335,7 +336,12 @@ class VMBaseClass(TestCase):
     __test__ = False
     arch_skip = []
     boot_timeout = BOOT_TIMEOUT
-    collect_scripts = []
+    collect_scripts = [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        dpkg-query --show \
+            --showformat='${db:Status-Abbrev}\t${Package}\t${Version}\n' \
+            > debian-packages.txt 2> debian-packages.txt.err
+    """)]
     conf_file = "examples/tests/basic.yaml"
     nr_cpus = None
     dirty_disks = False
@@ -367,6 +373,8 @@ class VMBaseClass(TestCase):
     target_release = None
     target_krel = None
     target_ftype = "vmtest.root-tgz"
+
+    _debian_packages = None
 
     def shortDescription(self):
         return None
@@ -691,9 +699,6 @@ class VMBaseClass(TestCase):
             logger.info('Detected centos, adding default config %s',
                         centos_default)
 
-        if cls.multipath:
-            disks = disks * cls.multipath_num_paths
-
         # set reporting logger
         cls.reporting_log = os.path.join(cls.td.logs, 'webhooks-events.json')
         reporting_logger = CaptureReporting(cls.reporting_log)
@@ -719,7 +724,7 @@ class VMBaseClass(TestCase):
                 }))
         configs.append(reporting_config)
 
-        cmd.extend(uefi_flags + netdevs + disks +
+        cmd.extend(uefi_flags + netdevs + cls.mpath_diskargs(disks) +
                    [ftypes['vmtest.root-image'], "--kernel=%s" %
                        ftypes['boot-kernel'], "--initrd=%s" %
                     ftypes['boot-initrd'], "--", "curtin", "-vv", "install"] +
@@ -817,11 +822,6 @@ class VMBaseClass(TestCase):
         # unlike NVMe disks, we do not want to configure the iSCSI disks
         # via KVM, which would use qemu's iSCSI target layer.
 
-        if cls.multipath:
-            target_disks = target_disks * cls.multipath_num_paths
-            extra_disks = extra_disks * cls.multipath_num_paths
-            nvme_disks = nvme_disks * cls.multipath_num_paths
-
         # output disk is always virtio-blk, with serial of output_disk.img
         output_disk = '--disk={},driver={},format={},{},{}'.format(
             cls.td.output_disk, 'virtio-blk',
@@ -832,11 +832,9 @@ class VMBaseClass(TestCase):
         # create xkvm cmd
         cmd = (["tools/xkvm", "-v", dowait] +
                uefi_flags + netdevs +
-               target_disks + extra_disks + nvme_disks +
-               ["--", "-drive",
-                "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
-                "-smp",  cls.get_config_smp(),
-                "-m", "1024"])
+               cls.mpath_diskargs(target_disks + extra_disks + nvme_disks) +
+               ["--disk=file=%s,if=virtio,media=cdrom" % cls.td.seed_disk] +
+               ["--", "-smp",  cls.get_config_smp(), "-m", "1024"])
 
         if not cls.interactive:
             if cls.arch == 's390x':
@@ -877,8 +875,11 @@ class VMBaseClass(TestCase):
             raise
 
         # capture curtin install log and webhook timings
-        util.subp(["tools/curtin-log-print", "--dumpfiles", cls.td.logs,
-                   cls.reporting_log], capture=True)
+        try:
+            util.subp(["tools/curtin-log-print", "--dumpfiles", cls.td.logs,
+                      cls.reporting_log], capture=True)
+        except util.ProcessExecutionError as error:
+            logger.debug('tools/curtin-log-print failed: %s', error)
 
         logger.info(
             "%s: setUpClass finished. took %.02f seconds. Running testcases.",
@@ -935,7 +936,8 @@ class VMBaseClass(TestCase):
         clean_working_dir(cls.td.tmpdir, success,
                           keep_pass=KEEP_DATA['pass'],
                           keep_fail=KEEP_DATA['fail'])
-
+        if TAR_DISKS:
+            tar_disks(cls.td.tmpdir)
         cls.cleanIscsiState(success,
                             keep_pass=KEEP_DATA['pass'],
                             keep_fail=KEEP_DATA['fail'])
@@ -994,6 +996,15 @@ class VMBaseClass(TestCase):
         # return a full path to the collected file
         # prepending ./ makes '/root/file' or 'root/file' work as expected.
         return os.path.normpath(os.path.join(cls.td.collect, "./" + path))
+
+    @classmethod
+    def mpath_diskargs(cls, disks):
+        """make multipath versions of --disk args in disks."""
+        if not cls.multipath:
+            return disks
+        opt = ",file.locking=off"
+        return ([d if d == "--disk" else d + opt for d in disks] *
+                cls.multipath_num_paths)
 
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
@@ -1148,6 +1159,18 @@ class VMBaseClass(TestCase):
             with open(self.td.errors_file, "w") as fp:
                 fp.write(json.dumps(data, indent=2, sort_keys=True,
                                     separators=(',', ': ')) + "\n")
+
+    @property
+    def debian_packages(self):
+        if self._debian_packages is None:
+            data = self.load_collect_file("debian-packages.txt")
+            pkgs = {}
+            for line in data.splitlines():
+                # lines are <status>\t<
+                status, pkg, ver = line.split('\t')
+                pkgs[pkg] = {'status': status, 'version': ver}
+            self._debian_packages = pkgs
+        return self._debian_packages
 
 
 class PsuedoVMBaseClass(VMBaseClass):
@@ -1419,6 +1442,23 @@ def apply_keep_settings(success=None, fail=None):
 
     global KEEP_DATA
     KEEP_DATA.update(data)
+
+
+def tar_disks(tmpdir, outfile="disks.tar", diskmatch=".img"):
+    """ Tar up files in ``tmpdir``/disks that ends with the pattern supplied"""
+
+    disks_dir = os.path.join(tmpdir, "disks")
+    if os.path.exists(disks_dir):
+        outfile = os.path.join(disks_dir, outfile)
+        disks = [os.path.join(disks_dir, disk) for disk in
+                 os.listdir(disks_dir) if disk.endswith(diskmatch)]
+        cmd = ["tar", "--create", "--file=%s" % outfile,
+               "--verbose", "--remove-files", "--sparse"]
+        cmd.extend(disks)
+        logger.info('Taring %s disks sparsely to %s', len(disks), outfile)
+        util.subp(cmd, capture=True)
+    else:
+        logger.debug('No "disks" dir found in tmpdir: %s', tmpdir)
 
 
 def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):

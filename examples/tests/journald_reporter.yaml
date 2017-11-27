@@ -1,0 +1,20 @@
+reporting:
+  journald:
+    type: journald
+    level: DEBUG
+
+journal_cmds:
+  - &copy_journal_log |
+    journalctl -b -o short-precise --no-pager -t curtin_event \
+    > ${TARGET_MOUNT_POINT}/root/journalctl.curtin_events.log
+
+  # use sed to make the json file loadable (listify the json)
+  - &copy_journal_json |
+    journalctl -b -o json-pretty --no-pager -t curtin_event \
+     | sed -e '1i [' -e 's|^}|},|g'  -e '$s|^},|}|' -e '$a]' \
+     > ${TARGET_MOUNT_POINT}/root/journalctl.curtin_events.json
+
+# extract the journald entries for curtin
+late_commands:
+ 00_copy_journal__log: [sh, -c, *copy_journal_log]
+ 01_copy_journal_json: [sh, -c, *copy_journal_json]

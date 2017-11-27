@@ -16,12 +16,6 @@ class CentosTestNetworkStaticRoutesAbs(CentosTestNetworkBasicAbs):
     conf_file = "examples/tests/network_static_routes.yaml"
 
 
-class PreciseHWETTestNetworkStaticRoutes(relbase.precise_hwe_t,
-                                         TestNetworkStaticRoutesAbs):
-    # FIXME: off due to hang at test: Starting execute cloud user/final scripts
-    __test__ = False
-
-
 class TrustyTestNetworkStaticRoutes(relbase.trusty,
                                     TestNetworkStaticRoutesAbs):
     __test__ = True

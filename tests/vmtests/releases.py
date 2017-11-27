@@ -39,15 +39,6 @@ class _Centos66FromXenialBase(_CentosFromUbuntuBase):
     target_release = "centos66"
 
 
-class _PreciseBase(_UbuntuBase):
-    release = "precise"
-
-
-class _PreciseHWET(_UbuntuBase):
-    release = "precise"
-    krel = "trusty"
-
-
 class _TrustyBase(_UbuntuBase):
     release = "trusty"
 
@@ -90,8 +81,6 @@ class _ArtfulBase(_UbuntuBase):
 
 
 class _Releases(object):
-    precise = _PreciseBase
-    precise_hwe_t = _PreciseHWET
     trusty = _TrustyBase
     trusty_hwe_u = _TrustyHWEU
     trusty_hwe_v = _TrustyHWEV

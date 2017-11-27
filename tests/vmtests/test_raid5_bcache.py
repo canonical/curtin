@@ -65,11 +65,6 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
 
 
-class PreciseHWETTestRaid5Bcache(relbase.precise_hwe_t, TestMdadmBcacheAbs):
-    # FIXME: off due to failing install: RUN_ARRAY failed: Invalid argument
-    __test__ = False
-
-
 class TrustyTestRaid5Bcache(relbase.trusty, TestMdadmBcacheAbs):
     __test__ = True
     # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect

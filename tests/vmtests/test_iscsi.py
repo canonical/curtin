@@ -47,10 +47,6 @@ class TestBasicIscsiAbs(VMBaseClass):
                              (testfile, expected_content, content))
 
 
-class PreciseTestIscsiBasic(relbase.precise, TestBasicIscsiAbs):
-    __test__ = True
-
-
 class TrustyTestIscsiBasic(relbase.trusty, TestBasicIscsiAbs):
     __test__ = True
 

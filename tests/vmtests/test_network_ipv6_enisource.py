@@ -12,13 +12,6 @@ class TestNetworkIPV6ENISource(TestNetworkENISource):
         pass
 
 
-class PreciseTestNetworkIPV6ENISource(relbase.precise,
-                                      TestNetworkIPV6ENISource):
-    __test__ = False
-    # not working, still debugging though; possible older ifupdown doesn't
-    # like the multiple iface method.
-
-
 class TrustyTestNetworkIPV6ENISource(relbase.trusty, TestNetworkIPV6ENISource):
     __test__ = True
 
@@ -31,25 +24,11 @@ class TrustyHWEXTestNetworkIPV6ENISource(relbase.trusty_hwe_x,
 class XenialTestNetworkIPV6ENISource(relbase.xenial, TestNetworkIPV6ENISource):
     __test__ = True
 
-    @classmethod
-    def test_ip_output(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1701097",
-                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
-
 
 class ZestyTestNetworkIPV6ENISource(relbase.zesty, TestNetworkIPV6ENISource):
     __test__ = True
 
-    @classmethod
-    def test_ip_output(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1701097",
-                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
 
-
+# Artful no longer has eni/ifupdown
 class ArtfulTestNetworkIPV6ENISource(relbase.artful, TestNetworkIPV6ENISource):
-    __test__ = True
-
-    @classmethod
-    def test_ip_output(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1701097",
-                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
+    __test__ = False

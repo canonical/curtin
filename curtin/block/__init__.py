@@ -776,17 +776,21 @@ def is_extended_partition(device):
 
 
 @contextmanager
-def exclusive_open(path):
+def exclusive_open(path, exclusive=True):
     """
-    Obtain an exclusive file-handle to the file/device specified
+    Obtain an exclusive file-handle to the file/device specified unless
+    caller specifics exclusive=False.
     """
     mode = 'rb+'
     fd = None
     if not os.path.exists(path):
         raise ValueError("No such file at path: %s" % path)
 
+    flags = os.O_RDWR
+    if exclusive:
+        flags += os.O_EXCL
     try:
-        fd = os.open(path, os.O_RDWR | os.O_EXCL)
+        fd = os.open(path, flags)
         try:
             fd_needs_closing = True
             with os.fdopen(fd, mode) as fo:
@@ -875,7 +879,8 @@ def quick_zero(path, partitions=True):
     return zero_file_at_offsets(path, offsets, buflen=buflen, count=count)
 
 
-def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False):
+def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False,
+                         exclusive=True):
     """
     write zeros to file at specified offsets
     """
@@ -890,7 +895,8 @@ def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False):
     tot = buflen * count
     msg_vals = {'path': path, 'tot': buflen * count}
 
-    with exclusive_open(path) as fp:
+    # allow caller to control if we require exclusive open
+    with exclusive_open(path, exclusive=exclusive) as fp:
         # get the size by seeking to end.
         fp.seek(0, 2)
         size = fp.tell()

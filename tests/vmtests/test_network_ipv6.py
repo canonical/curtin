@@ -40,11 +40,6 @@ class CentosTestNetworkIPV6Abs(TestNetworkIPV6Abs):
         pass
 
 
-class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkIPV6Abs):
-    # FIXME: off due to hang at test: Starting execute cloud user/final scripts
-    __test__ = False
-
-
 class TrustyTestNetworkIPV6(relbase.trusty, TestNetworkIPV6Abs):
     __test__ = True
 
@@ -67,20 +62,9 @@ class TrustyHWEXTestNetworkIPV6(relbase.trusty_hwe_x, TrustyTestNetworkIPV6):
 class XenialTestNetworkIPV6(relbase.xenial, TestNetworkIPV6Abs):
     __test__ = True
 
-    @classmethod
-    def test_ip_output(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1701097",
-                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
-
 
 class ZestyTestNetworkIPV6(relbase.zesty, TestNetworkIPV6Abs):
     __test__ = True
-
-    @classmethod
-    def setUpClass(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "ci-003c6678e",
-                         fixby=(2017, 9, 18), removeby=(2017, 9, 27))
-        super().setUpClass()
 
 
 class ArtfulTestNetworkIPV6(relbase.artful, TestNetworkIPV6Abs):

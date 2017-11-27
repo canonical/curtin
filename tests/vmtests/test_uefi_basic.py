@@ -9,7 +9,7 @@ class TestBasicAbs(VMBaseClass):
     interactive = False
     arch_skip = ["s390x"]
     conf_file = "examples/tests/uefi_basic.yaml"
-    extra_disks = []
+    extra_disks = ['4G']
     uefi = True
     disk_to_check = [('main_disk', 1), ('main_disk', 2), ('main_disk', 3)]
     collect_scripts = [textwrap.dedent("""
@@ -76,16 +76,6 @@ class TestBasicAbs(VMBaseClass):
             self.assertEqual(self.disk_block_size, size)
 
 
-class PreciseUefiTestBasic(relbase.precise, TestBasicAbs):
-    __test__ = True
-
-    def test_ptable(self):
-        print("test_ptable does not work for Precise")
-
-    def test_dname(self):
-        print("test_dname does not work for Precise")
-
-
 class TrustyUefiTestBasic(relbase.trusty, TestBasicAbs):
     __test__ = True
 
@@ -113,10 +103,6 @@ class ZestyUefiTestBasic(relbase.zesty, TestBasicAbs):
 
 class ArtfulUefiTestBasic(relbase.artful, TestBasicAbs):
     __test__ = True
-
-
-class PreciseUefiTestBasic4k(PreciseUefiTestBasic):
-    disk_block_size = 4096
 
 
 class TrustyUefiTestBasic4k(TrustyUefiTestBasic):
