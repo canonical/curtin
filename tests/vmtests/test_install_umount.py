@@ -54,7 +54,3 @@ class TestInstallUnmount(VMBaseClass):
 
 class XenialTestInstallUnmount(relbase.xenial, TestInstallUnmount):
     __test__ = True
-
-
-class ArtfulTestInstallUnmount(relbase.artful, TestInstallUnmount):
-    __test__ = True
