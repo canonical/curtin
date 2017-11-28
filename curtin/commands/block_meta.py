@@ -384,7 +384,11 @@ def disk_handler(info, storage_config):
             LOG.info("labeling device: '%s' with '%s' partition table", disk,
                      ptable)
             if ptable == "gpt":
-                util.subp(["sgdisk", "--clear", disk])
+                # Wipe both MBR and GPT that may be present on the disk.
+                # N.B.: wipe_volume wipes 1M at front and end of the disk.
+                # This could destroy disk data in filesystems that lived
+                # there.
+                block.wipe_volume(disk, mode='superblock')
             elif ptable in _dos_names:
                 util.subp(["parted", disk, "--script", "mklabel", "msdos"])
             else:
@@ -544,6 +548,24 @@ def partition_handler(info, storage_config):
              info.get('id'), device, disk_ptable)
     LOG.debug("partnum: %s offset_sectors: %s length_sectors: %s",
               partnumber, offset_sectors, length_sectors)
+
+    # Wipe the partition if told to do so, do not wipe dos extended partitions
+    # as this may damage the extended partition table
+    if config.value_as_boolean(info.get('wipe')):
+        LOG.info("Preparing partition location on disk %s", disk)
+        if info.get('flag') == "extended":
+            LOG.warn("extended partitions do not need wiping, so skipping: "
+                     "'%s'" % info.get('id'))
+        else:
+            # wipe the start of the new partition first by zeroing 1M at the
+            # length of the previous partition
+            wipe_offset = int(offset_sectors * logical_block_size_bytes)
+            LOG.debug('Wiping 1M on %s at offset %s', disk, wipe_offset)
+            # We don't require exclusive access as we're wiping data at an
+            # offset and the current holder maybe part of the current storage
+            # configuration.
+            block.zero_file_at_offsets(disk, [wipe_offset], exclusive=False)
+
     if disk_ptable == "msdos":
         if flag in ["extended", "logical", "primary"]:
             partition_type = flag
@@ -565,25 +587,6 @@ def partition_handler(info, storage_config):
     else:
         raise ValueError("parent partition has invalid partition table")
 
-    # check if we've triggered hidden metadata like md, lvm or bcache
-    part_kname = get_path_to_storage_volume(info.get('id'), storage_config)
-    holders = clear_holders.get_holders(part_kname)
-    if len(holders) > 0:
-        LOG.debug('Detected block holders on partition %s: %s', part_kname,
-                  holders)
-        clear_holders.clear_holders(part_kname)
-        clear_holders.assert_clear(part_kname)
-
-    # Wipe the partition if told to do so, do not wipe dos extended partitions
-    # as this may damage the extended partition table
-    if config.value_as_boolean(info.get('wipe')):
-        if info.get('flag') == "extended":
-            LOG.warn("extended partitions do not need wiping, so skipping: "
-                     "'%s'" % info.get('id'))
-        else:
-            block.wipe_volume(
-                get_path_to_storage_volume(info.get('id'), storage_config),
-                mode=info.get('wipe'))
     # Make the name if needed
     if storage_config.get(device).get('name') and partition_type != 'extended':
         make_dname(info.get('id'), storage_config)
@@ -617,9 +620,27 @@ def format_handler(info, storage_config):
 
 
 def mount_handler(info, storage_config):
+    """ Handle storage config type: mount
+
+    info = {
+        'id': 'rootfs_mount',
+        'type': 'mount',
+        'path': '/',
+        'options': 'defaults,errors=remount-ro',
+        'device': 'rootfs',
+    }
+
+    Mount specified device under target at 'path' and generate
+    fstab entry.
+    """
     state = util.load_command_environment()
     path = info.get('path')
     filesystem = storage_config.get(info.get('device'))
+    mount_options = info.get('options')
+    # handle unset, or empty('') strings
+    if not mount_options:
+        mount_options = 'defaults'
+
     if not path and filesystem.get('fstype') != "swap":
         raise ValueError("path to mountpoint must be specified")
     volume = storage_config.get(filesystem.get('volume'))
@@ -635,41 +656,50 @@ def mount_handler(info, storage_config):
         mount_point = os.path.sep.join([state['target'], path])
         mount_point = os.path.normpath(mount_point)
 
-        # Create mount point if does not exist
-        util.ensure_dir(mount_point)
-
-        # Mount volume
-        util.subp(['mount', volume_path, mount_point])
-
-        path = "/%s" % path
-
-        options = ["defaults"]
+        options = mount_options.split(",")
         # If the volume_path's kname is backed by iSCSI or (in the case of
         # LVM/DM) if any of its slaves are backed by iSCSI, then we need to
         # append _netdev to the fstab line
         if iscsi.volpath_is_iscsi(volume_path):
             LOG.debug("Marking volume_path:%s as '_netdev'", volume_path)
             options.append("_netdev")
+
+        # Create mount point if does not exist
+        util.ensure_dir(mount_point)
+
+        # Mount volume, with options
+        try:
+            opts = ['-o', ','.join(options)]
+            util.subp(['mount', volume_path, mount_point] + opts, capture=True)
+        except util.ProcessExecutionError as e:
+            LOG.exception(e)
+            msg = ('Mount failed: %s @ %s with options %s' % (volume_path,
+                                                              mount_point,
+                                                              ",".join(opts)))
+            LOG.error(msg)
+            raise RuntimeError(msg)
+
+        # set path
+        path = "/%s" % path
+
     else:
         path = "none"
         options = ["sw"]
 
     # Add volume to fstab
     if state['fstab']:
-        with open(state['fstab'], "a") as fp:
-            location = get_path_to_storage_volume(volume.get('id'),
-                                                  storage_config)
-            uuid = block.get_volume_uuid(volume_path)
-            if len(uuid) > 0:
-                location = "UUID=%s" % uuid
+        uuid = block.get_volume_uuid(volume_path)
+        location = ("UUID=%s" % uuid) if uuid else (
+                    get_path_to_storage_volume(volume.get('id'),
+                                               storage_config))
 
-            if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32",
-                                            "fat64"]:
-                fstype = "vfat"
-            else:
-                fstype = filesystem.get('fstype')
-            fp.write("%s %s %s %s 0 0\n" % (location, path, fstype,
-                                            ",".join(options)))
+        fstype = filesystem.get('fstype')
+        if fstype in ["fat", "fat12", "fat16", "fat32", "fat64"]:
+            fstype = "vfat"
+
+        fstab_entry = "%s %s %s %s 0 0\n" % (location, path, fstype,
+                                             ",".join(options))
+        util.write_file(state['fstab'], fstab_entry, omode='a')
     else:
         LOG.info("fstab not in environment, so not writing")
 

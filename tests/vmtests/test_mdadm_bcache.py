@@ -144,6 +144,10 @@ class ArtfulTestMdadmBcache(relbase.artful, TestMdadmBcacheAbs):
     __test__ = True
 
 
+class BionicTestMdadmBcache(relbase.bionic, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot.yaml"
@@ -181,6 +185,10 @@ class ZestyTestMirrorboot(relbase.zesty, TestMirrorbootAbs):
 
 
 class ArtfulTestMirrorboot(relbase.artful, TestMirrorbootAbs):
+    __test__ = True
+
+
+class BionicTestMirrorboot(relbase.bionic, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -228,6 +236,11 @@ class ArtfulTestMirrorbootPartitions(relbase.artful,
     __test__ = True
 
 
+class BionicTestMirrorbootPartitions(relbase.bionic,
+                                     TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
 class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot-uefi.yaml"
@@ -271,6 +284,11 @@ class ArtfulTestMirrorbootPartitionsUEFI(relbase.artful,
     __test__ = True
 
 
+class BionicTestMirrorbootPartitionsUEFI(relbase.bionic,
+                                         TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
@@ -309,6 +327,10 @@ class ZestyTestRaid5boot(relbase.zesty, TestRaid5bootAbs):
 
 
 class ArtfulTestRaid5boot(relbase.artful, TestRaid5bootAbs):
+    __test__ = True
+
+
+class BionicTestRaid5boot(relbase.bionic, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -365,6 +387,10 @@ class ArtfulTestRaid6boot(relbase.artful, TestRaid6bootAbs):
     __test__ = True
 
 
+class BionicTestRaid6boot(relbase.bionic, TestRaid6bootAbs):
+    __test__ = True
+
+
 class TestRaid10bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid10boot.yaml"
@@ -403,6 +429,10 @@ class ZestyTestRaid10boot(relbase.zesty, TestRaid10bootAbs):
 
 
 class ArtfulTestRaid10boot(relbase.artful, TestRaid10bootAbs):
+    __test__ = True
+
+
+class BionicTestRaid10boot(relbase.bionic, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -504,4 +534,8 @@ class ZestyTestAllindata(relbase.zesty, TestAllindataAbs):
 
 
 class ArtfulTestAllindata(relbase.artful, TestAllindataAbs):
+    __test__ = True
+
+
+class BionicTestAllindata(relbase.bionic, TestAllindataAbs):
     __test__ = True

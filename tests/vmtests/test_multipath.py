@@ -62,3 +62,7 @@ class ZestyTestMultipathBasic(relbase.zesty, TestMultipathBasicAbs):
 
 class ArtfulTestMultipathBasic(relbase.artful, TestMultipathBasicAbs):
     __test__ = True
+
+
+class BionicTestMultipathBasic(relbase.bionic, TestMultipathBasicAbs):
+    __test__ = True

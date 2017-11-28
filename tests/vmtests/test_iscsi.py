@@ -47,10 +47,6 @@ class TestBasicIscsiAbs(VMBaseClass):
                              (testfile, expected_content, content))
 
 
-class PreciseTestIscsiBasic(relbase.precise, TestBasicIscsiAbs):
-    __test__ = True
-
-
 class TrustyTestIscsiBasic(relbase.trusty, TestBasicIscsiAbs):
     __test__ = True
 
@@ -64,4 +60,8 @@ class ZestyTestIscsiBasic(relbase.zesty, TestBasicIscsiAbs):
 
 
 class ArtfulTestIscsiBasic(relbase.artful, TestBasicIscsiAbs):
+    __test__ = True
+
+
+class BionicTestIscsiBasic(relbase.bionic, TestBasicIscsiAbs):
     __test__ = True

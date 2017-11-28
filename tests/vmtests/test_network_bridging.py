@@ -226,12 +226,6 @@ class ZestyTestBridging(relbase.zesty, TestBridgeNetworkAbs):
 class ArtfulTestBridging(relbase.artful, TestBridgeNetworkAbs):
     __test__ = True
 
-    @classmethod
-    def setUpClass(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "1721157",
-                         fixby=(2017, 10, 16), removeby=(2017, 11, 16))
-        super().setUpClass()
-
     def test_bridge_utils_installed(self):
         """bridge-utils not needed in artful."""
         pass
@@ -239,4 +233,17 @@ class ArtfulTestBridging(relbase.artful, TestBridgeNetworkAbs):
     def test_bridge_utils_not_installed(self):
         self.assertNotIn("bridge-utils", self.debian_packages,
                          "bridge-utils is not expected in artful: %s" %
+                         self.debian_packages.get('bridge-utils'))
+
+
+class BionicTestBridging(relbase.bionic, TestBridgeNetworkAbs):
+    __test__ = True
+
+    def test_bridge_utils_installed(self):
+        """bridge-utils not needed in bionic."""
+        pass
+
+    def test_bridge_utils_not_installed(self):
+        self.assertNotIn("bridge-utils", self.debian_packages,
+                         "bridge-utils is not expected in bionic: %s" %
                          self.debian_packages.get('bridge-utils'))

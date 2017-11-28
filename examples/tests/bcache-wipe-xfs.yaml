@@ -1,0 +1,74 @@
+showtrace: true
+
+early_commands:
+  # Create a partitioned disk with bcache metadata in one of the partitions.
+  # Then, wipe the partition table.  This leaves "buried" bcache data that
+  # would be seen as soon as the disk was partitioned and cause problems
+  # for curtin's use of the disk.
+  # This config recreates issue LP: #1718699
+  00_blockmeta: [env, -u, OUTPUT_FSTAB, TARGET_MOUNT_POINT=/tmp/my.bdir/target,
+              WORKING_DIR=/tmp/my.bdir/work.d, curtin, --showtrace, -v,
+              block-meta, --umount, custom]
+  01_clear_holders: [curtin, clear-holders, --preserve, /dev/vdb]
+  02_quick_erase: [curtin, block-wipe, --mode, superblock, /dev/vdb]
+
+storage:
+  config:
+  - grub_device: true
+    id: vdb
+    name: vdb
+    path: /dev/vdb
+    ptable: msdos
+    type: disk
+    wipe: superblock
+  - id: vdc
+    name: vdc
+    path: /dev/vdc
+    type: disk
+    wipe: superblock
+  - device: vdb
+    id: vdb-part1
+    name: vdb-part1
+    number: 1
+    offset: 4194304B
+    size: 3997171712B
+    type: partition
+    uuid: 1d112703-1ff7-49fb-9655-741016e216bf
+    wipe: superblock
+  - device: vdb
+    id: vdb-part2
+    name: vdb-part2
+    number: 2
+    size: 3997171712B
+    type: partition
+    uuid: ec219a2e-c4a5-4623-b66a-965da2c6c1f1
+    wipe: superblock
+  - backing_device: vdc
+    cache_device: vdb-part2
+    cache_mode: writeback
+    id: bcache0
+    name: bcache0
+    type: bcache
+  - fstype: ext4
+    id: vdb-part1_format
+    label: ''
+    type: format
+    uuid: 0687dc8f-c089-4f30-8603-0ddf646a5dd7
+    volume: vdb-part1
+  - fstype: xfs
+    id: bcache0_format
+    label: ''
+    type: format
+    uuid: c40a45b2-1f12-454e-a0ec-784eb4ded4e6
+    volume: bcache0
+  - device: vdb-part1_format
+    id: vdb-part1_mount
+    options: ''
+    path: /
+    type: mount
+  - device: bcache0_format
+    id: bcache0_mount
+    options: ''
+    path: /var/lib/ceph-bcache/test-disk
+    type: mount
+  version: 1

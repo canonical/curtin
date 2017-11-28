@@ -53,11 +53,6 @@ class TestNvmeAbs(VMBaseClass):
             self.check_file_strippedline("ls_dev_nvme", "/dev/nvme1")
 
 
-class PreciseTestNvme(relbase.precise, TestNvmeAbs):
-    __test__ = False
-    # Precise kernel doesn't have NVME support, with TrustyHWE it would
-
-
 class TrustyTestNvme(relbase.trusty, TestNvmeAbs):
     __test__ = True
 
@@ -93,6 +88,10 @@ class ZestyTestNvme(relbase.zesty, TestNvmeAbs):
 
 
 class ArtfulTestNvme(relbase.artful, TestNvmeAbs):
+    __test__ = True
+
+
+class BionicTestNvme(relbase.bionic, TestNvmeAbs):
     __test__ = True
 
 
@@ -174,4 +173,8 @@ class ZestyTestNvmeBcache(relbase.zesty, TestNvmeBcacheAbs):
 
 
 class ArtfulTestNvmeBcache(relbase.artful, TestNvmeBcacheAbs):
+    __test__ = True
+
+
+class BionicTestNvmeBcache(relbase.bionic, TestNvmeBcacheAbs):
     __test__ = True

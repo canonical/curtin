@@ -449,11 +449,6 @@ class CentosTestNetworkBasicAbs(TestNetworkBaseTestsAbs):
         pass
 
 
-class PreciseHWETTestNetworkBasic(relbase.precise_hwe_t, TestNetworkBasicAbs):
-    # FIXME: off due to hang at test: Starting execute cloud user/final scripts
-    __test__ = False
-
-
 class TrustyTestNetworkBasic(relbase.trusty, TestNetworkBasicAbs):
     __test__ = True
 
@@ -486,6 +481,10 @@ class ZestyTestNetworkBasic(relbase.zesty, TestNetworkBasicAbs):
 
 
 class ArtfulTestNetworkBasic(relbase.artful, TestNetworkBasicAbs):
+    __test__ = True
+
+
+class BionicTestNetworkBasic(relbase.bionic, TestNetworkBasicAbs):
     __test__ = True
 
 

@@ -1,4 +1,12 @@
 showtrace: true
+
+early_commands:
+  # Recreate and test LP:1722322
+  # Make one disk dirty with an MBR and a storage configuration
+  # GPT and don't supply wipe: superblock.  This will exercise
+  # curtin use of sgdisk --zap-all instead of --clear (GPT only)
+  blockmeta: ["parted", /dev/vdc, "--script", "mklabel", "msdos"]
+
 storage:
   config:
   - id: id_disk0
@@ -55,4 +63,19 @@ storage:
     id: id_efi_mount
     path: /boot/efi
     type: mount
+  - id: pnum_disk
+    type: disk
+    path: /dev/vdc
+    name: pnum_disk
+    ptable: gpt
+  - id: pnum_disk_p1
+    type: partition
+    number: 1
+    size: 1GB
+    device: pnum_disk
+  - id: pnum_disk_p2
+    type: partition
+    number: 10
+    size: 1GB
+    device: pnum_disk
   version: 1
