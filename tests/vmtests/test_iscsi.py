@@ -61,3 +61,7 @@ class ZestyTestIscsiBasic(relbase.zesty, TestBasicIscsiAbs):
 
 class ArtfulTestIscsiBasic(relbase.artful, TestBasicIscsiAbs):
     __test__ = True
+
+
+class BionicTestIscsiBasic(relbase.bionic, TestBasicIscsiAbs):
+    __test__ = True

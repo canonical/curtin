@@ -74,3 +74,7 @@ class ZestyTestNetworkAlias(relbase.zesty, TestNetworkAliasAbs):
 
 class ArtfulTestNetworkAlias(relbase.artful, TestNetworkAliasAbs):
     __test__ = True
+
+
+class BionicTestNetworkAlias(relbase.bionic, TestNetworkAliasAbs):
+    __test__ = True
