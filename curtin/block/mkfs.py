@@ -97,7 +97,7 @@ family_flag_mappings = {
              "ext": ("-U", "{uuid}"),
              "reiserfs": ("--uuid", "{uuid}"),
              "swap": ("--uuid", "{uuid}"),
-             "xfs": ("-m uuid={uuid}",)},
+             "xfs": ("-m", "uuid={uuid}")},
 }
 
 release_flag_mapping_overrides = {

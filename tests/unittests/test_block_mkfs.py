@@ -70,7 +70,7 @@ class TestBlockMkfs(CiTestCase):
         """ mkfs.xfs passes uuid parameter """
         conf = self._get_config("xfs")
         expected_flags = ['-f', ['-L', 'format1'],
-                          '-m uuid=%s' % self.test_uuid]
+                          ['-m', 'uuid=%s' % self.test_uuid]]
         self._run_mkfs_with_config(conf, "mkfs.xfs", expected_flags)
 
     def test_mkfs_btrfs_on_precise(self):
