@@ -46,3 +46,7 @@ class ZestyTestSimple(relbase.zesty, TestSimple):
 
 class ArtfulTestSimple(relbase.artful, TestSimple):
     __test__ = True
+
+
+class BionicTestSimple(relbase.bionic, TestSimple):
+    __test__ = True

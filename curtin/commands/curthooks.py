@@ -36,6 +36,8 @@ from curtin.commands import apply_net, apt_config
 
 from . import populate_one_subcmd
 
+write_files = futil._legacy_write_files  # LP: #1731709
+
 CMD_ARGUMENTS = (
     ((('-t', '--target'),
       {'help': 'operate on target. default is env[TARGET_MOUNT_POINT]',

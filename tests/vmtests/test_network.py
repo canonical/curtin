@@ -484,6 +484,10 @@ class ArtfulTestNetworkBasic(relbase.artful, TestNetworkBasicAbs):
     __test__ = True
 
 
+class BionicTestNetworkBasic(relbase.bionic, TestNetworkBasicAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkBasic(centos_relbase.centos66fromxenial,
                                CentosTestNetworkBasicAbs):
     __test__ = True

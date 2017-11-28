@@ -36,3 +36,7 @@ class ZestyTestIscsiMdadm(relbase.zesty, TestMdadmIscsiAbs):
 
 class ArtfulTestIscsiMdadm(relbase.artful, TestMdadmIscsiAbs):
     __test__ = True
+
+
+class BionicTestIscsiMdadm(relbase.bionic, TestMdadmIscsiAbs):
+    __test__ = True

@@ -67,6 +67,10 @@ class ArtfulTestNetworkStatic(relbase.artful, TestNetworkStaticAbs):
     __test__ = True
 
 
+class BionicTestNetworkStatic(relbase.bionic, TestNetworkStaticAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkStatic(centos_relbase.centos66fromxenial,
                                 CentosTestNetworkStaticAbs):
     __test__ = True

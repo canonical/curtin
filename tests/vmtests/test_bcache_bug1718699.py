@@ -19,3 +19,7 @@ class ZestyTestBcacheBug1718699(relbase.zesty, TestBcacheBug1718699):
 
 class ArtfulTestBcacheBug1718699(relbase.artful, TestBcacheBug1718699):
     __test__ = True
+
+
+class BionicTestBcacheBug1718699(relbase.bionic, TestBcacheBug1718699):
+    __test__ = True

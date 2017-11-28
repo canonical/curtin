@@ -71,6 +71,10 @@ class ArtfulTestNetworkIPV6(relbase.artful, TestNetworkIPV6Abs):
     __test__ = True
 
 
+class BionicTestNetworkIPV6(relbase.bionic, TestNetworkIPV6Abs):
+    __test__ = True
+
+
 class Centos66TestNetworkIPV6(centos_relbase.centos66fromxenial,
                               CentosTestNetworkIPV6Abs):
     __test__ = True
