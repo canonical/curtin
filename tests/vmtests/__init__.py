@@ -1259,7 +1259,7 @@ def get_rfc4173(ip, port, target, user=None, pword=None,
             rfc4173 += ':'
         rfc4173 += ':%s:%s' % (iuser, ipword)
     # any auth specified?
-    if len(rfc4173) > 0:
+    if rfc4173:
         rfc4173 += '@'
     rfc4173 += '%s::%s:%d:%s' % (ip, port, lun, target)
     return rfc4173
