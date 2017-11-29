@@ -480,7 +480,7 @@ class VMBaseClass(TestCase):
             disks.extend(['--disk', iscsi_disk])
 
             # replace next __RFC4173__ placeholder in YAML
-            rfc4173 = get_rfc4173(cls.tgtd_ip, cls.tgt_port, target,
+            rfc4173 = get_rfc4173(cls.tgtd_ip, cls.tgtd_port, target,
                                   user=disk_user, pword=disk_password,
                                   iuser=disk_iuser, ipword=disk_ipassword)
             with tempfile.NamedTemporaryFile(mode='w+t') as temp_yaml:
