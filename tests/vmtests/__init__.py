@@ -1253,9 +1253,9 @@ def get_rfc4173(ip, port, target, user=None, pword=None,
     rfc4173 = ''
     if user:
         rfc4173 += '%s:%s' % (user, pword)
-    if iuser > 0:
+    if iuser:
         # empty target user/password
-        if len(rfc4173) == 0:
+        if not rfc4173:
             rfc4173 += ':'
         rfc4173 += ':%s:%s' % (iuser, ipword)
     # any auth specified?
