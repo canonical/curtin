@@ -706,9 +706,17 @@ def get_paths(curtin_exe=None, lib=None, helpers=None):
             os.path.isfile(os.path.join(tld, "helpers", cfile))):
         helpers = os.path.join(tld, "helpers")
 
-    if (helpers is None and
-            os.path.isfile(os.path.join(_INSTALLED_HELPERS_PATH, cfile))):
-        helpers = _INSTALLED_HELPERS_PATH
+    if helpers is None:
+        ihp = _INSTALLED_HELPERS_PATH
+        if ihp.startswith("/"):
+            ihp = ihp[1:]
+
+        for p in (os.environ.get("SNAP"), "/"):
+            if p is None:
+                continue
+            if os.path.isfile(os.path.join(p, ihp, cfile)):
+                helpers = os.path.join(p, ihp)
+                break
 
     return({'curtin_exe': curtin_exe, 'lib': mydir, 'helpers': helpers})
 

@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 import textwrap
 import time
+import uuid
 import yaml
 import curtin.net as curtin_net
 import curtin.util as util
@@ -470,10 +471,7 @@ class VMBaseClass(TestCase):
                 disk_iuser = ''
                 disk_ipassword = ''
 
-            uuid, _ = util.subp(['uuidgen'], capture=True,
-                                decode='replace')
-            uuid = uuid.rstrip()
-            target = 'curtin-%s' % uuid
+            target = 'curtin-%s' % uuid.uuid1()
             cls._iscsi_disks.append(target)
             dpath = os.path.join(cls.td.disks, '%s.img' % (target))
             iscsi_disk = '{}:{}:iscsi:{}:{}:{}:{}:{}:{}'.format(
@@ -482,30 +480,16 @@ class VMBaseClass(TestCase):
             disks.extend(['--disk', iscsi_disk])
 
             # replace next __RFC4173__ placeholder in YAML
+            rfc4173 = get_rfc4173(cls.tgtd_ip, cls.tgt_port, target,
+                                  user=disk_user, pword=disk_password,
+                                  iuser=disk_iuser, ipword=disk_ipassword)
             with tempfile.NamedTemporaryFile(mode='w+t') as temp_yaml:
                 shutil.copyfile(cls.conf_file, temp_yaml.name)
                 with open(cls.conf_file, 'w+t') as conf:
                     replaced = False
                     for line in temp_yaml:
                         if not replaced and '__RFC4173__' in line:
-                            actual_rfc4173 = ''
-                            if len(disk_user) > 0:
-                                actual_rfc4173 += '%s:%s' % (disk_user,
-                                                             disk_password)
-                            if len(disk_iuser) > 0:
-                                # empty target user/password
-                                if len(actual_rfc4173) == 0:
-                                    actual_rfc4173 += ':'
-                                actual_rfc4173 += ':%s:%s' % (disk_iuser,
-                                                              disk_ipassword)
-                            # any auth specified?
-                            if len(actual_rfc4173) > 0:
-                                actual_rfc4173 += '@'
-                            # assumes LUN 1
-                            actual_rfc4173 += '%s::%s:1:%s' % (
-                                              cls.tgtd_ip,
-                                              cls.tgtd_port, target)
-                            line = line.replace('__RFC4173__', actual_rfc4173)
+                            line = line.replace('__RFC4173__', rfc4173)
                             replaced = True
                         conf.write(line)
         return disks
@@ -1261,6 +1245,24 @@ class PsuedoVMBaseClass(VMBaseClass):
     def _maybe_raise(self, exc):
         if self.allow_test_fails:
             raise exc
+
+
+def get_rfc4173(ip, port, target, user=None, pword=None,
+                iuser=None, ipword=None, lun=1):
+
+    rfc4173 = ''
+    if user:
+        rfc4173 += '%s:%s' % (user, pword)
+    if iuser > 0:
+        # empty target user/password
+        if len(rfc4173) == 0:
+            rfc4173 += ':'
+        rfc4173 += ':%s:%s' % (iuser, ipword)
+    # any auth specified?
+    if len(rfc4173) > 0:
+        rfc4173 += '@'
+    rfc4173 += '%s::%s:%d:%s' % (ip, port, lun, target)
+    return rfc4173
 
 
 def find_error_context(err_match, contents, nrchars=200):
