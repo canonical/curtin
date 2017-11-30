@@ -734,7 +734,9 @@ def lvm_volgroup_handler(info, storage_config):
     else:
         # Create vgrcreate command and run
         # capture output to avoid printing it to log
-        util.subp(['vgcreate', name] + device_paths, capture=True)
+        # Use zero to clear target devices of any metadata
+        util.subp(['vgcreate', '--force', '--zero=y', '--yes',
+                   name] + device_paths, capture=True)
 
     # refresh lvmetad
     lvm.lvm_scan()
@@ -765,11 +767,17 @@ def lvm_partition_handler(info, storage_config):
             "possibility of damaging lvm  partitions intended to be "
             "preserved." % (info.get('id'), volgroup))
     else:
-        cmd = ["lvcreate", volgroup, "-n", name]
+        # Use 'wipesignatures' (if available) and 'zero' to clear target lv
+        # of any fs metadata
+        cmd = ["lvcreate", volgroup, "--name", name, "--zero=y"]
+        release = util.lsb_release()['codename']
+        if release not in ['precise', 'trusty']:
+            cmd.extend(["--wipesignatures=y"])
+
         if info.get('size'):
-            cmd.extend(["-L", info.get('size')])
+            cmd.extend(["--size", info.get('size')])
         else:
-            cmd.extend(["-l", "100%FREE"])
+            cmd.extend(["--extents", "100%FREE"])
 
         util.subp(cmd)
 

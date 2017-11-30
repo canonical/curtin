@@ -361,6 +361,7 @@ class VMBaseClass(TestCase):
     iscsi_disks = []
     recorded_errors = 0
     recorded_failures = 0
+    conf_replace = {}
     uefi = False
     proxy = None
 
@@ -413,6 +414,29 @@ class VMBaseClass(TestCase):
             found = {'root-image.xz': UC16_IMAGE}
         ftypes.update(found)
         return ftypes
+
+    @classmethod
+    def load_conf_file(cls):
+        logger.info('Loading testcase config file: %s', cls.conf_file)
+        confdata = util.load_file(cls.conf_file)
+        # replace rootfs file system format with class value
+        if cls.conf_replace:
+            logger.debug('Rendering conf template: %s', cls.conf_replace)
+            for k, v in cls.conf_replace.items():
+                confdata = confdata.replace(k, v)
+            suffix = ".yaml"
+            prefix = (cls.td.tmpdir + '/' +
+                      os.path.basename(cls.conf_file).replace(suffix, "-"))
+            temp_yaml = tempfile.NamedTemporaryFile(prefix=prefix,
+                                                    suffix=suffix, mode='w+t',
+                                                    delete=False)
+            shutil.copyfile(cls.conf_file, temp_yaml.name)
+            cls.conf_file = temp_yaml.name
+            logger.info('Updating class conf file %s', cls.conf_file)
+            with open(cls.conf_file, 'w+t') as fh:
+                fh.write(confdata)
+
+        return confdata
 
     @classmethod
     def build_iscsi_disks(cls):
@@ -613,7 +637,7 @@ class VMBaseClass(TestCase):
 
         # build disk arguments
         disks = []
-        sc = util.load_file(cls.conf_file)
+        sc = cls.load_conf_file()
         storage_config = yaml.load(sc).get('storage', {}).get('config', {})
         cls.disk_wwns = ["wwn=%s" % x.get('wwn') for x in storage_config
                          if 'wwn' in x]
@@ -679,7 +703,7 @@ class VMBaseClass(TestCase):
 
             # always attempt to update target nvram (via grub)
             grub_config = os.path.join(cls.td.install, 'grub.cfg')
-            if not os.path.exists(grub_config):
+            if not os.path.exists(grub_config) and not cls.td.restored:
                 with open(grub_config, "w") as fp:
                     fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)
