@@ -54,8 +54,8 @@ except NameError:
 
 from .log import LOG
 
-_INSTALLED_MAIN = 'usr/bin/curtin'
 _INSTALLED_HELPERS_PATH = 'usr/lib/curtin/helpers'
+_INSTALLED_MAIN = 'usr/bin/curtin'
 
 _LSB_RELEASE = {}
 _USES_SYSTEMD = None
@@ -682,7 +682,6 @@ def _installed_file_path(path, check_file=None):
     #  if 'check_file', then path is a directory that contains file.
     # return absolute path or None.
     inst_pre = "/"
-    print("checking path=%s check_file=%s")
     if os.environ.get('SNAP'):
         inst_pre = os.path.abspath(os.environ['SNAP'])
     inst_path = os.path.join(inst_pre, path)
