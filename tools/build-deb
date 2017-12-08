@@ -42,7 +42,22 @@ revno=$(bzr revno) || fail "failed to get revno"
 clogver_upstream=${clogver_o%%-*}
 clogver_debian=${clogver_o#*-}
 
-uver=$(echo "${clogver_upstream}" | sed "s,REVNO,$revno,")
+# uver_bzr gets 17.1~bzr<revno>
+uver_bzr=$(echo "${clogver_upstream}" | sed "s,REVNO,$revno,")
+# uver_rel gets '17.1'
+uver_rel=$(echo "${clogver_upstream}" | sed 's,~bzrREVNO,,')
+
+tag_revno=$(bzr tags | awk '$1 == v { print $2 }' v="${uver_rel}")
+if [ "${tag_revno}" = "$revno" ]; then
+    # if this is a tag, then drop ~bzrXXX from the changelog version.
+    echo "Building a tag of upstream version ($uver_rel -> $revno)" 1>&2
+    clogver_new="${uver}-${clogver_debian}"
+    uver="${uver_rel}"
+    export_string="tag:${uver_rel}"
+else
+    uver="${uver_bzr}"
+    export_string="$revno"
+fi
 clogver_new="${uver}-${clogver_debian}"
 
 TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${bname}.XXXXXX")
@@ -55,11 +70,31 @@ dir="${sourcename}-$uver"
 tarball="${sourcename}_$uver.orig.tar.gz"
 
 myd=$(dirname "$0")
-"$myd/export-tarball" "${revno}" "${TEMP_D}/$tarball"
+"$myd/export-tarball" "${export_string}" "${TEMP_D}/$tarball"
 echo "created ${tarball}"
 
 cd "${TEMP_D}"
 tar xzf "$tarball" || fail "failed extract tarball"
+
+if [ ! -d "$dir" ]; then
+    # export-tarball will create the directory name based on the
+    # contents of debian/changelog.trunk in the version provided.
+    # if that differs from what is here, then user has changes.
+    for d in ${sourcename}*; do
+        [ -d "$d" ] && break
+    done
+    if [ -d "$d" ]; then
+        {
+        echo "WARNING: bzr at '${export_string}' had different version"
+        echo "  in debian/changelog.trunk than your tree. version there"
+        echo "  is '$d' working directory had $uver"
+        } 1>&2
+        dir=$d
+    else
+        echo "did not find a directory created by export-tarball. sorry." 1>&2
+        exit
+    fi
+fi
 cd "$dir" || fail "failed cd $dir"
 
 # move files ending in .trunk to name without .trunk
@@ -68,7 +103,10 @@ for f in debian/*.trunk; do
    mv "$f" "${f%.trunk}"
 done
 
-sed -i -e "1s,${clogver_o},${clogver_new}," \
+# first line of debian/changelog looks like
+#   curtin (<version>) UNRELEASED; urgency=low
+# fix the version and UNRELEASED
+sed -i -e "1s,([^)]*),(${clogver_new})," \
        -e "1s,UNRELEASED,${RELEASE}," debian/changelog ||
    fail "failed to write debian/changelog"
 debuild "$@" || fail "debuild failed"
