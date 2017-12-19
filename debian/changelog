@@ -1,3 +1,10 @@
+curtin (0.1.0~bzr143-0ubuntu1) utopic; urgency=medium
+
+  * New upstream snapshot.
+    * better choose a default boot fstype.
+
+ -- Scott Moser <smoser@ubuntu.com>  Mon, 04 Aug 2014 04:57:29 -0400
+
 curtin (0.1.0~bzr142-0ubuntu1) utopic; urgency=medium
 
   * New upstream snapshot.
