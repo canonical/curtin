@@ -34,6 +34,7 @@ mkfs_commands = {
     "fat12": "mkfs.vfat",
     "fat16": "mkfs.vfat",
     "fat32": "mkfs.vfat",
+    "vfat": "mkfs.vfat",
     "jfs": "jfs_mkfs",
     "ntfs": "mkntfs",
     "reiserfs": "mkfs.reiserfs",
@@ -48,6 +49,7 @@ specific_to_family = {
     "fat12": "fat",
     "fat16": "fat",
     "fat32": "fat",
+    "vfat": "fat",
 }
 
 label_length_limits = {
