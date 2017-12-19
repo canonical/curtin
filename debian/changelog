@@ -1,3 +1,45 @@
+curtin (0.1.0~bzr425-0ubuntu1~16.04.1) xenial-proposed; urgency=medium
+
+  [ Scott Moser ]
+  * debian/new-upstream-snapshot: add writing of debian changelog entries. 
+
+  [ Ryan Harper ]
+  * New upstream snapshot.
+    - unittest,tox.ini: catch and fix issue with trusty-level mock of open 
+    - block/mdadm: add option to ignore mdadm_assemble errors  (LP: #1618429)
+    - curtin/doc: overhaul curtin documentation for readthedocs.org
+      (LP: #1351085)
+    - curtin.util: re-add support for RunInChroot  (LP: #1617375)
+    - curtin/net: overhaul of eni rendering to handle mixed ipv4/ipv6 configs 
+    - curtin.block: refactor clear_holders logic into block.clear_holders and
+      cli cmd 
+    - curtin.apply_net should exit non-zero upon exception.  (LP: #1615780)
+    - apt: fix bug in disable_suites if sources.list line is blank. 
+    - vmtests: disable Wily in vmtests 
+    - Fix the unittests for test_apt_source. 
+    - get CURTIN_VMTEST_PARALLEL shown correctly in jenkins-runner output 
+    - fix vmtest check_file_strippedline to strip lines before comparing 
+    - fix whitespace damage in tests/vmtests/__init__.py 
+    - fix dpkg-reconfigure when debconf_selections was provided.
+      (LP: #1609614)
+    - fix apt tests on non-intel arch 
+    - Add apt features to curtin.  (LP: #1574113)
+    - vmtest: easier use of parallel and controlling timeouts 
+    - mkfs.vfat: add force flag for formating whole disks  (LP: #1597923)
+    - block.mkfs: fix sectorsize flag  (LP: #1597522)
+    - block_meta: cleanup use of sys_block_path and handle cciss knames
+      (LP: #1562249)
+    - block.get_blockdev_sector_size: handle _lsblock multi result return
+      (LP: #1598310)
+    - util: add target (chroot) support to subp, add target_path helper. 
+    - block_meta: fallback to parted if blkid does not produce output
+      (LP: #1524031)
+    - commands.block_wipe:  correct default wipe mode to 'superblock' 
+    - tox.ini: run coverage normally rather than separately 
+    - move uefi boot knowledge from launch and vmtest to xkvm 
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Mon, 03 Oct 2016 13:43:54 -0500
+
 curtin (0.1.0~bzr399-0ubuntu1~16.04.1) xenial-proposed; urgency=medium
 
   * debian/new-upstream-snapshot: fix for specifying revision.
