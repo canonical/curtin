@@ -1,3 +1,11 @@
+curtin (0.1.0~bzr85-0ubuntu1) saucy; urgency=low
+
+  * New upstream snapshot.
+    * fix 'pack_install' usage for maas (LP: #1227944)
+    * debian/rules: fix 'curtin' package to install as python2
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 20 Sep 2013 16:59:25 -0400
+
 curtin (0.1.0~bzr82-0ubuntu1) saucy; urgency=low
 
   * New upstream snapshot.
