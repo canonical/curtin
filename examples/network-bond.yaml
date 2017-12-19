@@ -1,0 +1,48 @@
+network_commands:
+ builtin: null
+ 10_network: curtin net-meta custom
+
+# YAML example of a network config.
+network:
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: eth0
+          mac_address: "c0:d6:9f:2c:e8:80"
+        - type: physical
+          name: eth1
+          mac_address: "aa:d6:9f:2c:e8:80"
+        - type: physical
+          name: eth2
+          mac_address: "c0:bb:9f:2c:e8:80"
+        - type: physical
+          name: eth3
+          mac_address: "66:bb:9f:2c:e8:80"
+        - type: physical
+          name: eth4
+          mac_address: "98:bb:9f:2c:e8:80"
+        # Bond.
+        - type: bond
+          name: bond0
+          # if 'mac_address' is omitted, the MAC is taken from
+          # the first slave.
+          mac_address: "aa:bb:cc:dd:ee:ff"
+          bond_interfaces:
+            - eth1
+            - eth2
+          params:
+            bond-mode: active-backup
+          subnets:
+            - type: dhcp6
+        # A Bond VLAN.
+        - type: vlan 
+          name: bond0.200
+          vlan_link: bond0 
+          vlan_id: 200
+          subnets:
+            - type: static
+              address: 192.168.0.2/24
+              gateway: 192.168.0.1
+              dns_nameservers:
+                - 192.168.0.10

@@ -21,6 +21,7 @@ import sys
 
 from curtin import net
 import curtin.util as util
+import curtin.config as config
 
 from . import populate_one_subcmd
 
@@ -71,15 +72,33 @@ def interfaces_basic_dhcp(devices):
     return content
 
 
+def interfaces_custom(args):
+    state = util.load_command_environment()
+    cfg = config.load_command_config(args, state)
+
+    network_config = cfg.get('network', [])
+    if not network_config:
+        raise Exception("network configuration is required by mode '%s' "
+                        "but not provided in the config file" % 'custom')
+
+    return config.dump_config({'network': network_config})
+
+
 def net_meta(args):
     #    curtin net-meta --devices connected dhcp
     #    curtin net-meta --devices configured dhcp
     #    curtin net-meta --devices netboot dhcp
+    #    curtin net-meta --devices connected custom
 
     # if network-config hook exists in target,
     # we do not run the builtin
     if util.run_hook_if_exists(args.target, 'network-config'):
         sys.exit(0)
+
+    state = util.load_command_environment()
+    cfg = config.load_command_config(args, state)
+    if cfg.get("network") is not None:
+        args.mode = "custom"
 
     eni = "etc/network/interfaces"
     if args.mode == "auto":
@@ -115,12 +134,21 @@ def net_meta(args):
 
     elif args.mode == "dhcp":
         content = interfaces_basic_dhcp(devices)
+    elif args.mode == 'custom':
+        content = interfaces_custom(args)
+        # if we have a config, write it out to OUTPUT_NETWORK_CONFIG
+        output_network_config = os.environ.get("OUTPUT_NETWORK_CONFIG", "")
+        if output_network_config:
+            with open(output_network_config, "w") as fp:
+                fp.write(content)
 
     if args.output == "-":
         sys.stdout.write(content)
     else:
         with open(args.output, "w") as fp:
             fp.write(content)
+
+    sys.exit(0)
 
 
 CMD_ARGUMENTS = (
@@ -136,7 +164,7 @@ CMD_ARGUMENTS = (
        'action': 'store', 'metavar': 'TARGET',
        'default': os.environ.get('TARGET_MOUNT_POINT')}),
      ('mode', {'help': 'meta-mode to use',
-               'choices': ['dhcp', 'copy', 'auto']})
+               'choices': ['dhcp', 'copy', 'auto', 'custom']})
      )
 )
 

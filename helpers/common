@@ -565,9 +565,14 @@ install_grub() {
     fi
 
     # find the mp device
-    mp_dev=$(awk -v MP=${mp} '$2==MP {print$1}' /proc/mounts) || {
+    mp_dev=$(awk -v "MP=$mp" '$2 == MP { print $1 }' /proc/mounts) || {
         error "unable to determine device for mount $mp";
         return 1;
+    }
+    [ -z "$mp_dev" ] && {
+        error "did not find '$mp' in /proc/mounts"
+        cat /proc/mounts 1>&2
+        return 1
     }
     [ -b "$mp_dev" ] || { error "$mp_dev is not a block device!"; return 1; }
 
@@ -610,30 +615,6 @@ install_grub() {
             return 0;;
     esac
 
-    # check that mount point has efi partition, and that its mounted
-    # at /boot/efi and added to the fstab
-    if [ "$uefi" -ge 1 ]; then
-        # this assumes that the device was '/dev/xxx[0-9]' and the efi is 15.
-        local efi_dev="${mp_dev%[0-9]}15"
-        [ -b ${efi_dev} ] || { error "no UEFI partition on ${efi_dev}"; return 1; }
-
-        fslabel=$(blkid -s LABEL -o value "${efi_dev}")
-        fstype=$(blkid -s TYPE -o value "${efi_dev}")
-        [ "$fstype" = "vfat" ] || { error "${efi_dev} is not a vfat fs"; return 1; }
-        [ -n "$fslabel" ] || {  error "no label on EFI device"; return 1; }
-
-        mp_efi=$(lsblk --nodeps -n --output "MOUNTPOINT" ${efi_dev})
-        [ -z "$mp_efi" ] || umount "$mp_efi"
-
-        if [ ! -e "$mp/boot/efi" ]; then
-            mkdir -p "$mp/boot/efi" || { error "failed to mount EFI partition"; return 1; }
-            mount "$efi_dev" "$mp/boot/efi" || { error "unable to mount efi part"; return 1; }
-            mp_efi="$mp/boot/efi"
-        fi
-
-        echo "LABEL=${fslabel}  /boot/efi   vfat    defaults    0 0" >> "$mp/etc/fstab"
-    fi
-
     local grub_d="etc/default/grub.d"
     local mygrub_cfg="$grub_d/50-curtin-settings.cfg"
     [ -d "$mp/$grub_d" ] || mkdir -p "$mp/$grub_d" ||
@@ -663,6 +644,7 @@ install_grub() {
             echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$newargs\""
         echo "# disable grub os prober that might find other OS installs."
         echo "GRUB_DISABLE_OS_PROBER=true"
+        echo "GRUB_TERMINAL=console"
     } >> "$mp/$mygrub_cfg"
 
     local short="" bd="" grubdev grubdevs_new=""

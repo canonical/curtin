@@ -221,9 +221,12 @@ def rescan_block_devices():
     cmd = ['blockdev', '--rereadpt'] + devices
     try:
         util.subp(cmd, capture=True)
-        util.subp(['udevadm', 'settle'])
     except util.ProcessExecutionError as e:
+        # FIXME: its less than ideal to swallow this error, but until
+        # we fix LP: #1489521 we kind of need to.
         LOG.warn("rescanning devices failed: %s", e)
+
+    util.subp(['udevadm', 'settle'])
 
     return
 
@@ -372,5 +375,48 @@ def get_root_device(dev, fpath="curtin"):
         raise ValueError("Could not find root device")
     return target
 
+
+def get_volume_uuid(path):
+    """
+    Get uuid of disk with given path. This address uniquely identifies
+    the device and remains consistant across reboots
+    """
+    (out, _err) = util.subp(["blkid", "-o", "export", path], capture=True)
+    for line in out.splitlines():
+        if "UUID" in line:
+            return line.split('=')[-1]
+    return ''
+
+
+def get_mountpoints():
+    """
+    Returns a list of all mountpoints where filesystems are currently mounted.
+    """
+    info = _lsblock()
+    return list(i.get("MOUNTPOINT") for name, i in info.items() if
+                i.get("MOUNTPOINT") is not None and
+                i.get("MOUNTPOINT") != "")
+
+
+def lookup_disk(serial):
+    """
+    Search for a disk by its serial number using /dev/disk/by-id/
+    """
+    # Get all volumes in /dev/disk/by-id/ containing the serial string. The
+    # string specified can be either in the short or long serial format
+    disks = list(filter(lambda x: serial in x, os.listdir("/dev/disk/by-id/")))
+    if not disks or len(disks) < 1:
+        raise ValueError("no disk with serial '%s' found" % serial)
+
+    # Sort by length and take the shortest path name, as the longer path names
+    # will be the partitions on the disk. Then use os.path.realpath to
+    # determine the path to the block device in /dev/
+    disks.sort(key=lambda x: len(x))
+    path = os.path.realpath("/dev/disk/by-id/%s" % disks[0])
+
+    if not os.path.exists(path):
+        raise ValueError("path '%s' to block device for disk with serial '%s' \
+            does not exist" % (path, serial))
+    return path
 
 # vi: ts=4 expandtab syntax=python

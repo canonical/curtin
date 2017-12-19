@@ -21,30 +21,31 @@ from __future__ import (
     unicode_literals,
     )
 
-str = None
-
 from unittest import TestCase
 from mock import patch
 
-from curtin.reporter import (
+from curtin.reporter.legacy import (
     EmptyReporter,
     load_reporter,
+    LoadReporterException,
     )
 # #XXX: see `XXX` below for details
-# from curtin.reporter.maas import load_factory as maas_load_factory
-# from curtin.reporter.maas import MAASReporter
+from curtin.reporter.legacy.maas import (
+    load_factory,
+    MAASReporter
+    )
 
 
 class TestReporter(TestCase):
 
-    @patch('curtin.reporter.LOG')
+    @patch('curtin.reporter.legacy.LOG')
     def test_load_reporter_logs_empty_cfg(self, mock_LOG):
         cfg = {}
         reporter = load_reporter(cfg)
         self.assertIsInstance(reporter, EmptyReporter)
         self.assertTrue(mock_LOG.info.called)
 
-    @patch('curtin.reporter.LOG')
+    @patch('curtin.reporter.legacy.LOG')
     def test_load_reporter_logs_cfg_with_no_module(
             self, mock_LOG):
         cfg = {'reporter': {'empty': {}}}
@@ -52,7 +53,7 @@ class TestReporter(TestCase):
         self.assertIsInstance(reporter, EmptyReporter)
         self.assertTrue(mock_LOG.error.called)
 
-    @patch('curtin.reporter.LOG')
+    @patch('curtin.reporter.legacy.LOG')
     def test_load_reporter_logs_cfg_wrong_options(self, mock_LOG):
         # we are passing wrong config options for maas reporter
         # to test load_reporter in event reporter options are wrong
@@ -61,20 +62,16 @@ class TestReporter(TestCase):
         self.assertIsInstance(reporter, EmptyReporter)
         self.assertTrue(mock_LOG.error.called)
 
-# # XXX newell 2014-09-10 bug=1367493: For Python3 compliance all
-# # oauth usage in MAASReporter will need to be changed to oauthlib
-# # Until this bug is fixed, the below tests will break `make test`
-# # and should be commented out.
-# class TestMAASReporter(TestCase):
-#
-#     def test_load_factory_raises_exception_wrong_options(self):
-#         options = {'wrong': 'wrong'}
-#         self.assertRaises(
-#             LoadReporterException, maas_load_factory, options)
-#
-#     def test_load_factory_returns_maas_reporter_good_options(self):
-#         options = {
-#             'url': 'url', 'consumer_key': 'consumer_key',
-#             'token_key': 'token_key', 'token_secret': 'token_secret'}
-#         reporter = maas_load_factory(options)
-#         self.assertIsInstance(reporter, MAASReporter)
+
+class TestMAASReporter(TestCase):
+    def test_load_factory_raises_exception_wrong_options(self):
+        options = {'wrong': 'wrong'}
+        self.assertRaises(
+            LoadReporterException, load_factory, options)
+
+    def test_load_factory_returns_maas_reporter_good_options(self):
+        options = {
+            'url': 'url', 'consumer_key': 'consumer_key',
+            'token_key': 'token_key', 'token_secret': 'token_secret'}
+        reporter = load_factory(options)
+        self.assertIsInstance(reporter, MAASReporter)

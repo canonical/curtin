@@ -15,7 +15,9 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+import argparse
 import errno
+import glob
 import os
 import shutil
 import subprocess
@@ -24,7 +26,6 @@ import tempfile
 import time
 
 from .log import LOG
-from . import config
 
 _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
 _INSTALLED_MAIN = '/usr/bin/curtin'
@@ -100,7 +101,9 @@ def load_command_environment(env=os.environ, strict=False):
 
     mapping = {'scratch': 'WORKING_DIR', 'fstab': 'OUTPUT_FSTAB',
                'interfaces': 'OUTPUT_INTERFACES', 'config': 'CONFIG',
-               'target': 'TARGET_MOUNT_POINT'}
+               'target': 'TARGET_MOUNT_POINT',
+               'network_state': 'OUTPUT_NETWORK_STATE',
+               'network_config': 'OUTPUT_NETWORK_CONFIG'}
 
     if strict:
         missing = [k for k in mapping if k not in env]
@@ -108,20 +111,6 @@ def load_command_environment(env=os.environ, strict=False):
             raise KeyError("missing environment vars: %s" % missing)
 
     return {k: env.get(v) for k, v in mapping.items()}
-
-
-def load_command_config(args, state):
-    if hasattr(args, 'config') and args.config is not None:
-        cfg_file = args.config
-    else:
-        cfg_file = state.get('config', {})
-
-    if not cfg_file:
-        LOG.debug("config file was none!")
-        cfg = {}
-    else:
-        cfg = config.load_config(cfg_file)
-    return cfg
 
 
 class BadUsage(Exception):
@@ -307,9 +296,10 @@ class ChrootableTarget(object):
         if not self.allow_daemons:
             self.disabled_daemons = disable_daemons_in_root(self.target)
 
-        if self.target != "/":
+        target_etc = os.path.join(self.target, "etc")
+        if self.target != "/" and os.path.isdir(target_etc):
             # never muck with resolv.conf on /
-            rconf = os.path.join(self.target, "etc", "resolv.conf")
+            rconf = os.path.join(target_etc, "resolv.conf")
             rtd = None
             try:
                 rtd = tempfile.mkdtemp(dir=os.path.dirname(rconf))
@@ -454,6 +444,12 @@ def has_pkg_installed(pkg, target=None):
         return False
 
 
+def find_newer(src, files):
+    mtime = os.stat(src).st_mtime
+    return [f for f in files if
+            os.path.exists(f) and os.stat(f).st_mtime > mtime]
+
+
 def apt_update(target=None, env=None, force=False, comment=None,
                retries=None):
 
@@ -476,41 +472,70 @@ def apt_update(target=None, env=None, force=False, comment=None,
         comment = comment[:-1]
 
     marker = os.path.join(target, marker)
-    if not force and os.path.exists(marker):
-        return
+    # if marker exists, check if there are files that would make it obsolete
+    if os.path.exists(marker) and not force:
+        listfiles = [os.path.join(target, "/etc/apt/sources.list")]
+        listfiles += glob.glob(
+            os.path.join(target, "/etc/apt/sources.list.d/*.list"))
+        if len(find_newer(marker, listfiles)) == 0:
+            return
 
+    # we're not using 'run_apt_command' so we can use 'retries' to subp
     apt_update = ['apt-get', 'update', '--quiet']
-    with RunInChroot(target) as inchroot:
+    with RunInChroot(target, allow_daemons=True) as inchroot:
         inchroot(apt_update, env=env, retries=retries)
 
     with open(marker, "w") as fp:
         fp.write(comment + "\n")
 
 
-def install_packages(pkglist, aptopts=None, target=None, env=None):
-    apt_inst_cmd = ['apt-get', 'install', '--quiet', '--assume-yes',
-                    '--option=Dpkg::options::=--force-unsafe-io']
+def run_apt_command(mode, args=None, aptopts=None, env=None, target=None,
+                    execute=True, allow_daemons=False):
+    opts = ['--quiet', '--assume-yes',
+            '--option=Dpkg::options::=--force-unsafe-io',
+            '--option=Dpkg::Options::=--force-confold']
+
+    if args is None:
+        args = []
 
     if aptopts is None:
         aptopts = []
-    apt_inst_cmd.extend(aptopts)
+
+    if env is None:
+        env = os.environ.copy()
+        env['DEBIAN_FRONTEND'] = 'noninteractive'
 
     if which('eatmydata', target=target):
         emd = ['eatmydata']
     else:
         emd = []
 
+    cmd = emd + ['apt-get'] + opts + aptopts + [mode] + args
+    if not execute:
+        return env, cmd
+
+    apt_update(target, env=env, comment=' '.join(cmd))
+    ric = RunInChroot(target, allow_daemons=allow_daemons)
+    with ric as inchroot:
+        return inchroot(cmd, env=env)
+
+
+def system_upgrade(aptopts=None, target=None, env=None, allow_daemons=False):
+    LOG.debug("Upgrading system in %s", target)
+    for mode in ('dist-upgrade', 'autoremove'):
+        ret = run_apt_command(
+            mode, aptopts=aptopts, target=target,
+            env=env, allow_daemons=allow_daemons)
+    return ret
+
+
+def install_packages(pkglist, aptopts=None, target=None, env=None,
+                     allow_daemons=False):
     if isinstance(pkglist, str):
         pkglist = [pkglist]
-
-    if env is None:
-        env = os.environ.copy()
-        env['DEBIAN_FRONTEND'] = 'noninteractive'
-
-    apt_update(target, comment=' '.join(pkglist))
-    with RunInChroot(target) as inchroot:
-        return inchroot(
-            emd + apt_inst_cmd + list(pkglist), env=env)
+    return run_apt_command(
+        'install', args=pkglist,
+        aptopts=aptopts, target=target, env=env, allow_daemons=allow_daemons)
 
 
 def is_uefi_bootable():
@@ -631,5 +656,17 @@ def try_import_module(import_str, default=None):
     except ImportError:
         return default
 
+
+def is_file_not_found_exc(exc):
+    return (isinstance(exc, IOError) and exc.errno == errno.ENOENT)
+
+
+class MergedCmdAppend(argparse.Action):
+    """This appends to a list in order of appearence both the option string
+       and the value"""
+    def __call__(self, parser, namespace, values, option_string=None):
+        if getattr(namespace, self.dest, None) is None:
+            setattr(namespace, self.dest, [])
+        getattr(namespace, self.dest).append((option_string, values,))
 
 # vi: ts=4 expandtab syntax=python

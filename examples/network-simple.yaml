@@ -1,0 +1,30 @@
+network_commands:
+ builtin: null
+ 10_network:
+    - curtin
+    - net-meta
+    - custom
+
+# YAML example of a simple network config
+network:
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: eth0
+          mac_address: "c0:d6:9f:2c:e8:80"
+          subnets:
+              - type: dhcp4
+        - type: physical
+          name: eth1
+          mtu: 1492
+          mac_address: "aa:d6:9f:2c:e8:80"
+          subnets:
+              - type: static
+                address: 192.168.14.2/24
+                gateway: 192.168.14.1
+              - type: static
+                address: 192.168.14.4/24
+        - type: physical
+          name: eth2
+          mac_address: "cf:d6:af:48:e8:80"

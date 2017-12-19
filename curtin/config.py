@@ -16,6 +16,7 @@
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
 import yaml
+import json
 
 ARCHIVE_HEADER = "#curtin-config-archive"
 ARCHIVE_TYPE = "text/curtin-config-archive"
@@ -43,7 +44,7 @@ def merge_config_str(cfgin, cfgstr):
 
 
 def merge_config(cfg, cfg2):
-    # merge cfg2 over the top of cfg
+    # update cfg by merging cfg2 over the top
     for k, v in cfg2.items():
         if isinstance(v, dict) and isinstance(cfg.get(k, None), dict):
             merge_config(cfg[k], v)
@@ -59,15 +60,33 @@ def cmdarg2cfg(cmdarg, delim="/"):
     if '=' not in cmdarg:
         raise ValueError('no "=" in "%s"' % cmdarg)
 
-    key, val = cmdarg.split("=", 2)
+    key, val = cmdarg.split("=", 1)
     cfg = {}
     cur = cfg
+
+    is_json = False
+    if key.startswith("json:"):
+        is_json = True
+        key = key[5:]
+
     items = key.split(delim)
     for item in items[:-1]:
         cur[item] = {}
         cur = cur[item]
 
-    cur[items[-1]] = val
+    if is_json:
+        try:
+            val = json.loads(val)
+        except (ValueError, TypeError):
+            raise ValueError("setting of key '%s' had invalid json: %s" %
+                             (key, val))
+
+    # this would occur if 'json:={"topkey": "topval"}'
+    if items[-1] == "":
+        cfg = val
+    else:
+        cur[items[-1]] = val
+
     return cfg
 
 
@@ -98,3 +117,27 @@ def load_config(cfg_file):
         return yaml.safe_load(content)
     else:
         return load_config_archive(content)
+
+
+def load_command_config(args, state):
+    if hasattr(args, 'config') and args.config:
+        return args.config
+    else:
+        # state 'config' points to a file with fully rendered config
+        cfg_file = state.get('config')
+
+    if not cfg_file:
+        cfg = {}
+    else:
+        cfg = load_config(cfg_file)
+    return cfg
+
+
+def dump_config(config):
+    return yaml.dump(config, default_flow_style=False)
+
+
+def value_as_boolean(value):
+    if value in (False, None, '0', 0, 'False', 'false', ''):
+        return False
+    return True

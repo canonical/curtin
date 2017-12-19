@@ -2,8 +2,10 @@ from unittest import TestCase
 import os
 import shutil
 import tempfile
+import yaml
 
 from curtin import net
+import curtin.net.network_state as network_state
 from textwrap import dedent
 
 
@@ -240,5 +242,96 @@ class TestNetParser(TestCase):
             }
         expected = net.parse_deb_config(i_path)
         self.assertEqual(data, expected)
+
+
+class TestNetConfig(TestCase):
+    def setUp(self):
+        self.target = tempfile.mkdtemp()
+        self.config_f = os.path.join(self.target, 'config')
+        self.config = '''
+# YAML example of a simple network config
+network:
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: eth0
+          mac_address: "c0:d6:9f:2c:e8:80"
+          subnets:
+              - type: dhcp4
+              - type: static
+                address: 192.168.21.3/24
+                dns_nameservers:
+                  - 8.8.8.8
+                  - 8.8.4.4
+                dns_search: barley.maas sach.maas
+        - type: physical
+          name: eth1
+          mac_address: "cf:d6:af:48:e8:80"
+        - type: nameserver
+          address:
+            - 1.2.3.4
+            - 5.6.7.8
+          search:
+            - wark.maas
+'''
+
+        with open(self.config_f, 'w') as fp:
+            fp.write(self.config)
+
+    def get_net_config(self):
+        cfg = yaml.safe_load(self.config)
+        return cfg.get('network')
+
+    def get_net_state(self):
+        net_cfg = self.get_net_config()
+        version = net_cfg.get('version')
+        config = net_cfg.get('config')
+        ns = network_state.NetworkState(version=version, config=config)
+        ns.parse_config()
+        return ns
+
+    def tearDown(self):
+        shutil.rmtree(self.target)
+
+    def test_parse_net_config_data(self):
+        ns = self.get_net_state()
+        net_state_from_cls = ns.network_state
+
+        net_state_from_fn = net.parse_net_config_data(self.get_net_config())
+        self.assertEqual(net_state_from_cls, net_state_from_fn)
+
+    def test_parse_net_config(self):
+        ns = self.get_net_state()
+        net_state_from_cls = ns.network_state
+
+        net_state_from_fn = net.parse_net_config(self.config_f)
+        self.assertEqual(net_state_from_cls, net_state_from_fn)
+
+    def test_render_persistent_net(self):
+        ns = self.get_net_state()
+        udev_rules = ('SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ' +
+                      'ATTR{address}=="cf:d6:af:48:e8:80", NAME="eth1"\n' +
+                      'SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ' +
+                      'ATTR{address}=="c0:d6:9f:2c:e8:80", NAME="eth0"\n')
+        persist_net_rules = net.render_persistent_net(ns.network_state)
+        self.assertEqual(sorted(udev_rules.split('\n')),
+                         sorted(persist_net_rules.split('\n')))
+
+    def test_render_interfaces(self):
+        ns = self.get_net_state()
+        ifaces = ('auto eth0\n' + 'iface eth0 inet dhcp\n\n' +
+                  'auto eth0:1\n' +
+                  'iface eth0:1 inet static\n' +
+                  '    address 192.168.21.3/24\n' +
+                  '    dns-nameservers 8.8.8.8 8.8.4.4\n' +
+                  '    dns-search barley.maas sach.maas\n\n' +
+                  'auto eth1\n' + 'iface eth1 inet manual\n\n' +
+                  'dns-nameservers 1.2.3.4 5.6.7.8\n' +
+                  'dns-search wark.maas\n')
+        net_ifaces = net.render_interfaces(ns.network_state)
+        print(ns.network_state.get('interfaces'))
+        self.assertEqual(sorted(ifaces.split('\n')),
+                         sorted(net_ifaces.split('\n')))
 
 # vi: ts=4 expandtab syntax=python

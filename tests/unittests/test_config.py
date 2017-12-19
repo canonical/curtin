@@ -1,4 +1,6 @@
 from unittest import TestCase
+import copy
+import json
 import textwrap
 
 from curtin import config
@@ -24,6 +26,28 @@ class TestCmdArg2Cfg(TestCase):
 
     def test_no_equal_raises_value_error(self):
         self.assertRaises(ValueError, config.cmdarg2cfg, "foo/v1/v2"),
+
+    def test_json(self):
+        self.assertEqual(
+            config.cmdarg2cfg('json:foo/bar=["a", "b", "c"]', delim="/"),
+            {'foo': {'bar': ['a', 'b', 'c']}})
+
+    def test_cmdarg_multiple_equal(self):
+        self.assertEqual(
+            config.cmdarg2cfg("key=mykey=value"),
+            {"key": "mykey=value"})
+
+    def test_with_merge_cmdarg(self):
+        cfg1 = {'foo': {'key1': 'val1', 'mylist': [1, 2]}, 'f': 'fval'}
+        cfg2 = {'foo': {'key2': 'val2', 'mylist2': ['a', 'b']}, 'g': 'gval'}
+
+        via_merge = copy.deepcopy(cfg1)
+        config.merge_config(via_merge, cfg2)
+
+        via_merge_cmdarg = copy.deepcopy(cfg1)
+        config.merge_cmdarg(via_merge_cmdarg, 'json:=' + json.dumps(cfg2))
+
+        self.assertEqual(via_merge, via_merge_cmdarg)
 
 
 class TestConfigArchive(TestCase):

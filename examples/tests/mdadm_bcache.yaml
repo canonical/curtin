@@ -1,0 +1,64 @@
+storage:
+  version: 1
+  config:
+     - id: sda
+       type: disk
+       ptable: gpt
+       model: QEMU HARDDISK
+       path: /dev/vdb
+       name: main_disk
+     - id: bios_boot_partition
+       type: partition
+       size: 1MB
+       device: sda
+       flag: bios_grub
+     - id: sda1
+       type: partition
+       size: 3GB
+       device: sda
+     - id: sda2
+       type: partition
+       size: 1GB
+       device: sda
+     - id: sda3
+       type: partition
+       size: 1GB
+       device: sda
+     - id: sda4
+       type: partition
+       size: 1GB
+       device: sda
+     - id: sda5
+       type: partition
+       size: 1GB
+       device: sda
+     - id: mddevice
+       name: md0
+       type: raid
+       raidlevel: 1
+       devices:
+         - sda2
+         - sda3
+       spare_devices:
+         - sda4
+     - id: bcache0
+       type: bcache
+       name: cached_array
+       backing_device: mddevice
+       cache_device: sda5
+     - id: sda1_root
+       type: format
+       fstype: ext4
+       volume: sda1
+     - id: raid_storage
+       type: format
+       fstype: ext4
+       volume: bcache0
+     - id: sda1_mount
+       type: mount
+       path: /
+       device: sda1_root
+     - id: raid_mount
+       type: mount
+       path: /media/data
+       device: raid_storage

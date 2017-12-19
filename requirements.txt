@@ -1,0 +1,6 @@
+# See: https://bugs.launchpad.net/pbr/+bug/1384919 for why this is here...
+pbr>=0.11,<2.0
+pyyaml
+urllib3
+pyflakes
+oauthlib

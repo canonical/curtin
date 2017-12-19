@@ -30,6 +30,7 @@ from curtin import futil
 from curtin.log import LOG
 from curtin import swap
 from curtin import util
+from curtin import net
 
 from . import populate_one_subcmd
 
@@ -154,7 +155,7 @@ def install_kernel(cfg, target):
         kernel_fallback = None
 
     mapping = copy.deepcopy(KERNEL_MAPPING)
-    config.merge_config(mapping, kernel_cfg['mapping'])
+    config.merge_config(mapping, kernel_cfg.get('mapping', {}))
 
     with util.RunInChroot(target) as in_chroot:
 
@@ -282,6 +283,21 @@ def setup_grub(cfg, target):
     if 'grub_install_devices' in cfg and 'install_devices' not in grubcfg:
         grubcfg['install_devices'] = cfg['grub_install_devices']
 
+    if 'storage' in cfg:
+        storage_grub_devices = []
+        for item in cfg.get('storage').get('config'):
+            if item.get('grub_device'):
+                if item.get('serial'):
+                    storage_grub_devices.append(
+                        block.lookup_disk(item.get('serial')))
+                elif item.get('path'):
+                    storage_grub_devices.append(item.get('path'))
+                else:
+                    raise ValueError("setup_grub cannot find path to disk \
+                        '%s'" % item.get('id'))
+        if len(storage_grub_devices) > 0:
+            grubcfg['install_devices'] = storage_grub_devices
+
     if 'install_devices' in grubcfg:
         instdevs = grubcfg.get('install_devices')
         if isinstance(instdevs, str):
@@ -375,12 +391,66 @@ def copy_fstab(fstab, target):
     shutil.copy(fstab, os.path.sep.join([target, 'etc/fstab']))
 
 
+def copy_crypttab(crypttab, target):
+    if not crypttab:
+        LOG.warn("crypttab config must be specified, not copying")
+        return
+
+    shutil.copy(crypttab, os.path.sep.join([target, 'etc/crypttab']))
+
+
+def copy_mdadm_conf(mdadm_conf, target):
+    if not mdadm_conf:
+        LOG.warn("mdadm config must be specified, not copying")
+        return
+
+    shutil.copy(mdadm_conf, os.path.sep.join([target,
+                'etc/mdadm/mdadm.conf']))
+
+
+def apply_networking(target, state):
+    netstate = state.get('network_state')
+    netconf = state.get('network_config')
+    interfaces = state.get('interfaces')
+
+    def is_valid_src(infile):
+        with open(infile, 'r') as fp:
+            content = fp.read()
+            if len(content.split('\n')) > 1:
+                return True
+        return False
+
+    ns = None
+    if is_valid_src(netstate):
+        LOG.debug("applying network_state")
+        ns = net.network_state.from_state_file(netstate)
+    elif is_valid_src(netconf):
+        LOG.debug("applying network_config")
+        ns = net.parse_net_config(netconf)
+
+    if ns is not None:
+        net.render_network_state(target=target, network_state=ns)
+    else:
+        LOG.debug("copying interfaces")
+        copy_interfaces(interfaces, target)
+
+
 def copy_interfaces(interfaces, target):
     if not interfaces:
         LOG.warn("no interfaces file to copy!")
         return
     eni = os.path.sep.join([target, 'etc/network/interfaces'])
     shutil.copy(interfaces, eni)
+
+
+def copy_dname_rules(rules_d, target):
+    if not rules_d:
+        LOG.warn("no udev rules directory to copy")
+        return
+    for rule in os.listdir(rules_d):
+        target_file = os.path.join(
+            target, "etc/udev/rules.d", "%s.rules" % rule)
+        shutil.copy(os.path.join(rules_d, rule), target_file)
 
 
 def restore_dist_interfaces(cfg, target):
@@ -503,6 +573,65 @@ def detect_and_handle_multipath(cfg, target):
     update_initramfs(target, all_kernels=True)
 
 
+def install_missing_packages(cfg, target):
+    ''' describe which operation types will require specific packages
+
+    'custom_config_key': {
+         'pkg1': ['op_name_1', 'op_name_2', ...]
+     }
+    '''
+    custom_configs = {
+        'storage': {
+            'lvm2': ['lvm_volgroup', 'lvm_partition'],
+            'mdadm': ['raid'],
+            'bcache-tools': ['bcache']},
+        'network': {
+            'vlan': ['vlan'],
+            'ifenslave': ['bond'],
+            'bridge-utils': ['bridge']},
+    }
+
+    needed_packages = []
+    installed_packages = get_installed_packages(target)
+    for cust_cfg, pkg_reqs in custom_configs.items():
+        if cust_cfg not in cfg:
+            continue
+
+        all_types = set(
+            operation['type']
+            for operation in cfg[cust_cfg]['config']
+            )
+        for pkg, types in pkg_reqs.items():
+            if set(types).intersection(all_types) and \
+               pkg not in installed_packages:
+                needed_packages.append(pkg)
+
+    if needed_packages:
+        util.install_packages(needed_packages, target=target)
+
+
+def system_upgrade(cfg, target):
+    """run system-upgrade (apt-get dist-upgrade) or other in target.
+
+    config:
+      system_upgrade:
+        enabled: False
+
+    """
+    mycfg = {'system_upgrade': {'enabled': False}}
+    config.merge_config(mycfg, cfg)
+    mycfg = mycfg.get('system_upgrade')
+    if not isinstance(mycfg, dict):
+        LOG.debug("system_upgrade disabled by config. entry not a dict.")
+        return
+
+    if not config.value_as_boolean(mycfg.get('enabled', True)):
+        LOG.debug("system_upgrade disabled by config.")
+        return
+
+    util.system_upgrade(target=target)
+
+
 def curthooks(args):
     state = util.load_command_environment()
 
@@ -521,7 +650,7 @@ def curthooks(args):
     if util.run_hook_if_exists(target, 'curtin-hooks'):
         sys.exit(0)
 
-    cfg = util.load_command_config(args, state)
+    cfg = config.load_command_config(args, state)
 
     write_files(cfg, target)
     apt_config(cfg, target)
@@ -533,10 +662,36 @@ def curthooks(args):
 
     add_swap(cfg, target, state.get('fstab'))
 
-    copy_interfaces(state.get('interfaces'), target)
+    apply_networking(target, state)
     copy_fstab(state.get('fstab'), target)
 
     detect_and_handle_multipath(cfg, target)
+
+    install_missing_packages(cfg, target)
+
+    system_upgrade(cfg, target)
+
+    # If a crypttab file was created by block_meta than it needs to be copied
+    # onto the target system, and update_initramfs() needs to be run, so that
+    # the cryptsetup hooks are properly configured on the installed system and
+    # it will be able to open encrypted volumes at boot.
+    crypttab_location = os.path.join(os.path.split(state['fstab'])[0],
+                                     "crypttab")
+    if os.path.exists(crypttab_location):
+        copy_crypttab(crypttab_location, target)
+        update_initramfs(target)
+
+    # If a mdadm.conf file was created by block_meta than it needs to be copied
+    # onto the target system
+    mdadm_location = os.path.join(os.path.split(state['fstab'])[0],
+                                  "mdadm.conf")
+    if os.path.exists(mdadm_location):
+        copy_mdadm_conf(mdadm_location, target)
+
+    # If udev dname rules were created, copy them to target
+    udev_rules_d = os.path.join(state['scratch'], "rules.d")
+    if os.path.isdir(udev_rules_d):
+        copy_dname_rules(udev_rules_d, target)
 
     # As a rule, ARMv7 systems don't use grub. This may change some
     # day, but for now, assume no. They do require the initramfs

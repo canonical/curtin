@@ -55,6 +55,8 @@ def pack_main(args):
     if args.output != "-":
         fdout.close()
 
+    sys.exit(0)
+
 
 def POPULATE_SUBCMD(parser):
     populate_one_subcmd(parser, CMD_ARGUMENTS, pack_main)

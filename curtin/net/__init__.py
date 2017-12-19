@@ -20,6 +20,10 @@ import errno
 import os
 
 from curtin.log import LOG
+from curtin.udev import generate_udev_rule
+import curtin.util as util
+import curtin.config as config
+from . import network_state
 
 SYS_CLASS_NET = "/sys/class/net/"
 
@@ -207,5 +211,185 @@ def parse_deb_config(path):
         ifaces, contents,
         os.path.dirname(os.path.abspath(path)))
     return ifaces
+
+
+def parse_net_config_data(net_config):
+    """Parses the config, returns NetworkState dictionary
+
+    :param net_config: curtin network config dict
+    """
+    state = None
+    if 'version' in net_config and 'config' in net_config:
+        ns = network_state.NetworkState(version=net_config.get('version'),
+                                        config=net_config.get('config'))
+        ns.parse_config()
+        state = ns.network_state
+
+    return state
+
+
+def parse_net_config(path):
+    """Parses a curtin network configuration file and
+       return network state"""
+    ns = None
+    net_config = config.load_config(path)
+    if 'network' in net_config:
+        ns = parse_net_config_data(net_config.get('network'))
+
+    return ns
+
+
+def render_persistent_net(network_state):
+    ''' Given state, emit udev rules to map
+        mac to ifname
+    '''
+    content = ""
+    interfaces = network_state.get('interfaces')
+    for iface in interfaces.values():
+        # for physical interfaces write out a persist net udev rule
+        if iface['type'] == 'physical' and \
+           'name' in iface and 'mac_address' in iface:
+            content += generate_udev_rule(iface['name'],
+                                          iface['mac_address'])
+
+    return content
+
+
+# TODO: switch valid_map based on mode inet/inet6
+def iface_add_subnet(iface, subnet):
+    content = ""
+    valid_map = [
+        'address',
+        'netmask',
+        'broadcast',
+        'metric',
+        'gateway',
+        'pointopoint',
+        'mtu',
+        'scope',
+        'dns_search',
+        'dns_nameservers',
+    ]
+    for key, value in subnet.items():
+        if value and key in valid_map:
+            if type(value) == list:
+                value = " ".join(value)
+            if '_' in key:
+                key = key.replace('_', '-')
+            content += "    {} {}\n".format(key, value)
+
+    return content
+
+
+# TODO: switch to valid_map for attrs
+def iface_add_attrs(iface):
+    content = ""
+    ignore_map = [
+        'type',
+        'name',
+        'inet',
+        'mode',
+        'index',
+        'subnets',
+    ]
+    if iface['type'] not in ['bond', 'bridge']:
+        ignore_map.append('mac_address')
+
+    for key, value in iface.items():
+        if value and key not in ignore_map:
+            if type(value) == list:
+                value = " ".join(value)
+            content += "    {} {}\n".format(key, value)
+
+    return content
+
+
+def render_route(route):
+    content = "up route add"
+    mapping = {
+        'network': '-net',
+        'netmask': 'netmask',
+        'gateway': 'gw',
+        'metric': 'metric',
+    }
+    for k in ['network', 'netmask', 'gateway', 'metric']:
+        if k in route:
+            content += " %s %s" % (mapping[k], route[k])
+
+    content += '\n'
+    return content
+
+
+def render_interfaces(network_state):
+    ''' Given state, emit etc/network/interfaces content '''
+
+    content = ""
+    interfaces = network_state.get('interfaces')
+    ''' Apply a sort order to ensure that we write out
+        the physical interfaces first; this is critical for
+        bonding
+    '''
+    order = {
+        'physical': 0,
+        'bond': 1,
+        'bridge': 2,
+        'vlan': 3,
+    }
+    for iface in sorted(interfaces.values(),
+                        key=lambda k: (order[k['type']], k['name'])):
+        content += "auto {name}\n".format(**iface)
+
+        subnets = iface.get('subnets', {})
+        if subnets:
+            for index, subnet in zip(range(0, len(subnets)), subnets):
+                iface['index'] = index
+                iface['mode'] = subnet['type']
+                if iface['mode'].endswith('6'):
+                    iface['inet'] += '6'
+                elif iface['mode'] == 'static' and ":" in subnet['address']:
+                    iface['inet'] += '6'
+                if iface['mode'].startswith('dhcp'):
+                    iface['mode'] = 'dhcp'
+
+                if index == 0:
+                    content += "iface {name} {inet} {mode}\n".format(**iface)
+                else:
+                    content += "auto {name}:{index}\n".format(**iface)
+                    content += \
+                        "iface {name}:{index} {inet} {mode}\n".format(**iface)
+
+                content += iface_add_subnet(iface, subnet)
+                content += iface_add_attrs(iface)
+                content += "\n"
+        else:
+            content += "iface {name} {inet} {mode}\n".format(**iface)
+            content += iface_add_attrs(iface)
+            content += "\n"
+
+    for dnskey, value in network_state.get('dns', {}).items():
+        if len(value):
+            content += "dns-{} {}\n".format(dnskey, " ".join(value))
+
+    for route in network_state.get('routes'):
+        content += render_route(route)
+
+    # global replacements until v2 format
+    content = content.replace('mac_address', 'hwaddress')
+    return content
+
+
+def render_network_state(target, network_state):
+    eni = 'etc/network/interfaces'
+    netrules = 'etc/udev/rules.d/70-persistent-net.rules'
+
+    eni = os.path.sep.join((target, eni,))
+    util.ensure_dir(os.path.dirname(eni))
+    with open(eni, 'w+') as f:
+        f.write(render_interfaces(network_state))
+
+    netrules = os.path.sep.join((target, netrules,))
+    util.ensure_dir(os.path.dirname(netrules))
+    with open(netrules, 'w+') as f:
+        f.write(render_persistent_net(network_state))
 
 # vi: ts=4 expandtab syntax=python

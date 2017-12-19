@@ -1,0 +1,30 @@
+network_commands:
+ builtin: null
+  10_network: curtin net-meta custom
+
+# YAML example of a network config.
+network:
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: eth0
+          mac_address: "c0:d6:9f:2c:e8:80"
+        - type: physical
+          name: eth1
+          mac_address: "aa:d6:9f:2c:e8:80"
+        # A bridge.
+        - type: bridge
+          name: br0
+          bridge_interfaces:
+              - eth0
+              - eth1
+          params:
+              bridge_stp: 'off'
+              bridge_fd: 0
+              bridge_maxwait: 0 
+          subnets:
+              - type: static
+                address: 192.168.14.2/24
+              - type: static
+                address: 2001:1::1/64 # default to /64

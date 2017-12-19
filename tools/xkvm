@@ -3,6 +3,7 @@
 set -f
 
 VERBOSITY=0
+KVM_PID=""
 DRY_RUN=false
 TEMP_D=""
 DEF_BRIDGE="virbr0"
@@ -17,51 +18,52 @@ fail() { [ $# -eq 0 ] || error "$@"; exit 1; }
 
 bad_Usage() { Usage 1>&2; [ $# -eq 0 ] || error "$@"; exit 1; }
 randmac() {
-	# return random mac addr within final 3 tokens
-	local random=""
-	random=$(printf "%02x:%02x:%02x" \
-		"$((${RANDOM}%256))" "$((${RANDOM}%256))" "$((${RANDOM}%256))")
-	padmac "$random"
+    # return random mac addr within final 3 tokens
+    local random=""
+    random=$(printf "%02x:%02x:%02x" \
+        "$((${RANDOM}%256))" "$((${RANDOM}%256))" "$((${RANDOM}%256))")
+    padmac "$random"
 }
 
 cleanup() {
-	[ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
-	if [ ${#TAPDEVS[@]} -ne 0 ]; then
-		local name item
-		for item in "${TAPDEVS[@]}"; do
-			[ "${item}" = "skip" ] && continue
-			debug 1 "removing" "$item"
-			name="${item%:*}"
-			if $DRY_RUN; then
-				error ip tuntap del mode tap "$name"
-			else
-				ip tuntap del mode tap "$name"
-			fi
-			[ $? -eq 0 ] || error "failed removal of $name"
-		done
-		if [ ${#OVS_CLEANUP[@]} -ne 0 ]; then
-			# with linux bridges, there seems to be no harm in just deleting
-			# the device (not detaching from the bridge).  However, with
-			# ovs, you have to remove them from the bridge, or later it
-			# will refuse to add the same name.
-			error "cleaning up ovs ports: ${OVS_CLEANUP[@]}"
-			if ${DRY_RUN}; then
-				error sudo "$0" tap-control ovs-cleanup "${OVS_CLEANUP[@]}"
-			else
-				sudo "$0" tap-control ovs-cleanup "${OVS_CLEANUP[@]}"
-			fi
-		fi
-	fi
+    [ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
+    [ -z "${KVM_PID}" ] || kill "$KVM_PID"
+    if [ ${#TAPDEVS[@]} -ne 0 ]; then
+        local name item
+        for item in "${TAPDEVS[@]}"; do
+            [ "${item}" = "skip" ] && continue
+            debug 1 "removing" "$item"
+            name="${item%:*}"
+            if $DRY_RUN; then
+            	error ip tuntap del mode tap "$name"
+            else
+            	ip tuntap del mode tap "$name"
+            fi
+            [ $? -eq 0 ] || error "failed removal of $name"
+        done
+        if [ ${#OVS_CLEANUP[@]} -ne 0 ]; then
+            # with linux bridges, there seems to be no harm in just deleting
+            # the device (not detaching from the bridge).  However, with
+            # ovs, you have to remove them from the bridge, or later it
+            # will refuse to add the same name.
+            error "cleaning up ovs ports: ${OVS_CLEANUP[@]}"
+            if ${DRY_RUN}; then
+            	error sudo "$0" tap-control ovs-cleanup "${OVS_CLEANUP[@]}"
+            else
+            	sudo "$0" tap-control ovs-cleanup "${OVS_CLEANUP[@]}"
+            fi
+        fi
+    fi
 }
 
 debug() {
-	local level=${1}; shift;
-	[ "${level}" -gt "${VERBOSITY}" ] && return
-	error "${@}"
+    local level=${1}; shift;
+    [ "${level}" -gt "${VERBOSITY}" ] && return
+    error "${@}"
 }
 
 Usage() {
-	cat <<EOF
+    cat <<EOF
 Usage: ${0##*/} [ options ] -- kvm-args [ ... ]
 
    run kvm with a tap interface.
@@ -97,39 +99,39 @@ EOF
 }
 
 isdevopt() {
-	local model="$1" input="${2%%=*}"
-	local out="" opt="" opts=()
-	if [ -z "${KVM_DEVOPTS[$model]}" ]; then
-		out=$(kvm -device "$model,?" 2>&1) &&
-			out=$(echo "$out" | sed -e "s,${model}[.],," -e 's,=.*,,') &&
-			KVM_DEVOPTS[$model]="$out" ||
-			{ error "bad device model $model?"; exit 1; }
-	fi
-	opts=( ${KVM_DEVOPTS[$model]} )
-	for opt in "${KVM_DEVOPTS[@]}"; do
-		[ "$input" = "$opt" ] && return 0
-	done
-	return 1
+    local model="$1" input="${2%%=*}"
+    local out="" opt="" opts=()
+    if [ -z "${KVM_DEVOPTS[$model]}" ]; then
+        out=$(kvm -device "$model,?" 2>&1) &&
+            out=$(echo "$out" | sed -e "s,${model}[.],," -e 's,=.*,,') &&
+            KVM_DEVOPTS[$model]="$out" ||
+            { error "bad device model $model?"; exit 1; }
+    fi
+    opts=( ${KVM_DEVOPTS[$model]} )
+    for opt in "${KVM_DEVOPTS[@]}"; do
+        [ "$input" = "$opt" ] && return 0
+    done
+    return 1
 }
 
 padmac() {
-	# return a full mac, given a subset.
-	# assume whatever is input is the last portion to be
-	# returned, and fill it out with entries from MAC_PREFIX
-	local mac="$1" num="$2" prefix="${3:-$MAC_PREFIX}" itoks="" ptoks=""
-	# if input is empty set to :$num
-	[ -n "$mac" ] || mac=$(printf "%02x" "$num") || return
-	itoks=( ${mac//:/ } )
-	ptoks=( ${prefix//:/ } )
-	rtoks=( )
-	for r in ${ptoks[@]:0:6-${#itoks[@]}} ${itoks[@]}; do
-		rtoks[${#rtoks[@]}]="0x$r"
-	done
-	_RET=$(printf "%02x:%02x:%02x:%02x:%02x:%02x" "${rtoks[@]}")
+    # return a full mac, given a subset.
+    # assume whatever is input is the last portion to be
+    # returned, and fill it out with entries from MAC_PREFIX
+    local mac="$1" num="$2" prefix="${3:-$MAC_PREFIX}" itoks="" ptoks=""
+    # if input is empty set to :$num
+    [ -n "$mac" ] || mac=$(printf "%02x" "$num") || return
+    itoks=( ${mac//:/ } )
+    ptoks=( ${prefix//:/ } )
+    rtoks=( )
+    for r in ${ptoks[@]:0:6-${#itoks[@]}} ${itoks[@]}; do
+        rtoks[${#rtoks[@]}]="0x$r"
+    done
+    _RET=$(printf "%02x:%02x:%02x:%02x:%02x:%02x" "${rtoks[@]}")
 }
 
 make_nics_Usage() {
-	cat <<EOF
+    cat <<EOF
 Usage: ${0##*/} tap-control make-nics [options] bridge [bridge [..]]
 
    make a tap device on each of bridges requested
@@ -140,306 +142,333 @@ EOF
 }
 
 make_nics() {
-	# takes input of list of bridges to create a tap device on
-	# and echos either 'skip' or
-	# <tapname>:<type> for each tap created
-	# type is one of "ovs" or "brctl"
-	local short_opts="v"
-	local long_opts="--verbose"
-	local getopt_out=""
-	getopt_out=$(getopt --name "${0##*/} make-nics" \
-		--options "${short_opts}" --long "${long_opts}" -- "$@") &&
-		eval set -- "${getopt_out}" || { make_nics_Usage 1>&2; return 1; }
+    # takes input of list of bridges to create a tap device on
+    # and echos either 'skip' or
+    # <tapname>:<type> for each tap created
+    # type is one of "ovs" or "brctl"
+    local short_opts="v"
+    local long_opts="--verbose"
+    local getopt_out=""
+    getopt_out=$(getopt --name "${0##*/} make-nics" \
+        --options "${short_opts}" --long "${long_opts}" -- "$@") &&
+        eval set -- "${getopt_out}" || { make_nics_Usage 1>&2; return 1; }
 
-	local cur="" next=""
-	while [ $# -ne 0 ]; do
-		cur=${1}; next=${2};
-		case "$cur" in
-			-v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
-			--) shift; break;;
-		esac
-		shift;
-	done
+    local cur="" next=""
+    while [ $# -ne 0 ]; do
+        cur=${1}; next=${2};
+        case "$cur" in
+            -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
+            --) shift; break;;
+        esac
+        shift;
+    done
 
-	[ $# -ne 0 ] || {
-		make_nics_Usage 1>&2; error "must give bridge";
-		return 1;
-	}
+    [ $# -ne 0 ] || {
+        make_nics_Usage 1>&2; error "must give bridge";
+        return 1;
+    }
 
-	local owner="" ovsbrs="" tap="" tapnum="0" brtype="" bridge=""
-	[ "$(id -u)" = "0" ] || { error "must be root for make-nics"; return 1; }
-	owner="${SUDO_USER:-root}"
-	ovsbrs=""
-	if command -v ovs-vsctl >/dev/null 2>&1; then
-		out=$(ovs-vsctl list-br)
-		out=$(echo "$out" | sed "s/\n/,/")
-		ovsbrs=",$out,"
-	fi
-	for bridge in "$@"; do
-		[ "$bridge" = "user" ] && echo skip && continue
-		[ "${ovsbrs#*,${bridge},}" != "$ovsbrs" ] &&
-			btype="ovs" || btype="brctl"
-		tapnum=0;
-		while [ -e /sys/class/net/tapvm$tapnum ]; do tapnum=$(($tapnum+1)); done
-		tap="tapvm$tapnum"
-		debug 1 "creating $tap:$btype on $bridge" 1>&2
-		ip tuntap add mode tap user "$owner" "$tap" ||
-			{ error "failed to create tap '$tap' for '$owner'"; return 1; }
-		ip link set "$tap" up 1>&2 || {
-			error "failed to bring up $tap";
-			ip tuntap del mode tap "$tap";
-			return 1;
-		}
-		if [ "$btype" = "ovs" ]; then
-			ovs-vsctl add-port "$bridge" "$tap" 1>&2 || {
-				error "failed: ovs-vsctl add-port $bridge $tap";
-				ovs-vsctl del-port "$bridge" "$tap"
-				return 1;
-			}
-		else
-			ip link set "$tap" master "$bridge" 1>&2 || {
-				error "failed to add tap '$tap' to '$bridge'"
-				ip tuntap del mode tap "$tap";
-				return 1
-			}
-		fi
-		echo "$tap:$btype"
-	done
+    local owner="" ovsbrs="" tap="" tapnum="0" brtype="" bridge=""
+    [ "$(id -u)" = "0" ] || { error "must be root for make-nics"; return 1; }
+    owner="${SUDO_USER:-root}"
+    ovsbrs=""
+    if command -v ovs-vsctl >/dev/null 2>&1; then
+        out=$(ovs-vsctl list-br)
+        out=$(echo "$out" | sed "s/\n/,/")
+        ovsbrs=",$out,"
+    fi
+    for bridge in "$@"; do
+        [ "$bridge" = "user" ] && echo skip && continue
+        [ "${ovsbrs#*,${bridge},}" != "$ovsbrs" ] &&
+            btype="ovs" || btype="brctl"
+        tapnum=0;
+        while [ -e /sys/class/net/tapvm$tapnum ]; do tapnum=$(($tapnum+1)); done
+        tap="tapvm$tapnum"
+        debug 1 "creating $tap:$btype on $bridge" 1>&2
+        ip tuntap add mode tap user "$owner" "$tap" ||
+            { error "failed to create tap '$tap' for '$owner'"; return 1; }
+        ip link set "$tap" up 1>&2 || {
+            error "failed to bring up $tap";
+            ip tuntap del mode tap "$tap";
+            return 1;
+        }
+        if [ "$btype" = "ovs" ]; then
+            ovs-vsctl add-port "$bridge" "$tap" 1>&2 || {
+            	error "failed: ovs-vsctl add-port $bridge $tap";
+            	ovs-vsctl del-port "$bridge" "$tap"
+            	return 1;
+            }
+        else
+            ip link set "$tap" master "$bridge" 1>&2 || {
+            	error "failed to add tap '$tap' to '$bridge'"
+            	ip tuntap del mode tap "$tap";
+            	return 1
+            }
+        fi
+        echo "$tap:$btype"
+    done
 }
 
 ovs_cleanup() {
-	[ "$(id -u)" = "0" ] ||
-		{ error "must be root for ovs-cleanup"; return 1; }
-	local item="" errors=0
-	# TODO: if get owner (SUDO_USERNAME) and if that isn't
-	# the owner, then do not delete.
-	for item in "$@"; do
-		name=${item#*:}
-		bridge=${item%:*}
-		ovs-vsctl del-port "$bridge" "$name" || errors=$((errors+1))
-	done
-	return $errors
+    [ "$(id -u)" = "0" ] ||
+        { error "must be root for ovs-cleanup"; return 1; }
+    local item="" errors=0
+    # TODO: if get owner (SUDO_USERNAME) and if that isn't
+    # the owner, then do not delete.
+    for item in "$@"; do
+        name=${item#*:}
+        bridge=${item%:*}
+        ovs-vsctl del-port "$bridge" "$name" || errors=$((errors+1))
+    done
+    return $errors
 }
 
 main() {
-	local short_opts="hd:n:v"
-	local long_opts="help,disk:,dry-run,kvm:,netdev:,verbose"
-	local getopt_out=""
-	getopt_out=$(getopt --name "${0##*/}" \
-		--options "${short_opts}" --long "${long_opts}" -- "$@") &&
-		eval set -- "${getopt_out}" || { bad_Usage; return 1; }
+    local short_opts="hd:n:v"
+    local long_opts="help,dowait,disk:,dry-run,kvm:,no-dowait,netdev:,verbose"
+    local getopt_out=""
+    getopt_out=$(getopt --name "${0##*/}" \
+        --options "${short_opts}" --long "${long_opts}" -- "$@") &&
+        eval set -- "${getopt_out}" || { bad_Usage; return 1; }
 
-	local bridge="$DEF_BRIDGE"
-	local netdevs="" need_tap="" ret="" p="" i="" pt="" cur="" conn=""
-	local kvm="" kvmcmd="" archopts=""
-	local def_diskif=${DEF_DISKIF:-"virtio"}
-	local def_netmodel=${DEF_NETMODEL:-"virtio-net-pci"}
-	archopts=( )
-	kvmcmd=( )
-	netdevs=( )
-	addargs=( )
-	diskdevs=( )
-	diskargs=( )
+    local bridge="$DEF_BRIDGE"
+    local netdevs="" need_tap="" ret="" p="" i="" pt="" cur="" conn=""
+    local kvm="" kvmcmd="" archopts=""
+    local def_diskif=${DEF_DISKIF:-"virtio"}
+    local def_netmodel=${DEF_NETMODEL:-"virtio-net-pci"}
 
-	while [ $# -ne 0 ]; do
-		cur=${1}; next=${2};
-		case "$cur" in
-			-h|--help) Usage; exit 0;;
-			-d|--disk)
-				diskdevs[${#diskdevs[@]}]="$next"; shift;;
-			   --dry-run) DRY_RUN=true;;
-			   --kvm) kvm="$next"; shift;;
-			-n|--netdev)
-				netdevs[${#netdevs[@]}]=$next; shift;;
-			-v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
-			--) shift; break;;
-		esac
-		shift;
-	done
+    archopts=( )
+    kvmcmd=( )
+    netdevs=( )
+    addargs=( )
+    diskdevs=( )
+    diskargs=( )
 
-	[ ${#netdevs[@]} -eq 0 ] && netdevs=( "${DEF_BRIDGE}" )
-	pt=( "$@" )
+    # dowait: run qemu-system with a '&' and then 'wait' on the pid.
+    #  the reason to do this or not do this has to do with interactivity
+    #  if detached with &, then user input will not go to xkvm.
+    #  if *not* detached, then signal handling is blocked until
+    #  the foreground subprocess returns. which means we can't handle
+    #  a sigterm and kill the qemu-system process.
+    #  We default to dowait=false if output is to a terminal
+    local dowait=""
+    [ -t 0 ] && dowait=false || dowait=true
+    while [ $# -ne 0 ]; do
+        cur=${1}; next=${2};
+        case "$cur" in
+            -h|--help) Usage; exit 0;;
+            -d|--disk)
+            	diskdevs[${#diskdevs[@]}]="$next"; shift;;
+               --dry-run) DRY_RUN=true;;
+               --kvm) kvm="$next"; shift;;
+            -n|--netdev)
+            	netdevs[${#netdevs[@]}]=$next; shift;;
+            -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
+               --dowait) dowait=true;;
+               --no-dowait) dowait=false;;
+            --) shift; break;;
+        esac
+        shift;
+    done
 
-	local kvm_pkg=""
-	[ -n "$kvm" ] && kvm_pkg="none"
-	case $(uname -m) in
-		i?86)
-			[ -n "$kvm" ] ||
-				{ kvm="qemu-system-i386"; kvm_pkg="qemu-system-x86"; }
-			;;
-		x86_64)
-			[ -n "$kvm" ] ||
-				{ kvm="qemu-system-x86_64"; kvm_pkg="qemu-system-x86"; }
-			;;
-		ppc64*)
-			[ -n "$kvm" ] ||
-				{ kvm="qemu-system-ppc64"; kvm_pkg="qemu-system-ppc"; }
-			def_netmodel="spapr-vlan"
-			# virtio seems functional on in 14.10, but might want scsi here
-			#def_diskif="scsi"
-			archopts=( "${archopts[@]}" -machine pseries,usb=off )
-			archopts=( "${archopts[@]}" -device spapr-vscsi )
-			;;
-		*) kvm=qemu-system-$(uname -r);;
-	esac
-	kvmcmd=( $kvm -enable-kvm )
+    [ ${#netdevs[@]} -eq 0 ] && netdevs=( "${DEF_BRIDGE}" )
+    pt=( "$@" )
 
-	for i in "${diskdevs[@]}"; do
-		diskargs[${#diskargs[@]}]="-drive";
-		diskargs[${#diskargs[@]}]="if=${def_diskif},file=$i";
-	done
+    local kvm_pkg=""
+    [ -n "$kvm" ] && kvm_pkg="none"
+    case $(uname -m) in
+        i?86)
+            [ -n "$kvm" ] ||
+            	{ kvm="qemu-system-i386"; kvm_pkg="qemu-system-x86"; }
+            ;;
+        x86_64)
+            [ -n "$kvm" ] ||
+            	{ kvm="qemu-system-x86_64"; kvm_pkg="qemu-system-x86"; }
+            ;;
+        ppc64*)
+            [ -n "$kvm" ] ||
+            	{ kvm="qemu-system-ppc64"; kvm_pkg="qemu-system-ppc"; }
+            def_netmodel="spapr-vlan"
+            # virtio seems functional on in 14.10, but might want scsi here
+            #def_diskif="scsi"
+            archopts=( "${archopts[@]}" -machine pseries,usb=off )
+            archopts=( "${archopts[@]}" -device spapr-vscsi )
+            ;;
+        *) kvm=qemu-system-$(uname -r);;
+    esac
+    kvmcmd=( $kvm -enable-kvm )
 
-	local mnics_vflag=""
-	for((i=0;i<${VERBOSITY}-1;i++)); do mnics_vflag="${mnics_vflag}v"; done
-	[ -n "$mnics_vflag" ] && mnics_vflag="-${mnics_vflag}"
+    for i in "${diskdevs[@]}"; do
+        diskargs[${#diskargs[@]}]="-drive";
+        diskargs[${#diskargs[@]}]="if=${def_diskif},file=$i";
+    done
 
-	# now go through and split out options
-	# -device virtio-net-pci,netdev=virtnet0,mac=52:54:31:15:63:02
-	# -netdev type=tap,id=virtnet0,vhost=on,script=/etc/kvm/kvm-ifup.br0,downscript=no
-	local oifs="$IFS" netopts="" devopts="" id="" need_taps=0 model=""
-	local device_args netdev_args
-	device_args=( )
-	netdev_args=( )
-	connections=( )
-	for((i=0;i<${#netdevs[@]};i++)); do
-		id=$(printf "net%02d" "$i")
-		netopts="";
-		devopts=""
-		# mac=auto is 'unspecified' (let qemu assign one)
-		mac="auto"
-		#vhost="off"
+    local mnics_vflag=""
+    for((i=0;i<${VERBOSITY}-1;i++)); do mnics_vflag="${mnics_vflag}v"; done
+    [ -n "$mnics_vflag" ] && mnics_vflag="-${mnics_vflag}"
 
-		IFS=","; set -- ${netdevs[$i]}; IFS="$oifs"
-		bridge=$1; shift;
-		if [ "$bridge" = "user" ]; then
-			netopts="type=user"
-			ntype="user"
-			connections[$i]="user"
-		else
-			need_taps=1
-			ntype="tap"
-			netopts="type=tap"
-			connections[$i]="$bridge"
-		fi
-		netopts="${netopts},id=$id"
-		[ "$ntype" = "tap" ] && netopts="${netopts},script=no,downscript=no"
+    # now go through and split out options
+    # -device virtio-net-pci,netdev=virtnet0,mac=52:54:31:15:63:02
+    # -netdev type=tap,id=virtnet0,vhost=on,script=/etc/kvm/kvm-ifup.br0,downscript=no
+    local oifs="$IFS" netopts="" devopts="" id="" need_taps=0 model=""
+    local device_args netdev_args
+    device_args=( )
+    netdev_args=( )
+    connections=( )
+    for((i=0;i<${#netdevs[@]};i++)); do
+        id=$(printf "net%02d" "$i")
+        netopts="";
+        devopts=""
+        # mac=auto is 'unspecified' (let qemu assign one)
+        mac="auto"
+        #vhost="off"
 
-		model="${def_netmodel}"
-		for tok in "$@"; do
-			[ "${tok#model=}" = "${tok}" ] && continue
-			case "${tok#model=}" in
-				virtio) model=virtio-net-pci;;
-				*) model=${tok#model=};;
-			esac
-		done
+        IFS=","; set -- ${netdevs[$i]}; IFS="$oifs"
+        bridge=$1; shift;
+        if [ "$bridge" = "user" ]; then
+            netopts="type=user"
+            ntype="user"
+            connections[$i]="user"
+        else
+            need_taps=1
+            ntype="tap"
+            netopts="type=tap"
+            connections[$i]="$bridge"
+        fi
+        netopts="${netopts},id=$id"
+        [ "$ntype" = "tap" ] && netopts="${netopts},script=no,downscript=no"
 
-		for tok in "$@"; do
-			case "$tok" in
-				mac=*) mac="${tok#mac=}"; continue;;
-				macaddr=*) mac=${tok#macaddr=}; continue;;
-				model=*) continue;;
-			esac
+        model="${def_netmodel}"
+        for tok in "$@"; do
+            [ "${tok#model=}" = "${tok}" ] && continue
+            case "${tok#model=}" in
+            	virtio) model=virtio-net-pci;;
+            	*) model=${tok#model=};;
+            esac
+        done
 
-			isdevopt "$model" "$tok" && devopts="${devopts},$tok" ||
-				netopts="${netopts},${tok}"
-		done
-		devopts=${devopts#,}
-		netopts=${netopts#,}
+        for tok in "$@"; do
+            case "$tok" in
+            	mac=*) mac="${tok#mac=}"; continue;;
+            	macaddr=*) mac=${tok#macaddr=}; continue;;
+            	model=*) continue;;
+            esac
 
-		if [ "$mac" != "auto" ]; then
-			[ "$mac" = "random" ] && randmac && mac="$_RET"
-			padmac "$mac" "$i"
-			devopts="${devopts:+${devopts},}mac=$_RET"
-		fi
-		devopts="$model,netdev=$id${devopts:+,${devopts}}"
-		#netopts="${netopts},vhost=${vhost}"
+            isdevopt "$model" "$tok" && devopts="${devopts},$tok" ||
+            	netopts="${netopts},${tok}"
+        done
+        devopts=${devopts#,}
+        netopts=${netopts#,}
 
-		device_args[$i]="$devopts"
-		netdev_args[$i]="$netopts"
-	done
+        if [ "$mac" != "auto" ]; then
+            [ "$mac" = "random" ] && randmac && mac="$_RET"
+            padmac "$mac" "$i"
+            devopts="${devopts:+${devopts},}mac=$_RET"
+        fi
+        devopts="$model,netdev=$id${devopts:+,${devopts}}"
+        #netopts="${netopts},vhost=${vhost}"
 
-	trap cleanup EXIT
+        device_args[$i]="$devopts"
+        netdev_args[$i]="$netopts"
+    done
 
-	reqs=( "$kvm" )
-	pkgs=( "$kvm_pkg" )
-	for((i=0;i<${#reqs[@]};i++)); do
-		req=${reqs[$i]}
-		pkg=${pkgs[$i]}
-		[ "$pkg" = "none" ] && continue
-		command -v "$req" >/dev/null || {
-			missing="${missing:+${missing} }${req}"
-			missing_pkgs="${missing_pkgs:+${missing_pkgs} }$pkg"
-		}
-	done
-	if [ -n "$missing" ]; then
-		local reply cmd=""
-		cmd=( sudo apt-get --quiet install ${missing_pkgs} )
-		error "missing prereqs: $missing";
-		error "install them now with the following?: ${cmd[*]}"
-		read reply && [ "$reply" = "y" -o "$reply" = "Y" ] ||
-			{ error "run: apt-get install ${missing_pkgs}"; return 1; }
-		"${cmd[@]}" || { error "failed to install packages"; return 1; }
-	fi
+    trap cleanup EXIT
 
-	if [ $need_taps -ne 0 ]; then
-		local missing="" missing_pkgs="" reqs="" req="" pkgs="" pkg=""
-		error "creating tap devices: ${connections[*]}"
-		if $DRY_RUN; then
-			error "sudo $0 tap-control make-nics" \
-				$mnics_vflag "${connections[@]}"
-			taps=""
-			for((i=0;i<${#connections[@]};i++)); do
-				if [ "${connections[$i]}" = "user" ]; then
-					taps="${taps} skip"
-				else
-					taps="${taps} dryruntap$i:brctl"
-				fi
-			done
-		else
-			taps=$(sudo "$0" tap-control make-nics \
-		           ${mnics_vflag} "${connections[@]}") ||
-				{ error "$failed to make-nics ${connections[*]}"; return 1; }
-		fi
-		TAPDEVS=( ${taps} )
-		for((i=0;i<${#TAPDEVS[@]};i++)); do
-			cur=${TAPDEVS[$i]}
-			[ "${cur#*:}" = "ovs" ] || continue
-			conn=${connections[$i]}
-			OVS_CLEANUP[${#OVS_CLEANUP[@]}]="${conn}:${cur%:*}"
-		done
+    reqs=( "$kvm" )
+    pkgs=( "$kvm_pkg" )
+    for((i=0;i<${#reqs[@]};i++)); do
+        req=${reqs[$i]}
+        pkg=${pkgs[$i]}
+        [ "$pkg" = "none" ] && continue
+        command -v "$req" >/dev/null || {
+            missing="${missing:+${missing} }${req}"
+            missing_pkgs="${missing_pkgs:+${missing_pkgs} }$pkg"
+        }
+    done
+    if [ -n "$missing" ]; then
+        local reply cmd=""
+        cmd=( sudo apt-get --quiet install ${missing_pkgs} )
+        error "missing prereqs: $missing";
+        error "install them now with the following?: ${cmd[*]}"
+        read reply && [ "$reply" = "y" -o "$reply" = "Y" ] ||
+            { error "run: apt-get install ${missing_pkgs}"; return 1; }
+        "${cmd[@]}" || { error "failed to install packages"; return 1; }
+    fi
 
-		debug 2 "tapdevs='${TAPDEVS[@]}'"
-		[ ${#OVS_CLEANUP[@]} -eq 0 ] || error "OVS_CLEANUP='${OVS_CLEANUP[*]}'"
+    if [ $need_taps -ne 0 ]; then
+        local missing="" missing_pkgs="" reqs="" req="" pkgs="" pkg=""
+        error "creating tap devices: ${connections[*]}"
+        if $DRY_RUN; then
+            error "sudo $0 tap-control make-nics" \
+            	$mnics_vflag "${connections[@]}"
+            taps=""
+            for((i=0;i<${#connections[@]};i++)); do
+            	if [ "${connections[$i]}" = "user" ]; then
+            		taps="${taps} skip"
+            	else
+            		taps="${taps} dryruntap$i:brctl"
+            	fi
+            done
+        else
+            taps=$(sudo "$0" tap-control make-nics \
+                   ${mnics_vflag} "${connections[@]}") ||
+            	{ error "$failed to make-nics ${connections[*]}"; return 1; }
+        fi
+        TAPDEVS=( ${taps} )
+        for((i=0;i<${#TAPDEVS[@]};i++)); do
+            cur=${TAPDEVS[$i]}
+            [ "${cur#*:}" = "ovs" ] || continue
+            conn=${connections[$i]}
+            OVS_CLEANUP[${#OVS_CLEANUP[@]}]="${conn}:${cur%:*}"
+        done
 
-		for((i=0;i<${#TAPDEVS[@]};i++)); do
-			cur=${TAPDEVS[$i]}
-			[ "$cur" = "skip" ] && continue
-			netdev_args[$i]="${netdev_args[$i]},ifname=${cur%:*}";
-		done
-	fi
+        debug 2 "tapdevs='${TAPDEVS[@]}'"
+        [ ${#OVS_CLEANUP[@]} -eq 0 ] || error "OVS_CLEANUP='${OVS_CLEANUP[*]}'"
 
-	netargs=()
-	for((i=0;i<${#device_args[@]};i++)); do
-		netargs=( "${netargs[@]}" -device "${device_args[$i]}" 
-		          -netdev "${netdev_args[$i]}")
-	done
+        for((i=0;i<${#TAPDEVS[@]};i++)); do
+            cur=${TAPDEVS[$i]}
+            [ "$cur" = "skip" ] && continue
+            netdev_args[$i]="${netdev_args[$i]},ifname=${cur%:*}";
+        done
+    fi
 
-	error "${kvmcmd[@]}" "${archopts[@]}" "${netargs[@]}" "${diskargs[@]}" "${pt[@]}"
-	$DRY_RUN || "${kvmcmd[@]}" "${archopts[@]}" "${netargs[@]}" "${diskargs[@]}" "${pt[@]}"
+    netargs=()
+    for((i=0;i<${#device_args[@]};i++)); do
+        netargs=( "${netargs[@]}" -device "${device_args[$i]}" 
+                  -netdev "${netdev_args[$i]}")
+    done
+
+    cmd=( "${kvmcmd[@]}" "${archopts[@]}" "${netargs[@]}"
+           "${diskargs[@]}" "${pt[@]}" )
+    error "${cmd[@]}"
+    ${DRY_RUN} && return 0
+    
+    if $dowait; then
+        "${cmd[@]}" &
+        KVM_PID=$!
+        debug 1 "kvm pid=$KVM_PID. my pid=$$"
+        wait
+        ret=$?
+        KVM_PID=""
+    else
+        "${cmd[@]}"
+        ret=$?
+    fi
+    return $ret
 }
 
 
 if [ "$1" = "tap-control" ]; then
-	shift
-	mode=$1
-	shift || fail "must give mode to tap-control"
-	case "$mode" in
-		make-nics) make_nics "$@";;
-		ovs-cleanup) ovs_cleanup "$@";;
-		*) fail "tap mode must be either make-nics or ovs-cleanup";;
-	esac
+    shift
+    mode=$1
+    shift || fail "must give mode to tap-control"
+    case "$mode" in
+        make-nics) make_nics "$@";;
+        ovs-cleanup) ovs_cleanup "$@";;
+        *) fail "tap mode must be either make-nics or ovs-cleanup";;
+    esac
 else
-	main "$@"
+    main "$@"
 fi
 
-# vi: ts=4 noexpandtab
+# vi: ts=4 expandtab

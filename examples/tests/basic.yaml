@@ -1,0 +1,44 @@
+storage:
+    version: 1
+    config:
+      - id: sda
+        type: disk
+        ptable: msdos
+        model: QEMU HARDDISK
+        path: /dev/vdb
+        name: main_disk
+        wipe: superblock
+        grub_device: true
+      - id: sda1
+        type: partition
+        number: 1
+        size: 3GB
+        device: sda
+        flag: boot
+      - id: sda2
+        type: partition
+        number: 2
+        size: 1GB
+        device: sda
+      - id: sda1_root
+        type: format
+        fstype: ext4
+        volume: sda1
+      - id: sda2_home
+        type: format
+        fstype: ext4
+        volume: sda2
+      - id: sda1_mount
+        type: mount
+        path: /
+        device: sda1_root
+      - id: sda2_mount
+        type: mount
+        path: /home
+        device: sda2_home
+      - id: vdb
+        type: disk
+        path: /dev/vdc
+        name: sparedisk
+        wipe: superblock
+

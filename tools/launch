@@ -3,11 +3,15 @@
 VERBOSITY=0
 TEMP_D=""
 HTTP_PID=""
+XKVM_PID=""
+HTTP_PORT_TRIES=${HTTP_PORT_TRIES:-5}
+HTTP_PORT_MIN=${HTTP_PORT_MIN:-12000}
+HTTP_PORT_MAX=${HTTP_PORT_MAX:-65500}
 
 error() { echo "$@" 1>&2; }
 
 Usage() {
-	cat <<EOF
+    cat <<EOF
 Usage: ${0##*/} [ options ] boot-image curtin install [args]
 
    boot the image 'boot-image', so that it will run 
@@ -23,7 +27,10 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
       -i | --initrd F   use initramfs F
       -k | --kernel F   use kernel K
            --mem    K   memory in Kb
+      -n | --netdev     netdev can be 'user' or a bridge
       -p | --publish F  make file 'F' available in web server
+           --silent     use -vga none
+           --serial-log F  : log to F (default 'serial.log')
       -v | --verbose    be more verbose
 
    use of --kernel/--initrd will seed cloud-init via cmdline
@@ -39,40 +46,59 @@ EOF
 
 bad_Usage() { Usage 1>&2; [ $# -eq 0 ] || error "$@"; exit 1; }
 cleanup() {
-	exec >/dev/null 2>&1 # shut up any the killing of HTTP_PID
-	[ -z "$HTTP_PID" ] || kill $HTTP_PID;
-	[ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
+    local msg="" pid=""
+    [ ! -d "$TEMP_D" ] || msg="${msg:+$msg }remove temp dir ${TEMP_D}."
+    [ -z "$HTTP_PID" ] || msg="${msg:+$msg }kill http pid ${HTTP_PID}."
+    [ -z "$XKVM_PID" ] || msg="${msg:+$msg }kill xkvm pid ${XKVM_PID}."
+    debug 1 "cleaning up.${msg:+ $msg}"
+    [ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
+    for pid in ${XKVM_PID} ${HTTP_PID}; do
+        kill $pid
+    done
+}
+sighandle() {
+    debug 1 "recieved $1"
+    exit ${2:-1}
+}
+
+register_signal_handlers() {
+    local cur
+    for cur in TERM INT; do
+        trap "sighandle $cur" "SIG$cur"
+    done
 }
 
 debug() {
-	local level=${1}; shift;
-	[ "${level}" -gt "${VERBOSITY}" ] && return
-	error "${@}"
+    local level=${1}; shift;
+    [ "${level}" -gt "${VERBOSITY}" ] && return
+    error "${@}"
 }
 
 get_my_ip() {
-	[ -z "$IP_ADDR" ] || { _RET="${IP_ADDR}"; return 0; }
-	local Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT
-	local iface ipaddr=""
-	while read Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT; do
-		[ "$Mask" = "00000000" ] && break
-	done < /proc/net/route
-	iface="$Iface"
-	ipaddr=$(LC_ALL=C /sbin/ip -4 addr list dev "$iface" scope global)
-	ipaddr=${ipaddr#* inet }
-	ipaddr=${ipaddr%%/*}
-	_RET="$ipaddr"
+    [ -z "$IP_ADDR" ] || { _RET="${IP_ADDR}"; return 0; }
+    local Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT
+    local iface ipaddr="" tmpf=""
+    # work around LP: #1483440
+    cp "/proc/net/route" "${TEMP_D}/current-route"
+    while read Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT; do
+        [ "$Mask" = "00000000" ] && break
+    done < "${TEMP_D}/current-route"
+    iface="$Iface"
+    ipaddr=$(LC_ALL=C /sbin/ip -4 addr list dev "$iface" scope global) || return
+    ipaddr=${ipaddr#* inet }
+    ipaddr=${ipaddr%%/*}
+    _RET="$ipaddr"
 }
 
 write_metadata() {
-	cat <<EOF
+    cat <<EOF
 instance-id: 'inst-${RANDOM}'
 EOF
 }
 
 write_userdata() {
-	local x
-	cat <<EOF
+    local x
+    cat <<EOF
 #cloud-config-archive
 - type: text/cloud-config
   content: |
@@ -81,221 +107,378 @@ write_userdata() {
    chpasswd: { expire: False }
    output: {all: '| tee -a /var/log/cloud-init-output.log'}
 EOF
-	for x in "$@"; do
-		printf "%s\n" "- |" && sed 's,^,  ,' "$x" || return
-	done
+    for x in "$@"; do
+        printf "%s\n" "- |" && sed 's,^,  ,' "$x" || return
+    done
 }
 
 xkvm_check() {
-	command -v xkvm >/dev/null 2>&1 && return
-	local myd
-	myd=$(dirname "$0")
-	[ -x "$myd/xkvm" ] && PATH="$myd:$PATH" && return
-	cat 1>&2 <<EOF
+    command -v xkvm >/dev/null 2>&1 && return
+    local myd
+    myd=$(dirname "$0")
+    [ -x "$myd/xkvm" ] && PATH="$myd:$PATH" && return
+    cat 1>&2 <<EOF
 Unable to find 'xkvm' in PATH, should be in curtin's tools/ dir
 EOF
-	return 1
+    return 1
+}
+
+_start_http() {
+    local pubdir="$1" ip="$2" port="$3"
+    local statfile="_datesum" contents="" burl="http://$ip:$port"
+    local found="" hpid="" ret=""
+    contents="$$:$(date +%s.%N)"
+    echo "$contents" > "$pubdir/$statfile"
+    ( set -eb; cd "$pubdir" &&
+        exec python -m SimpleHTTPServer "$port" ) >"$pubdir/ws.log" 2>&1 &
+    hpid=$!
+    HTTP_PID=$hpid  # set so cleanup cleans up during wget
+    debug 3 "checking web service [pid=$hpid] on $burl"
+    found=$(env -u http_proxy wget -q --waitretry=0.4 --retry-connrefused \
+        --tries=10 "$burl/$statfile" --timeout=4 -O - 2>/dev/null) &&
+        [ "$found" = "$contents" ] && {
+            _RET=$hpid
+            return 0
+        }
+    ret=$?
+    kill $hpid && HTTP_PID=""
+    return $ret
+}
+
+start_http() {
+    # start_http(pubdir, ip, port="", tries=5)
+    # starts a web service at 'port' that serves files in 'pubdir'
+    # waits until it is verified to be lisenting at ip
+    # if port is not provided, '$tries' random ports are tried.
+    # 
+    # sets HTTP_PID and returns in _RET the port selected.
+    local pubdir="$1" ip="$2" port="$3" tries="${4:-5}" i=""
+    [ -z "$ip" ] && ip="localhost"
+    local pmin="$HTTP_PORT_MIN" pmax="$HTTP_PORT_MAX" ret="" tried=""
+    local ptries=""
+    ptries=( )
+    if [ -n "$port" ]; then
+        ptries=( $port )
+    elif [ $(($pmax-$pmin+1)) -le $tries ]; then
+        # if tries spans the whole range, then just try them all
+        local range=$(($pmax-$pmin+1))
+        for((i=0;i<$range;i++)); do
+            ptries[$i]=$((pmin+$i))
+        done
+    else
+        for((i=0;i<$tries;i++)); do
+            ptries[$i]="random"
+        done
+    fi
+    for port in "${ptries[@]}"; do
+        [ "$port" = "random" ] && port=$(($pmin+($RANDOM%($pmax+1-$pmin))))
+        debug 2 "trying http server $ip:$port"
+        _start_http "$pubdir" "$ip" "$port" &&
+            HTTP_PID="$_RET" && _RET="$port" && 
+            debug 1 "serving $pubdir at http://$ip:$port/ in pid $HTTP_PID" &&
+            return 0
+        ret=$?
+        tried="$tried $port"
+    done
+    error "failed to start http on service on $ip tried ports: ${tried# }"
+    return $ret
 }
 
 main() {
-	local short_opts="a:d:h:i:k:p:v"
-	local long_opts="add:,append:,disk:,help,initrd:,kernel:,mem:,power:,publish:,uefi,verbose"
-	local getopt_out=""
-	getopt_out=$(getopt --name "${0##*/}" \
-		--options "${short_opts}" --long "${long_opts}" -- "$@") &&
-		eval set -- "${getopt_out}" ||
-		{ bad_Usage; return 1; }
+    local short_opts="a:d:h:i:k:n:p:v"
+    local long_opts="add:,append:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi,verbose"
+    local getopt_out=""
+    getopt_out=$(getopt --name "${0##*/}" \
+        --options "${short_opts}" --long "${long_opts}" -- "$@") &&
+        eval set -- "${getopt_out}" ||
+        { bad_Usage; return 1; }
 
-	local seed=""
-	local bootimg="" bootimg_dist="" target="" mem="1024"
-	local udata="" ip="" http_port="${HTTP_PORT:-9923}" burl=""
-	local tmp="" top_d
-	local initrd="" kernel="" uappend="" iargs="" disk_args=""
-	local pubs="" disks="" pstate="null"
-	local uefi=0
-	pubs=( )
-	disks=( )
-	addfiles=( )
+    local seed=""
+    local bootimg="" bootimg_dist="" target="" mem="1024"
+    local udata="" ip="" http_port="${HTTP_PORT}" burl=""
+    local tmp="" top_d
+    local initrd="" kernel="" uappend="" iargs="" disk_args=""
+    local pubs="" disks="" pstate="null"
+    local uefi=0
+    local netdevs=""
+    local video="-curses" serial_log="file:serial.log"
+    # dowait: run xkvm with a '&' and then 'wait' on the pid.
+    #  the reason to do this or not do this has to do with interactivity
+    #  if detached with &, then user input will not go to xkvm.
+    #  if *not* detached, then signal handling is blocked until
+    #  the foreground subprocess returns. which means we can't handle
+    #  a sigterm and kill xkvm.
+    #  We default to dowait=false if output is to a terminal
+    local dowait=""
+    [ -t 0 ] && dowait=false || dowait=true
+    pubs=( )
+    disks=( )
+    addfiles=( )
+    netdevs=( )
+    pt=( )
 
-	while [ $# -ne 0 ]; do
-		cur=${1}; next=${2};
-		case "$cur" in
-			   --add) addfiles[${#addfiles[@]}]="$next"; shift;;
-			-a|--append) uappend="$next"; shift;;
-			-d|--disk) disks[${#disks[@]}]="$next"; shift;;
-			-h|--help) Usage ; exit 0;;
-			-i|--initrd) initrd="$next"; shift;;
-			-k|--kernel) kernel="$next"; shift;;
-			   --mem) mem="$next"; shift;;
-			   --power)
-				case "$next" in
-					off) pstate="poweroff";;
-					on|none)  pstate="null";;
-					reboot) pstate="$next";;
-					*) error "Invalid power state, must be: off, on, reboot";;
-				esac
-				shift;;
-			-p|--publish) pubs[${#pub[@]}]="$next"; shift;;
-			   --uefi) uefi=1;;
-			-v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
-			--) shift; break;;
-		esac
-		shift;
-	done
+    # if output is to a terminal, then set dowait default to false
+    [ -t 0 ] && dowait=false || dowait=true
+    while [ $# -ne 0 ]; do
+        cur=${1}; next=${2};
+        case "$cur" in
+               --add) addfiles[${#addfiles[@]}]="$next"; shift;;
+            -a|--append) uappend="$next"; shift;;
+            -d|--disk) disks[${#disks[@]}]="$next"; shift;;
+            -h|--help) Usage ; exit 0;;
+            -i|--initrd) initrd="$next"; shift;;
+            -k|--kernel) kernel="$next"; shift;;
+               --mem) mem="$next"; shift;;
+               --power)
+                case "$next" in
+                    off) pstate="poweroff";;
+                    on|none)  pstate="null";;
+                    reboot) pstate="$next";;
+                    *) error "Invalid power state, must be: off, on, reboot";;
+                esac
+                shift;;
+            -n|--netdev) netdevs[${#netdevs[@]}]="$next"; shift;;
+            -p|--publish) pubs[${#pub[@]}]="$next"; shift;;
+               --uefi) uefi=1;;
+               --silent) video="-nographic";;
+               --serial-log) serial_log="file:$next"; shift;;
+            -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
+               --dowait) pt[${#pt[@]}]="$cur"; dowait=true;;
+               --no-dowait) pt[${#pt[@]}]="$cur"; dowait=false;;
+            --) shift; break;;
+        esac
+        shift;
+    done
 
-	[ $# -ge 0 ] || { bad_Usage "must provide boot-image"; return 1; }
-	bootimg_dist="$1"
-	shift
-	cmdargs=( "$@" )
+    # handle passing through '-v' if given
+    local t=""
+    for((i=0;i<${VERBOSITY};i++)); do t="${t}v"; done
+    [ -n "$t" ] && pt[${#pt[@]}]="-$t"
 
-	TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
-		{ error "failed to make tempdir"; return 1; }
+    [ $# -ge 0 ] || { bad_Usage "must provide boot-image"; return 1; }
+    bootimg_dist="$1"
+    shift
+    cmdargs=( "$@" )
 
-	trap cleanup EXIT
+    TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
+        { error "failed to make tempdir"; return 1; }
 
-	local bios_opts=""
-	local video="-curses"
+    trap cleanup EXIT
+    register_signal_handlers
 
-	bios_opts=( )
-	if [ $uefi -eq 1 ]; then
-		[ -f "/usr/share/ovmf/OVMF.fd" ] ||
-			{ error "install ovmf package"; return 1; }
-		mkdir "${TEMP_D}/bios"
-		cp "/usr/share/ovmf/OVMF.fd" "${TEMP_D}/bios/bios.bin"
-		bios_opts=( -L "${TEMP_D}/bios/" )
-		video=""
-	fi
+    local bios_opts=""
 
-	if [ "${#disks[@]}" -eq 0 ]; then
-		disks=( "${TEMP_D}/disk1.img" )
-	fi
+    bios_opts=( )
+    if [ $uefi -eq 1 ]; then
+        local ovmf_bios="/usr/share/qemu/OVMF.fd"
+        [ -f "$ovmf_bios" ] || {
+            error "no --uefi requires ovmf bios: apt-get install ovmf"
+            return 1;
+        }
+        bios_opts=( -bios "$ovmf_bios" )
+        # this is here because in this bios, it goes into graphics mode
+        # rendering the display on curses mode useless.  Would be nice
+        # if we could find a fix.
+        video=""
+    fi
 
-	bootimg_dist=$(readlink -f "$bootimg_dist") ||
-		{ error "bad bootimg $bootimg_dist"; return 1; }
+    if [ "${#disks[@]}" -eq 0 ]; then
+        disks=( "${TEMP_D}/disk1.img" )
+    fi
 
-	[ -z "$initrd" -o -f "$initrd" ] ||
-		{ error "initrd not a file: $initrd"; return 1; }
-	[ -z "$kernel" -o -f "$kernel" ] ||
-		{ error "kernel not a file: $kernel"; return 1; }
+    bootimg_dist=$(readlink -f "$bootimg_dist") ||
+        { error "bad bootimg $bootimg_dist"; return 1; }
 
-	tmp=$(dirname "$0") && top_d=$(cd "$tmp" && cd .. && pwd) ||
-		{ error "failed to get dir for $0"; return 1; }
+    [ -z "$initrd" -o -f "$initrd" ] ||
+        { error "initrd not a file: $initrd"; return 1; }
+    [ -z "$kernel" -o -f "$kernel" ] ||
+        { error "kernel not a file: $kernel"; return 1; }
 
-	local disk="" src="" size=""
-	disk_args=( )
-	for disk in "${disks[@]}"; do
-		src=${disk}
-		size=5G
-		if [ "${src%:*}" != "${src}" ]; then
-			src="${disk%:*}"
-			size="${disk##*:}"
-		fi
-		if [ ! -f "$src" ]; then
-			qemu-img create -f raw "${src}" "$size" ||
-				{ error "failed create $src of size $size"; return 1; }
-		fi
-		disk_args=( "${disk_args[@]}"
-			"-drive" "file=${src},if=virtio,cache=unsafe" )
-	done
+    tmp=$(dirname "$0") && top_d=$(cd "$tmp" && cd .. && pwd) ||
+        { error "failed to get dir for $0"; return 1; }
 
-	get_my_ip || { error "failed to get your ip. set IP_ADDR"; return 1; }
-	ip=${_RET}
-	burl="http://$ip:${http_port}/"
+    local disk="" src="" size=""
+    disk_args=( )
+    for disk in "${disks[@]}"; do
+        src=${disk}
+        size=5G
+        if [ "${src%:*}" != "${src}" ]; then
+            src="${disk%:*}"
+            size="${disk##*:}"
+        fi
+        if [ ! -f "$src" ]; then
+            qemu-img create -f raw "${src}" "$size" ||
+                { error "failed create $src of size $size"; return 1; }
+        fi
+        disk_args=( "${disk_args[@]}"
+            "-drive" "file=${src},if=virtio,cache=unsafe" )
+    done
 
-	local tok src pub fpath
-	# tok in pubs looks like file[:pubname]
-	# link them into the temp dir for publishing
-	for tok in "${pubs[@]}"; do
-		case "$tok" in
-			*:*) src="${tok%:*}"; pub="${tok##*:}";;
-			*) src=${tok}; pub="";;
-		esac
-		fpath=$(readlink -f "$src") ||
-			{ error "'$src': failed to get path"; return 1; }
-		if [ -n "$pub" ]; then
-			pub="${src##*/}"
-		fi
-		ln -sf "$fpath" "${TEMP_D}/${pub}"
-	done
+    get_my_ip || { error "failed to get your ip. set IP_ADDR"; return 1; }
+    ip=${_RET}
 
-	# now replace PUBURL anywhere in cmdargs
-	for((i=0;i<${#cmdargs[@]};i++)); do
-		cmdargs[$i]=${cmdargs[$i]//PUBURL/$burl}
-	done
+    local tok src pub fpath
+    # tok in pubs looks like file[:pubname]
+    # link them into the temp dir for publishing
+    for tok in "${pubs[@]}"; do
+        case "$tok" in
+            *:*) src="${tok%:*}"; pub="${tok##*:}";;
+            *) src=${tok}; pub="";;
+        esac
+        fpath=$(readlink -f "$src") ||
+            { error "'$src': failed to get path"; return 1; }
+        if [ -n "$pub" ]; then
+            pub="${src##*/}"
+        fi
+        ln -sf "$fpath" "${TEMP_D}/${pub}"
+    done
 
-	local addargs="" f=""
-	addargs=( )
-	for f in "${addfiles[@]}"; do
-		if [ "${f#*:}" != "$f" ]; then
-			addargs[${#addargs[@]}]="--add=$f"
-		else
-			addargs[${#addargs[@]}]="--add=$f:${f##*/}"
-		fi
-	done
+    # now replace PUBURL anywhere in cmdargs
+    for((i=0;i<${#cmdargs[@]};i++)); do
+        cmdargs[$i]=${cmdargs[$i]//PUBURL/$burl}
+    done
 
-	PYTHONPATH="${top_d}${PYTHONPATH:+${PYTHONPATH}}" \
-		"${top_d}/bin/curtin" pack "${addargs[@]}" -- \
-		"${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
-		{ error "failed to pack"; return 1; }
+    local addargs="" f=""
+    addargs=( )
+    for f in "${addfiles[@]}"; do
+        if [ "${f#*:}" != "$f" ]; then
+            addargs[${#addargs[@]}]="--add=$f"
+        else
+            addargs[${#addargs[@]}]="--add=$f:${f##*/}"
+        fi
+    done
 
-	( cd "${TEMP_D}" &&
-		exec python -m SimpleHTTPServer $http_port ) >"${TEMP_D}/ws.log" 2>&1 &
-	HTTP_PID=$!
+    # We now pack up --config= options for the user
+    # potentially should check to make sure they've not already done this
+    # as this updating could then be destructive / annoying
+    # specifically, it could be annoying if you had a config inside
+    # the image that you were meaning to reference, and we copied (or tried)
+    # the file from the host.
+    for((i=1;i<${#cmdargs[@]};i++)); do
+        cur=${cmdargs[$i]}
+        next=${cmdargs[$i+1]}
+        stuffed_cfg=""
+        fpath=""
+        case "$cur" in
+            --config|-c)
+                fpath=$next;
+                cmdargs[$i+1]="config/${fpath##*/}"
+                ;;
+            --config=*)
+                fpath=${cur#--config=}
+                cmdargs[$i]="--config=config/${fpath##*/}"
+                ;;
+            *) continue;;
+        esac
+        addargs[${#addargs[@]}]="--add=config/${fpath##*/}:$fpath"
+    done
 
-	udata="${TEMP_D}/user-data"
-	mdata="${TEMP_D}/meta-data"
+    PYTHONPATH="${top_d}${PYTHONPATH:+${PYTHONPATH}}" \
+        "${top_d}/bin/curtin" pack "${addargs[@]}" -- \
+        "${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
+        { error "failed to pack"; return 1; }
 
-	local ccfiles=""
-	ccfiles=( )
-	if [ -n "${pstate}" ]; then
-		printf "#cloud-config\npower_state:\n  mode: %s\n" "$pstate" \
-			> "${TEMP_D}/pstate"
-		ccfiles[${#ccfiles[@]}]="${TEMP_D}/pstate"
-	fi
+    start_http "${TEMP_D}" "$ip" "$http_port" "${HTTP_TRIES}" </dev/null ||
+        { error "failed to start http service"; return 1; }
+    http_port=$_RET
+    burl="http://$ip:${http_port}/"
 
-	write_metadata > "$mdata" || { error "failed to write meta-data"; return 1; }
-	write_userdata "${TEMP_D}/install-cmd" "${ccfiles[@]}" > "$udata"  ||
-		{ error "failed to write user-data"; return 1; }
+    udata="${TEMP_D}/user-data"
+    mdata="${TEMP_D}/meta-data"
 
-	bootimg="${TEMP_D}/boot.img"
-	qemu-img create -f qcow2 -b "${bootimg_dist}" "$bootimg" ||
-		{ error "failed create from ${bootimg_dist}"; return 1; }
+    local ccfiles=""
+    ccfiles=( )
+    if [ -n "${pstate}" ]; then
+        printf "#cloud-config\npower_state:\n  mode: %s\n" "$pstate" \
+            > "${TEMP_D}/pstate"
+        ccfiles[${#ccfiles[@]}]="${TEMP_D}/pstate"
+    fi
 
-	local seedargs=""
-	seedargs=()
-	if [ -n "$kernel" ]; then
-		local append="" root=""
-		# if this is a partition image, root=/dev/vda. else root=/dev/vda1
-		# this hack is necessary because LABEL even UUID  might be the same
-		# in the boot image and the target (if re-using target)
-		if tmp=$(blkid "$bootimg_dist" -ovalue -s UUID) && [ -n "$tmp" ]; then
-			root="/dev/vda"
-		else
-			root="/dev/vda1"
-		fi
-		append="root=$root ds=nocloud-net;seedfrom=$burl"
-		append="${append} console=ttyS0 $uappend"
-		seedargs=( "${seedargs[@]}" -kernel "$kernel" )
-		[ -n "$initrd" ] && seedargs=( "${seedargs[@]}" -initrd "$initrd" )
-		seedargs=( "${seedargs[@]}" -append "$append" )
-	else
-		seed="${TEMP_D}/seed.img"
-		cloud-localds "$seed" "$udata" "$mdata" ||
-			{ error "failed cloud-localds"; return 1; }
-		seedargs=( "-drive" "file=${seed},if=virtio,media=cdrom" )
-	fi
-	
-	xkvm_check || return
-	time xkvm -- \
-		"${bios_opts[@]}" \
-		-m ${mem} -serial file:serial.log ${video} \
-		-drive "file=$bootimg,if=virtio,cache=unsafe" \
-		"${seedargs[@]}" \
-		"${disk_args[@]}"
+    write_metadata > "$mdata" || { error "failed to write meta-data"; return 1; }
+    write_userdata "${TEMP_D}/install-cmd" "${ccfiles[@]}" > "$udata"  ||
+        { error "failed to write user-data"; return 1; }
 
-	return
+    bootimg="${TEMP_D}/boot.img"
+    qemu-img create -f qcow2 -b "${bootimg_dist}" "$bootimg" 2G ||
+        { error "failed create from ${bootimg_dist}"; return 1; }
+
+    local seedargs=""
+    seedargs=()
+    if [ -n "$kernel" ]; then
+        local append="" root=""
+        # if this is a partition image, root=/dev/vda. else root=/dev/vda1
+        # this hack is necessary because LABEL even UUID  might be the same
+        # in the boot image and the target (if re-using target)
+        if tmp=$(blkid "$bootimg_dist" -ovalue -s UUID) && [ -n "$tmp" ]; then
+            root="/dev/vda"
+        else
+            root="/dev/vda1"
+        fi
+        append="root=$root ds=nocloud-net;seedfrom=$burl"
+        append="${append} console=ttyS0 $uappend"
+        seedargs=( "${seedargs[@]}" -kernel "$kernel" )
+        [ -n "$initrd" ] && seedargs=( "${seedargs[@]}" -initrd "$initrd" )
+        seedargs=( "${seedargs[@]}" -append "$append" )
+    else
+        seed="${TEMP_D}/seed.img"
+        cloud-localds "$seed" "$udata" "$mdata" ||
+            { error "failed cloud-localds"; return 1; }
+        seedargs=( "-drive" "file=${seed},if=virtio,media=cdrom" )
+    fi
+
+    local netargs
+    netargs=( )
+    for dev in "${netdevs[@]}"; do
+        netargs=( "${netargs[@]}" "-n" "${dev}" )
+    done
+
+    local cmd
+    xkvm_check || return
+    cmd=( 
+        xkvm "${pt[@]}" "${netargs[@]}" -- 
+        "${bios_opts[@]}"
+        -m ${mem} ${serial_log:+-serial "${serial_log}"} ${video}
+        -drive "file=$bootimg,if=virtio,cache=unsafe"
+        "${seedargs[@]}"
+        "${disk_args[@]}" )
+
+    local sstart=$SECONDS
+    if $dowait; then
+        "${cmd[@]}" &
+        XKVM_PID=$!
+        debug 1 "xkvm pid: $XKVM_PID. launch pid: $$"
+        wait "${XKVM_PID}"
+        ret=$?
+        XKVM_PID=""
+    else
+        "${cmd[@]}"
+        ret=$?
+    fi
+    debug 1 "xkvm returned $ret took $(($SECONDS-$sstart))"
+
+    return $ret
+}
+
+test_start_http() {
+    # run this like:
+    #  HTTP_PORT_MIN=59000 HTTP_PORT_MAX=63001 ./tools/launch \
+    #     /tmp/smfoo localhost
+    VERBOSITY=3
+    trap cleanup EXIT
+    register_signal_handlers
+    echo "mypid: $$"
+    start_http "$@" || { ret=$?; echo "returned $ret"; return $ret; }
+    ret=$?
+    port=$_RET
+    echo "pid $HTTP_PID is serving on $port"
+    sleep ${SLEEPTIME:-3} &
+    XKVM_PID=$!
+    wait $XKVM_PID
+    ret=$?
+    XKVM_PID=""
+    return $ret
 }
 
 main "$@"
 
-# vi: ts=4 noexpandtab
+# vi: ts=4 expandtab

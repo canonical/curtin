@@ -17,7 +17,6 @@
 
 import os
 import pty
-import subprocess
 import sys
 
 from curtin import util
@@ -31,6 +30,9 @@ CMD_ARGUMENTS = (
      (('-i', '--interactive'),
       {'help': 'use command invoked interactively',
        'action': 'store_true', 'default': False}),
+     (('--capture',),
+      {'help': 'capture/swallow output of command',
+       'action': 'store_true', 'default': False}),
      (('-t', '--target'),
       {'help': 'chroot to target. default is env[TARGET_MOUNT_POINT]',
        'action': 'store', 'metavar': 'TARGET',
@@ -39,6 +41,18 @@ CMD_ARGUMENTS = (
       {'help': 'run a command chrooted in the target', 'nargs': '*'}),
      )
 )
+
+
+def run_command(cmd, interactive, capture=False):
+    exit = 0
+    if interactive:
+        pty.spawn(cmd)
+    else:
+        try:
+            util.subp(cmd, capture=capture)
+        except util.ProcessExecutionError as e:
+            exit = e.exit_code
+    return exit
 
 
 def in_target_main(args):
@@ -53,19 +67,18 @@ def in_target_main(args):
                          "Use --target or set TARGET_MOUNT_POINT\n")
         sys.exit(2)
 
-    interactive = sys.stdin.isatty()
-    exit = 0
+    if os.path.abspath(target) == "/":
+        cmd = args.command_args
+    else:
+        cmd = ['chroot', target] + args.command_args
 
-    cmd = ['chroot', target] + args.command_args
+    if target == "/" and args.allow_daemons:
+        ret = run_command(cmd, args.interactive, capture=args.capture)
+    else:
+        with util.ChrootableTarget(target, allow_daemons=args.allow_daemons):
+            ret = run_command(cmd, args.interactive)
 
-    with util.ChrootableTarget(target, allow_daemons=args.allow_daemons):
-        if interactive:
-            pty.spawn(cmd)
-        else:
-            sp = subprocess.Popen(cmd)
-            sp.wait()
-            exit = sp.returncode
-    sys.exit(exit)
+    sys.exit(ret)
 
 
 def POPULATE_SUBCMD(parser):

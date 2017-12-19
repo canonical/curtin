@@ -1,0 +1,107 @@
+network_commands:
+ builtin: null
+ 10_network: curtin net-meta custom
+
+# YAML example of a network config.
+network:
+    version: 1
+    config:
+        # Physical interfaces.
+        - type: physical
+          name: eth0
+          mac_address: "c0:d6:9f:2c:e8:80"
+        - type: physical
+          name: eth1
+          mac_address: "aa:d6:9f:2c:e8:80"
+        - type: physical
+          name: eth2
+          mac_address: "c0:bb:9f:2c:e8:80"
+        - type: physical
+          name: eth3
+          mac_address: "66:bb:9f:2c:e8:80"
+        - type: physical
+          name: eth4
+          mac_address: "98:bb:9f:2c:e8:80"
+        # VLAN interface.
+        - type: vlan
+          name: eth0.101
+          vlan_link: eth0
+          vlan_id: 101
+          mtu: 1500
+          subnets:
+            - type: static
+              address: 192.168.0.2/24
+              gateway: 192.168.0.1
+              dns_nameservers:
+                - 192.168.0.10
+                - 10.23.23.134
+              dns_search:
+                - barley.maas
+                - sacchromyces.maas
+                - brettanomyces.maas
+            - type: static
+              address: 192.168.2.10/24
+        # Bond.
+        - type: bond
+          name: bond0
+          # if 'mac_address' is omitted, the MAC is taken from
+          # the first slave.
+          mac_address: "aa:bb:cc:dd:ee:ff"
+          bond_interfaces:
+            - eth1
+            - eth2
+          params:
+            bond-mode: active-backup
+          subnets:
+            - type: dhcp6
+        # A Bond VLAN.
+        - type: vlan 
+          name: bond0.200
+          vlan_link: bond0 
+          vlan_id: 200
+          subnets:
+              - type: dhcp4
+        # A bridge.
+        - type: bridge
+          name: br0
+          bridge_interfaces:
+              - eth3
+              - eth4
+          ipv4_conf:
+              rp_filter: 1
+              proxy_arp: 0
+              forwarding: 1
+          ipv6_conf:
+              autoconf: 1
+              disable_ipv6: 1
+              use_tempaddr: 1
+              forwarding: 1
+              # basically anything in /proc/sys/net/ipv6/conf/.../
+          params:
+              bridge_stp: 'off'
+              bridge_fd: 0
+              bridge_maxwait: 0 
+          subnets:
+              - type: static
+                address: 192.168.14.2/24
+              - type: static
+                address: 2001:1::1/64 # default to /64
+        # A global nameserver.
+        - type: nameserver
+          address: 8.8.8.8
+          search: barley.maas
+        # global nameservers and search in list form
+        - type: nameserver
+          address:
+            - 4.4.4.4
+            - 8.8.4.4
+          search:
+            - wark.maas
+            - foobar.maas
+        # A global route.
+        - type: route
+          destination: 10.0.0.0/8
+          gateway: 11.0.0.1
+          metric: 3 
+
+

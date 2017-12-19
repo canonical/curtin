@@ -1,0 +1,81 @@
+#!/usr/bin/python
+import SimpleHTTPServer
+import SocketServer
+import json
+import sys
+
+EXAMPLE_CONFIG = """\
+# example config
+reporting:
+  mypost:
+    type: webhook
+    endpoint: %(endpoint)s
+install:
+  log_file: /tmp/foo
+  post_files: [/tmp/foo]"""
+
+if len(sys.argv) > 2:
+    PORT = int(sys.argv[2])
+    addr = sys.argv[1]
+elif len(sys.argv) > 1:
+    PORT = int(sys.argv[1])
+    addr = ""
+else:
+    PORT = 8000
+    addr = ""
+
+
+def render_event_string(event_str):
+    return json.dumps(json.loads(event_str), indent=1)
+
+
+class ServerHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+
+    def log_request(self, code, size=None):
+        lines = [
+            "== %s %s ==" % (self.command, self.path),
+            str(self.headers).replace('\r', '')]
+        if self._message:
+            lines.append(self._message)
+        sys.stdout.write('\n'.join(lines) + '\n')
+        sys.stdout.flush()
+
+    def do_GET(self):
+        self._message = None
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write("content of %s\n" % self.path)
+
+    def do_POST(self):
+        length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(length).decode('utf-8')
+        try:
+            self._message = render_event_string(post_data)
+        except Exception as e:
+            self._message = '\n'.join(
+		["failed printing event: %s" % e, post_data])
+
+        self.send_response(200, "received post to %s" % self.path)
+
+# avoid 'Address already in use' after ctrl-c
+SocketServer.TCPServer.allow_reuse_address = True
+
+Handler = ServerHandler
+httpd = SocketServer.TCPServer(("", PORT), Handler)
+httpd.allow_reuse_address = True
+
+info = {
+    'interface': addr or "localhost",
+    'port': PORT,
+    'endpoint': "http://" + (addr or "localhost") + ":%s" % PORT
+}
+print("Serving at: %(endpoint)s" % info)
+print("Post to this with:\n%s\n" % (EXAMPLE_CONFIG % info))
+
+try:
+    httpd.serve_forever()
+except KeyboardInterrupt:
+    sys.stdout.flush()
+    pass
+httpd.server_close()
+sys.exit(0)

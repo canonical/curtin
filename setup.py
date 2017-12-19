@@ -1,8 +1,8 @@
-VERSION = '0.1.0'
-
 from distutils.core import setup
 from glob import glob
 import os
+
+VERSION = '0.1.0'
 
 
 def is_f(p):
@@ -22,7 +22,8 @@ setup(
         'curtin.deps',
         'curtin.commands',
         'curtin.net',
-        'curtin.reporter'
+        'curtin.reporter',
+        'curtin.reporter.legacy',
     ],
     scripts=glob('bin/*'),
     data_files=[

@@ -25,16 +25,25 @@ import subprocess
 import sys
 import tempfile
 
+from curtin import block
 from curtin import config
 from curtin import util
 from curtin.log import LOG
-from curtin.reporter import (
-    INSTALL_LOG,
-    load_reporter,
-    clear_install_log,
-    writeline_install_log,
-    )
+from curtin.reporter.legacy import load_reporter
+from curtin.reporter import events
 from . import populate_one_subcmd
+
+INSTALL_LOG = "/var/log/curtin/install.log"
+
+STAGE_DESCRIPTIONS = {
+    'early': 'preparing for installation',
+    'partitioning': 'configuring storage',
+    'network': 'configuring network',
+    'extract': 'writing install sources to disk',
+    'curthooks': 'configuring installed system',
+    'hook': 'finalizing installation',
+    'late': 'executing late commands',
+}
 
 CONFIG_BUILTIN = {
     'sources': {},
@@ -47,14 +56,29 @@ CONFIG_BUILTIN = {
     'curthooks_commands': {'builtin': ['curtin', 'curthooks']},
     'late_commands': {'builtin': []},
     'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
+    'apply_net_commands': {'builtin': []},
+    'install': {'log_file': INSTALL_LOG},
 }
 
 
-class MyAppend(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        if getattr(namespace, self.dest, None) is None:
-            setattr(namespace, self.dest, [])
-        getattr(namespace, self.dest).append((option_string, values,))
+def clear_install_log(logfile):
+    """Clear the installation log, so no previous installation is present."""
+    util.ensure_dir(os.path.dirname(logfile))
+    try:
+        open(logfile, 'w').close()
+    except:
+        pass
+
+
+def writeline(fname, output):
+    """Write a line to a file."""
+    if not output.endswith('\n'):
+        output += '\n'
+    try:
+        with open(fname, 'a') as fp:
+            fp.write(output)
+    except IOError:
+        pass
 
 
 class WorkingDir(object):
@@ -66,6 +90,8 @@ class WorkingDir(object):
         for p in (state_d, target_d, scratch_d):
             os.mkdir(p)
 
+        netconf_f = os.path.join(state_d, 'network_config')
+        netstate_f = os.path.join(state_d, 'network_state')
         interfaces_f = os.path.join(state_d, 'interfaces')
         config_f = os.path.join(state_d, 'config')
         fstab_f = os.path.join(state_d, 'fstab')
@@ -74,7 +100,7 @@ class WorkingDir(object):
             json.dump(config, fp)
 
         # just touch these files to make sure they exist
-        for f in (interfaces_f, config_f, fstab_f):
+        for f in (interfaces_f, config_f, fstab_f, netconf_f, netstate_f):
             with open(f, "ab") as fp:
                 pass
 
@@ -82,6 +108,8 @@ class WorkingDir(object):
         self.target = target_d
         self.top = top_d
         self.interfaces = interfaces_f
+        self.netconf = netconf_f
+        self.netstate = netstate_f
         self.fstab = fstab_f
         self.config = config
         self.config_file = config_f
@@ -89,26 +117,39 @@ class WorkingDir(object):
     def env(self):
         return ({'WORKING_DIR': self.scratch, 'OUTPUT_FSTAB': self.fstab,
                  'OUTPUT_INTERFACES': self.interfaces,
+                 'OUTPUT_NETWORK_CONFIG': self.netconf,
+                 'OUTPUT_NETWORK_STATE': self.netstate,
                  'TARGET_MOUNT_POINT': self.target,
                  'CONFIG': self.config_file})
 
 
 class Stage(object):
 
-    def __init__(self, name, commands, env):
+    def __init__(self, name, commands, env, reportstack=None, logfile=None):
         self.name = name
         self.commands = commands
         self.env = env
-        self.install_log = self.open_install_log()
+        if logfile is None:
+            logfile = INSTALL_LOG
+        self.install_log = self._open_install_log(logfile)
+
         if hasattr(sys.stdout, 'buffer'):
             self.write_stdout = self._write_stdout3
         else:
             self.write_stdout = self._write_stdout2
 
-    def open_install_log(self):
+        if reportstack is None:
+            reportstack = events.ReportEventStack(
+                name="stage-%s" % name, description="basic stage %s" % name,
+                reporting_enabled=False)
+        self.reportstack = reportstack
+
+    def _open_install_log(self, logfile):
         """Open the install log."""
+        if not logfile:
+            return None
         try:
-            return open(INSTALL_LOG, 'ab')
+            return open(logfile, 'ab')
         except IOError:
             return None
 
@@ -132,31 +173,39 @@ class Stage(object):
             cmd = self.commands[cmdname]
             if not cmd:
                 continue
+            cur_res = events.ReportEventStack(
+                name=cmdname, description="running '%s'" % cmdname,
+                parent=self.reportstack)
+
+            env = self.env.copy()
+            env['CURTIN_REPORTSTACK'] = cur_res.fullname
+
             shell = not isinstance(cmd, list)
             with util.LogTimer(LOG.debug, cmdname):
-                try:
-                    sp = subprocess.Popen(
-                        cmd,
-                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                        env=self.env, shell=shell)
-                except OSError as e:
-                    LOG.warn("%s command failed", cmdname)
-                    raise util.ProcessExecutionError(cmd=cmd, reason=e)
+                with cur_res:
+                    try:
+                        sp = subprocess.Popen(
+                            cmd, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT,
+                            env=env, shell=shell)
+                    except OSError as e:
+                        LOG.warn("%s command failed", cmdname)
+                        raise util.ProcessExecutionError(cmd=cmd, reason=e)
 
-                output = b""
-                while True:
-                    data = sp.stdout.read(1)
-                    if not data and sp.poll() is not None:
-                        break
-                    self.write(data)
-                    output += data
+                    output = b""
+                    while True:
+                        data = sp.stdout.read(1)
+                        if not data and sp.poll() is not None:
+                            break
+                        self.write(data)
+                        output += data
 
-                rc = sp.returncode
-                if rc != 0:
-                    LOG.warn("%s command failed", cmdname)
-                    raise util.ProcessExecutionError(
-                        stdout=output, stderr="",
-                        exit_code=rc, cmd=cmd)
+                    rc = sp.returncode
+                    if rc != 0:
+                        LOG.warn("%s command failed", cmdname)
+                        raise util.ProcessExecutionError(
+                            stdout=output, stderr="",
+                            exit_code=rc, cmd=cmd)
 
 
 def apply_power_state(pstate):
@@ -283,13 +332,8 @@ def apply_kexec(kexec, target):
 
 
 def cmd_install(args):
-    cfg = CONFIG_BUILTIN
-
-    for (flag, val) in args.cfgopts:
-        if flag in ('-c', '--config'):
-            config.merge_config_fp(cfg, val)
-        elif flag in ('--set'):
-            config.merge_cmdarg(cfg, val)
+    cfg = CONFIG_BUILTIN.copy()
+    config.merge_config(cfg, args.config)
 
     for source in args.source:
         src = util.sanitize_source(source)
@@ -306,10 +350,17 @@ def cmd_install(args):
     if cfg.get('http_proxy'):
         os.environ['http_proxy'] = cfg['http_proxy']
 
-    # Load MAAS reporter
-    clear_install_log()
-    maas_reporter = load_reporter(cfg)
+    instcfg = cfg.get('install', {})
+    logfile = instcfg.get('log_file')
+    post_files = instcfg.get('post_files', [logfile])
 
+    # Load reporter
+    clear_install_log(logfile)
+    post_files = cfg.get('post_files', [logfile])
+    legacy_reporter = load_reporter(cfg)
+    legacy_reporter.files = post_files
+
+    args.reportstack.post_files = post_files
     try:
         dd_images = util.get_dd_images(cfg.get('sources', {}))
         if len(dd_images) > 1:
@@ -321,39 +372,57 @@ def cmd_install(args):
         env.update(workingd.env())
 
         for name in cfg.get('stages'):
-            commands_name = '%s_commands' % name
-            with util.LogTimer(LOG.debug, 'stage_%s' % name):
-                stage = Stage(name, cfg.get(commands_name, {}), env)
-                stage.run()
+            desc = STAGE_DESCRIPTIONS.get(name, "stage %s" % name)
+            reportstack = events.ReportEventStack(
+                "stage-%s" % name, description=desc,
+                parent=args.reportstack)
+            env['CURTIN_REPORTSTACK'] = reportstack.fullname
+
+            with reportstack:
+                commands_name = '%s_commands' % name
+                with util.LogTimer(LOG.debug, 'stage_%s' % name):
+                    stage = Stage(name, cfg.get(commands_name, {}), env,
+                                  reportstack=reportstack, logfile=logfile)
+                    stage.run()
 
         if apply_kexec(cfg.get('kexec'), workingd.target):
             cfg['power_state'] = {'mode': 'reboot', 'delay': 'now',
                                   'message': "'rebooting with kexec'"}
 
-        writeline_install_log("Installation finished.")
-        maas_reporter.report_success()
+        writeline(logfile, "Installation finished.")
+        legacy_reporter.report_success()
     except Exception as e:
         exp_msg = "Installation failed with exception: %s" % e
-        writeline_install_log(exp_msg)
+        writeline(logfile, exp_msg)
         LOG.error(exp_msg)
-        maas_reporter.report_failure(exp_msg)
+        legacy_reporter.report_failure(exp_msg)
+        raise e
     finally:
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))
-        if util.is_mounted(workingd.target, 'boot'):
-            util.do_umount(os.path.join(workingd.target, 'boot'))
+        mounted = block.get_mountpoints()
+        mounted.sort(key=lambda x: -1 * x.count("/"))
+        for d in filter(lambda x: workingd.target in x, mounted):
+            util.do_umount(d)
         util.do_umount(workingd.target)
         shutil.rmtree(workingd.top)
 
     apply_power_state(cfg.get('power_state'))
 
+    sys.exit(0)
 
+
+# we explicitly accept config on install for backwards compatibility
 CMD_ARGUMENTS = (
     ((('-c', '--config'),
-      {'help': 'read configuration from cfg', 'action': MyAppend,
+      {'help': 'read configuration from cfg', 'action': util.MergedCmdAppend,
        'metavar': 'FILE', 'type': argparse.FileType("rb"),
        'dest': 'cfgopts', 'default': []}),
-     ('--set', {'help': 'define a config variable', 'action': MyAppend,
+     ('--set', {'action': util.MergedCmdAppend,
+                'help': ('define a config variable. key can be a "/" '
+                         'delimited path ("early_commands/cmd1=a"). if '
+                         'key starts with "json:" then val is loaded as '
+                         'json (json:stages="[\'early\']")'),
                 'metavar': 'key=val', 'dest': 'cfgopts'}),
      ('source', {'help': 'what to install', 'nargs': '*'}),
      )
