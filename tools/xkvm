@@ -572,12 +572,12 @@ main() {
 
     if [ $need_taps -ne 0 ]; then
         local missing="" missing_pkgs="" reqs="" req="" pkgs="" pkg=""
-        for i in "${connections[*]}"; do
-            [ "$i" = "user" -o -e "/sys/class/net/dev/$i" ] ||
+        for i in "${connections[@]}"; do
+            [ "$i" = "user" -o -e "/sys/class/net/$i" ] ||
                 missing="${missing} $i"
         done
         [ -z "$missing" ] || {
-            error "cannot create connection on ${missing# }."
+            error "cannot create connection on: ${missing# }."
             error "bridges do not exist.";
             return 1;
         }

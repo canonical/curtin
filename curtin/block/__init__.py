@@ -120,7 +120,7 @@ def partition_kname(disk_kname, partition_number):
     """
     Add number to disk_kname prepending a 'p' if needed
     """
-    for dev_type in ['nvme', 'mmcblk', 'cciss', 'mpath', 'dm']:
+    for dev_type in ['nvme', 'mmcblk', 'cciss', 'mpath', 'dm', 'md']:
         if disk_kname.startswith(dev_type):
             partition_number = "p%s" % partition_number
             break

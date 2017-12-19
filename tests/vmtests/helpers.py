@@ -67,6 +67,7 @@ class Command(object):
 
         return 0
 
+
 try:
     TimeoutExpired = subprocess.TimeoutExpired
 except AttributeError:
@@ -99,10 +100,13 @@ def check_call(cmd, signal=signal.SIGTERM, **kwargs):
     return Command(cmd, signal).run(**kwargs)
 
 
-def find_releases():
-    """Return a sorted list of releases defined in test cases."""
-    # Use the TestLoader to load all tests cases defined within
-    # tests/vmtests/ and figure out which releases they are testing.
+def find_releases_by_distro():
+    """
+    Returns a dictionary of distros and the distro releases that will be tested
+    """
+    # Use the TestLoder to load all test cases defined within tests/vmtests/
+    # and figure out what distros and releases they are testing. Any tests
+    # which are disabled will be excluded.
     loader = TestLoader()
     # dir with the vmtest modules (i.e. tests/vmtests/)
     tests_dir = os.path.dirname(__file__)
@@ -110,13 +114,21 @@ def find_releases():
     root_dir = os.path.split(os.path.split(tests_dir)[0])[0]
     # Find all test modules defined in curtin/tests/vmtests/
     module_test_suites = loader.discover(tests_dir, top_level_dir=root_dir)
-    releases = set()
+    # find all distros and releases tested for each distro
+    distros = {}
     for mts in module_test_suites:
         for class_test_suite in mts:
             for test_case in class_test_suite:
-                if getattr(test_case, 'release', ''):
-                    releases.add(getattr(test_case, 'release'))
-    return sorted(releases)
+                # skip disabled tests
+                if not getattr(test_case, '__test__', False):
+                    continue
+                for (dist, rel) in (
+                        (getattr(test_case, a, None) for a in attrs)
+                        for attrs in (('distro', 'release'),
+                                      ('target_distro', 'target_release'))):
+                    if dist and rel:
+                        distros[dist] = distros.get(dist, set()).union((rel,))
+    return {k: sorted(v) for (k, v) in distros.items()}
 
 
 def _parse_ip_a(ip_a):
