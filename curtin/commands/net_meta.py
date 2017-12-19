@@ -17,8 +17,11 @@
 
 import argparse
 import os
+import shutil
 import sys
 
+from curtin import config
+from curtin.log import LOG
 from curtin import net
 
 from . import populate_one_subcmd
@@ -51,18 +54,7 @@ def resolve_alias(alias):
         raise ValueError("'%s' is not an alias: %s", alias, DEVNAME_ALIASES)
 
 
-def net_meta(args):
-    #    curtin net-meta --devices connected dhcp
-    #    curtin net-meta --devices configured dhcp
-    #    curtin net-meta --devices netboot dhcp
-
-    devices = []
-    for dev in args.devices:
-        if dev in DEVNAME_ALIASES:
-            devices += resolve_alias(dev)
-        else:
-            devices.append(dev)
-
+def interfaces_basic_dhcp(devices):
     content = '\n'.join(
         [("# This file describes the network interfaces available on "
          "your system"),
@@ -76,6 +68,72 @@ def net_meta(args):
     for d in devices:
         content += '\n'.join(("", "", "auth %s" % d,
                               "iface %s inet dhcp" % d,))
+    content += "\n"
+
+    return content
+
+
+def restore_dist_interfaces(cfg, target):
+    eni = os.path.sep.join([target, 'etc/network/interfaces'])
+    if not cfg.get('restore_dist_interfaces', True):
+        return
+
+    if (os.path.exists(eni + ".dist") and
+            os.path.realpath(eni).startswith("/run/")):
+
+        LOG.debug("restoring dist interfaces, existing link pointed to /run")
+        shutil.move(eni, eni + ".old")
+        shutil.move(eni + ".dist", eni)
+
+
+def net_meta(args):
+    #    curtin net-meta --devices connected dhcp
+    #    curtin net-meta --devices configured dhcp
+    #    curtin net-meta --devices netboot dhcp
+
+    eni = "etc/network/interfaces"
+    if args.mode == "auto":
+        if not args.devices:
+            args.devices = ["connected"]
+
+        t_eni = None
+        if args.target:
+            t_eni = os.path.sep.join((args.target, eni,))
+            if not os.path.isfile(t_eni):
+                t_eni = None
+
+        if t_eni:
+            args.mode = "copy"
+        else:
+            args.mode = "dhcp"
+
+    devices = []
+    if args.devices:
+        for dev in args.devices:
+            if dev in DEVNAME_ALIASES:
+                devices += resolve_alias(dev)
+            else:
+                devices.append(dev)
+
+    if args.config is not None:
+        cfg_file = args.config
+        cfg = config.load_config(cfg_file)
+    else:
+        cfg_file = None
+        cfg = {}
+
+    if args.mode == "copy":
+        if not args.target:
+            raise argparse.ArgumentTypeError("mode 'copy' requires --target")
+
+        restore_dist_interfaces(cfg, args.target)
+
+        t_eni = os.path.sep.join((args.target, "etc/network/interfaces",))
+        with open(t_eni, "r") as fp:
+            content = fp.read()
+
+    elif args.mode == "dhcp":
+        content = interfaces_basic_dhcp(devices)
 
     if args.output == "-":
         sys.stdout.write(content)
@@ -89,10 +147,18 @@ CMD_ARGUMENTS = (
       {'help': 'which devices to operate on', 'action': 'append',
        'metavar': 'DEVICE', 'type': network_device}),
      (('-o', '--output'),
-      {'help': 'file to write to. defaults to env["INTERFACES"] or "-"',
+      {'help': 'file to write to. defaults to env["OUTPUT_INTERFACES"] or "-"',
        'metavar': 'IFILE', 'action': 'store',
-       'default': os.environ.get('INTERFACES', "-")}),
-     ('mode', {'help': 'meta-mode to use', 'choices': ['dhcp']})
+       'default': os.environ.get('OUTPUT_INTERFACES', "-")}),
+     (('-c', '--config'),
+      {'help': 'operate on config. default is env[CONFIG]',
+       'action': 'store', 'metavar': 'CONFIG', 'default': None}),
+     (('-t', '--target'),
+      {'help': 'operate on target. default is env[TARGET_MOUNT_POINT]',
+       'action': 'store', 'metavar': 'TARGET',
+       'default': os.environ.get('TARGET_MOUNT_POINT')}),
+     ('mode', {'help': 'meta-mode to use',
+               'choices': ['dhcp', 'copy', 'auto']})
      )
 )
 

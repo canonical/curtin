@@ -18,6 +18,7 @@
 import argparse
 import json
 import os
+import re
 import shutil
 import tempfile
 
@@ -36,6 +37,7 @@ CONFIG_BUILTIN = {
     'partitioning_commands': {'builtin': ['curtin', 'block-meta', 'simple']},
     'curthooks_commands': {'builtin': ['curtin', 'curthooks']},
     'late_commands': {'builtin': []},
+    'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
 }
 
 
@@ -102,6 +104,61 @@ class Stage(object):
                     raise
 
 
+def apply_power_state(pstate):
+    # power_state:
+    #  delay: 5
+    #  mode: poweroff
+    #  message: Bye Bye
+    cmd = load_power_state(pstate)
+    if not cmd:
+        return
+
+    LOG.info("powering off with %s", cmd)
+    fid = os.fork()
+    if fid == 0:
+        try:
+            util.subp(cmd)
+            os._exit(0)
+        except:
+            LOG.warn("%s returned non-zero" % cmd)
+            os._exit(1)
+    return
+
+
+def load_power_state(pstate):
+    # returns a command to reboot the system if power_state should.
+    if pstate is None:
+        return None
+
+    if not isinstance(pstate, dict):
+        raise TypeError("power_state is not a dict.")
+
+    opt_map = {'halt': '-H', 'poweroff': '-P', 'reboot': '-r'}
+
+    mode = pstate.get("mode")
+    if mode not in opt_map:
+        raise TypeError("power_state[mode] required, must be one of: %s." %
+                        ','.join(opt_map.keys()))
+
+    delay = pstate.get("delay", "5")
+    if delay == "now":
+        delay = "0"
+    elif re.match(r"\+[0-9]+", str(delay)):
+        delay = "%sm" % delay[1:]
+    else:
+        delay = str(delay)
+
+    args = ["shutdown", opt_map[mode], "now"]
+    if pstate.get("message"):
+        args.append(pstate.get("message"))
+
+    shcmd = ('sleep "$1" && shift; '
+             '[ -f /run/block-curtin-poweroff ] && exit 0; '
+             'exec "$@"')
+
+    return (['sh', '-c', shcmd, 'curtin-poweroff', delay] + args)
+
+
 def cmd_install(args):
     cfg = CONFIG_BUILTIN
 
@@ -139,6 +196,8 @@ def cmd_install(args):
             util.do_umount(os.path.join(workingd.target, d))
         util.do_umount(workingd.target)
         shutil.rmtree(workingd.top)
+
+    apply_power_state(cfg.get('power_state'))
 
     LOG.info("Finished installation")
     print("Installation finished")

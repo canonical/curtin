@@ -42,3 +42,98 @@ partition() {
         { error "no partition found ${target}1"; return 1; }
     wipefs --all "${target}1"
 }
+
+is_md() {
+    case "${1##*/}" in
+        md[0-9]) return 0;;
+    esac
+    return 1
+}
+
+install_grub() {
+    local mp="$1"
+    local cmdline tmp r=""
+    shift
+    local grubdevs
+    grubdevs=( "$@" )
+    
+    tmp=$(chroot "$mp" dpkg-query --show \
+        --showformat='${Status}\n' grub-pc)
+    r=$?
+    if [ $r -ne 0 -a $r -ne 1 ]; then
+        error "failed to check if grub-pc installed";
+        return 1;
+    fi
+    case "$tmp" in
+        install\ ok\ installed) :;;
+        *) debug 1 "grub-pc not installed, not doing anything";
+            return 0;;
+    esac
+
+    # copy anything after '--' on cmdline to install'd cmdline
+    read cmdline < /proc/cmdline
+    local reconf="" newargs=""
+
+    tmp="${cmdline##* -- }"
+    if [ "$tmp" != "$cmdline" ]; then
+        # there was an explicit '--', so copy stuff after it
+        newargs="$tmp"
+    elif [ "${cmdline#* console=}" != "${cmdline}" ]; then
+        # there are 'console=' params, copy those.
+        newargs=$(set -f; c=""; for p in $cmdline; do
+            [ "${p#console}" = "$p" ] || c="$c $p"; done; echo "${c# }")
+    fi
+
+    if [ -n "$newargs" ]; then
+        local n="GRUB_CMDLINE_LINUX_DEFAULT"
+        local sede="s|$n=.*|$n=\"$newargs\"|"
+        sed -i "$sede" "$mp/etc/default/grub" ||
+            { error "failed to update /etc/default/grub"; return 1; }
+        grep "$n" "$mp/etc/default/grub"
+        reconf="dpkg-reconfigure grub-pc"
+        debug 1 "updating cmdline to '${newargs}'"
+
+        # LP: #1179940 . this fix was applied to raring, which
+        # made changes above not stick.  This might not be the best
+        # way to handle this, but we'll do it for now.
+        local cicfg="etc/default/grub.d/50-cloudimg-settings.cfg"
+        if [ -f "$mp/$cicfg" ]; then
+            debug 1 "moved $cicfg out of the way"
+            mv "$mp/$cicfg" "$mp/$cicfg.disabled"
+        fi
+    fi
+
+    local short="" bd="" grubdev grubdevs_new=""
+    grubdevs_new=()
+    for grubdev in "${grubdevs[@]}"; do
+        if is_md "$grubdev"; then
+            short=${grubdev##*/}
+            for bd in "/sys/block/$short/slaves/"/*; do
+                [ -d "$bd" ] || continue
+                bd=${bd##*/}
+                bd="/dev/${bd%[0-9]}" # hack: part2bd
+                grubdevs_new[${#grubdevs_new[@]}]="$bd"
+            done
+        else
+            grubdevs_new[${#grubdevs_new[@]}]="$grubdev"
+        fi
+    done
+    grubdevs=( "${grubdevs_new[@]}" )
+
+    debug 1 "installing grub to: ${grubdevs[*]}"
+    chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
+        reconf=$1; shift;
+        prober="/etc/grub.d/30_os-prober"
+        [ -x $prober ] && chmod -x /etc/grub.d/30_os-prober
+        if [ -z "$reconf" ]; then
+            $reconf
+        else
+            update-grub
+        fi
+        [ -f $prober ] && chmod +x $prober
+        for d in "$@"; do grub-install "$d" || exit; done' \
+        -- "$reconf" "${grubdevs[@]}" </dev/null ||
+        { error "failed to install grub!"; return 1; }
+}
+
+# vi: ts=4 expandtab syntax=shell
