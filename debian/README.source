@@ -10,6 +10,6 @@ To pull a new upstream snapshot, given lp:curtin in ../trunk:
  t=../curtin_${version}.orig.tar.gz && [ -f $t ] && tarball=$t
  [ -f "$t" ] || bzr export --format=tgz --revision=${revno} "$tarball" "${trunk}"
  bzr merge-upstream "$tarball" --version=${version}
- ( cd "$trunk" && bzr log -r $(($prevno+1)).. ) > new-changes.log
+ ( cd "$trunk" && bzr log -r $(($prevno+1))..${revno} ) > new-changes.log
 
 Then, edit changelog and look at entries in 'new-changes.log'.

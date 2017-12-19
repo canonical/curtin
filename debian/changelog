@@ -1,3 +1,21 @@
+curtin (0.1.0~bzr275-0ubuntu1) wily; urgency=medium
+
+  * debian/README.source: tweak to doc on how to generate snapshot
+  * New upstream snapshot.
+    * add advanced storage layout
+    * add advanced networking configuration
+    * add 'vmtest' framework for automated test.
+    * add 'tox' for unit testing
+    * add reporting framework for reporting status events to MAAS or other
+      webhook listener.
+    * enable configuring of verbosity and stacktrace info in config as opposed
+      to command line only
+    * faster swap creation using fallocate (LP: #1482994)
+    * support specifying kernel without 'mapping' in config
+    * add 'system-upgrade' command and config for enabling upgrading the target
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 02 Oct 2015 16:19:07 -0400
+
 curtin (0.1.0~bzr227-0ubuntu1) wily; urgency=medium
 
   * New upstream snapshot.
