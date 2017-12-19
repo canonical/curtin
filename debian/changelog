@@ -1,3 +1,11 @@
+curtin (0.1.0~bzr94-0ubuntu1) saucy-proposed; urgency=low
+
+  * New upstream snapshot.
+    * fix bug where /usr/sbin/policy-rc.d was not being removed after
+      being utilized during installation to disable daemons. (LP: #1238915)
+
+ -- Scott Moser <smoser@ubuntu.com>  Tue, 15 Oct 2013 14:45:16 -0400
+
 curtin (0.1.0~bzr93-0ubuntu1) saucy; urgency=low
 
   * New upstream snapshot.
