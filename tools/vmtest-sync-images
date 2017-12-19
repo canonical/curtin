@@ -12,10 +12,14 @@ sys.path.insert(1, os.path.realpath(os.path.join(
 from tests.vmtests import (
     IMAGE_DIR, IMAGE_SRC_URL, sync_images)
 from tests.vmtests.image_sync import ITEM_NAME_FILTERS
-from tests.vmtests.helpers import find_releases
+from tests.vmtests.helpers import find_releases_by_distro
 from curtin.util import get_platform_arch
 
 DEFAULT_ARCH = get_platform_arch()
+
+
+def _fmt_list_filter(filter_name, matches):
+    return '~'.join((filter_name, '|'.join(matches)))
 
 
 if __name__ == '__main__':
@@ -35,11 +39,16 @@ if __name__ == '__main__':
                         os.unlink(fpath)
 
     arg_releases = [r for r in sys.argv[1:] if r != "--clean"]
+    arch_filters = ['arch={}'.format(DEFAULT_ARCH)]
+    filter_sets = []
     if len(arg_releases):
-        releases = arg_releases
+        filter_sets.append([_fmt_list_filter('release', arg_releases)])
     else:
-        releases = find_releases()
-    release_filter = 'release~{}'.format('|'.join(releases))
-    my_filters = ['arch=' + DEFAULT_ARCH, release_filter] + ITEM_NAME_FILTERS
+        filter_sets.extend(
+            (['os={}'.format(distro), _fmt_list_filter('release', rels)]
+             for (distro, rels) in find_releases_by_distro().items()))
+
     # Sync images.
-    sync_images(IMAGE_SRC_URL, IMAGE_DIR, filters=my_filters, verbosity=1)
+    for filter_set in filter_sets:
+        sync_images(IMAGE_SRC_URL, IMAGE_DIR, verbosity=1,
+                    filters=filter_set + ITEM_NAME_FILTERS + arch_filters)

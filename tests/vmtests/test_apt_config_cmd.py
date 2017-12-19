@@ -53,3 +53,7 @@ class XenialTestAptConfigCMDCMD(relbase.xenial, TestAptConfigCMD):
         apt feature Test for Xenial using the standalone command
     """
     __test__ = True
+
+
+class YakketyTestAptConfigCMDCMD(relbase.yakkety, TestAptConfigCMD):
+    __test__ = True

@@ -1,0 +1,13 @@
+#!/bin/sh -e
+# Return the list of packages flash-kernel requires for this machine if
+# supported. If not supported return a non-zero return code.
+
+FK_DIR=/usr/share/flash-kernel
+. ${FK_DIR}/functions
+
+machine="$(get_cpuinfo_hardware)"
+check_supported "${machine}"
+# get_machine_field gives a non-zero return code when no additional packages
+# are required. Ignore it so the script succeeds allowing just flash-kernel to
+# be installed in the target.
+get_machine_field "${machine}" "Required-Packages" ||:

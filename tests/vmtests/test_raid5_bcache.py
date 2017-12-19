@@ -91,7 +91,8 @@ class TrustyHWEWTestRaid5Bcache(relbase.trusty_hwe_w, TrustyTestRaid5Bcache):
 
 
 class WilyTestRaid5Bcache(relbase.wily, TestMdadmBcacheAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestRaid5Bcache(relbase.xenial, TestMdadmBcacheAbs):

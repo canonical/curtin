@@ -182,6 +182,45 @@ class YakketyTestMirrorboot(relbase.yakkety, TestMirrorbootAbs):
     __test__ = True
 
 
+class TestMirrorbootPartitionsAbs(TestMdadmAbs):
+    # alternative config for more complex setup
+    conf_file = "examples/tests/mirrorboot-msdos-partition.yaml"
+    # initialize secondary disk
+    extra_disks = ['10G']
+    disk_to_check = [('main_disk', 1),
+                     ('second_disk', 1),
+                     ('md0', 2)]
+
+
+class TrustyTestMirrorbootPartitions(relbase.trusty,
+                                     TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+    # FIXME(LP: #1523037): dname does not work on trusty
+    # when dname works on trusty, then we need to re-enable by removing line.
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
+
+    def test_ptable(self):
+        print("test_ptable does not work for Trusty")
+
+
+class TrustyHWEUTestMirrorbootPartitions(relbase.trusty_hwe_u,
+                                         TrustyTestMirrorbootPartitions):
+    # This tests kernel upgrade in target
+    __test__ = True
+
+
+class XenialTestMirrorbootPartitions(relbase.xenial,
+                                     TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
+class YakketyTestMirrorbootPartitions(relbase.yakkety,
+                                      TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"

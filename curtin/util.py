@@ -45,6 +45,12 @@ try:
 except NameError:
     string_types = (str,)
 
+try:
+    numeric_types = (int, float, long)
+except NameError:
+    # python3 does not have a long type.
+    numeric_types = (int, float)
+
 from .log import LOG
 
 _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
@@ -871,14 +877,17 @@ def human2bytes(size):
 
 def bytes2human(size):
     """convert size in bytes to human readable"""
-    if not (isinstance(size, (int, float)) and
-            int(size) == size and
-            int(size) >= 0):
-        raise ValueError('size must be a integral value')
+    if not isinstance(size, numeric_types):
+        raise ValueError('size must be a numeric value, not %s', type(size))
+    isize = int(size)
+    if isize != size:
+        raise ValueError('size "%s" is not a whole number.' % size)
+    if isize < 0:
+        raise ValueError('size "%d" < 0.' % isize)
     mpliers = {'B': 1, 'K': 2 ** 10, 'M': 2 ** 20, 'G': 2 ** 30, 'T': 2 ** 40}
     unit_order = sorted(mpliers, key=lambda x: -1 * mpliers[x])
-    unit = next((u for u in unit_order if (size / mpliers[u]) >= 1), 'B')
-    return str(int(size / mpliers[unit])) + unit
+    unit = next((u for u in unit_order if (isize / mpliers[u]) >= 1), 'B')
+    return str(int(isize / mpliers[unit])) + unit
 
 
 def import_module(import_str):
