@@ -1,3 +1,25 @@
+curtin (0.1.0~bzr425-0ubuntu1) yakkety; urgency=medium
+
+  [ Scott Moser ]
+  * debian/new-upstream-snapshot: add writing of debian changelog entries. 
+
+  [ Ryan Harper ]
+  * New upstream snapshot.
+    - unittest,tox.ini: catch and fix issue with trusty-level mock of open 
+    - block/mdadm: add option to ignore mdadm_assemble errors  (LP: #1618429)
+    - curtin/doc: overhaul curtin documentation for readthedocs.org
+      (LP: #1351085)
+    - curtin.util: re-add support for RunInChroot  (LP: #1617375)
+    - curtin/net: overhaul of eni rendering to handle mixed ipv4/ipv6 configs 
+    - curtin.block: refactor clear_holders logic into block.clear_holders and
+      cli cmd 
+    - curtin.apply_net should exit non-zero upon exception.  (LP: #1615780)
+    - apt: fix bug in disable_suites if sources.list line is blank. 
+    - vmtests: disable Wily in vmtests 
+    - Fix the unittests for test_apt_source. 
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 29 Sep 2016 14:55:29 -0400
+
 curtin (0.1.0~bzr415-0ubuntu1) yakkety; urgency=medium
 
   * New upstream snapshot.
