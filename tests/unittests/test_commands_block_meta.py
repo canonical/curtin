@@ -130,6 +130,8 @@ class TestBlockMeta(CiTestCase):
                        'mock_clear_holders')
         self.add_patch('curtin.block.clear_holders.assert_clear',
                        'mock_assert_clear')
+        self.add_patch('curtin.block.zero_file_at_offsets',
+                       'mock_block_zero_file')
 
         self.target = "my_target"
         self.config = {
@@ -177,32 +179,26 @@ class TestBlockMeta(CiTestCase):
         self.mock_clear_holders.assert_called_with(disk)
         self.mock_assert_clear.assert_called_with(disk)
 
-    def test_partition_handler_calls_clear_holder(self):
+    def test_partition_handler_wipes_at_partition_offset(self):
+        """ Test wiping partition at offset prior to creating partition"""
         disk_info = self.storage_config.get('sda')
         part_info = self.storage_config.get('sda-part1')
         disk_kname = disk_info.get('path')
         part_kname = disk_kname + '1'
         self.mock_getpath.side_effect = iter([
-            disk_info.get('id'),
-            part_kname,
-            part_kname,
+            disk_kname,
             part_kname,
         ])
-
         self.mock_block_get_part_table_type.return_value = 'dos'
         kname = 'xxx'
         self.mock_block_path_to_kname.return_value = kname
         self.mock_block_sys_block_path.return_value = '/sys/class/block/xxx'
-        self.mock_subp.side_effect = iter([
-            ("", 0),  # parted mkpart
-            ("", 0),  # ??
-        ])
-        holders = ['md1']
-        self.mock_get_holders.return_value = holders
 
         block_meta.partition_handler(part_info, self.storage_config)
 
-        print("clear_holders: %s" % self.mock_clear_holders.call_args_list)
-        print("assert_clear: %s" % self.mock_assert_clear.call_args_list)
-        self.mock_clear_holders.assert_called_with(part_kname)
-        self.mock_assert_clear.assert_called_with(part_kname)
+        part_offset = 2048 * 512
+        self.mock_block_zero_file.assert_called_with(disk_kname, [part_offset],
+                                                     exclusive=False)
+        self.mock_subp.assert_called_with(['parted', disk_kname, '--script',
+                                           'mkpart', 'primary', '2048s',
+                                           '1001471s'], capture=True)

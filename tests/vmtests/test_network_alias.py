@@ -41,11 +41,6 @@ class Centos70TestNetworkAlias(centos_relbase.centos70fromxenial,
     __test__ = True
 
 
-class PreciseHWETTestNetworkAlias(relbase.precise_hwe_t, TestNetworkAliasAbs):
-    # FIXME: off due to hang at test: Starting execute cloud user/final scripts
-    __test__ = True
-
-
 class TrustyTestNetworkAlias(relbase.trusty, TestNetworkAliasAbs):
     __test__ = True
 

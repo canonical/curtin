@@ -12,13 +12,6 @@ class TestNetworkIPV6ENISource(TestNetworkENISource):
         pass
 
 
-class PreciseTestNetworkIPV6ENISource(relbase.precise,
-                                      TestNetworkIPV6ENISource):
-    __test__ = False
-    # not working, still debugging though; possible older ifupdown doesn't
-    # like the multiple iface method.
-
-
 class TrustyTestNetworkIPV6ENISource(relbase.trusty, TestNetworkIPV6ENISource):
     __test__ = True
 

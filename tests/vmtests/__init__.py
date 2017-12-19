@@ -699,9 +699,6 @@ class VMBaseClass(TestCase):
             logger.info('Detected centos, adding default config %s',
                         centos_default)
 
-        if cls.multipath:
-            disks = disks * cls.multipath_num_paths
-
         # set reporting logger
         cls.reporting_log = os.path.join(cls.td.logs, 'webhooks-events.json')
         reporting_logger = CaptureReporting(cls.reporting_log)
@@ -727,7 +724,7 @@ class VMBaseClass(TestCase):
                 }))
         configs.append(reporting_config)
 
-        cmd.extend(uefi_flags + netdevs + disks +
+        cmd.extend(uefi_flags + netdevs + cls.mpath_diskargs(disks) +
                    [ftypes['vmtest.root-image'], "--kernel=%s" %
                        ftypes['boot-kernel'], "--initrd=%s" %
                     ftypes['boot-initrd'], "--", "curtin", "-vv", "install"] +
@@ -825,11 +822,6 @@ class VMBaseClass(TestCase):
         # unlike NVMe disks, we do not want to configure the iSCSI disks
         # via KVM, which would use qemu's iSCSI target layer.
 
-        if cls.multipath:
-            target_disks = target_disks * cls.multipath_num_paths
-            extra_disks = extra_disks * cls.multipath_num_paths
-            nvme_disks = nvme_disks * cls.multipath_num_paths
-
         # output disk is always virtio-blk, with serial of output_disk.img
         output_disk = '--disk={},driver={},format={},{},{}'.format(
             cls.td.output_disk, 'virtio-blk',
@@ -840,11 +832,9 @@ class VMBaseClass(TestCase):
         # create xkvm cmd
         cmd = (["tools/xkvm", "-v", dowait] +
                uefi_flags + netdevs +
-               target_disks + extra_disks + nvme_disks +
-               ["--", "-drive",
-                "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
-                "-smp",  cls.get_config_smp(),
-                "-m", "1024"])
+               cls.mpath_diskargs(target_disks + extra_disks + nvme_disks) +
+               ["--disk=file=%s,if=virtio,media=cdrom" % cls.td.seed_disk] +
+               ["--", "-smp",  cls.get_config_smp(), "-m", "1024"])
 
         if not cls.interactive:
             if cls.arch == 's390x':
@@ -1006,6 +996,15 @@ class VMBaseClass(TestCase):
         # return a full path to the collected file
         # prepending ./ makes '/root/file' or 'root/file' work as expected.
         return os.path.normpath(os.path.join(cls.td.collect, "./" + path))
+
+    @classmethod
+    def mpath_diskargs(cls, disks):
+        """make multipath versions of --disk args in disks."""
+        if not cls.multipath:
+            return disks
+        opt = ",file.locking=off"
+        return ([d if d == "--disk" else d + opt for d in disks] *
+                cls.multipath_num_paths)
 
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
@@ -1459,7 +1458,7 @@ def tar_disks(tmpdir, outfile="disks.tar", diskmatch=".img"):
         logger.info('Taring %s disks sparsely to %s', len(disks), outfile)
         util.subp(cmd, capture=True)
     else:
-        logger.error('Failed to find "disks" dir under tmpdir: %s', tmpdir)
+        logger.debug('No "disks" dir found in tmpdir: %s', tmpdir)
 
 
 def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):

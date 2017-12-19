@@ -155,11 +155,6 @@ class CentosTestNetworkMtuAbs(TestNetworkMtuAbs):
         pass
 
 
-class PreciseHWETTestNetworkMtu(relbase.precise_hwe_t, TestNetworkMtuAbs):
-    # FIXME: Precise mtu / ipv6 is buggy
-    __test__ = False
-
-
 class TrustyTestNetworkMtu(relbase.trusty, TestNetworkMtuAbs):
     __test__ = True
 
@@ -203,7 +198,7 @@ class ArtfulTestNetworkMtu(relbase.artful, TestNetworkMtuAbs):
     @classmethod
     def setUpClass(cls):
         cls.skip_by_date(cls.__name__, cls.release, "1671951",
-                         fixby=(2017, 10, 20), removeby=(2018, 1, 23))
+                         fixby=(2018, 1, 20), removeby=(2018, 2, 23))
         super().setUpClass()
 
 

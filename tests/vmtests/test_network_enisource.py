@@ -79,12 +79,6 @@ class TestNetworkENISource(TestNetworkBaseTestsAbs):
         self.assertEqual(_nocidr(expected_address), _nocidr(actual_address))
 
 
-class PreciseTestNetworkENISource(relbase.precise, TestNetworkENISource):
-    __test__ = False
-    # not working, still debugging though; possible older ifupdown doesn't
-    # like the multiple iface method.
-
-
 class TrustyTestNetworkENISource(relbase.trusty, TestNetworkENISource):
     __test__ = True
 
