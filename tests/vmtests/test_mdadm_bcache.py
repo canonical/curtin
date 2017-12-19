@@ -413,6 +413,9 @@ class TestAllindataAbs(TestMdadmAbs):
     # we have to avoid a systemd hang due to the way it handles dmcrypt
     extra_kern_args = "--- luks=no"
     active_mdadm = "4"
+    # running in dirty mode catches some race/errors with mdadm_stop
+    nr_cpus = 2
+    dirty_disks = True
     # initialize secondary disk
     extra_disks = ['5G', '5G', '5G']
     disk_to_check = [('main_disk', 1),

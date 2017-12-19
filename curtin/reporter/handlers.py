@@ -80,7 +80,49 @@ class WebHookHandler(ReportingHandler):
             LOG.warn("failed posting event: %s [%s]" % (event.as_string(), e))
 
 
+class JournaldHandler(ReportingHandler):
+
+    def __init__(self, level="DEBUG", identifier="curtin_event"):
+        super(JournaldHandler, self).__init__()
+        if isinstance(level, int):
+            pass
+        else:
+            input_level = level
+            try:
+                level = getattr(logging, level.upper())
+            except Exception:
+                LOG.warn("invalid level '%s', using WARN", input_level)
+                level = logging.WARN
+        self.level = level
+        self.identifier = identifier
+
+    def publish_event(self, event):
+        # Ubuntu older than precise will not have python-systemd installed.
+        try:
+            from systemd import journal
+        except ImportError:
+            raise
+        level = str(getattr(journal, "LOG_" + event.level, journal.LOG_DEBUG))
+        extra = {}
+        if hasattr(event, 'result'):
+            extra['CURTIN_RESULT'] = event.result
+        journal.send(
+            event.as_string(),
+            PRIORITY=level,
+            SYSLOG_IDENTIFIER=self.identifier,
+            CURTIN_EVENT_TYPE=event.event_type,
+            CURTIN_MESSAGE=event.description,
+            CURTIN_NAME=event.name,
+            **extra
+            )
+
+
 available_handlers = DictRegistry()
 available_handlers.register_item('log', LogHandler)
 available_handlers.register_item('print', PrintHandler)
 available_handlers.register_item('webhook', WebHookHandler)
+# only add journald handler on systemd systems
+try:
+    available_handlers.register_item('journald', JournaldHandler)
+except ImportError:
+    print('journald report handler not supported; no systemd module')

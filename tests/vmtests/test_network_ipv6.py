@@ -67,20 +67,9 @@ class TrustyHWEXTestNetworkIPV6(relbase.trusty_hwe_x, TrustyTestNetworkIPV6):
 class XenialTestNetworkIPV6(relbase.xenial, TestNetworkIPV6Abs):
     __test__ = True
 
-    @classmethod
-    def test_ip_output(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1701097",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
-
 
 class ZestyTestNetworkIPV6(relbase.zesty, TestNetworkIPV6Abs):
     __test__ = True
-
-    @classmethod
-    def setUpClass(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "ci-003c6678e",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
-        super().setUpClass()
 
 
 class ArtfulTestNetworkIPV6(relbase.artful, TestNetworkIPV6Abs):

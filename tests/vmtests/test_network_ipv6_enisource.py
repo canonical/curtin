@@ -31,25 +31,11 @@ class TrustyHWEXTestNetworkIPV6ENISource(relbase.trusty_hwe_x,
 class XenialTestNetworkIPV6ENISource(relbase.xenial, TestNetworkIPV6ENISource):
     __test__ = True
 
-    @classmethod
-    def test_ip_output(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1701097",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
-
 
 class ZestyTestNetworkIPV6ENISource(relbase.zesty, TestNetworkIPV6ENISource):
     __test__ = True
 
-    @classmethod
-    def test_ip_output(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1701097",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
 
-
+# Artful no longer has eni/ifupdown
 class ArtfulTestNetworkIPV6ENISource(relbase.artful, TestNetworkIPV6ENISource):
-    __test__ = True
-
-    @classmethod
-    def test_ip_output(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1701097",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+    __test__ = False

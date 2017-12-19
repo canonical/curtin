@@ -195,6 +195,15 @@ def target_nodes_directory(state, iscsi_disk):
     return target_nodes_location
 
 
+def restart_iscsi_service():
+    LOG.info('restarting iscsi service')
+    if util.uses_systemd():
+        cmd = ['systemctl', 'reload-or-restart', 'open-iscsi']
+    else:
+        cmd = ['service', 'open-iscsi', 'restart']
+    util.subp(cmd, capture=True)
+
+
 def save_iscsi_config(iscsi_disk):
     state = util.load_command_environment()
     # A nodes directory will be created in the same directory as the
@@ -238,11 +247,35 @@ def connected_disks():
     return _ISCSI_DISKS
 
 
+def get_iscsi_disks_from_config(cfg):
+    """Parse a curtin storage config and return a list
+       of iscsi disk objects for each configuration present
+    """
+    if not cfg:
+        cfg = {}
+
+    sconfig = cfg.get('storage', {}).get('config', {})
+    if not sconfig:
+        LOG.warning('Configuration dictionary did not contain'
+                    ' a storage configuration')
+        return []
+
+    # Construct IscsiDisk objects for each iscsi volume present
+    iscsi_disks = [IscsiDisk(disk['path']) for disk in sconfig
+                   if disk['type'] == 'disk' and
+                   disk.get('path', "").startswith('iscsi:')]
+    LOG.debug('Found %s iscsi disks in storage config', len(iscsi_disks))
+    return iscsi_disks
+
+
 def disconnect_target_disks(target_root_path=None):
     target_nodes_path = util.target_path(target_root_path, '/etc/iscsi/nodes')
     fails = []
     if os.path.isdir(target_nodes_path):
         for target in os.listdir(target_nodes_path):
+            if target not in iscsiadm_sessions():
+                LOG.debug('iscsi target %s not active, skipping', target)
+                continue
             # conn is "host,port,lun"
             for conn in os.listdir(
                             os.path.sep.join([target_nodes_path, target])):
@@ -254,7 +287,9 @@ def disconnect_target_disks(target_root_path=None):
                     fails.append(target)
                     LOG.warn("Unable to logout of iSCSI target %s: %s",
                              target, e)
-
+    else:
+        LOG.warning('Skipping disconnect: failed to find iscsi nodes path: %s',
+                    target_nodes_path)
     if fails:
         raise RuntimeError(
             "Unable to logout of iSCSI targets: %s" % ', '.join(fails))
@@ -414,9 +449,15 @@ class IscsiDisk(object):
 
     def disconnect(self):
         if self.target not in iscsiadm_sessions():
+            LOG.warning('Iscsi target %s not in active iscsi sessions',
+                        self.target)
             return
 
-        util.subp(['sync'])
-        iscsiadm_logout(self.target, self.portal)
+        try:
+            util.subp(['sync'])
+            iscsiadm_logout(self.target, self.portal)
+        except util.ProcessExecutionError as e:
+            LOG.warn("Unable to logout of iSCSI target %s from portal %s: %s",
+                     self.target, self.portal, e)
 
 # vi: ts=4 expandtab syntax=python

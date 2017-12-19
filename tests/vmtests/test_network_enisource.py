@@ -26,6 +26,8 @@ class TestNetworkENISource(TestNetworkBaseTestsAbs):
         This testcase then uses curtin.net.deb_parse_config method to
         extract information about what curtin wrote and compare that
         with what was actually configured (which we capture via ifconfig)
+
+        Note: This test is *not* valid for Artful as it has no ENI.
     """
 
     conf_file = "examples/tests/network_source.yaml"
@@ -97,8 +99,4 @@ class XenialTestNetworkENISource(relbase.xenial, TestNetworkENISource):
 
 
 class ZestyTestNetworkENISource(relbase.zesty, TestNetworkENISource):
-    __test__ = True
-
-
-class ArtfulTestNetworkENISource(relbase.artful, TestNetworkENISource):
     __test__ = True

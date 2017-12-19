@@ -3,6 +3,7 @@ from .releases import centos_base_vm_classes as centos_relbase
 from .test_network_ipv6 import TestNetworkIPV6Abs
 
 import textwrap
+import unittest
 
 
 class TestNetworkMtuAbs(TestNetworkIPV6Abs):
@@ -10,7 +11,7 @@ class TestNetworkMtuAbs(TestNetworkIPV6Abs):
 
     1.  devices default MTU to 1500, test if mtu under
         inet6 stanza can be set separately from device
-        mtu (works on Xenial and newer ifupdown), check
+        mtu (works on  and newer ifupdown), check
         via sysctl.
 
     2.  if ipv6 mtu is > than underlying device, this fails
@@ -133,30 +134,25 @@ class CentosTestNetworkMtuAbs(TestNetworkMtuAbs):
     def test_etc_resolvconf(self):
         pass
 
-    @classmethod
-    def test_ip_output(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+    @unittest.skip("Sysconfig does not support mixed v4/v6 MTU: LP:#1706973")
+    def test_ip_output(self):
+        pass
 
-    @classmethod
-    def test_ipv6_mtu_smaller_than_ipv4_v6_iface_first(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+    @unittest.skip("Sysconfig does not support mixed v4/v6 MTU: LP:#1706973")
+    def test_ipv6_mtu_smaller_than_ipv4_v6_iface_first(self):
+        pass
 
-    @classmethod
-    def test_ipv6_mtu_smaller_than_ipv4_non_default(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+    @unittest.skip("Sysconfig does not support mixed v4/v6 MTU: LP:#1706973")
+    def test_ipv6_mtu_smaller_than_ipv4_non_default(self):
+        pass
 
-    @classmethod
-    def test_ipv6_mtu_higher_than_default_no_ipv4_iface_up(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+    @unittest.skip("Sysconfig does not support mixed v4/v6 MTU: LP:#1706973")
+    def test_ipv6_mtu_higher_than_default_no_ipv4_iface_up(self):
+        pass
 
-    @classmethod
-    def test_ipv6_mtu_higher_than_default_no_ipv4_iface_v6_iface_first(cls):
-        cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
-                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+    @unittest.skip("Sysconfig does not support mixed v4/v6 MTU: LP:#1706973")
+    def test_ipv6_mtu_higher_than_default_no_ipv4_iface_v6_iface_first(self):
+        pass
 
 
 class PreciseHWETTestNetworkMtu(relbase.precise_hwe_t, TestNetworkMtuAbs):
@@ -193,7 +189,7 @@ class TrustyHWEXTestNetworkMtu(relbase.trusty_hwe_x, TrustyTestNetworkMtu):
     __test__ = True
 
 
-class XenialTestNetworkMtu(relbase.xenial, TestNetworkMtuAbs):
+class TestNetworkMtu(relbase.xenial, TestNetworkMtuAbs):
     __test__ = True
 
 
@@ -203,6 +199,12 @@ class ZestyTestNetworkMtu(relbase.zesty, TestNetworkMtuAbs):
 
 class ArtfulTestNetworkMtu(relbase.artful, TestNetworkMtuAbs):
     __test__ = True
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skip_by_date(cls.__name__, cls.release, "1671951",
+                         fixby=(2017, 10, 20), removeby=(2018, 1, 23))
+        super().setUpClass()
 
 
 class Centos66TestNetworkMtu(centos_relbase.centos66fromxenial,

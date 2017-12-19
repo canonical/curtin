@@ -477,9 +477,26 @@ def cmd_install(args):
                                       '/root/curtin-install.log')
         if log_target_path:
             copy_install_log(logfile, workingd.target, log_target_path)
+        # unmount everything (including iscsi disks)
         util.do_umount(workingd.target, recursive=True)
-        # need to do some processing on iscsi disks to disconnect?
-        iscsi.disconnect_target_disks(workingd.target)
+
+        # The open-iscsi service in the ephemeral environment handles
+        # disconnecting active sessions.  On Artful release the systemd
+        # unit file has conditionals that are not met at boot time and
+        # results in open-iscsi service not being started; This breaks
+        # shutdown on Artful releases.
+        # Additionally, in release < Artful, if the storage configuration
+        # is layered, like RAID over iscsi volumes, then disconnecting iscsi
+        # sessions before stopping the raid device hangs.
+        # As it turns out, letting the open-iscsi service take down the
+        # session last is the cleanest way to handle all releases regardless
+        # of what may be layered on top of the iscsi disks.
+        #
+        # Check if storage configuration has iscsi volumes and if so ensure
+        # iscsi service is active before exiting install
+        if iscsi.get_iscsi_disks_from_config(cfg):
+            iscsi.restart_iscsi_service()
+
         shutil.rmtree(workingd.top)
 
     apply_power_state(cfg.get('power_state'))

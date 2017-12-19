@@ -663,6 +663,8 @@ def detect_required_packages(cfg):
         found_reqs = mapped_config['handler'](cfg, mapped_config['mapping'])
         needed_packages.extend(found_reqs)
 
+    LOG.debug('Curtin config dependencies requires additional packages: %s',
+              needed_packages)
     return needed_packages
 
 
@@ -675,8 +677,8 @@ def install_missing_packages(cfg, target):
     '''
 
     installed_packages = util.get_installed_packages(target)
-    needed_packages = [pkg for pkg in detect_required_packages(cfg)
-                       if pkg not in installed_packages]
+    needed_packages = set([pkg for pkg in detect_required_packages(cfg)
+                           if pkg not in installed_packages])
 
     arch_packages = {
         's390x': [('s390-tools', 'zipl')],
@@ -685,16 +687,28 @@ def install_missing_packages(cfg, target):
     for pkg, cmd in arch_packages.get(platform.machine(), []):
         if not util.which(cmd, target=target):
             if pkg not in needed_packages:
-                needed_packages.append(pkg)
+                needed_packages.add(pkg)
+
+    # FIXME: This needs cleaning up.
+    # do not install certain packages on artful as they are no longer needed.
+    # ifenslave specifically causes issuse due to dependency on ifupdown.
+    codename = util.lsb_release(target=target).get('codename')
+    if codename == 'artful':
+        drops = set(['bridge-utils', 'ifenslave', 'vlan'])
+        if needed_packages.union(drops):
+            LOG.debug("Skipping install of %s.  Not needed on artful.",
+                      needed_packages.union(drops))
+            needed_packages = needed_packages.difference(drops)
 
     if needed_packages:
+        to_add = list(sorted(needed_packages))
         state = util.load_command_environment()
         with events.ReportEventStack(
                 name=state.get('report_stack_prefix'),
                 reporting_enabled=True, level="INFO",
                 description="Installing packages on target system: " +
-                str(needed_packages)):
-            util.install_packages(needed_packages, target=target)
+                str(to_add)):
+            util.install_packages(to_add, target=target)
 
 
 def system_upgrade(cfg, target):
