@@ -1,3 +1,12 @@
+curtin (0.1.0~bzr200-0ubuntu1) vivid; urgency=medium
+
+  * New upstream snapshot.
+    * support installation of vivid on vivid via python3 (LP: #1427950)
+    * know kernel mapping for vivid (3.19)
+  * debian/control: update standards versions, wrap-and-sort
+
+ -- Scott Moser <smoser@ubuntu.com>  Wed, 11 Mar 2015 13:19:43 -0400
+
 curtin (0.1.0~bzr196-0ubuntu1) vivid; urgency=medium
 
   * New upstream snapshot.
