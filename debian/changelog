@@ -1,3 +1,31 @@
+curtin (0.1.0~bzr385-0ubuntu1) yakkety; urgency=medium
+
+  * debian/control: drop python from curtin-common Depends.
+     remove unnecessary Depends on util-linux as it is essential.
+     python3-curtin, python-curtin: drop unnecessary 'curl' from Depends. 
+     python3-curtin, python-curtin: list oauthlib and yaml explicitly.
+
+  * New upstream snapshot.
+    * mdadm: resolve mdadm/bcache and trusty+hwe issues
+      (LP: #1569549, LP: #1514094)
+    * fix support for 4k disks (LP: #1436632, LP: #1564977)
+    * emit source /etc/network/interfaces.d/*.cfg in 
+      rendered /etc/network/interfaces
+    * net: introduce 'control' field to network configuration to allow
+      for declaring manual controlled interfaces
+    * disable cloud-init networking as curtin is the source of network config
+    * block: wipe_volume improvements
+    * reporter: enhance reporting events to include levels and
+      improve usefullness of messages
+    * network: add bonding tests and cleanup newline rendering
+    * block: fix partition path issue with nvme devices
+    * fix logic error in kernel installation
+    * block: add debug regarding raid modules being missing on mdadm create
+    * add s390x support to curtin and vmtest
+  
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 05 May 2016 13:36:30 -0400
+
 curtin (0.1.0~bzr365-0ubuntu1) xenial; urgency=medium
 
   * New upstream snapshot.
