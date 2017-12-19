@@ -48,8 +48,14 @@ def main(args=None):
 
     stacktrace = (os.environ.get('CURTIN_STACKTRACE', "0").lower()
                   not in ("0", "false", ""))
+
+    try:
+        verbosity = int(os.environ.get('CURTIN_VERBOSITY', "0"))
+    except ValueError:
+        verbosity = 1
+
     parser.add_argument('--showtrace', action='store_true', default=stacktrace)
-    parser.add_argument('--verbose', '-v', action='count', default=0)
+    parser.add_argument('--verbose', '-v', action='count', default=verbosity)
     parser.add_argument('--log-file', default=sys.stderr,
                         type=argparse.FileType('w'))
 
@@ -62,6 +68,9 @@ def main(args=None):
     # curtin calls get stacktraces.
     if args.showtrace and not stacktrace:
         os.environ['CURTIN_STACKTRACE'] = "1"
+
+    if args.verbose and not verbosity:
+        os.environ['CURTIN_VERBOSITY'] = args.verbose
 
     if not getattr(args, 'func', None):
         # http://bugs.python.org/issue16308

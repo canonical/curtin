@@ -38,7 +38,7 @@ CMD_ARGUMENTS = (
 def extract_root_tgz(source, target):
     curtin.util.subp(args=['sh', '-c',
                            ('wget "$1" --progress=dot:mega -O - |'
-                            'tar -C "$2" -Sxpzf -'),
+                            'tar -C "$2" -Sxpzf - --numeric-owner'),
                            '--', source, target])
 
 

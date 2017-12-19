@@ -15,6 +15,7 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+import glob
 import os
 import re
 import sys
@@ -110,6 +111,15 @@ def disable_overlayroot(cfg, target):
         shutil.move(local_conf, local_conf + ".old")
 
 
+def clean_cloud_init(target):
+    flist = glob.glob(
+        os.path.sep.join([target, "/etc/cloud/cloud.cfg.d/*dpkg*"]))
+
+    LOG.debug("cleaning cloud-init config from: %s" % flist)
+    for dpkg_cfg in flist:
+        os.unlink(dpkg_cfg)
+
+
 def apply_debconf_selections(cfg, target):
     # debconf_selections:
     #  set1: |
@@ -124,24 +134,46 @@ def apply_debconf_selections(cfg, target):
     # keep a running total of packages we've seen.
     pkgs_cfgd = set()
     for key, content in selsets.items():
+        LOG.debug("setting for %s, %s" % (key, content))
         util.subp(['chroot', target, 'debconf-set-selections'],
                   data=content.encode())
         for line in content.splitlines():
             if line.startswith("#"):
                 continue
-            pkg = re.sub(":.*", "", line)
+            pkg = re.sub(r"[:\s].*", "", line)
             pkgs_cfgd.add(pkg)
 
     pkgs_installed = get_installed_packages(target)
 
-    to_config = pkgs_cfgd.intersection(pkgs_installed)
+    LOG.debug("pkgs_cfgd: %s" % pkgs_cfgd)
+    LOG.debug("pkgs_installed: %s" % pkgs_installed)
+    need_reconfig = pkgs_cfgd.intersection(pkgs_installed)
 
-    if len(to_config) == 0:
-        LOG.debug("no need for dpkg-reconfigure")
+    if len(need_reconfig) == 0:
+        LOG.debug("no need for reconfig")
         return
 
-    LOG.debug("configuring packages %s", to_config)
-    util.subp(['dpkg-reconfigure', '--frontend=noninteractive'] +
+    # For any packages that are already installed, but have preseed data
+    # we populate the debconf database, but the filesystem configuration
+    # would be preferred on a subsequent dpkg-reconfigure.
+    # so, what we have to do is "know" information about certain packages
+    # to unconfigure them.
+    unhandled = []
+    to_config = []
+    for pkg in need_reconfig:
+        if pkg in CONFIG_CLEANERS:
+            LOG.debug("unconfiguring %s" % pkg)
+            CONFIG_CLEANERS[pkg](target)
+            to_config.append(pkg)
+        else:
+            unhandled.append(pkg)
+
+    if len(unhandled):
+        LOG.warn("The following packages were installed and preseeded, "
+                 "but cannot be unconfigured: %s", unhandled)
+
+    util.subp(['chroot', target, 'dpkg-reconfigure',
+               '--frontend=noninteractive'] +
               list(to_config), data=None)
 
 
@@ -175,7 +207,13 @@ def setup_grub(cfg, target):
         if instdevs is None:
             LOG.debug("grub installation disabled by config")
     else:
-        instdevs = block.get_blockdev_for_mp(target)
+        devs = block.get_devices_for_mp(target)
+        blockdevs = set()
+        for maybepart in devs:
+            (blockdev, part) = block.get_blockdev_for_partition(maybepart)
+            blockdevs.add(blockdev)
+
+        instdevs = list(blockdevs)
 
     instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
     LOG.debug("installing grub to %s", instdevs)
@@ -195,7 +233,23 @@ def copy_interfaces(interfaces, target):
     if not interfaces:
         LOG.warn("no interfaces file to copy!")
         return
-    shutil.copy(interfaces, os.path.sep.join([target, 'etc/fstab']))
+    eni = os.path.sep.join([target, 'etc/network/interfaces'])
+    shutil.copy(interfaces, eni)
+
+
+def restore_dist_interfaces(cfg, target):
+    # cloud images have a link of /etc/network/interfaces into /run
+    eni = os.path.sep.join([target, 'etc/network/interfaces'])
+    if not cfg.get('restore_dist_interfaces', True):
+        return
+
+    rp = os.path.realpath(eni)
+    if (os.path.exists(eni + ".dist") and
+            (rp.startswith("/run") or rp.startswith(target + "/run"))):
+
+        LOG.debug("restoring dist interfaces, existing link pointed to /run")
+        shutil.move(eni, eni + ".old")
+        shutil.move(eni + ".dist", eni)
 
 
 def curthooks(args):
@@ -227,6 +281,8 @@ def curthooks(args):
     disable_overlayroot(cfg, target)
     apply_debconf_selections(cfg, target)
 
+    restore_dist_interfaces(cfg, target)
+
     copy_interfaces(state.get('interfaces'), target)
     copy_fstab(state.get('fstab'), target)
     setup_grub(cfg, target)
@@ -236,5 +292,10 @@ def curthooks(args):
 
 def POPULATE_SUBCMD(parser):
     populate_one_subcmd(parser, CMD_ARGUMENTS, curthooks)
+
+
+CONFIG_CLEANERS = {
+    'cloud-init': clean_cloud_init,
+}
 
 # vi: ts=4 expandtab syntax=python

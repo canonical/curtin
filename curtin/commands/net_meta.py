@@ -17,11 +17,8 @@
 
 import argparse
 import os
-import shutil
 import sys
 
-from curtin import config
-from curtin.log import LOG
 from curtin import net
 
 from . import populate_one_subcmd
@@ -60,30 +57,17 @@ def interfaces_basic_dhcp(devices):
          "your system"),
          "# and how to activate them. For more information see interfaces(5).",
          "",
-         "# The loopback network interface"
+         "# The loopback network interface",
          "auto lo",
          "iface lo inet loopback",
          ])
 
     for d in devices:
-        content += '\n'.join(("", "", "auth %s" % d,
+        content += '\n'.join(("", "", "auto %s" % d,
                               "iface %s inet dhcp" % d,))
     content += "\n"
 
     return content
-
-
-def restore_dist_interfaces(cfg, target):
-    eni = os.path.sep.join([target, 'etc/network/interfaces'])
-    if not cfg.get('restore_dist_interfaces', True):
-        return
-
-    if (os.path.exists(eni + ".dist") and
-            os.path.realpath(eni).startswith("/run/")):
-
-        LOG.debug("restoring dist interfaces, existing link pointed to /run")
-        shutil.move(eni, eni + ".old")
-        shutil.move(eni + ".dist", eni)
 
 
 def net_meta(args):
@@ -115,18 +99,9 @@ def net_meta(args):
             else:
                 devices.append(dev)
 
-    if args.config is not None:
-        cfg_file = args.config
-        cfg = config.load_config(cfg_file)
-    else:
-        cfg_file = None
-        cfg = {}
-
     if args.mode == "copy":
         if not args.target:
             raise argparse.ArgumentTypeError("mode 'copy' requires --target")
-
-        restore_dist_interfaces(cfg, args.target)
 
         t_eni = os.path.sep.join((args.target, "etc/network/interfaces",))
         with open(t_eni, "r") as fp:
@@ -150,9 +125,6 @@ CMD_ARGUMENTS = (
       {'help': 'file to write to. defaults to env["OUTPUT_INTERFACES"] or "-"',
        'metavar': 'IFILE', 'action': 'store',
        'default': os.environ.get('OUTPUT_INTERFACES', "-")}),
-     (('-c', '--config'),
-      {'help': 'operate on config. default is env[CONFIG]',
-       'action': 'store', 'metavar': 'CONFIG', 'default': None}),
      (('-t', '--target'),
       {'help': 'operate on target. default is env[TARGET_MOUNT_POINT]',
        'action': 'store', 'metavar': 'TARGET',
