@@ -35,16 +35,32 @@ CMD_ARGUMENTS = (
 )
 
 
+def tar_xattr_opts(cmd=None):
+    # if tar cmd supports xattrs, return the required flags to extract them.
+    if cmd is None:
+        cmd = ['tar']
+
+    if isinstance(cmd, str):
+        cmd = [cmd]
+
+    (out, _err) = curtin.util.subp(cmd + ['--help'], capture=True)
+
+    if "xattr" in out:
+        return ['--xattrs', '--xattrs-include=*', '--acls']
+    return []
+
+
 def extract_root_tgz_url(source, target):
-    curtin.util.subp(args=['sh', '-c',
+    curtin.util.subp(args=['sh', '-cf',
                            ('wget "$1" --progress=dot:mega -O - |'
-                            'tar -C "$2" -Sxpzf - --numeric-owner'),
+                            'tar -C "$2" ' + ' '.join(tar_xattr_opts()) +
+                            ' ' + '-Sxpzf - --numeric-owner'),
                            '--', source, target])
 
 
 def extract_root_tgz_file(source, target):
-    curtin.util.subp(args=['tar', '-C', target, '-Sxpzf', source,
-                           '--numeric-owner'])
+    curtin.util.subp(args=['tar', '-C', target] +
+                     tar_xattr_opts() + ['-Sxpzf', source, '--numeric-owner'])
 
 
 def copy_to_target(source, target):
@@ -80,16 +96,23 @@ def extract(args):
     LOG.debug("Installing sources: %s to target at %s" % (sources, target))
 
     for source in sources:
-        if source.startswith("cp://"):
-            copy_to_target(source, target)
-        elif os.path.isfile(source):
-            extract_root_tgz_file(source, target)
-        elif source.startswith("file://"):
-            extract_root_tgz_file(source[len("file://"):], target)
-        elif source.startswith("http://") or source.startswith("https://"):
-            extract_root_tgz_url(source, target)
+        if source['type'].startswith('dd-'):
+            continue
+        if source['uri'].startswith("cp://"):
+            copy_to_target(source['uri'], target)
+        elif os.path.isfile(source['uri']):
+            extract_root_tgz_file(source['uri'], target)
+        elif source['uri'].startswith("file://"):
+            extract_root_tgz_file(
+                source['uri'][len("file://"):],
+                target)
+        elif (source['uri'].startswith("http://") or
+              source['uri'].startswith("https://")):
+            extract_root_tgz_url(source['uri'], target)
         else:
-            raise TypeError("do not know how to extract '%s'", source)
+            raise TypeError(
+                "do not know how to extract '%s'" %
+                source['uri'])
 
 
 def POPULATE_SUBCMD(parser):

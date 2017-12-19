@@ -9,6 +9,8 @@ network_commands:
  10_network: curtin net-meta --device=eth0 dhcp
 
 sources:
- 05_primary: "http://cloud-images.ubuntu.com/releases/precise/release/ubuntu-12.04-server-cloudimg-amd64-root.tar.gz"
+ 05_primary: 
+  uri: "http://cloud-images.ubuntu.com/releases/precise/release/ubuntu-12.04-server-cloudimg-amd64-root.tar.gz"
+  type: "tgz"
 
 # vi: ts=4 expandtab syntax=yaml

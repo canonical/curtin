@@ -19,6 +19,7 @@ import errno
 import os
 import stat
 import shlex
+import tempfile
 
 from curtin import util
 
@@ -153,5 +154,39 @@ def get_blockdev_for_partition(devpath):
     # and udev has put links in /dev/block/253:0 to the device name in /dev/
     return (diskdevpath, ptnum)
 
+
+def get_pardevs_on_blockdevs(devs):
+    if devs is None:
+        devs = []
+    devs = [get_dev_name_entry(d)[1] for d in devs]
+    found = _lsblock(devs)
+    ret = {}
+    for short in found:
+        if found[short]['device_path'] not in devs:
+            ret[short] = found[short]
+    return ret
+
+
+def get_root_device(dev):
+    """
+    Get root partition for specified device
+    """
+    partitions = get_pardevs_on_blockdevs(dev)
+    target = None
+    for i in partitions:
+        dev_path = partitions[i]['device_path']
+        tmp_mount = tempfile.mkdtemp()
+        try:
+            util.do_mount(dev_path, tmp_mount)
+            curtin_dir = os.path.join(tmp_mount, 'curtin')
+            if os.path.isdir(curtin_dir) is False:
+                continue
+            target = dev_path
+            util.do_umount(tmp_mount)
+        except:
+            util.do_umount(tmp_mount)
+    if target is None:
+        raise ValueError("Could not find root device")
+    return target
 
 # vi: ts=4 expandtab syntax=python

@@ -15,6 +15,7 @@ Usage: ${0##*/} [ options ] target-dev
      -f | --format F   use partition table format F. [mbr, gpt, uefi]
                        default gpt
      -E | --end E      end the partition at E (unit 1k bytes)
+     -b | --boot       create a boot partition (512 MiB - default)
 EOF
     [ $# -eq 0 ] || echo "$@"
 }
@@ -60,8 +61,8 @@ wipedev() {
 }
 
 pt_gpt() {
-    local target="$1" end=${2:-""} size="" s512="" ptype="L"
-    local start="2048" pt1size="" maxend=""
+    local target="$1" end=${2:-""} boot="$3" size="" s512="" ptype="L"
+    local start="2048" rootsize="" bootsize="1048576" maxend=""
     local isblk=false
     getsize "$target" ||
         { error "failed to get size of $target"; return 1; }
@@ -71,15 +72,33 @@ pt_gpt() {
     else
         end=$(($end/512))
     fi
-    maxend=$((($size/512)-2048))
+
+    if [ "$boot" = true ]; then
+        maxend=$((($size/512)-$start-$bootsize))
+        if [ $maxend -lt 0 ]; then
+            error "Disk is not big enough for /boot partition on $target";
+            return 1;
+        fi
+    else
+        maxend=$((($size/512)-$start))
+    fi
     [ "$end" -gt "$maxend" ] && end="$maxend"
     debug 1 "maxend=$maxend end=$end size=$size"
 
     [ -b "$target" ] && isblk=true
 
-    sgdisk --new "15:2048:+1M" --typecode=15:ef02 \
-           --new "1::$end"     --typecode=1:8300 "$target" ||
-        { error "failed to gpt partition $target"; return 1; }
+    if [ "$boot" = true ]; then 
+        # Creating 'efi', '/boot' and '/' partitions
+        sgdisk --new "15:$start:+1M" --typecode=15:ef02 \
+            --new "1::+512M" --typecode=1:8300 \
+            --new "2::$end" --typecode=2:8300 "$target" ||
+            { error "failed to gpt partition $target"; return 1; }
+    else
+        # Creating 'efi' and '/' partitions 
+        sgdisk --new "15:$start:+1M" --typecode=15:ef02 \
+            --new "1::$end" --typecode=1:8300 "$target" ||
+            { error "failed to gpt partition $target"; return 1; }
+    fi
 
     if $isblk; then
         blockdev --rereadpt "$target"
@@ -88,12 +107,16 @@ pt_gpt() {
             { error "no partition found ${target}1"; return 1; }
         [ -b "${target}15" ] ||
             { error "no partition found ${target}15"; return 1; }
+        if [ "$boot" = true ]; then
+            [ -b "${target}2" ] ||
+                { error "no partition found ${target}2"; return 1; }
+        fi
     fi
 }
 
 pt_uefi() {
     local target="$1" end=${2:-""} size="" s512="" ptype="L"
-    local start="2048" pt1size="" maxend=""
+    local start="2048" rootsize="" maxend=""
     local isblk=false
     getsize "$target" ||
         { error "failed to get size of $target"; return 1; }
@@ -103,14 +126,15 @@ pt_uefi() {
     else
         end=$(($end/512))
     fi
-    maxend=$((($size/512)-2048))
+
+    maxend=$((($size/512)-$start))
     [ "$end" -gt "$maxend" ] && end="$maxend"
     debug 1 "maxend=$maxend end=$end size=$size"
 
     [ -b "$target" ] && isblk=true
 
-    # Part 15 is the UEFI partition, part 1 is root
-    sgdisk --new "15:2048:+512M" --typecode=15:ef00 "$target" \
+    # Creating 'UEFI' and '/' partitions 
+    sgdisk --new "15:2048:+512M" --typecode=15:ef00 \
            --new "1::$end" --typecode=1:8300 "$target" ||
         { error "failed to sgdisk for uefi to $target"; return 1; }
 
@@ -175,22 +199,23 @@ pt_mbr() {
 }
 
 partition_main() {
-    local short_opts="hE:f:v"
-    local long_opts="help,end:,format:,verbose"
+    local short_opts="hE:f:bv"
+    local long_opts="help,end:,format:,boot,verbose"
     local getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
         eval set -- "${getopt_out}" ||
         { partition_main_usage 1>&2; return 1; }
 
     local cur="" next=""
-    local format="mbr" target="" end=""
+    local format="gpt" boot=false target="" end=""
 
     while [ $# -ne 0 ]; do
         cur="$1"; next="$2";
         case "$cur" in
             -h|--help) partition_main_usage ; exit 0;;
-            -f|--format) format=$next; shift;;
             -E|--end) end=$next; shift;;
+            -f|--format) format=$next; shift;;
+            -b|--boot) boot=true;;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
             --) shift; break;;
         esac
@@ -222,7 +247,7 @@ partition_main() {
     if [ "$format" = "mbr" ]; then
         pt_mbr "$target" "$end"
     elif [ "$format" = "gpt" ]; then
-        pt_gpt "$target" "$end"]
+        pt_gpt "$target" "$end" "$boot"
     elif [ "$format" = "uefi" ]; then
         pt_uefi "$target" "$end"
     fi
@@ -301,16 +326,22 @@ install_grub() {
     fi
     [ -b $mp_dev ] || { error "$mp_dev is not a block device!"; return 1; }
 
+    # get dpkg arch
+    local dpkg_arch=""
+    dpkg_arch=$(chroot "$mp" dpkg --print-architecture)
+    r=$?
+    [ $r -eq 0 ] || {
+        error "failed to get dpkg architecture [$r]"
+        return 1;
+    }
+
     # set correct grub package
     local grub_name="grub-pc"
     local grub_target="i386-pc"
-    if [ "$uefi" -ge 1 ]; then
-        dpkg_arch=$(chroot "$mp" dpkg --print-architecture)
-        r=$?
-        if [ $r -ne 0 -a $r -ne 1 ]; then
-            error "failed to get dpkg architecture"
-            return 1;
-        fi
+    if [ "$dpkg_arch" = "ppc64el" ]; then
+        grub_name="grub-ieee1275"
+        grub_target="powerpc-ieee1275"
+    elif [ "$uefi" -ge 1 ]; then
         grub_name="grub-efi-$dpkg_arch"
         if [ "$dpkg_arch" = "amd64" ]; then
             grub_target="x86_64-efi"

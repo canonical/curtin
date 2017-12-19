@@ -1,5 +1,6 @@
 #!/bin/bash
 
+PYTHON_VERSION=${PYTHON_VERSION:-3}
 pycheck_dirs=( "curtin/" "tests/" )
 bin_files=( "bin/curtin" )
 CR="
@@ -15,7 +16,13 @@ else
    files=( "$@" )
 fi
 
-myname=${0##*/}
-cmd=( "${myname#run-}" "${files[@]}" )
+if [ "$PYTHON_VERSION" = "2" ]; then
+    pyflakes="pyflakes"
+else
+    pyflakes="pyflakes3"
+fi
+
+cmd=( "$pyflakes" "${files[@]}" )
+
 echo "Running: " "${cmd[@]}" 1>&2
 exec "${cmd[@]}"

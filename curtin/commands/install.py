@@ -29,13 +29,15 @@ from curtin import util
 
 from . import populate_one_subcmd
 
+
 CONFIG_BUILTIN = {
     'sources': {},
     'stages': ['early', 'partitioning', 'network', 'extract', 'curthooks',
                'hook', 'late'],
     'extract_commands': {'builtin': ['curtin', 'extract']},
     'hook_commands': {'builtin': ['curtin', 'hook']},
-    'partitioning_commands': {'builtin': ['curtin', 'block-meta', 'simple']},
+    'partitioning_commands': {
+        'builtin': ['curtin', 'block-meta', 'simple']},
     'curthooks_commands': {'builtin': ['curtin', 'curthooks']},
     'late_commands': {'builtin': []},
     'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
@@ -234,16 +236,24 @@ def cmd_install(args):
             config.merge_cmdarg(cfg, val)
 
     for source in args.source:
-        cfg['sources']["%02d_cmdline" % len(cfg['sources'])] = source
+        src = util.sanitize_source(source)
+        cfg['sources']["%02d_cmdline" % len(cfg['sources'])] = src
 
     LOG.debug("merged config: %s" % cfg)
     if not len(cfg.get('sources', [])):
         raise util.BadUsage("no sources provided to install")
 
+    for i in cfg['sources']:
+        # we default to tgz for old style sources config
+        cfg['sources'][i] = util.sanitize_source(cfg['sources'][i])
+
     if cfg.get('http_proxy'):
         os.environ['http_proxy'] = cfg['http_proxy']
 
     try:
+        dd_images = util.get_dd_images(cfg.get('sources', {}))
+        if len(dd_images) > 1:
+            raise ValueError("You may not use more then one disk image")
         workingd = WorkingDir(cfg)
         LOG.debug(workingd.env())
 
@@ -263,6 +273,8 @@ def cmd_install(args):
     finally:
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))
+        if util.is_mounted(workingd.target, 'boot'):
+            util.do_umount(os.path.join(workingd.target, 'boot'))
         util.do_umount(workingd.target)
         shutil.rmtree(workingd.top)
 

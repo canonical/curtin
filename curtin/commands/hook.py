@@ -37,11 +37,7 @@ def hook(args):
         raise ValueError("Target must be provided or set in environment")
 
     LOG.debug("Finalizing %s" % args.target)
-
-    target_hook = os.path.join(args.target, "/opt/curtin/finalize")
-    if os.path.exists(target_hook):
-        LOG.debug("running %s" % target_hook)
-        curtin.util.subp(target_hook)
+    curtin.util.run_hook_if_exists(args.target, "finalize")
 
 
 def POPULATE_SUBCMD(parser):

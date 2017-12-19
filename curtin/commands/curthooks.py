@@ -50,6 +50,7 @@ KERNEL_MAPPING = {
     },
     'trusty': {
         '3.13.0': '',
+        '3.16.0': '-lts-utopic',
     },
 }
 
@@ -368,6 +369,11 @@ def curthooks(args):
                          "Use --target or set TARGET_MOUNT_POINT\n")
         sys.exit(2)
 
+    # if network-config hook exists in target,
+    # we do not run the builtin
+    if util.run_hook_if_exists(target, 'curtin-hooks'):
+        sys.exit(0)
+
     cfg = util.load_command_config(args, state)
 
     write_files(cfg, target)
@@ -386,7 +392,7 @@ def curthooks(args):
     # to be updated, and this also triggers boot loader setup via
     # flash-kernel.
     machine = platform.machine()
-    if machine.startswith('armv7'):
+    if machine.startswith('armv7') or machine.startswith('aarch64'):
         update_initramfs(target)
     else:
         setup_grub(cfg, target)

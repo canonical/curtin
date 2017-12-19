@@ -35,7 +35,7 @@ which xkvm || PATH=$HOME/bin:$PATH
 cd ~/src/curtin/trunk
 # use 'launch' to launch a kvm instance with user data to pack
 # up local curtin and run it inside instance.
-./tools/launch $BOOTIMG --publish $ROOTTGZ curtin install "PUBURL/${ROOTTGZ##*/}"
+./tools/launch $BOOTIMG --publish $ROOTTGZ -- curtin install "PUBURL/${ROOTTGZ##*/}"
 
 ## notes about 'launch' ##
  * launch has --help so you can see that for some info.

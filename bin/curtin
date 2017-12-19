@@ -24,7 +24,7 @@ def call_entry_point(name):
     (istr, dot, ent) = name.rpartition('.')
     try:
         __import__(istr)
-    except ImportError:
+    except ImportError as e:
         # if that import failed, check dirname(__file__/..)
         # to support ./bin/curtin with modules in .
         _tdir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -32,7 +32,7 @@ def call_entry_point(name):
         try:
             __import__(istr)
         except ImportError:
-            sys.stderr.write("Unable to find %s\n" % name)
+            sys.stderr.write("Unable to find %s: %s\n" % (name, e))
             sys.exit(2)
 
     sys.exit(getattr(sys.modules[istr], ent)())

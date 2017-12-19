@@ -455,4 +455,52 @@ def is_uefi_bootable():
     return os.path.exists('/sys/firmware/efi') is True
 
 
+def run_hook_if_exists(target, hook):
+    """
+    Look for "hook" in "target" and run it
+    """
+    target_hook = os.path.join(target, 'curtin', hook)
+    if os.path.isfile(target_hook):
+        LOG.debug("running %s" % target_hook)
+        subp([target_hook])
+        return True
+    return False
+
+
+def sanitize_source(source):
+    """
+    Check the install source for type information
+    If no type information is present or it is an invalid
+    type, we default to the standard tgz format
+    """
+    if type(source) is dict:
+        # already sanitized?
+        return source
+    supported = ['tgz', 'dd-tgz']
+    src = source.split(':', 1)
+    if len(src) == 1:
+        # This condition treats the case
+        # of a source that is a filename and does
+        # not have a type specified
+        return {'type': 'tgz', 'uri': src[1]}
+    if src[0] in supported:
+        return {'type': src[0], 'uri': src[1]}
+    # default to tgz for unknown types
+    return {'type': 'tgz', 'uri': source}
+
+
+def get_dd_images(sources):
+    """
+    return all disk images in sources list
+    """
+    src = []
+    if type(sources) is not dict:
+        return src
+    for i in sources:
+        if type(sources[i]) is not dict:
+            continue
+        if sources[i]['type'].startswith('dd-'):
+            src.append(sources[i]['uri'])
+    return src
+
 # vi: ts=4 expandtab syntax=python

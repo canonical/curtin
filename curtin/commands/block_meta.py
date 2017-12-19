@@ -22,23 +22,32 @@ from curtin.log import LOG
 
 from . import populate_one_subcmd
 
+import os
+import platform
+
+SIMPLE = 'simple'
+SIMPLE_BOOT = 'simple-boot'
+
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
       {'help': 'which devices to operate on', 'action': 'append',
        'metavar': 'DEVICE', 'default': None, }),
-     ('--fstype', {'help': 'root filesystem type',
+     ('--fstype', {'help': 'root partition filesystem type',
                    'choices': ['ext4', 'ext3'], 'default': 'ext4'}),
-     ('mode', {'help': 'meta-mode to use', 'choices': ['raid0', 'simple']}),
+     ('--boot-fstype', {'help': 'boot partition filesystem type',
+                        'choices': ['ext4', 'ext3'], 'default': None}),
+     ('mode', {'help': 'meta-mode to use',
+               'choices': ['raid0', SIMPLE, SIMPLE_BOOT]}),
      )
 )
 
 
 def block_meta(args):
     # main entry point for the block-meta command.
-    if args.mode == "simple":
+    if args.mode in (SIMPLE, SIMPLE_BOOT):
         meta_simple(args)
     else:
-        raise NotImplementedError("mode=%s is not implemenbed" % args.mode)
+        raise NotImplementedError("mode=%s is not implemented" % args.mode)
 
 
 def logtime(msg, func, *args, **kwargs):
@@ -46,7 +55,42 @@ def logtime(msg, func, *args, **kwargs):
         return func(*args, **kwargs)
 
 
+def write_image_to_disk(source, dev):
+    """
+    Write disk image to block device
+    """
+    (devname, devnode) = block.get_dev_name_entry(dev)
+    util.subp(args=['sh', '-c',
+                    ('wget "$1" --progress=dot:mega -O - |'
+                     'tar -SxOzf - | dd of="$2"'),
+                    '--', source, devnode])
+    util.subp(['partprobe'])
+    util.subp(['udevadm', 'settle'])
+    return block.get_root_device([devname, ])
+
+
+def get_bootpt_cfg(cfg, enabled=False, fstype=None):
+    # 'cfg' looks like:
+    #   enabled: boolean
+    #   fstype: filesystem type (default to 'fstype')
+    #   label:  filesystem label (default to 'boot')
+    # parm enable can enable, but not disable
+    # parm fstype overrides cfg['fstype']
+    def_boot = platform.machine() in ('aarch64')
+    ret = {'enabled': def_boot, 'fstype': None, 'label': 'boot'}
+    ret.update(cfg)
+    if enabled:
+        ret['enabled'] = True
+    if ret['enabled']:
+        if fstype and not ret['fstype']:
+            ret['fstype'] = fstype
+    return ret
+
+
 def meta_simple(args):
+    """Creates a root partition. If args.mode == SIMPLE_BOOT, it will also
+    create a separate /boot partition.
+    """
     state = util.load_command_environment()
 
     cfg = util.load_command_config(args, state)
@@ -55,22 +99,27 @@ def meta_simple(args):
     if devices is None:
         devices = cfg.get('block-meta', {}).get('devices', [])
 
+    bootpt = get_bootpt_cfg(
+        cfg.get('block-meta', {}).get('boot-partition', {}),
+        enabled=args.mode == SIMPLE_BOOT, fstype=args.boot_fstype)
+
     # Remove duplicates but maintain ordering.
     devices = list(OrderedDict.fromkeys(devices))
 
     if len(devices) == 0:
         devices = block.get_installable_blockdevs()
-        LOG.warn("simple mode, no devices given. unused list: %s", devices)
+        LOG.warn("'%s' mode, no devices given. unused list: %s",
+                 (args.mode, devices))
 
     if len(devices) > 1:
         if args.devices is not None:
-            LOG.warn("simple mode but multiple devices given. "
-                     "using first found")
+            LOG.warn("'%s' mode but multiple devices given. "
+                     "using first found", args.mode)
         available = [f for f in devices
                      if block.is_valid_device(f)]
         target = sorted(available)[0]
-        LOG.warn("mode is 'simple'. multiple devices given. using '%s' "
-                 "(first available)", target)
+        LOG.warn("mode is '%s'. multiple devices given. using '%s' "
+                 "(first available)", (args.mode, target))
     else:
         target = devices[0]
 
@@ -79,27 +128,56 @@ def meta_simple(args):
 
     (devname, devnode) = block.get_dev_name_entry(target)
 
-    LOG.info("installing in simple mode to '%s'", devname)
+    LOG.info("installing in '%s' mode to '%s'", (args.mode, devname))
+
+    sources = cfg.get('sources', {})
+    dd_images = util.get_dd_images(sources)
+
+    if len(dd_images):
+        # we have at least one dd-able image
+        # we will only take the first one
+        rootdev = write_image_to_disk(dd_images[0], devname)
+        util.subp(['mount', rootdev, state['target']])
+        return 0
 
     # helper partition will forcibly set up partition there
     if util.is_uefi_bootable():
         logtime(
             "partition --format uefi %s" % devnode,
             util.subp, ("partition", "--format", "uefi", devnode))
+        bootpt['enabled'] = False
+    elif bootpt['enabled']:
+        logtime("partition --boot %s" % devnode,
+                util.subp, ("partition", "--boot", devnode))
+        bootdev = devnode + "1"
+        rootdev = devnode + "2"
     else:
         logtime(
             "partition %s" % devnode,
             util.subp, ("partition", devnode))
+        rootdev = devnode + "1"
 
-    rootdev = devnode + "1"
-
+    # mkfs for root partition first and mount
     cmd = ['mkfs.%s' % args.fstype, '-q', '-L', 'cloudimg-rootfs', rootdev]
     logtime(' '.join(cmd), util.subp, cmd)
-
     util.subp(['mount', rootdev, state['target']])
 
+    if bootpt['enabled']:
+        # create 'boot' directory in state['target']
+        boot_dir = os.path.join(state['target'], 'boot')
+        util.subp(['mkdir', boot_dir])
+        # mkfs for boot partition and mount
+        cmd = ['mkfs.%s' % bootpt['fstype'],
+               '-q', '-L', bootpt['label'], bootdev]
+        logtime(' '.join(cmd), util.subp, cmd)
+        util.subp(['mount', bootdev, boot_dir])
+
     with open(state['fstab'], "w") as fp:
-        fp.write("LABEL=%s / %s defaults 0 0\n" % ('cloudimg-rootfs', 'ext4'))
+        if bootpt['enabled']:
+            fp.write("LABEL=%s /boot %s defaults 0 0\n" %
+                     (bootpt['label'], bootpt['fstype']))
+        fp.write("LABEL=%s / %s defaults 0 0\n" %
+                 ('cloudimg-rootfs', args.fstype))
 
     return 0
 
