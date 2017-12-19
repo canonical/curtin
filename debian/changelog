@@ -1,3 +1,10 @@
+curtin (0.1.0~bzr126-0ubuntu1) trusty; urgency=medium
+
+  * New upstream snapshot.
+    * create 500M EFI System Partition (ESP) instead of 100M. (LP: #1306164)
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 10 Apr 2014 15:11:18 -0400
+
 curtin (0.1.0~bzr125-0ubuntu1) trusty; urgency=medium
 
   * New upstream snapshot.
