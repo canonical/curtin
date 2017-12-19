@@ -1,3 +1,10 @@
+curtin (0.1.0~bzr201-0ubuntu1) vivid; urgency=medium
+
+  * New upstream snapshot.
+    * curtin.deps.install: actually install, rather than --dry-run.
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 20 Mar 2015 16:30:11 -0400
+
 curtin (0.1.0~bzr200-0ubuntu1) vivid; urgency=medium
 
   * New upstream snapshot.
