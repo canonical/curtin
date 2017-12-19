@@ -1,3 +1,27 @@
+curtin (0.1.0~bzr500-0ubuntu1) artful; urgency=medium
+
+  * New upstream snapshot.
+    - Allow re-use of vmtest output 
+    - Fix stacked storage configurations with iSCSI  (LP: #1683910)
+    - vmtests: enable tests to apply storage config to validate clear_holders path 
+    - mdadm_stop: Add retry and additional steps to halt a resync 
+    - vmtests: Add Artful release and update classes 
+    - clear-holders: mdadm use /proc/mdstat to wait for array to stop  (LP: #1682584)
+    - uc16 curthooks: add 'network' key to config file  (LP: #1685000)
+    - Doc and makefile updates for build and test on new systems. 
+    - clear-holders: make bcache handler wait for device shutdown  (LP: #1680409)
+    - vmtest: Use utf-8 and fix pseudo test collect_output 
+    - vmtest: fix path to install log, and utilize the globally copied paths. 
+    - Copy curtin install log into target.  (LP: #1684128)
+    - vmtest: add in post-test log post-processing 
+    - vmtest: update source.list test 
+    - add recursive flag to do_umount, add --umount to block-meta 
+    - load_command_environment: fix strict flag, and unit tests. 
+    - block_meta: Attempt to mount by UUID= if possible  (LP: #1676991)
+    - Make systems with root on bcache use root=UUID=.  (LP: #1680591)
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 19 May 2017 16:57:07 -0400
+
 curtin (0.1.0~bzr482-0ubuntu1) zesty; urgency=medium
 
   * New upstream snapshot.
