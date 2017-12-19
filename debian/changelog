@@ -1,3 +1,11 @@
+curtin (0.1.0~bzr87-0ubuntu1) saucy; urgency=low
+
+  * New upstream snapshot.
+    * fix bug that prevented some systems from booting because
+      'dpkg-reconfigure grub-pc' was not being run.
+
+ -- Scott Moser <smoser@ubuntu.com>  Wed, 25 Sep 2013 16:35:30 -0400
+
 curtin (0.1.0~bzr86-0ubuntu1) saucy; urgency=low
 
   * New upstream snapshot.
