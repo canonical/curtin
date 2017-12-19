@@ -1,14 +1,11 @@
 from . import VMBaseClass
-from unittest import TestCase
+from .releases import base_vm_classes as relbase
 
 import textwrap
 import os
 
 
-class TestMdadmAbs(VMBaseClass, TestCase):
-    __test__ = False
-    repo = "maas-daily"
-    arch = "amd64"
+class TestMdadmAbs(VMBaseClass):
     install_timeout = 600
     boot_timeout = 100
     interactive = False
@@ -77,7 +74,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         bcache_cset_uuid = None
         found = {}
         for bcache_super in bcache_supers:
-            with open(os.path.join(self.td.mnt, bcache_super), "r") as fp:
+            with open(os.path.join(self.td.collect, bcache_super), "r") as fp:
                 for line in fp.read().splitlines():
                     if line != "" and line.split()[0] == "cset.uuid":
                         bcache_cset_uuid = line.split()[-1].rstrip()
@@ -86,7 +83,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                         else:
                             found[bcache_cset_uuid] = [bcache_super]
             self.assertIsNotNone(bcache_cset_uuid)
-            with open(os.path.join(self.td.mnt, "bcache_ls"), "r") as fp:
+            with open(os.path.join(self.td.collect, "bcache_ls"), "r") as fp:
                 self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
 
         # one cset.uuid for all devices
@@ -103,14 +100,12 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
 
 
-class WilyTestMdadmBcache(TestMdadmBcacheAbs):
+class VividTestMdadmBcache(relbase.vivid, TestMdadmBcacheAbs):
     __test__ = True
-    release = "wily"
 
 
-class VividTestMdadmBcache(TestMdadmBcacheAbs):
+class WilyTestMdadmBcache(relbase.wily, TestMdadmBcacheAbs):
     __test__ = True
-    release = "vivid"
 
 
 class TestMirrorbootAbs(TestMdadmAbs):
@@ -124,14 +119,12 @@ class TestMirrorbootAbs(TestMdadmAbs):
                      'md0': 0}
 
 
-class WilyTestMirrorboot(TestMirrorbootAbs):
+class VividTestMirrorboot(relbase.vivid, TestMirrorbootAbs):
     __test__ = True
-    release = "wily"
 
 
-class VividTestMirrorboot(TestMirrorbootAbs):
+class WilyTestMirrorboot(relbase.wily, TestMirrorbootAbs):
     __test__ = True
-    release = "vivid"
 
 
 class TestRaid5bootAbs(TestMdadmAbs):
@@ -146,14 +139,12 @@ class TestRaid5bootAbs(TestMdadmAbs):
                      'md0': 0}
 
 
-class WilyTestRaid5boot(TestRaid5bootAbs):
+class VividTestRaid5boot(relbase.vivid, TestRaid5bootAbs):
     __test__ = True
-    release = "wily"
 
 
-class VividTestRaid5boot(TestRaid5bootAbs):
+class WilyTestRaid5boot(relbase.wily, TestRaid5bootAbs):
     __test__ = True
-    release = "vivid"
 
 
 class TestRaid6bootAbs(TestMdadmAbs):
@@ -181,14 +172,12 @@ class TestRaid6bootAbs(TestMdadmAbs):
         self.check_file_regex("mdadm_detail", r"ubuntu:foobar")
 
 
-class WilyTestRaid6boot(TestRaid6bootAbs):
+class VividTestRaid6boot(relbase.vivid, TestRaid6bootAbs):
     __test__ = True
-    release = "wily"
 
 
-class VividTestRaid6boot(TestRaid6bootAbs):
+class WilyTestRaid6boot(relbase.wily, TestRaid6bootAbs):
     __test__ = True
-    release = "vivid"
 
 
 class TestRaid10bootAbs(TestMdadmAbs):
@@ -204,14 +193,12 @@ class TestRaid10bootAbs(TestMdadmAbs):
                      'md0': 0}
 
 
-class WilyTestRaid10boot(TestRaid10bootAbs):
+class VividTestRaid10boot(relbase.vivid, TestRaid10bootAbs):
     __test__ = True
-    release = "wily"
 
 
-class VividTestRaid10boot(TestRaid10bootAbs):
+class WilyTestRaid10boot(relbase.wily, TestRaid10bootAbs):
     __test__ = True
-    release = "vivid"
 
 
 class TestAllindataAbs(TestMdadmAbs):
@@ -285,11 +272,9 @@ class TestAllindataAbs(TestMdadmAbs):
         self.check_file_regex("xfs_info", r"^meta-data=/dev/mapper/dmcrypt0")
 
 
-class WilyTestAllindata(TestAllindataAbs):
+class VividTestAllindata(relbase.vivid, TestAllindataAbs):
     __test__ = True
-    release = "wily"
 
 
-class VividTestAllindata(TestAllindataAbs):
+class WilyTestAllindata(relbase.wily, TestAllindataAbs):
     __test__ = True
-    release = "vivid"

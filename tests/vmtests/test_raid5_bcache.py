@@ -1,14 +1,11 @@
 from . import VMBaseClass
-from unittest import TestCase
+from .releases import base_vm_classes as relbase
 
 import textwrap
 import os
 
 
-class TestMdadmAbs(VMBaseClass, TestCase):
-    __test__ = False
-    repo = "maas-daily"
-    arch = "amd64"
+class TestMdadmAbs(VMBaseClass):
     install_timeout = 600
     boot_timeout = 100
     interactive = False
@@ -37,8 +34,7 @@ class TestMdadmAbs(VMBaseClass, TestCase):
 
 class TestMdadmBcacheAbs(TestMdadmAbs):
     conf_file = "examples/tests/raid5bcache.yaml"
-    disk_to_check = {'sda': 2,
-                     'md0': 0}
+    disk_to_check = {'md0': 0, 'sda': 2}
 
     collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
@@ -59,28 +55,30 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
 
     def test_bcache_status(self):
         bcache_cset_uuid = None
-        with open(os.path.join(self.td.mnt, "bcache_super_vda2"), "r") as fp:
+        fname = os.path.join(self.td.collect, "bcache_super_vda2")
+        with open(fname, "r") as fp:
             for line in fp.read().splitlines():
                 if line != "" and line.split()[0] == "cset.uuid":
                     bcache_cset_uuid = line.split()[-1].rstrip()
         self.assertIsNotNone(bcache_cset_uuid)
-        with open(os.path.join(self.td.mnt, "bcache_ls"), "r") as fp:
+        with open(os.path.join(self.td.collect, "bcache_ls"), "r") as fp:
             self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
 
     def test_bcache_cachemode(self):
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
 
 
-class WilyTestRaid5Bcache(TestMdadmBcacheAbs):
+class TrustyTestRaid5Bcache(relbase.trusty, TestMdadmBcacheAbs):
     __test__ = True
-    release = "wily"
+    # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
+    # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
+    # when dname works on trusty, then we need to re-enable by removing line.
+    disk_to_check = {'md0': 0}
 
 
-class VividTestRaid5Bcache(TestMdadmBcacheAbs):
+class VividTestRaid5Bcache(relbase.vivid, TestMdadmBcacheAbs):
     __test__ = True
-    release = "vivid"
 
 
-class TrustyTestRaid5Bcache(TestMdadmBcacheAbs):
+class WilyTestRaid5Bcache(relbase.wily, TestMdadmBcacheAbs):
     __test__ = True
-    release = "trusty"

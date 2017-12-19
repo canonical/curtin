@@ -1,0 +1,62 @@
+#!/usr/bin/python3
+import subprocess
+import os.path
+import sys
+import json
+
+
+def jdump(data):
+    return json.dumps(data, indent=2, sort_keys=True, separators=(',', ': '))
+
+
+def read_pubkeys():
+    keys = []
+    try:
+        out = subprocess.check_output(['ssh-add', '-L'],
+                                      stderr=subprocess.STDOUT)
+        if isinstance(out, bytes):
+            out = out.decode()
+        keys += out.splitlines()
+    except Exception:
+        pass
+
+    ssh_dir = os.path.expanduser('~' + os.path.sep + '.ssh')
+    keyfiles = ['id_ecdsa.pub', 'id_ed25519.pub', 'id_rsa.pub']
+    for f in [os.path.join(ssh_dir, f) for f in keyfiles]:
+        if os.path.isfile(f):
+            with open(f, "r") as fp:
+                keys += fp.read().splitlines()
+
+    return list(set(keys))
+
+
+def format_pubkeys(mode, keys):
+    valid_modes = ('dump', 'cloud-config', 'public-keys')
+    if mode not in valid_modes:
+        raise ValueError("unknown mode '%s'. Expected one of: %s" %
+                         (mode, ' '.join(valid_modes)))
+    if mode == 'dump':
+        if len(keys) != 0:
+            data = '\n'.join(keys) + "\n"
+    elif mode == "cloud-config" or mode == "meta-data":
+        data = ""
+        if mode == "cloud-config":
+            data = "#cloud-config\n"
+            name = 'ssh_authorized_keys'
+        else:
+            name = 'public-keys'
+        data += name + ": " + jdump(keys) + "\n"
+    elif mode == "json":
+        return jdump(keys) + "\n"
+    return data
+
+
+def main():
+    mode = 'dump'
+    if len(sys.argv) > 1:
+        mode = sys.argv[1]
+    sys.stdout.write(format_pubkeys(mode, read_pubkeys()))
+
+
+if __name__ == '__main__':
+    sys.exit(main())

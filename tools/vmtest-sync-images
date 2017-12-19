@@ -1,21 +1,39 @@
 #!/usr/bin/python3
 # This tool keeps a local copy of the maas images used by vmtests.
 # It keeps only the latest copy of the available images.
+import errno
 import os
+import shutil
 import sys
 
 # Fix path so we can import ImageStore class.
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from tests.vmtests import (
-    ImageStore, IMAGE_DIR, IMAGE_SRC_URL, DEFAULT_FILTERS)
+    IMAGE_DIR, IMAGE_SRC_URL, sync_images)
+from tests.vmtests.image_sync import ITEM_NAME_FILTERS
 from tests.vmtests.helpers import find_releases
+DEFAULT_ARCH = "amd64"
 
 
 if __name__ == '__main__':
-    # Instantiate the ImageStore object.
-    store = ImageStore(IMAGE_SRC_URL, IMAGE_DIR)
-    release_filter = 'release~{}'.format('|'.join(find_releases()))
-    DEFAULT_FILTERS.append(release_filter)
+    if len(sys.argv) > 1 and sys.argv[1] == "--clean":
+        print("cleaning image dir %s" % IMAGE_DIR)
+        for subd in (".vmtest-data", "streams"):
+            fp = os.path.join(IMAGE_DIR, subd)
+            if os.path.exists(fp):
+                print(" removing %s" % subd)
+                shutil.rmtree(fp)
+        if os.path.exists(IMAGE_DIR):
+            for dirpath, dirnames, filenames in os.walk(IMAGE_DIR):
+                for f in filenames:
+                    if f.startswith("vmtest"):
+                        fpath = os.path.join(dirpath, f)
+                        print(" removing vmtest file %s" % fpath)
+                        os.unlink(fpath)
+
+    releases = find_releases()
+    release_filter = 'release~{}'.format('|'.join(releases))
+    my_filters = ['arch=' + DEFAULT_ARCH, release_filter] + ITEM_NAME_FILTERS
     # Sync images.
-    store.sync_images(filters=DEFAULT_FILTERS)
+    sync_images(IMAGE_SRC_URL, IMAGE_DIR, filters=my_filters, verbosity=1)

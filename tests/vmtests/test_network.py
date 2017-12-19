@@ -1,5 +1,5 @@
 from . import VMBaseClass, logger
-from unittest import TestCase
+from .releases import base_vm_classes as relbase
 
 import ipaddress
 import os
@@ -47,7 +47,6 @@ def ifconfig_to_dict(ifconfig):
 
 
 class TestNetworkAbs(VMBaseClass):
-    __test__ = False
     interactive = False
     conf_file = "examples/tests/basic_network.yaml"
     install_timeout = 600
@@ -73,7 +72,7 @@ class TestNetworkAbs(VMBaseClass):
                                  "route_n"])
 
     def test_etc_network_interfaces(self):
-        with open(os.path.join(self.td.mnt, "interfaces")) as fp:
+        with open(os.path.join(self.td.collect, "interfaces")) as fp:
             eni = fp.read()
             logger.debug('etc/network/interfaces:\n{}'.format(eni))
 
@@ -83,7 +82,7 @@ class TestNetworkAbs(VMBaseClass):
             self.assertTrue(line in eni_lines)
 
     def test_etc_resolvconf(self):
-        with open(os.path.join(self.td.mnt, "resolv.conf")) as fp:
+        with open(os.path.join(self.td.collect, "resolv.conf")) as fp:
             resolvconf = fp.read()
             logger.debug('etc/resolv.conf:\n{}'.format(resolvconf))
 
@@ -127,7 +126,7 @@ class TestNetworkAbs(VMBaseClass):
         logger.debug('expected_network_state:\n{}'.format(
             yaml.dump(network_state, default_flow_style=False, indent=4)))
 
-        with open(os.path.join(self.td.mnt, "ifconfig_a")) as fp:
+        with open(os.path.join(self.td.collect, "ifconfig_a")) as fp:
             ifconfig_a = fp.read()
             logger.debug('ifconfig -a:\n{}'.format(ifconfig_a))
 
@@ -135,7 +134,7 @@ class TestNetworkAbs(VMBaseClass):
         logger.debug('parsed ifcfg dict:\n{}'.format(
             yaml.dump(ifconfig_dict, default_flow_style=False, indent=4)))
 
-        with open(os.path.join(self.td.mnt, "ip_route_show")) as fp:
+        with open(os.path.join(self.td.collect, "ip_route_show")) as fp:
             ip_route_show = fp.read()
             logger.debug("ip route show:\n{}".format(ip_route_show))
             for line in [line for line in ip_route_show.split('\n')
@@ -148,7 +147,7 @@ class TestNetworkAbs(VMBaseClass):
                 route_info = m.groupdict('')
                 logger.debug(route_info)
 
-        with open(os.path.join(self.td.mnt, "route_n")) as fp:
+        with open(os.path.join(self.td.collect, "route_n")) as fp:
             route_n = fp.read()
             logger.debug("route -n:\n{}".format(route_n))
 
@@ -236,22 +235,22 @@ class TestNetworkAbs(VMBaseClass):
                 self.assertEqual(gw_ip, gw)
 
 
-class TrustyTestNetwork(TestNetworkAbs, TestCase):
+class TrustyTestNetwork(relbase.trusty, TestNetworkAbs):
     __test__ = True
-    repo = "maas-daily"
-    release = "trusty"
-    arch = "amd64"
 
 
-class WilyTestNetwork(TestNetworkAbs, TestCase):
+class VividTestNetwork(relbase.vivid, TestNetworkAbs):
     __test__ = True
-    repo = "maas-daily"
-    release = "wily"
-    arch = "amd64"
 
 
-class VividTestNetwork(TestNetworkAbs, TestCase):
+class WilyTestNetwork(relbase.wily, TestNetworkAbs):
     __test__ = True
-    repo = "maas-daily"
-    release = "vivid"
-    arch = "amd64"
+
+
+class XenialTestNetwork(relbase.xenial, TestNetworkAbs):
+    __test__ = True
+    # FIXME: net.ifnames=0 should not be required as image should
+    #        eventually address this internally.  Here we do not carry
+    #        over the net.ifnames to the installed system via '---' as the net
+    #        config should take care of that.
+    extra_kern_args = "net.ifnames=0"

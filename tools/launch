@@ -7,6 +7,7 @@ XKVM_PID=""
 HTTP_PORT_TRIES=${HTTP_PORT_TRIES:-5}
 HTTP_PORT_MIN=${HTTP_PORT_MIN:-12000}
 HTTP_PORT_MAX=${HTTP_PORT_MAX:-65500}
+MY_D=$(dirname "$0")
 
 error() { echo "$@" 1>&2; }
 
@@ -55,7 +56,7 @@ cleanup() {
     [ ! -d "$TEMP_D" ] || msg="${msg:+$msg }remove temp dir ${TEMP_D}."
     [ -z "$HTTP_PID" ] || msg="${msg:+$msg }kill http pid ${HTTP_PID}."
     [ -z "$XKVM_PID" ] || msg="${msg:+$msg }kill xkvm pid ${XKVM_PID}."
-    debug 1 "cleaning up.${msg:+ $msg}"
+    debug 1 "cleaning up [${SECONDS}s].${msg:+ $msg}"
     [ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
     for pid in ${XKVM_PID} ${HTTP_PID}; do
         kill $pid
@@ -148,9 +149,7 @@ EOF
 
 xkvm_check() {
     command -v xkvm >/dev/null 2>&1 && return
-    local myd
-    myd=$(dirname "$0")
-    [ -x "$myd/xkvm" ] && PATH="$myd:$PATH" && return
+    [ -x "$MY_D/xkvm" ] && PATH="$MY_D:$PATH" && return
     cat 1>&2 <<EOF
 Unable to find 'xkvm' in PATH, should be in curtin's tools/ dir
 EOF
@@ -259,9 +258,9 @@ main() {
     #  if *not* detached, then signal handling is blocked until
     #  the foreground subprocess returns. which means we can't handle
     #  a sigterm and kill xkvm.
-    #  We default to dowait=false if output is to a terminal
+    #  We default to dowait=false if input and output are a terminal
     local dowait=""
-    [ -t 0 ] && dowait=false || dowait=true
+    [ -t 0 -a -t 1 ] && dowait=false || dowait=true
     pubs=( )
     disks=( )
     addfiles=( )
@@ -316,6 +315,7 @@ main() {
     shift
     cmdargs=( "$@" )
 
+    xkvm_check || return
     TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
         { error "failed to make tempdir"; return 1; }
 
@@ -466,6 +466,12 @@ main() {
         ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-proxy"
     fi
 
+    if command -v ssh-keys-list >/dev/null 2>&1; then
+        ssh-keys-list cloud-config > "${TEMP_D}/cc-ssh-keys" &&
+            ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-ssh-keys" ||
+            { error "failed to get users ssh keys."; return 1; }
+    fi
+
     write_metadata > "$mdata" || { error "failed to write meta-data"; return 1; }
     write_userdata "${TEMP_D}/install-cmd" "${ccfiles[@]}" > "$udata"  ||
         { error "failed to write user-data"; return 1; }
@@ -505,7 +511,6 @@ main() {
     done
 
     local cmd
-    xkvm_check || return
     cmd=( 
         xkvm "${pt[@]}" "${netargs[@]}" -- 
         "${bios_opts[@]}"
@@ -514,6 +519,7 @@ main() {
         "${seedargs[@]}"
         "${disk_args[@]}" )
 
+    debug 1 "running with dowait=$dowait: ${cmd[*]}"
     local sstart=$SECONDS
     if $dowait; then
         "${cmd[@]}" &

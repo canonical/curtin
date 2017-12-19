@@ -57,7 +57,12 @@ KERNEL_MAPPING = {
         '3.16.0': '-lts-utopic',
         '3.19.0': '-lts-vivid',
         '4.2.0': '-lts-wily',
+        '4.4.0': '-lts-xenial',
     },
+    'xenial': {
+        '4.3.0': '',  # development release has 4.3, release will have 4.4
+        '4.4.0': '',
+    }
 }
 
 
@@ -95,7 +100,7 @@ def apt_config(cfg, target):
             content='Acquire::HTTP::Proxy "%s";\n' % cfg['apt_proxy'])
     else:
         if os.path.isfile(proxy_cfg_path):
-            os.path.unlink(proxy_cfg_path)
+            os.unlink(proxy_cfg_path)
 
     # cfg['apt_mirrors']
     # apt_mirrors:
@@ -277,27 +282,37 @@ def get_installed_packages(target=None):
 
 def setup_grub(cfg, target):
     # target is the path to the mounted filesystem
+
+    # FIXME: these methods need moving to curtin.block
+    # and using them from there rather than commands.block_meta
+    from curtin.commands.block_meta import (extract_storage_ordered_dict,
+                                            get_path_to_storage_volume)
+
     grubcfg = cfg.get('grub', {})
 
     # copy legacy top level name
     if 'grub_install_devices' in cfg and 'install_devices' not in grubcfg:
         grubcfg['install_devices'] = cfg['grub_install_devices']
 
-    if 'storage' in cfg:
+    # if there is storage config, look for devices tagged with 'grub_device'
+    storage_cfg_odict = None
+    try:
+        storage_cfg_odict = extract_storage_ordered_dict(cfg)
+    except ValueError as e:
+        pass
+
+    if storage_cfg_odict:
         storage_grub_devices = []
-        for item in cfg.get('storage').get('config'):
-            if item.get('grub_device'):
-                if item.get('serial'):
-                    storage_grub_devices.append(
-                        block.lookup_disk(item.get('serial')))
-                elif item.get('path'):
-                    storage_grub_devices.append(item.get('path'))
-                else:
-                    raise ValueError("setup_grub cannot find path to disk \
-                        '%s'" % item.get('id'))
+        for item_id, item in storage_cfg_odict.items():
+            if not item.get('grub_device'):
+                continue
+            LOG.debug("checking: %s", item)
+            storage_grub_devices.append(
+                get_path_to_storage_volume(item_id, storage_cfg_odict))
         if len(storage_grub_devices) > 0:
             grubcfg['install_devices'] = storage_grub_devices
 
+    LOG.debug("install_devices: %s", grubcfg.get('install_devices'))
     if 'install_devices' in grubcfg:
         instdevs = grubcfg.get('install_devices')
         if isinstance(instdevs, str):
@@ -305,11 +320,20 @@ def setup_grub(cfg, target):
         if instdevs is None:
             LOG.debug("grub installation disabled by config")
     else:
+        # If there were no install_devices found then we try to do the right
+        # thing.  That right thing is basically installing on all block
+        # devices that are mounted.  On powerpc, though it means finding PrEP
+        # partitions.
         devs = block.get_devices_for_mp(target)
         blockdevs = set()
         for maybepart in devs:
-            (blockdev, part) = block.get_blockdev_for_partition(maybepart)
-            blockdevs.add(blockdev)
+            try:
+                (blockdev, part) = block.get_blockdev_for_partition(maybepart)
+                blockdevs.add(blockdev)
+            except ValueError as e:
+                # if there is no syspath for this device such as a lvm
+                # or raid device, then a ValueError is raised here.
+                LOG.debug("failed to find block device for %s", maybepart)
 
         if platform.machine().startswith("ppc64"):
             # assume we want partitions that are 4100 (PReP). The snippet here
@@ -594,7 +618,7 @@ def install_missing_packages(cfg, target):
     format_configs = {
         'xfsprogs': ['xfs'],
         'e2fsprogs': ['ext2', 'ext3', 'ext4'],
-        'brtfs-tools': ['btrfs'],
+        'btrfs-tools': ['btrfs'],
     }
 
     needed_packages = []

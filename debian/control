@@ -26,6 +26,7 @@ Package: curtin
 Architecture: all
 Priority: extra
 Depends: btrfs-tools,
+         dosfstools,
          file,
          gdisk,
          lvm2,

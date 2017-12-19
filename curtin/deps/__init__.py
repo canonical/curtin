@@ -30,19 +30,20 @@ REQUIRED_EXECUTABLES = [
     ('file', 'file'),
     ('lvcreate', 'lvm2'),
     ('mdadm', 'mdadm'),
+    ('mkfs.vfat', 'dosfstools'),
     ('mkfs.btrfs', 'btrfs-tools'),
     ('mkfs.ext4', 'e2fsprogs'),
     ('mkfs.xfs', 'xfsprogs'),
     ('partprobe', 'parted'),
     ('sgdisk', 'gdisk'),
     ('udevadm', 'udev'),
+    ('make-bcache', 'bcache-tools'),
 ]
 
 if lsb_release()['codename'] == "precise":
     REQUIRED_IMPORTS.append(
         ('import oauth.oauth', 'python-oauth', None),)
 else:
-    REQUIRED_EXECUTABLES.append(('make-bcache', 'bcache-tools',))
     REQUIRED_IMPORTS.append(
         ('import oauthlib.oauth1', 'python-oauthlib', 'python3-oauthlib'),)
 

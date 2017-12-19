@@ -174,7 +174,7 @@ create_tgz() {
         { bad_Usage; return; }
 
     local cur="" next="" patch=true krd=false
-    local krd="" vflags=""
+    local vflags=""
 
     while [ $# -ne 0 ]; do
         cur="$1"; next="$2";
@@ -215,7 +215,7 @@ create_tgz() {
         gzflag="--use-compress-program=pigz"
     fi
     tar -C "$rootd" -cpSf "$output" $gzflag \
-        --xattrs "--xattrs-include=*" . || {
+        --numeric-owner --xattrs "--xattrs-include=*" . || {
         error "failed tar command"
         rm -f "$output"
         return 1

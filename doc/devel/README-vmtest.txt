@@ -52,8 +52,8 @@ At step 3.6 -> 4.
     sudo ./backdoor-image -v --user=<USER> --password-auth --password=<PW> IMG
 At step 6 -> 7
   - You might want to keep all the temporary images around.
-    To do so you can set CURTIN_VMTEST_KEEP_DATA to true:
-    export CURTIN_VMTEST_KEEP_DATA=true
+    To do so you can set CURTIN_VMTEST_KEEP_DATA_PASS=all:
+    export CURTIN_VMTEST_KEEP_DATA_PASS=all CURTIN_VMTEST_KEEP_DATA_FAIL=all
     That will keep the /tmp/tmpXXXXX directories and all files in there for
     further execution.
 At step 7
@@ -94,7 +94,59 @@ Note:
     'apt_proxy' environment variable.  If that is not set it will 
     look at the host's apt config and read 'Acquire::HTTP::Proxy'
 
-If required for further debugging one can set the environment variable
-"CURTIN_VMTEST_KEEP_DATA" like:
-export CURTIN_VMTEST_KEEP_DATA=true
-This will keep the temporary disk files around by skipping __init__.py:__del__
+== Environment Variables ==
+Some environment variables affect the running of vmtest
+  * apt_proxy: 
+    test will set apt_proxy in the guests to the value of 'apt_proxy'.
+    If that is not set it will look at the host's apt config and read
+    'Acquire::HTTP::Proxy'
+
+  * CURTIN_VMTEST_KEEP_DATA_PASS CURTIN_VMTEST_KEEP_DATA_FAIL:
+    default:
+      CURTIN_VMTEST_KEEP_DATA_PASS=none
+      CURTIN_VMTEST_KEEP_DATA_FAIL=all
+    These 2 variables determine what portions of the temporary
+    test data are kept.
+
+    The variables contain a comma ',' delimited list of directories
+    that should be kept in the case of pass or fail.  Additionally,
+    the values 'all' and 'none' are accepted.
+
+    Each vmtest that runs has its own sub-directory under the top level
+    CURTIN_VMTEST_TOPDIR.  In that directory are directories:
+      boot: inputs to the system boot (after install)
+      install: install phase related files
+      disks: the disks used for installation and boot
+      logs: install and boot logs
+      collect: data collected by the boot phase
+
+  * CURTIN_VMTEST_TOPDIR: default $TMPDIR/vmtest-<timestamp>
+    vmtest puts all test data under this value.  By default, it creates
+    a directory in TMPDIR (/tmp) named with as "vmtest-<timestamp>"
+
+    If you set this value, you must ensure that the directory is either
+    non-existant or clean.
+
+  * CURTIN_VMTEST_LOG: default $TMPDIR/vmtest-<timestamp>.log
+    vmtest writes extended log information to this file.
+    The default puts the log along side the TOPDIR.
+
+  * CURTIN_VMTEST_IMAGE_SYNC: default false (boolean)
+    if set to true, each run will attempt a sync of images.
+    If you want to make sure images are always up to date, then set to true.
+
+  * CURTIN_VMTEST_BRIDGE: default 'user'
+    the network devices will be attached to this bridge.  The default is
+    'user', which means to use qemu user mode networking.  Set it to
+    'virbr0' or 'lxcbr0' to use those bridges and then be able to ssh
+    in directly.
+
+  * IMAGE_DIR: default /srv/images
+    vmtest keeps a mirror of maas ephemeral images in this directory.
+
+  * IMAGES_TO_KEEP: default 1
+    keep this number of images of each release in the IMAGE_DIR.
+
+Environment 'boolean' values:
+   For boolean environment variables the value is considered True
+   if it is any value other than case insensitive 'false', '' or "0"

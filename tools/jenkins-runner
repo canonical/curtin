@@ -1,0 +1,34 @@
+#!/bin/bash
+
+topdir=${CURTIN_VMTEST_TOPDIR:-"${WORKSPACE:-$PWD}/output"}
+pkeep=${CURTIN_VMTEST_KEEP_DATA_PASS:-logs,collect}
+fkeep=${CURTIN_VMTEST_KEEP_DATA_FAIL:-logs,collect}
+export CURTIN_VMTEST_KEEP_DATA_PASS=$pkeep
+export CURTIN_VMTEST_KEEP_DATA_FAIL=$fkeep
+export CURTIN_VMTEST_TOPDIR="$topdir"
+export CURTIN_VMTEST_LOG=${CURTIN_VMTEST_LOG:-"$topdir/debug.log"}
+
+fail() { echo "$@" 1>&2; exit 1; }
+
+if [ -d "$topdir" ]; then
+    fail "topdir '$topdir' existed."
+fi
+mkdir -p "$topdir" || fail "failed mkdir $topdir"
+
+if [ $# -eq 0 ]; then
+   set -- -vv --nologcapture tests/vmtests/
+fi
+
+start_s=$(date +%s)
+# dump CURTIN* variables just for info
+for v in ${!CURTIN_*}; do
+   echo "$v=${!v}"
+done
+echo "$(date -R): vmtest start: nosetests3 $*"
+nosetests3 "$@"
+ret=$?
+end_s=$(date +%s)
+echo "$(date -R): vmtest end [$ret] in $(($end_s-$start_s))s"
+exit $ret
+
+# vi: ts=4 expandtab

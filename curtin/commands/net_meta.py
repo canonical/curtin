@@ -48,7 +48,7 @@ def resolve_alias(alias):
                 net.is_physical(d) and net.is_up(d) and net.is_connected(d)]
     elif alias == "netboot":
         # should read /proc/cmdline here for BOOTIF
-        raise NotImplemented("netboot alias not implemented")
+        raise NotImplementedError("netboot alias not implemented")
     else:
         raise ValueError("'%s' is not an alias: %s", alias, DEVNAME_ALIASES)
 

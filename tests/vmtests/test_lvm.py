@@ -1,14 +1,11 @@
 from . import VMBaseClass
-from unittest import TestCase
+from .releases import base_vm_classes as relbase
 
 import textwrap
 
 
-class TestLvmAbs(VMBaseClass, TestCase):
-    __test__ = False
+class TestLvmAbs(VMBaseClass):
     conf_file = "examples/tests/lvm.yaml"
-    repo = "maas-daily"
-    arch = "amd64"
     install_timeout = 600
     boot_timeout = 100
     interactive = False
@@ -43,11 +40,9 @@ class TestLvmAbs(VMBaseClass, TestCase):
             ["fstab", "ls_dname"])
 
 
-class WilyTestLvm(TestLvmAbs):
+class VividTestLvm(relbase.vivid, TestLvmAbs):
     __test__ = True
-    release = "wily"
 
 
-class VividTestLvm(TestLvmAbs):
+class WilyTestLvm(relbase.wily, TestLvmAbs):
     __test__ = True
-    release = "vivid"
