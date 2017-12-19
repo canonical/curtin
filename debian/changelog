@@ -1,3 +1,24 @@
+curtin (0.1.0~bzr532-0ubuntu1) artful; urgency=medium
+
+  * New upstream snapshot.
+    - vmtest: fix artful networking (LP: #1714028, LP: #1718216, LP: #1706744)
+    - docs: Trivial doc fix for enabling proposed.
+    - setup.py: fix to allow installation into a virtualenv (LP: #1703755)
+    - doc: update documentation on curtin-hooks and non-ubuntu installation.
+    - reporter: Add journald reporter to send events to journald
+    - vmtests: add option to tar disk images after test run
+    - install: ensure iscsi service is running to handle shutdown properly
+    - mdadm: handle write failures to sysfs entries when stopping mdadm
+      (LP: #1708052)
+    - vmtest: catch exceptions in curtin-log-print
+    - iscsi: use curtin storage config to disconnect iscsi targets
+      (LP: #1713537)
+    - vmtests: bump skip_by_date values out to give cloud-init SRU more time
+    - vmtest: get info about collected symlinks and then delete them.
+    - Update network cloud-init related skiptest dates, SRU still pending
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Thu, 05 Oct 2017 19:15:28 -0500
+
 curtin (0.1.0~bzr519-0ubuntu1) artful; urgency=medium
 
   * New upstream snapshot.
