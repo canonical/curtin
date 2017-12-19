@@ -46,7 +46,7 @@ def tar_xattr_opts(cmd=None):
     (out, _err) = curtin.util.subp(cmd + ['--help'], capture=True)
 
     if "xattr" in out:
-        return ['--xattrs', '--xattrs-include=*', '--acls']
+        return ['--xattrs', '--xattrs-include=*']
     return []
 
 
