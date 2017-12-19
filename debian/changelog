@@ -1,3 +1,10 @@
+curtin (0.1.0~bzr460-0ubuntu1) zesty; urgency=medium
+
+  * New upstream snapshot.
+    - Install zipl in target on s390x arch.  (LP: #1662346)
+
+ -- Scott Moser <smoser@ubuntu.com>  Wed, 08 Feb 2017 17:09:34 -0500
+
 curtin (0.1.0~bzr459-0ubuntu1) zesty; urgency=medium
 
   * New upstream snapshot.
