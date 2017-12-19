@@ -94,7 +94,6 @@ def path_to_kname(path):
     # cciss devices need to have 'cciss!' prepended
     if path.startswith('/dev/cciss'):
         dev_kname = 'cciss!' + dev_kname
-    LOG.debug("path_to_kname input: '{}' output: '{}'".format(path, dev_kname))
     return dev_kname
 
 
@@ -106,7 +105,6 @@ def kname_to_path(kname):
     # if given something that is already a dev path, return it
     if os.path.exists(kname) and is_valid_device(kname):
         path = kname
-        LOG.debug("kname_to_path input: '{}' output: '{}'".format(kname, path))
         return os.path.realpath(path)
     # adding '/dev' to path is not sufficient to handle cciss devices and
     # possibly other special devices which have not been encountered yet
@@ -114,7 +112,6 @@ def kname_to_path(kname):
     # make sure path we get is correct
     if not (os.path.exists(path) and is_valid_device(path)):
         raise OSError('could not get path to dev from kname: {}'.format(kname))
-    LOG.debug("kname_to_path input: '{}' output: '{}'".format(kname, path))
     return path
 
 
@@ -147,7 +144,7 @@ def sys_block_path(devname, add=None, strict=True):
     toks = ['/sys/class/block']
     # insert parent dev if devname is partition
     devname = os.path.normpath(devname)
-    (parent, partnum) = get_blockdev_for_partition(devname)
+    (parent, partnum) = get_blockdev_for_partition(devname, strict=strict)
     if partnum:
         toks.append(path_to_kname(parent))
 
@@ -177,6 +174,34 @@ def get_holders(device):
     holders = os.listdir(os.path.join(sysfs_path, 'holders'))
     LOG.debug("devname '%s' had holders: %s", device, holders)
     return holders
+
+
+def get_device_slave_knames(device):
+    """
+    Find the underlying knames of a given device by walking sysfs
+    recursively.
+
+    Returns a list of knames
+    """
+    slave_knames = []
+    slaves_dir_path = os.path.join(sys_block_path(device), 'slaves')
+
+    # if we find a 'slaves' dir, recurse and check
+    # the underlying devices
+    if os.path.exists(slaves_dir_path):
+        slaves = os.listdir(slaves_dir_path)
+        if len(slaves) > 0:
+            for slave_kname in slaves:
+                slave_knames.extend(get_device_slave_knames(slave_kname))
+        else:
+            slave_knames.append(path_to_kname(device))
+
+        return slave_knames
+    else:
+        # if a device has no 'slaves' attribute then
+        # we've found the underlying device, return
+        # the kname of the device
+        return [path_to_kname(device)]
 
 
 def _shlex_split(str_in):
@@ -298,7 +323,7 @@ def get_installable_blockdevs(include_removable=False, min_size=1024**3):
     return good
 
 
-def get_blockdev_for_partition(devpath):
+def get_blockdev_for_partition(devpath, strict=True):
     """
     find the parent device for a partition.
     returns a tuple of the parent block device and the partition number
@@ -316,7 +341,7 @@ def get_blockdev_for_partition(devpath):
     syspath = os.path.join(base, path_to_kname(devpath))
 
     # don't need to try out multiple sysfs paths as path_to_kname handles cciss
-    if not os.path.exists(syspath):
+    if strict and not os.path.exists(syspath):
         raise OSError("%s had no syspath (%s)" % (devpath, syspath))
 
     ptpath = os.path.join(syspath, "partition")
@@ -540,10 +565,15 @@ def get_multipath_wwids():
     return multipath_wwids
 
 
-def get_root_device(dev, fpath="curtin"):
+def get_root_device(dev, paths=None):
     """
-    Get root partition for specified device, based on presence of /curtin.
+    Get root partition for specified device, based on presence of any
+    paths in the provided paths list:
     """
+    if paths is None:
+        paths = ["curtin"]
+    LOG.debug('Searching for filesystem on %s containing one of: %s',
+              dev, paths)
     partitions = get_pardevs_on_blockdevs(dev)
     target = None
     tmp_mount = tempfile.mkdtemp()
@@ -553,10 +583,13 @@ def get_root_device(dev, fpath="curtin"):
         try:
             util.do_mount(dev_path, tmp_mount)
             mp = tmp_mount
-            curtin_dir = os.path.join(tmp_mount, fpath)
-            if os.path.isdir(curtin_dir):
-                target = dev_path
-                break
+            for path in paths:
+                fullpath = os.path.join(tmp_mount, path)
+                if os.path.isdir(fullpath):
+                    target = dev_path
+                    LOG.debug("Found path '%s' on device '%s'",
+                              path, dev_path)
+                    break
         except Exception:
             pass
         finally:
@@ -564,9 +597,10 @@ def get_root_device(dev, fpath="curtin"):
                 util.do_umount(mp)
 
     os.rmdir(tmp_mount)
-
     if target is None:
-        raise ValueError("Could not find root device")
+        raise ValueError(
+            "Did not find any filesystem on %s that contained one of %s" %
+            (dev, paths))
     return target
 
 
@@ -784,11 +818,13 @@ def exclusive_open(path):
             if fd_needs_closing and sys.version_info.major == 2:
                 os.close(fd)
     except OSError:
-        LOG.exception("Failed to exclusively open path: %s", path)
+        LOG.error("Failed to exclusively open path: %s", path)
         holders = get_holders(path)
         LOG.error('Device holders with exclusive access: %s', holders)
         mount_points = util.list_device_mounts(path)
         LOG.error('Device mounts: %s', mount_points)
+        fusers = util.fuser_mount(path)
+        LOG.error('Possible users of %s:\n%s', path, fusers)
         raise
 
 

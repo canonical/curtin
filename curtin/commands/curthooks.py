@@ -18,6 +18,7 @@
 import copy
 import os
 import platform
+import re
 import sys
 import shutil
 import textwrap
@@ -240,6 +241,63 @@ def install_kernel(cfg, target):
                      " System may not boot.", package)
 
 
+def uefi_remove_old_loaders(grubcfg, target):
+    """Removes the old UEFI loaders from efibootmgr."""
+    efi_output = util.get_efibootmgr(target)
+    current_uefi_boot = efi_output.get('current', None)
+    old_efi_entries = {
+        entry: info
+        for entry, info in efi_output['entries'].items()
+        if re.match(r'^.*File\(\\EFI.*$', info['path'])
+    }
+    old_efi_entries.pop(current_uefi_boot, None)
+    remove_old_loaders = grubcfg.get('remove_old_uefi_loaders', True)
+    if old_efi_entries:
+        if remove_old_loaders:
+            with util.ChrootableTarget(target) as in_chroot:
+                for entry, info in old_efi_entries.items():
+                    LOG.debug("removing old UEFI entry: %s" % info['name'])
+                    in_chroot.subp(
+                        ['efibootmgr', '-B', '-b', entry], capture=True)
+        else:
+            LOG.debug(
+                "Skipped removing %d old UEFI entrie%s.",
+                len(old_efi_entries),
+                '' if len(old_efi_entries) == 1 else 's')
+            for info in old_efi_entries.values():
+                LOG.debug(
+                    "UEFI entry '%s' might no longer exist and "
+                    "should be removed.", info['name'])
+
+
+def uefi_reorder_loaders(grubcfg, target):
+    """Reorders the UEFI BootOrder to place BootCurrent first.
+
+    The specifically doesn't try to do to much. The order in which grub places
+    a new EFI loader is up to grub. This only moves the BootCurrent to the
+    front of the BootOrder.
+    """
+    if grubcfg.get('reorder_uefi', True):
+        efi_output = util.get_efibootmgr(target)
+        currently_booted = efi_output.get('current', None)
+        boot_order = efi_output.get('order', [])
+        if currently_booted:
+            if currently_booted in boot_order:
+                boot_order.remove(currently_booted)
+            boot_order = [currently_booted] + boot_order
+            new_boot_order = ','.join(boot_order)
+            LOG.debug(
+                "Setting currently booted %s as the first "
+                "UEFI loader.", currently_booted)
+            LOG.debug(
+                "New UEFI boot order: %s", new_boot_order)
+            with util.ChrootableTarget(target) as in_chroot:
+                in_chroot.subp(['efibootmgr', '-o', new_boot_order])
+    else:
+        LOG.debug("Skipped reordering of UEFI boot methods.")
+        LOG.debug("Currently booted UEFI loader might no longer boot.")
+
+
 def setup_grub(cfg, target):
     # target is the path to the mounted filesystem
 
@@ -350,13 +408,17 @@ def setup_grub(cfg, target):
         instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
     else:
         instdevs = ["none"]
+
+    if util.is_uefi_bootable() and grubcfg.get('update_nvram', True):
+        uefi_remove_old_loaders(grubcfg, target)
+
     LOG.debug("installing grub to %s [replace_default=%s]",
               instdevs, replace_default)
     with util.ChrootableTarget(target):
         args = ['install-grub']
         if util.is_uefi_bootable():
             args.append("--uefi")
-            if grubcfg.get('update_nvram', False):
+            if grubcfg.get('update_nvram', True):
                 LOG.debug("GRUB UEFI enabling NVRAM updates")
                 args.append("--update-nvram")
             else:
@@ -369,6 +431,9 @@ def setup_grub(cfg, target):
         out, _err = util.subp(
             join_stdout_err + args + instdevs, env=env, capture=True)
         LOG.debug("%s\n%s\n", args, out)
+
+    if util.is_uefi_bootable() and grubcfg.get('update_nvram', True):
+        uefi_reorder_loaders(grubcfg, target)
 
 
 def update_initramfs(target=None, all_kernels=False):
@@ -672,6 +737,83 @@ def system_upgrade(cfg, target):
     util.system_upgrade(target=target)
 
 
+def handle_cloudconfig(cfg, target=None):
+    """write cloud-init configuration files into target
+
+    cloudconfig format is a dictionary of keys and values of content
+
+    cloudconfig:
+      cfg-datasource:
+        content:
+         |
+         #cloud-cfg
+         datasource_list: [ MAAS ]
+      cfg-maas:
+        content:
+         |
+         #cloud-cfg
+         reporting:
+           maas: { consumer_key: 8cW9kadrWZcZvx8uWP,
+                   endpoint: 'http://XXX',
+                   token_key: jD57DB9VJYmDePCRkq,
+                   token_secret: mGFFMk6YFLA3h34QHCv22FjENV8hJkRX,
+                   type: webhook}
+    """
+    # check that cfg is dict
+    if not isinstance(cfg, dict):
+        raise ValueError("cloudconfig configuration is not in dict format")
+
+    # for each item in the dict
+    #   generate a path based on item key
+    #   if path is already in the item, LOG warning, and use generated path
+    for cfgname, cfgvalue in cfg.items():
+        cfgpath = "50-cloudconfig-%s.cfg" % cfgname
+        if 'path' in cfgvalue:
+            LOG.warning("cloudconfig ignoring 'path' key in config")
+        cfgvalue['path'] = cfgpath
+
+    # re-use write_files format and adjust target to prepend
+    LOG.debug('Calling write_files with cloudconfig @ %s', target)
+    LOG.debug('Injecting cloud-config:\n%s', cfg)
+    write_files({'write_files': cfg}, target)
+
+
+def ubuntu_core_curthooks(cfg, target=None):
+    """ Ubuntu-Core 16 images cannot execute standard curthooks
+        Instead we copy in any cloud-init configuration to
+        the 'LABEL=writable' partition mounted at target.
+    """
+
+    ubuntu_core_target = os.path.join(target, "system-data")
+    cc_target = os.path.join(ubuntu_core_target, 'etc/cloud/cloud.cfg.d')
+
+    cloudconfig = cfg.get('cloudconfig', None)
+    if cloudconfig:
+        # remove cloud-init.disabled, if found
+        cloudinit_disable = os.path.join(ubuntu_core_target,
+                                         'etc/cloud/cloud-init.disabled')
+        if os.path.exists(cloudinit_disable):
+            util.del_file(cloudinit_disable)
+
+        handle_cloudconfig(cloudconfig, target=cc_target)
+
+    netconfig = cfg.get('network', None)
+    if netconfig:
+        LOG.info('Writing network configuration')
+        ubuntu_core_netconfig = os.path.join(cc_target,
+                                             "50-network-config.cfg")
+        util.write_file(ubuntu_core_netconfig,
+                        content=config.dump_config({'network': netconfig}))
+
+
+def target_is_ubuntu_core(target):
+    """Check if Ubuntu-Core specific directory is present at target"""
+    if target:
+        return os.path.exists(util.target_path(target,
+                                               'system-data/var/lib/snapd'))
+    return False
+
+
 def curthooks(args):
     state = util.load_command_environment()
 
@@ -692,6 +834,14 @@ def curthooks(args):
 
     cfg = config.load_command_config(args, state)
     stack_prefix = state.get('report_stack_prefix', '')
+
+    if target_is_ubuntu_core(target):
+        LOG.info('Detected Ubuntu-Core image, running hooks')
+        with events.ReportEventStack(
+                name=stack_prefix, reporting_enabled=True, level="INFO",
+                description="Configuring Ubuntu-Core for first boot"):
+            ubuntu_core_curthooks(cfg, target)
+        sys.exit(0)
 
     with events.ReportEventStack(
             name=stack_prefix + '/writing-config',

@@ -22,7 +22,7 @@ from curtin.log import LOG
 from curtin.reporter import events
 
 from . import populate_one_subcmd
-from curtin.udev import compose_udev_equality, udevadm_settle
+from curtin.udev import compose_udev_equality, udevadm_settle, udevadm_trigger
 
 import glob
 import os
@@ -35,6 +35,7 @@ import time
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
+BCACHE_REGISTRATION_RETRY = [0.2] * 60
 
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
@@ -48,6 +49,8 @@ CMD_ARGUMENTS = (
        'default': os.environ.get('TARGET_MOUNT_POINT')}),
      ('--boot-fstype', {'help': 'boot partition filesystem type',
                         'choices': ['ext4', 'ext3'], 'default': None}),
+     ('--umount', {'help': 'unmount any mounted filesystems before exit',
+                   'action': 'store_true', 'default': False}),
      ('mode', {'help': 'meta-mode to use',
                'choices': [CUSTOM, SIMPLE, SIMPLE_BOOT]}),
      )
@@ -58,9 +61,11 @@ def block_meta(args):
     # main entry point for the block-meta command.
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
-    if args.mode == CUSTOM or cfg.get("storage") is not None:
+    dd_images = util.get_dd_images(cfg.get('sources', {}))
+    if ((args.mode == CUSTOM or cfg.get("storage") is not None) and
+            len(dd_images) == 0):
         meta_custom(args)
-    elif args.mode in (SIMPLE, SIMPLE_BOOT):
+    elif args.mode in (SIMPLE, SIMPLE_BOOT) or len(dd_images) > 0:
         meta_simple(args)
     else:
         raise NotImplementedError("mode=%s is not implemented" % args.mode)
@@ -75,14 +80,26 @@ def write_image_to_disk(source, dev):
     """
     Write disk image to block device
     """
+    LOG.info('writing image to disk %s, %s', source, dev)
+    extractor = {
+        'dd-tgz': '|tar -xOzf -',
+        'dd-txz': '|tar -xOJf -',
+        'dd-tbz': '|tar -xOjf -',
+        'dd-tar': '|smtar -xOf -',
+        'dd-bz2': '|bzcat',
+        'dd-gz': '|zcat',
+        'dd-xz': '|xzcat',
+        'dd-raw': ''
+    }
     (devname, devnode) = block.get_dev_name_entry(dev)
     util.subp(args=['sh', '-c',
-                    ('wget "$1" --progress=dot:mega -O - |'
-                     'tar -SxOzf - | dd of="$2"'),
-                    '--', source, devnode])
+                    ('wget "$1" --progress=dot:mega -O - ' +
+                     extractor[source['type']] + '| dd bs=4M of="$2"'),
+                    '--', source['uri'], devnode])
     util.subp(['partprobe', devnode])
     udevadm_settle()
-    return block.get_root_device([devname, ])
+    paths = ["curtin", "system-data/var/lib/snapd"]
+    return block.get_root_device([devname], paths=paths)
 
 
 def get_bootpt_cfg(cfg, enabled=False, fstype=None, root_fstype=None):
@@ -590,6 +607,14 @@ def format_handler(info, storage_config):
     LOG.debug("mkfs {} info: {}".format(volume_path, info))
     mkfs.mkfs_from_config(volume_path, info)
 
+    device_type = storage_config.get(volume).get('type')
+    LOG.debug('Formated device type: %s', device_type)
+    if device_type == 'bcache':
+        # other devs have a udev watch on them. Not bcache (LP: #1680597).
+        LOG.debug('Detected bcache device format, calling udevadm trigger to '
+                  'generate by-uuid symlinks on "%s"', volume_path)
+        udevadm_trigger([volume_path])
+
 
 def mount_handler(info, storage_config):
     state = util.load_command_environment()
@@ -616,47 +641,35 @@ def mount_handler(info, storage_config):
         # Mount volume
         util.subp(['mount', volume_path, mount_point])
 
+        path = "/%s" % path
+
+        options = ["defaults"]
+        # If the volume_path's kname is backed by iSCSI or (in the case of
+        # LVM/DM) if any of its slaves are backed by iSCSI, then we need to
+        # append _netdev to the fstab line
+        if iscsi.volpath_is_iscsi(volume_path):
+            LOG.debug("Marking volume_path:%s as '_netdev'", volume_path)
+            options.append("_netdev")
+    else:
+        path = "none"
+        options = ["sw"]
+
     # Add volume to fstab
     if state['fstab']:
         with open(state['fstab'], "a") as fp:
-            if volume.get('type') in ["raid", "bcache",
-                                      "disk", "lvm_partition"]:
-                location = get_path_to_storage_volume(volume.get('id'),
-                                                      storage_config)
-            elif volume.get('type') in ["partition", "dm_crypt"]:
-                location = "UUID=%s" % block.get_volume_uuid(volume_path)
-            else:
-                raise ValueError("cannot write fstab for volume type '%s'" %
-                                 volume.get("type"))
-
-            if filesystem.get('fstype') == "swap":
-                path = "none"
-                options = "sw"
-            else:
-                path = "/%s" % path
-                if volume.get('type') == "partition":
-                    disk_block_path = get_path_to_storage_volume(
-                        volume.get('device'), storage_config)
-                    disk_kname = block.path_to_kname(disk_block_path)
-                    if iscsi.kname_is_iscsi(disk_kname):
-                        options = "_netdev"
-                    else:
-                        options = "defaults"
-                elif volume.get('type') == "disk":
-                    disk_kname = block.path_to_kname(location)
-                    if iscsi.kname_is_iscsi(disk_kname):
-                        options = "_netdev"
-                    else:
-                        options = "defaults"
-                else:
-                    options = "defaults"
+            location = get_path_to_storage_volume(volume.get('id'),
+                                                  storage_config)
+            uuid = block.get_volume_uuid(volume_path)
+            if len(uuid) > 0:
+                location = "UUID=%s" % uuid
 
             if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32",
                                             "fat64"]:
                 fstype = "vfat"
             else:
                 fstype = filesystem.get('fstype')
-            fp.write("%s %s %s %s 0 0\n" % (location, path, fstype, options))
+            fp.write("%s %s %s %s 0 0\n" % (location, path, fstype,
+                                            ",".join(options)))
     else:
         LOG.info("fstab not in environment, so not writing")
 
@@ -878,48 +891,159 @@ def bcache_handler(info, storage_config):
     udevadm_settle(exists=bcache_sysfs)
 
     def register_bcache(bcache_device):
+        LOG.debug('register_bcache: %s > /sys/fs/bcache/register',
+                  bcache_device)
         with open("/sys/fs/bcache/register", "w") as fp:
             fp.write(bcache_device)
 
-    def ensure_bcache_is_registered(bcache_device, expected, retry=0):
-        # find the actual bcache device name via sysfs using the
-        # backing device's holders directory.
-        LOG.debug('check just created bcache %s if it is registered',
-                  bcache_device)
-        try:
-            udevadm_settle(exists=expected)
-            if os.path.exists(expected):
-                LOG.debug('Found bcache dev %s at expected path %s',
-                          bcache_device, expected)
-                return
-            LOG.debug('bcache device path not found: %s', expected)
-            local_holders = clear_holders.get_holders(bcache_device)
-            LOG.debug('got initial holders being "%s"', local_holders)
-            if len(local_holders) == 0:
-                raise ValueError("holders == 0 , expected non-zero")
-        except (OSError, IndexError, ValueError):
-            # Some versions of bcache-tools will register the bcache device as
-            # soon as we run make-bcache using udev rules, so wait for udev to
-            # settle, then try to locate the dev, on older versions we need to
-            # register it manually though
-            LOG.debug('bcache device was not registered, registering %s at '
-                      '/sys/fs/bcache/register', bcache_device)
-            try:
-                register_bcache(bcache_device)
-                udevadm_settle(exists=expected)
-            except (IOError):
-                # device creation is notoriously racy and this can trigger
-                # "Invalid argument" IOErrors if it got created in "the
-                # meantime" - just restart the function a few times to
-                # check it all again
-                if retry < 5:
-                    ensure_bcache_is_registered(bcache_device,
-                                                expected, (retry+1))
+    def _validate_bcache(bcache_device, bcache_sys_path):
+        """ check if bcache is ready, dump info
+
+        For cache devices, we expect to find a cacheN symlink
+        which will point to the underlying cache device; Find
+        this symlink, read it and compare bcache_device
+        specified in the parameters.
+
+        For backing devices, we expec to find a dev symlink
+        pointing to the bcacheN device to which the backing
+        device is enslaved.  From the dev symlink, we can
+        read the bcacheN holders list, which should contain
+        the backing device kname.
+
+        In either case, if we fail to find the correct
+        symlinks in sysfs, this method will raise
+        an OSError indicating the missing attribute.
+        """
+        # cacheset
+        # /sys/fs/bcache/<uuid>
+
+        # cache device
+        # /sys/class/block/<cdev>/bcache/set -> # .../fs/bcache/uuid
+
+        # backing
+        # /sys/class/block/<bdev>/bcache/cache -> # .../block/bcacheN
+        # /sys/class/block/<bdev>/bcache/dev -> # .../block/bcacheN
+
+        if bcache_sys_path.startswith('/sys/fs/bcache'):
+            LOG.debug("validating bcache caching device '%s' from sys_path"
+                      " '%s'", bcache_device, bcache_sys_path)
+            # we expect a cacheN symlink to point to bcache_device/bcache
+            sys_path_links = [os.path.join(bcache_sys_path, l)
+                              for l in os.listdir(bcache_sys_path)]
+            cache_links = [l for l in sys_path_links
+                           if os.path.islink(l) and (
+                              os.path.basename(l).startswith('cache'))]
+
+            if len(cache_links) == 0:
+                msg = ('Failed to find any cache links in %s:%s' % (
+                       bcache_sys_path, sys_path_links))
+                raise OSError(msg)
+
+            for link in cache_links:
+                target = os.readlink(link)
+                LOG.debug('Resolving symlink %s -> %s', link, target)
+                # cacheN  -> ../../../devices/.../<bcache_device>/bcache
+                # basename(dirname(readlink(link)))
+                target_cache_device = os.path.basename(
+                    os.path.dirname(target))
+                if os.path.basename(bcache_device) == target_cache_device:
+                    LOG.debug('Found match: bcache_device=%s target_device=%s',
+                              bcache_device, target_cache_device)
+                    return
                 else:
-                    LOG.debug('Repetive error registering the bcache dev %s',
-                              bcache_device)
-                    raise ValueError("bcache device %s can't be registered",
-                                     bcache_device)
+                    msg = ('Cache symlink %s ' % target_cache_device +
+                           'points to incorrect device: %s' % bcache_device)
+                    raise OSError(msg)
+        elif bcache_sys_path.startswith('/sys/class/block'):
+            LOG.debug("validating bcache backing device '%s' from sys_path"
+                      " '%s'", bcache_device, bcache_sys_path)
+            # we expect a 'dev' symlink to point to the bcacheN device
+            bcache_dev = os.path.join(bcache_sys_path, 'dev')
+            if os.path.islink(bcache_dev):
+                bcache_dev_link = (
+                    os.path.basename(os.readlink(bcache_dev)))
+                LOG.debug('bcache device %s using bcache kname: %s',
+                          bcache_sys_path, bcache_dev_link)
+
+                bcache_slaves_path = os.path.join(bcache_dev, 'slaves')
+                slaves = os.listdir(bcache_slaves_path)
+                LOG.debug('bcache device %s has slaves: %s',
+                          bcache_sys_path, slaves)
+                if os.path.basename(bcache_device) in slaves:
+                    LOG.debug('bcache device %s found in slaves',
+                              os.path.basename(bcache_device))
+                    return
+                else:
+                    msg = ('Failed to find bcache device %s' % bcache_device +
+                           'in slaves list %s' % slaves)
+                    raise OSError(msg)
+            else:
+                msg = 'didnt find "dev" attribute on: %s', bcache_dev
+                return OSError(msg)
+
+        else:
+            LOG.debug("Failed to validate bcache device '%s' from sys_path"
+                      " '%s'", bcache_device, bcache_sys_path)
+            msg = ('sysfs path %s does not appear to be a bcache device' %
+                   bcache_sys_path)
+            return ValueError(msg)
+
+    def ensure_bcache_is_registered(bcache_device, expected, retry=None):
+        """ Test that bcache_device is found at an expected path and
+            re-register the device if it's not ready.
+
+            Retry the validation and registration as needed.
+        """
+        if not retry:
+            retry = BCACHE_REGISTRATION_RETRY
+
+        for attempt, wait in enumerate(retry):
+            # find the actual bcache device name via sysfs using the
+            # backing device's holders directory.
+            LOG.debug('check just created bcache %s if it is registered,'
+                      ' try=%s', bcache_device, attempt + 1)
+            try:
+                udevadm_settle()
+                if os.path.exists(expected):
+                    LOG.debug('Found bcache dev %s at expected path %s',
+                              bcache_device, expected)
+                    _validate_bcache(bcache_device, expected)
+                else:
+                    msg = 'bcache device path not found: %s' % expected
+                    LOG.debug(msg)
+                    raise ValueError(msg)
+
+                # if bcache path exists and holders are > 0 we can return
+                LOG.debug('bcache dev %s at path %s successfully registered'
+                          ' on attempt %s/%s',  bcache_device, expected,
+                          attempt + 1, len(retry))
+                return
+
+            except (OSError, IndexError, ValueError):
+                # Some versions of bcache-tools will register the bcache device
+                # as soon as we run make-bcache using udev rules, so wait for
+                # udev to settle, then try to locate the dev, on older versions
+                # we need to register it manually though
+                LOG.debug('bcache device was not registered, registering %s '
+                          'at /sys/fs/bcache/register', bcache_device)
+                try:
+                    register_bcache(bcache_device)
+                except IOError:
+                    # device creation is notoriously racy and this can trigger
+                    # "Invalid argument" IOErrors if it got created in "the
+                    # meantime" - just restart the function a few times to
+                    # check it all again
+                    pass
+
+            LOG.debug("bcache dev %s not ready, waiting %ss",
+                      bcache_device, wait)
+            time.sleep(wait)
+
+        # we've exhausted our retries
+        LOG.warning('Repetitive error registering the bcache dev %s',
+                    bcache_device)
+        raise RuntimeError("bcache device %s can't be registered" %
+                           bcache_device)
 
     if cache_device:
         # /sys/class/block/XXX/YYY/
@@ -933,7 +1057,6 @@ def bcache_handler(info, storage_config):
             LOG.debug('bcache-super-show=[{}]'.format(out))
             [cset_uuid] = [line.split()[-1] for line in out.split("\n")
                            if line.startswith('cset.uuid')]
-
         else:
             LOG.debug('caching device does not yet exist at {}/bcache. Make '
                       'cache and get uuid'.format(cache_device_sysfs))
@@ -951,6 +1074,7 @@ def bcache_handler(info, storage_config):
         backing_device_sysfs = block.sys_block_path(backing_device)
         target_sysfs_path = os.path.join(backing_device_sysfs, "bcache")
         if not os.path.exists(os.path.join(backing_device_sysfs, "bcache")):
+            LOG.debug('Creating a backing device on %s', backing_device)
             util.subp(["make-bcache", "-B", backing_device])
         ensure_bcache_is_registered(backing_device, target_sysfs_path)
 
@@ -1078,6 +1202,8 @@ def meta_custom(args):
                           (item_id, type(error).__name__, error))
                 raise
 
+    if args.umount:
+        util.do_umount(state['target'], recursive=True)
     return 0
 
 
@@ -1088,6 +1214,18 @@ def meta_simple(args):
     state = util.load_command_environment()
 
     cfg = config.load_command_config(args, state)
+    devpath = None
+    if cfg.get("storage") is not None:
+        for i in cfg["storage"]["config"]:
+            serial = i.get("serial")
+            if serial is None:
+                continue
+            grub = i.get("grub_device")
+            diskPath = block.lookup_disk(serial)
+            if grub is True:
+                devpath = diskPath
+            if config.value_as_boolean(i.get('wipe')):
+                block.wipe_volume(diskPath, mode=i.get('wipe'))
 
     if args.target is not None:
         state['target'] = args.target
@@ -1116,7 +1254,7 @@ def meta_simple(args):
     # all multipath devices to exclusively use one of paths as a target disk.
     block.stop_all_unused_multipath_devices()
 
-    if len(devices) == 0:
+    if len(devices) == 0 and devpath is None:
         devices = block.get_installable_blockdevs()
         LOG.warn("'%s' mode, no devices given. unused list: %s",
                  args.mode, devices)
@@ -1136,6 +1274,8 @@ def meta_simple(args):
                 LOG.warn("No non-removable, installable devices found. List "
                          "populated with removable devices allowed: %s",
                          devices)
+    elif len(devices) == 0 and devpath:
+        devices = [devpath]
 
     if len(devices) > 1:
         if args.devices is not None:
@@ -1248,6 +1388,9 @@ def meta_simple(args):
                      ('cloudimg-rootfs', args.fstype))
     else:
         LOG.info("fstab not in environment, so not writing")
+
+    if args.umount:
+        util.do_umount(state['target'], recursive=True)
 
     return 0
 

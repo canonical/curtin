@@ -96,6 +96,7 @@ In order to run vmtest you'll need some dependencies.  To get them, you
 can run::
 
   make vmtest-deps
+  make sync-images   # Uses the IMAGE_DIR environment variable mentioned below
 
 Running
 =======
@@ -103,6 +104,7 @@ Running
 Running tests is done most simply by::
 
   make vmtest
+
 .. note::
 
   By default, the vmtests for iSCSI will be skipped (see Environment
@@ -114,7 +116,7 @@ If you wish to all tests in test_network.py, do so with::
 
 Or run a single test with::
 
-  nosetests3 tests/vmtests/test_network.py:WilyTestBasic
+  nosetests3 tests/vmtests/test_network.py::XenialTestNetworkBasic
 
 
 Environment Variables
@@ -167,6 +169,15 @@ Some environment variables affect the running of vmtest
   If you set this value, you must ensure that the directory is either
   non-existent or clean.
 
+- ``CURTIN_VMTEST_REUSE_TOPDIR``: default 0
+
+  If this variable is set to 1, then vmtest will detect if the test
+  specified already exists in the configured ``CURTIN_VMTEST_TOPDIR``
+  location.  If present, vmtest will skip executing the install and
+  boot phase of vmtest, and install just execute the unittests 
+  specified.  This allows developers to re-run unittests on existing
+  data that's already been collected.
+
 - ``CURTIN_VMTEST_LOG``: default $TMPDIR/vmtest-<timestamp>.log
 
   Vmtest writes extended log information to this file.
@@ -203,6 +214,11 @@ Some environment variables affect the running of vmtest
     This modifies the  invocation of nosetets to add '--processes' and other
     necessary nose arguments (--process-timeout)
 
+- ``CURTIN_VMTEST_NR_CPUS``: default ''
+
+    Allow environment to override the number of virtual cpus to allocate
+    in the target virtual machines.
+
 - ``IMAGE_DIR``: default /srv/images
 
   Vmtest keeps a mirror of maas ephemeral images in this directory.
@@ -217,25 +233,25 @@ Some environment variables affect the running of vmtest
   That can be used to change behaviour of the tests however a current debugging
   session needs it. The following example shows how it can be used for tests
   against a ppa, but this can also be used to test proposed or actually any
-  modification to ephemeral or target as needed.::
-
-  # example ppa to test into install environment
-  early_commands:
-    10_add_ppa: ['sh', '-xc', 'DEBIAN_FRONTEND=noninteractive add-apt-repository --yes <yourppa>']
-    # update & upgrade what is there already
-    97_update: ['apt-get', 'update']
-    98_upgrade: ['sh', '-xc', 'DEBIAN_FRONTEND=noninteractive apt-get upgrade --yes']
-  # example ppa into target environment via apt feature
-  apt:
-    sources:
-      ignored1:
-        source: "<yourppa>"
-  # example of any other modification
-  early_commands:
-    01_something: ['sh', '-xc', '<yourcommand>']
-  # in target
-  late_commands:
-    02_something: ['sh', '-xc', 'curtin in-target -- <yourcommand>']
+  modification to ephemeral or target as needed::
+    
+    # example ppa to test into install environment
+    early_commands:
+      10_add_ppa: ['sh', '-xc', 'DEBIAN_FRONTEND=noninteractive add-apt-repository --yes <yourppa>']
+      # update & upgrade what is there already
+      97_update: ['apt-get', 'update']
+      98_upgrade: ['sh', '-xc', 'DEBIAN_FRONTEND=noninteractive apt-get upgrade --yes']
+    # example ppa into target environment via apt feature
+    apt:
+      sources:
+        ignored1:
+          source: "<yourppa>"
+    # example of any other modification
+    early_commands:
+      01_something: ['sh', '-xc', '<yourcommand>']
+    # in target
+    late_commands:
+      02_something: ['sh', '-xc', 'curtin in-target -- <yourcommand>']
 
 - ``CURTIN_VMTEST_ISCSI_PORTAL``: default ''
 
