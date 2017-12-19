@@ -1,3 +1,12 @@
+curtin (0.1.0~bzr221-0ubuntu1) wily; urgency=medium
+
+  * debian/README.source: minor fixes in doc on merging upstream
+  * New upstream snapshot.
+    * force re-reading of partition information before looking
+      for multipath UUID matches.
+
+ -- Scott Moser <smoser@ubuntu.com>  Wed, 24 Jun 2015 14:08:55 -0400
+
 curtin (0.1.0~bzr220-0ubuntu1) wily; urgency=medium
 
   * New upstream snapshot.
