@@ -45,9 +45,27 @@ cleanup() {
     fi
 }
 
+
+wipe_partitions() {
+    # wipe_partition(blockdev, ptno)
+    local dev="$1" target="" ret="" part=""
+    shift
+    for part in "$@"; do
+        find_partno "$dev" $part ||
+            { ret=$?; error "did not find $part on $dev"; return $ret; }
+        target="$_RET"
+        wipedev "$target" false false ||
+            { ret=$?; error "failed to wipe $part on $dev"; return $ret; }
+    done
+    return 0
+}
+
 wipedev() {
-    # wipe the front and end (gpt is at end also)
-    local target="$1" size="" out="" bs="" count="" seek="" mb=$((1024*1024))
+    # wipedev(target, wipe_end=true, reread=true)
+    # wipe the front and optionally end of $target
+    # if reread=true call rereadpt and settle
+    local target="$1" wipe_end=${2:-true} rereadpt=${3:-true}
+    local size="" out="" bs="" count="" seek="" mb=$((1024*1024))
     local info=""
     getsize "$target" ||
         { error "failed to get size of $target"; return 1; }
@@ -72,7 +90,7 @@ wipedev() {
         return 1
     }
 
-    if [ "$size" -gt "$mb" ]; then
+    if $wipe_end && [ "$size" -gt "$mb" ]; then
         # do the last 1MB
         count=$((mb / bs))
         seek=$(((size / bs) - $count))
@@ -87,10 +105,40 @@ wipedev() {
         fi
     fi
 
-    if [ -b "$target" ]; then
+    if $rereadpt && [ -b "$target" ]; then
         blockdev --rereadpt "$target"
         udevadm settle
     fi
+}
+
+find_partno() {
+    local devname="$1" partno="$2"
+    local devbname cand msg="" slash="/"
+    devbname="${devname#/dev/}"
+    # /dev/cciss/c0d0 -> ccis!c0d0
+    devbname="${devbname//$slash/!}"
+    if [ -d "/sys/class/block/${devbname}" ]; then
+        local cand candptno name partdev
+        debug 1 "using sys/class/block/$devbname"
+        for cand in /sys/class/block/$devbname/*/partition; do
+            [ -f "$cand" ] || continue
+            read candptno < "$cand"
+            [ "$candptno" = "$partno" ] || continue
+            name=${cand#/sys/class/block/${devbname}/}
+            name=${name%/partition}
+            # ccis!c0d0p1 -> ccis/c0d0p1
+            name=${name//!/$slash}
+            partdev="/dev/$name"
+            [ -b "$partdev" ] && _RET="$partdev" && return 0
+            msg="expected $partdev to exist as partition $partno on $devname"
+            error "WARN: $msg. it did not exist."
+        done
+    else
+        for cand in "${devname}$partno" "${devname}p${partno}"; do
+            [ -b "$cand" ] && _RET="$cand" && return 0
+        done
+    fi
+    return 1
 }
 
 part2bd() {
@@ -151,17 +199,25 @@ pt_gpt() {
     fi
 
     if $isblk; then
+        local expected="1 15"
+        [ "$boot" = "true" ] && expected="$expected 2"
         blockdev --rereadpt "$target"
         udevadm settle
-        [ -b "${target}1" ] ||
-            { error "no partition found ${target}1"; return 1; }
-        [ -b "${target}15" ] ||
-            { error "no partition found ${target}15"; return 1; }
-        if [ "$boot" = true ]; then
-            [ -b "${target}2" ] ||
-                { error "no partition found ${target}2"; return 1; }
-        fi
+        assert_partitions "$target" $expected ||
+            { error "$target missing partitions: $_RET"; return 1; }
+        wipe_partitions "$target" $expected ||
+            { error "$target: failed to wipe partitions"; return 1; }
     fi
+}
+
+assert_partitions() {
+    local dev="$1" missing="" part=""
+    shift
+    for part in "$@"; do
+        find_partno "$dev" $part || missing="${missing} ${part}"
+    done
+    _RET="${missing# }"
+    [ -z "$missing" ]
 }
 
 pt_uefi() {
@@ -191,10 +247,10 @@ pt_uefi() {
     if $isblk; then
         blockdev --rereadpt "$target"
         udevadm settle
-        [ -b "${target}1" ] ||
-            { error "no partition found ${target}1"; return 1; }
-        [ -b "${target}15" ] ||
-            { error "no partition found ${target}15"; return 1; }
+        assert_partitions "$target" 1 15 ||
+            { error "$target missing partitions: $_RET"; return 1; }
+        wipe_partitions "$target" 1 15 ||
+            { error "$target: failed to wipe partitions"; return 1; }
     fi
 
     mkfs -t vfat -F 32 -n uefi-boot ${target}15 ||
@@ -206,7 +262,7 @@ pt_mbr() {
     local target="$1" end=${2:-""} boot="$3" size="" s512="" ptype="L"
     local start="2048" rootsize="" maxsize="4294967296"
     local maxend="" isblk=false def_bootsize="1048576" bootsize=0
-    local isblk=false
+    local isblk=false pad
     getsize "$target" ||
         { error "failed to get size of $target"; return 1; }
     size="$_RET"
@@ -250,14 +306,13 @@ pt_mbr() {
     if $isblk; then
         blockdev --rereadpt "$target"
         udevadm settle
-        [ -b "${target}1" ] ||
-            { error "no partition found ${target}1"; return 1; }
+        assert_partitions "$target" 1 ||
+            { error "$target missing partitions: $_RET"; return 1; }
+
+        wipe_partitions "$target" 1 ||
+            { error "failed to wipe partition 1 on $target"; return 1; }
     fi
-    out=$(wipefs "--offset=$(($start*512))" "$target" 2>&1) || {
-        error "$out";
-        error "failed to wipefs first partition of $target";
-        return 1;
-    }
+    
 }
 
 pt_prep() {
@@ -265,7 +320,7 @@ pt_prep() {
     local cmd="" isblk=false
     [ -b "$target" ] && isblk=true
 
-    sgdisk --zap-all "$target" ||
+    wipedev "$target" ||
         { error "failed to clear $target"; return 1; }
 
     cmd=(
@@ -283,11 +338,10 @@ pt_prep() {
     if $isblk; then
         blockdev --rereadpt "$target"
         udevadm settle
-        [ -b "${target}1" ] ||
-            { error "no partition found ${target}1"; return 1; }
-        [ -b "${target}2" ] ||
-            { error "no partition found ${target}2"; return 1; }
-        dd if=/dev/zero of="${target}1"
+        assert_partitions "$target" 1 2 ||
+            { error "$target missing partitions: $_RET"; return 1; }
+        wipe_partitions "$target" 1 2 ||
+            { error "$target: failed to wipe partitions"; return 1;}
     fi
 
     return 0
