@@ -69,7 +69,7 @@ def write_image_to_disk(source, dev):
     return block.get_root_device([devname, ])
 
 
-def get_bootpt_cfg(cfg, enabled=False, fstype=None):
+def get_bootpt_cfg(cfg, enabled=False, fstype=None, root_fstype=None):
     # 'cfg' looks like:
     #   enabled: boolean
     #   fstype: filesystem type (default to 'fstype')
@@ -81,8 +81,11 @@ def get_bootpt_cfg(cfg, enabled=False, fstype=None):
     ret.update(cfg)
     if enabled:
         ret['enabled'] = True
-    if ret['enabled']:
-        if fstype and not ret['fstype']:
+    
+    if ret['enabled'] and not ret['fstype']:
+        if root_fstype:
+            ret['fstype'] = root_fstype
+        if fstype:
             ret['fstype'] = fstype
     return ret
 
@@ -101,7 +104,8 @@ def meta_simple(args):
 
     bootpt = get_bootpt_cfg(
         cfg.get('block-meta', {}).get('boot-partition', {}),
-        enabled=args.mode == SIMPLE_BOOT, fstype=args.boot_fstype)
+        enabled=args.mode == SIMPLE_BOOT, fstype=args.boot_fstype,
+        root_fstype=args.fstype)
 
     # Remove duplicates but maintain ordering.
     devices = list(OrderedDict.fromkeys(devices))
