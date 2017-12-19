@@ -1,3 +1,23 @@
+curtin (0.1.0~bzr399-0ubuntu1) yakkety; urgency=medium
+
+  * debian/new-upstream-snapshot: fix for specifying revision.
+  * New upstream snapshot.
+    - curtin/net: fix inet value for subnets, don't add interface attributes
+      to alias (LP: #1588547)
+    - improve net-meta network configuration (LP: #1592149)
+    - reporting: set webhook handler level to DEBUG, no filtering
+      (LP: #1590846)
+    - tests/vmtests: add yakkety, remove vivid
+    - curtin/net: use post-up for interface alias, resolve 120 second time out
+      on Trusty when using interface aliases
+    - vmtest: provide info on images used
+    - fix multipath configuration and add multipath tests (LP: #1551937)
+    - tools/launch and tools/xkvm: whitespace cleanup and bash -x
+    - tools/launch: boot by root=LABEL=cloudimg-rootfs
+    - Initial vmtest power8 support and TestSimple test.
+
+ -- Scott Moser <smoser@ubuntu.com>  Tue, 12 Jul 2016 12:31:34 -0400
+
 curtin (0.1.0~bzr389-0ubuntu1) yakkety; urgency=medium
 
   * New upstream snapshot. 
