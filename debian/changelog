@@ -1,3 +1,11 @@
+curtin (0.1.0~bzr214-0ubuntu1) wily; urgency=medium
+
+  * New upstream snapshot.
+    * Use filesystem uuid rather than scsi_id to avoid false positives
+      when detecting multipath (LP: #1463043).
+
+ -- Scott Moser <smoser@ubuntu.com>  Tue, 09 Jun 2015 16:35:21 -0400
+
 curtin (0.1.0~bzr213-0ubuntu1) wily; urgency=medium
 
   * New upstream snapshot.
