@@ -64,16 +64,7 @@ class TrustyHWEXTestLvm(relbase.trusty_hwe_x, TestLvmAbs):
     __test__ = True
 
 
-class WilyTestLvm(relbase.wily, TestLvmAbs):
-    # EOL - 2016-07-28
-    __test__ = False
-
-
 class XenialTestLvm(relbase.xenial, TestLvmAbs):
-    __test__ = True
-
-
-class YakketyTestLvm(relbase.yakkety, TestLvmAbs):
     __test__ = True
 
 

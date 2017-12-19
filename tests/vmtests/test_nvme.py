@@ -84,16 +84,7 @@ class TrustyHWEXTestNvme(relbase.trusty_hwe_x, TestNvmeAbs):
         print("test_ptable does not work for Trusty")
 
 
-class WilyTestNvme(relbase.wily, TestNvmeAbs):
-    # EOL - 2016-07-28
-    __test__ = False
-
-
 class XenialTestNvme(relbase.xenial, TestNvmeAbs):
-    __test__ = True
-
-
-class YakketyTestNvme(relbase.yakkety, TestNvmeAbs):
     __test__ = True
 
 

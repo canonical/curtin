@@ -103,16 +103,7 @@ class TrustyHWEXUefiTestBasic(relbase.trusty_hwe_x, TrustyUefiTestBasic):
     __test__ = True
 
 
-class WilyUefiTestBasic(relbase.wily, TestBasicAbs):
-    # EOL - 2016-07-28
-    __test__ = False
-
-
 class XenialUefiTestBasic(relbase.xenial, TestBasicAbs):
-    __test__ = True
-
-
-class YakketyUefiTestBasic(relbase.yakkety, TestBasicAbs):
     __test__ = True
 
 
@@ -136,17 +127,7 @@ class TrustyHWEXUefiTestBasic4k(relbase.trusty_hwe_x, TrustyUefiTestBasic4k):
     __test__ = True
 
 
-class WilyUefiTestBasic4k(WilyUefiTestBasic):
-    # EOL - 2016-07-28
-    __test__ = False
-    disk_block_size = 4096
-
-
 class XenialUefiTestBasic4k(XenialUefiTestBasic):
-    disk_block_size = 4096
-
-
-class YakketyUefiTestBasic4k(YakketyUefiTestBasic):
     disk_block_size = 4096
 
 

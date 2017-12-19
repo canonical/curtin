@@ -23,6 +23,7 @@ import json
 import os
 import platform
 import re
+import shlex
 import shutil
 import socket
 import subprocess
@@ -57,6 +58,7 @@ _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
 _INSTALLED_MAIN = '/usr/bin/curtin'
 
 _LSB_RELEASE = {}
+_HAS_UNSHARE_PID = None
 
 _DNS_REDIRECT_IP = None
 
@@ -66,21 +68,31 @@ BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 def _subp(args, data=None, rcs=None, env=None, capture=False,
           shell=False, logstring=False, decode="replace",
-          target=None, cwd=None, log_captured=False):
+          target=None, cwd=None, log_captured=False, unshare_pid=None):
     if rcs is None:
         rcs = [0]
-
     devnull_fp = None
-    try:
-        if target_path(target) != "/":
-            args = ['chroot', target] + list(args)
 
-        if not logstring:
-            LOG.debug(("Running command %s with allowed return codes %s"
-                       " (shell=%s, capture=%s)"), args, rcs, shell, capture)
-        else:
-            LOG.debug(("Running hidden command to protect sensitive "
-                       "input/output logstring: %s"), logstring)
+    tpath = target_path(target)
+    chroot_args = [] if tpath == "/" else ['chroot', target]
+    sh_args = ['sh', '-c'] if shell else []
+    if isinstance(args, string_types):
+        args = [args]
+
+    try:
+        unshare_args = _get_unshare_pid_args(unshare_pid, tpath)
+    except RuntimeError as e:
+        raise RuntimeError("Unable to unshare pid (cmd=%s): %s" % (args, e))
+
+    args = unshare_args + chroot_args + sh_args + list(args)
+
+    if not logstring:
+        LOG.debug(("Running command %s with allowed return codes %s"
+                   " (capture=%s)"), args, rcs, capture)
+    else:
+        LOG.debug(("Running hidden command to protect sensitive "
+                   "input/output logstring: %s"), logstring)
+    try:
         stdin = None
         stdout = None
         stderr = None
@@ -94,7 +106,7 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
             stdin = subprocess.PIPE
         sp = subprocess.Popen(args, stdout=stdout,
                               stderr=stderr, stdin=stdin,
-                              env=env, shell=shell, cwd=cwd)
+                              env=env, shell=False, cwd=cwd)
         # communicate in python2 returns str, python3 returns bytes
         (out, err) = sp.communicate(data)
 
@@ -126,6 +138,63 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
                                     exit_code=rc,
                                     cmd=args)
     return (out, err)
+
+
+def _has_unshare_pid():
+    global _HAS_UNSHARE_PID
+    if _HAS_UNSHARE_PID is not None:
+        return _HAS_UNSHARE_PID
+
+    if not which('unshare'):
+        _HAS_UNSHARE_PID = False
+        return False
+    out, err = subp(["unshare", "--help"], capture=True, decode=False,
+                    unshare_pid=False)
+    joined = b'\n'.join([out, err])
+    _HAS_UNSHARE_PID = b'--fork' in joined and b'--pid' in joined
+    return _HAS_UNSHARE_PID
+
+
+def _get_unshare_pid_args(unshare_pid=None, target=None, euid=None):
+    """Get args for calling unshare for a pid.
+
+    If unshare_pid is False, return empty list.
+    If unshare_pid is True, check if it is usable.  If not, raise exception.
+    if unshare_pid is None, then unshare if
+       * euid is 0
+       * 'unshare' with '--fork' and '--pid' is available.
+       * target != /
+    """
+    if unshare_pid is not None and not unshare_pid:
+        # given a false-ish other than None means no.
+        return []
+
+    if euid is None:
+        euid = os.geteuid()
+
+    tpath = target_path(target)
+
+    unshare_pid_in = unshare_pid
+    if unshare_pid is None:
+        unshare_pid = False
+        if tpath != "/" and euid == 0:
+            if _has_unshare_pid():
+                unshare_pid = True
+
+    if not unshare_pid:
+        return []
+
+    # either unshare was passed in as True, or None and turned to True.
+    if euid != 0:
+        raise RuntimeError(
+            "given unshare_pid=%s but euid (%s) != 0." %
+            (unshare_pid_in, euid))
+
+    if not _has_unshare_pid():
+        raise RuntimeError(
+            "given unshare_pid=%s but no unshare command." % unshare_pid_in)
+
+    return ['unshare', '--fork', '--pid', '--']
 
 
 def subp(*args, **kwargs):
@@ -160,6 +229,10 @@ def subp(*args, **kwargs):
         means to run, sleep 1, run, sleep 3, run and then return exit code.
     :param target:
         run the command as 'chroot target <args>'
+    :param unshare_pid:
+        unshare the pid namespace.
+        default value (None) is to unshare pid namespace if possible
+        and target != /
 
     :return
         if not capturing, return is (None, None)
@@ -1275,6 +1348,9 @@ def target_path(target, path=None):
     if not path:
         return target
 
+    if not isinstance(path, string_types):
+        raise ValueError("Unexpected input for path: %s" % path)
+
     # os.path.join("/etc", "/foo") returns "/foo". Chomp all leading /.
     while len(path) and path[0] == "/":
         path = path[1:]
@@ -1288,6 +1364,40 @@ class RunInChroot(ChrootableTarget):
         with RunInChroot("/target") as in_chroot:
             in_chroot(["your", "chrooted", "command"])"""
     __call__ = ChrootableTarget.subp
+
+
+def shlex_split(str_in):
+    # shlex.split takes a string
+    # but in python2 if input here is a unicode, encode it to a string.
+    # http://stackoverflow.com/questions/2365411/
+    #     python-convert-unicode-to-ascii-without-errors
+    if sys.version_info.major == 2:
+        try:
+            if isinstance(str_in, unicode):
+                str_in = str_in.encode('utf-8')
+        except NameError:
+            pass
+
+        return shlex.split(str_in)
+    else:
+        return shlex.split(str_in)
+
+
+def load_shell_content(content, add_empty=False, empty_val=None):
+    """Given shell like syntax (key=value\nkey2=value2\n) in content
+       return the data in dictionary form.  If 'add_empty' is True
+       then add entries in to the returned dictionary for 'VAR='
+       variables.  Set their value to empty_val."""
+
+    data = {}
+    for line in shlex_split(content):
+        key, value = line.split("=", 1)
+        if not value:
+            value = empty_val
+        if add_empty or value:
+            data[key] = value
+
+    return data
 
 
 # vi: ts=4 expandtab syntax=python

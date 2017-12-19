@@ -1,4 +1,5 @@
 from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 from .test_network import TestNetworkBaseTestsAbs
 
 import textwrap
@@ -19,6 +20,24 @@ class TestNetworkIPV6Abs(TestNetworkBaseTestsAbs):
         grep . -r /sys/class/net/bond0.108/ > sysfs_bond0.108 || :
         grep . -r /sys/class/net/bond0.208/ > sysfs_bond0.208 || :
         """)]
+
+
+class CentosTestNetworkIPV6Abs(TestNetworkIPV6Abs):
+    extra_kern_args = "BOOTIF=eth0-bc:76:4e:06:96:b3"
+    collect_scripts = TestNetworkIPV6Abs.collect_scripts + [
+        textwrap.dedent("""
+            cd OUTPUT_COLLECT_D
+            cp -a /etc/sysconfig/network-scripts .
+            cp -a /var/log/cloud-init* .
+            cp -a /var/lib/cloud ./var_lib_cloud
+            cp -a /run/cloud-init ./run_cloud-init
+        """)]
+
+    def test_etc_network_interfaces(self):
+        pass
+
+    def test_etc_resolvconf(self):
+        pass
 
 
 class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkIPV6Abs):
@@ -48,14 +67,31 @@ class TrustyHWEXTestNetworkIPV6(relbase.trusty_hwe_x, TrustyTestNetworkIPV6):
 class XenialTestNetworkIPV6(relbase.xenial, TestNetworkIPV6Abs):
     __test__ = True
 
-
-class YakketyTestNetworkIPV6(relbase.yakkety, TestNetworkIPV6Abs):
-    __test__ = True
+    @classmethod
+    def test_ip_output(cls):
+        cls.skip_by_date(cls.__name__, cls.release, bugnum="1701097",
+                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
 
 
 class ZestyTestNetworkIPV6(relbase.zesty, TestNetworkIPV6Abs):
     __test__ = True
 
+    @classmethod
+    def setUpClass(cls):
+        cls.skip_by_date(cls.__name__, cls.release, "ci-003c6678e",
+                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+        super().setUpClass()
+
 
 class ArtfulTestNetworkIPV6(relbase.artful, TestNetworkIPV6Abs):
+    __test__ = True
+
+
+class Centos66TestNetworkIPV6(centos_relbase.centos66fromxenial,
+                              CentosTestNetworkIPV6Abs):
+    __test__ = True
+
+
+class Centos70TestNetworkIPV6(centos_relbase.centos70fromxenial,
+                              CentosTestNetworkIPV6Abs):
     __test__ = True

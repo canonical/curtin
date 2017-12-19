@@ -1,4 +1,5 @@
 from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 from .test_network_ipv6 import TestNetworkIPV6Abs
 
 import textwrap
@@ -25,8 +26,8 @@ class TestNetworkMtuAbs(TestNetworkIPV6Abs):
         cd OUTPUT_COLLECT_D
         proc_v6="/proc/sys/net/ipv6/conf"
         for f in `seq 0 7`; do
-            cat /sys/class/net/interface${f}/mtu > interface${f}_dev_mtu;
-            cat $proc_v6/interface${f}/mtu > interface${f}_ipv6_mtu;
+            cat /sys/class/net/interface${f}/mtu |tee interface${f}_dev_mtu;
+            cat $proc_v6/interface${f}/mtu |tee interface${f}_ipv6_mtu;
         done
         if [ -e /var/log/upstart ]; then
           cp -a /var/log/upstart ./var_log_upstart
@@ -114,6 +115,50 @@ class TestNetworkMtuAbs(TestNetworkIPV6Abs):
         self._check_iface_subnets('interface7')
 
 
+class CentosTestNetworkMtuAbs(TestNetworkMtuAbs):
+    conf_file = "examples/tests/network_mtu.yaml"
+    extra_kern_args = "BOOTIF=eth0-52:54:00:12:34:00"
+    collect_scripts = TestNetworkMtuAbs.collect_scripts + [
+        textwrap.dedent("""
+            cd OUTPUT_COLLECT_D
+            cp -a /etc/sysconfig/network-scripts .
+            cp -a /var/log/cloud-init* .
+            cp -a /var/lib/cloud ./var_lib_cloud
+            cp -a /run/cloud-init ./run_cloud-init
+        """)]
+
+    def test_etc_network_interfaces(self):
+        pass
+
+    def test_etc_resolvconf(self):
+        pass
+
+    @classmethod
+    def test_ip_output(cls):
+        cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
+                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+
+    @classmethod
+    def test_ipv6_mtu_smaller_than_ipv4_v6_iface_first(cls):
+        cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
+                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+
+    @classmethod
+    def test_ipv6_mtu_smaller_than_ipv4_non_default(cls):
+        cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
+                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+
+    @classmethod
+    def test_ipv6_mtu_higher_than_default_no_ipv4_iface_up(cls):
+        cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
+                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+
+    @classmethod
+    def test_ipv6_mtu_higher_than_default_no_ipv4_iface_v6_iface_first(cls):
+        cls.skip_by_date(cls.__name__, cls.release, bugnum="1706973",
+                         fixby=(2017, 8, 16), removeby=(2017, 8, 31))
+
+
 class PreciseHWETTestNetworkMtu(relbase.precise_hwe_t, TestNetworkMtuAbs):
     # FIXME: Precise mtu / ipv6 is buggy
     __test__ = False
@@ -152,13 +197,19 @@ class XenialTestNetworkMtu(relbase.xenial, TestNetworkMtuAbs):
     __test__ = True
 
 
-class YakketyTestNetworkMtu(relbase.yakkety, TestNetworkMtuAbs):
-    __test__ = True
-
-
 class ZestyTestNetworkMtu(relbase.zesty, TestNetworkMtuAbs):
     __test__ = True
 
 
 class ArtfulTestNetworkMtu(relbase.artful, TestNetworkMtuAbs):
+    __test__ = True
+
+
+class Centos66TestNetworkMtu(centos_relbase.centos66fromxenial,
+                             CentosTestNetworkMtuAbs):
+    __test__ = True
+
+
+class Centos70TestNetworkMtu(centos_relbase.centos70fromxenial,
+                             CentosTestNetworkMtuAbs):
     __test__ = True

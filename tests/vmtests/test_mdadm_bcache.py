@@ -132,16 +132,7 @@ class TrustyHWEXTestMdadmBcache(relbase.trusty_hwe_x, TrustyTestMdadmBcache):
     __test__ = True
 
 
-class WilyTestMdadmBcache(relbase.wily, TestMdadmBcacheAbs):
-    # EOL - 2016-07-28
-    __test__ = False
-
-
 class XenialTestMdadmBcache(relbase.xenial, TestMdadmBcacheAbs):
-    __test__ = True
-
-
-class YakketyTestMdadmBcache(relbase.yakkety, TestMdadmBcacheAbs):
     __test__ = True
 
 
@@ -181,16 +172,7 @@ class TrustyHWEXTestMirrorboot(relbase.trusty_hwe_x, TrustyTestMirrorboot):
     __test__ = True
 
 
-class WilyTestMirrorboot(relbase.wily, TestMirrorbootAbs):
-    # EOL - 2016-07-28
-    __test__ = False
-
-
 class XenialTestMirrorboot(relbase.xenial, TestMirrorbootAbs):
-    __test__ = True
-
-
-class YakketyTestMirrorboot(relbase.yakkety, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -233,11 +215,6 @@ class TrustyHWEXTestMirrorbootPartitions(relbase.trusty_hwe_x,
 
 class XenialTestMirrorbootPartitions(relbase.xenial,
                                      TestMirrorbootPartitionsAbs):
-    __test__ = True
-
-
-class YakketyTestMirrorbootPartitions(relbase.yakkety,
-                                      TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
@@ -323,16 +300,7 @@ class TrustyHWEXTestRaid5Boot(relbase.trusty_hwe_x, TrustyTestRaid5Boot):
     __test__ = True
 
 
-class WilyTestRaid5boot(relbase.wily, TestRaid5bootAbs):
-    # EOL - 2016-07-28
-    __test__ = False
-
-
 class XenialTestRaid5boot(relbase.xenial, TestRaid5bootAbs):
-    __test__ = True
-
-
-class YakketyTestRaid5boot(relbase.yakkety, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -385,16 +353,7 @@ class TrustyHWEXTestRaid6boot(relbase.trusty_hwe_x, TrustyTestRaid6boot):
     __test__ = True
 
 
-class WilyTestRaid6boot(relbase.wily, TestRaid6bootAbs):
-    # EOL - 2016-07-28
-    __test__ = False
-
-
 class XenialTestRaid6boot(relbase.xenial, TestRaid6bootAbs):
-    __test__ = True
-
-
-class YakketyTestRaid6boot(relbase.yakkety, TestRaid6bootAbs):
     __test__ = True
 
 
@@ -435,16 +394,7 @@ class TrustyHWEXTestRaid10boot(relbase.trusty_hwe_x, TrustyTestRaid10boot):
     __test__ = True
 
 
-class WilyTestRaid10boot(relbase.wily, TestRaid10bootAbs):
-    # EOL - 2016-07-28
-    __test__ = False
-
-
 class XenialTestRaid10boot(relbase.xenial, TestRaid10bootAbs):
-    __test__ = True
-
-
-class YakketyTestRaid10boot(relbase.yakkety, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -542,16 +492,7 @@ class TrustyHWEXTestAllindata(relbase.trusty_hwe_x, TrustyTestAllindata):
     __test__ = False  # lukes=no does not disable mounting of device
 
 
-class WilyTestAllindata(relbase.wily, TestAllindataAbs):
-    # EOL - 2016-07-28
-    __test__ = False
-
-
 class XenialTestAllindata(relbase.xenial, TestAllindataAbs):
-    __test__ = True
-
-
-class YakketyTestAllindata(relbase.yakkety, TestAllindataAbs):
     __test__ = True
 
 

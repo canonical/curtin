@@ -593,7 +593,7 @@ class VMBaseClass(TestCase):
             logger.debug("Interface name: {}".format(ifname))
             iface = interfaces.get(ifname)
             hwaddr = iface.get('mac_address')
-            if hwaddr:
+            if iface['type'] == 'physical' and hwaddr:
                 macs.append(hwaddr)
         netdevs = []
         if len(macs) > 0:
@@ -684,6 +684,12 @@ class VMBaseClass(TestCase):
         if excfg:
             configs.append(excfg)
             logger.debug('Added extra config {}'.format(excfg))
+
+        if cls.target_distro == "centos":
+            centos_default = 'examples/tests/centos_defaults.yaml'
+            configs.append(centos_default)
+            logger.info('Detected centos, adding default config %s',
+                        centos_default)
 
         if cls.multipath:
             disks = disks * cls.multipath_num_paths

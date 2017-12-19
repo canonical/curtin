@@ -34,9 +34,5 @@ class XenialTestIscsiMdadm(relbase.xenial, TestMdadmIscsiAbs):
     __test__ = True
 
 
-class YakketyTestIscsiMdadm(relbase.yakkety, TestMdadmIscsiAbs):
-    __test__ = True
-
-
 class ZestyTestIscsiMdadm(relbase.zesty, TestMdadmIscsiAbs):
     __test__ = True

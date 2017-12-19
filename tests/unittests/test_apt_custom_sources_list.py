@@ -3,10 +3,7 @@ Test templating of custom sources list
 """
 import logging
 import os
-import shutil
-import tempfile
 
-from unittest import TestCase
 
 import yaml
 import mock
@@ -14,6 +11,7 @@ from mock import call
 
 from curtin import util
 from curtin.commands import apt_config
+from .helpers import CiTestCase
 
 LOG = logging.getLogger(__name__)
 
@@ -85,12 +83,11 @@ deb http://testsec.ubuntu.com/ubuntu/ notouched-security main restricted
 """)
 
 
-class TestAptSourceConfigSourceList(TestCase):
+class TestAptSourceConfigSourceList(CiTestCase):
     """TestAptSourceConfigSourceList - Class to test sources list rendering"""
     def setUp(self):
         super(TestAptSourceConfigSourceList, self).setUp()
-        self.new_root = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, self.new_root)
+        self.new_root = self.tmp_dir()
         # self.patchUtils(self.new_root)
 
     @staticmethod

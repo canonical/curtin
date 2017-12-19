@@ -19,7 +19,8 @@ import grp
 import pwd
 import os
 
-from .util import write_file
+from .util import write_file, target_path
+from .log import LOG
 
 
 def chownbyid(fname, uid=None, gid=None):
@@ -78,3 +79,25 @@ def write_finfo(path, content, owner="-1:-1", perms="0644"):
         omode = "wb"
     write_file(path, content, mode=decode_perms(perms), omode=omode)
     chownbyname(path, u, g)
+
+
+def write_files(files, base_dir=None):
+    """Write files described in the dictionary 'files'
+
+    paths are assumed under 'base_dir', which will default to '/'.
+    A trailing '/' will be applied if not present.
+
+    files is a dictionary where each entry has:
+       path: /file1
+       content: (bytes or string)
+       permissions: (optional, default=0644)
+       owner: (optional, default -1:-1): string of 'uid:gid'."""
+    for (key, info) in files.items():
+        if not info.get('path'):
+            LOG.warn("Warning, write_files[%s] had no 'path' entry", key)
+            continue
+
+        write_finfo(path=target_path(base_dir, info['path']),
+                    content=info.get('content', ''),
+                    owner=info.get('owner', "-1:-1"),
+                    perms=info.get('permissions', info.get('perms', "0644")))

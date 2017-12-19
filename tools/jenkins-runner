@@ -13,7 +13,32 @@ export CURTIN_VMTEST_LOG="${CURTIN_VMTEST_LOG:-$topdir/debug.log}"
 export CURTIN_VMTEST_PARALLEL=${CURTIN_VMTEST_PARALLEL:-0}
 export IMAGE_DIR=${IMAGE_DIR:-/srv/images}
 
-fail() { echo "$@" 1>&2; exit 1; }
+# empty TGT_* variables in current env to avoid killing a pid we didn't start.
+TGT_PID=""
+TGT_LOG_D=""
+
+error() { echo "$@" 1>&2; }
+fail() { [ $# -eq 0 ] || error "$@"; exit 1; }
+cleanup() {
+    local ret=$?
+    local keep_rules
+    [ "$ret" -eq 0 ] && keep_rules="$pkeep" || keep_rules="$fkeep"
+    # kill a tgtd pid that was started here.
+    if [ -n "$TGT_PID" ]; then
+        kill -9 ${TGT_PID};
+        if [ -n "${TGT_IPC_SOCKET}" ]; then
+            # var is <path>/socket but the actual socket is <path>/socket.0
+            rm -f "${TGT_IPC_SOCKET}" "${TGT_IPC_SOCKET}".* ||
+                error "WARN: failed removal of $TGT_IPC_SOCKET"
+        fi
+    fi
+    if [ -n "$TGT_LOG_D" ]; then
+        case ",${keep_rules}," in
+            *,logs,*|*,all,*) :;;
+            *) rm -Rf "${TGT_LOG_D}";;
+        esac
+    fi
+}
 
 if [ "$reuse" != "1" ]; then
     if [ -d "$topdir" ]; then
@@ -45,10 +70,7 @@ if [ ${#ntargs[@]} -eq 0 ]; then
    set -- -vv --nologcapture tests/vmtests/
 fi
 
-# dump CURTIN* variables just for info
-for v in ${!CURTIN_*}; do
-   echo "$v=${!v}"
-done
+trap cleanup EXIT
 
 ntargs=( "${ntargs[@]}" "$@" )
 
@@ -57,12 +79,28 @@ if [ -n "$parallel" -a "$parallel" != "0" -a "$parallel" != "1" ]; then
     pargs=( --process-timeout=86400 "--processes=$parallel" )
 fi
 
-if [ -z "$TGT_IPC_SOCKET" ] && command -v "tgtd" >/dev/null 2>&1; then
+if [ -n "$TGT_IPC_SOCKET" ]; then
+    error "existing TGT_IPC_SOCKET=${TGT_IPC_SOCKET}"
+elif command -v tgtd >/dev/null 2>&1; then
     tgtdir="$topdir/tgt.d"
-    ./tools/find-tgt "$tgtdir" ||
+    mkdir -p "$tgtdir" || fail "failed to create $tgtdir"
+    rm -f "$tgtdir/info" || fail "failed to remove $tgtdir/info"
+    ./tools/find-tgt "$tgtdir" >"${tgtdir}/find-tgt.log" 2>&1 || {
+        cat "${tgtdir}/find-tgt.log" 1>&2
         fail "could not start a tgt service"
-    . "$tgtdir/info"
+    }
+    TGT_LOG_D="$tgtdir"
+    . "$tgtdir/info" >"$tgtdir/source-output.txt" 2>&1
+    [ -n "$TGT_PID" ] || fail "find-tgt did not write TGT_PID"
+    [ -d "/proc/${TGT_PID}" ] || fail "no tgtd process in /proc/${TGT_PID}"
+else
+    error "no tgtd command, iscsi tests will be skipped"
 fi
+
+# dump CURTIN_* and TGT_* and proxy variables just for info
+for v in ${!CURTIN_*} ${!TGT_*} http_proxy https_proxy no_proxy; do
+   echo "$v=${!v}"
+done
 
 # avoid LOG info by running python3 tests/vmtests/image_sync.py
 # rather than python3 -m tests.vmtests.image_sync (LP: #1594465)
@@ -78,8 +116,6 @@ nosetests3 "${pargs[@]}" "${ntargs[@]}"
 ret=$?
 end_s=$(date +%s)
 echo "$(date -R): vmtest end [$ret] in $(($end_s-$start_s))s"
-[ $ret -eq 0 ] && [[ $pkeep == *"all"* ]] || [ -n "${TGT_PID}" ] && kill -9 ${TGT_PID}
-[ $ret -ne 0 ] && [[ $pfail == *"all"* ]] || [ -n "${TGT_PID}" ] && kill -9 ${TGT_PID}
 exit $ret
 
 # vi: ts=4 expandtab syntax=sh
