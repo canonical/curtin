@@ -5,14 +5,14 @@ early_commands:
   # Make one disk dirty with an MBR and a storage configuration
   # GPT and don't supply wipe: superblock.  This will exercise
   # curtin use of sgdisk --zap-all instead of --clear (GPT only)
-  blockmeta: ["parted", /dev/vdc, "--script", "mklabel", "msdos"]
+  blockmeta: ["parted", /dev/disk/by-id/virtio-disk-b, "--script", "mklabel", "msdos"]
 
 storage:
   config:
   - id: id_disk0
     type: disk
     name: main_disk
-    path: /dev/vdb
+    serial: disk-a
     ptable: gpt
     wipe: superblock
     grub_device: true
@@ -65,7 +65,7 @@ storage:
     type: mount
   - id: pnum_disk
     type: disk
-    path: /dev/vdc
+    serial: disk-b
     name: pnum_disk
     ptable: gpt
   - id: pnum_disk_p1

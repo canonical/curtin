@@ -55,6 +55,18 @@ class XenialTestIscsiLvm(relbase.xenial, TestLvmIscsiAbs):
     __test__ = True
 
 
+class XenialGATestIscsiLvm(relbase.xenial_ga, TestLvmIscsiAbs):
+    __test__ = True
+
+
+class XenialHWETestIscsiLvm(relbase.xenial_hwe, TestLvmIscsiAbs):
+    __test__ = True
+
+
+class XenialEdgeTestIscsiLvm(relbase.xenial_edge, TestLvmIscsiAbs):
+    __test__ = True
+
+
 class ZestyTestIscsiLvm(relbase.zesty, TestLvmIscsiAbs):
     __test__ = True
 

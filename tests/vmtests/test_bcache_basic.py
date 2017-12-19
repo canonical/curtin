@@ -12,7 +12,7 @@ class TestBcacheBasic(VMBaseClass):
     nr_cpus = 2
     dirty_disks = True
     extra_disks = ['2G']
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         bcache-super-show /dev/vda2 > bcache_super_vda2
         ls /sys/fs/bcache > bcache_ls
@@ -51,7 +51,15 @@ class TrustyHWEXBcacheBasic(relbase.trusty_hwe_x, TestBcacheBasic):
     __test__ = False  # covered by test_raid5_bcache
 
 
-class XenialBcacheBasic(relbase.xenial, TestBcacheBasic):
+class XenialGABcacheBasic(relbase.xenial_ga, TestBcacheBasic):
+    __test__ = True
+
+
+class XenialHWEBcacheBasic(relbase.xenial_hwe, TestBcacheBasic):
+    __test__ = True
+
+
+class XenialEdgeBcacheBasic(relbase.xenial_edge, TestBcacheBasic):
     __test__ = True
 
 

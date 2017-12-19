@@ -8,16 +8,21 @@ class _ReleaseBase(object):
 
 class _UbuntuBase(_ReleaseBase):
     distro = "ubuntu"
+    kflavor = "generic"
 
 
 class _CentosFromUbuntuBase(_UbuntuBase):
     # base for installing centos tarballs from ubuntu base
     target_distro = "centos"
+    target_ftype = "vmtest.root-tgz"
+    kflavor = None
 
 
 class _UbuntuCoreUbuntuBase(_UbuntuBase):
     # base for installing UbuntuCore root-image.xz from ubuntu base
     target_distro = "ubuntu-core-16"
+    target_ftype = "root-image.xz"
+    kflavor = None
 
 
 class _Centos70FromXenialBase(_CentosFromUbuntuBase):
@@ -70,6 +75,22 @@ class _TrustyFromXenial(_UbuntuBase):
 
 class _XenialBase(_UbuntuBase):
     release = "xenial"
+    subarch = "ga-16.04"
+
+
+class _XenialGA(_UbuntuBase):
+    release = "xenial"
+    subarch = "ga-16.04"
+
+
+class _XenialHWE(_UbuntuBase):
+    release = "xenial"
+    subarch = "hwe-16.04"
+
+
+class _XenialEdge(_UbuntuBase):
+    release = "xenial"
+    subarch = "hwe-16.04-edge"
 
 
 class _ZestyBase(_UbuntuBase):
@@ -92,6 +113,9 @@ class _Releases(object):
     trusty_hwe_x = _TrustyHWEX
     trustyfromxenial = _TrustyFromXenial
     xenial = _XenialBase
+    xenial_ga = _XenialGA
+    xenial_hwe = _XenialHWE
+    xenial_edge = _XenialEdge
     zesty = _ZestyBase
     artful = _ArtfulBase
     bionic = _BionicBase

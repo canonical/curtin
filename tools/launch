@@ -5,15 +5,17 @@ TEMP_D=""
 HTTP_PID=""
 XKVM_PID=""
 MY_D=$(dirname "$0")
-DEFAULT_ROOT_ARG="root=LABEL=cloudimg-rootfs"
+DEFAULT_ROOT_ARG="root=/dev/disk/by-id/virtio-boot-disk"
 
 error() { echo "$@" 1>&2; }
 
 Usage() {
     cat <<EOF
-Usage: ${0##*/} [ options ] boot-image curtin install [args]
+Usage: ${0##*/} [ options ] curtin install [args]
 
-   boot the image 'boot-image', so that it will run
+   boot a system with based on 
+     --boot-image / --kernel / --initrd / --append 
+   so that it will run
       curtin install [args]
    after booting. 'curtin install [args]' can be any command'
 
@@ -21,6 +23,8 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
            --add  F[:T] add file 'F' to the curtin archive at T
       -a | --append     append args to kernel cmdline (--kernel)
       -A | --arch   A   assume guest kernel architecture A
+         --boot-image F attach disk 'F' as boot image.  It will
+                        be given a serial 'boot-disk'
       -d | --disk   D   add a disk 'D' format
                         (path[:size][:driver][:bsize][:devopts])
                         driver can be specified without size using path::driver
@@ -56,9 +60,11 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
    use of --kernel/--initrd will seed cloud-init via cmdline
    rather than the local datasource
 
+   --boot-image or --kernel is required.
+
    Example:
     * boot myboot.img, and install my-root.tar.gz
-      ${0##*/} myboot.img --publish my-root.tar.gz curtin \\
+      ${0##*/} --boot-image=myboot.img --publish my-root.tar.gz curtin \\
          install PUBURL/my-root.tar.gz
 
 EOF
@@ -376,9 +382,17 @@ configure_tgt_auth() {
     return 0
 }
 
+get_img_fmt() {
+    local out="" src="$1"
+    out=$(LANG=C qemu-img info "$src") &&
+    fmt=$(echo "$out" | awk '$0 ~ /^file format:/ { print $3 }') ||
+    { error "failed to determine format of $src"; return 1; }
+    echo "$fmt"
+}
+
 main() {
     local short_opts="a:A:d:h:i:k:n:p:s:v"
-    long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,no-proxy-config,power:,publish:,root-arg:,silent,serial-log:,smp:,uefi-nvram:,verbose,vnc:"
+    long_opts="add:,append:,arch:,bios:,boot-image:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,no-proxy-config,power:,publish:,root-arg:,silent,serial-log:,smp:,uefi-nvram:,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -386,7 +400,7 @@ main() {
         { bad_Usage; return 1; }
 
     local seed=""
-    local bootimg="" bootimg_dist="" target="" mem="1024" smp="2"
+    local bootimg="" bootimg_dist="none" target="" mem="1024" smp="2"
     local udata="" ip="" http_port="${HTTP_PORT}" burl=""
     local tmp="" top_d
     local initrd="" kernel="" uappend="" iargs="" disk_args=""
@@ -418,8 +432,9 @@ main() {
         cur=${1}; next=${2};
         case "$cur" in
                --add) addfiles[${#addfiles[@]}]="$next"; shift;;
-            -a|--append) uappend="$next"; shift;;
+            -a|--append) uappend="$uappend $next"; shift;;
             -A|--arch) arch_hint="$next"; shift;;
+               --boot-image) bootimg_dist="$next"; shift;;
             -d|--disk) disks[${#disks[@]}]="$next"; shift;;
                --dowait) pt[${#pt[@]}]="$cur"; dowait=true;;
             -h|--help) Usage ; exit 0;;
@@ -438,7 +453,7 @@ main() {
                     *) error "Invalid power state, must be: off, on, reboot";;
                 esac
                 shift;;
-            -p|--publish) pubs[${#pub[@]}]="$next"; shift;;
+            -p|--publish) pubs[${#pubs[@]}]="$next"; shift;;
                --root-arg) root_arg="$next";;
                --serial-log) serial_log="$next"; shift;;
                --silent) video="-nographic";;
@@ -461,9 +476,10 @@ main() {
     for((i=0;i<${VERBOSITY};i++)); do t="${t}v"; done
     [ -n "$t" ] && pt[${#pt[@]}]="-$t"
 
-    [ $# -ge 0 ] || { bad_Usage "must provide boot-image"; return 1; }
-    bootimg_dist="$1"
-    shift
+    if [ "$bootimg_dist" = "none" -a -z "$kernel" ]; then
+        bad_Usage "must provide boot-image or --kernel";
+        return 1;
+    fi
     cmdargs=( "$@" )
     curtin_extra=( ${install_deps} )
 
@@ -478,9 +494,14 @@ main() {
         disks=( "${TEMP_D}/disk1.img" )
     fi
 
-    bootimg_dist=$(readlink -f "$bootimg_dist") ||
-        { error "bad bootimg $bootimg_dist"; return 1; }
-
+    if [ "$bootimg_dist" != "none" ]; then
+        bootimg_dist=$(readlink -f "$bootimg_dist") ||
+            { error "bad bootimg $bootimg_dist"; return 1; }
+        bootimg="${TEMP_D}/boot.img"
+            qemu-img create -f qcow2 -b "${bootimg_dist}" "$bootimg" ||
+            { error "failed create from ${bootimg_dist}"; return 1; }
+    fi
+ 
     [ -z "$initrd" -o -f "$initrd" ] ||
         { error "initrd not a file: $initrd"; return 1; }
     [ -z "$kernel" -o -f "$kernel" ] ||
@@ -532,8 +553,7 @@ main() {
                 { error "failed create $src of size $size"; return 1; }
             fmt="raw"
         else
-            out=$(LANG=C qemu-img info "$src") &&
-                fmt=$(echo "$out" | awk '$0 ~ /^file format:/ { print $3 }') ||
+            fmt=$(get_img_fmt "$src") ||
                 { error "failed to determine format of $src"; return 1; }
         fi
 
@@ -603,33 +623,27 @@ main() {
             debug 1 "added $ip to existing no_proxy (${no_proxy})";;
     esac
 
-    local tok src pub fpath
-    # tok in pubs looks like file[:pubname][:stype]
+    local tok tok_split src pub fpath
+    # tok in pubs looks like file[:pubname]
     # link them into the temp dir for publishing
     for tok in "${pubs[@]}"; do
-        src=$(echo "${tok}" | awk -F: '{print $1}')
-        pub=$(echo "${tok}" | awk -F: '{print $2}')
-        stype=$(echo "${tok}" | awk -F: '{print $3}')
+        tok_split=( ${tok//:/ } )
+        src=${tok_split[0]}
+        pub=${tok_split[1]}
         fpath=$(readlink -f "$src") ||
             { error "'$src': failed to get path"; return 1; }
         if [ -z "$pub" ]; then
             pub="${src##*/}"
         fi
-        if [ -z "$stype" ]; then
-            stype="tgz"
-        fi
         ln -sf "$fpath" "${TEMP_D}/${pub}"
+        debug 1 "publishing: $fpath to ${TEMP_D}/${pub}"
     done
 
     start_http "${TEMP_D}" "$ip" "$http_port" "${HTTP_TRIES}" </dev/null ||
         { error "failed to start http service"; return 1; }
     http_port=$_RET
-    burl="http://$ip:${http_port}/"
-    # now replace PUBURL anywhere in cmdargs, and prefix with
-    # source type (tgz or dd-tgz)
-    for((i=0;i<${#cmdargs[@]};i++)); do
-        cmdargs[$i]=${cmdargs[$i]//PUBURL/${stype}:$burl}
-    done
+    burl="http://$ip:${http_port}"
+
 
     local addargs="" f=""
     addargs=( )
@@ -684,6 +698,11 @@ main() {
         addargs[${#addargs[@]}]="--add=config/${fpath##*/}:$fpath"
     done
 
+    # now replace PUBURL anywhere in cmdargs
+    for((i=0;i<${#cmdargs[@]};i++)); do
+        cmdargs[$i]=${cmdargs[$i]//PUBURL/$burl}
+    done
+
     local curtin_exe="${CURTIN_VMTEST_CURTIN_EXE:-${top_d}/bin/curtin}"
     debug 1 "pack command: ${curtin_exe} pack" "${addargs[@]}" -- \
         "${cmdargs[@]}"
@@ -718,23 +737,18 @@ main() {
     write_userdata "${TEMP_D}/install-cmd" "${ccfiles[@]}" > "$udata"  ||
         { error "failed to write user-data"; return 1; }
 
-    bootimg="${TEMP_D}/boot.img"
-    qemu-img create -f qcow2 -b "${bootimg_dist}" "$bootimg" 2G ||
-        { error "failed create from ${bootimg_dist}"; return 1; }
-
     local seedargs=""
     seedargs=()
     if [ -n "$kernel" ]; then
         local append="" root=""
-        # Note: root_arg is by default done by LABEL.  This assumes
-        # a.) our root device is not multipath
-        # b.) no other disks attached will have this LABEL
-        # c.) the LABEL is in fact correct.
-        # all of these assumptions are true under vmtest.
+        # Note: root_arg is by default done by serial.  This assumes
+        # the root device is not multipath
         if [ -z "$root_arg" ]; then
             debug 1 "WARN: root_arg is empty with kernel."
         fi
-        append="${root_arg:+${root_arg} }ds=nocloud-net;seedfrom=$burl"
+        root_arg="${root_arg//PUBURL/$burl}"
+        # Note: cloud-init requires seedfrom= to have a trailing-slash
+        append="${root_arg:+${root_arg} }ds=nocloud-net;seedfrom=${burl}/"
 
         local console_name=""
         case "${arch_hint}" in
@@ -777,11 +791,10 @@ main() {
             #debug mode serial_args="-serial ${serial_log} -monitor stdio"
         fi
     fi
-    # -monitor stdio
-    local bootdisk="--disk=file=$bootimg,id=boot,index=1,cache=unsafe"
     cmd=(
-        xkvm "${pt[@]}" "${netargs[@]}" 
-        "$bootdisk"
+        xkvm
+        ${bootimg:+"--disk=$bootimg,if=virtio,serial=boot-disk"}
+        "${pt[@]}" "${netargs[@]}" 
         "${disk_args[@]}"
         --
         -smp ${smp}
@@ -828,7 +841,6 @@ round_up() {
     fi
     echo $size
 }
-
 
 test_start_http() {
     # run this like:

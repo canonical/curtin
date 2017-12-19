@@ -9,7 +9,7 @@ class TestSimple(VMBaseClass):
     conf_file = "examples/tests/simple.yaml"
     extra_disks = []
     extra_nics = []
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         sfdisk --list > sfdisk_list
         for d in /dev/[sv]d[a-z] /dev/xvd?; do
@@ -20,6 +20,7 @@ class TestSimple(VMBaseClass):
         blkid > blkid
         cat /proc/partitions > proc_partitions
         cp /etc/network/interfaces interfaces
+        cp /etc/netplan/50-cloud-init.yaml netplan.yaml
         if [ -f /var/log/cloud-init-output.log ]; then
            cp /var/log/cloud-init-output.log .
         fi
@@ -29,7 +30,7 @@ class TestSimple(VMBaseClass):
 
     def test_output_files_exist(self):
         self.output_files_exist(["sfdisk_list", "blkid",
-                                 "proc_partitions", "interfaces"])
+                                 "proc_partitions"])
 
 
 class TrustyTestSimple(relbase.trusty, TestSimple):
@@ -47,6 +48,12 @@ class ZestyTestSimple(relbase.zesty, TestSimple):
 class ArtfulTestSimple(relbase.artful, TestSimple):
     __test__ = True
 
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
 
 class BionicTestSimple(relbase.bionic, TestSimple):
     __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])

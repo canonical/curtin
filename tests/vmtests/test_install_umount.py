@@ -10,7 +10,7 @@ class TestInstallUnmount(VMBaseClass):
     conf_file = "examples/tests/install_disable_unmount.yaml"""
     extra_nics = []
     extra_disks = []
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         sfdisk --list > sfdisk_list
         for d in /dev/[sv]d[a-z] /dev/xvd?; do

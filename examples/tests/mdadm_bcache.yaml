@@ -8,7 +8,7 @@ storage:
        wipe: superblock
        ptable: gpt
        model: QEMU HARDDISK
-       path: /dev/vdb
+       serial: disk-a
        name: main_disk
      - id: bios_boot_partition
        type: partition
@@ -56,14 +56,14 @@ storage:
        type: disk
        wipe: superblock
        model: QEMU HARDDISK
-       path: /dev/vdc
+       serial: disk-b
        name: second_disk
      - id: sdc
        type: disk
        wipe: superblock
        ptable: gpt
        model: QEMU HARDDISK
-       path: /dev/vdd
+       serial: disk-c
        name: third_disk
      - id: sdc1
        type: partition

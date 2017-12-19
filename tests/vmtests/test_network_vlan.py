@@ -20,9 +20,9 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
 
     def get_vlans(self):
         network_state = self.get_network_state()
-        logger.debug('get_vlans ns:\n%s', yaml.dump(network_state,
-                                                    default_flow_style=False,
-                                                    indent=4))
+        logger.debug('get_vlans ns:\n%s',
+                     yaml.dump(network_state, default_flow_style=False,
+                               indent=4))
         interfaces = network_state.get('interfaces')
         return [iface for iface in interfaces.values()
                 if iface['type'] == 'vlan']

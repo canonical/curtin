@@ -28,20 +28,21 @@ from curtin import util
 
 IMAGE_SRC_URL = os.environ.get(
     'IMAGE_SRC_URL',
-    "http://maas.ubuntu.com/images/ephemeral-v2/daily/streams/v1/index.sjson")
+    "http://maas.ubuntu.com/images/ephemeral-v3/daily/streams/v1/index.sjson")
 IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
 
 KEYRING = '/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg'
-ITEM_NAME_FILTERS = ['ftype~(root-image.gz|boot-initrd|boot-kernel|root-tgz)']
+ITEM_NAME_FILTERS = \
+    ['ftype~(root-image.gz|boot-initrd|boot-kernel|root-tgz|squashfs)']
 FORMAT_JSON = 'JSON'
 STREAM_BASE = 'com.ubuntu.maas:daily'
 VMTEST_CONTENT_ID_PATH_MAP = {
-    STREAM_BASE + ":v2:download": "streams/v1/vmtest.json",
+    STREAM_BASE + ":v3:download": "streams/v1/vmtest.json",
     STREAM_BASE + ":centos-bases-download": "streams/v1/vmtest-centos.json",
 }
 
-DEFAULT_OUTPUT_FORMAT = (
-    "%(release)-7s %(arch)s/%(subarch)s %(version_name)-10s %(item_name)s")
+DEFAULT_OUTPUT_FORMAT = ("%(release)-7s %(arch)s/%(subarch)s/%(kflavor)s "
+                         "%(version_name)-10s %(item_name)s")
 
 DEFAULT_ARCHES = {
     'i386': ['i386'],

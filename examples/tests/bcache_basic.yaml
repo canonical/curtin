@@ -5,14 +5,14 @@ storage:
   - id: id_rotary0
     type: disk
     name: rotary0
-    path: /dev/vdb
+    serial: disk-a
     ptable: msdos
     wipe: superblock
     grub_device: true
   - id: id_ssd0
     type: disk
     name: ssd0
-    path: /dev/vdc
+    serial: disk-b
     wipe: superblock
   - id: id_rotary0_part1
     type: partition
