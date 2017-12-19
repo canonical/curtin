@@ -1,3 +1,13 @@
+curtin (0.1.0~bzr162-0ubuntu1) utopic; urgency=medium
+
+  * New upstream snapshot.
+    * block-meta: fix '--boot' when used with mbr.
+    * human2bytes: support floating point numbers (.5G or 2G).
+    * sanitize_source: fix detection of url prefixes that specify type
+    * fix reference to variable before use (LP: #1361350)
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 04 Sep 2014 17:10:14 -0400
+
 curtin (0.1.0~bzr155-0ubuntu1) utopic; urgency=medium
 
   * New upstream snapshot.
