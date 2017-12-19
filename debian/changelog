@@ -1,0 +1,16 @@
+curtin (0.1.0~bzr75-0ubuntu1) saucy; urgency=low
+
+  * New upstream snapshot.
+    * change 'curtin' installer to be python2 for better compatibility
+    * split up packaging. Provide curtin, curtin-common, python-curtin and
+      python3-curtin.
+    * add 'curtin in-target' command for chrooting to target
+    * support http_proxy, apt_proxy, and specifying ubuntu mirrors. 
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 19 Sep 2013 04:07:25 -0400
+
+curtin (0.1.0~bzr54-0ubuntu1) saucy; urgency=low
+
+  * Initial release
+
+ -- Scott Moser <smoser@ubuntu.com>  Mon, 29 Jul 2013 16:12:09 -0400
