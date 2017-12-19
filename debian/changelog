@@ -1,3 +1,15 @@
+curtin (0.1.0~bzr505-0ubuntu1) artful; urgency=medium
+
+  * debian/new-upstream-snapshot: fix issue with whitespace at end of line.
+  * New upstream snapshot.
+    - vmtest: let the socket level select a port rather than us picking one.
+    - Fix deb build by mocking call to udevadm settle
+    - Clear and re-order UEFI boot methods during UEFI grub installation.
+    - Resolve bcache race-conditions
+    - tests: clean up usage of collect files
+
+ -- Scott Moser <smoser@ubuntu.com>  Mon, 12 Jun 2017 15:45:33 -0400
+
 curtin (0.1.0~bzr500-0ubuntu1) artful; urgency=medium
 
   * New upstream snapshot.

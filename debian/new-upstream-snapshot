@@ -23,7 +23,7 @@ fail() { echo "$@" 1>&2; exit 1; }
 print_commit() {
     local subject="$1" author="$2" bugs="$3" aname=""
     aname=${author% <*}
-    echo "    - $subject ${aname:+[${aname}]}${bugs:+ (LP: ${bugs})}"
+    echo "    - $subject${aname:+ [${aname}]}${bugs:+ (LP: ${bugs})}"
 }
 
 # unfortunately seems like no easy way to get 'Author' unless
