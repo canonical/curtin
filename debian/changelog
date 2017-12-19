@@ -1,3 +1,10 @@
+curtin (0.1.0~bzr196-0ubuntu1) vivid; urgency=medium
+
+  * New upstream snapshot.
+    * fix bug installing to UEFI systems (LP: #1383727)
+
+ -- Scott Moser <smoser@ubuntu.com>  Mon, 08 Dec 2014 20:01:44 -0500
+
 curtin (0.1.0~bzr195-0ubuntu1) vivid; urgency=medium
 
   * New upstream snapshot.
