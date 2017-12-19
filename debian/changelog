@@ -1,3 +1,11 @@
+curtin (0.1.0~bzr155-0ubuntu1) utopic; urgency=medium
+
+  * New upstream snapshot.
+    - fix '--maxsize' argument to 'curtin swap' (LP: #1360318) [Jason Hobbs]
+  * d/README.source: add file describing how snapshot releases are made.
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 22 Aug 2014 11:54:49 -0400
+
 curtin (0.1.0~bzr153-0ubuntu1) utopic; urgency=medium
 
   * New upstream snapshot.
