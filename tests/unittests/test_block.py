@@ -277,6 +277,7 @@ class TestWipeFile(TestCase):
         mock_os_fdopen.assert_called_with(mock_fd, 'rb+')
         self.assertEqual([], mock_os_close.call_args_list)
 
+    @mock.patch('curtin.util.fuser_mount')
     @mock.patch('os.close')
     @mock.patch('curtin.util.list_device_mounts')
     @mock.patch('curtin.block.get_holders')
@@ -284,13 +285,15 @@ class TestWipeFile(TestCase):
     def test_exclusive_open_non_exclusive_exception(self, mock_os_open,
                                                     mock_holders,
                                                     mock_list_mounts,
-                                                    mock_os_close):
+                                                    mock_os_close,
+                                                    mock_util_fuser):
         flen = 1024
         myfile = self.tfile("my_exclusive_file")
         util.write_file(myfile, flen * b'\1', omode="wb")
         mock_os_open.side_effect = OSError("NO_O_EXCL")
         mock_holders.return_value = ['md1']
         mock_list_mounts.return_value = []
+        mock_util_fuser.return_value = {}
 
         with self.assertRaises(OSError):
             with block.exclusive_open(myfile) as fp:

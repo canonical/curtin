@@ -3,7 +3,6 @@ from .releases import base_vm_classes as relbase
 from .test_network import TestNetworkBaseTestsAbs
 from curtin import util
 
-import os
 import textwrap
 
 
@@ -107,22 +106,17 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
                                  "sysfs_br0_eth2"])
 
     def test_bridge_utils_installed(self):
-        with open(os.path.join(self.td.collect,
-                               "bridge-utils_installed")) as fp:
-            status = fp.read().strip()
-            logger.debug('bridge-utils installed: {}'.format(status))
-            self.assertEqual('install ok installed', status)
+        status = self.load_collect_file("bridge-utils_installed").strip()
+        logger.debug('bridge-utils installed: {}'.format(status))
+        self.assertEqual('install ok installed', status)
 
     def test_bridge_params(self):
         """ Test if configure bridge params match values on the device """
 
         def _load_sysfs_bridge_data():
-            sysfs_br0 = sysfs_to_dict(os.path.join(self.td.collect,
-                                                   "sysfs_br0"))
-            sysfs_br0_eth1 = sysfs_to_dict(os.path.join(self.td.collect,
-                                                        "sysfs_br0_eth1"))
-            sysfs_br0_eth2 = sysfs_to_dict(os.path.join(self.td.collect,
-                                                        "sysfs_br0_eth2"))
+            sysfs_br0 = sysfs_to_dict(self.collect_path("sysfs_br0"))
+            sysfs_br0_eth1 = sysfs_to_dict(self.collect_path("sysfs_br0_eth1"))
+            sysfs_br0_eth2 = sysfs_to_dict(self.collect_path("sysfs_br0_eth2"))
             return {
                 'br0': sysfs_br0,
                 'eth1': sysfs_br0_eth1,

@@ -2,7 +2,7 @@ from . import logger, helpers
 from .releases import base_vm_classes as relbase
 from .test_network import TestNetworkBaseTestsAbs
 
-import os
+import shutil
 import subprocess
 import yaml
 
@@ -37,9 +37,13 @@ class TestNetworkENISource(TestNetworkBaseTestsAbs):
     def test_etc_network_interfaces_source_cfg(self):
         """ Compare injected configuration as parsed by curtin matches
             how ifup configured the interface."""
+        interfaces_orig = self.collect_path("interfaces")
+        interfaces = interfaces_orig + ".test_enisource"
+        # make a copy to modify
+        shutil.copyfile(interfaces_orig, interfaces)
+
         # interfaces uses absolute paths, fix for test-case
-        interfaces = os.path.join(self.td.collect, "interfaces")
-        cmd = ['sed', '-i.orig', '-e', 's,/etc/network/,,g',
+        cmd = ['sed', '-i', '-e', 's,/etc/network/,,g',
                '{}'.format(interfaces)]
         subprocess.check_call(cmd, stderr=subprocess.STDOUT)
 

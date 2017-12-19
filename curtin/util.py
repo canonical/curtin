@@ -334,6 +334,56 @@ def list_device_mounts(device):
     return dev_mounts
 
 
+def fuser_mount(path):
+    """ Execute fuser to determine open file handles from mountpoint path
+
+        Use verbose mode and then combine stdout, stderr from fuser into
+        a dictionary:
+
+        {pid: "fuser-details"}
+
+        path may also be a kernel devpath (e.g. /dev/sda)
+
+    """
+    fuser_output = {}
+    try:
+        stdout, stderr = subp(['fuser', '--verbose', '--mount', path],
+                              capture=True)
+    except ProcessExecutionError as e:
+        LOG.debug('fuser returned non-zero: %s', e.stderr)
+        return None
+
+    pidlist = stdout.split()
+
+    """
+    fuser writes a header in verbose mode, we'll ignore that but the
+    order if the input is <mountpoint> <user> <pid*> <access> <command>
+
+    note that <pid> is not present in stderr, it's only in stdout.  Also
+    only the entry with pid=kernel entry will contain the mountpoint
+
+    # Combined stdout and stderr look like:
+    #                      USER        PID ACCESS COMMAND
+    # /home:               root     kernel mount /
+    #                      root          1 .rce. systemd
+    #
+    # This would return
+    #
+    {
+        'kernel': ['/home', 'root', 'mount', '/'],
+        '1': ['root', '1', '.rce.', 'systemd'],
+    }
+    """
+    # Note that fuser only writes PIDS to stdout. Each PID value is
+    # 'kernel' or an integer and indicates a process which has an open
+    # file handle against the path specified path. All other output
+    # is sent to stderr.  This code below will merge the two as needed.
+    for (pid, status) in zip(pidlist, stderr.splitlines()[1:]):
+        fuser_output[pid] = status.split()
+
+    return fuser_output
+
+
 def do_mount(src, target, opts=None):
     # mount src at target with opts and return True
     # if already mounted, return False
@@ -834,6 +884,59 @@ def install_packages(pkglist, aptopts=None, target=None, env=None,
 
 def is_uefi_bootable():
     return os.path.exists('/sys/firmware/efi') is True
+
+
+def get_efibootmgr(target):
+    """Return mapping of EFI information.
+
+    Calls `efibootmgr` inside the `target`.
+
+    Example output:
+        {
+            'current': '0000',
+            'timeout': '1 seconds',
+            'order': ['0000', '0001'],
+            'entries': {
+                '0000': {
+                    'name': 'ubuntu',
+                    'path': (
+                        'HD(1,GPT,0,0x8,0x1)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+                },
+                '0001': {
+                    'name': 'UEFI:Network Device',
+                    'path': 'BBS(131,,0x0)',
+                }
+            }
+        }
+    """
+    efikey_to_dict_key = {
+        'BootCurrent': 'current',
+        'Timeout': 'timeout',
+        'BootOrder': 'order',
+    }
+    with ChrootableTarget(target) as in_chroot:
+        stdout, _ = in_chroot.subp(['efibootmgr', '-v'], capture=True)
+        output = {}
+        for line in stdout.splitlines():
+            split = line.split(':')
+            if len(split) == 2:
+                key = split[0].strip()
+                output_key = efikey_to_dict_key.get(key, None)
+                if output_key:
+                    output[output_key] = split[1].strip()
+                    if output_key == 'order':
+                        output[output_key] = output[output_key].split(',')
+        output['entries'] = {
+            entry: {
+                'name': name.strip(),
+                'path': path.strip(),
+            }
+            for entry, name, path in re.findall(
+                r"^Boot(?P<entry>[0-9a-fA-F]{4})\*?\s(?P<name>.+)\t"
+                r"(?P<path>.*)$",
+                stdout, re.MULTILINE)
+        }
+        return output
 
 
 def run_hook_if_exists(target, hook):

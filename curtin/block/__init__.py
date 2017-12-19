@@ -144,7 +144,7 @@ def sys_block_path(devname, add=None, strict=True):
     toks = ['/sys/class/block']
     # insert parent dev if devname is partition
     devname = os.path.normpath(devname)
-    (parent, partnum) = get_blockdev_for_partition(devname)
+    (parent, partnum) = get_blockdev_for_partition(devname, strict=strict)
     if partnum:
         toks.append(path_to_kname(parent))
 
@@ -323,7 +323,7 @@ def get_installable_blockdevs(include_removable=False, min_size=1024**3):
     return good
 
 
-def get_blockdev_for_partition(devpath):
+def get_blockdev_for_partition(devpath, strict=True):
     """
     find the parent device for a partition.
     returns a tuple of the parent block device and the partition number
@@ -341,7 +341,7 @@ def get_blockdev_for_partition(devpath):
     syspath = os.path.join(base, path_to_kname(devpath))
 
     # don't need to try out multiple sysfs paths as path_to_kname handles cciss
-    if not os.path.exists(syspath):
+    if strict and not os.path.exists(syspath):
         raise OSError("%s had no syspath (%s)" % (devpath, syspath))
 
     ptpath = os.path.join(syspath, "partition")
@@ -818,11 +818,13 @@ def exclusive_open(path):
             if fd_needs_closing and sys.version_info.major == 2:
                 os.close(fd)
     except OSError:
-        LOG.exception("Failed to exclusively open path: %s", path)
+        LOG.error("Failed to exclusively open path: %s", path)
         holders = get_holders(path)
         LOG.error('Device holders with exclusive access: %s', holders)
         mount_points = util.list_device_mounts(path)
         LOG.error('Device mounts: %s', mount_points)
+        fusers = util.fuser_mount(path)
+        LOG.error('Possible users of %s:\n%s', path, fusers)
         raise
 
 
