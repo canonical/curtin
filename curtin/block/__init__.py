@@ -197,7 +197,8 @@ def stop_all_unused_multipath_devices():
     # Command multipath -F flushes all unused multipath device maps
     cmd = [multipath, '-F']
     try:
-        util.subp(cmd)
+        # unless multipath cleared *everything* it will exit with 1
+        util.subp(cmd, rcs=[0, 1])
     except util.ProcessExecutionError as e:
         LOG.warn("Failed to stop multipath devices: %s", e)
 
@@ -235,6 +236,10 @@ def detect_multipath(target_mountpoint):
     # detects multipath by looking for a filesystem with the same UUID
     # as the target device. It relies on the fact that all alternative routes
     # to the same disk observe identical partition information including UUID.
+    # There are some issues with this approach as well though. We won't detect
+    # multipath disk if it doesn't any filesystems.  Good news is that
+    # target disk will always have a filesystem because curtin creates them
+    # while installing the system.
     binfo = blkid(cache=False)
     # get_devices_for_mp may return multiple devices by design. It is not yet
     # implemented but it should return multiple devices when installer creates
@@ -290,11 +295,18 @@ def get_multipath_wwids():
     multipath_devices = set()
     multipath_wwids = set()
     devuuids = [(d, i['UUID']) for d, i in blkid().items() if 'UUID' in i]
+    # Looking for two disks which contain filesystems with the same UUID.
     for (dev1, uuid1), (dev2, uuid2) in itertools.combinations(devuuids, 2):
         if uuid1 == uuid2:
             multipath_devices.add(get_blockdev_for_partition(dev1)[0])
     for device in multipath_devices:
-        multipath_wwids.add(get_scsi_wwid(device))
+        wwid = get_scsi_wwid(device)
+        # Function get_scsi_wwid() may return None in case of errors or
+        # WWID field may be empty for some buggy disk. We don't want to
+        # propagate both of these value further to avoid generation of
+        # incorrect /etc/multipath/bindings file.
+        if wwid:
+            multipath_wwids.add(wwid)
     return multipath_wwids
 
 
