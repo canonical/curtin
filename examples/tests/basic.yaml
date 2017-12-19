@@ -25,6 +25,7 @@ storage:
         type: format
         fstype: ext4
         volume: sda1
+        label: 'cloudimg-rootfs'
       - id: sda2_home
         type: format
         fstype: ext4

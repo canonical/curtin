@@ -277,6 +277,7 @@ class TestWipeFile(TestCase):
         mock_os_fdopen.assert_called_with(mock_fd, 'rb+')
         self.assertEqual([], mock_os_close.call_args_list)
 
+    @mock.patch('curtin.util.fuser_mount')
     @mock.patch('os.close')
     @mock.patch('curtin.util.list_device_mounts')
     @mock.patch('curtin.block.get_holders')
@@ -284,13 +285,15 @@ class TestWipeFile(TestCase):
     def test_exclusive_open_non_exclusive_exception(self, mock_os_open,
                                                     mock_holders,
                                                     mock_list_mounts,
-                                                    mock_os_close):
+                                                    mock_os_close,
+                                                    mock_util_fuser):
         flen = 1024
         myfile = self.tfile("my_exclusive_file")
         util.write_file(myfile, flen * b'\1', omode="wb")
         mock_os_open.side_effect = OSError("NO_O_EXCL")
         mock_holders.return_value = ['md1']
         mock_list_mounts.return_value = []
+        mock_util_fuser.return_value = {}
 
         with self.assertRaises(OSError):
             with block.exclusive_open(myfile) as fp:
@@ -514,5 +517,123 @@ class TestNonAscii(TestCase):
         err = b''.decode()
         mock_subp.return_value = (out, err)
         block.blkid()
+
+
+class TestSlaveKnames(TestCase):
+    def add_patch(self, target, attr, autospec=True):
+        """Patches specified target object and sets it as attr on test
+        instance also schedules cleanup"""
+        m = mock.patch(target, autospec=autospec)
+        p = m.start()
+        self.addCleanup(m.stop)
+        setattr(self, attr, p)
+
+    def setUp(self):
+        super(TestSlaveKnames, self).setUp()
+        self.add_patch('curtin.block.get_blockdev_for_partition',
+                       'm_blockdev_for_partition')
+        self.add_patch('curtin.block.os.path.exists',
+                       'm_os_path_exists')
+        # trusty-p3 does not like autospec=True for os.listdir
+        self.add_patch('curtin.block.os.listdir',
+                       'm_os_listdir', autospec=False)
+
+    def _prepare_mocks(self, device, cfg):
+        """
+        Construct the correct sequence of mocks
+        give a mapping of device and slaves
+
+        cfg = {
+            'wark': ['foo', 'bar'],
+            'foo': [],
+            'bar': [],
+        }
+        device = 'wark', slaves = ['foo, 'bar']
+
+        cfg = {
+            'wark': ['foo', 'bar'],
+            'foo': ['zip'],
+            'bar': [],
+            'zip': []
+        }
+        device = 'wark', slaves = ['zip', 'bar']
+        """
+        # kname side-effect mapping
+        parts = [(k, None) for k in cfg.keys()]
+        self.m_blockdev_for_partition.side_effect = iter(parts)
+
+        # construct side effects to os.path.exists
+        # and os.listdir based on mapping.
+        dirs = []
+        exists = []
+        for (dev, slvs) in cfg.items():
+            # sys_block_dev checks if dev exists
+            exists.append(True)
+            if slvs:
+                # os.path.exists on slaves dir
+                exists.append(True)
+                # result of os.listdir
+                dirs.append(slvs)
+            else:
+                # os.path.exists on slaves dir
+                exists.append(False)
+
+        self.m_os_path_exists.side_effect = iter(exists)
+        self.m_os_listdir.side_effect = iter(dirs)
+
+    def test_get_device_slave_knames(self):
+        #
+        # /sys/class/block/wark/slaves/foo -> ../../foo
+        # /sys/class/block/foo #
+        # should return 'bar'
+        cfg = OrderedDict([
+            ('wark', ['foo']),
+            ('foo', []),
+        ])
+        device = "/dev/wark"
+        slaves = ["foo"]
+        self._prepare_mocks(device, cfg)
+        knames = block.get_device_slave_knames(device)
+        self.assertEqual(slaves, knames)
+
+    def test_get_device_slave_knames_stacked(self):
+        #
+        # /sys/class/block/wark/slaves/foo -> ../../foo
+        # /sys/class/block/wark/slaves/bar -> ../../bar
+        # /sys/class/block/foo
+        # /sys/class/block/bar
+        #
+        # should return ['foo', 'bar']
+        cfg = OrderedDict([
+            ('wark', ['foo', 'bar']),
+            ('foo', []),
+            ('bar', []),
+        ])
+        device = 'wark'
+        slaves = ['foo', 'bar']
+        self._prepare_mocks(device, cfg)
+        knames = block.get_device_slave_knames(device)
+        self.assertEqual(slaves, knames)
+
+    def test_get_device_slave_knames_double_stacked(self):
+        # /sys/class/block/wark/slaves/foo -> ../../foo
+        # /sys/class/block/wark/slaves/bar -> ../../bar
+        # /sys/class/block/foo
+        # /sys/class/block/bar/slaves/zip -> ../../zip
+        # /sys/class/block/zip
+        #
+        # mapping of device:
+        cfg = OrderedDict([
+            ('wark', ['foo', 'bar']),
+            ('foo', []),
+            ('bar', ['zip']),
+            ('zip', []),
+        ])
+        device = 'wark'
+        slaves = ['foo', 'zip']
+        self._prepare_mocks(device, cfg)
+        knames = block.get_device_slave_knames(device)
+        self.assertEqual(slaves, knames)
+
 
 # vi: ts=4 expandtab syntax=python

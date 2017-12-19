@@ -21,12 +21,17 @@ top of a block device, making it possible to reuse the block device without
 having to reboot the system
 """
 
+import errno
 import os
+import time
 
 from curtin import (block, udev, util)
 from curtin.block import lvm
 from curtin.block import mdadm
 from curtin.log import LOG
+
+# poll frequenty, but wait up to 60 seconds total
+MDADM_RELEASE_RETRIES = [0.4] * 150
 
 
 def _define_handlers_registry():
@@ -54,34 +59,121 @@ def get_dmsetup_uuid(device):
     return out.strip()
 
 
-def get_bcache_using_dev(device):
+def get_bcache_using_dev(device, strict=True):
     """
-    Get the /sys/fs/bcache/ path of the bcache volume using specified device
+    Get the /sys/fs/bcache/ path of the bcache cache device bound to
+    specified device
     """
     # FIXME: when block.bcache is written this should be moved there
     sysfs_path = block.sys_block_path(device)
-    return os.path.realpath(os.path.join(sysfs_path, 'bcache', 'cache'))
+    path = os.path.realpath(os.path.join(sysfs_path, 'bcache', 'cache'))
+    if strict and not os.path.exists(path):
+        err = OSError(
+            "device '{}' did not have existing syspath '{}'".format(
+                device, path))
+        err.errno = errno.ENOENT
+        raise err
+
+    return path
+
+
+def get_bcache_sys_path(device, strict=True):
+    """
+    Get the /sys/class/block/<device>/bcache path
+    """
+    sysfs_path = block.sys_block_path(device, strict=strict)
+    path = os.path.join(sysfs_path, 'bcache')
+    if strict and not os.path.exists(path):
+        err = OSError(
+            "device '{}' did not have existing syspath '{}'".format(
+                device, path))
+        err.errno = errno.ENOENT
+        raise err
+
+    return path
 
 
 def shutdown_bcache(device):
     """
     Shut down bcache for specified bcache device
+
+    1. Stop the cacheset that `device` is connected to
+    2. Stop the 'device'
     """
+    if not device.startswith('/sys/class/block'):
+        raise ValueError('Invalid Device (%s): '
+                         'Device path must start with /sys/class/block/',
+                         device)
+
+    # bcache device removal should be fast but in an extreme
+    # case, might require the cache device to flush large
+    # amounts of data to a backing device.  The strategy here
+    # is to wait for approximately 30 seconds but to check
+    # frequently since curtin cannot proceed until devices
+    # cleared.
+    removal_retries = [0.2] * 150  # 30 seconds total
     bcache_shutdown_message = ('shutdown_bcache running on {} has determined '
                                'that the device has already been shut down '
                                'during handling of another bcache dev. '
                                'skipping'.format(device))
+
     if not os.path.exists(device):
         LOG.info(bcache_shutdown_message)
         return
 
-    bcache_sysfs = get_bcache_using_dev(device)
-    if not os.path.exists(bcache_sysfs):
-        LOG.info(bcache_shutdown_message)
-        return
+    # get slaves [vdb1, vdc], allow for slaves to not have bcache dir
+    slave_paths = [get_bcache_sys_path(k, strict=False) for k in
+                   os.listdir(os.path.join(device, 'slaves'))]
 
-    LOG.debug('stopping bcache at: %s', bcache_sysfs)
-    util.write_file(os.path.join(bcache_sysfs, 'stop'), '1', mode=None)
+    # stop cacheset if it exists
+    bcache_cache_sysfs = get_bcache_using_dev(device, strict=False)
+    if not os.path.exists(bcache_cache_sysfs):
+        LOG.info('bcache cacheset already removed: %s',
+                 os.path.basename(bcache_cache_sysfs))
+    else:
+        LOG.info('stopping bcache cacheset at: %s', bcache_cache_sysfs)
+        util.write_file(os.path.join(bcache_cache_sysfs, 'stop'),
+                        '1', mode=None)
+        try:
+            util.wait_for_removal(bcache_cache_sysfs, retries=removal_retries)
+        except OSError:
+            LOG.info('Failed to stop bcache cacheset %s', bcache_cache_sysfs)
+            raise
+
+        # let kernel settle before the next remove
+        udev.udevadm_settle()
+
+    # after stopping cache set, we may need to stop the device
+    # both the dev and sysfs entry should be gone.
+
+    # we know the bcacheN device is really gone when we've removed:
+    #  /sys/class/block/{bcacheN}
+    #  /sys/class/block/slaveN1/bcache
+    #  /sys/class/block/slaveN2/bcache
+    bcache_block_sysfs = get_bcache_sys_path(device, strict=False)
+    to_check = [device] + slave_paths
+    found_devs = [os.path.exists(p) for p in to_check]
+    LOG.debug('os.path.exists on blockdevs:\n%s',
+              list(zip(to_check, found_devs)))
+    if not any(found_devs):
+        LOG.info('bcache backing device already removed: %s (%s)',
+                 bcache_block_sysfs, device)
+        LOG.debug('bcache slave paths checked: %s', slave_paths)
+        return
+    else:
+        LOG.info('stopping bcache backing device at: %s', bcache_block_sysfs)
+        util.write_file(os.path.join(bcache_block_sysfs, 'stop'),
+                        '1', mode=None)
+        try:
+            # wait for them all to go away
+            for dev in [device, bcache_block_sysfs] + slave_paths:
+                util.wait_for_removal(dev, retries=removal_retries)
+        except OSError:
+            LOG.info('Failed to stop bcache backing device %s',
+                     bcache_block_sysfs)
+            raise
+
+    return
 
 
 def shutdown_lvm(device):
@@ -120,7 +212,25 @@ def shutdown_mdadm(device):
     blockdev = block.sysfs_to_devpath(device)
     LOG.debug('using mdadm.mdadm_stop on dev: %s', blockdev)
     mdadm.mdadm_stop(blockdev)
-    mdadm.mdadm_remove(blockdev)
+
+    # mdadm stop operation is asynchronous so we must wait for the kernel to
+    # release resources. For more details see  LP: #1682456
+    try:
+        for wait in MDADM_RELEASE_RETRIES:
+            if mdadm.md_present(block.path_to_kname(blockdev)):
+                time.sleep(wait)
+            else:
+                LOG.debug('%s has been removed', blockdev)
+                break
+
+        if mdadm.md_present(block.path_to_kname(blockdev)):
+            raise OSError('Timeout exceeded for removal of %s', blockdev)
+
+    except OSError:
+        LOG.critical('Failed to stop mdadm device %s', device)
+        if os.path.exists('/proc/mdstat'):
+            LOG.critical("/proc/mdstat:\n%s", util.load_file('/proc/mdstat'))
+        raise
 
 
 def wipe_superblock(device):
@@ -134,8 +244,24 @@ def wipe_superblock(device):
         LOG.info("extended partitions do not need wiping, so skipping: '%s'",
                  blockdev)
     else:
+        retries = [1, 3, 5, 7]
         LOG.info('wiping superblock on %s', blockdev)
-        block.wipe_volume(blockdev, mode='superblock')
+        for attempt, wait in enumerate(retries):
+            LOG.debug('wiping %s attempt %s/%s',
+                      blockdev, attempt + 1, len(retries))
+            try:
+                block.wipe_volume(blockdev, mode='superblock')
+                LOG.debug('successfully wiped device %s on attempt %s/%s',
+                          blockdev, attempt + 1, len(retries))
+                return
+            except OSError:
+                if attempt + 1 >= len(retries):
+                    raise
+                else:
+                    LOG.debug("wiping device '%s' failed on attempt"
+                              " %s/%s.  sleeping %ss before retry",
+                              blockdev, attempt + 1, len(retries), wait)
+                    time.sleep(wait)
 
 
 def identify_lvm(device):

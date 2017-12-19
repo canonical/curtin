@@ -4,6 +4,7 @@ import os
 import stat
 import shutil
 import tempfile
+from textwrap import dedent
 
 from curtin import util
 from .helpers import simple_mocked_open
@@ -567,5 +568,189 @@ class TestIpAddress(TestCase):
             '2002:4559:1fe2:0:0:0:4559:1fe2'))
         self.assertTrue(util.is_valid_ipv6_address(
             '2002:4559:1FE2:0000:0000:0000:4559:1FE2'))
+
+
+class TestLoadCommandEnvironment(TestCase):
+    def setUp(self):
+        self.tmpd = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmpd)
+        all_names = {
+            'CONFIG',
+            'OUTPUT_FSTAB',
+            'OUTPUT_INTERFACES',
+            'OUTPUT_NETWORK_CONFIG',
+            'OUTPUT_NETWORK_STATE',
+            'CURTIN_REPORTSTACK',
+            'WORKING_DIR',
+            'TARGET_MOUNT_POINT',
+        }
+        self.full_env = {v: os.path.join(self.tmpd, v.lower())
+                         for v in all_names}
+
+    def test_strict_with_missing(self):
+        my_env = self.full_env.copy()
+        del my_env['OUTPUT_FSTAB']
+        del my_env['WORKING_DIR']
+        exc = None
+        try:
+            util.load_command_environment(my_env, strict=True)
+        except KeyError as e:
+            self.assertIn("OUTPUT_FSTAB", str(e))
+            self.assertIn("WORKING_DIR", str(e))
+            exc = e
+
+        self.assertTrue(exc)
+
+    def test_nostrict_with_missing(self):
+        my_env = self.full_env.copy()
+        del my_env['OUTPUT_FSTAB']
+        try:
+            util.load_command_environment(my_env, strict=False)
+        except KeyError as e:
+            self.fail("unexpected key error raised: %s" % e)
+
+    def test_full_and_strict(self):
+        try:
+            util.load_command_environment(self.full_env, strict=False)
+        except KeyError as e:
+            self.fail("unexpected key error raised: %s" % e)
+
+
+class TestWaitForRemoval(TestCase):
+    def test_wait_for_removal_missing_path(self):
+        with self.assertRaises(ValueError):
+            util.wait_for_removal(None)
+
+    @mock.patch('curtin.util.time')
+    @mock.patch('curtin.util.os')
+    def test_wait_for_removal(self, mock_os, mock_time):
+        path = "/file/to/remove"
+        mock_os.path.exists.side_effect = iter([
+            True,    # File is not yet removed
+            False,   # File has  been removed
+        ])
+
+        util.wait_for_removal(path)
+
+        self.assertEqual(2, len(mock_os.path.exists.call_args_list))
+        self.assertEqual(1, len(mock_time.sleep.call_args_list))
+        mock_os.path.exists.assert_has_calls([
+            mock.call(path),
+            mock.call(path),
+        ])
+        mock_time.sleep.assert_has_calls([
+            mock.call(1),
+        ])
+
+    @mock.patch('curtin.util.time')
+    @mock.patch('curtin.util.os')
+    def test_wait_for_removal_timesout(self, mock_os, mock_time):
+        path = "/file/to/remove"
+        mock_os.path.exists.return_value = True
+
+        with self.assertRaises(OSError):
+            util.wait_for_removal(path)
+
+        self.assertEqual(5, len(mock_os.path.exists.call_args_list))
+        self.assertEqual(4, len(mock_time.sleep.call_args_list))
+        mock_os.path.exists.assert_has_calls(5 * [mock.call(path)])
+        mock_time.sleep.assert_has_calls([
+            mock.call(1),
+            mock.call(3),
+            mock.call(5),
+            mock.call(7),
+        ])
+
+    @mock.patch('curtin.util.time')
+    @mock.patch('curtin.util.os')
+    def test_wait_for_removal_custom_retry(self, mock_os, mock_time):
+        path = "/file/to/remove"
+        timeout = 100
+        mock_os.path.exists.side_effect = iter([
+            True,    # File is not yet removed
+            False,   # File has  been removed
+        ])
+
+        util.wait_for_removal(path, retries=[timeout])
+
+        self.assertEqual(2, len(mock_os.path.exists.call_args_list))
+        self.assertEqual(1, len(mock_time.sleep.call_args_list))
+        mock_os.path.exists.assert_has_calls([
+            mock.call(path),
+            mock.call(path),
+        ])
+        mock_time.sleep.assert_has_calls([
+            mock.call(timeout),
+        ])
+
+
+class TestGetEFIBootMGR(TestCase):
+
+    def setUp(self):
+        super(TestGetEFIBootMGR, self).setUp()
+        mock_chroot = mock.patch(
+            'curtin.util.ChrootableTarget', autospec=False)
+        self.mock_chroot = mock_chroot.start()
+        self.addCleanup(mock_chroot.stop)
+        self.mock_in_chroot = mock.MagicMock()
+        self.mock_in_chroot.__enter__.return_value = self.mock_in_chroot
+        self.in_chroot_subp_output = []
+        self.mock_in_chroot_subp = self.mock_in_chroot.subp
+        self.mock_in_chroot_subp.side_effect = self.in_chroot_subp_output
+        self.mock_chroot.return_value = self.mock_in_chroot
+
+    def test_calls_efibootmgr_verbose(self):
+        self.in_chroot_subp_output.append(('', ''))
+        util.get_efibootmgr('target')
+        self.assertEquals(
+            (['efibootmgr', '-v'],),
+            self.mock_in_chroot_subp.call_args_list[0][0])
+
+    def test_parses_output(self):
+        self.in_chroot_subp_output.append((dedent(
+            """\
+            BootCurrent: 0000
+            Timeout: 1 seconds
+            BootOrder: 0000,0002,0001,0003,0004,0005
+            Boot0000* ubuntu	HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)
+            Boot0001* CD/DVD Drive 	BBS(CDROM,,0x0)
+            Boot0002* Hard Drive 	BBS(HD,,0x0)
+            Boot0003* UEFI:CD/DVD Drive	BBS(129,,0x0)
+            Boot0004* UEFI:Removable Device	BBS(130,,0x0)
+            Boot0005* UEFI:Network Device	BBS(131,,0x0)
+            """), ''))
+        observed = util.get_efibootmgr('target')
+        self.assertEquals({
+            'current': '0000',
+            'timeout': '1 seconds',
+            'order': ['0000', '0002', '0001', '0003', '0004', '0005'],
+            'entries': {
+                '0000': {
+                    'name': 'ubuntu',
+                    'path': 'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)',
+                },
+                '0001': {
+                    'name': 'CD/DVD Drive',
+                    'path': 'BBS(CDROM,,0x0)',
+                },
+                '0002': {
+                    'name': 'Hard Drive',
+                    'path': 'BBS(HD,,0x0)',
+                },
+                '0003': {
+                    'name': 'UEFI:CD/DVD Drive',
+                    'path': 'BBS(129,,0x0)',
+                },
+                '0004': {
+                    'name': 'UEFI:Removable Device',
+                    'path': 'BBS(130,,0x0)',
+                },
+                '0005': {
+                    'name': 'UEFI:Network Device',
+                    'path': 'BBS(131,,0x0)',
+                },
+            }
+        }, observed)
+
 
 # vi: ts=4 expandtab syntax=python

@@ -25,7 +25,6 @@ import subprocess
 import sys
 import tempfile
 
-from curtin import block
 from curtin.block import iscsi
 from curtin import config
 from curtin import util
@@ -79,16 +78,20 @@ def clear_install_log(logfile):
 
 def copy_install_log(logfile, target, log_target_path):
     """Copy curtin install log file to target system"""
+    basemsg = 'Cannot copy curtin install log "%s" to target.' % logfile
     if not logfile:
-        LOG.warn('Cannot copy curtin install log to target, no log exists')
+        LOG.warn(basemsg)
+        return
+    if not os.path.isfile(logfile):
+        LOG.warn(basemsg + "  file does not exist.")
         return
 
-    LOG.debug('Copying curtin install log to target')
-    target = os.path.sep.join([target, log_target_path])
-    if os.path.exists(target):
-        shutil.copy(logfile, os.path.normpath(target))
-    else:
-        LOG.debug('install log file not at path: %s', target)
+    LOG.debug('Copying curtin install log from %s to target/%s',
+              logfile, log_target_path)
+    util.write_file(
+        filename=util.target_path(target, log_target_path),
+        content=util.load_file(logfile, decode=False),
+        mode=0o400, omode="wb")
 
 
 def writeline_and_stdout(logfile, message):
@@ -451,15 +454,9 @@ def cmd_install(args):
                                       '/root/curtin-install.log')
         if log_target_path:
             copy_install_log(logfile, workingd.target, log_target_path)
-        for d in ('sys', 'dev', 'proc'):
-            util.do_umount(os.path.join(workingd.target, d))
+        util.do_umount(workingd.target, recursive=True)
         # need to do some processing on iscsi disks to disconnect?
         iscsi.disconnect_target_disks(workingd.target)
-        mounted = block.get_mountpoints()
-        mounted.sort(key=lambda x: -1 * x.count("/"))
-        for d in filter(lambda x: workingd.target in x, mounted):
-            util.do_umount(d)
-        util.do_umount(workingd.target)
         shutil.rmtree(workingd.top)
 
     apply_power_state(cfg.get('power_state'))

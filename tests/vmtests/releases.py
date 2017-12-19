@@ -97,6 +97,10 @@ class _ZestyBase(_UbuntuBase):
     release = "zesty"
 
 
+class _ArtfulBase(_UbuntuBase):
+    release = "artful"
+
+
 class _Releases(object):
     precise = _PreciseBase
     precise_hwe_t = _PreciseHWET
@@ -111,6 +115,7 @@ class _Releases(object):
     xenial = _XenialBase
     yakkety = _YakketyBase
     zesty = _ZestyBase
+    artful = _ArtfulBase
 
 
 class _CentosReleases(object):

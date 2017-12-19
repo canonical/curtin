@@ -1,0 +1,10 @@
+early_commands:
+  # running block-meta custom from the install environment
+  # inherits the CONFIG environment, so this works to actually prepare
+  # the disks exactly as in this config before the rest of the install
+  # will just blow it all away.  We have clean out other environment
+  # that could unintentionally mess things up.
+  blockmeta: [env, -u, OUTPUT_FSTAB,
+              TARGET_MOUNT_POINT=/tmp/my.bdir/target,
+              WORKING_DIR=/tmp/my.bdir/work.d, 
+              curtin, --showtrace, -v, block-meta, --umount, custom]

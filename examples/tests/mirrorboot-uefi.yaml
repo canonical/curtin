@@ -1,0 +1,126 @@
+showtrace: true
+storage:
+  config:
+  - grub_device: true
+    id: sda
+    name: sda
+    ptable: msdos
+    type: disk
+    wipe: superblock
+    path: /dev/vdb
+    name: main_disk
+  - id: sdb
+    name: sdb
+    ptable: gpt
+    type: disk
+    wipe: superblock
+    path: /dev/vdc
+    name: second_disk
+  - device: sda
+    flag: boot
+    id: sda-part1
+    name: sda-part1
+    number: 1
+    offset: 4194304B
+    size: 511705088B
+    type: partition
+    uuid: fc7ab24c-b6bf-460f-8446-d3ac362c0625
+    wipe: superblock
+  - device: sda
+    id: sda-part2
+    name: sda-part2
+    number: 2
+    size: 2G
+    type: partition
+    uuid: 47c97eae-f35d-473f-8f3d-d64161d571f1
+    wipe: superblock
+  - device: sda
+    id: sda-part3
+    name: sda-part3
+    number: 3
+    size: 2G
+    type: partition
+    uuid: e3202633-841c-4936-a520-b18d1f7938ea
+    wipe: superblock
+  - device: sdb
+    flag: boot
+    id: sdb-part1
+    name: sdb-part1
+    number: 1
+    offset: 4194304B
+    size: 511705088B
+    type: partition
+    uuid: 86326392-3706-4124-87c6-2992acfa31cc
+    wipe: superblock
+  - device: sdb
+    id: sdb-part2
+    name: sdb-part2
+    number: 2
+    size: 2G
+    type: partition
+    uuid: a33a83dd-d1bf-4940-bf3e-6d931de85dbc
+    wipe: superblock
+  - devices:
+    - sda-part2
+    - sdb-part2
+    id: md0
+    name: md0
+    raidlevel: 1
+    spare_devices: []
+    type: raid
+  - device: sdb
+    id: sdb-part3
+    name: sdb-part3
+    number: 3
+    size: 2G
+    type: partition
+    uuid: 27e29758-fdcf-4c6a-8578-c92f907a8a9d
+    wipe: superblock
+  - devices:
+    - sda-part3
+    - sdb-part3
+    id: md1
+    name: md1
+    raidlevel: 1
+    spare_devices: []
+    type: raid
+  - fstype: fat32
+    id: sda-part1_format
+    label: efi
+    type: format
+    uuid: b3d50fc7-2f9e-4d1a-9e24-28985e4c560b
+    volume: sda-part1
+  - fstype: fat32
+    id: sdb-part1_format
+    label: efi
+    type: format
+    uuid: c604cbb1-2ee1-4575-9489-d38a60fa0cf2
+    volume: sdb-part1
+  - fstype: ext4
+    id: md0_format
+    label: ''
+    type: format
+    uuid: 76a315b7-2979-436c-b156-9ae64a565a59
+    volume: md0
+  - fstype: ext4
+    id: md1_format
+    label: ''
+    type: format
+    uuid: 48dceca6-a9f9-4c7b-bfd3-7f3a0faa4ecc
+    volume: md1
+  - device: md0_format
+    id: md0_mount
+    options: ''
+    path: /
+    type: mount
+  - device: sda-part1_format
+    id: sda-part1_mount
+    options: ''
+    path: /boot/efi
+    type: mount
+  - device: md1_format
+    id: md1_mount
+    options: ''
+    path: /var
+    type: mount
+  version: 1

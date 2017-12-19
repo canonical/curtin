@@ -1,5 +1,6 @@
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
+from unittest import SkipTest
 
 import textwrap
 
@@ -38,15 +39,17 @@ class TestLvmAbs(VMBaseClass):
         self.output_files_exist(
             ["fstab", "ls_dname"])
 
+    # FIXME(LP: #1523037): dname does not work on precise|trusty, so we cannot
+    # expect sda-part2 to exist in /dev/disk/by-dname as we can on other
+    # releases when dname works on trusty, then we need to re-enable by
+    # removing line.
+    def test_dname(self):
+        if self.release in ['precise', 'trusty']:
+            raise SkipTest("test_dname does not work for %s" % self.release)
+
 
 class PreciseTestLvm(relbase.precise, TestLvmAbs):
     __test__ = True
-
-    # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
-    # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
 
 
 class PreciseHWETTestLvm(relbase.precise_hwe_t, PreciseTestLvm):
@@ -56,21 +59,9 @@ class PreciseHWETTestLvm(relbase.precise_hwe_t, PreciseTestLvm):
 class TrustyTestLvm(relbase.trusty, TestLvmAbs):
     __test__ = True
 
-    # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
-    # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
-
 
 class TrustyHWEXTestLvm(relbase.trusty_hwe_x, TestLvmAbs):
     __test__ = True
-
-    # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
-    # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
 
 
 class WilyTestLvm(relbase.wily, TestLvmAbs):
@@ -87,4 +78,8 @@ class YakketyTestLvm(relbase.yakkety, TestLvmAbs):
 
 
 class ZestyTestLvm(relbase.zesty, TestLvmAbs):
+    __test__ = True
+
+
+class ArtfulTestLvm(relbase.artful, TestLvmAbs):
     __test__ = True
