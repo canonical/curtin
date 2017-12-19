@@ -1,0 +1,6 @@
+#!/usr/bin/python3
+
+from tests.vmtests.report_webhook_logger import mainloop
+
+if __name__ == "__main__":
+    mainloop()

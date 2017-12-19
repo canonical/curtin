@@ -408,7 +408,8 @@ def add_apt_sources(srcdict, target=None, template_params=None,
                     target, sys_resolvconf=True) as in_chroot:
                 time_entered = time.time()
                 try:
-                    in_chroot.subp(["add-apt-repository", source])
+                    in_chroot.subp(["add-apt-repository", source],
+                                   retries=(1, 2, 5, 10))
                 except util.ProcessExecutionError:
                     LOG.exception("add-apt-repository failed.")
                     raise
