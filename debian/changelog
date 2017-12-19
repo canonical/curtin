@@ -1,3 +1,14 @@
+curtin (0.1.0~bzr220-0ubuntu1) wily; urgency=medium
+
+  * New upstream snapshot.
+    * more multipath work. hopefully reliable multipath boot on ppc64 now.
+    * some cleanups to partitioning code.
+    * know expected kernel mapping for wily (4.2)
+    * support UEFI-based ARM64 systems (LP: #1447834)
+    * catch one more usage of lsblk (LP: #1386275)
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 18 Jun 2015 14:19:55 -0400
+
 curtin (0.1.0~bzr215-0ubuntu1) wily; urgency=medium
 
   * New upstream snapshot.
