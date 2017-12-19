@@ -1,3 +1,10 @@
+curtin (0.1.0~bzr125-0ubuntu1) trusty; urgency=medium
+
+  * New upstream snapshot.
+    * fix regression in installation on pc-bios systems (LP: #1303617)
+
+ -- Scott Moser <smoser@ubuntu.com>  Mon, 07 Apr 2014 10:18:34 -0400
+
 curtin (0.1.0~bzr124-0ubuntu1) trusty; urgency=medium
 
   * New upstream snapshot.
