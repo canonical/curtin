@@ -1,3 +1,9 @@
+curtin (0.1.0~bzr95-0ubuntu2) trusty; urgency=medium
+
+  * Rebuild to drop files installed into /usr/share/pyshared.
+
+ -- Matthias Klose <doko@ubuntu.com>  Sun, 23 Feb 2014 13:46:42 +0000
+
 curtin (0.1.0~bzr95-0ubuntu1) trusty; urgency=low
 
   * New upstream snapshot.
