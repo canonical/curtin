@@ -1,3 +1,20 @@
+curtin (0.1.0~bzr415-0ubuntu1) yakkety; urgency=medium
+
+  * New upstream snapshot.
+    - Add apt configuration features. (LP: #1574113)
+    - mkfs.vfat: add force flag for formating whole disks (LP: #1597923)
+    - block.mkfs: fix sectorsize flag (LP: #1597522)
+    - block_meta: cleanup use of sys_block_path and handle cciss knames
+      (LP: #1562249)
+    - block.get_blockdev_sector_size: handle _lsblock multi result return
+      (LP: #1598310)
+    - util: add target (chroot) support to subp, add target_path helper
+    - block_meta: fallback to parted if blkid does not produce output
+      (LP: #1524031)
+    - commands.block_wipe:  correct default wipe mode to 'superblock'
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 05 Aug 2016 16:51:20 -0400
+
 curtin (0.1.0~bzr399-0ubuntu1) yakkety; urgency=medium
 
   * debian/new-upstream-snapshot: fix for specifying revision.
