@@ -1,3 +1,20 @@
+curtin (0.1.0~bzr541-0ubuntu1) bionic; urgency=medium
+
+  * New upstream snapshot.
+    - Drop Precise from vmtest
+    - clear_holders: bcache log IO/OS exceptions but do not raise
+    - vmtest: Support newer qemu and multipath.
+    - block: enable control over exclusive_open use when wiping volumes
+    - block: handle wiping bcache parts (LP: #1718699)
+    - vmtests: Defer ArtfulNetworkMtu SkipbyDate to 2018
+    - bcache: accept sysfs write failure in shutdown handler if path missing
+      (LP: #1700564)
+    - vmtest: Rephrase a message about no disks to be less scary
+    - block_meta: use block.wipe_volume(mode=superblock) to clear MBR/GPT tables
+      (LP: #1722322)
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Tue, 07 Nov 2017 11:13:00 -0600
+
 curtin (0.1.0~bzr532-0ubuntu1) artful; urgency=medium
 
   * New upstream snapshot.
