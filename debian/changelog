@@ -1,3 +1,10 @@
+curtin (0.1.0~bzr215-0ubuntu1) wily; urgency=medium
+
+  * New upstream snapshot.
+    * multipath: Generate /etc/multipath/bindings file during installation.
+
+ -- Scott Moser <smoser@ubuntu.com>  Tue, 16 Jun 2015 15:39:29 -0400
+
 curtin (0.1.0~bzr214-0ubuntu1) wily; urgency=medium
 
   * New upstream snapshot.
