@@ -1,3 +1,33 @@
+curtin (0.1.0~bzr505-0ubuntu1~17.04.1) zesty; urgency=medium
+
+  * New upstream snapshot. (LP: #1697545)
+    - vmtest: let the socket level select a port rather than us picking one. 
+    - Fix deb build by mocking call to udevadm settle 
+    - Clear and re-order UEFI boot methods during UEFI grub installation. 
+    - Resolve bcache race-conditions 
+    - tests: clean up usage of collect files 
+    - Allow re-use of vmtest output 
+    - Fix stacked storage configurations with iSCSI
+    - vmtests: enable tests to apply storage config to validate clear_holders
+      path 
+    - mdadm_stop: Add retry and additional steps to halt a resync 
+    - vmtests: Add Artful release and update classes 
+    - clear-holders: mdadm use /proc/mdstat to wait for array to stop
+    - uc16 curthooks: add 'network' key to config file
+    - Doc and makefile updates for build and test on new systems. 
+    - clear-holders: make bcache handler wait for device shutdown
+    - vmtest: Use utf-8 and fix pseudo test collect_output 
+    - vmtest: fix path to install log, and utilize the globally copied paths. 
+    - Copy curtin install log into target.
+    - vmtest: add in post-test log post-processing 
+    - vmtest: update source.list test 
+    - add recursive flag to do_umount, add --umount to block-meta 
+    - load_command_environment: fix strict flag, and unit tests. 
+    - block_meta: Attempt to mount by UUID= if possible
+    - Make systems with root on bcache use root=UUID=.
+
+ -- Scott Moser <smoser@ubuntu.com>  Mon, 12 Jun 2017 15:57:40 -0400
+
 curtin (0.1.0~bzr482-0ubuntu1) zesty; urgency=medium
 
   * New upstream snapshot.
