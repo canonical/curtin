@@ -1,4 +1,4 @@
-from . import VMBaseClass, logger
+from . import VMBaseClass, logger, helpers
 from .releases import base_vm_classes as relbase
 
 import ipaddress
@@ -7,44 +7,6 @@ import re
 import subprocess
 import textwrap
 import yaml
-
-
-def iface_extract(input):
-    mo = re.search(r'^(?P<interface>\w+|\w+:\d+|\w+\.\d+)\s+' +
-                   r'Link encap:(?P<link_encap>\S+)\s+' +
-                   r'(HWaddr\s+(?P<mac_address>\S+))?' +
-                   r'(\s+inet addr:(?P<address>\S+))?' +
-                   r'(\s+Bcast:(?P<broadcast>\S+)\s+)?' +
-                   r'(Mask:(?P<netmask>\S+)\s+)?',
-                   input, re.MULTILINE)
-
-    mtu = re.search(r'(\s+MTU:(?P<mtu>\d+)\s+)\s+', input, re.MULTILINE)
-    mtu_info = mtu.groupdict('')
-    mtu_info['mtu'] = int(mtu_info['mtu'])
-
-    if mo:
-        info = mo.groupdict('')
-        info['running'] = False
-        info['up'] = False
-        info['multicast'] = False
-        if 'RUNNING' in input:
-            info['running'] = True
-        if 'UP' in input:
-            info['up'] = True
-        if 'MULTICAST' in input:
-            info['multicast'] = True
-        info.update(mtu_info)
-        return info
-    return {}
-
-
-def ifconfig_to_dict(ifconfig):
-    interfaces = {}
-    for iface in [iface_extract(iface) for iface in ifconfig.split('\n\n')
-                  if iface.strip()]:
-        interfaces[iface['interface']] = iface
-
-    return interfaces
 
 
 class TestNetworkAbs(VMBaseClass):
@@ -132,7 +94,7 @@ class TestNetworkAbs(VMBaseClass):
             ifconfig_a = fp.read()
             logger.debug('ifconfig -a:\n{}'.format(ifconfig_a))
 
-        ifconfig_dict = ifconfig_to_dict(ifconfig_a)
+        ifconfig_dict = helpers.ifconfig_to_dict(ifconfig_a)
         logger.debug('parsed ifcfg dict:\n{}'.format(
             yaml.dump(ifconfig_dict, default_flow_style=False, indent=4)))
 
@@ -340,7 +302,7 @@ class TestNetworkENISource(TestNetworkAbs):
             ifconfig_a = fp.read()
             logger.debug('ifconfig -a:\n{}'.format(ifconfig_a))
 
-        ifconfig_dict = ifconfig_to_dict(ifconfig_a)
+        ifconfig_dict = helpers.ifconfig_to_dict(ifconfig_a)
         logger.debug('parsed ifconfig dict:\n{}'.format(
             yaml.dump(ifconfig_dict, default_flow_style=False, indent=4)))
         print('parsed ifconfig dict:\n{}'.format(
@@ -411,14 +373,6 @@ class TrustyHWEWTestNetworkStatic(relbase.trusty_hwe_w,
     __test__ = False
 
 
-class VividTestNetwork(relbase.vivid, TestNetworkAbs):
-    __test__ = True
-
-
-class VividTestNetworkStatic(relbase.vivid, TestNetworkStaticAbs):
-    __test__ = True
-
-
 class WilyTestNetwork(relbase.wily, TestNetworkAbs):
     __test__ = True
 
@@ -432,6 +386,14 @@ class XenialTestNetwork(relbase.xenial, TestNetworkAbs):
 
 
 class XenialTestNetworkStatic(relbase.xenial, TestNetworkStaticAbs):
+    __test__ = True
+
+
+class YakketyTestNetwork(relbase.yakkety, TestNetworkAbs):
+    __test__ = True
+
+
+class YakketyTestNetworkStatic(relbase.yakkety, TestNetworkStaticAbs):
     __test__ = True
 
 
@@ -455,15 +417,15 @@ class TrustyTestNetworkVlan(relbase.trusty, TestNetworkVlanAbs):
     __test__ = True
 
 
-class VividTestNetworkVlan(relbase.vivid, TestNetworkVlanAbs):
-    __test__ = True
-
-
 class WilyTestNetworkVlan(relbase.wily, TestNetworkVlanAbs):
     __test__ = True
 
 
 class XenialTestNetworkVlan(relbase.xenial, TestNetworkVlanAbs):
+    __test__ = True
+
+
+class YakketyTestNetworkVlan(relbase.yakkety, TestNetworkVlanAbs):
     __test__ = True
 
 
@@ -477,13 +439,13 @@ class TrustyTestNetworkENISource(relbase.trusty, TestNetworkENISource):
     __test__ = True
 
 
-class VividTestNetworkENISource(relbase.vivid, TestNetworkENISource):
-    __test__ = True
-
-
 class WilyTestNetworkENISource(relbase.wily, TestNetworkENISource):
     __test__ = True
 
 
 class XenialTestNetworkENISource(relbase.xenial, TestNetworkENISource):
+    __test__ = True
+
+
+class YakketyTestNetworkENISource(relbase.yakkety, TestNetworkENISource):
     __test__ = True

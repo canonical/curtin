@@ -77,14 +77,14 @@ Usage: ${0##*/} [ options ] -- kvm-args [ ... ]
 
    NETDEV:
     Above, 'NETDEV' is a comma delimited string
-    The first field must be 
+    The first field must be
      * bridge name: (br0 or virbr0): attach a device to this bridge
      * literal 'user': use qemu user networking
-    
+
     Additional fields are optional, and can be anything that is acceptable
     to kvm either as:
       * '-device virtio-net-pci' option (see 'kvm -device virtio-net-pci,?')
-      * '-net [user|tap]' option 
+      * '-net [user|tap]' option
 
    Example:
      * xkvm --netdev br0,macaddr=:05 -- -drive file=disk.img,if=virtio -curses
@@ -345,7 +345,7 @@ main() {
                 if=sd|if=mtd|floppy) fail "do not know what to do with $tok on $cur";;
                 id=*) id=$val;;
                 file=*) file=$val;;
-                format=*) fmt=$val;;
+                fmt=*|format=*) fmt=$val;;
                 serial=*) serial=$val;;
                 bus=*) bus=$val;;
                 unit=*) unit=$val;;
@@ -357,6 +357,8 @@ main() {
             out=$(LANG=C qemu-img info "$file") &&
                 fmt=$(echo "$out" | awk '$0 ~ /^file format:/ { print $3 }') ||
                 { error "failed to determine format of $file"; return 1; }
+        else
+            fmt=raw
         fi
         if [ -z "$driver" ]; then
             driver="$def_disk_driver"
@@ -379,7 +381,8 @@ main() {
         devopts="$driver,drive=$id${serial:+,serial=${serial}}"
         for tok in "$@"; do
             case "$tok" in
-                id=*|if=*|driver=*|$file) continue;;
+                id=*|if=*|driver=*|$file|file=*) continue;;
+                fmt=*|format=*) continue;;
                 serial=*|bus=*|unit=*|index=*) continue;;
             esac
             isdevopt "$driver" "$tok" && devopts="${devopts},$tok" ||
@@ -529,7 +532,7 @@ main() {
 
     netargs=()
     for((i=0;i<${#device_args[@]};i++)); do
-        netargs=( "${netargs[@]}" -device "${device_args[$i]}" 
+        netargs=( "${netargs[@]}" -device "${device_args[$i]}"
                   -netdev "${netdev_args[$i]}")
     done
 

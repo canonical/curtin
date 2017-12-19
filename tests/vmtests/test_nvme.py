@@ -74,13 +74,13 @@ class TrustyTestNvme(relbase.trusty, TestNvmeAbs):
         print("test_ptable does not work for Trusty")
 
 
-class VividTestNvme(relbase.vivid, TestNvmeAbs):
-    __test__ = True
-
-
 class WilyTestNvme(relbase.wily, TestNvmeAbs):
     __test__ = True
 
 
 class XenialTestNvme(relbase.xenial, TestNvmeAbs):
+    __test__ = True
+
+
+class YakketyTestNvme(relbase.yakkety, TestNvmeAbs):
     __test__ = True
