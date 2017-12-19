@@ -168,24 +168,31 @@ def get_pardevs_on_blockdevs(devs):
     return ret
 
 
-def get_root_device(dev):
+def get_root_device(dev, fpath="curtin"):
     """
-    Get root partition for specified device
+    Get root partition for specified device, based on presence of /curtin.
     """
     partitions = get_pardevs_on_blockdevs(dev)
     target = None
+    tmp_mount = tempfile.mkdtemp()
     for i in partitions:
         dev_path = partitions[i]['device_path']
-        tmp_mount = tempfile.mkdtemp()
+        mp = None
         try:
             util.do_mount(dev_path, tmp_mount)
-            curtin_dir = os.path.join(tmp_mount, 'curtin')
-            if os.path.isdir(curtin_dir) is False:
-                continue
-            target = dev_path
-            util.do_umount(tmp_mount)
+            mp = tmp_mount
+            curtin_dir = os.path.join(tmp_mount, fpath)
+            if os.path.isdir(curtin_dir):
+                target = dev_path
+                break
         except:
-            util.do_umount(tmp_mount)
+            pass
+        finally:
+            if mp:
+                util.do_umount(mp)
+
+    os.rmdir(tmp_mount)
+
     if target is None:
         raise ValueError("Could not find root device")
     return target

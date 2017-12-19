@@ -189,8 +189,8 @@ main() {
 			size="${disk##*:}"
 		fi
 		if [ ! -f "$src" ]; then
-			qemu-img create -f raw "${src}" 5G ||
-				{ error "failed create $src"; return 1; }
+			qemu-img create -f raw "${src}" "$size" ||
+				{ error "failed create $src of size $size"; return 1; }
 		fi
 		disk_args=( "${disk_args[@]}"
 			"-drive" "file=${src},if=virtio,cache=unsafe" )
@@ -211,9 +211,9 @@ main() {
 		fpath=$(readlink -f "$src") ||
 			{ error "'$src': failed to get path"; return 1; }
 		if [ -n "$pub" ]; then
-			pub="${fpath##*/}"
+			pub="${src##*/}"
 		fi
-		ln -sf "$src" "${TEMP_D}/${pub}"
+		ln -sf "$fpath" "${TEMP_D}/${pub}"
 	done
 
 	# now replace PUBURL anywhere in cmdargs

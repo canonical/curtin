@@ -294,13 +294,14 @@ def setup_grub(cfg, target):
             blockdevs.add(blockdev)
 
         if platform.machine().startswith("ppc64"):
-            # ppc64 we want the PReP partitions on the installed block devices.
-            # the shnip here prints /dev/xxxN for each N that has 'prep' flags
+            # assume we want partitions that are 4100 (PReP). The snippet here
+            # just prints the partition number partitions of that type.
             shnip = textwrap.dedent("""
                 export LANG=C;
                 for d in "$@"; do
-                  parted --machine "$d" print |
-                    awk -F: "\$7 ~ /prep/ { print d \$1 }" d=$d; done
+                    sgdisk "$d" --print |
+                        awk "\$6 == prep { print d \$1 }" "d=$d" prep=4100
+                done
                 """)
             try:
                 out, err = util.subp(
@@ -308,10 +309,11 @@ def setup_grub(cfg, target):
                     capture=True)
                 instdevs = str(out).splitlines()
                 if not instdevs:
-                    LOG.warn("No PReP partitions found!")
+                    LOG.warn("No power grub target partitions found!")
+                    instdevs = None
             except util.ProcessExecutionError as e:
-                LOG.warn("Failed to find PReP partitions with parted: %s", e)
-                instdevs = ["none"]
+                LOG.warn("Failed to find power grub partitions: %s", e)
+                instdevs = None
         else:
             instdevs = list(blockdevs)
 
@@ -344,7 +346,7 @@ def setup_grub(cfg, target):
     if instdevs:
         instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
     else:
-        instdevs = []
+        instdevs = ["none"]
     LOG.debug("installing grub to %s [replace_default=%s]",
               instdevs, replace_default)
     with util.ChrootableTarget(target):

@@ -21,14 +21,20 @@ import os
 import re
 import shlex
 import shutil
+import subprocess
+import sys
 import tempfile
 
 from curtin import config
-from curtin.log import LOG
 from curtin import util
-
+from curtin.log import LOG
+from curtin.reporter import (
+    INSTALL_LOG,
+    load_reporter,
+    clear_install_log,
+    writeline_install_log,
+    )
 from . import populate_one_subcmd
-
 
 CONFIG_BUILTIN = {
     'sources': {},
@@ -88,10 +94,27 @@ class WorkingDir(object):
 
 
 class Stage(object):
+
     def __init__(self, name, commands, env):
         self.name = name
         self.commands = commands
         self.env = env
+        self.install_log = self.open_install_log()
+
+    def open_install_log(self):
+        """Open the install log."""
+        try:
+            return open(INSTALL_LOG, 'a')
+        except IOError:
+            return None
+
+    def write(self, data):
+        """Write data to stdout and to the install_log."""
+        sys.stdout.write(data)
+        sys.stdout.flush()
+        if self.install_log is not None:
+            self.install_log.write(data)
+            self.install_log.flush()
 
     def run(self):
         for cmdname in sorted(self.commands.keys()):
@@ -101,17 +124,37 @@ class Stage(object):
             shell = not isinstance(cmd, list)
             with util.LogTimer(LOG.debug, cmdname):
                 try:
-                    util.subp(cmd, shell=shell, env=self.env)
-                except util.ProcessExecutionError:
+                    sp = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                        env=self.env, shell=shell)
+                except OSError as e:
                     LOG.warn("%s command failed", cmdname)
-                    raise
+                    raise util.ProcessExecutionError(cmd=cmd, reason=e)
+
+                output = ""
+                while True:
+                    data = sp.stdout.read(1)
+                    if data == '' and sp.poll() is not None:
+                        break
+                    self.write(data)
+                    output += data
+
+                rc = sp.returncode
+                if rc != 0:
+                    LOG.warn("%s command failed", cmdname)
+                    raise util.ProcessExecutionError(
+                        stdout=output, stderr="",
+                        exit_code=rc, cmd=cmd)
 
 
 def apply_power_state(pstate):
-    # power_state:
-    #  delay: 5
-    #  mode: poweroff
-    #  message: Bye Bye
+    """
+    power_state:
+     delay: 5
+     mode: poweroff
+     message: Bye Bye
+    """
     cmd = load_power_state(pstate)
     if not cmd:
         return
@@ -129,7 +172,7 @@ def apply_power_state(pstate):
 
 
 def load_power_state(pstate):
-    # returns a command to reboot the system if power_state should.
+    """Returns a command to reboot the system if power_state should."""
     if pstate is None:
         return None
 
@@ -163,9 +206,11 @@ def load_power_state(pstate):
 
 
 def apply_kexec(kexec, target):
-    # load kexec kernel from target dir, similar to /etc/init.d/kexec-load
-    # kexec:
-    #  mode: on
+    """
+    load kexec kernel from target dir, similar to /etc/init.d/kexec-load
+    kexec:
+     mode: on
+    """
     grubcfg = "boot/grub/grub.cfg"
     target_grubcfg = os.path.join(target, grubcfg)
 
@@ -250,13 +295,17 @@ def cmd_install(args):
     if cfg.get('http_proxy'):
         os.environ['http_proxy'] = cfg['http_proxy']
 
+    # Load MAAS Reporter
+    clear_install_log()
+    maas_reporter = load_reporter(cfg)
+
     try:
         dd_images = util.get_dd_images(cfg.get('sources', {}))
         if len(dd_images) > 1:
             raise ValueError("You may not use more then one disk image")
+
         workingd = WorkingDir(cfg)
         LOG.debug(workingd.env())
-
         env = os.environ.copy()
         env.update(workingd.env())
 
@@ -270,6 +319,13 @@ def cmd_install(args):
             cfg['power_state'] = {'mode': 'reboot', 'delay': 'now',
                                   'message': "'rebooting with kexec'"}
 
+        writeline_install_log("Installation finished.")
+        maas_reporter.report_success()
+    except Exception as e:
+        exp_msg = "Installation failed with exception: %s" % e
+        writeline_install_log(exp_msg)
+        LOG.error(exp_msg)
+        maas_reporter.report_failure(exp_msg)
     finally:
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))
@@ -279,9 +335,6 @@ def cmd_install(args):
         shutil.rmtree(workingd.top)
 
     apply_power_state(cfg.get('power_state'))
-
-    LOG.info("Finished installation")
-    print("Installation finished")
 
 
 CMD_ARGUMENTS = (
