@@ -312,7 +312,7 @@ pt_mbr() {
         wipe_partitions "$target" 1 ||
             { error "failed to wipe partition 1 on $target"; return 1; }
     fi
-    
+
 }
 
 pt_prep() {
@@ -607,8 +607,12 @@ install_grub() {
         chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
             dpkg-reconfigure "$1"
             update-grub
+            # grub-install in 12.04 does not contain --no-nvram
+            no_nvram="--no-nvram"
+            grub-install --help | grep -q -- "$no_nvram" ||
+                no_nvram=""
             grub-install --target=$2 --efi-directory=/boot/efi \
-                --bootloader-id=ubuntu --recheck' -- \
+                --bootloader-id=ubuntu --recheck $no_nvram' -- \
             "${grub_name}" "${grub_target}" </dev/null ||
             { error "failed to install grub!"; return 1; }
     else

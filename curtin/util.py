@@ -30,8 +30,8 @@ _INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
 _INSTALLED_MAIN = '/usr/bin/curtin'
 
 
-def subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
-         logstring=False):
+def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
+          logstring=False):
     if rcs is None:
         rcs = [0]
 
@@ -71,6 +71,29 @@ def subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
     if not err and capture:
         err = ''
     return (out, err)
+
+
+def subp(*args, **kwargs):
+    retries = []
+    if "retries" in kwargs:
+        retries = kwargs.pop("retries")
+
+    if args:
+        cmd = args[0]
+    if 'args' in kwargs:
+        cmd = kwargs['args']
+
+    # Retry with waits between the retried command.
+    for num, wait in enumerate(retries):
+        try:
+            return _subp(*args, **kwargs)
+        except ProcessExecutionError as e:
+            LOG.debug("try %s: command %s failed, rc: %s", num,
+                      cmd, e.exit_code)
+            time.sleep(wait)
+    # Final try without needing to wait or catch the error. If this
+    # errors here then it will be raised to the caller.
+    return _subp(*args, **kwargs)
 
 
 def load_command_environment(env=os.environ, strict=False):
@@ -306,6 +329,10 @@ class ChrootableTarget(object):
         if self.disabled_daemons:
             undisable_daemons_in_root(self.target)
 
+        # if /dev is to be unmounted, udevadm settle (LP: #1462139)
+        if os.path.join(self.target, "dev") in self.umounts:
+            subp(['udevadm', 'settle'])
+
         for p in reversed(self.umounts):
             do_umount(p)
 
@@ -427,13 +454,20 @@ def has_pkg_installed(pkg, target=None):
         return False
 
 
-def apt_update(target=None, env=None, force=False, comment=None):
+def apt_update(target=None, env=None, force=False, comment=None,
+               retries=None):
+
     marker = "tmp/curtin.aptupdate"
     if target is None:
         target = "/"
 
     if env is None:
         env = os.environ.copy()
+
+    if retries is None:
+        # by default run apt-update up to 3 times to allow
+        # for transient failures
+        retries = (1, 2, 3)
 
     if comment is None:
         comment = "no comment provided"
@@ -447,7 +481,7 @@ def apt_update(target=None, env=None, force=False, comment=None):
 
     apt_update = ['apt-get', 'update', '--quiet']
     with RunInChroot(target) as inchroot:
-        inchroot(apt_update, env=env)
+        inchroot(apt_update, env=env, retries=retries)
 
     with open(marker, "w") as fp:
         fp.write(comment + "\n")
@@ -475,7 +509,8 @@ def install_packages(pkglist, aptopts=None, target=None, env=None):
 
     apt_update(target, comment=' '.join(pkglist))
     with RunInChroot(target) as inchroot:
-        return inchroot(emd + apt_inst_cmd + list(pkglist), env=env)
+        return inchroot(
+            emd + apt_inst_cmd + list(pkglist), env=env)
 
 
 def is_uefi_bootable():

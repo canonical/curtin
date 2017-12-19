@@ -146,6 +146,11 @@ def meta_simple(args):
     # Remove duplicates but maintain ordering.
     devices = list(OrderedDict.fromkeys(devices))
 
+    # Multipath devices might be automatically assembled if multipath-tools
+    # package is available in the installation environment. We need to stop
+    # all multipath devices to exclusively use one of paths as a target disk.
+    block.stop_all_unused_multipath_devices()
+
     if len(devices) == 0:
         devices = block.get_installable_blockdevs()
         LOG.warn("'%s' mode, no devices given. unused list: %s",

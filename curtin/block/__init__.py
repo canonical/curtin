@@ -22,6 +22,7 @@ import shlex
 import tempfile
 
 from curtin import util
+from curtin.log import LOG
 
 
 def get_dev_name_entry(devname):
@@ -177,6 +178,58 @@ def get_pardevs_on_blockdevs(devs):
         if found[short]['device_path'] not in devs:
             ret[short] = found[short]
     return ret
+
+
+def stop_all_unused_multipath_devices():
+    """
+    Stop all unused multipath devices.
+    """
+    multipath = util.which('multipath')
+
+    # Command multipath is not available only when multipath-tools package
+    # is not installed. Nothing needs to be done in this case because system
+    # doesn't create multipath devices without this package installed and we
+    # have nothing to stop.
+    if not multipath:
+        return
+
+    # Command multipath -F flushes all unused multipath device maps
+    cmd = [multipath, '-F']
+    try:
+        util.subp(cmd)
+    except util.ProcessExecutionError as e:
+        LOG.warn("Failed to stop multipath devices: %s", e)
+
+
+def detect_multipath():
+    """
+    Figure out if target machine has any multipath devices.
+    """
+    # Multipath-tools are not available in the ephemeral image.
+    # This workaround detects multipath by looking for multiple
+    # devices with the same scsi id (serial number).
+    disk_ids = []
+    bdinfo = _lsblock(['--nodeps'])
+    for devname, data in bdinfo.items():
+        # Command scsi_id returns error while running against cdrom devices.
+        # To prevent getting unexpected errors for some other types of devices
+        # we ignore everything except hard disks.
+        if data['TYPE'] != 'disk':
+            continue
+
+        cmd = ['/lib/udev/scsi_id', '--replace-whitespace',
+               '--whitelisted', '--device=%s' % data['device_path']]
+        try:
+            (out, err) = util.subp(cmd, capture=True)
+            scsi_id = out.rstrip('\n')
+            # ignore empty ids because they are meaningless
+            if scsi_id:
+                disk_ids.append(scsi_id)
+        except util.ProcessExecutionError as e:
+            LOG.warn("Failed to get disk id: %s", e)
+
+    duplicates_found = (len(disk_ids) != len(set(disk_ids)))
+    return duplicates_found
 
 
 def get_root_device(dev, fpath="curtin"):
