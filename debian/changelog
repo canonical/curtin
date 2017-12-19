@@ -1,3 +1,19 @@
+curtin (0.1.0~bzr142-0ubuntu1) utopic; urgency=medium
+
+  * New upstream snapshot.
+    * add utility for parsing /etc/network/interfaces
+    * aarm64 support [Newell Jensen]
+      * run update-initramfs in aarm64
+      * create boot partition when necessary (LP: #1338851 LP: #1340942)
+    * know kernel mapping for utopic (3.16)
+    * properly write fstype into /etc/fstab per provided fstype
+    * add support for disk images as type 'dd-tgz'
+    * correctly call finalize in target (LP: #1328521)
+    * support invoking tar with --xattrs if available (LP: #1307636)
+    * increase size of uefi partition to 512M (LP: #1306164)
+
+ -- Scott Moser <smoser@ubuntu.com>  Tue, 22 Jul 2014 18:53:38 -0400
+
 curtin (0.1.0~bzr126-0ubuntu1) trusty; urgency=medium
 
   * New upstream snapshot.
