@@ -268,7 +268,7 @@ is_md() {
 
 install_grub() {
     local long_opts="uefi"
-    local getopt_out=""
+    local getopt_out="" mp_efi=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "" --long "${long_opts}" -- "$@") &&
         eval set -- "${getopt_out}"
@@ -343,7 +343,6 @@ install_grub() {
         [ "$fstype" = "vfat" ] || { error "${efi_dev} is not a vfat fs"; return 1; }
         [ -n "$fslabel" ] || {  error "no label on EFI device"; return 1; }
 
-        local mp_efi
         mp_efi=$(lsblk --nodeps -n --out "MOUNTPOINT" ${efi_dev})
         [ -z "$mp_efi" ] || umount "$mp_efi"
 
@@ -437,7 +436,12 @@ install_grub() {
             { error "failed to install grub!"; return 1; }
     fi
 
-    [ -n "$mp_efi" ] && umount "$mp_efi"
+    if [ -n "${mp_efi}" ]; then
+        umount "$mp_efi" ||
+            { error "failed to unmount $mp_efi"; return 1; }
+    fi
+
+    return
 }
 
 # vi: ts=4 expandtab syntax=sh
