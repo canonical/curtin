@@ -374,6 +374,26 @@ def get_paths(curtin_exe=None, lib=None, helpers=None):
     return({'curtin_exe': curtin_exe, 'lib': mydir, 'helpers': helpers})
 
 
+def get_architecture(target=None):
+    chroot = []
+    if target is not None:
+        chroot = ['chroot', target]
+    out, _ = subp(chroot + ['dpkg', '--print-architecture'],
+                  capture=True)
+    return out.strip()
+
+
+def has_pkg_available(pkg, target=None):
+    chroot = []
+    if target is not None:
+        chroot = ['chroot', target]
+    out, _ = subp(chroot + ['apt-cache', 'pkgnames'], capture=True)
+    for item in out.splitlines():
+        if pkg == item.strip():
+            return True
+    return False
+
+
 def has_pkg_installed(pkg, target=None):
     chroot = []
     if target is not None:
@@ -429,6 +449,10 @@ def install_packages(pkglist, aptopts=None, target=None, env=None):
         with open(marker, "w") as fp:
             fp.write(marker_text)
         return subp(emd + apt_inst_cmd + list(pkglist), env=env)
+
+
+def is_uefi_bootable():
+    return os.path.exists('/sys/firmware/efi') is True
 
 
 # vi: ts=4 expandtab syntax=python

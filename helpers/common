@@ -5,16 +5,28 @@ error() { echo "$@" 1>&1; }
 debug() { [ ${VERBOSITY:-0} -lt "$1" ] || error "$@"; }
 
 partition_main_usage() {
-	cat <<EOF
+    cat <<EOF
 Usage: ${0##*/} [ options ] target-dev
 
    partition target-dev with a single partition
    destroy any partition table that might be there already.
 
    options:
-     -f | --format F   use partition table format F. [mbr, gpt]
+     -f | --format F   use partition table format F. [mbr, gpt, uefi]
                        default gpt
      -E | --end E      end the partition at E (unit 1k bytes)
+EOF
+    [ $# -eq 0 ] || echo "$@"
+}
+
+grub_install_usage() {
+    cat <<EOF
+Usage: ${0##*/} [ options ] mount-point target-dev
+
+   perform grub-install with mount-point onto target-dev.
+
+   options:
+          --uefi       install grub-efi instead of grub-pc
 EOF
     [ $# -eq 0 ] || echo "$@"
 }
@@ -26,24 +38,24 @@ cleanup() {
 }
 
 wipedev() {
-	# wipe the front and end (gpt is at end also)
-	local target="$1" size="" out=""
-	getsize "$target" ||
-		{ error "failed to get size of $target"; return 1; }
-	size="$_RET"
-	
-	dd if=/dev/zero conv=notrunc of="$target" \
-		bs=$((1024*1024)) count=1 >/dev/null 2>&1 ||
-		{ error "failed to zero beginning of $target"; return 1; }
+    # wipe the front and end (gpt is at end also)
+    local target="$1" size="" out=""
+    getsize "$target" ||
+        { error "failed to get size of $target"; return 1; }
+    size="$_RET"
+    
+    dd if=/dev/zero conv=notrunc of="$target" \
+        bs=$((1024*1024)) count=1 >/dev/null 2>&1 ||
+        { error "failed to zero beginning of $target"; return 1; }
 
-	out=$(dd if=/dev/zero conv=notrunc of="$target" bs=1024 \
-		seek=$(((size/1024)-1024)) count=1024 2>&1)
-	[ $? -eq 0 ] ||
-		{ error "failed to wipe end of $target [$size]: $out"; return 1; }
+    out=$(dd if=/dev/zero conv=notrunc of="$target" bs=1024 \
+        seek=$(((size/1024)-1024)) count=1024 2>&1)
+    [ $? -eq 0 ] ||
+        { error "failed to wipe end of $target [$size]: $out"; return 1; }
 
     if [ -b "$target" ]; then
-	    blockdev --rereadpt "$target"
-	    udevadm settle
+        blockdev --rereadpt "$target"
+        udevadm settle
     fi
 }
 
@@ -63,138 +75,188 @@ pt_gpt() {
     [ "$end" -gt "$maxend" ] && end="$maxend"
     debug 1 "maxend=$maxend end=$end size=$size"
 
+    [ -b "$target" ] && isblk=true
+
     sgdisk --new "15:2048:+1M" --typecode=15:ef02 \
-           --new "1::$end"     --typecode=1:8300 "$target"
+           --new "1::$end"     --typecode=1:8300 "$target" ||
+        { error "failed to gpt partition $target"; return 1; }
+
+    if $isblk; then
+        blockdev --rereadpt "$target"
+        udevadm settle
+        [ -b "${target}1" ] ||
+            { error "no partition found ${target}1"; return 1; }
+        [ -b "${target}15" ] ||
+            { error "no partition found ${target}15"; return 1; }
+    fi
+}
+
+pt_uefi() {
+    local target="$1" end=${2:-""} size="" s512="" ptype="L"
+    local start="2048" pt1size="" maxend=""
+    local isblk=false
+    getsize "$target" ||
+        { error "failed to get size of $target"; return 1; }
+    size="$_RET"
+    if [ -z "$end" ]; then
+        end=$(($size/512))
+    else
+        end=$(($end/512))
+    fi
+    maxend=$((($size/512)-2048))
+    [ "$end" -gt "$maxend" ] && end="$maxend"
+    debug 1 "maxend=$maxend end=$end size=$size"
+
+    [ -b "$target" ] && isblk=true
+
+    # Part 15 is the UEFI partition, part 1 is root
+    sgdisk --new "15:2048:+100M" --typecode=15:ef00 "$target" \
+           --new "1::$end" --typecode=1:8300 "$target" ||
+        { error "failed to sgdisk for uefi to $target"; return 1; }
+
+    if $isblk; then
+        blockdev --rereadpt "$target"
+        udevadm settle
+        [ -b "${target}1" ] ||
+            { error "no partition found ${target}1"; return 1; }
+        [ -b "${target}15" ] ||
+            { error "no partition found ${target}15"; return 1; }
+    fi
+
+    mkfs -t vfat -F 32 -n uefi-boot ${target}15 ||
+        { error "failed to partition ${target}15 for UEFI vfat"; return 1; }
 }
 
 
 pt_mbr() {
-	local target="$1" end=${2:-""} size="" s512="" ptype="L"
-	local start="2048" pt1size="" maxsize="4294967296"
-	local isblk=false
-	getsize "$target" ||
-		{ error "failed to get size of $target"; return 1; }
-	size="$_RET"
+    local target="$1" end=${2:-""} size="" s512="" ptype="L"
+    local start="2048" pt1size="" maxsize="4294967296"
+    local isblk=false
+    getsize "$target" ||
+        { error "failed to get size of $target"; return 1; }
+    size="$_RET"
 
-	if [ "$(($size/512))" -gt "$maxsize" ]; then
-		debug 1 "disk is larger than max for mbr (2TB)"
-		s512=$maxsize
-	else
-		s512=$(($size/512))
-	fi
-	if [ -n "$end" ]; then
-		pt1size=$(((end/512)-2048))
-	else
-		pt1size=$((s512-2048))
-	fi
+    if [ "$(($size/512))" -gt "$maxsize" ]; then
+        debug 1 "disk is larger than max for mbr (2TB)"
+        s512=$maxsize
+    else
+        s512=$(($size/512))
+    fi
+    if [ -n "$end" ]; then
+        pt1size=$(((end/512)-2048))
+    else
+        pt1size=$((s512-2048))
+    fi
 
-	[ -b "$target" ] && isblk=true
+    [ -b "$target" ] && isblk=true
 
-	# interact with sfdisk in units of 512 bytes (--unit S)
-	# we start all partitions at 2048 of those (1M)
-	local sfdisk_out="" sfdisk_in="2048,$pt1size,$ptype,*" sfdisk_cmd=""
-	sfdisk_cmd=( sfdisk --no-reread --force --Linux --unit S "$target" )
-	debug 1 "sfdisking with: echo '$sfdisk_in' | ${sfdisk_cmd[*]}"
-	sfdisk_out=$(echo "$sfdisk_in" | "${sfdisk_cmd[@]}" 2>&1)
-	ret=$?
-	[ $ret -eq 0 ] || {
-		error "failed to partition $target [${sfdisk_out}]";
-		return 1;
-	}
-	if $isblk; then
-		blockdev --rereadpt "$target"
-		udevadm settle
-		[ -b "${target}1" ] ||
-			{ error "no partition found ${target}1"; return 1; }
-	fi
-	out=$(wipefs "--offset=$(($start*512))" "$target" 2>&1) || {
-		error "$out";
-		error "failed to wipefs first partition of $target";
-		return 1;
-	}
+    # interact with sfdisk in units of 512 bytes (--unit S)
+    # we start all partitions at 2048 of those (1M)
+    local sfdisk_out="" sfdisk_in="2048,$pt1size,$ptype,*" sfdisk_cmd=""
+    sfdisk_cmd=( sfdisk --no-reread --force --Linux --unit S "$target" )
+    debug 1 "sfdisking with: echo '$sfdisk_in' | ${sfdisk_cmd[*]}"
+    sfdisk_out=$(echo "$sfdisk_in" | "${sfdisk_cmd[@]}" 2>&1)
+    ret=$?
+    [ $ret -eq 0 ] || {
+        error "failed to partition $target [${sfdisk_out}]";
+        return 1;
+    }
+    if $isblk; then
+        blockdev --rereadpt "$target"
+        udevadm settle
+        [ -b "${target}1" ] ||
+            { error "no partition found ${target}1"; return 1; }
+    fi
+    out=$(wipefs "--offset=$(($start*512))" "$target" 2>&1) || {
+        error "$out";
+        error "failed to wipefs first partition of $target";
+        return 1;
+    }
 }
 
 partition_main() {
-	local short_opts="hE:f:v"
-	local long_opts="help,end:,format:,verbose"
-	local getopt_out=$(getopt --name "${0##*/}" \
-		--options "${short_opts}" --long "${long_opts}" -- "$@") &&
-		eval set -- "${getopt_out}" ||
-		{ partition_usage 1>&2; return 1; }
+    local short_opts="hE:f:v"
+    local long_opts="help,end:,format:,verbose"
+    local getopt_out=$(getopt --name "${0##*/}" \
+        --options "${short_opts}" --long "${long_opts}" -- "$@") &&
+        eval set -- "${getopt_out}" ||
+        { partition_main_usage 1>&2; return 1; }
 
-	local cur="" next=""
-	local format="mbr" target="" end=""
+    local cur="" next=""
+    local format="mbr" target="" end=""
 
-	while [ $# -ne 0 ]; do
-		cur="$1"; next="$2";
-		case "$cur" in
-			-h|--help) partition_usage ; exit 0;;
-			-f|--format) format=$next; shift;;
-			-E|--end) end=$next; shift;;
-			-v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
-			--) shift; break;;
-		esac
-		shift;
-	done
+    while [ $# -ne 0 ]; do
+        cur="$1"; next="$2";
+        case "$cur" in
+            -h|--help) partition_main_usage ; exit 0;;
+            -f|--format) format=$next; shift;;
+            -E|--end) end=$next; shift;;
+            -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
+            --) shift; break;;
+        esac
+        shift;
+    done
 
-	[ $# -gt 1 ] && { partition_usage "got $# args, expected 1" 1>&2; return 1; }
-	[ $# -eq 0 ] && { partition_usage "must provide target-dev" 1>&2; return 1; }
-	target="$1"
-	if [ -n "$end" ]; then
-		human2bytes "$end" ||
-			{ error "failed to convert '$end' to bytes"; return 1; }
-		end="$_RET"
-	fi
+    [ $# -gt 1 ] && { partition_main_usage "got $# args, expected 1" 1>&2; return 1; }
+    [ $# -eq 0 ] && { partition_main_usage "must provide target-dev" 1>&2; return 1; }
+    target="$1"
+    if [ -n "$end" ]; then
+        human2bytes "$end" ||
+            { error "failed to convert '$end' to bytes"; return 1; }
+        end="$_RET"
+    fi
 
-	[ "$format" = "gpt" -o "$format" = "mbr" ] ||
-		{ partition_usage "invalid format: $format" 1>&2; return 1; }
+    [ "$format" = "gpt" -o "$format" = "mbr" -o "$format" = "uefi" ] ||
+        { partition_main_usage "invalid format: $format" 1>&2; return 1; }
 
-	TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
-		fail "failed to make tempdir"
+    TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
+        fail "failed to make tempdir"
 
-	[ -e "$target" ] || { error "$target does not exist"; return 1; }
-	[ -f "$target" -o -b "$target" ] ||
-		{ error "$target not a block device"; return 1; }
+    [ -e "$target" ] || { error "$target does not exist"; return 1; }
+    [ -f "$target" -o -b "$target" ] ||
+        { error "$target not a block device"; return 1; }
 
-	wipedev "$target" ||
-		{ error "wiping $target failed"; return 1; }
+    wipedev "$target" ||
+        { error "wiping $target failed"; return 1; }
 
-	if [ "$format" = "mbr" ]; then
-		pt_mbr "$target" "$end"
-	elif [ "$format" = "gpt" ]; then
-		pt_gpt "$target" "$end"
-	fi
+    if [ "$format" = "mbr" ]; then
+        pt_mbr "$target" "$end"
+    elif [ "$format" = "gpt" ]; then
+        pt_gpt "$target" "$end"]
+    elif [ "$format" = "uefi" ]; then
+        pt_uefi "$target" "$end"
+    fi
 
-	trap cleanup EXIT
+    trap cleanup EXIT
 
-	return 0
+    return 0
 }
 
 human2bytes() {
-	# converts size suitable for input to resize2fs to bytes
-	# s:512 byte sectors, K:kilobytes, M:megabytes, G:gigabytes
-	# none: block size of the image
-	local input=${1} defunit=${2:-1024}
-	local unit count;
-	case "$input" in
-		*s) count=${input%s}; unit=512;;
-		*K) count=${input%K}; unit=1024;;
-		*M) count=${input%M}; unit=$((1024*1024));;
-		*G) count=${input%G}; unit=$((1024*1024*1024));;
-		*)  count=${input}  ; unit=${defunit};;
-	esac
+    # converts size suitable for input to resize2fs to bytes
+    # s:512 byte sectors, K:kilobytes, M:megabytes, G:gigabytes
+    # none: block size of the image
+    local input=${1} defunit=${2:-1024}
+    local unit count;
+    case "$input" in
+        *s) count=${input%s}; unit=512;;
+        *K) count=${input%K}; unit=1024;;
+        *M) count=${input%M}; unit=$((1024*1024));;
+        *G) count=${input%G}; unit=$((1024*1024*1024));;
+        *)  count=${input}  ; unit=${defunit};;
+    esac
    _RET=$((${count}*${unit}))
 }
 
 getsize() {
-	local target="$1"
-	if [ -b "$target" ]; then
-		_RET=$(blockdev --getsize64 "$target")
-	elif [ -f "$target" ]; then
-		_RET=$(stat "--format=%s" "$target")
-	else
-		return 1;
-	fi
+    local target="$1"
+    if [ -b "$target" ]; then
+        _RET=$(blockdev --getsize64 "$target")
+    elif [ -f "$target" ]; then
+        _RET=$(stat "--format=%s" "$target")
+    else
+        return 1;
+    fi
 }
 
 is_md() {
@@ -205,24 +267,94 @@ is_md() {
 }
 
 install_grub() {
+    local long_opts="uefi"
+    local getopt_out=""
+    getopt_out=$(getopt --name "${0##*/}" \
+        --options "" --long "${long_opts}" -- "$@") &&
+        eval set -- "${getopt_out}"
+
+    local uefi=0
+
+    while [ $# -ne 0 ]; do
+        cur="$1"; next="$2";
+        case "$cur" in
+            --uefi) uefi=$((${uefi}+1));;
+            --) shift; break;;
+        esac
+        shift;
+    done
+
+    [ $# -lt 2 ] && { grub_install_usage "must provide mount-point and target-dev" 1>&2; return 1; }
+
     local mp="$1"
     local cmdline tmp r=""
     shift
     local grubdevs
     grubdevs=( "$@" )
-    
-    tmp=$(chroot "$mp" dpkg-query --show \
-        --showformat='${Status}\n' grub-pc)
+
+    # find the mp device
+    mp_dev=$(awk -v MP=${mp} '$2==MP {print$1}' /proc/mounts)
     r=$?
     if [ $r -ne 0 -a $r -ne 1 ]; then
-        error "failed to check if grub-pc installed";
+        error "unable to determine device for mount $mp";
+        return 1;
+    fi
+    [ -b $mp_dev ] || { error "$mp_dev is not a block device!"; return 1; }
+
+    # set correct grub package
+    local grub_name="grub-pc"
+    local grub_target="i386-pc"
+    if [ "$uefi" -ge 1 ]; then
+        dpkg_arch=$(chroot "$mp" dpkg --print-architecture)
+        r=$?
+        if [ $r -ne 0 -a $r -ne 1 ]; then
+            error "failed to get dpkg architecture"
+            return 1;
+        fi
+        grub_name="grub-efi-$dpkg_arch"
+        if [ "$dpkg_arch" = "amd64" ]; then
+            grub_target="x86_64-efi"
+        fi
+    fi
+
+    # check that the grub package is installed
+    tmp=$(chroot "$mp" dpkg-query --show \
+        --showformat='${Status}\n' $grub_name)
+    r=$?
+    if [ $r -ne 0 -a $r -ne 1 ]; then
+        error "failed to check if $grub_name installed";
         return 1;
     fi
     case "$tmp" in
         install\ ok\ installed) :;;
-        *) debug 1 "grub-pc not installed, not doing anything";
+        *) debug 1 "$grub_name not installed, not doing anything";
             return 0;;
     esac
+
+    # check that mount point has efi partition, and that its mounted
+    # at /boot/efi and added to the fstab
+    if [ "$uefi" -ge 1 ]; then
+        # this assumes that the device was '/dev/xxx[0-9]' and the efi is 15.
+        local efi_dev="${mp_dev%[0-9]}15"
+        [ -b ${efi_dev} ] || { error "no UEFI partition on ${efi_dev}"; return 1; }
+
+        fslabel=$(blkid -s LABEL -o value "${efi_dev}")
+        fstype=$(blkid -s TYPE -o value "${efi_dev}")
+        [ "$fstype" = "vfat" ] || { error "${efi_dev} is not a vfat fs"; return 1; }
+        [ -n "$fslabel" ] || {  error "no label on EFI device"; return 1; }
+
+        local mp_efi
+        mp_efi=$(lsblk --nodeps -n --out "MOUNTPOINT" ${efi_dev})
+        [ -z "$mp_efi" ] || umount "$mp_efi"
+
+        if [ ! -e "$mp/boot/efi" ]; then
+            mkdir -p "$mp/boot/efi" || { error "failed to mount EFI partition"; return 1; }
+            mount "$efi_dev" "$mp/boot/efi" || { error "unable to mount efi part"; return 1; }
+            mp_efi="$mp/boot/efi"
+        fi
+
+        echo "LABEL=${fslabel}  /boot/efi   vfat    defaults    0 0" >> "$mp/etc/fstab"
+    fi
 
     # copy anything after '--' on cmdline to install'd cmdline
     read cmdline < /proc/cmdline
@@ -253,7 +385,7 @@ install_grub() {
         sed -i "$sede" "$mp/etc/default/grub" ||
             { error "failed to update /etc/default/grub"; return 1; }
         grep "$n" "$mp/etc/default/grub"
-        reconf="dpkg-reconfigure grub-pc"
+        reconf="dpkg-reconfigure $grub_name"
         debug 1 "updating cmdline to '${newargs}'"
 
         # LP: #1179940 . this fix was applied to raring, which
@@ -283,15 +415,29 @@ install_grub() {
     done
     grubdevs=( "${grubdevs_new[@]}" )
 
-    debug 1 "installing grub to: ${grubdevs[*]}"
-    chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
-        prober="/etc/grub.d/30_os-prober"
-        [ -x $prober ] && chmod -x "$prober"
-        dpkg-reconfigure grub-pc
-        [ -f $prober ] && chmod +x "$prober"
-        for d in "$@"; do grub-install "$d" || exit; done' \
-        -- "${grubdevs[@]}" </dev/null ||
-        { error "failed to install grub!"; return 1; }
+    if [ "$uefi" -ge 1 ]; then
+        debug 1 "installing ${grub_name} to: /boot/efi"
+        chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
+            prober="/etc/grub.d/30_os-prober"
+            [ -x $prober ] && chmod -x "$prober"
+            dpkg-reconfigure "$1"
+            [ -f $prober ] && chmod +x "$prober"
+            grub-install --target=$2 --efi-directory=/boot/efi --bootloader-id=ubuntu --recheck || exit; done' \
+            -- "${grub_name}" "${grub_target}" </dev/null ||
+            { error "failed to install grub!"; return 1; }
+    else
+        debug 1 "installing grub-pc to: ${grubdevs[*]}"
+        chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
+            prober="/etc/grub.d/30_os-prober"
+            [ -x $prober ] && chmod -x "$prober"
+            dpkg-reconfigure grub-pc
+            [ -f $prober ] && chmod +x "$prober"
+            for d in "$@"; do grub-install "$d" || exit; done' \
+            -- "${grubdevs[@]}" </dev/null ||
+            { error "failed to install grub!"; return 1; }
+    fi
+
+    [ -n "$mp_efi" ] && umount "$mp_efi"
 }
 
 # vi: ts=4 expandtab syntax=sh

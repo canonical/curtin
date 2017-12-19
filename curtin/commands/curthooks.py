@@ -282,6 +282,24 @@ def setup_grub(cfg, target):
 
         instdevs = list(blockdevs)
 
+    # UEFI requires grub-efi-{arch}. If a signed version of that package
+    # exists then it will be installed.
+    if util.is_uefi_bootable():
+        arch = util.get_architecture()
+        pkgs = ['grub-efi-%s' % arch]
+
+        # Architecture might support a signed UEFI loader
+        uefi_pkg_signed = 'grub-efi-%s-signed' % arch
+        if util.has_pkg_available(uefi_pkg_signed):
+            pkgs.append(uefi_pkg_signed)
+
+        # AMD64 has shim-signed for SecureBoot support
+        if arch == "amd64":
+            pkgs.append("shim-signed")
+
+        # Install the UEFI packages needed for the architecture
+        util.install_packages(pkgs, target=target)
+
     env = os.environ.copy()
 
     replace_default = grubcfg.get('replace_linux_default', True)
@@ -294,7 +312,11 @@ def setup_grub(cfg, target):
     LOG.debug("installing grub to %s [replace_default=%s]",
               instdevs, replace_default)
     with util.ChrootableTarget(target):
-        util.subp(['install-grub', target] + instdevs, env=env)
+        args = ['install-grub']
+        if util.is_uefi_bootable():
+            args.append("--uefi")
+        args.append(target)
+        util.subp(args + instdevs, env=env)
 
 
 def update_initramfs(target):
