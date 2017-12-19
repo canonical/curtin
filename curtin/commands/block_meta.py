@@ -95,6 +95,27 @@ def get_bootpt_cfg(cfg, enabled=False, fstype=None, root_fstype=None):
     return ret
 
 
+def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
+    if machine is None:
+        machine = platform.machine()
+    if uefi_bootable is None:
+        uefi_bootable = util.is_uefi_bootable()
+
+    cfgval = cfg.get('format', None)
+    if cfgval:
+        return cfgval
+
+    if uefi_bootable:
+        return 'uefi'
+
+    if machine in ['aarch64']:
+        return 'gpt'
+    elif machine.startswith('ppc64'):
+        return 'prep'
+
+    return "mbr"
+
+
 def meta_simple(args):
     """Creates a root partition. If args.mode == SIMPLE_BOOT, it will also
     create a separate /boot partition.
@@ -119,6 +140,8 @@ def meta_simple(args):
         cfg.get('block-meta', {}).get('boot-partition', {}),
         enabled=args.mode == SIMPLE_BOOT, fstype=args.boot_fstype,
         root_fstype=args.fstype)
+
+    ptfmt = get_partition_format_type(cfg.get('block-meta', {}))
 
     # Remove duplicates but maintain ordering.
     devices = list(OrderedDict.fromkeys(devices))
@@ -158,25 +181,28 @@ def meta_simple(args):
         return 0
 
     # helper partition will forcibly set up partition there
-    if util.is_uefi_bootable():
-        logtime(
-            "partition --format uefi %s" % devnode,
-            util.subp, ("partition", "--format", "uefi", devnode))
-        bootpt['enabled'] = False
-    elif platform.machine().startswith('ppc64'):
-        logtime("partition --format %s" % devnode,
-                util.subp, ("partition", "--format", "prep", devnode))
+    ptcmd = ['partition', '--format=' + ptfmt]
+    if bootpt['enabled']:
+        ptcmd.append('--boot')
+    ptcmd.append(devnode)
+
+    if bootpt['enabled'] and ptfmt in ("uefi", "prep"):
+        raise ValueError("format=%s with boot partition not supported" % ptfmt)
+
+    if ptfmt == "prep":
         rootdev = devnode + "2"
-    elif bootpt['enabled']:
-        logtime("partition --boot %s" % devnode,
-                util.subp, ("partition", "--boot", devnode))
+
+    if bootpt['enabled']:
         bootdev = devnode + "1"
         rootdev = devnode + "2"
     else:
-        logtime(
-            "partition %s" % devnode,
-            util.subp, ("partition", devnode))
         rootdev = devnode + "1"
+        bootdev = None
+
+    LOG.debug("rootdev=%s bootdev=%s fmt=%s bootpt=%s",
+              rootdev, bootdev, ptfmt, bootpt)
+    logtime("creating partition with: %s" % ' '.join(ptcmd),
+            util.subp, ptcmd)
 
     # mkfs for root partition first and mount
     cmd = ['mkfs.%s' % args.fstype, '-q', '-L', 'cloudimg-rootfs', rootdev]

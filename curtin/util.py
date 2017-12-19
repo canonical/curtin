@@ -288,9 +288,7 @@ class ChrootableTarget(object):
         if self.target != "/":
             # never muck with resolv.conf on /
             rconf = os.path.join(self.target, "etc", "resolv.conf")
-            if (self.sys_resolvconf and
-                    os.path.islink(rconf) or os.path.isfile(rconf)):
-                rtd = None
+            rtd = None
             try:
                 rtd = tempfile.mkdtemp(dir=os.path.dirname(rconf))
                 tmp = os.path.join(rtd, "resolv.conf")
@@ -507,16 +505,15 @@ def sanitize_source(source):
         # already sanitized?
         return source
     supported = ['tgz', 'dd-tgz']
-    src = source.split(':', 1)
-    if len(src) == 1:
-        # This condition treats the case
-        # of a source that is a filename and does
-        # not have a type specified
-        return {'type': 'tgz', 'uri': src[1]}
-    if src[0] in supported:
-        return {'type': src[0], 'uri': src[1]}
+    deftype = 'tgz'
+    for i in supported:
+        prefix = i + ":"
+        if source.startswith(prefix):
+            return {'type': i, 'uri': source[len(prefix):]}
+
+    LOG.debug("unknown type for url '%s', assuming type '%s'", source, deftype)
     # default to tgz for unknown types
-    return {'type': 'tgz', 'uri': source}
+    return {'type': deftype, 'uri': source}
 
 
 def get_dd_images(sources):
@@ -563,27 +560,27 @@ def get_fs_use_info(path):
 
 def human2bytes(size):
     # convert human 'size' to integer
+    size_in = size
     if size.endswith("B"):
         size = size[:-1]
 
-    mpliers = {'K': 2 ** 10, 'M': 2 ** 20, 'G': 2 ** 30, 'T': 2 ** 40}
+    mpliers = {'B': 1, 'K': 2 ** 10, 'M': 2 ** 20, 'G': 2 ** 30, 'T': 2 ** 40}
 
-    num = ""
-    for suffloc, c in enumerate(size):
-        if not c.isdigit():
-            break
-        num += c
-    if not num:
-        raise ValueError("'%s' does not start with a digit" % size)
-
-    if num == size:
-        return int(num)
+    num = size
+    mplier = 'B'
+    for m in mpliers:
+        if size.endswith(m):
+            mplier = m
+            num = size[0:-len(m)]
 
     try:
-        return int(num) * mpliers[size[suffloc:].upper()]
-    except KeyError:
-        raise ValueError("Bad suffix '%s' in input '%s':" %
-                         (size[suffloc:], size))
+        num = float(num)
+    except ValueError:
+        raise ValueError("'%s' is not valid input." % size_in)
 
+    if num < 0:
+        raise ValueError("'%s': cannot be negative" % size_in)
+
+    return int(num * mpliers[mplier])
 
 # vi: ts=4 expandtab syntax=python
