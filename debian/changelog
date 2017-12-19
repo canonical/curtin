@@ -1,3 +1,16 @@
+curtin (0.1.0~bzr93-0ubuntu1) saucy; urgency=low
+
+  * New upstream snapshot.
+    * curtin/commands/in_target.py, curtin/commands/main.py:
+      fix 'curtin -v' and 'curtin in-target' (LP: #1237139)
+    * non-production / development changes:
+      * doc/devel/README.txt: development doc update
+      * tools/build-deb, tools/export-tarball:
+        trunk development changes for creating tarball and building debs.
+      * tools/launch: support '--add' for adding files such as config files
+
+ -- Scott Moser <smoser@ubuntu.com>  Tue, 08 Oct 2013 20:20:11 -0400
+
 curtin (0.1.0~bzr87-0ubuntu1) saucy; urgency=low
 
   * New upstream snapshot.
