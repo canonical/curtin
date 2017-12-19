@@ -1,3 +1,11 @@
+curtin (0.1.0~bzr389-0ubuntu1~16.04.1) xenial-proposed; urgency=medium
+
+  * New upstream snapshot.
+    * Detect and remove legacy /etc/network/interfaces.d/eth0.cfg from
+      target (LP: #1582410)
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 03 Jun 2016 10:34:52 -0400
+
 curtin (0.1.0~bzr387-0ubuntu1~16.04.1) xenial-proposed; urgency=medium
 
   * sru current curtin (LP: #1577872)
