@@ -1,3 +1,11 @@
+curtin (0.1.0~bzr82-0ubuntu1) saucy; urgency=low
+
+  * New upstream snapshot.
+    * 'net-meta auto' is now default for interfaces.
+    * power_state config can now cause reboot after install.
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 19 Sep 2013 17:07:17 -0400
+
 curtin (0.1.0~bzr75-0ubuntu1) saucy; urgency=low
 
   * New upstream snapshot.
