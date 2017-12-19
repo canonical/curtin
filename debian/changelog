@@ -1,3 +1,31 @@
+curtin (0.1.0~bzr459-0ubuntu1) zesty; urgency=medium
+
+  * New upstream snapshot.
+    - Remove style checking during build and add latest style checks to tox
+    - avoid UnicodeDecode error on passing non-utf8 into shlex
+    - adjustments to version string handling, improved pack unit tests.
+    - helpers/common: Add grub install debugging output
+    - curtin: add version module and display in output and logs
+    - content decoding in load_file, apply_net raise exception on errors
+    - gpg: retry when recv'ing gpg keys fail (LP: #1661337)
+    - Add clear_holders checks to disk and partition handlers (LP: #1659509)
+    - net: add new lines after rendered static routes. (LP: #1649652)
+    - multipath: don't run update-grub; setup_grub will handle this better.
+      (LP: #1656369)
+    - test related changes:
+      - vmtest: Add tests for zesty and Trusty HWE-X kernels. 
+      - tests: fix tox tip-pycodestyle complaints 
+      - image-sync: add debugging output to help diagnose errors 
+      - vmtest: change get_curtin_version to use version subcommand. 
+      - subp doc an unit test improvements. 
+      - vmtest: Add the ability to add extra config files to test execution. 
+      - vmtest: overhaul image sync 
+      - vmtest: skip apt-proxy test if not set 
+      - vmtest: add 'webserv' helper 
+      - vmtest: add CURTIN_VMTEST_CURTIN_EXE variable. 
+
+ -- Scott Moser <smoser@ubuntu.com>  Wed, 08 Feb 2017 15:29:57 -0500
+
 curtin (0.1.0~bzr435-0ubuntu1) zesty; urgency=medium
 
   * New upstream snapshot.
