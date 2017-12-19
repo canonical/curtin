@@ -1,3 +1,22 @@
+curtin (17.0~bzr552-0ubuntu1) bionic; urgency=medium
+
+  * New upstream snapshot.
+    - packaging: update debian/build-deb to remove ~bzrREV when using equal tag
+    - pack: fix packing when curtin is installed inside a snap.
+    - tox: move to pylint 1.7.4
+    - vmtests: iscsi minor cleanup.
+    - vmtests: exercise rootfs over an lvm logical volume
+    - Switch network dep filter to test for ifupdown/nplan instead of release
+      name
+    - Allow control of curtin install unmounting
+    - vmtests: Add Bionic release to tests and update classes.
+    - storage: add 'options' key mount type to specify mount parameters for
+      filesystems (LP: #1709284)
+    - Re-add curthooks.write_files method for backwards compat (LP: #1731709)
+    - vmtest: Remove ArtfulTestBridging skip_by_date check, bug fixed
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Fri, 08 Dec 2017 14:48:42 -0600
+
 curtin (0.1.0~bzr541-0ubuntu1) bionic; urgency=medium
 
   * New upstream snapshot.
