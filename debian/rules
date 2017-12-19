@@ -17,5 +17,4 @@ override_dh_auto_install:
 		$$python setup.py install --root=$(CURDIR)/debian/tmp --install-layout=deb; \
 	done
 	chmod 755 $(CURDIR)/debian/tmp/usr/lib/curtin/helpers/*
-	find $(CURDIR)/debian/tmp
 	for f in $$(find $(CURDIR)/debian/tmp/usr/lib -type f -name version.py); do [ -f "$$f" ] || continue; sed -i 's,@@PACKAGED_VERSION@@,$(DEB_VERSION),' "$$f"; done

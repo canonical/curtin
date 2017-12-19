@@ -1,3 +1,21 @@
+curtin (0.1.0~bzr470-0ubuntu1) zesty; urgency=medium
+
+  * New upstream snapshot.
+    - vmtest: allow time-based skipping of tests, apply to ZestyMdadmBcache
+      (LP: #1667078)
+    - Add iSCSI disk support. (LP: #1645515)
+    - vmtest: handle change in btrfs-progs when finding fs UUID. (LP: #1665701)
+    - pycodestyle: fix bare except in vmtests
+    - unittests: add subp coverage for retries, and rcs
+    - reporting: Add better descriptions and granularity of events
+    - tox: do not bother with pep8 from trusty in trusty-check
+    - tests: add two scripts used for running vmtest with installed package.
+    - Make add-apt-repository command retry
+    - Add tests for network bridging configuration
+  - debian/rules: remove debug 'find'
+
+ -- Scott Moser <smoser@ubuntu.com>  Tue, 28 Feb 2017 10:30:43 -0500
+
 curtin (0.1.0~bzr460-0ubuntu1) zesty; urgency=medium
 
   * New upstream snapshot.
