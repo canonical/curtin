@@ -1,3 +1,21 @@
+curtin (0.1.0~bzr314-0ubuntu1) xenial; urgency=medium
+
+  * New upstream snapshot.
+    * support installing .tar.xz, .tar.gz, .tar.bz2 or .tar via smtar helper
+    * improve dependency checking (LP: #1514888)
+    * Allow re-use of bcache cache devices with separate backing devices 
+      (LP: #1514094)
+    * call mkfs.ext3 or mkfs.ext4 with -F (force)
+    * Partition alignment and sizing fixes (LP: #1513085)
+    * Set bcache cache_mode if present in storage config (LP: #1510334)
+    * apt-get update: do not download translation files and source files
+      during installation.
+    * new sub-commands 'system-upgrade' and 'system-install' for package
+      upgrade and installation.
+  * debian/control: do not list unversioned e2fsprogs as it is essential.
+
+ -- Scott Moser <smoser@ubuntu.com>  Mon, 23 Nov 2015 11:28:52 -0500
+
 curtin (0.1.0~bzr276-0ubuntu1) wily; urgency=medium
 
   * New upstream snapshot.
