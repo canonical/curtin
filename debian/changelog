@@ -1,3 +1,16 @@
+curtin (0.1.0~bzr227-0ubuntu1) wily; urgency=medium
+
+  * New upstream snapshot.
+    * support '---' or '--' as token to indicate the subsequent kernel command
+      line parameters should be copied from install envionrment to installed
+      environment.  (LP: #1402042)
+    * partition: when partitioning mbr and boot partition verify that
+      both partitions exist.
+    * partition: when creating mbr table, leave space for secondary gpt header
+    * fix uefi install path on nvme devices (LP: #1471928)
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 09 Jul 2015 16:17:20 -0400
+
 curtin (0.1.0~bzr221-0ubuntu1) wily; urgency=medium
 
   * debian/README.source: minor fixes in doc on merging upstream
