@@ -1,3 +1,16 @@
+curtin (0.1.0~bzr190-0ubuntu1) utopic; urgency=medium
+
+  * New upstream snapshot.
+    * add log reporter (LP: #1369129, LP: #1371218)
+    * allow debug messages of helper programs to be seen
+    * fix 'make check'
+    * handle utf-8 output correctly. (LP: #1370249)
+    * set root device correctly on ppc64 (LP: #1371133)
+    * call update-grub to ensure grub.cfg is written (LP: #1373137)
+    * fix dd-tgz mode, only call partprobe on target device.
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 26 Sep 2014 17:26:34 -0400
+
 curtin (0.1.0~bzr162-0ubuntu1) utopic; urgency=medium
 
   * New upstream snapshot.
