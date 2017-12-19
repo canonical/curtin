@@ -4,12 +4,13 @@ from .releases import base_vm_classes as relbase
 import ipaddress
 import os
 import re
+import subprocess
 import textwrap
 import yaml
 
 
 def iface_extract(input):
-    mo = re.search(r'^(?P<interface>\w+|\w+:\d+)\s+' +
+    mo = re.search(r'^(?P<interface>\w+|\w+:\d+|\w+\.\d+)\s+' +
                    r'Link encap:(?P<link_encap>\S+)\s+' +
                    r'(HWaddr\s+(?P<mac_address>\S+))?' +
                    r'(\s+inet addr:(?P<address>\S+))?' +
@@ -49,18 +50,18 @@ def ifconfig_to_dict(ifconfig):
 class TestNetworkAbs(VMBaseClass):
     interactive = False
     conf_file = "examples/tests/basic_network.yaml"
-    install_timeout = 600
-    boot_timeout = 600
     extra_disks = []
     extra_nics = []
     collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         ifconfig -a > ifconfig_a
         cp -av /etc/network/interfaces .
+        cp -av /etc/network/interfaces.d .
         cp /etc/resolv.conf .
         cp -av /etc/udev/rules.d/70-persistent-net.rules .
         ip -o route show > ip_route_show
         route -n > route_n
+        cp -av /run/network ./run_network
         """)]
 
     def test_output_files_exist(self):
@@ -239,6 +240,123 @@ class TestNetworkStaticAbs(TestNetworkAbs):
     conf_file = "examples/tests/basic_network_static.yaml"
 
 
+class TestNetworkVlanAbs(TestNetworkAbs):
+    conf_file = "examples/tests/vlan_network.yaml"
+    collect_scripts = TestNetworkAbs.collect_scripts + [textwrap.dedent("""
+             cd OUTPUT_COLLECT_D
+             dpkg-query -W -f '${Status}' vlan > vlan_installed
+             ip -d link show eth1.2667 > ip_link_show_eth1.2667
+             ip -d link show eth1.2668 > ip_link_show_eth1.2668
+             ip -d link show eth1.2669 > ip_link_show_eth1.2669
+             ip -d link show eth1.2670 > ip_link_show_eth1.2670
+             """)]
+
+    def get_vlans(self):
+        network_state = self.get_network_state()
+        logger.debug('get_vlans ns:\n{}'.format(
+            yaml.dump(network_state, default_flow_style=False, indent=4)))
+        interfaces = network_state.get('interfaces')
+        return [iface for iface in interfaces.values()
+                if iface['type'] == 'vlan']
+
+    def test_output_files_exist_vlan(self):
+        link_files = ["ip_link_show_{}".format(vlan['name'])
+                      for vlan in self.get_vlans()]
+        self.output_files_exist(["vlan_installed"] + link_files)
+
+    def test_vlan_installed(self):
+        with open(os.path.join(self.td.collect, "vlan_installed")) as fp:
+            status = fp.read().strip()
+            logger.debug('vlan installed?: {}'.format(status))
+            self.assertEqual('install ok installed', status)
+
+    def test_vlan_enabled(self):
+
+        # we must have at least one
+        self.assertGreaterEqual(len(self.get_vlans()), 1)
+
+        # did they get configured?
+        for vlan in self.get_vlans():
+            link_file = "ip_link_show_" + vlan['name']
+            vlan_msg = "vlan protocol 802.1Q id " + str(vlan['vlan_id'])
+            self.check_file_regex(link_file, vlan_msg)
+
+
+class TestNetworkENISource(TestNetworkAbs):
+    """ Curtin now emits a source /etc/network/interfaces.d/*.cfg
+        line.  This test exercises this feature by emitting additional
+        network configuration in /etc/network/interfaces.d/eth2.cfg
+
+        This relies on the network_config.yaml of the TestClass to
+        define a spare nic with no configuration.  This ensures that
+        a udev rule for eth2 is emitted so we can reference the interface
+        in our injected configuration.
+
+        Note, ifupdown allows multiple stanzas with the same iface name
+        and combines the options together during ifup.  We rely on this
+        feature allowing etc/network/interfaces to have an unconfigured
+        iface eth2 inet manual line, and then defer the configuration
+        to /etc/network/interfaces.d/eth2.cfg
+
+        This testcase then uses curtin.net.deb_parse_config method to
+        extract information about what curtin wrote and compare that
+        with what was actually configured (which we capture via ifconfig)
+    """
+
+    conf_file = "examples/tests/network_source.yaml"
+    collect_scripts = [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        ifconfig -a > ifconfig_a
+        cp -av /etc/network/interfaces .
+        cp -a /etc/network/interfaces.d .
+        cp /etc/resolv.conf .
+        cp -av /etc/udev/rules.d/70-persistent-net.rules .
+        ip -o route show > ip_route_show
+        route -n > route_n
+        """)]
+
+    def test_source_cfg_exists(self):
+        """Test that our curthooks wrote our injected config."""
+        self.output_files_exist(["interfaces.d/eth2.cfg"])
+
+    def test_etc_network_interfaces_source_cfg(self):
+        """ Compare injected configuration as parsed by curtin matches
+            how ifup configured the interface."""
+        # interfaces uses absolute paths, fix for test-case
+        interfaces = os.path.join(self.td.collect, "interfaces")
+        cmd = ['sed', '-i.orig', '-e', 's,/etc/network/,,g',
+               '{}'.format(interfaces)]
+        subprocess.check_call(cmd, stderr=subprocess.STDOUT)
+
+        curtin_ifaces = self.parse_deb_config(interfaces)
+        logger.debug('parsed eni dict:\n{}'.format(
+            yaml.dump(curtin_ifaces, default_flow_style=False, indent=4)))
+        print('parsed eni dict:\n{}'.format(
+            yaml.dump(curtin_ifaces, default_flow_style=False, indent=4)))
+
+        with open(os.path.join(self.td.collect, "ifconfig_a")) as fp:
+            ifconfig_a = fp.read()
+            logger.debug('ifconfig -a:\n{}'.format(ifconfig_a))
+
+        ifconfig_dict = ifconfig_to_dict(ifconfig_a)
+        logger.debug('parsed ifconfig dict:\n{}'.format(
+            yaml.dump(ifconfig_dict, default_flow_style=False, indent=4)))
+        print('parsed ifconfig dict:\n{}'.format(
+            yaml.dump(ifconfig_dict, default_flow_style=False, indent=4)))
+
+        iface = 'eth2'
+        self.assertTrue(iface in curtin_ifaces)
+
+        expected_address = curtin_ifaces[iface].get('address', None)
+        self.assertIsNotNone(expected_address)
+
+        # handle CIDR notation
+        def _nocidr(addr):
+            return addr.split("/")[0]
+        actual_address = ifconfig_dict[iface].get('address', "")
+        self.assertEqual(_nocidr(expected_address), _nocidr(actual_address))
+
+
 class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkAbs):
     # FIXME: off due to hang at test: Starting execute cloud user/final scripts
     __test__ = False
@@ -309,17 +427,61 @@ class WilyTestNetworkStatic(relbase.wily, TestNetworkStaticAbs):
 
 class XenialTestNetwork(relbase.xenial, TestNetworkAbs):
     __test__ = True
-    # FIXME: net.ifnames=0 should not be required as image should
-    #        eventually address this internally.  Here we do not carry
-    #        over the net.ifnames to the installed system via '---' as the net
-    #        config should take care of that.
-    extra_kern_args = "net.ifnames=0"
 
 
 class XenialTestNetworkStatic(relbase.xenial, TestNetworkStaticAbs):
     __test__ = True
-    # FIXME: net.ifnames=0 should not be required as image should
-    #        eventually address this internally.  Here we do not carry
-    #        over the net.ifnames to the installed system via '---' as the net
-    #        config should take care of that.
-    extra_kern_args = "net.ifnames=0"
+
+
+class PreciseTestNetworkVlan(relbase.precise, TestNetworkVlanAbs):
+    __test__ = True
+
+    # precise ip -d link show output is different (of course)
+    def test_vlan_enabled(self):
+
+        # we must have at least one
+        self.assertGreaterEqual(len(self.get_vlans()), 1)
+
+        # did they get configured?
+        for vlan in self.get_vlans():
+            link_file = "ip_link_show_" + vlan['name']
+            vlan_msg = "vlan id " + str(vlan['vlan_id'])
+            self.check_file_regex(link_file, vlan_msg)
+
+
+class TrustyTestNetworkVlan(relbase.trusty, TestNetworkVlanAbs):
+    __test__ = True
+
+
+class VividTestNetworkVlan(relbase.vivid, TestNetworkVlanAbs):
+    __test__ = True
+
+
+class WilyTestNetworkVlan(relbase.wily, TestNetworkVlanAbs):
+    __test__ = True
+
+
+class XenialTestNetworkVlan(relbase.xenial, TestNetworkVlanAbs):
+    __test__ = True
+
+
+class PreciseTestNetworkENISource(relbase.precise, TestNetworkENISource):
+    __test__ = False
+    # not working, still debugging though; possible older ifupdown doesn't
+    # like the multiple iface method.
+
+
+class TrustyTestNetworkENISource(relbase.trusty, TestNetworkENISource):
+    __test__ = True
+
+
+class VividTestNetworkENISource(relbase.vivid, TestNetworkENISource):
+    __test__ = True
+
+
+class WilyTestNetworkENISource(relbase.wily, TestNetworkENISource):
+    __test__ = True
+
+
+class XenialTestNetworkENISource(relbase.xenial, TestNetworkENISource):
+    __test__ = True

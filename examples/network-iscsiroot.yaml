@@ -1,0 +1,35 @@
+network:
+    version: 1
+    config:
+        # iface used for iscsi root, set control to manual
+        # to prevent networking restarts from up/down'ing the
+        # interface
+        - type: physical
+          name: eth0
+          mac_address: "c0:d6:9f:2c:e8:80"
+          subnets:
+              - type: dhcp4
+                control: manual
+        # control: auto this is the default if control isn't present
+        - type: physical
+          name: eth1
+          mtu: 1492
+          mac_address: "aa:d6:9f:2c:e8:80"
+          subnets:
+              - type: static
+                address: 192.168.14.2/24
+                gateway: 192.168.14.1
+              - type: static
+                address: 192.168.14.4/24
+        # this interface may be hotplugged
+        # and we want to auto configure this 
+        # when present
+        - type: physical
+          name: eth2
+          mac_address: "cf:d6:af:48:e8:80"
+          subnets:
+              - type: static
+                control: hotplug
+                address: 10.11.12.13/22
+                gateway: 10.11.12.1
+

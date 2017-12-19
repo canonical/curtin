@@ -1,3 +1,4 @@
+showtrace: true
 network:
     version: 1
     config:
@@ -25,3 +26,8 @@ network:
           subnets:
               - type: static
                 address: 10.23.23.2/24
+
+curthooks_commands:
+    # use curtin to disable open-iscsi ifupdown hooks for precise; they're
+    # racy with the iface renaming
+    iscsi_cleanup: ['curtin', 'in-target', '--', 'sh', '-c', 'if [ "`lsb_release -sc`" = "precise" ]; then rm -f /etc/network/if-down.d/open-iscsi /etc/network/if-up.d/open-iscsi; fi']

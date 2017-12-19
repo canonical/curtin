@@ -8,6 +8,7 @@ rel="$(lsb_release -sc)"
 case "$(uname -m)" in
   i?86|x86_64) qemu="qemu-system-x86";;
   ppc*) qemu="qemu-system-ppc";;
+  s390x) qemu="qemu-system-s390x";;
 esac
 DEPS=(
   cloud-image-utils

@@ -6,6 +6,9 @@ import os
 
 
 class TestBcacheBasic(VMBaseClass):
+    arch_skip = [
+        "s390x",  # lp:1565029
+    ]
     conf_file = "examples/tests/bcache_basic.yaml"
     extra_disks = ['2G']
     collect_scripts = [textwrap.dedent("""

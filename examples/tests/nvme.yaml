@@ -1,0 +1,74 @@
+showtrace: true
+storage:
+    version: 1
+    config:
+      - id: main_disk
+        type: disk
+        ptable: gpt
+        path: /dev/vdb
+        name: main_disk
+        wipe: superblock
+        grub_device: true
+      - id: main_disk_p1
+        type: partition
+        number: 1
+        size: 3GB
+        device: main_disk
+        flag: boot
+      - id: main_disk_p2
+        type: partition
+        number: 2
+        size: 1GB
+        device: main_disk
+      - id: bios_boot
+        type: partition
+        size: 1MB
+        number: 15
+        device: main_disk
+        flag: bios_grub
+      - id: main_disk_root
+        type: format
+        fstype: ext4
+        volume: main_disk_p1
+      - id: main_disk_home
+        type: format
+        fstype: ext4
+        volume: main_disk_p2
+      - id: root_mount
+        type: mount
+        path: /
+        device: main_disk_root
+      - id: home_mount
+        type: mount
+        path: /home
+        device: main_disk_home
+      - id: nvme_disk
+        type: disk
+        path: /dev/nvme0n1
+        name: nvme_disk
+        wipe: superblock
+        ptable: gpt
+      - id: nvme_disk_p1
+        type: partition
+        size: 1GB
+        device: nvme_disk
+      - id: nvme_disk_p2
+        type: partition
+        number: 2
+        size: 1GB
+        device: nvme_disk
+      - id: nvme_disk_p3
+        type: partition
+        size: 1GB
+        device: nvme_disk
+      - id: nvme_disk2
+        type: disk
+        path: /dev/nvme1n1
+        wipe: superblock
+        ptable: msdos
+        name: second_nvme
+      - id: nvme_disk2_p1
+        type: partition
+        size: 1GB
+        number: 1
+        device: nvme_disk2
