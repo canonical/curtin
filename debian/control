@@ -28,7 +28,8 @@ X-Python3-Version: >= 3.2
 Package: curtin
 Architecture: all
 Priority: extra
-Depends: btrfs-tools,
+Depends: bcache-tools,
+         btrfs-tools,
          dosfstools,
          file,
          gdisk,
