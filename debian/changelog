@@ -1,3 +1,14 @@
+curtin (0.1.0~bzr205-0ubuntu1) wily; urgency=medium
+
+  * New upstream snapshot.
+    * improve finding devices and partitions to account for
+      non-standard names (LP: #1401190, LP: #1263181)
+    * do not consider removable devices or devices < 1G as installable
+    * add internal function wipe_partition and use that rather than
+      wipefs for wiping filesystem header data on a partition.
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 15 May 2015 16:52:07 -0400
+
 curtin (0.1.0~bzr201-0ubuntu1) vivid; urgency=medium
 
   * New upstream snapshot.
