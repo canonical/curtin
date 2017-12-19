@@ -1,3 +1,19 @@
+curtin (0.1.0~bzr479-0ubuntu1) zesty; urgency=medium
+
+  * New upstream snapshot.
+    - Add support for installing Ubuntu-Core 16 images.
+    - Add 'STORAGE_CONFIG_V1_DD' to the feature list.
+    - flake8: fix flake8 issues with previous merge.
+    - Support selection of target disk for dd images install via
+      storage config.  (LP: #1640301)
+    - vmtest: have vmtest-sync-images avoid running when jenkins-runner is.
+    - tools/curtin-from-container: do not use lxc file push --create-dirs
+    - tests: enable curtainer to pull down curtin source locally
+    - tests: make nose output always include class name and method.
+    - tools/curtin-from-container: default to verbosity level 0, not 2.
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 23 Mar 2017 13:06:43 -0400
+
 curtin (0.1.0~bzr470-0ubuntu1) zesty; urgency=medium
 
   * New upstream snapshot.
