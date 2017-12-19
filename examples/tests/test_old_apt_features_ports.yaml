@@ -1,0 +1,10 @@
+showtrace: true
+# apt_proxy gets configured by tools/launch and tests/vmtests/__init__.py
+apt_mirrors:
+# For ports there is no non-default alternative we could use
+  ubuntu_archive: http://ports.ubuntu.com/ubuntu-ports
+  ubuntu_security: http://ports.ubuntu.com/ubuntu-ports
+# set some key that surely is available to a non-default value
+debconf_selections:
+  set1: |
+    debconf debconf/priority select low

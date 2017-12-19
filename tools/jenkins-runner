@@ -1,12 +1,13 @@
 #!/bin/bash
 
-topdir=${CURTIN_VMTEST_TOPDIR:-"${WORKSPACE:-$PWD}/output"}
+topdir="${CURTIN_VMTEST_TOPDIR:-${WORKSPACE:-$PWD}/output}"
 pkeep=${CURTIN_VMTEST_KEEP_DATA_PASS:-logs,collect}
 fkeep=${CURTIN_VMTEST_KEEP_DATA_FAIL:-logs,collect}
 export CURTIN_VMTEST_KEEP_DATA_PASS=$pkeep
 export CURTIN_VMTEST_KEEP_DATA_FAIL=$fkeep
 export CURTIN_VMTEST_TOPDIR="$topdir"
-export CURTIN_VMTEST_LOG=${CURTIN_VMTEST_LOG:-"$topdir/debug.log"}
+export CURTIN_VMTEST_LOG="${CURTIN_VMTEST_LOG:-$topdir/debug.log}"
+export CURTIN_VMTEST_PARALLEL=${CURTIN_VMTEST_PARALLEL:-0}
 export IMAGE_DIR=${IMAGE_DIR:-/srv/images}
 
 fail() { echo "$@" 1>&2; exit 1; }
@@ -16,15 +17,40 @@ if [ -d "$topdir" ]; then
 fi
 mkdir -p "$topdir" || fail "failed mkdir $topdir"
 
-if [ $# -eq 0 ]; then
+start_s=$(date +%s)
+parallel=${CURTIN_VMTEST_PARALLEL}
+ntargs=( )
+while [ $# -ne 0 ]; do
+    case "$1" in
+        -p|--parallel) parallel="$2"; shift;;
+        --parallel=*) parallel=${1#*=};;
+        -p[0-9]|-p-1|-p[0-9][0-9]) parallel=${1#-p};;
+        --)
+            shift
+            break
+            ;;
+        *) ntargs[${#ntargs[@]}]="$1";;
+    esac
+    shift;
+done
+
+CURTIN_VMTEST_PARALLEL=$parallel
+
+if [ ${#ntargs[@]} -eq 0 ]; then
    set -- -vv --nologcapture tests/vmtests/
 fi
 
-start_s=$(date +%s)
 # dump CURTIN* variables just for info
 for v in ${!CURTIN_*}; do
    echo "$v=${!v}"
 done
+
+ntargs=( "${ntargs[@]}" "$@" )
+
+pargs=( )
+if [ -n "$parallel" -a "$parallel" != "0" -a "$parallel" != "1" ]; then
+    pargs=( --process-timeout=86400 "--processes=$parallel" )
+fi
 
 # avoid LOG info by running python3 tests/vmtests/image_sync.py
 # rather than python3 -m tests.vmtests.image_sync (LP: #1594465)
@@ -34,11 +60,11 @@ PYTHONPATH="$PWD" python3 tests/vmtests/image_sync.py query \
     --output-format="$fmt" "$IMAGE_DIR" ftype=root-image.gz ||
     { echo "WARNING: error querying images in $IMAGE_DIR" 1>&2; }
 
-echo "$(date -R): vmtest start: nosetests3 $*"
-nosetests3 "$@"
+echo "$(date -R): vmtest start: nosetests3 ${pargs[*]} ${ntargs[*]}"
+nosetests3 "${pargs[@]}" "${ntargs[@]}"
 ret=$?
 end_s=$(date +%s)
 echo "$(date -R): vmtest end [$ret] in $(($end_s-$start_s))s"
 exit $ret
 
-# vi: ts=4 expandtab
+# vi: ts=4 expandtab syntax=sh

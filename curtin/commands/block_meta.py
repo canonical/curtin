@@ -28,7 +28,7 @@ from curtin.udev import compose_udev_equality, udevadm_settle
 import glob
 import os
 import platform
-import re
+import string
 import sys
 import tempfile
 import time
@@ -129,42 +129,10 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
     return "mbr"
 
 
-def block_find_sysfs_path(devname):
-    # return the path in sys for device named devname
-    # support either short name ('sda') or full path /dev/sda
-    #  sda -> /sys/class/block/sda
-    #  sda1 -> /sys/class/block/sda/sda1
-    if not devname:
-        raise ValueError("empty devname provided to find_sysfs_path")
-
-    sys_class_block = '/sys/class/block/'
-    basename = os.path.basename(devname)
-    # try without parent blockdevice, then prepend parent
-    paths = [
-        os.path.join(sys_class_block, basename),
-        os.path.join(sys_class_block,
-                     re.split('[\d+]', basename)[0], basename),
-    ]
-
-    # find path to devname directory in sysfs
-    devname_sysfs = None
-    for path in paths:
-        if os.path.exists(path):
-            devname_sysfs = path
-
-    if devname_sysfs is None:
-        err = ('No sysfs path to device:'
-               ' {}'.format(devname_sysfs))
-        LOG.error(err)
-        raise ValueError(err)
-
-    return devname_sysfs
-
-
 def get_holders(devname):
     # Look up any block device holders.
     # Handle devices and partitions as devnames (vdb, md0, vdb7)
-    devname_sysfs = block_find_sysfs_path(devname)
+    devname_sysfs = block.sys_block_path(devname)
     if devname_sysfs:
         holders = os.listdir(os.path.join(devname_sysfs, 'holders'))
         LOG.debug("devname '%s' had holders: %s", devname, ','.join(holders))
@@ -236,9 +204,8 @@ def clear_holders(sys_block_path):
 
     if os.path.exists(os.path.join(sys_block_path, "md")):
         # md device
-        block_dev = os.path.join("/dev/", os.path.split(sys_block_path)[-1])
-        # if these fail its okay, the array might not be assembled and thats
-        # fine
+        block_dev_kname = block.path_to_kname(sys_block_path)
+        block_dev = block.kname_to_path(block_dev_kname)
         mdadm.mdadm_stop(block_dev)
         mdadm.mdadm_remove(block_dev)
 
@@ -263,14 +230,6 @@ def devsync(devpath):
             LOG.debug('Waiting on device path: %s', devpath)
             time.sleep(1)
     raise OSError('Failed to find device at path: %s', devpath)
-
-
-def determine_partition_kname(disk_kname, partition_number):
-    for dev_type in ["nvme", "mmcblk"]:
-        if disk_kname.startswith(dev_type):
-            partition_number = "p%s" % partition_number
-            break
-    return "%s%s" % (disk_kname, partition_number)
 
 
 def determine_partition_number(partition_id, storage_config):
@@ -304,6 +263,18 @@ def determine_partition_number(partition_id, storage_config):
     return partnumber
 
 
+def sanitize_dname(dname):
+    """
+    dnames should be sanitized before writing rule files, in case maas has
+    emitted a dname with a special character
+
+    only letters, numbers and '-' and '_' are permitted, as this will be
+    used for a device path. spaces are also not permitted
+    """
+    valid = string.digits + string.ascii_letters + '-_'
+    return ''.join(c if c in valid else '-' for c in dname)
+
+
 def make_dname(volume, storage_config):
     state = util.load_command_environment()
     rules_dir = os.path.join(state['scratch'], "rules.d")
@@ -321,7 +292,7 @@ def make_dname(volume, storage_config):
     # we may not always be able to find a uniq identifier on devices with names
     if not ptuuid and vol.get('type') in ["disk", "partition"]:
         LOG.warning("Can't find a uuid for volume: {}. Skipping dname.".format(
-            dname))
+            volume))
         return
 
     rule = [
@@ -346,11 +317,24 @@ def make_dname(volume, storage_config):
         volgroup_name = storage_config.get(vol.get('volgroup')).get('name')
         dname = "%s-%s" % (volgroup_name, dname)
         rule.append(compose_udev_equality("ENV{DM_NAME}", dname))
-    rule.append("SYMLINK+=\"disk/by-dname/%s\"" % dname)
+    else:
+        raise ValueError('cannot make dname for device with type: {}'
+                         .format(vol.get('type')))
+
+    # note: this sanitization is done here instead of for all name attributes
+    #       at the beginning of storage configuration, as some devices, such as
+    #       lvm devices may use the name attribute and may permit special chars
+    sanitized = sanitize_dname(dname)
+    if sanitized != dname:
+        LOG.warning(
+            "dname modified to remove invalid chars. old: '{}' new: '{}'"
+            .format(dname, sanitized))
+
+    rule.append("SYMLINK+=\"disk/by-dname/%s\"" % sanitized)
     LOG.debug("Writing dname udev rule '{}'".format(str(rule)))
     util.ensure_dir(rules_dir)
-    with open(os.path.join(rules_dir, volume), "w") as fp:
-        fp.write(', '.join(rule))
+    rule_file = os.path.join(rules_dir, '{}.rules'.format(sanitized))
+    util.write_file(rule_file, ', '.join(rule))
 
 
 def get_path_to_storage_volume(volume, storage_config):
@@ -368,9 +352,9 @@ def get_path_to_storage_volume(volume, storage_config):
         partnumber = determine_partition_number(vol.get('id'), storage_config)
         disk_block_path = get_path_to_storage_volume(vol.get('device'),
                                                      storage_config)
-        (base_path, disk_kname) = os.path.split(disk_block_path)
-        partition_kname = determine_partition_kname(disk_kname, partnumber)
-        volume_path = os.path.join(base_path, partition_kname)
+        disk_kname = block.path_to_kname(disk_block_path)
+        partition_kname = block.partition_kname(disk_kname, partnumber)
+        volume_path = block.kname_to_path(partition_kname)
         devsync_vol = os.path.join(disk_block_path)
 
     elif vol.get('type') == "disk":
@@ -419,13 +403,15 @@ def get_path_to_storage_volume(volume, storage_config):
         # block devs are in the slaves dir there. Then, those blockdevs can be
         # checked against the kname of the devs in the config for the desired
         # bcache device. This is not very elegant though
-        backing_device_kname = os.path.split(get_path_to_storage_volume(
-            vol.get('backing_device'), storage_config))[-1]
+        backing_device_path = get_path_to_storage_volume(
+            vol.get('backing_device'), storage_config)
+        backing_device_kname = block.path_to_kname(backing_device_path)
         sys_path = list(filter(lambda x: backing_device_kname in x,
                                glob.glob("/sys/block/bcache*/slaves/*")))[0]
         while "bcache" not in os.path.split(sys_path)[-1]:
             sys_path = os.path.split(sys_path)[0]
-        volume_path = os.path.join("/dev", os.path.split(sys_path)[-1])
+        bcache_kname = block.path_to_kname(sys_path)
+        volume_path = block.kname_to_path(bcache_kname)
         LOG.debug('got bcache volume path {}'.format(volume_path))
 
     else:
@@ -452,34 +438,44 @@ def disk_handler(info, storage_config):
             # Don't need to check state, return
             return
 
-        # Check state of current ptable
+        # Check state of current ptable, try to do this using blkid, but if
+        # blkid fails then try to fall back to using parted.
+        _possible_errors = (util.ProcessExecutionError, StopIteration,
+                            IndexError, AttributeError)
         try:
             (out, _err) = util.subp(["blkid", "-o", "export", disk],
                                     capture=True)
-        except util.ProcessExecutionError:
-            raise ValueError("disk '%s' has no readable partition table or \
-                cannot be accessed, but preserve is set to true, so cannot \
-                continue")
-        current_ptable = list(filter(lambda x: "PTTYPE" in x,
-                                     out.splitlines()))[0].split("=")[-1]
-        if current_ptable == "dos" and ptable != "msdos" or \
-                current_ptable == "gpt" and ptable != "gpt":
-            raise ValueError("disk '%s' does not have correct \
-                partition table, but preserve is set to true, so not \
-                creating table, so not creating table." % info.get('id'))
-        LOG.info("disk '%s' marked to be preserved, so keeping partition \
-                 table")
+            current_ptable = next(l.split('=')[1] for l in out.splitlines()
+                                  if 'TYPE' in l)
+        except _possible_errors:
+            try:
+                (out, _err) = util.subp(["parted", disk, "--script", "print"],
+                                        capture=True)
+                current_ptable = next(l.split()[-1] for l in out.splitlines()
+                                      if "Partition Table" in l)
+            except _possible_errors:
+                raise ValueError("disk '%s' has no readable partition table "
+                                 "or cannot be accessed, but preserve is set "
+                                 "to true, so cannot continue" % disk)
+        if not (current_ptable == ptable or
+                (current_ptable == "dos" and ptable == "msdos")):
+            raise ValueError("disk '%s' does not have correct "
+                             "partition table, but preserve is "
+                             "set to true, so not creating table."
+                             % info.get('id'))
+        LOG.info("disk '%s' marked to be preserved, so keeping partition "
+                 "table" % disk)
         return
 
     # Wipe the disk
     if info.get('wipe') and info.get('wipe') != "none":
         # The disk has a lable, clear all partitions
         mdadm.mdadm_assemble(scan=True)
-        disk_kname = os.path.split(disk)[-1]
-        syspath_partitions = list(
+        disk_sysfs_path = block.sys_block_path(disk)
+        sysfs_partitions = list(
             os.path.split(prt)[0] for prt in
-            glob.glob("/sys/block/%s/*/partition" % disk_kname))
-        for partition in syspath_partitions:
+            glob.glob(os.path.join(disk_sysfs_path, '*', 'partition')))
+        for partition in sysfs_partitions:
             clear_holders(partition)
             with open(os.path.join(partition, "dev"), "r") as fp:
                 block_no = fp.read().rstrip()
@@ -487,7 +483,7 @@ def disk_handler(info, storage_config):
                 os.path.join("/dev/block", block_no))
             block.wipe_volume(partition_path, mode=info.get('wipe'))
 
-        clear_holders("/sys/block/%s" % disk_kname)
+        clear_holders(disk_sysfs_path)
         block.wipe_volume(disk, mode=info.get('wipe'))
 
     # Create partition table on disk
@@ -542,13 +538,12 @@ def partition_handler(info, storage_config):
 
     disk = get_path_to_storage_volume(device, storage_config)
     partnumber = determine_partition_number(info.get('id'), storage_config)
-
-    disk_kname = os.path.split(
-        get_path_to_storage_volume(device, storage_config))[-1]
+    disk_kname = block.path_to_kname(disk)
+    disk_sysfs_path = block.sys_block_path(disk)
     # consider the disks logical sector size when calculating sectors
     try:
-        prefix = "/sys/block/%s/queue/" % disk_kname
-        with open(prefix + "logical_block_size", "r") as f:
+        lbs_path = os.path.join(disk_sysfs_path, 'queue', 'logical_block_size')
+        with open(lbs_path, 'r') as f:
             l = f.readline()
             logical_block_size_bytes = int(l)
     except:
@@ -566,17 +561,14 @@ def partition_handler(info, storage_config):
                     extended_part_no = determine_partition_number(
                         key, storage_config)
                     break
-            partition_kname = determine_partition_kname(
-                disk_kname, extended_part_no)
-            previous_partition = "/sys/block/%s/%s/" % \
-                (disk_kname, partition_kname)
+            pnum = extended_part_no
         else:
             pnum = find_previous_partition(device, info['id'], storage_config)
-            LOG.debug("previous partition number for '%s' found to be '%s'",
-                      info.get('id'), pnum)
-            partition_kname = determine_partition_kname(disk_kname, pnum)
-            previous_partition = "/sys/block/%s/%s/" % \
-                (disk_kname, partition_kname)
+
+        LOG.debug("previous partition number for '%s' found to be '%s'",
+                  info.get('id'), pnum)
+        partition_kname = block.partition_kname(disk_kname, pnum)
+        previous_partition = os.path.join(disk_sysfs_path, partition_kname)
         LOG.debug("previous partition: {}".format(previous_partition))
         # XXX: sys/block/X/{size,start} is *ALWAYS* in 512b value
         previous_size = util.load_file(os.path.join(previous_partition,
@@ -1033,7 +1025,7 @@ def bcache_handler(info, storage_config):
 
     if cache_device:
         # /sys/class/block/XXX/YYY/
-        cache_device_sysfs = block_find_sysfs_path(cache_device)
+        cache_device_sysfs = block.sys_block_path(cache_device)
 
         if os.path.exists(os.path.join(cache_device_sysfs, "bcache")):
             LOG.debug('caching device already exists at {}/bcache. Read '
@@ -1058,7 +1050,7 @@ def bcache_handler(info, storage_config):
         ensure_bcache_is_registered(cache_device, target_sysfs_path)
 
     if backing_device:
-        backing_device_sysfs = block_find_sysfs_path(backing_device)
+        backing_device_sysfs = block.sys_block_path(backing_device)
         target_sysfs_path = os.path.join(backing_device_sysfs, "bcache")
         if not os.path.exists(os.path.join(backing_device_sysfs, "bcache")):
             util.subp(["make-bcache", "-B", backing_device])
