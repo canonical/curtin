@@ -5,14 +5,14 @@ network:
         # to prevent networking restarts from up/down'ing the
         # interface
         - type: physical
-          name: eth0
+          name: interface0
           mac_address: "c0:d6:9f:2c:e8:80"
           subnets:
               - type: dhcp4
                 control: manual
         # control: auto this is the default if control isn't present
         - type: physical
-          name: eth1
+          name: interface1
           mtu: 1492
           mac_address: "aa:d6:9f:2c:e8:80"
           subnets:
@@ -25,7 +25,7 @@ network:
         # and we want to auto configure this 
         # when present
         - type: physical
-          name: eth2
+          name: interface2
           mac_address: "cf:d6:af:48:e8:80"
           subnets:
               - type: static

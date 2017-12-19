@@ -149,6 +149,42 @@ def clean_cloud_init(target):
         os.unlink(dpkg_cfg)
 
 
+def _maybe_remove_legacy_eth0(target,
+                              path="/etc/network/interfaces.d/eth0.cfg"):
+    """Ubuntu cloud images previously included a 'eth0.cfg' that had
+       hard coded content.  That file would interfere with the rendered
+       configuration if it was present.
+
+       if the file does not exist do nothing.
+       If the file exists:
+         - with known content, remove it and warn
+         - with unknown content, leave it and warn
+    """
+
+    cfg = os.path.sep.join([target, path])
+    if not os.path.exists(cfg):
+        LOG.warn('Failed to find legacy conf file %s', cfg)
+        return
+
+    bmsg = "Dynamic networking config may not apply."
+    try:
+        contents = util.load_file(cfg)
+        known_contents = ["auto eth0", "iface eth0 inet dhcp"]
+        lines = [f.strip() for f in contents.splitlines()
+                 if not f.startswith("#")]
+        if lines == known_contents:
+            util.del_file(cfg)
+            msg = "removed %s with known contents" % cfg
+        else:
+            msg = (bmsg + " '%s' exists with user configured content." % cfg)
+    except:
+        msg = bmsg + " %s exists, but could not be read." % cfg
+        LOG.exception(msg)
+        return
+
+    LOG.warn(msg)
+
+
 def setup_zipl(cfg, target):
     if platform.machine() != 's390x':
         return
@@ -521,6 +557,8 @@ def apply_networking(target, state):
     else:
         LOG.debug("copying interfaces")
         copy_interfaces(interfaces, target)
+
+    _maybe_remove_legacy_eth0(target)
 
 
 def copy_interfaces(interfaces, target):

@@ -3,12 +3,12 @@ network:
     config:
         # Physical interfaces.
         - type: physical
-          name: eth0
+          name: interface0
           mac_address: "52:54:00:12:34:00"
           subnets:
               - type: dhcp4
         - type: physical
-          name: eth1
+          name: interface1
           mtu: 1492
           mac_address: "52:54:00:12:34:02"
           subnets:
@@ -21,11 +21,11 @@ network:
                 dns_search:
                   - barley.maas
         - type: physical
-          name: eth2
+          name: interface2
           mac_address: "52:54:00:12:34:04"
 
 curthooks_commands:
     # use curtin to inject a eni config file outside of the network yaml
     # this allows us to test user installed configurations outside of
     # curtin's control
-    aa_cleanup: ['curtin', 'in-target', '--', 'sh', '-c', "rm -f /etc/network/interfaces.d/eth0.cfg; /bin/echo -e 'auto eth2\niface eth2 inet static\n address 192.168.23.23/24\n' > /etc/network/interfaces.d/eth2.cfg"]
+    aa_cleanup: ['curtin', 'in-target', '--', 'sh', '-c', "rm -f /etc/network/interfaces.d/eth0.cfg; /bin/echo -e 'auto interface2\niface interface2 inet static\n address 192.168.23.23/24\n' > /etc/network/interfaces.d/interface2.cfg"]

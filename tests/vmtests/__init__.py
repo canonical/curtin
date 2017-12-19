@@ -745,6 +745,15 @@ class VMBaseClass(TestCase):
                     self.assertIn(link, contents)
                 self.assertIn(diskname, contents)
 
+    def test_interfacesd_eth0_removed(self):
+        """ Check that curtin has removed /etc/network/interfaces.d/eth0.cfg
+            by examining the output of a find /etc/network > find_interfaces.d
+        """
+        fpath = os.path.join(self.td.collect, "find_interfacesd")
+        interfacesd = util.load_file(fpath)
+        self.assertNotIn("/etc/network/interfaces.d/eth0.cfg",
+                         interfacesd.split("\n"))
+
     def run(self, result):
         super(VMBaseClass, self).run(result)
         self.record_result(result)
@@ -842,6 +851,9 @@ class PsuedoVMBaseClass(VMBaseClass):
         pass
 
     def test_dname(self):
+        pass
+
+    def test_interfacesd_eth0_removed(self):
         pass
 
     def _maybe_raise(self, exc):
