@@ -1,15 +1,5 @@
 To pull a new upstream snapshot, given lp:curtin in ../trunk:
 
- trunk="../trunk"
- uver=0.1.0 # the *next* upstream version
- revno=$(cd "$trunk" && bzr revno)
- pversion=$(dpkg-parsechangelog --show-field Version) 
- prevno=$(echo "$pversion" | sed 's,.*bzr\([0-9]\+\)-.*,\1,')
- version=${uver}~bzr${revno}
- tarball=curtin-${version}.tar.gz
- t=../curtin_${version}.orig.tar.gz && [ -f $t ] && tarball=$t
- [ -f "$t" ] || bzr export --format=tgz --revision=${revno} "$tarball" "${trunk}"
- bzr merge-upstream "$tarball" --version=${version}
- ( cd "$trunk" && bzr log -r $(($prevno+1))..${revno} ) > new-changes.log
+ ./debian/new-upstream-snapshot ../trunk
 
 Then, edit changelog and look at entries in 'new-changes.log'.

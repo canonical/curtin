@@ -1,3 +1,14 @@
+curtin (0.1.0~bzr359-0ubuntu1) xenial; urgency=medium
+
+  * debian/new-upstream-snapshot, debian/README.source: add
+    new-upstream-snapshot and mention it in README.source
+  * New upstream snapshot.
+    * curtin/net: Add bond parsing & improved source, source-directory
+      parsing for ENI
+    * curtin/net: move global dns-* options under auto lo in ENI (LP: #1543263)
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 26 Feb 2016 16:28:31 -0500
+
 curtin (0.1.0~bzr351-0ubuntu1) xenial; urgency=medium
 
   * New upstream snapshot.
