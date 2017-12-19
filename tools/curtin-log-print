@@ -70,14 +70,14 @@ def format_record(msg, event):
     return msg.format(**event)
 
 
-def dump_event_files(event):
+def dump_event_files(event, dump_folder):
     content = {k: v for k, v in event.items() if k not in ['content']}
     files = content['files']
     saved = []
     for f in files:
         fname = f['path']
-        fn_local = os.path.basename(fname)
-        fcontent = base64.b64decode(f['content']).decode('ascii')
+        fn_local = os.path.join(dump_folder, os.path.basename(fname))
+        fcontent = base64.b64decode(f['content']).decode('utf-8')
         with open(fn_local, 'w') as fh:
             fh.write(fcontent)
         saved.append(fn_local)
@@ -98,7 +98,7 @@ def generate_records(j, blame_sort=False, print_format="%d seconds in %I%D",
         event['indent'] = '|' + ' ' * (name.count('/') - 1) + '`->'
         if 'files' in event:
             if dump_files:
-                dumped_files += dump_event_files(event)
+                dumped_files += dump_event_files(event, dump_files)
 
         if event['event_type'] == 'start':
             timestamps[name] = {'start': event['timestamp']}
@@ -155,7 +155,7 @@ def main():
     parser = argparse.ArgumentParser(
         description='curtin-print-log - pretty print and sort curtin logs',
         prog='curtin-print-log')
-    parser.add_argument('--dumpfiles', action='store_true',
+    parser.add_argument('--dumpfiles', action='store',
                         default=False,
                         dest='dump_files',
                         help='dump content of any posted files')

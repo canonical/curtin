@@ -22,7 +22,7 @@ from curtin.log import LOG
 from curtin.reporter import events
 
 from . import populate_one_subcmd
-from curtin.udev import compose_udev_equality, udevadm_settle
+from curtin.udev import compose_udev_equality, udevadm_settle, udevadm_trigger
 
 import glob
 import os
@@ -48,6 +48,8 @@ CMD_ARGUMENTS = (
        'default': os.environ.get('TARGET_MOUNT_POINT')}),
      ('--boot-fstype', {'help': 'boot partition filesystem type',
                         'choices': ['ext4', 'ext3'], 'default': None}),
+     ('--umount', {'help': 'unmount any mounted filesystems before exit',
+                   'action': 'store_true', 'default': False}),
      ('mode', {'help': 'meta-mode to use',
                'choices': [CUSTOM, SIMPLE, SIMPLE_BOOT]}),
      )
@@ -604,6 +606,14 @@ def format_handler(info, storage_config):
     LOG.debug("mkfs {} info: {}".format(volume_path, info))
     mkfs.mkfs_from_config(volume_path, info)
 
+    device_type = storage_config.get(volume).get('type')
+    LOG.debug('Formated device type: %s', device_type)
+    if device_type == 'bcache':
+        # other devs have a udev watch on them. Not bcache (LP: #1680597).
+        LOG.debug('Detected bcache device format, calling udevadm trigger to '
+                  'generate by-uuid symlinks on "%s"', volume_path)
+        udevadm_trigger([volume_path])
+
 
 def mount_handler(info, storage_config):
     state = util.load_command_environment()
@@ -630,47 +640,35 @@ def mount_handler(info, storage_config):
         # Mount volume
         util.subp(['mount', volume_path, mount_point])
 
+        path = "/%s" % path
+
+        options = ["defaults"]
+        # If the volume_path's kname is backed by iSCSI or (in the case of
+        # LVM/DM) if any of its slaves are backed by iSCSI, then we need to
+        # append _netdev to the fstab line
+        if iscsi.volpath_is_iscsi(volume_path):
+            LOG.debug("Marking volume_path:%s as '_netdev'", volume_path)
+            options.append("_netdev")
+    else:
+        path = "none"
+        options = ["sw"]
+
     # Add volume to fstab
     if state['fstab']:
         with open(state['fstab'], "a") as fp:
-            if volume.get('type') in ["raid", "bcache",
-                                      "disk", "lvm_partition"]:
-                location = get_path_to_storage_volume(volume.get('id'),
-                                                      storage_config)
-            elif volume.get('type') in ["partition", "dm_crypt"]:
-                location = "UUID=%s" % block.get_volume_uuid(volume_path)
-            else:
-                raise ValueError("cannot write fstab for volume type '%s'" %
-                                 volume.get("type"))
-
-            if filesystem.get('fstype') == "swap":
-                path = "none"
-                options = "sw"
-            else:
-                path = "/%s" % path
-                if volume.get('type') == "partition":
-                    disk_block_path = get_path_to_storage_volume(
-                        volume.get('device'), storage_config)
-                    disk_kname = block.path_to_kname(disk_block_path)
-                    if iscsi.kname_is_iscsi(disk_kname):
-                        options = "_netdev"
-                    else:
-                        options = "defaults"
-                elif volume.get('type') == "disk":
-                    disk_kname = block.path_to_kname(location)
-                    if iscsi.kname_is_iscsi(disk_kname):
-                        options = "_netdev"
-                    else:
-                        options = "defaults"
-                else:
-                    options = "defaults"
+            location = get_path_to_storage_volume(volume.get('id'),
+                                                  storage_config)
+            uuid = block.get_volume_uuid(volume_path)
+            if len(uuid) > 0:
+                location = "UUID=%s" % uuid
 
             if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32",
                                             "fat64"]:
                 fstype = "vfat"
             else:
                 fstype = filesystem.get('fstype')
-            fp.write("%s %s %s %s 0 0\n" % (location, path, fstype, options))
+            fp.write("%s %s %s %s 0 0\n" % (location, path, fstype,
+                                            ",".join(options)))
     else:
         LOG.info("fstab not in environment, so not writing")
 
@@ -1092,6 +1090,8 @@ def meta_custom(args):
                           (item_id, type(error).__name__, error))
                 raise
 
+    if args.umount:
+        util.do_umount(state['target'], recursive=True)
     return 0
 
 
@@ -1276,6 +1276,9 @@ def meta_simple(args):
                      ('cloudimg-rootfs', args.fstype))
     else:
         LOG.info("fstab not in environment, so not writing")
+
+    if args.umount:
+        util.do_umount(state['target'], recursive=True)
 
     return 0
 

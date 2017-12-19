@@ -12,6 +12,7 @@ class TestBasicIscsiAbs(VMBaseClass):
         {'size': '5G', 'auth': 'user:passw0rd', 'iauth': 'iuser:ipassw0rd'},
         {'size': '6G', 'iauth': 'iuser:ipassw0rd'}]
     conf_file = "examples/tests/basic_iscsi.yaml"
+    nr_testfiles = 4
 
     collect_scripts = [textwrap.dedent(
         """
@@ -19,16 +20,31 @@ class TestBasicIscsiAbs(VMBaseClass):
         cat /etc/fstab > fstab
         ls /dev/disk/by-dname/ > ls_dname
         find /etc/network/interfaces.d > find_interfacesd
-        cat /mnt/iscsi1/testfile > testfile1
-        cat /mnt/iscsi2/testfile > testfile2
-        cat /mnt/iscsi3/testfile > testfile3
-        cat /mnt/iscsi4/testfile > testfile4
+        bash -c \
+        'for f in /mnt/iscsi*; do cat $f/testfile > testfile${f: -1}; done'
         """)]
 
-    def test_output_files_exist(self):
+    def test_fstab_has_netdev_option(self):
+        self.output_files_exist(["fstab"])
+        fstab = self.load_collect_file("fstab").strip()
+        self.assertTrue(any(["_netdev" in line
+                             for line in fstab.splitlines()]))
+
+    def test_iscsi_testfiles(self):
         # add check by SN or UUID that the iSCSI disks are attached?
-        self.output_files_exist(["fstab", "testfile1", "testfile2",
-                                 "testfile3", "testfile4"])
+        testfiles = ["testfile%s" % t for t in range(1, self.nr_testfiles + 1)]
+
+        # make sure all required files are present:
+        print('Expecting testfiles: %s' % testfiles)
+        self.output_files_exist(testfiles)
+
+        for testfile in testfiles:
+            print('checking file content: %s' % testfile)
+            expected_content = "test%s" % testfile[-1]
+            content = self.load_collect_file(testfile).strip()
+            self.assertEqual(expected_content, content,
+                             "Checking %s, expected:\n%s\nfound:\n%s" %
+                             (testfile, expected_content, content))
 
 
 class PreciseTestIscsiBasic(relbase.precise, TestBasicIscsiAbs):
@@ -48,4 +64,8 @@ class YakketyTestIscsiBasic(relbase.yakkety, TestBasicIscsiAbs):
 
 
 class ZestyTestIscsiBasic(relbase.zesty, TestBasicIscsiAbs):
+    __test__ = True
+
+
+class ArtfulTestIscsiBasic(relbase.artful, TestBasicIscsiAbs):
     __test__ = True

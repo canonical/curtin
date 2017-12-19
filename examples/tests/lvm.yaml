@@ -4,6 +4,7 @@ storage:
     config:
       - id: sda
         type: disk
+        wipe: superblock
         ptable: msdos
         model: QEMU HARDDISK
         path: /dev/vdb

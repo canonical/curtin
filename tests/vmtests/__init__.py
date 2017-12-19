@@ -44,6 +44,7 @@ DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 OUTPUT_DISK_NAME = 'output_disk.img'
 BOOT_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_BOOT_TIMEOUT", 300))
 INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
+REUSE_TOPDIR = bool(int(os.environ.get("CURTIN_VMTEST_REUSE_TOPDIR", 0)))
 
 _TOPDIR = None
 
@@ -260,16 +261,9 @@ class TempDir(object):
     output_disk = None
 
     def __init__(self, name, user_data):
+        self.restored = REUSE_TOPDIR
         # Create tmpdir
         self.tmpdir = os.path.join(_topdir(), name)
-        try:
-            os.mkdir(self.tmpdir)
-        except OSError as e:
-            if e.errno == errno.EEXIST:
-                raise ValueError("name '%s' already exists in %s" %
-                                 (name, _topdir))
-            else:
-                raise e
 
         # make subdirs
         self.collect = os.path.join(self.tmpdir, "collect")
@@ -280,11 +274,24 @@ class TempDir(object):
 
         self.dirs = (self.collect, self.install, self.boot, self.logs,
                      self.disks)
-        for d in self.dirs:
-            os.mkdir(d)
 
         self.success_file = os.path.join(self.logs, "success")
         self.errors_file = os.path.join(self.logs, "errors.json")
+        self.target_disk = os.path.join(self.disks, "install_disk.img")
+        self.seed_disk = os.path.join(self.boot, "seed.img")
+        self.output_disk = os.path.join(self.boot, OUTPUT_DISK_NAME)
+
+        if self.restored:
+            if os.path.exists(self.tmpdir):
+                logger.info('Reusing existing TempDir: %s', self.tmpdir)
+                return
+            else:
+                raise ValueError("REUSE_TOPDIR set, but TempDir not found:"
+                                 " %s" % self.tmpdir)
+
+        os.mkdir(self.tmpdir)
+        for d in self.dirs:
+            os.mkdir(d)
 
         # write cloud-init for installed system
         meta_data_file = os.path.join(self.install, "meta-data")
@@ -296,21 +303,18 @@ class TempDir(object):
 
         # create target disk
         logger.debug('Creating target disk')
-        self.target_disk = os.path.join(self.disks, "install_disk.img")
         subprocess.check_call(["qemu-img", "create", "-f", TARGET_IMAGE_FORMAT,
                               self.target_disk, "10G"],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
         # create seed.img for installed system's cloud init
         logger.debug('Creating seed disk')
-        self.seed_disk = os.path.join(self.boot, "seed.img")
         subprocess.check_call(["cloud-localds", self.seed_disk,
                               user_data_file, meta_data_file],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
         # create output disk, mount ro
         logger.debug('Creating output disk')
-        self.output_disk = os.path.join(self.boot, OUTPUT_DISK_NAME)
         subprocess.check_call(["qemu-img", "create", "-f", TARGET_IMAGE_FORMAT,
                               self.output_disk, "10M"],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
@@ -333,6 +337,9 @@ class VMBaseClass(TestCase):
     boot_timeout = BOOT_TIMEOUT
     collect_scripts = []
     conf_file = "examples/tests/basic.yaml"
+    nr_cpus = None
+    dirty_disks = False
+    dirty_disk_config = "examples/tests/dirty_disks_config.yaml"
     disk_block_size = 512
     disk_driver = 'virtio-blk'
     disk_to_check = {}
@@ -363,6 +370,10 @@ class VMBaseClass(TestCase):
 
     def shortDescription(self):
         return None
+
+    @classmethod
+    def collect_output(cls):
+        cls.td.collect_output()
 
     @classmethod
     def get_test_files(cls):
@@ -503,6 +514,26 @@ class VMBaseClass(TestCase):
                 bugnum, clsname)
 
     @classmethod
+    def get_config_smp(cls):
+        """Get number of cpus to use for guest"""
+
+        nr_cpus = None
+        if cls.nr_cpus:
+            nr_cpus = cls.nr_cpus
+            logger.debug('Setting cpus from class value: %s', nr_cpus)
+
+        env_cpus = os.environ.get("CURTIN_VMTEST_NR_CPUS", None)
+        if env_cpus:
+            nr_cpus = env_cpus
+            logger.debug('Setting cpus from '
+                         ' env["CURTIN_VMTEST_NR_CPUS"] value: %s', nr_cpus)
+        if not nr_cpus:
+            nr_cpus = 1
+            logger.debug('Setting cpus to default value: %s', nr_cpus)
+
+        return str(nr_cpus)
+
+    @classmethod
     def setUpClass(cls):
         # check if we should skip due to host arch
         if cls.arch in cls.arch_skip:
@@ -522,7 +553,6 @@ class VMBaseClass(TestCase):
         cls.boot_log = os.path.join(cls.td.logs, 'boot-serial.log')
         logger.debug('Install console log: {}'.format(cls.install_log))
         logger.debug('Boot console log: {}'.format(cls.boot_log))
-        ftypes = cls.get_test_files()
 
         # if interactive, launch qemu without 'background & wait'
         if cls.interactive:
@@ -531,7 +561,8 @@ class VMBaseClass(TestCase):
             dowait = "--dowait"
 
         # create launch cmd
-        cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait]
+        cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait,
+               "--smp=" + cls.get_config_smp()]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -541,6 +572,7 @@ class VMBaseClass(TestCase):
             cmd.extend(["--append=" + cls.extra_kern_args])
 
         # publish the root tarball
+        ftypes = cls.get_test_files()
         install_src = "PUBURL/" + os.path.basename(ftypes[cls.target_ftype])
         if cls.target_ftype == 'vmtest.root-tgz':
             cmd.append("--publish=%s" % ftypes['vmtest.root-tgz'])
@@ -624,10 +656,11 @@ class VMBaseClass(TestCase):
         # proxy config
         configs = [cls.conf_file]
         cls.proxy = get_apt_proxy()
-        if cls.proxy is not None:
+        if cls.proxy is not None and not cls.td.restored:
             proxy_config = os.path.join(cls.td.install, 'proxy.cfg')
-            with open(proxy_config, "w") as fp:
-                fp.write(json.dumps({'apt_proxy': cls.proxy}) + "\n")
+            if not os.path.exists(proxy_config):
+                with open(proxy_config, "w") as fp:
+                    fp.write(json.dumps({'apt_proxy': cls.proxy}) + "\n")
             configs.append(proxy_config)
 
         uefi_flags = []
@@ -638,9 +671,14 @@ class VMBaseClass(TestCase):
 
             # always attempt to update target nvram (via grub)
             grub_config = os.path.join(cls.td.install, 'grub.cfg')
-            with open(grub_config, "w") as fp:
-                fp.write(json.dumps({'grub': {'update_nvram': True}}))
+            if not os.path.exists(grub_config):
+                with open(grub_config, "w") as fp:
+                    fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)
+
+        if cls.dirty_disks and storage_config:
+            logger.debug("Injecting early_command to dirty storage devices")
+            configs.append(cls.dirty_disk_config)
 
         excfg = os.environ.get("CURTIN_VMTEST_EXTRA_CONFIG", False)
         if excfg:
@@ -658,20 +696,21 @@ class VMBaseClass(TestCase):
         reporting_config = os.path.join(cls.td.install, 'reporting.cfg')
         localhost_url = ('http://' + get_lan_ip() +
                          ':{:d}/'.format(reporting_logger.port))
-        with open(reporting_config, 'w') as fp:
-            fp.write(json.dumps({
-                'install': {
-                    'log_file': '/tmp/install.log',
-                    'post_files': ['/tmp/install.log'],
-                },
-                'reporting': {
-                    'maas': {
-                        'level': 'DEBUG',
-                        'type': 'webhook',
-                        'endpoint': localhost_url,
+        if not os.path.exists(reporting_config) and not cls.td.restored:
+            with open(reporting_config, 'w') as fp:
+                fp.write(json.dumps({
+                    'install': {
+                        'log_file': '/tmp/install.log',
+                        'post_files': ['/tmp/install.log'],
                     },
-                },
-            }))
+                    'reporting': {
+                        'maas': {
+                            'level': 'DEBUG',
+                            'type': 'webhook',
+                            'endpoint': localhost_url,
+                        },
+                    },
+                }))
         configs.append(reporting_config)
 
         cmd.extend(uefi_flags + netdevs + disks +
@@ -680,6 +719,11 @@ class VMBaseClass(TestCase):
                     ftypes['boot-initrd'], "--", "curtin", "-vv", "install"] +
                    ["--config=%s" % f for f in configs] +
                    [install_src])
+
+        # don't run the vm stages if we're just re-running testcases on output
+        if cls.td.restored:
+            logger.info('Using existing outputdata, skipping install/boot')
+            return
 
         # run vm with installer
         lout_path = os.path.join(cls.td.logs, "install-launch.log")
@@ -785,6 +829,7 @@ class VMBaseClass(TestCase):
                target_disks + extra_disks + nvme_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
+                "-smp",  cls.get_config_smp(),
                 "-m", "1024"])
 
         if not cls.interactive:
@@ -820,10 +865,15 @@ class VMBaseClass(TestCase):
 
         # mount output disk
         try:
-            cls.td.collect_output()
-        except Exception:
+            cls.collect_output()
+        except Exception as e:
             cls.tearDownClass()
             raise
+
+        # capture curtin install log and webhook timings
+        util.subp(["tools/curtin-log-print", "--dumpfiles", cls.td.logs,
+                   cls.reporting_log], capture=True)
+
         logger.info(
             "%s: setUpClass finished. took %.02f seconds. Running testcases.",
             cls.__name__, time.time() - setup_start)
@@ -935,14 +985,18 @@ class VMBaseClass(TestCase):
 
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
-        for f in files:
-            logger.debug('checking file %s', f)
-            self.assertTrue(os.path.exists(os.path.join(self.td.collect, f)))
+        logger.debug('checking files: %s', files)
+        results = {f: os.path.exists(os.path.join(self.td.collect, f))
+                   for f in files}
+        logger.debug('results: %s', results)
+        self.assertTrue(False not in results.values())
 
     def output_files_dont_exist(self, files):
-        for f in files:
-            logger.debug('checking file %s', f)
-            self.assertFalse(os.path.exists(os.path.join(self.td.collect, f)))
+        logger.debug('checking files: %s', files)
+        results = {f: os.path.exists(os.path.join(self.td.collect, f))
+                   for f in files}
+        logger.debug('results: %s', results)
+        self.assertTrue(True not in results.values())
 
     def load_collect_file(self, filename, mode="r"):
         with open(os.path.join(self.td.collect, filename), mode) as fp:
@@ -1104,11 +1158,17 @@ class PsuedoVMBaseClass(VMBaseClass):
     allow_test_fails = get_env_var_bool('CURTIN_VMTEST_DEBUG_ALLOW_FAIL',
                                         False)
 
-    def collect_output(self):
+    @classmethod
+    def collect_output(cls):
         logger.debug('Psuedo extracting output disk')
-        with open(os.path.join(self.td.collect, "fstab")) as fp:
+        with open(os.path.join(cls.td.collect, "fstab"), "w") as fp:
             fp.write('\n'.join(("# psuedo fstab",
                                 "LABEL=root / ext4 defaults 0 1")))
+
+        logger.debug('Psudeo webhooks-events.json')
+        webhooks = os.path.join(cls.td.logs, 'webhooks-events.json')
+        with open(webhooks, "w") as fp:
+            fp.write('[]')
 
     @classmethod
     def get_test_files(cls):

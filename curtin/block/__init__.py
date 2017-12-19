@@ -94,7 +94,6 @@ def path_to_kname(path):
     # cciss devices need to have 'cciss!' prepended
     if path.startswith('/dev/cciss'):
         dev_kname = 'cciss!' + dev_kname
-    LOG.debug("path_to_kname input: '{}' output: '{}'".format(path, dev_kname))
     return dev_kname
 
 
@@ -106,7 +105,6 @@ def kname_to_path(kname):
     # if given something that is already a dev path, return it
     if os.path.exists(kname) and is_valid_device(kname):
         path = kname
-        LOG.debug("kname_to_path input: '{}' output: '{}'".format(kname, path))
         return os.path.realpath(path)
     # adding '/dev' to path is not sufficient to handle cciss devices and
     # possibly other special devices which have not been encountered yet
@@ -114,7 +112,6 @@ def kname_to_path(kname):
     # make sure path we get is correct
     if not (os.path.exists(path) and is_valid_device(path)):
         raise OSError('could not get path to dev from kname: {}'.format(kname))
-    LOG.debug("kname_to_path input: '{}' output: '{}'".format(kname, path))
     return path
 
 
@@ -177,6 +174,34 @@ def get_holders(device):
     holders = os.listdir(os.path.join(sysfs_path, 'holders'))
     LOG.debug("devname '%s' had holders: %s", device, holders)
     return holders
+
+
+def get_device_slave_knames(device):
+    """
+    Find the underlying knames of a given device by walking sysfs
+    recursively.
+
+    Returns a list of knames
+    """
+    slave_knames = []
+    slaves_dir_path = os.path.join(sys_block_path(device), 'slaves')
+
+    # if we find a 'slaves' dir, recurse and check
+    # the underlying devices
+    if os.path.exists(slaves_dir_path):
+        slaves = os.listdir(slaves_dir_path)
+        if len(slaves) > 0:
+            for slave_kname in slaves:
+                slave_knames.extend(get_device_slave_knames(slave_kname))
+        else:
+            slave_knames.append(path_to_kname(device))
+
+        return slave_knames
+    else:
+        # if a device has no 'slaves' attribute then
+        # we've found the underlying device, return
+        # the kname of the device
+        return [path_to_kname(device)]
 
 
 def _shlex_split(str_in):

@@ -194,6 +194,27 @@ def subp(*args, **kwargs):
     return _subp(*args, **kwargs)
 
 
+def wait_for_removal(path, retries=[1, 3, 5, 7]):
+    if not path:
+        raise ValueError('wait_for_removal: missing path parameter')
+
+    # Retry with waits between checking for existence
+    LOG.debug('waiting for %s to be removed', path)
+    for num, wait in enumerate(retries):
+        if not os.path.exists(path):
+            LOG.debug('%s has been removed', path)
+            return
+        LOG.debug('sleeping %s', wait)
+        time.sleep(wait)
+
+    # final check
+    if not os.path.exists(path):
+        LOG.debug('%s has been removed', path)
+        return
+
+    raise OSError('Timeout exceeded for removal of %s', path)
+
+
 def load_command_environment(env=os.environ, strict=False):
 
     mapping = {'scratch': 'WORKING_DIR', 'fstab': 'OUTPUT_FSTAB',
@@ -204,7 +225,7 @@ def load_command_environment(env=os.environ, strict=False):
                'report_stack_prefix': 'CURTIN_REPORTSTACK'}
 
     if strict:
-        missing = [k for k in mapping if k not in env]
+        missing = [k for k in mapping.values() if k not in env]
         if len(missing):
             raise KeyError("missing environment vars: %s" % missing)
 
@@ -330,11 +351,18 @@ def do_mount(src, target, opts=None):
     return True
 
 
-def do_umount(mountpoint):
-    if not is_mounted(mountpoint):
-        return False
-    subp(['umount', mountpoint])
-    return True
+def do_umount(mountpoint, recursive=False):
+    # unmount mountpoint. if recursive, unmount all mounts under it.
+    # return boolean indicating if mountpoint was previously mounted.
+    mp = os.path.abspath(mountpoint)
+    ret = False
+    for line in reversed(load_file("/proc/mounts", decode=True).splitlines()):
+        curmp = line.split()[1]
+        if curmp == mp or (recursive and curmp.startswith(mp + os.path.sep)):
+            subp(['umount', curmp])
+        if curmp == mp:
+            ret = True
+    return ret
 
 
 def ensure_dir(path, mode=None):

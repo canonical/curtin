@@ -41,6 +41,7 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
       -n | --netdev     netdev can be 'user' or a bridge
       -p | --publish F  make file 'F' available in web server
            --silent     use -nographic
+      -s | --smp S      use smp S for number of guest cpus (defaults to 2)
            --vnc D      use -vnc D (mutually exclusive with --silent)
                         directly through to qemu-system.
                         Note, qemu adds 5900 to port numbers. (:0 = port 5900)
@@ -349,8 +350,9 @@ configure_tgt_auth() {
 }
 
 main() {
-    local short_opts="a:A:d:h:i:k:n:p:v"
-    local long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,root-arg:,silent,serial-log:,uefi-nvram:,verbose,vnc:"
+    local short_opts="a:A:d:h:i:k:n:p:s:v"
+    local
+    long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,root-arg:,silent,serial-log:,smp:,uefi-nvram:,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -358,7 +360,7 @@ main() {
         { bad_Usage; return 1; }
 
     local seed=""
-    local bootimg="" bootimg_dist="" target="" mem="1024"
+    local bootimg="" bootimg_dist="" target="" mem="1024" smp="2"
     local udata="" ip="" http_port="${HTTP_PORT}" burl=""
     local tmp="" top_d
     local initrd="" kernel="" uappend="" iargs="" disk_args=""
@@ -412,6 +414,7 @@ main() {
                --root-arg) root_arg="$next";;
                --serial-log) serial_log="$next"; shift;;
                --silent) video="-nographic";;
+            -s|--smp) smp="$next"; shift;;
             --uefi-nvram|--bios)
                 # handle all --opt=* pass through here.
                 pt[${#pt[@]}]="$cur=$next";;
@@ -725,6 +728,7 @@ main() {
     # -monitor stdio
     cmd=(
         xkvm "${pt[@]}" "${netargs[@]}" --
+        -smp ${smp}
         -m ${mem} ${serial_args} ${video}
         -drive "file=$bootimg,if=none,cache=unsafe,format=qcow2,id=boot,index=0"
         -device "virtio-blk,drive=boot"

@@ -1,0 +1,87 @@
+storage:
+   version: 1
+   config:
+      - id: vdb
+        type: disk
+        ptable: msdos
+        model: QEMU HARDDISK
+        path: /dev/vdb
+        name: main_disk
+        wipe: superblock
+        grub_device: true
+      - id: vdb1
+        type: partition
+        number: 1
+        size: 3GB
+        device: vdb
+        flag: boot
+      - id: vdb2
+        type: partition
+        number: 2
+        size: 1GB
+        device: vdb
+      - id: vdb1_root
+        type: format
+        fstype: ext4
+        volume: vdb1
+      - id: vdb2_home
+        type: format
+        fstype: ext4
+        volume: vdb2
+      - id: vdb1_mount
+        type: mount
+        path: /
+        device: vdb1_root
+      - id: vdb2_mount
+        type: mount
+        path: /home
+        device: vdb2_home
+      - id: sda
+        type: disk
+        path: iscsi:__RFC4173__
+        name: iscsi_disk1
+        ptable: msdos
+        wipe: superblock
+      - id: sdb
+        type: disk
+        path: iscsi:__RFC4173__
+        name: iscsi_disk2
+        ptable: msdos
+        wipe: superblock
+      - id: sdc
+        type: disk
+        path: iscsi:__RFC4173__
+        name: iscsi_disk3
+        ptable: msdos
+        wipe: superblock
+      - devices:
+        - sda
+        - sdb
+        - sdc
+        id: md0
+        name: md0
+        raidlevel: 5
+        spare_devices: []
+        type: raid
+      - fstype: ext4
+        id: md0_format
+        label: ''
+        type: format
+        volume: md0
+      - device: md0_format
+        id: md0_mount
+        path: /mnt/iscsi1
+        type: mount
+network:
+   version: 1
+   config:
+      - type: physical
+        name: interface0
+        mac_address: "52:54:00:12:34:00"
+        subnets:
+           - type: dhcp
+write_files:
+   f1:
+      path: /mnt/iscsi1/testfile
+      content: "test1"
+      permissions: 0777

@@ -26,6 +26,7 @@ import os
 import re
 import shlex
 from subprocess import CalledProcessError
+import time
 
 from curtin.block import (dev_short, dev_path, is_valid_device, sys_block_path)
 from curtin.block import get_holders
@@ -253,12 +254,59 @@ def mdadm_examine(devpath, export=MDADM_USE_EXPORT):
     return data
 
 
-def mdadm_stop(devpath):
+def mdadm_stop(devpath, retries=None):
     assert_valid_devpath(devpath)
+    if not retries:
+        retries = [0.2] * 60
+
+    sync_action = md_sysfs_attr_path(devpath, 'sync_action')
+    sync_max = md_sysfs_attr_path(devpath, 'sync_max')
+    sync_min = md_sysfs_attr_path(devpath, 'sync_min')
 
     LOG.info("mdadm stopping: %s" % devpath)
-    out, err = util.subp(["mdadm", "--stop", devpath], capture=True)
-    LOG.debug("mdadm stop:\n%s\n%s", out, err)
+    for (attempt, wait) in enumerate(retries):
+        try:
+            LOG.debug('mdadm: stop on %s attempt %s', devpath, attempt)
+            # An array in 'resync' state may not be stoppable, attempt to
+            # cancel an ongoing resync
+            val = md_sysfs_attr(devpath, 'sync_action')
+            LOG.debug('%s/sync_max = %s', sync_action, val)
+            if val != "idle":
+                LOG.debug("mdadm: setting array sync_action=idle")
+                util.write_file(sync_action, content="idle")
+
+            # Setting the sync_{max,min} may can help prevent the array from
+            # changing back to 'resync' which may prevent the array from being
+            # stopped
+            val = md_sysfs_attr(devpath, 'sync_max')
+            LOG.debug('%s/sync_max = %s', sync_max, val)
+            if val != "0":
+                LOG.debug("mdadm: setting array sync_{min,max}=0")
+                try:
+                    util.write_file(sync_max, content="0")
+                    util.write_file(sync_min, content="0")
+                except IOError:
+                    LOG.warning('mdadm: failed to set sync_{max,min} values')
+                    pass
+
+            # one wonders why this command doesn't do any of the above itself?
+            out, err = util.subp(["mdadm", "--manage", "--stop", devpath],
+                                 capture=True)
+            LOG.debug("mdadm stop command output:\n%s\n%s", out, err)
+            LOG.info("mdadm: successfully stopped %s after %s attempt(s)",
+                     devpath, attempt+1)
+            return
+
+        except util.ProcessExecutionError:
+            LOG.warning("mdadm stop failed, retrying ")
+            if os.path.isfile('/proc/mdstat'):
+                LOG.critical("/proc/mdstat:\n%s",
+                             util.load_file('/proc/mdstat'))
+            LOG.debug("mdadm: stop failed, retrying in %s seconds", wait)
+            time.sleep(wait)
+            pass
+
+    raise OSError('Failed to stop mdadm device %s', devpath)
 
 
 def mdadm_remove(devpath):
@@ -293,6 +341,31 @@ def mdadm_detail_scan():
         return out
 
 
+def md_present(mdname):
+    """Check if mdname is present in /proc/mdstat"""
+    if not mdname:
+        raise ValueError('md_present requires a valid md name')
+
+    try:
+        mdstat = util.load_file('/proc/mdstat')
+    except IOError as e:
+        if util.is_file_not_found_exc(e):
+            LOG.warning('Failed to read /proc/mdstat; '
+                        'md modules might not be loaded')
+            return False
+        else:
+            raise e
+
+    md_kname = dev_short(mdname)
+    # Find lines like:
+    # md10 : active raid1 vdc1[1] vda2[0]
+    present = [line for line in mdstat.splitlines()
+               if line.split(":")[0].rstrip() == md_kname]
+    if len(present) > 0:
+        return True
+    return False
+
+
 # ------------------------------ #
 def valid_mdname(md_devname):
     assert_valid_devpath(md_devname)
@@ -315,16 +388,22 @@ def assert_valid_devpath(devpath):
         raise ValueError("Invalid devpath: '%s'" % devpath)
 
 
+def md_sysfs_attr_path(md_devname, attrname):
+    """ Return the path to a md device attribute under the 'md' dir """
+    # build /sys/class/block/<md_short>/md
+    sysmd = sys_block_path(md_devname, "md")
+
+    # append attrname
+    return os.path.join(sysmd, attrname)
+
+
 def md_sysfs_attr(md_devname, attrname):
+    """ Return the attribute str of an md device found under the 'md' dir """
+    attrdata = ''
     if not valid_mdname(md_devname):
         raise ValueError('Invalid md devicename: [{}]'.format(md_devname))
 
-    attrdata = ''
-    #  /sys/class/block/<md_short>/md
-    sysmd = sys_block_path(md_devname, "md")
-
-    #  /sys/class/block/<md_short>/md/attrname
-    sysfs_attr_path = os.path.join(sysmd, attrname)
+    sysfs_attr_path = md_sysfs_attr_path(md_devname, attrname)
     if os.path.isfile(sysfs_attr_path):
         attrdata = util.load_file(sysfs_attr_path).strip()
 

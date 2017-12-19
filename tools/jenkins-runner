@@ -3,6 +3,8 @@
 topdir="${CURTIN_VMTEST_TOPDIR:-${WORKSPACE:-$PWD}/output}"
 pkeep=${CURTIN_VMTEST_KEEP_DATA_PASS:-logs,collect}
 fkeep=${CURTIN_VMTEST_KEEP_DATA_FAIL:-logs,collect}
+reuse=${CURTIN_VMTEST_REUSE_TOPDIR:-0}
+export CURTIN_VMTEST_REUSE_TOPDIR=$reuse
 export CURTIN_VMTEST_IMAGE_SYNC=${CURTIN_VMTEST_IMAGE_SYNC:-0}
 export CURTIN_VMTEST_KEEP_DATA_PASS=$pkeep
 export CURTIN_VMTEST_KEEP_DATA_FAIL=$fkeep
@@ -13,10 +15,12 @@ export IMAGE_DIR=${IMAGE_DIR:-/srv/images}
 
 fail() { echo "$@" 1>&2; exit 1; }
 
-if [ -d "$topdir" ]; then
-    fail "topdir '$topdir' existed."
+if [ "$reuse" != "1" ]; then
+    if [ -d "$topdir" ]; then
+        fail "topdir '$topdir' existed."
+    fi
+    mkdir -p "$topdir" || fail "failed mkdir $topdir"
 fi
-mkdir -p "$topdir" || fail "failed mkdir $topdir"
 
 start_s=$(date +%s)
 parallel=${CURTIN_VMTEST_PARALLEL}
