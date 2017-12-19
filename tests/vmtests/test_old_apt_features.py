@@ -41,8 +41,8 @@ class TestOldAptAbs(VMBaseClass):
     def test_output_files_exist(self):
         """test_output_files_exist - Check if all output files exist"""
         self.output_files_exist(
-            ["debc", "aptconf", "sources.list", "90curtin-aptproxy",
-             "curtin-preserve-sources.cfg", "90_dpkg.cfg"])
+            ["debc", "aptconf", "sources.list", "curtin-preserve-sources.cfg",
+             "90_dpkg.cfg"])
 
     def test_preserve_source(self):
         """test_preserve_source - no clobbering sources.list by cloud-init"""
@@ -56,7 +56,10 @@ class TestOldAptAbs(VMBaseClass):
     def test_aptconf(self):
         """test_aptconf - Check if apt conf for proxy is in place"""
         # this gets configured by tools/launch and get_apt_proxy in
-        # tests/vmtests/__init__.py, so compare with those
+        # tests/vmtests/__init__.py, so compare with those, if set
+        if not self.proxy:
+            self.skipTest('Host apt-proxy not set')
+        self.output_files_exist(["90curtin-aptproxy"])
         rproxy = r"Acquire::http::Proxy \"" + re.escape(self.proxy) + r"\";"
         self.check_file_regex("aptconf", rproxy)
         self.check_file_regex("90curtin-aptproxy", rproxy)

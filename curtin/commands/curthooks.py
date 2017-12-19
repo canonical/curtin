@@ -363,7 +363,12 @@ def setup_grub(cfg, target):
                 LOG.debug("NOT enabling UEFI nvram updates")
                 LOG.debug("Target system may not boot")
         args.append(target)
-        util.subp(args + instdevs, env=env)
+
+        # capture stdout and stderr joined.
+        join_stdout_err = ['sh', '-c', 'exec "$0" "$@" 2>&1']
+        out, _err = util.subp(
+            join_stdout_err + args + instdevs, env=env, capture=True)
+        LOG.debug("%s\n%s\n", args, out)
 
 
 def update_initramfs(target=None, all_kernels=False):
@@ -559,11 +564,6 @@ def detect_and_handle_multipath(cfg, target):
             'GRUB_DISABLE_LINUX_UUID=true',
             ''])
         util.write_file(grub_cfg, content=msg)
-
-        # FIXME: this assumes grub. need more generic way to update root=
-        util.ensure_dir(os.path.sep.join([target, os.path.dirname(grub_dev)]))
-        with util.ChrootableTarget(target) as in_chroot:
-            in_chroot.subp(['update-grub'])
 
     else:
         LOG.warn("Not sure how this will boot")

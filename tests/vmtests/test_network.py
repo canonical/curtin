@@ -111,6 +111,29 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
                     logger.debug('dns_line:%s', dns_line)
                     self.assertTrue(dns_line in resolv_lines)
 
+    def test_static_routes(self):
+        '''check routing table'''
+        network_state = self.get_network_state()
+        ip_route_show = self.load_collect_file("ip_route_show")
+        route_n = self.load_collect_file("route_n")
+
+        print("ip route show:\n%s" % ip_route_show)
+        print("route -n:\n%s" % route_n)
+        routes = network_state.get('routes')
+        for route in routes:
+            print('Checking static route: %s' % route)
+            destnet = (
+                ipaddress.IPv4Network("%s/%s" % (route.get('network'),
+                                                 route.get('netmask'))))
+            route['destination'] = destnet.with_prefixlen
+            expected_string = (
+                "{destination} via {gateway} dev.*".format(**route))
+            if route.get('metric', 0) > 0:
+                expected_string += "metric {metric}".format(**route)
+            print('searching for: %s' % expected_string)
+            m = re.search(expected_string, ip_route_show, re.MULTILINE)
+            self.assertTrue(m is not None)
+
     def test_ip_output(self):
         '''check iproute2 'ip a' output with test input'''
         network_state = self.get_network_state()
@@ -300,9 +323,17 @@ class TrustyHWEWTestNetworkBasic(relbase.trusty_hwe_w, TrustyTestNetworkBasic):
     __test__ = False
 
 
+class TrustyHWEXTestNetworkBasic(relbase.trusty_hwe_x, TrustyTestNetworkBasic):
+    __test__ = True
+
+
 class XenialTestNetworkBasic(relbase.xenial, TestNetworkBasicAbs):
     __test__ = True
 
 
 class YakketyTestNetworkBasic(relbase.yakkety, TestNetworkBasicAbs):
+    __test__ = True
+
+
+class ZestyTestNetworkBasic(relbase.zesty, TestNetworkBasicAbs):
     __test__ = True

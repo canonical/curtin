@@ -17,10 +17,20 @@ class TrustyTestNetworkIPV6ENISource(relbase.trusty, TestNetworkIPV6ENISource):
     __test__ = True
 
 
+class TrustyHWEXTestNetworkIPV6ENISource(relbase.trusty_hwe_x,
+                                         TestNetworkIPV6ENISource):
+    __test__ = True
+
+
 class XenialTestNetworkIPV6ENISource(relbase.xenial, TestNetworkIPV6ENISource):
     __test__ = True
 
 
 class YakketyTestNetworkIPV6ENISource(relbase.yakkety,
                                       TestNetworkIPV6ENISource):
+    __test__ = True
+
+
+class ZestyTestNetworkIPV6ENISource(relbase.zesty,
+                                    TestNetworkIPV6ENISource):
     __test__ = True

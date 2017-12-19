@@ -367,6 +367,11 @@ def disk_handler(info, storage_config):
                 util.subp(["parted", disk, "--script", "mklabel", "msdos"])
             else:
                 raise ValueError('invalid partition table type: %s', ptable)
+        holders = clear_holders.get_holders(disk)
+        if len(holders) > 0:
+            LOG.info('Detected block holders on disk %s: %s', disk, holders)
+            clear_holders.clear_holders(disk)
+            clear_holders.assert_clear(disk)
 
     # Make the name if needed
     if info.get('name'):
@@ -418,7 +423,7 @@ def partition_handler(info, storage_config):
         lbs_path = os.path.join(disk_sysfs_path, 'queue', 'logical_block_size')
         with open(lbs_path, 'r') as f:
             logical_block_size_bytes = int(f.readline())
-    except:
+    except Exception:
         logical_block_size_bytes = 512
     LOG.debug(
         "{} logical_block_size_bytes: {}".format(disk_kname,
@@ -537,6 +542,15 @@ def partition_handler(info, storage_config):
         util.subp(cmd, capture=True)
     else:
         raise ValueError("parent partition has invalid partition table")
+
+    # check if we've triggered hidden metadata like md, lvm or bcache
+    part_kname = get_path_to_storage_volume(info.get('id'), storage_config)
+    holders = clear_holders.get_holders(part_kname)
+    if len(holders) > 0:
+        LOG.debug('Detected block holders on partition %s: %s', part_kname,
+                  holders)
+        clear_holders.clear_holders(part_kname)
+        clear_holders.assert_clear(part_kname)
 
     # Wipe the partition if told to do so, do not wipe dos extended partitions
     # as this may damage the extended partition table

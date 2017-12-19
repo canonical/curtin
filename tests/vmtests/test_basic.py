@@ -122,6 +122,13 @@ class TestBasicAbs(VMBaseClass):
             # no proxy, so the output of apt-config dump should be empty
             self.assertEqual("", apt_proxy_found)
 
+    def test_curtin_install_version(self):
+        installed_version = self.get_install_log_curtin_version()
+        print('Install log version: %s' % installed_version)
+        source_version = self.get_curtin_version()
+        print('Source repo version: %s' % source_version)
+        self.assertEqual(source_version, installed_version)
+
 
 class PreciseTestBasic(relbase.precise, TestBasicAbs):
     __test__ = True
@@ -195,19 +202,8 @@ class PreciseHWETTestBasic(relbase.precise_hwe_t, PreciseTestBasic):
     __test__ = False
 
 
-class TrustyHWEUTestBasic(relbase.trusty_hwe_u, TrustyTestBasic):
-    # off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
-class TrustyHWEVTestBasic(relbase.trusty_hwe_v, TrustyTestBasic):
-    # off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
-class TrustyHWEWTestBasic(relbase.trusty_hwe_w, TrustyTestBasic):
-    # off by default to safe test suite runtime, covered by bonding
-    __test__ = False
+class TrustyHWEXTestBasic(relbase.trusty_hwe_x, TrustyTestBasic):
+    __test__ = True
 
 
 class WilyTestBasic(relbase.wily, TestBasicAbs):
@@ -220,6 +216,10 @@ class XenialTestBasic(relbase.xenial, TestBasicAbs):
 
 
 class YakketyTestBasic(relbase.yakkety, TestBasicAbs):
+    __test__ = True
+
+
+class ZestyTestBasic(relbase.zesty, TestBasicAbs):
     __test__ = True
 
 
@@ -329,4 +329,12 @@ class TestBasicScsiAbs(TestBasicAbs):
 
 
 class XenialTestScsiBasic(relbase.xenial, TestBasicScsiAbs):
+    __test__ = True
+
+
+class YakketyTestScsiBasic(relbase.yakkety, TestBasicScsiAbs):
+    __test__ = True
+
+
+class ZestyTestScsiBasic(relbase.zesty, TestBasicScsiAbs):
     __test__ = True

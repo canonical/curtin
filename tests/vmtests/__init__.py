@@ -18,7 +18,7 @@ from curtin.commands.install import INSTALL_PASS_MSG
 
 from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
-from .image_sync import (IMAGE_SRC_URL, IMAGE_DIR)
+from .image_sync import (IMAGE_SRC_URL, IMAGE_DIR, ITEM_NAME_FILTERS)
 from .helpers import check_call, TimeoutExpired
 from unittest import TestCase, SkipTest
 
@@ -32,7 +32,7 @@ DEFAULT_SSTREAM_OPTS = [
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
-CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", False)
+CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", "1")
 IMAGE_SYNCS = []
 TARGET_IMAGE_FORMAT = "raw"
 
@@ -165,11 +165,13 @@ def sync_images(src_url, base_dir, filters, verbosity=0):
     return
 
 
-def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
+def get_images(src_url, local_d, distro, release, arch, krel=None, sync="1",
                ftypes=None):
     # ensure that the image items (roottar, kernel, initrd)
     # we need for release and arch are available in base_dir.
-    # returns updated ftypes dictionary {ftype: item_url}
+    #
+    # returns ftype dictionary with path to each ftype as values
+    # {ftype: item_url}
     if not ftypes:
         ftypes = {
             'vmtest.root-image': '',
@@ -178,7 +180,7 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
             'boot-initrd': ''
         }
     elif isinstance(ftypes, (list, tuple)):
-        ftypes = dict().fromkeys(ftypes)
+        ftypes = dict().fromkeys(ftypes, '')
 
     common_filters = ['release=%s' % release,
                       'arch=%s' % arch, 'os=%s' % distro]
@@ -186,12 +188,17 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
         common_filters.append('krel=%s' % krel)
     filters = ['ftype~(%s)' % ("|".join(ftypes.keys()))] + common_filters
 
-    if sync:
+    if sync == "1":
+        # sync with the default items + common filters to ensure we get
+        # everything in one go.
+        sync_filters = common_filters + ITEM_NAME_FILTERS
+        logger.debug('Syncing images from %s with filters=%s', src_url,
+                     sync_filters)
         imagesync_mirror(output_d=local_d, source=src_url,
-                         mirror_filters=common_filters,
-                         max_items=IMAGES_TO_KEEP)
-
-    query_str = 'query = %s' % (' '.join(filters))
+                         mirror_filters=sync_filters,
+                         max_items=IMAGES_TO_KEEP, verbosity=1)
+    query_cmd = 'python3 tests/vmtests/image_sync.py'
+    query_str = '%s query %s %s' % (query_cmd, local_d, ' '.join(filters))
     logger.debug('Query %s for image. %s', local_d, query_str)
     fail_msg = None
 
@@ -205,14 +212,15 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync=True,
         results = None
         fail_msg = str(e)
 
-    if not results and not sync:
+    if not results and sync == "1":
         # try to fix this with a sync
         logger.info(fail_msg + "  Attempting to fix with an image sync. (%s)",
                     query_str)
         return get_images(src_url, local_d, distro, release, arch,
-                          krel=krel, sync=True, ftypes=ftypes)
+                          krel=krel, sync="1", ftypes=ftypes)
     elif not results:
-        raise ValueError("Nothing found in query: %s" % query_str)
+        raise ValueError("Required images not found and "
+                         "syncing disabled:\n%s" % query_str)
 
     missing = []
     found = sorted(f.get('ftype') for f in results)
@@ -344,19 +352,25 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def get_test_files(cls):
+        # get local absolute filesystem paths for each of the needed file types
         img_verstr, ftypes = get_images(
             IMAGE_SRC_URL, IMAGE_DIR, cls.distro, cls.release, cls.arch,
             krel=cls.krel if cls.krel else cls.release,
+            sync=CURTIN_VMTEST_IMAGE_SYNC,
             ftypes=('boot-initrd', 'boot-kernel', 'vmtest.root-image'))
         logger.debug("Install Image %s\n, ftypes: %s\n", img_verstr, ftypes)
         logger.info("Install Image: %s", img_verstr)
         if not cls.target_krel and cls.krel:
             cls.target_krel = cls.krel
+
+        # get local absolute filesystem paths for the OS tarball to be
+        # installed
         img_verstr, found = get_images(
             IMAGE_SRC_URL, IMAGE_DIR,
             cls.target_distro if cls.target_distro else cls.distro,
             cls.target_release if cls.target_release else cls.release,
-            cls.arch, krel=cls.target_krel, ftypes=('vmtest.root-tgz',))
+            cls.arch, krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
+            ftypes=('vmtest.root-tgz',))
         logger.debug("Target Tarball %s\n, ftypes: %s\n", img_verstr, found)
         logger.info("Target Tarball: %s", img_verstr)
         ftypes.update(found)
@@ -495,6 +509,11 @@ class VMBaseClass(TestCase):
                 fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)
 
+        excfg = os.environ.get("CURTIN_VMTEST_EXTRA_CONFIG", False)
+        if excfg:
+            configs.append(excfg)
+            logger.debug('Added extra config {}'.format(excfg))
+
         if cls.multipath:
             disks = disks * cls.multipath_num_paths
 
@@ -532,16 +551,17 @@ class VMBaseClass(TestCase):
                     install_log = lfh.read().decode('utf-8', errors='replace')
                 errmsg, errors = check_install_log(install_log)
                 if errmsg:
+                    logger.error('Found error: ' + errmsg)
                     for e in errors:
-                        logger.error(e)
-                    logger.error(errmsg)
-                    raise Exception(cls.__name__ + ":" + errmsg)
+                        logger.error('Context:\n' + e)
+                    raise Exception(cls.__name__ + ":" + errmsg +
+                                    '\n'.join(errors))
                 else:
                     logger.info('Install OK')
             else:
                 logger.info('Install Failed')
                 raise Exception("No install log was produced")
-        except:
+        except Exception:
             cls.tearDownClass()
             raise
 
@@ -640,7 +660,7 @@ class VMBaseClass(TestCase):
         # mount output disk
         try:
             cls.td.collect_output()
-        except:
+        except Exception:
             cls.tearDownClass()
             raise
         logger.info(
@@ -727,6 +747,31 @@ class VMBaseClass(TestCase):
     def load_collect_file(self, filename, mode="r"):
         with open(os.path.join(self.td.collect, filename), mode) as fp:
             return fp.read()
+
+    def load_log_file(self, filename):
+        with open(filename, 'rb') as fp:
+            return fp.read().decode('utf-8', errors='replace')
+
+    def get_install_log_curtin_version(self):
+        # curtin: Installation started. (%s)
+        startre = re.compile(
+            r'curtin: Installation started.[^(]*\((?P<version>[^)]*)\).*')
+        version = None
+        for line in self.load_log_file(self.install_log).splitlines():
+            vermatch = startre.search(line)
+            if vermatch:
+                version = vermatch.group('version')
+                break
+        return version
+
+    def get_curtin_version(self):
+        curtin_exe = os.environ.get('CURTIN_VMTEST_CURTIN_EXE', 'bin/curtin')
+        # use shell=True to allow for CURTIN_VMTEST_CURTIN_EXE to have
+        # spaces in it ("lxc exec container curtin").  That could cause
+        # issues for non shell-friendly chars.
+        vercmd = ' '.join([curtin_exe, "version"])
+        out, _err = util.subp(vercmd, shell=True, capture=True)
+        return out.strip()
 
     def check_file_strippedline(self, filename, search):
         lines = self.load_collect_file(filename).splitlines()
@@ -898,6 +943,14 @@ class PsuedoVMBaseClass(VMBaseClass):
             raise exc
 
 
+def find_error_context(err_match, contents, nrchars=200):
+    context_start = err_match.start() - nrchars
+    context_end = err_match.end() + nrchars
+    # extract contents, split into lines, drop the first and last partials
+    # recombine and return
+    return "\n".join(contents[context_start:context_end].splitlines()[1:-1])
+
+
 def check_install_log(install_log):
     # look if install is OK via curtin 'Installation ok"
     # if we dont find that, scan for known error messages and report
@@ -911,17 +964,18 @@ def check_install_log(install_log):
                    'Installation\ failed',
                    'ImportError: No module named.*',
                    'Unexpected error while running command',
-                   'E: Unable to locate package.*']))
+                   'E: Unable to locate package.*',
+                   'Traceback.*most recent call last.*:']))
 
     install_is_ok = re.findall(install_pass, install_log)
+    # always scan for errors
+    found_errors = re.finditer(install_fail, install_log)
     if len(install_is_ok) == 0:
-        errors = re.findall(install_fail, install_log)
-        if len(errors) > 0:
-            for e in errors:
-                logger.error(e)
-            errmsg = ('Errors during curtin installer')
-        else:
-            errmsg = ('Failed to verify Installation is OK')
+        errmsg = ('Failed to verify Installation is OK')
+
+    for e in found_errors:
+        errors.append(find_error_context(e, install_log))
+        errmsg = ('Errors during curtin installer')
 
     return errmsg, errors
 
@@ -997,6 +1051,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
             { shutdown -P now "Shutting down on centos"; }
         [ "$(lsb_release -sc)" = "precise" ] &&
             { shutdown -P now "Shutting down on precise"; }
+        exit 0;
         """)
 
     scripts = ([collect_prep] + collect_scripts + [collect_post] +

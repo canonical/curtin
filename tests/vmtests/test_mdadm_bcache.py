@@ -124,7 +124,7 @@ class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):
         print("test_ptable does not work for Trusty")
 
 
-class TrustyHWEUTestMdadmBcache(relbase.trusty_hwe_u, TrustyTestMdadmBcache):
+class TrustyHWEXTestMdadmBcache(relbase.trusty_hwe_x, TrustyTestMdadmBcache):
     __test__ = True
 
 
@@ -138,6 +138,10 @@ class XenialTestMdadmBcache(relbase.xenial, TestMdadmBcacheAbs):
 
 
 class YakketyTestMdadmBcache(relbase.yakkety, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class ZestyTestMdadmBcache(relbase.zesty, TestMdadmBcacheAbs):
     __test__ = True
 
 
@@ -164,7 +168,7 @@ class TrustyTestMirrorboot(relbase.trusty, TestMirrorbootAbs):
         print("test_ptable does not work for Trusty")
 
 
-class TrustyHWEUTestMirrorboot(relbase.trusty_hwe_u, TrustyTestMirrorboot):
+class TrustyHWEXTestMirrorboot(relbase.trusty_hwe_x, TrustyTestMirrorboot):
     # This tests kernel upgrade in target
     __test__ = True
 
@@ -179,6 +183,10 @@ class XenialTestMirrorboot(relbase.xenial, TestMirrorbootAbs):
 
 
 class YakketyTestMirrorboot(relbase.yakkety, TestMirrorbootAbs):
+    __test__ = True
+
+
+class ZestyTestMirrorboot(relbase.zesty, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -205,7 +213,7 @@ class TrustyTestMirrorbootPartitions(relbase.trusty,
         print("test_ptable does not work for Trusty")
 
 
-class TrustyHWEUTestMirrorbootPartitions(relbase.trusty_hwe_u,
+class TrustyHWEXTestMirrorbootPartitions(relbase.trusty_hwe_x,
                                          TrustyTestMirrorbootPartitions):
     # This tests kernel upgrade in target
     __test__ = True
@@ -218,6 +226,11 @@ class XenialTestMirrorbootPartitions(relbase.xenial,
 
 class YakketyTestMirrorbootPartitions(relbase.yakkety,
                                       TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
+class ZestyTestMirrorbootPartitions(relbase.zesty,
+                                    TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
@@ -245,7 +258,7 @@ class TrustyTestRaid5Boot(relbase.trusty, TestRaid5bootAbs):
         print("test_ptable does not work for Trusty")
 
 
-class TrustyHWEUTestRaid5Boot(relbase.trusty_hwe_u, TrustyTestRaid5Boot):
+class TrustyHWEXTestRaid5Boot(relbase.trusty_hwe_x, TrustyTestRaid5Boot):
     # This tests kernel upgrade in target
     __test__ = True
 
@@ -260,6 +273,10 @@ class XenialTestRaid5boot(relbase.xenial, TestRaid5bootAbs):
 
 
 class YakketyTestRaid5boot(relbase.yakkety, TestRaid5bootAbs):
+    __test__ = True
+
+
+class ZestyTestRaid5boot(relbase.zesty, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -300,7 +317,7 @@ class TrustyTestRaid6boot(relbase.trusty, TestRaid6bootAbs):
         print("test_ptable does not work for Trusty")
 
 
-class TrustyHWEUTestRaid6boot(relbase.trusty_hwe_u, TrustyTestRaid6boot):
+class TrustyHWEXTestRaid6boot(relbase.trusty_hwe_x, TrustyTestRaid6boot):
     __test__ = True
 
 
@@ -314,6 +331,10 @@ class XenialTestRaid6boot(relbase.xenial, TestRaid6bootAbs):
 
 
 class YakketyTestRaid6boot(relbase.yakkety, TestRaid6bootAbs):
+    __test__ = True
+
+
+class ZestyTestRaid6boot(relbase.zesty, TestRaid6bootAbs):
     __test__ = True
 
 
@@ -342,7 +363,7 @@ class TrustyTestRaid10boot(relbase.trusty, TestRaid10bootAbs):
         print("test_ptable does not work for Trusty")
 
 
-class TrustyHWEUTestRaid10boot(relbase.trusty_hwe_u, TrustyTestRaid10boot):
+class TrustyHWEXTestRaid10boot(relbase.trusty_hwe_x, TrustyTestRaid10boot):
     __test__ = True
 
 
@@ -356,6 +377,10 @@ class XenialTestRaid10boot(relbase.xenial, TestRaid10bootAbs):
 
 
 class YakketyTestRaid10boot(relbase.yakkety, TestRaid10bootAbs):
+    __test__ = True
+
+
+class ZestyTestRaid10boot(relbase.zesty, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -441,7 +466,7 @@ class TrustyTestAllindata(relbase.trusty, TestAllindataAbs):
         print("test_ptable does not work for Trusty")
 
 
-class TrustyHWEUTestAllindata(relbase.trusty_hwe_u, TrustyTestAllindata):
+class TrustyHWEXTestAllindata(relbase.trusty_hwe_x, TrustyTestAllindata):
     __test__ = False  # lukes=no does not disable mounting of device
 
 
@@ -455,4 +480,8 @@ class XenialTestAllindata(relbase.xenial, TestAllindataAbs):
 
 
 class YakketyTestAllindata(relbase.yakkety, TestAllindataAbs):
+    __test__ = True
+
+
+class ZestyTestAllindata(relbase.zesty, TestAllindataAbs):
     __test__ = True
