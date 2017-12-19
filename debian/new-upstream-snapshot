@@ -89,7 +89,7 @@ pversion=$(dpkg-parsechangelog --show-field Version) ||
 prevno=$(echo "$pversion" | sed 's,.*bzr\([0-9]\+\)-.*,\1,') ||
    fail "fail reading previous bzr revision from previous version '$pversion'"
 version=${uver}~bzr${revno}
-tarball=curtin-${version}.tar.gz
+tarball=../curtin-${version}.tar.gz
 t=../curtin_${version}.orig.tar.gz
 if [ -f "$t" ]; then
    echo "using '$t' as tarball" 1>&2
@@ -98,6 +98,8 @@ else
    echo "creating $tarball with bzr export" 1>&2
    bzr export --format=tgz "--revision=${revno}" "$tarball" "${trunk}" ||
      fail "failed exporting bzr in $trunk to $tarball"
+   ln -sf "${tarball##*/}" "$t" ||
+      fail "failed linking ${tarball##*/} to $t"
 fi
 #bzr merge-upstream "$tarball" "--version=${version}" ||
 #   fail "failed merge-upstream of $tarball at version=$version"
