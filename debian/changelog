@@ -1,3 +1,16 @@
+curtin (0.1.0~bzr387-0ubuntu1) yakkety; urgency=medium
+
+  * New upstream snapshot.
+    * fix timestamp in reporting events.
+
+ -- Scott Moser <smoser@ubuntu.com>  Tue, 10 May 2016 10:19:20 -0400
+
+curtin (0.1.0~bzr385-0ubuntu2) yakkety; urgency=medium
+
+  * debian/control: add bcache-tools dependency to curtin.
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 05 May 2016 16:35:37 -0400
+
 curtin (0.1.0~bzr385-0ubuntu1) yakkety; urgency=medium
 
   * debian/control: drop python from curtin-common Depends.
@@ -24,7 +37,7 @@ curtin (0.1.0~bzr385-0ubuntu1) yakkety; urgency=medium
     * add s390x support to curtin and vmtest
   
 
- -- Scott Moser <smoser@ubuntu.com>  Thu, 05 May 2016 13:36:30 -0400
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 05 May 2016 12:43:40 -0400
 
 curtin (0.1.0~bzr365-0ubuntu1) xenial; urgency=medium
 
