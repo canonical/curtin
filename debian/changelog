@@ -1,3 +1,21 @@
+curtin (0.1.0~bzr435-0ubuntu1) zesty; urgency=medium
+
+  * New upstream snapshot.
+    - pep8: fix pep8 errors found with 'make pep8' on zesty.
+    - Workaround failures caused by gpg2 daemons left running in chroot.
+      (LP: #1645680)
+    - Install u-boot-tools when running on a system with u-boot.
+      (LP: #1640519)
+    - block: fix partition kname for raid devices  (LP: #1641661)
+    - Fix up tox errors that slipped in and new pycodestyle 2.1.0 complaints.
+    - vmtests: adjust vmtest image sync metadata filenames
+    - vmtests: Add centos support
+    - Disable WilyTestRaid5Bcache vmtest
+    - tools/xkvm: fix --netdev=<bridge>
+    - bytes2human: fix for values larger than 32 bit int on 32 bit python2.
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 01 Dec 2016 21:05:30 -0500
+
 curtin (0.1.0~bzr425-0ubuntu1) yakkety; urgency=medium
 
   [ Scott Moser ]
