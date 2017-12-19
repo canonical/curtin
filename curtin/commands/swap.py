@@ -72,7 +72,7 @@ CMD_ARGUMENTS = (
      (('-s', '--size'),
       {'help': 'size of swap file (eg: 1G, 1500M, 1024K, 100000. def: "auto")',
                'default': None, 'action': 'store'}),
-     (('-M', '--max'),
+     (('-M', '--maxsize'),
       {'help': 'maximum size of swap file (assuming "auto")',
                'default': None, 'action': 'store'}),
      ('swapfile', {'help': 'path to swap file under target',

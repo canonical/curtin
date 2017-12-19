@@ -97,7 +97,7 @@ EOF
 
 main() {
 	local short_opts="a:d:h:i:k:p:v"
-	local long_opts="add:,append:,disk:,help,initrd:,kernel:,mem:,publish:,uefi,verbose"
+	local long_opts="add:,append:,disk:,help,initrd:,kernel:,mem:,power:,publish:,uefi,verbose"
 	local getopt_out=""
 	getopt_out=$(getopt --name "${0##*/}" \
 		--options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -109,7 +109,7 @@ main() {
 	local udata="" ip="" http_port="${HTTP_PORT:-9923}" burl=""
 	local tmp="" top_d
 	local initrd="" kernel="" uappend="" iargs="" disk_args=""
-	local pubs="" disks=""
+	local pubs="" disks="" pstate="null"
 	local uefi=0
 	pubs=( )
 	disks=( )
@@ -125,6 +125,14 @@ main() {
 			-i|--initrd) initrd="$next"; shift;;
 			-k|--kernel) kernel="$next"; shift;;
 			   --mem) mem="$next"; shift;;
+			   --power)
+				case "$next" in
+					off) pstate="poweroff";;
+					on|none)  pstate="null";;
+					reboot) pstate="$next";;
+					*) error "Invalid power state, must be: off, on, reboot";;
+				esac
+				shift;;
 			-p|--publish) pubs[${#pub[@]}]="$next"; shift;;
 			   --uefi) uefi=1;;
 			-v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
@@ -143,8 +151,8 @@ main() {
 	
 	trap cleanup EXIT
 
-    local bios_opts=""
-    local video="-curses"
+	local bios_opts=""
+	local video="-curses"
 
 	bios_opts=( )
 	if [ $uefi -eq 1 ]; then
@@ -234,8 +242,17 @@ main() {
 
 	udata="${TEMP_D}/user-data"
 	mdata="${TEMP_D}/meta-data"
+
+	local ccfiles=""
+	ccfiles=( )
+	if [ -n "${pstate}" ]; then
+		printf "#cloud-config\npower_state:\n  mode: %s\n" "$pstate" \
+			> "${TEMP_D}/pstate"
+		ccfiles[${#ccfiles[@]}]="${TEMP_D}/pstate"
+	fi
+
 	write_metadata > "$mdata" || { error "failed to write meta-data"; return 1; }
-	write_userdata "${TEMP_D}/install-cmd" > "$udata"  ||
+	write_userdata "${TEMP_D}/install-cmd" "${ccfiles[@]}" > "$udata"  ||
 		{ error "failed to write user-data"; return 1; }
 
 	bootimg="${TEMP_D}/boot.img"
