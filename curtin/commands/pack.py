@@ -17,7 +17,7 @@
 
 import sys
 
-from curtin import util
+from curtin import pack
 
 from . import populate_one_subcmd
 
@@ -50,7 +50,7 @@ def pack_main(args):
         (archpath, filepath) = tok.split(":", 1)
         addl.append((archpath, filepath),)
 
-    util.pack(fdout, command=args.command_args, copy_files=addl)
+    pack.pack(fdout, command=args.command_args, copy_files=addl)
 
     if args.output != "-":
         fdout.close()

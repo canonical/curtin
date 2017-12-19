@@ -16,84 +16,28 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
-import argparse
 import os
 import sys
-import traceback
 
-try:
-    from curtin import log
-    from curtin import util
-except ImportError as e:
-    _tdir = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
-    if (os.path.isdir(os.path.join(_tdir, 'curtin')) and
-            _tdir not in sys.path):
+
+def call_entry_point(name):
+    (istr, dot, ent) = name.rpartition('.')
+    try:
+        __import__(istr)
+    except ImportError:
+        # if that import failed, check dirname(__file__/..)
+        # to support ./bin/curtin with modules in .
+        _tdir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         sys.path.append(_tdir)
-    else:
-        raise
-    from curtin import log
-    from curtin import util
+        try:
+            __import__(istr)
+        except ImportError:
+            sys.stderr.write("Unable to find %s\n" % name)
+            sys.exit(2)
 
-SUB_COMMAND_MODULES = ['block-meta', 'curthooks', 'extract', 'hook',
-                       'in-target', 'install', 'net-meta', 'pack']
-
-
-def add_subcmd(subparser, subcmd):
-    modname = subcmd.replace("-", "_")
-    subcmd_full = "curtin.commands.%s" % modname
-    __import__(subcmd_full)
-    try:
-        popfunc = getattr(sys.modules[subcmd_full], 'POPULATE_SUBCMD')
-    except AttributeError:
-        raise AttributeError("No 'POPULATE_SUBCMD' in %s" % subcmd_full)
-
-    popfunc(subparser.add_parser(subcmd))
-
-
-def main(args=None):
-    if args is None:
-        args = sys.argv
-
-    parser = argparse.ArgumentParser()
-
-    stacktrace = (os.environ.get('CURTIN_STACKTRACE', "0").lower()
-                  not in ("0", "false", ""))
-    parser.add_argument('--showtrace', action='store_true', default=stacktrace)
-    parser.add_argument('--verbose', '-v', action='count', default=0)
-    parser.add_argument('--log-file', default=sys.stderr,
-                        type=argparse.FileType('w'))
-
-    subps = parser.add_subparsers(dest="subcmd")
-    for subcmd in SUB_COMMAND_MODULES:
-        add_subcmd(subps, subcmd)
-    args = parser.parse_args(sys.argv[1:])
-
-    # if user gave cmdline arguments, then lets set environ so subsequent
-    # curtin calls get stacktraces.
-    if args.showtrace and not stacktrace:
-        os.environ['CURTIN_STACKTRACE'] = "1"
-
-    if not getattr(args, 'func', None):
-        # http://bugs.python.org/issue16308
-        parser.print_help()
-        sys.exit(1)
-
-    log.basicConfig(stream=args.log_file, verbosity=args.verbose)
-
-    paths = util.get_curtin_paths(curtin_exe=os.path.realpath(__file__))
-
-    os.environ['PATH'] = ':'.join((paths['helpers'], os.environ['PATH'],))
-
-    try:
-        sys.exit(args.func(args))
-    except Exception as e:
-        if args.showtrace:
-            traceback.print_exc()
-        sys.stderr.write("%s\n" % e)
-        sys.exit(3)
-
+    sys.exit(getattr(sys.modules[istr], ent)())
 
 if __name__ == '__main__':
-    main()
+    call_entry_point("curtin.commands.main.main")
 
 # vi: ts=4 expandtab syntax=python
