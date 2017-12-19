@@ -42,13 +42,20 @@ if __name__ == '__main__':
     arch_filters = ['arch={}'.format(DEFAULT_ARCH)]
     filter_sets = []
     if len(arg_releases):
-        filter_sets.append([_fmt_list_filter('release', arg_releases)])
+        filter_sets.append([_fmt_list_filter('release', arg_releases),
+                            _fmt_list_filter('krel', arg_releases)])
     else:
-        filter_sets.extend(
-            (['os={}'.format(distro), _fmt_list_filter('release', rels)]
-             for (distro, rels) in find_releases_by_distro().items()))
+        for distname, distro in find_releases_by_distro().items():
+            f = ['os={}'.format(distname),
+                 _fmt_list_filter('release', distro.get('releases'))]
+            # ensure we fetch release=x krel=x items
+            krels = distro.get('krels')
+            if krels:
+                krels = set(krels).union(set(distro.get('releases')))
+                f.append(_fmt_list_filter('krel', krels))
+            filter_sets.extend([f])
 
     # Sync images.
     for filter_set in filter_sets:
-        sync_images(IMAGE_SRC_URL, IMAGE_DIR, verbosity=1,
+        sync_images(IMAGE_SRC_URL, IMAGE_DIR, verbosity=2,
                     filters=filter_set + ITEM_NAME_FILTERS + arch_filters)

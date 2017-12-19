@@ -363,7 +363,12 @@ def setup_grub(cfg, target):
                 LOG.debug("NOT enabling UEFI nvram updates")
                 LOG.debug("Target system may not boot")
         args.append(target)
-        util.subp(args + instdevs, env=env)
+
+        # capture stdout and stderr joined.
+        join_stdout_err = ['sh', '-c', 'exec "$0" "$@" 2>&1']
+        out, _err = util.subp(
+            join_stdout_err + args + instdevs, env=env, capture=True)
+        LOG.debug("%s\n%s\n", args, out)
 
 
 def update_initramfs(target=None, all_kernels=False):
@@ -560,11 +565,6 @@ def detect_and_handle_multipath(cfg, target):
             ''])
         util.write_file(grub_cfg, content=msg)
 
-        # FIXME: this assumes grub. need more generic way to update root=
-        util.ensure_dir(os.path.sep.join([target, os.path.dirname(grub_dev)]))
-        with util.ChrootableTarget(target) as in_chroot:
-            in_chroot.subp(['update-grub'])
-
     else:
         LOG.warn("Not sure how this will boot")
 
@@ -619,6 +619,15 @@ def install_missing_packages(cfg, target):
         for pkg, fstypes in format_configs.items():
             if set(fstypes).intersection(format_types) and \
                pkg not in installed_packages:
+                needed_packages.append(pkg)
+
+    arch_packages = {
+        's390x': [('s390-tools', 'zipl')],
+    }
+
+    for pkg, cmd in arch_packages.get(platform.machine(), []):
+        if not util.which(cmd, target=target):
+            if pkg not in needed_packages:
                 needed_packages.append(pkg)
 
     if needed_packages:

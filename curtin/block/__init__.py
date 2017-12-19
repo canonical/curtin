@@ -15,12 +15,14 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+from contextlib import contextmanager
 import errno
-import os
-import stat
-import shlex
-import tempfile
 import itertools
+import os
+import shlex
+import stat
+import sys
+import tempfile
 
 from curtin import util
 from curtin.block import lvm
@@ -165,13 +167,42 @@ def sys_block_path(devname, add=None, strict=True):
     return os.path.normpath(path)
 
 
+def get_holders(device):
+    """
+    Look up any block device holders, return list of knames
+    """
+    # block.sys_block_path works when given a /sys or /dev path
+    sysfs_path = sys_block_path(device)
+    # get holders
+    holders = os.listdir(os.path.join(sysfs_path, 'holders'))
+    LOG.debug("devname '%s' had holders: %s", device, holders)
+    return holders
+
+
+def _shlex_split(str_in):
+    # shlex.split takes a string
+    # but in python2 if input here is a unicode, encode it to a string.
+    # http://stackoverflow.com/questions/2365411/
+    #     python-convert-unicode-to-ascii-without-errors
+    if sys.version_info.major == 2:
+        try:
+            if isinstance(str_in, unicode):
+                str_in = str_in.encode('utf-8')
+        except NameError:
+            pass
+
+        return shlex.split(str_in)
+    else:
+        return shlex.split(str_in)
+
+
 def _lsblock_pairs_to_dict(lines):
     """
     parse lsblock output and convert to dict
     """
     ret = {}
     for line in lines.splitlines():
-        toks = shlex.split(line)
+        toks = _shlex_split(line)
         cur = {}
         for tok in toks:
             k, v = tok.split("=", 1)
@@ -378,7 +409,11 @@ def rescan_block_devices():
     except util.ProcessExecutionError as e:
         # FIXME: its less than ideal to swallow this error, but until
         # we fix LP: #1489521 we kind of need to.
-        LOG.warn("rescanning devices failed: %s", e)
+        LOG.warn("Error rescanning devices, possibly known issue LP: #1489521")
+        # Reformatting the exception output so as to not trigger
+        # vmtest scanning for Unexepected errors in install logfile
+        LOG.warn("cmd: %s\nstdout:%s\nstderr:%s\nexit_code:%s", e.cmd,
+                 e.stdout, e.stderr, e.exit_code)
 
     udevadm_settle()
 
@@ -407,7 +442,8 @@ def blkid(devs=None, cache=True):
     data = {}
     for line in out.splitlines():
         curdev, curdata = line.split(":", 1)
-        data[curdev] = dict(tok.split('=', 1) for tok in shlex.split(curdata))
+        data[curdev] = dict(tok.split('=', 1)
+                            for tok in _shlex_split(curdata))
     return data
 
 
@@ -521,7 +557,7 @@ def get_root_device(dev, fpath="curtin"):
             if os.path.isdir(curtin_dir):
                 target = dev_path
                 break
-        except:
+        except Exception:
             pass
         finally:
             if mp:
@@ -688,7 +724,7 @@ def check_dos_signature(device):
     # this signature must be at 0x1fe
     # https://en.wikipedia.org/wiki/Master_boot_record#Sector_layout
     return (is_block_device(device) and util.file_size(device) >= 0x200 and
-            (util.load_file(device, mode='rb', read_len=2, offset=0x1fe) ==
+            (util.load_file(device, decode=False, read_len=2, offset=0x1fe) ==
              b'\x55\xAA'))
 
 
@@ -706,7 +742,7 @@ def check_efi_signature(device):
     sector_size = get_blockdev_sector_size(device)[0]
     return (is_block_device(device) and
             util.file_size(device) >= 2 * sector_size and
-            (util.load_file(device, mode='rb', read_len=8,
+            (util.load_file(device, decode=False, read_len=8,
                             offset=sector_size) == b'EFI PART'))
 
 
@@ -721,6 +757,39 @@ def is_extended_partition(device):
     return (get_part_table_type(parent_dev) in ['dos', 'msdos'] and
             part_number is not None and int(part_number) <= 4 and
             check_dos_signature(device))
+
+
+@contextmanager
+def exclusive_open(path):
+    """
+    Obtain an exclusive file-handle to the file/device specified
+    """
+    mode = 'rb+'
+    fd = None
+    if not os.path.exists(path):
+        raise ValueError("No such file at path: %s" % path)
+
+    try:
+        fd = os.open(path, os.O_RDWR | os.O_EXCL)
+        try:
+            fd_needs_closing = True
+            with os.fdopen(fd, mode) as fo:
+                yield fo
+            fd_needs_closing = False
+        except OSError:
+            LOG.exception("Failed to create file-object from fd")
+            raise
+        finally:
+            # python2 leaves fd open if there os.fdopen fails
+            if fd_needs_closing and sys.version_info.major == 2:
+                os.close(fd)
+    except OSError:
+        LOG.exception("Failed to exclusively open path: %s", path)
+        holders = get_holders(path)
+        LOG.error('Device holders with exclusive access: %s', holders)
+        mount_points = util.list_device_mounts(path)
+        LOG.error('Device mounts: %s', mount_points)
+        raise
 
 
 def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
@@ -742,7 +811,7 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
     LOG.debug("%s is %s bytes. wiping with buflen=%s",
               path, size, buflen)
 
-    with open(path, "rb+") as fp:
+    with exclusive_open(path) as fp:
         while True:
             pbuf = readfunc(buflen)
             pos = fp.tell()
@@ -772,11 +841,17 @@ def quick_zero(path, partitions=True):
     if not (is_block or os.path.isfile(path)):
         raise ValueError("%s: not an existing file or block device", path)
 
+    pt_names = []
     if partitions and is_block:
         ptdata = sysfs_partition_data(path)
         for kname, ptnum, start, size in ptdata:
-            offsets.append(start)
-            offsets.append(start + size - zero_size)
+            pt_names.append((dev_path(kname), kname, ptnum))
+        pt_names.reverse()
+
+    for (pt, kname, ptnum) in pt_names:
+        LOG.debug('Wiping path: dev:%s kname:%s partnum:%s',
+                  pt, kname, ptnum)
+        quick_zero(pt, partitions=False)
 
     LOG.debug("wiping 1M on %s at offsets %s", path, offsets)
     return zero_file_at_offsets(path, offsets, buflen=buflen, count=count)
@@ -796,7 +871,8 @@ def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False):
     buf = b'\0' * buflen
     tot = buflen * count
     msg_vals = {'path': path, 'tot': buflen * count}
-    with open(path, "rb+") as fp:
+
+    with exclusive_open(path) as fp:
         # get the size by seeking to end.
         fp.seek(0, 2)
         size = fp.tell()

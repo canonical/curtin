@@ -679,8 +679,10 @@ install_grub() {
         if [ "$update_nvram" -ge 1 ]; then
             nvram=""
         fi    
-        debug 1 "installing ${grub_name} to: /boot/efi"
-        chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
+        debug 1 "curtin uefi: installing ${grub_name} to: /boot/efi"
+        chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -exc '
+            echo "before grub-install efiboot settings"
+            efibootmgr || echo "WARN: efibootmgr exited $?"
             dpkg-reconfigure "$1"
             update-grub
             # grub-install in 12.04 does not contain --no-nvram, --target,
@@ -696,6 +698,12 @@ install_grub() {
                 --bootloader-id=ubuntu --recheck $no_nvram' -- \
             "${grub_name}" "${grub_target}" "$nvram" </dev/null ||
             { error "failed to install grub!"; return 1; }
+
+        chroot "$mp" sh -exc '
+            echo "after grub-install efiboot settings"
+            efibootmgr || echo "WARN: efibootmgr exited $?"
+            ' -- </dev/null ||
+            { error "failed to list efi boot entries!"; return 1; }
     else
         # Note: dpkg-reconfigure calls grub-install on ppc64
         # this means that using '--no-nvram' below ends up
@@ -703,8 +711,8 @@ install_grub() {
         # runs grub-install with no target.  That ends up
         # updating nvram badly, and then the grub-install would
         # not fix it because of the no-nvram there.
-        debug 1 "installing ${grub_name} to: ${grubdevs[*]}"
-        chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
+        debug 1 "curtin non-uefi: installing ${grub_name} to: ${grubdevs[*]}"
+        chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -exc '
             pkg=$1; shift;
             dpkg-reconfigure "$pkg"
             update-grub

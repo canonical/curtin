@@ -65,7 +65,7 @@ BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 
 def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
-          logstring=False, decode="replace", target=None):
+          logstring=False, decode="replace", target=None, cwd=None):
     if rcs is None:
         rcs = [0]
 
@@ -93,7 +93,8 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
             stdin = subprocess.PIPE
         sp = subprocess.Popen(args, stdout=stdout,
                               stderr=stderr, stdin=stdin,
-                              env=env, shell=shell)
+                              env=env, shell=shell, cwd=cwd)
+        # communicate in python2 returns str, python3 returns bytes
         (out, err) = sp.communicate(data)
 
         # Just ensure blank instead of none.
@@ -151,10 +152,21 @@ def subp(*args, **kwargs):
         means to run, sleep 1, run, sleep 3, run and then return exit code.
     :param target:
         run the command as 'chroot target <args>'
+
+    :return
+        if not capturing, return is (None, None)
+        if capturing, stdout and stderr are returned.
+            if decode:
+                python2 unicode or python3 string
+            if not decode:
+                python2 string or python3 bytes
     """
     retries = []
     if "retries" in kwargs:
         retries = kwargs.pop("retries")
+        if not retries:
+            # allow retries=None
+            retries = []
 
     if args:
         cmd = args[0]
@@ -274,6 +286,19 @@ def is_mounted(target, src=None, opts=None):
     return False
 
 
+def list_device_mounts(device):
+    # return mount entry if device is in /proc/mounts
+    mounts = ""
+    with open("/proc/mounts", "r") as fp:
+        mounts = fp.read()
+
+    dev_mounts = []
+    for line in mounts.splitlines():
+        if line.split()[0] == device:
+            dev_mounts.append(line)
+    return dev_mounts
+
+
 def do_mount(src, target, opts=None):
     # mount src at target with opts and return True
     # if already mounted, return False
@@ -321,11 +346,21 @@ def write_file(filename, content, mode=0o644, omode="w"):
         os.chmod(filename, mode)
 
 
-def load_file(path, mode="r", read_len=None, offset=0):
-    with open(path, mode) as fp:
+def load_file(path, read_len=None, offset=0, decode=True):
+    with open(path, "rb") as fp:
         if offset:
             fp.seek(offset)
-        return fp.read(read_len) if read_len else fp.read()
+        contents = fp.read(read_len) if read_len else fp.read()
+
+    if decode:
+        return decode_binary(contents)
+    else:
+        return contents
+
+
+def decode_binary(blob, encoding='utf-8', errors='replace'):
+    # Converts a binary type into a text type using given encoding.
+    return blob.decode(encoding, errors=errors)
 
 
 def file_size(path):
@@ -410,7 +445,7 @@ class ChrootableTarget(object):
                 os.rename(rconf, tmp)
                 self.rconf_d = rtd
                 shutil.copy("/etc/resolv.conf", rconf)
-            except:
+            except Exception:
                 if rtd:
                     shutil.rmtree(rtd)
                     self.rconf_d = None

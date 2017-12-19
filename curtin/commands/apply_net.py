@@ -157,10 +157,10 @@ def _disable_ipv6_privacy_extensions(target,
             LOG.debug("found content:\n%s", lines)
             LOG.debug("expected contents:\n%s", known_contents)
             msg = (bmsg + " '%s' exists with user configured content." % cfg)
-    except:
-        msg = bmsg + " %s exists, but could not be read." % cfg
+    except Exception as e:
+        msg = bmsg + " %s exists, but could not be read. %s" % (cfg, e)
         LOG.exception(msg)
-        return
+        raise
 
 
 def _maybe_remove_legacy_eth0(target,
@@ -191,10 +191,10 @@ def _maybe_remove_legacy_eth0(target,
             msg = "removed %s with known contents" % cfg
         else:
             msg = (bmsg + " '%s' exists with user configured content." % cfg)
-    except:
+    except Exception:
         msg = bmsg + " %s exists, but could not be read." % cfg
         LOG.exception(msg)
-        return
+        raise
 
     LOG.warn(msg)
 

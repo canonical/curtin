@@ -24,12 +24,15 @@ import traceback
 from .. import log
 from .. import util
 from ..deps import install_deps
+from .. import version
+
+VERSIONSTR = version.version_string()
 
 SUB_COMMAND_MODULES = [
     'apply_net', 'block-info', 'block-meta', 'block-wipe', 'curthooks',
     'clear-holders', 'extract', 'hook', 'in-target', 'install', 'mkfs',
     'net-meta', 'apt-config', 'pack', 'swap', 'system-install',
-    'system-upgrade']
+    'system-upgrade', 'version']
 
 
 def add_subcmd(subparser, subcmd):
@@ -57,7 +60,7 @@ class NoHelpParser(argparse.ArgumentParser):
 
 def get_main_parser(stacktrace=False, verbosity=0,
                     parser_class=argparse.ArgumentParser):
-    parser = parser_class(prog='curtin')
+    parser = parser_class(prog='curtin', epilog='Version %s' % VERSIONSTR)
     parser.add_argument('--showtrace', action='store_true', default=stacktrace)
     parser.add_argument('-v', '--verbose', action='count', default=verbosity,
                         dest='verbosity')
