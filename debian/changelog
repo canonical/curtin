@@ -1,3 +1,15 @@
+curtin (0.1.0~bzr195-0ubuntu1) vivid; urgency=medium
+
+  * New upstream snapshot.
+    * move install log from /var/log/curtin_install.log to
+      /var/log/curtin/install.log (LP: #1378910)
+    * to not use '--acl' when extracting tar files (LP: #1382632)
+      as it inadvertently writes default directory acls.
+    * invoke lsblk with '--output' rather than '--out' to avoid
+      ambiguity in newer versions of lsblk (LP: #1386275)
+
+ -- Scott Moser <smoser@ubuntu.com>  Mon, 27 Oct 2014 12:25:27 -0400
+
 curtin (0.1.0~bzr190-0ubuntu1) utopic; urgency=medium
 
   * New upstream snapshot.
