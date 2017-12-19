@@ -1,3 +1,11 @@
+curtin (0.1.0~bzr389-0ubuntu1) yakkety; urgency=medium
+
+  * New upstream snapshot. 
+    * Detect and remove legacy /etc/network/interfaces.d/eth0.cfg from
+      target (LP: #1582410)
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 03 Jun 2016 09:34:17 -0400
+
 curtin (0.1.0~bzr387-0ubuntu1) yakkety; urgency=medium
 
   * New upstream snapshot.
