@@ -203,16 +203,47 @@ def stop_all_unused_multipath_devices():
         LOG.warn("Failed to stop multipath devices: %s", e)
 
 
+def rescan_block_devices():
+    # run 'blockdev --rereadpt' for all block devices not currently mounted
+    unused = get_unused_blockdev_info()
+    devices = []
+    for devname, data in unused.items():
+        if data.get('RM') == "1":
+            continue
+        if data.get('RO') != "0" or data.get('TYPE') != "disk":
+            continue
+        devices.append(data['device_path'])
+
+    if not devices:
+        LOG.debug("no devices found to rescan")
+        return
+
+    cmd = ['blockdev', '--rereadpt'] + devices
+    try:
+        util.subp(cmd, capture=True)
+        util.subp(['udevadm', 'settle'])
+    except util.ProcessExecutionError as e:
+        LOG.warn("rescanning devices failed: %s", e)
+
+    return
+
+
 def blkid(devs=None, cache=True):
     if devs is None:
         devs = []
-    cachefile = "/run/blkid/blkid.tab"
-    if not cache and os.path.exists(cachefile):
-        os.unlink(cachefile)
 
+    # 14.04 blkid reads undocumented /dev/.blkid.tab
+    # man pages mention /run/blkid.tab and /etc/blkid.tab
+    if not cache:
+        cfiles = ("/run/blkid/blkid.tab", "/dev/.blkid.tab", "/etc/blkid.tab")
+        for cachefile in cfiles:
+            if os.path.exists(cachefile):
+                os.unlink(cachefile)
+
+    cmd = ['blkid', '-o', 'full']
     # blkid output is <device_path>: KEY=VALUE
     # where KEY is TYPE, UUID, PARTUUID, LABEL
-    out, err = util.subp(['blkid', '-o', 'full'] + devs, capture=True)
+    out, err = util.subp(cmd, capture=True)
     data = {}
     for line in out.splitlines():
         curdev, curdata = line.split(":", 1)
@@ -240,7 +271,9 @@ def detect_multipath(target_mountpoint):
     # multipath disk if it doesn't any filesystems.  Good news is that
     # target disk will always have a filesystem because curtin creates them
     # while installing the system.
+    rescan_block_devices()
     binfo = blkid(cache=False)
+    LOG.debug("detect_multipath found blkid info: %s", binfo)
     # get_devices_for_mp may return multiple devices by design. It is not yet
     # implemented but it should return multiple devices when installer creates
     # separate disk partitions for / and /boot. We need to do UUID-based
