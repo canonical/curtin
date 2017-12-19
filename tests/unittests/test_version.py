@@ -31,16 +31,16 @@ class TestCurtinVersion(CiTestCase):
 
         version._PACKAGED_VERSION = original_pkg_string
 
-    def test_bzr_revno_version(self):
+    def test_git_describe_version(self):
         self.mock_path.exists.return_value = True
-        bzr_revno = "999"
-        self.mock_subp.return_value = bzr_revno.encode("utf-8")
+        git_describe = old_version + "-13-g90fa654f"
+        self.mock_subp.return_value = git_describe.encode("utf-8")
 
         ver_string = version.version_string()
-        self.assertEqual(old_version + "~bzr" + bzr_revno, ver_string)
+        self.assertEqual(git_describe, ver_string)
 
     @mock.patch.object(os, 'getcwd')
-    def test_bzr_revno_version_exception(self, mock_getcwd):
+    def test_git_describe_version_exception(self, mock_getcwd):
         self.mock_path.exists.return_value = True
         mock_getcwd.return_value = "/tmp/foo"
         self.mock_subp.side_effect = subprocess.CalledProcessError(1, 'foo')
