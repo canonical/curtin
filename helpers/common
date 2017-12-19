@@ -12,8 +12,8 @@ Usage: ${0##*/} [ options ] target-dev
    destroy any partition table that might be there already.
 
    options:
-     -f | --format F   use partition table format F. [mbr, gpt, uefi]
-                       default gpt
+     -f | --format F   use partition table format F. [mbr, gpt, uefi, prep]
+                       default mbr
      -E | --end E      end the partition at E (unit 1k bytes)
      -b | --boot       create a boot partition (512 MiB - default)
 EOF
@@ -198,6 +198,39 @@ pt_mbr() {
     }
 }
 
+pt_prep() {
+    local target="$1" end=${2:-""}
+    local cmd="" isblk=false
+    [ -b "$target" ] && isblk=true
+
+    sgdisk --zap-all "$target" ||
+        fail "failed to clear $target";
+
+    cmd=(
+        sgdisk 
+           --new "1::+8M"  --typecode=1:4100
+           --new "2::$end" --typecode=2:8300
+           "$target"
+    )
+    "${cmd[@]}" ||
+        fail "Failed to create GPT partitions (${cmd[*]})"
+
+    udevadm trigger
+    udevadm settle
+
+    if $isblk; then
+        blockdev --rereadpt "$target"
+        udevadm settle
+        [ -b "${target}1" ] ||
+            { error "no partition found ${target}1"; return 1; }
+        [ -b "${target}2" ] ||
+            { error "no partition found ${target}2"; return 1; }
+        dd if=/dev/zero of="${target}1"
+    fi
+
+    return 0
+}
+
 partition_main() {
     local short_opts="hE:f:bv"
     local long_opts="help,end:,format:,boot,verbose"
@@ -207,7 +240,7 @@ partition_main() {
         { partition_main_usage 1>&2; return 1; }
 
     local cur="" next=""
-    local format="gpt" boot=false target="" end=""
+    local format="mbr" boot=false target="" end=""
 
     while [ $# -ne 0 ]; do
         cur="$1"; next="$2";
@@ -231,7 +264,8 @@ partition_main() {
         end="$_RET"
     fi
 
-    [ "$format" = "gpt" -o "$format" = "mbr" -o "$format" = "uefi" ] ||
+    [ "$format" = "gpt" -o "$format" = "mbr" ] ||
+        [ "$format" = "uefi" -o "$format" = "prep" ] ||
         { partition_main_usage "invalid format: $format" 1>&2; return 1; }
 
     TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
@@ -250,6 +284,8 @@ partition_main() {
         pt_gpt "$target" "$end" "$boot"
     elif [ "$format" = "uefi" ]; then
         pt_uefi "$target" "$end"
+    elif [ "$format" = "prep" ]; then
+        pt_prep "$target" "$end"
     fi
 
     trap cleanup EXIT
@@ -316,6 +352,9 @@ install_grub() {
     shift
     local grubdevs
     grubdevs=( "$@" )
+    if [ "${#grubdevs[@]}" = "1" -a "${grubdevs[0]}" = "none" ]; then
+        grubdevs=( )
+    fi
 
     # find the mp device
     mp_dev=$(awk -v MP=${mp} '$2==MP {print$1}' /proc/mounts)
@@ -338,7 +377,7 @@ install_grub() {
     # set correct grub package
     local grub_name="grub-pc"
     local grub_target="i386-pc"
-    if [ "$dpkg_arch" = "ppc64el" ]; then
+    if [ "${dpkg_arch#ppc64}" != "${dpkg_arch}" ]; then
         grub_name="grub-ieee1275"
         grub_target="powerpc-ieee1275"
     elif [ "$uefi" -ge 1 ]; then
@@ -456,14 +495,15 @@ install_grub() {
             -- "${grub_name}" "${grub_target}" </dev/null ||
             { error "failed to install grub!"; return 1; }
     else
-        debug 1 "installing grub-pc to: ${grubdevs[*]}"
+        debug 1 "installing ${grub_name} to: ${grubdevs[*]}"
         chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
+            pkg=$1; shift;
             prober="/etc/grub.d/30_os-prober"
             [ -x $prober ] && chmod -x "$prober"
-            dpkg-reconfigure grub-pc
+            dpkg-reconfigure "$pkg"
             [ -f $prober ] && chmod +x "$prober"
             for d in "$@"; do grub-install "$d" || exit; done' \
-            -- "${grubdevs[@]}" </dev/null ||
+            -- "${grub_name}" "${grubdevs[@]}" </dev/null ||
             { error "failed to install grub!"; return 1; }
     fi
 

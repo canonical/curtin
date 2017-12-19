@@ -24,6 +24,7 @@ from . import populate_one_subcmd
 
 import os
 import platform
+import sys
 
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
@@ -34,6 +35,10 @@ CMD_ARGUMENTS = (
        'metavar': 'DEVICE', 'default': None, }),
      ('--fstype', {'help': 'root partition filesystem type',
                    'choices': ['ext4', 'ext3'], 'default': 'ext4'}),
+     (('-t', '--target'),
+      {'help': 'chroot to target. default is env[TARGET_MOUNT_POINT]',
+       'action': 'store', 'metavar': 'TARGET',
+       'default': os.environ.get('TARGET_MOUNT_POINT')}),
      ('--boot-fstype', {'help': 'boot partition filesystem type',
                         'choices': ['ext4', 'ext3'], 'default': None}),
      ('mode', {'help': 'meta-mode to use',
@@ -81,7 +86,7 @@ def get_bootpt_cfg(cfg, enabled=False, fstype=None, root_fstype=None):
     ret.update(cfg)
     if enabled:
         ret['enabled'] = True
-    
+
     if ret['enabled'] and not ret['fstype']:
         if root_fstype:
             ret['fstype'] = root_fstype
@@ -98,6 +103,14 @@ def meta_simple(args):
 
     cfg = util.load_command_config(args, state)
 
+    if args.target is not None:
+        state['target'] = args.target
+
+    if state['target'] is None:
+        sys.stderr.write("Unable to find target.  "
+                         "Use --target or set TARGET_MOUNT_POINT\n")
+        sys.exit(2)
+
     devices = args.devices
     if devices is None:
         devices = cfg.get('block-meta', {}).get('devices', [])
@@ -113,7 +126,7 @@ def meta_simple(args):
     if len(devices) == 0:
         devices = block.get_installable_blockdevs()
         LOG.warn("'%s' mode, no devices given. unused list: %s",
-                 (args.mode, devices))
+                 args.mode, devices)
 
     if len(devices) > 1:
         if args.devices is not None:
@@ -123,7 +136,7 @@ def meta_simple(args):
                      if block.is_valid_device(f)]
         target = sorted(available)[0]
         LOG.warn("mode is '%s'. multiple devices given. using '%s' "
-                 "(first available)", (args.mode, target))
+                 "(first available)", args.mode, target)
     else:
         target = devices[0]
 
@@ -132,7 +145,7 @@ def meta_simple(args):
 
     (devname, devnode) = block.get_dev_name_entry(target)
 
-    LOG.info("installing in '%s' mode to '%s'", (args.mode, devname))
+    LOG.info("installing in '%s' mode to '%s'", args.mode, devname)
 
     sources = cfg.get('sources', {})
     dd_images = util.get_dd_images(sources)
@@ -150,6 +163,10 @@ def meta_simple(args):
             "partition --format uefi %s" % devnode,
             util.subp, ("partition", "--format", "uefi", devnode))
         bootpt['enabled'] = False
+    elif platform.machine().startswith('ppc64'):
+        logtime("partition --format %s" % devnode,
+                util.subp, ("partition", "--format", "prep", devnode))
+        rootdev = devnode + "2"
     elif bootpt['enabled']:
         logtime("partition --boot %s" % devnode,
                 util.subp, ("partition", "--boot", devnode))
@@ -176,12 +193,15 @@ def meta_simple(args):
         logtime(' '.join(cmd), util.subp, cmd)
         util.subp(['mount', bootdev, boot_dir])
 
-    with open(state['fstab'], "w") as fp:
-        if bootpt['enabled']:
-            fp.write("LABEL=%s /boot %s defaults 0 0\n" %
-                     (bootpt['label'], bootpt['fstype']))
-        fp.write("LABEL=%s / %s defaults 0 0\n" %
-                 ('cloudimg-rootfs', args.fstype))
+    if state['fstab']:
+        with open(state['fstab'], "w") as fp:
+            if bootpt['enabled']:
+                fp.write("LABEL=%s /boot %s defaults 0 0\n" %
+                         (bootpt['label'], bootpt['fstype']))
+            fp.write("LABEL=%s / %s defaults 0 0\n" %
+                     ('cloudimg-rootfs', args.fstype))
+    else:
+        LOG.info("fstab not in environment, so not writing")
 
     return 0
 

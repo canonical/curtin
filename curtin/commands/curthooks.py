@@ -15,17 +15,20 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+import copy
 import glob
 import os
 import platform
 import re
 import sys
 import shutil
+import textwrap
 
 from curtin import config
 from curtin import block
 from curtin import futil
 from curtin.log import LOG
+from curtin import swap
 from curtin import util
 
 from . import populate_one_subcmd
@@ -141,27 +144,32 @@ def install_kernel(cfg, target):
     kernel_cfg = cfg.get('kernel', {'package': None,
                                     'fallback-package': None,
                                     'mapping': {}})
+    if kernel_cfg is not None:
+        kernel_package = kernel_cfg.get('package')
+        kernel_fallback = kernel_cfg.get('fallback-package')
+    else:
+        kernel_package = None
+        kernel_fallback = None
+
+    mapping = copy.deepcopy(KERNEL_MAPPING)
+    config.merge_config(mapping, kernel_cfg['mapping'])
 
     with util.RunInChroot(target) as in_chroot:
-        if kernel_cfg is not None:
-            kernel_package = kernel_cfg.get('package')
-            kernel_fallback = kernel_cfg.get('fallback-package')
-        else:
-            kernel_package = None
-            kernel_fallback = None
 
         if kernel_package:
             util.install_packages([kernel_package], target=target)
             return
 
-        _, _, kernel, _, _ = os.uname()
-        out, _ = in_chroot(['lsb_release', '--codename', '--short'],
-                           capture=True)
-        version, _, flavor = kernel.split('-', 2)
-        config.merge_config(kernel_cfg['mapping'], KERNEL_MAPPING)
+        # uname[2] is kernel name (ie: 3.16.0-7-generic)
+        # version gets X.Y.Z, flavor gets anything after second '-'.
+        kernel = os.uname()[2]
+        codename, err = in_chroot(['lsb_release', '--codename', '--short'],
+                                  capture=True)
+        codename = codename.strip()
+        version, abi, flavor = kernel.split('-', 2)
 
         try:
-            map_suffix = kernel_cfg['mapping'][out.strip()][version]
+            map_suffix = mapping[codename][version]
         except KeyError:
             LOG.warn("Couldn't detect kernel package to install for %s."
                      % kernel)
@@ -171,7 +179,10 @@ def install_kernel(cfg, target):
 
         package = "linux-{flavor}{map_suffix}".format(
             flavor=flavor, map_suffix=map_suffix)
-        out, _ = in_chroot(['apt-cache', 'search', package], capture=True)
+
+        util.apt_update(target)
+        out, err = in_chroot(['apt-cache', 'search', package], capture=True)
+
         if (len(out.strip()) > 0 and
                 not util.has_pkg_installed(package, target)):
             util.install_packages([package], target=target)
@@ -262,6 +273,7 @@ def get_installed_packages(target=None):
 
 
 def setup_grub(cfg, target):
+    # target is the path to the mounted filesystem
     grubcfg = cfg.get('grub', {})
 
     # copy legacy top level name
@@ -281,7 +293,27 @@ def setup_grub(cfg, target):
             (blockdev, part) = block.get_blockdev_for_partition(maybepart)
             blockdevs.add(blockdev)
 
-        instdevs = list(blockdevs)
+        if platform.machine().startswith("ppc64"):
+            # ppc64 we want the PReP partitions on the installed block devices.
+            # the shnip here prints /dev/xxxN for each N that has 'prep' flags
+            shnip = textwrap.dedent("""
+                export LANG=C;
+                for d in "$@"; do
+                  parted --machine "$d" print |
+                    awk -F: "\$7 ~ /prep/ { print d \$1 }" d=$d; done
+                """)
+            try:
+                out, err = util.subp(
+                    ['sh', '-c', shnip, '--'] + list(blockdevs),
+                    capture=True)
+                instdevs = str(out).splitlines()
+                if not instdevs:
+                    LOG.warn("No PReP partitions found!")
+            except util.ProcessExecutionError as e:
+                LOG.warn("Failed to find PReP partitions with parted: %s", e)
+                instdevs = ["none"]
+        else:
+            instdevs = list(blockdevs)
 
     # UEFI requires grub-efi-{arch}. If a signed version of that package
     # exists then it will be installed.
@@ -309,7 +341,10 @@ def setup_grub(cfg, target):
     else:
         env['REPLACE_GRUB_LINUX_DEFAULT'] = "1"
 
-    instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
+    if instdevs:
+        instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
+    else:
+        instdevs = []
     LOG.debug("installing grub to %s [replace_default=%s]",
               instdevs, replace_default)
     with util.ChrootableTarget(target):
@@ -356,6 +391,31 @@ def restore_dist_interfaces(cfg, target):
         shutil.move(eni + ".dist", eni)
 
 
+def add_swap(cfg, target, fstab):
+    # add swap file per cfg to filesystem root at target. update fstab.
+    #
+    # swap:
+    #  filename: 'swap.img',
+    #  size: None # (or 1G)
+    #  maxsize: 2G
+    if 'swap' in cfg and not cfg.get('swap'):
+        LOG.debug("disabling 'add_swap' due to config")
+        return
+
+    swapcfg = cfg.get('swap', {})
+    fname = swapcfg.get('filename', None)
+    size = swapcfg.get('size', None)
+    maxsize = swapcfg.get('maxsize', None)
+
+    if size:
+        size = util.human2bytes(str(size))
+    if maxsize:
+        maxsize = util.human2bytes(str(maxsize))
+
+    swap.setup_swapfile(target=target, fstab=fstab, swapfile=fname, size=size,
+                        maxsize=maxsize)
+
+
 def curthooks(args):
     state = util.load_command_environment()
 
@@ -383,6 +443,8 @@ def curthooks(args):
     apply_debconf_selections(cfg, target)
 
     restore_dist_interfaces(cfg, target)
+
+    add_swap(cfg, target, state.get('fstab'))
 
     copy_interfaces(state.get('interfaces'), target)
     copy_fstab(state.get('fstab'), target)

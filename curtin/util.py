@@ -266,7 +266,9 @@ def undisable_daemons_in_root(target):
 
 class ChrootableTarget(object):
     def __init__(self, target, allow_daemons=False, sys_resolvconf=True):
-        self.target = target
+        if target is None:
+            target = "/"
+        self.target = os.path.abspath(target)
         self.mounts = ["/dev", "/proc", "/sys"]
         self.umounts = []
         self.disabled_daemons = False
@@ -283,10 +285,12 @@ class ChrootableTarget(object):
         if not self.allow_daemons:
             self.disabled_daemons = disable_daemons_in_root(self.target)
 
-        rconf = os.path.join(self.target, "etc", "resolv.conf")
-        if (self.sys_resolvconf and
-                os.path.islink(rconf) or os.path.isfile(rconf)):
-            rtd = None
+        if self.target != "/":
+            # never muck with resolv.conf on /
+            rconf = os.path.join(self.target, "etc", "resolv.conf")
+            if (self.sys_resolvconf and
+                    os.path.islink(rconf) or os.path.isfile(rconf)):
+                rtd = None
             try:
                 rtd = tempfile.mkdtemp(dir=os.path.dirname(rconf))
                 tmp = os.path.join(rtd, "resolv.conf")
@@ -316,24 +320,43 @@ class ChrootableTarget(object):
 
 class RunInChroot(ChrootableTarget):
     def __call__(self, args, **kwargs):
-        return subp(['chroot', self.target] + args, **kwargs)
+        if self.target != "/":
+            chroot = ["chroot", self.target]
+        else:
+            chroot = []
+        return subp(chroot + args, **kwargs)
 
 
-def which(program):
+def is_exe(fpath):
     # Return path of program for execution if found in path
-    def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+    return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
-    _fpath, _ = os.path.split(program)
-    if _fpath:
-        if is_exe(program):
+
+def which(program, search=None, target=None):
+    if target is None or os.path.realpath(target) == "/":
+        target = "/"
+
+    if os.path.sep in program:
+        # if program had a '/' in it, then do not search PATH
+        # 'which' does consider cwd here. (cd / && which bin/ls) = bin/ls
+        # so effectively we set cwd to / (or target)
+        if is_exe(os.path.sep.join((target, program,))):
             return program
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
-            if is_exe(exe_file):
-                return exe_file
+
+    if search is None:
+        paths = [p.strip('"') for p in
+                 os.environ.get("PATH", "").split(os.pathsep)]
+        if target == "/":
+            search = paths
+        else:
+            search = [p for p in paths if p.startswith("/")]
+
+    # normalize path input
+    search = [os.path.abspath(p) for p in search]
+
+    for path in search:
+        if is_exe(os.path.sep.join((target, path, program,))):
+            return os.path.sep.join((path, program,))
 
     return None
 
@@ -407,8 +430,33 @@ def has_pkg_installed(pkg, target=None):
         return False
 
 
+def apt_update(target=None, env=None, force=False, comment=None):
+    marker = "tmp/curtin.aptupdate"
+    if target is None:
+        target = "/"
+
+    if env is None:
+        env = os.environ.copy()
+
+    if comment is None:
+        comment = "no comment provided"
+
+    if comment.endswith("\n"):
+        comment = comment[:-1]
+
+    marker = os.path.join(target, marker)
+    if not force and os.path.exists(marker):
+        return
+
+    apt_update = ['apt-get', 'update', '--quiet']
+    with RunInChroot(target) as inchroot:
+        inchroot(apt_update, env=env)
+
+    with open(marker, "w") as fp:
+        fp.write(comment + "\n")
+
+
 def install_packages(pkglist, aptopts=None, target=None, env=None):
-    emd = []
     apt_inst_cmd = ['apt-get', 'install', '--quiet', '--assume-yes',
                     '--option=Dpkg::options::=--force-unsafe-io']
 
@@ -416,14 +464,10 @@ def install_packages(pkglist, aptopts=None, target=None, env=None):
         aptopts = []
     apt_inst_cmd.extend(aptopts)
 
-    for ptok in os.environ["PATH"].split(os.pathsep):
-        if target is None:
-            fpath = os.path.join(ptok, 'eatmydata')
-        else:
-            fpath = os.path.join(target, ptok, 'eatmydata')
-        if os.path.isfile(fpath) and os.access(fpath, os.X_OK):
-            emd = ['eatmydata']
-            break
+    if which('eatmydata', target=target):
+        emd = ['eatmydata']
+    else:
+        emd = []
 
     if isinstance(pkglist, str):
         pkglist = [pkglist]
@@ -432,23 +476,9 @@ def install_packages(pkglist, aptopts=None, target=None, env=None):
         env = os.environ.copy()
         env['DEBIAN_FRONTEND'] = 'noninteractive'
 
-    marker = "/tmp/curtin.aptupdate"
-    marker_text = ' '.join(pkglist) + "\n"
-    apt_update = ['apt-get', 'update', '--quiet']
-    if target is not None and target != "/":
-        with RunInChroot(target) as inchroot:
-            marker = os.path.join(target, marker)
-            if not os.path.exists(marker):
-                inchroot(apt_update)
-            with open(marker, "w") as fp:
-                fp.write(marker_text)
-            return inchroot(emd + apt_inst_cmd + list(pkglist), env=env)
-    else:
-        if not os.path.exists(marker):
-            subp(apt_update)
-        with open(marker, "w") as fp:
-            fp.write(marker_text)
-        return subp(emd + apt_inst_cmd + list(pkglist), env=env)
+    apt_update(target, comment=' '.join(pkglist))
+    with RunInChroot(target) as inchroot:
+        return inchroot(emd + apt_inst_cmd + list(pkglist), env=env)
 
 
 def is_uefi_bootable():
@@ -502,5 +532,58 @@ def get_dd_images(sources):
         if sources[i]['type'].startswith('dd-'):
             src.append(sources[i]['uri'])
     return src
+
+
+def get_meminfo(meminfo="/proc/meminfo", raw=False):
+    mpliers = {'kB': 2**10, 'mB': 2 ** 20, 'B': 1, 'gB': 2 ** 30}
+    kmap = {'MemTotal:': 'total', 'MemFree:': 'free',
+            'MemAvailable:': 'available'}
+    ret = {}
+    with open(meminfo, "r") as fp:
+        for line in fp:
+            try:
+                key, value, unit = line.split()
+            except ValueError:
+                key, value = line.split()
+                unit = 'B'
+            if raw:
+                ret[key] = int(value) * mpliers[unit]
+            elif key in kmap:
+                ret[kmap[key]] = int(value) * mpliers[unit]
+
+    return ret
+
+
+def get_fs_use_info(path):
+    # return some filesystem usage info as tuple of (size_in_bytes, free_bytes)
+    statvfs = os.statvfs(path)
+    return (statvfs.f_frsize * statvfs.f_blocks,
+            statvfs.f_frsize * statvfs.f_bfree)
+
+
+def human2bytes(size):
+    # convert human 'size' to integer
+    if size.endswith("B"):
+        size = size[:-1]
+
+    mpliers = {'K': 2 ** 10, 'M': 2 ** 20, 'G': 2 ** 30, 'T': 2 ** 40}
+
+    num = ""
+    for suffloc, c in enumerate(size):
+        if not c.isdigit():
+            break
+        num += c
+    if not num:
+        raise ValueError("'%s' does not start with a digit" % size)
+
+    if num == size:
+        return int(num)
+
+    try:
+        return int(num) * mpliers[size[suffloc:].upper()]
+    except KeyError:
+        raise ValueError("Bad suffix '%s' in input '%s':" %
+                         (size[suffloc:], size))
+
 
 # vi: ts=4 expandtab syntax=python

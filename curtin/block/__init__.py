@@ -156,6 +156,7 @@ def get_blockdev_for_partition(devpath):
 
 
 def get_pardevs_on_blockdevs(devs):
+    # return a dict of partitions with their info that are on provided devs
     if devs is None:
         devs = []
     devs = [get_dev_name_entry(d)[1] for d in devs]
@@ -188,5 +189,6 @@ def get_root_device(dev):
     if target is None:
         raise ValueError("Could not find root device")
     return target
+
 
 # vi: ts=4 expandtab syntax=python
