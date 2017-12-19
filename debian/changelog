@@ -1,3 +1,14 @@
+curtin (0.1.0~bzr213-0ubuntu1) wily; urgency=medium
+
+  * New upstream snapshot.
+    * retry apt-get update to avoid transient failures (LP: #1403133)
+    * detect and handle multipath devices (LP: #1371634)
+    * udevadm settle before unmounting target's /dev (LP: #1462139)
+    * doc/ improved developer doc and tools using maas images for test
+    * use --no-nvram option to grub-install if available (LP: #1311827)
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 05 Jun 2015 15:06:31 -0400
+
 curtin (0.1.0~bzr205-0ubuntu1) wily; urgency=medium
 
   * New upstream snapshot.
