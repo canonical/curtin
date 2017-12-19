@@ -39,16 +39,12 @@ DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
 IMAGE_SYNCS = []
 TARGET_IMAGE_FORMAT = "raw"
-OVMF_CODE = "/usr/share/OVMF/OVMF_CODE.fd"
-OVMF_VARS = "/usr/share/OVMF/OVMF_VARS.fd"
-# precise -> vivid don't have split UEFI firmware, fallback
-if not os.path.exists(OVMF_CODE):
-    OVMF_CODE = "/usr/share/ovmf/OVMF.fd"
-    OVMF_VARS = OVMF_CODE
 
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 OUTPUT_DISK_NAME = 'output_disk.img'
+BOOT_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_BOOT_TIMEOUT", 300))
+INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
 
 _TOPDIR = None
 
@@ -351,7 +347,7 @@ class TempDir(object):
 class VMBaseClass(TestCase):
     __test__ = False
     arch_skip = []
-    boot_timeout = 300
+    boot_timeout = BOOT_TIMEOUT
     collect_scripts = []
     conf_file = "examples/tests/basic.yaml"
     disk_block_size = 512
@@ -361,7 +357,8 @@ class VMBaseClass(TestCase):
     extra_kern_args = None
     fstab_expected = {}
     image_store_class = ImageStore
-    install_timeout = 3000
+    boot_cloudconf = None
+    install_timeout = INSTALL_TIMEOUT
     interactive = False
     multipath = False
     multipath_num_paths = 2
@@ -369,6 +366,7 @@ class VMBaseClass(TestCase):
     recorded_errors = 0
     recorded_failures = 0
     uefi = False
+    proxy = None
 
     # these get set from base_vm_classes
     release = None
@@ -398,7 +396,8 @@ class VMBaseClass(TestCase):
         # set up tempdir
         cls.td = TempDir(
             name=cls.__name__,
-            user_data=generate_user_data(collect_scripts=cls.collect_scripts))
+            user_data=generate_user_data(collect_scripts=cls.collect_scripts,
+                                         boot_cloudconf=cls.boot_cloudconf))
         logger.info('Using tempdir: %s , Image: %s', cls.td.tmpdir,
                     img_verstr)
         cls.install_log = os.path.join(cls.td.logs, 'install-serial.log')
@@ -498,15 +497,18 @@ class VMBaseClass(TestCase):
 
         # proxy config
         configs = [cls.conf_file]
-        proxy = get_apt_proxy()
-        if get_apt_proxy is not None:
+        cls.proxy = get_apt_proxy()
+        if cls.proxy is not None:
             proxy_config = os.path.join(cls.td.install, 'proxy.cfg')
             with open(proxy_config, "w") as fp:
-                fp.write(json.dumps({'apt_proxy': proxy}) + "\n")
+                fp.write(json.dumps({'apt_proxy': cls.proxy}) + "\n")
             configs.append(proxy_config)
 
+        uefi_flags = []
         if cls.uefi:
             logger.debug("Testcase requested launching with UEFI")
+            nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
+            uefi_flags = ["--uefi-nvram=%s" % nvram]
 
             # always attempt to update target nvram (via grub)
             grub_config = os.path.join(cls.td.install, 'grub.cfg')
@@ -514,22 +516,17 @@ class VMBaseClass(TestCase):
                 fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)
 
-            # make our own copy so we can store guest modified values
-            nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
-            shutil.copy(OVMF_VARS, nvram)
-            cmd.extend(["--uefi", nvram])
-
         if cls.multipath:
             disks = disks * cls.multipath_num_paths
 
-        cmd.extend(netdevs + disks +
+        cmd.extend(uefi_flags + netdevs + disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "-vv", "install"] +
                    ["--config=%s" % f for f in configs] +
                    [install_src])
 
         # run vm with installer
-        lout_path = os.path.join(cls.td.logs, "install-launch.out")
+        lout_path = os.path.join(cls.td.logs, "install-launch.log")
         logger.info('Running curtin installer: {}'.format(cls.install_log))
         try:
             with open(lout_path, "wb") as fpout:
@@ -622,7 +619,8 @@ class VMBaseClass(TestCase):
         target_disks.extend([output_disk])
 
         # create xkvm cmd
-        cmd = (["tools/xkvm", "-v", dowait] + netdevs +
+        cmd = (["tools/xkvm", "-v", dowait] +
+               uefi_flags + netdevs +
                target_disks + extra_disks + nvme_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
@@ -638,21 +636,11 @@ class VMBaseClass(TestCase):
             else:
                 cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
 
-        if cls.uefi:
-            logger.debug("Testcase requested booting with UEFI")
-            uefi_opts = ["-drive", "if=pflash,format=raw,file=" + nvram]
-            if OVMF_CODE != OVMF_VARS:
-                # reorder opts, code then writable space
-                uefi_opts = (["-drive",
-                              "if=pflash,format=raw,readonly,file=" +
-                              OVMF_CODE] + uefi_opts)
-            cmd.extend(uefi_opts)
-
         # run vm with installed system, fail if timeout expires
         try:
             logger.info('Booting target image: {}'.format(cls.boot_log))
             logger.debug('{}'.format(" ".join(cmd)))
-            xout_path = os.path.join(cls.td.logs, "boot-xkvm.out")
+            xout_path = os.path.join(cls.td.logs, "boot-xkvm.log")
             with open(xout_path, "wb") as fpout:
                 cls.boot_system(cmd, console_log=cls.boot_log, proc_out=fpout,
                                 timeout=cls.boot_timeout, purpose="first_boot")
@@ -748,17 +736,24 @@ class VMBaseClass(TestCase):
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
         for f in files:
+            logger.debug('checking file %s', f)
             self.assertTrue(os.path.exists(os.path.join(self.td.collect, f)))
 
+    def output_files_dont_exist(self, files):
+        for f in files:
+            logger.debug('checking file %s', f)
+            self.assertFalse(os.path.exists(os.path.join(self.td.collect, f)))
+
+    def load_collect_file(self, filename, mode="r"):
+        with open(os.path.join(self.td.collect, filename), mode) as fp:
+            return fp.read()
+
     def check_file_strippedline(self, filename, search):
-        with open(os.path.join(self.td.collect, filename), "r") as fp:
-            data = list(i.strip() for i in fp.readlines())
-        self.assertIn(search, data)
+        lines = self.load_collect_file(filename).splitlines()
+        self.assertIn(search, [i.strip() for i in lines])
 
     def check_file_regex(self, filename, regex):
-        with open(os.path.join(self.td.collect, filename), "r") as fp:
-            data = fp.read()
-        self.assertRegex(data, regex)
+        self.assertRegex(self.load_collect_file(filename), regex)
 
     # To get rid of deprecation warning in python 3.
     def assertRegex(self, s, r):
@@ -978,7 +973,8 @@ def get_apt_proxy():
     return None
 
 
-def generate_user_data(collect_scripts=None, apt_proxy=None):
+def generate_user_data(collect_scripts=None, apt_proxy=None,
+                       boot_cloudconf=None):
     # this returns the user data for the *booted* system
     # its a cloud-config-archive type, which is
     # just a list of parts.  the 'x-shellscript' parts
@@ -1002,6 +998,10 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
     parts = [{'type': 'text/cloud-config',
               'content': yaml.dump(base_cloudconfig, indent=1)},
              {'type': 'text/cloud-config', 'content': ssh_keys}]
+
+    if boot_cloudconf is not None:
+        parts.append({'type': 'text/cloud-config', 'content':
+                      yaml.dump(boot_cloudconf, indent=1)})
 
     output_dir = '/mnt/output'
     output_dir_macro = 'OUTPUT_COLLECT_D'

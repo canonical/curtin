@@ -473,10 +473,9 @@ network:
 
             auto eth0
             iface eth0 inet dhcp
-                post-up ifup eth0:1
 
-            auto eth0:1
-            iface eth0:1 inet static
+            # control-alias eth0
+            iface eth0 inet static
                 address 192.168.21.3/24
                 dns-nameservers 8.8.8.8 8.8.4.4
                 dns-search barley.maas sach.maas
@@ -515,12 +514,11 @@ network:
             iface bond0 inet static
                 address 10.23.23.2/24
                 bond-mode active-backup
-                hwaddress 52:54:00:12:34:06
+                hwaddress ether 52:54:00:12:34:06
                 bond-slaves none
-                post-up ifup bond0:1
 
-            auto bond0:1
-            iface bond0:1 inet static
+            # control-alias bond0
+            iface bond0 inet static
                 address 10.23.24.2/24
 
             source /etc/network/interfaces.d/*.cfg
@@ -551,10 +549,9 @@ network:
                 address 192.168.14.2/24
                 gateway 192.168.14.1
                 mtu 1492
-                post-up ifup interface1:1
 
-            auto interface1:1
-            iface interface1:1 inet static
+            # control-alias interface1
+            iface interface1 inet static
                 address 192.168.14.4/24
 
             allow-hotplug interface2
@@ -597,10 +594,9 @@ network:
             auto eth0
             iface eth0 inet6 static
                 address fde9:8f83:4a81:1:0:1:0:6/64
-                post-up ifup eth0:1
 
-            auto eth0:1
-            iface eth0:1 inet static
+            # control-alias eth0
+            iface eth0 inet static
                 address 192.168.0.1/24
 
             source /etc/network/interfaces.d/*.cfg
@@ -610,6 +606,51 @@ network:
         print("\n^^ LOCAL -- RENDER vv")
         print("\n".join(sorted(net_ifaces.split('\n'))))
         print(ns.network_state.get('interfaces'))
+        self.assertEqual(sorted(ifaces.split('\n')),
+                         sorted(net_ifaces.split('\n')))
+
+    def test_render_interfaces_ipv4_multiple_alias(self):
+        network_yaml = '''
+network:
+    version: 1
+    config:
+        # multi_v4_alias: multiple v4 addrs on same interface
+        - type: physical
+          name: interface1
+          mac_address: "52:54:00:12:34:02"
+          subnets:
+              - type: dhcp
+              - type: static
+                address: 192.168.2.2/22
+                gateway: 192.168.2.1
+              - type: static
+                address: 10.23.23.7/23
+                gateway: 10.23.23.1
+'''
+
+        ns = self.get_net_state(network_yaml)
+        ifaces = dedent("""\
+            auto lo
+            iface lo inet loopback
+
+            auto interface1
+            iface interface1 inet dhcp
+
+            # control-alias interface1
+            iface interface1 inet static
+                address 192.168.2.2/22
+                gateway 192.168.2.1
+
+            # control-alias interface1
+            iface interface1 inet static
+                address 10.23.23.7/23
+                gateway 10.23.23.1
+
+            source /etc/network/interfaces.d/*.cfg
+            """)
+        net_ifaces = net.render_interfaces(ns.network_state)
+        print(net_ifaces)
+        print(ifaces)
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
 

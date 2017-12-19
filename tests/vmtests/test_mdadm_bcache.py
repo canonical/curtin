@@ -2,7 +2,6 @@ from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
 import textwrap
-import os
 
 
 class TestMdadmAbs(VMBaseClass):
@@ -82,17 +81,16 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         bcache_cset_uuid = None
         found = {}
         for bcache_super in bcache_supers:
-            with open(os.path.join(self.td.collect, bcache_super), "r") as fp:
-                for line in fp.read().splitlines():
-                    if line != "" and line.split()[0] == "cset.uuid":
-                        bcache_cset_uuid = line.split()[-1].rstrip()
-                        if bcache_cset_uuid in found:
-                            found[bcache_cset_uuid].append(bcache_super)
-                        else:
-                            found[bcache_cset_uuid] = [bcache_super]
+            for line in self.load_collect_file(bcache_super).splitlines():
+                if line != "" and line.split()[0] == "cset.uuid":
+                    bcache_cset_uuid = line.split()[-1].rstrip()
+                    if bcache_cset_uuid in found:
+                        found[bcache_cset_uuid].append(bcache_super)
+                    else:
+                        found[bcache_cset_uuid] = [bcache_super]
             self.assertIsNotNone(bcache_cset_uuid)
-            with open(os.path.join(self.td.collect, "bcache_ls"), "r") as fp:
-                self.assertTrue(bcache_cset_uuid in fp.read().splitlines())
+            self.assertTrue(bcache_cset_uuid in
+                            self.load_collect_file("bcache_ls").splitlines())
 
         # one cset.uuid for all devices
         self.assertEqual(len(found), 1)
@@ -131,7 +129,8 @@ class TrustyHWEUTestMdadmBcache(relbase.trusty_hwe_u, TrustyTestMdadmBcache):
 
 
 class WilyTestMdadmBcache(relbase.wily, TestMdadmBcacheAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestMdadmBcache(relbase.xenial, TestMdadmBcacheAbs):
@@ -171,7 +170,8 @@ class TrustyHWEUTestMirrorboot(relbase.trusty_hwe_u, TrustyTestMirrorboot):
 
 
 class WilyTestMirrorboot(relbase.wily, TestMirrorbootAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestMirrorboot(relbase.xenial, TestMirrorbootAbs):
@@ -212,7 +212,8 @@ class TrustyHWEUTestRaid5Boot(relbase.trusty_hwe_u, TrustyTestRaid5Boot):
 
 
 class WilyTestRaid5boot(relbase.wily, TestRaid5bootAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestRaid5boot(relbase.xenial, TestRaid5bootAbs):
@@ -265,7 +266,8 @@ class TrustyHWEUTestRaid6boot(relbase.trusty_hwe_u, TrustyTestRaid6boot):
 
 
 class WilyTestRaid6boot(relbase.wily, TestRaid6bootAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestRaid6boot(relbase.xenial, TestRaid6bootAbs):
@@ -306,7 +308,8 @@ class TrustyHWEUTestRaid10boot(relbase.trusty_hwe_u, TrustyTestRaid10boot):
 
 
 class WilyTestRaid10boot(relbase.wily, TestRaid10bootAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestRaid10boot(relbase.xenial, TestRaid10bootAbs):
@@ -404,7 +407,8 @@ class TrustyHWEUTestAllindata(relbase.trusty_hwe_u, TrustyTestAllindata):
 
 
 class WilyTestAllindata(relbase.wily, TestAllindataAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestAllindata(relbase.xenial, TestAllindataAbs):

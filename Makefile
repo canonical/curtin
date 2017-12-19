@@ -49,5 +49,7 @@ vmtest-deps:
 sync-images:
 	@$(CWD)/tools/vmtest-sync-images
 
+clean:
+	rm -rf doc/_build
 
-.PHONY: all test pyflakes pyflakes3 pep8 build
+.PHONY: all clean test pyflakes pyflakes3 pep8 build

@@ -119,55 +119,65 @@ def find_releases():
     return sorted(releases)
 
 
-def _parse_ifconfig_xenial(ifconfig_out):
-    """Parse ifconfig output from xenial or earlier and return a dictionary.
-    given content like below, return:
-    {'eth0': {'address': '10.8.1.78', 'broadcast': '10.8.1.255',
-              'inet6': [{'address': 'fe80::216:3eff:fe63:c05d',
-                         'prefixlen': '64', 'scope': 'Link'},
-                        {'address': 'fdec:2922:2f07:0:216:3eff:fe63:c05d',
-                         'prefixlen': '64', 'scope': 'Global'}],
-              'interface': 'eth0', 'link_encap': 'Ethernet',
-              'mac_address': '00:16:3e:63:c0:5d', 'mtu': 1500,
-              'multicast': True, 'netmask': '255.255.255.0',
-              'running': True, 'up': True}}
-
-    eth0  Link encap:Ethernet  HWaddr 00:16:3e:63:c0:5d
-          inet addr:10.8.1.78  Bcast:10.8.1.255  Mask:255.255.255.0
-          inet6 addr: fe80::216:3eff:fe63:c05d/64 Scope:Link
-          inet6 addr: fdec:2922:2f07:0:216:3eff:fe63:c05d/64 Scope:Global
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:21503 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:11346 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:31556357 (31.5 MB)  TX bytes:870943 (870.9 KB)
+def _parse_ip_a(ip_a):
+    """
+    2: interface0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1480 qdisc pfifo_fast\
+        state UP group default qlen 1000
+        link/ether 52:54:00:12:34:00 brd ff:ff:ff:ff:ff:ff
+        inet 192.168.1.2/24 brd 192.168.1.255 scope global interface0
+            valid_lft forever preferred_lft forever
+        inet6 2001:4800:78ff:1b:be76:4eff:fe06:1000/64 scope global
+            valid_lft forever preferred_lft forever
+        inet6 fe80::5054:ff:fe12:3400/64 scope link
+        valid_lft forever preferred_lft forever
     """
     ifaces = {}
-    combined_fields = {'addr': 'address', 'Bcast': 'broadcast',
-                       'Mask': 'netmask', 'MTU': 'mtu',
-                       'encap': 'link_encap'}
-    boolmap = {'RUNNING': 'running', 'UP': 'up', 'MULTICAST': 'multicast'}
+    combined_fields = {
+        'brd': 'broadcast',
+        'link/ether': 'mac_address',
+    }
+    interface_fields = [
+        'group',
+        'master',
+        'mtu',
+        'qdisc',
+        'qlen',
+        'state',
+    ]
+    inet_fields = [
+        'valid_lft',
+        'preferred_left'
+    ]
+    boolmap = {
+        'BROADCAST': 'broadcast',
+        'LOOPBACK': 'loopback',
+        'LOWER_UP': 'lower_up',
+        'MULTICAST': 'multicast',
+        'RUNNING': 'running',
+        'UP': 'up',
+    }
 
-    for line in ifconfig_out.splitlines():
+    for line in ip_a.splitlines():
         if not line:
             continue
-        if not line.startswith(" "):
-            cur_iface = line.split()[0].rstrip(":")
-            cur_data = {'inet6': [], 'interface': cur_iface}
-            for t in boolmap.values():
-                cur_data[t] = False
-            ifaces[cur_iface] = cur_data
 
         toks = line.split()
-
-        if toks[0] == "inet6":
-            cidr = toks[2]
-            address, prefixlen = cidr.split("/")
-            scope = toks[3].split(":")[1]
-            cur_ipv6 = {'address': address, 'scope': scope,
-                        'prefixlen': prefixlen}
-            cur_data['inet6'].append(cur_ipv6)
-            continue
+        if not line.startswith("    "):
+            cur_iface = line.split()[1].rstrip(":")
+            cur_data = {
+                'inet4': [],
+                'inet6': [],
+                'interface': cur_iface
+            }
+            # vlan's get a fancy name <iface name>@<vlan_link>
+            if '@' in cur_iface:
+                cur_iface, vlan_link = cur_iface.split("@")
+                cur_data.update({'interface': cur_iface,
+                                 'vlan_link': vlan_link})
+            for t in boolmap.values():
+                # <BROADCAST,MULTICAST,UP,LOWER_UP>
+                cur_data[t] = t.upper() in line[2]
+            ifaces[cur_iface] = cur_data
 
         for i in range(0, len(toks)):
             cur_tok = toks[i]
@@ -176,113 +186,66 @@ def _parse_ifconfig_xenial(ifconfig_out):
             except IndexError:
                 next_tok = None
 
-            if cur_tok == "HWaddr":
-                cur_data['mac_address'] = next_tok
-            elif ":" in cur_tok:
-                key, _colon, val = cur_tok.partition(":")
-                if key in combined_fields:
-                    cur_data[combined_fields[key]] = val
-            elif cur_tok in boolmap:
-                cur_data[boolmap[cur_tok]] = True
+            # parse link/ether, brd
+            if cur_tok in combined_fields.keys():
+                cur_data[combined_fields[cur_tok]] = next_tok
+            # mtu an other interface line key/value pairs
+            elif cur_tok in interface_fields:
+                cur_data[cur_tok] = next_tok
+            elif cur_tok.startswith("inet"):
+                cidr = toks[1]
+                address, prefixlen = cidr.split("/")
+                cur_ip = {
+                    'address': address,
+                    'prefixlen': prefixlen,
+                }
+                if ":" in address:
+                    cur_ipv6 = cur_ip.copy()
+                    cur_ipv6.update({'scope': toks[3]})
+                    cur_data['inet6'].append(cur_ipv6)
+                else:
+                    cur_ipv4 = cur_ip.copy()
+                    if len(toks) > 5:
+                        cur_ipv4.update({'scope': toks[5]})
+                    else:
+                        cur_ipv4.update({'scope': toks[3]})
+                    cur_data['inet4'].append(cur_ipv4)
 
-        if 'mtu' in cur_data:
-            cur_data['mtu'] = int(cur_data['mtu'])
-
-    return ifaces
-
-
-def _parse_ifconfig_yakkety(ifconfig_out):
-    """Parse ifconfig output from yakkety or later(?) and return a dictionary.
-
-    given ifconfig output like below, return:
-    {'ens2': {'address': '10.5.0.78',
-              'broadcast': '10.5.255.255',
-              'broadcast_flag': True,
-              'inet6': [{'address': 'fe80::f816:3eff:fe05:9673',
-                         'prefixlen': '64', 'scopeid': '0x20<link>'},
-                        {'address': 'fe80::f816:3eff:fe05:9673',
-                         'prefixlen': '64', 'scopeid': '0x20<link>'}],
-              'interface': 'ens2', 'link_encap': 'Ethernet',
-              'mac_address': 'fa:16:3e:05:96:73', 'mtu': 1500,
-              'multicast': True, 'netmask': '255.255.0.0',
-              'running': True, 'up': True}}
-
-    ens2: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
-            inet 10.5.0.78  netmask 255.255.0.0  broadcast 10.5.255.255
-            inet6 fe80::f816:3eff:fe05:9673  prefixlen 64  scopeid 0x20<link>
-            inet6 fe80::f816:3eff:fe05:9673  prefixlen 64  scopeid 0x20<link>
-            ether fa:16:3e:05:96:73  txqueuelen 1000  (Ethernet)
-            RX packets 33196  bytes 48916947 (48.9 MB)
-            RX errors 0  dropped 0  overruns 0  frame 0
-            TX packets 5458  bytes 411486 (411.4 KB)
-            TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
-    """
-    fmap = {'mtu': 'mtu', 'inet': 'address',
-            'netmask': 'netmask', 'broadcast': 'broadcast',
-            'ether': 'mac_address'}
-    boolmap = {'RUNNING': 'running', 'UP': 'up', 'MULTICAST': 'multicast',
-               'BROADCAST': 'broadcast_flag'}
-
-    ifaces = {}
-    for line in ifconfig_out.splitlines():
-        if not line:
-            continue
-        if not line.startswith(" "):
-            cur_iface = line.split()[0].rstrip(":")
-            cur_data = {'inet6': [], 'interface': cur_iface}
-            for t in boolmap.values():
-                cur_data[t] = False
-            ifaces[cur_iface] = cur_data
-
-        toks = line.split()
-        if toks[0] == "inet6":
-            cur_ipv6 = {'address': toks[1]}
-            cur_data['inet6'].append(cur_ipv6)
-
-        for i in range(0, len(toks)):
-            cur_tok = toks[i]
-            try:
-                next_tok = toks[i+1]
-            except IndexError:
-                next_tok = None
-            if cur_tok in fmap:
-                cur_data[fmap[cur_tok]] = next_tok
-            elif cur_tok in ('prefixlen', 'scopeid'):
-                cur_ipv6[cur_tok] = next_tok
-                cur_data['inet6'].append
-            elif cur_tok.startswith("flags="):
-                # flags=4163<UP,BROADCAST,RUNNING,MULTICAST>
-                flags = cur_tok[cur_tok.find("<") + 1:
-                                cur_tok.rfind(">")].split(",")
-                for flag in flags:
-                    if flag in boolmap:
-                        cur_data[boolmap[flag]] = True
-            elif cur_tok == "(Ethernet)":
-                cur_data['link_encap'] = 'Ethernet'
-
-        if 'mtu' in cur_data:
-            cur_data['mtu'] = int(cur_data['mtu'])
+                continue
+            elif cur_tok in inet_fields:
+                if ":" in address:
+                    cur_ipv6[cur_tok] = next_tok
+                else:
+                    cur_ipv4[cur_tok] = next_tok
+                continue
 
     return ifaces
 
 
-def ifconfig_to_dict(ifconfig_a):
-    # if the first token of the first line ends in a ':' then assume yakkety
-    # parse ifconfig output and return a dictionary.
-    #
+def ip_a_to_dict(ip_a):
     # return a dictionary of network information like:
-    #  {'ens2': {'address': '10.5.0.78', 'broadcast': '10.5.255.255',
-    #         'broadcast_flag': True,
-    #         'inet6': [{'address': 'fe80::f816:3eff:fe05:9673',
-    #                    'prefixlen': '64', 'scopeid': '0x20<link>'},
-    #                   {'address': 'fe80::f816:3eff:fe05:9673',
-    #                    'prefixlen': '64', 'scopeid': '0x20<link>'}],
-    #         'interface': 'ens2', 'link_encap': 'Ethernet',
-    #         'mac_address': 'fa:16:3e:05:96:73', 'mtu': 1500,
-    #         'multicast': True, 'netmask': '255.255.0.0',
-    #         'running': True, 'up': True}}
-    line = ifconfig_a.lstrip().splitlines()[0]
-    if line.split()[0].endswith(":"):
-        return _parse_ifconfig_yakkety(ifconfig_a)
-    else:
-        return _parse_ifconfig_xenial(ifconfig_a)
+    # {'interface0': {'broadcast': '10.0.2.255',
+    #                 'group': 'default',
+    #                 'inet4': [{'address': '10.0.2.15',
+    #                            'preferred_lft': 'forever',
+    #                            'prefixlen': '24',
+    #                            'scope': 'global',
+    #                            'valid_lft': 'forever'}],
+    #                 'inet6': [{'address': 'fe80::5054:ff:fe12:3400',
+    #                            'preferred_lft': 'forever',
+    #                            'prefixlen': '64',
+    #                            'scope': 'link',
+    #                            'valid_lft': 'forever'}],
+    #                 'interface': 'interface0',
+    #                 'loopback': False,
+    #                 'lower_up': False,
+    #                 'mac_address': '52:54:00:12:34:00',
+    #                 'mtu': '1500',
+    #                 'multicast': False,
+    #                 'qdisc': 'pfifo_fast',
+    #                 'qlen': '1000',
+    #                 'running': False,
+    #                 'state': 'UP',
+    #                 'up': False},
+    # from iproute2 `ip a` command output
+    return _parse_ip_a(ip_a)

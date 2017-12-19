@@ -78,6 +78,7 @@ family_flag_mappings = {
              "swap": "--uuid"},
     "force": {"btrfs": "--force",
               "ext": "-F",
+              "fat": "-I",
               "ntfs": "--force",
               "reiserfs": "-f",
               "swap": "--force",
@@ -91,6 +92,7 @@ family_flag_mappings = {
         "btrfs": "--sectorsize",
         "ext": "-b",
         "fat": "-S",
+        "xfs": "-s",
         "ntfs": "--sector-size",
         "reiserfs": "--block-size"}
 }
@@ -165,12 +167,15 @@ def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False):
     # use device logical block size to ensure properly formated filesystems
     (logical_bsize, physical_bsize) = block.get_blockdev_sector_size(path)
     if logical_bsize > 512:
+        lbs_str = ('size={}'.format(logical_bsize) if fs_family == "xfs"
+                   else str(logical_bsize))
         cmd.extend(get_flag_mapping("sectorsize", fs_family,
-                                    param=str(logical_bsize),
-                                    strict=strict))
-        # mkfs.vfat doesn't calculate this right for non-512b sector size
-        # lp:1569576 , d-i uses the same setting.
-        cmd.extend(["-s", "1"])
+                                    param=lbs_str, strict=strict))
+
+        if fs_family == 'fat':
+            # mkfs.vfat doesn't calculate this right for non-512b sector size
+            # lp:1569576 , d-i uses the same setting.
+            cmd.extend(["-s", "1"])
 
     if force:
         cmd.extend(get_flag_mapping("force", fs_family, strict=strict))

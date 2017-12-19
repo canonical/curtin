@@ -1,0 +1,85 @@
+The new version of clear_holders is based around a data structure called a
+holder_tree which represents the current storage hirearchy above a specified
+starting device. Each node in a holders tree contains data about the node and a
+key 'holders' which contains a list of all nodes that depend on it. The keys in
+a holdres_tree node are:
+  - device: the path to the device in /sys/class/block
+  - dev_type: what type of storage layer the device is. possible values:
+      - disk
+      - lvm
+      - crypt
+      - raid
+      - bcache
+      - disk
+  - name: the kname of the device (used for display)
+  - holders: holders_trees for devices depending on the current device
+
+A holders tree can be generated for a device using the function
+clear_holders.gen_holders_tree. The device can be specified either as a path in
+/sys/class/block or as a path in /dev.
+
+The new implementation of block.clear_holders shuts down storage devices in a
+holders tree starting from the leaves of the tree and ascending towards the
+root. The old implementation of clear_holders ascended up each path of the tree
+separately, in a pattern similar to depth first search. The problem with the
+old implementation is that in some cases either an attempt would be made to
+remove one storage device while other devices depended on it or clear_holders
+would attempt to shut down the same storage device several times. In order to
+cope with this the old version of clear_holders had logic to handle expected
+failures and hope for the best moving forward. The new version of clear_holders
+is able to run without many anticipated failures.
+
+The logic to plan what order to shut down storage layers in is in
+clear_holders.plan_shutdown_holders_trees. This function accepts either a
+single holders tree or a list of holders trees. When run with a list of holders
+trees, it assumes that all of these trees start at basically the same layer in
+the overall storage hirearcy for the system (i.e. a list of holders trees
+starting from all of the target installation disks). This function returns a
+list of dictionaries, with each dictionary containing the keys:
+  - device: the path to the device in /sys/class/block
+  - dev_type: what type of storage layer the device is. possible values:
+      - disk
+      - lvm
+      - crypt
+      - raid
+      - bcache
+      - disk
+  - level: the level of the device in the current storage hirearchy
+           (starting from 0)
+
+The items in the list returned by clear_holders.plan_shutdown_holders_trees
+should be processed in order to make sure the holders trees are shutdown fully
+
+The main interface for clear_holders is the function
+clear_holders.clear_holders. If the system has just been booted it could be
+beneficial to run the function clear_holders.start_clear_holders_deps before
+using clear_holders.clear_holders. This ensures clear_holders will be able to
+properly storage devices. The function clear_holders.clear_holders can be
+passed either a single device or a list of devices and will shut down all
+storage devices above the device(s). The devices can be specified either by
+path in /dev or by path in /sys/class/block.
+
+In order to test if a device or devices are free to be partitioned/formatted,
+the function clear_holders.assert_clear can be passed either a single device or
+a list of devices, with devices specified either by path in /dev or by path in
+/sys/class/block. If there are any storage devices that depend on one of the
+devices passed to clear_holders.assert_clear, then an OSError will be raised.
+If clear_holders.assert_clear does not raise any errors, then the devices
+specified should be ready for partitioning.
+
+It is possible to query further information about storage devices using
+clear_holders.
+
+Holders for a individual device can be queried using clear_holders.get_holders.
+Results are returned as a list or knames for holding devices.
+
+A holders tree can be printed in a human readable format using
+clear_holders.format_holders_tree(). Example output:
+sda
+|-- sda1
+|-- sda2
+`-- sda5
+    `-- dm-0
+        |-- dm-1
+        `-- dm-2
+            `-- dm-3

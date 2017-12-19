@@ -11,8 +11,6 @@ class TestNvmeAbs(VMBaseClass):
     ]
     interactive = False
     conf_file = "examples/tests/nvme.yaml"
-    install_timeout = 600
-    boot_timeout = 120
     extra_disks = []
     nvme_disks = ['4G', '4G']
     disk_to_check = [('main_disk', 1), ('main_disk', 2), ('main_disk', 15),
@@ -75,7 +73,8 @@ class TrustyTestNvme(relbase.trusty, TestNvmeAbs):
 
 
 class WilyTestNvme(relbase.wily, TestNvmeAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialTestNvme(relbase.xenial, TestNvmeAbs):

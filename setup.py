@@ -2,7 +2,7 @@ from distutils.core import setup
 from glob import glob
 import os
 
-VERSION = '0.1.0'
+import curtin
 
 
 def is_f(p):
@@ -11,7 +11,7 @@ def is_f(p):
 setup(
     name="curtin",
     description='The curtin installer',
-    version=VERSION,
+    version=curtin.__version__,
     author='Scott Moser',
     author_email='scott.moser@canonical.com',
     license="AGPL",

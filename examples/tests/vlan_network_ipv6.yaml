@@ -1,0 +1,92 @@
+network:
+  config:
+  - id: interface0
+    mac_address: d4:be:d9:a8:49:13
+    mtu: 1500
+    name: interface0
+    subnets:
+    - address: 2001:4800:78ff:1b:be76:4eff:fe06:96b3
+      netmask: 'ffff:ffff:ffff:ffff::'
+      dns_nameservers:
+      - 10.245.168.2
+      routes:
+            - gateway: 2001:4800:78ff:1b::1
+              netmask: '::'
+              network: '::'
+      type: static
+    type: physical
+  - id: interface1
+    mac_address: d4:be:d9:a8:49:15
+    mtu: 1500
+    name: interface1
+    subnets:
+    - address: 2001:4800:beef:1b:be76:4eff:fe06:97b0
+      netmask: 'ffff:ffff:ffff:ffff::'
+      dns_nameservers: []
+      type: static
+    type: physical
+  - id: interface2
+    mac_address: d4:be:d9:a8:49:17
+    mtu: 1500
+    name: interface2
+    subnets:
+    - type: manual
+      control: manual
+    type: physical
+  - id: interface3
+    mac_address: d4:be:d9:a8:49:19
+    mtu: 1500
+    name: interface3
+    subnets:
+    - type: manual
+      control: manual
+    type: physical
+  - id: interface1.2667
+    mtu: 1500
+    name: interface1.2667
+    subnets:
+    - address: 2001:4800:dead:1b:be76:4eff:c486:12f7
+      netmask: 'ffff:ffff:ffff:ffff::'
+      dns_nameservers: []
+      type: static
+    type: vlan
+    vlan_id: 2667
+    vlan_link: interface1
+  - id: interface1.2668
+    mtu: 1500
+    name: interface1.2668
+    subnets:
+    - address: 2001:4800:feef:1b:be76:4eff:4242:2323
+      netmask: 'ffff:ffff:ffff:ffff::'
+      dns_nameservers: []
+      type: static
+    type: vlan
+    vlan_id: 2668
+    vlan_link: interface1
+  - id: interface1.2669
+    mtu: 1500
+    name: interface1.2669
+    subnets:
+    - address: 2001:4800:effe:1b:be76:7634:5f42:79ff
+      netmask: 'ffff:ffff:ffff:ffff::'
+      dns_nameservers: []
+      type: static
+    type: vlan
+    vlan_id: 2669
+    vlan_link: interface1
+  - id: interface1.2670
+    mtu: 1500
+    name: interface1.2670
+    subnets:
+    - address: 2001:4800:9eaf:1b:be76:7634:321f:bbca
+      netmask: 'ffff:ffff:ffff:ffff::'
+      dns_nameservers: []
+      type: static
+    type: vlan
+    vlan_id: 2670
+    vlan_link: interface1
+  - address: 10.245.168.2
+    search:
+    - dellstack
+    type: nameserver
+  version: 1
