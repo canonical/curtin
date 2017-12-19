@@ -1,3 +1,12 @@
+curtin (0.1.0~bzr124-0ubuntu1) trusty; urgency=medium
+
+  * New upstream snapshot.
+    * install correctly on UEFI booted systems (LP: #1300910)
+      [Blake Rouse]
+    * whitespace fixes and other small fixes.
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 03 Apr 2014 14:47:01 -0400
+
 curtin (0.1.0~bzr121-0ubuntu1) trusty; urgency=medium
 
   * New upstream snapshot.
