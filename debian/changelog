@@ -1,3 +1,33 @@
+curtin (0.1.0~bzr351-0ubuntu1) xenial; urgency=medium
+
+  * New upstream snapshot.
+    * partitioning: limited support for odd ordering of partition 
+      numbers (LP: #1543263).  Specifically targetted at MAAS and
+      powerVM support.
+    * many upstream test improvements (LP: #1533770)
+    * general upstream code improvements
+    * use mkfs.vfat rather than mkfs.fat to support precise.
+    * use removable devices for installation if no non-removable devices are
+      found [Robert Clark] (LP: #1532062)
+    * mkfs: fix for lack of uuid in btrfs tools on precise or trusty
+    * added 'curtin mkfs' command for easily making filesystems.
+    * mdadm: fix issues exposed by use via block_meta (LP: #1531520)
+    * improvements and small bug fix for oauth on systems with bad clock
+    * support bcache installation on precise
+    * fix bug in install_grub to partition when storage_config 
+      provided. (LP: #1523779)
+    * url_helper: raise import error on lack of oauth only when oauth used
+    * block_meta: handle 'preserve' flag for raid devices (LP: #1522147)
+    * close file descriptors from --config= arguments
+    * xenial: disable update-motd during an apt-get update (LP: #1527710)
+    * curthooks: know kernel mapping for xenial (4.4.0)
+    * fix python executable selection when 'curtin --help' is called
+    * subp: add decode parameter, defaulting to replace (LP: #1526127)
+    * support passing an integer or valid float to human2bytes
+    * Use /proc/mounts to find missing mountpoints
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 12 Feb 2016 17:07:33 -0500
+
 curtin (0.1.0~bzr314-0ubuntu1) xenial; urgency=medium
 
   * New upstream snapshot.
