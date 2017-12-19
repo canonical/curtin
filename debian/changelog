@@ -1,3 +1,20 @@
+curtin (0.1.0~bzr121-0ubuntu1) trusty; urgency=medium
+
+  * New upstream snapshot.
+    * support installing kernel package of booted kernel
+      to enable hardware enablement kernels through maas.
+    * support Calxeda highbank and other ARMv7 systems
+    * fix gpt partitioning.  It wouldn't allow grub installation
+    * support for using kexec to boot into the installed system
+      to avoid a hardware bios post.
+    * support declaring target device via config
+    * support installing from a local url (file:///)
+    * fix bug where 'console=' parms were not removed from image's
+      settings (problematic when image was cloud image)
+    * run apt-get update if installing packages
+
+ -- Scott Moser <smoser@ubuntu.com>  Wed, 26 Mar 2014 17:34:57 -0400
+
 curtin (0.1.0~bzr95-0ubuntu2) trusty; urgency=medium
 
   * Rebuild to drop files installed into /usr/share/pyshared.
