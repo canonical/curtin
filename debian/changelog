@@ -1,3 +1,10 @@
+curtin (0.1.0~bzr276-0ubuntu1) wily; urgency=medium
+
+  * New upstream snapshot.
+    * debian/control: add python3-curtin depends to curtin (LP: #1503507)
+
+ -- Scott Moser <smoser@ubuntu.com>  Wed, 07 Oct 2015 09:50:34 -0400
+
 curtin (0.1.0~bzr275-0ubuntu1) wily; urgency=medium
 
   * debian/README.source: tweak to doc on how to generate snapshot
