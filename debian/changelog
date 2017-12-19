@@ -1,3 +1,23 @@
+curtin (0.1.0~bzr519-0ubuntu1) artful; urgency=medium
+
+  * New upstream snapshot.
+    - tests: Add CiTestCase common parent for all curtin tests.
+    - vmtests: Remove force flag for centos curthooks
+    - tools/jenkins-runner: improve tgtd cleanup logic
+    - tests: Drop EOL Wily Vivid and Yakkety tests.
+    - Disable yum plugins when installing packages, update ca-certs for https
+    - Rename centos_network_curthooks -> centos_apply_network_config.
+    - tests: in centos_defaults use write_files for grub serial.
+    - write_files: write files after extract, change write_files signature.
+    - pass network configuration through to target for ubuntu and centos
+    - tests: disable yakkety tests.
+    - tools/launch: automatically pass on proxy settings to curtin
+    - Add top level 'proxy' to config, deprecate top level http_proxy.
+    - tools/curtainer: fix to enable deb-src for -proposed.
+    - Use unshare to put chroot commands in own pid namespace.
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 03 Aug 2017 15:51:19 -0400
+
 curtin (0.1.0~bzr505-0ubuntu1) artful; urgency=medium
 
   * debian/new-upstream-snapshot: fix issue with whitespace at end of line.
