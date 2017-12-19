@@ -1,3 +1,14 @@
+curtin (0.1.0~bzr153-0ubuntu1) utopic; urgency=medium
+
+  * New upstream snapshot.
+    * support for creating swap file.
+    * fix bug when specifying kernel mapping in config.
+    * install_kernel: run apt-get udpate before searching cache (LP: #1358424)
+    * correctly check for availability of eatmydata (LP: #1358350)
+    * support installation on ppc64 systems (ubuntu ppc64el)
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 21 Aug 2014 03:35:53 -0400
+
 curtin (0.1.0~bzr143-0ubuntu1) utopic; urgency=medium
 
   * New upstream snapshot.
