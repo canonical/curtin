@@ -15,6 +15,7 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import pty
 import subprocess
 import sys
@@ -32,7 +33,8 @@ CMD_ARGUMENTS = (
        'action': 'store_true', 'default': False}),
      (('-t', '--target'),
       {'help': 'chroot to target. default is env[TARGET_MOUNT_POINT]',
-       'action': 'store', 'metavar': 'TARGET', 'default': None}),
+       'action': 'store', 'metavar': 'TARGET',
+       'default': os.environ.get('TARGET_MOUNT_POINT')}),
      ('command_args',
       {'help': 'run a command chrooted in the target', 'nargs': '*'}),
      )

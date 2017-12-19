@@ -15,6 +15,7 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
    after booting. 'curtin install [args]' can be any command'
   
    options:
+           --add  F[:T] add file 'F' to the curtin archive at T
       -a | --append     append args to kernel cmdline (--kernel)
       -d | --disk   D   add a disk 'D' format (path[:size])
       -h | --help       show this message
@@ -95,7 +96,7 @@ EOF
 
 main() {
 	local short_opts="a:d:h:i:k:p:v"
-	local long_opts="append:,disk:,help,initrd:,kernel:,mem:,publish:,verbose"
+	local long_opts="add:,append:,disk:,help,initrd:,kernel:,mem:,publish:,verbose"
 	local getopt_out=""
 	getopt_out=$(getopt --name "${0##*/}" \
 		--options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -110,10 +111,12 @@ main() {
 	local pubs="" disks=""
 	pubs=( )
 	disks=( )
+	addfiles=( )
 
 	while [ $# -ne 0 ]; do
 		cur=${1}; next=${2};
 		case "$cur" in
+			   --add) addfiles[${#addfiles[@]}]="$next"; shift;;
 			-a|--append) uappend="$next"; shift;;
 			-d|--disk) disks[${#disks[@]}]="$next"; shift;;
 			-h|--help) Usage ; exit 0;;
@@ -194,13 +197,24 @@ main() {
 		cmdargs[$i]=${cmdargs[$i]//PUBURL/$burl}
 	done
 
+	local addargs="" f=""
+	addargs=( )
+	for f in "${addfiles[@]}"; do
+		if [ "${f#*:}" != "$f" ]; then
+			addargs[${#addargs[@]}]="--add=$f"
+		else
+			addargs[${#addargs[@]}]="--add=$f:${f##*/}"
+		fi
+	done
+
+	PYTHONPATH="${top_d}${PYTHONPATH:+${PYTHONPATH}}" \
+		"${top_d}/bin/curtin" pack "${addargs[@]}" -- \
+		"${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
+		{ error "failed to pack"; return 1; }
+
 	( cd "${TEMP_D}" &&
 		exec python -m SimpleHTTPServer $http_port ) >"${TEMP_D}/ws.log" 2>&1 &
 	HTTP_PID=$!
-
-	PYTHONPATH="${top_d}${PYTHONPATH:+${PYTHONPATH}}" \
-		"${top_d}/bin/curtin" pack -- "${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
-		{ error "failed to pack"; return 1; }
 
 	udata="${TEMP_D}/user-data"
 	mdata="${TEMP_D}/meta-data"
