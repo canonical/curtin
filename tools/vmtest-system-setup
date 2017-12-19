@@ -5,6 +5,10 @@ error() { echo "$@" 1>&2; }
 fail() { [ $# -eq 0 ] || error "$@"; exit 2; }
 
 rel="$(lsb_release -sc)"
+case "$(uname -m)" in
+  i?86|x86_64) qemu="qemu-system-x86";;
+  ppc*) qemu="qemu-system-ppc";;
+esac
 DEPS=(
   cloud-image-utils
   make
@@ -12,6 +16,7 @@ DEPS=(
   python3-nose
   python3-yaml
   simplestreams
+  $qemu
   ubuntu-cloudimage-keyring
 )
 

@@ -29,9 +29,14 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
            --mem    K   memory in Kb
       -n | --netdev     netdev can be 'user' or a bridge
       -p | --publish F  make file 'F' available in web server
-           --silent     use -vga none
+           --silent     use -nographic
+           --vnc D      use -vnc D (mutually exclusive with --silent)
+                        directly through to qemu-system.
+                        Note, qemu adds 5900 to port numbers. (:0 = port 5900)
            --serial-log F  : log to F (default 'serial.log')
       -v | --verbose    be more verbose
+           --no-install-deps  do not install insert '--install-deps'
+                              on curtin command invocations
 
    use of --kernel/--initrd will seed cloud-init via cmdline
    rather than the local datasource
@@ -96,13 +101,42 @@ instance-id: 'inst-${RANDOM}'
 EOF
 }
 
+write_pstate_config() {
+    local pstate="$1" config1="$2" config2="$3"
+    cat > "$config1" <<EOF
+#cloud-config
+power_state:
+  mode: "$pstate"
+EOF
+    sed -e "s,PSTATE,$pstate," > "$config2" <<"EOF"
+#upstart-job
+# precise does not do cloud-config poweroff
+description "power-state for precise"
+start on stopped cloud-final
+console output
+task
+script
+  [ "$(lsb_release -sc)" = "precise" ] || exit 0
+  target="PSTATE"
+  msg="precise-powerstate: $target"
+  case "$target" in
+     on) exit 0;;
+     off|poweroff) shutdown -P now "$msg";;
+     reboot) shutdown -r now "$msg";;
+     *) echo "$msg : unknown target"; exit 1;;
+  esac
+  echo "$msg"
+  exit 0
+end script
+EOF
+}
+
 write_userdata() {
     local x
     cat <<EOF
 #cloud-config-archive
 - type: text/cloud-config
   content: |
-   #http_proxy: http://my-proxy:3129/
    password: passw0rd
    chpasswd: { expire: False }
    output: {all: '| tee -a /var/log/cloud-init-output.log'}
@@ -184,9 +218,26 @@ start_http() {
     return $ret
 }
 
+find_apt_proxy() {
+    # pick an apt proxy for the guest
+    local out=""
+
+    # if user set uncommon 'apt_proxy', then trust it
+    [ -n "$apt_proxy" ] && echo "$apt_proxy" && return 0
+
+    # see if the host has an apt proxy configured, and use it
+    if command -v apt-config >/dev/null 2>&1; then
+        out=$(apt-config shell x Acquire::HTTP::Proxy) &&
+        out=$(sh -c 'eval $1 && echo $x' -- "$out") && [ -n "$out" ] &&
+        echo "$out" && return
+    fi
+
+    return 1
+}
+
 main() {
     local short_opts="a:d:h:i:k:n:p:v"
-    local long_opts="add:,append:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi,verbose"
+    local long_opts="add:,append:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -200,8 +251,8 @@ main() {
     local initrd="" kernel="" uappend="" iargs="" disk_args=""
     local pubs="" disks="" pstate="null"
     local uefi=0
-    local netdevs=""
-    local video="-curses" serial_log="file:serial.log"
+    local netdevs="" install_deps="--install-deps"
+    local video="-curses -vga std" serial_log="file:serial.log"
     # dowait: run xkvm with a '&' and then 'wait' on the pid.
     #  the reason to do this or not do this has to do with interactivity
     #  if detached with &, then user input will not go to xkvm.
@@ -227,6 +278,7 @@ main() {
             -d|--disk) disks[${#disks[@]}]="$next"; shift;;
             -h|--help) Usage ; exit 0;;
             -i|--initrd) initrd="$next"; shift;;
+               --no-install-deps) install_deps="";;
             -k|--kernel) kernel="$next"; shift;;
                --mem) mem="$next"; shift;;
                --power)
@@ -241,6 +293,10 @@ main() {
             -p|--publish) pubs[${#pub[@]}]="$next"; shift;;
                --uefi) uefi=1;;
                --silent) video="-nographic";;
+               --vnc)
+                    video="-vnc $next"
+                    debug 1 "VNC requested - $next"
+                    shift;;
                --serial-log) serial_log="file:$next"; shift;;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
                --dowait) pt[${#pt[@]}]="$cur"; dowait=true;;
@@ -297,7 +353,7 @@ main() {
     tmp=$(dirname "$0") && top_d=$(cd "$tmp" && cd .. && pwd) ||
         { error "failed to get dir for $0"; return 1; }
 
-    local disk="" src="" size=""
+    local disk="" src="" size="" fmt="" out=""
     disk_args=( )
     for disk in "${disks[@]}"; do
         src=${disk}
@@ -309,9 +365,14 @@ main() {
         if [ ! -f "$src" ]; then
             qemu-img create -f raw "${src}" "$size" ||
                 { error "failed create $src of size $size"; return 1; }
+            fmt="raw"
+        else
+            out=$(LANG=C qemu-img info "$src") &&
+                fmt=$(echo "$out" | awk '$0 ~ /^file format:/ { print $3 }') ||
+                { error "failed to determine format of $src"; return 1; }
         fi
         disk_args=( "${disk_args[@]}"
-            "-drive" "file=${src},if=virtio,cache=unsafe" )
+            "-drive" "file=${src},if=virtio,cache=unsafe,format=$fmt" )
     done
 
     get_my_ip || { error "failed to get your ip. set IP_ADDR"; return 1; }
@@ -333,6 +394,10 @@ main() {
         ln -sf "$fpath" "${TEMP_D}/${pub}"
     done
 
+    start_http "${TEMP_D}" "$ip" "$http_port" "${HTTP_TRIES}" </dev/null ||
+        { error "failed to start http service"; return 1; }
+    http_port=$_RET
+    burl="http://$ip:${http_port}/"
     # now replace PUBURL anywhere in cmdargs
     for((i=0;i<${#cmdargs[@]};i++)); do
         cmdargs[$i]=${cmdargs[$i]//PUBURL/$burl}
@@ -373,15 +438,16 @@ main() {
         addargs[${#addargs[@]}]="--add=config/${fpath##*/}:$fpath"
     done
 
+    if [ "${cmdargs[0]}" = "curtin" -a -n "$install_deps" ]; then
+        # if this is a 'curtin' command, then also insert --install-deps
+        debug 1 "adding --install-deps to command"
+        cmdargs=( curtin $install_deps "${cmdargs[@]:1}" )
+    fi
+
     PYTHONPATH="${top_d}${PYTHONPATH:+${PYTHONPATH}}" \
         "${top_d}/bin/curtin" pack "${addargs[@]}" -- \
         "${cmdargs[@]}" > "${TEMP_D}/install-cmd" ||
         { error "failed to pack"; return 1; }
-
-    start_http "${TEMP_D}" "$ip" "$http_port" "${HTTP_TRIES}" </dev/null ||
-        { error "failed to start http service"; return 1; }
-    http_port=$_RET
-    burl="http://$ip:${http_port}/"
 
     udata="${TEMP_D}/user-data"
     mdata="${TEMP_D}/meta-data"
@@ -389,9 +455,15 @@ main() {
     local ccfiles=""
     ccfiles=( )
     if [ -n "${pstate}" ]; then
-        printf "#cloud-config\npower_state:\n  mode: %s\n" "$pstate" \
-            > "${TEMP_D}/pstate"
-        ccfiles[${#ccfiles[@]}]="${TEMP_D}/pstate"
+        write_pstate_config "$pstate" "${TEMP_D}/pstate.1" "${TEMP_D}/pstate.2"
+        ccfiles[${#ccfiles[@]}]="${TEMP_D}/pstate.1"
+        ccfiles[${#ccfiles[@]}]="${TEMP_D}/pstate.2"
+    fi
+
+    if tmp=$(find_apt_proxy); then
+        debug 1 "using $tmp for proxy"
+        printf '#cloud-config\napt_proxy: "%s"\n' "$tmp" > "${TEMP_D}/cc-proxy"
+        ccfiles[${#ccfiles[@]}]="${TEMP_D}/cc-proxy"
     fi
 
     write_metadata > "$mdata" || { error "failed to write meta-data"; return 1; }

@@ -1,4 +1,7 @@
-from . import VMBaseClass
+from . import (
+    VMBaseClass,
+    get_apt_proxy)
+
 from unittest import TestCase
 
 import os
@@ -12,22 +15,19 @@ class TestBasicAbs(VMBaseClass):
     install_timeout = 600
     boot_timeout = 120
     extra_disks = ['128G']
-    user_data = textwrap.dedent("""\
-        #cloud-config
-        password: passw0rd
-        chpasswd: { expire: False }
-        bootcmd:
-          - mkdir /media/output
-        runcmd:
-          - blkid -o export /dev/vda > /media/output/blkid_output_vda
-          - blkid -o export /dev/vda1 > /media/output/blkid_output_vda1
-          - blkid -o export /dev/vda2 > /media/output/blkid_output_vda2
-          - cat /etc/fstab > /media/output/fstab
-          - ls /dev/disk/by-dname/ > /media/output/ls_dname
-          - [tar, -C, /media/output, -cf, /dev/vdb, .]
-        power_state:
-          mode: poweroff
-        """)
+    collect_scripts = [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        blkid -o export /dev/vda > blkid_output_vda
+        blkid -o export /dev/vda1 > blkid_output_vda1
+        blkid -o export /dev/vda2 > blkid_output_vda2
+        cat /etc/fstab > fstab
+        ls /dev/disk/by-dname/ > ls_dname
+
+        v=""
+        out=$(apt-config shell v Acquire::HTTP::Proxy)
+        eval "$out"
+        echo "$v" > apt-proxy
+        """)]
 
     def test_output_files_exist(self):
         self.output_files_exist(
@@ -67,6 +67,17 @@ class TestBasicAbs(VMBaseClass):
         self.assertIsNotNone(fstab_entry)
         self.assertEqual(fstab_entry.split(' ')[1], "/home")
 
+    def test_proxy_set(self):
+        expected = get_apt_proxy()
+        with open(os.path.join(self.td.mnt, "apt-proxy")) as fp:
+            apt_proxy_found = fp.read().rstrip()
+        if expected:
+            # the proxy should have gotten set through
+            self.assertIn(expected, apt_proxy_found)
+        else:
+            # no proxy, so the output of apt-config dump should be empty
+            self.assertEqual("", apt_proxy_found)
+
 
 class WilyTestBasic(TestBasicAbs, TestCase):
     __test__ = True
@@ -80,3 +91,16 @@ class VividTestBasic(TestBasicAbs, TestCase):
     repo = "maas-daily"
     release = "vivid"
     arch = "amd64"
+
+
+class PreciseTestBasic(TestBasicAbs, TestCase):
+    __test__ = True
+    repo = "maas-daily"
+    release = "precise"
+    arch = "amd64"
+
+    def test_ptable(self):
+        print("test_ptable does not work for Precise")
+
+    def test_dname(self):
+        print("test_dname does not work for Precise")

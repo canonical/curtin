@@ -1,0 +1,197 @@
+storage:
+  version: 1
+  config:
+     - id: sda
+       type: disk
+       ptable: gpt
+       model: QEMU HARDDISK
+       path: /dev/vdb
+       name: main_disk
+       grub_device: 1
+     - id: bios_boot_partition
+       type: partition
+       size: 1MB
+       device: sda
+       flag: bios_grub
+     - id: sda1
+       type: partition
+       size: 1GB
+       device: sda
+     - id: sda2
+       type: partition
+       size: 1GB
+       device: sda
+     - id: sda3
+       type: partition
+       size: 1GB
+       device: sda
+     - id: sda4
+       type: partition
+       size: 1GB
+       device: sda
+     - id: sda5
+       type: partition
+       size: 3GB
+       device: sda
+     - id: sdb
+       type: disk
+       ptable: gpt
+       model: QEMU HARDDISK
+       path: /dev/vdc
+       name: second_disk
+     - id: sdb1
+       type: partition
+       size: 1GB
+       device: sdb
+     - id: sdb2
+       type: partition
+       size: 1GB
+       device: sdb
+     - id: sdb3
+       type: partition
+       size: 1GB
+       device: sdb
+     - id: sdb4
+       type: partition
+       size: 1GB
+       device: sdb
+     - id: sdc
+       type: disk
+       ptable: gpt
+       model: QEMU HARDDISK
+       path: /dev/vdd
+       name: third_disk
+     - id: sdc1
+       type: partition
+       size: 1GB
+       device: sdc
+     - id: sdc2
+       type: partition
+       size: 1GB
+       device: sdc
+     - id: sdc3
+       type: partition
+       size: 1GB
+       device: sdc
+     - id: sdc4
+       type: partition
+       size: 1GB
+       device: sdc
+     - id: sdd
+       type: disk
+       ptable: gpt
+       model: QEMU HARDDISK
+       path: /dev/vde
+       name: fourth_disk
+     - id: sdd1
+       type: partition
+       size: 1GB
+       device: sdd
+     - id: sdd2
+       type: partition
+       size: 1GB
+       device: sdd
+     - id: sdd3
+       type: partition
+       size: 1GB
+       device: sdd
+     - id: sdd4
+       type: partition
+       size: 1GB
+       device: sdd
+     - id: mddevice0
+       name: md0
+       type: raid
+       raidlevel: 5
+       devices:
+         - sda1
+         - sdb1
+         - sdc1
+       spare_devices:
+         - sdd1
+     - id: mddevice1
+       name: md1
+       type: raid
+       raidlevel: raid6
+       devices:
+         - sda2
+         - sdb2
+         - sdc2
+         - sdd2
+       spare_devices:
+         - sda3
+     - id: mddevice2
+       name: md2
+       type: raid
+       raidlevel: 1
+       devices:
+         - sda4
+         - sdb3
+       spare_devices:
+         - sdc3
+         - sdb4
+     - id: mddevice3
+       name: md3
+       type: raid
+       raidlevel: raid0
+       devices:
+         - sdc4
+         - sdd3
+     - id: volgroup1
+       name: vg1
+       type: lvm_volgroup
+       devices:
+           - mddevice0
+           - mddevice1
+           - mddevice2
+           - mddevice3
+     - id: lvmpart1
+       name: lv1
+       size: 1G
+       type: lvm_partition
+       volgroup: volgroup1
+     - id: lvmpart2
+       name: lv2
+       size: 1G
+       type: lvm_partition
+       volgroup: volgroup1
+     - id: lvmpart3
+       name: lv3
+       type: lvm_partition
+       volgroup: volgroup1
+     - id: dmcrypt0
+       type: dm_crypt
+       volume: lvmpart3
+       key: testkey
+       dm_name: dmcrypt0
+     - id: lv1_fs
+       name: storage
+       type: format
+       fstype: ext3
+       volume: lvmpart1
+     - id: lv2_fs
+       name: storage
+       type: format
+       fstype: ext4
+       volume: lvmpart2
+     - id: dmcrypt_fs
+       name: storage
+       type: format
+       fstype: xfs
+       volume: dmcrypt0
+     - id: sda5_root
+       type: format
+       fstype: ext4
+       volume: sda5
+     - id: sda5_mount
+       type: mount
+       path: /
+       device: sda5_root
+     - id: lv1_mount
+       type: mount
+       path: /srv/data
+       device: lv1_fs
+     - id: lv2_mount
+       type: mount
+       path: /srv/backup
+       device: lv2_fs

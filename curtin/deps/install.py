@@ -20,33 +20,29 @@ The intent of this module is that it can be called to install deps
   python -m curtin.deps.install [-v]
 """
 
-import subprocess
+import argparse
 import sys
-import time
+
+from . import install_deps
 
 
-def runcmd(cmd, retries=[]):
-    for wait in retries:
-        try:
-            subprocess.check_call(cmd)
-            return 0
-        except subprocess.CalledProcessError as e:
-            sys.stderr.write("%s failed. sleeping %s\n" % (cmd, wait))
-            time.sleep(wait)
-    try:
-        subprocess.check_call(cmd)
-    except subprocess.CalledProcessError as e:
-        return e.returncode
+def main():
+    parser = argparse.ArgumentParser(
+        prog='curtin-install-deps',
+        description='install dependencies for curtin.')
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        dest='verbosity')
+    parser.add_argument('--dry-run', action='store_true', default=False)
+    parser.add_argument('--no-allow-daemons', action='store_false',
+                        default=True)
+    args = parser.parse_args(sys.argv[1:])
+
+    ret = install_deps(verbosity=args.verbosity, dry_run=args.dry_run,
+                       allow_daemons=True)
+    sys.exit(ret)
+
 
 if __name__ == '__main__':
-    if sys.version_info[0] == 2:
-        pkgs = ['python-yaml']
-    else:
-        pkgs = ['python3-yaml']
+    main()
 
-    ret = runcmd(['apt-get', '--quiet', 'update'], retries=[2, 4])
-    if ret != 0:
-        sys.exit(ret)
-
-    ret = runcmd(['apt-get', 'install', '--quiet', '--assume-yes'] + pkgs)
-    sys.exit(ret)
+# vi: ts=4 expandtab syntax=python

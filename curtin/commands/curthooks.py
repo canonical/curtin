@@ -591,6 +591,12 @@ def install_missing_packages(cfg, target):
             'bridge-utils': ['bridge']},
     }
 
+    format_configs = {
+        'xfsprogs': ['xfs'],
+        'e2fsprogs': ['ext2', 'ext3', 'ext4'],
+        'brtfs-tools': ['btrfs'],
+    }
+
     needed_packages = []
     installed_packages = get_installed_packages(target)
     for cust_cfg, pkg_reqs in custom_configs.items():
@@ -603,6 +609,15 @@ def install_missing_packages(cfg, target):
             )
         for pkg, types in pkg_reqs.items():
             if set(types).intersection(all_types) and \
+               pkg not in installed_packages:
+                needed_packages.append(pkg)
+
+        format_types = set(
+            [operation['fstype']
+             for operation in cfg[cust_cfg]['config']
+             if operation['type'] == 'format'])
+        for pkg, fstypes in format_configs.items():
+            if set(fstypes).intersection(format_types) and \
                pkg not in installed_packages:
                 needed_packages.append(pkg)
 
@@ -687,6 +702,10 @@ def curthooks(args):
                                   "mdadm.conf")
     if os.path.exists(mdadm_location):
         copy_mdadm_conf(mdadm_location, target)
+        # as per https://bugs.launchpad.net/ubuntu/+source/mdadm/+bug/964052
+        # reconfigure mdadm
+        util.subp(['chroot', target, 'dpkg-reconfigure',
+                   '--frontend=noninteractive', 'mdadm'], data=None)
 
     # If udev dname rules were created, copy them to target
     udev_rules_d = os.path.join(state['scratch'], "rules.d")

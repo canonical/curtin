@@ -23,12 +23,11 @@ import traceback
 
 from .. import log
 from .. import util
-from .. import config
-from ..reporter import (events, update_configuration)
+from ..deps import install_deps
 
 SUB_COMMAND_MODULES = ['apply_net', 'block-meta', 'curthooks', 'extract',
                        'hook', 'in-target', 'install', 'mkfs', 'net-meta',
-                       'pack', 'swap', 'system-upgrade']
+                       'pack', 'swap', 'system-install', 'system-upgrade']
 
 
 def add_subcmd(subparser, subcmd):
@@ -43,20 +42,20 @@ def add_subcmd(subparser, subcmd):
     popfunc(subparser.add_parser(subcmd))
 
 
-def main(args=None):
-    if args is None:
-        args = sys.argv
+class NoHelpParser(argparse.ArgumentParser):
+    # ArgumentParser with forced 'add_help=False'
+    def __init__(self, *args, **kwargs):
+        kwargs.update({'add_help': False})
+        super(NoHelpParser, self).__init__(*args, **kwargs)
 
-    parser = argparse.ArgumentParser()
+    def error(self, message):
+        # without overriding this, argparse exits with bad usage
+        raise ValueError("failed parsing arguments: %s" % message)
 
-    stacktrace = (os.environ.get('CURTIN_STACKTRACE', "0").lower()
-                  not in ("0", "false", ""))
 
-    try:
-        verbosity = int(os.environ.get('CURTIN_VERBOSITY', "0"))
-    except ValueError:
-        verbosity = 1
-
+def get_main_parser(stacktrace=False, verbosity=0,
+                    parser_class=argparse.ArgumentParser):
+    parser = parser_class(prog='curtin')
     parser.add_argument('--showtrace', action='store_true', default=stacktrace)
     parser.add_argument('-v', '--verbose', action='count', default=verbosity,
                         dest='verbosity')
@@ -66,6 +65,9 @@ def main(args=None):
                         help='read configuration from cfg',
                         metavar='FILE', type=argparse.FileType("rb"),
                         dest='main_cfgopts', default=[])
+    parser.add_argument('--install-deps', action='store_true',
+                        help='install dependencies as necessary',
+                        default=False)
     parser.add_argument('--set', action=util.MergedCmdAppend,
                         help=('define a config variable. key can be a "/" '
                               'delimited path ("early_commands/cmd1=a"). if '
@@ -75,6 +77,66 @@ def main(args=None):
     parser.set_defaults(config={})
     parser.set_defaults(reportstack=None)
 
+    return parser
+
+
+def maybe_install_deps(args, stacktrace=True, verbosity=0):
+    parser = get_main_parser(stacktrace=stacktrace, verbosity=verbosity,
+                             parser_class=NoHelpParser)
+    subps = parser.add_subparsers(dest="subcmd", parser_class=NoHelpParser)
+    for subcmd in SUB_COMMAND_MODULES:
+        subps.add_parser(subcmd)
+
+    install_only_args = [
+        ['-v', '--install-deps'],
+        ['-vv', '--install-deps'],
+        ['--install-deps', '-v'],
+        ['--install-deps', '-vv'],
+        ['--install-deps'],
+    ]
+
+    install_only = args in install_only_args
+
+    if install_only:
+        verbosity = 1
+    else:
+        try:
+            ns, unknown = parser.parse_known_args(args)
+            verbosity = ns.verbosity
+            if not ns.install_deps:
+                return
+        except ValueError:
+            # bad usage will be reported by the real reporter
+            return
+
+    ret = install_deps(verbosity=verbosity)
+
+    if ret != 0 or install_only:
+        sys.exit(ret)
+
+    return
+
+
+def main(args=None):
+    if args is None:
+        args = sys.argv
+
+    stacktrace = (os.environ.get('CURTIN_STACKTRACE', "0").lower()
+                  not in ("0", "false", ""))
+
+    try:
+        verbosity = int(os.environ.get('CURTIN_VERBOSITY', "0"))
+    except ValueError:
+        verbosity = 1
+
+    maybe_install_deps(sys.argv[1:], stacktrace=stacktrace,
+                       verbosity=verbosity)
+
+    # Above here, only standard library modules can be assumed.
+    from .. import config
+    from ..reporter import (events, update_configuration)
+
+    parser = get_main_parser(stacktrace=stacktrace, verbosity=verbosity)
     subps = parser.add_subparsers(dest="subcmd")
     for subcmd in SUB_COMMAND_MODULES:
         add_subcmd(subps, subcmd)

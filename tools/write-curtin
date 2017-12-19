@@ -16,8 +16,7 @@ else:
     parg = path
 
 ret = write_exe_wrapper(entrypoint="curtin.commands.main", path=parg,
-                        deps_check_entry="curtin.deps.check",
-                        deps_install_entry="curtin.deps.install")
+                        deps_check_entry="curtin.deps.check")
 
 if path == "-":
     sys.stdout.write(ret)

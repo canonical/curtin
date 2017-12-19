@@ -31,12 +31,11 @@ import string
 import sys
 import tempfile
 import time
+import re
 
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
-
-CUSTOM_REQUIRED_PACKAGES = ['mdadm', 'lvm2', 'bcache-tools']
 
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
@@ -152,6 +151,45 @@ def wipe_volume(path, wipe_type):
     # wiping something that is already blank
     for cmd in cmds:
         util.subp(cmd, rcs=[0, 1, 2, 5], capture=True)
+
+
+def block_find_sysfs_path(devname):
+    # Look up any block device holders.  Handle devices and partitions
+    # as devnames (vdb, md0, vdb7)
+    if not devname:
+        return []
+
+    sys_class_block = '/sys/class/block/'
+    basename = os.path.basename(devname)
+    # try without parent blockdevice, then prepend parent
+    paths = [
+        os.path.join(sys_class_block, basename),
+        os.path.join(sys_class_block,
+                     re.split('[\d+]', basename)[0], basename),
+    ]
+
+    # find path to devname directory in sysfs
+    devname_sysfs = None
+    for path in paths:
+        if os.path.exists(path):
+            devname_sysfs = path
+
+    if devname_sysfs is None:
+        err = ('No sysfs path to device:'
+               ' {}'.format(devname_sysfs))
+        LOG.error(err)
+        raise ValueError(err)
+
+    return devname_sysfs
+
+
+def get_holders(devname):
+    devname_sysfs = block_find_sysfs_path(devname)
+    if devname_sysfs:
+        LOG.debug('Getting blockdev holders: {}'.format(devname_sysfs))
+        return os.listdir(os.path.join(devname_sysfs, 'holders'))
+
+    return []
 
 
 def clear_holders(sys_block_path):
@@ -463,6 +501,14 @@ def disk_handler(info, storage_config):
         make_dname(info.get('id'), storage_config)
 
 
+def getnumberoflogicaldisks(device, storage_config):
+    logicaldisks = 0
+    for key, item in storage_config.items():
+        if item.get('device') == device and item.get('flag') == "logical":
+            logicaldisks = logicaldisks + 1
+    return logicaldisks
+
+
 def partition_handler(info, storage_config):
     device = info.get('device')
     size = info.get('size')
@@ -477,11 +523,18 @@ def partition_handler(info, storage_config):
     disk = get_path_to_storage_volume(device, storage_config)
     partnumber = determine_partition_number(info.get('id'), storage_config)
 
-    # Offset is either 1 sector after last partition, or near the beginning if
-    # this is the first partition
+    disk_kname = os.path.split(
+        get_path_to_storage_volume(device, storage_config))[-1]
+    # consider the disks logical sector size when calculating sectors
+    try:
+        prefix = "/sys/block/%s/queue/" % disk_kname
+        with open(prefix + "logical_block_size", "r") as f:
+            l = f.readline()
+            logical_block_size_bytes = int(l)
+    except:
+        logical_block_size_bytes = 512
+
     if partnumber > 1:
-        disk_kname = os.path.split(
-            get_path_to_storage_volume(device, storage_config))[-1]
         if partnumber == 5 and disk_ptable == "msdos":
             for key, item in storage_config.items():
                 if item.get('type') == "partition" and \
@@ -498,12 +551,41 @@ def partition_handler(info, storage_config):
         with open(os.path.join(previous_partition, "size"), "r") as fp:
             previous_size = int(fp.read())
         with open(os.path.join(previous_partition, "start"), "r") as fp:
-            offset_sectors = previous_size + int(fp.read()) + 1
+            previous_start = int(fp.read())
+
+    # Align to 1M at the beginning of the disk and at logical partitions
+    alignment_offset = (1 << 20) / logical_block_size_bytes
+    if partnumber == 1:
+        # start of disk
+        offset_sectors = alignment_offset
     else:
-        offset_sectors = 2048
+        # further partitions
+        if disk_ptable == "gpt" or flag != "logical":
+            # msdos primary and any gpt part start after former partition end
+            offset_sectors = previous_start + previous_size
+        else:
+            # msdos extended/logical partitions
+            if flag == "logical":
+                if partnumber == 5:
+                    # First logical partition
+                    # start at extended partition start + alignment_offset
+                    offset_sectors = previous_start + alignment_offset
+                else:
+                    # Further logical partitions
+                    # start at former logical partition end + alignment_offset
+                    offset_sectors = (previous_start + previous_size +
+                                      alignment_offset)
 
     length_bytes = util.human2bytes(size)
-    length_sectors = int(length_bytes / 512)
+    # start sector is part of the sectors that define the partitions size
+    # so length has to be "size in sectors - 1"
+    length_sectors = int(length_bytes / logical_block_size_bytes) - 1
+    # logical partitions can't share their start sector with the extended
+    # partition and logical partitions can't go head-to-head, so we have to
+    # realign and for that increase size as required
+    if info.get('flag') == "extended":
+        logdisks = getnumberoflogicaldisks(device, storage_config)
+        length_sectors = length_sectors + (logdisks * alignment_offset)
 
     # Handle preserve flag
     if info.get('preserve'):
@@ -577,7 +659,7 @@ def format_handler(info, storage_config):
 
     # Generate mkfs command and run
     if fstype in ["ext4", "ext3"]:
-        cmd = ['mkfs.%s' % fstype, '-q']
+        cmd = ['mkfs.%s' % fstype, '-F', '-q']
         if part_label:
             if len(part_label) > 16:
                 raise ValueError(
@@ -812,8 +894,12 @@ def raid_handler(info, storage_config):
     spare_devices = info.get('spare_devices')
     if not devices:
         raise ValueError("devices for raid must be specified")
-    if raidlevel not in [0, 1, 5]:
+    if raidlevel not in ['linear', 'raid0', 0, 'stripe', 'raid1', 1, 'mirror',
+                         'raid4', 4, 'raid5', 5, 'raid6', 6, 'raid10', 10]:
         raise ValueError("invalid raidlevel '%s'" % raidlevel)
+    if raidlevel in ['linear', 'raid0', 0, 'stripe']:
+        if spare_devices:
+            raise ValueError("spareunsupported in raidlevel '%s'" % raidlevel)
 
     device_paths = list(get_path_to_storage_volume(dev, storage_config) for
                         dev in devices)
@@ -822,8 +908,14 @@ def raid_handler(info, storage_config):
         spare_device_paths = list(get_path_to_storage_volume(dev,
                                   storage_config) for dev in spare_devices)
 
-    cmd = ["yes", "|", "mdadm", "--create", "/dev/%s" % info.get('name'),
-           "--level=%s" % raidlevel, "--raid-devices=%s" % len(device_paths)]
+    mdnameparm = ""
+    mdname = info.get('mdname')
+    if mdname:
+        mdnameparm = "--name=%s" % info.get('mdname')
+
+    cmd = ["mdadm", "--create", "/dev/%s" % info.get('name'), "--run",
+           "--level=%s" % raidlevel, "--raid-devices=%s" % len(device_paths),
+           mdnameparm]
 
     for device in device_paths:
         # Zero out device superblock just in case device has been used for raid
@@ -840,7 +932,11 @@ def raid_handler(info, storage_config):
             cmd.append(device)
 
     # Create the raid device
+    util.subp(["udevadm", "settle"])
+    util.subp(["udevadm", "control", "--stop-exec-queue"])
     util.subp(" ".join(cmd), shell=True)
+    util.subp(["udevadm", "control", "--start-exec-queue"])
+    util.subp(["udevadm", "settle"])
 
     # Make dname rule for this dev
     make_dname(info.get('id'), storage_config)
@@ -871,18 +967,40 @@ def bcache_handler(info, storage_config):
                                                 storage_config)
     cache_device = get_path_to_storage_volume(info.get('cache_device'),
                                               storage_config)
+    cache_mode = info.get('cache_mode', None)
+
     if not backing_device or not cache_device:
-        raise ValueError("backing device and cache device for bcache must be \
-                specified")
+        raise ValueError("backing device and cache device for bcache"
+                         " must be specified")
 
     # The bcache module is not loaded when bcache is installed by apt-get, so
     # we will load it now
     util.subp(["modprobe", "bcache"])
 
-    # If both the backing device and cache device are specified at the same
-    # time than it is not necessary to attach the cache device manually, as
-    # bcache will do this automatically.
-    util.subp(["make-bcache", "-B", backing_device, "-C", cache_device])
+    if cache_device:
+        # /sys/class/block/XXX/YYY/
+        cache_device_sysfs = block_find_sysfs_path(cache_device)
+
+        if os.path.exists(os.path.join(cache_device_sysfs, "bcache")):
+            # read in cset uuid from cache device
+            (out, err) = util.subp(["bcache-super-show", cache_device],
+                                   capture=True)
+            LOG.debug('out=[{}]'.format(out))
+            [cset_uuid] = [line.split()[-1] for line in out.split("\n")
+                           if line.startswith('cset.uuid')]
+
+        else:
+            # make the cache device, extracting cacheset uuid
+            (out, err) = util.subp(["make-bcache", "-C", cache_device],
+                                   capture=True)
+            LOG.debug('out=[{}]'.format(out))
+            [cset_uuid] = [line.split()[-1] for line in out.split("\n")
+                           if line.startswith('Set UUID:')]
+
+    if backing_device:
+        backing_device_sysfs = block_find_sysfs_path(backing_device)
+        if not os.path.exists(os.path.join(backing_device_sysfs, "bcache")):
+            util.subp(["make-bcache", "-B", backing_device])
 
     # Some versions of bcache-tools will register the bcache device as soon as
     # we run make-bcache using udev rules, so wait for udev to settle, then try
@@ -898,6 +1016,41 @@ def bcache_handler(info, storage_config):
             fp.write(path)
             fp.close()
 
+    # if we specify both then we need to attach backing to cache
+    if cache_device and backing_device:
+        if cset_uuid:
+            LOG.info("Attaching backing device to cacheset: "
+                     "{} -> {} cset.uuid: {}".format(backing_device,
+                                                     cache_device,
+                                                     cset_uuid))
+            attach = os.path.join(backing_device_sysfs,
+                                  "bcache",
+                                  "attach")
+            with open(attach, "w") as fp:
+                fp.write(cset_uuid)
+        else:
+            LOG.error("Invalid cset_uuid: {}".format(cset_uuid))
+            raise
+
+    if cache_mode:
+        # find the actual bcache device name via sysfs using the
+        # backing device's holders directory.
+        holders = get_holders(backing_device)
+
+        if len(holders) != 1:
+            err = ('Invalid number of holding devices:'
+                   ' {}'.format(holders))
+            LOG.error(err)
+            raise ValueError(err)
+
+        [bcache_dev] = holders
+        LOG.info("Setting cache_mode on {} to {}".format(bcache_dev,
+                                                         cache_mode))
+        cache_mode_file = \
+            '/sys/block/{}/bcache/cache_mode'.format(info.get('id'))
+        with open(cache_mode_file, "w") as fp:
+            fp.write(cache_mode)
+
     if info.get('name'):
         # Make dname rule for this dev
         make_dname(info.get('id'), storage_config)
@@ -905,19 +1058,6 @@ def bcache_handler(info, storage_config):
     if info.get('ptable'):
         raise ValueError("Partition tables on top of lvm logical volumes is \
                          not supported")
-
-
-def install_missing_packages_for_meta_custom():
-    """Install all the missing package that `meta_custom` requires to
-    function properly."""
-    missing_packages = [
-        package
-        for package in CUSTOM_REQUIRED_PACKAGES
-        if not util.has_pkg_installed(package)
-    ]
-    if len(missing_packages) > 0:
-        util.apt_update()
-        util.install_packages(missing_packages)
 
 
 def meta_custom(args):
@@ -941,9 +1081,6 @@ def meta_custom(args):
 
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
-
-    # make sure the required packages are installed
-    install_missing_packages_for_meta_custom()
 
     storage_config = cfg.get('storage', {})
     if not storage_config:

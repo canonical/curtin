@@ -1,0 +1,116 @@
+#!/bin/sh
+# smtar (smart tar)
+# GNU Tar can only determine the compression type if input is a local file.
+# If input is a pipe, it will not even attempt.
+#
+# This works around that limitation by using 'file' to determine
+# the compression format via a local temp file of BUFLEN (1024) bytes.
+# After determining format, it passes the correct flag to tar.
+#
+# Compression format determination is done with 'file' via use of a temp file
+#
+#  The following are supported:
+#
+#    # compression option provided explicitly: just exec tar
+#    $ ./smtar -tvz < my.tar.gz
+#
+#    # file argument provided, tar can determine: just exec tar
+#    $ ./smtar -tvf my.tar.gz 
+#    $ ./smtar -tvf my.tar
+#
+#    # input from stdin. determine the appropriate compress flag and execute
+#    $ ./smtar -tv < my.tar.bz2
+#    $ ./smtar -tv < my.tar.bz2
+#    $ cat my.tar.xz | ./smtar -tv -f -
+#    $ wget http://some.tar | ./smtar -tv -f -
+#
+#
+TEMPF=""
+BUFLEN="1024"
+cleanup() { [ -z "$TEMPF" ] || rm -f "$TEMPF"; }
+error() { echo "$@" 1>&2; }
+fail() { [ $# -eq 0 ] || error "$@"; exit 1; }
+find_tar_filearg() {
+    # walk through list of args, return the 'file' argument in _RET
+    local cur="" next=""
+    while [ $# -ne 0 ]; do
+        cur="$1"
+        next="$2"
+        case "$cur" in
+            --file=*) _RET=${cur#*=}; return 0;;
+            --file) _RET=$next; return 0;;
+            --*=*) :;;
+            *-f) _RET="$next"; return 0;;
+            --) _RET=""; return 0;;
+        esac
+        shift
+    done
+    return 1
+}
+
+tar_has_compress_opt() {
+    # this isnt perfect, but catch common ways
+    # without fully parsing the args, we risk interpreting
+    #   tar -xvf -J
+    # as bzip2 compression, where in reality its a file name '-J'
+    local cur="" next=""
+    while [ $# -ne 0 ]; do
+        cur="$1"
+        next="$2"
+        case "$cur" in
+            -z|--gzip|--gunzip|--ungzip) return 0;;
+            -j|--bzip2) return 0;;
+            -J|--xz) return 0;;
+            -Z|--compress|--uncompress) return 0;;
+            --) return 1;;
+        esac
+        shift
+    done
+    return 1
+}
+
+# see if we can get out without reading anything
+if [ -t 0 ] || tar_has_compress_opt; then
+    # input is a terminal, or args contain a compress option
+    exec tar "$@"
+fi
+
+# if there was a compression arg in input, then let it be
+find_tar_filearg "$@"
+if ! [ "$_RET" = "/dev/stdin" -o "$_RET" = "-" -o -z "$_RET" ]; then
+   exec "tar" "$@"
+fi
+
+# now we have work to do
+zopt=""
+TEMPF=$(mktemp) || fail "mktemp failed"
+trap cleanup EXIT
+head -c "$BUFLEN" > "$TEMPF" || fail "FAILED: head -c '$BUFLEN'"
+size=$(stat --format="%s" "$TEMPF")
+file_out=$(LANG=C file --mime-type "$TEMPF")
+# my.tar: application/x-tar
+# my.tar.bz2: application/x-bzip2
+# my.tar.gz: application/gzip
+# my.tar.xz: application/x-xz
+# my.tar.Z:  application/x-compress
+if [ $? -eq 0 ]; then
+    case "$file_out" in
+        */x-bzip2|*/bzip2) zopt="--bzip2";;
+        */x-gzip|*/gzip) zopt="--gzip";;
+        */x-xz|*/xz) zopt="--xz";;
+        */x-compress|*/compress) zopt="--compress";;
+        *) zopt="";;
+    esac
+else
+    error "WARN: 'file' failed on input"
+fi
+if [ "$size" -lt "$BUFLEN" ]; then
+    # input was less than BUFLEN chars, so we just exec tar with input from it
+    exec < "$TEMPF"
+    rm -f "$TEMPF"
+    exec tar $zopt "$@"
+else
+    ( cat "$TEMPF" && rm "$TEMPF" && exec cat ) | exec tar $zopt "$@"
+fi
+
+# vi: ts=4 expandtab syntax=sh

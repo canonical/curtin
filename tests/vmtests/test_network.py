@@ -54,23 +54,15 @@ class TestNetworkAbs(VMBaseClass):
     boot_timeout = 600
     extra_disks = []
     extra_nics = []
-    user_data = textwrap.dedent("""\
-        #cloud-config
-        password: passw0rd
-        chpasswd: { expire: False }
-        bootcmd:
-          - mkdir -p /media/output
-        runcmd:
-          - ifconfig -a > /media/output/ifconfig_a
-          - cp -av /etc/network/interfaces /media/output
-          - cp /etc/resolv.conf /media/output
-          - cp -av /etc/udev/rules.d/70-persistent-net.rules /media/output
-          - ip -o route show > /media/output/ip_route_show
-          - route -n > /media/output/route_n
-          - [tar, -C, /media/output, -cf, /dev/vdb, .]
-        power_state:
-          mode: poweroff
-        """)
+    collect_scripts = [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        ifconfig -a > ifconfig_a
+        cp -av /etc/network/interfaces .
+        cp /etc/resolv.conf .
+        cp -av /etc/udev/rules.d/70-persistent-net.rules .
+        ip -o route show > ip_route_show
+        route -n > route_n
+        """)]
 
     def test_output_files_exist(self):
         self.output_files_exist(["ifconfig_a",
@@ -244,21 +236,21 @@ class TestNetworkAbs(VMBaseClass):
                 self.assertEqual(gw_ip, gw)
 
 
-class TrustyTestBasic(TestNetworkAbs, TestCase):
+class TrustyTestNetwork(TestNetworkAbs, TestCase):
     __test__ = True
     repo = "maas-daily"
     release = "trusty"
     arch = "amd64"
 
 
-class WilyTestBasic(TestNetworkAbs, TestCase):
+class WilyTestNetwork(TestNetworkAbs, TestCase):
     __test__ = True
     repo = "maas-daily"
     release = "wily"
     arch = "amd64"
 
 
-class VividTestBasic(TestNetworkAbs, TestCase):
+class VividTestNetwork(TestNetworkAbs, TestCase):
     __test__ = True
     repo = "maas-daily"
     release = "vivid"

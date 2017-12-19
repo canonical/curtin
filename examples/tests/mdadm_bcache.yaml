@@ -32,6 +32,10 @@ storage:
        type: partition
        size: 1GB
        device: sda
+     - id: sda6
+       type: partition
+       size: 1GB
+       device: sda
      - id: mddevice
        name: md0
        type: raid
@@ -46,6 +50,13 @@ storage:
        name: cached_array
        backing_device: mddevice
        cache_device: sda5
+       cache_mode: writeback
+     - id: bcache1
+       type: bcache
+       name: cached_array_2
+       backing_device: sda6
+       cache_device: sda5
+       cache_mode: writeback
      - id: sda1_root
        type: format
        fstype: ext4
@@ -54,6 +65,10 @@ storage:
        type: format
        fstype: ext4
        volume: bcache0
+     - id: bcache_storage
+       type: format
+       fstype: ext4
+       volume: bcache1
      - id: sda1_mount
        type: mount
        path: /
@@ -62,3 +77,7 @@ storage:
        type: mount
        path: /media/data
        device: raid_storage
+     - id: bcache1_mount
+       type: mount
+       path: /media/bcache1
+       device: bcache_storage
