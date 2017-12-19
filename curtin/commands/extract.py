@@ -21,6 +21,7 @@ import sys
 import curtin.config
 from curtin.log import LOG
 import curtin.util
+from curtin.futil import write_files
 from curtin.reporter import events
 
 from . import populate_one_subcmd
@@ -122,6 +123,11 @@ def extract(args):
                     "do not know how to extract '%s'" %
                     source['uri'])
 
+    if cfg.get('write_files'):
+        LOG.info("Applying write_files from config.")
+        write_files(cfg['write_files'], target)
+    else:
+        LOG.info("No write_files in config.")
     sys.exit(0)
 
 

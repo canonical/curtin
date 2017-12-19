@@ -520,7 +520,52 @@ def render_interfaces(network_state):
     return content
 
 
+def netconfig_passthrough_available(target, feature='NETWORK_CONFIG_V2'):
+    """
+    Determine if curtin can pass v2 network config to in target cloud-init
+    """
+    LOG.debug('Checking in-target cloud-init for feature: %s', feature)
+    with util.ChrootableTarget(target) as in_chroot:
+
+        cloudinit = util.which('cloud-init', target=target)
+        if not cloudinit:
+            LOG.warning('Target does not have cloud-init installed')
+            return False
+
+        available = False
+        try:
+            out, _ = in_chroot.subp([cloudinit, 'features'], capture=True)
+            available = feature in out.splitlines()
+        except util.ProcessExecutionError:
+            # we explicitly don't dump the exception as this triggers
+            # vmtest failures when parsing the installation log file
+            LOG.warning("Failed to probe cloudinit features")
+            return False
+
+        LOG.debug('cloud-init feature %s available? %s', feature, available)
+        return available
+
+
+def render_netconfig_passthrough(target, netconfig=None):
+    """
+    Extract original network config and pass it
+    through to cloud-init in target
+    """
+    cc = 'etc/cloud/cloud.cfg.d/50-curtin-networking.cfg'
+    if not isinstance(netconfig, dict):
+        raise ValueError('Network config must be a dictionary')
+
+    if 'network' not in netconfig:
+        raise ValueError("Network config must contain the key 'network'")
+
+    content = config.dump_config(netconfig)
+    cc_passthrough = os.path.sep.join((target, cc,))
+    LOG.info('Writing network config to %s: %s', cc, cc_passthrough)
+    util.write_file(cc_passthrough, content=content)
+
+
 def render_network_state(target, network_state):
+    LOG.debug("rendering eni from netconfig")
     eni = 'etc/network/interfaces'
     netrules = 'etc/udev/rules.d/70-persistent-net.rules'
     cc = 'etc/cloud/cloud.cfg.d/curtin-disable-cloudinit-networking.cfg'
@@ -541,5 +586,66 @@ def render_network_state(target, network_state):
 def get_interface_mac(ifname):
     """Returns the string value of an interface's MAC Address"""
     return read_sys_net(ifname, "address", enoent=False)
+
+
+def network_config_required_packages(network_config, mapping=None):
+
+    if network_config is None:
+        network_config = {}
+
+    if not isinstance(network_config, dict):
+        raise ValueError('Invalid network configuration.  Must be a dict')
+
+    if mapping is None:
+        mapping = {}
+
+    if not isinstance(mapping, dict):
+        raise ValueError('Invalid network mapping.  Must be a dict')
+
+    # allow top-level 'network' key
+    if 'network' in network_config:
+        network_config = network_config.get('network')
+
+    # v1 has 'config' key and uses type: devtype elements
+    if 'config' in network_config:
+        dev_configs = set(device['type']
+                          for device in network_config['config'])
+    else:
+        # v2 has no config key
+        dev_configs = set(cfgtype for (cfgtype, cfg) in
+                          network_config.items() if cfgtype not in ['version'])
+
+    needed_packages = []
+    for dev_type in dev_configs:
+        if dev_type in mapping:
+            needed_packages.extend(mapping[dev_type])
+
+    return needed_packages
+
+
+def detect_required_packages_mapping():
+    """Return a dictionary providing a versioned configuration which maps
+       network configuration elements to the packages which are required
+       for functionality.
+    """
+    mapping = {
+        1: {
+            'handler': network_config_required_packages,
+            'mapping': {
+                'bond': ['ifenslave'],
+                'bridge': ['bridge-utils'],
+                'vlan': ['vlan']},
+        },
+        2: {
+            'handler': network_config_required_packages,
+            'mapping': {
+                'bonds': ['ifenslave'],
+                'bridges': ['bridge-utils'],
+                'vlans': ['vlan']}
+        },
+    }
+
+    return mapping
+
 
 # vi: ts=4 expandtab syntax=python

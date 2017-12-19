@@ -1,27 +1,15 @@
-from unittest import TestCase
 from mock import call, patch
 from curtin.block import dev_short
 from curtin.block import mdadm
 from curtin import util
+from .helpers import CiTestCase
 import os
 import subprocess
 import textwrap
 
 
-class MdadmTestBase(TestCase):
-    def setUp(self):
-        super(MdadmTestBase, self).setUp()
+class TestBlockMdadmAssemble(CiTestCase):
 
-    def add_patch(self, target, attr):
-        """Patches specified target object and sets it as attr on test
-        instance also schedules cleanup"""
-        m = patch(target, autospec=True)
-        p = m.start()
-        self.addCleanup(m.stop)
-        setattr(self, attr, p)
-
-
-class TestBlockMdadmAssemble(MdadmTestBase):
     def setUp(self):
         super(TestBlockMdadmAssemble, self).setUp()
         self.add_patch('curtin.block.mdadm.util', 'mock_util')
@@ -94,7 +82,7 @@ class TestBlockMdadmAssemble(MdadmTestBase):
             rcs=[0, 1, 2])
 
 
-class TestBlockMdadmCreate(MdadmTestBase):
+class TestBlockMdadmCreate(CiTestCase):
     def setUp(self):
         super(TestBlockMdadmCreate, self).setUp()
         self.add_patch('curtin.block.mdadm.util', 'mock_util')
@@ -243,7 +231,7 @@ class TestBlockMdadmCreate(MdadmTestBase):
         self.mock_util.subp.assert_has_calls(expected_calls)
 
 
-class TestBlockMdadmExamine(MdadmTestBase):
+class TestBlockMdadmExamine(CiTestCase):
     def setUp(self):
         super(TestBlockMdadmExamine, self).setUp()
         self.add_patch('curtin.block.mdadm.util', 'mock_util')
@@ -328,7 +316,7 @@ class TestBlockMdadmExamine(MdadmTestBase):
         self.assertEqual(data, {})
 
 
-class TestBlockMdadmStop(MdadmTestBase):
+class TestBlockMdadmStop(CiTestCase):
     def setUp(self):
         super(TestBlockMdadmStop, self).setUp()
         self.add_patch('curtin.block.mdadm.util.lsb_release', 'mock_util_lsb')
@@ -495,7 +483,7 @@ class TestBlockMdadmStop(MdadmTestBase):
         self.mock_util_write_file.assert_has_calls(expected_writes)
 
 
-class TestBlockMdadmRemove(MdadmTestBase):
+class TestBlockMdadmRemove(CiTestCase):
     def setUp(self):
         super(TestBlockMdadmRemove, self).setUp()
         self.add_patch('curtin.block.mdadm.util', 'mock_util')
@@ -521,7 +509,7 @@ class TestBlockMdadmRemove(MdadmTestBase):
         self.mock_util.subp.assert_has_calls(expected_calls)
 
 
-class TestBlockMdadmQueryDetail(MdadmTestBase):
+class TestBlockMdadmQueryDetail(CiTestCase):
     def setUp(self):
         super(TestBlockMdadmQueryDetail, self).setUp()
         self.add_patch('curtin.block.mdadm.util', 'mock_util')
@@ -599,7 +587,7 @@ Working Devices : 3
                          '93a73e10:427f280b:b7076c02:204b8f7a')
 
 
-class TestBlockMdadmDetailScan(MdadmTestBase):
+class TestBlockMdadmDetailScan(CiTestCase):
     def setUp(self):
         super(TestBlockMdadmDetailScan, self).setUp()
         self.add_patch('curtin.block.mdadm.util', 'mock_util')
@@ -634,7 +622,7 @@ class TestBlockMdadmDetailScan(MdadmTestBase):
         self.assertEqual(None, data)
 
 
-class TestBlockMdadmMdHelpers(MdadmTestBase):
+class TestBlockMdadmMdHelpers(CiTestCase):
     def setUp(self):
         super(TestBlockMdadmMdHelpers, self).setUp()
         self.add_patch('curtin.block.mdadm.util', 'mock_util')

@@ -1,9 +1,9 @@
-from unittest import TestCase
+from .helpers import CiTestCase
 
 import curtin
 
 
-class TestExportsFeatures(TestCase):
+class TestExportsFeatures(CiTestCase):
     def test_has_storage_v1(self):
         self.assertIn('STORAGE_CONFIG_V1', curtin.FEATURES)
 
@@ -15,3 +15,6 @@ class TestExportsFeatures(TestCase):
 
     def test_has_reporting_events_webhook(self):
         self.assertIn('REPORTING_EVENTS_WEBHOOK', curtin.FEATURES)
+
+    def test_has_centos_apply_network_config(self):
+        self.assertIn('CENTOS_APPLY_NETWORK_CONFIG', curtin.FEATURES)

@@ -273,7 +273,11 @@ def mdadm_stop(devpath, retries=None):
             LOG.debug('%s/sync_max = %s', sync_action, val)
             if val != "idle":
                 LOG.debug("mdadm: setting array sync_action=idle")
-                util.write_file(sync_action, content="idle")
+                try:
+                    util.write_file(sync_action, content="idle")
+                except (IOError, OSError) as e:
+                    LOG.debug("mdadm: (non-fatal) write to %s failed %s",
+                              sync_action, e)
 
             # Setting the sync_{max,min} may can help prevent the array from
             # changing back to 'resync' which may prevent the array from being
@@ -283,11 +287,11 @@ def mdadm_stop(devpath, retries=None):
             if val != "0":
                 LOG.debug("mdadm: setting array sync_{min,max}=0")
                 try:
-                    util.write_file(sync_max, content="0")
-                    util.write_file(sync_min, content="0")
-                except IOError:
-                    LOG.warning('mdadm: failed to set sync_{max,min} values')
-                    pass
+                    for sync_file in [sync_max, sync_min]:
+                        util.write_file(sync_file, content="0")
+                except (IOError, OSError) as e:
+                    LOG.debug('mdadm: (non-fatal) write to %s failed %s',
+                              sync_file, e)
 
             # one wonders why this command doesn't do any of the above itself?
             out, err = util.subp(["mdadm", "--manage", "--stop", devpath],

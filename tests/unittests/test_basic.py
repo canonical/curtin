@@ -1,7 +1,7 @@
-from unittest import TestCase
+from .helpers import CiTestCase
 
 
-class TestImport(TestCase):
+class TestImport(CiTestCase):
     def test_import(self):
         import curtin
         self.assertFalse(getattr(curtin, 'BOGUS_ENTRY', None))

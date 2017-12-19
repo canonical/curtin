@@ -106,10 +106,10 @@ main() {
 
     [ $# -eq 2 ] || { bad_Usage "expected 2 args, got $#: $*"; return; }
 
-    trap cleanup EXIT 
+    trap cleanup EXIT
     src="$1"
     name="$2"
-    
+
     if [ "$getsource" != "none" ]; then
         [ ! -e "$getsource" ] || fail "source output '$getsource' exists."
     fi
@@ -127,11 +127,15 @@ main() {
             /etc/apt/sources.list) &&
             rel=$(inside $name lsb_release -sc) ||
             fail "failed to get mirror in $name"
-        line="deb $mirror $rel-proposed main universe"
-        debug 1 "enabling proposed: $line"
+        line="$mirror $rel-proposed main universe"
         local fname="/etc/apt/sources.list.d/proposed.list"
-        inside "$name" sh -c "echo $line > $fname" ||
-            fail "failed adding proposed to sources.list"
+        debug 1 "enabling proposed in $fname: deb $line"
+        inside "$name" sh -c "echo deb $line > $fname" ||
+            fail "failed adding proposed to $fname"
+        if [ "$getsource" != "none" ]; then
+            inside "$name" sh -c "echo deb-src $line >> $fname" ||
+                fail "failed adding proposed deb-src to $fname"
+        fi
     fi
     if $daily; then
         local daily_ppa="ppa:curtin-dev/daily"
@@ -167,7 +171,7 @@ main() {
             target="$1"
             d=$(mktemp -d)
             cd "$d"
-            apt-get source curtin 
+            apt-get source curtin
             for x in *; do [ -d "$x" ] && break; done
             [ -d "$x" ] || { echo no source dir found.; exit 1; }
             cp -a $x "$target"
@@ -177,11 +181,13 @@ main() {
         inside "$name" tar -C "$isrcd" -cf - . |
             tar -C "$getsource" -xf - ||
             fail "failed to copy source out to $getsource"
+        version=$(inside "$name" dpkg-parsechangelog \
+            "--file=$isrcd/debian/changelog" "--show-field=version")
         inside "$name" rm -Rf "$isrcd" ||
             fail "failed removal of extract dir"
+        debug 1 "put source for curtin at $version in $getsource"
     fi
 
-    
     CONTAINER=""
 }
 

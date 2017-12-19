@@ -5,6 +5,7 @@ set -e
 sourcename="curtin"
 TEMP_D=""
 UNCOMMITTED=${UNCOMMITTED:-0}
+RELEASE=${RELEASE:-UNRELEASED}
 
 fail() { echo "$@" 1>&2; exit 1; }
 cleanup() {
@@ -67,7 +68,8 @@ for f in debian/*.trunk; do
    mv "$f" "${f%.trunk}"
 done
 
-sed -i "1s,${clogver_o},${clogver_new}," debian/changelog ||
+sed -i -e "1s,${clogver_o},${clogver_new}," \
+       -e "1s,UNRELEASED,${RELEASE}," debian/changelog ||
    fail "failed to write debian/changelog"
 debuild "$@" || fail "debuild failed"
 

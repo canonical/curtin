@@ -1,0 +1,91 @@
+hook_commands:
+    builtin: null
+
+# To force curtin to run centos_apply_network_config vmtest, uncomment
+# _ammend_centos_curthooks: True
+
+write_files:
+  grub_serial_console:
+    path: '/root/curtin-send-console-to-serial'
+    permissions: '0755'
+    owner: 'root:root'
+    content: |
+      # update grub1 and grub2 configs to write to serial console.
+      CONPARM="console=ttyS0,115200"
+      grub1conf="/boot/grub/grub.conf"
+      grub2conf="/boot/grub2/grub.cfg"
+      grub2def="/etc/default/grub"
+
+      rerror() { perror "$?" "$@"; return $r; }
+      perror() { local r="$1"; shift; error "$@"; return $r; }
+      error() { echo "GRUB_SERIAL:" "ERROR:" "$@" 1>&2; }
+      info() { echo "GRUB_SERIAL:" "$@" 1>&2; }
+      fail() { error "$@"; exit 1; }
+      bk() {
+          local ofile="$1" bk="$1.dist.curtin"
+          shift
+          [ -e "$ofile" ] || return 0
+          cp "$ofile" "$bk" || rerror "failed backup ($ofile -> $bk):" "$@";
+      }
+      
+      update_grub1() {
+          local cfg="$1" r=""
+          [ -e "$cfg" ] ||
+              { info "no grub1 cfg '$cfg'"; return 0; }
+          bk "$cfg" "grub1 config" || return
+          if ! grep "^serial" "$cfg"; then
+              cat >> "$cfg" <<EOF
+      #curtin added
+      serial --unit=0 --speed=115200
+      terminal --timeout=2 serial console
+      EOF
+              r=$?
+              [ $r -eq 0 ] ||
+                  { perror $r "failed to append to grub1 cfg '$cfg'"; return; }
+          fi
+          sed -i -e '/linux16/n' -e '/console=/n' \
+              -e "s/root=\([^ ]*\)/root=\1 ${CONPARM}/" "$cfg" ||
+              { rerror "failed to update grub1 cfg '$cfg'."; return; }
+          info "updated grub1 cfg '$cfg'."
+      }
+      
+      update_grub2() {
+          local cfg="$1" defgrub="$2"
+          [ -e "$cfg" ] || { info "no grub2 config '$cfg'"; return 0; }
+          bk "$cfg" "grub2 config" || return
+          sed -i -e '/kernel/n' -e '/console=/n' \
+            -e "s/root=\([^ ]*\)/root=\1 ${CONPARM}/" "$cfg" ||
+            { rerror "failed to update grub2 '$cfg'"; return; }
+      
+          # update /etc/default/grub. any GRUB_CMDLINE_LINUX remove 
+          # any console= and add conparm at the beginning.
+          local var="GRUB_CMDLINE_LINUX" msg="updated grub2 '$cfg'."
+          if [ ! -e "$defgrub" ]; then
+              msg="$msg. no defaults file '$defgrub'."
+          else
+              bk "$defgrub" "grub2 defaults file" || return
+              msg="$msg. updated defaults file '$defgrub'."
+              sed -i \
+                  -e "/$var=/!n" \
+                  -e 's/console=[^ "]*//g' \
+                  -e "s/$var=\"/$var=\"${CONPARM}/" "$defgrub" ||
+                  { rerror "grub2 default update failed on $defgrub"; return; }
+          fi
+          info "$msg"
+      }
+
+      update_grub1 "$grub1conf" || fail "failed update grub1"
+      update_grub2 "$grub2conf" "$grub2def" || fail "failed update grub2"
+
+late_commands:
+ # centos66 images include grub 0.97 which will detect vmtests' ephemeral disk
+ # and the install disk which leaves grub configured with two disks.  When
+ # vmtest reboots into installed disk, there is only one disk and the grub
+ # map is no longer valid.  Here in 00_grub, we switch hd1 to hd0.  MAAS
+ # is not affected as their ephemeral image (iscsi or http) is not discovered
+ # by grub and therefor the device.map doesn't contain a second device. Cent7
+ # has grub2 which uses root by UUID
+ 00_grub1_boot: [curtin, in-target, --, sed, -i.curtin, -e,
+                 's|(hd1,0)|(hd0,0)|g', /boot/grub/grub.conf]
+ # vmtest wants output to go to serial console so we update grub inside.
+ 00_grub_serial: [curtin, in-target, --, '/root/curtin-send-console-to-serial']

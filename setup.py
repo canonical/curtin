@@ -1,12 +1,26 @@
 from distutils.core import setup
 from glob import glob
 import os
+import sys
 
 import curtin
 
 
 def is_f(p):
     return os.path.isfile(p)
+
+
+def in_virtualenv():
+    try:
+        if sys.real_prefix == sys.prefix:
+            return False
+        else:
+            return True
+    except AttributeError:
+        return False
+
+
+USR = "usr" if in_virtualenv() else "/usr"
 
 setup(
     name="curtin",
@@ -27,9 +41,9 @@ setup(
     ],
     scripts=glob('bin/*'),
     data_files=[
-        ('/usr/share/doc/curtin',
+        (USR + '/share/doc/curtin',
          [f for f in glob('doc/*') if is_f(f)]),
-        ('/usr/lib/curtin/helpers',
+        (USR + '/lib/curtin/helpers',
          [f for f in glob('helpers/*') if is_f(f)])
     ]
 )
