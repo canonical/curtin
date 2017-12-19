@@ -1,3 +1,15 @@
+curtin (0.1.0~bzr365-0ubuntu1) xenial; urgency=medium
+
+  * New upstream snapshot.
+    * mkfs: handle fstype: vfat (LP: #1557334)
+    * save the curtin install config to /root/curtin-install-cfg.yaml
+    * deps: when 'curtin --install-deps' is run, it will now invoke
+      apt-get install with '--no-install-recommends'
+  * debian/control: adjust build dependency as python3-pyflakes in xenial
+    now provides python3 modules for pyflakes.
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 18 Mar 2016 10:18:21 -0400
+
 curtin (0.1.0~bzr359-0ubuntu1) xenial; urgency=medium
 
   * debian/new-upstream-snapshot, debian/README.source: add
