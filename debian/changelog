@@ -1,3 +1,11 @@
+curtin (0.1.0~bzr95-0ubuntu1) trusty; urgency=low
+
+  * New upstream snapshot.
+    * fix bug in block-meta resulting in first disk not always being used
+       (LP: #1244026)
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 24 Oct 2013 01:41:47 -0400
+
 curtin (0.1.0~bzr94-0ubuntu1) saucy-proposed; urgency=low
 
   * New upstream snapshot.
