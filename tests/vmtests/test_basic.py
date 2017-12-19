@@ -104,6 +104,7 @@ class TestBasicAbs(VMBaseClass):
                 break
         self.assertIsNotNone(fstab_entry)
         self.assertEqual(fstab_entry.split(' ')[1], "/btrfs")
+        self.assertEqual(fstab_entry.split(' ')[3], "defaults,noatime")
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
@@ -163,6 +164,10 @@ class ZestyTestBasic(relbase.zesty, TestBasicAbs):
 
 
 class ArtfulTestBasic(relbase.artful, TestBasicAbs):
+    __test__ = True
+
+
+class BionicTestBasic(relbase.bionic, TestBasicAbs):
     __test__ = True
 
 
@@ -237,7 +242,7 @@ class TestBasicScsiAbs(TestBasicAbs):
         self.assertIsNotNone(fstab_entry)
         self.assertEqual(fstab_entry.split(' ')[1], "/home")
 
-        # Test whole disk sdc is mounted at /btrfs
+        # Test whole disk sdc is mounted at /btrfs, and uses defaults,noatime
         uuid = self._kname_to_uuid('sdc')
         fstab_entry = None
         for line in fstab_lines:
@@ -246,6 +251,7 @@ class TestBasicScsiAbs(TestBasicAbs):
                 break
         self.assertIsNotNone(fstab_entry)
         self.assertEqual(fstab_entry.split(' ')[1], "/btrfs")
+        self.assertEqual(fstab_entry.split(' ')[3], "defaults,noatime")
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
@@ -271,4 +277,8 @@ class ZestyTestScsiBasic(relbase.zesty, TestBasicScsiAbs):
 
 
 class ArtfulTestScsiBasic(relbase.artful, TestBasicScsiAbs):
+    __test__ = True
+
+
+class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
     __test__ = True

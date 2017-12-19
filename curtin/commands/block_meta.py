@@ -620,9 +620,27 @@ def format_handler(info, storage_config):
 
 
 def mount_handler(info, storage_config):
+    """ Handle storage config type: mount
+
+    info = {
+        'id': 'rootfs_mount',
+        'type': 'mount',
+        'path': '/',
+        'options': 'defaults,errors=remount-ro',
+        'device': 'rootfs',
+    }
+
+    Mount specified device under target at 'path' and generate
+    fstab entry.
+    """
     state = util.load_command_environment()
     path = info.get('path')
     filesystem = storage_config.get(info.get('device'))
+    mount_options = info.get('options')
+    # handle unset, or empty('') strings
+    if not mount_options:
+        mount_options = 'defaults'
+
     if not path and filesystem.get('fstype') != "swap":
         raise ValueError("path to mountpoint must be specified")
     volume = storage_config.get(filesystem.get('volume'))
@@ -638,41 +656,50 @@ def mount_handler(info, storage_config):
         mount_point = os.path.sep.join([state['target'], path])
         mount_point = os.path.normpath(mount_point)
 
-        # Create mount point if does not exist
-        util.ensure_dir(mount_point)
-
-        # Mount volume
-        util.subp(['mount', volume_path, mount_point])
-
-        path = "/%s" % path
-
-        options = ["defaults"]
+        options = mount_options.split(",")
         # If the volume_path's kname is backed by iSCSI or (in the case of
         # LVM/DM) if any of its slaves are backed by iSCSI, then we need to
         # append _netdev to the fstab line
         if iscsi.volpath_is_iscsi(volume_path):
             LOG.debug("Marking volume_path:%s as '_netdev'", volume_path)
             options.append("_netdev")
+
+        # Create mount point if does not exist
+        util.ensure_dir(mount_point)
+
+        # Mount volume, with options
+        try:
+            opts = ['-o', ','.join(options)]
+            util.subp(['mount', volume_path, mount_point] + opts, capture=True)
+        except util.ProcessExecutionError as e:
+            LOG.exception(e)
+            msg = ('Mount failed: %s @ %s with options %s' % (volume_path,
+                                                              mount_point,
+                                                              ",".join(opts)))
+            LOG.error(msg)
+            raise RuntimeError(msg)
+
+        # set path
+        path = "/%s" % path
+
     else:
         path = "none"
         options = ["sw"]
 
     # Add volume to fstab
     if state['fstab']:
-        with open(state['fstab'], "a") as fp:
-            location = get_path_to_storage_volume(volume.get('id'),
-                                                  storage_config)
-            uuid = block.get_volume_uuid(volume_path)
-            if len(uuid) > 0:
-                location = "UUID=%s" % uuid
+        uuid = block.get_volume_uuid(volume_path)
+        location = ("UUID=%s" % uuid) if uuid else (
+                    get_path_to_storage_volume(volume.get('id'),
+                                               storage_config))
 
-            if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32",
-                                            "fat64"]:
-                fstype = "vfat"
-            else:
-                fstype = filesystem.get('fstype')
-            fp.write("%s %s %s %s 0 0\n" % (location, path, fstype,
-                                            ",".join(options)))
+        fstype = filesystem.get('fstype')
+        if fstype in ["fat", "fat12", "fat16", "fat32", "fat64"]:
+            fstype = "vfat"
+
+        fstab_entry = "%s %s %s %s 0 0\n" % (location, path, fstype,
+                                             ",".join(options))
+        util.write_file(state['fstab'], fstab_entry, omode='a')
     else:
         LOG.info("fstab not in environment, so not writing")
 
@@ -707,7 +734,9 @@ def lvm_volgroup_handler(info, storage_config):
     else:
         # Create vgrcreate command and run
         # capture output to avoid printing it to log
-        util.subp(['vgcreate', name] + device_paths, capture=True)
+        # Use zero to clear target devices of any metadata
+        util.subp(['vgcreate', '--force', '--zero=y', '--yes',
+                   name] + device_paths, capture=True)
 
     # refresh lvmetad
     lvm.lvm_scan()
@@ -738,11 +767,17 @@ def lvm_partition_handler(info, storage_config):
             "possibility of damaging lvm  partitions intended to be "
             "preserved." % (info.get('id'), volgroup))
     else:
-        cmd = ["lvcreate", volgroup, "-n", name]
+        # Use 'wipesignatures' (if available) and 'zero' to clear target lv
+        # of any fs metadata
+        cmd = ["lvcreate", volgroup, "--name", name, "--zero=y"]
+        release = util.lsb_release()['codename']
+        if release not in ['precise', 'trusty']:
+            cmd.extend(["--wipesignatures=y"])
+
         if info.get('size'):
-            cmd.extend(["-L", info.get('size')])
+            cmd.extend(["--size", info.get('size')])
         else:
-            cmd.extend(["-l", "100%FREE"])
+            cmd.extend(["--extents", "100%FREE"])
 
         util.subp(cmd)
 

@@ -33,6 +33,10 @@ class ArtfulTestNetworkIPV6Vlan(relbase.artful, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
+class BionicTestNetworkIPV6Vlan(relbase.bionic, TestNetworkIPV6VlanAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkIPV6Vlan(centos_relbase.centos66fromxenial,
                                   CentosTestNetworkIPV6VlanAbs):
     __test__ = True

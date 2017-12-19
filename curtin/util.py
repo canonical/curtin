@@ -54,8 +54,8 @@ except NameError:
 
 from .log import LOG
 
-_INSTALLED_HELPERS_PATH = '/usr/lib/curtin/helpers'
-_INSTALLED_MAIN = '/usr/bin/curtin'
+_INSTALLED_HELPERS_PATH = 'usr/lib/curtin/helpers'
+_INSTALLED_MAIN = 'usr/bin/curtin'
 
 _LSB_RELEASE = {}
 _USES_SYSTEMD = None
@@ -677,6 +677,24 @@ def which(program, search=None, target=None):
     return None
 
 
+def _installed_file_path(path, check_file=None):
+    # check the install root for the file 'path'.
+    #  if 'check_file', then path is a directory that contains file.
+    # return absolute path or None.
+    inst_pre = "/"
+    if os.environ.get('SNAP'):
+        inst_pre = os.path.abspath(os.environ['SNAP'])
+    inst_path = os.path.join(inst_pre, path)
+    if check_file:
+        check_path = os.path.sep.join((inst_path, check_file))
+    else:
+        check_path = inst_path
+
+    if os.path.isfile(check_path):
+        return os.path.abspath(inst_path)
+    return None
+
+
 def get_paths(curtin_exe=None, lib=None, helpers=None):
     # return a dictionary with paths for 'curtin_exe', 'helpers' and 'lib'
     # that represent where 'curtin' executable lives, where the 'curtin' module
@@ -698,17 +716,17 @@ def get_paths(curtin_exe=None, lib=None, helpers=None):
         if found:
             curtin_exe = found
 
-    if (curtin_exe is None and os.path.exists(_INSTALLED_MAIN)):
-        curtin_exe = _INSTALLED_MAIN
+    if curtin_exe is None:
+        curtin_exe = _installed_file_path(_INSTALLED_MAIN)
 
-    cfile = "common"  # a file in 'helpers'
+    # "common" is a file in helpers
+    cfile = "common"
     if (helpers is None and
             os.path.isfile(os.path.join(tld, "helpers", cfile))):
         helpers = os.path.join(tld, "helpers")
 
-    if (helpers is None and
-            os.path.isfile(os.path.join(_INSTALLED_HELPERS_PATH, cfile))):
-        helpers = _INSTALLED_HELPERS_PATH
+    if helpers is None:
+        helpers = _installed_file_path(_INSTALLED_HELPERS_PATH, cfile)
 
     return({'curtin_exe': curtin_exe, 'lib': mydir, 'helpers': helpers})
 

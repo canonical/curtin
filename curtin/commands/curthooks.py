@@ -36,6 +36,8 @@ from curtin.commands import apply_net, apt_config
 
 from . import populate_one_subcmd
 
+write_files = futil._legacy_write_files  # LP: #1731709
+
 CMD_ARGUMENTS = (
     ((('-t', '--target'),
       {'help': 'operate on target. default is env[TARGET_MOUNT_POINT]',
@@ -689,14 +691,11 @@ def install_missing_packages(cfg, target):
             if pkg not in needed_packages:
                 needed_packages.add(pkg)
 
-    # FIXME: This needs cleaning up.
-    # do not install certain packages on artful as they are no longer needed.
-    # ifenslave specifically causes issuse due to dependency on ifupdown.
-    codename = util.lsb_release(target=target).get('codename')
-    if codename == 'artful':
+    # Filter out ifupdown network packages on netplan enabled systems.
+    if 'ifupdown' not in installed_packages and 'nplan' in installed_packages:
         drops = set(['bridge-utils', 'ifenslave', 'vlan'])
         if needed_packages.union(drops):
-            LOG.debug("Skipping install of %s.  Not needed on artful.",
+            LOG.debug("Skipping install of %s.  Not needed on netplan system.",
                       needed_packages.union(drops))
             needed_packages = needed_packages.difference(drops)
 

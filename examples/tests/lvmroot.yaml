@@ -1,0 +1,42 @@
+showtrace: true
+storage:
+    version: 1
+    config:
+      - id: main_disk
+        type: disk
+        ptable: gpt
+        name: root_disk
+        wipe: superblock
+        serial: '4cd98c5c-7761-4179'
+        grub_device: true
+      - id: main_disk_p1
+        type: partition
+        number: 1
+        size: 4GB
+        device: main_disk
+        flag: boot
+      - id: bios_boot
+        type: partition
+        size: 1MB
+        number: 15
+        device: main_disk
+        flag: bios_grub
+      - id: root_vg
+        type: lvm_volgroup
+        name: root_vg
+        devices:
+            - main_disk_p1
+      - id: root_vg_lv1
+        type: lvm_partition
+        name: lv1_root
+        size: 3.5G
+        volgroup: root_vg
+      - id: lv1_root_fs
+        type: format
+        fstype: __ROOTFS_FORMAT__
+        uuid: 04836770-e989-460f-8774-8e277ddcb40f
+        volume: root_vg_lv1
+      - id: lvroot_mount
+        path: /
+        type: mount
+        device: lv1_root_fs
