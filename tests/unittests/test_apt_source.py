@@ -911,6 +911,20 @@ deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         result = apt_config.disable_suites(disabled, orig, release)
         self.assertEqual(expect, result)
 
+    def test_disable_suites_blank_lines(self):
+        """test_disable_suites_blank_lines - ensure blank lines allowed"""
+        lines = ["deb %(repo)s %(rel)s main universe",
+                 "",
+                 "deb %(repo)s %(rel)s-updates main universe",
+                 "   # random comment",
+                 "#comment here",
+                 ""]
+        rel = "trusty"
+        repo = 'http://example.com/mirrors/ubuntu'
+        orig = "\n".join(lines) % {'repo': repo, 'rel': rel}
+        self.assertEqual(
+            orig, apt_config.disable_suites(["proposed"], orig, rel))
+
 
 class TestDebconfSelections(TestCase):
 
@@ -932,7 +946,7 @@ class TestDebconfSelections(TestCase):
         m_set_sel.return_value = None
 
         apt_config.apply_debconf_selections({'debconf_selections': data})
-        m_get_inst.assert_called()
+        self.assertTrue(m_get_inst.called)
         self.assertEqual(m_set_sel.call_count, 1)
 
         # assumes called with *args value.
@@ -979,7 +993,7 @@ class TestDebconfSelections(TestCase):
 
         apt_config.apply_debconf_selections({'debconf_selections': data})
 
-        m_get_inst.assert_called()
+        self.assertTrue(m_get_inst.called)
         self.assertEqual(m_dpkg_r.call_count, 0)
 
     @mock.patch("curtin.commands.apt_config.util.subp")
@@ -996,7 +1010,7 @@ class TestDebconfSelections(TestCase):
                                         target=target)
         # cloud-init is actually the only package we have a cleaner for
         # so for now, its the only one that should reconfigured
-        m_subp.assert_called()
+        self.assertTrue(m_subp.called)
         ci_cleaner.assert_called_with(target)
         self.assertEqual(m_subp.call_count, 1)
         found = m_subp.call_args_list[0][0][0]

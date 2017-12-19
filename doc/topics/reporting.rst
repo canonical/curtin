@@ -7,7 +7,7 @@ This enables the user to obtain status information from curtin.
 
 Events
 ------
-Reporting consists of notifcation of a series of 'events.  Each event has:
+Reporting consists of notification of a series of 'events.  Each event has:
  - **event_type**: 'start' or 'finish'
  - **description**: human readable text
  - **name**: and id for this event
@@ -48,7 +48,7 @@ only used for reference and to aid in config merging.
 Each entry must have a 'type'.  The currently supported values are:
  - **log**: logs via python logger
  - **print**: prints messages to stdout (for debugging)
- - **webhook**: posts json formated data to a remote url.  Supports Oauth.
+ - **webhook**: posts json formatted data to a remote url.  Supports Oauth.
 
 
 Additionally, the webhook reporter will post files on finish of curtin.  The user can declare which files should be posted in the ``install`` item via ``post_files`` as shown above.  If post_files is not present, it will default to the value of log_file.
@@ -154,7 +154,7 @@ And then run your install with appropriate config, like::
 Legacy Reporter
 ---------------
 The legacy 'reporter' config entry is still supported.  This was utilized by
-MAAS for start/end and posting of the install log at the end of isntallation.
+MAAS for start/end and posting of the install log at the end of installation.
 
 Its configuration looks like this:
 

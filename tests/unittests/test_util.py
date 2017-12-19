@@ -145,6 +145,8 @@ class TestSubp(TestCase):
 
     stdin2err = ['bash', '-c', 'cat >&2']
     stdin2out = ['cat']
+    bin_true = ['bash', '-c', ':']
+    exit_with_value = ['bash', '-c', 'exit ${1:-0}', 'test_subp_exit_val']
     utf8_invalid = b'ab\xaadef'
     utf8_valid = b'start \xc3\xa9 end'
     utf8_valid_2 = b'd\xc3\xa9j\xc8\xa7'
@@ -160,6 +162,26 @@ class TestSubp(TestCase):
         cmd = self.printf_cmd(self.utf8_valid_2)
         (out, _err) = util.subp(cmd, capture=True)
         self.assertEqual(out, self.utf8_valid_2.decode('utf-8'))
+
+    def test_subp_target_as_different_fors_of_slash_works(self):
+        # passing target=/ in any form should work.
+
+        # it is assumed that if chroot was used, then test case would
+        # fail unless user was root ('chroot /' is still priviledged)
+        util.subp(self.bin_true, target="/")
+        util.subp(self.bin_true, target="//")
+        util.subp(self.bin_true, target="///")
+        util.subp(self.bin_true, target="//etc/..//")
+
+    def test_subp_exit_nonzero_raises(self):
+        exc = None
+        try:
+            util.subp(self.exit_with_value + ["9"])
+        except util.ProcessExecutionError as e:
+            self.assertEqual(9, e.exit_code)
+            exc = e
+
+        self.assertNotEqual(exc, None)
 
     def test_subp_respects_decode_false(self):
         (out, err) = util.subp(self.stdin2out, capture=True, decode=False,
@@ -203,24 +225,68 @@ class TestSubp(TestCase):
         self.assertEqual(err, None)
         self.assertEqual(out, None)
 
-    @mock.patch("curtin.util.subprocess.Popen")
-    def test_with_target_gets_chroot(self, m_popen):
-        noexist_pname = "mocked-away-does-not-matter"
-        sp = mock.Mock()
-        m_popen.return_value = sp
-        sp.communicate.return_value = (b'out-foo', b'err-foo')
-        sp.returncode = 0
+    def _subp_wrap_popen(self, cmd, kwargs,
+                         returncode=0, stdout=b'', stderr=b''):
+        # mocks the subprocess.Popen as expected from subp
+        # checks that subp returned the output of 'communicate' and
+        # returns the (args, kwargs) that Popen() was called with.
 
-        ret = util.subp([noexist_pname], target="/mytarget",
-                        capture=True, decode=None)
+        capture = kwargs.get('capture')
+
+        with mock.patch("curtin.util.subprocess.Popen") as m_popen:
+            sp = mock.Mock()
+            m_popen.return_value = sp
+            if capture:
+                sp.communicate.return_value = (stdout, stderr)
+            else:
+                sp.communicate.return_value = (None, None)
+            sp.returncode = returncode
+            ret = util.subp(cmd, **kwargs)
+
+        # popen should only ever be called once
         self.assertTrue(m_popen.called)
         self.assertEqual(1, m_popen.call_count)
+        # communicate() needs to have been called.
         self.assertTrue(sp.communicate.called)
 
-        # Popen should have been called with chroot
-        args, kwargs = m_popen.call_args
-        self.assertEqual(['chroot', '/mytarget', noexist_pname], args[0])
-        self.assertEqual((b'out-foo', b'err-foo'), ret)
+        if capture:
+            # capture response is decoded if decode is not False
+            decode = kwargs.get('decode', "replace")
+            if decode is False:
+                self.assertEqual(stdout.decode(stdout, stderr), ret)
+            else:
+                self.assertEqual((stdout.decode(errors=decode),
+                                  stderr.decode(errors=decode)), ret)
+        else:
+            # if capture is false, then return is None, None
+            self.assertEqual((None, None), ret)
+
+        popen_args, popen_kwargs = m_popen.call_args
+
+        # if target is not provided or is /, chroot should not be used
+        target = util.target_path(kwargs.get('target', None))
+        if target == "/":
+            self.assertEqual(cmd, popen_args[0])
+        else:
+            self.assertEqual(['chroot', target] + list(cmd), popen_args[0])
+        return m_popen.call_args
+
+    def test_with_target_gets_chroot(self):
+        args, kwargs = self._subp_wrap_popen(["my-command"],
+                                             {'target': "/mytarget"})
+        self.assertIn('chroot', args[0])
+
+    def test_with_target_as_slash_does_not_chroot(self):
+        args, kwargs = self._subp_wrap_popen(
+            ['whatever'], {'capture': True, 'target': "/"})
+        self.assertNotIn('chroot', args[0])
+
+    def test_with_no_target_does_not_chroot(self):
+        args, kwargs = self._subp_wrap_popen(['whatever'], {'capture': True})
+        # note this path is reasonably tested with all of the above
+        # tests that do not mock Popen as if we did try to chroot the
+        # unit tests would fail unless they were run as root.
+        self.assertNotIn('chroot', args[0])
 
 
 class TestHuman2Bytes(TestCase):
@@ -256,6 +322,25 @@ class TestHuman2Bytes(TestCase):
 
     def test_GB_equals_G(self):
         self.assertEqual(util.human2bytes("3GB"), util.human2bytes("3G"))
+
+    def test_b2h_errors(self):
+        self.assertRaises(ValueError, util.bytes2human, 10.4)
+        self.assertRaises(ValueError, util.bytes2human, 'notint')
+        self.assertRaises(ValueError, util.bytes2human, -1)
+        self.assertRaises(ValueError, util.bytes2human, -1.0)
+
+    def test_b2h_values(self):
+        self.assertEqual('10G', util.bytes2human(10 * self.GB))
+        self.assertEqual('10M', util.bytes2human(10 * self.MB))
+        self.assertEqual('1000B', util.bytes2human(1000))
+        self.assertEqual('1K', util.bytes2human(1024))
+        self.assertEqual('1K', util.bytes2human(1024.0))
+        self.assertEqual('1T', util.bytes2human(float(1024 * self.GB)))
+
+    def test_h2b_b2b(self):
+        for size_str in ['10G', '20G', '2T', '12K', '1M', '1023K']:
+            self.assertEqual(
+                util.bytes2human(util.human2bytes(size_str)), size_str)
 
 
 class TestSetUnExecutable(TestCase):
@@ -343,5 +428,36 @@ class TestTargetPath(TestCase):
                          util.target_path("/target/", "//my/path/"))
         self.assertEqual("/target/my/path/",
                          util.target_path("/target/", "///my/path/"))
+
+
+class TestRunInChroot(TestCase):
+    """Test the legacy 'RunInChroot'.
+
+    The test works by mocking ChrootableTarget's __enter__ to do nothing.
+    The assumptions made are:
+      a.) RunInChroot is a subclass of ChrootableTarget
+      b.) ChrootableTarget's __exit__ only un-does work that its __enter__
+          did.  Meaning for our mocked case, it does nothing."""
+
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_run_in_chroot_with_target_slash(self):
+        with util.RunInChroot("/") as i:
+            out, err = i(['echo', 'HI MOM'], capture=True)
+        self.assertEqual('HI MOM\n', out)
+
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    @mock.patch("curtin.util.subp")
+    def test_run_in_chroot_with_target(self, m_subp):
+        my_stdout = "my output"
+        my_stderr = "my stderr"
+        cmd = ['echo', 'HI MOM']
+        target = "/foo"
+        m_subp.return_value = (my_stdout, my_stderr)
+        with util.RunInChroot(target) as i:
+            out, err = i(cmd)
+        self.assertEqual(my_stdout, out)
+        self.assertEqual(my_stderr, err)
+        m_subp.assert_called_with(cmd, target=target)
+
 
 # vi: ts=4 expandtab syntax=python

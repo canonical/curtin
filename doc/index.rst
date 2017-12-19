@@ -13,7 +13,13 @@ Contents:
    :maxdepth: 2
 
    topics/overview
+   topics/config
+   topics/apt_source
+   topics/networking
+   topics/storage
    topics/reporting
+   topics/development
+   topics/integration-testing
 
 
 

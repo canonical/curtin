@@ -28,9 +28,8 @@ from curtin import futil
 from curtin.log import LOG
 from curtin import swap
 from curtin import util
-from curtin import net
 from curtin.reporter import events
-from curtin.commands import apt_config
+from curtin.commands import apply_net, apt_config
 
 from . import populate_one_subcmd
 
@@ -107,42 +106,6 @@ def disable_overlayroot(cfg, target):
     if disable and os.path.exists(local_conf):
         LOG.debug("renaming %s to %s", local_conf, local_conf + ".old")
         shutil.move(local_conf, local_conf + ".old")
-
-
-def _maybe_remove_legacy_eth0(target,
-                              path="/etc/network/interfaces.d/eth0.cfg"):
-    """Ubuntu cloud images previously included a 'eth0.cfg' that had
-       hard coded content.  That file would interfere with the rendered
-       configuration if it was present.
-
-       if the file does not exist do nothing.
-       If the file exists:
-         - with known content, remove it and warn
-         - with unknown content, leave it and warn
-    """
-
-    cfg = os.path.sep.join([target, path])
-    if not os.path.exists(cfg):
-        LOG.warn('Failed to find legacy conf file %s', cfg)
-        return
-
-    bmsg = "Dynamic networking config may not apply."
-    try:
-        contents = util.load_file(cfg)
-        known_contents = ["auto eth0", "iface eth0 inet dhcp"]
-        lines = [f.strip() for f in contents.splitlines()
-                 if not f.startswith("#")]
-        if lines == known_contents:
-            util.del_file(cfg)
-            msg = "removed %s with known contents" % cfg
-        else:
-            msg = (bmsg + " '%s' exists with user configured content." % cfg)
-    except:
-        msg = bmsg + " %s exists, but could not be read." % cfg
-        LOG.exception(msg)
-        return
-
-    LOG.warn(msg)
 
 
 def setup_zipl(cfg, target):
@@ -411,7 +374,6 @@ def copy_mdadm_conf(mdadm_conf, target):
 
 
 def apply_networking(target, state):
-    netstate = state.get('network_state')
     netconf = state.get('network_config')
     interfaces = state.get('interfaces')
 
@@ -422,21 +384,12 @@ def apply_networking(target, state):
                 return True
         return False
 
-    ns = None
-    if is_valid_src(netstate):
-        LOG.debug("applying network_state")
-        ns = net.network_state.from_state_file(netstate)
-    elif is_valid_src(netconf):
-        LOG.debug("applying network_config")
-        ns = net.parse_net_config(netconf)
-
-    if ns is not None:
-        net.render_network_state(target=target, network_state=ns)
+    if is_valid_src(netconf):
+        LOG.info("applying network_config")
+        apply_net.apply_net(target, network_state=None, network_config=netconf)
     else:
         LOG.debug("copying interfaces")
         copy_interfaces(interfaces, target)
-
-    _maybe_remove_legacy_eth0(target)
 
 
 def copy_interfaces(interfaces, target):

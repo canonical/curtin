@@ -2,7 +2,6 @@ from . import (VMBaseClass)
 
 from .releases import base_vm_classes as relbase
 
-import os
 import textwrap
 
 
@@ -40,7 +39,7 @@ class TestBasicAbs(VMBaseClass):
              "proc_partitions"])
 
     def test_sys_firmware_efi(self):
-        sys_efi_expected = [
+        sys_efi_possible = [
             'config_table',
             'efivars',
             'fw_platform_size',
@@ -50,22 +49,20 @@ class TestBasicAbs(VMBaseClass):
             'systab',
             'vars',
         ]
-        sys_efi = self.td.collect + "ls_sys_firmware_efi"
-        if (os.path.exists(sys_efi)):
-            with open(sys_efi) as fp:
-                efi_lines = fp.read().strip().split('\n')
-                self.assertEqual(sorted(sys_efi_expected),
-                                 sorted(efi_lines))
+        efi_lines = self.load_collect_file(
+            "ls_sys_firmware_efi").strip().split('\n')
+
+        # sys/firmware/efi contents differ based on kernel and configuration
+        for efi_line in efi_lines:
+            self.assertIn(efi_line, sys_efi_possible)
 
     def test_disk_block_sizes(self):
         """ Test disk logical and physical block size are match
             the class block size.
         """
         for bs in ['lbs', 'pbs']:
-            with open(os.path.join(self.td.collect,
-                      'vda_' + bs), 'r') as fp:
-                size = int(fp.read())
-                self.assertEqual(self.disk_block_size, size)
+            size = int(self.load_collect_file('vda_' + bs))
+            self.assertEqual(self.disk_block_size, size)
 
     def test_disk_block_size_with_blockdev(self):
         """ validate maas setting
@@ -75,10 +72,8 @@ class TestBasicAbs(VMBaseClass):
         --getbsz                  get blocksize
         """
         for syscall in ['getss', 'getpbsz']:
-            with open(os.path.join(self.td.collect,
-                      'vda_blockdev_' + syscall), 'r') as fp:
-                size = int(fp.read())
-                self.assertEqual(self.disk_block_size, size)
+            size = int(self.load_collect_file('vda_blockdev_' + syscall))
+            self.assertEqual(self.disk_block_size, size)
 
 
 class PreciseUefiTestBasic(relbase.precise, TestBasicAbs):
@@ -105,7 +100,8 @@ class TrustyUefiTestBasic(relbase.trusty, TestBasicAbs):
 
 
 class WilyUefiTestBasic(relbase.wily, TestBasicAbs):
-    __test__ = True
+    # EOL - 2016-07-28
+    __test__ = False
 
 
 class XenialUefiTestBasic(relbase.xenial, TestBasicAbs):
@@ -125,6 +121,8 @@ class TrustyUefiTestBasic4k(TrustyUefiTestBasic):
 
 
 class WilyUefiTestBasic4k(WilyUefiTestBasic):
+    # EOL - 2016-07-28
+    __test__ = False
     disk_block_size = 4096
 
 

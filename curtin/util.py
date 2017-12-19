@@ -143,6 +143,8 @@ def subp(*args, **kwargs):
         a list of times to sleep in between retries.  After each failure
         subp will sleep for N seconds and then try again.  A value of [1, 3]
         means to run, sleep 1, run, sleep 3, run and then return exit code.
+    :param target:
+        run the command as 'chroot target <args>'
     """
     retries = []
     if "retries" in kwargs:
@@ -302,15 +304,29 @@ def ensure_dir(path, mode=None):
 
 
 def write_file(filename, content, mode=0o644, omode="w"):
+    """
+    write 'content' to file at 'filename' using python open mode 'omode'.
+    if mode is not set, then chmod file to mode. mode is 644 by default
+    """
     ensure_dir(os.path.dirname(filename))
     with open(filename, omode) as fp:
         fp.write(content)
-    os.chmod(filename, mode)
+    if mode:
+        os.chmod(filename, mode)
 
 
-def load_file(path, mode="r"):
+def load_file(path, mode="r", read_len=None, offset=0):
     with open(path, mode) as fp:
-        return fp.read()
+        if offset:
+            fp.seek(offset)
+        return fp.read(read_len) if read_len else fp.read()
+
+
+def file_size(path):
+    """get the size of a file"""
+    with open(path, 'rb') as fp:
+        fp.seek(0, 2)
+        return fp.tell()
 
 
 def del_file(path):
@@ -853,6 +869,18 @@ def human2bytes(size):
     return val
 
 
+def bytes2human(size):
+    """convert size in bytes to human readable"""
+    if not (isinstance(size, (int, float)) and
+            int(size) == size and
+            int(size) >= 0):
+        raise ValueError('size must be a integral value')
+    mpliers = {'B': 1, 'K': 2 ** 10, 'M': 2 ** 20, 'G': 2 ** 30, 'T': 2 ** 40}
+    unit_order = sorted(mpliers, key=lambda x: -1 * mpliers[x])
+    unit = next((u for u in unit_order if (size / mpliers[u]) >= 1), 'B')
+    return str(int(size / mpliers[unit])) + unit
+
+
 def import_module(import_str):
     """Import a module."""
     __import__(import_str)
@@ -868,7 +896,9 @@ def try_import_module(import_str, default=None):
 
 
 def is_file_not_found_exc(exc):
-    return (isinstance(exc, IOError) and exc.errno == errno.ENOENT)
+    return (isinstance(exc, (IOError, OSError)) and
+            hasattr(exc, 'errno') and
+            exc.errno in (errno.ENOENT, errno.EIO, errno.ENXIO))
 
 
 def _lsb_release(target=None):
@@ -916,8 +946,7 @@ class MergedCmdAppend(argparse.Action):
 
 
 def json_dumps(data):
-    return json.dumps(data, indent=1, sort_keys=True,
-                      separators=(',', ': ')).encode('utf-8')
+    return json.dumps(data, indent=1, sort_keys=True, separators=(',', ': '))
 
 
 def get_platform_arch():
@@ -1053,6 +1082,14 @@ def target_path(target, path=None):
         path = path[1:]
 
     return os.path.join(target, path)
+
+
+class RunInChroot(ChrootableTarget):
+    """Backwards compatibility for RunInChroot (LP: #1617375).
+    It needs to work like:
+        with RunInChroot("/target") as in_chroot:
+            in_chroot(["your", "chrooted", "command"])"""
+    __call__ = ChrootableTarget.subp
 
 
 # vi: ts=4 expandtab syntax=python
