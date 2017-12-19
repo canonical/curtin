@@ -1,3 +1,13 @@
+curtin (0.1.0~bzr86-0ubuntu1) saucy; urgency=low
+
+  * New upstream snapshot.
+    * correctly install grub to device rather than partition
+    * correctly write /etc/network/interfaces
+    * get cloud-init configure to work with preseed data.
+    * use tar with --numeric owner when extracting
+
+ -- Scott Moser <smoser@ubuntu.com>  Tue, 24 Sep 2013 22:32:08 -0400
+
 curtin (0.1.0~bzr85-0ubuntu1) saucy; urgency=low
 
   * New upstream snapshot.
