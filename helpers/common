@@ -34,7 +34,8 @@ Usage: ${0##*/} [ options ] mount-point target-dev
    perform grub-install with mount-point onto target-dev.
 
    options:
-          --uefi       install grub-efi instead of grub-pc
+          --uefi           install grub-efi instead of grub-pc
+          --update-nvram   request grub to update nvram
 EOF
     [ $# -eq 0 ] || echo "$@"
 }
@@ -536,18 +537,20 @@ get_carryover_params() {
 }
 
 install_grub() {
-    local long_opts="uefi"
+    local long_opts="uefi,update-nvram"
     local getopt_out="" mp_efi=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "" --long "${long_opts}" -- "$@") &&
         eval set -- "${getopt_out}"
 
     local uefi=0
+    local update_nvram=0
 
     while [ $# -ne 0 ]; do
         cur="$1"; next="$2";
         case "$cur" in
             --uefi) uefi=$((${uefi}+1));;
+            --update-nvram) update_nvram=$((${update_nvram}+1));;
             --) shift; break;;
         esac
         shift;
@@ -665,17 +668,26 @@ install_grub() {
     grubdevs=( "${grubdevs_new[@]}" )
 
     if [ "$uefi" -ge 1 ]; then
+        nvram="--no-nvram"
+        if [ "$update_nvram" -ge 1 ]; then
+            nvram=""
+        fi    
         debug 1 "installing ${grub_name} to: /boot/efi"
         chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -ec '
             dpkg-reconfigure "$1"
             update-grub
-            # grub-install in 12.04 does not contain --no-nvram
-            no_nvram="--no-nvram"
-            grub-install --help | grep -q -- "$no_nvram" ||
-                no_nvram=""
-            grub-install --target=$2 --efi-directory=/boot/efi \
+            # grub-install in 12.04 does not contain --no-nvram, --target,
+            # or --efi-directory
+            target="--target=$2"
+            no_nvram="$3"
+            efi_dir="--efi-directory=/boot/efi"
+            gi_out=$(grub-install --help 2>&1)
+            echo "$gi_out" | grep -q -- "$no_nvram" || no_nvram=""
+            echo "$gi_out" | grep -q -- "--target" || target=""
+            echo "$gi_out" | grep -q -- "--efi-directory" || efi_dir=""
+            grub-install $target $efi_dir \
                 --bootloader-id=ubuntu --recheck $no_nvram' -- \
-            "${grub_name}" "${grub_target}" </dev/null ||
+            "${grub_name}" "${grub_target}" "$nvram" </dev/null ||
             { error "failed to install grub!"; return 1; }
     else
         debug 1 "installing ${grub_name} to: ${grubdevs[*]}"

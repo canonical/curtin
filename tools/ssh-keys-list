@@ -1,8 +1,19 @@
 #!/usr/bin/python3
+import argparse
 import subprocess
 import os.path
 import sys
 import json
+VALID_MODES = (
+    # one key per line
+    'dump',
+    # suitable for use in cloud-config
+    'cloud-config',
+    # suitable for use in cloud-localds meta-data
+    'meta-data',
+    # simple json list of strings keys
+    'json'
+)
 
 
 def jdump(data):
@@ -31,10 +42,9 @@ def read_pubkeys():
 
 
 def format_pubkeys(mode, keys):
-    valid_modes = ('dump', 'cloud-config', 'public-keys')
-    if mode not in valid_modes:
+    if mode not in VALID_MODES:
         raise ValueError("unknown mode '%s'. Expected one of: %s" %
-                         (mode, ' '.join(valid_modes)))
+                         (mode, ' '.join(VALID_MODES)))
     if mode == 'dump':
         if len(keys) != 0:
             data = '\n'.join(keys) + "\n"
@@ -52,10 +62,12 @@ def format_pubkeys(mode, keys):
 
 
 def main():
-    mode = 'dump'
-    if len(sys.argv) > 1:
-        mode = sys.argv[1]
-    sys.stdout.write(format_pubkeys(mode, read_pubkeys()))
+    parser = argparse.ArgumentParser(
+        description='Dump users public ssh keys in a variety of formats')
+    parser.add_argument('mode', nargs='?', help='output mode',
+                        choices=VALID_MODES, default='dump')
+    args = parser.parse_args()
+    sys.stdout.write(format_pubkeys(args.mode, read_pubkeys()))
 
 
 if __name__ == '__main__':

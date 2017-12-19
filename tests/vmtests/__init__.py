@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import textwrap
 import time
+import yaml
 import curtin.net as curtin_net
 import curtin.util as util
 
@@ -36,6 +37,13 @@ DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
 INSTALL_PASS_MSG = "Installation finished. No error reported."
 IMAGE_SYNCS = []
+OVMF_CODE = "/usr/share/OVMF/OVMF_CODE.fd"
+OVMF_VARS = "/usr/share/OVMF/OVMF_VARS.fd"
+# precise -> vivid don't have split UEFI firmware, fallback
+if not os.path.exists(OVMF_CODE):
+    OVMF_CODE = "/usr/share/ovmf/OVMF.fd"
+    OVMF_VARS = OVMF_CODE
+
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
 
@@ -162,12 +170,12 @@ def sync_images(src_url, base_dir, filters, verbosity=0):
     return
 
 
-def get_images(src_url, local_d, release, arch, sync=True):
+def get_images(src_url, local_d, release, arch, krel=None, sync=True):
     # ensure that the image items (roottar, kernel, initrd)
     # we need for release and arch are available in base_dir.
     # returns updated ftypes dictionary {ftype: item_url}
-    # TODO: move krel up as an parameter
-    krel = release
+    if krel is None:
+        krel = release
     ftypes = {
         'vmtest.root-image': '',
         'vmtest.root-tgz': '',
@@ -201,7 +209,7 @@ def get_images(src_url, local_d, release, arch, sync=True):
         # try to fix this with a sync
         logger.info(fail_msg + "  Attempting to fix with an image sync. (%s)",
                     query_str)
-        return get_images(src_url, local_d, release, arch, sync=True)
+        return get_images(src_url, local_d, release, arch, krel, sync=True)
     elif not results:
         raise ValueError("Nothing found in query: %s" % query_str)
 
@@ -245,10 +253,12 @@ class ImageStore:
             os.makedirs(self.base_dir)
         self.url = pathlib.Path(self.base_dir).as_uri()
 
-    def get_image(self, release, arch):
+    def get_image(self, release, arch, krel=None):
         """Return local path for root image, kernel and initrd, tarball."""
+        if krel is None:
+            krel = release
         ftypes = get_images(
-            self.source_url, self.base_dir, release, arch, self.sync)
+            self.source_url, self.base_dir, release, arch, krel, self.sync)
         root_image_path = ftypes['vmtest.root-image']
         kernel_path = ftypes['boot-kernel']
         initrd_path = ftypes['boot-initrd']
@@ -343,10 +353,12 @@ class VMBaseClass(TestCase):
     extra_disks = []
     boot_timeout = 300
     install_timeout = 600
+    uefi = False
 
     # these get set from base_vm_classes
     release = None
     arch = None
+    krel = None
 
     @classmethod
     def setUpClass(cls):
@@ -358,7 +370,7 @@ class VMBaseClass(TestCase):
         image_store.sync = get_env_var_bool('CURTIN_VMTEST_IMAGE_SYNC', False)
         logger.debug("Image sync = %s", image_store.sync)
         (boot_img, boot_kernel, boot_initrd, tarball) = image_store.get_image(
-            cls.release, cls.arch)
+            cls.release, cls.arch, cls.krel)
 
         # set up tempdir
         cls.td = TempDir(
@@ -429,6 +441,20 @@ class VMBaseClass(TestCase):
                 fp.write(json.dumps({'apt_proxy': proxy}) + "\n")
             configs.append(proxy_config)
 
+        if cls.uefi:
+            logger.debug("Testcase requested launching with UEFI")
+
+            # always attempt to update target nvram (via grub)
+            grub_config = os.path.join(cls.td.install, 'grub.cfg')
+            with open(grub_config, "w") as fp:
+                fp.write(json.dumps({'grub': {'update_nvram': True}}))
+            configs.append(grub_config)
+
+            # make our own copy so we can store guest modified values
+            nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
+            shutil.copy(OVMF_VARS, nvram)
+            cmd.extend(["--uefi", nvram])
+
         cmd.extend(netdevs + ["--disk", cls.td.target_disk] + extra_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "-vv", "install"] +
@@ -449,9 +475,9 @@ class VMBaseClass(TestCase):
             raise
         finally:
             if os.path.exists(cls.install_log):
-                with open(cls.install_log, 'r', encoding='utf-8') as l:
-                    logger.debug(
-                        u'Serial console output:\n{}'.format(l.read()))
+                with open(cls.install_log, 'rb') as l:
+                    content = l.read().decode('utf-8', errors='replace')
+                logger.debug('install serial console output:\n%s', content)
             else:
                 logger.warn("Boot for install did not produce a console log.")
 
@@ -488,6 +514,16 @@ class VMBaseClass(TestCase):
         if not cls.interactive:
             cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
 
+        if cls.uefi:
+            logger.debug("Testcase requested booting with UEFI")
+            uefi_opts = ["-drive", "if=pflash,format=raw,file=" + nvram]
+            if OVMF_CODE != OVMF_VARS:
+                # reorder opts, code then writable space
+                uefi_opts = (["-drive",
+                              "if=pflash,format=raw,readonly,file=" +
+                              OVMF_CODE] + uefi_opts)
+            cmd.extend(uefi_opts)
+
         # run vm with installed system, fail if timeout expires
         try:
             logger.info('Booting target image: {}'.format(cls.boot_log))
@@ -502,9 +538,9 @@ class VMBaseClass(TestCase):
             raise e
         finally:
             if os.path.exists(cls.boot_log):
-                with open(cls.boot_log, 'r', encoding='utf-8') as l:
-                    logger.debug(
-                        u'Serial console output:\n{}'.format(l.read()))
+                with open(cls.boot_log, 'rb') as l:
+                    content = l.read().decode('utf-8', errors='replace')
+                logger.debug('boot serial console output:\n%s', content)
             else:
                     logger.warn("Booting after install not produce"
                                 " a console log.")
@@ -567,7 +603,7 @@ class VMBaseClass(TestCase):
     def get_expected_etc_resolvconf(cls):
         ifaces = {}
         eni = curtin_net.render_interfaces(cls.network_state)
-        curtin_net.parse_deb_config_data(ifaces, eni, None)
+        curtin_net.parse_deb_config_data(ifaces, eni, None, None)
         return ifaces
 
     @classmethod
@@ -626,7 +662,7 @@ class VMBaseClass(TestCase):
         if (os.path.exists(fpath) and self.disk_to_check is not None):
             with open(fpath, "r") as fp:
                 contents = fp.read().splitlines()
-            for diskname, part in self.disk_to_check.items():
+            for diskname, part in self.disk_to_check:
                 if part is not 0:
                     link = diskname + "-part" + str(part)
                     self.assertIn(link, contents)
@@ -665,7 +701,7 @@ class PsuedoImageStore(object):
         self.source_url = source_url
         self.base_dir = base_dir
 
-    def get_image(self, release, arch):
+    def get_image(self, release, arch, krel=None):
         """Return local path for root image, kernel and initrd, tarball."""
         names = ['psuedo-root-image', 'psuedo-kernel', 'psuedo-initrd',
                  'psuedo-tarball']
@@ -806,8 +842,12 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
 
     ssh_keys, _err = util.subp(['tools/ssh-keys-list', 'cloud-config'],
                                capture=True)
+    # precises' cloud-init version has limited support for cloud-config-archive
+    # and expects cloud-config pieces to be appendable to a single file and
+    # yaml.load()'able.  Resolve this by using yaml.dump() when generating
+    # a list of parts
     parts = [{'type': 'text/cloud-config',
-              'content': json.dumps(base_cloudconfig, indent=1)},
+              'content': yaml.dump(base_cloudconfig, indent=1)},
              {'type': 'text/cloud-config', 'content': ssh_keys}]
 
     output_dir_macro = 'OUTPUT_COLLECT_D'

@@ -235,11 +235,67 @@ class TestNetworkAbs(VMBaseClass):
                 self.assertEqual(gw_ip, gw)
 
 
+class TestNetworkStaticAbs(TestNetworkAbs):
+    conf_file = "examples/tests/basic_network_static.yaml"
+
+
+class PreciseHWETTestNetwork(relbase.precise_hwe_t, TestNetworkAbs):
+    # FIXME: off due to hang at test: Starting execute cloud user/final scripts
+    __test__ = False
+
+
+class PreciseHWETTestNetworkStatic(relbase.precise_hwe_t,
+                                   TestNetworkStaticAbs):
+    # FIXME: off due to hang at test: Starting execute cloud user/final scripts
+    __test__ = False
+
+
 class TrustyTestNetwork(relbase.trusty, TestNetworkAbs):
     __test__ = True
 
 
+class TrustyTestNetworkStatic(relbase.trusty, TestNetworkStaticAbs):
+    __test__ = True
+
+
+class TrustyHWEUTestNetwork(relbase.trusty_hwe_u, TrustyTestNetwork):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
+class TrustyHWEUTestNetworkStatic(relbase.trusty_hwe_u,
+                                  TestNetworkStaticAbs):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
+class TrustyHWEVTestNetwork(relbase.trusty_hwe_v, TrustyTestNetwork):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
+class TrustyHWEVTestNetworkStatic(relbase.trusty_hwe_v,
+                                  TestNetworkStaticAbs):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
+class TrustyHWEWTestNetwork(relbase.trusty_hwe_w, TrustyTestNetwork):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
+class TrustyHWEWTestNetworkStatic(relbase.trusty_hwe_w,
+                                  TestNetworkStaticAbs):
+    # Working, off by default to safe test suite runtime, covered by bonding
+    __test__ = False
+
+
 class VividTestNetwork(relbase.vivid, TestNetworkAbs):
+    __test__ = True
+
+
+class VividTestNetworkStatic(relbase.vivid, TestNetworkStaticAbs):
     __test__ = True
 
 
@@ -247,7 +303,20 @@ class WilyTestNetwork(relbase.wily, TestNetworkAbs):
     __test__ = True
 
 
+class WilyTestNetworkStatic(relbase.wily, TestNetworkStaticAbs):
+    __test__ = True
+
+
 class XenialTestNetwork(relbase.xenial, TestNetworkAbs):
+    __test__ = True
+    # FIXME: net.ifnames=0 should not be required as image should
+    #        eventually address this internally.  Here we do not carry
+    #        over the net.ifnames to the installed system via '---' as the net
+    #        config should take care of that.
+    extra_kern_args = "net.ifnames=0"
+
+
+class XenialTestNetworkStatic(relbase.xenial, TestNetworkStaticAbs):
     __test__ = True
     # FIXME: net.ifnames=0 should not be required as image should
     #        eventually address this internally.  Here we do not carry
