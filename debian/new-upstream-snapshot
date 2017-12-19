@@ -23,7 +23,7 @@ fail() { echo "$@" 1>&2; exit 1; }
 print_commit() {
     local subject="$1" author="$2" bugs="$3" aname=""
     aname=${author% <*}
-    echo "    - $subject ${aname:+[${aname}]}${bugs:+ (LP: ${bugs})}"
+    echo "    - $subject${aname:+ [${aname}]}${bugs:+ (LP: ${bugs})}"
 }
 
 # unfortunately seems like no easy way to get 'Author' unless
@@ -99,8 +99,52 @@ else
    bzr export --format=tgz "--revision=${revno}" "$tarball" "${trunk}" ||
      fail "failed exporting bzr in $trunk to $tarball"
 fi
-bzr merge-upstream "$tarball" "--version=${version}" ||
-   fail "failed merge-upstream of $tarball at version=$version"
+#bzr merge-upstream "$tarball" "--version=${version}" ||
+#   fail "failed merge-upstream of $tarball at version=$version"
+tmpd=$(mktemp -d "${TMPDIR:-/tmp}/curtin.${0##*/}.XXXXXX")
+trap 'rm -Rf "$tmpd"' EXIT
+newflist="${tmpd}/new-files"
+oldflist="${tmpd}/old-files"
+
+tar -tf "$tarball" \
+   --strip-components=1 --exclude="*/debian" > "$newflist.full" ||
+   fail "failed tar tf on $tarball"
+sed 's,^[^/]*/,,' "$newflist.full" > "$newflist"
+
+bzr ls --recursive --versioned > "$oldflist.full" ||
+   fail "failed bzr ls --recursive"
+grep -v "^debian/" "$oldflist.full" > "$oldflist"
+
+cat "$oldflist" "$newflist" "$newflist" > "$tmpd/all-old" ||
+   fail "failed getting all old files"
+cat "$newflist" "$oldflist" "$oldflist" > "$tmpd/all-new" ||
+   fail "failed getting all new"
+
+removed="${tmpd}/removed"
+added="$tmpd/added"
+sort "$tmpd/all-old" | uniq --uniq > "$removed"
+sort "$tmpd/all-new" | uniq --uniq > "$added"
+
+while read rmfile; do
+   case "$rmfile" in
+      .pc/*) continue;;
+      */) rflag="-r";;
+      *) rflag="";;
+   esac
+   bzr rm $rflag "$rmfile" || fail "failed bzr rm${rflag:+ ${rflag}} $rmfile"
+done < "$removed"
+
+for f in *; do
+   [ "$f" = "debian" ] && continue
+   rm -rf "$f" || fail "failed removing '$f'"
+done
+
+tar --strip-components=1 --exclude "*/debian/*" -xf "$tarball" ||
+   fail "failed extraction of $tarball"
+
+while read newfile; do
+    bzr add "$newfile" || fail "failed adding '$newfile'"
+done < "$added"
 
 oldrev=$(($prevno+1))
 ( cd "$trunk" && bzr log -r "${oldrev}..${revno}" ) > new-changes.log ||
