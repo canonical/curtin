@@ -24,6 +24,7 @@ Curtin's top level config keys are as follows:
 - multipath (``multipath``)
 - network (``network``)
 - power_state (``power_state``)
+- proxy (``proxy``)
 - reporting (``reporting``)
 - restore_dist_interfaces: (``restore_dist_interfaces``)
 - sources (``sources``)
@@ -177,6 +178,7 @@ of the system will boot from the installed device.
 http_proxy
 ~~~~~~~~~~
 Curtin will export ``http_proxy`` value into the installer environment.
+**Deprecated**: This setting is deprecated in favor of ``proxy`` below.
 
 **http_proxy**: *<HTTP Proxy URL>*
 
@@ -346,6 +348,22 @@ power state change.
     mode: poweroff
     delay: 5
     message: Bye Bye
+
+
+proxy
+~~~~~
+Curtin will put ``http_proxy``, ``https_proxy`` and ``no_proxy``
+into its install environment.  This is in affect for curtin's process
+and subprocesses.
+
+**proxy**: A dictionary containing http_proxy, https_proxy, and no_proxy.
+
+**Example**::
+
+  proxy:
+    http_proxy: http://squid.proxy:3728/
+    https_proxy: http://squid.proxy:3728/
+    no_proxy: localhost,127.0.0.1,10.0.2.1
 
 
 reporting

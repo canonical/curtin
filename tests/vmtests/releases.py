@@ -77,20 +77,8 @@ class _TrustyFromXenial(_UbuntuBase):
     target_release = "trusty"
 
 
-class _VividBase(_UbuntuBase):
-    release = "vivid"
-
-
-class _WilyBase(_UbuntuBase):
-    release = "wily"
-
-
 class _XenialBase(_UbuntuBase):
     release = "xenial"
-
-
-class _YakketyBase(_UbuntuBase):
-    release = "yakkety"
 
 
 class _ZestyBase(_UbuntuBase):
@@ -110,10 +98,7 @@ class _Releases(object):
     trusty_hwe_w = _TrustyHWEW
     trusty_hwe_x = _TrustyHWEX
     trustyfromxenial = _TrustyFromXenial
-    vivid = _VividBase
-    wily = _WilyBase
     xenial = _XenialBase
-    yakkety = _YakketyBase
     zesty = _ZestyBase
     artful = _ArtfulBase
 

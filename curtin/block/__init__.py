@@ -19,7 +19,6 @@ from contextlib import contextmanager
 import errno
 import itertools
 import os
-import shlex
 import stat
 import sys
 import tempfile
@@ -204,30 +203,13 @@ def get_device_slave_knames(device):
         return [path_to_kname(device)]
 
 
-def _shlex_split(str_in):
-    # shlex.split takes a string
-    # but in python2 if input here is a unicode, encode it to a string.
-    # http://stackoverflow.com/questions/2365411/
-    #     python-convert-unicode-to-ascii-without-errors
-    if sys.version_info.major == 2:
-        try:
-            if isinstance(str_in, unicode):
-                str_in = str_in.encode('utf-8')
-        except NameError:
-            pass
-
-        return shlex.split(str_in)
-    else:
-        return shlex.split(str_in)
-
-
 def _lsblock_pairs_to_dict(lines):
     """
     parse lsblock output and convert to dict
     """
     ret = {}
     for line in lines.splitlines():
-        toks = _shlex_split(line)
+        toks = util.shlex_split(line)
         cur = {}
         for tok in toks:
             k, v = tok.split("=", 1)
@@ -468,7 +450,7 @@ def blkid(devs=None, cache=True):
     for line in out.splitlines():
         curdev, curdata = line.split(":", 1)
         data[curdev] = dict(tok.split('=', 1)
-                            for tok in _shlex_split(curdata))
+                            for tok in util.shlex_split(curdata))
     return data
 
 
@@ -977,5 +959,72 @@ def wipe_volume(path, mode="superblock"):
         quick_zero(path, partitions=True)
     else:
         raise ValueError("wipe mode %s not supported" % mode)
+
+
+def storage_config_required_packages(storage_config, mapping):
+    """Read storage configuration dictionary and determine
+       which packages are required for the supplied configuration
+       to function.  Return a list of packaged to install.
+    """
+
+    if not storage_config or not isinstance(storage_config, dict):
+        raise ValueError('Invalid storage configuration.  '
+                         'Must be a dict:\n %s' % storage_config)
+
+    if not mapping or not isinstance(mapping, dict):
+        raise ValueError('Invalid storage mapping.  Must be a dict')
+
+    if 'storage' in storage_config:
+        storage_config = storage_config.get('storage')
+
+    needed_packages = []
+
+    # get reqs by device operation type
+    dev_configs = set(operation['type']
+                      for operation in storage_config['config'])
+
+    for dev_type in dev_configs:
+        if dev_type in mapping:
+            needed_packages.extend(mapping[dev_type])
+
+    # for any format operations, check the fstype and
+    # determine if we need any mkfs tools as well.
+    format_configs = set([operation['fstype']
+                         for operation in storage_config['config']
+                         if operation['type'] == 'format'])
+    for format_type in format_configs:
+        if format_type in mapping:
+            needed_packages.extend(mapping[format_type])
+
+    return needed_packages
+
+
+def detect_required_packages_mapping():
+    """Return a dictionary providing a versioned configuration which maps
+       storage configuration elements to the packages which are required
+       for functionality.
+
+       The mapping key is either a config type value, or an fstype value.
+
+    """
+    version = 1
+    mapping = {
+        version: {
+            'handler': storage_config_required_packages,
+            'mapping': {
+                'bcache': ['bcache-tools'],
+                'btrfs': ['btrfs-tools'],
+                'ext2': ['e2fsprogs'],
+                'ext3': ['e2fsprogs'],
+                'ext4': ['e2fsprogs'],
+                'lvm_partition': ['lvm2'],
+                'lvm_volgroup': ['lvm2'],
+                'raid': ['mdadm'],
+                'xfs': ['xfsprogs']
+            },
+        },
+    }
+    return mapping
+
 
 # vi: ts=4 expandtab syntax=python

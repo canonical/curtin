@@ -1,12 +1,13 @@
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
+import json
 import textwrap
 
 
-class TestSimple(VMBaseClass):
+class TestJournaldReporter(VMBaseClass):
     # Test that curtin with no config does the right thing
-    conf_file = "examples/tests/simple.yaml"
+    conf_file = "examples/tests/journald_reporter.yaml"
     extra_disks = []
     extra_nics = []
     collect_scripts = [textwrap.dedent("""
@@ -29,20 +30,23 @@ class TestSimple(VMBaseClass):
 
     def test_output_files_exist(self):
         self.output_files_exist(["sfdisk_list", "blkid",
-                                 "proc_partitions", "interfaces"])
+                                 "proc_partitions", "interfaces",
+                                 "root/journalctl.curtin_events.log",
+                                 "root/journalctl.curtin_events.json"])
+
+    def test_journal_reporter_events(self):
+        events = json.loads(
+            self.load_collect_file("root/journalctl.curtin_events.json"))
+        self.assertGreater(len(events), 0)
+        e1 = events[0]
+        for key in ['CURTIN_EVENT_TYPE', 'CURTIN_MESSAGE', 'CURTIN_NAME',
+                    'PRIORITY', 'SYSLOG_IDENTIFIER']:
+            self.assertIn(key, e1)
 
 
-class TrustyTestSimple(relbase.trusty, TestSimple):
+class XenialTestJournaldReporter(relbase.xenial, TestJournaldReporter):
     __test__ = True
 
 
-class XenialTestSimple(relbase.xenial, TestSimple):
-    __test__ = True
-
-
-class ZestyTestSimple(relbase.zesty, TestSimple):
-    __test__ = True
-
-
-class ArtfulTestSimple(relbase.artful, TestSimple):
+class ArtfulTestJournaldReporter(relbase.artful, TestJournaldReporter):
     __test__ = True

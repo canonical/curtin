@@ -202,16 +202,7 @@ class TrustyHWEXTestBasic(relbase.trusty_hwe_x, TrustyTestBasic):
     __test__ = True
 
 
-class WilyTestBasic(relbase.wily, TestBasicAbs):
-    # EOL - 2016-07-28
-    __test__ = False
-
-
 class XenialTestBasic(relbase.xenial, TestBasicAbs):
-    __test__ = True
-
-
-class YakketyTestBasic(relbase.yakkety, TestBasicAbs):
     __test__ = True
 
 
@@ -320,10 +311,6 @@ class TestBasicScsiAbs(TestBasicAbs):
 
 
 class XenialTestScsiBasic(relbase.xenial, TestBasicScsiAbs):
-    __test__ = True
-
-
-class YakketyTestScsiBasic(relbase.yakkety, TestBasicScsiAbs):
     __test__ = True
 
 

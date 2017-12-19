@@ -366,6 +366,27 @@ def apply_kexec(kexec, target):
         return True
 
 
+def migrate_proxy_settings(cfg):
+    """Move the legacy proxy setting 'http_proxy' into cfg['proxy']."""
+    proxy = cfg.get('proxy', {})
+    if not isinstance(proxy, dict):
+        raise ValueError("'proxy' in config is not a dictionary: %s" % proxy)
+
+    if 'http_proxy' in cfg:
+        hp = cfg['http_proxy']
+        if hp:
+            if proxy.get('http_proxy', hp) != hp:
+                LOG.warn("legacy http_proxy setting (%s) differs from "
+                         "proxy/http_proxy (%s), using %s",
+                         hp, proxy['http_proxy'], proxy['http_proxy'])
+            else:
+                LOG.debug("legacy 'http_proxy' migrated to proxy/http_proxy")
+                proxy['http_proxy'] = hp
+        del cfg['http_proxy']
+
+    cfg['proxy'] = proxy
+
+
 def cmd_install(args):
     cfg = CONFIG_BUILTIN.copy()
     config.merge_config(cfg, args.config)
@@ -384,8 +405,10 @@ def cmd_install(args):
         # we default to tgz for old style sources config
         cfg['sources'][i] = util.sanitize_source(cfg['sources'][i])
 
-    if cfg.get('http_proxy'):
-        os.environ['http_proxy'] = cfg['http_proxy']
+    migrate_proxy_settings(cfg)
+    for k in ('http_proxy', 'https_proxy', 'no_proxy'):
+        if k in cfg['proxy']:
+            os.environ[k] = cfg['proxy'][k]
 
     instcfg = cfg.get('install', {})
     logfile = instcfg.get('log_file')
@@ -454,9 +477,26 @@ def cmd_install(args):
                                       '/root/curtin-install.log')
         if log_target_path:
             copy_install_log(logfile, workingd.target, log_target_path)
+        # unmount everything (including iscsi disks)
         util.do_umount(workingd.target, recursive=True)
-        # need to do some processing on iscsi disks to disconnect?
-        iscsi.disconnect_target_disks(workingd.target)
+
+        # The open-iscsi service in the ephemeral environment handles
+        # disconnecting active sessions.  On Artful release the systemd
+        # unit file has conditionals that are not met at boot time and
+        # results in open-iscsi service not being started; This breaks
+        # shutdown on Artful releases.
+        # Additionally, in release < Artful, if the storage configuration
+        # is layered, like RAID over iscsi volumes, then disconnecting iscsi
+        # sessions before stopping the raid device hangs.
+        # As it turns out, letting the open-iscsi service take down the
+        # session last is the cleanest way to handle all releases regardless
+        # of what may be layered on top of the iscsi disks.
+        #
+        # Check if storage configuration has iscsi volumes and if so ensure
+        # iscsi service is active before exiting install
+        if iscsi.get_iscsi_disks_from_config(cfg):
+            iscsi.restart_iscsi_service()
+
         shutil.rmtree(workingd.top)
 
     apply_power_state(cfg.get('power_state'))

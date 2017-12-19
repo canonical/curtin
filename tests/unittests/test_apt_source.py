@@ -4,11 +4,8 @@ Testing various config variations of the apt_source custom config
 import glob
 import os
 import re
-import shutil
 import socket
-import tempfile
 
-from unittest import TestCase
 
 import mock
 from mock import call
@@ -16,6 +13,7 @@ from mock import call
 from curtin import util
 from curtin import gpg
 from curtin.commands import apt_config
+from .helpers import CiTestCase
 
 
 EXPECTEDKEY = u"""-----BEGIN PGP PUBLIC KEY BLOCK-----
@@ -62,14 +60,13 @@ class PseudoChrootableTarget(util.ChrootableTarget):
 ChrootableTargetStr = "curtin.commands.apt_config.util.ChrootableTarget"
 
 
-class TestAptSourceConfig(TestCase):
+class TestAptSourceConfig(CiTestCase):
     """ TestAptSourceConfig
     Main Class to test apt configs
     """
     def setUp(self):
         super(TestAptSourceConfig, self).setUp()
-        self.tmp = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, self.tmp)
+        self.tmp = self.tmp_dir()
         self.aptlistfile = os.path.join(self.tmp, "single-deb.list")
         self.aptlistfile2 = os.path.join(self.tmp, "single-deb2.list")
         self.aptlistfile3 = os.path.join(self.tmp, "single-deb3.list")
@@ -930,7 +927,7 @@ deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
             orig, apt_config.disable_suites(["proposed"], orig, rel))
 
 
-class TestDebconfSelections(TestCase):
+class TestDebconfSelections(CiTestCase):
 
     @mock.patch("curtin.commands.apt_config.debconf_set_selections")
     def test_no_set_sel_if_none_to_set(self, m_set_sel):

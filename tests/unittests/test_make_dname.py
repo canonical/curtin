@@ -1,13 +1,13 @@
-from unittest import TestCase
 import mock
 
 import textwrap
 import uuid
 
 from curtin.commands import block_meta
+from .helpers import CiTestCase
 
 
-class TestMakeDname(TestCase):
+class TestMakeDname(CiTestCase):
     state = {'scratch': '/tmp/null'}
     rules_d = '/tmp/null/rules.d'
     rule_file = '/tmp/null/rules.d/{}.rules'

@@ -1,15 +1,14 @@
-from unittest import TestCase
+import mock
 import os
-import shutil
-import tempfile
 import yaml
 
-from curtin import net
+from curtin import config, net, util
 import curtin.net.network_state as network_state
+from .helpers import CiTestCase
 from textwrap import dedent
 
 
-class TestNetParserData(TestCase):
+class TestNetParserData(CiTestCase):
 
     def test_parse_deb_config_data_ignores_comments(self):
         contents = dedent("""\
@@ -234,13 +233,11 @@ class TestNetParserData(TestCase):
             }, ifaces)
 
 
-class TestNetParser(TestCase):
+class TestNetParser(CiTestCase):
 
     def setUp(self):
-        self.target = tempfile.mkdtemp()
-
-    def tearDown(self):
-        shutil.rmtree(self.target)
+        super(TestNetParser, self).setUp()
+        self.target = self.tmp_dir()
 
     def make_config(self, path=None, name=None, contents=None,
                     parse=True):
@@ -386,9 +383,10 @@ class TestNetParser(TestCase):
         self.assertEqual({}, observed)
 
 
-class TestNetConfig(TestCase):
+class TestNetConfig(CiTestCase):
     def setUp(self):
-        self.target = tempfile.mkdtemp()
+        super(TestNetConfig, self).setUp()
+        self.target = self.tmp_dir()
         self.config_f = os.path.join(self.target, 'config')
         self.config = '''
 # YAML example of a simple network config
@@ -434,9 +432,6 @@ network:
         ns = network_state.NetworkState(version=version, config=config)
         ns.parse_config()
         return ns
-
-    def tearDown(self):
-        shutil.rmtree(self.target)
 
     def test_parse_net_config_data(self):
         ns = self.get_net_state()
@@ -503,23 +498,18 @@ network:
             auto interface1
             iface interface1 inet manual
                 bond-mode active-backup
-                bond-master bond0
+                bond-master bond1
 
             auto interface2
             iface interface2 inet manual
                 bond-mode active-backup
-                bond-master bond0
+                bond-master bond1
 
-            auto bond0
-            iface bond0 inet static
+            auto bond1
+            iface bond1 inet static
                 address 10.23.23.2/24
                 bond-mode active-backup
-                hwaddress ether 52:54:00:12:34:06
                 bond-slaves none
-
-            # control-alias bond0
-            iface bond0 inet static
-                address 10.23.24.2/24
 
             source /etc/network/interfaces.d/*.cfg
             """)
@@ -653,6 +643,91 @@ network:
         print(ifaces)
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
+
+    @mock.patch('curtin.util.subp')
+    @mock.patch('curtin.util.which')
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_netconfig_passthrough_available(self, mock_which, mock_subp):
+        cloud_init = '/usr/bin/cloud-init'
+        mock_which.return_value = cloud_init
+        mock_subp.return_value = ("NETWORK_CONFIG_V1\nNETWORK_CONFIG_V2\n", '')
+
+        available = net.netconfig_passthrough_available(self.target)
+
+        self.assertEqual(True, available,
+                         "netconfig passthrough was NOT available")
+        mock_which.assert_called_with('cloud-init', target=self.target)
+        mock_subp.assert_called_with([cloud_init, 'features'],
+                                     capture=True, target=self.target)
+
+    @mock.patch('curtin.net.LOG')
+    @mock.patch('curtin.util.subp')
+    @mock.patch('curtin.util.which')
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_netconfig_passthrough_available_no_cloudinit(self, mock_which,
+                                                          mock_subp, mock_log):
+        mock_which.return_value = None
+
+        available = net.netconfig_passthrough_available(self.target)
+
+        self.assertEqual(False, available,
+                         "netconfig passthrough was available")
+        self.assertTrue(mock_log.warning.called)
+        self.assertFalse(mock_subp.called)
+
+    @mock.patch('curtin.util.subp')
+    @mock.patch('curtin.util.which')
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_netconfig_passthrough_available_feature_not_found(self,
+                                                               mock_which,
+                                                               mock_subp):
+        cloud_init = '/usr/bin/cloud-init'
+        mock_which.return_value = cloud_init
+        mock_subp.return_value = ('NETWORK_CONFIG_V1\n', '')
+
+        available = net.netconfig_passthrough_available(self.target)
+
+        self.assertEqual(False, available,
+                         "netconfig passthrough was available")
+        mock_which.assert_called_with('cloud-init', target=self.target)
+        mock_subp.assert_called_with([cloud_init, 'features'],
+                                     capture=True, target=self.target)
+
+    @mock.patch('curtin.net.LOG')
+    @mock.patch('curtin.util.subp')
+    @mock.patch('curtin.util.which')
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_netconfig_passthrough_available_exc(self, mock_which, mock_subp,
+                                                 mock_log):
+        cloud_init = '/usr/bin/cloud-init'
+        mock_which.return_value = cloud_init
+        mock_subp.side_effect = util.ProcessExecutionError
+
+        available = net.netconfig_passthrough_available(self.target)
+
+        self.assertEqual(False, available,
+                         "netconfig passthrough was available")
+        mock_which.assert_called_with('cloud-init', target=self.target)
+        mock_subp.assert_called_with([cloud_init, 'features'],
+                                     capture=True, target=self.target)
+        self.assertTrue(mock_log.warning.called)
+
+    @mock.patch('curtin.util.write_file')
+    def test_render_netconfig_passthrough(self, mock_writefile):
+        netcfg = yaml.safe_load(self.config)
+        pt_config = 'etc/cloud/cloud.cfg.d/50-curtin-networking.cfg'
+        target_config = os.path.sep.join((self.target, pt_config),)
+
+        net.render_netconfig_passthrough(self.target, netconfig=netcfg)
+
+        content = config.dump_config(netcfg)
+        mock_writefile.assert_called_with(target_config, content=content)
+
+    def test_render_netconfig_passthrough_nonetcfg(self):
+        netcfg = None
+        self.assertRaises(ValueError,
+                          net.render_netconfig_passthrough,
+                          self.target, netconfig=netcfg)
 
     def test_routes_rendered(self):
         # as reported in bug 1649652

@@ -19,6 +19,10 @@ import contextlib
 import imp
 import importlib
 import mock
+import os
+import shutil
+import tempfile
+from unittest import TestCase
 
 
 def builtin_module_name():
@@ -43,3 +47,35 @@ def simple_mocked_open(content=None):
     m_patch = '{}.open'.format(mod_name)
     with mock.patch(m_patch, m_open, create=True):
         yield m_open
+
+
+class CiTestCase(TestCase):
+    """Common testing class which all curtin unit tests subclass."""
+
+    def add_patch(self, target, attr, **kwargs):
+        """Patches specified target object and sets it as attr on test
+        instance also schedules cleanup"""
+        if 'autospec' not in kwargs:
+            kwargs['autospec'] = True
+        m = mock.patch(target, **kwargs)
+        p = m.start()
+        self.addCleanup(m.stop)
+        setattr(self, attr, p)
+
+    def tmp_dir(self, dir=None, cleanup=True):
+        """Return a full path to a temporary directory for the test run."""
+        if dir is None:
+            tmpd = tempfile.mkdtemp(
+                prefix="curtin-ci-%s." % self.__class__.__name__)
+        else:
+            tmpd = tempfile.mkdtemp(dir=dir)
+        self.addCleanup(shutil.rmtree, tmpd)
+        return tmpd
+
+    def tmp_path(self, path, _dir=None):
+        # return an absolute path to 'path' under dir.
+        # if dir is None, one will be created with tmp_dir()
+        # the file is not created or modified.
+        if _dir is None:
+            _dir = self.tmp_dir()
+        return os.path.normpath(os.path.abspath(os.path.join(_dir, path)))

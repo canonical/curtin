@@ -1,11 +1,44 @@
 from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 from .test_network import TestNetworkBaseTestsAbs
+from unittest import SkipTest
+import textwrap
 
 
 class TestNetworkAliasAbs(TestNetworkBaseTestsAbs):
     """ Multi-ip address network testing
     """
     conf_file = "examples/tests/network_alias.yaml"
+
+    def test_etc_network_interfaces(self):
+        reason = ("%s: cloud-init and curtin eni rendering"
+                  " differ" % (self.__class__))
+        raise SkipTest(reason)
+
+
+class CentosTestNetworkAliasAbs(TestNetworkAliasAbs):
+    extra_kern_args = "BOOTIF=eth0-52:54:00:12:34:00"
+    collect_scripts = TestNetworkAliasAbs.collect_scripts + [
+        textwrap.dedent("""
+            cd OUTPUT_COLLECT_D
+            cp -a /etc/sysconfig/network-scripts .
+            cp -a /var/log/cloud-init* .
+            cp -a /var/lib/cloud ./var_lib_cloud
+            cp -a /run/cloud-init ./run_cloud-init
+        """)]
+
+    def test_etc_resolvconf(self):
+        pass
+
+
+class Centos66TestNetworkAlias(centos_relbase.centos66fromxenial,
+                               CentosTestNetworkAliasAbs):
+    __test__ = True
+
+
+class Centos70TestNetworkAlias(centos_relbase.centos70fromxenial,
+                               CentosTestNetworkAliasAbs):
+    __test__ = True
 
 
 class PreciseHWETTestNetworkAlias(relbase.precise_hwe_t, TestNetworkAliasAbs):
@@ -37,10 +70,6 @@ class TrustyHWEXTestNetworkAlias(relbase.trusty_hwe_x, TrustyTestNetworkAlias):
 
 
 class XenialTestNetworkAlias(relbase.xenial, TestNetworkAliasAbs):
-    __test__ = True
-
-
-class YakketyTestNetworkAlias(relbase.yakkety, TestNetworkAliasAbs):
     __test__ = True
 
 
