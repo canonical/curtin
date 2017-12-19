@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -o pipefail
+
 VERBOSITY=0
 CONTAINER=""
 
@@ -16,6 +18,8 @@ Usage: ${0##*/} [ options ] <image> name
    options:
       --proposed    enable proposed
       --daily       enable daily curtin archive
+      --source   D  grab the source deb, unpack inside, and copy unpacked
+                    source out to 'D'
 EOF
 }
 
@@ -39,6 +43,17 @@ inside() {
         debug 1 "$*"
         "$@"
     fi
+}
+
+install() {
+    local name="$1"
+    shift
+    inside "$name" $eatmydata \
+        env DEBIAN_FRONTEND=noninteractive \
+        apt-get install --no-install-recommends -qy "$@" || {
+            error "failed apt-get install --no-install-recommends -qy $*"
+            return 1
+        }
 }
 
 wait_for_ready() {
@@ -65,7 +80,7 @@ debug() {
 
 main() {
     local short_opts="hv"
-    local long_opts="help,proposed,daily,verbose"
+    local long_opts="help,daily,proposed,source:,verbose"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -74,12 +89,13 @@ main() {
 
     local cur="" next=""
     local proposed=false daily=false src="" name="" maxwait=30
-    local eatmydata="eatmydata"
+    local eatmydata="eatmydata" getsource="none"
 
     while [ $# -ne 0 ]; do
         cur="$1"; next="$2";
         case "$cur" in
             -h|--help) Usage ; exit 0;;
+               --source) getsource="$next"; shift;;
                --proposed) proposed=true;;
                --daily) daily=true;;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
@@ -94,11 +110,17 @@ main() {
     src="$1"
     name="$2"
     
+    if [ "$getsource" != "none" ]; then
+        [ ! -e "$getsource" ] || fail "source output '$getsource' exists."
+    fi
+
     lxc launch "$src" "$name" || fail "failed lxc launch $src $name"
     CONTAINER=$name
 
     wait_for_ready "$name" $maxwait $VERBOSITY ||
         fail "$name did not become ready after $maxwait"
+
+    inside "$name" which eatmydata >/dev/null || eatmydata=""
 
     if $proposed; then
         mirror=$(inside $name awk '$1 == "deb" { print $2; exit(0); }' \
@@ -114,7 +136,8 @@ main() {
     if $daily; then
         local daily_ppa="ppa:curtin-dev/daily"
         debug 1 "enabling daily: $daily_ppa"
-        inside "$name" add-apt-repository --yes "${daily_ppa}" ||
+        inside "$name" add-apt-repository --enable-source --yes \
+            "${daily_ppa}" ||
             fail "failed add-apt-repository for daily."
     fi
 
@@ -124,15 +147,41 @@ main() {
         rm -f /var/lib/apt/lists/*Translation*;
         echo "$1" > "$2"' -- "$line" "$fname" ||
         error "failed to disable translations"
-    inside "$name" sed -i '/^deb-src/s/^/#/' /etc/apt/sources.list ||
-        error "failed to disable deb-src entries"
+
+    pkgs="curtin"
+    if [ "${getsource}" = "none" ]; then
+        inside "$name" sed -i '/^deb-src/s/^/#/' /etc/apt/sources.list ||
+            error "failed to disable deb-src entries"
+    else
+        pkgs="${pkgs} dpkg-dev"
+    fi
 
     inside "$name" $eatmydata apt-get -q update ||
         fail "failed apt-get update"
-    inside "$name" $eatmydata \
-        env DEBIAN_FRONTEND=noninteractive \
-        apt-get install --no-install-recommends -qy curtin ||
-        fail "failed apt-get install --no-install-recommends -qy curtin"
+    install "$name" $pkgs || fail "failed install of $pkgs"
+
+    if [ "${getsource}" != "none" ]; then
+        local isrcd="/tmp/curtin-source"
+        debug 1 "getting source for curtin to $getsource"
+        inside "$name" $eatmydata sh -ec '
+            target="$1"
+            d=$(mktemp -d)
+            cd "$d"
+            apt-get source curtin 
+            for x in *; do [ -d "$x" ] && break; done
+            [ -d "$x" ] || { echo no source dir found.; exit 1; }
+            cp -a $x "$target"
+            rm -Rf "$d"
+            ' -- "$isrcd"
+        mkdir "$getsource" || fail "failed to create dir '$getsource'"
+        inside "$name" tar -C "$isrcd" -cf - . |
+            tar -C "$getsource" -xf - ||
+            fail "failed to copy source out to $getsource"
+        inside "$name" rm -Rf "$isrcd" ||
+            fail "failed removal of extract dir"
+    fi
+
+    
     CONTAINER=""
 }
 

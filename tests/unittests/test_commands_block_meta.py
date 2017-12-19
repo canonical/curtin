@@ -1,5 +1,6 @@
 from unittest import TestCase
-from mock import patch
+from mock import patch, call
+from argparse import Namespace
 
 from curtin.commands import block_meta
 
@@ -15,6 +16,108 @@ class BlockMetaTestBase(TestCase):
         p = m.start()
         self.addCleanup(m.stop)
         setattr(self, attr, p)
+
+
+class TestBlockMetaSimple(BlockMetaTestBase):
+    def setUp(self):
+        super(TestBlockMetaSimple, self).setUp()
+        self.target = "my_target"
+
+        # block_meta
+        basepath = 'curtin.commands.block_meta.'
+        self.add_patch(basepath + 'get_bootpt_cfg', 'mock_bootpt_cfg')
+        self.add_patch(basepath + 'get_partition_format_type',
+                       'mock_part_fmt_type')
+        # block
+        self.add_patch('curtin.block.stop_all_unused_multipath_devices',
+                       'mock_block_stop_mp')
+        self.add_patch('curtin.block.get_installable_blockdevs',
+                       'mock_block_get_installable_bdevs')
+        self.add_patch('curtin.block.get_dev_name_entry',
+                       'mock_block_get_dev_name_entry')
+        self.add_patch('curtin.block.get_root_device',
+                       'mock_block_get_root_device')
+        self.add_patch('curtin.block.is_valid_device',
+                       'mock_block_is_valid_device')
+        # config
+        self.add_patch('curtin.config.load_command_config',
+                       'mock_config_load')
+        # util
+        self.add_patch('curtin.util.subp', 'mock_subp')
+        self.add_patch('curtin.util.load_command_environment',
+                       'mock_load_env')
+
+    def test_write_image_to_disk(self):
+        source = {
+            'type': 'dd-xz',
+            'uri': 'http://myhost/curtin-unittest-dd.xz'
+        }
+        devname = "fakedisk1p1"
+        devnode = "/dev/" + devname
+        self.mock_block_get_dev_name_entry.return_value = (devname, devnode)
+
+        block_meta.write_image_to_disk(source, devname)
+
+        wget = ['sh', '-c',
+                'wget "$1" --progress=dot:mega -O - |xzcat| dd bs=4M of="$2"',
+                '--', source['uri'], devnode]
+        self.mock_block_get_dev_name_entry.assert_called_with(devname)
+        self.mock_subp.assert_has_calls([call(args=wget),
+                                         call(['partprobe', devnode]),
+                                         call(['udevadm', 'settle'])])
+        paths = ["curtin", "system-data/var/lib/snapd"]
+        self.mock_block_get_root_device.assert_called_with([devname],
+                                                           paths=paths)
+
+    def test_write_image_to_disk_ddtgz(self):
+        source = {
+            'type': 'dd-tgz',
+            'uri': 'http://myhost/curtin-unittest-dd.tgz'
+        }
+        devname = "fakedisk1p1"
+        devnode = "/dev/" + devname
+        self.mock_block_get_dev_name_entry.return_value = (devname, devnode)
+
+        block_meta.write_image_to_disk(source, devname)
+
+        wget = ['sh', '-c',
+                'wget "$1" --progress=dot:mega -O - |'
+                'tar -xOzf -| dd bs=4M of="$2"',
+                '--', source['uri'], devnode]
+        self.mock_block_get_dev_name_entry.assert_called_with(devname)
+        self.mock_subp.assert_has_calls([call(args=wget),
+                                         call(['partprobe', devnode]),
+                                         call(['udevadm', 'settle'])])
+        paths = ["curtin", "system-data/var/lib/snapd"]
+        self.mock_block_get_root_device.assert_called_with([devname],
+                                                           paths=paths)
+
+    @patch('curtin.commands.block_meta.write_image_to_disk')
+    def test_meta_simple_calls_write_img(self, mock_write_image):
+        devname = "fakedisk1p1"
+        devnode = "/dev/" + devname
+        sources = {
+            'unittest': {'type': 'dd-xz',
+                         'uri': 'http://myhost/curtin-unittest-dd.xz'}
+        }
+        config = {
+            'block-meta': {'devices': [devname]},
+            'sources': sources,
+        }
+        self.mock_config_load.return_value = config
+        self.mock_load_env.return_value = {'target': self.target}
+        self.mock_block_is_valid_device.return_value = True
+        self.mock_block_get_dev_name_entry.return_value = (devname, devnode)
+        mock_write_image.return_value = devname
+
+        args = Namespace(target=self.target, devices=None, mode=None,
+                         boot_fstype=None, fstype=None)
+
+        block_meta.meta_simple(args)
+
+        mock_write_image.assert_called_with(sources.get('unittest'), devname)
+        self.mock_subp.assert_has_calls(
+            [call(['mount', devname, self.target])])
 
 
 class TestBlockMeta(BlockMetaTestBase):
