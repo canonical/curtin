@@ -19,6 +19,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import shutil
 import tempfile
 
@@ -159,6 +160,70 @@ def load_power_state(pstate):
     return (['sh', '-c', shcmd, 'curtin-poweroff', delay] + args)
 
 
+def apply_kexec(kexec, target):
+    # load kexec kernel from target dir, similar to /etc/init.d/kexec-load
+    # kexec:
+    #  mode: on
+    grubcfg = "boot/grub/grub.cfg"
+    target_grubcfg = os.path.join(target, grubcfg)
+
+    if kexec is None or kexec.get("mode") != "on":
+        return False
+
+    if not isinstance(kexec, dict):
+        raise TypeError("kexec is not a dict.")
+
+    if not util.which('kexec'):
+        util.install_packages('kexec-tools')
+
+    if not os.path.isfile(target_grubcfg):
+        raise ValueError("%s does not exist in target" % grubcfg)
+
+    with open(target_grubcfg, "r") as fp:
+        default = 0
+        menu_lines = []
+
+        # get the default grub boot entry number and menu entry line numbers
+        for line_num, line in enumerate(fp, 1):
+            if re.search(r"\bset default=\"[0-9]+\"\b", " %s " % line):
+                default = int(re.sub(r"[^0-9]", '', line))
+            if re.search(r"\bmenuentry\b", " %s " % line):
+                menu_lines.append(line_num)
+
+        if not menu_lines:
+            LOG.error("grub config file does not have a menuentry\n")
+            return False
+
+        # get the begin and end line numbers for default menuentry section,
+        # using end of file if it's the last menuentry section
+        begin = menu_lines[default]
+        if begin != menu_lines[-1]:
+            end = menu_lines[default + 1] - 1
+        else:
+            end = line_num
+
+        fp.seek(0)
+        lines = fp.readlines()
+        kernel = append = initrd = ""
+
+        for i in range(begin, end):
+            if 'linux' in lines[i].split():
+                split_line = shlex.split(lines[i])
+                kernel = os.path.join(target, split_line[1])
+                append = "--append=" + ' '.join(split_line[2:])
+            if 'initrd' in lines[i].split():
+                split_line = shlex.split(lines[i])
+                initrd = "--initrd=" + os.path.join(target, split_line[1])
+
+        if not kernel:
+            LOG.error("grub config file does not have a kernel\n")
+            return False
+
+        LOG.debug("kexec -l %s %s %s" % (kernel, append, initrd))
+        util.subp(args=['kexec', '-l', kernel, append, initrd])
+        return True
+
+
 def cmd_install(args):
     cfg = CONFIG_BUILTIN
 
@@ -190,6 +255,10 @@ def cmd_install(args):
             with util.LogTimer(LOG.debug, 'stage_%s' % name):
                 stage = Stage(name, cfg.get(commands_name, {}), env)
                 stage.run()
+
+        if apply_kexec(cfg.get('kexec'), workingd.target):
+            cfg['power_state'] = {'mode': 'reboot', 'delay': 'now',
+                                  'message': "'rebooting with kexec'"}
 
     finally:
         for d in ('sys', 'dev', 'proc'):

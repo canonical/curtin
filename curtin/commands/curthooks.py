@@ -17,12 +17,13 @@
 
 import glob
 import os
+import platform
 import re
 import sys
 import shutil
 
-from curtin import block
 from curtin import config
+from curtin import block
 from curtin import futil
 from curtin.log import LOG
 from curtin import util
@@ -39,6 +40,19 @@ CMD_ARGUMENTS = (
      )
 )
 
+KERNEL_MAPPING = {
+    'precise': {
+        '3.2.0': '',
+        '3.5.0': '-lts-quantal',
+        '3.8.0': '-lts-raring',
+        '3.11.0': '-lts-saucy',
+        '3.13.0': '-lts-trusty',
+    },
+    'trusty': {
+        '3.13.0': '',
+    },
+}
+
 
 def write_files(cfg, target):
     # this takes 'write_files' entry in config and writes files in the target
@@ -54,11 +68,13 @@ def write_files(cfg, target):
     for (key, info) in cfg.get('write_files').items():
         if not info.get('path'):
             LOG.warn("Warning, write_files[%s] had no 'path' entry", key)
+            continue
 
         futil.write_finfo(path=target + os.path.sep + info['path'],
                           content=info.get('content', ''),
                           owner=info.get('owner', "-1:-1"),
-                          perms=info.get('perms', "0644"))
+                          perms=info.get('permissions',
+                                         info.get('perms', "0644")))
 
 
 def apt_config(cfg, target):
@@ -118,6 +134,51 @@ def clean_cloud_init(target):
     LOG.debug("cleaning cloud-init config from: %s" % flist)
     for dpkg_cfg in flist:
         os.unlink(dpkg_cfg)
+
+
+def install_kernel(cfg, target):
+    kernel_cfg = cfg.get('kernel', {'package': None,
+                                    'fallback-package': None,
+                                    'mapping': {}})
+
+    with util.RunInChroot(target) as in_chroot:
+        if kernel_cfg is not None:
+            kernel_package = kernel_cfg.get('package')
+            kernel_fallback = kernel_cfg.get('fallback-package')
+        else:
+            kernel_package = None
+            kernel_fallback = None
+
+        if kernel_package:
+            util.install_packages([kernel_package], target=target)
+            return
+
+        _, _, kernel, _, _ = os.uname()
+        out, _ = in_chroot(['lsb_release', '--codename', '--short'],
+                           capture=True)
+        version, _, flavor = kernel.split('-', 2)
+        config.merge_config(kernel_cfg['mapping'], KERNEL_MAPPING)
+
+        try:
+            map_suffix = kernel_cfg['mapping'][out.strip()][version]
+        except KeyError:
+            LOG.warn("Couldn't detect kernel package to install for %s."
+                     % kernel)
+            if kernel_fallback is not None:
+                util.install_packages([kernel_fallback])
+            return
+
+        package = "linux-{flavor}{map_suffix}".format(
+            flavor=flavor, map_suffix=map_suffix)
+        out, _ = in_chroot(['apt-cache', 'search', package], capture=True)
+        if (len(out.strip()) > 0 and
+                not util.has_pkg_installed(package, target)):
+            util.install_packages([package], target=target)
+        else:
+            LOG.warn("Tried to install kernel %s but package not found."
+                     % package)
+            if kernel_fallback is not None:
+                util.install_packages([kernel_fallback], target=target)
 
 
 def apply_debconf_selections(cfg, target):
@@ -200,8 +261,14 @@ def get_installed_packages(target=None):
 
 
 def setup_grub(cfg, target):
-    if 'grub_install_devices' in cfg:
-        instdevs = cfg.get('grub_install_devices')
+    grubcfg = cfg.get('grub', {})
+
+    # copy legacy top level name
+    if 'grub_install_devices' in cfg and 'install_devices' not in grubcfg:
+        grubcfg['install_devices'] = cfg['grub_install_devices']
+
+    if 'install_devices' in grubcfg:
+        instdevs = grubcfg.get('install_devices')
         if isinstance(instdevs, str):
             instdevs = [instdevs]
         if instdevs is None:
@@ -215,10 +282,24 @@ def setup_grub(cfg, target):
 
         instdevs = list(blockdevs)
 
+    env = os.environ.copy()
+
+    replace_default = grubcfg.get('replace_linux_default', True)
+    if str(replace_default).lower() in ("0", "false"):
+        env['REPLACE_GRUB_LINUX_DEFAULT'] = "0"
+    else:
+        env['REPLACE_GRUB_LINUX_DEFAULT'] = "1"
+
     instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
-    LOG.debug("installing grub to %s", instdevs)
+    LOG.debug("installing grub to %s [replace_default=%s]",
+              instdevs, replace_default)
     with util.ChrootableTarget(target):
-        util.subp(['install-grub', target] + instdevs)
+        util.subp(['install-grub', target] + instdevs, env=env)
+
+
+def update_initramfs(target):
+    with util.RunInChroot(target) as in_chroot:
+        in_chroot(['update-initramfs', '-u'])
 
 
 def copy_fstab(fstab, target):
@@ -260,32 +341,33 @@ def curthooks(args):
     else:
         target = state['target']
 
-    if args.config is not None:
-        cfg_file = args.config
-    else:
-        cfg_file = state['config']
-
     if target is None:
         sys.stderr.write("Unable to find target.  "
                          "Use --target or set TARGET_MOUNT_POINT\n")
         sys.exit(2)
 
-    if not cfg_file:
-        LOG.debug("config file was none!")
-        cfg = {}
-    else:
-        cfg = config.load_config(cfg_file)
+    cfg = util.load_command_config(args, state)
 
     write_files(cfg, target)
     apt_config(cfg, target)
     disable_overlayroot(cfg, target)
+    install_kernel(cfg, target)
     apply_debconf_selections(cfg, target)
 
     restore_dist_interfaces(cfg, target)
 
     copy_interfaces(state.get('interfaces'), target)
     copy_fstab(state.get('fstab'), target)
-    setup_grub(cfg, target)
+
+    # As a rule, ARMv7 systems don't use grub. This may change some
+    # day, but for now, assume no. They do require the initramfs
+    # to be updated, and this also triggers boot loader setup via
+    # flash-kernel.
+    machine = platform.machine()
+    if machine.startswith('armv7'):
+        update_initramfs(target)
+    else:
+        setup_grub(cfg, target)
 
     sys.exit(0)
 
