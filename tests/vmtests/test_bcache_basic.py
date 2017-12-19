@@ -18,6 +18,7 @@ class TestBcacheBasic(VMBaseClass):
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
         cat /proc/mounts > proc_mounts
         cat /proc/partitions > proc_partitions
+        find /etc/network/interfaces.d > find_interfacesd
         """)]
 
     def test_bcache_output_files_exist(self):

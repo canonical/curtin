@@ -57,6 +57,7 @@ class TestNetworkAbs(VMBaseClass):
         ifconfig -a > ifconfig_a
         cp -av /etc/network/interfaces .
         cp -av /etc/network/interfaces.d .
+        find /etc/network/interfaces.d > find_interfacesd
         cp /etc/resolv.conf .
         cp -av /etc/udev/rules.d/70-persistent-net.rules .
         ip -o route show > ip_route_show
@@ -245,10 +246,10 @@ class TestNetworkVlanAbs(TestNetworkAbs):
     collect_scripts = TestNetworkAbs.collect_scripts + [textwrap.dedent("""
              cd OUTPUT_COLLECT_D
              dpkg-query -W -f '${Status}' vlan > vlan_installed
-             ip -d link show eth1.2667 > ip_link_show_eth1.2667
-             ip -d link show eth1.2668 > ip_link_show_eth1.2668
-             ip -d link show eth1.2669 > ip_link_show_eth1.2669
-             ip -d link show eth1.2670 > ip_link_show_eth1.2670
+             ip -d link show interface1.2667 > ip_link_show_interface1.2667
+             ip -d link show interface1.2668 > ip_link_show_interface1.2668
+             ip -d link show interface1.2669 > ip_link_show_interface1.2669
+             ip -d link show interface1.2670 > ip_link_show_interface1.2670
              """)]
 
     def get_vlans(self):
@@ -309,6 +310,7 @@ class TestNetworkENISource(TestNetworkAbs):
         ifconfig -a > ifconfig_a
         cp -av /etc/network/interfaces .
         cp -a /etc/network/interfaces.d .
+        find /etc/network/interfaces.d > find_interfacesd
         cp /etc/resolv.conf .
         cp -av /etc/udev/rules.d/70-persistent-net.rules .
         ip -o route show > ip_route_show
@@ -317,7 +319,7 @@ class TestNetworkENISource(TestNetworkAbs):
 
     def test_source_cfg_exists(self):
         """Test that our curthooks wrote our injected config."""
-        self.output_files_exist(["interfaces.d/eth2.cfg"])
+        self.output_files_exist(["interfaces.d/interface2.cfg"])
 
     def test_etc_network_interfaces_source_cfg(self):
         """ Compare injected configuration as parsed by curtin matches
@@ -344,7 +346,7 @@ class TestNetworkENISource(TestNetworkAbs):
         print('parsed ifconfig dict:\n{}'.format(
             yaml.dump(ifconfig_dict, default_flow_style=False, indent=4)))
 
-        iface = 'eth2'
+        iface = 'interface2'
         self.assertTrue(iface in curtin_ifaces)
 
         expected_address = curtin_ifaces[iface].get('address', None)
