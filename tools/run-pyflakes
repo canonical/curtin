@@ -7,7 +7,13 @@ vmtests=""
 if [ "$PYTHON_VERSION" = "3" ]; then
     vmtests="tests/vmtests/"
 fi
-pycheck_dirs=( "curtin/" "tests/unittests/" $vmtests )
+pycheck_dirs=(
+    "curtin/"
+    "tests/unittests/"
+    $vmtests
+    "tools/curtin-log-print"
+    "tools/report_webhook_logger"
+)
 
 set -f
 if [ $# -eq 0 ]; then

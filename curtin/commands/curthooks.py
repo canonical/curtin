@@ -395,6 +395,16 @@ def copy_crypttab(crypttab, target):
     shutil.copy(crypttab, os.path.sep.join([target, 'etc/crypttab']))
 
 
+def copy_iscsi_conf(nodes_dir, target):
+    if not nodes_dir:
+        LOG.warn("nodes directory must be specified, not copying")
+        return
+
+    LOG.info("copying iscsi nodes database into target")
+    shutil.copytree(nodes_dir, os.path.sep.join([target,
+                    'etc/iscsi/nodes']))
+
+
 def copy_mdadm_conf(mdadm_conf, target):
     if not mdadm_conf:
         LOG.warn("mdadm config must be specified, not copying")
@@ -684,7 +694,8 @@ def curthooks(args):
     stack_prefix = state.get('report_stack_prefix', '')
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/writing-config',
+            reporting_enabled=True, level="INFO",
             description="writing config files and configuring apt"):
         write_files(cfg, target)
         do_apt_config(cfg, target)
@@ -692,6 +703,14 @@ def curthooks(args):
 
     # packages may be needed prior to installing kernel
     install_missing_packages(cfg, target)
+
+    # If a /etc/iscsi/nodes/... file was created by block_meta then it
+    # needs to be copied onto the target system
+    nodes_location = os.path.join(os.path.split(state['fstab'])[0],
+                                  "nodes")
+    if os.path.exists(nodes_location):
+        copy_iscsi_conf(nodes_location, target)
+        # do we need to reconfigure open-iscsi?
 
     # If a mdadm.conf file was created by block_meta than it needs to be copied
     # onto the target system
@@ -705,7 +724,8 @@ def curthooks(args):
                   data=None, target=target)
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/installing-kernel',
+            reporting_enabled=True, level="INFO",
             description="installing kernel"):
         setup_zipl(cfg, target)
         install_kernel(cfg, target)
@@ -714,27 +734,38 @@ def curthooks(args):
         restore_dist_interfaces(cfg, target)
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/setting-up-swap',
+            reporting_enabled=True, level="INFO",
             description="setting up swap"):
         add_swap(cfg, target, state.get('fstab'))
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
-            description="apply networking"):
+            name=stack_prefix + '/apply-networking-config',
+            reporting_enabled=True, level="INFO",
+            description="apply networking config"):
         apply_networking(target, state)
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/writing-etc-fstab',
+            reporting_enabled=True, level="INFO",
             description="writing etc/fstab"):
         copy_fstab(state.get('fstab'), target)
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/configuring-multipath',
+            reporting_enabled=True, level="INFO",
             description="configuring multipath"):
         detect_and_handle_multipath(cfg, target)
 
     with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
+            name=stack_prefix + '/installing-missing-packages',
+            reporting_enabled=True, level="INFO",
+            description="installing missing packages"):
+        install_missing_packages(cfg, target)
+
+    with events.ReportEventStack(
+            name=stack_prefix + '/system-upgrade',
+            reporting_enabled=True, level="INFO",
             description="updating packages on target system"):
         system_upgrade(cfg, target)
 

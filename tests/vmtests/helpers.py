@@ -227,7 +227,10 @@ def _parse_ip_a(ip_a):
                 cur_data[cur_tok] = next_tok
             elif cur_tok.startswith("inet"):
                 cidr = toks[1]
-                address, prefixlen = cidr.split("/")
+                address = cidr
+                prefixlen = None
+                if '/' in cidr:
+                    address, prefixlen = cidr.split("/")
                 cur_ip = {
                     'address': address,
                     'prefixlen': prefixlen,

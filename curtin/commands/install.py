@@ -26,6 +26,7 @@ import sys
 import tempfile
 
 from curtin import block
+from curtin.block import iscsi
 from curtin import config
 from curtin import util
 from curtin import version
@@ -74,6 +75,20 @@ def clear_install_log(logfile):
         open(logfile, 'w').close()
     except Exception:
         pass
+
+
+def copy_install_log(logfile, target, log_target_path):
+    """Copy curtin install log file to target system"""
+    if not logfile:
+        LOG.warn('Cannot copy curtin install log to target, no log exists')
+        return
+
+    LOG.debug('Copying curtin install log to target')
+    target = os.path.sep.join([target, log_target_path])
+    if os.path.exists(target):
+        shutil.copy(logfile, os.path.normpath(target))
+    else:
+        LOG.debug('install log file not at path: %s', target)
 
 
 def writeline_and_stdout(logfile, message):
@@ -432,8 +447,14 @@ def cmd_install(args):
         legacy_reporter.report_failure(exp_msg)
         raise e
     finally:
+        log_target_path = instcfg.get('save_install_log',
+                                      '/root/curtin-install.log')
+        if log_target_path:
+            copy_install_log(logfile, workingd.target, log_target_path)
         for d in ('sys', 'dev', 'proc'):
             util.do_umount(os.path.join(workingd.target, d))
+        # need to do some processing on iscsi disks to disconnect?
+        iscsi.disconnect_target_disks(workingd.target)
         mounted = block.get_mountpoints()
         mounted.sort(key=lambda x: -1 * x.count("/"))
         for d in filter(lambda x: workingd.target in x, mounted):

@@ -64,8 +64,9 @@ _DNS_REDIRECT_IP = None
 BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 
-def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
-          logstring=False, decode="replace", target=None, cwd=None):
+def _subp(args, data=None, rcs=None, env=None, capture=False,
+          shell=False, logstring=False, decode="replace",
+          target=None, cwd=None, log_captured=False):
     if rcs is None:
         rcs = [0]
 
@@ -116,6 +117,9 @@ def _subp(args, data=None, rcs=None, env=None, capture=False, shell=False,
         if devnull_fp:
             devnull_fp.close()
 
+    if capture and log_captured:
+        LOG.debug("Command returned stdout=%s, stderr=%s", out, err)
+
     rc = sp.returncode  # pylint: disable=E1101
     if rc not in rcs:
         raise ProcessExecutionError(stdout=out, stderr=err,
@@ -137,6 +141,10 @@ def subp(*args, **kwargs):
     :param capture:
         boolean indicating if output should be captured.  If True, then stderr
         and stdout will be returned.  If False, they will not be redirected.
+    :param log_captured:
+        boolean indicating if output should be logged on capture.  If
+        True, then stderr and stdout will be logged at DEBUG level.  If
+        False, they will not be logged.
     :param shell: boolean indicating if this should be run with a shell.
     :param logstring:
         the command will be logged to DEBUG.  If it contains info that should
@@ -213,8 +221,9 @@ class ProcessExecutionError(IOError):
                     'Command: %(cmd)s\n'
                     'Exit code: %(exit_code)s\n'
                     'Reason: %(reason)s\n'
-                    'Stdout: %(stdout)r\n'
-                    'Stderr: %(stderr)r')
+                    'Stdout: %(stdout)s\n'
+                    'Stderr: %(stderr)s')
+    stdout_indent_level = 8
 
     def __init__(self, stdout=None, stderr=None,
                  exit_code=None, cmd=None,
@@ -235,14 +244,14 @@ class ProcessExecutionError(IOError):
             self.exit_code = exit_code
 
         if not stderr:
-            self.stderr = ''
+            self.stderr = "''"
         else:
-            self.stderr = stderr
+            self.stderr = self._indent_text(stderr)
 
         if not stdout:
-            self.stdout = ''
+            self.stdout = "''"
         else:
-            self.stdout = stdout
+            self.stdout = self._indent_text(stdout)
 
         if reason:
             self.reason = reason
@@ -258,6 +267,11 @@ class ProcessExecutionError(IOError):
             'reason': self.reason,
         }
         IOError.__init__(self, message)
+
+    def _indent_text(self, text):
+        if type(text) == bytes:
+            text = text.decode()
+        return text.replace('\n', '\n' + ' ' * self.stdout_indent_level)
 
 
 class LogTimer(object):
@@ -1099,6 +1113,14 @@ def is_resolvable(name):
     except (socket.gaierror, socket.error):
         LOG.debug("dns %s failed to resolve", name)
         return False
+
+
+def is_valid_ipv6_address(addr):
+    try:
+        socket.inet_pton(socket.AF_INET6, addr)
+    except socket.error:
+        return False
+    return True
 
 
 def is_resolvable_url(url):

@@ -77,6 +77,48 @@ The ``path`` key can be used to identify the disk.  If both ``serial`` and
 ``path`` are specified, curtin will use the serial number and ignore the path
 that was specified.
 
+iSCSI disks are supported via a special path prefix of 'iscsi:'. If this
+prefix is found in the path specification for a disk, it is assumed to
+be an iSCSI disk specification and must be in a `RFC4173
+<https://tools.ietf.org/html/rfc4173>`_ compliant format, with
+extensions from Debian for supporting authentication:
+
+``iscsi:[user:password[:iuser:ipassword]@]host:proto:port:lun:targetname``
+
+- ``user``: User to authenticate with, if needed, for iSCSI initiator
+  authentication. Only CHAP authentication is supported at this time.
+- ``password``: Password to authenticate with, if needed, for iSCSI
+  initiator authentication. Only CHAP authentication is supported at
+  this time.
+- ``iuser``: User to authenticate with, if needed, for iSCSI target
+  authentication. Only CHAP authentication is supported at this time.
+- ``ipassword``: Password to authenticate with, if needed, for iSCSI
+  target authentication. Only CHAP authentication is supported at this
+  time.
+.. note::
+
+  Curtin will treat it as an error if the user and password are not both
+  specified for initiator and target authentication.
+- ``host``: iSCSI server hosting the specified target. It can be a
+  hostname, IPv4 or IPv6 address. If specified as an IPv6 address, it
+  must be specified as ``[address]``.
+- ``proto``: Specifies the protocol used for iSCSI. Currently only
+  ``6``, or TCP, is supported and any other value is ignored. If not
+  specified, ``6`` is assumed.
+- ``port``: Specifies the port the iSCSI server is listening on. If not
+  specified, ``3260`` is assumed.
+- ``lun``: Specifies the LUN of the iSCSI target to connect to. If not
+  specified, ``0`` is assumed.
+- ``targetname``: Specifies the iSCSI target to connect to, by its name
+  on the iSCSI server.
+.. note::
+
+  Curtin will treat it as an error if the host and targetname are not
+  specified.
+
+Any iSCSI disks specified will be configured to login at boot in the
+target.
+
 **model**: *<disk model>*
 
 This can specify the manufacturer or model of the disk. It is not currently
@@ -312,6 +354,12 @@ in ``/dev``.
 The ``device`` key refers to the ``id`` of the target device in the storage
 config. The target device must already contain a valid filesystem and be
 accessible.
+
+.. note::
+
+  If the specified device refers to an iSCSI device, the corresponding
+  fstab entry will contain ``_netdev`` to indicate networking is
+  required to mount this filesystem.
 
 **Config Example**::
 

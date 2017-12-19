@@ -53,6 +53,13 @@ if [ -n "$parallel" -a "$parallel" != "0" -a "$parallel" != "1" ]; then
     pargs=( --process-timeout=86400 "--processes=$parallel" )
 fi
 
+if [ -z "$TGT_IPC_SOCKET" ] && command -v "tgtd" >/dev/null 2>&1; then
+    tgtdir="$topdir/tgt.d"
+    ./tools/find-tgt "$tgtdir" ||
+        fail "could not start a tgt service"
+    . "$tgtdir/info"
+fi
+
 # avoid LOG info by running python3 tests/vmtests/image_sync.py
 # rather than python3 -m tests.vmtests.image_sync (LP: #1594465)
 echo "Working with images in $IMAGE_DIR"
@@ -67,6 +74,8 @@ nosetests3 "${pargs[@]}" "${ntargs[@]}"
 ret=$?
 end_s=$(date +%s)
 echo "$(date -R): vmtest end [$ret] in $(($end_s-$start_s))s"
+[ $ret -eq 0 ] && [[ $pkeep == *"all"* ]] || [ -n "${TGT_PID}" ] && kill -9 ${TGT_PID}
+[ $ret -ne 0 ] && [[ $pfail == *"all"* ]] || [ -n "${TGT_PID}" ] && kill -9 ${TGT_PID}
 exit $ret
 
 # vi: ts=4 expandtab syntax=sh

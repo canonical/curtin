@@ -17,7 +17,7 @@
 
 from collections import OrderedDict
 from curtin import (block, config, util)
-from curtin.block import (mdadm, mkfs, clear_holders, lvm)
+from curtin.block import (mdadm, mkfs, clear_holders, lvm, iscsi)
 from curtin.log import LOG
 from curtin.reporter import events
 
@@ -273,9 +273,14 @@ def get_path_to_storage_volume(volume, storage_config):
         if vol.get('serial'):
             volume_path = block.lookup_disk(vol.get('serial'))
         elif vol.get('path'):
-            # resolve any symlinks to the dev_kname so sys/class/block access
-            # is valid.  ie, there are no udev generated values in sysfs
-            volume_path = os.path.realpath(vol.get('path'))
+            if vol.get('path').startswith('iscsi:'):
+                i = iscsi.ensure_disk_connected(vol.get('path'))
+                volume_path = os.path.realpath(i.devdisk_path)
+            else:
+                # resolve any symlinks to the dev_kname so
+                # sys/class/block access is valid.  ie, there are no
+                # udev generated values in sysfs
+                volume_path = os.path.realpath(vol.get('path'))
         elif vol.get('wwn'):
             by_wwn = '/dev/disk/by-id/wwn-%s' % vol.get('wwn')
             volume_path = os.path.realpath(by_wwn)
@@ -602,7 +607,8 @@ def mount_handler(info, storage_config):
         # Figure out what point should be
         while len(path) > 0 and path[0] == "/":
             path = path[1:]
-        mount_point = os.path.join(state['target'], path)
+        mount_point = os.path.sep.join([state['target'], path])
+        mount_point = os.path.normpath(mount_point)
 
         # Create mount point if does not exist
         util.ensure_dir(mount_point)
@@ -628,7 +634,22 @@ def mount_handler(info, storage_config):
                 options = "sw"
             else:
                 path = "/%s" % path
-                options = "defaults"
+                if volume.get('type') == "partition":
+                    disk_block_path = get_path_to_storage_volume(
+                        volume.get('device'), storage_config)
+                    disk_kname = block.path_to_kname(disk_block_path)
+                    if iscsi.kname_is_iscsi(disk_kname):
+                        options = "_netdev"
+                    else:
+                        options = "defaults"
+                elif volume.get('type') == "disk":
+                    disk_kname = block.path_to_kname(location)
+                    if iscsi.kname_is_iscsi(disk_kname):
+                        options = "_netdev"
+                    else:
+                        options = "defaults"
+                else:
+                    options = "defaults"
 
             if filesystem.get('fstype') in ["fat", "fat12", "fat16", "fat32",
                                             "fat64"]:
