@@ -25,12 +25,6 @@ bzr init-repo ~/src/curtin
 ( cd ~/src/curtin && bzr  branch lp:curtin trunk.dist )
 ( cd ~/src/curtin && bzr branch trunk.dist trunk )
 
-## get xkvm
-mkdir -p ~/bin/
-wget "http://sn.im/xkvm" -O ~/bin/xkvm
-chmod 755 ~/bin/xkvm
-which xkvm || PATH=$HOME/bin:$PATH
-
 ## work with curtin
 cd ~/src/curtin/trunk
 # use 'launch' to launch a kvm instance with user data to pack

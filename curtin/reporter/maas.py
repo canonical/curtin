@@ -24,7 +24,6 @@ from curtin.reporter import (
     )
 from email.utils import parsedate
 import mimetypes
-import oauth.oauth as oauth
 import os.path
 import random
 import socket
@@ -32,7 +31,13 @@ import string
 import sys
 import time
 import uuid
-import urllib2
+try:
+    from urllib import request as urllib_request
+    from urllib import error as urllib_error
+except ImportError:
+    # python2
+    import urllib2 as urllib_request
+    import urllib2 as urllib_error
 
 
 class MAASReporter(BaseReporter):
@@ -62,30 +67,10 @@ class MAASReporter(BaseReporter):
         status = "FAILED"
         self.report([INSTALL_LOG], status, message)
 
-    def oauth_headers(self, url, consumer_key, token_key, token_secret,
-                      consumer_secret, clockskew=0):
-        """Build OAuth headers using given credentials."""
-        consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
-        token = oauth.OAuthToken(token_key, token_secret)
-
-        timestamp = int(time.time()) + clockskew
-
-        params = {
-            'oauth_version': "1.0",
-            'oauth_nonce': uuid.uuid4().get_hex(),
-            'oauth_timestamp': timestamp,
-            'oauth_token': token.key,
-            'oauth_consumer_key': consumer.key,
-        }
-        req = oauth.OAuthRequest(http_url=url, parameters=params)
-        req.sign_request(
-            oauth.OAuthSignatureMethod_PLAINTEXT(), consumer, token)
-        return(req.to_header())
-
     def authenticate_headers(self, url, headers, creds, clockskew):
         """Update and sign a dict of request headers."""
         if creds.get('consumer_key', None) is not None:
-            headers.update(self.oauth_headers(
+            headers.update(oauth_headers(
                 url,
                 consumer_key=creds['consumer_key'],
                 token_key=creds['token_key'],
@@ -128,13 +113,15 @@ class MAASReporter(BaseReporter):
 
         clockskew = 0
 
-        exc = Exception("Unexpected Error")
+        myexc = Exception("Unexpected Error")
         for naptime in (1, 1, 2, 4, 8, 16, 32):
             self.authenticate_headers(url, headers, creds, clockskew)
             try:
-                req = urllib2.Request(url=url, data=data, headers=headers)
-                return urllib2.urlopen(req).read()
-            except urllib2.HTTPError as exc:
+                req = urllib_request.Request(url=url, data=data,
+                                             headers=headers)
+                return urllib_request.urlopen(req).read()
+            except urllib_error.HTTPError as exc:
+                myexc = exc
                 if 'date' not in exc.headers:
                     sys.stderr.write("date field not in %d headers" % exc.code)
                     pass
@@ -148,13 +135,13 @@ class MAASReporter(BaseReporter):
                     except:
                         sys.stderr.write("failed to convert date '%s'" % date)
             except Exception as exc:
-                pass
+                myexc = exc
 
-            sys.stderr.write(
-                "request to %s failed. sleeping %d.: %s" % (url, naptime, exc))
+            sys.stderr.write("request to %s failed. sleeping %d.: %s" %
+                             (url, naptime, myexc))
             time.sleep(naptime)
 
-        raise exc
+        raise myexc
 
     def report(self, files, status, message=None):
         """Send the report."""
@@ -180,22 +167,26 @@ class MAASReporter(BaseReporter):
         exc = None
         msg = ""
 
+        if not isinstance(data, bytes):
+            data = data.encode()
+
         try:
             payload = self.geturl(self.url, creds=creds, headers=headers,
                                   data=data)
-            if payload != "OK":
+            if payload != "OK" and payload != b'OK':
                 raise TypeError("Unexpected result from call: %s" % payload)
             else:
                 msg = "Success"
-        except urllib2.HTTPError as exc:
+        except urllib_error.HTTPError as exc:
             msg = "http error [%s]" % exc.code
-        except urllib2.URLError as exc:
+        except urllib_error.URLError as exc:
             msg = "url error [%s]" % exc.reason
         except socket.timeout as exc:
             msg = "socket timeout [%s]" % exc
         except TypeError as exc:
             msg = exc.message
         except Exception as exc:
+            raise exc
             msg = "unexpected error [%s]" % exc
 
         sys.stderr.write("%s\n" % msg)
@@ -218,11 +209,52 @@ class MAASReporter(BaseReporter):
             )
 
     def _random_string(self, length):
-        return ''.join(random.choice(string.letters)
+        return ''.join(random.choice(string.ascii_letters)
                        for ii in range(length + 1))
 
     def _get_content_type(self, filename):
         return mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+
+
+try:
+    import oauth.oauth as oauth
+
+    def oauth_headers(url, consumer_key, token_key, token_secret,
+                      consumer_secret, clockskew=0):
+        """Build OAuth headers using given credentials."""
+        consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
+        token = oauth.OAuthToken(token_key, token_secret)
+
+        timestamp = int(time.time()) + clockskew
+
+        params = {
+            'oauth_version': "1.0",
+            'oauth_nonce': uuid.uuid4().get_hex(),
+            'oauth_timestamp': timestamp,
+            'oauth_token': token.key,
+            'oauth_consumer_key': consumer.key,
+        }
+        req = oauth.OAuthRequest(http_url=url, parameters=params)
+        req.sign_request(
+            oauth.OAuthSignatureMethod_PLAINTEXT(), consumer, token)
+        return(req.to_header())
+
+except ImportError:
+    import oauthlib.oauth1 as oauth1
+
+    def oauth_headers(url, consumer_key, token_key, token_secret,
+                      consumer_secret, clockskew=0):
+        """Build OAuth headers using given credentials."""
+        timestamp = int(time.time()) + clockskew
+        client = oauth1.Client(
+            consumer_key,
+            client_secret=consumer_secret,
+            resource_owner_key=token_key,
+            resource_owner_secret=token_secret,
+            signature_method=oauth1.SIGNATURE_PLAINTEXT,
+            timestamp=str(timestamp))
+        uri, signed_headers, body = client.sign(url)
+        return signed_headers
 
 
 def load_factory(options):

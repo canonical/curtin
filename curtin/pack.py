@@ -22,40 +22,78 @@ import tempfile
 
 from . import util
 
-CALL_ENTRY_POINT_PY = """
-def call_entry_point(name):
-    import os, sys
+CALL_ENTRY_POINT_SH_HEADER = """
+#!/bin/sh
+PY3OR2_MAIN="%(ep_main)s"
+PY3OR2_MCHECK="%(ep_mcheck)s"
+PY3OR2_MINSTALL="%(ep_minstall)s"
+PY3OR2_PYTHONS=${PY3OR2_PYTHONS:-"%(python_exe_list)s"}
+PYTHON=${PY3OR2_PYTHON}
+""".strip()
 
-    (istr, dot, ent)  = name.rpartition('.')
-    try:
-        __import__(istr)
-    except ImportError as e:
-        # if that import failed, check dirname(__file__/..)
-        # to support ./bin/curtin with modules in .
-        _tdir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        sys.path.append(_tdir)
-        try:
-            __import__(istr)
-        except ImportError as e:
-            sys.stderr.write("Unable to find %s\\n" % name)
-            sys.exit(2)
+CALL_ENTRY_POINT_SH_BODY = """
+debug() {
+   [ "${PY3OR2_DEBUG:-0}" != "0" ] || return 0
+   echo "$@" 1>&2
+}
+fail() { echo "$@" 1>&2; exit 1; }
 
-    sys.exit(getattr(sys.modules[istr], ent)())
+# if $0 is is bin/ and dirname($0)/../module exists, then prepend PYTHONPATH
+mydir=${0%/*}
+updir=${mydir%/*}
+if [ "${mydir#${updir}/}" = "bin" -a -d "$updir/${PY3OR2_MCHECK%%.*}" ]; then
+    updir=$(cd "$mydir/.." && pwd)
+    case "$PYTHONPATH" in
+        *:$updir:*|$updir:*|*:$updir) :;;
+        *) export PYTHONPATH="$updir${PYTHONPATH:+:$PYTHONPATH}"
+           debug "adding '$updir' to PYTHONPATH"
+            ;;
+    esac
+fi
+
+if [ ! -n "$PYTHON" ]; then
+    first_exe=""
+    oifs="$IFS"; IFS=":"
+    for p in $PY3OR2_PYTHONS; do
+        command -v "$p" >/dev/null 2>&1 ||
+            { debug "$p: not in path"; continue; }
+        [ -n "$first_exe" ] || first_exe="$p"
+        [ -z "$PY3OR2_MCHECK" ] && PYTHON=$p && break
+        out=$($p -m "$PY3OR2_MCHECK" 2>&1) && PYTHON="$p" && break
+        debug "$p: $out"
+    done
+    IFS="$oifs"
+    if [ -z "$PYTHON" ]; then
+        if [ -n "$first_exe" -a -n "$PY3OR2_MINSTALL" ]; then
+            debug "attempting deps install with $first_exe $PY3OR2_MINSTALL"
+            "$first_exe" -m "$PY3OR2_MINSTALL" ||
+                fail "failed to install deps!"
+            PYTHON="$first_exe"
+        fi
+    fi
+    [ -n "$PYTHON" ] ||
+        fail "no availble python? [PY3OR2_DEBUG=1 for more info]"
+fi
+debug "executing: $PYTHON -m \"$PY3OR2_MAIN\" $*"
+exec $PYTHON -m "$PY3OR2_MAIN" "$@"
 """
 
-MAIN_FOOTER = """
-if __name__ == '__main__':
-    call_entry_point("%s")
-"""
 
-
-def write_exe_wrapper(entrypoint, path=None, interpreter="/usr/bin/python",
+def write_exe_wrapper(entrypoint, path=None, interpreter=None,
+                      deps_check_entry=None, deps_install_entry=None,
                       mode=0o755):
-    content = '\n'.join((
-        "#! %s" % interpreter,
-        CALL_ENTRY_POINT_PY,
-        MAIN_FOOTER % entrypoint,
-    ))
+    if not interpreter:
+        interpreter = "python3:python2:python"
+
+    subs = {
+        'ep_main': entrypoint,
+        'ep_mcheck': deps_check_entry if deps_check_entry else "",
+        'ep_minstall': deps_install_entry if deps_install_entry else "",
+        'python_exe_list': interpreter,
+    }
+
+    content = '\n'.join(
+        (CALL_ENTRY_POINT_SH_HEADER % subs, CALL_ENTRY_POINT_SH_BODY))
 
     if path is not None:
         with open(path, "w") as fp:
@@ -100,8 +138,11 @@ def pack(fdout=None, command=None, paths=None, copy_files=None,
         shutil.copytree(paths['helpers'], os.path.join(exdir, "helpers"))
         shutil.copytree(paths['lib'], os.path.join(exdir, "curtin"),
                         ignore=not_dot_py)
-        write_exe_wrapper(entrypoint='curtin.commands.main.main',
-                          path=os.path.join(bindir, 'curtin'))
+        write_exe_wrapper(entrypoint='curtin.commands.main',
+                          path=os.path.join(bindir, 'curtin'),
+                          deps_check_entry="curtin.deps.check",
+                          deps_install_entry="curtin.deps.install"
+                          )
 
         for archpath, filepath in copy_files:
             target = os.path.abspath(os.path.join(exdir, archpath))
@@ -190,5 +231,6 @@ def pack_install(fdout=None, configs=None, paths=None,
 
     return pack(fdout=fdout, command=command, paths=paths,
                 add_files=add_files + my_files, copy_files=copy_files)
+
 
 # vi: ts=4 expandtab syntax=python
