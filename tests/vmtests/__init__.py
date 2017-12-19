@@ -15,10 +15,12 @@ import yaml
 import curtin.net as curtin_net
 import curtin.util as util
 
+from curtin.commands.install import INSTALL_PASS_MSG
+
 from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
 from .helpers import check_call, TimeoutExpired
-from unittest import TestCase
+from unittest import TestCase, SkipTest
 
 IMAGE_SRC_URL = os.environ.get(
     'IMAGE_SRC_URL',
@@ -35,8 +37,8 @@ DEFAULT_SSTREAM_OPTS = [
 
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
-INSTALL_PASS_MSG = "Installation finished. No error reported."
 IMAGE_SYNCS = []
+TARGET_IMAGE_FORMAT = "raw"
 OVMF_CODE = "/usr/share/OVMF/OVMF_CODE.fd"
 OVMF_VARS = "/usr/share/OVMF/OVMF_VARS.fd"
 # precise -> vivid don't have split UEFI firmware, fallback
@@ -226,7 +228,7 @@ def get_images(src_url, local_d, release, arch, krel=None, sync=True):
                if not os.path.exists(path)]
 
     if len(missing):
-        raise FileNotFoundError("missing files for ftypes: %s" % missing)
+        raise ValueError("missing files for ftypes: %s" % missing)
 
     return ftypes
 
@@ -312,7 +314,7 @@ class TempDir(object):
         # create target disk
         logger.debug('Creating target disk')
         self.target_disk = os.path.join(self.disks, "install_disk.img")
-        subprocess.check_call(["qemu-img", "create", "-f", "qcow2",
+        subprocess.check_call(["qemu-img", "create", "-f", TARGET_IMAGE_FORMAT,
                               self.target_disk, "10G"],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
@@ -326,7 +328,7 @@ class TempDir(object):
         # create output disk, mount ro
         logger.debug('Creating output disk')
         self.output_disk = os.path.join(self.boot, "output_disk.img")
-        subprocess.check_call(["qemu-img", "create", "-f", "raw",
+        subprocess.check_call(["qemu-img", "create", "-f", TARGET_IMAGE_FORMAT,
                               self.output_disk, "10M"],
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
         subprocess.check_call(["mkfs.ext2", "-F", self.output_disk],
@@ -341,6 +343,8 @@ class TempDir(object):
 
 class VMBaseClass(TestCase):
     __test__ = False
+    arch_skip = []
+    disk_block_size = 512
     disk_to_check = {}
     fstab_expected = {}
     extra_kern_args = None
@@ -351,8 +355,9 @@ class VMBaseClass(TestCase):
     interactive = False
     conf_file = "examples/tests/basic.yaml"
     extra_disks = []
+    nvme_disks = []
     boot_timeout = 300
-    install_timeout = 600
+    install_timeout = 3000
     uefi = False
 
     # these get set from base_vm_classes
@@ -362,6 +367,12 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        # check if we should skip due to host arch
+        if cls.arch in cls.arch_skip:
+            reason = "{} is not supported on arch {}".format(cls.__name__,
+                                                             cls.arch)
+            raise SkipTest(reason)
+
         setup_start = time.time()
         logger.info('Starting setup for testclass: {}'.format(cls.__name__))
         # get boot img
@@ -390,7 +401,7 @@ class VMBaseClass(TestCase):
             dowait = "--dowait"
 
         # create launch cmd
-        cmd = ["tools/launch", "-v", dowait]
+        cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -427,10 +438,21 @@ class VMBaseClass(TestCase):
             netdevs.extend(["--netdev=" + DEFAULT_BRIDGE])
 
         # build disk arguments
+        # --disk source:size:driver:block_size
         extra_disks = []
         for (disk_no, disk_sz) in enumerate(cls.extra_disks):
             dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
-            extra_disks.extend(['--disk', '{}:{}'.format(dpath, disk_sz)])
+            extra_disks.extend(
+                ['--disk', '{}:{}:{}:{}'.format(dpath, disk_sz, "",
+                                                cls.disk_block_size)])
+
+        # build nvme disk args if needed
+        nvme_disks = []
+        for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
+            dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
+            nvme_disks.extend(
+                ['--disk', '{}:{}:nvme:{}'.format(dpath, disk_sz,
+                                                  cls.disk_block_size)])
 
         # proxy config
         configs = [cls.conf_file]
@@ -455,7 +477,11 @@ class VMBaseClass(TestCase):
             shutil.copy(OVMF_VARS, nvram)
             cmd.extend(["--uefi", nvram])
 
-        cmd.extend(netdevs + ["--disk", cls.td.target_disk] + extra_disks +
+        # --disk source:size:driver:block_size
+        target_disk = "{}:{}:{}:{}".format(cls.td.target_disk, "", "",
+                                           cls.disk_block_size)
+        cmd.extend(netdevs + ["--disk", target_disk] +
+                   extra_disks + nvme_disks +
                    [boot_img, "--kernel=%s" % boot_kernel, "--initrd=%s" %
                     boot_initrd, "--", "curtin", "-vv", "install"] +
                    ["--config=%s" % f for f in configs] +
@@ -504,15 +530,53 @@ class VMBaseClass(TestCase):
         # drop the size parameter if present in extra_disks
         extra_disks = [x if ":" not in x else x.split(':')[0]
                        for x in extra_disks]
+        # create --disk params for nvme disks
+        bsize_args = "logical_block_size={}".format(cls.disk_block_size)
+        bsize_args += ",physical_block_size={}".format(cls.disk_block_size)
+        bsize_args += ",min_io_size={}".format(cls.disk_block_size)
+        disk_driver = "virtio-blk"
+
+        target_disks = []
+        for (disk_no, disk) in enumerate([cls.td.target_disk,
+                                          cls.td.output_disk]):
+            d = '--disk={},driver={},format={},{}'.format(disk, disk_driver,
+                                                          TARGET_IMAGE_FORMAT,
+                                                          bsize_args)
+            target_disks.extend([d])
+
+        extra_disks = []
+        for (disk_no, disk_sz) in enumerate(cls.extra_disks):
+            dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
+            d = '--disk={},driver={},format={},{}'.format(dpath, disk_driver,
+                                                          TARGET_IMAGE_FORMAT,
+                                                          bsize_args)
+            extra_disks.extend([d])
+
+        nvme_disks = []
+        disk_driver = 'nvme'
+        for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
+            dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
+            d = '--disk={},driver={},format={},{}'.format(dpath, disk_driver,
+                                                          TARGET_IMAGE_FORMAT,
+                                                          bsize_args)
+            nvme_disks.extend([d])
+
         # create xkvm cmd
         cmd = (["tools/xkvm", "-v", dowait] + netdevs +
-               ["--disk", cls.td.target_disk, "--disk", cls.td.output_disk] +
-               extra_disks +
+               target_disks + extra_disks + nvme_disks +
                ["--", "-drive",
                 "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
                 "-m", "1024"])
+
         if not cls.interactive:
-            cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
+            if cls.arch == 's390x':
+                cmd.extend([
+                    "-nographic", "-nodefaults", "-chardev",
+                    "file,path=%s,id=charconsole0" % cls.boot_log,
+                    "-device",
+                    "sclpconsole,chardev=charconsole0,id=console0"])
+            else:
+                cmd.extend(["-nographic", "-serial", "file:" + cls.boot_log])
 
         if cls.uefi:
             logger.debug("Testcase requested booting with UEFI")
@@ -592,6 +656,10 @@ class VMBaseClass(TestCase):
         return expected
 
     @classmethod
+    def parse_deb_config(cls, path):
+        return curtin_net.parse_deb_config(path)
+
+    @classmethod
     def get_network_state(cls):
         return cls.network_state
 
@@ -631,6 +699,15 @@ class VMBaseClass(TestCase):
         with open(os.path.join(self.td.collect, filename), "r") as fp:
             data = fp.read()
         self.assertRegex(data, regex)
+
+    # To get rid of deprecation warning in python 3.
+    def assertRegex(self, s, r):
+        try:
+            # Python 3.
+            super(VMBaseClass, self).assertRegex(s, r)
+        except AttributeError:
+            # Python 2.
+            self.assertRegexpMatches(s, r)
 
     def get_blkid_data(self, blkid_file):
         with open(os.path.join(self.td.collect, blkid_file)) as fp:
@@ -838,6 +915,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None):
         'password': 'passw0rd',
         'chpasswd': {'expire': False},
         'power_state': {'mode': 'poweroff'},
+        'network': {'config': 'disabled'},
     }
 
     ssh_keys, _err = util.subp(['tools/ssh-keys-list', 'cloud-config'],

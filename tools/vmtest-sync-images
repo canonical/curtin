@@ -1,19 +1,21 @@
 #!/usr/bin/python3
 # This tool keeps a local copy of the maas images used by vmtests.
 # It keeps only the latest copy of the available images.
-import errno
 import os
 import shutil
 import sys
 
 # Fix path so we can import ImageStore class.
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(1, os.path.realpath(os.path.join(
+                                    os.path.dirname(__file__), '..')))
 
 from tests.vmtests import (
     IMAGE_DIR, IMAGE_SRC_URL, sync_images)
 from tests.vmtests.image_sync import ITEM_NAME_FILTERS
 from tests.vmtests.helpers import find_releases
-DEFAULT_ARCH = "amd64"
+from curtin.util import get_platform_arch
+
+DEFAULT_ARCH = get_platform_arch()
 
 
 if __name__ == '__main__':

@@ -23,6 +23,7 @@ import tempfile
 import itertools
 
 from curtin import util
+from curtin.udev import udevadm_settle
 from curtin.log import LOG
 
 
@@ -33,10 +34,14 @@ def get_dev_name_entry(devname):
 
 def is_valid_device(devname):
     devent = get_dev_name_entry(devname)[1]
+    return is_block_device(devent)
+
+
+def is_block_device(path):
     try:
-        return stat.S_ISBLK(os.stat(devent).st_mode)
+        return stat.S_ISBLK(os.stat(path).st_mode)
     except OSError as e:
-        if e.errno != errno.ENOENT:
+        if not util.is_file_not_found_exc(e):
             raise
     return False
 
@@ -55,7 +60,14 @@ def dev_path(devname):
 
 
 def sys_block_path(devname, add=None, strict=True):
-    toks = ['/sys/class/block', dev_short(devname)]
+    toks = ['/sys/class/block']
+    # insert parent dev if devname is partition
+    (parent, partnum) = get_blockdev_for_partition(devname)
+    if partnum:
+        toks.append(dev_short(parent))
+
+    toks.append(dev_short(devname))
+
     if add is not None:
         toks.append(add)
     path = os.sep.join(toks)
@@ -78,8 +90,10 @@ def _lsblock_pairs_to_dict(lines):
         for tok in toks:
             k, v = tok.split("=", 1)
             cur[k] = v
-        cur['device_path'] = get_dev_name_entry(cur['NAME'])[1]
-        ret[cur['NAME']] = cur
+        # use KNAME, as NAME may include spaces and other info,
+        # for example, lvm decices may show 'dm0 lvm1'
+        cur['device_path'] = get_dev_name_entry(cur['KNAME'])[1]
+        ret[cur['KNAME']] = cur
     return ret
 
 
@@ -251,7 +265,7 @@ def rescan_block_devices():
         # we fix LP: #1489521 we kind of need to.
         LOG.warn("rescanning devices failed: %s", e)
 
-    util.subp(['udevadm', 'settle'])
+    udevadm_settle()
 
     return
 
@@ -401,6 +415,17 @@ def get_root_device(dev, fpath="curtin"):
     return target
 
 
+def get_blockdev_sector_size(devpath):
+    """
+    Get the logical and physical sector size of device at devpath
+    Returns a tuple of integer values (logical, physical).
+    """
+    info = _lsblock([devpath])
+    LOG.debug('get_blockdev_sector_size: info:\n%s' % util.json_dumps(info))
+    [parent] = info
+    return (int(info[parent]['LOG-SEC']), int(info[parent]['PHY-SEC']))
+
+
 def get_volume_uuid(path):
     """
     Get uuid of disk with given path. This address uniquely identifies
@@ -464,5 +489,187 @@ def lookup_disk(serial):
             does not exist" % (path, serial))
     return path
 
+
+def sysfs_partition_data(blockdev=None, sysfs_path=None):
+    # given block device or sysfs_path, return a list of tuples
+    # of (kernel_name, number, offset, size)
+    if blockdev is None and sysfs_path is None:
+        raise ValueError("Blockdev and sysfs_path cannot both be None")
+
+    if blockdev:
+        sysfs_path = sys_block_path(blockdev)
+
+    ptdata = []
+    # /sys/class/block/dev has entries of 'kname' for each partition
+
+    # queue property is only on parent devices, ie, we can't read
+    # /sys/class/block/vda/vda1/queue/* as queue is only on the
+    # parent device
+    (parent, partnum) = get_blockdev_for_partition(blockdev)
+    sysfs_prefix = sysfs_path
+    if partnum:
+        sysfs_prefix = sys_block_path(parent)
+
+    block_size = int(util.load_file(os.path.join(sysfs_prefix,
+                                    'queue/logical_block_size')))
+
+    block_size = int(
+        util.load_file(os.path.join(sysfs_path, 'queue/logical_block_size')))
+    unit = block_size
+    for d in os.listdir(sysfs_path):
+        partd = os.path.join(sysfs_path, d)
+        data = {}
+        for sfile in ('partition', 'start', 'size'):
+            dfile = os.path.join(partd, sfile)
+            if not os.path.isfile(dfile):
+                continue
+            data[sfile] = int(util.load_file(dfile))
+        if 'partition' not in data:
+            continue
+        ptdata.append((d, data['partition'], data['start'] * unit,
+                       data['size'] * unit,))
+
+    return ptdata
+
+
+def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
+    # wipe the existing file at path.
+    #  if reader is provided, it will be called as a 'reader(buflen)'
+    #  to provide data for each write.  Otherwise, zeros are used.
+    #  writes will be done in size of buflen.
+    if reader:
+        readfunc = reader
+    else:
+        buf = buflen * b'\0'
+
+        def readfunc(size):
+            return buf
+
+    with open(path, "rb+") as fp:
+        # get the size by seeking to end.
+        fp.seek(0, 2)
+        size = fp.tell()
+        LOG.debug("%s is %s bytes. wiping with buflen=%s",
+                  path, size, buflen)
+        fp.seek(0)
+        while True:
+            pbuf = readfunc(buflen)
+            pos = fp.tell()
+            if len(pbuf) != buflen and len(pbuf) + pos < size:
+                raise ValueError(
+                    "short read on reader got %d expected %d after %d" %
+                    (len(pbuf), buflen, pos))
+
+            if pos + buflen >= size:
+                fp.write(pbuf[0:size-pos])
+                break
+            else:
+                fp.write(pbuf)
+
+
+def quick_zero(path, partitions=True):
+    # zero 1M at front, 1M at end, and 1M at front
+    # if this is a block device and partitions is true, then
+    # zero 1M at front and end of each partition.
+    buflen = 1024
+    count = 1024
+    zero_size = buflen * count
+    offsets = [0, -zero_size]
+    is_block = is_block_device(path)
+    if not (is_block or os.path.isfile(path)):
+        raise ValueError("%s: not an existing file or block device")
+
+    if partitions and is_block:
+        ptdata = sysfs_partition_data(path)
+        for kname, ptnum, start, size in ptdata:
+            offsets.append(start)
+            offsets.append(start + size - zero_size)
+
+    LOG.debug("wiping 1M on %s at offsets %s", path, offsets)
+    return zero_file_at_offsets(path, offsets, buflen=buflen, count=count)
+
+
+def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False):
+    bmsg = "{path} (size={size}): "
+    m_short = bmsg + "{tot} bytes from {offset} > size."
+    m_badoff = bmsg + "invalid offset {offset}."
+    if not strict:
+        m_short += " Shortened to {wsize} bytes."
+        m_badoff += " Skipping."
+
+    buf = b'\0' * buflen
+    tot = buflen * count
+    msg_vals = {'path': path, 'tot': buflen * count}
+    with open(path, "rb+") as fp:
+        # get the size by seeking to end.
+        fp.seek(0, 2)
+        size = fp.tell()
+        msg_vals['size'] = size
+
+        for offset in offsets:
+            if offset < 0:
+                pos = size + offset
+            else:
+                pos = offset
+            msg_vals['offset'] = offset
+            msg_vals['pos'] = pos
+            if pos > size or pos < 0:
+                if strict:
+                    raise ValueError(m_badoff.format(**msg_vals))
+                else:
+                    LOG.debug(m_badoff.format(**msg_vals))
+                    continue
+
+            msg_vals['wsize'] = size - pos
+            if pos + tot > size:
+                if strict:
+                    raise ValueError(m_short.format(**msg_vals))
+                else:
+                    LOG.debug(m_short.format(**msg_vals))
+            fp.seek(pos)
+            for i in range(count):
+                pos = fp.tell()
+                if pos + buflen > size:
+                    fp.write(buf[0:size-pos])
+                else:
+                    fp.write(buf)
+
+
+def wipe_volume(path, mode="superblock"):
+    """wipe a volume/block device
+
+    :param path: a path to a block device
+    :param mode: how to wipe it.
+       pvremove: wipe a lvm physical volume
+       zero: write zeros to the entire volume
+       random: write random data (/dev/urandom) to the entire volume
+       superblock: zero the beginning and the end of the volume
+       superblock-recursive: zero the beginning of the volume, the end of the
+                    volume and beginning and end of any partitions that are
+                    known to be on this device.
+    """
+    if mode == "pvremove":
+        # We need to use --force --force in case it's already in a volgroup and
+        # pvremove doesn't want to remove it
+        cmds = []
+        cmds.append(["pvremove", "--force", "--force", "--yes", path])
+        cmds.append(["pvscan", "--cache"])
+        cmds.append(["vgscan", "--mknodes", "--cache"])
+        # If pvremove is run and there is no label on the system,
+        # then it exits with 5. That is also okay, because we might be
+        # wiping something that is already blank
+        for cmd in cmds:
+            util.subp(cmd, rcs=[0, 5], capture=True)
+    elif mode == "zero":
+        wipe_file(path)
+    elif mode == "random":
+        with open("/dev/urandom", "rb") as reader:
+            wipe_file(path, reader=reader.read)
+    elif mode == "superblock":
+        quick_zero(path, partitions=False)
+    elif mode == "superblock-recursive":
+        quick_zero(path, partitions=True)
+    else:
+        raise ValueError("wipe mode %s not supported" % mode)
 
 # vi: ts=4 expandtab syntax=python

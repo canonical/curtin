@@ -1,3 +1,4 @@
+showtrace: true
 storage:
   version: 1
   config:
@@ -13,26 +14,32 @@ storage:
        size: 1MB
        device: sda
        flag: bios_grub
+       number: 1
      - id: sda1
        type: partition
        size: 1GB
        device: sda
+       number: 2  # XXX: we really need to stop using id with DiskPartnum
      - id: sda2
        type: partition
        size: 1GB
        device: sda
+       number: 3  # XXX: we really need to stop using id with DiskPartnum
      - id: sda3
        type: partition
        size: 1GB
        device: sda
+       number: 4  # XXX: we really need to stop using id with DiskPartnum
      - id: sda4
        type: partition
        size: 1GB
        device: sda
+       number: 5  # XXX: we really need to stop using id with DiskPartnum
      - id: sda5
        type: partition
        size: 3GB
        device: sda
+       number: 6  # XXX: we really need to stop using id with DiskPartnum
      - id: sdb
        type: disk
        ptable: gpt

@@ -22,7 +22,12 @@ Usage: ${0##*/} [ options ] boot-image curtin install [args]
    options:
            --add  F[:T] add file 'F' to the curtin archive at T
       -a | --append     append args to kernel cmdline (--kernel)
-      -d | --disk   D   add a disk 'D' format (path[:size])
+      -A | --arch   A   assume guest kernel architecture A
+      -d | --disk   D   add a disk 'D' format (path[:size][:driver][:bsize])
+                        driver can be specified without size using path::driver
+                        driver defaults to virtio-blk
+                        bsize <logical>[,<physical>][,<min_io_size>]
+                        bsize defaults to 512b sector size
            --uefi   N   enable uefi boot method, store nvram at N
       -h | --help       show this message
       -i | --initrd F   use initramfs F
@@ -235,8 +240,8 @@ find_apt_proxy() {
 }
 
 main() {
-    local short_opts="a:d:h:i:k:n:p:v"
-    local long_opts="add:,append:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi:,verbose,vnc:"
+    local short_opts="a:A:d:h:i:k:n:p:v"
+    local long_opts="add:,append:,arch:,bios:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,power:,publish:,silent,serial-log:,uefi:,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -249,9 +254,10 @@ main() {
     local tmp="" top_d
     local initrd="" kernel="" uappend="" iargs="" disk_args=""
     local pubs="" disks="" pstate="null"
-    local uefi="" bios=""
+    local uefi="" bios="" bsize="512"
     local netdevs="" install_deps="--install-deps"
-    local video="-curses -vga std" serial_log="file:serial.log"
+    local arch_hint=""
+    local video="-curses -vga std" serial_log="serial.log"
     # dowait: run xkvm with a '&' and then 'wait' on the pid.
     #  the reason to do this or not do this has to do with interactivity
     #  if detached with &, then user input will not go to xkvm.
@@ -274,6 +280,7 @@ main() {
         case "$cur" in
                --add) addfiles[${#addfiles[@]}]="$next"; shift;;
             -a|--append) uappend="$next"; shift;;
+            -A|--arch) arch_hint="$next"; shift;;	       
             -d|--disk) disks[${#disks[@]}]="$next"; shift;;
             -h|--help) Usage ; exit 0;;
             -i|--initrd) initrd="$next"; shift;;
@@ -297,7 +304,7 @@ main() {
                     video="-vnc $next"
                     debug 1 "VNC requested - $next"
                     shift;;
-               --serial-log) serial_log="file:$next"; shift;;
+               --serial-log) serial_log="$next"; shift;;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
                --dowait) pt[${#pt[@]}]="$cur"; dowait=true;;
                --no-dowait) pt[${#pt[@]}]="$cur"; dowait=false;;
@@ -380,15 +387,39 @@ main() {
     tmp=$(dirname "$0") && top_d=$(cd "$tmp" && cd .. && pwd) ||
         { error "failed to get dir for $0"; return 1; }
 
-    local disk="" src="" size="" fmt="" out=""
+    local disk="" src="" size="" fmt="" out="" id="" driver="" if=""
+    local split_input=""
     disk_args=( )
+    id=1
     for disk in "${disks[@]}"; do
-        src=${disk}
-        size=5G
-        if [ "${src%:*}" != "${src}" ]; then
-            src="${disk%:*}"
-            size="${disk##*:}"
+        ((id++))
+
+        # 1=src
+        # 2=src:size
+        # 3=src:size:driver
+        # 4=src:size:driver:bsize
+        src=$(echo $disk | awk -F: '{print $1}')
+        size=$(echo $disk | awk -F: '{print $2}')
+        driver=$(echo $disk | awk -F: '{print $3}')
+        bsize=$(echo $disk | awk -F: '{print $4}')
+        
+        if [ -z "${src}" ]; then
+            error "Failed to provide disk source"
+            exit 1
         fi
+
+        if [ -z "${size}" ]; then
+            size=5G
+        fi
+
+        if [ -z "${driver}" ]; then
+            driver="virtio-blk"
+        fi
+        
+        if [ -z "${bsize}" ]; then
+            bsize="512"
+        fi
+
         if [ ! -f "$src" ]; then
             qemu-img create -f raw "${src}" "$size" ||
                 { error "failed create $src of size $size"; return 1; }
@@ -398,8 +429,20 @@ main() {
                 fmt=$(echo "$out" | awk '$0 ~ /^file format:/ { print $3 }') ||
                 { error "failed to determine format of $src"; return 1; }
         fi
-        disk_args=( "${disk_args[@]}"
-            "-drive" "file=${src},if=virtio,cache=unsafe,format=$fmt" )
+
+        # set logical/physical size blocksz is logical:phys
+        local logbs=$(round_up ${bsize%%:*})
+        local phybs=$(round_up ${bsize##*:})
+        local bs_args="logical_block_size=$logbs"
+              bs_args="${bs_args},physical_block_size=$phybs"
+              bs_args="${bs_args},min_io_size=$logbs"
+
+        disk_args=( "${disk_args[@]}" "-drive"
+            "file=${src},if=none,cache=unsafe,format=$fmt,id=drv${id},index=$id" )
+
+        disk_args=( "${disk_args[@]}" "-device"
+            "${driver},drive=drv${id},serial=dev${id},${bs_args}" )
+        
     done
 
     get_my_ip || { error "failed to get your ip. set IP_ADDR"; return 1; }
@@ -520,7 +563,10 @@ main() {
             root="/dev/vda1"
         fi
         append="root=$root ds=nocloud-net;seedfrom=$burl"
-        append="${append} console=ttyS0 $uappend"
+        if [ "${arch_hint}" != "s390x" ]; then
+            append="${append} console=ttyS0"
+        fi
+        append="${append} $uappend"
         seedargs=( "${seedargs[@]}" -kernel "$kernel" )
         [ -n "$initrd" ] && seedargs=( "${seedargs[@]}" -initrd "$initrd" )
         seedargs=( "${seedargs[@]}" -append "$append" )
@@ -537,14 +583,26 @@ main() {
         netargs=( "${netargs[@]}" "--netdev=${dev}" )
     done
 
-    local cmd
-    [ "${serial_log}" = "file:none" ] && serial_log=""
-    [ "${serial_log}" = "file:stdio" ] && serial_log="stdio"
+    local cmd serial_args="" chardev_arg=""
+    [ "${serial_log}" = "none" ] && serial_log=""
+    if [ -n "${serial_log}" ]; then
+	if [ "${arch_hint}" = "s390x" ]; then
+	    if [ "${serial_log}" = "stdio" ]; then
+		chardev_arg="stdio"
+	    else
+		chardev_arg="file,path=${serial_log}"
+	    fi
+	    serial_args="-nodefaults -chardev ${chardev_arg},id=charconsole0 -device sclpconsole,chardev=charconsole0,id=console0"
+	else
+	    serial_args="-serial file:${serial_log}"
+	fi
+    fi
     cmd=( 
         xkvm "${pt[@]}" "${netargs[@]}" --
         "${bios_opts[@]}"
-        -m ${mem} ${serial_log:+-serial "${serial_log}"} ${video}
-        -drive "file=$bootimg,if=virtio,cache=unsafe,format=qcow2"
+        -m ${mem} ${serial_args} ${video}
+        -drive "file=$bootimg,if=none,cache=unsafe,format=qcow2,id=boot,index=0"
+        -device "virtio-blk,drive=boot"
         "${disk_args[@]}"
         "${seedargs[@]}"
         )
@@ -566,6 +624,24 @@ main() {
 
     return $ret
 }
+
+
+round_up() {
+    local size="${1}"
+    local multiple="${2:-512}"
+    local max_size=$((32 * 1024)) # 32k max
+
+    size=$(( (($size + $multiple - 1) / $multiple) * $multiple))
+    if [ $size -gt $max_size ]; then
+        echo $max_size
+        return
+    elif [ $size -lt $multiple ]; then
+        echo $multiple
+        return
+    fi
+    echo $size
+}
+
 
 test_start_http() {
     # run this like:

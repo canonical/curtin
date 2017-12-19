@@ -6,8 +6,6 @@ import os
 
 
 class TestMdadmAbs(VMBaseClass):
-    install_timeout = 600
-    boot_timeout = 100
     interactive = False
     extra_disks = []
     active_mdadm = "1"
@@ -33,6 +31,9 @@ class TestMdadmAbs(VMBaseClass):
 
 
 class TestMdadmBcacheAbs(TestMdadmAbs):
+    arch_skip = [
+        "s390x",  # lp:1565029
+        ]
     conf_file = "examples/tests/mdadm_bcache.yaml"
     disk_to_check = [('main_disk', 1),
                      ('main_disk', 2),
@@ -43,7 +44,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                      ('md0', 0),
                      ('cached_array', 0),
                      ('cached_array_2', 0)]
-
+    extra_disks = ['4G', '4G']
     collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         bcache-super-show /dev/vda6 > bcache_super_vda6
@@ -51,11 +52,16 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         bcache-super-show /dev/md0 > bcache_super_md0
         ls /sys/fs/bcache > bcache_ls
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
+        cat /sys/block/bcache1/bcache/cache_mode >> bcache_cache_mode
+        cat /sys/block/bcache2/bcache/cache_mode >> bcache_cache_mode
         cat /proc/mounts > proc_mounts
         """)]
     fstab_expected = {
-        '/dev/bcache0': '/media/data',
-        '/dev/bcache1': '/media/bcache1',
+        '/dev/vda1': '/media/sda1',
+        '/dev/vda7': '/boot',
+        '/dev/bcache1': '/media/data',
+        '/dev/bcache0': '/media/bcache_normal',
+        '/dev/bcache2': '/media/bcachefoo_fulldiskascache_storage'
     }
 
     def test_bcache_output_files_exist(self):
@@ -97,7 +103,29 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                          bcache_cset_uuid)
 
     def test_bcache_cachemode(self):
+        # definition is on order 0->back,1->through,2->around
+        # but after reboot it can be anything since order is not guaranteed
+        # until we find a way to redetect the order we just check that all
+        # three are there
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
+        self.check_file_regex("bcache_cache_mode", r"\[writethrough\]")
+        self.check_file_regex("bcache_cache_mode", r"\[writearound\]")
+
+
+class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):
+    __test__ = True
+
+    # FIXME(LP: #1523037): dname does not work on trusty
+    # when dname works on trusty, then we need to re-enable by removing line.
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
+
+    def test_ptable(self):
+        print("test_ptable does not work for Trusty")
+
+
+class TrustyHWEUTestMdadmBcache(relbase.trusty_hwe_u, TrustyTestMdadmBcache):
+    __test__ = True
 
 
 class VividTestMdadmBcache(relbase.vivid, TestMdadmBcacheAbs):
@@ -105,6 +133,10 @@ class VividTestMdadmBcache(relbase.vivid, TestMdadmBcacheAbs):
 
 
 class WilyTestMdadmBcache(relbase.wily, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class XenialTestMdadmBcache(relbase.xenial, TestMdadmBcacheAbs):
     __test__ = True
 
 
@@ -119,11 +151,32 @@ class TestMirrorbootAbs(TestMdadmAbs):
                      ('md0', 0)]
 
 
+class TrustyTestMirrorboot(relbase.trusty, TestMirrorbootAbs):
+    __test__ = True
+
+    # FIXME(LP: #1523037): dname does not work on trusty
+    # when dname works on trusty, then we need to re-enable by removing line.
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
+
+    def test_ptable(self):
+        print("test_ptable does not work for Trusty")
+
+
+class TrustyHWEUTestMirrorboot(relbase.trusty_hwe_u, TrustyTestMirrorboot):
+    # This tests kernel upgrade in target
+    __test__ = True
+
+
 class VividTestMirrorboot(relbase.vivid, TestMirrorbootAbs):
     __test__ = True
 
 
 class WilyTestMirrorboot(relbase.wily, TestMirrorbootAbs):
+    __test__ = True
+
+
+class XenialTestMirrorboot(relbase.xenial, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -139,11 +192,32 @@ class TestRaid5bootAbs(TestMdadmAbs):
                      ('md0', 0)]
 
 
+class TrustyTestRaid5Boot(relbase.trusty, TestRaid5bootAbs):
+    __test__ = True
+
+    # FIXME(LP: #1523037): dname does not work on trusty
+    # when dname works on trusty, then we need to re-enable by removing line.
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
+
+    def test_ptable(self):
+        print("test_ptable does not work for Trusty")
+
+
+class TrustyHWEUTestRaid5Boot(relbase.trusty_hwe_u, TrustyTestRaid5Boot):
+    # This tests kernel upgrade in target
+    __test__ = True
+
+
 class VividTestRaid5boot(relbase.vivid, TestRaid5bootAbs):
     __test__ = True
 
 
 class WilyTestRaid5boot(relbase.wily, TestRaid5bootAbs):
+    __test__ = True
+
+
+class XenialTestRaid5boot(relbase.xenial, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -172,11 +246,31 @@ class TestRaid6bootAbs(TestMdadmAbs):
         self.check_file_regex("mdadm_detail", r"ubuntu:foobar")
 
 
+class TrustyTestRaid6boot(relbase.trusty, TestRaid6bootAbs):
+    __test__ = True
+
+    # FIXME(LP: #1523037): dname does not work on trusty
+    # when dname works on trusty, then we need to re-enable by removing line.
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
+
+    def test_ptable(self):
+        print("test_ptable does not work for Trusty")
+
+
+class TrustyHWEUTestRaid6boot(relbase.trusty_hwe_u, TrustyTestRaid6boot):
+    __test__ = True
+
+
 class VividTestRaid6boot(relbase.vivid, TestRaid6bootAbs):
     __test__ = True
 
 
 class WilyTestRaid6boot(relbase.wily, TestRaid6bootAbs):
+    __test__ = True
+
+
+class XenialTestRaid6boot(relbase.xenial, TestRaid6bootAbs):
     __test__ = True
 
 
@@ -193,6 +287,22 @@ class TestRaid10bootAbs(TestMdadmAbs):
                      ('md0', 0)]
 
 
+class TrustyTestRaid10boot(relbase.trusty, TestRaid10bootAbs):
+    __test__ = True
+
+    # FIXME(LP: #1523037): dname does not work on trusty
+    # when dname works on trusty, then we need to re-enable by removing line.
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
+
+    def test_ptable(self):
+        print("test_ptable does not work for Trusty")
+
+
+class TrustyHWEUTestRaid10boot(relbase.trusty_hwe_u, TrustyTestRaid10boot):
+    __test__ = True
+
+
 class VividTestRaid10boot(relbase.vivid, TestRaid10bootAbs):
     __test__ = True
 
@@ -201,10 +311,12 @@ class WilyTestRaid10boot(relbase.wily, TestRaid10bootAbs):
     __test__ = True
 
 
+class XenialTestRaid10boot(relbase.xenial, TestRaid10bootAbs):
+    __test__ = True
+
+
 class TestAllindataAbs(TestMdadmAbs):
     # more complex, needs more time
-    install_timeout = 900
-    boot_timeout = 200
     # alternative config for more complex setup
     conf_file = "examples/tests/allindata.yaml"
     # we have to avoid a systemd hang due to the way it handles dmcrypt
@@ -273,9 +385,29 @@ class TestAllindataAbs(TestMdadmAbs):
         self.check_file_regex("xfs_info", r"^meta-data=/dev/mapper/dmcrypt0")
 
 
+class TrustyTestAllindata(relbase.trusty, TestAllindataAbs):
+    __test__ = False  # luks=no does not disable mounting of device
+
+    # FIXME(LP: #1523037): dname does not work on trusty
+    # when dname works on trusty, then we need to re-enable by removing line.
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
+
+    def test_ptable(self):
+        print("test_ptable does not work for Trusty")
+
+
+class TrustyHWEUTestAllindata(relbase.trusty_hwe_u, TrustyTestAllindata):
+    __test__ = False  # lukes=no does not disable mounting of device
+
+
 class VividTestAllindata(relbase.vivid, TestAllindataAbs):
     __test__ = True
 
 
 class WilyTestAllindata(relbase.wily, TestAllindataAbs):
+    __test__ = True
+
+
+class XenialTestAllindata(relbase.xenial, TestAllindataAbs):
     __test__ = True

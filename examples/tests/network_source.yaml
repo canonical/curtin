@@ -1,4 +1,3 @@
-showtrace: true
 network:
     version: 1
     config:
@@ -24,3 +23,9 @@ network:
         - type: physical
           name: eth2
           mac_address: "52:54:00:12:34:04"
+
+curthooks_commands:
+    # use curtin to inject a eni config file outside of the network yaml
+    # this allows us to test user installed configurations outside of
+    # curtin's control
+    aa_cleanup: ['curtin', 'in-target', '--', 'sh', '-c', "rm -f /etc/network/interfaces.d/eth0.cfg; /bin/echo -e 'auto eth2\niface eth2 inet static\n address 192.168.23.23/24\n' > /etc/network/interfaces.d/eth2.cfg"]

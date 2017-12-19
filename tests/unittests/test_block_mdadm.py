@@ -88,10 +88,15 @@ class TestBlockMdadmCreate(MdadmTestBase):
     def prepare_mock(self, md_devname, raidlevel, devices, spares):
         side_effects = []
         expected_calls = []
+        hostname = 'ubuntu'
 
         # don't mock anything if raidlevel and spares mismatch
         if spares and raidlevel not in mdadm.SPARE_RAID_LEVELS:
             return (side_effects, expected_calls)
+
+        side_effects.append((hostname, ""))  # hostname -s
+        expected_calls.append(call(["hostname", "-s"],
+                                   capture=True, rcs=[0]))
 
         # prepare side-effects
         for d in devices + spares:
@@ -104,10 +109,12 @@ class TestBlockMdadmCreate(MdadmTestBase):
         side_effects.append(("", ""))  # udevadm control --stop-exec-queue
         expected_calls.append(call(["udevadm", "control",
                                     "--stop-exec-queue"]))
+
         side_effects.append(("", ""))  # mdadm create
         # build command how mdadm_create does
         cmd = (["mdadm", "--create", md_devname, "--run",
-               "--level=%s" % raidlevel, "--raid-devices=%s" % len(devices)] +
+                "--homehost=%s" % hostname, "--level=%s" % raidlevel,
+                "--raid-devices=%s" % len(devices)] +
                devices)
         if spares:
             cmd += ["--spare-devices=%s" % len(spares)] + spares
@@ -597,9 +604,11 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         with self.assertRaises(ValueError):
             mdadm.md_device_key_dev(devname)
 
+    @patch('curtin.block.get_blockdev_for_partition')
     @patch('curtin.block.mdadm.os.path.exists')
     @patch('curtin.block.mdadm.os.listdir')
-    def tests_md_get_spares_list(self, mock_listdir, mock_exists):
+    def tests_md_get_spares_list(self, mock_listdir, mock_exists,
+                                 mock_getbdev):
         mdname = '/dev/md0'
         devices = ['dev-vda', 'dev-vdb', 'dev-vdc']
         states = ['in-sync', 'in-sync', 'spare']
@@ -607,6 +616,7 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         mock_exists.return_value = True
         mock_listdir.return_value = devices
         self.mock_util.load_file.side_effect = states
+        mock_getbdev.return_value = ('md0', None)
 
         sysfs_path = '/sys/class/block/md0/md/'
 
@@ -618,16 +628,20 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         self.mock_util.load_file.assert_has_calls(expected_calls)
         self.assertEqual(['/dev/vdc'], spares)
 
+    @patch('curtin.block.get_blockdev_for_partition')
     @patch('curtin.block.mdadm.os.path.exists')
-    def tests_md_get_spares_list_nomd(self, mock_exists):
+    def tests_md_get_spares_list_nomd(self, mock_exists, mock_getbdev):
         mdname = '/dev/md0'
         mock_exists.return_value = False
+        mock_getbdev.return_value = ('md0', None)
         with self.assertRaises(OSError):
             mdadm.md_get_spares_list(mdname)
 
+    @patch('curtin.block.get_blockdev_for_partition')
     @patch('curtin.block.mdadm.os.path.exists')
     @patch('curtin.block.mdadm.os.listdir')
-    def tests_md_get_devices_list(self, mock_listdir, mock_exists):
+    def tests_md_get_devices_list(self, mock_listdir, mock_exists,
+                                  mock_getbdev):
         mdname = '/dev/md0'
         devices = ['dev-vda', 'dev-vdb', 'dev-vdc']
         states = ['in-sync', 'in-sync', 'spare']
@@ -635,6 +649,7 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         mock_exists.return_value = True
         mock_listdir.return_value = devices
         self.mock_util.load_file.side_effect = states
+        mock_getbdev.return_value = ('md0', None)
 
         sysfs_path = '/sys/class/block/md0/md/'
 
@@ -646,10 +661,12 @@ class TestBlockMdadmMdHelpers(MdadmTestBase):
         self.mock_util.load_file.assert_has_calls(expected_calls)
         self.assertEqual(sorted(['/dev/vda', '/dev/vdb']), sorted(devs))
 
+    @patch('curtin.block.get_blockdev_for_partition')
     @patch('curtin.block.mdadm.os.path.exists')
-    def tests_md_get_devices_list_nomd(self, mock_exists):
+    def tests_md_get_devices_list_nomd(self, mock_exists, mock_getbdev):
         mdname = '/dev/md0'
         mock_exists.return_value = False
+        mock_getbdev.return_value = ('md0', None)
         with self.assertRaises(OSError):
             mdadm.md_get_devices_list(mdname)
 

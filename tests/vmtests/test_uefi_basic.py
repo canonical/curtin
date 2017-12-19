@@ -8,9 +8,8 @@ import textwrap
 
 class TestBasicAbs(VMBaseClass):
     interactive = False
+    arch_skip = ["s390x"]
     conf_file = "examples/tests/uefi_basic.yaml"
-    install_timeout = 600
-    boot_timeout = 120
     extra_disks = []
     uefi = True
     disk_to_check = [('main_disk', 1), ('main_disk', 2)]
@@ -25,6 +24,12 @@ class TestBasicAbs(VMBaseClass):
         mkdir -p /dev/disk/by-dname
         ls /dev/disk/by-dname/ > ls_dname
         ls /sys/firmware/efi/ > ls_sys_firmware_efi
+        cat /sys/class/block/vda/queue/logical_block_size > vda_lbs
+        cat /sys/class/block/vda/queue/physical_block_size > vda_pbs
+        blockdev --getsz /dev/vda > vda_blockdev_getsz
+        blockdev --getss /dev/vda > vda_blockdev_getss
+        blockdev --getpbsz /dev/vda > vda_blockdev_getpbsz
+        blockdev --getbsz /dev/vda > vda_blockdev_getbsz
         """)]
 
     def test_output_files_exist(self):
@@ -50,6 +55,29 @@ class TestBasicAbs(VMBaseClass):
                 efi_lines = fp.read().strip().split('\n')
                 self.assertEqual(sorted(sys_efi_expected),
                                  sorted(efi_lines))
+
+    def test_disk_block_sizes(self):
+        """ Test disk logical and physical block size are match
+            the class block size.
+        """
+        for bs in ['lbs', 'pbs']:
+            with open(os.path.join(self.td.collect,
+                      'vda_' + bs), 'r') as fp:
+                size = int(fp.read())
+                self.assertEqual(self.disk_block_size, size)
+
+    def test_disk_block_size_with_blockdev(self):
+        """ validate maas setting
+        --getsz                   get size in 512-byte sectors
+        --getss                   get logical block (sector) size
+        --getpbsz                 get physical block (sector) size
+        --getbsz                  get blocksize
+        """
+        for syscall in ['getss', 'getpbsz']:
+            with open(os.path.join(self.td.collect,
+                      'vda_blockdev_' + syscall), 'r') as fp:
+                size = int(fp.read())
+                self.assertEqual(self.disk_block_size, size)
 
 
 class PreciseUefiTestBasic(relbase.precise, TestBasicAbs):
@@ -79,5 +107,29 @@ class WilyUefiTestBasic(relbase.wily, TestBasicAbs):
     __test__ = True
 
 
+class VividUefiTestBasic(relbase.vivid, TestBasicAbs):
+    __test__ = True
+
+
 class XenialUefiTestBasic(relbase.xenial, TestBasicAbs):
     __test__ = True
+
+
+class PreciseUefiTestBasic4k(PreciseUefiTestBasic):
+    disk_block_size = 4096
+
+
+class TrustyUefiTestBasic4k(TrustyUefiTestBasic):
+    disk_block_size = 4096
+
+
+class VividUefiTestBasic4k(VividUefiTestBasic):
+    disk_block_size = 4096
+
+
+class WilyUefiTestBasic4k(WilyUefiTestBasic):
+    disk_block_size = 4096
+
+
+class XenialUefiTestBasic4k(XenialUefiTestBasic):
+    disk_block_size = 4096

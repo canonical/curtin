@@ -6,8 +6,6 @@ import os
 
 
 class TestMdadmAbs(VMBaseClass):
-    install_timeout = 600
-    boot_timeout = 100
     interactive = False
     extra_disks = ['10G', '10G', '10G', '10G']
     active_mdadm = "1"
@@ -90,7 +88,7 @@ class TrustyHWEVTestRaid5Bcache(relbase.trusty_hwe_v, TrustyTestRaid5Bcache):
 
 
 class TrustyHWEWTestRaid5Bcache(relbase.trusty_hwe_w, TrustyTestRaid5Bcache):
-    __test__ = True
+    __test__ = False
 
 
 class VividTestRaid5Bcache(relbase.vivid, TestMdadmBcacheAbs):
