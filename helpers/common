@@ -280,8 +280,11 @@ pt_uefi() {
             { error "$target: failed to wipe partitions"; return 1; }
     fi
 
-    mkfs -t vfat -F 32 -n uefi-boot ${target}15 ||
-        { error "failed to partition ${target}15 for UEFI vfat"; return 1; }
+    local pt15
+    find_partno "$target" 15 && pt15="$_RET" ||
+        { error "failed to find partition 15 for $target"; return 1; }
+    mkfs -t vfat -F 32 -n uefi-boot "$pt15" ||
+        { error "failed to partition :$pt15' for UEFI vfat"; return 1; }
 }
 
 
@@ -289,7 +292,7 @@ pt_mbr() {
     local target="$1" end=${2:-""} boot="$3" size="" s512="" ptype="L"
     local start="2048" rootsize="" maxsize="4294967296"
     local maxend="" isblk=false def_bootsize="1048576" bootsize=0
-    local isblk=false pad
+    local isblk=false
     getsize "$target" ||
         { error "failed to get size of $target"; return 1; }
     size="$_RET"
@@ -298,29 +301,34 @@ pt_mbr() {
         bootsize=$def_bootsize
     fi
 
-    if [ "$(($size/512))" -gt "$maxsize" ]; then
+    s512=$(($size/512))
+    if [ $s512 -ge $maxsize ]; then
         debug 1 "disk is larger than max for mbr (2TB)"
         s512=$maxsize
-    else
-        s512=$(($size/512))
     fi
+
+    # allow 33 sectors for the secondary gpt header in the case that
+    # the user wants to later 'sgdisk --mbrtogpt'
+    local gpt2hsize="33"
     if [ -n "$end" ]; then
         rootsize=$(((end/512)-start-bootsize))
     else
-        rootsize=$((s512-start-bootsize))
+        rootsize=$((s512-start-bootsize-$gpt2hsize))
     fi
 
     [ -b "$target" ] && isblk=true
 
     # interact with sfdisk in units of 512 bytes (--unit S)
     # we start all partitions at 2048 of those (1M)
-    local sfdisk_out="" sfdisk_in="" sfdisk_cmd="" t=""
+    local sfdisk_out="" sfdisk_in="" sfdisk_cmd="" t="" expected=""
     if "$boot"; then
         t="$start,$bootsize,$ptype,-${CR}"
         t="$t$(($start+$bootsize)),$rootsize,$ptype,*"
         sfdisk_in="$t"
+        expected="1 2"
     else
         sfdisk_in="$start,$rootsize,$ptype,*"
+        expected=1
     fi
     sfdisk_cmd=( sfdisk --no-reread --force --Linux --unit S "$target" )
     debug 1 "sfdisking with: echo '$sfdisk_in' | ${sfdisk_cmd[*]}"
@@ -333,10 +341,10 @@ pt_mbr() {
     if $isblk; then
         blockdev --rereadpt "$target"
         udevadm settle
-        assert_partitions "$target" 1 ||
+        assert_partitions "$target" ${expected} ||
             { error "$target missing partitions: $_RET"; return 1; }
 
-        wipe_partitions "$target" 1 ||
+        wipe_partitions "$target" ${expected} ||
             { error "failed to wipe partition 1 on $target"; return 1; }
     fi
 
@@ -474,6 +482,59 @@ is_md() {
     return 1
 }
 
+get_carryover_params() {
+    local cmdline=" $1 " extra="" lead="" carry_extra="" carry_lead=""
+    # return a string to append to installed systems boot parameters
+    # it may include a '--' after a '---'
+    # see LP: 1402042 for some history here.
+    # this is similar to 'user-params' from d-i
+    local preferred_sep="---"  # KERNEL_CMDLINE_COPY_TO_INSTALL_SEP
+    local legacy_sep="--"
+    case "$cmdline" in
+        *\ ${preferred_sep}\ *)
+            extra=${cmdline#* ${preferred_sep} }
+            lead=${cmdline%% ${preferred_sep} *}
+            ;;
+        *\ ${legacy_sep}\ *)
+            extra="${cmdline#* ${legacy_sep} }"
+            lead=${cmdline%% ${legacy_sep} *}
+            ;;
+        *)
+            extra=""
+            lead="$cmdline"
+            ;;
+    esac
+
+    if [ -n "$extra" ]; then
+        carry_extra=$(set -f;
+            c="";
+            for p in $extra; do
+                case "$p" in
+                    (BOOTIF=*|initrd=*|BOOT_IMAGE=*) continue;;
+                esac
+                c="$c $p";
+            done
+            echo "${c# }"
+        )
+    fi
+
+    # these get copied even if they werent after the separator
+    local padded=" $carry_extra "
+    carry_lead=$(set -f;
+        padded=" ${carry_extra} "
+        c=""
+        for p in $lead; do
+            # skip any that are already in carry_extra
+            [ "${padded#* $p }" != "$padded" ] && continue
+            case "$p" in
+                (console=*) c="$c $p";;
+            esac
+        done
+        echo "${c# }"
+    )
+    _RET="${carry_lead:+${carry_lead} }${carry_extra}"
+}
+
 install_grub() {
     local long_opts="uefi"
     local getopt_out="" mp_efi=""
@@ -573,29 +634,6 @@ install_grub() {
         echo "LABEL=${fslabel}  /boot/efi   vfat    defaults    0 0" >> "$mp/etc/fstab"
     fi
 
-    # copy anything after '--' on cmdline to install'd cmdline
-    read cmdline < /proc/cmdline
-    local newargs=""
-
-    tmp="${cmdline##* -- }"
-    if [ "$tmp" != "$cmdline" ]; then
-        # there was an explicit '--', so copy stuff some after it
-        newargs=$(set -f;
-            c="";
-            for p in ${cmdline##* -- }; do
-                case "$p" in
-                    (BOOTIF=*|initrd=*|BOOT_IMAGE=*) continue;;
-                esac
-                c="$c $p";
-            done
-            echo "${c# }"
-        )
-    elif [ "${cmdline#* console=}" != "${cmdline}" ]; then
-        # there are 'console=' params, copy those.
-        newargs=$(set -f; c=""; for p in $cmdline; do
-            [ "${p#console}" = "$p" ] || c="$c $p"; done; echo "${c# }")
-    fi
-
     local grub_d="etc/default/grub.d"
     local mygrub_cfg="$grub_d/50-curtin-settings.cfg"
     [ -d "$mp/$grub_d" ] || mkdir -p "$mp/$grub_d" ||
@@ -608,6 +646,15 @@ install_grub() {
        debug 1 "moved $cicfg out of the way"
        mv "$mp/$cicfg" "$mp/$cicfg.disabled"
     fi
+
+    # get the user provided / carry-over kernel arguments
+    local newargs=""
+    read cmdline < /proc/cmdline &&
+        get_carryover_params "$cmdline" && newargs="$_RET" || {
+        error "Failed to get carryover parrameters from cmdline"; 
+        return 1;
+    }
+    debug 1 "carryover command line params: $newargs"
 
     : > "$mp/$mygrub_cfg" ||
         { error "Failed to write '$mygrub_cfg'"; return 1; }
