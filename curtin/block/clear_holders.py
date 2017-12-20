@@ -13,6 +13,7 @@ import time
 from curtin import (block, udev, util)
 from curtin.block import lvm
 from curtin.block import mdadm
+from curtin.block import zfs
 from curtin.log import LOG
 
 # poll frequenty, but wait up to 60 seconds total
@@ -245,6 +246,11 @@ def wipe_superblock(device):
         LOG.info("extended partitions do not need wiping, so skipping: '%s'",
                  blockdev)
     else:
+        # release zfs member by exporting the pool
+        if block.is_zfs_member(blockdev):
+            poolname = zfs.device_to_poolname(blockdev)
+            zfs.zpool_export(poolname)
+
         # some volumes will be claimed by the bcache layer but do not surface
         # an actual /dev/bcacheN device which owns the parts (backing, cache)
         # The result is that some volumes cannot be wiped while bcache claims
@@ -516,7 +522,10 @@ def start_clear_holders_deps():
     # lad the bcache module bcause it is not present in the kernel. if this
     # happens then there is no need to halt installation, as the bcache devices
     # will never appear and will never prevent the disk from being reformatted
-    util.subp(['modprobe', 'bcache'], rcs=[0, 1])
+    util.load_kernel_module('bcache')
+    # the zfs module is needed to find and export devices which may be in-use
+    # and need to be cleared.
+    util.load_kernel_module('zfs')
 
 
 # anything that is not identified can assumed to be a 'disk' or similar

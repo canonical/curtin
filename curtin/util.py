@@ -301,6 +301,32 @@ def load_command_environment(env=os.environ, strict=False):
     return {k: env.get(v) for k, v in mapping.items()}
 
 
+def is_kmod_loaded(module):
+    """Test if kernel module 'module' is current loaded by checking sysfs"""
+
+    if not module:
+        raise ValueError('is_kmod_loaded: invalid module: "%s"', module)
+
+    return os.path.isdir('/sys/module/%s' % module)
+
+
+def load_kernel_module(module, check_loaded=True):
+    """Install kernel module via modprobe.  Optionally check if it's already
+       loaded .
+    """
+
+    if not module:
+        raise ValueError('load_kernel_module: invalid module: "%s"', module)
+
+    if check_loaded:
+        if is_kmod_loaded(module):
+            LOG.debug('Skipping kernel module load, %s already loaded', module)
+            return
+
+    LOG.debug('Loading kernel module %s via modprobe', module)
+    subp(['modprobe', '--use-blacklist', module])
+
+
 class BadUsage(Exception):
     pass
 

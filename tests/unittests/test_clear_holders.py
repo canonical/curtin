@@ -491,8 +491,28 @@ class TestClearHolders(CiTestCase):
         clear_holders.wipe_superblock(self.test_syspath)
         self.assertFalse(mock_block.wipe_volume.called)
         mock_block.is_extended_partition.return_value = False
+        mock_block.is_zfs_member.return_value = False
         clear_holders.wipe_superblock(self.test_syspath)
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
+        mock_block.wipe_volume.assert_called_with(
+            self.test_blockdev, mode='superblock')
+
+    @mock.patch('curtin.block.clear_holders.zfs')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.block')
+    def test_clear_holders_wipe_superblock_zfs(self, mock_block, mock_log,
+                                               mock_zfs):
+        """test clear_holders.wipe_superblock handles zfs member"""
+        mock_block.sysfs_to_devpath.return_value = self.test_blockdev
+        mock_block.is_extended_partition.return_value = True
+        clear_holders.wipe_superblock(self.test_syspath)
+        self.assertFalse(mock_block.wipe_volume.called)
+        mock_block.is_extended_partition.return_value = False
+        mock_block.is_zfs_member.return_value = True
+        mock_zfs.device_to_poolname.return_value = 'fake_pool'
+        clear_holders.wipe_superblock(self.test_syspath)
+        mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
+        mock_zfs.zpool_export.assert_called_with('fake_pool')
         mock_block.wipe_volume.assert_called_with(
             self.test_blockdev, mode='superblock')
 
@@ -662,6 +682,6 @@ class TestClearHolders(CiTestCase):
         clear_holders.start_clear_holders_deps()
         mock_mdadm.mdadm_assemble.assert_called_with(
             scan=True, ignore_errors=True)
-        mock_util.subp.assert_called_with(['modprobe', 'bcache'], rcs=[0, 1])
-
+        mock_util.load_kernel_module.has_calls(
+                mock.call('bcache'), mock.call('zfs'))
 # vi: ts=4 expandtab syntax=python

@@ -101,6 +101,28 @@ class TestBlock(CiTestCase):
             mock_os_listdir.return_value = ["other"]
             block.lookup_disk(serial)
 
+    @mock.patch("curtin.block.get_dev_disk_byid")
+    def test_disk_to_byid_path(self, mock_byid):
+        """ disk_to_byid path returns a /dev/disk/by-id path """
+        mapping = {
+            '/dev/sda': '/dev/disk/by-id/scsi-abcdef',
+        }
+        mock_byid.return_value = mapping
+
+        byid_path = block.disk_to_byid_path('/dev/sda')
+        self.assertEqual(mapping['/dev/sda'], byid_path)
+
+    @mock.patch("curtin.block.get_dev_disk_byid")
+    def test_disk_to_byid_path_notfound(self, mock_byid):
+        """ disk_to_byid path returns None for not found devices """
+        mapping = {
+            '/dev/sda': '/dev/disk/by-id/scsi-abcdef',
+        }
+        mock_byid.return_value = mapping
+
+        byid_path = block.disk_to_byid_path('/dev/sdb')
+        self.assertEqual(mapping.get('/dev/sdb'), byid_path)
+
 
 class TestSysBlockPath(CiTestCase):
     @mock.patch("curtin.block.get_blockdev_for_partition")

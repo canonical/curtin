@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 from curtin import (block, config, util)
-from curtin.block import (mdadm, mkfs, clear_holders, lvm, iscsi)
+from curtin.block import (mdadm, mkfs, clear_holders, lvm, iscsi, zfs)
 from curtin.log import LOG
 from curtin.reporter import events
 
@@ -247,6 +247,23 @@ def make_dname(volume, storage_config):
     util.ensure_dir(rules_dir)
     rule_file = os.path.join(rules_dir, '{}.rules'.format(sanitized))
     util.write_file(rule_file, ', '.join(rule))
+
+
+def get_poolname(info, storage_config):
+    """ Resolve pool name from zfs info """
+
+    LOG.debug('get_poolname for volume {}'.format(info))
+    if info.get('type') == 'zfs':
+        pool_id = info.get('pool')
+        poolname = get_poolname(storage_config.get(pool_id), storage_config)
+    elif info.get('type') == 'zpool':
+        poolname = info.get('pool')
+    else:
+        msg = 'volume is not type zfs or zpool: %s' % info
+        LOG.error(msg)
+        raise ValueError(msg)
+
+    return poolname
 
 
 def get_path_to_storage_volume(volume, storage_config):
@@ -1153,6 +1170,59 @@ def bcache_handler(info, storage_config):
               .format(backing_device, cache_device))
 
 
+def zpool_handler(info, storage_config):
+    """
+    Create a zpool based in storage_configuration
+    """
+    state = util.load_command_environment()
+
+    # extract /dev/disk/by-id paths for each volume used
+    vdevs = [get_path_to_storage_volume(v, storage_config)
+             for v in info.get('vdevs', [])]
+    poolname = info.get('pool')
+    mountpoint = info.get('mountpoint')
+    altroot = state['target']
+
+    if not vdevs or not poolname:
+        raise ValueError("pool and vdevs for zpool must be specified")
+
+    # map storage volume to by-id path for persistent path
+    vdevs_byid = []
+    for vdev in vdevs:
+        byid = block.disk_to_byid_path(vdev)
+        if not byid:
+            msg = 'Cannot find by-id path to zpool device "%s"' % vdev
+            LOG.error(msg)
+            raise RuntimeError(msg)
+        vdevs_byid.append(byid)
+
+    LOG.info('Creating zpool %s with vdevs %s', poolname, vdevs_byid)
+    zfs.zpool_create(poolname, vdevs_byid,
+                     mountpoint=mountpoint, altroot=altroot)
+
+
+def zfs_handler(info, storage_config):
+    """
+    Create a zfs filesystem
+    """
+    state = util.load_command_environment()
+    poolname = get_poolname(info, storage_config)
+    volume = info.get('volume')
+    properties = info.get('properties', {})
+
+    LOG.info('Creating zfs dataset %s/%s with properties %s',
+             poolname, volume, properties)
+    zfs.zfs_create(poolname, volume, zfs_properties=properties)
+
+    mountpoint = properties.get('mountpoint')
+    if mountpoint:
+        if state['fstab']:
+            fstab_entry = (
+                "# Use `zfs list` for current zfs mount info\n" +
+                "# %s %s defaults 0 0\n" % (poolname, mountpoint))
+            util.write_file(state['fstab'], fstab_entry, omode='a')
+
+
 def extract_storage_ordered_dict(config):
     storage_config = config.get('storage', {})
     if not storage_config:
@@ -1184,7 +1254,9 @@ def meta_custom(args):
         'lvm_partition': lvm_partition_handler,
         'dm_crypt': dm_crypt_handler,
         'raid': raid_handler,
-        'bcache': bcache_handler
+        'bcache': bcache_handler,
+        'zfs': zfs_handler,
+        'zpool': zpool_handler,
     }
 
     state = util.load_command_environment()

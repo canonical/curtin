@@ -941,6 +941,12 @@ def curthooks(args):
         do_apt_config(cfg, target)
         disable_overlayroot(cfg, target)
 
+    # LP: #1742560 prevent zfs-dkms from being installed (Xenial)
+    if util.lsb_release(target=target)['codename'] == 'xenial':
+        util.apt_update(target=target)
+        with util.ChrootableTarget(target) as in_chroot:
+            in_chroot.subp(['apt-mark', 'hold', 'zfs-dkms'])
+
     # packages may be needed prior to installing kernel
     with events.ReportEventStack(
             name=stack_prefix + '/installing-missing-packages',
@@ -966,6 +972,13 @@ def curthooks(args):
         # reconfigure mdadm
         util.subp(['dpkg-reconfigure', '--frontend=noninteractive', 'mdadm'],
                   data=None, target=target)
+
+    # if target has zfs, set ZPOOL_VDEV_NAME_PATH=1 in env (LP: #1527727).
+    if (util.which("zfs", target=target) and
+            util.lsb_release(target=target)['codename'] == 'xenial'):
+        etc_env = util.target_path(target, '/etc/environment')
+        export_line = '# LP: #1527727\nexport ZPOOL_VDEV_NAME_PATH="1"\n'
+        util.write_file(etc_env, content=export_line, omode="a")
 
     with events.ReportEventStack(
             name=stack_prefix + '/installing-kernel',
