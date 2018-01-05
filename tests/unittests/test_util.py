@@ -255,6 +255,14 @@ class TestSubp(CiTestCase):
         self.assertEqual(err, data)
         self.assertEqual(out, b'')
 
+    def test_subp_combined_stderr_stdout(self):
+        """Providing combine_capture as True redirects stderr to stdout."""
+        data = b'hello world'
+        (out, err) = util.subp(self.stdin2err, combine_capture=True,
+                               decode=False, data=data)
+        self.assertIsNone(err)
+        self.assertEqual(out, data)
+
     def test_returns_none_if_no_capture(self):
         (out, err) = util.subp(self.stdin2out, data=b'')
         self.assertEqual(err, None)

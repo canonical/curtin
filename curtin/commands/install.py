@@ -20,6 +20,8 @@ from curtin.reporter import events
 from . import populate_one_subcmd
 
 INSTALL_LOG = "/var/log/curtin/install.log"
+SAVE_INSTALL_LOG = '/root/curtin-install.log'
+SAVE_INSTALL_CONFIG = '/root/curtin-install-cfg.yaml'
 
 INSTALL_START_MSG = ("curtin: Installation started. (%s)" %
                      version.version_string())
@@ -48,7 +50,7 @@ CONFIG_BUILTIN = {
     'late_commands': {'builtin': []},
     'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
     'apply_net_commands': {'builtin': []},
-    'install': {'log_file': INSTALL_LOG},
+    'install': {'log_file': INSTALL_LOG}
 }
 
 
@@ -403,8 +405,7 @@ def cmd_install(args):
 
     # Generate curtin configuration dump and add to write_files unless
     # installation config disables dump
-    yaml_dump_file = instcfg.get('save_install_config',
-                                 '/root/curtin-install-cfg.yaml')
+    yaml_dump_file = instcfg.get('save_install_config', SAVE_INSTALL_CONFIG)
     if yaml_dump_file:
         write_files = cfg.get('write_files', {})
         write_files['curtin_install_cfg'] = {
@@ -460,8 +461,7 @@ def cmd_install(args):
         legacy_reporter.report_failure(exp_msg)
         raise e
     finally:
-        log_target_path = instcfg.get('save_install_log',
-                                      '/root/curtin-install.log')
+        log_target_path = instcfg.get('save_install_log', SAVE_INSTALL_LOG)
         if log_target_path:
             copy_install_log(logfile, workingd.target, log_target_path)
 

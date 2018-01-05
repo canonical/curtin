@@ -2,6 +2,7 @@
 
 import argparse
 import collections
+from contextlib import contextmanager
 import errno
 import glob
 import json
@@ -53,8 +54,9 @@ BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 
 def _subp(args, data=None, rcs=None, env=None, capture=False,
-          shell=False, logstring=False, decode="replace",
-          target=None, cwd=None, log_captured=False, unshare_pid=None):
+          combine_capture=False, shell=False, logstring=False,
+          decode="replace", target=None, cwd=None, log_captured=False,
+          unshare_pid=None):
     if rcs is None:
         rcs = [0]
     devnull_fp = None
@@ -73,8 +75,9 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
     args = unshare_args + chroot_args + sh_args + list(args)
 
     if not logstring:
-        LOG.debug(("Running command %s with allowed return codes %s"
-                   " (capture=%s)"), args, rcs, capture)
+        LOG.debug(
+            "Running command %s with allowed return codes %s (capture=%s)",
+            args, rcs, 'combine' if combine_capture else capture)
     else:
         LOG.debug(("Running hidden command to protect sensitive "
                    "input/output logstring: %s"), logstring)
@@ -85,6 +88,9 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
         if capture:
             stdout = subprocess.PIPE
             stderr = subprocess.PIPE
+        if combine_capture:
+            stdout = subprocess.PIPE
+            stderr = subprocess.STDOUT
         if data is None:
             devnull_fp = open(os.devnull)
             stdin = devnull_fp
@@ -196,6 +202,10 @@ def subp(*args, **kwargs):
     :param capture:
         boolean indicating if output should be captured.  If True, then stderr
         and stdout will be returned.  If False, they will not be redirected.
+    :param combine_capture:
+        boolean indicating if stderr should be redirected to stdout. When True,
+        interleaved stderr and stdout will be returned as the first element of
+        a tuple.
     :param log_captured:
         boolean indicating if output should be logged on capture.  If
         True, then stderr and stdout will be logged at DEBUG level.  If
@@ -441,6 +451,16 @@ def fuser_mount(path):
         fuser_output[pid] = status.split()
 
     return fuser_output
+
+
+@contextmanager
+def chdir(dirname):
+    curdir = os.getcwd()
+    try:
+        os.chdir(dirname)
+        yield dirname
+    finally:
+        os.chdir(curdir)
 
 
 def do_mount(src, target, opts=None):

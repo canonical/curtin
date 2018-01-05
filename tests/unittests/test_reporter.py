@@ -26,6 +26,7 @@ from curtin.reporter import events
 from .helpers import CiTestCase
 
 import base64
+import os
 
 
 class TestLegacyReporter(CiTestCase):
@@ -170,6 +171,21 @@ class TestReporter(CiTestCase):
         self.assertEqual(files[0].get('encoding'), 'base64')
         self.assertEqual(files[0].get('content'),
                          base64.b64encode(test_data).decode())
+
+    @patch('curtin.reporter.events.report_event')
+    def test_report_finished_post_files_absent_file(self, mock_report_event):
+        """Absent files provided with post_files result in empty content."""
+        tmpfname = self.tmp_path('testfile')
+        self.assertFalse(os.path.exists(tmpfname))
+        events.report_finish_event(self.ev_name, self.ev_desc,
+                                   post_files=[tmpfname])
+        event = self._get_reported_event(mock_report_event)
+        files = event.as_dict().get('files')
+        self.assertTrue(len(files) == 1)
+        self.assertEqual(files[0].get('path'), tmpfname)
+        self.assertEqual(files[0].get('encoding'), 'base64')
+        self.assertIsNone(files[0]['content'],
+                          'Unexpected content found for absent post_file.')
 
     @patch('curtin.url_helper.OauthUrlHelper')
     def test_webhook_handler_post_files(self, mock_url_helper):
