@@ -108,11 +108,13 @@ def _topdir():
     return _TOPDIR
 
 
-def _initialize_logging():
+def _initialize_logging(name=None):
     # Configure logging module to save output to disk and present it on
     # sys.stderr
+    if not name:
+        name = __name__
 
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
 
     formatter = logging.Formatter(
@@ -364,6 +366,7 @@ class VMBaseClass(TestCase):
     boot_cloudconf = None
     install_timeout = INSTALL_TIMEOUT
     interactive = False
+    logger = None
     multipath = False
     multipath_num_paths = 2
     nvme_disks = []
@@ -593,6 +596,12 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        # initialize global logger with class name to help make sense of
+        # parallel vmtest runs which intermingle output.
+        global logger
+        logger = _initialize_logging(name=cls.__name__)
+        cls.logger = logger
+
         # check if we should skip due to host arch
         if cls.arch in cls.arch_skip:
             reason = "{} is not supported on arch {}".format(cls.__name__,
