@@ -17,6 +17,10 @@ print_commit() {
     local subject="$1" author="$2" bugs="$3" aname="" buf="" abugs=""
     local indent="    - " indent2="      " ll=79
     aname=${author% <*}
+    local skipname=""
+    case "$aname" in
+        Scott*Moser|Ryan*Harper) aname="";;
+    esac
     [ "${aname}" = "Scott Moser" ] && aname=""
     abugs="${aname:+ [${aname}]}${bugs:+ (LP: ${bugs})}"
     if [ $((${#subject}+${#abugs})) -le $(($ll-${#indent})) ]; then
