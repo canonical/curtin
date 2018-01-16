@@ -1,4 +1,4 @@
-curtin (17.1-6-g8b145067-0ubuntu1) UNRELEASED; urgency=medium
+curtin (17.1-6-g8b145067-0ubuntu1) bionic; urgency=medium
 
   * New upstream snapshot.
     - packaging: Update new-upstream-snapshot to work with git.
@@ -8,7 +8,7 @@ curtin (17.1-6-g8b145067-0ubuntu1) UNRELEASED; urgency=medium
     - debian/control: drop conflicts that had bzr version
     - Switch uses of bzr to git, borrow from cloud-init git workflow.
 
- -- Ryan Harper <ryan.harper@canonical.com>  Tue, 16 Jan 2018 15:42:21 -0600
+ -- Ryan Harper <ryan.harper@canonical.com>  Tue, 16 Jan 2018 15:42:36 -0600
 
 curtin (17.1-0ubuntu1) bionic; urgency=medium
 
