@@ -1,4 +1,4 @@
-curtin (17.1-6-g8b145067-0ubuntu1~16.04.1) UNRELEASED; urgency=medium
+curtin (17.1-6-g8b145067-0ubuntu1~16.04.1) xenial; urgency=medium
 
   * New upstream snapshot. (LP: #1743618)
     - packaging: Update new-upstream-snapshot to work with git.
@@ -35,7 +35,7 @@ curtin (17.1-6-g8b145067-0ubuntu1~16.04.1) UNRELEASED; urgency=medium
     - block_meta: use block.wipe_volume(mode=superblock) to clear MBR/GPT
       tables [Ryan Harper]
 
- -- Ryan Harper <ryan.harper@canonical.com>  Tue, 16 Jan 2018 15:23:34 -0600
+ -- Ryan Harper <ryan.harper@canonical.com>  Tue, 16 Jan 2018 15:24:44 -0600
 
 curtin (0.1.0~bzr532-0ubuntu1~16.04.1) xenial; urgency=medium
 
