@@ -5,7 +5,7 @@ storage:
         type: disk
         ptable: msdos
         model: QEMU HARDDISK
-        path: /dev/vdb
+        serial: disk-a
         name: main_disk
         wipe: superblock
         grub_device: true

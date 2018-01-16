@@ -50,7 +50,6 @@ Package: curtin-common
 Architecture: all
 Priority: extra
 Depends: ${misc:Depends}
-Conflicts: curtin (<= 0.1.0~bzr54-0ubuntu1)
 Description: Library and tools for curtin installer
  This package contains utilities for the curtin installer.
 
@@ -71,7 +70,6 @@ Package: python3-curtin
 Section: python
 Architecture: all
 Priority: extra
-Conflicts: curtin (<= 0.1.0~bzr54-0ubuntu1)
 Depends: curtin-common (= ${binary:Version}),
          python3-oauthlib,
          python3-yaml,

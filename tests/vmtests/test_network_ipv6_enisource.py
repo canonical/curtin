@@ -12,13 +12,6 @@ class TestNetworkIPV6ENISource(TestNetworkENISource):
         pass
 
 
-class PreciseTestNetworkIPV6ENISource(relbase.precise,
-                                      TestNetworkIPV6ENISource):
-    __test__ = False
-    # not working, still debugging though; possible older ifupdown doesn't
-    # like the multiple iface method.
-
-
 class TrustyTestNetworkIPV6ENISource(relbase.trusty, TestNetworkIPV6ENISource):
     __test__ = True
 
@@ -36,6 +29,4 @@ class ZestyTestNetworkIPV6ENISource(relbase.zesty, TestNetworkIPV6ENISource):
     __test__ = True
 
 
-# Artful no longer has eni/ifupdown
-class ArtfulTestNetworkIPV6ENISource(relbase.artful, TestNetworkIPV6ENISource):
-    __test__ = False
+# Artful and later are deliberately not present.  They do not have ifupdown.

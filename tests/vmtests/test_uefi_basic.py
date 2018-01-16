@@ -9,10 +9,10 @@ class TestBasicAbs(VMBaseClass):
     interactive = False
     arch_skip = ["s390x"]
     conf_file = "examples/tests/uefi_basic.yaml"
-    extra_disks = []
+    extra_disks = ['4G']
     uefi = True
     disk_to_check = [('main_disk', 1), ('main_disk', 2), ('main_disk', 3)]
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda > blkid_output_vda
         blkid -o export /dev/vda1 > blkid_output_vda1
@@ -76,16 +76,6 @@ class TestBasicAbs(VMBaseClass):
             self.assertEqual(self.disk_block_size, size)
 
 
-class PreciseUefiTestBasic(relbase.precise, TestBasicAbs):
-    __test__ = True
-
-    def test_ptable(self):
-        print("test_ptable does not work for Precise")
-
-    def test_dname(self):
-        print("test_dname does not work for Precise")
-
-
 class TrustyUefiTestBasic(relbase.trusty, TestBasicAbs):
     __test__ = True
 
@@ -103,7 +93,15 @@ class TrustyHWEXUefiTestBasic(relbase.trusty_hwe_x, TrustyUefiTestBasic):
     __test__ = True
 
 
-class XenialUefiTestBasic(relbase.xenial, TestBasicAbs):
+class XenialGAUefiTestBasic(relbase.xenial_ga, TestBasicAbs):
+    __test__ = True
+
+
+class XenialHWEUefiTestBasic(relbase.xenial_hwe, TestBasicAbs):
+    __test__ = True
+
+
+class XenialEdgeUefiTestBasic(relbase.xenial_edge, TestBasicAbs):
     __test__ = True
 
 
@@ -115,8 +113,8 @@ class ArtfulUefiTestBasic(relbase.artful, TestBasicAbs):
     __test__ = True
 
 
-class PreciseUefiTestBasic4k(PreciseUefiTestBasic):
-    disk_block_size = 4096
+class BionicUefiTestBasic(relbase.bionic, TestBasicAbs):
+    __test__ = True
 
 
 class TrustyUefiTestBasic4k(TrustyUefiTestBasic):
@@ -127,7 +125,7 @@ class TrustyHWEXUefiTestBasic4k(relbase.trusty_hwe_x, TrustyUefiTestBasic4k):
     __test__ = True
 
 
-class XenialUefiTestBasic4k(XenialUefiTestBasic):
+class XenialGAUefiTestBasic4k(XenialGAUefiTestBasic):
     disk_block_size = 4096
 
 
@@ -136,4 +134,8 @@ class ZestyUefiTestBasic4k(ZestyUefiTestBasic):
 
 
 class ArtfulUefiTestBasic4k(ArtfulUefiTestBasic):
+    disk_block_size = 4096
+
+
+class BionicUefiTestBasic4k(BionicUefiTestBasic):
     disk_block_size = 4096

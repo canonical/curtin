@@ -7,14 +7,14 @@ storage:
     ptable: msdos
     type: disk
     wipe: superblock
-    path: /dev/vdb
+    serial: disk-a
     name: main_disk
   - id: sdb
     name: sdb
     ptable: gpt
     type: disk
     wipe: superblock
-    path: /dev/vdc
+    serial: disk-b
     name: second_disk
   - device: sda
     flag: boot

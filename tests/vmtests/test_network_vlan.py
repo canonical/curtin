@@ -20,9 +20,9 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
 
     def get_vlans(self):
         network_state = self.get_network_state()
-        logger.debug('get_vlans ns:\n%s', yaml.dump(network_state,
-                                                    default_flow_style=False,
-                                                    indent=4))
+        logger.debug('get_vlans ns:\n%s',
+                     yaml.dump(network_state, default_flow_style=False,
+                               indent=4))
         interfaces = network_state.get('interfaces')
         return [iface for iface in interfaces.values()
                 if iface['type'] == 'vlan']
@@ -68,22 +68,6 @@ class CentosTestNetworkVlanAbs(TestNetworkVlanAbs):
         pass
 
 
-class PreciseTestNetworkVlan(relbase.precise, TestNetworkVlanAbs):
-    __test__ = True
-
-    # precise ip -d link show output is different (of course)
-    def test_vlan_enabled(self):
-
-        # we must have at least one
-        self.assertGreaterEqual(len(self.get_vlans()), 1)
-
-        # did they get configured?
-        for vlan in self.get_vlans():
-            link_file = "ip_link_show_" + vlan['name']
-            vlan_msg = "vlan id " + str(vlan['vlan_id'])
-            self.check_file_regex(link_file, vlan_msg)
-
-
 class TrustyTestNetworkVlan(relbase.trusty, TestNetworkVlanAbs):
     __test__ = True
 
@@ -101,6 +85,10 @@ class ZestyTestNetworkVlan(relbase.zesty, TestNetworkVlanAbs):
 
 
 class ArtfulTestNetworkVlan(relbase.artful, TestNetworkVlanAbs):
+    __test__ = True
+
+
+class BionicTestNetworkVlan(relbase.bionic, TestNetworkVlanAbs):
     __test__ = True
 
 

@@ -15,15 +15,15 @@ def version_string():
     if not _PACKED_VERSION.startswith('@@'):
         return _PACKED_VERSION
 
-    revno = None
     version = old_version
-    bzrdir = os.path.abspath(os.path.join(__file__, '..', '..', '.bzr'))
-    if os.path.isdir(bzrdir):
+    gitdir = os.path.abspath(os.path.join(__file__, '..', '..', '.git'))
+    if os.path.exists(gitdir):
         try:
-            out = subprocess.check_output(['bzr', 'revno'], cwd=bzrdir)
-            revno = out.decode('utf-8').strip()
-            if revno:
-                version += "~bzr%s" % revno
+            out = subprocess.check_output(
+                ['git', 'describe', '--long', '--abbrev=8',
+                 "--match=[0-9][0-9]*"],
+                cwd=os.path.dirname(gitdir))
+            version = out.decode('utf-8').strip()
         except subprocess.CalledProcessError:
             pass
 

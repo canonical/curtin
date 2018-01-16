@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 import textwrap
 import time
+import uuid
 import yaml
 import curtin.net as curtin_net
 import curtin.util as util
@@ -174,16 +175,19 @@ def sync_images(src_url, base_dir, filters, verbosity=0):
 
 
 def get_images(src_url, local_d, distro, release, arch, krel=None, sync="1",
-               ftypes=None):
+               kflavor=None, subarch=None, ftypes=None):
     # ensure that the image items (roottar, kernel, initrd)
     # we need for release and arch are available in base_dir.
     #
     # returns ftype dictionary with path to each ftype as values
     # {ftype: item_url}
+    logger.debug("distro=%s release=%s krel=%s subarch=%s ftypes=%s",
+                 distro, release, krel, subarch, ftypes)
     if not ftypes:
         ftypes = {
             'vmtest.root-image': '',
             'vmtest.root-tgz': '',
+            'squashfs': '',
             'boot-kernel': '',
             'boot-initrd': ''
         }
@@ -192,8 +196,12 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync="1",
 
     common_filters = ['release=%s' % release,
                       'arch=%s' % arch, 'os=%s' % distro]
+    if kflavor:
+        common_filters.append('kflavor=%s' % kflavor)
     if krel:
         common_filters.append('krel=%s' % krel)
+    if subarch:
+        common_filters.append('subarch=%s' % subarch)
     filters = ['ftype~(%s)' % ("|".join(ftypes.keys()))] + common_filters
 
     if sync == "1":
@@ -225,7 +233,8 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync="1",
         logger.info(fail_msg + "  Attempting to fix with an image sync. (%s)",
                     query_str)
         return get_images(src_url, local_d, distro, release, arch,
-                          krel=krel, sync="1", ftypes=ftypes)
+                          krel=krel, sync="1", kflavor=kflavor,
+                          subarch=subarch, ftypes=ftypes)
     elif not results:
         raise ValueError("Required images not found and "
                          "syncing disabled:\n%s" % query_str)
@@ -361,18 +370,22 @@ class VMBaseClass(TestCase):
     iscsi_disks = []
     recorded_errors = 0
     recorded_failures = 0
+    conf_replace = {}
     uefi = False
     proxy = None
 
     # these get set from base_vm_classes
     release = None
     arch = None
+    kflavor = None
     krel = None
     distro = None
+    subarch = None
+    ephemeral_ftype = "squashfs"
     target_distro = None
     target_release = None
     target_krel = None
-    target_ftype = "vmtest.root-tgz"
+    target_ftype = "squashfs"
 
     _debian_packages = None
 
@@ -386,33 +399,64 @@ class VMBaseClass(TestCase):
     @classmethod
     def get_test_files(cls):
         # get local absolute filesystem paths for each of the needed file types
-        img_verstr, ftypes = get_images(
+        logger.debug('cls.ephemeral_ftype: %s', cls.ephemeral_ftype)
+        logger.debug('cls.target_ftype: %s', cls.target_ftype)
+        eph_img_verstr, ftypes = get_images(
             IMAGE_SRC_URL, IMAGE_DIR, cls.distro, cls.release, cls.arch,
             krel=cls.krel if cls.krel else cls.release,
+            kflavor=cls.kflavor if cls.kflavor else None,
+            subarch=cls.subarch if cls.subarch else None,
             sync=CURTIN_VMTEST_IMAGE_SYNC,
-            ftypes=('boot-initrd', 'boot-kernel', 'vmtest.root-image'))
-        logger.debug("Install Image %s\n, ftypes: %s\n", img_verstr, ftypes)
-        logger.info("Install Image: %s", img_verstr)
+            ftypes=('boot-initrd', 'boot-kernel', cls.ephemeral_ftype))
+        logger.debug("Install Image %s\n, ftypes: %s\n",
+                     eph_img_verstr, ftypes)
         if not cls.target_krel and cls.krel:
             cls.target_krel = cls.krel
 
         # get local absolute filesystem paths for the OS tarball to be
         # installed
-        if cls.target_ftype == "vmtest.root-tgz":
-            img_verstr, found = get_images(
+        if cls.target_ftype in ["vmtest.root-tgz", "squashfs"]:
+            target_img_verstr, found = get_images(
                 IMAGE_SRC_URL, IMAGE_DIR,
                 cls.target_distro if cls.target_distro else cls.distro,
                 cls.target_release if cls.target_release else cls.release,
-                cls.arch, krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
-                ftypes=('vmtest.root-tgz',))
+                cls.arch, subarch=cls.subarch if cls.subarch else None,
+                kflavor=cls.kflavor if cls.kflavor else None,
+                krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
+                ftypes=(cls.target_ftype,))
             logger.debug("Target Tarball %s\n, ftypes: %s\n",
-                         img_verstr, found)
-            logger.info("Target Tarball: %s", img_verstr)
-        else:
+                         target_img_verstr, found)
+        elif cls.target_ftype in ["root-image.xz"]:
             logger.info('get-testfiles UC16 hack!')
             found = {'root-image.xz': UC16_IMAGE}
+            target_img_verstr = "UbuntuCore 16"
+        logger.info("Ephemeral Image Version:[%s] Target Image Version:[%s]",
+                    eph_img_verstr, target_img_verstr)
         ftypes.update(found)
         return ftypes
+
+    @classmethod
+    def load_conf_file(cls):
+        logger.info('Loading testcase config file: %s', cls.conf_file)
+        confdata = util.load_file(cls.conf_file)
+        # replace rootfs file system format with class value
+        if cls.conf_replace:
+            logger.debug('Rendering conf template: %s', cls.conf_replace)
+            for k, v in cls.conf_replace.items():
+                confdata = confdata.replace(k, v)
+            suffix = ".yaml"
+            prefix = (cls.td.tmpdir + '/' +
+                      os.path.basename(cls.conf_file).replace(suffix, "-"))
+            temp_yaml = tempfile.NamedTemporaryFile(prefix=prefix,
+                                                    suffix=suffix, mode='w+t',
+                                                    delete=False)
+            shutil.copyfile(cls.conf_file, temp_yaml.name)
+            cls.conf_file = temp_yaml.name
+            logger.info('Updating class conf file %s', cls.conf_file)
+            with open(cls.conf_file, 'w+t') as fh:
+                fh.write(confdata)
+
+        return confdata
 
     @classmethod
     def build_iscsi_disks(cls):
@@ -470,10 +514,7 @@ class VMBaseClass(TestCase):
                 disk_iuser = ''
                 disk_ipassword = ''
 
-            uuid, _ = util.subp(['uuidgen'], capture=True,
-                                decode='replace')
-            uuid = uuid.rstrip()
-            target = 'curtin-%s' % uuid
+            target = 'curtin-%s' % uuid.uuid1()
             cls._iscsi_disks.append(target)
             dpath = os.path.join(cls.td.disks, '%s.img' % (target))
             iscsi_disk = '{}:{}:iscsi:{}:{}:{}:{}:{}:{}'.format(
@@ -482,30 +523,16 @@ class VMBaseClass(TestCase):
             disks.extend(['--disk', iscsi_disk])
 
             # replace next __RFC4173__ placeholder in YAML
+            rfc4173 = get_rfc4173(cls.tgtd_ip, cls.tgtd_port, target,
+                                  user=disk_user, pword=disk_password,
+                                  iuser=disk_iuser, ipword=disk_ipassword)
             with tempfile.NamedTemporaryFile(mode='w+t') as temp_yaml:
                 shutil.copyfile(cls.conf_file, temp_yaml.name)
                 with open(cls.conf_file, 'w+t') as conf:
                     replaced = False
                     for line in temp_yaml:
                         if not replaced and '__RFC4173__' in line:
-                            actual_rfc4173 = ''
-                            if len(disk_user) > 0:
-                                actual_rfc4173 += '%s:%s' % (disk_user,
-                                                             disk_password)
-                            if len(disk_iuser) > 0:
-                                # empty target user/password
-                                if len(actual_rfc4173) == 0:
-                                    actual_rfc4173 += ':'
-                                actual_rfc4173 += ':%s:%s' % (disk_iuser,
-                                                              disk_ipassword)
-                            # any auth specified?
-                            if len(actual_rfc4173) > 0:
-                                actual_rfc4173 += '@'
-                            # assumes LUN 1
-                            actual_rfc4173 += '%s::%s:1:%s' % (
-                                              cls.tgtd_ip,
-                                              cls.tgtd_port, target)
-                            line = line.replace('__RFC4173__', actual_rfc4173)
+                            line = line.replace('__RFC4173__', rfc4173)
                             replaced = True
                         conf.write(line)
         return disks
@@ -540,6 +567,29 @@ class VMBaseClass(TestCase):
             logger.debug('Setting cpus to default value: %s', nr_cpus)
 
         return str(nr_cpus)
+
+    @classmethod
+    def get_kernel_package(cls):
+        """ Return the kernel package name for this class """
+        package = 'linux-image-' + cls.kflavor
+        if cls.subarch is None or cls.subarch.startswith('ga'):
+            return package
+
+        return package + '-' + cls.subarch
+
+    @classmethod
+    def get_kernel_config(cls):
+        """Return a kernel config dictionary to install the same
+           kernel subarch into the target for hwe, hwe-edge classes
+
+           Returns: config dictionary only for hwe, or edge subclass
+           """
+        if cls.subarch is None or cls.subarch.startswith('ga'):
+            return None
+
+        # -hwe-version or -hwe-version-edge packages
+        package = cls.get_kernel_package()
+        return {'kernel': {'fallback-package': package}}
 
     @classmethod
     def setUpClass(cls):
@@ -579,14 +629,38 @@ class VMBaseClass(TestCase):
         if cls.extra_kern_args:
             cmd.extend(["--append=" + cls.extra_kern_args])
 
-        # publish the root tarball
         ftypes = cls.get_test_files()
-        install_src = "PUBURL/" + os.path.basename(ftypes[cls.target_ftype])
-        if cls.target_ftype == 'vmtest.root-tgz':
-            cmd.append("--publish=%s" % ftypes['vmtest.root-tgz'])
+        # trusty can't yet use root=URL due to LP:#1735046
+        if cls.release in ['trusty']:
+            root_url = "/dev/disk/by-id/virtio-boot-disk"
         else:
-            cmd.append("--publish=%s::dd-xz" % ftypes[cls.target_ftype])
-        logger.info("Publishing src as %s", cmd[-1])
+            root_url = "squash:PUBURL/%s" % (
+                os.path.basename(ftypes[cls.ephemeral_ftype]))
+        # configure ephemeral boot environment
+        cmd.extend([
+            "--root-arg=root=%s" % root_url,
+            "--append=overlayroot=tmpfs",
+            "--append=ip=dhcp",        # enable networking
+            "--append=rc-initrd-dns",  # carry DNS from initramfs into
+                                       # real-root (LP: #1735225)
+        ])
+        # getting resolvconf configured is only fixed in bionic
+        # the iscsi_auto handles resolvconf setup via call to
+        # configure_networking in initramfs
+        if cls.release in ('precise', 'trusty', 'xenial', 'zesty', 'artful'):
+            cmd.extend(["--append=iscsi_auto"])
+
+        # publish the ephemeral image (used in root=URL)
+        cmd.append("--publish=%s" % ftypes[cls.ephemeral_ftype])
+        logger.info("Publishing ephemeral image as %s", cmd[-1])
+        # publish the target image
+        cmd.append("--publish=%s" % ftypes[cls.target_ftype])
+        logger.info("Publishing target image as %s", cmd[-1])
+
+        # set curtin install source
+        install_src = cls.get_install_source(ftypes)
+
+        logger.info("Curtin install source URI: %s", install_src)
 
         # check for network configuration
         cls.network_state = curtin_net.parse_net_config(cls.conf_file)
@@ -605,6 +679,9 @@ class VMBaseClass(TestCase):
                 macs.append(hwaddr)
         netdevs = []
         if len(macs) > 0:
+            # take first mac and mark it as the boot interface to prevent DHCP
+            # on multiple interfaces which can hang the install.
+            cmd.extend(["--append=BOOTIF=01-%s" % macs[0].replace(":", "-")])
             for mac in macs:
                 netdevs.extend(["--netdev=" + DEFAULT_BRIDGE +
                                 ",mac={}".format(mac)])
@@ -613,7 +690,7 @@ class VMBaseClass(TestCase):
 
         # build disk arguments
         disks = []
-        sc = util.load_file(cls.conf_file)
+        sc = cls.load_conf_file()
         storage_config = yaml.load(sc).get('storage', {}).get('config', {})
         cls.disk_wwns = ["wwn=%s" % x.get('wwn') for x in storage_config
                          if 'wwn' in x]
@@ -679,7 +756,7 @@ class VMBaseClass(TestCase):
 
             # always attempt to update target nvram (via grub)
             grub_config = os.path.join(cls.td.install, 'grub.cfg')
-            if not os.path.exists(grub_config):
+            if not os.path.exists(grub_config) and not cls.td.restored:
                 with open(grub_config, "w") as fp:
                     fp.write(json.dumps({'grub': {'update_nvram': True}}))
             configs.append(grub_config)
@@ -698,9 +775,6 @@ class VMBaseClass(TestCase):
             configs.append(centos_default)
             logger.info('Detected centos, adding default config %s',
                         centos_default)
-
-        if cls.multipath:
-            disks = disks * cls.multipath_num_paths
 
         # set reporting logger
         cls.reporting_log = os.path.join(cls.td.logs, 'webhooks-events.json')
@@ -727,10 +801,34 @@ class VMBaseClass(TestCase):
                 }))
         configs.append(reporting_config)
 
-        cmd.extend(uefi_flags + netdevs + disks +
-                   [ftypes['vmtest.root-image'], "--kernel=%s" %
-                       ftypes['boot-kernel'], "--initrd=%s" %
-                    ftypes['boot-initrd'], "--", "curtin", "-vv", "install"] +
+        # For HWE/Edge subarch tests, add a kernel config specifying
+        # the same kernel package to install to validate subarch kernel is
+        # installable and bootable.
+        kconfig = cls.get_kernel_config()
+        if kconfig:
+            kconf = os.path.join(cls.td.logs, 'kernel.cfg')
+            if not os.path.exists(kconf) and not cls.td.restored:
+                logger.debug('Injecting kernel cfg for hwe/edge subarch: %s',
+                             kconfig)
+                with open(kconf, 'w') as fp:
+                    fp.write(json.dumps(kconfig))
+                configs.append(kconf)
+
+        # pass the ephemeral_ftype image as the boot-able image if trusty
+        # until LP: #1735046 is fixed.
+        root_disk = []
+        if cls.release in ["trusty"]:
+            root_disk = ['--boot-image', ftypes.get(cls.ephemeral_ftype)]
+            if not root_disk[1]:
+                raise ValueError('No root disk for %s: ephemeral_ftype "%s"',
+                                 cls.__name__, cls.ephemeral_ftype)
+        logger.info('Using root_disk: %s', root_disk)
+
+        cmd.extend(uefi_flags + netdevs + cls.mpath_diskargs(disks) +
+                   root_disk + [
+                    "--kernel=%s" % ftypes['boot-kernel'],
+                    "--initrd=%s" % ftypes['boot-initrd'],
+                    "--", "curtin", "-vv", "install"] +
                    ["--config=%s" % f for f in configs] +
                    [install_src])
 
@@ -825,11 +923,6 @@ class VMBaseClass(TestCase):
         # unlike NVMe disks, we do not want to configure the iSCSI disks
         # via KVM, which would use qemu's iSCSI target layer.
 
-        if cls.multipath:
-            target_disks = target_disks * cls.multipath_num_paths
-            extra_disks = extra_disks * cls.multipath_num_paths
-            nvme_disks = nvme_disks * cls.multipath_num_paths
-
         # output disk is always virtio-blk, with serial of output_disk.img
         output_disk = '--disk={},driver={},format={},{},{}'.format(
             cls.td.output_disk, 'virtio-blk',
@@ -840,11 +933,9 @@ class VMBaseClass(TestCase):
         # create xkvm cmd
         cmd = (["tools/xkvm", "-v", dowait] +
                uefi_flags + netdevs +
-               target_disks + extra_disks + nvme_disks +
-               ["--", "-drive",
-                "file=%s,if=virtio,media=cdrom" % cls.td.seed_disk,
-                "-smp",  cls.get_config_smp(),
-                "-m", "1024"])
+               cls.mpath_diskargs(target_disks + extra_disks + nvme_disks) +
+               ["--disk=file=%s,if=virtio,media=cdrom" % cls.td.seed_disk] +
+               ["--", "-smp",  cls.get_config_smp(), "-m", "1024"])
 
         if not cls.interactive:
             if cls.arch == 's390x':
@@ -931,6 +1022,22 @@ class VMBaseClass(TestCase):
                                 'removed.', target)
 
     @classmethod
+    def get_install_source(cls, ftypes):
+        if cls.target_ftype == 'squashfs':
+            # If we're installing from squashfs source then direct
+            # curtin to install from the read-only undermount
+            install_src = "cp:///media/root-ro"
+        else:
+            if cls.target_ftype == 'root-image.xz':
+                stype = "dd-xz"
+            else:
+                stype = "tgz"
+            src = os.path.basename(ftypes[cls.target_ftype])
+            install_src = "%s:PUBURL/%s" % (stype, src)
+
+        return install_src
+
+    @classmethod
     def tearDownClass(cls):
         success = False
         sfile = os.path.exists(cls.td.success_file)
@@ -1007,6 +1114,15 @@ class VMBaseClass(TestCase):
         # prepending ./ makes '/root/file' or 'root/file' work as expected.
         return os.path.normpath(os.path.join(cls.td.collect, "./" + path))
 
+    @classmethod
+    def mpath_diskargs(cls, disks):
+        """make multipath versions of --disk args in disks."""
+        if not cls.multipath:
+            return disks
+        opt = ",file.locking=off"
+        return ([d if d == "--disk" else d + opt for d in disks] *
+                cls.multipath_num_paths)
+
     # Misc functions that are useful for many tests
     def output_files_exist(self, files):
         logger.debug('checking files exist: %s', files)
@@ -1027,6 +1143,10 @@ class VMBaseClass(TestCase):
     def load_collect_file(self, filename, mode="r"):
         with open(self.collect_path(filename), mode) as fp:
             return fp.read()
+
+    def load_collect_file_shell_content(self, filename, mode="r"):
+        with open(self.collect_path(filename), mode) as fp:
+            return util.load_shell_content(content=fp.read())
 
     def load_log_file(self, filename):
         with open(filename, 'rb') as fp:
@@ -1134,6 +1254,16 @@ class VMBaseClass(TestCase):
         self.assertNotIn("/etc/network/interfaces.d/eth0.cfg",
                          interfacesd.split("\n"))
 
+    def test_installed_correct_kernel_package(self):
+        """ Test curtin installs the correct kernel package.  """
+
+        # target_distro is set for non-ubuntu targets
+        if self.target_distro is not None:
+            raise SkipTest("Can't check non-ubuntu kernel packages")
+
+        kpackage = self.get_kernel_package()
+        self.assertIn(kpackage, self.debian_packages)
+
     def run(self, result):
         super(VMBaseClass, self).run(result)
         self.record_result(result)
@@ -1219,6 +1349,7 @@ class PsuedoVMBaseClass(VMBaseClass):
 
         return {
             'vmtest.root-image': get_psuedo_path('psuedo-root-image'),
+            'squashfs': get_psuedo_path('psuedo-squashfs'),
             'boot-kernel': get_psuedo_path('psuedo-kernel'),
             'boot-initrd': get_psuedo_path('psuedo-initrd'),
             'vmtest.root-tgz': get_psuedo_path('psuedo-root-tgz')
@@ -1259,9 +1390,30 @@ class PsuedoVMBaseClass(VMBaseClass):
     def test_reporting_data(self):
         pass
 
+    def test_installed_correct_kernel_package(self):
+        pass
+
     def _maybe_raise(self, exc):
         if self.allow_test_fails:
             raise exc
+
+
+def get_rfc4173(ip, port, target, user=None, pword=None,
+                iuser=None, ipword=None, lun=1):
+
+    rfc4173 = ''
+    if user:
+        rfc4173 += '%s:%s' % (user, pword)
+    if iuser:
+        # empty target user/password
+        if not rfc4173:
+            rfc4173 += ':'
+        rfc4173 += ':%s:%s' % (iuser, ipword)
+    # any auth specified?
+    if rfc4173:
+        rfc4173 += '@'
+    rfc4173 += '%s::%s:%d:%s' % (ip, port, lun, target)
+    return rfc4173
 
 
 def find_error_context(err_match, contents, nrchars=200):
@@ -1459,7 +1611,7 @@ def tar_disks(tmpdir, outfile="disks.tar", diskmatch=".img"):
         logger.info('Taring %s disks sparsely to %s', len(disks), outfile)
         util.subp(cmd, capture=True)
     else:
-        logger.error('Failed to find "disks" dir under tmpdir: %s', tmpdir)
+        logger.debug('No "disks" dir found in tmpdir: %s', tmpdir)
 
 
 def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):

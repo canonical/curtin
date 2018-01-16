@@ -8,7 +8,7 @@ class TestUbuntuCoreAbs(VMBaseClass):
     target_ftype = "root-image.xz"
     interactive = False
     conf_file = "examples/tests/ubuntu_core.yaml"
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cat /proc/partitions > proc_partitions
         ls -al /dev/disk/by-uuid/ > ls_uuid

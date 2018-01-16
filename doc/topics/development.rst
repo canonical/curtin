@@ -10,7 +10,7 @@ Install dependencies
 
 Install some virtualization and cloud packages to get started.::
 
-  sudo apt-get -qy install kvm libvirt-bin cloud-utils bzr
+  sudo apt-get -qy install kvm libvirt-bin cloud-utils git
 
 
 Download cloud images
@@ -33,19 +33,18 @@ Curtin will use two cloud images (-disk1.img) is for booting,
 
 Getting the source
 ==================
-Download curtin source from launchpad via `bzr` command.::
+Download curtin source from launchpad via `git` command.::
 
   mkdir -p ~/src
-  bzr init-repo ~/src/curtin
-  ( cd ~/src/curtin && bzr  branch lp:curtin trunk.dist )
-  ( cd ~/src/curtin && bzr branch trunk.dist trunk )
+  cd ~/src
+  git clone https://git.launchpad.net/curtin
 
 Using curtin
 ============
 Use `launch` to launch a kvm instance with user data to pack up
 local curtin and run it inside an instance.::
 
-  cd ~/src/curtin/trunk
+  cd ~/src/curtin
   ./tools/launch $BOOTIMG --publish $ROOTTGZ -- curtin install "PUBURL/${ROOTTGZ##*/}"
 
 

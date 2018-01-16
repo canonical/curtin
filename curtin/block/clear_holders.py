@@ -93,6 +93,24 @@ def get_bcache_sys_path(device, strict=True):
     return path
 
 
+def maybe_stop_bcache_device(device):
+    """Attempt to stop the provided device_path or raise unexpected errors."""
+    bcache_stop = os.path.join(device, 'stop')
+    try:
+        util.write_file(bcache_stop, '1', mode=None)
+    except (IOError, OSError) as e:
+        # Note: if we get any exceptions in the above exception classes
+        # it is a result of attempting to write "1" into the sysfs path
+        # The range of errors changes depending on when we race with
+        # the kernel asynchronously removing the sysfs path. Therefore
+        # we log the exception errno we got, but do not re-raise as
+        # the calling process is watching whether the same sysfs path
+        # is being removed;  if it fails to go away then we'll have
+        # a log of the exceptions to debug.
+        LOG.debug('Error writing to bcache stop file %s, device removed: %s',
+                  bcache_stop, e)
+
+
 def shutdown_bcache(device):
     """
     Shut down bcache for specified bcache device
@@ -132,8 +150,7 @@ def shutdown_bcache(device):
                  os.path.basename(bcache_cache_sysfs))
     else:
         LOG.info('stopping bcache cacheset at: %s', bcache_cache_sysfs)
-        util.write_file(os.path.join(bcache_cache_sysfs, 'stop'),
-                        '1', mode=None)
+        maybe_stop_bcache_device(bcache_cache_sysfs)
         try:
             util.wait_for_removal(bcache_cache_sysfs, retries=removal_retries)
         except OSError:
@@ -162,8 +179,7 @@ def shutdown_bcache(device):
         return
     else:
         LOG.info('stopping bcache backing device at: %s', bcache_block_sysfs)
-        util.write_file(os.path.join(bcache_block_sysfs, 'stop'),
-                        '1', mode=None)
+        maybe_stop_bcache_device(bcache_block_sysfs)
         try:
             # wait for them all to go away
             for dev in [device, bcache_block_sysfs] + slave_paths:
@@ -244,6 +260,19 @@ def wipe_superblock(device):
         LOG.info("extended partitions do not need wiping, so skipping: '%s'",
                  blockdev)
     else:
+        # some volumes will be claimed by the bcache layer but do not surface
+        # an actual /dev/bcacheN device which owns the parts (backing, cache)
+        # The result is that some volumes cannot be wiped while bcache claims
+        # the device.  Resolve this by stopping bcache layer on those volumes
+        # if present.
+        for bcache_path in ['bcache', 'bcache/set']:
+            stop_path = os.path.join(device, bcache_path)
+            if os.path.exists(stop_path):
+                LOG.debug('Attempting to release bcache layer from device: %s',
+                          device)
+                maybe_stop_bcache_device(stop_path)
+                continue
+
         retries = [1, 3, 5, 7]
         LOG.info('wiping superblock on %s', blockdev)
         for attempt, wait in enumerate(retries):

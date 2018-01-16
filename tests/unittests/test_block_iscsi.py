@@ -527,7 +527,7 @@ class TestBlockIscsiVolPath(CiTestCase):
 
     def test_volpath_is_iscsi_layered_true(self):
         volume_path = '/dev/wark'
-        slaves = ['wark', 'bzr', 'super-iscsi-lun-27']
+        slaves = ['wark', 'bzoink', 'super-iscsi-lun-27']
         self.mock_get_device_slave_knames.return_value = slaves
         self.mock_path_to_kname.side_effect = lambda x: x
         self.mock_kname_is_iscsi.side_effect = lambda x: 'iscsi' in x
@@ -542,7 +542,7 @@ class TestBlockIscsiVolPath(CiTestCase):
 
     def test_volpath_is_iscsi_layered_false(self):
         volume_path = '/dev/wark'
-        slaves = ['wark', 'bzr', 'nvmen27p47']
+        slaves = ['wark', 'bzoink', 'nvmen27p47']
         self.mock_get_device_slave_knames.return_value = slaves
         self.mock_path_to_kname.side_effect = lambda x: x
         self.mock_kname_is_iscsi.side_effect = lambda x: 'iscsi' in x

@@ -15,7 +15,7 @@ class TestBasicAbs(VMBaseClass):
     nvme_disks = ['4G']
     disk_to_check = [('main_disk_with_in---valid--dname', 1),
                      ('main_disk_with_in---valid--dname', 2)]
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda > blkid_output_vda
         blkid -o export /dev/vda1 > blkid_output_vda1
@@ -104,6 +104,7 @@ class TestBasicAbs(VMBaseClass):
                 break
         self.assertIsNotNone(fstab_entry)
         self.assertEqual(fstab_entry.split(' ')[1], "/btrfs")
+        self.assertEqual(fstab_entry.split(' ')[3], "defaults,noatime")
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
@@ -137,49 +138,6 @@ class TestBasicAbs(VMBaseClass):
         self.assertEqual(source_version, installed_version)
 
 
-class PreciseTestBasic(relbase.precise, TestBasicAbs):
-    __test__ = True
-
-    collect_scripts = [textwrap.dedent("""
-        cd OUTPUT_COLLECT_D
-        blkid -o export /dev/vda > blkid_output_vda
-        blkid -o export /dev/vda1 > blkid_output_vda1
-        blkid -o export /dev/vda2 > blkid_output_vda2
-        f="btrfs_uuid_vdd"
-        btrfs-show /dev/vdd | awk '/uuid/ {print $4}' > $f
-        cat /proc/partitions > proc_partitions
-        ls -al /dev/disk/by-uuid/ > ls_uuid
-        cat /etc/fstab > fstab
-        mkdir -p /dev/disk/by-dname
-        ls /dev/disk/by-dname/ > ls_dname
-        find /etc/network/interfaces.d > find_interfacesd
-
-        v=""
-        out=$(apt-config shell v Acquire::HTTP::Proxy)
-        eval "$out"
-        echo "$v" > apt-proxy
-        """)]
-
-    def test_whole_disk_format(self):
-        # confirm the whole disk format is the expected device
-        btrfs_uuid = self.load_collect_file("btrfs_uuid_vdd").strip()
-
-        self.assertTrue(btrfs_uuid is not None)
-        self.assertEqual(len(btrfs_uuid), 36)
-
-        # extract uuid from ls_uuid by kname
-        kname_uuid = self._kname_to_uuid('vdd')
-
-        # compare them
-        self.assertEqual(kname_uuid, btrfs_uuid)
-
-    def test_ptable(self):
-        print("test_ptable does not work for Precise")
-
-    def test_dname(self):
-        print("test_dname does not work for Precise")
-
-
 class TrustyTestBasic(relbase.trusty, TestBasicAbs):
     __test__ = True
 
@@ -193,16 +151,19 @@ class TrustyTestBasic(relbase.trusty, TestBasicAbs):
         print("test_ptable does not work for Trusty")
 
 
-class PreciseHWETTestBasic(relbase.precise_hwe_t, PreciseTestBasic):
-    # FIXME: off due to test_whole_disk_format failing
-    __test__ = False
-
-
 class TrustyHWEXTestBasic(relbase.trusty_hwe_x, TrustyTestBasic):
     __test__ = True
 
 
-class XenialTestBasic(relbase.xenial, TestBasicAbs):
+class XenialGATestBasic(relbase.xenial_ga, TestBasicAbs):
+    __test__ = True
+
+
+class XenialHWETestBasic(relbase.xenial_hwe, TestBasicAbs):
+    __test__ = True
+
+
+class XenialEdgeTestBasic(relbase.xenial_edge, TestBasicAbs):
     __test__ = True
 
 
@@ -214,12 +175,16 @@ class ArtfulTestBasic(relbase.artful, TestBasicAbs):
     __test__ = True
 
 
+class BionicTestBasic(relbase.bionic, TestBasicAbs):
+    __test__ = True
+
+
 class TestBasicScsiAbs(TestBasicAbs):
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
     extra_disks = ['128G', '128G', '4G']
     nvme_disks = ['4G']
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/sda > blkid_output_sda
         blkid -o export /dev/sda1 > blkid_output_sda1
@@ -285,7 +250,7 @@ class TestBasicScsiAbs(TestBasicAbs):
         self.assertIsNotNone(fstab_entry)
         self.assertEqual(fstab_entry.split(' ')[1], "/home")
 
-        # Test whole disk sdc is mounted at /btrfs
+        # Test whole disk sdc is mounted at /btrfs, and uses defaults,noatime
         uuid = self._kname_to_uuid('sdc')
         fstab_entry = None
         for line in fstab_lines:
@@ -294,6 +259,7 @@ class TestBasicScsiAbs(TestBasicAbs):
                 break
         self.assertIsNotNone(fstab_entry)
         self.assertEqual(fstab_entry.split(' ')[1], "/btrfs")
+        self.assertEqual(fstab_entry.split(' ')[3], "defaults,noatime")
 
     def test_whole_disk_format(self):
         # confirm the whole disk format is the expected device
@@ -310,7 +276,15 @@ class TestBasicScsiAbs(TestBasicAbs):
         self.assertEqual(kname_uuid, btrfs_uuid)
 
 
-class XenialTestScsiBasic(relbase.xenial, TestBasicScsiAbs):
+class XenialGATestScsiBasic(relbase.xenial_ga, TestBasicScsiAbs):
+    __test__ = True
+
+
+class XenialHWETestScsiBasic(relbase.xenial_hwe, TestBasicScsiAbs):
+    __test__ = True
+
+
+class XenialEdgeTestScsiBasic(relbase.xenial_edge, TestBasicScsiAbs):
     __test__ = True
 
 
@@ -319,4 +293,8 @@ class ZestyTestScsiBasic(relbase.zesty, TestBasicScsiAbs):
 
 
 class ArtfulTestScsiBasic(relbase.artful, TestBasicScsiAbs):
+    __test__ = True
+
+
+class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
     __test__ = True

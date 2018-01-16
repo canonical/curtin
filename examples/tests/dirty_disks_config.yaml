@@ -1,4 +1,14 @@
+bucket:
+  - &run_if_systemd |
+    #!/bin/sh
+    command -v systemctl && systemctl mask media-root\\x2dro.mount
+    exit 0
+
 early_commands:
+  # systemd sucks; automatic mount and fsck services clash with curtin
+  # Once LP: #1723183 has landed (cloud-initramfs-tools 0.40ubuntu1)
+  # on all releases we can drop this workaround.
+  01-unsuckify-systemd-mounts: [sh, -c, *run_if_systemd]
   # running block-meta custom from the install environment
   # inherits the CONFIG environment, so this works to actually prepare
   # the disks exactly as in this config before the rest of the install

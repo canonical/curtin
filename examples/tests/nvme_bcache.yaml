@@ -6,13 +6,13 @@ storage:
     model: LOGICAL VOLUME
     name: sda
     ptable: gpt
-    path: /dev/vdb
+    serial: disk-a
     type: disk
     wipe: superblock
   - id: sdb
     model: LOGICAL VOLUME
     name: sdb
-    path: /dev/vdc
+    serial: disk-b
     type: disk
     wipe: superblock
   - id: nvme0n1

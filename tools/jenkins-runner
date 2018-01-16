@@ -105,12 +105,16 @@ done
 
 # avoid LOG info by running python3 tests/vmtests/image_sync.py
 # rather than python3 -m tests.vmtests.image_sync (LP: #1594465)
-echo "Working with images in $IMAGE_DIR"
-fmt="  %(release)-7s %(arch)s/%(subarch)s %(version_name)-10s"
+echo "Quering synced ephemeral images/kernels in $IMAGE_DIR"
+printf "%.s=" {1..86}; echo
+printf " %6s %8s %-10s %s/%-14s  %s\n" "Release" "Codename" "ImageDate" "Arch" "SubArch" "Path"
+printf "%.s-" {1..86}; echo
+fmt="  %(version)6s %(release)8s %(version_name)-10s %(arch)s/%(subarch)-14s %(path)s"
 PYTHONPATH="$PWD" python3 tests/vmtests/image_sync.py query \
-    --output-format="$fmt" "$IMAGE_DIR" ftype=root-image.gz ||
+    --output-format="$fmt" "$IMAGE_DIR" "kflavor=generic" "ftype~(root-image.gz|squashfs)" ||
     { ret=$?; echo "FATAL: error querying images in $IMAGE_DIR" 1>&2;
       exit $ret; }
+printf "%.s=" {1..86}; printf "\n\n"
 
 echo "$(date -R): vmtest start: nosetests3 ${pargs[*]} ${ntargs[*]}"
 nosetests3 "${pargs[@]}" "${ntargs[@]}"

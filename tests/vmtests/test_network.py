@@ -399,7 +399,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             configured_gws = __find_gw_config(subnet)
             print('iface:%s configured_gws: %s' % (ifname, configured_gws))
             for gw_ip in configured_gws:
-                logger.debug('found a gateway in subnet config: %s', gw_ip)
+                logger.debug('found a gateway in subnet config: %s',
+                             gw_ip)
                 if ":" in gw_ip:
                     route_d = routes['6']
                 else:
@@ -407,7 +408,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
 
                 found_gws = [line for line in route_d.split('\n')
                              if 'UG' in line and gw_ip in line]
-                logger.debug('found gateways in guest output:\n%s', found_gws)
+                logger.debug('found gateways in guest output:\n%s',
+                             found_gws)
 
                 print('found_gws: %s\nexpected: %s' % (found_gws,
                                                        configured_gws))
@@ -420,7 +422,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
                     else:
                         (dest, gw, genmask, flags, metric, ref, use, iface) = \
                             fgw.split()
-                    logger.debug('configured gw:%s found gw:%s', gw_ip, gw)
+                    logger.debug('configured gw:%s found gw:%s', gw_ip,
+                                 gw)
                     self.assertEqual(gw_ip, gw)
 
 
@@ -447,11 +450,6 @@ class CentosTestNetworkBasicAbs(TestNetworkBaseTestsAbs):
 
     def test_etc_resolvconf(self):
         pass
-
-
-class PreciseHWETTestNetworkBasic(relbase.precise_hwe_t, TestNetworkBasicAbs):
-    # FIXME: off due to hang at test: Starting execute cloud user/final scripts
-    __test__ = False
 
 
 class TrustyTestNetworkBasic(relbase.trusty, TestNetworkBasicAbs):
@@ -486,6 +484,10 @@ class ZestyTestNetworkBasic(relbase.zesty, TestNetworkBasicAbs):
 
 
 class ArtfulTestNetworkBasic(relbase.artful, TestNetworkBasicAbs):
+    __test__ = True
+
+
+class BionicTestNetworkBasic(relbase.bionic, TestNetworkBasicAbs):
     __test__ = True
 
 

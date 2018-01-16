@@ -6,7 +6,7 @@ storage:
        type: disk
        ptable: msdos
        model: QEMU HARDDISK
-       path: /dev/vdb
+       serial: disk-a
        name: main_disk
        grub_device: true
        wipe: superblock
@@ -14,7 +14,7 @@ storage:
        type: disk
        ptable: msdos
        model: QEMU HARDDISK
-       path: /dev/vdc
+       serial: disk-b
        name: second_disk
        wipe: superblock
      - id: sda-part1

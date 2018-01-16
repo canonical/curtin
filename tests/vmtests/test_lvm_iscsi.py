@@ -47,10 +47,6 @@ class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):
         self.check_file_strippedline("pvs", "vg2=/dev/sdb6")
 
 
-class PreciseTestIscsiLvm(relbase.precise, TestLvmIscsiAbs):
-    __test__ = True
-
-
 class TrustyTestIscsiLvm(relbase.trusty, TestLvmIscsiAbs):
     __test__ = True
 
@@ -59,9 +55,25 @@ class XenialTestIscsiLvm(relbase.xenial, TestLvmIscsiAbs):
     __test__ = True
 
 
+class XenialGATestIscsiLvm(relbase.xenial_ga, TestLvmIscsiAbs):
+    __test__ = True
+
+
+class XenialHWETestIscsiLvm(relbase.xenial_hwe, TestLvmIscsiAbs):
+    __test__ = True
+
+
+class XenialEdgeTestIscsiLvm(relbase.xenial_edge, TestLvmIscsiAbs):
+    __test__ = True
+
+
 class ZestyTestIscsiLvm(relbase.zesty, TestLvmIscsiAbs):
     __test__ = True
 
 
 class ArtfulTestIscsiLvm(relbase.artful, TestLvmIscsiAbs):
+    __test__ = True
+
+
+class BionicTestIscsiLvm(relbase.bionic, TestLvmIscsiAbs):
     __test__ = True

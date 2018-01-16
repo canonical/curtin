@@ -5,7 +5,7 @@ storage:
       - id: main_disk
         type: disk
         ptable: gpt
-        path: /dev/vdb
+        serial: disk-a
         name: main_disk
         wipe: superblock
         grub_device: true

@@ -32,34 +32,64 @@ bname=${0##*/}
 
 start_d=$PWD
 top_d=$(cd "$(dirname "${0}")"/.. && pwd)
+ref=HEAD
+
+if [ $# -eq 0 ]; then
+   # if no opts given, build source, without depends, and not signed.
+   set -- -S -d -us -uc
+fi
 
 # grab the first line in the changelog
 # hopefully this pulls the version info there
-# resulting in something like: 0.1.0~bzrREVNO-1~trunk1
+# resulting in something like: UPSTREAM_VER-0ubuntu1
 clogver_o=$(sed -n '1s,.*(\([^)]*\)).*,\1,p' debian/changelog.trunk)
 
-revno=$(bzr revno) || fail "failed to get revno"
-clogver_upstream=${clogver_o%%-*}
-clogver_debian=${clogver_o#*-}
-
-uver=$(echo "${clogver_upstream}" | sed "s,REVNO,$revno,")
+# uver gets 17.1-3-gc85e2562 '17.1' if this is a tag.
+uver=$(git describe --long --abbrev=8 "--match=[0-9][0-9]*" "$ref")
+clogver_debian=${clogver_o##*-}
 clogver_new="${uver}-${clogver_debian}"
+
+# uver_base_rel rel gets '17.1'
+uver_base_rel=${uver%%-*}
+if [ "${uver_base_rel}" = "${uver}" ]; then
+   echo "building from a tagged version ($uver)" 1>&2
+fi
 
 TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${bname}.XXXXXX")
 
 trap cleanup EXIT
 
-echo "building upstream version $uver, debian ver=${clogver_debian}"
+echo "building version ${uver}, debian_ver=${clogver_debian}"
 
 dir="${sourcename}-$uver"
 tarball="${sourcename}_$uver.orig.tar.gz"
 
 myd=$(dirname "$0")
-"$myd/export-tarball" "${revno}" "${TEMP_D}/$tarball"
+"$myd/make-tarball" --output="$TEMP_D/$tarball" --long "$ref"
 echo "created ${tarball}"
 
 cd "${TEMP_D}"
 tar xzf "$tarball" || fail "failed extract tarball"
+
+if [ ! -d "$dir" ]; then
+    # make-tarball will create the directory name based on the
+    # contents of debian/changelog.trunk in the version provided.
+    # if that differs from what is here, then user has changes.
+    for d in ${sourcename}*; do
+        [ -d "$d" ] && break
+    done
+    if [ -d "$d" ]; then
+        {
+        echo "WARNING: git at '${uver}' had different version"
+        echo "  in debian/changelog.trunk than your tree. version there"
+        echo "  is '$d' working directory had $uver"
+        } 1>&2
+        dir=$d
+    else
+        echo "did not find a directory created by make-tarball. sorry." 1>&2
+        exit
+    fi
+fi
 cd "$dir" || fail "failed cd $dir"
 
 # move files ending in .trunk to name without .trunk
@@ -68,7 +98,10 @@ for f in debian/*.trunk; do
    mv "$f" "${f%.trunk}"
 done
 
-sed -i -e "1s,${clogver_o},${clogver_new}," \
+# first line of debian/changelog looks like
+#   curtin (<version>) UNRELEASED; urgency=low
+# fix the version and UNRELEASED
+sed -i -e "1s,([^)]*),(${clogver_new})," \
        -e "1s,UNRELEASED,${RELEASE}," debian/changelog ||
    fail "failed to write debian/changelog"
 debuild "$@" || fail "debuild failed"
