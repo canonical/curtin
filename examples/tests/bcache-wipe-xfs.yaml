@@ -9,21 +9,21 @@ early_commands:
   00_blockmeta: [env, -u, OUTPUT_FSTAB, TARGET_MOUNT_POINT=/tmp/my.bdir/target,
               WORKING_DIR=/tmp/my.bdir/work.d, curtin, --showtrace, -v,
               block-meta, --umount, custom]
-  01_clear_holders: [curtin, clear-holders, --preserve, /dev/vdb]
-  02_quick_erase: [curtin, block-wipe, --mode, superblock, /dev/vdb]
+  01_clear_holders: [curtin, clear-holders, --preserve, /dev/disk/by-id/virtio-disk-b]
+  02_quick_erase: [curtin, block-wipe, --mode, superblock, /dev/disk/by-id/virtio-disk-b]
 
 storage:
   config:
   - grub_device: true
     id: vdb
     name: vdb
-    path: /dev/vdb
+    serial: disk-b
     ptable: msdos
     type: disk
     wipe: superblock
   - id: vdc
     name: vdc
-    path: /dev/vdc
+    serial: disk-c
     type: disk
     wipe: superblock
   - device: vdb

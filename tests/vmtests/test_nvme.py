@@ -16,7 +16,7 @@ class TestNvmeAbs(VMBaseClass):
     disk_to_check = [('main_disk', 1), ('main_disk', 2), ('main_disk', 15),
                      ('nvme_disk', 1), ('nvme_disk', 2), ('nvme_disk', 3),
                      ('second_nvme', 1)]
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         ls /sys/class/ > sys_class
         ls /sys/class/nvme/ > ls_nvme
@@ -79,7 +79,15 @@ class TrustyHWEXTestNvme(relbase.trusty_hwe_x, TestNvmeAbs):
         print("test_ptable does not work for Trusty")
 
 
-class XenialTestNvme(relbase.xenial, TestNvmeAbs):
+class XenialGATestNvme(relbase.xenial_ga, TestNvmeAbs):
+    __test__ = True
+
+
+class XenialHWETestNvme(relbase.xenial_hwe, TestNvmeAbs):
+    __test__ = True
+
+
+class XenialEdgeTestNvme(relbase.xenial_edge, TestNvmeAbs):
     __test__ = True
 
 
@@ -106,7 +114,7 @@ class TestNvmeBcacheAbs(VMBaseClass):
     uefi = True
     disk_to_check = [('sda', 1), ('sda', 2), ('sda', 3)]
 
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         ls /sys/class/ > sys_class
         ls /sys/class/nvme/ > ls_nvme
@@ -164,7 +172,15 @@ class TestNvmeBcacheAbs(VMBaseClass):
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
 
 
-class XenialTestNvmeBcache(relbase.xenial, TestNvmeBcacheAbs):
+class XenialGATestNvmeBcache(relbase.xenial_ga, TestNvmeBcacheAbs):
+    __test__ = True
+
+
+class XenialHWETestNvmeBcache(relbase.xenial_hwe, TestNvmeBcacheAbs):
+    __test__ = True
+
+
+class XenialEdgeTestNvmeBcache(relbase.xenial_edge, TestNvmeBcacheAbs):
     __test__ = True
 
 

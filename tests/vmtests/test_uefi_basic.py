@@ -12,7 +12,7 @@ class TestBasicAbs(VMBaseClass):
     extra_disks = ['4G']
     uefi = True
     disk_to_check = [('main_disk', 1), ('main_disk', 2), ('main_disk', 3)]
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda > blkid_output_vda
         blkid -o export /dev/vda1 > blkid_output_vda1
@@ -93,7 +93,15 @@ class TrustyHWEXUefiTestBasic(relbase.trusty_hwe_x, TrustyUefiTestBasic):
     __test__ = True
 
 
-class XenialUefiTestBasic(relbase.xenial, TestBasicAbs):
+class XenialGAUefiTestBasic(relbase.xenial_ga, TestBasicAbs):
+    __test__ = True
+
+
+class XenialHWEUefiTestBasic(relbase.xenial_hwe, TestBasicAbs):
+    __test__ = True
+
+
+class XenialEdgeUefiTestBasic(relbase.xenial_edge, TestBasicAbs):
     __test__ = True
 
 
@@ -117,7 +125,7 @@ class TrustyHWEXUefiTestBasic4k(relbase.trusty_hwe_x, TrustyUefiTestBasic4k):
     __test__ = True
 
 
-class XenialUefiTestBasic4k(XenialUefiTestBasic):
+class XenialGAUefiTestBasic4k(XenialGAUefiTestBasic):
     disk_block_size = 4096
 
 

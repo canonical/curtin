@@ -11,7 +11,7 @@ class TestLvmRootAbs(VMBaseClass):
     rootfs_uuid = '04836770-e989-460f-8774-8e277ddcb40f'
     extra_disks = []
     dirty_disks = True
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         lsblk --json --fs -o KNAME,MOUNTPOINT,UUID,FSTYPE > lsblk.json

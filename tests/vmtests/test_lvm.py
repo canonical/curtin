@@ -9,7 +9,7 @@ class TestLvmAbs(VMBaseClass):
     conf_file = "examples/tests/lvm.yaml"
     interactive = False
     extra_disks = []
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         ls /dev/disk/by-dname > ls_dname
@@ -56,7 +56,15 @@ class TrustyHWEXTestLvm(relbase.trusty_hwe_x, TestLvmAbs):
     __test__ = True
 
 
-class XenialTestLvm(relbase.xenial, TestLvmAbs):
+class XenialGATestLvm(relbase.xenial_ga, TestLvmAbs):
+    __test__ = True
+
+
+class XenialHWETestLvm(relbase.xenial_hwe, TestLvmAbs):
+    __test__ = True
+
+
+class XenialEdgeTestLvm(relbase.xenial_edge, TestLvmAbs):
     __test__ = True
 
 

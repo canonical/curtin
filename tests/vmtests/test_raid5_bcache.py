@@ -8,7 +8,7 @@ class TestMdadmAbs(VMBaseClass):
     interactive = False
     extra_disks = ['10G', '10G', '10G', '10G']
     active_mdadm = "1"
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         mdadm --detail --scan > mdadm_status
@@ -89,7 +89,15 @@ class TrustyHWEXTestRaid5Bcache(relbase.trusty_hwe_x, TrustyTestRaid5Bcache):
     __test__ = True
 
 
-class XenialTestRaid5Bcache(relbase.xenial, TestMdadmBcacheAbs):
+class XenialGATestRaid5Bcache(relbase.xenial_ga, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class XenialHWETestRaid5Bcache(relbase.xenial_hwe, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class XenialEdgeTestRaid5Bcache(relbase.xenial_edge, TestMdadmBcacheAbs):
     __test__ = True
 
 

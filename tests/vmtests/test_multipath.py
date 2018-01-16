@@ -10,7 +10,7 @@ class TestMultipathBasicAbs(VMBaseClass):
     disk_driver = 'scsi-hd'
     extra_disks = []
     nvme_disks = []
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/sda > blkid_output_sda
         blkid -o export /dev/sda1 > blkid_output_sda1
@@ -52,7 +52,15 @@ class TrustyHWEXTestMultipathBasic(relbase.trusty_hwe_x,
     __test__ = True
 
 
-class XenialTestMultipathBasic(relbase.xenial, TestMultipathBasicAbs):
+class XenialGATestMultipathBasic(relbase.xenial_ga, TestMultipathBasicAbs):
+    __test__ = True
+
+
+class XenialHWETestMultipathBasic(relbase.xenial_hwe, TestMultipathBasicAbs):
+    __test__ = True
+
+
+class XenialEdgeTestMultipathBasic(relbase.xenial_edge, TestMultipathBasicAbs):
     __test__ = True
 
 

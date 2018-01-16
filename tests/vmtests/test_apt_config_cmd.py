@@ -15,7 +15,7 @@ class TestAptConfigCMD(VMBaseClass):
     extra_disks = []
     fstab_expected = {}
     disk_to_check = []
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         ls /dev/disk/by-dname > ls_dname

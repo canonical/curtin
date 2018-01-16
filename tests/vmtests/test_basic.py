@@ -15,7 +15,7 @@ class TestBasicAbs(VMBaseClass):
     nvme_disks = ['4G']
     disk_to_check = [('main_disk_with_in---valid--dname', 1),
                      ('main_disk_with_in---valid--dname', 2)]
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda > blkid_output_vda
         blkid -o export /dev/vda1 > blkid_output_vda1
@@ -155,7 +155,15 @@ class TrustyHWEXTestBasic(relbase.trusty_hwe_x, TrustyTestBasic):
     __test__ = True
 
 
-class XenialTestBasic(relbase.xenial, TestBasicAbs):
+class XenialGATestBasic(relbase.xenial_ga, TestBasicAbs):
+    __test__ = True
+
+
+class XenialHWETestBasic(relbase.xenial_hwe, TestBasicAbs):
+    __test__ = True
+
+
+class XenialEdgeTestBasic(relbase.xenial_edge, TestBasicAbs):
     __test__ = True
 
 
@@ -176,7 +184,7 @@ class TestBasicScsiAbs(TestBasicAbs):
     disk_driver = 'scsi-hd'
     extra_disks = ['128G', '128G', '4G']
     nvme_disks = ['4G']
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/sda > blkid_output_sda
         blkid -o export /dev/sda1 > blkid_output_sda1
@@ -268,7 +276,15 @@ class TestBasicScsiAbs(TestBasicAbs):
         self.assertEqual(kname_uuid, btrfs_uuid)
 
 
-class XenialTestScsiBasic(relbase.xenial, TestBasicScsiAbs):
+class XenialGATestScsiBasic(relbase.xenial_ga, TestBasicScsiAbs):
+    __test__ = True
+
+
+class XenialHWETestScsiBasic(relbase.xenial_hwe, TestBasicScsiAbs):
+    __test__ = True
+
+
+class XenialEdgeTestScsiBasic(relbase.xenial_edge, TestBasicScsiAbs):
     __test__ = True
 
 

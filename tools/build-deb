@@ -32,52 +32,47 @@ bname=${0##*/}
 
 start_d=$PWD
 top_d=$(cd "$(dirname "${0}")"/.. && pwd)
+ref=HEAD
+
+if [ $# -eq 0 ]; then
+   # if no opts given, build source, without depends, and not signed.
+   set -- -S -d -us -uc
+fi
 
 # grab the first line in the changelog
 # hopefully this pulls the version info there
-# resulting in something like: 0.1.0~bzrREVNO-1~trunk1
+# resulting in something like: UPSTREAM_VER-0ubuntu1
 clogver_o=$(sed -n '1s,.*(\([^)]*\)).*,\1,p' debian/changelog.trunk)
 
-revno=$(bzr revno) || fail "failed to get revno"
-clogver_upstream=${clogver_o%%-*}
-clogver_debian=${clogver_o#*-}
-
-# uver_bzr gets 17.1~bzr<revno>
-uver_bzr=$(echo "${clogver_upstream}" | sed "s,REVNO,$revno,")
-# uver_rel gets '17.1'
-uver_rel=$(echo "${clogver_upstream}" | sed 's,~bzrREVNO,,')
-
-tag_revno=$(bzr tags | awk '$1 == v { print $2 }' v="${uver_rel}")
-if [ "${tag_revno}" = "$revno" ]; then
-    # if this is a tag, then drop ~bzrXXX from the changelog version.
-    echo "Building a tag of upstream version ($uver_rel -> $revno)" 1>&2
-    clogver_new="${uver}-${clogver_debian}"
-    uver="${uver_rel}"
-    export_string="tag:${uver_rel}"
-else
-    uver="${uver_bzr}"
-    export_string="$revno"
-fi
+# uver gets 17.1-3-gc85e2562 '17.1' if this is a tag.
+uver=$(git describe --long --abbrev=8 "--match=[0-9][0-9]*" "$ref")
+clogver_debian=${clogver_o##*-}
 clogver_new="${uver}-${clogver_debian}"
+
+# uver_base_rel rel gets '17.1'
+uver_base_rel=${uver%%-*}
+if [ "${uver_base_rel}" = "${uver}" ]; then
+   echo "building from a tagged version ($uver)" 1>&2
+fi
 
 TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${bname}.XXXXXX")
 
 trap cleanup EXIT
 
-echo "building upstream version $uver, debian ver=${clogver_debian}"
+echo "building version ${uver}, debian_ver=${clogver_debian}"
 
 dir="${sourcename}-$uver"
 tarball="${sourcename}_$uver.orig.tar.gz"
 
 myd=$(dirname "$0")
-"$myd/export-tarball" "${export_string}" "${TEMP_D}/$tarball"
+"$myd/make-tarball" --output="$TEMP_D/$tarball" --long "$ref"
 echo "created ${tarball}"
 
 cd "${TEMP_D}"
 tar xzf "$tarball" || fail "failed extract tarball"
 
 if [ ! -d "$dir" ]; then
-    # export-tarball will create the directory name based on the
+    # make-tarball will create the directory name based on the
     # contents of debian/changelog.trunk in the version provided.
     # if that differs from what is here, then user has changes.
     for d in ${sourcename}*; do
@@ -85,13 +80,13 @@ if [ ! -d "$dir" ]; then
     done
     if [ -d "$d" ]; then
         {
-        echo "WARNING: bzr at '${export_string}' had different version"
+        echo "WARNING: git at '${uver}' had different version"
         echo "  in debian/changelog.trunk than your tree. version there"
         echo "  is '$d' working directory had $uver"
         } 1>&2
         dir=$d
     else
-        echo "did not find a directory created by export-tarball. sorry." 1>&2
+        echo "did not find a directory created by make-tarball. sorry." 1>&2
         exit
     fi
 fi

@@ -8,7 +8,7 @@ class TestMdadmAbs(VMBaseClass):
     interactive = False
     extra_disks = []
     active_mdadm = "1"
-    collect_scripts = [textwrap.dedent("""
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         mdadm --detail --scan > mdadm_status
@@ -132,7 +132,15 @@ class TrustyHWEXTestMdadmBcache(relbase.trusty_hwe_x, TrustyTestMdadmBcache):
     __test__ = True
 
 
-class XenialTestMdadmBcache(relbase.xenial, TestMdadmBcacheAbs):
+class XenialGATestMdadmBcache(relbase.xenial_ga, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class XenialHWETestMdadmBcache(relbase.xenial_hwe, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class XenialEdgeTestMdadmBcache(relbase.xenial_edge, TestMdadmBcacheAbs):
     __test__ = True
 
 
@@ -176,7 +184,15 @@ class TrustyHWEXTestMirrorboot(relbase.trusty_hwe_x, TrustyTestMirrorboot):
     __test__ = True
 
 
-class XenialTestMirrorboot(relbase.xenial, TestMirrorbootAbs):
+class XenialGATestMirrorboot(relbase.xenial_ga, TestMirrorbootAbs):
+    __test__ = True
+
+
+class XenialHWETestMirrorboot(relbase.xenial_hwe, TestMirrorbootAbs):
+    __test__ = True
+
+
+class XenialEdgeTestMirrorboot(relbase.xenial_edge, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -221,8 +237,18 @@ class TrustyHWEXTestMirrorbootPartitions(relbase.trusty_hwe_x,
     __test__ = True
 
 
-class XenialTestMirrorbootPartitions(relbase.xenial,
-                                     TestMirrorbootPartitionsAbs):
+class XenialGATestMirrorbootPartitions(relbase.xenial_ga,
+                                       TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
+class XenialHWETestMirrorbootPartitions(relbase.xenial_hwe,
+                                        TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
+class XenialEdgeTestMirrorbootPartitions(relbase.xenial_edge,
+                                         TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
@@ -269,8 +295,18 @@ class TrustyTestMirrorbootPartitionsUEFI(relbase.trusty,
         print("test_ptable does not work for Trusty")
 
 
-class XenialTestMirrorbootPartitionsUEFI(relbase.xenial,
-                                         TestMirrorbootPartitionsUEFIAbs):
+class XenialGATestMirrorbootPartitionsUEFI(relbase.xenial_ga,
+                                           TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
+class XenialHWETestMirrorbootPartitionsUEFI(relbase.xenial_hwe,
+                                            TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
+class XenialEdgeTestMirrorbootPartitionsUEFI(relbase.xenial_edge,
+                                             TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
 
 
@@ -318,7 +354,15 @@ class TrustyHWEXTestRaid5Boot(relbase.trusty_hwe_x, TrustyTestRaid5Boot):
     __test__ = True
 
 
-class XenialTestRaid5boot(relbase.xenial, TestRaid5bootAbs):
+class XenialGATestRaid5boot(relbase.xenial_ga, TestRaid5bootAbs):
+    __test__ = True
+
+
+class XenialHWETestRaid5boot(relbase.xenial_hwe, TestRaid5bootAbs):
+    __test__ = True
+
+
+class XenialEdgeTestRaid5boot(relbase.xenial_edge, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -375,7 +419,15 @@ class TrustyHWEXTestRaid6boot(relbase.trusty_hwe_x, TrustyTestRaid6boot):
     __test__ = True
 
 
-class XenialTestRaid6boot(relbase.xenial, TestRaid6bootAbs):
+class XenialGATestRaid6boot(relbase.xenial_ga, TestRaid6bootAbs):
+    __test__ = True
+
+
+class XenialHWETestRaid6boot(relbase.xenial_hwe, TestRaid6bootAbs):
+    __test__ = True
+
+
+class XenialEdgeTestRaid6boot(relbase.xenial_edge, TestRaid6bootAbs):
     __test__ = True
 
 
@@ -420,7 +472,15 @@ class TrustyHWEXTestRaid10boot(relbase.trusty_hwe_x, TrustyTestRaid10boot):
     __test__ = True
 
 
-class XenialTestRaid10boot(relbase.xenial, TestRaid10bootAbs):
+class XenialGATestRaid10boot(relbase.xenial_ga, TestRaid10bootAbs):
+    __test__ = True
+
+
+class XenialHWETestRaid10boot(relbase.xenial_hwe, TestRaid10bootAbs):
+    __test__ = True
+
+
+class XenialEdgeTestRaid10boot(relbase.xenial_edge, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -525,7 +585,15 @@ class TrustyHWEXTestAllindata(relbase.trusty_hwe_x, TrustyTestAllindata):
     __test__ = False  # lukes=no does not disable mounting of device
 
 
-class XenialTestAllindata(relbase.xenial, TestAllindataAbs):
+class XenialGATestAllindata(relbase.xenial_ga, TestAllindataAbs):
+    __test__ = True
+
+
+class XenialHWETestAllindata(relbase.xenial_hwe, TestAllindataAbs):
+    __test__ = True
+
+
+class XenialEdgeTestAllindata(relbase.xenial_edge, TestAllindataAbs):
     __test__ = True
 
 
