@@ -1,55 +1,48 @@
 #!/bin/sh
 
+TEMP_D=""
+CR='
+'
+error() { echo "$@" 1>&2; }
+fail() { [ $# -eq 0 ] || error "$@"; exit 1; }
 Usage() {
-   cat <<EOF
-Usage: ${0##*/} trunk-dir [next-upstream-version]
-
-   pull in new upstream snapshot from trunk-dir
-
-   Leaves file 'new-changes.log'
-
-   Example:
-   $ ${0##*/} ../trunk
-     # prepare bzr dir in . with new snapshot from ../trunk
-   $ dch --edit
-     # read changes in new-changes.log and write changelog
-   $ debcommit
-   $ dch --release
-   $ debcommit --release
+cat <<EOF
+${0##*/} [branch]
+    update current branch with trunk branch.
+    branch defaults to 'master'
 EOF
 }
-fail() { echo "$@" 1>&2; exit 1; }
 
 print_commit() {
-    local subject="$1" author="$2" bugs="$3" aname=""
+    local subject="$1" author="$2" bugs="$3" aname="" buf="" abugs=""
+    local indent="    - " indent2="      " ll=79
     aname=${author% <*}
-    echo "    - $subject${aname:+ [${aname}]}${bugs:+ (LP: ${bugs})}"
+    [ "${aname}" = "Scott Moser" ] && aname=""
+    abugs="${aname:+ [${aname}]}${bugs:+ (LP: ${bugs})}"
+    if [ $((${#subject}+${#abugs})) -le $(($ll-${#indent})) ]; then
+        echo "${indent}${subject}${abugs}"
+    elif [ ${#subject} -ge $(($ll-${#indent})) ]; then
+        echo "${subject}${abugs}" |
+            fmt --width=$(($ll-${#indent})) |
+            sed -e "1s/^/${indent}/; 1n;" \
+                -e 's/^[ ]*//' \
+                -e '/^[ ]*$/d' -e "s/^/$indent2/" -e 's/[ ]\+$//'
+
+    else
+        ( echo "${subject}"; echo "${abugs}" ) |
+            fmt --width=$(($ll-${#indent})) |
+            sed -e "1s/^/${indent}/; 1n;" \
+                -e 's/^[ ]*//' \
+                -e '/^[ ]*$/d' -e "s/^/$indent2/" -e 's/[ ]\+$//'
+    fi
 }
 
-# unfortunately seems like no easy way to get 'Author' unless
-# the committer sets it on the commit.  And since curtin is doing
-# bzr merge and letting committer merge it, then author doesn't
-# end up correct on most commits.
-#
-# log messages look like:
-#revno: 424 [merge]
-#fixes bug: https://launchpad.net/bugs/1618429
-#committer: Ryan Harper <ryan.harper@canonical.com>
-#branch nick: merge-wesley-lp1618429
-#timestamp: Thu 2016-09-15 08:48:13 -0500
-#message:
-#  block/mdadm: add option to ignore mdadm_assemble errors
-#  
-#  When wiping disks with mdadm partitions we may encounter unexpected
-#  return codes. In the case of wiping disks, we don't care if we 
-#  observe any error so allow wipe to ignore the errors by explicitly
-#  passing in ignore errors.
-bzr_log_to_dch() {
-    local line="" commit="" lcommit="" bugs="" bug=""
+git_log_to_dch() {
+    local line="" commit="" lcommit="" bugs=""
     while :; do
         read line || break
         case "$line" in
-            revno:\ *)
+            commit\ *)
                 if [ -n "$commit" ]; then
                     print_commit "$subject" "$author" "$bugs"
                 fi
@@ -59,111 +52,139 @@ bzr_log_to_dch() {
                 subject=""
                 ;;
             Author:*) author="${line#Author: }";;
-            fixes\ bug:*)
-                # fixes bug: https://launchpad.net/bugs/1618429
-                bug="#${line##*/}"
-                bugs="${bugs:+${bugs}, }${bug}";;
-            message:)
-                read subject;;
+            LP:*) bugs="${bugs:+${bugs}, }${line#*: }";;
+            "") [ -z "$subject" ] && read subject;;
         esac
     done
     if [ -n "$commit" ]; then
         print_commit "$subject" "$author" "$bugs"
     fi
 }
+cleanup() {
+    [ ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
+}
 
-[ $# -eq 0 ] && { Usage 1>&2; exit 1; }
-[ "$1" = "-h" -o "$1" = "--help" ] && { Usage; exit 0; }
-trunk=$1
-revno=${2:-tip}
-uver=${3:-0.1.0} # the *next* upstream version
+from_ref=${1:-"master"}
+cur_branch=$(git rev-parse --abbrev-ref HEAD) ||
+   fail "failed to get current branch"
 
-[ -d "$trunk" ] ||
-   fail "trunk dir '$trunk' not a dir"
-if [ "$revno" = "tip" ]; then
-   revno=$(cd "$trunk" && bzr revno) ||
-      fail "failed getting bzr revno from $trunk"
+case "$cur_branch" in
+    ubuntu/*) :;;
+    *) fail "You are on branch '$cur_branch', expect to be on ubuntu/*";;
+esac
+
+TEMP_D=$(mktemp -d) || fail "failed mktemp"
+trap cleanup EXIT
+
+prev_pkg_ver=$(dpkg-parsechangelog --show-field Version) ||
+   fail "failed reading package version"
+pkg_name=$(dpkg-parsechangelog --show-field Source) ||
+   fail "failed to read Source from changelog"
+
+# turn 0.7.7-10-gbc2c326-0ubuntu1 into 'bc2c326'
+t=${prev_pkg_ver%-*}
+prev_pkg_hash=${t##*-g}
+case "${prev_pkg_ver}" in
+    *-*-g[a-z]*-*)
+        # use the hash.
+        t=${prev_pkg_ver%-*}
+        prev_pkg_hash=${t##*-g};;
+    *)
+        prev_tag=ubuntu/$(echo "${prev_pkg_ver}" | sed 's,~,_,g')
+        echo "prev_tag=$prev_tag"
+        out=$(git tag --list "${prev_tag}") ||
+            fail "failed to look for a tag $prev_tag"
+        if [ -z "$out" ]; then
+            fail "no way to figure out merge-base between " \
+                "${prev_pkg_ver} and ${from_ref}"
+        fi
+        prev_pkg_hash=$(git merge-base "${from_ref}" "$prev_tag") ||
+            fail "failed git merge-base \"${from_ref}\" \"${prev_tag}\""
+        [ -n "${prev_pkg_hash}" ] ||
+            fail "cannot find merge base for ${prev_pkg_ver} and ${from_ref}"
+        ;;
+esac
+
+new_pkg_debian="0ubuntu1"
+new_upstream_ver=$(git describe --abbrev=8 "${from_ref}")
+new_pkg_ver="${new_upstream_ver}-${new_pkg_debian}"
+
+prev_upstream_ver=${prev_pkg_ver%-*}
+if [ "${prev_upstream_ver}" = "${new_upstream_ver}" ]; then
+    echo "nothing to commit.  '$from_ref' is at ${new_upstream_ver}."
+    exit 0
 fi
-pversion=$(dpkg-parsechangelog --show-field Version) ||
-   fail "failed to read previous version with dpkg-parsechangelog"
-prevno=$(echo "$pversion" | sed 's,.*bzr\([0-9]\+\)-.*,\1,') ||
-   fail "fail reading previous bzr revision from previous version '$pversion'"
-version=${uver}~bzr${revno}
-tarball=../curtin-${version}.tar.gz
-t=../curtin_${version}.orig.tar.gz
-if [ -f "$t" ]; then
-   echo "using '$t' as tarball" 1>&2
-   tarball="$t"
-else
-   echo "creating $tarball with bzr export" 1>&2
-   bzr export --format=tgz "--revision=${revno}" "$tarball" "${trunk}" ||
-     fail "failed exporting bzr in $trunk to $tarball"
-   ln -sf "${tarball##*/}" "$t" ||
-      fail "failed linking ${tarball##*/} to $t"
+
+dpseries="debian/patches/series"
+if [ -e $dpseries ]; then
+   drops=""
+   while read bname extra; do
+      case "$bname" in
+         cpick-*)
+            commit=${bname#cpick-}
+            commit=${commit%%-*}
+            echo "bname=$bname commit=${commit}" 1>&2
+            if git merge-base --is-ancestor "$commit" "$from_ref"; then
+               drops="${drops} debian/patches/$bname"
+            fi
+            ;;
+         *) echo "$bname${extra:+ ${extra}}";;
+      esac
+   done < $dpseries > "${TEMP_D}/series"
+   drops=${drops# }
+   if [ -n "$drops" ]; then
+      cp "${TEMP_D}/series" "$dpseries" ||
+         fail "failed copying to $dpseries"
+      if [ ! -s $dpseries ]; then
+         git rm --force "$dpseries" ||
+            fail "failed removing empty $dpseries: git rm $dpseries"
+      fi
+      msg="drop cherry picks before merge from ${from_ref} at $new_upstream_ver"
+      msg="$msg${CR}${CR}drop the following cherry picks:"
+      for file in $drops; do
+         git rm "$file" || fail "failed to git rm $file"
+         msg="${msg}$CR  $file"
+      done
+      git commit -m "$msg" "$dpseries" $drops
+   fi
 fi
-#bzr merge-upstream "$tarball" "--version=${version}" ||
-#   fail "failed merge-upstream of $tarball at version=$version"
-tmpd=$(mktemp -d "${TMPDIR:-/tmp}/curtin.${0##*/}.XXXXXX")
-trap 'rm -Rf "$tmpd"' EXIT
-newflist="${tmpd}/new-files"
-oldflist="${tmpd}/old-files"
 
-tar -tf "$tarball" \
-   --strip-components=1 --exclude="*/debian" > "$newflist.full" ||
-   fail "failed tar tf on $tarball"
-sed 's,^[^/]*/,,' "$newflist.full" > "$newflist"
+git merge "${from_ref}" -m "merge from $from_ref at $new_upstream_ver" ||
+    fail "failed: git merge ${from_ref} -m 'merge from $from_ref ..'"
+clog="${TEMP_D}/changelog"
+gitlog="${TEMP_D}/gitlog"
 
-bzr ls --recursive --versioned > "$oldflist.full" ||
-   fail "failed bzr ls --recursive"
-grep -v "^debian/" "$oldflist.full" > "$oldflist"
+git log --first-parent --no-decorate --format=full \
+   "${prev_pkg_hash}..${from_ref}" >  "$gitlog" ||
+   fail "failed git log ${prev_pkg_hash}..${from_ref}"
 
-cat "$oldflist" "$newflist" "$newflist" > "$tmpd/all-old" ||
-   fail "failed getting all old files"
-cat "$newflist" "$oldflist" "$oldflist" > "$tmpd/all-new" ||
-   fail "failed getting all new"
+cat >> "$clog" <<EOF
+$pkg_name ($new_pkg_ver) UNRELEASED; urgency=medium
 
-removed="${tmpd}/removed"
-added="$tmpd/added"
-sort "$tmpd/all-old" | uniq --uniq > "$removed"
-sort "$tmpd/all-new" | uniq --uniq > "$added"
+  * New upstream snapshot.
+EOF
+git_log_to_dch < "$gitlog" >> "$clog" ||
+   fail "failed git_log_to_dch"
+cat >> "$clog" <<EOF
 
-while read rmfile; do
-   case "$rmfile" in
-      .pc/*) continue;;
-      */) rflag="-r";;
-      *) rflag="";;
-   esac
-   bzr rm $rflag "$rmfile" || fail "failed bzr rm${rflag:+ ${rflag}} $rmfile"
-done < "$removed"
+ -- ${DEBFULLNAME} <$DEBEMAIL>  $(date -R)
 
-for f in *; do
-   [ "$f" = "debian" ] && continue
-   rm -rf "$f" || fail "failed removing '$f'"
-done
-
-tar --strip-components=1 --exclude "*/debian/*" -xf "$tarball" ||
-   fail "failed extraction of $tarball"
-
-while read newfile; do
-    bzr add "$newfile" || fail "failed adding '$newfile'"
-done < "$added"
-
-oldrev=$(($prevno+1))
-( cd "$trunk" && bzr log -r "${oldrev}..${revno}" ) > new-changes.log ||
-   fail "failed to get changes from ${oldrev}..$revno"
-bzr_log_to_dch < new-changes.log > new-dch.log
-
-cat <<EOF
-====
-Now see ./new-changes.log for changes between $oldrev and $revno
-
-then:
-   $ dch --edit
-     # read changes in new-dch.log or full changes in new-changes.log
-     # and write changelog
-   $ debcommit
-   $ dch --release
-   $ debcommit --release
-   $ debuild -S
 EOF
 
+cat "$clog" "debian/changelog" > "$TEMP_D/newlog" &&
+   cp "$TEMP_D/newlog" "debian/changelog" ||
+   fail "failed replacing debian/changelog"
+
+dch -e || fail "dch -e exited $?"
+
+git diff
+
+echo -n "Commit this change? (Y/n): "
+read answer || fail "failed to read answer"
+case "$answer" in
+   n|[Nn][oO]) exit 1;;
+esac
+
+msg="update changelog (new upstream snapshot $new_upstream_ver)."
+git commit -m "$msg" debian/changelog ||
+   fail "failed to commit '$msg'"
