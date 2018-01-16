@@ -27,7 +27,8 @@ class TestNetworkENISource(TestNetworkBaseTestsAbs):
         extract information about what curtin wrote and compare that
         with what was actually configured (which we capture via ifconfig)
 
-        Note: This test is *not* valid for Artful as it has no ENI.
+        Note: This test is *not* valid for Artful and later as they do not
+        have ENI.
     """
 
     conf_file = "examples/tests/network_source.yaml"
@@ -79,12 +80,6 @@ class TestNetworkENISource(TestNetworkBaseTestsAbs):
         self.assertEqual(_nocidr(expected_address), _nocidr(actual_address))
 
 
-class PreciseTestNetworkENISource(relbase.precise, TestNetworkENISource):
-    __test__ = False
-    # not working, still debugging though; possible older ifupdown doesn't
-    # like the multiple iface method.
-
-
 class TrustyTestNetworkENISource(relbase.trusty, TestNetworkENISource):
     __test__ = True
 
@@ -100,3 +95,6 @@ class XenialTestNetworkENISource(relbase.xenial, TestNetworkENISource):
 
 class ZestyTestNetworkENISource(relbase.zesty, TestNetworkENISource):
     __test__ = True
+
+
+# Artful and later are deliberately not present.  They do not have ifupdown.

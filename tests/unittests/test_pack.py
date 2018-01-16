@@ -4,6 +4,7 @@ from curtin import version
 from curtin import util
 from curtin.commands.install import INSTALL_PASS_MSG, INSTALL_START_MSG
 
+import glob
 import json
 import os
 import shutil
@@ -148,7 +149,6 @@ class TestPack(TestCase):
         # has, and verify that python --help has that changed string, then
         # change it back for other tests.
         version_py = os.path.join(self.extract_dir, 'curtin', 'version.py')
-        version_pyc = version_py + "c"
         hack_version_str = "MY_VERSION_STRING"
         orig_contents = util.load_file(version_py)
         hacked_contents = orig_contents.replace(
@@ -156,11 +156,11 @@ class TestPack(TestCase):
         self.assertIn(hack_version_str, hacked_contents)
         try:
             util.write_file(version_py, hacked_contents)
-            util.del_file(version_pyc)
+            remove_pyc_for_file(version_py)
             out, err = self.run_main(['--help'])
         finally:
-            util.del_file(version_pyc)
             util.write_file(version_py, orig_contents)
+            remove_pyc_for_file(version_py)
 
         self.assertIn(hack_version_str, out)
 
@@ -170,5 +170,21 @@ class TestPack(TestCase):
         self.assertTrue(os.path.isdir(tld))
         self.assertTrue(os.path.isdir(os.path.join(tld, 'curtin')))
         self.assertTrue(os.path.isdir(os.path.join(tld, 'bin')))
+
+
+def remove_pyc_for_file(py_path):
+    """Remove any .pyc files that have been created by running py_path.
+
+    Different versions of python create different .pyc files for a given .py:
+        my_path/my.py -> my_path/my.pyc
+        my_path/__pycache__/my.<cpython-36>.pyc"""
+    without_py = py_path.rpartition(".")[0]
+    pycache_wildcard = os.path.join(
+        os.path.dirname(without_py), "__pycache__",
+        os.path.basename(without_py)) + ".*.pyc"
+    for pyc in [without_py + ".pyc"] + glob.glob(pycache_wildcard):
+        if os.path.exists(pyc):
+            os.unlink(pyc)
+
 
 # vi: ts=4 expandtab syntax=python

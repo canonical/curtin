@@ -6,31 +6,31 @@ storage:
     model: QEMU HARDDISK
     name: sda
     ptable: msdos
-    path: /dev/vdb
+    serial: disk-a
     type: disk
     wipe: superblock
   - id: sdb
     model: QEMU HARDDISK
     name: sdb
-    path: /dev/vdc
+    serial: disk-b
     type: disk
     wipe: superblock
   - id: sdc
     model: QEMU HARDDISK
     name: sdc
-    path: /dev/vdd
+    serial: disk-c
     type: disk
     wipe: superblock
   - id: sdd
     model: QEMU HARDDISK
     name: sdd
-    path: /dev/vde
+    serial: disk-d
     type: disk
     wipe: superblock
   - id: sde
     model: QEMU HARDDISK
     name: sde
-    path: /dev/vdf
+    serial: disk-e
     type: disk
     wipe: superblock
   - devices:

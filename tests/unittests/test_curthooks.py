@@ -5,7 +5,7 @@ from curtin.commands import curthooks
 from curtin import util
 from curtin import config
 from curtin.reporter import events
-from .helpers import CiTestCase
+from .helpers import CiTestCase, dir2dict
 
 
 class TestGetFlashKernelPkgs(CiTestCase):
@@ -759,6 +759,52 @@ class TestDetectRequiredPackages(CiTestCase):
     def test_invalid_version_in_config(self):
         with self.assertRaises(ValueError):
             curthooks.detect_required_packages({'network': {'version': 3}})
+
+
+class TestCurthooksWriteFiles(CiTestCase):
+    def test_handle_write_files_empty(self):
+        """ Test curthooks.write_files returns for empty config """
+        tmpd = self.tmp_dir()
+        ret = curthooks.write_files({}, tmpd)
+        self.assertEqual({}, dir2dict(tmpd, prefix=tmpd))
+        self.assertIsNone(ret)
+
+    def test_handle_write_files(self):
+        """ Test curthooks.write_files works as it used to """
+        tmpd = self.tmp_dir()
+        cfg = {'file1': {'path': '/etc/default/hello.txt',
+                         'content': "Hello World!\n"},
+               'foobar': {'path': '/sys/wark', 'content': "Engauge!\n"}}
+        curthooks.write_files({'write_files': cfg}, tmpd)
+        self.assertEqual(
+            dict((cfg[i]['path'], cfg[i]['content']) for i in cfg.keys()),
+            dir2dict(tmpd, prefix=tmpd))
+
+    @patch('curtin.commands.curthooks.futil.target_path')
+    @patch('curtin.commands.curthooks.futil.write_finfo')
+    def test_handle_write_files_finfo(self, mock_write_finfo, mock_tp):
+        """ Validate that futils.write_files handles target_path correctly """
+        cc_target = "/tmpXXXX/random/dir/used/by/maas"
+        cfg = {
+            'file1': {
+                'path': '/etc/default/hello.txt',
+                'content': "Hello World!\n",
+            },
+        }
+        mock_tp.side_effect = [
+            cc_target + cfg['file1']['path'],
+        ]
+
+        expected_cfg = {
+            'file1': {
+                'path': '/etc/default/hello.txt',
+                'content': cfg['file1']['content']},
+        }
+        curthooks.write_files({'write_files': cfg}, cc_target)
+        mock_write_finfo.assert_called_with(
+            content=expected_cfg['file1']['content'], owner='-1:-1',
+            path=cc_target + expected_cfg['file1']['path'],
+            perms='0644')
 
 
 # vi: ts=4 expandtab syntax=python

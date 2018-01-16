@@ -12,7 +12,7 @@ class CentosTestBasicAbs(VMBaseClass):
     extra_kern_args = "BOOTIF=eth0-52:54:00:12:34:00"
     # XXX: command | tee output is required for Centos under SELinux
     # http://danwalsh.livejournal.com/22860.html
-    collect_scripts = [textwrap.dedent(
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent(
         """
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
@@ -24,6 +24,8 @@ class CentosTestBasicAbs(VMBaseClass):
         cp -a /var/log/cloud-init* .
         cp -a /var/lib/cloud ./var_lib_cloud
         cp -a /run/cloud-init ./run_cloud-init
+        rpm -E '%rhel' > rpm_dist_version_major
+        cp -a /etc/centos-release .
         """)]
     fstab_expected = {
         'LABEL=cloudimg-rootfs': '/',
@@ -37,6 +39,21 @@ class CentosTestBasicAbs(VMBaseClass):
 
     def test_output_files_exist(self):
         self.output_files_exist(["fstab"])
+
+    def test_centos_release(self):
+        """Test this image is the centos release expected"""
+        self.output_files_exist(["rpm_dist_version_major", "centos-release"])
+
+        centos_release = self.load_collect_file("centos-release").lower()
+        rpm_major_version = (
+            self.load_collect_file("rpm_dist_version_major").strip())
+        _, os_id, os_version = self.target_release.partition("centos")
+
+        self.assertTrue(os_version.startswith(rpm_major_version),
+                        "%s doesn't start with %s" % (os_version,
+                                                      rpm_major_version))
+        self.assertTrue(centos_release.startswith(os_id),
+                        "%s doesn't start with %s" % (centos_release, os_id))
 
 
 # FIXME: this naming scheme needs to be replaced

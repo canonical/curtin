@@ -22,15 +22,19 @@ class TestMdadmIscsiAbs(TestMdadmAbs, TestBasicIscsiAbs):
         """)]
 
 
-class PreciseTestIscsiMdadm(relbase.precise, TestMdadmIscsiAbs):
-    __test__ = True
-
-
 class TrustyTestIscsiMdadm(relbase.trusty, TestMdadmIscsiAbs):
     __test__ = True
 
 
-class XenialTestIscsiMdadm(relbase.xenial, TestMdadmIscsiAbs):
+class XenialGATestIscsiMdadm(relbase.xenial_ga, TestMdadmIscsiAbs):
+    __test__ = True
+
+
+class XenialHWETestIscsiMdadm(relbase.xenial_hwe, TestMdadmIscsiAbs):
+    __test__ = True
+
+
+class XenialEdgeTestIscsiMdadm(relbase.xenial_edge, TestMdadmIscsiAbs):
     __test__ = True
 
 
@@ -39,4 +43,8 @@ class ZestyTestIscsiMdadm(relbase.zesty, TestMdadmIscsiAbs):
 
 
 class ArtfulTestIscsiMdadm(relbase.artful, TestMdadmIscsiAbs):
+    __test__ = True
+
+
+class BionicTestIscsiMdadm(relbase.bionic, TestMdadmIscsiAbs):
     __test__ = True

@@ -1,0 +1,18 @@
+install:
+  unmount: disabled
+
+showtrace: true
+
+post_cmds:
+  - &cat_proc_mounts |-
+    cat /proc/mounts | tee ${TARGET_MOUNT_POINT}/root/postinst_mounts.out
+
+  - &echo_target_mp |-
+    echo ${TARGET_MOUNT_POINT} | tee ${TARGET_MOUNT_POINT}/root/target.out
+
+# capture proc/mounts, unmount, capture proc/mounts
+late_commands:
+  01_get_proc_mounts: [sh, -c, *cat_proc_mounts]
+  02_write_out_target: [sh, -c, *echo_target_mp]
+  03_unmount_target: [curtin, unmount]
+  04_get_proc_mounts: [cat, /proc/mounts]

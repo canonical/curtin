@@ -64,18 +64,8 @@ label_length_limits = {
 }
 
 family_flag_mappings = {
-    "label": {"btrfs": "--label",
-              "ext": "-L",
-              "fat": "-n",
-              "jfs": "-L",
-              "ntfs": "--label",
-              "reiserfs": "--label",
-              "swap": "--label",
-              "xfs": "-L"},
-    "uuid": {"btrfs": "--uuid",
-             "ext": "-U",
-             "reiserfs": "--uuid",
-             "swap": "--uuid"},
+    "fatsize": {"fat": ("-F", "{fatsize}")},
+    # flag with no parameter
     "force": {"btrfs": "--force",
               "ext": "-F",
               "fat": "-I",
@@ -83,18 +73,31 @@ family_flag_mappings = {
               "reiserfs": "-f",
               "swap": "--force",
               "xfs": "-f"},
-    "fatsize": {"fat": "-F"},
+    "label": {"btrfs": ("--label", "{label}"),
+              "ext": ("-L", "{label}"),
+              "fat": ("-n", "{label}"),
+              "jfs": ("-L", "{label}"),
+              "ntfs": ("--label", "{label}"),
+              "reiserfs": ("--label", "{label}"),
+              "swap": ("--label", "{label}"),
+              "xfs": ("-L", "{label}")},
+    # flag with no parameter, N.B: this isn't used/exposed
     "quiet": {"ext": "-q",
               "ntfs": "-q",
               "reiserfs": "-q",
               "xfs": "--quiet"},
     "sectorsize": {
-        "btrfs": "--sectorsize",
-        "ext": "-b",
-        "fat": "-S",
-        "xfs": "-s",
-        "ntfs": "--sector-size",
-        "reiserfs": "--block-size"}
+        "btrfs": ("--sectorsize", "{sectorsize}",),
+        "ext": ("-b", "{sectorsize}"),
+        "fat": ("-S", "{sectorsize}"),
+        "ntfs": ("--sector-size", "{sectorsize}"),
+        "reiserfs": ("--block-size", "{sectorsize}"),
+        "xfs": ("-s", "{sectorsize}")},
+    "uuid": {"btrfs": ("--uuid", "{uuid}"),
+             "ext": ("-U", "{uuid}"),
+             "reiserfs": ("--uuid", "{uuid}"),
+             "swap": ("--uuid", "{uuid}"),
+             "xfs": ("-m", "uuid={uuid}")},
 }
 
 release_flag_mapping_overrides = {
@@ -102,7 +105,8 @@ release_flag_mapping_overrides = {
         "force": {"btrfs": None},
         "uuid": {"btrfs": None}},
     "trusty": {
-        "uuid": {"btrfs": None}},
+        "uuid": {"btrfs": None,
+                 "xfs": None}},
 }
 
 
@@ -126,10 +130,18 @@ def get_flag_mapping(flag_name, fs_family, param=None, strict=False):
         if strict:
             raise ValueError("flag '%s' not supported by fs family '%s'" %
                              flag_name, fs_family)
+        else:
+            return ret
+
+    if param is None:
+        ret.append(flag_sym)
     else:
-        ret = [flag_sym]
-        if param is not None:
-            ret.append(param)
+        params = [k.format(**{flag_name: param}) for k in flag_sym]
+        if list(params) == list(flag_sym):
+            raise ValueError("Param %s not used for flag_name=%s and "
+                             "fs_family=%s." % (param, flag_name, fs_family))
+
+        ret.extend(params)
     return ret
 
 

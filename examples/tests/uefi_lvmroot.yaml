@@ -1,0 +1,82 @@
+showtrace: true
+storage:
+  config:
+  - grub_device: true
+    id: sda
+    model: PERC 6/i
+    name: sda
+    ptable: gpt
+    serial: '4cd98c5c-7761-4179'
+    type: disk
+    wipe: superblock
+  - device: sda
+    id: sda-part1
+    name: sda-part1
+    number: 1
+    offset: 4194304B
+    size: 96468992B
+    type: partition
+    uuid: 88a0df20-c224-4637-ad93-1d932e065a77
+    wipe: superblock
+  - device: sda
+    id: sda-part2
+    name: sda-part2
+    number: 2
+    size: 499122176B
+    type: partition
+    uuid: 1df4c42e-a94c-41d9-887f-9f2139425029
+    wipe: superblock
+  - device: sda
+    id: sda-part3
+    name: sda-part3
+    number: 3
+    size: 8G
+    type: partition
+    uuid: 14870e21-4ef7-4058-baf1-8ae1148bb1b0
+    wipe: superblock
+  - devices:
+    - sda-part3
+    id: vg0
+    name: vg0
+    type: lvm_volgroup
+    uuid: 1cae2f4d-ea47-45df-9d33-d1b77f23ee3f
+  - id: vg0-lv0
+    name: lv0
+    size: 7.5G
+    type: lvm_partition
+    volgroup: vg0
+  - fstype: vfat
+    id: sda-part1_format
+    label: ''
+    type: format
+    uuid: 0bea118f-558e-4235-8547-644c76078066
+    volume: sda-part1
+  - fstype: __BOOTFS_FORMAT__
+    id: sda-part2_format
+    label: ''
+    type: format
+    uuid: a45a16b8-018c-4a24-b9d8-aee19ca4566e
+    volume: sda-part2
+  - fstype: __ROOTFS_FORMAT__
+    id: vg0-lv0_format
+    label: ''
+    type: format
+    uuid: 48691520-0025-4e6c-a7c0-50bb0ac30713
+    volume: vg0-lv0
+  - device: vg0-lv0_format
+    id: vg0-lv0_mount
+    options: ''
+    path: /
+    type: mount
+  - device: sda-part2_format
+    id: sda-part2_mount
+    options: ''
+    path: /boot
+    type: mount
+  - device: sda-part1_format
+    id: sda-part1_mount
+    options: ''
+    path: /boot/efi
+    type: mount
+  version: 1
+

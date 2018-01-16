@@ -28,7 +28,7 @@ def clear_holders_main(args):
         raise ValueError('invalid devices specified')
     block.clear_holders.start_clear_holders_deps()
     block.clear_holders.clear_holders(args.devices, try_preserve=args.preserve)
-    if args.try_preserve:
+    if args.preserve:
         print('ran clear_holders attempting to preserve data. however, '
               'hotplug support for some devices may cause holders to restart ')
     block.clear_holders.assert_clear(args.devices)

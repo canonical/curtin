@@ -14,7 +14,7 @@ class TestBasicIscsiAbs(VMBaseClass):
     conf_file = "examples/tests/basic_iscsi.yaml"
     nr_testfiles = 4
 
-    collect_scripts = [textwrap.dedent(
+    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent(
         """
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
@@ -47,15 +47,19 @@ class TestBasicIscsiAbs(VMBaseClass):
                              (testfile, expected_content, content))
 
 
-class PreciseTestIscsiBasic(relbase.precise, TestBasicIscsiAbs):
-    __test__ = True
-
-
 class TrustyTestIscsiBasic(relbase.trusty, TestBasicIscsiAbs):
     __test__ = True
 
 
-class XenialTestIscsiBasic(relbase.xenial, TestBasicIscsiAbs):
+class XenialGATestIscsiBasic(relbase.xenial_ga, TestBasicIscsiAbs):
+    __test__ = True
+
+
+class XenialHWETestIscsiBasic(relbase.xenial_hwe, TestBasicIscsiAbs):
+    __test__ = True
+
+
+class XenialEdgeTestIscsiBasic(relbase.xenial_edge, TestBasicIscsiAbs):
     __test__ = True
 
 
@@ -64,4 +68,8 @@ class ZestyTestIscsiBasic(relbase.zesty, TestBasicIscsiAbs):
 
 
 class ArtfulTestIscsiBasic(relbase.artful, TestBasicIscsiAbs):
+    __test__ = True
+
+
+class BionicTestIscsiBasic(relbase.bionic, TestBasicIscsiAbs):
     __test__ = True

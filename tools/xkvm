@@ -11,6 +11,8 @@ TAPDEVS=( )
 # OVS_CLEANUP gets populated with bridge:devname pairs used with ovs
 OVS_CLEANUP=( )
 MAC_PREFIX="52:54:00:12:34"
+# allow this to be set externally.
+_QEMU_SUPPORTS_FILE_LOCKING="${_QEMU_SUPPORTS_FILE_LOCKING}"
 KVM="kvm"
 declare -A KVM_DEVOPTS
 
@@ -117,6 +119,21 @@ isdevopt() {
         [ "$input" = "$opt" ] && return 0
     done
     return 1
+}
+
+qemu_supports_file_locking() {
+    # hackily check if qemu has file.locking in -drive params (LP: #1716028)
+    if [ -z "$_QEMU_SUPPORTS_FILE_LOCKING" ]; then
+        # The only way we could find to check presense of file.locking is
+        # qmp (query-qmp-schema).  Simply checking if the virtio-blk driver
+        # supports 'share-rw' is expected to be equivalent and simpler.
+        isdevopt virtio-blk share-rw &&
+            _QEMU_SUPPORTS_FILE_LOCKING=true ||
+            _QEMU_SUPPORTS_FILE_LOCKING=false
+        debug 1 "qemu supports file locking = ${_QEMU_SUPPORTS_FILE_LOCKING}"
+    fi
+    [ "$_QEMU_SUPPORTS_FILE_LOCKING" = "true" ]
+    return
 }
 
 padmac() {
@@ -443,7 +460,7 @@ main() {
             out=$(LANG=C qemu-img info "$file") &&
                 fmt=$(echo "$out" | awk '$0 ~ /^file format:/ { print $3 }') ||
                 { error "failed to determine format of $file"; return 1; }
-        else
+        elif [ -z "$fmt" ]; then
             fmt=raw
         fi
         if [ -z "$driver" ]; then
@@ -470,6 +487,12 @@ main() {
                 id=*|if=*|driver=*|$file|file=*) continue;;
                 fmt=*|format=*) continue;;
                 serial=*|bus=*|unit=*|index=*) continue;;
+                file.locking=*)
+                    qemu_supports_file_locking || {
+                        debug 2 "qemu has no file locking." \
+                            "Dropping '$tok' from: $cur"
+                        continue
+                    };;
             esac
             isdevopt "$driver" "$tok" && devopts="${devopts},$tok" ||
                 diskopts="${diskopts},${tok}"

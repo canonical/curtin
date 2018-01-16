@@ -2,3 +2,4 @@
 __pycache__
 .tox
 .coverage
+curtin.egg-info/

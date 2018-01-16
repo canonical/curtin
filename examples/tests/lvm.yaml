@@ -7,7 +7,7 @@ storage:
         wipe: superblock
         ptable: msdos
         model: QEMU HARDDISK
-        path: /dev/vdb
+        serial: disk-a
         name: main_disk
       - id: sda1
         type: partition

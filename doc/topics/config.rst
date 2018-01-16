@@ -205,6 +205,23 @@ Curtin by default will post the ``log_file`` value to any configured reporter.
 Curtin will save the merged configuration data into the target OS at 
 the path of ``save_install_config``.  This defaults to /root/curtin-install-cfg.yaml
 
+**save_install_logs**: *<Path to save curtin install log>*
+
+Curtin will copy the install log to a specific path in the target
+filesystem.  This defaults to /root/install.log
+
+**target**: *<path to mount install target>*
+
+Control where curtin mounts the target device for installing the OS.  If this
+value is unset, curtin picks a suitable path under a temporary directory. If
+a value is set, then curtin will utilize the ``target`` value instead.
+
+**unmount**: *disabled*
+
+If this key is set to the string 'disabled' then curtin will not
+unmount the target filesystem when install is complete.  This
+skips unmounting in all cases of install success or failure.
+
 **Example**::
 
   install:
@@ -213,6 +230,9 @@ the path of ``save_install_config``.  This defaults to /root/curtin-install-cfg.
        - /tmp/install.log
        - /var/log/syslog
      save_install_config: /root/myconf.yaml
+     save_install_log: /var/log/curtin-install.log
+     target: /my_mount_point
+     unmount: disabled
 
 
 kernel

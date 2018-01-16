@@ -115,7 +115,10 @@ class TestBlockMeta(CiTestCase):
         basepath = 'curtin.commands.block_meta.'
         self.add_patch(basepath + 'get_path_to_storage_volume', 'mock_getpath')
         self.add_patch(basepath + 'make_dname', 'mock_make_dname')
+        self.add_patch('curtin.util.load_command_environment',
+                       'mock_load_env')
         self.add_patch('curtin.util.subp', 'mock_subp')
+        self.add_patch('curtin.util.ensure_dir', 'mock_ensure_dir')
         self.add_patch('curtin.block.get_part_table_type',
                        'mock_block_get_part_table_type')
         self.add_patch('curtin.block.wipe_volume',
@@ -130,6 +133,12 @@ class TestBlockMeta(CiTestCase):
                        'mock_clear_holders')
         self.add_patch('curtin.block.clear_holders.assert_clear',
                        'mock_assert_clear')
+        self.add_patch('curtin.block.iscsi.volpath_is_iscsi',
+                       'mock_volpath_is_iscsi')
+        self.add_patch('curtin.block.get_volume_uuid',
+                       'mock_block_get_volume_uuid')
+        self.add_patch('curtin.block.zero_file_at_offsets',
+                       'mock_block_zero_file')
 
         self.target = "my_target"
         self.config = {
@@ -152,7 +161,20 @@ class TestBlockMeta(CiTestCase):
                      'size': '511705088B',
                      'type': 'partition',
                      'uuid': 'fc7ab24c-b6bf-460f-8446-d3ac362c0625',
-                     'wipe': 'superblock'}
+                     'wipe': 'superblock'},
+                    {'id': 'sda1-root',
+                     'type': 'format',
+                     'fstype': 'xfs',
+                     'volume': 'sda-part1'},
+                    {'id': 'sda-part1-mnt-root',
+                     'type': 'mount',
+                     'path': '/',
+                     'device': 'sda1-root'},
+                    {'id': 'sda-part1-mnt-root-ro',
+                     'type': 'mount',
+                     'path': '/readonly',
+                     'options': 'ro',
+                     'device': 'sda1-root'}
                 ],
             }
         }
@@ -177,32 +199,122 @@ class TestBlockMeta(CiTestCase):
         self.mock_clear_holders.assert_called_with(disk)
         self.mock_assert_clear.assert_called_with(disk)
 
-    def test_partition_handler_calls_clear_holder(self):
+    def test_partition_handler_wipes_at_partition_offset(self):
+        """ Test wiping partition at offset prior to creating partition"""
         disk_info = self.storage_config.get('sda')
         part_info = self.storage_config.get('sda-part1')
         disk_kname = disk_info.get('path')
         part_kname = disk_kname + '1'
         self.mock_getpath.side_effect = iter([
-            disk_info.get('id'),
-            part_kname,
-            part_kname,
+            disk_kname,
             part_kname,
         ])
-
         self.mock_block_get_part_table_type.return_value = 'dos'
         kname = 'xxx'
         self.mock_block_path_to_kname.return_value = kname
         self.mock_block_sys_block_path.return_value = '/sys/class/block/xxx'
-        self.mock_subp.side_effect = iter([
-            ("", 0),  # parted mkpart
-            ("", 0),  # ??
-        ])
-        holders = ['md1']
-        self.mock_get_holders.return_value = holders
 
         block_meta.partition_handler(part_info, self.storage_config)
+        part_offset = 2048 * 512
+        self.mock_block_zero_file.assert_called_with(disk_kname, [part_offset],
+                                                     exclusive=False)
+        self.mock_subp.assert_called_with(['parted', disk_kname, '--script',
+                                           'mkpart', 'primary', '2048s',
+                                           '1001471s'], capture=True)
 
-        print("clear_holders: %s" % self.mock_clear_holders.call_args_list)
-        print("assert_clear: %s" % self.mock_assert_clear.call_args_list)
-        self.mock_clear_holders.assert_called_with(part_kname)
-        self.mock_assert_clear.assert_called_with(part_kname)
+    @patch('curtin.util.write_file')
+    def test_mount_handler_defaults(self, mock_write_file):
+        """Test mount_handler has defaults to 'defaults' for mount options"""
+        fstab = self.tmp_path('fstab')
+        self.mock_load_env.return_value = {'fstab': fstab,
+                                           'target': self.target}
+        disk_info = self.storage_config.get('sda')
+        fs_info = self.storage_config.get('sda1-root')
+        mount_info = self.storage_config.get('sda-part1-mnt-root')
+
+        self.mock_getpath.return_value = '/wark/xxx'
+        self.mock_volpath_is_iscsi.return_value = False
+        self.mock_block_get_volume_uuid.return_value = None
+
+        block_meta.mount_handler(mount_info, self.storage_config)
+        options = 'defaults'
+        expected = "%s %s %s %s 0 0\n" % (disk_info['path'],
+                                          mount_info['path'],
+                                          fs_info['fstype'], options)
+
+        mock_write_file.assert_called_with(fstab, expected, omode='a')
+
+    @patch('curtin.util.write_file')
+    def test_mount_handler_uses_mount_options(self, mock_write_file):
+        """Test mount_handler 'options' string is present in fstab entry"""
+        fstab = self.tmp_path('fstab')
+        self.mock_load_env.return_value = {'fstab': fstab,
+                                           'target': self.target}
+        disk_info = self.storage_config.get('sda')
+        fs_info = self.storage_config.get('sda1-root')
+        mount_info = self.storage_config.get('sda-part1-mnt-root-ro')
+
+        self.mock_getpath.return_value = '/wark/xxx'
+        self.mock_volpath_is_iscsi.return_value = False
+        self.mock_block_get_volume_uuid.return_value = None
+
+        block_meta.mount_handler(mount_info, self.storage_config)
+        options = 'ro'
+        expected = "%s %s %s %s 0 0\n" % (disk_info['path'],
+                                          mount_info['path'],
+                                          fs_info['fstype'], options)
+
+        mock_write_file.assert_called_with(fstab, expected, omode='a')
+
+    @patch('curtin.util.write_file')
+    def test_mount_handler_empty_options_string(self, mock_write_file):
+        """Test mount_handler with empty 'options' string, selects defaults"""
+        fstab = self.tmp_path('fstab')
+        self.mock_load_env.return_value = {'fstab': fstab,
+                                           'target': self.target}
+        disk_info = self.storage_config.get('sda')
+        fs_info = self.storage_config.get('sda1-root')
+        mount_info = self.storage_config.get('sda-part1-mnt-root-ro')
+        mount_info['options'] = ''
+
+        self.mock_getpath.return_value = '/wark/xxx'
+        self.mock_volpath_is_iscsi.return_value = False
+        self.mock_block_get_volume_uuid.return_value = None
+
+        block_meta.mount_handler(mount_info, self.storage_config)
+        options = 'defaults'
+        expected = "%s %s %s %s 0 0\n" % (disk_info['path'],
+                                          mount_info['path'],
+                                          fs_info['fstype'], options)
+
+        mock_write_file.assert_called_with(fstab, expected, omode='a')
+
+    def test_mount_handler_appends_to_fstab(self):
+        """Test mount_handler appends fstab lines to existing file"""
+        fstab = self.tmp_path('fstab')
+        with open(fstab, 'w') as fh:
+            fh.write("#curtin-test\n")
+
+        self.mock_load_env.return_value = {'fstab': fstab,
+                                           'target': self.target}
+        disk_info = self.storage_config.get('sda')
+        fs_info = self.storage_config.get('sda1-root')
+        mount_info = self.storage_config.get('sda-part1-mnt-root-ro')
+        mount_info['options'] = ''
+
+        self.mock_getpath.return_value = '/wark/xxx'
+        self.mock_volpath_is_iscsi.return_value = False
+        self.mock_block_get_volume_uuid.return_value = None
+
+        block_meta.mount_handler(mount_info, self.storage_config)
+        options = 'defaults'
+        expected = "#curtin-test\n%s %s %s %s 0 0\n" % (disk_info['path'],
+                                                        mount_info['path'],
+                                                        fs_info['fstype'],
+                                                        options)
+
+        with open(fstab, 'r') as fh:
+            rendered_fstab = fh.read()
+
+        print(rendered_fstab)
+        self.assertEqual(rendered_fstab, expected)
