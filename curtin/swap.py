@@ -1,6 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
+import resource
 
 from .log import LOG
 from . import util
@@ -93,4 +94,18 @@ def setup_swapfile(target, fstab=None, swapfile=None, size=None, maxsize=None):
         os.unlink(fpath)
         raise
 
+
+def is_swap_device(path):
+    """
+    Determine if specified device is a swap device.  Linux swap devices write
+    a magic header value on kernel PAGESIZE - 10.
+
+    https://github.com/torvalds/linux/blob/master/include/linux/swap.h#L111
+    """
+    LOG.debug('Checking if %s is a swap device', path)
+    swap_magic_offset = resource.getpagesize() - 10
+    magic = util.load_file(path, read_len=10, offset=swap_magic_offset,
+                           decode=False)
+    LOG.debug('Found swap magic: %s' % magic)
+    return magic in [b'SWAPSPACE2', b'SWAP-SPACE']
 # vi: ts=4 expandtab syntax=python

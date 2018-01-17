@@ -700,4 +700,26 @@ class TestClearHolders(CiTestCase):
             self.assertNotIn(mock.call('zfs'),
                              mock_util.load_kernel_module.call_args_list)
 
+    @mock.patch('curtin.block.clear_holders.util')
+    def test_shutdown_swap_calls_swapoff(self, mock_util):
+        """clear_holders.shutdown_swap() calls swapoff on active swap device"""
+        blockdev = '/mydev/dummydisk'
+        mock_util.load_file.return_value = textwrap.dedent("""\
+            Filename				Type		Size	Used	Priority
+            %s        disk		4194300	53508	-1
+        """ % blockdev)
+        clear_holders.shutdown_swap(blockdev)
+        mock_util.subp.assert_called_with(['swapoff', blockdev])
+
+    @mock.patch('curtin.block.clear_holders.util')
+    def test_shutdown_swap_skips_nomatch(self, mock_util):
+        """clear_holders.shutdown_swap() ignores unmatched swapdevices"""
+        blockdev = '/mydev/dummydisk'
+        mock_util.load_file.return_value = textwrap.dedent("""\
+            Filename				Type		Size	Used	Priority
+            /foobar/wark            disk		4194300	53508	-1
+        """)
+        clear_holders.shutdown_swap(blockdev)
+        self.assertEqual(0, mock_util.subp.call_count)
+
 # vi: ts=4 expandtab syntax=python

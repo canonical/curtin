@@ -11,6 +11,7 @@ import os
 import time
 
 from curtin import (block, udev, util)
+from curtin.swap import is_swap_device
 from curtin.block import lvm
 from curtin.block import mdadm
 from curtin.block import zfs
@@ -251,6 +252,9 @@ def wipe_superblock(device):
             poolname = zfs.device_to_poolname(blockdev)
             zfs.zpool_export(poolname)
 
+        if is_swap_device(blockdev):
+            shutdown_swap(blockdev)
+
         # some volumes will be claimed by the bcache layer but do not surface
         # an actual /dev/bcacheN device which owns the parts (backing, cache)
         # The result is that some volumes cannot be wiped while bcache claims
@@ -320,6 +324,18 @@ def identify_partition(device):
     """
     path = os.path.join(block.sys_block_path(device), 'partition')
     return os.path.exists(path)
+
+
+def shutdown_swap(path):
+    """release swap device from kernel swap pool if present"""
+    procswaps = util.load_file('/proc/swaps')
+    for swapline in procswaps.splitlines():
+        if swapline.startswith(path):
+            msg = ('Removing %s from active use as swap device, '
+                   'needed for storage config' % path)
+            LOG.warning(msg)
+            util.subp(['swapoff', path])
+            return
 
 
 def get_holders(device):
