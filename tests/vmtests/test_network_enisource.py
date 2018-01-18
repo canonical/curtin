@@ -93,8 +93,4 @@ class XenialTestNetworkENISource(relbase.xenial, TestNetworkENISource):
     __test__ = True
 
 
-class ZestyTestNetworkENISource(relbase.zesty, TestNetworkENISource):
-    __test__ = True
-
-
 # Artful and later are deliberately not present.  They do not have ifupdown.

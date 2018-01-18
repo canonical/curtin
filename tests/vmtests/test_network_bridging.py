@@ -218,10 +218,6 @@ class Centos70TestBridgeNetwork(centos_relbase.centos70fromxenial,
 
 # only testing Yakkety or newer as older releases do not yet
 # have updated ifupdown/bridge-utils packages;
-class ZestyTestBridging(relbase.zesty, TestBridgeNetworkAbs):
-    __test__ = True
-
-
 class ArtfulTestBridging(relbase.artful, TestBridgeNetworkAbs):
     __test__ = True
 
