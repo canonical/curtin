@@ -1,3 +1,15 @@
+curtin (17.1-11-ga4c9636b-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - tests: cleanup the apt custom sources test.
+    - apt: Be more lenient when replacing mirrors in /etc/apt/sources.list
+      (LP: #1744038)
+    - vmtest: Drop Zesty release
+    - vmtest: initialize logger with class names for easy parsing
+    - packaging: Do not mention primary contributors in debian/changelog.
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 18 Jan 2018 16:28:50 -0500
+
 curtin (17.1-6-g8b145067-0ubuntu1) bionic; urgency=medium
 
   * New upstream snapshot.
