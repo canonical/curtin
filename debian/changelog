@@ -1,4 +1,4 @@
-curtin (17.1-11-ga4c9636b-0ubuntu1~16.04.1) UNRELEASED; urgency=medium
+curtin (17.1-11-ga4c9636b-0ubuntu1~16.04.1) xenial; urgency=medium
 
   * New upstream snapshot. (LP: #1743618)
     - tests: cleanup the apt custom sources test.
@@ -7,7 +7,7 @@ curtin (17.1-11-ga4c9636b-0ubuntu1~16.04.1) UNRELEASED; urgency=medium
     - vmtest: initialize logger with class names for easy parsing
     - packaging: Do not mention primary contributors in debian/changelog.
 
- -- Ryan Harper <ryan.harper@canonical.com>  Thu, 18 Jan 2018 15:25:30 -0600
+ -- Ryan Harper <ryan.harper@canonical.com>  Thu, 18 Jan 2018 15:30:09 -0600
 
 curtin (17.1-6-g8b145067-0ubuntu1~16.04.1) xenial; urgency=medium
 
