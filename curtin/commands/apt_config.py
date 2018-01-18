@@ -232,7 +232,12 @@ def mirror_to_placeholder(tmpl, mirror, placeholder):
         Checks for existance of the expected mirror and warns if not found
     """
     if mirror not in tmpl:
-        LOG.warn("Expected mirror '%s' not found in: %s", mirror, tmpl)
+        if mirror.endswith("/") and mirror[:-1] in tmpl:
+            LOG.debug("mirror_to_placeholder: '%s' did not exist in tmpl, "
+                      "did without a trailing /.  Accomodating.", mirror)
+            mirror = mirror[:-1]
+        else:
+            LOG.warn("Expected mirror '%s' not found in: %s", mirror, tmpl)
     return tmpl.replace(mirror, placeholder)
 
 

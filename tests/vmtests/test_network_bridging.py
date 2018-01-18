@@ -1,4 +1,3 @@
-from . import logger
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 from .test_network import TestNetworkBaseTestsAbs
@@ -154,7 +153,7 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
                 if self._network_renderer() == "systemd-networkd":
                     reason = ("%s: skip until lp#1668347"
                               " is fixed" % self.__class__)
-                    logger.warn('Skipping: %s', reason)
+                    self.logger.warn('Skipping: %s', reason)
                     print(reason)
                     return
 
@@ -203,7 +202,7 @@ class CentosTestBridgeNetworkAbs(TestBridgeNetworkAbs):
     def test_bridge_utils_installed(self):
         self.output_files_exist(["bridge-utils_installed"])
         status = self.load_collect_file("bridge-utils_installed").strip()
-        logger.debug('bridge-utils installed: {}'.format(status))
+        self.logger.debug('bridge-utils installed: {}'.format(status))
         self.assertTrue('bridge' in status)
 
 
@@ -219,10 +218,6 @@ class Centos70TestBridgeNetwork(centos_relbase.centos70fromxenial,
 
 # only testing Yakkety or newer as older releases do not yet
 # have updated ifupdown/bridge-utils packages;
-class ZestyTestBridging(relbase.zesty, TestBridgeNetworkAbs):
-    __test__ = True
-
-
 class ArtfulTestBridging(relbase.artful, TestBridgeNetworkAbs):
     __test__ = True
 

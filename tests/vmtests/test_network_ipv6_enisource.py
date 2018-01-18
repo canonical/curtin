@@ -25,8 +25,4 @@ class XenialTestNetworkIPV6ENISource(relbase.xenial, TestNetworkIPV6ENISource):
     __test__ = True
 
 
-class ZestyTestNetworkIPV6ENISource(relbase.zesty, TestNetworkIPV6ENISource):
-    __test__ = True
-
-
 # Artful and later are deliberately not present.  They do not have ifupdown.

@@ -59,10 +59,6 @@ class XenialTestNetworkStatic(relbase.xenial, TestNetworkStaticAbs):
     __test__ = True
 
 
-class ZestyTestNetworkStatic(relbase.zesty, TestNetworkStaticAbs):
-    __test__ = True
-
-
 class ArtfulTestNetworkStatic(relbase.artful, TestNetworkStaticAbs):
     __test__ = True
 

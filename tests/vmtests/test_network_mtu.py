@@ -188,10 +188,6 @@ class TestNetworkMtu(relbase.xenial, TestNetworkMtuAbs):
     __test__ = True
 
 
-class ZestyTestNetworkMtu(relbase.zesty, TestNetworkMtuAbs):
-    __test__ = True
-
-
 class ArtfulTestNetworkMtu(relbase.artful, TestNetworkMtuAbs):
     __test__ = True
 

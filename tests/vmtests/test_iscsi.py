@@ -63,10 +63,6 @@ class XenialEdgeTestIscsiBasic(relbase.xenial_edge, TestBasicIscsiAbs):
     __test__ = True
 
 
-class ZestyTestIscsiBasic(relbase.zesty, TestBasicIscsiAbs):
-    __test__ = True
-
-
 class ArtfulTestIscsiBasic(relbase.artful, TestBasicIscsiAbs):
     __test__ = True
 

@@ -144,10 +144,6 @@ class XenialEdgeTestMdadmBcache(relbase.xenial_edge, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class ZestyTestMdadmBcache(relbase.zesty, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 class ArtfulTestMdadmBcache(relbase.artful, TestMdadmBcacheAbs):
     __test__ = True
 
@@ -193,10 +189,6 @@ class XenialHWETestMirrorboot(relbase.xenial_hwe, TestMirrorbootAbs):
 
 
 class XenialEdgeTestMirrorboot(relbase.xenial_edge, TestMirrorbootAbs):
-    __test__ = True
-
-
-class ZestyTestMirrorboot(relbase.zesty, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -249,11 +241,6 @@ class XenialHWETestMirrorbootPartitions(relbase.xenial_hwe,
 
 class XenialEdgeTestMirrorbootPartitions(relbase.xenial_edge,
                                          TestMirrorbootPartitionsAbs):
-    __test__ = True
-
-
-class ZestyTestMirrorbootPartitions(relbase.zesty,
-                                    TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
@@ -310,11 +297,6 @@ class XenialEdgeTestMirrorbootPartitionsUEFI(relbase.xenial_edge,
     __test__ = True
 
 
-class ZestyTestMirrorbootPartitionsUEFI(relbase.zesty,
-                                        TestMirrorbootPartitionsUEFIAbs):
-    __test__ = True
-
-
 class ArtfulTestMirrorbootPartitionsUEFI(relbase.artful,
                                          TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
@@ -363,10 +345,6 @@ class XenialHWETestRaid5boot(relbase.xenial_hwe, TestRaid5bootAbs):
 
 
 class XenialEdgeTestRaid5boot(relbase.xenial_edge, TestRaid5bootAbs):
-    __test__ = True
-
-
-class ZestyTestRaid5boot(relbase.zesty, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -431,10 +409,6 @@ class XenialEdgeTestRaid6boot(relbase.xenial_edge, TestRaid6bootAbs):
     __test__ = True
 
 
-class ZestyTestRaid6boot(relbase.zesty, TestRaid6bootAbs):
-    __test__ = True
-
-
 class ArtfulTestRaid6boot(relbase.artful, TestRaid6bootAbs):
     __test__ = True
 
@@ -481,10 +455,6 @@ class XenialHWETestRaid10boot(relbase.xenial_hwe, TestRaid10bootAbs):
 
 
 class XenialEdgeTestRaid10boot(relbase.xenial_edge, TestRaid10bootAbs):
-    __test__ = True
-
-
-class ZestyTestRaid10boot(relbase.zesty, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -594,10 +564,6 @@ class XenialHWETestAllindata(relbase.xenial_hwe, TestAllindataAbs):
 
 
 class XenialEdgeTestAllindata(relbase.xenial_edge, TestAllindataAbs):
-    __test__ = True
-
-
-class ZestyTestAllindata(relbase.zesty, TestAllindataAbs):
     __test__ = True
 
 

@@ -91,10 +91,6 @@ class XenialEdgeTestNvme(relbase.xenial_edge, TestNvmeAbs):
     __test__ = True
 
 
-class ZestyTestNvme(relbase.zesty, TestNvmeAbs):
-    __test__ = True
-
-
 class ArtfulTestNvme(relbase.artful, TestNvmeAbs):
     __test__ = True
 
@@ -181,10 +177,6 @@ class XenialHWETestNvmeBcache(relbase.xenial_hwe, TestNvmeBcacheAbs):
 
 
 class XenialEdgeTestNvmeBcache(relbase.xenial_edge, TestNvmeBcacheAbs):
-    __test__ = True
-
-
-class ZestyTestNvmeBcache(relbase.zesty, TestNvmeBcacheAbs):
     __test__ = True
 
 

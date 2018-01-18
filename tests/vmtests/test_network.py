@@ -1,4 +1,4 @@
-from . import VMBaseClass, logger, helpers
+from . import VMBaseClass, helpers
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 
@@ -69,7 +69,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         eni_cfg = ""
 
         eni = self.load_collect_file("interfaces")
-        logger.debug('etc/network/interfaces:\n{}'.format(eni))
+        self.logger.debug('etc/network/interfaces:\n{}'.format(eni))
 
         # we don't use collect_path as we're building a glob
         eni_dir = os.path.join(self.td.collect, "interfaces.d", "*.cfg")
@@ -106,7 +106,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
                 'network passthrough not available on %s' % self.__class__)
 
         eni, eni_cfg = self.read_eni()
-        logger.debug('etc/network/interfaces:\n{}'.format(eni))
+        self.logger.debug('etc/network/interfaces:\n{}'.format(eni))
         expected_eni = self.get_expected_etc_network_interfaces()
 
         eni_lines = eni.split('\n') + eni_cfg.split('\n')
@@ -172,13 +172,13 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         }
         resolvconfpath = render2resolvconf.get(self._network_renderer(), None)
         self.assertTrue(resolvconfpath is not None)
-        logger.debug('Selected path to resolvconf: %s', resolvconfpath)
+        self.logger.debug('Selected path to resolvconf: %s', resolvconfpath)
 
         resolvconf = self.load_collect_file(resolvconfpath)
-        logger.debug('etc/resolv.conf:\n{}'.format(resolvconf))
+        self.logger.debug('etc/resolv.conf:\n{}'.format(resolvconf))
 
         resolv_lines = resolvconf.split('\n')
-        logger.debug('resolv.conf lines:\n{}'.format(resolv_lines))
+        self.logger.debug('resolv.conf lines:\n{}'.format(resolv_lines))
         # resolv.conf
         '''
         nameserver X.Y.Z.A
@@ -202,7 +202,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             search: foo.bar
         '''
         expected_ifaces = self.get_expected_etc_resolvconf()
-        logger.debug('parsed eni ifaces:\n{}'.format(expected_ifaces))
+        self.logger.debug('parsed eni ifaces:\n{}'.format(expected_ifaces))
 
         def _mk_dns_lines(dns_type, config):
             """ nameservers get a line per ns
@@ -225,7 +225,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             for k, v in iface.get('dns', {}).items():
                 print('k=%s v=%s' % (k, v))
                 for dns_line in _mk_dns_lines(k, v):
-                    logger.debug('dns_line:%s', dns_line)
+                    self.logger.debug('dns_line:%s', dns_line)
                     self.assertTrue(dns_line in resolv_lines)
 
     def test_static_routes(self):
@@ -263,24 +263,24 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
     def test_ip_output(self):
         '''check iproute2 'ip a' output with test input'''
         network_state = self.get_network_state()
-        logger.debug('expected_network_state:\n{}'.format(
+        self.logger.debug('expected_network_state:\n{}'.format(
             yaml.dump(network_state, default_flow_style=False, indent=4)))
 
         ip_a = self.load_collect_file("ip_a")
-        logger.debug('ip a:\n{}'.format(ip_a))
+        self.logger.debug('ip a:\n{}'.format(ip_a))
 
         ip_dict = helpers.ip_a_to_dict(ip_a)
         print('parsed ip_a dict:\n{}'.format(
             yaml.dump(ip_dict, default_flow_style=False, indent=4)))
 
         route_n = self.load_collect_file("route_n")
-        logger.debug("route -n:\n{}".format(route_n))
+        self.logger.debug("route -n:\n{}".format(route_n))
 
         route_6_n = self.load_collect_file("route_6_n")
-        logger.debug("route -6 -n:\n{}".format(route_6_n))
+        self.logger.debug("route -6 -n:\n{}".format(route_6_n))
 
         ip_route_show = self.load_collect_file("ip_route_show")
-        logger.debug("ip route show:\n{}".format(ip_route_show))
+        self.logger.debug("ip route show:\n{}".format(ip_route_show))
         for line in [line for line in ip_route_show.split('\n')
                      if 'src' in line and not line.startswith('default')]:
             print('ip_route_show: line: %s' % line)
@@ -292,7 +292,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
                           line)
             if m:
                 route_info = m.groupdict('')
-                logger.debug(route_info)
+                self.logger.debug(route_info)
             else:
                 raise ValueError('Failed match ip_route_show line: %s' % line)
 
@@ -399,8 +399,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             configured_gws = __find_gw_config(subnet)
             print('iface:%s configured_gws: %s' % (ifname, configured_gws))
             for gw_ip in configured_gws:
-                logger.debug('found a gateway in subnet config: %s',
-                             gw_ip)
+                self.logger.debug('found a gateway in subnet config: %s',
+                                  gw_ip)
                 if ":" in gw_ip:
                     route_d = routes['6']
                 else:
@@ -408,8 +408,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
 
                 found_gws = [line for line in route_d.split('\n')
                              if 'UG' in line and gw_ip in line]
-                logger.debug('found gateways in guest output:\n%s',
-                             found_gws)
+                self.logger.debug('found gateways in guest output:\n%s',
+                                  found_gws)
 
                 print('found_gws: %s\nexpected: %s' % (found_gws,
                                                        configured_gws))
@@ -422,8 +422,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
                     else:
                         (dest, gw, genmask, flags, metric, ref, use, iface) = \
                             fgw.split()
-                    logger.debug('configured gw:%s found gw:%s', gw_ip,
-                                 gw)
+                    self.logger.debug('configured gw:%s found gw:%s',
+                                      gw_ip, gw)
                     self.assertEqual(gw_ip, gw)
 
 
@@ -476,10 +476,6 @@ class TrustyHWEXTestNetworkBasic(relbase.trusty_hwe_x, TrustyTestNetworkBasic):
 
 
 class XenialTestNetworkBasic(relbase.xenial, TestNetworkBasicAbs):
-    __test__ = True
-
-
-class ZestyTestNetworkBasic(relbase.zesty, TestNetworkBasicAbs):
     __test__ = True
 
 
