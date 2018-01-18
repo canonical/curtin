@@ -50,6 +50,8 @@ BOOT_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_BOOT_TIMEOUT", 300))
 INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
 REUSE_TOPDIR = bool(int(os.environ.get("CURTIN_VMTEST_REUSE_TOPDIR", 0)))
 
+_UNSUPPORTED_UBUNTU = None
+
 _TOPDIR = None
 
 UC16_IMAGE = os.path.join(IMAGE_DIR,
@@ -603,6 +605,9 @@ class VMBaseClass(TestCase):
         global logger
         logger = _initialize_logging(name=cls.__name__)
         cls.logger = logger
+
+        if is_unsupported_ubuntu(cls.release):
+            raise SkipTest('"%s" is unsupported release.' % cls.release)
 
         # check if we should skip due to host arch
         if cls.arch in cls.arch_skip:
@@ -1651,6 +1656,24 @@ def get_lan_ip():
     else:
         raise OSError('could not get local ip address')
     return addr
+
+
+def is_unsupported_ubuntu(release):
+    global _UNSUPPORTED_UBUNTU
+    udi = 'ubuntu-distro-info'
+    if _UNSUPPORTED_UBUNTU is None:
+        env = os.environ.get('UNSUPPORTED_UBUNTU')
+        if env:
+            # allow it to be , or " " separated.
+            _UNSUPPORTED_UBUNTU = env.replace(",", " ").split()
+        elif util.which(udi):
+            _UNSUPPORTED_UBUNTU = util.subp(
+                [udi, '--unsupported'], capture=True)[0].splitlines()
+        else:
+            # no way to tell.
+            return None
+
+    return release in _UNSUPPORTED_UBUNTU
 
 
 apply_keep_settings()
