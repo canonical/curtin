@@ -4,10 +4,10 @@ Test templating of custom sources list
 import logging
 import os
 
-
-import yaml
 import mock
 from mock import call
+import textwrap
+import yaml
 
 from curtin import util
 from curtin.commands import apt_config
@@ -162,6 +162,69 @@ class TestAptSourceConfigSourceList(CiTestCase):
                  call(util.target_path(TARGET, cloudfile), cloudconf,
                       mode=0o644)]
         mockwrite.assert_has_calls(calls)
+
+    @mock.patch("curtin.util.lsb_release")
+    @mock.patch("curtin.util.get_architecture", return_value="amd64")
+    def test_trusty_source_lists(self, m_get_arch, m_lsb_release):
+        """Support mirror equivalency with and without trailing /.
+
+        Trusty official images do not have a trailing slash on
+            http://archive.ubuntu.com/ubuntu ."""
+
+        orig_primary = apt_config.PRIMARY_ARCH_MIRRORS['PRIMARY']
+        orig_security = apt_config.PRIMARY_ARCH_MIRRORS['SECURITY']
+        msg = "Test is invalid. %s mirror does not end in a /."
+        self.assertEqual(orig_primary[-1], "/", msg % "primary")
+        self.assertEqual(orig_security[-1], "/", msg % "security")
+        orig_primary = orig_primary[:-1]
+        orig_security = orig_security[:-1]
+
+        m_lsb_release.return_value = {
+            'codename': 'trusty', 'description': 'Ubuntu 14.04.5 LTS',
+            'id': 'Ubuntu', 'release': '14.04'}
+
+        target = self.new_root
+        my_primary = 'http://fixed-primary.ubuntu.com/ubuntu'
+        my_security = 'http://fixed-security.ubuntu.com/ubuntu'
+        cfg = {
+            'preserve_sources_list': False,
+            'primary': [{'arches': ['amd64'], 'uri': my_primary}],
+            'security': [{'arches': ['amd64'], 'uri': my_security}]}
+
+        # this is taken from a trusty image /etc/apt/sources.list
+        tmpl = textwrap.dedent("""\
+            deb {mirror} {release} {comps}
+            deb {mirror} {release}-updates {comps}
+            deb {mirror} {release}-backports {comps}
+            deb {security} {release}-security {comps}
+            # not modified
+            deb http://my.example.com/updates testing main
+            """)
+
+        release = 'trusty'
+        comps = 'main universe multiverse restricted'
+        easl = util.target_path(target, 'etc/apt/sources.list')
+
+        orig_content = tmpl.format(
+            mirror=orig_primary, security=orig_security,
+            release=release, comps=comps)
+        orig_content_slash = tmpl.format(
+            mirror=orig_primary + "/", security=orig_security + "/",
+            release=release, comps=comps)
+        expected = tmpl.format(
+            mirror=my_primary, security=my_security,
+            release=release, comps=comps)
+
+        # Avoid useless test. Make sure the strings don't start out equal.
+        self.assertNotEqual(expected, orig_content)
+
+        util.write_file(easl, orig_content)
+        apt_config.handle_apt(cfg, target)
+        self.assertEqual(expected, util.load_file(easl))
+
+        util.write_file(easl, orig_content_slash)
+        apt_config.handle_apt(cfg, target)
+        self.assertEqual(expected, util.load_file(easl))
 
 
 # vi: ts=4 expandtab
