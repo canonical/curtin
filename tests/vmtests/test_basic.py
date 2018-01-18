@@ -167,10 +167,6 @@ class XenialEdgeTestBasic(relbase.xenial_edge, TestBasicAbs):
     __test__ = True
 
 
-class ZestyTestBasic(relbase.zesty, TestBasicAbs):
-    __test__ = True
-
-
 class ArtfulTestBasic(relbase.artful, TestBasicAbs):
     __test__ = True
 
@@ -285,10 +281,6 @@ class XenialHWETestScsiBasic(relbase.xenial_hwe, TestBasicScsiAbs):
 
 
 class XenialEdgeTestScsiBasic(relbase.xenial_edge, TestBasicScsiAbs):
-    __test__ = True
-
-
-class ZestyTestScsiBasic(relbase.zesty, TestBasicScsiAbs):
     __test__ = True
 
 

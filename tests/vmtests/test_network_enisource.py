@@ -1,4 +1,4 @@
-from . import logger, helpers
+from . import helpers
 from .releases import base_vm_classes as relbase
 from .test_network import TestNetworkBaseTestsAbs
 
@@ -51,16 +51,16 @@ class TestNetworkENISource(TestNetworkBaseTestsAbs):
         subprocess.check_call(cmd, stderr=subprocess.STDOUT)
 
         curtin_ifaces = self.parse_deb_config(interfaces)
-        logger.debug('parsed eni dict:\n{}'.format(
+        self.logger.debug('parsed eni dict:\n{}'.format(
             yaml.dump(curtin_ifaces, default_flow_style=False, indent=4)))
         print('parsed eni dict:\n{}'.format(
             yaml.dump(curtin_ifaces, default_flow_style=False, indent=4)))
 
         ip_a = self.load_collect_file("ip_a")
-        logger.debug('ip a:\n{}'.format(ip_a))
+        self.logger.debug('ip a:\n{}'.format(ip_a))
 
         ip_a_dict = helpers.ip_a_to_dict(ip_a)
-        logger.debug('parsed ip_a dict:\n{}'.format(
+        self.logger.debug('parsed ip_a dict:\n{}'.format(
             yaml.dump(ip_a_dict, default_flow_style=False, indent=4)))
         print('parsed ip_a dict:\n{}'.format(
             yaml.dump(ip_a_dict, default_flow_style=False, indent=4)))
@@ -90,10 +90,6 @@ class TrustyHWEXTestNetworkENISource(relbase.trusty_hwe_x,
 
 
 class XenialTestNetworkENISource(relbase.xenial, TestNetworkENISource):
-    __test__ = True
-
-
-class ZestyTestNetworkENISource(relbase.zesty, TestNetworkENISource):
     __test__ = True
 
 

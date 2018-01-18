@@ -105,10 +105,6 @@ class XenialEdgeUefiTestBasic(relbase.xenial_edge, TestBasicAbs):
     __test__ = True
 
 
-class ZestyUefiTestBasic(relbase.zesty, TestBasicAbs):
-    __test__ = True
-
-
 class ArtfulUefiTestBasic(relbase.artful, TestBasicAbs):
     __test__ = True
 
@@ -126,10 +122,6 @@ class TrustyHWEXUefiTestBasic4k(relbase.trusty_hwe_x, TrustyUefiTestBasic4k):
 
 
 class XenialGAUefiTestBasic4k(XenialGAUefiTestBasic):
-    disk_block_size = 4096
-
-
-class ZestyUefiTestBasic4k(ZestyUefiTestBasic):
     disk_block_size = 4096
 
 

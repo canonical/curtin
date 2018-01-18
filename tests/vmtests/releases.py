@@ -93,10 +93,6 @@ class _XenialEdge(_UbuntuBase):
     subarch = "hwe-16.04-edge"
 
 
-class _ZestyBase(_UbuntuBase):
-    release = "zesty"
-
-
 class _ArtfulBase(_UbuntuBase):
     release = "artful"
 
@@ -116,7 +112,6 @@ class _Releases(object):
     xenial_ga = _XenialGA
     xenial_hwe = _XenialHWE
     xenial_edge = _XenialEdge
-    zesty = _ZestyBase
     artful = _ArtfulBase
     bionic = _BionicBase
 

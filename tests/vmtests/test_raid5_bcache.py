@@ -101,10 +101,6 @@ class XenialEdgeTestRaid5Bcache(relbase.xenial_edge, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class ZestyTestRaid5Bcache(relbase.zesty, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 class ArtfulTestRaid5Bcache(relbase.artful, TestMdadmBcacheAbs):
     __test__ = True
 

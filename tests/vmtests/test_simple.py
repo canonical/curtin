@@ -41,10 +41,6 @@ class XenialTestSimple(relbase.xenial, TestSimple):
     __test__ = True
 
 
-class ZestyTestSimple(relbase.zesty, TestSimple):
-    __test__ = True
-
-
 class ArtfulTestSimple(relbase.artful, TestSimple):
     __test__ = True
 

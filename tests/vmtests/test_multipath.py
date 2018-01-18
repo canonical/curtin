@@ -64,10 +64,6 @@ class XenialEdgeTestMultipathBasic(relbase.xenial_edge, TestMultipathBasicAbs):
     __test__ = True
 
 
-class ZestyTestMultipathBasic(relbase.zesty, TestMultipathBasicAbs):
-    __test__ = True
-
-
 class ArtfulTestMultipathBasic(relbase.artful, TestMultipathBasicAbs):
     __test__ = True
 
