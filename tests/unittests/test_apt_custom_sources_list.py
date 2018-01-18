@@ -137,31 +137,25 @@ class TestAptSourceConfigSourceList(CiTestCase):
 
         self._apt_source_list(cfg, EXPECTED_PRIMSEC_CONTENT)
 
-    @staticmethod
-    def test_apt_srcl_custom():
+    def test_apt_srcl_custom(self):
         """test_apt_srcl_custom - Test rendering a custom source template"""
         cfg = yaml.safe_load(YAML_TEXT_CUSTOM_SL)
+        target = self.new_root
 
         arch = util.get_architecture()
         # would fail inside the unittest context
-        with mock.patch.object(util, 'get_architecture',
-                               return_value=arch) as mockga:
-            with mock.patch.object(util, 'write_file') as mockwrite:
-                # keep it side effect free and avoid permission errors
-                with mock.patch.object(os, 'rename'):
-                    with mock.patch.object(util, 'lsb_release',
-                                           return_value={'codename':
-                                                         'fakerel'}):
-                        apt_config.handle_apt(cfg, TARGET)
+        with mock.patch.object(util, 'get_architecture', return_value=arch):
+            with mock.patch.object(util, 'lsb_release',
+                                   return_value={'codename': 'fakerel'}):
+                apt_config.handle_apt(cfg, target)
 
-        mockga.assert_called_with("/")
-        cloudfile = '/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg'
-        cloudconf = yaml.dump({'apt_preserve_sources_list': True}, indent=1)
-        calls = [call(util.target_path(TARGET, '/etc/apt/sources.list'),
-                      EXPECTED_CONVERTED_CONTENT, mode=0o644),
-                 call(util.target_path(TARGET, cloudfile), cloudconf,
-                      mode=0o644)]
-        mockwrite.assert_has_calls(calls)
+        self.assertEqual(
+            EXPECTED_CONVERTED_CONTENT,
+            util.load_file(util.target_path(target, "/etc/apt/sources.list")))
+        cloudfile = util.target_path(
+            target, '/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg')
+        self.assertEqual({'apt_preserve_sources_list': True},
+                         yaml.load(util.load_file(cloudfile)))
 
     @mock.patch("curtin.util.lsb_release")
     @mock.patch("curtin.util.get_architecture", return_value="amd64")
