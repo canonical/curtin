@@ -63,10 +63,6 @@ class XenialEdgeBcacheBasic(relbase.xenial_edge, TestBcacheBasic):
     __test__ = True
 
 
-class ZestyBcacheBasic(relbase.zesty, TestBcacheBasic):
-    __test__ = True
-
-
 class ArtfulBcacheBasic(relbase.artful, TestBcacheBasic):
     __test__ = True
 

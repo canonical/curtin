@@ -13,10 +13,6 @@ class XenialTestBcacheBug1718699(relbase.xenial, TestBcacheBug1718699):
     __test__ = True
 
 
-class ZestyTestBcacheBug1718699(relbase.zesty, TestBcacheBug1718699):
-    __test__ = True
-
-
 class ArtfulTestBcacheBug1718699(relbase.artful, TestBcacheBug1718699):
     __test__ = True
 

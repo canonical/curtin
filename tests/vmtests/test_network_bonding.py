@@ -1,4 +1,3 @@
-from . import logger
 from .releases import base_vm_classes as relbase
 from .test_network import TestNetworkBaseTestsAbs
 from .releases import centos_base_vm_classes as centos_relbase
@@ -28,7 +27,7 @@ class CentosTestNetworkBondingAbs(TestNetworkBondingAbs):
 
     def test_ifenslave_installed(self):
         status = self.load_collect_file("ifenslave_installed")
-        logger.debug('ifenslave installed: {}'.format(status))
+        self.logger.debug('ifenslave installed: {}'.format(status))
         self.assertTrue('iputils' in status)
 
     def test_etc_network_interfaces(self):
@@ -59,10 +58,6 @@ class TrustyHWEXTestBonding(relbase.trusty_hwe_x, TrustyTestBonding):
 
 
 class XenialTestBonding(relbase.xenial, TestNetworkBondingAbs):
-    __test__ = True
-
-
-class ZestyTestBonding(relbase.zesty, TestNetworkBondingAbs):
     __test__ = True
 
 

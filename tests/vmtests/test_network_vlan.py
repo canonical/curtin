@@ -1,4 +1,3 @@
-from . import logger
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 from .test_network import TestNetworkBaseTestsAbs
@@ -20,9 +19,9 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
 
     def get_vlans(self):
         network_state = self.get_network_state()
-        logger.debug('get_vlans ns:\n%s',
-                     yaml.dump(network_state, default_flow_style=False,
-                               indent=4))
+        self.logger.debug('get_vlans ns:\n%s',
+                          yaml.dump(network_state, default_flow_style=False,
+                                    indent=4))
         interfaces = network_state.get('interfaces')
         return [iface for iface in interfaces.values()
                 if iface['type'] == 'vlan']
@@ -77,10 +76,6 @@ class TrustyHWEXTestNetworkVlan(relbase.trusty_hwe_x, TestNetworkVlanAbs):
 
 
 class XenialTestNetworkVlan(relbase.xenial, TestNetworkVlanAbs):
-    __test__ = True
-
-
-class ZestyTestNetworkVlan(relbase.zesty, TestNetworkVlanAbs):
     __test__ = True
 
 

@@ -67,10 +67,6 @@ class XenialEdgeTestIscsiLvm(relbase.xenial_edge, TestLvmIscsiAbs):
     __test__ = True
 
 
-class ZestyTestIscsiLvm(relbase.zesty, TestLvmIscsiAbs):
-    __test__ = True
-
-
 class ArtfulTestIscsiLvm(relbase.artful, TestLvmIscsiAbs):
     __test__ = True
 
