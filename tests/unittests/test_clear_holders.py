@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 import errno
 import mock
 import os
@@ -661,3 +663,5 @@ class TestClearHolders(CiTestCase):
         mock_mdadm.mdadm_assemble.assert_called_with(
             scan=True, ignore_errors=True)
         mock_util.subp.assert_called_with(['modprobe', 'bcache'], rcs=[0, 1])
+
+# vi: ts=4 expandtab syntax=python

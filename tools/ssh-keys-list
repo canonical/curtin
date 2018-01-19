@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 import argparse
 import subprocess
 import os.path
@@ -72,3 +74,5 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
+# vi: ts=4 expandtab syntax=python

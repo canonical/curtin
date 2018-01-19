@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from email.utils import parsedate
 import json
 import os
@@ -310,6 +312,5 @@ except ImportError:
     except ImportError:
         # we have no oauth libraries available, use oauth_headers_none
         pass
-
 
 # vi: ts=4 expandtab syntax=python

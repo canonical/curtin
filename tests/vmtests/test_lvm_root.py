@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
@@ -153,3 +155,5 @@ class ArtfulTestUefiLvmRootXfs(relbase.artful, TestUefiLvmRootAbs):
         '__BOOTFS_FORMAT__': 'ext4',
         '__ROOTFS_FORMAT__': 'xfs',
     }
+
+# vi: ts=4 expandtab syntax=python

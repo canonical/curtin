@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
@@ -53,3 +55,5 @@ class BionicTestSimple(relbase.bionic, TestSimple):
 
     def test_output_files_exist(self):
         self.output_files_exist(["netplan.yaml"])
+
+# vi: ts=4 expandtab syntax=python

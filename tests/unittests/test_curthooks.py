@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 import os
 from mock import call, patch, MagicMock
 
@@ -805,6 +807,5 @@ class TestCurthooksWriteFiles(CiTestCase):
             content=expected_cfg['file1']['content'], owner='-1:-1',
             path=cc_target + expected_cfg['file1']['path'],
             perms='0644')
-
 
 # vi: ts=4 expandtab syntax=python

@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from . import (VMBaseClass)
 
 from .releases import base_vm_classes as relbase
@@ -131,3 +133,5 @@ class ArtfulUefiTestBasic4k(ArtfulUefiTestBasic):
 
 class BionicUefiTestBasic4k(BionicUefiTestBasic):
     disk_block_size = 4096
+
+# vi: ts=4 expandtab syntax=python

@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from unittest import skipIf
 import mock
 import os
@@ -900,6 +902,5 @@ class TestUsesSystemd(CiTestCase):
         self.mock_isdir.return_value = False
         result = util.uses_systemd()
         self.assertEqual(False, result)
-
 
 # vi: ts=4 expandtab syntax=python

@@ -1,19 +1,4 @@
-#   Copyright (C) 2016 Canonical Ltd.
-#
-#   Author: Wesley Wiedenmeier <wesley.wiedenmeier@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 """
 This module provides a mechanism for shutting down virtual storage layers on
@@ -541,3 +526,5 @@ DATA_DESTROYING_HANDLERS = [wipe_superblock]
 # types of devices that could be encountered by clear holders and functions to
 # identify them and shut them down
 DEV_TYPES = _define_handlers_registry()
+
+# vi: ts=4 expandtab syntax=python

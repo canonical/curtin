@@ -1,4 +1,5 @@
 #!/bin/bash
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 set -o pipefail
 
@@ -192,4 +193,5 @@ main() {
 }
 
 main "$@"
-# vi: ts=4 expandtab
+
+# vi: ts=4 expandtab syntax=shell

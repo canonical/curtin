@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from . import helpers
 from .releases import base_vm_classes as relbase
 from .test_network import TestNetworkBaseTestsAbs
@@ -92,5 +94,6 @@ class TrustyHWEXTestNetworkENISource(relbase.trusty_hwe_x,
 class XenialTestNetworkENISource(relbase.xenial, TestNetworkENISource):
     __test__ = True
 
-
 # Artful and later are deliberately not present.  They do not have ifupdown.
+
+# vi: ts=4 expandtab syntax=python

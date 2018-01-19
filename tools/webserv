@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 # python2 or python3 web server.
 # Usage: webserv [port [dir]]
 #  run a webserver serving 'dir' at root on 'port'
@@ -32,3 +34,5 @@ if __name__ == "__main__":
     sys.stdout.write("%s %s\n" % (host, port))
     sys.stdout.flush()
     server.serve_forever()
+
+# vi: ts=4 expandtab syntax=python

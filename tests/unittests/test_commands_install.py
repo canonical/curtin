@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 import copy
 
 from curtin.commands import install
@@ -20,3 +22,5 @@ class TestMigrateProxy(CiTestCase):
         expected = copy.deepcopy(cfg)
         install.migrate_proxy_settings(cfg)
         self.assertEqual(expected, cfg)
+
+# vi: ts=4 expandtab syntax=python

@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from mock import call, patch
 import textwrap
 
@@ -157,3 +159,5 @@ class TestCurtinGpg(CiTestCase):
         mock_recv.assert_has_calls([
             call(key, keyserver=keyserver, retries=None)])
         mock_del.assert_has_calls([call(key)])
+
+# vi: ts=4 expandtab syntax=python

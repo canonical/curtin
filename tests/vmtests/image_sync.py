@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 from simplestreams import util as sutil
 from simplestreams import contentsource

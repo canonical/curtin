@@ -1,19 +1,4 @@
-#   Copyright (C) 2015 Canonical Ltd.
-#
-#   Author: Ryan Harper <ryan.harper@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
 from curtin import util
@@ -73,6 +58,5 @@ def udevadm_trigger(devices):
         devices = []
     util.subp(['udevadm', 'trigger'] + list(devices))
     udevadm_settle()
-
 
 # vi: ts=4 expandtab syntax=python

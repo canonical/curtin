@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from unittest import TestCase
 
 from curtin import version
@@ -185,6 +187,5 @@ def remove_pyc_for_file(py_path):
     for pyc in [without_py + ".pyc"] + glob.glob(pycache_wildcard):
         if os.path.exists(pyc):
             os.unlink(pyc)
-
 
 # vi: ts=4 expandtab syntax=python

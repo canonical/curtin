@@ -1,4 +1,5 @@
 #!/bin/bash
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 topdir="${CURTIN_VMTEST_TOPDIR:-${WORKSPACE:-$PWD}/output}"
 pkeep=${CURTIN_VMTEST_KEEP_DATA_PASS:-logs,collect}
@@ -123,4 +124,4 @@ end_s=$(date +%s)
 echo "$(date -R): vmtest end [$ret] in $(($end_s-$start_s))s"
 exit $ret
 
-# vi: ts=4 expandtab syntax=sh
+# vi: ts=4 expandtab syntax=shell

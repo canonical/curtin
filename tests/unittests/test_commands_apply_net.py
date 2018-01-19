@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from mock import patch, call
 import copy
 import os
@@ -332,3 +334,5 @@ class TestApplyNetRemoveLegacyEth0(CiTestCase):
         mock_ospath.exists.assert_called_with(cfg)
         self.assertEqual(0, mock_load.call_count)
         self.assertEqual(0, mock_del.call_count)
+
+# vi: ts=4 expandtab syntax=python

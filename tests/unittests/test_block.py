@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 import functools
 import os
 import mock
@@ -618,6 +620,5 @@ class TestSlaveKnames(CiTestCase):
         self._prepare_mocks(device, cfg)
         knames = block.get_device_slave_knames(device)
         self.assertEqual(slaves, knames)
-
 
 # vi: ts=4 expandtab syntax=python

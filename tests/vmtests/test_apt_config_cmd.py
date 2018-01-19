@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 """ test_apt_config_cmd
     Collection of tests for the apt configuration features when called via the
     apt-config standalone command.
@@ -61,3 +63,5 @@ class ArtfulTestAptConfigCMDCMD(relbase.artful, TestAptConfigCMD):
 
 class BionicTestAptConfigCMDCMD(relbase.bionic, TestAptConfigCMD):
     __test__ = True
+
+# vi: ts=4 expandtab syntax=python

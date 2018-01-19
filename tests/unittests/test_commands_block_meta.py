@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from mock import patch, call
 from argparse import Namespace
 
@@ -318,3 +320,5 @@ class TestBlockMeta(CiTestCase):
 
         print(rendered_fstab)
         self.assertEqual(rendered_fstab, expected)
+
+# vi: ts=4 expandtab syntax=python

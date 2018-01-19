@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 import socket
 try:
     # python2
@@ -184,3 +186,5 @@ def mainloop():
 
 if __name__ == "__main__":
     mainloop()
+
+# vi: ts=4 expandtab syntax=python

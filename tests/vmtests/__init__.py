@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 import atexit
 import datetime
 import errno
@@ -1653,3 +1655,5 @@ def get_lan_ip():
 
 apply_keep_settings()
 logger = _initialize_logging()
+
+# vi: ts=4 expandtab syntax=python

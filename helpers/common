@@ -1,4 +1,6 @@
 #!/bin/bash
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 TEMP_D=""
 CR="
 "
@@ -729,4 +731,4 @@ install_grub() {
     return
 }
 
-# vi: ts=4 expandtab syntax=sh
+# vi: ts=4 expandtab syntax=shell
