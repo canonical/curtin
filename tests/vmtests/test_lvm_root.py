@@ -136,8 +136,7 @@ class XenialTestUefiLvmRootXfsBootXfs(relbase.xenial, TestUefiLvmRootAbs):
 
     @classmethod
     def setUpClass(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "1652822",
-                         fixby=(2018, 1, 20), removeby=(2018, 2, 23))
+        cls.skip_by_date("1652822", fixby="2018-02-26")
         super().setUpClass()
 
 

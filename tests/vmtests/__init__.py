@@ -545,15 +545,35 @@ class VMBaseClass(TestCase):
         return disks
 
     @classmethod
-    def skip_by_date(cls, clsname, release, bugnum, fixby, removeby):
-        if datetime.date.today() < datetime.date(*fixby):
+    def skip_by_date(cls, bugnum, fixby, removeby=None,
+                     release=None, name=None):
+        """Raise SkipTest with bug message until 'fixby'.
+           Raise RutimeError after removeby.
+           fixby and removeby support string (2018-01-01) or tuple(2018,01,01)
+           removeby defaults to 3 weeks after fixby.
+           """
+        def astuple(date):
+            if not isinstance(date, str):
+                return date
+            return tuple([int(d) for d in date.split("-")])
+
+        if removeby is None:
+            # give 3 weeks by default.
+            removeby = datetime.date(*astuple(fixby)) + datetime.timedelta(21)
+
+        if release is None:
+            release = cls.release
+
+        if name is None:
+            name = cls.__name__
+
+        if datetime.date.today() < datetime.date(*astuple(fixby)):
             raise SkipTest(
-                "LP: #%s not expected to be fixed in %s yet" % (bugnum,
-                                                                release))
-        if datetime.date.today() > datetime.date(*removeby):
+                "[%s] LP: #%s is not expected to be fixed in %s yet" %
+                (name, bugnum, release))
+        if datetime.date.today() > datetime.date(*astuple(fixby)):
             raise RuntimeError(
-                "Please remove the LP: #%s workaround in %s",
-                bugnum, clsname)
+                "[%s] Please remove workaround for LP: #%s" % (name, bugnum))
 
     @classmethod
     def get_config_smp(cls):

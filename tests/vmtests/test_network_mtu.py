@@ -195,8 +195,7 @@ class ArtfulTestNetworkMtu(relbase.artful, TestNetworkMtuAbs):
 
     @classmethod
     def setUpClass(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "1671951",
-                         fixby=(2018, 1, 20), removeby=(2018, 2, 23))
+        cls.skip_by_date("1671952", fixby="2018-02-26")
         super().setUpClass()
 
 
@@ -205,8 +204,7 @@ class BionicTestNetworkMtu(relbase.bionic, TestNetworkMtuAbs):
 
     @classmethod
     def setUpClass(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "1671951",
-                         fixby=(2018, 1, 20), removeby=(2018, 2, 23))
+        cls.skip_by_date("1671952", fixby="2018-02-26")
         super().setUpClass()
 
 
