@@ -1055,6 +1055,7 @@ def detect_required_packages_mapping():
                 'xfs': ['xfsprogs'],
                 'zfs': ['zfsutils-linux', 'zfs-initramfs'],
                 'zpool': ['zfsutils-linux', 'zfs-initramfs'],
+                'zfsroot': ['zfsutils-linux', 'zfs-initramfs'],
             },
         },
     }

@@ -69,13 +69,13 @@ storage:
    #
    # Create a filesystem dataset for rootfs and mount it
    #
-   # zfs create -o canmount=noauto -o mountpoint=/ rpool/ROOT/ubuntu
+   # zfs create -o canmount=noauto -o mountpoint=/ rpool/ROOT/zfsroot
    # if properties.canmount == 'noauto':
-   #   zfs mount rpool/ROOT/ubuntu
+   #   zfs mount rpool/ROOT/zfsroot
    - type: zfs
      id: sda_rootpool_rootfs
      pool: sda_rootpool
-     volume: /ROOT/ubuntu
+     volume: /ROOT/zfsroot
      properties:
        canmount: 'noauto'
        mountpoint: /

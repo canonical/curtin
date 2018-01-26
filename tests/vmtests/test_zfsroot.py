@@ -47,9 +47,9 @@ class TestZfsRootAbs(VMBaseClass):
         self.assertEquals(blkid_info["PTTYPE"], "gpt")
 
     def test_zfs_list(self):
-        """Check rpoot/ROOT/ubuntu is mounted at slash"""
+        """Check rpoot/ROOT/zfsroot is mounted at slash"""
         self.output_files_exist(['zfs_list'])
-        self.check_file_regex('zfs_list', r"rpool/ROOT/ubuntu.*/\n")
+        self.check_file_regex('zfs_list', r"rpool/ROOT/zfsroot.*/\n")
 
     def test_env_has_zpool_vdev_name_path(self):
         """Target env has ZPOOL_VDEV_NAME_PATH=1 set"""
@@ -62,7 +62,7 @@ class TestZfsRootAbs(VMBaseClass):
     def test_proc_cmdline_has_root_zfs(self):
         """Check /proc/cmdline has root=ZFS=<pool>"""
         self.output_files_exist(['proc_cmdline'])
-        self.check_file_regex('proc_cmdline', r"root=ZFS=rpool/ROOT/ubuntu")
+        self.check_file_regex('proc_cmdline', r"root=ZFS=rpool/ROOT/zfsroot")
 
 
 class XenialGATestZfsRoot(relbase.xenial_ga, TestZfsRootAbs):
@@ -82,4 +82,12 @@ class ArtfulTestZfsRoot(relbase.artful, TestZfsRootAbs):
 
 
 class BionicTestZfsRoot(relbase.bionic, TestZfsRootAbs):
+    __test__ = True
+
+
+class TestZfsRootFsTypeAbs(TestZfsRootAbs):
+    conf_file = "examples/tests/basic-zfsroot.yaml"
+
+
+class XenialGATestZfsRootFsType(relbase.xenial_ga, TestZfsRootFsTypeAbs):
     __test__ = True

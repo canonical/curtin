@@ -686,7 +686,7 @@ passed to the ZFS dataset creation command.
  - type: zfs
    id: sda_rootpool_rootfs
    pool: sda_rootpool
-   volume: /ROOT/ubuntu
+   volume: /ROOT/zfsroot
    properties:
      canmount: noauto
      mountpoint: /
@@ -1091,7 +1091,7 @@ ZFS Root
              canmount: noauto
              mountpoint: /
          type: zfs
-         volume: /ROOT/ubuntu
+         volume: /ROOT/zfsroot
      -   id: disk1_rootpool_home
          pool: disk1_rootpool
          properties:

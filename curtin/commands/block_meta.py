@@ -596,6 +596,7 @@ def partition_handler(info, storage_config):
 
 def format_handler(info, storage_config):
     volume = info.get('volume')
+    LOG.debug('WARK: format: info: %s', info)
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
                          info.get('id'))
@@ -1238,6 +1239,91 @@ def extract_storage_ordered_dict(config):
     return OrderedDict((d["id"], d) for (i, d) in enumerate(scfg))
 
 
+def zfsroot_update_storage_config(storage_config):
+    """Return an OrderedDict that has 'zfsroot' format expanded into
+       zpool and zfs commands to enable ZFS on rootfs.
+    """
+
+    zfsroots = [d for i, d in storage_config.items()
+                if d.get('fstype') == "zfsroot"]
+
+    if len(zfsroots) == 0:
+        return storage_config
+
+    if len(zfsroots) > 1:
+        raise ValueError(
+            "zfsroot found in two entries in storage config: %s" % zfsroots)
+
+    root = zfsroots[0]
+    vol = root.get('volume')
+    if not vol:
+        raise ValueError("zfsroot entry did not have 'volume'.")
+
+    if vol not in storage_config:
+        raise ValueError(
+            "zfs volume '%s' not referenced in storage config" % vol)
+
+    mounts = [d for i, d in storage_config.items()
+              if d.get('type') == 'mount' and d.get('path') == "/"]
+    if len(mounts) != 1:
+        raise ValueError("Multiple 'mount' entries point to '/'")
+
+    mount = mounts[0]
+    if mount.get('device') != root['id']:
+        raise ValueError(
+            "zfsroot Mountpoint entry for / has device=%s, expected '%s'" %
+            (mount.get("device"), root['id']))
+
+    LOG.info('Enabling experimental zfsroot!')
+
+    ret = OrderedDict()
+    for eid, info in storage_config.items():
+        if info.get('id') == mount['id']:
+            continue
+
+        if info.get('fstype') != "zfsroot":
+            ret[eid] = info
+            continue
+
+        vdevs = [storage_config[info['volume']]['id']]
+        baseid = info['id']
+        pool = {
+            'type': 'zpool',
+            'id': baseid + "_zfsroot_pool",
+            'pool': 'rpool',
+            'vdevs': vdevs,
+            'mountpoint': '/'
+        }
+        container = {
+            'type': 'zfs',
+            'id': baseid + "_zfsroot_container",
+            'pool': pool['id'],
+            'volume': '/ROOT',
+            'properties': {
+                'canmount': 'off',
+                'mountpoint': 'none',
+            }
+        }
+        rootfs = {
+            'type': 'zfs',
+            'id': baseid + "_zfsroot_fs",
+            'pool': pool['id'],
+            'volume': '/ROOT/zfsroot',
+            'properties': {
+                'canmount': 'noauto',
+                'mountpoint': '/',
+            }
+        }
+
+        for d in (pool, container, rootfs):
+            if d['id'] in ret:
+                raise RuntimeError(
+                    "Collided on id '%s' in storage config" % d['id'])
+            ret[d['id']] = d
+
+    return ret
+
+
 def meta_custom(args):
     """Does custom partitioning based on the layout provided in the config
     file. Section with the name storage contains information on which
@@ -1263,6 +1349,8 @@ def meta_custom(args):
     cfg = config.load_command_config(args, state)
 
     storage_config_dict = extract_storage_ordered_dict(cfg)
+
+    storage_config_dict = zfsroot_update_storage_config(storage_config_dict)
 
     # set up reportstack
     stack_prefix = state.get('report_stack_prefix', '')

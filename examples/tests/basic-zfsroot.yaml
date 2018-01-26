@@ -1,0 +1,31 @@
+showtrace: true
+storage:
+ version: 1
+ config:
+   - id: sda
+     type: disk
+     ptable: gpt
+     serial: dev_vda
+     name: main_disk
+     wipe: superblock
+     grub_device: true
+   - id: sda1
+     type: partition
+     number: 1
+     size: 9G
+     device: sda
+   - id: bios_boot
+     type: partition
+     size: 1M
+     number: 2
+     device: sda
+     flag: bios_grub
+   - id: sda1_root
+     type: format
+     fstype: zfsroot
+     volume: sda1
+     label: 'cloudimg-rootfs'
+   - id: sda1_mount
+     type: mount
+     path: /
+     device: sda1_root
