@@ -552,28 +552,52 @@ class VMBaseClass(TestCase):
            fixby and removeby support string (2018-01-01) or tuple(2018,01,01)
            removeby defaults to 3 weeks after fixby.
            """
-        def astuple(date):
+        def as_dtdate(date):
             if not isinstance(date, str):
                 return date
-            return tuple([int(d) for d in date.split("-")])
+            return datetime.date(*map(int, date.split("-")))
 
-        if removeby is None:
-            # give 3 weeks by default.
-            removeby = datetime.date(*astuple(fixby)) + datetime.timedelta(21)
-
-        if release is None:
-            release = cls.release
+        def as_str(dtdate):
+            return "%s-%02d-%02d" % (dtdate.year, dtdate.month, dtdate.day)
 
         if name is None:
             name = cls.__name__
 
-        if datetime.date.today() < datetime.date(*astuple(fixby)):
-            raise SkipTest(
-                "[%s] LP: #%s is not expected to be fixed in %s yet" %
-                (name, bugnum, release))
-        if datetime.date.today() > datetime.date(*astuple(fixby)):
-            raise RuntimeError(
-                "[%s] Please remove workaround for LP: #%s" % (name, bugnum))
+        if release is None:
+            release = cls.release
+
+        d_today = datetime.date.today()
+        d_fixby = as_dtdate(fixby)
+        if removeby is None:
+            # give 3 weeks by default.
+            d_removeby = d_fixby + datetime.timedelta(21)
+        else:
+            d_removeby = as_dtdate(removeby)
+
+        bmsg = ("[{name}/{rel}] skip_by_date LP: #{bug} "
+                "fixby={fixby} removeby={removeby}: ".format(
+                    name=name, rel=release, bug=bugnum,
+                    fixby=as_str(d_fixby), removeby=as_str(d_removeby)))
+
+        envname = 'CURTIN_VMTEST_SKIP_BY_DATE_BUGS'
+        envval = os.environ.get(envname, "")
+        skip_bugs = envval.replace(",", " ").split()
+
+        result = None
+        msg = bmsg + "Not skipping."
+        if "*" in skip_bugs or bugnum in skip_bugs:
+            msg = bmsg + "skip per %s=%s" % (envname, envval)
+            result = SkipTest
+        elif d_today < d_fixby:
+            msg = bmsg + "skip (today < fixby)"
+            result = SkipTest
+        elif d_today > d_removeby:
+            msg = bmsg + "Remove workaround."
+            result = RuntimeError
+
+        logger.info(msg)
+        if result:
+            raise result(msg)
 
     @classmethod
     def get_config_smp(cls):

@@ -293,6 +293,21 @@ Some environment variables affect the running of vmtest
 
     ./tools/jenkins-runner tests/vmtests/test_iscsi.py
 
+- ``CURTIN_VMTEST_SKIP_BY_DATE_BUGS``: default ''
+   Curtin's vmtest code has a function 'skip_by_date' which is used to
+   skip tests based until a certain date so developers can add a test
+   for a bug that is not yet fixed in another package.  Each skip_by_date
+   call lists a bug by its bug number.
+
+   This variable can be set to a comma separated list of bug numbers
+   that should raise a SkipTest even if the 'fixby' date is already passed.
+
+   The special value '*' will cause all skip_by_date calls to skip.
+
+   This allows us to avoid failures when running curtin from an Ubuntu
+   package or from some other "stale" source.
+
+
 Environment 'boolean' values
 ============================
 
