@@ -1,5 +1,6 @@
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
+from unittest import SkipTest
 
 import textwrap
 
@@ -52,6 +53,9 @@ class TestZfsRootAbs(VMBaseClass):
 
     def test_env_has_zpool_vdev_name_path(self):
         """Target env has ZPOOL_VDEV_NAME_PATH=1 set"""
+        # this is a Xenial only check
+        if self.release != ['xenial']:
+            raise SkipTest("skip test_env_has_zpool_vdev %s:" % self.release)
         self.output_files_exist(['etc_environment'])
         self.check_file_regex('etc_environment', r'ZPOOL_VDEV_NAME_PATH="1"')
 

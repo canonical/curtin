@@ -524,8 +524,9 @@ def start_clear_holders_deps():
     # will never appear and will never prevent the disk from being reformatted
     util.load_kernel_module('bcache')
     # the zfs module is needed to find and export devices which may be in-use
-    # and need to be cleared.
-    util.load_kernel_module('zfs')
+    # and need to be cleared, only on xenial+.
+    if not util.lsb_release()['codename'] in ['precise', 'trusty']:
+        util.load_kernel_module('zfs')
 
 
 # anything that is not identified can assumed to be a 'disk' or similar

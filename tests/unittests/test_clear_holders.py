@@ -679,9 +679,25 @@ class TestClearHolders(CiTestCase):
     @mock.patch('curtin.block.clear_holders.mdadm')
     @mock.patch('curtin.block.clear_holders.util')
     def test_start_clear_holders_deps(self, mock_util, mock_mdadm):
+        mock_util.lsb_release.return_value = {'codename': 'xenial'}
         clear_holders.start_clear_holders_deps()
         mock_mdadm.mdadm_assemble.assert_called_with(
             scan=True, ignore_errors=True)
-        mock_util.load_kernel_module.has_calls(
-                mock.call('bcache'), mock.call('zfs'))
+        mock_util.load_kernel_module.assert_has_calls([
+                mock.call('bcache'), mock.call('zfs')])
+
+    @mock.patch('curtin.block.clear_holders.mdadm')
+    @mock.patch('curtin.block.clear_holders.util')
+    def test_start_clear_holders_deps_nozfs(self, mock_util, mock_mdadm):
+        """ test that we skip zfs modprobe on precise, trusty """
+        for codename in ['precise', 'trusty']:
+            mock_util.lsb_release.return_value = {'codename': codename}
+            clear_holders.start_clear_holders_deps()
+            mock_mdadm.mdadm_assemble.assert_called_with(
+                scan=True, ignore_errors=True)
+            mock_util.load_kernel_module.assert_has_calls(
+                [mock.call('bcache')])
+            self.assertNotIn(mock.call('zfs'),
+                             mock_util.load_kernel_module.call_args_list)
+
 # vi: ts=4 expandtab syntax=python
