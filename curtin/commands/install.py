@@ -1,6 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import argparse
+from copy import deepcopy
 import json
 import os
 import re
@@ -20,6 +21,8 @@ from curtin.reporter import events
 from . import populate_one_subcmd
 
 INSTALL_LOG = "/var/log/curtin/install.log"
+# Upon error, curtin creates a tar of all related logs at ERROR_TARFILE
+ERROR_TARFILE = '/var/log/curtin/curtin-error-logs.tar'
 SAVE_INSTALL_LOG = '/root/curtin-install.log'
 SAVE_INSTALL_CONFIG = '/root/curtin-install-cfg.yaml'
 
@@ -50,7 +53,8 @@ CONFIG_BUILTIN = {
     'late_commands': {'builtin': []},
     'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
     'apply_net_commands': {'builtin': []},
-    'install': {'log_file': INSTALL_LOG}
+    'install': {'log_file': INSTALL_LOG,
+                'error_tarfile': ERROR_TARFILE}
 }
 
 
@@ -381,7 +385,8 @@ def migrate_proxy_settings(cfg):
 
 
 def cmd_install(args):
-    cfg = CONFIG_BUILTIN.copy()
+    from .collect_logs import create_log_tarfile
+    cfg = deepcopy(CONFIG_BUILTIN)
     config.merge_config(cfg, args.config)
 
     for source in args.source:
@@ -405,6 +410,7 @@ def cmd_install(args):
 
     instcfg = cfg.get('install', {})
     logfile = instcfg.get('log_file')
+    error_tarfile = instcfg.get('error_tarfile')
     post_files = instcfg.get('post_files', [logfile])
 
     # Generate curtin configuration dump and add to write_files unless
@@ -422,18 +428,17 @@ def cmd_install(args):
 
     # Load reporter
     clear_install_log(logfile)
-    post_files = cfg.get('post_files', [logfile])
     legacy_reporter = load_reporter(cfg)
     legacy_reporter.files = post_files
 
     writeline_and_stdout(logfile, INSTALL_START_MSG)
     args.reportstack.post_files = post_files
     try:
+        workingd = WorkingDir(cfg)
         dd_images = util.get_dd_images(cfg.get('sources', {}))
         if len(dd_images) > 1:
-            raise ValueError("You may not use more then one disk image")
+            raise ValueError("You may not use more than one disk image")
 
-        workingd = WorkingDir(cfg)
         LOG.debug(workingd.env())
         env = os.environ.copy()
         env.update(workingd.env())
@@ -463,6 +468,8 @@ def cmd_install(args):
         writeline(logfile, exp_msg)
         LOG.error(exp_msg)
         legacy_reporter.report_failure(exp_msg)
+        if error_tarfile:
+            create_log_tarfile(error_tarfile, cfg)
         raise e
     finally:
         log_target_path = instcfg.get('save_install_log', SAVE_INSTALL_LOG)

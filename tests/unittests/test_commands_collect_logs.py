@@ -45,7 +45,7 @@ class TestCollectLogs(CiTestCase):
         self.assertIn(mock.call(
             'Warning: no configuration file found in'
             ' /root/curtin-install-cfg.yaml or /curtin/configs.\n'
-            'Using builtin configuration.\n'),
+            'Using builtin configuration.'),
             m_stderr.write.call_args_list)
         self.assertIn(mock.call('Wrote: custom.tar\n'),
                       m_stderr.write.call_args_list)
@@ -111,7 +111,8 @@ class TestCollectLogs(CiTestCase):
         expected_cfg = copy.deepcopy(CONFIG_BUILTIN)
         expected_cfg['install'] = {
             'log_file': '/tmp/my.log',
-            'post_files': ['/tmp/post.log', '/tmp/my.log']}
+            'post_files': ['/tmp/post.log', '/tmp/my.log'],
+            'error_tarfile': '/var/log/curtin/curtin-error-logs.tar'}
         with open(curtin_config, 'r') as f:
             self.assertEqual(expected_cfg, json.loads(f.read()))
 
@@ -226,7 +227,7 @@ class TestCollectLogs(CiTestCase):
 
 
 class TestWBCreateTar(CiTestCase):
-    """Whitebox texting of _create_tar."""
+    """Whitebox texting of create_log_tarfile."""
 
     def setUp(self):
         super(TestWBCreateTar, self).setUp()
@@ -240,14 +241,14 @@ class TestWBCreateTar(CiTestCase):
         self.add_patch(
             'tempfile.mkdtemp', 'm_mkdtemp', return_value=self.tmpdir)
 
-    def test_create_tar_stores_logs_in_dated_subdirectory(self):
-        """_create_tar creates a dated subdir in the created tarfile."""
+    def test_create_log_tarfile_stores_logs_in_dated_subdirectory(self):
+        """create_log_tarfile creates a dated subdir in the created tarfile."""
         tarfile = self.tmp_path('my.tar', _dir=self.new_root)
         self.add_patch('curtin.util.subp', 'mock_subp')
         self.mock_subp.return_value = ('', '')
         with mock.patch('sys.stderr'):
             with self.assertRaises(SystemExit) as context_manager:
-                collect_logs._create_tar(tarfile, config={})
+                collect_logs.create_log_tarfile(tarfile, config={})
         self.assertEqual('0', str(context_manager.exception))
         self.assertIn(
             mock.call(['tar', '-cvf', tarfile, self.tardir],
@@ -255,8 +256,8 @@ class TestWBCreateTar(CiTestCase):
             self.mock_subp.call_args_list)
         self.m_sys_info.assert_called_with(self.tardir, {})
 
-    def test_create_tar_copies_configured_logs(self):
-        """_create_tar copies configured log_file and post_files if present.
+    def test_create_log_tarfile_copies_configured_logs(self):
+        """create_log_tarfile copies configured log_file and post_files if present.
 
         Configured log_file or post_files which don't exist are ignored.
         """
@@ -271,7 +272,7 @@ class TestWBCreateTar(CiTestCase):
         self.add_patch('shutil.copy', 'm_copy')
         with mock.patch('sys.stderr') as m_stderr:
             with self.assertRaises(SystemExit) as context_manager:
-                collect_logs._create_tar(tarfile, config=config)
+                collect_logs.create_log_tarfile(tarfile, config=config)
         self.assertEqual('0', str(context_manager.exception))
         self.assertIn(
             mock.call(
@@ -284,8 +285,8 @@ class TestWBCreateTar(CiTestCase):
         self.assertNotIn(
             mock.call(absent_log, self.tardir), self.m_copy.call_args_list)
 
-    def test_create_tar_redacts_maas_credentials(self):
-        """_create_tar redacts any sensitive maas credentials configured."""
+    def test_create_log_tarfile_redacts_maas_credentials(self):
+        """create_log_tarfile redacts sensitive maas credentials configured."""
         tarfile = self.tmp_path('my.tar', _dir=self.new_root)
         self.add_patch(
             'curtin.commands.collect_logs._redact_sensitive_information',
@@ -296,7 +297,7 @@ class TestWBCreateTar(CiTestCase):
                          'token_key': 'tkey', 'token_secret': 'tsecret'}}}
         with mock.patch('sys.stderr'):
             with self.assertRaises(SystemExit) as context_manager:
-                collect_logs._create_tar(tarfile, config=config)
+                collect_logs.create_log_tarfile(tarfile, config=config)
         self.assertEqual('0', str(context_manager.exception))
         self.assertEqual(
             [mock.call(self.tardir, ['ckey', 'tkey', 'tsecret'])],

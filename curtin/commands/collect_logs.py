@@ -44,14 +44,14 @@ def collect_logs_main(args):
     else:
         sys.stderr.write(
             'Warning: no configuration file found in %s or %s.\n'
-            'Using builtin configuration.\n' % (
+            'Using builtin configuration.' % (
                 SAVE_INSTALL_CONFIG, CURTIN_PACK_CONFIG_DIR))
         cfg = CONFIG_BUILTIN.copy()
-    _create_tar(args.output, cfg)
+    create_log_tarfile(args.output, cfg)
 
 
-def _create_tar(tarfile, config):
-    """Create named tarfile in working_dir using logs defined in curtin config
+def create_log_tarfile(tarfile, config):
+    """Create curtin logs tarfile within a temporary directory.
 
     A subdirectory curtin-<DATE> is created in the tar containing the specified
     logs. Duplicates are skipped, paths which don't exist are skipped.
