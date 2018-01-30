@@ -61,6 +61,9 @@ def create_log_tarfile(tarfile, config):
     """
     if not (isinstance(tarfile, util.string_types) and tarfile):
         raise ValueError("Invalid value '%s' for tarfile" % tarfile)
+    target_dir = os.path.dirname(tarfile)
+    if target_dir and not os.path.exists(target_dir):
+        util.ensure_dir(target_dir)
 
     instcfg = config.get('install', {})
     logfile = instcfg.get('log_file')

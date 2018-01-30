@@ -226,11 +226,11 @@ class TestCollectLogs(CiTestCase):
             self.assertEqual(f.read(), expected)
 
 
-class TestWBCreateTar(CiTestCase):
-    """Whitebox texting of create_log_tarfile."""
+class TestCreateTar(CiTestCase):
+    """Whitebox testing of create_log_tarfile."""
 
     def setUp(self):
-        super(TestWBCreateTar, self).setUp()
+        super(TestCreateTar, self).setUp()
         self.new_root = self.tmp_dir()
         date = datetime.utcnow().strftime('%Y-%m-%d-%H-%M')
         self.tardir = 'curtin-logs-%s' % date
@@ -256,8 +256,29 @@ class TestWBCreateTar(CiTestCase):
             self.mock_subp.call_args_list)
         self.m_sys_info.assert_called_with(self.tardir, {})
 
+    def test_create_log_tarfile_creates_target_tar_directory_if_absent(self):
+        """create_log_tarfile makes the tarfile's directory if needed."""
+        tarfile = self.tmp_path('my.tar',
+                                _dir=os.path.join(self.new_root, 'dont/exist'))
+        destination_dir = os.path.dirname(tarfile)
+        self.assertFalse(os.path.exists(destination_dir),
+                         'Expected absent directory: %s' % destination_dir)
+        self.add_patch('curtin.util.subp', 'mock_subp')
+        self.mock_subp.return_value = ('', '')
+        with mock.patch('sys.stderr'):
+            with self.assertRaises(SystemExit) as context_manager:
+                collect_logs.create_log_tarfile(tarfile, config={})
+        self.assertEqual('0', str(context_manager.exception))
+        self.assertIn(
+            mock.call(['tar', '-cvf', tarfile, self.tardir],
+                      capture=True),
+            self.mock_subp.call_args_list)
+        self.m_sys_info.assert_called_with(self.tardir, {})
+        self.assertTrue(os.path.exists(destination_dir),
+                        'Expected directory created: %s' % destination_dir)
+
     def test_create_log_tarfile_copies_configured_logs(self):
-        """create_log_tarfile copies configured log_file and post_files if present.
+        """create_log_tarfile copies configured log_file and post_files.
 
         Configured log_file or post_files which don't exist are ignored.
         """
@@ -306,7 +327,7 @@ class TestWBCreateTar(CiTestCase):
 
 
 class TestWBCollectLogs(CiTestCase):
-    """Whitebox texting of _redact_sensitive_information."""
+    """Whitebox testing of _redact_sensitive_information."""
 
     def test_wb_redact_sensitive_information(self):
         """_redact_sensitive_information replaces redact_values in any file."""
