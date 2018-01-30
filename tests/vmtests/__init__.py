@@ -392,6 +392,7 @@ class VMBaseClass(TestCase):
     target_release = None
     target_krel = None
     target_ftype = "squashfs"
+    target_kernel_package = None
 
     _debian_packages = None
 
@@ -414,31 +415,32 @@ class VMBaseClass(TestCase):
             subarch=cls.subarch if cls.subarch else None,
             sync=CURTIN_VMTEST_IMAGE_SYNC,
             ftypes=('boot-initrd', 'boot-kernel', cls.ephemeral_ftype))
-        logger.debug("Install Image %s\n, ftypes: %s\n",
-                     eph_img_verstr, ftypes)
+
         if not cls.target_krel and cls.krel:
             cls.target_krel = cls.krel
 
-        # get local absolute filesystem paths for the OS tarball to be
-        # installed
-        if cls.target_ftype in ["vmtest.root-tgz", "squashfs"]:
-            target_img_verstr, found = get_images(
+        tftype = cls.target_ftype
+        if tftype in ["root-image.xz"]:
+            logger.info('get-testfiles UC16 hack!')
+            target_ftypes = {'root-image.xz': UC16_IMAGE}
+            target_img_verstr = "UbuntuCore 16"
+        elif cls.target_release == cls.release:
+            target_ftypes = ftypes.copy()
+            target_img_verstr = eph_img_verstr
+        else:
+            target_img_verstr, target_ftypes = get_images(
                 IMAGE_SRC_URL, IMAGE_DIR,
                 cls.target_distro if cls.target_distro else cls.distro,
                 cls.target_release if cls.target_release else cls.release,
                 cls.arch, subarch=cls.subarch if cls.subarch else None,
                 kflavor=cls.kflavor if cls.kflavor else None,
                 krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
-                ftypes=(cls.target_ftype,))
-            logger.debug("Target Tarball %s\n, ftypes: %s\n",
-                         target_img_verstr, found)
-        elif cls.target_ftype in ["root-image.xz"]:
-            logger.info('get-testfiles UC16 hack!')
-            found = {'root-image.xz': UC16_IMAGE}
-            target_img_verstr = "UbuntuCore 16"
-        logger.info("Ephemeral Image Version:[%s] Target Image Version:[%s]",
-                    eph_img_verstr, target_img_verstr)
-        ftypes.update(found)
+                ftypes=(tftype,))
+
+        ftypes["target/%s" % tftype] = target_ftypes[tftype]
+        logger.debug(
+            "Install Image Version = %s\n, Target Image Version = %s\n"
+            "ftypes: %s", eph_img_verstr, target_img_verstr, ftypes)
         return ftypes
 
     @classmethod
@@ -621,6 +623,9 @@ class VMBaseClass(TestCase):
     @classmethod
     def get_kernel_package(cls):
         """ Return the kernel package name for this class """
+        if cls.target_kernel_package:
+            return cls.target_kernel_package
+
         package = 'linux-image-' + cls.kflavor
         if cls.subarch is None or cls.subarch.startswith('ga'):
             return package
@@ -634,6 +639,9 @@ class VMBaseClass(TestCase):
 
            Returns: config dictionary only for hwe, or edge subclass
            """
+        if cls.target_kernel_package:
+            return {'kernel': {'package': cls.target_kernel_package}}
+
         if cls.subarch is None or cls.subarch.startswith('ga'):
             return None
 
@@ -689,12 +697,12 @@ class VMBaseClass(TestCase):
             cmd.extend(["--append=" + cls.extra_kern_args])
 
         ftypes = cls.get_test_files()
+        root_pubpath = "root/" + cls.ephemeral_ftype
         # trusty can't yet use root=URL due to LP:#1735046
         if cls.release in ['trusty']:
             root_url = "/dev/disk/by-id/virtio-boot-disk"
         else:
-            root_url = "squash:PUBURL/%s" % (
-                os.path.basename(ftypes[cls.ephemeral_ftype]))
+            root_url = "squash:PUBURL/" + root_pubpath
         # configure ephemeral boot environment
         cmd.extend([
             "--root-arg=root=%s" % root_url,
@@ -710,16 +718,17 @@ class VMBaseClass(TestCase):
             cmd.extend(["--append=iscsi_auto"])
 
         # publish the ephemeral image (used in root=URL)
-        cmd.append("--publish=%s" % ftypes[cls.ephemeral_ftype])
+        cmd.append("--publish=%s:%s" % (ftypes[cls.ephemeral_ftype],
+                                        root_pubpath))
         logger.info("Publishing ephemeral image as %s", cmd[-1])
-        # publish the target image
-        cmd.append("--publish=%s" % ftypes[cls.target_ftype])
-        logger.info("Publishing target image as %s", cmd[-1])
 
         # set curtin install source
-        install_src = cls.get_install_source(ftypes)
-
+        install_src, publishes = cls.get_install_source(ftypes)
         logger.info("Curtin install source URI: %s", install_src)
+        if len(publishes):
+            cmd.extend(['--publish=%s' % p for p in publishes])
+            logger.info("Publishing install sources: %s",
+                        cmd[-len(publishes):])
 
         # check for network configuration
         cls.network_state = curtin_net.parse_net_config(cls.conf_file)
@@ -1082,19 +1091,21 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def get_install_source(cls, ftypes):
-        if cls.target_ftype == 'squashfs':
-            # If we're installing from squashfs source then direct
-            # curtin to install from the read-only undermount
+        """Return install uri and a list of files needed to be published."""
+        # if release (install environment) is the same as target
+        # target (thing to install) then install via cp://
+        if cls.release == cls.target_release:
             install_src = "cp:///media/root-ro"
-        else:
-            if cls.target_ftype == 'root-image.xz':
-                stype = "dd-xz"
-            else:
-                stype = "tgz"
-            src = os.path.basename(ftypes[cls.target_ftype])
-            install_src = "%s:PUBURL/%s" % (stype, src)
+            return install_src, []
 
-        return install_src
+        # publish the file to target/<ftype>
+        # and set the install source to <type>:PUBURL/target/<ftype>
+        ttype2stype = {'root-image.xz': 'dd-xz', 'squashfs': 'fsimage'}
+        ftype = cls.target_ftype
+        pubpath = "target/" + ftype
+        src = "%s:PUBURL/%s" % (ttype2stype.get(ftype, 'tgz'), pubpath)
+        publishes = [ftypes["target/" + ftype] + ":" + pubpath]
+        return src, publishes
 
     @classmethod
     def tearDownClass(cls):
@@ -1711,6 +1722,9 @@ def is_unsupported_ubuntu(release):
         elif util.which(udi):
             _UNSUPPORTED_UBUNTU = util.subp(
                 [udi, '--unsupported'], capture=True)[0].splitlines()
+            # precise ESM support.
+            if 'precise' in _UNSUPPORTED_UBUNTU:
+                _UNSUPPORTED_UBUNTU.remove('precise')
         else:
             # no way to tell.
             return None

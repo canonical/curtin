@@ -1084,12 +1084,19 @@ def sanitize_source(source):
         # already sanitized?
         return source
     supported = ['tgz', 'dd-tgz', 'dd-tbz', 'dd-txz', 'dd-tar', 'dd-bz2',
-                 'dd-gz', 'dd-xz', 'dd-raw']
+                 'dd-gz', 'dd-xz', 'dd-raw', 'fsimage']
     deftype = 'tgz'
     for i in supported:
         prefix = i + ":"
         if source.startswith(prefix):
             return {'type': i, 'uri': source[len(prefix):]}
+
+    # translate squashfs: to fsimage type.
+    if source.startswith("squashfs:"):
+        return {'type': 'fsimage', 'uri': source[len("squashfs:")]}
+
+    if source.endswith("squashfs") or source.endswith("squash"):
+        return {'type': 'fsimage', 'uri': source}
 
     LOG.debug("unknown type for url '%s', assuming type '%s'", source, deftype)
     # default to tgz for unknown types

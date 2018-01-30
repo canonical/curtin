@@ -46,6 +46,17 @@ class _Centos66FromXenialBase(_CentosFromUbuntuBase):
     target_release = "centos66"
 
 
+class _PreciseBase(_UbuntuBase):
+    release = "xenial"
+    target_release = "precise"
+    target_distro = "ubuntu"
+    target_ftype = "squashfs"
+
+
+class _PreciseHWET(_PreciseBase):
+    target_kernel_package = 'linux-generic-lts-trusty'
+
+
 class _TrustyBase(_UbuntuBase):
     release = "trusty"
 
@@ -105,6 +116,8 @@ class _BionicBase(_UbuntuBase):
 
 class _Releases(object):
     trusty = _TrustyBase
+    precise = _PreciseBase
+    precise_hwe_t = _PreciseHWET
     trusty_hwe_u = _TrustyHWEU
     trusty_hwe_v = _TrustyHWEV
     trusty_hwe_w = _TrustyHWEW

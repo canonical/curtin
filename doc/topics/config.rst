@@ -435,6 +435,9 @@ configures the method used to copy the image to the target system.
 - **cp://**: Use ``rsync`` command to copy source directory to target.
 - **file://**: Use ``tar`` command to extract source to target.
 - **http[s]://**: Use ``wget | tar`` commands to extract source to target.
+- **fsimage://**: mount filesystem image and copy contents to target.
+  Local file or url are supported.  Filesystem can be any filesystem type
+  mountable by the running kernel.
 
 **Example Cloud-image**::
 

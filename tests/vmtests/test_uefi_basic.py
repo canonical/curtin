@@ -78,6 +78,20 @@ class TestBasicAbs(VMBaseClass):
             self.assertEqual(self.disk_block_size, size)
 
 
+class PreciseUefiTestBasic(relbase.precise, TestBasicAbs):
+    __test__ = False
+
+    def test_ptable(self):
+        print("test_ptable does not work for Precise")
+
+    def test_dname(self):
+        print("test_dname does not work for Precise")
+
+
+class PreciseHWETUefiTestBasic(relbase.precise_hwe_t, PreciseUefiTestBasic):
+    __test__ = False
+
+
 class TrustyUefiTestBasic(relbase.trusty, TestBasicAbs):
     __test__ = True
 

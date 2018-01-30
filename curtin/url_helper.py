@@ -9,6 +9,8 @@ import time
 import uuid
 from functools import partial
 
+from curtin import version
+
 try:
     from urllib import request as _u_re  # pylint: disable=no-name-in-module
     from urllib import error as _u_e     # pylint: disable=no-name-in-module
@@ -25,6 +27,8 @@ from .log import LOG
 
 error = urllib_error
 
+DEFAULT_HEADERS = {'User-Agent': 'Curtin/' + version.version_string()}
+
 
 class _ReRaisedException(Exception):
     exc = None
@@ -34,14 +38,100 @@ class _ReRaisedException(Exception):
         self.exc = exc
 
 
-def _geturl(url, headers=None, headers_cb=None, exception_cb=None, data=None):
-    def_headers = {'User-Agent': 'Curtin/0.1'}
+class UrlReader(object):
+    fp = None
 
+    def __init__(self, url, headers=None, data=None):
+        headers = _get_headers(headers)
+        self.url = url
+        try:
+            req = urllib_request.Request(url=url, data=data, headers=headers)
+            self.fp = urllib_request.urlopen(req)
+        except urllib_error.HTTPError as exc:
+            raise UrlError(exc, code=exc.code, headers=exc.headers, url=url,
+                           reason=exc.reason)
+        except Exception as exc:
+            raise UrlError(exc, code=None, headers=None, url=url,
+                           reason="unknown")
+
+        self.info = self.fp.info()
+        self.size = self.info.get('content-length', -1)
+
+    def read(self, buflen):
+        try:
+            return self.fp.read(buflen)
+        except urllib_error.HTTPError as exc:
+            raise UrlError(exc, code=exc.code, headers=exc.headers,
+                           url=self.url, reason=exc.reason)
+        except Exception as exc:
+            raise UrlError(exc, code=None, headers=None, url=self.url,
+                           reason="unknown")
+
+    def close(self):
+        if not self.fp:
+            return
+        try:
+            self.fp.close()
+        finally:
+            self.fp = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, etype, value, trace):
+        self.close()
+
+
+def download(url, path, reporthook=None, data=None):
+    """Download url to path.
+
+    reporthook is compatible with py3 urllib.request.urlretrieve.
+    urlretrieve does not exist in py2."""
+
+    buflen = 8192
+    wfp = open(path, "wb")
+
+    try:
+        buf = None
+        blocknum = 0
+        fsize = 0
+        start = time.time()
+        with UrlReader(url) as rfp:
+            if reporthook:
+                reporthook(blocknum, buflen, rfp.size)
+
+            while True:
+                buf = rfp.read(buflen)
+                if not buf:
+                    break
+                blocknum += 1
+                if reporthook:
+                    reporthook(blocknum, buflen, rfp.size)
+                rlen = len(buf)
+                wlen = wfp.write(buf)
+                if rlen != wlen:
+                    raise OSError(
+                        "Short write to %s.  Tried write of %d bytes "
+                        "but wrote only %d" % (path, rlen, wlen))
+                fsize += rlen
+        timedelta = time.time() - start
+        LOG.debug("Downloaded %d bytes from %s to %s in %.2fs (%.2fMbps)",
+                  fsize, url, path, timedelta, fsize / timedelta / 1024 / 1024)
+        return path, rfp.info
+    finally:
+        wfp.close()
+
+
+def _get_headers(headers=None):
+    allheaders = DEFAULT_HEADERS.copy()
     if headers is not None:
-        def_headers.update(headers)
+        allheaders.update(headers)
+    return allheaders
 
-    headers = def_headers
 
+def _geturl(url, headers=None, headers_cb=None, exception_cb=None, data=None):
+
+    headers = _get_headers(headers)
     if headers_cb:
         headers.update(headers_cb(url))
 
