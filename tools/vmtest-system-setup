@@ -68,4 +68,4 @@ apt_install() {
 
 apt_install "${DEPS[@]}"
 
-# vi: ts=4 expandtab syntax=shell
+# vi: ts=4 expandtab syntax=sh

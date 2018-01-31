@@ -56,4 +56,4 @@ fi
 debug "executing: $PYTHON -m \"$PY3OR2_MAIN\" $*"
 exec $PYTHON -m "$PY3OR2_MAIN" "$@"
 
-# vi: ts=4 expandtab syntax=shell
+# vi: ts=4 expandtab syntax=sh

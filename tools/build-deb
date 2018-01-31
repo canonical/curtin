@@ -115,4 +115,4 @@ for f in *; do
 done
 exit
 
-# vi: ts=4 expandtab syntax=shell
+# vi: ts=4 expandtab syntax=sh

@@ -28,4 +28,4 @@ cmd=( "python${PYTHON_VERSION}" -m "pyflakes" "${files[@]}" )
 echo "Running: " "${cmd[@]}" 1>&2
 exec "${cmd[@]}"
 
-# vi: ts=4 expandtab syntax=shell
+# vi: ts=4 expandtab syntax=sh

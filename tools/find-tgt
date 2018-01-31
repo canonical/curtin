@@ -148,4 +148,4 @@ error "gave up.  tried $tries times."
 error "ports tried: ${tried_ports}"
 exit 1
 
-# vi: ts=4 expandtab syntax=shell
+# vi: ts=4 expandtab syntax=sh

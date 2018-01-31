@@ -51,4 +51,4 @@ git archive --format=tar --prefix="$archive_base/" "$rev" > "$tar"
 gzip -9 -c "$tar" > "$output"
 echo "$output"
 
-# vi: ts=4 expandtab syntax=shell
+# vi: ts=4 expandtab syntax=sh

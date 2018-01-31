@@ -194,4 +194,4 @@ main() {
 
 main "$@"
 
-# vi: ts=4 expandtab syntax=shell
+# vi: ts=4 expandtab syntax=sh

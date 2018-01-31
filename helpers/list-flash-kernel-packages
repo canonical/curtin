@@ -14,4 +14,4 @@ check_supported "${machine}"
 # be installed in the target.
 get_machine_field "${machine}" "Required-Packages" ||:
 
-# vi: ts=4 expandtab syntax=shell
+# vi: ts=4 expandtab syntax=sh

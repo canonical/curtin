@@ -141,4 +141,4 @@ fi
 [ "$#" -gt 0 ] || set -- ${SHELL:-/bin/bash}
 debian_chroot="tox:$env" exec "$@"
 
-# vi: ts=4 expandtab syntax=shell
+# vi: ts=4 expandtab syntax=sh

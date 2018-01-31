@@ -3,4 +3,4 @@
 
 PYTHON_VERSION=3 exec "${0%/*}/run-pyflakes" "$@"
 
-# vi: ts=4 expandtab syntax=shell
+# vi: ts=4 expandtab syntax=sh
