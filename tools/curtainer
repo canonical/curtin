@@ -164,6 +164,10 @@ main() {
     inside "$name" $eatmydata apt-get -q update ||
         fail "failed apt-get update"
     install "$name" $pkgs || fail "failed install of $pkgs"
+    local pkg_ver="" src_ver=""
+    pkg_ver=$(inside "$name" \
+        dpkg-query --show --showformat='${Version}\n' curtin)
+    debug 1 "installed curtin at $pkg_ver"
 
     if [ "${getsource}" != "none" ]; then
         local isrcd="/tmp/curtin-source"
@@ -182,11 +186,14 @@ main() {
         inside "$name" tar -C "$isrcd" -cf - . |
             tar -C "$getsource" -xf - ||
             fail "failed to copy source out to $getsource"
-        version=$(inside "$name" dpkg-parsechangelog \
+        src_ver=$(inside "$name" dpkg-parsechangelog \
             "--file=$isrcd/debian/changelog" "--show-field=version")
+        if [ "$src_ver" != "$pkg_ver" ]; then
+            fail "source version ($src_ver) != package version ($pkg_ver)"
+        fi
         inside "$name" rm -Rf "$isrcd" ||
             fail "failed removal of extract dir"
-        debug 1 "put source for curtin at $version in $getsource"
+        debug 1 "put source for curtin at $src_ver in $getsource"
     fi
 
     CONTAINER=""
