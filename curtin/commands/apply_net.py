@@ -66,14 +66,10 @@ exit 0
 
 def apply_net(target, network_state=None, network_config=None):
     if network_state is None and network_config is None:
-        msg = "Must provide at least config or state"
-        sys.stderr.write(msg + "\n")
-        raise Exception(msg)
+        raise ValueError("Must provide network_config or network_state")
 
     if target is None:
-        msg = "Must provide target"
-        sys.stderr.write(msg + "\n")
-        raise Exception(msg)
+        raise ValueError("target cannot be None.")
 
     passthrough = False
     if network_state:
@@ -236,14 +232,9 @@ def apply_net_main(args):
         sys.exit(2)
 
     LOG.info('Applying network configuration')
-    try:
-        apply_net(target=state['target'],
-                  network_state=state['network_state'],
-                  network_config=state['network_config'])
-
-    except Exception:
-        LOG.exception('failed to apply network config')
-        return 1
+    apply_net(target=state['target'],
+              network_state=state['network_state'],
+              network_config=state['network_config'])
 
     LOG.info('Applied network configuration successfully')
     sys.exit(0)
