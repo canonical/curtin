@@ -186,8 +186,9 @@ main() {
         inside "$name" tar -C "$isrcd" -cf - . |
             tar -C "$getsource" -xf - ||
             fail "failed to copy source out to $getsource"
+        # 14.04 cannot take --file=<file>. Has to be 2 arguments.
         src_ver=$(inside "$name" dpkg-parsechangelog \
-            "--file=$isrcd/debian/changelog" "--show-field=version")
+            "--file" "$isrcd/debian/changelog" "--show-field=version")
         if [ "$src_ver" != "$pkg_ver" ]; then
             fail "source version ($src_ver) != package version ($pkg_ver)"
         fi
