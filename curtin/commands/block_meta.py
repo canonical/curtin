@@ -476,14 +476,14 @@ def partition_handler(info, storage_config):
         previous_partition = os.path.join(disk_sysfs_path, partition_kname)
         LOG.debug("previous partition: {}".format(previous_partition))
         # XXX: sys/block/X/{size,start} is *ALWAYS* in 512b value
-        previous_size = util.load_file(os.path.join(previous_partition,
-                                                    "size"))
-        previous_size_sectors = (int(previous_size) * 512 /
-                                 logical_block_size_bytes)
-        previous_start = util.load_file(os.path.join(previous_partition,
-                                                     "start"))
-        previous_start_sectors = (int(previous_start) * 512 /
-                                  logical_block_size_bytes)
+        previous_size = int(
+            util.load_file(os.path.join(previous_partition, "size")))
+        previous_size_sectors = int(previous_size * 512 /
+                                    logical_block_size_bytes)
+        previous_start = int(
+            util.load_file(os.path.join(previous_partition, "start")))
+        previous_start_sectors = int(previous_start * 512 /
+                                     logical_block_size_bytes)
         LOG.debug("previous partition.size_sectors: {}".format(
                   previous_size_sectors))
         LOG.debug("previous partition.start_sectors: {}".format(
