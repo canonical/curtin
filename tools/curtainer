@@ -3,7 +3,7 @@
 
 set -o pipefail
 
-VERBOSITY=0
+VERBOSITY=1
 CONTAINER=""
 
 error() { echo "$@" 1>&2; }
@@ -171,17 +171,19 @@ main() {
 
     if [ "${getsource}" != "none" ]; then
         local isrcd="/tmp/curtin-source"
-        debug 1 "getting source for curtin to $getsource"
+        debug 1 "getting source for curtin at $pkg_ver to $getsource"
         inside "$name" $eatmydata sh -ec '
             target="$1"
+            pkg="$2"
+            ver="$3"
             d=$(mktemp -d)
             cd "$d"
-            apt-get source curtin
+            apt-get source "${pkg}${ver:+=${ver}}"
             for x in *; do [ -d "$x" ] && break; done
             [ -d "$x" ] || { echo no source dir found.; exit 1; }
             cp -a $x "$target"
             rm -Rf "$d"
-            ' -- "$isrcd"
+            ' -- "$isrcd" "curtin" "$pkg_ver"
         mkdir "$getsource" || fail "failed to create dir '$getsource'"
         inside "$name" tar -C "$isrcd" -cf - . |
             tar -C "$getsource" -xf - ||
