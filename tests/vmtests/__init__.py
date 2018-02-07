@@ -1094,7 +1094,7 @@ class VMBaseClass(TestCase):
         """Return install uri and a list of files needed to be published."""
         # if release (install environment) is the same as target
         # target (thing to install) then install via cp://
-        if cls.release == cls.target_release:
+        if cls.target_release in (None, cls.release):
             install_src = "cp:///media/root-ro"
             return install_src, []
 

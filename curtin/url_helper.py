@@ -107,13 +107,8 @@ def download(url, path, reporthook=None, data=None):
                 blocknum += 1
                 if reporthook:
                     reporthook(blocknum, buflen, rfp.size)
-                rlen = len(buf)
-                wlen = wfp.write(buf)
-                if rlen != wlen:
-                    raise OSError(
-                        "Short write to %s.  Tried write of %d bytes "
-                        "but wrote only %d" % (path, rlen, wlen))
-                fsize += rlen
+                wfp.write(buf)
+                fsize += len(buf)
         timedelta = time.time() - start
         LOG.debug("Downloaded %d bytes from %s to %s in %.2fs (%.2fMbps)",
                   fsize, url, path, timedelta, fsize / timedelta / 1024 / 1024)
