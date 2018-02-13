@@ -282,7 +282,15 @@ Format Command
 The format command makes filesystems on a volume. The filesystem type and
 target volume can be specified, as well as a few other options.
 
-**fstype**: ext4, ext3, fat32, fat16, swap, xfs
+**fstype**: ext4, ext3, fat32, fat16, swap, xfs, zfsroot
+
+.. note::
+
+  Filesystems support for ZFS on root is **Experimental**.
+  Utilizing the the ``fstype: zfsroot`` will indicate to curtin
+  that it should automatically inject the appropriate ``type: zpool``
+  and ``type: zfs`` command structures based on which target ``volume``
+  is specified in the ``format`` command.
 
 The ``fstype`` key specifies what type of filesystem format curtin should use
 for this volume. Curtin knows about common Linux filesystems such as ext4/3 and
@@ -702,6 +710,7 @@ Learn by examples.
 - Bcache
 - RAID Boot
 - RAID5 + Bcache
+- ZFS Root Simple
 - ZFS Root
 
 Basic Layout
@@ -1046,6 +1055,43 @@ RAID5 + Bcache
       path: /srv/data
       type: mount
     version: 1
+
+ZFS Root Simple
+~~~~~~~~~~~~~~~
+
+::
+
+ storage:
+    config:
+    - id: sda
+      type: disk
+      ptable: gpt
+      serial: dev_vda
+      name: main_disk
+      wipe: superblock
+      grub_device: true
+    - id: sda1
+      type: partition
+      number: 1
+      size: 9G
+      device: sda
+    - id: bios_boot
+      type: partition
+      size: 1M
+      number: 2
+      device: sda
+      flag: bios_grub
+    - id: sda1_root
+      type: format
+      fstype: zfsroot
+      volume: sda1
+      label: 'cloudimg-rootfs'
+    - id: sda1_mount
+      type: mount
+      path: /
+      device: sda1_root
+    version: 1
+
 
 ZFS Root
 ~~~~~~~~
