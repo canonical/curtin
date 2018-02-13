@@ -16,7 +16,7 @@ class _UbuntuBase(_ReleaseBase):
 class _CentosFromUbuntuBase(_UbuntuBase):
     # base for installing centos tarballs from ubuntu base
     target_distro = "centos"
-    target_ftype = "vmtest.root-tgz"
+    target_ftype = "root-tgz"
     kflavor = None
 
 

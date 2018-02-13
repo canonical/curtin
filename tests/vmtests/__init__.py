@@ -191,7 +191,7 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync="1",
                  distro, release, krel, subarch, ftypes)
     if not ftypes:
         ftypes = {
-            'vmtest.root-tgz': '',
+            'root-tgz': '',
             'squashfs': '',
             'boot-kernel': '',
             'boot-initrd': ''
@@ -1421,7 +1421,7 @@ class PsuedoVMBaseClass(VMBaseClass):
             'squashfs': get_psuedo_path('psuedo-squashfs'),
             'boot-kernel': get_psuedo_path('psuedo-kernel'),
             'boot-initrd': get_psuedo_path('psuedo-initrd'),
-            'vmtest.root-tgz': get_psuedo_path('psuedo-root-tgz')
+            'root-tgz': get_psuedo_path('psuedo-root-tgz')
         }
 
     @classmethod
