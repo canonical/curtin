@@ -1,4 +1,6 @@
 #!/bin/bash
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 TGT_PID=""
 fail() { [ $# -eq 0 ] || error "$@"; exit 1; }
 error() { echo "$@" 1>&2; }
@@ -146,4 +148,4 @@ error "gave up.  tried $tries times."
 error "ports tried: ${tried_ports}"
 exit 1
 
-# vi: ts=4 expandtab
+# vi: ts=4 expandtab syntax=sh

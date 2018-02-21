@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
@@ -134,8 +136,7 @@ class XenialTestUefiLvmRootXfsBootXfs(relbase.xenial, TestUefiLvmRootAbs):
 
     @classmethod
     def setUpClass(cls):
-        cls.skip_by_date(cls.__name__, cls.release, "1652822",
-                         fixby=(2018, 1, 20), removeby=(2018, 2, 23))
+        cls.skip_by_date("1652822", fixby="2018-02-26")
         super().setUpClass()
 
 
@@ -153,3 +154,5 @@ class ArtfulTestUefiLvmRootXfs(relbase.artful, TestUefiLvmRootAbs):
         '__BOOTFS_FORMAT__': 'ext4',
         '__ROOTFS_FORMAT__': 'xfs',
     }
+
+# vi: ts=4 expandtab syntax=python

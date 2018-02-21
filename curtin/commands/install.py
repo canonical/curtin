@@ -1,21 +1,7 @@
-#   Copyright (C) 2013 Canonical Ltd.
-#
-#   Author: Scott Moser <scott.moser@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 import argparse
+from copy import deepcopy
 import json
 import os
 import re
@@ -35,6 +21,10 @@ from curtin.reporter import events
 from . import populate_one_subcmd
 
 INSTALL_LOG = "/var/log/curtin/install.log"
+# Upon error, curtin creates a tar of all related logs at ERROR_TARFILE
+ERROR_TARFILE = '/var/log/curtin/curtin-error-logs.tar'
+SAVE_INSTALL_LOG = '/root/curtin-install.log'
+SAVE_INSTALL_CONFIG = '/root/curtin-install-cfg.yaml'
 
 INSTALL_START_MSG = ("curtin: Installation started. (%s)" %
                      version.version_string())
@@ -63,7 +53,8 @@ CONFIG_BUILTIN = {
     'late_commands': {'builtin': []},
     'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
     'apply_net_commands': {'builtin': []},
-    'install': {'log_file': INSTALL_LOG},
+    'install': {'log_file': INSTALL_LOG,
+                'error_tarfile': ERROR_TARFILE}
 }
 
 
@@ -216,6 +207,10 @@ class Stage(object):
 
             env = self.env.copy()
             env['CURTIN_REPORTSTACK'] = cur_res.fullname
+
+            # LP: #1527727: This must be in the environment on xenial installs
+            # anywhere that grub might be invoked (apt or setup-grub).
+            env['ZPOOL_VDEV_NAME_PATH'] = "1"
 
             shell = not isinstance(cmd, list)
             with util.LogTimer(LOG.debug, cmdname):
@@ -390,7 +385,8 @@ def migrate_proxy_settings(cfg):
 
 
 def cmd_install(args):
-    cfg = CONFIG_BUILTIN.copy()
+    from .collect_logs import create_log_tarfile
+    cfg = deepcopy(CONFIG_BUILTIN)
     config.merge_config(cfg, args.config)
 
     for source in args.source:
@@ -414,12 +410,12 @@ def cmd_install(args):
 
     instcfg = cfg.get('install', {})
     logfile = instcfg.get('log_file')
+    error_tarfile = instcfg.get('error_tarfile')
     post_files = instcfg.get('post_files', [logfile])
 
     # Generate curtin configuration dump and add to write_files unless
     # installation config disables dump
-    yaml_dump_file = instcfg.get('save_install_config',
-                                 '/root/curtin-install-cfg.yaml')
+    yaml_dump_file = instcfg.get('save_install_config', SAVE_INSTALL_CONFIG)
     if yaml_dump_file:
         write_files = cfg.get('write_files', {})
         write_files['curtin_install_cfg'] = {
@@ -432,18 +428,17 @@ def cmd_install(args):
 
     # Load reporter
     clear_install_log(logfile)
-    post_files = cfg.get('post_files', [logfile])
     legacy_reporter = load_reporter(cfg)
     legacy_reporter.files = post_files
 
     writeline_and_stdout(logfile, INSTALL_START_MSG)
     args.reportstack.post_files = post_files
     try:
+        workingd = WorkingDir(cfg)
         dd_images = util.get_dd_images(cfg.get('sources', {}))
         if len(dd_images) > 1:
-            raise ValueError("You may not use more then one disk image")
+            raise ValueError("You may not use more than one disk image")
 
-        workingd = WorkingDir(cfg)
         LOG.debug(workingd.env())
         env = os.environ.copy()
         env.update(workingd.env())
@@ -473,10 +468,11 @@ def cmd_install(args):
         writeline(logfile, exp_msg)
         LOG.error(exp_msg)
         legacy_reporter.report_failure(exp_msg)
+        if error_tarfile:
+            create_log_tarfile(error_tarfile, cfg)
         raise e
     finally:
-        log_target_path = instcfg.get('save_install_log',
-                                      '/root/curtin-install.log')
+        log_target_path = instcfg.get('save_install_log', SAVE_INSTALL_LOG)
         if log_target_path:
             copy_install_log(logfile, workingd.target, log_target_path)
 

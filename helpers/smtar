@@ -1,4 +1,6 @@
 #!/bin/sh
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 # smtar (smart tar)
 # GNU Tar can only determine the compression type if input is a local file.
 # If input is a pipe, it will not even attempt.

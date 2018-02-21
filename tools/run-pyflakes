@@ -1,4 +1,5 @@
 #!/bin/bash
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 PYTHON_VERSION=${PYTHON_VERSION:-2}
 CR="
@@ -26,3 +27,5 @@ cmd=( "python${PYTHON_VERSION}" -m "pyflakes" "${files[@]}" )
 
 echo "Running: " "${cmd[@]}" 1>&2
 exec "${cmd[@]}"
+
+# vi: ts=4 expandtab syntax=sh

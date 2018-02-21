@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from curtin.block import mkfs
 
 from .helpers import CiTestCase
@@ -161,3 +163,5 @@ class TestBlockMkfs(CiTestCase):
         mock_block.get_blockdev_sector_size.return_value = (512, 512)
         uuid = mkfs.mkfs("/dev/null", "ext4")
         self.assertIsNotNone(uuid)
+
+# vi: ts=4 expandtab syntax=python

@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from curtin import url_helper
 
 from . import (BaseReporter, LoadReporterException)
@@ -126,3 +128,5 @@ def load_factory(options):
         return MAASReporter(options)
     except Exception:
         raise LoadReporterException
+
+# vi: ts=4 expandtab syntax=python

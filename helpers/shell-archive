@@ -1,4 +1,5 @@
 #!/bin/bash
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 VERBOSITY=0
 TEMP_D=""

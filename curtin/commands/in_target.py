@@ -1,19 +1,4 @@
-#   Copyright (C) 2013 Canonical Ltd.
-#
-#   Author: Scott Moser <scott.moser@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
 import pty
@@ -43,18 +28,6 @@ CMD_ARGUMENTS = (
 )
 
 
-def run_command(cmd, interactive, capture=False):
-    exit = 0
-    if interactive:
-        pty.spawn(cmd)
-    else:
-        try:
-            util.subp(cmd, capture=capture)
-        except util.ProcessExecutionError as e:
-            exit = e.exit_code
-    return exit
-
-
 def in_target_main(args):
     if args.target is not None:
         target = args.target
@@ -67,18 +40,29 @@ def in_target_main(args):
                          "Use --target or set TARGET_MOUNT_POINT\n")
         sys.exit(2)
 
-    if os.path.abspath(target) == "/":
-        cmd = args.command_args
-    else:
-        cmd = ['chroot', target] + args.command_args
+    daemons = args.allow_daemons
+    if util.target_path(args.target) == "/":
+        sys.stderr.write("WARN: Target is /, daemons are allowed.\n")
+        daemons = True
+    cmd = args.command_args
+    with util.ChrootableTarget(target, allow_daemons=daemons) as chroot:
+        exit = 0
+        if not args.interactive:
+            try:
+                chroot.subp(cmd, capture=args.capture)
+            except util.ProcessExecutionError as e:
+                exit = e.exit_code
+        else:
+            if chroot.target != "/":
+                cmd = ["chroot", chroot.target] + args.command_args
 
-    if target == "/" and args.allow_daemons:
-        ret = run_command(cmd, args.interactive, capture=args.capture)
-    else:
-        with util.ChrootableTarget(target, allow_daemons=args.allow_daemons):
-            ret = run_command(cmd, args.interactive)
-
-    sys.exit(ret)
+            # in python 3.4 pty.spawn started returning a value.
+            # There, it is the status from os.waitpid.  From testing (py3.6)
+            # that seemse to be exit_code * 256.
+            ret = pty.spawn(cmd)  # pylint: disable=E1111
+            if ret is not None:
+                exit = int(ret / 256)
+        sys.exit(exit)
 
 
 def POPULATE_SUBCMD(parser):

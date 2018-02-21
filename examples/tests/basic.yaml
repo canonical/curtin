@@ -21,6 +21,11 @@ storage:
         number: 2
         size: 1GB
         device: sda
+      - id: sda3
+        type: partition
+        number: 3
+        size: 1GB
+        device: sda
       - id: sda1_root
         type: format
         fstype: ext4
@@ -30,6 +35,10 @@ storage:
         type: format
         fstype: ext4
         volume: sda2
+      - id: sda3_swap
+        type: format
+        fstype: swap
+        volume: sda3
       - id: sda1_mount
         type: mount
         path: /

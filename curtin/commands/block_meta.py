@@ -1,23 +1,8 @@
-#   Copyright (C) 2013 Canonical Ltd.
-#
-#   Author: Scott Moser <scott.moser@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 from collections import OrderedDict
 from curtin import (block, config, util)
-from curtin.block import (mdadm, mkfs, clear_holders, lvm, iscsi)
+from curtin.block import (mdadm, mkfs, clear_holders, lvm, iscsi, zfs)
 from curtin.log import LOG
 from curtin.reporter import events
 
@@ -264,6 +249,23 @@ def make_dname(volume, storage_config):
     util.write_file(rule_file, ', '.join(rule))
 
 
+def get_poolname(info, storage_config):
+    """ Resolve pool name from zfs info """
+
+    LOG.debug('get_poolname for volume {}'.format(info))
+    if info.get('type') == 'zfs':
+        pool_id = info.get('pool')
+        poolname = get_poolname(storage_config.get(pool_id), storage_config)
+    elif info.get('type') == 'zpool':
+        poolname = info.get('pool')
+    else:
+        msg = 'volume is not type zfs or zpool: %s' % info
+        LOG.error(msg)
+        raise ValueError(msg)
+
+    return poolname
+
+
 def get_path_to_storage_volume(volume, storage_config):
     # Get path to block device for volume. Volume param should refer to id of
     # volume in storage config
@@ -474,14 +476,14 @@ def partition_handler(info, storage_config):
         previous_partition = os.path.join(disk_sysfs_path, partition_kname)
         LOG.debug("previous partition: {}".format(previous_partition))
         # XXX: sys/block/X/{size,start} is *ALWAYS* in 512b value
-        previous_size = util.load_file(os.path.join(previous_partition,
-                                                    "size"))
-        previous_size_sectors = (int(previous_size) * 512 /
-                                 logical_block_size_bytes)
-        previous_start = util.load_file(os.path.join(previous_partition,
-                                                     "start"))
-        previous_start_sectors = (int(previous_start) * 512 /
-                                  logical_block_size_bytes)
+        previous_size = int(
+            util.load_file(os.path.join(previous_partition, "size")))
+        previous_size_sectors = int(previous_size * 512 /
+                                    logical_block_size_bytes)
+        previous_start = int(
+            util.load_file(os.path.join(previous_partition, "start")))
+        previous_start_sectors = int(previous_start * 512 /
+                                     logical_block_size_bytes)
         LOG.debug("previous partition.size_sectors: {}".format(
                   previous_size_sectors))
         LOG.debug("previous partition.start_sectors: {}".format(
@@ -594,6 +596,7 @@ def partition_handler(info, storage_config):
 
 def format_handler(info, storage_config):
     volume = info.get('volume')
+    LOG.debug('WARK: format: info: %s', info)
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
                          info.get('id'))
@@ -1168,6 +1171,59 @@ def bcache_handler(info, storage_config):
               .format(backing_device, cache_device))
 
 
+def zpool_handler(info, storage_config):
+    """
+    Create a zpool based in storage_configuration
+    """
+    state = util.load_command_environment()
+
+    # extract /dev/disk/by-id paths for each volume used
+    vdevs = [get_path_to_storage_volume(v, storage_config)
+             for v in info.get('vdevs', [])]
+    poolname = info.get('pool')
+    mountpoint = info.get('mountpoint')
+    altroot = state['target']
+
+    if not vdevs or not poolname:
+        raise ValueError("pool and vdevs for zpool must be specified")
+
+    # map storage volume to by-id path for persistent path
+    vdevs_byid = []
+    for vdev in vdevs:
+        byid = block.disk_to_byid_path(vdev)
+        if not byid:
+            msg = 'Cannot find by-id path to zpool device "%s"' % vdev
+            LOG.error(msg)
+            raise RuntimeError(msg)
+        vdevs_byid.append(byid)
+
+    LOG.info('Creating zpool %s with vdevs %s', poolname, vdevs_byid)
+    zfs.zpool_create(poolname, vdevs_byid,
+                     mountpoint=mountpoint, altroot=altroot)
+
+
+def zfs_handler(info, storage_config):
+    """
+    Create a zfs filesystem
+    """
+    state = util.load_command_environment()
+    poolname = get_poolname(info, storage_config)
+    volume = info.get('volume')
+    properties = info.get('properties', {})
+
+    LOG.info('Creating zfs dataset %s/%s with properties %s',
+             poolname, volume, properties)
+    zfs.zfs_create(poolname, volume, zfs_properties=properties)
+
+    mountpoint = properties.get('mountpoint')
+    if mountpoint:
+        if state['fstab']:
+            fstab_entry = (
+                "# Use `zfs list` for current zfs mount info\n" +
+                "# %s %s defaults 0 0\n" % (poolname, mountpoint))
+            util.write_file(state['fstab'], fstab_entry, omode='a')
+
+
 def extract_storage_ordered_dict(config):
     storage_config = config.get('storage', {})
     if not storage_config:
@@ -1181,6 +1237,91 @@ def extract_storage_ordered_dict(config):
     # will be generated with the id of each component of the storage_config as
     # its index and the component of storage_config as its value
     return OrderedDict((d["id"], d) for (i, d) in enumerate(scfg))
+
+
+def zfsroot_update_storage_config(storage_config):
+    """Return an OrderedDict that has 'zfsroot' format expanded into
+       zpool and zfs commands to enable ZFS on rootfs.
+    """
+
+    zfsroots = [d for i, d in storage_config.items()
+                if d.get('fstype') == "zfsroot"]
+
+    if len(zfsroots) == 0:
+        return storage_config
+
+    if len(zfsroots) > 1:
+        raise ValueError(
+            "zfsroot found in two entries in storage config: %s" % zfsroots)
+
+    root = zfsroots[0]
+    vol = root.get('volume')
+    if not vol:
+        raise ValueError("zfsroot entry did not have 'volume'.")
+
+    if vol not in storage_config:
+        raise ValueError(
+            "zfs volume '%s' not referenced in storage config" % vol)
+
+    mounts = [d for i, d in storage_config.items()
+              if d.get('type') == 'mount' and d.get('path') == "/"]
+    if len(mounts) != 1:
+        raise ValueError("Multiple 'mount' entries point to '/'")
+
+    mount = mounts[0]
+    if mount.get('device') != root['id']:
+        raise ValueError(
+            "zfsroot Mountpoint entry for / has device=%s, expected '%s'" %
+            (mount.get("device"), root['id']))
+
+    LOG.info('Enabling experimental zfsroot!')
+
+    ret = OrderedDict()
+    for eid, info in storage_config.items():
+        if info.get('id') == mount['id']:
+            continue
+
+        if info.get('fstype') != "zfsroot":
+            ret[eid] = info
+            continue
+
+        vdevs = [storage_config[info['volume']]['id']]
+        baseid = info['id']
+        pool = {
+            'type': 'zpool',
+            'id': baseid + "_zfsroot_pool",
+            'pool': 'rpool',
+            'vdevs': vdevs,
+            'mountpoint': '/'
+        }
+        container = {
+            'type': 'zfs',
+            'id': baseid + "_zfsroot_container",
+            'pool': pool['id'],
+            'volume': '/ROOT',
+            'properties': {
+                'canmount': 'off',
+                'mountpoint': 'none',
+            }
+        }
+        rootfs = {
+            'type': 'zfs',
+            'id': baseid + "_zfsroot_fs",
+            'pool': pool['id'],
+            'volume': '/ROOT/zfsroot',
+            'properties': {
+                'canmount': 'noauto',
+                'mountpoint': '/',
+            }
+        }
+
+        for d in (pool, container, rootfs):
+            if d['id'] in ret:
+                raise RuntimeError(
+                    "Collided on id '%s' in storage config" % d['id'])
+            ret[d['id']] = d
+
+    return ret
 
 
 def meta_custom(args):
@@ -1199,13 +1340,17 @@ def meta_custom(args):
         'lvm_partition': lvm_partition_handler,
         'dm_crypt': dm_crypt_handler,
         'raid': raid_handler,
-        'bcache': bcache_handler
+        'bcache': bcache_handler,
+        'zfs': zfs_handler,
+        'zpool': zpool_handler,
     }
 
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
 
     storage_config_dict = extract_storage_ordered_dict(cfg)
+
+    storage_config_dict = zfsroot_update_storage_config(storage_config_dict)
 
     # set up reportstack
     stack_prefix = state.get('report_stack_prefix', '')

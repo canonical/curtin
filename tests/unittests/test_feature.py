@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from .helpers import CiTestCase
 
 import curtin
@@ -18,3 +20,5 @@ class TestExportsFeatures(CiTestCase):
 
     def test_has_centos_apply_network_config(self):
         self.assertIn('CENTOS_APPLY_NETWORK_CONFIG', curtin.FEATURES)
+
+# vi: ts=4 expandtab syntax=python

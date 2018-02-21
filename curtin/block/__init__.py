@@ -1,19 +1,4 @@
-#   Copyright (C) 2013 Canonical Ltd.
-#
-#   Author: Scott Moser <scott.moser@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 from contextlib import contextmanager
 import errno
@@ -443,6 +428,7 @@ def blkid(devs=None, cache=True):
                 os.unlink(cachefile)
 
     cmd = ['blkid', '-o', 'full']
+    cmd.extend(devs)
     # blkid output is <device_path>: KEY=VALUE
     # where KEY is TYPE, UUID, PARTUUID, LABEL
     out, err = util.subp(cmd, capture=True)
@@ -650,6 +636,34 @@ def get_proc_mounts():
     return mounts
 
 
+def get_dev_disk_byid():
+    """
+    Construct a dictionary mapping devname to disk/by-id paths
+
+    :returns: Dictionary populated by examining /dev/disk/by-id/*
+
+    {
+     '/dev/sda': '/dev/disk/by-id/virtio-aaaa',
+     '/dev/sda1': '/dev/disk/by-id/virtio-aaaa-part1',
+    }
+    """
+
+    prefix = '/dev/disk/by-id'
+    return {
+        os.path.realpath(byid): byid
+        for byid in [os.path.join(prefix, path) for path in os.listdir(prefix)]
+    }
+
+
+def disk_to_byid_path(kname):
+    """"
+    Return a /dev/disk/by-id path to kname if present.
+    """
+
+    mapping = get_dev_disk_byid()
+    return mapping.get(dev_path(kname))
+
+
 def lookup_disk(serial):
     """
     Search for a disk by its serial number using /dev/disk/by-id/
@@ -773,6 +787,18 @@ def is_extended_partition(device):
     return (get_part_table_type(parent_dev) in ['dos', 'msdos'] and
             part_number is not None and int(part_number) <= 4 and
             check_dos_signature(device))
+
+
+def is_zfs_member(device):
+    """
+    check if the specified device path is a zfs member
+    """
+    info = _lsblock()
+    kname = path_to_kname(device)
+    if kname in info and info[kname].get('FSTYPE') == 'zfs_member':
+        return True
+
+    return False
 
 
 @contextmanager
@@ -1026,11 +1052,13 @@ def detect_required_packages_mapping():
                 'lvm_partition': ['lvm2'],
                 'lvm_volgroup': ['lvm2'],
                 'raid': ['mdadm'],
-                'xfs': ['xfsprogs']
+                'xfs': ['xfsprogs'],
+                'zfs': ['zfsutils-linux', 'zfs-initramfs'],
+                'zpool': ['zfsutils-linux', 'zfs-initramfs'],
+                'zfsroot': ['zfsutils-linux', 'zfs-initramfs'],
             },
         },
     }
     return mapping
-
 
 # vi: ts=4 expandtab syntax=python

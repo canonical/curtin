@@ -1,7 +1,11 @@
-from mock import patch, call
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from argparse import Namespace
+from collections import OrderedDict
+from mock import patch, call
 
 from curtin.commands import block_meta
+from curtin import util
 from .helpers import CiTestCase
 
 
@@ -318,3 +322,48 @@ class TestBlockMeta(CiTestCase):
 
         print(rendered_fstab)
         self.assertEqual(rendered_fstab, expected)
+
+
+class TestZFSRootUpdates(CiTestCase):
+    def test_basic_zfsroot_update_storage_config(self):
+        zfsroot_id = 'myrootfs'
+        base = [
+            {'id': 'disk1', 'type': 'disk', 'ptable': 'gpt',
+             'serial': 'dev_vda', 'name': 'main_disk', 'wipe': 'superblock',
+             'grub_device': True},
+            {'id': 'disk1p1', 'type': 'partition', 'number': '1',
+             'size': '9G', 'device': 'disk1'},
+            {'id': 'bios_boot', 'type': 'partition', 'size': '1M',
+             'number': '2', 'device': 'disk1', 'flag': 'bios_grub'}]
+        zfsroots = [
+            {'id': zfsroot_id, 'type': 'format', 'fstype': 'zfsroot',
+             'volume': 'disk1p1', 'label': 'cloudimg-rootfs'},
+            {'id': 'disk1p1_mount', 'type': 'mount', 'path': '/',
+             'device': zfsroot_id}]
+        extra = [
+            {'id': 'extra', 'type': 'disk', 'ptable': 'gpt',
+             'wipe': 'superblock'}
+        ]
+
+        zfsroot_volname = "/ROOT/zfsroot"
+        pool_id = zfsroot_id + '_zfsroot_pool'
+        newents = [
+            {'type': 'zpool', 'id': pool_id,
+             'pool': 'rpool', 'vdevs': ['disk1p1'], 'mountpoint': '/'},
+            {'type': 'zfs', 'id': zfsroot_id + '_zfsroot_container',
+             'pool': pool_id, 'volume': '/ROOT',
+             'properties': {'canmount': 'off', 'mountpoint': 'none'}},
+            {'type': 'zfs', 'id': zfsroot_id + '_zfsroot_fs',
+             'pool': pool_id, 'volume': zfsroot_volname,
+             'properties': {'canmount': 'noauto', 'mountpoint': '/'}},
+        ]
+        expected = OrderedDict(
+            [(i['id'], i) for i in base + newents + extra])
+
+        scfg = block_meta.extract_storage_ordered_dict(
+            {'storage': {'version': 1, 'config': base + zfsroots + extra}})
+        found = block_meta.zfsroot_update_storage_config(scfg)
+        print(util.json_dumps([(k, v) for k, v in found.items()]))
+        self.assertEqual(expected, found)
+
+# vi: ts=4 expandtab syntax=python

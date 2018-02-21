@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 import errno
 import mock
 import os
@@ -489,8 +491,28 @@ class TestClearHolders(CiTestCase):
         clear_holders.wipe_superblock(self.test_syspath)
         self.assertFalse(mock_block.wipe_volume.called)
         mock_block.is_extended_partition.return_value = False
+        mock_block.is_zfs_member.return_value = False
         clear_holders.wipe_superblock(self.test_syspath)
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
+        mock_block.wipe_volume.assert_called_with(
+            self.test_blockdev, mode='superblock')
+
+    @mock.patch('curtin.block.clear_holders.zfs')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.block')
+    def test_clear_holders_wipe_superblock_zfs(self, mock_block, mock_log,
+                                               mock_zfs):
+        """test clear_holders.wipe_superblock handles zfs member"""
+        mock_block.sysfs_to_devpath.return_value = self.test_blockdev
+        mock_block.is_extended_partition.return_value = True
+        clear_holders.wipe_superblock(self.test_syspath)
+        self.assertFalse(mock_block.wipe_volume.called)
+        mock_block.is_extended_partition.return_value = False
+        mock_block.is_zfs_member.return_value = True
+        mock_zfs.device_to_poolname.return_value = 'fake_pool'
+        clear_holders.wipe_superblock(self.test_syspath)
+        mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
+        mock_zfs.zpool_export.assert_called_with('fake_pool')
         mock_block.wipe_volume.assert_called_with(
             self.test_blockdev, mode='superblock')
 
@@ -657,7 +679,47 @@ class TestClearHolders(CiTestCase):
     @mock.patch('curtin.block.clear_holders.mdadm')
     @mock.patch('curtin.block.clear_holders.util')
     def test_start_clear_holders_deps(self, mock_util, mock_mdadm):
+        mock_util.lsb_release.return_value = {'codename': 'xenial'}
         clear_holders.start_clear_holders_deps()
         mock_mdadm.mdadm_assemble.assert_called_with(
             scan=True, ignore_errors=True)
-        mock_util.subp.assert_called_with(['modprobe', 'bcache'], rcs=[0, 1])
+        mock_util.load_kernel_module.assert_has_calls([
+                mock.call('bcache'), mock.call('zfs')])
+
+    @mock.patch('curtin.block.clear_holders.mdadm')
+    @mock.patch('curtin.block.clear_holders.util')
+    def test_start_clear_holders_deps_nozfs(self, mock_util, mock_mdadm):
+        """ test that we skip zfs modprobe on precise, trusty """
+        for codename in ['precise', 'trusty']:
+            mock_util.lsb_release.return_value = {'codename': codename}
+            clear_holders.start_clear_holders_deps()
+            mock_mdadm.mdadm_assemble.assert_called_with(
+                scan=True, ignore_errors=True)
+            mock_util.load_kernel_module.assert_has_calls(
+                [mock.call('bcache')])
+            self.assertNotIn(mock.call('zfs'),
+                             mock_util.load_kernel_module.call_args_list)
+
+    @mock.patch('curtin.block.clear_holders.util')
+    def test_shutdown_swap_calls_swapoff(self, mock_util):
+        """clear_holders.shutdown_swap() calls swapoff on active swap device"""
+        blockdev = '/mydev/dummydisk'
+        mock_util.load_file.return_value = textwrap.dedent("""\
+            Filename				Type		Size	Used	Priority
+            %s        disk		4194300	53508	-1
+        """ % blockdev)
+        clear_holders.shutdown_swap(blockdev)
+        mock_util.subp.assert_called_with(['swapoff', blockdev])
+
+    @mock.patch('curtin.block.clear_holders.util')
+    def test_shutdown_swap_skips_nomatch(self, mock_util):
+        """clear_holders.shutdown_swap() ignores unmatched swapdevices"""
+        blockdev = '/mydev/dummydisk'
+        mock_util.load_file.return_value = textwrap.dedent("""\
+            Filename				Type		Size	Used	Priority
+            /foobar/wark            disk		4194300	53508	-1
+        """)
+        clear_holders.shutdown_swap(blockdev)
+        self.assertEqual(0, mock_util.subp.call_count)
+
+# vi: ts=4 expandtab syntax=python

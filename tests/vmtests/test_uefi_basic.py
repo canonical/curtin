@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from . import (VMBaseClass)
 
 from .releases import base_vm_classes as relbase
@@ -11,7 +13,7 @@ class TestBasicAbs(VMBaseClass):
     conf_file = "examples/tests/uefi_basic.yaml"
     extra_disks = ['4G']
     uefi = True
-    disk_to_check = [('main_disk', 1), ('main_disk', 2), ('main_disk', 3)]
+    disk_to_check = [('main_disk', 1), ('main_disk', 2)]
     collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda > blkid_output_vda
@@ -76,6 +78,20 @@ class TestBasicAbs(VMBaseClass):
             self.assertEqual(self.disk_block_size, size)
 
 
+class PreciseUefiTestBasic(relbase.precise, TestBasicAbs):
+    __test__ = False
+
+    def test_ptable(self):
+        print("test_ptable does not work for Precise")
+
+    def test_dname(self):
+        print("test_dname does not work for Precise")
+
+
+class PreciseHWETUefiTestBasic(relbase.precise_hwe_t, PreciseUefiTestBasic):
+    __test__ = False
+
+
 class TrustyUefiTestBasic(relbase.trusty, TestBasicAbs):
     __test__ = True
 
@@ -131,3 +147,5 @@ class ArtfulUefiTestBasic4k(ArtfulUefiTestBasic):
 
 class BionicUefiTestBasic4k(BionicUefiTestBasic):
     disk_block_size = 4096
+
+# vi: ts=4 expandtab syntax=python

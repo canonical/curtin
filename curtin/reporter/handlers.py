@@ -1,4 +1,4 @@
-# vi: ts=4 expandtab
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 import abc
 
@@ -126,3 +126,5 @@ try:
     available_handlers.register_item('journald', JournaldHandler)
 except ImportError:
     print('journald report handler not supported; no systemd module')
+
+# vi: ts=4 expandtab syntax=python

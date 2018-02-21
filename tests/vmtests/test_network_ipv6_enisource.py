@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from .releases import base_vm_classes as relbase
 from .test_network_enisource import TestNetworkENISource
 
@@ -26,3 +28,5 @@ class XenialTestNetworkIPV6ENISource(relbase.xenial, TestNetworkIPV6ENISource):
 
 
 # Artful and later are deliberately not present.  They do not have ifupdown.
+
+# vi: ts=4 expandtab syntax=python

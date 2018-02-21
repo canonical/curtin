@@ -1,4 +1,6 @@
 #!/bin/bash
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 TEMP_D=""
 CR="
 "
@@ -570,16 +572,28 @@ install_grub() {
     fi
 
     # find the mp device
+    local mp_dev="" fstype=""
     mp_dev=$(awk -v "MP=$mp" '$2 == MP { print $1 }' /proc/mounts) || {
         error "unable to determine device for mount $mp";
         return 1;
     }
+
+    fstype=$(awk -v MP=$mp '$2 == MP { print $3 }' /proc/mounts) || {
+        error "unable to fstype for mount $mp";
+        return 1;
+    }
+
     [ -z "$mp_dev" ] && {
         error "did not find '$mp' in /proc/mounts"
         cat /proc/mounts 1>&2
         return 1
     }
-    [ -b "$mp_dev" ] || { error "$mp_dev is not a block device!"; return 1; }
+    # check if parsed mount point is a block device
+    # error unless fstype is zfs, where entry will not point to block device.
+    if ! [ -b "$mp_dev" ] && [ "$fstype" != "zfs" ]; then
+        # error unless mp is zfs, entry doesn't point to block devs
+        error "$mp_dev ($fstype) is not a block device!"; return 1;
+    fi
 
     # get dpkg arch
     local dpkg_arch=""

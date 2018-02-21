@@ -1,19 +1,4 @@
-#   Copyright (C) 2016 Canonical Ltd.
-#
-#   Author: Wesley Wiedenmeier <wesley.wiedenmeier@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 """
 This module provides a mechanism for shutting down virtual storage layers on
@@ -26,8 +11,10 @@ import os
 import time
 
 from curtin import (block, udev, util)
+from curtin.swap import is_swap_device
 from curtin.block import lvm
 from curtin.block import mdadm
+from curtin.block import zfs
 from curtin.log import LOG
 
 # poll frequenty, but wait up to 60 seconds total
@@ -260,6 +247,14 @@ def wipe_superblock(device):
         LOG.info("extended partitions do not need wiping, so skipping: '%s'",
                  blockdev)
     else:
+        # release zfs member by exporting the pool
+        if block.is_zfs_member(blockdev):
+            poolname = zfs.device_to_poolname(blockdev)
+            zfs.zpool_export(poolname)
+
+        if is_swap_device(blockdev):
+            shutdown_swap(blockdev)
+
         # some volumes will be claimed by the bcache layer but do not surface
         # an actual /dev/bcacheN device which owns the parts (backing, cache)
         # The result is that some volumes cannot be wiped while bcache claims
@@ -329,6 +324,18 @@ def identify_partition(device):
     """
     path = os.path.join(block.sys_block_path(device), 'partition')
     return os.path.exists(path)
+
+
+def shutdown_swap(path):
+    """release swap device from kernel swap pool if present"""
+    procswaps = util.load_file('/proc/swaps')
+    for swapline in procswaps.splitlines():
+        if swapline.startswith(path):
+            msg = ('Removing %s from active use as swap device, '
+                   'needed for storage config' % path)
+            LOG.warning(msg)
+            util.subp(['swapoff', path])
+            return
 
 
 def get_holders(device):
@@ -531,7 +538,11 @@ def start_clear_holders_deps():
     # lad the bcache module bcause it is not present in the kernel. if this
     # happens then there is no need to halt installation, as the bcache devices
     # will never appear and will never prevent the disk from being reformatted
-    util.subp(['modprobe', 'bcache'], rcs=[0, 1])
+    util.load_kernel_module('bcache')
+    # the zfs module is needed to find and export devices which may be in-use
+    # and need to be cleared, only on xenial+.
+    if not util.lsb_release()['codename'] in ['precise', 'trusty']:
+        util.load_kernel_module('zfs')
 
 
 # anything that is not identified can assumed to be a 'disk' or similar
@@ -541,3 +552,5 @@ DATA_DESTROYING_HANDLERS = [wipe_superblock]
 # types of devices that could be encountered by clear holders and functions to
 # identify them and shut them down
 DEV_TYPES = _define_handlers_registry()
+
+# vi: ts=4 expandtab syntax=python

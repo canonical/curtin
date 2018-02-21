@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 import mock
 import os
 import yaml
@@ -822,6 +824,5 @@ network:
         print(ns.network_state.get('interfaces'))
         self.assertEqual(sorted(ifaces.split('\n')),
                          sorted(net_ifaces.split('\n')))
-
 
 # vi: ts=4 expandtab syntax=python

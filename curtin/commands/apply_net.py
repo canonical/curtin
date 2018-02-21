@@ -1,19 +1,4 @@
-#   Copyright (C) 2015 Canonical Ltd.
-#
-#   Author: Ryan Harper <ryan.harper@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
 import sys
@@ -81,14 +66,10 @@ exit 0
 
 def apply_net(target, network_state=None, network_config=None):
     if network_state is None and network_config is None:
-        msg = "Must provide at least config or state"
-        sys.stderr.write(msg + "\n")
-        raise Exception(msg)
+        raise ValueError("Must provide network_config or network_state")
 
     if target is None:
-        msg = "Must provide target"
-        sys.stderr.write(msg + "\n")
-        raise Exception(msg)
+        raise ValueError("target cannot be None.")
 
     passthrough = False
     if network_state:
@@ -251,14 +232,9 @@ def apply_net_main(args):
         sys.exit(2)
 
     LOG.info('Applying network configuration')
-    try:
-        apply_net(target=state['target'],
-                  network_state=state['network_state'],
-                  network_config=state['network_config'])
-
-    except Exception:
-        LOG.exception('failed to apply network config')
-        return 1
+    apply_net(target=state['target'],
+              network_state=state['network_state'],
+              network_config=state['network_config'])
 
     LOG.info('Applied network configuration successfully')
     sys.exit(0)

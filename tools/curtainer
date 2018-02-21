@@ -1,8 +1,9 @@
 #!/bin/bash
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 set -o pipefail
 
-VERBOSITY=0
+VERBOSITY=1
 CONTAINER=""
 
 error() { echo "$@" 1>&2; }
@@ -163,33 +164,44 @@ main() {
     inside "$name" $eatmydata apt-get -q update ||
         fail "failed apt-get update"
     install "$name" $pkgs || fail "failed install of $pkgs"
+    local pkg_ver="" src_ver=""
+    pkg_ver=$(inside "$name" \
+        dpkg-query --show --showformat='${Version}\n' curtin)
+    debug 1 "installed curtin at $pkg_ver"
 
     if [ "${getsource}" != "none" ]; then
         local isrcd="/tmp/curtin-source"
-        debug 1 "getting source for curtin to $getsource"
+        debug 1 "getting source for curtin at $pkg_ver to $getsource"
         inside "$name" $eatmydata sh -ec '
             target="$1"
+            pkg="$2"
+            ver="$3"
             d=$(mktemp -d)
             cd "$d"
-            apt-get source curtin
+            apt-get source "${pkg}${ver:+=${ver}}"
             for x in *; do [ -d "$x" ] && break; done
             [ -d "$x" ] || { echo no source dir found.; exit 1; }
             cp -a $x "$target"
             rm -Rf "$d"
-            ' -- "$isrcd"
+            ' -- "$isrcd" "curtin" "$pkg_ver"
         mkdir "$getsource" || fail "failed to create dir '$getsource'"
         inside "$name" tar -C "$isrcd" -cf - . |
             tar -C "$getsource" -xf - ||
             fail "failed to copy source out to $getsource"
-        version=$(inside "$name" dpkg-parsechangelog \
-            "--file=$isrcd/debian/changelog" "--show-field=version")
+        # 14.04 cannot take --file=<file>. Has to be 2 arguments.
+        src_ver=$(inside "$name" dpkg-parsechangelog \
+            "--file" "$isrcd/debian/changelog" "--show-field=version")
+        if [ "$src_ver" != "$pkg_ver" ]; then
+            fail "source version ($src_ver) != package version ($pkg_ver)"
+        fi
         inside "$name" rm -Rf "$isrcd" ||
             fail "failed removal of extract dir"
-        debug 1 "put source for curtin at $version in $getsource"
+        debug 1 "put source for curtin at $src_ver in $getsource"
     fi
 
     CONTAINER=""
 }
 
 main "$@"
-# vi: ts=4 expandtab
+
+# vi: ts=4 expandtab syntax=sh

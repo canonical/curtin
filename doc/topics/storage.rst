@@ -49,6 +49,8 @@ commands include:
 - DM_Crypt Command (``dm_crypt``)
 - RAID Command (``raid``)
 - Bcache Command (``bcache``)
+- Zpool Command (``zpool``) **Experimental**
+- ZFS Command (``zfs``)) **Experimental**
 
 Disk Command
 ~~~~~~~~~~~~
@@ -280,7 +282,15 @@ Format Command
 The format command makes filesystems on a volume. The filesystem type and
 target volume can be specified, as well as a few other options.
 
-**fstype**: ext4, ext3, fat32, fat16, swap, xfs
+**fstype**: ext4, ext3, fat32, fat16, swap, xfs, zfsroot
+
+.. note::
+
+  Filesystems support for ZFS on root is **Experimental**.
+  Utilizing the the ``fstype: zfsroot`` will indicate to curtin
+  that it should automatically inject the appropriate ``type: zpool``
+  and ``type: zfs`` command structures based on which target ``volume``
+  is specified in the ``format`` command.
 
 The ``fstype`` key specifies what type of filesystem format curtin should use
 for this volume. Curtin knows about common Linux filesystems such as ext4/3 and
@@ -609,6 +619,86 @@ If the ``name`` key is present, curtin will create a link to the device at
    backing_device: raid_array
    cache_device: sdb
 
+Zpool Command
+~~~~~~~~~~~~~~
+ZFS Support is **experimental**.
+
+The zpool command configures ZFS storage pools.  A storage pool is a collection
+of devices that provides physical storage and data replication for ZFS datasets.
+
+The zpool command needs to be provided with a list of physical devices, called
+vdevs.
+
+
+**pool**: *<pool name>*
+
+The ``pool`` key specifies the name of the ZFS storage pool.  It will be used
+when constructing ZFS datasets.
+
+**vdevs**: *[<device id>]*
+
+The ``vdevs`` key specifies a list of items in the storage configuration to use
+in building a ZFS storage pool.  This can be a partition or a whole disk.
+
+**mountpoint**: *<mountpoint>*
+
+The ``mountpoint`` key specifies where ZFS will mount the storage pool.
+
+**pool_properties**: *{<key=value>}*
+
+The ``pool_properties`` key specifies a dictionary of key=value pairs which
+are passed to the ZFS storage pool configuration as properties of the pool.
+
+**fs_properties**: *{<key=value>}*
+
+The ``fs_properties`` key specifies a dictionary of key=value pairs which
+are passed to the ZFS storage pool configuration as the default properties of
+any ZFS datasets that are created within the pool.
+
+**Config Example**::
+
+ - type: zpool
+   id: sda_rootpool
+   pool: rpool
+   vdevs:
+    - sda1
+   mountpoint: /
+
+ZFS Command
+~~~~~~~~~~~~~~
+ZFS Support is **experimental**.
+
+The zfs command configures ZFS datasets within a ZFS storage pool.  A dataset
+is identified by a unique path within the ZFS namespace.  A dataset can be one
+of the following: filesystem, volume, snapshot, bookmark.
+
+The zfs command needs to be provided with a pool name and a dataset name.
+
+**pool**: *<pool name>*
+
+The ``pool`` key specifies the name of the ZFS storage pool.  It will be used
+when constructing ZFS datasets.
+
+**volume**: *<volume name>*
+
+The ``volume`` key specifies the name of the volume to create with the
+specified ZFS storage pool.
+
+**properties**: *{key=value}*
+
+The ``properties`` key specifies a dictionary of key=value pairs which are
+passed to the ZFS dataset creation command.
+
+**Config Example**::
+
+ - type: zfs
+   id: sda_rootpool_rootfs
+   pool: sda_rootpool
+   volume: /ROOT/zfsroot
+   properties:
+     canmount: noauto
+     mountpoint: /
+
 
 Additional Examples
 -------------------
@@ -620,6 +710,8 @@ Learn by examples.
 - Bcache
 - RAID Boot
 - RAID5 + Bcache
+- ZFS Root Simple
+- ZFS Root
 
 Basic Layout
 ~~~~~~~~~~~~
@@ -963,3 +1055,99 @@ RAID5 + Bcache
       path: /srv/data
       type: mount
     version: 1
+
+ZFS Root Simple
+~~~~~~~~~~~~~~~
+
+::
+
+ storage:
+    config:
+    - id: sda
+      type: disk
+      ptable: gpt
+      serial: dev_vda
+      name: main_disk
+      wipe: superblock
+      grub_device: true
+    - id: sda1
+      type: partition
+      number: 1
+      size: 9G
+      device: sda
+    - id: bios_boot
+      type: partition
+      size: 1M
+      number: 2
+      device: sda
+      flag: bios_grub
+    - id: sda1_root
+      type: format
+      fstype: zfsroot
+      volume: sda1
+      label: 'cloudimg-rootfs'
+    - id: sda1_mount
+      type: mount
+      path: /
+      device: sda1_root
+    version: 1
+
+
+ZFS Root
+~~~~~~~~
+
+::
+
+ storage:
+     config:
+     -   grub_device: true
+         id: disk1
+         name: main_disk
+         ptable: gpt
+         serial: disk-a
+         type: disk
+         wipe: superblock
+     -   device: disk1
+         id: disk1p1
+         number: 1
+         size: 9G
+         type: partition
+     -   device: disk1
+         flag: bios_grub
+         id: bios_boot
+         number: 2
+         size: 1M
+         type: partition
+     -   id: disk1_rootpool
+         mountpoint: /
+         pool: rpool
+         type: zpool
+         vdevs:
+         - disk1p1
+     -   id: disk1_rootpool_container
+         pool: disk1_rootpool
+         properties:
+             canmount: 'off'
+             mountpoint: 'none'
+         type: zfs
+         volume: /ROOT
+     -   id: disk1_rootpool_rootfs
+         pool: disk1_rootpool
+         properties:
+             canmount: noauto
+             mountpoint: /
+         type: zfs
+         volume: /ROOT/zfsroot
+     -   id: disk1_rootpool_home
+         pool: disk1_rootpool
+         properties:
+             setuid: 'off'
+         type: zfs
+         volume: /home
+     -   id: disk1_rootpool_home_root
+         pool: disk1_rootpool
+         type: zfs
+         volume: /home/root
+         properties:
+             mountpoint: /root
+     version: 1

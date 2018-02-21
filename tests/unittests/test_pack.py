@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from unittest import TestCase
 
 from curtin import version
@@ -66,7 +68,8 @@ class TestPack(TestCase):
         try:
             log_file = tempfile.mktemp(dir=self.tmpd)
             cfg_file = tempfile.mktemp(dir=self.tmpd)
-            mcfg['install'] = {'log_file': log_file}
+            mcfg['install'] = cfg.get('install', {})
+            mcfg['install']['log_file'] = log_file
             mcfg['sources'] = {'testsrc': src_url}
             util.write_file(cfg_file, json.dumps(mcfg))
             print(json.dumps(mcfg))
@@ -114,7 +117,8 @@ class TestPack(TestCase):
             'stages': ['early'],
             'early_commands': {
                 'mycmd': ["sh", "-c", "echo " + mystr + "; exit 9;"]
-            }}
+            },
+            'install': {'error_tarfile': None}}
 
         out, err, rc, log_contents = self.run_install(cfg)
 
@@ -185,6 +189,5 @@ def remove_pyc_for_file(py_path):
     for pyc in [without_py + ".pyc"] + glob.glob(pycache_wildcard):
         if os.path.exists(pyc):
             os.unlink(pyc)
-
 
 # vi: ts=4 expandtab syntax=python

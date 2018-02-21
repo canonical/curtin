@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 import atexit
 import datetime
 import errno
@@ -47,6 +49,8 @@ OUTPUT_DISK_NAME = 'output_disk.img'
 BOOT_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_BOOT_TIMEOUT", 300))
 INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
 REUSE_TOPDIR = bool(int(os.environ.get("CURTIN_VMTEST_REUSE_TOPDIR", 0)))
+
+_UNSUPPORTED_UBUNTU = None
 
 _TOPDIR = None
 
@@ -187,8 +191,7 @@ def get_images(src_url, local_d, distro, release, arch, krel=None, sync="1",
                  distro, release, krel, subarch, ftypes)
     if not ftypes:
         ftypes = {
-            'vmtest.root-image': '',
-            'vmtest.root-tgz': '',
+            'root-tgz': '',
             'squashfs': '',
             'boot-kernel': '',
             'boot-initrd': ''
@@ -389,6 +392,7 @@ class VMBaseClass(TestCase):
     target_release = None
     target_krel = None
     target_ftype = "squashfs"
+    target_kernel_package = None
 
     _debian_packages = None
 
@@ -411,31 +415,32 @@ class VMBaseClass(TestCase):
             subarch=cls.subarch if cls.subarch else None,
             sync=CURTIN_VMTEST_IMAGE_SYNC,
             ftypes=('boot-initrd', 'boot-kernel', cls.ephemeral_ftype))
-        logger.debug("Install Image %s\n, ftypes: %s\n",
-                     eph_img_verstr, ftypes)
+
         if not cls.target_krel and cls.krel:
             cls.target_krel = cls.krel
 
-        # get local absolute filesystem paths for the OS tarball to be
-        # installed
-        if cls.target_ftype in ["vmtest.root-tgz", "squashfs"]:
-            target_img_verstr, found = get_images(
+        tftype = cls.target_ftype
+        if tftype in ["root-image.xz"]:
+            logger.info('get-testfiles UC16 hack!')
+            target_ftypes = {'root-image.xz': UC16_IMAGE}
+            target_img_verstr = "UbuntuCore 16"
+        elif cls.target_release == cls.release:
+            target_ftypes = ftypes.copy()
+            target_img_verstr = eph_img_verstr
+        else:
+            target_img_verstr, target_ftypes = get_images(
                 IMAGE_SRC_URL, IMAGE_DIR,
                 cls.target_distro if cls.target_distro else cls.distro,
                 cls.target_release if cls.target_release else cls.release,
                 cls.arch, subarch=cls.subarch if cls.subarch else None,
                 kflavor=cls.kflavor if cls.kflavor else None,
                 krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
-                ftypes=(cls.target_ftype,))
-            logger.debug("Target Tarball %s\n, ftypes: %s\n",
-                         target_img_verstr, found)
-        elif cls.target_ftype in ["root-image.xz"]:
-            logger.info('get-testfiles UC16 hack!')
-            found = {'root-image.xz': UC16_IMAGE}
-            target_img_verstr = "UbuntuCore 16"
-        logger.info("Ephemeral Image Version:[%s] Target Image Version:[%s]",
-                    eph_img_verstr, target_img_verstr)
-        ftypes.update(found)
+                ftypes=(tftype,))
+
+        ftypes["target/%s" % tftype] = target_ftypes[tftype]
+        logger.debug(
+            "Install Image Version = %s\n, Target Image Version = %s\n"
+            "ftypes: %s", eph_img_verstr, target_img_verstr, ftypes)
         return ftypes
 
     @classmethod
@@ -541,15 +546,59 @@ class VMBaseClass(TestCase):
         return disks
 
     @classmethod
-    def skip_by_date(cls, clsname, release, bugnum, fixby, removeby):
-        if datetime.date.today() < datetime.date(*fixby):
-            raise SkipTest(
-                "LP: #%s not expected to be fixed in %s yet" % (bugnum,
-                                                                release))
-        if datetime.date.today() > datetime.date(*removeby):
-            raise RuntimeError(
-                "Please remove the LP: #%s workaround in %s",
-                bugnum, clsname)
+    def skip_by_date(cls, bugnum, fixby, removeby=None,
+                     release=None, name=None):
+        """Raise SkipTest with bug message until 'fixby'.
+           Raise RutimeError after removeby.
+           fixby and removeby support string (2018-01-01) or tuple(2018,01,01)
+           removeby defaults to 3 weeks after fixby.
+           """
+        def as_dtdate(date):
+            if not isinstance(date, str):
+                return date
+            return datetime.date(*map(int, date.split("-")))
+
+        def as_str(dtdate):
+            return "%s-%02d-%02d" % (dtdate.year, dtdate.month, dtdate.day)
+
+        if name is None:
+            name = cls.__name__
+
+        if release is None:
+            release = cls.release
+
+        d_today = datetime.date.today()
+        d_fixby = as_dtdate(fixby)
+        if removeby is None:
+            # give 3 weeks by default.
+            d_removeby = d_fixby + datetime.timedelta(21)
+        else:
+            d_removeby = as_dtdate(removeby)
+
+        bmsg = ("[{name}/{rel}] skip_by_date LP: #{bug} "
+                "fixby={fixby} removeby={removeby}: ".format(
+                    name=name, rel=release, bug=bugnum,
+                    fixby=as_str(d_fixby), removeby=as_str(d_removeby)))
+
+        envname = 'CURTIN_VMTEST_SKIP_BY_DATE_BUGS'
+        envval = os.environ.get(envname, "")
+        skip_bugs = envval.replace(",", " ").split()
+
+        result = None
+        msg = bmsg + "Not skipping."
+        if "*" in skip_bugs or bugnum in skip_bugs:
+            msg = bmsg + "skip per %s=%s" % (envname, envval)
+            result = SkipTest
+        elif d_today < d_fixby:
+            msg = bmsg + "skip (today < fixby)"
+            result = SkipTest
+        elif d_today > d_removeby:
+            msg = bmsg + "Remove workaround."
+            result = RuntimeError
+
+        logger.info(msg)
+        if result:
+            raise result(msg)
 
     @classmethod
     def get_config_smp(cls):
@@ -574,6 +623,9 @@ class VMBaseClass(TestCase):
     @classmethod
     def get_kernel_package(cls):
         """ Return the kernel package name for this class """
+        if cls.target_kernel_package:
+            return cls.target_kernel_package
+
         package = 'linux-image-' + cls.kflavor
         if cls.subarch is None or cls.subarch.startswith('ga'):
             return package
@@ -587,6 +639,9 @@ class VMBaseClass(TestCase):
 
            Returns: config dictionary only for hwe, or edge subclass
            """
+        if cls.target_kernel_package:
+            return {'kernel': {'package': cls.target_kernel_package}}
+
         if cls.subarch is None or cls.subarch.startswith('ga'):
             return None
 
@@ -601,6 +656,9 @@ class VMBaseClass(TestCase):
         global logger
         logger = _initialize_logging(name=cls.__name__)
         cls.logger = logger
+
+        if is_unsupported_ubuntu(cls.release):
+            raise SkipTest('"%s" is unsupported release.' % cls.release)
 
         # check if we should skip due to host arch
         if cls.arch in cls.arch_skip:
@@ -639,12 +697,12 @@ class VMBaseClass(TestCase):
             cmd.extend(["--append=" + cls.extra_kern_args])
 
         ftypes = cls.get_test_files()
+        root_pubpath = "root/" + cls.ephemeral_ftype
         # trusty can't yet use root=URL due to LP:#1735046
         if cls.release in ['trusty']:
             root_url = "/dev/disk/by-id/virtio-boot-disk"
         else:
-            root_url = "squash:PUBURL/%s" % (
-                os.path.basename(ftypes[cls.ephemeral_ftype]))
+            root_url = "squash:PUBURL/" + root_pubpath
         # configure ephemeral boot environment
         cmd.extend([
             "--root-arg=root=%s" % root_url,
@@ -660,16 +718,17 @@ class VMBaseClass(TestCase):
             cmd.extend(["--append=iscsi_auto"])
 
         # publish the ephemeral image (used in root=URL)
-        cmd.append("--publish=%s" % ftypes[cls.ephemeral_ftype])
+        cmd.append("--publish=%s:%s" % (ftypes[cls.ephemeral_ftype],
+                                        root_pubpath))
         logger.info("Publishing ephemeral image as %s", cmd[-1])
-        # publish the target image
-        cmd.append("--publish=%s" % ftypes[cls.target_ftype])
-        logger.info("Publishing target image as %s", cmd[-1])
 
         # set curtin install source
-        install_src = cls.get_install_source(ftypes)
-
+        install_src, publishes = cls.get_install_source(ftypes)
         logger.info("Curtin install source URI: %s", install_src)
+        if len(publishes):
+            cmd.extend(['--publish=%s' % p for p in publishes])
+            logger.info("Publishing install sources: %s",
+                        cmd[-len(publishes):])
 
         # check for network configuration
         cls.network_state = curtin_net.parse_net_config(cls.conf_file)
@@ -1032,19 +1091,21 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def get_install_source(cls, ftypes):
-        if cls.target_ftype == 'squashfs':
-            # If we're installing from squashfs source then direct
-            # curtin to install from the read-only undermount
+        """Return install uri and a list of files needed to be published."""
+        # if release (install environment) is the same as target
+        # target (thing to install) then install via cp://
+        if cls.target_release in (None, cls.release):
             install_src = "cp:///media/root-ro"
-        else:
-            if cls.target_ftype == 'root-image.xz':
-                stype = "dd-xz"
-            else:
-                stype = "tgz"
-            src = os.path.basename(ftypes[cls.target_ftype])
-            install_src = "%s:PUBURL/%s" % (stype, src)
+            return install_src, []
 
-        return install_src
+        # publish the file to target/<ftype>
+        # and set the install source to <type>:PUBURL/target/<ftype>
+        ttype2stype = {'root-image.xz': 'dd-xz', 'squashfs': 'fsimage'}
+        ftype = cls.target_ftype
+        pubpath = "target/" + ftype
+        src = "%s:PUBURL/%s" % (ttype2stype.get(ftype, 'tgz'), pubpath)
+        publishes = [ftypes["target/" + ftype] + ":" + pubpath]
+        return src, publishes
 
     @classmethod
     def tearDownClass(cls):
@@ -1357,11 +1418,10 @@ class PsuedoVMBaseClass(VMBaseClass):
             return os.path.join(IMAGE_DIR, cls.release, cls.arch, name)
 
         return {
-            'vmtest.root-image': get_psuedo_path('psuedo-root-image'),
             'squashfs': get_psuedo_path('psuedo-squashfs'),
             'boot-kernel': get_psuedo_path('psuedo-kernel'),
             'boot-initrd': get_psuedo_path('psuedo-initrd'),
-            'vmtest.root-tgz': get_psuedo_path('psuedo-root-tgz')
+            'root-tgz': get_psuedo_path('psuedo-root-tgz')
         }
 
     @classmethod
@@ -1651,5 +1711,28 @@ def get_lan_ip():
     return addr
 
 
+def is_unsupported_ubuntu(release):
+    global _UNSUPPORTED_UBUNTU
+    udi = 'ubuntu-distro-info'
+    if _UNSUPPORTED_UBUNTU is None:
+        env = os.environ.get('UNSUPPORTED_UBUNTU')
+        if env:
+            # allow it to be , or " " separated.
+            _UNSUPPORTED_UBUNTU = env.replace(",", " ").split()
+        elif util.which(udi):
+            _UNSUPPORTED_UBUNTU = util.subp(
+                [udi, '--unsupported'], capture=True)[0].splitlines()
+            # precise ESM support.
+            if 'precise' in _UNSUPPORTED_UBUNTU:
+                _UNSUPPORTED_UBUNTU.remove('precise')
+        else:
+            # no way to tell.
+            return None
+
+    return release in _UNSUPPORTED_UBUNTU
+
+
 apply_keep_settings()
 logger = _initialize_logging()
+
+# vi: ts=4 expandtab syntax=python

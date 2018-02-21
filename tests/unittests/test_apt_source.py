@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 """ test_apt_source
 Testing various config variations of the apt_source custom config
 """
@@ -1029,5 +1031,4 @@ class TestDebconfSelections(CiTestCase):
         apt_config.dpkg_reconfigure(['pkgfoo', 'pkgbar'])
         m_subp.assert_not_called()
 
-#
-# vi: ts=4 expandtab
+# vi: ts=4 expandtab syntax=python

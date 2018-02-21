@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 import functools
 import os
 import mock
@@ -98,6 +100,28 @@ class TestBlock(CiTestCase):
             mock_os_path_exists.return_value = True
             mock_os_listdir.return_value = ["other"]
             block.lookup_disk(serial)
+
+    @mock.patch("curtin.block.get_dev_disk_byid")
+    def test_disk_to_byid_path(self, mock_byid):
+        """ disk_to_byid path returns a /dev/disk/by-id path """
+        mapping = {
+            '/dev/sda': '/dev/disk/by-id/scsi-abcdef',
+        }
+        mock_byid.return_value = mapping
+
+        byid_path = block.disk_to_byid_path('/dev/sda')
+        self.assertEqual(mapping['/dev/sda'], byid_path)
+
+    @mock.patch("curtin.block.get_dev_disk_byid")
+    def test_disk_to_byid_path_notfound(self, mock_byid):
+        """ disk_to_byid path returns None for not found devices """
+        mapping = {
+            '/dev/sda': '/dev/disk/by-id/scsi-abcdef',
+        }
+        mock_byid.return_value = mapping
+
+        byid_path = block.disk_to_byid_path('/dev/sdb')
+        self.assertEqual(mapping.get('/dev/sdb'), byid_path)
 
 
 class TestSysBlockPath(CiTestCase):
@@ -618,6 +642,5 @@ class TestSlaveKnames(CiTestCase):
         self._prepare_mocks(device, cfg)
         knames = block.get_device_slave_knames(device)
         self.assertEqual(slaves, knames)
-
 
 # vi: ts=4 expandtab syntax=python
