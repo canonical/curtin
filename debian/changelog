@@ -1,4 +1,4 @@
-curtin (17.1-37-g82622f12-0ubuntu1) UNRELEASED; urgency=medium
+curtin (17.1-37-g82622f12-0ubuntu1) bionic; urgency=medium
 
   * New upstream snapshot.
     - docs: Document use of format command with fstype: zfsroot
@@ -33,7 +33,7 @@ curtin (17.1-37-g82622f12-0ubuntu1) UNRELEASED; urgency=medium
     - vmtest: Do not run tests of unsupported Ubuntu releases.
     - Make license headers and file footers consistent and simplify.
 
- -- Scott Moser <smoser@ubuntu.com>  Wed, 21 Feb 2018 12:18:27 -0500
+ -- Scott Moser <smoser@ubuntu.com>  Wed, 21 Feb 2018 12:19:07 -0500
 
 curtin (17.1-11-ga4c9636b-0ubuntu1) bionic; urgency=medium
 
