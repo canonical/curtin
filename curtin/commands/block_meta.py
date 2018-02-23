@@ -596,7 +596,6 @@ def partition_handler(info, storage_config):
 
 def format_handler(info, storage_config):
     volume = info.get('volume')
-    LOG.debug('WARK: format: info: %s', info)
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
                          info.get('id'))
@@ -1114,9 +1113,15 @@ def bcache_handler(info, storage_config):
     if backing_device:
         backing_device_sysfs = block.sys_block_path(backing_device)
         target_sysfs_path = os.path.join(backing_device_sysfs, "bcache")
-        if not os.path.exists(os.path.join(backing_device_sysfs, "bcache")):
-            LOG.debug('Creating a backing device on %s', backing_device)
-            util.subp(["make-bcache", "-B", backing_device])
+
+        # there should not be any pre-existing bcache device
+        bdir = os.path.join(backing_device_sysfs, "bcache")
+        if os.path.exists(bdir):
+            raise RuntimeError(
+                'Unexpected old bcache device: %s', backing_device)
+
+        LOG.debug('Creating a backing device on %s', backing_device)
+        util.subp(["make-bcache", "-B", backing_device])
         ensure_bcache_is_registered(backing_device, target_sysfs_path)
 
         # via the holders we can identify which bcache device we just created

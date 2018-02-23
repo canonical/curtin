@@ -358,15 +358,18 @@ class TestWipeVolume(CiTestCase):
     @mock.patch('curtin.block.quick_zero')
     def test_wipe_superblock(self, mock_quick_zero):
         block.wipe_volume(self.dev, mode='superblock')
-        mock_quick_zero.assert_called_with(self.dev, partitions=False)
-        block.wipe_volume(self.dev, mode='superblock-recursive')
-        mock_quick_zero.assert_called_with(self.dev, partitions=True)
+        mock_quick_zero.assert_called_with(self.dev, exclusive=True,
+                                           partitions=False)
+        block.wipe_volume(self.dev, exclusive=True,
+                          mode='superblock-recursive')
+        mock_quick_zero.assert_called_with(self.dev, exclusive=True,
+                                           partitions=True)
 
     @mock.patch('curtin.block.wipe_file')
     def test_wipe_zero(self, mock_wipe_file):
         with simple_mocked_open():
-            block.wipe_volume(self.dev, mode='zero')
-            mock_wipe_file.assert_called_with(self.dev)
+            block.wipe_volume(self.dev, exclusive=True, mode='zero')
+            mock_wipe_file.assert_called_with(self.dev, exclusive=True)
 
     @mock.patch('curtin.block.wipe_file')
     def test_wipe_random(self, mock_wipe_file):
@@ -374,7 +377,8 @@ class TestWipeVolume(CiTestCase):
             block.wipe_volume(self.dev, mode='random')
             mock_open.assert_called_with('/dev/urandom', 'rb')
             mock_wipe_file.assert_called_with(
-                self.dev, reader=mock_open.return_value.__enter__().read)
+                self.dev, exclusive=True,
+                reader=mock_open.return_value.__enter__().read)
 
     def test_bad_input(self):
         with self.assertRaises(ValueError):

@@ -8,8 +8,8 @@ import textwrap
 
 class TestMdadmAbs(VMBaseClass):
     interactive = False
-    extra_disks = []
     active_mdadm = "1"
+    dirty_disks = True
     collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
@@ -50,7 +50,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                      ('md0', 0),
                      ('cached_array', 0),
                      ('cached_array_2', 0)]
-    extra_disks = ['4G', '4G']
+    extra_disks = ['4G', '4G', '4G', '4G', '4G']
     collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         bcache-super-show /dev/vda6 > bcache_super_vda6

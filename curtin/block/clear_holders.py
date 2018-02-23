@@ -188,11 +188,11 @@ def shutdown_lvm(device):
     # '{volume group}-{logical volume}'. The volume can be freed using lvremove
     name_file = os.path.join(device, 'dm', 'name')
     (vg_name, lv_name) = lvm.split_lvm_name(util.load_file(name_file))
-    # use two --force flags here in case the volume group that this lv is
-    # attached two has been damaged
-    LOG.debug('running lvremove on %s/%s', vg_name, lv_name)
-    util.subp(['lvremove', '--force', '--force',
-               '{}/{}'.format(vg_name, lv_name)], rcs=[0, 5])
+
+    # use dmsetup as lvm commands require valid /etc/lvm/* metadata
+    LOG.debug('using "dmsetup remove" on %s-%s', vg_name, lv_name)
+    util.subp(['dmsetup', 'remove', '{}-{}'.format(vg_name, lv_name)])
+
     # if that was the last lvol in the volgroup, get rid of volgroup
     if len(lvm.get_lvols_in_volgroup(vg_name)) == 0:
         util.subp(['vgremove', '--force', '--force', vg_name], rcs=[0, 5])
@@ -268,24 +268,30 @@ def wipe_superblock(device):
                 maybe_stop_bcache_device(stop_path)
                 continue
 
-        retries = [1, 3, 5, 7]
-        LOG.info('wiping superblock on %s', blockdev)
-        for attempt, wait in enumerate(retries):
-            LOG.debug('wiping %s attempt %s/%s',
+        _wipe_superblock(blockdev)
+
+
+def _wipe_superblock(blockdev, exclusive=True):
+    """ No checks, just call wipe_volume """
+
+    retries = [1, 3, 5, 7]
+    LOG.info('wiping superblock on %s', blockdev)
+    for attempt, wait in enumerate(retries):
+        LOG.debug('wiping %s attempt %s/%s',
+                  blockdev, attempt + 1, len(retries))
+        try:
+            block.wipe_volume(blockdev, mode='superblock', exclusive=exclusive)
+            LOG.debug('successfully wiped device %s on attempt %s/%s',
                       blockdev, attempt + 1, len(retries))
-            try:
-                block.wipe_volume(blockdev, mode='superblock')
-                LOG.debug('successfully wiped device %s on attempt %s/%s',
-                          blockdev, attempt + 1, len(retries))
-                return
-            except OSError:
-                if attempt + 1 >= len(retries):
-                    raise
-                else:
-                    LOG.debug("wiping device '%s' failed on attempt"
-                              " %s/%s.  sleeping %ss before retry",
-                              blockdev, attempt + 1, len(retries), wait)
-                    time.sleep(wait)
+            return
+        except OSError:
+            if attempt + 1 >= len(retries):
+                raise
+            else:
+                LOG.debug("wiping device '%s' failed on attempt"
+                          " %s/%s.  sleeping %ss before retry",
+                          blockdev, attempt + 1, len(retries), wait)
+                time.sleep(wait)
 
 
 def identify_lvm(device):
@@ -308,7 +314,10 @@ def identify_mdadm(device):
     """
     determine if specified device is a mdadm device
     """
-    return block.path_to_kname(device).startswith('md')
+    # RAID0 and 1 devices can be partitioned and the partitions are *not*
+    # raid devices with a sysfs 'md' subdirectory
+    partition = identify_partition(device)
+    return block.path_to_kname(device).startswith('md') and not partition
 
 
 def identify_bcache(device):
@@ -501,21 +510,46 @@ def clear_holders(base_paths, try_preserve=False):
              '\n'.join(format_holders_tree(tree) for tree in holder_trees))
     ordered_devs = plan_shutdown_holder_trees(holder_trees)
 
+    # run wipe-superblock on layered devices
+    for dev_info in ordered_devs:
+        dev_type = DEV_TYPES.get(dev_info['dev_type'])
+        shutdown_function = dev_type.get('shutdown')
+        if not shutdown_function:
+            continue
+
+        if try_preserve and shutdown_function in DATA_DESTROYING_HANDLERS:
+            LOG.info('shutdown function for holder type: %s is destructive. '
+                     'attempting to preserve data, so skipping' %
+                     dev_info['dev_type'])
+            continue
+
+        # for layered block devices, wipe first, then shutdown
+        if dev_info['dev_type'] in ['bcache', 'raid']:
+            LOG.info("Wiping superblock on layered device type: "
+                     "'%s' syspath: '%s'", dev_info['dev_type'],
+                     dev_info['device'])
+            # we just want to wipe data, we don't care about exclusive
+            _wipe_superblock(block.sysfs_to_devpath(dev_info['device']),
+                             exclusive=False)
+
     # run shutdown functions
     for dev_info in ordered_devs:
         dev_type = DEV_TYPES.get(dev_info['dev_type'])
         shutdown_function = dev_type.get('shutdown')
         if not shutdown_function:
             continue
+
         if try_preserve and shutdown_function in DATA_DESTROYING_HANDLERS:
             LOG.info('shutdown function for holder type: %s is destructive. '
-                     'attempting to preserve data, so not skipping' %
+                     'attempting to preserve data, so skipping' %
                      dev_info['dev_type'])
             continue
-        LOG.info("shutdown running on holder type: '%s' syspath: '%s'",
-                 dev_info['dev_type'], dev_info['device'])
-        shutdown_function(dev_info['device'])
-        udev.udevadm_settle()
+
+        if os.path.exists(dev_info['device']):
+            LOG.info("shutdown running on holder type: '%s' syspath: '%s'",
+                     dev_info['dev_type'], dev_info['device'])
+            shutdown_function(dev_info['device'])
+            udev.udevadm_settle()
 
 
 def start_clear_holders_deps():

@@ -397,8 +397,8 @@ class TestClearHolders(CiTestCase):
             '-'.join((vg_name, lv_name)))
         self.assertTrue(mock_log.debug.called)
         mock_util.subp.assert_called_with(
-            ['lvremove', '--force', '--force', '/'.join((vg_name, lv_name))],
-            rcs=[0, 5])
+            ['dmsetup', 'remove', '-'.join((vg_name, lv_name))])
+
         mock_lvm.get_lvols_in_volgroup.assert_called_with(vg_name)
         self.assertEqual(len(mock_util.subp.call_args_list), 1)
         self.assertTrue(mock_lvm.lvm_scan.called)
@@ -495,7 +495,7 @@ class TestClearHolders(CiTestCase):
         clear_holders.wipe_superblock(self.test_syspath)
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
         mock_block.wipe_volume.assert_called_with(
-            self.test_blockdev, mode='superblock')
+            self.test_blockdev, exclusive=True, mode='superblock')
 
     @mock.patch('curtin.block.clear_holders.zfs')
     @mock.patch('curtin.block.clear_holders.LOG')
@@ -514,7 +514,7 @@ class TestClearHolders(CiTestCase):
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
         mock_zfs.zpool_export.assert_called_with('fake_pool')
         mock_block.wipe_volume.assert_called_with(
-            self.test_blockdev, mode='superblock')
+            self.test_blockdev, exclusive=True, mode='superblock')
 
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.block')
