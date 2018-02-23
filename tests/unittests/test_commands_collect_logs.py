@@ -247,9 +247,7 @@ class TestCreateTar(CiTestCase):
         self.add_patch('curtin.util.subp', 'mock_subp')
         self.mock_subp.return_value = ('', '')
         with mock.patch('sys.stderr'):
-            with self.assertRaises(SystemExit) as context_manager:
-                collect_logs.create_log_tarfile(tarfile, config={})
-        self.assertEqual('0', str(context_manager.exception))
+            collect_logs.create_log_tarfile(tarfile, config={})
         self.assertIn(
             mock.call(['tar', '-cvf', tarfile, self.tardir],
                       capture=True),
@@ -266,9 +264,7 @@ class TestCreateTar(CiTestCase):
         self.add_patch('curtin.util.subp', 'mock_subp')
         self.mock_subp.return_value = ('', '')
         with mock.patch('sys.stderr'):
-            with self.assertRaises(SystemExit) as context_manager:
-                collect_logs.create_log_tarfile(tarfile, config={})
-        self.assertEqual('0', str(context_manager.exception))
+            collect_logs.create_log_tarfile(tarfile, config={})
         self.assertIn(
             mock.call(['tar', '-cvf', tarfile, self.tardir],
                       capture=True),
@@ -292,9 +288,7 @@ class TestCreateTar(CiTestCase):
             'install': {'log_file': log1, 'post_files': [log2, absent_log]}}
         self.add_patch('shutil.copy', 'm_copy')
         with mock.patch('sys.stderr') as m_stderr:
-            with self.assertRaises(SystemExit) as context_manager:
-                collect_logs.create_log_tarfile(tarfile, config=config)
-        self.assertEqual('0', str(context_manager.exception))
+            collect_logs.create_log_tarfile(tarfile, config=config)
         self.assertIn(
             mock.call(
                 'Skipping logfile %s: file does not exist\n' % absent_log),
@@ -317,9 +311,7 @@ class TestCreateTar(CiTestCase):
                 'maas': {'consumer_key': 'ckey',
                          'token_key': 'tkey', 'token_secret': 'tsecret'}}}
         with mock.patch('sys.stderr'):
-            with self.assertRaises(SystemExit) as context_manager:
-                collect_logs.create_log_tarfile(tarfile, config=config)
-        self.assertEqual('0', str(context_manager.exception))
+            collect_logs.create_log_tarfile(tarfile, config=config)
         self.assertEqual(
             [mock.call(self.tardir, ['ckey', 'tkey', 'tsecret'])],
             self.m_redact.call_args_list)

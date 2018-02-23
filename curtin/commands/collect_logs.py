@@ -48,6 +48,7 @@ def collect_logs_main(args):
                 SAVE_INSTALL_CONFIG, CURTIN_PACK_CONFIG_DIR))
         cfg = CONFIG_BUILTIN.copy()
     create_log_tarfile(args.output, cfg)
+    sys.exit(0)
 
 
 def create_log_tarfile(tarfile, config):
@@ -104,7 +105,6 @@ def create_log_tarfile(tarfile, config):
         if os.path.exists(tmp_dir):
             shutil.rmtree(tmp_dir)
     sys.stderr.write('Wrote: %s\n' % tarfile)
-    sys.exit(0)
 
 
 def _collect_system_info(target_dir, config):
