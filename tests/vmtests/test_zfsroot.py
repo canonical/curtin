@@ -1,6 +1,5 @@
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
-from unittest import SkipTest
 
 import textwrap
 
@@ -32,7 +31,6 @@ class TestZfsRootAbs(VMBaseClass):
             out=$(apt-config shell v Acquire::HTTP::Proxy)
             eval "$out"
             echo "$v" > apt-proxy
-            cp /etc/environment etc_environment
         """)]
 
     def test_output_files_exist(self):
@@ -50,14 +48,6 @@ class TestZfsRootAbs(VMBaseClass):
         """Check rpoot/ROOT/zfsroot is mounted at slash"""
         self.output_files_exist(['zfs_list'])
         self.check_file_regex('zfs_list', r"rpool/ROOT/zfsroot.*/\n")
-
-    def test_env_has_zpool_vdev_name_path(self):
-        """Target env has ZPOOL_VDEV_NAME_PATH=1 set"""
-        # this is a Xenial only check
-        if self.release != ['xenial']:
-            raise SkipTest("skip test_env_has_zpool_vdev %s:" % self.release)
-        self.output_files_exist(['etc_environment'])
-        self.check_file_regex('etc_environment', r'ZPOOL_VDEV_NAME_PATH="1"')
 
     def test_proc_cmdline_has_root_zfs(self):
         """Check /proc/cmdline has root=ZFS=<pool>"""
