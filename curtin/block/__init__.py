@@ -840,7 +840,7 @@ def exclusive_open(path, exclusive=True):
         raise
 
 
-def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
+def wipe_file(path, reader=None, buflen=4 * 1024 * 1024, exclusive=True):
     """
     wipe the existing file at path.
     if reader is provided, it will be called as a 'reader(buflen)'
@@ -859,7 +859,7 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
     LOG.debug("%s is %s bytes. wiping with buflen=%s",
               path, size, buflen)
 
-    with exclusive_open(path) as fp:
+    with exclusive_open(path, exclusive=exclusive) as fp:
         while True:
             pbuf = readfunc(buflen)
             pos = fp.tell()
@@ -875,7 +875,7 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
                 fp.write(pbuf)
 
 
-def quick_zero(path, partitions=True):
+def quick_zero(path, partitions=True, exclusive=True):
     """
     zero 1M at front, 1M at end, and 1M at front
     if this is a block device and partitions is true, then
@@ -902,7 +902,8 @@ def quick_zero(path, partitions=True):
         quick_zero(pt, partitions=False)
 
     LOG.debug("wiping 1M on %s at offsets %s", path, offsets)
-    return zero_file_at_offsets(path, offsets, buflen=buflen, count=count)
+    return zero_file_at_offsets(path, offsets, buflen=buflen, count=count,
+                                exclusive=exclusive)
 
 
 def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False,
@@ -957,7 +958,7 @@ def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False,
                     fp.write(buf)
 
 
-def wipe_volume(path, mode="superblock"):
+def wipe_volume(path, mode="superblock", exclusive=True):
     """wipe a volume/block device
 
     :param path: a path to a block device
@@ -969,6 +970,7 @@ def wipe_volume(path, mode="superblock"):
        superblock-recursive: zero the beginning of the volume, the end of the
                     volume and beginning and end of any partitions that are
                     known to be on this device.
+    :param exclusive: boolean to control how path is opened
     """
     if mode == "pvremove":
         # We need to use --force --force in case it's already in a volgroup and
@@ -981,14 +983,14 @@ def wipe_volume(path, mode="superblock"):
                   rcs=[0, 5], capture=True)
         lvm.lvm_scan()
     elif mode == "zero":
-        wipe_file(path)
+        wipe_file(path, exclusive=exclusive)
     elif mode == "random":
         with open("/dev/urandom", "rb") as reader:
-            wipe_file(path, reader=reader.read)
+            wipe_file(path, reader=reader.read, exclusive=exclusive)
     elif mode == "superblock":
-        quick_zero(path, partitions=False)
+        quick_zero(path, partitions=False, exclusive=exclusive)
     elif mode == "superblock-recursive":
-        quick_zero(path, partitions=True)
+        quick_zero(path, partitions=True, exclusive=exclusive)
     else:
         raise ValueError("wipe mode %s not supported" % mode)
 
