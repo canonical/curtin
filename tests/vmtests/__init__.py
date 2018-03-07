@@ -708,8 +708,6 @@ class VMBaseClass(TestCase):
             "--root-arg=root=%s" % root_url,
             "--append=overlayroot=tmpfs",
             "--append=ip=dhcp",        # enable networking
-            "--append=rc-initrd-dns",  # carry DNS from initramfs into
-                                       # real-root (LP: #1735225)
         ])
         # getting resolvconf configured is only fixed in bionic
         # the iscsi_auto handles resolvconf setup via call to
