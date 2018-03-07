@@ -1,11 +1,11 @@
-curtin (17.1-40-g46f8000f-0ubuntu1) UNRELEASED; urgency=medium
+curtin (17.1-40-g46f8000f-0ubuntu1) bionic; urgency=medium
 
   * New upstream snapshot.
     - clear_holders: wipe complex devices before disassembly (LP: #1750519)
     - vmtests: network_mtu: fix bug number and move date out one month
     - fix /usr/bin/curtin exit code in install failure (LP: #1751176)
 
- -- Scott Moser <smoser@ubuntu.com>  Wed, 07 Mar 2018 02:55:06 -0500
+ -- Scott Moser <smoser@ubuntu.com>  Wed, 07 Mar 2018 02:55:23 -0500
 
 curtin (17.1-37-g82622f12-0ubuntu1) bionic; urgency=medium
 
