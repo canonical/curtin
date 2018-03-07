@@ -54,6 +54,7 @@ family_flag_mappings = {
     "force": {"btrfs": "--force",
               "ext": "-F",
               "fat": "-I",
+              "jfs": "-q",
               "ntfs": "--force",
               "reiserfs": "-f",
               "swap": "--force",

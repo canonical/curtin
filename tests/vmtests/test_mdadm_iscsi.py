@@ -9,6 +9,7 @@ import textwrap
 
 class TestMdadmIscsiAbs(TestMdadmAbs, TestBasicIscsiAbs):
     interactive = False
+    dirty_disks = False  # LP: 1753786
     iscsi_disks = [
         {'size': '5G', 'auth': 'user:passw0rd'},
         {'size': '5G', 'auth': 'user:passw0rd', 'iauth': 'iuser:ipassw0rd'},

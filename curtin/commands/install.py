@@ -208,10 +208,6 @@ class Stage(object):
             env = self.env.copy()
             env['CURTIN_REPORTSTACK'] = cur_res.fullname
 
-            # LP: #1527727: This must be in the environment on xenial installs
-            # anywhere that grub might be invoked (apt or setup-grub).
-            env['ZPOOL_VDEV_NAME_PATH'] = "1"
-
             shell = not isinstance(cmd, list)
             with util.LogTimer(LOG.debug, cmdname):
                 with cur_res:
