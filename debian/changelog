@@ -1,3 +1,14 @@
+curtin (17.1-45-g1a5fe18a-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - vmtest: Remove xenial and trusty specific workaround for rooturl.
+    - vmtest: Add Filesystem Battery test.
+    - Remove grub2/xenial specific workarounds for zfsroot.
+    - Disable dirty_disks mode for mdadm + iscsi tests
+    - tools/curtainer: Try harder to get source at binary version.
+
+ -- Scott Moser <smoser@ubuntu.com>  Wed, 07 Mar 2018 12:16:51 -0500
+
 curtin (17.1-40-g46f8000f-0ubuntu1) bionic; urgency=medium
 
   * New upstream snapshot.
