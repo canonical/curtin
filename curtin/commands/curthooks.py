@@ -16,8 +16,10 @@ from curtin import futil
 from curtin.log import LOG
 from curtin import swap
 from curtin import util
+from curtin import version as curtin_version
 from curtin.reporter import events
 from curtin.commands import apply_net, apt_config
+from curtin.url_helper import get_maas_version
 
 from . import populate_one_subcmd
 
@@ -717,6 +719,61 @@ def system_upgrade(cfg, target):
     util.system_upgrade(target=target)
 
 
+def inject_pollinate_user_agent_config(ua_cfg, target):
+    """Write out user-agent config dictionary to pollinate's
+    user-agent file (/etc/pollinate/add-user-agent) in target.
+    """
+    if not isinstance(ua_cfg, dict):
+        raise ValueError('ua_cfg is not a dictionary: %s', ua_cfg)
+
+    pollinate_cfg = util.target_path(target, '/etc/pollinate/add-user-agent')
+    comment = "# written by curtin"
+    content = "\n".join(["%s/%s %s" % (ua_key, ua_val, comment)
+                         for ua_key, ua_val in ua_cfg.items()]) + "\n"
+    util.write_file(pollinate_cfg, content=content)
+
+
+def handle_pollinate_user_agent(cfg, target):
+    """Configure the pollinate user-agent if provided configuration
+
+    pollinate:
+        user_agent: false  # disable writing out a user-agent string
+
+    # custom agent key/value pairs
+    pollinate:
+       user_agent:
+          key1: value1
+          key2: value2
+
+    No config will result in curtin fetching:
+      curtin version
+      maas version (via endpoint URL, if present)
+    """
+
+    pcfg = cfg.get('pollinate')
+    if not isinstance(pcfg, dict):
+        pcfg = {'user_agent': {}}
+
+    uacfg = pcfg.get('user_agent', {})
+    if uacfg is False:
+        return
+
+    # set curtin version
+    uacfg['curtin'] = curtin_version.version_string()
+
+    # maas configures a curtin reporting webhook handler with
+    # an endpoint URL.  This url is used to query the MAAS REST
+    # api to extract the exact maas version.
+    maas_reporting = cfg.get('reporting', {}).get('maas', None)
+    if maas_reporting:
+        endpoint = maas_reporting.get('endpoint')
+        maas_version = get_maas_version(endpoint)
+        if maas_version:
+            uacfg['maas'] = maas_version['version']
+
+    inject_pollinate_user_agent_config(uacfg, target)
+
+
 def handle_cloudconfig(cfg, base_dir=None):
     """write cloud-init configuration files into base_dir.
 
@@ -1011,6 +1068,12 @@ def curthooks(args):
             reporting_enabled=True, level="INFO",
             description="updating packages on target system"):
         system_upgrade(cfg, target)
+
+    with events.ReportEventStack(
+            name=stack_prefix + '/pollinate-user-agent',
+            reporting_enabled=True, level="INFO",
+            description="configuring pollinate user-agent on target system"):
+        handle_pollinate_user_agent(cfg, target)
 
     # If a crypttab file was created by block_meta than it needs to be copied
     # onto the target system, and update_initramfs() needs to be run, so that

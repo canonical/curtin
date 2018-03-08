@@ -808,4 +808,76 @@ class TestCurthooksWriteFiles(CiTestCase):
             path=cc_target + expected_cfg['file1']['path'],
             perms='0644')
 
+
+class TestCurthooksPollinate(CiTestCase):
+    def setUp(self):
+        super(TestCurthooksPollinate, self).setUp()
+        self.add_patch('curtin.version.version_string', 'mock_curtin_version')
+        self.add_patch('curtin.util.write_file', 'mock_write')
+        self.add_patch('curtin.commands.curthooks.get_maas_version',
+                       'mock_maas_version')
+        self.target = self.tmp_dir()
+
+    def test_handle_pollinate_user_agent_disable(self):
+        """ handle_pollinate_user_agent does nothing if disabled """
+        cfg = {'pollinate': {'user_agent': False}}
+        curthooks.handle_pollinate_user_agent(cfg, self.target)
+        self.assertEqual(0, self.mock_curtin_version.call_count)
+        self.assertEqual(0, self.mock_maas_version.call_count)
+        self.assertEqual(0, self.mock_write.call_count)
+
+    def test_handle_pollinate_user_agent_default(self):
+        """ handle_pollinate_user_agent checks curtin/maas version by default
+        """
+        cfg = {'reporting': {'maas': {'endpoint': 'http://127.0.0.1/foo'}}}
+        curthooks.handle_pollinate_user_agent(cfg, self.target)
+        self.assertEqual(1, self.mock_curtin_version.call_count)
+        self.assertEqual(1, self.mock_maas_version.call_count)
+        self.assertEqual(1, self.mock_write.call_count)
+
+    def test_handle_pollinate_user_agent_default_no_maas(self):
+        """ handle_pollinate_user_agent checks curtin version, skips maas """
+        cfg = {}
+        curthooks.handle_pollinate_user_agent(cfg, self.target)
+        self.assertEqual(1, self.mock_curtin_version.call_count)
+        self.assertEqual(0, self.mock_maas_version.call_count)
+        self.assertEqual(1, self.mock_write.call_count)
+
+    @patch('curtin.commands.curthooks.inject_pollinate_user_agent_config')
+    def test_handle_pollinate_user_agent_custom(self, mock_inject):
+        """ handle_pollinate_user_agent merges custom with default config """
+        self.mock_curtin_version.return_value = 'curtin-version'
+        cfg = {'pollinate': {'user_agent': {'myapp': 'myversion'}}}
+        curthooks.handle_pollinate_user_agent(cfg, self.target)
+        self.assertEqual(1, self.mock_curtin_version.call_count)
+        self.assertEqual(0, self.mock_maas_version.call_count)
+        expected_cfg = {
+            'curtin': 'curtin-version',
+            'myapp': 'myversion',
+        }
+        mock_inject.assert_called_with(expected_cfg, self.target)
+
+
+class TestCurthooksInjectPollinate(CiTestCase):
+    def setUp(self):
+        super(TestCurthooksInjectPollinate, self).setUp()
+        self.target = self.tmp_dir()
+        self.user_agent = os.path.join(self.target,
+                                       'etc/pollinate/add-user-agent')
+
+    def test_inject_ua_output(self):
+        cfg = {'mykey': 'myvalue', 'foobar': 127}
+        expected_content = [
+            "mykey/myvalue # written by curtin\n",
+            "foobar/127 # written by curtin\n"
+        ]
+        curthooks.inject_pollinate_user_agent_config(cfg, self.target)
+        content = open(self.user_agent).readlines()
+        for line in expected_content:
+            self.assertIn(line, content)
+
+    def test_inject_ua_raises_exception(self):
+        with self.assertRaises(ValueError):
+            curthooks.inject_pollinate_user_agent_config(None, self.target)
+
 # vi: ts=4 expandtab syntax=python

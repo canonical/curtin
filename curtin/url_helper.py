@@ -117,6 +117,66 @@ def download(url, path, reporthook=None, data=None):
         wfp.close()
 
 
+def get_maas_version(endpoint):
+    """ Attempt to return the MAAS version via api calls to the specified
+        endpoint.
+
+        MAAS endpoint url looks like this:
+
+        http://10.245.168.2/MAAS/metadata/status/node-f0462064-20f6-11e5-990a-d4bed9a84493
+
+        We need the MAAS_URL, which is http://10.245.168.2
+
+        Returns a maas version dictionary:
+        {'subversion': '16.04.1',
+         'capabilities': ['networks-management', 'static-ipaddresses',
+                          'ipv6-deployment-ubuntu', 'devices-management',
+                          'storage-deployment-ubuntu',
+                          'network-deployment-ubuntu',
+                          'bridging-interface-ubuntu',
+                          'bridging-automatic-ubuntu'],
+         'version': '2.1.5+bzr5596-0ubuntu1'
+        }
+    """
+    # https://docs.ubuntu.com/maas/devel/en/api indicates that
+    # we leave 1.0 in here for maas 1.9 endpoints
+    MAAS_API_SUPPORTED_VERSIONS = ["1.0", "2.0"]
+
+    try:
+        parsed = urlparse(endpoint)
+    except AttributeError as e:
+        LOG.warn('Failed to parse endpoint URL: %s', e)
+        return None
+
+    maas_host = "%s://%s" % (parsed.scheme, parsed.netloc)
+    maas_api_version_url = "%s/MAAS/api/version/" % (maas_host)
+
+    try:
+        result = geturl(maas_api_version_url)
+    except UrlError as e:
+        LOG.warn('Failed to query MAAS API version URL: %s', e)
+        return None
+
+    api_version = result.decode('utf-8')
+    if api_version not in MAAS_API_SUPPORTED_VERSIONS:
+        LOG.warn('Endpoint "%s" API version "%s" not in MAAS supported'
+                 'versions: "%s"', endpoint, api_version,
+                 MAAS_API_SUPPORTED_VERSIONS)
+        return None
+
+    maas_version_url = "%s/MAAS/api/%s/version/" % (maas_host, api_version)
+    maas_version = None
+    try:
+        result = geturl(maas_version_url)
+        maas_version = json.loads(result.decode('utf-8'))
+    except UrlError as e:
+        LOG.warn('Failed to query MAAS version via URL: %s', e)
+    except (ValueError, TypeError):
+        LOG.warn('Failed to load MAAS version result: %s', result)
+
+    return maas_version
+
+
 def _get_headers(headers=None):
     allheaders = DEFAULT_HEADERS.copy()
     if headers is not None:

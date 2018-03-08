@@ -76,7 +76,7 @@ class ServerHandler(http_server.SimpleHTTPRequestHandler):
         self._message = None
         self.send_response(200)
         self.end_headers()
-        self.wfile.write("content of %s\n" % self.path)
+        self.wfile.write(("content of %s\n" % self.path).encode('utf-8'))
 
     def do_POST(self):
         length = int(self.headers['Content-Length'])
