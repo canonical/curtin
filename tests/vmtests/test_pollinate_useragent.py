@@ -27,7 +27,7 @@ class TestPollinateUserAgent(VMBaseClass):
             pollver = re.search('pollinate\s(?P<version>\S+)',
                                 self.load_collect_file("debian-packages.txt"))
             msg = ("pollinate client '%s' does not support "
-                   "--print-user-agent'" % pollver['version'])
+                   "--print-user-agent'" % pollver.groupdict()['version'])
             raise SkipTest(msg)
 
         # curtin version is always present
