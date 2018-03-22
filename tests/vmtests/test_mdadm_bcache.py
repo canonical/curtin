@@ -47,9 +47,10 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                      ('main_disk', 4),
                      ('main_disk', 5),
                      ('main_disk', 6),
-                     ('md0', 0),
-                     ('cached_array', 0),
-                     ('cached_array_2', 0)]
+                     ('md0', 0)]
+    bcache_dnames = [('cached_array', 0),
+                     ('cached_array_2', 0),
+                     ('cached_array_3', 0)]
     extra_disks = ['4G', '4G', '4G', '4G', '4G']
     collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
@@ -117,9 +118,18 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         self.check_file_regex("bcache_cache_mode", r"\[writethrough\]")
         self.check_file_regex("bcache_cache_mode", r"\[writearound\]")
 
+    def test_bcache_dnames(self):
+        self.skip_by_date("1728742", fixby="2018-04-26")
+        self.test_dname(disk_to_check=self.bcache_dnames)
+
 
 class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):
     __test__ = True
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skip_by_date("1754581", fixby="2018-06-22")
+        super().setUpClass()
 
     # FIXME(LP: #1523037): dname does not work on trusty
     # when dname works on trusty, then we need to re-enable by removing line.
@@ -130,8 +140,16 @@ class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):
         print("test_ptable does not work for Trusty")
 
 
-class TrustyHWEXTestMdadmBcache(relbase.trusty_hwe_x, TrustyTestMdadmBcache):
+class TrustyHWEXTestMdadmBcache(relbase.trusty_hwe_x, TestMdadmBcacheAbs):
     __test__ = True
+
+    # FIXME(LP: #1523037): dname does not work on trusty
+    # when dname works on trusty, then we need to re-enable by removing line.
+    def test_dname(self):
+        print("test_dname does not work for Trusty")
+
+    def test_ptable(self):
+        print("test_ptable does not work for Trusty")
 
 
 class XenialGATestMdadmBcache(relbase.xenial_ga, TestMdadmBcacheAbs):

@@ -1282,8 +1282,10 @@ class VMBaseClass(TestCase):
                         self.assertEqual(fstab_entry.split(' ')[1],
                                          mntpoint)
 
-    def test_dname(self):
-        if self.disk_to_check is None:
+    def test_dname(self, disk_to_check=None):
+        if not disk_to_check:
+            disk_to_check = self.disk_to_check
+        if disk_to_check is None:
             return
         path = self.collect_path("ls_dname")
         if not os.path.exists(path):
