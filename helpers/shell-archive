@@ -109,7 +109,8 @@ dump_bin() {
 
 extract() {
     mkdir "$2" || { error "failed to make '$2'"; return 1; }
-    dump_bin "$1" | tar -Sxzf - -C "$2"
+    # Do not use tar [-S, --sparse] flag, see LP: #1757565
+    dump_bin "$1" | tar -xzf - -C "$2"
 }
 
 main() {
@@ -253,7 +254,8 @@ main() {
     trap cleanup EXIT
 
     local payload="${TEMP_D}/payload.tar.gz" md5=""
-    tar -C "$archive_d" -Sczf "${payload}" . ||
+    # Do not use tar [-S, --sparse] flag, see LP: #1757565
+    tar -C "$archive_d" -czf "${payload}" . ||
         { error "failed to create archive from '${archive_d}'"; return 1; }
 
     md5=$(md5sum < "$payload") ||
