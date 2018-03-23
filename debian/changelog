@@ -1,4 +1,4 @@
-curtin (17.1-51-gbd40234f-0ubuntu1) UNRELEASED; urgency=medium
+curtin (17.1-51-gbd40234f-0ubuntu1) bionic; urgency=medium
 
   * New upstream snapshot.
     - helpers/shell-archive: drop use of tar --sparse flag (LP: #1757565)
@@ -8,7 +8,7 @@ curtin (17.1-51-gbd40234f-0ubuntu1) UNRELEASED; urgency=medium
     - vmtest: fix pollinate re.search to use groupdict()
     - Add pollinate user-agent configuration support.
 
- -- Ryan Harper <ryan.harper@canonical.com>  Fri, 23 Mar 2018 10:51:31 -0500
+ -- Ryan Harper <ryan.harper@canonical.com>  Fri, 23 Mar 2018 10:51:50 -0500
 
 curtin (17.1-45-g1a5fe18a-0ubuntu1) bionic; urgency=medium
 
