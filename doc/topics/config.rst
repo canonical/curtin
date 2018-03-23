@@ -23,6 +23,7 @@ Curtin's top level config keys are as follows:
 - kexec (``kexec``)
 - multipath (``multipath``)
 - network (``network``)
+- pollinate (``pollinate``)
 - power_state (``power_state``)
 - proxy (``proxy``)
 - reporting (``reporting``)
@@ -346,6 +347,36 @@ Configure networking (see Networking section for details).
          mac_address: "c0:d6:9f:2c:e8:80"
          subnets:
            - type: dhcp4
+
+
+pollinate
+~~~~~~~~~
+Configure pollinate user-agent
+
+Curtin will automatically include Curtin's version in the pollinate user-agent.
+If a MAAS server is being used, Curtin will query the MAAS version and include
+this value as well.
+
+**user_agent**: [*<mapping>* | *<boolean>*]
+
+Mapping is a dictionary of key value pairs which will result in the string
+'key/value' being present in the pollinate user-agent string sent to the
+pollen server.
+
+Setting the ``user_agent`` value to false will disable writting of the
+user-agent string.
+
+**Example**::
+
+  pollinate:
+     user_agent:
+         curtin: 17.1-33-g92fbc491
+         maas: 2.1.5+bzr5596-0ubuntu1
+         machine: bob27
+         app: 63.12
+
+  pollinate:
+     user_agent: false
 
 
 power_state

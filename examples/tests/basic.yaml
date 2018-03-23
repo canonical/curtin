@@ -86,3 +86,7 @@ storage:
         number: 10
         size: 1GB
         device: pnum_disk
+      - id: swap_mnt
+        type: mount
+        path: "none"
+        device: sda3_swap

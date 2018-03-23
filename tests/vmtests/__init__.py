@@ -355,6 +355,7 @@ class VMBaseClass(TestCase):
         dpkg-query --show \
             --showformat='${db:Status-Abbrev}\t${Package}\t${Version}\n' \
             > debian-packages.txt 2> debian-packages.txt.err
+        cat /proc/swaps > proc-swaps
     """)]
     conf_file = "examples/tests/basic.yaml"
     nr_cpus = None
@@ -1282,8 +1283,10 @@ class VMBaseClass(TestCase):
                         self.assertEqual(fstab_entry.split(' ')[1],
                                          mntpoint)
 
-    def test_dname(self):
-        if self.disk_to_check is None:
+    def test_dname(self, disk_to_check=None):
+        if not disk_to_check:
+            disk_to_check = self.disk_to_check
+        if disk_to_check is None:
             return
         path = self.collect_path("ls_dname")
         if not os.path.exists(path):
@@ -1371,6 +1374,29 @@ class VMBaseClass(TestCase):
             self._debian_packages = pkgs
         return self._debian_packages
 
+    def test_swaps_used(self):
+        cfg = yaml.load(self.load_collect_file("root/curtin-install-cfg.yaml"))
+        stgcfg = cfg.get("storage", {}).get("config", [])
+        if len(stgcfg) == 0:
+            logger.debug("This test does not use storage config.")
+            return
+
+        swap_ids = [d["id"] for d in stgcfg if d.get("fstype") == "swap"]
+        swap_mounts = [d for d in stgcfg if d.get("device") in swap_ids]
+        self.assertEqual(len(swap_ids), len(swap_mounts),
+                         "number config swap fstypes != number swap mounts")
+
+        swaps_found = []
+        for line in self.load_collect_file("proc-swaps").splitlines():
+            fname, ttype, size, used, priority = line.split()
+            if ttype == "partition":
+                swaps_found.append(
+                    {"fname": fname, ttype: "ttype", "size": int(size),
+                     "used": int(used), "priority": int(priority)})
+        self.assertEqual(
+            len(swap_mounts), len(swaps_found),
+            "Number swaps configured != number used")
+
 
 class PsuedoVMBaseClass(VMBaseClass):
     # This mimics much of the VMBaseClass just with faster setUpClass
@@ -1401,6 +1427,8 @@ class PsuedoVMBaseClass(VMBaseClass):
         with open(cls.collect_path("fstab"), "w") as fp:
             fp.write('\n'.join(("# psuedo fstab",
                                 "LABEL=root / ext4 defaults 0 1")))
+        util.write_file(cls.collect_path("root/curtin-install-cfg.yaml"),
+                        "placeholder_simple_install: unused\n")
 
         logger.debug('Psudeo webhooks-events.json')
         webhooks = os.path.join(cls.td.logs, 'webhooks-events.json')
