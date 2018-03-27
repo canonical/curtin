@@ -1,3 +1,4 @@
+from curtin.config import merge_config
 from curtin.block import zfs
 from .helpers import CiTestCase
 
@@ -123,7 +124,14 @@ class TestBlockZfsZpoolCreate(CiTestCase):
 
     def test_zpool_create_pool_iterable(self):
         """ zpool_create accepts vdev iterables besides list """
-        zfs.zpool_create('mypool', ('/dev/virtio-disk1', '/dev/virtio-disk2'))
+        zpool_props = {'version': 250, 'ashift': 9}
+        zfs.zpool_create('mypool', ('/dev/virtio-disk1', '/dev/virtio-disk2'),
+                         pool_properties=zpool_props)
+        merge_config(zfs.ZPOOL_DEFAULT_PROPERTIES.copy(), zpool_props)
+        params = ["%s=%s" % (k, v) for k, v in zpool_props.items()]
+        args, _ = self.mock_subp.call_args
+        self.assertTrue(set(params).issubset(set(args[0])))
+
         args, _ = self.mock_subp.call_args
         self.assertIn("/dev/virtio-disk1", args[0])
         self.assertIn("/dev/virtio-disk2", args[0])
@@ -142,11 +150,21 @@ class TestBlockZfsZpoolCreate(CiTestCase):
         zfs_props = {'fsprop1': 'val2'}
         zfs.zpool_create('mypool', ['/dev/disk/by-id/virtio-abcfoo1'],
                          pool_properties=zpool_props, zfs_properties=zfs_props)
-        all_props = zpool_props.copy()
-        all_props.update(zfs_props)
+        all_props = {}
+        merge_config(all_props, zfs.ZPOOL_DEFAULT_PROPERTIES.copy())
+        merge_config(all_props, zfs.ZFS_DEFAULT_PROPERTIES.copy())
+        merge_config(all_props, zpool_props.copy())
         params = ["%s=%s" % (k, v) for k, v in all_props.items()]
         args, _ = self.mock_subp.call_args
         self.assertTrue(set(params).issubset(set(args[0])))
+
+    def test_zpool_create_override_a_default_pool_property(self):
+        """zpool_create allows users to override default pool properties"""
+        zpool_params = ["%s=%s" % (k, v) for k, v in
+                        zfs.ZPOOL_DEFAULT_PROPERTIES.items()]
+        zfs.zpool_create('mypool', ['/dev/disk/by-id/virtio-abcfoo1'])
+        args, _ = self.mock_subp.call_args
+        self.assertTrue(set(zpool_params).issubset(set(args[0])))
 
     def test_zpool_create_set_mountpoint(self):
         """ zpool_create uses mountpoint """
@@ -181,10 +199,10 @@ class TestBlockZfsZpoolCreate(CiTestCase):
         print(args[0])
         print(kwargs)
         expected_args = (
-            ['zpool', 'create', '-o', 'ashift=12', '-O', 'normalization=formD',
-             '-O', 'canmount=off', '-O', 'atime=off', '-O', 'compression=lz4',
-             '-O', 'mountpoint=%s' % mountpoint, '-R', altroot, pool,
-             vdev])
+            ['zpool', 'create', '-o', 'ashift=12', '-o', 'version=28',
+             '-O', 'normalization=formD', '-O', 'canmount=off',
+             '-O', 'atime=off', '-O', 'mountpoint=%s' % mountpoint,
+             '-R', altroot, pool, vdev])
         expected_kwargs = {'capture': True}
         self.assertEqual(sorted(expected_args), sorted(args[0]))
         self.assertEqual(expected_kwargs, kwargs)
@@ -211,7 +229,7 @@ class TestBlockZfsZfsCreate(CiTestCase):
 
         # properties
         for val in [12, ['a', 1]]:
-            with self.assertRaises(ValueError):
+            with self.assertRaises(AttributeError):
                 zfs.zfs_create('pool1', 'vol1', zfs_properties=val)
 
     def test_zfs_create_sets_zfs_properties(self):

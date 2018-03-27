@@ -6,17 +6,18 @@ and volumes."""
 
 import os
 
+from curtin.config import merge_config
 from curtin import util
 from . import blkid
 
 ZPOOL_DEFAULT_PROPERTIES = {
     'ashift': 12,
+    'version': 28,
 }
 
 ZFS_DEFAULT_PROPERTIES = {
     'atime': 'off',
     'canmount': 'off',
-    'compression': 'lz4',
     'normalization': 'formD',
 }
 
@@ -101,13 +102,15 @@ def zpool_create(poolname, vdevs, mountpoint=None, altroot=None,
         except TypeError:
             raise TypeError("vdevs must be iterable, not: %s" % str(vdevs))
 
-    if not pool_properties:
-        pool_properties = ZPOOL_DEFAULT_PROPERTIES
-    if not zfs_properties:
-        zfs_properties = ZFS_DEFAULT_PROPERTIES
+    pool_cfg = ZPOOL_DEFAULT_PROPERTIES.copy()
+    if pool_properties:
+        merge_config(pool_cfg, pool_properties)
+    zfs_cfg = ZFS_DEFAULT_PROPERTIES.copy()
+    if zfs_properties:
+        merge_config(zfs_cfg, zfs_properties)
 
-    options = _join_flags('-o', pool_properties)
-    options.extend(_join_flags('-O', zfs_properties))
+    options = _join_flags('-o', pool_cfg)
+    options.extend(_join_flags('-O', zfs_cfg))
 
     if mountpoint:
         options.extend(_join_flags('-O', {'mountpoint': mountpoint}))
@@ -142,19 +145,17 @@ def zfs_create(poolname, volume, zfs_properties=None):
     if not isinstance(volume, util.string_types) or not volume:
         raise ValueError("Invalid volume: %s", volume)
 
-    if not zfs_properties:
-        zfs_properties = {}
+    zfs_cfg = {}
+    if zfs_properties:
+        merge_config(zfs_cfg, zfs_properties)
 
-    if not isinstance(zfs_properties, dict):
-        raise ValueError("Invalid zfs_properties: %s", zfs_properties)
-
-    options = _join_flags('-o', zfs_properties)
+    options = _join_flags('-o', zfs_cfg)
 
     cmd = ["zfs", "create"] + options + [_join_pool_volume(poolname, volume)]
     util.subp(cmd, capture=True)
 
     # mount volume if it canmount=noauto
-    if zfs_properties.get('canmount') == 'noauto':
+    if zfs_cfg.get('canmount') == 'noauto':
         zfs_mount(poolname, volume)
 
 

@@ -629,6 +629,18 @@ of devices that provides physical storage and data replication for ZFS datasets.
 The zpool command needs to be provided with a list of physical devices, called
 vdevs.
 
+.. note::
+
+ Curtin specifies zpool version=28 by default.  This version is the most
+ `compatible <http://open-zfs.org/wiki/FAQ#Compatibility>`_
+ with other ZFS implementations.  If newer ZFS features are
+ required users may specify the version value in the ``pool_properties``
+ dictionary.  Users may also run ```zpool upgrade``` to move to a new pool
+ version.  Some newer features may require migration of data.
+
+ For more information about versions and features consult:
+
+ http://open-zfs.org/wiki/
 
 **pool**: *<pool name>*
 
@@ -648,12 +660,21 @@ The ``mountpoint`` key specifies where ZFS will mount the storage pool.
 
 The ``pool_properties`` key specifies a dictionary of key=value pairs which
 are passed to the ZFS storage pool configuration as properties of the pool.
+The default pool properties are:
+
+- ashift: 12
+- version: 28
 
 **fs_properties**: *{<key=value>}*
 
 The ``fs_properties`` key specifies a dictionary of key=value pairs which
 are passed to the ZFS storage pool configuration as the default properties of
-any ZFS datasets that are created within the pool.
+any ZFS datasets that are created within the pool.  The default fs properties
+are:
+
+- atime: off
+- canmount: off
+- normalization: formD
 
 **Config Example**::
 
@@ -673,6 +694,20 @@ is identified by a unique path within the ZFS namespace.  A dataset can be one
 of the following: filesystem, volume, snapshot, bookmark.
 
 The zfs command needs to be provided with a pool name and a dataset name.
+
+.. note::
+
+ Curtin specifies zpool version=28 by default.  This version is the most
+ `compatible <http://open-zfs.org/wiki/FAQ#Compatibility>`_
+ with other ZFS implementations.  If newer ZFS features are
+ required users may specify the version value in the ``pool_properties``
+ dictionary.  Users may also run ```zpool upgrade``` to move to a new pool
+ version.  Some newer features may require migration of data.
+
+ For more information about versions and features consult:
+
+ http://open-zfs.org/wiki/
+
 
 **pool**: *<pool name>*
 
