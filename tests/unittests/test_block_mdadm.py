@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from mock import call, patch
 from curtin.block import dev_short
 from curtin.block import mdadm
@@ -1164,6 +1166,5 @@ class TestBlockMdadmMdHelpers(CiTestCase):
         md_is_present = mdadm.md_present(mdname)
         self.assertFalse(md_is_present)
         self.mock_util.load_file.assert_called_with('/proc/mdstat')
-
 
 # vi: ts=4 expandtab syntax=python

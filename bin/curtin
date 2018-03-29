@@ -1,4 +1,6 @@
 #!/bin/sh
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 PY3OR2_MAIN="curtin.commands.main"
 PY3OR2_MCHECK="curtin.deps.check"
 PY3OR2_PYTHONS=${PY3OR2_PYTHONS:-"python3:python"}
@@ -53,3 +55,5 @@ if [ ! -n "$PYTHON" ]; then
 fi
 debug "executing: $PYTHON -m \"$PY3OR2_MAIN\" $*"
 exec $PYTHON -m "$PY3OR2_MAIN" "$@"
+
+# vi: ts=4 expandtab syntax=sh

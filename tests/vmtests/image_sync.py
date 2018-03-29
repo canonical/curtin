@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 from simplestreams import util as sutil
 from simplestreams import contentsource
@@ -12,10 +13,8 @@ import argparse
 import errno
 import hashlib
 import os
-import shutil
 import signal
 import sys
-import tempfile
 
 try:
     from json.decoder import JSONDecodeError
@@ -33,7 +32,7 @@ IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
 
 KEYRING = '/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg'
 ITEM_NAME_FILTERS = \
-    ['ftype~(root-image.gz|boot-initrd|boot-kernel|root-tgz|squashfs)']
+    ['ftype~(boot-initrd|boot-kernel|root-tgz|squashfs)']
 FORMAT_JSON = 'JSON'
 STREAM_BASE = 'com.ubuntu.maas:daily'
 VMTEST_CONTENT_ID_PATH_MAP = {
@@ -77,50 +76,6 @@ def get_file_info(path, sums=None):
     ret.update({k: sumers[k].hexdigest() for k in sumers})
     LOG.info("done getting ifo for %s: %s" % (path, ret))
     return ret
-
-
-def generate_root_derived(path_gz, base_d="/", info_func=get_file_info):
-    fpath_gz = os.path.join(base_d, path_gz)
-    ri_name = 'vmtest.root-image'
-    rtgz_name = 'vmtest.root-tgz'
-    ri_path = os.path.dirname(path_gz) + "/" + ri_name
-    rtgz_path = os.path.dirname(path_gz) + "/" + rtgz_name
-    ri_fpath = os.path.join(base_d, ri_path)
-    rtgz_fpath = os.path.join(base_d, rtgz_path)
-    new_items = {ri_name: {'ftype': ri_name, 'path': ri_path},
-                 rtgz_name: {'ftype': rtgz_name, 'path': rtgz_path}}
-
-    tmpd = None
-    try:
-        # create tmpdir under output dir
-        tmpd = tempfile.mkdtemp(dir=os.path.dirname(fpath_gz))
-        tmp_img = ri_fpath
-        tmp_rtgz = rtgz_fpath
-        if not os.path.exists(ri_fpath):
-            # uncompress path_gz to tmpdir/root-image
-            tmp_img = os.path.join(tmpd, ri_name)
-            LOG.info("uncompressing %s to %s" % (fpath_gz, tmp_img))
-            util.subp(['sh', '-c', 'exec gunzip -c "$0" > "$1"',
-                      fpath_gz, tmp_img])
-        if not os.path.exists(rtgz_fpath):
-            tmp_rtgz = os.path.join(tmpd, rtgz_name)
-            m2r = ['tools/maas2roottar', tmp_img, tmp_rtgz]
-            LOG.info("creating root-tgz from %s" % tmp_img)
-            util.subp(m2r)
-
-        if tmp_img != ri_fpath:
-            os.rename(tmp_img, ri_fpath)
-        if tmp_rtgz != rtgz_fpath:
-            os.rename(tmp_rtgz, rtgz_fpath)
-
-    finally:
-        if tmpd:
-            shutil.rmtree(tmpd)
-
-    new_items[ri_name].update(info_func(ri_fpath))
-    new_items[rtgz_name].update(info_func(rtgz_fpath))
-
-    return new_items
 
 
 def remove_empty_dir(dirpath):
@@ -239,40 +194,6 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
             return {}
 
         raise TypeError("unable to load_products with no path")
-
-    def insert_version(self, data, src, target, pedigree):
-        # this is called for any version that had items inserted
-        # data target['products'][pedigree[0]]['versions'][pedigree[1]]
-        # a dictionary with possibly some tags and 'items': {'boot_initrd}...
-        ri_name = 'vmtest.root-image'
-        rtgz_name = 'vmtest.root-tgz'
-        tver_data = products_version_get(target, pedigree)
-        titems = tver_data.get('items')
-
-        if not titems or 'root-image.gz' not in titems:
-            return
-
-        if (titems['root-image.gz']['ftype'] == 'root-image.gz' and
-                not (ri_name in titems and rtgz_name in titems)):
-            # generate the root-image and root-tgz
-            derived_items = generate_root_derived(
-                titems['root-image.gz']['path'], base_d=self.out_d,
-                info_func=self.get_file_info)
-            for fname, item in derived_items.items():
-                self.insert_item(item, src, target, pedigree + (fname,),
-                                 FakeContentSource(item['path']))
-        elif (titems['root-image.gz']['ftype'] == 'root-tgz' and
-                rtgz_name not in titems):
-            # already have the root tgz, just need to add content as a
-            # vmtest.root-tgz
-            # TODO: may need to generate the vmtest.root-image at some point in
-            #       the future if there is a need to use the centos image as an
-            #       ephemeral environment rather than installing centos from
-            #       an ubuntu ephemeral image
-            self.insert_item(
-                {'ftype': rtgz_name, 'path': titems['root-image.gz']['path']},
-                src, target, pedigree + (rtgz_name,),
-                FakeContentSource(titems['root-image.gz']['path']))
 
     def get_file_info(self, path):
         # check and see if we might know checksum and size

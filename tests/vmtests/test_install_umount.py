@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
@@ -54,3 +56,5 @@ class TestInstallUnmount(VMBaseClass):
 
 class XenialTestInstallUnmount(relbase.xenial, TestInstallUnmount):
     __test__ = True
+
+# vi: ts=4 expandtab syntax=python

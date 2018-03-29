@@ -30,12 +30,6 @@ storage:
     size: 3G
     type: partition
     wipe: superblock
-  - id: id_disk0_part3
-    number: 3
-    size: 1G
-    type: partition
-    wipe: superblock
-    device: id_disk0
   - fstype: fat32
     id: id_efi_format
     label: efi
@@ -46,19 +40,10 @@ storage:
     label: root
     type: format
     volume: id_disk0_part2
-  - id: id_home_format
-    label: home
-    type: format
-    fstype: xfs
-    volume: id_disk0_part3
   - device: id_root_format
     id: id_root_mount
     path: /
     type: mount
-  - device: id_home_format
-    type: mount
-    path: /home
-    id: id_home_mount
   - device: id_efi_format
     id: id_efi_mount
     path: /boot/efi

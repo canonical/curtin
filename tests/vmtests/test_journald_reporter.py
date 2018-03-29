@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
@@ -39,3 +41,5 @@ class ArtfulTestJournaldReporter(relbase.artful, TestJournaldReporter):
 
 class BionicTestJournaldReporter(relbase.bionic, TestJournaldReporter):
     __test__ = True
+
+# vi: ts=4 expandtab syntax=python

@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from . import (
     VMBaseClass,
     get_apt_proxy)
@@ -290,3 +292,5 @@ class ArtfulTestScsiBasic(relbase.artful, TestBasicScsiAbs):
 
 class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
     __test__ = True
+
+# vi: ts=4 expandtab syntax=python

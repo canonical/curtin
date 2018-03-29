@@ -1,19 +1,4 @@
-#   Copyright (C) 2014 Canonical Ltd.
-#
-#   Author: Newell Jensen <newell.jensen@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 """Reporter Abstract Base Class."""
 
@@ -47,3 +32,4 @@ def update_configuration(config):
 
 instantiated_handler_registry = DictRegistry()
 update_configuration(DEFAULT_CONFIG)
+# vi: ts=4 expandtab syntax=python

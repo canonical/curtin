@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 import mock
 import subprocess
 import os
@@ -62,6 +64,5 @@ class TestCurtinVersion(CiTestCase):
         ver_string = version.version_string()
 
         self.assertEqual(old_version, ver_string)
-
 
 # vi: ts=4 expandtab syntax=python

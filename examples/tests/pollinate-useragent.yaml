@@ -1,0 +1,4 @@
+pollinate:
+   user_agent:
+       curtin-vmtest-app1: 32.1.5+bzr5596-0ubuntu1
+       curtin-vmtest-app2: uc16.snap1/edge

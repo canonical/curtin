@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-#
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 # clean http_proxy variables from environment as they make httpretty
 # fail, but may be in the environment for reasons such as pip install
 import os
@@ -10,3 +11,5 @@ for k in ('http_proxy', 'https_proxy', 'HTTP_PROXY', 'HTTPS_PROXY'):
         del os.environ[k]
 
 os.execvpe(sys.argv[1], sys.argv[1:], os.environ)
+
+# vi: ts=4 expandtab syntax=python

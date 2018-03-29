@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from . import VMBaseClass, helpers
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
@@ -495,3 +497,5 @@ class Centos66TestNetworkBasic(centos_relbase.centos66fromxenial,
 class Centos70TestNetworkBasic(centos_relbase.centos70fromxenial,
                                CentosTestNetworkBasicAbs):
     __test__ = True
+
+# vi: ts=4 expandtab syntax=python

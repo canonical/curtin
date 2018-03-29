@@ -1,4 +1,6 @@
 #!/bin/sh
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 set -e
 
 TEMP_D=""
@@ -48,3 +50,5 @@ tar="$TEMP_D/${tar%.gz}"
 git archive --format=tar --prefix="$archive_base/" "$rev" > "$tar"
 gzip -9 -c "$tar" > "$output"
 echo "$output"
+
+# vi: ts=4 expandtab syntax=sh

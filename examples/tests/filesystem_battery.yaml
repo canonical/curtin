@@ -1,0 +1,101 @@
+showtrace: true
+early_commands:
+  "00": [apt-get, update, -qy]
+  "01": [apt-get, install, -qy, --no-install-recommends,
+         ntfs-3g, jfsutils, reiserfsprogs]
+storage:
+  version: 1
+  config:
+    - id: disk1
+      type: disk
+      ptable: msdos
+      model: QEMU HARDDISK
+      serial: disk-a
+      wipe: superblock
+      grub_device: true
+    - id: disk1p1
+      type: partition
+      number: 1
+      size: 3GB
+      device: disk1
+      flag: boot
+    - id: disk1p1_fs
+      type: format
+      fstype: ext4
+      volume: disk1p1
+      label: 'cloudimg-rootfs'
+    - id: disk1p1_mount
+      type: mount
+      path: /
+      device: disk1p1_fs
+    - id: disk2
+      type: disk
+      serial: fsbattery
+      wipe: superblock
+      ptable: gpt
+    - {id: d2p01, number:  1, device: disk2, type: partition, size: 500M}
+    - {id: d2p02, number:  2, device: disk2, type: partition, size: 500M}
+    - {id: d2p03, number:  3, device: disk2, type: partition, size: 500M}
+    - {id: d2p04, number:  4, device: disk2, type: partition, size: 500M}
+    - {id: d2p05, number:  5, device: disk2, type: partition, size: 500M}
+    - {id: d2p06, number:  6, device: disk2, type: partition, size: 500M}
+    - {id: d2p07, number:  7, device: disk2, type: partition, size: 500M}
+    - {id: d2p08, number:  8, device: disk2, type: partition, size: 500M}
+    - {id: d2p09, number:  9, device: disk2, type: partition, size: 500M}
+    - {id: d2p10, number: 10, device: disk2, type: partition, size: 500M}
+    - id: fs01
+      type: format
+      fstype: btrfs
+      label: mybtrfs
+      volume: d2p01
+      uuid: 8946d6ad-1e5f-4609-924c-4a39b6b561c9
+    - id: fs02
+      type: format
+      fstype: ext2
+      label: myext2
+      volume: d2p02
+      uuid: 5d60e5e8-0c41-11e8-a664-525400123456
+    - id: fs03
+      type: format
+      fstype: ext3
+      label: myext3
+      volume: d2p03
+      uuid: 5d7f4d30-0c41-11e8-a664-525400123456
+    - id: fs04
+      type: format
+      fstype: ext4
+      label: myext4
+      volume: d2p04
+      uuid: 5da136b6-0c41-11e8-a664-525400123456
+    - id: fs05
+      type: format
+      fstype: fat16
+      label: myvfat16
+      volume: d2p05
+    - id: fs06
+      type: format
+      fstype: fat32
+      label: myvfat32
+      volume: d2p06
+    - id: fs07
+      type: format
+      fstype: jfs
+      label: myjfs
+      volume: d2p07
+    - id: fs08
+      type: format
+      fstype: ntfs
+      label: myntfs
+      volume: d2p08
+    - id: fs09
+      type: format
+      fstype: reiserfs
+      label: myreiserfs
+      volume: d2p09
+      uuid: 5ed8308e-0c41-11e8-a664-525400123456
+    - id: fs10
+      type: format
+      fstype: xfs
+      label: myxfs
+      volume: d2p10
+      uuid: 9c537621-f2f4-4e24-a071-e05012a1a997

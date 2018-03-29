@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from unittest import skipIf
 import mock
 import os
@@ -252,6 +254,14 @@ class TestSubp(CiTestCase):
                                decode=False, data=data)
         self.assertEqual(err, data)
         self.assertEqual(out, b'')
+
+    def test_subp_combined_stderr_stdout(self):
+        """Providing combine_capture as True redirects stderr to stdout."""
+        data = b'hello world'
+        (out, err) = util.subp(self.stdin2err, combine_capture=True,
+                               decode=False, data=data)
+        self.assertIsNone(err)
+        self.assertEqual(out, data)
 
     def test_returns_none_if_no_capture(self):
         (out, err) = util.subp(self.stdin2out, data=b'')
@@ -900,6 +910,82 @@ class TestUsesSystemd(CiTestCase):
         self.mock_isdir.return_value = False
         result = util.uses_systemd()
         self.assertEqual(False, result)
+
+
+class TestIsKmodLoaded(CiTestCase):
+
+    def setUp(self):
+        super(TestIsKmodLoaded, self).setUp()
+        self.add_patch('curtin.util.os.path.isdir', 'm_path_isdir')
+        self.modname = 'fake_module'
+
+    def test_is_kmod_loaded_invalid_module(self):
+        """test raise ValueError on invalid module parameter"""
+        for module_name in ['', None]:
+            with self.assertRaises(ValueError):
+                util.is_kmod_loaded(module_name)
+
+    def test_is_kmod_loaded_path_checked(self):
+        """ test /sys/modules/<modname> path is checked """
+        util.is_kmod_loaded(self.modname)
+        self.m_path_isdir.assert_called_with('/sys/module/%s' % self.modname)
+
+    def test_is_kmod_loaded_already_loaded(self):
+        """ test returns True if /sys/module/modname exists """
+        self.m_path_isdir.return_value = True
+        is_loaded = util.is_kmod_loaded(self.modname)
+        self.assertTrue(is_loaded)
+        self.m_path_isdir.assert_called_with('/sys/module/%s' % self.modname)
+
+    def test_is_kmod_loaded_not_loaded(self):
+        """ test returns False if /sys/module/modname does not exist """
+        self.m_path_isdir.return_value = False
+        is_loaded = util.is_kmod_loaded(self.modname)
+        self.assertFalse(is_loaded)
+        self.m_path_isdir.assert_called_with('/sys/module/%s' % self.modname)
+
+
+class TestLoadKernelModule(CiTestCase):
+
+    def setUp(self):
+        super(TestLoadKernelModule, self).setUp()
+        self.add_patch('curtin.util.is_kmod_loaded', 'm_is_kmod_loaded')
+        self.add_patch('curtin.util.subp', 'm_subp')
+        self.modname = 'fake_module'
+
+    def test_load_kernel_module_invalid_module(self):
+        """ test raise ValueError on invalid module parameter"""
+        for module_name in ['', None]:
+            with self.assertRaises(ValueError):
+                util.load_kernel_module(module_name)
+
+    def test_load_kernel_module_unloaded(self):
+        """ test unloaded kmod is loaded via call to modprobe"""
+        self.m_is_kmod_loaded.return_value = False
+
+        util.load_kernel_module(self.modname)
+
+        self.m_is_kmod_loaded.assert_called_with(self.modname)
+        self.m_subp.assert_called_with(['modprobe', '--use-blacklist',
+                                        self.modname])
+
+    def test_load_kernel_module_loaded(self):
+        """ test modprobe called with check_loaded=False"""
+        self.m_is_kmod_loaded.return_value = True
+        util.load_kernel_module(self.modname, check_loaded=False)
+
+        self.assertEqual(0, self.m_is_kmod_loaded.call_count)
+        self.m_subp.assert_called_with(['modprobe', '--use-blacklist',
+                                        self.modname])
+
+    def test_load_kernel_module_skips_modprobe_if_loaded(self):
+        """ test modprobe skipped if module already loaded"""
+        self.m_is_kmod_loaded.return_value = True
+        util.load_kernel_module(self.modname)
+
+        self.assertEqual(1, self.m_is_kmod_loaded.call_count)
+        self.m_is_kmod_loaded.assert_called_with(self.modname)
+        self.assertEqual(0, self.m_subp.call_count)
 
 
 # vi: ts=4 expandtab syntax=python

@@ -1,4 +1,6 @@
 #!/bin/sh
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 # https://gist.github.com/smoser/2d4100a6a5d230ca937f
 
 CR='
@@ -139,4 +141,4 @@ fi
 [ "$#" -gt 0 ] || set -- ${SHELL:-/bin/bash}
 debian_chroot="tox:$env" exec "$@"
 
-# vi: ts=4 expandtab
+# vi: ts=4 expandtab syntax=sh

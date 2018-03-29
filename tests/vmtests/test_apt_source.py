@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 """ test_apt_source
     Collection of tests for the apt configuration features
 """
@@ -236,3 +238,5 @@ class XenialTestAptSrcDisablePockets(relbase.xenial, TestAptSrcDisablePockets):
         apt feature Test for Xenial disabling a suite
     """
     __test__ = True
+
+# vi: ts=4 expandtab syntax=python

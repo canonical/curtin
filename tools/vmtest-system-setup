@@ -1,4 +1,5 @@
 #!/bin/bash
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 _APT_UPDATED=false
 error() { echo "$@" 1>&2; }
@@ -67,4 +68,4 @@ apt_install() {
 
 apt_install "${DEPS[@]}"
 
-# vi: ts=4 expandtab
+# vi: ts=4 expandtab syntax=sh
