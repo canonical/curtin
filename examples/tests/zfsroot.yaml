@@ -1,0 +1,102 @@
+#install:
+#  unmount: disabled
+showtrace: true
+storage:
+ version: 1
+ config:
+   #
+   # single disk
+   #
+   - id: sda
+     type: disk
+     ptable: gpt
+     serial: dev_vda
+     name: main_disk
+     wipe: superblock
+     grub_device: true
+   #
+   # partition for filesystem
+   #
+   - id: sda1
+     type: partition
+     number: 1
+     size: 9G
+     device: sda
+   #
+   # we're using GPT but not EFI, so we need biosboot partition
+   #
+   - id: bios_boot
+     type: partition
+     size: 1M
+     number: 2
+     device: sda
+     flag: bios_grub # this flag will sgdisk -t2:EF02
+   #
+   # make a zpool with our disk
+   #
+   # zpool create -o ashift=12 \
+   #              -O atime=off -O canmount=off -O compression=lz4 \
+   #              -O normalization=formD -O mountpoint=/ -R /TARGET_MOUNTPOINT \
+   #              rpool /dev/disk/by-id/virtio-abcdefghi123
+   - type: zpool
+     id: sda_rootpool
+     pool: rpool
+     vdevs:
+      - sda1
+     mountpoint: /
+
+   # optionally set pool and fs properties
+   #  pool_properties:
+   #    ashift: 12
+   #  fs_properties:
+   #    atime: off
+   #    canmount: off
+   #    compression: lz4
+   #    normalization: formD
+
+   #
+   # per ZFS Root docs, make a ROOT zfs container for rootfs snapshots
+   #
+   # zfs create -o canmount=off -o mountpoint=none rpool/ROOT
+   - type: zfs
+     id: sda_rootpool_container
+     pool: sda_rootpool
+     volume: /ROOT   # (rpool/ROOT)
+     properties:
+       canmount: 'off'
+       mountpoint: 'none'
+
+   #
+   # Create a filesystem dataset for rootfs and mount it
+   #
+   # zfs create -o canmount=noauto -o mountpoint=/ rpool/ROOT/zfsroot
+   # if properties.canmount == 'noauto':
+   #   zfs mount rpool/ROOT/zfsroot
+   - type: zfs
+     id: sda_rootpool_rootfs
+     pool: sda_rootpool
+     volume: /ROOT/zfsroot
+     properties:
+       canmount: 'noauto'
+       mountpoint: /
+
+   # Create a home filesystem
+   #
+   # zfs create -o setuid=off rpool/home
+   - type: zfs
+     id: sda_rootpool_home
+     pool: sda_rootpool
+     volume: /home
+     properties:
+       setuid: 'off'
+
+   #
+   # Create a root homedir
+   #
+   # zfs create -o mountpoint=/root rpool/home/root
+   - type: zfs
+     id: sda_rootpool_home_root
+     pool: sda_rootpool
+     volume: /home/root
+     properties:
+       mountpoint: /root

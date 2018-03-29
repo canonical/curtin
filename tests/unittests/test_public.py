@@ -1,3 +1,4 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 from curtin import block
 from curtin import config
@@ -52,3 +53,5 @@ def _module_has(module, names, nfilter=None):
         found = [(name, attr) for name, attr in found if nfilter(attr)]
 
     return [name for name, _ in found]
+
+# vi: ts=4 expandtab syntax=python

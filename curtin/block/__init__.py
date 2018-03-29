@@ -1,19 +1,4 @@
-#   Copyright (C) 2013 Canonical Ltd.
-#
-#   Author: Scott Moser <scott.moser@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 from contextlib import contextmanager
 import errno
@@ -443,6 +428,7 @@ def blkid(devs=None, cache=True):
                 os.unlink(cachefile)
 
     cmd = ['blkid', '-o', 'full']
+    cmd.extend(devs)
     # blkid output is <device_path>: KEY=VALUE
     # where KEY is TYPE, UUID, PARTUUID, LABEL
     out, err = util.subp(cmd, capture=True)
@@ -650,6 +636,34 @@ def get_proc_mounts():
     return mounts
 
 
+def get_dev_disk_byid():
+    """
+    Construct a dictionary mapping devname to disk/by-id paths
+
+    :returns: Dictionary populated by examining /dev/disk/by-id/*
+
+    {
+     '/dev/sda': '/dev/disk/by-id/virtio-aaaa',
+     '/dev/sda1': '/dev/disk/by-id/virtio-aaaa-part1',
+    }
+    """
+
+    prefix = '/dev/disk/by-id'
+    return {
+        os.path.realpath(byid): byid
+        for byid in [os.path.join(prefix, path) for path in os.listdir(prefix)]
+    }
+
+
+def disk_to_byid_path(kname):
+    """"
+    Return a /dev/disk/by-id path to kname if present.
+    """
+
+    mapping = get_dev_disk_byid()
+    return mapping.get(dev_path(kname))
+
+
 def lookup_disk(serial):
     """
     Search for a disk by its serial number using /dev/disk/by-id/
@@ -775,6 +789,18 @@ def is_extended_partition(device):
             check_dos_signature(device))
 
 
+def is_zfs_member(device):
+    """
+    check if the specified device path is a zfs member
+    """
+    info = _lsblock()
+    kname = path_to_kname(device)
+    if kname in info and info[kname].get('FSTYPE') == 'zfs_member':
+        return True
+
+    return False
+
+
 @contextmanager
 def exclusive_open(path, exclusive=True):
     """
@@ -814,7 +840,7 @@ def exclusive_open(path, exclusive=True):
         raise
 
 
-def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
+def wipe_file(path, reader=None, buflen=4 * 1024 * 1024, exclusive=True):
     """
     wipe the existing file at path.
     if reader is provided, it will be called as a 'reader(buflen)'
@@ -833,7 +859,7 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
     LOG.debug("%s is %s bytes. wiping with buflen=%s",
               path, size, buflen)
 
-    with exclusive_open(path) as fp:
+    with exclusive_open(path, exclusive=exclusive) as fp:
         while True:
             pbuf = readfunc(buflen)
             pos = fp.tell()
@@ -849,7 +875,7 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024):
                 fp.write(pbuf)
 
 
-def quick_zero(path, partitions=True):
+def quick_zero(path, partitions=True, exclusive=True):
     """
     zero 1M at front, 1M at end, and 1M at front
     if this is a block device and partitions is true, then
@@ -876,7 +902,8 @@ def quick_zero(path, partitions=True):
         quick_zero(pt, partitions=False)
 
     LOG.debug("wiping 1M on %s at offsets %s", path, offsets)
-    return zero_file_at_offsets(path, offsets, buflen=buflen, count=count)
+    return zero_file_at_offsets(path, offsets, buflen=buflen, count=count,
+                                exclusive=exclusive)
 
 
 def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False,
@@ -931,7 +958,7 @@ def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False,
                     fp.write(buf)
 
 
-def wipe_volume(path, mode="superblock"):
+def wipe_volume(path, mode="superblock", exclusive=True):
     """wipe a volume/block device
 
     :param path: a path to a block device
@@ -943,6 +970,7 @@ def wipe_volume(path, mode="superblock"):
        superblock-recursive: zero the beginning of the volume, the end of the
                     volume and beginning and end of any partitions that are
                     known to be on this device.
+    :param exclusive: boolean to control how path is opened
     """
     if mode == "pvremove":
         # We need to use --force --force in case it's already in a volgroup and
@@ -955,14 +983,14 @@ def wipe_volume(path, mode="superblock"):
                   rcs=[0, 5], capture=True)
         lvm.lvm_scan()
     elif mode == "zero":
-        wipe_file(path)
+        wipe_file(path, exclusive=exclusive)
     elif mode == "random":
         with open("/dev/urandom", "rb") as reader:
-            wipe_file(path, reader=reader.read)
+            wipe_file(path, reader=reader.read, exclusive=exclusive)
     elif mode == "superblock":
-        quick_zero(path, partitions=False)
+        quick_zero(path, partitions=False, exclusive=exclusive)
     elif mode == "superblock-recursive":
-        quick_zero(path, partitions=True)
+        quick_zero(path, partitions=True, exclusive=exclusive)
     else:
         raise ValueError("wipe mode %s not supported" % mode)
 
@@ -1023,14 +1051,19 @@ def detect_required_packages_mapping():
                 'ext2': ['e2fsprogs'],
                 'ext3': ['e2fsprogs'],
                 'ext4': ['e2fsprogs'],
+                'jfs': ['jfsutils'],
                 'lvm_partition': ['lvm2'],
                 'lvm_volgroup': ['lvm2'],
+                'ntfs': ['ntfs-3g'],
                 'raid': ['mdadm'],
-                'xfs': ['xfsprogs']
+                'reiserfs': ['reiserfsprogs'],
+                'xfs': ['xfsprogs'],
+                'zfsroot': ['zfsutils-linux', 'zfs-initramfs'],
+                'zfs': ['zfsutils-linux', 'zfs-initramfs'],
+                'zpool': ['zfsutils-linux', 'zfs-initramfs'],
             },
         },
     }
     return mapping
-
 
 # vi: ts=4 expandtab syntax=python

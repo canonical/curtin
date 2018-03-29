@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from curtin.util import (
     try_import_module,
     )
@@ -56,3 +58,5 @@ def load_reporter(config):
         LOG.error(
             "Failed loading %s reporter with %s" % (name, options))
         return EmptyReporter()
+
+# vi: ts=4 expandtab syntax=python

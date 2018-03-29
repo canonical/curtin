@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from email.utils import parsedate
 import json
 import os
@@ -6,6 +8,8 @@ import sys
 import time
 import uuid
 from functools import partial
+
+from curtin import version
 
 try:
     from urllib import request as _u_re  # pylint: disable=no-name-in-module
@@ -23,6 +27,8 @@ from .log import LOG
 
 error = urllib_error
 
+DEFAULT_HEADERS = {'User-Agent': 'Curtin/' + version.version_string()}
+
 
 class _ReRaisedException(Exception):
     exc = None
@@ -32,14 +38,155 @@ class _ReRaisedException(Exception):
         self.exc = exc
 
 
-def _geturl(url, headers=None, headers_cb=None, exception_cb=None, data=None):
-    def_headers = {'User-Agent': 'Curtin/0.1'}
+class UrlReader(object):
+    fp = None
 
+    def __init__(self, url, headers=None, data=None):
+        headers = _get_headers(headers)
+        self.url = url
+        try:
+            req = urllib_request.Request(url=url, data=data, headers=headers)
+            self.fp = urllib_request.urlopen(req)
+        except urllib_error.HTTPError as exc:
+            raise UrlError(exc, code=exc.code, headers=exc.headers, url=url,
+                           reason=exc.reason)
+        except Exception as exc:
+            raise UrlError(exc, code=None, headers=None, url=url,
+                           reason="unknown")
+
+        self.info = self.fp.info()
+        self.size = self.info.get('content-length', -1)
+
+    def read(self, buflen):
+        try:
+            return self.fp.read(buflen)
+        except urllib_error.HTTPError as exc:
+            raise UrlError(exc, code=exc.code, headers=exc.headers,
+                           url=self.url, reason=exc.reason)
+        except Exception as exc:
+            raise UrlError(exc, code=None, headers=None, url=self.url,
+                           reason="unknown")
+
+    def close(self):
+        if not self.fp:
+            return
+        try:
+            self.fp.close()
+        finally:
+            self.fp = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, etype, value, trace):
+        self.close()
+
+
+def download(url, path, reporthook=None, data=None):
+    """Download url to path.
+
+    reporthook is compatible with py3 urllib.request.urlretrieve.
+    urlretrieve does not exist in py2."""
+
+    buflen = 8192
+    wfp = open(path, "wb")
+
+    try:
+        buf = None
+        blocknum = 0
+        fsize = 0
+        start = time.time()
+        with UrlReader(url) as rfp:
+            if reporthook:
+                reporthook(blocknum, buflen, rfp.size)
+
+            while True:
+                buf = rfp.read(buflen)
+                if not buf:
+                    break
+                blocknum += 1
+                if reporthook:
+                    reporthook(blocknum, buflen, rfp.size)
+                wfp.write(buf)
+                fsize += len(buf)
+        timedelta = time.time() - start
+        LOG.debug("Downloaded %d bytes from %s to %s in %.2fs (%.2fMbps)",
+                  fsize, url, path, timedelta, fsize / timedelta / 1024 / 1024)
+        return path, rfp.info
+    finally:
+        wfp.close()
+
+
+def get_maas_version(endpoint):
+    """ Attempt to return the MAAS version via api calls to the specified
+        endpoint.
+
+        MAAS endpoint url looks like this:
+
+        http://10.245.168.2/MAAS/metadata/status/node-f0462064-20f6-11e5-990a-d4bed9a84493
+
+        We need the MAAS_URL, which is http://10.245.168.2
+
+        Returns a maas version dictionary:
+        {'subversion': '16.04.1',
+         'capabilities': ['networks-management', 'static-ipaddresses',
+                          'ipv6-deployment-ubuntu', 'devices-management',
+                          'storage-deployment-ubuntu',
+                          'network-deployment-ubuntu',
+                          'bridging-interface-ubuntu',
+                          'bridging-automatic-ubuntu'],
+         'version': '2.1.5+bzr5596-0ubuntu1'
+        }
+    """
+    # https://docs.ubuntu.com/maas/devel/en/api indicates that
+    # we leave 1.0 in here for maas 1.9 endpoints
+    MAAS_API_SUPPORTED_VERSIONS = ["1.0", "2.0"]
+
+    try:
+        parsed = urlparse(endpoint)
+    except AttributeError as e:
+        LOG.warn('Failed to parse endpoint URL: %s', e)
+        return None
+
+    maas_host = "%s://%s" % (parsed.scheme, parsed.netloc)
+    maas_api_version_url = "%s/MAAS/api/version/" % (maas_host)
+
+    try:
+        result = geturl(maas_api_version_url)
+    except UrlError as e:
+        LOG.warn('Failed to query MAAS API version URL: %s', e)
+        return None
+
+    api_version = result.decode('utf-8')
+    if api_version not in MAAS_API_SUPPORTED_VERSIONS:
+        LOG.warn('Endpoint "%s" API version "%s" not in MAAS supported'
+                 'versions: "%s"', endpoint, api_version,
+                 MAAS_API_SUPPORTED_VERSIONS)
+        return None
+
+    maas_version_url = "%s/MAAS/api/%s/version/" % (maas_host, api_version)
+    maas_version = None
+    try:
+        result = geturl(maas_version_url)
+        maas_version = json.loads(result.decode('utf-8'))
+    except UrlError as e:
+        LOG.warn('Failed to query MAAS version via URL: %s', e)
+    except (ValueError, TypeError):
+        LOG.warn('Failed to load MAAS version result: %s', result)
+
+    return maas_version
+
+
+def _get_headers(headers=None):
+    allheaders = DEFAULT_HEADERS.copy()
     if headers is not None:
-        def_headers.update(headers)
+        allheaders.update(headers)
+    return allheaders
 
-    headers = def_headers
 
+def _geturl(url, headers=None, headers_cb=None, exception_cb=None, data=None):
+
+    headers = _get_headers(headers)
     if headers_cb:
         headers.update(headers_cb(url))
 
@@ -310,6 +457,5 @@ except ImportError:
     except ImportError:
         # we have no oauth libraries available, use oauth_headers_none
         pass
-
 
 # vi: ts=4 expandtab syntax=python

@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from curtin import __version__ as old_version
 import os
 import subprocess
@@ -28,3 +30,5 @@ def version_string():
             pass
 
     return version
+
+# vi: ts=4 expandtab syntax=python

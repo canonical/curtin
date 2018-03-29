@@ -1,21 +1,7 @@
-#   Copyright (C) 2014 Canonical Ltd.
-#
-#   Author: Scott Moser <scott.moser@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
+import resource
 
 from .log import LOG
 from . import util
@@ -107,3 +93,19 @@ def setup_swapfile(target, fstab=None, swapfile=None, size=None, maxsize=None):
     except Exception:
         os.unlink(fpath)
         raise
+
+
+def is_swap_device(path):
+    """
+    Determine if specified device is a swap device.  Linux swap devices write
+    a magic header value on kernel PAGESIZE - 10.
+
+    https://github.com/torvalds/linux/blob/master/include/linux/swap.h#L111
+    """
+    LOG.debug('Checking if %s is a swap device', path)
+    swap_magic_offset = resource.getpagesize() - 10
+    magic = util.load_file(path, read_len=10, offset=swap_magic_offset,
+                           decode=False)
+    LOG.debug('Found swap magic: %s' % magic)
+    return magic in [b'SWAPSPACE2', b'SWAP-SPACE']
+# vi: ts=4 expandtab syntax=python

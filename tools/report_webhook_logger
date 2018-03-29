@@ -1,6 +1,9 @@
 #!/usr/bin/python3
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 from tests.vmtests.report_webhook_logger import mainloop
 
 if __name__ == "__main__":
     mainloop()
+
+# vi: ts=4 expandtab syntax=python

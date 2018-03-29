@@ -23,6 +23,7 @@ Curtin's top level config keys are as follows:
 - kexec (``kexec``)
 - multipath (``multipath``)
 - network (``network``)
+- pollinate (``pollinate``)
 - power_state (``power_state``)
 - proxy (``proxy``)
 - reporting (``reporting``)
@@ -196,13 +197,21 @@ Configure Curtin's install options.
 
 Curtin logs install progress by default to /var/log/curtin/install.log
 
+**error_tarfile**: *<path to write a tar of Curtin's log and configuration
+data in the event of an error>*
+
+If error_tarfile is not None and curtin encounters an error, this tarfile will
+be created. It includes logs, configuration and system info to aid triage and
+bug filing. When unset, error_tarfile defaults to
+/var/log/curtin/curtin-logs.tar.
+
 **post_files**: *<List of files to read from host to include in reporting data>*
 
 Curtin by default will post the ``log_file`` value to any configured reporter.
 
 **save_install_config**: *<Path to save merged curtin configuration file>*
 
-Curtin will save the merged configuration data into the target OS at 
+Curtin will save the merged configuration data into the target OS at
 the path of ``save_install_config``.  This defaults to /root/curtin-install-cfg.yaml
 
 **save_install_logs**: *<Path to save curtin install log>*
@@ -226,6 +235,7 @@ skips unmounting in all cases of install success or failure.
 
   install:
      log_file: /tmp/install.log
+     error_tarfile: /var/log/curtin/curtin-error-logs.tar
      post_files:
        - /tmp/install.log
        - /var/log/syslog
@@ -339,6 +349,36 @@ Configure networking (see Networking section for details).
            - type: dhcp4
 
 
+pollinate
+~~~~~~~~~
+Configure pollinate user-agent
+
+Curtin will automatically include Curtin's version in the pollinate user-agent.
+If a MAAS server is being used, Curtin will query the MAAS version and include
+this value as well.
+
+**user_agent**: [*<mapping>* | *<boolean>*]
+
+Mapping is a dictionary of key value pairs which will result in the string
+'key/value' being present in the pollinate user-agent string sent to the
+pollen server.
+
+Setting the ``user_agent`` value to false will disable writting of the
+user-agent string.
+
+**Example**::
+
+  pollinate:
+     user_agent:
+         curtin: 17.1-33-g92fbc491
+         maas: 2.1.5+bzr5596-0ubuntu1
+         machine: bob27
+         app: 63.12
+
+  pollinate:
+     user_agent: false
+
+
 power_state
 ~~~~~~~~~~~
 Curtin can configure the target machine into a specific power state after
@@ -426,6 +466,9 @@ configures the method used to copy the image to the target system.
 - **cp://**: Use ``rsync`` command to copy source directory to target.
 - **file://**: Use ``tar`` command to extract source to target.
 - **http[s]://**: Use ``wget | tar`` commands to extract source to target.
+- **fsimage://**: mount filesystem image and copy contents to target.
+  Local file or url are supported.  Filesystem can be any filesystem type
+  mountable by the running kernel.
 
 **Example Cloud-image**::
 

@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from .releases import base_vm_classes as relbase
 from .test_bcache_basic import TestBcacheBasic
 
@@ -19,3 +21,5 @@ class ArtfulTestBcacheBug1718699(relbase.artful, TestBcacheBug1718699):
 
 class BionicTestBcacheBug1718699(relbase.bionic, TestBcacheBug1718699):
     __test__ = True
+
+# vi: ts=4 expandtab syntax=python

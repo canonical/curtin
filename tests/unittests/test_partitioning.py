@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from unittest import skip
 import mock
 import curtin.commands.block_meta

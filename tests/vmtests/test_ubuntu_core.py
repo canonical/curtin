@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from . import VMBaseClass
 from .releases import ubuntu_core_base_vm_classes as relbase
 
@@ -44,3 +46,5 @@ class TestUbuntuCoreAbs(VMBaseClass):
 
 class UbuntuCore16TestUbuntuCore(relbase.uc16fromxenial, TestUbuntuCoreAbs):
     __test__ = False
+
+# vi: ts=4 expandtab syntax=python

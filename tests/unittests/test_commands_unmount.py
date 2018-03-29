@@ -1,3 +1,4 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 from curtin.commands import unmount
 from .helpers import CiTestCase
@@ -45,3 +46,5 @@ class TestUnmount(CiTestCase):
         mock_os.path.exists.return_value = True
         unmount.unmount_main(self.args)
         self.m_umount.assert_called_with(self.args.target, recursive=False)
+
+# vi: ts=4 expandtab syntax=python

@@ -1,19 +1,5 @@
-#   Copyright (C) 2015 Canonical Ltd.
-#
-#   Author: Scott Moser <scott.moser@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 import os
 import sys
 
@@ -23,6 +9,7 @@ from curtin.util import (
     install_packages,
     is_uefi_bootable,
     lsb_release,
+    subp,
     which,
 )
 
@@ -47,12 +34,21 @@ REQUIRED_EXECUTABLES = [
     ('iscsiadm', 'open-iscsi'),
 ]
 
+REQUIRED_KERNEL_MODULES = [
+    # kmod name
+]
+
 if lsb_release()['codename'] == "precise":
     REQUIRED_IMPORTS.append(
         ('import oauth.oauth', 'python-oauth', None),)
 else:
     REQUIRED_IMPORTS.append(
         ('import oauthlib.oauth1', 'python-oauthlib', 'python3-oauthlib'),)
+
+# zfs is > trusty only
+if not lsb_release()['codename'] in ["precise", "trusty"]:
+    REQUIRED_EXECUTABLES.append(('zfs', 'zfsutils-linux'))
+    REQUIRED_KERNEL_MODULES.append('zfs')
 
 if not is_uefi_bootable() and 'arm' in get_architecture():
     REQUIRED_EXECUTABLES.append(('flash-kernel', 'flash-kernel'))
@@ -133,8 +129,24 @@ def check_imports(imports=None):
     return mdeps
 
 
+def check_kernel_modules(modules=None):
+    if modules is None:
+        modules = REQUIRED_KERNEL_MODULES
+
+    # if we're missing any modules, install the full
+    # linux-image package for this environment
+    for kmod in modules:
+        try:
+            subp(['modinfo', '--filename', kmod], capture=True)
+        except ProcessExecutionError:
+            kernel_pkg = 'linux-image-%s' % os.uname()[2]
+            return [MissingDeps('missing kernel module %s' % kmod, kernel_pkg)]
+
+    return []
+
+
 def find_missing_deps():
-    return check_executables() + check_imports()
+    return check_executables() + check_imports() + check_kernel_modules()
 
 
 def install_deps(verbosity=False, dry_run=False, allow_daemons=True):
@@ -171,6 +183,5 @@ def install_deps(verbosity=False, dry_run=False, allow_daemons=True):
         ret = e.exit_code
 
     return ret
-
 
 # vi: ts=4 expandtab syntax=python

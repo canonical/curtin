@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 from .test_network import TestNetworkBaseTestsAbs
@@ -242,3 +244,5 @@ class BionicTestBridging(relbase.bionic, TestBridgeNetworkAbs):
         self.assertNotIn("bridge-utils", self.debian_packages,
                          "bridge-utils is not expected in bionic: %s" %
                          self.debian_packages.get('bridge-utils'))
+
+# vi: ts=4 expandtab syntax=python

@@ -1,8 +1,9 @@
 #!/bin/bash
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 set -o pipefail
 
-VERBOSITY=0
+VERBOSITY=1
 CONTAINER=""
 
 error() { echo "$@" 1>&2; }
@@ -76,6 +77,39 @@ debug() {
     local level=${1}; shift;
     [ "${level}" -gt "${VERBOSITY}" ] && return
     error "${@}"
+}
+
+get_source() {
+    local target="$1" pkg="$2" ver="$3"
+    local tmpd="" x=""
+    tmpd=$(mktemp -d) || fail "failed to mktemp"
+    mkdir "$tmpd/extract"
+    cd "$tmpd/extract"
+    debug 1 "Inside. getting source for $pkg${ver:+=${ver}}"
+    if ! apt-get source "${pkg}${ver:+=${ver}}"; then
+        [ -n "$ver" ] || fail "Failed to get source for $pkg"
+        # Getting the specific version failed.
+        # Assume 'pkg' is a binary package and source package.
+        # Ask apt for the url to the binary, and assume source in same dir.
+        debug 1 "Failed to apt-get source ${pkg}=$ver. Trying workaround."
+        url=$(apt-get -qq download --print-uris "$pkg=${ver}" |
+            awk '{ gsub(/'\''/, ""); print $1}')
+        local dsc_url="${url%_*.deb}.dsc"
+        debug 1 "Binary package came from $url."
+        debug 1 "Trying dsc from $dsc_url"
+        dget --allow-unauthenticated "$dsc_url" || fail "Failed dget $dsc_url"
+    fi
+
+    # dget or apt-get source of pkg/ver produces pkg-<upstream-ver>/
+    x="${pkg}-${ver%-*}"
+    [ -d "$x" ] || {
+        error "getting source for '$pkg/$ver' did not produce directory '$x'"
+        error "ls -l:"
+        ls -l 1>&2
+        fail
+    }
+    cp -a "$x" "$target" || fail "failed copying $x to $target"
+    rm -Rf "$tmpd"
 }
 
 main() {
@@ -157,39 +191,47 @@ main() {
         inside "$name" sed -i '/^deb-src/s/^/#/' /etc/apt/sources.list ||
             error "failed to disable deb-src entries"
     else
-        pkgs="${pkgs} dpkg-dev"
+        pkgs="${pkgs} dpkg-dev devscripts"
     fi
 
     inside "$name" $eatmydata apt-get -q update ||
         fail "failed apt-get update"
     install "$name" $pkgs || fail "failed install of $pkgs"
+    local pkg_ver="" src_ver=""
+    pkg_ver=$(inside "$name" \
+        dpkg-query --show --showformat='${Version}\n' curtin)
+    debug 1 "installed curtin at $pkg_ver"
 
     if [ "${getsource}" != "none" ]; then
         local isrcd="/tmp/curtin-source"
-        debug 1 "getting source for curtin to $getsource"
-        inside "$name" $eatmydata sh -ec '
-            target="$1"
-            d=$(mktemp -d)
-            cd "$d"
-            apt-get source curtin
-            for x in *; do [ -d "$x" ] && break; done
-            [ -d "$x" ] || { echo no source dir found.; exit 1; }
-            cp -a $x "$target"
-            rm -Rf "$d"
-            ' -- "$isrcd"
+        debug 1 "getting source for curtin at $pkg_ver to $getsource"
+        inside "$name" - $eatmydata /bin/bash -s \
+            get_source "$isrcd" "curtin" "$pkg_ver" < "$0" ||
+            fail "Failed getting source in $name"
         mkdir "$getsource" || fail "failed to create dir '$getsource'"
         inside "$name" tar -C "$isrcd" -cf - . |
             tar -C "$getsource" -xf - ||
             fail "failed to copy source out to $getsource"
-        version=$(inside "$name" dpkg-parsechangelog \
-            "--file=$isrcd/debian/changelog" "--show-field=version")
+        # 14.04 cannot take --file=<file>. Has to be 2 arguments.
+        src_ver=$(inside "$name" dpkg-parsechangelog \
+            "--file" "$isrcd/debian/changelog" "--show-field=version")
+        if [ "$src_ver" != "$pkg_ver" ]; then
+            fail "source version ($src_ver) != package version ($pkg_ver)"
+        fi
         inside "$name" rm -Rf "$isrcd" ||
             fail "failed removal of extract dir"
-        debug 1 "put source for curtin at $version in $getsource"
+        debug 1 "put source for curtin at $src_ver in $getsource"
     fi
 
     CONTAINER=""
 }
 
-main "$@"
-# vi: ts=4 expandtab
+
+if [ "$1" = "get_source" ]; then
+    shift
+    get_source "$@"
+else
+    main "$@"
+fi
+
+# vi: ts=4 expandtab syntax=sh

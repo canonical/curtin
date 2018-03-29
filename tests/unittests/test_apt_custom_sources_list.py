@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 """ test_apt_custom_sources_list
 Test templating of custom sources list
 """
@@ -220,5 +222,4 @@ class TestAptSourceConfigSourceList(CiTestCase):
         apt_config.handle_apt(cfg, target)
         self.assertEqual(expected, util.load_file(easl))
 
-
-# vi: ts=4 expandtab
+# vi: ts=4 expandtab syntax=python

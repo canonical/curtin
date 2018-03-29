@@ -65,6 +65,24 @@ storage:
        model: QEMU HARDDISK
        serial: disk-c
        name: third_disk
+     - id: sdd
+       type: disk
+       wipe: superblock
+       model: QEMU HARDDISK
+       serial: disk-d
+       name: raid5_disk_1
+     - id: sde
+       type: disk
+       wipe: superblock
+       model: QEMU HARDDISK
+       serial: disk-e
+       name: raid5_disk_2
+     - id: sdf
+       type: disk
+       wipe: superblock
+       model: QEMU HARDDISK
+       serial: disk-f
+       name: raid5_disk_3
      - id: sdc1
        type: partition
        size: 3GB
@@ -73,12 +91,11 @@ storage:
      - id: mddevice
        name: md0
        type: raid
-       raidlevel: 1
+       raidlevel: 5
        devices:
-         - sda2
-         - sda3
-       spare_devices:
-         - sda4
+         - sdd
+         - sde
+         - sdf
      - id: bcache1_raid
        type: bcache
        name: cached_array

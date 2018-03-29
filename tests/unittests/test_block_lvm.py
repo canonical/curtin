@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from curtin.block import lvm
 
 from .helpers import CiTestCase
@@ -92,3 +94,5 @@ class TestBlockLvm(CiTestCase):
                 if use_cache:
                     expected.append('--cache')
                 self.assertEqual(mock.call(expected, capture=True), actual)
+
+# vi: ts=4 expandtab syntax=python

@@ -1,28 +1,15 @@
-#   Copyright (C) 2013 Canonical Ltd.
-#
-#   Author: Scott Moser <scott.moser@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
 import sys
+import tempfile
 
 import curtin.config
 from curtin.log import LOG
-import curtin.util
+from curtin import util
 from curtin.futil import write_files
 from curtin.reporter import events
+from curtin import url_helper
 
 from . import populate_one_subcmd
 
@@ -46,27 +33,56 @@ def tar_xattr_opts(cmd=None):
     if isinstance(cmd, str):
         cmd = [cmd]
 
-    (out, _err) = curtin.util.subp(cmd + ['--help'], capture=True)
+    (out, _err) = util.subp(cmd + ['--help'], capture=True)
 
     if "xattr" in out:
         return ['--xattrs', '--xattrs-include=*']
     return []
 
 
-def extract_root_tgz_url(source, target):
+def extract_root_tgz_url(url, target):
     # extract a -root.tar.gz url in the 'target' directory
-    #
+    path = _path_from_file_url(url)
+    if path != url or os.path.isfile(path):
+        util.subp(args=['tar', '-C', target] + tar_xattr_opts() +
+                  ['-Sxpzf', path, '--numeric-owner'])
+        return
+
     # Uses smtar to avoid specifying the compression type
-    curtin.util.subp(args=['sh', '-cf',
-                           ('wget "$1" --progress=dot:mega -O - |'
-                            'smtar -C "$2" ' + ' '.join(tar_xattr_opts()) +
-                            ' ' + '-Sxpf - --numeric-owner'),
-                           '--', source, target])
+    util.subp(args=['sh', '-cf',
+                    ('wget "$1" --progress=dot:mega -O - |'
+                     'smtar -C "$2" ' + ' '.join(tar_xattr_opts()) +
+                     ' ' + '-Sxpf - --numeric-owner'),
+                    '--', url, target])
 
 
-def extract_root_tgz_file(source, target):
-    curtin.util.subp(args=['tar', '-C', target] +
-                     tar_xattr_opts() + ['-Sxpzf', source, '--numeric-owner'])
+def extract_root_fsimage_url(url, target):
+    path = _path_from_file_url(url)
+    if path != url or os.path.isfile(path):
+        return _extract_root_fsimage(path(url), target)
+
+    wfp = tempfile.NamedTemporaryFile(suffix=".img", delete=False)
+    wfp.close()
+    try:
+        url_helper.download(url, wfp.name)
+        return _extract_root_fsimage(wfp.name, target)
+    finally:
+        os.unlink(wfp.name)
+
+
+def _extract_root_fsimage(path, target):
+    mp = tempfile.mkdtemp()
+    try:
+        util.subp(['mount', '-o', 'loop,ro', path, mp], capture=True)
+    except util.ProcessExecutionError as e:
+        LOG.error("Failed to mount '%s' for extraction: %s", path, e)
+        os.rmdir(mp)
+        raise e
+    try:
+        return copy_to_target(mp, target)
+    finally:
+        util.subp(['umount', mp])
+        os.rmdir(mp)
 
 
 def copy_to_target(source, target):
@@ -74,17 +90,21 @@ def copy_to_target(source, target):
         source = source[5:]
     source = os.path.abspath(source)
 
-    curtin.util.subp(args=['sh', '-c',
-                           ('mkdir -p "$2" && cd "$2" && '
-                            'rsync -aXHAS --one-file-system "$1/" .'),
-                           '--', source, target])
+    util.subp(args=['sh', '-c',
+                    ('mkdir -p "$2" && cd "$2" && '
+                     'rsync -aXHAS --one-file-system "$1/" .'),
+                    '--', source, target])
+
+
+def _path_from_file_url(url):
+    return url[7:] if url.startswith("file://") else url
 
 
 def extract(args):
     if not args.target:
         raise ValueError("Target must be defined or set in environment")
 
-    state = curtin.util.load_command_environment()
+    state = util.load_command_environment()
     cfg = curtin.config.load_command_config(args, state)
 
     sources = args.sources
@@ -96,6 +116,8 @@ def extract(args):
 
     if isinstance(sources, dict):
         sources = [sources[k] for k in sorted(sources.keys())]
+
+    sources = [util.sanitize_source(s) for s in sources]
 
     LOG.debug("Installing sources: %s to target at %s" % (sources, target))
     stack_prefix = state.get('report_stack_prefix', '')
@@ -109,19 +131,10 @@ def extract(args):
                 continue
             if source['uri'].startswith("cp://"):
                 copy_to_target(source['uri'], target)
-            elif os.path.isfile(source['uri']):
-                extract_root_tgz_file(source['uri'], target)
-            elif source['uri'].startswith("file://"):
-                extract_root_tgz_file(
-                    source['uri'][len("file://"):],
-                    target)
-            elif (source['uri'].startswith("http://") or
-                  source['uri'].startswith("https://")):
-                extract_root_tgz_url(source['uri'], target)
+            elif source['type'] == "fsimage":
+                extract_root_fsimage_url(source['uri'], target=target)
             else:
-                raise TypeError(
-                    "do not know how to extract '%s'" %
-                    source['uri'])
+                extract_root_tgz_url(source['uri'], target=target)
 
     if cfg.get('write_files'):
         LOG.info("Applying write_files from config.")

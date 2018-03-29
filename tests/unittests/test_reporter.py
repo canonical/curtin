@@ -1,19 +1,4 @@
-#   Copyright (C) 2014 Canonical Ltd.
-#
-#   Author: Newell Jensen <newell.jensen@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 from __future__ import (
     absolute_import,
@@ -41,6 +26,7 @@ from curtin.reporter import events
 from .helpers import CiTestCase
 
 import base64
+import os
 
 
 class TestLegacyReporter(CiTestCase):
@@ -186,6 +172,21 @@ class TestReporter(CiTestCase):
         self.assertEqual(files[0].get('content'),
                          base64.b64encode(test_data).decode())
 
+    @patch('curtin.reporter.events.report_event')
+    def test_report_finished_post_files_absent_file(self, mock_report_event):
+        """Absent files provided with post_files result in empty content."""
+        tmpfname = self.tmp_path('testfile')
+        self.assertFalse(os.path.exists(tmpfname))
+        events.report_finish_event(self.ev_name, self.ev_desc,
+                                   post_files=[tmpfname])
+        event = self._get_reported_event(mock_report_event)
+        files = event.as_dict().get('files')
+        self.assertTrue(len(files) == 1)
+        self.assertEqual(files[0].get('path'), tmpfname)
+        self.assertEqual(files[0].get('encoding'), 'base64')
+        self.assertIsNone(files[0]['content'],
+                          'Unexpected content found for absent post_file.')
+
     @patch('curtin.url_helper.OauthUrlHelper')
     def test_webhook_handler_post_files(self, mock_url_helper):
         test_data = b'abcdefg'
@@ -202,3 +203,5 @@ class TestReporter(CiTestCase):
         webhook_handler.oauth_helper.geturl.assert_called_with(
             url='127.0.0.1:8000', data=event.as_dict(),
             headers=webhook_handler.headers, retries=None)
+
+# vi: ts=4 expandtab syntax=python

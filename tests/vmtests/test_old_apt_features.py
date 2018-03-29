@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 """ testold_apt_features
     Testing the former minimal apt features of curtin
 """
@@ -115,3 +117,5 @@ class XenialTestOldApt(relbase.xenial, TestOldAptAbs):
        Old apt features for Xenial
     """
     __test__ = True
+
+# vi: ts=4 expandtab syntax=python

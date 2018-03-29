@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 import functools
 import os
 import mock
@@ -98,6 +100,28 @@ class TestBlock(CiTestCase):
             mock_os_path_exists.return_value = True
             mock_os_listdir.return_value = ["other"]
             block.lookup_disk(serial)
+
+    @mock.patch("curtin.block.get_dev_disk_byid")
+    def test_disk_to_byid_path(self, mock_byid):
+        """ disk_to_byid path returns a /dev/disk/by-id path """
+        mapping = {
+            '/dev/sda': '/dev/disk/by-id/scsi-abcdef',
+        }
+        mock_byid.return_value = mapping
+
+        byid_path = block.disk_to_byid_path('/dev/sda')
+        self.assertEqual(mapping['/dev/sda'], byid_path)
+
+    @mock.patch("curtin.block.get_dev_disk_byid")
+    def test_disk_to_byid_path_notfound(self, mock_byid):
+        """ disk_to_byid path returns None for not found devices """
+        mapping = {
+            '/dev/sda': '/dev/disk/by-id/scsi-abcdef',
+        }
+        mock_byid.return_value = mapping
+
+        byid_path = block.disk_to_byid_path('/dev/sdb')
+        self.assertEqual(mapping.get('/dev/sdb'), byid_path)
 
 
 class TestSysBlockPath(CiTestCase):
@@ -334,15 +358,18 @@ class TestWipeVolume(CiTestCase):
     @mock.patch('curtin.block.quick_zero')
     def test_wipe_superblock(self, mock_quick_zero):
         block.wipe_volume(self.dev, mode='superblock')
-        mock_quick_zero.assert_called_with(self.dev, partitions=False)
-        block.wipe_volume(self.dev, mode='superblock-recursive')
-        mock_quick_zero.assert_called_with(self.dev, partitions=True)
+        mock_quick_zero.assert_called_with(self.dev, exclusive=True,
+                                           partitions=False)
+        block.wipe_volume(self.dev, exclusive=True,
+                          mode='superblock-recursive')
+        mock_quick_zero.assert_called_with(self.dev, exclusive=True,
+                                           partitions=True)
 
     @mock.patch('curtin.block.wipe_file')
     def test_wipe_zero(self, mock_wipe_file):
         with simple_mocked_open():
-            block.wipe_volume(self.dev, mode='zero')
-            mock_wipe_file.assert_called_with(self.dev)
+            block.wipe_volume(self.dev, exclusive=True, mode='zero')
+            mock_wipe_file.assert_called_with(self.dev, exclusive=True)
 
     @mock.patch('curtin.block.wipe_file')
     def test_wipe_random(self, mock_wipe_file):
@@ -350,7 +377,8 @@ class TestWipeVolume(CiTestCase):
             block.wipe_volume(self.dev, mode='random')
             mock_open.assert_called_with('/dev/urandom', 'rb')
             mock_wipe_file.assert_called_with(
-                self.dev, reader=mock_open.return_value.__enter__().read)
+                self.dev, exclusive=True,
+                reader=mock_open.return_value.__enter__().read)
 
     def test_bad_input(self):
         with self.assertRaises(ValueError):
@@ -618,6 +646,5 @@ class TestSlaveKnames(CiTestCase):
         self._prepare_mocks(device, cfg)
         knames = block.get_device_slave_knames(device)
         self.assertEqual(slaves, knames)
-
 
 # vi: ts=4 expandtab syntax=python

@@ -1,22 +1,8 @@
-#   Copyright (C) 2013 Canonical Ltd.
-#
-#   Author: Scott Moser <scott.moser@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 import argparse
 import collections
+from contextlib import contextmanager
 import errno
 import glob
 import json
@@ -68,8 +54,9 @@ BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
 
 
 def _subp(args, data=None, rcs=None, env=None, capture=False,
-          shell=False, logstring=False, decode="replace",
-          target=None, cwd=None, log_captured=False, unshare_pid=None):
+          combine_capture=False, shell=False, logstring=False,
+          decode="replace", target=None, cwd=None, log_captured=False,
+          unshare_pid=None):
     if rcs is None:
         rcs = [0]
     devnull_fp = None
@@ -88,8 +75,9 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
     args = unshare_args + chroot_args + sh_args + list(args)
 
     if not logstring:
-        LOG.debug(("Running command %s with allowed return codes %s"
-                   " (capture=%s)"), args, rcs, capture)
+        LOG.debug(
+            "Running command %s with allowed return codes %s (capture=%s)",
+            args, rcs, 'combine' if combine_capture else capture)
     else:
         LOG.debug(("Running hidden command to protect sensitive "
                    "input/output logstring: %s"), logstring)
@@ -100,6 +88,9 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
         if capture:
             stdout = subprocess.PIPE
             stderr = subprocess.PIPE
+        if combine_capture:
+            stdout = subprocess.PIPE
+            stderr = subprocess.STDOUT
         if data is None:
             devnull_fp = open(os.devnull)
             stdin = devnull_fp
@@ -211,6 +202,10 @@ def subp(*args, **kwargs):
     :param capture:
         boolean indicating if output should be captured.  If True, then stderr
         and stdout will be returned.  If False, they will not be redirected.
+    :param combine_capture:
+        boolean indicating if stderr should be redirected to stdout. When True,
+        interleaved stderr and stdout will be returned as the first element of
+        a tuple.
     :param log_captured:
         boolean indicating if output should be logged on capture.  If
         True, then stderr and stdout will be logged at DEBUG level.  If
@@ -304,6 +299,32 @@ def load_command_environment(env=os.environ, strict=False):
             raise KeyError("missing environment vars: %s" % missing)
 
     return {k: env.get(v) for k, v in mapping.items()}
+
+
+def is_kmod_loaded(module):
+    """Test if kernel module 'module' is current loaded by checking sysfs"""
+
+    if not module:
+        raise ValueError('is_kmod_loaded: invalid module: "%s"', module)
+
+    return os.path.isdir('/sys/module/%s' % module)
+
+
+def load_kernel_module(module, check_loaded=True):
+    """Install kernel module via modprobe.  Optionally check if it's already
+       loaded .
+    """
+
+    if not module:
+        raise ValueError('load_kernel_module: invalid module: "%s"', module)
+
+    if check_loaded:
+        if is_kmod_loaded(module):
+            LOG.debug('Skipping kernel module load, %s already loaded', module)
+            return
+
+    LOG.debug('Loading kernel module %s via modprobe', module)
+    subp(['modprobe', '--use-blacklist', module])
 
 
 class BadUsage(Exception):
@@ -456,6 +477,16 @@ def fuser_mount(path):
         fuser_output[pid] = status.split()
 
     return fuser_output
+
+
+@contextmanager
+def chdir(dirname):
+    curdir = os.getcwd()
+    try:
+        os.chdir(dirname)
+        yield dirname
+    finally:
+        os.chdir(curdir)
 
 
 def do_mount(src, target, opts=None):
@@ -1053,12 +1084,19 @@ def sanitize_source(source):
         # already sanitized?
         return source
     supported = ['tgz', 'dd-tgz', 'dd-tbz', 'dd-txz', 'dd-tar', 'dd-bz2',
-                 'dd-gz', 'dd-xz', 'dd-raw']
+                 'dd-gz', 'dd-xz', 'dd-raw', 'fsimage']
     deftype = 'tgz'
     for i in supported:
         prefix = i + ":"
         if source.startswith(prefix):
             return {'type': i, 'uri': source[len(prefix):]}
+
+    # translate squashfs: to fsimage type.
+    if source.startswith("squashfs:"):
+        return {'type': 'fsimage', 'uri': source[len("squashfs:")]}
+
+    if source.endswith("squashfs") or source.endswith("squash"):
+        return {'type': 'fsimage', 'uri': source}
 
     LOG.debug("unknown type for url '%s', assuming type '%s'", source, deftype)
     # default to tgz for unknown types
@@ -1430,6 +1468,5 @@ def uses_systemd():
         _USES_SYSTEMD = os.path.isdir('/run/systemd/system')
 
     return _USES_SYSTEMD
-
 
 # vi: ts=4 expandtab syntax=python

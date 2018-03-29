@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 """
 This just tests the vmtest harness.  Useful for quickly running
 multiple tests that can pass or fail.
@@ -41,3 +43,5 @@ class PsuedoTestMixedPassAndFail(relbase.xenial, PsuedoBase):
 
     def test_fail2(self):
         self._maybe_raise(Exception("This second test failed."))
+
+# vi: ts=4 expandtab syntax=python

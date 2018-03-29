@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 import socket
 try:
     # python2
@@ -74,7 +76,7 @@ class ServerHandler(http_server.SimpleHTTPRequestHandler):
         self._message = None
         self.send_response(200)
         self.end_headers()
-        self.wfile.write("content of %s\n" % self.path)
+        self.wfile.write(("content of %s\n" % self.path).encode('utf-8'))
 
     def do_POST(self):
         length = int(self.headers['Content-Length'])
@@ -184,3 +186,5 @@ def mainloop():
 
 if __name__ == "__main__":
     mainloop()
+
+# vi: ts=4 expandtab syntax=python

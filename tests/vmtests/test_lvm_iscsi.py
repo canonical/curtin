@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from .releases import base_vm_classes as relbase
 from .test_lvm import TestLvmAbs
 from .test_iscsi import TestBasicIscsiAbs
@@ -73,3 +75,5 @@ class ArtfulTestIscsiLvm(relbase.artful, TestLvmIscsiAbs):
 
 class BionicTestIscsiLvm(relbase.bionic, TestLvmIscsiAbs):
     __test__ = True
+
+# vi: ts=4 expandtab syntax=python

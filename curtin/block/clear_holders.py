@@ -1,19 +1,4 @@
-#   Copyright (C) 2016 Canonical Ltd.
-#
-#   Author: Wesley Wiedenmeier <wesley.wiedenmeier@canonical.com>
-#
-#   Curtin is free software: you can redistribute it and/or modify it under
-#   the terms of the GNU Affero General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   Curtin is distributed in the hope that it will be useful, but WITHOUT ANY
-#   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#   FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
-#   more details.
-#
-#   You should have received a copy of the GNU Affero General Public License
-#   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 """
 This module provides a mechanism for shutting down virtual storage layers on
@@ -26,8 +11,10 @@ import os
 import time
 
 from curtin import (block, udev, util)
+from curtin.swap import is_swap_device
 from curtin.block import lvm
 from curtin.block import mdadm
+from curtin.block import zfs
 from curtin.log import LOG
 
 # poll frequenty, but wait up to 60 seconds total
@@ -201,11 +188,11 @@ def shutdown_lvm(device):
     # '{volume group}-{logical volume}'. The volume can be freed using lvremove
     name_file = os.path.join(device, 'dm', 'name')
     (vg_name, lv_name) = lvm.split_lvm_name(util.load_file(name_file))
-    # use two --force flags here in case the volume group that this lv is
-    # attached two has been damaged
-    LOG.debug('running lvremove on %s/%s', vg_name, lv_name)
-    util.subp(['lvremove', '--force', '--force',
-               '{}/{}'.format(vg_name, lv_name)], rcs=[0, 5])
+
+    # use dmsetup as lvm commands require valid /etc/lvm/* metadata
+    LOG.debug('using "dmsetup remove" on %s-%s', vg_name, lv_name)
+    util.subp(['dmsetup', 'remove', '{}-{}'.format(vg_name, lv_name)])
+
     # if that was the last lvol in the volgroup, get rid of volgroup
     if len(lvm.get_lvols_in_volgroup(vg_name)) == 0:
         util.subp(['vgremove', '--force', '--force', vg_name], rcs=[0, 5])
@@ -260,6 +247,14 @@ def wipe_superblock(device):
         LOG.info("extended partitions do not need wiping, so skipping: '%s'",
                  blockdev)
     else:
+        # release zfs member by exporting the pool
+        if block.is_zfs_member(blockdev):
+            poolname = zfs.device_to_poolname(blockdev)
+            zfs.zpool_export(poolname)
+
+        if is_swap_device(blockdev):
+            shutdown_swap(blockdev)
+
         # some volumes will be claimed by the bcache layer but do not surface
         # an actual /dev/bcacheN device which owns the parts (backing, cache)
         # The result is that some volumes cannot be wiped while bcache claims
@@ -273,24 +268,30 @@ def wipe_superblock(device):
                 maybe_stop_bcache_device(stop_path)
                 continue
 
-        retries = [1, 3, 5, 7]
-        LOG.info('wiping superblock on %s', blockdev)
-        for attempt, wait in enumerate(retries):
-            LOG.debug('wiping %s attempt %s/%s',
+        _wipe_superblock(blockdev)
+
+
+def _wipe_superblock(blockdev, exclusive=True):
+    """ No checks, just call wipe_volume """
+
+    retries = [1, 3, 5, 7]
+    LOG.info('wiping superblock on %s', blockdev)
+    for attempt, wait in enumerate(retries):
+        LOG.debug('wiping %s attempt %s/%s',
+                  blockdev, attempt + 1, len(retries))
+        try:
+            block.wipe_volume(blockdev, mode='superblock', exclusive=exclusive)
+            LOG.debug('successfully wiped device %s on attempt %s/%s',
                       blockdev, attempt + 1, len(retries))
-            try:
-                block.wipe_volume(blockdev, mode='superblock')
-                LOG.debug('successfully wiped device %s on attempt %s/%s',
-                          blockdev, attempt + 1, len(retries))
-                return
-            except OSError:
-                if attempt + 1 >= len(retries):
-                    raise
-                else:
-                    LOG.debug("wiping device '%s' failed on attempt"
-                              " %s/%s.  sleeping %ss before retry",
-                              blockdev, attempt + 1, len(retries), wait)
-                    time.sleep(wait)
+            return
+        except OSError:
+            if attempt + 1 >= len(retries):
+                raise
+            else:
+                LOG.debug("wiping device '%s' failed on attempt"
+                          " %s/%s.  sleeping %ss before retry",
+                          blockdev, attempt + 1, len(retries), wait)
+                time.sleep(wait)
 
 
 def identify_lvm(device):
@@ -313,7 +314,10 @@ def identify_mdadm(device):
     """
     determine if specified device is a mdadm device
     """
-    return block.path_to_kname(device).startswith('md')
+    # RAID0 and 1 devices can be partitioned and the partitions are *not*
+    # raid devices with a sysfs 'md' subdirectory
+    partition = identify_partition(device)
+    return block.path_to_kname(device).startswith('md') and not partition
 
 
 def identify_bcache(device):
@@ -329,6 +333,18 @@ def identify_partition(device):
     """
     path = os.path.join(block.sys_block_path(device), 'partition')
     return os.path.exists(path)
+
+
+def shutdown_swap(path):
+    """release swap device from kernel swap pool if present"""
+    procswaps = util.load_file('/proc/swaps')
+    for swapline in procswaps.splitlines():
+        if swapline.startswith(path):
+            msg = ('Removing %s from active use as swap device, '
+                   'needed for storage config' % path)
+            LOG.warning(msg)
+            util.subp(['swapoff', path])
+            return
 
 
 def get_holders(device):
@@ -494,21 +510,46 @@ def clear_holders(base_paths, try_preserve=False):
              '\n'.join(format_holders_tree(tree) for tree in holder_trees))
     ordered_devs = plan_shutdown_holder_trees(holder_trees)
 
+    # run wipe-superblock on layered devices
+    for dev_info in ordered_devs:
+        dev_type = DEV_TYPES.get(dev_info['dev_type'])
+        shutdown_function = dev_type.get('shutdown')
+        if not shutdown_function:
+            continue
+
+        if try_preserve and shutdown_function in DATA_DESTROYING_HANDLERS:
+            LOG.info('shutdown function for holder type: %s is destructive. '
+                     'attempting to preserve data, so skipping' %
+                     dev_info['dev_type'])
+            continue
+
+        # for layered block devices, wipe first, then shutdown
+        if dev_info['dev_type'] in ['bcache', 'raid']:
+            LOG.info("Wiping superblock on layered device type: "
+                     "'%s' syspath: '%s'", dev_info['dev_type'],
+                     dev_info['device'])
+            # we just want to wipe data, we don't care about exclusive
+            _wipe_superblock(block.sysfs_to_devpath(dev_info['device']),
+                             exclusive=False)
+
     # run shutdown functions
     for dev_info in ordered_devs:
         dev_type = DEV_TYPES.get(dev_info['dev_type'])
         shutdown_function = dev_type.get('shutdown')
         if not shutdown_function:
             continue
+
         if try_preserve and shutdown_function in DATA_DESTROYING_HANDLERS:
             LOG.info('shutdown function for holder type: %s is destructive. '
-                     'attempting to preserve data, so not skipping' %
+                     'attempting to preserve data, so skipping' %
                      dev_info['dev_type'])
             continue
-        LOG.info("shutdown running on holder type: '%s' syspath: '%s'",
-                 dev_info['dev_type'], dev_info['device'])
-        shutdown_function(dev_info['device'])
-        udev.udevadm_settle()
+
+        if os.path.exists(dev_info['device']):
+            LOG.info("shutdown running on holder type: '%s' syspath: '%s'",
+                     dev_info['dev_type'], dev_info['device'])
+            shutdown_function(dev_info['device'])
+            udev.udevadm_settle()
 
 
 def start_clear_holders_deps():
@@ -531,7 +572,11 @@ def start_clear_holders_deps():
     # lad the bcache module bcause it is not present in the kernel. if this
     # happens then there is no need to halt installation, as the bcache devices
     # will never appear and will never prevent the disk from being reformatted
-    util.subp(['modprobe', 'bcache'], rcs=[0, 1])
+    util.load_kernel_module('bcache')
+    # the zfs module is needed to find and export devices which may be in-use
+    # and need to be cleared, only on xenial+.
+    if not util.lsb_release()['codename'] in ['precise', 'trusty']:
+        util.load_kernel_module('zfs')
 
 
 # anything that is not identified can assumed to be a 'disk' or similar
@@ -541,3 +586,5 @@ DATA_DESTROYING_HANDLERS = [wipe_superblock]
 # types of devices that could be encountered by clear holders and functions to
 # identify them and shut them down
 DEV_TYPES = _define_handlers_registry()
+
+# vi: ts=4 expandtab syntax=python

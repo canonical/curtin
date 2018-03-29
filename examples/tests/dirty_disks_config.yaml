@@ -3,12 +3,27 @@ bucket:
     #!/bin/sh
     command -v systemctl && systemctl mask media-root\\x2dro.mount
     exit 0
+  - &swapon |
+    #!/bin/sh
+    # enable any swap device or partition if present
+    devices=""
+    for device in /dev/[hsv]d[a-z][0-9]*; do
+        if ! [ -b "$device" ]; then
+            continue
+        fi
+        MOFF=$((`getconf PAGESIZE` - 10))
+        magic=$(dd if="$device" bs=1 skip=$MOFF count=10 2>/dev/null) || continue
+        if [ "$magic" = "SWAPSPACE2" -o "$magic" = "SWAP-SPACE" ]; then
+            devices="$devices $device"
+        fi
+    done
+    for device in $devices; do
+        swapon $device || true
+    done
+    swapon --show
+    exit 0
 
 early_commands:
-  # systemd sucks; automatic mount and fsck services clash with curtin
-  # Once LP: #1723183 has landed (cloud-initramfs-tools 0.40ubuntu1)
-  # on all releases we can drop this workaround.
-  01-unsuckify-systemd-mounts: [sh, -c, *run_if_systemd]
   # running block-meta custom from the install environment
   # inherits the CONFIG environment, so this works to actually prepare
   # the disks exactly as in this config before the rest of the install
@@ -18,3 +33,4 @@ early_commands:
               TARGET_MOUNT_POINT=/tmp/my.bdir/target,
               WORKING_DIR=/tmp/my.bdir/work.d, 
               curtin, --showtrace, -v, block-meta, --umount, custom]
+  enable_swaps: [sh, -c, *swapon]

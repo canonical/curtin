@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 from .test_network import TestNetworkBaseTestsAbs
@@ -74,3 +76,5 @@ class ArtfulTestNetworkAlias(relbase.artful, TestNetworkAliasAbs):
 
 class BionicTestNetworkAlias(relbase.bionic, TestNetworkAliasAbs):
     __test__ = True
+
+# vi: ts=4 expandtab syntax=python

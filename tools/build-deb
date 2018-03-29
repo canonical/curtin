@@ -1,4 +1,5 @@
 #!/bin/sh
+# This file is part of curtin. See LICENSE file for copyright and license info.
 
 set -e
 
@@ -113,3 +114,5 @@ for f in *; do
    echo "wrote $f"
 done
 exit
+
+# vi: ts=4 expandtab syntax=sh

@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from .releases import base_vm_classes as relbase
 from .test_mdadm_bcache import TestMdadmAbs
 from .test_iscsi import TestBasicIscsiAbs
@@ -7,6 +9,7 @@ import textwrap
 
 class TestMdadmIscsiAbs(TestMdadmAbs, TestBasicIscsiAbs):
     interactive = False
+    dirty_disks = False  # LP: 1753786
     iscsi_disks = [
         {'size': '5G', 'auth': 'user:passw0rd'},
         {'size': '5G', 'auth': 'user:passw0rd', 'iauth': 'iuser:ipassw0rd'},
@@ -44,3 +47,5 @@ class ArtfulTestIscsiMdadm(relbase.artful, TestMdadmIscsiAbs):
 
 class BionicTestIscsiMdadm(relbase.bionic, TestMdadmIscsiAbs):
     __test__ = True
+
+# vi: ts=4 expandtab syntax=python
