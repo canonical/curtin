@@ -1,3 +1,52 @@
+curtin (18.1-1-g45564eef-0ubuntu1~16.04.1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot. (LP: #1759664)
+    - Drop ubuntu branch management script new-upstream-snapshot.
+    - Release 18.1
+    - zfs/zpool version=28 by default, allow users to override default values.
+    - helpers/shell-archive: drop use of tar --sparse flag
+    - vmtest: In Basic install, add entry for swap to fstab and verify its use.
+    - vmtest: skip some bcache tests pending kernel fixes
+    - vmtests: extend skip_by_date for lvmroot_xfsroot and network_mtu
+    - vmtest: fix pollinate re.search to use groupdict()
+    - Add pollinate user-agent configuration support.
+    - vmtest: Remove xenial and trusty specific workaround for rooturl.
+    - vmtest: Add Filesystem Battery test.
+    - Remove grub2/xenial specific workarounds for zfsroot.
+    - Disable dirty_disks mode for mdadm + iscsi tests
+    - tools/curtainer: Try harder to get source at binary version.
+    - clear_holders: wipe complex devices before disassembly
+    - vmtests: network_mtu: fix bug number and move date out one month
+    - fix /usr/bin/curtin exit code in install failure
+    - docs: Document use of format command with fstype: zfsroot
+    - docs: Add HACKING.rst doc to top level dir and readthedocs.
+    - vmtest: fix centos root-tgz image sync
+    - block_meta: Ensure offset input to sgdisk are integers.
+    - Fix error in url_helper and vmtest from previous commit.
+    - tools: fix curtainer to specify source version to apt-get source.
+    - Add support for installing sources that are a filesystem image.
+    - clear-holders: detect and remove devices from kernel swap as needed.
+    - tests: remove xfs filesystem from basic uefi test.
+    - tools: fix curtainer --source with trusty.
+    - apply_net: do not write to stderr directly.
+    - vmtest: Drop use of root-image.gz and maas2roottar.
+    - in-target: use ChrootableTarget so that unshare pid is used.
+    - tools/curtainer: check that binary and source version are the same.
+    - Add zfsroot as a filesystem type
+    - fix modeline for shell syntax files.
+    - error logs: Create error_tarfile path if path does not exist
+    - zfs: only load zfs on xenial+ skip artful/bionic zfs env export
+    - error logs: automatically collect and tar curtin logs upon error.
+    - vmtests: Support skipping skip_by_date tests based on environment.
+    - Add zpool, zfs storage commands for experimental support of ZFS on root.
+    - tests: revert workaround for bug in overlayroot that is now fixed.
+    - tests: Bump skip_by_dates for bug 1652822 and 1671952.
+    - cli: add curtin collect-logs sub-command
+    - vmtest: Do not run tests of unsupported Ubuntu releases.
+    - Make license headers and file footers consistent and simplify.
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Thu, 29 Mar 2018 09:24:01 -0500
+
 curtin (17.1-11-ga4c9636b-0ubuntu1~16.04.1) xenial; urgency=medium
 
   * New upstream snapshot. (LP: #1743618)
