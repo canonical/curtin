@@ -1,4 +1,4 @@
-curtin (18.1-1-g45564eef-0ubuntu1~16.04.1) UNRELEASED; urgency=medium
+curtin (18.1-1-g45564eef-0ubuntu1~16.04.1) xenial; urgency=medium
 
   * New upstream snapshot. (LP: #1759664)
     - Drop ubuntu branch management script new-upstream-snapshot.
@@ -45,7 +45,7 @@ curtin (18.1-1-g45564eef-0ubuntu1~16.04.1) UNRELEASED; urgency=medium
     - vmtest: Do not run tests of unsupported Ubuntu releases.
     - Make license headers and file footers consistent and simplify.
 
- -- Ryan Harper <ryan.harper@canonical.com>  Thu, 29 Mar 2018 09:24:01 -0500
+ -- Ryan Harper <ryan.harper@canonical.com>  Thu, 29 Mar 2018 09:25:22 -0500
 
 curtin (17.1-11-ga4c9636b-0ubuntu1~16.04.1) xenial; urgency=medium
 
