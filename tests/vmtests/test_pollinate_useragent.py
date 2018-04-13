@@ -24,7 +24,7 @@ class TestPollinateUserAgent(VMBaseClass):
         self.output_files_exist(["pollinate_print_user_agent"])
         agent_values = self.load_collect_file("pollinate_print_user_agent")
         if len(agent_values) == 0:
-            pollver = re.search('pollinate\s(?P<version>\S+)',
+            pollver = re.search(r'pollinate\s(?P<version>\S+)',
                                 self.load_collect_file("debian-packages.txt"))
             msg = ("pollinate client '%s' does not support "
                    "--print-user-agent'" % pollver.groupdict()['version'])
@@ -45,7 +45,7 @@ class TestPollinateUserAgent(VMBaseClass):
             """
             ua_val = line.split()[0]
             # escape + and . that are likely in maas/curtin version strings
-            regex = r'%s' % ua_val.replace('+', '\+').replace('.', '\.')
+            regex = '%s' % ua_val.replace('+', r'\+').replace('.', r'\.')
             hit = re.search(regex, agent_values)
             self.assertIsNotNone(hit)
             self.assertEqual(ua_val, hit.group())

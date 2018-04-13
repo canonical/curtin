@@ -483,7 +483,7 @@ def __mdadm_detail_to_dict(input):
     '''
     data = {}
 
-    device = re.findall('^(\/dev\/[a-zA-Z0-9-\._]+)', input)
+    device = re.findall(r'^(\/dev\/[a-zA-Z0-9-\._]+)', input)
     if len(device) == 1:
         data.update({'device': device[0]})
     else:
@@ -491,9 +491,8 @@ def __mdadm_detail_to_dict(input):
 
     #  FIXME: probably could do a better regex to match the LHS which
     #         has one, two or three words
-    for f in re.findall('(\w+|\w+\ \w+|\w+\ \w+\ \w+)' +
-                        '\ \:\ ([a-zA-Z0-9\-\.,: \(\)=\']+)',
-                        input, re.MULTILINE):
+    rem = r'(\w+|\w+\ \w+|\w+\ \w+\ \w+)\ \:\ ([a-zA-Z0-9\-\.,: \(\)=\']+)'
+    for f in re.findall(rem, input, re.MULTILINE):
         key = f[0].replace(' ', '_').lower()
         val = f[1]
         if key in data:
