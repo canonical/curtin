@@ -384,20 +384,20 @@ class TestClearHolders(CiTestCase):
     @mock.patch('curtin.block.clear_holders.util')
     def test_shutdown_lvm(self, mock_util, mock_lvm, mock_syspath, mock_log):
         """test clear_holders.shutdown_lvm"""
-        vg_name = 'volgroup1'
-        lv_name = 'lvol1'
+        lvm_name = b'ubuntu--vg-swap\n'
+        vg_name = 'ubuntu-vg'
+        lv_name = 'swap'
         mock_syspath.return_value = self.test_blockdev
-        mock_util.load_file.return_value = '-'.join((vg_name, lv_name))
+        mock_util.load_file.return_value = lvm_name
         mock_lvm.split_lvm_name.return_value = (vg_name, lv_name)
         mock_lvm.get_lvols_in_volgroup.return_value = ['lvol2']
         clear_holders.shutdown_lvm(self.test_blockdev)
         mock_syspath.assert_called_with(self.test_blockdev)
         mock_util.load_file.assert_called_with(self.test_blockdev + '/dm/name')
-        mock_lvm.split_lvm_name.assert_called_with(
-            '-'.join((vg_name, lv_name)))
+        mock_lvm.split_lvm_name.assert_called_with(lvm_name.strip())
         self.assertTrue(mock_log.debug.called)
         mock_util.subp.assert_called_with(
-            ['dmsetup', 'remove', '-'.join((vg_name, lv_name))])
+            ['dmsetup', 'remove', lvm_name.strip()])
 
         mock_lvm.get_lvols_in_volgroup.assert_called_with(vg_name)
         self.assertEqual(len(mock_util.subp.call_args_list), 1)

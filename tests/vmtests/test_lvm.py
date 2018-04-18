@@ -10,7 +10,7 @@ import textwrap
 class TestLvmAbs(VMBaseClass):
     conf_file = "examples/tests/lvm.yaml"
     interactive = False
-    extra_disks = []
+    extra_disks = ['10G']
     collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
