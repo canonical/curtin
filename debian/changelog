@@ -1,4 +1,4 @@
-curtin (18.1-5-g572ae5d6-0ubuntu1) UNRELEASED; urgency=medium
+curtin (18.1-5-g572ae5d6-0ubuntu1) bionic; urgency=medium
 
   * New upstream snapshot.
     - clear-holders: fix lvm name use when shutting down (LP: #1764602)
@@ -7,7 +7,7 @@ curtin (18.1-5-g572ae5d6-0ubuntu1) UNRELEASED; urgency=medium
     - vmtest: bionic images no longer use the vlan package
     - pycodestyle: Fix invalid escape sequences in string literals.
 
- -- Ryan Harper <ryan.harper@canonical.com>  Wed, 18 Apr 2018 10:15:17 -0500
+ -- Ryan Harper <ryan.harper@canonical.com>  Wed, 18 Apr 2018 10:15:46 -0500
 
 curtin (18.1-1-g45564eef-0ubuntu1) bionic; urgency=medium
 
