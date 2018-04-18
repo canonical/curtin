@@ -66,6 +66,34 @@ class TestCmdInstall(CiTestCase):
             "'proxy' in config is not a dictionary: junk",
             str(context_manager.exception))
 
+    def test_curtin_error_unmount_doesnt_lose_exception(self):
+        """Confirm unmount:disable skips unmounting, keeps exception"""
+        working_dir = self.tmp_path('working', _dir=self.new_root)
+        ensure_dir(working_dir)
+        write_file(self.logfile, 'old log')
+
+        # Providing two dd images raises an error, set unmount: disabled
+        myargs = FakeArgs(
+            config={'install':
+                    {'log_file': self.logfile, 'unmount': 'disabled'}},
+            source=['dd-raw:https://localhost/raw_images/centos-6-3.img',
+                    'dd-raw:https://localhost/cant/provide/two/images.img'],
+            reportstack=FakeReportStack())
+        self.add_patch(
+            'curtin.commands.collect_logs.create_log_tarfile', 'm_tar')
+        self.add_patch(
+            'curtin.commands.install.copy_install_log', 'm_copy_log')
+        self.add_patch('curtin.util.do_umount', 'm_umount')
+
+        rv = 42
+        with self.assertRaises(Exception):
+            rv = install.cmd_install(myargs)
+
+        # make sure install.cmd_install does not return a value, but Exception
+        self.assertEqual(42, rv)
+        self.assertEqual(0, self.m_umount.call_count)
+        self.assertEqual(1, self.m_copy_log.call_count)
+
     def test_curtin_error_copies_config_and_error_tarfile_defaults(self):
         """On curtin error, install error_tarfile is created with all logs.
 

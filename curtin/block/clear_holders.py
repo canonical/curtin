@@ -187,11 +187,12 @@ def shutdown_lvm(device):
     # lvm devices have a dm directory that containes a file 'name' containing
     # '{volume group}-{logical volume}'. The volume can be freed using lvremove
     name_file = os.path.join(device, 'dm', 'name')
-    (vg_name, lv_name) = lvm.split_lvm_name(util.load_file(name_file))
+    lvm_name = util.load_file(name_file).strip()
+    (vg_name, lv_name) = lvm.split_lvm_name(lvm_name)
 
     # use dmsetup as lvm commands require valid /etc/lvm/* metadata
-    LOG.debug('using "dmsetup remove" on %s-%s', vg_name, lv_name)
-    util.subp(['dmsetup', 'remove', '{}-{}'.format(vg_name, lv_name)])
+    LOG.debug('using "dmsetup remove" on %s', lvm_name)
+    util.subp(['dmsetup', 'remove', lvm_name])
 
     # if that was the last lvol in the volgroup, get rid of volgroup
     if len(lvm.get_lvols_in_volgroup(vg_name)) == 0:

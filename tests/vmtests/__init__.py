@@ -1529,7 +1529,7 @@ def check_install_log(install_log):
     # regexps expected in curtin output
     install_pass = INSTALL_PASS_MSG
     install_fail = "({})".format("|".join([
-                   'Installation\ failed',
+                   'Installation failed',
                    'ImportError: No module named.*',
                    'Unexpected error while running command',
                    'E: Unable to locate package.*',

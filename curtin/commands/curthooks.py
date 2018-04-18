@@ -336,7 +336,7 @@ def setup_grub(cfg, target):
                 export LANG=C;
                 for d in "$@"; do
                     sgdisk "$d" --print |
-                        awk "\$6 == prep { print d \$1 }" "d=$d" prep=4100
+                        awk '$6 == prep { print d $1 }' "d=$d" prep=4100
                 done
                 """)
             try:
