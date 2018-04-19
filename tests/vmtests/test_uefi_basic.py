@@ -95,15 +95,6 @@ class PreciseHWETUefiTestBasic(relbase.precise_hwe_t, PreciseUefiTestBasic):
 class TrustyUefiTestBasic(relbase.trusty, TestBasicAbs):
     __test__ = True
 
-    # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
-    # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
-
-    def test_ptable(self):
-        print("test_ptable does not work for Trusty")
-
 
 class TrustyHWEXUefiTestBasic(relbase.trusty_hwe_x, TrustyUefiTestBasic):
     __test__ = True

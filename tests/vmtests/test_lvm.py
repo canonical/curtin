@@ -2,7 +2,6 @@
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
-from unittest import SkipTest
 
 import textwrap
 
@@ -40,14 +39,6 @@ class TestLvmAbs(VMBaseClass):
     def test_output_files_exist(self):
         self.output_files_exist(
             ["fstab", "ls_dname"])
-
-    # FIXME(LP: #1523037): dname does not work on precise|trusty, so we cannot
-    # expect sda-part2 to exist in /dev/disk/by-dname as we can on other
-    # releases when dname works on trusty, then we need to re-enable by
-    # removing line.
-    def test_dname(self):
-        if self.release in ['precise', 'trusty']:
-            raise SkipTest("test_dname does not work for %s" % self.release)
 
 
 class TrustyTestLvm(relbase.trusty, TestLvmAbs):

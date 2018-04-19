@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 from curtin import (block, config, util)
-from curtin.block import (mdadm, mkfs, clear_holders, lvm, iscsi, zfs)
+from curtin.block import (bcache, mdadm, mkfs, clear_holders, lvm, iscsi, zfs)
 from curtin.log import LOG
 from curtin.reporter import events
 
@@ -224,7 +224,15 @@ def make_dname(volume, storage_config):
         md_uuid = md_data.get('MD_UUID')
         rule.append(compose_udev_equality("ENV{MD_UUID}", md_uuid))
     elif vol.get('type') == "bcache":
-        rule.append(compose_udev_equality("ENV{DEVNAME}", path))
+        # bind dname to bcache backing device's dev.uuid as the bcache minor
+        # device numbers are not stable across reboots.
+        backing_dev = get_path_to_storage_volume(vol.get('backing_device'),
+                                                 storage_config)
+        bcache_super = bcache.superblock_asdict(device=backing_dev)
+        if bcache_super and bcache_super['sb.version'].startswith('1'):
+                bdev_uuid = bcache_super['dev.uuid']
+        rule.append(compose_udev_equality("ENV{CACHED_UUID}", bdev_uuid))
+        bcache.write_label(sanitize_dname(dname), backing_dev)
     elif vol.get('type') == "lvm_partition":
         volgroup_name = storage_config.get(vol.get('volgroup')).get('name')
         dname = "%s-%s" % (volgroup_name, dname)
@@ -241,8 +249,7 @@ def make_dname(volume, storage_config):
         LOG.warning(
             "dname modified to remove invalid chars. old: '{}' new: '{}'"
             .format(dname, sanitized))
-
-    rule.append("SYMLINK+=\"disk/by-dname/%s\"" % sanitized)
+    rule.append("SYMLINK+=\"disk/by-dname/%s\"\n" % sanitized)
     LOG.debug("Writing dname udev rule '{}'".format(str(rule)))
     util.ensure_dir(rules_dir)
     rule_file = os.path.join(rules_dir, '{}.rules'.format(sanitized))

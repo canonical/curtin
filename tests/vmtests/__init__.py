@@ -1284,6 +1284,10 @@ class VMBaseClass(TestCase):
                                          mntpoint)
 
     def test_dname(self, disk_to_check=None):
+        if "trusty" in [self.release, self.target_release]:
+            raise SkipTest(
+                "(LP: #1523037): dname does not work on trusty kernels")
+
         if not disk_to_check:
             disk_to_check = self.disk_to_check
         if disk_to_check is None:
@@ -1476,7 +1480,7 @@ class PsuedoVMBaseClass(VMBaseClass):
     def test_fstab(self):
         pass
 
-    def test_dname(self):
+    def test_dname(self, disk_to_check=None):
         pass
 
     def test_interfacesd_eth0_removed(self):
