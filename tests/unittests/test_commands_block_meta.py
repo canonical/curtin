@@ -8,6 +8,8 @@ from curtin.commands import block_meta
 from curtin import util
 from .helpers import CiTestCase
 
+import copy
+
 
 class TestBlockMetaSimple(CiTestCase):
     def setUp(self):
@@ -324,46 +326,91 @@ class TestBlockMeta(CiTestCase):
         self.assertEqual(rendered_fstab, expected)
 
 
-class TestZFSRootUpdates(CiTestCase):
-    def test_basic_zfsroot_update_storage_config(self):
-        zfsroot_id = 'myrootfs'
-        base = [
-            {'id': 'disk1', 'type': 'disk', 'ptable': 'gpt',
-             'serial': 'dev_vda', 'name': 'main_disk', 'wipe': 'superblock',
-             'grub_device': True},
-            {'id': 'disk1p1', 'type': 'partition', 'number': '1',
-             'size': '9G', 'device': 'disk1'},
-            {'id': 'bios_boot', 'type': 'partition', 'size': '1M',
-             'number': '2', 'device': 'disk1', 'flag': 'bios_grub'}]
-        zfsroots = [
-            {'id': zfsroot_id, 'type': 'format', 'fstype': 'zfsroot',
-             'volume': 'disk1p1', 'label': 'cloudimg-rootfs'},
-            {'id': 'disk1p1_mount', 'type': 'mount', 'path': '/',
-             'device': zfsroot_id}]
-        extra = [
-            {'id': 'extra', 'type': 'disk', 'ptable': 'gpt',
-             'wipe': 'superblock'}
-        ]
+class TestZpoolHandler(CiTestCase):
+    @patch('curtin.commands.block_meta.zfs')
+    @patch('curtin.commands.block_meta.block')
+    @patch('curtin.commands.block_meta.util')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_zpool_handler_falls_back_to_path_when_no_byid(self, m_getpath,
+                                                           m_util, m_block,
+                                                           m_zfs):
+        storage_config = OrderedDict()
+        info = {'type': 'zpool', 'id': 'myrootfs_zfsroot_pool',
+                'pool': 'rpool', 'vdevs': ['disk1p1'], 'mountpoint': '/'}
+        disk_path = "/wark/mydev"
+        m_getpath.return_value = disk_path
+        m_block.disk_to_byid_path.return_value = None
+        m_util.load_command_environment.return_value = {'target': 'mytarget'}
+        block_meta.zpool_handler(info, storage_config)
+        m_zfs.zpool_create.assert_called_with(info['pool'], [disk_path],
+                                              mountpoint="/",
+                                              altroot="mytarget")
 
+
+class TestZFSRootUpdates(CiTestCase):
+    zfsroot_id = 'myrootfs'
+    base = [
+        {'id': 'disk1', 'type': 'disk', 'ptable': 'gpt',
+         'serial': 'dev_vda', 'name': 'main_disk', 'wipe': 'superblock',
+         'grub_device': True},
+        {'id': 'disk1p1', 'type': 'partition', 'number': '1',
+         'size': '9G', 'device': 'disk1'},
+        {'id': 'bios_boot', 'type': 'partition', 'size': '1M',
+         'number': '2', 'device': 'disk1', 'flag': 'bios_grub'}]
+    zfsroots = [
+        {'id': zfsroot_id, 'type': 'format', 'fstype': 'zfsroot',
+         'volume': 'disk1p1', 'label': 'cloudimg-rootfs'},
+        {'id': 'disk1p1_mount', 'type': 'mount', 'path': '/',
+         'device': zfsroot_id}]
+    extra = [
+        {'id': 'extra', 'type': 'disk', 'ptable': 'gpt',
+         'wipe': 'superblock'}
+    ]
+
+    def test_basic_zfsroot_update_storage_config(self):
         zfsroot_volname = "/ROOT/zfsroot"
-        pool_id = zfsroot_id + '_zfsroot_pool'
+        pool_id = self.zfsroot_id + '_zfsroot_pool'
         newents = [
             {'type': 'zpool', 'id': pool_id,
              'pool': 'rpool', 'vdevs': ['disk1p1'], 'mountpoint': '/'},
-            {'type': 'zfs', 'id': zfsroot_id + '_zfsroot_container',
+            {'type': 'zfs', 'id': self.zfsroot_id + '_zfsroot_container',
              'pool': pool_id, 'volume': '/ROOT',
              'properties': {'canmount': 'off', 'mountpoint': 'none'}},
-            {'type': 'zfs', 'id': zfsroot_id + '_zfsroot_fs',
+            {'type': 'zfs', 'id': self.zfsroot_id + '_zfsroot_fs',
              'pool': pool_id, 'volume': zfsroot_volname,
              'properties': {'canmount': 'noauto', 'mountpoint': '/'}},
         ]
         expected = OrderedDict(
-            [(i['id'], i) for i in base + newents + extra])
+            [(i['id'], i) for i in self.base + newents + self.extra])
 
         scfg = block_meta.extract_storage_ordered_dict(
-            {'storage': {'version': 1, 'config': base + zfsroots + extra}})
+            {'storage': {'version': 1,
+                         'config': self.base + self.zfsroots + self.extra}})
         found = block_meta.zfsroot_update_storage_config(scfg)
         print(util.json_dumps([(k, v) for k, v in found.items()]))
         self.assertEqual(expected, found)
+
+    def test_basic_zfsroot_raise_valueerror_no_gpt(self):
+        msdos_base = copy.deepcopy(self.base)
+        msdos_base[0]['ptable'] = 'msdos'
+        scfg = block_meta.extract_storage_ordered_dict(
+            {'storage': {'version': 1,
+                         'config': msdos_base + self.zfsroots + self.extra}})
+        with self.assertRaises(ValueError):
+            block_meta.zfsroot_update_storage_config(scfg)
+
+    def test_basic_zfsroot_raise_valueerror_multi_zfsroot(self):
+        extra_disk = [
+            {'id': 'disk2', 'type': 'disk', 'ptable': 'gpt',
+             'serial': 'dev_vdb', 'name': 'extra_disk', 'wipe': 'superblock'}]
+        second_zfs = [
+            {'id': 'zfsroot2', 'type': 'format', 'fstype': 'zfsroot',
+             'volume': 'disk2', 'label': ''}]
+        scfg = block_meta.extract_storage_ordered_dict(
+            {'storage': {'version': 1,
+                         'config': (self.base + extra_disk +
+                                    self.zfsroots + second_zfs)}})
+        with self.assertRaises(ValueError):
+            block_meta.zfsroot_update_storage_config(scfg)
 
 # vi: ts=4 expandtab syntax=python

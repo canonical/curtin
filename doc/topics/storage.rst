@@ -290,7 +290,10 @@ target volume can be specified, as well as a few other options.
   Utilizing the the ``fstype: zfsroot`` will indicate to curtin
   that it should automatically inject the appropriate ``type: zpool``
   and ``type: zfs`` command structures based on which target ``volume``
-  is specified in the ``format`` command.
+  is specified in the ``format`` command.  There may be only *one*
+  zfsroot entry.  The disk that contains the zfsroot must be partitioned
+  with a GPT partition table.  Curtin will fail to install if these
+  requirements are not met.
 
 The ``fstype`` key specifies what type of filesystem format curtin should use
 for this volume. Curtin knows about common Linux filesystems such as ext4/3 and
@@ -651,6 +654,10 @@ when constructing ZFS datasets.
 
 The ``vdevs`` key specifies a list of items in the storage configuration to use
 in building a ZFS storage pool.  This can be a partition or a whole disk.
+It is recommended that vdevs are ``disks`` which have a 'serial' attribute
+which allows Curtin to build a /dev/disk/by-id path which is a persistent
+path, however, if not available Curtin will accept 'path' attributes but
+warn that the zpool may be unstable due to missing by-id device path.
 
 **mountpoint**: *<mountpoint>*
 

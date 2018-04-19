@@ -1197,9 +1197,11 @@ def zpool_handler(info, storage_config):
     for vdev in vdevs:
         byid = block.disk_to_byid_path(vdev)
         if not byid:
-            msg = 'Cannot find by-id path to zpool device "%s"' % vdev
-            LOG.error(msg)
-            raise RuntimeError(msg)
+            msg = ('Cannot find by-id path to zpool device "%s". '
+                   'The zpool may fail to import of path names change.' % vdev)
+            LOG.warning(msg)
+            byid = vdev
+
         vdevs_byid.append(byid)
 
     LOG.info('Creating zpool %s with vdevs %s', poolname, vdevs_byid)
@@ -1278,6 +1280,15 @@ def zfsroot_update_storage_config(storage_config):
         raise ValueError(
             "zfsroot Mountpoint entry for / has device=%s, expected '%s'" %
             (mount.get("device"), root['id']))
+
+    # validate that the boot disk is GPT partitioned
+    bootdevs = [d for i, d in storage_config.items() if d.get('grub_device')]
+    bootdev = bootdevs[0]
+    if bootdev.get('ptable') != 'gpt':
+        raise ValueError(
+            'zfsroot requires bootdisk with GPT partition table'
+            ' found "%s" on disk id="%s"' %
+            (bootdev.get('ptable'), bootdev.get('id')))
 
     LOG.info('Enabling experimental zfsroot!')
 
