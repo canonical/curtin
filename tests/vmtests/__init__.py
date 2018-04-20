@@ -708,8 +708,8 @@ class VMBaseClass(TestCase):
         cmd.extend([
             "--root-arg=root=%s" % root_url,
             "--append=overlayroot=tmpfs",
-            "--append=ip=dhcp",        # enable networking
         ])
+
         # getting resolvconf configured is only fixed in bionic
         # the iscsi_auto handles resolvconf setup via call to
         # configure_networking in initramfs
@@ -733,7 +733,7 @@ class VMBaseClass(TestCase):
         cls.network_state = curtin_net.parse_net_config(cls.conf_file)
         logger.debug("Network state: {}".format(cls.network_state))
 
-        # build -n arg list with macaddrs from net_config physical config
+        # build --netdev=arg list with 'physical' nics from net_config
         macs = []
         interfaces = {}
         if cls.network_state:
@@ -744,16 +744,14 @@ class VMBaseClass(TestCase):
             hwaddr = iface.get('mac_address')
             if iface['type'] == 'physical' and hwaddr:
                 macs.append(hwaddr)
-        netdevs = []
-        if len(macs) > 0:
-            # take first mac and mark it as the boot interface to prevent DHCP
-            # on multiple interfaces which can hang the install.
-            cmd.extend(["--append=BOOTIF=01-%s" % macs[0].replace(":", "-")])
-            for mac in macs:
-                netdevs.extend(["--netdev=" + DEFAULT_BRIDGE +
-                                ",mac={}".format(mac)])
-        else:
-            netdevs.extend(["--netdev=" + DEFAULT_BRIDGE])
+
+        if len(macs) == 0:
+            macs = ["52:54:00:12:34:01"]
+
+        netdevs = ["--netdev=%s,mac=%s" % (DEFAULT_BRIDGE, m) for m in macs]
+
+        # Add kernel parameters to simulate network boot from first nic.
+        cmd.extend(kernel_boot_cmdline_for_mac(macs[0]))
 
         # build disk arguments
         disks = []
@@ -1739,6 +1737,27 @@ def get_lan_ip():
     else:
         raise OSError('could not get local ip address')
     return addr
+
+
+def kernel_boot_cmdline_for_mac(mac):
+    """Return kernel command line arguments for initramfs dhcp on mac.
+
+    Ubuntu initramfs respect klibc's ip= format for network config in
+    initramfs.  That format is:
+       ip=addr:server:gateway:netmask:interface:proto
+    see /usr/share/doc/libklibc/README.ipconfig.gz for more info.
+
+    If no 'interface' field is provided, dhcp will be tried on all.  To allow
+    specifying the interface in ip= parameter without knowing the name of the
+    device that the kernel will choose, cloud-initramfs-dyn-netconf replaces
+    'BOOTIF' in the ip= parameter with the name found in BOOTIF.
+
+    Network bootloaders append to kernel command line
+      BOOTIF=01-<mac-address> to indicate which mac they booted from.
+
+    Paired with BOOTIF replacement this ends up being: ip=::::eth0:dhcp."""
+    return ["--append=ip=:::::BOOTIF:dhcp",
+            "--append=BOOTIF=01-%s" % mac.replace(":", "-")]
 
 
 def is_unsupported_ubuntu(release):

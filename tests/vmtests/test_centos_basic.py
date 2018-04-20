@@ -11,7 +11,6 @@ import textwrap
 class CentosTestBasicAbs(VMBaseClass):
     __test__ = False
     conf_file = "examples/tests/centos_basic.yaml"
-    extra_kern_args = "BOOTIF=eth0-52:54:00:12:34:00"
     # XXX: command | tee output is required for Centos under SELinux
     # http://danwalsh.livejournal.com/22860.html
     collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent(
@@ -74,7 +73,6 @@ class Centos66FromXenialTestBasic(relbase.centos66fromxenial,
 
 class CentosTestBasicNetworkAbs(TestNetworkBaseTestsAbs):
     conf_file = "examples/tests/centos_basic.yaml"
-    extra_kern_args = "BOOTIF=eth0-52:54:00:12:34:00"
     collect_scripts = TestNetworkBaseTestsAbs.collect_scripts + [
         textwrap.dedent("""
             cd OUTPUT_COLLECT_D
