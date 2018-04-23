@@ -1289,9 +1289,12 @@ class VMBaseClass(TestCase):
         if not disk_to_check:
             disk_to_check = self.disk_to_check
         if disk_to_check is None:
+            logger.debug('test_dname: no disks to check')
             return
+        logger.debug('test_dname: checking disks: %s', disk_to_check)
         path = self.collect_path("ls_dname")
         if not os.path.exists(path):
+            logger.debug('test_dname: no "ls_dname" file: %s', path)
             return
         contents = util.load_file(path)
         for diskname, part in self.disk_to_check:
