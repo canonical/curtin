@@ -1009,6 +1009,40 @@ def is_uefi_bootable():
     return os.path.exists('/sys/firmware/efi') is True
 
 
+def parse_efibootmgr(content):
+    efikey_to_dict_key = {
+        'BootCurrent': 'current',
+        'Timeout': 'timeout',
+        'BootOrder': 'order',
+    }
+
+    output = {}
+    for line in content.splitlines():
+        split = line.split(':')
+        if len(split) == 2:
+            key = split[0].strip()
+            output_key = efikey_to_dict_key.get(key, None)
+            if output_key:
+                output[output_key] = split[1].strip()
+                if output_key == 'order':
+                    output[output_key] = output[output_key].split(',')
+    output['entries'] = {
+        entry: {
+            'name': name.strip(),
+            'path': path.strip(),
+        }
+        for entry, name, path in re.findall(
+            r"^Boot(?P<entry>[0-9a-fA-F]{4})\*?\s(?P<name>.+)\t"
+            r"(?P<path>.*)$",
+            content, re.MULTILINE)
+    }
+    if 'order' in output:
+        new_order = [item for item in output['order']
+                     if item in output['entries']]
+        output['order'] = new_order
+    return output
+
+
 def get_efibootmgr(target):
     """Return mapping of EFI information.
 
@@ -1032,33 +1066,9 @@ def get_efibootmgr(target):
             }
         }
     """
-    efikey_to_dict_key = {
-        'BootCurrent': 'current',
-        'Timeout': 'timeout',
-        'BootOrder': 'order',
-    }
     with ChrootableTarget(target) as in_chroot:
         stdout, _ = in_chroot.subp(['efibootmgr', '-v'], capture=True)
-        output = {}
-        for line in stdout.splitlines():
-            split = line.split(':')
-            if len(split) == 2:
-                key = split[0].strip()
-                output_key = efikey_to_dict_key.get(key, None)
-                if output_key:
-                    output[output_key] = split[1].strip()
-                    if output_key == 'order':
-                        output[output_key] = output[output_key].split(',')
-        output['entries'] = {
-            entry: {
-                'name': name.strip(),
-                'path': path.strip(),
-            }
-            for entry, name, path in re.findall(
-                r"^Boot(?P<entry>[0-9a-fA-F]{4})\*?\s(?P<name>.+)\t"
-                r"(?P<path>.*)$",
-                stdout, re.MULTILINE)
-        }
+        output = parse_efibootmgr(stdout)
         return output
 
 

@@ -860,6 +860,53 @@ class TestGetEFIBootMGR(CiTestCase):
             }
         }, observed)
 
+    def test_parses_output_filter_missing(self):
+        """ensure parsing ignores items in order that don't have entries"""
+        self.in_chroot_subp_output.append((dedent(
+            """\
+            BootCurrent: 0000
+            Timeout: 1 seconds
+            BootOrder: 0000,0002,0001,0003,0004,0005,0006,0007
+            Boot0000* ubuntu	HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)
+            Boot0001* CD/DVD Drive 	BBS(CDROM,,0x0)
+            Boot0002* Hard Drive 	BBS(HD,,0x0)
+            Boot0003* UEFI:CD/DVD Drive	BBS(129,,0x0)
+            Boot0004* UEFI:Removable Device	BBS(130,,0x0)
+            Boot0005* UEFI:Network Device	BBS(131,,0x0)
+            """), ''))
+        observed = util.get_efibootmgr('target')
+        self.assertEquals({
+            'current': '0000',
+            'timeout': '1 seconds',
+            'order': ['0000', '0002', '0001', '0003', '0004', '0005'],
+            'entries': {
+                '0000': {
+                    'name': 'ubuntu',
+                    'path': 'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)',
+                },
+                '0001': {
+                    'name': 'CD/DVD Drive',
+                    'path': 'BBS(CDROM,,0x0)',
+                },
+                '0002': {
+                    'name': 'Hard Drive',
+                    'path': 'BBS(HD,,0x0)',
+                },
+                '0003': {
+                    'name': 'UEFI:CD/DVD Drive',
+                    'path': 'BBS(129,,0x0)',
+                },
+                '0004': {
+                    'name': 'UEFI:Removable Device',
+                    'path': 'BBS(130,,0x0)',
+                },
+                '0005': {
+                    'name': 'UEFI:Network Device',
+                    'path': 'BBS(131,,0x0)',
+                },
+            }
+        }, observed)
+
 
 class TestUsesSystemd(CiTestCase):
 
