@@ -81,3 +81,7 @@ class TestZfsRootFsTypeAbs(TestZfsRootAbs):
 
 class XenialGATestZfsRootFsType(relbase.xenial_ga, TestZfsRootFsTypeAbs):
     __test__ = True
+
+
+class BionicTestZfsRootFsType(relbase.bionic, TestZfsRootFsTypeAbs):
+    __test__ = True

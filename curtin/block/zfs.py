@@ -184,7 +184,7 @@ def zfs_mount(poolname, volume):
 
 def zpool_list():
     """
-    Return a list of zfs pool names
+    Return a list of zfs pool names which have been imported
 
     :returns: List of strings
     """

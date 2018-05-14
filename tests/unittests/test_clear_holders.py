@@ -510,6 +510,7 @@ class TestClearHolders(CiTestCase):
         mock_block.is_extended_partition.return_value = False
         mock_block.is_zfs_member.return_value = True
         mock_zfs.device_to_poolname.return_value = 'fake_pool'
+        mock_zfs.zpool_list.return_value = ['fake_pool']
         clear_holders.wipe_superblock(self.test_syspath)
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
         mock_zfs.zpool_export.assert_called_with('fake_pool')

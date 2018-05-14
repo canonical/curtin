@@ -251,7 +251,9 @@ def wipe_superblock(device):
         # release zfs member by exporting the pool
         if block.is_zfs_member(blockdev):
             poolname = zfs.device_to_poolname(blockdev)
-            zfs.zpool_export(poolname)
+            # only export pools that have been imported
+            if poolname in zfs.zpool_list():
+                zfs.zpool_export(poolname)
 
         if is_swap_device(blockdev):
             shutdown_swap(blockdev)
