@@ -49,6 +49,10 @@ OUTPUT_DISK_NAME = 'output_disk.img'
 BOOT_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_BOOT_TIMEOUT", 300))
 INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
 REUSE_TOPDIR = bool(int(os.environ.get("CURTIN_VMTEST_REUSE_TOPDIR", 0)))
+ADD_REPOS = os.environ.get("CURTIN_VMTEST_ADD_REPOS", "")
+UPGRADE_PACKAGES = os.environ.get("CURTIN_VMTEST_UPGRADE_PACKAGES", "")
+SYSTEM_UPGRADE = os.environ.get("CURTIN_VMTEST_SYSTEM_UPGRADE", "auto")
+
 
 _UNSUPPORTED_UBUNTU = None
 
@@ -840,6 +844,38 @@ class VMBaseClass(TestCase):
             configs.append(centos_default)
             logger.info('Detected centos, adding default config %s',
                         centos_default)
+
+        add_repos = ADD_REPOS
+        system_upgrade = SYSTEM_UPGRADE
+        upgrade_packages = UPGRADE_PACKAGES
+        if add_repos:
+            # enable if user has set a value here
+            if system_upgrade == "auto":
+                system_upgrade = True
+            logger.info('Adding apt repositories: %s', add_repos)
+            repo_cfg = os.path.join(cls.td.install, 'add_repos.cfg')
+            util.write_file(repo_cfg,
+                            generate_repo_config(add_repos.split(",")))
+            configs.append(repo_cfg)
+        elif system_upgrade == "auto":
+            system_upgrade = False
+
+        if system_upgrade:
+            logger.info('Enabling system_upgrade')
+            system_upgrade_cfg = os.path.join(cls.td.install,
+                                              'system_upgrade.cfg')
+            util.write_file(system_upgrade_cfg,
+                            "system_upgrade: {enabled: true}\n")
+            configs.append(system_upgrade_cfg)
+
+        if upgrade_packages:
+            logger.info('Adding late-commands to install packages: %s',
+                        upgrade_packages)
+            upgrade_pkg_cfg = os.path.join(cls.td.install, 'upgrade_pkg.cfg')
+            util.write_file(
+                upgrade_pkg_cfg,
+                generate_upgrade_config(upgrade_packages.split(",")))
+            configs.append(upgrade_pkg_cfg)
 
         # set reporting logger
         cls.reporting_log = os.path.join(cls.td.logs, 'webhooks-events.json')
@@ -1782,6 +1818,42 @@ def is_unsupported_ubuntu(release):
             return None
 
     return release in _UNSUPPORTED_UBUNTU
+
+
+def generate_repo_config(repos):
+    """Generate apt yaml configuration to add specified repositories.
+
+    @param repos: A list of add-apt-repository strings.
+                  'proposed' is a special case to enable the proposed
+                  pocket of a particular release.
+    @returns: string:  A yaml string
+    """
+    sources = {"add_repos_%02d" % idx: {'source': v}
+               for idx, v in enumerate(repos)}
+    return yaml.dump({'apt': {'sources': sources}})
+
+
+def generate_upgrade_config(packages, singlecmd=True):
+    """Generate late_command yaml to install packages with apt.
+
+    @param packages: list of package names.
+    @param singlecmd: Boolean, defaults to True which combines
+                      package installs into a single apt command
+                      If False, a separate command is issued for
+                      each package.
+    @returns: String of yaml
+    """
+    if not packages:
+        return ""
+    cmds = {}
+    base_cmd = ['curtin', 'in-target', '--', 'apt-get', '-y', 'install']
+    if singlecmd:
+        cmds["install_pkg_00"] = base_cmd + packages
+    else:
+        for idx, package in enumerate(packages):
+            cmds["install_pkg_%02d" % idx] = base_cmd + package
+
+    return yaml.dump({'late_commands': cmds})
 
 
 apply_keep_settings()
