@@ -416,18 +416,17 @@ class IscsiDisk(object):
             self.portal, self.target, self.lun)
 
     def connect(self):
-        if self.target in iscsiadm_sessions():
-            return
+        if self.target not in iscsiadm_sessions():
+            iscsiadm_discovery(self.portal)
 
-        iscsiadm_discovery(self.portal)
+            iscsiadm_authenticate(self.target, self.portal, self.user,
+                                  self.password, self.iuser, self.ipassword)
 
-        iscsiadm_authenticate(self.target, self.portal, self.user,
-                              self.password, self.iuser, self.ipassword)
+            iscsiadm_login(self.target, self.portal)
 
-        iscsiadm_login(self.target, self.portal)
+            udev.udevadm_settle(self.devdisk_path)
 
-        udev.udevadm_settle(self.devdisk_path)
-
+        # always set automatic mode
         iscsiadm_set_automatic(self.target, self.portal)
 
     def disconnect(self):

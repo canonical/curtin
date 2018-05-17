@@ -9,6 +9,7 @@ import textwrap
 
 class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):
     interactive = False
+    dirty_disks = True
     iscsi_disks = [
         {'size': '6G'},
         {'size': '5G', 'auth': 'user:passw0rd', 'iauth': 'iuser:ipassw0rd'}]
@@ -20,6 +21,8 @@ class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):
         """
         cd OUTPUT_COLLECT_D
         ls -al /sys/class/block/dm*/slaves/  > dm_slaves
+        cp -a /etc/udev/rules.d udev_rules_d
+        cp -a /etc/iscsi etc_iscsi
         """)]
 
     fstab_expected = {

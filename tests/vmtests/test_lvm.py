@@ -10,10 +10,15 @@ class TestLvmAbs(VMBaseClass):
     conf_file = "examples/tests/lvm.yaml"
     interactive = False
     extra_disks = ['10G']
+    dirty_disks = True
     collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         ls /dev/disk/by-dname > ls_dname
+        ls -al /dev/disk/by-dname > lsal_dname
+        ls -al /dev/disk/by-id/ > ls_byid
+        ls -al /dev/disk/by-uuid/ > ls_byuuid
+        cat /proc/partitions > proc_partitions
         find /etc/network/interfaces.d > find_interfacesd
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs

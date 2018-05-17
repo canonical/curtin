@@ -237,6 +237,44 @@ def mdadm_examine(devpath, export=MDADM_USE_EXPORT):
     return data
 
 
+def set_sync_action(devpath, action=None, retries=None):
+    assert_valid_devpath(devpath)
+    if not action:
+        return
+
+    if not retries:
+        retries = [0.2] * 60
+
+    sync_action = md_sysfs_attr_path(devpath, 'sync_action')
+    if not os.path.exists(sync_action):
+        # arrays without sync_action can't set values
+        return
+
+    LOG.info("mdadm set sync_action=%s on array %s", action, devpath)
+    for (attempt, wait) in enumerate(retries):
+        try:
+            LOG.debug('mdadm: set sync_action %s attempt %s',
+                      devpath, attempt)
+            val = md_sysfs_attr(devpath, 'sync_action').strip()
+            LOG.debug('sync_action = "%s" ? "%s"', val, action)
+            if val != action:
+                LOG.debug("mdadm: setting array sync_action=%s", action)
+                try:
+                    util.write_file(sync_action, content=action)
+                except (IOError, OSError) as e:
+                    LOG.debug("mdadm: (non-fatal) write to %s failed %s",
+                              sync_action, e)
+            else:
+                LOG.debug("mdadm: set array sync_action=%s SUCCESS", action)
+                return
+
+        except util.ProcessExecutionError:
+            LOG.debug(
+                "mdadm: set sync_action failed, retrying in %s seconds", wait)
+            time.sleep(wait)
+            pass
+
+
 def mdadm_stop(devpath, retries=None):
     assert_valid_devpath(devpath)
     if not retries:
@@ -303,6 +341,33 @@ def mdadm_remove(devpath):
     out, err = util.subp(["mdadm", "--remove", devpath],
                          rcs=[0], capture=True)
     LOG.debug("mdadm remove:\n%s\n%s", out, err)
+
+
+def fail_device(mddev, arraydev):
+    assert_valid_devpath(mddev)
+
+    LOG.info("mdadm mark faulty: %s in array %s", arraydev, mddev)
+    out, err = util.subp(["mdadm", "--fail", mddev, arraydev],
+                         rcs=[0], capture=True)
+    LOG.debug("mdadm mark faulty:\n%s\n%s", out, err)
+
+
+def remove_device(mddev, arraydev):
+    assert_valid_devpath(mddev)
+
+    LOG.info("mdadm remove %s from array %s", arraydev, mddev)
+    out, err = util.subp(["mdadm", "--remove", mddev, arraydev],
+                         rcs=[0], capture=True)
+    LOG.debug("mdadm remove:\n%s\n%s", out, err)
+
+
+def zero_device(devpath):
+    assert_valid_devpath(devpath)
+
+    LOG.info("mdadm zero superblock on %s", devpath)
+    out, err = util.subp(["mdadm", "--zero-superblock", devpath],
+                         rcs=[0], capture=True)
+    LOG.debug("mdadm zero superblock:\n%s\n%s", out, err)
 
 
 def mdadm_query_detail(md_devname, export=MDADM_USE_EXPORT):
