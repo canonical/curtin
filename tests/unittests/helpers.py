@@ -63,7 +63,9 @@ class CiTestCase(TestCase):
         # the file is not created or modified.
         if _dir is None:
             _dir = self.tmp_dir()
-        return os.path.normpath(os.path.abspath(os.path.join(_dir, path)))
+
+        return os.path.normpath(
+            os.path.abspath(os.path.sep.join((_dir, path))))
 
 
 def dir2dict(startdir, prefix=None):

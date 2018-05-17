@@ -1,6 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from curtin import (block, config, util)
 from curtin.block import (bcache, mdadm, mkfs, clear_holders, lvm, iscsi, zfs)
 from curtin.log import LOG
@@ -16,6 +16,12 @@ import string
 import sys
 import tempfile
 import time
+
+FstabData = namedtuple(
+    "FstabData", ('spec', 'path', 'fstype', 'options', 'freq', 'passno',
+                  'device'))
+FstabData.__new__.__defaults__ = (None, None, None, "", "0", "0", None)
+
 
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
@@ -628,6 +634,142 @@ def format_handler(info, storage_config):
         udevadm_trigger([volume_path])
 
 
+def mount_data(info, storage_config):
+    """Return information necessary for a mount or fstab entry.
+
+    :param info: a 'mount' type from storage config.
+    :param storage_config: related storage_config ordered dict by id.
+
+    :return FstabData type."""
+    if info.get('type') != "mount":
+        raise ValueError("entry is not type 'mount' (%s)" % info)
+
+    spec = info.get('spec')
+    fstype = info.get('fstype')
+    path = info.get('path')
+    freq = str(info.get('freq', 0))
+    passno = str(info.get('passno', 0))
+
+    # turn empty options into "defaults", which works in fstab and mount -o.
+    if not info.get('options'):
+        options = ["defaults"]
+    else:
+        options = info.get('options').split(",")
+
+    volume_path = None
+
+    if 'device' not in info:
+        missing = [m for m in ('spec', 'fstype') if not info.get(m)]
+        if not (fstype and spec):
+            raise ValueError(
+                "mount entry without 'device' missing: %s. (%s)" %
+                (missing, info))
+
+    else:
+        if info['device'] not in storage_config:
+            raise ValueError(
+                "mount entry refers to non-existant device %s: (%s)" %
+                (info['device'], info))
+        if not (fstype and spec):
+            format_info = storage_config.get(info['device'])
+            if not fstype:
+                fstype = format_info['fstype']
+            if not spec:
+                if format_info.get('volume') not in storage_config:
+                    raise ValueError(
+                        "format type refers to non-existant id %s: (%s)" %
+                        (format_info.get('volume'), format_info))
+                volume_path = get_path_to_storage_volume(
+                    format_info['volume'],  storage_config)
+                if "_netdev" not in options:
+                    if iscsi.volpath_is_iscsi(volume_path):
+                        options.append("_netdev")
+
+    if fstype in ("fat", "fat12", "fat16", "fat32", "fat64"):
+        fstype = "vfat"
+
+    return FstabData(
+        spec, path, fstype, ",".join(options), freq, passno, volume_path)
+
+
+def fstab_line_for_data(fdata):
+    """Return a string representing fdata in /etc/fstab format.
+
+    :param fdata: a FstabData type
+    :return a newline terminated string for /etc/fstab."""
+    path = fdata.path
+    if not path:
+        if fdata.fstype == "swap":
+            path = "none"
+        else:
+            raise ValueError("empty path in %s." % str(fdata))
+
+    if fdata.spec is None:
+        if not fdata.device:
+            raise ValueError("FstabData missing both spec and device.")
+        uuid = block.get_volume_uuid(fdata.device)
+        spec = ("UUID=%s" % uuid) if uuid else fdata.device
+    else:
+        spec = fdata.spec
+
+    if fdata.options in (None, "", "defaults"):
+        if fdata.fstype == "swap":
+            options = "sw"
+        else:
+            options = "defaults"
+    else:
+        options = fdata.options
+
+    return ' '.join((spec, path, fdata.fstype, options,
+                     fdata.freq, fdata.passno)) + "\n"
+
+
+def mount_fstab_data(fdata, target=None):
+    """mount the FstabData fdata with root at target.
+
+    :param fdata: a FstabData type
+    :return None."""
+    mp = util.target_path(target, fdata.path)
+    if fdata.device:
+        device = fdata.device
+    else:
+        if fdata.spec.startswith("/") and not fdata.spec.startswith("/dev/"):
+            device = util.target_path(target, fdata.spec)
+        else:
+            device = fdata.spec
+
+    options = fdata.options if fdata.options else "defaults"
+
+    mcmd = ['mount']
+    if fdata.fstype not in ("bind", None, "none"):
+        mcmd.extend(['-t', fdata.fstype])
+    mcmd.extend(['-o', options, device, mp])
+
+    if fdata.fstype == "bind" or "bind" in options.split(","):
+        # for bind mounts, create the 'src' dir (mount -o bind src target)
+        util.ensure_dir(device)
+    util.ensure_dir(mp)
+
+    try:
+        util.subp(mcmd, capture=True)
+    except util.ProcessExecutionError as e:
+        LOG.exception(e)
+        msg = 'Mount failed: %s @ %s with options %s' % (device, mp, options)
+        LOG.error(msg)
+        raise RuntimeError(msg)
+
+
+def mount_apply(fdata, target=None, fstab=None):
+    if fdata.fstype != "swap":
+        mount_fstab_data(fdata, target=target)
+
+    # Add volume to fstab
+    if fstab:
+        util.write_file(fstab, fstab_line_for_data(fdata), omode="a")
+    else:
+        LOG.info("fstab not in environment, so not writing")
+
+
 def mount_handler(info, storage_config):
     """ Handle storage config type: mount
 
@@ -643,74 +785,8 @@ def mount_handler(info, storage_config):
     fstab entry.
     """
     state = util.load_command_environment()
-    path = info.get('path')
-    filesystem = storage_config.get(info.get('device'))
-    mount_options = info.get('options')
-    # handle unset, or empty('') strings
-    if not mount_options:
-        mount_options = 'defaults'
-
-    if not path and filesystem.get('fstype') != "swap":
-        raise ValueError("path to mountpoint must be specified")
-    volume = storage_config.get(filesystem.get('volume'))
-
-    # Get path to volume
-    volume_path = get_path_to_storage_volume(filesystem.get('volume'),
-                                             storage_config)
-
-    if filesystem.get('fstype') != "swap":
-        # Figure out what point should be
-        while len(path) > 0 and path[0] == "/":
-            path = path[1:]
-        mount_point = os.path.sep.join([state['target'], path])
-        mount_point = os.path.normpath(mount_point)
-
-        options = mount_options.split(",")
-        # If the volume_path's kname is backed by iSCSI or (in the case of
-        # LVM/DM) if any of its slaves are backed by iSCSI, then we need to
-        # append _netdev to the fstab line
-        if iscsi.volpath_is_iscsi(volume_path):
-            LOG.debug("Marking volume_path:%s as '_netdev'", volume_path)
-            options.append("_netdev")
-
-        # Create mount point if does not exist
-        util.ensure_dir(mount_point)
-
-        # Mount volume, with options
-        try:
-            opts = ['-o', ','.join(options)]
-            util.subp(['mount', volume_path, mount_point] + opts, capture=True)
-        except util.ProcessExecutionError as e:
-            LOG.exception(e)
-            msg = ('Mount failed: %s @ %s with options %s' % (volume_path,
-                                                              mount_point,
-                                                              ",".join(opts)))
-            LOG.error(msg)
-            raise RuntimeError(msg)
-
-        # set path
-        path = "/%s" % path
-
-    else:
-        path = "none"
-        options = ["sw"]
-
-    # Add volume to fstab
-    if state['fstab']:
-        uuid = block.get_volume_uuid(volume_path)
-        location = ("UUID=%s" % uuid) if uuid else (
-                    get_path_to_storage_volume(volume.get('id'),
-                                               storage_config))
-
-        fstype = filesystem.get('fstype')
-        if fstype in ["fat", "fat12", "fat16", "fat32", "fat64"]:
-            fstype = "vfat"
-
-        fstab_entry = "%s %s %s %s 0 0\n" % (location, path, fstype,
-                                             ",".join(options))
-        util.write_file(state['fstab'], fstab_entry, omode='a')
-    else:
-        LOG.info("fstab not in environment, so not writing")
+    mount_apply(mount_data(info, storage_config),
+                target=state.get('target'), fstab=state.get('fstab'))
 
 
 def lvm_volgroup_handler(info, storage_config):

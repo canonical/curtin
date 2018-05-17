@@ -277,6 +277,8 @@ exists and will not modify the partition.
    device: disk0
    flag: boot
 
+.. _format:
+
 Format Command
 ~~~~~~~~~~~~~~
 The format command makes filesystems on a volume. The filesystem type and
@@ -369,15 +371,20 @@ in ``/dev``.
 
 **device**: *<device id>*
 
-The ``device`` key refers to the ``id`` of the target device in the storage
-config. The target device must already contain a valid filesystem and be
-accessible.
+The ``device`` key refers to the ``id`` of a :ref:`Format <format>` entry.
+One of ``device`` or ``spec`` must be present.
 
 .. note::
 
   If the specified device refers to an iSCSI device, the corresponding
   fstab entry will contain ``_netdev`` to indicate networking is
   required to mount this filesystem.
+
+**fstype**: *<fileystem type>*
+
+``fstype`` is only required if ``device`` is not present.  It indicates
+the filesystem type and will be used for mount operations and written
+to ``/etc/fstab``
 
 **options**: *<mount(8) comma-separated options string>*
 
@@ -396,6 +403,14 @@ The ``options`` key will replace the default options value of ``defaults``.
   If either of the environments (install or target) do not have support for
   the provided options, the behavior is undefined.
 
+**spec**: *<fs_spec>*
+
+The ``spec`` attribute defines the fsspec as defined in fstab(5).
+If ``spec`` is present with ``device``, then mounts will be done
+according to ``spec`` rather than determined via inspection of ``device``.
+If ``spec`` is present without ``device`` then ``fstype`` must be present.
+
+
 **Config Example**::
 
  - id: disk0-part1-fs1-mount0
@@ -403,6 +418,41 @@ The ``options`` key will replace the default options value of ``defaults``.
    path: /home
    device: disk0-part1-fs1
    options: 'noatime,errors=remount-ro'
+
+**Bind Mount**
+
+Below is an example of configuring a bind mount.
+
+.. code-block:: yaml
+
+ - id: bind1
+   fstype: "none"
+   options: "bind"
+   path: "/var/lib"
+   spec: "/my/bind-over-var-lib"
+   type: mount
+
+That would result in a fstab entry like::
+
+  /my/bind-over-var-lib /var/lib none bind 0 0
+
+**Tmpfs Mount**
+
+Below is an example of configuring a tmpfsbind mount.
+
+.. code-block:: yaml
+
+    - id: tmpfs1
+      type: mount
+      spec: "none"
+      path: "/my/tmpfs"
+      options: size=4194304
+      fstype: "tmpfs"
+
+That would result in a fstab entry like::
+
+  none /my/tmpfs tmpfs size=4194304 0 0
+
 
 Lvm Volgroup Command
 ~~~~~~~~~~~~~~~~~~~~
