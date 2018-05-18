@@ -152,6 +152,11 @@ class TrustyHWEXTestBasic(relbase.trusty_hwe_x, TrustyTestBasic):
     __test__ = True
 
 
+class XenialGAi386TestBasic(relbase.xenial_ga, TestBasicAbs):
+    __test__ = True
+    arch = 'i386'
+
+
 class XenialGATestBasic(relbase.xenial_ga, TestBasicAbs):
     __test__ = True
 

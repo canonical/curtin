@@ -1,5 +1,8 @@
+import mock
+
 from curtin.config import merge_config
 from curtin.block import zfs
+from curtin.util import ProcessExecutionError
 from .helpers import CiTestCase
 
 
@@ -374,5 +377,98 @@ class TestBlockZfsDeviceToPoolname(CiTestCase):
         self.assertEqual(None, found_poolname)
         self.mock_blkid.assert_called_with(devs=[devname])
 
+
+class TestBlockZfsZfsSupported(CiTestCase):
+
+    def setUp(self):
+        super(TestBlockZfsZfsSupported, self).setUp()
+        self.add_patch('curtin.block.zfs.util.subp', 'mock_subp')
+        self.add_patch('curtin.block.zfs.util.get_platform_arch', 'mock_arch')
+        self.add_patch('curtin.block.zfs.util.lsb_release', 'mock_release')
+        self.mock_release.return_value = {'codename': 'xenial'}
+        self.mock_arch.return_value = 'x86_64'
+
+    def test_supported_arch(self):
+        self.assertTrue(zfs.zfs_supported())
+
+    def test_unsupported_arch(self):
+        self.mock_arch.return_value = 'i386'
+        with self.assertRaises(RuntimeError):
+            zfs.zfs_supported()
+
+    def test_unsupported_releases(self):
+        for rel in ['precise', 'trusty']:
+            self.mock_release.return_value = {'codename': rel}
+            with self.assertRaises(RuntimeError):
+                zfs.zfs_supported()
+
+    def test_missing_module(self):
+        missing = 'modinfo: ERROR: Module zfs not found.\n     '
+        self.mock_subp.side_effect = ProcessExecutionError(stdout='',
+                                                           stderr=missing,
+                                                           exit_code='1')
+        with self.assertRaises(RuntimeError):
+            zfs.zfs_supported()
+
+
+class TestZfsSupported(CiTestCase):
+
+    def setUp(self):
+        super(TestZfsSupported, self).setUp()
+
+    @mock.patch('curtin.block.zfs.util')
+    def test_zfs_supported_returns_true(self, mock_util):
+        """zfs_supported returns True on supported platforms"""
+        mock_util.get_platform_arch.return_value = 'amd64'
+        mock_util.lsb_release.return_value = {'codename': 'bionic'}
+        mock_util.subp.return_value = ("", "")
+
+        self.assertNotIn(mock_util.get_platform_arch.return_value,
+                         zfs.ZFS_UNSUPPORTED_ARCHES)
+        self.assertNotIn(mock_util.lsb_release.return_value['codename'],
+                         zfs.ZFS_UNSUPPORTED_RELEASES)
+        self.assertTrue(zfs.zfs_supported())
+
+    @mock.patch('curtin.block.zfs.util')
+    def test_zfs_supported_raises_exception_on_bad_arch(self, mock_util):
+        """zfs_supported raises RuntimeError on unspported arches"""
+        mock_util.lsb_release.return_value = {'codename': 'bionic'}
+        mock_util.subp.return_value = ("", "")
+        for arch in zfs.ZFS_UNSUPPORTED_ARCHES:
+            mock_util.get_platform_arch.return_value = arch
+            with self.assertRaises(RuntimeError):
+                zfs.zfs_supported()
+
+    @mock.patch('curtin.block.zfs.util')
+    def test_zfs_supported_raises_execption_on_bad_releases(self, mock_util):
+        """zfs_supported raises RuntimeError on unspported releases"""
+        mock_util.get_platform_arch.return_value = 'amd64'
+        mock_util.subp.return_value = ("", "")
+        for release in zfs.ZFS_UNSUPPORTED_RELEASES:
+            mock_util.lsb_release.return_value = {'codename': release}
+            with self.assertRaises(RuntimeError):
+                zfs.zfs_supported()
+
+    @mock.patch('curtin.block.zfs.util.subprocess.Popen')
+    @mock.patch('curtin.block.zfs.util.lsb_release')
+    @mock.patch('curtin.block.zfs.util.get_platform_arch')
+    def test_zfs_supported_raises_exception_on_missing_module(self,
+                                                              m_arch,
+                                                              m_release,
+                                                              m_popen):
+        """zfs_supported raises RuntimeError on missing zfs module"""
+
+        m_arch.return_value = 'amd64'
+        m_release.return_value = {'codename': 'bionic'}
+        process_mock = mock.Mock()
+        attrs = {
+            'returncode': 1,
+            'communicate.return_value':
+                ('output', "modinfo: ERROR: Module zfs not found."),
+        }
+        process_mock.configure_mock(**attrs)
+        m_popen.return_value = process_mock
+        with self.assertRaises(RuntimeError):
+            zfs.zfs_supported()
 
 # vi: ts=4 expandtab syntax=python

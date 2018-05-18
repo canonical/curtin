@@ -1263,6 +1263,8 @@ def zpool_handler(info, storage_config):
     """
     Create a zpool based in storage_configuration
     """
+    zfs.zfs_supported()
+
     state = util.load_command_environment()
 
     # extract /dev/disk/by-id paths for each volume used
@@ -1296,6 +1298,7 @@ def zfs_handler(info, storage_config):
     """
     Create a zfs filesystem
     """
+    zfs.zfs_supported()
     state = util.load_command_environment()
     poolname = get_poolname(info, storage_config)
     volume = info.get('volume')

@@ -610,8 +610,11 @@ def start_clear_holders_deps():
     util.load_kernel_module('bcache')
     # the zfs module is needed to find and export devices which may be in-use
     # and need to be cleared, only on xenial+.
-    if not util.lsb_release()['codename'] in ['precise', 'trusty']:
-        util.load_kernel_module('zfs')
+    try:
+        if zfs.zfs_supported():
+            util.load_kernel_module('zfs')
+    except RuntimeError as e:
+        LOG.warning('Failed to load zfs kernel module: %s', e)
 
 
 # anything that is not identified can assumed to be a 'disk' or similar

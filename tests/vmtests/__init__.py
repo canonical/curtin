@@ -350,8 +350,23 @@ class TempDir(object):
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
 
+def skip_if_flag(flag):
+    def decorator(func):
+        """the name test_wrapper below has to start with test, or nose's
+           filter will not run it."""
+        def test_wrapper(self, *args, **kwargs):
+            val = getattr(self, flag, None)
+            if val:
+                self.skipTest("skip due to %s=%s" % (flag, val))
+            else:
+                return func(self, *args, **kwargs)
+        return test_wrapper
+    return decorator
+
+
 class VMBaseClass(TestCase):
     __test__ = False
+    expected_failure = False
     arch_skip = []
     boot_timeout = BOOT_TIMEOUT
     collect_scripts = [textwrap.dedent("""
@@ -959,6 +974,10 @@ class VMBaseClass(TestCase):
             else:
                 logger.warn("Boot for install did not produce a console log.")
 
+        if cls.expected_failure:
+            logger.debug('Expected Failure: skipping boot stage')
+            return
+
         logger.debug('')
         try:
             if os.path.exists(cls.install_log):
@@ -1302,6 +1321,7 @@ class VMBaseClass(TestCase):
             ret[val[0]] = val[1]
         return ret
 
+    @skip_if_flag('expected_failure')
     def test_fstab(self):
         if self.fstab_expected is None:
             return
@@ -1317,6 +1337,7 @@ class VMBaseClass(TestCase):
                         self.assertEqual(fstab_entry.split(' ')[1],
                                          mntpoint)
 
+    @skip_if_flag('expected_failure')
     def test_dname(self, disk_to_check=None):
         if "trusty" in [self.release, self.target_release]:
             raise SkipTest(
@@ -1339,6 +1360,7 @@ class VMBaseClass(TestCase):
                 self.assertIn(link, contents)
             self.assertIn(diskname, contents)
 
+    @skip_if_flag('expected_failure')
     def test_reporting_data(self):
         with open(self.reporting_log, 'r') as fp:
             data = json.load(fp)
@@ -1358,6 +1380,7 @@ class VMBaseClass(TestCase):
         self.assertIn('path', files)
         self.assertEqual('/tmp/install.log', files.get('path', ''))
 
+    @skip_if_flag('expected_failure')
     def test_interfacesd_eth0_removed(self):
         """ Check that curtin has removed /etc/network/interfaces.d/eth0.cfg
             by examining the output of a find /etc/network > find_interfaces.d
@@ -1366,9 +1389,9 @@ class VMBaseClass(TestCase):
         self.assertNotIn("/etc/network/interfaces.d/eth0.cfg",
                          interfacesd.split("\n"))
 
+    @skip_if_flag('expected_failure')
     def test_installed_correct_kernel_package(self):
         """ Test curtin installs the correct kernel package.  """
-
         # target_distro is set for non-ubuntu targets
         if self.target_distro is not None:
             raise SkipTest("Can't check non-ubuntu kernel packages")
@@ -1415,6 +1438,7 @@ class VMBaseClass(TestCase):
             self._debian_packages = pkgs
         return self._debian_packages
 
+    @skip_if_flag('expected_failure')
     def test_swaps_used(self):
         cfg = yaml.load(self.load_collect_file("root/curtin-install-cfg.yaml"))
         stgcfg = cfg.get("storage", {}).get("config", [])
@@ -1553,14 +1577,19 @@ def get_rfc4173(ip, port, target, user=None, pword=None,
 
 
 def find_error_context(err_match, contents, nrchars=200):
+    traceback_end = re.compile(r'Error:.*')
+    end_match = traceback_end.search(contents, err_match.start())
     context_start = err_match.start() - nrchars
-    context_end = err_match.end() + nrchars
+    if end_match:
+        context_end = end_match.end()
+    else:
+        context_end = err_match.end() + nrchars
     # extract contents, split into lines, drop the first and last partials
     # recombine and return
     return "\n".join(contents[context_start:context_end].splitlines()[1:-1])
 
 
-def check_install_log(install_log):
+def check_install_log(install_log, nrchars=200):
     # look if install is OK via curtin 'Installation ok"
     # if we dont find that, scan for known error messages and report
     # if we don't see any errors, fail with general error
@@ -1574,7 +1603,7 @@ def check_install_log(install_log):
                    'ImportError: No module named.*',
                    'Unexpected error while running command',
                    'E: Unable to locate package.*',
-                   'Traceback.*most recent call last.*:']))
+                   'cloud-init.*: Traceback.*']))
 
     install_is_ok = re.findall(install_pass, install_log)
     # always scan for errors
@@ -1583,7 +1612,7 @@ def check_install_log(install_log):
         errmsg = ('Failed to verify Installation is OK')
 
     for e in found_errors:
-        errors.append(find_error_context(e, install_log))
+        errors.append(find_error_context(e, install_log, nrchars=nrchars))
         errmsg = ('Errors during curtin installer')
 
     return errmsg, errors
