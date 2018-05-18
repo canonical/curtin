@@ -1,3 +1,22 @@
+curtin (18.1-15-g5313b9e2-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - zfs: implement a supported check to handle i386 (LP: #1768709)
+    - Support mount entries not tied to a device, including bind and tmpfs.
+      (LP: #1767979)
+    - block/clear_holders/mdadm: refactor handling of layered device wiping
+      (LP: #1768893, #1769742)
+    - clear_holders: only export zpools that have been imported (LP: #1770280)
+    - vmtests: allow env control of apt, system_upgrade, package upgrade
+    - util.get_efibootmgr: filter bootorder by found entries (LP: #1767584)
+    - vmtests: adjust lvm_iscsi dnames to match configuration
+    - vmtest: always boot with BOOTIF and ip=:::::BOOTIF:dhcp
+    - make_dname for bcache should use backing device uuid
+    - zfsroot: add additional checks, do not require disk 'serial' attribute
+      (LP: #1760879, #1760880)
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 18 May 2018 10:19:45 -0400
+
 curtin (18.1-5-g572ae5d6-0ubuntu1) bionic; urgency=medium
 
   * New upstream snapshot.
