@@ -378,7 +378,7 @@ def stop_all_unused_multipath_devices():
         LOG.warn("Failed to stop multipath devices: %s", e)
 
 
-def rescan_block_devices():
+def rescan_block_devices(warn_on_fail=True):
     """
     run 'blockdev --rereadpt' for all block devices not currently mounted
     """
@@ -399,13 +399,15 @@ def rescan_block_devices():
     try:
         util.subp(cmd, capture=True)
     except util.ProcessExecutionError as e:
-        # FIXME: its less than ideal to swallow this error, but until
-        # we fix LP: #1489521 we kind of need to.
-        LOG.warn("Error rescanning devices, possibly known issue LP: #1489521")
-        # Reformatting the exception output so as to not trigger
-        # vmtest scanning for Unexepected errors in install logfile
-        LOG.warn("cmd: %s\nstdout:%s\nstderr:%s\nexit_code:%s", e.cmd,
-                 e.stdout, e.stderr, e.exit_code)
+        if warn_on_fail:
+            # FIXME: its less than ideal to swallow this error, but until
+            # we fix LP: #1489521 we kind of need to.
+            LOG.warn(
+                "Error rescanning devices, possibly known issue LP: #1489521")
+            # Reformatting the exception output so as to not trigger
+            # vmtest scanning for Unexepected errors in install logfile
+            LOG.warn("cmd: %s\nstdout:%s\nstderr:%s\nexit_code:%s", e.cmd,
+                     e.stdout, e.stderr, e.exit_code)
 
     udevadm_settle()
 
@@ -753,8 +755,9 @@ def check_dos_signature(device):
     # the underlying disk uses a larger logical block size, so the start of
     # this signature must be at 0x1fe
     # https://en.wikipedia.org/wiki/Master_boot_record#Sector_layout
-    return (is_block_device(device) and util.file_size(device) >= 0x200 and
-            (util.load_file(device, decode=False, read_len=2, offset=0x1fe) ==
+    devname = dev_path(path_to_kname(device))
+    return (is_block_device(devname) and util.file_size(devname) >= 0x200 and
+            (util.load_file(devname, decode=False, read_len=2, offset=0x1fe) ==
              b'\x55\xAA'))
 
 
@@ -769,10 +772,11 @@ def check_efi_signature(device):
     # the start of the gpt partition table header shoult have the signaure
     # 'EFI PART'.
     # https://en.wikipedia.org/wiki/GUID_Partition_Table
-    sector_size = get_blockdev_sector_size(device)[0]
-    return (is_block_device(device) and
-            util.file_size(device) >= 2 * sector_size and
-            (util.load_file(device, decode=False, read_len=8,
+    devname = dev_path(path_to_kname(device))
+    sector_size = get_blockdev_sector_size(devname)[0]
+    return (is_block_device(devname) and
+            util.file_size(devname) >= 2 * sector_size and
+            (util.load_file(devname, decode=False, read_len=8,
                             offset=sector_size) == b'EFI PART'))
 
 

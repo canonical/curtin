@@ -25,7 +25,6 @@ class TestNetworkIPV6Abs(TestNetworkBaseTestsAbs):
 
 
 class CentosTestNetworkIPV6Abs(TestNetworkIPV6Abs):
-    extra_kern_args = "BOOTIF=eth0-bc:76:4e:06:96:b3"
     collect_scripts = TestNetworkIPV6Abs.collect_scripts + [
         textwrap.dedent("""
             cd OUTPUT_COLLECT_D

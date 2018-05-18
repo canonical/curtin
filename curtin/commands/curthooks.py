@@ -336,7 +336,7 @@ def setup_grub(cfg, target):
                 export LANG=C;
                 for d in "$@"; do
                     sgdisk "$d" --print |
-                        awk "\$6 == prep { print d \$1 }" "d=$d" prep=4100
+                        awk '$6 == prep { print d $1 }' "d=$d" prep=4100
                 done
                 """)
             try:
@@ -486,9 +486,9 @@ def copy_dname_rules(rules_d, target):
     if not rules_d:
         LOG.warn("no udev rules directory to copy")
         return
+    target_rules_dir = util.target_path(target, "etc/udev/rules.d")
     for rule in os.listdir(rules_d):
-        target_file = os.path.join(
-            target, "etc/udev/rules.d", "%s.rules" % rule)
+        target_file = os.path.join(target_rules_dir, rule)
         shutil.copy(os.path.join(rules_d, rule), target_file)
 
 

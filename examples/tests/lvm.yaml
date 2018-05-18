@@ -9,6 +9,13 @@ storage:
         model: QEMU HARDDISK
         serial: disk-a
         name: main_disk
+      - id: sdb
+        type: disk
+        wipe: superblock
+        ptable: msdos
+        model: QEMU HARDDISK
+        serial: disk-b
+        name: extra_disk
       - id: sda1
         type: partition
         size: 3GB
@@ -29,6 +36,10 @@ storage:
         size: 3G
         flag: logical
         device: sda
+      - id: sdb1
+        type: partition
+        size: 4GB
+        device: sdb
       - id: volgroup1
         name: vg1
         type: lvm_volgroup
@@ -44,6 +55,16 @@ storage:
         name: lv2
         type: lvm_partition
         volgroup: volgroup1
+      - id: volgroup2
+        name: ubuntu-vg
+        type: lvm_volgroup
+        devices:
+            - sdb1
+      - id: ubuntulv1
+        name: my-storage
+        size: 1G
+        type: lvm_partition
+        volgroup: volgroup2
       - id: sda1_root
         type: format
         fstype: ext4

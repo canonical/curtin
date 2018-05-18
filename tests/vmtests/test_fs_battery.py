@@ -52,6 +52,12 @@ class TestFsBattery(VMBaseClass):
         cat /proc/partitions > proc_partitions
         find /etc/network/interfaces.d > find_interfacesd
         cat /proc/cmdline > cmdline
+        cat /etc/fstab > fstab
+        cat /proc/1/mountinfo > mountinfo
+
+        for p in /my/bind-over-var-lib/apt /my/bind-ro-etc/passwd; do
+            [ -e "$p" ] && echo "$p: present" || echo "$p: missing"
+        done > my-path-checks
 
         set +x
         serial="fsbattery"
@@ -150,6 +156,49 @@ class TestFsBattery(VMBaseClass):
         expected = (["%s mount: PASS" % k for k in entries] +
                     ["%s umount: PASS" % k for k in entries])
         self.assertEqual(sorted(expected), sorted(results))
+
+    def test_fstab_has_mounts(self):
+        """Verify each of the expected "my" mounts got into fstab."""
+        expected = [
+            "none /my/tmpfs tmpfs size=4194304 0 0".split(),
+            "none /my/ramfs ramfs defaults 0 0".split(),
+            "/my/bind-over-var-lib /var/lib none bind 0 0".split(),
+            "/etc /my/bind-ro-etc none bind,ro 0 0".split(),
+        ]
+        fstab_found = [
+            l.split() for l in self.load_collect_file("fstab").splitlines()]
+        self.assertEqual(expected, [e for e in expected if e in fstab_found])
+
+    def test_mountinfo_has_mounts(self):
+        """Verify the my mounts got into mountinfo.
+
+        This is a light check that things got mounted.  We do not check
+        options as to not break on different kernel behavior.
+        Maybe it could/should."""
+        # mountinfo has src and path as 4th and 5th field.
+        data = self.load_collect_file("mountinfo").splitlines()
+        dest_src = {}
+        for line in data:
+            toks = line.split()
+            if not (toks[3].startswith("/my/") or toks[4].startswith("/my/")):
+                continue
+            dest_src[toks[4]] = toks[3]
+        self.assertTrue("/my/ramfs" in dest_src)
+        self.assertTrue("/my/tmpfs" in dest_src)
+        self.assertEqual(dest_src.get("/var/lib"), "/my/bind-over-var-lib")
+        self.assertEqual(dest_src.get("/my/bind-ro-etc"), "/etc")
+
+    def test_expected_files_from_bind_mounts(self):
+        data = self.load_collect_file("my-path-checks")
+        # this file is <path>: (present|missing)
+        paths = {}
+        for line in data.splitlines():
+            path, _, val = line.partition(":")
+            paths[path] = val.strip()
+
+        self.assertEqual(
+            {'/my/bind-over-var-lib/apt': 'present',
+             '/my/bind-ro-etc/passwd': 'present'}, paths)
 
 
 class TrustyTestFsBattery(relbase.trusty, TestFsBattery):

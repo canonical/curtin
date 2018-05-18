@@ -3,6 +3,7 @@
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 from .test_network import TestNetworkBaseTestsAbs
+from unittest import SkipTest
 
 import textwrap
 import yaml
@@ -34,6 +35,11 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
         self.output_files_exist(link_files)
 
     def test_vlan_installed(self):
+        release = self.target_release if self.target_release else self.release
+        if release not in ('precise', 'trusty', 'xenial', 'artful'):
+            raise SkipTest("release '%s' does not need the vlan package" %
+                           release)
+
         self.assertIn("vlan", self.debian_packages, "vlan deb not installed")
 
     def test_vlan_enabled(self):
@@ -48,7 +54,6 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
 
 
 class CentosTestNetworkVlanAbs(TestNetworkVlanAbs):
-    extra_kern_args = "BOOTIF=eth0-d4:be:d9:a8:49:13"
     collect_scripts = TestNetworkVlanAbs.collect_scripts + [
         textwrap.dedent("""
             cd OUTPUT_COLLECT_D

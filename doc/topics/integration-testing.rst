@@ -307,6 +307,22 @@ Some environment variables affect the running of vmtest
    This allows us to avoid failures when running curtin from an Ubuntu
    package or from some other "stale" source.
 
+- ``CURTIN_VMTEST_ADD_REPOS``: default ''
+   This is a comma delimited list of apt repositories that will be
+   added to the target environment.  If there are repositories
+   provided here, the and CURTIN_VMTEST_SYSTEM_UPGRADE is at its default
+   setting (auto), then a upgrade will be done to make sure to include
+   any new packages.
+
+- ``CURTIN_VMTEST_SYSTEM_UPGRADE``: default 'auto'
+   The default setting of 'auto' means to do a system upgrade if
+   there are additional repos added.  To enable this explicitly, set
+   to any non "0" value.
+
+- ``CURTIN_VMTEST_UPGRADE_PACKAGES``: default ''
+   This is a comma delimited string listing packages that should have
+   an 'apt-get install' done to them in curtin late commands.
+
 
 Environment 'boolean' values
 ============================
