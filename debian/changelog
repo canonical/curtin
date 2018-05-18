@@ -1,3 +1,10 @@
+curtin (18.1-17-gae48e86f-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - tests: replace usage of mock.assert_called
+
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 18 May 2018 14:58:06 -0400
+
 curtin (18.1-16-g18835845-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
