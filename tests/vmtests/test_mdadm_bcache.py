@@ -17,11 +17,17 @@ class TestMdadmAbs(VMBaseClass):
         mdadm --detail --scan | grep -c ubuntu > mdadm_active1
         grep -c active /proc/mdstat > mdadm_active2
         ls /dev/disk/by-dname > ls_dname
+        ls -al /dev/disk/by-dname > lsal_dname
+        ls -al /dev/disk/by-uuid > lsal_uuid
         find /etc/network/interfaces.d > find_interfacesd
         cat /proc/mdstat | tee mdstat
         cat /proc/partitions | tee procpartitions
         ls -1 /sys/class/block | tee sys_class_block
         ls -1 /dev/md* | tee dev_md
+        ls -al /sys/fs/bcache/* > lsal_sys_fs_bcache_star
+        ls -al /dev/bcache* > lsal_dev_bcache_star
+        ls -al /dev/bcache/by_uuid/* > lsal_dev_bcache_byuuid_star
+        cp -a /var/log/syslog .
         """)]
 
     def test_mdadm_output_files_exist(self):
@@ -63,6 +69,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         cat /sys/block/bcache2/bcache/cache_mode >> bcache_cache_mode
         cat /proc/mounts > proc_mounts
         find /etc/network/interfaces.d > find_interfacesd
+        cp -a /etc/udev/rules.d etc_udev_rules.d
         """)]
     fstab_expected = {
         '/dev/vda1': '/media/sda1',
@@ -119,7 +126,6 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         self.check_file_regex("bcache_cache_mode", r"\[writearound\]")
 
     def test_bcache_dnames(self):
-        self.skip_by_date("1728742", fixby="2018-04-26")
         self.test_dname(disk_to_check=self.bcache_dnames)
 
 
@@ -131,25 +137,9 @@ class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):
         cls.skip_by_date("1754581", fixby="2018-06-22")
         super().setUpClass()
 
-    # FIXME(LP: #1523037): dname does not work on trusty
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
-
-    def test_ptable(self):
-        print("test_ptable does not work for Trusty")
-
 
 class TrustyHWEXTestMdadmBcache(relbase.trusty_hwe_x, TestMdadmBcacheAbs):
     __test__ = True
-
-    # FIXME(LP: #1523037): dname does not work on trusty
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
-
-    def test_ptable(self):
-        print("test_ptable does not work for Trusty")
 
 
 class XenialGATestMdadmBcache(relbase.xenial_ga, TestMdadmBcacheAbs):
@@ -185,14 +175,6 @@ class TestMirrorbootAbs(TestMdadmAbs):
 
 class TrustyTestMirrorboot(relbase.trusty, TestMirrorbootAbs):
     __test__ = True
-
-    # FIXME(LP: #1523037): dname does not work on trusty
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
-
-    def test_ptable(self):
-        print("test_ptable does not work for Trusty")
 
 
 class TrustyHWEXTestMirrorboot(relbase.trusty_hwe_x, TrustyTestMirrorboot):
@@ -233,14 +215,6 @@ class TestMirrorbootPartitionsAbs(TestMdadmAbs):
 class TrustyTestMirrorbootPartitions(relbase.trusty,
                                      TestMirrorbootPartitionsAbs):
     __test__ = True
-
-    # FIXME(LP: #1523037): dname does not work on trusty
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
-
-    def test_ptable(self):
-        print("test_ptable does not work for Trusty")
 
 
 class TrustyHWEXTestMirrorbootPartitions(relbase.trusty_hwe_x,
@@ -293,14 +267,6 @@ class TrustyTestMirrorbootPartitionsUEFI(relbase.trusty,
                                          TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
 
-    # FIXME(LP: #1523037): dname does not work on trusty
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
-
-    def test_ptable(self):
-        print("test_ptable does not work for Trusty")
-
 
 class XenialGATestMirrorbootPartitionsUEFI(relbase.xenial_ga,
                                            TestMirrorbootPartitionsUEFIAbs):
@@ -341,14 +307,6 @@ class TestRaid5bootAbs(TestMdadmAbs):
 
 class TrustyTestRaid5Boot(relbase.trusty, TestRaid5bootAbs):
     __test__ = True
-
-    # FIXME(LP: #1523037): dname does not work on trusty
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
-
-    def test_ptable(self):
-        print("test_ptable does not work for Trusty")
 
 
 class TrustyHWEXTestRaid5Boot(relbase.trusty_hwe_x, TrustyTestRaid5Boot):
@@ -404,14 +362,6 @@ class TestRaid6bootAbs(TestMdadmAbs):
 class TrustyTestRaid6boot(relbase.trusty, TestRaid6bootAbs):
     __test__ = True
 
-    # FIXME(LP: #1523037): dname does not work on trusty
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
-
-    def test_ptable(self):
-        print("test_ptable does not work for Trusty")
-
 
 class TrustyHWEXTestRaid6boot(relbase.trusty_hwe_x, TrustyTestRaid6boot):
     __test__ = True
@@ -452,14 +402,6 @@ class TestRaid10bootAbs(TestMdadmAbs):
 
 class TrustyTestRaid10boot(relbase.trusty, TestRaid10bootAbs):
     __test__ = True
-
-    # FIXME(LP: #1523037): dname does not work on trusty
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
-
-    def test_ptable(self):
-        print("test_ptable does not work for Trusty")
 
 
 class TrustyHWEXTestRaid10boot(relbase.trusty_hwe_x, TrustyTestRaid10boot):
@@ -561,14 +503,6 @@ class TestAllindataAbs(TestMdadmAbs):
 
 class TrustyTestAllindata(relbase.trusty, TestAllindataAbs):
     __test__ = False  # luks=no does not disable mounting of device
-
-    # FIXME(LP: #1523037): dname does not work on trusty
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
-
-    def test_ptable(self):
-        print("test_ptable does not work for Trusty")
 
 
 class TrustyHWEXTestAllindata(relbase.trusty_hwe_x, TrustyTestAllindata):

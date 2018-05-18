@@ -2,7 +2,6 @@
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
-from unittest import SkipTest
 
 import textwrap
 
@@ -11,10 +10,15 @@ class TestLvmAbs(VMBaseClass):
     conf_file = "examples/tests/lvm.yaml"
     interactive = False
     extra_disks = ['10G']
+    dirty_disks = True
     collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cat /etc/fstab > fstab
         ls /dev/disk/by-dname > ls_dname
+        ls -al /dev/disk/by-dname > lsal_dname
+        ls -al /dev/disk/by-id/ > ls_byid
+        ls -al /dev/disk/by-uuid/ > ls_byuuid
+        cat /proc/partitions > proc_partitions
         find /etc/network/interfaces.d > find_interfacesd
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
@@ -40,14 +44,6 @@ class TestLvmAbs(VMBaseClass):
     def test_output_files_exist(self):
         self.output_files_exist(
             ["fstab", "ls_dname"])
-
-    # FIXME(LP: #1523037): dname does not work on precise|trusty, so we cannot
-    # expect sda-part2 to exist in /dev/disk/by-dname as we can on other
-    # releases when dname works on trusty, then we need to re-enable by
-    # removing line.
-    def test_dname(self):
-        if self.release in ['precise', 'trusty']:
-            raise SkipTest("test_dname does not work for %s" % self.release)
 
 
 class TrustyTestLvm(relbase.trusty, TestLvmAbs):

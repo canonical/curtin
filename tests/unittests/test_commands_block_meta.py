@@ -2,7 +2,9 @@
 
 from argparse import Namespace
 from collections import OrderedDict
+import copy
 from mock import patch, call
+import os
 
 from curtin.commands import block_meta
 from curtin import util
@@ -321,49 +323,447 @@ class TestBlockMeta(CiTestCase):
             rendered_fstab = fh.read()
 
         print(rendered_fstab)
-        self.assertEqual(rendered_fstab, expected)
+        self.assertEqual(expected, rendered_fstab)
+
+
+class TestZpoolHandler(CiTestCase):
+    @patch('curtin.commands.block_meta.zfs')
+    @patch('curtin.commands.block_meta.block')
+    @patch('curtin.commands.block_meta.util')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_zpool_handler_falls_back_to_path_when_no_byid(self, m_getpath,
+                                                           m_util, m_block,
+                                                           m_zfs):
+        storage_config = OrderedDict()
+        info = {'type': 'zpool', 'id': 'myrootfs_zfsroot_pool',
+                'pool': 'rpool', 'vdevs': ['disk1p1'], 'mountpoint': '/'}
+        disk_path = "/wark/mydev"
+        m_getpath.return_value = disk_path
+        m_block.disk_to_byid_path.return_value = None
+        m_util.load_command_environment.return_value = {'target': 'mytarget'}
+        block_meta.zpool_handler(info, storage_config)
+        m_zfs.zpool_create.assert_called_with(info['pool'], [disk_path],
+                                              mountpoint="/",
+                                              altroot="mytarget")
 
 
 class TestZFSRootUpdates(CiTestCase):
-    def test_basic_zfsroot_update_storage_config(self):
-        zfsroot_id = 'myrootfs'
-        base = [
-            {'id': 'disk1', 'type': 'disk', 'ptable': 'gpt',
-             'serial': 'dev_vda', 'name': 'main_disk', 'wipe': 'superblock',
-             'grub_device': True},
-            {'id': 'disk1p1', 'type': 'partition', 'number': '1',
-             'size': '9G', 'device': 'disk1'},
-            {'id': 'bios_boot', 'type': 'partition', 'size': '1M',
-             'number': '2', 'device': 'disk1', 'flag': 'bios_grub'}]
-        zfsroots = [
-            {'id': zfsroot_id, 'type': 'format', 'fstype': 'zfsroot',
-             'volume': 'disk1p1', 'label': 'cloudimg-rootfs'},
-            {'id': 'disk1p1_mount', 'type': 'mount', 'path': '/',
-             'device': zfsroot_id}]
-        extra = [
-            {'id': 'extra', 'type': 'disk', 'ptable': 'gpt',
-             'wipe': 'superblock'}
-        ]
+    zfsroot_id = 'myrootfs'
+    base = [
+        {'id': 'disk1', 'type': 'disk', 'ptable': 'gpt',
+         'serial': 'dev_vda', 'name': 'main_disk', 'wipe': 'superblock',
+         'grub_device': True},
+        {'id': 'disk1p1', 'type': 'partition', 'number': '1',
+         'size': '9G', 'device': 'disk1'},
+        {'id': 'bios_boot', 'type': 'partition', 'size': '1M',
+         'number': '2', 'device': 'disk1', 'flag': 'bios_grub'}]
+    zfsroots = [
+        {'id': zfsroot_id, 'type': 'format', 'fstype': 'zfsroot',
+         'volume': 'disk1p1', 'label': 'cloudimg-rootfs'},
+        {'id': 'disk1p1_mount', 'type': 'mount', 'path': '/',
+         'device': zfsroot_id}]
+    extra = [
+        {'id': 'extra', 'type': 'disk', 'ptable': 'gpt',
+         'wipe': 'superblock'}
+    ]
 
+    def test_basic_zfsroot_update_storage_config(self):
         zfsroot_volname = "/ROOT/zfsroot"
-        pool_id = zfsroot_id + '_zfsroot_pool'
+        pool_id = self.zfsroot_id + '_zfsroot_pool'
         newents = [
             {'type': 'zpool', 'id': pool_id,
              'pool': 'rpool', 'vdevs': ['disk1p1'], 'mountpoint': '/'},
-            {'type': 'zfs', 'id': zfsroot_id + '_zfsroot_container',
+            {'type': 'zfs', 'id': self.zfsroot_id + '_zfsroot_container',
              'pool': pool_id, 'volume': '/ROOT',
              'properties': {'canmount': 'off', 'mountpoint': 'none'}},
-            {'type': 'zfs', 'id': zfsroot_id + '_zfsroot_fs',
+            {'type': 'zfs', 'id': self.zfsroot_id + '_zfsroot_fs',
              'pool': pool_id, 'volume': zfsroot_volname,
              'properties': {'canmount': 'noauto', 'mountpoint': '/'}},
         ]
         expected = OrderedDict(
-            [(i['id'], i) for i in base + newents + extra])
+            [(i['id'], i) for i in self.base + newents + self.extra])
 
         scfg = block_meta.extract_storage_ordered_dict(
-            {'storage': {'version': 1, 'config': base + zfsroots + extra}})
+            {'storage': {'version': 1,
+                         'config': self.base + self.zfsroots + self.extra}})
         found = block_meta.zfsroot_update_storage_config(scfg)
         print(util.json_dumps([(k, v) for k, v in found.items()]))
         self.assertEqual(expected, found)
+
+    def test_basic_zfsroot_raise_valueerror_no_gpt(self):
+        msdos_base = copy.deepcopy(self.base)
+        msdos_base[0]['ptable'] = 'msdos'
+        scfg = block_meta.extract_storage_ordered_dict(
+            {'storage': {'version': 1,
+                         'config': msdos_base + self.zfsroots + self.extra}})
+        with self.assertRaises(ValueError):
+            block_meta.zfsroot_update_storage_config(scfg)
+
+    def test_basic_zfsroot_raise_valueerror_multi_zfsroot(self):
+        extra_disk = [
+            {'id': 'disk2', 'type': 'disk', 'ptable': 'gpt',
+             'serial': 'dev_vdb', 'name': 'extra_disk', 'wipe': 'superblock'}]
+        second_zfs = [
+            {'id': 'zfsroot2', 'type': 'format', 'fstype': 'zfsroot',
+             'volume': 'disk2', 'label': ''}]
+        scfg = block_meta.extract_storage_ordered_dict(
+            {'storage': {'version': 1,
+                         'config': (self.base + extra_disk +
+                                    self.zfsroots + second_zfs)}})
+        with self.assertRaises(ValueError):
+            block_meta.zfsroot_update_storage_config(scfg)
+
+
+class TestFstabData(CiTestCase):
+    mnt = {'id': 'm1', 'type': 'mount', 'device': 'fs1', 'path': '/',
+           'options': 'noatime'}
+    base_cfg = [
+        {'id': 'xda', 'type': 'disk', 'ptable': 'msdos'},
+        {'id': 'xda1', 'type': 'partition', 'size': '3GB',
+         'device': 'xda'},
+        {'id': 'fs1', 'type': 'format', 'fstype': 'ext4',
+         'volume': 'xda1', 'label': 'rfs'},
+    ]
+
+    def _my_gptsv(self, d_id, _scfg):
+        """local test replacement for get_path_to_storage_volume."""
+        if d_id in ("xda", "xda1"):
+            return "/dev/" + d_id
+        raise RuntimeError("Unexpected call to gptsv with %s" % d_id)
+
+    def test_mount_data_raises_valueerror_if_not_mount(self):
+        """mount_data on non-mount type raises ValueError."""
+        mnt = self.mnt.copy()
+        mnt['type'] = "not-mount"
+        with self.assertRaisesRegexp(ValueError, r".*not type 'mount'"):
+            block_meta.mount_data(mnt, {mnt['id']: mnt})
+
+    def test_mount_data_no_device_or_spec_raises_valueerror(self):
+        """test_mount_data raises ValueError if no device or spec."""
+        mnt = self.mnt.copy()
+        del mnt['device']
+        with self.assertRaisesRegexp(ValueError, r".*mount.*missing.*"):
+            block_meta.mount_data(mnt, {mnt['id']: mnt})
+
+    def test_mount_data_invalid_device_ref_raises_valueerror(self):
+        """test_mount_data raises ValueError if device is invalid ref."""
+        mnt = self.mnt.copy()
+        mnt['device'] = 'myinvalid'
+        scfg = OrderedDict([(i['id'], i) for i in self.base_cfg + [mnt]])
+        with self.assertRaisesRegexp(ValueError, r".*refers.*myinvalid"):
+            block_meta.mount_data(mnt, scfg)
+
+    def test_mount_data_invalid_format_ref_raises_valueerror(self):
+        """test_mount_data raises ValueError if format.volume is invalid."""
+        mycfg = copy.deepcopy(self.base_cfg) + [self.mnt.copy()]
+        scfg = OrderedDict([(i['id'], i) for i in mycfg])
+        # change the 'volume' entry for the 'format' type.
+        scfg['fs1']['volume'] = 'myinvalidvol'
+        with self.assertRaisesRegexp(ValueError, r".*refers.*myinvalidvol"):
+            block_meta.mount_data(scfg['m1'], scfg)
+
+    def test_non_device_mount_with_spec(self):
+        """mount_info with a spec does not need device."""
+        info = {'id': 'xm1', 'spec': 'none', 'type': 'mount',
+                'fstype': 'tmpfs', 'path': '/tmpfs'}
+        self.assertEqual(
+            block_meta.FstabData(
+                spec="none", fstype="tmpfs", path="/tmpfs",
+                options="defaults", freq="0", passno="0", device=None),
+            block_meta.mount_data(info, {'xm1': info}))
+
+    @patch('curtin.block.iscsi.volpath_is_iscsi')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_device_mount_basic(self, m_gptsv, m_is_iscsi):
+        """Test mount_data for FstabData with a device."""
+        m_gptsv.side_effect = self._my_gptsv
+        m_is_iscsi.return_value = False
+
+        scfg = OrderedDict(
+            [(i['id'], i) for i in self.base_cfg + [self.mnt]])
+        self.assertEqual(
+            block_meta.FstabData(
+                spec=None, fstype="ext4", path="/",
+                options="noatime", freq="0", passno="0", device="/dev/xda1"),
+            block_meta.mount_data(scfg['m1'], scfg))
+
+    @patch('curtin.block.iscsi.volpath_is_iscsi', return_value=False)
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_device_mount_boot_efi(self, m_gptsv, m_is_iscsi):
+        """Test mount_data fat fs gets converted to vfat."""
+        bcfg = copy.deepcopy(self.base_cfg)
+        bcfg[2]['fstype'] = 'fat32'
+        mnt = {'id': 'm1', 'type': 'mount', 'device': 'fs1',
+               'path': '/boot/efi'}
+        m_gptsv.side_effect = self._my_gptsv
+
+        scfg = OrderedDict(
+            [(i['id'], i) for i in bcfg + [mnt]])
+        self.assertEqual(
+            block_meta.FstabData(
+                spec=None, fstype="vfat", path="/boot/efi",
+                options="defaults", freq="0", passno="0", device="/dev/xda1"),
+            block_meta.mount_data(scfg['m1'], scfg))
+
+    @patch('curtin.block.iscsi.volpath_is_iscsi')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_device_mount_iscsi(self, m_gptsv, m_is_iscsi):
+        """mount_data for a iscsi device should have _netdev in opts."""
+        m_gptsv.side_effect = self._my_gptsv
+        m_is_iscsi.return_value = True
+
+        scfg = OrderedDict([(i['id'], i) for i in self.base_cfg + [self.mnt]])
+        self.assertEqual(
+            block_meta.FstabData(
+                spec=None, fstype="ext4", path="/",
+                options="noatime,_netdev", freq="0", passno="0",
+                device="/dev/xda1"),
+            block_meta.mount_data(scfg['m1'], scfg))
+
+    @patch('curtin.block.iscsi.volpath_is_iscsi')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_spec_fstype_override_inline(self, m_gptsv, m_is_iscsi):
+        """spec and fstype are preferred over lookups from 'device' ref.
+
+        If a mount entry has 'fstype' and 'spec', those are prefered over
+        values looked up via the 'device' reference present in the entry.
+        The test here enforces that the device reference present in
+        the mount entry is not looked up, that isn't strictly necessary.
+        """
+        m_gptsv.side_effect = Exception(
+            "Unexpected Call to get_path_to_storage_volume")
+        m_is_iscsi.return_value = Exception(
+            "Unexpected Call to volpath_is_iscsi")
+
+        myspec = '/dev/disk/by-label/LABEL=rfs'
+        mnt = {'id': 'm1', 'type': 'mount', 'device': 'fs1', 'path': '/',
+               'options': 'noatime', 'spec': myspec, 'fstype': 'ext3'}
+        scfg = OrderedDict([(i['id'], i) for i in self.base_cfg + [mnt]])
+        self.assertEqual(
+            block_meta.FstabData(
+                spec=myspec, fstype="ext3", path="/",
+                options="noatime", freq="0", passno="0",
+                device=None),
+            block_meta.mount_data(mnt, scfg))
+
+    @patch('curtin.commands.block_meta.mount_fstab_data')
+    def test_mount_apply_skips_mounting_swap(self, m_mount_fstab_data):
+        """mount_apply does not mount swap fs, but should write fstab."""
+        fdata = block_meta.FstabData(
+            spec="/dev/xxxx1", path="none", fstype='swap')
+        fstab = self.tmp_path("fstab")
+        block_meta.mount_apply(fdata, fstab=fstab)
+        contents = util.load_file(fstab)
+        self.assertEqual(0, m_mount_fstab_data.call_count)
+        self.assertIn("/dev/xxxx1", contents)
+        self.assertIn("swap", contents)
+
+    @patch('curtin.commands.block_meta.mount_fstab_data')
+    def test_mount_apply_calls_mount_fstab_data(self, m_mount_fstab_data):
+        """mount_apply should call mount_fstab_data to mount."""
+        fdata = block_meta.FstabData(
+            spec="/dev/xxxx1", path="none", fstype='ext3')
+        target = self.tmp_dir()
+        block_meta.mount_apply(fdata, target=target, fstab=None)
+        self.assertEqual([call(fdata, target=target)],
+                         m_mount_fstab_data.call_args_list)
+
+    @patch('curtin.commands.block_meta.mount_fstab_data')
+    def test_mount_apply_appends_to_fstab(self, m_mount_fstab_data):
+        """mount_apply should append to fstab."""
+        fdslash = block_meta.FstabData(
+            spec="/dev/disk2", path="/", fstype='ext4')
+        fdboot = block_meta.FstabData(
+            spec="/dev/disk1", path="/boot", fstype='ext3')
+        fstab = self.tmp_path("fstab")
+        existing_line = "# this is my line"
+        util.write_file(fstab, existing_line + "\n")
+        block_meta.mount_apply(fdslash, fstab=fstab)
+        block_meta.mount_apply(fdboot, fstab=fstab)
+
+        self.assertEqual(2, m_mount_fstab_data.call_count)
+        lines = util.load_file(fstab).splitlines()
+        self.assertEqual(existing_line, lines[0])
+        self.assertIn("/dev/disk2", lines[1])
+        self.assertIn("/dev/disk1", lines[2])
+
+    def test_fstab_line_for_data_swap(self):
+        """fstab_line_for_data return value for swap fstab line."""
+        fdata = block_meta.FstabData(
+            spec="/dev/disk2", path="none", fstype='swap')
+        self.assertEqual(
+            ["/dev/disk2", "none", "swap", "sw", "0", "0"],
+            block_meta.fstab_line_for_data(fdata).split())
+
+    def test_fstab_line_for_data_swap_no_path(self):
+        """fstab_line_for_data return value for swap with path=None."""
+        fdata = block_meta.FstabData(
+            spec="/dev/disk2", path=None, fstype='swap')
+        self.assertEqual(
+            ["/dev/disk2", "none", "swap", "sw", "0", "0"],
+            block_meta.fstab_line_for_data(fdata).split())
+
+    def test_fstab_line_for_data_not_swap_and_no_path(self):
+        """fstab_line_for_data raises ValueError if no path and not swap."""
+        fdata = block_meta.FstabData(
+            spec="/dev/disk2", device=None, path="", fstype='ext3')
+        with self.assertRaisesRegexp(ValueError, r".*empty.*path"):
+            block_meta.fstab_line_for_data(fdata)
+
+    def test_fstab_line_for_data_with_options(self):
+        """fstab_line_for_data return value with options."""
+        fdata = block_meta.FstabData(
+            spec="/dev/disk2", path="/mnt", fstype='btrfs', options='noatime')
+        self.assertEqual(
+            ["/dev/disk2", "/mnt", "btrfs", "noatime", "0", "0"],
+            block_meta.fstab_line_for_data(fdata).split())
+
+    def test_fstab_line_for_data_with_passno_and_freq(self):
+        """fstab_line_for_data should respect passno and freq."""
+        fdata = block_meta.FstabData(
+            spec="/dev/d1", path="/mnt", fstype='ext4', freq="1", passno="2")
+        self.assertEqual(
+            ["1", "2"], block_meta.fstab_line_for_data(fdata).split()[4:6])
+
+    def test_fstab_line_for_data_raises_error_without_spec_or_device(self):
+        """fstab_line_for_data should raise ValueError if no spec or device."""
+        fdata = block_meta.FstabData(
+            spec=None, device=None, path="/", fstype='ext3')
+        match = r".*missing.*spec.*device"
+        with self.assertRaisesRegexp(ValueError, match):
+            block_meta.fstab_line_for_data(fdata)
+
+    @patch('curtin.block.get_volume_uuid')
+    def test_fstab_line_for_data_uses_uuid(self, m_get_uuid):
+        """fstab_line_for_data with a device mounts by uuid."""
+        fdata = block_meta.FstabData(
+            device="/dev/disk2", path="/mnt", fstype='ext4')
+        uuid = 'b30d2389-5152-4fbc-8f18-0385ef3046c5'
+        m_get_uuid.side_effect = lambda d: uuid if d == "/dev/disk2" else None
+        self.assertEqual(
+            ["UUID=%s" % uuid, "/mnt", "ext4", "defaults", "0", "0"],
+            block_meta.fstab_line_for_data(fdata).split())
+        self.assertEqual(1, m_get_uuid.call_count)
+
+    @patch('curtin.block.get_volume_uuid')
+    def test_fstab_line_for_data_uses_device_if_no_uuid(self, m_get_uuid):
+        """fstab_line_for_data with a device and no uuid uses device."""
+        fdata = block_meta.FstabData(
+            device="/dev/disk2", path="/mnt", fstype='ext4')
+        m_get_uuid.return_value = None
+        self.assertEqual(
+            ["/dev/disk2", "/mnt", "ext4", "defaults", "0", "0"],
+            block_meta.fstab_line_for_data(fdata).split())
+        self.assertEqual(1, m_get_uuid.call_count)
+
+    @patch('curtin.block.get_volume_uuid')
+    def test_fstab_line_for_data__spec_and_dev_prefers_spec(self, m_get_uuid):
+        """fstab_line_for_data should prefer spec over device."""
+        spec = "/dev/xvda1"
+        fdata = block_meta.FstabData(
+            spec=spec, device="/dev/disk/by-uuid/7AC9-DEFF",
+            path="/mnt", fstype='ext4')
+        m_get_uuid.return_value = None
+        self.assertEqual(
+            ["/dev/xvda1", "/mnt", "ext4", "defaults", "0", "0"],
+            block_meta.fstab_line_for_data(fdata).split())
+        self.assertEqual(0, m_get_uuid.call_count)
+
+    @patch('curtin.util.ensure_dir')
+    @patch('curtin.util.subp')
+    def test_mount_fstab_data_without_target(self, m_subp, m_ensure_dir):
+        """mount_fstab_data with no target param does the right thing."""
+        fdata = block_meta.FstabData(
+            device="/dev/disk1", path="/mnt", fstype='ext4')
+        block_meta.mount_fstab_data(fdata)
+        self.assertEqual(
+            call(['mount', "-t", "ext4", "-o", "defaults",
+                  "/dev/disk1", "/mnt"], capture=True),
+            m_subp.call_args)
+        m_ensure_dir.assert_called()
+
+    def _check_mount_fstab_subp(self, fdata, expected, target=None):
+        # expected currently is like: mount <device> <mp>
+        # and thus mp will always be target + fdata.path
+        if target is None:
+            target = self.tmp_dir()
+
+        expected = [a if a != "_T_MP" else util.target_path(target, fdata.path)
+                    for a in expected]
+        with patch("curtin.util.subp") as m_subp:
+            block_meta.mount_fstab_data(fdata, target=target)
+
+        self.assertEqual(call(expected, capture=True), m_subp.call_args)
+        self.assertTrue(os.path.isdir(self.tmp_path(fdata.path, target)))
+
+    def test_mount_fstab_data_with_spec_and_device(self):
+        """mount_fstab_data with spec and device should use device."""
+        self._check_mount_fstab_subp(
+            block_meta.FstabData(
+                spec="LABEL=foo", device="/dev/disk1", path="/mnt",
+                fstype='ext4'),
+            ['mount', "-t", "ext4", "-o", "defaults", "/dev/disk1", "_T_MP"])
+
+    def test_mount_fstab_data_with_spec_that_is_path(self):
+        """If spec is a path outside of /dev, then prefix target."""
+        target = self.tmp_dir()
+        spec = "/mydata"
+        self._check_mount_fstab_subp(
+            block_meta.FstabData(
+                spec=spec, path="/var/lib", fstype="none", options="bind"),
+            ['mount', "-o", "bind", self.tmp_path(spec, target), "_T_MP"],
+            target)
+
+    def test_mount_fstab_data_bind_type_creates_src(self):
+        """Bind mounts should have both src and target dir created."""
+        target = self.tmp_dir()
+        spec = "/mydata"
+        self._check_mount_fstab_subp(
+            block_meta.FstabData(
+                spec=spec, path="/var/lib", fstype="none", options="bind"),
+            ['mount', "-o", "bind", self.tmp_path(spec, target), "_T_MP"],
+            target)
+        self.assertTrue(os.path.isdir(self.tmp_path(spec, target)))
+
+    def test_mount_fstab_data_with_spec_that_is_device(self):
+        """If spec looks like a path to a device, then use it."""
+        spec = "/dev/xxda1"
+        self._check_mount_fstab_subp(
+            block_meta.FstabData(spec=spec, path="/var/", fstype="ext3"),
+            ['mount', "-t", "ext3", "-o", "defaults", spec, "_T_MP"])
+
+    def test_mount_fstab_data_with_device_no_spec(self):
+        """mount_fstab_data mounts by spec if present, not require device."""
+        spec = "/dev/xxda1"
+        self._check_mount_fstab_subp(
+            block_meta.FstabData(spec=spec, path="/home", fstype="ext3"),
+            ['mount', "-t", "ext3", "-o", "defaults", spec, "_T_MP"])
+
+    def test_mount_fstab_data_with_uses_options(self):
+        """mount_fstab_data mounts with -o options."""
+        device = "/dev/xxda1"
+        opts = "option1,option2,x=4"
+        self._check_mount_fstab_subp(
+            block_meta.FstabData(
+                device=device, path="/var", fstype="ext3", options=opts),
+            ['mount', "-t", "ext3", "-o", opts, device, "_T_MP"])
+
+    @patch('curtin.util.subp')
+    def test_mount_fstab_data_does_not_swallow_subp_exception(self, m_subp):
+        """verify that subp exception gets raised.
+
+        The implementation there could/should change to raise the
+        ProcessExecutionError directly.  Currently raises a RuntimeError."""
+        my_error = util.ProcessExecutionError(
+            stdout="", stderr="BOOM", exit_code=4)
+        m_subp.side_effect = my_error
+
+        mp = self.tmp_path("my-mountpoint")
+        with self.assertRaisesRegexp(RuntimeError, r"Mount failed.*"):
+            block_meta.mount_fstab_data(
+                block_meta.FstabData(device="/dev/disk1", path="/var"),
+                target=mp)
+        # dir should be created before call to subp failed.
+        self.assertTrue(os.path.isdir(mp))
 
 # vi: ts=4 expandtab syntax=python

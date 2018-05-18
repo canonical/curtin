@@ -21,6 +21,9 @@ ZFS_DEFAULT_PROPERTIES = {
     'normalization': 'formD',
 }
 
+ZFS_UNSUPPORTED_ARCHES = ['i386']
+ZFS_UNSUPPORTED_RELEASES = ['precise', 'trusty']
+
 
 def _join_flags(optflag, params):
     """
@@ -67,6 +70,28 @@ def _join_pool_volume(poolname, volume):
         raise ValueError('Invalid pool (%s) or volume (%s)', poolname, volume)
 
     return os.path.normpath("%s/%s" % (poolname, volume))
+
+
+def zfs_supported():
+    """ Determine if the runtime system supports zfs.
+    returns: True if system supports zfs
+    raises: RuntimeError: if system does not support zfs
+    """
+    arch = util.get_platform_arch()
+    if arch in ZFS_UNSUPPORTED_ARCHES:
+        raise RuntimeError("zfs is not supported on architecture: %s" % arch)
+
+    release = util.lsb_release()['codename']
+    if release in ZFS_UNSUPPORTED_RELEASES:
+        raise RuntimeError("zfs is not supported on release: %s" % release)
+
+    try:
+        util.subp(['modinfo', 'zfs'], capture=True)
+    except util.ProcessExecutionError as err:
+        if err.stderr.startswith("modinfo: ERROR: Module zfs not found."):
+            raise RuntimeError("zfs kernel module is not available: %s" % err)
+
+    return True
 
 
 def zpool_create(poolname, vdevs, mountpoint=None, altroot=None,
@@ -184,7 +209,7 @@ def zfs_mount(poolname, volume):
 
 def zpool_list():
     """
-    Return a list of zfs pool names
+    Return a list of zfs pool names which have been imported
 
     :returns: List of strings
     """

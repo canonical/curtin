@@ -86,6 +86,38 @@ def check_call(cmd, signal=signal.SIGTERM, **kwargs):
     return Command(cmd, signal).run(**kwargs)
 
 
+def find_testcases():
+    # Use the TestLoder to load all test cases defined within tests/vmtests/
+    # and figure out what distros and releases they are testing. Any tests
+    # which are disabled will be excluded.
+    loader = TestLoader()
+    # dir with the vmtest modules (i.e. tests/vmtests/)
+    tests_dir = os.path.dirname(__file__)
+    # The root_dir for the curtin branch. (i.e. curtin/)
+    root_dir = os.path.split(os.path.split(tests_dir)[0])[0]
+    # Find all test modules defined in curtin/tests/vmtests/
+    module_test_suites = loader.discover(tests_dir, top_level_dir=root_dir)
+    for mts in module_test_suites:
+        for class_test_suite in mts:
+            for test_case in class_test_suite:
+                # skip disabled tests
+                if not getattr(test_case, '__test__', False):
+                    continue
+                yield test_case
+
+
+def find_arches():
+    """
+    Return a list of uniq arch values from test cases
+    """
+    arches = []
+    for test_case in find_testcases():
+        arch = getattr(test_case, 'arch', None)
+        if arch and arch not in arches:
+            arches.append(arch)
+    return arches
+
+
 def find_releases_by_distro():
     """
     Returns a dictionary of distros and the distro releases that will be tested
@@ -98,42 +130,27 @@ def find_releases_by_distro():
             releases: []
             krels: []
     """
-    # Use the TestLoder to load all test cases defined within tests/vmtests/
-    # and figure out what distros and releases they are testing. Any tests
-    # which are disabled will be excluded.
-    loader = TestLoader()
-    # dir with the vmtest modules (i.e. tests/vmtests/)
-    tests_dir = os.path.dirname(__file__)
-    # The root_dir for the curtin branch. (i.e. curtin/)
-    root_dir = os.path.split(os.path.split(tests_dir)[0])[0]
-    # Find all test modules defined in curtin/tests/vmtests/
-    module_test_suites = loader.discover(tests_dir, top_level_dir=root_dir)
     # find all distros and releases tested for each distro
     releases = []
     krels = []
     rel_by_dist = {}
-    for mts in module_test_suites:
-        for class_test_suite in mts:
-            for test_case in class_test_suite:
-                # skip disabled tests
-                if not getattr(test_case, '__test__', False):
-                    continue
-                for (dist, rel, krel) in (
-                        (getattr(test_case, a, None) for a in attrs)
-                        for attrs in (('distro', 'release', 'krel'),
-                                      ('target_distro', 'target_release',
-                                       'krel'))):
+    for test_case in find_testcases():
+        for (dist, rel, krel) in (
+                (getattr(test_case, a, None) for a in attrs)
+                for attrs in (('distro', 'release', 'krel'),
+                              ('target_distro', 'target_release',
+                               'krel'))):
 
-                    if dist and rel:
-                        distro = rel_by_dist.get(dist, {'releases': [],
-                                                        'krels': []})
-                        releases = distro.get('releases')
-                        krels = distro.get('krels')
-                        if rel not in releases:
-                            releases.append(rel)
-                        if krel and krel not in krels:
-                            krels.append(krel)
-                        rel_by_dist.update({dist: distro})
+            if dist and rel:
+                distro = rel_by_dist.get(dist, {'releases': [],
+                                                'krels': []})
+                releases = distro.get('releases')
+                krels = distro.get('krels')
+                if rel not in releases:
+                    releases.append(rel)
+                if krel and krel not in krels:
+                    krels.append(krel)
+                rel_by_dist.update({dist: distro})
 
     return rel_by_dist
 

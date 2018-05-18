@@ -54,7 +54,6 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
 
 
 class CentosTestNetworkVlanAbs(TestNetworkVlanAbs):
-    extra_kern_args = "BOOTIF=eth0-d4:be:d9:a8:49:13"
     collect_scripts = TestNetworkVlanAbs.collect_scripts + [
         textwrap.dedent("""
             cd OUTPUT_COLLECT_D

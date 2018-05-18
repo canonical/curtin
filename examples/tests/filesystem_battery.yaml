@@ -99,3 +99,26 @@ storage:
       label: myxfs
       volume: d2p10
       uuid: 9c537621-f2f4-4e24-a071-e05012a1a997
+    - id: tmpfs1
+      type: mount
+      spec: "none"
+      path: "/my/tmpfs"
+      options: size=4194304
+      fstype: "tmpfs"
+    - id: ramfs1
+      type: mount
+      spec: "none"
+      path: "/my/ramfs"
+      fstype: "ramfs"
+    - id: bind1
+      fstype: "none"
+      options: "bind"
+      path: "/var/lib"
+      spec: "/my/bind-over-var-lib"
+      type: mount
+    - id: bind2
+      fstype: "none"
+      options: "bind,ro"
+      path: "/my/bind-ro-etc"
+      spec: "/etc"
+      type: mount

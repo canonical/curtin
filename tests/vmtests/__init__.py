@@ -49,6 +49,10 @@ OUTPUT_DISK_NAME = 'output_disk.img'
 BOOT_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_BOOT_TIMEOUT", 300))
 INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
 REUSE_TOPDIR = bool(int(os.environ.get("CURTIN_VMTEST_REUSE_TOPDIR", 0)))
+ADD_REPOS = os.environ.get("CURTIN_VMTEST_ADD_REPOS", "")
+UPGRADE_PACKAGES = os.environ.get("CURTIN_VMTEST_UPGRADE_PACKAGES", "")
+SYSTEM_UPGRADE = os.environ.get("CURTIN_VMTEST_SYSTEM_UPGRADE", "auto")
+
 
 _UNSUPPORTED_UBUNTU = None
 
@@ -346,8 +350,23 @@ class TempDir(object):
                               stdout=DEVNULL, stderr=subprocess.STDOUT)
 
 
+def skip_if_flag(flag):
+    def decorator(func):
+        """the name test_wrapper below has to start with test, or nose's
+           filter will not run it."""
+        def test_wrapper(self, *args, **kwargs):
+            val = getattr(self, flag, None)
+            if val:
+                self.skipTest("skip due to %s=%s" % (flag, val))
+            else:
+                return func(self, *args, **kwargs)
+        return test_wrapper
+    return decorator
+
+
 class VMBaseClass(TestCase):
     __test__ = False
+    expected_failure = False
     arch_skip = []
     boot_timeout = BOOT_TIMEOUT
     collect_scripts = [textwrap.dedent("""
@@ -708,8 +727,8 @@ class VMBaseClass(TestCase):
         cmd.extend([
             "--root-arg=root=%s" % root_url,
             "--append=overlayroot=tmpfs",
-            "--append=ip=dhcp",        # enable networking
         ])
+
         # getting resolvconf configured is only fixed in bionic
         # the iscsi_auto handles resolvconf setup via call to
         # configure_networking in initramfs
@@ -733,7 +752,7 @@ class VMBaseClass(TestCase):
         cls.network_state = curtin_net.parse_net_config(cls.conf_file)
         logger.debug("Network state: {}".format(cls.network_state))
 
-        # build -n arg list with macaddrs from net_config physical config
+        # build --netdev=arg list with 'physical' nics from net_config
         macs = []
         interfaces = {}
         if cls.network_state:
@@ -744,16 +763,14 @@ class VMBaseClass(TestCase):
             hwaddr = iface.get('mac_address')
             if iface['type'] == 'physical' and hwaddr:
                 macs.append(hwaddr)
-        netdevs = []
-        if len(macs) > 0:
-            # take first mac and mark it as the boot interface to prevent DHCP
-            # on multiple interfaces which can hang the install.
-            cmd.extend(["--append=BOOTIF=01-%s" % macs[0].replace(":", "-")])
-            for mac in macs:
-                netdevs.extend(["--netdev=" + DEFAULT_BRIDGE +
-                                ",mac={}".format(mac)])
-        else:
-            netdevs.extend(["--netdev=" + DEFAULT_BRIDGE])
+
+        if len(macs) == 0:
+            macs = ["52:54:00:12:34:01"]
+
+        netdevs = ["--netdev=%s,mac=%s" % (DEFAULT_BRIDGE, m) for m in macs]
+
+        # Add kernel parameters to simulate network boot from first nic.
+        cmd.extend(kernel_boot_cmdline_for_mac(macs[0]))
 
         # build disk arguments
         disks = []
@@ -843,6 +860,38 @@ class VMBaseClass(TestCase):
             logger.info('Detected centos, adding default config %s',
                         centos_default)
 
+        add_repos = ADD_REPOS
+        system_upgrade = SYSTEM_UPGRADE
+        upgrade_packages = UPGRADE_PACKAGES
+        if add_repos:
+            # enable if user has set a value here
+            if system_upgrade == "auto":
+                system_upgrade = True
+            logger.info('Adding apt repositories: %s', add_repos)
+            repo_cfg = os.path.join(cls.td.install, 'add_repos.cfg')
+            util.write_file(repo_cfg,
+                            generate_repo_config(add_repos.split(",")))
+            configs.append(repo_cfg)
+        elif system_upgrade == "auto":
+            system_upgrade = False
+
+        if system_upgrade:
+            logger.info('Enabling system_upgrade')
+            system_upgrade_cfg = os.path.join(cls.td.install,
+                                              'system_upgrade.cfg')
+            util.write_file(system_upgrade_cfg,
+                            "system_upgrade: {enabled: true}\n")
+            configs.append(system_upgrade_cfg)
+
+        if upgrade_packages:
+            logger.info('Adding late-commands to install packages: %s',
+                        upgrade_packages)
+            upgrade_pkg_cfg = os.path.join(cls.td.install, 'upgrade_pkg.cfg')
+            util.write_file(
+                upgrade_pkg_cfg,
+                generate_upgrade_config(upgrade_packages.split(",")))
+            configs.append(upgrade_pkg_cfg)
+
         # set reporting logger
         cls.reporting_log = os.path.join(cls.td.logs, 'webhooks-events.json')
         reporting_logger = CaptureReporting(cls.reporting_log)
@@ -924,6 +973,10 @@ class VMBaseClass(TestCase):
                 logger.debug('install serial console output:\n%s', content)
             else:
                 logger.warn("Boot for install did not produce a console log.")
+
+        if cls.expected_failure:
+            logger.debug('Expected Failure: skipping boot stage')
+            return
 
         logger.debug('')
         try:
@@ -1268,6 +1321,7 @@ class VMBaseClass(TestCase):
             ret[val[0]] = val[1]
         return ret
 
+    @skip_if_flag('expected_failure')
     def test_fstab(self):
         if self.fstab_expected is None:
             return
@@ -1283,13 +1337,21 @@ class VMBaseClass(TestCase):
                         self.assertEqual(fstab_entry.split(' ')[1],
                                          mntpoint)
 
+    @skip_if_flag('expected_failure')
     def test_dname(self, disk_to_check=None):
+        if "trusty" in [self.release, self.target_release]:
+            raise SkipTest(
+                "(LP: #1523037): dname does not work on trusty kernels")
+
         if not disk_to_check:
             disk_to_check = self.disk_to_check
         if disk_to_check is None:
+            logger.debug('test_dname: no disks to check')
             return
+        logger.debug('test_dname: checking disks: %s', disk_to_check)
         path = self.collect_path("ls_dname")
         if not os.path.exists(path):
+            logger.debug('test_dname: no "ls_dname" file: %s', path)
             return
         contents = util.load_file(path)
         for diskname, part in self.disk_to_check:
@@ -1298,6 +1360,7 @@ class VMBaseClass(TestCase):
                 self.assertIn(link, contents)
             self.assertIn(diskname, contents)
 
+    @skip_if_flag('expected_failure')
     def test_reporting_data(self):
         with open(self.reporting_log, 'r') as fp:
             data = json.load(fp)
@@ -1317,6 +1380,7 @@ class VMBaseClass(TestCase):
         self.assertIn('path', files)
         self.assertEqual('/tmp/install.log', files.get('path', ''))
 
+    @skip_if_flag('expected_failure')
     def test_interfacesd_eth0_removed(self):
         """ Check that curtin has removed /etc/network/interfaces.d/eth0.cfg
             by examining the output of a find /etc/network > find_interfaces.d
@@ -1325,9 +1389,9 @@ class VMBaseClass(TestCase):
         self.assertNotIn("/etc/network/interfaces.d/eth0.cfg",
                          interfacesd.split("\n"))
 
+    @skip_if_flag('expected_failure')
     def test_installed_correct_kernel_package(self):
         """ Test curtin installs the correct kernel package.  """
-
         # target_distro is set for non-ubuntu targets
         if self.target_distro is not None:
             raise SkipTest("Can't check non-ubuntu kernel packages")
@@ -1374,6 +1438,7 @@ class VMBaseClass(TestCase):
             self._debian_packages = pkgs
         return self._debian_packages
 
+    @skip_if_flag('expected_failure')
     def test_swaps_used(self):
         cfg = yaml.load(self.load_collect_file("root/curtin-install-cfg.yaml"))
         stgcfg = cfg.get("storage", {}).get("config", [])
@@ -1476,7 +1541,7 @@ class PsuedoVMBaseClass(VMBaseClass):
     def test_fstab(self):
         pass
 
-    def test_dname(self):
+    def test_dname(self, disk_to_check=None):
         pass
 
     def test_interfacesd_eth0_removed(self):
@@ -1512,14 +1577,19 @@ def get_rfc4173(ip, port, target, user=None, pword=None,
 
 
 def find_error_context(err_match, contents, nrchars=200):
+    traceback_end = re.compile(r'Error:.*')
+    end_match = traceback_end.search(contents, err_match.start())
     context_start = err_match.start() - nrchars
-    context_end = err_match.end() + nrchars
+    if end_match:
+        context_end = end_match.end()
+    else:
+        context_end = err_match.end() + nrchars
     # extract contents, split into lines, drop the first and last partials
     # recombine and return
     return "\n".join(contents[context_start:context_end].splitlines()[1:-1])
 
 
-def check_install_log(install_log):
+def check_install_log(install_log, nrchars=200):
     # look if install is OK via curtin 'Installation ok"
     # if we dont find that, scan for known error messages and report
     # if we don't see any errors, fail with general error
@@ -1533,7 +1603,7 @@ def check_install_log(install_log):
                    'ImportError: No module named.*',
                    'Unexpected error while running command',
                    'E: Unable to locate package.*',
-                   'Traceback.*most recent call last.*:']))
+                   'cloud-init.*: Traceback.*']))
 
     install_is_ok = re.findall(install_pass, install_log)
     # always scan for errors
@@ -1542,7 +1612,7 @@ def check_install_log(install_log):
         errmsg = ('Failed to verify Installation is OK')
 
     for e in found_errors:
-        errors.append(find_error_context(e, install_log))
+        errors.append(find_error_context(e, install_log, nrchars=nrchars))
         errmsg = ('Errors during curtin installer')
 
     return errmsg, errors
@@ -1737,6 +1807,27 @@ def get_lan_ip():
     return addr
 
 
+def kernel_boot_cmdline_for_mac(mac):
+    """Return kernel command line arguments for initramfs dhcp on mac.
+
+    Ubuntu initramfs respect klibc's ip= format for network config in
+    initramfs.  That format is:
+       ip=addr:server:gateway:netmask:interface:proto
+    see /usr/share/doc/libklibc/README.ipconfig.gz for more info.
+
+    If no 'interface' field is provided, dhcp will be tried on all.  To allow
+    specifying the interface in ip= parameter without knowing the name of the
+    device that the kernel will choose, cloud-initramfs-dyn-netconf replaces
+    'BOOTIF' in the ip= parameter with the name found in BOOTIF.
+
+    Network bootloaders append to kernel command line
+      BOOTIF=01-<mac-address> to indicate which mac they booted from.
+
+    Paired with BOOTIF replacement this ends up being: ip=::::eth0:dhcp."""
+    return ["--append=ip=:::::BOOTIF:dhcp",
+            "--append=BOOTIF=01-%s" % mac.replace(":", "-")]
+
+
 def is_unsupported_ubuntu(release):
     global _UNSUPPORTED_UBUNTU
     udi = 'ubuntu-distro-info'
@@ -1756,6 +1847,42 @@ def is_unsupported_ubuntu(release):
             return None
 
     return release in _UNSUPPORTED_UBUNTU
+
+
+def generate_repo_config(repos):
+    """Generate apt yaml configuration to add specified repositories.
+
+    @param repos: A list of add-apt-repository strings.
+                  'proposed' is a special case to enable the proposed
+                  pocket of a particular release.
+    @returns: string:  A yaml string
+    """
+    sources = {"add_repos_%02d" % idx: {'source': v}
+               for idx, v in enumerate(repos)}
+    return yaml.dump({'apt': {'sources': sources}})
+
+
+def generate_upgrade_config(packages, singlecmd=True):
+    """Generate late_command yaml to install packages with apt.
+
+    @param packages: list of package names.
+    @param singlecmd: Boolean, defaults to True which combines
+                      package installs into a single apt command
+                      If False, a separate command is issued for
+                      each package.
+    @returns: String of yaml
+    """
+    if not packages:
+        return ""
+    cmds = {}
+    base_cmd = ['curtin', 'in-target', '--', 'apt-get', '-y', 'install']
+    if singlecmd:
+        cmds["install_pkg_00"] = base_cmd + packages
+    else:
+        for idx, package in enumerate(packages):
+            cmds["install_pkg_%02d" % idx] = base_cmd + package
+
+    return yaml.dump({'late_commands': cmds})
 
 
 apply_keep_settings()

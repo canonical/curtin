@@ -54,6 +54,8 @@ parallel=${CURTIN_VMTEST_PARALLEL}
 ntargs=( )
 while [ $# -ne 0 ]; do
     case "$1" in
+        # allow setting these environment variables on cmdline.
+        CURTIN_VMTEST_*=*) export "$1";;
         -p|--parallel) parallel="$2"; shift;;
         --parallel=*) parallel=${1#*=};;
         -p[0-9]|-p-1|-p[0-9][0-9]) parallel=${1#-p};;

@@ -38,6 +38,9 @@ PORTS_MIRRORS = {"PRIMARY": "http://ports.ubuntu.com/ubuntu-ports",
 PRIMARY_ARCHES = ['amd64', 'i386']
 PORTS_ARCHES = ['s390x', 'arm64', 'armhf', 'powerpc', 'ppc64el']
 
+APT_SOURCES_PROPOSED = (
+    "deb $MIRROR $RELEASE-proposed main restricted universe multiverse")
+
 
 def get_default_mirrors(arch=None):
     """returns the default mirrors for the target. These depend on the
@@ -385,6 +388,8 @@ def add_apt_sources(srcdict, target=None, template_params=None,
         if 'source' not in ent:
             continue
         source = ent['source']
+        if source == 'proposed':
+            source = APT_SOURCES_PROPOSED
         source = util.render_string(source, template_params)
 
         if not ent['filename'].startswith("/"):
