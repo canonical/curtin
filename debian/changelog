@@ -1,3 +1,25 @@
+curtin (18.1-17-gae48e86f-0ubuntu1~17.10.1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot. (LP: #1772044)
+    - tests: replace usage of mock.assert_called
+    - tools: jenkins-runner show curtin version in output.
+    - zfs: implement a supported check to handle i386
+    - Support mount entries not tied to a device, including bind and tmpfs.
+    - block/clear_holders/mdadm: refactor handling of layered device wiping
+    - clear_holders: only export zpools that have been imported
+    - vmtests: allow env control of apt, system_upgrade, package upgrade
+    - util.get_efibootmgr: filter bootorder by found entries
+    - vmtests: adjust lvm_iscsi dnames to match configuration
+    - vmtest: always boot with BOOTIF and ip=:::::BOOTIF:dhcp
+    - make_dname for bcache should use backing device uuid
+    - zfsroot: add additional checks, do not require disk 'serial' attribute
+    - clear-holders: fix lvm name use when shutting down
+    - install: prevent unmount: disabled from swallowing installation failures
+    - vmtest: bionic images no longer use the vlan package
+    - pycodestyle: Fix invalid escape sequences in string literals.
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Fri, 18 May 2018 14:01:58 -0500
+
 curtin (18.1-1-g45564eef-0ubuntu1~17.10.1) artful; urgency=medium
 
   * New upstream snapshot. (LP: #1759664)
