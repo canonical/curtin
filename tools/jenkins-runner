@@ -83,6 +83,16 @@ if [ -n "$parallel" -a "$parallel" != "0" -a "$parallel" != "1" ]; then
     pargs=( --process-timeout=86400 "--processes=$parallel" )
 fi
 
+curtexe="${CURTIN_VMTEST_CURTIN_EXE:-./bin/curtin}"
+CURTIN_VMTEST_CURTIN_EXE_VERSION=$($curtexe version) ||
+    fail "failed to get version from '$curtexe version'"
+if [ "$curtexe" = "./bin/curtin" ]; then
+    CURTIN_VMTEST_CURTIN_VERSION="$CURTIN_VMTEST_CURTIN_EXE_VERSION"
+else
+    CURTIN_VMTEST_CURTIN_VERSION="$(./bin/curtin version)" ||
+        fail "failed to get version from ./bin/curtin version"
+fi
+
 if [ -n "$TGT_IPC_SOCKET" ]; then
     error "existing TGT_IPC_SOCKET=${TGT_IPC_SOCKET}"
 elif command -v tgtd >/dev/null 2>&1; then
