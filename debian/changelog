@@ -1,4 +1,4 @@
-curtin (18.1-17-gae48e86f-0ubuntu1) UNRELEASED; urgency=medium
+curtin (18.1-17-gae48e86f-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
     - tests: replace usage of mock.assert_called
