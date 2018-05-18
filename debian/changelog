@@ -1,4 +1,4 @@
-curtin (18.1-16-g18835845-0ubuntu1) UNRELEASED; urgency=medium
+curtin (18.1-16-g18835845-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
     - tools: jenkins-runner show curtin version in output.
