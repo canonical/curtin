@@ -22,6 +22,11 @@ bucket:
     done
     swapon --show
     exit 0
+  - &zpool_export |
+      #!/bin/sh
+      # disable any rpools to trigger disks with zfs_member label but inactive
+      # pools
+      zpool export rpool ||:
 
 early_commands:
   # running block-meta custom from the install environment
@@ -34,3 +39,4 @@ early_commands:
               WORKING_DIR=/tmp/my.bdir/work.d, 
               curtin, --showtrace, -v, block-meta, --umount, custom]
   enable_swaps: [sh, -c, *swapon]
+  disable_rpool: [sh, -c, *zpool_export]

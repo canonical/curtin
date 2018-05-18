@@ -184,7 +184,6 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
 
 
 class CentosTestBridgeNetworkAbs(TestBridgeNetworkAbs):
-    extra_kern_args = "BOOTIF=eth0-52:54:00:12:34:00"
     collect_scripts = TestBridgeNetworkAbs.collect_scripts + [
         textwrap.dedent("""
             cd OUTPUT_COLLECT_D

@@ -110,6 +110,9 @@ def shutdown_bcache(device):
                          'Device path must start with /sys/class/block/',
                          device)
 
+    LOG.info('Wiping superblock on bcache device: %s', device)
+    _wipe_superblock(block.sysfs_to_devpath(device), exclusive=False)
+
     # bcache device removal should be fast but in an extreme
     # case, might require the cache device to flush large
     # amounts of data to a backing device.  The strategy here
@@ -189,14 +192,27 @@ def shutdown_lvm(device):
     name_file = os.path.join(device, 'dm', 'name')
     lvm_name = util.load_file(name_file).strip()
     (vg_name, lv_name) = lvm.split_lvm_name(lvm_name)
+    vg_lv_name = "%s/%s" % (vg_name, lv_name)
+    devname = "/dev/" + vg_lv_name
 
-    # use dmsetup as lvm commands require valid /etc/lvm/* metadata
-    LOG.debug('using "dmsetup remove" on %s', lvm_name)
-    util.subp(['dmsetup', 'remove', lvm_name])
+    # wipe contents of the logical volume first
+    LOG.info('Wiping lvm logical volume: %s', devname)
+    block.quick_zero(devname, partitions=False)
+
+    # remove the logical volume
+    LOG.debug('using "lvremove" on %s', vg_lv_name)
+    util.subp(['lvremove', '--force', '--force', vg_lv_name])
 
     # if that was the last lvol in the volgroup, get rid of volgroup
     if len(lvm.get_lvols_in_volgroup(vg_name)) == 0:
+        pvols = lvm.get_pvols_in_volgroup(vg_name)
         util.subp(['vgremove', '--force', '--force', vg_name], rcs=[0, 5])
+
+        # wipe the underlying physical volumes
+        for pv in pvols:
+            LOG.info('Wiping lvm physical volume: %s', pv)
+            block.quick_zero(pv, partitions=False)
+
     # refresh lvmetad
     lvm.lvm_scan()
 
@@ -213,9 +229,30 @@ def shutdown_mdadm(device):
     """
     Shutdown specified mdadm device.
     """
+
     blockdev = block.sysfs_to_devpath(device)
+
+    LOG.info('Wiping superblock on raid device: %s', device)
+    _wipe_superblock(blockdev, exclusive=False)
+
+    md_devs = (
+        mdadm.md_get_devices_list(blockdev) +
+        mdadm.md_get_spares_list(blockdev))
+    mdadm.set_sync_action(blockdev, action="idle")
+    mdadm.set_sync_action(blockdev, action="frozen")
+    for mddev in md_devs:
+        try:
+            mdadm.fail_device(blockdev, mddev)
+            mdadm.remove_device(blockdev, mddev)
+        except util.ProcessExecutionError as e:
+            LOG.debug('Non-fatal error clearing raid array: %s', e.stderr)
+            pass
+
     LOG.debug('using mdadm.mdadm_stop on dev: %s', blockdev)
     mdadm.mdadm_stop(blockdev)
+
+    for mddev in md_devs:
+        mdadm.zero_device(mddev)
 
     # mdadm stop operation is asynchronous so we must wait for the kernel to
     # release resources. For more details see  LP: #1682456
@@ -244,32 +281,49 @@ def wipe_superblock(device):
     blockdev = block.sysfs_to_devpath(device)
     # when operating on a disk that used to have a dos part table with an
     # extended partition, attempting to wipe the extended partition will fail
-    if block.is_extended_partition(blockdev):
-        LOG.info("extended partitions do not need wiping, so skipping: '%s'",
-                 blockdev)
-    else:
-        # release zfs member by exporting the pool
-        if block.is_zfs_member(blockdev):
-            poolname = zfs.device_to_poolname(blockdev)
+    try:
+        if block.is_extended_partition(blockdev):
+            LOG.info("extended partitions do not need wiping, so skipping:"
+                     " '%s'", blockdev)
+            return
+    except OSError as e:
+        if util.is_file_not_found_exc(e):
+            LOG.debug('Device to wipe disappeared: %s', e)
+            LOG.debug('/proc/partitions says: %s',
+                      util.load_file('/proc/partitions'))
+
+            (parent, partnum) = block.get_blockdev_for_partition(blockdev)
+            out, _e = util.subp(['sfdisk', '-d', parent],
+                                capture=True, combine_capture=True)
+            LOG.debug('Disk partition info:\n%s', out)
+            return
+        else:
+            raise e
+
+    # release zfs member by exporting the pool
+    if block.is_zfs_member(blockdev):
+        poolname = zfs.device_to_poolname(blockdev)
+        # only export pools that have been imported
+        if poolname in zfs.zpool_list():
             zfs.zpool_export(poolname)
 
-        if is_swap_device(blockdev):
-            shutdown_swap(blockdev)
+    if is_swap_device(blockdev):
+        shutdown_swap(blockdev)
 
-        # some volumes will be claimed by the bcache layer but do not surface
-        # an actual /dev/bcacheN device which owns the parts (backing, cache)
-        # The result is that some volumes cannot be wiped while bcache claims
-        # the device.  Resolve this by stopping bcache layer on those volumes
-        # if present.
-        for bcache_path in ['bcache', 'bcache/set']:
-            stop_path = os.path.join(device, bcache_path)
-            if os.path.exists(stop_path):
-                LOG.debug('Attempting to release bcache layer from device: %s',
-                          device)
-                maybe_stop_bcache_device(stop_path)
-                continue
+    # some volumes will be claimed by the bcache layer but do not surface
+    # an actual /dev/bcacheN device which owns the parts (backing, cache)
+    # The result is that some volumes cannot be wiped while bcache claims
+    # the device.  Resolve this by stopping bcache layer on those volumes
+    # if present.
+    for bcache_path in ['bcache', 'bcache/set']:
+        stop_path = os.path.join(device, bcache_path)
+        if os.path.exists(stop_path):
+            LOG.debug('Attempting to release bcache layer from device: %s',
+                      device)
+            maybe_stop_bcache_device(stop_path)
+            continue
 
-        _wipe_superblock(blockdev)
+    _wipe_superblock(blockdev)
 
 
 def _wipe_superblock(blockdev, exclusive=True):
@@ -510,28 +564,7 @@ def clear_holders(base_paths, try_preserve=False):
     LOG.info('Current device storage tree:\n%s',
              '\n'.join(format_holders_tree(tree) for tree in holder_trees))
     ordered_devs = plan_shutdown_holder_trees(holder_trees)
-
-    # run wipe-superblock on layered devices
-    for dev_info in ordered_devs:
-        dev_type = DEV_TYPES.get(dev_info['dev_type'])
-        shutdown_function = dev_type.get('shutdown')
-        if not shutdown_function:
-            continue
-
-        if try_preserve and shutdown_function in DATA_DESTROYING_HANDLERS:
-            LOG.info('shutdown function for holder type: %s is destructive. '
-                     'attempting to preserve data, so skipping' %
-                     dev_info['dev_type'])
-            continue
-
-        # for layered block devices, wipe first, then shutdown
-        if dev_info['dev_type'] in ['bcache', 'raid']:
-            LOG.info("Wiping superblock on layered device type: "
-                     "'%s' syspath: '%s'", dev_info['dev_type'],
-                     dev_info['device'])
-            # we just want to wipe data, we don't care about exclusive
-            _wipe_superblock(block.sysfs_to_devpath(dev_info['device']),
-                             exclusive=False)
+    LOG.info('Shutdown Plan:\n%s', "\n".join(map(str, ordered_devs)))
 
     # run shutdown functions
     for dev_info in ordered_devs:
@@ -546,11 +579,12 @@ def clear_holders(base_paths, try_preserve=False):
                      dev_info['dev_type'])
             continue
 
+        # scan before we check
+        block.rescan_block_devices(warn_on_fail=False)
         if os.path.exists(dev_info['device']):
             LOG.info("shutdown running on holder type: '%s' syspath: '%s'",
                      dev_info['dev_type'], dev_info['device'])
             shutdown_function(dev_info['device'])
-            udev.udevadm_settle()
 
 
 def start_clear_holders_deps():
@@ -576,8 +610,11 @@ def start_clear_holders_deps():
     util.load_kernel_module('bcache')
     # the zfs module is needed to find and export devices which may be in-use
     # and need to be cleared, only on xenial+.
-    if not util.lsb_release()['codename'] in ['precise', 'trusty']:
-        util.load_kernel_module('zfs')
+    try:
+        if zfs.zfs_supported():
+            util.load_kernel_module('zfs')
+    except RuntimeError as e:
+        LOG.warning('Failed to load zfs kernel module: %s', e)
 
 
 # anything that is not identified can assumed to be a 'disk' or similar

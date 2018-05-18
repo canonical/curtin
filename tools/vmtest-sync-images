@@ -17,10 +17,8 @@ sys.path.insert(1, os.path.realpath(os.path.join(
 from tests.vmtests import (
     IMAGE_DIR, IMAGE_SRC_URL, sync_images)
 from tests.vmtests.image_sync import ITEM_NAME_FILTERS
-from tests.vmtests.helpers import find_releases_by_distro
+from tests.vmtests.helpers import (find_arches, find_releases_by_distro)
 from curtin.util import get_platform_arch
-
-DEFAULT_ARCH = get_platform_arch()
 
 
 def _fmt_list_filter(filter_name, matches):
@@ -53,7 +51,7 @@ if __name__ == '__main__':
                         os.unlink(fpath)
 
     arg_releases = [r for r in sys.argv[1:] if r != "--clean"]
-    arch_filters = ['arch={}'.format(DEFAULT_ARCH)]
+    arch_filters = [_fmt_list_filter('arch', find_arches())]
     filter_sets = []
     if len(arg_releases):
         filter_sets.append([_fmt_list_filter('release', arg_releases),

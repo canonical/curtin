@@ -19,7 +19,6 @@ class TestNetworkAliasAbs(TestNetworkBaseTestsAbs):
 
 
 class CentosTestNetworkAliasAbs(TestNetworkAliasAbs):
-    extra_kern_args = "BOOTIF=eth0-52:54:00:12:34:00"
     collect_scripts = TestNetworkAliasAbs.collect_scripts + [
         textwrap.dedent("""
             cd OUTPUT_COLLECT_D

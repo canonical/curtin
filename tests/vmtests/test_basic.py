@@ -6,6 +6,7 @@ from . import (
 from .releases import base_vm_classes as relbase
 
 import textwrap
+from unittest import SkipTest
 
 
 class TestBasicAbs(VMBaseClass):
@@ -58,7 +59,10 @@ class TestBasicAbs(VMBaseClass):
              "proc_partitions",
              "root/curtin-install.log", "root/curtin-install-cfg.yaml"])
 
-    def test_ptable(self):
+    def test_ptable(self, disk_to_check=None):
+        if "trusty" in [self.release, self.target_release]:
+            raise SkipTest("No PTTYPE blkid output on trusty")
+
         blkid_info = self.get_blkid_data("blkid_output_vda")
         self.assertEquals(blkid_info["PTTYPE"], "dos")
 
@@ -143,18 +147,14 @@ class TestBasicAbs(VMBaseClass):
 class TrustyTestBasic(relbase.trusty, TestBasicAbs):
     __test__ = True
 
-    # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
-    # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
-
-    def test_ptable(self):
-        print("test_ptable does not work for Trusty")
-
 
 class TrustyHWEXTestBasic(relbase.trusty_hwe_x, TrustyTestBasic):
     __test__ = True
+
+
+class XenialGAi386TestBasic(relbase.xenial_ga, TestBasicAbs):
+    __test__ = True
+    arch = 'i386'
 
 
 class XenialGATestBasic(relbase.xenial_ga, TestBasicAbs):
@@ -210,6 +210,9 @@ class TestBasicScsiAbs(TestBasicAbs):
              "ls_disk_id", "proc_partitions"])
 
     def test_ptable(self):
+        if "trusty" in [self.release, self.target_release]:
+            raise SkipTest("No PTTYPE blkid output on trusty")
+
         blkid_info = self.get_blkid_data("blkid_output_sda")
         self.assertEquals(blkid_info["PTTYPE"], "dos")
 

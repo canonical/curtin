@@ -26,6 +26,12 @@ class TestMakeDname(CiTestCase):
                      'name': 'lpartition1', 'volgroup': 'lvol_id'},
         'lpart2_id': {'type': 'lvm_partition', 'id': 'lpart2_id',
                       'name': 'lvm part/2', 'volgroup': 'lvol_id'},
+        'bcache1_id': {'type': 'bcache', 'id': 'bcache1_id',
+                       'name': 'my-cached-data'}
+    }
+    bcache_super_show = {
+        'sb.version': '1 [backing device]',
+        'dev.uuid': 'f36394c0-3cc0-4423-8d6f-ffac130f171a',
     }
     disk_blkid = textwrap.dedent("""
         DEVNAME=/dev/sda
@@ -48,7 +54,7 @@ class TestMakeDname(CiTestCase):
     def _formatted_rule(self, identifiers, target):
         rule = ['SUBSYSTEM=="block"', 'ACTION=="add|change"']
         rule.extend(['ENV{%s}=="%s"' % ident for ident in identifiers])
-        rule.append('SYMLINK+="disk/by-dname/{}"'.format(target))
+        rule.append('SYMLINK+="disk/by-dname/{}"\n'.format(target))
         return ', '.join(rule)
 
     @mock.patch('curtin.commands.block_meta.LOG')
@@ -184,6 +190,27 @@ class TestMakeDname(CiTestCase):
         rule_identifiers = [('DM_NAME', 'vg1-lvm part/2')]
         block_meta.make_dname('lpart2_id', self.storage_config)
         self.assertTrue(mock_log.warning.called)
+        mock_util.write_file.assert_called_with(
+            self.rule_file.format(res_dname),
+            self._formatted_rule(rule_identifiers, res_dname))
+
+    @mock.patch('curtin.commands.block_meta.LOG')
+    @mock.patch('curtin.commands.block_meta.bcache')
+    @mock.patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    @mock.patch('curtin.commands.block_meta.util')
+    def test_make_dname_bcache(self, mock_util, mock_get_path, mock_bcache,
+                               mock_log):
+        """ check bcache dname uses backing device uuid to link dname """
+        mock_get_path.return_value = '/my/dev/huge-storage'
+        mock_bcache.superblock_asdict.return_value = self.bcache_super_show
+        mock_util.load_command_environment.return_value = self.state
+
+        res_dname = 'my-cached-data'
+        backing_uuid = 'f36394c0-3cc0-4423-8d6f-ffac130f171a'
+        rule_identifiers = [('CACHED_UUID', backing_uuid)]
+        block_meta.make_dname('bcache1_id', self.storage_config)
+        self.assertTrue(mock_log.debug.called)
+        self.assertFalse(mock_log.warning.called)
         mock_util.write_file.assert_called_with(
             self.rule_file.format(res_dname),
             self._formatted_rule(rule_identifiers, res_dname))
