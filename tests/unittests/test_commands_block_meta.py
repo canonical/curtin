@@ -680,7 +680,7 @@ class TestFstabData(CiTestCase):
             call(['mount', "-t", "ext4", "-o", "defaults",
                   "/dev/disk1", "/mnt"], capture=True),
             m_subp.call_args)
-        m_ensure_dir.assert_called()
+        self.assertTrue(m_ensure_dir.called)
 
     def _check_mount_fstab_subp(self, fdata, expected, target=None):
         # expected currently is like: mount <device> <mp>
