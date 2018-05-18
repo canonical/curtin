@@ -58,27 +58,9 @@ class TestNvmeAbs(VMBaseClass):
 class TrustyTestNvme(relbase.trusty, TestNvmeAbs):
     __test__ = True
 
-    # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
-    # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
-
-    def test_ptable(self):
-        print("test_ptable does not work for Trusty")
-
 
 class TrustyHWEXTestNvme(relbase.trusty_hwe_x, TestNvmeAbs):
     __test__ = True
-
-    # FIXME(LP: #1523037): dname does not work on trusty, so we cannot expect
-    # sda-part2 to exist in /dev/disk/by-dname as we can on other releases
-    # when dname works on trusty, then we need to re-enable by removing line.
-    def test_dname(self):
-        print("test_dname does not work for Trusty")
-
-    def test_ptable(self):
-        print("test_ptable does not work for Trusty")
 
 
 class XenialGATestNvme(relbase.xenial_ga, TestNvmeAbs):

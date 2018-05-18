@@ -9,6 +9,7 @@ import textwrap
 
 class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):
     interactive = False
+    dirty_disks = True
     iscsi_disks = [
         {'size': '6G'},
         {'size': '5G', 'auth': 'user:passw0rd', 'iauth': 'iuser:ipassw0rd'}]
@@ -20,6 +21,8 @@ class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):
         """
         cd OUTPUT_COLLECT_D
         ls -al /sys/class/block/dm*/slaves/  > dm_slaves
+        cp -a /etc/udev/rules.d udev_rules_d
+        cp -a /etc/iscsi etc_iscsi
         """)]
 
     fstab_expected = {
@@ -29,8 +32,11 @@ class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):
         'UUID=a98f706b-b064-4682-8eb2-6c2c1284060c': '/mnt/iscsi4',
     }
     disk_to_check = [('main_disk', 1),
-                     ('main_disk', 5),
-                     ('main_disk', 6),
+                     ('main_disk', 2),
+                     ('iscsi_disk1', 5),
+                     ('iscsi_disk1', 6),
+                     ('iscsi_disk2', 5),
+                     ('iscsi_disk2', 6),
                      ('vg1-lv1', 0),
                      ('vg1-lv2', 0),
                      ('vg2-lv3', 0),
