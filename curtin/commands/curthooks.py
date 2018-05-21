@@ -292,7 +292,7 @@ def setup_grub(cfg, target):
     storage_cfg_odict = None
     try:
         storage_cfg_odict = extract_storage_ordered_dict(cfg)
-    except ValueError as e:
+    except ValueError:
         pass
 
     if storage_cfg_odict:
@@ -324,7 +324,7 @@ def setup_grub(cfg, target):
             try:
                 (blockdev, part) = block.get_blockdev_for_partition(maybepart)
                 blockdevs.add(blockdev)
-            except ValueError as e:
+            except ValueError:
                 # if there is no syspath for this device such as a lvm
                 # or raid device, then a ValueError is raised here.
                 LOG.debug("failed to find block device for %s", maybepart)

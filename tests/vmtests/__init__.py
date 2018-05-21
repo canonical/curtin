@@ -1091,7 +1091,7 @@ class VMBaseClass(TestCase):
         # mount output disk
         try:
             cls.collect_output()
-        except Exception as e:
+        except Exception:
             cls.tearDownClass()
             raise
 
