@@ -189,3 +189,43 @@ class TestCmdInstall(CiTestCase):
         self.assertEqual(
             [mock.call(self.logfile, target_dir, '/root/curtin-install.log')],
             self.m_copy_log.call_args_list)
+
+
+class TestWorkingDir(CiTestCase):
+    def test_target_dir_may_exist(self):
+        """WorkingDir supports existing empty target directory."""
+        tmp_d = self.tmp_dir()
+        work_d = self.tmp_path("work_d", tmp_d)
+        target_d = self.tmp_path("target_d", tmp_d)
+        ensure_dir(work_d)
+        ensure_dir(target_d)
+        with mock.patch("curtin.commands.install.tempfile.mkdtemp",
+                        return_value=work_d) as m_mkdtemp:
+            workingdir = install.WorkingDir({'install': {'target': target_d}})
+        self.assertEqual(1, m_mkdtemp.call_count)
+        self.assertEqual(target_d, workingdir.target)
+        self.assertEqual(target_d, workingdir.env().get('TARGET_MOUNT_POINT'))
+
+    def test_target_dir_with_content_raises_error(self):
+        """WorkingDir raises ValueError on populated target_d."""
+        tmp_d = self.tmp_dir()
+        work_d = self.tmp_path("work_d", tmp_d)
+        target_d = self.tmp_path("target_d", tmp_d)
+        ensure_dir(work_d)
+        ensure_dir(target_d)
+        write_file(self.tmp_path("somefile.txt", target_d), "sometext")
+        with mock.patch("curtin.commands.install.tempfile.mkdtemp",
+                        return_value=work_d):
+            with self.assertRaises(ValueError):
+                install.WorkingDir({'install': {'target': target_d}})
+
+    def test_target_dir_by_default_is_under_workd(self):
+        """WorkingDir does not require target in config."""
+        tmp_d = self.tmp_dir()
+        work_d = self.tmp_path("work_d", tmp_d)
+        ensure_dir(work_d)
+        with mock.patch("curtin.commands.install.tempfile.mkdtemp",
+                        return_value=work_d) as m_mkdtemp:
+            wd = install.WorkingDir({})
+        self.assertEqual(1, m_mkdtemp.call_count)
+        self.assertTrue(wd.target.startswith(work_d + "/"))
