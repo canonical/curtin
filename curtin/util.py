@@ -524,6 +524,8 @@ def do_umount(mountpoint, recursive=False):
 
 
 def ensure_dir(path, mode=None):
+    if path == "":
+        path = "."
     try:
         os.makedirs(path)
     except OSError as e:
