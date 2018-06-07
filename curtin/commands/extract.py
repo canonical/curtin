@@ -59,7 +59,7 @@ def extract_root_tgz_url(url, target):
 def extract_root_fsimage_url(url, target):
     path = _path_from_file_url(url)
     if path != url or os.path.isfile(path):
-        return _extract_root_fsimage(path(url), target)
+        return _extract_root_fsimage(path, target)
 
     wfp = tempfile.NamedTemporaryFile(suffix=".img", delete=False)
     wfp.close()

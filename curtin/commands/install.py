@@ -111,12 +111,22 @@ class WorkingDir(object):
     def __init__(self, config):
         top_d = tempfile.mkdtemp()
         state_d = os.path.join(top_d, 'state')
+        scratch_d = os.path.join(top_d, 'scratch')
+        for p in (state_d, scratch_d):
+            os.mkdir(p)
+
         target_d = config.get('install', {}).get('target')
         if not target_d:
             target_d = os.path.join(top_d, 'target')
-        scratch_d = os.path.join(top_d, 'scratch')
-        for p in (state_d, target_d, scratch_d):
-            os.mkdir(p)
+        try:
+            util.ensure_dir(target_d)
+        except OSError as e:
+            raise ValueError(
+                "Unable to create target directory '%s': %s" %
+                (target_d, e))
+        if os.listdir(target_d) != []:
+            raise ValueError(
+                "Provided target dir '%s' was not empty." % target_d)
 
         netconf_f = os.path.join(state_d, 'network_config')
         netstate_f = os.path.join(state_d, 'network_state')
@@ -429,6 +439,7 @@ def cmd_install(args):
 
     writeline_and_stdout(logfile, INSTALL_START_MSG)
     args.reportstack.post_files = post_files
+    workingd = None
     try:
         workingd = WorkingDir(cfg)
         dd_images = util.get_dd_images(cfg.get('sources', {}))
@@ -469,12 +480,12 @@ def cmd_install(args):
         raise e
     finally:
         log_target_path = instcfg.get('save_install_log', SAVE_INSTALL_LOG)
-        if log_target_path:
+        if log_target_path and workingd:
             copy_install_log(logfile, workingd.target, log_target_path)
 
         if instcfg.get('unmount', "") == "disabled":
             LOG.info('Skipping unmount: config disabled target unmounting')
-        else:
+        elif workingd:
             # unmount everything (including iscsi disks)
             util.do_umount(workingd.target, recursive=True)
 

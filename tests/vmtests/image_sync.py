@@ -174,7 +174,7 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
             except IOError as e:
                 if e.errno != errno.ENOENT:
                     raise
-            except JSONDecodeError as e:
+            except JSONDecodeError:
                 jsonfile = os.path.join(self.out_d, dpath)
                 sys.stderr.write("Decode error in:\n  "
                                  "content_id=%s\n  "

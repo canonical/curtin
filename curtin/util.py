@@ -103,10 +103,11 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
         (out, err) = sp.communicate(data)
 
         # Just ensure blank instead of none.
-        if not out and capture:
-            out = b''
-        if not err and capture:
-            err = b''
+        if capture or combine_capture:
+            if not out:
+                out = b''
+            if not err:
+                err = b''
         if decode:
             def ldecode(data, m='utf-8'):
                 if not isinstance(data, bytes):
@@ -206,6 +207,8 @@ def subp(*args, **kwargs):
         boolean indicating if stderr should be redirected to stdout. When True,
         interleaved stderr and stdout will be returned as the first element of
         a tuple.
+        if combine_capture is True, then output is captured independent of
+        the value of capture.
     :param log_captured:
         boolean indicating if output should be logged on capture.  If
         True, then stderr and stdout will be logged at DEBUG level.  If
@@ -521,6 +524,8 @@ def do_umount(mountpoint, recursive=False):
 
 
 def ensure_dir(path, mode=None):
+    if path == "":
+        path = "."
     try:
         os.makedirs(path)
     except OSError as e:

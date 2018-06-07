@@ -260,7 +260,7 @@ class TestSubp(CiTestCase):
         data = b'hello world'
         (out, err) = util.subp(self.stdin2err, combine_capture=True,
                                decode=False, data=data)
-        self.assertIsNone(err)
+        self.assertEqual(err, b'')
         self.assertEqual(out, data)
 
     def test_returns_none_if_no_capture(self):

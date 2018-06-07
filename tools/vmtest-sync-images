@@ -18,7 +18,6 @@ from tests.vmtests import (
     IMAGE_DIR, IMAGE_SRC_URL, sync_images)
 from tests.vmtests.image_sync import ITEM_NAME_FILTERS
 from tests.vmtests.helpers import (find_arches, find_releases_by_distro)
-from curtin.util import get_platform_arch
 
 
 def _fmt_list_filter(filter_name, matches):
