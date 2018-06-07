@@ -1,3 +1,19 @@
+curtin (18.1-25-g9d0e557e-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - Fix WorkingDir class to support already existing target directory.
+      (LP: #1775622)
+    - Fix extraction of local filesystem image. (LP: #1775630)
+    - Fix tip-pyflakes imported but unused call to util.get_platform_arch
+    - subp: update return value of subp with combine_capture=True.
+    - tox: add a xenial environments, default envlist changes.
+    - tests: Fix race on utcnow during timestamped curtin-log dir creation
+      (LP: #1772481)
+    - curtainer: patch source version from --source.
+    - pyflakes: fix unused variable references identified by pyflakes 2.0.0.
+
+ -- Scott Moser <smoser@ubuntu.com>  Thu, 07 Jun 2018 14:59:20 -0400
+
 curtin (18.1-17-gae48e86f-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
