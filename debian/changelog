@@ -1,4 +1,4 @@
-curtin (18.1-25-g9d0e557e-0ubuntu1) UNRELEASED; urgency=medium
+curtin (18.1-25-g9d0e557e-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
     - Fix WorkingDir class to support already existing target directory.
