@@ -134,7 +134,7 @@ class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):
 
     @classmethod
     def setUpClass(cls):
-        cls.skip_by_date("1754581", fixby="2018-06-22")
+        cls.skip_by_date("1754581", fixby="2019-01-22")
         super().setUpClass()
 
 
