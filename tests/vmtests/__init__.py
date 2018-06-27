@@ -450,8 +450,8 @@ class VMBaseClass(TestCase):
         else:
             target_img_verstr, target_ftypes = get_images(
                 IMAGE_SRC_URL, IMAGE_DIR,
-                cls.target_distro if cls.target_distro else cls.distro,
-                cls.target_release if cls.target_release else cls.release,
+                cls.target_distro,
+                cls.target_release,
                 cls.arch, subarch=cls.subarch if cls.subarch else None,
                 kflavor=cls.kflavor if cls.kflavor else None,
                 krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
@@ -677,6 +677,13 @@ class VMBaseClass(TestCase):
         logger = _initialize_logging(name=cls.__name__)
         cls.logger = logger
 
+        req_attrs = ('target_distro', 'target_release', 'release', 'distro')
+        missing = [a for a in req_attrs if not getattr(cls, a)]
+        if missing:
+            raise ValueError(
+                "Class %s does not have required attrs set: %s" %
+                (cls.__name__, missing))
+
         if is_unsupported_ubuntu(cls.release):
             raise SkipTest('"%s" is unsupported release.' % cls.release)
 
@@ -687,7 +694,14 @@ class VMBaseClass(TestCase):
             raise SkipTest(reason)
 
         setup_start = time.time()
-        logger.info('Starting setup for testclass: {}'.format(cls.__name__))
+        logger.info(
+            ('Starting setup for testclass: {__name__} '
+             '({distro}/{release} -> '
+             '{target_distro}/{target_release})').format(
+                **{k: getattr(cls, k)
+                   for k in ('__name__', 'distro', 'release',
+                             'target_distro', 'target_release')}))
+
         # set up tempdir
         cls.td = TempDir(
             name=cls.__name__,
@@ -1146,7 +1160,7 @@ class VMBaseClass(TestCase):
         """Return install uri and a list of files needed to be published."""
         # if release (install environment) is the same as target
         # target (thing to install) then install via cp://
-        if cls.target_release in (None, cls.release):
+        if cls.target_release == cls.release:
             install_src = "cp:///media/root-ro"
             return install_src, []
 
@@ -1339,7 +1353,7 @@ class VMBaseClass(TestCase):
 
     @skip_if_flag('expected_failure')
     def test_dname(self, disk_to_check=None):
-        if "trusty" in [self.release, self.target_release]:
+        if self.target_release == "trusty":
             raise SkipTest(
                 "(LP: #1523037): dname does not work on trusty kernels")
 
@@ -1393,7 +1407,7 @@ class VMBaseClass(TestCase):
     def test_installed_correct_kernel_package(self):
         """ Test curtin installs the correct kernel package.  """
         # target_distro is set for non-ubuntu targets
-        if self.target_distro is not None:
+        if self.target_distro != "ubuntu":
             raise SkipTest("Can't check non-ubuntu kernel packages")
 
         kpackage = self.get_kernel_package()

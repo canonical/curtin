@@ -27,8 +27,7 @@ class TestBasicAbs(VMBaseClass):
         if command -v btrfs-debug-tree >/dev/null; then
            btrfs-debug-tree -r $dev | awk '/^uuid/ {print $2}' | grep "-"
         else
-           btrfs inspect-internal dump-super $dev > btrfs_vdd_superblock
-           btrfs inspect-internal dump-super $dev | \
+           btrfs inspect-internal dump-super $dev |
                awk '/^dev_item.fsid/ {print $2}'
         fi > $f
         cat /proc/partitions > proc_partitions
@@ -66,7 +65,7 @@ class TestBasicAbs(VMBaseClass):
              "root/curtin-install.log", "root/curtin-install-cfg.yaml"])
 
     def test_ptable(self, disk_to_check=None):
-        if "trusty" in [self.release, self.target_release]:
+        if self.target_release == "trusty":
             raise SkipTest("No PTTYPE blkid output on trusty")
 
         blkid_info = self.get_blkid_data("blkid_output_vda")
@@ -201,8 +200,7 @@ class TestBasicScsiAbs(TestBasicAbs):
         if command -v btrfs-debug-tree >/dev/null; then
            btrfs-debug-tree -r $dev | awk '/^uuid/ {print $2}' | grep "-"
         else
-           btrfs inspect-internal dump-super $dev > btrfs_sdc_superblock
-           btrfs inspect-internal dump-super $dev | \
+           btrfs inspect-internal dump-super $dev |
                awk '/^dev_item.fsid/ {print $2}'
         fi > $f
         cat /proc/partitions > proc_partitions
@@ -226,7 +224,7 @@ class TestBasicScsiAbs(TestBasicAbs):
              "ls_disk_id", "proc_partitions"])
 
     def test_ptable(self):
-        if "trusty" in [self.release, self.target_release]:
+        if self.target_release == "trusty":
             raise SkipTest("No PTTYPE blkid output on trusty")
 
         blkid_info = self.get_blkid_data("blkid_output_sda")
