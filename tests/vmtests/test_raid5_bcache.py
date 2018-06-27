@@ -106,4 +106,8 @@ class ArtfulTestRaid5Bcache(relbase.artful, TestMdadmBcacheAbs):
 class BionicTestRaid5Bcache(relbase.bionic, TestMdadmBcacheAbs):
     __test__ = True
 
+
+class CosmicTestRaid5Bcache(relbase.cosmic, TestMdadmBcacheAbs):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

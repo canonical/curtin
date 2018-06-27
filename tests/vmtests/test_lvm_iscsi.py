@@ -82,4 +82,8 @@ class ArtfulTestIscsiLvm(relbase.artful, TestLvmIscsiAbs):
 class BionicTestIscsiLvm(relbase.bionic, TestLvmIscsiAbs):
     __test__ = True
 
+
+class CosmicTestIscsiLvm(relbase.cosmic, TestLvmIscsiAbs):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

@@ -120,6 +120,10 @@ class BionicUefiTestBasic(relbase.bionic, TestBasicAbs):
     __test__ = True
 
 
+class CosmicUefiTestBasic(relbase.cosmic, TestBasicAbs):
+    __test__ = True
+
+
 class TrustyUefiTestBasic4k(TrustyUefiTestBasic):
     disk_block_size = 4096
 
@@ -137,6 +141,10 @@ class ArtfulUefiTestBasic4k(ArtfulUefiTestBasic):
 
 
 class BionicUefiTestBasic4k(BionicUefiTestBasic):
+    disk_block_size = 4096
+
+
+class CosmicUefiTestBasic4k(CosmicUefiTestBasic):
     disk_block_size = 4096
 
 # vi: ts=4 expandtab syntax=python

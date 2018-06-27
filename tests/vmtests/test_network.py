@@ -488,6 +488,10 @@ class BionicTestNetworkBasic(relbase.bionic, TestNetworkBasicAbs):
     __test__ = True
 
 
+class CosmicTestNetworkBasic(relbase.cosmic, TestNetworkBasicAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkBasic(centos_relbase.centos66fromxenial,
                                CentosTestNetworkBasicAbs):
     __test__ = True

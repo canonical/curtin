@@ -23,8 +23,14 @@ class TestBasicAbs(VMBaseClass):
         blkid -o export /dev/vda > blkid_output_vda
         blkid -o export /dev/vda1 > blkid_output_vda1
         blkid -o export /dev/vda2 > blkid_output_vda2
-        f="btrfs_uuid_vdd"
-        btrfs-debug-tree -r /dev/vdd | awk '/^uuid/ {print $2}' | grep "-" > $f
+        dev="/dev/vdd"; f="btrfs_uuid_${dev#/dev/*}";
+        if command -v btrfs-debug-tree >/dev/null; then
+           btrfs-debug-tree -r $dev | awk '/^uuid/ {print $2}' | grep "-"
+        else
+           btrfs inspect-internal dump-super $dev > btrfs_vdd_superblock
+           btrfs inspect-internal dump-super $dev | \
+               awk '/^dev_item.fsid/ {print $2}'
+        fi > $f
         cat /proc/partitions > proc_partitions
         ls -al /dev/disk/by-uuid/ > ls_uuid
         cat /etc/fstab > fstab
@@ -177,6 +183,10 @@ class BionicTestBasic(relbase.bionic, TestBasicAbs):
     __test__ = True
 
 
+class CosmicTestBasic(relbase.cosmic, TestBasicAbs):
+    __test__ = True
+
+
 class TestBasicScsiAbs(TestBasicAbs):
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
@@ -187,8 +197,14 @@ class TestBasicScsiAbs(TestBasicAbs):
         blkid -o export /dev/sda > blkid_output_sda
         blkid -o export /dev/sda1 > blkid_output_sda1
         blkid -o export /dev/sda2 > blkid_output_sda2
-        f="btrfs_uuid_sdc"
-        btrfs-debug-tree -r /dev/sdc | awk '/^uuid/ {print $2}' | grep "-" > $f
+        dev="/dev/sdc"; f="btrfs_uuid_${dev#/dev/*}";
+        if command -v btrfs-debug-tree >/dev/null; then
+           btrfs-debug-tree -r $dev | awk '/^uuid/ {print $2}' | grep "-"
+        else
+           btrfs inspect-internal dump-super $dev > btrfs_sdc_superblock
+           btrfs inspect-internal dump-super $dev | \
+               awk '/^dev_item.fsid/ {print $2}'
+        fi > $f
         cat /proc/partitions > proc_partitions
         ls -al /dev/disk/by-uuid/ > ls_uuid
         ls -al /dev/disk/by-id/ > ls_disk_id
@@ -294,6 +310,10 @@ class ArtfulTestScsiBasic(relbase.artful, TestBasicScsiAbs):
 
 
 class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
+    __test__ = True
+
+
+class CosmicTestScsiBasic(relbase.cosmic, TestBasicScsiAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

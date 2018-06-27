@@ -76,4 +76,8 @@ class ArtfulTestNetworkAlias(relbase.artful, TestNetworkAliasAbs):
 class BionicTestNetworkAlias(relbase.bionic, TestNetworkAliasAbs):
     __test__ = True
 
+
+class CosmicTestNetworkAlias(relbase.cosmic, TestNetworkAliasAbs):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

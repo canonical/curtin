@@ -162,6 +162,10 @@ class BionicTestMdadmBcache(relbase.bionic, TestMdadmBcacheAbs):
     __test__ = True
 
 
+class CosmicTestMdadmBcache(relbase.cosmic, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot.yaml"
@@ -199,6 +203,10 @@ class ArtfulTestMirrorboot(relbase.artful, TestMirrorbootAbs):
 
 
 class BionicTestMirrorboot(relbase.bionic, TestMirrorbootAbs):
+    __test__ = True
+
+
+class CosmicTestMirrorboot(relbase.cosmic, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -248,6 +256,11 @@ class BionicTestMirrorbootPartitions(relbase.bionic,
     __test__ = True
 
 
+class CosmicTestMirrorbootPartitions(relbase.cosmic,
+                                     TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
 class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot-uefi.yaml"
@@ -293,6 +306,11 @@ class BionicTestMirrorbootPartitionsUEFI(relbase.bionic,
     __test__ = True
 
 
+class CosmicTestMirrorbootPartitionsUEFI(relbase.cosmic,
+                                         TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
@@ -331,6 +349,10 @@ class ArtfulTestRaid5boot(relbase.artful, TestRaid5bootAbs):
 
 
 class BionicTestRaid5boot(relbase.bionic, TestRaid5bootAbs):
+    __test__ = True
+
+
+class CosmicTestRaid5boot(relbase.cosmic, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -387,6 +409,10 @@ class BionicTestRaid6boot(relbase.bionic, TestRaid6bootAbs):
     __test__ = True
 
 
+class CosmicTestRaid6boot(relbase.cosmic, TestRaid6bootAbs):
+    __test__ = True
+
+
 class TestRaid10bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid10boot.yaml"
@@ -425,6 +451,10 @@ class ArtfulTestRaid10boot(relbase.artful, TestRaid10bootAbs):
 
 
 class BionicTestRaid10boot(relbase.bionic, TestRaid10bootAbs):
+    __test__ = True
+
+
+class CosmicTestRaid10boot(relbase.cosmic, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -526,6 +556,10 @@ class ArtfulTestAllindata(relbase.artful, TestAllindataAbs):
 
 
 class BionicTestAllindata(relbase.bionic, TestAllindataAbs):
+    __test__ = True
+
+
+class CosmicTestAllindata(relbase.cosmic, TestAllindataAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

@@ -63,4 +63,7 @@ class BionicTestPollinateUserAgent(relbase.bionic, TestPollinateUserAgent):
     __test__ = True
 
 
+class CosmicTestPollinateUserAgent(relbase.cosmic, TestPollinateUserAgent):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

@@ -114,6 +114,10 @@ class _BionicBase(_UbuntuBase):
     release = "bionic"
 
 
+class _CosmicBase(_UbuntuBase):
+    release = "cosmic"
+
+
 class _Releases(object):
     trusty = _TrustyBase
     precise = _PreciseBase
@@ -129,6 +133,7 @@ class _Releases(object):
     xenial_edge = _XenialEdge
     artful = _ArtfulBase
     bionic = _BionicBase
+    cosmic = _CosmicBase
 
 
 class _CentosReleases(object):

@@ -90,6 +90,20 @@ class BionicTestBonding(relbase.bionic, TestNetworkBondingAbs):
                          self.debian_packages.get('ifenslave'))
 
 
+class CosmicTestBonding(relbase.cosmic, TestNetworkBondingAbs):
+    __test__ = True
+
+    def test_ifenslave_installed(self):
+        """Cosmic should not have ifenslave installed."""
+        pass
+
+    def test_ifenslave_not_installed(self):
+        """Confirm that ifenslave is not installed on cosmic"""
+        self.assertNotIn('ifenslave', self.debian_packages,
+                         "ifenslave is not expected in cosmic: %s" %
+                         self.debian_packages.get('ifenslave'))
+
+
 class Centos66TestNetworkBonding(centos_relbase.centos66fromxenial,
                                  CentosTestNetworkBondingAbs):
     __test__ = True

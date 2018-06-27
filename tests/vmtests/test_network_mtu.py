@@ -207,6 +207,15 @@ class BionicTestNetworkMtu(relbase.bionic, TestNetworkMtuAbs):
         super().setUpClass()
 
 
+class CosmicTestNetworkMtu(relbase.cosmic, TestNetworkMtuAbs):
+    __test__ = True
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skip_by_date("1671951", fixby="2018-09-26")
+        super().setUpClass()
+
+
 class Centos66TestNetworkMtu(centos_relbase.centos66fromxenial,
                              CentosTestNetworkMtuAbs):
     __test__ = True

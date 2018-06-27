@@ -59,6 +59,11 @@ class BionicTestNetworkStaticRoutes(relbase.bionic,
     __test__ = True
 
 
+class CosmicTestNetworkStaticRoutes(relbase.cosmic,
+                                    TestNetworkStaticRoutesAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkStaticRoutes(centos_relbase.centos66fromxenial,
                                       CentosTestNetworkStaticRoutesAbs):
     __test__ = False

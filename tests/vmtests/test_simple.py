@@ -56,4 +56,11 @@ class BionicTestSimple(relbase.bionic, TestSimple):
     def test_output_files_exist(self):
         self.output_files_exist(["netplan.yaml"])
 
+
+class CosmicTestSimple(relbase.cosmic, TestSimple):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
 # vi: ts=4 expandtab syntax=python

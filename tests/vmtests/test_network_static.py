@@ -68,6 +68,10 @@ class BionicTestNetworkStatic(relbase.bionic, TestNetworkStaticAbs):
     __test__ = True
 
 
+class CosmicTestNetworkStatic(relbase.cosmic, TestNetworkStaticAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkStatic(centos_relbase.centos66fromxenial,
                                 CentosTestNetworkStaticAbs):
     __test__ = True

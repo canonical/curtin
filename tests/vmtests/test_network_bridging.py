@@ -244,4 +244,17 @@ class BionicTestBridging(relbase.bionic, TestBridgeNetworkAbs):
                          "bridge-utils is not expected in bionic: %s" %
                          self.debian_packages.get('bridge-utils'))
 
+
+class CosmicTestBridging(relbase.cosmic, TestBridgeNetworkAbs):
+    __test__ = True
+
+    def test_bridge_utils_installed(self):
+        """bridge-utils not needed in cosmic."""
+        pass
+
+    def test_bridge_utils_not_installed(self):
+        self.assertNotIn("bridge-utils", self.debian_packages,
+                         "bridge-utils is not expected in cosmic: %s" %
+                         self.debian_packages.get('bridge-utils'))
+
 # vi: ts=4 expandtab syntax=python

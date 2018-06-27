@@ -48,4 +48,8 @@ class ArtfulTestIscsiMdadm(relbase.artful, TestMdadmIscsiAbs):
 class BionicTestIscsiMdadm(relbase.bionic, TestMdadmIscsiAbs):
     __test__ = True
 
+
+class CosmicTestIscsiMdadm(relbase.cosmic, TestMdadmIscsiAbs):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

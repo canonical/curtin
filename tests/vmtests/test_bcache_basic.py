@@ -72,4 +72,8 @@ class ArtfulBcacheBasic(relbase.artful, TestBcacheBasic):
 class BionicBcacheBasic(relbase.bionic, TestBcacheBasic):
     __test__ = True
 
+
+class CosmicBcacheBasic(relbase.cosmic, TestBcacheBasic):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

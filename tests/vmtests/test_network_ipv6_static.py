@@ -54,6 +54,10 @@ class BionicTestNetworkIPV6Static(relbase.bionic, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
+class CosmicTestNetworkIPV6Static(relbase.cosmic, TestNetworkIPV6StaticAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkIPV6Static(centos_relbase.centos66fromxenial,
                                     CentosTestNetworkIPV6StaticAbs):
     __test__ = True
