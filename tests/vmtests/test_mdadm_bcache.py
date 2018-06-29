@@ -129,13 +129,9 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         self.test_dname(disk_to_check=self.bcache_dnames)
 
 
+@VMBaseClass.skip_by_date("1754581", fixby="2019-01-22", install=False)
 class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):
     __test__ = True
-
-    @classmethod
-    def setUpClass(cls):
-        cls.skip_by_date("1754581", fixby="2019-01-22")
-        super().setUpClass()
 
 
 class TrustyHWEXTestMdadmBcache(relbase.trusty_hwe_x, TestMdadmBcacheAbs):

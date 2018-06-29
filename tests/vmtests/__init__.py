@@ -26,6 +26,7 @@ from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
 from .image_sync import (IMAGE_SRC_URL, IMAGE_DIR, ITEM_NAME_FILTERS)
 from .helpers import check_call, TimeoutExpired, ip_a_to_dict
+from functools import wraps
 from unittest import TestCase, SkipTest
 
 try:
@@ -354,6 +355,7 @@ def skip_if_flag(flag):
     def decorator(func):
         """the name test_wrapper below has to start with test, or nose's
            filter will not run it."""
+        @wraps(func)
         def test_wrapper(self, *args, **kwargs):
             val = getattr(self, flag, None)
             if val:
@@ -361,6 +363,132 @@ def skip_if_flag(flag):
             else:
                 return func(self, *args, **kwargs)
         return test_wrapper
+    return decorator
+
+
+def skip_by_date(bugnum, fixby, removeby=None, skips=None, install=True):
+    """A decorator to skip a test or test class based on current date.
+
+    @param bugnum: A bug number with which to identify the action.
+    @param fixby: string: A date string in the format of YYYY-MM-DD
+        tuple (YYYY,MM,DD).  Raises SkipTest with testcase results until
+        the current date is >= fixby value.
+    @param removeby: string: A date string in the format of YYYY-MM-DD
+        or (YYYY,MM,DD).  Raises RuntimeError with testcase results
+        if current date is >= removeby value.
+        Default value is 3 weeks past fixby value.
+    @param skips: list of test cases (string method names) to be skipped.
+        If None, all class testcases will be skipped per evaluation of
+        fixby and removeby params.  This is ignored when decorating a method.
+        Example skips=["test_test1", "test_test2"]
+    @param install: boolean: When True, setUpClass raises skipTest
+        exception while "today" < "fixby" date.  Useful for handling
+        testcases where the install or boot would hang.
+        install parameter is ignored when decorating a method."""
+    def as_dtdate(date):
+        if not isinstance(date, str):
+            return date
+        return datetime.date(*map(int, date.split("-")))
+
+    def as_str(dtdate):
+        return "%s-%02d-%02d" % (dtdate.year, dtdate.month, dtdate.day)
+
+    d_today = datetime.date.today()
+    d_fixby = as_dtdate(fixby)
+    if removeby is None:
+        # give 3 weeks by default.
+        d_removeby = d_fixby + datetime.timedelta(21)
+    else:
+        d_removeby = as_dtdate(removeby)
+
+    envname = 'CURTIN_VMTEST_SKIP_BY_DATE_BUGS'
+    envval = os.environ.get(envname, "")
+    skip_bugs = envval.replace(",", " ").split()
+    _setUpClass = "setUpClass"
+
+    def decorator(test):
+        def decorate_callable(mycallable, classname=test.__name__):
+            funcname = mycallable.__name__
+            name = '.'.join((classname, funcname))
+            bmsg = ("skip_by_date({name}) LP: #{bug} "
+                    "fixby={fixby} removeby={removeby}: ".format(
+                        name=name, bug=bugnum,
+                        fixby=as_str(d_fixby), removeby=as_str(d_removeby)))
+
+            @wraps(mycallable)
+            def wrapper(*args, **kwargs):
+                skip_reason = None
+                if "*" in skip_bugs or bugnum in skip_bugs:
+                    skip_reason = "skip per %s=%s" % (envname, envval)
+                elif (funcname == _setUpClass and
+                      (not install and d_today < d_fixby)):
+                    skip_reason = "skip per install=%s" % install
+
+                if skip_reason:
+                    logger.info(bmsg + skip_reason)
+                    raise SkipTest(bmsg + skip_reason)
+
+                if d_today < d_fixby:
+                    tmsg = "NOT_YET_FIXBY"
+                elif d_today > d_removeby:
+                    tmsg = "REMOVE_WORKAROUND"
+                else:
+                    tmsg = "PAST_FIXBY"
+
+                if funcname == _setUpClass:
+                    logger.info(bmsg + "Running test (%s)", tmsg)
+
+                exc = None
+                try:
+                    mycallable(*args, **kwargs)
+                except Exception as e:
+                    exc = e
+
+                if exc is None:
+                    result = "Passed."
+                elif isinstance(exc, SkipTest):
+                    result = "Skipped: %s" % exc
+                else:
+                    result = "Failed: %s" % exc
+
+                msg = (bmsg + "(%s)" % tmsg + " " + result)
+
+                logger.info(msg)
+                if d_today < d_fixby:
+                    if funcname != _setUpClass:
+                        raise SkipTest(msg)
+                else:
+                    # Expected fixed.
+                    if isinstance(exc, SkipTest):
+                        raise SkipTest(msg)
+                    elif d_today > d_removeby:
+                        raise RuntimeError(msg)
+                    elif exc:
+                        raise RuntimeError(msg)
+
+            return wrapper
+
+        def decorate_test_methods(klass):
+            for attr in dir(klass):
+                attr_value = getattr(klass, attr)
+                if not hasattr(attr_value, "__call__"):
+                    continue
+
+                if attr != _setUpClass:
+                    if not attr.startswith('test_'):
+                        continue
+                    elif not (skips is None or attr in skips):
+                        continue
+
+                setattr(klass, attr,
+                        decorate_callable(attr_value,
+                                          classname=klass.__name__))
+            return klass
+
+        if isinstance(test, (type,)):
+            return decorate_test_methods(klass=test)
+        return decorate_callable(test)
+
     return decorator
 
 
@@ -566,61 +694,6 @@ class VMBaseClass(TestCase):
         return disks
 
     @classmethod
-    def skip_by_date(cls, bugnum, fixby, removeby=None,
-                     release=None, name=None):
-        """Raise SkipTest with bug message until 'fixby'.
-           Raise RutimeError after removeby.
-           fixby and removeby support string (2018-01-01) or tuple(2018,01,01)
-           removeby defaults to 3 weeks after fixby.
-           """
-        def as_dtdate(date):
-            if not isinstance(date, str):
-                return date
-            return datetime.date(*map(int, date.split("-")))
-
-        def as_str(dtdate):
-            return "%s-%02d-%02d" % (dtdate.year, dtdate.month, dtdate.day)
-
-        if name is None:
-            name = cls.__name__
-
-        if release is None:
-            release = cls.release
-
-        d_today = datetime.date.today()
-        d_fixby = as_dtdate(fixby)
-        if removeby is None:
-            # give 3 weeks by default.
-            d_removeby = d_fixby + datetime.timedelta(21)
-        else:
-            d_removeby = as_dtdate(removeby)
-
-        bmsg = ("[{name}/{rel}] skip_by_date LP: #{bug} "
-                "fixby={fixby} removeby={removeby}: ".format(
-                    name=name, rel=release, bug=bugnum,
-                    fixby=as_str(d_fixby), removeby=as_str(d_removeby)))
-
-        envname = 'CURTIN_VMTEST_SKIP_BY_DATE_BUGS'
-        envval = os.environ.get(envname, "")
-        skip_bugs = envval.replace(",", " ").split()
-
-        result = None
-        msg = bmsg + "Not skipping."
-        if "*" in skip_bugs or bugnum in skip_bugs:
-            msg = bmsg + "skip per %s=%s" % (envname, envval)
-            result = SkipTest
-        elif d_today < d_fixby:
-            msg = bmsg + "skip (today < fixby)"
-            result = SkipTest
-        elif d_today > d_removeby:
-            msg = bmsg + "Remove workaround."
-            result = RuntimeError
-
-        logger.info(msg)
-        if result:
-            raise result(msg)
-
-    @classmethod
     def get_config_smp(cls):
         """Get number of cpus to use for guest"""
 
@@ -668,6 +741,12 @@ class VMBaseClass(TestCase):
         # -hwe-version or -hwe-version-edge packages
         package = cls.get_kernel_package()
         return {'kernel': {'fallback-package': package}}
+
+    @classmethod
+    def skip_by_date(cls, *args, **kwargs):
+        """skip_by_date wrapper. this way other modules do not have
+        to add an import of skip_by_date to start skipping."""
+        return skip_by_date(*args, **kwargs)
 
     @classmethod
     def setUpClass(cls):

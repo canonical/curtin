@@ -127,6 +127,7 @@ class XenialTestUefiLvmRootXfs(relbase.xenial, TestUefiLvmRootAbs):
     }
 
 
+@VMBaseClass.skip_by_date("1652822", fixby="2019-06-01")
 class XenialTestUefiLvmRootXfsBootXfs(relbase.xenial, TestUefiLvmRootAbs):
     """This tests xfs root and xfs boot with uefi.
 
@@ -137,11 +138,6 @@ class XenialTestUefiLvmRootXfsBootXfs(relbase.xenial, TestUefiLvmRootAbs):
         '__BOOTFS_FORMAT__': 'xfs',
         '__ROOTFS_FORMAT__': 'xfs',
     }
-
-    @classmethod
-    def setUpClass(cls):
-        cls.skip_by_date("1652822", fixby="2019-06-01")
-        super().setUpClass()
 
 
 class ArtfulTestUefiLvmRootExt4(relbase.artful, TestUefiLvmRootAbs):
