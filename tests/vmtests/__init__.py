@@ -916,7 +916,7 @@ class VMBaseClass(TestCase):
         disks.extend(cls.build_iscsi_disks())
 
         # proxy config
-        configs = [cls.conf_file]
+        configs = [cls.conf_file, 'examples/tests/vmtest_pollinate.yaml']
         cls.proxy = get_apt_proxy()
         if cls.proxy is not None and not cls.td.restored:
             proxy_config = os.path.join(cls.td.install, 'proxy.cfg')
