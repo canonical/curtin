@@ -14,5 +14,5 @@ post_cmds:
 late_commands:
   01_get_proc_mounts: [sh, -c, *cat_proc_mounts]
   02_write_out_target: [sh, -c, *echo_target_mp]
-  03_unmount_target: [curtin, unmount]
-  04_get_proc_mounts: [cat, /proc/mounts]
+  99a_unmount_target: [curtin, unmount]
+  99b_get_proc_mounts: [cat, /proc/mounts]

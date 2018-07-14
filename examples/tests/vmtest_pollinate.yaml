@@ -7,4 +7,4 @@ _vmtest_pollinate:
    echo curtin/vmtest >> "$cfg"
 
 late_commands:
-  vmtest_pollinate: ['curtin', 'in-target', '--', 'sh', '-c', *pvmtest]
+  01_vmtest_pollinate: ['curtin', 'in-target', '--', 'sh', '-c', *pvmtest]
