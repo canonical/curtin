@@ -55,7 +55,7 @@ storage:
        id: md0-part2
        name: md0-part2
        number: 2
-       size: 2GB
+       size: 2.5GB
        type: partition
        uuid: c2d21fd3-3cde-4432-8eab-f08594bbe76e
        wipe: superblock
