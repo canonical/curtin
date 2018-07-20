@@ -56,6 +56,7 @@ SYSTEM_UPGRADE = os.environ.get("CURTIN_VMTEST_SYSTEM_UPGRADE", "auto")
 
 
 _UNSUPPORTED_UBUNTU = None
+_DEVEL_UBUNTU = None
 
 _TOPDIR = None
 
@@ -957,14 +958,19 @@ class VMBaseClass(TestCase):
         system_upgrade = SYSTEM_UPGRADE
         upgrade_packages = UPGRADE_PACKAGES
         if add_repos:
-            # enable if user has set a value here
-            if system_upgrade == "auto":
-                system_upgrade = True
-            logger.info('Adding apt repositories: %s', add_repos)
-            repo_cfg = os.path.join(cls.td.install, 'add_repos.cfg')
-            util.write_file(repo_cfg,
-                            generate_repo_config(add_repos.split(",")))
-            configs.append(repo_cfg)
+            cfg_repos = generate_repo_config(add_repos.split(","),
+                                             release=cls.target_release)
+            if cfg_repos:
+                logger.info('Adding apt repositories: %s', add_repos)
+                # enable if user has set a value here
+                if system_upgrade == "auto":
+                    system_upgrade = True
+                repo_cfg = os.path.join(cls.td.install, 'add_repos.cfg')
+                util.write_file(repo_cfg, cfg_repos)
+                configs.append(repo_cfg)
+            else:
+                logger.info("add_repos=%s processed to empty config.",
+                            add_repos)
         elif system_upgrade == "auto":
             system_upgrade = False
 
@@ -1942,7 +1948,25 @@ def is_unsupported_ubuntu(release):
     return release in _UNSUPPORTED_UBUNTU
 
 
-def generate_repo_config(repos):
+def is_devel_release(release):
+    global _DEVEL_UBUNTU
+    if _DEVEL_UBUNTU is None:
+        udi = 'ubuntu-distro-info'
+        env = os.environ.get('_DEVEL_UBUNTU')
+        if env:
+            # allow it to be , or " " separated.
+            _DEVEL_UBUNTU = env.replace(",", " ").split()
+        elif util.which(udi):
+            _DEVEL_UBUNTU = util.subp(
+                [udi, '--devel'], capture=True)[0].splitlines()
+        else:
+            # no way to tell.
+            _DEVEL_UBUNTU = []
+
+    return release in _DEVEL_UBUNTU
+
+
+def generate_repo_config(repos, release=None):
     """Generate apt yaml configuration to add specified repositories.
 
     @param repos: A list of add-apt-repository strings.
@@ -1950,8 +1974,19 @@ def generate_repo_config(repos):
                   pocket of a particular release.
     @returns: string:  A yaml string
     """
-    sources = {"add_repos_%02d" % idx: {'source': v}
-               for idx, v in enumerate(repos)}
+    sources = {}
+    for idx, v in enumerate(repos):
+        if v == 'proposed' and is_devel_release(release):
+            # lower case 'proposed' is magically handled by apt repo
+            # processing. But dev release's -proposed is "known broken".
+            # if you want to test development release, then use 'PROPOSED'.
+            continue
+        if v == 'PROPOSED':
+            v = 'proposed'
+        sources['add_repos_%02d' % idx] = {'source': v}
+    if not sources:
+        return None
+
     return yaml.dump({'apt': {'sources': sources}})
 
 
