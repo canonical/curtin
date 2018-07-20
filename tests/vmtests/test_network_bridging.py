@@ -228,10 +228,6 @@ class Centos70TestBridgeNetwork(centos_relbase.centos70fromxenial,
 
 # only testing Yakkety or newer as older releases do not yet
 # have updated ifupdown/bridge-utils packages;
-class ArtfulTestBridging(relbase.artful, TestBridgeNetworkAbs):
-    __test__ = True
-
-
 class BionicTestBridging(relbase.bionic, TestBridgeNetworkAbs):
     __test__ = True
 

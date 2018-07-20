@@ -71,10 +71,6 @@ class XenialTestBonding(relbase.xenial, TestNetworkBondingAbs):
     __test__ = True
 
 
-class ArtfulTestBonding(relbase.artful, TestNetworkBondingAbs):
-    __test__ = True
-
-
 class BionicTestBonding(relbase.bionic, TestNetworkBondingAbs):
     __test__ = True
 

@@ -49,11 +49,6 @@ class XenialTestNetworkStaticRoutes(relbase.xenial,
     __test__ = True
 
 
-class ArtfulTestNetworkStaticRoutes(relbase.artful,
-                                    TestNetworkStaticRoutesAbs):
-    __test__ = True
-
-
 class BionicTestNetworkStaticRoutes(relbase.bionic,
                                     TestNetworkStaticRoutesAbs):
     __test__ = True

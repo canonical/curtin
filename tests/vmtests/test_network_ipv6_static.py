@@ -46,10 +46,6 @@ class XenialTestNetworkIPV6Static(relbase.xenial, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
-class ArtfulTestNetworkIPV6Static(relbase.artful, TestNetworkIPV6StaticAbs):
-    __test__ = True
-
-
 class BionicTestNetworkIPV6Static(relbase.bionic, TestNetworkIPV6StaticAbs):
     __test__ = True
 

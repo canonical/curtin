@@ -92,20 +92,6 @@ class XenialTestLvmRootXfs(relbase.xenial, TestLvmRootAbs):
     }
 
 
-class ArtfulTestLvmRootExt4(relbase.artful, TestLvmRootAbs):
-    __test__ = True
-    conf_replace = {
-        '__ROOTFS_FORMAT__': 'ext4',
-    }
-
-
-class ArtfulTestLvmRootXfs(relbase.artful, TestLvmRootAbs):
-    __test__ = True
-    conf_replace = {
-        '__ROOTFS_FORMAT__': 'xfs',
-    }
-
-
 class TestUefiLvmRootAbs(TestLvmRootAbs):
     conf_file = "examples/tests/uefi_lvmroot.yaml"
     uefi = True
@@ -136,22 +122,6 @@ class XenialTestUefiLvmRootXfsBootXfs(relbase.xenial, TestUefiLvmRootAbs):
     __test__ = True
     conf_replace = {
         '__BOOTFS_FORMAT__': 'xfs',
-        '__ROOTFS_FORMAT__': 'xfs',
-    }
-
-
-class ArtfulTestUefiLvmRootExt4(relbase.artful, TestUefiLvmRootAbs):
-    __test__ = True
-    conf_replace = {
-        '__BOOTFS_FORMAT__': 'ext4',
-        '__ROOTFS_FORMAT__': 'ext4',
-    }
-
-
-class ArtfulTestUefiLvmRootXfs(relbase.artful, TestUefiLvmRootAbs):
-    __test__ = True
-    conf_replace = {
-        '__BOOTFS_FORMAT__': 'ext4',
         '__ROOTFS_FORMAT__': 'xfs',
     }
 

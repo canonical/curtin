@@ -43,13 +43,6 @@ class XenialTestSimple(relbase.xenial, TestSimple):
     __test__ = True
 
 
-class ArtfulTestSimple(relbase.artful, TestSimple):
-    __test__ = True
-
-    def test_output_files_exist(self):
-        self.output_files_exist(["netplan.yaml"])
-
-
 class BionicTestSimple(relbase.bionic, TestSimple):
     __test__ = True
 

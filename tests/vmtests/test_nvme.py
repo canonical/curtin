@@ -75,10 +75,6 @@ class XenialEdgeTestNvme(relbase.xenial_edge, TestNvmeAbs):
     __test__ = True
 
 
-class ArtfulTestNvme(relbase.artful, TestNvmeAbs):
-    __test__ = True
-
-
 class BionicTestNvme(relbase.bionic, TestNvmeAbs):
     __test__ = True
 
@@ -165,10 +161,6 @@ class XenialHWETestNvmeBcache(relbase.xenial_hwe, TestNvmeBcacheAbs):
 
 
 class XenialEdgeTestNvmeBcache(relbase.xenial_edge, TestNvmeBcacheAbs):
-    __test__ = True
-
-
-class ArtfulTestNvmeBcache(relbase.artful, TestNvmeBcacheAbs):
     __test__ = True
 
 

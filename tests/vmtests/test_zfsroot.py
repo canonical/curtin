@@ -96,10 +96,6 @@ class XenialEdgeTestZfsRoot(relbase.xenial_edge, TestZfsRootAbs):
     __test__ = True
 
 
-class ArtfulTestZfsRoot(relbase.artful, TestZfsRootAbs):
-    __test__ = True
-
-
 class BionicTestZfsRoot(relbase.bionic, TestZfsRootAbs):
     __test__ = True
 

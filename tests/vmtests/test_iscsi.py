@@ -65,10 +65,6 @@ class XenialEdgeTestIscsiBasic(relbase.xenial_edge, TestBasicIscsiAbs):
     __test__ = True
 
 
-class ArtfulTestIscsiBasic(relbase.artful, TestBasicIscsiAbs):
-    __test__ = True
-
-
 class BionicTestIscsiBasic(relbase.bionic, TestBasicIscsiAbs):
     __test__ = True
 

@@ -190,11 +190,6 @@ class TestNetworkMtu(relbase.xenial, TestNetworkMtuAbs):
 
 
 @TestNetworkMtuAbs.skip_by_date("1671951", fixby="2018-09-26")
-class ArtfulTestNetworkMtu(relbase.artful, TestNetworkMtuAbs):
-    __test__ = True
-
-
-@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2018-09-26")
 class BionicTestNetworkMtu(relbase.bionic, TestNetworkMtuAbs):
     __test__ = True
 

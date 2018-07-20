@@ -41,10 +41,6 @@ class XenialEdgeTestIscsiMdadm(relbase.xenial_edge, TestMdadmIscsiAbs):
     __test__ = True
 
 
-class ArtfulTestIscsiMdadm(relbase.artful, TestMdadmIscsiAbs):
-    __test__ = True
-
-
 class BionicTestIscsiMdadm(relbase.bionic, TestMdadmIscsiAbs):
     __test__ = True
 

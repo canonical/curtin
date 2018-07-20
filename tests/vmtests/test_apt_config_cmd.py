@@ -57,10 +57,6 @@ class XenialTestAptConfigCMDCMD(relbase.xenial, TestAptConfigCMD):
     __test__ = True
 
 
-class ArtfulTestAptConfigCMDCMD(relbase.artful, TestAptConfigCMD):
-    __test__ = True
-
-
 class BionicTestAptConfigCMDCMD(relbase.bionic, TestAptConfigCMD):
     __test__ = True
 

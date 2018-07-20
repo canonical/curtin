@@ -75,10 +75,6 @@ class XenialEdgeTestIscsiLvm(relbase.xenial_edge, TestLvmIscsiAbs):
     __test__ = True
 
 
-class ArtfulTestIscsiLvm(relbase.artful, TestLvmIscsiAbs):
-    __test__ = True
-
-
 class BionicTestIscsiLvm(relbase.bionic, TestLvmIscsiAbs):
     __test__ = True
 

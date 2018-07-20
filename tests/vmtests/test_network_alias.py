@@ -69,10 +69,6 @@ class XenialTestNetworkAlias(relbase.xenial, TestNetworkAliasAbs):
     __test__ = True
 
 
-class ArtfulTestNetworkAlias(relbase.artful, TestNetworkAliasAbs):
-    __test__ = True
-
-
 class BionicTestNetworkAlias(relbase.bionic, TestNetworkAliasAbs):
     __test__ = True
 

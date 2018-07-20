@@ -86,10 +86,6 @@ class XenialTestNetworkVlan(relbase.xenial, TestNetworkVlanAbs):
     __test__ = True
 
 
-class ArtfulTestNetworkVlan(relbase.artful, TestNetworkVlanAbs):
-    __test__ = True
-
-
 class BionicTestNetworkVlan(relbase.bionic, TestNetworkVlanAbs):
     __test__ = True
 
