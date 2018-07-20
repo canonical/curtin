@@ -441,6 +441,8 @@ def skip_by_date(bugnum, fixby, removeby=None, skips=None, install=True):
                 exc = None
                 try:
                     mycallable(*args, **kwargs)
+                except SkipTest:
+                    raise
                 except Exception as e:
                     exc = e
 
@@ -459,9 +461,7 @@ def skip_by_date(bugnum, fixby, removeby=None, skips=None, install=True):
                         raise SkipTest(msg)
                 else:
                     # Expected fixed.
-                    if isinstance(exc, SkipTest):
-                        raise SkipTest(msg)
-                    elif d_today > d_removeby:
+                    if d_today > d_removeby:
                         raise RuntimeError(msg)
                     elif exc:
                         raise RuntimeError(msg)
