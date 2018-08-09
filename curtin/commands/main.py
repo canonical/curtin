@@ -16,9 +16,9 @@ VERSIONSTR = version.version_string()
 SUB_COMMAND_MODULES = [
     'apply_net', 'apt-config', 'block-attach-iscsi', 'block-detach-iscsi',
     'block-info', 'block-meta', 'block-wipe', 'clear-holders', 'curthooks',
-    'collect-logs', 'extract', 'hook', 'install', 'mkfs', 'in-target',
-    'net-meta', 'pack', 'swap', 'system-install', 'system-upgrade', 'unmount',
-    'version',
+    'collect-logs', 'extract', 'features',
+    'hook', 'install', 'mkfs', 'in-target', 'net-meta', 'pack', 'swap',
+    'system-install', 'system-upgrade', 'unmount', 'version',
 ]
 
 
