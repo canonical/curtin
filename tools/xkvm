@@ -648,9 +648,13 @@ main() {
 
     local bus_devices
     bus_devices=( -device "$virtio_scsi_bus,id=virtio-scsi-xkvm" )
-    cmd=( "${kvmcmd[@]}" "${archopts[@]}" 
+    local rng_devices
+    rng_devices=( -object "rng-random,filename=/dev/urandom,id=rng0"
+                  -device "virtio-rng-pci,rng=rng0" )
+    cmd=( "${kvmcmd[@]}" "${archopts[@]}"
           "${bios_opts[@]}"
           "${bus_devices[@]}"
+          "${rng_devices[@]}"
           "${netargs[@]}"
           "${diskargs[@]}" "${pt[@]}" )
     local pcmd=$(quote_cmd "${cmd[@]}")
