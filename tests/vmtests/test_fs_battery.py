@@ -225,4 +225,8 @@ class BionicTestFsBattery(relbase.bionic, TestFsBattery):
     __test__ = True
 
 
+class CosmicTestFsBattery(relbase.cosmic, TestFsBattery):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

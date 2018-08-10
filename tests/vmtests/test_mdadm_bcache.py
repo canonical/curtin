@@ -129,13 +129,9 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         self.test_dname(disk_to_check=self.bcache_dnames)
 
 
+@VMBaseClass.skip_by_date("1754581", fixby="2019-01-22", install=False)
 class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):
     __test__ = True
-
-    @classmethod
-    def setUpClass(cls):
-        cls.skip_by_date("1754581", fixby="2018-06-22")
-        super().setUpClass()
 
 
 class TrustyHWEXTestMdadmBcache(relbase.trusty_hwe_x, TestMdadmBcacheAbs):
@@ -154,11 +150,11 @@ class XenialEdgeTestMdadmBcache(relbase.xenial_edge, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class ArtfulTestMdadmBcache(relbase.artful, TestMdadmBcacheAbs):
+class BionicTestMdadmBcache(relbase.bionic, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class BionicTestMdadmBcache(relbase.bionic, TestMdadmBcacheAbs):
+class CosmicTestMdadmBcache(relbase.cosmic, TestMdadmBcacheAbs):
     __test__ = True
 
 
@@ -194,11 +190,11 @@ class XenialEdgeTestMirrorboot(relbase.xenial_edge, TestMirrorbootAbs):
     __test__ = True
 
 
-class ArtfulTestMirrorboot(relbase.artful, TestMirrorbootAbs):
+class BionicTestMirrorboot(relbase.bionic, TestMirrorbootAbs):
     __test__ = True
 
 
-class BionicTestMirrorboot(relbase.bionic, TestMirrorbootAbs):
+class CosmicTestMirrorboot(relbase.cosmic, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -238,12 +234,12 @@ class XenialEdgeTestMirrorbootPartitions(relbase.xenial_edge,
     __test__ = True
 
 
-class ArtfulTestMirrorbootPartitions(relbase.artful,
+class BionicTestMirrorbootPartitions(relbase.bionic,
                                      TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
-class BionicTestMirrorbootPartitions(relbase.bionic,
+class CosmicTestMirrorbootPartitions(relbase.cosmic,
                                      TestMirrorbootPartitionsAbs):
     __test__ = True
 
@@ -283,12 +279,12 @@ class XenialEdgeTestMirrorbootPartitionsUEFI(relbase.xenial_edge,
     __test__ = True
 
 
-class ArtfulTestMirrorbootPartitionsUEFI(relbase.artful,
+class BionicTestMirrorbootPartitionsUEFI(relbase.bionic,
                                          TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
 
 
-class BionicTestMirrorbootPartitionsUEFI(relbase.bionic,
+class CosmicTestMirrorbootPartitionsUEFI(relbase.cosmic,
                                          TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
 
@@ -326,11 +322,11 @@ class XenialEdgeTestRaid5boot(relbase.xenial_edge, TestRaid5bootAbs):
     __test__ = True
 
 
-class ArtfulTestRaid5boot(relbase.artful, TestRaid5bootAbs):
+class BionicTestRaid5boot(relbase.bionic, TestRaid5bootAbs):
     __test__ = True
 
 
-class BionicTestRaid5boot(relbase.bionic, TestRaid5bootAbs):
+class CosmicTestRaid5boot(relbase.cosmic, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -379,11 +375,11 @@ class XenialEdgeTestRaid6boot(relbase.xenial_edge, TestRaid6bootAbs):
     __test__ = True
 
 
-class ArtfulTestRaid6boot(relbase.artful, TestRaid6bootAbs):
+class BionicTestRaid6boot(relbase.bionic, TestRaid6bootAbs):
     __test__ = True
 
 
-class BionicTestRaid6boot(relbase.bionic, TestRaid6bootAbs):
+class CosmicTestRaid6boot(relbase.cosmic, TestRaid6bootAbs):
     __test__ = True
 
 
@@ -420,11 +416,11 @@ class XenialEdgeTestRaid10boot(relbase.xenial_edge, TestRaid10bootAbs):
     __test__ = True
 
 
-class ArtfulTestRaid10boot(relbase.artful, TestRaid10bootAbs):
+class BionicTestRaid10boot(relbase.bionic, TestRaid10bootAbs):
     __test__ = True
 
 
-class BionicTestRaid10boot(relbase.bionic, TestRaid10bootAbs):
+class CosmicTestRaid10boot(relbase.cosmic, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -521,11 +517,11 @@ class XenialEdgeTestAllindata(relbase.xenial_edge, TestAllindataAbs):
     __test__ = True
 
 
-class ArtfulTestAllindata(relbase.artful, TestAllindataAbs):
+class BionicTestAllindata(relbase.bionic, TestAllindataAbs):
     __test__ = True
 
 
-class BionicTestAllindata(relbase.bionic, TestAllindataAbs):
+class CosmicTestAllindata(relbase.cosmic, TestAllindataAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

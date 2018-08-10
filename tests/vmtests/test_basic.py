@@ -23,8 +23,13 @@ class TestBasicAbs(VMBaseClass):
         blkid -o export /dev/vda > blkid_output_vda
         blkid -o export /dev/vda1 > blkid_output_vda1
         blkid -o export /dev/vda2 > blkid_output_vda2
-        f="btrfs_uuid_vdd"
-        btrfs-debug-tree -r /dev/vdd | awk '/^uuid/ {print $2}' | grep "-" > $f
+        dev="/dev/vdd"; f="btrfs_uuid_${dev#/dev/*}";
+        if command -v btrfs-debug-tree >/dev/null; then
+           btrfs-debug-tree -r $dev | awk '/^uuid/ {print $2}' | grep "-"
+        else
+           btrfs inspect-internal dump-super $dev |
+               awk '/^dev_item.fsid/ {print $2}'
+        fi > $f
         cat /proc/partitions > proc_partitions
         ls -al /dev/disk/by-uuid/ > ls_uuid
         cat /etc/fstab > fstab
@@ -60,7 +65,7 @@ class TestBasicAbs(VMBaseClass):
              "root/curtin-install.log", "root/curtin-install-cfg.yaml"])
 
     def test_ptable(self, disk_to_check=None):
-        if "trusty" in [self.release, self.target_release]:
+        if self.target_release == "trusty":
             raise SkipTest("No PTTYPE blkid output on trusty")
 
         blkid_info = self.get_blkid_data("blkid_output_vda")
@@ -169,11 +174,11 @@ class XenialEdgeTestBasic(relbase.xenial_edge, TestBasicAbs):
     __test__ = True
 
 
-class ArtfulTestBasic(relbase.artful, TestBasicAbs):
+class BionicTestBasic(relbase.bionic, TestBasicAbs):
     __test__ = True
 
 
-class BionicTestBasic(relbase.bionic, TestBasicAbs):
+class CosmicTestBasic(relbase.cosmic, TestBasicAbs):
     __test__ = True
 
 
@@ -187,8 +192,13 @@ class TestBasicScsiAbs(TestBasicAbs):
         blkid -o export /dev/sda > blkid_output_sda
         blkid -o export /dev/sda1 > blkid_output_sda1
         blkid -o export /dev/sda2 > blkid_output_sda2
-        f="btrfs_uuid_sdc"
-        btrfs-debug-tree -r /dev/sdc | awk '/^uuid/ {print $2}' | grep "-" > $f
+        dev="/dev/sdc"; f="btrfs_uuid_${dev#/dev/*}";
+        if command -v btrfs-debug-tree >/dev/null; then
+           btrfs-debug-tree -r $dev | awk '/^uuid/ {print $2}' | grep "-"
+        else
+           btrfs inspect-internal dump-super $dev |
+               awk '/^dev_item.fsid/ {print $2}'
+        fi > $f
         cat /proc/partitions > proc_partitions
         ls -al /dev/disk/by-uuid/ > ls_uuid
         ls -al /dev/disk/by-id/ > ls_disk_id
@@ -210,7 +220,7 @@ class TestBasicScsiAbs(TestBasicAbs):
              "ls_disk_id", "proc_partitions"])
 
     def test_ptable(self):
-        if "trusty" in [self.release, self.target_release]:
+        if self.target_release == "trusty":
             raise SkipTest("No PTTYPE blkid output on trusty")
 
         blkid_info = self.get_blkid_data("blkid_output_sda")
@@ -289,11 +299,11 @@ class XenialEdgeTestScsiBasic(relbase.xenial_edge, TestBasicScsiAbs):
     __test__ = True
 
 
-class ArtfulTestScsiBasic(relbase.artful, TestBasicScsiAbs):
+class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
     __test__ = True
 
 
-class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
+class CosmicTestScsiBasic(relbase.cosmic, TestBasicScsiAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

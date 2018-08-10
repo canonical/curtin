@@ -10,9 +10,18 @@ import textwrap
 class TestNetworkBondingAbs(TestNetworkBaseTestsAbs):
     conf_file = "examples/tests/bonding_network.yaml"
 
-    def test_ifenslave_installed(self):
-        self.assertIn("ifenslave", self.debian_packages,
-                      "ifenslave deb not installed")
+    def test_ifenslave_package_status(self):
+        """ifenslave is expected installed in Ubuntu < artful."""
+        rel = self.target_release
+        pkg = "ifenslave"
+        if rel in ("precise", "trusty", "xenial"):
+            self.assertIn(
+                pkg, self.debian_packages,
+                "%s package expected in %s but not found" % (pkg, rel))
+        else:
+            self.assertNotIn(
+                pkg, self.debian_packages,
+                "%s package found but not expected in %s" % (pkg, rel))
 
 
 class CentosTestNetworkBondingAbs(TestNetworkBondingAbs):
@@ -26,7 +35,7 @@ class CentosTestNetworkBondingAbs(TestNetworkBondingAbs):
             rpm -qf `which ifenslave` |tee ifenslave_installed
         """)]
 
-    def test_ifenslave_installed(self):
+    def test_ifenslave_package_status(self):
         status = self.load_collect_file("ifenslave_installed")
         self.logger.debug('ifenslave installed: {}'.format(status))
         self.assertTrue('iputils' in status)
@@ -62,32 +71,12 @@ class XenialTestBonding(relbase.xenial, TestNetworkBondingAbs):
     __test__ = True
 
 
-class ArtfulTestBonding(relbase.artful, TestNetworkBondingAbs):
-    __test__ = True
-
-    def test_ifenslave_installed(self):
-        """Artful should not have ifenslave installed."""
-        pass
-
-    def test_ifenslave_not_installed(self):
-        """Confirm that ifenslave is not installed on artful"""
-        self.assertNotIn('ifenslave', self.debian_packages,
-                         "ifenslave is not expected in artful: %s" %
-                         self.debian_packages.get('ifenslave'))
-
-
 class BionicTestBonding(relbase.bionic, TestNetworkBondingAbs):
     __test__ = True
 
-    def test_ifenslave_installed(self):
-        """Bionic should not have ifenslave installed."""
-        pass
 
-    def test_ifenslave_not_installed(self):
-        """Confirm that ifenslave is not installed on bionic"""
-        self.assertNotIn('ifenslave', self.debian_packages,
-                         "ifenslave is not expected in bionic: %s" %
-                         self.debian_packages.get('ifenslave'))
+class CosmicTestBonding(relbase.cosmic, TestNetworkBondingAbs):
+    __test__ = True
 
 
 class Centos66TestNetworkBonding(centos_relbase.centos66fromxenial,

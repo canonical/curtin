@@ -30,7 +30,7 @@ storage:
     id: sda-part2
     name: sda-part2
     number: 2
-    size: 2G
+    size: 3G
     type: partition
     uuid: 47c97eae-f35d-473f-8f3d-d64161d571f1
     wipe: superblock
@@ -38,7 +38,7 @@ storage:
     id: sda-part3
     name: sda-part3
     number: 3
-    size: 2G
+    size: 1G
     type: partition
     uuid: e3202633-841c-4936-a520-b18d1f7938ea
     wipe: superblock
@@ -56,7 +56,7 @@ storage:
     id: sdb-part2
     name: sdb-part2
     number: 2
-    size: 2G
+    size: 3G
     type: partition
     uuid: a33a83dd-d1bf-4940-bf3e-6d931de85dbc
     wipe: superblock
@@ -72,7 +72,7 @@ storage:
     id: sdb-part3
     name: sdb-part3
     number: 3
-    size: 2G
+    size: 1G
     type: partition
     uuid: 27e29758-fdcf-4c6a-8578-c92f907a8a9d
     wipe: superblock

@@ -8,7 +8,7 @@ from curtin import block
 
 import string
 import os
-from uuid import uuid1
+from uuid import uuid4
 
 mkfs_commands = {
     "btrfs": "mkfs.btrfs",
@@ -191,7 +191,7 @@ def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False):
 
     # If uuid is not specified, generate one and try to use it
     if uuid is None:
-        uuid = str(uuid1())
+        uuid = str(uuid4())
     cmd.extend(get_flag_mapping("uuid", fs_family, param=uuid, strict=strict))
 
     if fs_family == "fat":

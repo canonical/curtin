@@ -66,11 +66,12 @@ class XenialEdgeTestLvm(relbase.xenial_edge, TestLvmAbs):
     __test__ = True
 
 
-class ArtfulTestLvm(relbase.artful, TestLvmAbs):
-    __test__ = True
-
-
 class BionicTestLvm(relbase.bionic, TestLvmAbs):
     __test__ = True
+
+
+class CosmicTestLvm(relbase.cosmic, TestLvmAbs):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

@@ -99,11 +99,11 @@ class XenialEdgeTestRaid5Bcache(relbase.xenial_edge, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class ArtfulTestRaid5Bcache(relbase.artful, TestMdadmBcacheAbs):
+class BionicTestRaid5Bcache(relbase.bionic, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class BionicTestRaid5Bcache(relbase.bionic, TestMdadmBcacheAbs):
+class CosmicTestRaid5Bcache(relbase.cosmic, TestMdadmBcacheAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

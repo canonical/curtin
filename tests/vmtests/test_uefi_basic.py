@@ -112,11 +112,11 @@ class XenialEdgeUefiTestBasic(relbase.xenial_edge, TestBasicAbs):
     __test__ = True
 
 
-class ArtfulUefiTestBasic(relbase.artful, TestBasicAbs):
+class BionicUefiTestBasic(relbase.bionic, TestBasicAbs):
     __test__ = True
 
 
-class BionicUefiTestBasic(relbase.bionic, TestBasicAbs):
+class CosmicUefiTestBasic(relbase.cosmic, TestBasicAbs):
     __test__ = True
 
 
@@ -132,11 +132,11 @@ class XenialGAUefiTestBasic4k(XenialGAUefiTestBasic):
     disk_block_size = 4096
 
 
-class ArtfulUefiTestBasic4k(ArtfulUefiTestBasic):
+class BionicUefiTestBasic4k(BionicUefiTestBasic):
     disk_block_size = 4096
 
 
-class BionicUefiTestBasic4k(BionicUefiTestBasic):
+class CosmicUefiTestBasic4k(CosmicUefiTestBasic):
     disk_block_size = 4096
 
 # vi: ts=4 expandtab syntax=python

@@ -109,9 +109,18 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
                                  "sysfs_br0_eth1",
                                  "sysfs_br0_eth2"])
 
-    def test_bridge_utils_installed(self):
-        self.assertIn("bridge-utils", self.debian_packages,
-                      "bridge-utilsi deb not installed")
+    def test_bridge_package_status(self):
+        """bridge-utils is expected installed in Ubuntu < artful."""
+        rel = self.target_release
+        pkg = "bridge-utils"
+        if rel in ("precise", "trusty", "xenial"):
+            self.assertIn(
+                pkg, self.debian_packages,
+                "%s package expected in %s but not found" % (pkg, rel))
+        else:
+            self.assertNotIn(
+                pkg, self.debian_packages,
+                "%s package found but not expected in %s" % (pkg, rel))
 
     def test_bridge_params(self):
 
@@ -132,11 +141,10 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
             return br0
 
         def _get_bridge_params(br):
-            release = (
-                self.target_release if self.target_release else self.release)
             bridge_params_uncheckable = default_bridge_params_uncheckable
             bridge_params_uncheckable.extend(
-                release_to_bridge_params_uncheckable.get(release, []))
+                release_to_bridge_params_uncheckable.get(
+                    self.target_release, []))
             return [p for p in br.keys()
                     if (p.startswith('bridge_') and
                         p not in bridge_params_uncheckable)]
@@ -200,7 +208,8 @@ class CentosTestBridgeNetworkAbs(TestBridgeNetworkAbs):
     def test_etc_resolvconf(self):
         pass
 
-    def test_bridge_utils_installed(self):
+    def test_bridge_package_status(self):
+        """bridge-utils is expected installed in centos."""
         self.output_files_exist(["bridge-utils_installed"])
         status = self.load_collect_file("bridge-utils_installed").strip()
         self.logger.debug('bridge-utils installed: {}'.format(status))
@@ -219,29 +228,12 @@ class Centos70TestBridgeNetwork(centos_relbase.centos70fromxenial,
 
 # only testing Yakkety or newer as older releases do not yet
 # have updated ifupdown/bridge-utils packages;
-class ArtfulTestBridging(relbase.artful, TestBridgeNetworkAbs):
-    __test__ = True
-
-    def test_bridge_utils_installed(self):
-        """bridge-utils not needed in artful."""
-        pass
-
-    def test_bridge_utils_not_installed(self):
-        self.assertNotIn("bridge-utils", self.debian_packages,
-                         "bridge-utils is not expected in artful: %s" %
-                         self.debian_packages.get('bridge-utils'))
-
-
 class BionicTestBridging(relbase.bionic, TestBridgeNetworkAbs):
     __test__ = True
 
-    def test_bridge_utils_installed(self):
-        """bridge-utils not needed in bionic."""
-        pass
 
-    def test_bridge_utils_not_installed(self):
-        self.assertNotIn("bridge-utils", self.debian_packages,
-                         "bridge-utils is not expected in bionic: %s" %
-                         self.debian_packages.get('bridge-utils'))
+class CosmicTestBridging(relbase.cosmic, TestBridgeNetworkAbs):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

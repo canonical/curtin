@@ -314,6 +314,10 @@ Some environment variables affect the running of vmtest
    setting (auto), then a upgrade will be done to make sure to include
    any new packages.
 
+   The string 'proposed' is handled specially.  It will enable the
+   Ubuntu -proposed pocket for non-devel releases.  If you wish to test
+   the -proposed pocket for a devel release, use 'PROPOSED'.
+
 - ``CURTIN_VMTEST_SYSTEM_UPGRADE``: default 'auto'
    The default setting of 'auto' means to do a system upgrade if
    there are additional repos added.  To enable this explicitly, set

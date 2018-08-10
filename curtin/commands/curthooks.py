@@ -679,7 +679,9 @@ def install_missing_packages(cfg, target):
                 needed_packages.add(pkg)
 
     # Filter out ifupdown network packages on netplan enabled systems.
-    if 'ifupdown' not in installed_packages and 'nplan' in installed_packages:
+    has_netplan = ('nplan' in installed_packages or
+                   'netplan.io' in installed_packages)
+    if 'ifupdown' not in installed_packages and has_netplan:
         drops = set(['bridge-utils', 'ifenslave', 'vlan'])
         if needed_packages.union(drops):
             LOG.debug("Skipping install of %s.  Not needed on netplan system.",

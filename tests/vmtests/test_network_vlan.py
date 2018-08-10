@@ -35,7 +35,7 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
         self.output_files_exist(link_files)
 
     def test_vlan_installed(self):
-        release = self.target_release if self.target_release else self.release
+        release = self.target_release
         if release not in ('precise', 'trusty', 'xenial', 'artful'):
             raise SkipTest("release '%s' does not need the vlan package" %
                            release)
@@ -86,11 +86,11 @@ class XenialTestNetworkVlan(relbase.xenial, TestNetworkVlanAbs):
     __test__ = True
 
 
-class ArtfulTestNetworkVlan(relbase.artful, TestNetworkVlanAbs):
+class BionicTestNetworkVlan(relbase.bionic, TestNetworkVlanAbs):
     __test__ = True
 
 
-class BionicTestNetworkVlan(relbase.bionic, TestNetworkVlanAbs):
+class CosmicTestNetworkVlan(relbase.cosmic, TestNetworkVlanAbs):
     __test__ = True
 
 

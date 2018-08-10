@@ -75,11 +75,11 @@ class XenialEdgeTestNvme(relbase.xenial_edge, TestNvmeAbs):
     __test__ = True
 
 
-class ArtfulTestNvme(relbase.artful, TestNvmeAbs):
+class BionicTestNvme(relbase.bionic, TestNvmeAbs):
     __test__ = True
 
 
-class BionicTestNvme(relbase.bionic, TestNvmeAbs):
+class CosmicTestNvme(relbase.cosmic, TestNvmeAbs):
     __test__ = True
 
 
@@ -164,11 +164,12 @@ class XenialEdgeTestNvmeBcache(relbase.xenial_edge, TestNvmeBcacheAbs):
     __test__ = True
 
 
-class ArtfulTestNvmeBcache(relbase.artful, TestNvmeBcacheAbs):
-    __test__ = True
-
-
 class BionicTestNvmeBcache(relbase.bionic, TestNvmeBcacheAbs):
     __test__ = True
+
+
+class CosmicTestNvmeBcache(relbase.cosmic, TestNvmeBcacheAbs):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

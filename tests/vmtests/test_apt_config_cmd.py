@@ -57,11 +57,11 @@ class XenialTestAptConfigCMDCMD(relbase.xenial, TestAptConfigCMD):
     __test__ = True
 
 
-class ArtfulTestAptConfigCMDCMD(relbase.artful, TestAptConfigCMD):
+class BionicTestAptConfigCMDCMD(relbase.bionic, TestAptConfigCMD):
     __test__ = True
 
 
-class BionicTestAptConfigCMDCMD(relbase.bionic, TestAptConfigCMD):
+class CosmicTestAptConfigCMDCMD(relbase.cosmic, TestAptConfigCMD):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

@@ -41,11 +41,11 @@ class XenialEdgeTestIscsiMdadm(relbase.xenial_edge, TestMdadmIscsiAbs):
     __test__ = True
 
 
-class ArtfulTestIscsiMdadm(relbase.artful, TestMdadmIscsiAbs):
+class BionicTestIscsiMdadm(relbase.bionic, TestMdadmIscsiAbs):
     __test__ = True
 
 
-class BionicTestIscsiMdadm(relbase.bionic, TestMdadmIscsiAbs):
+class CosmicTestIscsiMdadm(relbase.cosmic, TestMdadmIscsiAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

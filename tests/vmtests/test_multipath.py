@@ -66,11 +66,11 @@ class XenialEdgeTestMultipathBasic(relbase.xenial_edge, TestMultipathBasicAbs):
     __test__ = True
 
 
-class ArtfulTestMultipathBasic(relbase.artful, TestMultipathBasicAbs):
+class BionicTestMultipathBasic(relbase.bionic, TestMultipathBasicAbs):
     __test__ = True
 
 
-class BionicTestMultipathBasic(relbase.bionic, TestMultipathBasicAbs):
+class CosmicTestMultipathBasic(relbase.cosmic, TestMultipathBasicAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

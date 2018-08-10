@@ -300,6 +300,9 @@ def wipe_superblock(device):
         else:
             raise e
 
+    # gather any partitions
+    partitions = block.get_sysfs_partitions(device)
+
     # release zfs member by exporting the pool
     if block.is_zfs_member(blockdev):
         poolname = zfs.device_to_poolname(blockdev)
@@ -324,6 +327,27 @@ def wipe_superblock(device):
             continue
 
     _wipe_superblock(blockdev)
+
+    # if we had partitions, make sure they've been removed
+    if partitions:
+        LOG.debug('%s had partitions, issuing partition reread', device)
+        retries = [.5, .5, 1, 2, 5, 7]
+        for attempt, wait in enumerate(retries):
+            try:
+                # only rereadpt on wiped device
+                block.rescan_block_devices(devices=[blockdev])
+                # may raise IOError, OSError due to wiped partition table
+                curparts = block.get_sysfs_partitions(device)
+                if len(curparts) == 0:
+                    return
+            except (IOError, OSError):
+                if attempt + 1 >= len(retries):
+                    raise
+
+            LOG.debug("%s partitions still present, rereading pt"
+                      " (%s/%s).  sleeping %ss before retry",
+                      device, attempt + 1, len(retries), wait)
+            time.sleep(wait)
 
 
 def _wipe_superblock(blockdev, exclusive=True):
@@ -579,8 +603,6 @@ def clear_holders(base_paths, try_preserve=False):
                      dev_info['dev_type'])
             continue
 
-        # scan before we check
-        block.rescan_block_devices(warn_on_fail=False)
         if os.path.exists(dev_info['device']):
             LOG.info("shutdown running on holder type: '%s' syspath: '%s'",
                      dev_info['dev_type'], dev_info['device'])

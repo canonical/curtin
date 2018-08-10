@@ -65,11 +65,11 @@ class XenialEdgeTestIscsiBasic(relbase.xenial_edge, TestBasicIscsiAbs):
     __test__ = True
 
 
-class ArtfulTestIscsiBasic(relbase.artful, TestBasicIscsiAbs):
+class BionicTestIscsiBasic(relbase.bionic, TestBasicIscsiAbs):
     __test__ = True
 
 
-class BionicTestIscsiBasic(relbase.bionic, TestBasicIscsiAbs):
+class CosmicTestIscsiBasic(relbase.cosmic, TestBasicIscsiAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

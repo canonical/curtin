@@ -27,11 +27,11 @@ class XenialTestNetworkIPV6Vlan(relbase.xenial, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
-class ArtfulTestNetworkIPV6Vlan(relbase.artful, TestNetworkIPV6VlanAbs):
+class BionicTestNetworkIPV6Vlan(relbase.bionic, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
-class BionicTestNetworkIPV6Vlan(relbase.bionic, TestNetworkIPV6VlanAbs):
+class CosmicTestNetworkIPV6Vlan(relbase.cosmic, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 

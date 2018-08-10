@@ -65,11 +65,11 @@ class XenialEdgeBcacheBasic(relbase.xenial_edge, TestBcacheBasic):
     __test__ = True
 
 
-class ArtfulBcacheBasic(relbase.artful, TestBcacheBasic):
+class BionicBcacheBasic(relbase.bionic, TestBcacheBasic):
     __test__ = True
 
 
-class BionicBcacheBasic(relbase.bionic, TestBcacheBasic):
+class CosmicBcacheBasic(relbase.cosmic, TestBcacheBasic):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

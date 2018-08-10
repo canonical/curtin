@@ -64,11 +64,11 @@ class XenialTestNetworkIPV6(relbase.xenial, TestNetworkIPV6Abs):
     __test__ = True
 
 
-class ArtfulTestNetworkIPV6(relbase.artful, TestNetworkIPV6Abs):
+class BionicTestNetworkIPV6(relbase.bionic, TestNetworkIPV6Abs):
     __test__ = True
 
 
-class BionicTestNetworkIPV6(relbase.bionic, TestNetworkIPV6Abs):
+class CosmicTestNetworkIPV6(relbase.cosmic, TestNetworkIPV6Abs):
     __test__ = True
 
 

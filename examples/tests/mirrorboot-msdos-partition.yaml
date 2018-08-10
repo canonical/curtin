@@ -47,7 +47,7 @@ storage:
        name: md0-part1
        number: 1
        offset: 4194304B
-       size: 2GB
+       size: 3GB
        type: partition
        uuid: 4f4fa336-2762-48e4-ae54-9451141665cd
        wipe: superblock
@@ -55,7 +55,7 @@ storage:
        id: md0-part2
        name: md0-part2
        number: 2
-       size: 2GB
+       size: 1.5GB
        type: partition
        uuid: c2d21fd3-3cde-4432-8eab-f08594bbe76e
        wipe: superblock

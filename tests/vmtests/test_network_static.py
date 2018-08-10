@@ -60,11 +60,11 @@ class XenialTestNetworkStatic(relbase.xenial, TestNetworkStaticAbs):
     __test__ = True
 
 
-class ArtfulTestNetworkStatic(relbase.artful, TestNetworkStaticAbs):
+class BionicTestNetworkStatic(relbase.bionic, TestNetworkStaticAbs):
     __test__ = True
 
 
-class BionicTestNetworkStatic(relbase.bionic, TestNetworkStaticAbs):
+class CosmicTestNetworkStatic(relbase.cosmic, TestNetworkStaticAbs):
     __test__ = True
 
 

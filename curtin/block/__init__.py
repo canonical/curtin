@@ -378,24 +378,28 @@ def stop_all_unused_multipath_devices():
         LOG.warn("Failed to stop multipath devices: %s", e)
 
 
-def rescan_block_devices(warn_on_fail=True):
+def rescan_block_devices(devices=None, warn_on_fail=True):
     """
     run 'blockdev --rereadpt' for all block devices not currently mounted
     """
-    unused = get_unused_blockdev_info()
-    devices = []
-    for devname, data in unused.items():
-        if data.get('RM') == "1":
-            continue
-        if data.get('RO') != "0" or data.get('TYPE') != "disk":
-            continue
-        devices.append(data['device_path'])
+    if not devices:
+        unused = get_unused_blockdev_info()
+        devices = []
+        for devname, data in unused.items():
+            if data.get('RM') == "1":
+                continue
+            if data.get('RO') != "0" or data.get('TYPE') != "disk":
+                continue
+            devices.append(data['device_path'])
 
     if not devices:
         LOG.debug("no devices found to rescan")
         return
 
-    cmd = ['blockdev', '--rereadpt'] + devices
+    # blockdev needs /dev/ parameters, convert if needed
+    cmd = ['blockdev', '--rereadpt'] + [dev if dev.startswith('/dev/')
+                                        else sysfs_to_devpath(dev)
+                                        for dev in devices]
     try:
         util.subp(cmd, capture=True)
     except util.ProcessExecutionError as e:

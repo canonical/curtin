@@ -11,6 +11,7 @@ class _ReleaseBase(object):
 class _UbuntuBase(_ReleaseBase):
     distro = "ubuntu"
     kflavor = "generic"
+    target_distro = "ubuntu"
 
 
 class _CentosFromUbuntuBase(_UbuntuBase):
@@ -39,6 +40,7 @@ class _UbuntuCore16FromXenialBase(_UbuntuCoreUbuntuBase):
     release = "xenial"
     # release for target
     target_release = "ubuntu-core-16"
+    target_distro = "ubuntu-core"
 
 
 class _Centos66FromXenialBase(_CentosFromUbuntuBase):
@@ -59,59 +61,56 @@ class _PreciseHWET(_PreciseBase):
 
 class _TrustyBase(_UbuntuBase):
     release = "trusty"
+    target_release = "trusty"
 
 
-class _TrustyHWEU(_UbuntuBase):
-    release = "trusty"
+class _TrustyHWEU(_TrustyBase):
     krel = "utopic"
 
 
-class _TrustyHWEV(_UbuntuBase):
-    release = "trusty"
+class _TrustyHWEV(_TrustyBase):
     krel = "vivid"
 
 
-class _TrustyHWEW(_UbuntuBase):
-    release = "trusty"
+class _TrustyHWEW(_TrustyBase):
     krel = "wily"
 
 
-class _TrustyHWEX(_UbuntuBase):
-    release = "trusty"
+class _TrustyHWEX(_TrustyBase):
     krel = "xenial"
 
 
-class _TrustyFromXenial(_UbuntuBase):
+class _TrustyFromXenial(_TrustyBase):
     release = "xenial"
     target_release = "trusty"
 
 
 class _XenialBase(_UbuntuBase):
     release = "xenial"
+    target_release = "xenial"
     subarch = "ga-16.04"
 
 
-class _XenialGA(_UbuntuBase):
-    release = "xenial"
+class _XenialGA(_XenialBase):
     subarch = "ga-16.04"
 
 
-class _XenialHWE(_UbuntuBase):
-    release = "xenial"
+class _XenialHWE(_XenialBase):
     subarch = "hwe-16.04"
 
 
-class _XenialEdge(_UbuntuBase):
-    release = "xenial"
+class _XenialEdge(_XenialBase):
     subarch = "hwe-16.04-edge"
-
-
-class _ArtfulBase(_UbuntuBase):
-    release = "artful"
 
 
 class _BionicBase(_UbuntuBase):
     release = "bionic"
+    target_release = "bionic"
+
+
+class _CosmicBase(_UbuntuBase):
+    release = "cosmic"
+    target_release = "cosmic"
 
 
 class _Releases(object):
@@ -127,8 +126,8 @@ class _Releases(object):
     xenial_ga = _XenialGA
     xenial_hwe = _XenialHWE
     xenial_edge = _XenialEdge
-    artful = _ArtfulBase
     bionic = _BionicBase
+    cosmic = _CosmicBase
 
 
 class _CentosReleases(object):
