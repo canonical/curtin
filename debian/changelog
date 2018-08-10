@@ -1,3 +1,28 @@
+curtin (18.1-44-g2b12b8fc-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - Add main so that 'python3 -m curtin' does the right thing.
+    - Add subcommand 'features'.
+    - block: use uuid4 (random) when autogenerating UUIDS for filesystems
+    - vmtests: Increase size of root filesystems.
+    - clear-holders: reread ptable after wiping disks with partitions
+    - vmtest: Skip proposed pocket on dev release when 'proposed' in ADD_REPOS.
+    - tests: remove Ubuntu Artful [Joshua Powers]
+    - vmtests: Let a raised SkipTest go through skip_by_date.
+    - vmtests: Increase root fs to give upgrades to -proposed more space.
+    - vmtest: Order the vmtest_pollinate late_command earlier.
+    - vmtest: always add 'curtin/vmtest' to installed pollinate user_agent.
+    - vmtests: make skip_by_date a decorator that runs and reports.
+    - vmtests: always declare certain attributes and remove redundant tests.
+    - vmtests: Add Cosmic release to tests [Joshua Powers]
+    - vmtests: skip TrustyTestMdadmBcache until 2019-01-22.
+    - tox: use simplestreams from git repository rather than bzr.
+    - document that you can set ptable on raids [Michael Hudson-Doyle]
+    - vmtests: move skip-by date of xfs root and xfs boot out 1 year.
+    - vmtests: network_mtu move fixby date out 4 months from last value
+
+ -- Chad Smith <chad.smith@canonical.com>  Fri, 10 Aug 2018 09:22:12 -0600
+
 curtin (18.1-25-g9d0e557e-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
