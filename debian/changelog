@@ -1,4 +1,4 @@
-curtin (18.1-44-g2b12b8fc-0ubuntu1) UNRELEASED; urgency=medium
+curtin (18.1-44-g2b12b8fc-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
     - Add main so that 'python3 -m curtin' does the right thing.
