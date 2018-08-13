@@ -4,6 +4,7 @@ from unittest import skipIf
 import mock
 import os
 import stat
+import sys
 from textwrap import dedent
 
 from curtin import util
@@ -1033,6 +1034,67 @@ class TestLoadKernelModule(CiTestCase):
         self.assertEqual(1, self.m_is_kmod_loaded.call_count)
         self.m_is_kmod_loaded.assert_called_with(self.modname)
         self.assertEqual(0, self.m_subp.call_count)
+
+
+class TestParseDpkgVersion(CiTestCase):
+    """test parse_dpkg_version."""
+
+    def test_none_raises_type_error(self):
+        self.assertRaises(TypeError, util.parse_dpkg_version, None)
+
+    @skipIf(sys.version_info.major < 3, "python 2 bytes are strings.")
+    def test_bytes_raises_type_error(self):
+        self.assertRaises(TypeError, util.parse_dpkg_version, b'1.2.3-0')
+
+    def test_simple_native_package_version(self):
+        """dpkg versions must have a -. If not present expect value error."""
+        self.assertEqual(
+            {'major': 2, 'minor': 28, 'micro': 0, 'extra': None,
+             'raw': '2.28', 'upstream': '2.28', 'name': 'germinate',
+             'semantic_version': 22800},
+            util.parse_dpkg_version('2.28', name='germinate'))
+
+    def test_complex_native_package_version(self):
+        dver = '1.0.106ubuntu2+really1.0.97ubuntu1'
+        self.assertEqual(
+            {'major': 1, 'minor': 0, 'micro': 106,
+             'extra': 'ubuntu2+really1.0.97ubuntu1',
+             'raw': dver, 'upstream': dver, 'name': 'debootstrap',
+             'semantic_version': 100106},
+            util.parse_dpkg_version(dver, name='debootstrap',
+                                    semx=(100000, 1000, 1)))
+
+    def test_simple_valid(self):
+        self.assertEqual(
+            {'major': 1, 'minor': 2, 'micro': 3, 'extra': None,
+             'raw': '1.2.3-0', 'upstream': '1.2.3', 'name': 'foo',
+             'semantic_version': 10203},
+            util.parse_dpkg_version('1.2.3-0', name='foo'))
+
+    def test_simple_valid_with_semx(self):
+        self.assertEqual(
+            {'major': 1, 'minor': 2, 'micro': 3, 'extra': None,
+             'raw': '1.2.3-0', 'upstream': '1.2.3',
+             'semantic_version': 123},
+            util.parse_dpkg_version('1.2.3-0', semx=(100, 10, 1)))
+
+    def test_upstream_with_hyphen(self):
+        """upstream versions may have a hyphen."""
+        cver = '18.2-14-g6d48d265-0ubuntu1'
+        self.assertEqual(
+            {'major': 18, 'minor': 2, 'micro': 0, 'extra': '-14-g6d48d265',
+             'raw': cver, 'upstream': '18.2-14-g6d48d265',
+             'name': 'cloud-init', 'semantic_version': 180200},
+            util.parse_dpkg_version(cver, name='cloud-init'))
+
+    def test_upstream_with_plus(self):
+        """multipath tools has a + in it."""
+        mver = '0.5.0+git1.656f8865-5ubuntu2.5'
+        self.assertEqual(
+            {'major': 0, 'minor': 5, 'micro': 0, 'extra': '+git1.656f8865',
+             'raw': mver, 'upstream': '0.5.0+git1.656f8865',
+             'semantic_version': 500},
+            util.parse_dpkg_version(mver))
 
 
 # vi: ts=4 expandtab syntax=python
