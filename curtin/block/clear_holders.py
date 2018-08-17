@@ -624,6 +624,9 @@ def start_clear_holders_deps():
     # all disks and partitions should be sufficient to remove the mdadm
     # metadata
     mdadm.mdadm_assemble(scan=True, ignore_errors=True)
+    # scan and activate for logical volumes
+    lvm.lvm_scan()
+    lvm.activate_volgroups()
     # the bcache module needs to be present to properly detect bcache devs
     # on some systems (precise without hwe kernel) it may not be possible to
     # lad the bcache module bcause it is not present in the kernel. if this

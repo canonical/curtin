@@ -57,14 +57,32 @@ def lvmetad_running():
                                          '/run/lvmetad.pid'))
 
 
-def lvm_scan():
+def activate_volgroups():
+    """
+    Activate available volgroups and logical volumes within.
+
+    # found
+    % vgchange -ay
+      1 logical volume(s) in volume group "vg1sdd" now active
+
+    # none found (no output)
+    % vgchange -ay
+    """
+
+    # vgchange handles syncing with udev by default
+    # see man 8 vgchange and flag --noudevsync
+    out, _ = util.subp(['vgchange', '--activate=y'], capture=True)
+    if out:
+        LOG.info(out)
+
+
+def lvm_scan(activate=True):
     """
     run full scan for volgroups, logical volumes and physical volumes
     """
-    # the lvm tools lvscan, vgscan and pvscan on ubuntu precise do not
-    # support the flag --cache. the flag is present for the tools in ubuntu
-    # trusty and later. since lvmetad is used in current releases of
-    # ubuntu, the --cache flag is needed to ensure that the data cached by
+    # prior to xenial, lvmetad is not packaged, so even if a tool supports
+    # flag --cache it has no effect. In Xenial and newer the --cache flag is
+    # used (if lvmetad is running) to ensure that the data cached by
     # lvmetad is updated.
 
     # before appending the cache flag though, check if lvmetad is running. this

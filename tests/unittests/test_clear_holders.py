@@ -779,10 +779,12 @@ class TestClearHolders(CiTestCase):
         mock_gen_holders_tree.return_value = self.example_holders_trees[1][1]
         clear_holders.assert_clear(device)
 
+    @mock.patch('curtin.block.clear_holders.lvm')
     @mock.patch('curtin.block.clear_holders.zfs')
     @mock.patch('curtin.block.clear_holders.mdadm')
     @mock.patch('curtin.block.clear_holders.util')
-    def test_start_clear_holders_deps(self, mock_util, mock_mdadm, mock_zfs):
+    def test_start_clear_holders_deps(self, mock_util, mock_mdadm, mock_zfs,
+                                      mock_lvm):
         mock_zfs.zfs_supported.return_value = True
         clear_holders.start_clear_holders_deps()
         mock_mdadm.mdadm_assemble.assert_called_with(
@@ -790,11 +792,12 @@ class TestClearHolders(CiTestCase):
         mock_util.load_kernel_module.assert_has_calls([
                 mock.call('bcache'), mock.call('zfs')])
 
+    @mock.patch('curtin.block.clear_holders.lvm')
     @mock.patch('curtin.block.clear_holders.zfs')
     @mock.patch('curtin.block.clear_holders.mdadm')
     @mock.patch('curtin.block.clear_holders.util')
     def test_start_clear_holders_deps_nozfs(self, mock_util, mock_mdadm,
-                                            mock_zfs):
+                                            mock_zfs, mock_lvm):
         """test that we skip zfs modprobe on unsupported platforms"""
         mock_zfs.zfs_supported.return_value = False
         clear_holders.start_clear_holders_deps()

@@ -27,6 +27,31 @@ bucket:
       # disable any rpools to trigger disks with zfs_member label but inactive
       # pools
       zpool export rpool ||:
+  - &lvm_stop |
+      #!/bin/sh
+      # This function disables any existing lvm logical volumes that
+      # have been created during the early storage config stage
+      # and simulates the effect of booting into a system with existing
+      # (but inactive) lvm configuration.
+      for vg in `pvdisplay -C --separator = -o vg_name --noheadings`; do
+         vgchange -an $vg ||:
+      done
+      # disable the automatic pvscan, we want to test that curtin
+      # can find/enable logical volumes without this service
+      command -v systemctl && systemctl mask lvm2-pvscan\@.service
+      # remove any existing metadata written from early disk config
+      rm -rf /etc/lvm/archive /etc/lvm/backup
+  - &mdadm_stop  |
+      #!/bin/sh
+      # This function disables any existing raid devices which may
+      # have been created during the early storage config stage
+      # and simulates the effect of booting into a system with existing
+      # but inactive mdadm configuration.
+      for md in /dev/md*; do
+          mdadm --stop $md ||:
+      done
+      # remove any existing metadata written from early disk config
+      rm -f /etc/mdadm/mdadm.conf
 
 early_commands:
   # running block-meta custom from the install environment
@@ -34,9 +59,11 @@ early_commands:
   # the disks exactly as in this config before the rest of the install
   # will just blow it all away.  We have clean out other environment
   # that could unintentionally mess things up.
-  blockmeta: [env, -u, OUTPUT_FSTAB,
+  01-blockmeta: [env, -u, OUTPUT_FSTAB,
               TARGET_MOUNT_POINT=/tmp/my.bdir/target,
               WORKING_DIR=/tmp/my.bdir/work.d, 
               curtin, --showtrace, -v, block-meta, --umount, custom]
-  enable_swaps: [sh, -c, *swapon]
-  disable_rpool: [sh, -c, *zpool_export]
+  02-enable_swaps: [sh, -c, *swapon]
+  03-disable_rpool: [sh, -c, *zpool_export]
+  04-lvm_stop: [sh, -c, *lvm_stop]
+  05-mdadm_stop: [sh, -c, *mdadm_stop]
