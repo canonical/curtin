@@ -1,0 +1,24 @@
+# this updates pollinate in the installed target to add a vmtest identifier.
+# specifically pollinate's user-agent should contain 'curtin/vmtest'.
+_vmtest_pollinate:
+ - &pvmtest |
+   cfg="/etc/pollinate/add-user-agent"
+   [ -d "${cfg%/*}" ] || exit 0
+   echo curtin/vmtest >> "$cfg"
+
+# this enables a persitent journald if target system has journald
+# and does not have /var/log/journal directory already
+_persist_journal:
+ - &persist_journal |
+   command -v journalctl && {
+       jdir=/var/log/journal
+       [ -e ${jdir} ] || {
+           mkdir -p ${jdir}
+           systemd-tmpfiles --create --prefix ${jdir}
+       }
+    }
+    exit 0
+
+late_commands:
+  01_vmtest_pollinate: ['curtin', 'in-target', '--', 'sh', '-c', *pvmtest]
+  02_persist_journal: ['curtin', 'in-target', '--', 'sh', '-c', *persist_journal]
