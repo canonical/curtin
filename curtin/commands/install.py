@@ -15,7 +15,7 @@ from curtin.block import iscsi
 from curtin import config
 from curtin import util
 from curtin import version
-from curtin.log import LOG
+from curtin.log import LOG, logged_time
 from curtin.reporter.legacy import load_reporter
 from curtin.reporter import events
 from . import populate_one_subcmd
@@ -390,6 +390,7 @@ def migrate_proxy_settings(cfg):
     cfg['proxy'] = proxy
 
 
+@logged_time("INSTALL_COMMAND")
 def cmd_install(args):
     from .collect_logs import create_log_tarfile
     cfg = deepcopy(CONFIG_BUILTIN)

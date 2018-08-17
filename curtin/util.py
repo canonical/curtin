@@ -38,7 +38,7 @@ except NameError:
     # python3 does not have a long type.
     numeric_types = (int, float)
 
-from .log import LOG
+from .log import LOG, log_call
 
 _INSTALLED_HELPERS_PATH = 'usr/lib/curtin/helpers'
 _INSTALLED_MAIN = 'usr/bin/curtin'
@@ -661,7 +661,7 @@ class ChrootableTarget(object):
 
         # if /dev is to be unmounted, udevadm settle (LP: #1462139)
         if target_path(self.target, "/dev") in self.umounts:
-            subp(['udevadm', 'settle'])
+            log_call(subp, ['udevadm', 'settle'])
 
         for p in reversed(self.umounts):
             do_umount(p)

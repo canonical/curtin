@@ -3,7 +3,7 @@
 from collections import OrderedDict, namedtuple
 from curtin import (block, config, util)
 from curtin.block import (bcache, mdadm, mkfs, clear_holders, lvm, iscsi, zfs)
-from curtin.log import LOG
+from curtin.log import LOG, logged_time
 from curtin.reporter import events
 
 from . import populate_one_subcmd
@@ -48,6 +48,7 @@ CMD_ARGUMENTS = (
 )
 
 
+@logged_time("BLOCK_META")
 def block_meta(args):
     # main entry point for the block-meta command.
     state = util.load_command_environment()
