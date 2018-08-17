@@ -378,10 +378,10 @@ class TestBlockZfsDeviceToPoolname(CiTestCase):
         self.mock_blkid.assert_called_with(devs=[devname])
 
 
-class TestBlockZfsZfsSupported(CiTestCase):
+class TestBlockZfsAssertZfsSupported(CiTestCase):
 
     def setUp(self):
-        super(TestBlockZfsZfsSupported, self).setUp()
+        super(TestBlockZfsAssertZfsSupported, self).setUp()
         self.add_patch('curtin.block.zfs.util.subp', 'mock_subp')
         self.add_patch('curtin.block.zfs.util.get_platform_arch', 'mock_arch')
         self.add_patch('curtin.block.zfs.util.lsb_release', 'mock_release')
@@ -394,34 +394,41 @@ class TestBlockZfsZfsSupported(CiTestCase):
     def test_unsupported_arch(self):
         self.mock_arch.return_value = 'i386'
         with self.assertRaises(RuntimeError):
-            zfs.zfs_supported()
+            zfs.zfs_assert_supported()
 
     def test_unsupported_releases(self):
         for rel in ['precise', 'trusty']:
             self.mock_release.return_value = {'codename': rel}
             with self.assertRaises(RuntimeError):
-                zfs.zfs_supported()
+                zfs.zfs_assert_supported()
 
-    def test_missing_module(self):
-        missing = 'modinfo: ERROR: Module zfs not found.\n     '
+    @mock.patch('curtin.block.zfs.util.is_kmod_loaded')
+    @mock.patch('curtin.block.zfs.get_supported_filesystems')
+    def test_missing_module(self, mock_supfs, mock_kmod):
+        missing = 'modprobe: FATAL: Module zfs not found.\n     '
         self.mock_subp.side_effect = ProcessExecutionError(stdout='',
                                                            stderr=missing,
                                                            exit_code='1')
+        mock_supfs.return_value = ['ext4']
+        mock_kmod.return_value = False
         with self.assertRaises(RuntimeError):
-            zfs.zfs_supported()
+            zfs.zfs_assert_supported()
 
 
-class TestZfsSupported(CiTestCase):
+class TestAssertZfsSupported(CiTestCase):
 
     def setUp(self):
-        super(TestZfsSupported, self).setUp()
+        super(TestAssertZfsSupported, self).setUp()
 
+    @mock.patch('curtin.block.zfs.get_supported_filesystems')
     @mock.patch('curtin.block.zfs.util')
-    def test_zfs_supported_returns_true(self, mock_util):
-        """zfs_supported returns True on supported platforms"""
+    def test_zfs_assert_supported_returns_true(self, mock_util, mock_supfs):
+        """zfs_assert_supported returns True on supported platforms"""
         mock_util.get_platform_arch.return_value = 'amd64'
         mock_util.lsb_release.return_value = {'codename': 'bionic'}
         mock_util.subp.return_value = ("", "")
+        mock_supfs.return_value = ['zfs']
+        mock_util.which.side_effect = iter(['/wark/zpool', '/wark/zfs'])
 
         self.assertNotIn(mock_util.get_platform_arch.return_value,
                          zfs.ZFS_UNSUPPORTED_ARCHES)
@@ -430,45 +437,94 @@ class TestZfsSupported(CiTestCase):
         self.assertTrue(zfs.zfs_supported())
 
     @mock.patch('curtin.block.zfs.util')
-    def test_zfs_supported_raises_exception_on_bad_arch(self, mock_util):
-        """zfs_supported raises RuntimeError on unspported arches"""
+    def test_zfs_assert_supported_raises_exception_on_bad_arch(self,
+                                                               mock_util):
+        """zfs_assert_supported raises RuntimeError on unspported arches"""
         mock_util.lsb_release.return_value = {'codename': 'bionic'}
         mock_util.subp.return_value = ("", "")
         for arch in zfs.ZFS_UNSUPPORTED_ARCHES:
             mock_util.get_platform_arch.return_value = arch
             with self.assertRaises(RuntimeError):
-                zfs.zfs_supported()
+                zfs.zfs_assert_supported()
 
     @mock.patch('curtin.block.zfs.util')
-    def test_zfs_supported_raises_execption_on_bad_releases(self, mock_util):
-        """zfs_supported raises RuntimeError on unspported releases"""
+    def test_zfs_assert_supported_raises_exc_on_bad_releases(self, mock_util):
+        """zfs_assert_supported raises RuntimeError on unspported releases"""
         mock_util.get_platform_arch.return_value = 'amd64'
         mock_util.subp.return_value = ("", "")
         for release in zfs.ZFS_UNSUPPORTED_RELEASES:
             mock_util.lsb_release.return_value = {'codename': release}
             with self.assertRaises(RuntimeError):
-                zfs.zfs_supported()
+                zfs.zfs_assert_supported()
 
     @mock.patch('curtin.block.zfs.util.subprocess.Popen')
+    @mock.patch('curtin.block.zfs.util.is_kmod_loaded')
+    @mock.patch('curtin.block.zfs.get_supported_filesystems')
     @mock.patch('curtin.block.zfs.util.lsb_release')
     @mock.patch('curtin.block.zfs.util.get_platform_arch')
-    def test_zfs_supported_raises_exception_on_missing_module(self,
-                                                              m_arch,
-                                                              m_release,
-                                                              m_popen):
-        """zfs_supported raises RuntimeError on missing zfs module"""
+    def test_zfs_assert_supported_raises_exc_on_missing_module(self,
+                                                               m_arch,
+                                                               m_release,
+                                                               m_supfs,
+                                                               m_kmod,
+                                                               m_popen,
+                                                               ):
+        """zfs_assert_supported raises RuntimeError modprobe zfs error"""
 
         m_arch.return_value = 'amd64'
         m_release.return_value = {'codename': 'bionic'}
+        m_supfs.return_value = ['ext4']
+        m_kmod.return_value = False
         process_mock = mock.Mock()
         attrs = {
             'returncode': 1,
             'communicate.return_value':
-                ('output', "modinfo: ERROR: Module zfs not found."),
+                ('output', 'modprobe: FATAL: Module zfs not found ...'),
         }
         process_mock.configure_mock(**attrs)
         m_popen.return_value = process_mock
         with self.assertRaises(RuntimeError):
-            zfs.zfs_supported()
+            zfs.zfs_assert_supported()
+
+    @mock.patch('curtin.block.zfs.get_supported_filesystems')
+    @mock.patch('curtin.block.zfs.util.lsb_release')
+    @mock.patch('curtin.block.zfs.util.get_platform_arch')
+    @mock.patch('curtin.block.zfs.util')
+    def test_zfs_assert_supported_raises_exc_on_missing_binaries(self,
+                                                                 mock_util,
+                                                                 m_arch,
+                                                                 m_release,
+                                                                 m_supfs):
+        """zfs_assert_supported raises RuntimeError if no zpool or zfs tools"""
+        mock_util.get_platform_arch.return_value = 'amd64'
+        mock_util.lsb_release.return_value = {'codename': 'bionic'}
+        mock_util.subp.return_value = ("", "")
+        m_supfs.return_value = ['zfs']
+        mock_util.which.return_value = None
+
+        with self.assertRaises(RuntimeError):
+            zfs.zfs_assert_supported()
+
+
+class TestZfsSupported(CiTestCase):
+
+    @mock.patch('curtin.block.zfs.zfs_assert_supported')
+    def test_zfs_supported(self, m_assert_zfs):
+        zfs_supported = True
+        m_assert_zfs.return_value = zfs_supported
+
+        result = zfs.zfs_supported()
+        self.assertEqual(zfs_supported, result)
+        self.assertEqual(1, m_assert_zfs.call_count)
+
+    @mock.patch('curtin.block.zfs.zfs_assert_supported')
+    def test_zfs_supported_returns_false_on_assert_fail(self, m_assert_zfs):
+        zfs_supported = False
+        m_assert_zfs.side_effect = RuntimeError('No zfs module')
+
+        result = zfs.zfs_supported()
+        self.assertEqual(zfs_supported, result)
+        self.assertEqual(1, m_assert_zfs.call_count)
+
 
 # vi: ts=4 expandtab syntax=python
