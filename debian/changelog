@@ -1,3 +1,14 @@
+curtin (18.1-49-g72b02c21-0ubuntu1) cosmic; urgency=medium
+
+  * New upstream snapshot.
+    - clear-holders: handle missing zpool/zfs tools when wiping
+    - clear-holders: rescan for lvm devices after assembling raid arrays
+    - vmtest: enable persistent journal and collect at boot time
+    - Add timing and logging functions.
+    - parse_dpkg_version: support non-numeric in version string.
+
+ -- Chad Smith <chad.smith@canonical.com>  Fri, 17 Aug 2018 17:23:59 -0600
+
 curtin (18.1-44-g2b12b8fc-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.

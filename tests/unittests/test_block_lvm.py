@@ -75,24 +75,24 @@ class TestBlockLvm(CiTestCase):
     @mock.patch('curtin.block.lvm.util')
     def test_lvm_scan(self, mock_util, mock_lvmetad):
         """check that lvm_scan formats commands correctly for each release"""
+        cmds = [['pvscan'], ['vgscan', '--mknodes']]
         for (count, (codename, lvmetad_status, use_cache)) in enumerate(
-                [('precise', False, False), ('precise', True, False),
-                 ('trusty', False, False), ('trusty', True, True),
-                 ('vivid', False, False), ('vivid', True, True),
-                 ('wily', False, False), ('wily', True, True),
+                [('precise', False, False),
+                 ('trusty', False, False),
                  ('xenial', False, False), ('xenial', True, True),
-                 ('yakkety', True, True), ('UNAVAILABLE', True, True),
                  (None, True, True), (None, False, False)]):
             mock_util.lsb_release.return_value = {'codename': codename}
             mock_lvmetad.return_value = lvmetad_status
             lvm.lvm_scan()
-            self.assertEqual(
-                len(mock_util.subp.call_args_list), 2 * (count + 1))
-            for (expected, actual) in zip(
-                    [['pvscan'], ['vgscan', '--mknodes']],
-                    mock_util.subp.call_args_list[2 * count:2 * count + 2]):
-                if use_cache:
-                    expected.append('--cache')
-                self.assertEqual(mock.call(expected, capture=True), actual)
+            expected = [cmd for cmd in cmds]
+            for cmd in expected:
+                if lvmetad_status:
+                    cmd.append('--cache')
+
+            calls = [mock.call(cmd, capture=True) for cmd in expected]
+            self.assertEqual(len(expected), len(mock_util.subp.call_args_list))
+            mock_util.subp.has_calls(calls)
+            mock_util.subp.reset_mock()
+
 
 # vi: ts=4 expandtab syntax=python

@@ -113,7 +113,7 @@ class XenialTestUefiLvmRootXfs(relbase.xenial, TestUefiLvmRootAbs):
     }
 
 
-@VMBaseClass.skip_by_date("1652822", fixby="2019-06-01")
+@VMBaseClass.skip_by_date("1652822", fixby="2019-06-01", install=False)
 class XenialTestUefiLvmRootXfsBootXfs(relbase.xenial, TestUefiLvmRootAbs):
     """This tests xfs root and xfs boot with uefi.
 

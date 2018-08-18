@@ -38,7 +38,7 @@ except NameError:
     # python3 does not have a long type.
     numeric_types = (int, float)
 
-from .log import LOG
+from .log import LOG, log_call
 
 _INSTALLED_HELPERS_PATH = 'usr/lib/curtin/helpers'
 _INSTALLED_MAIN = 'usr/bin/curtin'
@@ -661,7 +661,7 @@ class ChrootableTarget(object):
 
         # if /dev is to be unmounted, udevadm settle (LP: #1462139)
         if target_path(self.target, "/dev") in self.umounts:
-            subp(['udevadm', 'settle'])
+            log_call(subp, ['udevadm', 'settle'])
 
         for p in reversed(self.umounts):
             do_umount(p)
@@ -810,13 +810,37 @@ def parse_dpkg_version(raw, name=None, semx=None):
     """Parse a dpkg version string into various parts and calcualate a
        numerical value of the version for use in comparing package versions
 
-       returns a dictionary with the results
+       Native packages (without a '-'), will have the package version treated
+       as the upstream version.
+
+       returns a dictionary with fields:
+          'major' (int), 'minor' (int), 'micro' (int),
+          'semantic_version' (int),
+          'extra' (string), 'raw' (string), 'upstream' (string),
+          'name' (present only if name is not None)
     """
+    if not isinstance(raw, string_types):
+        raise TypeError(
+            "Invalid type %s for parse_dpkg_version" % raw.__class__)
+
     if semx is None:
         semx = (10000, 100, 1)
 
-    upstream = raw.split('-')[0]
-    toks = upstream.split(".", 2)
+    if "-" in raw:
+        upstream = raw.rsplit('-', 1)[0]
+    else:
+        # this is a native package, package version treated as upstream.
+        upstream = raw
+
+    match = re.search(r'[^0-9.]', upstream)
+    if match:
+        extra = upstream[match.start():]
+        upstream_base = upstream[:match.start()]
+    else:
+        upstream_base = upstream
+        extra = None
+
+    toks = upstream_base.split(".", 2)
     if len(toks) == 3:
         major, minor, micro = toks
     elif len(toks) == 2:
@@ -825,9 +849,10 @@ def parse_dpkg_version(raw, name=None, semx=None):
         major, minor, micro = (toks[0], 0, 0)
 
     version = {
-        'major': major,
-        'minor': minor,
-        'micro': micro,
+        'major': int(major),
+        'minor': int(minor),
+        'micro': int(micro),
+        'extra': extra,
         'raw': raw,
         'upstream': upstream,
     }

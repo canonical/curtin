@@ -916,8 +916,9 @@ class VMBaseClass(TestCase):
         # build iscsi disk args if needed
         disks.extend(cls.build_iscsi_disks())
 
+        # class config file and vmtest defaults
+        configs = [cls.conf_file, 'examples/tests/vmtest_defaults.yaml']
         # proxy config
-        configs = [cls.conf_file, 'examples/tests/vmtest_pollinate.yaml']
         cls.proxy = get_apt_proxy()
         if cls.proxy is not None and not cls.td.restored:
             proxy_config = os.path.join(cls.td.install, 'proxy.cfg')
@@ -1799,6 +1800,19 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
         fi
         exit 0;
         """)
+
+    # add journal collection "last" before collect_post
+    collect_journal = textwrap.dedent("""#!/bin/sh -x
+        cd OUTPUT_COLLECT_D
+        # sync and flush journal before copying (if journald enabled)
+        [ -e /var/log/journal ] && {
+            journalctl --sync --flush --rotate
+            cp -a /var/log/journal ./var-log-journal
+            gzip -9 ./var-log-journal/*/system*.journal
+        }
+        exit 0;
+        """)
+    collect_scripts.append(collect_journal)
 
     scripts = ([collect_prep] + [copy_rootdir] + collect_scripts +
                [collect_post] + [failsafe_poweroff])

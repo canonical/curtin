@@ -304,11 +304,14 @@ def wipe_superblock(device):
     partitions = block.get_sysfs_partitions(device)
 
     # release zfs member by exporting the pool
-    if block.is_zfs_member(blockdev):
+    if zfs.zfs_supported() and block.is_zfs_member(blockdev):
         poolname = zfs.device_to_poolname(blockdev)
         # only export pools that have been imported
         if poolname in zfs.zpool_list():
-            zfs.zpool_export(poolname)
+            try:
+                zfs.zpool_export(poolname)
+            except util.ProcessExecutionError as e:
+                LOG.warning('Failed to export zpool "%s": %s', poolname, e)
 
     if is_swap_device(blockdev):
         shutdown_swap(blockdev)
@@ -624,19 +627,18 @@ def start_clear_holders_deps():
     # all disks and partitions should be sufficient to remove the mdadm
     # metadata
     mdadm.mdadm_assemble(scan=True, ignore_errors=True)
+    # scan and activate for logical volumes
+    lvm.lvm_scan()
+    lvm.activate_volgroups()
     # the bcache module needs to be present to properly detect bcache devs
     # on some systems (precise without hwe kernel) it may not be possible to
     # lad the bcache module bcause it is not present in the kernel. if this
     # happens then there is no need to halt installation, as the bcache devices
     # will never appear and will never prevent the disk from being reformatted
     util.load_kernel_module('bcache')
-    # the zfs module is needed to find and export devices which may be in-use
-    # and need to be cleared, only on xenial+.
-    try:
-        if zfs.zfs_supported():
-            util.load_kernel_module('zfs')
-    except RuntimeError as e:
-        LOG.warning('Failed to load zfs kernel module: %s', e)
+
+    if not zfs.zfs_supported():
+        LOG.warning('zfs filesystem is not supported in this environment')
 
 
 # anything that is not identified can assumed to be a 'disk' or similar

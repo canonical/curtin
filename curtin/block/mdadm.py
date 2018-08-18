@@ -184,7 +184,7 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
             cmd.append(device)
 
     # Create the raid device
-    util.subp(["udevadm", "settle"])
+    udev.udevadm_settle()
     util.subp(["udevadm", "control", "--stop-exec-queue"])
     try:
         util.subp(cmd, capture=True)
@@ -208,8 +208,7 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
         raise
 
     util.subp(["udevadm", "control", "--start-exec-queue"])
-    util.subp(["udevadm", "settle",
-               "--exit-if-exists=%s" % md_devname])
+    udev.udevadm_settle(exists=md_devname)
 
 
 def mdadm_examine(devpath, export=MDADM_USE_EXPORT):

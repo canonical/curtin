@@ -1074,4 +1074,18 @@ def detect_required_packages_mapping():
     }
     return mapping
 
+
+def get_supported_filesystems():
+    """ Return a list of filesystems that the kernel currently supports
+        as read from /proc/filesystems.
+
+        Raises RuntimeError if /proc/filesystems does not exist.
+    """
+    proc_fs = "/proc/filesystems"
+    if not os.path.exists(proc_fs):
+        raise RuntimeError("Unable to read 'filesystems' from %s" % proc_fs)
+
+    return [l.split('\t')[1].strip()
+            for l in util.load_file(proc_fs).splitlines()]
+
 # vi: ts=4 expandtab syntax=python

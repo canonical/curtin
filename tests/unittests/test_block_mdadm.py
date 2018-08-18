@@ -90,6 +90,8 @@ class TestBlockMdadmCreate(CiTestCase):
         self.add_patch('curtin.block.mdadm.util', 'mock_util')
         self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
         self.add_patch('curtin.block.mdadm.get_holders', 'mock_holders')
+        self.add_patch('curtin.block.mdadm.udev.udevadm_settle',
+                       'm_udevadm_settle')
 
         # Common mock settings
         self.mock_valid.return_value = True
@@ -115,8 +117,6 @@ class TestBlockMdadmCreate(CiTestCase):
             expected_calls.append(
                 call(["mdadm", "--zero-superblock", d], capture=True))
 
-        side_effects.append(("", ""))  # udevadm settle
-        expected_calls.append(call(["udevadm", "settle"]))
         side_effects.append(("", ""))  # udevadm control --stop-exec-queue
         expected_calls.append(call(["udevadm", "control",
                                     "--stop-exec-queue"]))
@@ -134,9 +134,6 @@ class TestBlockMdadmCreate(CiTestCase):
         side_effects.append(("", ""))  # udevadm control --start-exec-queue
         expected_calls.append(call(["udevadm", "control",
                                     "--start-exec-queue"]))
-        side_effects.append(("", ""))  # udevadm settle
-        expected_calls.append(call(["udevadm", "settle",
-                                    "--exit-if-exists=%s" % md_devname]))
 
         return (side_effects, expected_calls)
 
@@ -154,6 +151,8 @@ class TestBlockMdadmCreate(CiTestCase):
         mdadm.mdadm_create(md_devname=md_devname, raidlevel=raidlevel,
                            devices=devices, spares=spares)
         self.mock_util.subp.assert_has_calls(expected_calls)
+        self.m_udevadm_settle.assert_has_calls(
+            [call(), call(exists=md_devname)])
 
     def test_mdadm_create_raid0_devshort(self):
         md_devname = "md0"

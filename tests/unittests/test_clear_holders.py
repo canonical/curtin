@@ -6,6 +6,7 @@ import os
 import textwrap
 
 from curtin.block import clear_holders
+from curtin.util import ProcessExecutionError
 from .helpers import CiTestCase
 
 
@@ -558,11 +559,64 @@ class TestClearHolders(CiTestCase):
         self.assertFalse(mock_block.wipe_volume.called)
         mock_block.is_extended_partition.return_value = False
         mock_block.is_zfs_member.return_value = True
+        mock_zfs.zfs_supported.return_value = True
         mock_zfs.device_to_poolname.return_value = 'fake_pool'
         mock_zfs.zpool_list.return_value = ['fake_pool']
         clear_holders.wipe_superblock(self.test_syspath)
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
         mock_zfs.zpool_export.assert_called_with('fake_pool')
+        mock_block.wipe_volume.assert_called_with(
+            self.test_blockdev, exclusive=True, mode='superblock')
+
+    @mock.patch('curtin.block.clear_holders.is_swap_device')
+    @mock.patch('curtin.block.clear_holders.zfs')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.block')
+    def test_clear_holders_wipe_superblock_no_zfs(self, mock_block, mock_log,
+                                                  mock_zfs, mock_swap):
+        """test clear_holders.wipe_superblock checks zfs supported"""
+        mock_swap.return_value = False
+        mock_block.sysfs_to_devpath.return_value = self.test_blockdev
+        mock_block.is_extended_partition.return_value = True
+        clear_holders.wipe_superblock(self.test_syspath)
+        self.assertFalse(mock_block.wipe_volume.called)
+        mock_block.is_extended_partition.return_value = False
+        mock_block.is_zfs_member.return_value = True
+        mock_zfs.zfs_supported.return_value = False
+        clear_holders.wipe_superblock(self.test_syspath)
+        mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
+        self.assertEqual(1, mock_zfs.zfs_supported.call_count)
+        self.assertEqual(0, mock_block.is_zfs_member.call_count)
+        self.assertEqual(0, mock_zfs.device_to_poolname.call_count)
+        self.assertEqual(0, mock_zfs.zpool_list.call_count)
+        mock_block.wipe_volume.assert_called_with(
+            self.test_blockdev, exclusive=True, mode='superblock')
+
+    @mock.patch('curtin.block.clear_holders.is_swap_device')
+    @mock.patch('curtin.block.clear_holders.zfs')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.block')
+    def test_clear_holders_wipe_superblock_zfs_no_utils(self, mock_block,
+                                                        mock_log, mock_zfs,
+                                                        mock_swap):
+        """test clear_holders.wipe_superblock handles missing zpool cmd"""
+        mock_swap.return_value = False
+        mock_block.sysfs_to_devpath.return_value = self.test_blockdev
+        mock_block.is_extended_partition.return_value = True
+        clear_holders.wipe_superblock(self.test_syspath)
+        self.assertFalse(mock_block.wipe_volume.called)
+        mock_block.is_extended_partition.return_value = False
+        mock_block.is_zfs_member.return_value = True
+        mock_zfs.zfs_supported.return_value = True
+        mock_zfs.device_to_poolname.return_value = 'fake_pool'
+        mock_zfs.zpool_list.return_value = ['fake_pool']
+        mock_zfs.zpool_export.side_effect = [
+            ProcessExecutionError(cmd=['zpool', 'export', 'fake_pool'],
+                                  stdout="",
+                                  stderr=("cannot open 'fake_pool': "
+                                          "no such pool"))]
+        clear_holders.wipe_superblock(self.test_syspath)
+        mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
         mock_block.wipe_volume.assert_called_with(
             self.test_blockdev, exclusive=True, mode='superblock')
 
@@ -779,22 +833,25 @@ class TestClearHolders(CiTestCase):
         mock_gen_holders_tree.return_value = self.example_holders_trees[1][1]
         clear_holders.assert_clear(device)
 
+    @mock.patch('curtin.block.clear_holders.lvm')
     @mock.patch('curtin.block.clear_holders.zfs')
     @mock.patch('curtin.block.clear_holders.mdadm')
     @mock.patch('curtin.block.clear_holders.util')
-    def test_start_clear_holders_deps(self, mock_util, mock_mdadm, mock_zfs):
+    def test_start_clear_holders_deps(self, mock_util, mock_mdadm, mock_zfs,
+                                      mock_lvm):
         mock_zfs.zfs_supported.return_value = True
         clear_holders.start_clear_holders_deps()
         mock_mdadm.mdadm_assemble.assert_called_with(
             scan=True, ignore_errors=True)
         mock_util.load_kernel_module.assert_has_calls([
-                mock.call('bcache'), mock.call('zfs')])
+                mock.call('bcache')])
 
+    @mock.patch('curtin.block.clear_holders.lvm')
     @mock.patch('curtin.block.clear_holders.zfs')
     @mock.patch('curtin.block.clear_holders.mdadm')
     @mock.patch('curtin.block.clear_holders.util')
     def test_start_clear_holders_deps_nozfs(self, mock_util, mock_mdadm,
-                                            mock_zfs):
+                                            mock_zfs, mock_lvm):
         """test that we skip zfs modprobe on unsupported platforms"""
         mock_zfs.zfs_supported.return_value = False
         clear_holders.start_clear_holders_deps()
