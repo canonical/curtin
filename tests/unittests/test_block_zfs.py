@@ -385,8 +385,13 @@ class TestBlockZfsAssertZfsSupported(CiTestCase):
         self.add_patch('curtin.block.zfs.util.subp', 'mock_subp')
         self.add_patch('curtin.block.zfs.util.get_platform_arch', 'mock_arch')
         self.add_patch('curtin.block.zfs.util.lsb_release', 'mock_release')
-        self.mock_release.return_value = {'codename': 'xenial'}
+        self.add_patch('curtin.block.zfs.util.which', 'mock_which')
+        self.add_patch('curtin.block.zfs.get_supported_filesystems',
+                       'mock_supfs')
         self.mock_arch.return_value = 'x86_64'
+        self.mock_release.return_value = {'codename': 'xenial'}
+        self.mock_supfs.return_value = ['zfs']
+        self.mock_which.return_value = True
 
     def test_supported_arch(self):
         self.assertTrue(zfs.zfs_supported())
