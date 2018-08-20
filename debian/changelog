@@ -1,11 +1,4 @@
-curtin (18.1-50-g2d9b2c6f-0ubuntu1) UNRELEASED; urgency=medium
-
-  * New upstream snapshot.
-    - Don't allow reads of /proc and modprobe zfs through
-
- -- Chad Smith <chad.smith@canonical.com>  Mon, 20 Aug 2018 09:22:06 -0600
-
-curtin (18.1-49-g72b02c21-0ubuntu1) cosmic; urgency=medium
+curtin (18.1-50-g2d9b2c6f-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
     - clear-holders: handle missing zpool/zfs tools when wiping
@@ -13,8 +6,9 @@ curtin (18.1-49-g72b02c21-0ubuntu1) cosmic; urgency=medium
     - vmtest: enable persistent journal and collect at boot time
     - Add timing and logging functions.
     - parse_dpkg_version: support non-numeric in version string.
+    - Don't allow reads of /proc and modprobe zfs through
 
- -- Chad Smith <chad.smith@canonical.com>  Fri, 17 Aug 2018 17:23:59 -0600
+ -- Chad Smith <chad.smith@canonical.com>  Mon, 20 Aug 2018 09:22:06 -0600
 
 curtin (18.1-44-g2b12b8fc-0ubuntu1) cosmic; urgency=medium
 
