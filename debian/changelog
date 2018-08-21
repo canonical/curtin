@@ -1,3 +1,10 @@
+curtin (18.1-51-gb812ae80-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - vmtest: ensure we collect /var/log/journal only once
+
+ -- Chad Smith <chad.smith@canonical.com>  Tue, 21 Aug 2018 11:44:46 -0600
+
 curtin (18.1-50-g2d9b2c6f-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
