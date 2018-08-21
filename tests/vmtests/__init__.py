@@ -1801,21 +1801,25 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
         exit 0;
         """)
 
-    # add journal collection "last" before collect_post
     collect_journal = textwrap.dedent("""#!/bin/sh -x
         cd OUTPUT_COLLECT_D
         # sync and flush journal before copying (if journald enabled)
+        target="./var-log-journal"
         [ -e /var/log/journal ] && {
+            [ -e ${target} ] && {
+                echo "ERROR: ${target} dir exists; journal collected already";
+                exit 1;
+            }
             journalctl --sync --flush --rotate
-            cp -a /var/log/journal ./var-log-journal
-            gzip -9 ./var-log-journal/*/system*.journal
+            cp -a /var/log/journal ${target}
+            gzip -9 ${target}/*/system*.journal
         }
         exit 0;
         """)
-    collect_scripts.append(collect_journal)
 
+    # add journal collection "last" before collect_post
     scripts = ([collect_prep] + [copy_rootdir] + collect_scripts +
-               [collect_post] + [failsafe_poweroff])
+               [collect_journal] + [collect_post] + [failsafe_poweroff])
 
     for part in scripts:
         if not part.startswith("#!"):
