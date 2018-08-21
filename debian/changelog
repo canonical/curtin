@@ -1,4 +1,4 @@
-curtin (18.1-51-gb812ae80-0ubuntu1) UNRELEASED; urgency=medium
+curtin (18.1-51-gb812ae80-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
     - vmtest: ensure we collect /var/log/journal only once
