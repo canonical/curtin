@@ -522,10 +522,6 @@ This stage runs ``curtin net-meta auto`` by default.
 
 This stage runs ``curtin extract`` by default.
 
-- **extract**: *Writing install sources to disk*
-
-This stage runs ``curtin extract`` by default.
-
 - **curthooks**: *Configuring installed system*
 
 This stage runs ``curtin curthooks`` by default.
