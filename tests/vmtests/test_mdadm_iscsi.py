@@ -1,6 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 from .test_mdadm_bcache import TestMdadmAbs
 from .test_iscsi import TestBasicIscsiAbs
 
@@ -17,12 +18,17 @@ class TestMdadmIscsiAbs(TestMdadmAbs, TestBasicIscsiAbs):
     conf_file = "examples/tests/mdadm_iscsi.yaml"
     nr_testfiles = 1
 
-    collect_scripts = TestMdadmAbs.collect_scripts
-    collect_scripts += TestBasicIscsiAbs.collect_scripts + [textwrap.dedent(
-        """
+    extra_collect_scripts = TestMdadmAbs.extra_collect_scripts
+    extra_collect_scripts += TestBasicIscsiAbs.extra_collect_scripts
+    extra_collect_scripts += [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         ls -al /sys/class/block/md*/slaves/  > md_slaves
         """)]
+
+
+class Centos70TestIscsiMdadm(centos_relbase.centos70_xenial,
+                             TestMdadmIscsiAbs):
+    __test__ = True
 
 
 class TrustyTestIscsiMdadm(relbase.trusty, TestMdadmIscsiAbs):

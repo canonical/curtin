@@ -4,7 +4,6 @@ import argparse
 import collections
 from contextlib import contextmanager
 import errno
-import glob
 import json
 import os
 import platform
@@ -38,14 +37,15 @@ except NameError:
     # python3 does not have a long type.
     numeric_types = (int, float)
 
+from . import paths
 from .log import LOG, log_call
 
 _INSTALLED_HELPERS_PATH = 'usr/lib/curtin/helpers'
 _INSTALLED_MAIN = 'usr/bin/curtin'
 
-_LSB_RELEASE = {}
 _USES_SYSTEMD = None
 _HAS_UNSHARE_PID = None
+
 
 _DNS_REDIRECT_IP = None
 
@@ -61,7 +61,7 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
         rcs = [0]
     devnull_fp = None
 
-    tpath = target_path(target)
+    tpath = paths.target_path(target)
     chroot_args = [] if tpath == "/" else ['chroot', target]
     sh_args = ['sh', '-c'] if shell else []
     if isinstance(args, string_types):
@@ -165,7 +165,7 @@ def _get_unshare_pid_args(unshare_pid=None, target=None, euid=None):
     if euid is None:
         euid = os.geteuid()
 
-    tpath = target_path(target)
+    tpath = paths.target_path(target)
 
     unshare_pid_in = unshare_pid
     if unshare_pid is None:
@@ -595,7 +595,7 @@ def disable_daemons_in_root(target):
          'done',
          ''])
 
-    fpath = target_path(target, "/usr/sbin/policy-rc.d")
+    fpath = paths.target_path(target, "/usr/sbin/policy-rc.d")
 
     if os.path.isfile(fpath):
         return False
@@ -606,7 +606,7 @@ def disable_daemons_in_root(target):
 
 def undisable_daemons_in_root(target):
     try:
-        os.unlink(target_path(target, "/usr/sbin/policy-rc.d"))
+        os.unlink(paths.target_path(target, "/usr/sbin/policy-rc.d"))
     except OSError as e:
         if e.errno != errno.ENOENT:
             raise
@@ -618,7 +618,7 @@ class ChrootableTarget(object):
     def __init__(self, target, allow_daemons=False, sys_resolvconf=True):
         if target is None:
             target = "/"
-        self.target = target_path(target)
+        self.target = paths.target_path(target)
         self.mounts = ["/dev", "/proc", "/sys"]
         self.umounts = []
         self.disabled_daemons = False
@@ -628,14 +628,14 @@ class ChrootableTarget(object):
 
     def __enter__(self):
         for p in self.mounts:
-            tpath = target_path(self.target, p)
+            tpath = paths.target_path(self.target, p)
             if do_mount(p, tpath, opts='--bind'):
                 self.umounts.append(tpath)
 
         if not self.allow_daemons:
             self.disabled_daemons = disable_daemons_in_root(self.target)
 
-        rconf = target_path(self.target, "/etc/resolv.conf")
+        rconf = paths.target_path(self.target, "/etc/resolv.conf")
         target_etc = os.path.dirname(rconf)
         if self.target != "/" and os.path.isdir(target_etc):
             # never muck with resolv.conf on /
@@ -660,13 +660,13 @@ class ChrootableTarget(object):
             undisable_daemons_in_root(self.target)
 
         # if /dev is to be unmounted, udevadm settle (LP: #1462139)
-        if target_path(self.target, "/dev") in self.umounts:
+        if paths.target_path(self.target, "/dev") in self.umounts:
             log_call(subp, ['udevadm', 'settle'])
 
         for p in reversed(self.umounts):
             do_umount(p)
 
-        rconf = target_path(self.target, "/etc/resolv.conf")
+        rconf = paths.target_path(self.target, "/etc/resolv.conf")
         if self.sys_resolvconf and self.rconf_d:
             os.rename(os.path.join(self.rconf_d, "resolv.conf"), rconf)
             shutil.rmtree(self.rconf_d)
@@ -676,7 +676,7 @@ class ChrootableTarget(object):
         return subp(*args, **kwargs)
 
     def path(self, path):
-        return target_path(self.target, path)
+        return paths.target_path(self.target, path)
 
 
 def is_exe(fpath):
@@ -685,29 +685,29 @@ def is_exe(fpath):
 
 
 def which(program, search=None, target=None):
-    target = target_path(target)
+    target = paths.target_path(target)
 
     if os.path.sep in program:
         # if program had a '/' in it, then do not search PATH
         # 'which' does consider cwd here. (cd / && which bin/ls) = bin/ls
         # so effectively we set cwd to / (or target)
-        if is_exe(target_path(target, program)):
+        if is_exe(paths.target_path(target, program)):
             return program
 
     if search is None:
-        paths = [p.strip('"') for p in
-                 os.environ.get("PATH", "").split(os.pathsep)]
+        candpaths = [p.strip('"') for p in
+                     os.environ.get("PATH", "").split(os.pathsep)]
         if target == "/":
-            search = paths
+            search = candpaths
         else:
-            search = [p for p in paths if p.startswith("/")]
+            search = [p for p in candpaths if p.startswith("/")]
 
     # normalize path input
     search = [os.path.abspath(p) for p in search]
 
     for path in search:
         ppath = os.path.sep.join((path, program))
-        if is_exe(target_path(target, ppath)):
+        if is_exe(paths.target_path(target, ppath)):
             return ppath
 
     return None
@@ -773,116 +773,6 @@ def get_architecture(target=None):
     return out.strip()
 
 
-def has_pkg_available(pkg, target=None):
-    out, _ = subp(['apt-cache', 'pkgnames'], capture=True, target=target)
-    for item in out.splitlines():
-        if pkg == item.strip():
-            return True
-    return False
-
-
-def get_installed_packages(target=None):
-    (out, _) = subp(['dpkg-query', '--list'], target=target, capture=True)
-
-    pkgs_inst = set()
-    for line in out.splitlines():
-        try:
-            (state, pkg, other) = line.split(None, 2)
-        except ValueError:
-            continue
-        if state.startswith("hi") or state.startswith("ii"):
-            pkgs_inst.add(re.sub(":.*", "", pkg))
-
-    return pkgs_inst
-
-
-def has_pkg_installed(pkg, target=None):
-    try:
-        out, _ = subp(['dpkg-query', '--show', '--showformat',
-                       '${db:Status-Abbrev}', pkg],
-                      capture=True, target=target)
-        return out.rstrip() == "ii"
-    except ProcessExecutionError:
-        return False
-
-
-def parse_dpkg_version(raw, name=None, semx=None):
-    """Parse a dpkg version string into various parts and calcualate a
-       numerical value of the version for use in comparing package versions
-
-       Native packages (without a '-'), will have the package version treated
-       as the upstream version.
-
-       returns a dictionary with fields:
-          'major' (int), 'minor' (int), 'micro' (int),
-          'semantic_version' (int),
-          'extra' (string), 'raw' (string), 'upstream' (string),
-          'name' (present only if name is not None)
-    """
-    if not isinstance(raw, string_types):
-        raise TypeError(
-            "Invalid type %s for parse_dpkg_version" % raw.__class__)
-
-    if semx is None:
-        semx = (10000, 100, 1)
-
-    if "-" in raw:
-        upstream = raw.rsplit('-', 1)[0]
-    else:
-        # this is a native package, package version treated as upstream.
-        upstream = raw
-
-    match = re.search(r'[^0-9.]', upstream)
-    if match:
-        extra = upstream[match.start():]
-        upstream_base = upstream[:match.start()]
-    else:
-        upstream_base = upstream
-        extra = None
-
-    toks = upstream_base.split(".", 2)
-    if len(toks) == 3:
-        major, minor, micro = toks
-    elif len(toks) == 2:
-        major, minor, micro = (toks[0], toks[1], 0)
-    elif len(toks) == 1:
-        major, minor, micro = (toks[0], 0, 0)
-
-    version = {
-        'major': int(major),
-        'minor': int(minor),
-        'micro': int(micro),
-        'extra': extra,
-        'raw': raw,
-        'upstream': upstream,
-    }
-    if name:
-        version['name'] = name
-
-    if semx:
-        try:
-            version['semantic_version'] = int(
-                int(major) * semx[0] + int(minor) * semx[1] +
-                int(micro) * semx[2])
-        except (ValueError, IndexError):
-            version['semantic_version'] = None
-
-    return version
-
-
-def get_package_version(pkg, target=None, semx=None):
-    """Use dpkg-query to extract package pkg's version string
-       and parse the version string into a dictionary
-    """
-    try:
-        out, _ = subp(['dpkg-query', '--show', '--showformat',
-                       '${Version}', pkg], capture=True, target=target)
-        raw = out.rstrip()
-        return parse_dpkg_version(raw, name=pkg, semx=semx)
-    except ProcessExecutionError:
-        return None
-
-
 def find_newer(src, files):
     mtime = os.stat(src).st_mtime
     return [f for f in files if
@@ -905,134 +795,6 @@ def set_unexecutable(fname, strict=False):
         return None
     os.chmod(fname, target)
     return cur
-
-
-def apt_update(target=None, env=None, force=False, comment=None,
-               retries=None):
-
-    marker = "tmp/curtin.aptupdate"
-    if target is None:
-        target = "/"
-
-    if env is None:
-        env = os.environ.copy()
-
-    if retries is None:
-        # by default run apt-update up to 3 times to allow
-        # for transient failures
-        retries = (1, 2, 3)
-
-    if comment is None:
-        comment = "no comment provided"
-
-    if comment.endswith("\n"):
-        comment = comment[:-1]
-
-    marker = target_path(target, marker)
-    # if marker exists, check if there are files that would make it obsolete
-    listfiles = [target_path(target, "/etc/apt/sources.list")]
-    listfiles += glob.glob(
-        target_path(target, "etc/apt/sources.list.d/*.list"))
-
-    if os.path.exists(marker) and not force:
-        if len(find_newer(marker, listfiles)) == 0:
-            return
-
-    restore_perms = []
-
-    abs_tmpdir = tempfile.mkdtemp(dir=target_path(target, "/tmp"))
-    try:
-        abs_slist = abs_tmpdir + "/sources.list"
-        abs_slistd = abs_tmpdir + "/sources.list.d"
-        ch_tmpdir = "/tmp/" + os.path.basename(abs_tmpdir)
-        ch_slist = ch_tmpdir + "/sources.list"
-        ch_slistd = ch_tmpdir + "/sources.list.d"
-
-        # this file gets executed on apt-get update sometimes. (LP: #1527710)
-        motd_update = target_path(
-            target, "/usr/lib/update-notifier/update-motd-updates-available")
-        pmode = set_unexecutable(motd_update)
-        if pmode is not None:
-            restore_perms.append((motd_update, pmode),)
-
-        # create tmpdir/sources.list with all lines other than deb-src
-        # avoid apt complaining by using existing and empty dir for sourceparts
-        os.mkdir(abs_slistd)
-        with open(abs_slist, "w") as sfp:
-            for sfile in listfiles:
-                with open(sfile, "r") as fp:
-                    contents = fp.read()
-                for line in contents.splitlines():
-                    line = line.lstrip()
-                    if not line.startswith("deb-src"):
-                        sfp.write(line + "\n")
-
-        update_cmd = [
-            'apt-get', '--quiet',
-            '--option=Acquire::Languages=none',
-            '--option=Dir::Etc::sourcelist=%s' % ch_slist,
-            '--option=Dir::Etc::sourceparts=%s' % ch_slistd,
-            'update']
-
-        # do not using 'run_apt_command' so we can use 'retries' to subp
-        with ChrootableTarget(target, allow_daemons=True) as inchroot:
-            inchroot.subp(update_cmd, env=env, retries=retries)
-    finally:
-        for fname, perms in restore_perms:
-            os.chmod(fname, perms)
-        if abs_tmpdir:
-            shutil.rmtree(abs_tmpdir)
-
-    with open(marker, "w") as fp:
-        fp.write(comment + "\n")
-
-
-def run_apt_command(mode, args=None, aptopts=None, env=None, target=None,
-                    execute=True, allow_daemons=False):
-    opts = ['--quiet', '--assume-yes',
-            '--option=Dpkg::options::=--force-unsafe-io',
-            '--option=Dpkg::Options::=--force-confold']
-
-    if args is None:
-        args = []
-
-    if aptopts is None:
-        aptopts = []
-
-    if env is None:
-        env = os.environ.copy()
-        env['DEBIAN_FRONTEND'] = 'noninteractive'
-
-    if which('eatmydata', target=target):
-        emd = ['eatmydata']
-    else:
-        emd = []
-
-    cmd = emd + ['apt-get'] + opts + aptopts + [mode] + args
-    if not execute:
-        return env, cmd
-
-    apt_update(target, env=env, comment=' '.join(cmd))
-    with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
-        return inchroot.subp(cmd, env=env)
-
-
-def system_upgrade(aptopts=None, target=None, env=None, allow_daemons=False):
-    LOG.debug("Upgrading system in %s", target)
-    for mode in ('dist-upgrade', 'autoremove'):
-        ret = run_apt_command(
-            mode, aptopts=aptopts, target=target,
-            env=env, allow_daemons=allow_daemons)
-    return ret
-
-
-def install_packages(pkglist, aptopts=None, target=None, env=None,
-                     allow_daemons=False):
-    if isinstance(pkglist, str):
-        pkglist = [pkglist]
-    return run_apt_command(
-        'install', args=pkglist,
-        aptopts=aptopts, target=target, env=env, allow_daemons=allow_daemons)
 
 
 def is_uefi_bootable():
@@ -1106,7 +868,7 @@ def run_hook_if_exists(target, hook):
     """
     Look for "hook" in "target" and run it
     """
-    target_hook = target_path(target, '/curtin/' + hook)
+    target_hook = paths.target_path(target, '/curtin/' + hook)
     if os.path.isfile(target_hook):
         LOG.debug("running %s" % target_hook)
         subp([target_hook])
@@ -1261,41 +1023,6 @@ def is_file_not_found_exc(exc):
             exc.errno in (errno.ENOENT, errno.EIO, errno.ENXIO))
 
 
-def _lsb_release(target=None):
-    fmap = {'Codename': 'codename', 'Description': 'description',
-            'Distributor ID': 'id', 'Release': 'release'}
-
-    data = {}
-    try:
-        out, _ = subp(['lsb_release', '--all'], capture=True, target=target)
-        for line in out.splitlines():
-            fname, _, val = line.partition(":")
-            if fname in fmap:
-                data[fmap[fname]] = val.strip()
-        missing = [k for k in fmap.values() if k not in data]
-        if len(missing):
-            LOG.warn("Missing fields in lsb_release --all output: %s",
-                     ','.join(missing))
-
-    except ProcessExecutionError as err:
-        LOG.warn("Unable to get lsb_release --all: %s", err)
-        data = {v: "UNAVAILABLE" for v in fmap.values()}
-
-    return data
-
-
-def lsb_release(target=None):
-    if target_path(target) != "/":
-        # do not use or update cache if target is provided
-        return _lsb_release(target)
-
-    global _LSB_RELEASE
-    if not _LSB_RELEASE:
-        data = _lsb_release()
-        _LSB_RELEASE.update(data)
-    return _LSB_RELEASE
-
-
 class MergedCmdAppend(argparse.Action):
     """This appends to a list in order of appearence both the option string
        and the value"""
@@ -1428,31 +1155,6 @@ def is_valid_ipv6_address(addr):
 def is_resolvable_url(url):
     """determine if this url is resolvable (existing or ip)."""
     return is_resolvable(urlparse(url).hostname)
-
-
-def target_path(target, path=None):
-    # return 'path' inside target, accepting target as None
-    if target in (None, ""):
-        target = "/"
-    elif not isinstance(target, string_types):
-        raise ValueError("Unexpected input for target: %s" % target)
-    else:
-        target = os.path.abspath(target)
-        # abspath("//") returns "//" specifically for 2 slashes.
-        if target.startswith("//"):
-            target = target[1:]
-
-    if not path:
-        return target
-
-    if not isinstance(path, string_types):
-        raise ValueError("Unexpected input for path: %s" % path)
-
-    # os.path.join("/etc", "/foo") returns "/foo". Chomp all leading /.
-    while len(path) and path[0] == "/":
-        path = path[1:]
-
-    return os.path.join(target, path)
 
 
 class RunInChroot(ChrootableTarget):

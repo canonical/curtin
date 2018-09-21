@@ -1,8 +1,9 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 from collections import OrderedDict, namedtuple
-from curtin import (block, config, util)
+from curtin import (block, config, paths, util)
 from curtin.block import (bcache, mdadm, mkfs, clear_holders, lvm, iscsi, zfs)
+from curtin import distro
 from curtin.log import LOG, logged_time
 from curtin.reporter import events
 
@@ -730,12 +731,12 @@ def mount_fstab_data(fdata, target=None):
 
     :param fdata: a FstabData type
     :return None."""
-    mp = util.target_path(target, fdata.path)
+    mp = paths.target_path(target, fdata.path)
     if fdata.device:
         device = fdata.device
     else:
         if fdata.spec.startswith("/") and not fdata.spec.startswith("/dev/"):
-            device = util.target_path(target, fdata.spec)
+            device = paths.target_path(target, fdata.spec)
         else:
             device = fdata.spec
 
@@ -856,7 +857,7 @@ def lvm_partition_handler(info, storage_config):
         # Use 'wipesignatures' (if available) and 'zero' to clear target lv
         # of any fs metadata
         cmd = ["lvcreate", volgroup, "--name", name, "--zero=y"]
-        release = util.lsb_release()['codename']
+        release = distro.lsb_release()['codename']
         if release not in ['precise', 'trusty']:
             cmd.extend(["--wipesignatures=y"])
 

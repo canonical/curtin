@@ -493,18 +493,67 @@ def skip_by_date(bugnum, fixby, removeby=None, skips=None, install=True):
     return decorator
 
 
+DEFAULT_COLLECT_SCRIPTS = {
+    'common': [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        cp /etc/fstab ./fstab
+        cp -a /etc/udev/rules.d ./udev_rules.d
+        ifconfig -a | cat >ifconfig_a
+        ip a | cat >ip_a
+        cp -a /var/log/messages .
+        cp -a /var/log/syslog .
+        cp -a /var/log/cloud-init* .
+        cp -a /var/lib/cloud ./var_lib_cloud
+        cp -a /run/cloud-init ./run_cloud-init
+        cp -a /proc/cmdline ./proc_cmdline
+        cp -a /proc/mounts ./proc_mounts
+        cp -a /proc/partitions ./proc_partitions
+        cp -a /proc/swaps ./proc-swaps
+        # ls -al /dev/disk/*
+        mkdir -p /dev/disk/by-dname
+        ls /dev/disk/by-dname/ | cat >ls_dname
+        ls -al /dev/disk/by-dname/ | cat >ls_al_bydname
+        ls -al /dev/disk/by-id/ | cat >ls_al_byid
+        ls -al /dev/disk/by-uuid/ | cat >ls_al_byuuid
+        blkid -o export | cat >blkid.out
+        find /boot | cat > find_boot.out
+        [ -e /sys/firmware/efi ] && {
+            efibootmgr -v | cat >efibootmgr.out;
+        }
+        """)],
+    'centos': [textwrap.dedent("""
+        # XXX: command | cat >output is required for Centos under SELinux
+        # http://danwalsh.livejournal.com/22860.html
+        cd OUTPUT_COLLECT_D
+        rpm -qa | cat >rpm_qa
+        cp -a /etc/sysconfig/network-scripts .
+        rpm -q --queryformat '%{VERSION}\n' cloud-init |tee rpm_ci_version
+        rpm -E '%rhel' > rpm_dist_version_major
+        cp -a /etc/centos-release .
+        """)],
+    'ubuntu': [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        dpkg-query --show \
+            --showformat='${db:Status-Abbrev}\t${Package}\t${Version}\n' \
+            > debian-packages.txt 2> debian-packages.txt.err
+        cp -av /etc/network/interfaces .
+        cp -av /etc/network/interfaces.d .
+        find /etc/network/interfaces.d > find_interfacesd
+        v=""
+        out=$(apt-config shell v Acquire::HTTP::Proxy)
+        eval "$out"
+        echo "$v" > apt-proxy
+        """)]
+}
+
+
 class VMBaseClass(TestCase):
     __test__ = False
     expected_failure = False
     arch_skip = []
     boot_timeout = BOOT_TIMEOUT
-    collect_scripts = [textwrap.dedent("""
-        cd OUTPUT_COLLECT_D
-        dpkg-query --show \
-            --showformat='${db:Status-Abbrev}\t${Package}\t${Version}\n' \
-            > debian-packages.txt 2> debian-packages.txt.err
-        cat /proc/swaps > proc-swaps
-    """)]
+    collect_scripts = []
+    extra_collect_scripts = []
     conf_file = "examples/tests/basic.yaml"
     nr_cpus = None
     dirty_disks = False
@@ -528,6 +577,10 @@ class VMBaseClass(TestCase):
     conf_replace = {}
     uefi = False
     proxy = None
+    url_map = {
+        '/MAAS/api/version/': '2.0',
+        '/MAAS/api/2.0/version/':
+            json.dumps({'version': '2.5.0+curtin-vmtest'})}
 
     # these get set from base_vm_classes
     release = None
@@ -773,6 +826,16 @@ class VMBaseClass(TestCase):
                                                              cls.arch)
             raise SkipTest(reason)
 
+        # assign default collect scripts
+        if not cls.collect_scripts:
+            cls.collect_scripts = (
+                DEFAULT_COLLECT_SCRIPTS['common'] +
+                DEFAULT_COLLECT_SCRIPTS[cls.target_distro])
+
+        # append extra from subclass
+        if cls.extra_collect_scripts:
+            cls.collect_scripts.extend(cls.extra_collect_scripts)
+
         setup_start = time.time()
         logger.info(
             ('Starting setup for testclass: {__name__} '
@@ -994,7 +1057,8 @@ class VMBaseClass(TestCase):
 
         # set reporting logger
         cls.reporting_log = os.path.join(cls.td.logs, 'webhooks-events.json')
-        reporting_logger = CaptureReporting(cls.reporting_log)
+        reporting_logger = CaptureReporting(cls.reporting_log,
+                                            url_mapping=cls.url_map)
 
         # write reporting config
         reporting_config = os.path.join(cls.td.install, 'reporting.cfg')
@@ -1442,6 +1506,8 @@ class VMBaseClass(TestCase):
         if self.target_release == "trusty":
             raise SkipTest(
                 "(LP: #1523037): dname does not work on trusty kernels")
+        if self.target_distro != "ubuntu":
+            raise SkipTest("dname not present in non-ubuntu releases")
 
         if not disk_to_check:
             disk_to_check = self.disk_to_check
@@ -1449,11 +1515,9 @@ class VMBaseClass(TestCase):
             logger.debug('test_dname: no disks to check')
             return
         logger.debug('test_dname: checking disks: %s', disk_to_check)
-        path = self.collect_path("ls_dname")
-        if not os.path.exists(path):
-            logger.debug('test_dname: no "ls_dname" file: %s', path)
-            return
-        contents = util.load_file(path)
+        self.output_files_exist(["ls_dname"])
+
+        contents = self.load_collect_file("ls_dname")
         for diskname, part in self.disk_to_check:
             if part is not 0:
                 link = diskname + "-part" + str(part)
@@ -1485,6 +1549,9 @@ class VMBaseClass(TestCase):
         """ Check that curtin has removed /etc/network/interfaces.d/eth0.cfg
             by examining the output of a find /etc/network > find_interfaces.d
         """
+        # target_distro is set for non-ubuntu targets
+        if self.target_distro != 'ubuntu':
+            raise SkipTest("eni/ifupdown not present in non-ubuntu releases")
         interfacesd = self.load_collect_file("find_interfacesd")
         self.assertNotIn("/etc/network/interfaces.d/eth0.cfg",
                          interfacesd.split("\n"))

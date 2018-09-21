@@ -16,7 +16,7 @@ class TestNetworkIPV6Abs(TestNetworkBaseTestsAbs):
         - all IP is static
     """
     conf_file = "examples/network-ipv6-bond-vlan.yaml"
-    collect_scripts = TestNetworkBaseTestsAbs.collect_scripts + [
+    extra_collect_scripts = TestNetworkBaseTestsAbs.extra_collect_scripts + [
         textwrap.dedent("""
         grep . -r /sys/class/net/bond0/ > sysfs_bond0 || :
         grep . -r /sys/class/net/bond0.108/ > sysfs_bond0.108 || :
@@ -25,7 +25,7 @@ class TestNetworkIPV6Abs(TestNetworkBaseTestsAbs):
 
 
 class CentosTestNetworkIPV6Abs(TestNetworkIPV6Abs):
-    collect_scripts = TestNetworkIPV6Abs.collect_scripts + [
+    extra_collect_scripts = TestNetworkIPV6Abs.extra_collect_scripts + [
         textwrap.dedent("""
             cd OUTPUT_COLLECT_D
             cp -a /etc/sysconfig/network-scripts .
@@ -72,12 +72,12 @@ class CosmicTestNetworkIPV6(relbase.cosmic, TestNetworkIPV6Abs):
     __test__ = True
 
 
-class Centos66TestNetworkIPV6(centos_relbase.centos66fromxenial,
+class Centos66TestNetworkIPV6(centos_relbase.centos66_xenial,
                               CentosTestNetworkIPV6Abs):
     __test__ = True
 
 
-class Centos70TestNetworkIPV6(centos_relbase.centos70fromxenial,
+class Centos70TestNetworkIPV6(centos_relbase.centos70_xenial,
                               CentosTestNetworkIPV6Abs):
     __test__ = True
 

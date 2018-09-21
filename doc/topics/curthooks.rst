@@ -1,7 +1,13 @@
+.. _curthooks:
+
 ========================================
-Curthooks / New OS Support 
+Curthooks / New OS Support
 ========================================
-Curtin has built-in support for installation of Ubuntu.
+Curtin has built-in support for installation of:
+
+ - Ubuntu
+ - Centos
+
 Other operating systems are supported through a mechanism called
 'curthooks' or 'curtin-hooks'.
 
@@ -47,10 +53,20 @@ details.  Specifically interesting to this stage are:
  - ``CONFIG``: This is a path to the curtin config file.  It is provided so
    that additional configuration could be provided through to the OS
    customization.
+ - ``WORKING_DIR``: This is a path to a temporary directory where curtin
+   stores state and configuration files.
 
 .. **TODO**: We should add 'PYTHON' or 'CURTIN_PYTHON' to this environment
    so that the hook can easily run a python program with the same python
    that curtin ran with (ie, python2 or python3).
+
+Running built-in hooks
+----------------------
+
+Curthooks may opt to run the built-in curthooks that are already provided in
+curtin itself.  To do so, an in-image curthook can import the ``curthooks``
+module and invoke the ``builtin_curthooks`` function passing in the required
+parameters: config, target, and state.
 
 
 Networking configuration

@@ -12,16 +12,14 @@ from .releases import base_vm_classes as relbase
 
 class TestAptConfigCMD(VMBaseClass):
     """TestAptConfigCMD - test standalone command"""
+    test_type = 'config'
     conf_file = "examples/tests/apt_config_command.yaml"
     interactive = False
     extra_disks = []
     fstab_expected = {}
     disk_to_check = []
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        cat /etc/fstab > fstab
-        ls /dev/disk/by-dname > ls_dname
-        find /etc/network/interfaces.d > find_interfacesd
         cp /etc/apt/sources.list.d/curtin-dev-ubuntu-test-archive-*.list .
         cp /etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg .
         apt-cache policy | grep proposed > proposed-enabled

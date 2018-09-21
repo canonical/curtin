@@ -38,14 +38,12 @@ def sources_to_dict(lines):
 class TestOldAptAbs(VMBaseClass):
     """TestOldAptAbs - Basic tests for old apt features of curtin"""
     interactive = False
+    test_type = 'config'
     extra_disks = []
     fstab_expected = {}
     disk_to_check = []
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        cat /etc/fstab > fstab
-        ls /dev/disk/by-dname > ls_dname
-        find /etc/network/interfaces.d > find_interfacesd
         grep -A 3 "Name: debconf/priority" /var/cache/debconf/config.dat > debc
         apt-config dump > aptconf
         cp /etc/apt/apt.conf.d/90curtin-aptproxy .

@@ -6,43 +6,27 @@ import textwrap
 
 class TestZfsRootAbs(VMBaseClass):
     interactive = False
+    test_type = 'storage'
     nr_cpus = 2
     dirty_disks = True
     conf_file = "examples/tests/zfsroot.yaml"
     extra_disks = []
-    collect_scripts = VMBaseClass.collect_scripts + [
-        textwrap.dedent("""
+    extra_collect_scripts = [textwrap.dedent("""
             cd OUTPUT_COLLECT_D
             blkid -o export /dev/vda > blkid_output_vda
-            blkid -o export /dev/vda1 > blkid_output_vda1
-            blkid -o export /dev/vda2 > blkid_output_vda2
             zfs list > zfs_list
             zpool list > zpool_list
             zpool status > zpool_status
-            cat /proc/partitions > proc_partitions
-            cat /proc/mounts > proc_mounts
-            cat /proc/cmdline > proc_cmdline
-            ls -al /dev/disk/by-uuid/ > ls_uuid
-            cat /etc/fstab > fstab
-            mkdir -p /dev/disk/by-dname
-            ls /dev/disk/by-dname/ > ls_dname
-            find /etc/network/interfaces.d > find_interfacesd
-            v=""
-            out=$(apt-config shell v Acquire::HTTP::Proxy)
-            eval "$out"
-            echo "$v" > apt-proxy
         """)]
 
     @skip_if_flag('expected_failure')
     def test_output_files_exist(self):
-        self.output_files_exist(
-            ["blkid_output_vda", "blkid_output_vda1", "blkid_output_vda2",
-             "fstab", "ls_dname", "ls_uuid",
-             "proc_partitions",
-             "root/curtin-install.log", "root/curtin-install-cfg.yaml"])
+        self.output_files_exist(["root/curtin-install.log",
+                                 "root/curtin-install-cfg.yaml"])
 
     @skip_if_flag('expected_failure')
     def test_ptable(self):
+        self.output_files_exist(["blkid_output_vda"])
         blkid_info = self.get_blkid_data("blkid_output_vda")
         self.assertEquals(blkid_info["PTTYPE"], "gpt")
 

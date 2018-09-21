@@ -51,11 +51,16 @@ fi
 
 start_s=$(date +%s)
 parallel=${CURTIN_VMTEST_PARALLEL}
+ntfilters=( )
 ntargs=( )
+ntdefargs=( "-vv" "--nologcapture" )
+tests=( )
 while [ $# -ne 0 ]; do
     case "$1" in
         # allow setting these environment variables on cmdline.
         CURTIN_VMTEST_*=*) export "$1";;
+        --filter=*) ntfilters[${#ntfilters[@]}]="${1#--filter=}";;
+        --filter) ntfilters[${#ntfilters[@]}]="$2"; shift;;
         -p|--parallel) parallel="$2"; shift;;
         --parallel=*) parallel=${1#*=};;
         -p[0-9]|-p-1|-p[0-9][0-9]) parallel=${1#-p};;
@@ -63,15 +68,30 @@ while [ $# -ne 0 ]; do
             shift
             break
             ;;
-        *) ntargs[${#ntargs[@]}]="$1";;
+        tests/vmtest*) tests[${#tests[@]}]="$1";;
+        *) ntargs[${#ntargs[@]}]="$1"
+           ntdefargs="";;
     esac
     shift;
 done
 
+if [ "${#tests[@]}" -eq 0 ]; then
+    tests=( tests/vmtests )
+fi
+if [ "${#ntfilters[@]}" -ne 0 ]; then
+   tests=( $(./tools/vmtest-filter "${ntfilters[@]}") )
+   if [ "${#tests[@]}" -eq 0 ]; then
+      error "Failed to find any tests with filter(s): \"${ntfilters[*]}\""
+      fail "Try testing filters with: ./tools/vmtest-filter ${ntfilters[*]}"
+   fi
+fi
+
 CURTIN_VMTEST_PARALLEL=$parallel
 
 if [ ${#ntargs[@]} -eq 0 ]; then
-   set -- -vv --nologcapture tests/vmtests/
+    set -- "${ntdefargs[@]}" "${tests[@]}"
+else
+    set -- "${tests[@]}"
 fi
 
 trap cleanup EXIT
@@ -120,11 +140,16 @@ done
 # rather than python3 -m tests.vmtests.image_sync (LP: #1594465)
 echo "Quering synced ephemeral images/kernels in $IMAGE_DIR"
 printf "%.s=" {1..86}; echo
-printf " %6s %8s %-10s %s/%-14s  %s\n" "Release" "Codename" "ImageDate" "Arch" "SubArch" "Path"
+printf " %6s %8s %-12s %-5s/%-14s  %s\n" "Release" "Codename" "ImageDate" "Arch" "SubArch" "Path"
 printf "%.s-" {1..86}; echo
-fmt="  %(version)6s %(release)8s %(version_name)-10s %(arch)s/%(subarch)-14s %(path)s"
+fmt="  %(version)6s %(release)8s %(version_name)-12s %(arch)-5s/%(subarch)-14s %(path)s"
 PYTHONPATH="$PWD" python3 tests/vmtests/image_sync.py query \
-    --output-format="$fmt" "$IMAGE_DIR" "kflavor=generic" "ftype~(root-image.gz|squashfs)" ||
+    --output-format="$fmt" "$IMAGE_DIR" "kflavor=generic" "ftype~(root-image.gz|squashfs|root-tgz)" ||
+    { ret=$?; echo "FATAL: error querying images in $IMAGE_DIR" 1>&2;
+      exit $ret; }
+printf "%.s-" {1..86}; echo
+PYTHONPATH="$PWD" python3 tests/vmtests/image_sync.py query \
+    --output-format="$fmt" "$IMAGE_DIR" "subarch=generic" "ftype~(root-image.gz|squashfs|root-tgz)" ||
     { ret=$?; echo "FATAL: error querying images in $IMAGE_DIR" 1>&2;
       exit $ret; }
 printf "%.s=" {1..86}; printf "\n\n"

@@ -4,10 +4,10 @@ from unittest import skipIf
 import mock
 import os
 import stat
-import sys
 from textwrap import dedent
 
 from curtin import util
+from curtin import paths
 from .helpers import CiTestCase, simple_mocked_open
 
 
@@ -102,48 +102,6 @@ class TestWhich(CiTestCase):
         found = util.which("fuzz", search=["/bin1", "/usr/bin2"],
                            target="/target")
         self.assertEqual(found, "/usr/bin2/fuzz")
-
-
-class TestLsbRelease(CiTestCase):
-
-    def setUp(self):
-        super(TestLsbRelease, self).setUp()
-        self._reset_cache()
-
-    def _reset_cache(self):
-        keys = [k for k in util._LSB_RELEASE.keys()]
-        for d in keys:
-            del util._LSB_RELEASE[d]
-
-    @mock.patch("curtin.util.subp")
-    def test_lsb_release_functional(self, mock_subp):
-        output = '\n'.join([
-            "Distributor ID: Ubuntu",
-            "Description:    Ubuntu 14.04.2 LTS",
-            "Release:    14.04",
-            "Codename:   trusty",
-        ])
-        rdata = {'id': 'Ubuntu', 'description': 'Ubuntu 14.04.2 LTS',
-                 'codename': 'trusty', 'release': '14.04'}
-
-        def fake_subp(cmd, capture=False, target=None):
-            return output, 'No LSB modules are available.'
-
-        mock_subp.side_effect = fake_subp
-        found = util.lsb_release()
-        mock_subp.assert_called_with(
-            ['lsb_release', '--all'], capture=True, target=None)
-        self.assertEqual(found, rdata)
-
-    @mock.patch("curtin.util.subp")
-    def test_lsb_release_unavailable(self, mock_subp):
-        def doraise(*args, **kwargs):
-            raise util.ProcessExecutionError("foo")
-        mock_subp.side_effect = doraise
-
-        expected = {k: "UNAVAILABLE" for k in
-                    ('id', 'description', 'codename', 'release')}
-        self.assertEqual(util.lsb_release(), expected)
 
 
 class TestSubp(CiTestCase):
@@ -312,7 +270,7 @@ class TestSubp(CiTestCase):
         # if target is not provided or is /, chroot should not be used
         calls = m_popen.call_args_list
         popen_args, popen_kwargs = calls[-1]
-        target = util.target_path(kwargs.get('target', None))
+        target = paths.target_path(kwargs.get('target', None))
         unshcmd = self.mock_get_unshare_pid_args.return_value
         if target == "/":
             self.assertEqual(unshcmd + list(cmd), popen_args[0])
@@ -554,44 +512,44 @@ class TestSetUnExecutable(CiTestCase):
 
 class TestTargetPath(CiTestCase):
     def test_target_empty_string(self):
-        self.assertEqual("/etc/passwd", util.target_path("", "/etc/passwd"))
+        self.assertEqual("/etc/passwd", paths.target_path("", "/etc/passwd"))
 
     def test_target_non_string_raises(self):
-        self.assertRaises(ValueError, util.target_path, False)
-        self.assertRaises(ValueError, util.target_path, 9)
-        self.assertRaises(ValueError, util.target_path, True)
+        self.assertRaises(ValueError, paths.target_path, False)
+        self.assertRaises(ValueError, paths.target_path, 9)
+        self.assertRaises(ValueError, paths.target_path, True)
 
     def test_lots_of_slashes_is_slash(self):
-        self.assertEqual("/", util.target_path("/"))
-        self.assertEqual("/", util.target_path("//"))
-        self.assertEqual("/", util.target_path("///"))
-        self.assertEqual("/", util.target_path("////"))
+        self.assertEqual("/", paths.target_path("/"))
+        self.assertEqual("/", paths.target_path("//"))
+        self.assertEqual("/", paths.target_path("///"))
+        self.assertEqual("/", paths.target_path("////"))
 
     def test_empty_string_is_slash(self):
-        self.assertEqual("/", util.target_path(""))
+        self.assertEqual("/", paths.target_path(""))
 
     def test_recognizes_relative(self):
-        self.assertEqual("/", util.target_path("/foo/../"))
-        self.assertEqual("/", util.target_path("/foo//bar/../../"))
+        self.assertEqual("/", paths.target_path("/foo/../"))
+        self.assertEqual("/", paths.target_path("/foo//bar/../../"))
 
     def test_no_path(self):
-        self.assertEqual("/my/target", util.target_path("/my/target"))
+        self.assertEqual("/my/target", paths.target_path("/my/target"))
 
     def test_no_target_no_path(self):
-        self.assertEqual("/", util.target_path(None))
+        self.assertEqual("/", paths.target_path(None))
 
     def test_no_target_with_path(self):
-        self.assertEqual("/my/path", util.target_path(None, "/my/path"))
+        self.assertEqual("/my/path", paths.target_path(None, "/my/path"))
 
     def test_trailing_slash(self):
         self.assertEqual("/my/target/my/path",
-                         util.target_path("/my/target/", "/my/path"))
+                         paths.target_path("/my/target/", "/my/path"))
 
     def test_bunch_of_slashes_in_path(self):
         self.assertEqual("/target/my/path/",
-                         util.target_path("/target/", "//my/path/"))
+                         paths.target_path("/target/", "//my/path/"))
         self.assertEqual("/target/my/path/",
-                         util.target_path("/target/", "///my/path/"))
+                         paths.target_path("/target/", "///my/path/"))
 
 
 class TestRunInChroot(CiTestCase):
@@ -1034,67 +992,6 @@ class TestLoadKernelModule(CiTestCase):
         self.assertEqual(1, self.m_is_kmod_loaded.call_count)
         self.m_is_kmod_loaded.assert_called_with(self.modname)
         self.assertEqual(0, self.m_subp.call_count)
-
-
-class TestParseDpkgVersion(CiTestCase):
-    """test parse_dpkg_version."""
-
-    def test_none_raises_type_error(self):
-        self.assertRaises(TypeError, util.parse_dpkg_version, None)
-
-    @skipIf(sys.version_info.major < 3, "python 2 bytes are strings.")
-    def test_bytes_raises_type_error(self):
-        self.assertRaises(TypeError, util.parse_dpkg_version, b'1.2.3-0')
-
-    def test_simple_native_package_version(self):
-        """dpkg versions must have a -. If not present expect value error."""
-        self.assertEqual(
-            {'major': 2, 'minor': 28, 'micro': 0, 'extra': None,
-             'raw': '2.28', 'upstream': '2.28', 'name': 'germinate',
-             'semantic_version': 22800},
-            util.parse_dpkg_version('2.28', name='germinate'))
-
-    def test_complex_native_package_version(self):
-        dver = '1.0.106ubuntu2+really1.0.97ubuntu1'
-        self.assertEqual(
-            {'major': 1, 'minor': 0, 'micro': 106,
-             'extra': 'ubuntu2+really1.0.97ubuntu1',
-             'raw': dver, 'upstream': dver, 'name': 'debootstrap',
-             'semantic_version': 100106},
-            util.parse_dpkg_version(dver, name='debootstrap',
-                                    semx=(100000, 1000, 1)))
-
-    def test_simple_valid(self):
-        self.assertEqual(
-            {'major': 1, 'minor': 2, 'micro': 3, 'extra': None,
-             'raw': '1.2.3-0', 'upstream': '1.2.3', 'name': 'foo',
-             'semantic_version': 10203},
-            util.parse_dpkg_version('1.2.3-0', name='foo'))
-
-    def test_simple_valid_with_semx(self):
-        self.assertEqual(
-            {'major': 1, 'minor': 2, 'micro': 3, 'extra': None,
-             'raw': '1.2.3-0', 'upstream': '1.2.3',
-             'semantic_version': 123},
-            util.parse_dpkg_version('1.2.3-0', semx=(100, 10, 1)))
-
-    def test_upstream_with_hyphen(self):
-        """upstream versions may have a hyphen."""
-        cver = '18.2-14-g6d48d265-0ubuntu1'
-        self.assertEqual(
-            {'major': 18, 'minor': 2, 'micro': 0, 'extra': '-14-g6d48d265',
-             'raw': cver, 'upstream': '18.2-14-g6d48d265',
-             'name': 'cloud-init', 'semantic_version': 180200},
-            util.parse_dpkg_version(cver, name='cloud-init'))
-
-    def test_upstream_with_plus(self):
-        """multipath tools has a + in it."""
-        mver = '0.5.0+git1.656f8865-5ubuntu2.5'
-        self.assertEqual(
-            {'major': 0, 'minor': 5, 'micro': 0, 'extra': '+git1.656f8865',
-             'raw': mver, 'upstream': '0.5.0+git1.656f8865',
-             'semantic_version': 500},
-            util.parse_dpkg_version(mver))
 
 
 # vi: ts=4 expandtab syntax=python

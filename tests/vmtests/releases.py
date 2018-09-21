@@ -131,8 +131,8 @@ class _Releases(object):
 
 
 class _CentosReleases(object):
-    centos70fromxenial = _Centos70FromXenialBase
-    centos66fromxenial = _Centos66FromXenialBase
+    centos70_xenial = _Centos70FromXenialBase
+    centos66_xenial = _Centos66FromXenialBase
 
 
 class _UbuntuCoreReleases(object):

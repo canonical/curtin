@@ -2,15 +2,19 @@
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 
 import os
 import textwrap
+
+centos70_xenial = centos_relbase.centos70_xenial
 
 
 class TestNvmeAbs(VMBaseClass):
     arch_skip = [
         "s390x",  # nvme is a pci device, no pci on s390x
     ]
+    test_type = 'storage'
     interactive = False
     conf_file = "examples/tests/nvme.yaml"
     extra_disks = []
@@ -18,41 +22,36 @@ class TestNvmeAbs(VMBaseClass):
     disk_to_check = [('main_disk', 1), ('main_disk', 2), ('main_disk', 15),
                      ('nvme_disk', 1), ('nvme_disk', 2), ('nvme_disk', 3),
                      ('second_nvme', 1)]
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         ls /sys/class/ > sys_class
         ls /sys/class/nvme/ > ls_nvme
         ls /dev/nvme* > ls_dev_nvme
-        ls /dev/disk/by-dname/ > ls_dname
-        blkid -o export /dev/vda > blkid_output_vda
-        blkid -o export /dev/vda1 > blkid_output_vda1
-        blkid -o export /dev/vda2 > blkid_output_vda2
-        cat /proc/partitions > proc_partitions
-        ls -al /dev/disk/by-uuid/ > ls_uuid
-        cat /etc/fstab > fstab
-        mkdir -p /dev/disk/by-dname
-        ls /dev/disk/by-dname/ > ls_dname
-        find /etc/network/interfaces.d > find_interfacesd
-
-        v=""
-        out=$(apt-config shell v Acquire::HTTP::Proxy)
-        eval "$out"
-        echo "$v" > apt-proxy
         """)]
 
-    def test_output_files_exist(self):
-        self.output_files_exist(["ls_nvme", "ls_dname", "ls_dev_nvme"])
+    def _test_nvme_device_names(self, expected):
+        self.output_files_exist(["ls_nvme", "ls_dev_nvme"])
+        print('expected: %s' % expected)
+        if os.path.getsize(self.collect_path('ls_dev_nvme')) > 0:
+            print('using ls_dev_nvme')
+            for device in ['/dev/' + dev for dev in expected]:
+                print('checking device: %s' % device)
+                self.check_file_strippedline("ls_dev_nvme", device)
 
-    def test_nvme_device_names(self):
-        ls_nvme = self.collect_path('ls_nvme')
         # trusty and vivid do not have sys/class/nvme but
         # nvme devices do work
-        if os.path.getsize(ls_nvme) > 0:
-            self.check_file_strippedline("ls_nvme", "nvme0")
-            self.check_file_strippedline("ls_nvme", "nvme1")
         else:
-            self.check_file_strippedline("ls_dev_nvme", "/dev/nvme0")
-            self.check_file_strippedline("ls_dev_nvme", "/dev/nvme1")
+            print('using ls_nvme')
+            for device in expected:
+                print('checking device: %s' % device)
+                self.check_file_strippedline("ls_nvme", device)
+
+    def test_nvme_device_names(self):
+        self._test_nvme_device_names(['nvme0', 'nvme1'])
+
+
+class Centos70TestNvme(centos70_xenial, TestNvmeAbs):
+    __test__ = True
 
 
 class TrustyTestNvme(relbase.trusty, TestNvmeAbs):
@@ -83,7 +82,7 @@ class CosmicTestNvme(relbase.cosmic, TestNvmeAbs):
     __test__ = True
 
 
-class TestNvmeBcacheAbs(VMBaseClass):
+class TestNvmeBcacheAbs(TestNvmeAbs):
     arch_skip = [
         "s390x",  # nvme is a pci device, no pci on s390x
     ]
@@ -94,49 +93,23 @@ class TestNvmeBcacheAbs(VMBaseClass):
     uefi = True
     disk_to_check = [('sda', 1), ('sda', 2), ('sda', 3)]
 
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         ls /sys/class/ > sys_class
         ls /sys/class/nvme/ > ls_nvme
         ls /dev/nvme* > ls_dev_nvme
-        ls /dev/disk/by-dname/ > ls_dname
         ls -al /dev/bcache/by-uuid/ > ls_bcache_by_uuid |:
-        blkid -o export /dev/vda > blkid_output_vda
-        blkid -o export /dev/vda1 > blkid_output_vda1
-        blkid -o export /dev/vda2 > blkid_output_vda2
         bcache-super-show /dev/nvme0n1p1 > bcache_super_nvme0n1p1
         ls /sys/fs/bcache > bcache_ls
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
-        cat /proc/partitions > proc_partitions
-        ls -al /dev/disk/by-uuid/ > ls_uuid
-        cat /etc/fstab > fstab
-        mkdir -p /dev/disk/by-dname
-        ls /dev/disk/by-dname/ > ls_dname
-        find /etc/network/interfaces.d > find_interfacesd
-
-        v=""
-        out=$(apt-config shell v Acquire::HTTP::Proxy)
-        eval "$out"
-        echo "$v" > apt-proxy
         """)]
-
-    def test_output_files_exist(self):
-        self.output_files_exist(["ls_nvme", "ls_dname", "ls_dev_nvme"])
-
-    def test_nvme_device_names(self):
-        ls_nvme = self.collect_path('ls_nvme')
-        # trusty and vivid do not have sys/class/nvme but
-        # nvme devices do work
-        if os.path.getsize(ls_nvme) > 0:
-            self.check_file_strippedline("ls_nvme", "nvme0")
-        else:
-            self.check_file_strippedline("ls_dev_nvme", "/dev/nvme0")
-            self.check_file_strippedline("ls_dev_nvme", "/dev/nvme0n1")
-            self.check_file_strippedline("ls_dev_nvme", "/dev/nvme0n1p1")
 
     def test_bcache_output_files_exist(self):
         self.output_files_exist(["bcache_super_nvme0n1p1", "bcache_ls",
                                  "bcache_cache_mode"])
+
+    def test_nvme_device_names(self):
+        self._test_nvme_device_names(['nvme0', 'nvme0n1', 'nvme0n1p1'])
 
     def test_bcache_status(self):
         bcache_cset_uuid = None

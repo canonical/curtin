@@ -6,12 +6,12 @@ import sys
 from curtin.util import (
     ProcessExecutionError,
     get_architecture,
-    install_packages,
     is_uefi_bootable,
-    lsb_release,
     subp,
     which,
 )
+
+from curtin.distro import install_packages, lsb_release
 
 REQUIRED_IMPORTS = [
     # import string to execute, python2 package, python3 package
@@ -177,7 +177,7 @@ def install_deps(verbosity=False, dry_run=False, allow_daemons=True):
     ret = 0
     try:
         install_packages(missing_pkgs, allow_daemons=allow_daemons,
-                         aptopts=["--no-install-recommends"])
+                         opts=["--no-install-recommends"])
     except ProcessExecutionError as e:
         sys.stderr.write("%s\n" % e)
         ret = e.exit_code

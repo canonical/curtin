@@ -3,8 +3,9 @@
 # This module wraps calls to mkfs.<fstype> and determines the appropriate flags
 # for each filesystem type
 
-from curtin import util
 from curtin import block
+from curtin import distro
+from curtin import util
 
 import string
 import os
@@ -102,7 +103,7 @@ def valid_fstypes():
 
 def get_flag_mapping(flag_name, fs_family, param=None, strict=False):
     ret = []
-    release = util.lsb_release()['codename']
+    release = distro.lsb_release()['codename']
     overrides = release_flag_mapping_overrides.get(release, {})
     if flag_name in overrides and fs_family in overrides[flag_name]:
         flag_sym = overrides[flag_name][fs_family]

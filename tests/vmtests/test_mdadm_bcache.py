@@ -2,32 +2,27 @@
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
-
+from .releases import centos_base_vm_classes as centos_relbase
 import textwrap
 
 
 class TestMdadmAbs(VMBaseClass):
     interactive = False
+    test_type = 'storage'
     active_mdadm = "1"
     dirty_disks = True
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        cat /etc/fstab > fstab
         mdadm --detail --scan > mdadm_status
         mdadm --detail --scan | grep -c ubuntu > mdadm_active1
         grep -c active /proc/mdstat > mdadm_active2
         ls /dev/disk/by-dname > ls_dname
-        ls -al /dev/disk/by-dname > lsal_dname
-        ls -al /dev/disk/by-uuid > lsal_uuid
-        find /etc/network/interfaces.d > find_interfacesd
         cat /proc/mdstat | tee mdstat
-        cat /proc/partitions | tee procpartitions
         ls -1 /sys/class/block | tee sys_class_block
         ls -1 /dev/md* | tee dev_md
         ls -al /sys/fs/bcache/* > lsal_sys_fs_bcache_star
         ls -al /dev/bcache* > lsal_dev_bcache_star
         ls -al /dev/bcache/by_uuid/* > lsal_dev_bcache_byuuid_star
-        cp -a /var/log/syslog .
         """)]
 
     def test_mdadm_output_files_exist(self):
@@ -58,7 +53,8 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                      ('cached_array_2', 0),
                      ('cached_array_3', 0)]
     extra_disks = ['4G', '4G', '4G', '4G', '4G']
-    collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = TestMdadmAbs.extra_collect_scripts + [
+        textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         bcache-super-show /dev/vda6 > bcache_super_vda6
         bcache-super-show /dev/vda7 > bcache_super_vda7
@@ -67,9 +63,6 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
         cat /sys/block/bcache1/bcache/cache_mode >> bcache_cache_mode
         cat /sys/block/bcache2/bcache/cache_mode >> bcache_cache_mode
-        cat /proc/mounts > proc_mounts
-        find /etc/network/interfaces.d > find_interfacesd
-        cp -a /etc/udev/rules.d etc_udev_rules.d
         """)]
     fstab_expected = {
         '/dev/vda1': '/media/sda1',
@@ -169,6 +162,11 @@ class TestMirrorbootAbs(TestMdadmAbs):
                      ('md0', 0)]
 
 
+class Centos70TestMirrorboot(centos_relbase.centos70_xenial,
+                             TestMirrorbootAbs):
+    __test__ = True
+
+
 class TrustyTestMirrorboot(relbase.trusty, TestMirrorbootAbs):
     __test__ = True
 
@@ -206,6 +204,11 @@ class TestMirrorbootPartitionsAbs(TestMdadmAbs):
     disk_to_check = [('main_disk', 1),
                      ('second_disk', 1),
                      ('md0', 2)]
+
+
+class Centos70TestMirrorbootPartitions(centos_relbase.centos70_xenial,
+                                       TestMirrorbootPartitionsAbs):
+    __test__ = True
 
 
 class TrustyTestMirrorbootPartitions(relbase.trusty,
@@ -259,6 +262,11 @@ class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
     dirty_disks = True
 
 
+class Centos70TestMirrorbootPartitionsUEFI(centos_relbase.centos70_xenial,
+                                           TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
 class TrustyTestMirrorbootPartitionsUEFI(relbase.trusty,
                                          TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
@@ -301,11 +309,15 @@ class TestRaid5bootAbs(TestMdadmAbs):
                      ('md0', 0)]
 
 
-class TrustyTestRaid5Boot(relbase.trusty, TestRaid5bootAbs):
+class Centos70TestRaid5boot(centos_relbase.centos70_xenial, TestRaid5bootAbs):
     __test__ = True
 
 
-class TrustyHWEXTestRaid5Boot(relbase.trusty_hwe_x, TrustyTestRaid5Boot):
+class TrustyTestRaid5boot(relbase.trusty, TestRaid5bootAbs):
+    __test__ = True
+
+
+class TrustyHWEXTestRaid5boot(relbase.trusty_hwe_x, TrustyTestRaid5boot):
     # This tests kernel upgrade in target
     __test__ = True
 
@@ -341,10 +353,11 @@ class TestRaid6bootAbs(TestMdadmAbs):
                      ('third_disk', 1),
                      ('fourth_disk', 1),
                      ('md0', 0)]
-    collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = (
+        TestMdadmAbs.extra_collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         mdadm --detail --scan > mdadm_detail
-        """)]
+        """)])
 
     def test_raid6_output_files_exist(self):
         self.output_files_exist(
@@ -353,6 +366,10 @@ class TestRaid6bootAbs(TestMdadmAbs):
     def test_mdadm_custom_name(self):
         # the raid6boot.yaml sets this name, check if it was set
         self.check_file_regex("mdadm_detail", r"ubuntu:foobar")
+
+
+class Centos70TestRaid6boot(centos_relbase.centos70_xenial, TestRaid6bootAbs):
+    __test__ = True
 
 
 class TrustyTestRaid6boot(relbase.trusty, TestRaid6bootAbs):
@@ -394,6 +411,11 @@ class TestRaid10bootAbs(TestMdadmAbs):
                      ('third_disk', 1),
                      ('fourth_disk', 1),
                      ('md0', 0)]
+
+
+class Centos70TestRaid10boot(centos_relbase.centos70_xenial,
+                             TestRaid10bootAbs):
+    __test__ = True
 
 
 class TrustyTestRaid10boot(relbase.trusty, TestRaid10bootAbs):
@@ -460,7 +482,8 @@ class TestAllindataAbs(TestMdadmAbs):
                      ('vg1-lv1', 0),
                      ('vg1-lv2', 0)]
 
-    collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = (
+        TestMdadmAbs.extra_collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
@@ -470,7 +493,7 @@ class TestAllindataAbs(TestMdadmAbs):
         mkdir -p /tmp/xfstest
         mount /dev/mapper/dmcrypt0 /tmp/xfstest
         xfs_info /tmp/xfstest/ > xfs_info
-        """)]
+        """)])
     fstab_expected = {
         '/dev/vg1/lv1': '/srv/data',
         '/dev/vg1/lv2': '/srv/backup',

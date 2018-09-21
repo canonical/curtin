@@ -37,11 +37,12 @@ class TestBlockMkfs(CiTestCase):
     @mock.patch("curtin.block.mkfs.block")
     @mock.patch("curtin.block.mkfs.os")
     @mock.patch("curtin.block.mkfs.util")
+    @mock.patch("curtin.block.mkfs.distro.lsb_release")
     def _run_mkfs_with_config(self, config, expected_cmd, expected_flags,
-                              mock_util, mock_os, mock_block,
+                              mock_lsb_release, mock_util, mock_os, mock_block,
                               release="wily", strict=False):
         # Pretend we are on wily as there are no known edge cases for it
-        mock_util.lsb_release.return_value = {"codename": release}
+        mock_lsb_release.return_value = {"codename": release}
         mock_os.path.exists.return_value = True
         mock_block.get_blockdev_sector_size.return_value = (512, 512)
 

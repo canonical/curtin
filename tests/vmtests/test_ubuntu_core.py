@@ -10,12 +10,9 @@ class TestUbuntuCoreAbs(VMBaseClass):
     target_ftype = "root-image.xz"
     interactive = False
     conf_file = "examples/tests/ubuntu_core.yaml"
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = VMBaseClass.extra_collect_scripts + [
+        textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        cat /proc/partitions > proc_partitions
-        ls -al /dev/disk/by-uuid/ > ls_uuid
-        cat /etc/fstab > fstab
-        find /etc/network/interfaces.d > find_interfacesd
         snap list > snap_list
         cp -a /run/cloud-init ./run_cloud_init |:
         cp -a /etc/cloud ./etc_cloud |:
@@ -23,10 +20,8 @@ class TestUbuntuCoreAbs(VMBaseClass):
         cp -a /var/lib/extrausers . |:
         """)]
 
-    def test_output_files_exist(self):
-        self.output_files_exist(["snap_list"])
-
     def test_ubuntu_core_snaps_installed(self):
+        self.output_files_exist(["snap_list"])
         snap_list = self.load_collect_file('snap_list')
         print(snap_list)
         for snap in ['core', 'pc', 'pc-kernel', 'hello',

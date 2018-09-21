@@ -96,7 +96,7 @@ def sysfs_to_dict(input):
 
 class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
     conf_file = "examples/tests/bridging_network.yaml"
-    collect_scripts = TestNetworkBaseTestsAbs.collect_scripts + [
+    extra_collect_scripts = TestNetworkBaseTestsAbs.extra_collect_scripts + [
         textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         grep -r . /sys/class/net/br0 > sysfs_br0
@@ -192,7 +192,7 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
 
 
 class CentosTestBridgeNetworkAbs(TestBridgeNetworkAbs):
-    collect_scripts = TestBridgeNetworkAbs.collect_scripts + [
+    extra_collect_scripts = TestBridgeNetworkAbs.extra_collect_scripts + [
         textwrap.dedent("""
             cd OUTPUT_COLLECT_D
             cp -a /etc/sysconfig/network-scripts .
@@ -216,12 +216,12 @@ class CentosTestBridgeNetworkAbs(TestBridgeNetworkAbs):
         self.assertTrue('bridge' in status)
 
 
-class Centos66TestBridgeNetwork(centos_relbase.centos66fromxenial,
+class Centos66TestBridgeNetwork(centos_relbase.centos66_xenial,
                                 CentosTestBridgeNetworkAbs):
     __test__ = True
 
 
-class Centos70TestBridgeNetwork(centos_relbase.centos70fromxenial,
+class Centos70TestBridgeNetwork(centos_relbase.centos70_xenial,
                                 CentosTestBridgeNetworkAbs):
     __test__ = True
 

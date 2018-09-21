@@ -17,20 +17,16 @@ import yaml
 
 class TestNetworkBaseTestsAbs(VMBaseClass):
     interactive = False
+    test_type = 'network'
     extra_disks = []
     extra_nics = []
     # XXX: command | tee output is required for Centos under SELinux
     # http://danwalsh.livejournal.com/22860.html
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         echo "waiting for ipv6 to settle" && sleep 5
         route -n | tee first_route_n
-        ifconfig -a | tee ifconfig_a
         ip link show | tee ip_link_show
-        ip a | tee  ip_a
-        find /etc/network/interfaces.d > find_interfacesd
-        cp -av /etc/network/interfaces .
-        cp -av /etc/network/interfaces.d .
         cp /etc/resolv.conf .
         cp -av /etc/udev/rules.d/70-persistent-net.rules . ||:
         ip -o route show | tee ip_route_show
@@ -41,7 +37,6 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         cp -av /var/log/upstart ./upstart ||:
         cp -av /etc/cloud ./etc_cloud
         cp -av /var/log/cloud*.log ./
-        rpm -q --queryformat '%{VERSION}\n' cloud-init |tee rpm_ci_version
         V=/usr/lib/python*/*-packages/cloudinit/version.py;
         grep -c NETWORK_CONFIG_V2 $V |tee cloudinit_passthrough_available
         mkdir -p etc_netplan
@@ -58,8 +53,6 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
 
     def test_output_files_exist(self):
         self.output_files_exist([
-            "find_interfacesd",
-            "ifconfig_a",
             "ip_a",
             "ip_route_show",
             "route_6_n",
@@ -437,14 +430,6 @@ class TestNetworkBasicAbs(TestNetworkBaseTestsAbs):
 
 class CentosTestNetworkBasicAbs(TestNetworkBaseTestsAbs):
     conf_file = "examples/tests/centos_basic.yaml"
-    collect_scripts = TestNetworkBaseTestsAbs.collect_scripts + [
-        textwrap.dedent("""
-            cd OUTPUT_COLLECT_D
-            cp -a /etc/sysconfig/network-scripts .
-            cp -a /var/log/cloud-init* .
-            cp -a /var/lib/cloud ./var_lib_cloud
-            cp -a /run/cloud-init ./run_cloud-init
-        """)]
 
     def test_etc_network_interfaces(self):
         pass
@@ -488,12 +473,12 @@ class CosmicTestNetworkBasic(relbase.cosmic, TestNetworkBasicAbs):
     __test__ = True
 
 
-class Centos66TestNetworkBasic(centos_relbase.centos66fromxenial,
+class Centos66TestNetworkBasic(centos_relbase.centos66_xenial,
                                CentosTestNetworkBasicAbs):
     __test__ = True
 
 
-class Centos70TestNetworkBasic(centos_relbase.centos70fromxenial,
+class Centos70TestNetworkBasic(centos_relbase.centos70_xenial,
                                CentosTestNetworkBasicAbs):
     __test__ = True
 

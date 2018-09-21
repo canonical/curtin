@@ -2,12 +2,14 @@
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 
 import textwrap
 
 
 class TestBasicIscsiAbs(VMBaseClass):
     interactive = False
+    test_type = 'storage'
     iscsi_disks = [
         {'size': '3G'},
         {'size': '4G', 'auth': 'user:passw0rd'},
@@ -16,14 +18,11 @@ class TestBasicIscsiAbs(VMBaseClass):
     conf_file = "examples/tests/basic_iscsi.yaml"
     nr_testfiles = 4
 
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent(
-        """
+    extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        cat /etc/fstab > fstab
-        ls /dev/disk/by-dname/ > ls_dname
-        find /etc/network/interfaces.d > find_interfacesd
+        cp -a /etc/iscsi ./etc_iscsi
         bash -c \
-        'for f in /mnt/iscsi*; do cat $f/testfile > testfile${f: -1}; done'
+        'for f in /mnt/iscsi*; do cp $f/testfile testfile${f: -1}; done'
         """)]
 
     def test_fstab_has_netdev_option(self):
@@ -47,6 +46,11 @@ class TestBasicIscsiAbs(VMBaseClass):
             self.assertEqual(expected_content, content,
                              "Checking %s, expected:\n%s\nfound:\n%s" %
                              (testfile, expected_content, content))
+
+
+class Centos70XenialTestIscsiBasic(centos_relbase.centos70_xenial,
+                                   TestBasicIscsiAbs):
+    __test__ = True
 
 
 class TrustyTestIscsiBasic(relbase.trusty, TestBasicIscsiAbs):

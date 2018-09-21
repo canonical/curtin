@@ -4,18 +4,15 @@ from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
 import json
-import textwrap
 
 
 class TestJournaldReporter(VMBaseClass):
     # Test that curtin with no config does the right thing
     conf_file = "examples/tests/journald_reporter.yaml"
+    test_type = 'config'
     extra_disks = []
     extra_nics = []
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
-        cd OUTPUT_COLLECT_D
-        find /etc/network/interfaces.d > find_interfacesd
-        """)]
+    extra_collect_scripts = []
 
     def test_output_files_exist(self):
         self.output_files_exist(["root/journalctl.curtin_events.log",

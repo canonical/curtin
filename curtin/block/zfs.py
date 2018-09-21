@@ -7,6 +7,7 @@ and volumes."""
 import os
 
 from curtin.config import merge_config
+from curtin import distro
 from curtin import util
 from . import blkid, get_supported_filesystems
 
@@ -90,7 +91,7 @@ def zfs_assert_supported():
     if arch in ZFS_UNSUPPORTED_ARCHES:
         raise RuntimeError("zfs is not supported on architecture: %s" % arch)
 
-    release = util.lsb_release()['codename']
+    release = distro.lsb_release()['codename']
     if release in ZFS_UNSUPPORTED_RELEASES:
         raise RuntimeError("zfs is not supported on release: %s" % release)
 
