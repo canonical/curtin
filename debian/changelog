@@ -1,4 +1,4 @@
-curtin (18.1-52-g5f0082d1-0ubuntu1) UNRELEASED; urgency=medium
+curtin (18.1-52-g5f0082d1-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
     - Enable custom storage configuration for centos images
