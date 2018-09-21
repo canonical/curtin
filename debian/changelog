@@ -1,3 +1,10 @@
+curtin (18.1-52-g5f0082d1-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - Enable custom storage configuration for centos images
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Fri, 21 Sep 2018 03:04:42 -0500
+
 curtin (18.1-51-gb812ae80-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
