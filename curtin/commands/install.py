@@ -13,7 +13,9 @@ import tempfile
 
 from curtin.block import iscsi
 from curtin import config
+from curtin import distro
 from curtin import util
+from curtin import paths
 from curtin import version
 from curtin.log import LOG, logged_time
 from curtin.reporter.legacy import load_reporter
@@ -80,7 +82,7 @@ def copy_install_log(logfile, target, log_target_path):
     LOG.debug('Copying curtin install log from %s to target/%s',
               logfile, log_target_path)
     util.write_file(
-        filename=util.target_path(target, log_target_path),
+        filename=paths.target_path(target, log_target_path),
         content=util.load_file(logfile, decode=False),
         mode=0o400, omode="wb")
 
@@ -319,7 +321,7 @@ def apply_kexec(kexec, target):
         raise TypeError("kexec is not a dict.")
 
     if not util.which('kexec'):
-        util.install_packages('kexec-tools')
+        distro.install_packages('kexec-tools')
 
     if not os.path.isfile(target_grubcfg):
         raise ValueError("%s does not exist in target" % grubcfg)

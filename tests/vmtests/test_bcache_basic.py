@@ -10,19 +10,16 @@ class TestBcacheBasic(VMBaseClass):
     arch_skip = [
         "s390x",  # lp:1565029
     ]
+    test_type = 'storage'
     conf_file = "examples/tests/bcache_basic.yaml"
     nr_cpus = 2
     dirty_disks = True
     extra_disks = ['2G']
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         bcache-super-show /dev/vda2 > bcache_super_vda2
         ls /sys/fs/bcache > bcache_ls
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
-        cat /proc/mounts > proc_mounts
-        cat /proc/partitions > proc_partitions
-        find /etc/network/interfaces.d > find_interfacesd
-        cat /proc/cmdline > cmdline
         """)]
 
     def test_bcache_output_files_exist(self):
@@ -42,7 +39,7 @@ class TestBcacheBasic(VMBaseClass):
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
 
     def test_proc_cmdline_root_by_uuid(self):
-        self.check_file_regex("cmdline", r"root=UUID=")
+        self.check_file_regex("proc_cmdline", r"root=UUID=")
 
 
 class TrustyBcacheBasic(relbase.trusty, TestBcacheBasic):

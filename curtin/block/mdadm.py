@@ -13,6 +13,7 @@ import time
 
 from curtin.block import (dev_short, dev_path, is_valid_device, sys_block_path)
 from curtin.block import get_holders
+from curtin.distro import lsb_release
 from curtin import (util, udev)
 from curtin.log import LOG
 
@@ -95,7 +96,7 @@ VALID_RAID_ARRAY_STATES = (
     checks the mdadm version and will return True if we can use --export
     for key=value list with enough info, false if version is less than
 '''
-MDADM_USE_EXPORT = util.lsb_release()['codename'] not in ['precise', 'trusty']
+MDADM_USE_EXPORT = lsb_release()['codename'] not in ['precise', 'trusty']
 
 #
 # mdadm executors

@@ -384,7 +384,7 @@ class TestBlockZfsAssertZfsSupported(CiTestCase):
         super(TestBlockZfsAssertZfsSupported, self).setUp()
         self.add_patch('curtin.block.zfs.util.subp', 'mock_subp')
         self.add_patch('curtin.block.zfs.util.get_platform_arch', 'mock_arch')
-        self.add_patch('curtin.block.zfs.util.lsb_release', 'mock_release')
+        self.add_patch('curtin.block.zfs.distro.lsb_release', 'mock_release')
         self.add_patch('curtin.block.zfs.util.which', 'mock_which')
         self.add_patch('curtin.block.zfs.get_supported_filesystems',
                        'mock_supfs')
@@ -426,46 +426,52 @@ class TestAssertZfsSupported(CiTestCase):
         super(TestAssertZfsSupported, self).setUp()
 
     @mock.patch('curtin.block.zfs.get_supported_filesystems')
+    @mock.patch('curtin.block.zfs.distro')
     @mock.patch('curtin.block.zfs.util')
-    def test_zfs_assert_supported_returns_true(self, mock_util, mock_supfs):
+    def test_zfs_assert_supported_returns_true(self, mock_util, mock_distro,
+                                               mock_supfs):
         """zfs_assert_supported returns True on supported platforms"""
         mock_util.get_platform_arch.return_value = 'amd64'
-        mock_util.lsb_release.return_value = {'codename': 'bionic'}
+        mock_distro.lsb_release.return_value = {'codename': 'bionic'}
         mock_util.subp.return_value = ("", "")
         mock_supfs.return_value = ['zfs']
         mock_util.which.side_effect = iter(['/wark/zpool', '/wark/zfs'])
 
         self.assertNotIn(mock_util.get_platform_arch.return_value,
                          zfs.ZFS_UNSUPPORTED_ARCHES)
-        self.assertNotIn(mock_util.lsb_release.return_value['codename'],
+        self.assertNotIn(mock_distro.lsb_release.return_value['codename'],
                          zfs.ZFS_UNSUPPORTED_RELEASES)
         self.assertTrue(zfs.zfs_supported())
 
+    @mock.patch('curtin.block.zfs.distro')
     @mock.patch('curtin.block.zfs.util')
     def test_zfs_assert_supported_raises_exception_on_bad_arch(self,
-                                                               mock_util):
+                                                               mock_util,
+                                                               mock_distro):
         """zfs_assert_supported raises RuntimeError on unspported arches"""
-        mock_util.lsb_release.return_value = {'codename': 'bionic'}
+        mock_distro.lsb_release.return_value = {'codename': 'bionic'}
         mock_util.subp.return_value = ("", "")
         for arch in zfs.ZFS_UNSUPPORTED_ARCHES:
             mock_util.get_platform_arch.return_value = arch
             with self.assertRaises(RuntimeError):
                 zfs.zfs_assert_supported()
 
+    @mock.patch('curtin.block.zfs.distro')
     @mock.patch('curtin.block.zfs.util')
-    def test_zfs_assert_supported_raises_exc_on_bad_releases(self, mock_util):
+    def test_zfs_assert_supported_raises_exc_on_bad_releases(self, mock_util,
+                                                             mock_distro):
         """zfs_assert_supported raises RuntimeError on unspported releases"""
         mock_util.get_platform_arch.return_value = 'amd64'
         mock_util.subp.return_value = ("", "")
         for release in zfs.ZFS_UNSUPPORTED_RELEASES:
-            mock_util.lsb_release.return_value = {'codename': release}
+            mock_distro.lsb_release.return_value = {'codename': release}
             with self.assertRaises(RuntimeError):
                 zfs.zfs_assert_supported()
 
     @mock.patch('curtin.block.zfs.util.subprocess.Popen')
     @mock.patch('curtin.block.zfs.util.is_kmod_loaded')
     @mock.patch('curtin.block.zfs.get_supported_filesystems')
-    @mock.patch('curtin.block.zfs.util.lsb_release')
+    @mock.patch('curtin.block.zfs.distro.lsb_release')
     @mock.patch('curtin.block.zfs.util.get_platform_arch')
     def test_zfs_assert_supported_raises_exc_on_missing_module(self,
                                                                m_arch,

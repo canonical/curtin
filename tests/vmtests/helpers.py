@@ -2,6 +2,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
+import re
 import subprocess
 import signal
 import threading
@@ -86,7 +87,26 @@ def check_call(cmd, signal=signal.SIGTERM, **kwargs):
     return Command(cmd, signal).run(**kwargs)
 
 
-def find_testcases():
+def find_testcases_by_attr(**kwargs):
+    class_match = set()
+    for test_case in find_testcases(**kwargs):
+        tc_name = str(test_case.__class__)
+        full_path = tc_name.split("'")[1].split(".")
+        class_name = full_path[-1]
+        if class_name in class_match:
+            continue
+        class_match.add(class_name)
+        filename = "/".join(full_path[0:-1]) + ".py"
+        yield "%s:%s" % (filename, class_name)
+
+
+def _attr_match(pattern, value):
+    if not value:
+        return False
+    return re.match(pattern, str(value))
+
+
+def find_testcases(**kwargs):
     # Use the TestLoder to load all test cases defined within tests/vmtests/
     # and figure out what distros and releases they are testing. Any tests
     # which are disabled will be excluded.
@@ -97,11 +117,18 @@ def find_testcases():
     root_dir = os.path.split(os.path.split(tests_dir)[0])[0]
     # Find all test modules defined in curtin/tests/vmtests/
     module_test_suites = loader.discover(tests_dir, top_level_dir=root_dir)
+    filter_attrs = [attr for attr, value in kwargs.items() if value]
     for mts in module_test_suites:
         for class_test_suite in mts:
             for test_case in class_test_suite:
                 # skip disabled tests
                 if not getattr(test_case, '__test__', False):
+                    continue
+                # compare each filter attr with the specified value
+                tcmatch = [not _attr_match(kwargs[attr],
+                                           getattr(test_case, attr, False))
+                           for attr in filter_attrs]
+                if any(tcmatch):
                     continue
                 yield test_case
 

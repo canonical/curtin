@@ -7,7 +7,7 @@ from mock import patch, call
 import os
 
 from curtin.commands import block_meta
-from curtin import util
+from curtin import paths, util
 from .helpers import CiTestCase
 
 
@@ -688,8 +688,9 @@ class TestFstabData(CiTestCase):
         if target is None:
             target = self.tmp_dir()
 
-        expected = [a if a != "_T_MP" else util.target_path(target, fdata.path)
-                    for a in expected]
+        expected = [
+            a if a != "_T_MP" else paths.target_path(target, fdata.path)
+            for a in expected]
         with patch("curtin.util.subp") as m_subp:
             block_meta.mount_fstab_data(fdata, target=target)
 

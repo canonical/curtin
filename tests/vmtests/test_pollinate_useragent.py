@@ -11,11 +11,11 @@ from unittest import SkipTest
 class TestPollinateUserAgent(VMBaseClass):
     # Test configuring pollinate useragent
     conf_file = "examples/tests/pollinate-useragent.yaml"
+    test_type = 'config'
     extra_disks = []
     extra_nics = []
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        find /etc/network/interfaces.d > find_interfacesd
         cp -a /etc/pollinate etc_pollinate
         pollinate --print-user-agent > pollinate_print_user_agent
         """)]

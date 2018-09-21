@@ -13,7 +13,7 @@ import sys
 import yaml
 
 from curtin.log import LOG
-from curtin import (config, util, gpg)
+from curtin import (config, distro, gpg, paths, util)
 
 from . import populate_one_subcmd
 
@@ -61,7 +61,7 @@ def handle_apt(cfg, target=None):
         curthooks if a global apt config was provided or via the "apt"
         standalone command.
     """
-    release = util.lsb_release(target=target)['codename']
+    release = distro.lsb_release(target=target)['codename']
     arch = util.get_architecture(target)
     mirrors = find_apt_mirror_info(cfg, arch)
     LOG.debug("Apt Mirror info: %s", mirrors)
@@ -148,7 +148,7 @@ def apply_debconf_selections(cfg, target=None):
             pkg = re.sub(r"[:\s].*", "", line)
             pkgs_cfgd.add(pkg)
 
-    pkgs_installed = util.get_installed_packages(target)
+    pkgs_installed = distro.get_installed_packages(target)
 
     LOG.debug("pkgs_cfgd: %s", pkgs_cfgd)
     LOG.debug("pkgs_installed: %s", pkgs_installed)
@@ -164,7 +164,7 @@ def apply_debconf_selections(cfg, target=None):
 def clean_cloud_init(target):
     """clean out any local cloud-init config"""
     flist = glob.glob(
-        util.target_path(target, "/etc/cloud/cloud.cfg.d/*dpkg*"))
+        paths.target_path(target, "/etc/cloud/cloud.cfg.d/*dpkg*"))
 
     LOG.debug("cleaning cloud-init config from: %s", flist)
     for dpkg_cfg in flist:
@@ -194,7 +194,7 @@ def rename_apt_lists(new_mirrors, target=None):
     """rename_apt_lists - rename apt lists to preserve old cache data"""
     default_mirrors = get_default_mirrors(util.get_architecture(target))
 
-    pre = util.target_path(target, APT_LISTS)
+    pre = paths.target_path(target, APT_LISTS)
     for (name, omirror) in default_mirrors.items():
         nmirror = new_mirrors.get(name)
         if not nmirror:
@@ -299,7 +299,7 @@ def generate_sources_list(cfg, release, mirrors, target=None):
     if tmpl is None:
         LOG.info("No custom template provided, fall back to modify"
                  "mirrors in %s on the target system", aptsrc)
-        tmpl = util.load_file(util.target_path(target, aptsrc))
+        tmpl = util.load_file(paths.target_path(target, aptsrc))
         # Strategy if no custom template was provided:
         # - Only replacing mirrors
         # - no reason to replace "release" as it is from target anyway
@@ -310,24 +310,24 @@ def generate_sources_list(cfg, release, mirrors, target=None):
         tmpl = mirror_to_placeholder(tmpl, default_mirrors['SECURITY'],
                                      "$SECURITY")
 
-    orig = util.target_path(target, aptsrc)
+    orig = paths.target_path(target, aptsrc)
     if os.path.exists(orig):
         os.rename(orig, orig + ".curtin.old")
 
     rendered = util.render_string(tmpl, params)
     disabled = disable_suites(cfg.get('disable_suites'), rendered, release)
-    util.write_file(util.target_path(target, aptsrc), disabled, mode=0o644)
+    util.write_file(paths.target_path(target, aptsrc), disabled, mode=0o644)
 
     # protect the just generated sources.list from cloud-init
     cloudfile = "/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg"
     # this has to work with older cloud-init as well, so use old key
     cloudconf = yaml.dump({'apt_preserve_sources_list': True}, indent=1)
     try:
-        util.write_file(util.target_path(target, cloudfile),
+        util.write_file(paths.target_path(target, cloudfile),
                         cloudconf, mode=0o644)
     except IOError:
         LOG.exception("Failed to protect source.list from cloud-init in (%s)",
-                      util.target_path(target, cloudfile))
+                      paths.target_path(target, cloudfile))
         raise
 
 
@@ -409,7 +409,7 @@ def add_apt_sources(srcdict, target=None, template_params=None,
                     raise
             continue
 
-        sourcefn = util.target_path(target, ent['filename'])
+        sourcefn = paths.target_path(target, ent['filename'])
         try:
             contents = "%s\n" % (source)
             util.write_file(sourcefn, contents, omode="a")
@@ -417,8 +417,8 @@ def add_apt_sources(srcdict, target=None, template_params=None,
             LOG.exception("failed write to file %s: %s", sourcefn, detail)
             raise
 
-    util.apt_update(target=target, force=True,
-                    comment="apt-source changed config")
+    distro.apt_update(target=target, force=True,
+                      comment="apt-source changed config")
 
     return
 

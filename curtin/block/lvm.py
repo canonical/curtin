@@ -4,6 +4,7 @@
 This module provides some helper functions for manipulating lvm devices
 """
 
+from curtin import distro
 from curtin import util
 from curtin.log import LOG
 import os
@@ -88,7 +89,7 @@ def lvm_scan(activate=True):
     # before appending the cache flag though, check if lvmetad is running. this
     # ensures that we do the right thing even if lvmetad is supported but is
     # not running
-    release = util.lsb_release().get('codename')
+    release = distro.lsb_release().get('codename')
     if release in [None, 'UNAVAILABLE']:
         LOG.warning('unable to find release number, assuming xenial or later')
         release = 'xenial'

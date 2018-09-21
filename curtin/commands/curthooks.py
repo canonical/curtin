@@ -11,12 +11,18 @@ import textwrap
 
 from curtin import config
 from curtin import block
+from curtin import distro
+from curtin.block import iscsi
 from curtin import net
 from curtin import futil
 from curtin.log import LOG
+from curtin import paths
 from curtin import swap
 from curtin import util
 from curtin import version as curtin_version
+from curtin.block import deps as bdeps
+from curtin.distro import DISTROS
+from curtin.net import deps as ndeps
 from curtin.reporter import events
 from curtin.commands import apply_net, apt_config
 from curtin.url_helper import get_maas_version
@@ -173,10 +179,10 @@ def install_kernel(cfg, target):
     # target only has required packages installed.  See LP:1640519
     fk_packages = get_flash_kernel_pkgs()
     if fk_packages:
-        util.install_packages(fk_packages.split(), target=target)
+        distro.install_packages(fk_packages.split(), target=target)
 
     if kernel_package:
-        util.install_packages([kernel_package], target=target)
+        distro.install_packages([kernel_package], target=target)
         return
 
     # uname[2] is kernel name (ie: 3.16.0-7-generic)
@@ -193,24 +199,24 @@ def install_kernel(cfg, target):
         LOG.warn("Couldn't detect kernel package to install for %s."
                  % kernel)
         if kernel_fallback is not None:
-            util.install_packages([kernel_fallback], target=target)
+            distro.install_packages([kernel_fallback], target=target)
         return
 
     package = "linux-{flavor}{map_suffix}".format(
         flavor=flavor, map_suffix=map_suffix)
 
-    if util.has_pkg_available(package, target):
-        if util.has_pkg_installed(package, target):
+    if distro.has_pkg_available(package, target):
+        if distro.has_pkg_installed(package, target):
             LOG.debug("Kernel package '%s' already installed", package)
         else:
             LOG.debug("installing kernel package '%s'", package)
-            util.install_packages([package], target=target)
+            distro.install_packages([package], target=target)
     else:
         if kernel_fallback is not None:
             LOG.info("Kernel package '%s' not available.  "
                      "Installing fallback package '%s'.",
                      package, kernel_fallback)
-            util.install_packages([kernel_fallback], target=target)
+            distro.install_packages([kernel_fallback], target=target)
         else:
             LOG.warn("Kernel package '%s' not available and no fallback."
                      " System may not boot.", package)
@@ -273,7 +279,7 @@ def uefi_reorder_loaders(grubcfg, target):
         LOG.debug("Currently booted UEFI loader might no longer boot.")
 
 
-def setup_grub(cfg, target):
+def setup_grub(cfg, target, osfamily=DISTROS.debian):
     # target is the path to the mounted filesystem
 
     # FIXME: these methods need moving to curtin.block
@@ -353,24 +359,6 @@ def setup_grub(cfg, target):
         else:
             instdevs = list(blockdevs)
 
-    # UEFI requires grub-efi-{arch}. If a signed version of that package
-    # exists then it will be installed.
-    if util.is_uefi_bootable():
-        arch = util.get_architecture()
-        pkgs = ['grub-efi-%s' % arch]
-
-        # Architecture might support a signed UEFI loader
-        uefi_pkg_signed = 'grub-efi-%s-signed' % arch
-        if util.has_pkg_available(uefi_pkg_signed):
-            pkgs.append(uefi_pkg_signed)
-
-        # AMD64 has shim-signed for SecureBoot support
-        if arch == "amd64":
-            pkgs.append("shim-signed")
-
-        # Install the UEFI packages needed for the architecture
-        util.install_packages(pkgs, target=target)
-
     env = os.environ.copy()
 
     replace_default = grubcfg.get('replace_linux_default', True)
@@ -399,6 +387,7 @@ def setup_grub(cfg, target):
             else:
                 LOG.debug("NOT enabling UEFI nvram updates")
                 LOG.debug("Target system may not boot")
+        args.append('--os-family=%s' % osfamily)
         args.append(target)
 
         # capture stdout and stderr joined.
@@ -435,14 +424,21 @@ def copy_crypttab(crypttab, target):
     shutil.copy(crypttab, os.path.sep.join([target, 'etc/crypttab']))
 
 
-def copy_iscsi_conf(nodes_dir, target):
+def copy_iscsi_conf(nodes_dir, target, target_nodes_dir='etc/iscsi/nodes'):
     if not nodes_dir:
         LOG.warn("nodes directory must be specified, not copying")
         return
 
     LOG.info("copying iscsi nodes database into target")
-    shutil.copytree(nodes_dir, os.path.sep.join([target,
-                    'etc/iscsi/nodes']))
+    tdir = os.path.sep.join([target, target_nodes_dir])
+    if not os.path.exists(tdir):
+        shutil.copytree(nodes_dir, tdir)
+    else:
+        # if /etc/iscsi/nodes exists, copy dirs underneath
+        for ndir in os.listdir(nodes_dir):
+            source_dir = os.path.join(nodes_dir, ndir)
+            target_dir = os.path.join(tdir, ndir)
+            shutil.copytree(source_dir, target_dir)
 
 
 def copy_mdadm_conf(mdadm_conf, target):
@@ -486,7 +482,7 @@ def copy_dname_rules(rules_d, target):
     if not rules_d:
         LOG.warn("no udev rules directory to copy")
         return
-    target_rules_dir = util.target_path(target, "etc/udev/rules.d")
+    target_rules_dir = paths.target_path(target, "etc/udev/rules.d")
     for rule in os.listdir(rules_d):
         target_file = os.path.join(target_rules_dir, rule)
         shutil.copy(os.path.join(rules_d, rule), target_file)
@@ -532,11 +528,19 @@ def add_swap(cfg, target, fstab):
                         maxsize=maxsize)
 
 
-def detect_and_handle_multipath(cfg, target):
-    DEFAULT_MULTIPATH_PACKAGES = ['multipath-tools-boot']
+def detect_and_handle_multipath(cfg, target, osfamily=DISTROS.debian):
+    DEFAULT_MULTIPATH_PACKAGES = {
+        DISTROS.debian: ['multipath-tools-boot'],
+        DISTROS.redhat: ['device-mapper-multipath'],
+    }
+    if osfamily not in DEFAULT_MULTIPATH_PACKAGES:
+        raise ValueError(
+                'No multipath package mapping for distro: %s' % osfamily)
+
     mpcfg = cfg.get('multipath', {})
     mpmode = mpcfg.get('mode', 'auto')
-    mppkgs = mpcfg.get('packages', DEFAULT_MULTIPATH_PACKAGES)
+    mppkgs = mpcfg.get('packages',
+                       DEFAULT_MULTIPATH_PACKAGES.get(osfamily))
     mpbindings = mpcfg.get('overwrite_bindings', True)
 
     if isinstance(mppkgs, str):
@@ -549,23 +553,28 @@ def detect_and_handle_multipath(cfg, target):
         return
 
     LOG.info("Detected multipath devices. Installing support via %s", mppkgs)
+    needed = [pkg for pkg in mppkgs if pkg
+              not in distro.get_installed_packages(target)]
+    if needed:
+        distro.install_packages(needed, target=target, osfamily=osfamily)
 
-    util.install_packages(mppkgs, target=target)
     replace_spaces = True
-    try:
-        # check in-target version
-        pkg_ver = util.get_package_version('multipath-tools', target=target)
-        LOG.debug("get_package_version:\n%s", pkg_ver)
-        LOG.debug("multipath version is %s (major=%s minor=%s micro=%s)",
-                  pkg_ver['semantic_version'], pkg_ver['major'],
-                  pkg_ver['minor'], pkg_ver['micro'])
-        # multipath-tools versions < 0.5.0 do _NOT_ want whitespace replaced
-        # i.e. 0.4.X in Trusty.
-        if pkg_ver['semantic_version'] < 500:
-            replace_spaces = False
-    except Exception as e:
-        LOG.warn("failed reading multipath-tools version, "
-                 "assuming it wants no spaces in wwids: %s", e)
+    if osfamily == DISTROS.debian:
+        try:
+            # check in-target version
+            pkg_ver = distro.get_package_version('multipath-tools',
+                                                 target=target)
+            LOG.debug("get_package_version:\n%s", pkg_ver)
+            LOG.debug("multipath version is %s (major=%s minor=%s micro=%s)",
+                      pkg_ver['semantic_version'], pkg_ver['major'],
+                      pkg_ver['minor'], pkg_ver['micro'])
+            # multipath-tools versions < 0.5.0 do _NOT_
+            # want whitespace replaced i.e. 0.4.X in Trusty.
+            if pkg_ver['semantic_version'] < 500:
+                replace_spaces = False
+        except Exception as e:
+            LOG.warn("failed reading multipath-tools version, "
+                     "assuming it wants no spaces in wwids: %s", e)
 
     multipath_cfg_path = os.path.sep.join([target, '/etc/multipath.conf'])
     multipath_bind_path = os.path.sep.join([target, '/etc/multipath/bindings'])
@@ -574,7 +583,7 @@ def detect_and_handle_multipath(cfg, target):
     if not os.path.isfile(multipath_cfg_path):
         # Without user_friendly_names option enabled system fails to boot
         # if any of the disks has spaces in its name. Package multipath-tools
-        # has bug opened for this issue (LP: 1432062) but it was not fixed yet.
+        # has bug opened for this issue LP: #1432062 but it was not fixed yet.
         multipath_cfg_content = '\n'.join(
             ['# This file was created by curtin while installing the system.',
              'defaults {',
@@ -593,7 +602,13 @@ def detect_and_handle_multipath(cfg, target):
         mpname = "mpath0"
         grub_dev = "/dev/mapper/" + mpname
         if partno is not None:
-            grub_dev += "-part%s" % partno
+            if osfamily == DISTROS.debian:
+                grub_dev += "-part%s" % partno
+            elif osfamily == DISTROS.redhat:
+                grub_dev += "p%s" % partno
+            else:
+                raise ValueError(
+                        'Unknown grub_dev mapping for distro: %s' % osfamily)
 
         LOG.debug("configuring multipath install for root=%s wwid=%s",
                   grub_dev, wwid)
@@ -606,31 +621,54 @@ def detect_and_handle_multipath(cfg, target):
              ''])
         util.write_file(multipath_bind_path, content=multipath_bind_content)
 
-        grub_cfg = os.path.sep.join(
-            [target, '/etc/default/grub.d/50-curtin-multipath.cfg'])
+        if osfamily == DISTROS.debian:
+            grub_cfg = os.path.sep.join(
+                [target, '/etc/default/grub.d/50-curtin-multipath.cfg'])
+            omode = 'w'
+        elif osfamily == DISTROS.redhat:
+            grub_cfg = os.path.sep.join([target, '/etc/default/grub'])
+            omode = 'a'
+        else:
+            raise ValueError(
+                    'Unknown grub_cfg mapping for distro: %s' % osfamily)
+
         msg = '\n'.join([
-            '# Written by curtin for multipath device wwid "%s"' % wwid,
+            '# Written by curtin for multipath device %s %s' % (mpname, wwid),
             'GRUB_DEVICE=%s' % grub_dev,
             'GRUB_DISABLE_LINUX_UUID=true',
             ''])
-        util.write_file(grub_cfg, content=msg)
-
+        util.write_file(grub_cfg, omode=omode, content=msg)
     else:
         LOG.warn("Not sure how this will boot")
 
-    # Initrams needs to be updated to include /etc/multipath.cfg
-    # and /etc/multipath/bindings files.
-    update_initramfs(target, all_kernels=True)
+    if osfamily == DISTROS.debian:
+        # Initrams needs to be updated to include /etc/multipath.cfg
+        # and /etc/multipath/bindings files.
+        update_initramfs(target, all_kernels=True)
+    elif osfamily == DISTROS.redhat:
+        # Write out initramfs/dracut config for multipath
+        dracut_conf_multipath = os.path.sep.join(
+            [target, '/etc/dracut.conf.d/10-curtin-multipath.conf'])
+        msg = '\n'.join([
+            '# Written by curtin for multipath device wwid "%s"' % wwid,
+            'force_drivers+=" dm-multipath "',
+            'add_dracutmodules+="multipath"',
+            'install_items+="/etc/multipath.conf /etc/multipath/bindings"',
+            ''])
+        util.write_file(dracut_conf_multipath, content=msg)
+    else:
+        raise ValueError(
+                'Unknown initramfs mapping for distro: %s' % osfamily)
 
 
-def detect_required_packages(cfg):
+def detect_required_packages(cfg, osfamily=DISTROS.debian):
     """
     detect packages that will be required in-target by custom config items
     """
 
     mapping = {
-        'storage': block.detect_required_packages_mapping(),
-        'network': net.detect_required_packages_mapping(),
+        'storage': bdeps.detect_required_packages_mapping(osfamily=osfamily),
+        'network': ndeps.detect_required_packages_mapping(osfamily=osfamily),
     }
 
     needed_packages = []
@@ -657,16 +695,16 @@ def detect_required_packages(cfg):
     return needed_packages
 
 
-def install_missing_packages(cfg, target):
+def install_missing_packages(cfg, target, osfamily=DISTROS.debian):
     ''' describe which operation types will require specific packages
 
     'custom_config_key': {
          'pkg1': ['op_name_1', 'op_name_2', ...]
      }
     '''
-
-    installed_packages = util.get_installed_packages(target)
-    needed_packages = set([pkg for pkg in detect_required_packages(cfg)
+    installed_packages = distro.get_installed_packages(target)
+    needed_packages = set([pkg for pkg in
+                           detect_required_packages(cfg, osfamily=osfamily)
                            if pkg not in installed_packages])
 
     arch_packages = {
@@ -677,6 +715,31 @@ def install_missing_packages(cfg, target):
         if not util.which(cmd, target=target):
             if pkg not in needed_packages:
                 needed_packages.add(pkg)
+
+    # UEFI requires grub-efi-{arch}. If a signed version of that package
+    # exists then it will be installed.
+    if util.is_uefi_bootable():
+        uefi_pkgs = []
+        if osfamily == DISTROS.redhat:
+            # centos/redhat doesn't support 32-bit?
+            uefi_pkgs.extend(['grub2-efi-x64-modules'])
+        elif osfamily == DISTROS.debian:
+            arch = util.get_architecture()
+            uefi_pkgs.append('grub-efi-%s' % arch)
+
+            # Architecture might support a signed UEFI loader
+            uefi_pkg_signed = 'grub-efi-%s-signed' % arch
+            if distro.has_pkg_available(uefi_pkg_signed):
+                uefi_pkgs.append(uefi_pkg_signed)
+
+            # AMD64 has shim-signed for SecureBoot support
+            if arch == "amd64":
+                uefi_pkgs.append("shim-signed")
+        else:
+            raise ValueError('Unknown grub2 package list for distro: %s' %
+                             osfamily)
+        needed_packages.update([pkg for pkg in uefi_pkgs
+                                if pkg not in installed_packages])
 
     # Filter out ifupdown network packages on netplan enabled systems.
     has_netplan = ('nplan' in installed_packages or
@@ -696,10 +759,10 @@ def install_missing_packages(cfg, target):
                 reporting_enabled=True, level="INFO",
                 description="Installing packages on target system: " +
                 str(to_add)):
-            util.install_packages(to_add, target=target)
+            distro.install_packages(to_add, target=target, osfamily=osfamily)
 
 
-def system_upgrade(cfg, target):
+def system_upgrade(cfg, target, osfamily=DISTROS.debian):
     """run system-upgrade (apt-get dist-upgrade) or other in target.
 
     config:
@@ -718,7 +781,7 @@ def system_upgrade(cfg, target):
         LOG.debug("system_upgrade disabled by config.")
         return
 
-    util.system_upgrade(target=target)
+    distro.system_upgrade(target=target, osfamily=osfamily)
 
 
 def inject_pollinate_user_agent_config(ua_cfg, target):
@@ -728,7 +791,7 @@ def inject_pollinate_user_agent_config(ua_cfg, target):
     if not isinstance(ua_cfg, dict):
         raise ValueError('ua_cfg is not a dictionary: %s', ua_cfg)
 
-    pollinate_cfg = util.target_path(target, '/etc/pollinate/add-user-agent')
+    pollinate_cfg = paths.target_path(target, '/etc/pollinate/add-user-agent')
     comment = "# written by curtin"
     content = "\n".join(["%s/%s %s" % (ua_key, ua_val, comment)
                          for ua_key, ua_val in ua_cfg.items()]) + "\n"
@@ -751,6 +814,8 @@ def handle_pollinate_user_agent(cfg, target):
       curtin version
       maas version (via endpoint URL, if present)
     """
+    if not util.which('pollinate', target=target):
+        return
 
     pcfg = cfg.get('pollinate')
     if not isinstance(pcfg, dict):
@@ -774,6 +839,63 @@ def handle_pollinate_user_agent(cfg, target):
             uacfg['maas'] = maas_version['version']
 
     inject_pollinate_user_agent_config(uacfg, target)
+
+
+def configure_iscsi(cfg, state_etcd, target, osfamily=DISTROS.debian):
+    # If a /etc/iscsi/nodes/... file was created by block_meta then it
+    # needs to be copied onto the target system
+    nodes = os.path.join(state_etcd, "nodes")
+    if not os.path.exists(nodes):
+        return
+
+    LOG.info('Iscsi configuration found, enabling service')
+    if osfamily == DISTROS.redhat:
+        # copy iscsi node config to target image
+        LOG.debug('Copying iscsi node config to target')
+        copy_iscsi_conf(nodes, target, target_nodes_dir='var/lib/iscsi/nodes')
+
+        # update in-target config
+        with util.ChrootableTarget(target) as in_chroot:
+            # enable iscsid service
+            LOG.debug('Enabling iscsi daemon')
+            in_chroot.subp(['chkconfig', 'iscsid', 'on'])
+
+            # update selinux config for iscsi ports required
+            for port in [str(port) for port in
+                         iscsi.get_iscsi_ports_from_config(cfg)]:
+                LOG.debug('Adding iscsi port %s to selinux iscsi_port_t list',
+                          port)
+                in_chroot.subp(['semanage', 'port', '-a', '-t',
+                                'iscsi_port_t', '-p', 'tcp', port])
+
+    elif osfamily == DISTROS.debian:
+        copy_iscsi_conf(nodes, target)
+    else:
+        raise ValueError(
+                'Unknown iscsi requirements for distro: %s' % osfamily)
+
+
+def configure_mdadm(cfg, state_etcd, target, osfamily=DISTROS.debian):
+    # If a mdadm.conf file was created by block_meta than it needs
+    # to be copied onto the target system
+    mdadm_location = os.path.join(state_etcd, "mdadm.conf")
+    if not os.path.exists(mdadm_location):
+        return
+
+    conf_map = {
+        DISTROS.debian: 'etc/mdadm/mdadm.conf',
+        DISTROS.redhat: 'etc/mdadm.conf',
+    }
+    if osfamily not in conf_map:
+        raise ValueError(
+                'Unknown mdadm conf mapping for distro: %s' % osfamily)
+    LOG.info('Mdadm configuration found, enabling service')
+    shutil.copy(mdadm_location, paths.target_path(target,
+                                                  conf_map[osfamily]))
+    if osfamily == DISTROS.debian:
+        # as per LP: #964052 reconfigure mdadm
+        util.subp(['dpkg-reconfigure', '--frontend=noninteractive', 'mdadm'],
+                  data=None, target=target)
 
 
 def handle_cloudconfig(cfg, base_dir=None):
@@ -845,21 +967,11 @@ def ubuntu_core_curthooks(cfg, target=None):
                         content=config.dump_config({'network': netconfig}))
 
 
-def rpm_get_dist_id(target):
-    """Use rpm command to extract the '%rhel' distro macro which returns
-       the major os version id (6, 7, 8).  This works for centos or rhel
-    """
-    with util.ChrootableTarget(target) as in_chroot:
-        dist, _ = in_chroot.subp(['rpm', '-E', '%rhel'], capture=True)
-    return dist.rstrip()
-
-
-def centos_apply_network_config(netcfg, target=None):
+def redhat_upgrade_cloud_init(netcfg, target=None, osfamily=DISTROS.redhat):
     """ CentOS images execute built-in curthooks which only supports
         simple networking configuration.  This hook enables advanced
         network configuration via config passthrough to the target.
     """
-
     def cloud_init_repo(version):
         if not version:
             raise ValueError('Missing required version parameter')
@@ -868,9 +980,9 @@ def centos_apply_network_config(netcfg, target=None):
 
     if netcfg:
         LOG.info('Removing embedded network configuration (if present)')
-        ifcfgs = glob.glob(util.target_path(target,
-                                            'etc/sysconfig/network-scripts') +
-                           '/ifcfg-*')
+        ifcfgs = glob.glob(
+            paths.target_path(target, 'etc/sysconfig/network-scripts') +
+            '/ifcfg-*')
         # remove ifcfg-* (except ifcfg-lo)
         for ifcfg in ifcfgs:
             if os.path.basename(ifcfg) != "ifcfg-lo":
@@ -884,29 +996,27 @@ def centos_apply_network_config(netcfg, target=None):
         # if in-target cloud-init is not updated, upgrade via cloud-init repo
         if not passthrough:
             cloud_init_yum_repo = (
-                util.target_path(target,
-                                 'etc/yum.repos.d/curtin-cloud-init.repo'))
+                paths.target_path(target,
+                                  'etc/yum.repos.d/curtin-cloud-init.repo'))
             # Inject cloud-init daily yum repo
             util.write_file(cloud_init_yum_repo,
-                            content=cloud_init_repo(rpm_get_dist_id(target)))
+                            content=cloud_init_repo(
+                                distro.rpm_get_dist_id(target)))
 
             # we separate the installation of repository packages (epel,
             # cloud-init-el-release) as we need a new invocation of yum
             # to read the newly installed repo files.
-            YUM_CMD = ['yum', '-y', '--noplugins', 'install']
-            retries = [1] * 30
-            with util.ChrootableTarget(target) as in_chroot:
-                # ensure up-to-date ca-certificates to handle https mirror
-                # connections
-                in_chroot.subp(YUM_CMD + ['ca-certificates'], capture=True,
-                               log_captured=True, retries=retries)
-                in_chroot.subp(YUM_CMD + ['epel-release'], capture=True,
-                               log_captured=True, retries=retries)
-                in_chroot.subp(YUM_CMD + ['cloud-init-el-release'],
-                               log_captured=True, capture=True,
-                               retries=retries)
-                in_chroot.subp(YUM_CMD + ['cloud-init'], capture=True,
-                               log_captured=True, retries=retries)
+
+            # ensure up-to-date ca-certificates to handle https mirror
+            # connections
+            distro.install_packages(['ca-certificates'], target=target,
+                                    osfamily=osfamily)
+            distro.install_packages(['epel-release'], target=target,
+                                    osfamily=osfamily)
+            distro.install_packages(['cloud-init-el-release'], target=target,
+                                    osfamily=osfamily)
+            distro.install_packages(['cloud-init'], target=target,
+                                    osfamily=osfamily)
 
             # remove cloud-init el-stable bootstrap repo config as the
             # cloud-init-el-release package points to the correct repo
@@ -919,133 +1029,159 @@ def centos_apply_network_config(netcfg, target=None):
                                    capture=False, rcs=[0])
                 except util.ProcessExecutionError:
                     LOG.debug('Image missing bridge-utils package, installing')
-                    in_chroot.subp(YUM_CMD + ['bridge-utils'], capture=True,
-                                   log_captured=True, retries=retries)
+                    distro.install_packages(['bridge-utils'], target=target,
+                                            osfamily=osfamily)
 
     LOG.info('Passing network configuration through to target')
     net.render_netconfig_passthrough(target, netconfig={'network': netcfg})
 
 
-def target_is_ubuntu_core(target):
-    """Check if Ubuntu-Core specific directory is present at target"""
-    if target:
-        return os.path.exists(util.target_path(target,
-                                               'system-data/var/lib/snapd'))
-    return False
+# Public API, maas may call this from internal curthooks
+centos_apply_network_config = redhat_upgrade_cloud_init
 
 
-def target_is_centos(target):
-    """Check if CentOS specific file is present at target"""
-    if target:
-        return os.path.exists(util.target_path(target, 'etc/centos-release'))
+def redhat_apply_selinux_autorelabel(target):
+    """Creates file /.autorelabel.
 
-    return False
-
-
-def target_is_rhel(target):
-    """Check if RHEL specific file is present at target"""
-    if target:
-        return os.path.exists(util.target_path(target, 'etc/redhat-release'))
-
-    return False
+    This is used by SELinux to relabel all of the
+    files on the filesystem to have the correct
+    security context. Without this SSH login will
+    fail.
+    """
+    LOG.debug('enabling selinux autorelabel')
+    open(paths.target_path(target, '.autorelabel'), 'a').close()
 
 
-def curthooks(args):
-    state = util.load_command_environment()
+def redhat_update_dracut_config(target, cfg):
+    initramfs_mapping = {
+        'lvm': {'conf': 'lvmconf', 'modules': 'lvm'},
+        'raid': {'conf': 'mdadmconf', 'modules': 'mdraid'},
+    }
 
-    if args.target is not None:
-        target = args.target
-    else:
-        target = state['target']
+    # no need to update initramfs if no custom storage
+    if 'storage' not in cfg:
+        return False
 
-    if target is None:
-        sys.stderr.write("Unable to find target.  "
-                         "Use --target or set TARGET_MOUNT_POINT\n")
-        sys.exit(2)
+    storage_config = cfg.get('storage', {}).get('config')
+    if not storage_config:
+        raise ValueError('Invalid storage config')
 
-    cfg = config.load_command_config(args, state)
+    add_conf = set()
+    add_modules = set()
+    for scfg in storage_config:
+        if scfg['type'] == 'raid':
+            add_conf.add(initramfs_mapping['raid']['conf'])
+            add_modules.add(initramfs_mapping['raid']['modules'])
+        elif scfg['type'] in ['lvm_volgroup', 'lvm_partition']:
+            add_conf.add(initramfs_mapping['lvm']['conf'])
+            add_modules.add(initramfs_mapping['lvm']['modules'])
+
+    dconfig = ['# Written by curtin for custom storage config']
+    dconfig.append('add_dracutmodules+="%s"' % (" ".join(add_modules)))
+    for conf in add_conf:
+        dconfig.append('%s="yes"' % conf)
+
+    # Write out initramfs/dracut config for storage config
+    dracut_conf_storage = os.path.sep.join(
+        [target, '/etc/dracut.conf.d/50-curtin-storage.conf'])
+    msg = '\n'.join(dconfig + [''])
+    LOG.debug('Updating redhat dracut config')
+    util.write_file(dracut_conf_storage, content=msg)
+    return True
+
+
+def redhat_update_initramfs(target, cfg):
+    if not redhat_update_dracut_config(target, cfg):
+        LOG.debug('Skipping redhat initramfs update, no custom storage config')
+        return
+    kver_cmd = ['rpm', '-q', '--queryformat',
+                '%{VERSION}-%{RELEASE}.%{ARCH}', 'kernel']
+    with util.ChrootableTarget(target) as in_chroot:
+        LOG.debug('Finding redhat kernel version: %s', kver_cmd)
+        kver, _err = in_chroot.subp(kver_cmd, capture=True)
+        LOG.debug('Found kver=%s' % kver)
+        initramfs = '/boot/initramfs-%s.img' % kver
+        dracut_cmd = ['dracut', '-f', initramfs, kver]
+        LOG.debug('Rebuilding initramfs with: %s', dracut_cmd)
+        in_chroot.subp(dracut_cmd, capture=True)
+
+
+def builtin_curthooks(cfg, target, state):
+    LOG.info('Running curtin builtin curthooks')
     stack_prefix = state.get('report_stack_prefix', '')
+    state_etcd = os.path.split(state['fstab'])[0]
 
-    # if curtin-hooks hook exists in target we can defer to the in-target hooks
-    if util.run_hook_if_exists(target, 'curtin-hooks'):
-        # For vmtests to force execute centos_apply_network_config, uncomment
-        # the value in examples/tests/centos_defaults.yaml
-        if cfg.get('_ammend_centos_curthooks'):
-            if cfg.get('cloudconfig'):
-                handle_cloudconfig(
-                    cfg['cloudconfig'],
-                    base_dir=util.target_path(target, 'etc/cloud/cloud.cfg.d'))
-
-            if target_is_centos(target) or target_is_rhel(target):
-                LOG.info('Detected RHEL/CentOS image, running extra hooks')
-                with events.ReportEventStack(
-                        name=stack_prefix, reporting_enabled=True,
-                        level="INFO",
-                        description="Configuring CentOS for first boot"):
-                    centos_apply_network_config(cfg.get('network', {}), target)
-        sys.exit(0)
-
-    if target_is_ubuntu_core(target):
-        LOG.info('Detected Ubuntu-Core image, running hooks')
+    distro_info = distro.get_distroinfo(target=target)
+    if not distro_info:
+        raise RuntimeError('Failed to determine target distro')
+    osfamily = distro_info.family
+    LOG.info('Configuring target system for distro: %s osfamily: %s',
+             distro_info.variant, osfamily)
+    if osfamily == DISTROS.debian:
         with events.ReportEventStack(
-                name=stack_prefix, reporting_enabled=True, level="INFO",
-                description="Configuring Ubuntu-Core for first boot"):
-            ubuntu_core_curthooks(cfg, target)
-        sys.exit(0)
+                name=stack_prefix + '/writing-apt-config',
+                reporting_enabled=True, level="INFO",
+                description="configuring apt configuring apt"):
+            do_apt_config(cfg, target)
+            disable_overlayroot(cfg, target)
 
-    with events.ReportEventStack(
-            name=stack_prefix + '/writing-config',
-            reporting_enabled=True, level="INFO",
-            description="configuring apt configuring apt"):
-        do_apt_config(cfg, target)
-        disable_overlayroot(cfg, target)
-
-    # LP: #1742560 prevent zfs-dkms from being installed (Xenial)
-    if util.lsb_release(target=target)['codename'] == 'xenial':
-        util.apt_update(target=target)
-        with util.ChrootableTarget(target) as in_chroot:
-            in_chroot.subp(['apt-mark', 'hold', 'zfs-dkms'])
+        # LP: #1742560 prevent zfs-dkms from being installed (Xenial)
+        if distro.lsb_release(target=target)['codename'] == 'xenial':
+            distro.apt_update(target=target)
+            with util.ChrootableTarget(target) as in_chroot:
+                in_chroot.subp(['apt-mark', 'hold', 'zfs-dkms'])
 
     # packages may be needed prior to installing kernel
     with events.ReportEventStack(
             name=stack_prefix + '/installing-missing-packages',
             reporting_enabled=True, level="INFO",
             description="installing missing packages"):
-        install_missing_packages(cfg, target)
-
-    # If a /etc/iscsi/nodes/... file was created by block_meta then it
-    # needs to be copied onto the target system
-    nodes_location = os.path.join(os.path.split(state['fstab'])[0],
-                                  "nodes")
-    if os.path.exists(nodes_location):
-        copy_iscsi_conf(nodes_location, target)
-        # do we need to reconfigure open-iscsi?
-
-    # If a mdadm.conf file was created by block_meta than it needs to be copied
-    # onto the target system
-    mdadm_location = os.path.join(os.path.split(state['fstab'])[0],
-                                  "mdadm.conf")
-    if os.path.exists(mdadm_location):
-        copy_mdadm_conf(mdadm_location, target)
-        # as per https://bugs.launchpad.net/ubuntu/+source/mdadm/+bug/964052
-        # reconfigure mdadm
-        util.subp(['dpkg-reconfigure', '--frontend=noninteractive', 'mdadm'],
-                  data=None, target=target)
+        install_missing_packages(cfg, target, osfamily=osfamily)
 
     with events.ReportEventStack(
-            name=stack_prefix + '/installing-kernel',
+            name=stack_prefix + '/configuring-iscsi-service',
             reporting_enabled=True, level="INFO",
-            description="installing kernel"):
-        setup_zipl(cfg, target)
-        install_kernel(cfg, target)
-        run_zipl(cfg, target)
-        restore_dist_interfaces(cfg, target)
+            description="configuring iscsi service"):
+        configure_iscsi(cfg, state_etcd, target, osfamily=osfamily)
+
+    with events.ReportEventStack(
+            name=stack_prefix + '/configuring-mdadm-service',
+            reporting_enabled=True, level="INFO",
+            description="configuring raid (mdadm) service"):
+        configure_mdadm(cfg, state_etcd, target, osfamily=osfamily)
+
+    if osfamily == DISTROS.debian:
+        with events.ReportEventStack(
+                name=stack_prefix + '/installing-kernel',
+                reporting_enabled=True, level="INFO",
+                description="installing kernel"):
+            setup_zipl(cfg, target)
+            install_kernel(cfg, target)
+            run_zipl(cfg, target)
+            restore_dist_interfaces(cfg, target)
 
     with events.ReportEventStack(
             name=stack_prefix + '/setting-up-swap',
             reporting_enabled=True, level="INFO",
             description="setting up swap"):
         add_swap(cfg, target, state.get('fstab'))
+
+    if osfamily == DISTROS.redhat:
+        # set cloud-init maas datasource for centos images
+        if cfg.get('cloudconfig'):
+            handle_cloudconfig(
+                cfg['cloudconfig'],
+                base_dir=paths.target_path(target,
+                                           'etc/cloud/cloud.cfg.d'))
+
+        # For vmtests to force execute redhat_upgrade_cloud_init, uncomment
+        # the value in examples/tests/centos_defaults.yaml
+        if cfg.get('_ammend_centos_curthooks'):
+            with events.ReportEventStack(
+                    name=stack_prefix + '/upgrading cloud-init',
+                    reporting_enabled=True, level="INFO",
+                    description="Upgrading cloud-init in target"):
+                redhat_upgrade_cloud_init(cfg.get('network', {}), target)
 
     with events.ReportEventStack(
             name=stack_prefix + '/apply-networking-config',
@@ -1063,29 +1199,44 @@ def curthooks(args):
             name=stack_prefix + '/configuring-multipath',
             reporting_enabled=True, level="INFO",
             description="configuring multipath"):
-        detect_and_handle_multipath(cfg, target)
+        detect_and_handle_multipath(cfg, target, osfamily=osfamily)
 
     with events.ReportEventStack(
             name=stack_prefix + '/system-upgrade',
             reporting_enabled=True, level="INFO",
             description="updating packages on target system"):
-        system_upgrade(cfg, target)
+        system_upgrade(cfg, target, osfamily=osfamily)
+
+    if osfamily == DISTROS.redhat:
+        with events.ReportEventStack(
+                name=stack_prefix + '/enabling-selinux-autorelabel',
+                reporting_enabled=True, level="INFO",
+                description="enabling selinux autorelabel mode"):
+            redhat_apply_selinux_autorelabel(target)
+
+        with events.ReportEventStack(
+                name=stack_prefix + '/updating-initramfs-configuration',
+                reporting_enabled=True, level="INFO",
+                description="updating initramfs configuration"):
+            redhat_update_initramfs(target, cfg)
 
     with events.ReportEventStack(
             name=stack_prefix + '/pollinate-user-agent',
             reporting_enabled=True, level="INFO",
-            description="configuring pollinate user-agent on target system"):
+            description="configuring pollinate user-agent on target"):
         handle_pollinate_user_agent(cfg, target)
 
-    # If a crypttab file was created by block_meta than it needs to be copied
-    # onto the target system, and update_initramfs() needs to be run, so that
-    # the cryptsetup hooks are properly configured on the installed system and
-    # it will be able to open encrypted volumes at boot.
-    crypttab_location = os.path.join(os.path.split(state['fstab'])[0],
-                                     "crypttab")
-    if os.path.exists(crypttab_location):
-        copy_crypttab(crypttab_location, target)
-        update_initramfs(target)
+    if osfamily == DISTROS.debian:
+        # If a crypttab file was created by block_meta than it needs to be
+        # copied onto the target system, and update_initramfs() needs to be
+        # run, so that the cryptsetup hooks are properly configured on the
+        # installed system and it will be able to open encrypted volumes
+        # at boot.
+        crypttab_location = os.path.join(os.path.split(state['fstab'])[0],
+                                         "crypttab")
+        if os.path.exists(crypttab_location):
+            copy_crypttab(crypttab_location, target)
+            update_initramfs(target)
 
     # If udev dname rules were created, copy them to target
     udev_rules_d = os.path.join(state['scratch'], "rules.d")
@@ -1102,8 +1253,41 @@ def curthooks(args):
             machine.startswith('aarch64') and not util.is_uefi_bootable()):
         update_initramfs(target)
     else:
-        setup_grub(cfg, target)
+        setup_grub(cfg, target, osfamily=osfamily)
 
+
+def curthooks(args):
+    state = util.load_command_environment()
+
+    if args.target is not None:
+        target = args.target
+    else:
+        target = state['target']
+
+    if target is None:
+        sys.stderr.write("Unable to find target.  "
+                         "Use --target or set TARGET_MOUNT_POINT\n")
+        sys.exit(2)
+
+    cfg = config.load_command_config(args, state)
+    stack_prefix = state.get('report_stack_prefix', '')
+    curthooks_mode = cfg.get('curthooks', {}).get('mode', 'auto')
+
+    # UC is special, handle it first.
+    if distro.is_ubuntu_core(target):
+        LOG.info('Detected Ubuntu-Core image, running hooks')
+        with events.ReportEventStack(
+                name=stack_prefix, reporting_enabled=True, level="INFO",
+                description="Configuring Ubuntu-Core for first boot"):
+            ubuntu_core_curthooks(cfg, target)
+        sys.exit(0)
+
+    # user asked for target, or auto mode
+    if curthooks_mode in ['auto', 'target']:
+        if util.run_hook_if_exists(target, 'curtin-hooks'):
+            sys.exit(0)
+
+    builtin_curthooks(cfg, target, state)
     sys.exit(0)
 
 

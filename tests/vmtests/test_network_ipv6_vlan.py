@@ -35,12 +35,12 @@ class CosmicTestNetworkIPV6Vlan(relbase.cosmic, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
-class Centos66TestNetworkIPV6Vlan(centos_relbase.centos66fromxenial,
+class Centos66TestNetworkIPV6Vlan(centos_relbase.centos66_xenial,
                                   CentosTestNetworkIPV6VlanAbs):
     __test__ = True
 
 
-class Centos70TestNetworkIPV6Vlan(centos_relbase.centos70fromxenial,
+class Centos70TestNetworkIPV6Vlan(centos_relbase.centos70_xenial,
                                   CentosTestNetworkIPV6VlanAbs):
     __test__ = True
 

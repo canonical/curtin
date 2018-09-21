@@ -25,7 +25,8 @@ class TestNetworkMtuAbs(TestNetworkIPV6Abs):
         ipv6 first, then ipv4 with mtu.
     """
     conf_file = "examples/tests/network_mtu.yaml"
-    collect_scripts = TestNetworkIPV6Abs.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = TestNetworkIPV6Abs.extra_collect_scripts + [
+        textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         proc_v6="/proc/sys/net/ipv6/conf"
         for f in `seq 0 7`; do
@@ -120,7 +121,7 @@ class TestNetworkMtuAbs(TestNetworkIPV6Abs):
 
 class CentosTestNetworkMtuAbs(TestNetworkMtuAbs):
     conf_file = "examples/tests/network_mtu.yaml"
-    collect_scripts = TestNetworkMtuAbs.collect_scripts + [
+    extra_collect_scripts = TestNetworkMtuAbs.extra_collect_scripts + [
         textwrap.dedent("""
             cd OUTPUT_COLLECT_D
             cp -a /etc/sysconfig/network-scripts .
@@ -199,12 +200,12 @@ class CosmicTestNetworkMtu(relbase.cosmic, TestNetworkMtuAbs):
     __test__ = True
 
 
-class Centos66TestNetworkMtu(centos_relbase.centos66fromxenial,
+class Centos66TestNetworkMtu(centos_relbase.centos66_xenial,
                              CentosTestNetworkMtuAbs):
     __test__ = True
 
 
-class Centos70TestNetworkMtu(centos_relbase.centos70fromxenial,
+class Centos70TestNetworkMtu(centos_relbase.centos70_xenial,
                              CentosTestNetworkMtuAbs):
     __test__ = True
 

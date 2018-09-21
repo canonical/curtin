@@ -2,6 +2,7 @@
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 
 from curtin import config
 
@@ -43,19 +44,14 @@ def _parse_blkid_output(content):
 
 class TestFsBattery(VMBaseClass):
     interactive = False
+    test_type = 'storage'
     conf_file = "examples/tests/filesystem_battery.yaml"
     extra_disks = ['20G']
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        blkid -o export > blkid.out
-        cat /proc/mounts > proc_mounts
-        cat /proc/partitions > proc_partitions
-        find /etc/network/interfaces.d > find_interfacesd
-        cat /proc/cmdline > cmdline
-        cat /etc/fstab > fstab
         cat /proc/1/mountinfo > mountinfo
 
-        for p in /my/bind-over-var-lib/apt /my/bind-ro-etc/passwd; do
+        for p in /my/bind-over-var-cache/man /my/bind-ro-etc/passwd; do
             [ -e "$p" ] && echo "$p: present" || echo "$p: missing"
         done > my-path-checks
 
@@ -162,7 +158,7 @@ class TestFsBattery(VMBaseClass):
         expected = [
             "none /my/tmpfs tmpfs size=4194304 0 0".split(),
             "none /my/ramfs ramfs defaults 0 0".split(),
-            "/my/bind-over-var-lib /var/lib none bind 0 0".split(),
+            "/my/bind-over-var-cache /var/cache none bind 0 0".split(),
             "/etc /my/bind-ro-etc none bind,ro 0 0".split(),
         ]
         fstab_found = [
@@ -185,7 +181,7 @@ class TestFsBattery(VMBaseClass):
             dest_src[toks[4]] = toks[3]
         self.assertTrue("/my/ramfs" in dest_src)
         self.assertTrue("/my/tmpfs" in dest_src)
-        self.assertEqual(dest_src.get("/var/lib"), "/my/bind-over-var-lib")
+        self.assertEqual(dest_src.get("/var/cache"), "/my/bind-over-var-cache")
         self.assertEqual(dest_src.get("/my/bind-ro-etc"), "/etc")
 
     def test_expected_files_from_bind_mounts(self):
@@ -197,8 +193,26 @@ class TestFsBattery(VMBaseClass):
             paths[path] = val.strip()
 
         self.assertEqual(
-            {'/my/bind-over-var-lib/apt': 'present',
+            {'/my/bind-over-var-cache/man': 'present',
              '/my/bind-ro-etc/passwd': 'present'}, paths)
+
+
+class Centos70XenialTestFsBattery(centos_relbase.centos70_xenial,
+                                  TestFsBattery):
+    __test__ = True
+
+    def test_mount_umount(self):
+        """Check output of mount and unmount operations for each fs."""
+        # centos does not support: jfs, ntfs, reiserfs
+        unsupported = ['jfs', 'ntfs', 'reiserfs']
+        results = [ent for ent in
+                   self.load_collect_file("battery-mount-umount").splitlines()
+                   if ent.split()[-1].replace("'", "") not in unsupported]
+        entries = {k: v for k, v in self.get_fs_entries().items()
+                   if v['fstype'] not in unsupported}
+        expected = (["%s mount: PASS" % k for k in entries] +
+                    ["%s umount: PASS" % k for k in entries])
+        self.assertEqual(sorted(expected), sorted(results))
 
 
 class TrustyTestFsBattery(relbase.trusty, TestFsBattery):

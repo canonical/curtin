@@ -25,7 +25,7 @@ class TestNetworkBondingAbs(TestNetworkBaseTestsAbs):
 
 
 class CentosTestNetworkBondingAbs(TestNetworkBondingAbs):
-    collect_scripts = TestNetworkBondingAbs.collect_scripts + [
+    extra_collect_scripts = TestNetworkBondingAbs.extra_collect_scripts + [
         textwrap.dedent("""
             cd OUTPUT_COLLECT_D
             cp -a /etc/sysconfig/network-scripts .
@@ -79,12 +79,12 @@ class CosmicTestBonding(relbase.cosmic, TestNetworkBondingAbs):
     __test__ = True
 
 
-class Centos66TestNetworkBonding(centos_relbase.centos66fromxenial,
+class Centos66TestNetworkBonding(centos_relbase.centos66_xenial,
                                  CentosTestNetworkBondingAbs):
     __test__ = True
 
 
-class Centos70TestNetworkBonding(centos_relbase.centos70fromxenial,
+class Centos70TestNetworkBonding(centos_relbase.centos70_xenial,
                                  CentosTestNetworkBondingAbs):
     __test__ = True
 

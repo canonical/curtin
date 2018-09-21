@@ -73,7 +73,8 @@ class TestBlockLvm(CiTestCase):
 
     @mock.patch('curtin.block.lvm.lvmetad_running')
     @mock.patch('curtin.block.lvm.util')
-    def test_lvm_scan(self, mock_util, mock_lvmetad):
+    @mock.patch('curtin.block.lvm.distro')
+    def test_lvm_scan(self, mock_distro, mock_util, mock_lvmetad):
         """check that lvm_scan formats commands correctly for each release"""
         cmds = [['pvscan'], ['vgscan', '--mknodes']]
         for (count, (codename, lvmetad_status, use_cache)) in enumerate(
@@ -81,7 +82,7 @@ class TestBlockLvm(CiTestCase):
                  ('trusty', False, False),
                  ('xenial', False, False), ('xenial', True, True),
                  (None, True, True), (None, False, False)]):
-            mock_util.lsb_release.return_value = {'codename': codename}
+            mock_distro.lsb_release.return_value = {'codename': codename}
             mock_lvmetad.return_value = lvmetad_status
             lvm.lvm_scan()
             expected = [cmd for cmd in cmds]

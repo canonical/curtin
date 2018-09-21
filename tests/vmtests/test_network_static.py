@@ -3,7 +3,6 @@
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 from .test_network import TestNetworkBaseTestsAbs
-import textwrap
 
 
 class TestNetworkStaticAbs(TestNetworkBaseTestsAbs):
@@ -13,14 +12,6 @@ class TestNetworkStaticAbs(TestNetworkBaseTestsAbs):
 
 
 class CentosTestNetworkStaticAbs(TestNetworkStaticAbs):
-    collect_scripts = TestNetworkBaseTestsAbs.collect_scripts + [
-        textwrap.dedent("""
-            cd OUTPUT_COLLECT_D
-            cp -a /etc/sysconfig/network-scripts .
-            cp -a /var/log/cloud-init* .
-            cp -a /var/lib/cloud ./var_lib_cloud
-            cp -a /run/cloud-init ./run_cloud-init
-        """)]
 
     def test_etc_network_interfaces(self):
         pass
@@ -68,12 +59,12 @@ class CosmicTestNetworkStatic(relbase.cosmic, TestNetworkStaticAbs):
     __test__ = True
 
 
-class Centos66TestNetworkStatic(centos_relbase.centos66fromxenial,
+class Centos66TestNetworkStatic(centos_relbase.centos66_xenial,
                                 CentosTestNetworkStaticAbs):
     __test__ = True
 
 
-class Centos70TestNetworkStatic(centos_relbase.centos70fromxenial,
+class Centos70TestNetworkStatic(centos_relbase.centos70_xenial,
                                 CentosTestNetworkStaticAbs):
     __test__ = True
 

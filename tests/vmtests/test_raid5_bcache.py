@@ -8,22 +8,19 @@ import textwrap
 
 class TestMdadmAbs(VMBaseClass):
     interactive = False
+    test_type = 'storage'
     extra_disks = ['10G', '10G', '10G', '10G']
     active_mdadm = "1"
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        cat /etc/fstab > fstab
         mdadm --detail --scan > mdadm_status
         mdadm --detail --scan | grep -c ubuntu > mdadm_active1
         grep -c active /proc/mdstat > mdadm_active2
-        ls /dev/disk/by-dname > ls_dname
-        find /etc/network/interfaces.d > find_interfacesd
         """)]
 
     def test_mdadm_output_files_exist(self):
-        self.output_files_exist(
-            ["fstab", "mdadm_status", "mdadm_active1", "mdadm_active2",
-             "ls_dname"])
+        self.output_files_exist(["mdadm_status", "mdadm_active1",
+                                 "mdadm_active2"])
 
     def test_mdadm_status(self):
         # ubuntu:<ID> is the name assigned to the md array
@@ -36,14 +33,12 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
     conf_file = "examples/tests/raid5bcache.yaml"
     disk_to_check = [('md0', 0), ('sda', 2)]
 
-    collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = TestMdadmAbs.extra_collect_scripts
+    extra_collect_scripts += [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         bcache-super-show /dev/vda2 > bcache_super_vda2
         ls /sys/fs/bcache > bcache_ls
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
-        cat /proc/mounts > proc_mounts
-        cat /proc/partitions > proc_partitions
-        find /etc/network/interfaces.d > find_interfacesd
         """)]
     fstab_expected = {
         '/dev/bcache0': '/',
