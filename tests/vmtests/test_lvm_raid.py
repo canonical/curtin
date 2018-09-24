@@ -14,8 +14,9 @@ class TestLvmOverRaidAbs(TestMdadmAbs, TestLvmAbs):
     dirty_disks = True
     extra_disks = ['10G'] * 4
 
-    collect_scripts = TestLvmAbs.collect_scripts
-    collect_scripts += TestMdadmAbs.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = TestLvmAbs.extra_collect_scripts
+    extra_collect_scripts += TestMdadmAbs.extra_collect_scripts
+    extra_collect_scripts += [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         ls -al /dev/md* > dev_md
         cp -a /etc/mdadm etc_mdadm
