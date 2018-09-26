@@ -75,10 +75,13 @@ while [ $# -ne 0 ]; do
     shift;
 done
 
-if [ "${#tests[@]}" -eq 0 ]; then
+if [ "${#tests[@]}" -ne 0 -a "${#ntfilters[@]}" -ne 0 ]; then
+    error "Passing test tests and --filter are incompatible."
+    error "test arguments provided were: ${#tests[*]}"
+    fail
+elif [ "${#tests[@]}" -eq 0 ]; then
     tests=( tests/vmtests )
-fi
-if [ "${#ntfilters[@]}" -ne 0 ]; then
+elif [ "${#ntfilters[@]}" -ne 0 ]; then
    tests=( $(./tools/vmtest-filter "${ntfilters[@]}") )
    if [ "${#tests[@]}" -eq 0 ]; then
       error "Failed to find any tests with filter(s): \"${ntfilters[*]}\""
