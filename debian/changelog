@@ -1,3 +1,48 @@
+curtin (18.1-56-g3aafe77d-0ubuntu1~16.04.1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot. (LP: #1795712)
+    - vmtest: Fix typo in skip-by-date.
+    - vmtest: kick skip-by-date for 1671951.
+    - tools/jenkins-runner: Error if both filters and tests are given.
+    - vmtests: prevent tests from modifying cls.collect_scripts
+    - Enable custom storage configuration for centos images
+    - vmtest: ensure we collect /var/log/journal only once
+    - Don't allow reads of /proc and modprobe zfs through
+    - clear-holders: handle missing zpool/zfs tools when wiping
+    - clear-holders: rescan for lvm devices after assembling raid arrays
+    - vmtest: enable persistent journal and collect at boot time
+    - Add timing and logging functions.
+    - parse_dpkg_version: support non-numeric in version string.
+    - Add main so that 'python3 -m curtin' does the right thing.
+    - Add subcommand 'features'.
+    - block: use uuid4 (random) when autogenerating UUIDS for filesystems
+    - vmtests: Increase size of root filesystems.
+    - clear-holders: reread ptable after wiping disks with partitions
+    - vmtest: Skip proposed pocket on dev release when 'proposed' in ADD_REPOS.
+    - tests: remove Ubuntu Artful [Joshua Powers]
+    - vmtests: Let a raised SkipTest go through skip_by_date.
+    - vmtests: Increase root fs to give upgrades to -proposed more space.
+    - vmtest: Order the vmtest_pollinate late_command earlier.
+    - vmtest: always add 'curtin/vmtest' to installed pollinate user_agent.
+    - vmtests: make skip_by_date a decorator that runs and reports.
+    - vmtests: always declare certain attributes and remove redundant tests.
+    - vmtests: Add Cosmic release to tests [Joshua Powers]
+    - vmtests: skip TrustyTestMdadmBcache until 2019-01-22.
+    - tox: use simplestreams from git repository rather than bzr.
+    - document that you can set ptable on raids [Michael Hudson-Doyle]
+    - vmtests: move skip-by date of xfs root and xfs boot out 1 year.
+    - vmtests: network_mtu move fixby date out 4 months from last value
+    - Fix WorkingDir class to support already existing target directory.
+    - Fix extraction of local filesystem image.
+    - Fix tip-pyflakes imported but unused call to util.get_platform_arch
+    - subp: update return value of subp with combine_capture=True.
+    - tox: add a xenial environments, default envlist changes.
+    - tests: Fix race on utcnow during timestamped curtin-log dir creation
+    - curtainer: patch source version from --source.
+    - pyflakes: fix unused variable references identified by pyflakes 2.0.0.
+
+ -- Chad Smith <chad.smith@canonical.com>  Tue, 02 Oct 2018 16:47:10 -0600
+
 curtin (18.1-17-gae48e86f-0ubuntu1~16.04.1) xenial; urgency=medium
 
   * New upstream snapshot. (LP: #1772044)
