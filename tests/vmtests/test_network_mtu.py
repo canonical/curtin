@@ -195,7 +195,7 @@ class BionicTestNetworkMtu(relbase.bionic, TestNetworkMtuAbs):
     __test__ = True
 
 
-@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2018-01-02")
+@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2019-01-02")
 class CosmicTestNetworkMtu(relbase.cosmic, TestNetworkMtuAbs):
     __test__ = True
 
