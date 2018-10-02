@@ -2,27 +2,24 @@
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 
 import json
+import os
 import textwrap
 
 
 class TestLvmRootAbs(VMBaseClass):
     conf_file = "examples/tests/lvmroot.yaml"
+    test_type = 'storage'
     interactive = False
     rootfs_uuid = '04836770-e989-460f-8774-8e277ddcb40f'
     extra_disks = []
     dirty_disks = True
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        cat /etc/fstab > fstab
         lsblk --json --fs -o KNAME,MOUNTPOINT,UUID,FSTYPE > lsblk.json
         lsblk --fs -P -o KNAME,MOUNTPOINT,UUID,FSTYPE > lsblk.out
-        ls -al /dev/disk/by-dname > ls_al_dname
-        ls -al /dev/disk/by-id > ls_al_byid
-        ls -al /dev/disk/by-uuid > ls_al_byuuid
-        ls -al /dev/mapper > ls_al_dev_mapper
-        find /etc/network/interfaces.d > find_interfacesd
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
         pvdisplay > pvdisplay
@@ -39,8 +36,8 @@ class TestLvmRootAbs(VMBaseClass):
         self.output_files_exist(["fstab"])
 
     def test_rootfs_format(self):
-        if self.release not in ['trusty']:
-            self.output_files_exist(["lsblk.json"])
+        self.output_files_exist(["lsblk.json"])
+        if os.path.getsize(self.collect_path('lsblk.json')) > 0:
             lsblk_data = json.load(open(self.collect_path('lsblk.json')))
             print(json.dumps(lsblk_data, indent=4))
             [entry] = [entry for entry in lsblk_data.get('blockdevices')
@@ -60,6 +57,22 @@ class TestLvmRootAbs(VMBaseClass):
                         for val in root.split() if 'FSTYPE' in val]
             print(fstype)
             self.assertEqual(self.conf_replace['__ROOTFS_FORMAT__'], fstype)
+
+
+class Centos70XenialTestLvmRootExt4(centos_relbase.centos70_xenial,
+                                    TestLvmRootAbs):
+    __test__ = True
+    conf_replace = {
+        '__ROOTFS_FORMAT__': 'ext4',
+    }
+
+
+class Centos70XenialTestLvmRootXfs(centos_relbase.centos70_xenial,
+                                   TestLvmRootAbs):
+    __test__ = False
+    conf_replace = {
+        '__ROOTFS_FORMAT__': 'xfs',
+    }
 
 
 class TrustyTestLvmRootExt4(relbase.trusty, TestLvmRootAbs):
@@ -92,23 +105,27 @@ class XenialTestLvmRootXfs(relbase.xenial, TestLvmRootAbs):
     }
 
 
-class ArtfulTestLvmRootExt4(relbase.artful, TestLvmRootAbs):
+class TestUefiLvmRootAbs(TestLvmRootAbs):
+    conf_file = "examples/tests/uefi_lvmroot.yaml"
+    uefi = True
+
+
+class Centos70XenialTestUefiLvmRootExt4(centos_relbase.centos70_xenial,
+                                        TestUefiLvmRootAbs):
     __test__ = True
     conf_replace = {
+        '__BOOTFS_FORMAT__': 'ext4',
         '__ROOTFS_FORMAT__': 'ext4',
     }
 
 
-class ArtfulTestLvmRootXfs(relbase.artful, TestLvmRootAbs):
+class Centos70XenialTestUefiLvmRootXfs(centos_relbase.centos70_xenial,
+                                       TestUefiLvmRootAbs):
     __test__ = True
     conf_replace = {
+        '__BOOTFS_FORMAT__': 'ext4',
         '__ROOTFS_FORMAT__': 'xfs',
     }
-
-
-class TestUefiLvmRootAbs(TestLvmRootAbs):
-    conf_file = "examples/tests/uefi_lvmroot.yaml"
-    uefi = True
 
 
 class XenialTestUefiLvmRootExt4(relbase.xenial, TestUefiLvmRootAbs):
@@ -127,31 +144,15 @@ class XenialTestUefiLvmRootXfs(relbase.xenial, TestUefiLvmRootAbs):
     }
 
 
+@VMBaseClass.skip_by_date("1652822", fixby="2019-06-01", install=False)
 class XenialTestUefiLvmRootXfsBootXfs(relbase.xenial, TestUefiLvmRootAbs):
+    """This tests xfs root and xfs boot with uefi.
+
+    It is known broken (LP: #1652822) and unlikely to be fixed without pushing,
+    so we skip-by for a long time."""
     __test__ = True
     conf_replace = {
-        '__BOOTFS_FORMAT__': 'xfs',  # Expected to fail until LP: #1652822
-        '__ROOTFS_FORMAT__': 'xfs',
-    }
-
-    @classmethod
-    def setUpClass(cls):
-        cls.skip_by_date("1652822", fixby="2018-05-26")
-        super().setUpClass()
-
-
-class ArtfulTestUefiLvmRootExt4(relbase.artful, TestUefiLvmRootAbs):
-    __test__ = True
-    conf_replace = {
-        '__BOOTFS_FORMAT__': 'ext4',
-        '__ROOTFS_FORMAT__': 'ext4',
-    }
-
-
-class ArtfulTestUefiLvmRootXfs(relbase.artful, TestUefiLvmRootAbs):
-    __test__ = True
-    conf_replace = {
-        '__BOOTFS_FORMAT__': 'ext4',
+        '__BOOTFS_FORMAT__': 'xfs',
         '__ROOTFS_FORMAT__': 'xfs',
     }
 

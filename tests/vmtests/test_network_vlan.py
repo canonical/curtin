@@ -11,7 +11,7 @@ import yaml
 
 class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
     conf_file = "examples/tests/vlan_network.yaml"
-    collect_scripts = TestNetworkBaseTestsAbs.collect_scripts + [
+    extra_collect_scripts = TestNetworkBaseTestsAbs.extra_collect_scripts + [
         textwrap.dedent("""
              cd OUTPUT_COLLECT_D
              ip -d link show interface1.2667 |tee ip_link_show_interface1.2667
@@ -35,7 +35,7 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
         self.output_files_exist(link_files)
 
     def test_vlan_installed(self):
-        release = self.target_release if self.target_release else self.release
+        release = self.target_release
         if release not in ('precise', 'trusty', 'xenial', 'artful'):
             raise SkipTest("release '%s' does not need the vlan package" %
                            release)
@@ -54,14 +54,6 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
 
 
 class CentosTestNetworkVlanAbs(TestNetworkVlanAbs):
-    collect_scripts = TestNetworkVlanAbs.collect_scripts + [
-        textwrap.dedent("""
-            cd OUTPUT_COLLECT_D
-            cp -a /etc/sysconfig/network-scripts .
-            cp -a /var/log/cloud-init* .
-            cp -a /var/lib/cloud ./var_lib_cloud
-            cp -a /run/cloud-init ./run_cloud-init
-        """)]
 
     def test_etc_network_interfaces(self):
         pass
@@ -86,20 +78,20 @@ class XenialTestNetworkVlan(relbase.xenial, TestNetworkVlanAbs):
     __test__ = True
 
 
-class ArtfulTestNetworkVlan(relbase.artful, TestNetworkVlanAbs):
-    __test__ = True
-
-
 class BionicTestNetworkVlan(relbase.bionic, TestNetworkVlanAbs):
     __test__ = True
 
 
-class Centos66TestNetworkVlan(centos_relbase.centos66fromxenial,
+class CosmicTestNetworkVlan(relbase.cosmic, TestNetworkVlanAbs):
+    __test__ = True
+
+
+class Centos66TestNetworkVlan(centos_relbase.centos66_xenial,
                               CentosTestNetworkVlanAbs):
     __test__ = True
 
 
-class Centos70TestNetworkVlan(centos_relbase.centos70fromxenial,
+class Centos70TestNetworkVlan(centos_relbase.centos70_xenial,
                               CentosTestNetworkVlanAbs):
     __test__ = True
 

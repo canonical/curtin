@@ -19,7 +19,7 @@ class TestNetworkAliasAbs(TestNetworkBaseTestsAbs):
 
 
 class CentosTestNetworkAliasAbs(TestNetworkAliasAbs):
-    collect_scripts = TestNetworkAliasAbs.collect_scripts + [
+    extra_collect_scripts = TestNetworkAliasAbs.extra_collect_scripts + [
         textwrap.dedent("""
             cd OUTPUT_COLLECT_D
             cp -a /etc/sysconfig/network-scripts .
@@ -32,12 +32,12 @@ class CentosTestNetworkAliasAbs(TestNetworkAliasAbs):
         pass
 
 
-class Centos66TestNetworkAlias(centos_relbase.centos66fromxenial,
+class Centos66TestNetworkAlias(centos_relbase.centos66_xenial,
                                CentosTestNetworkAliasAbs):
     __test__ = True
 
 
-class Centos70TestNetworkAlias(centos_relbase.centos70fromxenial,
+class Centos70TestNetworkAlias(centos_relbase.centos70_xenial,
                                CentosTestNetworkAliasAbs):
     __test__ = True
 
@@ -69,11 +69,11 @@ class XenialTestNetworkAlias(relbase.xenial, TestNetworkAliasAbs):
     __test__ = True
 
 
-class ArtfulTestNetworkAlias(relbase.artful, TestNetworkAliasAbs):
+class BionicTestNetworkAlias(relbase.bionic, TestNetworkAliasAbs):
     __test__ = True
 
 
-class BionicTestNetworkAlias(relbase.bionic, TestNetworkAliasAbs):
+class CosmicTestNetworkAlias(relbase.cosmic, TestNetworkAliasAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

@@ -76,7 +76,10 @@ class ServerHandler(http_server.SimpleHTTPRequestHandler):
         self._message = None
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(("content of %s\n" % self.path).encode('utf-8'))
+        if self.url_mapping and self.path in self.url_mapping:
+            self.wfile.write(self.url_mapping[self.path].encode('utf-8'))
+        else:
+            self.wfile.write(("content of %s\n" % self.path).encode('utf-8'))
 
     def do_POST(self):
         length = int(self.headers['Content-Length'])
@@ -96,13 +99,14 @@ class ServerHandler(http_server.SimpleHTTPRequestHandler):
         self.wfile.write(msg.encode('utf-8'))
 
 
-def GenServerHandlerWithResultFile(file_path):
+def GenServerHandlerWithResultFile(file_path, url_map):
     class ExtendedServerHandler(ServerHandler):
         result_log_file = file_path
+        url_mapping = url_map
     return ExtendedServerHandler
 
 
-def get_httpd(port=None, result_file=None):
+def get_httpd(port=None, result_file=None, url_mapping=None):
     # avoid 'Address already in use' after ctrl-c
     socketserver.TCPServer.allow_reuse_address = True
 
@@ -111,7 +115,7 @@ def get_httpd(port=None, result_file=None):
         port = 0
 
     if result_file:
-        Handler = GenServerHandlerWithResultFile(result_file)
+        Handler = GenServerHandlerWithResultFile(result_file, url_mapping)
     else:
         Handler = ServerHandler
     httpd = HTTPServerV6(("::", port), Handler)
@@ -143,10 +147,11 @@ def run_server(port=DEFAULT_PORT, log_data=True):
 
 class CaptureReporting:
 
-    def __init__(self, result_file):
+    def __init__(self, result_file, url_mapping=None):
+        self.url_mapping = url_mapping
         self.result_file = result_file
         self.httpd = get_httpd(result_file=self.result_file,
-                               port=None)
+                               port=None, url_mapping=self.url_mapping)
         self.httpd.server_activate()
         # socket.AF_INET6 returns
         # (host, port, flowinfo, scopeid)

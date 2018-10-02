@@ -60,9 +60,9 @@ table. A disk command may contain all or some of the following keys:
 
 **ptable**: *msdos, gpt*
 
-If the ``ptable`` key is present and a valid type of partition table, curtin
-will create an empty partition table of that type on the disk.  At the moment,
-msdos and gpt partition tables are supported.
+If the ``ptable`` key is present and a curtin will create an empty
+partition table of that type on the disk.  Curtin supports msdos and
+gpt partition tables.
 
 **serial**: *<serial number>*
 
@@ -613,6 +613,11 @@ The ``spare_devices`` key specifies a list of the devices that will be used for
 spares in the raid array. Each device must be referenced by ``id`` and the
 device must be previously defined in the storage configuration.  May be empty.
 
+**ptable**: *msdos, gpt*
+
+To partition the array rather than mounting it directly, the
+``ptable`` key must be present and a valid type of partition table,
+i.e. msdos or gpt.
 
 **Config Example**::
 
@@ -801,6 +806,7 @@ Learn by examples.
 - LVM
 - Bcache
 - RAID Boot
+- Partitioned RAID
 - RAID5 + Bcache
 - ZFS Root Simple
 - ZFS Root
@@ -1044,6 +1050,76 @@ RAID Boot
          type: mount
          path: /
          device: md_root
+
+Partitioned RAID
+~~~~~~~~~~~~~~~~
+
+::
+
+  storage:
+    config:
+    - type: disk
+      id: disk-0
+      ptable: gpt
+      path: /dev/vda
+      wipe: superblock
+      grub_device: true
+    - type: disk
+      id: disk-1
+      path: /dev/vdb
+      wipe: superblock
+    - type: disk
+      id: disk-2
+      path: /dev/vdc
+      wipe: superblock
+    - type: partition
+      id: part-0
+      device: disk-0
+      size: 1048576
+      flag: bios_grub
+    - type: partition
+      id: part-1
+      device: disk-0
+      size: 21471690752
+    - id: raid-0
+      type: raid
+      name: md0
+      raidlevel: 1
+      devices: [disk-2, disk-1]
+      ptable: gpt
+    - type: partition
+      id: part-2
+      device: raid-0
+      size: 10737418240
+    - type: partition
+      id: part-3
+      device: raid-0
+      size: 10735321088,
+    - type: format
+      id: fs-0
+      fstype: ext4
+      volume: part-1
+    - type: format
+      id: fs-1
+      fstype: xfs
+      volume: part-2
+    - type: format
+      id: fs-2
+      fstype: ext4
+      volume: part-3
+    - type: mount
+      id: mount-0
+      device: fs-0
+      path: /
+    - type: mount
+      id: mount-1
+      device: fs-1
+      path: /srv
+    - type: mount
+      id: mount-2
+      device: fs-2
+      path: /home
+    version: 1
 
 
 RAID5 + Bcache

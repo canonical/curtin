@@ -49,22 +49,22 @@ class XenialTestNetworkStaticRoutes(relbase.xenial,
     __test__ = True
 
 
-class ArtfulTestNetworkStaticRoutes(relbase.artful,
-                                    TestNetworkStaticRoutesAbs):
-    __test__ = True
-
-
 class BionicTestNetworkStaticRoutes(relbase.bionic,
                                     TestNetworkStaticRoutesAbs):
     __test__ = True
 
 
-class Centos66TestNetworkStaticRoutes(centos_relbase.centos66fromxenial,
+class CosmicTestNetworkStaticRoutes(relbase.cosmic,
+                                    TestNetworkStaticRoutesAbs):
+    __test__ = True
+
+
+class Centos66TestNetworkStaticRoutes(centos_relbase.centos66_xenial,
                                       CentosTestNetworkStaticRoutesAbs):
     __test__ = False
 
 
-class Centos70TestNetworkStaticRoutes(centos_relbase.centos70fromxenial,
+class Centos70TestNetworkStaticRoutes(centos_relbase.centos70_xenial,
                                       CentosTestNetworkStaticRoutesAbs):
     __test__ = False
 

@@ -227,7 +227,7 @@ def geturl(url, headers=None, headers_cb=None, exception_cb=None,
         try:
             return _geturl(url=url, headers=headers, headers_cb=headers_cb,
                            exception_cb=exception_cb, data=data)
-        except _ReRaisedException as e:
+        except _ReRaisedException:
             raise curexc.exc
         except Exception as e:
             curexc = e

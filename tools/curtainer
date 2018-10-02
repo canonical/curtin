@@ -17,10 +17,13 @@ Usage: ${0##*/} [ options ] <image> name
    start a container of image (ubuntu-daily:xenial) and install curtin.
 
    options:
-      --proposed    enable proposed
-      --daily       enable daily curtin archive
-      --source   D  grab the source deb, unpack inside, and copy unpacked
-                    source out to 'D'
+      --no-patch-version  do not patch source dir/curtin/version.py
+                          by default, --source will have version.py updated
+                          with dpkg's version.
+      --proposed          enable proposed
+      --daily             enable daily curtin archive
+      --source   D        grab the source deb, unpack inside, and copy unpacked
+                          source out to 'D'
 EOF
 }
 
@@ -114,7 +117,7 @@ get_source() {
 
 main() {
     local short_opts="hv"
-    local long_opts="help,daily,proposed,source:,verbose"
+    local long_opts="help,daily,no-patch-version,proposed,source:,verbose"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -123,13 +126,14 @@ main() {
 
     local cur="" next=""
     local proposed=false daily=false src="" name="" maxwait=30
-    local eatmydata="eatmydata" getsource="none"
+    local eatmydata="eatmydata" getsource="none" patch_version=true
 
     while [ $# -ne 0 ]; do
         cur="$1"; next="$2";
         case "$cur" in
             -h|--help) Usage ; exit 0;;
                --source) getsource="$next"; shift;;
+               --no-patch-version) patch_version=false;;
                --proposed) proposed=true;;
                --daily) daily=true;;
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
@@ -147,6 +151,7 @@ main() {
     if [ "$getsource" != "none" ]; then
         [ ! -e "$getsource" ] || fail "source output '$getsource' exists."
     fi
+    getsource="${getsource%/}"
 
     lxc launch "$src" "$name" || fail "failed lxc launch $src $name"
     CONTAINER=$name
@@ -217,6 +222,16 @@ main() {
             "--file" "$isrcd/debian/changelog" "--show-field=version")
         if [ "$src_ver" != "$pkg_ver" ]; then
             fail "source version ($src_ver) != package version ($pkg_ver)"
+        fi
+        if "${patch_version}"; then
+            local verfile="$getsource/curtin/version.py"
+            grep -q "@@PACKAGED_VERSION@@" "$verfile" ||
+                fail "failed patching version: " \
+                    "@@PACKAGED_VERSION@@ not found in $verfile"
+            sed -i.curtainer-dist \
+                "s,@@PACKAGED_VERSION@@,${pkg_ver}," "$verfile" ||
+                fail "failed modifying $verfile"
+            debug 1 "patched $verfile pkg version to $pkg_ver."
         fi
         inside "$name" rm -Rf "$isrcd" ||
             fail "failed removal of extract dir"

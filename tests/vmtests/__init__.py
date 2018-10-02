@@ -26,6 +26,7 @@ from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
 from .image_sync import (IMAGE_SRC_URL, IMAGE_DIR, ITEM_NAME_FILTERS)
 from .helpers import check_call, TimeoutExpired, ip_a_to_dict
+from functools import wraps
 from unittest import TestCase, SkipTest
 
 try:
@@ -55,6 +56,7 @@ SYSTEM_UPGRADE = os.environ.get("CURTIN_VMTEST_SYSTEM_UPGRADE", "auto")
 
 
 _UNSUPPORTED_UBUNTU = None
+_DEVEL_UBUNTU = None
 
 _TOPDIR = None
 
@@ -354,6 +356,7 @@ def skip_if_flag(flag):
     def decorator(func):
         """the name test_wrapper below has to start with test, or nose's
            filter will not run it."""
+        @wraps(func)
         def test_wrapper(self, *args, **kwargs):
             val = getattr(self, flag, None)
             if val:
@@ -364,18 +367,193 @@ def skip_if_flag(flag):
     return decorator
 
 
+def skip_by_date(bugnum, fixby, removeby=None, skips=None, install=True):
+    """A decorator to skip a test or test class based on current date.
+
+    @param bugnum: A bug number with which to identify the action.
+    @param fixby: string: A date string in the format of YYYY-MM-DD
+        tuple (YYYY,MM,DD).  Raises SkipTest with testcase results until
+        the current date is >= fixby value.
+    @param removeby: string: A date string in the format of YYYY-MM-DD
+        or (YYYY,MM,DD).  Raises RuntimeError with testcase results
+        if current date is >= removeby value.
+        Default value is 3 weeks past fixby value.
+    @param skips: list of test cases (string method names) to be skipped.
+        If None, all class testcases will be skipped per evaluation of
+        fixby and removeby params.  This is ignored when decorating a method.
+        Example skips=["test_test1", "test_test2"]
+    @param install: boolean: When True, setUpClass raises skipTest
+        exception while "today" < "fixby" date.  Useful for handling
+        testcases where the install or boot would hang.
+        install parameter is ignored when decorating a method."""
+    def as_dtdate(date):
+        if not isinstance(date, str):
+            return date
+        return datetime.date(*map(int, date.split("-")))
+
+    def as_str(dtdate):
+        return "%s-%02d-%02d" % (dtdate.year, dtdate.month, dtdate.day)
+
+    d_today = datetime.date.today()
+    d_fixby = as_dtdate(fixby)
+    if removeby is None:
+        # give 3 weeks by default.
+        d_removeby = d_fixby + datetime.timedelta(21)
+    else:
+        d_removeby = as_dtdate(removeby)
+
+    envname = 'CURTIN_VMTEST_SKIP_BY_DATE_BUGS'
+    envval = os.environ.get(envname, "")
+    skip_bugs = envval.replace(",", " ").split()
+    _setUpClass = "setUpClass"
+
+    def decorator(test):
+        def decorate_callable(mycallable, classname=test.__name__):
+            funcname = mycallable.__name__
+            name = '.'.join((classname, funcname))
+            bmsg = ("skip_by_date({name}) LP: #{bug} "
+                    "fixby={fixby} removeby={removeby}: ".format(
+                        name=name, bug=bugnum,
+                        fixby=as_str(d_fixby), removeby=as_str(d_removeby)))
+
+            @wraps(mycallable)
+            def wrapper(*args, **kwargs):
+                skip_reason = None
+                if "*" in skip_bugs or bugnum in skip_bugs:
+                    skip_reason = "skip per %s=%s" % (envname, envval)
+                elif (funcname == _setUpClass and
+                      (not install and d_today < d_fixby)):
+                    skip_reason = "skip per install=%s" % install
+
+                if skip_reason:
+                    logger.info(bmsg + skip_reason)
+                    raise SkipTest(bmsg + skip_reason)
+
+                if d_today < d_fixby:
+                    tmsg = "NOT_YET_FIXBY"
+                elif d_today > d_removeby:
+                    tmsg = "REMOVE_WORKAROUND"
+                else:
+                    tmsg = "PAST_FIXBY"
+
+                if funcname == _setUpClass:
+                    logger.info(bmsg + "Running test (%s)", tmsg)
+
+                exc = None
+                try:
+                    mycallable(*args, **kwargs)
+                except SkipTest:
+                    raise
+                except Exception as e:
+                    exc = e
+
+                if exc is None:
+                    result = "Passed."
+                elif isinstance(exc, SkipTest):
+                    result = "Skipped: %s" % exc
+                else:
+                    result = "Failed: %s" % exc
+
+                msg = (bmsg + "(%s)" % tmsg + " " + result)
+
+                logger.info(msg)
+                if d_today < d_fixby:
+                    if funcname != _setUpClass:
+                        raise SkipTest(msg)
+                else:
+                    # Expected fixed.
+                    if d_today > d_removeby:
+                        raise RuntimeError(msg)
+                    elif exc:
+                        raise RuntimeError(msg)
+
+            return wrapper
+
+        def decorate_test_methods(klass):
+            for attr in dir(klass):
+                attr_value = getattr(klass, attr)
+                if not hasattr(attr_value, "__call__"):
+                    continue
+
+                if attr != _setUpClass:
+                    if not attr.startswith('test_'):
+                        continue
+                    elif not (skips is None or attr in skips):
+                        continue
+
+                setattr(klass, attr,
+                        decorate_callable(attr_value,
+                                          classname=klass.__name__))
+            return klass
+
+        if isinstance(test, (type,)):
+            return decorate_test_methods(klass=test)
+        return decorate_callable(test)
+
+    return decorator
+
+
+DEFAULT_COLLECT_SCRIPTS = {
+    'common': [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        cp /etc/fstab ./fstab
+        cp -a /etc/udev/rules.d ./udev_rules.d
+        ifconfig -a | cat >ifconfig_a
+        ip a | cat >ip_a
+        cp -a /var/log/messages .
+        cp -a /var/log/syslog .
+        cp -a /var/log/cloud-init* .
+        cp -a /var/lib/cloud ./var_lib_cloud
+        cp -a /run/cloud-init ./run_cloud-init
+        cp -a /proc/cmdline ./proc_cmdline
+        cp -a /proc/mounts ./proc_mounts
+        cp -a /proc/partitions ./proc_partitions
+        cp -a /proc/swaps ./proc-swaps
+        # ls -al /dev/disk/*
+        mkdir -p /dev/disk/by-dname
+        ls /dev/disk/by-dname/ | cat >ls_dname
+        ls -al /dev/disk/by-dname/ | cat >ls_al_bydname
+        ls -al /dev/disk/by-id/ | cat >ls_al_byid
+        ls -al /dev/disk/by-uuid/ | cat >ls_al_byuuid
+        blkid -o export | cat >blkid.out
+        find /boot | cat > find_boot.out
+        [ -e /sys/firmware/efi ] && {
+            efibootmgr -v | cat >efibootmgr.out;
+        }
+        """)],
+    'centos': [textwrap.dedent("""
+        # XXX: command | cat >output is required for Centos under SELinux
+        # http://danwalsh.livejournal.com/22860.html
+        cd OUTPUT_COLLECT_D
+        rpm -qa | cat >rpm_qa
+        cp -a /etc/sysconfig/network-scripts .
+        rpm -q --queryformat '%{VERSION}\n' cloud-init |tee rpm_ci_version
+        rpm -E '%rhel' > rpm_dist_version_major
+        cp -a /etc/centos-release .
+        """)],
+    'ubuntu': [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        dpkg-query --show \
+            --showformat='${db:Status-Abbrev}\t${Package}\t${Version}\n' \
+            > debian-packages.txt 2> debian-packages.txt.err
+        cp -av /etc/network/interfaces .
+        cp -av /etc/network/interfaces.d .
+        find /etc/network/interfaces.d > find_interfacesd
+        v=""
+        out=$(apt-config shell v Acquire::HTTP::Proxy)
+        eval "$out"
+        echo "$v" > apt-proxy
+        """)]
+}
+
+
 class VMBaseClass(TestCase):
     __test__ = False
     expected_failure = False
     arch_skip = []
     boot_timeout = BOOT_TIMEOUT
-    collect_scripts = [textwrap.dedent("""
-        cd OUTPUT_COLLECT_D
-        dpkg-query --show \
-            --showformat='${db:Status-Abbrev}\t${Package}\t${Version}\n' \
-            > debian-packages.txt 2> debian-packages.txt.err
-        cat /proc/swaps > proc-swaps
-    """)]
+    collect_scripts = []
+    extra_collect_scripts = []
     conf_file = "examples/tests/basic.yaml"
     nr_cpus = None
     dirty_disks = False
@@ -399,6 +577,10 @@ class VMBaseClass(TestCase):
     conf_replace = {}
     uefi = False
     proxy = None
+    url_map = {
+        '/MAAS/api/version/': '2.0',
+        '/MAAS/api/2.0/version/':
+            json.dumps({'version': '2.5.0+curtin-vmtest'})}
 
     # these get set from base_vm_classes
     release = None
@@ -450,8 +632,8 @@ class VMBaseClass(TestCase):
         else:
             target_img_verstr, target_ftypes = get_images(
                 IMAGE_SRC_URL, IMAGE_DIR,
-                cls.target_distro if cls.target_distro else cls.distro,
-                cls.target_release if cls.target_release else cls.release,
+                cls.target_distro,
+                cls.target_release,
                 cls.arch, subarch=cls.subarch if cls.subarch else None,
                 kflavor=cls.kflavor if cls.kflavor else None,
                 krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
@@ -566,61 +748,6 @@ class VMBaseClass(TestCase):
         return disks
 
     @classmethod
-    def skip_by_date(cls, bugnum, fixby, removeby=None,
-                     release=None, name=None):
-        """Raise SkipTest with bug message until 'fixby'.
-           Raise RutimeError after removeby.
-           fixby and removeby support string (2018-01-01) or tuple(2018,01,01)
-           removeby defaults to 3 weeks after fixby.
-           """
-        def as_dtdate(date):
-            if not isinstance(date, str):
-                return date
-            return datetime.date(*map(int, date.split("-")))
-
-        def as_str(dtdate):
-            return "%s-%02d-%02d" % (dtdate.year, dtdate.month, dtdate.day)
-
-        if name is None:
-            name = cls.__name__
-
-        if release is None:
-            release = cls.release
-
-        d_today = datetime.date.today()
-        d_fixby = as_dtdate(fixby)
-        if removeby is None:
-            # give 3 weeks by default.
-            d_removeby = d_fixby + datetime.timedelta(21)
-        else:
-            d_removeby = as_dtdate(removeby)
-
-        bmsg = ("[{name}/{rel}] skip_by_date LP: #{bug} "
-                "fixby={fixby} removeby={removeby}: ".format(
-                    name=name, rel=release, bug=bugnum,
-                    fixby=as_str(d_fixby), removeby=as_str(d_removeby)))
-
-        envname = 'CURTIN_VMTEST_SKIP_BY_DATE_BUGS'
-        envval = os.environ.get(envname, "")
-        skip_bugs = envval.replace(",", " ").split()
-
-        result = None
-        msg = bmsg + "Not skipping."
-        if "*" in skip_bugs or bugnum in skip_bugs:
-            msg = bmsg + "skip per %s=%s" % (envname, envval)
-            result = SkipTest
-        elif d_today < d_fixby:
-            msg = bmsg + "skip (today < fixby)"
-            result = SkipTest
-        elif d_today > d_removeby:
-            msg = bmsg + "Remove workaround."
-            result = RuntimeError
-
-        logger.info(msg)
-        if result:
-            raise result(msg)
-
-    @classmethod
     def get_config_smp(cls):
         """Get number of cpus to use for guest"""
 
@@ -670,12 +797,25 @@ class VMBaseClass(TestCase):
         return {'kernel': {'fallback-package': package}}
 
     @classmethod
+    def skip_by_date(cls, *args, **kwargs):
+        """skip_by_date wrapper. this way other modules do not have
+        to add an import of skip_by_date to start skipping."""
+        return skip_by_date(*args, **kwargs)
+
+    @classmethod
     def setUpClass(cls):
         # initialize global logger with class name to help make sense of
         # parallel vmtest runs which intermingle output.
         global logger
         logger = _initialize_logging(name=cls.__name__)
         cls.logger = logger
+
+        req_attrs = ('target_distro', 'target_release', 'release', 'distro')
+        missing = [a for a in req_attrs if not getattr(cls, a)]
+        if missing:
+            raise ValueError(
+                "Class %s does not have required attrs set: %s" %
+                (cls.__name__, missing))
 
         if is_unsupported_ubuntu(cls.release):
             raise SkipTest('"%s" is unsupported release.' % cls.release)
@@ -686,8 +826,28 @@ class VMBaseClass(TestCase):
                                                              cls.arch)
             raise SkipTest(reason)
 
+        # assign default collect scripts
+        if not cls.collect_scripts:
+            cls.collect_scripts = (
+                DEFAULT_COLLECT_SCRIPTS['common'] +
+                DEFAULT_COLLECT_SCRIPTS[cls.target_distro])
+        else:
+            raise RuntimeError('cls collect scripts not empty: %s' %
+                               cls.collect_scripts)
+
+        # append extra from subclass
+        if cls.extra_collect_scripts:
+            cls.collect_scripts.extend(cls.extra_collect_scripts)
+
         setup_start = time.time()
-        logger.info('Starting setup for testclass: {}'.format(cls.__name__))
+        logger.info(
+            ('Starting setup for testclass: {__name__} '
+             '({distro}/{release} -> '
+             '{target_distro}/{target_release})').format(
+                **{k: getattr(cls, k)
+                   for k in ('__name__', 'distro', 'release',
+                             'target_distro', 'target_release')}))
+
         # set up tempdir
         cls.td = TempDir(
             name=cls.__name__,
@@ -822,8 +982,9 @@ class VMBaseClass(TestCase):
         # build iscsi disk args if needed
         disks.extend(cls.build_iscsi_disks())
 
+        # class config file and vmtest defaults
+        configs = [cls.conf_file, 'examples/tests/vmtest_defaults.yaml']
         # proxy config
-        configs = [cls.conf_file]
         cls.proxy = get_apt_proxy()
         if cls.proxy is not None and not cls.td.restored:
             proxy_config = os.path.join(cls.td.install, 'proxy.cfg')
@@ -864,14 +1025,19 @@ class VMBaseClass(TestCase):
         system_upgrade = SYSTEM_UPGRADE
         upgrade_packages = UPGRADE_PACKAGES
         if add_repos:
-            # enable if user has set a value here
-            if system_upgrade == "auto":
-                system_upgrade = True
-            logger.info('Adding apt repositories: %s', add_repos)
-            repo_cfg = os.path.join(cls.td.install, 'add_repos.cfg')
-            util.write_file(repo_cfg,
-                            generate_repo_config(add_repos.split(",")))
-            configs.append(repo_cfg)
+            cfg_repos = generate_repo_config(add_repos.split(","),
+                                             release=cls.target_release)
+            if cfg_repos:
+                logger.info('Adding apt repositories: %s', add_repos)
+                # enable if user has set a value here
+                if system_upgrade == "auto":
+                    system_upgrade = True
+                repo_cfg = os.path.join(cls.td.install, 'add_repos.cfg')
+                util.write_file(repo_cfg, cfg_repos)
+                configs.append(repo_cfg)
+            else:
+                logger.info("add_repos=%s processed to empty config.",
+                            add_repos)
         elif system_upgrade == "auto":
             system_upgrade = False
 
@@ -894,7 +1060,8 @@ class VMBaseClass(TestCase):
 
         # set reporting logger
         cls.reporting_log = os.path.join(cls.td.logs, 'webhooks-events.json')
-        reporting_logger = CaptureReporting(cls.reporting_log)
+        reporting_logger = CaptureReporting(cls.reporting_log,
+                                            url_mapping=cls.url_map)
 
         # write reporting config
         reporting_config = os.path.join(cls.td.install, 'reporting.cfg')
@@ -1091,7 +1258,7 @@ class VMBaseClass(TestCase):
         # mount output disk
         try:
             cls.collect_output()
-        except Exception as e:
+        except Exception:
             cls.tearDownClass()
             raise
 
@@ -1146,7 +1313,7 @@ class VMBaseClass(TestCase):
         """Return install uri and a list of files needed to be published."""
         # if release (install environment) is the same as target
         # target (thing to install) then install via cp://
-        if cls.target_release in (None, cls.release):
+        if cls.target_release == cls.release:
             install_src = "cp:///media/root-ro"
             return install_src, []
 
@@ -1339,9 +1506,11 @@ class VMBaseClass(TestCase):
 
     @skip_if_flag('expected_failure')
     def test_dname(self, disk_to_check=None):
-        if "trusty" in [self.release, self.target_release]:
+        if self.target_release == "trusty":
             raise SkipTest(
                 "(LP: #1523037): dname does not work on trusty kernels")
+        if self.target_distro != "ubuntu":
+            raise SkipTest("dname not present in non-ubuntu releases")
 
         if not disk_to_check:
             disk_to_check = self.disk_to_check
@@ -1349,11 +1518,9 @@ class VMBaseClass(TestCase):
             logger.debug('test_dname: no disks to check')
             return
         logger.debug('test_dname: checking disks: %s', disk_to_check)
-        path = self.collect_path("ls_dname")
-        if not os.path.exists(path):
-            logger.debug('test_dname: no "ls_dname" file: %s', path)
-            return
-        contents = util.load_file(path)
+        self.output_files_exist(["ls_dname"])
+
+        contents = self.load_collect_file("ls_dname")
         for diskname, part in self.disk_to_check:
             if part is not 0:
                 link = diskname + "-part" + str(part)
@@ -1385,6 +1552,9 @@ class VMBaseClass(TestCase):
         """ Check that curtin has removed /etc/network/interfaces.d/eth0.cfg
             by examining the output of a find /etc/network > find_interfaces.d
         """
+        # target_distro is set for non-ubuntu targets
+        if self.target_distro != 'ubuntu':
+            raise SkipTest("eni/ifupdown not present in non-ubuntu releases")
         interfacesd = self.load_collect_file("find_interfacesd")
         self.assertNotIn("/etc/network/interfaces.d/eth0.cfg",
                          interfacesd.split("\n"))
@@ -1393,7 +1563,7 @@ class VMBaseClass(TestCase):
     def test_installed_correct_kernel_package(self):
         """ Test curtin installs the correct kernel package.  """
         # target_distro is set for non-ubuntu targets
-        if self.target_distro is not None:
+        if self.target_distro != "ubuntu":
             raise SkipTest("Can't check non-ubuntu kernel packages")
 
         kpackage = self.get_kernel_package()
@@ -1701,8 +1871,25 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
         exit 0;
         """)
 
+    collect_journal = textwrap.dedent("""#!/bin/sh -x
+        cd OUTPUT_COLLECT_D
+        # sync and flush journal before copying (if journald enabled)
+        target="./var-log-journal"
+        [ -e /var/log/journal ] && {
+            [ -e ${target} ] && {
+                echo "ERROR: ${target} dir exists; journal collected already";
+                exit 1;
+            }
+            journalctl --sync --flush --rotate
+            cp -a /var/log/journal ${target}
+            gzip -9 ${target}/*/system*.journal
+        }
+        exit 0;
+        """)
+
+    # add journal collection "last" before collect_post
     scripts = ([collect_prep] + [copy_rootdir] + collect_scripts +
-               [collect_post] + [failsafe_poweroff])
+               [collect_journal] + [collect_post] + [failsafe_poweroff])
 
     for part in scripts:
         if not part.startswith("#!"):
@@ -1849,7 +2036,25 @@ def is_unsupported_ubuntu(release):
     return release in _UNSUPPORTED_UBUNTU
 
 
-def generate_repo_config(repos):
+def is_devel_release(release):
+    global _DEVEL_UBUNTU
+    if _DEVEL_UBUNTU is None:
+        udi = 'ubuntu-distro-info'
+        env = os.environ.get('_DEVEL_UBUNTU')
+        if env:
+            # allow it to be , or " " separated.
+            _DEVEL_UBUNTU = env.replace(",", " ").split()
+        elif util.which(udi):
+            _DEVEL_UBUNTU = util.subp(
+                [udi, '--devel'], capture=True)[0].splitlines()
+        else:
+            # no way to tell.
+            _DEVEL_UBUNTU = []
+
+    return release in _DEVEL_UBUNTU
+
+
+def generate_repo_config(repos, release=None):
     """Generate apt yaml configuration to add specified repositories.
 
     @param repos: A list of add-apt-repository strings.
@@ -1857,8 +2062,19 @@ def generate_repo_config(repos):
                   pocket of a particular release.
     @returns: string:  A yaml string
     """
-    sources = {"add_repos_%02d" % idx: {'source': v}
-               for idx, v in enumerate(repos)}
+    sources = {}
+    for idx, v in enumerate(repos):
+        if v == 'proposed' and is_devel_release(release):
+            # lower case 'proposed' is magically handled by apt repo
+            # processing. But dev release's -proposed is "known broken".
+            # if you want to test development release, then use 'PROPOSED'.
+            continue
+        if v == 'PROPOSED':
+            v = 'proposed'
+        sources['add_repos_%02d' % idx] = {'source': v}
+    if not sources:
+        return None
+
     return yaml.dump({'apt': {'sources': sources}})
 
 

@@ -12,8 +12,9 @@ import socket
 import mock
 from mock import call
 
-from curtin import util
+from curtin import distro
 from curtin import gpg
+from curtin import util
 from curtin.commands import apt_config
 from .helpers import CiTestCase
 
@@ -77,7 +78,7 @@ class TestAptSourceConfig(CiTestCase):
 
     @staticmethod
     def _add_apt_sources(*args, **kwargs):
-        with mock.patch.object(util, 'apt_update'):
+        with mock.patch.object(distro, 'apt_update'):
             apt_config.add_apt_sources(*args, **kwargs)
 
     @staticmethod
@@ -86,7 +87,7 @@ class TestAptSourceConfig(CiTestCase):
         Get the most basic default mrror and release info to be used in tests
         """
         params = {}
-        params['RELEASE'] = util.lsb_release()['codename']
+        params['RELEASE'] = distro.lsb_release()['codename']
         arch = util.get_architecture()
         params['MIRROR'] = apt_config.get_default_mirrors(arch)["PRIMARY"]
         return params
@@ -472,7 +473,7 @@ class TestAptSourceConfig(CiTestCase):
                              'uri':
                              'http://testsec.ubuntu.com/%s/' % component}]}
         post = ("%s_dists_%s-updates_InRelease" %
-                (component, util.lsb_release()['codename']))
+                (component, distro.lsb_release()['codename']))
         fromfn = ("%s/%s_%s" % (pre, archive, post))
         tofn = ("%s/test.ubuntu.com_%s" % (pre, post))
 
@@ -937,7 +938,7 @@ class TestDebconfSelections(CiTestCase):
         m_set_sel.assert_not_called()
 
     @mock.patch("curtin.commands.apt_config.debconf_set_selections")
-    @mock.patch("curtin.commands.apt_config.util.get_installed_packages")
+    @mock.patch("curtin.commands.apt_config.distro.get_installed_packages")
     def test_set_sel_call_has_expected_input(self, m_get_inst, m_set_sel):
         data = {
             'set1': 'pkga pkga/q1 mybool false',
@@ -960,7 +961,7 @@ class TestDebconfSelections(CiTestCase):
 
     @mock.patch("curtin.commands.apt_config.dpkg_reconfigure")
     @mock.patch("curtin.commands.apt_config.debconf_set_selections")
-    @mock.patch("curtin.commands.apt_config.util.get_installed_packages")
+    @mock.patch("curtin.commands.apt_config.distro.get_installed_packages")
     def test_reconfigure_if_intersection(self, m_get_inst, m_set_sel,
                                          m_dpkg_r):
         data = {
@@ -985,7 +986,7 @@ class TestDebconfSelections(CiTestCase):
 
     @mock.patch("curtin.commands.apt_config.dpkg_reconfigure")
     @mock.patch("curtin.commands.apt_config.debconf_set_selections")
-    @mock.patch("curtin.commands.apt_config.util.get_installed_packages")
+    @mock.patch("curtin.commands.apt_config.distro.get_installed_packages")
     def test_reconfigure_if_no_intersection(self, m_get_inst, m_set_sel,
                                             m_dpkg_r):
         data = {'set1': 'pkga pkga/q1 mybool false'}

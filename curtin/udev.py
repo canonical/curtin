@@ -2,6 +2,7 @@
 
 import os
 from curtin import util
+from curtin.log import logged_call
 
 
 def compose_udev_equality(key, value):
@@ -40,6 +41,7 @@ def generate_udev_rule(interface, mac):
     return '%s\n' % rule
 
 
+@logged_call()
 def udevadm_settle(exists=None, timeout=None):
     settle_cmd = ["udevadm", "settle"]
     if exists:

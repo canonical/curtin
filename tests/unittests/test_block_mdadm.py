@@ -15,12 +15,13 @@ class TestBlockMdadmAssemble(CiTestCase):
     def setUp(self):
         super(TestBlockMdadmAssemble, self).setUp()
         self.add_patch('curtin.block.mdadm.util', 'mock_util')
+        self.add_patch('curtin.block.mdadm.lsb_release', 'mock_lsb_release')
         self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
         self.add_patch('curtin.block.mdadm.udev', 'mock_udev')
 
         # Common mock settings
         self.mock_valid.return_value = True
-        self.mock_util.lsb_release.return_value = {'codename': 'precise'}
+        self.mock_lsb_release.return_value = {'codename': 'precise'}
         self.mock_util.subp.return_value = ('', '')
 
     def test_mdadm_assemble_scan(self):
@@ -88,12 +89,15 @@ class TestBlockMdadmCreate(CiTestCase):
     def setUp(self):
         super(TestBlockMdadmCreate, self).setUp()
         self.add_patch('curtin.block.mdadm.util', 'mock_util')
+        self.add_patch('curtin.block.mdadm.lsb_release', 'mock_lsb_release')
         self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
         self.add_patch('curtin.block.mdadm.get_holders', 'mock_holders')
+        self.add_patch('curtin.block.mdadm.udev.udevadm_settle',
+                       'm_udevadm_settle')
 
         # Common mock settings
         self.mock_valid.return_value = True
-        self.mock_util.lsb_release.return_value = {'codename': 'precise'}
+        self.mock_lsb_release.return_value = {'codename': 'precise'}
         self.mock_holders.return_value = []
 
     def prepare_mock(self, md_devname, raidlevel, devices, spares):
@@ -115,8 +119,6 @@ class TestBlockMdadmCreate(CiTestCase):
             expected_calls.append(
                 call(["mdadm", "--zero-superblock", d], capture=True))
 
-        side_effects.append(("", ""))  # udevadm settle
-        expected_calls.append(call(["udevadm", "settle"]))
         side_effects.append(("", ""))  # udevadm control --stop-exec-queue
         expected_calls.append(call(["udevadm", "control",
                                     "--stop-exec-queue"]))
@@ -134,9 +136,6 @@ class TestBlockMdadmCreate(CiTestCase):
         side_effects.append(("", ""))  # udevadm control --start-exec-queue
         expected_calls.append(call(["udevadm", "control",
                                     "--start-exec-queue"]))
-        side_effects.append(("", ""))  # udevadm settle
-        expected_calls.append(call(["udevadm", "settle",
-                                    "--exit-if-exists=%s" % md_devname]))
 
         return (side_effects, expected_calls)
 
@@ -154,6 +153,8 @@ class TestBlockMdadmCreate(CiTestCase):
         mdadm.mdadm_create(md_devname=md_devname, raidlevel=raidlevel,
                            devices=devices, spares=spares)
         self.mock_util.subp.assert_has_calls(expected_calls)
+        self.m_udevadm_settle.assert_has_calls(
+            [call(), call(exists=md_devname)])
 
     def test_mdadm_create_raid0_devshort(self):
         md_devname = "md0"
@@ -237,14 +238,15 @@ class TestBlockMdadmExamine(CiTestCase):
     def setUp(self):
         super(TestBlockMdadmExamine, self).setUp()
         self.add_patch('curtin.block.mdadm.util', 'mock_util')
+        self.add_patch('curtin.block.mdadm.lsb_release', 'mock_lsb_release')
         self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
 
         # Common mock settings
         self.mock_valid.return_value = True
-        self.mock_util.lsb_release.return_value = {'codename': 'precise'}
+        self.mock_lsb_release.return_value = {'codename': 'precise'}
 
     def test_mdadm_examine_export(self):
-        self.mock_util.lsb_release.return_value = {'codename': 'xenial'}
+        self.mock_lsb_release.return_value = {'codename': 'xenial'}
         self.mock_util.subp.return_value = (
             """
             MD_LEVEL=raid0
@@ -321,7 +323,7 @@ class TestBlockMdadmExamine(CiTestCase):
 class TestBlockMdadmStop(CiTestCase):
     def setUp(self):
         super(TestBlockMdadmStop, self).setUp()
-        self.add_patch('curtin.block.mdadm.util.lsb_release', 'mock_util_lsb')
+        self.add_patch('curtin.block.mdadm.lsb_release', 'mock_lsb_release')
         self.add_patch('curtin.block.mdadm.util.subp', 'mock_util_subp')
         self.add_patch('curtin.block.mdadm.util.write_file',
                        'mock_util_write_file')
@@ -334,7 +336,7 @@ class TestBlockMdadmStop(CiTestCase):
 
         # Common mock settings
         self.mock_valid.return_value = True
-        self.mock_util_lsb.return_value = {'codename': 'xenial'}
+        self.mock_lsb_release.return_value = {'codename': 'xenial'}
         self.mock_util_subp.side_effect = iter([
             ("", ""),  # mdadm stop device
         ])
@@ -489,11 +491,12 @@ class TestBlockMdadmRemove(CiTestCase):
     def setUp(self):
         super(TestBlockMdadmRemove, self).setUp()
         self.add_patch('curtin.block.mdadm.util', 'mock_util')
+        self.add_patch('curtin.block.mdadm.lsb_release', 'mock_lsb_release')
         self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
 
         # Common mock settings
         self.mock_valid.return_value = True
-        self.mock_util.lsb_release.return_value = {'codename': 'xenial'}
+        self.mock_lsb_release.return_value = {'codename': 'xenial'}
         self.mock_util.subp.side_effect = [
             ("", ""),  # mdadm remove device
         ]
@@ -515,14 +518,15 @@ class TestBlockMdadmQueryDetail(CiTestCase):
     def setUp(self):
         super(TestBlockMdadmQueryDetail, self).setUp()
         self.add_patch('curtin.block.mdadm.util', 'mock_util')
+        self.add_patch('curtin.block.mdadm.lsb_release', 'mock_lsb_release')
         self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
 
         # Common mock settings
         self.mock_valid.return_value = True
-        self.mock_util.lsb_release.return_value = {'codename': 'precise'}
+        self.mock_lsb_release.return_value = {'codename': 'precise'}
 
     def test_mdadm_query_detail_export(self):
-        self.mock_util.lsb_release.return_value = {'codename': 'xenial'}
+        self.mock_lsb_release.return_value = {'codename': 'xenial'}
         self.mock_util.subp.return_value = (
             """
             MD_LEVEL=raid1
@@ -593,13 +597,14 @@ class TestBlockMdadmDetailScan(CiTestCase):
     def setUp(self):
         super(TestBlockMdadmDetailScan, self).setUp()
         self.add_patch('curtin.block.mdadm.util', 'mock_util')
+        self.add_patch('curtin.block.mdadm.lsb_release', 'mock_lsb_release')
         self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
 
         # Common mock settings
         self.scan_output = ("ARRAY /dev/md0 metadata=1.2 spares=2 name=0 " +
                             "UUID=b1eae2ff:69b6b02e:1d63bb53:ddfa6e4a")
         self.mock_valid.return_value = True
-        self.mock_util.lsb_release.return_value = {'codename': 'xenial'}
+        self.mock_lsb_release.return_value = {'codename': 'xenial'}
         self.mock_util.subp.side_effect = [
             (self.scan_output, ""),  # mdadm --detail --scan
         ]
@@ -628,10 +633,11 @@ class TestBlockMdadmMdHelpers(CiTestCase):
     def setUp(self):
         super(TestBlockMdadmMdHelpers, self).setUp()
         self.add_patch('curtin.block.mdadm.util', 'mock_util')
+        self.add_patch('curtin.block.mdadm.lsb_release', 'mock_lsb_release')
         self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
 
         self.mock_valid.return_value = True
-        self.mock_util.lsb_release.return_value = {'codename': 'xenial'}
+        self.mock_lsb_release.return_value = {'codename': 'xenial'}
 
     def test_valid_mdname(self):
         mdname = "/dev/md0"

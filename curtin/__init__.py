@@ -10,6 +10,8 @@ KERNEL_CMDLINE_COPY_TO_INSTALL_SEP = "---"
 FEATURES = [
     # curtin can apply centos networking via centos_apply_network_config
     'CENTOS_APPLY_NETWORK_CONFIG',
+    # curtin can configure centos storage devices and boot devices
+    'CENTOS_CURTHOOK_SUPPORT',
     # install supports the 'network' config version 1
     'NETWORK_CONFIG_V1',
     # reporter supports 'webhook' type

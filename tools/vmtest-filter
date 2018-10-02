@@ -1,0 +1,57 @@
+#!/usr/bin/python3
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
+import argparse
+import logging
+import os
+import sys
+
+# Fix path so we can import helpers
+sys.path.insert(1, os.path.realpath(os.path.join(
+                                    os.path.dirname(__file__), '..')))
+
+# import the helper
+from tests.vmtests.helpers import find_testcases_by_attr  # noqa: E402
+
+# don't display any logging output
+logging.disable(logging.CRITICAL)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(prog='vmtest-filter',
+                                     description='Dump matching testcases',
+                                     usage='''vmtest-filter --attr=value''')
+    parser.add_argument('-d', '--distro', action='store',
+                        dest='distro', default=None,
+                        help='name of distro to match')
+    parser.add_argument('-D', '--target_distro', action='store',
+                        dest='target_distro', default=None,
+                        help='name of target_distro to match')
+    parser.add_argument('-r', '--release', action='store',
+                        dest='release', default=None,
+                        help='name of release to match')
+    parser.add_argument('-R', '--target_release', action='store',
+                        dest='target_release', default=None,
+                        help='name of target_release to match')
+    parser.add_argument('-a', '--arch', action='store',
+                        dest='arch', default=None,
+                        help='name of arch to match')
+    parser.add_argument('-s', '--subarch', action='store',
+                        dest='subarch', default=None,
+                        help='name of subarch to match')
+    parser.add_argument('-k', '--krel', action='store',
+                        dest='krel', default=None,
+                        help='name of krel to match')
+    parser.add_argument('-f', '--ftype', action='store',
+                        dest='ftype', default=None,
+                        help='name of ftype to match')
+    parser.add_argument('dir', nargs=argparse.REMAINDER, default=os.getcwd())
+    args = parser.parse_args(sys.argv[1:])
+    if args.dir:
+        kwargs = {k[0]: k[1] for k in [v.split('=') for v in args.dir]}
+    else:
+        kwargs = vars(args)
+    for tc in find_testcases_by_attr(**kwargs):
+        print(tc)
+
+# vi: ts=4 expandtab syntax=python

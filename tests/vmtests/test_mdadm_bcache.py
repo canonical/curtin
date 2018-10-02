@@ -2,32 +2,27 @@
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
-
+from .releases import centos_base_vm_classes as centos_relbase
 import textwrap
 
 
 class TestMdadmAbs(VMBaseClass):
     interactive = False
+    test_type = 'storage'
     active_mdadm = "1"
     dirty_disks = True
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        cat /etc/fstab > fstab
         mdadm --detail --scan > mdadm_status
         mdadm --detail --scan | grep -c ubuntu > mdadm_active1
         grep -c active /proc/mdstat > mdadm_active2
         ls /dev/disk/by-dname > ls_dname
-        ls -al /dev/disk/by-dname > lsal_dname
-        ls -al /dev/disk/by-uuid > lsal_uuid
-        find /etc/network/interfaces.d > find_interfacesd
         cat /proc/mdstat | tee mdstat
-        cat /proc/partitions | tee procpartitions
         ls -1 /sys/class/block | tee sys_class_block
         ls -1 /dev/md* | tee dev_md
         ls -al /sys/fs/bcache/* > lsal_sys_fs_bcache_star
         ls -al /dev/bcache* > lsal_dev_bcache_star
         ls -al /dev/bcache/by_uuid/* > lsal_dev_bcache_byuuid_star
-        cp -a /var/log/syslog .
         """)]
 
     def test_mdadm_output_files_exist(self):
@@ -58,7 +53,8 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
                      ('cached_array_2', 0),
                      ('cached_array_3', 0)]
     extra_disks = ['4G', '4G', '4G', '4G', '4G']
-    collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = TestMdadmAbs.extra_collect_scripts + [
+        textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         bcache-super-show /dev/vda6 > bcache_super_vda6
         bcache-super-show /dev/vda7 > bcache_super_vda7
@@ -67,9 +63,6 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
         cat /sys/block/bcache1/bcache/cache_mode >> bcache_cache_mode
         cat /sys/block/bcache2/bcache/cache_mode >> bcache_cache_mode
-        cat /proc/mounts > proc_mounts
-        find /etc/network/interfaces.d > find_interfacesd
-        cp -a /etc/udev/rules.d etc_udev_rules.d
         """)]
     fstab_expected = {
         '/dev/vda1': '/media/sda1',
@@ -129,13 +122,9 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         self.test_dname(disk_to_check=self.bcache_dnames)
 
 
+@VMBaseClass.skip_by_date("1754581", fixby="2019-01-22", install=False)
 class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):
     __test__ = True
-
-    @classmethod
-    def setUpClass(cls):
-        cls.skip_by_date("1754581", fixby="2018-06-22")
-        super().setUpClass()
 
 
 class TrustyHWEXTestMdadmBcache(relbase.trusty_hwe_x, TestMdadmBcacheAbs):
@@ -154,11 +143,11 @@ class XenialEdgeTestMdadmBcache(relbase.xenial_edge, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class ArtfulTestMdadmBcache(relbase.artful, TestMdadmBcacheAbs):
+class BionicTestMdadmBcache(relbase.bionic, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class BionicTestMdadmBcache(relbase.bionic, TestMdadmBcacheAbs):
+class CosmicTestMdadmBcache(relbase.cosmic, TestMdadmBcacheAbs):
     __test__ = True
 
 
@@ -171,6 +160,11 @@ class TestMirrorbootAbs(TestMdadmAbs):
                      ('main_disk', 2),
                      ('second_disk', 1),
                      ('md0', 0)]
+
+
+class Centos70TestMirrorboot(centos_relbase.centos70_xenial,
+                             TestMirrorbootAbs):
+    __test__ = True
 
 
 class TrustyTestMirrorboot(relbase.trusty, TestMirrorbootAbs):
@@ -194,11 +188,11 @@ class XenialEdgeTestMirrorboot(relbase.xenial_edge, TestMirrorbootAbs):
     __test__ = True
 
 
-class ArtfulTestMirrorboot(relbase.artful, TestMirrorbootAbs):
+class BionicTestMirrorboot(relbase.bionic, TestMirrorbootAbs):
     __test__ = True
 
 
-class BionicTestMirrorboot(relbase.bionic, TestMirrorbootAbs):
+class CosmicTestMirrorboot(relbase.cosmic, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -210,6 +204,11 @@ class TestMirrorbootPartitionsAbs(TestMdadmAbs):
     disk_to_check = [('main_disk', 1),
                      ('second_disk', 1),
                      ('md0', 2)]
+
+
+class Centos70TestMirrorbootPartitions(centos_relbase.centos70_xenial,
+                                       TestMirrorbootPartitionsAbs):
+    __test__ = True
 
 
 class TrustyTestMirrorbootPartitions(relbase.trusty,
@@ -238,12 +237,12 @@ class XenialEdgeTestMirrorbootPartitions(relbase.xenial_edge,
     __test__ = True
 
 
-class ArtfulTestMirrorbootPartitions(relbase.artful,
+class BionicTestMirrorbootPartitions(relbase.bionic,
                                      TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
-class BionicTestMirrorbootPartitions(relbase.bionic,
+class CosmicTestMirrorbootPartitions(relbase.cosmic,
                                      TestMirrorbootPartitionsAbs):
     __test__ = True
 
@@ -261,6 +260,11 @@ class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
     uefi = True
     nr_cpus = 2
     dirty_disks = True
+
+
+class Centos70TestMirrorbootPartitionsUEFI(centos_relbase.centos70_xenial,
+                                           TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
 
 
 class TrustyTestMirrorbootPartitionsUEFI(relbase.trusty,
@@ -283,12 +287,12 @@ class XenialEdgeTestMirrorbootPartitionsUEFI(relbase.xenial_edge,
     __test__ = True
 
 
-class ArtfulTestMirrorbootPartitionsUEFI(relbase.artful,
+class BionicTestMirrorbootPartitionsUEFI(relbase.bionic,
                                          TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
 
 
-class BionicTestMirrorbootPartitionsUEFI(relbase.bionic,
+class CosmicTestMirrorbootPartitionsUEFI(relbase.cosmic,
                                          TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
 
@@ -305,11 +309,15 @@ class TestRaid5bootAbs(TestMdadmAbs):
                      ('md0', 0)]
 
 
-class TrustyTestRaid5Boot(relbase.trusty, TestRaid5bootAbs):
+class Centos70TestRaid5boot(centos_relbase.centos70_xenial, TestRaid5bootAbs):
     __test__ = True
 
 
-class TrustyHWEXTestRaid5Boot(relbase.trusty_hwe_x, TrustyTestRaid5Boot):
+class TrustyTestRaid5boot(relbase.trusty, TestRaid5bootAbs):
+    __test__ = True
+
+
+class TrustyHWEXTestRaid5boot(relbase.trusty_hwe_x, TrustyTestRaid5boot):
     # This tests kernel upgrade in target
     __test__ = True
 
@@ -326,11 +334,11 @@ class XenialEdgeTestRaid5boot(relbase.xenial_edge, TestRaid5bootAbs):
     __test__ = True
 
 
-class ArtfulTestRaid5boot(relbase.artful, TestRaid5bootAbs):
+class BionicTestRaid5boot(relbase.bionic, TestRaid5bootAbs):
     __test__ = True
 
 
-class BionicTestRaid5boot(relbase.bionic, TestRaid5bootAbs):
+class CosmicTestRaid5boot(relbase.cosmic, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -345,10 +353,11 @@ class TestRaid6bootAbs(TestMdadmAbs):
                      ('third_disk', 1),
                      ('fourth_disk', 1),
                      ('md0', 0)]
-    collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = (
+        TestMdadmAbs.extra_collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         mdadm --detail --scan > mdadm_detail
-        """)]
+        """)])
 
     def test_raid6_output_files_exist(self):
         self.output_files_exist(
@@ -357,6 +366,10 @@ class TestRaid6bootAbs(TestMdadmAbs):
     def test_mdadm_custom_name(self):
         # the raid6boot.yaml sets this name, check if it was set
         self.check_file_regex("mdadm_detail", r"ubuntu:foobar")
+
+
+class Centos70TestRaid6boot(centos_relbase.centos70_xenial, TestRaid6bootAbs):
+    __test__ = True
 
 
 class TrustyTestRaid6boot(relbase.trusty, TestRaid6bootAbs):
@@ -379,11 +392,11 @@ class XenialEdgeTestRaid6boot(relbase.xenial_edge, TestRaid6bootAbs):
     __test__ = True
 
 
-class ArtfulTestRaid6boot(relbase.artful, TestRaid6bootAbs):
+class BionicTestRaid6boot(relbase.bionic, TestRaid6bootAbs):
     __test__ = True
 
 
-class BionicTestRaid6boot(relbase.bionic, TestRaid6bootAbs):
+class CosmicTestRaid6boot(relbase.cosmic, TestRaid6bootAbs):
     __test__ = True
 
 
@@ -398,6 +411,11 @@ class TestRaid10bootAbs(TestMdadmAbs):
                      ('third_disk', 1),
                      ('fourth_disk', 1),
                      ('md0', 0)]
+
+
+class Centos70TestRaid10boot(centos_relbase.centos70_xenial,
+                             TestRaid10bootAbs):
+    __test__ = True
 
 
 class TrustyTestRaid10boot(relbase.trusty, TestRaid10bootAbs):
@@ -420,11 +438,11 @@ class XenialEdgeTestRaid10boot(relbase.xenial_edge, TestRaid10bootAbs):
     __test__ = True
 
 
-class ArtfulTestRaid10boot(relbase.artful, TestRaid10bootAbs):
+class BionicTestRaid10boot(relbase.bionic, TestRaid10bootAbs):
     __test__ = True
 
 
-class BionicTestRaid10boot(relbase.bionic, TestRaid10bootAbs):
+class CosmicTestRaid10boot(relbase.cosmic, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -464,7 +482,8 @@ class TestAllindataAbs(TestMdadmAbs):
                      ('vg1-lv1', 0),
                      ('vg1-lv2', 0)]
 
-    collect_scripts = TestMdadmAbs.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = (
+        TestMdadmAbs.extra_collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
@@ -474,7 +493,7 @@ class TestAllindataAbs(TestMdadmAbs):
         mkdir -p /tmp/xfstest
         mount /dev/mapper/dmcrypt0 /tmp/xfstest
         xfs_info /tmp/xfstest/ > xfs_info
-        """)]
+        """)])
     fstab_expected = {
         '/dev/vg1/lv1': '/srv/data',
         '/dev/vg1/lv2': '/srv/backup',
@@ -521,11 +540,11 @@ class XenialEdgeTestAllindata(relbase.xenial_edge, TestAllindataAbs):
     __test__ = True
 
 
-class ArtfulTestAllindata(relbase.artful, TestAllindataAbs):
+class BionicTestAllindata(relbase.bionic, TestAllindataAbs):
     __test__ = True
 
 
-class BionicTestAllindata(relbase.bionic, TestAllindataAbs):
+class CosmicTestAllindata(relbase.cosmic, TestAllindataAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

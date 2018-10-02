@@ -14,6 +14,7 @@ Curtin's top level config keys are as follows:
 - apt_mirrors (``apt_mirrors``)
 - apt_proxy (``apt_proxy``)
 - block-meta (``block``)
+- curthooks (``curthooks``)
 - debconf_selections (``debconf_selections``)
 - disable_overlayroot (``disable_overlayroot``)
 - grub (``grub``)
@@ -108,6 +109,45 @@ Specify the filesystem label on the boot partition.
           format: gpt
           fstype: ext4
           label: my-boot-partition
+
+
+curthooks
+~~~~~~~~~
+Configure how Curtin determines what :ref:`curthooks` to run during the installation
+process.
+
+**mode**: *<['auto', 'builtin', 'target']>*
+
+The default mode is ``auto``.
+
+In ``auto`` mode, curtin will execute curthooks within the image if present.
+For images without curthooks inside, curtin will execute its built-in hooks.
+
+Currently the built-in curthooks support the following OS families:
+
+- Ubuntu
+- Centos
+
+When specifying ``builtin``, curtin will only run the curthooks present in
+Curtin ignoring any curthooks that may be present in the target operating
+system.
+
+When specifying ``target``, curtin will attempt run the curthooks in the target
+operating system.  If the target does NOT contain any curthooks, then the
+built-in curthooks will be run instead.
+
+Any errors during execution of curthooks (built-in or target) will fail the
+installation.
+
+**Example**::
+
+  # ignore any target curthooks
+  curthooks:
+    mode: builtin
+
+  # Only run target curthooks, fall back to built-in
+  curthooks:
+    mode: target
 
 
 debconf_selections
