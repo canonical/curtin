@@ -831,6 +831,9 @@ class VMBaseClass(TestCase):
             cls.collect_scripts = (
                 DEFAULT_COLLECT_SCRIPTS['common'] +
                 DEFAULT_COLLECT_SCRIPTS[cls.target_distro])
+        else:
+            raise RuntimeError('cls collect scripts not empty: %s' %
+                               cls.collect_scripts)
 
         # append extra from subclass
         if cls.extra_collect_scripts:
