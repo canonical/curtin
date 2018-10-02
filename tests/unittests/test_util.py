@@ -7,6 +7,7 @@ import stat
 from textwrap import dedent
 
 from curtin import util
+from curtin import paths
 from .helpers import CiTestCase, simple_mocked_open
 
 
@@ -101,48 +102,6 @@ class TestWhich(CiTestCase):
         found = util.which("fuzz", search=["/bin1", "/usr/bin2"],
                            target="/target")
         self.assertEqual(found, "/usr/bin2/fuzz")
-
-
-class TestLsbRelease(CiTestCase):
-
-    def setUp(self):
-        super(TestLsbRelease, self).setUp()
-        self._reset_cache()
-
-    def _reset_cache(self):
-        keys = [k for k in util._LSB_RELEASE.keys()]
-        for d in keys:
-            del util._LSB_RELEASE[d]
-
-    @mock.patch("curtin.util.subp")
-    def test_lsb_release_functional(self, mock_subp):
-        output = '\n'.join([
-            "Distributor ID: Ubuntu",
-            "Description:    Ubuntu 14.04.2 LTS",
-            "Release:    14.04",
-            "Codename:   trusty",
-        ])
-        rdata = {'id': 'Ubuntu', 'description': 'Ubuntu 14.04.2 LTS',
-                 'codename': 'trusty', 'release': '14.04'}
-
-        def fake_subp(cmd, capture=False, target=None):
-            return output, 'No LSB modules are available.'
-
-        mock_subp.side_effect = fake_subp
-        found = util.lsb_release()
-        mock_subp.assert_called_with(
-            ['lsb_release', '--all'], capture=True, target=None)
-        self.assertEqual(found, rdata)
-
-    @mock.patch("curtin.util.subp")
-    def test_lsb_release_unavailable(self, mock_subp):
-        def doraise(*args, **kwargs):
-            raise util.ProcessExecutionError("foo")
-        mock_subp.side_effect = doraise
-
-        expected = {k: "UNAVAILABLE" for k in
-                    ('id', 'description', 'codename', 'release')}
-        self.assertEqual(util.lsb_release(), expected)
 
 
 class TestSubp(CiTestCase):
@@ -260,7 +219,7 @@ class TestSubp(CiTestCase):
         data = b'hello world'
         (out, err) = util.subp(self.stdin2err, combine_capture=True,
                                decode=False, data=data)
-        self.assertIsNone(err)
+        self.assertEqual(err, b'')
         self.assertEqual(out, data)
 
     def test_returns_none_if_no_capture(self):
@@ -311,7 +270,7 @@ class TestSubp(CiTestCase):
         # if target is not provided or is /, chroot should not be used
         calls = m_popen.call_args_list
         popen_args, popen_kwargs = calls[-1]
-        target = util.target_path(kwargs.get('target', None))
+        target = paths.target_path(kwargs.get('target', None))
         unshcmd = self.mock_get_unshare_pid_args.return_value
         if target == "/":
             self.assertEqual(unshcmd + list(cmd), popen_args[0])
@@ -553,44 +512,44 @@ class TestSetUnExecutable(CiTestCase):
 
 class TestTargetPath(CiTestCase):
     def test_target_empty_string(self):
-        self.assertEqual("/etc/passwd", util.target_path("", "/etc/passwd"))
+        self.assertEqual("/etc/passwd", paths.target_path("", "/etc/passwd"))
 
     def test_target_non_string_raises(self):
-        self.assertRaises(ValueError, util.target_path, False)
-        self.assertRaises(ValueError, util.target_path, 9)
-        self.assertRaises(ValueError, util.target_path, True)
+        self.assertRaises(ValueError, paths.target_path, False)
+        self.assertRaises(ValueError, paths.target_path, 9)
+        self.assertRaises(ValueError, paths.target_path, True)
 
     def test_lots_of_slashes_is_slash(self):
-        self.assertEqual("/", util.target_path("/"))
-        self.assertEqual("/", util.target_path("//"))
-        self.assertEqual("/", util.target_path("///"))
-        self.assertEqual("/", util.target_path("////"))
+        self.assertEqual("/", paths.target_path("/"))
+        self.assertEqual("/", paths.target_path("//"))
+        self.assertEqual("/", paths.target_path("///"))
+        self.assertEqual("/", paths.target_path("////"))
 
     def test_empty_string_is_slash(self):
-        self.assertEqual("/", util.target_path(""))
+        self.assertEqual("/", paths.target_path(""))
 
     def test_recognizes_relative(self):
-        self.assertEqual("/", util.target_path("/foo/../"))
-        self.assertEqual("/", util.target_path("/foo//bar/../../"))
+        self.assertEqual("/", paths.target_path("/foo/../"))
+        self.assertEqual("/", paths.target_path("/foo//bar/../../"))
 
     def test_no_path(self):
-        self.assertEqual("/my/target", util.target_path("/my/target"))
+        self.assertEqual("/my/target", paths.target_path("/my/target"))
 
     def test_no_target_no_path(self):
-        self.assertEqual("/", util.target_path(None))
+        self.assertEqual("/", paths.target_path(None))
 
     def test_no_target_with_path(self):
-        self.assertEqual("/my/path", util.target_path(None, "/my/path"))
+        self.assertEqual("/my/path", paths.target_path(None, "/my/path"))
 
     def test_trailing_slash(self):
         self.assertEqual("/my/target/my/path",
-                         util.target_path("/my/target/", "/my/path"))
+                         paths.target_path("/my/target/", "/my/path"))
 
     def test_bunch_of_slashes_in_path(self):
         self.assertEqual("/target/my/path/",
-                         util.target_path("/target/", "//my/path/"))
+                         paths.target_path("/target/", "//my/path/"))
         self.assertEqual("/target/my/path/",
-                         util.target_path("/target/", "///my/path/"))
+                         paths.target_path("/target/", "///my/path/"))
 
 
 class TestRunInChroot(CiTestCase):

@@ -97,6 +97,8 @@ class TestPack(TestCase):
             }}
 
         out, err, rc, log_contents = self.run_install(cfg)
+        print("out=%s" % out)
+        print("err=%s" % err)
 
         # the version string and users command output should be in output
         self.assertIn(version.version_string(), out)

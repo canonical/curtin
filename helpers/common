@@ -541,18 +541,18 @@ get_carryover_params() {
 }
 
 install_grub() {
-    local long_opts="uefi,update-nvram"
+    local long_opts="uefi,update-nvram,os-family:"
     local getopt_out="" mp_efi=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "" --long "${long_opts}" -- "$@") &&
         eval set -- "${getopt_out}"
 
-    local uefi=0
-    local update_nvram=0
+    local uefi=0 update_nvram=0 os_family=""
 
     while [ $# -ne 0 ]; do
         cur="$1"; next="$2";
         case "$cur" in
+            --os-family) os_family=${next};;
             --uefi) uefi=$((${uefi}+1));;
             --update-nvram) update_nvram=$((${update_nvram}+1));;
             --) shift; break;;
@@ -595,29 +595,88 @@ install_grub() {
         error "$mp_dev ($fstype) is not a block device!"; return 1;
     fi
 
-    # get dpkg arch
-    local dpkg_arch=""
-    dpkg_arch=$(chroot "$mp" dpkg --print-architecture)
-    r=$?
+    local os_variant=""
+    if [ -e "${mp}/etc/os-release" ]; then
+        os_variant=$(chroot "$mp" \
+                     /bin/sh -c 'echo $(. /etc/os-release; echo $ID)')
+    else
+        # Centos6 doesn't have os-release, so check for centos/redhat release
+        # looks like: CentOS release 6.9 (Final)
+        for rel in $(ls ${mp}/etc/*-release); do
+            os_variant=$(awk '{print tolower($1)}' $rel)
+            [ -n "$os_variant" ] && break
+        done
+    fi
+    [ $? != 0 ] &&
+        { error "Failed to read ID from $mp/etc/os-release"; return 1; }
+
+    local rhel_ver=""
+    case $os_variant in
+        debian|ubuntu) os_family="debian";;
+        centos|rhel)
+            os_family="redhat"
+            rhel_ver=$(chroot "$mp" rpm -E '%rhel')
+        ;;
+    esac
+
+    # ensure we have both settings, family and variant are needed
+    [ -n "${os_variant}" -a -n "${os_family}" ] ||
+        { error "Failed to determine os variant and family"; return 1; }
+
+    # get target arch
+    local target_arch="" r="1"
+    case $os_family in
+        debian)
+            target_arch=$(chroot "$mp" dpkg --print-architecture)
+            r=$?
+            ;;
+        redhat)
+            target_arch=$(chroot "$mp" rpm -E '%_arch')
+            r=$?
+            ;;
+    esac
     [ $r -eq 0 ] || {
-        error "failed to get dpkg architecture [$r]"
+        error "failed to get target architecture [$r]"
         return 1;
     }
 
     # grub is not the bootloader you are looking for
-    if [ "${dpkg_arch}" = "s390x" ]; then
-	return 0;
+    if [ "${target_arch}" = "s390x" ]; then
+	    return 0;
     fi
 
     # set correct grub package
-    local grub_name="grub-pc"
-    local grub_target="i386-pc"
-    if [ "${dpkg_arch#ppc64}" != "${dpkg_arch}" ]; then
+    local grub_name=""
+    local grub_target=""
+    case "$target_arch" in
+        i386|amd64)
+            # debian
+            grub_name="grub-pc"
+            grub_target="i386-pc"
+            ;;
+        x86_64)
+            case $rhel_ver in
+               6) grub_name="grub";;
+               7) grub_name="grub2-pc";;
+               *)
+                   error "Unknown rhel_ver [$rhel_ver]";
+                   return 1;
+               ;;
+            esac
+            grub_target="i386-pc"
+            ;;
+    esac
+    if [ "${target_arch#ppc64}" != "${target_arch}" ]; then
         grub_name="grub-ieee1275"
         grub_target="powerpc-ieee1275"
     elif [ "$uefi" -ge 1 ]; then
-        grub_name="grub-efi-$dpkg_arch"
-        case "$dpkg_arch" in
+        grub_name="grub-efi-$target_arch"
+        case "$target_arch" in
+            x86_64)
+                # centos 7+, no centos6 support
+                grub_name="grub2-efi-x64-modules"
+                grub_target="x86_64-efi"
+                ;;
             amd64)
                 grub_target="x86_64-efi";;
             arm64)
@@ -626,9 +685,19 @@ install_grub() {
     fi
 
     # check that the grub package is installed
-    tmp=$(chroot "$mp" dpkg-query --show \
-        --showformat='${Status}\n' $grub_name)
-    r=$?
+    local r=$?
+    case $os_family in
+        debian)
+            tmp=$(chroot "$mp" dpkg-query --show \
+                --showformat='${Status}\n' $grub_name)
+            r=$?
+            ;;
+        redhat)
+            tmp=$(chroot "$mp" rpm -q \
+                --queryformat='install ok installed\n' $grub_name)
+            r=$?
+            ;;
+    esac
     if [ $r -ne 0 -a $r -ne 1 ]; then
         error "failed to check if $grub_name installed";
         return 1;
@@ -636,11 +705,16 @@ install_grub() {
     case "$tmp" in
         install\ ok\ installed) :;;
         *) debug 1 "$grub_name not installed, not doing anything";
-            return 0;;
+            return 1;;
     esac
 
     local grub_d="etc/default/grub.d"
     local mygrub_cfg="$grub_d/50-curtin-settings.cfg"
+    case $os_family in
+        redhat)
+            grub_d="etc/default"
+            mygrub_cfg="etc/default/grub";;
+    esac
     [ -d "$mp/$grub_d" ] || mkdir -p "$mp/$grub_d" ||
         { error "Failed to create $grub_d"; return 1; }
 
@@ -659,14 +733,23 @@ install_grub() {
         error "Failed to get carryover parrameters from cmdline"; 
         return 1;
     }
+    # always append rd.auto=1 for centos
+    case $os_family in
+        redhat)
+            newargs="$newargs rd.auto=1";;
+    esac
     debug 1 "carryover command line params: $newargs"
 
-    : > "$mp/$mygrub_cfg" ||
-        { error "Failed to write '$mygrub_cfg'"; return 1; }
+    case $os_family in
+       debian)
+        : > "$mp/$mygrub_cfg" ||
+            { error "Failed to write '$mygrub_cfg'"; return 1; }
+        ;;
+    esac
     {
         [ "${REPLACE_GRUB_LINUX_DEFAULT:-1}" = "0" ] ||
             echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$newargs\""
-        echo "# disable grub os prober that might find other OS installs."
+        echo "# Curtin disable grub os prober that might find other OS installs."
         echo "GRUB_DISABLE_OS_PROBER=true"
         echo "GRUB_TERMINAL=console"
     } >> "$mp/$mygrub_cfg"
@@ -692,30 +775,46 @@ install_grub() {
         nvram="--no-nvram"
         if [ "$update_nvram" -ge 1 ]; then
             nvram=""
-        fi    
+        fi
         debug 1 "curtin uefi: installing ${grub_name} to: /boot/efi"
         chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -exc '
             echo "before grub-install efiboot settings"
-            efibootmgr || echo "WARN: efibootmgr exited $?"
-            dpkg-reconfigure "$1"
-            update-grub
+            efibootmgr -v || echo "WARN: efibootmgr exited $?"
+            bootid="$4"
+            grubpost=""
+            case $bootid in
+                debian|ubuntu)
+                    grubcmd="grub-install"
+                    dpkg-reconfigure "$1"
+                    update-grub
+                    ;;
+                centos|redhat|rhel)
+                    grubcmd="grub2-install"
+                    grubpost="grub2-mkconfig -o /boot/grub2/grub.cfg"
+                    ;;
+                *)
+                    echo "Unsupported OS: $bootid" 1>&2
+                    exit 1
+                    ;;
+            esac
             # grub-install in 12.04 does not contain --no-nvram, --target,
             # or --efi-directory
             target="--target=$2"
             no_nvram="$3"
             efi_dir="--efi-directory=/boot/efi"
-            gi_out=$(grub-install --help 2>&1)
+            gi_out=$($grubcmd --help 2>&1)
             echo "$gi_out" | grep -q -- "$no_nvram" || no_nvram=""
             echo "$gi_out" | grep -q -- "--target" || target=""
             echo "$gi_out" | grep -q -- "--efi-directory" || efi_dir=""
-            grub-install $target $efi_dir \
-                --bootloader-id=ubuntu --recheck $no_nvram' -- \
-            "${grub_name}" "${grub_target}" "$nvram" </dev/null ||
+            $grubcmd $target $efi_dir \
+                --bootloader-id=$bootid --recheck $no_nvram
+            [ -z "$grubpost" ] || $grubpost;' \
+            -- "${grub_name}" "${grub_target}" "$nvram" "$os_variant" </dev/null ||
             { error "failed to install grub!"; return 1; }
 
         chroot "$mp" sh -exc '
             echo "after grub-install efiboot settings"
-            efibootmgr || echo "WARN: efibootmgr exited $?"
+            efibootmgr -v || echo "WARN: efibootmgr exited $?"
             ' -- </dev/null ||
             { error "failed to list efi boot entries!"; return 1; }
     else
@@ -728,10 +827,32 @@ install_grub() {
         debug 1 "curtin non-uefi: installing ${grub_name} to: ${grubdevs[*]}"
         chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -exc '
             pkg=$1; shift;
-            dpkg-reconfigure "$pkg"
-            update-grub
-            for d in "$@"; do grub-install "$d" || exit; done' \
-            -- "${grub_name}" "${grubdevs[@]}" </dev/null ||
+            bootid=$1; shift;
+            bootver=$1; shift;
+            grubpost=""
+            case $bootid in
+                debian|ubuntu)
+                    grubcmd="grub-install"
+                    dpkg-reconfigure "$pkg"
+                    update-grub
+                    ;;
+                centos|redhat|rhel)
+                    case $bootver in
+                        6) grubcmd="grub-install";;
+                        7) grubcmd="grub2-install"
+                           grubpost="grub2-mkconfig -o /boot/grub2/grub.cfg";;
+                    esac
+                    ;;
+                *)
+                    echo "Unsupported OS: $bootid"; 1>&2
+                    exit 1
+                    ;;
+            esac
+            for d in "$@"; do
+                echo $grubcmd "$d";
+                $grubcmd "$d" || exit; done
+            [ -z "$grubpost" ] || $grubpost;' \
+            -- "${grub_name}" "${os_variant}" "${rhel_ver}" "${grubdevs[@]}" </dev/null ||
             { error "failed to install grub!"; return 1; }
     fi
 

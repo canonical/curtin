@@ -2,24 +2,19 @@
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 
 import textwrap
 
 
 class TestLvmAbs(VMBaseClass):
     conf_file = "examples/tests/lvm.yaml"
+    test_type = 'storage'
     interactive = False
     extra_disks = ['10G']
     dirty_disks = True
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        cat /etc/fstab > fstab
-        ls /dev/disk/by-dname > ls_dname
-        ls -al /dev/disk/by-dname > lsal_dname
-        ls -al /dev/disk/by-id/ > ls_byid
-        ls -al /dev/disk/by-uuid/ > ls_byuuid
-        cat /proc/partitions > proc_partitions
-        find /etc/network/interfaces.d > find_interfacesd
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
         """)]
@@ -46,6 +41,10 @@ class TestLvmAbs(VMBaseClass):
             ["fstab", "ls_dname"])
 
 
+class Centos70XenialTestLvm(centos_relbase.centos70_xenial, TestLvmAbs):
+    __test__ = True
+
+
 class TrustyTestLvm(relbase.trusty, TestLvmAbs):
     __test__ = True
 
@@ -66,11 +65,12 @@ class XenialEdgeTestLvm(relbase.xenial_edge, TestLvmAbs):
     __test__ = True
 
 
-class ArtfulTestLvm(relbase.artful, TestLvmAbs):
-    __test__ = True
-
-
 class BionicTestLvm(relbase.bionic, TestLvmAbs):
     __test__ = True
+
+
+class CosmicTestLvm(relbase.cosmic, TestLvmAbs):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

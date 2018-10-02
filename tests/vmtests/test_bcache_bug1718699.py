@@ -15,11 +15,11 @@ class XenialTestBcacheBug1718699(relbase.xenial, TestBcacheBug1718699):
     __test__ = True
 
 
-class ArtfulTestBcacheBug1718699(relbase.artful, TestBcacheBug1718699):
+class BionicTestBcacheBug1718699(relbase.bionic, TestBcacheBug1718699):
     __test__ = True
 
 
-class BionicTestBcacheBug1718699(relbase.bionic, TestBcacheBug1718699):
+class CosmicTestBcacheBug1718699(relbase.cosmic, TestBcacheBug1718699):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

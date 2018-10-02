@@ -5,7 +5,8 @@ import pwd
 import os
 import warnings
 
-from .util import write_file, target_path
+from .util import write_file
+from .paths import target_path
 from .log import LOG
 
 

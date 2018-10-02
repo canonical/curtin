@@ -7,6 +7,7 @@ import curtin.util as util
 
 from . import populate_one_subcmd
 from curtin.log import LOG
+from curtin import distro
 
 
 def system_install_pkgs_main(args):
@@ -16,7 +17,7 @@ def system_install_pkgs_main(args):
 
     exit_code = 0
     try:
-        util.install_packages(
+        distro.install_packages(
             pkglist=args.packages, target=args.target,
             allow_daemons=args.allow_daemons)
     except util.ProcessExecutionError as e:

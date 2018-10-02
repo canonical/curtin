@@ -647,4 +647,39 @@ class TestSlaveKnames(CiTestCase):
         knames = block.get_device_slave_knames(device)
         self.assertEqual(slaves, knames)
 
+
+class TestGetSupportedFilesystems(CiTestCase):
+
+    supported_filesystems = ['sysfs', 'rootfs', 'ramfs', 'ext4']
+
+    def _proc_filesystems_output(self, supported=None):
+        if not supported:
+            supported = self.supported_filesystems
+
+        def devname(fsname):
+            """ in-use filesystem modules not emit the 'nodev' prefix """
+            return '\t' if fsname.startswith('ext') else 'nodev\t'
+
+        return '\n'.join([devname(fs) + fs for fs in supported]) + '\n'
+
+    @mock.patch('curtin.block.util')
+    @mock.patch('curtin.block.os')
+    def test_get_supported_filesystems(self, mock_os, mock_util):
+        """ test parsing /proc/filesystems contents into a filesystem list"""
+        mock_os.path.exists.return_value = True
+        mock_util.load_file.return_value = self._proc_filesystems_output()
+
+        result = block.get_supported_filesystems()
+        self.assertEqual(sorted(self.supported_filesystems), sorted(result))
+
+    @mock.patch('curtin.block.util')
+    @mock.patch('curtin.block.os')
+    def test_get_supported_filesystems_no_proc_path(self, mock_os, mock_util):
+        """ missing /proc/filesystems raises RuntimeError """
+        mock_os.path.exists.return_value = False
+        with self.assertRaises(RuntimeError):
+            block.get_supported_filesystems()
+        self.assertEqual(0, mock_util.load_file.call_count)
+
+
 # vi: ts=4 expandtab syntax=python

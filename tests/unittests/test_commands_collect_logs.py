@@ -56,11 +56,12 @@ class TestCollectLogs(CiTestCase):
         write_file(savefile, 'install:\n  log_file: /tmp/savefile.log\n')
         packdir = self.tmp_path('configs', _dir=self.new_root)
         ensure_dir(packdir)
-        date = datetime.utcnow().strftime('%Y-%m-%d-%H-%M')
         unusedcfg = os.path.join(packdir, 'config-001.yaml')
         write_file(unusedcfg, 'install:\n  log_file: /tmp/unused.log\n')
-        curtin_config = self.tmp_path(
-            'curtin-logs-%s/curtin-config' % date, _dir=self.tmpdir)
+        utcnow = datetime.utcnow()
+        datestr = utcnow.strftime('%Y-%m-%d-%H-%M')
+        tardir = self.tmp_path('curtin-logs-%s' % datestr, _dir=self.tmpdir)
+        curtin_config = self.tmp_path('curtin-config', _dir=tardir)
 
         self.assertEqual(
             '/curtin/configs', collect_logs.CURTIN_PACK_CONFIG_DIR)
@@ -72,8 +73,10 @@ class TestCollectLogs(CiTestCase):
             new=packdir, autospec=None)
         self.add_patch('shutil.rmtree', 'm_rmtree')
         with mock.patch('sys.stderr'):
-            with self.assertRaises(SystemExit) as context_manager:
-                collect_logs.collect_logs_main(FakeArgs('my.tar'))
+            with mock.patch('curtin.commands.collect_logs.datetime') as m_dt:
+                with self.assertRaises(SystemExit) as context_manager:
+                    m_dt.utcnow.return_value = utcnow
+                    collect_logs.collect_logs_main(FakeArgs('my.tar'))
         self.assertEqual('0', str(context_manager.exception))
         expected_cfg = {'install': {'log_file': '/tmp/savefile.log'}}
         with open(curtin_config, 'r') as f:
@@ -83,8 +86,9 @@ class TestCollectLogs(CiTestCase):
         """collect_logs_main sources all configs from /curtin/configs dir."""
         savefile = self.tmp_path('absentinstall.log', _dir=self.new_root)
         packdir = self.tmp_path('configs', _dir=self.new_root)
-        date = datetime.utcnow().strftime('%Y-%m-%d-%H-%M')
-        tardir = self.tmp_path('curtin-logs-%s' % date, _dir=self.tmpdir)
+        utcnow = datetime.utcnow()
+        datestr = utcnow.strftime('%Y-%m-%d-%H-%M')
+        tardir = self.tmp_path('curtin-logs-%s' % datestr, _dir=self.tmpdir)
         ensure_dir(packdir)
         cfg1 = os.path.join(packdir, 'config-001.yaml')
         cfg2 = os.path.join(packdir, 'config-002.yaml')
@@ -101,8 +105,10 @@ class TestCollectLogs(CiTestCase):
             new=packdir, autospec=None)
         self.add_patch('shutil.rmtree', 'm_rmtree')
         with mock.patch('sys.stderr'):
-            with self.assertRaises(SystemExit) as context_manager:
-                collect_logs.collect_logs_main(FakeArgs('my.tar'))
+            with mock.patch('curtin.commands.collect_logs.datetime') as m_dt:
+                with self.assertRaises(SystemExit) as context_manager:
+                    m_dt.utcnow.return_value = utcnow
+                    collect_logs.collect_logs_main(FakeArgs('my.tar'))
         self.assertEqual('0', str(context_manager.exception))
         self.assertEqual(['config-001.yaml', 'config-002.yaml'],
                          sorted(os.listdir(packdir)))
@@ -232,8 +238,8 @@ class TestCreateTar(CiTestCase):
     def setUp(self):
         super(TestCreateTar, self).setUp()
         self.new_root = self.tmp_dir()
-        date = datetime.utcnow().strftime('%Y-%m-%d-%H-%M')
-        self.tardir = 'curtin-logs-%s' % date
+        self.utcnow = datetime.utcnow()
+        self.tardir = 'curtin-logs-%s' % self.utcnow.strftime('%Y-%m-%d-%H-%M')
         self.add_patch(
             'curtin.commands.collect_logs._collect_system_info', 'm_sys_info')
         self.tmpdir = self.tmp_path('mytemp', _dir=self.new_root)
@@ -247,7 +253,9 @@ class TestCreateTar(CiTestCase):
         self.add_patch('curtin.util.subp', 'mock_subp')
         self.mock_subp.return_value = ('', '')
         with mock.patch('sys.stderr'):
-            collect_logs.create_log_tarfile(tarfile, config={})
+            with mock.patch('curtin.commands.collect_logs.datetime') as m_dt:
+                m_dt.utcnow.return_value = self.utcnow
+                collect_logs.create_log_tarfile(tarfile, config={})
         self.assertIn(
             mock.call(['tar', '-cvf', tarfile, self.tardir],
                       capture=True),
@@ -264,7 +272,9 @@ class TestCreateTar(CiTestCase):
         self.add_patch('curtin.util.subp', 'mock_subp')
         self.mock_subp.return_value = ('', '')
         with mock.patch('sys.stderr'):
-            collect_logs.create_log_tarfile(tarfile, config={})
+            with mock.patch('curtin.commands.collect_logs.datetime') as m_dt:
+                m_dt.utcnow.return_value = self.utcnow
+                collect_logs.create_log_tarfile(tarfile, config={})
         self.assertIn(
             mock.call(['tar', '-cvf', tarfile, self.tardir],
                       capture=True),
@@ -311,7 +321,9 @@ class TestCreateTar(CiTestCase):
                 'maas': {'consumer_key': 'ckey',
                          'token_key': 'tkey', 'token_secret': 'tsecret'}}}
         with mock.patch('sys.stderr'):
-            collect_logs.create_log_tarfile(tarfile, config=config)
+            with mock.patch('curtin.commands.collect_logs.datetime') as m_dt:
+                m_dt.utcnow.return_value = self.utcnow
+                collect_logs.create_log_tarfile(tarfile, config=config)
         self.assertEqual(
             [mock.call(self.tardir, ['ckey', 'tkey', 'tsecret'])],
             self.m_redact.call_args_list)

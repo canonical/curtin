@@ -1,0 +1,98 @@
+storage:
+    config:
+    -   grub_device: true
+        id: disk-0
+        model: QEMU_HARDDISK
+        name: 'main_disk'
+        serial: disk-a
+        preserve: false
+        ptable: gpt
+        type: disk
+        wipe: superblock
+    -   grub_device: false
+        id: disk-2
+        name: 'disk-2'
+        serial: disk-b
+        preserve: false
+        type: disk
+        wipe: superblock
+    -   grub_device: false
+        id: disk-1
+        name: 'disk-1'
+        serial: disk-c
+        preserve: false
+        type: disk
+        wipe: superblock
+    -   grub_device: false
+        id: disk-3
+        name: 'disk-3'
+        serial: disk-d
+        preserve: false
+        type: disk
+        wipe: superblock
+    -   grub_device: false
+        id: disk-4
+        name: 'disk-4'
+        serial: disk-e
+        preserve: false
+        type: disk
+        wipe: superblock
+    -   device: disk-0
+        flag: bios_grub
+        id: part-0
+        preserve: false
+        size: 1048576
+        type: partition
+    -   device: disk-0
+        flag: ''
+        id: part-1
+        preserve: false
+        size: 4G
+        type: partition
+    -   devices:
+        - disk-2
+        - disk-1
+        id: raid-0
+        name: md0
+        raidlevel: 1
+        spare_devices: []
+        type: raid
+    -   devices:
+        - disk-3
+        - disk-4
+        id: raid-1
+        name: md1
+        raidlevel: 1
+        spare_devices: []
+        type: raid
+    -   devices:
+        - raid-0
+        - raid-1
+        id: vg-0
+        name: vg0
+        type: lvm_volgroup
+    -   id: lv-0
+        name: lv-0
+        size: 3G
+        type: lvm_partition
+        volgroup: vg-0
+    -   fstype: ext4
+        id: fs-0
+        preserve: false
+        type: format
+        volume: part-1
+    -   fstype: ext4
+        id: fs-1
+        preserve: false
+        type: format
+        volume: lv-0
+    -   device: fs-0
+        id: mount-0
+        path: /
+        type: mount
+    -   device: fs-1
+        id: mount-1
+        path: /home
+        type: mount
+    version: 1
+

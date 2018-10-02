@@ -4,6 +4,7 @@ import os
 from mock import call, patch, MagicMock
 
 from curtin.commands import curthooks
+from curtin import distro
 from curtin import util
 from curtin import config
 from curtin.reporter import events
@@ -47,8 +48,8 @@ class TestGetFlashKernelPkgs(CiTestCase):
 class TestCurthooksInstallKernel(CiTestCase):
     def setUp(self):
         super(TestCurthooksInstallKernel, self).setUp()
-        self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
-        self.add_patch('curtin.util.install_packages', 'mock_instpkg')
+        self.add_patch('curtin.distro.has_pkg_available', 'mock_haspkg')
+        self.add_patch('curtin.distro.install_packages', 'mock_instpkg')
         self.add_patch(
             'curtin.commands.curthooks.get_flash_kernel_pkgs',
             'mock_get_flash_kernel_pkgs')
@@ -122,12 +123,21 @@ class TestInstallMissingPkgs(CiTestCase):
     def setUp(self):
         super(TestInstallMissingPkgs, self).setUp()
         self.add_patch('platform.machine', 'mock_machine')
-        self.add_patch('curtin.util.get_installed_packages',
+        self.add_patch('curtin.util.get_architecture', 'mock_arch')
+        self.add_patch('curtin.distro.get_installed_packages',
                        'mock_get_installed_packages')
         self.add_patch('curtin.util.load_command_environment',
                        'mock_load_cmd_evn')
         self.add_patch('curtin.util.which', 'mock_which')
-        self.add_patch('curtin.util.install_packages', 'mock_install_packages')
+        self.add_patch('curtin.util.is_uefi_bootable', 'mock_uefi')
+        self.add_patch('curtin.distro.has_pkg_available', 'mock_haspkg')
+        self.add_patch('curtin.distro.install_packages',
+                       'mock_install_packages')
+        self.add_patch('curtin.distro.get_osfamily', 'mock_osfamily')
+        self.distro_family = distro.DISTROS.debian
+        self.mock_osfamily.return_value = self.distro_family
+        self.mock_uefi.return_value = False
+        self.mock_haspkg.return_value = False
 
     @patch.object(events, 'ReportEventStack')
     def test_install_packages_s390x(self, mock_events):
@@ -137,8 +147,8 @@ class TestInstallMissingPkgs(CiTestCase):
         target = "not-a-real-target"
         cfg = {}
         curthooks.install_missing_packages(cfg, target=target)
-        self.mock_install_packages.assert_called_with(['s390-tools'],
-                                                      target=target)
+        self.mock_install_packages.assert_called_with(
+            ['s390-tools'], target=target, osfamily=self.distro_family)
 
     @patch.object(events, 'ReportEventStack')
     def test_install_packages_s390x_has_zipl(self, mock_events):
@@ -158,6 +168,50 @@ class TestInstallMissingPkgs(CiTestCase):
         cfg = {}
         curthooks.install_missing_packages(cfg, target=target)
         self.assertEqual([], self.mock_install_packages.call_args_list)
+
+    @patch.object(events, 'ReportEventStack')
+    def test_install_packages_on_uefi_amd64_shim_signed(self, mock_events):
+        arch = 'amd64'
+        self.mock_arch.return_value = arch
+        self.mock_machine.return_value = 'x86_64'
+        expected_pkgs = ['grub-efi-%s' % arch,
+                         'grub-efi-%s-signed' % arch,
+                         'shim-signed']
+        self.mock_machine.return_value = 'x86_64'
+        self.mock_uefi.return_value = True
+        self.mock_haspkg.return_value = True
+        target = "not-a-real-target"
+        cfg = {}
+        curthooks.install_missing_packages(cfg, target=target)
+        self.mock_install_packages.assert_called_with(
+                expected_pkgs, target=target, osfamily=self.distro_family)
+
+    @patch.object(events, 'ReportEventStack')
+    def test_install_packages_on_uefi_i386_noshim_nosigned(self, mock_events):
+        arch = 'i386'
+        self.mock_arch.return_value = arch
+        self.mock_machine.return_value = 'i386'
+        expected_pkgs = ['grub-efi-%s' % arch]
+        self.mock_machine.return_value = 'i686'
+        self.mock_uefi.return_value = True
+        target = "not-a-real-target"
+        cfg = {}
+        curthooks.install_missing_packages(cfg, target=target)
+        self.mock_install_packages.assert_called_with(
+                expected_pkgs, target=target, osfamily=self.distro_family)
+
+    @patch.object(events, 'ReportEventStack')
+    def test_install_packages_on_uefi_arm64_nosign_noshim(self, mock_events):
+        arch = 'arm64'
+        self.mock_arch.return_value = arch
+        self.mock_machine.return_value = 'aarch64'
+        expected_pkgs = ['grub-efi-%s' % arch]
+        self.mock_uefi.return_value = True
+        target = "not-a-real-target"
+        cfg = {}
+        curthooks.install_missing_packages(cfg, target=target)
+        self.mock_install_packages.assert_called_with(
+                expected_pkgs, target=target, osfamily=self.distro_family)
 
 
 class TestSetupZipl(CiTestCase):
@@ -192,7 +246,8 @@ class TestSetupGrub(CiTestCase):
     def setUp(self):
         super(TestSetupGrub, self).setUp()
         self.target = self.tmp_dir()
-        self.add_patch('curtin.util.lsb_release', 'mock_lsb_release')
+        self.distro_family = distro.DISTROS.debian
+        self.add_patch('curtin.distro.lsb_release', 'mock_lsb_release')
         self.mock_lsb_release.return_value = {
             'codename': 'xenial',
         }
@@ -219,11 +274,12 @@ class TestSetupGrub(CiTestCase):
             'grub_install_devices': ['/dev/vdb']
         }
         self.subp_output.append(('', ''))
-        curthooks.setup_grub(cfg, self.target)
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
         self.assertEquals(
             ([
                 'sh', '-c', 'exec "$0" "$@" 2>&1',
-                'install-grub', self.target, '/dev/vdb'],),
+                'install-grub', '--os-family=%s' % self.distro_family,
+                self.target, '/dev/vdb'],),
             self.mock_subp.call_args_list[0][0])
 
     def test_uses_install_devices_in_grubcfg(self):
@@ -233,11 +289,12 @@ class TestSetupGrub(CiTestCase):
             },
         }
         self.subp_output.append(('', ''))
-        curthooks.setup_grub(cfg, self.target)
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
         self.assertEquals(
             ([
                 'sh', '-c', 'exec "$0" "$@" 2>&1',
-                'install-grub', self.target, '/dev/vdb'],),
+                'install-grub', '--os-family=%s' % self.distro_family,
+                self.target, '/dev/vdb'],),
             self.mock_subp.call_args_list[0][0])
 
     def test_uses_grub_install_on_storage_config(self):
@@ -255,11 +312,12 @@ class TestSetupGrub(CiTestCase):
             },
         }
         self.subp_output.append(('', ''))
-        curthooks.setup_grub(cfg, self.target)
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
         self.assertEquals(
             ([
                 'sh', '-c', 'exec "$0" "$@" 2>&1',
-                'install-grub', self.target, '/dev/vdb'],),
+                'install-grub', '--os-family=%s' % self.distro_family,
+                self.target, '/dev/vdb'],),
             self.mock_subp.call_args_list[0][0])
 
     def test_grub_install_installs_to_none_if_install_devices_None(self):
@@ -269,62 +327,17 @@ class TestSetupGrub(CiTestCase):
             },
         }
         self.subp_output.append(('', ''))
-        curthooks.setup_grub(cfg, self.target)
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
         self.assertEquals(
             ([
                 'sh', '-c', 'exec "$0" "$@" 2>&1',
-                'install-grub', self.target, 'none'],),
-            self.mock_subp.call_args_list[0][0])
-
-    def test_grub_install_uefi_installs_signed_packages_for_amd64(self):
-        self.add_patch('curtin.util.install_packages', 'mock_install')
-        self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
-        self.mock_is_uefi_bootable.return_value = True
-        cfg = {
-            'grub': {
-                'install_devices': ['/dev/vdb'],
-                'update_nvram': False,
-            },
-        }
-        self.subp_output.append(('', ''))
-        self.mock_arch.return_value = 'amd64'
-        self.mock_haspkg.return_value = True
-        curthooks.setup_grub(cfg, self.target)
-        self.assertEquals(
-            (['grub-efi-amd64', 'grub-efi-amd64-signed', 'shim-signed'],),
-            self.mock_install.call_args_list[0][0])
-        self.assertEquals(
-            ([
-                'sh', '-c', 'exec "$0" "$@" 2>&1',
-                'install-grub', '--uefi', self.target, '/dev/vdb'],),
-            self.mock_subp.call_args_list[0][0])
-
-    def test_grub_install_uefi_installs_packages_for_arm64(self):
-        self.add_patch('curtin.util.install_packages', 'mock_install')
-        self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
-        self.mock_is_uefi_bootable.return_value = True
-        cfg = {
-            'grub': {
-                'install_devices': ['/dev/vdb'],
-                'update_nvram': False,
-            },
-        }
-        self.subp_output.append(('', ''))
-        self.mock_arch.return_value = 'arm64'
-        self.mock_haspkg.return_value = False
-        curthooks.setup_grub(cfg, self.target)
-        self.assertEquals(
-            (['grub-efi-arm64'],),
-            self.mock_install.call_args_list[0][0])
-        self.assertEquals(
-            ([
-                'sh', '-c', 'exec "$0" "$@" 2>&1',
-                'install-grub', '--uefi', self.target, '/dev/vdb'],),
+                'install-grub', '--os-family=%s' % self.distro_family,
+                self.target, 'none'],),
             self.mock_subp.call_args_list[0][0])
 
     def test_grub_install_uefi_updates_nvram_skips_remove_and_reorder(self):
-        self.add_patch('curtin.util.install_packages', 'mock_install')
-        self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
+        self.add_patch('curtin.distro.install_packages', 'mock_install')
+        self.add_patch('curtin.distro.has_pkg_available', 'mock_haspkg')
         self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
         self.mock_is_uefi_bootable.return_value = True
         cfg = {
@@ -347,17 +360,18 @@ class TestSetupGrub(CiTestCase):
                 }
             }
         }
-        curthooks.setup_grub(cfg, self.target)
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
         self.assertEquals(
             ([
                 'sh', '-c', 'exec "$0" "$@" 2>&1',
                 'install-grub', '--uefi', '--update-nvram',
+                '--os-family=%s' % self.distro_family,
                 self.target, '/dev/vdb'],),
             self.mock_subp.call_args_list[0][0])
 
     def test_grub_install_uefi_updates_nvram_removes_old_loaders(self):
-        self.add_patch('curtin.util.install_packages', 'mock_install')
-        self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
+        self.add_patch('curtin.distro.install_packages', 'mock_install')
+        self.add_patch('curtin.distro.has_pkg_available', 'mock_haspkg')
         self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
         self.mock_is_uefi_bootable.return_value = True
         cfg = {
@@ -392,7 +406,7 @@ class TestSetupGrub(CiTestCase):
         self.in_chroot_subp_output.append(('', ''))
         self.in_chroot_subp_output.append(('', ''))
         self.mock_haspkg.return_value = False
-        curthooks.setup_grub(cfg, self.target)
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
         self.assertEquals(
             ['efibootmgr', '-B', '-b'],
             self.mock_in_chroot_subp.call_args_list[0][0][0][:3])
@@ -406,8 +420,8 @@ class TestSetupGrub(CiTestCase):
                 self.mock_in_chroot_subp.call_args_list[1][0][0][3]]))
 
     def test_grub_install_uefi_updates_nvram_reorders_loaders(self):
-        self.add_patch('curtin.util.install_packages', 'mock_install')
-        self.add_patch('curtin.util.has_pkg_available', 'mock_haspkg')
+        self.add_patch('curtin.distro.install_packages', 'mock_install')
+        self.add_patch('curtin.distro.has_pkg_available', 'mock_haspkg')
         self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
         self.mock_is_uefi_bootable.return_value = True
         cfg = {
@@ -436,7 +450,7 @@ class TestSetupGrub(CiTestCase):
         }
         self.in_chroot_subp_output.append(('', ''))
         self.mock_haspkg.return_value = False
-        curthooks.setup_grub(cfg, self.target)
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
         self.assertEquals(
             (['efibootmgr', '-o', '0001,0000'],),
             self.mock_in_chroot_subp.call_args_list[0][0])
@@ -453,11 +467,11 @@ class TestUbuntuCoreHooks(CiTestCase):
                                         'var/lib/snapd')
         util.ensure_dir(ubuntu_core_path)
         self.assertTrue(os.path.isdir(ubuntu_core_path))
-        is_core = curthooks.target_is_ubuntu_core(self.target)
+        is_core = distro.is_ubuntu_core(self.target)
         self.assertTrue(is_core)
 
     def test_target_is_ubuntu_core_no_target(self):
-        is_core = curthooks.target_is_ubuntu_core(self.target)
+        is_core = distro.is_ubuntu_core(self.target)
         self.assertFalse(is_core)
 
     def test_target_is_ubuntu_core_noncore_target(self):
@@ -465,7 +479,7 @@ class TestUbuntuCoreHooks(CiTestCase):
         non_core_path = os.path.join(self.target, 'curtin')
         util.ensure_dir(non_core_path)
         self.assertTrue(os.path.isdir(non_core_path))
-        is_core = curthooks.target_is_ubuntu_core(self.target)
+        is_core = distro.is_ubuntu_core(self.target)
         self.assertFalse(is_core)
 
     @patch('curtin.util.write_file')
@@ -736,15 +750,15 @@ class TestDetectRequiredPackages(CiTestCase):
             ({'network': {
                 'version': 2,
                 'items': ('bridge',)}},
-             ('bridge-utils',)),
+             ()),
             ({'network': {
                 'version': 2,
                 'items': ('vlan',)}},
-             ('vlan',)),
+             ()),
             ({'network': {
                 'version': 2,
                 'items': ('vlan', 'bridge')}},
-             ('vlan', 'bridge-utils')),
+             ()),
         ))
 
     def test_mixed_storage_v1_network_v2_detect(self):
@@ -755,7 +769,7 @@ class TestDetectRequiredPackages(CiTestCase):
              'storage': {
                  'version': 1,
                  'items': ('raid', 'bcache', 'ext4')}},
-             ('vlan', 'bridge-utils', 'mdadm', 'bcache-tools', 'e2fsprogs')),
+             ('mdadm', 'bcache-tools', 'e2fsprogs')),
         ))
 
     def test_invalid_version_in_config(self):
@@ -782,7 +796,7 @@ class TestCurthooksWriteFiles(CiTestCase):
             dict((cfg[i]['path'], cfg[i]['content']) for i in cfg.keys()),
             dir2dict(tmpd, prefix=tmpd))
 
-    @patch('curtin.commands.curthooks.futil.target_path')
+    @patch('curtin.commands.curthooks.paths.target_path')
     @patch('curtin.commands.curthooks.futil.write_finfo')
     def test_handle_write_files_finfo(self, mock_write_finfo, mock_tp):
         """ Validate that futils.write_files handles target_path correctly """
@@ -816,11 +830,22 @@ class TestCurthooksPollinate(CiTestCase):
         self.add_patch('curtin.util.write_file', 'mock_write')
         self.add_patch('curtin.commands.curthooks.get_maas_version',
                        'mock_maas_version')
+        self.add_patch('curtin.util.which', 'mock_which')
+        self.mock_which.return_value = '/usr/bin/pollinate'
         self.target = self.tmp_dir()
 
     def test_handle_pollinate_user_agent_disable(self):
         """ handle_pollinate_user_agent does nothing if disabled """
         cfg = {'pollinate': {'user_agent': False}}
+        curthooks.handle_pollinate_user_agent(cfg, self.target)
+        self.assertEqual(0, self.mock_curtin_version.call_count)
+        self.assertEqual(0, self.mock_maas_version.call_count)
+        self.assertEqual(0, self.mock_write.call_count)
+
+    def test_handle_pollinate_returns_if_no_pollinate_binary(self):
+        """ handle_pollinate_user_agent does nothing if no pollinate binary"""
+        self.mock_which.return_value = None
+        cfg = {'reporting': {'maas': {'endpoint': 'http://127.0.0.1/foo'}}}
         curthooks.handle_pollinate_user_agent(cfg, self.target)
         self.assertEqual(0, self.mock_curtin_version.call_count)
         self.assertEqual(0, self.mock_maas_version.call_count)

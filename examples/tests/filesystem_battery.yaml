@@ -113,8 +113,8 @@ storage:
     - id: bind1
       fstype: "none"
       options: "bind"
-      path: "/var/lib"
-      spec: "/my/bind-over-var-lib"
+      path: "/var/cache"
+      spec: "/my/bind-over-var-cache"
       type: mount
     - id: bind2
       fstype: "none"

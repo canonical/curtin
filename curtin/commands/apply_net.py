@@ -7,6 +7,7 @@ from .. import log
 import curtin.net as net
 import curtin.util as util
 from curtin import config
+from curtin import paths
 from . import populate_one_subcmd
 
 
@@ -123,7 +124,7 @@ def _patch_ifupdown_ipv6_mtu_hook(target,
 
     for hook in ['prehook', 'posthook']:
         fn = hookfn[hook]
-        cfg = util.target_path(target, path=fn)
+        cfg = paths.target_path(target, path=fn)
         LOG.info('Injecting fix for ipv6 mtu settings: %s', cfg)
         util.write_file(cfg, contents[hook], mode=0o755)
 
@@ -136,7 +137,7 @@ def _disable_ipv6_privacy_extensions(target,
        Resolve this by allowing the cloud-image setting to win. """
 
     LOG.debug('Attempting to remove ipv6 privacy extensions')
-    cfg = util.target_path(target, path=path)
+    cfg = paths.target_path(target, path=path)
     if not os.path.exists(cfg):
         LOG.warn('Failed to find ipv6 privacy conf file %s', cfg)
         return
@@ -182,7 +183,7 @@ def _maybe_remove_legacy_eth0(target,
          - with unknown content, leave it and warn
     """
 
-    cfg = util.target_path(target, path=path)
+    cfg = paths.target_path(target, path=path)
     if not os.path.exists(cfg):
         LOG.warn('Failed to find legacy network conf file %s', cfg)
         return

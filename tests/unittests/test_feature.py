@@ -21,4 +21,7 @@ class TestExportsFeatures(CiTestCase):
     def test_has_centos_apply_network_config(self):
         self.assertIn('CENTOS_APPLY_NETWORK_CONFIG', curtin.FEATURES)
 
+    def test_has_centos_curthook_support(self):
+        self.assertIn('CENTOS_CURTHOOK_SUPPORT', curtin.FEATURES)
+
 # vi: ts=4 expandtab syntax=python

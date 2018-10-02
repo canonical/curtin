@@ -1,9 +1,10 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 from collections import OrderedDict, namedtuple
-from curtin import (block, config, util)
+from curtin import (block, config, paths, util)
 from curtin.block import (bcache, mdadm, mkfs, clear_holders, lvm, iscsi, zfs)
-from curtin.log import LOG
+from curtin import distro
+from curtin.log import LOG, logged_time
 from curtin.reporter import events
 
 from . import populate_one_subcmd
@@ -48,6 +49,7 @@ CMD_ARGUMENTS = (
 )
 
 
+@logged_time("BLOCK_META")
 def block_meta(args):
     # main entry point for the block-meta command.
     state = util.load_command_environment()
@@ -729,12 +731,12 @@ def mount_fstab_data(fdata, target=None):
 
     :param fdata: a FstabData type
     :return None."""
-    mp = util.target_path(target, fdata.path)
+    mp = paths.target_path(target, fdata.path)
     if fdata.device:
         device = fdata.device
     else:
         if fdata.spec.startswith("/") and not fdata.spec.startswith("/dev/"):
-            device = util.target_path(target, fdata.spec)
+            device = paths.target_path(target, fdata.spec)
         else:
             device = fdata.spec
 
@@ -855,7 +857,7 @@ def lvm_partition_handler(info, storage_config):
         # Use 'wipesignatures' (if available) and 'zero' to clear target lv
         # of any fs metadata
         cmd = ["lvcreate", volgroup, "--name", name, "--zero=y"]
-        release = util.lsb_release()['codename']
+        release = distro.lsb_release()['codename']
         if release not in ['precise', 'trusty']:
             cmd.extend(["--wipesignatures=y"])
 
@@ -1263,7 +1265,7 @@ def zpool_handler(info, storage_config):
     """
     Create a zpool based in storage_configuration
     """
-    zfs.zfs_supported()
+    zfs.zfs_assert_supported()
 
     state = util.load_command_environment()
 
@@ -1298,7 +1300,8 @@ def zfs_handler(info, storage_config):
     """
     Create a zfs filesystem
     """
-    zfs.zfs_supported()
+    zfs.zfs_assert_supported()
+
     state = util.load_command_environment()
     poolname = get_poolname(info, storage_config)
     volume = info.get('volume')

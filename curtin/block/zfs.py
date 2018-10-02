@@ -7,8 +7,9 @@ and volumes."""
 import os
 
 from curtin.config import merge_config
+from curtin import distro
 from curtin import util
-from . import blkid
+from . import blkid, get_supported_filesystems
 
 ZPOOL_DEFAULT_PROPERTIES = {
     'ashift': 12,
@@ -73,6 +74,15 @@ def _join_pool_volume(poolname, volume):
 
 
 def zfs_supported():
+    """Return a boolean indicating if zfs is supported."""
+    try:
+        zfs_assert_supported()
+        return True
+    except RuntimeError:
+        return False
+
+
+def zfs_assert_supported():
     """ Determine if the runtime system supports zfs.
     returns: True if system supports zfs
     raises: RuntimeError: if system does not support zfs
@@ -81,17 +91,19 @@ def zfs_supported():
     if arch in ZFS_UNSUPPORTED_ARCHES:
         raise RuntimeError("zfs is not supported on architecture: %s" % arch)
 
-    release = util.lsb_release()['codename']
+    release = distro.lsb_release()['codename']
     if release in ZFS_UNSUPPORTED_RELEASES:
         raise RuntimeError("zfs is not supported on release: %s" % release)
 
-    try:
-        util.subp(['modinfo', 'zfs'], capture=True)
-    except util.ProcessExecutionError as err:
-        if err.stderr.startswith("modinfo: ERROR: Module zfs not found."):
-            raise RuntimeError("zfs kernel module is not available: %s" % err)
+    if 'zfs' not in get_supported_filesystems():
+        try:
+            util.load_kernel_module('zfs')
+        except util.ProcessExecutionError as err:
+            raise RuntimeError("Failed to load 'zfs' kernel module: %s" % err)
 
-    return True
+    missing_progs = [p for p in ('zpool', 'zfs') if not util.which(p)]
+    if missing_progs:
+        raise RuntimeError("Missing zfs utils: %s" % ','.join(missing_progs))
 
 
 def zpool_create(poolname, vdevs, mountpoint=None, altroot=None,

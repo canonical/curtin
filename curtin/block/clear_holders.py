@@ -300,12 +300,18 @@ def wipe_superblock(device):
         else:
             raise e
 
+    # gather any partitions
+    partitions = block.get_sysfs_partitions(device)
+
     # release zfs member by exporting the pool
-    if block.is_zfs_member(blockdev):
+    if zfs.zfs_supported() and block.is_zfs_member(blockdev):
         poolname = zfs.device_to_poolname(blockdev)
         # only export pools that have been imported
         if poolname in zfs.zpool_list():
-            zfs.zpool_export(poolname)
+            try:
+                zfs.zpool_export(poolname)
+            except util.ProcessExecutionError as e:
+                LOG.warning('Failed to export zpool "%s": %s', poolname, e)
 
     if is_swap_device(blockdev):
         shutdown_swap(blockdev)
@@ -324,6 +330,27 @@ def wipe_superblock(device):
             continue
 
     _wipe_superblock(blockdev)
+
+    # if we had partitions, make sure they've been removed
+    if partitions:
+        LOG.debug('%s had partitions, issuing partition reread', device)
+        retries = [.5, .5, 1, 2, 5, 7]
+        for attempt, wait in enumerate(retries):
+            try:
+                # only rereadpt on wiped device
+                block.rescan_block_devices(devices=[blockdev])
+                # may raise IOError, OSError due to wiped partition table
+                curparts = block.get_sysfs_partitions(device)
+                if len(curparts) == 0:
+                    return
+            except (IOError, OSError):
+                if attempt + 1 >= len(retries):
+                    raise
+
+            LOG.debug("%s partitions still present, rereading pt"
+                      " (%s/%s).  sleeping %ss before retry",
+                      device, attempt + 1, len(retries), wait)
+            time.sleep(wait)
 
 
 def _wipe_superblock(blockdev, exclusive=True):
@@ -579,8 +606,6 @@ def clear_holders(base_paths, try_preserve=False):
                      dev_info['dev_type'])
             continue
 
-        # scan before we check
-        block.rescan_block_devices(warn_on_fail=False)
         if os.path.exists(dev_info['device']):
             LOG.info("shutdown running on holder type: '%s' syspath: '%s'",
                      dev_info['dev_type'], dev_info['device'])
@@ -602,19 +627,18 @@ def start_clear_holders_deps():
     # all disks and partitions should be sufficient to remove the mdadm
     # metadata
     mdadm.mdadm_assemble(scan=True, ignore_errors=True)
+    # scan and activate for logical volumes
+    lvm.lvm_scan()
+    lvm.activate_volgroups()
     # the bcache module needs to be present to properly detect bcache devs
     # on some systems (precise without hwe kernel) it may not be possible to
     # lad the bcache module bcause it is not present in the kernel. if this
     # happens then there is no need to halt installation, as the bcache devices
     # will never appear and will never prevent the disk from being reformatted
     util.load_kernel_module('bcache')
-    # the zfs module is needed to find and export devices which may be in-use
-    # and need to be cleared, only on xenial+.
-    try:
-        if zfs.zfs_supported():
-            util.load_kernel_module('zfs')
-    except RuntimeError as e:
-        LOG.warning('Failed to load zfs kernel module: %s', e)
+
+    if not zfs.zfs_supported():
+        LOG.warning('zfs filesystem is not supported in this environment')
 
 
 # anything that is not identified can assumed to be a 'disk' or similar

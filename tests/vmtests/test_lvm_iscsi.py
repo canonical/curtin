@@ -1,6 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 from .test_lvm import TestLvmAbs
 from .test_iscsi import TestBasicIscsiAbs
 
@@ -16,13 +17,12 @@ class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):
     conf_file = "examples/tests/lvm_iscsi.yaml"
     nr_testfiles = 4
 
-    collect_scripts = TestLvmAbs.collect_scripts
-    collect_scripts += TestBasicIscsiAbs.collect_scripts + [textwrap.dedent(
+    extra_collect_scripts = TestLvmAbs.extra_collect_scripts
+    extra_collect_scripts += TestBasicIscsiAbs.extra_collect_scripts
+    extra_collect_scripts += [textwrap.dedent(
         """
         cd OUTPUT_COLLECT_D
         ls -al /sys/class/block/dm*/slaves/  > dm_slaves
-        cp -a /etc/udev/rules.d udev_rules_d
-        cp -a /etc/iscsi etc_iscsi
         """)]
 
     fstab_expected = {
@@ -55,6 +55,11 @@ class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):
         self.check_file_strippedline("pvs", "vg2=/dev/sdb6")
 
 
+class Centos70XenialTestLvmIscsi(centos_relbase.centos70_xenial,
+                                 TestLvmIscsiAbs):
+    __test__ = True
+
+
 class TrustyTestIscsiLvm(relbase.trusty, TestLvmIscsiAbs):
     __test__ = True
 
@@ -75,11 +80,11 @@ class XenialEdgeTestIscsiLvm(relbase.xenial_edge, TestLvmIscsiAbs):
     __test__ = True
 
 
-class ArtfulTestIscsiLvm(relbase.artful, TestLvmIscsiAbs):
+class BionicTestIscsiLvm(relbase.bionic, TestLvmIscsiAbs):
     __test__ = True
 
 
-class BionicTestIscsiLvm(relbase.bionic, TestLvmIscsiAbs):
+class CosmicTestIscsiLvm(relbase.cosmic, TestLvmIscsiAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

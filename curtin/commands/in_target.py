@@ -4,7 +4,7 @@ import os
 import pty
 import sys
 
-from curtin import util
+from curtin import paths, util
 
 from . import populate_one_subcmd
 
@@ -41,7 +41,7 @@ def in_target_main(args):
         sys.exit(2)
 
     daemons = args.allow_daemons
-    if util.target_path(args.target) == "/":
+    if paths.target_path(args.target) == "/":
         sys.stderr.write("WARN: Target is /, daemons are allowed.\n")
         daemons = True
     cmd = args.command_args

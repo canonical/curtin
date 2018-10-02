@@ -588,6 +588,13 @@ class TestBlockIscsiDiskFromConfig(CiTestCase):
         # utilize IscsiDisk str method for equality check
         self.assertEqual(str(expected_iscsi_disk), str(iscsi_disk))
 
+        # test with cfg.get('storage') since caller may already have
+        # grabbed the 'storage' value from the curtin config
+        iscsi_disk = iscsi.get_iscsi_disks_from_config(
+                        cfg.get('storage')).pop()
+        # utilize IscsiDisk str method for equality check
+        self.assertEqual(str(expected_iscsi_disk), str(iscsi_disk))
+
     def test_parse_iscsi_disk_from_config_no_iscsi(self):
         """Test parsing storage config with no iscsi disks included"""
         cfg = {

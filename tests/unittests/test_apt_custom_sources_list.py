@@ -11,6 +11,8 @@ from mock import call
 import textwrap
 import yaml
 
+from curtin import distro
+from curtin import paths
 from curtin import util
 from curtin.commands import apt_config
 from .helpers import CiTestCase
@@ -106,7 +108,7 @@ class TestAptSourceConfigSourceList(CiTestCase):
                     # make test independent to executing system
                     with mock.patch.object(util, 'load_file',
                                            return_value=MOCKED_APT_SRC_LIST):
-                        with mock.patch.object(util, 'lsb_release',
+                        with mock.patch.object(distro, 'lsb_release',
                                                return_value={'codename':
                                                              'fakerel'}):
                             apt_config.handle_apt(cfg, TARGET)
@@ -115,10 +117,10 @@ class TestAptSourceConfigSourceList(CiTestCase):
 
         cloudfile = '/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg'
         cloudconf = yaml.dump({'apt_preserve_sources_list': True}, indent=1)
-        calls = [call(util.target_path(TARGET, '/etc/apt/sources.list'),
+        calls = [call(paths.target_path(TARGET, '/etc/apt/sources.list'),
                       expected,
                       mode=0o644),
-                 call(util.target_path(TARGET, cloudfile),
+                 call(paths.target_path(TARGET, cloudfile),
                       cloudconf,
                       mode=0o644)]
         mockwrite.assert_has_calls(calls)
@@ -147,19 +149,19 @@ class TestAptSourceConfigSourceList(CiTestCase):
         arch = util.get_architecture()
         # would fail inside the unittest context
         with mock.patch.object(util, 'get_architecture', return_value=arch):
-            with mock.patch.object(util, 'lsb_release',
+            with mock.patch.object(distro, 'lsb_release',
                                    return_value={'codename': 'fakerel'}):
                 apt_config.handle_apt(cfg, target)
 
         self.assertEqual(
             EXPECTED_CONVERTED_CONTENT,
-            util.load_file(util.target_path(target, "/etc/apt/sources.list")))
-        cloudfile = util.target_path(
+            util.load_file(paths.target_path(target, "/etc/apt/sources.list")))
+        cloudfile = paths.target_path(
             target, '/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg')
         self.assertEqual({'apt_preserve_sources_list': True},
                          yaml.load(util.load_file(cloudfile)))
 
-    @mock.patch("curtin.util.lsb_release")
+    @mock.patch("curtin.distro.lsb_release")
     @mock.patch("curtin.util.get_architecture", return_value="amd64")
     def test_trusty_source_lists(self, m_get_arch, m_lsb_release):
         """Support mirror equivalency with and without trailing /.
@@ -199,7 +201,7 @@ class TestAptSourceConfigSourceList(CiTestCase):
 
         release = 'trusty'
         comps = 'main universe multiverse restricted'
-        easl = util.target_path(target, 'etc/apt/sources.list')
+        easl = paths.target_path(target, 'etc/apt/sources.list')
 
         orig_content = tmpl.format(
             mirror=orig_primary, security=orig_security,

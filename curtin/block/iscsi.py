@@ -9,7 +9,7 @@ import os
 import re
 import shutil
 
-from curtin import (util, udev)
+from curtin import (paths, util, udev)
 from curtin.block import (get_device_slave_knames,
                           path_to_kname)
 
@@ -230,29 +230,45 @@ def connected_disks():
     return _ISCSI_DISKS
 
 
-def get_iscsi_disks_from_config(cfg):
+def get_iscsi_volumes_from_config(cfg):
     """Parse a curtin storage config and return a list
-       of iscsi disk objects for each configuration present
+       of iscsi disk rfc4173 uris for each configuration present.
     """
     if not cfg:
         cfg = {}
 
-    sconfig = cfg.get('storage', {}).get('config', {})
-    if not sconfig:
+    if 'storage' in cfg:
+        sconfig = cfg.get('storage', {}).get('config', [])
+    else:
+        sconfig = cfg.get('config', [])
+    if not sconfig or not isinstance(sconfig, list):
         LOG.warning('Configuration dictionary did not contain'
                     ' a storage configuration')
         return []
 
+    return [disk['path'] for disk in sconfig
+            if disk['type'] == 'disk' and
+            disk.get('path', "").startswith('iscsi:')]
+
+
+def get_iscsi_disks_from_config(cfg):
+    """Return a list of IscsiDisk objects for each iscsi volume present."""
     # Construct IscsiDisk objects for each iscsi volume present
-    iscsi_disks = [IscsiDisk(disk['path']) for disk in sconfig
-                   if disk['type'] == 'disk' and
-                   disk.get('path', "").startswith('iscsi:')]
+    iscsi_disks = [IscsiDisk(volume) for volume in
+                   get_iscsi_volumes_from_config(cfg)]
     LOG.debug('Found %s iscsi disks in storage config', len(iscsi_disks))
     return iscsi_disks
 
 
+def get_iscsi_ports_from_config(cfg):
+    """Return a set of ports that may be used when connecting to volumes."""
+    ports = set([d.port for d in get_iscsi_disks_from_config(cfg)])
+    LOG.debug('Found iscsi ports in use: %s', ports)
+    return ports
+
+
 def disconnect_target_disks(target_root_path=None):
-    target_nodes_path = util.target_path(target_root_path, '/etc/iscsi/nodes')
+    target_nodes_path = paths.target_path(target_root_path, '/etc/iscsi/nodes')
     fails = []
     if os.path.isdir(target_nodes_path):
         for target in os.listdir(target_nodes_path):

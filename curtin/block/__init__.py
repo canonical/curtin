@@ -378,24 +378,28 @@ def stop_all_unused_multipath_devices():
         LOG.warn("Failed to stop multipath devices: %s", e)
 
 
-def rescan_block_devices(warn_on_fail=True):
+def rescan_block_devices(devices=None, warn_on_fail=True):
     """
     run 'blockdev --rereadpt' for all block devices not currently mounted
     """
-    unused = get_unused_blockdev_info()
-    devices = []
-    for devname, data in unused.items():
-        if data.get('RM') == "1":
-            continue
-        if data.get('RO') != "0" or data.get('TYPE') != "disk":
-            continue
-        devices.append(data['device_path'])
+    if not devices:
+        unused = get_unused_blockdev_info()
+        devices = []
+        for devname, data in unused.items():
+            if data.get('RM') == "1":
+                continue
+            if data.get('RO') != "0" or data.get('TYPE') != "disk":
+                continue
+            devices.append(data['device_path'])
 
     if not devices:
         LOG.debug("no devices found to rescan")
         return
 
-    cmd = ['blockdev', '--rereadpt'] + devices
+    # blockdev needs /dev/ parameters, convert if needed
+    cmd = ['blockdev', '--rereadpt'] + [dev if dev.startswith('/dev/')
+                                        else sysfs_to_devpath(dev)
+                                        for dev in devices]
     try:
         util.subp(cmd, capture=True)
     except util.ProcessExecutionError as e:
@@ -999,75 +1003,17 @@ def wipe_volume(path, mode="superblock", exclusive=True):
         raise ValueError("wipe mode %s not supported" % mode)
 
 
-def storage_config_required_packages(storage_config, mapping):
-    """Read storage configuration dictionary and determine
-       which packages are required for the supplied configuration
-       to function.  Return a list of packaged to install.
+def get_supported_filesystems():
+    """ Return a list of filesystems that the kernel currently supports
+        as read from /proc/filesystems.
+
+        Raises RuntimeError if /proc/filesystems does not exist.
     """
+    proc_fs = "/proc/filesystems"
+    if not os.path.exists(proc_fs):
+        raise RuntimeError("Unable to read 'filesystems' from %s" % proc_fs)
 
-    if not storage_config or not isinstance(storage_config, dict):
-        raise ValueError('Invalid storage configuration.  '
-                         'Must be a dict:\n %s' % storage_config)
-
-    if not mapping or not isinstance(mapping, dict):
-        raise ValueError('Invalid storage mapping.  Must be a dict')
-
-    if 'storage' in storage_config:
-        storage_config = storage_config.get('storage')
-
-    needed_packages = []
-
-    # get reqs by device operation type
-    dev_configs = set(operation['type']
-                      for operation in storage_config['config'])
-
-    for dev_type in dev_configs:
-        if dev_type in mapping:
-            needed_packages.extend(mapping[dev_type])
-
-    # for any format operations, check the fstype and
-    # determine if we need any mkfs tools as well.
-    format_configs = set([operation['fstype']
-                         for operation in storage_config['config']
-                         if operation['type'] == 'format'])
-    for format_type in format_configs:
-        if format_type in mapping:
-            needed_packages.extend(mapping[format_type])
-
-    return needed_packages
-
-
-def detect_required_packages_mapping():
-    """Return a dictionary providing a versioned configuration which maps
-       storage configuration elements to the packages which are required
-       for functionality.
-
-       The mapping key is either a config type value, or an fstype value.
-
-    """
-    version = 1
-    mapping = {
-        version: {
-            'handler': storage_config_required_packages,
-            'mapping': {
-                'bcache': ['bcache-tools'],
-                'btrfs': ['btrfs-tools'],
-                'ext2': ['e2fsprogs'],
-                'ext3': ['e2fsprogs'],
-                'ext4': ['e2fsprogs'],
-                'jfs': ['jfsutils'],
-                'lvm_partition': ['lvm2'],
-                'lvm_volgroup': ['lvm2'],
-                'ntfs': ['ntfs-3g'],
-                'raid': ['mdadm'],
-                'reiserfs': ['reiserfsprogs'],
-                'xfs': ['xfsprogs'],
-                'zfsroot': ['zfsutils-linux', 'zfs-initramfs'],
-                'zfs': ['zfsutils-linux', 'zfs-initramfs'],
-                'zpool': ['zfsutils-linux', 'zfs-initramfs'],
-            },
-        },
-    }
-    return mapping
+    return [l.split('\t')[1].strip()
+            for l in util.load_file(proc_fs).splitlines()]
 
 # vi: ts=4 expandtab syntax=python

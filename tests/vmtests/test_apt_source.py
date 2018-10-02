@@ -14,15 +14,13 @@ from curtin import util
 
 class TestAptSrcAbs(VMBaseClass):
     """TestAptSrcAbs - Basic tests for apt features of curtin"""
+    test_type = 'config'
     interactive = False
     extra_disks = []
     fstab_expected = {}
     disk_to_check = []
-    collect_scripts = VMBaseClass.collect_scripts + [textwrap.dedent("""
+    extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        cat /etc/fstab > fstab
-        ls /dev/disk/by-dname > ls_dname
-        find /etc/network/interfaces.d > find_interfacesd
         apt-key list "F430BBA5" > keyid-F430BBA5
         apt-key list "0165013E" > keyppa-0165013E
         apt-key list "F470A0AC" > keylongid-F470A0AC

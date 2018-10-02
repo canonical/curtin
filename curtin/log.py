@@ -1,6 +1,9 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import logging
+import time
+
+from functools import wraps
 
 # Logging items for easy access
 getLogger = logging.getLogger
@@ -55,6 +58,46 @@ def _getLogger(name='curtin'):
 
 if not logging.getLogger().handlers:
     logging.getLogger().addHandler(NullHandler())
+
+
+def _repr_call(name, *args, **kwargs):
+    return "%s(%s)" % (
+        name,
+        ', '.join([str(repr(a)) for a in args] +
+                  ["%s=%s" % (k, repr(v)) for k, v in kwargs.items()]))
+
+
+def log_call(func, *args, **kwargs):
+    return log_time(
+        "TIMED %s: " % _repr_call(func.__name__, *args, **kwargs),
+        func, *args, **kwargs)
+
+
+def log_time(msg, func, *args, **kwargs):
+    start = time.time()
+    try:
+        return func(*args, **kwargs)
+    finally:
+        LOG.debug(msg + "%.3f", (time.time() - start))
+
+
+def logged_call():
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return log_call(func, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def logged_time(msg):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return log_time("TIMED %s: " % msg, func, *args, **kwargs)
+        return wrapper
+    return decorator
+
 
 LOG = _getLogger()
 

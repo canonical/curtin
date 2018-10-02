@@ -5,7 +5,7 @@ import copy
 import os
 
 from curtin.commands import apply_net
-from curtin import util
+from curtin import paths
 from .helpers import CiTestCase
 
 
@@ -153,8 +153,8 @@ class TestApplyNetPatchIfupdown(CiTestCase):
                                                 prehookfn=prehookfn,
                                                 posthookfn=posthookfn)
 
-        precfg = util.target_path(target, path=prehookfn)
-        postcfg = util.target_path(target, path=posthookfn)
+        precfg = paths.target_path(target, path=prehookfn)
+        postcfg = paths.target_path(target, path=posthookfn)
         precontents = apply_net.IFUPDOWN_IPV6_MTU_PRE_HOOK
         postcontents = apply_net.IFUPDOWN_IPV6_MTU_POST_HOOK
 
@@ -231,7 +231,7 @@ class TestApplyNetPatchIpv6Priv(CiTestCase):
 
         apply_net._disable_ipv6_privacy_extensions(target)
 
-        cfg = util.target_path(target, path=path)
+        cfg = paths.target_path(target, path=path)
         mock_write.assert_called_with(cfg, expected_ipv6_priv_contents)
 
     @patch('curtin.util.load_file')
@@ -259,7 +259,7 @@ class TestApplyNetPatchIpv6Priv(CiTestCase):
         apply_net._disable_ipv6_privacy_extensions(target, path=path)
 
         # source file not found
-        cfg = util.target_path(target, path)
+        cfg = paths.target_path(target, path)
         mock_ospath.exists.assert_called_with(cfg)
         self.assertEqual(0, mock_load.call_count)
 
@@ -272,7 +272,7 @@ class TestApplyNetRemoveLegacyEth0(CiTestCase):
     def test_remove_legacy_eth0(self, mock_ospath, mock_load, mock_del):
         target = 'mytarget'
         path = 'eth0.cfg'
-        cfg = util.target_path(target, path)
+        cfg = paths.target_path(target, path)
         legacy_eth0_contents = (
             'auto eth0\n'
             'iface eth0 inet dhcp')
@@ -330,7 +330,7 @@ class TestApplyNetRemoveLegacyEth0(CiTestCase):
         apply_net._maybe_remove_legacy_eth0(target, path)
 
         # source file not found
-        cfg = util.target_path(target, path)
+        cfg = paths.target_path(target, path)
         mock_ospath.exists.assert_called_with(cfg)
         self.assertEqual(0, mock_load.call_count)
         self.assertEqual(0, mock_del.call_count)

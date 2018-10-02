@@ -30,7 +30,9 @@ IMAGE_SRC_URL = os.environ.get(
     "http://maas.ubuntu.com/images/ephemeral-v3/daily/streams/v1/index.sjson")
 IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
 
-KEYRING = '/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg'
+KEYRING = os.environ.get(
+    'IMAGE_SRC_KEYRING',
+    '/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg')
 ITEM_NAME_FILTERS = \
     ['ftype~(boot-initrd|boot-kernel|root-tgz|squashfs)']
 FORMAT_JSON = 'JSON'
@@ -174,7 +176,7 @@ class CurtinVmTestMirror(mirrors.ObjectFilterMirror):
             except IOError as e:
                 if e.errno != errno.ENOENT:
                     raise
-            except JSONDecodeError as e:
+            except JSONDecodeError:
                 jsonfile = os.path.join(self.out_d, dpath)
                 sys.stderr.write("Decode error in:\n  "
                                  "content_id=%s\n  "

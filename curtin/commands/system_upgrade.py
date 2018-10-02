@@ -7,6 +7,7 @@ import curtin.util as util
 
 from . import populate_one_subcmd
 from curtin.log import LOG
+from curtin import distro
 
 
 def system_upgrade_main(args):
@@ -16,8 +17,8 @@ def system_upgrade_main(args):
 
     exit_code = 0
     try:
-        util.system_upgrade(target=args.target,
-                            allow_daemons=args.allow_daemons)
+        distro.system_upgrade(target=args.target,
+                              allow_daemons=args.allow_daemons)
     except util.ProcessExecutionError as e:
         LOG.warn("system upgrade failed: %s" % e)
         exit_code = e.exit_code
