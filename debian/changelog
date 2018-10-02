@@ -1,4 +1,4 @@
-curtin (18.1-56-g3aafe77d-0ubuntu1~18.04.1) UNRELEASED; urgency=medium
+curtin (18.1-56-g3aafe77d-0ubuntu1~18.04.1) bionic-proposed; urgency=medium
 
   * New upstream snapshot. (LP: #1795712)
     - vmtest: Fix typo in skip-by-date.
