@@ -1,4 +1,4 @@
-curtin (18.1-55-g0a27f283-0ubuntu1) UNRELEASED; urgency=medium
+curtin (18.1-55-g0a27f283-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
     - vmtest: kick skip-by-date for 1671951.
