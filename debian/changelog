@@ -1,4 +1,4 @@
-curtin (18.1-56-g3aafe77d-0ubuntu1) UNRELEASED; urgency=medium
+curtin (18.1-56-g3aafe77d-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
     - vmtest: Fix typo in skip-by-date.
