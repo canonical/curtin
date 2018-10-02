@@ -1,11 +1,12 @@
-curtin (18.1-55-g0a27f283-0ubuntu1) cosmic; urgency=medium
+curtin (18.1-56-g3aafe77d-0ubuntu1) UNRELEASED; urgency=medium
 
   * New upstream snapshot.
+    - vmtest: Fix typo in skip-by-date.
     - vmtest: kick skip-by-date for 1671951.
     - tools/jenkins-runner: Error if both filters and tests are given.
     - vmtests: prevent tests from modifying cls.collect_scripts
 
- -- Chad Smith <chad.smith@canonical.com>  Tue, 02 Oct 2018 11:04:25 -0600
+ -- Chad Smith <chad.smith@canonical.com>  Tue, 02 Oct 2018 16:07:51 -0600
 
 curtin (18.1-52-g5f0082d1-0ubuntu1) cosmic; urgency=medium
 
