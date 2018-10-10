@@ -63,8 +63,12 @@ send() {
         return
     }
 
-    lxc file push "$fpath" "$name/$prefix/$afile" || {
-        rerror "failed: lxc file push '$fpath' '$name/$prefix/$afile'"
+    # 'lxc file' command may write progress info to stdout which breaks
+    # this program when called as 'curtin pack' as it needs to write the
+    # payload to stdout. LXD issue #2683
+    local out=""
+    out=$(lxc file push "$fpath" "$name/$prefix/$afile" 2>&1) || {
+        rerror "failed: lxc file push '$fpath' '$name/$prefix/$afile': $out"
         return
     }
     _RET="$afile:$prefix/$afile"
