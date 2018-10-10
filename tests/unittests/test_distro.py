@@ -235,18 +235,89 @@ class TestYumInstall(CiTestCase):
         ]
 
         # call yum_install directly
+        self.assertFalse(m_subp.called)
         distro.yum_install(mode, pkglist, target=target)
         m_subp.assert_has_calls(expected_calls)
 
-        # call yum_install through run_yum_command
-        m_subp.reset()
+        # call yum_install through run_yum_command; expect the same calls
+        # so clear m_subp's call stack.
+        m_subp.reset_mock()
+        self.assertFalse(m_subp.called)
         distro.run_yum_command('install', pkglist, target=target)
         m_subp.assert_has_calls(expected_calls)
 
-        # call yum_install through install_packages
-        m_subp.reset()
+        # call yum_install through install_packages; expect the same calls
+        # so clear m_subp's call stack.
+        m_subp.reset_mock()
+        self.assertFalse(m_subp.called)
         osfamily = distro.DISTROS.redhat
         distro.install_packages(pkglist, osfamily=osfamily, target=target)
+        m_subp.assert_has_calls(expected_calls)
+
+
+class TestSystemUpgrade(CiTestCase):
+
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    @mock.patch('curtin.util.subp')
+    def test_system_upgrade_redhat(self, m_subp):
+        """system_upgrade osfamily=redhat calls run_yum_command mode=upgrade"""
+        osfamily = distro.DISTROS.redhat
+        target = 'mytarget'
+        mode = 'upgrade'
+        pkglist = []
+        expected_calls = [
+            mock.call(['yum', '--assumeyes', '--quiet', mode,
+                       '--downloadonly', '--setopt=keepcache=1'] + pkglist,
+                      env=None, retries=[1] * 10,
+                      target=paths.target_path(target)),
+            mock.call(['yum', '--assumeyes', '--quiet', mode,
+                       '--cacheonly'] + pkglist, env=None,
+                      target=paths.target_path(target))
+        ]
+        # call system_upgrade via osfamily; note that we expect the same calls
+        # call system_upgrade via osfamily; note that we expect the same calls
+
+        # call yum_install through run_yum_command
+        distro.run_yum_command(mode, pkglist, target=target)
+        m_subp.assert_has_calls(expected_calls)
+
+        # call system_upgrade via osfamily; note that we expect the same calls
+        # but to prevent a false positive we clear m_subp's call stack.
+        m_subp.reset_mock()
+        self.assertFalse(m_subp.called)
+        distro.system_upgrade(target=target, osfamily=osfamily)
+        m_subp.assert_has_calls(expected_calls)
+
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    @mock.patch('curtin.distro.os.environ')
+    @mock.patch('curtin.distro.apt_update')
+    @mock.patch('curtin.distro.which')
+    @mock.patch('curtin.util.subp')
+    def test_system_upgrade_debian(self, m_subp, m_which, m_apt_update, m_env):
+        """system_upgrade osfamily=debian calls run_apt_command mode=upgrade"""
+        osfamily = distro.DISTROS.debian
+        target = 'mytarget'
+        m_env.copy.return_value = {}
+        m_which.return_value = None
+        env = {'DEBIAN_FRONTEND': 'noninteractive'}
+        pkglist = []
+        apt_base = [
+            'apt-get', '--quiet', '--assume-yes',
+            '--option=Dpkg::options::=--force-unsafe-io',
+            '--option=Dpkg::Options::=--force-confold']
+        apt_cmd = apt_base + ['dist-upgrade'] + pkglist
+        auto_remove = apt_base + ['autoremove']
+        expected_calls = [
+            mock.call(apt_cmd, env=env, target=paths.target_path(target)),
+            mock.call(auto_remove, env=env, target=paths.target_path(target)),
+        ]
+        which_calls = [mock.call('eatmydata', target=target)]
+        apt_update_calls = [
+            mock.call(target, env=env, comment=' '.join(apt_cmd))]
+
+        distro.system_upgrade(target=target, osfamily=osfamily)
+        m_which.assert_has_calls(which_calls)
+        m_apt_update.assert_has_calls(apt_update_calls)
         m_subp.assert_has_calls(expected_calls)
 
 
