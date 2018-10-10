@@ -1,3 +1,13 @@
+curtin (18.1-59-g0f993084-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - distro: fix system_upgrade command using string instead of function
+      (LP: #1796968)
+    - Capture stdout when using lxc file push
+    - vmtest: boot ephemeral with 'ro' on the kernel command line.
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Wed, 10 Oct 2018 11:22:30 -0500
+
 curtin (18.1-56-g3aafe77d-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
