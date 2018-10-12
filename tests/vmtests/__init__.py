@@ -890,6 +890,11 @@ class VMBaseClass(TestCase):
             "--append=ro",
         ])
 
+        # Avoid LP: #1797218 and make vms boot faster
+        cmd.extend(['--append=%s' % service for service in
+                    ["systemd.mask=snapd.seeded.service",
+                     "systemd.mask=snapd.service"]])
+
         # getting resolvconf configured is only fixed in bionic
         # the iscsi_auto handles resolvconf setup via call to
         # configure_networking in initramfs
