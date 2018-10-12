@@ -1,4 +1,4 @@
-curtin (18.1-59-g0f993084-0ubuntu1~18.04.1) UNRELEASED; urgency=medium
+curtin (18.1-59-g0f993084-0ubuntu1~18.04.1) bionic; urgency=medium
 
   * New upstream snapshot. (LP: #1795712)
     - distro: fix system_upgrade command using string instead of function
