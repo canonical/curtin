@@ -887,6 +887,7 @@ class VMBaseClass(TestCase):
         cmd.extend([
             "--root-arg=root=%s" % root_url,
             "--append=overlayroot=tmpfs",
+            "--append=ro",
         ])
 
         # getting resolvconf configured is only fixed in bionic
