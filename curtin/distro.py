@@ -337,10 +337,10 @@ def system_upgrade(opts=None, target=None, env=None, allow_daemons=False,
     LOG.debug("Upgrading system in %s", target)
 
     distro_cfg = {
-        DISTROS.debian: {'function': 'run_apt_command',
+        DISTROS.debian: {'function': run_apt_command,
                          'subcommands': ('dist-upgrade', 'autoremove')},
-        DISTROS.redhat: {'function': 'run_yum_command',
-                         'subcommands': ('upgrade')},
+        DISTROS.redhat: {'function': run_yum_command,
+                         'subcommands': ('upgrade',)},
     }
     if osfamily not in distro_cfg:
         raise ValueError('Distro "%s" does not have system_upgrade support',
