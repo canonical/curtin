@@ -1,6 +1,9 @@
-curtin (18.1-56-g3aafe77d-0ubuntu1~16.04.1) xenial-proposed; urgency=medium
+curtin (18.1-59-g0f993084-0ubuntu1~16.04.1) UNRELEASED; urgency=medium
 
   * New upstream snapshot. (LP: #1795712)
+    - distro: fix system_upgrade command using string instead of function
+    - Capture stdout when using lxc file push
+    - vmtest: boot ephemeral with 'ro' on the kernel command line.
     - vmtest: Fix typo in skip-by-date.
     - vmtest: kick skip-by-date for 1671951.
     - tools/jenkins-runner: Error if both filters and tests are given.
@@ -41,7 +44,7 @@ curtin (18.1-56-g3aafe77d-0ubuntu1~16.04.1) xenial-proposed; urgency=medium
     - curtainer: patch source version from --source.
     - pyflakes: fix unused variable references identified by pyflakes 2.0.0.
 
- -- Chad Smith <chad.smith@canonical.com>  Tue, 02 Oct 2018 16:47:10 -0600
+ -- Scott Moser <smoser@ubuntu.com>  Fri, 12 Oct 2018 16:23:16 -0400
 
 curtin (18.1-17-gae48e86f-0ubuntu1~16.04.1) xenial; urgency=medium
 
