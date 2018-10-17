@@ -22,6 +22,8 @@ class TestMultipathBasicAbs(VMBaseClass):
         cp -a /etc/multipath* .
         readlink -f /sys/class/block/sda/holders/dm-0 > holders_sda
         readlink -f /sys/class/block/sdb/holders/dm-0 > holders_sdb
+
+        exit 0
         """)]
 
     def test_multipath_disks_match(self):

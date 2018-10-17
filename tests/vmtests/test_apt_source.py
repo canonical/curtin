@@ -34,6 +34,8 @@ class TestAptSrcAbs(VMBaseClass):
         apt-config dump | grep Retries > aptconf
         cp /etc/apt/sources.list sources.list
         cp /etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg .
+
+        exit 0
         """)]
     mirror = "http://us.archive.ubuntu.com/ubuntu"
     secmirror = "http://security.ubuntu.com/ubuntu"

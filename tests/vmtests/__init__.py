@@ -522,9 +522,11 @@ DEFAULT_COLLECT_SCRIPTS = {
         ls -al /dev/disk/by-uuid/ | cat >ls_al_byuuid
         blkid -o export | cat >blkid.out
         find /boot | cat > find_boot.out
-        [ -e /sys/firmware/efi ] && {
+        if [ -e /sys/firmware/efi ]; then
             efibootmgr -v | cat >efibootmgr.out;
-        }
+        fi
+
+        exit 0
         """)],
     'centos': [textwrap.dedent("""
         # XXX: command | cat >output is required for Centos under SELinux
@@ -535,6 +537,8 @@ DEFAULT_COLLECT_SCRIPTS = {
         rpm -q --queryformat '%{VERSION}\n' cloud-init |tee rpm_ci_version
         rpm -E '%rhel' > rpm_dist_version_major
         cp -a /etc/centos-release .
+
+        exit 0
         """)],
     'ubuntu': [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
@@ -548,6 +552,8 @@ DEFAULT_COLLECT_SCRIPTS = {
         out=$(apt-config shell v Acquire::HTTP::Proxy)
         eval "$out"
         echo "$v" > apt-proxy
+
+        exit 0
         """)]
 }
 

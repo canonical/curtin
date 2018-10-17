@@ -32,6 +32,8 @@ class TestBasicAbs(VMBaseClass):
            btrfs inspect-internal dump-super $dev |
                awk '/^dev_item.fsid/ {print $2}'
         fi | cat >$f
+
+        exit 0
         """)]
 
     def _kname_to_uuid(self, kname):
@@ -230,6 +232,8 @@ class TestBasicScsiAbs(TestBasicAbs):
            btrfs inspect-internal dump-super $dev |
                awk '/^dev_item.fsid/ {print $2}'
         fi | cat >$f
+
+        exit 0
         """)]
 
     def test_ptable(self):

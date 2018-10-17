@@ -14,14 +14,18 @@ class TestLvmOverRaidAbs(TestMdadmAbs, TestLvmAbs):
     dirty_disks = True
     extra_disks = ['10G'] * 4
 
-    extra_collect_scripts = TestLvmAbs.extra_collect_scripts
-    extra_collect_scripts += TestMdadmAbs.extra_collect_scripts
-    extra_collect_scripts += [textwrap.dedent("""
-        cd OUTPUT_COLLECT_D
-        ls -al /dev/md* > dev_md
-        cp -a /etc/mdadm etc_mdadm
-        cp -a /etc/lvm etc_lvm
-        """)]
+    extra_collect_scripts = (
+        TestLvmAbs.extra_collect_scripts +
+        TestMdadmAbs.extra_collect_scripts +
+        [textwrap.dedent("""
+            cd OUTPUT_COLLECT_D
+            ls -al /dev/md* > dev_md
+            cp -a /etc/mdadm etc_mdadm
+            cp -a /etc/lvm etc_lvm
+
+            exit 0
+            """)]
+        )
 
     fstab_expected = {
         '/dev/vg1/lv1': '/srv/data',

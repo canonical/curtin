@@ -15,6 +15,8 @@ class TestSimple(VMBaseClass):
     extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cp /etc/netplan/50-cloud-init.yaml netplan.yaml
+
+        exit 0
         """)]
 
 

@@ -17,6 +17,8 @@ class TestLvmAbs(VMBaseClass):
         cd OUTPUT_COLLECT_D
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
+
+        exit 0
         """)]
     fstab_expected = {
         '/dev/vg1/lv1': '/srv/data',

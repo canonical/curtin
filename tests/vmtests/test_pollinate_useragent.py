@@ -18,6 +18,8 @@ class TestPollinateUserAgent(VMBaseClass):
         cd OUTPUT_COLLECT_D
         cp -a /etc/pollinate etc_pollinate
         pollinate --print-user-agent > pollinate_print_user_agent
+
+        exit 0
         """)]
 
     def test_pollinate_user_agent(self):

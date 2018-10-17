@@ -27,6 +27,8 @@ class TestNvmeAbs(VMBaseClass):
         ls /sys/class/ > sys_class
         ls /sys/class/nvme/ > ls_nvme
         ls /dev/nvme* > ls_dev_nvme
+
+        exit 0
         """)]
 
     def _test_nvme_device_names(self, expected):
@@ -102,6 +104,8 @@ class TestNvmeBcacheAbs(TestNvmeAbs):
         bcache-super-show /dev/nvme0n1p1 > bcache_super_nvme0n1p1
         ls /sys/fs/bcache > bcache_ls
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
+
+        exit 0
         """)]
 
     def test_bcache_output_files_exist(self):

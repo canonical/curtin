@@ -100,6 +100,8 @@ class TestFsBattery(VMBaseClass):
                 echo "$part umount: PASS" ||
                 echo "$part umount: FAIL: $out"
         done >> battery-mount-umount
+
+        exit 0
         """)]
 
     def get_fs_entries(self):

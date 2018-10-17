@@ -36,6 +36,8 @@ class TestNetworkMtuAbs(TestNetworkIPV6Abs):
         if [ -e /var/log/upstart ]; then
           cp -a /var/log/upstart ./var_log_upstart
         fi
+
+        exit 0
         """)]
 
     def _load_mtu_data(self, ifname):
@@ -128,6 +130,8 @@ class CentosTestNetworkMtuAbs(TestNetworkMtuAbs):
             cp -a /var/log/cloud-init* .
             cp -a /var/lib/cloud ./var_lib_cloud
             cp -a /run/cloud-init ./run_cloud-init
+
+            exit 0
         """)]
 
     def test_etc_network_interfaces(self):

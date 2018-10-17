@@ -23,6 +23,8 @@ class TestBasicIscsiAbs(VMBaseClass):
         cp -a /etc/iscsi ./etc_iscsi
         bash -c \
         'for f in /mnt/iscsi*; do cp $f/testfile testfile${f: -1}; done'
+
+        exit 0
         """)]
 
     def test_fstab_has_netdev_option(self):

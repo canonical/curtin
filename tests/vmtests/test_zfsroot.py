@@ -17,6 +17,8 @@ class TestZfsRootAbs(VMBaseClass):
             zfs list > zfs_list
             zpool list > zpool_list
             zpool status > zpool_status
+
+            exit 0
         """)]
 
     @skip_if_flag('expected_failure')

@@ -23,6 +23,8 @@ class TestMdadmAbs(VMBaseClass):
         ls -al /sys/fs/bcache/* > lsal_sys_fs_bcache_star
         ls -al /dev/bcache* > lsal_dev_bcache_star
         ls -al /dev/bcache/by_uuid/* > lsal_dev_bcache_byuuid_star
+
+        exit 0
         """)]
 
     def test_mdadm_output_files_exist(self):
@@ -63,6 +65,8 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
         cat /sys/block/bcache1/bcache/cache_mode >> bcache_cache_mode
         cat /sys/block/bcache2/bcache/cache_mode >> bcache_cache_mode
+
+        exit 0
         """)]
     fstab_expected = {
         '/dev/vda1': '/media/sda1',
@@ -357,6 +361,8 @@ class TestRaid6bootAbs(TestMdadmAbs):
         TestMdadmAbs.extra_collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         mdadm --detail --scan > mdadm_detail
+
+        exit 0
         """)])
 
     def test_raid6_output_files_exist(self):
@@ -493,6 +499,8 @@ class TestAllindataAbs(TestMdadmAbs):
         mkdir -p /tmp/xfstest
         mount /dev/mapper/dmcrypt0 /tmp/xfstest
         xfs_info /tmp/xfstest/ > xfs_info
+
+        exit 0
         """)])
     fstab_expected = {
         '/dev/vg1/lv1': '/srv/data',

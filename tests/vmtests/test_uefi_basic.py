@@ -24,6 +24,8 @@ class TestBasicAbs(VMBaseClass):
         blockdev --getss /dev/vda | cat >vda_blockdev_getss
         blockdev --getpbsz /dev/vda | cat >vda_blockdev_getpbsz
         blockdev --getbsz /dev/vda | cat >vda_blockdev_getbsz
+
+        exit 0
         """)]
 
     def test_sys_firmware_efi(self):

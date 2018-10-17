@@ -50,6 +50,8 @@ class TestOldAptAbs(VMBaseClass):
         cp /etc/apt/sources.list .
         cp /etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg .
         cp /etc/cloud/cloud.cfg.d/90_dpkg.cfg .
+
+        exit 0
         """)]
     arch = util.get_architecture()
     if arch in ['amd64', 'i386']:

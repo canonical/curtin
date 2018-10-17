@@ -23,6 +23,8 @@ class TestAptConfigCMD(VMBaseClass):
         cp /etc/apt/sources.list.d/curtin-dev-ubuntu-test-archive-*.list .
         cp /etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg .
         apt-cache policy | grep proposed > proposed-enabled
+
+        exit 0
         """)]
 
     def test_cmd_proposed_enabled(self):

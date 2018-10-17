@@ -26,6 +26,8 @@ class CentosTestNetworkAliasAbs(TestNetworkAliasAbs):
             cp -a /var/log/cloud-init* .
             cp -a /var/lib/cloud ./var_lib_cloud
             cp -a /run/cloud-init ./run_cloud-init
+
+            exit 0
         """)]
 
     def test_etc_resolvconf(self):
