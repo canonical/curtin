@@ -344,12 +344,17 @@ class TempDir(object):
 
     def collect_output(self):
         logger.debug('extracting output disk')
-        subprocess.check_call(['tar', '-C', self.collect, '-xf',
-                               self.output_disk],
-                              stdout=DEVNULL, stderr=subprocess.STDOUT)
-        # make sure collect output dir is usable by non-root
-        subprocess.check_call(['chmod', '-R', 'u+rwX', self.collect],
-                              stdout=DEVNULL, stderr=subprocess.STDOUT)
+        try:
+            subprocess.check_call(['tar', '-C', self.collect, '-xf',
+                                   self.output_disk],
+                                  stdout=DEVNULL, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            logger.error('Failed unpacking collect output: %s', e)
+        finally:
+            logger.debug('Fixing collect output dir permissions.')
+            # make sure collect output dir is usable by non-root
+            subprocess.check_call(['chmod', '-R', 'u+rwX', self.collect],
+                                  stdout=DEVNULL, stderr=subprocess.STDOUT)
 
 
 def skip_if_flag(flag):
