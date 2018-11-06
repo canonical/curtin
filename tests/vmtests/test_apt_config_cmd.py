@@ -5,6 +5,7 @@
     apt-config standalone command.
 """
 import textwrap
+import yaml
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
@@ -46,8 +47,10 @@ class TestAptConfigCMD(VMBaseClass):
     def test_cmd_preserve_source(self):
         """check if cloud-init was prevented from overwriting"""
         self.output_files_exist(["curtin-preserve-sources.cfg"])
-        self.check_file_regex("curtin-preserve-sources.cfg",
-                              "apt_preserve_sources_list.*true")
+        # For earlier than xenial 'apt_preserve_sources_list' is expected
+        self.assertEqual(
+            {'apt': {'preserve_sources_list': True}},
+            yaml.load(self.load_collect_file("curtin-preserve-sources.cfg")))
 
 
 class XenialTestAptConfigCMDCMD(relbase.xenial, TestAptConfigCMD):
