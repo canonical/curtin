@@ -520,6 +520,7 @@ DEFAULT_COLLECT_SCRIPTS = {
         ls -al /dev/disk/by-dname/ | cat >ls_al_bydname
         ls -al /dev/disk/by-id/ | cat >ls_al_byid
         ls -al /dev/disk/by-uuid/ | cat >ls_al_byuuid
+        ls -al /dev/disk/by-partuuid/ | cat >ls_al_bypartuuid
         blkid -o export | cat >blkid.out
         find /boot | cat > find_boot.out
         if [ -e /sys/firmware/efi ]; then

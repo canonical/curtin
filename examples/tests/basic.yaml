@@ -83,6 +83,13 @@ storage:
         device: pnum_disk
       - id: pnum_disk_p2
         type: partition
+        number: 2
+        size: 8MB
+        device: pnum_disk
+        flag: prep
+        wipe: zero
+      - id: pnum_disk_p3
+        type: partition
         number: 10
         size: 1GB
         device: pnum_disk

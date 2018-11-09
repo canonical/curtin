@@ -237,6 +237,14 @@ After the partition is added to the disk's partition table, curtin can run a
 wipe command on the partition. The wipe command values are the sames as for
 disks.
 
+.. note::
+
+  Curtin will automatically wipe 1MB at the starting location of the partition
+  prior to creating the partition to ensure that other block layers or devices
+  do not enable themselves and prevent accessing the partition.  Wipe
+  and other destructive operations only occur if the ``preserve`` value
+  is not set to ``True``.
+
 **flag**: *logical, extended, boot, bios_grub, swap, lvm, raid, home, prep*
 
 If the ``flag`` key is present, curtin will set the specified flag on the

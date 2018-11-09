@@ -584,6 +584,9 @@ def partition_handler(info, storage_config):
             block.zero_file_at_offsets(disk, [wipe_offset], exclusive=False)
 
     if disk_ptable == "msdos":
+        if flag and flag == 'prep':
+            raise ValueError('PReP partitions require a GPT partition table')
+
         if flag in ["extended", "logical", "primary"]:
             partition_type = flag
         else:
@@ -603,6 +606,16 @@ def partition_handler(info, storage_config):
         util.subp(cmd, capture=True)
     else:
         raise ValueError("parent partition has invalid partition table")
+
+    # wipe the created partition if needed, superblocks have already been wiped
+    wipe_mode = info.get('wipe', 'superblock')
+    if wipe_mode != 'superblock':
+        part_path = block.dev_path(block.partition_kname(disk_kname,
+                                                         partnumber))
+        block.rescan_block_devices([disk])
+        udevadm_settle(exists=part_path)
+        LOG.debug('Wiping partition %s mode=%s', part_path, wipe_mode)
+        block.wipe_volume(part_path, mode=wipe_mode, exclusive=False)
 
     # Make the name if needed
     if storage_config.get(device).get('name') and partition_type != 'extended':
