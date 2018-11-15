@@ -76,6 +76,10 @@ class CosmicTestNetworkIPV6(relbase.cosmic, TestNetworkIPV6Abs):
     __test__ = True
 
 
+class DiscoTestNetworkIPV6(relbase.disco, TestNetworkIPV6Abs):
+    __test__ = True
+
+
 class Centos66TestNetworkIPV6(centos_relbase.centos66_xenial,
                               CentosTestNetworkIPV6Abs):
     __test__ = True

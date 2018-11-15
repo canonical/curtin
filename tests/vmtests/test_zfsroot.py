@@ -90,6 +90,10 @@ class CosmicTestZfsRoot(relbase.cosmic, TestZfsRootAbs):
     __test__ = True
 
 
+class DiscoTestZfsRoot(relbase.disco, TestZfsRootAbs):
+    __test__ = True
+
+
 class TestZfsRootFsTypeAbs(TestZfsRootAbs):
     conf_file = "examples/tests/basic-zfsroot.yaml"
 
@@ -109,4 +113,8 @@ class BionicTestZfsRootFsType(relbase.bionic, TestZfsRootFsTypeAbs):
 
 
 class CosmicTestZfsRootFsType(relbase.cosmic, TestZfsRootFsTypeAbs):
+    __test__ = True
+
+
+class DiscoTestZfsRootFsType(relbase.disco, TestZfsRootFsTypeAbs):
     __test__ = True

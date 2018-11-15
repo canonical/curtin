@@ -78,4 +78,8 @@ class BionicTestIscsiBasic(relbase.bionic, TestBasicIscsiAbs):
 class CosmicTestIscsiBasic(relbase.cosmic, TestBasicIscsiAbs):
     __test__ = True
 
+
+class DiscoTestIscsiBasic(relbase.disco, TestBasicIscsiAbs):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

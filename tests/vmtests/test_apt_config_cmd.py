@@ -67,4 +67,8 @@ class BionicTestAptConfigCMDCMD(relbase.bionic, TestAptConfigCMD):
 class CosmicTestAptConfigCMDCMD(relbase.cosmic, TestAptConfigCMD):
     __test__ = True
 
+
+class DiscoTestAptConfigCMDCMD(relbase.disco, TestAptConfigCMD):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

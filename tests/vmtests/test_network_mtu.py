@@ -204,6 +204,11 @@ class CosmicTestNetworkMtu(relbase.cosmic, TestNetworkMtuAbs):
     __test__ = True
 
 
+@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2019-01-02")
+class DiscoTestNetworkMtu(relbase.disco, TestNetworkMtuAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkMtu(centos_relbase.centos66_xenial,
                              CentosTestNetworkMtuAbs):
     __test__ = True

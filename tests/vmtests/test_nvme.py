@@ -84,6 +84,10 @@ class CosmicTestNvme(relbase.cosmic, TestNvmeAbs):
     __test__ = True
 
 
+class DiscoTestNvme(relbase.cosmic, TestNvmeAbs):
+    __test__ = True
+
+
 class TestNvmeBcacheAbs(TestNvmeAbs):
     arch_skip = [
         "s390x",  # nvme is a pci device, no pci on s390x
@@ -148,5 +152,8 @@ class BionicTestNvmeBcache(relbase.bionic, TestNvmeBcacheAbs):
 class CosmicTestNvmeBcache(relbase.cosmic, TestNvmeBcacheAbs):
     __test__ = True
 
+
+class DiscoTestNvmeBcache(relbase.disco, TestNvmeBcacheAbs):
+    __test__ = True
 
 # vi: ts=4 expandtab syntax=python

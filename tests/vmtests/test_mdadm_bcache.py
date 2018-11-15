@@ -155,6 +155,10 @@ class CosmicTestMdadmBcache(relbase.cosmic, TestMdadmBcacheAbs):
     __test__ = True
 
 
+class DiscoTestMdadmBcache(relbase.disco, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot.yaml"
@@ -197,6 +201,10 @@ class BionicTestMirrorboot(relbase.bionic, TestMirrorbootAbs):
 
 
 class CosmicTestMirrorboot(relbase.cosmic, TestMirrorbootAbs):
+    __test__ = True
+
+
+class DiscoTestMirrorboot(relbase.disco, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -251,6 +259,11 @@ class CosmicTestMirrorbootPartitions(relbase.cosmic,
     __test__ = True
 
 
+class DiscoTestMirrorbootPartitions(relbase.disco,
+                                    TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
 class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot-uefi.yaml"
@@ -301,6 +314,11 @@ class CosmicTestMirrorbootPartitionsUEFI(relbase.cosmic,
     __test__ = True
 
 
+class DiscoTestMirrorbootPartitionsUEFI(relbase.disco,
+                                        TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
@@ -343,6 +361,10 @@ class BionicTestRaid5boot(relbase.bionic, TestRaid5bootAbs):
 
 
 class CosmicTestRaid5boot(relbase.cosmic, TestRaid5bootAbs):
+    __test__ = True
+
+
+class DiscoTestRaid5boot(relbase.disco, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -406,6 +428,10 @@ class CosmicTestRaid6boot(relbase.cosmic, TestRaid6bootAbs):
     __test__ = True
 
 
+class DiscoTestRaid6boot(relbase.disco, TestRaid6bootAbs):
+    __test__ = True
+
+
 class TestRaid10bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid10boot.yaml"
@@ -449,6 +475,10 @@ class BionicTestRaid10boot(relbase.bionic, TestRaid10bootAbs):
 
 
 class CosmicTestRaid10boot(relbase.cosmic, TestRaid10bootAbs):
+    __test__ = True
+
+
+class DiscoTestRaid10boot(relbase.disco, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -553,6 +583,10 @@ class BionicTestAllindata(relbase.bionic, TestAllindataAbs):
 
 
 class CosmicTestAllindata(relbase.cosmic, TestAllindataAbs):
+    __test__ = True
+
+
+class DiscoTestAllindata(relbase.disco, TestAllindataAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

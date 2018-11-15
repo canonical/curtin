@@ -88,6 +88,10 @@ class CosmicTestNetworkVlan(relbase.cosmic, TestNetworkVlanAbs):
     __test__ = True
 
 
+class DiscoTestNetworkVlan(relbase.disco, TestNetworkVlanAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkVlan(centos_relbase.centos66_xenial,
                               CentosTestNetworkVlanAbs):
     __test__ = True

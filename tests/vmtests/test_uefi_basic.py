@@ -117,6 +117,10 @@ class CosmicUefiTestBasic(relbase.cosmic, TestBasicAbs):
     __test__ = True
 
 
+class DiscoUefiTestBasic(relbase.disco, TestBasicAbs):
+    __test__ = True
+
+
 class Centos70UefiTestBasic4k(centos_relbase.centos70_xenial, TestBasicAbs):
     disk_block_size = 4096
 
@@ -138,6 +142,10 @@ class BionicUefiTestBasic4k(relbase.bionic, TestBasicAbs):
 
 
 class CosmicUefiTestBasic4k(relbase.cosmic, TestBasicAbs):
+    disk_block_size = 4096
+
+
+class DiscoUefiTestBasic4k(relbase.disco, TestBasicAbs):
     disk_block_size = 4096
 
 # vi: ts=4 expandtab syntax=python

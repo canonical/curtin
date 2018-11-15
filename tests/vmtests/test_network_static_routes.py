@@ -59,6 +59,11 @@ class CosmicTestNetworkStaticRoutes(relbase.cosmic,
     __test__ = True
 
 
+class DiscoTestNetworkStaticRoutes(relbase.disco,
+                                   TestNetworkStaticRoutesAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkStaticRoutes(centos_relbase.centos66_xenial,
                                       CentosTestNetworkStaticRoutesAbs):
     __test__ = False

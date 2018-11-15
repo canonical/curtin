@@ -81,6 +81,10 @@ class CosmicTestBonding(relbase.cosmic, TestNetworkBondingAbs):
     __test__ = True
 
 
+class DiscoTestBonding(relbase.disco, TestNetworkBondingAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkBonding(centos_relbase.centos66_xenial,
                                  CentosTestNetworkBondingAbs):
     __test__ = True

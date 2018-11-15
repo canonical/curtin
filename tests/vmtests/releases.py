@@ -113,6 +113,11 @@ class _CosmicBase(_UbuntuBase):
     target_release = "cosmic"
 
 
+class _DiscoBase(_UbuntuBase):
+    release = "disco"
+    target_release = "disco"
+
+
 class _Releases(object):
     trusty = _TrustyBase
     precise = _PreciseBase
@@ -128,6 +133,7 @@ class _Releases(object):
     xenial_edge = _XenialEdge
     bionic = _BionicBase
     cosmic = _CosmicBase
+    disco = _DiscoBase
 
 
 class _CentosReleases(object):

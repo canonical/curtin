@@ -46,6 +46,13 @@ class CosmicTestSimple(relbase.cosmic, TestSimple):
         self.output_files_exist(["netplan.yaml"])
 
 
+class DiscoTestSimple(relbase.disco, TestSimple):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
+
 class TestSimpleStorage(VMBaseClass):
     """ Test curtin runs clear-holders when mode=simple with storage cfg. """
     conf_file = "examples/tests/simple-storage.yaml"
@@ -89,6 +96,13 @@ class BionicTestSimpleStorage(relbase.bionic, TestSimpleStorage):
 
 
 class CosmicTestSimpleStorage(relbase.cosmic, TestSimpleStorage):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
+
+class DiscoTestSimpleStorage(relbase.disco, TestSimpleStorage):
     __test__ = True
 
     def test_output_files_exist(self):

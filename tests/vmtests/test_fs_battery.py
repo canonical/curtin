@@ -245,4 +245,7 @@ class CosmicTestFsBattery(relbase.cosmic, TestFsBattery):
     __test__ = True
 
 
+class DiscoTestFsBattery(relbase.disco, TestFsBattery):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

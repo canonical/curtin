@@ -43,6 +43,10 @@ class TestLvmOverRaidAbs(TestMdadmAbs, TestLvmAbs):
         self.check_file_strippedline("pvs", "vg0=/dev/md1")
 
 
+class DiscoTestLvmOverRaid(relbase.disco, TestLvmOverRaidAbs):
+    __test__ = True
+
+
 class CosmicTestLvmOverRaid(relbase.cosmic, TestLvmOverRaidAbs):
     __test__ = True
 

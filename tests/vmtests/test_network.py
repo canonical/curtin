@@ -475,6 +475,10 @@ class CosmicTestNetworkBasic(relbase.cosmic, TestNetworkBasicAbs):
     __test__ = True
 
 
+class DiscoTestNetworkBasic(relbase.disco, TestNetworkBasicAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkBasic(centos_relbase.centos66_xenial,
                                CentosTestNetworkBasicAbs):
     __test__ = True

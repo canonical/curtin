@@ -241,6 +241,10 @@ class CosmicTestBasic(relbase.cosmic, TestBasicAbs):
     __test__ = True
 
 
+class DiscoTestBasic(relbase.disco, TestBasicAbs):
+    __test__ = True
+
+
 class TestBasicScsiAbs(TestBasicAbs):
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
@@ -319,6 +323,10 @@ class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
 
 
 class CosmicTestScsiBasic(relbase.cosmic, TestBasicScsiAbs):
+    __test__ = True
+
+
+class DiscoTestScsiBasic(relbase.disco, TestBasicScsiAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

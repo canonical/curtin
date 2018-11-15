@@ -92,4 +92,8 @@ class BionicTestMultipathBasic(relbase.bionic, TestMultipathBasicAbs):
 class CosmicTestMultipathBasic(relbase.cosmic, TestMultipathBasicAbs):
     __test__ = True
 
+
+class DiscoTestMultipathBasic(relbase.disco, TestMultipathBasicAbs):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python
