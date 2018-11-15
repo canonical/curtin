@@ -28,7 +28,7 @@ class TestExtractRootFsImageUrl(CiTestCase):
         target = self.tmp_path("target_d", tmpd)
         startdir = os.getcwd()
         try:
-            fname = "my.img"
+            fname = os.path.join(tmpd, "my.img")
             util.write_file(fname, fname + " data\n")
             extract_root_fsimage_url("file://" + fname, target)
         finally:
