@@ -35,6 +35,8 @@ CMD_ARGUMENTS = (
        'metavar': 'DEVICE', 'default': None, }),
      ('--fstype', {'help': 'root partition filesystem type',
                    'choices': ['ext4', 'ext3'], 'default': 'ext4'}),
+     ('--force-mode', {'help': 'force mode, disable mode detection',
+                       'action': 'store_true', 'default': False}),
      (('-t', '--target'),
       {'help': 'chroot to target. default is env[TARGET_MOUNT_POINT]',
        'action': 'store', 'metavar': 'TARGET',
@@ -55,11 +57,35 @@ def block_meta(args):
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
     dd_images = util.get_dd_images(cfg.get('sources', {}))
-    if ((args.mode == CUSTOM or cfg.get("storage") is not None) and
-            len(dd_images) == 0):
-        meta_custom(args)
-    elif args.mode in (SIMPLE, SIMPLE_BOOT) or len(dd_images) > 0:
-        meta_simple(args)
+
+    # run clear holders on potential devices
+    devices = args.devices
+    if devices is None:
+        devices = []
+        if 'storage' in cfg:
+            devices = get_disk_paths_from_storage_config(
+                extract_storage_ordered_dict(cfg))
+        if len(devices) == 0:
+            devices = cfg.get('block-meta', {}).get('devices', [])
+        LOG.debug('Declared block devices: %s', devices)
+        args.devices = devices
+
+    meta_clear(devices, state.get('report_stack_prefix', ''))
+
+    # dd-images requires use of meta_simple
+    if len(dd_images) > 0 and args.force_mode is False:
+        LOG.info('blockmeta: detected dd-images, using mode=simple')
+        return meta_simple(args)
+
+    if cfg.get("storage") and args.force_mode is False:
+        LOG.info('blockmeta: detected storage config, using mode=custom')
+        return meta_custom(args)
+
+    LOG.info('blockmeta: mode=%s force=%s', args.mode, args.force_mode)
+    if args.mode == CUSTOM:
+        return meta_custom(args)
+    elif args.mode in (SIMPLE, SIMPLE_BOOT):
+        return meta_simple(args)
     else:
         raise NotImplementedError("mode=%s is not implemented" % args.mode)
 
@@ -1348,6 +1374,19 @@ def extract_storage_ordered_dict(config):
     return OrderedDict((d["id"], d) for (i, d) in enumerate(scfg))
 
 
+def get_disk_paths_from_storage_config(storage_config):
+    """Returns a list of disk paths in a storage config filtering out
+       preserved or disks which do not have wipe configuration.
+
+    :param: storage_config: Ordered dict of storage configation
+    """
+    return [get_path_to_storage_volume(k, storage_config)
+            for (k, v) in storage_config.items()
+            if v.get('type') == 'disk' and
+            config.value_as_boolean(v.get('wipe')) and
+            not config.value_as_boolean(v.get('preserve'))]
+
+
 def zfsroot_update_storage_config(storage_config):
     """Return an OrderedDict that has 'zfsroot' format expanded into
        zpool and zfs commands to enable ZFS on rootfs.
@@ -1442,6 +1481,24 @@ def zfsroot_update_storage_config(storage_config):
     return ret
 
 
+def meta_clear(devices, report_prefix=''):
+    """ Run clear_holders on specified list of devices.
+
+    :param: devices: a list of block devices (/dev/XXX) to be cleared
+    :param: report_prefix: a string to pass to the ReportEventStack
+    """
+    # shut down any already existing storage layers above any disks used in
+    # config that have 'wipe' set
+    with events.ReportEventStack(
+            name=report_prefix + '/clear-holders',
+            reporting_enabled=True, level='INFO',
+            description="removing previous storage devices"):
+        clear_holders.start_clear_holders_deps()
+        clear_holders.clear_holders(devices)
+        # if anything was not properly shut down, stop installation
+        clear_holders.assert_clear(devices)
+
+
 def meta_custom(args):
     """Does custom partitioning based on the layout provided in the config
     file. Section with the name storage contains information on which
@@ -1473,21 +1530,6 @@ def meta_custom(args):
     # set up reportstack
     stack_prefix = state.get('report_stack_prefix', '')
 
-    # shut down any already existing storage layers above any disks used in
-    # config that have 'wipe' set
-    with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level='INFO',
-            description="removing previous storage devices"):
-        clear_holders.start_clear_holders_deps()
-        disk_paths = [get_path_to_storage_volume(k, storage_config_dict)
-                      for (k, v) in storage_config_dict.items()
-                      if v.get('type') == 'disk' and
-                      config.value_as_boolean(v.get('wipe')) and
-                      not config.value_as_boolean(v.get('preserve'))]
-        clear_holders.clear_holders(disk_paths)
-        # if anything was not properly shut down, stop installation
-        clear_holders.assert_clear(disk_paths)
-
     for item_id, command in storage_config_dict.items():
         handler = command_handlers.get(command['type'])
         if not handler:
@@ -1513,8 +1555,15 @@ def meta_simple(args):
     create a separate /boot partition.
     """
     state = util.load_command_environment()
-
     cfg = config.load_command_config(args, state)
+    if args.target is not None:
+        state['target'] = args.target
+
+    if state['target'] is None:
+        sys.stderr.write("Unable to find target.  "
+                         "Use --target or set TARGET_MOUNT_POINT\n")
+        sys.exit(2)
+
     devpath = None
     if cfg.get("storage") is not None:
         for i in cfg["storage"]["config"]:
@@ -1525,21 +1574,8 @@ def meta_simple(args):
             diskPath = block.lookup_disk(serial)
             if grub is True:
                 devpath = diskPath
-            if config.value_as_boolean(i.get('wipe')):
-                block.wipe_volume(diskPath, mode=i.get('wipe'))
-
-    if args.target is not None:
-        state['target'] = args.target
-
-    if state['target'] is None:
-        sys.stderr.write("Unable to find target.  "
-                         "Use --target or set TARGET_MOUNT_POINT\n")
-        sys.exit(2)
 
     devices = args.devices
-    if devices is None:
-        devices = cfg.get('block-meta', {}).get('devices', [])
-
     bootpt = get_bootpt_cfg(
         cfg.get('block-meta', {}).get('boot-partition', {}),
         enabled=args.mode == SIMPLE_BOOT, fstype=args.boot_fstype,

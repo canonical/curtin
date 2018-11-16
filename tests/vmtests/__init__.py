@@ -952,8 +952,7 @@ class VMBaseClass(TestCase):
 
         # build disk arguments
         disks = []
-        sc = cls.load_conf_file()
-        storage_config = yaml.load(sc).get('storage', {}).get('config', {})
+        storage_config = cls.get_class_storage_config()
         cls.disk_wwns = ["wwn=%s" % x.get('wwn') for x in storage_config
                          if 'wwn' in x]
         cls.disk_serials = ["serial=%s" % x.get('serial')
@@ -1587,6 +1586,29 @@ class VMBaseClass(TestCase):
         kpackage = self.get_kernel_package()
         self.assertIn(kpackage, self.debian_packages)
 
+    @skip_if_flag('expected_failure')
+    def test_clear_holders_ran(self):
+        """ Test curtin install runs block-meta/clear-holders. """
+        if not self.has_storage_config():
+            raise SkipTest("This test does not use storage config.")
+
+        install_logfile = 'root/curtin-install.log'
+        self.output_files_exist([install_logfile])
+        install_log = self.load_collect_file(install_logfile)
+
+        # validate block-meta called clear-holders at least once
+        # We match both 'start' and 'finish' strings, so for each
+        # call we'll have 2 matches.
+        clear_holders_re = 'cmd-install/.*cmd-block-meta/clear-holders'
+        events = re.findall(clear_holders_re, install_log)
+        print('Matched clear-holder events:\n%s' % events)
+        self.assertGreaterEqual(len(events), 2)
+
+        # dirty_disks mode runs an early block-meta command which
+        # also runs clear-holders
+        if self.dirty_disks is True:
+            self.assertGreaterEqual(len(events), 4)
+
     def run(self, result):
         super(VMBaseClass, self).run(result)
         self.record_result(result)
@@ -1626,14 +1648,25 @@ class VMBaseClass(TestCase):
             self._debian_packages = pkgs
         return self._debian_packages
 
+    @classmethod
+    def get_class_storage_config(cls):
+        sc = cls.load_conf_file()
+        return yaml.load(sc).get('storage', {}).get('config', {})
+
+    def get_storage_config(self):
+        cfg = yaml.load(self.load_collect_file("root/curtin-install-cfg.yaml"))
+        return cfg.get("storage", {}).get("config", [])
+
+    def has_storage_config(self):
+        '''check if test used storage config'''
+        return len(self.get_storage_config()) > 0
+
     @skip_if_flag('expected_failure')
     def test_swaps_used(self):
-        cfg = yaml.load(self.load_collect_file("root/curtin-install-cfg.yaml"))
-        stgcfg = cfg.get("storage", {}).get("config", [])
-        if len(stgcfg) == 0:
-            logger.debug("This test does not use storage config.")
-            return
+        if not self.has_storage_config():
+            raise SkipTest("This test does not use storage config.")
 
+        stgcfg = self.get_storage_config()
         swap_ids = [d["id"] for d in stgcfg if d.get("fstype") == "swap"]
         swap_mounts = [d for d in stgcfg if d.get("device") in swap_ids]
         self.assertEqual(len(swap_ids), len(swap_mounts),
