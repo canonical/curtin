@@ -1789,6 +1789,7 @@ def check_install_log(install_log, nrchars=200):
     install_fail = "({})".format("|".join([
                    'Installation failed',
                    'ImportError: No module named.*',
+                   'Out of memory:',
                    'Unexpected error while running command',
                    'E: Unable to locate package.*',
                    'cloud-init.*: Traceback.*']))
