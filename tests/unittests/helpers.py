@@ -5,7 +5,9 @@ import imp
 import importlib
 import mock
 import os
+import random
 import shutil
+import string
 import tempfile
 from unittest import TestCase
 
@@ -66,6 +68,11 @@ class CiTestCase(TestCase):
 
         return os.path.normpath(
             os.path.abspath(os.path.sep.join((_dir, path))))
+
+    def random_string(self, length=8):
+        """ return a random lowercase string with default length of 8"""
+        return ''.join(
+            random.choice(string.ascii_lowercase) for _ in range(length))
 
 
 def dir2dict(startdir, prefix=None):

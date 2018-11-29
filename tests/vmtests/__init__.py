@@ -21,6 +21,7 @@ from curtin.block import iscsi
 
 from .report_webhook_logger import CaptureReporting
 from curtin.commands.install import INSTALL_PASS_MSG
+from curtin.commands.block_meta import sanitize_dname
 
 from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
@@ -955,9 +956,18 @@ class VMBaseClass(TestCase):
         storage_config = cls.get_class_storage_config()
         cls.disk_wwns = ["wwn=%s" % x.get('wwn') for x in storage_config
                          if 'wwn' in x]
-        cls.disk_serials = ["serial=%s" % x.get('serial')
-                            for x in storage_config if 'serial' in x]
+        cls.disk_serials = []
+        cls.nvme_serials = []
+        for x in storage_config:
+            if 'serial' in x:
+                serial = x.get('serial')
+                if serial.startswith('nvme'):
+                    cls.nvme_serials.append("serial=%s" % serial)
+                else:
+                    cls.disk_serials.append("serial=%s" % serial)
 
+        logger.info("disk_serials: %s", cls.disk_serials)
+        logger.info("nvme_serials: %s", cls.nvme_serials)
         target_disk = "{}:{}:{}:{}:".format(cls.td.target_disk,
                                             "",
                                             cls.disk_driver,
@@ -989,11 +999,13 @@ class VMBaseClass(TestCase):
             disks.extend(['--disk', extra_disk])
 
         # build nvme disk args if needed
+        logger.info('nvme disks: %s', cls.nvme_disks)
         for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
             dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
+            nvme_serial = cls.nvme_serials[disk_no]
             nvme_disk = '{}:{}:nvme:{}:{}'.format(dpath, disk_sz,
                                                   cls.disk_block_size,
-                                                  "serial=nvme-%d" % disk_no)
+                                                  "%s" % nvme_serial)
             disks.extend(['--disk', nvme_disk])
 
         # build iscsi disk args if needed
@@ -1222,6 +1234,8 @@ class VMBaseClass(TestCase):
             dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
             disk = '--disk={},driver={},format={},{}'.format(
                 dpath, disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
+            if len(cls.nvme_serials):
+                disk += ",%s" % cls.nvme_serials[disk_no]
             nvme_disks.extend([disk])
 
         # unlike NVMe disks, we do not want to configure the iSCSI disks
@@ -1541,8 +1555,41 @@ class VMBaseClass(TestCase):
         for diskname, part in self.disk_to_check:
             if part is not 0:
                 link = diskname + "-part" + str(part)
-                self.assertIn(link, contents)
-            self.assertIn(diskname, contents)
+                self.assertIn(link, contents.splitlines())
+            self.assertIn(diskname, contents.splitlines())
+
+    @skip_if_flag('expected_failure')
+    def test_dname_rules(self, disk_to_check=None):
+        if self.target_distro != "ubuntu":
+            raise SkipTest("dname not present in non-ubuntu releases")
+
+        if not disk_to_check:
+            disk_to_check = self.disk_to_check
+        if disk_to_check is None:
+            logger.debug('test_dname_rules: no disks to check')
+            return
+        logger.debug('test_dname_rules: checking disks: %s', disk_to_check)
+        self.output_files_exist(["udev_rules.d"])
+
+        cfg = yaml.load(self.load_collect_file("root/curtin-install-cfg.yaml"))
+        stgcfg = cfg.get("storage", {}).get("config", [])
+        disks = [ent for ent in stgcfg if (ent.get('type') == 'disk' and
+                                           'name' in ent)]
+        key_to_udev = {
+            'serial': 'ID_SERIAL',
+            'wwn': 'ID_WWN_WITH_EXTENSION',
+        }
+        for disk in disks:
+            dname_file = "%s.rules" % sanitize_dname(disk.get('name'))
+            contents = self.load_collect_file("udev_rules.d/%s" % dname_file)
+            for key, key_name in key_to_udev.items():
+                value = disk.get(key)
+                if value:
+                    # serials may include spaces, udev replaces them with # _
+                    if ' ' in value:
+                        value = value.replace(' ', '_')
+                    self.assertIn(key_name, contents)
+                    self.assertIn(value, contents)
 
     @skip_if_flag('expected_failure')
     def test_reporting_data(self):
@@ -1763,6 +1810,9 @@ class PsuedoVMBaseClass(VMBaseClass):
         pass
 
     def test_dname(self, disk_to_check=None):
+        pass
+
+    def test_dname_rules(self, disk_to_check=None):
         pass
 
     def test_interfacesd_eth0_removed(self):

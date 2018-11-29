@@ -17,9 +17,14 @@ class TestBasicAbs(VMBaseClass):
     dirty_disks = True
     conf_file = "examples/tests/basic.yaml"
     extra_disks = ['128G', '128G', '4G']
-    nvme_disks = ['4G']
-    disk_to_check = [('main_disk_with_in---valid--dname', 1),
-                     ('main_disk_with_in---valid--dname', 2)]
+    disk_to_check = [('btrfs_volume', 0),
+                     ('main_disk_with_in---valid--dname', 0),
+                     ('main_disk_with_in---valid--dname', 1),
+                     ('main_disk_with_in---valid--dname', 2),
+                     ('pnum_disk', 0),
+                     ('pnum_disk', 1),
+                     ('pnum_disk', 10),
+                     ('sparedisk', 0)]
     extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda | cat >blkid_output_vda
@@ -249,7 +254,6 @@ class TestBasicScsiAbs(TestBasicAbs):
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
     extra_disks = ['128G', '128G', '4G']
-    nvme_disks = ['4G']
     extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/sda | cat >blkid_output_sda

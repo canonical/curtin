@@ -8,7 +8,8 @@ from curtin.log import LOG, logged_time
 from curtin.reporter import events
 
 from . import populate_one_subcmd
-from curtin.udev import compose_udev_equality, udevadm_settle, udevadm_trigger
+from curtin.udev import (compose_udev_equality, udevadm_settle,
+                         udevadm_trigger, udevadm_info)
 
 import glob
 import os
@@ -221,12 +222,43 @@ def sanitize_dname(dname):
     return ''.join(c if c in valid else '-' for c in dname)
 
 
+def make_dname_byid(path, error_msg=None, info=None):
+    """ Returns a list of udev equalities for a given disk path
+
+    :param path: string of a kernel device path to a block device
+    :param error_msg: more information about path for log/errors
+    :param info: dict of udevadm info key, value pairs of device specified by
+                 path.
+    :returns: list of udev equalities (lists)
+    :raises: ValueError if path is not a disk.
+    :raises: RuntimeError if there is no serial or wwn.
+    """
+    error_msg = str(path) + ("" if not error_msg else " [%s]" % error_msg)
+    if info is None:
+        info = udevadm_info(path=path)
+    devtype = info.get('DEVTYPE')
+    if devtype != "disk":
+        raise ValueError(
+            "Disk tag udev rules are only for disks, %s has devtype=%s" %
+            (error_msg, devtype))
+
+    byid_keys = ['ID_SERIAL', 'ID_WWN_WITH_EXTENSION']
+    present = [k for k in byid_keys if info.get(k)]
+    if not present:
+        raise RuntimeError(
+            "Cannot create disk tag udev rule for %s, "
+            "missing 'serial' or 'wwn' value" % error_msg)
+
+    return [[compose_udev_equality('ENV{%s}' % k, info[k]) for k in present]]
+
+
 def make_dname(volume, storage_config):
     state = util.load_command_environment()
     rules_dir = os.path.join(state['scratch'], "rules.d")
     vol = storage_config.get(volume)
     path = get_path_to_storage_volume(volume, storage_config)
     ptuuid = None
+    byid = None
     dname = vol.get('name')
     if vol.get('type') in ["partition", "disk"]:
         (out, _err) = util.subp(["blkid", "-o", "export", path], capture=True,
@@ -235,28 +267,41 @@ def make_dname(volume, storage_config):
             if "PTUUID" in line or "PARTUUID" in line:
                 ptuuid = line.split('=')[-1]
                 break
+        if vol.get('type') == 'disk':
+            byid = make_dname_byid(path, error_msg="id=%s" % vol.get('id'))
     # we may not always be able to find a uniq identifier on devices with names
-    if not ptuuid and vol.get('type') in ["disk", "partition"]:
+    if (not ptuuid and not byid) and vol.get('type') in ["disk", "partition"]:
         LOG.warning("Can't find a uuid for volume: {}. Skipping dname.".format(
             volume))
         return
 
-    rule = [
+    matches = []
+    base_rule = [
         compose_udev_equality("SUBSYSTEM", "block"),
         compose_udev_equality("ACTION", "add|change"),
         ]
     if vol.get('type') == "disk":
-        rule.append(compose_udev_equality('ENV{DEVTYPE}', "disk"))
-        rule.append(compose_udev_equality('ENV{ID_PART_TABLE_UUID}', ptuuid))
+        if ptuuid:
+            matches += [[compose_udev_equality('ENV{DEVTYPE}', "disk"),
+                        compose_udev_equality('ENV{ID_PART_TABLE_UUID}',
+                                              ptuuid)]]
+        for rule in byid:
+            matches += [
+                [compose_udev_equality('ENV{DEVTYPE}', "disk")] + rule]
     elif vol.get('type') == "partition":
-        rule.append(compose_udev_equality('ENV{DEVTYPE}', "partition"))
-        dname = storage_config.get(vol.get('device')).get('name') + \
-            "-part%s" % determine_partition_number(volume, storage_config)
-        rule.append(compose_udev_equality('ENV{ID_PART_ENTRY_UUID}', ptuuid))
+        # if partition has its own name, bind that to the existing PTUUID
+        if dname:
+            matches += [[compose_udev_equality('ENV{DEVTYPE}', "partition"),
+                        compose_udev_equality('ENV{ID_PART_ENTRY_UUID}',
+                                              ptuuid)]]
+        else:
+            # disks generate dname-part%n rules automatically
+            LOG.debug('No partition-specific dname')
+            return
     elif vol.get('type') == "raid":
         md_data = mdadm.mdadm_query_detail(path)
         md_uuid = md_data.get('MD_UUID')
-        rule.append(compose_udev_equality("ENV{MD_UUID}", md_uuid))
+        matches += [[compose_udev_equality("ENV{MD_UUID}", md_uuid)]]
     elif vol.get('type') == "bcache":
         # bind dname to bcache backing device's dev.uuid as the bcache minor
         # device numbers are not stable across reboots.
@@ -265,12 +310,12 @@ def make_dname(volume, storage_config):
         bcache_super = bcache.superblock_asdict(device=backing_dev)
         if bcache_super and bcache_super['sb.version'].startswith('1'):
                 bdev_uuid = bcache_super['dev.uuid']
-        rule.append(compose_udev_equality("ENV{CACHED_UUID}", bdev_uuid))
+        matches += [[compose_udev_equality("ENV{CACHED_UUID}", bdev_uuid)]]
         bcache.write_label(sanitize_dname(dname), backing_dev)
     elif vol.get('type') == "lvm_partition":
         volgroup_name = storage_config.get(vol.get('volgroup')).get('name')
         dname = "%s-%s" % (volgroup_name, dname)
-        rule.append(compose_udev_equality("ENV{DM_NAME}", dname))
+        matches += [[compose_udev_equality("ENV{DM_NAME}", dname)]]
     else:
         raise ValueError('cannot make dname for device with type: {}'
                          .format(vol.get('type')))
@@ -283,11 +328,25 @@ def make_dname(volume, storage_config):
         LOG.warning(
             "dname modified to remove invalid chars. old: '{}' new: '{}'"
             .format(dname, sanitized))
-    rule.append("SYMLINK+=\"disk/by-dname/%s\"\n" % sanitized)
-    LOG.debug("Writing dname udev rule '{}'".format(str(rule)))
+    content = ['# Written by curtin']
+    for match in matches:
+        rule = (base_rule + match +
+                ["SYMLINK+=\"disk/by-dname/%s\"\n" % sanitized])
+        LOG.debug("Creating dname udev rule '{}'".format(str(rule)))
+        content.append(', '.join(rule))
+
+    if vol.get('type') == 'disk':
+        for brule in byid:
+            rule = (base_rule +
+                    [compose_udev_equality('ENV{DEVTYPE}', 'partition')] +
+                    brule +
+                    ['SYMLINK+="disk/by-dname/%s-part%%n"\n' % sanitized])
+            LOG.debug("Creating dname udev rule '{}'".format(str(rule)))
+            content.append(', '.join(rule))
+
     util.ensure_dir(rules_dir)
     rule_file = os.path.join(rules_dir, '{}.rules'.format(sanitized))
-    util.write_file(rule_file, ', '.join(rule))
+    util.write_file(rule_file, '\n'.join(content))
 
 
 def get_poolname(info, storage_config):
