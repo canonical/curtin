@@ -537,7 +537,44 @@ get_carryover_params() {
         done
         echo "${c# }"
     )
-    _RET="${carry_lead:+${carry_lead} }${carry_extra}"
+    [ -n "${carry_lead}" -a -n "${carry_extra}" ] &&
+        carry_lead="${carry_lead} "
+    _RET="${carry_lead}${carry_extra}"
+}
+
+shell_config_update() {
+    # shell_config_update(file, name, value)
+    # update variable 'name' setting value to 'val' in shell syntax 'file'.
+    # if 'name' is not present, then append declaration.
+    local file="$1" name="$2" val="$3"
+    if ! [ -f "$file" ] || ! grep -q "^$name=" "$file"; then
+        debug 2 "appending to $file shell $name=\"$val\""
+        echo "$name=\"$val\"" >> "$file"
+        return
+    fi
+    local cand="" del=""
+    for cand in "|" "," "/"; do
+        [ "${val#*${del}}" = "${val}" ] && del="$cand" && break
+    done
+    [ -n "$del" ] || {
+        error "Couldn't find a sed delimiter for '$val'";
+        return 1;
+    }
+
+    sed -i -e "s${del}^$name=.*${del}$name=\"$val\"${del}" "$file" ||
+        { error "Failed editing '$file' to set $name=$val"; return 1; }
+    debug 2 "updated $file to set $name=\"$val\""
+    return 0
+}
+
+apply_grub_cmdline_linux_default() {
+    local mp="$1" newargs="$2" edg="${3:-etc/default/grub}"
+    local gcld="GRUB_CMDLINE_LINUX_DEFAULT"
+    debug 1 "setting $gcld to '$newargs' in $edg"
+    shell_config_update "$mp/$edg" "$gcld" "$newargs" || {
+        error "Failed to set '$gcld=$newargs' in $edg"
+        return 1
+    }
 }
 
 install_grub() {
@@ -709,6 +746,8 @@ install_grub() {
     esac
 
     local grub_d="etc/default/grub.d"
+    # ubuntu writes to /etc/default/grub.d/50-curtin-settings.cfg
+    # to avoid tripping prompts on upgrade LP: #564853
     local mygrub_cfg="$grub_d/50-curtin-settings.cfg"
     case $os_family in
         redhat)
@@ -736,9 +775,9 @@ install_grub() {
     # always append rd.auto=1 for centos
     case $os_family in
         redhat)
-            newargs="$newargs rd.auto=1";;
+            newargs="${newargs:+${newargs} }rd.auto=1";;
     esac
-    debug 1 "carryover command line params: $newargs"
+    debug 1 "carryover command line params '$newargs'"
 
     case $os_family in
        debian)
@@ -746,9 +785,15 @@ install_grub() {
             { error "Failed to write '$mygrub_cfg'"; return 1; }
         ;;
     esac
+
+    if [ "${REPLACE_GRUB_LINUX_DEFAULT:-1}" != "0" ]; then
+        apply_grub_cmdline_linux_default "$mp" "$newargs" || {
+            error "Failed to apply grub cmdline."
+            return 1
+        }
+    fi
+
     {
-        [ "${REPLACE_GRUB_LINUX_DEFAULT:-1}" = "0" ] ||
-            echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$newargs\""
         echo "# Curtin disable grub os prober that might find other OS installs."
         echo "GRUB_DISABLE_OS_PROBER=true"
         echo "GRUB_TERMINAL=console"

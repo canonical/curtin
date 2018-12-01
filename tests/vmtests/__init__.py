@@ -527,6 +527,9 @@ DEFAULT_COLLECT_SCRIPTS = {
         if [ -e /sys/firmware/efi ]; then
             efibootmgr -v | cat >efibootmgr.out;
         fi
+        [ ! -d /etc/default/grub.d ] ||
+            cp -a /etc/default/grub.d etc_default_grub_d
+        [ ! -f /etc/default/grub ] || cp /etc/default/grub etc_default_grub
 
         exit 0
         """)],
