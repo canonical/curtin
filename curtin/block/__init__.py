@@ -680,6 +680,7 @@ def lookup_disk(serial):
     serial_udev = serial.replace(' ', '_')
     LOG.info('Processing serial %s via udev to %s', serial, serial_udev)
 
+    LOG.debug('WARK: by-id links:\n%s', os.listdir("/dev/disk/by-id/"))
     disks = list(filter(lambda x: serial_udev in x,
                         os.listdir("/dev/disk/by-id/")))
     if not disks or len(disks) < 1:
