@@ -30,6 +30,6 @@ FEATURES = [
     'HAS_VERSION_MODULE',
 ]
 
-__version__ = "18.1"
+__version__ = "18.2"
 
 # vi: ts=4 expandtab syntax=python

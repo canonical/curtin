@@ -103,9 +103,15 @@ def is_swap_device(path):
     https://github.com/torvalds/linux/blob/master/include/linux/swap.h#L111
     """
     LOG.debug('Checking if %s is a swap device', path)
-    swap_magic_offset = resource.getpagesize() - 10
-    magic = util.load_file(path, read_len=10, offset=swap_magic_offset,
-                           decode=False)
+    pagesize = resource.getpagesize()
+    magic_offset = pagesize - 10
+    size = util.file_size(path)
+    if size < magic_offset:
+        LOG.debug("%s is to small for swap (size=%d < pagesize=%d)",
+                  path, size, pagesize)
+        return False
+    magic = util.load_file(
+        path, read_len=10, offset=magic_offset, decode=False)
     LOG.debug('Found swap magic: %s' % magic)
     return magic in [b'SWAPSPACE2', b'SWAP-SPACE']
 # vi: ts=4 expandtab syntax=python

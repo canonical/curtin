@@ -94,36 +94,30 @@ class TestAptSourceConfigSourceList(CiTestCase):
         self.new_root = self.tmp_dir()
         # self.patchUtils(self.new_root)
 
-    @staticmethod
-    def _apt_source_list(cfg, expected):
+    def _apt_source_list(self, cfg, expected):
         "_apt_source_list - Test rendering from template (generic)"
 
         arch = util.get_architecture()
         # would fail inside the unittest context
-        with mock.patch.object(util, 'get_architecture',
-                               return_value=arch) as mockga:
-            with mock.patch.object(util, 'write_file') as mockwrite:
-                # keep it side effect free and avoid permission errors
-                with mock.patch.object(os, 'rename'):
-                    # make test independent to executing system
-                    with mock.patch.object(util, 'load_file',
-                                           return_value=MOCKED_APT_SRC_LIST):
-                        with mock.patch.object(distro, 'lsb_release',
-                                               return_value={'codename':
-                                                             'fakerel'}):
-                            apt_config.handle_apt(cfg, TARGET)
+        bpath = "curtin.commands.apt_config."
+        upath = bpath + "util."
+        self.add_patch(upath + "get_architecture", "mockga", return_value=arch)
+        self.add_patch(upath + "write_file", "mockwrite")
+        self.add_patch(bpath + "os.rename", "mockrename")
+        self.add_patch(upath + "load_file", "mockload_file",
+                       return_value=MOCKED_APT_SRC_LIST)
+        self.add_patch(bpath + "distro.lsb_release", "mock_lsb_release",
+                       return_value={'codename': 'fakerel'})
+        self.add_patch(bpath + "apply_preserve_sources_list",
+                       "mock_apply_preserve_sources_list")
 
-        mockga.assert_called_with("/")
+        apt_config.handle_apt(cfg, TARGET)
 
-        cloudfile = '/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg'
-        cloudconf = yaml.dump({'apt_preserve_sources_list': True}, indent=1)
+        self.mockga.assert_called_with(TARGET)
+        self.mock_apply_preserve_sources_list.assert_called_with(TARGET)
         calls = [call(paths.target_path(TARGET, '/etc/apt/sources.list'),
-                      expected,
-                      mode=0o644),
-                 call(paths.target_path(TARGET, cloudfile),
-                      cloudconf,
-                      mode=0o644)]
-        mockwrite.assert_has_calls(calls)
+                      expected, mode=0o644)]
+        self.mockwrite.assert_has_calls(calls)
 
     def test_apt_source_list(self):
         """test_apt_source_list - Test with neither custom sources nor parms"""
@@ -156,10 +150,6 @@ class TestAptSourceConfigSourceList(CiTestCase):
         self.assertEqual(
             EXPECTED_CONVERTED_CONTENT,
             util.load_file(paths.target_path(target, "/etc/apt/sources.list")))
-        cloudfile = paths.target_path(
-            target, '/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg')
-        self.assertEqual({'apt_preserve_sources_list': True},
-                         yaml.load(util.load_file(cloudfile)))
 
     @mock.patch("curtin.distro.lsb_release")
     @mock.patch("curtin.util.get_architecture", return_value="amd64")
@@ -223,5 +213,47 @@ class TestAptSourceConfigSourceList(CiTestCase):
         util.write_file(easl, orig_content_slash)
         apt_config.handle_apt(cfg, target)
         self.assertEqual(expected, util.load_file(easl))
+
+
+class TestApplyPreserveSourcesList(CiTestCase):
+    """Test apply_preserve_sources_list."""
+
+    cloudfile = "/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg"
+
+    def setUp(self):
+        super(TestApplyPreserveSourcesList, self).setUp()
+        self.tmp = self.tmp_dir()
+        self.tmp_cfg = self.tmp_path(self.cloudfile, self.tmp)
+
+    @mock.patch("curtin.commands.apt_config.distro.get_package_version")
+    def test_old_cloudinit_version(self, m_get_pkg_ver):
+        """Test installed old cloud-init version."""
+        m_get_pkg_ver.return_value = distro.parse_dpkg_version('0.7.7-0')
+        apt_config.apply_preserve_sources_list(self.tmp)
+        m_get_pkg_ver.assert_has_calls(
+            [mock.call('cloud-init', target=self.tmp)])
+        self.assertEqual(
+            yaml.load(util.load_file(self.tmp_cfg)),
+            {'apt_preserve_sources_list': True})
+
+    @mock.patch("curtin.commands.apt_config.distro.get_package_version")
+    def test_no_cloudinit(self, m_get_pkg_ver):
+        """Test where cloud-init is not installed."""
+        m_get_pkg_ver.return_value = None
+        apt_config.apply_preserve_sources_list(self.tmp)
+        m_get_pkg_ver.assert_has_calls(
+            [mock.call('cloud-init', target=self.tmp)])
+        self.assertFalse(os.path.exists(self.tmp_cfg))
+
+    @mock.patch("curtin.commands.apt_config.distro.get_package_version")
+    def test_new_cloudinit_version(self, m_get_pkg_ver):
+        """Test cloud-init > 1.0 with new apt format."""
+        m_get_pkg_ver.return_value = distro.parse_dpkg_version('17.1-0ubuntu1')
+        apt_config.apply_preserve_sources_list(self.tmp)
+        m_get_pkg_ver.assert_has_calls(
+            [mock.call('cloud-init', target=self.tmp)])
+        self.assertEqual(
+            yaml.load(util.load_file(self.tmp_cfg)),
+            {'apt': {'preserve_sources_list': True}})
 
 # vi: ts=4 expandtab syntax=python

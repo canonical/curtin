@@ -33,6 +33,8 @@ class CentosTestNetworkBondingAbs(TestNetworkBondingAbs):
             cp -a /var/lib/cloud ./var_lib_cloud
             cp -a /run/cloud-init ./run_cloud-init
             rpm -qf `which ifenslave` |tee ifenslave_installed
+
+            exit 0
         """)]
 
     def test_ifenslave_package_status(self):
@@ -76,6 +78,10 @@ class BionicTestBonding(relbase.bionic, TestNetworkBondingAbs):
 
 
 class CosmicTestBonding(relbase.cosmic, TestNetworkBondingAbs):
+    __test__ = True
+
+
+class DiscoTestBonding(relbase.disco, TestNetworkBondingAbs):
     __test__ = True
 
 

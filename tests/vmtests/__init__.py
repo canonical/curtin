@@ -21,6 +21,7 @@ from curtin.block import iscsi
 
 from .report_webhook_logger import CaptureReporting
 from curtin.commands.install import INSTALL_PASS_MSG
+from curtin.commands.block_meta import sanitize_dname
 
 from .image_sync import query as imagesync_query
 from .image_sync import mirror as imagesync_mirror
@@ -344,12 +345,17 @@ class TempDir(object):
 
     def collect_output(self):
         logger.debug('extracting output disk')
-        subprocess.check_call(['tar', '-C', self.collect, '-xf',
-                               self.output_disk],
-                              stdout=DEVNULL, stderr=subprocess.STDOUT)
-        # make sure collect output dir is usable by non-root
-        subprocess.check_call(['chmod', '-R', 'u+rwX', self.collect],
-                              stdout=DEVNULL, stderr=subprocess.STDOUT)
+        try:
+            subprocess.check_call(['tar', '-C', self.collect, '-xf',
+                                   self.output_disk],
+                                  stdout=DEVNULL, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            logger.error('Failed unpacking collect output: %s', e)
+        finally:
+            logger.debug('Fixing collect output dir permissions.')
+            # make sure collect output dir is usable by non-root
+            subprocess.check_call(['chmod', '-R', 'u+rwX', self.collect],
+                                  stdout=DEVNULL, stderr=subprocess.STDOUT)
 
 
 def skip_if_flag(flag):
@@ -515,11 +521,17 @@ DEFAULT_COLLECT_SCRIPTS = {
         ls -al /dev/disk/by-dname/ | cat >ls_al_bydname
         ls -al /dev/disk/by-id/ | cat >ls_al_byid
         ls -al /dev/disk/by-uuid/ | cat >ls_al_byuuid
+        ls -al /dev/disk/by-partuuid/ | cat >ls_al_bypartuuid
         blkid -o export | cat >blkid.out
         find /boot | cat > find_boot.out
-        [ -e /sys/firmware/efi ] && {
+        if [ -e /sys/firmware/efi ]; then
             efibootmgr -v | cat >efibootmgr.out;
-        }
+        fi
+        [ ! -d /etc/default/grub.d ] ||
+            cp -a /etc/default/grub.d etc_default_grub_d
+        [ ! -f /etc/default/grub ] || cp /etc/default/grub etc_default_grub
+
+        exit 0
         """)],
     'centos': [textwrap.dedent("""
         # XXX: command | cat >output is required for Centos under SELinux
@@ -530,6 +542,8 @@ DEFAULT_COLLECT_SCRIPTS = {
         rpm -q --queryformat '%{VERSION}\n' cloud-init |tee rpm_ci_version
         rpm -E '%rhel' > rpm_dist_version_major
         cp -a /etc/centos-release .
+
+        exit 0
         """)],
     'ubuntu': [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
@@ -543,6 +557,8 @@ DEFAULT_COLLECT_SCRIPTS = {
         out=$(apt-config shell v Acquire::HTTP::Proxy)
         eval "$out"
         echo "$v" > apt-proxy
+
+        exit 0
         """)]
 }
 
@@ -890,6 +906,11 @@ class VMBaseClass(TestCase):
             "--append=ro",
         ])
 
+        # Avoid LP: #1797218 and make vms boot faster
+        cmd.extend(['--append=%s' % service for service in
+                    ["systemd.mask=snapd.seeded.service",
+                     "systemd.mask=snapd.service"]])
+
         # getting resolvconf configured is only fixed in bionic
         # the iscsi_auto handles resolvconf setup via call to
         # configure_networking in initramfs
@@ -935,13 +956,21 @@ class VMBaseClass(TestCase):
 
         # build disk arguments
         disks = []
-        sc = cls.load_conf_file()
-        storage_config = yaml.load(sc).get('storage', {}).get('config', {})
+        storage_config = cls.get_class_storage_config()
         cls.disk_wwns = ["wwn=%s" % x.get('wwn') for x in storage_config
                          if 'wwn' in x]
-        cls.disk_serials = ["serial=%s" % x.get('serial')
-                            for x in storage_config if 'serial' in x]
+        cls.disk_serials = []
+        cls.nvme_serials = []
+        for x in storage_config:
+            if 'serial' in x:
+                serial = x.get('serial')
+                if serial.startswith('nvme'):
+                    cls.nvme_serials.append("serial=%s" % serial)
+                else:
+                    cls.disk_serials.append("serial=%s" % serial)
 
+        logger.info("disk_serials: %s", cls.disk_serials)
+        logger.info("nvme_serials: %s", cls.nvme_serials)
         target_disk = "{}:{}:{}:{}:".format(cls.td.target_disk,
                                             "",
                                             cls.disk_driver,
@@ -973,11 +1002,13 @@ class VMBaseClass(TestCase):
             disks.extend(['--disk', extra_disk])
 
         # build nvme disk args if needed
+        logger.info('nvme disks: %s', cls.nvme_disks)
         for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
             dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
+            nvme_serial = cls.nvme_serials[disk_no]
             nvme_disk = '{}:{}:nvme:{}:{}'.format(dpath, disk_sz,
                                                   cls.disk_block_size,
-                                                  "serial=nvme-%d" % disk_no)
+                                                  "%s" % nvme_serial)
             disks.extend(['--disk', nvme_disk])
 
         # build iscsi disk args if needed
@@ -1206,6 +1237,8 @@ class VMBaseClass(TestCase):
             dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
             disk = '--disk={},driver={},format={},{}'.format(
                 dpath, disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
+            if len(cls.nvme_serials):
+                disk += ",%s" % cls.nvme_serials[disk_no]
             nvme_disks.extend([disk])
 
         # unlike NVMe disks, we do not want to configure the iSCSI disks
@@ -1525,8 +1558,41 @@ class VMBaseClass(TestCase):
         for diskname, part in self.disk_to_check:
             if part is not 0:
                 link = diskname + "-part" + str(part)
-                self.assertIn(link, contents)
-            self.assertIn(diskname, contents)
+                self.assertIn(link, contents.splitlines())
+            self.assertIn(diskname, contents.splitlines())
+
+    @skip_if_flag('expected_failure')
+    def test_dname_rules(self, disk_to_check=None):
+        if self.target_distro != "ubuntu":
+            raise SkipTest("dname not present in non-ubuntu releases")
+
+        if not disk_to_check:
+            disk_to_check = self.disk_to_check
+        if disk_to_check is None:
+            logger.debug('test_dname_rules: no disks to check')
+            return
+        logger.debug('test_dname_rules: checking disks: %s', disk_to_check)
+        self.output_files_exist(["udev_rules.d"])
+
+        cfg = yaml.load(self.load_collect_file("root/curtin-install-cfg.yaml"))
+        stgcfg = cfg.get("storage", {}).get("config", [])
+        disks = [ent for ent in stgcfg if (ent.get('type') == 'disk' and
+                                           'name' in ent)]
+        key_to_udev = {
+            'serial': 'ID_SERIAL',
+            'wwn': 'ID_WWN_WITH_EXTENSION',
+        }
+        for disk in disks:
+            dname_file = "%s.rules" % sanitize_dname(disk.get('name'))
+            contents = self.load_collect_file("udev_rules.d/%s" % dname_file)
+            for key, key_name in key_to_udev.items():
+                value = disk.get(key)
+                if value:
+                    # serials may include spaces, udev replaces them with # _
+                    if ' ' in value:
+                        value = value.replace(' ', '_')
+                    self.assertIn(key_name, contents)
+                    self.assertIn(value, contents)
 
     @skip_if_flag('expected_failure')
     def test_reporting_data(self):
@@ -1570,6 +1636,29 @@ class VMBaseClass(TestCase):
         kpackage = self.get_kernel_package()
         self.assertIn(kpackage, self.debian_packages)
 
+    @skip_if_flag('expected_failure')
+    def test_clear_holders_ran(self):
+        """ Test curtin install runs block-meta/clear-holders. """
+        if not self.has_storage_config():
+            raise SkipTest("This test does not use storage config.")
+
+        install_logfile = 'root/curtin-install.log'
+        self.output_files_exist([install_logfile])
+        install_log = self.load_collect_file(install_logfile)
+
+        # validate block-meta called clear-holders at least once
+        # We match both 'start' and 'finish' strings, so for each
+        # call we'll have 2 matches.
+        clear_holders_re = 'cmd-install/.*cmd-block-meta/clear-holders'
+        events = re.findall(clear_holders_re, install_log)
+        print('Matched clear-holder events:\n%s' % events)
+        self.assertGreaterEqual(len(events), 2)
+
+        # dirty_disks mode runs an early block-meta command which
+        # also runs clear-holders
+        if self.dirty_disks is True:
+            self.assertGreaterEqual(len(events), 4)
+
     def run(self, result):
         super(VMBaseClass, self).run(result)
         self.record_result(result)
@@ -1609,14 +1698,25 @@ class VMBaseClass(TestCase):
             self._debian_packages = pkgs
         return self._debian_packages
 
+    @classmethod
+    def get_class_storage_config(cls):
+        sc = cls.load_conf_file()
+        return yaml.load(sc).get('storage', {}).get('config', {})
+
+    def get_storage_config(self):
+        cfg = yaml.load(self.load_collect_file("root/curtin-install-cfg.yaml"))
+        return cfg.get("storage", {}).get("config", [])
+
+    def has_storage_config(self):
+        '''check if test used storage config'''
+        return len(self.get_storage_config()) > 0
+
     @skip_if_flag('expected_failure')
     def test_swaps_used(self):
-        cfg = yaml.load(self.load_collect_file("root/curtin-install-cfg.yaml"))
-        stgcfg = cfg.get("storage", {}).get("config", [])
-        if len(stgcfg) == 0:
-            logger.debug("This test does not use storage config.")
-            return
+        if not self.has_storage_config():
+            raise SkipTest("This test does not use storage config.")
 
+        stgcfg = self.get_storage_config()
         swap_ids = [d["id"] for d in stgcfg if d.get("fstype") == "swap"]
         swap_mounts = [d for d in stgcfg if d.get("device") in swap_ids]
         self.assertEqual(len(swap_ids), len(swap_mounts),
@@ -1715,6 +1815,9 @@ class PsuedoVMBaseClass(VMBaseClass):
     def test_dname(self, disk_to_check=None):
         pass
 
+    def test_dname_rules(self, disk_to_check=None):
+        pass
+
     def test_interfacesd_eth0_removed(self):
         pass
 
@@ -1772,6 +1875,7 @@ def check_install_log(install_log, nrchars=200):
     install_fail = "({})".format("|".join([
                    'Installation failed',
                    'ImportError: No module named.*',
+                   'Out of memory:',
                    'Unexpected error while running command',
                    'E: Unable to locate package.*',
                    'cloud-init.*: Traceback.*']))

@@ -20,6 +20,8 @@ class TestBcacheBasic(VMBaseClass):
         bcache-super-show /dev/vda2 > bcache_super_vda2
         ls /sys/fs/bcache > bcache_ls
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
+
+        exit 0
         """)]
 
     def test_bcache_output_files_exist(self):
@@ -67,6 +69,10 @@ class BionicBcacheBasic(relbase.bionic, TestBcacheBasic):
 
 
 class CosmicBcacheBasic(relbase.cosmic, TestBcacheBasic):
+    __test__ = True
+
+
+class DiscoBcacheBasic(relbase.disco, TestBcacheBasic):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

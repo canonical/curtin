@@ -85,8 +85,9 @@ class TestBlockMetaSimple(CiTestCase):
         self.mock_block_get_root_device.assert_called_with([devname],
                                                            paths=paths)
 
+    @patch('curtin.commands.block_meta.meta_clear')
     @patch('curtin.commands.block_meta.write_image_to_disk')
-    def test_meta_simple_calls_write_img(self, mock_write_image):
+    def test_meta_simple_calls_write_img(self, mock_write_image, mock_clear):
         devname = "fakedisk1p1"
         devnode = "/dev/" + devname
         sources = {
@@ -104,9 +105,9 @@ class TestBlockMetaSimple(CiTestCase):
         mock_write_image.return_value = devname
 
         args = Namespace(target=self.target, devices=None, mode=None,
-                         boot_fstype=None, fstype=None)
+                         boot_fstype=None, fstype=None, force_mode=False)
 
-        block_meta.meta_simple(args)
+        block_meta.block_meta(args)
 
         mock_write_image.assert_called_with(sources.get('unittest'), devname)
         self.mock_subp.assert_has_calls(

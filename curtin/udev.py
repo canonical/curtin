@@ -61,4 +61,41 @@ def udevadm_trigger(devices):
     util.subp(['udevadm', 'trigger'] + list(devices))
     udevadm_settle()
 
+
+def udevadm_info(path=None):
+    """ Return a dictionary populated by properties of the device specified
+        in the `path` variable via querying udev 'property' database.
+
+    :params: path: path to device, either /dev or /sys
+    :returns: dictionary of key=value pairs as exported from the udev database
+    :raises: ValueError path is None, ProcessExecutionError on exec error.
+    """
+    if not path:
+        raise ValueError('Invalid path: "%s"' % path)
+
+    info_cmd = ['udevadm', 'info', '--query=property', path]
+    output, _ = util.subp(info_cmd, capture=True)
+
+    # strip for trailing empty line
+    info = {}
+    for line in output.splitlines():
+        if not line:
+            continue
+        # maxsplit=2 gives us key and remaininng part of line is value
+        # py2.7 on Trusty doesn't have keyword, pass as argument
+        key, value = line.split('=', 2)
+        if not value:
+            value = None
+        if value:
+            # devlinks is a list of paths separated by space
+            # convert to a list for easy use
+            if key == 'DEVLINKS':
+                info[key] = value.split()
+            else:
+                # preserve spaces in values, to match udev database
+                info[key] = value
+
+    return info
+
+
 # vi: ts=4 expandtab syntax=python

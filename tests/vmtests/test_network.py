@@ -49,6 +49,8 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         cp -a /etc/systemd ./etc_systemd ||:
         journalctl --no-pager -b -x | tee journalctl_out
         sleep 10 && ip a | tee  ip_a
+
+        exit 0
         """)]
 
     def test_output_files_exist(self):
@@ -470,6 +472,10 @@ class BionicTestNetworkBasic(relbase.bionic, TestNetworkBasicAbs):
 
 
 class CosmicTestNetworkBasic(relbase.cosmic, TestNetworkBasicAbs):
+    __test__ = True
+
+
+class DiscoTestNetworkBasic(relbase.disco, TestNetworkBasicAbs):
     __test__ = True
 
 

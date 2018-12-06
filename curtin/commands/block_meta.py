@@ -8,7 +8,8 @@ from curtin.log import LOG, logged_time
 from curtin.reporter import events
 
 from . import populate_one_subcmd
-from curtin.udev import compose_udev_equality, udevadm_settle, udevadm_trigger
+from curtin.udev import (compose_udev_equality, udevadm_settle,
+                         udevadm_trigger, udevadm_info)
 
 import glob
 import os
@@ -35,6 +36,8 @@ CMD_ARGUMENTS = (
        'metavar': 'DEVICE', 'default': None, }),
      ('--fstype', {'help': 'root partition filesystem type',
                    'choices': ['ext4', 'ext3'], 'default': 'ext4'}),
+     ('--force-mode', {'help': 'force mode, disable mode detection',
+                       'action': 'store_true', 'default': False}),
      (('-t', '--target'),
       {'help': 'chroot to target. default is env[TARGET_MOUNT_POINT]',
        'action': 'store', 'metavar': 'TARGET',
@@ -55,11 +58,35 @@ def block_meta(args):
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
     dd_images = util.get_dd_images(cfg.get('sources', {}))
-    if ((args.mode == CUSTOM or cfg.get("storage") is not None) and
-            len(dd_images) == 0):
-        meta_custom(args)
-    elif args.mode in (SIMPLE, SIMPLE_BOOT) or len(dd_images) > 0:
-        meta_simple(args)
+
+    # run clear holders on potential devices
+    devices = args.devices
+    if devices is None:
+        devices = []
+        if 'storage' in cfg:
+            devices = get_disk_paths_from_storage_config(
+                extract_storage_ordered_dict(cfg))
+        if len(devices) == 0:
+            devices = cfg.get('block-meta', {}).get('devices', [])
+        LOG.debug('Declared block devices: %s', devices)
+        args.devices = devices
+
+    meta_clear(devices, state.get('report_stack_prefix', ''))
+
+    # dd-images requires use of meta_simple
+    if len(dd_images) > 0 and args.force_mode is False:
+        LOG.info('blockmeta: detected dd-images, using mode=simple')
+        return meta_simple(args)
+
+    if cfg.get("storage") and args.force_mode is False:
+        LOG.info('blockmeta: detected storage config, using mode=custom')
+        return meta_custom(args)
+
+    LOG.info('blockmeta: mode=%s force=%s', args.mode, args.force_mode)
+    if args.mode == CUSTOM:
+        return meta_custom(args)
+    elif args.mode in (SIMPLE, SIMPLE_BOOT):
+        return meta_simple(args)
     else:
         raise NotImplementedError("mode=%s is not implemented" % args.mode)
 
@@ -195,12 +222,43 @@ def sanitize_dname(dname):
     return ''.join(c if c in valid else '-' for c in dname)
 
 
+def make_dname_byid(path, error_msg=None, info=None):
+    """ Returns a list of udev equalities for a given disk path
+
+    :param path: string of a kernel device path to a block device
+    :param error_msg: more information about path for log/errors
+    :param info: dict of udevadm info key, value pairs of device specified by
+                 path.
+    :returns: list of udev equalities (lists)
+    :raises: ValueError if path is not a disk.
+    :raises: RuntimeError if there is no serial or wwn.
+    """
+    error_msg = str(path) + ("" if not error_msg else " [%s]" % error_msg)
+    if info is None:
+        info = udevadm_info(path=path)
+    devtype = info.get('DEVTYPE')
+    if devtype != "disk":
+        raise ValueError(
+            "Disk tag udev rules are only for disks, %s has devtype=%s" %
+            (error_msg, devtype))
+
+    byid_keys = ['ID_SERIAL', 'ID_WWN_WITH_EXTENSION']
+    present = [k for k in byid_keys if info.get(k)]
+    if not present:
+        raise RuntimeError(
+            "Cannot create disk tag udev rule for %s, "
+            "missing 'serial' or 'wwn' value" % error_msg)
+
+    return [[compose_udev_equality('ENV{%s}' % k, info[k]) for k in present]]
+
+
 def make_dname(volume, storage_config):
     state = util.load_command_environment()
     rules_dir = os.path.join(state['scratch'], "rules.d")
     vol = storage_config.get(volume)
     path = get_path_to_storage_volume(volume, storage_config)
     ptuuid = None
+    byid = None
     dname = vol.get('name')
     if vol.get('type') in ["partition", "disk"]:
         (out, _err) = util.subp(["blkid", "-o", "export", path], capture=True,
@@ -209,28 +267,41 @@ def make_dname(volume, storage_config):
             if "PTUUID" in line or "PARTUUID" in line:
                 ptuuid = line.split('=')[-1]
                 break
+        if vol.get('type') == 'disk':
+            byid = make_dname_byid(path, error_msg="id=%s" % vol.get('id'))
     # we may not always be able to find a uniq identifier on devices with names
-    if not ptuuid and vol.get('type') in ["disk", "partition"]:
+    if (not ptuuid and not byid) and vol.get('type') in ["disk", "partition"]:
         LOG.warning("Can't find a uuid for volume: {}. Skipping dname.".format(
             volume))
         return
 
-    rule = [
+    matches = []
+    base_rule = [
         compose_udev_equality("SUBSYSTEM", "block"),
         compose_udev_equality("ACTION", "add|change"),
         ]
     if vol.get('type') == "disk":
-        rule.append(compose_udev_equality('ENV{DEVTYPE}', "disk"))
-        rule.append(compose_udev_equality('ENV{ID_PART_TABLE_UUID}', ptuuid))
+        if ptuuid:
+            matches += [[compose_udev_equality('ENV{DEVTYPE}', "disk"),
+                        compose_udev_equality('ENV{ID_PART_TABLE_UUID}',
+                                              ptuuid)]]
+        for rule in byid:
+            matches += [
+                [compose_udev_equality('ENV{DEVTYPE}', "disk")] + rule]
     elif vol.get('type') == "partition":
-        rule.append(compose_udev_equality('ENV{DEVTYPE}', "partition"))
-        dname = storage_config.get(vol.get('device')).get('name') + \
-            "-part%s" % determine_partition_number(volume, storage_config)
-        rule.append(compose_udev_equality('ENV{ID_PART_ENTRY_UUID}', ptuuid))
+        # if partition has its own name, bind that to the existing PTUUID
+        if dname:
+            matches += [[compose_udev_equality('ENV{DEVTYPE}', "partition"),
+                        compose_udev_equality('ENV{ID_PART_ENTRY_UUID}',
+                                              ptuuid)]]
+        else:
+            # disks generate dname-part%n rules automatically
+            LOG.debug('No partition-specific dname')
+            return
     elif vol.get('type') == "raid":
         md_data = mdadm.mdadm_query_detail(path)
         md_uuid = md_data.get('MD_UUID')
-        rule.append(compose_udev_equality("ENV{MD_UUID}", md_uuid))
+        matches += [[compose_udev_equality("ENV{MD_UUID}", md_uuid)]]
     elif vol.get('type') == "bcache":
         # bind dname to bcache backing device's dev.uuid as the bcache minor
         # device numbers are not stable across reboots.
@@ -239,12 +310,12 @@ def make_dname(volume, storage_config):
         bcache_super = bcache.superblock_asdict(device=backing_dev)
         if bcache_super and bcache_super['sb.version'].startswith('1'):
                 bdev_uuid = bcache_super['dev.uuid']
-        rule.append(compose_udev_equality("ENV{CACHED_UUID}", bdev_uuid))
+        matches += [[compose_udev_equality("ENV{CACHED_UUID}", bdev_uuid)]]
         bcache.write_label(sanitize_dname(dname), backing_dev)
     elif vol.get('type') == "lvm_partition":
         volgroup_name = storage_config.get(vol.get('volgroup')).get('name')
         dname = "%s-%s" % (volgroup_name, dname)
-        rule.append(compose_udev_equality("ENV{DM_NAME}", dname))
+        matches += [[compose_udev_equality("ENV{DM_NAME}", dname)]]
     else:
         raise ValueError('cannot make dname for device with type: {}'
                          .format(vol.get('type')))
@@ -257,11 +328,25 @@ def make_dname(volume, storage_config):
         LOG.warning(
             "dname modified to remove invalid chars. old: '{}' new: '{}'"
             .format(dname, sanitized))
-    rule.append("SYMLINK+=\"disk/by-dname/%s\"\n" % sanitized)
-    LOG.debug("Writing dname udev rule '{}'".format(str(rule)))
+    content = ['# Written by curtin']
+    for match in matches:
+        rule = (base_rule + match +
+                ["SYMLINK+=\"disk/by-dname/%s\"\n" % sanitized])
+        LOG.debug("Creating dname udev rule '{}'".format(str(rule)))
+        content.append(', '.join(rule))
+
+    if vol.get('type') == 'disk':
+        for brule in byid:
+            rule = (base_rule +
+                    [compose_udev_equality('ENV{DEVTYPE}', 'partition')] +
+                    brule +
+                    ['SYMLINK+="disk/by-dname/%s-part%%n"\n' % sanitized])
+            LOG.debug("Creating dname udev rule '{}'".format(str(rule)))
+            content.append(', '.join(rule))
+
     util.ensure_dir(rules_dir)
     rule_file = os.path.join(rules_dir, '{}.rules'.format(sanitized))
-    util.write_file(rule_file, ', '.join(rule))
+    util.write_file(rule_file, '\n'.join(content))
 
 
 def get_poolname(info, storage_config):
@@ -584,6 +669,9 @@ def partition_handler(info, storage_config):
             block.zero_file_at_offsets(disk, [wipe_offset], exclusive=False)
 
     if disk_ptable == "msdos":
+        if flag and flag == 'prep':
+            raise ValueError('PReP partitions require a GPT partition table')
+
         if flag in ["extended", "logical", "primary"]:
             partition_type = flag
         else:
@@ -603,6 +691,16 @@ def partition_handler(info, storage_config):
         util.subp(cmd, capture=True)
     else:
         raise ValueError("parent partition has invalid partition table")
+
+    # wipe the created partition if needed, superblocks have already been wiped
+    wipe_mode = info.get('wipe', 'superblock')
+    if wipe_mode != 'superblock':
+        part_path = block.dev_path(block.partition_kname(disk_kname,
+                                                         partnumber))
+        block.rescan_block_devices([disk])
+        udevadm_settle(exists=part_path)
+        LOG.debug('Wiping partition %s mode=%s', part_path, wipe_mode)
+        block.wipe_volume(part_path, mode=wipe_mode, exclusive=False)
 
     # Make the name if needed
     if storage_config.get(device).get('name') and partition_type != 'extended':
@@ -1335,6 +1433,19 @@ def extract_storage_ordered_dict(config):
     return OrderedDict((d["id"], d) for (i, d) in enumerate(scfg))
 
 
+def get_disk_paths_from_storage_config(storage_config):
+    """Returns a list of disk paths in a storage config filtering out
+       preserved or disks which do not have wipe configuration.
+
+    :param: storage_config: Ordered dict of storage configation
+    """
+    return [get_path_to_storage_volume(k, storage_config)
+            for (k, v) in storage_config.items()
+            if v.get('type') == 'disk' and
+            config.value_as_boolean(v.get('wipe')) and
+            not config.value_as_boolean(v.get('preserve'))]
+
+
 def zfsroot_update_storage_config(storage_config):
     """Return an OrderedDict that has 'zfsroot' format expanded into
        zpool and zfs commands to enable ZFS on rootfs.
@@ -1429,6 +1540,24 @@ def zfsroot_update_storage_config(storage_config):
     return ret
 
 
+def meta_clear(devices, report_prefix=''):
+    """ Run clear_holders on specified list of devices.
+
+    :param: devices: a list of block devices (/dev/XXX) to be cleared
+    :param: report_prefix: a string to pass to the ReportEventStack
+    """
+    # shut down any already existing storage layers above any disks used in
+    # config that have 'wipe' set
+    with events.ReportEventStack(
+            name=report_prefix + '/clear-holders',
+            reporting_enabled=True, level='INFO',
+            description="removing previous storage devices"):
+        clear_holders.start_clear_holders_deps()
+        clear_holders.clear_holders(devices)
+        # if anything was not properly shut down, stop installation
+        clear_holders.assert_clear(devices)
+
+
 def meta_custom(args):
     """Does custom partitioning based on the layout provided in the config
     file. Section with the name storage contains information on which
@@ -1460,21 +1589,6 @@ def meta_custom(args):
     # set up reportstack
     stack_prefix = state.get('report_stack_prefix', '')
 
-    # shut down any already existing storage layers above any disks used in
-    # config that have 'wipe' set
-    with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level='INFO',
-            description="removing previous storage devices"):
-        clear_holders.start_clear_holders_deps()
-        disk_paths = [get_path_to_storage_volume(k, storage_config_dict)
-                      for (k, v) in storage_config_dict.items()
-                      if v.get('type') == 'disk' and
-                      config.value_as_boolean(v.get('wipe')) and
-                      not config.value_as_boolean(v.get('preserve'))]
-        clear_holders.clear_holders(disk_paths)
-        # if anything was not properly shut down, stop installation
-        clear_holders.assert_clear(disk_paths)
-
     for item_id, command in storage_config_dict.items():
         handler = command_handlers.get(command['type'])
         if not handler:
@@ -1500,8 +1614,15 @@ def meta_simple(args):
     create a separate /boot partition.
     """
     state = util.load_command_environment()
-
     cfg = config.load_command_config(args, state)
+    if args.target is not None:
+        state['target'] = args.target
+
+    if state['target'] is None:
+        sys.stderr.write("Unable to find target.  "
+                         "Use --target or set TARGET_MOUNT_POINT\n")
+        sys.exit(2)
+
     devpath = None
     if cfg.get("storage") is not None:
         for i in cfg["storage"]["config"]:
@@ -1512,21 +1633,8 @@ def meta_simple(args):
             diskPath = block.lookup_disk(serial)
             if grub is True:
                 devpath = diskPath
-            if config.value_as_boolean(i.get('wipe')):
-                block.wipe_volume(diskPath, mode=i.get('wipe'))
-
-    if args.target is not None:
-        state['target'] = args.target
-
-    if state['target'] is None:
-        sys.stderr.write("Unable to find target.  "
-                         "Use --target or set TARGET_MOUNT_POINT\n")
-        sys.exit(2)
 
     devices = args.devices
-    if devices is None:
-        devices = cfg.get('block-meta', {}).get('devices', [])
-
     bootpt = get_bootpt_cfg(
         cfg.get('block-meta', {}).get('boot-partition', {}),
         enabled=args.mode == SIMPLE_BOOT, fstype=args.boot_fstype,

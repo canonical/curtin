@@ -23,6 +23,8 @@ class TestMdadmAbs(VMBaseClass):
         ls -al /sys/fs/bcache/* > lsal_sys_fs_bcache_star
         ls -al /dev/bcache* > lsal_dev_bcache_star
         ls -al /dev/bcache/by_uuid/* > lsal_dev_bcache_byuuid_star
+
+        exit 0
         """)]
 
     def test_mdadm_output_files_exist(self):
@@ -63,6 +65,8 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
         cat /sys/block/bcache1/bcache/cache_mode >> bcache_cache_mode
         cat /sys/block/bcache2/bcache/cache_mode >> bcache_cache_mode
+
+        exit 0
         """)]
     fstab_expected = {
         '/dev/vda1': '/media/sda1',
@@ -151,6 +155,10 @@ class CosmicTestMdadmBcache(relbase.cosmic, TestMdadmBcacheAbs):
     __test__ = True
 
 
+class DiscoTestMdadmBcache(relbase.disco, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot.yaml"
@@ -193,6 +201,10 @@ class BionicTestMirrorboot(relbase.bionic, TestMirrorbootAbs):
 
 
 class CosmicTestMirrorboot(relbase.cosmic, TestMirrorbootAbs):
+    __test__ = True
+
+
+class DiscoTestMirrorboot(relbase.disco, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -247,6 +259,11 @@ class CosmicTestMirrorbootPartitions(relbase.cosmic,
     __test__ = True
 
 
+class DiscoTestMirrorbootPartitions(relbase.disco,
+                                    TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
 class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot-uefi.yaml"
@@ -297,6 +314,11 @@ class CosmicTestMirrorbootPartitionsUEFI(relbase.cosmic,
     __test__ = True
 
 
+class DiscoTestMirrorbootPartitionsUEFI(relbase.disco,
+                                        TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
@@ -342,6 +364,10 @@ class CosmicTestRaid5boot(relbase.cosmic, TestRaid5bootAbs):
     __test__ = True
 
 
+class DiscoTestRaid5boot(relbase.disco, TestRaid5bootAbs):
+    __test__ = True
+
+
 class TestRaid6bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid6boot.yaml"
@@ -357,6 +383,8 @@ class TestRaid6bootAbs(TestMdadmAbs):
         TestMdadmAbs.extra_collect_scripts + [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         mdadm --detail --scan > mdadm_detail
+
+        exit 0
         """)])
 
     def test_raid6_output_files_exist(self):
@@ -397,6 +425,10 @@ class BionicTestRaid6boot(relbase.bionic, TestRaid6bootAbs):
 
 
 class CosmicTestRaid6boot(relbase.cosmic, TestRaid6bootAbs):
+    __test__ = True
+
+
+class DiscoTestRaid6boot(relbase.disco, TestRaid6bootAbs):
     __test__ = True
 
 
@@ -443,6 +475,10 @@ class BionicTestRaid10boot(relbase.bionic, TestRaid10bootAbs):
 
 
 class CosmicTestRaid10boot(relbase.cosmic, TestRaid10bootAbs):
+    __test__ = True
+
+
+class DiscoTestRaid10boot(relbase.disco, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -493,6 +529,8 @@ class TestAllindataAbs(TestMdadmAbs):
         mkdir -p /tmp/xfstest
         mount /dev/mapper/dmcrypt0 /tmp/xfstest
         xfs_info /tmp/xfstest/ > xfs_info
+
+        exit 0
         """)])
     fstab_expected = {
         '/dev/vg1/lv1': '/srv/data',
@@ -545,6 +583,10 @@ class BionicTestAllindata(relbase.bionic, TestAllindataAbs):
 
 
 class CosmicTestAllindata(relbase.cosmic, TestAllindataAbs):
+    __test__ = True
+
+
+class DiscoTestAllindata(relbase.disco, TestAllindataAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

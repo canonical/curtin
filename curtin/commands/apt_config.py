@@ -10,7 +10,6 @@ import glob
 import os
 import re
 import sys
-import yaml
 
 from curtin.log import LOG
 from curtin import (config, distro, gpg, paths, util)
@@ -71,6 +70,7 @@ def handle_apt(cfg, target=None):
     if not config.value_as_boolean(cfg.get('preserve_sources_list',
                                            True)):
         generate_sources_list(cfg, release, mirrors, target)
+        apply_preserve_sources_list(target)
         rename_apt_lists(mirrors, target)
 
     try:
@@ -318,16 +318,32 @@ def generate_sources_list(cfg, release, mirrors, target=None):
     disabled = disable_suites(cfg.get('disable_suites'), rendered, release)
     util.write_file(paths.target_path(target, aptsrc), disabled, mode=0o644)
 
+
+def apply_preserve_sources_list(target):
     # protect the just generated sources.list from cloud-init
     cloudfile = "/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg"
-    # this has to work with older cloud-init as well, so use old key
-    cloudconf = yaml.dump({'apt_preserve_sources_list': True}, indent=1)
+
+    target_ver = distro.get_package_version('cloud-init', target=target)
+    if not target_ver:
+        LOG.info("Attempt to read cloud-init version from target returned "
+                 "'%s', not writing preserve_sources_list config.",
+                 target_ver)
+        return
+
+    cfg = {'apt': {'preserve_sources_list': True}}
+    if target_ver['major'] < 1:
+        # anything cloud-init 0.X.X will get the old config key.
+        cfg = {'apt_preserve_sources_list': True}
+
     try:
         util.write_file(paths.target_path(target, cloudfile),
-                        cloudconf, mode=0o644)
+                        config.dump_config(cfg), mode=0o644)
+        LOG.debug("Set preserve_sources_list to True in %s with: %s",
+                  cloudfile, cfg)
     except IOError:
-        LOG.exception("Failed to protect source.list from cloud-init in (%s)",
-                      paths.target_path(target, cloudfile))
+        LOG.exception(
+            "Failed to protect /etc/apt/sources.list from cloud-init in '%s'",
+            cloudfile)
         raise
 
 
