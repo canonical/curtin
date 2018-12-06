@@ -1,3 +1,30 @@
+curtin (18.2-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream release (18.2).
+    - Release 18.2
+    - Adjust helpers/common to edit GRUB_CMDLINE_LINUX_DEFAULT in place.
+      (LP: #1527664)
+    - dname: persistent names based on serial or wwn (LP: #1735839)
+    - Fix bug in is_swap_device if a device was smaller than page_size.
+      (LP: #1803672)
+    - vmtest: add disco tests [Joshua Powers]
+    - unittest: change directory to tmpdir for testing relative files.
+    - Add clear-holders to meta-simple (LP: #1786736)
+    - vmtests: check install log for Out of memory kernel messages and fail
+    - unittest: correctly use tmpdir for my.img [Joshua Powers] (LP: #1803611)
+    - block_meta: use wipe config when clearing partitions (LP: #1800153)
+    - tests: fix vmtests for apt perserve_source_list changes
+    - apt: Use new format apt config when writing preserve_sources_list.
+      (LP: #1735950)
+    - vmtests: multipath mount /home with nofail and validate in unittest
+    - vmtests: fix common collect scripts to not exit failure.
+    - vmtest: handle collect disk unpack failure
+    - vmtests: dont use multiple subclasses in uefi 4k tests
+    - vmtests: disable snapd/seeding to avoid boot hang
+    - jenkins-runner: fix when using --filter only
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Thu, 06 Dec 2018 12:11:01 -0600
+
 curtin (18.1-59-g0f993084-0ubuntu1) cosmic; urgency=medium
 
   * New upstream snapshot.
