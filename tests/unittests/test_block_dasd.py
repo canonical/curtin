@@ -26,7 +26,6 @@ LSDASD_OFFLINE_TPL = textwrap.dedent("""\
   paths_cuir_quiesced:
   paths_invalid_hpf_characteristics:
   paths_error_threshold_exceeded:
-
 """)
 
 LSDASD_NOT_FORMATTED_TPL = textwrap.dedent("""\
@@ -49,7 +48,6 @@ LSDASD_NOT_FORMATTED_TPL = textwrap.dedent("""\
   paths_cuir_quiesced:
   paths_invalid_hpf_characteristics:
   paths_error_threshold_exceeded:
-
 """)
 
 LSDASD_ACTIVE_TPL = textwrap.dedent("""\
@@ -72,7 +70,6 @@ LSDASD_ACTIVE_TPL = textwrap.dedent("""\
   paths_cuir_quiesced:
   paths_invalid_hpf_characteristics:
   paths_error_threshold_exceeded:
-
 """)
 
 
@@ -147,8 +144,8 @@ class TestParseLsdasd(CiTestCase):
         if not busid:
             busid = random_bus_id()
         if not status:
-           entry = ["%s: %s" % (self.random_string(), self.random_string())]
-           status = "\n".join(entry * entries)
+            entry = ["%s: %s" % (self.random_string(), self.random_string())]
+            status = "\n".join(entry * entries)
         return (busid, busid + "\n" + status + "\n")
 
     def test_parse_lsdasd_no_input(self):
@@ -247,6 +244,55 @@ class TestParseLsdasd(CiTestCase):
 
 
 class TestDasdGetStatus(CiTestCase):
-    pass
+
+    lsdasd_status_sep = '\n\n'
+
+    def _compose_lsdasd(self, dasdinput=None, nr_dasd=3):
+        if not dasdinput:
+            dasdinput = []
+            for dasd in range(0, nr_dasd):
+                tpl = random.choice([LSDASD_OFFLINE_TPL, LSDASD_ACTIVE_TPL,
+                                     LSDASD_NOT_FORMATTED_TPL])
+                status = render_lsdasd(tpl)
+                dasdinput.append(status)
+
+        return "\n".join(dasdinput)
+
+    def _assert_dicts_equal(self, expected, result):
+        self.assertEqual(
+            {k: expected[k] for k in sorted(expected)},
+            {k: result[k] for k in sorted(result)})
+
+    @mock.patch('curtin.block.dasd.lsdasd')
+    def test_get_status_noargs(self, m_lsdasd):
+        """get_status returns status dict with no arguments passed."""
+        generated_output = self._compose_lsdasd()
+        m_lsdasd.return_value = generated_output
+        expected = {}
+        for status in generated_output.split(self.lsdasd_status_sep):
+            expected.update(dasd._parse_lsdasd(status))
+
+        result = dasd.get_status()
+        self.assertEqual(dict, type(result))
+        self.assertNotEqual({}, result)
+        self._assert_dicts_equal(expected, result)
+
+    @mock.patch('curtin.block.dasd.lsdasd')
+    def test_get_status_single_busid(self, m_lsdasd):
+        """get_status returns status dict for one bus_id."""
+        bus_id = random_bus_id()
+        generated_output = render_lsdasd(LSDASD_ACTIVE_TPL,
+                                         "%s/dasda/94:0" % bus_id)
+        m_lsdasd.return_value = generated_output
+        expected = {}
+        for status in generated_output.split(self.lsdasd_status_sep):
+            expected.update(dasd._parse_lsdasd(status))
+
+        result = dasd.get_status(bus_id=bus_id)
+        self.assertEqual(dict, type(result))
+        self.assertNotEqual({}, result)
+        self.assertEqual(1, len(result))
+        self._assert_dicts_equal(expected, result)
+
 
 # vi: ts=4 expandtab syntax=python

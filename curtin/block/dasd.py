@@ -147,9 +147,9 @@ def _parse_lsdasd(status):
     if not status or not isinstance(status, util.string_types):
         raise ValueError('Invalid value for argument "status": ' + str(status))
 
-    # XXX: lsdasd --offline --long on offline dasd is 16 lines
-    if len(status.splitlines()) < 16:
-        raise ValueError('Status input has fewer than 16 lines, cannot parse')
+    # XXX: lsdasd --offline --long on offline dasd is 15 lines
+    if len(status.splitlines()) < 15:
+        raise ValueError('Status input has fewer than 15 lines, cannot parse')
 
     parsed = {}
     firstline = status.splitlines()[0]
@@ -181,7 +181,10 @@ def is_active(bus_id, status=None):
     if not status:
         status = get_status(bus_id)
 
-    return status.get(bus_id).get('status') == 'active'
+    try:
+        return status.get(bus_id).get('status') == 'active'
+    except AttributeError as e:
+        raise ValueError('Invalid status input: ' + status)
 
 
 def is_offline(bus_id, status=None):
