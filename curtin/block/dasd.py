@@ -144,6 +144,13 @@ def _parse_lsdasd(status):
                   'uid': 'IBM.750000000DXP71.1500.20',
                   'use_diag': '0'}}
     """
+    if not status or not isinstance(status, util.string_types):
+        raise ValueError('Invalid value for argument "status": ' + str(status))
+
+    # XXX: lsdasd --offline --long on offline dasd is 16 lines
+    if len(status.splitlines()) < 16:
+        raise ValueError('Status input has fewer than 16 lines, cannot parse')
+
     parsed = {}
     firstline = status.splitlines()[0]
     bus_id = kname = devid = None
