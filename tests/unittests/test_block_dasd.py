@@ -10,10 +10,82 @@ from curtin.util import ProcessExecutionError
 from .helpers import CiTestCase
 
 
+LSDASD_OFFLINE_TPL = textwrap.dedent("""\
+%s
+  status:                offline
+  use_diag:                0
+  readonly:                0
+  eer_enabled:                0
+  erplog:                0
+  hpf:
+  uid:
+  paths_installed:             10 11 12 13
+  paths_in_use:
+  paths_non_preferred:
+  paths_invalid_cabling:
+  paths_cuir_quiesced:
+  paths_invalid_hpf_characteristics:
+  paths_error_threshold_exceeded:
+
+""")
+
+LSDASD_NOT_FORMATTED_TPL = textwrap.dedent("""\
+%s
+  status:                n/f
+  type:                 ECKD
+  blksz:                512
+  size:
+  blocks:
+  use_diag:                0
+  readonly:                0
+  eer_enabled:                0
+  erplog:                0
+  hpf:                    1
+  uid:                  IBM.750000000DXP71.XXXX.YY
+  paths_installed:             10 11 12 13
+  paths_in_use:             10 11 12
+  paths_non_preferred:
+  paths_invalid_cabling:
+  paths_cuir_quiesced:
+  paths_invalid_hpf_characteristics:
+  paths_error_threshold_exceeded:
+
+""")
+
+LSDASD_ACTIVE_TPL = textwrap.dedent("""\
+%s
+  status:                active
+  type:                 ECKD
+  blksz:                4096
+  size:                 21129MB
+  blocks:                5409180
+  use_diag:                0
+  readonly:                0
+  eer_enabled:                0
+  erplog:                0
+  hpf:                    1
+  uid:                  IBM.750000000DXP71.XXXX.YY
+  paths_installed:             10 11 12 13
+  paths_in_use:             10 11 12
+  paths_non_preferred:
+  paths_invalid_cabling:
+  paths_cuir_quiesced:
+  paths_invalid_hpf_characteristics:
+  paths_error_threshold_exceeded:
+
+""")
+
+
 def random_bus_id():
     return "%x.%x.%04x" % (random.randint(0, 16),
                            random.randint(0, 16),
                            random.randint(1024, 4096))
+
+
+def render_lsdasd(template, bus_id_line=None):
+    if not bus_id_line:
+        bus_id_line = random_bus_id()
+    return template % bus_id_line
 
 
 class TestLsdasd(CiTestCase):
@@ -71,48 +143,6 @@ class TestLsdasd(CiTestCase):
 
 class TestParseLsdasd(CiTestCase):
 
-    LSDASD_OFFLINE = textwrap.dedent("""\
-    0.0.1500
-      status:                offline
-      use_diag:                0
-      readonly:                0
-      eer_enabled:                0
-      erplog:                0
-      hpf:
-      uid:
-      paths_installed:             10 11 12 13
-      paths_in_use:
-      paths_non_preferred:
-      paths_invalid_cabling:
-      paths_cuir_quiesced:
-      paths_invalid_hpf_characteristics:
-      paths_error_threshold_exceeded:
-
-    """)
-
-    LSDASD_ACTIVE = textwrap.dedent("""\
-    0.0.1544/dasda/94:0
-      status:                active
-      type:                 ECKD
-      blksz:                4096
-      size:                 21129MB
-      blocks:                5409180
-      use_diag:                0
-      readonly:                0
-      eer_enabled:                0
-      erplog:                0
-      hpf:                    1
-      uid:                  IBM.750000000DXP71.1500.44
-      paths_installed:             10 11 12 13
-      paths_in_use:             10 11 12
-      paths_non_preferred:
-      paths_invalid_cabling:
-      paths_cuir_quiesced:
-      paths_invalid_hpf_characteristics:
-      paths_error_threshold_exceeded:
-
-    """)
-
     def _random_lsdasd_output(self, busid=None, entries=16, status=None):
         if not busid:
             busid = random_bus_id()
@@ -139,7 +169,9 @@ class TestParseLsdasd(CiTestCase):
 
     def test_parse_lsdasd_returns_dict(self):
         """_parse_lsdasd returns a non-empty dictionary with valid input."""
-        result = dasd._parse_lsdasd(self.LSDASD_ACTIVE)
+        lsdasd = render_lsdasd(LSDASD_ACTIVE_TPL,
+                               "%s/dasda/94:0" % random_bus_id())
+        result = dasd._parse_lsdasd(lsdasd)
         self.assertEqual(dict, type(result))
         self.assertNotEqual({}, result)
         self.assertEqual(1, len(result.keys()))
@@ -164,8 +196,9 @@ class TestParseLsdasd(CiTestCase):
 
     def test_parse_lsdasd_defaults_kname_devid_to_none(self):
         """_parse_lsdasd returns dict with kname, devid none if not present."""
-        self.assertNotIn('/', self.LSDASD_OFFLINE)
-        result = dasd._parse_lsdasd(self.LSDASD_OFFLINE)
+        lsdasd = render_lsdasd(LSDASD_OFFLINE_TPL)
+        self.assertNotIn('/', lsdasd)
+        result = dasd._parse_lsdasd(lsdasd)
         self.assertEqual(dict, type(result))
         self.assertNotEqual({}, result)
         self.assertEqual(1, len(result.keys()))
@@ -175,8 +208,10 @@ class TestParseLsdasd(CiTestCase):
 
     def test_parse_lsdasd_extracts_kname_devid_when_present(self):
         """_parse_lsdasd returns dict with kname, devid when present."""
-        self.assertIn('/', self.LSDASD_ACTIVE)
-        result = dasd._parse_lsdasd(self.LSDASD_ACTIVE)
+        lsdasd = render_lsdasd(LSDASD_ACTIVE_TPL,
+                               "%s/dasda/94:0" % random_bus_id())
+        self.assertIn('/', lsdasd)
+        result = dasd._parse_lsdasd(lsdasd)
         self.assertEqual(dict, type(result))
         self.assertNotEqual({}, result)
         self.assertEqual(1, len(result.keys()))
@@ -210,5 +245,8 @@ class TestParseLsdasd(CiTestCase):
         for bus_id, status in result.items():
             self.assertEqual(None, status[mykey])
 
+
+class TestDasdGetStatus(CiTestCase):
+    pass
 
 # vi: ts=4 expandtab syntax=python
