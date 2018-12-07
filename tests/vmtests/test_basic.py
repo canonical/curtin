@@ -275,7 +275,7 @@ class DiscoTestBasic(relbase.disco, TestBasicAbs):
     __test__ = True
 
 
-class OldTestBasicScsiAbs(TestBasicAbs):
+class TestBasicScsiAbs(TestBasicAbs):
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
     extra_disks = ['128G', '128G', '4G', '4G']
@@ -329,11 +329,6 @@ class OldTestBasicScsiAbs(TestBasicAbs):
 
     def test_partition_is_zero(self):
         self._test_partition_is_zero("cmp_prep.out")
-
-
-class TestBasicScsiAbs(TestBasicAbs):
-    conf_file = "examples/tests/basic_scsi.yaml"
-    disk_driver = 'scsi-hd'
 
 
 class Centos70XenialTestScsiBasic(centos_relbase.centos70_xenial,
