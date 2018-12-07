@@ -680,7 +680,6 @@ def lookup_disk(serial):
     serial_udev = serial.replace(' ', '_')
     LOG.info('Processing serial %s via udev to %s', serial, serial_udev)
 
-    LOG.debug('WARK: by-id links:\n%s', os.listdir("/dev/disk/by-id/"))
     disks = list(filter(lambda x: serial_udev in x,
                         os.listdir("/dev/disk/by-id/")))
     if not disks or len(disks) < 1:
@@ -695,6 +694,27 @@ def lookup_disk(serial):
     if not os.path.exists(path):
         raise ValueError("path '%s' to block device for disk with serial '%s' \
             does not exist" % (path, serial_udev))
+    return path
+
+
+def lookup_dasd(bus_id):
+    """
+    Search for a dasd by its bus_id.
+
+    :param bus_id: s390x ccw bus_id 0.0.NNNN specifying the dasd
+    :returns: dasd kernel device path (/dev/dasda)
+    """
+
+    LOG.info('Processing ccw bus_id %s', bus_id)
+    sys_ccw_dev = '/sys/bus/ccw/devices/%s/block' % bus_id
+    if not os.path.exists(sys_ccw_dev):
+       raise ValueError('Failed to find a block device at %s' % sys_ccw_dev)
+
+    disks = os.listdir(sys_ccw_dev)
+    path = '/dev/%s' % disks[0]
+    if not os.path.exists(path):
+        raise ValueError("path '%s' to block device for dasd with bus_id '%s' \
+            does not exist" % (path, bus_id))
     return path
 
 
