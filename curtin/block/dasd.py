@@ -191,14 +191,21 @@ def is_offline(bus_id, status=None):
     if not status:
         status = get_status(bus_id)
 
-    return status.get(bus_id).get('status') == 'offline'
+    try:
+        return status.get(bus_id).get('status') == 'offline'
+    except AttributeError as e:
+        raise ValueError('Invalid status input: ' + status)
 
 
 def is_not_formatted(bus_id, status=None):
     if not status:
         status = get_status(bus_id)
 
-    return status.get(bus_id).get('status') == 'n/f'
+    try:
+        return status.get(bus_id).get('status') == 'n/f'
+    except AttributeError as e:
+        raise ValueError('Invalid status input: ' + status)
+
 
 
 def format(bus_id, blocksize=None, disk_layout=None, force=None, label=None,
