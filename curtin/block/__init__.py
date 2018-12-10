@@ -708,7 +708,7 @@ def lookup_dasd(bus_id):
     LOG.info('Processing ccw bus_id %s', bus_id)
     sys_ccw_dev = '/sys/bus/ccw/devices/%s/block' % bus_id
     if not os.path.exists(sys_ccw_dev):
-       raise ValueError('Failed to find a block device at %s' % sys_ccw_dev)
+        raise ValueError('Failed to find a block device at %s' % sys_ccw_dev)
 
     disks = os.listdir(sys_ccw_dev)
     path = '/dev/%s' % disks[0]

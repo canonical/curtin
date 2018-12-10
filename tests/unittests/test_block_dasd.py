@@ -4,9 +4,7 @@ import mock
 import random
 import textwrap
 
-from curtin.config import merge_config
 from curtin.block import dasd
-from curtin.util import ProcessExecutionError
 from .helpers import CiTestCase
 
 
@@ -152,7 +150,7 @@ class TestParseLsdasd(CiTestCase):
         """_parse_lsdasd raises ValueError on invalid status input."""
         for status_value in [None, 123, {}, (), []]:
             with self.assertRaises(ValueError):
-                result = dasd._parse_lsdasd(status_value)
+                dasd._parse_lsdasd(status_value)
 
     def test_parse_lsdasd_invalid_strings_short(self):
         """_parse_lsdasd raises ValueError on short input"""
@@ -172,15 +170,6 @@ class TestParseLsdasd(CiTestCase):
         self.assertEqual(dict, type(result))
         self.assertNotEqual({}, result)
         self.assertEqual(1, len(result.keys()))
-
-    def test_parse_lsdasd_returns_busid_as_key(self):
-        """_parse_lsdasd returns dict with bus_id as key."""
-        (busid, status) = self._random_lsdasd_output()
-        result = dasd._parse_lsdasd(status)
-        self.assertEqual(dict, type(result))
-        self.assertNotEqual({}, result)
-        self.assertEqual(1, len(result.keys()))
-        self.assertEqual(busid, list(result.keys()).pop())
 
     def test_parse_lsdasd_returns_busid_as_key(self):
         """_parse_lsdasd returns dict with bus_id as key."""
@@ -250,7 +239,7 @@ class TestDasdGetStatus(CiTestCase):
     def _compose_lsdasd(self, dasdinput=None, nr_dasd=3):
         if not dasdinput:
             dasdinput = []
-            for dasd in range(0, nr_dasd):
+            for _ in range(0, nr_dasd):
                 tpl = random.choice([LSDASD_OFFLINE_TPL, LSDASD_ACTIVE_TPL,
                                      LSDASD_NOT_FORMATTED_TPL])
                 status = render_lsdasd(tpl)

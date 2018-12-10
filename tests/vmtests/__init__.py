@@ -972,9 +972,9 @@ class VMBaseClass(TestCase):
         logger.info("disk_serials: %s", cls.disk_serials)
         logger.info("nvme_serials: %s", cls.nvme_serials)
         target_disk = "{}:{}:{}:{}".format(cls.td.target_disk,
-                                            "",
-                                            cls.disk_driver,
-                                            cls.disk_block_size)
+                                           "",
+                                           cls.disk_driver,
+                                           cls.disk_block_size)
         if len(cls.disk_wwns):
             target_disk += ":" + cls.disk_wwns[0]
 
@@ -987,8 +987,8 @@ class VMBaseClass(TestCase):
         for (disk_no, disk_sz) in enumerate(cls.extra_disks):
             dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
             extra_disk = '{}:{}:{}:{}'.format(dpath, disk_sz,
-                                               cls.disk_driver,
-                                               cls.disk_block_size)
+                                              cls.disk_driver,
+                                              cls.disk_block_size)
             if len(cls.disk_wwns):
                 w_index = disk_no + 1
                 if w_index < len(cls.disk_wwns):
