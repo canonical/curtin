@@ -284,4 +284,41 @@ class TestDasdGetStatus(CiTestCase):
         self._assert_dicts_equal(expected, result)
 
 
+class TestDasdFormat(CiTestCase):
+
+    def test_bad_devname(self):
+        pass
+
+    def test_devname_doesnt_exist_with_strict(self):
+        """format raises RuntimeError if devname doesn't exist w/strict=True"""
+        pass
+
+    def test_devname_doesnt_exist_no_strict_runs_command(self):
+        """format issues cmd w/strict=False and devname doesn't exist."""
+        pass
+
+    def test_default_params_match_docstrings(self):
+        """format w/defs match docstring."""
+        pass
+
+    def test_invalid_blocksize_raise_valueerror(self):
+        """format raises ValueError on invalid blocksize value."""
+        pass
+
+    def test_invalid_disk_layout_raises_valueerror(self):
+        """format raises ValueError on invalid disk_layout value."""
+        pass
+
+    def test_invalid_mode_raises_valueerror(self):
+        """format raises ValueError on invalid mode value."""
+        pass
+
+    def test_force_parameter_added_to_cmd(self):
+        """format adds --force to command if param is true."""
+        pass
+
+    def test_label_param_passed_to_dasdfmt(self):
+        """format adds --label=value to command if set."""
+        pass
+
 # vi: ts=4 expandtab syntax=python
