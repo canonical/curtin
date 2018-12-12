@@ -4,10 +4,10 @@ import os
 from curtin import util
 
 
-def get_status(bus_id=None):
+def get_status(device_id=None):
     """Query DASD status via lzdasd command.
 
-    :param bus_id: filter results for specific bus_id, default None lists all.
+    :param device_id: filter results for device_id, default None lists all.
     :returns: dictionary of status for each detected dasd device
 
     Example output:
@@ -70,17 +70,17 @@ def get_status(bus_id=None):
                   'use_diag': '0'}
     }
     """
-    lsdasd_output = lsdasd(bus_id=bus_id)
+    lsdasd_output = lsdasd(device_id=device_id)
     return {d_id: d_status for parsed in
             [_parse_lsdasd(entry)
              for entry in lsdasd_output.split('\n\n') if entry]
             for d_id, d_status in parsed.items()}
 
 
-def lsdasd(bus_id=None, offline=True):
+def lsdasd(device_id=None, offline=True):
     ''' Run lsdasd command and return its standard output.
 
-    :param bus_id:  string, bus_id appended to command defaults to None
+    :param device_id:  string, device_id appended to command defaults to None
     :param offline: boolean, defaults True, appends --offline to command
 
     :returns: string of standard output from constructed lsdasd command
@@ -88,20 +88,20 @@ def lsdasd(bus_id=None, offline=True):
     opts = ['--long']
     if offline:
         opts.append('--offline')
-    if bus_id:
-        opts.append(bus_id)
+    if device_id:
+        opts.append(device_id)
 
     out, _ = util.subp(['lsdasd'] + opts, capture=True)
 
     return out
 
 
-def dasdinfo(bus_id):
+def dasdinfo(device_id):
     ''' Run dasdinfo command and return the exported values.
 
-    :param: bus_id:  string, bus_id of the dasd device to query
+    :param: device_id:  string, device_id of the dasd device to query
     :returns: dictionary of udev key=value pairs
-    :raises: ValueError on None-ish bus_id
+    :raises: ValueError on None-ish device_id
     :raises: ProcessExecutionError if dasdinfo returns non-zero
 
     e.g.
@@ -114,11 +114,12 @@ def dasdinfo(bus_id):
      'ID_UID': 'IBM.750000000DXP71.1500.44',
      'ID_XUID': 'IBM.750000000DXP71.1500.44'}
     '''
-    if not bus_id:
-        raise ValueError("Invalid bus_id: '%s'" % bus_id)
+    if not device_id:
+        raise ValueError("Invalid device_id: '%s'" % device_id)
 
     out, _ = util.subp(
-        ['dasdinfo', '--all', '--export', '--busid=%s' % bus_id], capture=True)
+        ['dasdinfo', '--all', '--export',
+         '--busid=%s' % device_id], capture=True)
 
     return util.load_shell_content(out)
 
@@ -187,11 +188,11 @@ def _parse_lsdasd(status):
 
     parsed = {}
     firstline = status.splitlines()[0]
-    bus_id = kname = devid = None
+    device_id = kname = devid = None
     if '/' in firstline:
-        bus_id, kname, devid = firstline.split('/')
+        device_id, kname, devid = firstline.split('/')
     else:
-        bus_id = firstline.strip()
+        device_id = firstline.strip()
 
     parsed.update({'kname': kname, 'devid': devid})
     status = status.splitlines()[1:]
@@ -208,35 +209,35 @@ def _parse_lsdasd(status):
 
         parsed.update({key: value})
 
-    return {bus_id: parsed}
+    return {device_id: parsed}
 
 
-def is_active(bus_id, status=None):
+def is_active(device_id, status=None):
     if not status:
-        status = get_status(bus_id)
+        status = get_status(device_id)
 
     try:
-        return status.get(bus_id).get('status') == 'active'
+        return status.get(device_id).get('status') == 'active'
     except AttributeError:
         raise ValueError('Invalid status input: ' + status)
 
 
-def is_offline(bus_id, status=None):
+def is_offline(device_id, status=None):
     if not status:
-        status = get_status(bus_id)
+        status = get_status(device_id)
 
     try:
-        return status.get(bus_id).get('status') == 'offline'
+        return status.get(device_id).get('status') == 'offline'
     except AttributeError:
         raise ValueError('Invalid status input: ' + status)
 
 
-def is_not_formatted(bus_id, status=None):
+def is_not_formatted(device_id, status=None):
     if not status:
-        status = get_status(bus_id)
+        status = get_status(device_id)
 
     try:
-        return status.get(bus_id).get('status') == 'n/f'
+        return status.get(device_id).get('status') == 'n/f'
     except AttributeError:
         raise ValueError('Invalid status input: ' + status)
 
