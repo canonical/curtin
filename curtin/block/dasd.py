@@ -205,7 +205,7 @@ def _parse_dasdview(dasdview_output):
     def _parse_output(output):
         parsed = {}
         prev_key = None
-        for line in status:
+        for line in output:
             if not line:
                 continue
             if ':' in line:
