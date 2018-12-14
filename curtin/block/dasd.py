@@ -1,7 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import collections
 import os
+import re
 from curtin import util
+
+Dasdvalue = collections.namedtuple('Dasdvalue', 'hex', 'dec', 'txt')
 
 
 def get_status(device_id=None):
@@ -125,7 +129,131 @@ def dasdinfo(device_id):
 
 
 def dasdview(devname):
-    ''' Run dasdview on devname and return dictionary of data '''
+    ''' Run dasdview on devname and return dictionary of data
+
+    dasdview --extended has 3 sections
+    general (2, 6), geometry (8:12), extended (14:)
+
+    '''
+    if not os.path.exists(devname):
+        raise ValueError("Invalid dasd device name: '%s'" % devname)
+
+    out, _ = util.subp(['dasdview', '--extended', devname], capture=True)
+
+    return out
+
+
+def _parse_dasdview(dasdview_output):
+    """ Parse dasdview --extended output into a dictionary
+
+    Input:
+
+    Output:
+
+    info = {
+        'general': {
+            'device_node':
+            'busid':
+            'type':
+            'device_type':},
+        'geometry': {
+            'number_of_cylinders':,
+            'tracks_per_cylinder':,
+            'blocks_per_track':,
+            'blocksize':},
+        'extended': {
+            'real_device_number':,
+            'subchannel_identifier':,
+            'cu_type_senseid':,
+            'cu_model_senseid':,
+            'device_type_senseid':,
+            'device_model_senseid':,
+            'open_count':,
+            'req_queue_len':,
+            'chanq_len':,
+            'status':,
+            'label_block':,
+            'fba_layout':,
+            'characteristics_size':,
+            'confdata_size':,
+            'format':,
+            'features',
+            'characteristics':,
+            'configuration_data':,}
+    }
+    """
+
+    info_key_map = {
+        'CDL formatted': 'cdl',
+        'LDL formatted': 'ldl',
+        'NOT formatted': 'not-formatted',
+    }
+
+    def _mkdasdvalue(value):
+        v_hex = value[0].replace('hex ', '0x')
+        v_dec = int(value[1].replace('dec ', ''))
+        v_str = None
+        if len(value) == 3:
+            v_str = info_key_map.get(value[2], value[2])
+
+        return Dasdvalue(v_hex, v_dec, v_str)
+
+    def _map_strip(value):
+        v_type = type(value)
+        return v_type(map(lambda x: x.strip(), value))
+
+    def _parse_output(output):
+        parsed = {}
+        prev_key = None
+        for line in status:
+            if not line:
+                continue
+            if ':' in line:
+                key, value = map(lambda x: x.strip(),
+                                 line.lstrip().split(':'))
+                # normalize lvalue
+                key = key.replace(' ', '_')
+                key = key.replace('(', '').replace(')', '')
+                key = key.lower()
+                prev_key = key
+                if value and '\t' in value:
+                    value = _map_strip(value.split('\t'))
+                    # [hex X, dec Y]
+                    # [hex X, dec Y, string]
+                    value = _mkdasdvalue(value)
+                elif value and '  ':
+                    # characteristics : XXXXXXX XXXXXXX  XXXXXXXX XXXXXXX
+                    #                   YYYYYYY YYYYYYY  YYYYYYYY YYYYYYY
+                    # convert to list of strings.
+                    value = value.lstrip().replace('  ', ' ').split(' ')
+                else:
+                    value = None
+            else:
+                key = prev_key
+
+            # extend lists for existing keys
+            if key in parsed and type(value) == list:
+                parsed[key].extend(value)
+            else:
+                parsed.update({key: value})
+
+        return parsed
+
+    lines = dasdview_output.splitlines()
+    gen_start, gen_end = (2, 6)
+    geo_start, geo_end = (8, 12)
+    ext_start, ext_end = (14, len(lines))
+
+    general_output = lines[gen_start:gen_end]
+    geometry_output = lines[geo_start:geo_end]
+    extended_output = lines[ext_start:ext_end]
+
+    info = {
+        'general': _parse_output(general_output),
+        'geometry': _parse_output(geometry_output),
+        'extended': _parse_output(extended_output),
+    }
+    return info
 
 
 def _parse_lsdasd(status):
@@ -212,34 +340,149 @@ def _parse_lsdasd(status):
     return {device_id: parsed}
 
 
-def is_active(device_id, status=None):
-    if not status:
-        status = get_status(device_id)
+def is_valid_device_id(device_id, ):
+    """ validate device_id string.
 
+    :param device_id: string representing a s390 ccs device in the format
+       <channel subsystem number>.<data source number>.<device id>
+       e.g. 0.0.74fc
+
+    :returns boolean: True if valid, False otherwise.
+    """
+    if not device_id or not isinstance(device_id, util.string_types):
+        raise ValueError("device_id parameter value invalid: '%s'" % device_id)
+
+    if device_id.count('.') != 2:
+        raise ValueError(
+            "device_id format invalid, requires two '.' chars: %s" % device_id)
+
+    # maxsplit=2
+    (css, dsn, dev) = device_id.split('.')
+
+    if not all([css, dsn, dev]):
+        raise ValueError(
+            "device_id format invalid, must be X.X.XXXX: '%s'" % device_id)
+
+    if int(css) not in range(0, 256):
+        raise ValueError("device_id css invalid, not in 0-256: '%s'" % css)
+
+    if int(dsn) not in range(0, 256):
+        raise ValueError("device_id dsn invalid, not in 0-256: '%s'" % dsn)
+
+    if not re.match(r'^[a-f0-9]+$', dev.lower()):
+        raise ValueError("device number invalid: not in 0xFFFF: '%s'" % dev)
+
+
+def valid_device_id(device_id):
+    """Return a boolean indicating if device_id is valid."""
     try:
-        return status.get(device_id).get('status') == 'active'
-    except AttributeError:
-        raise ValueError('Invalid status input: ' + status)
+        is_valid_device_id(device_id)
+        return True
+    except ValueError:
+        return False
 
 
-def is_offline(device_id, status=None):
-    if not status:
-        status = get_status(device_id)
+def ccw_device_attr(device_id, attr):
+    attrdata = ''
+    if not valid_device_id(device_id):
+        raise ValueError("Invalid device_id:'%s'" % device_id)
 
-    try:
-        return status.get(device_id).get('status') == 'offline'
-    except AttributeError:
-        raise ValueError('Invalid status input: ' + status)
+    sysfs_attr_path = '/sys/bus/ccw/devices/%s/%s' % (device_id, attr)
+    if os.path.isfile(sysfs_attr_path):
+        attrdata = util.load_file(sysfs_attr_path).strip()
+
+    return attrdata
+
+
+def is_active(device_id):
+    return ccw_device_attr(device_id, 'status') == "online"
+
+
+def is_alias(device_id):
+    return ccw_device_attr(device_id, 'alias') == "1"
 
 
 def is_not_formatted(device_id, status=None):
-    if not status:
-        status = get_status(device_id)
+    return ccw_device_attr(device_id, 'status') == "unformatted"
 
-    try:
-        return status.get(device_id).get('status') == 'n/f'
-    except AttributeError:
-        raise ValueError('Invalid status input: ' + status)
+
+def is_online(device_id):
+    return ccw_device_attr(device_id, 'online') == "1"
+
+
+def device_id_to_kname(device_id):
+    if not valid_device_id(device_id):
+        raise ValueError("Invalid device_id:'%s'" % device_id)
+
+    if not is_online(device_id):
+        raise RuntimeError(
+            'Cannot determine dasd kname for offline device: %s' % device_id)
+
+    blockdir = '/sys/bus/ccw/devices/%s/block' % device_id
+    if not os.path.isdir(blockdir):
+        raise RuntimeError('Unexpectedly not a directory: %s' % blockdir)
+
+    [dasd_kname] = os.listdir(blockdir)
+
+    return dasd_kname
+
+
+def kname_to_device_id(devname):
+    """ Return the device_id of a dasd kname specified """
+    pass
+
+
+def status(device_id):
+    return ccw_device_attr(device_id, 'status')
+
+
+def blocksize(device_id):
+    devname = device_id_to_kname(device_id)
+    blkattr = 'block/%s/queue/hw_sector_size' % devname
+    return ccw_device_attr(device_id, blkattr)
+
+
+def disk_layout(device_id=None, devname=None):
+    if not any(device_id, devname):
+        raise ValueError('Must provide "device_id" or "devname"')
+
+    if not devname:
+        devname = '/dev/' + device_id_to_kname(device_id)
+
+    if not os.path.exists(devname):
+        raise ValueError('Cannot find device: "%s"' % devname)
+
+    info = dasdinfo(devname)
+    return info.get('extended', {}).get('format').txt
+
+
+def needs_formatting(device_id, blocksize, disk_layout, label):
+    """ determine if the specified device_id matches the required
+        format parameters.
+
+    Note that devices that indicate they are unformatted will require
+    formatting.
+
+    :param device_id: string in X.X.XXXX format to select the dasd
+    :param blocksize: expected blocksize of the device
+    :param disk_layout: expected disk layout
+    :param label: expected label, if None, label is ignored
+    :returns: boolean, True if formatting is needed, else False
+    """
+
+    if is_not_formatted(device_id):
+        return True
+
+    if blocksize != blocksize(device_id):
+        return True
+
+    if disk_layout != disk_layout(device_id):
+        return True
+
+    if label != label(device_id):
+        return True
+
+    return False
 
 
 def format(devname, blocksize=None, disk_layout=None, force=None, label=None,
