@@ -5,7 +5,7 @@ import os
 import re
 from curtin import util
 
-Dasdvalue = collections.namedtuple('Dasdvalue', 'hex', 'dec', 'txt')
+Dasdvalue = collections.namedtuple('Dasdvalue', ['hex', 'dec', 'txt'])
 
 
 def get_status(device_id=None):
