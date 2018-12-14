@@ -95,7 +95,7 @@ class TestLsdasd(CiTestCase):
     def test_noargs(self):
         """lsdasd invoked with --long --offline with no params."""
 
-        dasd.lsdasd()
+        dasd.lsdasd(rawoutput=True)
         self.assertEqual(
                 [mock.call(['lsdasd', '--long', '--offline'], capture=True)],
                 self.m_subp.call_args_list)
@@ -104,7 +104,7 @@ class TestLsdasd(CiTestCase):
         """lsdasd appends device_id param when passed."""
 
         device_id = random_device_id()
-        dasd.lsdasd(device_id=device_id)
+        dasd.lsdasd(device_id=device_id, rawoutput=True)
         self.assertEqual([
             mock.call(['lsdasd', '--long', '--offline', device_id],
                       capture=True)],
@@ -113,7 +113,7 @@ class TestLsdasd(CiTestCase):
     def test_with_offline_false(self):
         """lsdasd does not have --offline if param is false."""
 
-        dasd.lsdasd(offline=False)
+        dasd.lsdasd(offline=False, rawoutput=True)
         self.assertEqual([mock.call(['lsdasd', '--long'], capture=True)],
                          self.m_subp.call_args_list)
 
@@ -122,8 +122,8 @@ class TestLsdasd(CiTestCase):
 
         stdout = self.random_string()
         self.m_subp.return_value = (stdout, None)
-        output = dasd.lsdasd()
-        self.assertEqual(stdout, output)
+        output = dasd.lsdasd(rawoutput=True)
+        self.assertEqual(stdout, output[0])
         self.assertEqual(self.m_subp.call_count, 1)
 
     def test_ignores_stderr(self):
@@ -131,7 +131,7 @@ class TestLsdasd(CiTestCase):
 
         stderr = self.random_string()
         self.m_subp.return_value = (None, stderr)
-        output = dasd.lsdasd()
+        output = dasd.lsdasd(rawoutput=True)
         self.assertNotEqual(stderr, output)
         self.assertEqual(self.m_subp.call_count, 1)
 
@@ -232,9 +232,16 @@ class TestParseLsdasd(CiTestCase):
             self.assertEqual(None, status[mykey])
 
 
-class TestDasdGetStatus(CiTestCase):
+class TestLsdasdDict(CiTestCase):
 
     lsdasd_status_sep = '\n\n'
+
+    def setUp(self):
+        super(TestLsdasdDict, self).setUp()
+        self.add_patch('curtin.block.dasd.util.subp', 'm_subp')
+
+        # defaults
+        self.m_subp.return_value = (None, None)
 
     def _compose_lsdasd(self, dasdinput=None, nr_dasd=3):
         if not dasdinput:
@@ -252,32 +259,30 @@ class TestDasdGetStatus(CiTestCase):
             {k: expected[k] for k in sorted(expected)},
             {k: result[k] for k in sorted(result)})
 
-    @mock.patch('curtin.block.dasd.lsdasd')
-    def test_get_status_noargs(self, m_lsdasd):
-        """get_status returns status dict with no arguments passed."""
+    def test_lsdasd_noargs(self):
+        """lsdasd returns status dict with no arguments passed."""
         generated_output = self._compose_lsdasd()
-        m_lsdasd.return_value = generated_output
+        self.m_subp.return_value = (generated_output, '')
         expected = {}
         for status in generated_output.split(self.lsdasd_status_sep):
             expected.update(dasd._parse_lsdasd(status))
 
-        result = dasd.get_status()
+        result = dasd.lsdasd()
         self.assertEqual(dict, type(result))
         self.assertNotEqual({}, result)
         self._assert_dicts_equal(expected, result)
 
-    @mock.patch('curtin.block.dasd.lsdasd')
-    def test_get_status_single_device_id(self, m_lsdasd):
-        """get_status returns status dict for one device_id."""
+    def test_lsdasd_single_device_id(self):
+        """lsdasd returns status dict for one device_id."""
         device_id = random_device_id()
         generated_output = render_lsdasd(LSDASD_ACTIVE_TPL,
                                          "%s/dasda/94:0" % device_id)
-        m_lsdasd.return_value = generated_output
+        self.m_subp.return_value = (generated_output, '')
         expected = {}
         for status in generated_output.split(self.lsdasd_status_sep):
             expected.update(dasd._parse_lsdasd(status))
 
-        result = dasd.get_status(device_id=device_id)
+        result = dasd.lsdasd(device_id=device_id)
         self.assertEqual(dict, type(result))
         self.assertNotEqual({}, result)
         self.assertEqual(1, len(result))
