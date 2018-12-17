@@ -9,7 +9,7 @@ from curtin.log import LOG
 Dasdvalue = collections.namedtuple('Dasdvalue', ['hex', 'dec', 'txt'])
 
 
-def is_valid_device_id(device_id, ):
+def is_valid_device_id(device_id):
     """ validate device_id string.
 
     :param device_id: string representing a s390 ccs device in the format
