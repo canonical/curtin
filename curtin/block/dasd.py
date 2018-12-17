@@ -4,6 +4,7 @@ import collections
 import os
 import re
 from curtin import util
+from curtin.log import LOG
 
 Dasdvalue = collections.namedtuple('Dasdvalue', ['hex', 'dec', 'txt'])
 
@@ -42,7 +43,7 @@ def is_valid_device_id(device_id, ):
 
 
 def valid_device_id(device_id):
-    """Return a boolean indicating if device_id is valid."""
+    """ Return a boolean indicating if device_id is valid."""
     try:
         is_valid_device_id(device_id)
         return True
@@ -51,7 +52,7 @@ def valid_device_id(device_id):
 
 
 def device_id_to_kname(device_id):
-    """Return the kernel name of the device specified by parameter."""
+    """ Return the kernel name of the device specified by parameter."""
     if not valid_device_id(device_id):
         raise ValueError("Invalid device_id:'%s'" % device_id)
 
@@ -88,6 +89,14 @@ def kname_to_device_id(kname):
 
 
 def ccw_device_attr(device_id, attr):
+    """ Read a ccw_device attribute from sysfs for specified device_id.
+
+    :param device_id: string of device ccw bus_id
+    :param attr: string of which sysfs attribute to read
+    :returns stripped string of the value in the specified attribute
+        otherwise empty string if path to attribute does not exist.
+    :raises: ValueError if device_id is not valid
+    """
     attrdata = ''
     if not valid_device_id(device_id):
         raise ValueError("Invalid device_id:'%s'" % device_id)
@@ -100,32 +109,73 @@ def ccw_device_attr(device_id, attr):
 
 
 def is_active(device_id):
+    """ Returns a boolean indicating if the specified device_id is active.
+
+    :param device_id: string of device ccw bus_id.
+    :returns: boolean: True if device is active.
+    """
     return ccw_device_attr(device_id, 'status') == "online"
 
 
 def is_alias(device_id):
+    """ Returns a boolean indicating if the specified device_id is an alias.
+
+    :param device_id: string of device ccw bus_id.
+    :returns: boolean: True if device is an alias.
+    """
     return ccw_device_attr(device_id, 'alias') == "1"
 
 
 def is_not_formatted(device_id, status=None):
+    """ Returns a boolean indicating if the specified device_id is not yet
+        formatted.
+
+    :param device_id: string of device ccw bus_id.
+    :returns: boolean: True if the device is not formatted.
+    """
     return ccw_device_attr(device_id, 'status') == "unformatted"
 
 
 def is_online(device_id):
+    """ Returns a boolean indicating if specified device is online.
+
+    :param device_id: string of device ccw bus_id.
+    :returns: boolean: True if device is online.
+    """
     return ccw_device_attr(device_id, 'online') == "1"
 
 
 def status(device_id):
+    """ Read and return device_id's 'status' sysfs attribute value'
+
+    :param device_id: string of device ccw bus_id.
+    :returns: string: the value inside the 'status' sysfs attribute.
+    """
     return ccw_device_attr(device_id, 'status')
 
 
 def blocksize(device_id):
+    """ Read and return device_id's 'blocksize' value.
+
+    :param: device_id: string of device ccw bus_id.
+    :returns: string: the device's current blocksize.
+    """
     devname = device_id_to_kname(device_id)
     blkattr = 'block/%s/queue/hw_sector_size' % devname
     return ccw_device_attr(device_id, blkattr)
 
 
 def disk_layout(device_id=None, devname=None):
+    """ Read and return specified device "disk_layout" value.
+
+    :param device_id: string of device ccw bus_id, defaults to None.
+    :param devname: string of path to device, defaults to None.
+    :returns: string: One of ['cdl', 'ldl', 'not-formatted'].
+    :raises: ValueError if neither device_id or devname are valid.
+             ValueError if a path to specified device does not exist.
+
+    Note: One of either device_id or devname must be supplied.
+    """
     if not any(device_id, devname):
         raise ValueError('Must provide "device_id" or "devname"')
 
@@ -135,22 +185,36 @@ def disk_layout(device_id=None, devname=None):
     if not os.path.exists(devname):
         raise ValueError('Cannot find device: "%s"' % devname)
 
-    info = dasdinfo(devname)
-    return info.get('extended', {}).get('format').txt
+    view = dasdview(devname)
+    return view.get('extended', {}).get('format').txt
+
+
+def label(device_id):
+    """Read and return specified device label (VOLSER) value.
+
+    :param: device_id: string of device ccw bus_id.
+    :returns: string: devices's label (VOLSER) value.
+    :raises: ValueError if it cannot get label value.
+    """
+    info = dasdinfo(device_id)
+    if 'ID_SERIAL' not in info:
+        raise ValueError('Failed to read %s label (VOLSER)' % device_id)
+
+    return info.get('ID_SERIAL')
 
 
 def needs_formatting(device_id, blocksize, disk_layout, label):
-    """ determine if the specified device_id matches the required
+    """ Determine if the specified device_id matches the required
         format parameters.
 
     Note that devices that indicate they are unformatted will require
     formatting.
 
-    :param device_id: string in X.X.XXXX format to select the dasd
-    :param blocksize: expected blocksize of the device
-    :param disk_layout: expected disk layout
-    :param label: expected label, if None, label is ignored
-    :returns: boolean, True if formatting is needed, else False
+    :param device_id: string in X.X.XXXX format to select the dasd.
+    :param blocksize: expected blocksize of the device.
+    :param disk_layout: expected disk layout.
+    :param label: expected label, if None, label is ignored.
+    :returns: boolean, True if formatting is needed, else False.
     """
     if is_not_formatted(device_id):
         return True
@@ -161,7 +225,7 @@ def needs_formatting(device_id, blocksize, disk_layout, label):
     if disk_layout != disk_layout(device_id):
         return True
 
-    if label != label(device_id):
+    if label and label != label(device_id):
         return True
 
     return False
@@ -253,14 +317,14 @@ def format(devname, blocksize=None, disk_layout=None, force=None, label=None,
 
 
 def lsdasd(device_id=None, offline=True, rawoutput=False):
-    ''' Run lsdasd command and return its standard output.
+    ''' Run lsdasd command and return dict of info, optionally stdout, stderr.
 
     :param device_id:  string, device_id appended to command defaults to None
     :param offline: boolean, defaults True, appends --offline to command
     :param rawoutput: boolean, defaults False.  If True, returns raw output
         from lsdasd command, if False, parses and returns a dictionary
 
-    :returns: tuple of stdout, stderr, or dictionary
+    :returns: dictionary or tuple of stdout, stderr.
 
     Example parsed output:
     {
@@ -424,13 +488,13 @@ def _parse_lsdasd(status):
     return {device_id: parsed}
 
 
-def dasdinfo(device_id, rawoutput=False):
+def dasdinfo(device_id, rawoutput=False, strict=False):
     ''' Run dasdinfo command and return the exported values.
 
-    :param: device_id:  string, device_id of the dasd device to query
-    :returns: dictionary of udev key=value pairs
-    :raises: ValueError on None-ish device_id
-    :raises: ProcessExecutionError if dasdinfo returns non-zero
+    :param: device_id:  string, device_id of the dasd device to query.
+    :returns: dictionary of udev key=value pairs.
+    :raises: ValueError on None-ish device_id.
+    :raises: ProcessExecutionError if dasdinfo returns non-zero.
 
     e.g.
 
@@ -445,9 +509,16 @@ def dasdinfo(device_id, rawoutput=False):
     if not device_id:
         raise ValueError("Invalid device_id: '%s'" % device_id)
 
-    out, err = util.subp(
-        ['dasdinfo', '--all', '--export',
-         '--busid=%s' % device_id], capture=True)
+    try:
+        out, err = util.subp(
+            ['dasdinfo', '--all', '--export',
+             '--busid=%s' % device_id], capture=True)
+    except util.ProcessExecutionError as e:
+        LOG.warning('dasdinfo result may be incomplete: %s', e)
+        if strict:
+            raise
+        out = e.stdout
+        err = e.stderr
 
     if rawoutput:
         return (out, err)
@@ -456,10 +527,10 @@ def dasdinfo(device_id, rawoutput=False):
 
 
 def dasdview(devname, rawoutput=False):
-    ''' Run dasdview on devname and return dictionary of data
+    ''' Run dasdview on devname and return dictionary of data.
 
     dasdview --extended has 3 sections
-    general (2, 6), geometry (8:12), extended (14:)
+    general (2:6), geometry (8:12), extended (14:)
 
     '''
     if not os.path.exists(devname):
@@ -534,10 +605,10 @@ def _parse_dasdview(dasdview_output):
     view = {
     'extended': {
         'chanq_len': Dasdvalue(hex='0x0', dec=0, txt=None),
-        'characteristics': ['3990e933', ...], # shorted for brevity
+        'characteristics': ['3990e933', ...], # shortened for brevity
         'characteristics_size': Dasdvalue(hex='0x40', dec=64, txt=None),
         'confdata_size': Dasdvalue(hex='0x100', dec=256, txt=None),
-        'configuration_data': ['dc010100', ...], # removed for brevity
+        'configuration_data': ['dc010100', ...], # shortened for brevity
         'cu_model_senseid': Dasdvalue(hex='0xe9', dec=233, txt=None),
         'cu_type__senseid': Dasdvalue(hex='0x3990', dec=14736, txt=None),
         'device_model_senseid': Dasdvalue(hex='0xc', dec=12, txt=None),
