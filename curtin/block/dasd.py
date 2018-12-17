@@ -60,7 +60,12 @@ def device_id_to_kname(device_id):
     if not os.path.isdir(blockdir):
         raise RuntimeError('Unexpectedly not a directory: %s' % blockdir)
 
-    [dasd_kname] = os.listdir(blockdir)
+    try:
+        knames = os.listdir(blockdir)
+        [dasd_kname] = knames
+    except ValueError:
+        raise RuntimeError('Unexpected os.listdir result at sysfs path '
+                           '%s: "%s"' % (blockdir, knames))
 
     return dasd_kname
 

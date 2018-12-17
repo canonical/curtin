@@ -153,17 +153,97 @@ class TestDasdIsValidDeviceId(CiTestCase):
 
 class TestDasdValidDeviceId(CiTestCase):
 
+    invalids = [None, '', {}, ('', ), 12, '..', CiTestCase.random_string(),
+                'qz.zq.ffff', '.ff.1420', 'ff..1518', '0.0.xyyz',
+                'ff.ff.10001', '0.0.15ac.f']
+
     def test_valid_device_id_returns_true(self):
         """returns True when given valid device_id."""
         self.assertTrue(dasd.valid_device_id(random_device_id()))
 
     def test_valid_device_id_returns_false_if_not_valid(self):
         """returns False when given a value that does not meet requirements"""
-        invalids = [None, '', {}, ('', ), 12, '..', self.random_string(),
-                    'qz.zq.ffff', '.ff.1420', 'ff..1518', '0.0.xyyz',
-                    'ff.ff.10001', '0.0.15ac.f']
-        for invalid in invalids:
+        for invalid in self.invalids:
             self.assertFalse(dasd.valid_device_id(invalid))
+
+
+class TestDasdDeviceIdToKname(CiTestCase):
+
+    def setUp(self):
+        super(TestDasdDeviceIdToKname, self).setUp()
+        self.add_patch('curtin.block.dasd.valid_device_id', 'm_valid')
+        self.add_patch('curtin.block.dasd.is_online', 'm_online')
+        self.add_patch('curtin.block.dasd.os.path.isdir', 'm_isdir')
+        self.add_patch('curtin.block.dasd.os.listdir', 'm_listdir')
+
+        # defaults
+        self.m_valid.return_value = True
+        self.m_online.return_value = True
+        self.m_isdir.return_value = True
+        self.m_listdir.return_value = [self.random_string()]
+
+    def test_device_id_to_kname_returns_kname(self):
+        """returns a dasd kname if device_id is valid and online """
+        result = dasd.device_id_to_kname(random_device_id())
+        self.assertIsNotNone(result)
+        self.assertGreater(len(result), len("dasda"))
+
+    def test_devid_to_kname_raises_valueerror_invalid_device_id(self):
+        """device_id_to_kname raises ValueError on invalid device_id."""
+        self.m_valid.return_value = False
+        device_id = self.random_string()
+        with self.assertRaises(ValueError):
+            dasd.device_id_to_kname(device_id)
+        self.m_valid.assert_called_with(device_id)
+        self.assertEqual(1, self.m_valid.call_count)
+        self.assertEqual(0, self.m_online.call_count)
+        self.assertEqual(0, self.m_isdir.call_count)
+        self.assertEqual(0, self.m_listdir.call_count)
+
+    def test_devid_to_kname_raises_runtimeerror_no_online(self):
+        """device_id_to_kname raises RuntimeError on offline devices."""
+        self.m_online.return_value = False
+        device_id = self.random_string()
+        with self.assertRaises(RuntimeError):
+            dasd.device_id_to_kname(device_id)
+        self.m_valid.assert_called_with(device_id)
+        self.assertEqual(1, self.m_valid.call_count)
+        self.m_online.assert_called_with(device_id)
+        self.assertEqual(1, self.m_online.call_count)
+        self.assertEqual(0, self.m_isdir.call_count)
+        self.assertEqual(0, self.m_listdir.call_count)
+
+    def test_devid_to_kname_raises_runtimeerror_no_blockpath(self):
+        """device_id_to_kname raises RuntimeError on invalid sysfs path."""
+        self.m_isdir.return_value = False
+        device_id = self.random_string()
+        with self.assertRaises(RuntimeError):
+            dasd.device_id_to_kname(device_id)
+        self.m_valid.assert_called_with(device_id)
+        self.assertEqual(1, self.m_valid.call_count)
+        self.m_online.assert_called_with(device_id)
+        self.assertEqual(1, self.m_online.call_count)
+        self.assertEqual(1, self.m_isdir.call_count)
+        self.m_isdir.assert_called_with(
+            '/sys/bus/ccw/devices/%s/block' % device_id)
+        self.assertEqual(0, self.m_listdir.call_count)
+
+    def test_devid_to_kname_raises_runtimeerror_empty_blockdir(self):
+        """device_id_to_kname raises RuntimeError on empty blockdir."""
+        device_id = self.random_string()
+        self.m_listdir.return_value = []
+        with self.assertRaises(RuntimeError):
+            dasd.device_id_to_kname(device_id)
+        self.m_valid.assert_called_with(device_id)
+        self.assertEqual(1, self.m_valid.call_count)
+        self.m_online.assert_called_with(device_id)
+        self.assertEqual(1, self.m_online.call_count)
+        self.assertEqual(1, self.m_isdir.call_count)
+        self.m_isdir.assert_called_with(
+            '/sys/bus/ccw/devices/%s/block' % device_id)
+        self.m_listdir.assert_called_with(
+            '/sys/bus/ccw/devices/%s/block' % device_id)
+        self.assertEqual(1, self.m_listdir.call_count)
 
 
 class TestLsdasd(CiTestCase):
