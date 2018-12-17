@@ -151,6 +151,21 @@ class TestDasdIsValidDeviceId(CiTestCase):
             dasd.is_valid_device_id(invalid_dev)
 
 
+class TestDasdValidDeviceId(CiTestCase):
+
+    def test_valid_device_id_returns_true(self):
+        """returns True when given valid device_id."""
+        self.assertTrue(dasd.valid_device_id(random_device_id()))
+
+    def test_valid_device_id_returns_false_if_not_valid(self):
+        """returns False when given a value that does not meet requirements"""
+        invalids = [None, '', {}, ('', ), 12, '..', self.random_string(),
+                    'qz.zq.ffff', '.ff.1420', 'ff..1518', '0.0.xyyz',
+                    'ff.ff.10001', '0.0.15ac.f']
+        for invalid in invalids:
+            self.assertFalse(dasd.valid_device_id(invalid))
+
+
 class TestLsdasd(CiTestCase):
 
     def setUp(self):
