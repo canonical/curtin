@@ -80,8 +80,9 @@ def kname_to_device_id(kname):
         kname = kname.replace('/dev/', '')
 
     sysfs_path = '/sys/class/block/%s/device' % kname
-    if not os.path.exists(kname):
-        raise ValueError("Invalid kname: '%s'" % kname)
+    if not os.path.exists(sysfs_path):
+        raise RuntimeError(
+            "Sysfs path of kname doesn't exist: '%s'" % sysfs_path)
 
     # /sys/class/block/dasda/device -> ../../../0.0.1544
     # /sys/devices/css0/0.0.01a4/0.0.1544

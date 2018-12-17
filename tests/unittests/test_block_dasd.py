@@ -246,6 +246,56 @@ class TestDasdDeviceIdToKname(CiTestCase):
         self.assertEqual(1, self.m_listdir.call_count)
 
 
+class TestDasdKnameToDeviceId(CiTestCase):
+
+    def setUp(self):
+        super(TestDasdKnameToDeviceId, self).setUp()
+        self.add_patch('curtin.block.dasd.os.path.exists', 'm_exists')
+        self.add_patch('curtin.block.dasd.os.path.realpath', 'm_realpath')
+
+        # defaults
+        self.m_exists.return_value = True
+        self.m_realpath.return_value = self._mk_device_path()
+
+    def _mk_device_path(self, css_id=None, device_id=None):
+        if not css_id:
+            css_id = random_device_id()
+        if not device_id:
+            device_id = random_device_id()
+        return '/sys/devices/css0/%s/%s' % (css_id, device_id)
+
+    def test_kname_raises_value_error_on_invalid_kname(self):
+        """kname_to_device_id raises ValueError on invalid kname."""
+        for invalid in [None, '']:
+            with self.assertRaises(ValueError):
+                dasd.kname_to_device_id(invalid)
+
+    def test_kname_strips_leading_dev(self):
+        """kname_to_device_id strips leading /dev/ from kname if found."""
+        kname = self.random_string()
+        devname = '/dev/' + kname
+        dasd.kname_to_device_id(devname)
+        self.m_exists.assert_called_with(
+            '/sys/class/block/%s/device' % kname)
+
+    def test_kname_raises_runtimeerror_on_missing_sysfs_path(self):
+        """kname_to_device_id raises RuntimeError if sysfs path missing."""
+        kname = self.random_string()
+        self.m_exists.return_value = False
+        with self.assertRaises(RuntimeError):
+            dasd.kname_to_device_id(kname)
+        self.m_exists.assert_called_with(
+            '/sys/class/block/%s/device' % kname)
+
+    def test_kname_returns_device_id(self):
+        """kname_to_device returns device_id rom sysfs kname path."""
+        device_id = random_device_id()
+        self.m_realpath.return_value = (
+            self._mk_device_path(device_id=device_id))
+        result = dasd.kname_to_device_id(self.random_string())
+        self.assertEqual(device_id, result)
+
+
 class TestLsdasd(CiTestCase):
 
     def setUp(self):
