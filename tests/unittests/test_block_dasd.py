@@ -2,6 +2,7 @@
 
 import mock
 import random
+import string
 import textwrap
 
 from curtin.block import dasd
@@ -72,15 +73,82 @@ LSDASD_ACTIVE_TPL = textwrap.dedent("""\
 
 
 def random_device_id():
-    return "%x.%x.%04x" % (random.randint(0, 16),
-                           random.randint(0, 16),
-                           random.randint(1024, 4096))
+    return "%x.%x.%04x" % (random.randint(0, 256),
+                           random.randint(0, 256),
+                           random.randint(1, 65535))
 
 
 def render_lsdasd(template, device_id_line=None):
     if not device_id_line:
         device_id_line = random_device_id()
     return template % device_id_line
+
+
+class TestDasdIsValidDeviceId(CiTestCase):
+
+    nonhex = [l for l in string.ascii_lowercase if l not in
+              ['a', 'b', 'c', 'd', 'e', 'f']]
+
+    def random_nonhex(self, length=4):
+        return ''.join([random.choice(self.nonhex) for x in range(0, length)])
+
+    def test_is_valid_none_raises(self):
+        """raises ValueError on none-ish values for device_id."""
+        for invalid in [None, '', {}, ('', ), 12]:
+            with self.assertRaises(ValueError):
+                dasd.is_valid_device_id(invalid)
+
+    def test_is_valid_checks_for_two_periods(self):
+        """device_id must have exactly two '.' chars"""
+
+        nodots = self.random_string()
+        onedot = "%s.%s" % (nodots, self.random_string())
+        threedots = "%s.%s." % (onedot, self.random_string())
+
+        for invalid in [nodots, onedot, threedots]:
+            print(invalid)
+            self.assertNotEqual(2, invalid.count('.'))
+            with self.assertRaises(ValueError):
+                dasd.is_valid_device_id(invalid)
+
+        valid = random_device_id()
+        self.assertEqual(2, valid.count('.'))
+        dasd.is_valid_device_id(valid)
+
+    def test_is_valid_checks_for_three_values_after_split(self):
+        """device_id must have exactly three non-empty strings after split."""
+        missing_css = ".dsn.dev"
+        missing_dsn = "css..dev"
+        missing_dev = "css.dsn."
+        for invalid in [missing_css, missing_dsn, missing_dev]:
+            self.assertEqual(2, invalid.count('.'))
+            with self.assertRaises(ValueError):
+                dasd.is_valid_device_id(invalid)
+
+    def test_is_valid_checks_css_value(self):
+        """device_id css component must be in integer range of 0, 256"""
+        invalid_css = "ffff.0.abcd"
+        with self.assertRaises(ValueError):
+            dasd.is_valid_device_id(invalid_css)
+
+    def test_is_valid_checks_dsn_value(self):
+        """device_id dsn component must be in integer range of 0, 256"""
+        invalid_dsn = "f.ffff.abcd"
+        with self.assertRaises(ValueError):
+            dasd.is_valid_device_id(invalid_dsn)
+
+    def test_is_valid_checks_dev_value(self):
+        """device_id dev component must be in integer range of 0, 0xFFFF"""
+        invalid_dev = "0.0.10001"
+        with self.assertRaises(ValueError):
+            dasd.is_valid_device_id(invalid_dev)
+
+    def test_is_valid_handles_non_hex_values(self):
+        """device_id raises ValueError with non hex values in fields"""
+        # build a device_id with 3 nonhex random values
+        invalid_dev = ".".join([self.random_nonhex() for x in range(0, 3)])
+        with self.assertRaises(ValueError):
+            dasd.is_valid_device_id(invalid_dev)
 
 
 class TestLsdasd(CiTestCase):

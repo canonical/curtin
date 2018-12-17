@@ -2,7 +2,6 @@
 
 import collections
 import os
-import re
 from curtin import util
 from curtin.log import LOG
 
@@ -15,8 +14,6 @@ def is_valid_device_id(device_id):
     :param device_id: string representing a s390 ccs device in the format
        <channel subsystem number>.<data source number>.<device id>
        e.g. 0.0.74fc
-
-    :returns boolean: True if valid, False otherwise.
     """
     if not device_id or not isinstance(device_id, util.string_types):
         raise ValueError("device_id parameter value invalid: '%s'" % device_id)
@@ -25,21 +22,20 @@ def is_valid_device_id(device_id):
         raise ValueError(
             "device_id format invalid, requires two '.' chars: %s" % device_id)
 
-    # maxsplit=2
     (css, dsn, dev) = device_id.split('.')
 
     if not all([css, dsn, dev]):
         raise ValueError(
             "device_id format invalid, must be X.X.XXXX: '%s'" % device_id)
 
-    if int(css) not in range(0, 256):
+    if int(css, 16) not in range(0, 256):
         raise ValueError("device_id css invalid, not in 0-256: '%s'" % css)
 
-    if int(dsn) not in range(0, 256):
+    if int(dsn, 16) not in range(0, 256):
         raise ValueError("device_id dsn invalid, not in 0-256: '%s'" % dsn)
 
-    if not re.match(r'^[a-f0-9]+$', dev.lower()):
-        raise ValueError("device number invalid: not in 0xFFFF: '%s'" % dev)
+    if int(dev.lower(), 16) not in range(0, 65535):
+        raise ValueError("device number invalid: not < 0x10000: '%s'" % dev)
 
 
 def valid_device_id(device_id):
