@@ -296,6 +296,115 @@ class TestDasdKnameToDeviceId(CiTestCase):
         self.assertEqual(device_id, result)
 
 
+class TestDasdCcwDeviceAttr(CiTestCase):
+
+    def setUp(self):
+        super(TestDasdCcwDeviceAttr, self).setUp()
+        self.add_patch('curtin.block.dasd.valid_device_id', 'm_valid')
+        self.add_patch('curtin.block.dasd.os.path.isfile', 'm_isfile')
+        self.add_patch('curtin.block.dasd.util.load_file', 'm_loadfile')
+
+        # defaults
+        self.m_valid.return_value = True
+        self.m_isfile.return_value = True
+        self.m_loadfile.return_value = self.random_string()
+
+    def test_ccw_device_attr_invalid_device_id(self):
+        """ccw_device_attr raises ValueError on invalid device_id values."""
+        invalid = random.choice(TestDasdValidDeviceId.invalids)
+        self.m_valid.return_value = False
+        with self.assertRaises(ValueError):
+            dasd.ccw_device_attr(invalid, self.random_string())
+
+    def test_ccw_device_attr_reads_attr(self):
+        """ccw_device_attr reads specified attr and provides value."""
+        my_device = random_device_id
+        my_attr = self.random_string()
+        attr_val = self.random_string()
+        self.m_loadfile.return_value = attr_val
+        attr_path = '/sys/bus/ccw/devices/%s/%s' % (my_device, my_attr)
+
+        result = dasd.ccw_device_attr(my_device, my_attr)
+        self.assertEqual(attr_val, result)
+        self.m_isfile.assert_called_with(attr_path)
+        self.m_loadfile.assert_called_with(attr_path)
+
+    def test_ccw_device_attr_strips_attr_value(self):
+        """ccw_device_attr returns stripped attr value."""
+        my_device = random_device_id
+        my_attr = self.random_string()
+        attr_val = '%s\n' % self.random_string()
+        self.m_loadfile.return_value = attr_val
+        attr_path = '/sys/bus/ccw/devices/%s/%s' % (my_device, my_attr)
+
+        result = dasd.ccw_device_attr(my_device, my_attr)
+        self.assertEqual(attr_val.strip(), result)
+        self.m_isfile.assert_called_with(attr_path)
+        self.m_loadfile.assert_called_with(attr_path)
+
+    def test_ccw_device_attr_returns_empty_string_if_invalid_path(self):
+        """ccw_device_attr returns empty string for missing attributes"""
+        my_device = random_device_id
+        my_attr = self.random_string()
+        self.m_isfile.return_value = False
+        attr_path = '/sys/bus/ccw/devices/%s/%s' % (my_device, my_attr)
+        result = dasd.ccw_device_attr(my_device, my_attr)
+        self.assertEqual('', result)
+        self.m_isfile.assert_called_with(attr_path)
+
+    def test_is_active_returns_true_if_status_is_online(self):
+        self.m_loadfile.return_value = 'online'
+        result = dasd.is_active(random_device_id())
+        self.assertTrue(result)
+
+    def test_is_active_returns_false_if_status_is_not_online(self):
+        self.m_loadfile.return_value = self.random_string()
+        result = dasd.is_active(random_device_id())
+        self.assertFalse(result)
+
+    def test_is_alias_returns_true_if_alias(self):
+        self.m_loadfile.return_value = '1'
+        result = dasd.is_alias(random_device_id())
+        self.assertTrue(result)
+
+    def test_is_alias_returns_false_if_not_alias(self):
+        self.m_loadfile.return_value = self.random_string()
+        result = dasd.is_alias(random_device_id())
+        self.assertFalse(result)
+
+    def test_is_not_formatted_returns_true_when_unformatted(self):
+        self.m_loadfile.return_value = 'unformatted'
+        result = dasd.is_not_formatted(random_device_id())
+        self.assertTrue(result)
+
+    def test_is_not_formatted_returns_false_if_formatted(self):
+        self.m_loadfile.return_value = self.random_string()
+        result = dasd.is_not_formatted(random_device_id())
+        self.assertFalse(result)
+
+    def test_is_online_returns_true_if_alias(self):
+        self.m_loadfile.return_value = '1'
+        result = dasd.is_online(random_device_id())
+        self.assertTrue(result)
+
+    def test_is_online_returns_false_if_not_online(self):
+        self.m_loadfile.return_value = self.random_string()
+        result = dasd.is_online(random_device_id())
+        self.assertFalse(result)
+
+    def test_status_returns_device_status_attr(self):
+        status_val = self.random_string()
+        self.m_loadfile.return_value = status_val
+        self.assertEqual(status_val, dasd.status(random_device_id()))
+
+    @mock.patch('curtin.block.dasd.device_id_to_kname')
+    def test_blocksize(self, m_kname):
+        m_kname.return_value = self.random_string()
+        blocksize_val = '%d' % random.choice([512, 1024, 2048, 4096])
+        self.m_loadfile.return_value = blocksize_val
+        self.assertEqual(blocksize_val, dasd.blocksize(random_device_id()))
+
+
 class TestLsdasd(CiTestCase):
 
     def setUp(self):
