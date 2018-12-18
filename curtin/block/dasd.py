@@ -178,7 +178,7 @@ def disk_layout(device_id=None, devname=None):
 
     Note: One of either device_id or devname must be supplied.
     """
-    if not any(device_id, devname):
+    if not any([device_id, devname]):
         raise ValueError('Must provide "device_id" or "devname"')
 
     if not devname:

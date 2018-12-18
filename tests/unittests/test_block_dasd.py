@@ -405,6 +405,53 @@ class TestDasdCcwDeviceAttr(CiTestCase):
         self.assertEqual(blocksize_val, dasd.blocksize(random_device_id()))
 
 
+class TestDiskLayout(CiTestCase):
+
+    dasdvalue_not = dasd.Dasdvalue(0x0, 0, 'not-formatted')
+    dasdvalue_ldl = dasd.Dasdvalue(0x1, 1, 'ldl')
+    dasdvalue_cdl = dasd.Dasdvalue(0x2, 2, 'cdl')
+
+    def setUp(self):
+        super(TestDiskLayout, self).setUp()
+        self.add_patch('curtin.block.dasd.device_id_to_kname', 'm_devid')
+        self.add_patch('curtin.block.dasd.os.path.exists', 'm_exists')
+        self.add_patch('curtin.block.dasd.dasdview', 'm_dasdview')
+
+        # defaults
+        self.m_devid.return_value = random_device_id()
+        self.m_exists.return_value = True
+        self.m_dasdview.return_value = {
+            'extended': {'format': self.dasdvalue_not}}
+
+    def test_disk_layout_returns_dasd_extended_format_value(self):
+        """disk_layout returns dasd disk_layout format as string"""
+        self.assertEqual(self.dasdvalue_not.txt,
+                         dasd.disk_layout(devname=self.random_string()))
+
+    def test_disk_layout_converts_device_id_to_devname(self):
+        """disk_layout uses device_id to construct a devname."""
+        my_device_id = random_device_id()
+        my_kname = self.random_string()
+        my_devname = '/dev/' + my_kname
+        self.m_devid.return_value = my_kname
+        self.assertEqual(self.dasdvalue_not.txt,
+                         dasd.disk_layout(device_id=my_device_id))
+        self.m_devid.assert_called_with(my_device_id)
+        self.m_exists.assert_called_with(my_devname)
+        self.m_dasdview.assert_called_with(my_devname)
+
+    def test_disk_layout_raises_valuerror_without_devid_or_devname(self):
+        """disk_layout raises ValueError if not provided devid or devname."""
+        with self.assertRaises(ValueError):
+            dasd.disk_layout()
+
+    def test_disk_layout_raises_valuerror_if_devname_is_not_found(self):
+        """disk_layout raises ValueError if devpath does not exist."""
+        self.m_exists.return_value = False
+        with self.assertRaises(ValueError):
+            dasd.disk_layout(devname=self.random_string())
+
+
 class TestLsdasd(CiTestCase):
 
     def setUp(self):
