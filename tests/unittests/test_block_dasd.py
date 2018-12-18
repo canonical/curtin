@@ -460,6 +460,35 @@ class TestDiskLayout(CiTestCase):
             dasd.disk_layout(devname=self.random_string())
 
 
+class TestLabel(CiTestCase):
+
+    info = {'ID_BUS': 'ccw', 'ID_TYPE': 'disk',
+            'ID_UID': 'IBM.750000000DXP71.1500.18',
+            'ID_XUID': 'IBM.750000000DXP71.1500.18',
+            'ID_SERIAL': '0X1518'}
+
+    info_nolabel = {'ID_BUS': 'ccw', 'ID_TYPE': 'disk',
+                    'ID_UID': 'IBM.750000000DXP71.1500.18',
+                    'ID_XUID': 'IBM.750000000DXP71.1500.18'}
+
+    def setUp(self):
+        super(TestLabel, self).setUp()
+        self.add_patch('curtin.block.dasd.dasdinfo', 'm_dasdinfo')
+
+        # defaults
+        self.m_dasdinfo.return_value = self.info
+
+    def test_label_returns_disk_serial(self):
+        my_device_id = random_device_id()
+        self.assertIsNotNone(dasd.label(my_device_id))
+        self.m_dasdinfo.assert_called_with(my_device_id)
+
+    def test_label_raises_valueerror_if_no_label(self):
+        self.m_dasdinfo.return_value = self.info_nolabel
+        with self.assertRaises(ValueError):
+            dasd.label(random_device_id())
+
+
 class TestLsdasd(CiTestCase):
 
     def setUp(self):
