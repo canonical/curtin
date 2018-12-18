@@ -407,9 +407,9 @@ class TestDasdCcwDeviceAttr(CiTestCase):
 
 class TestDiskLayout(CiTestCase):
 
-    dasdvalue_not = dasd.Dasdvalue(0x0, 0, 'not-formatted')
-    dasdvalue_ldl = dasd.Dasdvalue(0x1, 1, 'ldl')
-    dasdvalue_cdl = dasd.Dasdvalue(0x2, 2, 'cdl')
+    layouts = [dasd.Dasdvalue(0x0, 0, 'not-formatted'),
+               dasd.Dasdvalue(0x1, 1, 'ldl'),
+               dasd.Dasdvalue(0x2, 2, 'cdl')]
 
     def setUp(self):
         super(TestDiskLayout, self).setUp()
@@ -420,12 +420,18 @@ class TestDiskLayout(CiTestCase):
         # defaults
         self.m_devid.return_value = random_device_id()
         self.m_exists.return_value = True
-        self.m_dasdview.return_value = {
-            'extended': {'format': self.dasdvalue_not}}
+        self.m_dasdview.return_value = self._mkview()
+
+    def _mkview(self, layout=None):
+        if not layout:
+            layout = random.choice(self.layouts)
+        return {'extended': {'format': layout}}
 
     def test_disk_layout_returns_dasd_extended_format_value(self):
         """disk_layout returns dasd disk_layout format as string"""
-        self.assertEqual(self.dasdvalue_not.txt,
+        my_layout = random.choice(self.layouts)
+        self.m_dasdview.return_value = self._mkview(layout=my_layout)
+        self.assertEqual(my_layout.txt,
                          dasd.disk_layout(devname=self.random_string()))
 
     def test_disk_layout_converts_device_id_to_devname(self):
@@ -434,7 +440,9 @@ class TestDiskLayout(CiTestCase):
         my_kname = self.random_string()
         my_devname = '/dev/' + my_kname
         self.m_devid.return_value = my_kname
-        self.assertEqual(self.dasdvalue_not.txt,
+        my_layout = random.choice(self.layouts)
+        self.m_dasdview.return_value = self._mkview(layout=my_layout)
+        self.assertEqual(my_layout.txt,
                          dasd.disk_layout(device_id=my_device_id))
         self.m_devid.assert_called_with(my_device_id)
         self.m_exists.assert_called_with(my_devname)
