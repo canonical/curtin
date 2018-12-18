@@ -407,9 +407,11 @@ class TestDasdCcwDeviceAttr(CiTestCase):
 
 class TestDiskLayout(CiTestCase):
 
-    layouts = [dasd.Dasdvalue(0x0, 0, 'not-formatted'),
-               dasd.Dasdvalue(0x1, 1, 'ldl'),
-               dasd.Dasdvalue(0x2, 2, 'cdl')]
+    layouts = {
+        'not-formatted': dasd.Dasdvalue(0x0, 0, 'not-formatted'),
+        'ldl': dasd.Dasdvalue(0x1, 1, 'ldl'),
+        'cdl': dasd.Dasdvalue(0x2, 2, 'cdl'),
+    }
 
     def setUp(self):
         super(TestDiskLayout, self).setUp()
@@ -422,14 +424,15 @@ class TestDiskLayout(CiTestCase):
         self.m_exists.return_value = True
         self.m_dasdview.return_value = self._mkview()
 
-    def _mkview(self, layout=None):
+    @classmethod
+    def _mkview(cls, layout=None):
         if not layout:
-            layout = random.choice(self.layouts)
+            layout = random.choice(list(cls.layouts.values()))
         return {'extended': {'format': layout}}
 
     def test_disk_layout_returns_dasd_extended_format_value(self):
         """disk_layout returns dasd disk_layout format as string"""
-        my_layout = random.choice(self.layouts)
+        my_layout = random.choice(list(self.layouts.values()))
         self.m_dasdview.return_value = self._mkview(layout=my_layout)
         self.assertEqual(my_layout.txt,
                          dasd.disk_layout(devname=self.random_string()))
@@ -440,7 +443,7 @@ class TestDiskLayout(CiTestCase):
         my_kname = self.random_string()
         my_devname = '/dev/' + my_kname
         self.m_devid.return_value = my_kname
-        my_layout = random.choice(self.layouts)
+        my_layout = random.choice(list(self.layouts.values()))
         self.m_dasdview.return_value = self._mkview(layout=my_layout)
         self.assertEqual(my_layout.txt,
                          dasd.disk_layout(device_id=my_device_id))
@@ -487,6 +490,69 @@ class TestLabel(CiTestCase):
         self.m_dasdinfo.return_value = self.info_nolabel
         with self.assertRaises(ValueError):
             dasd.label(random_device_id())
+
+
+class TestNeedsFormatting(CiTestCase):
+
+    blocksizes = [512, 1024, 2048, 4096]
+
+    def setUp(self):
+        super(TestNeedsFormatting, self).setUp()
+        self.add_patch('curtin.block.dasd.is_not_formatted', 'm_notfmt')
+        self.add_patch('curtin.block.dasd.blocksize', 'm_blocksize')
+        self.add_patch('curtin.block.dasd.disk_layout', 'm_disklayout')
+        self.add_patch('curtin.block.dasd.label', 'm_label')
+
+        # defaults
+        self.m_notfmt.return_value = False
+        self.m_blocksize.return_value = 4096
+        self.m_disklayout.return_value = TestDiskLayout.layouts['cdl'].txt
+        self.m_label.return_value = '0x1518'
+
+    def test_needs_formatting_label_mismatch(self):
+        my_device_id = random_device_id()
+        # mismatch label
+        self.assertTrue(dasd.needs_formatting(my_device_id, 4096, 'cdl',
+                                              self.random_string()))
+        self.m_notfmt.assert_called_with(my_device_id)
+        self.m_blocksize.assert_called_with(my_device_id)
+        self.m_disklayout.assert_called_with(my_device_id)
+        self.m_label.assert_called_with(my_device_id)
+
+    def test_needs_formatting_layout_mismatch(self):
+        my_device_id = random_device_id()
+        my_layout = TestDiskLayout.layouts['ldl'].txt
+        self.m_layout = my_layout
+        self.assertTrue(
+            dasd.needs_formatting(my_device_id, 4096, my_layout, '0x1518'))
+
+        self.m_notfmt.assert_called_with(my_device_id)
+        self.m_blocksize.assert_called_with(my_device_id)
+        self.m_disklayout.assert_called_with(my_device_id)
+
+    def test_needs_formatting_blocksize_mismatch(self):
+        my_device_id = random_device_id()
+        my_blocksize = random.choice(self.blocksizes[0:3])
+        self.assertTrue(
+            dasd.needs_formatting(my_device_id, my_blocksize, 'cdl', '0x1518'))
+        self.m_notfmt.assert_called_with(my_device_id)
+        self.m_blocksize.assert_called_with(my_device_id)
+
+    def test_needs_formatting_unformatted_disk(self):
+        my_device_id = random_device_id()
+        self.m_notfmt.return_value = True
+        self.assertTrue(
+            dasd.needs_formatting(my_device_id, 4096, 'cdl', '0x1518'))
+        self.m_notfmt.assert_called_with(my_device_id)
+
+    def test_needs_formatting_ignores_label_mismatch(self):
+        my_device_id = random_device_id()
+        self.assertFalse(
+            dasd.needs_formatting(my_device_id, 4096, 'cdl', None))
+        self.m_notfmt.assert_called_with(my_device_id)
+        self.m_blocksize.assert_called_with(my_device_id)
+        self.m_disklayout.assert_called_with(my_device_id)
+        self.assertEqual(0, self.m_label.call_count)
 
 
 class TestLsdasd(CiTestCase):

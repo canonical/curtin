@@ -205,7 +205,7 @@ def label(device_id):
     return info.get('ID_SERIAL')
 
 
-def needs_formatting(device_id, blocksize, disk_layout, label):
+def needs_formatting(device_id, blksize, layout, volser):
     """ Determine if the specified device_id matches the required
         format parameters.
 
@@ -213,21 +213,21 @@ def needs_formatting(device_id, blocksize, disk_layout, label):
     formatting.
 
     :param device_id: string in X.X.XXXX format to select the dasd.
-    :param blocksize: expected blocksize of the device.
-    :param disk_layout: expected disk layout.
-    :param label: expected label, if None, label is ignored.
+    :param blksize: expected blocksize of the device.
+    :param layout: expected disk layout.
+    :param volser: expected label, if None, label is ignored.
     :returns: boolean, True if formatting is needed, else False.
     """
     if is_not_formatted(device_id):
         return True
 
-    if blocksize != blocksize(device_id):
+    if blksize != blocksize(device_id):
         return True
 
-    if disk_layout != disk_layout(device_id):
+    if layout != disk_layout(device_id):
         return True
 
-    if label and label != label(device_id):
+    if volser and volser != label(device_id):
         return True
 
     return False
