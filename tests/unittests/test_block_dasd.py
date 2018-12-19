@@ -888,17 +888,20 @@ class TestDasdInfo(CiTestCase):
         self.m_subp.return_value = ('', '')
 
     def test_invalid_device_id(self):
+        """dasdinfo raises ValueError on invalid device_id."""
         device_id = self.random_string()
         with self.assertRaises(ValueError):
             dasd.dasdinfo(device_id)
 
     def test_info_returns_dictionary(self):
+        """dasdinfo returns dictionary of device info."""
         device_id = random_device_id()
         self.m_subp.return_value = (self.info, '')
         expected = util.load_shell_content(self.info)
         self.assert_dicts_equal(expected, dasd.dasdinfo(device_id))
 
     def test_info_returns_partial_dictionary(self):
+        """dasdinfo returns partial dictionary on error."""
         device_id = random_device_id()
         self.m_subp.side_effect = (
             util.ProcessExecutionError(stdout=self.info_no_serial,
@@ -909,6 +912,7 @@ class TestDasdInfo(CiTestCase):
         self.assert_dicts_equal(expected, dasd.dasdinfo(device_id))
 
     def test_info_returns_rawoutput(self):
+        """dasdinfo returns stdout, stderr if rawoutput is True."""
         device_id = random_device_id()
         expected_stdout = self.random_string()
         expected_stderr = self.random_string()
@@ -918,6 +922,7 @@ class TestDasdInfo(CiTestCase):
         self.assertEqual(expected_stderr, stderr)
 
     def test_info_returns_rawoutput_on_partial_discovery(self):
+        """dasdinfo returns stdout, stderr on error if rawoutput is True."""
         device_id = random_device_id()
         expected_stdout = self.random_string()
         expected_stderr = self.random_string()
@@ -931,6 +936,7 @@ class TestDasdInfo(CiTestCase):
         self.assertEqual(expected_stderr, stderr)
 
     def test_info_raise_error_if_strict(self):
+        """dasdinfo raises ProcessEdecutionError if strict is True."""
         device_id = random_device_id()
         self.m_subp.side_effect = (
             util.ProcessExecutionError(stdout=self.random_string(),
@@ -939,5 +945,107 @@ class TestDasdInfo(CiTestCase):
                                        cmd=self.random_string()))
         with self.assertRaises(util.ProcessExecutionError):
             dasd.dasdinfo(device_id, strict=True)
+
+
+class TestDasdView(CiTestCase):
+
+    view = textwrap.dedent("""\
+
+    --- general DASD information ---------------------------------------------
+    device node            : /dev/dasdd
+    busid                  : 0.0.1518
+    type                   : ECKD
+    device type            : hex 3390       dec 13200
+
+    --- DASD geometry --------------------------------------------------------
+    number of cylinders    : hex 2721       dec 10017
+    tracks per cylinder    : hex f          dec 15
+    blocks per track       : hex c          dec 12
+    blocksize              : hex 1000       dec 4096
+
+    --- extended DASD information --------------------------------------------
+    real device number     : hex 0          dec 0
+    subchannel identifier  : hex 178        dec 376
+    CU type  (SenseID)     : hex 3990       dec 14736
+    CU model (SenseID)     : hex e9         dec 233
+    device type  (SenseID) : hex 3390       dec 13200
+    device model (SenseID) : hex c          dec 12
+    open count             : hex 1          dec 1
+    req_queue_len          : hex 0          dec 0
+    chanq_len              : hex 0          dec 0
+    status                 : hex 5          dec 5
+    label_block            : hex 2          dec 2
+    FBA_layout             : hex 0          dec 0
+    characteristics_size   : hex 40         dec 64
+    confdata_size          : hex 100        dec 256
+    format                 : hex 2          dec 2           CDL formatted
+    features               : hex 0          dec 0           default
+
+    characteristics        : 3990e933 900c5e0c  39f72032 2721000f
+                             e000e5a2 05940222  13090674 00000000
+                             00000000 00000000  32321502 dfee0001
+                             0677080f 007f4800  1f3c0000 00002721
+
+    configuration_data     : dc010100 f0f0f2f1  f0f7f9f0 f0c9c2d4
+                             f7f5f0f0 f0f0f0f0  f0c4e7d7 f7f10818
+                             d4020000 f0f0f2f1  f0f7f9f6 f1c9c2d4
+                             f7f5f0f0 f0f0f0f0  f0c4e7d7 f7f10800
+                             d0000000 f0f0f2f1  f0f7f9f6 f1c9c2d4
+                             f7f5f0f0 f0f0f0f0  f0c4e7d7 f7f00800
+                             f0000001 f0f0f2f1  f0f7f9f0 f0c9c2d4
+                             f7f5f0f0 f0f0f0f0  f0c4e7d7 f7f10800
+                             00000000 00000000  00000000 00000000
+                             00000000 00000000  00000000 00000000
+                             00000000 00000000  00000000 00000000
+                             00000000 00000000  00000000 00000000
+                             00000000 00000000  00000000 00000000
+                             00000000 00000000  00000000 00000000
+                             81000003 2d001e00  15000247 000c0016
+                             000cc018 935e41ee  00030000 0000a000""")
+
+    view_nondasd = textwrap.dedent("""\
+    Error: dasdview: Could not retrieve disk information!
+
+    """)
+
+    def setUp(self):
+        super(TestDasdView, self).setUp()
+        self.add_patch('curtin.block.dasd.util.subp', 'm_subp')
+        self.add_patch('curtin.block.dasd.os.path.exists', 'm_exists')
+        self.add_patch('curtin.block.dasd._parse_dasdview', 'm_parseview')
+
+        # defaults
+        self.m_exists.return_value = True
+        self.m_subp.return_value = ('', '')
+
+    def test_dasdview_raise_error_on_invalid_device(self):
+        """dasdview raises error on invalid device path."""
+        devname = self.random_string()
+        self.m_exists.return_value = False
+        with self.assertRaises(ValueError):
+            dasd.dasdview(devname)
+
+    def test_dasdview_calls_parse_dasdview(self):
+        """dasdview calls parser on output from dasdview command."""
+        devname = self.random_string()
+        self.m_subp.return_value = (self.view, self.random_string())
+        dasd.dasdview(devname)
+        self.m_subp.assert_called_with(
+            ['dasdview', '--extended', devname], capture=True)
+        self.m_parseview.assert_called_with(self.view)
+
+    def test_dasdview_returns_stdout_stderr_on_rawoutput(self):
+        """dasdview returns stdout, stderr if rawoutput is True."""
+        devname = self.random_string()
+        stdout = ''
+        stderr = self.view_nondasd
+        self.m_subp.return_value = (stdout, stderr)
+        (out, err) = dasd.dasdview(devname, rawoutput=True)
+        self.m_subp.assert_called_with(
+            ['dasdview', '--extended', devname], capture=True)
+        self.assertEqual(0, self.m_parseview.call_count)
+        self.assertEqual(stdout, out)
+        self.assertEqual(stderr, err)
+
 
 # vi: ts=4 expandtab syntax=python
