@@ -168,107 +168,6 @@ class TestDasdValidDeviceId(CiTestCase):
             self.assertFalse(dasd.valid_device_id(invalid))
 
 
-class TestFormat(CiTestCase):
-
-    def setUp(self):
-        super(TestFormat, self).setUp()
-        self.add_patch('curtin.block.dasd.os.path.exists', 'm_exists')
-        self.add_patch('curtin.block.dasd.util.subp', 'm_subp')
-
-        # defaults
-        self.m_exists.return_value = True
-        self.m_subp.return_value = (None, None)
-
-    def test_format_no_devname(self):
-        devname = None
-        with self.assertRaises(ValueError):
-            dasd.format(devname)
-
-    def test_format_devname_path_missing(self):
-        devname = self.random_string()
-        self.m_exists.return_value = False
-        with self.assertRaises(RuntimeError):
-            dasd.format(devname)
-
-    def test_format_devname_ignores_path_missing_strict_false(self):
-        devname = self.random_string()
-        self.m_exists.return_value = False
-        dasd.format(devname, strict=False)
-
-    def test_format_defaults_match_docstring(self):
-        devname = self.random_string()
-        dasd.format(devname)
-        self.m_subp.assert_called_with(
-            ['dasdfmt', '-y', '--blocksize=4096', '--disk_layout=cdl',
-             '--mode=full', devname], capture=True)
-
-    def test_format_uses_supplied_params(self):
-        devname = self.random_string()
-        blksize = 512
-        layout = 'ldl'
-        set_label = self.random_string()
-        mode = 'quick'
-        dasd.format(devname, blksize=blksize, layout=layout,
-                    set_label=set_label, mode=mode)
-        self.m_subp.assert_called_with(
-            ['dasdfmt', '-y', '--blocksize=%s' % blksize,
-             '--disk_layout=%s' % layout, '--mode=%s' % mode,
-             '--label=%s' % set_label, devname], capture=True)
-
-    def test_format_no_label_ignores_set_label_keep_label(self):
-        devname = self.random_string()
-        blksize = 512
-        layout = 'ldl'
-        set_label = self.random_string()
-        mode = 'quick'
-        dasd.format(devname, blksize=blksize, layout=layout,
-                    set_label=set_label, no_label=True, mode=mode)
-        self.m_subp.assert_called_with(
-            ['dasdfmt', '-y', '--blocksize=%s' % blksize,
-             '--disk_layout=%s' % layout, '--mode=%s' % mode,
-             '--no_label', devname], capture=True)
-
-    def test_format_keep_label_ignores_set_label(self):
-        devname = self.random_string()
-        blksize = 512
-        layout = 'ldl'
-        set_label = self.random_string()
-        mode = 'quick'
-        dasd.format(devname, blksize=blksize, layout=layout,
-                    set_label=set_label, keep_label=True, mode=mode)
-        self.m_subp.assert_called_with(
-            ['dasdfmt', '-y', '--blocksize=%s' % blksize,
-             '--disk_layout=%s' % layout, '--mode=%s' % mode,
-             '--keep_label', devname], capture=True)
-
-    def test_format_raise_valueerror_on_bad_blksize(self):
-        devname = self.random_string()
-        rval = random.randint(1, 5000)
-        blksize = (rval + 1) if rval in [512, 1024, 2048, 4096] else rval
-        self.assertNotIn(blksize, [512, 1024, 2048, 4096])
-        with self.assertRaises(ValueError):
-            dasd.format(devname, blksize=blksize)
-
-    def test_format_raise_valueerror_on_bad_layout(self):
-        devname = self.random_string()
-        layout = self.random_string()
-        with self.assertRaises(ValueError):
-            dasd.format(devname, layout=layout)
-
-    def test_format_raise_valueerror_on_mode(self):
-        devname = self.random_string()
-        mode = self.random_string()
-        with self.assertRaises(ValueError):
-            dasd.format(devname, mode=mode)
-
-    def test_format_add_force_if_set(self):
-        devname = self.random_string()
-        dasd.format(devname, force=True)
-        self.m_subp.assert_called_with(
-            ['dasdfmt', '-y', '--blocksize=4096', '--disk_layout=cdl',
-             '--mode=full', '--force', devname], capture=True)
-
-
 class TestDasdDeviceIdToKname(CiTestCase):
 
     def setUp(self):
@@ -655,6 +554,107 @@ class TestNeedsFormatting(CiTestCase):
         self.m_blocksize.assert_called_with(my_device_id)
         self.m_disklayout.assert_called_with(my_device_id)
         self.assertEqual(0, self.m_label.call_count)
+
+
+class TestFormat(CiTestCase):
+
+    def setUp(self):
+        super(TestFormat, self).setUp()
+        self.add_patch('curtin.block.dasd.os.path.exists', 'm_exists')
+        self.add_patch('curtin.block.dasd.util.subp', 'm_subp')
+
+        # defaults
+        self.m_exists.return_value = True
+        self.m_subp.return_value = (None, None)
+
+    def test_format_no_devname(self):
+        devname = None
+        with self.assertRaises(ValueError):
+            dasd.format(devname)
+
+    def test_format_devname_path_missing(self):
+        devname = self.random_string()
+        self.m_exists.return_value = False
+        with self.assertRaises(RuntimeError):
+            dasd.format(devname)
+
+    def test_format_devname_ignores_path_missing_strict_false(self):
+        devname = self.random_string()
+        self.m_exists.return_value = False
+        dasd.format(devname, strict=False)
+
+    def test_format_defaults_match_docstring(self):
+        devname = self.random_string()
+        dasd.format(devname)
+        self.m_subp.assert_called_with(
+            ['dasdfmt', '-y', '--blocksize=4096', '--disk_layout=cdl',
+             '--mode=full', devname], capture=True)
+
+    def test_format_uses_supplied_params(self):
+        devname = self.random_string()
+        blksize = 512
+        layout = 'ldl'
+        set_label = self.random_string()
+        mode = 'quick'
+        dasd.format(devname, blksize=blksize, layout=layout,
+                    set_label=set_label, mode=mode)
+        self.m_subp.assert_called_with(
+            ['dasdfmt', '-y', '--blocksize=%s' % blksize,
+             '--disk_layout=%s' % layout, '--mode=%s' % mode,
+             '--label=%s' % set_label, devname], capture=True)
+
+    def test_format_no_label_ignores_set_label_keep_label(self):
+        devname = self.random_string()
+        blksize = 512
+        layout = 'ldl'
+        set_label = self.random_string()
+        mode = 'quick'
+        dasd.format(devname, blksize=blksize, layout=layout,
+                    set_label=set_label, no_label=True, mode=mode)
+        self.m_subp.assert_called_with(
+            ['dasdfmt', '-y', '--blocksize=%s' % blksize,
+             '--disk_layout=%s' % layout, '--mode=%s' % mode,
+             '--no_label', devname], capture=True)
+
+    def test_format_keep_label_ignores_set_label(self):
+        devname = self.random_string()
+        blksize = 512
+        layout = 'ldl'
+        set_label = self.random_string()
+        mode = 'quick'
+        dasd.format(devname, blksize=blksize, layout=layout,
+                    set_label=set_label, keep_label=True, mode=mode)
+        self.m_subp.assert_called_with(
+            ['dasdfmt', '-y', '--blocksize=%s' % blksize,
+             '--disk_layout=%s' % layout, '--mode=%s' % mode,
+             '--keep_label', devname], capture=True)
+
+    def test_format_raise_valueerror_on_bad_blksize(self):
+        devname = self.random_string()
+        rval = random.randint(1, 5000)
+        blksize = (rval + 1) if rval in [512, 1024, 2048, 4096] else rval
+        self.assertNotIn(blksize, [512, 1024, 2048, 4096])
+        with self.assertRaises(ValueError):
+            dasd.format(devname, blksize=blksize)
+
+    def test_format_raise_valueerror_on_bad_layout(self):
+        devname = self.random_string()
+        layout = self.random_string()
+        with self.assertRaises(ValueError):
+            dasd.format(devname, layout=layout)
+
+    def test_format_raise_valueerror_on_mode(self):
+        devname = self.random_string()
+        mode = self.random_string()
+        with self.assertRaises(ValueError):
+            dasd.format(devname, mode=mode)
+
+    def test_format_add_force_if_set(self):
+        devname = self.random_string()
+        dasd.format(devname, force=True)
+        self.m_subp.assert_called_with(
+            ['dasdfmt', '-y', '--blocksize=4096', '--disk_layout=cdl',
+             '--mode=full', '--force', devname], capture=True)
 
 
 class TestLsdasd(CiTestCase):
