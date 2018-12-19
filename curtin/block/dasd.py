@@ -548,7 +548,7 @@ def dasdview(devname, rawoutput=False):
     return _parse_dasdview(out)
 
 
-def _parse_dasdview(dasdview_output):
+def _parse_dasdview(view_output):
     """ Parse dasdview --extended output into a dictionary
 
     Input:
@@ -660,7 +660,7 @@ def _parse_dasdview(dasdview_output):
 
     def _parse_output(output):
         parsed = {}
-        prev_key = None
+        key = prev_key = value = None
         for line in output:
             if not line:
                 continue
@@ -696,7 +696,16 @@ def _parse_dasdview(dasdview_output):
 
         return parsed
 
-    lines = dasdview_output.splitlines()
+    if not view_output or not isinstance(view_output, util.string_types):
+        raise ValueError(
+            'Invalid value for input to parse: ' + str(view_output))
+
+    # XXX: dasdview --extended has 52 lines for dasd devices
+    if len(view_output.splitlines()) < 52:
+        raise ValueError(
+            'dasdview output has fewer than 52 lines, cannot parse')
+
+    lines = view_output.splitlines()
     gen_start, gen_end = (2, 6)
     geo_start, geo_end = (8, 12)
     ext_start, ext_end = (14, len(lines))

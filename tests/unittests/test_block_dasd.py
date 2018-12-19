@@ -74,8 +74,8 @@ LSDASD_ACTIVE_TPL = textwrap.dedent("""\
 
 
 def random_device_id():
-    return "%x.%x.%04x" % (random.randint(0, 256),
-                           random.randint(0, 256),
+    return "%x.%x.%04x" % (random.randint(0, 255),
+                           random.randint(0, 255),
                            random.randint(1, 65535))
 
 
@@ -951,35 +951,35 @@ class TestDasdView(CiTestCase):
 
     view = textwrap.dedent("""\
 
-    --- general DASD information ---------------------------------------------
+    --- general DASD information ----------------------------------------------
     device node            : /dev/dasdd
     busid                  : 0.0.1518
     type                   : ECKD
-    device type            : hex 3390       dec 13200
+    device type            : hex 3390  	dec 13200
 
-    --- DASD geometry --------------------------------------------------------
-    number of cylinders    : hex 2721       dec 10017
-    tracks per cylinder    : hex f          dec 15
-    blocks per track       : hex c          dec 12
-    blocksize              : hex 1000       dec 4096
+    --- DASD geometry ---------------------------------------------------------
+    number of cylinders    : hex 2721  	dec 10017
+    tracks per cylinder    : hex f  	dec 15
+    blocks per track       : hex c  	dec 12
+    blocksize              : hex 1000  	dec 4096
 
-    --- extended DASD information --------------------------------------------
-    real device number     : hex 0          dec 0
-    subchannel identifier  : hex 178        dec 376
-    CU type  (SenseID)     : hex 3990       dec 14736
-    CU model (SenseID)     : hex e9         dec 233
-    device type  (SenseID) : hex 3390       dec 13200
-    device model (SenseID) : hex c          dec 12
-    open count             : hex 1          dec 1
-    req_queue_len          : hex 0          dec 0
-    chanq_len              : hex 0          dec 0
-    status                 : hex 5          dec 5
-    label_block            : hex 2          dec 2
-    FBA_layout             : hex 0          dec 0
-    characteristics_size   : hex 40         dec 64
-    confdata_size          : hex 100        dec 256
-    format                 : hex 2          dec 2           CDL formatted
-    features               : hex 0          dec 0           default
+    --- extended DASD information ---------------------------------------------
+    real device number     : hex 0  	dec 0
+    subchannel identifier  : hex 178  	dec 376
+    CU type  (SenseID)     : hex 3990  	dec 14736
+    CU model (SenseID)     : hex e9  	dec 233
+    device type  (SenseID) : hex 3390  	dec 13200
+    device model (SenseID) : hex c  	dec 12
+    open count             : hex 1  	dec 1
+    req_queue_len          : hex 0  	dec 0
+    chanq_len              : hex 0  	dec 0
+    status                 : hex 5  	dec 5
+    label_block            : hex 2  	dec 2
+    FBA_layout             : hex 0  	dec 0
+    characteristics_size   : hex 40  	dec 64
+    confdata_size          : hex 100  	dec 256
+    format                 : hex 2  	dec 2      	CDL formatted
+    features               : hex 0  	dec 0      	default
 
     characteristics        : 3990e933 900c5e0c  39f72032 2721000f
                              e000e5a2 05940222  13090674 00000000
@@ -1047,5 +1047,28 @@ class TestDasdView(CiTestCase):
         self.assertEqual(stdout, out)
         self.assertEqual(stderr, err)
 
+
+class TestParseDasdView(CiTestCase):
+
+    def test_parse_dasdview_no_input(self):
+        """_parse_dasdview raises ValueError on invalid status input."""
+        for view_output in [None, 123, {}, (), []]:
+            with self.assertRaises(ValueError):
+                dasd._parse_dasdview(view_output)
+
+    def test_parse_dasdview_invalid_strings_short(self):
+        """_parse_dasdview raises ValueError on invalid long input."""
+        with self.assertRaises(ValueError):
+            dasd._parse_dasdview("\n".join([self.random_string()] * 20))
+
+    def test_parse_dasdview_returns_dictionary(self):
+        """_parse_dasdview returns dict w/ required keys parsing valid view."""
+        result = dasd._parse_dasdview(TestDasdView.view)
+        self.assertEqual(dict, type(result))
+        self.assertNotEqual({}, result)
+        self.assertEqual(3, len(result.keys()))
+        for key in result.keys():
+            self.assertEqual(dict, type(result[key]))
+            self.assertNotEqual(0, len(list(result[key].keys())))
 
 # vi: ts=4 expandtab syntax=python
