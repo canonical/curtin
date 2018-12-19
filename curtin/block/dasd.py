@@ -510,7 +510,7 @@ def dasdinfo(device_id, rawoutput=False, strict=False):
      'ID_UID': 'IBM.750000000DXP71.1500.44',
      'ID_XUID': 'IBM.750000000DXP71.1500.44'}
     '''
-    if not device_id:
+    if not valid_device_id(device_id):
         raise ValueError("Invalid device_id: '%s'" % device_id)
 
     try:

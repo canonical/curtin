@@ -6,6 +6,7 @@ import string
 import textwrap
 
 from curtin.block import dasd
+from curtin import util
 from .helpers import CiTestCase
 
 
@@ -106,7 +107,6 @@ class TestDasdIsValidDeviceId(CiTestCase):
         threedots = "%s.%s." % (onedot, self.random_string())
 
         for invalid in [nodots, onedot, threedots]:
-            print(invalid)
             self.assertNotEqual(2, invalid.count('.'))
             with self.assertRaises(ValueError):
                 dasd.is_valid_device_id(invalid)
@@ -828,11 +828,6 @@ class TestLsdasdDict(CiTestCase):
 
         return "\n".join(dasdinput)
 
-    def _assert_dicts_equal(self, expected, result):
-        self.assertEqual(
-            {k: expected[k] for k in sorted(expected)},
-            {k: result[k] for k in sorted(result)})
-
     def test_lsdasd_noargs(self):
         """lsdasd returns status dict with no arguments passed."""
         generated_output = self._compose_lsdasd()
@@ -844,7 +839,7 @@ class TestLsdasdDict(CiTestCase):
         result = dasd.lsdasd()
         self.assertEqual(dict, type(result))
         self.assertNotEqual({}, result)
-        self._assert_dicts_equal(expected, result)
+        self.assert_dicts_equal(expected, result)
 
     def test_lsdasd_single_device_id(self):
         """lsdasd returns status dict for one device_id."""
@@ -860,44 +855,89 @@ class TestLsdasdDict(CiTestCase):
         self.assertEqual(dict, type(result))
         self.assertNotEqual({}, result)
         self.assertEqual(1, len(result))
-        self._assert_dicts_equal(expected, result)
+        self.assert_dicts_equal(expected, result)
 
 
-class TestDasdFormat(CiTestCase):
+class TestDasdInfo(CiTestCase):
 
-    def test_bad_devname(self):
-        pass
+    info = textwrap.dedent("""\
+        ID_BUS=ccw
+        ID_TYPE=disk
+        ID_UID=IBM.750000000DXP71.1500.20
+        ID_XUID=IBM.750000000DXP71.1500.20
+        ID_SERIAL=0x1520
+        """)
 
-    def test_devname_doesnt_exist_with_strict(self):
-        """format raises RuntimeError if devname doesn't exist w/strict=True"""
-        pass
+    info_no_serial = textwrap.dedent("""\
+        ID_BUS=ccw
+        ID_TYPE=disk
+        ID_UID=IBM.750000000DXP71.1500.20
+        ID_XUID=IBM.750000000DXP71.1500.20
+        """)
 
-    def test_devname_doesnt_exist_no_strict_runs_command(self):
-        """format issues cmd w/strict=False and devname doesn't exist."""
-        pass
+    info_not_dasd = textwrap.dedent("""\
+        ID_BUS=ccw
+        ID_TYPE=disk
+        """)
 
-    def test_default_params_match_docstrings(self):
-        """format w/defs match docstring."""
-        pass
+    def setUp(self):
+        super(TestDasdInfo, self).setUp()
+        self.add_patch('curtin.block.dasd.util.subp', 'm_subp')
 
-    def test_invalid_blocksize_raise_valueerror(self):
-        """format raises ValueError on invalid blocksize value."""
-        pass
+        # defaults
+        self.m_subp.return_value = ('', '')
 
-    def test_invalid_disk_layout_raises_valueerror(self):
-        """format raises ValueError on invalid disk_layout value."""
-        pass
+    def test_invalid_device_id(self):
+        device_id = self.random_string()
+        with self.assertRaises(ValueError):
+            dasd.dasdinfo(device_id)
 
-    def test_invalid_mode_raises_valueerror(self):
-        """format raises ValueError on invalid mode value."""
-        pass
+    def test_info_returns_dictionary(self):
+        device_id = random_device_id()
+        self.m_subp.return_value = (self.info, '')
+        expected = util.load_shell_content(self.info)
+        self.assert_dicts_equal(expected, dasd.dasdinfo(device_id))
 
-    def test_force_parameter_added_to_cmd(self):
-        """format adds --force to command if param is true."""
-        pass
+    def test_info_returns_partial_dictionary(self):
+        device_id = random_device_id()
+        self.m_subp.side_effect = (
+            util.ProcessExecutionError(stdout=self.info_no_serial,
+                                       stderr=self.random_string(),
+                                       exit_code=random.randint(1, 255),
+                                       cmd=self.random_string()))
+        expected = util.load_shell_content(self.info_no_serial)
+        self.assert_dicts_equal(expected, dasd.dasdinfo(device_id))
 
-    def test_label_param_passed_to_dasdfmt(self):
-        """format adds --label=value to command if set."""
-        pass
+    def test_info_returns_rawoutput(self):
+        device_id = random_device_id()
+        expected_stdout = self.random_string()
+        expected_stderr = self.random_string()
+        self.m_subp.return_value = (expected_stdout, expected_stderr)
+        (stdout, stderr) = dasd.dasdinfo(device_id, rawoutput=True)
+        self.assertEqual(expected_stdout, stdout)
+        self.assertEqual(expected_stderr, stderr)
+
+    def test_info_returns_rawoutput_on_partial_discovery(self):
+        device_id = random_device_id()
+        expected_stdout = self.random_string()
+        expected_stderr = self.random_string()
+        self.m_subp.side_effect = (
+            util.ProcessExecutionError(stdout=expected_stdout,
+                                       stderr=expected_stderr,
+                                       exit_code=random.randint(1, 255),
+                                       cmd=self.random_string()))
+        (stdout, stderr) = dasd.dasdinfo(device_id, rawoutput=True)
+        self.assertEqual(expected_stdout, stdout)
+        self.assertEqual(expected_stderr, stderr)
+
+    def test_info_raise_error_if_strict(self):
+        device_id = random_device_id()
+        self.m_subp.side_effect = (
+            util.ProcessExecutionError(stdout=self.random_string(),
+                                       stderr=self.random_string(),
+                                       exit_code=random.randint(1, 255),
+                                       cmd=self.random_string()))
+        with self.assertRaises(util.ProcessExecutionError):
+            dasd.dasdinfo(device_id, strict=True)
 
 # vi: ts=4 expandtab syntax=python

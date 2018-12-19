@@ -75,6 +75,11 @@ class CiTestCase(TestCase):
         return ''.join(
             random.choice(string.ascii_lowercase) for _ in range(length))
 
+    def assert_dicts_equal(self, expected, result):
+        self.assertEqual(
+            {k: expected[k] for k in sorted(expected)},
+            {k: result[k] for k in sorted(result)})
+
 
 def dir2dict(startdir, prefix=None):
     flist = {}
