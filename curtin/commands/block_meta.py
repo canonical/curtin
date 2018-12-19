@@ -2,7 +2,8 @@
 
 from collections import OrderedDict, namedtuple
 from curtin import (block, config, paths, util)
-from curtin.block import (bcache, mdadm, mkfs, clear_holders, lvm, iscsi, zfs)
+from curtin.block import (bcache, clear_holders, dasd, iscsi, lvm, mdadm, mkfs,
+                          zfs)
 from curtin import distro
 from curtin.log import LOG, logged_time
 from curtin.reporter import events
@@ -386,6 +387,9 @@ def get_path_to_storage_volume(volume, storage_config):
         volume_path = block.kname_to_path(partition_kname)
         devsync_vol = os.path.join(disk_block_path)
 
+    elif vol.get('type') == "dasd":
+        volume_path = block.lookup_dasd(vol.get('device_id'))
+
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
         # to id of device in storage config
@@ -459,6 +463,48 @@ def get_path_to_storage_volume(volume, storage_config):
 
     LOG.debug('return volume path {}'.format(volume_path))
     return volume_path
+
+
+def dasd_handler(info, storage_config):
+    """ Prepare the specified dasd device per configuration
+
+    params: info: dictionary of configuration, required keys are:
+        type, id, device_id
+    params: storage_config:  ordered dictionary of entire storage config
+
+    example:
+    {
+     'type': 'dasd',
+     'id': 'dasd_142f',
+     'device_id': '0.0.142f',
+     'blocksize': 4096,
+     'label': 'cloudimg-rootfs',
+     'mode': 'quick',
+     'disk_layout': 'cdl',
+    }
+    """
+    device_id = info.get('device_id')
+    blocksize = info.get('blocksize')
+    disk_layout = info.get('disk_layout')
+    label = info.get('label')
+
+    if dasd.needs_formatting(device_id, blocksize, disk_layout, label):
+        if config.value_as_boolean(info.get('preserve')):
+            raise ValueError(
+                "dasd '%s' does not match configured properties and"
+                "preserve is set to true.  The dasd needs formatting"
+                "with the specified parameters to continue." % info.get('id'))
+
+        devpath = get_path_to_storage_volume(info.get('id'), storage_config)
+        LOG.debug('Formatting dasd id=%s device_id=%s devpath=%s',
+                  info.get('id'), info.get('device_id'), devpath)
+        dasd.format(devpath, blksize=info.get('blocksize'),
+                    layout=info.get('disk_layout'),
+                    set_label=info.get('label'), mode=info.get('mode'))
+
+        # check post-format to ensure values match
+        if dasd.needs_formatting(device_id, blocksize, disk_layout, label):
+            raise RuntimeError("Dasd %s failed to format" % devpath)
 
 
 def disk_handler(info, storage_config):

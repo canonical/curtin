@@ -710,8 +710,11 @@ def lookup_dasd(bus_id):
     if not os.path.exists(sys_ccw_dev):
         raise ValueError('Failed to find a block device at %s' % sys_ccw_dev)
 
-    disks = os.listdir(sys_ccw_dev)
-    path = '/dev/%s' % disks[0]
+    dasds = os.listdir(sys_ccw_dev)
+    if not dasds or len(dasds) < 1:
+        raise ValueError("no dasd with device_id '%s' found" % bus_id)
+
+    path = '/dev/%s' % dasds[0]
     if not os.path.exists(path):
         raise ValueError("path '%s' to block device for dasd with bus_id '%s' \
             does not exist" % (path, bus_id))
