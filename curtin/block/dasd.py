@@ -3,7 +3,7 @@
 import collections
 import os
 from curtin import util
-from curtin.log import LOG
+from curtin.log import LOG, logged_time
 
 Dasdvalue = collections.namedtuple('Dasdvalue', ['hex', 'dec', 'txt'])
 
@@ -233,18 +233,20 @@ def needs_formatting(device_id, blksize, layout, volser):
     return False
 
 
-def format(devname, blocksize=None, disk_layout=None, force=None, label=None,
+@logged_time("DASD.FORMAT")
+def format(devname, blksize=None, layout=None, force=None, set_label=None,
            keep_label=False, no_label=False, mode=None, strict=True):
     """ Format dasd device specified by kernel device name (/dev/dasda)
 
-    :param blocksize: integer value to configure disk block size in bytes.
+    :param blksize: integer value to configure disk block size in bytes.
         Must be one of 512, 1024, 2048, 4096; defaults to 4096.
-    :param disk_layout: string specify disk layout format. Must be one of
+    :param layout: string specify disk layout format. Must be one of
         'cdl' (Compatible Disk Layout, default) or
         'ldl' (Linux Disk Layout).
     :param force: boolean set true to skip sanity checks, defaults to False
-    :param label: string to write to the volume label for identification.  If
-        no label provided, a label is generated from device number of the dasd.
+    :param set_label: string to write to the volume label for identification.
+        If no label provided, a label is generated from device number of the
+        dasd.
         Note: is interpreted as ASCII string and is automatically converted to
         uppercase and then to EBCDIC.  e.g. 'a@b\$c#' to get A@B$C#.
     :param keep_label: boolean set true to keep existing label on dasd,
@@ -270,31 +272,31 @@ def format(devname, blocksize=None, disk_layout=None, force=None, label=None,
     if strict and not os.path.exists(devname):
         raise RuntimeError("devname '%s' does not exist" % devname)
 
-    if not blocksize:
-        blocksize = 4096
+    if not blksize:
+        blksize = 4096
 
-    if not disk_layout:
-        disk_layout = 'cdl'
+    if not layout:
+        layout = 'cdl'
 
     if not mode:
         mode = 'full'
 
     if no_label:
-        label = None
+        set_label = None
         keep_label = None
 
     if keep_label:
-        label = None
+        set_label = None
 
     valid_blocksize = [512, 1024, 2048, 4096]
-    if blocksize not in valid_blocksize:
-        raise ValueError("blocksize: '%s' not one of '%s'" % (blocksize,
-                                                              valid_blocksize))
+    if blksize not in valid_blocksize:
+        raise ValueError("blksize: '%s' not one of '%s'" % (blksize,
+                                                            valid_blocksize))
 
     valid_layouts = ['cdl', 'ldl']
-    if disk_layout not in valid_layouts:
-        raise ValueError("disk_layout: '%s' not one of '%s'" % (disk_layout,
-                                                                valid_layouts))
+    if layout not in valid_layouts:
+        raise ValueError("layout: '%s' not one of '%s'" % (layout,
+                                                           valid_layouts))
 
     valid_modes = ['full', 'quick', 'expand']
     if mode not in valid_modes:
@@ -302,12 +304,12 @@ def format(devname, blocksize=None, disk_layout=None, force=None, label=None,
 
     opts = [
         '-y',
-        '--blocksize=%s' % blocksize,
-        '--disk_layout=%s' % disk_layout,
+        '--blocksize=%s' % blksize,
+        '--disk_layout=%s' % layout,
         '--mode=%s' % mode
     ]
-    if label:
-        opts += ['--label=%s' % label]
+    if set_label:
+        opts += ['--label=%s' % set_label]
     if keep_label:
         opts += ['--keep_label']
     if no_label:
