@@ -1612,6 +1612,7 @@ def meta_custom(args):
     """
 
     command_handlers = {
+        'dasd': dasd_handler,
         'disk': disk_handler,
         'partition': partition_handler,
         'format': format_handler,
