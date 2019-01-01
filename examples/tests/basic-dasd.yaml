@@ -3,6 +3,7 @@ storage:
     version: 1
     config:
       - id: dasd_spare
+        type: dasd
         device_id: 0.0.1520
         blocksize: 4096
         mode: full

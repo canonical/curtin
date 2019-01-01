@@ -549,7 +549,7 @@ main() {
             bsize="512"
         fi
 
-        if [ ! -f "$src" ]; then
+        if [ ! -e "$src" ]; then
             qemu-img create -f raw "${src}" "$size" ||
                 { error "failed create $src of size $size"; return 1; }
             fmt="raw"

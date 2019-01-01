@@ -984,8 +984,14 @@ class VMBaseClass(TestCase):
         disks.extend(['--disk', target_disk])
 
         # --disk source:size:driver:block_size:devopts
-        for (disk_no, disk_sz) in enumerate(cls.extra_disks):
-            dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
+        for (disk_no, disk_spec) in enumerate(cls.extra_disks):
+            if disk_spec.startswith('/'):
+                dpath = disk_spec
+                disk_sz = ''
+            else:
+                dpath = os.path.join(cls.td.disks,
+                                     'extra_disk_%d.img' % disk_no)
+                disk_sz = disk_spec
             extra_disk = '{}:{}:{}:{}'.format(dpath, disk_sz,
                                               cls.disk_driver,
                                               cls.disk_block_size)
@@ -1003,8 +1009,14 @@ class VMBaseClass(TestCase):
 
         # build nvme disk args if needed
         logger.info('nvme disks: %s', cls.nvme_disks)
-        for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
-            dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
+        for (disk_no, disk_spec) in enumerate(cls.nvme_disks):
+            if disk_spec.startswith('/'):
+                dpath = disk_spec
+                disk_sz = ''
+            else:
+                dpath = os.path.join(cls.td.disks,
+                                     'nvme_disk_%d.img' % disk_no)
+                disk_sz = disk_spec
             nvme_serial = cls.nvme_serials[disk_no]
             nvme_disk = '{}:{}:nvme:{}:{}'.format(dpath, disk_sz,
                                                   cls.disk_block_size,
@@ -1215,8 +1227,14 @@ class VMBaseClass(TestCase):
             target_disks.extend([disk])
 
         extra_disks = []
-        for (disk_no, disk_sz) in enumerate(cls.extra_disks):
-            dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
+        for (disk_no, disk_spec) in enumerate(cls.extra_disks):
+            if disk_spec.startswith('/'):
+                dpath = disk_spec
+                disk_sz = ''
+            else:
+                dpath = os.path.join(cls.td.disks,
+                                     'extra_disk_%d.img' % disk_no)
+                disk_sz = disk_spec
             disk = '--disk={},driver={},format={},{}'.format(
                 dpath, cls.disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
             if len(cls.disk_wwns):
@@ -1233,8 +1251,14 @@ class VMBaseClass(TestCase):
 
         nvme_disks = []
         disk_driver = 'nvme'
-        for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
-            dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
+        for (disk_no, disk_spec) in enumerate(cls.nvme_disks):
+            if disk_spec.startswith('/'):
+                dpath = disk_spec
+                disk_sz = ''
+            else:
+                dpath = os.path.join(cls.td.disks,
+                                     'nvme_disk_%d.img' % disk_no)
+                disk_sz = disk_spec
             disk = '--disk={},driver={},format={},{}'.format(
                 dpath, disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
             if len(cls.nvme_serials):

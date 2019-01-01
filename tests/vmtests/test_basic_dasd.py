@@ -8,9 +8,10 @@ import textwrap
 
 class TestBasicDasd(VMBaseClass):
     """ Test curtin formats dasd devices and uses them as disks. """
-    conf_file = "examples/tests/basic-dasd.py"
+    conf_file = "examples/tests/basic-dasd.yaml"
     dirty_disks = False
-    extra_disks = ['5G']
+    disk_driver = 'virtio-blk-ccw'
+    extra_disks = ['/dev/dasdd']
     extra_nics = []
     # dasd is s390x only
     arch_skip = ["amd64", "arm64", "i386", "ppc64el"]
@@ -19,7 +20,7 @@ class TestBasicDasd(VMBaseClass):
         cd OUTPUT_COLLECT_D
         lsdasd > lsdasd.out
         sfdisk --list > sfdisk_list
-        for d in /dev/[sv]d[a-z] /dev/xvd?; do
+        for d in /dev/[sv]d[a-z] /dev/xvd? /dev/dasd?; do
             [ -b "$d" ] || continue
             echo == $d ==
             sgdisk --print $d

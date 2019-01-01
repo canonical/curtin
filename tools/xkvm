@@ -402,6 +402,7 @@ main() {
             def_netmodel=${DEF_NETMODEL:-"virtio-net-ccw"}
             # disable virtio-scsi-bus
             virtio_scsi_bus="virtio-scsi-ccw"
+            virtio_blk_bus="virtio-blk-ccw"
             virtio_rng_device="virtio-rng-ccw"
             ;;
         ppc64*)
@@ -500,7 +501,11 @@ main() {
             isdevopt "$driver" "$tok" && devopts="${devopts},$tok" ||
                 diskopts="${diskopts},${tok}"
         done
-
+        case $driver in
+            virtio-blk-ccw)
+                # disable scsi when using virtio-blk-ccw
+                devopts="${devopts},scsi=off";;
+        esac
         diskargs=( "${diskargs[@]}" -drive "$diskopts" -device "$devopts" )
     done
 
