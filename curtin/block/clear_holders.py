@@ -130,8 +130,12 @@ def shutdown_bcache(device):
         return
 
     # get slaves [vdb1, vdc], allow for slaves to not have bcache dir
-    slave_paths = [get_bcache_sys_path(k, strict=False) for k in
-                   os.listdir(os.path.join(device, 'slaves'))]
+    try:
+        slave_paths = [get_bcache_sys_path(k, strict=False) for k in
+                       os.listdir(os.path.join(device, 'slaves'))]
+    except util.FileMissingError as e:
+        LOG.debug('Transient race, bcache slave path not found: %s', e)
+        slave_paths = []
 
     # stop cacheset if it exists
     bcache_cache_sysfs = get_bcache_using_dev(device, strict=False)

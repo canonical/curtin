@@ -37,6 +37,11 @@ except NameError:
     # python3 does not have a long type.
     numeric_types = (int, float)
 
+try:
+    FileMissingError = FileNotFoundError
+except NameError:
+    FileMissingError = IOError
+
 from . import paths
 from .log import LOG, log_call
 

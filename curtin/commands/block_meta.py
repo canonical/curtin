@@ -692,13 +692,14 @@ def partition_handler(info, storage_config):
     else:
         raise ValueError("parent partition has invalid partition table")
 
+    # ensure partition exists
+    part_path = block.dev_path(block.partition_kname(disk_kname, partnumber))
+    block.rescan_block_devices([disk])
+    udevadm_settle(exists=part_path)
+
     # wipe the created partition if needed, superblocks have already been wiped
     wipe_mode = info.get('wipe', 'superblock')
     if wipe_mode != 'superblock':
-        part_path = block.dev_path(block.partition_kname(disk_kname,
-                                                         partnumber))
-        block.rescan_block_devices([disk])
-        udevadm_settle(exists=part_path)
         LOG.debug('Wiping partition %s mode=%s', part_path, wipe_mode)
         block.wipe_volume(part_path, mode=wipe_mode, exclusive=False)
 
