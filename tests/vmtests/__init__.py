@@ -1566,7 +1566,7 @@ class VMBaseClass(TestCase):
 
         contents = self.load_collect_file("ls_dname")
         for diskname, part in self.disk_to_check:
-            if part is not 0:
+            if part != 0:
                 link = diskname + "-part" + str(part)
                 self.assertIn(link, contents.splitlines())
             self.assertIn(diskname, contents.splitlines())
