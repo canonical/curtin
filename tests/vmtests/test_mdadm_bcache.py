@@ -126,7 +126,7 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         self.test_dname(disk_to_check=self.bcache_dnames)
 
 
-@VMBaseClass.skip_by_date("1754581", fixby="2019-01-22", install=False)
+@VMBaseClass.skip_by_date("1754581", fixby="2020-01-22", install=False)
 class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):
     __test__ = True
 
