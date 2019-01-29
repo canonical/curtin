@@ -410,7 +410,10 @@ def identify_bcache(device):
     """
     determine if specified device is a bcache device
     """
-    return block.path_to_kname(device).startswith('bcache')
+    # bcache devices can be partitioned and the partitions are *not*
+    # bcache devices with a sysfs 'slaves' subdirectory
+    partition = identify_partition(device)
+    return block.path_to_kname(device).startswith('bcache') and not partition
 
 
 def identify_partition(device):
