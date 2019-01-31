@@ -1296,8 +1296,7 @@ class VMBaseClass(TestCase):
                     content = lfh.read().decode('utf-8', errors='replace')
                 logger.debug('boot serial console output:\n%s', content)
             else:
-                    logger.warn("Booting after install not produce"
-                                " a console log.")
+                logger.warn("Booting after install not produce a console log.")
 
         # mount output disk
         try:
@@ -1542,11 +1541,10 @@ class VMBaseClass(TestCase):
         fstab_entry = None
         for line in util.load_file(path).splitlines():
             for device, mntpoint in self.fstab_expected.items():
-                    if device in line:
-                        fstab_entry = line
-                        self.assertIsNotNone(fstab_entry)
-                        self.assertEqual(fstab_entry.split(' ')[1],
-                                         mntpoint)
+                if device in line:
+                    fstab_entry = line
+                    self.assertIsNotNone(fstab_entry)
+                    self.assertEqual(fstab_entry.split(' ')[1], mntpoint)
 
     @skip_if_flag('expected_failure')
     def test_dname(self, disk_to_check=None):

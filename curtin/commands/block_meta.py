@@ -309,7 +309,7 @@ def make_dname(volume, storage_config):
                                                  storage_config)
         bcache_super = bcache.superblock_asdict(device=backing_dev)
         if bcache_super and bcache_super['sb.version'].startswith('1'):
-                bdev_uuid = bcache_super['dev.uuid']
+            bdev_uuid = bcache_super['dev.uuid']
         matches += [[compose_udev_equality("ENV{CACHED_UUID}", bdev_uuid)]]
         bcache.write_label(sanitize_dname(dname), backing_dev)
     elif vol.get('type') == "lvm_partition":
