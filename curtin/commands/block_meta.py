@@ -242,12 +242,14 @@ def make_dname_byid(path, error_msg=None, info=None):
             "Disk tag udev rules are only for disks, %s has devtype=%s" %
             (error_msg, devtype))
 
-    byid_keys = ['ID_SERIAL', 'ID_WWN_WITH_EXTENSION']
+    byid_keys = ['ID_WWN_WITH_EXTENSION', 'ID_WWN',
+                 'ID_SERIAL', 'ID_SERIAL_SHORT']
     present = [k for k in byid_keys if info.get(k)]
     if not present:
-        raise RuntimeError(
+        LOG.warning(
             "Cannot create disk tag udev rule for %s, "
             "missing 'serial' or 'wwn' value" % error_msg)
+        return []
 
     return [[compose_udev_equality('ENV{%s}' % k, info[k]) for k in present]]
 

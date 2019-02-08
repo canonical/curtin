@@ -132,7 +132,7 @@ class TestMakeDname(CiTestCase):
         block_meta.make_dname('iscsi1', self.storage_config)
         mock_util.ensure_dir.assert_called_with(self.rules_d)
         self.assertTrue(mock_log.debug.called)
-        both_rules = (id_rule_identifiers + wwn_rule_identifiers)
+        both_rules = (wwn_rule_identifiers + id_rule_identifiers)
         mock_util.write_file.assert_called_with(
             self.rule_file.format(res_dname),
             self._content(
@@ -157,10 +157,9 @@ class TestMakeDname(CiTestCase):
 
         # disk with no PT_UUID
         disk = 'disk_noid'
-        with self.assertRaises(RuntimeError):
-            block_meta.make_dname(disk, self.storage_config)
-            mock_log.warning.assert_called_with(warning_msg.format(disk))
-            self.assertFalse(mock_util.write_file.called)
+        block_meta.make_dname(disk, self.storage_config)
+        mock_log.warning.assert_called_with(warning_msg.format(disk))
+        self.assertFalse(mock_util.write_file.called)
 
         mock_util.subp.side_effect = self._make_mock_subp_blkid(
             '', self.trusty_blkid)
@@ -308,8 +307,7 @@ class TestMakeDnameById(CiTestCase):
         """test dname_byid raises RuntimeError on device without ID or WWN."""
         mypath = "/dev/" + self.random_string()
         m_udev.return_value = {'DEVTYPE': 'disk'}
-        with self.assertRaises(RuntimeError):
-            block_meta.make_dname_byid(mypath)
+        self.assertEqual([], block_meta.make_dname_byid(mypath))
 
     @mock.patch('curtin.commands.block_meta.udevadm_info')
     def test_udevinfo_not_called_if_info_provided(self, m_udev):
@@ -355,7 +353,7 @@ class TestMakeDnameById(CiTestCase):
             block_meta.make_dname_byid(mypath, info=info))
 
     def test_disk_with_both_id_wwn(self):
-        """test dname_byid returns rules with both ID_SERIAL and ID_WWN"""
+        """test dname_byid returns rules with both ID_WWN_* and ID_SERIAL"""
         mypath = "/dev/" + self.random_string()
         myserial = self.random_string()
         mywwn = self.random_string()
@@ -363,9 +361,46 @@ class TestMakeDnameById(CiTestCase):
                 'ID_WWN_WITH_EXTENSION': mywwn,
                 'DEVNAME': mypath}
         self.assertEqual(
-            [['ENV{ID_SERIAL}=="%s"' % myserial,
-              'ENV{ID_WWN_WITH_EXTENSION}=="%s"' % mywwn]],
+            [[
+                'ENV{ID_WWN_WITH_EXTENSION}=="%s"' % mywwn,
+                'ENV{ID_SERIAL}=="%s"' % myserial,
+            ]],
             block_meta.make_dname_byid(mypath, info=info))
 
+    def test_disk_with_short_ids(self):
+        """test dname_byid returns rules w/ both ID_WWN and ID_SERIAL_SHORT."""
+        mypath = "/dev/" + self.random_string()
+        myserial = self.random_string()
+        mywwn = self.random_string()
+        info = {'DEVTYPE': 'disk', 'ID_SERIAL_SHORT': myserial,
+                'ID_WWN': mywwn,
+                'DEVNAME': mypath}
+        self.assertEqual(
+            [[
+                'ENV{ID_WWN}=="%s"' % mywwn,
+                'ENV{ID_SERIAL_SHORT}=="%s"' % myserial,
+            ]],
+            block_meta.make_dname_byid(mypath, info=info))
+
+    def test_disk_with_all_ids(self):
+        """test dname_byid returns rules w/ all WWN and SERIAL values."""
+        mypath = "/dev/" + self.random_string()
+        myserial_short = self.random_string()
+        myserial = myserial_short + "_" + myserial_short
+        mywwn = self.random_string()
+        mywwn_ext = mywwn + "_" + mywwn
+        info = {'DEVTYPE': 'disk', 'ID_SERIAL_SHORT': myserial_short,
+                'ID_SERIAL': myserial,
+                'ID_WWN': mywwn,
+                'ID_WWN_WITH_EXTENSION': mywwn_ext,
+                'DEVNAME': mypath}
+        self.assertEqual(
+            [[
+                'ENV{ID_WWN_WITH_EXTENSION}=="%s"' % mywwn_ext,
+                'ENV{ID_WWN}=="%s"' % mywwn,
+                'ENV{ID_SERIAL}=="%s"' % myserial,
+                'ENV{ID_SERIAL_SHORT}=="%s"' % myserial_short,
+            ]],
+            block_meta.make_dname_byid(mypath, info=info))
 
 # vi: ts=4 expandtab syntax=python
