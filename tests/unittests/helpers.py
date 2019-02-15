@@ -11,6 +11,8 @@ import string
 import tempfile
 from unittest import TestCase
 
+from curtin import util
+
 
 def builtin_module_name():
     options = ('builtins', '__builtin__')
@@ -86,5 +88,23 @@ def dir2dict(startdir, prefix=None):
             with open(fpath, "r") as fp:
                 flist[key] = fp.read()
     return flist
+
+
+def populate_dir(path, files):
+    if not os.path.exists(path):
+        os.makedirs(path)
+    ret = []
+    for (name, content) in files.items():
+        p = os.path.sep.join([path, name])
+        util.ensure_dir(os.path.dirname(p))
+        with open(p, "wb") as fp:
+            if isinstance(content, util.binary_type):
+                fp.write(content)
+            else:
+                fp.write(content.encode('utf-8'))
+            fp.close()
+        ret.append(p)
+
+    return ret
 
 # vi: ts=4 expandtab syntax=python
