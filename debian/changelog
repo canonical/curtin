@@ -1,4 +1,4 @@
-curtin (18.2-10-g7afd77fa-0ubuntu1) UNRELEASED; urgency=medium
+curtin (18.2-10-g7afd77fa-0ubuntu1) disco; urgency=medium
 
   * New upstream snapshot.
     - Support for multi-layers images fsimage-layered:// URI
