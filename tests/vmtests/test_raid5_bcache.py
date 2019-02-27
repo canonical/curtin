@@ -16,6 +16,8 @@ class TestMdadmAbs(VMBaseClass):
         mdadm --detail --scan > mdadm_status
         mdadm --detail --scan | grep -c ubuntu > mdadm_active1
         grep -c active /proc/mdstat > mdadm_active2
+
+        exit 0
         """)]
 
     def test_mdadm_output_files_exist(self):
@@ -33,13 +35,15 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
     conf_file = "examples/tests/raid5bcache.yaml"
     disk_to_check = [('md0', 0), ('sda', 2)]
 
-    extra_collect_scripts = TestMdadmAbs.extra_collect_scripts
-    extra_collect_scripts += [textwrap.dedent("""
-        cd OUTPUT_COLLECT_D
-        bcache-super-show /dev/vda2 > bcache_super_vda2
-        ls /sys/fs/bcache > bcache_ls
-        cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
-        """)]
+    extra_collect_scripts = (
+        TestMdadmAbs.extra_collect_scripts +
+        [textwrap.dedent("""\
+            cd OUTPUT_COLLECT_D
+            bcache-super-show /dev/vda2 > bcache_super_vda2
+            ls /sys/fs/bcache > bcache_ls
+            cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
+
+            exit 0""")])
     fstab_expected = {
         '/dev/bcache0': '/',
         '/dev/md0': '/srv/data',
@@ -99,6 +103,10 @@ class BionicTestRaid5Bcache(relbase.bionic, TestMdadmBcacheAbs):
 
 
 class CosmicTestRaid5Bcache(relbase.cosmic, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class DiscoTestRaid5Bcache(relbase.disco, TestMdadmBcacheAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

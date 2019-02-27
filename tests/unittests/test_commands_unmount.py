@@ -1,6 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 from curtin.commands import unmount
+from curtin.util import FileMissingError
 from .helpers import CiTestCase
 
 import argparse
@@ -24,11 +25,7 @@ class TestUnmount(CiTestCase):
     def test_unmount_target_not_found_exception(self):
         """Check target path not found raises FileNotFoundError exception"""
         self.args.target = "catch-me-if-you-can"
-        try:
-            FileNotFoundError
-        except NameError:
-            FileNotFoundError = IOError
-        self.assertRaises(FileNotFoundError, unmount.unmount_main, self.args)
+        self.assertRaises(FileMissingError, unmount.unmount_main, self.args)
 
     @mock.patch('curtin.commands.unmount.os')
     def test_unmount_target_with_path(self, mock_os):

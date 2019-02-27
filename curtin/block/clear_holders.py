@@ -130,8 +130,12 @@ def shutdown_bcache(device):
         return
 
     # get slaves [vdb1, vdc], allow for slaves to not have bcache dir
-    slave_paths = [get_bcache_sys_path(k, strict=False) for k in
-                   os.listdir(os.path.join(device, 'slaves'))]
+    try:
+        slave_paths = [get_bcache_sys_path(k, strict=False) for k in
+                       os.listdir(os.path.join(device, 'slaves'))]
+    except util.FileMissingError as e:
+        LOG.debug('Transient race, bcache slave path not found: %s', e)
+        slave_paths = []
 
     # stop cacheset if it exists
     bcache_cache_sysfs = get_bcache_using_dev(device, strict=False)
@@ -406,7 +410,10 @@ def identify_bcache(device):
     """
     determine if specified device is a bcache device
     """
-    return block.path_to_kname(device).startswith('bcache')
+    # bcache devices can be partitioned and the partitions are *not*
+    # bcache devices with a sysfs 'slaves' subdirectory
+    partition = identify_partition(device)
+    return block.path_to_kname(device).startswith('bcache') and not partition
 
 
 def identify_partition(device):

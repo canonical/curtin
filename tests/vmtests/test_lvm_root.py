@@ -26,6 +26,8 @@ class TestLvmRootAbs(VMBaseClass):
         vgdisplay > vgdisplay
         lvdisplay > lvdisplay
         ls -al /dev/root_vg/ > dev_root_vg
+
+        exit 0
         """)]
     fstab_expected = {
         'UUID=04836770-e989-460f-8774-8e277ddcb40f': '/',

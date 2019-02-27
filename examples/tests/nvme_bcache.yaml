@@ -19,7 +19,7 @@ storage:
     model: INTEL SSDPEDME400G4
     name: nvme0n1
     ptable: gpt
-    path: /dev/nvme0n1
+    serial: nvme-a
     type: disk
     wipe: superblock
   - device: sda

@@ -18,12 +18,15 @@ class TestMdadmIscsiAbs(TestMdadmAbs, TestBasicIscsiAbs):
     conf_file = "examples/tests/mdadm_iscsi.yaml"
     nr_testfiles = 1
 
-    extra_collect_scripts = TestMdadmAbs.extra_collect_scripts
-    extra_collect_scripts += TestBasicIscsiAbs.extra_collect_scripts
-    extra_collect_scripts += [textwrap.dedent("""
-        cd OUTPUT_COLLECT_D
-        ls -al /sys/class/block/md*/slaves/  > md_slaves
-        """)]
+    extra_collect_scripts = (
+        TestMdadmAbs.extra_collect_scripts +
+        TestBasicIscsiAbs.extra_collect_scripts +
+        [textwrap.dedent("""
+            cd OUTPUT_COLLECT_D
+            ls -al /sys/class/block/md*/slaves/  > md_slaves
+
+            exit 0
+            """)])
 
 
 class Centos70TestIscsiMdadm(centos_relbase.centos70_xenial,
@@ -52,6 +55,10 @@ class BionicTestIscsiMdadm(relbase.bionic, TestMdadmIscsiAbs):
 
 
 class CosmicTestIscsiMdadm(relbase.cosmic, TestMdadmIscsiAbs):
+    __test__ = True
+
+
+class DiscoTestIscsiMdadm(relbase.disco, TestMdadmIscsiAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

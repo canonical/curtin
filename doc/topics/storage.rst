@@ -175,7 +175,15 @@ not need to be preserved.
 If the ``name`` key is present, curtin will create a udev rule that makes a
 symbolic link to the disk with the given name value. This makes it easy to find
 disks on an installed system. The links are created in
-``/dev/disk/by-dname/<name>``.
+``/dev/disk/by-dname/<name>``.  The udev rules will utilize two types of disk
+metadata to construct the link.  For disks with ``serial`` and/or ``wwn`` values
+these will be used to ensure the name persists even if the contents of the disk
+change.  For legacy purposes, curtin also emits a rule utilizing metadata on
+the disk contents, typically a partition UUID value, this also preserves these
+links for disks which lack persistent attributes such as a ``serial`` or
+``wwn``, typically found on virtualized environments where such values are left
+unset.
+
 A link to each partition on the disk will also be created at
 ``/dev/disk/by-dname/<name>-part<number>``, so if ``name: maindisk`` is set,
 the disk will be at ``/dev/disk/by-dname/maindisk`` and the first partition on
@@ -237,6 +245,14 @@ After the partition is added to the disk's partition table, curtin can run a
 wipe command on the partition. The wipe command values are the sames as for
 disks.
 
+.. note::
+
+  Curtin will automatically wipe 1MB at the starting location of the partition
+  prior to creating the partition to ensure that other block layers or devices
+  do not enable themselves and prevent accessing the partition.  Wipe
+  and other destructive operations only occur if the ``preserve`` value
+  is not set to ``True``.
+
 **flag**: *logical, extended, boot, bios_grub, swap, lvm, raid, home, prep*
 
 If the ``flag`` key is present, curtin will set the specified flag on the
@@ -268,6 +284,17 @@ filesystem or be mounted anywhere on the system.
 If the preserve flag is set to true, curtin will verify that the partition
 exists and will not modify the partition.
 
+**name**: *<name>*
+
+If the ``name`` key is present, curtin will create a udev rule that makes a
+symbolic link to the partition with the given name value. The links are created
+in ``/dev/disk/by-dname/<name>``.
+
+For partitions, the udev rule created relies upon disk contents, in this case
+the partition entry UUID.  This will remain in effect unless the underlying disk
+on which the partition resides has the partition table modified or wiped.
+
+
 **Config Example**::
 
  - id: disk0-part1
@@ -276,6 +303,7 @@ exists and will not modify the partition.
    size: 8GB
    device: disk0
    flag: boot
+   name: boot_partition
 
 .. _format:
 
@@ -496,6 +524,12 @@ scheme for Logical Volumes follows the pattern
 with ``name`` *lv1* on a ``lvm_volgroup`` named *vg1* would have the path
 ``/dev/disk/by-dname/vg1-lv1``.
 
+.. note::
+
+   dname values for contructed devices (such as lvm) only remain persistent
+   as long as the device metadata does not change.  If users modify the device
+   such that device metadata is changed then the udev rule may no longer apply.
+
 **volgroup**: *<volgroup id>*
 
 The ``volgroup`` key specifies the ``id`` of the Volume Group in which to
@@ -592,7 +626,9 @@ The ``name`` key specifies the name of the md device.
 .. note::
 
   Curtin creates a udev rule to create a link to the md device in
-  ``/dev/disk/by-dname/<name>`` using the specified name.
+  ``/dev/disk/by-dname/<name>`` using the specified name.  The dname
+  symbolic link is only persistent as long as the raid metadata is
+  not modifed or destroyed.
 
 **raidlevel**: *0, 1, 5, 6, 10*
 
@@ -668,6 +704,13 @@ reads/writes from the cache.  None effectively disables bcache.
 
 If the ``name`` key is present, curtin will create a link to the device at
 ``/dev/disk/by-dname/<name>``.
+
+.. note::
+
+   dname values for contructed devices (such as bcache) only remain persistent
+   as long as the device metadata does not change.  If users modify the device
+   such that device metadata is changed then the udev rule may no longer apply.
+
 
 **Config Example**::
 

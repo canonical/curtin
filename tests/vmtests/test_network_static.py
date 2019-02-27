@@ -59,6 +59,10 @@ class CosmicTestNetworkStatic(relbase.cosmic, TestNetworkStaticAbs):
     __test__ = True
 
 
+class DiscoTestNetworkStatic(relbase.disco, TestNetworkStaticAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkStatic(centos_relbase.centos66_xenial,
                                 CentosTestNetworkStaticAbs):
     __test__ = True

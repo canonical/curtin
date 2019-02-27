@@ -6,11 +6,6 @@ from . import populate_one_subcmd
 
 import os
 
-try:
-    FileMissingError = FileNotFoundError
-except NameError:
-    FileMissingError = IOError
-
 
 def unmount_main(args):
     """
@@ -22,7 +17,7 @@ def unmount_main(args):
 
     if not os.path.exists(args.target):
         msg = "Cannot unmount target path %s: it does not exist" % args.target
-        raise FileMissingError(msg)
+        raise util.FileMissingError(msg)
 
     LOG.info("Unmounting devices from target path: %s", args.target)
     recursive_mode = not args.disable_recursive_mounts

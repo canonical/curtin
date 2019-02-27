@@ -17,6 +17,8 @@ class TestZfsRootAbs(VMBaseClass):
             zfs list > zfs_list
             zpool list > zpool_list
             zpool status > zpool_status
+
+            exit 0
         """)]
 
     @skip_if_flag('expected_failure')
@@ -88,6 +90,10 @@ class CosmicTestZfsRoot(relbase.cosmic, TestZfsRootAbs):
     __test__ = True
 
 
+class DiscoTestZfsRoot(relbase.disco, TestZfsRootAbs):
+    __test__ = True
+
+
 class TestZfsRootFsTypeAbs(TestZfsRootAbs):
     conf_file = "examples/tests/basic-zfsroot.yaml"
 
@@ -107,4 +113,8 @@ class BionicTestZfsRootFsType(relbase.bionic, TestZfsRootFsTypeAbs):
 
 
 class CosmicTestZfsRootFsType(relbase.cosmic, TestZfsRootFsTypeAbs):
+    __test__ = True
+
+
+class DiscoTestZfsRootFsType(relbase.disco, TestZfsRootFsTypeAbs):
     __test__ = True

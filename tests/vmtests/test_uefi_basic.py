@@ -24,6 +24,8 @@ class TestBasicAbs(VMBaseClass):
         blockdev --getss /dev/vda | cat >vda_blockdev_getss
         blockdev --getpbsz /dev/vda | cat >vda_blockdev_getpbsz
         blockdev --getbsz /dev/vda | cat >vda_blockdev_getbsz
+
+        exit 0
         """)]
 
     def test_sys_firmware_efi(self):
@@ -91,7 +93,7 @@ class TrustyUefiTestBasic(relbase.trusty, TestBasicAbs):
     __test__ = True
 
 
-class TrustyHWEXUefiTestBasic(relbase.trusty_hwe_x, TrustyUefiTestBasic):
+class TrustyHWEXUefiTestBasic(relbase.trusty_hwe_x, TestBasicAbs):
     __test__ = True
 
 
@@ -115,27 +117,35 @@ class CosmicUefiTestBasic(relbase.cosmic, TestBasicAbs):
     __test__ = True
 
 
+class DiscoUefiTestBasic(relbase.disco, TestBasicAbs):
+    __test__ = True
+
+
 class Centos70UefiTestBasic4k(centos_relbase.centos70_xenial, TestBasicAbs):
     disk_block_size = 4096
 
 
-class TrustyUefiTestBasic4k(TrustyUefiTestBasic):
+class TrustyUefiTestBasic4k(relbase.trusty, TestBasicAbs):
     disk_block_size = 4096
 
 
-class TrustyHWEXUefiTestBasic4k(relbase.trusty_hwe_x, TrustyUefiTestBasic4k):
-    __test__ = True
-
-
-class XenialGAUefiTestBasic4k(XenialGAUefiTestBasic):
+class TrustyHWEXUefiTestBasic4k(relbase.trusty_hwe_x, TestBasicAbs):
     disk_block_size = 4096
 
 
-class BionicUefiTestBasic4k(BionicUefiTestBasic):
+class XenialGAUefiTestBasic4k(relbase.xenial_ga, TestBasicAbs):
     disk_block_size = 4096
 
 
-class CosmicUefiTestBasic4k(CosmicUefiTestBasic):
+class BionicUefiTestBasic4k(relbase.bionic, TestBasicAbs):
+    disk_block_size = 4096
+
+
+class CosmicUefiTestBasic4k(relbase.cosmic, TestBasicAbs):
+    disk_block_size = 4096
+
+
+class DiscoUefiTestBasic4k(relbase.disco, TestBasicAbs):
     disk_block_size = 4096
 
 # vi: ts=4 expandtab syntax=python

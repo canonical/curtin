@@ -39,4 +39,8 @@ class BionicTestJournaldReporter(relbase.bionic, TestJournaldReporter):
 class CosmicTestJournaldReporter(relbase.cosmic, TestJournaldReporter):
     __test__ = True
 
+
+class DiscoTestJournaldReporter(relbase.disco, TestJournaldReporter):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

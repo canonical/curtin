@@ -5,9 +5,13 @@ import imp
 import importlib
 import mock
 import os
+import random
 import shutil
+import string
 import tempfile
 from unittest import TestCase
+
+from curtin import util
 
 
 def builtin_module_name():
@@ -67,6 +71,11 @@ class CiTestCase(TestCase):
         return os.path.normpath(
             os.path.abspath(os.path.sep.join((_dir, path))))
 
+    def random_string(self, length=8):
+        """ return a random lowercase string with default length of 8"""
+        return ''.join(
+            random.choice(string.ascii_lowercase) for _ in range(length))
+
 
 def dir2dict(startdir, prefix=None):
     flist = {}
@@ -79,5 +88,23 @@ def dir2dict(startdir, prefix=None):
             with open(fpath, "r") as fp:
                 flist[key] = fp.read()
     return flist
+
+
+def populate_dir(path, files):
+    if not os.path.exists(path):
+        os.makedirs(path)
+    ret = []
+    for (name, content) in files.items():
+        p = os.path.sep.join([path, name])
+        util.ensure_dir(os.path.dirname(p))
+        with open(p, "wb") as fp:
+            if isinstance(content, util.binary_type):
+                fp.write(content)
+            else:
+                fp.write(content.encode('utf-8'))
+            fp.close()
+        ret.append(p)
+
+    return ret
 
 # vi: ts=4 expandtab syntax=python

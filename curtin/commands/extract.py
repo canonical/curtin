@@ -1,6 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
+import shutil
 import sys
 import tempfile
 
@@ -64,7 +65,7 @@ def extract_root_fsimage_url(url, target):
     wfp = tempfile.NamedTemporaryFile(suffix=".img", delete=False)
     wfp.close()
     try:
-        url_helper.download(url, wfp.name)
+        url_helper.download(url, wfp.name, retries=3)
         return _extract_root_fsimage(wfp.name, target)
     finally:
         os.unlink(wfp.name)
@@ -83,6 +84,121 @@ def _extract_root_fsimage(path, target):
     finally:
         util.subp(['umount', mp])
         os.rmdir(mp)
+
+
+def extract_root_layered_fsimage_url(uri, target):
+    ''' Build images list to consider from a layered structure
+
+    uri: URI of the layer file
+    target: Target file system to provision
+
+    return: None
+    '''
+    path = _path_from_file_url(uri)
+
+    image_stack = _get_image_stack(path)
+    LOG.debug("Considering fsimages: '%s'", ",".join(image_stack))
+
+    tmp_dir = None
+    try:
+        # Download every remote images if remote url
+        if url_helper.urlparse(path).scheme != "":
+            tmp_dir = tempfile.mkdtemp()
+            image_stack = _download_layered_images(image_stack, tmp_dir)
+
+        # Check that all images exists on disk and are not empty
+        for img in image_stack:
+            if not os.path.isfile(img) or os.path.getsize(img) <= 0:
+                raise ValueError("Failed to use fsimage: '%s' doesn't exist " +
+                                 "or is invalid", img)
+
+        return _extract_root_layered_fsimage(image_stack, target)
+    finally:
+        if tmp_dir and os.path.exists(tmp_dir):
+            shutil.rmtree(tmp_dir)
+
+
+def _download_layered_images(image_stack, tmp_dir):
+    local_image_stack = []
+    try:
+        for img_url in image_stack:
+            dest_path = os.path.join(tmp_dir,
+                                     os.path.basename(img_url))
+            url_helper.download(img_url, dest_path, retries=3)
+            local_image_stack.append(dest_path)
+    except url_helper.UrlError as e:
+        LOG.error("Failed to download '%s'" % img_url)
+        raise e
+    return local_image_stack
+
+
+def _extract_root_layered_fsimage(image_stack, target):
+    mp_base = tempfile.mkdtemp()
+    mps = []
+    try:
+        # Create a mount point for each image file and mount the image
+        try:
+            for img in image_stack:
+                mp = os.path.join(mp_base, os.path.basename(img) + ".dir")
+                os.mkdir(mp)
+                util.subp(['mount', '-o', 'loop,ro', img, mp], capture=True)
+                mps.insert(0, mp)
+        except util.ProcessExecutionError as e:
+            LOG.error("Failed to mount '%s' for extraction: %s", img, e)
+            raise e
+
+        # Prepare
+        if len(mps) == 1:
+            root_dir = mps[0]
+        else:
+            # Multiple image files, merge them with an overlay and do the copy
+            root_dir = os.path.join(mp_base, "root.dir")
+            os.mkdir(root_dir)
+            try:
+                util.subp(['mount', '-t', 'overlay', 'overlay', '-o',
+                           'lowerdir=' + ':'.join(mps), root_dir],
+                          capture=True)
+                mps.append(root_dir)
+            except util.ProcessExecutionError as e:
+                LOG.error("overlay mount to %s failed: %s", root_dir, e)
+                raise e
+
+        copy_to_target(root_dir, target)
+    finally:
+        umount_err_mps = []
+        for mp in reversed(mps):
+            try:
+                util.subp(['umount', mp], capture=True)
+            except util.ProcessExecutionError as e:
+                LOG.error("can't unmount %s: %e", mp, e)
+                umount_err_mps.append(mp)
+        if umount_err_mps:
+            raise util.ProcessExecutionError(
+                "Failed to umount: %s", ", ".join(umount_err_mps))
+        shutil.rmtree(mp_base)
+
+
+def _get_image_stack(uri):
+    '''Find a list of dependent images for given layered fsimage path
+
+    uri: URI of the layer file
+    return: tuple of path to dependent images
+    '''
+
+    image_stack = []
+    root_dir = os.path.dirname(uri)
+    img_name = os.path.basename(uri)
+    _, img_ext = os.path.splitext(img_name)
+
+    img_parts = img_name.split('.')
+    # Last item is the extension
+    for i in img_parts[:-1]:
+        image_stack.append(
+            os.path.join(
+                root_dir,
+                '.'.join(img_parts[0:img_parts.index(i)+1]) + img_ext))
+
+    return image_stack
 
 
 def copy_to_target(source, target):
@@ -133,6 +249,8 @@ def extract(args):
                 copy_to_target(source['uri'], target)
             elif source['type'] == "fsimage":
                 extract_root_fsimage_url(source['uri'], target=target)
+            elif source['type'] == "fsimage-layered":
+                extract_root_layered_fsimage_url(source['uri'], target=target)
             else:
                 extract_root_tgz_url(source['uri'], target=target)
 

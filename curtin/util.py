@@ -37,8 +37,17 @@ except NameError:
     # python3 does not have a long type.
     numeric_types = (int, float)
 
+try:
+    FileMissingError = FileNotFoundError
+except NameError:
+    FileMissingError = IOError
+
 from . import paths
 from .log import LOG, log_call
+
+binary_type = bytes
+if sys.version_info[0] < 3:
+    binary_type = str
 
 _INSTALLED_HELPERS_PATH = 'usr/lib/curtin/helpers'
 _INSTALLED_MAIN = 'usr/bin/curtin'
@@ -886,7 +895,7 @@ def sanitize_source(source):
         # already sanitized?
         return source
     supported = ['tgz', 'dd-tgz', 'dd-tbz', 'dd-txz', 'dd-tar', 'dd-bz2',
-                 'dd-gz', 'dd-xz', 'dd-raw', 'fsimage']
+                 'dd-gz', 'dd-xz', 'dd-raw', 'fsimage', 'fsimage-layered']
     deftype = 'tgz'
     for i in supported:
         prefix = i + ":"
