@@ -1,3 +1,22 @@
+curtin (18.2-10-g7afd77fa-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - Support for multi-layers images fsimage-layered:// URI
+      [Jean-Baptiste Lallement]
+    - dname: relax dname req for disk serial/wwn presence for compatibility
+      (LP: #1735839)
+    - flake8: fix some E117 over-indented issues [Paride Legovini]
+    - bcache: ensure partitions on bcache devices are detected as partition
+    - vmtest: bump skip_by_date out a year for trusty bcache bug
+    - Fix typo in doc/topics/integration-testing.rst. [Paride Legovini]
+    - flake8: Fix two issues found with new version of flake8
+    - clear-holders: handle FileNotFound when probing for bcache device slaves
+      (LP: #1811117)
+    - vmtests: network mtu fix-by bump to post 19.04 release
+    - vmtest: Fix bug preventing explicit disabling of system_upgrade.
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Wed, 27 Feb 2019 16:43:21 -0600
+
 curtin (18.2-0ubuntu1) disco; urgency=medium
 
   * New upstream release (18.2).
