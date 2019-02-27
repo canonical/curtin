@@ -1,4 +1,4 @@
-curtin (18.2-10-g7afd77fa-0ubuntu1~18.10.1) UNRELEASED; urgency=medium
+curtin (18.2-10-g7afd77fa-0ubuntu1~18.10.1) cosmic; urgency=medium
 
   * New upstream snapshot. (LP: #1817964)
     - Support for multi-layers images fsimage-layered:// URI
