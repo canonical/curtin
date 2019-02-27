@@ -506,9 +506,83 @@ configures the method used to copy the image to the target system.
 - **cp://**: Use ``rsync`` command to copy source directory to target.
 - **file://**: Use ``tar`` command to extract source to target.
 - **http[s]://**: Use ``wget | tar`` commands to extract source to target.
-- **fsimage://**: mount filesystem image and copy contents to target.
-  Local file or url are supported.  Filesystem can be any filesystem type
+- **fsimage://** mount filesystem image and copy contents to target.
+  Local file or url are supported. Filesystem can be any filesystem type
   mountable by the running kernel.
+- **fsimage-layered://** mount layered filesystem image and copy contents to target.
+  A ``fsimage-layered`` install source is a string representing one or more mountable
+  images from a single local or remote directory.  The string is dot-separated where
+  each value between the dots represents a particular image and the location of the
+  name within the string encodes the order in which it is to be mounted.  The resulting
+  list of images are downloaded (if needed) then mounted and overlayed into a single
+  directory which is used as the source for installation.
+
+**Image Name Pattern**
+
+ [[<parent_layer>.]...]<layer name>.<file extension pattern>
+
+Example::
+
+ 10-base.img
+ minimal.img
+ minimal.standard.live.squashfs
+ http://example.io/standard.squashfs
+
+**Layer Dependencies**
+
+Layers are parts of the name seperated by dots. Any layer in the name will
+be included as a dependency. The file extension pattern is used to find
+related layers.
+
+Examples:
+
+ Base use case::
+
+  /images
+  ├── main.squashfs
+  ├── main.upper.squashfs
+  └── main.upper.debug.squashfs
+
+ source='fsimage-layered://images/main.squashfs' -> images='/images/main.squashfs'
+ source='fsimage-layered://images/main.upper.squashfs' -> images='/images/main.upper.squashfs, /images/main.squashfs'
+ source='fsimage-layered://images/main.upper.debug.squashfs' -> images='/images/main.upper.debug.squashfs, /images/main.upper.squashfs, /images/main.squashfs'
+
+ Multiple extensions::
+
+  /images
+  ├── main.squashfs
+  ├── main.img
+  ├── main.upper.squashfs
+  ├── main.upper.img
+  └── main.upper.debug.squashfs
+
+ source='fsimage-layered://images/main.upper.squashfs' -> images='/images/main.upper.squashfs, /images/main.squashfs'
+ source='fsimage-layered://images/main.upper.img' -> images='/images/main.upper.img, /images/main.img'
+
+ Missing intermediary layer::
+
+  /images
+  ├── main.squashfs
+  └── main.upper.debug.squashfs
+
+If there is a missing image in the path to a leaf, an error will be raised
+
+ source='fsimage-layered://images/main.squashfs' -> images='/images/main.squashfs'
+ source='fsimage-layered://images/main.upper.debug.squashfs' -> Raised Error'
+
+ Remote Layers::
+
+  http://example.io/base.extended.debug.squashfs
+
+
+The URI passed to ``fsimage-layered`` may be on a remote system.  Curtin
+will parse the URI and then download each layer from the remote system.
+This results in Curtin downloading the following URLs::
+
+- http://example.io/base.squashfs
+- http://example.io/base.extended.squashfs
+- http://example.io/base.extended.debug.squashfs
+
 
 **Example Cloud-image**::
 

@@ -38,6 +38,7 @@ except ValueError:
 DEFAULT_SSTREAM_OPTS = [
     '--keyring=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg']
 
+AUTO = "auto"
 DEVNULL = open(os.devnull, 'w')
 KEEP_DATA = {"pass": "none", "fail": "all"}
 CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", "1")
@@ -53,7 +54,7 @@ INSTALL_TIMEOUT = int(os.environ.get("CURTIN_VMTEST_INSTALL_TIMEOUT", 3000))
 REUSE_TOPDIR = bool(int(os.environ.get("CURTIN_VMTEST_REUSE_TOPDIR", 0)))
 ADD_REPOS = os.environ.get("CURTIN_VMTEST_ADD_REPOS", "")
 UPGRADE_PACKAGES = os.environ.get("CURTIN_VMTEST_UPGRADE_PACKAGES", "")
-SYSTEM_UPGRADE = os.environ.get("CURTIN_VMTEST_SYSTEM_UPGRADE", "auto")
+SYSTEM_UPGRADE = os.environ.get("CURTIN_VMTEST_SYSTEM_UPGRADE", AUTO)
 
 
 _UNSUPPORTED_UBUNTU = None
@@ -151,6 +152,11 @@ def _initialize_logging(name=None):
     return logger
 
 
+def is_false_env_value(val):
+    """These values found in environment are explicitly set to "false"."""
+    return str(val).lower() in ("false", "0", "")
+
+
 def get_env_var_bool(envname, default=False):
     """get a boolean environment variable.
 
@@ -163,7 +169,7 @@ def get_env_var_bool(envname, default=False):
     if val is None:
         return default
 
-    return val.lower() not in ("false", "0", "")
+    return not is_false_env_value(val)
 
 
 def sync_images(src_url, base_dir, filters, verbosity=0):
@@ -1056,13 +1062,17 @@ class VMBaseClass(TestCase):
         add_repos = ADD_REPOS
         system_upgrade = SYSTEM_UPGRADE
         upgrade_packages = UPGRADE_PACKAGES
+
+        if is_false_env_value(system_upgrade):
+            system_upgrade = False
+
         if add_repos:
             cfg_repos = generate_repo_config(add_repos.split(","),
                                              release=cls.target_release)
             if cfg_repos:
                 logger.info('Adding apt repositories: %s', add_repos)
                 # enable if user has set a value here
-                if system_upgrade == "auto":
+                if system_upgrade == AUTO:
                     system_upgrade = True
                 repo_cfg = os.path.join(cls.td.install, 'add_repos.cfg')
                 util.write_file(repo_cfg, cfg_repos)
@@ -1070,7 +1080,7 @@ class VMBaseClass(TestCase):
             else:
                 logger.info("add_repos=%s processed to empty config.",
                             add_repos)
-        elif system_upgrade == "auto":
+        elif system_upgrade == AUTO:
             system_upgrade = False
 
         if system_upgrade:
@@ -1286,8 +1296,7 @@ class VMBaseClass(TestCase):
                     content = lfh.read().decode('utf-8', errors='replace')
                 logger.debug('boot serial console output:\n%s', content)
             else:
-                    logger.warn("Booting after install not produce"
-                                " a console log.")
+                logger.warn("Booting after install not produce a console log.")
 
         # mount output disk
         try:
@@ -1532,11 +1541,10 @@ class VMBaseClass(TestCase):
         fstab_entry = None
         for line in util.load_file(path).splitlines():
             for device, mntpoint in self.fstab_expected.items():
-                    if device in line:
-                        fstab_entry = line
-                        self.assertIsNotNone(fstab_entry)
-                        self.assertEqual(fstab_entry.split(' ')[1],
-                                         mntpoint)
+                if device in line:
+                    fstab_entry = line
+                    self.assertIsNotNone(fstab_entry)
+                    self.assertEqual(fstab_entry.split(' ')[1], mntpoint)
 
     @skip_if_flag('expected_failure')
     def test_dname(self, disk_to_check=None):
@@ -1556,7 +1564,7 @@ class VMBaseClass(TestCase):
 
         contents = self.load_collect_file("ls_dname")
         for diskname, part in self.disk_to_check:
-            if part is not 0:
+            if part != 0:
                 link = diskname + "-part" + str(part)
                 self.assertIn(link, contents.splitlines())
             self.assertIn(diskname, contents.splitlines())

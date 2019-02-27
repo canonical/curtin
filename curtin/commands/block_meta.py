@@ -242,12 +242,14 @@ def make_dname_byid(path, error_msg=None, info=None):
             "Disk tag udev rules are only for disks, %s has devtype=%s" %
             (error_msg, devtype))
 
-    byid_keys = ['ID_SERIAL', 'ID_WWN_WITH_EXTENSION']
+    byid_keys = ['ID_WWN_WITH_EXTENSION', 'ID_WWN',
+                 'ID_SERIAL', 'ID_SERIAL_SHORT']
     present = [k for k in byid_keys if info.get(k)]
     if not present:
-        raise RuntimeError(
+        LOG.warning(
             "Cannot create disk tag udev rule for %s, "
             "missing 'serial' or 'wwn' value" % error_msg)
+        return []
 
     return [[compose_udev_equality('ENV{%s}' % k, info[k]) for k in present]]
 
@@ -309,7 +311,7 @@ def make_dname(volume, storage_config):
                                                  storage_config)
         bcache_super = bcache.superblock_asdict(device=backing_dev)
         if bcache_super and bcache_super['sb.version'].startswith('1'):
-                bdev_uuid = bcache_super['dev.uuid']
+            bdev_uuid = bcache_super['dev.uuid']
         matches += [[compose_udev_equality("ENV{CACHED_UUID}", bdev_uuid)]]
         bcache.write_label(sanitize_dname(dname), backing_dev)
     elif vol.get('type') == "lvm_partition":
@@ -692,13 +694,14 @@ def partition_handler(info, storage_config):
     else:
         raise ValueError("parent partition has invalid partition table")
 
+    # ensure partition exists
+    part_path = block.dev_path(block.partition_kname(disk_kname, partnumber))
+    block.rescan_block_devices([disk])
+    udevadm_settle(exists=part_path)
+
     # wipe the created partition if needed, superblocks have already been wiped
     wipe_mode = info.get('wipe', 'superblock')
     if wipe_mode != 'superblock':
-        part_path = block.dev_path(block.partition_kname(disk_kname,
-                                                         partnumber))
-        block.rescan_block_devices([disk])
-        udevadm_settle(exists=part_path)
         LOG.debug('Wiping partition %s mode=%s', part_path, wipe_mode)
         block.wipe_volume(part_path, mode=wipe_mode, exclusive=False)
 

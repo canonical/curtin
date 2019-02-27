@@ -146,6 +146,8 @@ class TestBlockMeta(CiTestCase):
                        'mock_block_get_volume_uuid')
         self.add_patch('curtin.block.zero_file_at_offsets',
                        'mock_block_zero_file')
+        self.add_patch('curtin.block.rescan_block_devices',
+                       'mock_block_rescan')
 
         self.target = "my_target"
         self.config = {
@@ -225,9 +227,9 @@ class TestBlockMeta(CiTestCase):
         part_offset = 2048 * 512
         self.mock_block_zero_file.assert_called_with(disk_kname, [part_offset],
                                                      exclusive=False)
-        self.mock_subp.assert_called_with(['parted', disk_kname, '--script',
-                                           'mkpart', 'primary', '2048s',
-                                           '1001471s'], capture=True)
+        self.mock_subp.assert_has_calls(
+            [call(['parted', disk_kname, '--script',
+                   'mkpart', 'primary', '2048s', '1001471s'], capture=True)])
 
     @patch('curtin.util.write_file')
     def test_mount_handler_defaults(self, mock_write_file):

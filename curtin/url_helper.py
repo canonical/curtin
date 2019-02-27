@@ -82,39 +82,51 @@ class UrlReader(object):
         self.close()
 
 
-def download(url, path, reporthook=None, data=None):
+def download(url, path, reporthook=None, data=None, retries=0, retry_delay=3):
     """Download url to path.
 
     reporthook is compatible with py3 urllib.request.urlretrieve.
     urlretrieve does not exist in py2."""
 
     buflen = 8192
-    wfp = open(path, "wb")
+    attempts = 0
 
-    try:
-        buf = None
-        blocknum = 0
-        fsize = 0
-        start = time.time()
-        with UrlReader(url) as rfp:
-            if reporthook:
-                reporthook(blocknum, buflen, rfp.size)
-
-            while True:
-                buf = rfp.read(buflen)
-                if not buf:
-                    break
-                blocknum += 1
+    while True:
+        wfp = open(path, "wb")
+        try:
+            buf = None
+            blocknum = 0
+            fsize = 0
+            start = time.time()
+            with UrlReader(url) as rfp:
                 if reporthook:
                     reporthook(blocknum, buflen, rfp.size)
-                wfp.write(buf)
-                fsize += len(buf)
-        timedelta = time.time() - start
-        LOG.debug("Downloaded %d bytes from %s to %s in %.2fs (%.2fMbps)",
-                  fsize, url, path, timedelta, fsize / timedelta / 1024 / 1024)
-        return path, rfp.info
-    finally:
-        wfp.close()
+
+                while True:
+                    buf = rfp.read(buflen)
+                    if not buf:
+                        break
+                    blocknum += 1
+                    if reporthook:
+                        reporthook(blocknum, buflen, rfp.size)
+                    wfp.write(buf)
+                    fsize += len(buf)
+            timedelta = time.time() - start
+            LOG.debug("Downloaded %d bytes from %s to %s in %.2fs (%.2fMbps)",
+                      fsize, url, path, timedelta,
+                      fsize / timedelta / 1024 / 1024)
+            return path, rfp.info
+        except UrlError as e:
+            # retry on internal server errors up to "retries #"
+            if (e.code < 500 or attempts >= retries):
+                raise e
+            LOG.debug("Current download failed with error: %s. Retrying in"
+                      " %d seconds.",
+                      e.code, retry_delay)
+            attempts += 1
+            time.sleep(retry_delay)
+        finally:
+            wfp.close()
 
 
 def get_maas_version(endpoint):
@@ -380,7 +392,7 @@ class OauthUrlHelper(object):
             if extra_exception_cb:
                 ret = extra_exception_cb(exception)
         finally:
-                self.exception_cb(exception)
+            self.exception_cb(exception)
         return ret
 
     def _headers_cb(self, extra_headers_cb, url):

@@ -1,6 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from . import VMBaseClass
+from . import VMBaseClass, skip_if_flag
 from .releases import base_vm_classes as relbase
 
 import textwrap
@@ -24,10 +24,12 @@ class TestBcacheBasic(VMBaseClass):
         exit 0
         """)]
 
+    @skip_if_flag('expected_failure')
     def test_bcache_output_files_exist(self):
         self.output_files_exist(["bcache_super_vda2", "bcache_ls",
                                  "bcache_cache_mode"])
 
+    @skip_if_flag('expected_failure')
     def test_bcache_status(self):
         bcache_cset_uuid = None
         for line in self.load_collect_file("bcache_super_vda2").splitlines():
@@ -37,9 +39,11 @@ class TestBcacheBasic(VMBaseClass):
         self.assertTrue(bcache_cset_uuid in
                         self.load_collect_file("bcache_ls").splitlines())
 
+    @skip_if_flag('expected_failure')
     def test_bcache_cachemode(self):
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
 
+    @skip_if_flag('expected_failure')
     def test_proc_cmdline_root_by_uuid(self):
         self.check_file_regex("proc_cmdline", r"root=UUID=")
 
