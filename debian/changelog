@@ -1,3 +1,38 @@
+curtin (18.2-10-g7afd77fa-0ubuntu1~16.04.1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot. (LP: #1817964)
+    - Support for multi-layers images fsimage-layered:// URI
+      [Jean-Baptiste Lallement]
+    - dname: relax dname req for disk serial/wwn presence for compatibility
+    - flake8: fix some E117 over-indented issues [Paride Legovini]
+    - bcache: ensure partitions on bcache devices are detected as partition
+    - vmtest: bump skip_by_date out a year for trusty bcache bug
+    - Fix typo in doc/topics/integration-testing.rst. [Paride Legovini]
+    - flake8: Fix two issues found with new version of flake8
+    - clear-holders: handle FileNotFound when probing for bcache device slaves
+    - vmtests: network mtu fix-by bump to post 19.04 release
+    - vmtest: Fix bug preventing explicit disabling of system_upgrade.
+    - Release 18.2
+    - Adjust helpers/common to edit GRUB_CMDLINE_LINUX_DEFAULT in place.
+    - dname: persistent names based on serial or wwn
+    - Fix bug in is_swap_device if a device was smaller than page_size.
+    - vmtest: add disco tests [Joshua Powers]
+    - unittest: change directory to tmpdir for testing relative files.
+    - Add clear-holders to meta-simple
+    - vmtests: check install log for Out of memory kernel messages and fail
+    - unittest: correctly use tmpdir for my.img [Joshua Powers]
+    - block_meta: use wipe config when clearing partitions
+    - tests: fix vmtests for apt perserve_source_list changes
+    - apt: Use new format apt config when writing preserve_sources_list.
+    - vmtests: multipath mount /home with nofail and validate in unittest
+    - vmtests: fix common collect scripts to not exit failure.
+    - vmtest: handle collect disk unpack failure
+    - vmtests: dont use multiple subclasses in uefi 4k tests
+    - vmtests: disable snapd/seeding to avoid boot hang
+    - jenkins-runner: fix when using --filter only
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Thu, 28 Feb 2019 09:54:02 -0600
+
 curtin (18.1-59-g0f993084-0ubuntu1~16.04.1) xenial; urgency=medium
 
   * New upstream snapshot. (LP: #1795712)
