@@ -1,0 +1,48 @@
+# MAAS will send storage config to dd and windows to help pick boot device
+# this test forces curtin down a block-meta simple path along with storage cfg
+partitioning_commands:
+  builtin: [curtin, block-meta, simple, --force-mode]
+showtrace: true
+storage:
+    version: 1
+    config:
+      - id: sda
+        type: disk
+        wipe: superblock
+        ptable: msdos
+        model: QEMU HARDDISK
+        serial: disk-a
+        grub_device: true
+      - id: sdb
+        type: disk
+        wipe: superblock
+        ptable: msdos
+        model: QEMU HARDDISK
+        serial: disk-b
+        wipe: superblock
+      - id: sdc
+        type: disk
+        wipe: superblock
+        ptable: msdos
+        model: QEMU HARDDISK
+        serial: disk-c
+        wipe: superblock
+# This partition config is here to "dirty" the disk
+      - id: sda-part1
+        type: partition
+        device: sda
+        name: sda-part1
+        number: 1
+        size: 3G
+        uuid: ecc1ec63-e8d2-4719-8cee-dd7f4e2b390e
+        wipe: superblock
+      - id: sda-part1_format
+        type: format
+        fstype: ext4
+        label: root
+        uuid: f793b242-e812-44df-91c0-c245a55ffd59
+        volume: sda-part1
+      - id: sda-part1_mount
+        type: mount
+        path: /
+        device: sda-part1_format

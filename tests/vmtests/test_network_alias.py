@@ -26,6 +26,8 @@ class CentosTestNetworkAliasAbs(TestNetworkAliasAbs):
             cp -a /var/log/cloud-init* .
             cp -a /var/lib/cloud ./var_lib_cloud
             cp -a /run/cloud-init ./run_cloud-init
+
+            exit 0
         """)]
 
     def test_etc_resolvconf(self):
@@ -74,6 +76,10 @@ class BionicTestNetworkAlias(relbase.bionic, TestNetworkAliasAbs):
 
 
 class CosmicTestNetworkAlias(relbase.cosmic, TestNetworkAliasAbs):
+    __test__ = True
+
+
+class DiscoTestNetworkAlias(relbase.disco, TestNetworkAliasAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

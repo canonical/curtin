@@ -165,3 +165,60 @@ Dependencies
 ~~~~~~~~~~~~
 Cloud-init might need to resolve dependencies and install packages in the ephemeral environment to run curtin.
 Therefore it is recommended to not only provide an apt configuration to curtin for the target, but also one to the install environment via cloud-init.
+
+
+apt preserve_sources_list setting
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+cloud-init and curtin treat the ``preserve_sources_list`` setting slightly differently, and thus this setting deserves its own section.
+
+Interpretation / Meaning
+------------------------
+curtin reads ``preserve_sources_list`` to indicate whether or not it should update the target systems' ``/etc/apt/sources.list``.  This includes replacing the mirrors used (apt/primary...).
+
+cloud-init reads ``preserve_sources_list`` to indicate whether or not it should *render* ``/etc/apt/sources.list`` from its built-in template.
+
+defaults
+--------
+Just for reference, the ``preserve_sources_list`` defaults in curtin and cloud-init are:
+
+ * curtin: **true**
+   By default curtin will not modify ``/etc/apt/sources.list`` in the installed OS.  It is assumed that this file is intentionally as it is.
+ * cloud-init: **false**
+ * cloud-init in ephemeral environment: **false**
+ * cloud-init system installed by curtin: **true**
+   (curtin writes this to a file ``/etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg`` in the target).  It does this because we have already written the sources.list that is desired in the installer.  We do not want cloud-init to overwrite it when it boots.
+
+preserve_sources_list in MAAS
+-----------------------------
+Curtin and cloud-init use the same ``apt`` configuration language.
+MAAS provides apt config in three different scenarios.
+
+ 1. To cloud-init in ephemeral environment (rescue, install or commissioning)
+     Here MAAS **should not send a value**.  If it wants to be explicit it should send ``preserve_sources_list: false``.
+
+ 2. To curtin in curtin config
+     MAAS **should send ``preserve_sources_list: false``**.  curtin will correctly read and update mirrors in official Ubuntu images, so setting this to 'false' is correct. In some cases for custom images, the user might want to be able to have their /etc/apt/sources.list left untouched entirely.  In such cases they may want to override this value.
+
+ 3. To cloud-init via curtin config in debconf_selections.
+     MAAS should **not send a value**.  Curtin will handle telling cloud-init to not update /etc/apt/sources.list.  MAAS does not need to do this.
+
+ 4. To installed system via vendor-data or user-data.
+     MAAS should **not send a value**.  MAAS does not currently send a value.  The user could send one in user-data, but then if they did presumably they did that for a reason.
+
+Legacy format
+-------------
+
+Versions of cloud-init in 14.04 and older only support:
+
+.. code-block:: yaml
+
+    apt_preserve_sources_list: VALUE
+
+Versions of cloud-init present 16.04+ read the "new" style apt configuration, but support the old style configuration also.  The new style configuration is:
+
+.. code-block:: yaml
+
+    apt:
+      preserve_sources_list: VALUE
+
+**Note**: If versions of cloud-init that support the new style config receive conflicting values in old style and new style, cloud-init will raise exception and exit failure.  It simplly doesn't know what behavior is desired.

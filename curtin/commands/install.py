@@ -408,10 +408,6 @@ def cmd_install(args):
     if not len(cfg.get('sources', [])):
         raise util.BadUsage("no sources provided to install")
 
-    for i in cfg['sources']:
-        # we default to tgz for old style sources config
-        cfg['sources'][i] = util.sanitize_source(cfg['sources'][i])
-
     migrate_proxy_settings(cfg)
     for k in ('http_proxy', 'https_proxy', 'no_proxy'):
         if k in cfg['proxy']:

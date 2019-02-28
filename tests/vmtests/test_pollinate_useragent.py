@@ -18,6 +18,8 @@ class TestPollinateUserAgent(VMBaseClass):
         cd OUTPUT_COLLECT_D
         cp -a /etc/pollinate etc_pollinate
         pollinate --print-user-agent > pollinate_print_user_agent
+
+        exit 0
         """)]
 
     def test_pollinate_user_agent(self):
@@ -64,6 +66,10 @@ class BionicTestPollinateUserAgent(relbase.bionic, TestPollinateUserAgent):
 
 
 class CosmicTestPollinateUserAgent(relbase.cosmic, TestPollinateUserAgent):
+    __test__ = True
+
+
+class DiscoTestPollinateUserAgent(relbase.disco, TestPollinateUserAgent):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

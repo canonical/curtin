@@ -102,6 +102,8 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
         grep -r . /sys/class/net/br0 > sysfs_br0
         grep -r . /sys/class/net/br0/brif/eth1 > sysfs_br0_eth1
         grep -r . /sys/class/net/br0/brif/eth2 > sysfs_br0_eth2
+
+        exit 0
         """)]
 
     def test_output_files_exist_bridge(self):
@@ -200,6 +202,8 @@ class CentosTestBridgeNetworkAbs(TestBridgeNetworkAbs):
             cp -a /var/lib/cloud ./var_lib_cloud
             cp -a /run/cloud-init ./run_cloud-init
             rpm -qf `which brctl` |tee bridge-utils_installed
+
+            exit 0
         """)]
 
     def test_etc_network_interfaces(self):
@@ -235,5 +239,8 @@ class BionicTestBridging(relbase.bionic, TestBridgeNetworkAbs):
 class CosmicTestBridging(relbase.cosmic, TestBridgeNetworkAbs):
     __test__ = True
 
+
+class DiscoTestBridging(relbase.disco, TestBridgeNetworkAbs):
+    __test__ = True
 
 # vi: ts=4 expandtab syntax=python

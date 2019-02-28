@@ -85,8 +85,9 @@ class TestBlockMetaSimple(CiTestCase):
         self.mock_block_get_root_device.assert_called_with([devname],
                                                            paths=paths)
 
+    @patch('curtin.commands.block_meta.meta_clear')
     @patch('curtin.commands.block_meta.write_image_to_disk')
-    def test_meta_simple_calls_write_img(self, mock_write_image):
+    def test_meta_simple_calls_write_img(self, mock_write_image, mock_clear):
         devname = "fakedisk1p1"
         devnode = "/dev/" + devname
         sources = {
@@ -104,9 +105,9 @@ class TestBlockMetaSimple(CiTestCase):
         mock_write_image.return_value = devname
 
         args = Namespace(target=self.target, devices=None, mode=None,
-                         boot_fstype=None, fstype=None)
+                         boot_fstype=None, fstype=None, force_mode=False)
 
-        block_meta.meta_simple(args)
+        block_meta.block_meta(args)
 
         mock_write_image.assert_called_with(sources.get('unittest'), devname)
         self.mock_subp.assert_has_calls(
@@ -145,6 +146,8 @@ class TestBlockMeta(CiTestCase):
                        'mock_block_get_volume_uuid')
         self.add_patch('curtin.block.zero_file_at_offsets',
                        'mock_block_zero_file')
+        self.add_patch('curtin.block.rescan_block_devices',
+                       'mock_block_rescan')
 
         self.target = "my_target"
         self.config = {
@@ -224,9 +227,9 @@ class TestBlockMeta(CiTestCase):
         part_offset = 2048 * 512
         self.mock_block_zero_file.assert_called_with(disk_kname, [part_offset],
                                                      exclusive=False)
-        self.mock_subp.assert_called_with(['parted', disk_kname, '--script',
-                                           'mkpart', 'primary', '2048s',
-                                           '1001471s'], capture=True)
+        self.mock_subp.assert_has_calls(
+            [call(['parted', disk_kname, '--script',
+                   'mkpart', 'primary', '2048s', '1001471s'], capture=True)])
 
     @patch('curtin.util.write_file')
     def test_mount_handler_defaults(self, mock_write_file):

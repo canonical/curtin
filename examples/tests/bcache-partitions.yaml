@@ -1,0 +1,97 @@
+showtrace: true
+
+storage:
+  config:
+  - id: id_rotary0
+    type: disk
+    name: rotary0
+    serial: disk-a
+    ptable: msdos
+    wipe: superblock
+    grub_device: true
+  - id: id_ssd0
+    type: disk
+    name: ssd0
+    serial: disk-b
+    wipe: superblock
+  - id: id_rotary1
+    type: disk
+    name: rotary1
+    serial: disk-c
+    ptable: gpt
+    wipe: superblock
+  - id: id_rotary0_part1
+    type: partition
+    name: rotary0-part1
+    device: id_rotary0
+    number: 1
+    offset: 1M
+    size: 999M
+    wipe: superblock
+  - id: id_rotary0_part2
+    type: partition
+    name: rotary0-part2
+    device: id_rotary0
+    number: 2
+    size: 9G
+    wipe: superblock
+  - id: id_bcache0
+    type: bcache
+    name: bcache0
+    backing_device: id_rotary0_part2
+    cache_device: id_ssd0
+    cache_mode: writeback
+  - id: id_bcache1
+    type: bcache
+    name: bcache1
+    backing_device: id_rotary1
+    cache_device: id_ssd0
+    cache_mode: writeback
+  - id: id_bcache1_disk
+    type: disk
+    path: /dev/bcache1
+    ptable: gpt
+  - id: id_bcache1_part1
+    type: partition
+    device: id_bcache1_disk
+    number: 1
+    offset: 1M
+    size: 1G
+    wipe: superblock
+  - id: id_bcache1_part2
+    type: partition
+    device: id_bcache1_disk
+    number: 2
+    size: 1G
+    wipe: superblock
+  - id: id_bcache1_part3
+    type: partition
+    device: id_bcache1_disk
+    number: 3
+    size: 1G
+    wipe: superblock
+  - id: id_bcache1_part4
+    type: partition
+    device: id_bcache1_disk
+    number: 4
+    size: 1G
+    wipe: superblock
+  - id: bootfs
+    type: format
+    label: boot-fs
+    volume: id_rotary0_part1
+    fstype: ext4
+  - id: rootfs
+    type: format
+    label: root-fs
+    volume: id_bcache0
+    fstype: ext4
+  - id: rootfs_mount
+    type: mount
+    path: /
+    device: rootfs
+  - id: bootfs_mount
+    type: mount
+    path: /boot
+    device: bootfs
+  version: 1

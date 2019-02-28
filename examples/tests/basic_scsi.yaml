@@ -20,14 +20,25 @@ storage:
         number: 2
         size: 1GB
         device: sda
+      - id: sda3
+        type: partition
+        number: 3
+        size: 1GB
+        device: sda
+        name: swap
       - id: sda1_root
         type: format
         fstype: ext4
         volume: sda1
+        label: 'cloudimg-rootfs'
       - id: sda2_home
         type: format
         fstype: ext4
         volume: sda2
+      - id: sda3_swap
+        type: format
+        fstype: swap
+        volume: sda3
       - id: sda1_mount
         type: mount
         path: /
@@ -41,6 +52,10 @@ storage:
         wwn: '0x080258d13ea95ae5'
         name: sparedisk
         wipe: superblock
+      - id: sparedisk_fat_fmt_id
+        type: format
+        fstype: fat32
+        volume: sparedisk_id
       - id: btrfs_disk_id
         type: disk
         wwn: '0x22dc58dc023c7008'
@@ -68,6 +83,18 @@ storage:
         device: pnum_disk
       - id: pnum_disk_p2
         type: partition
+        number: 2
+        size: 8MB
+        device: pnum_disk
+        flag: prep
+        wipe: zero
+        name: prep
+      - id: pnum_disk_p3
+        type: partition
         number: 10
         size: 1GB
         device: pnum_disk
+      - id: swap_mnt
+        type: mount
+        path: "none"
+        device: sda3_swap

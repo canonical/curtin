@@ -26,6 +26,7 @@ storage:
         number: 3
         size: 1GB
         device: sda
+        name: swap
       - id: sda1_root
         type: format
         fstype: ext4
@@ -82,6 +83,14 @@ storage:
         size: 1GB
         device: pnum_disk
       - id: pnum_disk_p2
+        type: partition
+        number: 2
+        size: 8MB
+        device: pnum_disk
+        flag: prep
+        wipe: zero
+        name: prep
+      - id: pnum_disk_p3
         type: partition
         number: 10
         size: 1GB

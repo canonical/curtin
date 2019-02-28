@@ -5,6 +5,7 @@
 """
 import re
 import textwrap
+import yaml
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
@@ -50,6 +51,8 @@ class TestOldAptAbs(VMBaseClass):
         cp /etc/apt/sources.list .
         cp /etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg .
         cp /etc/cloud/cloud.cfg.d/90_dpkg.cfg .
+
+        exit 0
         """)]
     arch = util.get_architecture()
     if arch in ['amd64', 'i386']:
@@ -69,8 +72,10 @@ class TestOldAptAbs(VMBaseClass):
 
     def test_preserve_source(self):
         """test_preserve_source - no clobbering sources.list by cloud-init"""
-        self.check_file_regex("curtin-preserve-sources.cfg",
-                              "apt_preserve_sources_list.*true")
+        # For earlier than xenial 'apt_preserve_sources_list' is expected
+        self.assertEqual(
+            {'apt': {'preserve_sources_list': True}},
+            yaml.load(self.load_collect_file("curtin-preserve-sources.cfg")))
 
     def test_debconf(self):
         """test_debconf - Check if debconf is in place"""

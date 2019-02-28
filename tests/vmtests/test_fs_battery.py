@@ -100,6 +100,8 @@ class TestFsBattery(VMBaseClass):
                 echo "$part umount: PASS" ||
                 echo "$part umount: FAIL: $out"
         done >> battery-mount-umount
+
+        exit 0
         """)]
 
     def get_fs_entries(self):
@@ -242,5 +244,8 @@ class BionicTestFsBattery(relbase.bionic, TestFsBattery):
 class CosmicTestFsBattery(relbase.cosmic, TestFsBattery):
     __test__ = True
 
+
+class DiscoTestFsBattery(relbase.disco, TestFsBattery):
+    __test__ = True
 
 # vi: ts=4 expandtab syntax=python

@@ -21,6 +21,8 @@ class TestNetworkIPV6Abs(TestNetworkBaseTestsAbs):
         grep . -r /sys/class/net/bond0/ > sysfs_bond0 || :
         grep . -r /sys/class/net/bond0.108/ > sysfs_bond0.108 || :
         grep . -r /sys/class/net/bond0.208/ > sysfs_bond0.208 || :
+
+        exit 0
         """)]
 
 
@@ -32,6 +34,8 @@ class CentosTestNetworkIPV6Abs(TestNetworkIPV6Abs):
             cp -a /var/log/cloud-init* .
             cp -a /var/lib/cloud ./var_lib_cloud
             cp -a /run/cloud-init ./run_cloud-init
+
+            exit 0
         """)]
 
     def test_etc_network_interfaces(self):
@@ -69,6 +73,10 @@ class BionicTestNetworkIPV6(relbase.bionic, TestNetworkIPV6Abs):
 
 
 class CosmicTestNetworkIPV6(relbase.cosmic, TestNetworkIPV6Abs):
+    __test__ = True
+
+
+class DiscoTestNetworkIPV6(relbase.disco, TestNetworkIPV6Abs):
     __test__ = True
 
 

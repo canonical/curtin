@@ -18,6 +18,8 @@ class TestUbuntuCoreAbs(VMBaseClass):
         cp -a /etc/cloud ./etc_cloud |:
         cp -a /home . |:
         cp -a /var/lib/extrausers . |:
+
+        exit 0
         """)]
 
     def test_ubuntu_core_snaps_installed(self):
