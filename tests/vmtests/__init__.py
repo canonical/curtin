@@ -45,6 +45,7 @@ CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", "1")
 IMAGE_SYNCS = []
 TARGET_IMAGE_FORMAT = "raw"
 TAR_DISKS = bool(int(os.environ.get("CURTIN_VMTEST_TAR_DISKS", "0")))
+VMRAM = os.environ.get('CURTIN_VMTEST_VMRAM', None)
 
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
@@ -832,6 +833,10 @@ class VMBaseClass(TestCase):
         logger = _initialize_logging(name=cls.__name__)
         cls.logger = logger
 
+        # allow env to update VMRAM setting
+        if VMRAM:
+            cls.mem = VMRAM
+
         req_attrs = ('target_distro', 'target_release', 'release', 'distro')
         missing = [a for a in req_attrs if not getattr(cls, a)]
         if missing:
@@ -889,7 +894,7 @@ class VMBaseClass(TestCase):
 
         # create launch cmd
         cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait,
-               "--smp=" + cls.get_config_smp()]
+               "--smp=" + cls.get_config_smp(), "--mem=%s" % cls.mem]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -1266,7 +1271,7 @@ class VMBaseClass(TestCase):
                uefi_flags + netdevs +
                cls.mpath_diskargs(target_disks + extra_disks + nvme_disks) +
                ["--disk=file=%s,if=virtio,media=cdrom" % cls.td.seed_disk] +
-               ["--", "-smp",  cls.get_config_smp(), "-m", "1024"])
+               ["--", "-smp",  cls.get_config_smp(), "-m", cls.mem])
 
         if not cls.interactive:
             if cls.arch == 's390x':
