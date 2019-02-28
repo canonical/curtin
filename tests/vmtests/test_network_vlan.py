@@ -18,6 +18,8 @@ class TestNetworkVlanAbs(TestNetworkBaseTestsAbs):
              ip -d link show interface1.2668 |tee ip_link_show_interface1.2668
              ip -d link show interface1.2669 |tee ip_link_show_interface1.2669
              ip -d link show interface1.2670 |tee ip_link_show_interface1.2670
+
+             exit 0
              """)]
 
     def get_vlans(self):
@@ -83,6 +85,10 @@ class BionicTestNetworkVlan(relbase.bionic, TestNetworkVlanAbs):
 
 
 class CosmicTestNetworkVlan(relbase.cosmic, TestNetworkVlanAbs):
+    __test__ = True
+
+
+class DiscoTestNetworkVlan(relbase.disco, TestNetworkVlanAbs):
     __test__ = True
 
 

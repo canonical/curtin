@@ -4,6 +4,7 @@
     Collection of tests for the apt configuration features
 """
 import textwrap
+import yaml
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
@@ -34,6 +35,8 @@ class TestAptSrcAbs(VMBaseClass):
         apt-config dump | grep Retries > aptconf
         cp /etc/apt/sources.list sources.list
         cp /etc/cloud/cloud.cfg.d/curtin-preserve-sources.cfg .
+
+        exit 0
         """)]
     mirror = "http://us.archive.ubuntu.com/ubuntu"
     secmirror = "http://security.ubuntu.com/ubuntu"
@@ -61,8 +64,10 @@ class TestAptSrcAbs(VMBaseClass):
     def test_preserve_source(self):
         """test_preserve_source - no clobbering sources.list by cloud-init"""
         self.output_files_exist(["curtin-preserve-sources.cfg"])
-        self.check_file_regex("curtin-preserve-sources.cfg",
-                              "apt_preserve_sources_list.*true")
+        # For earlier than xenial 'apt_preserve_sources_list' is expected
+        self.assertEqual(
+            {'apt': {'preserve_sources_list': True}},
+            yaml.load(self.load_collect_file("curtin-preserve-sources.cfg")))
 
     def test_source_files(self):
         """test_source_files - Check generated .lists for correct content"""

@@ -17,13 +17,15 @@ class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):
     conf_file = "examples/tests/lvm_iscsi.yaml"
     nr_testfiles = 4
 
-    extra_collect_scripts = TestLvmAbs.extra_collect_scripts
-    extra_collect_scripts += TestBasicIscsiAbs.extra_collect_scripts
-    extra_collect_scripts += [textwrap.dedent(
-        """
-        cd OUTPUT_COLLECT_D
-        ls -al /sys/class/block/dm*/slaves/  > dm_slaves
-        """)]
+    extra_collect_scripts = (
+        TestLvmAbs.extra_collect_scripts +
+        TestBasicIscsiAbs.extra_collect_scripts +
+        [textwrap.dedent("""
+            cd OUTPUT_COLLECT_D
+            ls -al /sys/class/block/dm*/slaves/  > dm_slaves
+
+            exit 0
+            """)])
 
     fstab_expected = {
         'UUID=6de56115-9500-424b-8151-221b270ec708': '/mnt/iscsi1',
@@ -85,6 +87,10 @@ class BionicTestIscsiLvm(relbase.bionic, TestLvmIscsiAbs):
 
 
 class CosmicTestIscsiLvm(relbase.cosmic, TestLvmIscsiAbs):
+    __test__ = True
+
+
+class DiscoTestIscsiLvm(relbase.disco, TestLvmIscsiAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

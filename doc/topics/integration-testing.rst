@@ -116,7 +116,7 @@ If you wish to all tests in test_network.py, do so with::
 
 Or run a single test with::
 
-  nosetests3 tests/vmtests/test_network.py::XenialTestNetworkBasic
+  nosetests3 tests/vmtests/test_network.py:XenialTestNetworkBasic
 
 
 Environment Variables
@@ -321,7 +321,7 @@ Some environment variables affect the running of vmtest
 - ``CURTIN_VMTEST_SYSTEM_UPGRADE``: default 'auto'
    The default setting of 'auto' means to do a system upgrade if
    there are additional repos added.  To enable this explicitly, set
-   to any non "0" value.
+   to any value other than case insensitive "false" or "0" or an empty string.
 
 - ``CURTIN_VMTEST_UPGRADE_PACKAGES``: default ''
    This is a comma delimited string listing packages that should have

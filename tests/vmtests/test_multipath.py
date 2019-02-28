@@ -4,6 +4,8 @@ from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 
+from unittest import SkipTest
+import os
 import textwrap
 
 
@@ -22,6 +24,11 @@ class TestMultipathBasicAbs(VMBaseClass):
         cp -a /etc/multipath* .
         readlink -f /sys/class/block/sda/holders/dm-0 > holders_sda
         readlink -f /sys/class/block/sdb/holders/dm-0 > holders_sdb
+        command -v systemctl && {
+            systemctl show -- home.mount > systemctl_show_home.mount;
+            systemctl status --full home.mount > systemctl_status_home.mount
+        }
+        exit 0
         """)]
 
     def test_multipath_disks_match(self):
@@ -30,6 +37,26 @@ class TestMultipathBasicAbs(VMBaseClass):
         sdb_data = self.load_collect_file("holders_sdb")
         print('sdb holders:\n%s' % sdb_data)
         self.assertEqual(sda_data, sdb_data)
+
+    def test_home_mount_unit(self):
+        unit_file = 'systemctl_show_home.mount'
+        if not os.path.exists(self.collect_path(unit_file)):
+            raise SkipTest(
+                'target_release=%s does not use systemd' % self.target_release)
+
+        # We can't use load_shell_content as systemctl show output
+        # does not quote values even though it's in Key=Value format
+        content = self.load_collect_file(unit_file)
+        expected_results = {
+            'ActiveState': 'active',
+            'Result': 'success',
+            'SubState': 'mounted',
+        }
+        show = {key: value for key, value in
+                [line.split('=') for line in content.splitlines()
+                 if line.split('=')[0] in expected_results.keys()]}
+
+        self.assertEqual(sorted(expected_results), sorted(show))
 
 
 class Centos70TestMultipathBasic(centos_relbase.centos70_xenial,
@@ -63,6 +90,10 @@ class BionicTestMultipathBasic(relbase.bionic, TestMultipathBasicAbs):
 
 
 class CosmicTestMultipathBasic(relbase.cosmic, TestMultipathBasicAbs):
+    __test__ = True
+
+
+class DiscoTestMultipathBasic(relbase.disco, TestMultipathBasicAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

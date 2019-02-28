@@ -17,9 +17,14 @@ class TestBasicAbs(VMBaseClass):
     dirty_disks = True
     conf_file = "examples/tests/basic.yaml"
     extra_disks = ['128G', '128G', '4G']
-    nvme_disks = ['4G']
-    disk_to_check = [('main_disk_with_in---valid--dname', 1),
-                     ('main_disk_with_in---valid--dname', 2)]
+    disk_to_check = [('btrfs_volume', 0),
+                     ('main_disk_with_in---valid--dname', 0),
+                     ('main_disk_with_in---valid--dname', 1),
+                     ('main_disk_with_in---valid--dname', 2),
+                     ('pnum_disk', 0),
+                     ('pnum_disk', 1),
+                     ('pnum_disk', 10),
+                     ('sparedisk', 0)]
     extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/vda | cat >blkid_output_vda
@@ -32,6 +37,13 @@ class TestBasicAbs(VMBaseClass):
            btrfs inspect-internal dump-super $dev |
                awk '/^dev_item.fsid/ {print $2}'
         fi | cat >$f
+
+        # compare via /dev/zero 8MB
+        cmp --bytes=8388608 /dev/zero /dev/vde2; echo "$?" > cmp_prep.out
+        # extract partition info
+        udevadm info --export --query=property /dev/vde2 | cat >udev_info.out
+
+        exit 0
         """)]
 
     def _kname_to_uuid(self, kname):
@@ -108,6 +120,21 @@ class TestBasicAbs(VMBaseClass):
         # compare them
         self.assertEqual(kname_uuid, btrfs_uuid)
 
+    def _test_partition_is_prep(self, info_file):
+        udev_info = self.load_collect_file(info_file).rstrip()
+        entry_type = ''
+        for line in udev_info.splitlines():
+            if line.startswith('ID_PART_ENTRY_TYPE'):
+                entry_type = line.split("=", 1)[1].replace("'", "")
+                break
+        # https://en.wikipedia.org/wiki/GUID_Partition_Table
+        # GPT PReP boot UUID
+        self.assertEqual('9e1a2d38-c612-4316-aa26-8b49521e5a8b'.lower(),
+                         entry_type.lower())
+
+    def _test_partition_is_zero(self, cmp_file):
+        self.assertEqual(0, int(self.load_collect_file(cmp_file).rstrip()))
+
     # class specific input
     def test_output_files_exist(self):
         self.output_files_exist(
@@ -118,9 +145,9 @@ class TestBasicAbs(VMBaseClass):
         self._test_ptable("blkid_output_vda", "dos")
 
     def test_partition_numbers(self):
-        # vde should have partitions 1 and 10
+        # vde should have partitions 1 2, and 10
         disk = "vde"
-        expected = [disk + s for s in ["", "1", "10"]]
+        expected = [disk + s for s in ["", "1", "2", "10"]]
         self._test_partition_numbers(disk, expected)
 
     def test_fstab_entries(self):
@@ -156,6 +183,12 @@ class TestBasicAbs(VMBaseClass):
         source_version = self.get_curtin_version()
         print('Source repo version: %s' % source_version)
         self.assertEqual(source_version, installed_version)
+
+    def test_partition_is_prep(self):
+        self._test_partition_is_prep("udev_info.out")
+
+    def test_partition_is_zero(self):
+        self._test_partition_is_zero("cmp_prep.out")
 
 
 class CentosTestBasicAbs(TestBasicAbs):
@@ -213,11 +246,14 @@ class CosmicTestBasic(relbase.cosmic, TestBasicAbs):
     __test__ = True
 
 
+class DiscoTestBasic(relbase.disco, TestBasicAbs):
+    __test__ = True
+
+
 class TestBasicScsiAbs(TestBasicAbs):
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
     extra_disks = ['128G', '128G', '4G']
-    nvme_disks = ['4G']
     extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/sda | cat >blkid_output_sda
@@ -230,15 +266,22 @@ class TestBasicScsiAbs(TestBasicAbs):
            btrfs inspect-internal dump-super $dev |
                awk '/^dev_item.fsid/ {print $2}'
         fi | cat >$f
+
+        # compare via /dev/zero 8MB
+        cmp --bytes=8388608 /dev/zero /dev/sdd2; echo "$?" > cmp_prep.out
+        # extract partition info
+        udevadm info --export --query=property /dev/sdd2 | cat >udev_info.out
+
+        exit 0
         """)]
 
     def test_ptable(self):
         self._test_ptable("blkid_output_sda", "dos")
 
     def test_partition_numbers(self):
-        # sdd should have partitions 1 and 10
+        # sdd should have partitions 1, 2, and 10
         disk = "sdd"
-        expected = [disk + s for s in ["", "1", "10"]]
+        expected = [disk + s for s in ["", "1", "2", "10"]]
         self._test_partition_numbers(disk, expected)
 
     def test_fstab_entries(self):
@@ -254,6 +297,12 @@ class TestBasicScsiAbs(TestBasicAbs):
 
     def test_whole_disk_uuid(self):
         self._test_whole_disk_uuid("sdc", "btrfs_uuid_sdc")
+
+    def test_partition_is_prep(self):
+        self._test_partition_is_prep("udev_info.out")
+
+    def test_partition_is_zero(self):
+        self._test_partition_is_zero("cmp_prep.out")
 
 
 class Centos70XenialTestScsiBasic(centos_relbase.centos70_xenial,
@@ -278,6 +327,10 @@ class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
 
 
 class CosmicTestScsiBasic(relbase.cosmic, TestBasicScsiAbs):
+    __test__ = True
+
+
+class DiscoTestScsiBasic(relbase.disco, TestBasicScsiAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

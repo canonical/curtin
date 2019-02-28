@@ -19,14 +19,17 @@ class TestNvmeAbs(VMBaseClass):
     conf_file = "examples/tests/nvme.yaml"
     extra_disks = []
     nvme_disks = ['4G', '4G']
-    disk_to_check = [('main_disk', 1), ('main_disk', 2), ('main_disk', 15),
-                     ('nvme_disk', 1), ('nvme_disk', 2), ('nvme_disk', 3),
-                     ('second_nvme', 1)]
+    disk_to_check = [
+        ('main_disk', 1), ('main_disk', 2), ('main_disk', 15),
+        ('nvme_disk', 0), ('nvme_disk', 1), ('nvme_disk', 2), ('nvme_disk', 3),
+        ('second_nvme', 0), ('second_nvme', 1)]
     extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         ls /sys/class/ > sys_class
         ls /sys/class/nvme/ > ls_nvme
         ls /dev/nvme* > ls_dev_nvme
+
+        exit 0
         """)]
 
     def _test_nvme_device_names(self, expected):
@@ -82,6 +85,10 @@ class CosmicTestNvme(relbase.cosmic, TestNvmeAbs):
     __test__ = True
 
 
+class DiscoTestNvme(relbase.cosmic, TestNvmeAbs):
+    __test__ = True
+
+
 class TestNvmeBcacheAbs(TestNvmeAbs):
     arch_skip = [
         "s390x",  # nvme is a pci device, no pci on s390x
@@ -91,7 +98,8 @@ class TestNvmeBcacheAbs(TestNvmeAbs):
     extra_disks = ['10G']
     nvme_disks = ['6G']
     uefi = True
-    disk_to_check = [('sda', 1), ('sda', 2), ('sda', 3)]
+    disk_to_check = [('sda', 1), ('sda', 2), ('sda', 3),
+                     ('sdb', 0), ('nvme0n1', 0)]
 
     extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
@@ -102,6 +110,8 @@ class TestNvmeBcacheAbs(TestNvmeAbs):
         bcache-super-show /dev/nvme0n1p1 > bcache_super_nvme0n1p1
         ls /sys/fs/bcache > bcache_ls
         cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
+
+        exit 0
         """)]
 
     def test_bcache_output_files_exist(self):
@@ -144,5 +154,8 @@ class BionicTestNvmeBcache(relbase.bionic, TestNvmeBcacheAbs):
 class CosmicTestNvmeBcache(relbase.cosmic, TestNvmeBcacheAbs):
     __test__ = True
 
+
+class DiscoTestNvmeBcache(relbase.disco, TestNvmeBcacheAbs):
+    __test__ = True
 
 # vi: ts=4 expandtab syntax=python

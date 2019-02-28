@@ -17,6 +17,8 @@ class TestLvmAbs(VMBaseClass):
         cd OUTPUT_COLLECT_D
         pvdisplay -C --separator = -o vg_name,pv_name --noheadings > pvs
         lvdisplay -C --separator = -o lv_name,vg_name --noheadings > lvs
+
+        exit 0
         """)]
     fstab_expected = {
         '/dev/vg1/lv1': '/srv/data',
@@ -72,5 +74,8 @@ class BionicTestLvm(relbase.bionic, TestLvmAbs):
 class CosmicTestLvm(relbase.cosmic, TestLvmAbs):
     __test__ = True
 
+
+class DiscoTestLvm(relbase.disco, TestLvmAbs):
+    __test__ = True
 
 # vi: ts=4 expandtab syntax=python

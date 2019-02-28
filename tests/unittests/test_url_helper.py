@@ -10,19 +10,71 @@ from .helpers import CiTestCase
 
 
 class TestDownload(CiTestCase):
+    def setUp(self):
+        super(TestDownload, self).setUp()
+        self.tmpd = self.tmp_dir()
+        self.src_file = self.tmp_path("my-source", self.tmpd)
+        with open(self.src_file, "wb") as fp:
+            # Write the min amount of bytes
+            fp.write(b':-)\n' * int(8200/4))
+        self.target_file = self.tmp_path("my-target", self.tmpd)
+
     def test_download_file_url(self):
         """Download a file to another file."""
-        tmpd = self.tmp_dir()
-        src_file = self.tmp_path("my-source", tmpd)
-        target_file = self.tmp_path("my-target", tmpd)
+        url_helper.download("file://" + self.src_file, self.target_file)
+        self.assertTrue(filecmp.cmp(self.src_file, self.target_file),
+                        "Downloaded file differed from source file.")
 
-        # Make sure we have > 8192 bytes in the file (buflen of UrlReader)
-        with open(src_file, "wb") as fp:
-            for line in range(0, 1024):
-                fp.write(b'Who are the people in your neighborhood.\n')
+    @mock.patch('curtin.url_helper.UrlReader')
+    def test_download_file_url_retry(self, urlreader_mock):
+        """Retry downloading a file with server error (http 5xx)."""
+        urlreader_mock.side_effect = url_helper.UrlError(None, code=500)
 
-        url_helper.download("file://" + src_file, target_file)
-        self.assertTrue(filecmp.cmp(src_file, target_file),
+        self.assertRaises(url_helper.UrlError, url_helper.download,
+                          "file://" + self.src_file, self.target_file,
+                          retries=3, retry_delay=0)
+        self.assertEquals(4, urlreader_mock.call_count,
+                          "Didn't call UrlReader 4 times (retries=3)")
+
+    @mock.patch('curtin.url_helper.UrlReader')
+    def test_download_file_url_no_retry(self, urlreader_mock):
+        """No retry by default on downloading a file with server error
+           (http 5xx)."""
+        urlreader_mock.side_effect = url_helper.UrlError(None, code=500)
+
+        self.assertRaises(url_helper.UrlError, url_helper.download,
+                          "file://" + self.src_file, self.target_file,
+                          retry_delay=0)
+        self.assertEquals(1, urlreader_mock.call_count,
+                          "Didn't call UrlReader once (retries=0)")
+
+    @mock.patch('curtin.url_helper.UrlReader')
+    def test_download_file_url_no_retry_on_client_error(self, urlreader_mock):
+        """No retry by default on downloading a file with 4xx http error."""
+        urlreader_mock.side_effect = url_helper.UrlError(None, code=404)
+
+        self.assertRaises(url_helper.UrlError, url_helper.download,
+                          "file://" + self.src_file, self.target_file,
+                          retries=3, retry_delay=0)
+        self.assertEquals(1, urlreader_mock.call_count,
+                          "Didn't call UrlReader once (400 class error)")
+
+    def test_download_file_url_retry_then_success(self):
+        """Retry downloading a file with server error and then succeed."""
+        url_reader = url_helper.UrlReader
+
+        with mock.patch('curtin.url_helper.UrlReader') as urlreader_mock:
+            # return first an error, then, real object
+            def urlreader_download(url):
+                urlreader_mock.side_effect = url_reader
+                raise url_helper.UrlError(None, code=500)
+            urlreader_mock.side_effect = urlreader_download
+            url_helper.download("file://" + self.src_file, self.target_file,
+                                retries=3, retry_delay=0)
+        self.assertEquals(2, urlreader_mock.call_count,
+                          "Didn't call UrlReader twice (first failing,"
+                          "then success)")
+        self.assertTrue(filecmp.cmp(self.src_file, self.target_file),
                         "Downloaded file differed from source file.")
 
 

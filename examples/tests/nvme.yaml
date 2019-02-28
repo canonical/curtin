@@ -44,7 +44,7 @@ storage:
         device: main_disk_home
       - id: nvme_disk
         type: disk
-        path: /dev/nvme0n1
+        serial: nvme-a
         name: nvme_disk
         wipe: superblock
         ptable: gpt
@@ -63,7 +63,7 @@ storage:
         device: nvme_disk
       - id: nvme_disk2
         type: disk
-        path: /dev/nvme1n1
+        serial: nvme-b
         wipe: superblock
         ptable: msdos
         name: second_nvme

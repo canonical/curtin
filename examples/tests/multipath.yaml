@@ -36,3 +36,4 @@ storage:
         type: mount
         path: /home
         device: sda2_home
+        options: 'defaults,nofail'
