@@ -4,31 +4,26 @@ curtin (18.2-10-g7afd77fa-0ubuntu1~18.10.1) cosmic; urgency=medium
     - Support for multi-layers images fsimage-layered:// URI
       [Jean-Baptiste Lallement]
     - dname: relax dname req for disk serial/wwn presence for compatibility
-      (LP: #1735839)
     - flake8: fix some E117 over-indented issues [Paride Legovini]
     - bcache: ensure partitions on bcache devices are detected as partition
     - vmtest: bump skip_by_date out a year for trusty bcache bug
     - Fix typo in doc/topics/integration-testing.rst. [Paride Legovini]
     - flake8: Fix two issues found with new version of flake8
     - clear-holders: handle FileNotFound when probing for bcache device slaves
-      (LP: #1811117)
     - vmtests: network mtu fix-by bump to post 19.04 release
     - vmtest: Fix bug preventing explicit disabling of system_upgrade.
     - Release 18.2
     - Adjust helpers/common to edit GRUB_CMDLINE_LINUX_DEFAULT in place.
-      (LP: #1527664)
-    - dname: persistent names based on serial or wwn (LP: #1735839)
+    - dname: persistent names based on serial or wwn
     - Fix bug in is_swap_device if a device was smaller than page_size.
-      (LP: #1803672)
     - vmtest: add disco tests [Joshua Powers]
     - unittest: change directory to tmpdir for testing relative files.
-    - Add clear-holders to meta-simple (LP: #1786736)
+    - Add clear-holders to meta-simple
     - vmtests: check install log for Out of memory kernel messages and fail
-    - unittest: correctly use tmpdir for my.img [Joshua Powers] (LP: #1803611)
-    - block_meta: use wipe config when clearing partitions (LP: #1800153)
+    - unittest: correctly use tmpdir for my.img [Joshua Powers]
+    - block_meta: use wipe config when clearing partitions
     - tests: fix vmtests for apt perserve_source_list changes
     - apt: Use new format apt config when writing preserve_sources_list.
-      (LP: #1735950)
     - vmtests: multipath mount /home with nofail and validate in unittest
     - vmtests: fix common collect scripts to not exit failure.
     - vmtest: handle collect disk unpack failure
