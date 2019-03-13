@@ -580,12 +580,15 @@ used for the logical volume.
 
 Dm-Crypt Command
 ~~~~~~~~~~~~~~~~
-The dm_crypt command creates encrypted volumes using ``cryptsetup``. It
-requires a name for the encrypted volume, the volume to be encrypted and a key.
-Note that this should not be used for systems where security is a requirement.
-The key is stored in plain-text in the storage configuration and it could be
-possible for the storage configuration to be intercepted between the utility
-that generates it and curtin.
+
+The dm_crypt command creates encrypted volumes using ``cryptsetup``. It requires
+a name for the encrypted volume, the volume to be encrypted and a key.  In
+situations where the config is generated on a different system from where curtin
+is run there is not yet a good solution for securely conveying the key -- you
+can set **key** but it appears in plain text in the config, which might be
+intercepted by between the systems (and is by default copied to the target
+system). If the config is generated on the same system, you can use **keyfile**
+to supply the passphrase in file with appropriate permissions.
 
 **volume**: *<volume id>*
 
@@ -599,6 +602,13 @@ The ``name`` key specifies the name of the encrypted volume.
 
 The ``key`` key specifies the password of the encryption key.  The target
 system will prompt for this password in order to mount the disk.
+
+**keyfile**: *<keyfile>*
+
+The ``keyfile`` contains the password of the encryption key.  The target
+system will prompt for this password in order to mount the disk.
+
+Exactly one of **key** and **keyfile** must be supplied.
 
 .. note::
 

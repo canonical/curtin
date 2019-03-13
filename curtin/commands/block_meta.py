@@ -978,41 +978,47 @@ def lvm_partition_handler(info, storage_config):
 def dm_crypt_handler(info, storage_config):
     state = util.load_command_environment()
     volume = info.get('volume')
-    key = info.get('key')
     keysize = info.get('keysize')
     cipher = info.get('cipher')
     dm_name = info.get('dm_name')
     if not volume:
         raise ValueError("volume for cryptsetup to operate on must be \
             specified")
-    if not key:
-        raise ValueError("encryption key must be specified")
     if not dm_name:
         dm_name = info.get('id')
 
     volume_path = get_path_to_storage_volume(volume, storage_config)
 
-    # TODO: this is insecure, find better way to do this
-    tmp_keyfile = tempfile.mkstemp()[1]
-    fp = open(tmp_keyfile, "w")
-    fp.write(key)
-    fp.close()
+    if 'keyfile' in info:
+        if 'key' in info:
+            raise ValueError("cannot specify both key and keyfile")
+        keyfile_is_tmp = False
+        keyfile = info['keyfile']
+    elif 'key' in info:
+        # TODO: this is insecure, find better way to do this
+        key = info.get('key')
+        keyfile = tempfile.mkstemp()[1]
+        keyfile_is_tmp = True
+        util.write_file(keyfile, key, mode=0o600)
+    else:
+        raise ValueError("encryption key or keyfile must be specified")
 
     cmd = ["cryptsetup"]
     if cipher:
         cmd.extend(["--cipher", cipher])
     if keysize:
         cmd.extend(["--key-size", keysize])
-    cmd.extend(["luksFormat", volume_path, tmp_keyfile])
+    cmd.extend(["luksFormat", volume_path, keyfile])
 
     util.subp(cmd)
 
     cmd = ["cryptsetup", "open", "--type", "luks", volume_path, dm_name,
-           "--key-file", tmp_keyfile]
+           "--key-file", keyfile]
 
     util.subp(cmd)
 
-    os.remove(tmp_keyfile)
+    if keyfile_is_tmp:
+        os.remove(keyfile)
 
     # A crypttab will be created in the same directory as the fstab in the
     # configuration. This will then be copied onto the system later
