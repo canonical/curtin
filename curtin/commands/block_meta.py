@@ -2,7 +2,8 @@
 
 from collections import OrderedDict, namedtuple
 from curtin import (block, config, paths, util)
-from curtin.block import (bcache, mdadm, mkfs, clear_holders, lvm, iscsi, zfs)
+from curtin.block import (bcache, clear_holders, dasd, iscsi, lvm, mdadm, mkfs,
+                          zfs)
 from curtin import distro
 from curtin.log import LOG, logged_time
 from curtin.reporter import events
@@ -388,24 +389,44 @@ def get_path_to_storage_volume(volume, storage_config):
         volume_path = block.kname_to_path(partition_kname)
         devsync_vol = os.path.join(disk_block_path)
 
+    elif vol.get('type') == "dasd":
+        dasd_device = dasd.DasdDevice(vol.get('device_id'))
+        volume_path = dasd_device.devname
+
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
         # to id of device in storage config
-        if vol.get('serial'):
-            volume_path = block.lookup_disk(vol.get('serial'))
-        elif vol.get('path'):
-            if vol.get('path').startswith('iscsi:'):
-                i = iscsi.ensure_disk_connected(vol.get('path'))
-                volume_path = os.path.realpath(i.devdisk_path)
-            else:
-                # resolve any symlinks to the dev_kname so
-                # sys/class/block access is valid.  ie, there are no
-                # udev generated values in sysfs
-                volume_path = os.path.realpath(vol.get('path'))
-        elif vol.get('wwn'):
-            by_wwn = '/dev/disk/by-id/wwn-%s' % vol.get('wwn')
-            volume_path = os.path.realpath(by_wwn)
-        else:
+        volume_path = None
+        for disk_key in ['wwn', 'serial', 'device_id', 'path']:
+            vol_value = vol.get(disk_key)
+            try:
+                if not vol_value:
+                    continue
+                if disk_key == 'serial':
+                    volume_path = block.lookup_disk(vol_value)
+                    break
+                elif disk_key == 'path':
+                    if vol_value.startswith('iscsi:'):
+                        i = iscsi.ensure_disk_connected(vol_value)
+                        volume_path = os.path.realpath(i.devdisk_path)
+                    else:
+                        # resolve any symlinks to the dev_kname so
+                        # sys/class/block access is valid.  ie, there are no
+                        # udev generated values in sysfs
+                        volume_path = os.path.realpath(vol_value)
+                    break
+                elif disk_key == 'wwn':
+                    by_wwn = '/dev/disk/by-id/wwn-%s' % vol.get('wwn')
+                    volume_path = os.path.realpath(by_wwn)
+                    break
+                elif disk_key == 'device_id':
+                    dasd_device = dasd.DasdDevice(vol_value)
+                    volume_path = dasd_device.devname
+                    break
+            except ValueError:
+                pass
+
+        if not volume_path:
             raise ValueError("serial, wwn or path to block dev must be \
                 specified to identify disk")
 
@@ -463,6 +484,49 @@ def get_path_to_storage_volume(volume, storage_config):
     return volume_path
 
 
+def dasd_handler(info, storage_config):
+    """ Prepare the specified dasd device per configuration
+
+    params: info: dictionary of configuration, required keys are:
+        type, id, device_id
+    params: storage_config:  ordered dictionary of entire storage config
+
+    example:
+    {
+     'type': 'dasd',
+     'id': 'dasd_142f',
+     'device_id': '0.0.142f',
+     'blocksize': 4096,
+     'label': 'cloudimg-rootfs',
+     'mode': 'quick',
+     'disk_layout': 'cdl',
+    }
+    """
+    device_id = info.get('device_id')
+    blocksize = info.get('blocksize')
+    disk_layout = info.get('disk_layout')
+    label = info.get('label')
+    mode = info.get('mode')
+
+    dasd_device = dasd.DasdDevice(device_id)
+    if dasd_device.needs_formatting(blocksize, disk_layout, label):
+        if config.value_as_boolean(info.get('preserve')):
+            raise ValueError(
+                "dasd '%s' does not match configured properties and"
+                "preserve is set to true.  The dasd needs formatting"
+                "with the specified parameters to continue." % info.get('id'))
+
+        LOG.debug('Formatting dasd id=%s device_id=%s devname=%s',
+                  info.get('id'), device_id, dasd_device.devname)
+        dasd_device.format(blksize=blocksize, layout=disk_layout,
+                           set_label=label, mode=mode)
+
+        # check post-format to ensure values match
+        if dasd_device.needs_formatting(blocksize, disk_layout, label):
+            raise RuntimeError(
+                "Dasd %s failed to format" % dasd_device.devname)
+
+
 def disk_handler(info, storage_config):
     _dos_names = ['dos', 'msdos']
     ptable = info.get('ptable')
@@ -495,6 +559,9 @@ def disk_handler(info, storage_config):
                 block.wipe_volume(disk, mode='superblock')
             elif ptable in _dos_names:
                 util.subp(["parted", disk, "--script", "mklabel", "msdos"])
+            elif ptable == "vtoc":
+                # ignore dasd partition tables
+                pass
             else:
                 raise ValueError('invalid partition table type: %s', ptable)
         holders = clear_holders.get_holders(disk)
@@ -691,6 +758,10 @@ def partition_handler(info, storage_config):
                length_sectors + offset_sectors),
                "--typecode=%s:%s" % (partnumber, typecode), disk]
         util.subp(cmd, capture=True)
+    elif disk_ptable == "vtoc":
+        disk_device_id = storage_config.get(device).get('device_id')
+        dasd_device = dasd.DasdDevice(disk_device_id)
+        dasd_device.partition(partnumber, length_bytes)
     else:
         raise ValueError("parent partition has invalid partition table")
 
@@ -1448,7 +1519,10 @@ def get_disk_paths_from_storage_config(storage_config):
 
     :param: storage_config: Ordered dict of storage configation
     """
-    return [get_path_to_storage_volume(k, storage_config)
+    def get_path_if_present(disk, config):
+        return get_path_to_storage_volume(disk, config)
+
+    return [get_path_if_present(k, storage_config)
             for (k, v) in storage_config.items()
             if v.get('type') == 'disk' and
             config.value_as_boolean(v.get('wipe')) and
@@ -1575,6 +1649,7 @@ def meta_custom(args):
     """
 
     command_handlers = {
+        'dasd': dasd_handler,
         'disk': disk_handler,
         'partition': partition_handler,
         'format': format_handler,

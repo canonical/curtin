@@ -7,6 +7,7 @@ from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 
 import textwrap
+import os
 from unittest import SkipTest
 
 
@@ -16,7 +17,7 @@ class TestBasicAbs(VMBaseClass):
     nr_cpus = 2
     dirty_disks = True
     conf_file = "examples/tests/basic.yaml"
-    extra_disks = ['128G', '128G', '4G']
+    extra_disks = ['128G', '128G', '4G', '4G']
     disk_to_check = [('btrfs_volume', 0),
                      ('main_disk_with_in---valid--dname', 0),
                      ('main_disk_with_in---valid--dname', 1),
@@ -27,10 +28,13 @@ class TestBasicAbs(VMBaseClass):
                      ('sparedisk', 0)]
     extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        blkid -o export /dev/vda | cat >blkid_output_vda
-        blkid -o export /dev/vda1 | cat >blkid_output_vda1
-        blkid -o export /dev/vda2 | cat >blkid_output_vda2
-        dev="/dev/vdd"; f="btrfs_uuid_${dev#/dev/*}";
+        diska=$(readlink -f /dev/disk/by-id/*-disk-a)
+        blkid -o export $diska | cat >blkid_output_diska
+        blkid -o export ${diska}1 | cat >blkid_output_diska1
+        blkid -o export ${diska}2 | cat >blkid_output_diska2
+        dev="$(readlink -f /dev/disk/by-id/*-disk-c)";
+        echo "btrfs dev=$dev"
+        f="btrfs_uuid_diskc"
         if command -v btrfs-debug-tree >/dev/null; then
            btrfs-debug-tree -r $dev | awk '/^uuid/ {print $2}' | grep "-"
         else
@@ -39,9 +43,10 @@ class TestBasicAbs(VMBaseClass):
         fi | cat >$f
 
         # compare via /dev/zero 8MB
-        cmp --bytes=8388608 /dev/zero /dev/vde2; echo "$?" > cmp_prep.out
+        diskd=$(readlink -f /dev/disk/by-id/*-disk-d)
+        cmp --bytes=8388608 /dev/zero ${diskd}2; echo "$?" > cmp_prep.out
         # extract partition info
-        udevadm info --export --query=property /dev/vde2 | cat >udev_info.out
+        udevadm info --export --query=property ${diskd}2 | cat >udev_info.out
 
         exit 0
         """)]
@@ -59,6 +64,21 @@ class TestBasicAbs(VMBaseClass):
         self.assertTrue(uuid is not None)
         self.assertEqual(len(uuid), 36)
         return uuid
+
+    def _serial_to_kname(self, serial):
+        # extract kname from /dev/disk/by-id on /dev/<kname>
+        # parsing ls -al output on /dev/disk/by-id:
+        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
+        #  virtio-disk-a -> ../../vda
+        ls_byid = self.load_collect_file("ls_al_byid")
+        kname = [os.path.basename(line.split()[10])
+                 for line in ls_byid.split('\n')
+                 if ("virtio-" + serial) in line.split() or
+                    ("scsi-" + serial) in line.split()]
+        self.assertEqual(len(kname), 1)
+        kname = kname.pop()
+        self.assertTrue(kname is not None)
+        return kname
 
     def _test_ptable(self, blkid_output, expected):
         if self.target_release == "trusty":
@@ -142,27 +162,31 @@ class TestBasicAbs(VMBaseClass):
              "root/curtin-install.log", "root/curtin-install-cfg.yaml"])
 
     def test_ptable(self):
-        self._test_ptable("blkid_output_vda", "dos")
+        self._test_ptable("blkid_output_diska", "dos")
 
     def test_partition_numbers(self):
-        # vde should have partitions 1 2, and 10
-        disk = "vde"
+        # disk-d should have partitions 1 2, and 10
+        disk = self._serial_to_kname('disk-d')
         expected = [disk + s for s in ["", "1", "2", "10"]]
         self._test_partition_numbers(disk, expected)
 
     def test_fstab_entries(self):
         """"
-        dev=vda1 mp=/ fsopts=defaults
-        dev=vda2 mp=/home fsopts=defaults
-        dev=vdd  mp=/btrfs fsopts=defaults,noatime
+        dev=${diska}1 mp=/ fsopts=defaults
+        dev=${diska}2 mp=/home fsopts=defaults
+        dev=${diskc}  mp=/btrfs fsopts=defaults,noatime
         """
-        expected = [('vda1', '/', 'defaults'),
-                    ('vda2', '/home', 'defaults'),
-                    ('vdd', '/btrfs', 'defaults,noatime')]
+        rootdev = self._serial_to_kname('disk-a')
+        btrfsdev = self._serial_to_kname('disk-c')
+        expected = [(rootdev + '1', '/', 'defaults'),
+                    (rootdev + '2', '/home', 'defaults'),
+                    (btrfsdev, '/btrfs', 'defaults,noatime')]
         self._test_fstab_entries('fstab', 'ls_al_byuuid', expected)
 
     def test_whole_disk_uuid(self):
-        self._test_whole_disk_uuid("vdd", "btrfs_uuid_vdd")
+        self._test_whole_disk_uuid(
+                self._serial_to_kname('disk-c'),
+                "btrfs_uuid_diskc")
 
     def test_proxy_set(self):
         if self.target_distro != 'ubuntu':
@@ -253,7 +277,7 @@ class DiscoTestBasic(relbase.disco, TestBasicAbs):
 class TestBasicScsiAbs(TestBasicAbs):
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
-    extra_disks = ['128G', '128G', '4G']
+    extra_disks = ['128G', '128G', '4G', '4G']
     extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/sda | cat >blkid_output_sda

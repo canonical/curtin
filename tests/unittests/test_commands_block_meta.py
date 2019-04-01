@@ -770,4 +770,95 @@ class TestFstabData(CiTestCase):
         # dir should be created before call to subp failed.
         self.assertTrue(os.path.isdir(mp))
 
+
+class TestDasdHandler(CiTestCase):
+
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.devname')
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.format')
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.needs_formatting')
+    @patch('curtin.commands.block_meta.block')
+    @patch('curtin.commands.block_meta.util')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_dasd_handler_calls_format(self, m_getpath, m_util, m_block,
+                                       m_dasd_needf, m_dasd_format,
+                                       m_dasd_devname):
+        """verify dasd.format is called on disk that differs from config."""
+        storage_config = OrderedDict()
+        info = {'type': 'dasd', 'id': 'dasd_rootfs', 'device_id': '0.1.24fe',
+                'blocksize': 4096, 'disk_layout': 'cdl', 'mode': 'quick',
+                'label': 'cloudimg-rootfs'}
+
+        disk_path = "/wark/dasda"
+        m_dasd_devname.return_value = disk_path
+        m_getpath.return_value = disk_path
+        m_dasd_needf.side_effect = [True, False]
+        block_meta.dasd_handler(info, storage_config)
+        m_dasd_format.assert_called_with(blksize=4096, layout='cdl',
+                                         set_label='cloudimg-rootfs',
+                                         mode='quick')
+
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.format')
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.needs_formatting')
+    @patch('curtin.commands.block_meta.block')
+    @patch('curtin.commands.block_meta.util')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_dasd_handler_skips_format_if_not_needed(self, m_getpath, m_util,
+                                                     m_block, m_dasd_needf,
+                                                     m_dasd_format):
+        """verify dasd.format is NOT called if disk matches config."""
+        storage_config = OrderedDict()
+        info = {'type': 'dasd', 'id': 'dasd_rootfs', 'device_id': '0.1.24fe',
+                'blocksize': 4096, 'disk_layout': 'cdl', 'mode': 'quick',
+                'label': 'cloudimg-rootfs'}
+
+        disk_path = "/wark/dasda"
+        m_getpath.return_value = disk_path
+        m_dasd_needf.side_effect = [False, False]
+        block_meta.dasd_handler(info, storage_config)
+        self.assertEqual(0, m_dasd_format.call_count)
+
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.format')
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.needs_formatting')
+    @patch('curtin.commands.block_meta.block')
+    @patch('curtin.commands.block_meta.util')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_dasd_handler_preserves_existing_dasd(self, m_getpath, m_util,
+                                                  m_block, m_dasd_needf,
+                                                  m_dasd_format):
+        """verify dasd.format is skipped if preserve is True."""
+        storage_config = OrderedDict()
+        info = {'type': 'dasd', 'id': 'dasd_rootfs', 'device_id': '0.1.24fe',
+                'blocksize': 4096, 'disk_layout': 'cdl', 'mode': 'quick',
+                'label': 'cloudimg-rootfs', 'preserve': True}
+
+        disk_path = "/wark/dasda"
+        m_getpath.return_value = disk_path
+        m_dasd_needf.side_effect = [False, False]
+        block_meta.dasd_handler(info, storage_config)
+        self.assertEqual(1, m_dasd_needf.call_count)
+        self.assertEqual(0, m_dasd_format.call_count)
+
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.format')
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.needs_formatting')
+    @patch('curtin.commands.block_meta.block')
+    @patch('curtin.commands.block_meta.util')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_dasd_handler_raise_on_preserve_needs_formatting(self, m_getpath,
+                                                             m_util, m_block,
+                                                             m_dasd_needf,
+                                                             m_dasd_format):
+        """ValueError raised if preserve is True but dasd needs formatting."""
+        storage_config = OrderedDict()
+        info = {'type': 'dasd', 'id': 'dasd_rootfs', 'device_id': '0.1.24fe',
+                'blocksize': 4096, 'disk_layout': 'cdl', 'mode': 'quick',
+                'label': 'cloudimg-rootfs', 'preserve': True}
+
+        disk_path = "/wark/dasda"
+        m_getpath.return_value = disk_path
+        m_dasd_needf.side_effect = [True, False]
+        with self.assertRaises(ValueError):
+            block_meta.dasd_handler(info, storage_config)
+        self.assertEqual(1, m_dasd_needf.call_count)
+        self.assertEqual(0, m_dasd_format.call_count)
+
 # vi: ts=4 expandtab syntax=python

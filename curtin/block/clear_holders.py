@@ -286,6 +286,11 @@ def wipe_superblock(device):
     # when operating on a disk that used to have a dos part table with an
     # extended partition, attempting to wipe the extended partition will fail
     try:
+        if not block.is_online(blockdev):
+            LOG.debug("Device is not online (size=0), so skipping:"
+                      " '%s'", blockdev)
+            return
+
         if block.is_extended_partition(blockdev):
             LOG.info("extended partitions do not need wiping, so skipping:"
                      " '%s'", blockdev)
@@ -357,7 +362,7 @@ def wipe_superblock(device):
             time.sleep(wait)
 
 
-def _wipe_superblock(blockdev, exclusive=True):
+def _wipe_superblock(blockdev, exclusive=True, strict=True):
     """ No checks, just call wipe_volume """
 
     retries = [1, 3, 5, 7]
@@ -366,7 +371,8 @@ def _wipe_superblock(blockdev, exclusive=True):
         LOG.debug('wiping %s attempt %s/%s',
                   blockdev, attempt + 1, len(retries))
         try:
-            block.wipe_volume(blockdev, mode='superblock', exclusive=exclusive)
+            block.wipe_volume(blockdev, mode='superblock',
+                              exclusive=exclusive, strict=strict)
             LOG.debug('successfully wiped device %s on attempt %s/%s',
                       blockdev, attempt + 1, len(retries))
             return
