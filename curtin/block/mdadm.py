@@ -8,11 +8,10 @@
 import os
 import re
 import shlex
-from subprocess import CalledProcessError
 import time
 
 from curtin.block import (dev_short, dev_path, is_valid_device, sys_block_path)
-from curtin.block import get_holders
+from curtin.block import get_holders, zero_file_at_offsets
 from curtin.distro import lsb_release
 from curtin import (util, udev)
 from curtin.log import LOG
@@ -138,12 +137,15 @@ def mdadm_assemble(md_devname=None, devices=[], spares=[], scan=False,
     udev.udevadm_settle()
 
 
-def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
+def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name="",
+                 metadata=None):
     LOG.debug('mdadm_create: ' +
               'md_name=%s raidlevel=%s ' % (md_devname, raidlevel) +
               ' devices=%s spares=%s name=%s' % (devices, spares, md_name))
 
     assert_valid_devpath(md_devname)
+    if not metadata:
+        metadata = 'default'
 
     if raidlevel not in VALID_RAID_LEVELS:
         raise ValueError('Invalid raidlevel: [{}]'.format(raidlevel))
@@ -161,6 +163,7 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
     (hostname, _err) = util.subp(["hostname", "-s"], rcs=[0], capture=True)
 
     cmd = ["mdadm", "--create", md_devname, "--run",
+           "--metadata=%s" % metadata,
            "--homehost=%s" % hostname.strip(),
            "--level=%s" % raidlevel,
            "--raid-devices=%s" % len(devices)]
@@ -168,20 +171,17 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, md_name=""):
         cmd.append("--name=%s" % md_name)
 
     for device in devices:
-        # mdadm can be sticky, double check
         holders = get_holders(device)
         if len(holders) > 0:
             LOG.warning('Detected holders during mdadm creation: %s', holders)
             raise OSError('Failed to remove holders from %s', device)
-        # Zero out device superblock just in case device has been used for raid
-        # before, as this will cause many issues
-        util.subp(["mdadm", "--zero-superblock", device], capture=True)
+        zero_device(device)
         cmd.append(device)
 
     if spares:
         cmd.append("--spare-devices=%s" % len(spares))
         for device in spares:
-            util.subp(["mdadm", "--zero-superblock", device], capture=True)
+            zero_device(device)
             cmd.append(device)
 
     # Create the raid device
@@ -225,14 +225,14 @@ def mdadm_examine(devpath, export=MDADM_USE_EXPORT):
     cmd.extend([devpath])
     try:
         (out, _err) = util.subp(cmd, capture=True)
-    except CalledProcessError:
-        LOG.exception('Error: not a valid md device: ' + devpath)
+    except util.ProcessExecutionError:
+        LOG.debug('not a valid md member device: ' + devpath)
         return {}
 
     if export:
         data = __mdadm_export_to_dict(out)
     else:
-        data = __upgrade_detail_dict(__mdadm_detail_to_dict(out))
+        data = __mdadm_detail_to_dict(out)
 
     return data
 
@@ -361,28 +361,61 @@ def remove_device(mddev, arraydev):
     LOG.debug("mdadm remove:\n%s\n%s", out, err)
 
 
-def zero_device(devpath):
+def zero_device(devpath, force=False):
+    """ Wipe mdadm member device at data offset.
+
+    For mdadm devices with metadata version 1.1 or newer location
+    of the data offset is provided.  This value is used to determine
+    the location to start wiping data to clear data.
+
+    If metadata version is older then fallback to wiping 1MB at
+    start and end of device; metadata was at end of device.
+    """
     assert_valid_devpath(devpath)
+    metadata = mdadm_examine(devpath, export=False)
+    if not metadata and not force:
+        LOG.debug('%s not mdadm member, force=False so skiping zeroing',
+                  devpath)
+        return
+    LOG.debug('mdadm.examine metadata:\n%s', util.json_dumps(metadata))
+    version = metadata.get('version')
 
-    LOG.info("mdadm zero superblock on %s", devpath)
-    out, err = util.subp(["mdadm", "--zero-superblock", devpath],
-                         rcs=[0], capture=True)
-    LOG.debug("mdadm zero superblock:\n%s\n%s", out, err)
+    offsets = []
+    # wipe at start, end of device for metadata older than 1.1
+    if version and version in ["1.1", "1.2"]:
+        LOG.debug('mdadm %s has metadata version=%s, extracting offsets',
+                  devpath, version)
+        for field in ['super_offset', 'data_offset']:
+            offset, unit = metadata[field].split()
+            if unit == "sectors":
+                offsets.append(int(offset) * 512)
+            else:
+                LOG.warning('Unexpected offset unit: %s', unit)
+
+    if not offsets:
+        offsets = [0, -(1024 * 1024)]
+
+    LOG.info('mdadm: wiping md member %s @ offsets %s', devpath, offsets)
+    zero_file_at_offsets(devpath, offsets, buflen=1024,
+                         count=1024, strict=True)
+    LOG.info('mdadm: successfully wiped %s' % devpath)
 
 
-def mdadm_query_detail(md_devname, export=MDADM_USE_EXPORT):
+def mdadm_query_detail(md_devname, export=MDADM_USE_EXPORT, rawoutput=False):
     valid_mdname(md_devname)
 
     cmd = ["mdadm", "--query", "--detail"]
     if export:
         cmd.extend(["--export"])
     cmd.extend([md_devname])
-    (out, _err) = util.subp(cmd, capture=True)
+    (out, err) = util.subp(cmd, capture=True)
+    if rawoutput:
+        return (out, err)
 
     if export:
         data = __mdadm_export_to_dict(out)
     else:
-        data = __upgrade_detail_dict(__mdadm_detail_to_dict(out))
+        data = __mdadm_detail_to_dict(out)
 
     return data
 
@@ -391,6 +424,10 @@ def mdadm_detail_scan():
     (out, _err) = util.subp(["mdadm", "--detail", "--scan"], capture=True)
     if not _err:
         return out
+
+
+def mdadm_run(md_device):
+    return util.subp(["mdadm", "--run", md_device], capture=True)
 
 
 def md_present(mdname):
@@ -516,7 +553,7 @@ def __mdadm_export_to_dict(output):
 
 
 def __mdadm_detail_to_dict(input):
-    ''' Convert mdadm --detail output to dictionary
+    ''' Convert mdadm --detail/--export output to dictionary
 
     /dev/vde:
               Magic : a92b4efc
@@ -548,16 +585,20 @@ def __mdadm_detail_to_dict(input):
     '''
     data = {}
 
-    device = re.findall(r'^(\/dev\/[a-zA-Z0-9-\._]+)', input)
-    if len(device) == 1:
-        data.update({'device': device[0]})
+    # first line, trim trailing :
+    device = input.splitlines()[0][:-1]
+    if device:
+        data.update({'device': device})
     else:
-        raise ValueError('Failed to determine device in input')
+        raise ValueError('Failed to determine device from input:\n%s', input)
+
+    # start after the first newline
+    remainder = input[input.find('\n')+1:]
 
     #  FIXME: probably could do a better regex to match the LHS which
     #         has one, two or three words
     rem = r'(\w+|\w+\ \w+|\w+\ \w+\ \w+)\ \:\ ([a-zA-Z0-9\-\.,: \(\)=\']+)'
-    for f in re.findall(rem, input, re.MULTILINE):
+    for f in re.findall(rem, remainder, re.MULTILINE):
         key = f[0].replace(' ', '_').lower()
         val = f[1]
         if key in data:

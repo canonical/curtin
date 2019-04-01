@@ -7,6 +7,7 @@ having to reboot the system
 """
 
 import errno
+import glob
 import os
 import time
 
@@ -255,8 +256,9 @@ def shutdown_mdadm(device):
     LOG.debug('using mdadm.mdadm_stop on dev: %s', blockdev)
     mdadm.mdadm_stop(blockdev)
 
+    LOG.debug('Wiping mdadm member devices: %s' % md_devs)
     for mddev in md_devs:
-        mdadm.zero_device(mddev)
+        mdadm.zero_device(mddev, force=True)
 
     # mdadm stop operation is asynchronous so we must wait for the kernel to
     # release resources. For more details see  LP: #1682456
@@ -640,6 +642,38 @@ def start_clear_holders_deps():
     # all disks and partitions should be sufficient to remove the mdadm
     # metadata
     mdadm.mdadm_assemble(scan=True, ignore_errors=True)
+    # collect detail on any assembling arrays
+    for md in [md for md in glob.glob('/dev/md*')
+               if not os.path.isdir(md) and not identify_partition(md)]:
+        mdstat = None
+        if os.path.exists('/proc/mdstat'):
+            mdstat = util.load_file('/proc/mdstat')
+            LOG.debug("/proc/mdstat:\n%s", mdstat)
+            found = [line for line in mdstat.splitlines()
+                     if os.path.basename(md) in line]
+            # in some cases we have a /dev/md0 device node
+            # but the kernel has already renamed the device /dev/md127
+            if len(found) == 0:
+                LOG.debug('Ignoring md device %s, not present in mdstat', md)
+                continue
+
+        # give it a second poke to encourage running
+        try:
+            LOG.debug('Activating mdadm array %s', md)
+            (out, err) = mdadm.mdadm_run(md)
+            LOG.debug('MDADM run on %s stdout:\n%s\nstderr:\n%s', md, out, err)
+        except util.ProcessExecutionError:
+            LOG.debug('Non-fatal error when starting mdadm device %s', md)
+
+        # extract details if we can
+        try:
+            (out, err) = mdadm.mdadm_query_detail(md, export=False,
+                                                  rawoutput=True)
+            LOG.debug('MDADM detail on %s stdout:\n%s\nstderr:\n%s',
+                      md, out, err)
+        except util.ProcessExecutionError:
+            LOG.debug('Non-fatal error when querying mdadm detail on %s', md)
+
     # scan and activate for logical volumes
     lvm.lvm_scan()
     lvm.activate_volgroups()

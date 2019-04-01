@@ -6,8 +6,11 @@ from curtin.block import mdadm
 from curtin import util
 from .helpers import CiTestCase
 import os
-import subprocess
 import textwrap
+
+
+def _raise_pexec_error(*args, **kwargs):
+    raise util.ProcessExecutionError()
 
 
 class TestBlockMdadmAssemble(CiTestCase):
@@ -72,10 +75,6 @@ class TestBlockMdadmAssemble(CiTestCase):
         self.assertTrue(self.mock_udev.udevadm_settle.called)
 
     def test_mdadm_assemble_exec_error(self):
-
-        def _raise_pexec_error(*args, **kwargs):
-            raise util.ProcessExecutionError()
-
         self.mock_util.ProcessExecutionError = util.ProcessExecutionError
         self.mock_util.subp.side_effect = _raise_pexec_error
         with self.assertRaises(util.ProcessExecutionError):
@@ -92,6 +91,7 @@ class TestBlockMdadmCreate(CiTestCase):
         self.add_patch('curtin.block.mdadm.lsb_release', 'mock_lsb_release')
         self.add_patch('curtin.block.mdadm.is_valid_device', 'mock_valid')
         self.add_patch('curtin.block.mdadm.get_holders', 'mock_holders')
+        self.add_patch('curtin.block.mdadm.zero_device', 'mock_zero')
         self.add_patch('curtin.block.mdadm.udev.udevadm_settle',
                        'm_udevadm_settle')
 
@@ -100,10 +100,13 @@ class TestBlockMdadmCreate(CiTestCase):
         self.mock_lsb_release.return_value = {'codename': 'precise'}
         self.mock_holders.return_value = []
 
-    def prepare_mock(self, md_devname, raidlevel, devices, spares):
+    def prepare_mock(self, md_devname, raidlevel, devices, spares,
+                     metadata=None):
         side_effects = []
         expected_calls = []
         hostname = 'ubuntu'
+        if not metadata:
+            metadata = "default"
 
         # don't mock anything if raidlevel and spares mismatch
         if spares and raidlevel not in mdadm.SPARE_RAID_LEVELS:
@@ -114,11 +117,6 @@ class TestBlockMdadmCreate(CiTestCase):
                                    capture=True, rcs=[0]))
 
         # prepare side-effects
-        for d in devices + spares:
-            side_effects.append(("", ""))  # mdadm --zero-superblock
-            expected_calls.append(
-                call(["mdadm", "--zero-superblock", d], capture=True))
-
         side_effects.append(("", ""))  # udevadm control --stop-exec-queue
         expected_calls.append(call(["udevadm", "control",
                                     "--stop-exec-queue"]))
@@ -126,6 +124,7 @@ class TestBlockMdadmCreate(CiTestCase):
         side_effects.append(("", ""))  # mdadm create
         # build command how mdadm_create does
         cmd = (["mdadm", "--create", md_devname, "--run",
+                "--metadata=%s" % metadata,
                 "--homehost=%s" % hostname, "--level=%s" % raidlevel,
                 "--raid-devices=%s" % len(devices)] +
                devices)
@@ -302,11 +301,12 @@ class TestBlockMdadmExamine(CiTestCase):
             call(["mdadm", "--examine", device], capture=True),
         ]
         self.mock_util.subp.assert_has_calls(expected_calls)
-        self.assertEqual(data['MD_UUID'],
+        self.assertEqual(data['array_uuid'],
                          '93a73e10:427f280b:b7076c02:204b8f7a')
 
     def test_mdadm_examine_no_raid(self):
-        self.mock_util.subp.side_effect = subprocess.CalledProcessError("", "")
+        self.mock_util.ProcessExecutionError = util.ProcessExecutionError
+        self.mock_util.subp.side_effect = _raise_pexec_error
 
         device = "/dev/sda"
         data = mdadm.mdadm_examine(device, export=False)
@@ -589,7 +589,7 @@ Working Devices : 3
             call(["mdadm", "--query", "--detail", device], capture=True),
         ]
         self.mock_util.subp.assert_has_calls(expected_calls)
-        self.assertEqual(data['MD_UUID'],
+        self.assertEqual(data['uuid'],
                          '93a73e10:427f280b:b7076c02:204b8f7a')
 
 
@@ -1172,5 +1172,79 @@ class TestBlockMdadmMdHelpers(CiTestCase):
         md_is_present = mdadm.md_present(mdname)
         self.assertFalse(md_is_present)
         self.mock_util.load_file.assert_called_with('/proc/mdstat')
+
+
+class TestBlockMdadmZeroDevice(CiTestCase):
+
+    def setUp(self):
+        super(TestBlockMdadmZeroDevice, self).setUp()
+        self.add_patch('curtin.block.mdadm.assert_valid_devpath',
+                       'mock_valid')
+        self.add_patch('curtin.block.mdadm.mdadm_examine', 'mock_examine')
+        self.add_patch('curtin.block.mdadm.zero_file_at_offsets', 'm_zero')
+
+        # Common mock settings
+        self.mock_valid.return_value = True
+
+    def _gen_examine(self, version, super_off, data_off, sectors=True):
+        examine = {'version': version}
+        if version in ['1.2', '1.1']:
+            templ = "%s sectors" if sectors else "%s bytes"
+            examine.update({'super_offset': templ % super_off,
+                            'data_offset': templ % data_off})
+        return examine
+
+    def test_zero_device(self):
+        """ zero_device wipes at super and data offsets on device."""
+        device = '/wark/vda2'
+        super_offset = 1024
+        data_offset = 2048
+        exdata = self._gen_examine("1.2", super_offset, data_offset)
+        self.mock_examine.return_value = exdata
+
+        mdadm.zero_device(device)
+        expected_offsets = [offset * 512
+                            for offset in [super_offset, data_offset]]
+        self.mock_examine.assert_called_with(device, export=False)
+        self.m_zero.assert_called_with(device, expected_offsets, buflen=1024,
+                                       count=1024, strict=True)
+
+    def test_zero_device_no_examine_data(self):
+        """ zero_device skips device if no examine metadata. """
+        device = '/wark/vda2'
+        self.mock_examine.return_value = None
+        mdadm.zero_device(device)
+        self.mock_examine.assert_called_with(device, export=False)
+        self.assertEqual(0, self.m_zero.call_count)
+
+    def test_zero_device_no_sectors_uses_defaults(self):
+        """ zero_device wipes at offsets on device no sector math."""
+        device = '/wark/vda2'
+        super_offset = 1024
+        data_offset = 2048
+        exdata = self._gen_examine("1.1", super_offset, data_offset,
+                                   sectors=False)
+        self.mock_examine.return_value = exdata
+
+        mdadm.zero_device(device)
+        # if examine detail doesn't have 'sectors' in offset field
+        # we use default offsets since we don't know what the value means.
+        expected_offsets = [0, -(1024 * 1024)]
+        self.mock_examine.assert_called_with(device, export=False)
+        self.m_zero.assert_called_with(device, expected_offsets,
+                                       buflen=1024, count=1024, strict=True)
+
+    def test_zero_device_no_offsets(self):
+        """ zero_device wipes at 0, and last 1MB for older metadata."""
+        device = '/wark/vda2'
+        exdata = self._gen_examine("0.90", None, None)
+        self.mock_examine.return_value = exdata
+
+        mdadm.zero_device(device)
+        expected_offsets = [0, -(1024 * 1024)]
+        self.mock_examine.assert_called_with(device, export=False)
+        self.m_zero.assert_called_with(device, expected_offsets,
+                                       buflen=1024, count=1024, strict=True)
+
 
 # vi: ts=4 expandtab syntax=python

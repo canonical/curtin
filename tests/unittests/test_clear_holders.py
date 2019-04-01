@@ -471,7 +471,7 @@ class TestClearHolders(CiTestCase):
         mock_mdadm.remove_device.assert_has_calls(
             [mock.call(self.test_blockdev, dev) for dev in md_devs])
         mock_mdadm.zero_device.assert_has_calls(
-            [mock.call(dev) for dev in md_devs])
+            [mock.call(dev, force=True) for dev in md_devs])
         mock_mdadm.mdadm_stop.assert_called_with(self.test_blockdev)
         mock_mdadm.md_present.assert_called_with(self.test_blockdev)
         self.assertTrue(mock_log.debug.called)

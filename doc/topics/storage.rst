@@ -745,12 +745,21 @@ To partition the array rather than mounting it directly, the
 ``ptable`` key must be present and a valid type of partition table,
 i.e. msdos or gpt.
 
+**metadata**: *default, 1.2, 1.1, 0.90, ddf, imsm*
+
+Specify the metadata (superblock) style to be used when creating the array.
+``metadata`` defaults to the string "default" and is passed to mdadm.  The
+version of mdadm used during the install will control the value here.  Note
+that metadata version 1.2 is the default in mdadm since release version 3.3
+in 2013.
+
 **Config Example**::
 
  - id: raid_array
    type: raid
    name: md0
    raidlevel: 1
+   metadata: 0.90
    devices:
      - sdb
      - sdc
