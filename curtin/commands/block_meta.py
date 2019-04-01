@@ -7,6 +7,8 @@ from curtin.block import (bcache, clear_holders, dasd, iscsi, lvm, mdadm, mkfs,
 from curtin import distro
 from curtin.log import LOG, logged_time
 from curtin.reporter import events
+from curtin.storage_config import extract_storage_ordered_dict
+
 
 from . import populate_one_subcmd
 from curtin.udev import (compose_udev_equality, udevadm_settle,
@@ -1496,21 +1498,6 @@ def zfs_handler(info, storage_config):
                 "# Use `zfs list` for current zfs mount info\n" +
                 "# %s %s defaults 0 0\n" % (poolname, mountpoint))
             util.write_file(state['fstab'], fstab_entry, omode='a')
-
-
-def extract_storage_ordered_dict(config):
-    storage_config = config.get('storage', {})
-    if not storage_config:
-        raise ValueError("no 'storage' entry in config")
-    scfg = storage_config.get('config')
-    if not scfg:
-        raise ValueError("invalid storage config data")
-
-    # Since storage config will often have to be searched for a value by its
-    # id, and this can become very inefficient as storage_config grows, a dict
-    # will be generated with the id of each component of the storage_config as
-    # its index and the component of storage_config as its value
-    return OrderedDict((d["id"], d) for (i, d) in enumerate(scfg))
 
 
 def get_disk_paths_from_storage_config(storage_config):
