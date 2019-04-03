@@ -1,4 +1,4 @@
-curtin (18.2-19-g36351dea-0ubuntu1) UNRELEASED; urgency=medium
+curtin (18.2-19-g36351dea-0ubuntu1) disco; urgency=medium
 
   * New upstream snapshot.
     - clear-holders: refactor bcache shutdown and add longer timeout
