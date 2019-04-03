@@ -141,6 +141,96 @@ def run_zipl(cfg, target):
         in_chroot.subp(['zipl'])
 
 
+def chzdev_persist_active_online(cfg, target):
+    """Use chzdev to export active|online zdevices into target."""
+
+    if platform.machine() != 's390x':
+        return
+
+    LOG.info('Persisting zdevice configuration in target')
+    target_etc = paths.target_path(target, 'etc')
+    (chzdev_conf, _) = chzdev_export(active=True, online=True)
+    chzdev_persistent = chzdev_prepare_for_import(chzdev_conf)
+    chzdev_import(data=chzdev_persistent,
+                  persistent=True, noroot=True, base={'/etc': target_etc})
+
+
+def chzdev_export(active=True, online=True, persistent=False,
+                  export_file=None):
+    """Use chzdev to export zdevice configuration."""
+    if not export_file:
+        # write to stdout
+        export_file = "-"
+
+    cmd = ['chzdev', '--quiet']
+    if active:
+        cmd.extend(['--active'])
+    if online:
+        cmd.extend(['--online'])
+    if persistent:
+        cmd.extend(['--persistent'])
+    cmd.extend(['--export', export_file])
+
+    return util.subp(cmd, capture=True)
+
+
+def chzdev_import(data=None, persistent=True, noroot=True, base=None,
+                  import_file=None):
+    """Use chzdev to import zdevice configuration."""
+    if not any([data, import_file]):
+        raise ValueError('Must provide data or input_file value.')
+
+    if all([data, import_file]):
+        raise ValueError('Cannot provide both data and input_file value.')
+
+    if not import_file:
+        import_file = "-"
+
+    cmd = ['chzdev', '--quiet']
+    if persistent:
+        cmd.extend(['--persistent'])
+    if noroot:
+        cmd.extend(['--no-root-update'])
+    if base:
+        if type(base) == dict:
+            cmd.extend(
+                ['--base'] + ["%s=%s" % (k, v) for k, v in base.items()])
+        else:
+            cmd.extend(['--base', base])
+
+    cmd.extend(['--import', import_file])
+    return util.subp(cmd, data=data, capture=True)
+
+
+def chzdev_prepare_for_import(chzdev_conf):
+    """ Transform chzdev --export output into an importable form by
+    replacing 'active' with 'persistent' and dropping any options
+    set to 'n/a' which chzdev --import cannot handle.
+
+    :param chzdev_conf: string output from calling chzdev --export
+    :returns: string of transformed configuration
+    """
+    if not chzdev_conf or not isinstance(chzdev_conf, util.string_types):
+        raise ValueError("Input value invalid: '%s'" % chzdev_conf)
+
+    # transform [active] -> [persistent] and drop .*=n/a\n
+    transform = re.compile(r'^\[active|^.*=n/a\n', re.MULTILINE)
+
+    def replacements(match):
+        if '[active' in match:
+            return '[persistent'
+        if '=n/a' in match:
+            return ''
+
+    # Note, we add a trailing newline match the final .*=n/a\n and trim
+    # any trailing newlines after transforming
+    if '=n/a' in chzdev_conf:
+        chzdev_conf += '\n'
+
+    return transform.sub(lambda match: replacements(match.group(0)),
+                         chzdev_conf).strip()
+
+
 def get_flash_kernel_pkgs(arch=None, uefi=None):
     if arch is None:
         arch = util.get_architecture()
@@ -377,7 +467,11 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
 
     LOG.debug("installing grub to %s [replace_default=%s]",
               instdevs, replace_default)
-    with util.ChrootableTarget(target):
+
+    # rhel lvm uses /run during grub configuration
+    chroot_mounts = (["/dev", "/proc", "/sys", "/run"]
+                     if osfamily == DISTROS.redhat else None)
+    with util.ChrootableTarget(target, mounts=chroot_mounts):
         args = ['install-grub']
         if util.is_uefi_bootable():
             args.append("--uefi")
@@ -1159,6 +1253,7 @@ def builtin_curthooks(cfg, target, state):
             install_kernel(cfg, target)
             run_zipl(cfg, target)
             restore_dist_interfaces(cfg, target)
+            chzdev_persist_active_online(cfg, target)
 
     with events.ReportEventStack(
             name=stack_prefix + '/setting-up-swap',

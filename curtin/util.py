@@ -624,11 +624,15 @@ def undisable_daemons_in_root(target):
 
 
 class ChrootableTarget(object):
-    def __init__(self, target, allow_daemons=False, sys_resolvconf=True):
+    def __init__(self, target, allow_daemons=False, sys_resolvconf=True,
+                 mounts=None):
         if target is None:
             target = "/"
         self.target = paths.target_path(target)
-        self.mounts = ["/dev", "/proc", "/sys"]
+        if mounts is not None:
+            self.mounts = mounts
+        else:
+            self.mounts = ["/dev", "/proc", "/sys"]
         self.umounts = []
         self.disabled_daemons = False
         self.allow_daemons = allow_daemons

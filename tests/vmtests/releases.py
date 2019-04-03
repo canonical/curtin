@@ -6,6 +6,7 @@ from curtin.util import get_platform_arch
 class _ReleaseBase(object):
     repo = "maas-daily"
     arch = get_platform_arch()
+    mem = "1024"
 
 
 class _UbuntuBase(_ReleaseBase):
@@ -116,6 +117,8 @@ class _CosmicBase(_UbuntuBase):
 class _DiscoBase(_UbuntuBase):
     release = "disco"
     target_release = "disco"
+    # squashfs is over 300MB, need more ram
+    mem = "2048"
 
 
 class _Releases(object):

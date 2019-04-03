@@ -45,6 +45,7 @@ CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", "1")
 IMAGE_SYNCS = []
 TARGET_IMAGE_FORMAT = "raw"
 TAR_DISKS = bool(int(os.environ.get("CURTIN_VMTEST_TAR_DISKS", "0")))
+VMRAM = os.environ.get('CURTIN_VMTEST_VMRAM', None)
 
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
@@ -832,6 +833,10 @@ class VMBaseClass(TestCase):
         logger = _initialize_logging(name=cls.__name__)
         cls.logger = logger
 
+        # allow env to update VMRAM setting
+        if VMRAM:
+            cls.mem = VMRAM
+
         req_attrs = ('target_distro', 'target_release', 'release', 'distro')
         missing = [a for a in req_attrs if not getattr(cls, a)]
         if missing:
@@ -889,7 +894,7 @@ class VMBaseClass(TestCase):
 
         # create launch cmd
         cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait,
-               "--smp=" + cls.get_config_smp()]
+               "--smp=" + cls.get_config_smp(), "--mem=%s" % cls.mem]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -977,40 +982,52 @@ class VMBaseClass(TestCase):
 
         logger.info("disk_serials: %s", cls.disk_serials)
         logger.info("nvme_serials: %s", cls.nvme_serials)
-        target_disk = "{}:{}:{}:{}:".format(cls.td.target_disk,
-                                            "",
-                                            cls.disk_driver,
-                                            cls.disk_block_size)
+        target_disk = "{}:{}:{}:{}".format(cls.td.target_disk,
+                                           "",
+                                           cls.disk_driver,
+                                           cls.disk_block_size)
         if len(cls.disk_wwns):
-            target_disk += cls.disk_wwns[0]
+            target_disk += ":" + cls.disk_wwns[0]
 
         if len(cls.disk_serials):
-            target_disk += cls.disk_serials[0]
+            target_disk += ":" + cls.disk_serials[0]
 
         disks.extend(['--disk', target_disk])
 
         # --disk source:size:driver:block_size:devopts
-        for (disk_no, disk_sz) in enumerate(cls.extra_disks):
-            dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
-            extra_disk = '{}:{}:{}:{}:'.format(dpath, disk_sz,
-                                               cls.disk_driver,
-                                               cls.disk_block_size)
+        for (disk_no, disk_spec) in enumerate(cls.extra_disks):
+            if disk_spec.startswith('/'):
+                dpath = disk_spec
+                disk_sz = ''
+            else:
+                dpath = os.path.join(cls.td.disks,
+                                     'extra_disk_%d.img' % disk_no)
+                disk_sz = disk_spec
+            extra_disk = '{}:{}:{}:{}'.format(dpath, disk_sz,
+                                              cls.disk_driver,
+                                              cls.disk_block_size)
             if len(cls.disk_wwns):
                 w_index = disk_no + 1
                 if w_index < len(cls.disk_wwns):
-                    extra_disk += cls.disk_wwns[w_index]
+                    extra_disk += ":" + cls.disk_wwns[w_index]
 
             if len(cls.disk_serials):
                 w_index = disk_no + 1
                 if w_index < len(cls.disk_serials):
-                    extra_disk += cls.disk_serials[w_index]
+                    extra_disk += ":" + cls.disk_serials[w_index]
 
             disks.extend(['--disk', extra_disk])
 
         # build nvme disk args if needed
         logger.info('nvme disks: %s', cls.nvme_disks)
-        for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
-            dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
+        for (disk_no, disk_spec) in enumerate(cls.nvme_disks):
+            if disk_spec.startswith('/'):
+                dpath = disk_spec
+                disk_sz = ''
+            else:
+                dpath = os.path.join(cls.td.disks,
+                                     'nvme_disk_%d.img' % disk_no)
+                disk_sz = disk_spec
             nvme_serial = cls.nvme_serials[disk_no]
             nvme_disk = '{}:{}:nvme:{}:{}'.format(dpath, disk_sz,
                                                   cls.disk_block_size,
@@ -1225,8 +1242,14 @@ class VMBaseClass(TestCase):
             target_disks.extend([disk])
 
         extra_disks = []
-        for (disk_no, disk_sz) in enumerate(cls.extra_disks):
-            dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
+        for (disk_no, disk_spec) in enumerate(cls.extra_disks):
+            if disk_spec.startswith('/'):
+                dpath = disk_spec
+                disk_sz = ''
+            else:
+                dpath = os.path.join(cls.td.disks,
+                                     'extra_disk_%d.img' % disk_no)
+                disk_sz = disk_spec
             disk = '--disk={},driver={},format={},{}'.format(
                 dpath, cls.disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
             if len(cls.disk_wwns):
@@ -1243,8 +1266,14 @@ class VMBaseClass(TestCase):
 
         nvme_disks = []
         disk_driver = 'nvme'
-        for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
-            dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
+        for (disk_no, disk_spec) in enumerate(cls.nvme_disks):
+            if disk_spec.startswith('/'):
+                dpath = disk_spec
+                disk_sz = ''
+            else:
+                dpath = os.path.join(cls.td.disks,
+                                     'nvme_disk_%d.img' % disk_no)
+                disk_sz = disk_spec
             disk = '--disk={},driver={},format={},{}'.format(
                 dpath, disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
             if len(cls.nvme_serials):
@@ -1266,7 +1295,7 @@ class VMBaseClass(TestCase):
                uefi_flags + netdevs +
                cls.mpath_diskargs(target_disks + extra_disks + nvme_disks) +
                ["--disk=file=%s,if=virtio,media=cdrom" % cls.td.seed_disk] +
-               ["--", "-smp",  cls.get_config_smp(), "-m", "1024"])
+               ["--", "-smp",  cls.get_config_smp(), "-m", cls.mem])
 
         if not cls.interactive:
             if cls.arch == 's390x':

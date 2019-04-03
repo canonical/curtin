@@ -17,8 +17,9 @@ SUB_COMMAND_MODULES = [
     'apply_net', 'apt-config', 'block-attach-iscsi', 'block-detach-iscsi',
     'block-info', 'block-meta', 'block-wipe', 'clear-holders', 'curthooks',
     'collect-logs', 'extract', 'features',
-    'hook', 'install', 'mkfs', 'in-target', 'net-meta', 'pack', 'swap',
-    'system-install', 'system-upgrade', 'unmount', 'version',
+    'hook', 'install', 'mkfs', 'in-target', 'net-meta', 'pack',
+    'schema-validate', 'swap', 'system-install', 'system-upgrade',
+    'unmount', 'version',
 ]
 
 

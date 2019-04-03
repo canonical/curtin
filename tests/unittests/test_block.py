@@ -359,11 +359,11 @@ class TestWipeVolume(CiTestCase):
     def test_wipe_superblock(self, mock_quick_zero):
         block.wipe_volume(self.dev, mode='superblock')
         mock_quick_zero.assert_called_with(self.dev, exclusive=True,
-                                           partitions=False)
+                                           partitions=False, strict=False)
         block.wipe_volume(self.dev, exclusive=True,
                           mode='superblock-recursive')
         mock_quick_zero.assert_called_with(self.dev, exclusive=True,
-                                           partitions=True)
+                                           partitions=True, strict=False)
 
     @mock.patch('curtin.block.wipe_file')
     def test_wipe_zero(self, mock_wipe_file):

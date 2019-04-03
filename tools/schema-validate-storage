@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+
+# Fix path so we can import helpers
+sys.path.insert(1, os.path.realpath(os.path.join(
+                                    os.path.dirname(__file__), '..')))
+
+from curtin import storage_config
+
+conf_input = 'examples/tests'
+if len(sys.argv) > 1:
+    conf_input = sys.argv[1]
+
+def get_configs(conf_input):
+    if os.path.isdir(conf_input):
+        return sorted([os.path.join(conf_input, f)
+                       for f in os.listdir(conf_input)])
+    return [conf_input]
+
+errors = []
+for conf in get_configs(conf_input):
+    # validate entire config
+    try:
+        print('Validating storage config file: %s' % conf)
+        storage_config.load_and_validate(conf)
+    except Exception as e:
+        print('Failed validation on: %s' % conf)
+        errors.append(e)
+
+if len(errors):
+    print('#####  Validation Errors #####')
+    for e in errors:
+        print(e)
+        print('-----------------------------')
+        print()
+    sys.exit(1)

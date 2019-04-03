@@ -1,0 +1,227 @@
+install:
+  unmount: disabled
+showtrace: true
+storage:
+  config:
+  - grub_device: true
+    id: sda
+    model: MG04SCA60EA
+    name: sda
+    ptable: gpt
+    serial: '500003986840e04d'
+    type: disk
+    wipe: superblock
+  - id: sdb
+    model: MG04SCA60EA
+    name: sdb
+    serial: '500003986833378d'
+    type: disk
+    wipe: superblock
+  - id: sdc
+    model: MG04SCA60EA
+    name: sdc
+    serial: '5000039868108f0d'
+    type: disk
+    wipe: superblock
+  - id: sdd
+    model: MG04SCA60EA
+    name: sdd
+    serial: '5000039868107619'
+    type: disk
+    wipe: superblock
+  - id: sde
+    model: MG04SCA60EA
+    name: sde
+    serial: '5000039868418549'
+    type: disk
+    wipe: superblock
+  - id: sdf
+    model: SAMSUNG MZ7LM240
+    name: sdf
+    ptable: gpt
+    serial: 'S3LKNX0K202278'
+    type: disk
+    wipe: superblock
+  - id: sdg
+    model: MG04SCA60EA
+    name: sdg
+    serial: '5000039868333799'
+    type: disk
+    wipe: superblock
+  - id: sdh
+    model: SAMSUNG MZ7LM240
+    name: sdh
+    ptable: gpt
+    serial: 'S3LKNX0K200071'
+    type: disk
+    wipe: superblock
+  - id: nvme0n1
+    model: UCSC-NVME-H32003
+    name: nvme0n1
+    ptable: gpt
+    serial: nvme-SDM000014FB6
+    type: disk
+    wipe: superblock
+  - id: nvme1n1
+    model: UCSC-NVME-H32003
+    name: nvme1n1
+    ptable: gpt
+    serial: nvme-SDM000014F3C
+    type: disk
+    wipe: superblock
+  - device: sda
+    id: sda-part1
+    name: sda-part1
+    number: 1
+    offset: 4194304B
+    size: 5G
+    type: partition
+    uuid: 11d66990-9b49-4fe5-b933-d8f1527023d3
+    wipe: superblock
+  - device: sdf
+    id: sdf-part1
+    name: sdf-part1
+    number: 1
+    offset: 4194304B
+    size: 5G
+    type: partition
+    uuid: e86f3316-aacc-4958-a6db-34875a5fde7c
+    wipe: superblock
+  - device: sdf
+    id: sdf-part2
+    name: sdf-part2
+    number: 2
+    size: 5G
+    type: partition
+    uuid: aa5d9117-de31-4311-9bf1-28ae45e9748f
+    wipe: superblock
+  - device: sdf
+    id: sdf-part3
+    name: sdf-part3
+    number: 3
+    size: 5G
+    type: partition
+    uuid: a312bb83-e34a-4d05-b45e-006d2f4291ee
+    wipe: superblock
+  - device: sdh
+    id: sdh-part1
+    name: sdh-part1
+    number: 1
+    offset: 4194304B
+    size: 5G
+    type: partition
+    uuid: a15f79c9-4277-4c58-8a68-65a6f59864f3
+    wipe: superblock
+  - devices:
+    - sdf-part3
+    - sdh-part1
+    id: md0
+    name: md0
+    raidlevel: 1
+    spare_devices: []
+    type: raid
+  - device: nvme0n1
+    id: nvme0n1-part1
+    name: nvme0n1-part1
+    number: 1
+    offset: 4194304B
+    size: 4G
+    type: partition
+    uuid: 5a406a80-dd85-4f5a-83a5-9dd0bf27cb6e
+    wipe: superblock
+  - device: nvme0n1
+    id: nvme0n1-part2
+    name: nvme0n1-part2
+    number: 2
+    size: 4G
+    type: partition
+    uuid: a1ab6ecb-e4b1-44eb-b895-949808741ab3
+    wipe: superblock
+  - backing_device: sda-part1
+    cache_device: nvme0n1-part2
+    cache_mode: writeback
+    id: osddata0
+    name: osddata0
+    type: bcache
+  - backing_device: sdc
+    cache_device: nvme0n1-part2
+    cache_mode: writeback
+    id: osddata2
+    name: osddata2
+    type: bcache
+  - backing_device: sdb
+    cache_device: nvme0n1-part2
+    cache_mode: writeback
+    id: osddata1
+    name: osddata1
+    type: bcache
+  - device: nvme1n1
+    id: nvme1n1-part1
+    name: nvme1n1-part1
+    number: 1
+    offset: 4194304B
+    size: 4G
+    type: partition
+    uuid: fa904f69-2de7-43c6-a9b6-14b4e7139ce7
+    wipe: superblock
+  - device: nvme1n1
+    id: nvme1n1-part2
+    name: nvme1n1-part2
+    number: 2
+    size: 4G
+    type: partition
+    uuid: 2f5e22d5-6737-4ad2-94ff-e0cf7ef8c97c
+    wipe: superblock
+  - backing_device: sdg
+    cache_device: nvme1n1-part2
+    cache_mode: writeback
+    id: osddata5
+    name: osddata5
+    type: bcache
+  - backing_device: sde
+    cache_device: nvme1n1-part2
+    cache_mode: writeback
+    id: osddata4
+    name: osddata4
+    type: bcache
+  - backing_device: sdd
+    cache_device: nvme1n1-part2
+    cache_mode: writeback
+    id: osddata3
+    name: osddata3
+    type: bcache
+  - fstype: fat32
+    id: sdf-part1_format
+    label: ''
+    type: format
+    uuid: 7ddf7d92-5e9f-4347-93e2-b34455339342
+    volume: sdf-part1
+  - fstype: ext4
+    id: sdf-part2_format
+    label: ''
+    type: format
+    uuid: 771ea4e9-873c-48ab-9ac6-e49ede275019
+    volume: sdf-part2
+  - fstype: ext4
+    id: md0_format
+    label: os
+    type: format
+    uuid: b29b461c-34f0-4d22-9454-0034e34b1b5c
+    volume: md0
+  - device: md0_format
+    id: md0_mount
+    options: ''
+    path: /
+    type: mount
+  - device: sdf-part2_format
+    id: sdf-part2_mount
+    options: ''
+    path: /boot
+    type: mount
+  - device: sdf-part1_format
+    id: sdf-part1_mount
+    options: ''
+    path: /boot/efi
+    type: mount
+  version: 1
+verbosity: 3

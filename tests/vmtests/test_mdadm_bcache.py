@@ -40,6 +40,7 @@ class TestMdadmAbs(VMBaseClass):
 
 
 class TestMdadmBcacheAbs(TestMdadmAbs):
+    dirty_disks = True
     arch_skip = [
         "s390x",  # lp:1565029
         ]
@@ -179,7 +180,7 @@ class TrustyTestMirrorboot(relbase.trusty, TestMirrorbootAbs):
     __test__ = True
 
 
-class TrustyHWEXTestMirrorboot(relbase.trusty_hwe_x, TrustyTestMirrorboot):
+class TrustyHWEXTestMirrorboot(relbase.trusty_hwe_x, TestMirrorbootAbs):
     # This tests kernel upgrade in target
     __test__ = True
 
@@ -229,7 +230,7 @@ class TrustyTestMirrorbootPartitions(relbase.trusty,
 
 
 class TrustyHWEXTestMirrorbootPartitions(relbase.trusty_hwe_x,
-                                         TrustyTestMirrorbootPartitions):
+                                         TestMirrorbootPartitionsAbs):
     # This tests kernel upgrade in target
     __test__ = True
 
@@ -339,7 +340,7 @@ class TrustyTestRaid5boot(relbase.trusty, TestRaid5bootAbs):
     __test__ = True
 
 
-class TrustyHWEXTestRaid5boot(relbase.trusty_hwe_x, TrustyTestRaid5boot):
+class TrustyHWEXTestRaid5boot(relbase.trusty_hwe_x, TestRaid5bootAbs):
     # This tests kernel upgrade in target
     __test__ = True
 
@@ -404,7 +405,7 @@ class TrustyTestRaid6boot(relbase.trusty, TestRaid6bootAbs):
     __test__ = True
 
 
-class TrustyHWEXTestRaid6boot(relbase.trusty_hwe_x, TrustyTestRaid6boot):
+class TrustyHWEXTestRaid6boot(relbase.trusty_hwe_x, TestRaid6bootAbs):
     __test__ = True
 
 
@@ -454,7 +455,7 @@ class TrustyTestRaid10boot(relbase.trusty, TestRaid10bootAbs):
     __test__ = True
 
 
-class TrustyHWEXTestRaid10boot(relbase.trusty_hwe_x, TrustyTestRaid10boot):
+class TrustyHWEXTestRaid10boot(relbase.trusty_hwe_x, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -562,7 +563,7 @@ class TrustyTestAllindata(relbase.trusty, TestAllindataAbs):
     __test__ = False  # luks=no does not disable mounting of device
 
 
-class TrustyHWEXTestAllindata(relbase.trusty_hwe_x, TrustyTestAllindata):
+class TrustyHWEXTestAllindata(relbase.trusty_hwe_x, TestAllindataAbs):
     __test__ = False  # lukes=no does not disable mounting of device
 
 
@@ -586,6 +587,7 @@ class CosmicTestAllindata(relbase.cosmic, TestAllindataAbs):
     __test__ = True
 
 
+@VMBaseClass.skip_by_date("1818876", fixby="2019-04-22", install=False)
 class DiscoTestAllindata(relbase.disco, TestAllindataAbs):
     __test__ = True
 

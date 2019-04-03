@@ -16,6 +16,8 @@ FEATURES = [
     'NETWORK_CONFIG_V1',
     # reporter supports 'webhook' type
     'REPORTING_EVENTS_WEBHOOK',
+    # has storage-config schema validation
+    'STORAGE_CONFIG_SCHEMA',
     # install supports the 'storage' config version 1
     'STORAGE_CONFIG_V1',
     # install supports the 'storage' config version 1 for DD images

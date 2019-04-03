@@ -385,7 +385,7 @@ main() {
     [ ${#netdevs[@]} -eq 0 ] && netdevs=( "${DEF_BRIDGE}" )
     pt=( "$@" )
 
-    local kvm_pkg="" virtio_scsi_bus="virtio-scsi-pci"
+    local kvm_pkg="" virtio_scsi_bus="virtio-scsi-pci" virtio_rng_device="virtio-rng-pci"
     [ -n "$kvm" ] && kvm_pkg="none"
     case $(uname -m) in
         i?86)
@@ -400,7 +400,10 @@ main() {
             [ -n "$kvm" ] ||
                 { kvm="qemu-system-s390x"; kvm_pkg="qemu-system-misc"; }
             def_netmodel=${DEF_NETMODEL:-"virtio-net-ccw"}
+            # disable virtio-scsi-bus
             virtio_scsi_bus="virtio-scsi-ccw"
+            virtio_blk_bus="virtio-blk-ccw"
+            virtio_rng_device="virtio-rng-ccw"
             ;;
         ppc64*)
             [ -n "$kvm" ] ||
@@ -498,7 +501,11 @@ main() {
             isdevopt "$driver" "$tok" && devopts="${devopts},$tok" ||
                 diskopts="${diskopts},${tok}"
         done
-
+        case $driver in
+            virtio-blk-ccw)
+                # disable scsi when using virtio-blk-ccw
+                devopts="${devopts},scsi=off";;
+        esac
         diskargs=( "${diskargs[@]}" -drive "$diskopts" -device "$devopts" )
     done
 
@@ -647,10 +654,12 @@ main() {
     done
 
     local bus_devices
-    bus_devices=( -device "$virtio_scsi_bus,id=virtio-scsi-xkvm" )
+    if [ -n "${virtio_scsi_bus}" ]; then
+        bus_devices=( -device "$virtio_scsi_bus,id=virtio-scsi-xkvm" )
+    fi
     local rng_devices
-    rng_devices=( -object "rng-random,filename=/dev/urandom,id=rng0"
-                  -device "virtio-rng-pci,rng=rng0" )
+    rng_devices=( -object "rng-random,filename=/dev/urandom,id=objrng0"
+                  -device "$virtio_rng_device,rng=objrng0,id=rng0" )
     cmd=( "${kvmcmd[@]}" "${archopts[@]}"
           "${bios_opts[@]}"
           "${bus_devices[@]}"

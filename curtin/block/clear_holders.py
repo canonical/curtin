@@ -6,12 +6,13 @@ top of a block device, making it possible to reuse the block device without
 having to reboot the system
 """
 
-import errno
+import glob
 import os
 import time
 
 from curtin import (block, udev, util)
 from curtin.swap import is_swap_device
+from curtin.block import bcache
 from curtin.block import lvm
 from curtin.block import mdadm
 from curtin.block import zfs
@@ -46,72 +47,22 @@ def get_dmsetup_uuid(device):
     return out.strip()
 
 
-def get_bcache_using_dev(device, strict=True):
-    """
-    Get the /sys/fs/bcache/ path of the bcache cache device bound to
-    specified device
-    """
-    # FIXME: when block.bcache is written this should be moved there
-    sysfs_path = block.sys_block_path(device)
-    path = os.path.realpath(os.path.join(sysfs_path, 'bcache', 'cache'))
-    if strict and not os.path.exists(path):
-        err = OSError(
-            "device '{}' did not have existing syspath '{}'".format(
-                device, path))
-        err.errno = errno.ENOENT
-        raise err
-
-    return path
-
-
-def get_bcache_sys_path(device, strict=True):
-    """
-    Get the /sys/class/block/<device>/bcache path
-    """
-    sysfs_path = block.sys_block_path(device, strict=strict)
-    path = os.path.join(sysfs_path, 'bcache')
-    if strict and not os.path.exists(path):
-        err = OSError(
-            "device '{}' did not have existing syspath '{}'".format(
-                device, path))
-        err.errno = errno.ENOENT
-        raise err
-
-    return path
-
-
-def maybe_stop_bcache_device(device):
-    """Attempt to stop the provided device_path or raise unexpected errors."""
-    bcache_stop = os.path.join(device, 'stop')
-    try:
-        util.write_file(bcache_stop, '1', mode=None)
-    except (IOError, OSError) as e:
-        # Note: if we get any exceptions in the above exception classes
-        # it is a result of attempting to write "1" into the sysfs path
-        # The range of errors changes depending on when we race with
-        # the kernel asynchronously removing the sysfs path. Therefore
-        # we log the exception errno we got, but do not re-raise as
-        # the calling process is watching whether the same sysfs path
-        # is being removed;  if it fails to go away then we'll have
-        # a log of the exceptions to debug.
-        LOG.debug('Error writing to bcache stop file %s, device removed: %s',
-                  bcache_stop, e)
-
-
 def shutdown_bcache(device):
     """
     Shut down bcache for specified bcache device
 
-    1. Stop the cacheset that `device` is connected to
-    2. Stop the 'device'
+    1. wipe the bcache device contents
+    2. extract the cacheset uuid (if cached)
+    3. extract the backing device
+    4. stop cacheset (if present)
+    5. stop the bcacheN device
+    6. wait for removal of sysfs path to bcacheN, bcacheN/bcache and
+       backing/bcache to go away
     """
     if not device.startswith('/sys/class/block'):
         raise ValueError('Invalid Device (%s): '
                          'Device path must start with /sys/class/block/',
                          device)
-
-    LOG.info('Wiping superblock on bcache device: %s', device)
-    _wipe_superblock(block.sysfs_to_devpath(device), exclusive=False)
 
     # bcache device removal should be fast but in an extreme
     # case, might require the cache device to flush large
@@ -119,7 +70,6 @@ def shutdown_bcache(device):
     # is to wait for approximately 30 seconds but to check
     # frequently since curtin cannot proceed until devices
     # cleared.
-    removal_retries = [0.2] * 150  # 30 seconds total
     bcache_shutdown_message = ('shutdown_bcache running on {} has determined '
                                'that the device has already been shut down '
                                'during handling of another bcache dev. '
@@ -129,60 +79,39 @@ def shutdown_bcache(device):
         LOG.info(bcache_shutdown_message)
         return
 
-    # get slaves [vdb1, vdc], allow for slaves to not have bcache dir
-    try:
-        slave_paths = [get_bcache_sys_path(k, strict=False) for k in
-                       os.listdir(os.path.join(device, 'slaves'))]
-    except util.FileMissingError as e:
-        LOG.debug('Transient race, bcache slave path not found: %s', e)
-        slave_paths = []
+    LOG.info('Wiping superblock on bcache device: %s', device)
+    _wipe_superblock(block.sysfs_to_devpath(device), exclusive=False)
 
-    # stop cacheset if it exists
-    bcache_cache_sysfs = get_bcache_using_dev(device, strict=False)
-    if not os.path.exists(bcache_cache_sysfs):
-        LOG.info('bcache cacheset already removed: %s',
-                 os.path.basename(bcache_cache_sysfs))
-    else:
-        LOG.info('stopping bcache cacheset at: %s', bcache_cache_sysfs)
-        maybe_stop_bcache_device(bcache_cache_sysfs)
-        try:
-            util.wait_for_removal(bcache_cache_sysfs, retries=removal_retries)
-        except OSError:
-            LOG.info('Failed to stop bcache cacheset %s', bcache_cache_sysfs)
-            raise
+    # collect required information before stopping bcache device
+    # UUID from /sys/fs/cache/UUID
+    cset_uuid = bcache.get_attached_cacheset(device)
+    # /sys/class/block/vdX which is a backing dev of device (bcacheN)
+    backing_sysfs = bcache.get_backing_device(block.path_to_kname(device))
+    # /sys/class/block/bcacheN/bache
+    bcache_sysfs = bcache.sysfs_path(device, strict=False)
+
+    # stop cacheset if one is presennt
+    if cset_uuid:
+        LOG.info('%s was attached to cacheset %s, stopping cacheset',
+                 device, cset_uuid)
+        bcache.stop_cacheset(cset_uuid)
 
         # let kernel settle before the next remove
         udev.udevadm_settle()
+        LOG.info('bcache cacheset stopped: %s', cset_uuid)
 
-    # after stopping cache set, we may need to stop the device
-    # both the dev and sysfs entry should be gone.
-
-    # we know the bcacheN device is really gone when we've removed:
-    #  /sys/class/block/{bcacheN}
-    #  /sys/class/block/slaveN1/bcache
-    #  /sys/class/block/slaveN2/bcache
-    bcache_block_sysfs = get_bcache_sys_path(device, strict=False)
-    to_check = [device] + slave_paths
+    # test and log whether the device paths are still present
+    to_check = [bcache_sysfs, backing_sysfs]
     found_devs = [os.path.exists(p) for p in to_check]
     LOG.debug('os.path.exists on blockdevs:\n%s',
               list(zip(to_check, found_devs)))
     if not any(found_devs):
         LOG.info('bcache backing device already removed: %s (%s)',
-                 bcache_block_sysfs, device)
-        LOG.debug('bcache slave paths checked: %s', slave_paths)
-        return
+                 bcache_sysfs, device)
+        LOG.debug('bcache backing device checked: %s', backing_sysfs)
     else:
-        LOG.info('stopping bcache backing device at: %s', bcache_block_sysfs)
-        maybe_stop_bcache_device(bcache_block_sysfs)
-        try:
-            # wait for them all to go away
-            for dev in [device, bcache_block_sysfs] + slave_paths:
-                util.wait_for_removal(dev, retries=removal_retries)
-        except OSError:
-            LOG.info('Failed to stop bcache backing device %s',
-                     bcache_block_sysfs)
-            raise
-
+        LOG.info('stopping bcache backing device at: %s', bcache_sysfs)
+        bcache.stop_device(bcache_sysfs)
     return
 
 
@@ -255,8 +184,9 @@ def shutdown_mdadm(device):
     LOG.debug('using mdadm.mdadm_stop on dev: %s', blockdev)
     mdadm.mdadm_stop(blockdev)
 
+    LOG.debug('Wiping mdadm member devices: %s' % md_devs)
     for mddev in md_devs:
-        mdadm.zero_device(mddev)
+        mdadm.zero_device(mddev, force=True)
 
     # mdadm stop operation is asynchronous so we must wait for the kernel to
     # release resources. For more details see  LP: #1682456
@@ -286,6 +216,11 @@ def wipe_superblock(device):
     # when operating on a disk that used to have a dos part table with an
     # extended partition, attempting to wipe the extended partition will fail
     try:
+        if not block.is_online(blockdev):
+            LOG.debug("Device is not online (size=0), so skipping:"
+                      " '%s'", blockdev)
+            return
+
         if block.is_extended_partition(blockdev):
             LOG.info("extended partitions do not need wiping, so skipping:"
                      " '%s'", blockdev)
@@ -328,10 +263,13 @@ def wipe_superblock(device):
     for bcache_path in ['bcache', 'bcache/set']:
         stop_path = os.path.join(device, bcache_path)
         if os.path.exists(stop_path):
-            LOG.debug('Attempting to release bcache layer from device: %s',
-                      device)
-            maybe_stop_bcache_device(stop_path)
-            continue
+            LOG.debug('Attempting to release bcache layer from device: %s:%s',
+                      device, stop_path)
+            if stop_path.endswith('set'):
+                rp = os.path.realpath(stop_path)
+                bcache.stop_cacheset(rp)
+            else:
+                bcache._stop_device(stop_path)
 
     _wipe_superblock(blockdev)
 
@@ -357,7 +295,7 @@ def wipe_superblock(device):
             time.sleep(wait)
 
 
-def _wipe_superblock(blockdev, exclusive=True):
+def _wipe_superblock(blockdev, exclusive=True, strict=True):
     """ No checks, just call wipe_volume """
 
     retries = [1, 3, 5, 7]
@@ -366,7 +304,8 @@ def _wipe_superblock(blockdev, exclusive=True):
         LOG.debug('wiping %s attempt %s/%s',
                   blockdev, attempt + 1, len(retries))
         try:
-            block.wipe_volume(blockdev, mode='superblock', exclusive=exclusive)
+            block.wipe_volume(blockdev, mode='superblock',
+                              exclusive=exclusive, strict=strict)
             LOG.debug('successfully wiped device %s on attempt %s/%s',
                       blockdev, attempt + 1, len(retries))
             return
@@ -529,8 +468,10 @@ def plan_shutdown_holder_trees(holders_trees):
     for holders_tree in holders_trees:
         flatten_holders_tree(holders_tree)
 
-    # return list of entry dicts with highest level first
-    return [reg[k] for k in sorted(reg, key=lambda x: reg[x]['level'] * -1)]
+    # return list of entry dicts with highest level first, then dev_type
+    return [reg[k]
+            for k in sorted(reg, key=lambda x: (reg[x]['level'] * -1,
+                                                reg[x]['dev_type']))]
 
 
 def format_holders_tree(holders_tree):
@@ -634,6 +575,38 @@ def start_clear_holders_deps():
     # all disks and partitions should be sufficient to remove the mdadm
     # metadata
     mdadm.mdadm_assemble(scan=True, ignore_errors=True)
+    # collect detail on any assembling arrays
+    for md in [md for md in glob.glob('/dev/md*')
+               if not os.path.isdir(md) and not identify_partition(md)]:
+        mdstat = None
+        if os.path.exists('/proc/mdstat'):
+            mdstat = util.load_file('/proc/mdstat')
+            LOG.debug("/proc/mdstat:\n%s", mdstat)
+            found = [line for line in mdstat.splitlines()
+                     if os.path.basename(md) in line]
+            # in some cases we have a /dev/md0 device node
+            # but the kernel has already renamed the device /dev/md127
+            if len(found) == 0:
+                LOG.debug('Ignoring md device %s, not present in mdstat', md)
+                continue
+
+        # give it a second poke to encourage running
+        try:
+            LOG.debug('Activating mdadm array %s', md)
+            (out, err) = mdadm.mdadm_run(md)
+            LOG.debug('MDADM run on %s stdout:\n%s\nstderr:\n%s', md, out, err)
+        except util.ProcessExecutionError:
+            LOG.debug('Non-fatal error when starting mdadm device %s', md)
+
+        # extract details if we can
+        try:
+            (out, err) = mdadm.mdadm_query_detail(md, export=False,
+                                                  rawoutput=True)
+            LOG.debug('MDADM detail on %s stdout:\n%s\nstderr:\n%s',
+                      md, out, err)
+        except util.ProcessExecutionError:
+            LOG.debug('Non-fatal error when querying mdadm detail on %s', md)
+
     # scan and activate for logical volumes
     lvm.lvm_scan()
     lvm.activate_volgroups()

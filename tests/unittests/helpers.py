@@ -9,7 +9,7 @@ import random
 import shutil
 import string
 import tempfile
-from unittest import TestCase
+from unittest import TestCase, skipIf
 
 from curtin import util
 
@@ -36,6 +36,19 @@ def simple_mocked_open(content=None):
     m_patch = '{}.open'.format(mod_name)
     with mock.patch(m_patch, m_open, create=True):
         yield m_open
+
+
+try:
+    import jsonschema
+    assert jsonschema  # avoid pyflakes error F401: import unused
+    _missing_jsonschema_dep = False
+except ImportError:
+    _missing_jsonschema_dep = True
+
+
+def skipUnlessJsonSchema():
+    return skipIf(
+        _missing_jsonschema_dep, "No python-jsonschema dependency present.")
 
 
 class CiTestCase(TestCase):
@@ -71,7 +84,8 @@ class CiTestCase(TestCase):
         return os.path.normpath(
             os.path.abspath(os.path.sep.join((_dir, path))))
 
-    def random_string(self, length=8):
+    @classmethod
+    def random_string(cls, length=8):
         """ return a random lowercase string with default length of 8"""
         return ''.join(
             random.choice(string.ascii_lowercase) for _ in range(length))
