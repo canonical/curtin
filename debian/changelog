@@ -1,3 +1,21 @@
+curtin (18.2-19-g36351dea-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - clear-holders: refactor bcache shutdown and add longer timeout
+      (LP: #1796292)
+    - schema-validate-storage: remove unused imports [Paride Legovini]
+    - add subcommand schema for storage-config validation
+    - clear-holders: wipe raid members at data offsets when not assembled
+      (LP: #1815018)
+    - Add support for s390 DASD devices
+    - vmtest: skip DiscoTestAllindata while initrd lacks crypto modules
+    - block_meta: allow passing a dm_crypt key by keyfile
+      [Michael Hudson-Doyle]
+    - ChrootableTarget: add /run to mounts for redhat targets (LP: #1815666)
+    - vmtest: consolidate vm mem config, defaults via release, env override
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Wed, 03 Apr 2019 14:46:09 -0500
+
 curtin (18.2-10-g7afd77fa-0ubuntu1) disco; urgency=medium
 
   * New upstream snapshot.
