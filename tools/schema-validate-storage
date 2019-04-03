@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 
-import jsonschema
-import json
 import os
-import yaml
 import sys
 
 # Fix path so we can import helpers
