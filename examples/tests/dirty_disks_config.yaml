@@ -52,6 +52,22 @@ bucket:
       done
       # remove any existing metadata written from early disk config
       rm -f /etc/mdadm/mdadm.conf
+  - &naptime  |
+      #!/bin/sh
+      # This function attempts to settle and flush IO to devices
+      # in some scenarios vmtest devices have had lots of IO
+      # sent to them and they've yet to consume it all. Give it a
+      # chance to flush themselves
+      echo "VMTEST: io flush nap time, 12 second cleanse"
+      sleep 3
+      sync; sync; sync;
+      sleep 3
+      echo 3 > /proc/sys/vm/drop_caches
+      sleep 3
+      sync; sync; sync;
+      sleep 3
+      echo "VMTEST: io flush nap time complete;"
+
 
 early_commands:
   # running block-meta custom from the install environment
@@ -61,9 +77,10 @@ early_commands:
   # that could unintentionally mess things up.
   01-blockmeta: [env, -u, OUTPUT_FSTAB,
               TARGET_MOUNT_POINT=/tmp/my.bdir/target,
-              WORKING_DIR=/tmp/my.bdir/work.d, 
+              WORKING_DIR=/tmp/my.bdir/work.d,
               curtin, --showtrace, -v, block-meta, --umount, custom]
   02-enable_swaps: [sh, -c, *swapon]
   03-disable_rpool: [sh, -c, *zpool_export]
   04-lvm_stop: [sh, -c, *lvm_stop]
   05-mdadm_stop: [sh, -c, *mdadm_stop]
+  06-naptime: [sh, -c, *naptime]
