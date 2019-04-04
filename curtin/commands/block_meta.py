@@ -1036,7 +1036,8 @@ def lvm_partition_handler(info, storage_config):
             cmd.extend(["--wipesignatures=y"])
 
         if info.get('size'):
-            cmd.extend(["--size", info.get('size')])
+            size = util.human2bytes(info["size"])
+            cmd.extend(["--size", "{}B".format(size)])
         else:
             cmd.extend(["--extents", "100%FREE"])
 

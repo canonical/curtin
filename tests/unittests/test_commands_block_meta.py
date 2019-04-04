@@ -861,4 +861,51 @@ class TestDasdHandler(CiTestCase):
         self.assertEqual(1, m_dasd_needf.call_count)
         self.assertEqual(0, m_dasd_format.call_count)
 
+
+class TestLvmPartitionHandler(CiTestCase):
+
+    def setUp(self):
+        super(TestLvmPartitionHandler, self).setUp()
+
+        self.add_patch('curtin.commands.block_meta.lvm', 'm_lvm')
+        self.add_patch('curtin.commands.block_meta.distro', 'm_distro')
+        self.add_patch('curtin.commands.block_meta.util.subp', 'm_subp')
+        self.add_patch('curtin.commands.block_meta.make_dname', 'm_dname')
+
+        self.target = "my_target"
+        self.config = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {'id': 'lvm-volgroup1',
+                     'type': 'lvm_volgroup',
+                     'name': 'vg1',
+                     'devices': ['wda2', 'wdb2']},
+                    {'id': 'lvm-part1',
+                     'type': 'lvm_partition',
+                     'name': 'lv1',
+                     'size': 1073741824,
+                     'volgroup': 'lvm-volgroup1'},
+                ],
+            }
+        }
+        self.storage_config = (
+            block_meta.extract_storage_ordered_dict(self.config))
+
+    def test_lvmpart_accepts_size_as_integer(self):
+        """ lvm_partition_handler accepts size as integer. """
+
+        self.m_distro.lsb_release.return_value = {'codename': 'bionic'}
+        lv_size = self.storage_config['lvm-part1']['size']
+        self.assertEqual(int, type(lv_size))
+        expected_size_str = "%sB" % util.human2bytes(lv_size)
+
+        block_meta.lvm_partition_handler(self.storage_config['lvm-part1'],
+                                         self.storage_config)
+
+        call_name, call_args, call_kwargs = self.m_subp.mock_calls[0]
+        # call_args is an n-tuple of arg list
+        self.assertIn(expected_size_str, call_args[0])
+
+
 # vi: ts=4 expandtab syntax=python
