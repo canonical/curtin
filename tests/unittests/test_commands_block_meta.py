@@ -339,15 +339,20 @@ class TestZpoolHandler(CiTestCase):
                                                            m_zfs):
         storage_config = OrderedDict()
         info = {'type': 'zpool', 'id': 'myrootfs_zfsroot_pool',
-                'pool': 'rpool', 'vdevs': ['disk1p1'], 'mountpoint': '/'}
+                'pool': 'rpool', 'vdevs': ['disk1p1'], 'mountpoint': '/',
+                'pool_properties': {'ashift': 42},
+                'fs_properties': {'compression': 'lz4'}}
         disk_path = "/wark/mydev"
         m_getpath.return_value = disk_path
         m_block.disk_to_byid_path.return_value = None
         m_util.load_command_environment.return_value = {'target': 'mytarget'}
         block_meta.zpool_handler(info, storage_config)
-        m_zfs.zpool_create.assert_called_with(info['pool'], [disk_path],
-                                              mountpoint="/",
-                                              altroot="mytarget")
+        m_zfs.zpool_create.assert_called_with(
+            info['pool'], [disk_path],
+            mountpoint="/",
+            altroot="mytarget",
+            pool_properties={'ashift': 42},
+            zfs_properties={'compression': 'lz4'})
 
 
 class TestZFSRootUpdates(CiTestCase):

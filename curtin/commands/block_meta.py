@@ -1455,6 +1455,8 @@ def zpool_handler(info, storage_config):
              for v in info.get('vdevs', [])]
     poolname = info.get('pool')
     mountpoint = info.get('mountpoint')
+    pool_properties = info.get('pool_properties', {})
+    fs_properties = info.get('fs_properties', {})
     altroot = state['target']
 
     if not vdevs or not poolname:
@@ -1474,7 +1476,9 @@ def zpool_handler(info, storage_config):
 
     LOG.info('Creating zpool %s with vdevs %s', poolname, vdevs_byid)
     zfs.zpool_create(poolname, vdevs_byid,
-                     mountpoint=mountpoint, altroot=altroot)
+                     mountpoint=mountpoint, altroot=altroot,
+                     pool_properties=pool_properties,
+                     zfs_properties=fs_properties)
 
 
 def zfs_handler(info, storage_config):
