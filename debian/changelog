@@ -1,3 +1,15 @@
+curtin (18.2-22-g08bf6ff7-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - Setup kernel-img.conf like base-installer/live-installer did.
+      [Dimitri John Ledkov] (LP: #1534162)
+    - zfs: pass pool and fs properties to zpool_create
+      [Jean-Baptiste Lallement] (LP: #1823682)
+    - block_meta: pass lvm_partition size through human2bytes
+      [Michael Hudson-Doyle]
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Thu, 11 Apr 2019 14:22:33 -0500
+
 curtin (18.2-19-g36351dea-0ubuntu1) disco; urgency=medium
 
   * New upstream snapshot.
