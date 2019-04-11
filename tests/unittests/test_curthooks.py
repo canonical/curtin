@@ -120,6 +120,58 @@ class TestUpdateInitramfs(CiTestCase):
         self.mock_subp.assert_has_calls(subp_calls)
 
 
+class TestSetupKernelImgConf(CiTestCase):
+
+    def setUp(self):
+        super(TestSetupKernelImgConf, self).setUp()
+        self.add_patch('platform.machine', 'mock_machine')
+        self.add_patch('curtin.util.get_architecture', 'mock_arch')
+        self.add_patch('curtin.util.write_file', 'mock_write_file')
+        self.target = 'not-a-real-target'
+
+    def test_on_s390x(self):
+        self.mock_machine.return_value = "s390x"
+        self.mock_arch.return_value = "s390x"
+        curthooks.setup_kernel_img_conf(self.target)
+        self.mock_write_file.assert_called_with(
+            os.path.sep.join([self.target, '/etc/kernel-img.conf']),
+            content="""# Kernel image management overrides
+# See kernel-img.conf(5) for details
+do_symlinks = yes
+do_bootloader = yes
+do_initrd = yes
+link_in_boot = yes
+""")
+
+    def test_on_i386(self):
+        self.mock_machine.return_value = "i686"
+        self.mock_arch.return_value = "i386"
+        curthooks.setup_kernel_img_conf(self.target)
+        self.mock_write_file.assert_called_with(
+            os.path.sep.join([self.target, '/etc/kernel-img.conf']),
+            content="""# Kernel image management overrides
+# See kernel-img.conf(5) for details
+do_symlinks = yes
+do_bootloader = no
+do_initrd = yes
+link_in_boot = no
+""")
+
+    def test_on_amd64(self):
+        self.mock_machine.return_value = "x86_64"
+        self.mock_arch.return_value = "amd64"
+        curthooks.setup_kernel_img_conf(self.target)
+        self.mock_write_file.assert_called_with(
+            os.path.sep.join([self.target, '/etc/kernel-img.conf']),
+            content="""# Kernel image management overrides
+# See kernel-img.conf(5) for details
+do_symlinks = yes
+do_bootloader = no
+do_initrd = yes
+link_in_boot = no
+""")
+
+
 class TestInstallMissingPkgs(CiTestCase):
     def setUp(self):
         super(TestInstallMissingPkgs, self).setUp()

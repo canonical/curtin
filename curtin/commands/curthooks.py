@@ -75,6 +75,14 @@ enabled=1
 enabled_metadata=1
 """
 
+KERNEL_IMG_CONF_TEMPLATE = """# Kernel image management overrides
+# See kernel-img.conf(5) for details
+do_symlinks = yes
+do_bootloader = {bootloader}
+do_initrd = yes
+link_in_boot = {inboot}
+"""
+
 
 def do_apt_config(cfg, target):
     cfg = apt_config.translate_old_apt_features(cfg)
@@ -248,6 +256,22 @@ def get_flash_kernel_pkgs(arch=None, uefi=None):
     except util.ProcessExecutionError:
         # Ignore errors
         return None
+
+
+def setup_kernel_img_conf(target):
+    kernel_img_conf_vars = {
+        'bootloader': 'no',
+        'inboot': 'yes',
+    }
+    # see zipl-installer
+    if platform.machine() == 's390x':
+        kernel_img_conf_vars['bootloader'] = 'yes'
+    # see base-installer/debian/templates-arch
+    if util.get_platform_arch() in ['amd64', 'i386']:
+        kernel_img_conf_vars['inboot'] = 'no'
+    kernel_img_conf_path = os.path.sep.join([target, '/etc/kernel-img.conf'])
+    content = KERNEL_IMG_CONF_TEMPLATE.format(**kernel_img_conf_vars)
+    util.write_file(kernel_img_conf_path, content=content)
 
 
 def install_kernel(cfg, target):
@@ -1250,6 +1274,7 @@ def builtin_curthooks(cfg, target, state):
                 reporting_enabled=True, level="INFO",
                 description="installing kernel"):
             setup_zipl(cfg, target)
+            setup_kernel_img_conf(target)
             install_kernel(cfg, target)
             run_zipl(cfg, target)
             restore_dist_interfaces(cfg, target)

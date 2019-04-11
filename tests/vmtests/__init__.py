@@ -564,6 +564,7 @@ DEFAULT_COLLECT_SCRIPTS = {
         out=$(apt-config shell v Acquire::HTTP::Proxy)
         eval "$out"
         echo "$v" > apt-proxy
+        cp -av /etc/kernel-img.conf .
 
         exit 0
         """)]
@@ -1695,6 +1696,16 @@ class VMBaseClass(TestCase):
         # also runs clear-holders
         if self.dirty_disks is True:
             self.assertGreaterEqual(len(events), 4)
+
+    @skip_if_flag('expected_failure')
+    def test_kernel_img_conf(self):
+        """ Test curtin install kernel-img.conf correctly. """
+        kconf = 'kernel-img.conf'
+        self.output_files_exist([kconf])
+        if self.arch in ['i386', 'amd64']:
+            self.check_file_strippedline(kconf, 'link_in_boot = no')
+        else:
+            self.check_file_strippedline(kconf, 'link_in_boot = yes')
 
     def run(self, result):
         super(VMBaseClass, self).run(result)
