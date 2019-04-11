@@ -1,4 +1,4 @@
-curtin (18.2-22-g08bf6ff7-0ubuntu1) UNRELEASED; urgency=medium
+curtin (18.2-22-g08bf6ff7-0ubuntu1) disco; urgency=medium
 
   * New upstream snapshot.
     - Setup kernel-img.conf like base-installer/live-installer did.
