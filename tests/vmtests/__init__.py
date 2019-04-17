@@ -1877,6 +1877,9 @@ class PsuedoVMBaseClass(VMBaseClass):
     def test_installed_correct_kernel_package(self):
         pass
 
+    def test_kernel_img_conf(self):
+        pass
+
     def _maybe_raise(self, exc):
         if self.allow_test_fails:
             raise exc
