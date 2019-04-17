@@ -206,6 +206,9 @@ def chzdev_import(data=None, persistent=True, noroot=True, base=None,
         else:
             cmd.extend(['--base', base])
 
+    if data:
+        data = data.encode()
+
     cmd.extend(['--import', import_file])
     return util.subp(cmd, data=data, capture=True)
 
