@@ -1,4 +1,4 @@
-curtin (18.2-26-gd8e45d79-0ubuntu1) UNRELEASED; urgency=medium
+curtin (18.2-26-gd8e45d79-0ubuntu1) eoan; urgency=medium
 
   * New upstream snapshot.
     - vmtest: reenable UEFI 4k tests, which got dropped when fixing
