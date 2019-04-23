@@ -1700,6 +1700,8 @@ class VMBaseClass(TestCase):
     @skip_if_flag('expected_failure')
     def test_kernel_img_conf(self):
         """ Test curtin install kernel-img.conf correctly. """
+        if self.target_distro != 'ubuntu':
+            raise SkipTest("kernel-img.conf not needed in non-ubuntu releases")
         kconf = 'kernel-img.conf'
         self.output_files_exist([kconf])
         if self.arch in ['i386', 'amd64']:
@@ -1873,6 +1875,9 @@ class PsuedoVMBaseClass(VMBaseClass):
         pass
 
     def test_installed_correct_kernel_package(self):
+        pass
+
+    def test_kernel_img_conf(self):
         pass
 
     def _maybe_raise(self, exc):
