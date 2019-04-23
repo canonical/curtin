@@ -1,3 +1,14 @@
+curtin (18.2-26-gd8e45d79-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - vmtest: reenable UEFI 4k tests, which got dropped when fixing
+      subclassing.
+    - vmtests: Add test_kernel_img_conf stub for PsuedoVMBaseClass
+    - curthooks: chzdev_import must encode data if provided (LP: #1825007)
+    - vmtest: test for kernel-img conf on ubuntu only
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Tue, 23 Apr 2019 09:32:56 -0500
+
 curtin (18.2-22-g08bf6ff7-0ubuntu1) disco; urgency=medium
 
   * New upstream snapshot.
