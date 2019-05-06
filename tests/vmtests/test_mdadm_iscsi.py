@@ -34,10 +34,6 @@ class Centos70TestIscsiMdadm(centos_relbase.centos70_xenial,
     __test__ = True
 
 
-class TrustyTestIscsiMdadm(relbase.trusty, TestMdadmIscsiAbs):
-    __test__ = True
-
-
 class XenialGATestIscsiMdadm(relbase.xenial_ga, TestMdadmIscsiAbs):
     __test__ = True
 

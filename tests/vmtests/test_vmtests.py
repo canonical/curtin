@@ -17,7 +17,7 @@ class PsuedoBase(PsuedoVMBaseClass):
     pass
 
 
-class PsuedoTestAllPass(relbase.trusty, PsuedoBase):
+class PsuedoTestAllPass(relbase.bionic, PsuedoBase):
     __test__ = True
     # These boot_results would cause first_boot failure
     # boot_results = {

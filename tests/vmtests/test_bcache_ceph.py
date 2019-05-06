@@ -59,14 +59,6 @@ class TestBcacheCeph(VMBaseClass):
                             self.load_collect_file("bcache_ls").splitlines())
 
 
-class TrustyTestBcacheCeph(relbase.trusty, TestBcacheCeph):
-    __test__ = False  # covered by test_raid5_bcache
-
-
-class TrustyHWEXTestBcacheCeph(relbase.trusty_hwe_x, TestBcacheCeph):
-    __test__ = False  # covered by test_raid5_bcache
-
-
 class XenialGATestBcacheCeph(relbase.xenial_ga, TestBcacheCeph):
     __test__ = True
 

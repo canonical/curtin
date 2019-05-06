@@ -53,10 +53,6 @@ class TestPollinateUserAgent(VMBaseClass):
             self.assertEqual(ua_val, hit.group())
 
 
-class TrustyTestPollinateUserAgent(relbase.trusty, TestPollinateUserAgent):
-    __test__ = True
-
-
 class XenialTestPollinateUserAgent(relbase.xenial, TestPollinateUserAgent):
     __test__ = True
 

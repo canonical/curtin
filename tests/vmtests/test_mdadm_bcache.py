@@ -127,15 +127,6 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         self.test_dname(disk_to_check=self.bcache_dnames)
 
 
-@VMBaseClass.skip_by_date("1754581", fixby="2020-01-22", install=False)
-class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestMdadmBcache(relbase.trusty_hwe_x, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 class XenialGATestMdadmBcache(relbase.xenial_ga, TestMdadmBcacheAbs):
     __test__ = True
 
@@ -176,15 +167,6 @@ class Centos70TestMirrorboot(centos_relbase.centos70_xenial,
     __test__ = True
 
 
-class TrustyTestMirrorboot(relbase.trusty, TestMirrorbootAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestMirrorboot(relbase.trusty_hwe_x, TestMirrorbootAbs):
-    # This tests kernel upgrade in target
-    __test__ = True
-
-
 class XenialGATestMirrorboot(relbase.xenial_ga, TestMirrorbootAbs):
     __test__ = True
 
@@ -221,17 +203,6 @@ class TestMirrorbootPartitionsAbs(TestMdadmAbs):
 
 class Centos70TestMirrorbootPartitions(centos_relbase.centos70_xenial,
                                        TestMirrorbootPartitionsAbs):
-    __test__ = True
-
-
-class TrustyTestMirrorbootPartitions(relbase.trusty,
-                                     TestMirrorbootPartitionsAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestMirrorbootPartitions(relbase.trusty_hwe_x,
-                                         TestMirrorbootPartitionsAbs):
-    # This tests kernel upgrade in target
     __test__ = True
 
 
@@ -285,11 +256,6 @@ class Centos70TestMirrorbootPartitionsUEFI(centos_relbase.centos70_xenial,
     __test__ = True
 
 
-class TrustyTestMirrorbootPartitionsUEFI(relbase.trusty,
-                                         TestMirrorbootPartitionsUEFIAbs):
-    __test__ = True
-
-
 class XenialGATestMirrorbootPartitionsUEFI(relbase.xenial_ga,
                                            TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
@@ -333,15 +299,6 @@ class TestRaid5bootAbs(TestMdadmAbs):
 
 
 class Centos70TestRaid5boot(centos_relbase.centos70_xenial, TestRaid5bootAbs):
-    __test__ = True
-
-
-class TrustyTestRaid5boot(relbase.trusty, TestRaid5bootAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestRaid5boot(relbase.trusty_hwe_x, TestRaid5bootAbs):
-    # This tests kernel upgrade in target
     __test__ = True
 
 
@@ -401,14 +358,6 @@ class Centos70TestRaid6boot(centos_relbase.centos70_xenial, TestRaid6bootAbs):
     __test__ = True
 
 
-class TrustyTestRaid6boot(relbase.trusty, TestRaid6bootAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestRaid6boot(relbase.trusty_hwe_x, TestRaid6bootAbs):
-    __test__ = True
-
-
 class XenialGATestRaid6boot(relbase.xenial_ga, TestRaid6bootAbs):
     __test__ = True
 
@@ -448,14 +397,6 @@ class TestRaid10bootAbs(TestMdadmAbs):
 
 class Centos70TestRaid10boot(centos_relbase.centos70_xenial,
                              TestRaid10bootAbs):
-    __test__ = True
-
-
-class TrustyTestRaid10boot(relbase.trusty, TestRaid10bootAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestRaid10boot(relbase.trusty_hwe_x, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -557,14 +498,6 @@ class TestAllindataAbs(TestMdadmAbs):
         self.check_file_regex("crypttab", r"dmcrypt0.*luks")
         self.check_file_regex("mapper", r"^lrwxrwxrwx.*/dev/mapper/dmcrypt0")
         self.check_file_regex("xfs_info", r"^meta-data=/dev/mapper/dmcrypt0")
-
-
-class TrustyTestAllindata(relbase.trusty, TestAllindataAbs):
-    __test__ = False  # luks=no does not disable mounting of device
-
-
-class TrustyHWEXTestAllindata(relbase.trusty_hwe_x, TestAllindataAbs):
-    __test__ = False  # lukes=no does not disable mounting of device
 
 
 class XenialGATestAllindata(relbase.xenial_ga, TestAllindataAbs):

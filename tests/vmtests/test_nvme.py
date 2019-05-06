@@ -57,14 +57,6 @@ class Centos70TestNvme(centos70_xenial, TestNvmeAbs):
     __test__ = True
 
 
-class TrustyTestNvme(relbase.trusty, TestNvmeAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestNvme(relbase.trusty_hwe_x, TestNvmeAbs):
-    __test__ = True
-
-
 class XenialGATestNvme(relbase.xenial_ga, TestNvmeAbs):
     __test__ = True
 

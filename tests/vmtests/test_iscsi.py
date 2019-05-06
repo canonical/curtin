@@ -55,10 +55,6 @@ class Centos70XenialTestIscsiBasic(centos_relbase.centos70_xenial,
     __test__ = True
 
 
-class TrustyTestIscsiBasic(relbase.trusty, TestBasicIscsiAbs):
-    __test__ = True
-
-
 class XenialGATestIscsiBasic(relbase.xenial_ga, TestBasicIscsiAbs):
     __test__ = True
 

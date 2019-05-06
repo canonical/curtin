@@ -64,15 +64,6 @@ class Centos70TestMultipathBasic(centos_relbase.centos70_xenial,
     __test__ = True
 
 
-class TrustyTestMultipathBasic(relbase.trusty, TestMultipathBasicAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestMultipathBasic(relbase.trusty_hwe_x,
-                                   TestMultipathBasicAbs):
-    __test__ = True
-
-
 class XenialGATestMultipathBasic(relbase.xenial_ga, TestMultipathBasicAbs):
     __test__ = True
 

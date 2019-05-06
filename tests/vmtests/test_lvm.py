@@ -47,14 +47,6 @@ class Centos70XenialTestLvm(centos_relbase.centos70_xenial, TestLvmAbs):
     __test__ = True
 
 
-class TrustyTestLvm(relbase.trusty, TestLvmAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestLvm(relbase.trusty_hwe_x, TestLvmAbs):
-    __test__ = True
-
-
 class XenialGATestLvm(relbase.xenial_ga, TestLvmAbs):
     __test__ = True
 

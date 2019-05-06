@@ -81,9 +81,6 @@ class TestBasicAbs(VMBaseClass):
         return kname
 
     def _test_ptable(self, blkid_output, expected):
-        if self.target_release == "trusty":
-            raise SkipTest("No PTTYPE blkid output on trusty")
-
         if not blkid_output:
             raise RuntimeError('_test_ptable requires blkid output file')
 
@@ -234,14 +231,6 @@ class CentosTestBasicAbs(TestBasicAbs):
 
 class Centos70XenialTestBasic(centos_relbase.centos70_xenial,
                               CentosTestBasicAbs):
-    __test__ = True
-
-
-class TrustyTestBasic(relbase.trusty, TestBasicAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestBasic(relbase.trusty_hwe_x, TrustyTestBasic):
     __test__ = True
 
 

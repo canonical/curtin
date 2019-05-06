@@ -24,10 +24,6 @@ class Centos70TestSimple(centos_relbase.centos70_xenial, TestSimple):
     __test__ = True
 
 
-class TrustyTestSimple(relbase.trusty, TestSimple):
-    __test__ = True
-
-
 class XenialTestSimple(relbase.xenial, TestSimple):
     __test__ = True
 

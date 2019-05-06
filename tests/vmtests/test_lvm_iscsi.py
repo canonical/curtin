@@ -62,10 +62,6 @@ class Centos70XenialTestLvmIscsi(centos_relbase.centos70_xenial,
     __test__ = True
 
 
-class TrustyTestIscsiLvm(relbase.trusty, TestLvmIscsiAbs):
-    __test__ = True
-
-
 class XenialTestIscsiLvm(relbase.xenial, TestLvmIscsiAbs):
     __test__ = True
 
