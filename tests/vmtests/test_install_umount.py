@@ -28,7 +28,7 @@ class TestInstallUnmount(VMBaseClass):
         """Test that install ran with unmount: disabled"""
         collect_curtin_cfg = 'root/curtin-install-cfg.yaml'
         self.output_files_exist([collect_curtin_cfg])
-        curtin_cfg = yaml.load(self.load_collect_file(collect_curtin_cfg))
+        curtin_cfg = yaml.safe_load(self.load_collect_file(collect_curtin_cfg))
 
         # check that we have
         # install:

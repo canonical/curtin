@@ -18,6 +18,7 @@ import yaml
 import curtin.net as curtin_net
 import curtin.util as util
 from curtin.block import iscsi
+from curtin.config import load_config
 
 from .report_webhook_logger import CaptureReporting
 from curtin.commands.install import INSTALL_PASS_MSG
@@ -1612,7 +1613,7 @@ class VMBaseClass(TestCase):
         logger.debug('test_dname_rules: checking disks: %s', disk_to_check)
         self.output_files_exist(["udev_rules.d"])
 
-        cfg = yaml.load(self.load_collect_file("root/curtin-install-cfg.yaml"))
+        cfg = load_config(self.collect_path("root/curtin-install-cfg.yaml"))
         stgcfg = cfg.get("storage", {}).get("config", [])
         disks = [ent for ent in stgcfg if (ent.get('type') == 'disk' and
                                            'name' in ent)]
@@ -1751,10 +1752,10 @@ class VMBaseClass(TestCase):
     @classmethod
     def get_class_storage_config(cls):
         sc = cls.load_conf_file()
-        return yaml.load(sc).get('storage', {}).get('config', {})
+        return yaml.safe_load(sc).get('storage', {}).get('config', {})
 
     def get_storage_config(self):
-        cfg = yaml.load(self.load_collect_file("root/curtin-install-cfg.yaml"))
+        cfg = load_config(self.collect_path("root/curtin-install-cfg.yaml"))
         return cfg.get("storage", {}).get("config", [])
 
     def has_storage_config(self):
@@ -1992,7 +1993,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
                                capture=True)
     # precises' cloud-init version has limited support for cloud-config-archive
     # and expects cloud-config pieces to be appendable to a single file and
-    # yaml.load()'able.  Resolve this by using yaml.dump() when generating
+    # yaml.safe_load()'able.  Resolve this by using yaml.dump() when generating
     # a list of parts
     parts = [{'type': 'text/cloud-config',
               'content': yaml.dump(base_cloudconfig, indent=1)},
