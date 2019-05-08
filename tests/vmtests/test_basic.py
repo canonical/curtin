@@ -343,6 +343,7 @@ class CosmicTestScsiBasic(relbase.cosmic, TestBasicScsiAbs):
     __test__ = True
 
 
+@VMBaseClass.skip_by_date("1813228", fixby="2019-06-02", install=False)
 class DiscoTestScsiBasic(relbase.disco, TestBasicScsiAbs):
     __test__ = True
 

@@ -84,6 +84,7 @@ class CosmicTestMultipathBasic(relbase.cosmic, TestMultipathBasicAbs):
     __test__ = True
 
 
+@VMBaseClass.skip_by_date("1813228", fixby="2019-06-02", install=False)
 class DiscoTestMultipathBasic(relbase.disco, TestMultipathBasicAbs):
     __test__ = True
 
