@@ -36,6 +36,10 @@ class DiscoTestNetworkStatic(relbase.disco, TestNetworkStaticAbs):
     __test__ = True
 
 
+class EoanTestNetworkStatic(relbase.eoan, TestNetworkStaticAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkStatic(centos_relbase.centos66_xenial,
                                 CentosTestNetworkStaticAbs):
     __test__ = True

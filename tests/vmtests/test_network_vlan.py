@@ -84,6 +84,10 @@ class DiscoTestNetworkVlan(relbase.disco, TestNetworkVlanAbs):
     __test__ = True
 
 
+class EoanTestNetworkVlan(relbase.eoan, TestNetworkVlanAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkVlan(centos_relbase.centos66_xenial,
                               CentosTestNetworkVlanAbs):
     __test__ = True

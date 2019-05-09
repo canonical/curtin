@@ -94,6 +94,10 @@ class DiscoTestZfsRoot(relbase.disco, TestZfsRootAbs):
     __test__ = True
 
 
+class EoanTestZfsRoot(relbase.eoan, TestZfsRootAbs):
+    __test__ = True
+
+
 class TestZfsRootFsTypeAbs(TestZfsRootAbs):
     conf_file = "examples/tests/basic-zfsroot.yaml"
 
@@ -117,4 +121,8 @@ class CosmicTestZfsRootFsType(relbase.cosmic, TestZfsRootFsTypeAbs):
 
 
 class DiscoTestZfsRootFsType(relbase.disco, TestZfsRootFsTypeAbs):
+    __test__ = True
+
+
+class EoanTestZfsRootFsType(relbase.eoan, TestZfsRootFsTypeAbs):
     __test__ = True

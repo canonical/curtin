@@ -180,6 +180,10 @@ class DiscoTestNetworkMtu(relbase.disco, TestNetworkMtuAbs):
     __test__ = True
 
 
+class EoanTestNetworkMtu(relbase.eoan, TestNetworkMtuAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkMtu(centos_relbase.centos66_xenial,
                              CentosTestNetworkMtuAbs):
     __test__ = True

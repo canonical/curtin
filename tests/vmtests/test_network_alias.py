@@ -59,4 +59,8 @@ class CosmicTestNetworkAlias(relbase.cosmic, TestNetworkAliasAbs):
 class DiscoTestNetworkAlias(relbase.disco, TestNetworkAliasAbs):
     __test__ = True
 
+
+class EoanTestNetworkAlias(relbase.eoan, TestNetworkAliasAbs):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

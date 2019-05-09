@@ -78,4 +78,8 @@ class CosmicTestIscsiBasic(relbase.cosmic, TestBasicIscsiAbs):
 class DiscoTestIscsiBasic(relbase.disco, TestBasicIscsiAbs):
     __test__ = True
 
+
+class EoanTestIscsiBasic(relbase.eoan, TestBasicIscsiAbs):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

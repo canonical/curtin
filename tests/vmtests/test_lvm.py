@@ -70,4 +70,8 @@ class CosmicTestLvm(relbase.cosmic, TestLvmAbs):
 class DiscoTestLvm(relbase.disco, TestLvmAbs):
     __test__ = True
 
+
+class EoanTestLvm(relbase.eoan, TestLvmAbs):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

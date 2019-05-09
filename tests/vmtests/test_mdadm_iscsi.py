@@ -57,4 +57,8 @@ class CosmicTestIscsiMdadm(relbase.cosmic, TestMdadmIscsiAbs):
 class DiscoTestIscsiMdadm(relbase.disco, TestMdadmIscsiAbs):
     __test__ = True
 
+
+class EoanTestIscsiMdadm(relbase.eoan, TestMdadmIscsiAbs):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

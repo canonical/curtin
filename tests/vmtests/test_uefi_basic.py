@@ -113,6 +113,10 @@ class DiscoUefiTestBasic(relbase.disco, TestBasicAbs):
     __test__ = True
 
 
+class EoanUefiTestBasic(relbase.eoan, TestBasicAbs):
+    __test__ = True
+
+
 class Centos70UefiTestBasic4k(centos_relbase.centos70_xenial, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
@@ -134,6 +138,11 @@ class CosmicUefiTestBasic4k(relbase.cosmic, TestBasicAbs):
 
 
 class DiscoUefiTestBasic4k(relbase.disco, TestBasicAbs):
+    __test__ = True
+    disk_block_size = 4096
+
+
+class EoanUefiTestBasic4k(relbase.eoan, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
 

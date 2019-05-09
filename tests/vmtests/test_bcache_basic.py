@@ -71,4 +71,8 @@ class CosmicBcacheBasic(relbase.cosmic, TestBcacheBasic):
 class DiscoBcacheBasic(relbase.disco, TestBcacheBasic):
     __test__ = True
 
+
+class EoancacheBasic(relbase.eoan, TestBcacheBasic):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

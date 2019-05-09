@@ -49,6 +49,13 @@ class DiscoTestSimple(relbase.disco, TestSimple):
         self.output_files_exist(["netplan.yaml"])
 
 
+class EoanTestSimple(relbase.eoan, TestSimple):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
+
 class TestSimpleStorage(VMBaseClass):
     """ Test curtin runs clear-holders when mode=simple with storage cfg. """
     conf_file = "examples/tests/simple-storage.yaml"
@@ -104,5 +111,11 @@ class DiscoTestSimpleStorage(relbase.disco, TestSimpleStorage):
     def test_output_files_exist(self):
         self.output_files_exist(["netplan.yaml"])
 
+
+class EoanTestSimpleStorage(relbase.eoan, TestSimpleStorage):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
 
 # vi: ts=4 expandtab syntax=python

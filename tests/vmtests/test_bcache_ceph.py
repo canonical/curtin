@@ -82,4 +82,8 @@ class CosmicTestBcacheCeph(relbase.cosmic, TestBcacheCeph):
 class DiscoTestBcacheCeph(relbase.disco, TestBcacheCeph):
     __test__ = True
 
+
+class EoanTestBcacheCeph(relbase.eoan, TestBcacheCeph):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

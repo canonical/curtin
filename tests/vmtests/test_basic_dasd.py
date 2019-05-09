@@ -67,4 +67,10 @@ class DiscoTestBasicDasd(relbase.disco, TestBasicDasd):
         self.output_files_exist(["netplan.yaml"])
 
 
+class EoanTestBasicDasd(relbase.eoan, TestBasicDasd):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
 # vi: ts=4 expandtab syntax=python

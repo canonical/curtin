@@ -88,4 +88,9 @@ class CosmicTestMultipathBasic(relbase.cosmic, TestMultipathBasicAbs):
 class DiscoTestMultipathBasic(relbase.disco, TestMultipathBasicAbs):
     __test__ = True
 
+
+@VMBaseClass.skip_by_date("1813228", fixby="2019-06-02", install=False)
+class EoanTestMultipathBasic(relbase.eoan, TestMultipathBasicAbs):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

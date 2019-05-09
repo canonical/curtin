@@ -90,4 +90,8 @@ class CosmicTestRaid5Bcache(relbase.cosmic, TestMdadmBcacheAbs):
 class DiscoTestRaid5Bcache(relbase.disco, TestMdadmBcacheAbs):
     __test__ = True
 
+
+class EoanTestRaid5Bcache(relbase.eoan, TestMdadmBcacheAbs):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

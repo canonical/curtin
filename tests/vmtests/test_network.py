@@ -456,6 +456,10 @@ class DiscoTestNetworkBasic(relbase.disco, TestNetworkBasicAbs):
     __test__ = True
 
 
+class EoanTestNetworkBasic(relbase.eoan, TestNetworkBasicAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkBasic(centos_relbase.centos66_xenial,
                                CentosTestNetworkBasicAbs):
     __test__ = True

@@ -238,4 +238,8 @@ class CosmicTestFsBattery(relbase.cosmic, TestFsBattery):
 class DiscoTestFsBattery(relbase.disco, TestFsBattery):
     __test__ = True
 
+
+class EoanTestFsBattery(relbase.eoan, TestFsBattery):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

@@ -121,6 +121,12 @@ class _DiscoBase(_UbuntuBase):
     mem = "2048"
 
 
+class _EoanBase(_UbuntuBase):
+    release = "eoan"
+    target_release = "eoan"
+    mem = "2048"
+
+
 class _Releases(object):
     trusty = _TrustyBase
     precise = _PreciseBase
@@ -137,6 +143,7 @@ class _Releases(object):
     bionic = _BionicBase
     cosmic = _CosmicBase
     disco = _DiscoBase
+    eoan = _EoanBase
 
 
 class _CentosReleases(object):

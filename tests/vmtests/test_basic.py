@@ -263,6 +263,10 @@ class DiscoTestBasic(relbase.disco, TestBasicAbs):
     __test__ = True
 
 
+class EoanTestBasic(relbase.eoan, TestBasicAbs):
+    __test__ = True
+
+
 class TestBasicScsiAbs(TestBasicAbs):
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
@@ -345,6 +349,11 @@ class CosmicTestScsiBasic(relbase.cosmic, TestBasicScsiAbs):
 
 @VMBaseClass.skip_by_date("1813228", fixby="2019-06-02", install=False)
 class DiscoTestScsiBasic(relbase.disco, TestBasicScsiAbs):
+    __test__ = True
+
+
+@VMBaseClass.skip_by_date("1813228", fixby="2019-06-02", install=False)
+class EoanTestScsiBasic(relbase.eoan, TestBasicScsiAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

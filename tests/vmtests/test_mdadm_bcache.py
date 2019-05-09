@@ -151,6 +151,10 @@ class DiscoTestMdadmBcache(relbase.disco, TestMdadmBcacheAbs):
     __test__ = True
 
 
+class EoanTestMdadmBcache(relbase.eoan, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot.yaml"
@@ -188,6 +192,10 @@ class CosmicTestMirrorboot(relbase.cosmic, TestMirrorbootAbs):
 
 
 class DiscoTestMirrorboot(relbase.disco, TestMirrorbootAbs):
+    __test__ = True
+
+
+class EoanTestMirrorboot(relbase.eoan, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -233,6 +241,11 @@ class CosmicTestMirrorbootPartitions(relbase.cosmic,
 
 class DiscoTestMirrorbootPartitions(relbase.disco,
                                     TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
+class EoanTestMirrorbootPartitions(relbase.eoan,
+                                   TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
@@ -286,6 +299,11 @@ class DiscoTestMirrorbootPartitionsUEFI(relbase.disco,
     __test__ = True
 
 
+class EoanTestMirrorbootPartitionsUEFI(relbase.eoan,
+                                       TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
@@ -323,6 +341,10 @@ class CosmicTestRaid5boot(relbase.cosmic, TestRaid5bootAbs):
 
 
 class DiscoTestRaid5boot(relbase.disco, TestRaid5bootAbs):
+    __test__ = True
+
+
+class EoanTestRaid5boot(relbase.eoan, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -382,6 +404,10 @@ class DiscoTestRaid6boot(relbase.disco, TestRaid6bootAbs):
     __test__ = True
 
 
+class EoanTestRaid6boot(relbase.eoan, TestRaid6bootAbs):
+    __test__ = True
+
+
 class TestRaid10bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid10boot.yaml"
@@ -421,6 +447,10 @@ class CosmicTestRaid10boot(relbase.cosmic, TestRaid10bootAbs):
 
 
 class DiscoTestRaid10boot(relbase.disco, TestRaid10bootAbs):
+    __test__ = True
+
+
+class EoanTestRaid10boot(relbase.eoan, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -522,6 +552,10 @@ class CosmicTestAllindata(relbase.cosmic, TestAllindataAbs):
 
 @VMBaseClass.skip_by_date("1818876", fixby="2019-04-22", install=False)
 class DiscoTestAllindata(relbase.disco, TestAllindataAbs):
+    __test__ = True
+
+
+class EoanTestAllindata(relbase.eoan, TestAllindataAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python
