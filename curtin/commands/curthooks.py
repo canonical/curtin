@@ -484,6 +484,20 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
     else:
         env['REPLACE_GRUB_LINUX_DEFAULT'] = "1"
 
+    probe_os = grubcfg.get('probe_additional_os', False)
+    if probe_os not in (False, True):
+        raise ValueError("Unexpected value %s for 'probe_additional_os'. "
+                         "Value must be boolean" % probe_os)
+    env['DISABLE_OS_PROBER'] = "0" if probe_os else "1"
+
+    # if terminal is present in config, but unset, then don't
+    grub_terminal = grubcfg.get('terminal', 'console')
+    if not isinstance(grub_terminal, str):
+        raise ValueError("Unexpected value %s for 'terminal'. "
+                         "Value must be a string" % grub_terminal)
+    if not grub_terminal.lower() == "unmodified":
+        env['GRUB_TERMINAL'] = grub_terminal
+
     if instdevs:
         instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
     else:
