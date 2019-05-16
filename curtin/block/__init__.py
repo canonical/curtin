@@ -10,8 +10,9 @@ import tempfile
 
 from curtin import util
 from curtin.block import lvm
+from curtin.block import multipath
 from curtin.log import LOG
-from curtin.udev import udevadm_settle
+from curtin.udev import udevadm_settle, udevadm_info
 
 
 def get_dev_name_entry(devname):
@@ -103,7 +104,15 @@ def partition_kname(disk_kname, partition_number):
     """
     Add number to disk_kname prepending a 'p' if needed
     """
-    for dev_type in ['bcache', 'nvme', 'mmcblk', 'cciss', 'mpath', 'dm', 'md']:
+    if disk_kname.startswith('dm-'):
+        # device-mapper devices may create a new dm device for the partition,
+        # e.g. multipath disk is at dm-2, new partition could be dm-11, but
+        # linux will create a -partX symlink against the disk by-id name.
+        devpath = '/dev/' + disk_kname
+        disk_link = get_device_mapper_links(devpath, first=True)
+        return '%s-part%s' % (disk_link, partition_number)
+
+    for dev_type in ['bcache', 'nvme', 'mmcblk', 'cciss', 'mpath', 'md']:
         if disk_kname.startswith(dev_type):
             partition_number = "p%s" % partition_number
             break
@@ -686,6 +695,21 @@ def disk_to_byid_path(kname):
     return mapping.get(dev_path(kname))
 
 
+def get_device_mapper_links(devpath, first=False):
+    """ Return the best devlink to device at devpath. """
+    info = udevadm_info(devpath)
+    if 'DEVLINKS' not in info:
+        raise ValueError('Device %s does not have device symlinks' % devpath)
+    devlinks = [devlink for devlink in sorted(info['DEVLINKS']) if devlink]
+    if not devlinks:
+        raise ValueError('Unexpected DEVLINKS list contained empty values')
+
+    if first:
+        return devlinks[0]
+
+    return devlinks
+
+
 def lookup_disk(serial):
     """
     Search for a disk by its serial number using /dev/disk/by-id/
@@ -705,7 +729,16 @@ def lookup_disk(serial):
     # will be the partitions on the disk. Then use os.path.realpath to
     # determine the path to the block device in /dev/
     disks.sort(key=lambda x: len(x))
+    LOG.debug('lookup_disks found: %s', disks)
     path = os.path.realpath("/dev/disk/by-id/%s" % disks[0])
+    LOG.debug('lookup_disks realpath(%s)=%s', disks[0], path)
+    if multipath.is_mpath_device(path):
+        LOG.debug('Detected multipath device, finding a members')
+        info = udevadm_info(path)
+        mpath_members = sorted(multipath.find_mpath_members(info['DM_NAME']))
+        LOG.debug('mpath members: %s', mpath_members)
+        if len(mpath_members):
+            path = mpath_members[0]
 
     if not os.path.exists(path):
         raise ValueError("path '%s' to block device for disk with serial '%s' \

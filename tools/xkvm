@@ -429,7 +429,7 @@ main() {
     bios_opts=( "${_RET[@]}" )
 
     local out="" fmt="" bus="" unit="" index="" serial="" driver="" devopts=""
-    local busorindex="" driveopts="" cur="" val="" file=""
+    local busorindex="" driveopts="" cur="" val="" file="" wwn=""
     for((i=0;i<${#diskdevs[@]};i++)); do
         cur=${diskdevs[$i]}
         IFS=","; set -- $cur; IFS="$oifs"
@@ -441,6 +441,7 @@ main() {
         unit=""
         index=""
         serial=""
+        wwn=""
         for tok in "$@"; do
             [ "${tok#*=}" = "${tok}" -a -f "${tok}" -a -z "$file" ] && file="$tok"
             val=${tok#*=}
@@ -454,6 +455,7 @@ main() {
                 file=*) file=$val;;
                 fmt=*|format=*) fmt=$val;;
                 serial=*) serial=$val;;
+                wwn=*) wwn=$val;;
                 bus=*) bus=$val;;
                 unit=*) unit=$val;;
                 index=*) index=$val;;
@@ -471,7 +473,12 @@ main() {
             driver="$def_disk_driver"
         fi
         if [ -z "$serial" ]; then
-            serial="${file##*/}"
+            # use filename as serial if not provided a wwn
+            if [ -n "$wwn" ]; then
+                serial="$wwn"
+            else
+                serial="${file##*/}"
+            fi
         fi
 
         # make sure we add either bus= or index=
