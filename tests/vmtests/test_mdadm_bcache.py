@@ -550,7 +550,6 @@ class CosmicTestAllindata(relbase.cosmic, TestAllindataAbs):
     __test__ = True
 
 
-@VMBaseClass.skip_by_date("1818876", fixby="2019-04-22", install=False)
 class DiscoTestAllindata(relbase.disco, TestAllindataAbs):
     __test__ = True
 
