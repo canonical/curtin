@@ -180,6 +180,7 @@ class DiscoTestNetworkMtu(relbase.disco, TestNetworkMtuAbs):
     __test__ = True
 
 
+@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2019-10-02")
 class EoanTestNetworkMtu(relbase.eoan, TestNetworkMtuAbs):
     __test__ = True
 
