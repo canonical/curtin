@@ -62,10 +62,6 @@ class Centos70XenialTestLvmIscsi(centos_relbase.centos70_xenial,
     __test__ = True
 
 
-class TrustyTestIscsiLvm(relbase.trusty, TestLvmIscsiAbs):
-    __test__ = True
-
-
 class XenialTestIscsiLvm(relbase.xenial, TestLvmIscsiAbs):
     __test__ = True
 
@@ -91,6 +87,10 @@ class CosmicTestIscsiLvm(relbase.cosmic, TestLvmIscsiAbs):
 
 
 class DiscoTestIscsiLvm(relbase.disco, TestLvmIscsiAbs):
+    __test__ = True
+
+
+class EoanTestIscsiLvm(relbase.eoan, TestLvmIscsiAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

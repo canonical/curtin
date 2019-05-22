@@ -73,16 +73,18 @@ class TestBlock(CiTestCase):
         res = block.get_blockdev_sector_size('/dev/vda2')
         self.assertEqual(res, (4096, 4096))
 
+    @mock.patch("curtin.block.multipath")
     @mock.patch("curtin.block.os.path.realpath")
     @mock.patch("curtin.block.os.path.exists")
     @mock.patch("curtin.block.os.listdir")
     def test_lookup_disk(self, mock_os_listdir, mock_os_path_exists,
-                         mock_os_path_realpath):
+                         mock_os_path_realpath, mock_mpath):
         serial = "SERIAL123"
         mock_os_listdir.return_value = ["sda_%s-part1" % serial,
                                         "sda_%s" % serial, "other"]
         mock_os_path_exists.return_value = True
         mock_os_path_realpath.return_value = "/dev/sda"
+        mock_mpath.is_mpath_device.return_value = False
 
         path = block.lookup_disk(serial)
 
@@ -100,6 +102,30 @@ class TestBlock(CiTestCase):
             mock_os_path_exists.return_value = True
             mock_os_listdir.return_value = ["other"]
             block.lookup_disk(serial)
+
+    @mock.patch('curtin.block.udevadm_info')
+    def test_get_device_mapper_links_returns_first_non_none(self, m_info):
+        """ get_device_mapper_links returns first by sort entry in DEVLINKS."""
+        devlinks = [self.random_string(), self.random_string()]
+        m_info.return_value = {'DEVLINKS': devlinks}
+        devpath = self.random_string()
+        self.assertEqual(sorted(devlinks)[0],
+                         block.get_device_mapper_links(devpath, first=True))
+
+    @mock.patch('curtin.block.udevadm_info')
+    def test_get_device_mapper_links_raises_valueerror_no_links(self, m_info):
+        """ get_device_mapper_links raises ValueError if info has no links."""
+        m_info.return_value = {self.random_string(): self.random_string()}
+        with self.assertRaises(ValueError):
+            block.get_device_mapper_links(self.random_string())
+
+    @mock.patch('curtin.block.udevadm_info')
+    def test_get_device_mapper_links_raises_error_no_link_vals(self, m_info):
+        """ get_device_mapper_links raises ValueError if all links are none"""
+        devlinks = ['', '']
+        m_info.return_value = {'DEVLINKS': devlinks}
+        with self.assertRaises(ValueError):
+            block.get_device_mapper_links(self.random_string())
 
     @mock.patch("curtin.block.get_dev_disk_byid")
     def test_disk_to_byid_path(self, mock_byid):
@@ -387,13 +413,17 @@ class TestWipeVolume(CiTestCase):
 
 class TestBlockKnames(CiTestCase):
     """Tests for some of the kname functions in block"""
-    def test_determine_partition_kname(self):
+
+    @mock.patch('curtin.block.get_device_mapper_links')
+    def test_determine_partition_kname(self, m_mlink):
+        dm0_link = '/dev/disk/by-id/dm-name-XXXX2406'
+        m_mlink.return_value = dm0_link
         part_knames = [(('sda', 1), 'sda1'),
                        (('vda', 1), 'vda1'),
                        (('nvme0n1', 1), 'nvme0n1p1'),
                        (('mmcblk0', 1), 'mmcblk0p1'),
                        (('cciss!c0d0', 1), 'cciss!c0d0p1'),
-                       (('dm-0', 1), 'dm-0p1'),
+                       (('dm-0', 1), dm0_link + '-part1'),
                        (('md0', 1), 'md0p1'),
                        (('mpath1', 2), 'mpath1p2')]
         for ((disk_kname, part_number), part_kname) in part_knames:

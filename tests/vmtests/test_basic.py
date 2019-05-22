@@ -17,7 +17,7 @@ class TestBasicAbs(VMBaseClass):
     nr_cpus = 2
     dirty_disks = True
     conf_file = "examples/tests/basic.yaml"
-    extra_disks = ['128G', '128G', '4G', '4G']
+    extra_disks = ['15G', '20G', '25G']
     disk_to_check = [('btrfs_volume', 0),
                      ('main_disk_with_in---valid--dname', 0),
                      ('main_disk_with_in---valid--dname', 1),
@@ -81,9 +81,6 @@ class TestBasicAbs(VMBaseClass):
         return kname
 
     def _test_ptable(self, blkid_output, expected):
-        if self.target_release == "trusty":
-            raise SkipTest("No PTTYPE blkid output on trusty")
-
         if not blkid_output:
             raise RuntimeError('_test_ptable requires blkid output file')
 
@@ -237,14 +234,6 @@ class Centos70XenialTestBasic(centos_relbase.centos70_xenial,
     __test__ = True
 
 
-class TrustyTestBasic(relbase.trusty, TestBasicAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestBasic(relbase.trusty_hwe_x, TrustyTestBasic):
-    __test__ = True
-
-
 class XenialGAi386TestBasic(relbase.xenial_ga, TestBasicAbs):
     __test__ = True
     arch = 'i386'
@@ -274,10 +263,14 @@ class DiscoTestBasic(relbase.disco, TestBasicAbs):
     __test__ = True
 
 
+class EoanTestBasic(relbase.eoan, TestBasicAbs):
+    __test__ = True
+
+
 class TestBasicScsiAbs(TestBasicAbs):
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
-    extra_disks = ['128G', '128G', '4G', '4G']
+    extra_disks = ['15G', '20G', '25G']
     extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/sda | cat >blkid_output_sda
@@ -354,7 +347,13 @@ class CosmicTestScsiBasic(relbase.cosmic, TestBasicScsiAbs):
     __test__ = True
 
 
+@VMBaseClass.skip_by_date("1813228", fixby="2019-06-02", install=False)
 class DiscoTestScsiBasic(relbase.disco, TestBasicScsiAbs):
+    __test__ = True
+
+
+@VMBaseClass.skip_by_date("1813228", fixby="2019-06-02", install=False)
+class EoanTestScsiBasic(relbase.eoan, TestBasicScsiAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

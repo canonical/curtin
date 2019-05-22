@@ -57,14 +57,6 @@ class Centos70TestNvme(centos70_xenial, TestNvmeAbs):
     __test__ = True
 
 
-class TrustyTestNvme(relbase.trusty, TestNvmeAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestNvme(relbase.trusty_hwe_x, TestNvmeAbs):
-    __test__ = True
-
-
 class XenialGATestNvme(relbase.xenial_ga, TestNvmeAbs):
     __test__ = True
 
@@ -85,7 +77,11 @@ class CosmicTestNvme(relbase.cosmic, TestNvmeAbs):
     __test__ = True
 
 
-class DiscoTestNvme(relbase.cosmic, TestNvmeAbs):
+class DiscoTestNvme(relbase.disco, TestNvmeAbs):
+    __test__ = True
+
+
+class EoanTestNvme(relbase.eoan, TestNvmeAbs):
     __test__ = True
 
 
@@ -156,6 +152,10 @@ class CosmicTestNvmeBcache(relbase.cosmic, TestNvmeBcacheAbs):
 
 
 class DiscoTestNvmeBcache(relbase.disco, TestNvmeBcacheAbs):
+    __test__ = True
+
+
+class EoanTestNvmeBcache(relbase.eoan, TestNvmeBcacheAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

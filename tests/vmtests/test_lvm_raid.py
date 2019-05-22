@@ -43,6 +43,10 @@ class TestLvmOverRaidAbs(TestMdadmAbs, TestLvmAbs):
         self.check_file_strippedline("pvs", "vg0=/dev/md1")
 
 
+class EoanTestLvmOverRaid(relbase.eoan, TestLvmOverRaidAbs):
+    __test__ = True
+
+
 class DiscoTestLvmOverRaid(relbase.disco, TestLvmOverRaidAbs):
     __test__ = True
 

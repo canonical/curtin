@@ -76,7 +76,7 @@ def cmdarg2cfg(cmdarg, delim="/"):
 
 
 def load_config_archive(content):
-    archive = yaml.load(content)
+    archive = yaml.safe_load(content)
     config = {}
     for part in archive:
         if isinstance(part, (str,)):

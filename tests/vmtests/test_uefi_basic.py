@@ -89,14 +89,6 @@ class PreciseHWETUefiTestBasic(relbase.precise_hwe_t, PreciseUefiTestBasic):
     __test__ = False
 
 
-class TrustyUefiTestBasic(relbase.trusty, TestBasicAbs):
-    __test__ = True
-
-
-class TrustyHWEXUefiTestBasic(relbase.trusty_hwe_x, TestBasicAbs):
-    __test__ = True
-
-
 class XenialGAUefiTestBasic(relbase.xenial_ga, TestBasicAbs):
     __test__ = True
 
@@ -121,17 +113,11 @@ class DiscoUefiTestBasic(relbase.disco, TestBasicAbs):
     __test__ = True
 
 
+class EoanUefiTestBasic(relbase.eoan, TestBasicAbs):
+    __test__ = True
+
+
 class Centos70UefiTestBasic4k(centos_relbase.centos70_xenial, TestBasicAbs):
-    __test__ = True
-    disk_block_size = 4096
-
-
-class TrustyUefiTestBasic4k(relbase.trusty, TestBasicAbs):
-    __test__ = True
-    disk_block_size = 4096
-
-
-class TrustyHWEXUefiTestBasic4k(relbase.trusty_hwe_x, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
 
@@ -152,6 +138,11 @@ class CosmicUefiTestBasic4k(relbase.cosmic, TestBasicAbs):
 
 
 class DiscoUefiTestBasic4k(relbase.disco, TestBasicAbs):
+    __test__ = True
+    disk_block_size = 4096
+
+
+class EoanUefiTestBasic4k(relbase.eoan, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
 

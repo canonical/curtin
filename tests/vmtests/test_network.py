@@ -440,29 +440,6 @@ class CentosTestNetworkBasicAbs(TestNetworkBaseTestsAbs):
         pass
 
 
-class TrustyTestNetworkBasic(relbase.trusty, TestNetworkBasicAbs):
-    __test__ = True
-
-
-class TrustyHWEUTestNetworkBasic(relbase.trusty_hwe_u, TrustyTestNetworkBasic):
-    # Working, off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
-class TrustyHWEVTestNetworkBasic(relbase.trusty_hwe_v, TrustyTestNetworkBasic):
-    # Working, off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
-class TrustyHWEWTestNetworkBasic(relbase.trusty_hwe_w, TrustyTestNetworkBasic):
-    # Working, off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
-class TrustyHWEXTestNetworkBasic(relbase.trusty_hwe_x, TrustyTestNetworkBasic):
-    __test__ = True
-
-
 class XenialTestNetworkBasic(relbase.xenial, TestNetworkBasicAbs):
     __test__ = True
 
@@ -476,6 +453,10 @@ class CosmicTestNetworkBasic(relbase.cosmic, TestNetworkBasicAbs):
 
 
 class DiscoTestNetworkBasic(relbase.disco, TestNetworkBasicAbs):
+    __test__ = True
+
+
+class EoanTestNetworkBasic(relbase.eoan, TestNetworkBasicAbs):
     __test__ = True
 
 
