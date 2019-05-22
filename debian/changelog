@@ -1,3 +1,22 @@
+curtin (19.1-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+    - release 19.1
+    - vmtest: add missing skip_by_date on Eoan test_network_mtu
+    - vmtest: remove skip_by_date on Disco Allindata test
+    - block: support multipath devices in lookup and partition_kname
+      (LP: #1813228)
+    - grub: add grub config to control os_prober,terminal settings in target
+    - vmtest: add eoan tests [Paride Legovini]
+    - vmtest: add dependency on python3-jsonschema [Paride Legovini]
+    - Pylint compatibility with Python 3.7 [Paride Legovini] (LP: #1828229)
+    - vmtest: disable disco multipath test
+    - vmtests: bump network mtu tests out a bit
+    - Fix up yaml.load warnings
+    - vmtest: disable trusty, it's dead jim
+
+ -- Daniel Watkins <oddbloke@ubuntu.com>  Wed, 22 May 2019 10:26:52 -0400
+
 curtin (18.2-26-gd8e45d79-0ubuntu1) eoan; urgency=medium
 
   * New upstream snapshot.
