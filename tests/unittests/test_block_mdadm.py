@@ -994,7 +994,7 @@ class TestBlockMdadmMdHelpers(CiTestCase):
         mock_examine.side_effect = [md_dict] * len(devices)
         expected_calls = []
         for dev in devices:
-            expected_calls.append(call(dev, export=False))
+            expected_calls.append(call(dev, export=True))
 
         rv = mdadm.md_check_array_membership(mdname, devices)
 
