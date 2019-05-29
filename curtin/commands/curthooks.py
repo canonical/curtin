@@ -1029,8 +1029,10 @@ def configure_mdadm(cfg, state_etcd, target, osfamily=DISTROS.debian):
                                                   conf_map[osfamily]))
     if osfamily == DISTROS.debian:
         # as per LP: #964052 reconfigure mdadm
-        util.subp(['dpkg-reconfigure', '--frontend=noninteractive', 'mdadm'],
-                  data=None, target=target)
+        with util.ChrootableTarget(target) as in_chroot:
+            in_chroot.subp(
+                ['dpkg-reconfigure', '--frontend=noninteractive', 'mdadm'],
+                data=None, target=target)
 
 
 def handle_cloudconfig(cfg, base_dir=None):
