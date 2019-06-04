@@ -17,6 +17,8 @@ class TestZfsRootAbs(VMBaseClass):
             zfs list > zfs_list
             zpool list > zpool_list
             zpool status > zpool_status
+            zdb > zdb.output
+            cp -a /etc/zfs ./etc_zfs
 
             exit 0
         """)]
@@ -43,6 +45,11 @@ class TestZfsRootAbs(VMBaseClass):
         """Check /proc/cmdline has root=ZFS=<pool>"""
         self.output_files_exist(['proc_cmdline'])
         self.check_file_regex('proc_cmdline', r"root=ZFS=rpool/ROOT/zfsroot")
+
+    @skip_if_flag('expected_failure')
+    def test_etc_zfs_has_zpool_cache(self):
+        """Check /etc/zfs/zpoolcache exists"""
+        self.output_files_exist(['etc_zfs/zpool.cache'])
 
 
 class UnsupportedZfs(VMBaseClass):

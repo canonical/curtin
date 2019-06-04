@@ -13,6 +13,7 @@ from curtin.block import lvm
 from curtin.block import multipath
 from curtin.log import LOG
 from curtin.udev import udevadm_settle, udevadm_info
+from curtin import storage_config
 
 
 def get_dev_name_entry(devname):
@@ -1098,5 +1099,30 @@ def get_supported_filesystems():
 
     return [l.split('\t')[1].strip()
             for l in util.load_file(proc_fs).splitlines()]
+
+
+def discover():
+    try:
+        LOG.debug('Importing probert prober')
+        from probert import prober
+    except Exception:
+        LOG.error('Failed to import probert, discover disabled')
+        return {}
+
+    probe = prober.Prober()
+    LOG.debug('Probing system for storage devices')
+    probe.probe_storage()
+    probe_data = probe.get_results()
+    if 'storage' not in probe_data:
+        raise ValueError('Probing storage failed')
+
+    LOG.debug('Extracting storage config from discovered devices')
+    try:
+        return storage_config.extract_storage_config(probe_data.get('storage'))
+    except ImportError as e:
+        LOG.exception(e)
+
+    return {}
+
 
 # vi: ts=4 expandtab syntax=python

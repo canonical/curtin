@@ -107,6 +107,13 @@ def pack(fdout=None, command=None, paths=None, copy_files=None,
     if copy_files is None:
         copy_files = []
 
+    try:
+        from probert import prober
+        psource = os.path.dirname(prober.__file__)
+        copy_files.append(('probert', psource),)
+    except Exception:
+        pass
+
     tmpd = None
     try:
         tmpd = tempfile.mkdtemp()

@@ -4,6 +4,9 @@ _uuid_pattern = (
     r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 _path_dev = r'^/dev/[^/]+(/[^/]+)*$'
 _path_nondev = r'(^/$|^(/[^/]+)+$)'
+_fstypes = ['btrfs', 'ext2', 'ext3', 'ext4', 'fat', 'fat12', 'fat16', 'fat32',
+            'iso9660', 'vfat', 'jfs', 'ntfs', 'reiserfs', 'swap', 'xfs',
+            'zfsroot']
 
 definitions = {
     'id': {'type': 'string'},
@@ -11,19 +14,23 @@ definitions = {
     'devices': {'type': 'array', 'items': {'$ref': '#/definitions/ref_id'}},
     'name': {'type': 'string'},
     'preserve': {'type': 'boolean'},
-    'ptable': {'type': 'string', 'oneOf': [{'enum': ['gpt', 'msdos']}]},
+    'ptable': {'type': 'string', 'enum': ['dos', 'gpt', 'msdos']},
     'size': {'type': ['string', 'number'],
              'minimum': 1,
              'pattern': r'^([1-9]\d*(.\d+)?|\d+.\d+)(K|M|G|T)?B?'},
     'wipe': {
         'type': 'string',
-        'oneOf': [{'enum': ['random', 'superblock',
-                            'superblock-recursive', 'zero']}],
+        'enum': ['random', 'superblock', 'superblock-recursive', 'zero'],
     },
     'uuid': {
         'type': 'string',
         'pattern': _uuid_pattern,
     },
+    'fstype': {
+        'type': 'string',
+        'oneOf': [
+            {'pattern': r'^__.*__$'},  # XXX: Accept vmtest values?
+            {'enum': _fstypes}]},
     'params': {
         'type': 'object',
         'patternProperties': {
@@ -59,8 +66,39 @@ BCACHE = {
         'type': {'const': 'bcache'},
         'cache_mode': {
             'type': ['string'],
-            'oneOf': [{'enum': ['writethrough', 'writeback',
-                                'writearound', 'none']}],
+            'enum': ['writethrough', 'writeback', 'writearound', 'none'],
+        },
+    },
+}
+DASD = {
+    '$schema': 'http://json-schema.org/draft-07/schema#',
+    'name': 'CURTIN-DASD',
+    'title': 'curtin storage configuration for dasds',
+    'description': (
+        'Declarative syntax for specifying a dasd device.'),
+    'definitions': definitions,
+    'required': ['id', 'type', 'device_id'],
+    'type': 'object',
+    'additionalProperties': False,
+    'properties': {
+        'id': {'$ref': '#/definitions/id'},
+        'name': {'$ref': '#/definitions/name'},
+        'preserve': {'$ref': '#/definitions/preserve'},
+        'type': {'const': 'dasd'},
+        'blocksize': {
+            'type': ['integer', 'string'],
+            'oneOf': [{'enum': [512, 1024, 2048, 4096]},
+                      {'enum': ['512', '1024', '2048', '4096']}],
+        },
+        'device_id': {'type': 'string'},
+        'label': {'type': 'string', 'maxLength': 6},
+        'mode': {
+            'type': ['string'],
+            'enum': ['expand', 'full', 'quick'],
+        },
+        'disk_layout': {
+            'type': ['string'],
+            'enum': ['cdl', 'ldl'],
         },
     },
 }
@@ -93,7 +131,12 @@ DISK = {
                 {'pattern': r'^iscsi:.*'}],
         },
         'model': {'type': 'string'},
-        'wwn': {'type': 'string', 'pattern': r'^0x(\d|[a-zA-Z])+'},
+        'wwn': {
+            'type': 'string',
+            'oneOf': [
+                {'pattern': r'^0x(\d|[a-zA-Z])+'},
+                {'pattern': r'^nvme\.(\d|[a-zA-Z]-)+'}],
+        },
         'grub_device': {
             'type': ['boolean', 'integer'],
             'minimum': 0,
@@ -137,13 +180,7 @@ FORMAT = {
         'preserve': {'$ref': '#/definitions/preserve'},
         'uuid': {'$ref': '#/definitions/uuid'},    # XXX: This is not used
         'type': {'const': 'format'},
-        'fstype': {
-            'type': 'string',
-            'oneOf': [
-                {'pattern': r'^__.*__$'},  # XXX: Accept vmtest values?
-                {'enum': ['btrfs', 'ext2', 'ext3', 'ext4', 'fat', 'fat12',
-                          'fat16', 'fat32', 'vfat', 'jfs', 'ntfs', 'reiserfs',
-                          'swap', 'xfs', 'zfsroot']}]},
+        'fstype': {'$ref': '#/definitions/fstype'},
         'label': {'type': 'string'},
         'volume': {'$ref': '#/definitions/ref_id'},
     }
@@ -240,9 +277,9 @@ PARTITION = {
                    'minimum': 1},
         'device': {'$ref': '#/definitions/ref_id'},
         'flag': {'type': 'string',
-                 'oneOf': [
-                    {'enum': ['bios_grub', 'boot', 'extended', 'home',
-                              'logical', 'lvm', 'prep', 'raid', 'swap', '']}]},
+                 'enum': ['bios_grub', 'boot', 'extended', 'home', 'linux',
+                          'logical', 'lvm', 'mbr', 'prep', 'raid', 'swap',
+                          '']},
     }
 }
 RAID = {

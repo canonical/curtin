@@ -555,6 +555,8 @@ DEFAULT_COLLECT_SCRIPTS = {
         """)],
     'ubuntu': [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
+        bdout="boot-curtin-block-discover.json"
+        /root/curtin/bin/curtin block-discover > $bdout
         dpkg-query --show \
             --showformat='${db:Status-Abbrev}\t${Package}\t${Version}\n' \
             > debian-packages.txt 2> debian-packages.txt.err
