@@ -18,32 +18,6 @@ class CentosTestNetworkStaticRoutesAbs(CentosTestNetworkBasicAbs):
     conf_file = "examples/tests/network_static_routes.yaml"
 
 
-class TrustyTestNetworkStaticRoutes(relbase.trusty,
-                                    TestNetworkStaticRoutesAbs):
-    __test__ = True
-
-
-class TrustyHWEUTestNetworkStaticRoutes(relbase.trusty_hwe_u,
-                                        TrustyTestNetworkStaticRoutes):
-    # Working, off by default to save test suite runtime, covered by
-    # TrustyTestNetworkStaticRoutes
-    __test__ = False
-
-
-class TrustyHWEVTestNetworkStaticRoutes(relbase.trusty_hwe_v,
-                                        TrustyTestNetworkStaticRoutes):
-    # Working, off by default to save test suite runtime, covered by
-    # TrustyTestNetworkStaticRoutes
-    __test__ = False
-
-
-class TrustyHWEWTestNetworkStaticRoutes(relbase.trusty_hwe_w,
-                                        TrustyTestNetworkStaticRoutes):
-    # Working, off by default to save test suite runtime, covered by
-    # TrustyTestNetworkStaticRoutes
-    __test__ = False
-
-
 class XenialTestNetworkStaticRoutes(relbase.xenial,
                                     TestNetworkStaticRoutesAbs):
     __test__ = True
@@ -61,6 +35,11 @@ class CosmicTestNetworkStaticRoutes(relbase.cosmic,
 
 class DiscoTestNetworkStaticRoutes(relbase.disco,
                                    TestNetworkStaticRoutesAbs):
+    __test__ = True
+
+
+class EoanTestNetworkStaticRoutes(relbase.eoan,
+                                  TestNetworkStaticRoutesAbs):
     __test__ = True
 
 

@@ -40,6 +40,7 @@ as ``true`` or ``none``.
 An entry's ``type`` tells curtin how to handle a particular entry. Available
 commands include:
 
+- Dasd Command (``dasd``)
 - Disk Command (``disk``)
 - Partition Command (``partition``)
 - Format Command (``format``)
@@ -51,6 +52,85 @@ commands include:
 - Bcache Command (``bcache``)
 - Zpool Command (``zpool``) **Experimental**
 - ZFS Command (``zfs``)) **Experimental**
+
+Dasd Command
+~~~~~~~~~~~~
+The ``dasd`` command sets up a s390x system DASD device for use by curtin.
+DASD devices require several parameters to configure the low-level structure
+of the block device.  Curtin will examine the configuration and determine if
+the specified DASD matches the configuration.  If the device does not match
+the configuration Curtin will perform a format of the device to achieve the
+required configuration.  Once a DASD device has been formatted it may be used
+like regular Linux block devices and can be partitioned (with limitations)
+with Curtin's ``disk`` command.  The ``dasd`` command may contain the following
+keys:
+
+**device_id**: *<ccw bus_id: X.Y.ZZZZ>*
+
+The ``device_id`` value is used to select a specific DASD device.
+
+**blocksize**: *512, 1024, 2048, 4096*
+
+Specify blocksize to be used. ``blocksize`` must be a positive integer and
+always be a power of two. The default blocksize is 4096 bytes.
+
+.. note::
+
+  The net capacity of an ECKD™ DASD decreases for smaller block sizes. For
+  example, a DASD formatted with a block size of 512 byte has only half of the
+  net capacity of the same DASD formatted with a block size of 4096 byte.
+
+**mode**: *quick, full,  expand*
+
+Specify the mode to be used to format the device.  The default mode is ``full``
+which will format the entire disk.
+
+Using ``quick`` mode will format the first two tracks and write label and
+partition information.  Only use this option if you are sure that the target
+DASD has already been formatted in a ``disk_layout`` and ``blocksize`` desired.
+
+The ``expand`` mode will format all unformatted tracks at the end of the target
+DASD.  This mode assumes that tracks at the beginning of the DASD volume have
+already been correctly formatted.
+
+**label**: *<label>*
+
+The ``label`` value sets the volume serial number (volser) that will be written
+to the specified DASD after formatting.  If no ``label`` value is provided one
+will be generated.  The value provided is interpreted as ASCII string and
+converted to uppercase and then to EBCDIC.
+
+Valid labels are 6 characters long and can alphanumeric values, $, #, @, and %.
+Shorter values will be padded with trailing spaces.
+
+These ``label`` values are reserved and cannot be used:
+
+  MIGRAT, SCRTCH, PRIVAT, or Lnnnnn (L with five numbers);
+
+**disk_layout**: *cdl, ldl*
+
+The default ``disk_layout`` value is ``cdl``, the compaible disk layout which
+allows for up to 3 partitions and a MBR.  The ``ldl``, Linux layout has only
+one partition.
+
+
+**Config Example**::
+
+ - id: dasd_root
+   type: dasd
+   device_id: 0.0.1520
+   blocksize: 4096
+   disk_layout: cdl
+   label: 0X1520
+   mode: full
+ - id: disk0
+   type: disk
+   ptable: mbr
+   serial: 0X1520
+   name: root_disk
+   wipe: superblock
+
+
 
 Disk Command
 ~~~~~~~~~~~~
@@ -580,12 +660,15 @@ used for the logical volume.
 
 Dm-Crypt Command
 ~~~~~~~~~~~~~~~~
-The dm_crypt command creates encrypted volumes using ``cryptsetup``. It
-requires a name for the encrypted volume, the volume to be encrypted and a key.
-Note that this should not be used for systems where security is a requirement.
-The key is stored in plain-text in the storage configuration and it could be
-possible for the storage configuration to be intercepted between the utility
-that generates it and curtin.
+
+The dm_crypt command creates encrypted volumes using ``cryptsetup``. It requires
+a name for the encrypted volume, the volume to be encrypted and a key.  In
+situations where the config is generated on a different system from where curtin
+is run there is not yet a good solution for securely conveying the key -- you
+can set **key** but it appears in plain text in the config, which might be
+intercepted by between the systems (and is by default copied to the target
+system). If the config is generated on the same system, you can use **keyfile**
+to supply the passphrase in file with appropriate permissions.
 
 **volume**: *<volume id>*
 
@@ -599,6 +682,13 @@ The ``name`` key specifies the name of the encrypted volume.
 
 The ``key`` key specifies the password of the encryption key.  The target
 system will prompt for this password in order to mount the disk.
+
+**keyfile**: *<keyfile>*
+
+The ``keyfile`` contains the password of the encryption key.  The target
+system will prompt for this password in order to mount the disk.
+
+Exactly one of **key** and **keyfile** must be supplied.
 
 .. note::
 
@@ -655,12 +745,21 @@ To partition the array rather than mounting it directly, the
 ``ptable`` key must be present and a valid type of partition table,
 i.e. msdos or gpt.
 
+**metadata**: *default, 1.2, 1.1, 0.90, ddf, imsm*
+
+Specify the metadata (superblock) style to be used when creating the array.
+``metadata`` defaults to the string "default" and is passed to mdadm.  The
+version of mdadm used during the install will control the value here.  Note
+that metadata version 1.2 is the default in mdadm since release version 3.3
+in 2013.
+
 **Config Example**::
 
  - id: raid_array
    type: raid
    name: md0
    raidlevel: 1
+   metadata: 0.90
    devices:
      - sdb
      - sdc

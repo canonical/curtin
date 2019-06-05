@@ -53,10 +53,6 @@ class TestPollinateUserAgent(VMBaseClass):
             self.assertEqual(ua_val, hit.group())
 
 
-class TrustyTestPollinateUserAgent(relbase.trusty, TestPollinateUserAgent):
-    __test__ = True
-
-
 class XenialTestPollinateUserAgent(relbase.xenial, TestPollinateUserAgent):
     __test__ = True
 
@@ -70,6 +66,10 @@ class CosmicTestPollinateUserAgent(relbase.cosmic, TestPollinateUserAgent):
 
 
 class DiscoTestPollinateUserAgent(relbase.disco, TestPollinateUserAgent):
+    __test__ = True
+
+
+class EoanTestPollinateUserAgent(relbase.eoan, TestPollinateUserAgent):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

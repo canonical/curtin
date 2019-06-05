@@ -16,6 +16,8 @@ FEATURES = [
     'NETWORK_CONFIG_V1',
     # reporter supports 'webhook' type
     'REPORTING_EVENTS_WEBHOOK',
+    # has storage-config schema validation
+    'STORAGE_CONFIG_SCHEMA',
     # install supports the 'storage' config version 1
     'STORAGE_CONFIG_V1',
     # install supports the 'storage' config version 1 for DD images
@@ -30,6 +32,6 @@ FEATURES = [
     'HAS_VERSION_MODULE',
 ]
 
-__version__ = "18.2"
+__version__ = "19.1"
 
 # vi: ts=4 expandtab syntax=python

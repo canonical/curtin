@@ -1,0 +1,9 @@
+# This pushes curtin through a automatic installation
+# where no storage configuration is necessary.
+placeholder_simple_install: unused
+
+# configure curtin so it does not emit a grub config file
+# in etc/default/grub/grub.d
+grub:
+   probe_additional_os: true
+   terminal: unmodified

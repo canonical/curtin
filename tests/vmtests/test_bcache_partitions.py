@@ -32,4 +32,8 @@ class CosmicTestBcachePartitions(relbase.cosmic, TestBcachePartitions):
 class DiscoTestBcachePartitions(relbase.disco, TestBcachePartitions):
     __test__ = True
 
+
+class EoanTestBcachePartitions(relbase.eoan, TestBcachePartitions):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

@@ -582,6 +582,28 @@ class TestRunInChroot(CiTestCase):
         m_subp.assert_called_with(cmd, target=target)
 
 
+class TestChrootableTargetMounts(CiTestCase):
+    """Test ChrootableTargets mounts dirs"""
+
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_chrootable_target_default_mounts(self):
+        in_chroot = util.ChrootableTarget("mytarget")
+        default_mounts = ['/dev', '/proc', '/sys']
+        self.assertEqual(sorted(default_mounts), sorted(in_chroot.mounts))
+
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_chrootable_target_custom_mounts(self):
+        my_mounts = ['/foo', '/bar', '/wark']
+        in_chroot = util.ChrootableTarget("mytarget", mounts=my_mounts)
+        self.assertEqual(sorted(my_mounts), sorted(in_chroot.mounts))
+
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_chrootable_target_no_mounts(self):
+        my_mounts = []
+        in_chroot = util.ChrootableTarget("mytarget", mounts=my_mounts)
+        self.assertEqual(sorted(my_mounts), sorted(in_chroot.mounts))
+
+
 class TestLoadFile(CiTestCase):
     """Test utility 'load_file'"""
 

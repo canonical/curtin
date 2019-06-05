@@ -1,0 +1,33 @@
+#!/usr/bin/python3
+# This file is part of curtin. See LICENSE file for copyright and license info.
+import json
+import pdb
+import os
+import sys
+import traceback
+import yaml
+
+# Fix path so we can import curtin
+sys.path.insert(1, os.path.realpath(os.path.join(
+                                    os.path.dirname(__file__), '..')))
+from curtin import log  # noqa: E402
+from curtin import storage_config  # noqa: E402
+
+
+def main():
+    log.basicConfig(stream=sys.stderr, verbosity=3)
+    probe_data = json.loads(open(sys.argv[1]).read()).get('storage')
+    extracted = storage_config.extract_storage_config(probe_data)
+    print(yaml.dump(extracted, indent=4, default_flow_style=False))
+
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        ret = main()
+    except:
+        traceback.print_exc()
+        pdb.post_mortem()
+        ret = 1
+    sys.exit(ret)

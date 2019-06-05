@@ -18,6 +18,7 @@ import yaml
 import curtin.net as curtin_net
 import curtin.util as util
 from curtin.block import iscsi
+from curtin.config import load_config
 
 from .report_webhook_logger import CaptureReporting
 from curtin.commands.install import INSTALL_PASS_MSG
@@ -45,6 +46,7 @@ CURTIN_VMTEST_IMAGE_SYNC = os.environ.get("CURTIN_VMTEST_IMAGE_SYNC", "1")
 IMAGE_SYNCS = []
 TARGET_IMAGE_FORMAT = "raw"
 TAR_DISKS = bool(int(os.environ.get("CURTIN_VMTEST_TAR_DISKS", "0")))
+VMRAM = os.environ.get('CURTIN_VMTEST_VMRAM', None)
 
 
 DEFAULT_BRIDGE = os.environ.get("CURTIN_VMTEST_BRIDGE", "user")
@@ -553,6 +555,8 @@ DEFAULT_COLLECT_SCRIPTS = {
         """)],
     'ubuntu': [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
+        bdout="boot-curtin-block-discover.json"
+        /root/curtin/bin/curtin block-discover > $bdout
         dpkg-query --show \
             --showformat='${db:Status-Abbrev}\t${Package}\t${Version}\n' \
             > debian-packages.txt 2> debian-packages.txt.err
@@ -563,6 +567,7 @@ DEFAULT_COLLECT_SCRIPTS = {
         out=$(apt-config shell v Acquire::HTTP::Proxy)
         eval "$out"
         echo "$v" > apt-proxy
+        cp -av /etc/kernel-img.conf .
 
         exit 0
         """)]
@@ -832,6 +837,10 @@ class VMBaseClass(TestCase):
         logger = _initialize_logging(name=cls.__name__)
         cls.logger = logger
 
+        # allow env to update VMRAM setting
+        if VMRAM:
+            cls.mem = VMRAM
+
         req_attrs = ('target_distro', 'target_release', 'release', 'distro')
         missing = [a for a in req_attrs if not getattr(cls, a)]
         if missing:
@@ -889,7 +898,7 @@ class VMBaseClass(TestCase):
 
         # create launch cmd
         cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait,
-               "--smp=" + cls.get_config_smp()]
+               "--smp=" + cls.get_config_smp(), "--mem=%s" % cls.mem]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -977,40 +986,52 @@ class VMBaseClass(TestCase):
 
         logger.info("disk_serials: %s", cls.disk_serials)
         logger.info("nvme_serials: %s", cls.nvme_serials)
-        target_disk = "{}:{}:{}:{}:".format(cls.td.target_disk,
-                                            "",
-                                            cls.disk_driver,
-                                            cls.disk_block_size)
+        target_disk = "{}:{}:{}:{}".format(cls.td.target_disk,
+                                           "",
+                                           cls.disk_driver,
+                                           cls.disk_block_size)
         if len(cls.disk_wwns):
-            target_disk += cls.disk_wwns[0]
+            target_disk += ":" + cls.disk_wwns[0]
 
         if len(cls.disk_serials):
-            target_disk += cls.disk_serials[0]
+            target_disk += ":" + cls.disk_serials[0]
 
         disks.extend(['--disk', target_disk])
 
         # --disk source:size:driver:block_size:devopts
-        for (disk_no, disk_sz) in enumerate(cls.extra_disks):
-            dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
-            extra_disk = '{}:{}:{}:{}:'.format(dpath, disk_sz,
-                                               cls.disk_driver,
-                                               cls.disk_block_size)
+        for (disk_no, disk_spec) in enumerate(cls.extra_disks):
+            if disk_spec.startswith('/'):
+                dpath = disk_spec
+                disk_sz = ''
+            else:
+                dpath = os.path.join(cls.td.disks,
+                                     'extra_disk_%d.img' % disk_no)
+                disk_sz = disk_spec
+            extra_disk = '{}:{}:{}:{}'.format(dpath, disk_sz,
+                                              cls.disk_driver,
+                                              cls.disk_block_size)
             if len(cls.disk_wwns):
                 w_index = disk_no + 1
                 if w_index < len(cls.disk_wwns):
-                    extra_disk += cls.disk_wwns[w_index]
+                    extra_disk += ":" + cls.disk_wwns[w_index]
 
             if len(cls.disk_serials):
                 w_index = disk_no + 1
                 if w_index < len(cls.disk_serials):
-                    extra_disk += cls.disk_serials[w_index]
+                    extra_disk += ":" + cls.disk_serials[w_index]
 
             disks.extend(['--disk', extra_disk])
 
         # build nvme disk args if needed
         logger.info('nvme disks: %s', cls.nvme_disks)
-        for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
-            dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
+        for (disk_no, disk_spec) in enumerate(cls.nvme_disks):
+            if disk_spec.startswith('/'):
+                dpath = disk_spec
+                disk_sz = ''
+            else:
+                dpath = os.path.join(cls.td.disks,
+                                     'nvme_disk_%d.img' % disk_no)
+                disk_sz = disk_spec
             nvme_serial = cls.nvme_serials[disk_no]
             nvme_disk = '{}:{}:nvme:{}:{}'.format(dpath, disk_sz,
                                                   cls.disk_block_size,
@@ -1225,8 +1246,14 @@ class VMBaseClass(TestCase):
             target_disks.extend([disk])
 
         extra_disks = []
-        for (disk_no, disk_sz) in enumerate(cls.extra_disks):
-            dpath = os.path.join(cls.td.disks, 'extra_disk_%d.img' % disk_no)
+        for (disk_no, disk_spec) in enumerate(cls.extra_disks):
+            if disk_spec.startswith('/'):
+                dpath = disk_spec
+                disk_sz = ''
+            else:
+                dpath = os.path.join(cls.td.disks,
+                                     'extra_disk_%d.img' % disk_no)
+                disk_sz = disk_spec
             disk = '--disk={},driver={},format={},{}'.format(
                 dpath, cls.disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
             if len(cls.disk_wwns):
@@ -1243,8 +1270,14 @@ class VMBaseClass(TestCase):
 
         nvme_disks = []
         disk_driver = 'nvme'
-        for (disk_no, disk_sz) in enumerate(cls.nvme_disks):
-            dpath = os.path.join(cls.td.disks, 'nvme_disk_%d.img' % disk_no)
+        for (disk_no, disk_spec) in enumerate(cls.nvme_disks):
+            if disk_spec.startswith('/'):
+                dpath = disk_spec
+                disk_sz = ''
+            else:
+                dpath = os.path.join(cls.td.disks,
+                                     'nvme_disk_%d.img' % disk_no)
+                disk_sz = disk_spec
             disk = '--disk={},driver={},format={},{}'.format(
                 dpath, disk_driver, TARGET_IMAGE_FORMAT, bsize_args)
             if len(cls.nvme_serials):
@@ -1266,7 +1299,7 @@ class VMBaseClass(TestCase):
                uefi_flags + netdevs +
                cls.mpath_diskargs(target_disks + extra_disks + nvme_disks) +
                ["--disk=file=%s,if=virtio,media=cdrom" % cls.td.seed_disk] +
-               ["--", "-smp",  cls.get_config_smp(), "-m", "1024"])
+               ["--", "-smp",  cls.get_config_smp(), "-m", cls.mem])
 
         if not cls.interactive:
             if cls.arch == 's390x':
@@ -1582,7 +1615,7 @@ class VMBaseClass(TestCase):
         logger.debug('test_dname_rules: checking disks: %s', disk_to_check)
         self.output_files_exist(["udev_rules.d"])
 
-        cfg = yaml.load(self.load_collect_file("root/curtin-install-cfg.yaml"))
+        cfg = load_config(self.collect_path("root/curtin-install-cfg.yaml"))
         stgcfg = cfg.get("storage", {}).get("config", [])
         disks = [ent for ent in stgcfg if (ent.get('type') == 'disk' and
                                            'name' in ent)]
@@ -1667,6 +1700,18 @@ class VMBaseClass(TestCase):
         if self.dirty_disks is True:
             self.assertGreaterEqual(len(events), 4)
 
+    @skip_if_flag('expected_failure')
+    def test_kernel_img_conf(self):
+        """ Test curtin install kernel-img.conf correctly. """
+        if self.target_distro != 'ubuntu':
+            raise SkipTest("kernel-img.conf not needed in non-ubuntu releases")
+        kconf = 'kernel-img.conf'
+        self.output_files_exist([kconf])
+        if self.arch in ['i386', 'amd64']:
+            self.check_file_strippedline(kconf, 'link_in_boot = no')
+        else:
+            self.check_file_strippedline(kconf, 'link_in_boot = yes')
+
     def run(self, result):
         super(VMBaseClass, self).run(result)
         self.record_result(result)
@@ -1709,10 +1754,10 @@ class VMBaseClass(TestCase):
     @classmethod
     def get_class_storage_config(cls):
         sc = cls.load_conf_file()
-        return yaml.load(sc).get('storage', {}).get('config', {})
+        return yaml.safe_load(sc).get('storage', {}).get('config', {})
 
     def get_storage_config(self):
-        cfg = yaml.load(self.load_collect_file("root/curtin-install-cfg.yaml"))
+        cfg = load_config(self.collect_path("root/curtin-install-cfg.yaml"))
         return cfg.get("storage", {}).get("config", [])
 
     def has_storage_config(self):
@@ -1835,6 +1880,9 @@ class PsuedoVMBaseClass(VMBaseClass):
     def test_installed_correct_kernel_package(self):
         pass
 
+    def test_kernel_img_conf(self):
+        pass
+
     def _maybe_raise(self, exc):
         if self.allow_test_fails:
             raise exc
@@ -1903,9 +1951,14 @@ def check_install_log(install_log, nrchars=200):
 
 def get_apt_proxy():
     # get setting for proxy. should have same result as in tools/launch
-    apt_proxy = os.environ.get('apt_proxy')
-    if apt_proxy:
-        return apt_proxy
+    if 'apt_proxy' in os.environ:
+        apt_proxy = os.environ.get('apt_proxy')
+        if apt_proxy:
+            # 'apt_proxy' set and not empty
+            return apt_proxy
+        else:
+            # 'apt_proxy' is set but empty; do not setup any proxy
+            return None
 
     get_apt_config = textwrap.dedent("""
         command -v apt-config >/dev/null 2>&1
@@ -1947,7 +2000,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
                                capture=True)
     # precises' cloud-init version has limited support for cloud-config-archive
     # and expects cloud-config pieces to be appendable to a single file and
-    # yaml.load()'able.  Resolve this by using yaml.dump() when generating
+    # yaml.safe_load()'able.  Resolve this by using yaml.dump() when generating
     # a list of parts
     parts = [{'type': 'text/cloud-config',
               'content': yaml.dump(base_cloudconfig, indent=1)},

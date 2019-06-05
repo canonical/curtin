@@ -122,7 +122,7 @@ class TestBlockZfsZpoolCreate(CiTestCase):
         zfs.zpool_create('mypool', ['/dev/disk/by-id/virtio-abcfoo1'])
         zpool_params = ["%s=%s" % (k, v) for k, v in
                         zfs.ZPOOL_DEFAULT_PROPERTIES.items()]
-        args, _ = self.mock_subp.call_args
+        _name, args, _ = self.mock_subp.mock_calls[0]
         self.assertTrue(set(zpool_params).issubset(set(args[0])))
 
     def test_zpool_create_pool_iterable(self):
@@ -132,10 +132,10 @@ class TestBlockZfsZpoolCreate(CiTestCase):
                          pool_properties=zpool_props)
         merge_config(zfs.ZPOOL_DEFAULT_PROPERTIES.copy(), zpool_props)
         params = ["%s=%s" % (k, v) for k, v in zpool_props.items()]
-        args, _ = self.mock_subp.call_args
+        _name, args, _ = self.mock_subp.mock_calls[0]
         self.assertTrue(set(params).issubset(set(args[0])))
 
-        args, _ = self.mock_subp.call_args
+        _name, args, _ = self.mock_subp.mock_calls[0]
         self.assertIn("/dev/virtio-disk1", args[0])
         self.assertIn("/dev/virtio-disk2", args[0])
 
@@ -144,7 +144,7 @@ class TestBlockZfsZpoolCreate(CiTestCase):
         zfs.zpool_create('mypool', ['/dev/disk/by-id/virtio-abcfoo1'])
         zfs_params = ["%s=%s" % (k, v) for k, v in
                       zfs.ZFS_DEFAULT_PROPERTIES.items()]
-        args, _ = self.mock_subp.call_args
+        _name, args, _ = self.mock_subp.mock_calls[0]
         self.assertTrue(set(zfs_params).issubset(set(args[0])))
 
     def test_zpool_create_use_passed_properties(self):
@@ -158,7 +158,7 @@ class TestBlockZfsZpoolCreate(CiTestCase):
         merge_config(all_props, zfs.ZFS_DEFAULT_PROPERTIES.copy())
         merge_config(all_props, zpool_props.copy())
         params = ["%s=%s" % (k, v) for k, v in all_props.items()]
-        args, _ = self.mock_subp.call_args
+        _name, args, _ = self.mock_subp.mock_calls[0]
         self.assertTrue(set(params).issubset(set(args[0])))
 
     def test_zpool_create_override_a_default_pool_property(self):
@@ -166,7 +166,7 @@ class TestBlockZfsZpoolCreate(CiTestCase):
         zpool_params = ["%s=%s" % (k, v) for k, v in
                         zfs.ZPOOL_DEFAULT_PROPERTIES.items()]
         zfs.zpool_create('mypool', ['/dev/disk/by-id/virtio-abcfoo1'])
-        args, _ = self.mock_subp.call_args
+        _name, args, _ = self.mock_subp.mock_calls[0]
         self.assertTrue(set(zpool_params).issubset(set(args[0])))
 
     def test_zpool_create_set_mountpoint(self):
@@ -174,7 +174,7 @@ class TestBlockZfsZpoolCreate(CiTestCase):
         mountpoint = '/srv'
         zfs.zpool_create('mypool', ['/dev/disk/by-id/virtio-abcfoo1'],
                          mountpoint=mountpoint)
-        args, _ = self.mock_subp.call_args
+        _name, args, _ = self.mock_subp.mock_calls[0]
         self.assertIn("mountpoint=%s" % mountpoint, args[0])
 
     def test_zpool_create_set_altroot(self):
@@ -182,7 +182,7 @@ class TestBlockZfsZpoolCreate(CiTestCase):
         altroot = '/var/tmp/mytarget'
         zfs.zpool_create('mypool', ['/dev/disk/by-id/virtio-abcfoo1'],
                          altroot=altroot)
-        args, _ = self.mock_subp.call_args
+        _name, args, _ = self.mock_subp.mock_calls[0]
         self.assertIn('-R', args[0])
         self.assertIn(altroot, args[0])
 
@@ -198,17 +198,17 @@ class TestBlockZfsZpoolCreate(CiTestCase):
         # pairs of parameters may shift; this does not harm the function
         # of the call, but is harder to test; instead we will compare
         # the arg list sorted
-        args, kwargs = self.mock_subp.call_args
-        print(args[0])
-        print(kwargs)
-        expected_args = (
+        expected_args = [
             ['zpool', 'create', '-o', 'ashift=12', '-o', 'version=28',
              '-O', 'normalization=formD', '-O', 'canmount=off',
              '-O', 'atime=off', '-O', 'mountpoint=%s' % mountpoint,
-             '-R', altroot, pool, vdev])
+             '-R', altroot, pool, vdev],
+            ['zpool', 'set', 'cachefile=/etc/zfs/zpool.cache', pool]]
         expected_kwargs = {'capture': True}
-        self.assertEqual(sorted(expected_args), sorted(args[0]))
-        self.assertEqual(expected_kwargs, kwargs)
+        for index in range(0, len(expected_args)):
+            _name, args, kwargs = self.mock_subp.mock_calls[index]
+            self.assertEqual(sorted(expected_args[index]), sorted(args[0]))
+            self.assertEqual(expected_kwargs, kwargs)
 
 
 class TestBlockZfsZfsCreate(CiTestCase):

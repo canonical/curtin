@@ -48,7 +48,7 @@ class TestLvmRootAbs(VMBaseClass):
             self.assertEqual(self.conf_replace['__ROOTFS_FORMAT__'],
                              entry['fstype'])
         else:
-            # no json output on trusty
+            # no json output on older releases
             self.output_files_exist(["lsblk.out"])
             lsblk_data = open(self.collect_path('lsblk.out')).readlines()
             print(lsblk_data)
@@ -72,22 +72,6 @@ class Centos70XenialTestLvmRootExt4(centos_relbase.centos70_xenial,
 class Centos70XenialTestLvmRootXfs(centos_relbase.centos70_xenial,
                                    TestLvmRootAbs):
     __test__ = False
-    conf_replace = {
-        '__ROOTFS_FORMAT__': 'xfs',
-    }
-
-
-class TrustyTestLvmRootExt4(relbase.trusty, TestLvmRootAbs):
-    __test__ = True
-    conf_replace = {
-        '__ROOTFS_FORMAT__': 'ext4',
-    }
-
-
-class TrustyTestLvmRootXfs(relbase.trusty, TestLvmRootAbs):
-    __test__ = True
-    # xfs on trusty can't support uuid=
-    fstab_expected = {}
     conf_replace = {
         '__ROOTFS_FORMAT__': 'xfs',
     }
