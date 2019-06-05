@@ -1,3 +1,18 @@
+curtin (19.1-7-g37a7a0f4-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - vmtests: determine block name via dname when verifying volume groups
+    - vmtest: add Centos66/Centos70 FromBionic release and re-add tests
+    - block-discover: add cli/API for exporting existing storage to config
+    - vmtest: refactor test_network code for Eoan
+    - curthoooks: disable daemons while reconfiguring mdadm
+      [Michael Hudson-Doyle] (LP: #1829325.)
+    - mdadm: fix install to existing raid [Michael Hudson-Doyle] (LP: #1830157)
+    - apt_proxy env var set but empty => do not setup any proxy
+      [Paride Legovini]
+
+ -- Chad Smith <chad.smith@canonical.com>  Wed, 05 Jun 2019 10:45:42 -0600
+
 curtin (19.1-0ubuntu1) eoan; urgency=medium
 
   * New upstream release.
