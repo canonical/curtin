@@ -1,3 +1,36 @@
+curtin (19.1-7-g37a7a0f4-0ubuntu1~19.04.1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot. (LP: #1831772)
+    - vmtests: determine block name via dname when verifying volume groups
+    - vmtest: add Centos66/Centos70 FromBionic release and re-add tests
+    - block-discover: add cli/API for exporting existing storage to config
+    - vmtest: refactor test_network code for Eoan
+    - curthoooks: disable daemons while reconfiguring mdadm
+      [Michael Hudson-Doyle] (LP: #1829325.)
+    - mdadm: fix install to existing raid [Michael Hudson-Doyle] (LP: #1830157)
+    - apt_proxy env var set but empty => do not setup any proxy
+      [Paride Legovini]
+    - release 19.1
+    - vmtest: add missing skip_by_date on Eoan test_network_mtu
+    - vmtest: remove skip_by_date on Disco Allindata test
+    - block: support multipath devices in lookup and partition_kname
+      (LP: #1813228)
+    - grub: add grub config to control os_prober,terminal settings in target
+    - vmtest: add eoan tests [Paride Legovini]
+    - vmtest: add dependency on python3-jsonschema [Paride Legovini]
+    - Pylint compatibility with Python 3.7 [Paride Legovini] (LP: #1828229)
+    - vmtest: disable disco multipath test
+    - vmtests: bump network mtu tests out a bit
+    - Fix up yaml.load warnings
+    - vmtest: disable trusty, it's dead jim
+    - vmtest: reenable UEFI 4k tests, which got dropped when fixing
+      subclassing.
+    - vmtests: Add test_kernel_img_conf stub for PsuedoVMBaseClass
+    - curthooks: chzdev_import must encode data if provided (LP: #1825007)
+    - vmtest: test for kernel-img conf on ubuntu only
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Wed, 05 Jun 2019 13:46:57 -0500
+
 curtin (18.2-22-g08bf6ff7-0ubuntu1) disco; urgency=medium
 
   * New upstream snapshot.
