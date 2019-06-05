@@ -51,10 +51,13 @@ class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):
         self.check_file_strippedline("lvs", "lv4=vg2")
 
     def test_pvs(self):
-        self.check_file_strippedline("pvs", "vg1=/dev/sda5")
-        self.check_file_strippedline("pvs", "vg1=/dev/sda6")
-        self.check_file_strippedline("pvs", "vg2=/dev/sdb5")
-        self.check_file_strippedline("pvs", "vg2=/dev/sdb6")
+        dname_to_vg = {
+            'iscsi_disk1-part5': 'vg1',
+            'iscsi_disk1-part6': 'vg1',
+            'iscsi_disk2-part5': 'vg2',
+            'iscsi_disk2-part6': 'vg2',
+        }
+        return self._test_pvs(dname_to_vg)
 
 
 class Centos70XenialTestLvmIscsi(centos_relbase.centos70_xenial,
