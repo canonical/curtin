@@ -1,3 +1,51 @@
+curtin (19.1-7-g37a7a0f4-0ubuntu1~16.04.1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot. (LP: #1831772)
+    - vmtests: determine block name via dname when verifying volume groups
+    - vmtest: add Centos66/Centos70 FromBionic release and re-add tests
+    - block-discover: add cli/API for exporting existing storage to config
+    - vmtest: refactor test_network code for Eoan
+    - curthoooks: disable daemons while reconfiguring mdadm
+      [Michael Hudson-Doyle]
+    - mdadm: fix install to existing raid [Michael Hudson-Doyle]
+    - apt_proxy env var set but empty => do not setup any proxy
+      [Paride Legovini]
+    - release 19.1
+    - vmtest: add missing skip_by_date on Eoan test_network_mtu
+    - vmtest: remove skip_by_date on Disco Allindata test
+    - block: support multipath devices in lookup and partition_kname
+    - grub: add grub config to control os_prober,terminal settings in target
+    - vmtest: add eoan tests [Paride Legovini]
+    - vmtest: add dependency on python3-jsonschema [Paride Legovini]
+    - Pylint compatibility with Python 3.7 [Paride Legovini]
+    - vmtest: disable disco multipath test
+    - vmtests: bump network mtu tests out a bit
+    - Fix up yaml.load warnings
+    - vmtest: disable trusty, it's dead jim
+    - vmtest: reenable UEFI 4k tests, which got dropped when fixing
+      subclassing.
+    - vmtests: Add test_kernel_img_conf stub for PsuedoVMBaseClass
+    - curthooks: chzdev_import must encode data if provided
+    - vmtest: test for kernel-img conf on ubuntu only
+    - Setup kernel-img.conf like base-installer/live-installer did.
+      [Dimitri John Ledkov]
+    - zfs: pass pool and fs properties to zpool_create
+      [Jean-Baptiste Lallement]
+    - block_meta: pass lvm_partition size through human2bytes
+      [Michael Hudson-Doyle]
+    - clear-holders: refactor bcache shutdown and add longer timeout
+    - schema-validate-storage: remove unused imports [Paride Legovini]
+    - add subcommand schema for storage-config validation
+    - clear-holders: wipe raid members at data offsets when not assembled
+    - Add support for s390 DASD devices
+    - vmtest: skip DiscoTestAllindata while initrd lacks crypto modules
+    - block_meta: allow passing a dm_crypt key by keyfile
+      [Michael Hudson-Doyle]
+    - ChrootableTarget: add /run to mounts for redhat targets
+    - vmtest: consolidate vm mem config, defaults via release, env override
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Wed, 05 Jun 2019 11:59:57 -0500
+
 curtin (18.2-10-g7afd77fa-0ubuntu1~16.04.1) xenial; urgency=medium
 
   * New upstream snapshot. (LP: #1817964)
