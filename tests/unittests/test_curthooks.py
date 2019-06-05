@@ -1036,7 +1036,7 @@ class TestCurthooksChzdev(CiTestCase):
                                         m_chz_prepare, m_chz_export):
         """chzdev_persist uses export, sends to prepare & import consumes."""
         export_value = self.random_string()
-        import_value = self.random_string()
+        import_value = self.random_string().encode()
         m_chz_export.return_value = (export_value, '')
         m_chz_prepare.return_value = import_value
         curthooks.chzdev_persist_active_online({}, self.target)
@@ -1088,7 +1088,7 @@ class TestCurthooksChzdev(CiTestCase):
         curthooks.chzdev_import(data=self.chzdev_import)
         self.m_subp.assert_called_with(
             ['chzdev', '--quiet', '--persistent', '--no-root-update',
-             '--import', '-'], data=self.chzdev_import, capture=True)
+             '--import', '-'], data=self.chzdev_import.encode(), capture=True)
 
     def test_import_sets_import_file(self):
         """chzdev_import passed import_file value to subp."""
@@ -1105,7 +1105,7 @@ class TestCurthooksChzdev(CiTestCase):
         self.m_subp.assert_called_with(
             ['chzdev', '--quiet', '--persistent', '--no-root-update',
              '--base', '%s=%s' % (mykey, myval),
-             '--import', '-'], data=self.chzdev_import, capture=True)
+             '--import', '-'], data=self.chzdev_import.encode(), capture=True)
 
     def test_import_sets_base_param_from_string(self):
         """chzdev_import passed --base value for string input."""
@@ -1114,14 +1114,15 @@ class TestCurthooksChzdev(CiTestCase):
         self.m_subp.assert_called_with(
             ['chzdev', '--quiet', '--persistent', '--no-root-update',
              '--base', mybase, '--import', '-'],
-            data=self.chzdev_import, capture=True)
+            data=self.chzdev_import.encode(), capture=True)
 
     def test_import_skips_persist_and_noroot_if_false(self):
         """chzdev_import omits --persistent and --no-root-update on false."""
         curthooks.chzdev_import(data=self.chzdev_import, persistent=False,
                                 noroot=False)
         self.m_subp.assert_called_with(['chzdev', '--quiet', '--import', '-'],
-                                       data=self.chzdev_import, capture=True)
+                                       data=self.chzdev_import.encode(),
+                                       capture=True)
 
     def test_prepare_empty_content(self):
         """chzdev_prepare raises ValueError with invalid input."""

@@ -59,14 +59,6 @@ class TestBcacheCeph(VMBaseClass):
                             self.load_collect_file("bcache_ls").splitlines())
 
 
-class TrustyTestBcacheCeph(relbase.trusty, TestBcacheCeph):
-    __test__ = False  # covered by test_raid5_bcache
-
-
-class TrustyHWEXTestBcacheCeph(relbase.trusty_hwe_x, TestBcacheCeph):
-    __test__ = False  # covered by test_raid5_bcache
-
-
 class XenialGATestBcacheCeph(relbase.xenial_ga, TestBcacheCeph):
     __test__ = True
 
@@ -88,6 +80,10 @@ class CosmicTestBcacheCeph(relbase.cosmic, TestBcacheCeph):
 
 
 class DiscoTestBcacheCeph(relbase.disco, TestBcacheCeph):
+    __test__ = True
+
+
+class EoanTestBcacheCeph(relbase.eoan, TestBcacheCeph):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

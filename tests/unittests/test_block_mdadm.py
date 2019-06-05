@@ -4,13 +4,9 @@ from mock import call, patch
 from curtin.block import dev_short
 from curtin.block import mdadm
 from curtin import util
-from .helpers import CiTestCase
+from .helpers import CiTestCase, raise_pexec_error
 import os
 import textwrap
-
-
-def _raise_pexec_error(*args, **kwargs):
-    raise util.ProcessExecutionError()
 
 
 class TestBlockMdadmAssemble(CiTestCase):
@@ -76,7 +72,7 @@ class TestBlockMdadmAssemble(CiTestCase):
 
     def test_mdadm_assemble_exec_error(self):
         self.mock_util.ProcessExecutionError = util.ProcessExecutionError
-        self.mock_util.subp.side_effect = _raise_pexec_error
+        self.mock_util.subp.side_effect = raise_pexec_error
         with self.assertRaises(util.ProcessExecutionError):
             mdadm.mdadm_assemble(scan=True, ignore_errors=False)
         self.mock_util.subp.assert_called_with(
@@ -306,7 +302,7 @@ class TestBlockMdadmExamine(CiTestCase):
 
     def test_mdadm_examine_no_raid(self):
         self.mock_util.ProcessExecutionError = util.ProcessExecutionError
-        self.mock_util.subp.side_effect = _raise_pexec_error
+        self.mock_util.subp.side_effect = raise_pexec_error
 
         device = "/dev/sda"
         data = mdadm.mdadm_examine(device, export=False)
@@ -998,7 +994,7 @@ class TestBlockMdadmMdHelpers(CiTestCase):
         mock_examine.side_effect = [md_dict] * len(devices)
         expected_calls = []
         for dev in devices:
-            expected_calls.append(call(dev, export=False))
+            expected_calls.append(call(dev, export=True))
 
         rv = mdadm.md_check_array_membership(mdname, devices)
 

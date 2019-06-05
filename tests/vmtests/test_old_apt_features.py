@@ -5,12 +5,13 @@
 """
 import re
 import textwrap
-import yaml
+
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
 from curtin import util
+from curtin.config import load_config
 
 
 def sources_to_dict(lines):
@@ -75,7 +76,7 @@ class TestOldAptAbs(VMBaseClass):
         # For earlier than xenial 'apt_preserve_sources_list' is expected
         self.assertEqual(
             {'apt': {'preserve_sources_list': True}},
-            yaml.load(self.load_collect_file("curtin-preserve-sources.cfg")))
+            load_config(self.collect_path("curtin-preserve-sources.cfg")))
 
     def test_debconf(self):
         """test_debconf - Check if debconf is in place"""

@@ -17,7 +17,7 @@ class TestBasicAbs(VMBaseClass):
     nr_cpus = 2
     dirty_disks = True
     conf_file = "examples/tests/basic.yaml"
-    extra_disks = ['128G', '128G', '4G', '4G']
+    extra_disks = ['15G', '20G', '25G']
     disk_to_check = [('btrfs_volume', 0),
                      ('main_disk_with_in---valid--dname', 0),
                      ('main_disk_with_in---valid--dname', 1),
@@ -37,6 +37,10 @@ class TestBasicAbs(VMBaseClass):
         f="btrfs_uuid_diskc"
         if command -v btrfs-debug-tree >/dev/null; then
            btrfs-debug-tree -r $dev | awk '/^uuid/ {print $2}' | grep "-"
+           # btrfs-debug-tree fails in centos66, use btrfs-show instead
+           if [ "$?" != "0" ]; then
+               btrfs-show $dev | awk '/uuid/ {print $4}'
+           fi
         else
            btrfs inspect-internal dump-super $dev |
                awk '/^dev_item.fsid/ {print $2}'
@@ -46,7 +50,8 @@ class TestBasicAbs(VMBaseClass):
         diskd=$(readlink -f /dev/disk/by-id/*-disk-d)
         cmp --bytes=8388608 /dev/zero ${diskd}2; echo "$?" > cmp_prep.out
         # extract partition info
-        udevadm info --export --query=property ${diskd}2 | cat >udev_info.out
+        udevadm info --export --query=property --name=${diskd}2 |
+            cat >udev_info.out
 
         exit 0
         """)]
@@ -81,8 +86,8 @@ class TestBasicAbs(VMBaseClass):
         return kname
 
     def _test_ptable(self, blkid_output, expected):
-        if self.target_release == "trusty":
-            raise SkipTest("No PTTYPE blkid output on trusty")
+        if self.target_release == "centos66":
+            raise SkipTest("No PTTYPE blkid output on Centos66")
 
         if not blkid_output:
             raise RuntimeError('_test_ptable requires blkid output file')
@@ -141,6 +146,8 @@ class TestBasicAbs(VMBaseClass):
         self.assertEqual(kname_uuid, btrfs_uuid)
 
     def _test_partition_is_prep(self, info_file):
+        if self.target_release == "centos66":
+            raise SkipTest("Cannot detect PReP partitions in Centos66")
         udev_info = self.load_collect_file(info_file).rstrip()
         entry_type = ''
         for line in udev_info.splitlines():
@@ -237,11 +244,21 @@ class Centos70XenialTestBasic(centos_relbase.centos70_xenial,
     __test__ = True
 
 
-class TrustyTestBasic(relbase.trusty, TestBasicAbs):
+class Centos70BionicTestBasic(centos_relbase.centos70_bionic,
+                              CentosTestBasicAbs):
     __test__ = True
 
 
-class TrustyHWEXTestBasic(relbase.trusty_hwe_x, TrustyTestBasic):
+class Centos66XenialTestBasic(centos_relbase.centos66_xenial,
+                              CentosTestBasicAbs):
+    __test__ = True
+
+
+class Centos66BionicTestBasic(centos_relbase.centos66_bionic,
+                              CentosTestBasicAbs):
+    # Centos66 cannot handle ext4 defaults in Bionic (64bit,meta_csum)
+    # this conf defaults to ext3
+    conf_file = "examples/tests/centos6_basic.yaml"
     __test__ = True
 
 
@@ -274,10 +291,14 @@ class DiscoTestBasic(relbase.disco, TestBasicAbs):
     __test__ = True
 
 
+class EoanTestBasic(relbase.eoan, TestBasicAbs):
+    __test__ = True
+
+
 class TestBasicScsiAbs(TestBasicAbs):
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
-    extra_disks = ['128G', '128G', '4G', '4G']
+    extra_disks = ['15G', '20G', '25G']
     extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         blkid -o export /dev/sda | cat >blkid_output_sda
@@ -354,7 +375,13 @@ class CosmicTestScsiBasic(relbase.cosmic, TestBasicScsiAbs):
     __test__ = True
 
 
+@VMBaseClass.skip_by_date("1813228", fixby="2019-06-02", install=False)
 class DiscoTestScsiBasic(relbase.disco, TestBasicScsiAbs):
+    __test__ = True
+
+
+@VMBaseClass.skip_by_date("1813228", fixby="2019-06-02", install=False)
+class EoanTestScsiBasic(relbase.eoan, TestBasicScsiAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

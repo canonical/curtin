@@ -121,4 +121,9 @@ def populate_dir(path, files):
 
     return ret
 
+
+def raise_pexec_error(*args, **kwargs):
+    raise util.ProcessExecutionError()
+
+
 # vi: ts=4 expandtab syntax=python

@@ -15,33 +15,6 @@ class CentosTestNetworkIPV6StaticAbs(CentosTestNetworkStaticAbs):
     conf_file = "examples/tests/basic_network_static_ipv6.yaml"
 
 
-class TrustyTestNetworkIPV6Static(relbase.trusty, TestNetworkIPV6StaticAbs):
-    __test__ = True
-
-
-class TrustyHWEUTestNetworkIPV6Static(relbase.trusty_hwe_u,
-                                      TestNetworkIPV6StaticAbs):
-    # unsupported kernel, 2016-08
-    __test__ = False
-
-
-class TrustyHWEVTestNetworkIPV6Static(relbase.trusty_hwe_v,
-                                      TestNetworkIPV6StaticAbs):
-    # unsupported kernel, 2016-08
-    __test__ = False
-
-
-class TrustyHWEWTestNetworkIPV6Static(relbase.trusty_hwe_w,
-                                      TestNetworkIPV6StaticAbs):
-    # unsupported kernel, 2016-08
-    __test__ = False
-
-
-class TrustyHWEXTestNetworkIPV6Static(relbase.trusty_hwe_x,
-                                      TestNetworkIPV6StaticAbs):
-    __test__ = True
-
-
 class XenialTestNetworkIPV6Static(relbase.xenial, TestNetworkIPV6StaticAbs):
     __test__ = True
 
@@ -55,6 +28,10 @@ class CosmicTestNetworkIPV6Static(relbase.cosmic, TestNetworkIPV6StaticAbs):
 
 
 class DiscoTestNetworkIPV6Static(relbase.disco, TestNetworkIPV6StaticAbs):
+    __test__ = True
+
+
+class EoanTestNetworkIPV6Static(relbase.eoan, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 

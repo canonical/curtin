@@ -819,7 +819,7 @@ def md_check_array_membership(md_devname, devices):
     # validate that all devices are members of the correct array
     md_uuid = md_get_uuid(md_devname)
     for device in devices:
-        dev_examine = mdadm_examine(device, export=False)
+        dev_examine = mdadm_examine(device, export=True)
         if 'MD_UUID' not in dev_examine:
             raise ValueError('Device is not part of an array: ' + device)
         dev_uuid = dev_examine['MD_UUID']

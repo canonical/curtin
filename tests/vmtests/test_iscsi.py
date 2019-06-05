@@ -55,10 +55,6 @@ class Centos70XenialTestIscsiBasic(centos_relbase.centos70_xenial,
     __test__ = True
 
 
-class TrustyTestIscsiBasic(relbase.trusty, TestBasicIscsiAbs):
-    __test__ = True
-
-
 class XenialGATestIscsiBasic(relbase.xenial_ga, TestBasicIscsiAbs):
     __test__ = True
 
@@ -80,6 +76,10 @@ class CosmicTestIscsiBasic(relbase.cosmic, TestBasicIscsiAbs):
 
 
 class DiscoTestIscsiBasic(relbase.disco, TestBasicIscsiAbs):
+    __test__ = True
+
+
+class EoanTestIscsiBasic(relbase.eoan, TestBasicIscsiAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

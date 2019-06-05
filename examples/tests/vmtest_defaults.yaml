@@ -19,6 +19,39 @@ _persist_journal:
     }
     exit 0
 
+# this runs curtin block-discover and stores the result
+# in the target system root dir
+_block_discover:
+ - &block_discover |
+   j='import sys\ntry:\n  import jsonschema\nexcept ImportError:\n sys.exit(1)'
+   has_jschema() {
+       /bin/echo -e $j | python2.7
+       py2_rc=$?
+       /bin/echo -e $j | python3
+       py3_rc=$?
+       if [ $py2_rc = "0" -o $py3_rc = "0" ]; then
+           return 0
+       fi
+       return 1
+   }
+   # if ubuntu/debian
+   if [ -e "$TARGET_MOUNT_POINT/usr/bin/apt-get" ]; then
+       # xenial and lower don't have jsonschema
+       if has_jschema; then
+           outfile="${TARGET_MOUNT_POINT}/root/curtin-block-discover.json"
+           echo "discovering block devices"
+           curtin -vv block-discover > $outfile
+           which curtin > $TARGET_MOUNT_POINT/root/which-curtin
+           cdir=$(realpath -m "$(dirname `which curtin`)/../")
+           echo $cdir >> $TARGET_MOUNT_POINT/root/which-curtin
+           cp -a $cdir  $TARGET_MOUNT_POINT/root/curtin
+           curtin in-target -- apt-get install python3-pyudev;
+       fi
+   fi
+   exit 0
+
+
 late_commands:
   01_vmtest_pollinate: ['curtin', 'in-target', '--', 'sh', '-c', *pvmtest]
   02_persist_journal: ['curtin', 'in-target', '--', 'sh', '-c', *persist_journal]
+  03_block_disc: ['sh', '-c', *block_discover]

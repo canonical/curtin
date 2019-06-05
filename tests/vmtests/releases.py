@@ -36,6 +36,13 @@ class _Centos70FromXenialBase(_CentosFromUbuntuBase):
     target_release = "centos70"
 
 
+class _Centos70FromBionicBase(_CentosFromUbuntuBase):
+    # release for boot
+    release = "bionic"
+    # release for target
+    target_release = "centos70"
+
+
 class _UbuntuCore16FromXenialBase(_UbuntuCoreUbuntuBase):
     # release for boot
     release = "xenial"
@@ -46,6 +53,11 @@ class _UbuntuCore16FromXenialBase(_UbuntuCoreUbuntuBase):
 
 class _Centos66FromXenialBase(_CentosFromUbuntuBase):
     release = "xenial"
+    target_release = "centos66"
+
+
+class _Centos66FromBionicBase(_CentosFromUbuntuBase):
+    release = "bionic"
     target_release = "centos66"
 
 
@@ -121,6 +133,12 @@ class _DiscoBase(_UbuntuBase):
     mem = "2048"
 
 
+class _EoanBase(_UbuntuBase):
+    release = "eoan"
+    target_release = "eoan"
+    mem = "2048"
+
+
 class _Releases(object):
     trusty = _TrustyBase
     precise = _PreciseBase
@@ -137,11 +155,14 @@ class _Releases(object):
     bionic = _BionicBase
     cosmic = _CosmicBase
     disco = _DiscoBase
+    eoan = _EoanBase
 
 
 class _CentosReleases(object):
     centos70_xenial = _Centos70FromXenialBase
     centos66_xenial = _Centos66FromXenialBase
+    centos70_bionic = _Centos70FromBionicBase
+    centos66_bionic = _Centos66FromBionicBase
 
 
 class _UbuntuCoreReleases(object):

@@ -15,6 +15,7 @@ from curtin.swap import is_swap_device
 from curtin.block import bcache
 from curtin.block import lvm
 from curtin.block import mdadm
+from curtin.block import multipath
 from curtin.block import zfs
 from curtin.log import LOG
 
@@ -294,6 +295,17 @@ def wipe_superblock(device):
                       device, attempt + 1, len(retries), wait)
             time.sleep(wait)
 
+    # multipath partitions are separate block devices (disks)
+    if multipath.is_mpath_partition(blockdev):
+        multipath.remove_partition(blockdev)
+    # multipath devices must be hidden to utilize a single member (path)
+    elif multipath.is_mpath_device(blockdev):
+        mp_id = multipath.find_mpath_id(blockdev)
+        if mp_id:
+            multipath.remove_map(mp_id)
+        else:
+            raise RuntimeError('Failed to find multipath id for %s' % blockdev)
+
 
 def _wipe_superblock(blockdev, exclusive=True, strict=True):
     """ No checks, just call wipe_volume """
@@ -359,8 +371,15 @@ def identify_partition(device):
     """
     determine if specified device is a partition
     """
-    path = os.path.join(block.sys_block_path(device), 'partition')
-    return os.path.exists(path)
+    blockdev = block.sys_block_path(device)
+    path = os.path.join(blockdev, 'partition')
+    if os.path.exists(path):
+        return True
+
+    if multipath.is_mpath_partition(blockdev):
+        return True
+
+    return False
 
 
 def shutdown_swap(path):

@@ -206,6 +206,9 @@ def chzdev_import(data=None, persistent=True, noroot=True, base=None,
         else:
             cmd.extend(['--base', base])
 
+    if data:
+        data = data.encode()
+
     cmd.extend(['--import', import_file])
     return util.subp(cmd, data=data, capture=True)
 
@@ -481,6 +484,20 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
     else:
         env['REPLACE_GRUB_LINUX_DEFAULT'] = "1"
 
+    probe_os = grubcfg.get('probe_additional_os', False)
+    if probe_os not in (False, True):
+        raise ValueError("Unexpected value %s for 'probe_additional_os'. "
+                         "Value must be boolean" % probe_os)
+    env['DISABLE_OS_PROBER'] = "0" if probe_os else "1"
+
+    # if terminal is present in config, but unset, then don't
+    grub_terminal = grubcfg.get('terminal', 'console')
+    if not isinstance(grub_terminal, str):
+        raise ValueError("Unexpected value %s for 'terminal'. "
+                         "Value must be a string" % grub_terminal)
+    if not grub_terminal.lower() == "unmodified":
+        env['GRUB_TERMINAL'] = grub_terminal
+
     if instdevs:
         instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
     else:
@@ -567,6 +584,14 @@ def copy_mdadm_conf(mdadm_conf, target):
     LOG.info("copying mdadm.conf into target")
     shutil.copy(mdadm_conf, os.path.sep.join([target,
                 'etc/mdadm/mdadm.conf']))
+
+
+def copy_zpool_cache(zpool_cache, target):
+    if not zpool_cache:
+        LOG.warn("zpool_cache path must be specified, not copying")
+        return
+
+    shutil.copy(zpool_cache, os.path.sep.join([target, 'etc/zfs']))
 
 
 def apply_networking(target, state):
@@ -1012,8 +1037,10 @@ def configure_mdadm(cfg, state_etcd, target, osfamily=DISTROS.debian):
                                                   conf_map[osfamily]))
     if osfamily == DISTROS.debian:
         # as per LP: #964052 reconfigure mdadm
-        util.subp(['dpkg-reconfigure', '--frontend=noninteractive', 'mdadm'],
-                  data=None, target=target)
+        with util.ChrootableTarget(target) as in_chroot:
+            in_chroot.subp(
+                ['dpkg-reconfigure', '--frontend=noninteractive', 'mdadm'],
+                data=None, target=target)
 
 
 def handle_cloudconfig(cfg, base_dir=None):
@@ -1347,6 +1374,11 @@ def builtin_curthooks(cfg, target, state):
         handle_pollinate_user_agent(cfg, target)
 
     if osfamily == DISTROS.debian:
+        # check for the zpool cache file and copy to target if present
+        zpool_cache = '/etc/zfs/zpool.cache'
+        if os.path.exists(zpool_cache):
+            copy_zpool_cache(zpool_cache, target)
+
         # If a crypttab file was created by block_meta than it needs to be
         # copied onto the target system, and update_initramfs() needs to be
         # run, so that the cryptsetup hooks are properly configured on the

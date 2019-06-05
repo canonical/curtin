@@ -1,0 +1,72 @@
+showtrace: true
+
+bucket:
+  - &setup |
+    parted /dev/disk/by-id/virtio-disk-a --script -- \
+        mklabel gpt                     \
+        mkpart primary ext4 2MiB 514MiB \
+        set 1 esp on                    \
+        mkpart primary ext4 1GiB 4GiB   \
+        mkpart primary ext4 4GiB 7GiB
+    udevadm settle
+    mkfs.ext4 /dev/disk/by-id/virtio-disk-a-part3
+    mount /dev/disk/by-id/virtio-disk-a-part3 /mnt
+    touch /mnt/existing
+    umount /mnt
+
+# Partition the disk now to test curtin's reuse of partitions.
+early_commands:
+  00-setup-disk: [sh, -exuc, *setup]
+
+storage:
+  config:
+  - type: disk
+    id: id_disk0
+    serial: disk-a
+    ptable: gpt
+    preserve: true
+  - type: partition
+    id: id_disk0_part1
+    device: id_disk0
+    flag: boot
+    number: 1
+    size: 512M
+    preserve: true
+  - type: partition
+    id: id_disk0_part2
+    device: id_disk0
+    number: 2
+    size: 3G
+    preserve: true
+  - type: partition
+    id: id_disk0_part3
+    device: id_disk0
+    number: 3
+    size: 3G
+    preserve: true
+  - type: format
+    id: id_efi_format
+    volume: id_disk0_part1
+    fstype: fat32
+  - type: format
+    id: id_root_format
+    volume: id_disk0_part2
+    fstype: ext4
+  - type: format
+    id: id_srv_format
+    volume: id_disk0_part3
+    fstype: ext4
+    preserve: true
+  - type: mount
+    device: id_root_format
+    id: id_root_mount
+    path: /
+  - type: mount
+    id: id_efi_mount
+    device: id_efi_format
+    path: /boot/efi
+  - type: mount
+    id: id_srv_mount
+    device: id_srv_format
+    path: /srv
+  version: 1

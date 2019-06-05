@@ -18,6 +18,7 @@ import yaml
 import curtin.net as curtin_net
 import curtin.util as util
 from curtin.block import iscsi
+from curtin.config import load_config
 
 from .report_webhook_logger import CaptureReporting
 from curtin.commands.install import INSTALL_PASS_MSG
@@ -554,6 +555,8 @@ DEFAULT_COLLECT_SCRIPTS = {
         """)],
     'ubuntu': [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
+        bdout="boot-curtin-block-discover.json"
+        /root/curtin/bin/curtin block-discover > $bdout
         dpkg-query --show \
             --showformat='${db:Status-Abbrev}\t${Package}\t${Version}\n' \
             > debian-packages.txt 2> debian-packages.txt.err
@@ -1612,7 +1615,7 @@ class VMBaseClass(TestCase):
         logger.debug('test_dname_rules: checking disks: %s', disk_to_check)
         self.output_files_exist(["udev_rules.d"])
 
-        cfg = yaml.load(self.load_collect_file("root/curtin-install-cfg.yaml"))
+        cfg = load_config(self.collect_path("root/curtin-install-cfg.yaml"))
         stgcfg = cfg.get("storage", {}).get("config", [])
         disks = [ent for ent in stgcfg if (ent.get('type') == 'disk' and
                                            'name' in ent)]
@@ -1700,6 +1703,8 @@ class VMBaseClass(TestCase):
     @skip_if_flag('expected_failure')
     def test_kernel_img_conf(self):
         """ Test curtin install kernel-img.conf correctly. """
+        if self.target_distro != 'ubuntu':
+            raise SkipTest("kernel-img.conf not needed in non-ubuntu releases")
         kconf = 'kernel-img.conf'
         self.output_files_exist([kconf])
         if self.arch in ['i386', 'amd64']:
@@ -1749,10 +1754,10 @@ class VMBaseClass(TestCase):
     @classmethod
     def get_class_storage_config(cls):
         sc = cls.load_conf_file()
-        return yaml.load(sc).get('storage', {}).get('config', {})
+        return yaml.safe_load(sc).get('storage', {}).get('config', {})
 
     def get_storage_config(self):
-        cfg = yaml.load(self.load_collect_file("root/curtin-install-cfg.yaml"))
+        cfg = load_config(self.collect_path("root/curtin-install-cfg.yaml"))
         return cfg.get("storage", {}).get("config", [])
 
     def has_storage_config(self):
@@ -1875,6 +1880,9 @@ class PsuedoVMBaseClass(VMBaseClass):
     def test_installed_correct_kernel_package(self):
         pass
 
+    def test_kernel_img_conf(self):
+        pass
+
     def _maybe_raise(self, exc):
         if self.allow_test_fails:
             raise exc
@@ -1943,9 +1951,14 @@ def check_install_log(install_log, nrchars=200):
 
 def get_apt_proxy():
     # get setting for proxy. should have same result as in tools/launch
-    apt_proxy = os.environ.get('apt_proxy')
-    if apt_proxy:
-        return apt_proxy
+    if 'apt_proxy' in os.environ:
+        apt_proxy = os.environ.get('apt_proxy')
+        if apt_proxy:
+            # 'apt_proxy' set and not empty
+            return apt_proxy
+        else:
+            # 'apt_proxy' is set but empty; do not setup any proxy
+            return None
 
     get_apt_config = textwrap.dedent("""
         command -v apt-config >/dev/null 2>&1
@@ -1987,7 +2000,7 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
                                capture=True)
     # precises' cloud-init version has limited support for cloud-config-archive
     # and expects cloud-config pieces to be appendable to a single file and
-    # yaml.load()'able.  Resolve this by using yaml.dump() when generating
+    # yaml.safe_load()'able.  Resolve this by using yaml.dump() when generating
     # a list of parts
     parts = [{'type': 'text/cloud-config',
               'content': yaml.dump(base_cloudconfig, indent=1)},
