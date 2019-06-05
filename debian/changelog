@@ -1,4 +1,4 @@
-curtin (19.1-7-g37a7a0f4-0ubuntu1~18.10.1) UNRELEASED; urgency=medium
+curtin (19.1-7-g37a7a0f4-0ubuntu1~18.10.1) cosmic; urgency=medium
 
   * New upstream snapshot. (LP: #1831772)
     - vmtests: determine block name via dname when verifying volume groups
