@@ -6,6 +6,15 @@ pycheck_dirs=(
     "tests/"
     "tools/curtin-log-print"
     "tools/report_webhook_logger"
+    "tools/block-discover-to-config"
+    "tools/curtin-log-print"
+    "tools/noproxy"
+    "tools/schema-validate-storage"
+    "tools/ssh-keys-list"
+    "tools/vmtest-filter"
+    "tools/vmtest-sync-images"
+    "tools/webserv"
+    "tools/write-curtin"
 )
 bin_files=( )
 CR="

@@ -586,6 +586,14 @@ def copy_mdadm_conf(mdadm_conf, target):
                 'etc/mdadm/mdadm.conf']))
 
 
+def copy_zpool_cache(zpool_cache, target):
+    if not zpool_cache:
+        LOG.warn("zpool_cache path must be specified, not copying")
+        return
+
+    shutil.copy(zpool_cache, os.path.sep.join([target, 'etc/zfs']))
+
+
 def apply_networking(target, state):
     netconf = state.get('network_config')
     interfaces = state.get('interfaces')
@@ -1029,8 +1037,10 @@ def configure_mdadm(cfg, state_etcd, target, osfamily=DISTROS.debian):
                                                   conf_map[osfamily]))
     if osfamily == DISTROS.debian:
         # as per LP: #964052 reconfigure mdadm
-        util.subp(['dpkg-reconfigure', '--frontend=noninteractive', 'mdadm'],
-                  data=None, target=target)
+        with util.ChrootableTarget(target) as in_chroot:
+            in_chroot.subp(
+                ['dpkg-reconfigure', '--frontend=noninteractive', 'mdadm'],
+                data=None, target=target)
 
 
 def handle_cloudconfig(cfg, base_dir=None):
@@ -1364,6 +1374,11 @@ def builtin_curthooks(cfg, target, state):
         handle_pollinate_user_agent(cfg, target)
 
     if osfamily == DISTROS.debian:
+        # check for the zpool cache file and copy to target if present
+        zpool_cache = '/etc/zfs/zpool.cache'
+        if os.path.exists(zpool_cache):
+            copy_zpool_cache(zpool_cache, target)
+
         # If a crypttab file was created by block_meta than it needs to be
         # copied onto the target system, and update_initramfs() needs to be
         # run, so that the cryptsetup hooks are properly configured on the

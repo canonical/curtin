@@ -277,6 +277,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         self.logger.debug("route -6 -n:\n{}".format(route_6_n))
 
         ip_route_show = self.load_collect_file("ip_route_show")
+        ip_6_route_show = self.load_collect_file("ip_6_route_show")
         self.logger.debug("ip route show:\n{}".format(ip_route_show))
         for line in [line for line in ip_route_show.split('\n')
                      if 'src' in line and not line.startswith('default')]:
@@ -295,7 +296,9 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
 
         routes = {
             '4': route_n,
+            'ip_route_show': ip_route_show,
             '6': route_6_n,
+            'ip_6_route_show': ip_6_route_show,
         }
         interfaces = network_state.get('interfaces')
         for iface in interfaces.values():
@@ -392,6 +395,15 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
                 # drop duplicate gateways (static routes)
                 return list(set(gateways))
 
+            def __has_gw_route(line, gw_ip):
+                # For Disco and older releases we match
+                #    'UG' matches route_* gateways
+                # For Eoan which does not contain net-tools/route commands
+                #  'default' matches ip_route/ip_6_route default routes
+                #  'via' matches ip_route/ip_6_route non-default gateways
+                gwk = {'UG', 'default', 'via'}
+                return gwk.intersection(set(line.split())) and gw_ip in line
+
             # handle gateways by looking at routing table
             configured_gws = __find_gw_config(subnet)
             print('iface:%s configured_gws: %s' % (ifname, configured_gws))
@@ -399,12 +411,14 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
                 self.logger.debug('found a gateway in subnet config: %s',
                                   gw_ip)
                 if ":" in gw_ip:
-                    route_d = routes['6']
+                    route_d = (routes['6'] if len(routes['6']) else
+                               routes['ip_6_route_show'])
                 else:
-                    route_d = routes['4']
+                    route_d = (routes['4'] if len(routes['4']) else
+                               routes['ip_route_show'])
 
                 found_gws = [line for line in route_d.split('\n')
-                             if 'UG' in line and gw_ip in line]
+                             if __has_gw_route(line, gw_ip)]
                 self.logger.debug('found gateways in guest output:\n%s',
                                   found_gws)
 
@@ -413,15 +427,25 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
                 # we only need to check that we found at least one as we walk
                 self.assertGreater(len(found_gws), 0)
                 for fgw in found_gws:
-                    if ":" in gw_ip:
-                        (dest, gw, flags, metric, ref, use, iface) = \
-                            fgw.split()
+                    fgw_split = fgw.split()
+                    # in ip_route_show/ip_6_route_show we end up with
+                    # lines which have one or more 'via' sections.
+                    # in the ipv6 case, we see many nexthops with
+                    # fe80::2, which we want to ignore. This loop
+                    # lets us find the actual gateway value by
+                    # walking until we find a non fe80::2 gateway
+                    if 'via' in fgw_split:
+                        for el_idx, elem in enumerate(fgw_split):
+                            if elem == 'via':
+                                if fgw_split[el_idx + 1] != "fe80::2":
+                                    gw_idx = el_idx + 1
+                                    break
                     else:
-                        (dest, gw, genmask, flags, metric, ref, use, iface) = \
-                            fgw.split()
+                        gw_idx = 1
+
                     self.logger.debug('configured gw:%s found gw:%s',
-                                      gw_ip, gw)
-                    self.assertEqual(gw_ip, gw)
+                                      gw_ip, fgw_split[gw_idx])
+                    self.assertEqual(gw_ip, fgw_split[gw_idx])
 
 
 class TestNetworkBasicAbs(TestNetworkBaseTestsAbs):

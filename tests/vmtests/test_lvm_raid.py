@@ -39,8 +39,8 @@ class TestLvmOverRaidAbs(TestMdadmAbs, TestLvmAbs):
         self.check_file_strippedline("lvs", "lv-0=vg0")
 
     def test_pvs(self):
-        self.check_file_strippedline("pvs", "vg0=/dev/md0")
-        self.check_file_strippedline("pvs", "vg0=/dev/md1")
+        dname_to_vg = {'md0': 'vg0', 'md1': 'vg0'}
+        return self._test_pvs(dname_to_vg)
 
 
 class EoanTestLvmOverRaid(relbase.eoan, TestLvmOverRaidAbs):

@@ -4,6 +4,7 @@ from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 
+import os
 import textwrap
 
 
@@ -30,13 +31,34 @@ class TestLvmAbs(VMBaseClass):
                      ('vg1-lv1', 0),
                      ('vg1-lv2', 0)]
 
+    def _dname_to_kname(self, dname):
+        # extract kname from /dev/disk/by-dname on /dev/<kname>
+        # parsing ls -al output on /dev/disk/by-dname:
+        # lrwxrwxrwx. 1 root root   9 Jun  3 21:16 iscsi_disk1 -> ../../sdb
+        ls_bydname = self.load_collect_file("ls_al_bydname")
+        kname = [os.path.basename(line.split()[10])
+                 for line in ls_bydname.split('\n')
+                 if dname in line.split()]
+        self.assertEqual(len(kname), 1)
+        kname = kname.pop()
+        self.assertTrue(kname is not None)
+        return kname
+
+    def _test_pvs(self, dname_to_vg):
+        for dname, vg in dname_to_vg.items():
+            kname = self._dname_to_kname(dname)
+            self.check_file_strippedline("pvs", "%s=/dev/%s" % (vg, kname))
+
+    def test_pvs(self):
+        dname_to_vg = {
+            'main_disk-part5': 'vg1',
+            'main_disk-part6': 'vg1',
+        }
+        return self._test_pvs(dname_to_vg)
+
     def test_lvs(self):
         self.check_file_strippedline("lvs", "lv1=vg1")
         self.check_file_strippedline("lvs", "lv2=vg1")
-
-    def test_pvs(self):
-        self.check_file_strippedline("pvs", "vg1=/dev/vda5")
-        self.check_file_strippedline("pvs", "vg1=/dev/vda6")
 
     def test_output_files_exist(self):
         self.output_files_exist(

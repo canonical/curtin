@@ -555,6 +555,8 @@ DEFAULT_COLLECT_SCRIPTS = {
         """)],
     'ubuntu': [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
+        bdout="boot-curtin-block-discover.json"
+        /root/curtin/bin/curtin block-discover > $bdout
         dpkg-query --show \
             --showformat='${db:Status-Abbrev}\t${Package}\t${Version}\n' \
             > debian-packages.txt 2> debian-packages.txt.err
@@ -1949,9 +1951,14 @@ def check_install_log(install_log, nrchars=200):
 
 def get_apt_proxy():
     # get setting for proxy. should have same result as in tools/launch
-    apt_proxy = os.environ.get('apt_proxy')
-    if apt_proxy:
-        return apt_proxy
+    if 'apt_proxy' in os.environ:
+        apt_proxy = os.environ.get('apt_proxy')
+        if apt_proxy:
+            # 'apt_proxy' set and not empty
+            return apt_proxy
+        else:
+            # 'apt_proxy' is set but empty; do not setup any proxy
+            return None
 
     get_apt_config = textwrap.dedent("""
         command -v apt-config >/dev/null 2>&1

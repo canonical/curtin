@@ -158,6 +158,10 @@ def zpool_create(poolname, vdevs, mountpoint=None, altroot=None,
     cmd = ["zpool", "create"] + options + [poolname] + vdevs
     util.subp(cmd, capture=True)
 
+    # Trigger generation of zpool.cache file
+    cmd = ["zpool", "set", "cachefile=/etc/zfs/zpool.cache", poolname]
+    util.subp(cmd, capture=True)
+
 
 def zfs_create(poolname, volume, zfs_properties=None):
     """
