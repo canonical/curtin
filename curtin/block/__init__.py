@@ -10,8 +10,10 @@ import tempfile
 
 from curtin import util
 from curtin.block import lvm
+from curtin.block import multipath
 from curtin.log import LOG
-from curtin.udev import udevadm_settle
+from curtin.udev import udevadm_settle, udevadm_info
+from curtin import storage_config
 
 
 def get_dev_name_entry(devname):
@@ -103,7 +105,15 @@ def partition_kname(disk_kname, partition_number):
     """
     Add number to disk_kname prepending a 'p' if needed
     """
-    for dev_type in ['bcache', 'nvme', 'mmcblk', 'cciss', 'mpath', 'dm', 'md']:
+    if disk_kname.startswith('dm-'):
+        # device-mapper devices may create a new dm device for the partition,
+        # e.g. multipath disk is at dm-2, new partition could be dm-11, but
+        # linux will create a -partX symlink against the disk by-id name.
+        devpath = '/dev/' + disk_kname
+        disk_link = get_device_mapper_links(devpath, first=True)
+        return '%s-part%s' % (disk_link, partition_number)
+
+    for dev_type in ['bcache', 'nvme', 'mmcblk', 'cciss', 'mpath', 'md']:
         if disk_kname.startswith(dev_type):
             partition_number = "p%s" % partition_number
             break
@@ -583,21 +593,37 @@ def get_blockdev_sector_size(devpath):
     Get the logical and physical sector size of device at devpath
     Returns a tuple of integer values (logical, physical).
     """
-    info = _lsblock([devpath])
-    LOG.debug('get_blockdev_sector_size: info:\n%s' % util.json_dumps(info))
-    # (LP: 1598310) The call to _lsblock() may return multiple results.
-    # If it does, then search for a result with the correct device path.
-    # If no such device is found among the results, then fall back to previous
-    # behavior, which was taking the first of the results
-    assert len(info) > 0
-    for (k, v) in info.items():
-        if v.get('device_path') == devpath:
-            parent = k
-            break
+    info = {}
+    try:
+        info = _lsblock([devpath])
+    except util.ProcessExecutionError as e:
+        # raise on all errors except device missing error
+        if str(e.exit_code) != "32":
+            raise
+    if info:
+        LOG.debug('get_blockdev_sector_size: info:\n%s', util.json_dumps(info))
+        # (LP: 1598310) The call to _lsblock() may return multiple results.
+        # If it does, then search for a result with the correct device path.
+        # If no such device is found among the results, then fall back to
+        # previous behavior, which was taking the first of the results
+        assert len(info) > 0
+        for (k, v) in info.items():
+            if v.get('device_path') == devpath:
+                parent = k
+                break
+        else:
+            parent = list(info.keys())[0]
+        logical = info[parent]['LOG-SEC']
+        physical = info[parent]['PHY-SEC']
     else:
-        parent = list(info.keys())[0]
+        sys_path = sys_block_path(devpath)
+        logical = util.load_file(
+            os.path.join(sys_path, 'queue/logical_block_size'))
+        physical = util.load_file(
+            os.path.join(sys_path, 'queue/hw_sector_size'))
 
-    return (int(info[parent]['LOG-SEC']), int(info[parent]['PHY-SEC']))
+    LOG.debug('get_blockdev_sector_size: (log=%s, phys=%s)', logical, physical)
+    return (int(logical), int(physical))
 
 
 def get_volume_uuid(path):
@@ -670,6 +696,21 @@ def disk_to_byid_path(kname):
     return mapping.get(dev_path(kname))
 
 
+def get_device_mapper_links(devpath, first=False):
+    """ Return the best devlink to device at devpath. """
+    info = udevadm_info(devpath)
+    if 'DEVLINKS' not in info:
+        raise ValueError('Device %s does not have device symlinks' % devpath)
+    devlinks = [devlink for devlink in sorted(info['DEVLINKS']) if devlink]
+    if not devlinks:
+        raise ValueError('Unexpected DEVLINKS list contained empty values')
+
+    if first:
+        return devlinks[0]
+
+    return devlinks
+
+
 def lookup_disk(serial):
     """
     Search for a disk by its serial number using /dev/disk/by-id/
@@ -689,11 +730,44 @@ def lookup_disk(serial):
     # will be the partitions on the disk. Then use os.path.realpath to
     # determine the path to the block device in /dev/
     disks.sort(key=lambda x: len(x))
+    LOG.debug('lookup_disks found: %s', disks)
     path = os.path.realpath("/dev/disk/by-id/%s" % disks[0])
+    LOG.debug('lookup_disks realpath(%s)=%s', disks[0], path)
+    if multipath.is_mpath_device(path):
+        LOG.debug('Detected multipath device, finding a members')
+        info = udevadm_info(path)
+        mpath_members = sorted(multipath.find_mpath_members(info['DM_NAME']))
+        LOG.debug('mpath members: %s', mpath_members)
+        if len(mpath_members):
+            path = mpath_members[0]
 
     if not os.path.exists(path):
         raise ValueError("path '%s' to block device for disk with serial '%s' \
             does not exist" % (path, serial_udev))
+    return path
+
+
+def lookup_dasd(bus_id):
+    """
+    Search for a dasd by its bus_id.
+
+    :param bus_id: s390x ccw bus_id 0.0.NNNN specifying the dasd
+    :returns: dasd kernel device path (/dev/dasda)
+    """
+
+    LOG.info('Processing ccw bus_id %s', bus_id)
+    sys_ccw_dev = '/sys/bus/ccw/devices/%s/block' % bus_id
+    if not os.path.exists(sys_ccw_dev):
+        raise ValueError('Failed to find a block device at %s' % sys_ccw_dev)
+
+    dasds = os.listdir(sys_ccw_dev)
+    if not dasds or len(dasds) < 1:
+        raise ValueError("no dasd with device_id '%s' found" % bus_id)
+
+    path = '/dev/%s' % dasds[0]
+    if not os.path.exists(path):
+        raise ValueError("path '%s' to block device for dasd with bus_id '%s' \
+            does not exist" % (path, bus_id))
     return path
 
 
@@ -809,6 +883,15 @@ def is_zfs_member(device):
     return False
 
 
+def is_online(device):
+    """  check if device is online """
+    sys_path = sys_block_path(device)
+    device_size = util.load_file(
+        os.path.join(sys_path, 'size'))
+    # a block device should have non-zero size to be usable
+    return int(device_size) > 0
+
+
 @contextmanager
 def exclusive_open(path, exclusive=True):
     """
@@ -883,7 +966,7 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024, exclusive=True):
                 fp.write(pbuf)
 
 
-def quick_zero(path, partitions=True, exclusive=True):
+def quick_zero(path, partitions=True, exclusive=True, strict=False):
     """
     zero 1M at front, 1M at end, and 1M at front
     if this is a block device and partitions is true, then
@@ -907,11 +990,11 @@ def quick_zero(path, partitions=True, exclusive=True):
     for (pt, kname, ptnum) in pt_names:
         LOG.debug('Wiping path: dev:%s kname:%s partnum:%s',
                   pt, kname, ptnum)
-        quick_zero(pt, partitions=False)
+        quick_zero(pt, partitions=False, strict=strict)
 
     LOG.debug("wiping 1M on %s at offsets %s", path, offsets)
     return zero_file_at_offsets(path, offsets, buflen=buflen, count=count,
-                                exclusive=exclusive)
+                                exclusive=exclusive, strict=strict)
 
 
 def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False,
@@ -966,7 +1049,7 @@ def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False,
                     fp.write(buf)
 
 
-def wipe_volume(path, mode="superblock", exclusive=True):
+def wipe_volume(path, mode="superblock", exclusive=True, strict=False):
     """wipe a volume/block device
 
     :param path: a path to a block device
@@ -979,6 +1062,7 @@ def wipe_volume(path, mode="superblock", exclusive=True):
                     volume and beginning and end of any partitions that are
                     known to be on this device.
     :param exclusive: boolean to control how path is opened
+    :param strict: boolean to control when to raise errors on write failures
     """
     if mode == "pvremove":
         # We need to use --force --force in case it's already in a volgroup and
@@ -996,9 +1080,9 @@ def wipe_volume(path, mode="superblock", exclusive=True):
         with open("/dev/urandom", "rb") as reader:
             wipe_file(path, reader=reader.read, exclusive=exclusive)
     elif mode == "superblock":
-        quick_zero(path, partitions=False, exclusive=exclusive)
+        quick_zero(path, partitions=False, exclusive=exclusive, strict=strict)
     elif mode == "superblock-recursive":
-        quick_zero(path, partitions=True, exclusive=exclusive)
+        quick_zero(path, partitions=True, exclusive=exclusive, strict=strict)
     else:
         raise ValueError("wipe mode %s not supported" % mode)
 
@@ -1015,5 +1099,30 @@ def get_supported_filesystems():
 
     return [l.split('\t')[1].strip()
             for l in util.load_file(proc_fs).splitlines()]
+
+
+def discover():
+    try:
+        LOG.debug('Importing probert prober')
+        from probert import prober
+    except Exception:
+        LOG.error('Failed to import probert, discover disabled')
+        return {}
+
+    probe = prober.Prober()
+    LOG.debug('Probing system for storage devices')
+    probe.probe_storage()
+    probe_data = probe.get_results()
+    if 'storage' not in probe_data:
+        raise ValueError('Probing storage failed')
+
+    LOG.debug('Extracting storage config from discovered devices')
+    try:
+        return storage_config.extract_storage_config(probe_data.get('storage'))
+    except ImportError as e:
+        LOG.exception(e)
+
+    return {}
+
 
 # vi: ts=4 expandtab syntax=python

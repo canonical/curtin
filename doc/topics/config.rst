@@ -207,6 +207,27 @@ update the NVRAM settings to preserve the system configuration.
 Users may want to force NVRAM to be updated such that the next boot
 of the system will boot from the installed device.
 
+**probe_additional_os**: *<boolean: default False>*
+
+This setting controls grub's os-prober functionality and Curtin will
+disable this feature by default to prevent grub from searching for other
+operating systems and adding them to the grub menu.
+
+When False, curtin writes "GRUB_DISABLE_OS_PROBER=true" to target system in
+/etc/default/grub.d/50-curtin-settings.cfg.  If True, curtin won't modify the
+grub configuration value in the target system.
+
+**terminal**: *<['unmodified', 'console', ...]>*
+
+Configure target system grub option GRUB_TERMINAL ``terminal`` value
+which is written to /etc/default/grub.d/50-curtin-settings.cfg.  Curtin
+does not attempt to validate this string, grub2 has many values that
+it accepts and the list is platform dependent.  If ``terminal`` is
+not provided, Curtin will set the value to 'console'.  If the ``terminal``
+value is 'unmodified' then Curtin will not set any value at all and will
+use Grub defaults.
+
+
 **Example**::
 
   grub:
@@ -214,6 +235,35 @@ of the system will boot from the installed device.
        - /dev/sda1
      replace_linux_default: False
      update_nvram: True
+     terminal: serial
+
+**Default terminal value, GRUB_TERMINAL=console**::
+
+  grub:
+     install_devices:
+       - /dev/sda1
+
+**Don't set GRUB_TERMINAL in target**::
+
+  grub:
+     install_devices:
+       - /dev/sda1
+     terminal: unmodified
+
+**Allow grub to probe for additional OSes**::
+
+  grub:
+    install_devices:
+      - /dev/sda1
+     probe_additional_os: True
+
+**Avoid writting any settings to etc/default/grub.d/50-curtin-settings.cfg**::
+
+  grub:
+    install_devices:
+      - /dev/sda1
+     probe_additional_os: True
+     terminal: unmodified
 
 
 http_proxy

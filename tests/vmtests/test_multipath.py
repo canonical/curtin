@@ -64,15 +64,6 @@ class Centos70TestMultipathBasic(centos_relbase.centos70_xenial,
     __test__ = True
 
 
-class TrustyTestMultipathBasic(relbase.trusty, TestMultipathBasicAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestMultipathBasic(relbase.trusty_hwe_x,
-                                   TestMultipathBasicAbs):
-    __test__ = True
-
-
 class XenialGATestMultipathBasic(relbase.xenial_ga, TestMultipathBasicAbs):
     __test__ = True
 
@@ -93,7 +84,13 @@ class CosmicTestMultipathBasic(relbase.cosmic, TestMultipathBasicAbs):
     __test__ = True
 
 
+@VMBaseClass.skip_by_date("1813228", fixby="2019-06-02", install=False)
 class DiscoTestMultipathBasic(relbase.disco, TestMultipathBasicAbs):
+    __test__ = True
+
+
+@VMBaseClass.skip_by_date("1813228", fixby="2019-06-02", install=False)
+class EoanTestMultipathBasic(relbase.eoan, TestMultipathBasicAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

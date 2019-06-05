@@ -35,6 +35,9 @@ unittest:
 	nosetests $(coverageopts) $(noseopts) tests/unittests
 	nosetests3 $(coverageopts) $(noseopts) tests/unittests
 
+schema-validate:
+	@$(CWD)/tools/schema-validate-storage
+
 docs: check-doc-deps
 	make -C doc html
 
@@ -45,7 +48,7 @@ check-doc-deps:
 		  echo sudo apt-get install -qy $$pkgs ; exit 1; }
 
 # By default don't sync images when running all tests.
-vmtest:
+vmtest: schema-validate
 	nosetests3 $(noseopts) tests/vmtests
 
 vmtest-deps:

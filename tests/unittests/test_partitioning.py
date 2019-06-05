@@ -34,8 +34,13 @@ class TestBlock(CiTestCase):
                       "volgroup1", "name": "lvm_p2"},
         "bcache0": {"id": "bcache0", "type": "bcache", "backing_device":
                     "lvm_part1", "cache_device": "sdc1"},
-        "crypt0": {"id": "crypt0", "type": "dm_crypt", "volume": "sdb1", "key":
-                   "testkey"},
+        "crypt0_key": {"id": "crypt0", "type": "dm_crypt", "volume": "sdb1",
+                       "key": "testkey"},
+        "crypt0_keyfile": {"id": "crypt0", "type": "dm_crypt", "volume":
+                           "sdb1", "keyfile": "testkeyfile"},
+        "crypt0_key_keyfile": {"id": "crypt0", "type": "dm_crypt", "volume":
+                               "sdb1", "key": "testkey", "keyfile":
+                               "testkeyfile"},
         "raiddev": {"id": "raiddev", "type": "raid", "raidlevel": 1, "devices":
                     ["sdx1", "sdy1"], "spare_devices": ["sdz1"],
                     "name": "md0"},
@@ -247,9 +252,9 @@ class TestBlock(CiTestCase):
     @mock.patch("curtin.commands.block_meta.tempfile")
     @mock.patch.object(builtins, "open")
     @mock.patch("curtin.commands.block_meta.util")
-    def test_dm_crypt_handler(self, mock_util, mock_open, mock_tempfile,
-                              mock_get_path_to_storage_volume, mock_remove,
-                              mock_block):
+    def test_dm_crypt_handler_key(self, mock_util, mock_open, mock_tempfile,
+                                  mock_get_path_to_storage_volume, mock_remove,
+                                  mock_block):
         tmp_path = "/tmp/tmpfile1"
         mock_util.load_command_environment.return_value = {"fstab":
                                                            "/tmp/dir/fstab"}
@@ -258,7 +263,7 @@ class TestBlock(CiTestCase):
         mock_block.get_volume_uuid.return_value = "UUID123"
 
         curtin.commands.block_meta.dm_crypt_handler(
-            self.storage_config.get("crypt0"), self.storage_config)
+            self.storage_config.get("crypt0_key"), self.storage_config)
 
         mock_get_path_to_storage_volume.assert_called_with(
             "sdb1", self.storage_config)
@@ -277,6 +282,61 @@ class TestBlock(CiTestCase):
         mock_open.assert_called_with("/tmp/dir/crypttab", "a")
         mock_block.get_volume_uuid.assert_called_with(
             mock_get_path_to_storage_volume.return_value)
+
+    @mock.patch("curtin.commands.block_meta.block")
+    @mock.patch("curtin.commands.block_meta.os.remove")
+    @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
+    @mock.patch("curtin.commands.block_meta.tempfile")
+    @mock.patch.object(builtins, "open")
+    @mock.patch("curtin.commands.block_meta.util")
+    def test_dm_crypt_handler_keyfile(self, mock_util, mock_open,
+                                      mock_tempfile,
+                                      mock_get_path_to_storage_volume,
+                                      mock_remove, mock_block):
+        mock_util.load_command_environment.return_value = {"fstab":
+                                                           "/tmp/dir/fstab"}
+        mock_get_path_to_storage_volume.return_value = "/dev/fake0"
+        mock_block.get_volume_uuid.return_value = "UUID123"
+
+        config = self.storage_config["crypt0_keyfile"]
+        curtin.commands.block_meta.dm_crypt_handler(
+            config, self.storage_config)
+
+        mock_get_path_to_storage_volume.assert_called_with(
+            "sdb1", self.storage_config)
+        self.assertFalse(mock_tempfile.mkstemp.called)
+        calls = mock_util.subp.call_args_list
+        self.assertEqual(
+            mock.call(["cryptsetup", "luksFormat",
+                      mock_get_path_to_storage_volume.return_value,
+                      config['keyfile']]),
+            calls[0])
+        self.assertEqual(
+            mock.call(["cryptsetup", "open", "--type", "luks",
+                      mock_get_path_to_storage_volume.return_value, "crypt0",
+                      "--key-file", config['keyfile']]),
+            calls[1])
+        self.assertFalse(mock_remove.called)
+        mock_remove.assert_not_called()
+        mock_block.get_volume_uuid.assert_called_with(
+            mock_get_path_to_storage_volume.return_value)
+
+    @mock.patch("curtin.commands.block_meta.block")
+    @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
+    @mock.patch("curtin.commands.block_meta.util")
+    def test_dm_crypt_handler_key_and_keyfile(self, mock_util,
+                                              mock_get_path_to_storage_volume,
+                                              mock_block):
+        mock_util.load_command_environment.return_value = {"fstab":
+                                                           "/tmp/dir/fstab"}
+        mock_get_path_to_storage_volume.return_value = "/dev/fake0"
+        mock_block.get_volume_uuid.return_value = "UUID123"
+
+        self.assertRaises(
+            ValueError,
+            curtin.commands.block_meta.dm_crypt_handler(
+                self.storage_config.get("crypt0_key_keyfile"),
+                self.storage_config))
 
     @mock.patch("curtin.commands.block_meta.get_path_to_storage_volume")
     @mock.patch.object(builtins, "open")

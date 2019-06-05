@@ -15,13 +15,15 @@ sys.path.insert(1, os.path.realpath(os.path.join(
                                     os.path.dirname(__file__), '..')))
 
 from tests.vmtests import (
-    IMAGE_DIR, IMAGE_SRC_URL, sync_images)
-from tests.vmtests.image_sync import ITEM_NAME_FILTERS
-from tests.vmtests.helpers import (find_arches, find_releases_by_distro)
+    IMAGE_DIR, IMAGE_SRC_URL, sync_images)  # noqa: E402
+from tests.vmtests.image_sync import ITEM_NAME_FILTERS  # noqa: E402
+from tests.vmtests.helpers import (
+    find_arches, find_releases_by_distro)  # noqa: E402
 
 
 def _fmt_list_filter(filter_name, matches):
     return '~'.join((filter_name, '|'.join(matches)))
+
 
 def _jenkins_runner_active():
     return subprocess.call(['pgrep', '-c', 'jenkins-runner'],
@@ -31,7 +33,7 @@ if __name__ == '__main__':
     while _jenkins_runner_active() == 0:
         time_sleep = random.randint(5, 60)
         print("Not syncing while jenkins-runner is running. " +
-               "Sleeping %s seconds." % time_sleep)
+              "Sleeping %s seconds." % time_sleep)
         time.sleep(time_sleep)
 
     if len(sys.argv) > 1 and sys.argv[1] == "--clean":

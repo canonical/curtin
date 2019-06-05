@@ -4,13 +4,13 @@
     Collection of tests for the apt configuration features
 """
 import textwrap
-import yaml
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
 from unittest import SkipTest
 from curtin import util
+from curtin.config import load_config
 
 
 class TestAptSrcAbs(VMBaseClass):
@@ -67,7 +67,7 @@ class TestAptSrcAbs(VMBaseClass):
         # For earlier than xenial 'apt_preserve_sources_list' is expected
         self.assertEqual(
             {'apt': {'preserve_sources_list': True}},
-            yaml.load(self.load_collect_file("curtin-preserve-sources.cfg")))
+            load_config(self.collect_path("curtin-preserve-sources.cfg")))
 
     def test_source_files(self):
         """test_source_files - Check generated .lists for correct content"""

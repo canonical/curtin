@@ -68,14 +68,6 @@ class CentosTestNetworkVlanAbs(TestNetworkVlanAbs):
         pass
 
 
-class TrustyTestNetworkVlan(relbase.trusty, TestNetworkVlanAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestNetworkVlan(relbase.trusty_hwe_x, TestNetworkVlanAbs):
-    __test__ = True
-
-
 class XenialTestNetworkVlan(relbase.xenial, TestNetworkVlanAbs):
     __test__ = True
 
@@ -89,6 +81,10 @@ class CosmicTestNetworkVlan(relbase.cosmic, TestNetworkVlanAbs):
 
 
 class DiscoTestNetworkVlan(relbase.disco, TestNetworkVlanAbs):
+    __test__ = True
+
+
+class EoanTestNetworkVlan(relbase.eoan, TestNetworkVlanAbs):
     __test__ = True
 
 

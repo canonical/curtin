@@ -243,4 +243,8 @@ class CosmicTestBridging(relbase.cosmic, TestBridgeNetworkAbs):
 class DiscoTestBridging(relbase.disco, TestBridgeNetworkAbs):
     __test__ = True
 
+
+class EoanTestBridging(relbase.eoan, TestBridgeNetworkAbs):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python

@@ -45,8 +45,8 @@ def extract_root_tgz_url(url, target):
     # extract a -root.tar.gz url in the 'target' directory
     path = _path_from_file_url(url)
     if path != url or os.path.isfile(path):
-        util.subp(args=['tar', '-C', target] + tar_xattr_opts() +
-                  ['-Sxpzf', path, '--numeric-owner'])
+        util.subp(args=['smtar', '-C', target] + tar_xattr_opts() +
+                  ['-Sxpf', path, '--numeric-owner'])
         return
 
     # Uses smtar to avoid specifying the compression type

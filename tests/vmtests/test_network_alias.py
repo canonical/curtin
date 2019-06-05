@@ -44,29 +44,6 @@ class Centos70TestNetworkAlias(centos_relbase.centos70_xenial,
     __test__ = True
 
 
-class TrustyTestNetworkAlias(relbase.trusty, TestNetworkAliasAbs):
-    __test__ = True
-
-
-class TrustyHWEUTestNetworkAlias(relbase.trusty_hwe_u, TrustyTestNetworkAlias):
-    # Working, off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
-class TrustyHWEVTestNetworkAlias(relbase.trusty_hwe_v, TrustyTestNetworkAlias):
-    # Working, off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
-class TrustyHWEWTestNetworkAlias(relbase.trusty_hwe_w, TrustyTestNetworkAlias):
-    # Working, off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
-class TrustyHWEXTestNetworkAlias(relbase.trusty_hwe_x, TrustyTestNetworkAlias):
-    __test__ = True
-
-
 class XenialTestNetworkAlias(relbase.xenial, TestNetworkAliasAbs):
     __test__ = True
 
@@ -80,6 +57,10 @@ class CosmicTestNetworkAlias(relbase.cosmic, TestNetworkAliasAbs):
 
 
 class DiscoTestNetworkAlias(relbase.disco, TestNetworkAliasAbs):
+    __test__ = True
+
+
+class EoanTestNetworkAlias(relbase.eoan, TestNetworkAliasAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

@@ -45,25 +45,6 @@ class CentosTestNetworkIPV6Abs(TestNetworkIPV6Abs):
         pass
 
 
-class TrustyTestNetworkIPV6(relbase.trusty, TestNetworkIPV6Abs):
-    __test__ = True
-
-
-class TrustyHWEVTestNetworkIPV6(relbase.trusty_hwe_v, TrustyTestNetworkIPV6):
-    # Working, off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
-class TrustyHWEWTestNetworkIPV6(relbase.trusty_hwe_w, TrustyTestNetworkIPV6):
-    # Working, off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
-class TrustyHWEXTestNetworkIPV6(relbase.trusty_hwe_x, TrustyTestNetworkIPV6):
-    # Working, off by default to safe test suite runtime, covered by bonding
-    __test__ = False
-
-
 class XenialTestNetworkIPV6(relbase.xenial, TestNetworkIPV6Abs):
     __test__ = True
 
@@ -77,6 +58,10 @@ class CosmicTestNetworkIPV6(relbase.cosmic, TestNetworkIPV6Abs):
 
 
 class DiscoTestNetworkIPV6(relbase.disco, TestNetworkIPV6Abs):
+    __test__ = True
+
+
+class EoanTestNetworkIPV6(relbase.eoan, TestNetworkIPV6Abs):
     __test__ = True
 
 

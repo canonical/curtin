@@ -5,16 +5,17 @@ Test templating of custom sources list
 """
 import logging
 import os
+import yaml
 
 import mock
 from mock import call
 import textwrap
-import yaml
 
 from curtin import distro
 from curtin import paths
 from curtin import util
 from curtin.commands import apt_config
+from curtin.config import load_config
 from .helpers import CiTestCase
 
 LOG = logging.getLogger(__name__)
@@ -233,7 +234,7 @@ class TestApplyPreserveSourcesList(CiTestCase):
         m_get_pkg_ver.assert_has_calls(
             [mock.call('cloud-init', target=self.tmp)])
         self.assertEqual(
-            yaml.load(util.load_file(self.tmp_cfg)),
+            load_config(self.tmp_cfg),
             {'apt_preserve_sources_list': True})
 
     @mock.patch("curtin.commands.apt_config.distro.get_package_version")
@@ -253,7 +254,7 @@ class TestApplyPreserveSourcesList(CiTestCase):
         m_get_pkg_ver.assert_has_calls(
             [mock.call('cloud-init', target=self.tmp)])
         self.assertEqual(
-            yaml.load(util.load_file(self.tmp_cfg)),
+            load_config(self.tmp_cfg),
             {'apt': {'preserve_sources_list': True}})
 
 # vi: ts=4 expandtab syntax=python

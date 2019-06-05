@@ -1,0 +1,14 @@
+sb.magic		ok
+sb.first_sector		8 [match]
+sb.csum			B92908820E241EDD [match]
+sb.version		1 [backing device]
+
+dev.label		(empty)
+dev.uuid		f36394c0-3cc0-4423-8d6f-ffac130f171a
+dev.sectors_per_block	1
+dev.sectors_per_bucket	1024
+dev.data.first_sector	16
+dev.data.cache_mode	1 [writeback]
+dev.data.cache_state	2 [dirty]
+
+cset.uuid		01da3829-ea92-4600-bd40-7f95974f3087

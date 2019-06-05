@@ -14,15 +14,6 @@ class CentosTestNetworkIPV6VlanAbs(CentosTestNetworkVlanAbs):
     conf_file = "examples/tests/vlan_network_ipv6.yaml"
 
 
-class TrustyTestNetworkIPV6Vlan(relbase.trusty, TestNetworkIPV6VlanAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestNetworkIPV6Vlan(relbase.trusty_hwe_x,
-                                    TestNetworkIPV6VlanAbs):
-    __test__ = True
-
-
 class XenialTestNetworkIPV6Vlan(relbase.xenial, TestNetworkIPV6VlanAbs):
     __test__ = True
 
@@ -36,6 +27,10 @@ class CosmicTestNetworkIPV6Vlan(relbase.cosmic, TestNetworkIPV6VlanAbs):
 
 
 class DiscoTestNetworkIPV6Vlan(relbase.disco, TestNetworkIPV6VlanAbs):
+    __test__ = True
+
+
+class EoanTestNetworkIPV6Vlan(relbase.eoan, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 

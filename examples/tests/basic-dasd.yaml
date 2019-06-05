@@ -1,0 +1,59 @@
+showtrace: true
+storage:
+    version: 1
+    config:
+      - id: dasd_spare
+        type: dasd
+        device_id: 0.0.1520
+        blocksize: 4096
+        mode: full
+        disk_layout: cdl
+      - id: sda
+        type: disk
+        wipe: superblock
+        ptable: msdos
+        model: QEMU HARDDISK
+        serial: disk-a
+        grub_device: true
+      - id: dasdb
+        type: disk
+        wipe: superblock
+        ptable: msdos
+        serial: 0X1520
+        wipe: superblock
+      - id: sda-part1
+        type: partition
+        device: sda
+        name: sda-part1
+        number: 1
+        size: 3G
+        uuid: ecc1ec63-e8d2-4719-8cee-dd7f4e2b390e
+        wipe: superblock
+      - id: dasdb-part1
+        type: partition
+        device: dasdb
+        name: dasdb-part1
+        number: 1
+        size: 3G
+        uuid: c74f4d17-7054-4536-938d-3fe7847e2692
+        wipe: superblock
+      - id: sda-part1_format
+        type: format
+        fstype: ext4
+        label: root
+        uuid: f793b242-e812-44df-91c0-c245a55ffd59
+        volume: sda-part1
+      - id: dasdb-part1_format
+        type: format
+        fstype: ext4
+        label: dasd_spare
+        uuid: 7ac5930d-1798-460e-ba58-ccf536acc6be
+        volume: dasdb-part1
+      - id: sda-part1_mount
+        type: mount
+        path: /
+        device: sda-part1_format
+      - id: dasdb-part1_mount
+        type: mount
+        path: /mnt
+        device: dasdb-part1_format

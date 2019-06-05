@@ -48,14 +48,6 @@ class TestBcacheBasic(VMBaseClass):
         self.check_file_regex("proc_cmdline", r"root=UUID=")
 
 
-class TrustyBcacheBasic(relbase.trusty, TestBcacheBasic):
-    __test__ = False  # covered by test_raid5_bcache
-
-
-class TrustyHWEXBcacheBasic(relbase.trusty_hwe_x, TestBcacheBasic):
-    __test__ = False  # covered by test_raid5_bcache
-
-
 class XenialGABcacheBasic(relbase.xenial_ga, TestBcacheBasic):
     __test__ = True
 
@@ -77,6 +69,10 @@ class CosmicBcacheBasic(relbase.cosmic, TestBcacheBasic):
 
 
 class DiscoBcacheBasic(relbase.disco, TestBcacheBasic):
+    __test__ = True
+
+
+class EoancacheBasic(relbase.eoan, TestBcacheBasic):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

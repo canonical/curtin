@@ -34,6 +34,7 @@ class TestMdadmAbs(VMBaseClass):
 class TestMdadmBcacheAbs(TestMdadmAbs):
     conf_file = "examples/tests/raid5bcache.yaml"
     disk_to_check = [('md0', 0), ('sda', 2)]
+    dirty_disks = True
 
     extra_collect_scripts = (
         TestMdadmAbs.extra_collect_scripts +
@@ -66,26 +67,6 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         self.check_file_regex("bcache_cache_mode", r"\[writeback\]")
 
 
-class TrustyTestRaid5Bcache(relbase.trusty, TestMdadmBcacheAbs):
-    __test__ = True
-
-
-class TrustyHWEUTestRaid5Bcache(relbase.trusty_hwe_u, TrustyTestRaid5Bcache):
-    __test__ = False
-
-
-class TrustyHWEVTestRaid5Bcache(relbase.trusty_hwe_v, TrustyTestRaid5Bcache):
-    __test__ = False
-
-
-class TrustyHWEWTestRaid5Bcache(relbase.trusty_hwe_w, TrustyTestRaid5Bcache):
-    __test__ = False
-
-
-class TrustyHWEXTestRaid5Bcache(relbase.trusty_hwe_x, TrustyTestRaid5Bcache):
-    __test__ = True
-
-
 class XenialGATestRaid5Bcache(relbase.xenial_ga, TestMdadmBcacheAbs):
     __test__ = True
 
@@ -107,6 +88,10 @@ class CosmicTestRaid5Bcache(relbase.cosmic, TestMdadmBcacheAbs):
 
 
 class DiscoTestRaid5Bcache(relbase.disco, TestMdadmBcacheAbs):
+    __test__ = True
+
+
+class EoanTestRaid5Bcache(relbase.eoan, TestMdadmBcacheAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python
