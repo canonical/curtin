@@ -1,6 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from . import VMBaseClass
+from . import VMBaseClass, SkipTest
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 
@@ -21,8 +21,22 @@ class TestSimple(VMBaseClass):
         """)]
 
 
-class Centos70TestSimple(centos_relbase.centos70_xenial, TestSimple):
+class Centos70XenialTestSimple(centos_relbase.centos70_xenial, TestSimple):
     __test__ = True
+
+
+class Centos70BionicTestSimple(centos_relbase.centos70_bionic, TestSimple):
+    __test__ = True
+
+
+class Centos66XenialTestSimple(centos_relbase.centos66_xenial, TestSimple):
+    __test__ = True
+
+
+class Centos66BionicTestSimple(centos_relbase.centos66_bionic, TestSimple):
+    __test__ = False
+    # LP: #1775424
+    raise SkipTest('Centos66 fails with Bionic Ephemeral ext4 features')
 
 
 class XenialTestSimple(relbase.xenial, TestSimple):

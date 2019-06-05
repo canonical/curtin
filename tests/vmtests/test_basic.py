@@ -37,6 +37,10 @@ class TestBasicAbs(VMBaseClass):
         f="btrfs_uuid_diskc"
         if command -v btrfs-debug-tree >/dev/null; then
            btrfs-debug-tree -r $dev | awk '/^uuid/ {print $2}' | grep "-"
+           # btrfs-debug-tree fails in centos66, use btrfs-show instead
+           if [ "$?" != "0" ]; then
+               btrfs-show $dev | awk '/uuid/ {print $4}'
+           fi
         else
            btrfs inspect-internal dump-super $dev |
                awk '/^dev_item.fsid/ {print $2}'
@@ -46,7 +50,8 @@ class TestBasicAbs(VMBaseClass):
         diskd=$(readlink -f /dev/disk/by-id/*-disk-d)
         cmp --bytes=8388608 /dev/zero ${diskd}2; echo "$?" > cmp_prep.out
         # extract partition info
-        udevadm info --export --query=property ${diskd}2 | cat >udev_info.out
+        udevadm info --export --query=property --name=${diskd}2 |
+            cat >udev_info.out
 
         exit 0
         """)]
@@ -81,6 +86,9 @@ class TestBasicAbs(VMBaseClass):
         return kname
 
     def _test_ptable(self, blkid_output, expected):
+        if self.target_release == "centos66":
+            raise SkipTest("No PTTYPE blkid output on Centos66")
+
         if not blkid_output:
             raise RuntimeError('_test_ptable requires blkid output file')
 
@@ -138,6 +146,8 @@ class TestBasicAbs(VMBaseClass):
         self.assertEqual(kname_uuid, btrfs_uuid)
 
     def _test_partition_is_prep(self, info_file):
+        if self.target_release == "centos66":
+            raise SkipTest("Cannot detect PReP partitions in Centos66")
         udev_info = self.load_collect_file(info_file).rstrip()
         entry_type = ''
         for line in udev_info.splitlines():
@@ -231,6 +241,24 @@ class CentosTestBasicAbs(TestBasicAbs):
 
 class Centos70XenialTestBasic(centos_relbase.centos70_xenial,
                               CentosTestBasicAbs):
+    __test__ = True
+
+
+class Centos70BionicTestBasic(centos_relbase.centos70_bionic,
+                              CentosTestBasicAbs):
+    __test__ = True
+
+
+class Centos66XenialTestBasic(centos_relbase.centos66_xenial,
+                              CentosTestBasicAbs):
+    __test__ = True
+
+
+class Centos66BionicTestBasic(centos_relbase.centos66_bionic,
+                              CentosTestBasicAbs):
+    # Centos66 cannot handle ext4 defaults in Bionic (64bit,meta_csum)
+    # this conf defaults to ext3
+    conf_file = "examples/tests/centos6_basic.yaml"
     __test__ = True
 
 
