@@ -49,26 +49,6 @@ class CentosTestNetworkBondingAbs(TestNetworkBondingAbs):
         pass
 
 
-class TrustyTestBonding(relbase.trusty, TestNetworkBondingAbs):
-    __test__ = False
-
-
-class TrustyHWEVTestBonding(relbase.trusty_hwe_v, TrustyTestBonding):
-    # Working, but off by default to save test suite runtime
-    # oldest/newest HWE-* covered above/below
-    __test__ = False
-
-
-class TrustyHWEWTestBonding(relbase.trusty_hwe_w, TrustyTestBonding):
-    # Working, but off by default to save test suite runtime
-    # oldest/newest HWE-* covered above/below
-    __test__ = False
-
-
-class TrustyHWEXTestBonding(relbase.trusty_hwe_x, TrustyTestBonding):
-    __test__ = True
-
-
 class XenialTestBonding(relbase.xenial, TestNetworkBondingAbs):
     __test__ = True
 
@@ -82,6 +62,10 @@ class CosmicTestBonding(relbase.cosmic, TestNetworkBondingAbs):
 
 
 class DiscoTestBonding(relbase.disco, TestNetworkBondingAbs):
+    __test__ = True
+
+
+class EoanTestBonding(relbase.eoan, TestNetworkBondingAbs):
     __test__ = True
 
 

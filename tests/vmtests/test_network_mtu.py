@@ -161,51 +161,27 @@ class CentosTestNetworkMtuAbs(TestNetworkMtuAbs):
         pass
 
 
-class TrustyTestNetworkMtu(relbase.trusty, TestNetworkMtuAbs):
-    __test__ = True
-
-    # FIXME: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=809714
-    # fixed in newer ifupdown than is in trusty
-    def test_ipv6_mtu_smaller_than_ipv4_non_default(self):
-        # trusty ifupdown uses device mtu to change v6 mtu
-        pass
-
-
-class TrustyHWEUTestNetworkMtu(relbase.trusty_hwe_u, TrustyTestNetworkMtu):
-    # unsupported kernel, 2016-08
-    __test__ = False
-
-
-class TrustyHWEVTestNetworkMtu(relbase.trusty_hwe_v, TrustyTestNetworkMtu):
-    # unsupported kernel, 2016-08
-    __test__ = False
-
-
-class TrustyHWEWTestNetworkMtu(relbase.trusty_hwe_w, TrustyTestNetworkMtu):
-    # unsupported kernel, 2016-08
-    __test__ = False
-
-
-class TrustyHWEXTestNetworkMtu(relbase.trusty_hwe_x, TrustyTestNetworkMtu):
-    __test__ = True
-
-
 class TestNetworkMtu(relbase.xenial, TestNetworkMtuAbs):
     __test__ = True
 
 
-@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2019-05-02")
+@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2019-10-02")
 class BionicTestNetworkMtu(relbase.bionic, TestNetworkMtuAbs):
     __test__ = True
 
 
-@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2019-05-02")
+@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2019-10-02")
 class CosmicTestNetworkMtu(relbase.cosmic, TestNetworkMtuAbs):
     __test__ = True
 
 
-@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2019-05-02")
+@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2019-10-02")
 class DiscoTestNetworkMtu(relbase.disco, TestNetworkMtuAbs):
+    __test__ = True
+
+
+@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2019-10-02")
+class EoanTestNetworkMtu(relbase.eoan, TestNetworkMtuAbs):
     __test__ = True
 
 

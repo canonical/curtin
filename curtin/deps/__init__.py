@@ -16,6 +16,7 @@ from curtin.distro import install_packages, lsb_release
 REQUIRED_IMPORTS = [
     # import string to execute, python2 package, python3 package
     ('import yaml', 'python-yaml', 'python3-yaml'),
+    ('import pyudev', 'python-pyudev', 'python3-pyudev'),
 ]
 
 REQUIRED_EXECUTABLES = [

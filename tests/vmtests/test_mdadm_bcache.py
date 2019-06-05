@@ -40,6 +40,7 @@ class TestMdadmAbs(VMBaseClass):
 
 
 class TestMdadmBcacheAbs(TestMdadmAbs):
+    dirty_disks = True
     arch_skip = [
         "s390x",  # lp:1565029
         ]
@@ -126,15 +127,6 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
         self.test_dname(disk_to_check=self.bcache_dnames)
 
 
-@VMBaseClass.skip_by_date("1754581", fixby="2020-01-22", install=False)
-class TrustyTestMdadmBcache(relbase.trusty, TestMdadmBcacheAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestMdadmBcache(relbase.trusty_hwe_x, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 class XenialGATestMdadmBcache(relbase.xenial_ga, TestMdadmBcacheAbs):
     __test__ = True
 
@@ -159,6 +151,10 @@ class DiscoTestMdadmBcache(relbase.disco, TestMdadmBcacheAbs):
     __test__ = True
 
 
+class EoanTestMdadmBcache(relbase.eoan, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot.yaml"
@@ -172,15 +168,6 @@ class TestMirrorbootAbs(TestMdadmAbs):
 
 class Centos70TestMirrorboot(centos_relbase.centos70_xenial,
                              TestMirrorbootAbs):
-    __test__ = True
-
-
-class TrustyTestMirrorboot(relbase.trusty, TestMirrorbootAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestMirrorboot(relbase.trusty_hwe_x, TrustyTestMirrorboot):
-    # This tests kernel upgrade in target
     __test__ = True
 
 
@@ -208,6 +195,10 @@ class DiscoTestMirrorboot(relbase.disco, TestMirrorbootAbs):
     __test__ = True
 
 
+class EoanTestMirrorboot(relbase.eoan, TestMirrorbootAbs):
+    __test__ = True
+
+
 class TestMirrorbootPartitionsAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot-msdos-partition.yaml"
@@ -220,17 +211,6 @@ class TestMirrorbootPartitionsAbs(TestMdadmAbs):
 
 class Centos70TestMirrorbootPartitions(centos_relbase.centos70_xenial,
                                        TestMirrorbootPartitionsAbs):
-    __test__ = True
-
-
-class TrustyTestMirrorbootPartitions(relbase.trusty,
-                                     TestMirrorbootPartitionsAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestMirrorbootPartitions(relbase.trusty_hwe_x,
-                                         TrustyTestMirrorbootPartitions):
-    # This tests kernel upgrade in target
     __test__ = True
 
 
@@ -264,6 +244,11 @@ class DiscoTestMirrorbootPartitions(relbase.disco,
     __test__ = True
 
 
+class EoanTestMirrorbootPartitions(relbase.eoan,
+                                   TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
 class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot-uefi.yaml"
@@ -281,11 +266,6 @@ class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
 
 class Centos70TestMirrorbootPartitionsUEFI(centos_relbase.centos70_xenial,
                                            TestMirrorbootPartitionsUEFIAbs):
-    __test__ = True
-
-
-class TrustyTestMirrorbootPartitionsUEFI(relbase.trusty,
-                                         TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
 
 
@@ -319,6 +299,11 @@ class DiscoTestMirrorbootPartitionsUEFI(relbase.disco,
     __test__ = True
 
 
+class EoanTestMirrorbootPartitionsUEFI(relbase.eoan,
+                                       TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
@@ -332,15 +317,6 @@ class TestRaid5bootAbs(TestMdadmAbs):
 
 
 class Centos70TestRaid5boot(centos_relbase.centos70_xenial, TestRaid5bootAbs):
-    __test__ = True
-
-
-class TrustyTestRaid5boot(relbase.trusty, TestRaid5bootAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestRaid5boot(relbase.trusty_hwe_x, TrustyTestRaid5boot):
-    # This tests kernel upgrade in target
     __test__ = True
 
 
@@ -365,6 +341,10 @@ class CosmicTestRaid5boot(relbase.cosmic, TestRaid5bootAbs):
 
 
 class DiscoTestRaid5boot(relbase.disco, TestRaid5bootAbs):
+    __test__ = True
+
+
+class EoanTestRaid5boot(relbase.eoan, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -400,14 +380,6 @@ class Centos70TestRaid6boot(centos_relbase.centos70_xenial, TestRaid6bootAbs):
     __test__ = True
 
 
-class TrustyTestRaid6boot(relbase.trusty, TestRaid6bootAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestRaid6boot(relbase.trusty_hwe_x, TrustyTestRaid6boot):
-    __test__ = True
-
-
 class XenialGATestRaid6boot(relbase.xenial_ga, TestRaid6bootAbs):
     __test__ = True
 
@@ -432,6 +404,10 @@ class DiscoTestRaid6boot(relbase.disco, TestRaid6bootAbs):
     __test__ = True
 
 
+class EoanTestRaid6boot(relbase.eoan, TestRaid6bootAbs):
+    __test__ = True
+
+
 class TestRaid10bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid10boot.yaml"
@@ -447,14 +423,6 @@ class TestRaid10bootAbs(TestMdadmAbs):
 
 class Centos70TestRaid10boot(centos_relbase.centos70_xenial,
                              TestRaid10bootAbs):
-    __test__ = True
-
-
-class TrustyTestRaid10boot(relbase.trusty, TestRaid10bootAbs):
-    __test__ = True
-
-
-class TrustyHWEXTestRaid10boot(relbase.trusty_hwe_x, TrustyTestRaid10boot):
     __test__ = True
 
 
@@ -479,6 +447,10 @@ class CosmicTestRaid10boot(relbase.cosmic, TestRaid10bootAbs):
 
 
 class DiscoTestRaid10boot(relbase.disco, TestRaid10bootAbs):
+    __test__ = True
+
+
+class EoanTestRaid10boot(relbase.eoan, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -558,14 +530,6 @@ class TestAllindataAbs(TestMdadmAbs):
         self.check_file_regex("xfs_info", r"^meta-data=/dev/mapper/dmcrypt0")
 
 
-class TrustyTestAllindata(relbase.trusty, TestAllindataAbs):
-    __test__ = False  # luks=no does not disable mounting of device
-
-
-class TrustyHWEXTestAllindata(relbase.trusty_hwe_x, TrustyTestAllindata):
-    __test__ = False  # lukes=no does not disable mounting of device
-
-
 class XenialGATestAllindata(relbase.xenial_ga, TestAllindataAbs):
     __test__ = True
 
@@ -587,6 +551,10 @@ class CosmicTestAllindata(relbase.cosmic, TestAllindataAbs):
 
 
 class DiscoTestAllindata(relbase.disco, TestAllindataAbs):
+    __test__ = True
+
+
+class EoanTestAllindata(relbase.eoan, TestAllindataAbs):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

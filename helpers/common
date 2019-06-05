@@ -779,13 +779,6 @@ install_grub() {
     esac
     debug 1 "carryover command line params '$newargs'"
 
-    case $os_family in
-       debian)
-        : > "$mp/$mygrub_cfg" ||
-            { error "Failed to write '$mygrub_cfg'"; return 1; }
-        ;;
-    esac
-
     if [ "${REPLACE_GRUB_LINUX_DEFAULT:-1}" != "0" ]; then
         apply_grub_cmdline_linux_default "$mp" "$newargs" || {
             error "Failed to apply grub cmdline."
@@ -793,11 +786,19 @@ install_grub() {
         }
     fi
 
-    {
-        echo "# Curtin disable grub os prober that might find other OS installs."
-        echo "GRUB_DISABLE_OS_PROBER=true"
-        echo "GRUB_TERMINAL=console"
-    } >> "$mp/$mygrub_cfg"
+    if [ "${DISABLE_OS_PROBER:-1}" == "1" ]; then
+        {
+            echo "# Curtin disable grub os prober that might find other OS installs."
+            echo "GRUB_DISABLE_OS_PROBER=true"
+        } >> "$mp/$mygrub_cfg"
+    fi
+
+    if [ -n "${GRUB_TERMINAL}" ]; then
+        {
+            echo "# Curtin configured GRUB_TERMINAL value"
+            echo "GRUB_TERMINAL=${GRUB_TERMINAL}"
+        } >> "$mp/$mygrub_cfg"
+    fi
 
     local short="" bd="" grubdev grubdevs_new=""
     grubdevs_new=()

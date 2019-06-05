@@ -1,0 +1,18 @@
+sb.magic		ok
+sb.first_sector		8 [match]
+sb.csum			2F8BB7E8DC53E0B6 [match]
+sb.version		3 [cache device]
+
+dev.label		(empty)
+dev.uuid		ff51a56d-eddc-41b3-867d-8744277c5281
+dev.sectors_per_block	1
+dev.sectors_per_bucket	1024
+dev.cache.first_sector	1024
+dev.cache.cache_sectors	234372096
+dev.cache.total_sectors	234373120
+dev.cache.ordered	yes
+dev.cache.discard	no
+dev.cache.pos		0
+dev.cache.replacement	0 [lru]
+
+cset.uuid		01da3829-ea92-4600-bd40-7f95974f3087

@@ -49,7 +49,7 @@ storage:
         device: sda2_home
       - id: sparedisk_id
         type: disk
-        wwn: '0x080258d13ea95ae5'
+        wwn: '0x2222222222222222'
         name: sparedisk
         wipe: superblock
       - id: sparedisk_fat_fmt_id

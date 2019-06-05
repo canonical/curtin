@@ -75,6 +75,14 @@ enabled=1
 enabled_metadata=1
 """
 
+KERNEL_IMG_CONF_TEMPLATE = """# Kernel image management overrides
+# See kernel-img.conf(5) for details
+do_symlinks = yes
+do_bootloader = {bootloader}
+do_initrd = yes
+link_in_boot = {inboot}
+"""
+
 
 def do_apt_config(cfg, target):
     cfg = apt_config.translate_old_apt_features(cfg)
@@ -141,6 +149,99 @@ def run_zipl(cfg, target):
         in_chroot.subp(['zipl'])
 
 
+def chzdev_persist_active_online(cfg, target):
+    """Use chzdev to export active|online zdevices into target."""
+
+    if platform.machine() != 's390x':
+        return
+
+    LOG.info('Persisting zdevice configuration in target')
+    target_etc = paths.target_path(target, 'etc')
+    (chzdev_conf, _) = chzdev_export(active=True, online=True)
+    chzdev_persistent = chzdev_prepare_for_import(chzdev_conf)
+    chzdev_import(data=chzdev_persistent,
+                  persistent=True, noroot=True, base={'/etc': target_etc})
+
+
+def chzdev_export(active=True, online=True, persistent=False,
+                  export_file=None):
+    """Use chzdev to export zdevice configuration."""
+    if not export_file:
+        # write to stdout
+        export_file = "-"
+
+    cmd = ['chzdev', '--quiet']
+    if active:
+        cmd.extend(['--active'])
+    if online:
+        cmd.extend(['--online'])
+    if persistent:
+        cmd.extend(['--persistent'])
+    cmd.extend(['--export', export_file])
+
+    return util.subp(cmd, capture=True)
+
+
+def chzdev_import(data=None, persistent=True, noroot=True, base=None,
+                  import_file=None):
+    """Use chzdev to import zdevice configuration."""
+    if not any([data, import_file]):
+        raise ValueError('Must provide data or input_file value.')
+
+    if all([data, import_file]):
+        raise ValueError('Cannot provide both data and input_file value.')
+
+    if not import_file:
+        import_file = "-"
+
+    cmd = ['chzdev', '--quiet']
+    if persistent:
+        cmd.extend(['--persistent'])
+    if noroot:
+        cmd.extend(['--no-root-update'])
+    if base:
+        if type(base) == dict:
+            cmd.extend(
+                ['--base'] + ["%s=%s" % (k, v) for k, v in base.items()])
+        else:
+            cmd.extend(['--base', base])
+
+    if data:
+        data = data.encode()
+
+    cmd.extend(['--import', import_file])
+    return util.subp(cmd, data=data, capture=True)
+
+
+def chzdev_prepare_for_import(chzdev_conf):
+    """ Transform chzdev --export output into an importable form by
+    replacing 'active' with 'persistent' and dropping any options
+    set to 'n/a' which chzdev --import cannot handle.
+
+    :param chzdev_conf: string output from calling chzdev --export
+    :returns: string of transformed configuration
+    """
+    if not chzdev_conf or not isinstance(chzdev_conf, util.string_types):
+        raise ValueError("Input value invalid: '%s'" % chzdev_conf)
+
+    # transform [active] -> [persistent] and drop .*=n/a\n
+    transform = re.compile(r'^\[active|^.*=n/a\n', re.MULTILINE)
+
+    def replacements(match):
+        if '[active' in match:
+            return '[persistent'
+        if '=n/a' in match:
+            return ''
+
+    # Note, we add a trailing newline match the final .*=n/a\n and trim
+    # any trailing newlines after transforming
+    if '=n/a' in chzdev_conf:
+        chzdev_conf += '\n'
+
+    return transform.sub(lambda match: replacements(match.group(0)),
+                         chzdev_conf).strip()
+
+
 def get_flash_kernel_pkgs(arch=None, uefi=None):
     if arch is None:
         arch = util.get_architecture()
@@ -158,6 +259,22 @@ def get_flash_kernel_pkgs(arch=None, uefi=None):
     except util.ProcessExecutionError:
         # Ignore errors
         return None
+
+
+def setup_kernel_img_conf(target):
+    kernel_img_conf_vars = {
+        'bootloader': 'no',
+        'inboot': 'yes',
+    }
+    # see zipl-installer
+    if platform.machine() == 's390x':
+        kernel_img_conf_vars['bootloader'] = 'yes'
+    # see base-installer/debian/templates-arch
+    if util.get_platform_arch() in ['amd64', 'i386']:
+        kernel_img_conf_vars['inboot'] = 'no'
+    kernel_img_conf_path = os.path.sep.join([target, '/etc/kernel-img.conf'])
+    content = KERNEL_IMG_CONF_TEMPLATE.format(**kernel_img_conf_vars)
+    util.write_file(kernel_img_conf_path, content=content)
 
 
 def install_kernel(cfg, target):
@@ -367,6 +484,20 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
     else:
         env['REPLACE_GRUB_LINUX_DEFAULT'] = "1"
 
+    probe_os = grubcfg.get('probe_additional_os', False)
+    if probe_os not in (False, True):
+        raise ValueError("Unexpected value %s for 'probe_additional_os'. "
+                         "Value must be boolean" % probe_os)
+    env['DISABLE_OS_PROBER'] = "0" if probe_os else "1"
+
+    # if terminal is present in config, but unset, then don't
+    grub_terminal = grubcfg.get('terminal', 'console')
+    if not isinstance(grub_terminal, str):
+        raise ValueError("Unexpected value %s for 'terminal'. "
+                         "Value must be a string" % grub_terminal)
+    if not grub_terminal.lower() == "unmodified":
+        env['GRUB_TERMINAL'] = grub_terminal
+
     if instdevs:
         instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
     else:
@@ -377,7 +508,11 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
 
     LOG.debug("installing grub to %s [replace_default=%s]",
               instdevs, replace_default)
-    with util.ChrootableTarget(target):
+
+    # rhel lvm uses /run during grub configuration
+    chroot_mounts = (["/dev", "/proc", "/sys", "/run"]
+                     if osfamily == DISTROS.redhat else None)
+    with util.ChrootableTarget(target, mounts=chroot_mounts):
         args = ['install-grub']
         if util.is_uefi_bootable():
             args.append("--uefi")
@@ -449,6 +584,14 @@ def copy_mdadm_conf(mdadm_conf, target):
     LOG.info("copying mdadm.conf into target")
     shutil.copy(mdadm_conf, os.path.sep.join([target,
                 'etc/mdadm/mdadm.conf']))
+
+
+def copy_zpool_cache(zpool_cache, target):
+    if not zpool_cache:
+        LOG.warn("zpool_cache path must be specified, not copying")
+        return
+
+    shutil.copy(zpool_cache, os.path.sep.join([target, 'etc/zfs']))
 
 
 def apply_networking(target, state):
@@ -894,8 +1037,10 @@ def configure_mdadm(cfg, state_etcd, target, osfamily=DISTROS.debian):
                                                   conf_map[osfamily]))
     if osfamily == DISTROS.debian:
         # as per LP: #964052 reconfigure mdadm
-        util.subp(['dpkg-reconfigure', '--frontend=noninteractive', 'mdadm'],
-                  data=None, target=target)
+        with util.ChrootableTarget(target) as in_chroot:
+            in_chroot.subp(
+                ['dpkg-reconfigure', '--frontend=noninteractive', 'mdadm'],
+                data=None, target=target)
 
 
 def handle_cloudconfig(cfg, base_dir=None):
@@ -1156,9 +1301,11 @@ def builtin_curthooks(cfg, target, state):
                 reporting_enabled=True, level="INFO",
                 description="installing kernel"):
             setup_zipl(cfg, target)
+            setup_kernel_img_conf(target)
             install_kernel(cfg, target)
             run_zipl(cfg, target)
             restore_dist_interfaces(cfg, target)
+            chzdev_persist_active_online(cfg, target)
 
     with events.ReportEventStack(
             name=stack_prefix + '/setting-up-swap',
@@ -1227,6 +1374,11 @@ def builtin_curthooks(cfg, target, state):
         handle_pollinate_user_agent(cfg, target)
 
     if osfamily == DISTROS.debian:
+        # check for the zpool cache file and copy to target if present
+        zpool_cache = '/etc/zfs/zpool.cache'
+        if os.path.exists(zpool_cache):
+            copy_zpool_cache(zpool_cache, target)
+
         # If a crypttab file was created by block_meta than it needs to be
         # copied onto the target system, and update_initramfs() needs to be
         # run, so that the cryptsetup hooks are properly configured on the

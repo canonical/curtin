@@ -339,15 +339,20 @@ class TestZpoolHandler(CiTestCase):
                                                            m_zfs):
         storage_config = OrderedDict()
         info = {'type': 'zpool', 'id': 'myrootfs_zfsroot_pool',
-                'pool': 'rpool', 'vdevs': ['disk1p1'], 'mountpoint': '/'}
+                'pool': 'rpool', 'vdevs': ['disk1p1'], 'mountpoint': '/',
+                'pool_properties': {'ashift': 42},
+                'fs_properties': {'compression': 'lz4'}}
         disk_path = "/wark/mydev"
         m_getpath.return_value = disk_path
         m_block.disk_to_byid_path.return_value = None
         m_util.load_command_environment.return_value = {'target': 'mytarget'}
         block_meta.zpool_handler(info, storage_config)
-        m_zfs.zpool_create.assert_called_with(info['pool'], [disk_path],
-                                              mountpoint="/",
-                                              altroot="mytarget")
+        m_zfs.zpool_create.assert_called_with(
+            info['pool'], [disk_path],
+            mountpoint="/",
+            altroot="mytarget",
+            pool_properties={'ashift': 42},
+            zfs_properties={'compression': 'lz4'})
 
 
 class TestZFSRootUpdates(CiTestCase):
@@ -769,5 +774,143 @@ class TestFstabData(CiTestCase):
                 target=mp)
         # dir should be created before call to subp failed.
         self.assertTrue(os.path.isdir(mp))
+
+
+class TestDasdHandler(CiTestCase):
+
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.devname')
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.format')
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.needs_formatting')
+    @patch('curtin.commands.block_meta.block')
+    @patch('curtin.commands.block_meta.util')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_dasd_handler_calls_format(self, m_getpath, m_util, m_block,
+                                       m_dasd_needf, m_dasd_format,
+                                       m_dasd_devname):
+        """verify dasd.format is called on disk that differs from config."""
+        storage_config = OrderedDict()
+        info = {'type': 'dasd', 'id': 'dasd_rootfs', 'device_id': '0.1.24fe',
+                'blocksize': 4096, 'disk_layout': 'cdl', 'mode': 'quick',
+                'label': 'cloudimg-rootfs'}
+
+        disk_path = "/wark/dasda"
+        m_dasd_devname.return_value = disk_path
+        m_getpath.return_value = disk_path
+        m_dasd_needf.side_effect = [True, False]
+        block_meta.dasd_handler(info, storage_config)
+        m_dasd_format.assert_called_with(blksize=4096, layout='cdl',
+                                         set_label='cloudimg-rootfs',
+                                         mode='quick')
+
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.format')
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.needs_formatting')
+    @patch('curtin.commands.block_meta.block')
+    @patch('curtin.commands.block_meta.util')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_dasd_handler_skips_format_if_not_needed(self, m_getpath, m_util,
+                                                     m_block, m_dasd_needf,
+                                                     m_dasd_format):
+        """verify dasd.format is NOT called if disk matches config."""
+        storage_config = OrderedDict()
+        info = {'type': 'dasd', 'id': 'dasd_rootfs', 'device_id': '0.1.24fe',
+                'blocksize': 4096, 'disk_layout': 'cdl', 'mode': 'quick',
+                'label': 'cloudimg-rootfs'}
+
+        disk_path = "/wark/dasda"
+        m_getpath.return_value = disk_path
+        m_dasd_needf.side_effect = [False, False]
+        block_meta.dasd_handler(info, storage_config)
+        self.assertEqual(0, m_dasd_format.call_count)
+
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.format')
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.needs_formatting')
+    @patch('curtin.commands.block_meta.block')
+    @patch('curtin.commands.block_meta.util')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_dasd_handler_preserves_existing_dasd(self, m_getpath, m_util,
+                                                  m_block, m_dasd_needf,
+                                                  m_dasd_format):
+        """verify dasd.format is skipped if preserve is True."""
+        storage_config = OrderedDict()
+        info = {'type': 'dasd', 'id': 'dasd_rootfs', 'device_id': '0.1.24fe',
+                'blocksize': 4096, 'disk_layout': 'cdl', 'mode': 'quick',
+                'label': 'cloudimg-rootfs', 'preserve': True}
+
+        disk_path = "/wark/dasda"
+        m_getpath.return_value = disk_path
+        m_dasd_needf.side_effect = [False, False]
+        block_meta.dasd_handler(info, storage_config)
+        self.assertEqual(1, m_dasd_needf.call_count)
+        self.assertEqual(0, m_dasd_format.call_count)
+
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.format')
+    @patch('curtin.commands.block_meta.dasd.DasdDevice.needs_formatting')
+    @patch('curtin.commands.block_meta.block')
+    @patch('curtin.commands.block_meta.util')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_dasd_handler_raise_on_preserve_needs_formatting(self, m_getpath,
+                                                             m_util, m_block,
+                                                             m_dasd_needf,
+                                                             m_dasd_format):
+        """ValueError raised if preserve is True but dasd needs formatting."""
+        storage_config = OrderedDict()
+        info = {'type': 'dasd', 'id': 'dasd_rootfs', 'device_id': '0.1.24fe',
+                'blocksize': 4096, 'disk_layout': 'cdl', 'mode': 'quick',
+                'label': 'cloudimg-rootfs', 'preserve': True}
+
+        disk_path = "/wark/dasda"
+        m_getpath.return_value = disk_path
+        m_dasd_needf.side_effect = [True, False]
+        with self.assertRaises(ValueError):
+            block_meta.dasd_handler(info, storage_config)
+        self.assertEqual(1, m_dasd_needf.call_count)
+        self.assertEqual(0, m_dasd_format.call_count)
+
+
+class TestLvmPartitionHandler(CiTestCase):
+
+    def setUp(self):
+        super(TestLvmPartitionHandler, self).setUp()
+
+        self.add_patch('curtin.commands.block_meta.lvm', 'm_lvm')
+        self.add_patch('curtin.commands.block_meta.distro', 'm_distro')
+        self.add_patch('curtin.commands.block_meta.util.subp', 'm_subp')
+        self.add_patch('curtin.commands.block_meta.make_dname', 'm_dname')
+
+        self.target = "my_target"
+        self.config = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {'id': 'lvm-volgroup1',
+                     'type': 'lvm_volgroup',
+                     'name': 'vg1',
+                     'devices': ['wda2', 'wdb2']},
+                    {'id': 'lvm-part1',
+                     'type': 'lvm_partition',
+                     'name': 'lv1',
+                     'size': 1073741824,
+                     'volgroup': 'lvm-volgroup1'},
+                ],
+            }
+        }
+        self.storage_config = (
+            block_meta.extract_storage_ordered_dict(self.config))
+
+    def test_lvmpart_accepts_size_as_integer(self):
+        """ lvm_partition_handler accepts size as integer. """
+
+        self.m_distro.lsb_release.return_value = {'codename': 'bionic'}
+        lv_size = self.storage_config['lvm-part1']['size']
+        self.assertEqual(int, type(lv_size))
+        expected_size_str = "%sB" % util.human2bytes(lv_size)
+
+        block_meta.lvm_partition_handler(self.storage_config['lvm-part1'],
+                                         self.storage_config)
+
+        call_name, call_args, call_kwargs = self.m_subp.mock_calls[0]
+        # call_args is an n-tuple of arg list
+        self.assertIn(expected_size_str, call_args[0])
+
 
 # vi: ts=4 expandtab syntax=python

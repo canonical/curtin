@@ -16,6 +16,7 @@ DEPS=(
   make
   net-tools
   python3
+  python3-jsonschema
   python3-nose
   python3-simplestreams
   python3-yaml

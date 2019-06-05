@@ -124,8 +124,6 @@ class TestFsBattery(VMBaseClass):
 
         # tools for these types do not support providing uuid.
         no_uuid_types = ['vfat', 'jfs', 'fat16', 'fat32', 'ntfs']
-        if self.release in ('trusty'):
-            no_uuid_types += ['btrfs', 'xfs']
 
         for k, v in results.items():
             if v['type'] in no_uuid_types:
@@ -217,14 +215,6 @@ class Centos70XenialTestFsBattery(centos_relbase.centos70_xenial,
         self.assertEqual(sorted(expected), sorted(results))
 
 
-class TrustyTestFsBattery(relbase.trusty, TestFsBattery):
-    __test__ = True
-
-
-class TrustyHWEXTestFsBattery(relbase.trusty_hwe_x, TestFsBattery):
-    __test__ = True
-
-
 class XenialGATestFsBattery(relbase.xenial_ga, TestFsBattery):
     __test__ = True
 
@@ -246,6 +236,10 @@ class CosmicTestFsBattery(relbase.cosmic, TestFsBattery):
 
 
 class DiscoTestFsBattery(relbase.disco, TestFsBattery):
+    __test__ = True
+
+
+class EoanTestFsBattery(relbase.eoan, TestFsBattery):
     __test__ = True
 
 # vi: ts=4 expandtab syntax=python

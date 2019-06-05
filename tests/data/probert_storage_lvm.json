@@ -1,0 +1,958 @@
+{
+    "storage": {
+        "bcache": {
+            "backing": {},
+            "caching": {}
+        },
+        "blockdev": {
+            "/dev/dm-0": {
+                "DEVLINKS": "/dev/disk/by-id/dm-uuid-LVM-qa6NPTq2eJH8eciholQPb2S7nIqpif8G4pn1OeZEDmUUJXdyFdtoIDyUKjZnzM7N /dev/disk/by-dname/vg1-lv1 /dev/vg1/lv1 /dev/disk/by-id/dm-name-vg1-lv1 /dev/mapper/vg1-lv1 /dev/disk/by-uuid/A212-FC0F",
+                "DEVNAME": "/dev/dm-0",
+                "DEVPATH": "/devices/virtual/block/dm-0",
+                "DEVTYPE": "disk",
+                "DM_ACTIVATION": "1",
+                "DM_LV_NAME": "lv1",
+                "DM_NAME": "vg1-lv1",
+                "DM_SUSPENDED": "0",
+                "DM_UDEV_DISABLE_LIBRARY_FALLBACK_FLAG": "1",
+                "DM_UDEV_PRIMARY_SOURCE_FLAG": "1",
+                "DM_UDEV_RULES": "1",
+                "DM_UDEV_RULES_VSN": "2",
+                "DM_UUID": "LVM-qa6NPTq2eJH8eciholQPb2S7nIqpif8G4pn1OeZEDmUUJXdyFdtoIDyUKjZnzM7N",
+                "DM_VG_NAME": "vg1",
+                "ID_FS_TYPE": "vfat",
+                "ID_FS_USAGE": "filesystem",
+                "ID_FS_UUID": "A212-FC0F",
+                "ID_FS_UUID_ENC": "A212-FC0F",
+                "ID_FS_VERSION": "FAT32",
+                "MAJOR": "253",
+                "MINOR": "0",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "5423306",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "bdi": null,
+                    "capability": "10",
+                    "dev": "253:0",
+                    "discard_alignment": "0",
+                    "ext_range": "1",
+                    "hidden": "0",
+                    "inflight": "       0        0",
+                    "range": "1",
+                    "removable": "0",
+                    "ro": "0",
+                    "size": "1073741824",
+                    "stat": "    2202        0     5298     1036        2        0        2        0        0       52     1036",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=253\nMINOR=0\nDEVNAME=dm-0\nDEVTYPE=disk"
+                },
+                "partitiontable": {
+                    "device": "/dev/dm-0",
+                    "id": "0x00000000",
+                    "label": "dos",
+                    "partitions": [],
+                    "unit": "sectors"
+                }
+            },
+            "/dev/dm-1": {
+                "DEVLINKS": "/dev/disk/by-id/dm-uuid-LVM-qa6NPTq2eJH8eciholQPb2S7nIqpif8GPP1MlIHRV67qQ8HbYqRDtFXrAQbGnP2B /dev/disk/by-id/dm-name-vg1-lv2 /dev/vg1/lv2 /dev/mapper/vg1-lv2 /dev/disk/by-uuid/7df4d22b-8354-48bd-a794-7ccb1b92acef /dev/disk/by-dname/vg1-lv2",
+                "DEVNAME": "/dev/dm-1",
+                "DEVPATH": "/devices/virtual/block/dm-1",
+                "DEVTYPE": "disk",
+                "DM_ACTIVATION": "1",
+                "DM_LV_NAME": "lv2",
+                "DM_NAME": "vg1-lv2",
+                "DM_SUSPENDED": "0",
+                "DM_UDEV_DISABLE_LIBRARY_FALLBACK_FLAG": "1",
+                "DM_UDEV_PRIMARY_SOURCE_FLAG": "1",
+                "DM_UDEV_RULES": "1",
+                "DM_UDEV_RULES_VSN": "2",
+                "DM_UUID": "LVM-qa6NPTq2eJH8eciholQPb2S7nIqpif8GPP1MlIHRV67qQ8HbYqRDtFXrAQbGnP2B",
+                "DM_VG_NAME": "vg1",
+                "ID_FS_TYPE": "ext3",
+                "ID_FS_USAGE": "filesystem",
+                "ID_FS_UUID": "7df4d22b-8354-48bd-a794-7ccb1b92acef",
+                "ID_FS_UUID_ENC": "7df4d22b-8354-48bd-a794-7ccb1b92acef",
+                "ID_FS_VERSION": "1.0",
+                "MAJOR": "253",
+                "MINOR": "1",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "5431569",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "bdi": null,
+                    "capability": "10",
+                    "dev": "253:1",
+                    "discard_alignment": "0",
+                    "ext_range": "1",
+                    "hidden": "0",
+                    "inflight": "       0        0",
+                    "range": "1",
+                    "removable": "0",
+                    "ro": "0",
+                    "size": "4286578688",
+                    "stat": "     181        0     4898       28        1        0        8        0        0       24       28",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=253\nMINOR=1\nDEVNAME=dm-1\nDEVTYPE=disk"
+                }
+            },
+            "/dev/dm-2": {
+                "DEVLINKS": "/dev/disk/by-id/dm-name-ubuntu--vg-my--storage /dev/mapper/ubuntu--vg-my--storage /dev/ubuntu-vg/my-storage /dev/disk/by-id/dm-uuid-LVM-3ELxTUkulIOAIMhfgqGglKTo2yPAcjIREF9M3veu9XDORpQE6ruYaIqeuZETuE1A",
+                "DEVNAME": "/dev/dm-2",
+                "DEVPATH": "/devices/virtual/block/dm-2",
+                "DEVTYPE": "disk",
+                "DM_ACTIVATION": "1",
+                "DM_LV_NAME": "my-storage",
+                "DM_NAME": "ubuntu--vg-my--storage",
+                "DM_SUSPENDED": "0",
+                "DM_UDEV_DISABLE_LIBRARY_FALLBACK_FLAG": "1",
+                "DM_UDEV_PRIMARY_SOURCE_FLAG": "1",
+                "DM_UDEV_RULES": "1",
+                "DM_UDEV_RULES_VSN": "2",
+                "DM_UUID": "LVM-3ELxTUkulIOAIMhfgqGglKTo2yPAcjIREF9M3veu9XDORpQE6ruYaIqeuZETuE1A",
+                "DM_VG_NAME": "ubuntu-vg",
+                "MAJOR": "253",
+                "MINOR": "2",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "5429312",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "bdi": null,
+                    "capability": "10",
+                    "dev": "253:2",
+                    "discard_alignment": "0",
+                    "ext_range": "1",
+                    "hidden": "0",
+                    "inflight": "       0        0",
+                    "range": "1",
+                    "removable": "0",
+                    "ro": "0",
+                    "size": "1073741824",
+                    "stat": "     447        0    19128       96        0        0        0        0        0       60       96",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=253\nMINOR=2\nDEVNAME=dm-2\nDEVTYPE=disk"
+                }
+            },
+            "/dev/fd0": {
+                "DEVNAME": "/dev/fd0",
+                "DEVPATH": "/devices/platform/floppy.0/block/fd0",
+                "DEVTYPE": "disk",
+                "MAJOR": "2",
+                "MINOR": "0",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "1417257",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "bdi": null,
+                    "capability": "11",
+                    "dev": "2:0",
+                    "device": null,
+                    "discard_alignment": "0",
+                    "events": "",
+                    "events_async": "",
+                    "events_poll_msecs": "-1",
+                    "ext_range": "1",
+                    "hidden": "0",
+                    "inflight": "       0        0",
+                    "range": "1",
+                    "removable": "1",
+                    "ro": "0",
+                    "size": "4096",
+                    "stat": "       9        0       72      360        0        0        0        0        0      360      360",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=2\nMINOR=0\nDEVNAME=fd0\nDEVTYPE=disk"
+                }
+            },
+            "/dev/sr0": {
+                "DEVLINKS": "/dev/cdrom /dev/disk/by-id/ata-QEMU_DVD-ROM_QM00003 /dev/disk/by-path/pci-0000:00:01.1-ata-2 /dev/dvd",
+                "DEVNAME": "/dev/sr0",
+                "DEVPATH": "/devices/pci0000:00/0000:00:01.1/ata2/host1/target1:0:0/1:0:0:0/block/sr0",
+                "DEVTYPE": "disk",
+                "ID_ATA": "1",
+                "ID_BUS": "ata",
+                "ID_CDROM": "1",
+                "ID_CDROM_DVD": "1",
+                "ID_CDROM_MRW": "1",
+                "ID_CDROM_MRW_W": "1",
+                "ID_FOR_SEAT": "block-pci-0000_00_01_1-ata-2",
+                "ID_MODEL": "QEMU_DVD-ROM",
+                "ID_MODEL_ENC": "QEMU\\x20DVD-ROM\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20",
+                "ID_PATH": "pci-0000:00:01.1-ata-2",
+                "ID_PATH_TAG": "pci-0000_00_01_1-ata-2",
+                "ID_REVISION": "2.5+",
+                "ID_SERIAL": "QEMU_DVD-ROM_QM00003",
+                "ID_SERIAL_SHORT": "QM00003",
+                "ID_TYPE": "cd",
+                "MAJOR": "11",
+                "MINOR": "0",
+                "SUBSYSTEM": "block",
+                "SYSTEMD_MOUNT_DEVICE_BOUND": "1",
+                "TAGS": ":seat:uaccess:systemd:",
+                "USEC_INITIALIZED": "1401450",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "bdi": null,
+                    "capability": "119",
+                    "dev": "11:0",
+                    "device": null,
+                    "discard_alignment": "0",
+                    "events": "media_change eject_request",
+                    "events_async": "",
+                    "events_poll_msecs": "-1",
+                    "ext_range": "1",
+                    "hidden": "0",
+                    "inflight": "       0        0",
+                    "range": "1",
+                    "removable": "1",
+                    "ro": "0",
+                    "size": "1073741312",
+                    "stat": "       0        0        0        0        0        0        0        0        0        0        0",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=11\nMINOR=0\nDEVNAME=sr0\nDEVTYPE=disk"
+                }
+            },
+            "/dev/vda": {
+                "DEVLINKS": "/dev/disk/by-path/virtio-pci-0000:00:06.0 /dev/disk/by-id/virtio-disk-a /dev/disk/by-dname/main_disk /dev/disk/by-path/pci-0000:00:06.0",
+                "DEVNAME": "/dev/vda",
+                "DEVPATH": "/devices/pci0000:00/0000:00:06.0/virtio3/block/vda",
+                "DEVTYPE": "disk",
+                "ID_PART_TABLE_TYPE": "dos",
+                "ID_PART_TABLE_UUID": "bb85b2f0",
+                "ID_PATH": "pci-0000:00:06.0",
+                "ID_PATH_TAG": "pci-0000_00_06_0",
+                "ID_SERIAL": "disk-a",
+                "MAJOR": "252",
+                "MINOR": "0",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "1427044",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "bdi": null,
+                    "cache_type": "write back",
+                    "capability": "50",
+                    "dev": "252:0",
+                    "device": null,
+                    "discard_alignment": "0",
+                    "ext_range": "256",
+                    "hidden": "0",
+                    "inflight": "       0        0",
+                    "range": "16",
+                    "removable": "0",
+                    "ro": "0",
+                    "serial": "disk-a",
+                    "size": "10737418240",
+                    "stat": "   10678        0   495982     3184    13914    13835  1213706     8308        0     1080     8568",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=252\nMINOR=0\nDEVNAME=vda\nDEVTYPE=disk"
+                },
+                "partitiontable": {
+                    "device": "/dev/vda",
+                    "id": "0xbb85b2f0",
+                    "label": "dos",
+                    "partitions": [
+                        {
+                            "node": "/dev/vda1",
+                            "size": 6291456,
+                            "start": 2048,
+                            "type": "83"
+                        },
+                        {
+                            "node": "/dev/vda2",
+                            "size": 10489856,
+                            "start": 6293504,
+                            "type": "f"
+                        },
+                        {
+                            "node": "/dev/vda5",
+                            "size": 4194304,
+                            "start": 6295552,
+                            "type": "83"
+                        },
+                        {
+                            "node": "/dev/vda6",
+                            "size": 6291456,
+                            "start": 10491904,
+                            "type": "83"
+                        }
+                    ],
+                    "unit": "sectors"
+                }
+            },
+            "/dev/vda1": {
+                "DEVLINKS": "/dev/disk/by-path/virtio-pci-0000:00:06.0-part1 /dev/disk/by-partuuid/bb85b2f0-01 /dev/disk/by-uuid/ceb3667a-0eb1-483a-a4b5-54177dc31efe /dev/disk/by-id/virtio-disk-a-part1 /dev/disk/by-dname/main_disk-part1 /dev/disk/by-path/pci-0000:00:06.0-part1",
+                "DEVNAME": "/dev/vda1",
+                "DEVPATH": "/devices/pci0000:00/0000:00:06.0/virtio3/block/vda/vda1",
+                "DEVTYPE": "partition",
+                "ID_FS_TYPE": "ext4",
+                "ID_FS_USAGE": "filesystem",
+                "ID_FS_UUID": "ceb3667a-0eb1-483a-a4b5-54177dc31efe",
+                "ID_FS_UUID_ENC": "ceb3667a-0eb1-483a-a4b5-54177dc31efe",
+                "ID_FS_VERSION": "1.0",
+                "ID_PART_ENTRY_DISK": "252:0",
+                "ID_PART_ENTRY_NUMBER": "1",
+                "ID_PART_ENTRY_OFFSET": "2048",
+                "ID_PART_ENTRY_SCHEME": "dos",
+                "ID_PART_ENTRY_SIZE": "6291456",
+                "ID_PART_ENTRY_TYPE": "0x83",
+                "ID_PART_ENTRY_UUID": "bb85b2f0-01",
+                "ID_PART_TABLE_TYPE": "dos",
+                "ID_PART_TABLE_UUID": "bb85b2f0",
+                "ID_PATH": "pci-0000:00:06.0",
+                "ID_PATH_TAG": "pci-0000_00_06_0",
+                "ID_SERIAL": "disk-a",
+                "MAJOR": "252",
+                "MINOR": "1",
+                "PARTN": "1",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "1433782",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "dev": "252:1",
+                    "discard_alignment": "0",
+                    "inflight": "       0        0",
+                    "partition": "1",
+                    "ro": "0",
+                    "size": "3221225472",
+                    "start": "2048",
+                    "stat": "    7845        0   478346     2060     9498    13835  1213696     8200        0     1044     7568",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=252\nMINOR=1\nDEVNAME=vda1\nDEVTYPE=partition\nPARTN=1"
+                }
+            },
+            "/dev/vda2": {
+                "DEVLINKS": "/dev/disk/by-path/pci-0000:00:06.0-part2 /dev/disk/by-id/virtio-disk-a-part2 /dev/disk/by-path/virtio-pci-0000:00:06.0-part2 /dev/disk/by-dname/main_disk-part2 /dev/disk/by-partuuid/bb85b2f0-02",
+                "DEVNAME": "/dev/vda2",
+                "DEVPATH": "/devices/pci0000:00/0000:00:06.0/virtio3/block/vda/vda2",
+                "DEVTYPE": "partition",
+                "ID_PART_ENTRY_DISK": "252:0",
+                "ID_PART_ENTRY_NUMBER": "2",
+                "ID_PART_ENTRY_OFFSET": "6293504",
+                "ID_PART_ENTRY_SCHEME": "dos",
+                "ID_PART_ENTRY_SIZE": "10489856",
+                "ID_PART_ENTRY_TYPE": "0xf",
+                "ID_PART_ENTRY_UUID": "bb85b2f0-02",
+                "ID_PART_TABLE_TYPE": "dos",
+                "ID_PART_TABLE_UUID": "bb85b2f0",
+                "ID_PATH": "pci-0000:00:06.0",
+                "ID_PATH_TAG": "pci-0000_00_06_0",
+                "ID_SERIAL": "disk-a",
+                "MAJOR": "252",
+                "MINOR": "2",
+                "PARTN": "2",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "1434094",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "dev": "252:2",
+                    "discard_alignment": "0",
+                    "inflight": "       0        0",
+                    "partition": "2",
+                    "ro": "0",
+                    "size": "1024",
+                    "start": "6293504",
+                    "stat": "      11        0       40        8        0        0        0        0        0        0        0",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=252\nMINOR=2\nDEVNAME=vda2\nDEVTYPE=partition\nPARTN=2"
+                },
+                "partitiontable": {
+                    "device": "/dev/vda2",
+                    "id": "0x00000000",
+                    "label": "dos",
+                    "partitions": [
+                        {
+                            "node": "/dev/vda2p1",
+                            "size": 4194304,
+                            "start": 2048,
+                            "type": "83"
+                        },
+                        {
+                            "node": "/dev/vda2p2",
+                            "size": 6292915,
+                            "start": 4196941,
+                            "type": "5"
+                        }
+                    ],
+                    "unit": "sectors"
+                }
+            },
+            "/dev/vda5": {
+                "DEVLINKS": "/dev/disk/by-path/pci-0000:00:06.0-part5 /dev/disk/by-dname/main_disk-part5 /dev/disk/by-id/virtio-disk-a-part5 /dev/disk/by-partuuid/bb85b2f0-05 /dev/disk/by-path/virtio-pci-0000:00:06.0-part5 /dev/disk/by-id/lvm-pv-uuid-1b3gzu-EW8q-DUnB-4QbY-5Qrl-98B3-cRKl7u",
+                "DEVNAME": "/dev/vda5",
+                "DEVPATH": "/devices/pci0000:00/0000:00:06.0/virtio3/block/vda/vda5",
+                "DEVTYPE": "partition",
+                "ID_FS_TYPE": "LVM2_member",
+                "ID_FS_USAGE": "raid",
+                "ID_FS_UUID": "1b3gzu-EW8q-DUnB-4QbY-5Qrl-98B3-cRKl7u",
+                "ID_FS_UUID_ENC": "1b3gzu-EW8q-DUnB-4QbY-5Qrl-98B3-cRKl7u",
+                "ID_FS_VERSION": "LVM2 001",
+                "ID_MODEL": "LVM PV 1b3gzu-EW8q-DUnB-4QbY-5Qrl-98B3-cRKl7u on /dev/vda5",
+                "ID_PART_ENTRY_DISK": "252:0",
+                "ID_PART_ENTRY_NUMBER": "5",
+                "ID_PART_ENTRY_OFFSET": "6295552",
+                "ID_PART_ENTRY_SCHEME": "dos",
+                "ID_PART_ENTRY_SIZE": "4194304",
+                "ID_PART_ENTRY_TYPE": "0x83",
+                "ID_PART_ENTRY_UUID": "bb85b2f0-05",
+                "ID_PART_TABLE_TYPE": "dos",
+                "ID_PART_TABLE_UUID": "bb85b2f0",
+                "ID_PATH": "pci-0000:00:06.0",
+                "ID_PATH_TAG": "pci-0000_00_06_0",
+                "ID_SERIAL": "disk-a",
+                "MAJOR": "252",
+                "MINOR": "5",
+                "PARTN": "5",
+                "SUBSYSTEM": "block",
+                "SYSTEMD_ALIAS": "/dev/block/252:5",
+                "SYSTEMD_READY": "1",
+                "SYSTEMD_WANTS": "lvm2-pvscan@252:5.service",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "1430659",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "dev": "252:5",
+                    "discard_alignment": "0",
+                    "inflight": "       0        0",
+                    "partition": "5",
+                    "ro": "0",
+                    "size": "2147483648",
+                    "start": "6295552",
+                    "stat": "    2452        0     9090     1060        2        0        2        0        0       20      984",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=252\nMINOR=5\nDEVNAME=vda5\nDEVTYPE=partition\nPARTN=5"
+                }
+            },
+            "/dev/vda6": {
+                "DEVLINKS": "/dev/disk/by-id/lvm-pv-uuid-gL2py7-yJr4-cU6A-XF28-Dre2-4Ph9-Cven77 /dev/disk/by-partuuid/bb85b2f0-06 /dev/disk/by-path/virtio-pci-0000:00:06.0-part6 /dev/disk/by-path/pci-0000:00:06.0-part6 /dev/disk/by-id/virtio-disk-a-part6 /dev/disk/by-dname/main_disk-part6",
+                "DEVNAME": "/dev/vda6",
+                "DEVPATH": "/devices/pci0000:00/0000:00:06.0/virtio3/block/vda/vda6",
+                "DEVTYPE": "partition",
+                "ID_FS_TYPE": "LVM2_member",
+                "ID_FS_USAGE": "raid",
+                "ID_FS_UUID": "gL2py7-yJr4-cU6A-XF28-Dre2-4Ph9-Cven77",
+                "ID_FS_UUID_ENC": "gL2py7-yJr4-cU6A-XF28-Dre2-4Ph9-Cven77",
+                "ID_FS_VERSION": "LVM2 001",
+                "ID_MODEL": "LVM PV gL2py7-yJr4-cU6A-XF28-Dre2-4Ph9-Cven77 on /dev/vda6",
+                "ID_PART_ENTRY_DISK": "252:0",
+                "ID_PART_ENTRY_NUMBER": "6",
+                "ID_PART_ENTRY_OFFSET": "10491904",
+                "ID_PART_ENTRY_SCHEME": "dos",
+                "ID_PART_ENTRY_SIZE": "6291456",
+                "ID_PART_ENTRY_TYPE": "0x83",
+                "ID_PART_ENTRY_UUID": "bb85b2f0-06",
+                "ID_PART_TABLE_TYPE": "dos",
+                "ID_PART_TABLE_UUID": "bb85b2f0",
+                "ID_PATH": "pci-0000:00:06.0",
+                "ID_PATH_TAG": "pci-0000_00_06_0",
+                "ID_SERIAL": "disk-a",
+                "MAJOR": "252",
+                "MINOR": "6",
+                "PARTN": "6",
+                "SUBSYSTEM": "block",
+                "SYSTEMD_ALIAS": "/dev/block/252:6",
+                "SYSTEMD_READY": "1",
+                "SYSTEMD_WANTS": "lvm2-pvscan@252:6.service",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "1429848",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "dev": "252:6",
+                    "discard_alignment": "0",
+                    "inflight": "       0        0",
+                    "partition": "6",
+                    "ro": "0",
+                    "size": "3221225472",
+                    "start": "10491904",
+                    "stat": "     275        0     4242       40        1        0        8        0        0        4        4",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=252\nMINOR=6\nDEVNAME=vda6\nDEVTYPE=partition\nPARTN=6"
+                }
+            },
+            "/dev/vdb": {
+                "DEVLINKS": "/dev/disk/by-path/virtio-pci-0000:00:07.0 /dev/disk/by-id/virtio-output_disk.img /dev/disk/by-path/pci-0000:00:07.0",
+                "DEVNAME": "/dev/vdb",
+                "DEVPATH": "/devices/pci0000:00/0000:00:07.0/virtio4/block/vdb",
+                "DEVTYPE": "disk",
+                "ID_PATH": "pci-0000:00:07.0",
+                "ID_PATH_TAG": "pci-0000_00_07_0",
+                "ID_SERIAL": "output_disk.img",
+                "MAJOR": "252",
+                "MINOR": "16",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "1424877",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "bdi": null,
+                    "cache_type": "write back",
+                    "capability": "50",
+                    "dev": "252:16",
+                    "device": null,
+                    "discard_alignment": "0",
+                    "ext_range": "256",
+                    "hidden": "0",
+                    "inflight": "       0        0",
+                    "range": "16",
+                    "removable": "0",
+                    "ro": "0",
+                    "serial": "output_disk.img",
+                    "size": "10485760",
+                    "stat": "     366        0     7768       64        0        0        0        0        0       12       36",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=252\nMINOR=16\nDEVNAME=vdb\nDEVTYPE=disk"
+                }
+            },
+            "/dev/vdc": {
+                "DEVLINKS": "/dev/disk/by-path/virtio-pci-0000:00:08.0 /dev/disk/by-id/virtio-disk-b /dev/disk/by-path/pci-0000:00:08.0 /dev/disk/by-dname/extra_disk",
+                "DEVNAME": "/dev/vdc",
+                "DEVPATH": "/devices/pci0000:00/0000:00:08.0/virtio5/block/vdc",
+                "DEVTYPE": "disk",
+                "ID_PART_TABLE_TYPE": "dos",
+                "ID_PART_TABLE_UUID": "53311eb4",
+                "ID_PATH": "pci-0000:00:08.0",
+                "ID_PATH_TAG": "pci-0000_00_08_0",
+                "ID_SERIAL": "disk-b",
+                "MAJOR": "252",
+                "MINOR": "32",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "1432223",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "bdi": null,
+                    "cache_type": "write back",
+                    "capability": "50",
+                    "dev": "252:32",
+                    "device": null,
+                    "discard_alignment": "0",
+                    "ext_range": "256",
+                    "hidden": "0",
+                    "inflight": "       0        0",
+                    "range": "16",
+                    "removable": "0",
+                    "ro": "0",
+                    "serial": "disk-b",
+                    "size": "10737418240",
+                    "stat": "     716        0    24784      140        0        0        0        0        0       20       48",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=252\nMINOR=32\nDEVNAME=vdc\nDEVTYPE=disk"
+                },
+                "partitiontable": {
+                    "device": "/dev/vdc",
+                    "id": "0x53311eb4",
+                    "label": "dos",
+                    "partitions": [
+                        {
+                            "node": "/dev/vdc1",
+                            "size": 8388608,
+                            "start": 2048,
+                            "type": "83"
+                        }
+                    ],
+                    "unit": "sectors"
+                }
+            },
+            "/dev/vdc1": {
+                "DEVLINKS": "/dev/disk/by-dname/extra_disk-part1 /dev/disk/by-id/lvm-pv-uuid-UAsKsg-7c02-pvae-RlYJ-oED9-FjMK-y8G9R5 /dev/disk/by-path/virtio-pci-0000:00:08.0-part1 /dev/disk/by-partuuid/53311eb4-01 /dev/disk/by-id/virtio-disk-b-part1 /dev/disk/by-path/pci-0000:00:08.0-part1",
+                "DEVNAME": "/dev/vdc1",
+                "DEVPATH": "/devices/pci0000:00/0000:00:08.0/virtio5/block/vdc/vdc1",
+                "DEVTYPE": "partition",
+                "ID_FS_TYPE": "LVM2_member",
+                "ID_FS_USAGE": "raid",
+                "ID_FS_UUID": "UAsKsg-7c02-pvae-RlYJ-oED9-FjMK-y8G9R5",
+                "ID_FS_UUID_ENC": "UAsKsg-7c02-pvae-RlYJ-oED9-FjMK-y8G9R5",
+                "ID_FS_VERSION": "LVM2 001",
+                "ID_MODEL": "LVM PV UAsKsg-7c02-pvae-RlYJ-oED9-FjMK-y8G9R5 on /dev/vdc1",
+                "ID_PART_ENTRY_DISK": "252:32",
+                "ID_PART_ENTRY_NUMBER": "1",
+                "ID_PART_ENTRY_OFFSET": "2048",
+                "ID_PART_ENTRY_SCHEME": "dos",
+                "ID_PART_ENTRY_SIZE": "8388608",
+                "ID_PART_ENTRY_TYPE": "0x83",
+                "ID_PART_ENTRY_UUID": "53311eb4-01",
+                "ID_PART_TABLE_TYPE": "dos",
+                "ID_PART_TABLE_UUID": "53311eb4",
+                "ID_PATH": "pci-0000:00:08.0",
+                "ID_PATH_TAG": "pci-0000_00_08_0",
+                "ID_SERIAL": "disk-b",
+                "MAJOR": "252",
+                "MINOR": "33",
+                "PARTN": "1",
+                "SUBSYSTEM": "block",
+                "SYSTEMD_ALIAS": "/dev/block/252:33",
+                "SYSTEMD_READY": "1",
+                "SYSTEMD_WANTS": "lvm2-pvscan@252:33.service",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "1434953",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "dev": "252:33",
+                    "discard_alignment": "0",
+                    "inflight": "       0        0",
+                    "partition": "1",
+                    "ro": "0",
+                    "size": "4294967296",
+                    "start": "2048",
+                    "stat": "     623        0    20536      116        0        0        0        0        0       16       36",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=252\nMINOR=33\nDEVNAME=vdc1\nDEVTYPE=partition\nPARTN=1"
+                }
+            },
+            "/dev/vdd": {
+                "DEVLINKS": "/dev/disk/by-path/pci-0000:00:09.0 /dev/disk/by-id/virtio-seed.img /dev/disk/by-path/virtio-pci-0000:00:09.0 /dev/disk/by-uuid/2016-04-12-14-33-01-00 /dev/disk/by-label/cidata",
+                "DEVNAME": "/dev/vdd",
+                "DEVPATH": "/devices/pci0000:00/0000:00:09.0/virtio6/block/vdd",
+                "DEVTYPE": "disk",
+                "ID_FS_APPLICATION_ID": "GENISOIMAGE\\x20ISO\\x209660\\x2fHFS\\x20FILESYSTEM\\x20CREATOR\\x20\\x28C\\x29\\x201993\\x20E.YOUNGDALE\\x20\\x28C\\x29\\x201997-2006\\x20J.PEARSON\\x2fJ.SCHILLING\\x20\\x28C\\x29\\x202006-2007\\x20CDRKIT\\x20TEAM",
+                "ID_FS_LABEL": "cidata",
+                "ID_FS_LABEL_ENC": "cidata",
+                "ID_FS_SYSTEM_ID": "LINUX",
+                "ID_FS_TYPE": "iso9660",
+                "ID_FS_USAGE": "filesystem",
+                "ID_FS_UUID": "2016-04-12-14-33-01-00",
+                "ID_FS_UUID_ENC": "2016-04-12-14-33-01-00",
+                "ID_FS_VERSION": "Joliet Extension",
+                "ID_PATH": "pci-0000:00:09.0",
+                "ID_PATH_TAG": "pci-0000_00_09_0",
+                "ID_SERIAL": "seed.img",
+                "MAJOR": "252",
+                "MINOR": "48",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "1430268",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "bdi": null,
+                    "cache_type": "write back",
+                    "capability": "50",
+                    "dev": "252:48",
+                    "device": null,
+                    "discard_alignment": "0",
+                    "ext_range": "256",
+                    "hidden": "0",
+                    "inflight": "       0        0",
+                    "range": "16",
+                    "removable": "0",
+                    "ro": "1",
+                    "serial": "seed.img",
+                    "size": "374784",
+                    "stat": "     382        0     3004       28        0        0        0        0        0        0        0",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=252\nMINOR=48\nDEVNAME=vdd\nDEVTYPE=disk"
+                }
+            }
+        },
+        "dmcrypt": {},
+        "filesystem": {
+            "/dev/dm-0": {
+                "TYPE": "vfat",
+                "USAGE": "filesystem",
+                "UUID": "A212-FC0F",
+                "UUID_ENC": "A212-FC0F",
+                "VERSION": "FAT32"
+            },
+            "/dev/dm-1": {
+                "TYPE": "ext3",
+                "USAGE": "filesystem",
+                "UUID": "7df4d22b-8354-48bd-a794-7ccb1b92acef",
+                "UUID_ENC": "7df4d22b-8354-48bd-a794-7ccb1b92acef",
+                "VERSION": "1.0"
+            },
+            "/dev/vda1": {
+                "TYPE": "ext4",
+                "USAGE": "filesystem",
+                "UUID": "ceb3667a-0eb1-483a-a4b5-54177dc31efe",
+                "UUID_ENC": "ceb3667a-0eb1-483a-a4b5-54177dc31efe",
+                "VERSION": "1.0"
+            },
+            "/dev/vdd": {
+                "APPLICATION_ID": "GENISOIMAGE\\x20ISO\\x209660\\x2fHFS\\x20FILESYSTEM\\x20CREATOR\\x20\\x28C\\x29\\x201993\\x20E.YOUNGDALE\\x20\\x28C\\x29\\x201997-2006\\x20J.PEARSON\\x2fJ.SCHILLING\\x20\\x28C\\x29\\x202006-2007\\x20CDRKIT\\x20TEAM",
+                "LABEL": "cidata",
+                "LABEL_ENC": "cidata",
+                "SYSTEM_ID": "LINUX",
+                "TYPE": "iso9660",
+                "USAGE": "filesystem",
+                "UUID": "2016-04-12-14-33-01-00",
+                "UUID_ENC": "2016-04-12-14-33-01-00",
+                "VERSION": "Joliet Extension"
+            }
+        },
+        "lvm": {
+            "logical_volumes": {
+                "ubuntu-vg/my-storage": {
+                    "fullname": "ubuntu-vg/my-storage",
+                    "name": "my-storage",
+                    "size": "1073741824B",
+                    "volgroup": "ubuntu-vg"
+                },
+                "vg1/lv1": {
+                    "fullname": "vg1/lv1",
+                    "name": "lv1",
+                    "size": "1073741824B",
+                    "volgroup": "vg1"
+                },
+                "vg1/lv2": {
+                    "fullname": "vg1/lv2",
+                    "name": "lv2",
+                    "size": "4286578688B",
+                    "volgroup": "vg1"
+                }
+            },
+            "physical_volumes": {
+                "ubuntu-vg": [
+                    "/dev/vdc1"
+                ],
+                "vg1": [
+                    "/dev/vda6",
+                    "/dev/vda5"
+                ]
+            },
+            "volume_groups": {
+                "ubuntu-vg": {
+                    "devices": [
+                        "/dev/vdc1"
+                    ],
+                    "name": "ubuntu-vg",
+                    "size": "4290772992B"
+                },
+                "vg1": {
+                    "devices": [
+                        "/dev/vda6",
+                        "/dev/vda5"
+                    ],
+                    "name": "vg1",
+                    "size": "5360320512B"
+                }
+            }
+        },
+        "mount": [
+            {
+                "children": [
+                    {
+                        "children": [
+                            {
+                                "fstype": "securityfs",
+                                "options": "rw,nosuid,nodev,noexec,relatime",
+                                "source": "securityfs",
+                                "target": "/sys/kernel/security"
+                            },
+                            {
+                                "children": [
+                                    {
+                                        "fstype": "cgroup2",
+                                        "options": "rw,nosuid,nodev,noexec,relatime",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/unified"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,xattr,name=systemd",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/systemd"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,net_cls,net_prio",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/net_cls,net_prio"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,memory",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/memory"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,cpu,cpuacct",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/cpu,cpuacct"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,perf_event",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/perf_event"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,hugetlb",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/hugetlb"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,pids",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/pids"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,rdma",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/rdma"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,blkio",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/blkio"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,devices",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/devices"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,freezer",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/freezer"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,cpuset",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/cpuset"
+                                    }
+                                ],
+                                "fstype": "tmpfs",
+                                "options": "ro,nosuid,nodev,noexec,mode=755",
+                                "source": "tmpfs",
+                                "target": "/sys/fs/cgroup"
+                            },
+                            {
+                                "fstype": "pstore",
+                                "options": "rw,nosuid,nodev,noexec,relatime",
+                                "source": "pstore",
+                                "target": "/sys/fs/pstore"
+                            },
+                            {
+                                "fstype": "debugfs",
+                                "options": "rw,relatime",
+                                "source": "debugfs",
+                                "target": "/sys/kernel/debug"
+                            },
+                            {
+                                "fstype": "fusectl",
+                                "options": "rw,relatime",
+                                "source": "fusectl",
+                                "target": "/sys/fs/fuse/connections"
+                            },
+                            {
+                                "fstype": "configfs",
+                                "options": "rw,relatime",
+                                "source": "configfs",
+                                "target": "/sys/kernel/config"
+                            }
+                        ],
+                        "fstype": "sysfs",
+                        "options": "rw,nosuid,nodev,noexec,relatime",
+                        "source": "sysfs",
+                        "target": "/sys"
+                    },
+                    {
+                        "children": [
+                            {
+                                "fstype": "autofs",
+                                "options": "rw,relatime,fd=44,pgrp=1,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=14093",
+                                "source": "systemd-1",
+                                "target": "/proc/sys/fs/binfmt_misc"
+                            }
+                        ],
+                        "fstype": "proc",
+                        "options": "rw,nosuid,nodev,noexec,relatime",
+                        "source": "proc",
+                        "target": "/proc"
+                    },
+                    {
+                        "children": [
+                            {
+                                "fstype": "devpts",
+                                "options": "rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000",
+                                "source": "devpts",
+                                "target": "/dev/pts"
+                            },
+                            {
+                                "fstype": "tmpfs",
+                                "options": "rw,nosuid,nodev",
+                                "source": "tmpfs",
+                                "target": "/dev/shm"
+                            },
+                            {
+                                "fstype": "mqueue",
+                                "options": "rw,relatime",
+                                "source": "mqueue",
+                                "target": "/dev/mqueue"
+                            },
+                            {
+                                "fstype": "hugetlbfs",
+                                "options": "rw,relatime,pagesize=2M",
+                                "source": "hugetlbfs",
+                                "target": "/dev/hugepages"
+                            }
+                        ],
+                        "fstype": "devtmpfs",
+                        "options": "rw,nosuid,relatime,size=473880k,nr_inodes=118470,mode=755",
+                        "source": "udev",
+                        "target": "/dev"
+                    },
+                    {
+                        "children": [
+                            {
+                                "fstype": "tmpfs",
+                                "options": "rw,nosuid,nodev,noexec,relatime,size=5120k",
+                                "source": "tmpfs",
+                                "target": "/run/lock"
+                            },
+                            {
+                                "fstype": "tmpfs",
+                                "options": "rw,nosuid,nodev,relatime,size=100896k,mode=700,uid=1000,gid=1000",
+                                "source": "tmpfs",
+                                "target": "/run/user/1000"
+                            }
+                        ],
+                        "fstype": "tmpfs",
+                        "options": "rw,nosuid,noexec,relatime,size=100900k,mode=755",
+                        "source": "tmpfs",
+                        "target": "/run"
+                    },
+                    {
+                        "fstype": "vfat",
+                        "options": "rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,errors=remount-ro",
+                        "source": "/dev/mapper/vg1-lv1",
+                        "target": "/srv/data"
+                    },
+                    {
+                        "fstype": "ext3",
+                        "options": "rw,relatime,data=ordered",
+                        "source": "/dev/mapper/vg1-lv2",
+                        "target": "/srv/backup"
+                    },
+                    {
+                        "fstype": "fuse.lxcfs",
+                        "options": "rw,nosuid,nodev,relatime,user_id=0,group_id=0,allow_other",
+                        "source": "lxcfs",
+                        "target": "/var/lib/lxcfs"
+                    }
+                ],
+                "fstype": "ext4",
+                "options": "rw,relatime,data=ordered",
+                "source": "/dev/vda1",
+                "target": "/"
+            }
+        ],
+        "multipath": {},
+        "raid": {},
+        "zfs": {
+            "zpools": {}
+        }
+    }
+}

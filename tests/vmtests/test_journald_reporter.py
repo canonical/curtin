@@ -43,4 +43,8 @@ class CosmicTestJournaldReporter(relbase.cosmic, TestJournaldReporter):
 class DiscoTestJournaldReporter(relbase.disco, TestJournaldReporter):
     __test__ = True
 
+
+class EoanTestJournaldReporter(relbase.eoan, TestJournaldReporter):
+    __test__ = True
+
 # vi: ts=4 expandtab syntax=python
