@@ -1,5 +1,6 @@
 curtin (19.1-7-g37a7a0f4-0ubuntu1~16.04.1) xenial; urgency=medium
 
+  * d/control: drop probert dependency for Xenial (LP: #1831757)
   * New upstream snapshot. (LP: #1831772)
     - vmtests: determine block name via dname when verifying volume groups
     - vmtest: add Centos66/Centos70 FromBionic release and re-add tests
