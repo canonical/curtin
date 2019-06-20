@@ -226,7 +226,7 @@ Some environment variables affect the running of vmtest
     Allow environment to override the number of virtual cpus to allocate
     in the target virtual machines.
 
-- ``IMAGE_DIR``: default /srv/images
+- ``CURTIN_VMTEST_IMAGE_DIR``: default /srv/images
 
   Vmtest keeps a mirror of maas ephemeral images in this directory.
 
