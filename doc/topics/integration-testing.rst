@@ -124,12 +124,19 @@ Environment Variables
 
 Some environment variables affect the running of vmtest
 
-- ``apt_proxy``:
+- ``CURTIN_VMTEST_APT_PROXY``:
 
-    test will set apt: { proxy } in the guests to the value of ``apt_proxy``
-    environment variable.  If that is not set it will look at the host's apt
-    config and read ``Acquire::HTTP::Proxy``. This can be prevented by
-    setting ``apt_proxy`` to the empty string; in this case no proxy is used.
+    test will set apt: { proxy } in the guests to the value of
+    ``CURTIN_VMTEST_APT_PROXY`` environment variable.  If that is not
+    set it will look at the host's apt config and read
+    ``Acquire::HTTP::Proxy``. This can be prevented by setting
+    ``CURTIN_VMTEST_APT_PROXY`` to the empty string; in this case no
+    proxy is used.
+
+    .. note::
+      For compatibility, the ``apt_proxy`` environment variable is
+      supported, with the same behaviour as described above.  If both
+      are present, ``CURTIN_VMTEST_APT_PROXY`` will be preferred.
 
 - ``CURTIN_VMTEST_CURTIN_EXE``: Defaults to ''
 

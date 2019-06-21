@@ -1951,14 +1951,16 @@ def check_install_log(install_log, nrchars=200):
 
 def get_apt_proxy():
     # get setting for proxy. should have same result as in tools/launch
-    if 'apt_proxy' in os.environ:
-        apt_proxy = os.environ.get('apt_proxy')
-        if apt_proxy:
-            # 'apt_proxy' set and not empty
-            return apt_proxy
-        else:
-            # 'apt_proxy' is set but empty; do not setup any proxy
-            return None
+    proxy_vars = ['CURTIN_VMTEST_APT_PROXY', 'apt_proxy']
+    for var in proxy_vars:
+        if var in os.environ:
+            apt_proxy = os.environ.get(var)
+            if apt_proxy:
+                # 'apt_proxy' set and not empty
+                return apt_proxy
+            else:
+                # 'apt_proxy' is set but empty; do not setup any proxy
+                return None
 
     get_apt_config = textwrap.dedent("""
         command -v apt-config >/dev/null 2>&1
