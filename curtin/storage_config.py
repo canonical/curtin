@@ -669,8 +669,8 @@ class BlockdevParser(ProbertParser):
             # set wwn, serial, and path
             entry.update(uniq_ids)
 
-            # default to gpt if not present
-            entry['ptable'] = blockdev_data.get('ID_PART_TABLE_TYPE', 'gpt')
+            if 'ID_PART_TABLE_TYPE' in blockdev_data:
+                entry['ptable'] = blockdev_data['ID_PART_TABLE_TYPE']
             return entry
 
         if entry['type'] == 'partition':
