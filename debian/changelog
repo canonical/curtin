@@ -1,3 +1,17 @@
+curtin (19.2-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+    - Release 19.2 (LP: #1836951)
+    - storage_config: a missing ID_PART_TABLE_TYPE key means no ptable
+      [Michael Hudson-Doyle]
+    - vmtests: drop skip_by_date decorators for bug 1813228
+    - block: Add opportunistic zkey encryption if supported
+    - vmtests: add support for CURTIN_VMTEST_APT_PROXY
+    - vmtests: add use of CURTIN_VMTEST_ prefixed envvars to image sync
+    - vmtest: dont raise SkipTest in class definition
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Wed, 17 Jul 2019 15:39:33 -0500
+
 curtin (19.1-7-g37a7a0f4-0ubuntu1) eoan; urgency=medium
 
   * New upstream snapshot.
