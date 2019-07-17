@@ -594,6 +594,28 @@ def copy_zpool_cache(zpool_cache, target):
     shutil.copy(zpool_cache, os.path.sep.join([target, 'etc/zfs']))
 
 
+def copy_zkey_repository(zkey_repository, target,
+                         target_repo='etc/zkey/repository'):
+    if not zkey_repository:
+        LOG.warn("zkey repository path must be specified, not copying")
+        return
+
+    tdir = os.path.sep.join([target, target_repo])
+    if not os.path.exists(tdir):
+        util.ensure_dir(tdir)
+
+    files_copied = []
+    for src in os.listdir(zkey_repository):
+        source_path = os.path.join(zkey_repository, src)
+        target_path = os.path.join(tdir, src)
+        if not os.path.exists(target_path):
+            shutil.copy2(source_path, target_path)
+            files_copied.append(target_path)
+
+    LOG.debug('Imported zkey repo %s with files: %s',
+              zkey_repository, files_copied)
+
+
 def apply_networking(target, state):
     netconf = state.get('network_config')
     interfaces = state.get('interfaces')
@@ -1378,6 +1400,13 @@ def builtin_curthooks(cfg, target, state):
         zpool_cache = '/etc/zfs/zpool.cache'
         if os.path.exists(zpool_cache):
             copy_zpool_cache(zpool_cache, target)
+
+        zkey_repository = '/etc/zkey/repository'
+        zkey_used = os.path.join(os.path.split(state['fstab'])[0], "zkey_used")
+        if all(map(os.path.exists, [zkey_repository, zkey_used])):
+            distro.install_packages(['s390-tools-zkey'], target=target,
+                                    osfamily=osfamily)
+            copy_zkey_repository(zkey_repository, target)
 
         # If a crypttab file was created by block_meta than it needs to be
         # copied onto the target system, and update_initramfs() needs to be

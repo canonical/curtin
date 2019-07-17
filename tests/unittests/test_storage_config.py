@@ -336,6 +336,19 @@ class TestBlockdevParser(CiTestCase):
         self.assertDictEqual(expected_dict,
                              self.bdevp.asdict(blockdev))
 
+    def test_blockdev_asdict_disk_omits_ptable_if_none_present(self):
+        blockdev = self.bdevp.blockdev_data['/dev/sda']
+        del blockdev['ID_PART_TABLE_TYPE']
+        expected_dict = {
+            'id': 'disk-sda',
+            'type': 'disk',
+            'wwn': '0x3001438034e549a0',
+            'serial': '33001438034e549a0',
+            'path': '/dev/sda',
+        }
+        self.assertDictEqual(expected_dict,
+                             self.bdevp.asdict(blockdev))
+
 
 class TestFilesystemParser(CiTestCase):
 
@@ -627,7 +640,6 @@ class TestExtractStorageConfig(CiTestCase):
         self.assertEqual(
             {'storage': {'version': 1,
                          'config': [{'id': 'disk-sda', 'path': '/dev/sda',
-                                     'ptable': 'gpt',
                                      'serial': 'QEMU_HARDDISK_QM00001',
                                      'type': 'disk'}]}}, extracted)
 

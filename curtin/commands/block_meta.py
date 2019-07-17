@@ -1062,6 +1062,7 @@ def dm_crypt_handler(info, storage_config):
         dm_name = info.get('id')
 
     volume_path = get_path_to_storage_volume(volume, storage_config)
+    volume_byid_path = block.disk_to_byid_path(volume_path)
 
     if 'keyfile' in info:
         if 'key' in info:
@@ -1077,16 +1078,45 @@ def dm_crypt_handler(info, storage_config):
     else:
         raise ValueError("encryption key or keyfile must be specified")
 
-    cmd = ["cryptsetup"]
-    if cipher:
-        cmd.extend(["--cipher", cipher])
-    if keysize:
-        cmd.extend(["--key-size", keysize])
-    cmd.extend(["luksFormat", volume_path, keyfile])
+    # if zkey is available, attempt to generate and use it; if it's not
+    # available or fails to setup properly, fallback to normal cryptsetup
+    # passing strict=False downgrades log messages to warnings
+    zkey_used = None
+    if block.zkey_supported(strict=False):
+        volume_name = "%s:%s" % (volume_byid_path, dm_name)
+        LOG.debug('Attempting to setup zkey for %s', volume_name)
+        luks_type = 'luks2'
+        gen_cmd = ['zkey', 'generate', '--xts', '--volume-type', luks_type,
+                   '--sector-size', '4096', '--name', dm_name,
+                   '--description',
+                   "curtin generated zkey for %s" % volume_name,
+                   '--volumes', volume_name]
+        run_cmd = ['zkey', 'cryptsetup', '--run', '--volumes',
+                   volume_byid_path, '--batch-mode', '--key-file', keyfile]
+        try:
+            util.subp(gen_cmd, capture=True)
+            util.subp(run_cmd, capture=True)
+            zkey_used = os.path.join(os.path.split(state['fstab'])[0],
+                                     "zkey_used")
+            # mark in state that we used zkey
+            util.write_file(zkey_used, "1")
+        except util.ProcessExecutionError as e:
+            LOG.exception(e)
+            msg = 'Setup of zkey on %s failed, fallback to cryptsetup.'
+            LOG.error(msg % volume_path)
 
-    util.subp(cmd)
+    if not zkey_used:
+        LOG.debug('Using cryptsetup on %s', volume_path)
+        luks_type = "luks"
+        cmd = ["cryptsetup"]
+        if cipher:
+            cmd.extend(["--cipher", cipher])
+        if keysize:
+            cmd.extend(["--key-size", keysize])
+        cmd.extend(["luksFormat", volume_path, keyfile])
+        util.subp(cmd)
 
-    cmd = ["cryptsetup", "open", "--type", "luks", volume_path, dm_name,
+    cmd = ["cryptsetup", "open", "--type", luks_type, volume_path, dm_name,
            "--key-file", keyfile]
 
     util.subp(cmd)

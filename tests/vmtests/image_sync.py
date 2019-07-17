@@ -25,12 +25,19 @@ except ImportError:
 
 from curtin import util
 
-IMAGE_SRC_URL = os.environ.get(
+
+def environ_get(key, default):
+    """Try CURTIN_VMTEST_<key> envvar then <key> envvar, else use default"""
+    long_key = 'CURTIN_VMTEST_' + key
+    return os.environ.get(long_key, os.environ.get(key, default))
+
+
+IMAGE_SRC_URL = environ_get(
     'IMAGE_SRC_URL',
     "http://maas.ubuntu.com/images/ephemeral-v3/daily/streams/v1/index.sjson")
-IMAGE_DIR = os.environ.get("IMAGE_DIR", "/srv/images")
+IMAGE_DIR = environ_get("IMAGE_DIR", "/srv/images")
 
-KEYRING = os.environ.get(
+KEYRING = environ_get(
     'IMAGE_SRC_KEYRING',
     '/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg')
 ITEM_NAME_FILTERS = \

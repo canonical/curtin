@@ -913,4 +913,178 @@ class TestLvmPartitionHandler(CiTestCase):
         self.assertIn(expected_size_str, call_args[0])
 
 
+class TestDmCryptHandler(CiTestCase):
+
+    def setUp(self):
+        super(TestDmCryptHandler, self).setUp()
+
+        basepath = 'curtin.commands.block_meta.'
+        self.add_patch(basepath + 'get_path_to_storage_volume', 'm_getpath')
+        self.add_patch(basepath + 'util.load_command_environment',
+                       'm_load_env')
+        self.add_patch(basepath + 'util.which', 'm_which')
+        self.add_patch(basepath + 'util.subp', 'm_subp')
+        self.add_patch(basepath + 'block', 'm_block')
+
+        self.target = "my_target"
+        self.keyfile = self.random_string()
+        self.cipher = self.random_string()
+        self.keysize = self.random_string()
+        self.config = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {'grub_device': True,
+                     'id': 'sda',
+                     'name': 'sda',
+                     'path': '/wark/xxx',
+                     'ptable': 'msdos',
+                     'type': 'disk',
+                     'wipe': 'superblock'},
+                    {'device': 'sda',
+                     'id': 'sda-part1',
+                     'name': 'sda-part1',
+                     'number': 1,
+                     'size': '511705088B',
+                     'type': 'partition'},
+                    {'id': 'dmcrypt0',
+                     'type': 'dm_crypt',
+                     'dm_name': 'cryptroot',
+                     'volume': 'sda-part1',
+                     'cipher': self.cipher,
+                     'keysize': self.keysize,
+                     'keyfile': self.keyfile},
+                ],
+            }
+        }
+        self.storage_config = (
+            block_meta.extract_storage_ordered_dict(self.config))
+        self.m_block.zkey_supported.return_value = False
+        self.m_which.return_value = False
+        self.fstab = self.tmp_path('fstab')
+        self.crypttab = os.path.join(os.path.dirname(self.fstab), 'crypttab')
+        self.m_load_env.return_value = {'fstab': self.fstab,
+                                        'target': self.target}
+
+    def test_dm_crypt_calls_cryptsetup(self):
+        """ verify dm_crypt calls (format, open) w/ correct params"""
+        volume_path = self.random_string()
+        self.m_getpath.return_value = volume_path
+
+        info = self.storage_config['dmcrypt0']
+        block_meta.dm_crypt_handler(info, self.storage_config)
+        expected_calls = [
+            call(['cryptsetup', '--cipher', self.cipher,
+                  '--key-size', self.keysize,
+                  'luksFormat', volume_path, self.keyfile]),
+            call(['cryptsetup', 'open', '--type', 'luks', volume_path,
+                  info['dm_name'], '--key-file', self.keyfile])
+        ]
+        self.m_subp.assert_has_calls(expected_calls)
+        self.assertEqual(len(util.load_file(self.crypttab).splitlines()), 1)
+
+    def test_dm_crypt_zkey_cryptsetup(self):
+        """ verify dm_crypt zkey calls generates and run before crypt open."""
+
+        # zkey binary is present
+        self.m_block.zkey_supported.return_value = True
+        self.m_which.return_value = "/my/path/to/zkey"
+        volume_path = self.random_string()
+        self.m_getpath.return_value = volume_path
+        volume_byid = "/dev/disk/by-id/ccw-%s" % volume_path
+        self.m_block.disk_to_byid_path.return_value = volume_byid
+
+        info = self.storage_config['dmcrypt0']
+        volume_name = "%s:%s" % (volume_byid, info['dm_name'])
+        block_meta.dm_crypt_handler(info, self.storage_config)
+        expected_calls = [
+            call(['zkey', 'generate', '--xts', '--volume-type', 'luks2',
+                  '--sector-size', '4096', '--name', info['dm_name'],
+                  '--description',
+                  'curtin generated zkey for %s' % volume_name,
+                  '--volumes', volume_name], capture=True),
+            call(['zkey', 'cryptsetup', '--run', '--volumes', volume_byid,
+                  '--batch-mode', '--key-file', self.keyfile], capture=True),
+            call(['cryptsetup', 'open', '--type', 'luks2', volume_path,
+                  info['dm_name'], '--key-file', self.keyfile]),
+        ]
+        self.m_subp.assert_has_calls(expected_calls)
+        self.assertEqual(len(util.load_file(self.crypttab).splitlines()), 1)
+
+    def test_dm_crypt_zkey_gen_failure_fallback_to_cryptsetup(self):
+        """ verify dm_cyrpt zkey generate err falls back cryptsetup format. """
+
+        # zkey binary is present
+        self.m_block.zkey_supported.return_value = True
+        self.m_which.return_value = "/my/path/to/zkey"
+
+        self.m_subp.side_effect = iter([
+            util.ProcessExecutionError("foobar"),  # zkey generate
+            (0, 0),  # cryptsetup luksFormat
+            (0, 0),  # cryptsetup open
+        ])
+
+        volume_path = self.random_string()
+        self.m_getpath.return_value = volume_path
+        volume_byid = "/dev/disk/by-id/ccw-%s" % volume_path
+        self.m_block.disk_to_byid_path.return_value = volume_byid
+
+        info = self.storage_config['dmcrypt0']
+        volume_name = "%s:%s" % (volume_byid, info['dm_name'])
+        block_meta.dm_crypt_handler(info, self.storage_config)
+        expected_calls = [
+            call(['zkey', 'generate', '--xts', '--volume-type', 'luks2',
+                  '--sector-size', '4096', '--name', info['dm_name'],
+                  '--description',
+                  'curtin generated zkey for %s' % volume_name,
+                  '--volumes', volume_name], capture=True),
+            call(['cryptsetup', '--cipher', self.cipher,
+                  '--key-size', self.keysize,
+                  'luksFormat', volume_path, self.keyfile]),
+            call(['cryptsetup', 'open', '--type', 'luks', volume_path,
+                  info['dm_name'], '--key-file', self.keyfile])
+        ]
+        self.m_subp.assert_has_calls(expected_calls)
+        self.assertEqual(len(util.load_file(self.crypttab).splitlines()), 1)
+
+    def test_dm_crypt_zkey_run_failure_fallback_to_cryptsetup(self):
+        """ verify dm_cyrpt zkey run err falls back on cryptsetup format. """
+
+        # zkey binary is present
+        self.m_block.zkey_supported.return_value = True
+        self.m_which.return_value = "/my/path/to/zkey"
+
+        self.m_subp.side_effect = iter([
+            (0, 0),  # zkey generate
+            util.ProcessExecutionError("foobar"),  # zkey cryptsetup --run
+            (0, 0),  # cryptsetup luksFormat
+            (0, 0),  # cryptsetup open
+        ])
+
+        volume_path = self.random_string()
+        self.m_getpath.return_value = volume_path
+        volume_byid = "/dev/disk/by-id/ccw-%s" % volume_path
+        self.m_block.disk_to_byid_path.return_value = volume_byid
+
+        info = self.storage_config['dmcrypt0']
+        volume_name = "%s:%s" % (volume_byid, info['dm_name'])
+        block_meta.dm_crypt_handler(info, self.storage_config)
+        expected_calls = [
+            call(['zkey', 'generate', '--xts', '--volume-type', 'luks2',
+                  '--sector-size', '4096', '--name', info['dm_name'],
+                  '--description',
+                  'curtin generated zkey for %s' % volume_name,
+                  '--volumes', volume_name], capture=True),
+            call(['zkey', 'cryptsetup', '--run', '--volumes', volume_byid,
+                  '--batch-mode', '--key-file', self.keyfile], capture=True),
+            call(['cryptsetup', '--cipher', self.cipher,
+                  '--key-size', self.keysize,
+                  'luksFormat', volume_path, self.keyfile]),
+            call(['cryptsetup', 'open', '--type', 'luks', volume_path,
+                  info['dm_name'], '--key-file', self.keyfile])
+        ]
+        self.m_subp.assert_has_calls(expected_calls)
+        self.assertEqual(len(util.load_file(self.crypttab).splitlines()), 1)
+
+
 # vi: ts=4 expandtab syntax=python

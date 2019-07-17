@@ -9,7 +9,7 @@ from curtin import distro
 from curtin import util
 from curtin import config
 from curtin.reporter import events
-from .helpers import CiTestCase, dir2dict
+from .helpers import CiTestCase, dir2dict, populate_dir
 
 
 class TestGetFlashKernelPkgs(CiTestCase):
@@ -201,7 +201,8 @@ class TestInstallMissingPkgs(CiTestCase):
         cfg = {}
         curthooks.install_missing_packages(cfg, target=target)
         self.mock_install_packages.assert_called_with(
-            ['s390-tools'], target=target, osfamily=self.distro_family)
+            ['s390-tools'], target=target,
+            osfamily=self.distro_family)
 
     @patch.object(events, 'ReportEventStack')
     def test_install_packages_s390x_has_zipl(self, mock_events):
@@ -1139,5 +1140,26 @@ class TestCurthooksChzdev(CiTestCase):
         """chzdev_prepare transforms active to persistent and removes n/a."""
         output = curthooks.chzdev_prepare_for_import(self.chzdev_export)
         self.assertEqual(self.chzdev_import, output)
+
+
+class TestCurthooksCopyZkey(CiTestCase):
+    def setUp(self):
+        super(TestCurthooksCopyZkey, self).setUp()
+        self.add_patch('curtin.distro.install_packages', 'mock_instpkg')
+
+        self.target = self.tmp_dir()
+        self.host_dir = self.tmp_dir()
+        self.zkey_content = {
+            '/etc/zkey/repository/mykey.info': "key info",
+            '/etc/zkey/repository/mykey.skey': "key data",
+        }
+        self.files = populate_dir(self.host_dir, self.zkey_content)
+        self.host_zkey = os.path.join(self.host_dir, 'etc/zkey/repository')
+
+    def test_copy_zkey_when_dir_present(self):
+        curthooks.copy_zkey_repository(self.host_zkey, self.target)
+        found_files = dir2dict(self.target, prefix=self.target)
+        self.assertEqual(self.zkey_content, found_files)
+
 
 # vi: ts=4 expandtab syntax=python

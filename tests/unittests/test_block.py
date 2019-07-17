@@ -712,4 +712,37 @@ class TestGetSupportedFilesystems(CiTestCase):
         self.assertEqual(0, mock_util.load_file.call_count)
 
 
+class TestZkeySupported(CiTestCase):
+
+    @mock.patch('curtin.block.util')
+    def test_zkey_supported_loads_module(self, m_util):
+        block.zkey_supported()
+        m_util.load_kernel_module.assert_called_with('pkey')
+
+    @mock.patch('curtin.block.util.load_kernel_module')
+    def test_zkey_supported_returns_false_missing_kmod(self, m_kmod):
+        m_kmod.side_effect = (
+            util.ProcessExecutionError(stdout=self.random_string(),
+                                       stderr=self.random_string(),
+                                       exit_code=2))
+        self.assertFalse(block.zkey_supported())
+
+    @mock.patch('curtin.block.util.subp')
+    @mock.patch('curtin.block.util.load_kernel_module')
+    def test_zkey_supported_returns_false_zkey_error(self, m_kmod, m_subp):
+        m_subp.side_effect = (
+            util.ProcessExecutionError(stdout=self.random_string(),
+                                       stderr=self.random_string(),
+                                       exit_code=2))
+        self.assertFalse(block.zkey_supported())
+
+    @mock.patch('curtin.block.tempfile.NamedTemporaryFile')
+    @mock.patch('curtin.block.util')
+    def test_zkey_supported_calls_zkey_generate(self, m_util, m_temp):
+        testname = self.random_string()
+        m_temp.return_value.__enter__.return_value.name = testname
+        block.zkey_supported()
+        m_util.subp.assert_called_with(['zkey', 'generate', testname],
+                                       capture=True)
+
 # vi: ts=4 expandtab syntax=python

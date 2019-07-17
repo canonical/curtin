@@ -668,6 +668,24 @@ def get_proc_mounts():
     return mounts
 
 
+def _get_dev_disk_by_prefix(prefix):
+    """
+    Construct a dictionary mapping devname to disk/<prefix> paths
+
+    :returns: Dictionary populated by examining /dev/disk/<prefix>/*
+
+    {
+     '/dev/sda': '/dev/disk/<prefix>/virtio-aaaa',
+     '/dev/sda1': '/dev/disk/<prefix>/virtio-aaaa-part1',
+    }
+    """
+    return {
+        os.path.realpath(bypfx): bypfx
+        for bypfx in [os.path.join(prefix, path)
+                      for path in os.listdir(prefix)]
+    }
+
+
 def get_dev_disk_byid():
     """
     Construct a dictionary mapping devname to disk/by-id paths
@@ -679,12 +697,7 @@ def get_dev_disk_byid():
      '/dev/sda1': '/dev/disk/by-id/virtio-aaaa-part1',
     }
     """
-
-    prefix = '/dev/disk/by-id'
-    return {
-        os.path.realpath(byid): byid
-        for byid in [os.path.join(prefix, path) for path in os.listdir(prefix)]
-    }
+    return _get_dev_disk_by_prefix('/dev/disk/by-id')
 
 
 def disk_to_byid_path(kname):
@@ -693,6 +706,15 @@ def disk_to_byid_path(kname):
     """
 
     mapping = get_dev_disk_byid()
+    return mapping.get(dev_path(kname))
+
+
+def disk_to_bypath_path(kname):
+    """"
+    Return a /dev/disk/by-path path to kname if present.
+    """
+
+    mapping = _get_dev_disk_by_prefix('/dev/disk/by-path')
     return mapping.get(dev_path(kname))
 
 
@@ -890,6 +912,28 @@ def is_online(device):
         os.path.join(sys_path, 'size'))
     # a block device should have non-zero size to be usable
     return int(device_size) > 0
+
+
+def zkey_supported(strict=True):
+    """ Return True if zkey cmd present and can generate keys, else False."""
+    LOG.debug('Checking if zkey encryption is supported...')
+    try:
+        util.load_kernel_module('pkey')
+    except util.ProcessExecutionError as err:
+        msg = "Failed to load 'pkey' kernel module"
+        LOG.error(msg + ": %s" % err) if strict else LOG.warning(msg)
+        return False
+
+    try:
+        with tempfile.NamedTemporaryFile() as tf:
+            util.subp(['zkey', 'generate', tf.name], capture=True)
+            LOG.debug('zkey encryption supported.')
+            return True
+    except util.ProcessExecutionError as err:
+        msg = "zkey not supported"
+        LOG.error(msg + ": %s" % err) if strict else LOG.warning(msg)
+
+    return False
 
 
 @contextmanager
