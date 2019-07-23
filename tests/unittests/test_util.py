@@ -615,6 +615,7 @@ class TestChrootableTargetResolvConf(CiTestCase):
         self.add_patch('curtin.util.shutil', 'm_shutil')
         self.add_patch('curtin.util.do_mount', 'm_do_mount')
         self.add_patch('curtin.util.do_umount', 'm_do_umount')
+        self.add_patch('curtin.util.subp', 'm_subp')
         self.host_content = "host_resolvconf"
 
     def tearDown(self):
