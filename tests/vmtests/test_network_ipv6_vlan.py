@@ -22,10 +22,6 @@ class BionicTestNetworkIPV6Vlan(relbase.bionic, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
-class CosmicTestNetworkIPV6Vlan(relbase.cosmic, TestNetworkIPV6VlanAbs):
-    __test__ = True
-
-
 class DiscoTestNetworkIPV6Vlan(relbase.disco, TestNetworkIPV6VlanAbs):
     __test__ = True
 

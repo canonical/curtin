@@ -85,10 +85,6 @@ class BionicTestLvm(relbase.bionic, TestLvmAbs):
     __test__ = True
 
 
-class CosmicTestLvm(relbase.cosmic, TestLvmAbs):
-    __test__ = True
-
-
 class DiscoTestLvm(relbase.disco, TestLvmAbs):
     __test__ = True
 

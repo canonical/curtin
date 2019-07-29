@@ -93,10 +93,6 @@ class BionicTestZfsRoot(relbase.bionic, TestZfsRootAbs):
     __test__ = True
 
 
-class CosmicTestZfsRoot(relbase.cosmic, TestZfsRootAbs):
-    __test__ = True
-
-
 class DiscoTestZfsRoot(relbase.disco, TestZfsRootAbs):
     __test__ = True
 
@@ -120,10 +116,6 @@ class XenialGAi386TestZfsRootFsType(relbase.xenial_ga, TestZfsRootFsTypeAbs,
 
 
 class BionicTestZfsRootFsType(relbase.bionic, TestZfsRootFsTypeAbs):
-    __test__ = True
-
-
-class CosmicTestZfsRootFsType(relbase.cosmic, TestZfsRootFsTypeAbs):
     __test__ = True
 
 

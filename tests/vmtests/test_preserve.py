@@ -25,10 +25,6 @@ class BionicTestPreserve(relbase.bionic, TestPreserve):
     __test__ = True
 
 
-class CosmicTestPreserve(relbase.cosmic, TestPreserve):
-    __test__ = True
-
-
 class DiscoTestPreserve(relbase.disco, TestPreserve):
     __test__ = True
 

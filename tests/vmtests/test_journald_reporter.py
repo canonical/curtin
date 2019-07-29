@@ -36,10 +36,6 @@ class BionicTestJournaldReporter(relbase.bionic, TestJournaldReporter):
     __test__ = True
 
 
-class CosmicTestJournaldReporter(relbase.cosmic, TestJournaldReporter):
-    __test__ = True
-
-
 class DiscoTestJournaldReporter(relbase.disco, TestJournaldReporter):
     __test__ = True
 

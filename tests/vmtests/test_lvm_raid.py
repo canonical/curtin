@@ -51,10 +51,6 @@ class DiscoTestLvmOverRaid(relbase.disco, TestLvmOverRaidAbs):
     __test__ = True
 
 
-class CosmicTestLvmOverRaid(relbase.cosmic, TestLvmOverRaidAbs):
-    __test__ = True
-
-
 class BionicTestLvmOverRaid(relbase.bionic, TestLvmOverRaidAbs):
     __test__ = True
 

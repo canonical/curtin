@@ -25,10 +25,6 @@ class BionicTestPreserveRAID(relbase.bionic, TestPreserveRAID):
     __test__ = True
 
 
-class CosmicTestPreserveRAID(relbase.cosmic, TestPreserveRAID):
-    __test__ = True
-
-
 class DiscoTestPreserveRAID(relbase.disco, TestPreserveRAID):
     __test__ = True
 

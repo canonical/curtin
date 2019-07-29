@@ -64,10 +64,6 @@ class BionicTestAptConfigCMDCMD(relbase.bionic, TestAptConfigCMD):
     __test__ = True
 
 
-class CosmicTestAptConfigCMDCMD(relbase.cosmic, TestAptConfigCMD):
-    __test__ = True
-
-
 class DiscoTestAptConfigCMDCMD(relbase.disco, TestAptConfigCMD):
     __test__ = True
 

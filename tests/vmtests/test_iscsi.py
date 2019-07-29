@@ -71,10 +71,6 @@ class BionicTestIscsiBasic(relbase.bionic, TestBasicIscsiAbs):
     __test__ = True
 
 
-class CosmicTestIscsiBasic(relbase.cosmic, TestBasicIscsiAbs):
-    __test__ = True
-
-
 class DiscoTestIscsiBasic(relbase.disco, TestBasicIscsiAbs):
     __test__ = True
 

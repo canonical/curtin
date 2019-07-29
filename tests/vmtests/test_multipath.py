@@ -80,10 +80,6 @@ class BionicTestMultipathBasic(relbase.bionic, TestMultipathBasicAbs):
     __test__ = True
 
 
-class CosmicTestMultipathBasic(relbase.cosmic, TestMultipathBasicAbs):
-    __test__ = True
-
-
 class DiscoTestMultipathBasic(relbase.disco, TestMultipathBasicAbs):
     __test__ = True
 
