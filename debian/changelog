@@ -1,4 +1,4 @@
-curtin (19.2-5-g44997e86-0ubuntu1) UNRELEASED; urgency=medium
+curtin (19.2-5-g44997e86-0ubuntu1) eoan; urgency=medium
 
   * New upstream snapshot.
     - Switch to the new btrfs-progs package name, with btrfs-tools fallback.
