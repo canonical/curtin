@@ -1,3 +1,16 @@
+curtin (19.2-5-g44997e86-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - Switch to the new btrfs-progs package name, with btrfs-tools fallback.
+      [Dimitri John Ledkov]
+    - vmtest: bump ram size on Zfs tests for Disco and Eoan
+    - vmtest: drop Cosmic test cases
+    - unittests: mock subp in ChrootableTarget _exit_ test cases
+    - util.ChrootableTarget: skip rename of resolv.conf if not present in
+      target (LP: #1834382)
+
+ -- Daniel Watkins <oddbloke@ubuntu.com>  Thu, 15 Aug 2019 12:27:10 -0400
+
 curtin (19.2-0ubuntu1) eoan; urgency=medium
 
   * New upstream release.
