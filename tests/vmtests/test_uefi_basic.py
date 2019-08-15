@@ -105,10 +105,6 @@ class BionicUefiTestBasic(relbase.bionic, TestBasicAbs):
     __test__ = True
 
 
-class CosmicUefiTestBasic(relbase.cosmic, TestBasicAbs):
-    __test__ = True
-
-
 class DiscoUefiTestBasic(relbase.disco, TestBasicAbs):
     __test__ = True
 
@@ -128,11 +124,6 @@ class XenialGAUefiTestBasic4k(relbase.xenial_ga, TestBasicAbs):
 
 
 class BionicUefiTestBasic4k(relbase.bionic, TestBasicAbs):
-    __test__ = True
-    disk_block_size = 4096
-
-
-class CosmicUefiTestBasic4k(relbase.cosmic, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
 

@@ -93,16 +93,14 @@ class BionicTestZfsRoot(relbase.bionic, TestZfsRootAbs):
     __test__ = True
 
 
-class CosmicTestZfsRoot(relbase.cosmic, TestZfsRootAbs):
-    __test__ = True
-
-
 class DiscoTestZfsRoot(relbase.disco, TestZfsRootAbs):
     __test__ = True
+    mem = 4096
 
 
 class EoanTestZfsRoot(relbase.eoan, TestZfsRootAbs):
     __test__ = True
+    mem = 4096
 
 
 class TestZfsRootFsTypeAbs(TestZfsRootAbs):
@@ -123,13 +121,11 @@ class BionicTestZfsRootFsType(relbase.bionic, TestZfsRootFsTypeAbs):
     __test__ = True
 
 
-class CosmicTestZfsRootFsType(relbase.cosmic, TestZfsRootFsTypeAbs):
-    __test__ = True
-
-
 class DiscoTestZfsRootFsType(relbase.disco, TestZfsRootFsTypeAbs):
     __test__ = True
+    mem = 4096
 
 
 class EoanTestZfsRootFsType(relbase.eoan, TestZfsRootFsTypeAbs):
     __test__ = True
+    mem = 4096

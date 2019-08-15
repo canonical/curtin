@@ -75,10 +75,6 @@ class BionicTestBcacheCeph(relbase.bionic, TestBcacheCeph):
     __test__ = True
 
 
-class CosmicTestBcacheCeph(relbase.cosmic, TestBcacheCeph):
-    __test__ = True
-
-
 class DiscoTestBcacheCeph(relbase.disco, TestBcacheCeph):
     __test__ = True
 

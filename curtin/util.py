@@ -638,6 +638,7 @@ class ChrootableTarget(object):
         self.allow_daemons = allow_daemons
         self.sys_resolvconf = sys_resolvconf
         self.rconf_d = None
+        self.rc_tmp = None
 
     def __enter__(self):
         for p in self.mounts:
@@ -656,14 +657,20 @@ class ChrootableTarget(object):
             rtd = None
             try:
                 rtd = tempfile.mkdtemp(dir=target_etc)
-                tmp = os.path.join(rtd, "resolv.conf")
-                os.rename(rconf, tmp)
+                if os.path.lexists(rconf):
+                    self.rc_tmp = os.path.join(rtd, "resolv.conf")
+                    os.rename(rconf, self.rc_tmp)
                 self.rconf_d = rtd
                 shutil.copy("/etc/resolv.conf", rconf)
             except Exception:
                 if rtd:
+                    # if we renamed, but failed later we need to restore
+                    if self.rc_tmp and os.path.lexists(self.rc_tmp):
+                        os.rename(os.path.join(self.rconf_d, "resolv.conf"),
+                                  rconf)
                     shutil.rmtree(rtd)
                     self.rconf_d = None
+                    self.rc_tmp = None
                 raise
 
         return self
@@ -681,7 +688,8 @@ class ChrootableTarget(object):
 
         rconf = paths.target_path(self.target, "/etc/resolv.conf")
         if self.sys_resolvconf and self.rconf_d:
-            os.rename(os.path.join(self.rconf_d, "resolv.conf"), rconf)
+            if self.rc_tmp and os.path.lexists(self.rc_tmp):
+                os.rename(os.path.join(self.rconf_d, "resolv.conf"), rconf)
             shutil.rmtree(self.rconf_d)
 
     def subp(self, *args, **kwargs):

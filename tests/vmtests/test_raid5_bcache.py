@@ -83,10 +83,6 @@ class BionicTestRaid5Bcache(relbase.bionic, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class CosmicTestRaid5Bcache(relbase.cosmic, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 class DiscoTestRaid5Bcache(relbase.disco, TestMdadmBcacheAbs):
     __test__ = True
 

@@ -472,10 +472,6 @@ class BionicTestNetworkBasic(relbase.bionic, TestNetworkBasicAbs):
     __test__ = True
 
 
-class CosmicTestNetworkBasic(relbase.cosmic, TestNetworkBasicAbs):
-    __test__ = True
-
-
 class DiscoTestNetworkBasic(relbase.disco, TestNetworkBasicAbs):
     __test__ = True
 

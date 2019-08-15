@@ -61,10 +61,6 @@ class BionicTestPollinateUserAgent(relbase.bionic, TestPollinateUserAgent):
     __test__ = True
 
 
-class CosmicTestPollinateUserAgent(relbase.cosmic, TestPollinateUserAgent):
-    __test__ = True
-
-
 class DiscoTestPollinateUserAgent(relbase.disco, TestPollinateUserAgent):
     __test__ = True
 

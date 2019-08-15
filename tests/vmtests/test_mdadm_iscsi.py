@@ -50,10 +50,6 @@ class BionicTestIscsiMdadm(relbase.bionic, TestMdadmIscsiAbs):
     __test__ = True
 
 
-class CosmicTestIscsiMdadm(relbase.cosmic, TestMdadmIscsiAbs):
-    __test__ = True
-
-
 class DiscoTestIscsiMdadm(relbase.disco, TestMdadmIscsiAbs):
     __test__ = True
 

@@ -25,10 +25,6 @@ class BionicTestBcachePartitions(relbase.bionic, TestBcachePartitions):
     __test__ = True
 
 
-class CosmicTestBcachePartitions(relbase.cosmic, TestBcachePartitions):
-    __test__ = True
-
-
 class DiscoTestBcachePartitions(relbase.disco, TestBcachePartitions):
     __test__ = True
 

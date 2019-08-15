@@ -73,10 +73,6 @@ class BionicTestNvme(relbase.bionic, TestNvmeAbs):
     __test__ = True
 
 
-class CosmicTestNvme(relbase.cosmic, TestNvmeAbs):
-    __test__ = True
-
-
 class DiscoTestNvme(relbase.disco, TestNvmeAbs):
     __test__ = True
 
@@ -144,10 +140,6 @@ class XenialEdgeTestNvmeBcache(relbase.xenial_edge, TestNvmeBcacheAbs):
 
 
 class BionicTestNvmeBcache(relbase.bionic, TestNvmeBcacheAbs):
-    __test__ = True
-
-
-class CosmicTestNvmeBcache(relbase.cosmic, TestNvmeBcacheAbs):
     __test__ = True
 
 

@@ -839,7 +839,7 @@ class VMBaseClass(TestCase):
 
         # allow env to update VMRAM setting
         if VMRAM:
-            cls.mem = VMRAM
+            cls.mem = str(VMRAM)
 
         req_attrs = ('target_distro', 'target_release', 'release', 'distro')
         missing = [a for a in req_attrs if not getattr(cls, a)]
@@ -898,7 +898,7 @@ class VMBaseClass(TestCase):
 
         # create launch cmd
         cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait,
-               "--smp=" + cls.get_config_smp(), "--mem=%s" % cls.mem]
+               "--smp=" + cls.get_config_smp(), "--mem=%s" % str(cls.mem)]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
@@ -1299,7 +1299,7 @@ class VMBaseClass(TestCase):
                uefi_flags + netdevs +
                cls.mpath_diskargs(target_disks + extra_disks + nvme_disks) +
                ["--disk=file=%s,if=virtio,media=cdrom" % cls.td.seed_disk] +
-               ["--", "-smp",  cls.get_config_smp(), "-m", cls.mem])
+               ["--", "-smp",  cls.get_config_smp(), "-m", str(cls.mem)])
 
         if not cls.interactive:
             if cls.arch == 's390x':

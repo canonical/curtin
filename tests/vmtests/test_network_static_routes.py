@@ -28,11 +28,6 @@ class BionicTestNetworkStaticRoutes(relbase.bionic,
     __test__ = True
 
 
-class CosmicTestNetworkStaticRoutes(relbase.cosmic,
-                                    TestNetworkStaticRoutesAbs):
-    __test__ = True
-
-
 class DiscoTestNetworkStaticRoutes(relbase.disco,
                                    TestNetworkStaticRoutesAbs):
     __test__ = True

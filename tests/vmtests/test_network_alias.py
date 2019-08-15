@@ -52,10 +52,6 @@ class BionicTestNetworkAlias(relbase.bionic, TestNetworkAliasAbs):
     __test__ = True
 
 
-class CosmicTestNetworkAlias(relbase.cosmic, TestNetworkAliasAbs):
-    __test__ = True
-
-
 class DiscoTestNetworkAlias(relbase.disco, TestNetworkAliasAbs):
     __test__ = True
 

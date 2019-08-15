@@ -53,13 +53,6 @@ class BionicTestBasicDasd(relbase.bionic, TestBasicDasd):
         self.output_files_exist(["netplan.yaml"])
 
 
-class CosmicTestBasicDasd(relbase.cosmic, TestBasicDasd):
-    __test__ = True
-
-    def test_output_files_exist(self):
-        self.output_files_exist(["netplan.yaml"])
-
-
 class DiscoTestBasicDasd(relbase.disco, TestBasicDasd):
     __test__ = True
 
