@@ -25,7 +25,7 @@ REQUIRED_EXECUTABLES = [
     ('lvcreate', 'lvm2'),
     ('mdadm', 'mdadm'),
     ('mkfs.vfat', 'dosfstools'),
-    ('mkfs.btrfs', 'btrfs-tools'),
+    ('mkfs.btrfs', '^btrfs-(progs|tools)$'),
     ('mkfs.ext4', 'e2fsprogs'),
     ('mkfs.xfs', 'xfsprogs'),
     ('partprobe', 'parted'),

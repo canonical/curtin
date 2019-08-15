@@ -738,7 +738,7 @@ class TestDetectRequiredPackages(CiTestCase):
             ({'storage': {
                 'version': 1,
                 'items': ('lvm_partition', 'lvm_volgroup', 'btrfs', 'xfs')}},
-             ('lvm2', 'xfsprogs', 'btrfs-tools')),
+             ('lvm2', 'xfsprogs', '^btrfs-(progs|tools)$')),
             ({'storage': {
                 'version': 1,
                 'items': ('raid', 'bcache', 'ext3', 'xfs')}},
@@ -747,7 +747,7 @@ class TestDetectRequiredPackages(CiTestCase):
                 'version': 1,
                 'items': ('raid', 'lvm_volgroup', 'lvm_partition', 'ext3',
                           'ext4', 'btrfs')}},
-             ('lvm2', 'mdadm', 'e2fsprogs', 'btrfs-tools')),
+             ('lvm2', 'mdadm', 'e2fsprogs', '^btrfs-(progs|tools)$')),
             ({'storage': {
                 'version': 1,
                 'items': ('bcache', 'lvm_volgroup', 'lvm_partition', 'ext2')}},
@@ -796,7 +796,7 @@ class TestDetectRequiredPackages(CiTestCase):
               'network': {
                   'version': 1,
                   'items': ('bond', 'vlan')}},
-             ('e2fsprogs', 'btrfs-tools', 'vlan', 'ifenslave')),
+             ('e2fsprogs', '^btrfs-(progs|tools)$', 'vlan', 'ifenslave')),
         ))
 
     def test_network_v2_detect(self):
