@@ -1,3 +1,10 @@
+curtin (19.2-6-g88a1a7ec-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - Makefile: split Python 2 and Python 3 unittest targets apart
+
+ -- Daniel Watkins <oddbloke@ubuntu.com>  Wed, 21 Aug 2019 13:29:50 -0400
+
 curtin (19.2-5-g44997e86-0ubuntu1) eoan; urgency=medium
 
   * New upstream snapshot.
