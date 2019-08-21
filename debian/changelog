@@ -1,4 +1,4 @@
-curtin (19.2-6-g88a1a7ec-0ubuntu1) UNRELEASED; urgency=medium
+curtin (19.2-6-g88a1a7ec-0ubuntu1) eoan; urgency=medium
 
   * New upstream snapshot.
     - Makefile: split Python 2 and Python 3 unittest targets apart
