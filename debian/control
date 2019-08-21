@@ -7,13 +7,6 @@ Build-Depends: debhelper (>= 7),
                dh-python,
                pep8,
                pyflakes,
-               python-all,
-               python-coverage,
-               python-mock,
-               python-nose,
-               python-oauthlib,
-               python-setuptools,
-               python-yaml,
                python3,
                python3-coverage,
                python3-mock,
@@ -53,19 +46,6 @@ Priority: extra
 Depends: ${misc:Depends}
 Description: Library and tools for curtin installer
  This package contains utilities for the curtin installer.
-
-Package: python-curtin
-Section: python
-Architecture: all
-Priority: extra
-Depends: curtin-common (= ${binary:Version}),
-         python-oauthlib,
-         python-yaml,
-         wget,
-         ${misc:Depends},
-         ${python:Depends}
-Description: Library and tools for curtin installer
- This package provides python library for use by curtin.
 
 Package: python3-curtin
 Section: python
