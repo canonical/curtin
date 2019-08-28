@@ -1,3 +1,14 @@
+curtin (19.2-9-g38ce22b0-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - vmtest: fix typo in EoanBcacheBasic test name
+    - storage schema: Update nvme wwn regex to allow for nvme wwid format
+      (LP: #1841321)
+    - Allow EUI-64 formatted WWNs for disks and accept NVMe partition naming
+      [Reed Slaby] (LP: #1840524)
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Wed, 28 Aug 2019 11:40:32 -0500
+
 curtin (19.2-6-g88a1a7ec-0ubuntu1) eoan; urgency=medium
 
   * New upstream snapshot.
