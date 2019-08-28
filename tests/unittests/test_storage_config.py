@@ -17,6 +17,31 @@ class TestStorageConfigSchema(CiTestCase):
         schema = storage_config.STORAGE_CONFIG_SCHEMA
         jsonschema.Draft4Validator.check_schema(schema)
 
+    @skipUnlessJsonSchema()
+    def test_disk_schema_accepts_nvme_eui(self):
+        disk = {
+            "id": "disk-nvme0n1",
+            "path": "/dev/nvme0n1",
+            "serial": "Samsung SSD 960 EVO 250GB_S3ESNX0JB35041V",
+            "type": "disk",
+            "wwn": "eui.0025385b71b1313e"
+        }
+        config = {'config': [disk], 'version': 1}
+        storage_config.validate_config(config)
+
+    @skipUnlessJsonSchema()
+    def test_disk_schema_accepts_nvme_wwid(self):
+        disk = {
+            "id": "disk-nvme0n1",
+            "path": "/dev/nvme0n1",
+            "serial": "CT500P1SSD8_1925E20E7B65",
+            "type": "disk",
+            "wwn": ("nvme.c0a9-313932354532304537423030-"
+                    "4354353030503153534438-00000001"),
+        }
+        config = {'config': [disk], 'version': 1}
+        storage_config.validate_config(config)
+
 
 class TestProbertParser(CiTestCase):
 

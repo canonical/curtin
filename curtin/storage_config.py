@@ -683,7 +683,8 @@ class BlockdevParser(ProbertParser):
                 part = None
                 for pentry in ptable['partitions']:
                     node = pentry['node']
-                    if node.lstrip(parent_devname) == attrs['partition']:
+                    node_p = node.replace(parent_devname, '')
+                    if node_p.replace('p', '') == attrs['partition']:
                         part = pentry
                         break
 
