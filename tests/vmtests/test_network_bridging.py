@@ -243,4 +243,23 @@ class DiscoTestBridging(relbase.disco, TestBridgeNetworkAbs):
 class EoanTestBridging(relbase.eoan, TestBridgeNetworkAbs):
     __test__ = True
 
+
+class XenialTestBridgingV2(relbase.xenial, TestBridgeNetworkAbs):
+    """ This class only needs to verify that when provided a v2 config
+        that the Xenial network packages are installed. """
+    conf_file = "examples/tests/bridging_network_v2.yaml"
+    __test__ = True
+
+    def test_etc_network_interfaces(self):
+        pass
+
+    def test_ip_output(self):
+        pass
+
+    def test_etc_resolvconf(self):
+        pass
+
+    def test_bridge_params(self):
+        pass
+
 # vi: ts=4 expandtab syntax=python

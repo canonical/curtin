@@ -804,15 +804,15 @@ class TestDetectRequiredPackages(CiTestCase):
             ({'network': {
                 'version': 2,
                 'items': ('bridge',)}},
-             ()),
+             ('bridge-utils', )),
             ({'network': {
                 'version': 2,
                 'items': ('vlan',)}},
-             ()),
+             ('vlan',)),
             ({'network': {
                 'version': 2,
                 'items': ('vlan', 'bridge')}},
-             ()),
+             ('bridge-utils', 'vlan')),
         ))
 
     def test_mixed_storage_v1_network_v2_detect(self):
@@ -823,7 +823,7 @@ class TestDetectRequiredPackages(CiTestCase):
              'storage': {
                  'version': 1,
                  'items': ('raid', 'bcache', 'ext4')}},
-             ('mdadm', 'bcache-tools', 'e2fsprogs')),
+             ('bridge-utils', 'mdadm', 'bcache-tools', 'e2fsprogs', 'vlan')),
         ))
 
     def test_invalid_version_in_config(self):
