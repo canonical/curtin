@@ -119,6 +119,7 @@ class _XenialEdge(_XenialBase):
 class _BionicBase(_UbuntuBase):
     release = "bionic"
     target_release = "bionic"
+    mem = "2048"
 
 
 class _CosmicBase(_UbuntuBase):
