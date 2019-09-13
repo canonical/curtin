@@ -381,6 +381,21 @@ def skip_if_flag(flag):
     return decorator
 
 
+def skip_if_arch(arch):
+    def decorator(func):
+        """the name test_wrapper below has to start with test, or nose's
+           filter will not run it."""
+        @wraps(func)
+        def test_wrapper(self, *args, **kwargs):
+            myarch = getattr(self, 'arch', None)
+            if myarch == arch:
+                self.skipTest("skip due to %s=%s" % (myarch, arch))
+            else:
+                return func(self, *args, **kwargs)
+        return test_wrapper
+    return decorator
+
+
 def skip_by_date(bugnum, fixby, removeby=None, skips=None, install=True):
     """A decorator to skip a test or test class based on current date.
 
