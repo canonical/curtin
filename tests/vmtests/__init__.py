@@ -627,6 +627,7 @@ class VMBaseClass(TestCase):
     # these get set from base_vm_classes
     release = None
     arch = None
+    target_arch = None
     kflavor = None
     krel = None
     distro = None
@@ -653,7 +654,7 @@ class VMBaseClass(TestCase):
         logger.debug('cls.ephemeral_ftype: %s', cls.ephemeral_ftype)
         logger.debug('cls.target_ftype: %s', cls.target_ftype)
         eph_img_verstr, ftypes = get_images(
-            IMAGE_SRC_URL, IMAGE_DIR, cls.distro, cls.release, cls.arch,
+            IMAGE_SRC_URL, IMAGE_DIR, cls.distro, cls.release, cls.target_arch,
             krel=cls.krel if cls.krel else cls.release,
             kflavor=cls.kflavor if cls.kflavor else None,
             subarch=cls.subarch if cls.subarch else None,
@@ -676,7 +677,7 @@ class VMBaseClass(TestCase):
                 IMAGE_SRC_URL, IMAGE_DIR,
                 cls.target_distro,
                 cls.target_release,
-                cls.arch, subarch=cls.subarch if cls.subarch else None,
+                cls.target_arch, subarch=cls.subarch if cls.subarch else None,
                 kflavor=cls.kflavor if cls.kflavor else None,
                 krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
                 ftypes=(tftype,))
@@ -912,7 +913,7 @@ class VMBaseClass(TestCase):
             dowait = "--dowait"
 
         # create launch cmd
-        cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait,
+        cmd = ["tools/launch", "--arch=" + cls.target_arch, "-v", dowait,
                "--smp=" + cls.get_config_smp(), "--mem=%s" % str(cls.mem)]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
@@ -1317,7 +1318,7 @@ class VMBaseClass(TestCase):
                ["--", "-smp",  cls.get_config_smp(), "-m", str(cls.mem)])
 
         if not cls.interactive:
-            if cls.arch == 's390x':
+            if cls.target_arch == 's390x':
                 cmd.extend([
                     "-nographic", "-nodefaults", "-chardev",
                     "file,path=%s,id=charconsole0" % cls.boot_log,
@@ -1722,7 +1723,7 @@ class VMBaseClass(TestCase):
             raise SkipTest("kernel-img.conf not needed in non-ubuntu releases")
         kconf = 'kernel-img.conf'
         self.output_files_exist([kconf])
-        if self.arch in ['i386', 'amd64']:
+        if self.target_arch in ['i386', 'amd64']:
             self.check_file_strippedline(kconf, 'link_in_boot = no')
         else:
             self.check_file_strippedline(kconf, 'link_in_boot = yes')
@@ -1845,7 +1846,7 @@ class PsuedoVMBaseClass(VMBaseClass):
            kernel, initrd, tarball."""
 
         def get_psuedo_path(name):
-            return os.path.join(IMAGE_DIR, cls.release, cls.arch, name)
+            return os.path.join(IMAGE_DIR, cls.release, cls.target_arch, name)
 
         return {
             'squashfs': get_psuedo_path('psuedo-squashfs'),

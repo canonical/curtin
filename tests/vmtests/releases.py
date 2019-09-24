@@ -6,6 +6,7 @@ from curtin.util import get_platform_arch
 class _ReleaseBase(object):
     repo = "maas-daily"
     arch = get_platform_arch()
+    target_arch = arch
     mem = "1024"
 
 

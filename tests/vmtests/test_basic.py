@@ -264,7 +264,7 @@ class Centos66BionicTestBasic(centos_relbase.centos66_bionic,
 
 class XenialGAi386TestBasic(relbase.xenial_ga, TestBasicAbs):
     __test__ = True
-    arch = 'i386'
+    target_arch = 'i386'
 
 
 class XenialGATestBasic(relbase.xenial_ga, TestBasicAbs):

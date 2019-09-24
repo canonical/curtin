@@ -56,11 +56,12 @@ class TestOldAptAbs(VMBaseClass):
         exit 0
         """)]
     arch = util.get_architecture()
-    if arch in ['amd64', 'i386']:
+    target_arch = arch
+    if target_arch in ['amd64', 'i386']:
         conf_file = "examples/tests/test_old_apt_features.yaml"
         exp_mirror = "http://us.archive.ubuntu.com/ubuntu"
         exp_secmirror = "http://archive.ubuntu.com/ubuntu"
-    if arch in ['s390x', 'arm64', 'armhf', 'powerpc', 'ppc64el']:
+    if target_arch in ['s390x', 'arm64', 'armhf', 'powerpc', 'ppc64el']:
         conf_file = "examples/tests/test_old_apt_features_ports.yaml"
         exp_mirror = "http://ports.ubuntu.com/ubuntu-ports"
         exp_secmirror = "http://ports.ubuntu.com/ubuntu-ports"
