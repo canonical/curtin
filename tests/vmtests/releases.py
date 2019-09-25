@@ -17,7 +17,7 @@ class _UbuntuBase(_ReleaseBase):
 
 
 class _CentosFromUbuntuBase(_UbuntuBase):
-    arch_skip = ['ppc64el']
+    arch_skip = ['arm64', 'ppc64el']
     # base for installing centos tarballs from ubuntu base
     target_distro = "centos"
     target_ftype = "root-tgz"
@@ -122,11 +122,15 @@ class _BionicBase(_UbuntuBase):
     release = "bionic"
     target_release = "bionic"
     mem = "2048"
+    if _UbuntuBase.arch == "arm64":
+        subarch = "ga-18.04"
 
 
 class _CosmicBase(_UbuntuBase):
     release = "cosmic"
     target_release = "cosmic"
+    if _UbuntuBase.arch == "arm64":
+        subarch = "ga-18.10"
 
 
 class _DiscoBase(_UbuntuBase):
@@ -134,12 +138,16 @@ class _DiscoBase(_UbuntuBase):
     target_release = "disco"
     # squashfs is over 300MB, need more ram
     mem = "2048"
+    if _UbuntuBase.arch == "arm64":
+        subarch = "ga-19.04"
 
 
 class _EoanBase(_UbuntuBase):
     release = "eoan"
     target_release = "eoan"
     mem = "2048"
+    if _UbuntuBase.arch == "arm64":
+        subarch = "ga-19.10"
 
 
 class _Releases(object):

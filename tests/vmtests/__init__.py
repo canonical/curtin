@@ -857,6 +857,10 @@ class VMBaseClass(TestCase):
         if VMRAM:
             cls.mem = str(VMRAM)
 
+        # arm64 is UEFI only
+        if cls.arch == 'arm64':
+            cls.uefi = True
+
         req_attrs = ('target_distro', 'target_release', 'release', 'distro')
         missing = [a for a in req_attrs if not getattr(cls, a)]
         if missing:

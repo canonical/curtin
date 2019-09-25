@@ -13,6 +13,9 @@ from unittest import SkipTest
 
 
 class TestBasicAbs(VMBaseClass):
+    arch_skip = [
+        'arm64',  # arm64 is UEFI only
+    ]
     test_type = 'storage'
     interactive = False
     nr_cpus = 2
