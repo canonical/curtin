@@ -2,7 +2,8 @@
 
 from . import (
     VMBaseClass,
-    get_apt_proxy)
+    get_apt_proxy,
+    skip_if_arch)
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 
@@ -169,7 +170,10 @@ class TestBasicAbs(VMBaseClass):
              "root/curtin-install.log", "root/curtin-install-cfg.yaml"])
 
     def test_ptable(self):
-        self._test_ptable("blkid_output_diska", "dos")
+        expected_ptable = "dos"
+        if self.target_arch == "ppc64el":
+            expected_ptable = "gpt"
+        self._test_ptable("blkid_output_diska", expected_ptable)
 
     def test_partition_numbers(self):
         # disk-d should have partitions 1 2, and 10
@@ -218,6 +222,8 @@ class TestBasicAbs(VMBaseClass):
     def test_partition_is_prep(self):
         self._test_partition_is_prep("udev_info.out")
 
+    # Skip on ppc64 (LP: #1843288)
+    @skip_if_arch('ppc64el')
     def test_partition_is_zero(self):
         self._test_partition_is_zero("cmp_prep.out")
 
@@ -264,6 +270,7 @@ class Centos66BionicTestBasic(centos_relbase.centos66_bionic,
 
 class XenialGAi386TestBasic(relbase.xenial_ga, TestBasicAbs):
     __test__ = True
+    arch_skip = ["arm64", "ppc64el", "s390x"]
     target_arch = 'i386'
 
 
@@ -317,7 +324,10 @@ class TestBasicScsiAbs(TestBasicAbs):
         """)]
 
     def test_ptable(self):
-        self._test_ptable("blkid_output_sda", "dos")
+        expected_ptable = "dos"
+        if self.target_arch == "ppc64el":
+            expected_ptable = "gpt"
+        self._test_ptable("blkid_output_sda", expected_ptable)
 
     def test_partition_numbers(self):
         # sdd should have partitions 1, 2, and 10
@@ -342,6 +352,8 @@ class TestBasicScsiAbs(TestBasicAbs):
     def test_partition_is_prep(self):
         self._test_partition_is_prep("udev_info.out")
 
+    # Skip on ppc64 (LP: #1843288)
+    @skip_if_arch('ppc64el')
     def test_partition_is_zero(self):
         self._test_partition_is_zero("cmp_prep.out")
 

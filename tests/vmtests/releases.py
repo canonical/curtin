@@ -17,6 +17,7 @@ class _UbuntuBase(_ReleaseBase):
 
 
 class _CentosFromUbuntuBase(_UbuntuBase):
+    arch_skip = ['ppc64el']
     # base for installing centos tarballs from ubuntu base
     target_distro = "centos"
     target_ftype = "root-tgz"

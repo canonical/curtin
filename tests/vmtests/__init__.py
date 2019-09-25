@@ -1769,8 +1769,19 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def get_class_storage_config(cls):
-        sc = cls.load_conf_file()
-        return yaml.safe_load(sc).get('storage', {}).get('config', {})
+        if cls.target_arch == 'ppc64el':
+            cfg = yaml.safe_load(cls.load_conf_file())
+            new_sc = inject_prep_partition(cfg)
+            # copy testcase YAML to a temp file in order to use updated yaml
+            temp_yaml = tempfile.NamedTemporaryFile(prefix=cls.td.tmpdir + '/',
+                                                    mode='w+t', delete=False)
+            util.write_file(temp_yaml.name, yaml.dump(new_sc,
+                            default_flow_style=False, indent=4))
+            cls.conf_file = temp_yaml.name
+
+        cfg = cls.load_conf_file()
+        sc = yaml.safe_load(cfg).get('storage', {}).get('config', {})
+        return sc
 
     def get_storage_config(self):
         cfg = load_config(self.collect_path("root/curtin-install-cfg.yaml"))
@@ -2283,6 +2294,77 @@ def generate_upgrade_config(packages, singlecmd=True):
             cmds["install_pkg_%02d" % idx] = base_cmd + package
 
     return yaml.dump({'late_commands': cmds})
+
+
+def prep_partition_for_device(device):
+    """ Storage config for a Power PReP partition, both
+        msdos and gpt format"""
+    return {
+        'id': 'prep_partition',
+        'type': 'partition',
+        'size': '8M',
+        'flag': 'prep',
+        'guid': '9e1a2d38-c612-4316-aa26-8b49521e5a8b',
+        'offset': '1M',
+        'wipe': 'zero',
+        'grub_device': True,
+        'device': device}
+
+
+def inject_prep_partition(config):
+    """ Parse a curtin configuration file and inject
+        a prep partition if possible"""
+    storage_config = config.get('storage', {}).get('config', {})
+    if len(storage_config) == 0:
+        logger.debug('No storage config, skipping prep injection')
+        return config
+
+    logger.info('Injecting PReP Partition')
+    disks = [item for item in storage_config
+             if item['type'] == 'disk']
+    disks = [disk for disk in disks if 'grub_device' in disk]
+    grub_disk = disks[0]
+    main_partitions = [part for part in storage_config
+                       if part['type'] == 'partition' and
+                       part['device'] == grub_disk['id']]
+
+    # convert msdos to gpt, that's required for PReP
+    if grub_disk['ptable'] == 'msdos':
+        grub_disk['ptable'] = 'gpt'
+        primary_parts = [part for part in main_partitions
+                         if part.get('flag', '') not in ['extended',
+                                                         'logical']]
+        if len(primary_parts) > 3:
+            logger.error("Can't find a primary partition for prep partition")
+            raise ValueError
+
+        prep_partition = prep_partition_for_device(grub_disk['id'])
+        last_partition = primary_parts[-1]
+        partition_index = storage_config.index(last_partition)
+        storage_config.insert(partition_index + 1, prep_partition)
+        if 'grub_device' in grub_disk:
+            del grub_disk['grub_device']
+
+    # for gpt, find the boot_partition (flag: bios_grub), delete it
+    # and then add a new partition for prep, size 8MB
+    elif grub_disk['ptable'] == 'gpt':
+        prep_partition = prep_partition_for_device(grub_disk['id'])
+        [boot_partition] = [part for part in main_partitions
+                            if part.get('flag', '') in ['bios_grub']]
+
+        partition_index = storage_config.index(boot_partition)
+        storage_config[partition_index] = prep_partition
+
+        if 'grub_device' in grub_disk:
+            del grub_disk['grub_device']
+
+    # remove any other boot flags on partitions
+    for part in main_partitions:
+        if 'flag' in part and part['flag'] in ['boot', 'bios_grub']:
+            del part['flag']
+
+    config['storage']['config'] = storage_config
+    return config
 
 
 apply_keep_settings()
