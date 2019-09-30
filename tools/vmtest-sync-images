@@ -5,11 +5,8 @@
 # It keeps only the latest copy of the available images.
 import fcntl
 import os
-import random
 import shutil
-import subprocess
 import sys
-import time
 
 # Fix path so we can import ImageStore class.
 sys.path.insert(1, os.path.realpath(os.path.join(
