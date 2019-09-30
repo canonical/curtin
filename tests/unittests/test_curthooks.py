@@ -245,7 +245,7 @@ class TestInstallMissingPkgs(CiTestCase):
         arch = 'i386'
         self.mock_arch.return_value = arch
         self.mock_machine.return_value = 'i386'
-        expected_pkgs = ['grub-efi-%s' % arch]
+        expected_pkgs = ['grub-efi-ia32']
         self.mock_machine.return_value = 'i686'
         self.mock_uefi.return_value = True
         target = "not-a-real-target"

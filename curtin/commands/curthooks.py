@@ -890,6 +890,8 @@ def install_missing_packages(cfg, target, osfamily=DISTROS.debian):
             uefi_pkgs.extend(['grub2-efi-x64-modules'])
         elif osfamily == DISTROS.debian:
             arch = util.get_architecture()
+            if arch == 'i386':
+                arch = 'ia32'
             uefi_pkgs.append('grub-efi-%s' % arch)
 
             # Architecture might support a signed UEFI loader
