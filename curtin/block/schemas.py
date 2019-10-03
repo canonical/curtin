@@ -14,7 +14,7 @@ definitions = {
     'devices': {'type': 'array', 'items': {'$ref': '#/definitions/ref_id'}},
     'name': {'type': 'string'},
     'preserve': {'type': 'boolean'},
-    'ptable': {'type': 'string', 'enum': ['dos', 'gpt', 'msdos']},
+    'ptable': {'type': 'string', 'enum': ['dos', 'gpt', 'mac', 'msdos']},
     'size': {'type': ['string', 'number'],
              'minimum': 1,
              'pattern': r'^([1-9]\d*(.\d+)?|\d+.\d+)(K|M|G|T)?B?'},

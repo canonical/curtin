@@ -42,6 +42,17 @@ class TestStorageConfigSchema(CiTestCase):
         config = {'config': [disk], 'version': 1}
         storage_config.validate_config(config)
 
+    @skipUnlessJsonSchema()
+    def test_disk_schema_accepts_mac_partition_table(self):
+        disk = {
+            "id": "disk-vdc",
+            "path": "/dev/vdc",
+            "type": "disk",
+            "ptable": "mac",
+        }
+        config = {'config': [disk], 'version': 1}
+        storage_config.validate_config(config)
+
 
 class TestProbertParser(CiTestCase):
 
