@@ -566,11 +566,17 @@ class TestClearHolders(CiTestCase):
         for tree, result in test_trees_and_results:
             self.assertEqual(clear_holders.get_holder_types(tree), result)
 
+    @mock.patch('curtin.block.clear_holders.os.path.exists')
     @mock.patch('curtin.block.clear_holders.block.sys_block_path')
     @mock.patch('curtin.block.clear_holders.gen_holders_tree')
-    def test_assert_clear(self, mock_gen_holders_tree, mock_syspath):
+    def test_assert_clear(self, mock_gen_holders_tree, mock_syspath, m_ospe):
+        def my_sysblock(p, strict=False):
+            return '/sys/class/block/%s' % os.path.basename(p)
+
         mock_gen_holders_tree.return_value = self.example_holders_trees[0][0]
-        mock_syspath.side_effect = lambda x: x
+        mock_syspath.side_effect = my_sysblock
+        # os.path.exists set to True to include all devices in the call list
+        m_ospe.return_value = True
         device = self.test_blockdev
         with self.assertRaises(OSError):
             clear_holders.assert_clear(device)

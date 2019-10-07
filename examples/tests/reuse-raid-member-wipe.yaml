@@ -1,0 +1,71 @@
+showtrace: true
+
+# The point of this test is to test installing to a disk that contains
+# a partition that used to be a RAID member where the other parts of
+# the RAID are not present (the scenario is that the disk was just
+# grabbed out of a pile of previously used disks and shoved into a
+# server).
+
+# So what it does is to create a RAID0 out of partitions on two disks,
+# stop the RAID, wipe the superblock on one of them and then install
+# to the other using a standard partitioning scheme.
+
+bucket:
+  - &setup |
+    parted /dev/disk/by-id/virtio-disk-a --script -- \
+        mklabel gpt              \
+        mkpart primary 1GiB 9GiB
+    parted /dev/disk/by-id/virtio-disk-b --script -- \
+        mklabel gpt              \
+        mkpart primary 1GiB 9GiB
+    udevadm settle
+    mdadm --create --metadata 1.2 --level 0 -n 2 /dev/md1 --assume-clean \
+        /dev/disk/by-id/virtio-disk-a-part1 /dev/disk/by-id/virtio-disk-b-part1
+    udevadm settle
+    mdadm --stop /dev/md1
+    udevadm settle
+    mdadm --zero-superblock /dev/disk/by-id/virtio-disk-b-part1
+    wipefs -a /dev/disk/by-id/virtio-disk-b
+    udevadm settle
+
+early_commands:
+  00-setup-raid: [sh, -exuc, *setup]
+
+storage:
+  config:
+  - type: disk
+    id: id_disk0
+    serial: disk-a
+    ptable: gpt
+    wipe: superblock-recursive
+  - type: disk
+    id: id_disk1
+    serial: disk-b
+  - type: partition
+    id: id_disk0_part1
+    device: id_disk0
+    flag: boot
+    number: 1
+    size: 512M
+  - type: partition
+    id: id_disk0_part2
+    device: id_disk0
+    number: 2
+    size: 8G
+  - type: format
+    id: id_efi_format
+    volume: id_disk0_part1
+    fstype: fat32
+  - type: format
+    id: id_root_format
+    volume: id_disk0_part2
+    fstype: ext4
+  - type: mount
+    device: id_root_format
+    id: id_root_mount
+    path: /
+  - type: mount
+    id: id_efi_mount
+    device: id_efi_format
+    path: /boot/efi
+  version: 1

@@ -67,7 +67,7 @@ def block_meta(args):
     if devices is None:
         devices = []
         if 'storage' in cfg:
-            devices = get_disk_paths_from_storage_config(
+            devices = get_device_paths_from_storage_config(
                 extract_storage_ordered_dict(cfg))
         if len(devices) == 0:
             devices = cfg.get('block-meta', {}).get('devices', [])
@@ -1535,20 +1535,24 @@ def zfs_handler(info, storage_config):
             util.write_file(state['fstab'], fstab_entry, omode='a')
 
 
-def get_disk_paths_from_storage_config(storage_config):
-    """Returns a list of disk paths in a storage config filtering out
-       preserved or disks which do not have wipe configuration.
+def get_device_paths_from_storage_config(storage_config):
+    """Returns a list of device paths in a storage config filtering out
+       preserved or devices which do not have wipe configuration.
 
     :param: storage_config: Ordered dict of storage configation
     """
-    def get_path_if_present(disk, config):
-        return get_path_to_storage_volume(disk, config)
-
-    return [get_path_if_present(k, storage_config)
-            for (k, v) in storage_config.items()
-            if v.get('type') == 'disk' and
-            config.value_as_boolean(v.get('wipe')) and
-            not config.value_as_boolean(v.get('preserve'))]
+    dpaths = []
+    for (k, v) in storage_config.items():
+        if v.get('type') in ['disk', 'partition']:
+            if config.value_as_boolean(v.get('wipe')):
+                if config.value_as_boolean(v.get('preserve')):
+                    continue
+                try:
+                    dpaths.append(
+                        get_path_to_storage_volume(k, storage_config))
+                except Exception:
+                    pass
+    return dpaths
 
 
 def zfsroot_update_storage_config(storage_config):
