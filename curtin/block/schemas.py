@@ -119,6 +119,7 @@ DISK = {
     'properties': {
         'id': {'$ref': '#/definitions/id'},
         'name': {'$ref': '#/definitions/name'},
+        'multipath': {'type': 'string'},
         'preserve': {'$ref': '#/definitions/preserve'},
         'wipe': {'$ref': '#/definitions/wipe'},
         'type': {'const': 'disk'},
@@ -265,6 +266,7 @@ PARTITION = {
     'additionalProperties': False,
     'properties': {
         'id': {'$ref': '#/definitions/id'},
+        'multipath': {'type': 'string'},
         'name': {'$ref': '#/definitions/name'},
         'offset': {'$ref': '#/definitions/size'},  # XXX: This is not used
         'preserve': {'$ref': '#/definitions/preserve'},
