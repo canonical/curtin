@@ -487,7 +487,7 @@ def plan_shutdown_holder_trees(holders_trees):
         # anything else regardless of whether it was added to the tree via
         # the cache device or backing device first
         if device in reg:
-            level = max(reg[device]['level'], level)
+            level = max(reg[device]['level'], level) + 1
 
         reg[device] = {'level': level, 'device': device,
                        'dev_type': tree['dev_type']}
