@@ -99,7 +99,6 @@ class DiscoTestZfsRoot(relbase.disco, TestZfsRootAbs):
     mem = 4096
 
 
-@TestZfsRootAbs.skip_by_date("1838278", fixby="2019-10-01", install=False)
 class EoanTestZfsRoot(relbase.eoan, TestZfsRootAbs):
     __test__ = True
     mem = 4096
@@ -129,7 +128,6 @@ class DiscoTestZfsRootFsType(relbase.disco, TestZfsRootFsTypeAbs):
     mem = 4096
 
 
-@TestZfsRootAbs.skip_by_date("1838278", fixby="2019-10-01", install=False)
 class EoanTestZfsRootFsType(relbase.eoan, TestZfsRootFsTypeAbs):
     __test__ = True
     mem = 4096
