@@ -588,7 +588,7 @@ class TestChrootableTargetMounts(CiTestCase):
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_chrootable_target_default_mounts(self):
         in_chroot = util.ChrootableTarget("mytarget")
-        default_mounts = ['/dev', '/proc', '/sys']
+        default_mounts = ['/dev', '/proc', '/run', '/sys']
         self.assertEqual(sorted(default_mounts), sorted(in_chroot.mounts))
 
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)

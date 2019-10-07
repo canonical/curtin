@@ -632,7 +632,7 @@ class ChrootableTarget(object):
         if mounts is not None:
             self.mounts = mounts
         else:
-            self.mounts = ["/dev", "/proc", "/sys"]
+            self.mounts = ["/dev", "/proc", "/run", "/sys"]
         self.umounts = []
         self.disabled_daemons = False
         self.allow_daemons = allow_daemons

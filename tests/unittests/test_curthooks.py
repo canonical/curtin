@@ -100,6 +100,7 @@ class TestUpdateInitramfs(CiTestCase):
         subp_calls = [
             self._mnt_call('dev'),
             self._mnt_call('proc'),
+            self._mnt_call('run'),
             self._mnt_call('sys'),
             call(['update-initramfs', '-u'], target=self.target),
             call(['udevadm', 'settle']),
@@ -113,6 +114,7 @@ class TestUpdateInitramfs(CiTestCase):
         subp_calls = [
             self._mnt_call('dev'),
             self._mnt_call('proc'),
+            self._mnt_call('run'),
             self._mnt_call('sys'),
             call(['update-initramfs', '-u', '-k', 'all'], target=self.target),
             call(['udevadm', 'settle']),

@@ -509,10 +509,7 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
     LOG.debug("installing grub to %s [replace_default=%s]",
               instdevs, replace_default)
 
-    # rhel lvm uses /run during grub configuration
-    chroot_mounts = (["/dev", "/proc", "/sys", "/run"]
-                     if osfamily == DISTROS.redhat else None)
-    with util.ChrootableTarget(target, mounts=chroot_mounts):
+    with util.ChrootableTarget(target):
         args = ['install-grub']
         if util.is_uefi_bootable():
             args.append("--uefi")
