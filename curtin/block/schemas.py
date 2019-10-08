@@ -299,6 +299,8 @@ RAID = {
         'devices': {'$ref': '#/definitions/devices'},
         'name': {'$ref': '#/definitions/name'},
         'mdname': {'$ref': '#/definitions/name'},  # XXX: Docs need updating
+        'metadata': {'type': ['string', 'number']},
+        'preserve': {'$ref': '#/definitions/preserve'},
         'ptable': {'$ref': '#/definitions/ptable'},
         'spare_devices': {'$ref': '#/definitions/devices'},
         'type': {'const': 'raid'},
