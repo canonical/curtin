@@ -110,7 +110,7 @@ These ``label`` values are reserved and cannot be used:
 **disk_layout**: *cdl, ldl*
 
 The default ``disk_layout`` value is ``cdl``, the compaible disk layout which
-allows for up to 3 partitions and a MBR.  The ``ldl``, Linux layout has only
+allows for up to 3 partitions and a VTOC.  The ``ldl``, Linux layout has only
 one partition.
 
 
@@ -125,7 +125,7 @@ one partition.
    mode: full
  - id: disk0
    type: disk
-   ptable: mbr
+   ptable: vtoc
    serial: 0X1520
    name: root_disk
    wipe: superblock
