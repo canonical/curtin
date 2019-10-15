@@ -422,7 +422,7 @@ class ProbertParser(object):
         return None
 
     def is_mpath(self, blockdev):
-        if 'DM_MULTIPATH_DEVICE_PATH' in blockdev:
+        if blockdev.get('DM_MULTIPATH_DEVICE_PATH') == "1":
             return True
 
         return bool('mpath-' in blockdev.get('DM_UUID', ''))
@@ -442,7 +442,7 @@ class ProbertParser(object):
                 return rv
 
     def find_mpath_member(self, blockdev):
-        if 'DM_MULTIPATH_DEVICE_PATH' in blockdev:
+        if blockdev.get('DM_MULTIPATH_DEVICE_PATH') == "1":
             # find all other DM_MULTIPATH_DEVICE_PATH devs with same serial
             serial = blockdev.get('ID_SERIAL')
             members = sorted([os.path.basename(dev['DEVNAME'])
@@ -730,7 +730,7 @@ class BlockdevParser(ProbertParser):
             'type': blockdev_data['DEVTYPE'],
             'id': self.blockdev_to_id(blockdev_data),
         }
-        if 'DM_MULTIPATH_DEVICE_PATH' in blockdev_data:
+        if blockdev_data.get('DM_MULTIPATH_DEVICE_PATH') == "1":
             mpath_name = self.get_mpath_name(blockdev_data)
             entry['multipath'] = mpath_name
 
