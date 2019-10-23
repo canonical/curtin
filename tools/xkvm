@@ -110,7 +110,7 @@ isdevopt() {
     local model="$1" input="${2%%=*}"
     local out="" opt="" opts=()
     if [ -z "${KVM_DEVOPTS[$model]}" ]; then
-        out=$($KVM ${archopts[@]} -device "$model,?" 2>&1) &&
+        out=$($KVM ${archopts[@]} -device "$model,?" -nographic 2>&1) &&
             out=$(echo "$out" | sed -e "s,[^.]*[.],," -e 's,=.*,,') &&
             KVM_DEVOPTS[$model]="$out" ||
             { error "bad device model $model?"; exit 1; }
