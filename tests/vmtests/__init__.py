@@ -389,7 +389,7 @@ def skip_if_arch(arch):
         def test_wrapper(self, *args, **kwargs):
             myarch = getattr(self, 'arch', None)
             if myarch == arch:
-                self.skipTest("skip due to %s=%s" % (myarch, arch))
+                self.skipTest("skip due to current arch=%s" % arch)
             else:
                 return func(self, *args, **kwargs)
         return test_wrapper
