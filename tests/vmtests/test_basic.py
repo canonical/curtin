@@ -70,7 +70,7 @@ class TestBasicAbs(VMBaseClass):
                 if ("../../" + kname) in line.split()]
         self.assertEqual(len(uuid), 1)
         uuid = uuid.pop()
-        self.assertTrue(uuid is not None)
+        self.assertIsNotNone(uuid)
         self.assertEqual(len(uuid), 36)
         return uuid
 
@@ -86,7 +86,7 @@ class TestBasicAbs(VMBaseClass):
                     ("scsi-" + serial) in line.split()]
         self.assertEqual(len(kname), 1)
         kname = kname.pop()
-        self.assertTrue(kname is not None)
+        self.assertIsNotNone(kname)
         return kname
 
     def _test_ptable(self, blkid_output, expected):
@@ -140,7 +140,7 @@ class TestBasicAbs(VMBaseClass):
         btrfs_uuid = self.load_collect_file(uuid_file).strip()
 
         # extract uuid from btrfs superblock
-        self.assertTrue(btrfs_uuid is not None)
+        self.assertIsNotNone(btrfs_uuid)
         self.assertEqual(len(btrfs_uuid), 36)
 
         # extract uuid from ls_uuid by kname
@@ -153,6 +153,8 @@ class TestBasicAbs(VMBaseClass):
         if self.target_release == "centos66":
             raise SkipTest("Cannot detect PReP partitions in Centos66")
         udev_info = self.load_collect_file(info_file).rstrip()
+        if not udev_info:
+            raise ValueError('Empty udev_info collect file')
         entry_type = ''
         for line in udev_info.splitlines():
             if line.startswith('ID_PART_ENTRY_TYPE'):
@@ -310,21 +312,35 @@ class TestBasicScsiAbs(TestBasicAbs):
         blkid -o export /dev/sda | cat >blkid_output_sda
         blkid -o export /dev/sda1 | cat >blkid_output_sda1
         blkid -o export /dev/sda2 | cat >blkid_output_sda2
-        dev="/dev/sdc"; f="btrfs_uuid_${dev#/dev/*}";
+        dev="/dev/disk/by-dname/btrfs_volume";
         if command -v btrfs-debug-tree >/dev/null; then
            btrfs-debug-tree -r $dev | awk '/^uuid/ {print $2}' | grep "-"
         else
            btrfs inspect-internal dump-super $dev |
                awk '/^dev_item.fsid/ {print $2}'
-        fi | cat >$f
+        fi | cat >btrfs_uuid
 
         # compare via /dev/zero 8MB
-        cmp --bytes=8388608 /dev/zero /dev/sdd2; echo "$?" > cmp_prep.out
+        dev="/dev/disk/by-dname/prep"
+        cmp --bytes=8388608 /dev/zero $dev; echo "$?" > cmp_prep.out
         # extract partition info
-        udevadm info --export --query=property /dev/sdd2 | cat >udev_info.out
+        udevadm info --export --query=property $dev | cat >udev_info.out
 
         exit 0
         """)]
+
+    def _dname_to_kname(self, dname):
+        # extract kname from /dev/disk/by-dname on /dev/<kname>
+        # parsing ls -al output on /dev/disk/by-dname:
+        # lrwxrwxrwx. 1 root root   9 Jun  3 21:16 iscsi_disk1 -> ../../sdb
+        ls_bydname = self.load_collect_file("ls_al_bydname")
+        kname = [os.path.basename(line.split()[10])
+                 for line in ls_bydname.split('\n')
+                 if dname in line.split()]
+        self.assertEqual(len(kname), 1)
+        kname = kname.pop()
+        self.assertIsNotNone(kname)
+        return kname
 
     def test_ptable(self):
         expected_ptable = "dos"
@@ -340,17 +356,23 @@ class TestBasicScsiAbs(TestBasicAbs):
 
     def test_fstab_entries(self):
         """"
-        dev=sda1 mp=/ fsopts=defaults
-        dev=sda2 mp=/home fsopts=defaults
-        dev=sdc  mp=/btrfs fsopts=defaults,noatime
+        dev=sdX1 mp=/ fsopts=defaults
+        dev=sdX2 mp=/home fsopts=defaults
+        dev=sdY  mp=/btrfs fsopts=defaults,noatime
         """
-        expected = [('sda1', '/', 'defaults'),
-                    ('sda2', '/home', 'defaults'),
-                    ('sdc', '/btrfs', 'defaults,noatime')]
+        root_dname = 'main_disk_with_in---valid--dname-part1'
+        home_dname = 'main_disk_with_in---valid--dname-part2'
+        btrfs_dname = 'btrfs_volume'
+
+        expected = [
+            (self._dname_to_kname(root_dname), '/', 'defaults'),
+            (self._dname_to_kname(home_dname), '/home', 'defaults'),
+            (self._dname_to_kname(btrfs_dname), '/btrfs', 'defaults,noatime')]
         self._test_fstab_entries('fstab', 'ls_al_byuuid', expected)
 
     def test_whole_disk_uuid(self):
-        self._test_whole_disk_uuid("sdc", "btrfs_uuid_sdc")
+        kname = self._dname_to_kname('btrfs_volume')
+        self._test_whole_disk_uuid(kname, "btrfs_uuid")
 
     def test_partition_is_prep(self):
         self._test_partition_is_prep("udev_info.out")
