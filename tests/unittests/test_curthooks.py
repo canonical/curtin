@@ -130,6 +130,11 @@ class TestSetupKernelImgConf(CiTestCase):
         self.add_patch('curtin.util.get_architecture', 'mock_arch')
         self.add_patch('curtin.util.write_file', 'mock_write_file')
         self.target = 'not-a-real-target'
+        self.add_patch('curtin.distro.lsb_release', 'mock_lsb_release')
+        self.mock_lsb_release.return_value = {
+            'codename': 'xenial',
+            'release': '16.04',
+        }
 
     def test_on_s390x(self):
         self.mock_machine.return_value = "s390x"
@@ -172,6 +177,20 @@ do_bootloader = no
 do_initrd = yes
 link_in_boot = no
 """)
+
+    def test_skips_on_eoan_or_newer(self):
+        test_releases = [('eoan', '19.10'), ('ff', '20.04')]
+        test_params = [
+            ('s390x', 's390x'), ('i686', 'i386'), ('x86_64', 'amd64')]
+        for code, rel in test_releases:
+            self.mock_lsb_release.return_value = {
+                'codename': code, 'release': rel
+            }
+            for machine, arch in test_params:
+                self.mock_machine.return_value = machine
+                self.mock_arch.return_value = arch
+                curthooks.setup_kernel_img_conf(self.target)
+                self.assertEqual(0, self.mock_write_file.call_count)
 
 
 class TestInstallMissingPkgs(CiTestCase):

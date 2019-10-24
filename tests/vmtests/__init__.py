@@ -1725,6 +1725,9 @@ class VMBaseClass(TestCase):
         """ Test curtin install kernel-img.conf correctly. """
         if self.target_distro != 'ubuntu':
             raise SkipTest("kernel-img.conf not needed in non-ubuntu releases")
+        if self.target_release not in ['trusty', 'xenial', 'bionic', 'disco']:
+            raise SkipTest(
+                "LP: #1847257 kernel-img.conf not needed in eoan and newer")
         kconf = 'kernel-img.conf'
         self.output_files_exist([kconf])
         if self.target_arch in ['i386', 'amd64']:

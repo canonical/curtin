@@ -262,6 +262,11 @@ def get_flash_kernel_pkgs(arch=None, uefi=None):
 
 
 def setup_kernel_img_conf(target):
+    # kernel-img.conf only needed on release prior to 19.10
+    lsb_info = distro.lsb_release(target=target)
+    if tuple(map(int, lsb_info['release'].split('.'))) >= (19, 10):
+        return
+
     kernel_img_conf_vars = {
         'bootloader': 'no',
         'inboot': 'yes',
