@@ -2,6 +2,7 @@
 
 from collections import OrderedDict, namedtuple
 from curtin import (block, config, paths, util)
+from curtin.block import schemas
 from curtin.block import (bcache, clear_holders, dasd, iscsi, lvm, mdadm, mkfs,
                           zfs)
 from curtin import distro
@@ -32,6 +33,7 @@ SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
 BCACHE_REGISTRATION_RETRY = [0.2] * 60
+PTABLE_UNSUPPORTED = schemas._ptable_unsupported
 
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
@@ -536,7 +538,7 @@ def disk_handler(info, storage_config):
 
     if config.value_as_boolean(info.get('preserve')):
         # Handle preserve flag, verifying if ptable specified in config
-        if config.value_as_boolean(ptable):
+        if config.value_as_boolean(ptable) and ptable != PTABLE_UNSUPPORTED:
             current_ptable = block.get_part_table_type(disk)
             if not ((ptable in _dos_names and current_ptable in _dos_names) or
                     (ptable == 'gpt' and current_ptable == 'gpt')):

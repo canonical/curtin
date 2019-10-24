@@ -43,12 +43,11 @@ class TestStorageConfigSchema(CiTestCase):
         storage_config.validate_config(config)
 
     @skipUnlessJsonSchema()
-    def test_disk_schema_accepts_mac_partition_table(self):
+    def test_disk_schema_accepts_missing_ptable(self):
         disk = {
             "id": "disk-vdc",
             "path": "/dev/vdc",
             "type": "disk",
-            "ptable": "mac",
         }
         config = {'config': [disk], 'version': 1}
         storage_config.validate_config(config)
@@ -384,6 +383,21 @@ class TestBlockdevParser(CiTestCase):
         }
         self.assertDictEqual(expected_dict,
                              self.bdevp.asdict(blockdev))
+
+    def test_blockdev_asdict_disk_marks_unknown_ptable_as_unspported(self):
+        blockdev = self.bdevp.blockdev_data['/dev/sda']
+        expected_dict = {
+            'id': 'disk-sda',
+            'type': 'disk',
+            'wwn': '0x3001438034e549a0',
+            'serial': '33001438034e549a0',
+            'ptable': 'unsupported',
+            'path': '/dev/sda',
+        }
+        for invalid in ['mac', 'PMBR']:
+            blockdev['ID_PART_TABLE_TYPE'] = invalid
+            self.assertDictEqual(expected_dict,
+                                 self.bdevp.asdict(blockdev))
 
     def test_blockdev_detects_multipath(self):
         self.probe_data = _get_data('probert_storage_multipath.json')

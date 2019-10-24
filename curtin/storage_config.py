@@ -743,7 +743,11 @@ class BlockdevParser(ProbertParser):
             entry.update(uniq_ids)
 
             if 'ID_PART_TABLE_TYPE' in blockdev_data:
-                entry['ptable'] = blockdev_data['ID_PART_TABLE_TYPE']
+                ptype = blockdev_data['ID_PART_TABLE_TYPE']
+                if ptype in schemas._ptables:
+                    entry['ptable'] = ptype
+                else:
+                    entry['ptable'] = schemas._ptable_unsupported
             return entry
 
         if entry['type'] == 'partition':
