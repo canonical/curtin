@@ -406,9 +406,8 @@ def get_path_to_storage_volume(volume, storage_config):
             try:
                 if not vol_value:
                     continue
-                if disk_key == 'serial':
+                if disk_key in ['wwn', 'serial']:
                     volume_path = block.lookup_disk(vol_value)
-                    break
                 elif disk_key == 'path':
                     if vol_value.startswith('iscsi:'):
                         i = iscsi.ensure_disk_connected(vol_value)
@@ -418,21 +417,18 @@ def get_path_to_storage_volume(volume, storage_config):
                         # sys/class/block access is valid.  ie, there are no
                         # udev generated values in sysfs
                         volume_path = os.path.realpath(vol_value)
-                    break
-                elif disk_key == 'wwn':
-                    by_wwn = '/dev/disk/by-id/wwn-%s' % vol.get('wwn')
-                    volume_path = os.path.realpath(by_wwn)
-                    break
                 elif disk_key == 'device_id':
                     dasd_device = dasd.DasdDevice(vol_value)
                     volume_path = dasd_device.devname
-                    break
             except ValueError:
-                pass
+                continue
+            # verify path exists otherwise try the next key
+            if not os.path.exists(volume_path):
+                volume_path = None
 
-        if not volume_path:
-            raise ValueError("serial, wwn or path to block dev must be \
-                specified to identify disk")
+        if volume_path is None:
+            raise ValueError("Failed to find storage volume id='%s' config: %s"
+                             % (vol['id'], vol))
 
     elif vol.get('type') == "lvm_partition":
         # For lvm partitions, a directory in /dev/ should be present with the

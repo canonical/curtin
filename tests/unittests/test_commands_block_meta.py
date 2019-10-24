@@ -11,6 +11,96 @@ from curtin import paths, util
 from .helpers import CiTestCase
 
 
+class TestGetPathToStorageVolume(CiTestCase):
+
+    def setUp(self):
+        super(TestGetPathToStorageVolume, self).setUp()
+        basepath = 'curtin.commands.block_meta.'
+        self.add_patch(basepath + 'os.path.exists', 'm_exists')
+        self.add_patch(basepath + 'block.lookup_disk', 'm_lookup')
+        self.add_patch(basepath + 'devsync', 'm_devsync')
+
+    def test_block_lookup_called_with_disk_wwn(self):
+        volume = 'mydisk'
+        wwn = self.random_string()
+        cfg = {'id': volume, 'type': 'disk', 'wwn': wwn}
+        s_cfg = OrderedDict({volume: cfg})
+        block_meta.get_path_to_storage_volume(volume, s_cfg)
+        expected_calls = [call(wwn)]
+        self.assertEqual(expected_calls, self.m_lookup.call_args_list)
+
+    def test_block_lookup_called_with_disk_serial(self):
+        volume = 'mydisk'
+        serial = self.random_string()
+        cfg = {'id': volume, 'type': 'disk', 'serial': serial}
+        s_cfg = OrderedDict({volume: cfg})
+        block_meta.get_path_to_storage_volume(volume, s_cfg)
+        expected_calls = [call(serial)]
+        self.assertEqual(expected_calls, self.m_lookup.call_args_list)
+
+    def test_block_lookup_called_with_disk_wwn_fallback_to_serial(self):
+        volume = 'mydisk'
+        wwn = self.random_string()
+        serial = self.random_string()
+        cfg = {'id': volume, 'type': 'disk', 'wwn': wwn, 'serial': serial}
+        s_cfg = OrderedDict({volume: cfg})
+
+        # doesn't find wwn, returns path on serial
+        self.m_lookup.side_effect = iter([ValueError('Error'), 'foo'])
+
+        block_meta.get_path_to_storage_volume(volume, s_cfg)
+        expected_calls = [call(wwn), call(serial)]
+        self.assertEqual(expected_calls, self.m_lookup.call_args_list)
+
+    def test_fallback_to_path_when_lookup_wwn_serial_fail(self):
+        volume = 'mydisk'
+        wwn = self.random_string()
+        serial = self.random_string()
+        path = "/%s/%s" % (self.random_string(), self.random_string())
+        cfg = {'id': volume, 'type': 'disk',
+               'path': path, 'wwn': wwn, 'serial': serial}
+        s_cfg = OrderedDict({volume: cfg})
+
+        # lookups fail
+        self.m_lookup.side_effect = iter([
+            ValueError('Error'), ValueError('Error')])
+
+        result = block_meta.get_path_to_storage_volume(volume, s_cfg)
+        expected_calls = [call(wwn), call(serial)]
+        self.assertEqual(expected_calls, self.m_lookup.call_args_list)
+        self.assertEqual(path, result)
+
+    def test_block_lookup_not_called_with_wwn_or_serial_keys(self):
+        volume = 'mydisk'
+        path = "/%s/%s" % (self.random_string(), self.random_string())
+        cfg = {'id': volume, 'type': 'disk', 'path': path}
+        s_cfg = OrderedDict({volume: cfg})
+        result = block_meta.get_path_to_storage_volume(volume, s_cfg)
+        self.assertEqual(0, self.m_lookup.call_count)
+        self.assertEqual(path, result)
+
+    def test_exception_raise_if_disk_not_found(self):
+        volume = 'mydisk'
+        wwn = self.random_string()
+        serial = self.random_string()
+        path = "/%s/%s" % (self.random_string(), self.random_string())
+        cfg = {'id': volume, 'type': 'disk',
+               'path': path, 'wwn': wwn, 'serial': serial}
+        s_cfg = OrderedDict({volume: cfg})
+
+        # lookups fail
+        self.m_lookup.side_effect = iter([
+            ValueError('Error'), ValueError('Error')])
+        # no path
+        self.m_exists.return_value = False
+
+        with self.assertRaises(ValueError):
+            block_meta.get_path_to_storage_volume(volume, s_cfg)
+        expected_calls = [call(wwn), call(serial)]
+        self.assertEqual(expected_calls, self.m_lookup.call_args_list)
+        self.m_exists.assert_has_calls([call(path)])
+
+
 class TestBlockMetaSimple(CiTestCase):
     def setUp(self):
         super(TestBlockMetaSimple, self).setUp()
@@ -1085,6 +1175,5 @@ class TestDmCryptHandler(CiTestCase):
         ]
         self.m_subp.assert_has_calls(expected_calls)
         self.assertEqual(len(util.load_file(self.crypttab).splitlines()), 1)
-
 
 # vi: ts=4 expandtab syntax=python

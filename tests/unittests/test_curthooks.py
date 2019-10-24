@@ -353,7 +353,8 @@ class TestSetupGrub(CiTestCase):
                 self.target, '/dev/vdb'],),
             self.mock_subp.call_args_list[0][0])
 
-    def test_uses_grub_install_on_storage_config(self):
+    @patch('curtin.commands.curthooks.os.path.exists')
+    def test_uses_grub_install_on_storage_config(self, m_exists):
         cfg = {
             'storage': {
                 'version': 1,
@@ -368,6 +369,7 @@ class TestSetupGrub(CiTestCase):
             },
         }
         self.subp_output.append(('', ''))
+        m_exists.return_value = True
         curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
         self.assertEquals(
             ([
