@@ -183,10 +183,10 @@ if [ $skip_images_dirlock = 0 ]; then
     exec {dirlockfd}< "$IMAGE_DIR"
     if ! flock --nonblock --shared $dirlockfd; then
         # Be more verbose if the lock wasn't acquired immediately
-        tlock=$EPOCHSECONDS
+        tlock=$(date +%s)
         error "Acquiring directory lock on $IMAGE_DIR ($ltimeout_msg)..."
         flock --shared "${flock_timeout_opts[@]}" $dirlockfd > /dev/null || fail "Failed to acquire the lock."
-        tlock=$((EPOCHSECONDS - tlock))
+        tlock=$(($(date +%s) - tlock))
         error "Lock on $IMAGE_DIR acquired after ${tlock}s."
     fi
 fi
@@ -197,10 +197,10 @@ fi
 lockfile="$IMAGE_DIR/vmtest-images.lock"
 exec {lockfd}> "$lockfile"
 if ! flock --nonblock --shared $lockfd; then
-    tlock=$EPOCHSECONDS
+    tlock=$(date +%s)
     error "Acquiring lock on $lockfile ($ltimeout_msg)..."
     flock --shared "${flock_timeout_opts[@]}" $lockfd > /dev/null || fail "Failed to acquire the lock."
-    tlock=$((EPOCHSECONDS - tlock))
+    tlock=$(($(date +%s) - tlock))
     error "Lock on $lockfile acquired after ${tlock}s."
 fi
 
