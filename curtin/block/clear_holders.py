@@ -166,14 +166,27 @@ def shutdown_mdadm(device):
 
     blockdev = block.sysfs_to_devpath(device)
 
-    LOG.info('Wiping superblock on raid device: %s', device)
-    _wipe_superblock(blockdev, exclusive=False)
-
+    LOG.info('Discovering raid devices and spares for %s', device)
     md_devs = (
         mdadm.md_get_devices_list(blockdev) +
         mdadm.md_get_spares_list(blockdev))
     mdadm.set_sync_action(blockdev, action="idle")
     mdadm.set_sync_action(blockdev, action="frozen")
+
+    LOG.info('Wiping superblock on raid device: %s', device)
+    try:
+        _wipe_superblock(blockdev, exclusive=False)
+    except ValueError as e:
+        # if the array is not functional, writes to the device may fail
+        # and _wipe_superblock will raise ValueError for short writes
+        # which happens on inactive raid volumes.  In that case we
+        # shouldn't give up yet as we still want to disassemble
+        # array and wipe members.  Other errors such as IOError or OSError
+        # are unwelcome and will stop deployment.
+        LOG.debug('Non-fatal error writing to array device %s, '
+                  'proceeding with shutdown: %s', blockdev, e)
+
+    LOG.info('Removing raid array members: %s', md_devs)
     for mddev in md_devs:
         try:
             mdadm.fail_device(blockdev, mddev)
@@ -474,7 +487,7 @@ def plan_shutdown_holder_trees(holders_trees):
         # anything else regardless of whether it was added to the tree via
         # the cache device or backing device first
         if device in reg:
-            level = max(reg[device]['level'], level)
+            level = max(reg[device]['level'], level) + 1
 
         reg[device] = {'level': level, 'device': device,
                        'dev_type': tree['dev_type']}
@@ -534,8 +547,10 @@ def assert_clear(base_paths):
     valid = ('disk', 'partition')
     if not isinstance(base_paths, (list, tuple)):
         base_paths = [base_paths]
-    base_paths = [block.sys_block_path(path) for path in base_paths]
-    for holders_tree in [gen_holders_tree(p) for p in base_paths]:
+    base_paths = [block.sys_block_path(path, strict=False)
+                  for path in base_paths]
+    for holders_tree in [gen_holders_tree(p)
+                         for p in base_paths if os.path.exists(p)]:
         if any(holder_type not in valid and path not in base_paths
                for (holder_type, path) in get_holder_types(holders_tree)):
             raise OSError('Storage not clear, remaining:\n{}'

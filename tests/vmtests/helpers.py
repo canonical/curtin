@@ -8,6 +8,8 @@ import signal
 import threading
 from unittest import TestLoader
 
+from curtin.util import get_platform_arch
+
 
 class Command(object):
     """
@@ -135,14 +137,17 @@ def find_testcases(**kwargs):
 
 def find_arches():
     """
-    Return a list of uniq arch values from test cases
+    Return a list of uniq target arch values from test cases
     """
-    arches = []
+    arch = get_platform_arch()
+    target_arches = []
     for test_case in find_testcases():
-        arch = getattr(test_case, 'arch', None)
-        if arch and arch not in arches:
-            arches.append(arch)
-    return arches
+        if arch in getattr(test_case, 'arch_skip', None):
+            continue
+        target_arch = getattr(test_case, 'target_arch', None)
+        if target_arch and target_arch not in target_arches:
+            target_arches.append(target_arch)
+    return target_arches
 
 
 def find_releases_by_distro():

@@ -588,7 +588,7 @@ class TestChrootableTargetMounts(CiTestCase):
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_chrootable_target_default_mounts(self):
         in_chroot = util.ChrootableTarget("mytarget")
-        default_mounts = ['/dev', '/proc', '/sys']
+        default_mounts = ['/dev', '/proc', '/run', '/sys']
         self.assertEqual(sorted(default_mounts), sorted(in_chroot.mounts))
 
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
@@ -1093,6 +1093,43 @@ class TestLoadKernelModule(CiTestCase):
         self.assertEqual(1, self.m_is_kmod_loaded.call_count)
         self.m_is_kmod_loaded.assert_called_with(self.modname)
         self.assertEqual(0, self.m_subp.call_count)
+
+
+class TestSanitizeSource(CiTestCase):
+
+    # copied from curtin.util.sanitize_source
+    supported = ['tgz', 'dd-tgz', 'tbz', 'dd-tbz', 'txz', 'dd-txz', 'dd-tar',
+                 'dd-bz2', 'dd-gz', 'dd-xz', 'dd-raw', 'fsimage',
+                 'fsimage-layered']
+    source_url = 'http://curtin.io/root-fs.foo'
+
+    def test_supported_sources(self):
+        """ Verify supported sources types return expected dictionary. """
+        for stype in self.supported:
+            expected = {'type': stype, 'uri': self.source_url}
+            result = util.sanitize_source("%s:%s" % (stype, self.source_url))
+            self.assertEqual(expected, result)
+
+    def test_supported_squashfs_source_type(self):
+        """ Verify squashfs: prefix returns type=fsimage and correct uri."""
+        stype = 'fsimage'
+        expected = {'type': stype, 'uri': self.source_url}
+        result = util.sanitize_source("%s:%s" % (stype, self.source_url))
+        self.assertEqual(expected, result)
+
+    def test_supported_squashfs_suffix(self):
+        """ Verify .squash[fs] suffix returns type=fsimage and correct uri."""
+        for suff in ['squash', 'squashfs']:
+            source_url = "%s.%s" % (self.source_url, suff)
+            expected = {'type': 'fsimage', 'uri': source_url}
+            result = util.sanitize_source(source_url)
+            self.assertEqual(expected, result)
+
+    def test_unknown_type_assumed_to_be_tgz(self):
+        """ Verify unknown source type returns default type. """
+        expected = {'type': 'tgz', 'uri': self.source_url}
+        result = util.sanitize_source(self.source_url)
+        self.assertEqual(expected, result)
 
 
 # vi: ts=4 expandtab syntax=python

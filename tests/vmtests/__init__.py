@@ -381,6 +381,21 @@ def skip_if_flag(flag):
     return decorator
 
 
+def skip_if_arch(arch):
+    def decorator(func):
+        """the name test_wrapper below has to start with test, or nose's
+           filter will not run it."""
+        @wraps(func)
+        def test_wrapper(self, *args, **kwargs):
+            myarch = getattr(self, 'arch', None)
+            if myarch == arch:
+                self.skipTest("skip due to current arch=%s" % arch)
+            else:
+                return func(self, *args, **kwargs)
+        return test_wrapper
+    return decorator
+
+
 def skip_by_date(bugnum, fixby, removeby=None, skips=None, install=True):
     """A decorator to skip a test or test class based on current date.
 
@@ -612,6 +627,7 @@ class VMBaseClass(TestCase):
     # these get set from base_vm_classes
     release = None
     arch = None
+    target_arch = None
     kflavor = None
     krel = None
     distro = None
@@ -638,7 +654,7 @@ class VMBaseClass(TestCase):
         logger.debug('cls.ephemeral_ftype: %s', cls.ephemeral_ftype)
         logger.debug('cls.target_ftype: %s', cls.target_ftype)
         eph_img_verstr, ftypes = get_images(
-            IMAGE_SRC_URL, IMAGE_DIR, cls.distro, cls.release, cls.arch,
+            IMAGE_SRC_URL, IMAGE_DIR, cls.distro, cls.release, cls.target_arch,
             krel=cls.krel if cls.krel else cls.release,
             kflavor=cls.kflavor if cls.kflavor else None,
             subarch=cls.subarch if cls.subarch else None,
@@ -661,7 +677,7 @@ class VMBaseClass(TestCase):
                 IMAGE_SRC_URL, IMAGE_DIR,
                 cls.target_distro,
                 cls.target_release,
-                cls.arch, subarch=cls.subarch if cls.subarch else None,
+                cls.target_arch, subarch=cls.subarch if cls.subarch else None,
                 kflavor=cls.kflavor if cls.kflavor else None,
                 krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
                 ftypes=(tftype,))
@@ -841,6 +857,10 @@ class VMBaseClass(TestCase):
         if VMRAM:
             cls.mem = str(VMRAM)
 
+        # arm64 is UEFI only
+        if cls.arch == 'arm64':
+            cls.uefi = True
+
         req_attrs = ('target_distro', 'target_release', 'release', 'distro')
         missing = [a for a in req_attrs if not getattr(cls, a)]
         if missing:
@@ -897,7 +917,7 @@ class VMBaseClass(TestCase):
             dowait = "--dowait"
 
         # create launch cmd
-        cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait,
+        cmd = ["tools/launch", "--arch=" + cls.target_arch, "-v", dowait,
                "--smp=" + cls.get_config_smp(), "--mem=%s" % str(cls.mem)]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
@@ -1302,7 +1322,7 @@ class VMBaseClass(TestCase):
                ["--", "-smp",  cls.get_config_smp(), "-m", str(cls.mem)])
 
         if not cls.interactive:
-            if cls.arch == 's390x':
+            if cls.target_arch == 's390x':
                 cmd.extend([
                     "-nographic", "-nodefaults", "-chardev",
                     "file,path=%s,id=charconsole0" % cls.boot_log,
@@ -1705,9 +1725,12 @@ class VMBaseClass(TestCase):
         """ Test curtin install kernel-img.conf correctly. """
         if self.target_distro != 'ubuntu':
             raise SkipTest("kernel-img.conf not needed in non-ubuntu releases")
+        if self.target_release not in ['trusty', 'xenial', 'bionic', 'disco']:
+            raise SkipTest(
+                "LP: #1847257 kernel-img.conf not needed in eoan and newer")
         kconf = 'kernel-img.conf'
         self.output_files_exist([kconf])
-        if self.arch in ['i386', 'amd64']:
+        if self.target_arch in ['i386', 'amd64']:
             self.check_file_strippedline(kconf, 'link_in_boot = no')
         else:
             self.check_file_strippedline(kconf, 'link_in_boot = yes')
@@ -1753,8 +1776,19 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def get_class_storage_config(cls):
-        sc = cls.load_conf_file()
-        return yaml.safe_load(sc).get('storage', {}).get('config', {})
+        if cls.target_arch == 'ppc64el':
+            cfg = yaml.safe_load(cls.load_conf_file())
+            new_sc = inject_prep_partition(cfg)
+            # copy testcase YAML to a temp file in order to use updated yaml
+            temp_yaml = tempfile.NamedTemporaryFile(prefix=cls.td.tmpdir + '/',
+                                                    mode='w+t', delete=False)
+            util.write_file(temp_yaml.name, yaml.dump(new_sc,
+                            default_flow_style=False, indent=4))
+            cls.conf_file = temp_yaml.name
+
+        cfg = cls.load_conf_file()
+        sc = yaml.safe_load(cfg).get('storage', {}).get('config', {})
+        return sc
 
     def get_storage_config(self):
         cfg = load_config(self.collect_path("root/curtin-install-cfg.yaml"))
@@ -1830,7 +1864,7 @@ class PsuedoVMBaseClass(VMBaseClass):
            kernel, initrd, tarball."""
 
         def get_psuedo_path(name):
-            return os.path.join(IMAGE_DIR, cls.release, cls.arch, name)
+            return os.path.join(IMAGE_DIR, cls.release, cls.target_arch, name)
 
         return {
             'squashfs': get_psuedo_path('psuedo-squashfs'),
@@ -2267,6 +2301,77 @@ def generate_upgrade_config(packages, singlecmd=True):
             cmds["install_pkg_%02d" % idx] = base_cmd + package
 
     return yaml.dump({'late_commands': cmds})
+
+
+def prep_partition_for_device(device):
+    """ Storage config for a Power PReP partition, both
+        msdos and gpt format"""
+    return {
+        'id': 'prep_partition',
+        'type': 'partition',
+        'size': '8M',
+        'flag': 'prep',
+        'guid': '9e1a2d38-c612-4316-aa26-8b49521e5a8b',
+        'offset': '1M',
+        'wipe': 'zero',
+        'grub_device': True,
+        'device': device}
+
+
+def inject_prep_partition(config):
+    """ Parse a curtin configuration file and inject
+        a prep partition if possible"""
+    storage_config = config.get('storage', {}).get('config', {})
+    if len(storage_config) == 0:
+        logger.debug('No storage config, skipping prep injection')
+        return config
+
+    logger.info('Injecting PReP Partition')
+    disks = [item for item in storage_config
+             if item['type'] == 'disk']
+    disks = [disk for disk in disks if 'grub_device' in disk]
+    grub_disk = disks[0]
+    main_partitions = [part for part in storage_config
+                       if part['type'] == 'partition' and
+                       part['device'] == grub_disk['id']]
+
+    # convert msdos to gpt, that's required for PReP
+    if grub_disk['ptable'] == 'msdos':
+        grub_disk['ptable'] = 'gpt'
+        primary_parts = [part for part in main_partitions
+                         if part.get('flag', '') not in ['extended',
+                                                         'logical']]
+        if len(primary_parts) > 3:
+            logger.error("Can't find a primary partition for prep partition")
+            raise ValueError
+
+        prep_partition = prep_partition_for_device(grub_disk['id'])
+        last_partition = primary_parts[-1]
+        partition_index = storage_config.index(last_partition)
+        storage_config.insert(partition_index + 1, prep_partition)
+        if 'grub_device' in grub_disk:
+            del grub_disk['grub_device']
+
+    # for gpt, find the boot_partition (flag: bios_grub), delete it
+    # and then add a new partition for prep, size 8MB
+    elif grub_disk['ptable'] == 'gpt':
+        prep_partition = prep_partition_for_device(grub_disk['id'])
+        [boot_partition] = [part for part in main_partitions
+                            if part.get('flag', '') in ['bios_grub']]
+
+        partition_index = storage_config.index(boot_partition)
+        storage_config[partition_index] = prep_partition
+
+        if 'grub_device' in grub_disk:
+            del grub_disk['grub_device']
+
+    # remove any other boot flags on partitions
+    for part in main_partitions:
+        if 'flag' in part and part['flag'] in ['boot', 'bios_grub']:
+            del part['flag']
+
+    config['storage']['config'] = storage_config
+    return config
 
 
 apply_keep_settings()

@@ -2,6 +2,7 @@
 
 from collections import OrderedDict, namedtuple
 from curtin import (block, config, paths, util)
+from curtin.block import schemas
 from curtin.block import (bcache, clear_holders, dasd, iscsi, lvm, mdadm, mkfs,
                           zfs)
 from curtin import distro
@@ -32,6 +33,7 @@ SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
 BCACHE_REGISTRATION_RETRY = [0.2] * 60
+PTABLE_UNSUPPORTED = schemas._ptable_unsupported
 
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
@@ -67,7 +69,7 @@ def block_meta(args):
     if devices is None:
         devices = []
         if 'storage' in cfg:
-            devices = get_disk_paths_from_storage_config(
+            devices = get_device_paths_from_storage_config(
                 extract_storage_ordered_dict(cfg))
         if len(devices) == 0:
             devices = cfg.get('block-meta', {}).get('devices', [])
@@ -404,9 +406,8 @@ def get_path_to_storage_volume(volume, storage_config):
             try:
                 if not vol_value:
                     continue
-                if disk_key == 'serial':
+                if disk_key in ['wwn', 'serial']:
                     volume_path = block.lookup_disk(vol_value)
-                    break
                 elif disk_key == 'path':
                     if vol_value.startswith('iscsi:'):
                         i = iscsi.ensure_disk_connected(vol_value)
@@ -416,21 +417,18 @@ def get_path_to_storage_volume(volume, storage_config):
                         # sys/class/block access is valid.  ie, there are no
                         # udev generated values in sysfs
                         volume_path = os.path.realpath(vol_value)
-                    break
-                elif disk_key == 'wwn':
-                    by_wwn = '/dev/disk/by-id/wwn-%s' % vol.get('wwn')
-                    volume_path = os.path.realpath(by_wwn)
-                    break
                 elif disk_key == 'device_id':
                     dasd_device = dasd.DasdDevice(vol_value)
                     volume_path = dasd_device.devname
-                    break
             except ValueError:
-                pass
+                continue
+            # verify path exists otherwise try the next key
+            if not os.path.exists(volume_path):
+                volume_path = None
 
-        if not volume_path:
-            raise ValueError("serial, wwn or path to block dev must be \
-                specified to identify disk")
+        if volume_path is None:
+            raise ValueError("Failed to find storage volume id='%s' config: %s"
+                             % (vol['id'], vol))
 
     elif vol.get('type') == "lvm_partition":
         # For lvm partitions, a directory in /dev/ should be present with the
@@ -536,7 +534,7 @@ def disk_handler(info, storage_config):
 
     if config.value_as_boolean(info.get('preserve')):
         # Handle preserve flag, verifying if ptable specified in config
-        if config.value_as_boolean(ptable):
+        if config.value_as_boolean(ptable) and ptable != PTABLE_UNSUPPORTED:
             current_ptable = block.get_part_table_type(disk)
             if not ((ptable in _dos_names and current_ptable in _dos_names) or
                     (ptable == 'gpt' and current_ptable == 'gpt')):
@@ -1535,20 +1533,24 @@ def zfs_handler(info, storage_config):
             util.write_file(state['fstab'], fstab_entry, omode='a')
 
 
-def get_disk_paths_from_storage_config(storage_config):
-    """Returns a list of disk paths in a storage config filtering out
-       preserved or disks which do not have wipe configuration.
+def get_device_paths_from_storage_config(storage_config):
+    """Returns a list of device paths in a storage config filtering out
+       preserved or devices which do not have wipe configuration.
 
     :param: storage_config: Ordered dict of storage configation
     """
-    def get_path_if_present(disk, config):
-        return get_path_to_storage_volume(disk, config)
-
-    return [get_path_if_present(k, storage_config)
-            for (k, v) in storage_config.items()
-            if v.get('type') == 'disk' and
-            config.value_as_boolean(v.get('wipe')) and
-            not config.value_as_boolean(v.get('preserve'))]
+    dpaths = []
+    for (k, v) in storage_config.items():
+        if v.get('type') in ['disk', 'partition']:
+            if config.value_as_boolean(v.get('wipe')):
+                if config.value_as_boolean(v.get('preserve')):
+                    continue
+                try:
+                    dpaths.append(
+                        get_path_to_storage_volume(k, storage_config))
+                except Exception:
+                    pass
+    return dpaths
 
 
 def zfsroot_update_storage_config(storage_config):

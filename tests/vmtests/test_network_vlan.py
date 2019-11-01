@@ -83,6 +83,10 @@ class DiscoTestNetworkVlan(relbase.disco, TestNetworkVlanAbs):
 class EoanTestNetworkVlan(relbase.eoan, TestNetworkVlanAbs):
     __test__ = True
 
+    @TestNetworkBaseTestsAbs.skip_by_date("1846232", fixby="2019-12-01")
+    def test_ip_output(self):
+        pass
+
 
 class Centos66TestNetworkVlan(centos_relbase.centos66_xenial,
                               CentosTestNetworkVlanAbs):

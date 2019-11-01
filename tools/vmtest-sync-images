@@ -3,12 +3,10 @@
 
 # This tool keeps a local copy of the maas images used by vmtests.
 # It keeps only the latest copy of the available images.
+import fcntl
 import os
-import random
 import shutil
-import subprocess
 import sys
-import time
 
 # Fix path so we can import ImageStore class.
 sys.path.insert(1, os.path.realpath(os.path.join(
@@ -24,17 +22,21 @@ from tests.vmtests.helpers import (
 def _fmt_list_filter(filter_name, matches):
     return '~'.join((filter_name, '|'.join(matches)))
 
-
-def _jenkins_runner_active():
-    return subprocess.call(['pgrep', '-c', 'jenkins-runner'],
-                           stdout=subprocess.PIPE)
-
 if __name__ == '__main__':
-    while _jenkins_runner_active() == 0:
-        time_sleep = random.randint(5, 60)
-        print("Not syncing while jenkins-runner is running. " +
-              "Sleeping %s seconds." % time_sleep)
-        time.sleep(time_sleep)
+    # Acquire an exclusive lock on IMAGE_DIR. This will prevent jenkins-runner
+    # from running while vmtest-sync-images is working.
+    print("Acquiring an exclusive lock on %s..." % IMAGE_DIR)
+    image_dir_fd = os.open(IMAGE_DIR, os.O_RDONLY)
+    fcntl.flock(image_dir_fd, fcntl.LOCK_EX)
+
+    # Acquire an exclusive lock on vmtest-images.lock. The jenkins-runner
+    # script sets a shared lock on it, meaning that vmtest-sync-images will
+    # wait for all the running jenkins-runner to finish before actually
+    # touching the image files.
+    lockfile = IMAGE_DIR + "/vmtest-images.lock"
+    print("Acquiring an exclusive lock on %s..." % lockfile)
+    lockfd = open(lockfile, 'w')
+    fcntl.flock(lockfd, fcntl.LOCK_EX)
 
     if len(sys.argv) > 1 and sys.argv[1] == "--clean":
         print("cleaning image dir %s" % IMAGE_DIR)

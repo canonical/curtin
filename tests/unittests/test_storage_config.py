@@ -42,6 +42,16 @@ class TestStorageConfigSchema(CiTestCase):
         config = {'config': [disk], 'version': 1}
         storage_config.validate_config(config)
 
+    @skipUnlessJsonSchema()
+    def test_disk_schema_accepts_missing_ptable(self):
+        disk = {
+            "id": "disk-vdc",
+            "path": "/dev/vdc",
+            "type": "disk",
+        }
+        config = {'config': [disk], 'version': 1}
+        storage_config.validate_config(config)
+
 
 class TestProbertParser(CiTestCase):
 
@@ -86,7 +96,7 @@ class TestProbertParser(CiTestCase):
 def _get_data(datafile):
     data = util.load_file('tests/data/%s' % datafile)
     jdata = json.loads(data)
-    return jdata.get('storage')
+    return jdata.get('storage') if 'storage' in jdata else jdata
 
 
 class TestBcacheParser(CiTestCase):
@@ -373,6 +383,43 @@ class TestBlockdevParser(CiTestCase):
         }
         self.assertDictEqual(expected_dict,
                              self.bdevp.asdict(blockdev))
+
+    def test_blockdev_asdict_disk_marks_unknown_ptable_as_unspported(self):
+        blockdev = self.bdevp.blockdev_data['/dev/sda']
+        expected_dict = {
+            'id': 'disk-sda',
+            'type': 'disk',
+            'wwn': '0x3001438034e549a0',
+            'serial': '33001438034e549a0',
+            'ptable': 'unsupported',
+            'path': '/dev/sda',
+        }
+        for invalid in ['mac', 'PMBR']:
+            blockdev['ID_PART_TABLE_TYPE'] = invalid
+            self.assertDictEqual(expected_dict,
+                                 self.bdevp.asdict(blockdev))
+
+    def test_blockdev_detects_multipath(self):
+        self.probe_data = _get_data('probert_storage_multipath.json')
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/sda2']
+        expected_dict = {
+            'flag': 'linux',
+            'id': 'partition-sda2',
+            'offset': 2097152,
+            'multipath': 'mpatha',
+            'size': 10734272512,
+            'type': 'partition',
+            'device': 'disk-sda',
+            'number': 2}
+        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
+
+    def test_blockdev_finds_multipath_id_from_dm_uuid(self):
+        self.probe_data = _get_data('probert_storage_zlp6.json')
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/dm-2']
+        result = self.bdevp.blockdev_to_id(blockdev)
+        self.assertEqual('disk-sda', result)
 
 
 class TestFilesystemParser(CiTestCase):
@@ -667,6 +714,22 @@ class TestExtractStorageConfig(CiTestCase):
                          'config': [{'id': 'disk-sda', 'path': '/dev/sda',
                                      'serial': 'QEMU_HARDDISK_QM00001',
                                      'type': 'disk'}]}}, extracted)
+
+    @skipUnlessJsonSchema()
+    def test_find_all_multipath(self):
+        """ verify probed multipath paths are included in config. """
+        self.probe_data = _get_data('probert_storage_multipath.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        config = extracted['storage']['config']
+        blockdev = self.probe_data['blockdev']
+
+        for mpmap in self.probe_data['multipath']['maps']:
+            nr_disks = int(mpmap['paths'])
+            mp_name = blockdev['/dev/%s' % mpmap['sysfs']]['DM_NAME']
+            matched_disks = [cfg for cfg in config
+                             if cfg['type'] == 'disk' and
+                             cfg.get('multipath', '') == mp_name]
+            self.assertEqual(nr_disks, len(matched_disks))
 
 
 # vi: ts=4 expandtab syntax=python

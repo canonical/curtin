@@ -100,6 +100,7 @@ class TestUpdateInitramfs(CiTestCase):
         subp_calls = [
             self._mnt_call('dev'),
             self._mnt_call('proc'),
+            self._mnt_call('run'),
             self._mnt_call('sys'),
             call(['update-initramfs', '-u'], target=self.target),
             call(['udevadm', 'settle']),
@@ -113,6 +114,7 @@ class TestUpdateInitramfs(CiTestCase):
         subp_calls = [
             self._mnt_call('dev'),
             self._mnt_call('proc'),
+            self._mnt_call('run'),
             self._mnt_call('sys'),
             call(['update-initramfs', '-u', '-k', 'all'], target=self.target),
             call(['udevadm', 'settle']),
@@ -128,6 +130,11 @@ class TestSetupKernelImgConf(CiTestCase):
         self.add_patch('curtin.util.get_architecture', 'mock_arch')
         self.add_patch('curtin.util.write_file', 'mock_write_file')
         self.target = 'not-a-real-target'
+        self.add_patch('curtin.distro.lsb_release', 'mock_lsb_release')
+        self.mock_lsb_release.return_value = {
+            'codename': 'xenial',
+            'release': '16.04',
+        }
 
     def test_on_s390x(self):
         self.mock_machine.return_value = "s390x"
@@ -170,6 +177,20 @@ do_bootloader = no
 do_initrd = yes
 link_in_boot = no
 """)
+
+    def test_skips_on_eoan_or_newer(self):
+        test_releases = [('eoan', '19.10'), ('ff', '20.04')]
+        test_params = [
+            ('s390x', 's390x'), ('i686', 'i386'), ('x86_64', 'amd64')]
+        for code, rel in test_releases:
+            self.mock_lsb_release.return_value = {
+                'codename': code, 'release': rel
+            }
+            for machine, arch in test_params:
+                self.mock_machine.return_value = machine
+                self.mock_arch.return_value = arch
+                curthooks.setup_kernel_img_conf(self.target)
+                self.assertEqual(0, self.mock_write_file.call_count)
 
 
 class TestInstallMissingPkgs(CiTestCase):
@@ -245,7 +266,7 @@ class TestInstallMissingPkgs(CiTestCase):
         arch = 'i386'
         self.mock_arch.return_value = arch
         self.mock_machine.return_value = 'i386'
-        expected_pkgs = ['grub-efi-%s' % arch]
+        expected_pkgs = ['grub-efi-ia32']
         self.mock_machine.return_value = 'i686'
         self.mock_uefi.return_value = True
         target = "not-a-real-target"
@@ -351,7 +372,8 @@ class TestSetupGrub(CiTestCase):
                 self.target, '/dev/vdb'],),
             self.mock_subp.call_args_list[0][0])
 
-    def test_uses_grub_install_on_storage_config(self):
+    @patch('curtin.commands.curthooks.os.path.exists')
+    def test_uses_grub_install_on_storage_config(self, m_exists):
         cfg = {
             'storage': {
                 'version': 1,
@@ -366,6 +388,7 @@ class TestSetupGrub(CiTestCase):
             },
         }
         self.subp_output.append(('', ''))
+        m_exists.return_value = True
         curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
         self.assertEquals(
             ([
@@ -804,15 +827,15 @@ class TestDetectRequiredPackages(CiTestCase):
             ({'network': {
                 'version': 2,
                 'items': ('bridge',)}},
-             ()),
+             ('bridge-utils', )),
             ({'network': {
                 'version': 2,
                 'items': ('vlan',)}},
-             ()),
+             ('vlan',)),
             ({'network': {
                 'version': 2,
                 'items': ('vlan', 'bridge')}},
-             ()),
+             ('bridge-utils', 'vlan')),
         ))
 
     def test_mixed_storage_v1_network_v2_detect(self):
@@ -823,7 +846,7 @@ class TestDetectRequiredPackages(CiTestCase):
              'storage': {
                  'version': 1,
                  'items': ('raid', 'bcache', 'ext4')}},
-             ('mdadm', 'bcache-tools', 'e2fsprogs')),
+             ('bridge-utils', 'mdadm', 'bcache-tools', 'e2fsprogs', 'vlan')),
         ))
 
     def test_invalid_version_in_config(self):

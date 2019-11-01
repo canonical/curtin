@@ -262,6 +262,11 @@ def get_flash_kernel_pkgs(arch=None, uefi=None):
 
 
 def setup_kernel_img_conf(target):
+    # kernel-img.conf only needed on release prior to 19.10
+    lsb_info = distro.lsb_release(target=target)
+    if tuple(map(int, lsb_info['release'].split('.'))) >= (19, 10):
+        return
+
     kernel_img_conf_vars = {
         'bootloader': 'no',
         'inboot': 'yes',
@@ -509,10 +514,7 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
     LOG.debug("installing grub to %s [replace_default=%s]",
               instdevs, replace_default)
 
-    # rhel lvm uses /run during grub configuration
-    chroot_mounts = (["/dev", "/proc", "/sys", "/run"]
-                     if osfamily == DISTROS.redhat else None)
-    with util.ChrootableTarget(target, mounts=chroot_mounts):
+    with util.ChrootableTarget(target):
         args = ['install-grub']
         if util.is_uefi_bootable():
             args.append("--uefi")
@@ -890,6 +892,8 @@ def install_missing_packages(cfg, target, osfamily=DISTROS.debian):
             uefi_pkgs.extend(['grub2-efi-x64-modules'])
         elif osfamily == DISTROS.debian:
             arch = util.get_architecture()
+            if arch == 'i386':
+                arch = 'ia32'
             uefi_pkgs.append('grub-efi-%s' % arch)
 
             # Architecture might support a signed UEFI loader

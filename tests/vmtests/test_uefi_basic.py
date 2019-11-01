@@ -10,7 +10,7 @@ import textwrap
 class TestBasicAbs(VMBaseClass):
     interactive = False
     test_type = 'storage'
-    arch_skip = ["s390x"]
+    arch_skip = ["ppc64el", "s390x"]
     conf_file = "examples/tests/uefi_basic.yaml"
     extra_disks = ['4G']
     uefi = True

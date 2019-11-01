@@ -281,4 +281,28 @@ def device_to_poolname(devname):
     if vdev_type == 'zfs_member' and label:
         return label
 
+
+def get_zpool_from_config(cfg):
+    """Parse a curtin storage config and return a list
+       of zpools that were created.
+    """
+    if not cfg:
+        return []
+
+    if 'storage' not in cfg:
+        return []
+
+    zpools = []
+    sconfig = cfg['storage']['config']
+    for item in sconfig:
+        if item['type'] == 'zpool':
+            zpools.append(item['pool'])
+        elif item['type'] == 'format':
+            if item['fstype'] == 'zfsroot':
+                # curtin.commands.blockmeta sets pool='rpool' for zfsroot
+                zpools.append('rpool')
+
+    return zpools
+
+
 # vi: ts=4 expandtab syntax=python

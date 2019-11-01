@@ -82,4 +82,27 @@ class DiscoTestBcacheCeph(relbase.disco, TestBcacheCeph):
 class EoanTestBcacheCeph(relbase.eoan, TestBcacheCeph):
     __test__ = True
 
+
+class TestBcacheCephLvm(TestBcacheCeph):
+    test_type = 'storage'
+    nr_cpus = 2
+    uefi = True
+    dirty_disks = True
+    extra_disks = ['20G', '20G']
+    nvme_disks = ['20G']
+    conf_file = "examples/tests/bcache-ceph-nvme-simple.yaml"
+
+    @skip_if_flag('expected_failure')
+    def test_bcache_output_files_exist(self):
+        self.output_files_exist([
+            "bcache-super-show.vda3",
+            "bcache-super-show.vdc",
+            "bcache-super-show.nvme0n1",
+        ])
+
+
+class BionicTestBcacheCephLvm(relbase.bionic, TestBcacheCephLvm):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

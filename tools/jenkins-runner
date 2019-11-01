@@ -5,6 +5,7 @@ topdir="${CURTIN_VMTEST_TOPDIR:-${WORKSPACE:-$PWD}/output}"
 pkeep=${CURTIN_VMTEST_KEEP_DATA_PASS:-logs,collect}
 fkeep=${CURTIN_VMTEST_KEEP_DATA_FAIL:-logs,collect}
 reuse=${CURTIN_VMTEST_REUSE_TOPDIR:-0}
+declare -i ltimeout=${CURTIN_VMTEST_IMAGE_LOCK_TIMEOUT:-"-1"}
 export CURTIN_VMTEST_TAR_DISKS=${CURTIN_VMTEST_TAR_DISKS:-0}
 export CURTIN_VMTEST_REUSE_TOPDIR=$reuse
 export CURTIN_VMTEST_IMAGE_SYNC=${CURTIN_VMTEST_IMAGE_SYNC:-0}
@@ -55,6 +56,7 @@ ntfilters=( )
 ntargs=( )
 ntdefargs=( "-vv" "--nologcapture" )
 tests=( )
+skip_images_dirlock=0
 while [ $# -ne 0 ]; do
     case "$1" in
         # allow setting these environment variables on cmdline.
@@ -63,6 +65,7 @@ while [ $# -ne 0 ]; do
         --filter) ntfilters[${#ntfilters[@]}]="$2"; shift;;
         -p|--parallel) parallel="$2"; shift;;
         --parallel=*) parallel=${1#*=};;
+        --skip-images-dirlock) skip_images_dirlock=1;;
         -p[0-9]|-p-1|-p[0-9][0-9]) parallel=${1#-p};;
         --)
             shift
@@ -156,6 +159,53 @@ PYTHONPATH="$PWD" python3 tests/vmtests/image_sync.py query \
     { ret=$?; echo "FATAL: error querying images in $IMAGE_DIR" 1>&2;
       exit $ret; }
 printf "%.s=" {1..86}; printf "\n\n"
+
+# Make sure IMAGE_DIR is not (exclusivly) locked. If it's locked it means that
+# the vmtest-sync-images script is running or waiting to run. In this case just
+# wait for it to finish.
+#
+# The skip_images_dirlock setting gives more priority to jenkins-runner, not
+# pausing it if vmtest-sync-images put a lock on IMAGE_DIR. The lockfile
+# (below) is a "writer" lock set by vmtest-sync-images when it's actually
+# updating the images. This setting is meant to be used by the autolander,
+# which uses jenkins-runner to execute TestBasic for landing a commit. We'd
+# like to allow these jobs to not wait behind a pending sync-images; but rather
+# allow it to contend directly with sync-images on the vmtest-images.lock, not
+# running if sync images is active.
+declare -a flock_timeout_opts
+ltimeout_msg="no timeout"
+if ((ltimeout >= 0)); then
+    flock_timeout_opts=(--verbose "--timeout=$ltimeout")
+    ltimeout_msg="timeout: ${ltimeout}s"
+fi
+
+if [ $skip_images_dirlock = 0 ]; then
+    exec {dirlockfd}< "$IMAGE_DIR"
+    if ! flock --nonblock --shared $dirlockfd; then
+        # Be more verbose if the lock wasn't acquired immediately
+        tlock=$(date +%s)
+        error "Acquiring directory lock on $IMAGE_DIR ($ltimeout_msg)..."
+        flock --shared "${flock_timeout_opts[@]}" $dirlockfd > /dev/null || fail "Failed to acquire the lock."
+        tlock=$(($(date +%s) - tlock))
+        error "Lock on $IMAGE_DIR acquired after ${tlock}s."
+    fi
+fi
+
+# Acquire a shared ("read") lock on a lockfile. This will allow multiple
+# jenkins-runner processes to run in parallel, but prevent vmtest-sync-images
+# from touching the images at the same time, as it needs an exclusive lock.
+lockfile="$IMAGE_DIR/vmtest-images.lock"
+exec {lockfd}> "$lockfile"
+if ! flock --nonblock --shared $lockfd; then
+    tlock=$(date +%s)
+    error "Acquiring lock on $lockfile ($ltimeout_msg)..."
+    flock --shared "${flock_timeout_opts[@]}" $lockfd > /dev/null || fail "Failed to acquire the lock."
+    tlock=$(($(date +%s) - tlock))
+    error "Lock on $lockfile acquired after ${tlock}s."
+fi
+
+# Close the directory file descriptor (releases the lock too)
+[ $skip_images_dirlock != 0 ] || exec {dirlockfd}>&- || fail "Failed to release lock on $IMAGE_DIR"
 
 echo "$(date -R): vmtest start: nosetests3 ${pargs[*]} ${ntargs[*]}"
 nosetests3 "${pargs[@]}" "${ntargs[@]}"

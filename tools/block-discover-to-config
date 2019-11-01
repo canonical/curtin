@@ -16,7 +16,9 @@ from curtin import storage_config  # noqa: E402
 
 def main():
     log.basicConfig(stream=sys.stderr, verbosity=3)
-    probe_data = json.loads(open(sys.argv[1]).read()).get('storage')
+    probe_data = json.loads(open(sys.argv[1]).read())
+    if 'storage' in probe_data:
+        probe_data = probe_data.get('storage')
     extracted = storage_config.extract_storage_config(probe_data)
     print(yaml.dump(extracted, indent=4, default_flow_style=False))
 

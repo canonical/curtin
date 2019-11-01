@@ -74,7 +74,8 @@ class UnsupportedZfs(VMBaseClass):
 class XenialGAi386TestZfsRoot(relbase.xenial_ga, TestZfsRootAbs,
                               UnsupportedZfs):
     __test__ = True
-    arch = 'i386'
+    arch_skip = ["arm64", "ppc64el", "s390x"]
+    target_arch = 'i386'
 
 
 class XenialGATestZfsRoot(relbase.xenial_ga, TestZfsRootAbs):
@@ -114,7 +115,8 @@ class XenialGATestZfsRootFsType(relbase.xenial_ga, TestZfsRootFsTypeAbs):
 class XenialGAi386TestZfsRootFsType(relbase.xenial_ga, TestZfsRootFsTypeAbs,
                                     UnsupportedZfs):
     __test__ = True
-    arch = 'i386'
+    arch_skip = ["arm64", "ppc64el", "s390x"]
+    target_arch = 'i386'
 
 
 class BionicTestZfsRootFsType(relbase.bionic, TestZfsRootFsTypeAbs):
