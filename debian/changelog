@@ -1,4 +1,4 @@
-curtin (19.2-44-g8e618b34-0ubuntu1) UNRELEASED; urgency=medium
+curtin (19.2-44-g8e618b34-0ubuntu1) focal; urgency=medium
 
   * New upstream snapshot.
     - t/jenkins-runner: replace $EPOCHSECONDS with 'date +%s' [Paride Legovini]
