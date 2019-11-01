@@ -1,3 +1,51 @@
+curtin (19.2-44-g8e618b34-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - t/jenkins-runner: replace $EPOCHSECONDS with 'date +%s' [Paride Legovini]
+    - curthooks: skip setup_kernel_img_conf on eoan and newer (LP: #1847257)
+    - block_meta: use lookup for wwn, fix fallback from wwn, serial, path
+      (LP: #1849322)
+    - vmtest: Adjust TestScsiBasic to use dnames to find correct disk
+    - schema: Add ptable value 'unsupported' (LP: #1848535)
+    - tools/xkvm: add -nographic to speed up devopt query
+    - test_block_dasd: fix random_device_id to only generate valid IDs
+      (LP: #1849549)
+    - vmtest: update skip_if_arch message
+    - Add skip_by_date to eoan ipv6 vlan test
+    - storage_config: interpret value, not presence, of
+      DM_MULTIPATH_DEVICE_PATH [Michael Hudson-Doyle]
+    - vmtest: Add skip_by_date for test_ip_output on eoan + vlans
+    - block-schema: update raid schema for preserve and metadata
+    - dasd: update partition table value to 'vtoc' (LP: #1847073)
+    - clear-holders: increase the level for devices with holders by one
+      (LP: #1844543)
+    - tests: mock timestamp used in collect-log file creation (LP: #1847138)
+    - ChrootableTarget: mount /run to resolve lvm/mdadm issues which
+      require it.
+    - block-discover: handle multipath disks (LP: #1839915)
+    - Handle partial raid on partitions (LP: #1835091)
+    - install: export zpools if present in the storage-config (LP: #1838278)
+    - block-schema: allow 'mac' as partition table type (LP: #1845611)
+    - jenkins-runner: disable the lockfile timeout by default [Paride Legovini]
+    - curthooks: use correct grub-efi package name on i386 (LP: #1845914)
+    - vmtest-sync-images: remove unused imports [Paride Legovini]
+    - vmtests: use file locking on the images [Paride Legovini]
+    - vmtest: enable arm64 [Paride Legovini]
+    - Make the vmtests/test_basic test suite run on ppc64el [Paride Legovini]
+    - vmtests: separate arch and target_arch in tests [Paride Legovini]
+    - vmtests: new decorator: skip_if_arch [Paride Legovini]
+    - vmtests: increase the VM memory for Bionic
+    - vmtests: Skip Eoan ZFS Root tests until bug fix is complete
+    - Merge branch 'fix_merge_conflicts'
+    - util: add support for 'tbz', 'txz' tar format types to sanitize_source
+      (LP: #1843266)
+    - net: ensure eni helper tools install if given netplan config
+      (LP: #1834751)
+    - d/control: update Depends for new probert package names
+      [Dimitri John Ledkov]
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Fri, 01 Nov 2019 14:06:13 -0500
+
 curtin (19.2-9-g38ce22b0-0ubuntu1) eoan; urgency=medium
 
   * New upstream snapshot.
