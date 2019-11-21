@@ -1,4 +1,5 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
+import copy
 import json
 from .helpers import CiTestCase, skipUnlessJsonSchema
 from curtin import storage_config
@@ -81,16 +82,15 @@ class TestProbertParser(CiTestCase):
         self.assertDictEqual(probe_data['blockdev'],
                              getattr(bdp, 'blockdev_data'))
 
-    def test_probert_parser_missing_required_probe_data_key_raises(self):
-        """ ProbertParser raises ValueError when probe_data_key_data gone. """
+    def test_probert_parser_handles_missing_required_probe_data_key(self):
+        """ ProbertParser handles missing probe_data_key_data. """
         key = self.random_string()
         probe_data = {'blockdev': {self.random_string(): self.random_string()}}
 
         class bdparser(baseparser):
             probe_data_key = key
 
-        with self.assertRaises(ValueError):
-            bdparser(probe_data)
+        self.assertIsNotNone(bdparser(probe_data))
 
 
 def _get_data(datafile):
@@ -132,11 +132,13 @@ class TestBcacheParser(CiTestCase):
         self.assertDictEqual(self.probe_data['bcache']['caching'],
                              bcachep.caching)
 
-    def test_bcache_parse_raise_err_no_blockdev_data(self):
-        """ BcacheParser raises ValueError on missing 'blockdev' dict."""
+    def test_bcache_parse_tolerates_missing_blockdev_data(self):
+        """ BcacheParser  ValueError on missing 'blockdev' dict."""
         del(self.probe_data['blockdev'])
-        with self.assertRaises(ValueError):
-            BcacheParser(self.probe_data)
+        b = BcacheParser(self.probe_data)
+        (configs, errors) = b.parse()
+        self.assertEqual([], configs)
+        self.assertEqual([], errors)
 
     @skipUnlessJsonSchema()
     def test_bcache_parse_extracts_bcache(self):
@@ -714,6 +716,25 @@ class TestExtractStorageConfig(CiTestCase):
                          'config': [{'id': 'disk-sda', 'path': '/dev/sda',
                                      'serial': 'QEMU_HARDDISK_QM00001',
                                      'type': 'disk'}]}}, extracted)
+
+    @skipUnlessJsonSchema()
+    def test_probe_handles_missing_keys(self):
+        """ verify extract handles missing probe_data keys """
+        for missing_key in self.probe_data.keys():
+            probe_data = copy.deepcopy(self.probe_data)
+            del probe_data[missing_key]
+            extracted = storage_config.extract_storage_config(probe_data)
+            if missing_key != 'blockdev':
+                self.assertEqual(
+                    {'storage':
+                        {'version': 1,
+                         'config': [{'id': 'disk-sda', 'path': '/dev/sda',
+                                     'serial': 'QEMU_HARDDISK_QM00001',
+                                     'type': 'disk'}]}}, extracted)
+            else:
+                # empty config without blockdev data
+                self.assertEqual({'storage': {'config': [], 'version': 1}},
+                                 extracted)
 
     @skipUnlessJsonSchema()
     def test_find_all_multipath(self):
