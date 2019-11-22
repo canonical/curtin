@@ -646,9 +646,10 @@ class BlockdevParser(ProbertParser):
         errors = []
 
         for devname, data in self.blockdev_data.items():
-            # skip composed devices here
+            # skip composed devices here, except partitions
             if data.get('DEVPATH', '').startswith('/devices/virtual'):
-                continue
+                if data.get('DEVTYPE', '') != "partition":
+                    continue
             entry = self.asdict(data)
             if entry:
                 try:
@@ -1002,7 +1003,6 @@ class RaidParser(ProbertParser):
            Collects storage config type: raid for valid
            data and returns tuple of lists, configs, errors.
         """
-
         configs = []
         errors = []
         for devname, data in self.class_data.items():

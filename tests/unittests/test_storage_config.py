@@ -752,5 +752,26 @@ class TestExtractStorageConfig(CiTestCase):
                              cfg.get('multipath', '') == mp_name]
             self.assertEqual(nr_disks, len(matched_disks))
 
+    @skipUnlessJsonSchema()
+    def test_find_raid_partition(self):
+        """ verify probed raid partitions are found. """
+        self.probe_data = _get_data('probert_storage_raid1_partitions.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        config = extracted['storage']['config']
+        raids = [cfg for cfg in config if cfg['type'] == 'raid']
+        raid_partitions = [cfg for cfg in config
+                           if cfg['type'] == 'partition' and
+                           cfg['id'].startswith('raid')]
+        self.assertEqual(1, len(raids))
+        self.assertEqual(1, len(raid_partitions))
+        self.assertEqual({'id': 'raid-md1', 'type': 'raid',
+                          'raidlevel': 'raid1', 'name': 'md1',
+                          'devices': ['partition-vdb1', 'partition-vdc1'],
+                          'spare_devices': []}, raids[0])
+        self.assertEqual({'id': 'raid-md1p1', 'type': 'partition',
+                          'size': 4285530112, 'flag': 'linux', 'number': 1,
+                          'device': 'raid-md1', 'offset': 1048576},
+                         raid_partitions[0])
+
 
 # vi: ts=4 expandtab syntax=python
