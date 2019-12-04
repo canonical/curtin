@@ -83,43 +83,185 @@ class TestCurthooksInstallKernel(CiTestCase):
             [kernel_package], target=self.target)
 
 
+class TestEnableDisableUpdateInitramfs(CiTestCase):
+
+    def setUp(self):
+        super(TestEnableDisableUpdateInitramfs, self).setUp()
+        ccc = 'curtin.commands.curthooks'
+        self.add_patch(ccc + '.util.subp', 'mock_subp')
+        self.add_patch(ccc + '.util.which', 'mock_which')
+        self.target = self.tmp_dir()
+        self.update_initramfs = '/usr/sbin/update-initramfs'
+
+    def test_disable_does_nothing_if_no_binary(self):
+        self.mock_which.return_value = None
+        curthooks.disable_update_initramfs({}, self.target)
+        self.mock_which.assert_called_with('update-initramfs',
+                                           target=self.target)
+
+    def test_disable_changes_binary_name_write_dummy_binary(self):
+        self.mock_which.return_value = self.update_initramfs
+        self.mock_subp.side_effect = iter([('', '')] * 10)
+        curthooks.disable_update_initramfs({}, self.target)
+        self.assertIn(
+            call(['dpkg-divert', '--add', '--rename', '--divert',
+                  self.update_initramfs + '.curtin-disabled',
+                  self.update_initramfs], target=self.target),
+            self.mock_subp.call_args_list)
+        self.assertEqual([call('update-initramfs', target=self.target)],
+                         self.mock_which.call_args_list)
+
+        # make sure we have a dummy binary
+        target_update_initramfs = self.target + self.update_initramfs
+        self.assertTrue(os.path.exists(target_update_initramfs))
+        self.assertTrue(util.is_exe(target_update_initramfs))
+        expected_content = "#!/bin/true\n# diverted by curtin"
+        self.assertEqual(expected_content,
+                         util.load_file(target_update_initramfs))
+
+    def test_update_initramfs_is_disabled_false_if_not_diverted(self):
+        self.mock_subp.return_value = ('', '')
+        self.assertFalse(
+            curthooks.update_initramfs_is_disabled(self.target))
+        divert_call = call(['dpkg-divert', '--list'], capture=True,
+                           target=self.target)
+        self.assertIn([divert_call], self.mock_subp.call_args_list)
+
+    def test_update_initramfs_is_disabled_true_if_diverted(self):
+        binary = 'update-initramfs'
+        dpkg_divert_output = "\n".join([
+            'diversion of foobar to wark',
+            ('local diversion of %s to %s.curtin-disabled' % (binary, binary))
+        ])
+        self.mock_subp.return_value = (dpkg_divert_output, '')
+        self.assertTrue(
+            curthooks.update_initramfs_is_disabled(self.target))
+        divert_call = call(['dpkg-divert', '--list'], capture=True,
+                           target=self.target)
+        self.assertIn([divert_call], self.mock_subp.call_args_list)
+
+    @patch('curtin.commands.curthooks.update_initramfs_is_disabled')
+    def test_enable_restores_binary_to_original_name(self, mock_disabled):
+        self.mock_which.return_value = self.update_initramfs
+        mock_disabled.return_value = True
+        curthooks.enable_update_initramfs({}, self.target)
+        self.assertIn(call('update-initramfs', target=self.target),
+                      self.mock_which.call_args_list)
+
+    @patch('curtin.commands.curthooks.update_initramfs_is_disabled')
+    def test_enable_does_nothing_if_not_diverted(self, mock_disabled):
+        mock_disabled.return_value = False
+        curthooks.enable_update_initramfs({}, self.target)
+        self.assertEqual(0, self.mock_which.call_count)
+
+
 class TestUpdateInitramfs(CiTestCase):
     def setUp(self):
         super(TestUpdateInitramfs, self).setUp()
         self.add_patch('curtin.util.subp', 'mock_subp')
+        self.add_patch('curtin.util.which', 'mock_which')
+        self.mock_which.return_value = self.random_string()
         self.target = self.tmp_dir()
+        self.boot = os.path.join(self.target, 'boot')
+        os.makedirs(self.boot)
+        self.kversion = '5.3.0-generic'
+        # create an installed kernel file
+        with open(os.path.join(self.boot, 'vmlinuz-' + self.kversion), 'w'):
+            pass
+        self.mounts = ['dev', 'proc', 'run', 'sys']
 
     def _mnt_call(self, point):
         target = os.path.join(self.target, point)
         return call(['mount', '--bind', '/%s' % point, target])
 
-    def test_mounts_and_runs(self):
-        curthooks.update_initramfs(self.target)
+    def _side_eff(self, cmd_out=None, cmd_err=None):
+        if cmd_out is None:
+            cmd_out = ''
+        if cmd_err is None:
+            cmd_err = ''
+        effects = ([('mount', '')] * len(self.mounts) +
+                   [(cmd_out, cmd_err)] + [('settle', '')])
+        return effects
 
-        print('subp calls: %s' % self.mock_subp.mock_calls)
-        subp_calls = [
-            self._mnt_call('dev'),
-            self._mnt_call('proc'),
-            self._mnt_call('run'),
-            self._mnt_call('sys'),
-            call(['update-initramfs', '-u'], target=self.target),
-            call(['udevadm', 'settle']),
-        ]
+    def _subp_calls(self, mycall):
+        pre = [self._mnt_call(point) for point in self.mounts]
+        post = [call(['udevadm', 'settle'])]
+        return pre + [mycall] + post
+
+    def test_does_nothing_if_binary_diverted(self):
+        self.mock_which.return_value = None
+        binary = 'update-initramfs'
+        dpkg_divert_output = "\n".join([
+            'diversion of foobar to wark',
+            ('local diversion of %s to %s.curtin-disabled' % (binary, binary))
+        ])
+        self.mock_subp.side_effect = (
+            iter(self._side_eff(cmd_out=dpkg_divert_output)))
+        curthooks.update_initramfs(self.target)
+        dcall = call(['dpkg-divert', '--list'], capture=True,
+                     target=self.target)
+        calls = self._subp_calls(dcall)
+        self.mock_subp.assert_has_calls(calls)
+        self.assertEqual(6, self.mock_subp.call_count)
+
+    def test_mounts_and_runs(self):
+        # in_chroot calls to dpkg-divert, update-initramfs
+        effects = self._side_eff() * 2
+        self.mock_subp.side_effect = iter(effects)
+        curthooks.update_initramfs(self.target)
+        subp_calls = self._subp_calls(
+            call(['dpkg-divert', '--list'], capture=True, target=self.target))
+        subp_calls += self._subp_calls(
+            call(['update-initramfs', '-c', '-k', self.kversion],
+                 target=self.target))
         self.mock_subp.assert_has_calls(subp_calls)
+        self.assertEqual(12, self.mock_subp.call_count)
 
     def test_mounts_and_runs_for_all_kernels(self):
+        kversion2 = '5.4.0-generic'
+        with open(os.path.join(self.boot, 'vmlinuz-' + kversion2), 'w'):
+            pass
+        kversion3 = '5.4.1-ppc64le'
+        with open(os.path.join(self.boot, 'vmlinux-' + kversion3), 'w'):
+            pass
+        effects = self._side_eff() * 4
+        self.mock_subp.side_effect = iter(effects)
         curthooks.update_initramfs(self.target, True)
-
-        print('subp calls: %s' % self.mock_subp.mock_calls)
-        subp_calls = [
-            self._mnt_call('dev'),
-            self._mnt_call('proc'),
-            self._mnt_call('run'),
-            self._mnt_call('sys'),
-            call(['update-initramfs', '-u', '-k', 'all'], target=self.target),
-            call(['udevadm', 'settle']),
-        ]
+        subp_calls = self._subp_calls(
+            call(['dpkg-divert', '--list'], capture=True, target=self.target))
+        subp_calls += self._subp_calls(
+            call(['update-initramfs', '-c', '-k', kversion3],
+                 target=self.target))
+        subp_calls += self._subp_calls(
+            call(['update-initramfs', '-c', '-k', self.kversion],
+                 target=self.target))
+        subp_calls += self._subp_calls(
+            call(['update-initramfs', '-c', '-k', kversion2],
+                 target=self.target))
         self.mock_subp.assert_has_calls(subp_calls)
+        self.assertEqual(24, self.mock_subp.call_count)
+
+    def test_calls_update_if_initrd_exists_else_create(self):
+        kversion2 = '5.2.0-generic'
+        with open(os.path.join(self.boot, 'vmlinuz-' + kversion2), 'w'):
+            pass
+        # an existing initrd
+        with open(os.path.join(self.boot, 'initrd.img-' + kversion2), 'w'):
+            pass
+
+        effects = self._side_eff() * 3
+        self.mock_subp.side_effect = iter(effects)
+        curthooks.update_initramfs(self.target, True)
+        subp_calls = self._subp_calls(
+            call(['dpkg-divert', '--list'], capture=True, target=self.target))
+        subp_calls += self._subp_calls(
+            call(['update-initramfs', '-u', '-k', kversion2],
+                 target=self.target))
+        subp_calls += self._subp_calls(
+            call(['update-initramfs', '-c', '-k', self.kversion],
+                 target=self.target))
+        self.mock_subp.assert_has_calls(subp_calls)
+        self.assertEqual(18, self.mock_subp.call_count)
 
 
 class TestSetupKernelImgConf(CiTestCase):

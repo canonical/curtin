@@ -104,6 +104,50 @@ def disable_overlayroot(cfg, target):
         shutil.move(local_conf, local_conf + ".old")
 
 
+def disable_update_initramfs(cfg, target):
+    """ Find 'update-initramfs' in target and if found, change the name. """
+    update_initramfs = util.which('update-initramfs', target=target)
+    if update_initramfs:
+        LOG.debug('Diverting original update-initramfs in target.')
+        rename = update_initramfs + '.curtin-disabled'
+        divert = ['dpkg-divert', '--add', '--rename', '--divert', rename,
+                  update_initramfs]
+        with util.ChrootableTarget(target) as in_chroot:
+            in_chroot.subp(divert)
+
+        # create a dummy update-initramfs which just returns true;
+        # this handles postinstall scripts which make invoke update-initramfs
+        # directly
+        util.write_file(target + update_initramfs,
+                        content="#!/bin/true\n# diverted by curtin",
+                        mode=0o755)
+
+
+def update_initramfs_is_disabled(target):
+    # check if update-initramfs has been diverted
+    disabled = []
+    with util.ChrootableTarget(target) as in_chroot:
+        out, _err = in_chroot.subp(['dpkg-divert', '--list'], capture=True)
+        disabled = [divert for divert in out.splitlines()
+                    if divert.endswith('update-initramfs.curtin-disabled')]
+    return len(disabled) > 0
+
+
+def enable_update_initramfs(cfg, target):
+    """ Find 'update-initramfs.curtin-disabled ' in target and if found
+        restore to original name. """
+    if update_initramfs_is_disabled(target):
+        with util.ChrootableTarget(target) as in_chroot:
+            LOG.info(
+                'Restoring update-initramfs in target for initrd updates.')
+            update_initramfs = util.which('update-initramfs', target=target)
+            # remove the diverted
+            util.del_file(target + update_initramfs)
+            # un-divert and restore original file
+            in_chroot.subp(
+                ['dpkg-divert', '--rename', '--remove', update_initramfs])
+
+
 def setup_zipl(cfg, target):
     if platform.machine() != 's390x':
         return
@@ -538,11 +582,59 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
 
 
 def update_initramfs(target=None, all_kernels=False):
-    cmd = ['update-initramfs', '-u']
-    if all_kernels:
-        cmd.extend(['-k', 'all'])
-    with util.ChrootableTarget(target) as in_chroot:
-        in_chroot.subp(cmd)
+    """ Invoke update-initramfs in the target path.
+
+    Look up the installed kernel versions in the target
+    to ensure that an initrd get created or updated as needed.
+    This allows curtin to invoke update-initramfs exactly once
+    at the end of the install instead of multiple calls.
+    """
+    if update_initramfs_is_disabled(target):
+        return
+
+    # We keep the all_kernels flag for callers, the implementation
+    # now will operate correctly on all kernels present in the image
+    # which is almost always exactly one.
+    #
+    # Ideally curtin should be able to use update-initramfs -k all
+    # however, update-initramfs expects to be able to find out which
+    # versions of kernels are installed by using values from the
+    # kernel package invoking update-initramfs -c <kernel version>.
+    # With update-initramfs diverted, nothing captures the kernel
+    # version strings in the place where update-initramfs expects
+    # to find this information.  Instead, curtin will examine
+    # /boot to see what kernels and initramfs are installed and
+    # either create or update as needed.
+    #
+    # This loop below will examine the contents of target's
+    # /boot and pattern match for kernel files. On Ubuntu this
+    # is in the form of /boot/vmlinu[xz]-<uname -r version>.
+    #
+    # For each kernel, we extract the version string and then
+    # construct the name of of the initrd file that *would*
+    # have been created when the kernel package was installed
+    # if curtin had not diverted update-initramfs to prevent
+    # duplicate initrd creation.
+    #
+    # if the initrd file exists, then we only need to invoke
+    # update-initramfs's -u (update) method.  If the file does
+    # not exist, then we need to run the -c (create) method.
+    boot = paths.target_path(target, 'boot')
+    for kernel in sorted(glob.glob(boot + '/vmlinu*-*')):
+        kfile = os.path.basename(kernel)
+        # handle vmlinux or vmlinuz
+        kprefix = kfile.split('-')[0]
+        version = kfile.replace(kprefix + '-', '')
+        initrd = kernel.replace(kprefix, 'initrd.img')
+        # -u == update, -c == create
+        mode = '-u' if os.path.exists(initrd) else '-c'
+        cmd = ['update-initramfs', mode, '-k', version]
+        with util.ChrootableTarget(target) as in_chroot:
+            in_chroot.subp(cmd)
+            if not os.path.exists(initrd):
+                files = os.listdir(target + '/boot')
+                LOG.debug('Failed to find initrd %s', initrd)
+                LOG.debug('Files in target /boot: %s', files)
 
 
 def copy_fstab(fstab, target):
@@ -1295,6 +1387,7 @@ def builtin_curthooks(cfg, target, state):
                 description="configuring apt configuring apt"):
             do_apt_config(cfg, target)
             disable_overlayroot(cfg, target)
+            disable_update_initramfs(cfg, target)
 
         # LP: #1742560 prevent zfs-dkms from being installed (Xenial)
         if distro.lsb_release(target=target)['codename'] == 'xenial':
@@ -1387,12 +1480,6 @@ def builtin_curthooks(cfg, target, state):
                 description="enabling selinux autorelabel mode"):
             redhat_apply_selinux_autorelabel(target)
 
-        with events.ReportEventStack(
-                name=stack_prefix + '/updating-initramfs-configuration',
-                reporting_enabled=True, level="INFO",
-                description="updating initramfs configuration"):
-            redhat_update_initramfs(target, cfg)
-
     with events.ReportEventStack(
             name=stack_prefix + '/pollinate-user-agent',
             reporting_enabled=True, level="INFO",
@@ -1428,6 +1515,17 @@ def builtin_curthooks(cfg, target, state):
     if os.path.isdir(udev_rules_d):
         copy_dname_rules(udev_rules_d, target)
 
+    with events.ReportEventStack(
+            name=stack_prefix + '/updating-initramfs-configuration',
+            reporting_enabled=True, level="INFO",
+            description="updating initramfs configuration"):
+        if osfamily == DISTROS.debian:
+            # re-enable update_initramfs
+            enable_update_initramfs(cfg, target)
+            update_initramfs(target, all_kernels=True)
+        elif osfamily == DISTROS.redhat:
+            redhat_update_initramfs(target, cfg)
+
     # As a rule, ARMv7 systems don't use grub. This may change some
     # day, but for now, assume no. They do require the initramfs
     # to be updated, and this also triggers boot loader setup via
@@ -1436,9 +1534,10 @@ def builtin_curthooks(cfg, target, state):
     if (machine.startswith('armv7') or
             machine.startswith('s390x') or
             machine.startswith('aarch64') and not util.is_uefi_bootable()):
-        update_initramfs(target)
-    else:
-        setup_grub(cfg, target, osfamily=osfamily)
+        return
+
+    # all other paths lead to grub
+    setup_grub(cfg, target, osfamily=osfamily)
 
 
 def curthooks(args):

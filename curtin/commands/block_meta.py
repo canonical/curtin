@@ -60,7 +60,7 @@ CMD_ARGUMENTS = (
 @logged_time("BLOCK_META")
 def block_meta(args):
     # main entry point for the block-meta command.
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     cfg = config.load_command_config(args, state)
     dd_images = util.get_dd_images(cfg.get('sources', {}))
 
@@ -260,7 +260,7 @@ def make_dname_byid(path, error_msg=None, info=None):
 
 
 def make_dname(volume, storage_config):
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     rules_dir = os.path.join(state['scratch'], "rules.d")
     vol = storage_config.get(volume)
     path = get_path_to_storage_volume(volume, storage_config)
@@ -958,7 +958,7 @@ def mount_handler(info, storage_config):
     Mount specified device under target at 'path' and generate
     fstab entry.
     """
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     mount_apply(mount_data(info, storage_config),
                 target=state.get('target'), fstab=state.get('fstab'))
 
@@ -1048,7 +1048,7 @@ def lvm_partition_handler(info, storage_config):
 
 
 def dm_crypt_handler(info, storage_config):
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     volume = info.get('volume')
     keysize = info.get('keysize')
     cipher = info.get('cipher')
@@ -1125,11 +1125,11 @@ def dm_crypt_handler(info, storage_config):
     # A crypttab will be created in the same directory as the fstab in the
     # configuration. This will then be copied onto the system later
     if state['fstab']:
-        crypt_tab_location = os.path.join(os.path.split(state['fstab'])[0],
-                                          "crypttab")
+        state_dir = os.path.dirname(state['fstab'])
+        crypt_tab_location = os.path.join(state_dir, "crypttab")
         uuid = block.get_volume_uuid(volume_path)
-        with open(crypt_tab_location, "a") as fp:
-            fp.write("%s UUID=%s none luks\n" % (dm_name, uuid))
+        util.write_file(crypt_tab_location,
+                        "%s UUID=%s none luks\n" % (dm_name, uuid), omode="a")
     else:
         LOG.info("fstab configuration is not present in environment, so \
             cannot locate an appropriate directory to write crypttab in \
@@ -1137,7 +1137,7 @@ def dm_crypt_handler(info, storage_config):
 
 
 def raid_handler(info, storage_config):
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     devices = info.get('devices')
     raidlevel = info.get('raidlevel')
     spare_devices = info.get('spare_devices')
@@ -1194,11 +1194,10 @@ def raid_handler(info, storage_config):
     # The file must also be written onto the running system to enable it to run
     # mdadm --assemble and continue installation
     if state['fstab']:
-        mdadm_location = os.path.join(os.path.split(state['fstab'])[0],
-                                      "mdadm.conf")
+        state_dir = os.path.dirname(state['fstab'])
+        mdadm_location = os.path.join(state_dir, "mdadm.conf")
         mdadm_scan_data = mdadm.mdadm_detail_scan()
-        with open(mdadm_location, "w") as fp:
-            fp.write(mdadm_scan_data)
+        util.write_file(mdadm_location, mdadm_scan_data)
     else:
         LOG.info("fstab configuration is not present in the environment, so \
             cannot locate an appropriate directory to write mdadm.conf in, \
@@ -1476,7 +1475,7 @@ def zpool_handler(info, storage_config):
     """
     zfs.zfs_assert_supported()
 
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
 
     # extract /dev/disk/by-id paths for each volume used
     vdevs = [get_path_to_storage_volume(v, storage_config)
@@ -1515,7 +1514,7 @@ def zfs_handler(info, storage_config):
     """
     zfs.zfs_assert_supported()
 
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     poolname = get_poolname(info, storage_config)
     volume = info.get('volume')
     properties = info.get('properties', {})
@@ -1687,7 +1686,7 @@ def meta_custom(args):
         'zpool': zpool_handler,
     }
 
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     cfg = config.load_command_config(args, state)
 
     storage_config_dict = extract_storage_ordered_dict(cfg)
@@ -1721,7 +1720,7 @@ def meta_simple(args):
     """Creates a root partition. If args.mode == SIMPLE_BOOT, it will also
     create a separate /boot partition.
     """
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     cfg = config.load_command_config(args, state)
     if args.target is not None:
         state['target'] = args.target

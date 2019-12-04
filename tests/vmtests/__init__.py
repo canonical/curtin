@@ -924,9 +924,6 @@ class VMBaseClass(TestCase):
 
         cmd.extend(["--serial-log=" + cls.install_log])
 
-        if cls.extra_kern_args:
-            cmd.extend(["--append=" + cls.extra_kern_args])
-
         ftypes = cls.get_test_files()
         root_pubpath = "root/" + cls.ephemeral_ftype
         # trusty can't yet use root=URL due to LP:#1735046
@@ -951,6 +948,10 @@ class VMBaseClass(TestCase):
         # configure_networking in initramfs
         if cls.release in ('precise', 'trusty', 'xenial', 'zesty', 'artful'):
             cmd.extend(["--append=iscsi_auto"])
+
+        # append class-specific args last
+        if cls.extra_kern_args:
+            cmd.extend(["--append=" + cls.extra_kern_args])
 
         # publish the ephemeral image (used in root=URL)
         cmd.append("--publish=%s:%s" % (ftypes[cls.ephemeral_ftype],
