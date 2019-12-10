@@ -469,25 +469,39 @@ def plan_shutdown_holder_trees(holders_trees):
     if not isinstance(holders_trees, (list, tuple)):
         holders_trees = [holders_trees]
 
+    # sort the trees to ensure we generate a consistent plan
+    holders_trees = sorted(holders_trees, key=lambda x: x['device'])
+
+    def htree_level(tree):
+        if len(tree['holders']) == 0:
+            return 0
+        return 1 + sum(htree_level(holder) for holder in tree['holders'])
+
     def flatten_holders_tree(tree, level=0):
         """
         add entries from holders tree to registry with level key corresponding
         to how many layers from raw disks the current device is at
         """
         device = tree['device']
+        device_level = htree_level(tree)
 
         # always go with highest level if current device has been
         # encountered already. since the device and everything above it is
         # re-added to the registry it ensures that any increase of level
         # required here will propagate down the tree
         # this handles a scenario like mdadm + bcache, where the backing
-        # device for bcache is a 3nd level item like mdadm, but the cache
+        # device for bcache is a 3rd level item like mdadm, but the cache
         # device is 1st level (disk) or second level (partition), ensuring
         # that the bcache item is always considered higher level than
         # anything else regardless of whether it was added to the tree via
         # the cache device or backing device first
         if device in reg:
             level = max(reg[device]['level'], level) + 1
+
+        else:
+            # first time device to registry, assume the larger value of the
+            # current level or the length of its dependencies.
+            level = max(device_level, level)
 
         reg[device] = {'level': level, 'device': device,
                        'dev_type': tree['dev_type']}
@@ -500,10 +514,26 @@ def plan_shutdown_holder_trees(holders_trees):
     for holders_tree in holders_trees:
         flatten_holders_tree(holders_tree)
 
-    # return list of entry dicts with highest level first, then dev_type
+    def devtype_order(dtype):
+        """Return the order in which we want to clear device types, higher
+         value should be cleared first.
+
+        :param: dtype: string. A device types name from the holders registry,
+                see _define_handlers_registry()
+        :returns: integer
+        """
+        dev_type_order = [
+            'disk', 'partition', 'bcache', 'lvm', 'raid', 'crypt']
+        return 1 + dev_type_order.index(dtype)
+
+    # return list of entry dicts with greatest htree depth. The 'level' value
+    # indicates the number of additional devices that are "below" this device.
+    # Devices must be cleared in descending 'level' value.  For devices which
+    # have the same 'level' value, we sort within the 'level' by devtype order.
     return [reg[k]
-            for k in sorted(reg, key=lambda x: (reg[x]['level'] * -1,
-                                                reg[x]['dev_type']))]
+            for k in sorted(reg, reverse=True,
+                            key=lambda x: (reg[x]['level'],
+                                           devtype_order(reg[x]['dev_type'])))]
 
 
 def format_holders_tree(holders_tree):
