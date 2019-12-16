@@ -90,8 +90,12 @@ class TestEnableDisableUpdateInitramfs(CiTestCase):
         ccc = 'curtin.commands.curthooks'
         self.add_patch(ccc + '.util.subp', 'mock_subp')
         self.add_patch(ccc + '.util.which', 'mock_which')
+        self.add_patch(ccc + '.platform.machine', 'mock_machine')
         self.target = self.tmp_dir()
+        self.mock_machine.return_value = 'x86_64'
         self.update_initramfs = '/usr/sbin/update-initramfs'
+        self.flash_kernel = '/usr/sbin/flash-kernel'
+        self.zipl = '/sbin/zipl'
 
     def test_disable_does_nothing_if_no_binary(self):
         self.mock_which.return_value = None
@@ -153,6 +157,37 @@ class TestEnableDisableUpdateInitramfs(CiTestCase):
         mock_disabled.return_value = False
         curthooks.enable_update_initramfs({}, self.target)
         self.assertEqual(0, self.mock_which.call_count)
+
+    def _test_disable_on_machine(self, machine, tools):
+        self.mock_machine.return_value = machine
+        self.mock_which.side_effect = iter(tools)
+        self.mock_subp.side_effect = iter([('', '')] * 10 * len(tools))
+        curthooks.disable_update_initramfs({}, self.target, machine=machine)
+        for tool in tools:
+            tname = os.path.basename(tool)
+            self.assertIn(
+                call(['dpkg-divert', '--add', '--rename', '--divert',
+                      tool + '.curtin-disabled', tool], target=self.target),
+                self.mock_subp.call_args_list)
+            lhs = [call(tname, target=self.target)]
+            self.assertIn(lhs, self.mock_which.call_args_list)
+
+            # make sure we have a dummy binary
+            target_tool = self.target + tool
+            self.assertTrue(os.path.exists(target_tool))
+            self.assertTrue(util.is_exe(target_tool))
+            expected_content = "#!/bin/true\n# diverted by curtin"
+            self.assertEqual(expected_content, util.load_file(target_tool))
+
+    def test_disable_on_s390x_masks_zipl(self):
+        machine = 's390x'
+        tools = [self.update_initramfs, self.zipl]
+        self._test_disable_on_machine(machine, tools)
+
+    def test_disable_on_arm_masks_flash_kernel(self):
+        machine = 'aarch64'
+        tools = [self.update_initramfs, self.flash_kernel]
+        self._test_disable_on_machine(machine, tools)
 
 
 class TestUpdateInitramfs(CiTestCase):

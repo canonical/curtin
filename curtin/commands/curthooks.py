@@ -104,48 +104,66 @@ def disable_overlayroot(cfg, target):
         shutil.move(local_conf, local_conf + ".old")
 
 
-def disable_update_initramfs(cfg, target):
-    """ Find 'update-initramfs' in target and if found, change the name. """
-    update_initramfs = util.which('update-initramfs', target=target)
-    if update_initramfs:
-        LOG.debug('Diverting original update-initramfs in target.')
-        rename = update_initramfs + '.curtin-disabled'
-        divert = ['dpkg-divert', '--add', '--rename', '--divert', rename,
-                  update_initramfs]
-        with util.ChrootableTarget(target) as in_chroot:
-            in_chroot.subp(divert)
+def _update_initramfs_tools(machine=None):
+    """ Return a list of binary names used to update an initramfs.
 
-        # create a dummy update-initramfs which just returns true;
-        # this handles postinstall scripts which make invoke update-initramfs
-        # directly
-        util.write_file(target + update_initramfs,
-                        content="#!/bin/true\n# diverted by curtin",
-                        mode=0o755)
+    On some architectures there are helper binaries that are also
+    used and will be included in the list.
+    """
+    tools = ['update-initramfs']
+    if not machine:
+        machine = platform.machine()
+    if machine == 's390x':
+        tools.append('zipl')
+    elif machine == 'aarch64':
+        tools.append('flash-kernel')
+    return tools
+
+
+def disable_update_initramfs(cfg, target, machine=None):
+    """ Find update-initramfs tools in target and change their name. """
+    with util.ChrootableTarget(target) as in_chroot:
+        for tool in _update_initramfs_tools(machine=machine):
+            found = util.which(tool, target=target)
+            if found:
+                LOG.debug('Diverting original %s in target.', tool)
+                rename = found + '.curtin-disabled'
+                divert = ['dpkg-divert', '--add', '--rename',
+                          '--divert', rename, found]
+                in_chroot.subp(divert)
+
+                # create a dummy update-initramfs which just returns true;
+                # this handles postinstall scripts which make invoke $tool
+                # directly
+                util.write_file(target + found,
+                                content="#!/bin/true\n# diverted by curtin",
+                                mode=0o755)
 
 
 def update_initramfs_is_disabled(target):
-    # check if update-initramfs has been diverted
+    """ Return a bool indicating if initramfs tooling is disabled. """
     disabled = []
     with util.ChrootableTarget(target) as in_chroot:
         out, _err = in_chroot.subp(['dpkg-divert', '--list'], capture=True)
         disabled = [divert for divert in out.splitlines()
-                    if divert.endswith('update-initramfs.curtin-disabled')]
+                    if divert.endswith('.curtin-disabled')]
     return len(disabled) > 0
 
 
-def enable_update_initramfs(cfg, target):
-    """ Find 'update-initramfs.curtin-disabled ' in target and if found
-        restore to original name. """
+def enable_update_initramfs(cfg, target, machine=None):
+    """ Enable initramfs update tools by restoring their original name. """
     if update_initramfs_is_disabled(target):
         with util.ChrootableTarget(target) as in_chroot:
-            LOG.info(
-                'Restoring update-initramfs in target for initrd updates.')
-            update_initramfs = util.which('update-initramfs', target=target)
-            # remove the diverted
-            util.del_file(target + update_initramfs)
-            # un-divert and restore original file
-            in_chroot.subp(
-                ['dpkg-divert', '--rename', '--remove', update_initramfs])
+            for tool in _update_initramfs_tools(machine=machine):
+                LOG.info('Restoring %s in target for initrd updates.', tool)
+                found = util.which(tool, target=target)
+                if not found:
+                    continue
+                # remove the diverted
+                util.del_file(target + found)
+                # un-divert and restore original file
+                in_chroot.subp(
+                    ['dpkg-divert', '--rename', '--remove', found])
 
 
 def setup_zipl(cfg, target):
@@ -1373,6 +1391,7 @@ def builtin_curthooks(cfg, target, state):
     LOG.info('Running curtin builtin curthooks')
     stack_prefix = state.get('report_stack_prefix', '')
     state_etcd = os.path.split(state['fstab'])[0]
+    machine = platform.machine()
 
     distro_info = distro.get_distroinfo(target=target)
     if not distro_info:
@@ -1387,7 +1406,7 @@ def builtin_curthooks(cfg, target, state):
                 description="configuring apt configuring apt"):
             do_apt_config(cfg, target)
             disable_overlayroot(cfg, target)
-            disable_update_initramfs(cfg, target)
+            disable_update_initramfs(cfg, target, machine)
 
         # LP: #1742560 prevent zfs-dkms from being installed (Xenial)
         if distro.lsb_release(target=target)['codename'] == 'xenial':
@@ -1521,7 +1540,7 @@ def builtin_curthooks(cfg, target, state):
             description="updating initramfs configuration"):
         if osfamily == DISTROS.debian:
             # re-enable update_initramfs
-            enable_update_initramfs(cfg, target)
+            enable_update_initramfs(cfg, target, machine)
             update_initramfs(target, all_kernels=True)
         elif osfamily == DISTROS.redhat:
             redhat_update_initramfs(target, cfg)
@@ -1530,7 +1549,6 @@ def builtin_curthooks(cfg, target, state):
     # day, but for now, assume no. They do require the initramfs
     # to be updated, and this also triggers boot loader setup via
     # flash-kernel.
-    machine = platform.machine()
     if (machine.startswith('armv7') or
             machine.startswith('s390x') or
             machine.startswith('aarch64') and not util.is_uefi_bootable()):
