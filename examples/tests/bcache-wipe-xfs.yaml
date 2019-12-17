@@ -6,9 +6,10 @@ early_commands:
   # would be seen as soon as the disk was partitioned and cause problems
   # for curtin's use of the disk.
   # This config recreates issue LP: #1718699
-  00_blockmeta: [env, -u, OUTPUT_FSTAB, TARGET_MOUNT_POINT=/tmp/my.bdir/target,
-              WORKING_DIR=/tmp/my.bdir/work.d, curtin, --showtrace, -v,
-              block-meta, --umount, custom]
+  00_blockmeta: [env, OUTPUT_FSTAB=/tmp/my.bdir/state/fstab,
+                 TARGET_MOUNT_POINT=/tmp/my.bdir/target,
+                 WORKING_DIR=/tmp/my.bdir/work.d, curtin, --showtrace, -v,
+                 block-meta, --umount, custom]
   01_clear_holders: [curtin, clear-holders, --preserve, /dev/disk/by-id/virtio-disk-b]
   02_quick_erase: [curtin, block-wipe, --mode, superblock, /dev/disk/by-id/virtio-disk-b]
 
