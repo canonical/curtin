@@ -426,7 +426,8 @@ class TestInstallMissingPkgs(CiTestCase):
         arch = 'amd64'
         self.mock_arch.return_value = arch
         self.mock_machine.return_value = 'x86_64'
-        expected_pkgs = ['grub-efi-%s' % arch,
+        expected_pkgs = ['efibootmgr',
+                         'grub-efi-%s' % arch,
                          'grub-efi-%s-signed' % arch,
                          'shim-signed']
         self.mock_machine.return_value = 'x86_64'
@@ -443,7 +444,7 @@ class TestInstallMissingPkgs(CiTestCase):
         arch = 'i386'
         self.mock_arch.return_value = arch
         self.mock_machine.return_value = 'i386'
-        expected_pkgs = ['grub-efi-ia32']
+        expected_pkgs = ['efibootmgr', 'grub-efi-ia32']
         self.mock_machine.return_value = 'i686'
         self.mock_uefi.return_value = True
         target = "not-a-real-target"
@@ -457,13 +458,45 @@ class TestInstallMissingPkgs(CiTestCase):
         arch = 'arm64'
         self.mock_arch.return_value = arch
         self.mock_machine.return_value = 'aarch64'
-        expected_pkgs = ['grub-efi-%s' % arch]
+        expected_pkgs = ['efibootmgr', 'grub-efi-%s' % arch]
         self.mock_uefi.return_value = True
         target = "not-a-real-target"
         cfg = {}
         curthooks.install_missing_packages(cfg, target=target)
         self.mock_install_packages.assert_called_with(
                 expected_pkgs, target=target, osfamily=self.distro_family)
+
+    @patch.object(events, 'ReportEventStack')
+    def test_install_packages_on_uefi_amd64_centos(self, mock_events):
+        arch = 'amd64'
+        self.mock_arch.return_value = arch
+        self.mock_machine.return_value = 'x86_64'
+        expected_pkgs = ['efibootmgr', 'grub2-efi-x64', 'shim-x64']
+        self.mock_uefi.return_value = True
+        self.mock_haspkg.return_value = True
+        target = "not-a-real-target"
+        cfg = {}
+        curthooks.install_missing_packages(
+            cfg, target=target, osfamily=distro.DISTROS.redhat)
+        self.mock_install_packages.assert_called_with(
+                expected_pkgs, target=target, osfamily=distro.DISTROS.redhat)
+
+    @patch.object(events, 'ReportEventStack')
+    def test_install_packages_on_uefi_amd64_centos_legacy(self, mock_events):
+        arch = 'amd64'
+        self.mock_arch.return_value = arch
+        self.mock_machine.return_value = 'x86_64'
+        self.mock_get_installed_packages.return_value = [
+            'grub2-efi-x64-modules']
+        expected_pkgs = ['efibootmgr']
+        self.mock_uefi.return_value = True
+        self.mock_haspkg.return_value = True
+        target = "not-a-real-target"
+        cfg = {}
+        curthooks.install_missing_packages(
+            cfg, target=target, osfamily=distro.DISTROS.redhat)
+        self.mock_install_packages.assert_called_with(
+                expected_pkgs, target=target, osfamily=distro.DISTROS.redhat)
 
 
 class TestSetupZipl(CiTestCase):
@@ -572,6 +605,58 @@ class TestSetupGrub(CiTestCase):
                 'sh', '-c', 'exec "$0" "$@" 2>&1',
                 'install-grub', '--os-family=%s' % self.distro_family,
                 self.target, '/dev/vdb'],),
+            self.mock_subp.call_args_list[0][0])
+
+    @patch('curtin.block.is_valid_device')
+    @patch('curtin.commands.curthooks.os.path.exists')
+    def test_uses_grub_install_on_storage_config_uefi(
+            self, m_exists, m_is_valid_device):
+        self.mock_is_uefi_bootable.return_value = True
+        cfg = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {
+                        'id': 'vdb',
+                        'type': 'disk',
+                        'name': 'vdb',
+                        'path': '/dev/vdb',
+                        'ptable': 'gpt',
+                    },
+                    {
+                        'id': 'vdb-part1',
+                        'type': 'partition',
+                        'device': 'vdb',
+                        'number': 1,
+                    },
+                    {
+                        'id': 'vdb-part1_format',
+                        'type': 'format',
+                        'volume': 'vdb-part1',
+                        'fstype': 'fat32',
+                    },
+                    {
+                        'id': 'vdb-part1_mount',
+                        'type': 'mount',
+                        'device': 'vdb-part1_format',
+                        'path': '/boot/efi',
+                    },
+                ]
+            },
+            'grub': {
+                'update_nvram': False,
+            },
+        }
+        self.subp_output.append(('', ''))
+        m_exists.return_value = True
+        m_is_valid_device.side_effect = (False, True)
+        curthooks.setup_grub(cfg, self.target, osfamily=distro.DISTROS.redhat)
+        self.assertEquals(
+            ([
+                'sh', '-c', 'exec "$0" "$@" 2>&1',
+                'install-grub', '--uefi',
+                '--os-family=%s' % distro.DISTROS.redhat, self.target,
+                '/dev/vdb1'],),
             self.mock_subp.call_args_list[0][0])
 
     def test_grub_install_installs_to_none_if_install_devices_None(self):
