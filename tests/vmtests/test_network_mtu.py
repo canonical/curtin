@@ -165,18 +165,23 @@ class TestNetworkMtu(relbase.xenial, TestNetworkMtuAbs):
     __test__ = True
 
 
-@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2020-01-01")
+@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2020-01-10")
 class BionicTestNetworkMtu(relbase.bionic, TestNetworkMtuAbs):
     __test__ = True
 
 
-@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2020-01-01")
+@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2020-01-10")
 class DiscoTestNetworkMtu(relbase.disco, TestNetworkMtuAbs):
     __test__ = True
 
 
-@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2020-01-01")
+@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2020-01-10")
 class EoanTestNetworkMtu(relbase.eoan, TestNetworkMtuAbs):
+    __test__ = True
+
+
+@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2020-01-10")
+class FocalTestNetworkMtu(relbase.focal, TestNetworkMtuAbs):
     __test__ = True
 
 

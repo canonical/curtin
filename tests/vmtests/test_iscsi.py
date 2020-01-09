@@ -78,4 +78,9 @@ class DiscoTestIscsiBasic(relbase.disco, TestBasicIscsiAbs):
 class EoanTestIscsiBasic(relbase.eoan, TestBasicIscsiAbs):
     __test__ = True
 
+
+class FocalTestIscsiBasic(relbase.focal, TestBasicIscsiAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

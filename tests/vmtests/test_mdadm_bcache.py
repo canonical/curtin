@@ -151,6 +151,10 @@ class EoanTestMdadmBcache(relbase.eoan, TestMdadmBcacheAbs):
     __test__ = True
 
 
+class FocalTestMdadmBcache(relbase.focal, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot.yaml"
@@ -188,6 +192,10 @@ class DiscoTestMirrorboot(relbase.disco, TestMirrorbootAbs):
 
 
 class EoanTestMirrorboot(relbase.eoan, TestMirrorbootAbs):
+    __test__ = True
+
+
+class FocalTestMirrorboot(relbase.focal, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -233,6 +241,11 @@ class DiscoTestMirrorbootPartitions(relbase.disco,
 
 class EoanTestMirrorbootPartitions(relbase.eoan,
                                    TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
+class FocalTestMirrorbootPartitions(relbase.focal,
+                                    TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
@@ -286,6 +299,11 @@ class EoanTestMirrorbootPartitionsUEFI(relbase.eoan,
     __test__ = True
 
 
+class FocalTestMirrorbootPartitionsUEFI(relbase.focal,
+                                        TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
@@ -323,6 +341,10 @@ class DiscoTestRaid5boot(relbase.disco, TestRaid5bootAbs):
 
 
 class EoanTestRaid5boot(relbase.eoan, TestRaid5bootAbs):
+    __test__ = True
+
+
+class FocalTestRaid5boot(relbase.focal, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -382,6 +404,10 @@ class EoanTestRaid6boot(relbase.eoan, TestRaid6bootAbs):
     __test__ = True
 
 
+class FocalTestRaid6boot(relbase.focal, TestRaid6bootAbs):
+    __test__ = True
+
+
 class TestRaid10bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid10boot.yaml"
@@ -421,6 +447,10 @@ class DiscoTestRaid10boot(relbase.disco, TestRaid10bootAbs):
 
 
 class EoanTestRaid10boot(relbase.eoan, TestRaid10bootAbs):
+    __test__ = True
+
+
+class FocalTestRaid10boot(relbase.focal, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -522,5 +552,10 @@ class DiscoTestAllindata(relbase.disco, TestAllindataAbs):
 
 class EoanTestAllindata(relbase.eoan, TestAllindataAbs):
     __test__ = True
+
+
+class FocalTestAllindata(relbase.focal, TestAllindataAbs):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

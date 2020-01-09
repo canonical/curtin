@@ -38,6 +38,11 @@ class EoanTestNetworkStaticRoutes(relbase.eoan,
     __test__ = True
 
 
+class FocalTestNetworkStaticRoutes(relbase.focal,
+                                   TestNetworkStaticRoutesAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkStaticRoutes(centos_relbase.centos66_xenial,
                                       CentosTestNetworkStaticRoutesAbs):
     __test__ = False

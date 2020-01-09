@@ -4,7 +4,9 @@
 import argparse
 import logging
 import os
+import pdb
 import sys
+import traceback
 
 # Fix path so we can import helpers
 sys.path.insert(1, os.path.realpath(os.path.join(
@@ -17,7 +19,7 @@ from tests.vmtests.helpers import find_testcases_by_attr  # noqa: E402
 logging.disable(logging.CRITICAL)
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(prog='vmtest-filter',
                                      description='Dump matching testcases',
                                      usage='''vmtest-filter --attr=value''')
@@ -53,5 +55,14 @@ if __name__ == '__main__':
         kwargs = vars(args)
     for tc in find_testcases_by_attr(**kwargs):
         print(tc)
+
+if __name__ == '__main__':
+    try:
+        ret = main()
+    except:
+        traceback.print_exc()
+        pdb.post_mortem()
+        ret = 1
+    sys.exit(ret)
 
 # vi: ts=4 expandtab syntax=python

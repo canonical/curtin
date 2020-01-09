@@ -84,6 +84,13 @@ class XenialTestLvmRootExt4(relbase.xenial, TestLvmRootAbs):
     }
 
 
+class FocalTestLvmRootExt4(relbase.focal, TestLvmRootAbs):
+    __test__ = True
+    conf_replace = {
+        '__ROOTFS_FORMAT__': 'ext4',
+    }
+
+
 class XenialTestLvmRootXfs(relbase.xenial, TestLvmRootAbs):
     __test__ = True
     conf_replace = {
@@ -115,6 +122,14 @@ class Centos70XenialTestUefiLvmRootXfs(centos_relbase.centos70_xenial,
 
 
 class XenialTestUefiLvmRootExt4(relbase.xenial, TestUefiLvmRootAbs):
+    __test__ = True
+    conf_replace = {
+        '__BOOTFS_FORMAT__': 'ext4',
+        '__ROOTFS_FORMAT__': 'ext4',
+    }
+
+
+class FocalTestUefiLvmRootExt4(relbase.focal, TestUefiLvmRootAbs):
     __test__ = True
     conf_replace = {
         '__BOOTFS_FORMAT__': 'ext4',

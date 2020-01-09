@@ -28,10 +28,6 @@ class BionicTestReuseRAIDMember(relbase.bionic, TestReuseRAIDMember):
     __test__ = True
 
 
-class CosmicTestReuseRAIDMember(relbase.cosmic, TestReuseRAIDMember):
-    __test__ = True
-
-
 class DiscoTestReuseRAIDMember(relbase.disco, TestReuseRAIDMember):
     __test__ = True
 
@@ -40,23 +36,28 @@ class EoanTestReuseRAIDMember(relbase.eoan, TestReuseRAIDMember):
     __test__ = True
 
 
-class BionicTestReuseRAIDMemberPartition(
-        relbase.bionic, TestReuseRAIDMemberPartition):
+class FocalTestReuseRAIDMember(relbase.focal, TestReuseRAIDMember):
     __test__ = True
 
 
-class CosmicTestReuseRAIDMemberPartition(
-        relbase.cosmic, TestReuseRAIDMemberPartition):
+class BionicTestReuseRAIDMemberPartition(relbase.bionic,
+                                         TestReuseRAIDMemberPartition):
     __test__ = True
 
 
-class DiscoTestReuseRAIDMemberPartition(
-        relbase.disco, TestReuseRAIDMemberPartition):
+class DiscoTestReuseRAIDMemberPartition(relbase.disco,
+                                        TestReuseRAIDMemberPartition):
     __test__ = True
 
 
-class EoanTestReuseRAIDMemberPartition(
-        relbase.eoan, TestReuseRAIDMemberPartition):
+class EoanTestReuseRAIDMemberPartition(relbase.eoan,
+                                       TestReuseRAIDMemberPartition):
     __test__ = True
+
+
+class FocalTestReuseRAIDMemberPartition(relbase.focal,
+                                        TestReuseRAIDMemberPartition):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

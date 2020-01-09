@@ -32,4 +32,9 @@ class DiscoTestBcachePartitions(relbase.disco, TestBcachePartitions):
 class EoanTestBcachePartitions(relbase.eoan, TestBcachePartitions):
     __test__ = True
 
+
+class FocalTestBcachePartitions(relbase.focal, TestBcachePartitions):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

@@ -83,7 +83,15 @@ class DiscoTestNetworkVlan(relbase.disco, TestNetworkVlanAbs):
 class EoanTestNetworkVlan(relbase.eoan, TestNetworkVlanAbs):
     __test__ = True
 
-    @TestNetworkBaseTestsAbs.skip_by_date("1846232", fixby="2019-12-01")
+    @TestNetworkBaseTestsAbs.skip_by_date("1846232", fixby="2020-01-10")
+    def test_ip_output(self):
+        pass
+
+
+class FocalTestNetworkVlan(relbase.focal, TestNetworkVlanAbs):
+    __test__ = True
+
+    @TestNetworkBaseTestsAbs.skip_by_date("1846232", fixby="2020-01-10")
     def test_ip_output(self):
         pass
 

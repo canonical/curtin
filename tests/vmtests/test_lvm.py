@@ -92,4 +92,9 @@ class DiscoTestLvm(relbase.disco, TestLvmAbs):
 class EoanTestLvm(relbase.eoan, TestLvmAbs):
     __test__ = True
 
+
+class FocalTestLvm(relbase.focal, TestLvmAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

@@ -238,4 +238,9 @@ class DiscoTestFsBattery(relbase.disco, TestFsBattery):
 class EoanTestFsBattery(relbase.eoan, TestFsBattery):
     __test__ = True
 
+
+class FocalTestFsBattery(relbase.focal, TestFsBattery):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

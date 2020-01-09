@@ -83,6 +83,10 @@ class EoanTestBcacheCeph(relbase.eoan, TestBcacheCeph):
     __test__ = True
 
 
+class FocalTestBcacheCeph(relbase.focal, TestBcacheCeph):
+    __test__ = True
+
+
 class TestBcacheCephLvm(TestBcacheCeph):
     test_type = 'storage'
     nr_cpus = 2
@@ -102,6 +106,10 @@ class TestBcacheCephLvm(TestBcacheCeph):
 
 
 class BionicTestBcacheCephLvm(relbase.bionic, TestBcacheCephLvm):
+    __test__ = True
+
+
+class FocalTestBcacheCephLvm(relbase.focal, TestBcacheCephLvm):
     __test__ = True
 
 

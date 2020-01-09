@@ -31,6 +31,10 @@ class EoanTestNetworkIPV6Static(relbase.eoan, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
+class FocalTestNetworkIPV6Static(relbase.focal, TestNetworkIPV6StaticAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkIPV6Static(centos_relbase.centos66_xenial,
                                     CentosTestNetworkIPV6StaticAbs):
     __test__ = True

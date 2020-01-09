@@ -150,4 +150,9 @@ class DiscoTestNvmeBcache(relbase.disco, TestNvmeBcacheAbs):
 class EoanTestNvmeBcache(relbase.eoan, TestNvmeBcacheAbs):
     __test__ = True
 
+
+class FocalTestNvmeBcache(relbase.focal, TestNvmeBcacheAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python
