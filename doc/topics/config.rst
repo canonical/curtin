@@ -393,7 +393,8 @@ Enable rebooting with kexec.
 
 **Example**::
 
-  kexec: on
+  kexec:
+    mode: "on"
 
 
 multipath
