@@ -592,6 +592,9 @@ DEFAULT_COLLECT_SCRIPTS = {
 class VMBaseClass(TestCase):
     __test__ = False
     expected_failure = False
+    add_repos = ""
+    system_upgrade = AUTO
+    upgrade_packages = ""
     arch_skip = []
     boot_timeout = BOOT_TIMEOUT
     collect_scripts = []
@@ -939,9 +942,10 @@ class VMBaseClass(TestCase):
         ])
 
         # Avoid LP: #1797218 and make vms boot faster
-        cmd.extend(['--append=%s' % service for service in
-                    ["systemd.mask=snapd.seeded.service",
-                     "systemd.mask=snapd.service"]])
+        cmd.extend(['--append=---'] +
+                   ['--append=%s' % service
+                    for service in ["systemd.mask=snapd.seeded.service",
+                                    "systemd.mask=snapd.service"]])
 
         # getting resolvconf configured is only fixed in bionic
         # the iscsi_auto handles resolvconf setup via call to
@@ -1101,9 +1105,12 @@ class VMBaseClass(TestCase):
             logger.info('Detected centos, adding default config %s',
                         centos_default)
 
-        add_repos = ADD_REPOS
-        system_upgrade = SYSTEM_UPGRADE
-        upgrade_packages = UPGRADE_PACKAGES
+        # environment variables override class provided values
+        add_repos = ADD_REPOS if ADD_REPOS else cls.add_repos
+        system_upgrade = (
+            SYSTEM_UPGRADE if SYSTEM_UPGRADE else cls.system_upgrade)
+        upgrade_packages = (
+            UPGRADE_PACKAGES if UPGRADE_PACKAGES else cls.upgrade_packages)
 
         if is_false_env_value(system_upgrade):
             system_upgrade = False
@@ -2083,7 +2090,9 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
                 echo "ERROR: ${target} dir exists; journal collected already";
                 exit 1;
             }
-            journalctl --sync --flush --rotate
+            journalctl --sync
+            journalctl --flush
+            sync
             cp -a /var/log/journal ${target}
             gzip -9 ${target}/*/system*.journal
         }
