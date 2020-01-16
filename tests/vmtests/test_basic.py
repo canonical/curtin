@@ -402,6 +402,7 @@ class Centos70BionicTestScsiBasic(centos_relbase.centos70_bionic,
     __test__ = True
 
 
+@VMBaseClass.skip_by_date("1859858", fixby="2020-03-06", install=False)
 class Centos70FocalTestScsiBasic(centos_relbase.centos70_focal,
                                  TestBasicScsiAbs, CentosTestBasicAbs):
     __test__ = True
