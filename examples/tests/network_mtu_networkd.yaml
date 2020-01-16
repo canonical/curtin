@@ -1,0 +1,93 @@
+showtrace: true
+network:
+    version: 1
+    config:
+        - type: physical
+          name: interface0
+          mac_address: "52:54:00:12:34:00"
+          subnets:
+              - type: static
+                address: 192.168.1.2/24
+                mtu: 1601
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:fe06:1000
+                netmask: 'ffff:ffff:ffff:ffff::'
+                mtu: 1501
+        - type: physical
+          name: interface1
+          mac_address: "52:54:00:12:34:02"
+          subnets:
+              - type: static
+                address: 192.168.2.2/24
+                mtu: 1501
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:fe06:2000
+                netmask: 'ffff:ffff:ffff:ffff::'
+                mtu: 1501
+        - type: physical
+          name: interface2
+          mac_address: "52:54:00:12:34:04"
+          subnets:
+              - type: dhcp
+        - type: physical
+          name: interface4
+          mac_address: "52:54:00:12:34:08"
+          subnets:
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:fe06:5000
+                netmask: 'ffff:ffff:ffff:ffff::'
+                mtu: 8900
+              - type: static
+                address: 192.168.5.2/24
+                mtu: 9000
+        - type: physical
+          name: interface5
+          mac_address: "52:54:00:12:34:0c"
+          subnets:
+              - type: static
+                address: 2001:4800:78ff:1b:be76:4eff:fe06:6000
+                netmask: 'ffff:ffff:ffff:ffff::'
+                mtu: 1480
+              - type: static
+                address: 192.168.6.2/24
+                mtu: 1480
+
+write_files:
+  capture_mtu:
+    path: '/usr/local/bin/capture-mtu'
+    permissions: '0755'
+    owner: 'root:root'
+    content: |
+      #!/bin/sh
+      for x in 0 1 2 4 5; do
+          dev_mtu=$(cat /sys/class/net/interface${x}/mtu)
+          ipv6_mtu=$(cat /proc/sys/net/ipv6/conf/interface${x}/mtu)
+          sys=$(sysctl net.ipv6.conf.interface${x}.mtu)
+          echo "WARK: interface${x} dev_mtu=$dev_mtu proc_ipv6_mtu=$ipv6_mtu"
+          echo "WARK: $sys"
+      done
+
+bucket:
+  - &networkd_debug |
+    #!/bin/sh
+    MP=$TARGET_MOUNT_POINT
+    mkdir -p "${MP}/etc/systemd/system/systemd-networkd.service.d"
+    conf="${MP}/etc/systemd/system/systemd-networkd.service.d/10-debug.conf"
+    echo "[Service]" >$conf
+    echo "Environment=SYSTEMD_LOG_LEVEL=debug" >>$conf
+    echo "ExecStartPost=/usr/local/bin/capture-mtu" >>$conf
+    exit 0
+
+  - &capture_mtu |
+    #!/bin/sh -x
+    MP=$TARGET_MOUNT_POINT
+    for service in cloud-init-local cloud-init cloud-config; do
+        mkdir -p "${MP}/etc/systemd/system/${service}.service.d"
+        conf="${MP}/etc/systemd/system/${service}.service.d/10-debug.conf"
+        echo "[Service]" >$conf
+        echo "ExecStartPre=/usr/local/bin/capture-mtu" >>$conf
+    done
+
+late_commands:
+  01-networkd_debug: [sh, -c, *networkd_debug]
+  02-capture_mtu: [sh, -c, *capture_mtu]

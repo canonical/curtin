@@ -260,6 +260,11 @@ class Centos70BionicTestBasic(centos_relbase.centos70_bionic,
     __test__ = True
 
 
+class Centos70FocalTestBasic(centos_relbase.centos70_focal,
+                             CentosTestBasicAbs):
+    __test__ = True
+
+
 class Centos66XenialTestBasic(centos_relbase.centos66_xenial,
                               CentosTestBasicAbs):
     __test__ = True
@@ -300,6 +305,10 @@ class DiscoTestBasic(relbase.disco, TestBasicAbs):
 
 
 class EoanTestBasic(relbase.eoan, TestBasicAbs):
+    __test__ = True
+
+
+class FocalTestBasic(relbase.focal, TestBasicAbs):
     __test__ = True
 
 
@@ -388,6 +397,17 @@ class Centos70XenialTestScsiBasic(centos_relbase.centos70_xenial,
     __test__ = True
 
 
+class Centos70BionicTestScsiBasic(centos_relbase.centos70_bionic,
+                                  TestBasicScsiAbs, CentosTestBasicAbs):
+    __test__ = True
+
+
+@VMBaseClass.skip_by_date("1859858", fixby="2020-03-06", install=False)
+class Centos70FocalTestScsiBasic(centos_relbase.centos70_focal,
+                                 TestBasicScsiAbs, CentosTestBasicAbs):
+    __test__ = True
+
+
 class XenialGATestScsiBasic(relbase.xenial_ga, TestBasicScsiAbs):
     __test__ = True
 
@@ -410,5 +430,10 @@ class DiscoTestScsiBasic(relbase.disco, TestBasicScsiAbs):
 
 class EoanTestScsiBasic(relbase.eoan, TestBasicScsiAbs):
     __test__ = True
+
+
+class FocalTestScsiBasic(relbase.focal, TestBasicScsiAbs):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

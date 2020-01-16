@@ -63,6 +63,13 @@ class EoanTestSimple(relbase.eoan, TestSimple):
         self.output_files_exist(["netplan.yaml"])
 
 
+class FocalTestSimple(relbase.focal, TestSimple):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
+
 class TestSimpleStorage(VMBaseClass):
     """ Test curtin runs clear-holders when mode=simple with storage cfg. """
     conf_file = "examples/tests/simple-storage.yaml"
@@ -119,6 +126,13 @@ class EoanTestSimpleStorage(relbase.eoan, TestSimpleStorage):
         self.output_files_exist(["netplan.yaml"])
 
 
+class FocalTestSimpleStorage(relbase.focal, TestSimpleStorage):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
+
 class TestGrubNoDefaults(VMBaseClass):
     """ Test that curtin does not emit any grub configuration files. """
     conf_file = "examples/tests/no-grub-file.yaml"
@@ -138,10 +152,11 @@ class TestGrubNoDefaults(VMBaseClass):
         self.assertNotIn('50-curtin-settings.cfg', grub_d_files)
 
 
-class DiscoTestGrubNoDefaults(relbase.disco, TestGrubNoDefaults):
+class FocalTestGrubNoDefaults(relbase.focal, TestGrubNoDefaults):
     __test__ = True
 
     def test_output_files_exist(self):
         self.output_files_exist(["netplan.yaml"])
+
 
 # vi: ts=4 expandtab syntax=python

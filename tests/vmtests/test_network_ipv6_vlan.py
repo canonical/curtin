@@ -29,9 +29,13 @@ class DiscoTestNetworkIPV6Vlan(relbase.disco, TestNetworkIPV6VlanAbs):
 class EoanTestNetworkIPV6Vlan(relbase.eoan, TestNetworkIPV6VlanAbs):
     __test__ = True
 
-    @TestNetworkVlanAbs.skip_by_date("1846232", fixby="2019-12-01")
+    @TestNetworkVlanAbs.skip_by_date("1846232", fixby="2020-01-10")
     def test_ip_output(self):
         pass
+
+
+class FocalTestNetworkIPV6Vlan(relbase.focal, TestNetworkIPV6VlanAbs):
+    __test__ = True
 
 
 class Centos66TestNetworkIPV6Vlan(centos_relbase.centos66_xenial,

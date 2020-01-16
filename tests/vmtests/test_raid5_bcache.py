@@ -90,4 +90,9 @@ class DiscoTestRaid5Bcache(relbase.disco, TestMdadmBcacheAbs):
 class EoanTestRaid5Bcache(relbase.eoan, TestMdadmBcacheAbs):
     __test__ = True
 
+
+class FocalTestRaid5Bcache(relbase.focal, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

@@ -1102,6 +1102,7 @@ class TestSanitizeSource(CiTestCase):
                  'dd-bz2', 'dd-gz', 'dd-xz', 'dd-raw', 'fsimage',
                  'fsimage-layered']
     source_url = 'http://curtin.io/root-fs.foo'
+    squashfs_source_path = "/media/filesystem.squashfs"
 
     def test_supported_sources(self):
         """ Verify supported sources types return expected dictionary. """
@@ -1112,9 +1113,11 @@ class TestSanitizeSource(CiTestCase):
 
     def test_supported_squashfs_source_type(self):
         """ Verify squashfs: prefix returns type=fsimage and correct uri."""
-        stype = 'fsimage'
-        expected = {'type': stype, 'uri': self.source_url}
-        result = util.sanitize_source("%s:%s" % (stype, self.source_url))
+        stype = 'squashfs'
+        target_stype = "fsimage"
+        expected = {'type': target_stype, 'uri': self.squashfs_source_path}
+        result = util.sanitize_source("%s://%s" %
+                                      (stype, self.squashfs_source_path))
         self.assertEqual(expected, result)
 
     def test_supported_squashfs_suffix(self):

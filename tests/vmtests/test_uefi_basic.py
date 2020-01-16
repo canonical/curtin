@@ -113,6 +113,10 @@ class EoanUefiTestBasic(relbase.eoan, TestBasicAbs):
     __test__ = True
 
 
+class FocalUefiTestBasic(relbase.focal, TestBasicAbs):
+    __test__ = True
+
+
 class Centos70UefiTestBasic4k(centos_relbase.centos70_xenial, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
@@ -136,5 +140,11 @@ class DiscoUefiTestBasic4k(relbase.disco, TestBasicAbs):
 class EoanUefiTestBasic4k(relbase.eoan, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
+
+
+class FocalUefiTestBasic4k(relbase.focal, TestBasicAbs):
+    __test__ = True
+    disk_block_size = 4096
+
 
 # vi: ts=4 expandtab syntax=python

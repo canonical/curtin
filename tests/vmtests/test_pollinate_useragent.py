@@ -68,4 +68,9 @@ class DiscoTestPollinateUserAgent(relbase.disco, TestPollinateUserAgent):
 class EoanTestPollinateUserAgent(relbase.eoan, TestPollinateUserAgent):
     __test__ = True
 
+
+class FocalTestPollinateUserAgent(relbase.focal, TestPollinateUserAgent):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

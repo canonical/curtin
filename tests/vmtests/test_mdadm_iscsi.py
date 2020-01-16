@@ -57,4 +57,9 @@ class DiscoTestIscsiMdadm(relbase.disco, TestMdadmIscsiAbs):
 class EoanTestIscsiMdadm(relbase.eoan, TestMdadmIscsiAbs):
     __test__ = True
 
+
+class FocalTestIscsiMdadm(relbase.focal, TestMdadmIscsiAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

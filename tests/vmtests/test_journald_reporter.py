@@ -28,10 +28,6 @@ class TestJournaldReporter(VMBaseClass):
             self.assertIn(key, e1)
 
 
-class XenialTestJournaldReporter(relbase.xenial, TestJournaldReporter):
-    __test__ = True
-
-
 class BionicTestJournaldReporter(relbase.bionic, TestJournaldReporter):
     __test__ = True
 
@@ -42,5 +38,10 @@ class DiscoTestJournaldReporter(relbase.disco, TestJournaldReporter):
 
 class EoanTestJournaldReporter(relbase.eoan, TestJournaldReporter):
     __test__ = True
+
+
+class FocalTestJournaldReporter(relbase.focal, TestJournaldReporter):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

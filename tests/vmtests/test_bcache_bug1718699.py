@@ -26,4 +26,9 @@ class DiscoTestBcacheBug1718699(relbase.disco, TestBcacheBug1718699):
 class EoanTestBcacheBug1718699(relbase.eoan, TestBcacheBug1718699):
     __test__ = True
 
+
+class FocalTestBcacheBug1718699(relbase.focal, TestBcacheBug1718699):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

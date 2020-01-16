@@ -284,7 +284,13 @@ def run_yum_command(mode, args=None, opts=None, env=None, target=None,
     if opts is None:
         opts = []
 
-    cmd = ['yum'] + defopts + opts + [mode] + args
+    # dnf is a drop in replacement for yum. On newer RH based systems yum
+    # is just a sym link to dnf.
+    if which('dnf', target=target):
+        cmd = ['dnf']
+    else:
+        cmd = ['yum']
+    cmd += defopts + opts + [mode] + args
     if not execute:
         return env, cmd
 
@@ -311,8 +317,14 @@ def yum_install(mode, packages=None, opts=None, env=None, target=None,
         raise ValueError(
             'Unsupported mode "%s" for yum package install/upgrade' % mode)
 
+    # dnf is a drop in replacement for yum. On newer RH based systems yum
+    # is just a sym link to dnf.
+    if which('dnf', target=target):
+        cmd = ['dnf']
+    else:
+        cmd = ['yum']
     # download first, then install/upgrade from cache
-    cmd = ['yum'] + defopts + opts + [mode]
+    cmd += defopts + opts + [mode]
     dl_opts = ['--downloadonly', '--setopt=keepcache=1']
     inst_opts = ['--cacheonly']
 

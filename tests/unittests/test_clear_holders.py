@@ -476,14 +476,14 @@ class TestClearHolders(CiTestCase):
         # trees that have been generated, checked for correctness,
         # and the order that they should be shut down in (by level)
         test_trees_and_orders = [
-            (self.example_holders_trees[0][0],
+            (self.example_holders_trees[0],
              ({'dm-3'}, {'dm-1', 'dm-2'}, {'dm-0'}, {'sda5', 'sda2', 'sda1'},
               {'sda'})),
             (self.example_holders_trees[1],
              ({'bcache1'}, {'bcache2', 'md0'},
               {'vdb1', 'vdb2', 'vdb3', 'vdb4', 'vdb5', 'vdb6', 'vdb7', 'vdb8',
-               'vdd1'},
-              {'vdb', 'vdc', 'vdd'}))
+               'vdb'},
+              {'vdd1', 'vdd'}))
         ]
         for tree, correct_order in test_trees_and_orders:
             res = clear_holders.plan_shutdown_holder_trees(tree)

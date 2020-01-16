@@ -87,4 +87,9 @@ class DiscoTestMultipathBasic(relbase.disco, TestMultipathBasicAbs):
 class EoanTestMultipathBasic(relbase.eoan, TestMultipathBasicAbs):
     __test__ = True
 
+
+class FocalTestMultipathBasic(relbase.focal, TestMultipathBasicAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

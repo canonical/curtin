@@ -389,15 +389,15 @@ class ProbertParser(object):
                     data = {}
                 self.class_data = data
             else:
-                raise ValueError('probe_data missing %s data' %
-                                 self.probe_data_key)
+                LOG.warning('probe_data missing %s data', self.probe_data_key)
+                self.class_data = {}
 
         # We keep a reference to the blockdev_data on the superclass
         # as each specific parser has common needs to reference
         # this data separate from the BlockdevParser class.
-        self.blockdev_data = self.probe_data.get('blockdev')
+        self.blockdev_data = self.probe_data.get('blockdev', {})
         if not self.blockdev_data:
-            raise ValueError('probe_data missing valid "blockdev" data')
+            LOG.warning('probe_data missing valid "blockdev" data')
 
     def parse(self):
         raise NotImplementedError()
@@ -575,7 +575,8 @@ class BcacheParser(ProbertParser):
             msg = ('Invalid "blockdev" value for cache device '
                    'uuid=%s' % cset_uuid)
             if not cset_uuid:
-                raise ValueError(msg)
+                LOG.warning(msg)
+                return None
 
             for devuuid, config in cache_data.items():
                 cache = _sb_get(config, 'cset.uuid')
@@ -588,6 +589,8 @@ class BcacheParser(ProbertParser):
             by_uuid = '/dev/bcache/by-uuid/' + uuid
             label = _sb_get(backing_data, 'dev.label')
             for devname, data in blockdev_data.items():
+                if not devname:
+                    continue
                 if devname.startswith('/dev/bcache'):
                     # DEVLINKS is a space separated list
                     devlinks = data.get('DEVLINKS', '').split()
@@ -595,7 +598,7 @@ class BcacheParser(ProbertParser):
                         return devname
             if label:
                 return label
-            raise ValueError('Failed to find bcache %s ' % (by_uuid))
+            LOG.warning('Failed to find bcache %s ' % (by_uuid))
 
         def _cache_mode(dev_data):
             # "1 [writeback]" -> "writeback"
@@ -605,12 +608,14 @@ class BcacheParser(ProbertParser):
 
             return None
 
+        if not self.blockdev_data:
+            return None
+
         backing_device = backing_data.get('blockdev')
         cache_device = _find_cache_device(backing_data, self.caching)
         cache_mode = _cache_mode(backing_data)
-        bcache_name = os.path.basename(
-            _find_bcache_devname(backing_uuid, backing_data,
-                                 self.blockdev_data))
+        bcache_name = os.path.basename(_find_bcache_devname(backing_uuid,
+                                       backing_data, self.blockdev_data))
         bcache_entry = {'type': 'bcache', 'id': 'disk-%s' % bcache_name,
                         'name': bcache_name}
 
@@ -641,9 +646,10 @@ class BlockdevParser(ProbertParser):
         errors = []
 
         for devname, data in self.blockdev_data.items():
-            # skip composed devices here
+            # skip composed devices here, except partitions
             if data.get('DEVPATH', '').startswith('/devices/virtual'):
-                continue
+                if data.get('DEVTYPE', '') != "partition":
+                    continue
             entry = self.asdict(data)
             if entry:
                 try:
@@ -997,7 +1003,6 @@ class RaidParser(ProbertParser):
            Collects storage config type: raid for valid
            data and returns tuple of lists, configs, errors.
         """
-
         configs = []
         errors = []
         for devname, data in self.class_data.items():
@@ -1181,7 +1186,7 @@ class ZfsParser(ProbertParser):
         return (zpool_configs + zfs_configs, errors)
 
 
-def extract_storage_config(probe_data):
+def extract_storage_config(probe_data, strict=False):
     """ Examine a probert storage dictionary and extract a curtin
         storage configuration that would recreate all of the
         storage devices present in the provided data.
@@ -1233,7 +1238,10 @@ def extract_storage_config(probe_data):
     for e in errors:
         LOG.exception('Validation error: %s\n' % e)
     if len(errors) > 0:
-        raise RuntimeError("Extract storage config does not validate.")
+        errmsg = "Extract storage config does not validate."
+        LOG.warning(errmsg)
+        if strict:
+            raise RuntimeError(errmsg)
 
     # build and merge probed data into a valid storage config by
     # generating a config tree for each item in the probed data

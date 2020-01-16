@@ -104,6 +104,68 @@ def disable_overlayroot(cfg, target):
         shutil.move(local_conf, local_conf + ".old")
 
 
+def _update_initramfs_tools(machine=None):
+    """ Return a list of binary names used to update an initramfs.
+
+    On some architectures there are helper binaries that are also
+    used and will be included in the list.
+    """
+    tools = ['update-initramfs']
+    if not machine:
+        machine = platform.machine()
+    if machine == 's390x':
+        tools.append('zipl')
+    elif machine == 'aarch64':
+        tools.append('flash-kernel')
+    return tools
+
+
+def disable_update_initramfs(cfg, target, machine=None):
+    """ Find update-initramfs tools in target and change their name. """
+    with util.ChrootableTarget(target) as in_chroot:
+        for tool in _update_initramfs_tools(machine=machine):
+            found = util.which(tool, target=target)
+            if found:
+                LOG.debug('Diverting original %s in target.', tool)
+                rename = found + '.curtin-disabled'
+                divert = ['dpkg-divert', '--add', '--rename',
+                          '--divert', rename, found]
+                in_chroot.subp(divert)
+
+                # create a dummy update-initramfs which just returns true;
+                # this handles postinstall scripts which make invoke $tool
+                # directly
+                util.write_file(target + found,
+                                content="#!/bin/true\n# diverted by curtin",
+                                mode=0o755)
+
+
+def update_initramfs_is_disabled(target):
+    """ Return a bool indicating if initramfs tooling is disabled. """
+    disabled = []
+    with util.ChrootableTarget(target) as in_chroot:
+        out, _err = in_chroot.subp(['dpkg-divert', '--list'], capture=True)
+        disabled = [divert for divert in out.splitlines()
+                    if divert.endswith('.curtin-disabled')]
+    return len(disabled) > 0
+
+
+def enable_update_initramfs(cfg, target, machine=None):
+    """ Enable initramfs update tools by restoring their original name. """
+    if update_initramfs_is_disabled(target):
+        with util.ChrootableTarget(target) as in_chroot:
+            for tool in _update_initramfs_tools(machine=machine):
+                LOG.info('Restoring %s in target for initrd updates.', tool)
+                found = util.which(tool, target=target)
+                if not found:
+                    continue
+                # remove the diverted
+                util.del_file(target + found)
+                # un-divert and restore original file
+                in_chroot.subp(
+                    ['dpkg-divert', '--rename', '--remove', found])
+
+
 def setup_zipl(cfg, target):
     if platform.machine() != 's390x':
         return
@@ -425,12 +487,25 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
 
     if storage_cfg_odict:
         storage_grub_devices = []
-        for item_id, item in storage_cfg_odict.items():
-            if not item.get('grub_device'):
-                continue
-            LOG.debug("checking: %s", item)
-            storage_grub_devices.append(
-                get_path_to_storage_volume(item_id, storage_cfg_odict))
+        if util.is_uefi_bootable():
+            # Curtin only supports creating one EFI system partition. Thus the
+            # grub_device can only be the default system partition mounted at
+            # /boot/efi.
+            for item_id, item in storage_cfg_odict.items():
+                if item.get('path') == '/boot/efi':
+                    efi_dev_id = storage_cfg_odict[item['device']]['volume']
+                    LOG.debug("checking: %s", item)
+                    storage_grub_devices.append(get_path_to_storage_volume(
+                        efi_dev_id, storage_cfg_odict))
+                    break
+        else:
+            for item_id, item in storage_cfg_odict.items():
+                if not item.get('grub_device'):
+                    continue
+                LOG.debug("checking: %s", item)
+                storage_grub_devices.append(
+                    get_path_to_storage_volume(item_id, storage_cfg_odict))
+
         if len(storage_grub_devices) > 0:
             grubcfg['install_devices'] = storage_grub_devices
 
@@ -531,18 +606,66 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
         join_stdout_err = ['sh', '-c', 'exec "$0" "$@" 2>&1']
         out, _err = util.subp(
             join_stdout_err + args + instdevs, env=env, capture=True)
-        LOG.debug("%s\n%s\n", args, out)
+        LOG.debug("%s\n%s\n", args + instdevs, out)
 
     if util.is_uefi_bootable() and grubcfg.get('update_nvram', True):
         uefi_reorder_loaders(grubcfg, target)
 
 
 def update_initramfs(target=None, all_kernels=False):
-    cmd = ['update-initramfs', '-u']
-    if all_kernels:
-        cmd.extend(['-k', 'all'])
-    with util.ChrootableTarget(target) as in_chroot:
-        in_chroot.subp(cmd)
+    """ Invoke update-initramfs in the target path.
+
+    Look up the installed kernel versions in the target
+    to ensure that an initrd get created or updated as needed.
+    This allows curtin to invoke update-initramfs exactly once
+    at the end of the install instead of multiple calls.
+    """
+    if update_initramfs_is_disabled(target):
+        return
+
+    # We keep the all_kernels flag for callers, the implementation
+    # now will operate correctly on all kernels present in the image
+    # which is almost always exactly one.
+    #
+    # Ideally curtin should be able to use update-initramfs -k all
+    # however, update-initramfs expects to be able to find out which
+    # versions of kernels are installed by using values from the
+    # kernel package invoking update-initramfs -c <kernel version>.
+    # With update-initramfs diverted, nothing captures the kernel
+    # version strings in the place where update-initramfs expects
+    # to find this information.  Instead, curtin will examine
+    # /boot to see what kernels and initramfs are installed and
+    # either create or update as needed.
+    #
+    # This loop below will examine the contents of target's
+    # /boot and pattern match for kernel files. On Ubuntu this
+    # is in the form of /boot/vmlinu[xz]-<uname -r version>.
+    #
+    # For each kernel, we extract the version string and then
+    # construct the name of of the initrd file that *would*
+    # have been created when the kernel package was installed
+    # if curtin had not diverted update-initramfs to prevent
+    # duplicate initrd creation.
+    #
+    # if the initrd file exists, then we only need to invoke
+    # update-initramfs's -u (update) method.  If the file does
+    # not exist, then we need to run the -c (create) method.
+    boot = paths.target_path(target, 'boot')
+    for kernel in sorted(glob.glob(boot + '/vmlinu*-*')):
+        kfile = os.path.basename(kernel)
+        # handle vmlinux or vmlinuz
+        kprefix = kfile.split('-')[0]
+        version = kfile.replace(kprefix + '-', '')
+        initrd = kernel.replace(kprefix, 'initrd.img')
+        # -u == update, -c == create
+        mode = '-u' if os.path.exists(initrd) else '-c'
+        cmd = ['update-initramfs', mode, '-k', version]
+        with util.ChrootableTarget(target) as in_chroot:
+            in_chroot.subp(cmd)
+            if not os.path.exists(initrd):
+                files = os.listdir(target + '/boot')
+                LOG.debug('Failed to find initrd %s', initrd)
+                LOG.debug('Files in target /boot: %s', files)
 
 
 def copy_fstab(fstab, target):
@@ -886,10 +1009,17 @@ def install_missing_packages(cfg, target, osfamily=DISTROS.debian):
     # UEFI requires grub-efi-{arch}. If a signed version of that package
     # exists then it will be installed.
     if util.is_uefi_bootable():
-        uefi_pkgs = []
+        uefi_pkgs = ['efibootmgr']
         if osfamily == DISTROS.redhat:
             # centos/redhat doesn't support 32-bit?
-            uefi_pkgs.extend(['grub2-efi-x64-modules'])
+            if 'grub2-efi-x64-modules' not in installed_packages:
+                # Previously Curtin only supported unsigned GRUB due to an
+                # upstream bug. By default lp:maas-image-builder and
+                # packer-maas have grub preinstalled. If grub2-efi-x64-modules
+                # is already in the image use unsigned grub so the install
+                # doesn't require Internet access. If grub is missing use the
+                # signed version.
+                uefi_pkgs.extend(['grub2-efi-x64', 'shim-x64'])
         elif osfamily == DISTROS.debian:
             arch = util.get_architecture()
             if arch == 'i386':
@@ -1169,39 +1299,42 @@ def redhat_upgrade_cloud_init(netcfg, target=None, osfamily=DISTROS.redhat):
             cloud_init_yum_repo = (
                 paths.target_path(target,
                                   'etc/yum.repos.d/curtin-cloud-init.repo'))
+            rhel_ver = distro.rpm_get_dist_id(target)
             # Inject cloud-init daily yum repo
             util.write_file(cloud_init_yum_repo,
-                            content=cloud_init_repo(
-                                distro.rpm_get_dist_id(target)))
-
-            # we separate the installation of repository packages (epel,
-            # cloud-init-el-release) as we need a new invocation of yum
-            # to read the newly installed repo files.
+                            content=cloud_init_repo(rhel_ver))
 
             # ensure up-to-date ca-certificates to handle https mirror
-            # connections
-            distro.install_packages(['ca-certificates'], target=target,
-                                    osfamily=osfamily)
-            distro.install_packages(['epel-release'], target=target,
-                                    osfamily=osfamily)
-            distro.install_packages(['cloud-init-el-release'], target=target,
-                                    osfamily=osfamily)
-            distro.install_packages(['cloud-init'], target=target,
-                                    osfamily=osfamily)
+            # connections for epel and cloud-init-el.
+            packages = ['ca-certificates']
+
+            if int(rhel_ver) < 8:
+                # cloud-init in RHEL < 8 requires EPEL for dependencies.
+                packages += ['epel-release']
+                # RHEL8+ no longer ships bridge-utils. This does not effect
+                # bridge configuration. Only install on RHEL < 8 if not
+                # available, do not upgrade.
+                with util.ChrootableTarget(target) as in_chroot:
+                    try:
+                        in_chroot.subp(['rpm', '-q', 'bridge-utils'],
+                                       capture=False, rcs=[0])
+                    except util.ProcessExecutionError:
+                        LOG.debug(
+                            'Image missing bridge-utils package, installing')
+                        packages += ['bridge-utils']
+
+            packages += ['cloud-init-el-release', 'cloud-init']
+
+            # We separate the installation of repository packages (epel,
+            # cloud-init-el-release) as we need a new invocation of yum
+            # to read the newly installed repo files.
+            for package in packages:
+                distro.install_packages(
+                    [package], target=target, osfamily=osfamily)
 
             # remove cloud-init el-stable bootstrap repo config as the
             # cloud-init-el-release package points to the correct repo
             util.del_file(cloud_init_yum_repo)
-
-            # install bridge-utils if needed
-            with util.ChrootableTarget(target) as in_chroot:
-                try:
-                    in_chroot.subp(['rpm', '-q', 'bridge-utils'],
-                                   capture=False, rcs=[0])
-                except util.ProcessExecutionError:
-                    LOG.debug('Image missing bridge-utils package, installing')
-                    distro.install_packages(['bridge-utils'], target=target,
-                                            osfamily=osfamily)
 
     LOG.info('Passing network configuration through to target')
     net.render_netconfig_passthrough(target, netconfig={'network': netcfg})
@@ -1281,6 +1414,7 @@ def builtin_curthooks(cfg, target, state):
     LOG.info('Running curtin builtin curthooks')
     stack_prefix = state.get('report_stack_prefix', '')
     state_etcd = os.path.split(state['fstab'])[0]
+    machine = platform.machine()
 
     distro_info = distro.get_distroinfo(target=target)
     if not distro_info:
@@ -1295,6 +1429,7 @@ def builtin_curthooks(cfg, target, state):
                 description="configuring apt configuring apt"):
             do_apt_config(cfg, target)
             disable_overlayroot(cfg, target)
+            disable_update_initramfs(cfg, target, machine)
 
         # LP: #1742560 prevent zfs-dkms from being installed (Xenial)
         if distro.lsb_release(target=target)['codename'] == 'xenial':
@@ -1387,12 +1522,6 @@ def builtin_curthooks(cfg, target, state):
                 description="enabling selinux autorelabel mode"):
             redhat_apply_selinux_autorelabel(target)
 
-        with events.ReportEventStack(
-                name=stack_prefix + '/updating-initramfs-configuration',
-                reporting_enabled=True, level="INFO",
-                description="updating initramfs configuration"):
-            redhat_update_initramfs(target, cfg)
-
     with events.ReportEventStack(
             name=stack_prefix + '/pollinate-user-agent',
             reporting_enabled=True, level="INFO",
@@ -1428,17 +1557,28 @@ def builtin_curthooks(cfg, target, state):
     if os.path.isdir(udev_rules_d):
         copy_dname_rules(udev_rules_d, target)
 
+    with events.ReportEventStack(
+            name=stack_prefix + '/updating-initramfs-configuration',
+            reporting_enabled=True, level="INFO",
+            description="updating initramfs configuration"):
+        if osfamily == DISTROS.debian:
+            # re-enable update_initramfs
+            enable_update_initramfs(cfg, target, machine)
+            update_initramfs(target, all_kernels=True)
+        elif osfamily == DISTROS.redhat:
+            redhat_update_initramfs(target, cfg)
+
     # As a rule, ARMv7 systems don't use grub. This may change some
     # day, but for now, assume no. They do require the initramfs
     # to be updated, and this also triggers boot loader setup via
     # flash-kernel.
-    machine = platform.machine()
     if (machine.startswith('armv7') or
             machine.startswith('s390x') or
             machine.startswith('aarch64') and not util.is_uefi_bootable()):
-        update_initramfs(target)
-    else:
-        setup_grub(cfg, target, osfamily=osfamily)
+        return
+
+    # all other paths lead to grub
+    setup_grub(cfg, target, osfamily=osfamily)
 
 
 def curthooks(args):
