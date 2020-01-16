@@ -1,3 +1,27 @@
+curtin (19.3-14-ga45a54ca-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - vmtests: skip Focal deploying Centos70 ScsiBasic
+    - vmtests: fix network mtu tests, separating ifupdown vs networkd
+    - doc: Fix kexec documentation bug. [Mike Pontillo]
+    - vmtests: Add Focal Fossa
+    - centos: Add centos/rhel 8 support, enable UEFI Secure Boot
+      [Lee Trager] (LP: #1788088)
+    - Bump XFS /boot skip-by date out a while
+    - vmtest: Fix a missing unset of OUTPUT_FSTAB
+    - curthooks: handle s390x/aarch64 kernel install hooks (LP: #1856038)
+    - clear-holders: handle arbitrary order of devices to clear
+    - curthooks: only run update-initramfs in target once (LP: #1842264)
+    - test_network_mtu: bump fixby date for MTU tests
+    - block-discover: don't skip partitions on virtual devices (LP: #1853018)
+    - block-discover: handle partial probe data (LP: #1852351)
+    - Fix parsing of squashfs: uri prefix for installation sources
+      [Daniel Fox] (LP: #1851271)
+    - Release 19.3 (LP: #1851390)
+    - Update HACKING.rst with Josh Powers contact info.
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Thu, 16 Jan 2020 15:17:41 -0600
+
 curtin (19.2-44-g8e618b34-0ubuntu1) focal; urgency=medium
 
   * New upstream snapshot.
