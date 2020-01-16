@@ -1,4 +1,4 @@
-curtin (19.3-14-ga45a54ca-0ubuntu1) UNRELEASED; urgency=medium
+curtin (19.3-14-ga45a54ca-0ubuntu1) focal; urgency=medium
 
   * New upstream snapshot.
     - vmtests: skip Focal deploying Centos70 ScsiBasic
