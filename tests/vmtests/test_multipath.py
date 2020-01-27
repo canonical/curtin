@@ -11,6 +11,7 @@ import textwrap
 
 class TestMultipathBasicAbs(VMBaseClass):
     conf_file = "examples/tests/multipath.yaml"
+    dirty_disks = True
     test_type = 'storage'
     multipath = True
     disk_driver = 'scsi-hd'
