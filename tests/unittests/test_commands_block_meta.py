@@ -234,6 +234,10 @@ class TestBlockMeta(CiTestCase):
                        'mock_volpath_is_iscsi')
         self.add_patch('curtin.block.get_volume_uuid',
                        'mock_block_get_volume_uuid')
+        self.add_patch('curtin.commands.block_meta._get_volume_type',
+                       'mock_get_volume_type')
+        self.add_patch('curtin.commands.block_meta.udevadm_info',
+                       'mock_udevadm_info')
         self.add_patch('curtin.block.zero_file_at_offsets',
                        'mock_block_zero_file')
         self.add_patch('curtin.block.rescan_block_devices',
@@ -333,13 +337,19 @@ class TestBlockMeta(CiTestCase):
 
         self.mock_getpath.return_value = '/wark/xxx'
         self.mock_volpath_is_iscsi.return_value = False
-        self.mock_block_get_volume_uuid.return_value = None
+        self.mock_udevadm_info.return_value = {
+            'DEVTYPE': 'partition',
+            'DEVLINKS': [],
+        }
+        self.mock_get_volume_type.return_value = 'part'
 
         block_meta.mount_handler(mount_info, self.storage_config)
         options = 'defaults'
-        expected = "%s %s %s %s 0 0\n" % (disk_info['path'],
-                                          mount_info['path'],
-                                          fs_info['fstype'], options)
+        comment = "# / was on /wark/xxx during curtin installation"
+        expected = "%s\n%s %s %s %s 0 0\n" % (comment,
+                                              disk_info['path'],
+                                              mount_info['path'],
+                                              fs_info['fstype'], options)
 
         mock_write_file.assert_called_with(fstab, expected, omode='a')
 
@@ -355,13 +365,19 @@ class TestBlockMeta(CiTestCase):
 
         self.mock_getpath.return_value = '/wark/xxx'
         self.mock_volpath_is_iscsi.return_value = False
-        self.mock_block_get_volume_uuid.return_value = None
+        self.mock_udevadm_info.return_value = {
+            'DEVTYPE': 'partition',
+            'DEVLINKS': [],
+        }
+        self.mock_get_volume_type.return_value = 'part'
 
         block_meta.mount_handler(mount_info, self.storage_config)
         options = 'ro'
-        expected = "%s %s %s %s 0 0\n" % (disk_info['path'],
-                                          mount_info['path'],
-                                          fs_info['fstype'], options)
+        comment = "# /readonly was on /wark/xxx during curtin installation"
+        expected = "%s\n%s %s %s %s 0 0\n" % (comment,
+                                              disk_info['path'],
+                                              mount_info['path'],
+                                              fs_info['fstype'], options)
 
         mock_write_file.assert_called_with(fstab, expected, omode='a')
 
@@ -378,13 +394,19 @@ class TestBlockMeta(CiTestCase):
 
         self.mock_getpath.return_value = '/wark/xxx'
         self.mock_volpath_is_iscsi.return_value = False
-        self.mock_block_get_volume_uuid.return_value = None
+        self.mock_udevadm_info.return_value = {
+            'DEVTYPE': 'partition',
+            'DEVLINKS': [],
+        }
+        self.mock_get_volume_type.return_value = 'part'
 
         block_meta.mount_handler(mount_info, self.storage_config)
         options = 'defaults'
-        expected = "%s %s %s %s 0 0\n" % (disk_info['path'],
-                                          mount_info['path'],
-                                          fs_info['fstype'], options)
+        comment = "# /readonly was on /wark/xxx during curtin installation"
+        expected = "%s\n%s %s %s %s 0 0\n" % (comment,
+                                              disk_info['path'],
+                                              mount_info['path'],
+                                              fs_info['fstype'], options)
 
         mock_write_file.assert_called_with(fstab, expected, omode='a')
 
@@ -403,14 +425,20 @@ class TestBlockMeta(CiTestCase):
 
         self.mock_getpath.return_value = '/wark/xxx'
         self.mock_volpath_is_iscsi.return_value = False
-        self.mock_block_get_volume_uuid.return_value = None
+        self.mock_udevadm_info.return_value = {
+            'DEVTYPE': 'partition',
+            'DEVLINKS': [],
+        }
+        self.mock_get_volume_type.return_value = 'part'
 
         block_meta.mount_handler(mount_info, self.storage_config)
         options = 'defaults'
-        expected = "#curtin-test\n%s %s %s %s 0 0\n" % (disk_info['path'],
-                                                        mount_info['path'],
-                                                        fs_info['fstype'],
-                                                        options)
+        comment = "# /readonly was on /wark/xxx during curtin installation"
+        expected = "#curtin-test\n%s\n%s %s %s %s 0 0\n" % (comment,
+                                                            disk_info['path'],
+                                                            mount_info['path'],
+                                                            fs_info['fstype'],
+                                                            options)
 
         with open(fstab, 'r') as fh:
             rendered_fstab = fh.read()
@@ -682,8 +710,12 @@ class TestFstabData(CiTestCase):
         self.assertEqual(2, m_mount_fstab_data.call_count)
         lines = util.load_file(fstab).splitlines()
         self.assertEqual(existing_line, lines[0])
-        self.assertIn("/dev/disk2", lines[1])
-        self.assertIn("/dev/disk1", lines[2])
+        self.assertEqual(
+            '# / was on /dev/disk2 during curtin installation', lines[1])
+        self.assertIn("/dev/disk2", lines[2])
+        self.assertEqual(
+            '# /boot was on /dev/disk1 during curtin installation', lines[3])
+        self.assertIn("/dev/disk1", lines[4])
 
     def test_fstab_line_for_data_swap(self):
         """fstab_line_for_data return value for swap fstab line."""
@@ -712,16 +744,17 @@ class TestFstabData(CiTestCase):
         """fstab_line_for_data return value with options."""
         fdata = block_meta.FstabData(
             spec="/dev/disk2", path="/mnt", fstype='btrfs', options='noatime')
+        lines = block_meta.fstab_line_for_data(fdata).splitlines()
         self.assertEqual(
             ["/dev/disk2", "/mnt", "btrfs", "noatime", "0", "0"],
-            block_meta.fstab_line_for_data(fdata).split())
+            lines[1].split())
 
     def test_fstab_line_for_data_with_passno_and_freq(self):
         """fstab_line_for_data should respect passno and freq."""
         fdata = block_meta.FstabData(
             spec="/dev/d1", path="/mnt", fstype='ext4', freq="1", passno="2")
-        self.assertEqual(
-            ["1", "2"], block_meta.fstab_line_for_data(fdata).split()[4:6])
+        lines = block_meta.fstab_line_for_data(fdata).splitlines()
+        self.assertEqual(["1", "2"], lines[1].split()[4:6])
 
     def test_fstab_line_for_data_raises_error_without_spec_or_device(self):
         """fstab_line_for_data should raise ValueError if no spec or device."""
@@ -731,28 +764,50 @@ class TestFstabData(CiTestCase):
         with self.assertRaisesRegexp(ValueError, match):
             block_meta.fstab_line_for_data(fdata)
 
-    @patch('curtin.block.get_volume_uuid')
-    def test_fstab_line_for_data_uses_uuid(self, m_get_uuid):
+    @patch('curtin.commands.block_meta._get_volume_type')
+    @patch('curtin.commands.block_meta.udevadm_info')
+    def test_fstab_line_for_data_uses_uuid(self, m_uinfo, m_vol_type):
         """fstab_line_for_data with a device mounts by uuid."""
         fdata = block_meta.FstabData(
             device="/dev/disk2", path="/mnt", fstype='ext4')
         uuid = 'b30d2389-5152-4fbc-8f18-0385ef3046c5'
-        m_get_uuid.side_effect = lambda d: uuid if d == "/dev/disk2" else None
+        by_uuid = '/dev/disk/by-uuid/' + uuid
+        m_uinfo.return_value = {
+            'DEVTYPE': 'partition',
+            'DEVLINKS': [by_uuid, '/dev/disk/by-foo/wark'],
+        }
+        m_vol_type.return_value = 'part'
+        lines = block_meta.fstab_line_for_data(fdata).splitlines()
         self.assertEqual(
-            ["UUID=%s" % uuid, "/mnt", "ext4", "defaults", "0", "0"],
-            block_meta.fstab_line_for_data(fdata).split())
-        self.assertEqual(1, m_get_uuid.call_count)
+            "# /mnt was on /dev/disk2 during curtin installation",
+            lines[0])
+        self.assertEqual(
+            [by_uuid, "/mnt", "ext4", "defaults", "0", "0"],
+            lines[1].split())
+        self.assertEqual(1, m_uinfo.call_count)
+        self.assertEqual(1, m_vol_type.call_count)
 
-    @patch('curtin.block.get_volume_uuid')
-    def test_fstab_line_for_data_uses_device_if_no_uuid(self, m_get_uuid):
+    @patch('curtin.commands.block_meta._get_volume_type')
+    @patch('curtin.commands.block_meta.udevadm_info')
+    def test_fstab_line_for_data_uses_device_if_no_uuid(self, m_uinfo,
+                                                        m_vol_type):
         """fstab_line_for_data with a device and no uuid uses device."""
         fdata = block_meta.FstabData(
             device="/dev/disk2", path="/mnt", fstype='ext4')
-        m_get_uuid.return_value = None
+        m_uinfo.return_value = {
+            'DEVTYPE': 'partition',
+            'DEVLINKS': []
+        }
+        m_vol_type.return_value = 'part'
+        lines = block_meta.fstab_line_for_data(fdata).splitlines()
+        self.assertEqual(
+            "# /mnt was on /dev/disk2 during curtin installation",
+            lines[0])
         self.assertEqual(
             ["/dev/disk2", "/mnt", "ext4", "defaults", "0", "0"],
-            block_meta.fstab_line_for_data(fdata).split())
-        self.assertEqual(1, m_get_uuid.call_count)
+            lines[1].split())
+        self.assertEqual(1, m_uinfo.call_count)
+        self.assertEqual(1, m_vol_type.call_count)
 
     @patch('curtin.block.get_volume_uuid')
     def test_fstab_line_for_data__spec_and_dev_prefers_spec(self, m_get_uuid):
@@ -762,9 +817,13 @@ class TestFstabData(CiTestCase):
             spec=spec, device="/dev/disk/by-uuid/7AC9-DEFF",
             path="/mnt", fstype='ext4')
         m_get_uuid.return_value = None
+        lines = block_meta.fstab_line_for_data(fdata).splitlines()
+        self.assertEqual(
+            '# /mnt was on /dev/xvda1 during curtin installation',
+            lines[0])
         self.assertEqual(
             ["/dev/xvda1", "/mnt", "ext4", "defaults", "0", "0"],
-            block_meta.fstab_line_for_data(fdata).split())
+            lines[1].split())
         self.assertEqual(0, m_get_uuid.call_count)
 
     @patch('curtin.util.ensure_dir')
@@ -864,6 +923,199 @@ class TestFstabData(CiTestCase):
                 target=mp)
         # dir should be created before call to subp failed.
         self.assertTrue(os.path.isdir(mp))
+
+
+class TestFstabVolumeSpec(CiTestCase):
+
+    DEVLINK_MAP = {
+        'bcache': ['/dev/disk/by-uuid/45354276-e0c0-4bf6-9083-f130b89411cc',
+                   '/dev/bcache/by-uuid/f36394c0-3cc0-4423-8d6f-ffac130f171a'],
+        'crypt': [
+            "/dev/disk/by-uuid/bf243cf7-5e45-4d38-b00d-3d35df616ac0",
+            "/dev/disk/by-id/dm-name-dmcrypt0 /dev/mapper/dmcrypt0",
+            ("/dev/disk/by-id/"
+             "dm-uuid-CRYPT-LUKS2-344580c161864ba59712bd84df3e86ba-dmcrypt0")],
+        'lvm': [
+            "/dev/disk/by-dname/vg1-lv1", "/dev/vg1/lv1"
+            "/dev/disk/by-id/dm-name-vg1-lv1", "/dev/mapper/vg1-lv1",
+            "/dev/disk/by-uuid/A212-FC0F",
+            ("/dev/disk/by-id/dm-uuid-LVM-"
+             "qa6NPTq2eJH8eciholQPb2S7nIqpif8G4pn1OeZEDmUUJXdyFdtoIDyUKjZnz")],
+        'mpath': [
+            "/dev/disk/by-id/dm-name-mpatha-part1", "/dev/mapper/mpatha-part1",
+            "/dev/disk/by-id/wwn-0x0000000000000064-part1",
+            "/dev/disk/by-id/dm-uuid-part1-mpath-30000000000000064",
+            "/dev/disk/by-partuuid/8088175c-362a-4b46-9603-f3595065fa73"],
+        'part': [
+            "/dev/disk/by-id/ata-WDC_WD40EZRZ-00GXCB0_WD-WCC7K7FHN5U2-part1",
+            "/dev/disk/by-id/wwn-0x50014ee20ec2d5b7-part1",
+            "/dev/disk/by-label/tank",
+            "/dev/disk/by-partlabel/zfs-fa8d6afc7a67405c",
+            "/dev/disk/by-partuuid/0b3eae85-960f-fb4f-b5ae-0b3551e763f8",
+            "/dev/disk/by-path/pci-0000:00:17.0-ata-1-part1",
+            "/dev/disk/by-uuid/14011020183977000633"],
+        'raid': [
+            "/dev/md/ubuntu-server:0",
+            "/dev/disk/by-id/md-name-ubuntu-server:0",
+            "/dev/disk/by-id/md-uuid-20078a26:ee6c756b:55e80044:8f6d01b7",
+            "/dev/disk/by-uuid/30f91086-7d7c-4f41-994b-a2da5ec4df3a"],
+        's390x': [
+            "/dev/disk/by-id/scsi-36005076306ffd6b60000000000002406",
+            "/dev/disk/by-id/wwn-0x6005076306ffd6b60000000000002406",
+            "/dev/disk/by-id/scsi-SIBM_2107900_75DXP712406",
+            ("/dev/disk/by-path/" +
+             "ccw-0.0.e000-fc-0x50050763060b16b6-lun-0x4024400600000000")],
+    }
+
+    def setUp(self):
+        super(TestFstabVolumeSpec, self).setUp()
+        self.add_patch('curtin.commands.block_meta.udevadm_info', 'm_info')
+        self.add_patch(
+            'curtin.commands.block_meta._get_volume_type', 'm_vtype')
+        self.add_patch('curtin.commands.block_meta.platform.machine', 'm_mach')
+        self.m_mach.return_value = 'amd64'
+
+    def test_disks_on_s390x_use_by_path(self):
+        block_type = 'disk'
+        disk_bypath = (
+            "/dev/disk/by-path/" +
+            "ccw-0.0.e000-fc-0x50050763060b16b6-lun-0x4024400600000000")
+        device = self.random_string()
+        DEVLINKS = copy.deepcopy(self.DEVLINK_MAP['s390x'])
+        self.m_mach.return_value = 's390x'
+        self.m_vtype.return_value = block_type
+        self.m_info.return_value = {'DEVLINKS': DEVLINKS}
+        self.assertEqual(disk_bypath, block_meta.get_volume_spec(device))
+
+    def test_bcache_uses_dev_bcache_by_uuid(self):
+        block_type = 'disk'
+        bcache_uuid = (
+            "/dev/bcache/by-uuid/f36394c0-3cc0-4423-8d6f-ffac130f171a")
+        device = '/dev/bcache' + self.random_string()
+        DEVLINKS = copy.deepcopy(self.DEVLINK_MAP['bcache'])
+        self.m_vtype.return_value = block_type
+        self.m_info.return_value = {'DEVLINKS': DEVLINKS}
+        self.assertEqual(bcache_uuid, block_meta.get_volume_spec(device))
+
+    def test_raid_device_uses_md_uuid_devlink(self):
+        block_type = 'raid'
+        md_uuid = ("/dev/disk/by-id/"
+                   "md-uuid-20078a26:ee6c756b:55e80044:8f6d01b7")
+        device = self.random_string()
+        DEVLINKS = copy.deepcopy(self.DEVLINK_MAP['raid'])
+        self.m_vtype.return_value = block_type + '1'
+        self.m_info.return_value = {'DEVLINKS': DEVLINKS}
+        self.assertEqual(md_uuid, block_meta.get_volume_spec(device))
+
+    def test_raid_device_uses_devname_if_no_md_uuid_link(self):
+        block_type = 'raid'
+        md_uuid = ("/dev/disk/by-id/"
+                   "md-uuid-20078a26:ee6c756b:55e80044:8f6d01b7")
+        device = self.random_string()
+        DEVLINKS = copy.deepcopy(self.DEVLINK_MAP['raid'])
+        DEVLINKS.remove(md_uuid)
+        self.m_vtype.return_value = block_type + '1'
+        self.m_info.return_value = {'DEVLINKS': DEVLINKS}
+        self.assertEqual(device, block_meta.get_volume_spec(device))
+
+    def test_crypt_uses_dm_uuid_devlink(self):
+        block_type = 'crypt'
+        dm_uuid = (
+            "/dev/disk/by-id/"
+            "dm-uuid-CRYPT-LUKS2-344580c161864ba59712bd84df3e86ba-dmcrypt0")
+        device = self.random_string()
+        DEVLINKS = copy.deepcopy(self.DEVLINK_MAP[block_type])
+        self.m_vtype.return_value = block_type
+        self.m_info.return_value = {'DEVLINKS': DEVLINKS}
+        self.assertEqual(dm_uuid, block_meta.get_volume_spec(device))
+
+    def test_crypt_device_uses_devname_if_no_dm_uuid_link(self):
+        block_type = 'crypt'
+        dm_uuid = (
+            "/dev/disk/by-id/"
+            "dm-uuid-CRYPT-LUKS2-344580c161864ba59712bd84df3e86ba-dmcrypt0")
+        device = self.random_string()
+        DEVLINKS = copy.deepcopy(self.DEVLINK_MAP[block_type])
+        DEVLINKS.remove(dm_uuid)
+        self.m_vtype.return_value = block_type
+        self.m_info.return_value = {'DEVLINKS': DEVLINKS}
+        self.assertEqual(device, block_meta.get_volume_spec(device))
+
+    def test_lvm_uses_dm_uuid_devlink(self):
+        block_type = 'lvm'
+        dm_uuid = (
+            "/dev/disk/by-id/dm-uuid-LVM-"
+            "qa6NPTq2eJH8eciholQPb2S7nIqpif8G4pn1OeZEDmUUJXdyFdtoIDyUKjZnz")
+        device = self.random_string()
+        DEVLINKS = copy.deepcopy(self.DEVLINK_MAP[block_type])
+        self.m_vtype.return_value = block_type
+        self.m_info.return_value = {'DEVLINKS': DEVLINKS}
+        self.assertEqual(dm_uuid, block_meta.get_volume_spec(device))
+
+    def test_lvm_device_uses_devname_if_no_dm_uuid_link(self):
+        block_type = 'lvm'
+        device = self.random_string()
+        dm_uuid = (
+            "/dev/disk/by-id/dm-uuid-LVM-"
+            "qa6NPTq2eJH8eciholQPb2S7nIqpif8G4pn1OeZEDmUUJXdyFdtoIDyUKjZnz")
+        DEVLINKS = copy.deepcopy(self.DEVLINK_MAP[block_type])
+        DEVLINKS.remove(dm_uuid)
+        self.m_vtype.return_value = block_type
+        self.m_info.return_value = {'DEVLINKS': DEVLINKS}
+        self.assertEqual(device, block_meta.get_volume_spec(device))
+
+    def test_mpath_uses_dm_uuid_devlink(self):
+        block_type = 'mpath'
+        dm_uuid = "/dev/disk/by-id/dm-uuid-part1-mpath-30000000000000064"
+        device = self.random_string()
+        DEVLINKS = copy.deepcopy(self.DEVLINK_MAP[block_type])
+        self.m_vtype.return_value = block_type
+        self.m_info.return_value = {'DEVLINKS': DEVLINKS}
+        self.assertEqual(dm_uuid, block_meta.get_volume_spec(device))
+
+    def test_mpath_device_uses_devname_if_no_dm_uuid_link(self):
+        block_type = 'mpath'
+        dm_uuid = "/dev/disk/by-id/dm-uuid-part1-mpath-30000000000000064"
+        device = self.random_string()
+        DEVLINKS = copy.deepcopy(self.DEVLINK_MAP[block_type])
+        DEVLINKS.remove(dm_uuid)
+        self.m_vtype.return_value = block_type
+        self.m_info.return_value = {'DEVLINKS': DEVLINKS}
+        self.assertEqual(device, block_meta.get_volume_spec(device))
+
+    def test_part_uses_fs_uuid_devlink_if_present(self):
+        block_type = 'part'
+        fs_uuid = "/dev/disk/by-uuid/14011020183977000633"
+        device = self.random_string()
+        DEVLINKS = copy.deepcopy(self.DEVLINK_MAP[block_type])
+        self.m_vtype.return_value = block_type
+        self.m_info.return_value = {'DEVLINKS': DEVLINKS}
+        self.assertEqual(fs_uuid, block_meta.get_volume_spec(device))
+
+    def test_part_device_uses_part_uuid_if_not_fs_uuid(self):
+        block_type = 'part'
+        fs_uuid = "/dev/disk/by-uuid/14011020183977000633"
+        part_uuid = (
+            "/dev/disk/by-partuuid/0b3eae85-960f-fb4f-b5ae-0b3551e763f8")
+        device = self.random_string()
+        DEVLINKS = copy.deepcopy(self.DEVLINK_MAP[block_type])
+        DEVLINKS.remove(fs_uuid)
+        self.m_vtype.return_value = block_type
+        self.m_info.return_value = {'DEVLINKS': DEVLINKS}
+        self.assertEqual(part_uuid, block_meta.get_volume_spec(device))
+
+    def test_part_device_uses_devname_if_no_fs_or_part_uuid(self):
+        block_type = 'part'
+        fs_uuid = "/dev/disk/by-uuid/14011020183977000633"
+        part_uuid = (
+            "/dev/disk/by-partuuid/0b3eae85-960f-fb4f-b5ae-0b3551e763f8")
+        device = self.random_string()
+        DEVLINKS = copy.deepcopy(self.DEVLINK_MAP[block_type])
+        DEVLINKS.remove(fs_uuid)
+        DEVLINKS.remove(part_uuid)
+        self.m_vtype.return_value = block_type
+        self.m_info.return_value = {'DEVLINKS': DEVLINKS}
+        self.assertEqual(device, block_meta.get_volume_spec(device))
 
 
 class TestDasdHandler(CiTestCase):

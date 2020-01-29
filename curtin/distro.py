@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import tempfile
+import textwrap
 
 from .paths import target_path
 from .util import (
@@ -520,5 +521,15 @@ def get_package_version(pkg, target=None, semx=None):
     except ProcessExecutionError:
         return None
 
+
+def fstab_header():
+    return textwrap.dedent("""\
+# /etc/fstab: static file system information.
+#
+# Use 'blkid' to print the universally unique identifier for a
+# device; this may be used with UUID= as a more robust way to name devices
+# that works even if disks are added and removed. See fstab(5).
+#
+# <file system> <mount point>   <type>  <options>       <dump>  <pass>""")
 
 # vi: ts=4 expandtab syntax=python
