@@ -1,3 +1,12 @@
+curtin (19.3-16-g941c43ff-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - block_meta: use reliable fs_spec entries for block devices (LP: #1851899)
+    - multipath: handle removal of multipath partitions correctly
+      (LP: #1857042)
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Thu, 30 Jan 2020 12:49:27 -0600
+
 curtin (19.3-14-ga45a54ca-0ubuntu1) focal; urgency=medium
 
   * New upstream snapshot.
