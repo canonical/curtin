@@ -1,4 +1,4 @@
-curtin (19.3-17-g50ffca46-0ubuntu1~19.10.1) UNRELEASED; urgency=medium
+curtin (19.3-17-g50ffca46-0ubuntu1~19.10.1) eoan; urgency=medium
 
   * New upstream snapshot. (LP: #1861452)
     - clear-holders: ensure we wipe device even if multipath enabled not not mp
