@@ -481,6 +481,92 @@ class TestClearHolders(CiTestCase):
             [mock.call(devices=[self.test_blockdev])] * 2)
         self.assertEqual(1, m_time.sleep.call_count)
 
+    @mock.patch('curtin.block.clear_holders.multipath')
+    @mock.patch('curtin.block.clear_holders.is_swap_device')
+    @mock.patch('curtin.block.clear_holders.time')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.block')
+    def test_clear_holders_mp_enabled_not_active_wipes_dev(self, mock_block,
+                                                           mock_log, m_time,
+                                                           mock_swap,
+                                                           mock_mpath):
+        """wipe_superblock wipes dev with multipath enabled but inactive."""
+        mock_swap.return_value = False
+        mock_block.sysfs_to_devpath.return_value = self.test_blockdev
+        mock_block.is_extended_partition.return_value = False
+        mock_mpath.multipath_supported.return_value = True
+        mock_mpath.find_mpath_id_by_path.return_value = None
+        mock_block.get_blockdev_for_partition.return_value = (
+            self.test_blockdev, 1)
+        mock_block.is_zfs_member.return_value = False
+        mock_block.get_sysfs_partitions.side_effect = iter([
+            ['p1', 'p2'],  # has partitions before wipe
+            ['p1', 'p2'],  # still has partitions after wipe
+            [],  # partitions are now gone
+        ])
+        clear_holders.wipe_superblock(self.test_syspath)
+        mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
+        mock_block.wipe_volume.assert_called_with(
+            self.test_blockdev, exclusive=True, mode='superblock', strict=True)
+
+    @mock.patch('curtin.block.clear_holders.multipath')
+    @mock.patch('curtin.block.clear_holders.is_swap_device')
+    @mock.patch('curtin.block.clear_holders.time')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.block')
+    def test_clear_holders_mp_disabled_wipes_dev(self, mock_block, mock_log,
+                                                 m_time, mock_swap,
+                                                 mock_mpath):
+        """wipe_superblock wipes blockdev with multipath disabled."""
+        mock_swap.return_value = False
+        mock_block.sysfs_to_devpath.return_value = self.test_blockdev
+        mock_block.is_extended_partition.return_value = False
+        mock_mpath.multipath_supported.return_value = False
+        mock_block.get_blockdev_for_partition.return_value = (
+            self.test_blockdev, 1)
+        mock_block.is_zfs_member.return_value = False
+        mock_block.get_sysfs_partitions.side_effect = iter([
+            ['p1', 'p2'],  # has partitions before wipe
+            ['p1', 'p2'],  # still has partitions after wipe
+            [],  # partitions are now gone
+        ])
+        clear_holders.wipe_superblock(self.test_syspath)
+        mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
+        mock_block.wipe_volume.assert_called_with(
+            self.test_blockdev, exclusive=True, mode='superblock', strict=True)
+
+    @mock.patch('curtin.block.clear_holders.multipath')
+    @mock.patch('curtin.block.clear_holders.is_swap_device')
+    @mock.patch('curtin.block.clear_holders.time')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.block')
+    def test_clear_holders_mp_enabled_and_active_wipes_dm_dev(self, mock_block,
+                                                              mock_log, m_time,
+                                                              mock_swap,
+                                                              mock_mpath):
+        """wipe_superblock wipes parent mp_dev and removes from dev mapper."""
+        mock_swap.return_value = False
+        mock_block.sysfs_to_devpath.return_value = self.test_blockdev
+        mock_block.is_zfs_member.return_value = False
+        mock_block.is_extended_partition.return_value = False
+        mock_block.get_blockdev_for_partition.return_value = (
+            self.test_blockdev, 1)
+
+        mock_mpath.multipath_supported.return_value = True
+        mock_mpath.find_mpath_id_by_path.return_value = 'mpath-wark'
+        mp_dev = '/wark/dm-1'
+        mock_mpath.find_mpath_id_by_parent.return_value = (
+            'mpath-wark', mp_dev)
+        mock_mpath.is_mpath_partition.return_value = False
+        mock_block.get_sysfs_partitions.side_effect = iter([
+            [],  # partitions are now gone
+        ])
+        clear_holders.wipe_superblock(self.test_syspath)
+        mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
+        mock_block.wipe_volume.assert_called_with(
+            mp_dev, exclusive=True, mode='superblock', strict=True)
+        mock_mpath.remove_partition.assert_called_with(mp_dev)
+
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.block')
     @mock.patch('curtin.block.clear_holders.os')
