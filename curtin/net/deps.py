@@ -47,11 +47,11 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
     distro_mapping = {
         DISTROS.debian: {
             'bond': ['ifenslave'],
-            'bonds': [],
+            'bonds': ['ifenslave'],
             'bridge': ['bridge-utils'],
-            'bridges': [],
+            'bridges': ['bridge-utils'],
             'vlan': ['vlan'],
-            'vlans': []},
+            'vlans': ['vlan']},
         DISTROS.redhat: {
             'bond': [],
             'bonds': [],

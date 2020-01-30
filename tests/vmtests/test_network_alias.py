@@ -52,15 +52,16 @@ class BionicTestNetworkAlias(relbase.bionic, TestNetworkAliasAbs):
     __test__ = True
 
 
-class CosmicTestNetworkAlias(relbase.cosmic, TestNetworkAliasAbs):
-    __test__ = True
-
-
 class DiscoTestNetworkAlias(relbase.disco, TestNetworkAliasAbs):
     __test__ = True
 
 
 class EoanTestNetworkAlias(relbase.eoan, TestNetworkAliasAbs):
     __test__ = True
+
+
+class FocalTestNetworkAlias(relbase.focal, TestNetworkAliasAbs):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

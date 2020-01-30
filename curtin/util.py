@@ -632,12 +632,13 @@ class ChrootableTarget(object):
         if mounts is not None:
             self.mounts = mounts
         else:
-            self.mounts = ["/dev", "/proc", "/sys"]
+            self.mounts = ["/dev", "/proc", "/run", "/sys"]
         self.umounts = []
         self.disabled_daemons = False
         self.allow_daemons = allow_daemons
         self.sys_resolvconf = sys_resolvconf
         self.rconf_d = None
+        self.rc_tmp = None
 
     def __enter__(self):
         for p in self.mounts:
@@ -656,14 +657,20 @@ class ChrootableTarget(object):
             rtd = None
             try:
                 rtd = tempfile.mkdtemp(dir=target_etc)
-                tmp = os.path.join(rtd, "resolv.conf")
-                os.rename(rconf, tmp)
+                if os.path.lexists(rconf):
+                    self.rc_tmp = os.path.join(rtd, "resolv.conf")
+                    os.rename(rconf, self.rc_tmp)
                 self.rconf_d = rtd
                 shutil.copy("/etc/resolv.conf", rconf)
             except Exception:
                 if rtd:
+                    # if we renamed, but failed later we need to restore
+                    if self.rc_tmp and os.path.lexists(self.rc_tmp):
+                        os.rename(os.path.join(self.rconf_d, "resolv.conf"),
+                                  rconf)
                     shutil.rmtree(rtd)
                     self.rconf_d = None
+                    self.rc_tmp = None
                 raise
 
         return self
@@ -681,7 +688,8 @@ class ChrootableTarget(object):
 
         rconf = paths.target_path(self.target, "/etc/resolv.conf")
         if self.sys_resolvconf and self.rconf_d:
-            os.rename(os.path.join(self.rconf_d, "resolv.conf"), rconf)
+            if self.rc_tmp and os.path.lexists(self.rc_tmp):
+                os.rename(os.path.join(self.rconf_d, "resolv.conf"), rconf)
             shutil.rmtree(self.rconf_d)
 
     def subp(self, *args, **kwargs):
@@ -898,8 +906,9 @@ def sanitize_source(source):
     if type(source) is dict:
         # already sanitized?
         return source
-    supported = ['tgz', 'dd-tgz', 'dd-tbz', 'dd-txz', 'dd-tar', 'dd-bz2',
-                 'dd-gz', 'dd-xz', 'dd-raw', 'fsimage', 'fsimage-layered']
+    supported = ['tgz', 'dd-tgz', 'tbz', 'dd-tbz', 'txz', 'dd-txz', 'dd-tar',
+                 'dd-bz2', 'dd-gz', 'dd-xz', 'dd-raw', 'fsimage',
+                 'fsimage-layered']
     deftype = 'tgz'
     for i in supported:
         prefix = i + ":"
@@ -907,8 +916,14 @@ def sanitize_source(source):
             return {'type': i, 'uri': source[len(prefix):]}
 
     # translate squashfs: to fsimage type.
-    if source.startswith("squashfs:"):
-        return {'type': 'fsimage', 'uri': source[len("squashfs:")]}
+    if source.startswith("squashfs://"):
+        return {'type': 'fsimage', 'uri': source[len("squashfs://"):]}
+
+    elif source.startswith("squashfs:"):
+        LOG.warning("The squashfs: prefix is deprecated and"
+                    "will be removed in a future release."
+                    "Please use squashfs:// instead.")
+        return {'type': 'fsimage', 'uri': source[len("squashfs:"):]}
 
     if source.endswith("squashfs") or source.endswith("squash"):
         return {'type': 'fsimage', 'uri': source}

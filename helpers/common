@@ -679,7 +679,7 @@ install_grub() {
 
     # grub is not the bootloader you are looking for
     if [ "${target_arch}" = "s390x" ]; then
-	    return 0;
+        return 0;
     fi
 
     # set correct grub package
@@ -694,7 +694,7 @@ install_grub() {
         x86_64)
             case $rhel_ver in
                6) grub_name="grub";;
-               7) grub_name="grub2-pc";;
+               7|8) grub_name="grub2-pc";;
                *)
                    error "Unknown rhel_ver [$rhel_ver]";
                    return 1;
@@ -711,7 +711,10 @@ install_grub() {
         case "$target_arch" in
             x86_64)
                 # centos 7+, no centos6 support
-                grub_name="grub2-efi-x64-modules"
+                # grub2-efi-x64 installs a signed grub bootloader while
+                # curtin uses grub2-efi-x64-modules to generate grubx64.efi.
+                # Either works just check that one of them is installed.
+                grub_name="grub2-efi-x64 grub2-efi-x64-modules"
                 grub_target="x86_64-efi"
                 ;;
             amd64)
@@ -739,11 +742,13 @@ install_grub() {
         error "failed to check if $grub_name installed";
         return 1;
     fi
-    case "$tmp" in
-        install\ ok\ installed) :;;
-        *) debug 1 "$grub_name not installed, not doing anything";
-            return 1;;
-    esac
+    # Check that any of the packages in $grub_name are installed. If
+    # grub_name contains multiple packages, as it does for CentOS 7+,
+    # only one package has to be installed for this to pass.
+    if ! echo $tmp | grep -q 'install ok installed'; then
+        debug 1 "$grub_name not installed, not doing anything"
+        return 1
+    fi
 
     local grub_d="etc/default/grub.d"
     # ubuntu writes to /etc/default/grub.d/50-curtin-settings.cfg
@@ -822,11 +827,31 @@ install_grub() {
         if [ "$update_nvram" -ge 1 ]; then
             nvram=""
         fi
+        if [ "${#grubdevs_new[@]}" -eq 1 ] && [ -f "${grubdevs_new[0]}" ]; then
+            # Currently UEFI can only be pointed to one system partition. If
+            # for some reason multiple install locations are given only use the
+            # first.
+            efi_dev="${grubdevs_new[0]}"
+        elif [ "${#grubdevs_new[@]}" -gt 1 ]; then
+            error "Only one grub device supported on UEFI!"
+            exit 1
+        else
+            # If no storage configuration was given try to determine the system
+            # partition.
+            efi_dev=$(awk -v "MP=${mp}/boot/efi" '$2 == MP { print $1 }' /proc/mounts)
+        fi
+        # The partition number of block device name need to be determined here
+        # so both getting the UEFI device from Curtin config and discovering it
+        # work.
+        efi_part_num=$(cat /sys/class/block/$(basename $efi_dev)/partition)
+        efi_disk="/dev/$(lsblk -no pkname $efi_dev)"
         debug 1 "curtin uefi: installing ${grub_name} to: /boot/efi"
         chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -exc '
             echo "before grub-install efiboot settings"
             efibootmgr -v || echo "WARN: efibootmgr exited $?"
             bootid="$4"
+            efi_disk="$5"
+            efi_part_num="$6"
             grubpost=""
             case $bootid in
                 debian|ubuntu)
@@ -836,7 +861,15 @@ install_grub() {
                     ;;
                 centos|redhat|rhel)
                     grubcmd="grub2-install"
-                    grubpost="grub2-mkconfig -o /boot/grub2/grub.cfg"
+                    # RHEL uses redhat instead of the os_variant rhel for the bootid.
+                    if [ "$bootid" = "rhel" ]; then
+                        bootid="redhat"
+                    fi
+                    if [ -f /boot/efi/EFI/$bootid/grubx64.efi ]; then
+                        grubpost="grub2-mkconfig -o /boot/efi/EFI/$bootid/grub.cfg"
+                    else
+                        grubpost="grub2-mkconfig -o /boot/grub2/grub.cfg"
+                    fi
                     ;;
                 *)
                     echo "Unsupported OS: $bootid" 1>&2
@@ -852,10 +885,45 @@ install_grub() {
             echo "$gi_out" | grep -q -- "$no_nvram" || no_nvram=""
             echo "$gi_out" | grep -q -- "--target" || target=""
             echo "$gi_out" | grep -q -- "--efi-directory" || efi_dir=""
-            $grubcmd $target $efi_dir \
-                --bootloader-id=$bootid --recheck $no_nvram
+
+            # Do not overwrite grubx64.efi if it already exists. grub-install
+            # generates grubx64.efi and overwrites any existing binary in
+            # /boot/efi/EFI/$bootid. This binary is not signed and will cause
+            # secure boot to fail.
+            #
+            # CentOS, RHEL, Fedora ship the signed boot loader in the package
+            # grub2-efi-x64 which installs the signed boot loader to
+            # /boot/efi/EFI/$bootid/grubx64.efi. All Curtin has to do is
+            # configure the firmware. This mirrors what Anaconda does.
+            #
+            # Debian and Ubuntu come with a patched version of grub which
+            # add the install flag --uefi-secure-boot which is enabled by
+            # default. When enabled if a signed version of grub exists on
+            # the filesystem it will be copied into /boot/efi/EFI/$bootid.
+            # Stock Ubuntu images do not ship with anything in /boot. Those
+            # files are generated by installing a kernel and grub.
+            if [ -f /boot/efi/EFI/$bootid/grubx64.efi ]; then
+                if [ -z "$no_nvram" ]; then
+                    # UEFI firmware should be pointed to the shim if available to
+                    # enable secure boot.
+                    for boot_uefi in \
+                            /boot/efi/EFI/$bootid/shimx64.efi \
+                            /boot/efi/EFI/BOOT/BOOTX64.EFI \
+                            /boot/efi/EFI/$bootid/grubx64.efi; do
+                        if [ -f $boot_uefi ]; then
+                            break
+                        fi
+                    done
+                    loader=$(echo ${boot_uefi##/boot/efi} | sed "s|/|\\\|g")
+                    efibootmgr --create --write-signature --label $bootid \
+                        --disk $efi_disk --part $efi_part_num --loader $loader
+                fi
+            else
+                $grubcmd $target $efi_dir \
+                    --bootloader-id=$bootid --recheck $no_nvram
+            fi
             [ -z "$grubpost" ] || $grubpost;' \
-            -- "${grub_name}" "${grub_target}" "$nvram" "$os_variant" </dev/null ||
+            -- "$grub_name" "$grub_target" "$nvram" "$os_variant" "$efi_disk" "$efi_part_num" </dev/null ||
             { error "failed to install grub!"; return 1; }
 
         chroot "$mp" sh -exc '
@@ -885,8 +953,11 @@ install_grub() {
                 centos|redhat|rhel)
                     case $bootver in
                         6) grubcmd="grub-install";;
-                        7) grubcmd="grub2-install"
+                        7|8) grubcmd="grub2-install"
                            grubpost="grub2-mkconfig -o /boot/grub2/grub.cfg";;
+                        *)
+                           echo "Unknown rhel_ver [$bootver]"
+                           exit 1
                     esac
                     ;;
                 *)

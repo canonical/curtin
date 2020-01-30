@@ -25,15 +25,16 @@ class BionicTestPreserveRAID(relbase.bionic, TestPreserveRAID):
     __test__ = True
 
 
-class CosmicTestPreserveRAID(relbase.cosmic, TestPreserveRAID):
-    __test__ = True
-
-
 class DiscoTestPreserveRAID(relbase.disco, TestPreserveRAID):
     __test__ = True
 
 
 class EoanTestPreserveRAID(relbase.eoan, TestPreserveRAID):
     __test__ = True
+
+
+class FocalTestPreserveRAID(relbase.focal, TestPreserveRAID):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 
-from curtin.block import iscsi
+from curtin.block import iscsi, zfs
 from curtin import config
 from curtin import distro
 from curtin import util
@@ -504,6 +504,10 @@ def cmd_install(args):
             # iscsi service is active before exiting install
             if iscsi.get_iscsi_disks_from_config(cfg):
                 iscsi.restart_iscsi_service()
+
+            for pool in zfs.get_zpool_from_config(cfg):
+                LOG.debug('Exporting ZFS zpool %s', pool)
+                zfs.zpool_export(pool)
 
             shutil.rmtree(workingd.top)
 

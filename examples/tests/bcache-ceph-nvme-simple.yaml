@@ -1,0 +1,107 @@
+storage:
+    config:
+    -   grub_device: true
+        id: sda
+        model: MM1000GBKAL
+        name: sda
+        ptable: gpt
+        serial: disk-a
+        type: disk
+        wipe: superblock
+    -   id: sdb
+        model: MM1000GBKAL
+        name: sdb
+        serial: disk-b
+        type: disk
+        wipe: superblock
+    -   id: nvme0n1
+        model: INTEL SSDPEDME400G4
+        name: nvme0n1
+        serial: nvme-CVMD552400
+        type: disk
+        wipe: superblock
+    -   backing_device: sdb
+        cache_device: nvme0n1
+        cache_mode: writeback
+        id: bcache1
+        name: bcache1
+        type: bcache
+    -   device: sda
+        id: sda-part1
+        name: sda-part1
+        number: 1
+        offset: 4194304B
+        size: 5G
+        type: partition
+        uuid: 1e27e7af-26dc-4af4-9ef5-aea928204997
+        wipe: superblock
+    -   device: sda
+        id: sda-part2
+        name: sda-part2
+        number: 2
+        size: 2G
+        type: partition
+        uuid: 0040d622-41f1-4596-842f-82d731ba9054
+        wipe: superblock
+    -   device: sda
+        id: sda-part3
+        name: sda-part3
+        number: 3
+        size: 2G
+        type: partition
+        uuid: cb59d827-662c-4da6-b1ef-7967218bd0db
+        wipe: superblock
+    -   backing_device: sda-part3
+        cache_device: nvme0n1
+        cache_mode: writeback
+        id: bcache0
+        name: bcache0
+        type: bcache
+    -   fstype: fat32
+        id: sda-part1_format
+        label: efi
+        type: format
+        uuid: 27638478-d881-43e5-a93c-1cac7aa60daa
+        volume: sda-part1
+    -   fstype: ext4
+        id: sda-part2_format
+        label: boot
+        type: format
+        uuid: cfd11d4f-d77f-4307-b372-b52e81c873f7
+        volume: sda-part2
+    -   fstype: ext4
+        id: bcache0_format
+        label: root
+        type: format
+        uuid: 63247841-195c-4939-83e4-cb834d61f95f
+        volume: bcache0
+    -   devices:
+        - bcache1
+        id: ceph-bcache-vg
+        name: ceph-bcache-vg
+        type: lvm_volgroup
+    -   id: ceph-bcache-lv-0
+        name: ceph-bcache-lv-0
+        size: 3G
+        type: lvm_partition
+        volgroup: ceph-bcache-vg
+    -   fstype: xfs
+        id: ceph-bcache-lv-0_format
+        volume: ceph-bcache-lv-0
+        type: format
+    -   device: bcache0_format
+        id: bcache0_mount
+        options: ''
+        path: /
+        type: mount
+    -   device: sda-part2_format
+        id: sda-part2_mount
+        options: ''
+        path: /boot
+        type: mount
+    -   device: sda-part1_format
+        id: sda-part1_mount
+        options: ''
+        path: /boot/efi
+        type: mount
+    version: 1

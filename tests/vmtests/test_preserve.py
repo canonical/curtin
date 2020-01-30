@@ -25,15 +25,16 @@ class BionicTestPreserve(relbase.bionic, TestPreserve):
     __test__ = True
 
 
-class CosmicTestPreserve(relbase.cosmic, TestPreserve):
-    __test__ = True
-
-
 class DiscoTestPreserve(relbase.disco, TestPreserve):
     __test__ = True
 
 
 class EoanTestPreserve(relbase.eoan, TestPreserve):
     __test__ = True
+
+
+class FocalTestPreserve(relbase.focal, TestPreserve):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

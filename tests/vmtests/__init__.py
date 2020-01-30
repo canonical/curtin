@@ -381,6 +381,21 @@ def skip_if_flag(flag):
     return decorator
 
 
+def skip_if_arch(arch):
+    def decorator(func):
+        """the name test_wrapper below has to start with test, or nose's
+           filter will not run it."""
+        @wraps(func)
+        def test_wrapper(self, *args, **kwargs):
+            myarch = getattr(self, 'arch', None)
+            if myarch == arch:
+                self.skipTest("skip due to current arch=%s" % arch)
+            else:
+                return func(self, *args, **kwargs)
+        return test_wrapper
+    return decorator
+
+
 def skip_by_date(bugnum, fixby, removeby=None, skips=None, install=True):
     """A decorator to skip a test or test class based on current date.
 
@@ -577,6 +592,9 @@ DEFAULT_COLLECT_SCRIPTS = {
 class VMBaseClass(TestCase):
     __test__ = False
     expected_failure = False
+    add_repos = ""
+    system_upgrade = AUTO
+    upgrade_packages = ""
     arch_skip = []
     boot_timeout = BOOT_TIMEOUT
     collect_scripts = []
@@ -612,6 +630,7 @@ class VMBaseClass(TestCase):
     # these get set from base_vm_classes
     release = None
     arch = None
+    target_arch = None
     kflavor = None
     krel = None
     distro = None
@@ -638,7 +657,7 @@ class VMBaseClass(TestCase):
         logger.debug('cls.ephemeral_ftype: %s', cls.ephemeral_ftype)
         logger.debug('cls.target_ftype: %s', cls.target_ftype)
         eph_img_verstr, ftypes = get_images(
-            IMAGE_SRC_URL, IMAGE_DIR, cls.distro, cls.release, cls.arch,
+            IMAGE_SRC_URL, IMAGE_DIR, cls.distro, cls.release, cls.target_arch,
             krel=cls.krel if cls.krel else cls.release,
             kflavor=cls.kflavor if cls.kflavor else None,
             subarch=cls.subarch if cls.subarch else None,
@@ -661,7 +680,7 @@ class VMBaseClass(TestCase):
                 IMAGE_SRC_URL, IMAGE_DIR,
                 cls.target_distro,
                 cls.target_release,
-                cls.arch, subarch=cls.subarch if cls.subarch else None,
+                cls.target_arch, subarch=cls.subarch if cls.subarch else None,
                 kflavor=cls.kflavor if cls.kflavor else None,
                 krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
                 ftypes=(tftype,))
@@ -839,7 +858,11 @@ class VMBaseClass(TestCase):
 
         # allow env to update VMRAM setting
         if VMRAM:
-            cls.mem = VMRAM
+            cls.mem = str(VMRAM)
+
+        # arm64 is UEFI only
+        if cls.arch == 'arm64':
+            cls.uefi = True
 
         req_attrs = ('target_distro', 'target_release', 'release', 'distro')
         missing = [a for a in req_attrs if not getattr(cls, a)]
@@ -897,15 +920,12 @@ class VMBaseClass(TestCase):
             dowait = "--dowait"
 
         # create launch cmd
-        cmd = ["tools/launch", "--arch=" + cls.arch, "-v", dowait,
-               "--smp=" + cls.get_config_smp(), "--mem=%s" % cls.mem]
+        cmd = ["tools/launch", "--arch=" + cls.target_arch, "-v", dowait,
+               "--smp=" + cls.get_config_smp(), "--mem=%s" % str(cls.mem)]
         if not cls.interactive:
             cmd.extend(["--silent", "--power=off"])
 
         cmd.extend(["--serial-log=" + cls.install_log])
-
-        if cls.extra_kern_args:
-            cmd.extend(["--append=" + cls.extra_kern_args])
 
         ftypes = cls.get_test_files()
         root_pubpath = "root/" + cls.ephemeral_ftype
@@ -922,15 +942,20 @@ class VMBaseClass(TestCase):
         ])
 
         # Avoid LP: #1797218 and make vms boot faster
-        cmd.extend(['--append=%s' % service for service in
-                    ["systemd.mask=snapd.seeded.service",
-                     "systemd.mask=snapd.service"]])
+        cmd.extend(['--append=---'] +
+                   ['--append=%s' % service
+                    for service in ["systemd.mask=snapd.seeded.service",
+                                    "systemd.mask=snapd.service"]])
 
         # getting resolvconf configured is only fixed in bionic
         # the iscsi_auto handles resolvconf setup via call to
         # configure_networking in initramfs
         if cls.release in ('precise', 'trusty', 'xenial', 'zesty', 'artful'):
             cmd.extend(["--append=iscsi_auto"])
+
+        # append class-specific args last
+        if cls.extra_kern_args:
+            cmd.extend(["--append=" + cls.extra_kern_args])
 
         # publish the ephemeral image (used in root=URL)
         cmd.append("--publish=%s:%s" % (ftypes[cls.ephemeral_ftype],
@@ -1080,9 +1105,12 @@ class VMBaseClass(TestCase):
             logger.info('Detected centos, adding default config %s',
                         centos_default)
 
-        add_repos = ADD_REPOS
-        system_upgrade = SYSTEM_UPGRADE
-        upgrade_packages = UPGRADE_PACKAGES
+        # environment variables override class provided values
+        add_repos = ADD_REPOS if ADD_REPOS else cls.add_repos
+        system_upgrade = (
+            SYSTEM_UPGRADE if SYSTEM_UPGRADE else cls.system_upgrade)
+        upgrade_packages = (
+            UPGRADE_PACKAGES if UPGRADE_PACKAGES else cls.upgrade_packages)
 
         if is_false_env_value(system_upgrade):
             system_upgrade = False
@@ -1299,10 +1327,10 @@ class VMBaseClass(TestCase):
                uefi_flags + netdevs +
                cls.mpath_diskargs(target_disks + extra_disks + nvme_disks) +
                ["--disk=file=%s,if=virtio,media=cdrom" % cls.td.seed_disk] +
-               ["--", "-smp",  cls.get_config_smp(), "-m", cls.mem])
+               ["--", "-smp",  cls.get_config_smp(), "-m", str(cls.mem)])
 
         if not cls.interactive:
-            if cls.arch == 's390x':
+            if cls.target_arch == 's390x':
                 cmd.extend([
                     "-nographic", "-nodefaults", "-chardev",
                     "file,path=%s,id=charconsole0" % cls.boot_log,
@@ -1564,20 +1592,37 @@ class VMBaseClass(TestCase):
             ret[val[0]] = val[1]
         return ret
 
+    def get_fstab_expected(self):
+        return self.fstab_expected
+
     @skip_if_flag('expected_failure')
     def test_fstab(self):
-        if self.fstab_expected is None:
+        """
+        self.fstab_expected = [
+            (devpath, mp, fsopts),
+            ...
+        ]
+        """
+        expected = self.get_fstab_expected()
+        if expected is None:
             return
         path = self.collect_path("fstab")
         if not os.path.exists(path):
             return
         fstab_entry = None
-        for line in util.load_file(path).splitlines():
-            for device, mntpoint in self.fstab_expected.items():
-                if device in line:
+        found = []
+        for spec, mp, fsopts in expected:
+            for line in util.load_file(path).splitlines():
+                if line.startswith("#"):
+                    continue
+                if spec in line:
                     fstab_entry = line
                     self.assertIsNotNone(fstab_entry)
-                    self.assertEqual(fstab_entry.split(' ')[1], mntpoint)
+                    self.assertEqual(mp, fstab_entry.split(' ')[1])
+                    self.assertEqual(fsopts, fstab_entry.split(' ')[3])
+                    found.append((spec, mp, fsopts))
+
+        self.assertEqual(sorted(expected), sorted(found))
 
     @skip_if_flag('expected_failure')
     def test_dname(self, disk_to_check=None):
@@ -1634,6 +1679,82 @@ class VMBaseClass(TestCase):
                         value = value.replace(' ', '_')
                     self.assertIn(key_name, contents)
                     self.assertIn(value, contents)
+
+    def _dname_to_kname(self, dname):
+        # extract kname from /dev/disk/by-dname on /dev/<kname>
+        # parsing ls -al output on /dev/disk/by-dname:
+        # lrwxrwxrwx. 1 root root   9 Jun  3 21:16 iscsi_disk1 -> ../../sdb
+        ls_bydname = self.load_collect_file("ls_al_bydname")
+        kname = [os.path.basename(line.split()[10])
+                 for line in ls_bydname.split('\n')
+                 if dname in line.split()]
+        self.assertEqual(len(kname), 1)
+        kname = kname.pop()
+        self.assertTrue(kname is not None)
+        return kname
+
+    def _serial_to_kname(self, serial):
+        # extract kname from /dev/disk/by-id on /dev/<kname>
+        # parsing ls -al output on /dev/disk/by-id:
+        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
+        #  virtio-disk-a -> ../../vda
+        ls_byid = self.load_collect_file("ls_al_byid")
+        kname = [os.path.basename(line.split()[10])
+                 for line in ls_byid.split('\n')
+                 if ("virtio-" + serial) in line.split() or
+                    ("scsi-" + serial) in line.split()]
+        self.assertEqual(len(kname), 1)
+        kname = kname.pop()
+        self.assertIsNotNone(kname)
+        return kname
+
+    def _kname_to_uuid(self, kname):
+        # extract uuid from /dev/disk/by-uuid on /dev/<kname>
+        # parsing ls -al output on /dev/disk/by-uuid:
+        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
+        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
+        ls_uuid = self.load_collect_file("ls_al_byuuid")
+        print(kname)
+        uuid = [line.split()[8] for line in ls_uuid.split('\n')
+                if ("../../" + kname) in line.split()]
+        self.assertEqual(len(uuid), 1)
+        uuid = uuid.pop()
+        self.assertIsNotNone(uuid)
+        self.assertEqual(len(uuid), 36)
+        return uuid
+
+    def _bcache_to_byuuid(self, kname):
+        # extract bcache uuid from /dev/bcache/by-uuid on /dev/<kname>
+        # parsing ls -al output on /dev/bcache/by-uuid
+        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
+        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../bcache2
+        ls_uuid = self.load_collect_file("ls_al_bcache_byuuid")
+        uuid = [line.split()[8] for line in ls_uuid.split('\n')
+                if ("../../" + kname) in line.split()]
+        self.assertEqual(len(uuid), 1)
+        uuid = uuid.pop()
+        print(uuid)
+        self.assertIsNotNone(uuid)
+        self.assertEqual(len(uuid), 36)
+        return '/dev/bcache/by-uuid/' + uuid
+
+    def _kname_to_byuuid(self, kname):
+        return '/dev/disk/by-uuid/' + self._kname_to_uuid(kname)
+
+    def _kname_to_devlinks(self, kname):
+        ls_byid = self.load_collect_file("ls_al_byid")
+        # the symlink source is 3 back from the end
+        # [..., 'md-uuid-XXXX', '->',  '../../md0']
+        return [line.split()[-3]
+                for line in ls_byid.splitlines() if line.endswith(kname)]
+
+    def _kname_to_uuid_devpath(self, link_prefix, kname):
+        devlinks = self._kname_to_devlinks(kname)
+        self.assertNotEqual(0, len(devlinks))
+        uuid = [link for link in devlinks if link_prefix in link]
+        self.assertEqual(1, len(uuid))
+        uuid = uuid.pop()
+        return '/dev/disk/by-id/' + uuid
 
     @skip_if_flag('expected_failure')
     def test_reporting_data(self):
@@ -1705,9 +1826,12 @@ class VMBaseClass(TestCase):
         """ Test curtin install kernel-img.conf correctly. """
         if self.target_distro != 'ubuntu':
             raise SkipTest("kernel-img.conf not needed in non-ubuntu releases")
+        if self.target_release not in ['trusty', 'xenial', 'bionic', 'disco']:
+            raise SkipTest(
+                "LP: #1847257 kernel-img.conf not needed in eoan and newer")
         kconf = 'kernel-img.conf'
         self.output_files_exist([kconf])
-        if self.arch in ['i386', 'amd64']:
+        if self.target_arch in ['i386', 'amd64']:
             self.check_file_strippedline(kconf, 'link_in_boot = no')
         else:
             self.check_file_strippedline(kconf, 'link_in_boot = yes')
@@ -1753,8 +1877,19 @@ class VMBaseClass(TestCase):
 
     @classmethod
     def get_class_storage_config(cls):
-        sc = cls.load_conf_file()
-        return yaml.safe_load(sc).get('storage', {}).get('config', {})
+        if cls.target_arch == 'ppc64el':
+            cfg = yaml.safe_load(cls.load_conf_file())
+            new_sc = inject_prep_partition(cfg)
+            # copy testcase YAML to a temp file in order to use updated yaml
+            temp_yaml = tempfile.NamedTemporaryFile(prefix=cls.td.tmpdir + '/',
+                                                    mode='w+t', delete=False)
+            util.write_file(temp_yaml.name, yaml.dump(new_sc,
+                            default_flow_style=False, indent=4))
+            cls.conf_file = temp_yaml.name
+
+        cfg = cls.load_conf_file()
+        sc = yaml.safe_load(cfg).get('storage', {}).get('config', {})
+        return sc
 
     def get_storage_config(self):
         cfg = load_config(self.collect_path("root/curtin-install-cfg.yaml"))
@@ -1830,7 +1965,7 @@ class PsuedoVMBaseClass(VMBaseClass):
            kernel, initrd, tarball."""
 
         def get_psuedo_path(name):
-            return os.path.join(IMAGE_DIR, cls.release, cls.arch, name)
+            return os.path.join(IMAGE_DIR, cls.release, cls.target_arch, name)
 
         return {
             'squashfs': get_psuedo_path('psuedo-squashfs'),
@@ -1951,14 +2086,16 @@ def check_install_log(install_log, nrchars=200):
 
 def get_apt_proxy():
     # get setting for proxy. should have same result as in tools/launch
-    if 'apt_proxy' in os.environ:
-        apt_proxy = os.environ.get('apt_proxy')
-        if apt_proxy:
-            # 'apt_proxy' set and not empty
-            return apt_proxy
-        else:
-            # 'apt_proxy' is set but empty; do not setup any proxy
-            return None
+    proxy_vars = ['CURTIN_VMTEST_APT_PROXY', 'apt_proxy']
+    for var in proxy_vars:
+        if var in os.environ:
+            apt_proxy = os.environ.get(var)
+            if apt_proxy:
+                # 'apt_proxy' set and not empty
+                return apt_proxy
+            else:
+                # 'apt_proxy' is set but empty; do not setup any proxy
+                return None
 
     get_apt_config = textwrap.dedent("""
         command -v apt-config >/dev/null 2>&1
@@ -2046,7 +2183,9 @@ def generate_user_data(collect_scripts=None, apt_proxy=None,
                 echo "ERROR: ${target} dir exists; journal collected already";
                 exit 1;
             }
-            journalctl --sync --flush --rotate
+            journalctl --sync
+            journalctl --flush
+            sync
             cp -a /var/log/journal ${target}
             gzip -9 ${target}/*/system*.journal
         }
@@ -2265,6 +2404,77 @@ def generate_upgrade_config(packages, singlecmd=True):
             cmds["install_pkg_%02d" % idx] = base_cmd + package
 
     return yaml.dump({'late_commands': cmds})
+
+
+def prep_partition_for_device(device):
+    """ Storage config for a Power PReP partition, both
+        msdos and gpt format"""
+    return {
+        'id': 'prep_partition',
+        'type': 'partition',
+        'size': '8M',
+        'flag': 'prep',
+        'guid': '9e1a2d38-c612-4316-aa26-8b49521e5a8b',
+        'offset': '1M',
+        'wipe': 'zero',
+        'grub_device': True,
+        'device': device}
+
+
+def inject_prep_partition(config):
+    """ Parse a curtin configuration file and inject
+        a prep partition if possible"""
+    storage_config = config.get('storage', {}).get('config', {})
+    if len(storage_config) == 0:
+        logger.debug('No storage config, skipping prep injection')
+        return config
+
+    logger.info('Injecting PReP Partition')
+    disks = [item for item in storage_config
+             if item['type'] == 'disk']
+    disks = [disk for disk in disks if 'grub_device' in disk]
+    grub_disk = disks[0]
+    main_partitions = [part for part in storage_config
+                       if part['type'] == 'partition' and
+                       part['device'] == grub_disk['id']]
+
+    # convert msdos to gpt, that's required for PReP
+    if grub_disk['ptable'] == 'msdos':
+        grub_disk['ptable'] = 'gpt'
+        primary_parts = [part for part in main_partitions
+                         if part.get('flag', '') not in ['extended',
+                                                         'logical']]
+        if len(primary_parts) > 3:
+            logger.error("Can't find a primary partition for prep partition")
+            raise ValueError
+
+        prep_partition = prep_partition_for_device(grub_disk['id'])
+        last_partition = primary_parts[-1]
+        partition_index = storage_config.index(last_partition)
+        storage_config.insert(partition_index + 1, prep_partition)
+        if 'grub_device' in grub_disk:
+            del grub_disk['grub_device']
+
+    # for gpt, find the boot_partition (flag: bios_grub), delete it
+    # and then add a new partition for prep, size 8MB
+    elif grub_disk['ptable'] == 'gpt':
+        prep_partition = prep_partition_for_device(grub_disk['id'])
+        [boot_partition] = [part for part in main_partitions
+                            if part.get('flag', '') in ['bios_grub']]
+
+        partition_index = storage_config.index(boot_partition)
+        storage_config[partition_index] = prep_partition
+
+        if 'grub_device' in grub_disk:
+            del grub_disk['grub_device']
+
+    # remove any other boot flags on partitions
+    for part in main_partitions:
+        if 'flag' in part and part['flag'] in ['boot', 'bios_grub']:
+            del part['flag']
+
+    config['storage']['config'] = storage_config
+    return config
 
 
 apply_keep_settings()

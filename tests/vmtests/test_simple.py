@@ -1,6 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from . import VMBaseClass, SkipTest
+from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 
@@ -35,8 +35,7 @@ class Centos66XenialTestSimple(centos_relbase.centos66_xenial, TestSimple):
 
 class Centos66BionicTestSimple(centos_relbase.centos66_bionic, TestSimple):
     __test__ = False
-    # LP: #1775424
-    raise SkipTest('Centos66 fails with Bionic Ephemeral ext4 features')
+    # LP: #1775424 Centos66 fails with Bionic Ephemeral ext4 features
 
 
 class XenialTestSimple(relbase.xenial, TestSimple):
@@ -44,13 +43,6 @@ class XenialTestSimple(relbase.xenial, TestSimple):
 
 
 class BionicTestSimple(relbase.bionic, TestSimple):
-    __test__ = True
-
-    def test_output_files_exist(self):
-        self.output_files_exist(["netplan.yaml"])
-
-
-class CosmicTestSimple(relbase.cosmic, TestSimple):
     __test__ = True
 
     def test_output_files_exist(self):
@@ -65,6 +57,13 @@ class DiscoTestSimple(relbase.disco, TestSimple):
 
 
 class EoanTestSimple(relbase.eoan, TestSimple):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
+
+class FocalTestSimple(relbase.focal, TestSimple):
     __test__ = True
 
     def test_output_files_exist(self):
@@ -113,13 +112,6 @@ class BionicTestSimpleStorage(relbase.bionic, TestSimpleStorage):
         self.output_files_exist(["netplan.yaml"])
 
 
-class CosmicTestSimpleStorage(relbase.cosmic, TestSimpleStorage):
-    __test__ = True
-
-    def test_output_files_exist(self):
-        self.output_files_exist(["netplan.yaml"])
-
-
 class DiscoTestSimpleStorage(relbase.disco, TestSimpleStorage):
     __test__ = True
 
@@ -128,6 +120,13 @@ class DiscoTestSimpleStorage(relbase.disco, TestSimpleStorage):
 
 
 class EoanTestSimpleStorage(relbase.eoan, TestSimpleStorage):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
+
+class FocalTestSimpleStorage(relbase.focal, TestSimpleStorage):
     __test__ = True
 
     def test_output_files_exist(self):
@@ -153,10 +152,11 @@ class TestGrubNoDefaults(VMBaseClass):
         self.assertNotIn('50-curtin-settings.cfg', grub_d_files)
 
 
-class DiscoTestGrubNoDefaults(relbase.disco, TestGrubNoDefaults):
+class FocalTestGrubNoDefaults(relbase.focal, TestGrubNoDefaults):
     __test__ = True
 
     def test_output_files_exist(self):
         self.output_files_exist(["netplan.yaml"])
+
 
 # vi: ts=4 expandtab syntax=python

@@ -2,16 +2,19 @@
 
 from . import (
     VMBaseClass,
-    get_apt_proxy)
+    get_apt_proxy,
+    skip_if_arch)
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 
 import textwrap
-import os
 from unittest import SkipTest
 
 
 class TestBasicAbs(VMBaseClass):
+    arch_skip = [
+        'arm64',  # arm64 is UEFI only
+    ]
     test_type = 'storage'
     interactive = False
     nr_cpus = 2
@@ -56,35 +59,6 @@ class TestBasicAbs(VMBaseClass):
         exit 0
         """)]
 
-    def _kname_to_uuid(self, kname):
-        # extract uuid from /dev/disk/by-uuid on /dev/<kname>
-        # parsing ls -al output on /dev/disk/by-uuid:
-        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
-        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
-        ls_uuid = self.load_collect_file("ls_al_byuuid")
-        uuid = [line.split()[8] for line in ls_uuid.split('\n')
-                if ("../../" + kname) in line.split()]
-        self.assertEqual(len(uuid), 1)
-        uuid = uuid.pop()
-        self.assertTrue(uuid is not None)
-        self.assertEqual(len(uuid), 36)
-        return uuid
-
-    def _serial_to_kname(self, serial):
-        # extract kname from /dev/disk/by-id on /dev/<kname>
-        # parsing ls -al output on /dev/disk/by-id:
-        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
-        #  virtio-disk-a -> ../../vda
-        ls_byid = self.load_collect_file("ls_al_byid")
-        kname = [os.path.basename(line.split()[10])
-                 for line in ls_byid.split('\n')
-                 if ("virtio-" + serial) in line.split() or
-                    ("scsi-" + serial) in line.split()]
-        self.assertEqual(len(kname), 1)
-        kname = kname.pop()
-        self.assertTrue(kname is not None)
-        return kname
-
     def _test_ptable(self, blkid_output, expected):
         if self.target_release == "centos66":
             raise SkipTest("No PTTYPE blkid output on Centos66")
@@ -108,27 +82,6 @@ class TestBasicAbs(VMBaseClass):
                 found.append(line.split()[3])
         self.assertEqual(expected, found)
 
-    def _test_fstab_entries(self, fstab, byuuid, expected):
-        """
-        expected = [
-            (kname, mp, fsopts),
-            ...
-        ]
-        """
-        self.output_files_exist([fstab, byuuid])
-        fstab_lines = self.load_collect_file(fstab).splitlines()
-        for (kname, mp, fsopts) in expected:
-            uuid = self._kname_to_uuid(kname)
-            if not uuid:
-                raise RuntimeError('Did not find uuid for kname: %s', kname)
-            for line in fstab_lines:
-                if uuid in line:
-                    fstab_entry = line
-                    break
-            self.assertIsNotNone(fstab_entry)
-            self.assertEqual(mp, fstab_entry.split(' ')[1])
-            self.assertEqual(fsopts, fstab_entry.split(' ')[3])
-
     def _test_whole_disk_uuid(self, kname, uuid_file):
 
         # confirm the whole disk format is the expected device
@@ -136,7 +89,7 @@ class TestBasicAbs(VMBaseClass):
         btrfs_uuid = self.load_collect_file(uuid_file).strip()
 
         # extract uuid from btrfs superblock
-        self.assertTrue(btrfs_uuid is not None)
+        self.assertIsNotNone(btrfs_uuid)
         self.assertEqual(len(btrfs_uuid), 36)
 
         # extract uuid from ls_uuid by kname
@@ -149,6 +102,8 @@ class TestBasicAbs(VMBaseClass):
         if self.target_release == "centos66":
             raise SkipTest("Cannot detect PReP partitions in Centos66")
         udev_info = self.load_collect_file(info_file).rstrip()
+        if not udev_info:
+            raise ValueError('Empty udev_info collect file')
         entry_type = ''
         for line in udev_info.splitlines():
             if line.startswith('ID_PART_ENTRY_TYPE'):
@@ -169,7 +124,10 @@ class TestBasicAbs(VMBaseClass):
              "root/curtin-install.log", "root/curtin-install-cfg.yaml"])
 
     def test_ptable(self):
-        self._test_ptable("blkid_output_diska", "dos")
+        expected_ptable = "dos"
+        if self.target_arch == "ppc64el":
+            expected_ptable = "gpt"
+        self._test_ptable("blkid_output_diska", expected_ptable)
 
     def test_partition_numbers(self):
         # disk-d should have partitions 1 2, and 10
@@ -177,18 +135,14 @@ class TestBasicAbs(VMBaseClass):
         expected = [disk + s for s in ["", "1", "2", "10"]]
         self._test_partition_numbers(disk, expected)
 
-    def test_fstab_entries(self):
-        """"
-        dev=${diska}1 mp=/ fsopts=defaults
-        dev=${diska}2 mp=/home fsopts=defaults
-        dev=${diskc}  mp=/btrfs fsopts=defaults,noatime
-        """
+    def get_fstab_expected(self):
         rootdev = self._serial_to_kname('disk-a')
         btrfsdev = self._serial_to_kname('disk-c')
-        expected = [(rootdev + '1', '/', 'defaults'),
-                    (rootdev + '2', '/home', 'defaults'),
-                    (btrfsdev, '/btrfs', 'defaults,noatime')]
-        self._test_fstab_entries('fstab', 'ls_al_byuuid', expected)
+        return [
+            (self._kname_to_byuuid(rootdev + '1'), '/', 'defaults'),
+            (self._kname_to_byuuid(rootdev + '2'), '/home', 'defaults'),
+            (self._kname_to_byuuid(btrfsdev), '/btrfs', 'defaults,noatime')
+        ]
 
     def test_whole_disk_uuid(self):
         self._test_whole_disk_uuid(
@@ -218,6 +172,8 @@ class TestBasicAbs(VMBaseClass):
     def test_partition_is_prep(self):
         self._test_partition_is_prep("udev_info.out")
 
+    # Skip on ppc64 (LP: #1843288)
+    @skip_if_arch('ppc64el')
     def test_partition_is_zero(self):
         self._test_partition_is_zero("cmp_prep.out")
 
@@ -249,6 +205,11 @@ class Centos70BionicTestBasic(centos_relbase.centos70_bionic,
     __test__ = True
 
 
+class Centos70FocalTestBasic(centos_relbase.centos70_focal,
+                             CentosTestBasicAbs):
+    __test__ = True
+
+
 class Centos66XenialTestBasic(centos_relbase.centos66_xenial,
                               CentosTestBasicAbs):
     __test__ = True
@@ -264,7 +225,8 @@ class Centos66BionicTestBasic(centos_relbase.centos66_bionic,
 
 class XenialGAi386TestBasic(relbase.xenial_ga, TestBasicAbs):
     __test__ = True
-    arch = 'i386'
+    arch_skip = ["arm64", "ppc64el", "s390x"]
+    target_arch = 'i386'
 
 
 class XenialGATestBasic(relbase.xenial_ga, TestBasicAbs):
@@ -283,15 +245,15 @@ class BionicTestBasic(relbase.bionic, TestBasicAbs):
     __test__ = True
 
 
-class CosmicTestBasic(relbase.cosmic, TestBasicAbs):
-    __test__ = True
-
-
 class DiscoTestBasic(relbase.disco, TestBasicAbs):
     __test__ = True
 
 
 class EoanTestBasic(relbase.eoan, TestBasicAbs):
+    __test__ = True
+
+
+class FocalTestBasic(relbase.focal, TestBasicAbs):
     __test__ = True
 
 
@@ -304,24 +266,28 @@ class TestBasicScsiAbs(TestBasicAbs):
         blkid -o export /dev/sda | cat >blkid_output_sda
         blkid -o export /dev/sda1 | cat >blkid_output_sda1
         blkid -o export /dev/sda2 | cat >blkid_output_sda2
-        dev="/dev/sdc"; f="btrfs_uuid_${dev#/dev/*}";
+        dev="/dev/disk/by-dname/btrfs_volume";
         if command -v btrfs-debug-tree >/dev/null; then
            btrfs-debug-tree -r $dev | awk '/^uuid/ {print $2}' | grep "-"
         else
            btrfs inspect-internal dump-super $dev |
                awk '/^dev_item.fsid/ {print $2}'
-        fi | cat >$f
+        fi | cat >btrfs_uuid
 
         # compare via /dev/zero 8MB
-        cmp --bytes=8388608 /dev/zero /dev/sdd2; echo "$?" > cmp_prep.out
+        dev="/dev/disk/by-dname/prep"
+        cmp --bytes=8388608 /dev/zero $dev; echo "$?" > cmp_prep.out
         # extract partition info
-        udevadm info --export --query=property /dev/sdd2 | cat >udev_info.out
+        udevadm info --export --query=property $dev | cat >udev_info.out
 
         exit 0
         """)]
 
     def test_ptable(self):
-        self._test_ptable("blkid_output_sda", "dos")
+        expected_ptable = "dos"
+        if self.target_arch == "ppc64el":
+            expected_ptable = "gpt"
+        self._test_ptable("blkid_output_sda", expected_ptable)
 
     def test_partition_numbers(self):
         # sdd should have partitions 1, 2, and 10
@@ -329,29 +295,44 @@ class TestBasicScsiAbs(TestBasicAbs):
         expected = [disk + s for s in ["", "1", "2", "10"]]
         self._test_partition_numbers(disk, expected)
 
-    def test_fstab_entries(self):
-        """"
-        dev=sda1 mp=/ fsopts=defaults
-        dev=sda2 mp=/home fsopts=defaults
-        dev=sdc  mp=/btrfs fsopts=defaults,noatime
-        """
-        expected = [('sda1', '/', 'defaults'),
-                    ('sda2', '/home', 'defaults'),
-                    ('sdc', '/btrfs', 'defaults,noatime')]
-        self._test_fstab_entries('fstab', 'ls_al_byuuid', expected)
+    def get_fstab_expected(self):
+
+        root_kname = (
+            self._dname_to_kname('main_disk_with_in---valid--dname-part1'))
+        home_kname = (
+            self._dname_to_kname('main_disk_with_in---valid--dname-part2'))
+        btrfs_kname = self._dname_to_kname('btrfs_volume')
+        return [(self._kname_to_byuuid(root_kname), '/', 'defaults'),
+                (self._kname_to_byuuid(home_kname), '/home', 'defaults'),
+                (self._kname_to_byuuid(btrfs_kname),
+                 '/btrfs', 'defaults,noatime')]
 
     def test_whole_disk_uuid(self):
-        self._test_whole_disk_uuid("sdc", "btrfs_uuid_sdc")
+        kname = self._dname_to_kname('btrfs_volume')
+        self._test_whole_disk_uuid(kname, "btrfs_uuid")
 
     def test_partition_is_prep(self):
         self._test_partition_is_prep("udev_info.out")
 
+    # Skip on ppc64 (LP: #1843288)
+    @skip_if_arch('ppc64el')
     def test_partition_is_zero(self):
         self._test_partition_is_zero("cmp_prep.out")
 
 
 class Centos70XenialTestScsiBasic(centos_relbase.centos70_xenial,
                                   TestBasicScsiAbs, CentosTestBasicAbs):
+    __test__ = True
+
+
+class Centos70BionicTestScsiBasic(centos_relbase.centos70_bionic,
+                                  TestBasicScsiAbs, CentosTestBasicAbs):
+    __test__ = True
+
+
+@VMBaseClass.skip_by_date("1859858", fixby="2020-03-06", install=False)
+class Centos70FocalTestScsiBasic(centos_relbase.centos70_focal,
+                                 TestBasicScsiAbs, CentosTestBasicAbs):
     __test__ = True
 
 
@@ -371,17 +352,16 @@ class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
     __test__ = True
 
 
-class CosmicTestScsiBasic(relbase.cosmic, TestBasicScsiAbs):
-    __test__ = True
-
-
-@VMBaseClass.skip_by_date("1813228", fixby="2019-06-02", install=False)
 class DiscoTestScsiBasic(relbase.disco, TestBasicScsiAbs):
     __test__ = True
 
 
-@VMBaseClass.skip_by_date("1813228", fixby="2019-06-02", install=False)
 class EoanTestScsiBasic(relbase.eoan, TestBasicScsiAbs):
     __test__ = True
+
+
+class FocalTestScsiBasic(relbase.focal, TestBasicScsiAbs):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

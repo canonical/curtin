@@ -2,6 +2,7 @@
 
 from collections import OrderedDict, namedtuple
 from curtin import (block, config, paths, util)
+from curtin.block import schemas
 from curtin.block import (bcache, clear_holders, dasd, iscsi, lvm, mdadm, mkfs,
                           zfs)
 from curtin import distro
@@ -32,6 +33,7 @@ SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
 BCACHE_REGISTRATION_RETRY = [0.2] * 60
+PTABLE_UNSUPPORTED = schemas._ptable_unsupported
 
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
@@ -58,7 +60,7 @@ CMD_ARGUMENTS = (
 @logged_time("BLOCK_META")
 def block_meta(args):
     # main entry point for the block-meta command.
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     cfg = config.load_command_config(args, state)
     dd_images = util.get_dd_images(cfg.get('sources', {}))
 
@@ -67,7 +69,7 @@ def block_meta(args):
     if devices is None:
         devices = []
         if 'storage' in cfg:
-            devices = get_disk_paths_from_storage_config(
+            devices = get_device_paths_from_storage_config(
                 extract_storage_ordered_dict(cfg))
         if len(devices) == 0:
             devices = cfg.get('block-meta', {}).get('devices', [])
@@ -258,7 +260,7 @@ def make_dname_byid(path, error_msg=None, info=None):
 
 
 def make_dname(volume, storage_config):
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     rules_dir = os.path.join(state['scratch'], "rules.d")
     vol = storage_config.get(volume)
     path = get_path_to_storage_volume(volume, storage_config)
@@ -404,9 +406,8 @@ def get_path_to_storage_volume(volume, storage_config):
             try:
                 if not vol_value:
                     continue
-                if disk_key == 'serial':
+                if disk_key in ['wwn', 'serial']:
                     volume_path = block.lookup_disk(vol_value)
-                    break
                 elif disk_key == 'path':
                     if vol_value.startswith('iscsi:'):
                         i = iscsi.ensure_disk_connected(vol_value)
@@ -416,21 +417,18 @@ def get_path_to_storage_volume(volume, storage_config):
                         # sys/class/block access is valid.  ie, there are no
                         # udev generated values in sysfs
                         volume_path = os.path.realpath(vol_value)
-                    break
-                elif disk_key == 'wwn':
-                    by_wwn = '/dev/disk/by-id/wwn-%s' % vol.get('wwn')
-                    volume_path = os.path.realpath(by_wwn)
-                    break
                 elif disk_key == 'device_id':
                     dasd_device = dasd.DasdDevice(vol_value)
                     volume_path = dasd_device.devname
-                    break
             except ValueError:
-                pass
+                continue
+            # verify path exists otherwise try the next key
+            if not os.path.exists(volume_path):
+                volume_path = None
 
-        if not volume_path:
-            raise ValueError("serial, wwn or path to block dev must be \
-                specified to identify disk")
+        if volume_path is None:
+            raise ValueError("Failed to find storage volume id='%s' config: %s"
+                             % (vol['id'], vol))
 
     elif vol.get('type') == "lvm_partition":
         # For lvm partitions, a directory in /dev/ should be present with the
@@ -536,7 +534,7 @@ def disk_handler(info, storage_config):
 
     if config.value_as_boolean(info.get('preserve')):
         # Handle preserve flag, verifying if ptable specified in config
-        if config.value_as_boolean(ptable):
+        if config.value_as_boolean(ptable) and ptable != PTABLE_UNSUPPORTED:
             current_ptable = block.get_part_table_type(disk)
             if not ((ptable in _dos_names and current_ptable in _dos_names) or
                     (ptable == 'gpt' and current_ptable == 'gpt')):
@@ -868,6 +866,47 @@ def mount_data(info, storage_config):
         spec, path, fstype, ",".join(options), freq, passno, volume_path)
 
 
+def _get_volume_type(device_path):
+    lsblock = block._lsblock([device_path])
+    kname = block.path_to_kname(device_path)
+    return lsblock[kname]['TYPE']
+
+
+def get_volume_spec(device_path):
+    """
+       Return the most reliable spec for a device per Ubuntu FSTAB wiki
+
+       https://wiki.ubuntu.com/FSTAB
+    """
+    info = udevadm_info(path=device_path)
+    block_type = _get_volume_type(device_path)
+
+    devlinks = []
+    if 'raid' in block_type:
+        devlinks = [link for link in info['DEVLINKS']
+                    if os.path.basename(link).startswith('md-uuid-')]
+    elif block_type in ['crypt', 'lvm', 'mpath']:
+        devlinks = [link for link in info['DEVLINKS']
+                    if os.path.basename(link).startswith('dm-uuid-')]
+    elif block_type in ['disk', 'part']:
+        if device_path.startswith('/dev/bcache'):
+            devlinks = [link for link in info['DEVLINKS']
+                        if link.startswith('/dev/bcache/by-uuid')]
+        # on s390x prefer by-path links which are stable and unique.
+        if platform.machine() == 's390x':
+            devlinks = [link for link in info['DEVLINKS']
+                        if link.startswith('/dev/disk/by-path')]
+        if len(devlinks) == 0:
+            # use FS UUID if present
+            devlinks = [link for link in info['DEVLINKS']
+                        if '/by-uuid' in link]
+            if len(devlinks) == 0 and block_type == 'part':
+                devlinks = [link for link in info['DEVLINKS']
+                            if '/by-partuuid' in link]
+
+    return devlinks[0] if len(devlinks) else device_path
+
+
 def fstab_line_for_data(fdata):
     """Return a string representing fdata in /etc/fstab format.
 
@@ -883,8 +922,7 @@ def fstab_line_for_data(fdata):
     if fdata.spec is None:
         if not fdata.device:
             raise ValueError("FstabData missing both spec and device.")
-        uuid = block.get_volume_uuid(fdata.device)
-        spec = ("UUID=%s" % uuid) if uuid else fdata.device
+        spec = get_volume_spec(fdata.device)
     else:
         spec = fdata.spec
 
@@ -896,8 +934,20 @@ def fstab_line_for_data(fdata):
     else:
         options = fdata.options
 
-    return ' '.join((spec, path, fdata.fstype, options,
-                     fdata.freq, fdata.passno)) + "\n"
+    if path != "none":
+        # prefer provided spec over device
+        device = fdata.spec if fdata.spec else None
+        # if not provided a spec, derive device from calculated spec value
+        if not device:
+            device = fdata.device if fdata.device else spec
+        comment = "# %s was on %s during curtin installation" % (path, device)
+    else:
+        comment = None
+
+    entry = ' '.join((spec, path, fdata.fstype, options,
+                      fdata.freq, fdata.passno)) + "\n"
+    line = '\n'.join([comment, entry] if comment else [entry])
+    return line
 
 
 def mount_fstab_data(fdata, target=None):
@@ -960,7 +1010,7 @@ def mount_handler(info, storage_config):
     Mount specified device under target at 'path' and generate
     fstab entry.
     """
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     mount_apply(mount_data(info, storage_config),
                 target=state.get('target'), fstab=state.get('fstab'))
 
@@ -1050,7 +1100,7 @@ def lvm_partition_handler(info, storage_config):
 
 
 def dm_crypt_handler(info, storage_config):
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     volume = info.get('volume')
     keysize = info.get('keysize')
     cipher = info.get('cipher')
@@ -1062,6 +1112,7 @@ def dm_crypt_handler(info, storage_config):
         dm_name = info.get('id')
 
     volume_path = get_path_to_storage_volume(volume, storage_config)
+    volume_byid_path = block.disk_to_byid_path(volume_path)
 
     if 'keyfile' in info:
         if 'key' in info:
@@ -1077,16 +1128,45 @@ def dm_crypt_handler(info, storage_config):
     else:
         raise ValueError("encryption key or keyfile must be specified")
 
-    cmd = ["cryptsetup"]
-    if cipher:
-        cmd.extend(["--cipher", cipher])
-    if keysize:
-        cmd.extend(["--key-size", keysize])
-    cmd.extend(["luksFormat", volume_path, keyfile])
+    # if zkey is available, attempt to generate and use it; if it's not
+    # available or fails to setup properly, fallback to normal cryptsetup
+    # passing strict=False downgrades log messages to warnings
+    zkey_used = None
+    if block.zkey_supported(strict=False):
+        volume_name = "%s:%s" % (volume_byid_path, dm_name)
+        LOG.debug('Attempting to setup zkey for %s', volume_name)
+        luks_type = 'luks2'
+        gen_cmd = ['zkey', 'generate', '--xts', '--volume-type', luks_type,
+                   '--sector-size', '4096', '--name', dm_name,
+                   '--description',
+                   "curtin generated zkey for %s" % volume_name,
+                   '--volumes', volume_name]
+        run_cmd = ['zkey', 'cryptsetup', '--run', '--volumes',
+                   volume_byid_path, '--batch-mode', '--key-file', keyfile]
+        try:
+            util.subp(gen_cmd, capture=True)
+            util.subp(run_cmd, capture=True)
+            zkey_used = os.path.join(os.path.split(state['fstab'])[0],
+                                     "zkey_used")
+            # mark in state that we used zkey
+            util.write_file(zkey_used, "1")
+        except util.ProcessExecutionError as e:
+            LOG.exception(e)
+            msg = 'Setup of zkey on %s failed, fallback to cryptsetup.'
+            LOG.error(msg % volume_path)
 
-    util.subp(cmd)
+    if not zkey_used:
+        LOG.debug('Using cryptsetup on %s', volume_path)
+        luks_type = "luks"
+        cmd = ["cryptsetup"]
+        if cipher:
+            cmd.extend(["--cipher", cipher])
+        if keysize:
+            cmd.extend(["--key-size", keysize])
+        cmd.extend(["luksFormat", volume_path, keyfile])
+        util.subp(cmd)
 
-    cmd = ["cryptsetup", "open", "--type", "luks", volume_path, dm_name,
+    cmd = ["cryptsetup", "open", "--type", luks_type, volume_path, dm_name,
            "--key-file", keyfile]
 
     util.subp(cmd)
@@ -1097,11 +1177,11 @@ def dm_crypt_handler(info, storage_config):
     # A crypttab will be created in the same directory as the fstab in the
     # configuration. This will then be copied onto the system later
     if state['fstab']:
-        crypt_tab_location = os.path.join(os.path.split(state['fstab'])[0],
-                                          "crypttab")
+        state_dir = os.path.dirname(state['fstab'])
+        crypt_tab_location = os.path.join(state_dir, "crypttab")
         uuid = block.get_volume_uuid(volume_path)
-        with open(crypt_tab_location, "a") as fp:
-            fp.write("%s UUID=%s none luks\n" % (dm_name, uuid))
+        util.write_file(crypt_tab_location,
+                        "%s UUID=%s none luks\n" % (dm_name, uuid), omode="a")
     else:
         LOG.info("fstab configuration is not present in environment, so \
             cannot locate an appropriate directory to write crypttab in \
@@ -1109,7 +1189,7 @@ def dm_crypt_handler(info, storage_config):
 
 
 def raid_handler(info, storage_config):
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     devices = info.get('devices')
     raidlevel = info.get('raidlevel')
     spare_devices = info.get('spare_devices')
@@ -1166,11 +1246,10 @@ def raid_handler(info, storage_config):
     # The file must also be written onto the running system to enable it to run
     # mdadm --assemble and continue installation
     if state['fstab']:
-        mdadm_location = os.path.join(os.path.split(state['fstab'])[0],
-                                      "mdadm.conf")
+        state_dir = os.path.dirname(state['fstab'])
+        mdadm_location = os.path.join(state_dir, "mdadm.conf")
         mdadm_scan_data = mdadm.mdadm_detail_scan()
-        with open(mdadm_location, "w") as fp:
-            fp.write(mdadm_scan_data)
+        util.write_file(mdadm_location, mdadm_scan_data)
     else:
         LOG.info("fstab configuration is not present in the environment, so \
             cannot locate an appropriate directory to write mdadm.conf in, \
@@ -1448,7 +1527,7 @@ def zpool_handler(info, storage_config):
     """
     zfs.zfs_assert_supported()
 
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
 
     # extract /dev/disk/by-id paths for each volume used
     vdevs = [get_path_to_storage_volume(v, storage_config)
@@ -1487,7 +1566,7 @@ def zfs_handler(info, storage_config):
     """
     zfs.zfs_assert_supported()
 
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     poolname = get_poolname(info, storage_config)
     volume = info.get('volume')
     properties = info.get('properties', {})
@@ -1505,20 +1584,24 @@ def zfs_handler(info, storage_config):
             util.write_file(state['fstab'], fstab_entry, omode='a')
 
 
-def get_disk_paths_from_storage_config(storage_config):
-    """Returns a list of disk paths in a storage config filtering out
-       preserved or disks which do not have wipe configuration.
+def get_device_paths_from_storage_config(storage_config):
+    """Returns a list of device paths in a storage config filtering out
+       preserved or devices which do not have wipe configuration.
 
     :param: storage_config: Ordered dict of storage configation
     """
-    def get_path_if_present(disk, config):
-        return get_path_to_storage_volume(disk, config)
-
-    return [get_path_if_present(k, storage_config)
-            for (k, v) in storage_config.items()
-            if v.get('type') == 'disk' and
-            config.value_as_boolean(v.get('wipe')) and
-            not config.value_as_boolean(v.get('preserve'))]
+    dpaths = []
+    for (k, v) in storage_config.items():
+        if v.get('type') in ['disk', 'partition']:
+            if config.value_as_boolean(v.get('wipe')):
+                if config.value_as_boolean(v.get('preserve')):
+                    continue
+                try:
+                    dpaths.append(
+                        get_path_to_storage_volume(k, storage_config))
+                except Exception:
+                    pass
+    return dpaths
 
 
 def zfsroot_update_storage_config(storage_config):
@@ -1655,7 +1738,7 @@ def meta_custom(args):
         'zpool': zpool_handler,
     }
 
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     cfg = config.load_command_config(args, state)
 
     storage_config_dict = extract_storage_ordered_dict(cfg)
@@ -1689,7 +1772,7 @@ def meta_simple(args):
     """Creates a root partition. If args.mode == SIMPLE_BOOT, it will also
     create a separate /boot partition.
     """
-    state = util.load_command_environment()
+    state = util.load_command_environment(strict=True)
     cfg = config.load_command_config(args, state)
     if args.target is not None:
         state['target'] = args.target

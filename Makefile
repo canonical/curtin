@@ -31,9 +31,13 @@ pyflakes:
 pyflakes3:
 	@$(CWD)/tools/run-pyflakes3
 
-unittest:
+unittest2:
 	nosetests $(coverageopts) $(noseopts) tests/unittests
+
+unittest3:
 	nosetests3 $(coverageopts) $(noseopts) tests/unittests
+
+unittest: unittest2 unittest3
 
 schema-validate:
 	@$(CWD)/tools/schema-validate-storage

@@ -50,15 +50,16 @@ class BionicTestIscsiMdadm(relbase.bionic, TestMdadmIscsiAbs):
     __test__ = True
 
 
-class CosmicTestIscsiMdadm(relbase.cosmic, TestMdadmIscsiAbs):
-    __test__ = True
-
-
 class DiscoTestIscsiMdadm(relbase.disco, TestMdadmIscsiAbs):
     __test__ = True
 
 
 class EoanTestIscsiMdadm(relbase.eoan, TestMdadmIscsiAbs):
     __test__ = True
+
+
+class FocalTestIscsiMdadm(relbase.focal, TestMdadmIscsiAbs):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

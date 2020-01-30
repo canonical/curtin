@@ -23,15 +23,15 @@ class BionicTestNetworkIPV6Static(relbase.bionic, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
-class CosmicTestNetworkIPV6Static(relbase.cosmic, TestNetworkIPV6StaticAbs):
-    __test__ = True
-
-
 class DiscoTestNetworkIPV6Static(relbase.disco, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
 class EoanTestNetworkIPV6Static(relbase.eoan, TestNetworkIPV6StaticAbs):
+    __test__ = True
+
+
+class FocalTestNetworkIPV6Static(relbase.focal, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
