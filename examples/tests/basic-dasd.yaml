@@ -11,14 +11,14 @@ storage:
       - id: sda
         type: disk
         wipe: superblock
-        ptable: msdos
+        ptable: vtoc
         model: QEMU HARDDISK
         serial: disk-a
         grub_device: true
       - id: dasdb
         type: disk
         wipe: superblock
-        ptable: msdos
+        ptable: vtoc
         serial: 0X1520
         wipe: superblock
       - id: sda-part1

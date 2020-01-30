@@ -1,0 +1,38 @@
+# v2 equivalent of examples/tests/bridging_network.yaml
+showtrace: true
+network:
+    version: 2
+    ethernets:
+        eth0:
+            dhcp4: true
+            match:
+                macaddress: '52:54:00:12:34:00'
+            set-name: eth0
+        eth1:
+            match:
+                macaddress: '52:54:00:12:34:02'
+            set-name: eth1
+        eth2:
+            match:
+                macaddress: '52:54:00:12:34:04'
+            set-name: eth2
+    bridges:
+        br0:
+            addresses:
+            - 192.168.14.2/24
+            interfaces:
+            - eth1
+            - eth2
+            parameters:
+                ageing-time: 250
+                forward-delay: 1
+                hello-time: 1
+                max-age: 10
+                path-cost:
+                    eth1: 50
+                    eth2: 75
+                port-priority:
+                    eth1: 28
+                    eth2: 14
+                priority: 22
+                stp: false

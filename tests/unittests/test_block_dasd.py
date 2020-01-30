@@ -12,7 +12,7 @@ from .helpers import CiTestCase
 def random_device_id():
     return "%x.%x.%04x" % (random.randint(0, 255),
                            random.randint(0, 255),
-                           random.randint(1, 0x10000))
+                           random.randint(1, 0x10000 - 1))
 
 
 class TestDasdValidDeviceId(CiTestCase):

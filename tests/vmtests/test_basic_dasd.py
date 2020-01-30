@@ -38,8 +38,10 @@ class TestBasicDasd(VMBaseClass):
         """)]
 
     def test_output_files_exist(self):
-        self.output_files_exist(["sfdisk_list", "blkid",
-                                 "proc_partitions"])
+        files_to_check = ["sfdisk_list", "blkid", "proc_partitions"]
+        if self.target_release != "xenial":
+            files_to_check.append('netplan.yaml')
+        self.output_files_exist(files_to_check)
 
 
 class XenialGATestBasicDasd(relbase.xenial, TestBasicDasd):
@@ -49,21 +51,17 @@ class XenialGATestBasicDasd(relbase.xenial, TestBasicDasd):
 class BionicTestBasicDasd(relbase.bionic, TestBasicDasd):
     __test__ = True
 
-    def test_output_files_exist(self):
-        self.output_files_exist(["netplan.yaml"])
-
 
 class DiscoTestBasicDasd(relbase.disco, TestBasicDasd):
     __test__ = True
-
-    def test_output_files_exist(self):
-        self.output_files_exist(["netplan.yaml"])
 
 
 class EoanTestBasicDasd(relbase.eoan, TestBasicDasd):
     __test__ = True
 
-    def test_output_files_exist(self):
-        self.output_files_exist(["netplan.yaml"])
+
+class FocalTestBasicDasd(relbase.focal, TestBasicDasd):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

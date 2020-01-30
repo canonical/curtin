@@ -11,6 +11,7 @@ import textwrap
 
 class TestMultipathBasicAbs(VMBaseClass):
     conf_file = "examples/tests/multipath.yaml"
+    dirty_disks = True
     test_type = 'storage'
     multipath = True
     disk_driver = 'scsi-hd'
@@ -86,5 +87,10 @@ class DiscoTestMultipathBasic(relbase.disco, TestMultipathBasicAbs):
 
 class EoanTestMultipathBasic(relbase.eoan, TestMultipathBasicAbs):
     __test__ = True
+
+
+class FocalTestMultipathBasic(relbase.focal, TestMultipathBasicAbs):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

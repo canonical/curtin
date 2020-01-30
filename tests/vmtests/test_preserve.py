@@ -32,4 +32,9 @@ class DiscoTestPreserve(relbase.disco, TestPreserve):
 class EoanTestPreserve(relbase.eoan, TestPreserve):
     __test__ = True
 
+
+class FocalTestPreserve(relbase.focal, TestPreserve):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

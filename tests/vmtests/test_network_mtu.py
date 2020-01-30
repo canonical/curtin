@@ -8,18 +8,21 @@ import textwrap
 import unittest
 
 
+NETWORKD_NO_AUTO_RAISE_MTU = (
+    "networkd does not support auto raising iface mtu")
+
+
 class TestNetworkMtuAbs(TestNetworkIPV6Abs):
-    """ Test that the mtu of the ipv6 address is properly
+    """ Test that the mtu of the ipv6 address is properly set.
 
     1.  devices default MTU to 1500, test if mtu under
         inet6 stanza can be set separately from device
-        mtu (works on  and newer ifupdown), check
-        via sysctl.
+        mtu (works newer ifupdown), check via sysctl.
 
     2.  if ipv6 mtu is > than underlying device, this fails
         and is unnoticed, ifupdown/hook should fix by changing
         mtu of underlying device to the same size as the ipv6
-        mtu
+        mtu.  This only works in ifupdown renderers.
 
     3.  order of the v4 vs. v6 stanzas could affect final mtu
         ipv6 first, then ipv4 with mtu.
@@ -28,10 +31,15 @@ class TestNetworkMtuAbs(TestNetworkIPV6Abs):
     extra_collect_scripts = TestNetworkIPV6Abs.extra_collect_scripts + [
         textwrap.dedent("""
         cd OUTPUT_COLLECT_D
+        # restart networkd after all interfaces are up
+        # systemctl restart systemd-networkd.service
+        [ -e /usr/local/bin/capture-mtu ] && /usr/local/bin/capture-mtu
+        echo "collecting mtu now"
         proc_v6="/proc/sys/net/ipv6/conf"
         for f in `seq 0 7`; do
-            cat /sys/class/net/interface${f}/mtu |tee interface${f}_dev_mtu;
-            cat $proc_v6/interface${f}/mtu |tee interface${f}_ipv6_mtu;
+            echo "WARK: checking interface${f} MTU values"
+            cat /sys/class/net/interface${f}/mtu |tee -a interface${f}_dev_mtu;
+            cat $proc_v6/interface${f}/mtu |tee -a interface${f}_ipv6_mtu;
         done
         if [ -e /var/log/upstart ]; then
           cp -a /var/log/upstart ./var_log_upstart
@@ -54,6 +62,10 @@ class TestNetworkMtuAbs(TestNetworkIPV6Abs):
             mtu_val.update({fnk: int(self.load_collect_file(mtu_fn[fnk]))})
 
         return mtu_val
+
+    def _skip_if_not_ifupdown(self, reason):
+        if self._network_renderer() != "ifupdown":
+            raise unittest.SkipTest(reason)
 
     def _check_subnet_mtu(self, subnet, iface):
         mtu_data = self._load_mtu_data(iface['name'])
@@ -103,9 +115,11 @@ class TestNetworkMtuAbs(TestNetworkIPV6Abs):
         self._check_iface_subnets('interface1')
 
     def test_ipv6_mtu_higher_than_default_no_ipv4_mtu(self):
+        self._skip_if_not_ifupdown(NETWORKD_NO_AUTO_RAISE_MTU)
         self._check_iface_subnets('interface2')
 
     def test_ipv6_mtu_higher_than_default_no_ipv4_iface_up(self):
+        self._skip_if_not_ifupdown(NETWORKD_NO_AUTO_RAISE_MTU)
         self._check_iface_subnets('interface3')
 
     def test_ipv6_mtu_smaller_than_ipv4_v6_iface_first(self):
@@ -115,9 +129,11 @@ class TestNetworkMtuAbs(TestNetworkIPV6Abs):
         self._check_iface_subnets('interface5')
 
     def test_ipv6_mtu_higher_than_default_no_ipv4_mtu_v6_iface_first(self):
+        self._skip_if_not_ifupdown(NETWORKD_NO_AUTO_RAISE_MTU)
         self._check_iface_subnets('interface6')
 
     def test_ipv6_mtu_higher_than_default_no_ipv4_iface_v6_iface_first(self):
+        self._skip_if_not_ifupdown(NETWORKD_NO_AUTO_RAISE_MTU)
         self._check_iface_subnets('interface7')
 
 
@@ -165,20 +181,36 @@ class TestNetworkMtu(relbase.xenial, TestNetworkMtuAbs):
     __test__ = True
 
 
-@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2019-10-02")
 class BionicTestNetworkMtu(relbase.bionic, TestNetworkMtuAbs):
+    conf_file = "examples/tests/network_mtu_networkd.yaml"
     __test__ = True
+    # Until systemd is released with the fix for LP:#1671951
+    add_repos = "ppa:ddstreet/systemd"
+    upgrade_packages = "cloud-init,systemd"
 
 
-@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2019-10-02")
-@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2019-10-02")
 class DiscoTestNetworkMtu(relbase.disco, TestNetworkMtuAbs):
+    conf_file = "examples/tests/network_mtu_networkd.yaml"
     __test__ = True
+    # Until systemd is released with the fix for LP:#1671951
+    add_repos = "ppa:ddstreet/systemd"
+    upgrade_packages = "cloud-init,systemd"
 
 
-@TestNetworkMtuAbs.skip_by_date("1671951", fixby="2019-10-02")
 class EoanTestNetworkMtu(relbase.eoan, TestNetworkMtuAbs):
+    conf_file = "examples/tests/network_mtu_networkd.yaml"
     __test__ = True
+    # Until systemd is released with the fix for LP:#1671951
+    add_repos = "ppa:ddstreet/systemd"
+    upgrade_packages = "cloud-init,systemd"
+
+
+class FocalTestNetworkMtu(relbase.focal, TestNetworkMtuAbs):
+    conf_file = "examples/tests/network_mtu_networkd.yaml"
+    __test__ = True
+    # Until systemd is released with the fix for LP:#1671951
+    add_repos = "ppa:ddstreet/systemd"
+    upgrade_packages = "cloud-init,systemd"
 
 
 class Centos66TestNetworkMtu(centos_relbase.centos66_xenial,

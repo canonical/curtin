@@ -393,7 +393,8 @@ Enable rebooting with kexec.
 
 **Example**::
 
-  kexec: on
+  kexec:
+    mode: "on"
 
 
 multipath
@@ -555,6 +556,7 @@ configures the method used to copy the image to the target system.
 - **dd-**:  Use ``dd`` command to write image to target.
 - **cp://**: Use ``rsync`` command to copy source directory to target.
 - **file://**: Use ``tar`` command to extract source to target.
+- **squashfs://**: Mount squashfs image and copy contents to target.
 - **http[s]://**: Use ``wget | tar`` commands to extract source to target.
 - **fsimage://** mount filesystem image and copy contents to target.
   Local file or url are supported. Filesystem can be any filesystem type
@@ -649,6 +651,9 @@ This results in Curtin downloading the following URLs::
   sources: 
     - cp:///
 
+**Example squashfs from NFS mount**::
+  sources:
+    - squashfs:///media/filesystem.squashfs
 
 **Example Copy from local tarball**::
 

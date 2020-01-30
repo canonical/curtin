@@ -1,4 +1,5 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
+import copy
 import json
 from .helpers import CiTestCase, skipUnlessJsonSchema
 from curtin import storage_config
@@ -42,6 +43,16 @@ class TestStorageConfigSchema(CiTestCase):
         config = {'config': [disk], 'version': 1}
         storage_config.validate_config(config)
 
+    @skipUnlessJsonSchema()
+    def test_disk_schema_accepts_missing_ptable(self):
+        disk = {
+            "id": "disk-vdc",
+            "path": "/dev/vdc",
+            "type": "disk",
+        }
+        config = {'config': [disk], 'version': 1}
+        storage_config.validate_config(config)
+
 
 class TestProbertParser(CiTestCase):
 
@@ -71,22 +82,21 @@ class TestProbertParser(CiTestCase):
         self.assertDictEqual(probe_data['blockdev'],
                              getattr(bdp, 'blockdev_data'))
 
-    def test_probert_parser_missing_required_probe_data_key_raises(self):
-        """ ProbertParser raises ValueError when probe_data_key_data gone. """
+    def test_probert_parser_handles_missing_required_probe_data_key(self):
+        """ ProbertParser handles missing probe_data_key_data. """
         key = self.random_string()
         probe_data = {'blockdev': {self.random_string(): self.random_string()}}
 
         class bdparser(baseparser):
             probe_data_key = key
 
-        with self.assertRaises(ValueError):
-            bdparser(probe_data)
+        self.assertIsNotNone(bdparser(probe_data))
 
 
 def _get_data(datafile):
     data = util.load_file('tests/data/%s' % datafile)
     jdata = json.loads(data)
-    return jdata.get('storage')
+    return jdata.get('storage') if 'storage' in jdata else jdata
 
 
 class TestBcacheParser(CiTestCase):
@@ -122,11 +132,13 @@ class TestBcacheParser(CiTestCase):
         self.assertDictEqual(self.probe_data['bcache']['caching'],
                              bcachep.caching)
 
-    def test_bcache_parse_raise_err_no_blockdev_data(self):
-        """ BcacheParser raises ValueError on missing 'blockdev' dict."""
+    def test_bcache_parse_tolerates_missing_blockdev_data(self):
+        """ BcacheParser  ValueError on missing 'blockdev' dict."""
         del(self.probe_data['blockdev'])
-        with self.assertRaises(ValueError):
-            BcacheParser(self.probe_data)
+        b = BcacheParser(self.probe_data)
+        (configs, errors) = b.parse()
+        self.assertEqual([], configs)
+        self.assertEqual([], errors)
 
     @skipUnlessJsonSchema()
     def test_bcache_parse_extracts_bcache(self):
@@ -373,6 +385,43 @@ class TestBlockdevParser(CiTestCase):
         }
         self.assertDictEqual(expected_dict,
                              self.bdevp.asdict(blockdev))
+
+    def test_blockdev_asdict_disk_marks_unknown_ptable_as_unspported(self):
+        blockdev = self.bdevp.blockdev_data['/dev/sda']
+        expected_dict = {
+            'id': 'disk-sda',
+            'type': 'disk',
+            'wwn': '0x3001438034e549a0',
+            'serial': '33001438034e549a0',
+            'ptable': 'unsupported',
+            'path': '/dev/sda',
+        }
+        for invalid in ['mac', 'PMBR']:
+            blockdev['ID_PART_TABLE_TYPE'] = invalid
+            self.assertDictEqual(expected_dict,
+                                 self.bdevp.asdict(blockdev))
+
+    def test_blockdev_detects_multipath(self):
+        self.probe_data = _get_data('probert_storage_multipath.json')
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/sda2']
+        expected_dict = {
+            'flag': 'linux',
+            'id': 'partition-sda2',
+            'offset': 2097152,
+            'multipath': 'mpatha',
+            'size': 10734272512,
+            'type': 'partition',
+            'device': 'disk-sda',
+            'number': 2}
+        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
+
+    def test_blockdev_finds_multipath_id_from_dm_uuid(self):
+        self.probe_data = _get_data('probert_storage_zlp6.json')
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/dm-2']
+        result = self.bdevp.blockdev_to_id(blockdev)
+        self.assertEqual('disk-sda', result)
 
 
 class TestFilesystemParser(CiTestCase):
@@ -667,6 +716,62 @@ class TestExtractStorageConfig(CiTestCase):
                          'config': [{'id': 'disk-sda', 'path': '/dev/sda',
                                      'serial': 'QEMU_HARDDISK_QM00001',
                                      'type': 'disk'}]}}, extracted)
+
+    @skipUnlessJsonSchema()
+    def test_probe_handles_missing_keys(self):
+        """ verify extract handles missing probe_data keys """
+        for missing_key in self.probe_data.keys():
+            probe_data = copy.deepcopy(self.probe_data)
+            del probe_data[missing_key]
+            extracted = storage_config.extract_storage_config(probe_data)
+            if missing_key != 'blockdev':
+                self.assertEqual(
+                    {'storage':
+                        {'version': 1,
+                         'config': [{'id': 'disk-sda', 'path': '/dev/sda',
+                                     'serial': 'QEMU_HARDDISK_QM00001',
+                                     'type': 'disk'}]}}, extracted)
+            else:
+                # empty config without blockdev data
+                self.assertEqual({'storage': {'config': [], 'version': 1}},
+                                 extracted)
+
+    @skipUnlessJsonSchema()
+    def test_find_all_multipath(self):
+        """ verify probed multipath paths are included in config. """
+        self.probe_data = _get_data('probert_storage_multipath.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        config = extracted['storage']['config']
+        blockdev = self.probe_data['blockdev']
+
+        for mpmap in self.probe_data['multipath']['maps']:
+            nr_disks = int(mpmap['paths'])
+            mp_name = blockdev['/dev/%s' % mpmap['sysfs']]['DM_NAME']
+            matched_disks = [cfg for cfg in config
+                             if cfg['type'] == 'disk' and
+                             cfg.get('multipath', '') == mp_name]
+            self.assertEqual(nr_disks, len(matched_disks))
+
+    @skipUnlessJsonSchema()
+    def test_find_raid_partition(self):
+        """ verify probed raid partitions are found. """
+        self.probe_data = _get_data('probert_storage_raid1_partitions.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        config = extracted['storage']['config']
+        raids = [cfg for cfg in config if cfg['type'] == 'raid']
+        raid_partitions = [cfg for cfg in config
+                           if cfg['type'] == 'partition' and
+                           cfg['id'].startswith('raid')]
+        self.assertEqual(1, len(raids))
+        self.assertEqual(1, len(raid_partitions))
+        self.assertEqual({'id': 'raid-md1', 'type': 'raid',
+                          'raidlevel': 'raid1', 'name': 'md1',
+                          'devices': ['partition-vdb1', 'partition-vdc1'],
+                          'spare_devices': []}, raids[0])
+        self.assertEqual({'id': 'raid-md1p1', 'type': 'partition',
+                          'size': 4285530112, 'flag': 'linux', 'number': 1,
+                          'device': 'raid-md1', 'offset': 1048576},
+                         raid_partitions[0])
 
 
 # vi: ts=4 expandtab syntax=python

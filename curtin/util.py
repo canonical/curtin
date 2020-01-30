@@ -632,7 +632,7 @@ class ChrootableTarget(object):
         if mounts is not None:
             self.mounts = mounts
         else:
-            self.mounts = ["/dev", "/proc", "/sys"]
+            self.mounts = ["/dev", "/proc", "/run", "/sys"]
         self.umounts = []
         self.disabled_daemons = False
         self.allow_daemons = allow_daemons
@@ -906,8 +906,9 @@ def sanitize_source(source):
     if type(source) is dict:
         # already sanitized?
         return source
-    supported = ['tgz', 'dd-tgz', 'dd-tbz', 'dd-txz', 'dd-tar', 'dd-bz2',
-                 'dd-gz', 'dd-xz', 'dd-raw', 'fsimage', 'fsimage-layered']
+    supported = ['tgz', 'dd-tgz', 'tbz', 'dd-tbz', 'txz', 'dd-txz', 'dd-tar',
+                 'dd-bz2', 'dd-gz', 'dd-xz', 'dd-raw', 'fsimage',
+                 'fsimage-layered']
     deftype = 'tgz'
     for i in supported:
         prefix = i + ":"
@@ -915,8 +916,14 @@ def sanitize_source(source):
             return {'type': i, 'uri': source[len(prefix):]}
 
     # translate squashfs: to fsimage type.
-    if source.startswith("squashfs:"):
-        return {'type': 'fsimage', 'uri': source[len("squashfs:")]}
+    if source.startswith("squashfs://"):
+        return {'type': 'fsimage', 'uri': source[len("squashfs://"):]}
+
+    elif source.startswith("squashfs:"):
+        LOG.warning("The squashfs: prefix is deprecated and"
+                    "will be removed in a future release."
+                    "Please use squashfs:// instead.")
+        return {'type': 'fsimage', 'uri': source[len("squashfs:"):]}
 
     if source.endswith("squashfs") or source.endswith("squash"):
         return {'type': 'fsimage', 'uri': source}

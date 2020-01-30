@@ -298,7 +298,9 @@ class TestCreateTar(CiTestCase):
             'install': {'log_file': log1, 'post_files': [log2, absent_log]}}
         self.add_patch('shutil.copy', 'm_copy')
         with mock.patch('sys.stderr') as m_stderr:
-            collect_logs.create_log_tarfile(tarfile, config=config)
+            with mock.patch('curtin.commands.collect_logs.datetime') as m_dt:
+                m_dt.utcnow.return_value = self.utcnow
+                collect_logs.create_log_tarfile(tarfile, config=config)
         self.assertIn(
             mock.call(
                 'Skipping logfile %s: file does not exist\n' % absent_log),

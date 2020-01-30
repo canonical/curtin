@@ -1,3 +1,5 @@
+# This file is part of curtin. See LICENSE file for copyright and license info.
+
 from . import VMBaseClass, check_install_log, skip_if_flag
 from .releases import base_vm_classes as relbase
 
@@ -74,7 +76,8 @@ class UnsupportedZfs(VMBaseClass):
 class XenialGAi386TestZfsRoot(relbase.xenial_ga, TestZfsRootAbs,
                               UnsupportedZfs):
     __test__ = True
-    arch = 'i386'
+    arch_skip = ["arm64", "ppc64el", "s390x"]
+    target_arch = 'i386'
 
 
 class XenialGATestZfsRoot(relbase.xenial_ga, TestZfsRootAbs):
@@ -103,6 +106,11 @@ class EoanTestZfsRoot(relbase.eoan, TestZfsRootAbs):
     mem = 4096
 
 
+class FocalTestZfsRoot(relbase.focal, TestZfsRootAbs):
+    __test__ = True
+    mem = 4096
+
+
 class TestZfsRootFsTypeAbs(TestZfsRootAbs):
     conf_file = "examples/tests/basic-zfsroot.yaml"
 
@@ -114,7 +122,8 @@ class XenialGATestZfsRootFsType(relbase.xenial_ga, TestZfsRootFsTypeAbs):
 class XenialGAi386TestZfsRootFsType(relbase.xenial_ga, TestZfsRootFsTypeAbs,
                                     UnsupportedZfs):
     __test__ = True
-    arch = 'i386'
+    arch_skip = ["arm64", "ppc64el", "s390x"]
+    target_arch = 'i386'
 
 
 class BionicTestZfsRootFsType(relbase.bionic, TestZfsRootFsTypeAbs):
@@ -129,3 +138,10 @@ class DiscoTestZfsRootFsType(relbase.disco, TestZfsRootFsTypeAbs):
 class EoanTestZfsRootFsType(relbase.eoan, TestZfsRootFsTypeAbs):
     __test__ = True
     mem = 4096
+
+
+class FocalTestZfsRootFsType(relbase.focal, TestZfsRootFsTypeAbs):
+    __test__ = True
+    mem = 4096
+
+# vi: ts=4 expandtab syntax=python

@@ -6,6 +6,7 @@ from curtin.util import get_platform_arch
 class _ReleaseBase(object):
     repo = "maas-daily"
     arch = get_platform_arch()
+    target_arch = arch
     mem = "1024"
 
 
@@ -16,6 +17,7 @@ class _UbuntuBase(_ReleaseBase):
 
 
 class _CentosFromUbuntuBase(_UbuntuBase):
+    arch_skip = ['arm64', 'ppc64el']
     # base for installing centos tarballs from ubuntu base
     target_distro = "centos"
     target_ftype = "root-tgz"
@@ -43,6 +45,13 @@ class _Centos70FromBionicBase(_CentosFromUbuntuBase):
     target_release = "centos70"
 
 
+class _Centos70FromFocalBase(_CentosFromUbuntuBase):
+    # release for boot
+    release = "focal"
+    # release for target
+    target_release = "centos70"
+
+
 class _UbuntuCore16FromXenialBase(_UbuntuCoreUbuntuBase):
     # release for boot
     release = "xenial"
@@ -58,6 +67,11 @@ class _Centos66FromXenialBase(_CentosFromUbuntuBase):
 
 class _Centos66FromBionicBase(_CentosFromUbuntuBase):
     release = "bionic"
+    target_release = "centos66"
+
+
+class _Centos66FromFocalBase(_CentosFromUbuntuBase):
+    release = "focal"
     target_release = "centos66"
 
 
@@ -119,11 +133,16 @@ class _XenialEdge(_XenialBase):
 class _BionicBase(_UbuntuBase):
     release = "bionic"
     target_release = "bionic"
+    mem = "2048"
+    if _UbuntuBase.arch == "arm64":
+        subarch = "ga-18.04"
 
 
 class _CosmicBase(_UbuntuBase):
     release = "cosmic"
     target_release = "cosmic"
+    if _UbuntuBase.arch == "arm64":
+        subarch = "ga-18.10"
 
 
 class _DiscoBase(_UbuntuBase):
@@ -131,12 +150,24 @@ class _DiscoBase(_UbuntuBase):
     target_release = "disco"
     # squashfs is over 300MB, need more ram
     mem = "2048"
+    if _UbuntuBase.arch == "arm64":
+        subarch = "ga-19.04"
 
 
 class _EoanBase(_UbuntuBase):
     release = "eoan"
     target_release = "eoan"
     mem = "2048"
+    if _UbuntuBase.arch == "arm64":
+        subarch = "ga-19.10"
+
+
+class _FocalBase(_UbuntuBase):
+    release = "focal"
+    target_release = "focal"
+    mem = "2048"
+    if _UbuntuBase.arch == "arm64":
+        subarch = "ga-20.04"
 
 
 class _Releases(object):
@@ -156,6 +187,7 @@ class _Releases(object):
     cosmic = _CosmicBase
     disco = _DiscoBase
     eoan = _EoanBase
+    focal = _FocalBase
 
 
 class _CentosReleases(object):
@@ -163,6 +195,8 @@ class _CentosReleases(object):
     centos66_xenial = _Centos66FromXenialBase
     centos70_bionic = _Centos70FromBionicBase
     centos66_bionic = _Centos66FromBionicBase
+    centos70_focal = _Centos70FromFocalBase
+    centos66_focal = _Centos66FromFocalBase
 
 
 class _UbuntuCoreReleases(object):

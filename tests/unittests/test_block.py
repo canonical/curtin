@@ -103,6 +103,32 @@ class TestBlock(CiTestCase):
             mock_os_listdir.return_value = ["other"]
             block.lookup_disk(serial)
 
+    @mock.patch("curtin.block.multipath")
+    @mock.patch("curtin.block.os.path.realpath")
+    @mock.patch("curtin.block.os.path.exists")
+    @mock.patch("curtin.block.os.listdir")
+    def test_lookup_disk_find_wwn(self, mock_os_listdir, mock_os_path_exists,
+                                  mock_os_path_realpath, mock_mpath):
+        wwn = "eui.0025388b710116a1"
+        expected_link = 'nvme-%s' % wwn
+        device = '/wark/nvme0n1'
+        mock_os_listdir.return_value = [
+            "nvme-eui.0025388b710116a1",
+            "nvme-eui.0025388b710116a1-part1",
+            "nvme-eui.0025388b710116a1-part2",
+        ]
+        mock_os_path_exists.return_value = True
+        mock_os_path_realpath.return_value = device
+        mock_mpath.is_mpath_device.return_value = False
+
+        path = block.lookup_disk(wwn)
+
+        mock_os_listdir.assert_called_with("/dev/disk/by-id/")
+        mock_os_path_realpath.assert_called_with("/dev/disk/by-id/" +
+                                                 expected_link)
+        self.assertTrue(mock_os_path_exists.called)
+        self.assertEqual(device, path)
+
     @mock.patch('curtin.block.udevadm_info')
     def test_get_device_mapper_links_returns_first_non_none(self, m_info):
         """ get_device_mapper_links returns first by sort entry in DEVLINKS."""

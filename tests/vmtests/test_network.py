@@ -480,6 +480,10 @@ class EoanTestNetworkBasic(relbase.eoan, TestNetworkBasicAbs):
     __test__ = True
 
 
+class FocalTestNetworkBasic(relbase.focal, TestNetworkBasicAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkBasic(centos_relbase.centos66_xenial,
                                CentosTestNetworkBasicAbs):
     __test__ = True

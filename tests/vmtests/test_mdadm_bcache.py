@@ -22,7 +22,8 @@ class TestMdadmAbs(VMBaseClass):
         ls -1 /dev/md* | tee dev_md
         ls -al /sys/fs/bcache/* > lsal_sys_fs_bcache_star
         ls -al /dev/bcache* > lsal_dev_bcache_star
-        ls -al /dev/bcache/by_uuid/* > lsal_dev_bcache_byuuid_star
+        ls -al /dev/bcache/by-uuid/ | cat >ls_al_bcache_byuuid
+        ls -al /dev/bcache/by-label/ | cat >ls_al_bcache_bylabel
 
         exit 0
         """)]
@@ -69,13 +70,20 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
 
         exit 0
         """)]
-    fstab_expected = {
-        '/dev/vda1': '/media/sda1',
-        '/dev/vda7': '/boot',
-        '/dev/bcache1': '/media/data',
-        '/dev/bcache0': '/media/bcache_normal',
-        '/dev/bcache2': '/media/bcachefoo_fulldiskascache_storage'
-    }
+
+    def get_fstab_expected(self):
+        rootdev = self._serial_to_kname('disk-a')
+        data_kname = self._dname_to_kname('cached_array')
+        normal_kname = self._dname_to_kname('cached_array_2')
+        fulldisk_kname = self._dname_to_kname('cached_array_3')
+        return [
+            (self._kname_to_byuuid(rootdev + '2'), '/', 'defaults'),
+            (self._bcache_to_byuuid(data_kname), '/media/data', 'defaults'),
+            (self._bcache_to_byuuid(normal_kname),
+             '/media/bcache_normal', 'defaults'),
+            (self._bcache_to_byuuid(fulldisk_kname),
+             '/media/bcachefoo_fulldiskascache_storage', 'defaults'),
+        ]
 
     def test_bcache_output_files_exist(self):
         self.output_files_exist(["bcache_super_vda6",
@@ -151,6 +159,10 @@ class EoanTestMdadmBcache(relbase.eoan, TestMdadmBcacheAbs):
     __test__ = True
 
 
+class FocalTestMdadmBcache(relbase.focal, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot.yaml"
@@ -160,6 +172,11 @@ class TestMirrorbootAbs(TestMdadmAbs):
                      ('main_disk', 2),
                      ('second_disk', 1),
                      ('md0', 0)]
+
+    def get_fstab_expected(self):
+        return [
+            (self._kname_to_uuid_devpath('md-uuid', 'md0'), '/', 'defaults')
+        ]
 
 
 class Centos70TestMirrorboot(centos_relbase.centos70_xenial,
@@ -191,6 +208,10 @@ class EoanTestMirrorboot(relbase.eoan, TestMirrorbootAbs):
     __test__ = True
 
 
+class FocalTestMirrorboot(relbase.focal, TestMirrorbootAbs):
+    __test__ = True
+
+
 class TestMirrorbootPartitionsAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot-msdos-partition.yaml"
@@ -199,6 +220,11 @@ class TestMirrorbootPartitionsAbs(TestMdadmAbs):
     disk_to_check = [('main_disk', 1),
                      ('second_disk', 1),
                      ('md0', 2)]
+
+    def get_fstab_expected(self):
+        return [
+            (self._kname_to_uuid_devpath('md-uuid', 'md0'), '/', 'defaults')
+        ]
 
 
 class Centos70TestMirrorbootPartitions(centos_relbase.centos70_xenial,
@@ -236,6 +262,11 @@ class EoanTestMirrorbootPartitions(relbase.eoan,
     __test__ = True
 
 
+class FocalTestMirrorbootPartitions(relbase.focal,
+                                    TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
 class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot-uefi.yaml"
@@ -249,6 +280,14 @@ class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
     uefi = True
     nr_cpus = 2
     dirty_disks = True
+
+    def get_fstab_expected(self):
+        return [
+            (self._kname_to_uuid_devpath('md-uuid', 'md0'),
+             '/', 'defaults'),
+            (self._kname_to_uuid_devpath('md-uuid', 'md1'),
+             '/var', 'defaults'),
+        ]
 
 
 class Centos70TestMirrorbootPartitionsUEFI(centos_relbase.centos70_xenial,
@@ -286,6 +325,11 @@ class EoanTestMirrorbootPartitionsUEFI(relbase.eoan,
     __test__ = True
 
 
+class FocalTestMirrorbootPartitionsUEFI(relbase.focal,
+                                        TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
@@ -296,6 +340,11 @@ class TestRaid5bootAbs(TestMdadmAbs):
                      ('second_disk', 1),
                      ('third_disk', 1),
                      ('md0', 0)]
+
+    def get_fstab_expected(self):
+        return [
+            (self._kname_to_uuid_devpath('md-uuid', 'md0'), '/', 'defaults'),
+        ]
 
 
 class Centos70TestRaid5boot(centos_relbase.centos70_xenial, TestRaid5bootAbs):
@@ -326,6 +375,10 @@ class EoanTestRaid5boot(relbase.eoan, TestRaid5bootAbs):
     __test__ = True
 
 
+class FocalTestRaid5boot(relbase.focal, TestRaid5bootAbs):
+    __test__ = True
+
+
 class TestRaid6bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid6boot.yaml"
@@ -352,6 +405,11 @@ class TestRaid6bootAbs(TestMdadmAbs):
     def test_mdadm_custom_name(self):
         # the raid6boot.yaml sets this name, check if it was set
         self.check_file_regex("mdadm_detail", r"ubuntu:foobar")
+
+    def get_fstab_expected(self):
+        return [
+            (self._kname_to_uuid_devpath('md-uuid', 'md0'), '/', 'defaults'),
+        ]
 
 
 class Centos70TestRaid6boot(centos_relbase.centos70_xenial, TestRaid6bootAbs):
@@ -382,6 +440,10 @@ class EoanTestRaid6boot(relbase.eoan, TestRaid6bootAbs):
     __test__ = True
 
 
+class FocalTestRaid6boot(relbase.focal, TestRaid6bootAbs):
+    __test__ = True
+
+
 class TestRaid10bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid10boot.yaml"
@@ -393,6 +455,11 @@ class TestRaid10bootAbs(TestMdadmAbs):
                      ('third_disk', 1),
                      ('fourth_disk', 1),
                      ('md0', 0)]
+
+    def get_fstab_expected(self):
+        return [
+            (self._kname_to_uuid_devpath('md-uuid', 'md0'), '/', 'defaults'),
+        ]
 
 
 class Centos70TestRaid10boot(centos_relbase.centos70_xenial,
@@ -421,6 +488,10 @@ class DiscoTestRaid10boot(relbase.disco, TestRaid10bootAbs):
 
 
 class EoanTestRaid10boot(relbase.eoan, TestRaid10bootAbs):
+    __test__ = True
+
+
+class FocalTestRaid10boot(relbase.focal, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -474,10 +545,6 @@ class TestAllindataAbs(TestMdadmAbs):
 
         exit 0
         """)])
-    fstab_expected = {
-        '/dev/vg1/lv1': '/srv/data',
-        '/dev/vg1/lv2': '/srv/backup',
-    }
 
     def test_output_files_exist(self):
         self.output_files_exist(["pvs", "lvs", "crypttab", "mapper",
@@ -498,6 +565,14 @@ class TestAllindataAbs(TestMdadmAbs):
         self.check_file_regex("crypttab", r"dmcrypt0.*luks")
         self.check_file_regex("mapper", r"^lrwxrwxrwx.*/dev/mapper/dmcrypt0")
         self.check_file_regex("xfs_info", r"^meta-data=/dev/mapper/dmcrypt0")
+
+    def get_fstab_expected(self):
+        return [
+            (self._kname_to_uuid_devpath('dm-uuid', 'dm-0'),
+             '/srv/data', 'defaults'),
+            (self._kname_to_uuid_devpath('dm-uuid', 'dm-1'),
+             '/srv/backup', 'defaults'),
+        ]
 
 
 class XenialGATestAllindata(relbase.xenial_ga, TestAllindataAbs):
@@ -522,5 +597,10 @@ class DiscoTestAllindata(relbase.disco, TestAllindataAbs):
 
 class EoanTestAllindata(relbase.eoan, TestAllindataAbs):
     __test__ = True
+
+
+class FocalTestAllindata(relbase.focal, TestAllindataAbs):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

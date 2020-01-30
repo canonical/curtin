@@ -32,4 +32,9 @@ class DiscoTestPreserveRAID(relbase.disco, TestPreserveRAID):
 class EoanTestPreserveRAID(relbase.eoan, TestPreserveRAID):
     __test__ = True
 
+
+class FocalTestPreserveRAID(relbase.focal, TestPreserveRAID):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python
