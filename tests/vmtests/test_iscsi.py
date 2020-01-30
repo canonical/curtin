@@ -21,6 +21,7 @@ class TestBasicIscsiAbs(VMBaseClass):
     extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
         cp -a /etc/iscsi ./etc_iscsi
+        lsblk -O --json > lsblk_o.json
         bash -c \
         'for f in /mnt/iscsi*; do cp $f/testfile testfile${f: -1}; done'
 

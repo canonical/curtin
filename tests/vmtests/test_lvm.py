@@ -4,7 +4,6 @@ from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 
-import os
 import textwrap
 
 
@@ -21,28 +20,11 @@ class TestLvmAbs(VMBaseClass):
 
         exit 0
         """)]
-    fstab_expected = {
-        '/dev/vg1/lv1': '/srv/data',
-        '/dev/vg1/lv2': '/srv/backup',
-    }
     disk_to_check = [('main_disk', 1),
                      ('main_disk', 5),
                      ('main_disk', 6),
                      ('vg1-lv1', 0),
                      ('vg1-lv2', 0)]
-
-    def _dname_to_kname(self, dname):
-        # extract kname from /dev/disk/by-dname on /dev/<kname>
-        # parsing ls -al output on /dev/disk/by-dname:
-        # lrwxrwxrwx. 1 root root   9 Jun  3 21:16 iscsi_disk1 -> ../../sdb
-        ls_bydname = self.load_collect_file("ls_al_bydname")
-        kname = [os.path.basename(line.split()[10])
-                 for line in ls_bydname.split('\n')
-                 if dname in line.split()]
-        self.assertEqual(len(kname), 1)
-        kname = kname.pop()
-        self.assertTrue(kname is not None)
-        return kname
 
     def _test_pvs(self, dname_to_vg):
         for dname, vg in dname_to_vg.items():
@@ -63,6 +45,16 @@ class TestLvmAbs(VMBaseClass):
     def test_output_files_exist(self):
         self.output_files_exist(
             ["fstab", "ls_dname"])
+
+    def get_fstab_expected(self):
+        data_kname = self._dname_to_kname('vg1-lv1')
+        srv_kname = self._dname_to_kname('vg1-lv2')
+        return [
+            (self._kname_to_uuid_devpath('dm-uuid', data_kname),
+             '/srv/data', 'defaults'),
+            (self._kname_to_uuid_devpath('dm-uuid', srv_kname),
+             '/srv/backup', 'defaults'),
+        ]
 
 
 class Centos70XenialTestLvm(centos_relbase.centos70_xenial, TestLvmAbs):

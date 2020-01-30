@@ -673,7 +673,10 @@ def copy_fstab(fstab, target):
         LOG.warn("fstab variable not in state, not copying fstab")
         return
 
-    shutil.copy(fstab, os.path.sep.join([target, 'etc/fstab']))
+    content = util.load_file(fstab)
+    header = distro.fstab_header()
+    util.write_file(os.path.sep.join([target, 'etc/fstab']),
+                    content="%s\n%s" % (header, content))
 
 
 def copy_crypttab(crypttab, target):

@@ -8,7 +8,6 @@ from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 
 import textwrap
-import os
 from unittest import SkipTest
 
 
@@ -60,35 +59,6 @@ class TestBasicAbs(VMBaseClass):
         exit 0
         """)]
 
-    def _kname_to_uuid(self, kname):
-        # extract uuid from /dev/disk/by-uuid on /dev/<kname>
-        # parsing ls -al output on /dev/disk/by-uuid:
-        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
-        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
-        ls_uuid = self.load_collect_file("ls_al_byuuid")
-        uuid = [line.split()[8] for line in ls_uuid.split('\n')
-                if ("../../" + kname) in line.split()]
-        self.assertEqual(len(uuid), 1)
-        uuid = uuid.pop()
-        self.assertIsNotNone(uuid)
-        self.assertEqual(len(uuid), 36)
-        return uuid
-
-    def _serial_to_kname(self, serial):
-        # extract kname from /dev/disk/by-id on /dev/<kname>
-        # parsing ls -al output on /dev/disk/by-id:
-        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
-        #  virtio-disk-a -> ../../vda
-        ls_byid = self.load_collect_file("ls_al_byid")
-        kname = [os.path.basename(line.split()[10])
-                 for line in ls_byid.split('\n')
-                 if ("virtio-" + serial) in line.split() or
-                    ("scsi-" + serial) in line.split()]
-        self.assertEqual(len(kname), 1)
-        kname = kname.pop()
-        self.assertIsNotNone(kname)
-        return kname
-
     def _test_ptable(self, blkid_output, expected):
         if self.target_release == "centos66":
             raise SkipTest("No PTTYPE blkid output on Centos66")
@@ -111,27 +81,6 @@ class TestBasicAbs(VMBaseClass):
             if disk in line:
                 found.append(line.split()[3])
         self.assertEqual(expected, found)
-
-    def _test_fstab_entries(self, fstab, byuuid, expected):
-        """
-        expected = [
-            (kname, mp, fsopts),
-            ...
-        ]
-        """
-        self.output_files_exist([fstab, byuuid])
-        fstab_lines = self.load_collect_file(fstab).splitlines()
-        for (kname, mp, fsopts) in expected:
-            uuid = self._kname_to_uuid(kname)
-            if not uuid:
-                raise RuntimeError('Did not find uuid for kname: %s', kname)
-            for line in fstab_lines:
-                if uuid in line:
-                    fstab_entry = line
-                    break
-            self.assertIsNotNone(fstab_entry)
-            self.assertEqual(mp, fstab_entry.split(' ')[1])
-            self.assertEqual(fsopts, fstab_entry.split(' ')[3])
 
     def _test_whole_disk_uuid(self, kname, uuid_file):
 
@@ -186,18 +135,14 @@ class TestBasicAbs(VMBaseClass):
         expected = [disk + s for s in ["", "1", "2", "10"]]
         self._test_partition_numbers(disk, expected)
 
-    def test_fstab_entries(self):
-        """"
-        dev=${diska}1 mp=/ fsopts=defaults
-        dev=${diska}2 mp=/home fsopts=defaults
-        dev=${diskc}  mp=/btrfs fsopts=defaults,noatime
-        """
+    def get_fstab_expected(self):
         rootdev = self._serial_to_kname('disk-a')
         btrfsdev = self._serial_to_kname('disk-c')
-        expected = [(rootdev + '1', '/', 'defaults'),
-                    (rootdev + '2', '/home', 'defaults'),
-                    (btrfsdev, '/btrfs', 'defaults,noatime')]
-        self._test_fstab_entries('fstab', 'ls_al_byuuid', expected)
+        return [
+            (self._kname_to_byuuid(rootdev + '1'), '/', 'defaults'),
+            (self._kname_to_byuuid(rootdev + '2'), '/home', 'defaults'),
+            (self._kname_to_byuuid(btrfsdev), '/btrfs', 'defaults,noatime')
+        ]
 
     def test_whole_disk_uuid(self):
         self._test_whole_disk_uuid(
@@ -338,19 +283,6 @@ class TestBasicScsiAbs(TestBasicAbs):
         exit 0
         """)]
 
-    def _dname_to_kname(self, dname):
-        # extract kname from /dev/disk/by-dname on /dev/<kname>
-        # parsing ls -al output on /dev/disk/by-dname:
-        # lrwxrwxrwx. 1 root root   9 Jun  3 21:16 iscsi_disk1 -> ../../sdb
-        ls_bydname = self.load_collect_file("ls_al_bydname")
-        kname = [os.path.basename(line.split()[10])
-                 for line in ls_bydname.split('\n')
-                 if dname in line.split()]
-        self.assertEqual(len(kname), 1)
-        kname = kname.pop()
-        self.assertIsNotNone(kname)
-        return kname
-
     def test_ptable(self):
         expected_ptable = "dos"
         if self.target_arch == "ppc64el":
@@ -363,21 +295,17 @@ class TestBasicScsiAbs(TestBasicAbs):
         expected = [disk + s for s in ["", "1", "2", "10"]]
         self._test_partition_numbers(disk, expected)
 
-    def test_fstab_entries(self):
-        """"
-        dev=sdX1 mp=/ fsopts=defaults
-        dev=sdX2 mp=/home fsopts=defaults
-        dev=sdY  mp=/btrfs fsopts=defaults,noatime
-        """
-        root_dname = 'main_disk_with_in---valid--dname-part1'
-        home_dname = 'main_disk_with_in---valid--dname-part2'
-        btrfs_dname = 'btrfs_volume'
+    def get_fstab_expected(self):
 
-        expected = [
-            (self._dname_to_kname(root_dname), '/', 'defaults'),
-            (self._dname_to_kname(home_dname), '/home', 'defaults'),
-            (self._dname_to_kname(btrfs_dname), '/btrfs', 'defaults,noatime')]
-        self._test_fstab_entries('fstab', 'ls_al_byuuid', expected)
+        root_kname = (
+            self._dname_to_kname('main_disk_with_in---valid--dname-part1'))
+        home_kname = (
+            self._dname_to_kname('main_disk_with_in---valid--dname-part2'))
+        btrfs_kname = self._dname_to_kname('btrfs_volume')
+        return [(self._kname_to_byuuid(root_kname), '/', 'defaults'),
+                (self._kname_to_byuuid(home_kname), '/home', 'defaults'),
+                (self._kname_to_byuuid(btrfs_kname),
+                 '/btrfs', 'defaults,noatime')]
 
     def test_whole_disk_uuid(self):
         kname = self._dname_to_kname('btrfs_volume')

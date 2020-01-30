@@ -866,6 +866,47 @@ def mount_data(info, storage_config):
         spec, path, fstype, ",".join(options), freq, passno, volume_path)
 
 
+def _get_volume_type(device_path):
+    lsblock = block._lsblock([device_path])
+    kname = block.path_to_kname(device_path)
+    return lsblock[kname]['TYPE']
+
+
+def get_volume_spec(device_path):
+    """
+       Return the most reliable spec for a device per Ubuntu FSTAB wiki
+
+       https://wiki.ubuntu.com/FSTAB
+    """
+    info = udevadm_info(path=device_path)
+    block_type = _get_volume_type(device_path)
+
+    devlinks = []
+    if 'raid' in block_type:
+        devlinks = [link for link in info['DEVLINKS']
+                    if os.path.basename(link).startswith('md-uuid-')]
+    elif block_type in ['crypt', 'lvm', 'mpath']:
+        devlinks = [link for link in info['DEVLINKS']
+                    if os.path.basename(link).startswith('dm-uuid-')]
+    elif block_type in ['disk', 'part']:
+        if device_path.startswith('/dev/bcache'):
+            devlinks = [link for link in info['DEVLINKS']
+                        if link.startswith('/dev/bcache/by-uuid')]
+        # on s390x prefer by-path links which are stable and unique.
+        if platform.machine() == 's390x':
+            devlinks = [link for link in info['DEVLINKS']
+                        if link.startswith('/dev/disk/by-path')]
+        if len(devlinks) == 0:
+            # use FS UUID if present
+            devlinks = [link for link in info['DEVLINKS']
+                        if '/by-uuid' in link]
+            if len(devlinks) == 0 and block_type == 'part':
+                devlinks = [link for link in info['DEVLINKS']
+                            if '/by-partuuid' in link]
+
+    return devlinks[0] if len(devlinks) else device_path
+
+
 def fstab_line_for_data(fdata):
     """Return a string representing fdata in /etc/fstab format.
 
@@ -881,8 +922,7 @@ def fstab_line_for_data(fdata):
     if fdata.spec is None:
         if not fdata.device:
             raise ValueError("FstabData missing both spec and device.")
-        uuid = block.get_volume_uuid(fdata.device)
-        spec = ("UUID=%s" % uuid) if uuid else fdata.device
+        spec = get_volume_spec(fdata.device)
     else:
         spec = fdata.spec
 
@@ -894,8 +934,20 @@ def fstab_line_for_data(fdata):
     else:
         options = fdata.options
 
-    return ' '.join((spec, path, fdata.fstype, options,
-                     fdata.freq, fdata.passno)) + "\n"
+    if path != "none":
+        # prefer provided spec over device
+        device = fdata.spec if fdata.spec else None
+        # if not provided a spec, derive device from calculated spec value
+        if not device:
+            device = fdata.device if fdata.device else spec
+        comment = "# %s was on %s during curtin installation" % (path, device)
+    else:
+        comment = None
+
+    entry = ' '.join((spec, path, fdata.fstype, options,
+                      fdata.freq, fdata.passno)) + "\n"
+    line = '\n'.join([comment, entry] if comment else [entry])
+    return line
 
 
 def mount_fstab_data(fdata, target=None):

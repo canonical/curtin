@@ -1592,20 +1592,37 @@ class VMBaseClass(TestCase):
             ret[val[0]] = val[1]
         return ret
 
+    def get_fstab_expected(self):
+        return self.fstab_expected
+
     @skip_if_flag('expected_failure')
     def test_fstab(self):
-        if self.fstab_expected is None:
+        """
+        self.fstab_expected = [
+            (devpath, mp, fsopts),
+            ...
+        ]
+        """
+        expected = self.get_fstab_expected()
+        if expected is None:
             return
         path = self.collect_path("fstab")
         if not os.path.exists(path):
             return
         fstab_entry = None
-        for line in util.load_file(path).splitlines():
-            for device, mntpoint in self.fstab_expected.items():
-                if device in line:
+        found = []
+        for spec, mp, fsopts in expected:
+            for line in util.load_file(path).splitlines():
+                if line.startswith("#"):
+                    continue
+                if spec in line:
                     fstab_entry = line
                     self.assertIsNotNone(fstab_entry)
-                    self.assertEqual(fstab_entry.split(' ')[1], mntpoint)
+                    self.assertEqual(mp, fstab_entry.split(' ')[1])
+                    self.assertEqual(fsopts, fstab_entry.split(' ')[3])
+                    found.append((spec, mp, fsopts))
+
+        self.assertEqual(sorted(expected), sorted(found))
 
     @skip_if_flag('expected_failure')
     def test_dname(self, disk_to_check=None):
@@ -1662,6 +1679,82 @@ class VMBaseClass(TestCase):
                         value = value.replace(' ', '_')
                     self.assertIn(key_name, contents)
                     self.assertIn(value, contents)
+
+    def _dname_to_kname(self, dname):
+        # extract kname from /dev/disk/by-dname on /dev/<kname>
+        # parsing ls -al output on /dev/disk/by-dname:
+        # lrwxrwxrwx. 1 root root   9 Jun  3 21:16 iscsi_disk1 -> ../../sdb
+        ls_bydname = self.load_collect_file("ls_al_bydname")
+        kname = [os.path.basename(line.split()[10])
+                 for line in ls_bydname.split('\n')
+                 if dname in line.split()]
+        self.assertEqual(len(kname), 1)
+        kname = kname.pop()
+        self.assertTrue(kname is not None)
+        return kname
+
+    def _serial_to_kname(self, serial):
+        # extract kname from /dev/disk/by-id on /dev/<kname>
+        # parsing ls -al output on /dev/disk/by-id:
+        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
+        #  virtio-disk-a -> ../../vda
+        ls_byid = self.load_collect_file("ls_al_byid")
+        kname = [os.path.basename(line.split()[10])
+                 for line in ls_byid.split('\n')
+                 if ("virtio-" + serial) in line.split() or
+                    ("scsi-" + serial) in line.split()]
+        self.assertEqual(len(kname), 1)
+        kname = kname.pop()
+        self.assertIsNotNone(kname)
+        return kname
+
+    def _kname_to_uuid(self, kname):
+        # extract uuid from /dev/disk/by-uuid on /dev/<kname>
+        # parsing ls -al output on /dev/disk/by-uuid:
+        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
+        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
+        ls_uuid = self.load_collect_file("ls_al_byuuid")
+        print(kname)
+        uuid = [line.split()[8] for line in ls_uuid.split('\n')
+                if ("../../" + kname) in line.split()]
+        self.assertEqual(len(uuid), 1)
+        uuid = uuid.pop()
+        self.assertIsNotNone(uuid)
+        self.assertEqual(len(uuid), 36)
+        return uuid
+
+    def _bcache_to_byuuid(self, kname):
+        # extract bcache uuid from /dev/bcache/by-uuid on /dev/<kname>
+        # parsing ls -al output on /dev/bcache/by-uuid
+        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
+        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../bcache2
+        ls_uuid = self.load_collect_file("ls_al_bcache_byuuid")
+        uuid = [line.split()[8] for line in ls_uuid.split('\n')
+                if ("../../" + kname) in line.split()]
+        self.assertEqual(len(uuid), 1)
+        uuid = uuid.pop()
+        print(uuid)
+        self.assertIsNotNone(uuid)
+        self.assertEqual(len(uuid), 36)
+        return '/dev/bcache/by-uuid/' + uuid
+
+    def _kname_to_byuuid(self, kname):
+        return '/dev/disk/by-uuid/' + self._kname_to_uuid(kname)
+
+    def _kname_to_devlinks(self, kname):
+        ls_byid = self.load_collect_file("ls_al_byid")
+        # the symlink source is 3 back from the end
+        # [..., 'md-uuid-XXXX', '->',  '../../md0']
+        return [line.split()[-3]
+                for line in ls_byid.splitlines() if line.endswith(kname)]
+
+    def _kname_to_uuid_devpath(self, link_prefix, kname):
+        devlinks = self._kname_to_devlinks(kname)
+        self.assertNotEqual(0, len(devlinks))
+        uuid = [link for link in devlinks if link_prefix in link]
+        self.assertEqual(1, len(uuid))
+        uuid = uuid.pop()
+        return '/dev/disk/by-id/' + uuid
 
     @skip_if_flag('expected_failure')
     def test_reporting_data(self):

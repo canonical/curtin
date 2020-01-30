@@ -285,7 +285,25 @@ def wipe_superblock(device):
             else:
                 bcache._stop_device(stop_path)
 
-    _wipe_superblock(blockdev)
+    # the blockdev (e.g. /dev/sda2) may be a multipath partition which can
+    # only be wiped via its device mapper device (e.g. /dev/dm-4)
+    # check for this and determine the correct device mapper value to use.
+    mp_dev = None
+    mp_support = multipath.multipath_supported()
+    if mp_support:
+        parent, partnum = block.get_blockdev_for_partition(blockdev)
+        parent_mpath_id = multipath.find_mpath_id_by_path(parent)
+        if parent_mpath_id is not None:
+            # construct multipath dmsetup id
+            # <mpathid>-part%d -> /dev/dm-1
+            mp_id, mp_dev = multipath.find_mpath_id_by_parent(parent_mpath_id,
+                                                              partnum=partnum)
+            # if we don't find a mapping then the mp partition has already been
+            # wiped/removed
+            if mp_dev:
+                _wipe_superblock(mp_dev)
+    else:
+        _wipe_superblock(blockdev)
 
     # if we had partitions, make sure they've been removed
     if partitions:
@@ -308,16 +326,19 @@ def wipe_superblock(device):
                       device, attempt + 1, len(retries), wait)
             time.sleep(wait)
 
-    # multipath partitions are separate block devices (disks)
-    if multipath.is_mpath_partition(blockdev):
-        multipath.remove_partition(blockdev)
-    # multipath devices must be hidden to utilize a single member (path)
-    elif multipath.is_mpath_device(blockdev):
-        mp_id = multipath.find_mpath_id(blockdev)
-        if mp_id:
-            multipath.remove_map(mp_id)
-        else:
-            raise RuntimeError('Failed to find multipath id for %s' % blockdev)
+    if mp_support:
+        # multipath partitions are separate block devices (disks)
+        if mp_dev or multipath.is_mpath_partition(blockdev):
+            multipath.remove_partition(mp_dev if mp_dev else blockdev)
+        # multipath devices must be hidden to utilize a single member (path)
+        elif multipath.is_mpath_device(blockdev):
+            mp_id = multipath.find_mpath_id(blockdev)
+            multipath.remove_partition(blockdev)
+            if mp_id:
+                multipath.remove_map(mp_id)
+            else:
+                raise RuntimeError(
+                    'Failed to find multipath id for %s' % blockdev)
 
 
 def _wipe_superblock(blockdev, exclusive=True, strict=True):

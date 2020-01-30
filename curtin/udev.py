@@ -1,6 +1,8 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import shlex
 import os
+
 from curtin import util
 from curtin.log import logged_call
 
@@ -73,7 +75,7 @@ def udevadm_info(path=None):
     if not path:
         raise ValueError('Invalid path: "%s"' % path)
 
-    info_cmd = ['udevadm', 'info', '--query=property', path]
+    info_cmd = ['udevadm', 'info', '--query=property', '--export', path]
     output, _ = util.subp(info_cmd, capture=True)
 
     # strip for trailing empty line
@@ -87,13 +89,19 @@ def udevadm_info(path=None):
         if not value:
             value = None
         if value:
-            # devlinks is a list of paths separated by space
-            # convert to a list for easy use
-            if key == 'DEVLINKS':
-                info[key] = value.split()
+            # preserve spaces in values to match udev database
+            parsed = shlex.split(value)
+            if ' ' not in value:
+                info[key] = parsed[0]
             else:
-                # preserve spaces in values, to match udev database
-                info[key] = value
+                # special case some known entries with spaces, e.g. ID_SERIAL
+                # and DEVLINKS, see tests/unittests/test_udev.py
+                if key == "DEVLINKS":
+                    info[key] = shlex.split(parsed[0])
+                elif key == 'ID_SERIAL':
+                    info[key] = parsed[0]
+                else:
+                    info[key] = parsed
 
     return info
 
