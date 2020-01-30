@@ -301,9 +301,10 @@ def wipe_superblock(device):
             # if we don't find a mapping then the mp partition has already been
             # wiped/removed
             if mp_dev:
-                _wipe_superblock(mp_dev)
-    else:
-        _wipe_superblock(blockdev)
+                LOG.debug('Found multipath device over %s, wiping holder %s',
+                          blockdev, mp_dev)
+
+    _wipe_superblock(mp_dev if mp_dev else blockdev)
 
     # if we had partitions, make sure they've been removed
     if partitions:
