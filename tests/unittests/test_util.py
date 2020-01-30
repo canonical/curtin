@@ -588,7 +588,7 @@ class TestChrootableTargetMounts(CiTestCase):
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_chrootable_target_default_mounts(self):
         in_chroot = util.ChrootableTarget("mytarget")
-        default_mounts = ['/dev', '/proc', '/sys']
+        default_mounts = ['/dev', '/proc', '/run', '/sys']
         self.assertEqual(sorted(default_mounts), sorted(in_chroot.mounts))
 
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
@@ -602,6 +602,85 @@ class TestChrootableTargetMounts(CiTestCase):
         my_mounts = []
         in_chroot = util.ChrootableTarget("mytarget", mounts=my_mounts)
         self.assertEqual(sorted(my_mounts), sorted(in_chroot.mounts))
+
+
+class TestChrootableTargetResolvConf(CiTestCase):
+    """Test ChrootableTargets handles target /etc/resolv.conf gracefully"""
+
+    def setUp(self):
+        super(TestChrootableTargetResolvConf, self).setUp()
+        self.target = self.tmp_dir()
+        self.rconf = os.path.join(self.target, 'etc/resolv.conf')
+        os.makedirs(os.path.dirname(self.rconf))
+        self.add_patch('curtin.util.shutil', 'm_shutil')
+        self.add_patch('curtin.util.do_mount', 'm_do_mount')
+        self.add_patch('curtin.util.do_umount', 'm_do_umount')
+        self.add_patch('curtin.util.subp', 'm_subp')
+        self.host_content = "host_resolvconf"
+
+    def tearDown(self):
+        # manually remove resolv.conf since we're patching shutil
+        if os.path.exists(self.rconf):
+            os.unlink(self.rconf)
+
+    def mycopy(self, src, dst):
+        print('mycopy(src=%s dst=%s)' % (src, dst))
+        util.write_file(dst, self.host_content)
+
+    def mydel(self, tdir):
+        print('mydel(tdir=%s)' % tdir)
+        print(os.listdir(tdir))
+
+    def test_chrootable_target_renames_and_copies_resolvconf(self):
+        content = "target_resolvconf"
+        util.write_file(os.path.join(self.target, 'etc/resolv.conf'), content)
+
+        self.m_shutil.copy.side_effect = self.mycopy
+        self.m_shutil.rmtree.side_effect = self.mydel
+
+        with util.ChrootableTarget(self.target):
+            target_conf = util.load_file(
+                    paths.target_path(self.target, path='/etc/resolv.conf'))
+            self.assertEqual(self.host_content, target_conf)
+
+    def test_chrootable_target_renames_and_copies_resolvconf_if_symlink(self):
+        target_rconf = os.path.join(self.target, 'etc/resolv.conf')
+        os.symlink('../run/foobar/wark.conf', target_rconf)
+
+        self.m_shutil.copy.side_effect = self.mycopy
+        self.m_shutil.rmtree.side_effect = self.mydel
+        with util.ChrootableTarget(self.target):
+            target_conf = util.load_file(
+                    paths.target_path(self.target, path='/etc/resolv.conf'))
+            self.assertEqual(self.host_content, target_conf)
+
+    @mock.patch('curtin.util.os.rename')
+    def test_skip_rename_resolvconf_gone(self, m_rename):
+        self.m_shutil.copy.side_effect = self.mycopy
+        self.m_shutil.rmtree.side_effect = self.mydel
+        with util.ChrootableTarget(self.target):
+            tp = paths.target_path(self.target, path='/etc/resolv.conf')
+            target_conf = util.load_file(tp)
+            self.assertEqual(self.host_content, target_conf)
+
+        self.assertEqual(0, m_rename.call_count)
+
+    def test_chrootable_target_restores_resolvconf_on_copy_fail(self):
+        content = "target_resolvconf"
+        tconf = os.path.join(self.target, 'etc/resolv.conf')
+        util.write_file(tconf, content)
+
+        self.m_shutil.copy.side_effect = OSError('Failed to copy')
+        self.m_shutil.rmtree.side_effect = self.mydel
+
+        try:
+            with util.ChrootableTarget(self.target):
+                pass
+        except OSError:
+            pass
+
+        target_conf = util.load_file(tconf)
+        self.assertEqual(content, target_conf)
 
 
 class TestLoadFile(CiTestCase):
@@ -1014,6 +1093,46 @@ class TestLoadKernelModule(CiTestCase):
         self.assertEqual(1, self.m_is_kmod_loaded.call_count)
         self.m_is_kmod_loaded.assert_called_with(self.modname)
         self.assertEqual(0, self.m_subp.call_count)
+
+
+class TestSanitizeSource(CiTestCase):
+
+    # copied from curtin.util.sanitize_source
+    supported = ['tgz', 'dd-tgz', 'tbz', 'dd-tbz', 'txz', 'dd-txz', 'dd-tar',
+                 'dd-bz2', 'dd-gz', 'dd-xz', 'dd-raw', 'fsimage',
+                 'fsimage-layered']
+    source_url = 'http://curtin.io/root-fs.foo'
+    squashfs_source_path = "/media/filesystem.squashfs"
+
+    def test_supported_sources(self):
+        """ Verify supported sources types return expected dictionary. """
+        for stype in self.supported:
+            expected = {'type': stype, 'uri': self.source_url}
+            result = util.sanitize_source("%s:%s" % (stype, self.source_url))
+            self.assertEqual(expected, result)
+
+    def test_supported_squashfs_source_type(self):
+        """ Verify squashfs: prefix returns type=fsimage and correct uri."""
+        stype = 'squashfs'
+        target_stype = "fsimage"
+        expected = {'type': target_stype, 'uri': self.squashfs_source_path}
+        result = util.sanitize_source("%s://%s" %
+                                      (stype, self.squashfs_source_path))
+        self.assertEqual(expected, result)
+
+    def test_supported_squashfs_suffix(self):
+        """ Verify .squash[fs] suffix returns type=fsimage and correct uri."""
+        for suff in ['squash', 'squashfs']:
+            source_url = "%s.%s" % (self.source_url, suff)
+            expected = {'type': 'fsimage', 'uri': source_url}
+            result = util.sanitize_source(source_url)
+            self.assertEqual(expected, result)
+
+    def test_unknown_type_assumed_to_be_tgz(self):
+        """ Verify unknown source type returns default type. """
+        expected = {'type': 'tgz', 'uri': self.source_url}
+        result = util.sanitize_source(self.source_url)
+        self.assertEqual(expected, result)
 
 
 # vi: ts=4 expandtab syntax=python

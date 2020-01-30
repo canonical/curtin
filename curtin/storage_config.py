@@ -304,7 +304,8 @@ def merge_config_trees_to_list(config_trees):
             max_level = level
         item_cfg = tree[top_item_id]
         if top_item_id in reg:
-            raise ValueError('Duplicate id: %s' % top_item_id)
+            LOG.warning('Dropping Duplicate id: %s' % top_item_id)
+            continue
         reg[top_item_id] = {'level': level, 'config': item_cfg}
 
     def sort_level(configs):
@@ -388,15 +389,15 @@ class ProbertParser(object):
                     data = {}
                 self.class_data = data
             else:
-                raise ValueError('probe_data missing %s data' %
-                                 self.probe_data_key)
+                LOG.warning('probe_data missing %s data', self.probe_data_key)
+                self.class_data = {}
 
         # We keep a reference to the blockdev_data on the superclass
         # as each specific parser has common needs to reference
         # this data separate from the BlockdevParser class.
-        self.blockdev_data = self.probe_data.get('blockdev')
+        self.blockdev_data = self.probe_data.get('blockdev', {})
         if not self.blockdev_data:
-            raise ValueError('probe_data missing valid "blockdev" data')
+            LOG.warning('probe_data missing valid "blockdev" data')
 
     def parse(self):
         raise NotImplementedError()
@@ -420,14 +421,76 @@ class ProbertParser(object):
 
         return None
 
+    def is_mpath(self, blockdev):
+        if blockdev.get('DM_MULTIPATH_DEVICE_PATH') == "1":
+            return True
+
+        return bool('mpath-' in blockdev.get('DM_UUID', ''))
+
+    def get_mpath_name(self, blockdev):
+        mpath_data = self.probe_data.get('multipath')
+        if not mpath_data:
+            return None
+
+        bd_name = blockdev['DEVNAME']
+        if blockdev['DEVTYPE'] == 'partition':
+            bd_name = self.partition_parent_devname(blockdev)
+        bd_name = os.path.basename(bd_name)
+        for path in mpath_data['paths']:
+            if bd_name == path['device']:
+                rv = path['multipath']
+                return rv
+
+    def find_mpath_member(self, blockdev):
+        if blockdev.get('DM_MULTIPATH_DEVICE_PATH') == "1":
+            # find all other DM_MULTIPATH_DEVICE_PATH devs with same serial
+            serial = blockdev.get('ID_SERIAL')
+            members = sorted([os.path.basename(dev['DEVNAME'])
+                              for dev in self.blockdev_data.values()
+                              if dev.get("ID_SERIAL", "") == serial and
+                              dev['DEVTYPE'] == blockdev['DEVTYPE']])
+            # [/dev/sda, /dev/sdb]
+            # [/dev/sda1, /dev/sda2, /dev/sdb1, /dev/sdb2]
+
+        else:
+            dm_mpath = blockdev.get('DM_MPATH')
+            dm_uuid = blockdev.get('DM_UUID')
+            dm_part = blockdev.get('DM_PART')
+
+            if dm_mpath:
+                multipath = dm_mpath
+            else:
+                # part1-mpath-30000000000000064
+                # mpath-30000000000000064
+                # mpath-36005076306ffd6b60000000000002406
+                match = re.search(r'mpath\-([a-zA-Z]*|\d*)+$', dm_uuid)
+                if not match:
+                    LOG.debug('Failed to extract multipath ID pattern from '
+                              'DM_UUID value: "%s"', dm_uuid)
+                    return None
+                # remove leading 'mpath-'
+                multipath = match.group(0)[6:]
+            mpath_data = self.probe_data.get('multipath')
+            if not mpath_data:
+                return None
+            members = sorted([path['device'] for path in mpath_data['paths']
+                              if path['multipath'] == multipath])
+
+            # append partition number if present
+            if dm_part:
+                members = [member + dm_part for member in members]
+
+        if len(members):
+            return members[0]
+
+        return None
+
     def blockdev_to_id(self, blockdev):
         """ Examine a blockdev dictionary and return a tuple of curtin
             storage type and name that can be used as a value for
             storage_config ids (opaque reference to other storage_config
             elements).
         """
-        def is_mpath(blockdev):
-            return bool(blockdev.get('DM_UUID', '').startswith('mpath-'))
 
         def is_dmcrypt(blockdev):
             return bool(blockdev.get('DM_UUID', '').startswith('CRYPT-LUKS'))
@@ -441,8 +504,15 @@ class ProbertParser(object):
             if 'DM_LV_NAME' in blockdev:
                 devtype = 'lvm-partition'
                 name = blockdev['DM_LV_NAME']
-            elif is_mpath(blockdev):
-                name = blockdev['DM_UUID']
+            elif self.is_mpath(blockdev):
+                # extract a multipath member device
+                member = self.find_mpath_member(blockdev)
+                if member:
+                    name = member
+                else:
+                    name = blockdev['DM_UUID']
+                if 'DM_PART' in blockdev:
+                    devtype = 'partition'
             elif is_dmcrypt(blockdev):
                 devtype = 'dmcrypt'
                 name = blockdev['DM_NAME']
@@ -505,7 +575,8 @@ class BcacheParser(ProbertParser):
             msg = ('Invalid "blockdev" value for cache device '
                    'uuid=%s' % cset_uuid)
             if not cset_uuid:
-                raise ValueError(msg)
+                LOG.warning(msg)
+                return None
 
             for devuuid, config in cache_data.items():
                 cache = _sb_get(config, 'cset.uuid')
@@ -518,6 +589,8 @@ class BcacheParser(ProbertParser):
             by_uuid = '/dev/bcache/by-uuid/' + uuid
             label = _sb_get(backing_data, 'dev.label')
             for devname, data in blockdev_data.items():
+                if not devname:
+                    continue
                 if devname.startswith('/dev/bcache'):
                     # DEVLINKS is a space separated list
                     devlinks = data.get('DEVLINKS', '').split()
@@ -525,7 +598,7 @@ class BcacheParser(ProbertParser):
                         return devname
             if label:
                 return label
-            raise ValueError('Failed to find bcache %s ' % (by_uuid))
+            LOG.warning('Failed to find bcache %s ' % (by_uuid))
 
         def _cache_mode(dev_data):
             # "1 [writeback]" -> "writeback"
@@ -535,12 +608,14 @@ class BcacheParser(ProbertParser):
 
             return None
 
+        if not self.blockdev_data:
+            return None
+
         backing_device = backing_data.get('blockdev')
         cache_device = _find_cache_device(backing_data, self.caching)
         cache_mode = _cache_mode(backing_data)
-        bcache_name = os.path.basename(
-            _find_bcache_devname(backing_uuid, backing_data,
-                                 self.blockdev_data))
+        bcache_name = os.path.basename(_find_bcache_devname(backing_uuid,
+                                       backing_data, self.blockdev_data))
         bcache_entry = {'type': 'bcache', 'id': 'disk-%s' % bcache_name,
                         'name': bcache_name}
 
@@ -571,9 +646,10 @@ class BlockdevParser(ProbertParser):
         errors = []
 
         for devname, data in self.blockdev_data.items():
-            # skip composed devices here
+            # skip composed devices here, except partitions
             if data.get('DEVPATH', '').startswith('/devices/virtual'):
-                continue
+                if data.get('DEVTYPE', '') != "partition":
+                    continue
             entry = self.asdict(data)
             if entry:
                 try:
@@ -660,6 +736,9 @@ class BlockdevParser(ProbertParser):
             'type': blockdev_data['DEVTYPE'],
             'id': self.blockdev_to_id(blockdev_data),
         }
+        if blockdev_data.get('DM_MULTIPATH_DEVICE_PATH') == "1":
+            mpath_name = self.get_mpath_name(blockdev_data)
+            entry['multipath'] = mpath_name
 
         # default disks to gpt
         if entry['type'] == 'disk':
@@ -669,8 +748,12 @@ class BlockdevParser(ProbertParser):
             # set wwn, serial, and path
             entry.update(uniq_ids)
 
-            # default to gpt if not present
-            entry['ptable'] = blockdev_data.get('ID_PART_TABLE_TYPE', 'gpt')
+            if 'ID_PART_TABLE_TYPE' in blockdev_data:
+                ptype = blockdev_data['ID_PART_TABLE_TYPE']
+                if ptype in schemas._ptables:
+                    entry['ptable'] = ptype
+                else:
+                    entry['ptable'] = schemas._ptable_unsupported
             return entry
 
         if entry['type'] == 'partition':
@@ -683,7 +766,8 @@ class BlockdevParser(ProbertParser):
                 part = None
                 for pentry in ptable['partitions']:
                     node = pentry['node']
-                    if node.lstrip(parent_devname) == attrs['partition']:
+                    node_p = node.replace(parent_devname, '')
+                    if node_p.replace('p', '') == attrs['partition']:
                         part = pentry
                         break
 
@@ -919,7 +1003,6 @@ class RaidParser(ProbertParser):
            Collects storage config type: raid for valid
            data and returns tuple of lists, configs, errors.
         """
-
         configs = []
         errors = []
         for devname, data in self.class_data.items():
@@ -1103,7 +1186,7 @@ class ZfsParser(ProbertParser):
         return (zpool_configs + zfs_configs, errors)
 
 
-def extract_storage_config(probe_data):
+def extract_storage_config(probe_data, strict=False):
     """ Examine a probert storage dictionary and extract a curtin
         storage configuration that would recreate all of the
         storage devices present in the provided data.
@@ -1155,7 +1238,10 @@ def extract_storage_config(probe_data):
     for e in errors:
         LOG.exception('Validation error: %s\n' % e)
     if len(errors) > 0:
-        raise RuntimeError("Extract storage config does not validate.")
+        errmsg = "Extract storage config does not validate."
+        LOG.warning(errmsg)
+        if strict:
+            raise RuntimeError(errmsg)
 
     # build and merge probed data into a valid storage config by
     # generating a config tree for each item in the probed data

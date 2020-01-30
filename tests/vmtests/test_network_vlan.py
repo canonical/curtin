@@ -76,16 +76,24 @@ class BionicTestNetworkVlan(relbase.bionic, TestNetworkVlanAbs):
     __test__ = True
 
 
-class CosmicTestNetworkVlan(relbase.cosmic, TestNetworkVlanAbs):
-    __test__ = True
-
-
 class DiscoTestNetworkVlan(relbase.disco, TestNetworkVlanAbs):
     __test__ = True
 
 
 class EoanTestNetworkVlan(relbase.eoan, TestNetworkVlanAbs):
     __test__ = True
+
+    @TestNetworkBaseTestsAbs.skip_by_date("1846232", fixby="2020-01-10")
+    def test_ip_output(self):
+        pass
+
+
+class FocalTestNetworkVlan(relbase.focal, TestNetworkVlanAbs):
+    __test__ = True
+
+    @TestNetworkBaseTestsAbs.skip_by_date("1846232", fixby="2020-01-10")
+    def test_ip_output(self):
+        pass
 
 
 class Centos66TestNetworkVlan(centos_relbase.centos66_xenial,

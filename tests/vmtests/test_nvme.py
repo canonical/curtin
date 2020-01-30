@@ -73,10 +73,6 @@ class BionicTestNvme(relbase.bionic, TestNvmeAbs):
     __test__ = True
 
 
-class CosmicTestNvme(relbase.cosmic, TestNvmeAbs):
-    __test__ = True
-
-
 class DiscoTestNvme(relbase.disco, TestNvmeAbs):
     __test__ = True
 
@@ -147,15 +143,16 @@ class BionicTestNvmeBcache(relbase.bionic, TestNvmeBcacheAbs):
     __test__ = True
 
 
-class CosmicTestNvmeBcache(relbase.cosmic, TestNvmeBcacheAbs):
-    __test__ = True
-
-
 class DiscoTestNvmeBcache(relbase.disco, TestNvmeBcacheAbs):
     __test__ = True
 
 
 class EoanTestNvmeBcache(relbase.eoan, TestNvmeBcacheAbs):
     __test__ = True
+
+
+class FocalTestNvmeBcache(relbase.focal, TestNvmeBcacheAbs):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

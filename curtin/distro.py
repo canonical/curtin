@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import tempfile
+import textwrap
 
 from .paths import target_path
 from .util import (
@@ -284,7 +285,13 @@ def run_yum_command(mode, args=None, opts=None, env=None, target=None,
     if opts is None:
         opts = []
 
-    cmd = ['yum'] + defopts + opts + [mode] + args
+    # dnf is a drop in replacement for yum. On newer RH based systems yum
+    # is just a sym link to dnf.
+    if which('dnf', target=target):
+        cmd = ['dnf']
+    else:
+        cmd = ['yum']
+    cmd += defopts + opts + [mode] + args
     if not execute:
         return env, cmd
 
@@ -311,8 +318,14 @@ def yum_install(mode, packages=None, opts=None, env=None, target=None,
         raise ValueError(
             'Unsupported mode "%s" for yum package install/upgrade' % mode)
 
+    # dnf is a drop in replacement for yum. On newer RH based systems yum
+    # is just a sym link to dnf.
+    if which('dnf', target=target):
+        cmd = ['dnf']
+    else:
+        cmd = ['yum']
     # download first, then install/upgrade from cache
-    cmd = ['yum'] + defopts + opts + [mode]
+    cmd += defopts + opts + [mode]
     dl_opts = ['--downloadonly', '--setopt=keepcache=1']
     inst_opts = ['--cacheonly']
 
@@ -508,5 +521,15 @@ def get_package_version(pkg, target=None, semx=None):
     except ProcessExecutionError:
         return None
 
+
+def fstab_header():
+    return textwrap.dedent("""\
+# /etc/fstab: static file system information.
+#
+# Use 'blkid' to print the universally unique identifier for a
+# device; this may be used with UUID= as a more robust way to name devices
+# that works even if disks are added and removed. See fstab(5).
+#
+# <file system> <mount point>   <type>  <options>       <dump>  <pass>""")
 
 # vi: ts=4 expandtab syntax=python

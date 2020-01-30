@@ -538,4 +538,30 @@ class TestZfsSupported(CiTestCase):
         self.assertEqual(1, m_assert_zfs.call_count)
 
 
+class TestZfsGetPoolFromConfig(CiTestCase):
+
+    def test_get_zpool_from_config_returns_empty(self):
+        """ get_zpool_from_config_returns_empty for invalid/empty configs."""
+        configs = (None, {}, {'network': 'foobar'},
+                   {'storage': {'config': []}})
+        for cfg in configs:
+            self.assertEqual([],
+                             zfs.get_zpool_from_config(cfg))
+
+    def test_get_zpool_from_config(self):
+        """ get_zpool_from_config_returns pool names for each zpool in cfg."""
+        expected_zpools = ['rpool1', 'rpool2']
+        zpool_cfg = [{'type': 'zpool', 'pool': pool}
+                     for pool in expected_zpools]
+        sconfig = {'storage': {'config': zpool_cfg}}
+        self.assertEqual(sorted(expected_zpools),
+                         sorted(zfs.get_zpool_from_config(sconfig)))
+
+    def test_get_zpool_from_config_zfsroot(self):
+        """ get_zpool_from_config_returns injected pool name for zfsroot."""
+        zpool_cfg = [{'type': 'format', 'fstype': 'zfsroot'}]
+        sconfig = {'storage': {'config': zpool_cfg}}
+        self.assertEqual(['rpool'], zfs.get_zpool_from_config(sconfig))
+
+
 # vi: ts=4 expandtab syntax=python

@@ -103,6 +103,32 @@ class TestBlock(CiTestCase):
             mock_os_listdir.return_value = ["other"]
             block.lookup_disk(serial)
 
+    @mock.patch("curtin.block.multipath")
+    @mock.patch("curtin.block.os.path.realpath")
+    @mock.patch("curtin.block.os.path.exists")
+    @mock.patch("curtin.block.os.listdir")
+    def test_lookup_disk_find_wwn(self, mock_os_listdir, mock_os_path_exists,
+                                  mock_os_path_realpath, mock_mpath):
+        wwn = "eui.0025388b710116a1"
+        expected_link = 'nvme-%s' % wwn
+        device = '/wark/nvme0n1'
+        mock_os_listdir.return_value = [
+            "nvme-eui.0025388b710116a1",
+            "nvme-eui.0025388b710116a1-part1",
+            "nvme-eui.0025388b710116a1-part2",
+        ]
+        mock_os_path_exists.return_value = True
+        mock_os_path_realpath.return_value = device
+        mock_mpath.is_mpath_device.return_value = False
+
+        path = block.lookup_disk(wwn)
+
+        mock_os_listdir.assert_called_with("/dev/disk/by-id/")
+        mock_os_path_realpath.assert_called_with("/dev/disk/by-id/" +
+                                                 expected_link)
+        self.assertTrue(mock_os_path_exists.called)
+        self.assertEqual(device, path)
+
     @mock.patch('curtin.block.udevadm_info')
     def test_get_device_mapper_links_returns_first_non_none(self, m_info):
         """ get_device_mapper_links returns first by sort entry in DEVLINKS."""
@@ -711,5 +737,38 @@ class TestGetSupportedFilesystems(CiTestCase):
             block.get_supported_filesystems()
         self.assertEqual(0, mock_util.load_file.call_count)
 
+
+class TestZkeySupported(CiTestCase):
+
+    @mock.patch('curtin.block.util')
+    def test_zkey_supported_loads_module(self, m_util):
+        block.zkey_supported()
+        m_util.load_kernel_module.assert_called_with('pkey')
+
+    @mock.patch('curtin.block.util.load_kernel_module')
+    def test_zkey_supported_returns_false_missing_kmod(self, m_kmod):
+        m_kmod.side_effect = (
+            util.ProcessExecutionError(stdout=self.random_string(),
+                                       stderr=self.random_string(),
+                                       exit_code=2))
+        self.assertFalse(block.zkey_supported())
+
+    @mock.patch('curtin.block.util.subp')
+    @mock.patch('curtin.block.util.load_kernel_module')
+    def test_zkey_supported_returns_false_zkey_error(self, m_kmod, m_subp):
+        m_subp.side_effect = (
+            util.ProcessExecutionError(stdout=self.random_string(),
+                                       stderr=self.random_string(),
+                                       exit_code=2))
+        self.assertFalse(block.zkey_supported())
+
+    @mock.patch('curtin.block.tempfile.NamedTemporaryFile')
+    @mock.patch('curtin.block.util')
+    def test_zkey_supported_calls_zkey_generate(self, m_util, m_temp):
+        testname = self.random_string()
+        m_temp.return_value.__enter__.return_value.name = testname
+        block.zkey_supported()
+        m_util.subp.assert_called_with(['zkey', 'generate', testname],
+                                       capture=True)
 
 # vi: ts=4 expandtab syntax=python

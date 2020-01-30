@@ -254,6 +254,44 @@ class TestYumInstall(CiTestCase):
         distro.install_packages(pkglist, osfamily=osfamily, target=target)
         m_subp.assert_has_calls(expected_calls)
 
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    @mock.patch('curtin.util.subp')
+    @mock.patch('curtin.distro.which')
+    def test_dnf_install(self, m_which, m_subp):
+        pkglist = ['foobar', 'wark']
+        target = 'mytarget'
+        mode = 'install'
+        m_which.return_value = '/usr/bin/dnf'
+        expected_calls = [
+            mock.call(['dnf', '--assumeyes', '--quiet', 'install',
+                       '--downloadonly', '--setopt=keepcache=1'] + pkglist,
+                      env=None, retries=[1] * 10,
+                      target=paths.target_path(target)),
+            mock.call(['dnf', '--assumeyes', '--quiet', 'install',
+                       '--cacheonly'] + pkglist, env=None,
+                      target=paths.target_path(target))
+        ]
+
+        # call yum_install directly
+        self.assertFalse(m_subp.called)
+        distro.yum_install(mode, pkglist, target=target)
+        m_subp.assert_has_calls(expected_calls)
+
+        # call yum_install through run_yum_command; expect the same calls
+        # so clear m_subp's call stack.
+        m_subp.reset_mock()
+        self.assertFalse(m_subp.called)
+        distro.run_yum_command('install', pkglist, target=target)
+        m_subp.assert_has_calls(expected_calls)
+
+        # call yum_install through install_packages; expect the same calls
+        # so clear m_subp's call stack.
+        m_subp.reset_mock()
+        self.assertFalse(m_subp.called)
+        osfamily = distro.DISTROS.redhat
+        distro.install_packages(pkglist, osfamily=osfamily, target=target)
+        m_subp.assert_has_calls(expected_calls)
+
 
 class TestSystemUpgrade(CiTestCase):
 
@@ -271,6 +309,39 @@ class TestSystemUpgrade(CiTestCase):
                       env=None, retries=[1] * 10,
                       target=paths.target_path(target)),
             mock.call(['yum', '--assumeyes', '--quiet', mode,
+                       '--cacheonly'] + pkglist, env=None,
+                      target=paths.target_path(target))
+        ]
+        # call system_upgrade via osfamily; note that we expect the same calls
+        # call system_upgrade via osfamily; note that we expect the same calls
+
+        # call yum_install through run_yum_command
+        distro.run_yum_command(mode, pkglist, target=target)
+        m_subp.assert_has_calls(expected_calls)
+
+        # call system_upgrade via osfamily; note that we expect the same calls
+        # but to prevent a false positive we clear m_subp's call stack.
+        m_subp.reset_mock()
+        self.assertFalse(m_subp.called)
+        distro.system_upgrade(target=target, osfamily=osfamily)
+        m_subp.assert_has_calls(expected_calls)
+
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    @mock.patch('curtin.util.subp')
+    @mock.patch('curtin.distro.which')
+    def test_system_upgrade_redhat_dnf(self, m_which, m_subp):
+        """system_upgrade osfamily=redhat calls run_yum_command mode=upgrade"""
+        osfamily = distro.DISTROS.redhat
+        target = 'mytarget'
+        mode = 'upgrade'
+        m_which.return_value = '/usr/bin/dnf'
+        pkglist = []
+        expected_calls = [
+            mock.call(['dnf', '--assumeyes', '--quiet', mode,
+                       '--downloadonly', '--setopt=keepcache=1'] + pkglist,
+                      env=None, retries=[1] * 10,
+                      target=paths.target_path(target)),
+            mock.call(['dnf', '--assumeyes', '--quiet', mode,
                        '--cacheonly'] + pkglist, env=None,
                       target=paths.target_path(target))
         ]

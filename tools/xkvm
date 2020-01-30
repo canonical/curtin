@@ -110,7 +110,7 @@ isdevopt() {
     local model="$1" input="${2%%=*}"
     local out="" opt="" opts=()
     if [ -z "${KVM_DEVOPTS[$model]}" ]; then
-        out=$($KVM -device "$model,?" 2>&1) &&
+        out=$($KVM ${archopts[@]} -device "$model,?" -nographic 2>&1) &&
             out=$(echo "$out" | sed -e "s,[^.]*[.],," -e 's,=.*,,') &&
             KVM_DEVOPTS[$model]="$out" ||
             { error "bad device model $model?"; exit 1; }
@@ -286,9 +286,16 @@ get_bios_opts() {
     #   /usr/share/OVMF/OVMF_VARS.fd
     # with single file, pass only one file and read-write
     # with split, pass code as readonly and vars as read-write
-    local joined="/usr/share/ovmf/OVMF.fd"
-    local code="/usr/share/OVMF/OVMF_CODE.fd"
-    local vars="/usr/share/OVMF/OVMF_VARS.fd"
+
+    if [ $(uname -m) = "aarch64" ]; then
+        local code="/usr/share/AAVMF/AAVMF_CODE.fd"
+        local vars="/usr/share/AAVMF/AAVMF_VARS.fd"
+    else
+        local joined="/usr/share/ovmf/OVMF.fd"
+        local code="/usr/share/OVMF/OVMF_CODE.fd"
+        local vars="/usr/share/OVMF/OVMF_VARS.fd"
+    fi
+
     local split="" nvram_src=""
     if [ -e "$code" -o -e "$vars" ]; then
         split=true
@@ -344,6 +351,9 @@ main() {
     local def_disk_driver=${DEF_DISK_DRIVER:-"virtio-blk"}
     local def_netmodel=${DEF_NETMODEL:-"virtio-net-pci"}
     local bios="" uefi=false uefi_nvram=""
+    if [ "$(uname -m)" = "aarch64" ]; then
+        uefi=true
+    fi
 
     archopts=( )
     kvmcmd=( )
@@ -413,6 +423,12 @@ main() {
             #def_diskif="scsi"
             archopts=( "${archopts[@]}" -machine pseries,usb=off )
             archopts=( "${archopts[@]}" -device spapr-vscsi )
+            ;;
+        aarch64)
+            [ -n "$kvm" ] ||
+                { kvm="qemu-system-aarch64"; kvm_pkg="qemu-system-aarch64"; }
+            archopts=( "${archopts[@]}" -machine virt )
+            archopts=( "${archopts[@]}" -cpu host )
             ;;
         *) kvm=qemu-system-$(uname -m);;
     esac

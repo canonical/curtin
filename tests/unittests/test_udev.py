@@ -8,19 +8,19 @@ from .helpers import CiTestCase
 
 
 UDEVADM_INFO_QUERY = """\
-DEVLINKS=/dev/disk/by-id/nvme-eui.0025388b710116a1
-DEVNAME=/dev/nvme0n1
-DEVPATH=/devices/pci0000:00/0000:00:1c.4/0000:05:00.0/nvme/nvme0/nvme0n1
-DEVTYPE=disk
-ID_PART_TABLE_TYPE=gpt
-ID_PART_TABLE_UUID=ea0b9ddc-a114-4e01-b257-750d86e3a944
-ID_SERIAL=SAMSUNG MZVLB1T0HALR-000L7_S3TPNY0JB00151
-ID_SERIAL_SHORT=S3TPNY0JB00151
-MAJOR=259
-MINOR=0
-SUBSYSTEM=block
-TAGS=:systemd:
-USEC_INITIALIZED=2026691
+DEVLINKS='/dev/disk/by-id/nvme-eui.0025388b710116a1'
+DEVNAME='/dev/nvme0n1'
+DEVPATH='/devices/pci0000:00/0000:00:1c.4/0000:05:00.0/nvme/nvme0/nvme0n1'
+DEVTYPE='disk'
+ID_PART_TABLE_TYPE='gpt'
+ID_PART_TABLE_UUID='ea0b9ddc-a114-4e01-b257-750d86e3a944'
+ID_SERIAL='SAMSUNG MZVLB1T0HALR-000L7_S3TPNY0JB00151'
+ID_SERIAL_SHORT='S3TPNY0JB00151'
+MAJOR='259'
+MINOR='0'
+SUBSYSTEM='block'
+TAGS=':systemd:'
+USEC_INITIALIZED='2026691'
 """
 
 INFO_DICT = {
@@ -50,7 +50,8 @@ class TestUdevInfo(CiTestCase):
         m_subp.return_value = (UDEVADM_INFO_QUERY, "")
         info = udev.udevadm_info(mypath)
         m_subp.assert_called_with(
-            ['udevadm', 'info', '--query=property', mypath], capture=True)
+            ['udevadm', 'info', '--query=property', '--export', mypath],
+            capture=True)
         self.assertEqual(sorted(INFO_DICT), sorted(info))
 
     def test_udevadm_info_no_path(self):

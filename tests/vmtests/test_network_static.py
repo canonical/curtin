@@ -28,15 +28,15 @@ class BionicTestNetworkStatic(relbase.bionic, TestNetworkStaticAbs):
     __test__ = True
 
 
-class CosmicTestNetworkStatic(relbase.cosmic, TestNetworkStaticAbs):
-    __test__ = True
-
-
 class DiscoTestNetworkStatic(relbase.disco, TestNetworkStaticAbs):
     __test__ = True
 
 
 class EoanTestNetworkStatic(relbase.eoan, TestNetworkStaticAbs):
+    __test__ = True
+
+
+class FocalTestNetworkStatic(relbase.focal, TestNetworkStaticAbs):
     __test__ = True
 
 

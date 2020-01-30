@@ -29,7 +29,7 @@ Package: curtin
 Architecture: all
 Priority: extra
 Depends: bcache-tools,
-         btrfs-tools,
+         btrfs-progs | btrfs-tools,
          dosfstools,
          file,
          gdisk,

@@ -43,15 +43,15 @@ class TestLvmOverRaidAbs(TestMdadmAbs, TestLvmAbs):
         return self._test_pvs(dname_to_vg)
 
 
+class FocalTestLvmOverRaid(relbase.focal, TestLvmOverRaidAbs):
+    __test__ = True
+
+
 class EoanTestLvmOverRaid(relbase.eoan, TestLvmOverRaidAbs):
     __test__ = True
 
 
 class DiscoTestLvmOverRaid(relbase.disco, TestLvmOverRaidAbs):
-    __test__ = True
-
-
-class CosmicTestLvmOverRaid(relbase.cosmic, TestLvmOverRaidAbs):
     __test__ = True
 
 

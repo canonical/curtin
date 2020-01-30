@@ -22,6 +22,13 @@ bucket:
     done
     swapon --show
     exit 0
+  - &multipath_on |
+      #!/bin/sh
+      if command -v multipath; then
+          multipath -ll
+          multipath -r
+          multipath -ll
+      fi
   - &zpool_export |
       #!/bin/sh
       # disable any rpools to trigger disks with zfs_member label but inactive
@@ -75,11 +82,12 @@ early_commands:
   # the disks exactly as in this config before the rest of the install
   # will just blow it all away.  We have clean out other environment
   # that could unintentionally mess things up.
-  01-blockmeta: [env, -u, OUTPUT_FSTAB,
+  01-blockmeta: [env, OUTPUT_FSTAB=/tmp/my.bdir/state/fstab,
               TARGET_MOUNT_POINT=/tmp/my.bdir/target,
               WORKING_DIR=/tmp/my.bdir/work.d,
               curtin, --showtrace, -v, block-meta, --umount, custom]
   02-enable_swaps: [sh, -c, *swapon]
+  02-multipath_on: [sh, -c, *multipath_on]
   03-disable_rpool: [sh, -c, *zpool_export]
   04-lvm_stop: [sh, -c, *lvm_stop]
   05-mdadm_stop: [sh, -c, *mdadm_stop]

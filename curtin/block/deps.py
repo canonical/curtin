@@ -58,7 +58,7 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
     distro_mapping = {
         DISTROS.debian: {
             'bcache': ['bcache-tools'],
-            'btrfs': ['btrfs-tools'],
+            'btrfs': ['^btrfs-(progs|tools)$'],
             'ext2': ['e2fsprogs'],
             'ext3': ['e2fsprogs'],
             'ext4': ['e2fsprogs'],

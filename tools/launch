@@ -271,6 +271,16 @@ find_apt_proxy() {
     # pick an apt proxy for the guest
     local out=""
 
+    # (This stanza is duplicated for each supported environment variable
+    # because handling the "unset" case generically is too complex.)
+    if [ -n ${CURTIN_VMTEST_APT_PROXY+x} ]; then
+         # if user set uncommon 'CURTIN_VMTEST_APT_PROXY', then trust it
+         [ -n "$CURTIN_VMTEST_APT_PROXY" ] && echo "$CURTIN_VMTEST_APT_PROXY" && return 0
+
+         # 'CURTIN_VMTEST_APT_PROXY' is set but empty; do not setup any proxy
+         return 1
+    fi
+
     if [ -n ${apt_proxy+x} ]; then
          # if user set uncommon 'apt_proxy', then trust it
          [ -n "$apt_proxy" ] && echo "$apt_proxy" && return 0

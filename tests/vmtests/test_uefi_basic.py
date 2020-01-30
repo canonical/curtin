@@ -10,7 +10,7 @@ import textwrap
 class TestBasicAbs(VMBaseClass):
     interactive = False
     test_type = 'storage'
-    arch_skip = ["s390x"]
+    arch_skip = ["ppc64el", "s390x"]
     conf_file = "examples/tests/uefi_basic.yaml"
     extra_disks = ['4G']
     uefi = True
@@ -105,15 +105,15 @@ class BionicUefiTestBasic(relbase.bionic, TestBasicAbs):
     __test__ = True
 
 
-class CosmicUefiTestBasic(relbase.cosmic, TestBasicAbs):
-    __test__ = True
-
-
 class DiscoUefiTestBasic(relbase.disco, TestBasicAbs):
     __test__ = True
 
 
 class EoanUefiTestBasic(relbase.eoan, TestBasicAbs):
+    __test__ = True
+
+
+class FocalUefiTestBasic(relbase.focal, TestBasicAbs):
     __test__ = True
 
 
@@ -132,11 +132,6 @@ class BionicUefiTestBasic4k(relbase.bionic, TestBasicAbs):
     disk_block_size = 4096
 
 
-class CosmicUefiTestBasic4k(relbase.cosmic, TestBasicAbs):
-    __test__ = True
-    disk_block_size = 4096
-
-
 class DiscoUefiTestBasic4k(relbase.disco, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
@@ -145,5 +140,11 @@ class DiscoUefiTestBasic4k(relbase.disco, TestBasicAbs):
 class EoanUefiTestBasic4k(relbase.eoan, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
+
+
+class FocalUefiTestBasic4k(relbase.focal, TestBasicAbs):
+    __test__ = True
+    disk_block_size = 4096
+
 
 # vi: ts=4 expandtab syntax=python

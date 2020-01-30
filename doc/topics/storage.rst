@@ -110,7 +110,7 @@ These ``label`` values are reserved and cannot be used:
 **disk_layout**: *cdl, ldl*
 
 The default ``disk_layout`` value is ``cdl``, the compaible disk layout which
-allows for up to 3 partitions and a MBR.  The ``ldl``, Linux layout has only
+allows for up to 3 partitions and a VTOC.  The ``ldl``, Linux layout has only
 one partition.
 
 
@@ -125,7 +125,7 @@ one partition.
    mode: full
  - id: disk0
    type: disk
-   ptable: mbr
+   ptable: vtoc
    serial: 0X1520
    name: root_disk
    wipe: superblock
@@ -278,6 +278,14 @@ and determine which device to use as a boot disk.  In cases where the boot
 device is on a special volume, such as a RAID array or a LVM Logical Volume,
 it may be necessary to specify the device that will hold the grub bootloader.
 
+**multipath**: *<multipath name or serial>*
+
+If a disk is a path in a multipath device, it may be included in the
+configuration dictionary.  Currently the value is informational only.
+Curtin already detects whether disks are part of a multipath and selects
+one member path to operate upon.
+
+
 **Config Example**::
 
  - id: disk0
@@ -373,6 +381,13 @@ in ``/dev/disk/by-dname/<name>``.
 For partitions, the udev rule created relies upon disk contents, in this case
 the partition entry UUID.  This will remain in effect unless the underlying disk
 on which the partition resides has the partition table modified or wiped.
+
+**multipath**: *<multipath name or serial>*
+
+If a partition is found on a multipath device, it may be included in the
+configuration dictionary.  Currently the value is informational only.
+Curtin already detects whether partitions are part of a multipath and selects
+one member path to operate upon.
 
 
 **Config Example**::

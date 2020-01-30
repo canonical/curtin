@@ -64,15 +64,8 @@ class BionicTestAptConfigCMDCMD(relbase.bionic, TestAptConfigCMD):
     __test__ = True
 
 
-class CosmicTestAptConfigCMDCMD(relbase.cosmic, TestAptConfigCMD):
+class FocalTestAptConfigCMDCMD(relbase.focal, TestAptConfigCMD):
     __test__ = True
 
-
-class DiscoTestAptConfigCMDCMD(relbase.disco, TestAptConfigCMD):
-    __test__ = True
-
-
-class EoanTestAptConfigCMDCMD(relbase.eoan, TestAptConfigCMD):
-    __test__ = True
 
 # vi: ts=4 expandtab syntax=python

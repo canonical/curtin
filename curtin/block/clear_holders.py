@@ -166,14 +166,27 @@ def shutdown_mdadm(device):
 
     blockdev = block.sysfs_to_devpath(device)
 
-    LOG.info('Wiping superblock on raid device: %s', device)
-    _wipe_superblock(blockdev, exclusive=False)
-
+    LOG.info('Discovering raid devices and spares for %s', device)
     md_devs = (
         mdadm.md_get_devices_list(blockdev) +
         mdadm.md_get_spares_list(blockdev))
     mdadm.set_sync_action(blockdev, action="idle")
     mdadm.set_sync_action(blockdev, action="frozen")
+
+    LOG.info('Wiping superblock on raid device: %s', device)
+    try:
+        _wipe_superblock(blockdev, exclusive=False)
+    except ValueError as e:
+        # if the array is not functional, writes to the device may fail
+        # and _wipe_superblock will raise ValueError for short writes
+        # which happens on inactive raid volumes.  In that case we
+        # shouldn't give up yet as we still want to disassemble
+        # array and wipe members.  Other errors such as IOError or OSError
+        # are unwelcome and will stop deployment.
+        LOG.debug('Non-fatal error writing to array device %s, '
+                  'proceeding with shutdown: %s', blockdev, e)
+
+    LOG.info('Removing raid array members: %s', md_devs)
     for mddev in md_devs:
         try:
             mdadm.fail_device(blockdev, mddev)
@@ -272,7 +285,26 @@ def wipe_superblock(device):
             else:
                 bcache._stop_device(stop_path)
 
-    _wipe_superblock(blockdev)
+    # the blockdev (e.g. /dev/sda2) may be a multipath partition which can
+    # only be wiped via its device mapper device (e.g. /dev/dm-4)
+    # check for this and determine the correct device mapper value to use.
+    mp_dev = None
+    mp_support = multipath.multipath_supported()
+    if mp_support:
+        parent, partnum = block.get_blockdev_for_partition(blockdev)
+        parent_mpath_id = multipath.find_mpath_id_by_path(parent)
+        if parent_mpath_id is not None:
+            # construct multipath dmsetup id
+            # <mpathid>-part%d -> /dev/dm-1
+            mp_id, mp_dev = multipath.find_mpath_id_by_parent(parent_mpath_id,
+                                                              partnum=partnum)
+            # if we don't find a mapping then the mp partition has already been
+            # wiped/removed
+            if mp_dev:
+                LOG.debug('Found multipath device over %s, wiping holder %s',
+                          blockdev, mp_dev)
+
+    _wipe_superblock(mp_dev if mp_dev else blockdev)
 
     # if we had partitions, make sure they've been removed
     if partitions:
@@ -295,16 +327,19 @@ def wipe_superblock(device):
                       device, attempt + 1, len(retries), wait)
             time.sleep(wait)
 
-    # multipath partitions are separate block devices (disks)
-    if multipath.is_mpath_partition(blockdev):
-        multipath.remove_partition(blockdev)
-    # multipath devices must be hidden to utilize a single member (path)
-    elif multipath.is_mpath_device(blockdev):
-        mp_id = multipath.find_mpath_id(blockdev)
-        if mp_id:
-            multipath.remove_map(mp_id)
-        else:
-            raise RuntimeError('Failed to find multipath id for %s' % blockdev)
+    if mp_support:
+        # multipath partitions are separate block devices (disks)
+        if mp_dev or multipath.is_mpath_partition(blockdev):
+            multipath.remove_partition(mp_dev if mp_dev else blockdev)
+        # multipath devices must be hidden to utilize a single member (path)
+        elif multipath.is_mpath_device(blockdev):
+            mp_id = multipath.find_mpath_id(blockdev)
+            multipath.remove_partition(blockdev)
+            if mp_id:
+                multipath.remove_map(mp_id)
+            else:
+                raise RuntimeError(
+                    'Failed to find multipath id for %s' % blockdev)
 
 
 def _wipe_superblock(blockdev, exclusive=True, strict=True):
@@ -456,25 +491,39 @@ def plan_shutdown_holder_trees(holders_trees):
     if not isinstance(holders_trees, (list, tuple)):
         holders_trees = [holders_trees]
 
+    # sort the trees to ensure we generate a consistent plan
+    holders_trees = sorted(holders_trees, key=lambda x: x['device'])
+
+    def htree_level(tree):
+        if len(tree['holders']) == 0:
+            return 0
+        return 1 + sum(htree_level(holder) for holder in tree['holders'])
+
     def flatten_holders_tree(tree, level=0):
         """
         add entries from holders tree to registry with level key corresponding
         to how many layers from raw disks the current device is at
         """
         device = tree['device']
+        device_level = htree_level(tree)
 
         # always go with highest level if current device has been
         # encountered already. since the device and everything above it is
         # re-added to the registry it ensures that any increase of level
         # required here will propagate down the tree
         # this handles a scenario like mdadm + bcache, where the backing
-        # device for bcache is a 3nd level item like mdadm, but the cache
+        # device for bcache is a 3rd level item like mdadm, but the cache
         # device is 1st level (disk) or second level (partition), ensuring
         # that the bcache item is always considered higher level than
         # anything else regardless of whether it was added to the tree via
         # the cache device or backing device first
         if device in reg:
-            level = max(reg[device]['level'], level)
+            level = max(reg[device]['level'], level) + 1
+
+        else:
+            # first time device to registry, assume the larger value of the
+            # current level or the length of its dependencies.
+            level = max(device_level, level)
 
         reg[device] = {'level': level, 'device': device,
                        'dev_type': tree['dev_type']}
@@ -487,10 +536,26 @@ def plan_shutdown_holder_trees(holders_trees):
     for holders_tree in holders_trees:
         flatten_holders_tree(holders_tree)
 
-    # return list of entry dicts with highest level first, then dev_type
+    def devtype_order(dtype):
+        """Return the order in which we want to clear device types, higher
+         value should be cleared first.
+
+        :param: dtype: string. A device types name from the holders registry,
+                see _define_handlers_registry()
+        :returns: integer
+        """
+        dev_type_order = [
+            'disk', 'partition', 'bcache', 'lvm', 'raid', 'crypt']
+        return 1 + dev_type_order.index(dtype)
+
+    # return list of entry dicts with greatest htree depth. The 'level' value
+    # indicates the number of additional devices that are "below" this device.
+    # Devices must be cleared in descending 'level' value.  For devices which
+    # have the same 'level' value, we sort within the 'level' by devtype order.
     return [reg[k]
-            for k in sorted(reg, key=lambda x: (reg[x]['level'] * -1,
-                                                reg[x]['dev_type']))]
+            for k in sorted(reg, reverse=True,
+                            key=lambda x: (reg[x]['level'],
+                                           devtype_order(reg[x]['dev_type'])))]
 
 
 def format_holders_tree(holders_tree):
@@ -534,8 +599,10 @@ def assert_clear(base_paths):
     valid = ('disk', 'partition')
     if not isinstance(base_paths, (list, tuple)):
         base_paths = [base_paths]
-    base_paths = [block.sys_block_path(path) for path in base_paths]
-    for holders_tree in [gen_holders_tree(p) for p in base_paths]:
+    base_paths = [block.sys_block_path(path, strict=False)
+                  for path in base_paths]
+    for holders_tree in [gen_holders_tree(p)
+                         for p in base_paths if os.path.exists(p)]:
         if any(holder_type not in valid and path not in base_paths
                for (holder_type, path) in get_holder_types(holders_tree)):
             raise OSError('Storage not clear, remaining:\n{}'
