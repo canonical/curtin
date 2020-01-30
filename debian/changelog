@@ -1,3 +1,84 @@
+curtin (19.3-17-g50ffca46-0ubuntu1~18.04.1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot. (LP: #1861452)
+    - clear-holders: ensure we wipe device even if multipath enabled not not mp
+    - block_meta: use reliable fs_spec entries for block devices
+    - multipath: handle removal of multipath partitions correctly
+    - vmtests: skip Focal deploying Centos70 ScsiBasic
+    - vmtests: fix network mtu tests, separating ifupdown vs networkd
+    - doc: Fix kexec documentation bug. [Mike Pontillo]
+    - vmtests: Add Focal Fossa
+    - centos: Add centos/rhel 8 support, enable UEFI Secure Boot [Lee Trager]
+    - Bump XFS /boot skip-by date out a while
+    - vmtest: Fix a missing unset of OUTPUT_FSTAB
+    - curthooks: handle s390x/aarch64 kernel install hooks
+    - clear-holders: handle arbitrary order of devices to clear
+    - curthooks: only run update-initramfs in target once
+    - test_network_mtu: bump fixby date for MTU tests
+    - block-discover: don't skip partitions on virtual devices
+    - block-discover: handle partial probe data
+    - Fix parsing of squashfs: uri prefix for installation sources [Daniel Fox]
+    - Release 19.3
+    - Update HACKING.rst with Josh Powers contact info.
+    - t/jenkins-runner: replace $EPOCHSECONDS with 'date +%s' [Paride Legovini]
+    - curthooks: skip setup_kernel_img_conf on eoan and newer
+    - block_meta: use lookup for wwn, fix fallback from wwn, serial, path
+    - vmtest: Adjust TestScsiBasic to use dnames to find correct disk
+    - schema: Add ptable value 'unsupported'
+    - tools/xkvm: add -nographic to speed up devopt query
+    - test_block_dasd: fix random_device_id to only generate valid IDs
+    - vmtest: update skip_if_arch message
+    - Add skip_by_date to eoan ipv6 vlan test
+    - storage_config: interpret value, not presence, of
+      DM_MULTIPATH_DEVICE_PATH [Michael Hudson-Doyle]
+    - vmtest: Add skip_by_date for test_ip_output on eoan + vlans
+    - block-schema: update raid schema for preserve and metadata
+    - dasd: update partition table value to 'vtoc'
+    - clear-holders: increase the level for devices with holders by one
+    - tests: mock timestamp used in collect-log file creation
+    - ChrootableTarget: mount /run to resolve lvm/mdadm issues which
+      require it.
+    - block-discover: handle multipath disks
+    - Handle partial raid on partitions
+    - install: export zpools if present in the storage-config
+    - block-schema: allow 'mac' as partition table type
+    - jenkins-runner: disable the lockfile timeout by default [Paride Legovini]
+    - curthooks: use correct grub-efi package name on i386
+    - vmtest-sync-images: remove unused imports [Paride Legovini]
+    - vmtests: use file locking on the images [Paride Legovini]
+    - vmtest: enable arm64 [Paride Legovini]
+    - Make the vmtests/test_basic test suite run on ppc64el [Paride Legovini]
+    - vmtests: separate arch and target_arch in tests [Paride Legovini]
+    - vmtests: new decorator: skip_if_arch [Paride Legovini]
+    - vmtests: increase the VM memory for Bionic
+    - vmtests: Skip Eoan ZFS Root tests until bug fix is complete
+    - util: add support for 'tbz', 'txz' tar format types to sanitize_source
+    - net: ensure eni helper tools install if given netplan config
+    - d/control: update Depends for new probert package names
+      [Dimitri John Ledkov]
+    - vmtest: fix typo in EoanBcacheBasic test name
+    - storage schema: Update nvme wwn regex to allow for nvme wwid format
+    - Allow EUI-64 formatted WWNs for disks and accept NVMe partition naming
+      [Reed Slaby]
+    - Makefile: split Python 2 and Python 3 unittest targets apart
+    - Switch to the new btrfs-progs package name, with btrfs-tools fallback.
+      [Dimitri John Ledkov]
+    - vmtest: bump ram size on Zfs tests for Disco and Eoan
+    - vmtest: drop Cosmic test cases
+    - unittests: mock subp in ChrootableTarget _exit_ test cases
+    - util.ChrootableTarget: skip rename of resolv.conf if not present
+      in target
+    - Release 19.2
+    - storage_config: a missing ID_PART_TABLE_TYPE key means no ptable
+      [Michael Hudson-Doyle]
+    - vmtests: drop skip_by_date decorators for bug 1813228
+    - block: Add opportunistic zkey encryption if supported
+    - vmtests: add support for CURTIN_VMTEST_APT_PROXY
+    - vmtests: add use of CURTIN_VMTEST_ prefixed envvars to image sync
+    - vmtest: dont raise SkipTest in class definition
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Thu, 30 Jan 2020 13:52:22 -0600
+
 curtin (19.1-7-g37a7a0f4-0ubuntu1~18.04.1) bionic; urgency=medium
 
   * d/control: drop probert dependency, not yet in main (LP: #1831757)
