@@ -79,17 +79,17 @@ class BionicTestNetworkVlan(relbase.bionic, TestNetworkVlanAbs):
 class EoanTestNetworkVlan(relbase.eoan, TestNetworkVlanAbs):
     __test__ = True
 
-    @TestNetworkBaseTestsAbs.skip_by_date("1846232", fixby="2020-01-10")
+    @TestNetworkBaseTestsAbs.skip_by_date("1846232", fixby="2020-03-10")
     def test_ip_output(self):
-        pass
+        return super().test_ip_output()
 
 
 class FocalTestNetworkVlan(relbase.focal, TestNetworkVlanAbs):
     __test__ = True
 
-    @TestNetworkBaseTestsAbs.skip_by_date("1846232", fixby="2020-01-10")
+    @TestNetworkBaseTestsAbs.skip_by_date("1846232", fixby="2020-03-10")
     def test_ip_output(self):
-        pass
+        return super().test_ip_output()
 
 
 class Centos66TestNetworkVlan(centos_relbase.centos66_xenial,
