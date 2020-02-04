@@ -151,10 +151,6 @@ class BionicTestMdadmBcache(relbase.bionic, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class DiscoTestMdadmBcache(relbase.disco, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 class EoanTestMdadmBcache(relbase.eoan, TestMdadmBcacheAbs):
     __test__ = True
 
@@ -197,10 +193,6 @@ class XenialEdgeTestMirrorboot(relbase.xenial_edge, TestMirrorbootAbs):
 
 
 class BionicTestMirrorboot(relbase.bionic, TestMirrorbootAbs):
-    __test__ = True
-
-
-class DiscoTestMirrorboot(relbase.disco, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -249,11 +241,6 @@ class XenialEdgeTestMirrorbootPartitions(relbase.xenial_edge,
 
 class BionicTestMirrorbootPartitions(relbase.bionic,
                                      TestMirrorbootPartitionsAbs):
-    __test__ = True
-
-
-class DiscoTestMirrorbootPartitions(relbase.disco,
-                                    TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
@@ -315,11 +302,6 @@ class BionicTestMirrorbootPartitionsUEFI(relbase.bionic,
     __test__ = True
 
 
-class DiscoTestMirrorbootPartitionsUEFI(relbase.disco,
-                                        TestMirrorbootPartitionsUEFIAbs):
-    __test__ = True
-
-
 class EoanTestMirrorbootPartitionsUEFI(relbase.eoan,
                                        TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
@@ -364,10 +346,6 @@ class XenialEdgeTestRaid5boot(relbase.xenial_edge, TestRaid5bootAbs):
 
 
 class BionicTestRaid5boot(relbase.bionic, TestRaid5bootAbs):
-    __test__ = True
-
-
-class DiscoTestRaid5boot(relbase.disco, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -432,10 +410,6 @@ class BionicTestRaid6boot(relbase.bionic, TestRaid6bootAbs):
     __test__ = True
 
 
-class DiscoTestRaid6boot(relbase.disco, TestRaid6bootAbs):
-    __test__ = True
-
-
 class EoanTestRaid6boot(relbase.eoan, TestRaid6bootAbs):
     __test__ = True
 
@@ -480,10 +454,6 @@ class XenialEdgeTestRaid10boot(relbase.xenial_edge, TestRaid10bootAbs):
 
 
 class BionicTestRaid10boot(relbase.bionic, TestRaid10bootAbs):
-    __test__ = True
-
-
-class DiscoTestRaid10boot(relbase.disco, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -588,10 +558,6 @@ class XenialEdgeTestAllindata(relbase.xenial_edge, TestAllindataAbs):
 
 
 class BionicTestAllindata(relbase.bionic, TestAllindataAbs):
-    __test__ = True
-
-
-class DiscoTestAllindata(relbase.disco, TestAllindataAbs):
     __test__ = True
 
 

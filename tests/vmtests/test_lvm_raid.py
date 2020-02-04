@@ -51,10 +51,6 @@ class EoanTestLvmOverRaid(relbase.eoan, TestLvmOverRaidAbs):
     __test__ = True
 
 
-class DiscoTestLvmOverRaid(relbase.disco, TestLvmOverRaidAbs):
-    __test__ = True
-
-
 class BionicTestLvmOverRaid(relbase.bionic, TestLvmOverRaidAbs):
     __test__ = True
 

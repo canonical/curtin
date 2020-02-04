@@ -76,10 +76,6 @@ class BionicTestNetworkVlan(relbase.bionic, TestNetworkVlanAbs):
     __test__ = True
 
 
-class DiscoTestNetworkVlan(relbase.disco, TestNetworkVlanAbs):
-    __test__ = True
-
-
 class EoanTestNetworkVlan(relbase.eoan, TestNetworkVlanAbs):
     __test__ = True
 
