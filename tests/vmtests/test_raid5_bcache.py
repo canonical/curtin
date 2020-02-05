@@ -43,12 +43,17 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
             bcache-super-show /dev/vda2 > bcache_super_vda2
             ls /sys/fs/bcache > bcache_ls
             cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
+            ls -al /dev/bcache/by-uuid/ > ls_al_bcache_byuuid
 
             exit 0""")])
-    fstab_expected = {
-        '/dev/bcache0': '/',
-        '/dev/md0': '/srv/data',
-    }
+
+    def get_fstab_expected(self):
+        bcache0_kname = self._dname_to_kname('bcache0')
+        return [
+            (self._bcache_to_byuuid(bcache0_kname), '/', 'defaults'),
+            (self._kname_to_uuid_devpath('md-uuid', 'md0'),
+             '/srv/data', 'defaults')
+        ]
 
     def test_bcache_output_files_exist(self):
         self.output_files_exist(["bcache_super_vda2", "bcache_ls",

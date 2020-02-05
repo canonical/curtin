@@ -215,7 +215,7 @@ class TestMirrorbootPartitionsAbs(TestMdadmAbs):
 
     def get_fstab_expected(self):
         return [
-            (self._kname_to_uuid_devpath('md-uuid', 'md0'), '/', 'defaults')
+            (self._kname_to_uuid_devpath('md-uuid', 'md0p1'), '/', 'defaults')
         ]
 
 

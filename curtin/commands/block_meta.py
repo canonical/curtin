@@ -320,8 +320,8 @@ def make_dname(volume, storage_config):
         matches += [[compose_udev_equality("ENV{CACHED_UUID}", bdev_uuid)]]
         bcache.write_label(sanitize_dname(dname), backing_dev)
     elif vol.get('type') == "lvm_partition":
-        volgroup_name = storage_config.get(vol.get('volgroup')).get('name')
-        dname = "%s-%s" % (volgroup_name, dname)
+        info = udevadm_info(path=path)
+        dname = info['DM_NAME']
         matches += [[compose_udev_equality("ENV{DM_NAME}", dname)]]
     else:
         raise ValueError('cannot make dname for device with type: {}'
@@ -880,9 +880,14 @@ def get_volume_spec(device_path):
     """
     info = udevadm_info(path=device_path)
     block_type = _get_volume_type(device_path)
+    LOG.debug('volspec: path=%s type=%s', device_path, block_type)
+    LOG.debug('info[DEVLINKS] = %s', info['DEVLINKS'])
 
     devlinks = []
-    if 'raid' in block_type:
+    # util-linux lsblk may return type=part or type=md for raid partitions
+    # handle both by checking path (e.g. /dev/md0p1 should use md-uuid
+    # https://github.com/karelzak/util-linux/commit/ef2ce68b1f
+    if 'raid' in block_type or device_path.startswith('/dev/md'):
         devlinks = [link for link in info['DEVLINKS']
                     if os.path.basename(link).startswith('md-uuid-')]
     elif block_type in ['crypt', 'lvm', 'mpath']:

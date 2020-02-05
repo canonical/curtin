@@ -31,7 +31,7 @@ storage:
         name: sda-part1
         number: 1
         offset: 4194304B
-        size: 5G
+        size: 1G
         type: partition
         uuid: 1e27e7af-26dc-4af4-9ef5-aea928204997
         wipe: superblock
@@ -39,7 +39,7 @@ storage:
         id: sda-part2
         name: sda-part2
         number: 2
-        size: 2G
+        size: 1G
         type: partition
         uuid: 0040d622-41f1-4596-842f-82d731ba9054
         wipe: superblock
@@ -47,7 +47,7 @@ storage:
         id: sda-part3
         name: sda-part3
         number: 3
-        size: 2G
+        size: 7G
         type: partition
         uuid: cb59d827-662c-4da6-b1ef-7967218bd0db
         wipe: superblock

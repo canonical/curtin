@@ -1448,9 +1448,10 @@ class VMBaseClass(TestCase):
                           keep_fail=KEEP_DATA['fail'])
         if TAR_DISKS:
             tar_disks(cls.td.tmpdir)
-        cls.cleanIscsiState(success,
-                            keep_pass=KEEP_DATA['pass'],
-                            keep_fail=KEEP_DATA['fail'])
+        if not REUSE_TOPDIR:
+            cls.cleanIscsiState(success,
+                                keep_pass=KEEP_DATA['pass'],
+                                keep_fail=KEEP_DATA['fail'])
 
     @classmethod
     def expected_interfaces(cls):
@@ -1604,7 +1605,7 @@ class VMBaseClass(TestCase):
         ]
         """
         expected = self.get_fstab_expected()
-        if expected is None:
+        if not expected:
             return
         path = self.collect_path("fstab")
         if not os.path.exists(path):
