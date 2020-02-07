@@ -143,6 +143,7 @@ class EoanTestNvmeBcache(relbase.eoan, TestNvmeBcacheAbs):
     __test__ = True
 
 
+@TestNvmeBcacheAbs.skip_by_date("1861941", fixby="2020-04-15")
 class FocalTestNvmeBcache(relbase.focal, TestNvmeBcacheAbs):
     __test__ = True
 

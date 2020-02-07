@@ -95,5 +95,9 @@ class EoanTestRaid5Bcache(relbase.eoan, TestMdadmBcacheAbs):
 class FocalTestRaid5Bcache(relbase.focal, TestMdadmBcacheAbs):
     __test__ = True
 
+    @TestMdadmBcacheAbs.skip_by_date("1861941", fixby="2020-04-15")
+    def test_fstab(self):
+        return super().test_fstab()
+
 
 # vi: ts=4 expandtab syntax=python
