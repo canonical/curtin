@@ -600,6 +600,21 @@ def find_previous_partition(disk_id, part_id, storage_config):
     return last_partnum
 
 
+def find_extended_partition(part_device, storage_config):
+    """ Scan storage config for a partition entry from the same device
+        with the 'extended' flag set.
+
+        :param: part_device: string specifiying the device id to match
+        :param: storage_config: Ordered dict of storage configation
+        :returns: string: item_id if found or None
+    """
+    for item_id, item in storage_config.items():
+        if item.get('type') == "partition" and \
+           item.get('device') == part_device and \
+           item.get('flag') == "extended":
+            return item_id
+
+
 def partition_handler(info, storage_config):
     device = info.get('device')
     size = info.get('size')
@@ -615,29 +630,35 @@ def partition_handler(info, storage_config):
     partnumber = determine_partition_number(info.get('id'), storage_config)
     disk_kname = block.path_to_kname(disk)
     disk_sysfs_path = block.sys_block_path(disk)
+
     # consider the disks logical sector size when calculating sectors
     try:
-        lbs_path = os.path.join(disk_sysfs_path, 'queue', 'logical_block_size')
-        with open(lbs_path, 'r') as f:
-            logical_block_size_bytes = int(f.readline())
-    except Exception:
+        (logical_block_size_bytes, _) = block.get_blockdev_sector_size(disk)
+        LOG.debug(
+            "{} logical_block_size_bytes: {}".format(disk_kname,
+                                                     logical_block_size_bytes))
+    except OSError as e:
+        LOG.warning("Couldn't read block size, using default size 512: %s", e)
         logical_block_size_bytes = 512
-    LOG.debug(
-        "{} logical_block_size_bytes: {}".format(disk_kname,
-                                                 logical_block_size_bytes))
 
     if partnumber > 1:
+        pnum = None
         if partnumber == 5 and disk_ptable == "msdos":
-            for key, item in storage_config.items():
-                if item.get('type') == "partition" and \
-                        item.get('device') == device and \
-                        item.get('flag') == "extended":
-                    extended_part_no = determine_partition_number(
-                        key, storage_config)
-                    break
-            pnum = extended_part_no
+            extended_part_id = find_extended_partition(device, storage_config)
+            if not extended_part_id:
+                msg = ("Logical partition id=%s requires an extended partition"
+                       " and no extended partition '(type: partition, flag: "
+                       "extended)' was found in the storage config.")
+                LOG.error(msg, info['id'])
+                raise RuntimeError(msg, info['id'])
+            pnum = determine_partition_number(extended_part_id, storage_config)
         else:
             pnum = find_previous_partition(device, info['id'], storage_config)
+
+        # In case we fail to find previous partition let's error out now
+        if pnum is None:
+            raise RuntimeError(
+                'Cannot find previous partition on disk %s' % disk)
 
         LOG.debug("previous partition number for '%s' found to be '%s'",
                   info.get('id'), pnum)
