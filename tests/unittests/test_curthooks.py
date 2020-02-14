@@ -984,11 +984,24 @@ class TestDetectRequiredPackages(CiTestCase):
                         {'type': 'static', 'address': '192.168.14.2/24'},
                         {'type': 'static', 'address': '2001:1::1/64'}]}},
             2: {
-                'vlan': {
+                'openvswitch': {
+                    'openvswitch': {
+                        'bridges': {
+                            'br-int': {'ports': {'eth15': {'tag': 2}}}}}},
+                'vlans': {
                     'vlans': {
                         'en-intra': {'id': 1, 'link': 'eno1', 'dhcp4': 'yes'},
                         'en-vpn': {'id': 2, 'link': 'eno1'}}},
-                'bridge': {
+                'renderers': {
+                    'bridges': {
+                        'br-ext': {'renderer': 'openvswitch',
+                                   'ports': {'eth7': {'tag': 9}}}},
+                    'wifis': {
+                        'wlps0': {'renderer': 'NetworkManager',
+                                  'dhcp4': True}},
+                    'ethernets': {
+                        'ens7p0': {'renderer': 'networkd', 'dhcp6': True}}},
+                'bridges': {
                     'bridges': {
                         'br0': {
                             'interfaces': ['wlp1s0', 'switchports'],
@@ -1014,6 +1027,8 @@ class TestDetectRequiredPackages(CiTestCase):
     def _test_req_mappings(self, req_mappings):
         for (config_items, expected_reqs) in req_mappings:
             cfg = self._fmt_config(config_items)
+            print('test_config:\n%s' % config.dump_config(cfg))
+            print()
             actual_reqs = curthooks.detect_required_packages(cfg)
             self.assertEqual(set(actual_reqs), set(expected_reqs),
                              'failed for config: {}'.format(config_items))
@@ -1084,27 +1099,52 @@ class TestDetectRequiredPackages(CiTestCase):
              ('e2fsprogs', '^btrfs-(progs|tools)$', 'vlan', 'ifenslave')),
         ))
 
-    def test_network_v2_detect(self):
+    def test_network_v2_detect_bridges(self):
         self._test_req_mappings((
             ({'network': {
                 'version': 2,
-                'items': ('bridge',)}},
+                'items': ('bridges',)}},
              ('bridge-utils', )),
+        ))
+
+    def test_network_v2_detect_vlan(self):
+        self._test_req_mappings((
             ({'network': {
                 'version': 2,
-                'items': ('vlan',)}},
+                'items': ('vlans',)}},
              ('vlan',)),
+        ))
+
+    def test_network_v2_detect_openvswitch(self):
+        self._test_req_mappings((
             ({'network': {
                 'version': 2,
-                'items': ('vlan', 'bridge')}},
-             ('bridge-utils', 'vlan')),
+                'items': ('openvswitch',)}},
+             ('openvswitch-switch', )),
+        ))
+
+    def test_network_v2_detect_renderers(self):
+        self._test_req_mappings((
+            ({'network': {
+                'version': 2,
+                'items': ('renderers',)}},
+             ('bridge-utils', 'openvswitch-switch',
+              'systemd', 'network-manager', )),
+        ))
+
+    def test_network_v2_detect_all(self):
+        self._test_req_mappings((
+            ({'network': {
+                'version': 2,
+                'items': ('vlans', 'bridges', 'openvswitch')}},
+             ('bridge-utils', 'vlan', 'openvswitch-switch')),
         ))
 
     def test_mixed_storage_v1_network_v2_detect(self):
         self._test_req_mappings((
             ({'network': {
                 'version': 2,
-                'items': ('bridge', 'vlan')},
+                'items': ('bridges', 'vlans')},
              'storage': {
                  'version': 1,
                  'items': ('raid', 'bcache', 'ext4')}},

@@ -17,6 +17,7 @@ pycheck_dirs=(
     "tools/block-discover-to-config"
     "tools/curtin-log-print"
     "tools/noproxy"
+    "tools/remove-vmtest-release"
     "tools/schema-validate-storage"
     "tools/ssh-keys-list"
     "tools/vmtest-filter"

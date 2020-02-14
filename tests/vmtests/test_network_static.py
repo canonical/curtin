@@ -28,10 +28,6 @@ class BionicTestNetworkStatic(relbase.bionic, TestNetworkStaticAbs):
     __test__ = True
 
 
-class DiscoTestNetworkStatic(relbase.disco, TestNetworkStaticAbs):
-    __test__ = True
-
-
 class EoanTestNetworkStatic(relbase.eoan, TestNetworkStaticAbs):
     __test__ = True
 

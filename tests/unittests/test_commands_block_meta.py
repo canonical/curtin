@@ -242,6 +242,8 @@ class TestBlockMeta(CiTestCase):
                        'mock_block_zero_file')
         self.add_patch('curtin.block.rescan_block_devices',
                        'mock_block_rescan')
+        self.add_patch('curtin.block.get_blockdev_sector_size',
+                       'mock_block_sector_size')
 
         self.target = "my_target"
         self.config = {
@@ -316,6 +318,7 @@ class TestBlockMeta(CiTestCase):
         kname = 'xxx'
         self.mock_block_path_to_kname.return_value = kname
         self.mock_block_sys_block_path.return_value = '/sys/class/block/xxx'
+        self.mock_block_sector_size.return_value = (512, 512)
 
         block_meta.partition_handler(part_info, self.storage_config)
         part_offset = 2048 * 512
@@ -1427,5 +1430,142 @@ class TestDmCryptHandler(CiTestCase):
         ]
         self.m_subp.assert_has_calls(expected_calls)
         self.assertEqual(len(util.load_file(self.crypttab).splitlines()), 1)
+
+
+class TestPartitionHandler(CiTestCase):
+
+    def setUp(self):
+        super(TestPartitionHandler, self).setUp()
+
+        basepath = 'curtin.commands.block_meta.'
+        self.add_patch(basepath + 'get_path_to_storage_volume', 'm_getpath')
+        self.add_patch(basepath + 'util', 'm_util')
+        self.add_patch(basepath + 'make_dname', 'm_dname')
+        self.add_patch(basepath + 'block', 'm_block')
+        self.add_patch(basepath + 'udevadm_settle', 'm_uset')
+
+        self.target = "my_target"
+        self.config = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {'id': 'sda',
+                     'type': 'disk',
+                     'name': 'main_disk',
+                     'ptable': 'msdos',
+                     'serial': 'disk-a'},
+                    {'id': 'disk-sda-part-1',
+                     'type': 'partition',
+                     'device': 'sda',
+                     'name': 'main_part',
+                     'number': 1,
+                     'size': '3GB',
+                     'flag': 'boot'},
+                    {'id': 'disk-sda-part-2',
+                     'type': 'partition',
+                     'device': 'sda',
+                     'name': 'extended_part',
+                     'number': 2,
+                     'size': '5GB',
+                     'flag': 'extended'},
+                    {'id': 'disk-sda-part-5',
+                     'type': 'partition',
+                     'device': 'sda',
+                     'name': 'logical_part',
+                     'number': 5,
+                     'size': '2GB',
+                     'flag': 'logical'},
+                    {'id': 'disk-sda-part-6',
+                     'type': 'partition',
+                     'device': 'sda',
+                     'name': 'logical_part',
+                     'number': 6,
+                     'size': '2GB',
+                     'flag': 'logical'},
+                ],
+            }
+        }
+        self.storage_config = (
+            block_meta.extract_storage_ordered_dict(self.config))
+
+    def test_find_extended_partition(self):
+        """
+        find_extended_partition returns extended part_id of logical partition.
+        """
+        extended_parts = [item for item_id, item in self.storage_config.items()
+                          if item['type'] == 'partition' and
+                          item.get('flag') == 'extended']
+        self.assertEqual(1, len(extended_parts))
+        extended_part = extended_parts[0]
+        logical_parts = [item for item_id, item in self.storage_config.items()
+                         if item['type'] == 'partition' and
+                         item.get('flag') == 'logical']
+
+        for logical in logical_parts:
+            ext_part_id = (
+                block_meta.find_extended_partition(logical['device'],
+                                                   self.storage_config))
+            self.assertEqual(extended_part['id'], ext_part_id)
+
+    def test_find_extended_partition_returns_none_if_not_found(self):
+        """
+        find_extended_partition returns none if no extended part is found.
+        """
+
+        del self.storage_config['disk-sda-part-2']['flag']
+        logical_parts = [item for item_id, item in self.storage_config.items()
+                         if item['type'] == 'partition' and
+                         item.get('flag') == 'logical']
+
+        for logical in logical_parts:
+            ext_part_id = (
+                block_meta.find_extended_partition(logical['device'],
+                                                   self.storage_config))
+            self.assertIsNone(ext_part_id)
+
+    @patch('curtin.commands.block_meta.find_extended_partition')
+    def test_part_handler_finds_extended_part_for_logical_part_5(self,
+                                                                 m_ex_part):
+        """
+        part_handler_finds_extended_part_number_for_logical_part_5.
+        """
+        extended_parts = [item for item_id, item in self.storage_config.items()
+                          if item['type'] == 'partition' and
+                          item.get('flag') == 'extended']
+        self.assertEqual(1, len(extended_parts))
+        logical_parts = [item for item_id, item in self.storage_config.items()
+                         if item['type'] == 'partition' and
+                         item.get('number') == 5]
+        self.assertEqual(1, len(logical_parts))
+        logical_part = logical_parts[0]
+
+        self.m_getpath.return_value = '/wark/sda'
+        self.m_block.path_to_kname.return_value = 'sda'
+        self.m_block.partition_kname.return_value = 'sda2'
+        self.m_block.sys_block_path.return_value = 'sys/class/block/sda'
+        self.m_block.get_blockdev_sector_size.return_value = (512, 512)
+        m_ex_part.return_value = 'disk-sda-part-2'
+        block_meta.partition_handler(logical_part, self.storage_config)
+        m_ex_part.assert_called_with('sda', self.storage_config)
+
+    def test_part_handler_raise_exception_missing_extended_part(self):
+        """
+        part_handler raises exception on missing extended partition.
+        """
+        del self.storage_config['disk-sda-part-2']['flag']
+        logical_parts = [item for item_id, item in self.storage_config.items()
+                         if item['type'] == 'partition' and
+                         item.get('number') == 5]
+        self.assertEqual(1, len(logical_parts))
+        logical_part = logical_parts[0]
+
+        self.m_getpath.return_value = '/wark/sda'
+        self.m_block.path_to_kname.return_value = 'sda'
+        self.m_block.partition_kname.return_value = 'sda2'
+        self.m_block.sys_block_path.return_value = 'sys/class/block/sda'
+        self.m_block.get_blockdev_sector_size.return_value = (512, 512)
+        with self.assertRaises(RuntimeError):
+            block_meta.partition_handler(logical_part, self.storage_config)
+
 
 # vi: ts=4 expandtab syntax=python

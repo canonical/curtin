@@ -52,10 +52,6 @@ class BionicTestNetworkAlias(relbase.bionic, TestNetworkAliasAbs):
     __test__ = True
 
 
-class DiscoTestNetworkAlias(relbase.disco, TestNetworkAliasAbs):
-    __test__ = True
-
-
 class EoanTestNetworkAlias(relbase.eoan, TestNetworkAliasAbs):
     __test__ = True
 

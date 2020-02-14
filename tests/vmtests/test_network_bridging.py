@@ -236,10 +236,6 @@ class BionicTestBridging(relbase.bionic, TestBridgeNetworkAbs):
     __test__ = True
 
 
-class DiscoTestBridging(relbase.disco, TestBridgeNetworkAbs):
-    __test__ = True
-
-
 class EoanTestBridging(relbase.eoan, TestBridgeNetworkAbs):
     __test__ = True
 

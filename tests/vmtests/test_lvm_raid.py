@@ -26,14 +26,18 @@ class TestLvmOverRaidAbs(TestMdadmAbs, TestLvmAbs):
             exit 0
             """)]
         )
-
-    fstab_expected = {
-        '/dev/vg1/lv1': '/srv/data',
-        '/dev/vg1/lv2': '/srv/backup',
-    }
     disk_to_check = [('main_disk', 1),
                      ('md0', 0),
                      ('md1', 0)]
+
+    def get_fstab_expected(self):
+        rootdev = self._dname_to_kname('main_disk')
+        homedev = self._dname_to_kname('vg0-lv--0')
+        return [
+            (self._kname_to_byuuid(rootdev + '2'), '/', 'defaults'),
+            (self._kname_to_uuid_devpath('dm-uuid', homedev),
+             '/home', 'defaults'),
+        ]
 
     def test_lvs(self):
         self.check_file_strippedline("lvs", "lv-0=vg0")
@@ -48,10 +52,6 @@ class FocalTestLvmOverRaid(relbase.focal, TestLvmOverRaidAbs):
 
 
 class EoanTestLvmOverRaid(relbase.eoan, TestLvmOverRaidAbs):
-    __test__ = True
-
-
-class DiscoTestLvmOverRaid(relbase.disco, TestLvmOverRaidAbs):
     __test__ = True
 
 

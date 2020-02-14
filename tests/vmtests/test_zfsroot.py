@@ -96,11 +96,6 @@ class BionicTestZfsRoot(relbase.bionic, TestZfsRootAbs):
     __test__ = True
 
 
-class DiscoTestZfsRoot(relbase.disco, TestZfsRootAbs):
-    __test__ = True
-    mem = 4096
-
-
 class EoanTestZfsRoot(relbase.eoan, TestZfsRootAbs):
     __test__ = True
     mem = 4096
@@ -128,11 +123,6 @@ class XenialGAi386TestZfsRootFsType(relbase.xenial_ga, TestZfsRootFsTypeAbs,
 
 class BionicTestZfsRootFsType(relbase.bionic, TestZfsRootFsTypeAbs):
     __test__ = True
-
-
-class DiscoTestZfsRootFsType(relbase.disco, TestZfsRootFsTypeAbs):
-    __test__ = True
-    mem = 4096
 
 
 class EoanTestZfsRootFsType(relbase.eoan, TestZfsRootFsTypeAbs):

@@ -189,14 +189,6 @@ class BionicTestNetworkMtu(relbase.bionic, TestNetworkMtuAbs):
     upgrade_packages = "cloud-init,systemd"
 
 
-class DiscoTestNetworkMtu(relbase.disco, TestNetworkMtuAbs):
-    conf_file = "examples/tests/network_mtu_networkd.yaml"
-    __test__ = True
-    # Until systemd is released with the fix for LP:#1671951
-    add_repos = "ppa:ddstreet/systemd"
-    upgrade_packages = "cloud-init,systemd"
-
-
 class EoanTestNetworkMtu(relbase.eoan, TestNetworkMtuAbs):
     conf_file = "examples/tests/network_mtu_networkd.yaml"
     __test__ = True

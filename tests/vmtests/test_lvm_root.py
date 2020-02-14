@@ -29,10 +29,13 @@ class TestLvmRootAbs(VMBaseClass):
 
         exit 0
         """)]
-    fstab_expected = {
-        'UUID=04836770-e989-460f-8774-8e277ddcb40f': '/',
-    }
     conf_replace = {}
+
+    def get_fstab_output(self):
+        rootvg = self._dname_to_kname('root_vg-lv1_root')
+        return [
+            (self._kname_to_uuid_devpath('dm-uuid', rootvg), '/', 'defaults')
+        ]
 
     def test_output_files_exist(self):
         self.output_files_exist(["fstab"])

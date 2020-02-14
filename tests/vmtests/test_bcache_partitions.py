@@ -25,10 +25,6 @@ class BionicTestBcachePartitions(relbase.bionic, TestBcachePartitions):
     __test__ = True
 
 
-class DiscoTestBcachePartitions(relbase.disco, TestBcachePartitions):
-    __test__ = True
-
-
 class EoanTestBcachePartitions(relbase.eoan, TestBcachePartitions):
     __test__ = True
 

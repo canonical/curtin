@@ -1,0 +1,105 @@
+showtrace: true
+
+bucket:
+  - &setup |
+    parted /dev/disk/by-id/virtio-disk-a --script -- \
+        mklabel gpt \
+        mkpart primary fat32 1MiB 512MiB \
+        set 1 esp on \
+        mkpart primary ext4 512MiB 3512Mib
+
+    udevadm settle
+    mkfs.vfat -I -n EFI -F 32 /dev/disk/by-id/virtio-disk-a-part1
+    mkfs.ext4 /dev/disk/by-id/virtio-disk-a-part2
+    udevadm settle
+    apt install -qy grub-efi-amd64-signed shim-signed
+    mount /dev/disk/by-id/virtio-disk-a-part2 /mnt
+    mkdir -p /mnt/boot/efi
+    mount /dev/disk/by-id/virtio-disk-a-part1 /mnt/boot/efi
+    udevadm settle
+    distro="ubuntu"
+    if grep -q centos /var/lib/cloud/instance/scripts/part-002; then
+        distro="centos"
+    fi
+    grub-install --root-directory=/mnt --efi-directory=/mnt/boot/efi --force \
+                 --target=x86_64-efi --skip-fs-probe --bootloader-id=$distro
+    efibootmgr -v
+    find /mnt/boot/efi
+    umount /mnt/boot/efi
+    umount /mnt
+
+  - &reinstall_grub |
+    # on centos we reinstall grub packages to clobber the ubuntu grub we used
+    if command -v yum; then
+        yum makecache
+        for pkg in grub2-efi-x64 shim-x64 grub2-efi-x64-modules; do
+            echo "installing $pkg"
+            yum reinstall -y $pkg |:
+            yum install -y $pkg |:
+        done
+    fi
+
+early_commands:
+  00-setup-esp: [sh, -exuc, *setup]
+
+late_commands:
+  01_grub: ['curtin', 'in-target', '--', 'sh', '-xc', *reinstall_grub]
+
+storage:
+  config:
+  - id: id_disk0
+    type: disk
+    name: main_disk
+    serial: disk-a
+    ptable: gpt
+    preserve: true
+    grub_device: true
+  - device: id_disk0
+    flag: boot
+    id: id_disk0_part1
+    number: 1
+    offset: 1M
+    size: 512M
+    type: partition
+    preserve: true
+  - device: id_disk0
+    id: id_disk0_part2
+    number: 2
+    size: 3G
+    type: partition
+    preserve: true
+  - fstype: fat32
+    id: id_efi_format
+    label: efi
+    type: format
+    volume: id_disk0_part1
+    preserve: true
+  - fstype: ext4
+    id: id_root_format
+    label: root
+    type: format
+    volume: id_disk0_part2
+  - device: id_root_format
+    id: id_root_mount
+    path: /
+    type: mount
+  - device: id_efi_format
+    id: id_efi_mount
+    path: /boot/efi
+    type: mount
+  - id: pnum_disk
+    type: disk
+    serial: disk-b
+    name: pnum_disk
+    ptable: gpt
+  - id: pnum_disk_p1
+    type: partition
+    number: 1
+    size: 1GB
+    device: pnum_disk
+  - id: pnum_disk_p2
+    type: partition
+    number: 10
+    size: 1GB
+    device: pnum_disk
+  version: 1
