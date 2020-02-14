@@ -1,4 +1,4 @@
-curtin (19.3-26-g82f23e3d-0ubuntu1) UNRELEASED; urgency=medium
+curtin (19.3-26-g82f23e3d-0ubuntu1) focal; urgency=medium
 
   * New upstream snapshot.
     - install-grub: refactor uefi partition/disk searching (LP: #1862846)
