@@ -57,10 +57,6 @@ class BionicTestBonding(relbase.bionic, TestNetworkBondingAbs):
     __test__ = True
 
 
-class DiscoTestBonding(relbase.disco, TestNetworkBondingAbs):
-    __test__ = True
-
-
 class EoanTestBonding(relbase.eoan, TestNetworkBondingAbs):
     __test__ = True
 

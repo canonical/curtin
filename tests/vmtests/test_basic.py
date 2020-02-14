@@ -245,10 +245,6 @@ class BionicTestBasic(relbase.bionic, TestBasicAbs):
     __test__ = True
 
 
-class DiscoTestBasic(relbase.disco, TestBasicAbs):
-    __test__ = True
-
-
 class EoanTestBasic(relbase.eoan, TestBasicAbs):
     __test__ = True
 
@@ -349,10 +345,6 @@ class XenialEdgeTestScsiBasic(relbase.xenial_edge, TestBasicScsiAbs):
 
 
 class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
-    __test__ = True
-
-
-class DiscoTestScsiBasic(relbase.disco, TestBasicScsiAbs):
     __test__ = True
 
 

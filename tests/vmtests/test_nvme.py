@@ -73,10 +73,6 @@ class BionicTestNvme(relbase.bionic, TestNvmeAbs):
     __test__ = True
 
 
-class DiscoTestNvme(relbase.disco, TestNvmeAbs):
-    __test__ = True
-
-
 class EoanTestNvme(relbase.eoan, TestNvmeAbs):
     __test__ = True
 
@@ -143,14 +139,11 @@ class BionicTestNvmeBcache(relbase.bionic, TestNvmeBcacheAbs):
     __test__ = True
 
 
-class DiscoTestNvmeBcache(relbase.disco, TestNvmeBcacheAbs):
-    __test__ = True
-
-
 class EoanTestNvmeBcache(relbase.eoan, TestNvmeBcacheAbs):
     __test__ = True
 
 
+@TestNvmeBcacheAbs.skip_by_date("1861941", fixby="2020-04-15")
 class FocalTestNvmeBcache(relbase.focal, TestNvmeBcacheAbs):
     __test__ = True
 

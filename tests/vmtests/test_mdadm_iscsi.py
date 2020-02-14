@@ -50,10 +50,6 @@ class BionicTestIscsiMdadm(relbase.bionic, TestMdadmIscsiAbs):
     __test__ = True
 
 
-class DiscoTestIscsiMdadm(relbase.disco, TestMdadmIscsiAbs):
-    __test__ = True
-
-
 class EoanTestIscsiMdadm(relbase.eoan, TestMdadmIscsiAbs):
     __test__ = True
 

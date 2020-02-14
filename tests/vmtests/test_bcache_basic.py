@@ -64,10 +64,6 @@ class BionicBcacheBasic(relbase.bionic, TestBcacheBasic):
     __test__ = True
 
 
-class DiscoBcacheBasic(relbase.disco, TestBcacheBasic):
-    __test__ = True
-
-
 class EoanBcacheBasic(relbase.eoan, TestBcacheBasic):
     __test__ = True
 
