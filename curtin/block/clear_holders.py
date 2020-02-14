@@ -304,6 +304,22 @@ def wipe_superblock(device):
                 LOG.debug('Found multipath device over %s, wiping holder %s',
                           blockdev, mp_dev)
 
+            # check if we can remove the parent mpath_id mapping; this is
+            # is possible after removing all dependent mpath devices (like
+            # mpath partitions.  Once the mpath parts are wiped and unmapped
+            # we can remove the parent mpath mapping which releases the lock
+            # on the underlying disk partitions.
+            dm_map = multipath.dmname_to_blkdev_mapping()
+            LOG.debug('dm map: %s', dm_map)
+            parent_mp_dev = dm_map.get(parent_mpath_id)
+            if parent_mp_dev is not None:
+                parent_mp_holders = get_holders(parent_mp_dev)
+                if len(parent_mp_holders) == 0:
+                    LOG.debug('Parent multipath device (%s, %s) has no '
+                              'holders, removing.', parent_mpath_id,
+                              parent_mp_dev)
+                    multipath.remove_map(parent_mpath_id)
+
     _wipe_superblock(mp_dev if mp_dev else blockdev)
 
     # if we had partitions, make sure they've been removed

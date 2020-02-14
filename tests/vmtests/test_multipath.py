@@ -81,10 +81,6 @@ class BionicTestMultipathBasic(relbase.bionic, TestMultipathBasicAbs):
     __test__ = True
 
 
-class DiscoTestMultipathBasic(relbase.disco, TestMultipathBasicAbs):
-    __test__ = True
-
-
 class EoanTestMultipathBasic(relbase.eoan, TestMultipathBasicAbs):
     __test__ = True
 

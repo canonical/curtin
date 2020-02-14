@@ -47,7 +47,7 @@ Do these things once
     git push LP_USER master
 
 .. _repository: https://git.launchpad.net/curtin
-.. _contributor license agreement: http://www.canonical.com/contributors
+.. _contributor license agreement: https://ubuntu.com/legal/contributors
 .. _contributor-agreement-canonical: https://launchpad.net/%7Econtributor-agreement-canonical/+members
 .. _Launchpad git documentation: https://help.launchpad.net/Code/Git
 

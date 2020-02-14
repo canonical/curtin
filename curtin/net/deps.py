@@ -27,8 +27,15 @@ def network_config_required_packages(network_config, mapping=None):
                           for device in network_config['config'])
     else:
         # v2 has no config key
-        dev_configs = set(cfgtype for (cfgtype, cfg) in
-                          network_config.items() if cfgtype not in ['version'])
+        dev_configs = set()
+        for cfgtype, cfg in network_config.items():
+            if cfgtype == 'version':
+                continue
+            dev_configs.add(cfgtype)
+            # the renderer type may trigger package adds
+            for entry, entry_cfg in cfg.items():
+                if entry_cfg.get('renderer'):
+                    dev_configs.add(entry_cfg.get('renderer'))
 
     needed_packages = []
     for dev_type in dev_configs:
@@ -50,6 +57,9 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
             'bonds': ['ifenslave'],
             'bridge': ['bridge-utils'],
             'bridges': ['bridge-utils'],
+            'openvswitch': ['openvswitch-switch'],
+            'networkd': ['systemd'],
+            'NetworkManager': ['network-manager'],
             'vlan': ['vlan'],
             'vlans': ['vlan']},
         DISTROS.redhat: {
@@ -57,6 +67,7 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
             'bonds': [],
             'bridge': [],
             'bridges': [],
+            'openvswitch': ['openvswitch-switch'],
             'vlan': [],
             'vlans': []},
     }

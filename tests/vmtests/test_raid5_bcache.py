@@ -43,12 +43,17 @@ class TestMdadmBcacheAbs(TestMdadmAbs):
             bcache-super-show /dev/vda2 > bcache_super_vda2
             ls /sys/fs/bcache > bcache_ls
             cat /sys/block/bcache0/bcache/cache_mode > bcache_cache_mode
+            ls -al /dev/bcache/by-uuid/ > ls_al_bcache_byuuid
 
             exit 0""")])
-    fstab_expected = {
-        '/dev/bcache0': '/',
-        '/dev/md0': '/srv/data',
-    }
+
+    def get_fstab_expected(self):
+        bcache0_kname = self._dname_to_kname('bcache0')
+        return [
+            (self._bcache_to_byuuid(bcache0_kname), '/', 'defaults'),
+            (self._kname_to_uuid_devpath('md-uuid', 'md0'),
+             '/srv/data', 'defaults')
+        ]
 
     def test_bcache_output_files_exist(self):
         self.output_files_exist(["bcache_super_vda2", "bcache_ls",
@@ -83,16 +88,16 @@ class BionicTestRaid5Bcache(relbase.bionic, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class DiscoTestRaid5Bcache(relbase.disco, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 class EoanTestRaid5Bcache(relbase.eoan, TestMdadmBcacheAbs):
     __test__ = True
 
 
 class FocalTestRaid5Bcache(relbase.focal, TestMdadmBcacheAbs):
     __test__ = True
+
+    @TestMdadmBcacheAbs.skip_by_date("1861941", fixby="2020-04-15")
+    def test_fstab(self):
+        return super().test_fstab()
 
 
 # vi: ts=4 expandtab syntax=python

@@ -665,6 +665,8 @@ class BlockdevParser(ProbertParser):
         # https://en.wikipedia.org/wiki/GUID_Partition_Table#Partition_type_GUIDs
         # to
         # curtin/commands/block_meta.py:partition_handler()sgdisk_flags/types
+        # MBR types
+        # https://www.win.tue.nl/~aeb/partitions/partition_types-2.html
         guid_map = {
             'C12A7328-F81F-11D2-BA4B-00A0C93EC93B': ('boot', 'EF00'),
             '21686148-6449-6E6F-744E-656564454649': ('bios_grub', 'EF02'),
@@ -677,6 +679,9 @@ class BlockdevParser(ProbertParser):
             '0657FD6D-A4AB-43C4-84E5-0933C84B4F4F': ('swap', '8200'),
             '0X83': ('linux', '83'),
             '0XF': ('extended', 'f'),
+            '0X5': ('extended', 'f'),
+            '0X85': ('extended', 'f'),
+            '0XC5': ('extended', 'f'),
         }
         name = code = None
         if guid and guid.upper() in guid_map:

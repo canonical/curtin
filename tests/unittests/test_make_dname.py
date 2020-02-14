@@ -223,15 +223,17 @@ class TestMakeDname(CiTestCase):
             self._content(
                 [self._formatted_rule(rule_identifiers, res_dname)]))
 
+    @mock.patch('curtin.commands.block_meta.udevadm_info')
     @mock.patch('curtin.commands.block_meta.LOG')
     @mock.patch('curtin.commands.block_meta.get_path_to_storage_volume')
     @mock.patch('curtin.commands.block_meta.util')
     def test_make_dname_lvm_partition(self, mock_util, mock_get_path,
-                                      mock_log):
+                                      mock_log, mock_info):
         mock_util.load_command_environment.return_value = self.state
 
         # simple
         res_dname = 'vg1-lpartition1'
+        mock_info.return_value = {'DM_NAME': res_dname}
         rule_identifiers = [('DM_NAME', res_dname)]
         block_meta.make_dname('lpart_id', self.storage_config)
         self.assertTrue(mock_log.debug.called)
@@ -243,6 +245,7 @@ class TestMakeDname(CiTestCase):
 
         # with invalid name
         res_dname = 'vg1-lvm-part-2'
+        mock_info.return_value = {'DM_NAME': 'vg1-lvm part/2'}
         rule_identifiers = [('DM_NAME', 'vg1-lvm part/2')]
         block_meta.make_dname('lpart2_id', self.storage_config)
         self.assertTrue(mock_log.warning.called)
