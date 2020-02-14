@@ -535,6 +535,7 @@ class TestClearHolders(CiTestCase):
         mock_block.wipe_volume.assert_called_with(
             self.test_blockdev, exclusive=True, mode='superblock', strict=True)
 
+    @mock.patch('curtin.block.clear_holders.get_holders')
     @mock.patch('curtin.block.clear_holders.multipath')
     @mock.patch('curtin.block.clear_holders.is_swap_device')
     @mock.patch('curtin.block.clear_holders.time')
@@ -543,7 +544,8 @@ class TestClearHolders(CiTestCase):
     def test_clear_holders_mp_enabled_and_active_wipes_dm_dev(self, mock_block,
                                                               mock_log, m_time,
                                                               mock_swap,
-                                                              mock_mpath):
+                                                              mock_mpath,
+                                                              m_get_holders):
         """wipe_superblock wipes parent mp_dev and removes from dev mapper."""
         mock_swap.return_value = False
         mock_block.sysfs_to_devpath.return_value = self.test_blockdev
@@ -555,16 +557,19 @@ class TestClearHolders(CiTestCase):
         mock_mpath.multipath_supported.return_value = True
         mock_mpath.find_mpath_id_by_path.return_value = 'mpath-wark'
         mp_dev = '/wark/dm-1'
+        parent_mpath_id = 'mpath-wark'
         mock_mpath.find_mpath_id_by_parent.return_value = (
-            'mpath-wark', mp_dev)
+            parent_mpath_id, mp_dev)
         mock_mpath.is_mpath_partition.return_value = False
         mock_block.get_sysfs_partitions.side_effect = iter([
             [],  # partitions are now gone
         ])
+        m_get_holders.return_value = []
         clear_holders.wipe_superblock(self.test_syspath)
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
         mock_block.wipe_volume.assert_called_with(
             mp_dev, exclusive=True, mode='superblock', strict=True)
+        mock_mpath.remove_map.assert_called_with(parent_mpath_id)
         mock_mpath.remove_partition.assert_called_with(mp_dev)
 
     @mock.patch('curtin.block.clear_holders.LOG')

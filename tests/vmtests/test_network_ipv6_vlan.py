@@ -22,16 +22,12 @@ class BionicTestNetworkIPV6Vlan(relbase.bionic, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
-class DiscoTestNetworkIPV6Vlan(relbase.disco, TestNetworkIPV6VlanAbs):
-    __test__ = True
-
-
 class EoanTestNetworkIPV6Vlan(relbase.eoan, TestNetworkIPV6VlanAbs):
     __test__ = True
 
-    @TestNetworkVlanAbs.skip_by_date("1846232", fixby="2020-01-10")
+    @TestNetworkVlanAbs.skip_by_date("1846232", fixby="2020-03-10")
     def test_ip_output(self):
-        pass
+        return super().test_ip_output()
 
 
 class FocalTestNetworkIPV6Vlan(relbase.focal, TestNetworkIPV6VlanAbs):

@@ -1,0 +1,54 @@
+#!/usr/bin/python3
+
+import argparse
+import glob
+import os
+
+
+def clean_file(fname, distro):
+    new_content = []
+    modified = False
+    with open(fname, 'r') as fh:
+        delete = False
+        # using read().splitlines() to strip the newline char
+        for line in fh.read().splitlines():
+            if line.startswith('class %s' % distro):
+                delete = True
+            # ensure we don't remove final block of text outside
+            # of the distro test class definition scope.
+            # N.B: we match the empty line right before the next class scope
+            elif delete and line and not line[0].isspace():
+                delete = False
+
+            if delete:
+                modified = True
+                continue
+            else:
+                new_content.append(line)
+
+    # skip a re-write of content if no modifications
+    if modified:
+        cleaned_fn = fname
+        with open(cleaned_fn, 'w') as wfh:
+            wfh.write("\n".join(new_content) + '\n')
+        print("Wrote cleaned file: %s" % cleaned_fn)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        prog="remove-vmtest-release",
+        description="Tool to remove vmtest classes by distro release")
+    parser.add_argument('--distro-release', '-d',
+                        action='store', required=True)
+    parser.add_argument('--path', '-p', action='store', required=True)
+
+    args = parser.parse_args()
+    distro = args.distro_release.title()
+    target = args.path
+    if os.path.isdir(target):
+        files = glob.glob(os.path.normpath(target) + '/' + 'test_*.py')
+    else:
+        files = [target]
+
+    for fname in files:
+        clean_file(fname, distro)

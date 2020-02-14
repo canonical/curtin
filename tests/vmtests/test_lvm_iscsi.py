@@ -27,12 +27,6 @@ class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):
             exit 0
             """)])
 
-    fstab_expected = {
-        'UUID=6de56115-9500-424b-8151-221b270ec708': '/mnt/iscsi1',
-        'UUID=9604e4c4-e5ae-40dd-ab1f-940de6b59047': '/mnt/iscsi2',
-        'UUID=18bec31c-09a8-4a02-91c6-e9bf6efb6fad': '/mnt/iscsi3',
-        'UUID=a98f706b-b064-4682-8eb2-6c2c1284060c': '/mnt/iscsi4',
-    }
     disk_to_check = [('main_disk', 1),
                      ('main_disk', 2),
                      ('iscsi_disk1', 5),
@@ -43,6 +37,22 @@ class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):
                      ('vg1-lv2', 0),
                      ('vg2-lv3', 0),
                      ('vg2-lv4', 0)]
+
+    def get_fstab_expected(self):
+        iscsi1 = self._dname_to_kname('vg1-lv1')
+        iscsi2 = self._dname_to_kname('vg1-lv2')
+        iscsi3 = self._dname_to_kname('vg2-lv3')
+        iscsi4 = self._dname_to_kname('vg2-lv4')
+        return [
+            (self._kname_to_uuid_devpath('dm-uuid', iscsi1),
+             '/mnt/iscsi1', 'defaults,_netdev'),
+            (self._kname_to_uuid_devpath('dm-uuid', iscsi2),
+             '/mnt/iscsi2', 'defaults,_netdev'),
+            (self._kname_to_uuid_devpath('dm-uuid', iscsi3),
+             '/mnt/iscsi3', 'defaults,_netdev'),
+            (self._kname_to_uuid_devpath('dm-uuid', iscsi4),
+             '/mnt/iscsi4', 'defaults,_netdev'),
+        ]
 
     def test_lvs(self):
         self.check_file_strippedline("lvs", "lv1=vg1")
@@ -82,10 +92,6 @@ class XenialEdgeTestIscsiLvm(relbase.xenial_edge, TestLvmIscsiAbs):
 
 
 class BionicTestIscsiLvm(relbase.bionic, TestLvmIscsiAbs):
-    __test__ = True
-
-
-class DiscoTestIscsiLvm(relbase.disco, TestLvmIscsiAbs):
     __test__ = True
 
 

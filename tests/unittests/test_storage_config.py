@@ -341,6 +341,7 @@ class TestBlockdevParser(CiTestCase):
         with self.assertRaises(ValueError):
             self.bdevp.blockdev_to_id(test_value)
 
+    # XXX: Parameterize me
     def test_blockdev_detects_extended_partitions(self):
         self.probe_data = _get_data('probert_storage_lvm.json')
         self.bdevp = BlockdevParser(self.probe_data)
@@ -354,8 +355,10 @@ class TestBlockdevParser(CiTestCase):
             'size': 5370806272,
             'flag': 'extended',
         }
-        self.assertDictEqual(expected_dict,
-                             self.bdevp.asdict(blockdev))
+        for ext_part_entry in ['0xf', '0x5', '0x85', '0xc5']:
+            blockdev['ID_PART_ENTRY_TYPE'] = ext_part_entry
+            self.assertDictEqual(expected_dict,
+                                 self.bdevp.asdict(blockdev))
 
     def test_blockdev_detects_logical_partitions(self):
         self.probe_data = _get_data('probert_storage_lvm.json')
@@ -773,5 +776,14 @@ class TestExtractStorageConfig(CiTestCase):
                           'device': 'raid-md1', 'offset': 1048576},
                          raid_partitions[0])
 
+    @skipUnlessJsonSchema()
+    def test_find_extended_partition(self):
+        """ finds extended partition and set flag in config """
+        self.probe_data = _get_data('probert_storage_msdos_mbr_extended.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        config = extracted['storage']['config']
+        partitions = [cfg for cfg in config if cfg['type'] == 'partition']
+        extended = [part for part in partitions if part['flag'] == 'extended']
+        self.assertEqual(1, len(extended))
 
 # vi: ts=4 expandtab syntax=python

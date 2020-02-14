@@ -231,10 +231,6 @@ class BionicTestFsBattery(relbase.bionic, TestFsBattery):
     __test__ = True
 
 
-class DiscoTestFsBattery(relbase.disco, TestFsBattery):
-    __test__ = True
-
-
 class EoanTestFsBattery(relbase.eoan, TestFsBattery):
     __test__ = True
 

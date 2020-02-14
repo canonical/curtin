@@ -577,6 +577,27 @@ apply_grub_cmdline_linux_default() {
     }
 }
 
+get_parent_disk() {
+    # Look up the parent /dev path via sysfs.  Using the partition
+    # kname (nvme0n1p1), construct a /sys/class/block path, use
+    # realpath to resolve this to an absolute path which includes
+    # the parent:
+    #   /sys/devices/pci0000:00/*/*/nvme/nvme0/nvme0n1/nvme0n1p1
+    # dirname to extract the parent, then read the 'dev' entry
+    #   /sys/devices/pci0000:00/*/*/nvme/nvme0/nvme0n1/dev
+    # which contains the MAJOR:MINOR value and construct a /dev/block
+    # path which is a symbolic link that udev constructs that points
+    # to the real device name and use realpath to return the absolute path.
+    #   /dev/block/259:0 -> ../nvme0n1
+    local devpath="${1}"
+    local kname=$(basename "$devpath")
+    local syspath=$(realpath "/sys/class/block/$kname")
+    local disksyspath=$(dirname "$syspath")
+    local diskmajmin=$(cat "${disksyspath}/dev")
+    local diskdevpath=$(realpath "/dev/block/${diskmajmin}")
+    echo $diskdevpath
+}
+
 install_grub() {
     local long_opts="uefi,update-nvram,os-family:"
     local getopt_out="" mp_efi=""
@@ -607,6 +628,7 @@ install_grub() {
     if [ "${#grubdevs[@]}" = "1" -a "${grubdevs[0]}" = "none" ]; then
         grubdevs=( )
     fi
+    debug 1 "grubdevs: [${grubdevs[@]}]"
 
     # find the mp device
     local mp_dev="" fstype=""
@@ -614,6 +636,7 @@ install_grub() {
         error "unable to determine device for mount $mp";
         return 1;
     }
+    debug 1 "/proc/mounts shows $mp_dev is mounted at $mp"
 
     fstype=$(awk -v MP=$mp '$2 == MP { print $3 }' /proc/mounts) || {
         error "unable to fstype for mount $mp";
@@ -805,46 +828,71 @@ install_grub() {
         } >> "$mp/$mygrub_cfg"
     fi
 
+    debug 1 "processing grubdevs values for expansion if needed"
     local short="" bd="" grubdev grubdevs_new=""
     grubdevs_new=()
     for grubdev in "${grubdevs[@]}"; do
         if is_md "$grubdev"; then
+            debug 1 "$grubdev is raid, find members"
             short=${grubdev##*/}
             for bd in "/sys/block/$short/slaves/"/*; do
                 [ -d "$bd" ] || continue
                 bd=${bd##*/}
                 bd="/dev/${bd%[0-9]}" # FIXME: part2bd
+                debug 1 "Add dev $bd to grubdevs_new"
                 grubdevs_new[${#grubdevs_new[@]}]="$bd"
             done
         else
+            debug 1 "Found dev [$grubdev] add to grubdevs_new"
             grubdevs_new[${#grubdevs_new[@]}]="$grubdev"
         fi
     done
     grubdevs=( "${grubdevs_new[@]}" )
+    debug 1 "updated grubdevs: [${grubdevs[@]}]"
 
     if [ "$uefi" -ge 1 ]; then
         nvram="--no-nvram"
         if [ "$update_nvram" -ge 1 ]; then
             nvram=""
         fi
-        if [ "${#grubdevs_new[@]}" -eq 1 ] && [ -f "${grubdevs_new[0]}" ]; then
+        debug 1 "number of entries in grubdevs_new: ${#grubdevs[@]}"
+        if [ "${#grubdevs_new[@]}" -eq 1 ] && [ -b "${grubdevs_new[0]}" ]; then
+            debug 1 "Found a single entry in grubdevs, ${grubdevs_new[0]}"
             # Currently UEFI can only be pointed to one system partition. If
             # for some reason multiple install locations are given only use the
             # first.
             efi_dev="${grubdevs_new[0]}"
+            debug 1 "efi_dev=[${efi_dev}]"
         elif [ "${#grubdevs_new[@]}" -gt 1 ]; then
             error "Only one grub device supported on UEFI!"
             exit 1
         else
+            debug 1 "no storage config, parsing /proc/mounts with awk"
             # If no storage configuration was given try to determine the system
             # partition.
             efi_dev=$(awk -v "MP=${mp}/boot/efi" '$2 == MP { print $1 }' /proc/mounts)
+            debug 1 "efi_dev=[${efi_dev}]"
+            [ -n "$efi_dev" ] || {
+                error "Failed to find efi device from parsing /proc/mounts"
+                return 1
+            }
+
         fi
         # The partition number of block device name need to be determined here
         # so both getting the UEFI device from Curtin config and discovering it
         # work.
         efi_part_num=$(cat /sys/class/block/$(basename $efi_dev)/partition)
-        efi_disk="/dev/$(lsblk -no pkname $efi_dev)"
+        debug 1 "efi_part_num: $efi_part_num"
+        [ -n "${efi_part_num}" ] || {
+            error "Failed to determine $efi_dev partition number"
+            return 1
+        }
+        efi_disk=$(get_parent_disk "$efi_dev")
+        debug 1 "efi_disk: [$efi_disk]"
+        [ -b "${efi_disk}" ] || {
+            error "${efi_disk} is not a valid block device"
+            return 1
+        }
         debug 1 "curtin uefi: installing ${grub_name} to: /boot/efi"
         chroot "$mp" env DEBIAN_FRONTEND=noninteractive sh -exc '
             echo "before grub-install efiboot settings"
@@ -902,6 +950,9 @@ install_grub() {
             # the filesystem it will be copied into /boot/efi/EFI/$bootid.
             # Stock Ubuntu images do not ship with anything in /boot. Those
             # files are generated by installing a kernel and grub.
+            echo "Dumping /boot/efi contents"
+            find /boot/efi
+            echo "Checking for existing EFI grub entry on ESP"
             if [ -f /boot/efi/EFI/$bootid/grubx64.efi ]; then
                 if [ -z "$no_nvram" ]; then
                     # UEFI firmware should be pointed to the shim if available to
@@ -917,8 +968,15 @@ install_grub() {
                     loader=$(echo ${boot_uefi##/boot/efi} | sed "s|/|\\\|g")
                     efibootmgr --create --write-signature --label $bootid \
                         --disk $efi_disk --part $efi_part_num --loader $loader
+                    rc=$?
+                    [ "$rc" != "0" ] && { exit $rc; }
+                    # check and remove duplicates
+                    efibootmgr --verbose --remove-dups
+                else
+                    echo "skip EFI entry creation due to \"$no_nvram\" flag"
                 fi
             else
+                echo "No previous EFI grub entry found on ESP, use $grubcmd"
                 $grubcmd $target $efi_dir \
                     --bootloader-id=$bootid --recheck $no_nvram
             fi
