@@ -1,4 +1,4 @@
-curtin (19.3-26-g82f23e3d-0ubuntu1~18.04.1) UNRELEASED; urgency=medium
+curtin (19.3-26-g82f23e3d-0ubuntu1~18.04.1) bionic; urgency=medium
 
   * New upstream snapshot. (LP: #1861452)
     - install-grub: refactor uefi partition/disk searching
