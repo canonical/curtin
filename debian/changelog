@@ -1,3 +1,20 @@
+curtin (19.3-26-g82f23e3d-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - install-grub: refactor uefi partition/disk searching (LP: #1862846)
+    - doc: update Canonical contributors URL [Paul Tobias]
+    - block-discover: detect additional "extended" partition types in MBR
+      (LP: #1861251)
+    - vmtests: skip focal bcache tests due to kernel bug
+    - net/deps.py: detect openvswitch cfg and install openvswitch packages
+    - vmtest: collection of vmtest related fixes to make things triple green
+    - clear-holders: umap the parent mpath to wipe the underlying partitions
+    - vmtests: bump fixby date out and fix false positive when date passes
+      (LP: #1855148)
+    - vmtests: drop disco tests using a tool to automate the process
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Thu, 13 Feb 2020 21:08:59 -0600
+
 curtin (19.3-17-g50ffca46-0ubuntu1) focal; urgency=medium
 
   * New upstream snapshot.
