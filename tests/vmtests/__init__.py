@@ -913,6 +913,9 @@ class VMBaseClass(TestCase):
         logger.debug('Install console log: {}'.format(cls.install_log))
         logger.debug('Boot console log: {}'.format(cls.boot_log))
 
+        # load the curtin config for this testcas
+        cls.testcase_config = yaml.safe_load(cls.load_conf_file())
+
         # if interactive, launch qemu without 'background & wait'
         if cls.interactive:
             dowait = "--no-dowait"
@@ -1083,12 +1086,19 @@ class VMBaseClass(TestCase):
             nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
             uefi_flags = ["--uefi-nvram=%s" % nvram]
 
-            # always attempt to update target nvram (via grub)
-            grub_config = os.path.join(cls.td.install, 'grub.cfg')
-            if not os.path.exists(grub_config) and not cls.td.restored:
-                with open(grub_config, "w") as fp:
-                    fp.write(json.dumps({'grub': {'update_nvram': True}}))
-            configs.append(grub_config)
+            # always attempt to update target nvram (via grub), unless
+            # test has an 'update_nvram' setting
+            update_nvram = (
+                cls.testcase_config.get('grub', {}).get('update_nvram'))
+            if update_nvram is None:
+                grub_config = os.path.join(cls.td.install, 'grub.cfg')
+                if not os.path.exists(grub_config) and not cls.td.restored:
+                    util.write_file(
+                        grub_config,
+                        json.dumps({'grub': {'update_nvram': True}}))
+                    configs.append(grub_config)
+            else:
+                logger.debug('Using testcase update_nvram setting')
 
         if cls.dirty_disks and storage_config:
             logger.debug("Injecting early_command to dirty storage devices")

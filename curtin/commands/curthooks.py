@@ -593,6 +593,7 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
         args = ['install-grub']
         if util.is_uefi_bootable():
             args.append("--uefi")
+            LOG.debug("grubcfg: %s", grubcfg)
             if grubcfg.get('update_nvram', True):
                 LOG.debug("GRUB UEFI enabling NVRAM updates")
                 args.append("--update-nvram")
