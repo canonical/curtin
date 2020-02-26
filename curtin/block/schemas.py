@@ -100,7 +100,7 @@ DASD = {
         },
         'disk_layout': {
             'type': ['string'],
-            'enum': ['cdl', 'ldl'],
+            'enum': ['cdl', 'ldl', 'not-formatted'],
         },
     },
 }
@@ -122,6 +122,7 @@ DISK = {
         'id': {'$ref': '#/definitions/id'},
         'name': {'$ref': '#/definitions/name'},
         'multipath': {'type': 'string'},
+        'device_id': {'type': 'string'},
         'preserve': {'$ref': '#/definitions/preserve'},
         'wipe': {'$ref': '#/definitions/wipe'},
         'type': {'const': 'disk'},

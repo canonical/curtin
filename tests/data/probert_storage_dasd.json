@@ -1,0 +1,809 @@
+{
+    "storage": {
+        "bcache": {
+            "backing": {},
+            "caching": {}
+        },
+        "blockdev": {
+            "/dev/dasda": {
+                "DEVLINKS": "/dev/disk/by-path/ccw-0.0.1522 /dev/disk/by-id/ccw-IBM.750000000DXP71.1500.22 /dev/disk/by-id/ccw-0X1522",
+                "DEVNAME": "/dev/dasda",
+                "DEVPATH": "/devices/css0/0.0.0182/0.0.1522/block/dasda",
+                "DEVTYPE": "disk",
+                "DM_MULTIPATH_DEVICE_PATH": "0",
+                "ID_BUS": "ccw",
+                "ID_PATH": "ccw-0.0.1522",
+                "ID_PATH_TAG": "ccw-0_0_1522",
+                "ID_SERIAL": "0X1522",
+                "ID_TYPE": "disk",
+                "ID_UID": "IBM.750000000DXP71.1500.22",
+                "ID_XUID": "IBM.750000000DXP71.1500.22",
+                "MAJOR": "94",
+                "MINOR": "0",
+                "MPATH_SBIN_PATH": "/sbin",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "9673909",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "bdi": null,
+                    "capability": "10",
+                    "dev": "94:0",
+                    "device": null,
+                    "discard_alignment": "0",
+                    "ext_range": "4",
+                    "hidden": "0",
+                    "inflight": "       0        0",
+                    "range": "4",
+                    "removable": "0",
+                    "ro": "0",
+                    "size": "7385333760",
+                    "stat": "    4147        0   362632    30170        0        0        0        0        0 65899730 65946590",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=94\nMINOR=0\nDEVNAME=dasda\nDEVTYPE=disk"
+                }
+            },
+            "/dev/dasda1": {
+                "DEVLINKS": "/dev/disk/by-path/ccw-0.0.1522-part1 /dev/disk/by-id/ccw-0X1522-part1 /dev/disk/by-id/ccw-IBM.750000000DXP71.1500.22-part1",
+                "DEVNAME": "/dev/dasda1",
+                "DEVPATH": "/devices/css0/0.0.0182/0.0.1522/block/dasda/dasda1",
+                "DEVTYPE": "partition",
+                "DM_MULTIPATH_DEVICE_PATH": "0",
+                "ID_BUS": "ccw",
+                "ID_PATH": "ccw-0.0.1522",
+                "ID_PATH_TAG": "ccw-0_0_1522",
+                "ID_SCSI": "1",
+                "ID_SERIAL": "0X1522",
+                "ID_TYPE": "disk",
+                "ID_UID": "IBM.750000000DXP71.1500.22",
+                "ID_XUID": "IBM.750000000DXP71.1500.22",
+                "MAJOR": "94",
+                "MINOR": "1",
+                "PARTN": "1",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "2787550366261",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "dev": "94:1",
+                    "discard_alignment": "0",
+                    "inflight": "       0        0",
+                    "partition": "1",
+                    "ro": "0",
+                    "size": "2147598336",
+                    "start": "192",
+                    "stat": "     261        0    27104      650        0        0        0        0        0      890      940",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=94\nMINOR=1\nDEVNAME=dasda1\nDEVTYPE=partition\nPARTN=1"
+                }
+            },
+            "/dev/dasda2": {
+                "DEVLINKS": "/dev/disk/by-id/ccw-0X1522-part2 /dev/disk/by-path/ccw-0.0.1522-part2 /dev/disk/by-id/ccw-IBM.750000000DXP71.1500.22-part2",
+                "DEVNAME": "/dev/dasda2",
+                "DEVPATH": "/devices/css0/0.0.0182/0.0.1522/block/dasda/dasda2",
+                "DEVTYPE": "partition",
+                "DM_MULTIPATH_DEVICE_PATH": "0",
+                "ID_BUS": "ccw",
+                "ID_PATH": "ccw-0.0.1522",
+                "ID_PATH_TAG": "ccw-0_0_1522",
+                "ID_SCSI": "1",
+                "ID_SERIAL": "0X1522",
+                "ID_TYPE": "disk",
+                "ID_UID": "IBM.750000000DXP71.1500.22",
+                "ID_XUID": "IBM.750000000DXP71.1500.22",
+                "MAJOR": "94",
+                "MINOR": "2",
+                "PARTN": "2",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "2787550369490",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "dev": "94:2",
+                    "discard_alignment": "0",
+                    "inflight": "       0        0",
+                    "partition": "2",
+                    "ro": "0",
+                    "size": "2147598336",
+                    "start": "4194720",
+                    "stat": "     253        0    26304      580        0        0        0        0        0      840      940",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=94\nMINOR=2\nDEVNAME=dasda2\nDEVTYPE=partition\nPARTN=2"
+                }
+            },
+            "/dev/dasda3": {
+                "DEVLINKS": "/dev/disk/by-path/ccw-0.0.1522-part3 /dev/disk/by-id/ccw-0X1522-part3 /dev/disk/by-id/ccw-IBM.750000000DXP71.1500.22-part3",
+                "DEVNAME": "/dev/dasda3",
+                "DEVPATH": "/devices/css0/0.0.0182/0.0.1522/block/dasda/dasda3",
+                "DEVTYPE": "partition",
+                "DM_MULTIPATH_DEVICE_PATH": "0",
+                "ID_BUS": "ccw",
+                "ID_PATH": "ccw-0.0.1522",
+                "ID_PATH_TAG": "ccw-0_0_1522",
+                "ID_SCSI": "1",
+                "ID_SERIAL": "0X1522",
+                "ID_TYPE": "disk",
+                "ID_UID": "IBM.750000000DXP71.1500.22",
+                "ID_XUID": "IBM.750000000DXP71.1500.22",
+                "MAJOR": "94",
+                "MINOR": "3",
+                "PARTN": "3",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "2787550372233",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "dev": "94:3",
+                    "discard_alignment": "0",
+                    "inflight": "       0        0",
+                    "partition": "3",
+                    "ro": "0",
+                    "size": "2147598336",
+                    "start": "8389248",
+                    "stat": "     253        0    26304      730        0        0        0        0        0      900     1150",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=94\nMINOR=3\nDEVNAME=dasda3\nDEVTYPE=partition\nPARTN=3"
+                }
+            },
+            "/dev/dasdb": {
+                "DEVLINKS": "/dev/disk/by-path/ccw-0.0.1520 /dev/disk/by-id/ccw-0X1520 /dev/disk/by-id/ccw-IBM.750000000DXP71.1500.20",
+                "DEVNAME": "/dev/dasdb",
+                "DEVPATH": "/devices/css0/0.0.0180/0.0.1520/block/dasdb",
+                "DEVTYPE": "disk",
+                "DM_MULTIPATH_DEVICE_PATH": "0",
+                "ID_BUS": "ccw",
+                "ID_PATH": "ccw-0.0.1520",
+                "ID_PATH_TAG": "ccw-0_0_1520",
+                "ID_SERIAL": "0X1520",
+                "ID_TYPE": "disk",
+                "ID_UID": "IBM.750000000DXP71.1500.20",
+                "ID_XUID": "IBM.750000000DXP71.1500.20",
+                "MAJOR": "94",
+                "MINOR": "4",
+                "MPATH_SBIN_PATH": "/sbin",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "9682643",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "bdi": null,
+                    "capability": "10",
+                    "dev": "94:4",
+                    "device": null,
+                    "discard_alignment": "0",
+                    "ext_range": "4",
+                    "hidden": "0",
+                    "inflight": "       0        0",
+                    "range": "4",
+                    "removable": "0",
+                    "ro": "0",
+                    "size": "7385333760",
+                    "stat": "    1337        0   109632     7030        0        0        0        0        0 65890790 65891590",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=94\nMINOR=4\nDEVNAME=dasdb\nDEVTYPE=disk"
+                }
+            },
+            "/dev/dasdb1": {
+                "DEVLINKS": "/dev/disk/by-id/ccw-IBM.750000000DXP71.1500.20-part1 /dev/disk/by-label/dasd_root /dev/disk/by-path/ccw-0.0.1520-part1 /dev/disk/by-id/ccw-0X1520-part1 /dev/disk/by-uuid/7ac5930d-1798-460e-ba58-ccf536acc6be",
+                "DEVNAME": "/dev/dasdb1",
+                "DEVPATH": "/devices/css0/0.0.0180/0.0.1520/block/dasdb/dasdb1",
+                "DEVTYPE": "partition",
+                "DM_MULTIPATH_DEVICE_PATH": "0",
+                "ID_BUS": "ccw",
+                "ID_FS_LABEL": "dasd_root",
+                "ID_FS_LABEL_ENC": "dasd_root",
+                "ID_FS_TYPE": "ext4",
+                "ID_FS_USAGE": "filesystem",
+                "ID_FS_UUID": "7ac5930d-1798-460e-ba58-ccf536acc6be",
+                "ID_FS_UUID_ENC": "7ac5930d-1798-460e-ba58-ccf536acc6be",
+                "ID_FS_VERSION": "1.0",
+                "ID_PATH": "ccw-0.0.1520",
+                "ID_PATH_TAG": "ccw-0_0_1520",
+                "ID_SCSI": "1",
+                "ID_SERIAL": "0X1520",
+                "ID_TYPE": "disk",
+                "ID_UID": "IBM.750000000DXP71.1500.20",
+                "ID_XUID": "IBM.750000000DXP71.1500.20",
+                "MAJOR": "94",
+                "MINOR": "5",
+                "PARTN": "1",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "2787546035084",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "dev": "94:5",
+                    "discard_alignment": "0",
+                    "inflight": "       0        0",
+                    "partition": "1",
+                    "ro": "0",
+                    "size": "3221323776",
+                    "start": "192",
+                    "stat": "     210        0    15880      160        0        0        0        0        0      380      410",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=94\nMINOR=5\nDEVNAME=dasdb1\nDEVTYPE=partition\nPARTN=1"
+                }
+            },
+            "/dev/dasdc": {
+                "DEVLINKS": "/dev/disk/by-id/ccw-IBM.750000000DXP71.1500.1f /dev/disk/by-id/ccw-0X151F /dev/disk/by-path/ccw-0.0.151f",
+                "DEVNAME": "/dev/dasdc",
+                "DEVPATH": "/devices/css0/0.0.017f/0.0.151f/block/dasdc",
+                "DEVTYPE": "disk",
+                "DM_MULTIPATH_DEVICE_PATH": "0",
+                "ID_BUS": "ccw",
+                "ID_PATH": "ccw-0.0.151f",
+                "ID_PATH_TAG": "ccw-0_0_151f",
+                "ID_SERIAL": "0X151F",
+                "ID_TYPE": "disk",
+                "ID_UID": "IBM.750000000DXP71.1500.1f",
+                "ID_XUID": "IBM.750000000DXP71.1500.1f",
+                "MAJOR": "94",
+                "MINOR": "8",
+                "MPATH_SBIN_PATH": "/sbin",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "9670665",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "bdi": null,
+                    "capability": "10",
+                    "dev": "94:8",
+                    "device": null,
+                    "discard_alignment": "0",
+                    "ext_range": "4",
+                    "hidden": "0",
+                    "inflight": "       0        0",
+                    "range": "4",
+                    "removable": "0",
+                    "ro": "0",
+                    "size": "7385333760",
+                    "stat": "    2797        0   239184    23300        0        0        0        0        0 65889970 65918210",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=94\nMINOR=8\nDEVNAME=dasdc\nDEVTYPE=disk"
+                }
+            },
+            "/dev/dasdc1": {
+                "DEVLINKS": "/dev/disk/by-id/ccw-0X151F-part1 /dev/disk/by-uuid/304972bd-27be-471b-9695-429851622e2d /dev/disk/by-path/ccw-0.0.151f-part1 /dev/disk/by-id/ccw-IBM.750000000DXP71.1500.1f-part1",
+                "DEVNAME": "/dev/dasdc1",
+                "DEVPATH": "/devices/css0/0.0.017f/0.0.151f/block/dasdc/dasdc1",
+                "DEVTYPE": "partition",
+                "DM_MULTIPATH_DEVICE_PATH": "0",
+                "ID_BUS": "ccw",
+                "ID_FS_TYPE": "crypto_LUKS",
+                "ID_FS_USAGE": "crypto",
+                "ID_FS_UUID": "304972bd-27be-471b-9695-429851622e2d",
+                "ID_FS_UUID_ENC": "304972bd-27be-471b-9695-429851622e2d",
+                "ID_FS_VERSION": "2",
+                "ID_PATH": "ccw-0.0.151f",
+                "ID_PATH_TAG": "ccw-0_0_151f",
+                "ID_SCSI": "1",
+                "ID_SERIAL": "0X151F",
+                "ID_TYPE": "disk",
+                "ID_UID": "IBM.750000000DXP71.1500.1f",
+                "ID_XUID": "IBM.750000000DXP71.1500.1f",
+                "MAJOR": "94",
+                "MINOR": "9",
+                "PARTN": "1",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "343420823392",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "dev": "94:9",
+                    "discard_alignment": "0",
+                    "inflight": "       0        0",
+                    "partition": "1",
+                    "ro": "0",
+                    "size": "2147598336",
+                    "start": "192",
+                    "stat": "     111        0    10800       70        0        0        0        0        0      250      250",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=94\nMINOR=9\nDEVNAME=dasdc1\nDEVTYPE=partition\nPARTN=1"
+                }
+            },
+            "/dev/dasdc2": {
+                "DEVLINKS": "/dev/disk/by-label/dasd_boot /dev/disk/by-path/ccw-0.0.151f-part2 /dev/disk/by-id/ccw-0X151F-part2 /dev/disk/by-id/ccw-IBM.750000000DXP71.1500.1f-part2 /dev/disk/by-uuid/6077f46f-106e-4714-9e3d-ca4f4c588144",
+                "DEVNAME": "/dev/dasdc2",
+                "DEVPATH": "/devices/css0/0.0.017f/0.0.151f/block/dasdc/dasdc2",
+                "DEVTYPE": "partition",
+                "DM_MULTIPATH_DEVICE_PATH": "0",
+                "ID_BUS": "ccw",
+                "ID_FS_LABEL": "dasd_boot",
+                "ID_FS_LABEL_ENC": "dasd_boot",
+                "ID_FS_TYPE": "ext4",
+                "ID_FS_USAGE": "filesystem",
+                "ID_FS_UUID": "6077f46f-106e-4714-9e3d-ca4f4c588144",
+                "ID_FS_UUID_ENC": "6077f46f-106e-4714-9e3d-ca4f4c588144",
+                "ID_FS_VERSION": "1.0",
+                "ID_PATH": "ccw-0.0.151f",
+                "ID_PATH_TAG": "ccw-0_0_151f",
+                "ID_SCSI": "1",
+                "ID_SERIAL": "0X151F",
+                "ID_TYPE": "disk",
+                "ID_UID": "IBM.750000000DXP71.1500.1f",
+                "ID_XUID": "IBM.750000000DXP71.1500.1f",
+                "MAJOR": "94",
+                "MINOR": "10",
+                "PARTN": "2",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "343420828721",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "dev": "94:10",
+                    "discard_alignment": "0",
+                    "inflight": "       0        0",
+                    "partition": "2",
+                    "ro": "0",
+                    "size": "536985600",
+                    "start": "4194720",
+                    "stat": "     243        0    17296      380        0        0        0        0        0      660      720",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=94\nMINOR=10\nDEVNAME=dasdc2\nDEVTYPE=partition\nPARTN=2"
+                }
+            },
+            "/dev/dasdc3": {
+                "DEVLINKS": "/dev/disk/by-id/ccw-0X151F-part3 /dev/disk/by-id/ccw-IBM.750000000DXP71.1500.1f-part3 /dev/disk/by-path/ccw-0.0.151f-part3",
+                "DEVNAME": "/dev/dasdc3",
+                "DEVPATH": "/devices/css0/0.0.017f/0.0.151f/block/dasdc/dasdc3",
+                "DEVTYPE": "partition",
+                "DM_MULTIPATH_DEVICE_PATH": "0",
+                "ID_BUS": "ccw",
+                "ID_PATH": "ccw-0.0.151f",
+                "ID_PATH_TAG": "ccw-0_0_151f",
+                "ID_SCSI": "1",
+                "ID_SERIAL": "0X151F",
+                "ID_TYPE": "disk",
+                "ID_UID": "IBM.750000000DXP71.1500.1f",
+                "ID_XUID": "IBM.750000000DXP71.1500.1f",
+                "MAJOR": "94",
+                "MINOR": "11",
+                "PARTN": "3",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "343420856969",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "dev": "94:11",
+                    "discard_alignment": "0",
+                    "inflight": "       0        0",
+                    "partition": "3",
+                    "ro": "0",
+                    "size": "2147598336",
+                    "start": "5243520",
+                    "stat": "     294        0    28520      260        0        0        0        0        0      570      630",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=94\nMINOR=11\nDEVNAME=dasdc3\nDEVTYPE=partition\nPARTN=3"
+                }
+            },
+            "/dev/dasdd": {
+                "DEVLINKS": "/dev/disk/by-id/ccw-0X1544 /dev/disk/by-id/ccw-IBM.750000000DXP71.1500.44 /dev/disk/by-path/ccw-0.0.1544",
+                "DEVNAME": "/dev/dasdd",
+                "DEVPATH": "/devices/css0/0.0.01a4/0.0.1544/block/dasdd",
+                "DEVTYPE": "disk",
+                "DM_MULTIPATH_DEVICE_PATH": "0",
+                "ID_BUS": "ccw",
+                "ID_PATH": "ccw-0.0.1544",
+                "ID_PATH_TAG": "ccw-0_0_1544",
+                "ID_SERIAL": "0X1544",
+                "ID_TYPE": "disk",
+                "ID_UID": "IBM.750000000DXP71.1500.44",
+                "ID_XUID": "IBM.750000000DXP71.1500.44",
+                "MAJOR": "94",
+                "MINOR": "12",
+                "MPATH_SBIN_PATH": "/sbin",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "9115416",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "bdi": null,
+                    "capability": "10",
+                    "dev": "94:12",
+                    "device": null,
+                    "discard_alignment": "0",
+                    "ext_range": "4",
+                    "hidden": "0",
+                    "inflight": "       0        0",
+                    "range": "4",
+                    "removable": "0",
+                    "ro": "0",
+                    "size": "22156001280",
+                    "stat": "   30819     8613  1477104   291110   442189   346221 19369344   633810        0 2792925220 2801319660",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=94\nMINOR=12\nDEVNAME=dasdd\nDEVTYPE=disk"
+                }
+            },
+            "/dev/dasdd1": {
+                "DEVLINKS": "/dev/disk/by-id/ccw-IBM.750000000DXP71.1500.44-part1 /dev/disk/by-id/ccw-0X1544-part1 /dev/disk/by-uuid/0ef8a516-dcab-43d4-84d5-b3fd9d355ca8 /dev/disk/by-path/ccw-0.0.1544-part1",
+                "DEVNAME": "/dev/dasdd1",
+                "DEVPATH": "/devices/css0/0.0.01a4/0.0.1544/block/dasdd/dasdd1",
+                "DEVTYPE": "partition",
+                "DM_MULTIPATH_DEVICE_PATH": "0",
+                "ID_BUS": "ccw",
+                "ID_FS_TYPE": "ext4",
+                "ID_FS_USAGE": "filesystem",
+                "ID_FS_UUID": "0ef8a516-dcab-43d4-84d5-b3fd9d355ca8",
+                "ID_FS_UUID_ENC": "0ef8a516-dcab-43d4-84d5-b3fd9d355ca8",
+                "ID_FS_VERSION": "1.0",
+                "ID_PATH": "ccw-0.0.1544",
+                "ID_PATH_TAG": "ccw-0_0_1544",
+                "ID_SCSI": "1",
+                "ID_SERIAL": "0X1544",
+                "ID_TYPE": "disk",
+                "ID_UID": "IBM.750000000DXP71.1500.44",
+                "ID_XUID": "IBM.750000000DXP71.1500.44",
+                "MAJOR": "94",
+                "MINOR": "13",
+                "PARTN": "1",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "9184782",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "dev": "94:13",
+                    "discard_alignment": "0",
+                    "inflight": "       0        0",
+                    "partition": "1",
+                    "ro": "0",
+                    "size": "22155804672",
+                    "start": "192",
+                    "stat": "   30639     8613  1456680   290220   442189   346221 19369344   633810        0   319010  1173570",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=94\nMINOR=13\nDEVNAME=dasdd1\nDEVTYPE=partition\nPARTN=1"
+                }
+            },
+            "/dev/dasde": {
+                "DEVLINKS": "/dev/disk/by-path/ccw-0.0.2520",
+                "DEVNAME": "/dev/dasde",
+                "DEVPATH": "/devices/css0/0.0.05e0/0.0.2520/block/dasde",
+                "DEVTYPE": "disk",
+                "DM_MULTIPATH_DEVICE_PATH": "0",
+                "ID_PATH": "ccw-0.0.2520",
+                "ID_PATH_TAG": "ccw-0_0_2520",
+                "MAJOR": "94",
+                "MINOR": "16",
+                "MPATH_SBIN_PATH": "/sbin",
+                "SUBSYSTEM": "block",
+                "TAGS": ":systemd:",
+                "USEC_INITIALIZED": "9132745",
+                "attrs": {
+                    "alignment_offset": "0",
+                    "bdi": null,
+                    "capability": "10",
+                    "dev": "94:16",
+                    "device": null,
+                    "discard_alignment": "0",
+                    "ext_range": "4",
+                    "hidden": "0",
+                    "inflight": "       0        0",
+                    "range": "4",
+                    "removable": "0",
+                    "ro": "0",
+                    "size": "0",
+                    "stat": "       0        0        0        0        0        0        0        0        0        0        0",
+                    "subsystem": "block",
+                    "uevent": "MAJOR=94\nMINOR=16\nDEVNAME=dasde\nDEVTYPE=disk"
+                }
+            }
+        },
+        "dasd": {
+            "/dev/dasda": {
+                "blocksize": 4096,
+                "device_id": "0.0.1522",
+                "disk_layout": "cdl",
+                "name": "/dev/dasda"
+            },
+            "/dev/dasdb": {
+                "blocksize": 4096,
+                "device_id": "0.0.1520",
+                "disk_layout": "cdl",
+                "name": "/dev/dasdb"
+            },
+            "/dev/dasdc": {
+                "blocksize": 4096,
+                "device_id": "0.0.151f",
+                "disk_layout": "cdl",
+                "name": "/dev/dasdc"
+            },
+            "/dev/dasdd": {
+                "blocksize": 4096,
+                "device_id": "0.0.1544",
+                "disk_layout": "cdl",
+                "name": "/dev/dasdd"
+            },
+            "/dev/dasde": {
+                "blocksize": 512,
+                "device_id": "0.0.2520",
+                "disk_layout": "not-formatted",
+                "name": "/dev/dasde"
+            }
+        },
+        "dmcrypt": {},
+        "filesystem": {
+            "/dev/dasdb1": {
+                "LABEL": "dasd_root",
+                "LABEL_ENC": "dasd_root",
+                "TYPE": "ext4",
+                "USAGE": "filesystem",
+                "UUID": "7ac5930d-1798-460e-ba58-ccf536acc6be",
+                "UUID_ENC": "7ac5930d-1798-460e-ba58-ccf536acc6be",
+                "VERSION": "1.0"
+            },
+            "/dev/dasdc2": {
+                "LABEL": "dasd_boot",
+                "LABEL_ENC": "dasd_boot",
+                "TYPE": "ext4",
+                "USAGE": "filesystem",
+                "UUID": "6077f46f-106e-4714-9e3d-ca4f4c588144",
+                "UUID_ENC": "6077f46f-106e-4714-9e3d-ca4f4c588144",
+                "VERSION": "1.0"
+            },
+            "/dev/dasdd1": {
+                "TYPE": "ext4",
+                "USAGE": "filesystem",
+                "UUID": "0ef8a516-dcab-43d4-84d5-b3fd9d355ca8",
+                "UUID_ENC": "0ef8a516-dcab-43d4-84d5-b3fd9d355ca8",
+                "VERSION": "1.0"
+            }
+        },
+        "lvm": {},
+        "mount": [
+            {
+                "children": [
+                    {
+                        "children": [
+                            {
+                                "fstype": "securityfs",
+                                "options": "rw,nosuid,nodev,noexec,relatime",
+                                "source": "securityfs",
+                                "target": "/sys/kernel/security"
+                            },
+                            {
+                                "children": [
+                                    {
+                                        "fstype": "cgroup2",
+                                        "options": "rw,nosuid,nodev,noexec,relatime",
+                                        "source": "cgroup2",
+                                        "target": "/sys/fs/cgroup/unified"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,xattr,name=systemd",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/systemd"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,perf_event",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/perf_event"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,blkio",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/blkio"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,hugetlb",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/hugetlb"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,freezer",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/freezer"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,rdma",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/rdma"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,net_cls,net_prio",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/net_cls,net_prio"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,pids",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/pids"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,cpu,cpuacct",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/cpu,cpuacct"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,cpuset",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/cpuset"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,devices",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/devices"
+                                    },
+                                    {
+                                        "fstype": "cgroup",
+                                        "options": "rw,nosuid,nodev,noexec,relatime,memory",
+                                        "source": "cgroup",
+                                        "target": "/sys/fs/cgroup/memory"
+                                    }
+                                ],
+                                "fstype": "tmpfs",
+                                "options": "ro,nosuid,nodev,noexec,mode=755",
+                                "source": "tmpfs",
+                                "target": "/sys/fs/cgroup"
+                            },
+                            {
+                                "fstype": "bpf",
+                                "options": "rw,nosuid,nodev,noexec,relatime,mode=700",
+                                "source": "bpf",
+                                "target": "/sys/fs/bpf"
+                            },
+                            {
+                                "children": [
+                                    {
+                                        "fstype": "tracefs",
+                                        "options": "rw,nosuid,nodev,noexec,relatime",
+                                        "source": "tracefs",
+                                        "target": "/sys/kernel/debug/tracing"
+                                    }
+                                ],
+                                "fstype": "debugfs",
+                                "options": "rw,nosuid,nodev,noexec,relatime",
+                                "source": "debugfs",
+                                "target": "/sys/kernel/debug"
+                            },
+                            {
+                                "fstype": "fusectl",
+                                "options": "rw,nosuid,nodev,noexec,relatime",
+                                "source": "fusectl",
+                                "target": "/sys/fs/fuse/connections"
+                            },
+                            {
+                                "fstype": "configfs",
+                                "options": "rw,nosuid,nodev,noexec,relatime",
+                                "source": "configfs",
+                                "target": "/sys/kernel/config"
+                            }
+                        ],
+                        "fstype": "sysfs",
+                        "options": "rw,nosuid,nodev,noexec,relatime",
+                        "source": "sysfs",
+                        "target": "/sys"
+                    },
+                    {
+                        "children": [
+                            {
+                                "fstype": "autofs",
+                                "options": "rw,relatime,fd=27,pgrp=1,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=33414",
+                                "source": "systemd-1",
+                                "target": "/proc/sys/fs/binfmt_misc"
+                            }
+                        ],
+                        "fstype": "proc",
+                        "options": "rw,nosuid,nodev,noexec,relatime",
+                        "source": "proc",
+                        "target": "/proc"
+                    },
+                    {
+                        "children": [
+                            {
+                                "fstype": "devpts",
+                                "options": "rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000",
+                                "source": "devpts",
+                                "target": "/dev/pts"
+                            },
+                            {
+                                "fstype": "tmpfs",
+                                "options": "rw,nosuid,nodev",
+                                "source": "tmpfs",
+                                "target": "/dev/shm"
+                            },
+                            {
+                                "fstype": "mqueue",
+                                "options": "rw,nosuid,nodev,noexec,relatime",
+                                "source": "mqueue",
+                                "target": "/dev/mqueue"
+                            },
+                            {
+                                "fstype": "hugetlbfs",
+                                "options": "rw,relatime,pagesize=1M",
+                                "source": "hugetlbfs",
+                                "target": "/dev/hugepages"
+                            }
+                        ],
+                        "fstype": "devtmpfs",
+                        "options": "rw,nosuid,relatime,size=1932980k,nr_inodes=483245,mode=755",
+                        "source": "udev",
+                        "target": "/dev"
+                    },
+                    {
+                        "children": [
+                            {
+                                "fstype": "tmpfs",
+                                "options": "rw,nosuid,nodev,noexec,relatime,size=5120k",
+                                "source": "tmpfs",
+                                "target": "/run/lock"
+                            },
+                            {
+                                "fstype": "tmpfs",
+                                "options": "rw,nosuid,nodev,relatime,size=388824k,mode=700,uid=1001,gid=1002",
+                                "source": "tmpfs",
+                                "target": "/run/user/1001"
+                            },
+                            {
+                                "children": [
+                                    {
+                                        "fstype": "nsfs",
+                                        "options": "rw",
+                                        "source": "nsfs[mnt:[4026532054]]",
+                                        "target": "/run/snapd/ns/lxd.mnt"
+                                    }
+                                ],
+                                "fstype": "tmpfs",
+                                "options": "rw,nosuid,noexec,relatime,size=388828k,mode=755",
+                                "source": "tmpfs[/snapd/ns]",
+                                "target": "/run/snapd/ns"
+                            }
+                        ],
+                        "fstype": "tmpfs",
+                        "options": "rw,nosuid,noexec,relatime,size=388828k,mode=755",
+                        "source": "tmpfs",
+                        "target": "/run"
+                    },
+                    {
+                        "fstype": "squashfs",
+                        "options": "ro,nodev,relatime",
+                        "source": "/dev/loop2",
+                        "target": "/snap/core/8687"
+                    },
+                    {
+                        "fstype": "squashfs",
+                        "options": "ro,nodev,relatime",
+                        "source": "/dev/loop3",
+                        "target": "/snap/lxd/13473"
+                    },
+                    {
+                        "fstype": "squashfs",
+                        "options": "ro,nodev,relatime",
+                        "source": "/dev/loop0",
+                        "target": "/snap/lxd/13460"
+                    },
+                    {
+                        "fstype": "squashfs",
+                        "options": "ro,nodev,relatime",
+                        "source": "/dev/loop4",
+                        "target": "/snap/core/8591"
+                    },
+                    {
+                        "fstype": "fuse.lxcfs",
+                        "options": "rw,nosuid,nodev,relatime,user_id=0,group_id=0,allow_other",
+                        "source": "lxcfs",
+                        "target": "/var/lib/lxcfs"
+                    }
+                ],
+                "fstype": "ext4",
+                "options": "rw,relatime,errors=remount-ro",
+                "source": "/dev/dasdd1",
+                "target": "/"
+            }
+        ],
+        "multipath": {},
+        "raid": {},
+        "zfs": {
+            "zpools": {}
+        }
+    }
+}

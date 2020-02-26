@@ -126,7 +126,7 @@ def _stype_to_deps(stype):
     depends_keys = {
         'bcache': {'backing_device', 'cache_device'},
         'dasd': set(),
-        'disk': {'device_id'},
+        'disk': set(),
         'dm_crypt': {'volume'},
         'format': {'volume'},
         'lvm_partition': {'volgroup'},
@@ -144,6 +144,7 @@ def _stype_to_order_key(stype):
     default_sort = {'id'}
     order_key = {
         'bcache': {'name'},
+        'dasd': default_sort,
         'disk': default_sort,
         'dm_crypt': default_sort,
         'format': default_sort,
@@ -170,7 +171,7 @@ def _validate_dep_type(source_id, dep_key, dep_id, sconfig):
         'bcache': {'bcache', 'disk', 'dm_crypt', 'lvm_partition',
                    'partition', 'raid'},
         'dasd': {},
-        'disk': {'device_id'},
+        'disk': {'dasd'},
         'dm_crypt': {'bcache', 'disk', 'dm_crypt', 'lvm_partition',
                      'partition', 'raid'},
         'format': {'bcache', 'disk', 'dm_crypt', 'lvm_partition',
@@ -753,6 +754,19 @@ class BlockdevParser(ProbertParser):
             # set wwn, serial, and path
             entry.update(uniq_ids)
 
+            # disk entry for dasds needs device_id and check for vtoc ptable
+            if devname.startswith('/dev/dasd'):
+                device_id = (
+                    blockdev_data.get('ID_PATH', '').replace('ccw-', ''))
+                if device_id:
+                    entry['device_id'] = device_id
+
+                # if dasd has been formatted, attrs.size is non-zero
+                # formatted dasds have ptable type of 'vtoc'
+                dasd_size = blockdev_data.get('attrs', {}).get('size')
+                if dasd_size and dasd_size != "0":
+                    entry['ptable'] = 'vtoc'
+
             if 'ID_PART_TABLE_TYPE' in blockdev_data:
                 ptype = blockdev_data['ID_PART_TABLE_TYPE']
                 if ptype in schemas._ptables:
@@ -843,7 +857,7 @@ class FilesystemParser(ProbertParser):
                 continue
 
             # ignore types that we cannot create
-            if data['TYPE'] not in schemas._fstypes:
+            if data.get('TYPE') not in schemas._fstypes:
                 continue
 
             entry = self.asdict(volume_id, data)
@@ -937,6 +951,43 @@ class LvmParser(ProbertParser):
                     continue
                 configs.append(entry)
 
+        return (configs, errors)
+
+
+class DasdParser(ProbertParser):
+
+    probe_data_key = 'dasd'
+
+    def asdict(self, dasd_config):
+        dasd_name = os.path.basename(dasd_config['name'])
+        device_id = dasd_config['device_id']
+        blocksize = dasd_config['blocksize']
+        disk_layout = dasd_config['disk_layout']
+
+        return {'type': 'dasd',
+                'id': 'dasd-%s' % dasd_name,
+                'device_id': device_id,
+                'blocksize': blocksize,
+                'mode': 'full' if disk_layout == 'not-formatted' else 'quick',
+                'disk_layout': disk_layout}
+
+    def parse(self):
+        """parse probert 'dasd' data format.
+
+            returns tuple of lists: (configs, errors)
+            contain configs of type:dasd and any errors.
+        """
+        configs = []
+        errors = []
+        for dasd_name, dasd_config in self.class_data.items():
+            entry = self.asdict(dasd_config)
+            if entry:
+                try:
+                    validate_config(entry)
+                except ValueError as e:
+                    errors.append(e)
+                    continue
+                configs.append(entry)
         return (configs, errors)
 
 
@@ -1201,6 +1252,7 @@ def extract_storage_config(probe_data, strict=False):
     convert_map = {
         'bcache': BcacheParser,
         'blockdev': BlockdevParser,
+        'dasd': DasdParser,
         'dmcrypt': DmcryptParser,
         'filesystem': FilesystemParser,
         'lvm': LvmParser,
@@ -1218,6 +1270,7 @@ def extract_storage_config(probe_data, strict=False):
         errors.extend(found_errs)
 
     LOG.debug('Sorting extracted configurations')
+    dasd = [cfg for cfg in configs if cfg.get('type') == 'dasd']
     disk = [cfg for cfg in configs if cfg.get('type') == 'disk']
     part = [cfg for cfg in configs if cfg.get('type') == 'partition']
     format = [cfg for cfg in configs if cfg.get('type') == 'format']
@@ -1230,8 +1283,8 @@ def extract_storage_config(probe_data, strict=False):
     zpool = [cfg for cfg in configs if cfg.get('type') == 'zpool']
     zfs = [cfg for cfg in configs if cfg.get('type') == 'zfs']
 
-    ordered = (disk + part + format + lvols + lparts + raids + dmcrypts +
-               mounts + bcache + zpool + zfs)
+    ordered = (dasd + disk + part + format + lvols + lparts + raids +
+               dmcrypts + mounts + bcache + zpool + zfs)
 
     final_config = {'storage': {'version': 1, 'config': ordered}}
     try:
