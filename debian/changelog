@@ -1,3 +1,11 @@
+curtin (19.3-27-g437caaa9-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - block-discover: add dasd parser and emit dasd storage config
+      (LP: #1862849)
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Thu, 27 Feb 2020 13:11:46 -0600
+
 curtin (19.3-26-g82f23e3d-0ubuntu1) focal; urgency=medium
 
   * New upstream snapshot.
