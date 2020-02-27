@@ -1,4 +1,4 @@
-curtin (19.3-27-g437caaa9-0ubuntu1) UNRELEASED; urgency=medium
+curtin (19.3-27-g437caaa9-0ubuntu1) focal; urgency=medium
 
   * New upstream snapshot.
     - block-discover: add dasd parser and emit dasd storage config
