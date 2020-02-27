@@ -4,9 +4,9 @@ import json
 from .helpers import CiTestCase, skipUnlessJsonSchema
 from curtin import storage_config
 from curtin.storage_config import ProbertParser as baseparser
-from curtin.storage_config import (BcacheParser, BlockdevParser, DmcryptParser,
-                                   FilesystemParser, LvmParser, RaidParser,
-                                   MountParser, ZfsParser)
+from curtin.storage_config import (BcacheParser, BlockdevParser, DasdParser,
+                                   DmcryptParser, FilesystemParser, LvmParser,
+                                   RaidParser, MountParser, ZfsParser)
 from curtin import util
 
 
@@ -426,6 +426,30 @@ class TestBlockdevParser(CiTestCase):
         result = self.bdevp.blockdev_to_id(blockdev)
         self.assertEqual('disk-sda', result)
 
+    def test_blockdev_detects_dasd_device_id_and_vtoc_ptable(self):
+        self.probe_data = _get_data('probert_storage_dasd.json')
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/dasdd']
+        expected_dict = {
+            'device_id': '0.0.1544',
+            'id': 'disk-dasdd',
+            'path': '/dev/dasdd',
+            'ptable': 'vtoc',
+            'serial': '0X1544',
+            'type': 'disk'}
+        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
+
+    def test_blockdev_detects_dasd_device_id_and_unformatted_no_ptable(self):
+        self.probe_data = _get_data('probert_storage_dasd.json')
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/dasde']
+        expected_dict = {
+            'device_id': '0.0.2520',
+            'id': 'disk-dasde',
+            'path': '/dev/dasde',
+            'type': 'disk'}
+        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
+
 
 class TestFilesystemParser(CiTestCase):
 
@@ -560,6 +584,40 @@ class TestRaidParser(CiTestCase):
         self.assertEqual(0, len(errors))
 
 
+class TestDasdParser(CiTestCase):
+
+    def setUp(self):
+        super(TestDasdParser, self).setUp()
+        self.probe_data = _get_data('probert_storage_dasd.json')
+        self.dasd = DasdParser(self.probe_data)
+
+    def test_dasd_parser(self):
+        """ DasdParser 'class_data' on instance matches input. """
+        self.assertDictEqual(self.probe_data['dasd'],
+                             self.dasd.class_data)
+
+    def test_dasd_asdict(self):
+        """ DasdParser converts known dasd_data to expected dict. """
+        devname = "/dev/dasda"
+        expected_dict = {
+            'type': 'dasd',
+            'id': 'dasd-dasda',
+            'device_id': '0.0.1522',
+            'blocksize': 4096,
+            'mode': 'quick',
+            'disk_layout': 'cdl',
+        }
+        dasd_data = self.dasd.class_data[devname]
+        self.assertDictEqual(expected_dict, self.dasd.asdict(dasd_data))
+
+    @skipUnlessJsonSchema()
+    def test_dasd_parser_parses_all_dasd_devs(self):
+        """ DasdParser returns expected dicts for known dasd probe data."""
+        configs, errors = self.dasd.parse()
+        self.assertEqual(5, len(configs))
+        self.assertEqual(0, len(errors))
+
+
 class TestDmCryptParser(CiTestCase):
 
     def setUp(self):
@@ -587,7 +645,7 @@ class TestDmCryptParser(CiTestCase):
 
     @skipUnlessJsonSchema()
     def test_dmcrypt_parser_parses_all_crypt_devs(self):
-        """ DmcryptParser returns expected dicts for known raid probe data."""
+        """ DmcryptParser returns expected dicts for known crypt probe data."""
         configs, errors = self.dmcrypt.parse()
         self.assertEqual(1, len(configs))
         self.assertEqual(0, len(errors))
