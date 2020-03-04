@@ -970,8 +970,6 @@ install_grub() {
                         --disk $efi_disk --part $efi_part_num --loader $loader
                     rc=$?
                     [ "$rc" != "0" ] && { exit $rc; }
-                    # check and remove duplicates
-                    efibootmgr --verbose --remove-dups
                 else
                     echo "skip EFI entry creation due to \"$no_nvram\" flag"
                 fi

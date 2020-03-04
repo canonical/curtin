@@ -633,6 +633,8 @@ class ChrootableTarget(object):
             self.mounts = mounts
         else:
             self.mounts = ["/dev", "/proc", "/run", "/sys"]
+            if is_uefi_bootable():
+                self.mounts.append('/sys/firmware/efi/efivars')
         self.umounts = []
         self.disabled_daemons = False
         self.allow_daemons = allow_daemons
@@ -856,7 +858,7 @@ def parse_efibootmgr(content):
     return output
 
 
-def get_efibootmgr(target):
+def get_efibootmgr(target=None):
     """Return mapping of EFI information.
 
     Calls `efibootmgr` inside the `target`.
@@ -879,7 +881,7 @@ def get_efibootmgr(target):
             }
         }
     """
-    with ChrootableTarget(target) as in_chroot:
+    with ChrootableTarget(target=target) as in_chroot:
         stdout, _ = in_chroot.subp(['efibootmgr', '-v'], capture=True)
         output = parse_efibootmgr(stdout)
         return output

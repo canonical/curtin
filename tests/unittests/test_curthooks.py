@@ -195,7 +195,9 @@ class TestUpdateInitramfs(CiTestCase):
         super(TestUpdateInitramfs, self).setUp()
         self.add_patch('curtin.util.subp', 'mock_subp')
         self.add_patch('curtin.util.which', 'mock_which')
+        self.add_patch('curtin.util.is_uefi_bootable', 'mock_uefi')
         self.mock_which.return_value = self.random_string()
+        self.mock_uefi.return_value = False
         self.target = self.tmp_dir()
         self.boot = os.path.join(self.target, 'boot')
         os.makedirs(self.boot)
@@ -787,12 +789,93 @@ class TestSetupGrub(CiTestCase):
                 },
             }
         }
-        self.in_chroot_subp_output.append(('', ''))
+        self.subp_output.append(('', ''))
         self.mock_haspkg.return_value = False
         curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
         self.assertEquals(
             (['efibootmgr', '-o', '0001,0000'],),
-            self.mock_in_chroot_subp.call_args_list[0][0])
+            self.mock_subp.call_args_list[1][0])
+
+
+class TestUefiRemoveDuplicateEntries(CiTestCase):
+
+    def setUp(self):
+        super(TestUefiRemoveDuplicateEntries, self).setUp()
+        self.target = self.tmp_dir()
+        self.add_patch('curtin.util.get_efibootmgr', 'm_efibootmgr')
+        self.add_patch('curtin.util.subp', 'm_subp')
+
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_uefi_remove_duplicate_entries(self):
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+                'update_nvram': True,
+            },
+        }
+        self.m_efibootmgr.return_value = {
+            'current': '0000',
+            'entries': {
+                '0000': {
+                    'name': 'ubuntu',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+                },
+                '0001': {
+                    'name': 'ubuntu',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+                },
+                '0002': {  # Is not a duplicate because of unique path
+                    'name': 'ubuntu',
+                    'path': (
+                        'HD(2,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+                },
+                '0003': {  # Is duplicate of 0000
+                    'name': 'ubuntu',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+                },
+            }
+        }
+
+        curthooks.uefi_remove_duplicate_entries(cfg, self.target)
+        self.assertEquals([
+            call(['efibootmgr', '--bootnum=0001', '--delete-bootnum']),
+            call(['efibootmgr', '--bootnum=0003', '--delete-bootnum'])],
+            self.m_subp.call_args_list)
+
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_uefi_remove_duplicate_entries_no_change(self):
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+                'update_nvram': True,
+            },
+        }
+        self.m_efibootmgr.return_value = {
+            'current': '0000',
+            'entries': {
+                '0000': {
+                    'name': 'ubuntu',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+                },
+                '0001': {
+                    'name': 'centos',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\centos\\shimx64.efi)'),
+                },
+                '0002': {
+                    'name': 'sles',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\sles\\shimx64.efi)'),
+                },
+            }
+        }
+
+        curthooks.uefi_remove_duplicate_entries(cfg, self.target)
+        self.assertEquals([], self.m_subp.call_args_list)
 
 
 class TestUbuntuCoreHooks(CiTestCase):

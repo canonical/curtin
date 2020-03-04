@@ -1,4 +1,6 @@
 showtrace: true
+install:
+  unmount: disabled
 
 bucket:
   - &setup |
