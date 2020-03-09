@@ -19,6 +19,17 @@ _persist_journal:
     }
     exit 0
 
+_install_probert:
+ - &install_probert |
+   command -v apt && {
+       # bionic probert doesn't work with block-discover
+       if [ "`lsb_release -sc`" = "bionic" ]; then
+           exit 0;
+       fi
+       apt-get -qy install probert &>/dev/null || { echo "No probert available"; }
+   }
+   exit 0
+
 # this runs curtin block-discover and stores the result
 # in the target system root dir
 _block_discover:
@@ -50,6 +61,10 @@ _block_discover:
    fi
    exit 0
 
+
+early_commands:
+  # use bash to allow capturing all apt errors when probert isn't available
+  01_install_probert: ['bash', '-c', *install_probert]
 
 late_commands:
   01_vmtest_pollinate: ['curtin', 'in-target', '--', 'sh', '-c', *pvmtest]

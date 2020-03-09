@@ -419,6 +419,52 @@ class TestBlockdevParser(CiTestCase):
             'number': 2}
         self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
 
+    def test_blockdev_skips_multipath_entry_if_no_multipath_data(self):
+        self.probe_data = _get_data('probert_storage_multipath.json')
+        del self.probe_data['multipath']
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/sda2']
+        expected_dict = {
+            'flag': 'linux',
+            'id': 'partition-sda2',
+            'offset': 2097152,
+            'size': 10734272512,
+            'type': 'partition',
+            'device': 'disk-sda',
+            'number': 2}
+        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
+
+    def test_blockdev_skips_multipath_entry_if_bad_multipath_data(self):
+        self.probe_data = _get_data('probert_storage_multipath.json')
+        for path in self.probe_data['multipath']['paths']:
+            path['multipath'] = ''
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/sda2']
+        expected_dict = {
+            'flag': 'linux',
+            'id': 'partition-sda2',
+            'offset': 2097152,
+            'size': 10734272512,
+            'type': 'partition',
+            'device': 'disk-sda',
+            'number': 2}
+        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
+
+    def test_blockdev_skips_multipath_entry_if_no_mp_paths(self):
+        self.probe_data = _get_data('probert_storage_multipath.json')
+        del self.probe_data['multipath']['paths']
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/sda2']
+        expected_dict = {
+            'flag': 'linux',
+            'id': 'partition-sda2',
+            'offset': 2097152,
+            'size': 10734272512,
+            'type': 'partition',
+            'device': 'disk-sda',
+            'number': 2}
+        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
+
     def test_blockdev_finds_multipath_id_from_dm_uuid(self):
         self.probe_data = _get_data('probert_storage_zlp6.json')
         self.bdevp = BlockdevParser(self.probe_data)

@@ -437,9 +437,9 @@ class ProbertParser(object):
         if blockdev['DEVTYPE'] == 'partition':
             bd_name = self.partition_parent_devname(blockdev)
         bd_name = os.path.basename(bd_name)
-        for path in mpath_data['paths']:
-            if bd_name == path['device']:
-                rv = path['multipath']
+        for path in mpath_data.get('paths', []):
+            if bd_name == path.get('device'):
+                rv = path.get('multipath')
                 return rv
 
     def find_mpath_member(self, blockdev):
@@ -744,7 +744,8 @@ class BlockdevParser(ProbertParser):
         }
         if blockdev_data.get('DM_MULTIPATH_DEVICE_PATH') == "1":
             mpath_name = self.get_mpath_name(blockdev_data)
-            entry['multipath'] = mpath_name
+            if mpath_name:
+                entry['multipath'] = mpath_name
 
         # default disks to gpt
         if entry['type'] == 'disk':
