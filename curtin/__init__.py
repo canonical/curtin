@@ -22,6 +22,8 @@ FEATURES = [
     'STORAGE_CONFIG_V1',
     # install supports the 'storage' config version 1 for DD images
     'STORAGE_CONFIG_V1_DD',
+    # has separate 'preserve' and 'wipe' config options
+    'STORAGE_CONFIG_SEPARATE_PRESERVE_AND_WIPE'
     # subcommand 'system-install' is present
     'SUBCOMMAND_SYSTEM_INSTALL',
     # subcommand 'system-upgrade' is present

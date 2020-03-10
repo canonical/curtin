@@ -65,6 +65,7 @@ BCACHE = {
         'backing_device': {'$ref': '#/definitions/ref_id'},
         'cache_device': {'$ref': '#/definitions/ref_id'},
         'name': {'$ref': '#/definitions/name'},
+        'preserve': {'$ref': '#/definitions/preserve'},
         'type': {'const': 'bcache'},
         'cache_mode': {
             'type': ['string'],
@@ -166,6 +167,7 @@ DM_CRYPT = {
         'volume': {'$ref': '#/definitions/ref_id'},
         'key': {'$ref': '#/definitions/id'},
         'keyfile': {'$ref': '#/definitions/id'},
+        'preserve': {'$ref': '#/definitions/preserve'},
         'type': {'const': 'dm_crypt'},
     },
 }
@@ -201,6 +203,7 @@ LVM_PARTITION = {
     'properties': {
         'id': {'$ref': '#/definitions/id'},
         'name': {'$ref': '#/definitions/name'},
+        'preserve': {'type': 'boolean'},
         'size': {'$ref': '#/definitions/size'},  # XXX: This is not used
         'type': {'const': 'lvm_partition'},
         'volgroup': {'$ref': '#/definitions/ref_id'},
@@ -219,6 +222,7 @@ LVM_VOLGROUP = {
         'id': {'$ref': '#/definitions/id'},
         'devices': {'$ref': '#/definitions/devices'},
         'name': {'$ref': '#/definitions/name'},
+        'preserve': {'type': 'boolean'},
         'uuid': {'$ref': '#/definitions/uuid'},    # XXX: This is not used
         'type': {'const': 'lvm_volgroup'},
     },

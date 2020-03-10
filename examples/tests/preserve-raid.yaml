@@ -4,10 +4,12 @@ bucket:
   - &setup |
     parted /dev/disk/by-id/virtio-disk-b --script -- \
         mklabel gpt              \
-        mkpart primary 1GiB 9GiB
+        mkpart primary 1GiB 9GiB \
+        set 1 boot on
     parted /dev/disk/by-id/virtio-disk-c --script -- \
         mklabel gpt              \
-        mkpart primary 1GiB 9GiB
+        mkpart primary 1GiB 9GiB \
+        set 1 boot on
     udevadm settle
     mdadm --create --metadata 1.2 --level 1 -n 2 /dev/md1 --assume-clean \
         /dev/disk/by-id/virtio-disk-b-part1 /dev/disk/by-id/virtio-disk-c-part1

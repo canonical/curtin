@@ -16,6 +16,9 @@ from curtin.udev import udevadm_settle, udevadm_info
 from curtin import storage_config
 
 
+SECTOR_SIZE_BYTES = 512
+
+
 def get_dev_name_entry(devname):
     """
     convert device name to path in /dev
@@ -239,6 +242,73 @@ def _lsblock(args=None):
     (out, _err) = util.subp(basecmd + list(args), capture=True)
     out = out.replace('!', '/')
     return _lsblock_pairs_to_dict(out)
+
+
+def _sfdisk_parse(lines):
+    info = {}
+    for line in lines:
+        if ':' not in line:
+            continue
+        lhs, _, rhs = line.partition(':')
+        key = lhs.strip()
+        value = rhs.strip()
+        if "," in rhs:
+            value = dict((item.split('=')
+                         for item in rhs.replace(' ', '').split(',')))
+        info[key] = value
+
+    return info
+
+
+def sfdisk_info(devpath):
+    ''' returns dict of sfdisk info about disk partitions
+    {
+     "/dev/vda1": {
+        "size": "20744159",
+        "start": "227328",
+        "type": "0FC63DAF-8483-4772-8E79-3D69D8477DE4",
+        "uuid": "29983666-2A66-4F14-8533-7CE13B715462"
+     },
+     "device": "/dev/vda",
+     "first-lba": "34",
+     "label": "gpt",
+     "label-id": "E94FCCFE-953D-4D4B-9511-451BBCC17A9A",
+     "last-lba": "20971486",
+     "unit": "sectors"
+    }
+    '''
+    (parent, partnum) = get_blockdev_for_partition(devpath)
+    try:
+        (out, _err) = util.subp(['sfdisk', '--dump', parent], capture=True)
+    except util.ProcessExecutionError as e:
+        LOG.exception(e)
+        out = ""
+    return _sfdisk_parse(out.splitlines())
+
+
+def dmsetup_info(devname):
+    ''' returns dict of info about device mapper dev.
+
+    {'blkdevname': 'dm-0',
+     'blkdevs_used': 'sda5',
+     'name': 'sda5_crypt',
+     'subsystem': 'CRYPT',
+     'uuid': 'CRYPT-LUKS1-2b370697149743b0b2407d11f88311f1-sda5_crypt'
+    }
+    '''
+    _SEP = '='
+    fields = ('name,uuid,blkdevname,blkdevs_used,subsystem'.split(','))
+    try:
+        (out, _err) = util.subp(['dmsetup', 'info', devname, '-C', '-o',
+                                 ','.join(fields), '--noheading',
+                                 '--separator', _SEP], capture=True)
+    except util.ProcessExecutionError as e:
+        LOG.error('Failed to run dmsetup info:', e)
+        return {}
+
+    values = out.strip().split(_SEP)
+    info = dict(zip(fields, values))
+    return info
 
 
 def get_unused_blockdev_info():
@@ -624,6 +694,15 @@ def get_blockdev_sector_size(devpath):
 
     LOG.debug('get_blockdev_sector_size: (log=%s, phys=%s)', logical, physical)
     return (int(logical), int(physical))
+
+
+def read_sys_block_size_bytes(device):
+    """ /sys/class/block/<device>/size and return integer value in bytes"""
+    device_dir = os.path.join('/sys/class/block', os.path.basename(device))
+    blockdev_size = os.path.join(device_dir, 'size')
+    with open(blockdev_size) as d:
+        size = int(d.read().strip()) * SECTOR_SIZE_BYTES
+    return size
 
 
 def get_volume_uuid(path):

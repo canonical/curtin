@@ -13,12 +13,14 @@ import os
 _SEP = '='
 
 
-def _filter_lvm_info(lvtool, match_field, query_field, match_key):
+def _filter_lvm_info(lvtool, match_field, query_field, match_key, args=None):
     """
     filter output of pv/vg/lvdisplay tools
     """
+    if args is None:
+        args = []
     (out, _) = util.subp([lvtool, '-C', '--separator', _SEP, '--noheadings',
-                          '-o', ','.join([match_field, query_field])],
+                          '-o', ','.join([match_field, query_field])] + args,
                          capture=True)
     return [qf for (mf, qf) in
             [l.strip().split(_SEP) for l in out.strip().splitlines()]
@@ -37,6 +39,14 @@ def get_lvols_in_volgroup(vg_name):
     get logical volumes in volgroup
     """
     return _filter_lvm_info('lvdisplay', 'vg_name', 'lv_name', vg_name)
+
+
+def get_lv_size_bytes(lv_name):
+    """ get the size in bytes of a logical volume specified by lv_name."""
+    result = _filter_lvm_info('lvdisplay', 'lv_name', 'lv_size', lv_name,
+                              args=['--units=B'])
+    if result:
+        return util.human2bytes(result[0])
 
 
 def split_lvm_name(full):

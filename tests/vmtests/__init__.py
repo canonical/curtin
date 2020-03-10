@@ -1680,6 +1680,8 @@ class VMBaseClass(TestCase):
             'wwn': 'ID_WWN_WITH_EXTENSION',
         }
         for disk in disks:
+            if not disk.get('name'):
+                continue
             dname_file = "%s.rules" % sanitize_dname(disk.get('name'))
             contents = self.load_collect_file("udev_rules.d/%s" % dname_file)
             for key, key_name in key_to_udev.items():

@@ -1212,15 +1212,116 @@ class TestDasdHandler(CiTestCase):
         self.assertEqual(0, m_dasd_format.call_count)
 
 
+class TestLvmVolgroupHandler(CiTestCase):
+
+    def setUp(self):
+        super(TestLvmVolgroupHandler, self).setUp()
+
+        basepath = 'curtin.commands.block_meta.'
+        self.add_patch(basepath + 'lvm', 'm_lvm')
+        self.add_patch(basepath + 'util.subp', 'm_subp')
+        self.add_patch(basepath + 'make_dname', 'm_dname')
+        self.add_patch(basepath + 'get_path_to_storage_volume', 'm_getpath')
+        self.add_patch(basepath + 'block.wipe_volume', 'm_wipe')
+
+        self.target = "my_target"
+        self.config = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {'id': 'wda2',
+                     'type': 'partition'},
+                    {'id': 'wdb2',
+                     'type': 'partition'},
+                    {'id': 'lvm-volgroup1',
+                     'type': 'lvm_volgroup',
+                     'name': 'vg1',
+                     'devices': ['wda2', 'wdb2']},
+                    {'id': 'lvm-part1',
+                     'type': 'lvm_partition',
+                     'name': 'lv1',
+                     'size': 1073741824,
+                     'volgroup': 'lvm-volgroup1'},
+                ],
+            }
+        }
+        self.storage_config = (
+            block_meta.extract_storage_ordered_dict(self.config))
+
+    def test_lvmvolgroup_creates_volume_group(self):
+        """ lvm_volgroup handler creates volume group. """
+
+        devices = [self.random_string(), self.random_string()]
+        self.m_getpath.side_effect = iter(devices)
+
+        block_meta.lvm_volgroup_handler(self.storage_config['lvm-volgroup1'],
+                                        self.storage_config)
+
+        self.assertEqual([call(['vgcreate', '--force', '--zero=y', '--yes',
+                                'vg1'] + devices,  capture=True)],
+                         self.m_subp.call_args_list)
+        self.assertEqual(1, self.m_lvm.lvm_scan.call_count)
+
+    @patch('curtin.commands.block_meta.lvm_volgroup_verify')
+    def test_lvmvolgroup_preserve_existing_volume_group(self, m_verify):
+        """ lvm_volgroup handler preserves existing volume group. """
+        m_verify.return_value = True
+        devices = [self.random_string(), self.random_string()]
+        self.m_getpath.side_effect = iter(devices)
+
+        self.storage_config['lvm-volgroup1']['preserve'] = True
+        block_meta.lvm_volgroup_handler(self.storage_config['lvm-volgroup1'],
+                                        self.storage_config)
+
+        self.assertEqual(0, self.m_subp.call_count)
+        self.assertEqual(1, self.m_lvm.lvm_scan.call_count)
+
+    def test_lvmvolgroup_preserve_verifies_volgroup_members(self):
+        """ lvm_volgroup handler preserves existing volume group. """
+        devices = [self.random_string(), self.random_string()]
+        self.m_getpath.side_effect = iter(devices)
+        self.m_lvm.get_pvols_in_volgroup.return_value = devices
+        self.storage_config['lvm-volgroup1']['preserve'] = True
+
+        block_meta.lvm_volgroup_handler(self.storage_config['lvm-volgroup1'],
+                                        self.storage_config)
+
+        self.assertEqual(1, self.m_lvm.activate_volgroups.call_count)
+        self.assertEqual([call('vg1')],
+                         self.m_lvm.get_pvols_in_volgroup.call_args_list)
+        self.assertEqual(0, self.m_subp.call_count)
+        self.assertEqual(1, self.m_lvm.lvm_scan.call_count)
+
+    def test_lvmvolgroup_preserve_raises_exception_wrong_pvs(self):
+        """ lvm_volgroup handler preserve raises execption on wrong pv devs."""
+        devices = [self.random_string(), self.random_string()]
+        self.m_getpath.side_effect = iter(devices)
+        self.m_lvm.get_pvols_in_volgroup.return_value = [self.random_string()]
+        self.storage_config['lvm-volgroup1']['preserve'] = True
+
+        with self.assertRaises(RuntimeError):
+            block_meta.lvm_volgroup_handler(
+                self.storage_config['lvm-volgroup1'], self.storage_config)
+
+        self.assertEqual(1, self.m_lvm.activate_volgroups.call_count)
+        self.assertEqual([call('vg1')],
+                         self.m_lvm.get_pvols_in_volgroup.call_args_list)
+        self.assertEqual(0, self.m_subp.call_count)
+        self.assertEqual(0, self.m_lvm.lvm_scan.call_count)
+
+
 class TestLvmPartitionHandler(CiTestCase):
 
     def setUp(self):
         super(TestLvmPartitionHandler, self).setUp()
 
-        self.add_patch('curtin.commands.block_meta.lvm', 'm_lvm')
-        self.add_patch('curtin.commands.block_meta.distro', 'm_distro')
-        self.add_patch('curtin.commands.block_meta.util.subp', 'm_subp')
-        self.add_patch('curtin.commands.block_meta.make_dname', 'm_dname')
+        basepath = 'curtin.commands.block_meta.'
+        self.add_patch(basepath + 'lvm', 'm_lvm')
+        self.add_patch(basepath + 'distro', 'm_distro')
+        self.add_patch(basepath + 'util.subp', 'm_subp')
+        self.add_patch(basepath + 'make_dname', 'm_dname')
+        self.add_patch(basepath + 'get_path_to_storage_volume', 'm_getpath')
+        self.add_patch(basepath + 'block.wipe_volume', 'm_wipe')
 
         self.target = "my_target"
         self.config = {
@@ -1256,6 +1357,84 @@ class TestLvmPartitionHandler(CiTestCase):
         call_name, call_args, call_kwargs = self.m_subp.mock_calls[0]
         # call_args is an n-tuple of arg list
         self.assertIn(expected_size_str, call_args[0])
+
+    def test_lvmpart_wipes_volume_by_default(self):
+        """ lvm_partition_handler wipes superblock by default. """
+
+        self.m_distro.lsb_release.return_value = {'codename': 'bionic'}
+        devpath = self.random_string()
+        self.m_getpath.return_value = devpath
+
+        block_meta.lvm_partition_handler(self.storage_config['lvm-part1'],
+                                         self.storage_config)
+        self.m_wipe.assert_called_with(devpath, mode='superblock',
+                                       exclusive=False)
+
+    def test_lvmpart_handles_wipe_setting(self):
+        """ lvm_partition_handler handles wipe settings. """
+
+        self.m_distro.lsb_release.return_value = {'codename': 'bionic'}
+        devpath = self.random_string()
+        self.m_getpath.return_value = devpath
+
+        wipe_mode = 'zero'
+        self.storage_config['lvm-part1']['wipe'] = wipe_mode
+        block_meta.lvm_partition_handler(self.storage_config['lvm-part1'],
+                                         self.storage_config)
+        self.m_wipe.assert_called_with(devpath, mode=wipe_mode,
+                                       exclusive=False)
+
+    @patch('curtin.commands.block_meta.lvm_partition_verify')
+    def test_lvmpart_preserve_existing_lvmpart(self, m_verify):
+        m_verify.return_value = True
+        self.storage_config['lvm-part1']['preserve'] = True
+        block_meta.lvm_partition_handler(self.storage_config['lvm-part1'],
+                                         self.storage_config)
+        self.assertEqual(0, self.m_distro.lsb_release.call_count)
+        self.assertEqual(0, self.m_subp.call_count)
+
+    def test_lvmpart_preserve_verifies_lv_in_vg_and_lv_size(self):
+        self.storage_config['lvm-part1']['preserve'] = True
+        self.m_lvm.get_lvols_in_volgroup.return_value = ['lv1']
+        self.m_lvm.get_lv_size_bytes.return_value = 1073741824.0
+
+        block_meta.lvm_partition_handler(self.storage_config['lvm-part1'],
+                                         self.storage_config)
+        self.assertEqual([call('vg1')],
+                         self.m_lvm.get_lvols_in_volgroup.call_args_list)
+        self.assertEqual([call('lv1')],
+                         self.m_lvm.get_lv_size_bytes.call_args_list)
+        self.assertEqual(0, self.m_distro.lsb_release.call_count)
+        self.assertEqual(0, self.m_subp.call_count)
+
+    def test_lvmpart_preserve_fails_if_lv_not_in_vg(self):
+        self.storage_config['lvm-part1']['preserve'] = True
+        self.m_lvm.get_lvols_in_volgroup.return_value = []
+
+        with self.assertRaises(RuntimeError):
+            block_meta.lvm_partition_handler(self.storage_config['lvm-part1'],
+                                             self.storage_config)
+
+            self.assertEqual([call('vg1')],
+                             self.m_lvm.get_lvols_in_volgroup.call_args_list)
+        self.assertEqual(0, self.m_lvm.get_lv_size_bytes.call_count)
+        self.assertEqual(0, self.m_distro.lsb_release.call_count)
+        self.assertEqual(0, self.m_subp.call_count)
+
+    def test_lvmpart_preserve_verifies_lv_size_matches(self):
+        self.storage_config['lvm-part1']['preserve'] = True
+        self.m_lvm.get_lvols_in_volgroup.return_value = ['lv1']
+        self.m_lvm.get_lv_size_bytes.return_value = 0.0
+
+        with self.assertRaises(RuntimeError):
+            block_meta.lvm_partition_handler(self.storage_config['lvm-part1'],
+                                             self.storage_config)
+            self.assertEqual([call('vg1')],
+                             self.m_lvm.get_lvols_in_volgroup.call_args_list)
+            self.assertEqual([call('lv1')],
+                             self.m_lvm.get_lv_size_bytes.call_args_list)
+        self.assertEqual(0, self.m_distro.lsb_release.call_count)
+        self.assertEqual(0, self.m_subp.call_count)
 
 
 class TestDmCryptHandler(CiTestCase):
@@ -1430,6 +1609,317 @@ class TestDmCryptHandler(CiTestCase):
         ]
         self.m_subp.assert_has_calls(expected_calls)
         self.assertEqual(len(util.load_file(self.crypttab).splitlines()), 1)
+
+    @patch('curtin.commands.block_meta.dm_crypt_verify')
+    def test_dm_crypt_preserves_existing(self, m_verify):
+        """ verify dm_crypt preserves existing device. """
+        m_verify.return_value = True
+        volume_path = self.random_string()
+        self.m_getpath.return_value = volume_path
+
+        info = self.storage_config['dmcrypt0']
+        info['preserve'] = True
+        block_meta.dm_crypt_handler(info, self.storage_config)
+
+        self.assertEqual(0, self.m_subp.call_count)
+        self.assertEqual(len(util.load_file(self.crypttab).splitlines()), 1)
+
+    @patch('curtin.commands.block_meta.os.path.exists')
+    def test_dm_crypt_preserve_verifies_correct_device_is_present(self, m_ex):
+        """ verify dm_crypt preserve verifies correct dev is used. """
+        volume_path = self.random_string()
+        self.m_getpath.return_value = volume_path
+        self.m_block.dmsetup_info.return_value = {
+            'blkdevname': 'dm-0',
+            'blkdevs_used': volume_path,
+            'name': 'cryptroot',
+            'uuid': self.random_string(),
+            'subsystem': 'crypt'
+        }
+        m_ex.return_value = True
+
+        info = self.storage_config['dmcrypt0']
+        info['preserve'] = True
+        block_meta.dm_crypt_handler(info, self.storage_config)
+        self.assertEqual(len(util.load_file(self.crypttab).splitlines()), 1)
+
+    @patch('curtin.commands.block_meta.os.path.exists')
+    def test_dm_crypt_preserve_raises_exception_if_not_present(self, m_ex):
+        """ verify dm_crypt raises exception if dm device not present. """
+        volume_path = self.random_string()
+        self.m_getpath.return_value = volume_path
+        m_ex.return_value = False
+        info = self.storage_config['dmcrypt0']
+        info['preserve'] = True
+        with self.assertRaises(RuntimeError):
+            block_meta.dm_crypt_handler(info, self.storage_config)
+
+    @patch('curtin.commands.block_meta.os.path.exists')
+    def test_dm_crypt_preserve_raises_exception_if_wrong_dev_used(self, m_ex):
+        """ verify dm_crypt preserve raises exception on wrong dev used. """
+        volume_path = self.random_string()
+        self.m_getpath.return_value = volume_path
+        self.m_block.dmsetup_info.return_value = {
+            'blkdevname': 'dm-0',
+            'blkdevs_used': self.random_string(),
+            'name': 'cryptroot',
+            'uuid': self.random_string(),
+            'subsystem': 'crypt'
+        }
+        m_ex.return_value = True
+        info = self.storage_config['dmcrypt0']
+        info['preserve'] = True
+        with self.assertRaises(RuntimeError):
+            block_meta.dm_crypt_handler(info, self.storage_config)
+
+
+class TestRaidHandler(CiTestCase):
+
+    def setUp(self):
+        super(TestRaidHandler, self).setUp()
+
+        basepath = 'curtin.commands.block_meta.'
+        self.add_patch(basepath + 'get_path_to_storage_volume', 'm_getpath')
+        self.add_patch(basepath + 'util', 'm_util')
+        self.add_patch(basepath + 'make_dname', 'm_dname')
+        self.add_patch(basepath + 'mdadm', 'm_mdadm')
+        self.add_patch(basepath + 'block', 'm_block')
+        self.add_patch(basepath + 'udevadm_settle', 'm_uset')
+
+        self.target = "my_target"
+        self.config = {
+            'storage': {
+                 'version': 1,
+                 'config': [
+                        {'grub_device': 1,
+                         'id': 'sda',
+                         'model': 'QEMU HARDDISK',
+                         'name': 'main_disk',
+                         'ptable': 'gpt',
+                         'serial': 'disk-a',
+                         'type': 'disk',
+                         'wipe': 'superblock'},
+                        {'device': 'sda',
+                         'flag': 'bios_grub',
+                         'id': 'bios_boot_partition',
+                         'size': '1MB',
+                         'type': 'partition'},
+                        {'device': 'sda',
+                         'id': 'sda1',
+                         'size': '3GB',
+                         'type': 'partition'},
+                        {'id': 'sdb',
+                         'model': 'QEMU HARDDISK',
+                         'name': 'second_disk',
+                         'ptable': 'gpt',
+                         'serial': 'disk-b',
+                         'type': 'disk',
+                         'wipe': 'superblock'},
+                        {'device': 'sdb',
+                         'id': 'sdb1',
+                         'size': '3GB',
+                         'type': 'partition'},
+                        {'id': 'sdc',
+                         'model': 'QEMU HARDDISK',
+                         'name': 'third_disk',
+                         'ptable': 'gpt',
+                         'serial': 'disk-c',
+                         'type': 'disk',
+                         'wipe': 'superblock'},
+                        {'device': 'sdc',
+                         'id': 'sdc1',
+                         'size': '3GB',
+                         'type': 'partition'},
+                        {'devices': ['sda1', 'sdb1', 'sdc1'],
+                         'id': 'mddevice',
+                         'name': 'md0',
+                         'raidlevel': 5,
+                         'type': 'raid'},
+                        {'fstype': 'ext4',
+                         'id': 'md_root',
+                         'type': 'format',
+                         'volume': 'mddevice'},
+                        {'device': 'md_root',
+                         'id': 'md_mount',
+                         'path': '/',
+                         'type': 'mount'}],
+            },
+        }
+        self.storage_config = (
+            block_meta.extract_storage_ordered_dict(self.config))
+        self.m_util.load_command_environment.return_value = {'fstab': None}
+
+    def test_raid_handler(self):
+        """ raid_handler creates raid device. """
+        devices = [self.random_string(), self.random_string(),
+                   self.random_string()]
+        md_devname = '/dev/' + self.storage_config['mddevice']['name']
+        self.m_block.dev_path.return_value = '/dev/md0'
+        self.m_getpath.side_effect = iter(devices)
+        block_meta.raid_handler(self.storage_config['mddevice'],
+                                self.storage_config)
+        self.assertEqual([call(md_devname, 5, devices, [], '')],
+                         self.m_mdadm.mdadm_create.call_args_list)
+
+    @patch('curtin.commands.block_meta.raid_verify')
+    def test_raid_handler_preserves_existing_device(self, m_verify):
+        """ raid_handler preserves existing device. """
+
+        devices = [self.random_string(), self.random_string(),
+                   self.random_string()]
+        self.m_block.dev_path.return_value = '/dev/md0'
+        self.m_getpath.side_effect = iter(devices)
+        m_verify.return_value = True
+        self.storage_config['mddevice']['preserve'] = True
+        block_meta.raid_handler(self.storage_config['mddevice'],
+                                self.storage_config)
+        self.assertEqual(0, self.m_mdadm.mdadm_create.call_count)
+
+    def test_raid_handler_preserve_verifies_md_device(self):
+        """ raid_handler preserve verifies existing raid device. """
+
+        devices = [self.random_string(), self.random_string(),
+                   self.random_string()]
+        md_devname = '/dev/' + self.storage_config['mddevice']['name']
+        self.m_block.dev_path.return_value = '/dev/md0'
+        self.m_getpath.side_effect = iter(devices)
+        self.m_mdadm.md_check.return_value = True
+        self.storage_config['mddevice']['preserve'] = True
+        block_meta.raid_handler(self.storage_config['mddevice'],
+                                self.storage_config)
+        self.assertEqual(0, self.m_mdadm.mdadm_create.call_count)
+        self.assertEqual([call(md_devname, 5, devices, [])],
+                         self.m_mdadm.md_check.call_args_list)
+
+    def test_raid_handler_preserve_verifies_md_device_after_assemble(self):
+        """ raid_handler preserve assembles array if first check fails. """
+
+        devices = [self.random_string(), self.random_string(),
+                   self.random_string()]
+        md_devname = '/dev/' + self.storage_config['mddevice']['name']
+        self.m_block.dev_path.return_value = '/dev/md0'
+        self.m_getpath.side_effect = iter(devices)
+        self.m_mdadm.md_check.side_effect = iter([False, True])
+        self.storage_config['mddevice']['preserve'] = True
+        block_meta.raid_handler(self.storage_config['mddevice'],
+                                self.storage_config)
+        self.assertEqual(0, self.m_mdadm.mdadm_create.call_count)
+        self.assertEqual([call(md_devname, 5, devices, [])] * 2,
+                         self.m_mdadm.md_check.call_args_list)
+        self.assertEqual([call(md_devname, devices, [])],
+                         self.m_mdadm.mdadm_assemble.call_args_list)
+
+    def test_raid_handler_preserve_raises_exception_if_verify_fails(self):
+        """ raid_handler preserve raises exception on failed verification."""
+
+        devices = [self.random_string(), self.random_string(),
+                   self.random_string()]
+        md_devname = '/dev/' + self.storage_config['mddevice']['name']
+        self.m_block.dev_path.return_value = '/dev/md0'
+        self.m_getpath.side_effect = iter(devices)
+        self.m_mdadm.md_check.side_effect = iter([False, False])
+        self.storage_config['mddevice']['preserve'] = True
+        with self.assertRaises(RuntimeError):
+            block_meta.raid_handler(self.storage_config['mddevice'],
+                                    self.storage_config)
+        self.assertEqual(0, self.m_mdadm.mdadm_create.call_count)
+        self.assertEqual([call(md_devname, 5, devices, [])] * 2,
+                         self.m_mdadm.md_check.call_args_list)
+        self.assertEqual([call(md_devname, devices, [])],
+                         self.m_mdadm.mdadm_assemble.call_args_list)
+
+
+class TestBcacheHandler(CiTestCase):
+
+    def setUp(self):
+        super(TestBcacheHandler, self).setUp()
+
+        basepath = 'curtin.commands.block_meta.'
+        self.add_patch(basepath + 'get_path_to_storage_volume', 'm_getpath')
+        self.add_patch(basepath + 'util', 'm_util')
+        self.add_patch(basepath + 'make_dname', 'm_dname')
+        self.add_patch(basepath + 'bcache', 'm_bcache')
+        self.add_patch(basepath + 'block', 'm_block')
+        self.add_patch(basepath + 'disk_handler', 'm_disk_handler')
+
+        self.target = "my_target"
+        self.config = {
+            'storage': {
+                 'version': 1,
+                 'config': [
+                    {'grub_device': True,
+                     'id': 'id_rotary0',
+                     'name': 'rotary0',
+                     'ptable': 'msdos',
+                     'serial': 'disk-a',
+                     'type': 'disk',
+                     'wipe': 'superblock'},
+                    {'id': 'id_ssd0',
+                     'name': 'ssd0',
+                     'serial': 'disk-b',
+                     'type': 'disk',
+                     'wipe': 'superblock'},
+                    {'device': 'id_rotary0',
+                     'id': 'id_rotary0_part1',
+                     'name': 'rotary0-part1',
+                     'number': 1,
+                     'offset': '1M',
+                     'size': '999M',
+                     'type': 'partition',
+                     'wipe': 'superblock'},
+                    {'device': 'id_rotary0',
+                     'id': 'id_rotary0_part2',
+                     'name': 'rotary0-part2',
+                     'number': 2,
+                     'size': '9G',
+                     'type': 'partition',
+                     'wipe': 'superblock'},
+                    {'backing_device': 'id_rotary0_part2',
+                     'cache_device': 'id_ssd0',
+                     'cache_mode': 'writeback',
+                     'id': 'id_bcache0',
+                     'name': 'bcache0',
+                     'type': 'bcache'},
+                    {'fstype': 'ext4',
+                     'id': 'bootfs',
+                     'label': 'boot-fs',
+                     'type': 'format',
+                     'volume': 'id_rotary0_part1'},
+                    {'fstype': 'ext4',
+                     'id': 'rootfs',
+                     'label': 'root-fs',
+                     'type': 'format',
+                     'volume': 'id_bcache0'},
+                    {'device': 'rootfs',
+                     'id': 'rootfs_mount',
+                     'path': '/',
+                     'type': 'mount'},
+                    {'device': 'bootfs',
+                     'id': 'bootfs_mount',
+                     'path': '/boot',
+                     'type': 'mount'}
+                 ],
+            },
+        }
+        self.storage_config = (
+            block_meta.extract_storage_ordered_dict(self.config))
+
+    def test_bcache_handler(self):
+        """ bcache_handler creates bcache device. """
+        backing_device = self.random_string()
+        caching_device = self.random_string()
+        cset_uuid = self.random_string()
+        cache_mode = self.storage_config['id_bcache0']['cache_mode']
+        self.m_getpath.side_effect = iter([backing_device, caching_device])
+        self.m_bcache.create_cache_device.return_value = cset_uuid
+
+        block_meta.bcache_handler(self.storage_config['id_bcache0'],
+                                  self.storage_config)
+        self.assertEqual([call(caching_device)],
+                         self.m_bcache.create_cache_device.call_args_list)
+        self.assertEqual([
+            call(backing_device, caching_device, cache_mode, cset_uuid)],
+                         self.m_bcache.create_backing_device.call_args_list)
 
 
 class TestPartitionHandler(CiTestCase):

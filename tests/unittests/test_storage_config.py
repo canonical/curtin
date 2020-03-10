@@ -7,6 +7,7 @@ from curtin.storage_config import ProbertParser as baseparser
 from curtin.storage_config import (BcacheParser, BlockdevParser, DasdParser,
                                    DmcryptParser, FilesystemParser, LvmParser,
                                    RaidParser, MountParser, ZfsParser)
+from curtin.storage_config import ptable_uuid_to_flag_entry
 from curtin import util
 
 
@@ -207,21 +208,21 @@ class TestBlockdevParser(CiTestCase):
         expected_tuple = ('boot', 'EF00')
         for guid in boot_guids:
             self.assertEqual(expected_tuple,
-                             self.bdevp.ptable_uuid_to_flag_entry(guid))
+                             ptable_uuid_to_flag_entry(guid))
 
     # XXX: Parameterize me
     def test_blockdev_ptable_uuid_flag_invalid(self):
         """ BlockdevParser returns (None, None) for invalid uuids. """
         for invalid in [None, '', {}, []]:
             self.assertEqual((None, None),
-                             self.bdevp.ptable_uuid_to_flag_entry(invalid))
+                             ptable_uuid_to_flag_entry(invalid))
 
     # XXX: Parameterize me
     def test_blockdev_ptable_uuid_flag_unknown_uuid(self):
         """ BlockdevParser returns (None, None) for unknown uuids. """
         for unknown in [self.random_string(), self.random_string()]:
             self.assertEqual((None, None),
-                             self.bdevp.ptable_uuid_to_flag_entry(unknown))
+                             ptable_uuid_to_flag_entry(unknown))
 
     def test_get_unique_ids(self):
         """ BlockdevParser extracts uniq udev ID_ values. """
