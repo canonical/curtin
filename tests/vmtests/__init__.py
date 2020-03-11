@@ -1544,17 +1544,14 @@ class VMBaseClass(TestCase):
         self.assertTrue(True not in results.values(),
                         msg="Collected files exist that should not.")
 
-    def load_collect_file(self, filename, mode="r"):
-        with open(self.collect_path(filename), mode) as fp:
-            return fp.read()
+    def load_collect_file(self, filename):
+        return util.load_file(self.collect_path(filename))
 
-    def load_collect_file_shell_content(self, filename, mode="r"):
-        with open(self.collect_path(filename), mode) as fp:
-            return util.load_shell_content(content=fp.read())
+    def load_collect_file_shell_content(self, filename):
+        return util.load_shell_content(self.load_collect_file(filename))
 
     def load_log_file(self, filename):
-        with open(filename, 'rb') as fp:
-            return fp.read().decode('utf-8', errors='replace')
+        return util.load_file(filename)
 
     def get_install_log_curtin_version(self):
         # curtin: Installation started. (%s)
