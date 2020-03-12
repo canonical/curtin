@@ -543,8 +543,9 @@ DEFAULT_COLLECT_SCRIPTS = {
         ls /dev/disk/by-dname/ | cat >ls_dname
         ls -al /dev/disk/by-dname/ | cat >ls_al_bydname
         ls -al /dev/disk/by-id/ | cat >ls_al_byid
-        ls -al /dev/disk/by-uuid/ | cat >ls_al_byuuid
         ls -al /dev/disk/by-partuuid/ | cat >ls_al_bypartuuid
+        ls -al /dev/disk/by-path/ | cat >ls_al_bypath
+        ls -al /dev/disk/by-uuid/ | cat >ls_al_byuuid
         blkid -o export | cat >blkid.out
         find /boot | cat > find_boot.out
         if [ -e /sys/firmware/efi ]; then
@@ -876,6 +877,12 @@ class VMBaseClass(TestCase):
 
         # check if we should skip due to host arch
         if cls.arch in cls.arch_skip:
+            reason = "{} is not supported on arch {}".format(cls.__name__,
+                                                             cls.arch)
+            raise SkipTest(reason)
+
+        # there are only centos images for amd64
+        if cls.target_distro == 'centos' and cls.arch != "amd64":
             reason = "{} is not supported on arch {}".format(cls.__name__,
                                                              cls.arch)
             raise SkipTest(reason)
@@ -1717,6 +1724,19 @@ class VMBaseClass(TestCase):
         kname = kname.pop()
         self.assertIsNotNone(kname)
         return kname
+
+    def _kname_to_bypath(self, kname):
+        # extract path from /dev/disk/by-path on /dev/<kname>
+        # parsing ls -al output on /dev/disk/by-path
+        # lrwxrwxrwx 1 root root  10 Mar 10 21:28
+        #  ccw-0.0.0000-scsi-0:0:0:0-part1 -> ../../sda1
+        ls_bypath = self.load_collect_file("ls_al_bypath")
+        bypath = [line.split()[8] for line in ls_bypath.split('\n')
+                  if ("../../" + kname) in line.split()]
+        self.assertEqual(len(bypath), 1)
+        bypath = bypath.pop()
+        self.assertIsNotNone(bypath)
+        return bypath
 
     def _kname_to_uuid(self, kname):
         # extract uuid from /dev/disk/by-uuid on /dev/<kname>

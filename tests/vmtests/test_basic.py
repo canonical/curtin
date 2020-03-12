@@ -14,6 +14,7 @@ from unittest import SkipTest
 class TestBasicAbs(VMBaseClass):
     arch_skip = [
         'arm64',  # arm64 is UEFI only
+        's390x',  # LP: #1806823
     ]
     test_type = 'storage'
     interactive = False
@@ -254,6 +255,9 @@ class FocalTestBasic(relbase.focal, TestBasicAbs):
 
 
 class TestBasicScsiAbs(TestBasicAbs):
+    arch_skip = [
+        'arm64',  # arm64 is UEFI only
+    ]
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
     extra_disks = ['15G', '20G', '25G']
@@ -298,11 +302,16 @@ class TestBasicScsiAbs(TestBasicAbs):
         home_kname = (
             self._dname_to_kname('main_disk_with_in---valid--dname-part2'))
         btrfs_kname = self._dname_to_kname('btrfs_volume')
-        return [(self._kname_to_byuuid(root_kname), '/', 'defaults'),
-                (self._kname_to_byuuid(home_kname), '/home', 'defaults'),
-                (self._kname_to_byuuid(btrfs_kname),
-                 '/btrfs', 'defaults,noatime')]
 
+        map_func = self._kname_to_byuuid
+        if self.arch == 's390x':
+            map_func = self._kname_to_bypath
+
+        return [(map_func(root_kname), '/', 'defaults'),
+                (map_func(home_kname), '/home', 'defaults'),
+                (map_func(btrfs_kname), '/btrfs', 'defaults,noatime')]
+
+    @skip_if_arch('s390x')
     def test_whole_disk_uuid(self):
         kname = self._dname_to_kname('btrfs_volume')
         self._test_whole_disk_uuid(kname, "btrfs_uuid")
