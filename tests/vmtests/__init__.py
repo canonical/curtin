@@ -66,6 +66,8 @@ _TOPDIR = None
 
 UC16_IMAGE = os.path.join(IMAGE_DIR,
                           'ubuntu-core-16/amd64/20170217/root-image.xz')
+UC20_IMAGE = os.path.join(IMAGE_DIR, ('ubuntu-core-20/amd64/20200304/'
+                                      'ubuntu-core-20-amd64.img.xz'))
 
 
 def remove_empty_dir(dirpath):
@@ -670,9 +672,16 @@ class VMBaseClass(TestCase):
 
         tftype = cls.target_ftype
         if tftype in ["root-image.xz"]:
-            logger.info('get-testfiles UC16 hack!')
-            target_ftypes = {'root-image.xz': UC16_IMAGE}
-            target_img_verstr = "UbuntuCore 16"
+            logger.info('get-testfiles UC hack!')
+            if cls.target_release == 'ubuntu-core-16':
+                target_ftypes = {'root-image.xz': UC16_IMAGE}
+                target_img_verstr = "UbuntuCore 16"
+            elif cls.target_release == 'ubuntu-core-20':
+                target_ftypes = {'root-image.xz': UC20_IMAGE}
+                target_img_verstr = "UbuntuCore 20"
+            else:
+                raise ValueError(
+                    "Unknown target_release=%s" % cls.target_release)
         elif cls.target_release == cls.release:
             target_ftypes = ftypes.copy()
             target_img_verstr = eph_img_verstr
@@ -891,7 +900,7 @@ class VMBaseClass(TestCase):
         if not cls.collect_scripts:
             cls.collect_scripts = (
                 DEFAULT_COLLECT_SCRIPTS['common'] +
-                DEFAULT_COLLECT_SCRIPTS[cls.target_distro])
+                DEFAULT_COLLECT_SCRIPTS.get(cls.target_distro, []))
         else:
             raise RuntimeError('cls collect scripts not empty: %s' %
                                cls.collect_scripts)
@@ -1077,7 +1086,10 @@ class VMBaseClass(TestCase):
         disks.extend(cls.build_iscsi_disks())
 
         # class config file and vmtest defaults
-        configs = [cls.conf_file, 'examples/tests/vmtest_defaults.yaml']
+        configs = [cls.conf_file]
+        if cls.target_distro not in ['ubuntu-core']:
+            configs.append('examples/tests/vmtest_defaults.yaml')
+
         # proxy config
         cls.proxy = get_apt_proxy()
         if cls.proxy is not None and not cls.td.restored:
@@ -1927,7 +1939,10 @@ class VMBaseClass(TestCase):
 
     def has_storage_config(self):
         '''check if test used storage config'''
-        return len(self.get_storage_config()) > 0
+        try:
+            return len(self.get_storage_config()) > 0
+        except FileNotFoundError:
+            return False
 
     @skip_if_flag('expected_failure')
     def test_swaps_used(self):

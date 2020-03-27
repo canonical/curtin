@@ -135,7 +135,14 @@ def write_image_to_disk(source, dev):
                     '--', source['uri'], devnode])
     util.subp(['partprobe', devnode])
     udevadm_settle()
-    paths = ["curtin", "system-data/var/lib/snapd"]
+    # Images from MAAS have well-known/required paths present
+    # on the rootfs partition.  Use these values to select the
+    # root (target) partition to complete installation.
+    #
+    # /curtin -> Most Ubuntu Images
+    # /system-data/var/lib/snapd -> UbuntuCore 16 or 18
+    # /snaps -> UbuntuCore20
+    paths = ["curtin", "system-data/var/lib/snapd", "snaps"]
     return block.get_root_device([devname], paths=paths)
 
 

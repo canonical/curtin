@@ -131,8 +131,25 @@ def get_osfamily(target=None):
 
 
 def is_ubuntu_core(target=None):
-    """Check if Ubuntu-Core specific directory is present at target"""
+    """Check if any Ubuntu-Core specific directory is present at target"""
+    return any([is_ubuntu_core_16(target),
+                is_ubuntu_core_18(target),
+                is_ubuntu_core_20(target)])
+
+
+def is_ubuntu_core_16(target=None):
+    """Check if Ubuntu-Core 16 specific directory is present at target"""
     return os.path.exists(target_path(target, 'system-data/var/lib/snapd'))
+
+
+def is_ubuntu_core_18(target=None):
+    """Check if Ubuntu-Core 18 specific directory is present at target"""
+    return is_ubuntu_core_16(target)
+
+
+def is_ubuntu_core_20(target=None):
+    """Check if Ubuntu-Core 20 specific directory is present at target"""
+    return os.path.exists(target_path(target, 'snaps'))
 
 
 def is_centos(target=None):

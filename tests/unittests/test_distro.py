@@ -193,15 +193,64 @@ class TestDistroInfo(CiTestCase):
 
 class TestDistroIdentity(CiTestCase):
 
+    ubuntu_core_os_path_side_effects = [
+        [True, True, True],
+        [True, True, False],
+        [True, False, True],
+        [True, False, False],
+        [False, True, True],
+        [False, True, False],
+        [False, False, True],
+    ]
+
     def setUp(self):
         super(TestDistroIdentity, self).setUp()
         self.add_patch('curtin.distro.os.path.exists', 'mock_os_path')
 
-    def test_is_ubuntu_core(self):
+    def test_is_ubuntu_core_16(self):
         for exists in [True, False]:
             self.mock_os_path.return_value = exists
-            self.assertEqual(exists, distro.is_ubuntu_core())
+            self.assertEqual(exists, distro.is_ubuntu_core_16())
             self.mock_os_path.assert_called_with('/system-data/var/lib/snapd')
+
+    def test_is_ubuntu_core_18(self):
+        for exists in [True, False]:
+            self.mock_os_path.return_value = exists
+            self.assertEqual(exists, distro.is_ubuntu_core_18())
+            self.mock_os_path.assert_called_with('/system-data/var/lib/snapd')
+
+    def test_is_ubuntu_core_is_core20(self):
+        for exists in [True, False]:
+            self.mock_os_path.return_value = exists
+            self.assertEqual(exists, distro.is_ubuntu_core_20())
+            self.mock_os_path.assert_called_with('/snaps')
+
+    def test_is_ubuntu_core_true(self):
+        side_effects = self.ubuntu_core_os_path_side_effects
+        for true_effect in side_effects:
+            self.mock_os_path.side_effect = iter(true_effect)
+            self.assertTrue(distro.is_ubuntu_core())
+
+        expected_calls = [
+            mock.call('/system-data/var/lib/snapd'),
+            mock.call('/system-data/var/lib/snapd'),
+            mock.call('/snaps')]
+        expected_nr_calls = len(side_effects) * len(expected_calls)
+        self.assertEqual(expected_nr_calls, self.mock_os_path.call_count)
+        self.mock_os_path.assert_has_calls(
+            expected_calls * len(side_effects))
+
+    def test_is_ubuntu_core_false(self):
+        self.mock_os_path.return_value = False
+        self.assertFalse(distro.is_ubuntu_core())
+
+        expected_calls = [
+            mock.call('/system-data/var/lib/snapd'),
+            mock.call('/system-data/var/lib/snapd'),
+            mock.call('/snaps')]
+        expected_nr_calls = 3
+        self.assertEqual(expected_nr_calls, self.mock_os_path.call_count)
+        self.mock_os_path.assert_has_calls(expected_calls)
 
     def test_is_centos(self):
         for exists in [True, False]:

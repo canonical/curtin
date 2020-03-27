@@ -1264,13 +1264,18 @@ def handle_cloudconfig(cfg, base_dir=None):
 
 
 def ubuntu_core_curthooks(cfg, target=None):
-    """ Ubuntu-Core 16 images cannot execute standard curthooks
-        Instead we copy in any cloud-init configuration to
-        the 'LABEL=writable' partition mounted at target.
+    """ Ubuntu-Core images cannot execute standard curthooks.
+        Instead, for core16/18 we copy in any cloud-init configuration to
+        the 'LABEL=writable' partition mounted at target.  For core20, we
+        write a cloud-config.d directory in the 'ubuntu-seed' location.
     """
 
     ubuntu_core_target = os.path.join(target, "system-data")
     cc_target = os.path.join(ubuntu_core_target, 'etc/cloud/cloud.cfg.d')
+    if not os.path.exists(ubuntu_core_target):  # uc20
+        ubuntu_core_target = target
+        cc_target = os.path.join(ubuntu_core_target, 'data', 'etc',
+                                 'cloud', 'cloud.cfg.d')
 
     cloudconfig = cfg.get('cloudconfig', None)
     if cloudconfig:

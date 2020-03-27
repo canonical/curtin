@@ -879,14 +879,31 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
 
 
 class TestUbuntuCoreHooks(CiTestCase):
+
+    def _make_uc16(self, target):
+        ucpath = os.path.join(target, 'system-data', 'var/lib/snapd')
+        util.ensure_dir(ucpath)
+        return ucpath
+
+    def _make_uc20(self, target):
+        ucpath = os.path.join(target, 'snaps')
+        util.ensure_dir(ucpath)
+        return ucpath
+
     def setUp(self):
         super(TestUbuntuCoreHooks, self).setUp()
         self.target = None
 
-    def test_target_is_ubuntu_core(self):
+    def test_target_is_ubuntu_core_16(self):
         self.target = self.tmp_dir()
-        ubuntu_core_path = os.path.join(self.target, 'system-data',
-                                        'var/lib/snapd')
+        ubuntu_core_path = self._make_uc16(self.target)
+        self.assertTrue(os.path.isdir(ubuntu_core_path))
+        is_core = distro.is_ubuntu_core(self.target)
+        self.assertTrue(is_core)
+
+    def test_target_is_ubuntu_core_20(self):
+        self.target = self.tmp_dir()
+        ubuntu_core_path = self._make_uc20(self.target)
         util.ensure_dir(ubuntu_core_path)
         self.assertTrue(os.path.isdir(ubuntu_core_path))
         is_core = distro.is_ubuntu_core(self.target)
@@ -952,6 +969,8 @@ class TestUbuntuCoreHooks(CiTestCase):
                 }
             }
         }
+        uc_cloud = os.path.join(self.target, 'system-data')
+        util.ensure_dir(uc_cloud)
         curthooks.ubuntu_core_curthooks(cfg, target=self.target)
 
         self.assertEqual(len(mock_del_file.call_args_list), 0)
@@ -964,9 +983,32 @@ class TestUbuntuCoreHooks(CiTestCase):
     @patch('curtin.util.write_file')
     @patch('curtin.util.del_file')
     @patch('curtin.commands.curthooks.handle_cloudconfig')
+    def test_curthooks_uc20_cloud_config(self, mock_handle_cc, mock_del_file,
+                                         mock_write_file):
+        self.target = self.tmp_dir()
+        self._make_uc20(self.target)
+        cfg = {
+            'cloudconfig': {
+                'file1': {
+                    'content': "Hello World!\n",
+                }
+            }
+        }
+        curthooks.ubuntu_core_curthooks(cfg, target=self.target)
+        self.assertEqual(len(mock_del_file.call_args_list), 0)
+        cc_path = os.path.join(self.target,
+                               'data', 'etc', 'cloud', 'cloud.cfg.d')
+        mock_handle_cc.assert_called_with(cfg.get('cloudconfig'),
+                                          base_dir=cc_path)
+        self.assertEqual(len(mock_write_file.call_args_list), 0)
+
+    @patch('curtin.util.write_file')
+    @patch('curtin.util.del_file')
+    @patch('curtin.commands.curthooks.handle_cloudconfig')
     def test_curthooks_net_config(self, mock_handle_cc, mock_del_file,
                                   mock_write_file):
         self.target = self.tmp_dir()
+        self._make_uc16(self.target)
         cfg = {
             'network': {
                 'version': '1',
@@ -974,13 +1016,40 @@ class TestUbuntuCoreHooks(CiTestCase):
                             'name': 'eth0', 'subnets': [{'type': 'dhcp4'}]}]
             }
         }
+        uc_cloud = os.path.join(self.target, 'system-data')
         curthooks.ubuntu_core_curthooks(cfg, target=self.target)
 
         self.assertEqual(len(mock_del_file.call_args_list), 0)
         self.assertEqual(len(mock_handle_cc.call_args_list), 0)
-        netcfg_path = os.path.join(self.target,
-                                   'system-data',
+        netcfg_path = os.path.join(uc_cloud,
                                    'etc/cloud/cloud.cfg.d',
+                                   '50-curtin-networking.cfg')
+        netcfg = config.dump_config({'network': cfg.get('network')})
+        mock_write_file.assert_called_with(netcfg_path,
+                                           content=netcfg)
+        self.assertEqual(len(mock_del_file.call_args_list), 0)
+
+    @patch('curtin.util.write_file')
+    @patch('curtin.util.del_file')
+    @patch('curtin.commands.curthooks.handle_cloudconfig')
+    def test_curthooks_uc20_net_config(self, mock_handle_cc, mock_del_file,
+                                       mock_write_file):
+        self.target = self.tmp_dir()
+        self._make_uc20(self.target)
+        cfg = {
+            'network': {
+                'version': '1',
+                'config': [{'type': 'physical',
+                            'name': 'eth0', 'subnets': [{'type': 'dhcp4'}]}]
+            }
+        }
+        uc_cloud = os.path.join(self.target,
+                                'data', 'etc', 'cloud', 'cloud.cfg.d')
+        curthooks.ubuntu_core_curthooks(cfg, target=self.target)
+
+        self.assertEqual(len(mock_del_file.call_args_list), 0)
+        self.assertEqual(len(mock_handle_cc.call_args_list), 0)
+        netcfg_path = os.path.join(uc_cloud,
                                    '50-curtin-networking.cfg')
         netcfg = config.dump_config({'network': cfg.get('network')})
         mock_write_file.assert_called_with(netcfg_path,
