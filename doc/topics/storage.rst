@@ -472,6 +472,12 @@ curtin will set the uuid of the new filesystem to the specified value.
 
 If the ``preserve`` key is set to true, curtin will not format the partition.
 
+**extra_options**: *<string>*
+
+The ``extra_options`` key is a string that is appended to the mkfs command used
+to create the filesystem.  **Use of this setting is dangerous.  Some flags
+may cause an error during creation of a filesystem.**
+
 **Config Example**::
 
  - id: disk0-part1-fs1
@@ -479,6 +485,20 @@ If the ``preserve`` key is set to true, curtin will not format the partition.
    fstype: ext4
    label: cloud-image
    volume: disk0-part1
+
+ - id: disk1-part1-fs1
+   type: format
+   fstype: ext4
+   label: osdata1
+   uuid: ed51882e-8688-4cd8-97ca-1f2b8bbee458
+   extra_options: '-O ^metadata_csum,^64bit'
+
+ - id: nvme1-part1-fs1
+   type: format
+   fstype: ext4
+   label: cacheset1
+   extra_options: '-E offset=1024,nodiscard'
+
 
 Mount Command
 ~~~~~~~~~~~~~

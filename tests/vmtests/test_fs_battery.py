@@ -101,6 +101,9 @@ class TestFsBattery(VMBaseClass):
                 echo "$part umount: FAIL: $out"
         done >> battery-mount-umount
 
+        # collect ext4 features on myext4 partition
+        dumpe2fs /dev/disk/by-label/myext4 > myext4.dump
+
         exit 0
         """)]
 
@@ -195,6 +198,10 @@ class TestFsBattery(VMBaseClass):
         self.assertEqual(
             {'/my/bind-over-var-cache/man': 'present',
              '/my/bind-ro-etc/passwd': 'present'}, paths)
+
+    def test_ext4_extra_parameters_used_with_mkfs(self):
+        data = self.load_collect_file("myext4.dump")
+        self.assertNotIn("ext_attr", data)
 
 
 class Centos70XenialTestFsBattery(centos_relbase.centos70_xenial,
