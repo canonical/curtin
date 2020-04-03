@@ -189,7 +189,7 @@ FORMAT = {
         'fstype': {'$ref': '#/definitions/fstype'},
         'label': {'type': 'string'},
         'volume': {'$ref': '#/definitions/ref_id'},
-        'extra_options': {'type': 'string'},
+        'extra_options': {'type': 'array', 'items': {'type': 'string'}},
     }
 }
 LVM_PARTITION = {

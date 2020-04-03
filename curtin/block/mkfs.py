@@ -205,7 +205,7 @@ def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False,
                                         strict=strict))
 
     if extra_options:
-        cmd.extend(extra_options.split())
+        cmd.extend(extra_options)
 
     cmd.append(path)
     util.subp(cmd, capture=True)
