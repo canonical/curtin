@@ -7,8 +7,9 @@ _path_nondev = r'(^/$|^(/[^/]+)+$)'
 _fstypes = ['btrfs', 'ext2', 'ext3', 'ext4', 'fat', 'fat12', 'fat16', 'fat32',
             'iso9660', 'vfat', 'jfs', 'ntfs', 'reiserfs', 'swap', 'xfs',
             'zfsroot']
-_ptables = ['dos', 'gpt', 'msdos', 'vtoc']
 _ptable_unsupported = 'unsupported'
+_ptables = ['dos', 'gpt', 'msdos', 'vtoc']
+_ptables_valid = _ptables + [_ptable_unsupported]
 
 definitions = {
     'id': {'type': 'string'},
@@ -16,7 +17,7 @@ definitions = {
     'devices': {'type': 'array', 'items': {'$ref': '#/definitions/ref_id'}},
     'name': {'type': 'string'},
     'preserve': {'type': 'boolean'},
-    'ptable': {'type': 'string', 'enum': _ptables + [_ptable_unsupported]},
+    'ptable': {'type': 'string', 'enum': _ptables_valid},
     'size': {'type': ['string', 'number'],
              'minimum': 1,
              'pattern': r'^([1-9]\d*(.\d+)?|\d+.\d+)(K|M|G|T)?B?'},

@@ -567,6 +567,17 @@ class TestPartTableSignature(CiTestCase):
                 (self.assertTrue if expected else self.assertFalse)(
                     block.check_efi_signature(self.blockdev))
 
+    @mock.patch('curtin.block.util.subp')
+    def test_check_vtoc_signature_finds_vtoc_returns_true(self, mock_subp):
+        mock_subp.return_value = ("vtoc.....ok", "")
+        self.assertTrue(block.check_vtoc_signature(self.blockdev))
+
+    @mock.patch('curtin.block.util.subp')
+    def test_check_vtoc_signature_returns_false_with_no_sig(self, mock_subp):
+        mock_subp.side_effect = [
+            util.ProcessExecutionError(stdout="", stderr="", exit_code=1)]
+        self.assertFalse(block.check_vtoc_signature(self.blockdev))
+
 
 class TestNonAscii(CiTestCase):
     @mock.patch('curtin.block.util.subp')

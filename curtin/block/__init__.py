@@ -922,7 +922,8 @@ def get_part_table_type(device):
     # signature, because a gpt formatted disk usually has a valid mbr to
     # protect the disk from being modified by older partitioning tools
     return ('gpt' if check_efi_signature(device) else
-            'dos' if check_dos_signature(device) else None)
+            'dos' if check_dos_signature(device) else
+            'vtoc' if check_vtoc_signature(device) else None)
 
 
 def check_dos_signature(device):
@@ -957,6 +958,17 @@ def check_efi_signature(device):
             util.file_size(devname) >= 2 * sector_size and
             (util.load_file(devname, decode=False, read_len=8,
                             offset=sector_size) == b'EFI PART'))
+
+
+def check_vtoc_signature(device):
+    """ check if the specified device has a vtoc partition table. """
+    devname = dev_path(path_to_kname(device))
+    try:
+        util.subp(['fdasd', '--table', devname])
+    except util.ProcessExecutionError:
+        return False
+
+    return True
 
 
 def is_extended_partition(device):

@@ -34,6 +34,8 @@ SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
 PTABLE_UNSUPPORTED = schemas._ptable_unsupported
+PTABLES_SUPPORTED = schemas._ptables
+PTABLES_VALID = schemas._ptables_valid
 
 SGDISK_FLAGS = {
     "boot": 'ef00',
@@ -551,14 +553,17 @@ def dasd_handler(info, storage_config):
 def disk_handler(info, storage_config):
     _dos_names = ['dos', 'msdos']
     ptable = info.get('ptable')
-    disk = get_path_to_storage_volume(info.get('id'), storage_config)
+    if ptable and ptable not in PTABLES_VALID:
+        raise ValueError(
+            'Invalid partition table type: %s in %s' % (ptable, info))
 
+    disk = get_path_to_storage_volume(info.get('id'), storage_config)
     if config.value_as_boolean(info.get('preserve')):
         # Handle preserve flag, verifying if ptable specified in config
-        if config.value_as_boolean(ptable) and ptable != PTABLE_UNSUPPORTED:
+        if ptable != PTABLE_UNSUPPORTED:
             current_ptable = block.get_part_table_type(disk)
-            if not ((ptable in _dos_names and current_ptable in _dos_names) or
-                    (ptable == 'gpt' and current_ptable == 'gpt')):
+            LOG.debug('disk: current ptable type: %s', current_ptable)
+            if current_ptable not in PTABLES_SUPPORTED:
                 raise ValueError(
                     "disk '%s' does not have correct partition table or "
                     "cannot be read, but preserve is set to true. "
@@ -583,8 +588,6 @@ def disk_handler(info, storage_config):
             elif ptable == "vtoc":
                 # ignore dasd partition tables
                 pass
-            else:
-                raise ValueError('invalid partition table type: %s', ptable)
         holders = clear_holders.get_holders(disk)
         if len(holders) > 0:
             LOG.info('Detected block holders on disk %s: %s', disk, holders)

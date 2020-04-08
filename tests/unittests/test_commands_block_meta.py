@@ -1212,6 +1212,79 @@ class TestDasdHandler(CiTestCase):
         self.assertEqual(0, m_dasd_format.call_count)
 
 
+class TestDiskHandler(CiTestCase):
+
+    with_logs = True
+
+    @patch('curtin.commands.block_meta.block')
+    @patch('curtin.commands.block_meta.util')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_disk_handler_preserves_known_ptable(self, m_getpath, m_util,
+                                                 m_block):
+        storage_config = OrderedDict()
+        info = {'ptable': 'vtoc', 'serial': 'LX260B',
+                'preserve': True, 'name': '', 'grub_device': False,
+                'device_id': '0.0.260b', 'type': 'disk', 'id': 'disk-dasda'}
+
+        disk_path = "/wark/dasda"
+        m_getpath.return_value = disk_path
+        m_block.get_part_table_type.return_value = 'vtoc'
+        m_getpath.return_value = disk_path
+        block_meta.disk_handler(info, storage_config)
+        m_getpath.assert_called_with(info['id'], storage_config)
+        m_block.get_part_table_type.assert_called_with(disk_path)
+
+    @patch('curtin.commands.block_meta.block')
+    @patch('curtin.commands.block_meta.util')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_disk_handler_allows_unsupported(self, m_getpath, m_util, m_block):
+        storage_config = OrderedDict()
+        info = {'ptable': 'unsupported', 'type': 'disk', 'id': 'disk-foobar',
+                'preserve': True, 'name': '', 'grub_device': False}
+
+        disk_path = "/wark/foobar"
+        m_getpath.return_value = disk_path
+        m_block.get_part_table_type.return_value = self.random_string()
+        m_getpath.return_value = disk_path
+        block_meta.disk_handler(info, storage_config)
+        m_getpath.assert_called_with(info['id'], storage_config)
+        self.assertEqual(0, m_block.get_part_table_type.call_count)
+
+    @patch('curtin.commands.block_meta.block')
+    @patch('curtin.commands.block_meta.util')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_disk_handler_allows_no_ptable(self, m_getpath, m_util, m_block):
+        storage_config = OrderedDict()
+        info = {'type': 'disk', 'id': 'disk-foobar',
+                'preserve': True, 'name': '', 'grub_device': False}
+        self.assertNotIn('ptable', info)
+        disk_path = "/wark/foobar"
+        m_getpath.return_value = disk_path
+        m_block.get_part_table_type.return_value = 'gpt'
+        m_getpath.return_value = disk_path
+        block_meta.disk_handler(info, storage_config)
+        m_getpath.assert_called_with(info['id'], storage_config)
+        self.assertEqual(1, m_block.get_part_table_type.call_count)
+
+    @patch('curtin.commands.block_meta.block')
+    @patch('curtin.commands.block_meta.util')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_disk_handler_errors_when_reading_current_ptable(self, m_getpath,
+                                                             m_util, m_block):
+        storage_config = OrderedDict()
+        info = {'ptable': 'gpt', 'type': 'disk', 'id': 'disk-foobar',
+                'preserve': True, 'name': '', 'grub_device': False}
+
+        disk_path = "/wark/foobar"
+        m_getpath.return_value = disk_path
+        m_block.get_part_table_type.return_value = None
+        m_getpath.return_value = disk_path
+        with self.assertRaises(ValueError):
+            block_meta.disk_handler(info, storage_config)
+        m_getpath.assert_called_with(info['id'], storage_config)
+        m_block.get_part_table_type.assert_called_with(disk_path)
+
+
 class TestLvmVolgroupHandler(CiTestCase):
 
     def setUp(self):
