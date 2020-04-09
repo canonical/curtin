@@ -711,7 +711,12 @@ def start_clear_holders_deps():
 
     # scan and activate for logical volumes
     lvm.lvm_scan()
-    lvm.activate_volgroups()
+    try:
+        lvm.activate_volgroups()
+    except util.ProcessExecutionError:
+        # partial vg may not come up due to missing members, that's OK
+        pass
+
     # the bcache module needs to be present to properly detect bcache devs
     # on some systems (precise without hwe kernel) it may not be possible to
     # lad the bcache module bcause it is not present in the kernel. if this
