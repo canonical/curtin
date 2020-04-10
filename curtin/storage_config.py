@@ -648,7 +648,7 @@ class BlockdevParser(ProbertParser):
 
         for devname, data in self.blockdev_data.items():
             # skip composed devices here, except partitions
-            if data.get('DEVPATH', '').startswith('/devices/virtual'):
+            if data.get('DEVPATH', '').startswith('/devices/virtual/block'):
                 if data.get('DEVTYPE', '') != "partition":
                     continue
             entry = self.asdict(data)

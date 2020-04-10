@@ -891,4 +891,22 @@ class TestExtractStorageConfig(CiTestCase):
         extended = [part for part in partitions if part['flag'] == 'extended']
         self.assertEqual(1, len(extended))
 
+    @skipUnlessJsonSchema()
+    def test_blockdev_detects_nvme_multipath_devices(self):
+        self.probe_data = _get_data('probert_storage_nvme_multipath.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        config = extracted['storage']['config']
+        disks = [cfg for cfg in config if cfg['type'] == 'disk']
+        expected_dict = {
+            'id': 'disk-nvme0n1',
+            'path': '/dev/nvme0n1',
+            'ptable': 'gpt',
+            'serial': 'SAMSUNG MZPLL3T2HAJQ-00005_S4CCNE0M300015',
+            'type': 'disk',
+            'wwn': 'eui.344343304d3000150025384500000004',
+        }
+        self.assertEqual(1, len(disks))
+        self.assertEqual(expected_dict, disks[0])
+
+
 # vi: ts=4 expandtab syntax=python
