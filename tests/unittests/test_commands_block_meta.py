@@ -1269,7 +1269,7 @@ class TestDiskHandler(CiTestCase):
         m_getpath.return_value = disk_path
         block_meta.disk_handler(info, storage_config)
         m_getpath.assert_called_with(info['id'], storage_config)
-        self.assertEqual(1, m_block.get_part_table_type.call_count)
+        self.assertEqual(0, m_block.get_part_table_type.call_count)
 
     @patch('curtin.commands.block_meta.block')
     @patch('curtin.commands.block_meta.util')

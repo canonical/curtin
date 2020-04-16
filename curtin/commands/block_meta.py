@@ -577,7 +577,7 @@ def disk_handler(info, storage_config):
     disk = get_path_to_storage_volume(info.get('id'), storage_config)
     if config.value_as_boolean(info.get('preserve')):
         # Handle preserve flag, verifying if ptable specified in config
-        if ptable != PTABLE_UNSUPPORTED:
+        if ptable and ptable != PTABLE_UNSUPPORTED:
             current_ptable = block.get_part_table_type(disk)
             LOG.debug('disk: current ptable type: %s', current_ptable)
             if current_ptable not in PTABLES_SUPPORTED:
