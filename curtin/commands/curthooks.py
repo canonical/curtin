@@ -444,21 +444,21 @@ def uefi_reorder_loaders(grubcfg, target):
     front of the BootOrder.
     """
     if grubcfg.get('reorder_uefi', True):
-        with util.ChrootableTarget(target):
-            efi_output = util.get_efibootmgr(target=target)
-            currently_booted = efi_output.get('current', None)
-            boot_order = efi_output.get('order', [])
-            if currently_booted:
-                if currently_booted in boot_order:
-                    boot_order.remove(currently_booted)
-                boot_order = [currently_booted] + boot_order
-                new_boot_order = ','.join(boot_order)
-                LOG.debug(
-                    "Setting currently booted %s as the first "
-                    "UEFI loader.", currently_booted)
-                LOG.debug(
-                    "New UEFI boot order: %s", new_boot_order)
-                util.subp(['efibootmgr', '-o', new_boot_order])
+        efi_output = util.get_efibootmgr(target=target)
+        currently_booted = efi_output.get('current', None)
+        boot_order = efi_output.get('order', [])
+        if currently_booted:
+            if currently_booted in boot_order:
+                boot_order.remove(currently_booted)
+            boot_order = [currently_booted] + boot_order
+            new_boot_order = ','.join(boot_order)
+            LOG.debug(
+                "Setting currently booted %s as the first "
+                "UEFI loader.", currently_booted)
+            LOG.debug(
+                "New UEFI boot order: %s", new_boot_order)
+            with util.ChrootableTarget(target) as in_chroot:
+                in_chroot.subp(['efibootmgr', '-o', new_boot_order])
     else:
         LOG.debug("Skipped reordering of UEFI boot methods.")
         LOG.debug("Currently booted UEFI loader might no longer boot.")
@@ -466,19 +466,23 @@ def uefi_reorder_loaders(grubcfg, target):
 
 def uefi_remove_duplicate_entries(grubcfg, target):
     seen = set()
-    with util.ChrootableTarget(target):
-        efi_output = util.get_efibootmgr(target=target)
-        entries = efi_output.get('entries', {})
-        for bootnum in sorted(entries):
-            entry = entries[bootnum]
-            t = tuple(entry.items())
-            if t not in seen:
-                seen.add(t)
-            else:
+    to_remove = []
+    efi_output = util.get_efibootmgr(target=target)
+    entries = efi_output.get('entries', {})
+    for bootnum in sorted(entries):
+        entry = entries[bootnum]
+        t = tuple(entry.items())
+        if t not in seen:
+            seen.add(t)
+        else:
+            to_remove.append((bootnum, entry))
+    if to_remove:
+        with util.ChrootableTarget(target) as in_chroot:
+            for bootnum, entry in to_remove:
                 LOG.debug('Removing duplicate EFI entry (%s, %s)',
                           bootnum, entry)
-                util.subp(['efibootmgr', '--bootnum=%s' % bootnum,
-                           '--delete-bootnum'])
+                in_chroot.subp(['efibootmgr', '--bootnum=%s' % bootnum,
+                                '--delete-bootnum'])
 
 
 def setup_grub(cfg, target, osfamily=DISTROS.debian):

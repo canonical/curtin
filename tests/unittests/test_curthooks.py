@@ -789,12 +789,12 @@ class TestSetupGrub(CiTestCase):
                 },
             }
         }
-        self.subp_output.append(('', ''))
+        self.in_chroot_subp_output.append(('', ''))
         self.mock_haspkg.return_value = False
         curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
         self.assertEquals(
             (['efibootmgr', '-o', '0001,0000'],),
-            self.mock_subp.call_args_list[1][0])
+            self.mock_in_chroot_subp.call_args_list[0][0])
 
 
 class TestUefiRemoveDuplicateEntries(CiTestCase):
@@ -841,8 +841,10 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
 
         curthooks.uefi_remove_duplicate_entries(cfg, self.target)
         self.assertEquals([
-            call(['efibootmgr', '--bootnum=0001', '--delete-bootnum']),
-            call(['efibootmgr', '--bootnum=0003', '--delete-bootnum'])],
+            call(['efibootmgr', '--bootnum=0001', '--delete-bootnum'],
+                 target=self.target),
+            call(['efibootmgr', '--bootnum=0003', '--delete-bootnum'],
+                 target=self.target)],
             self.m_subp.call_args_list)
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
