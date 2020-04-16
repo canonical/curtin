@@ -21,7 +21,8 @@ class _CentosFromUbuntuBase(_UbuntuBase):
     # base for installing centos tarballs from ubuntu base
     target_distro = "centos"
     target_ftype = "root-tgz"
-    kflavor = None
+    target_kflavor = None
+    kflavor = "generic"
 
 
 class _UbuntuCoreUbuntuBase(_UbuntuBase):

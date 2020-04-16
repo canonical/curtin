@@ -50,16 +50,17 @@ def dmname_to_blkdev_mapping():
     return mapping
 
 
-def is_mpath_device(devpath):
+def is_mpath_device(devpath, info=None):
     """ Check if devpath is a multipath device, returns boolean. """
-    info = udev.udevadm_info(devpath)
+    if not info:
+        info = udev.udevadm_info(devpath)
     if info.get('DM_UUID', '').startswith('mpath-'):
         return True
 
     return False
 
 
-def is_mpath_member(devpath):
+def is_mpath_member(devpath, info=None):
     """ Check if a device is a multipath member (a path), returns boolean. """
     try:
         util.subp(['multipath', '-c', devpath], capture=True)
@@ -68,9 +69,11 @@ def is_mpath_member(devpath):
         return False
 
 
-def is_mpath_partition(devpath):
+def is_mpath_partition(devpath, info=None):
     """ Check if a device is a multipath partition, returns boolean. """
     if devpath.startswith('/dev/dm-'):
+        if not info:
+            info = udev.udevadm_info(devpath)
         if 'DM_PART' in udev.udevadm_info(devpath):
             LOG.debug("%s is multipath device partition", devpath)
             return True
@@ -116,6 +119,13 @@ def find_mpath_members(multipath_id, paths=None):
     """ Return a list of device path for each member of aspecified mpath_id."""
     if not paths:
         paths = show_paths()
+        for retry in range(0, 5):
+            orphans = [path for path in paths if 'orphan' in path['multipath']]
+            if len(orphans):
+                udev.udevadm_settle()
+                paths = show_paths()
+            else:
+                break
 
     members = ['/dev/' + path['device']
                for path in paths if path['multipath'] == multipath_id]
@@ -142,6 +152,10 @@ def find_mpath_id_by_path(devpath, paths=None):
     if not paths:
         paths = show_paths()
 
+    if devpath.startswith('/dev/dm-'):
+        raise ValueError('find_mpath_id_by_path does not handle '
+                         'device-mapper devices: %s' % devpath)
+
     for path in paths:
         if devpath == '/dev/' + path['device']:
             return path['multipath']
@@ -158,6 +172,38 @@ def find_mpath_id_by_parent(multipath_id, partnum=None):
         dm_name += "-part%d" % int(partnum)
 
     return (dm_name, devmap.get(dm_name))
+
+
+def find_mpath_partitions(mpath_id):
+    """
+    Return a generator of multipath ids which are partitions of 'mpath-id'
+    """
+    # {'mpatha': '/dev/dm-0',
+    #  'mpatha-part1': '/dev/dm-3',
+    #  'mpatha-part2': '/dev/dm-4',
+    #  'mpathb': '/dev/dm-12'}
+    if not mpath_id:
+        raise ValueError('Invalid mpath_id parameter: %s' % mpath_id)
+
+    return (mp_id for (mp_id, _dm_dev) in dmname_to_blkdev_mapping().items()
+            if mp_id.startswith(mpath_id + '-'))
+
+
+def get_mpath_id_from_device(device):
+    # /dev/dm-X
+    if is_mpath_device(device) or is_mpath_partition(device):
+        info = udev.udevadm_info(device)
+        return info.get('DM_NAME')
+    # /dev/sdX
+    if is_mpath_member(device):
+        return find_mpath_id_by_path(device)
+
+    return None
+
+
+def reload():
+    """ Request multipath to force reload devmaps. """
+    util.subp(['multipath', '-r'])
 
 
 def multipath_supported():

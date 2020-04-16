@@ -212,6 +212,7 @@ class TestBlockMeta(CiTestCase):
         basepath = 'curtin.commands.block_meta.'
         self.add_patch(basepath + 'get_path_to_storage_volume', 'mock_getpath')
         self.add_patch(basepath + 'make_dname', 'mock_make_dname')
+        self.add_patch(basepath + 'multipath', 'm_mp')
         self.add_patch('curtin.util.load_command_environment',
                        'mock_load_env')
         self.add_patch('curtin.util.subp', 'mock_subp')
@@ -285,6 +286,10 @@ class TestBlockMeta(CiTestCase):
         }
         self.storage_config = (
             block_meta.extract_storage_ordered_dict(self.config))
+
+        # mp off by default
+        self.m_mp.is_mpath_device.return_value = False
+        self.m_mp.is_mpath_member.return_value = False
 
     def test_disk_handler_calls_clear_holder(self):
         info = self.storage_config.get('sda')
@@ -2005,7 +2010,9 @@ class TestPartitionHandler(CiTestCase):
         self.add_patch(basepath + 'util', 'm_util')
         self.add_patch(basepath + 'make_dname', 'm_dname')
         self.add_patch(basepath + 'block', 'm_block')
+        self.add_patch(basepath + 'multipath', 'm_mp')
         self.add_patch(basepath + 'udevadm_settle', 'm_uset')
+        self.add_patch(basepath + 'udevadm_info', 'm_uinfo')
 
         self.target = "my_target"
         self.config = {

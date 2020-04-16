@@ -114,7 +114,9 @@ def partition_kname(disk_kname, partition_number):
         # linux will create a -partX symlink against the disk by-id name.
         devpath = '/dev/' + disk_kname
         disk_link = get_device_mapper_links(devpath, first=True)
-        return '%s-part%s' % (disk_link, partition_number)
+        return path_to_kname(
+                    os.path.realpath('%s-part%s' % (disk_link,
+                                                    partition_number)))
 
     for dev_type in ['bcache', 'nvme', 'mmcblk', 'cciss', 'mpath', 'md']:
         if disk_kname.startswith(dev_type):
@@ -526,7 +528,7 @@ def blkid(devs=None, cache=True):
     return data
 
 
-def detect_multipath(target_mountpoint):
+def _legacy_detect_multipath(target_mountpoint=None):
     """
     Detect if the operating system has been installed to a multipath device.
     """
@@ -548,7 +550,7 @@ def detect_multipath(target_mountpoint):
     # while installing the system.
     rescan_block_devices()
     binfo = blkid(cache=False)
-    LOG.debug("detect_multipath found blkid info: %s", binfo)
+    LOG.debug("legacy_detect_multipath found blkid info: %s", binfo)
     # get_devices_for_mp may return multiple devices by design. It is not yet
     # implemented but it should return multiple devices when installer creates
     # separate disk partitions for / and /boot. We need to do UUID-based
@@ -578,6 +580,65 @@ def detect_multipath(target_mountpoint):
     # No other devices have the same UUID as the target devices.
     # We probably installed the system to the non-multipath device.
     return False
+
+
+def _device_is_multipathed(devpath):
+    devpath = os.path.realpath(devpath)
+    info = udevadm_info(devpath)
+    if multipath.is_mpath_device(devpath, info=info):
+        return True
+    if multipath.is_mpath_partition(devpath, info=info):
+        return True
+
+    if devpath.startswith('/dev/dm-'):
+        # check members of composed devices (LVM, dm-crypt)
+        if 'DM_LV_NAME' in info:
+            volgroup = info.get('DM_VG_NAME')
+            if volgroup:
+                if any((multipath.is_mpath_member(pv) for pv in
+                        lvm.get_pvols_in_volgroup(volgroup))):
+                    return True
+
+    elif devpath.startswith('/dev/md'):
+        if any((multipath.is_mpath_member(md) for md in
+                md_get_devices_list(devpath) + md_get_spares_list(devpath))):
+            return True
+
+    result = multipath.is_mpath_member(devpath)
+    return result
+
+
+def _md_get_members_list(devpath, state_check):
+    md_dev, _partno = get_blockdev_for_partition(devpath)
+    sysfs_md = sys_block_path(md_dev, "md")
+    return [
+        dev_path(dev[4:]) for dev in os.listdir(sysfs_md)
+        if (dev.startswith('dev-') and
+            state_check(
+                util.load_file(os.path.join(sysfs_md, dev, 'state')).strip()))]
+
+
+def md_get_spares_list(devpath):
+    def state_is_spare(state):
+        return (state == 'spare')
+    return _md_get_members_list(devpath, state_is_spare)
+
+
+def md_get_devices_list(devpath):
+    def state_is_not_spare(state):
+        return (state != 'spare')
+    return _md_get_members_list(devpath, state_is_not_spare)
+
+
+def detect_multipath(target_mountpoint=None):
+    if multipath.multipath_supported():
+        for device in (os.path.realpath(dev)
+                       for (dev, _mp, _vfs, _opts, _freq, _passno)
+                       in get_proc_mounts() if dev.startswith('/dev/')):
+            if _device_is_multipathed(device):
+                return device
+
+    return _legacy_detect_multipath(target_mountpoint)
 
 
 def get_scsi_wwid(device, replace_whitespace=False):
@@ -833,14 +894,14 @@ def lookup_disk(serial):
     disks.sort(key=lambda x: len(x))
     LOG.debug('lookup_disks found: %s', disks)
     path = os.path.realpath("/dev/disk/by-id/%s" % disks[0])
-    LOG.debug('lookup_disks realpath(%s)=%s', disks[0], path)
+    # /dev/dm-X
     if multipath.is_mpath_device(path):
-        LOG.debug('Detected multipath device, finding a members')
         info = udevadm_info(path)
-        mpath_members = sorted(multipath.find_mpath_members(info['DM_NAME']))
-        LOG.debug('mpath members: %s', mpath_members)
-        if len(mpath_members):
-            path = mpath_members[0]
+        path = os.path.join('/dev/mapper', info['DM_NAME'])
+    # /dev/sdX
+    elif multipath.is_mpath_member(path):
+        mp_name = multipath.find_mpath_id_by_path(path)
+        path = os.path.join('/dev/mapper', mp_name)
 
     if not os.path.exists(path):
         raise ValueError("path '%s' to block device for disk with serial '%s' \
@@ -1236,7 +1297,7 @@ def get_supported_filesystems():
             for l in util.load_file(proc_fs).splitlines()]
 
 
-def discover():
+def _discover_get_probert_data():
     try:
         LOG.debug('Importing probert prober')
         from probert import prober
@@ -1247,7 +1308,11 @@ def discover():
     probe = prober.Prober()
     LOG.debug('Probing system for storage devices')
     probe.probe_storage()
-    probe_data = probe.get_results()
+    return probe.get_results()
+
+
+def discover():
+    probe_data = _discover_get_probert_data()
     if 'storage' not in probe_data:
         raise ValueError('Probing storage failed')
 

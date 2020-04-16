@@ -50,8 +50,11 @@ _block_discover:
        # xenial and lower don't have jsonschema
        if has_jschema; then
            outfile="${TARGET_MOUNT_POINT}/root/curtin-block-discover.json"
+           probefile="${TARGET_MOUNT_POINT}/root/probe-data.json"
+           echo "dumping probert probe data"
+           curtin -vv block-discover -p > $probefile 2>/dev/null
            echo "discovering block devices"
-           curtin -vv block-discover > $outfile
+           curtin -vv block-discover > $outfile 2>/dev/null
            which curtin > $TARGET_MOUNT_POINT/root/which-curtin
            cdir=$(realpath -m "$(dirname `which curtin`)/../")
            echo $cdir >> $TARGET_MOUNT_POINT/root/which-curtin

@@ -68,7 +68,7 @@ def lvmetad_running():
                                          '/run/lvmetad.pid'))
 
 
-def activate_volgroups():
+def activate_volgroups(multipath=False):
     """
     Activate available volgroups and logical volumes within.
 
@@ -79,15 +79,36 @@ def activate_volgroups():
     # none found (no output)
     % vgchange -ay
     """
+    cmd = ['vgchange', '--activate=y']
+    if multipath:
+        # only operate on mp devices
+        mp_filter = generate_multipath_dev_mapper_filter()
+        cmd.extend(['--config', 'devices{ %s }' % mp_filter])
 
     # vgchange handles syncing with udev by default
     # see man 8 vgchange and flag --noudevsync
-    out, _ = util.subp(['vgchange', '--activate=y'], capture=True)
+    out, _ = util.subp(cmd, capture=True)
     if out:
         LOG.info(out)
 
 
-def lvm_scan(activate=True):
+def _generate_multipath_filter(accept=None):
+    if not accept:
+        raise ValueError('Missing list of accept patterns')
+    prefix = ", ".join(['"a|%s|"' % p for p in accept])
+    return 'filter = [ {prefix}, "r|.*|" ]'.format(prefix=prefix)
+
+
+def generate_multipath_dev_mapper_filter():
+    return _generate_multipath_filter(accept=['/dev/mapper/mpath.*'])
+
+
+def generate_multipath_dm_uuid_filter():
+    return _generate_multipath_filter(
+        accept=['/dev/disk/by-id/dm-uuid-.*mpath-.*'])
+
+
+def lvm_scan(activate=True, multipath=False):
     """
     run full scan for volgroups, logical volumes and physical volumes
     """
@@ -104,9 +125,15 @@ def lvm_scan(activate=True):
         LOG.warning('unable to find release number, assuming xenial or later')
         release = 'xenial'
 
+    if multipath:
+        # only operate on mp devices
+        mponly = 'devices{ filter = [ "a|/dev/mapper/mpath.*|", "r|.*|" ] }'
+
     for cmd in [['pvscan'], ['vgscan', '--mknodes']]:
         if release != 'precise' and lvmetad_running():
             cmd.append('--cache')
+        if multipath:
+            cmd.extend(['--config', mponly])
         util.subp(cmd, capture=True)
 
 # vi: ts=4 expandtab syntax=python

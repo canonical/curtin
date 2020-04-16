@@ -1,3 +1,5 @@
+install:
+  unmount: disabled
 showtrace: true
 storage:
     version: 1

@@ -151,6 +151,7 @@ class TestMultipath(CiTestCase):
         paths = ['device=bar multipath=mpatha',
                  'device=wark multipath=mpatha']
         self.m_subp.return_value = ("\n".join(paths), "")
+
         self.assertEqual([], multipath.find_mpath_members(mp_id))
 
     def test_find_mpath_id(self):

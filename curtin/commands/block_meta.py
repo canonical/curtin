@@ -4,7 +4,7 @@ from collections import OrderedDict, namedtuple
 from curtin import (block, config, paths, util)
 from curtin.block import schemas
 from curtin.block import (bcache, clear_holders, dasd, iscsi, lvm, mdadm, mkfs,
-                          zfs)
+                          multipath, zfs)
 from curtin import distro
 from curtin.log import LOG, logged_time
 from curtin.reporter import events
@@ -48,7 +48,8 @@ SGDISK_FLAGS = {
     "linux": '8300'
 }
 
-
+DNAME_BYID_KEYS = ['DM_UUID', 'ID_WWN_WITH_EXTENSION', 'ID_WWN', 'ID_SERIAL',
+                   'ID_SERIAL_SHORT']
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
       {'help': 'which devices to operate on', 'action': 'append',
@@ -85,11 +86,13 @@ def block_meta(args):
         if 'storage' in cfg:
             devices = get_device_paths_from_storage_config(
                 extract_storage_ordered_dict(cfg))
+            LOG.debug('block-meta: extracted devices to clear: %s', devices)
         if len(devices) == 0:
             devices = cfg.get('block-meta', {}).get('devices', [])
         LOG.debug('Declared block devices: %s', devices)
         args.devices = devices
 
+    LOG.debug('clearing devices=%s', devices)
     meta_clear(devices, state.get('report_stack_prefix', ''))
 
     # dd-images requires use of meta_simple
@@ -192,7 +195,6 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
 
 
 def devsync(devpath):
-    LOG.debug('devsync for %s', devpath)
     util.subp(['partprobe', devpath], rcs=[0, 1])
     udevadm_settle()
     for x in range(0, 10):
@@ -268,13 +270,11 @@ def make_dname_byid(path, error_msg=None, info=None):
             "Disk tag udev rules are only for disks, %s has devtype=%s" %
             (error_msg, devtype))
 
-    byid_keys = ['ID_WWN_WITH_EXTENSION', 'ID_WWN',
-                 'ID_SERIAL', 'ID_SERIAL_SHORT']
-    present = [k for k in byid_keys if info.get(k)]
+    present = [k for k in DNAME_BYID_KEYS if info.get(k)]
     if not present:
         LOG.warning(
             "Cannot create disk tag udev rule for %s, "
-            "missing 'serial' or 'wwn' value" % error_msg)
+            "missing 'serial' or 'wwn' value", error_msg)
         return []
 
     return [[compose_udev_equality('ENV{%s}' % k, info[k]) for k in present]]
@@ -299,8 +299,8 @@ def make_dname(volume, storage_config):
             byid = make_dname_byid(path, error_msg="id=%s" % vol.get('id'))
     # we may not always be able to find a uniq identifier on devices with names
     if (not ptuuid and not byid) and vol.get('type') in ["disk", "partition"]:
-        LOG.warning("Can't find a uuid for volume: {}. Skipping dname.".format(
-            volume))
+        LOG.warning("Can't find a uuid for volume: %s. Skipping dname.",
+                    volume)
         return
 
     matches = []
@@ -353,23 +353,37 @@ def make_dname(volume, storage_config):
     #       lvm devices may use the name attribute and may permit special chars
     sanitized = sanitize_dname(dname)
     if sanitized != dname:
-        LOG.warning(
-            "dname modified to remove invalid chars. old: '{}' new: '{}'"
-            .format(dname, sanitized))
+        LOG.warning("dname modified to remove invalid chars. old:"
+                    "'%s' new: '%s'", dname, sanitized)
     content = ['# Written by curtin']
     for match in matches:
         rule = (base_rule + match +
                 ["SYMLINK+=\"disk/by-dname/%s\"\n" % sanitized])
-        LOG.debug("Creating dname udev rule '{}'".format(str(rule)))
+        LOG.debug("Creating dname udev rule '%s'", str(rule))
         content.append(', '.join(rule))
 
     if vol.get('type') == 'disk':
         for brule in byid:
-            rule = (base_rule +
+            part_rule = None
+            for env_rule in brule:
+                # multipath partitions prefix partN- to DM_UUID for fun!
+                # and partitions are "disks" yay \o/ /sarcasm
+                if 'ENV{DM_UUID}=="mpath' not in env_rule:
+                    continue
+                dm_uuid = env_rule.split("==")[1].replace('"', '')
+                part_dm_uuid = 'part*-' + dm_uuid
+                part_rule = (
+                    [compose_udev_equality('ENV{DEVTYPE}', 'disk')] +
+                    [compose_udev_equality('ENV{DM_UUID}', part_dm_uuid)])
+
+            # non-multipath partition rule
+            if not part_rule:
+                part_rule = (
                     [compose_udev_equality('ENV{DEVTYPE}', 'partition')] +
-                    brule +
+                    brule)
+            rule = (base_rule + part_rule +
                     ['SYMLINK+="disk/by-dname/%s-part%%n"\n' % sanitized])
-            LOG.debug("Creating dname udev rule '{}'".format(str(rule)))
+            LOG.debug("Creating dname udev rule '%s'", str(rule))
             content.append(', '.join(rule))
 
     util.ensure_dir(rules_dir)
@@ -380,7 +394,7 @@ def make_dname(volume, storage_config):
 def get_poolname(info, storage_config):
     """ Resolve pool name from zfs info """
 
-    LOG.debug('get_poolname for volume {}'.format(info))
+    LOG.debug('get_poolname for volume %s', info)
     if info.get('type') == 'zfs':
         pool_id = info.get('pool')
         poolname = get_poolname(storage_config.get(pool_id), storage_config)
@@ -398,9 +412,9 @@ def get_path_to_storage_volume(volume, storage_config):
     # Get path to block device for volume. Volume param should refer to id of
     # volume in storage config
 
-    LOG.debug('get_path_to_storage_volume for volume {}'.format(volume))
     devsync_vol = None
     vol = storage_config.get(volume)
+    LOG.debug('get_path_to_storage_volume for volume %s(%s)', volume, vol)
     if not vol:
         raise ValueError("volume with id '%s' not found" % volume)
 
@@ -409,9 +423,12 @@ def get_path_to_storage_volume(volume, storage_config):
         partnumber = determine_partition_number(vol.get('id'), storage_config)
         disk_block_path = get_path_to_storage_volume(vol.get('device'),
                                                      storage_config)
-        disk_kname = block.path_to_kname(disk_block_path)
-        partition_kname = block.partition_kname(disk_kname, partnumber)
-        volume_path = block.kname_to_path(partition_kname)
+        if disk_block_path.startswith('/dev/mapper/mpath'):
+            volume_path = disk_block_path + '-part%s' % partnumber
+        else:
+            disk_kname = block.path_to_kname(disk_block_path)
+            partition_kname = block.partition_kname(disk_kname, partnumber)
+            volume_path = block.kname_to_path(partition_kname)
         devsync_vol = os.path.join(disk_block_path)
 
     elif vol.get('type') == "dasd":
@@ -490,7 +507,7 @@ def get_path_to_storage_volume(volume, storage_config):
             sys_path = os.path.split(sys_path)[0]
         bcache_kname = block.path_to_kname(sys_path)
         volume_path = block.kname_to_path(bcache_kname)
-        LOG.debug('got bcache volume path {}'.format(volume_path))
+        LOG.debug('got bcache volume path %s', volume_path)
 
     else:
         raise NotImplementedError("cannot determine the path to storage \
@@ -501,7 +518,7 @@ def get_path_to_storage_volume(volume, storage_config):
         devsync_vol = volume_path
     devsync(devsync_vol)
 
-    LOG.debug('return volume path {}'.format(volume_path))
+    LOG.debug('return volume path %s', volume_path)
     return volume_path
 
 
@@ -639,6 +656,53 @@ def find_extended_partition(part_device, storage_config):
             return item_id
 
 
+def calc_dm_partition_info(partition):
+    # dm- partitions are not in the same dir as disk dm device,
+    # dmsetup table <dm_name>
+    # handle linear types only
+    #    mpatha-part1: 0 6291456 linear 253:0, 2048
+    #    <dm_name>: <log. start sec> <num sec> <type> <dest dev>  <start sec>
+    #
+    # Mapping this:
+    #   previous_size_sectors = <num_sec> | /sys/class/block/dm-1/size
+    #   previous_start_sectors = <start_sec> |  No 'start' sysfs file
+    pp_size_sec = pp_start_sec = None
+    mpath_id = multipath.get_mpath_id_from_device(block.dev_path(partition))
+    if mpath_id is None:
+        raise RuntimeError('Failed to find mpath_id for partition')
+    table_cmd = ['dmsetup', 'table', '--target', 'linear', mpath_id]
+    out, _err = util.subp(table_cmd, capture=True)
+    if out:
+        (_logical_start, previous_size_sectors, _table_type,
+         _destination, previous_start_sectors) = out.split()
+        pp_size_sec = int(previous_size_sectors)
+        pp_start_sec = int(previous_start_sectors)
+
+    return (pp_start_sec, pp_size_sec)
+
+
+def calc_partition_info(disk, partition, logical_block_size_bytes):
+    if partition.startswith('dm-'):
+        pp = partition
+        pp_start_sec, pp_size_sec = calc_dm_partition_info(partition)
+    else:
+        pp = os.path.join(disk, partition)
+        # XXX: sys/block/X/{size,start} is *ALWAYS* in 512b value
+        pp_size = int(
+            util.load_file(os.path.join(pp, "size")))
+        pp_size_sec = int(pp_size * 512 / logical_block_size_bytes)
+        pp_start = int(util.load_file(os.path.join(pp, "start")))
+        pp_start_sec = int(pp_start * 512 / logical_block_size_bytes)
+
+    LOG.debug("previous partition: %s size_sectors=%s start_sectors=%s",
+              pp, pp_size_sec, pp_start_sec)
+    if not all([pp_size_sec, pp_start_sec]):
+        raise RuntimeError(
+            'Failed to determine previous partition %s info', partition)
+
+    return (pp_start_sec, pp_size_sec)
+
+
 def verify_exists(devpath):
     LOG.debug('Verifying %s exists', devpath)
     if not os.path.exists(devpath):
@@ -703,9 +767,8 @@ def partition_handler(info, storage_config):
     # consider the disks logical sector size when calculating sectors
     try:
         (logical_block_size_bytes, _) = block.get_blockdev_sector_size(disk)
-        LOG.debug(
-            "{} logical_block_size_bytes: {}".format(disk_kname,
-                                                     logical_block_size_bytes))
+        LOG.debug("%s logical_block_size_bytes: %s",
+                  disk_kname, logical_block_size_bytes)
     except OSError as e:
         LOG.warning("Couldn't read block size, using default size 512: %s", e)
         logical_block_size_bytes = 512
@@ -732,21 +795,10 @@ def partition_handler(info, storage_config):
         LOG.debug("previous partition number for '%s' found to be '%s'",
                   info.get('id'), pnum)
         partition_kname = block.partition_kname(disk_kname, pnum)
-        previous_partition = os.path.join(disk_sysfs_path, partition_kname)
-        LOG.debug("previous partition: {}".format(previous_partition))
-        # XXX: sys/block/X/{size,start} is *ALWAYS* in 512b value
-        previous_size = int(
-            util.load_file(os.path.join(previous_partition, "size")))
-        previous_size_sectors = int(previous_size * 512 /
-                                    logical_block_size_bytes)
-        previous_start = int(
-            util.load_file(os.path.join(previous_partition, "start")))
-        previous_start_sectors = int(previous_start * 512 /
-                                     logical_block_size_bytes)
-        LOG.debug("previous partition.size_sectors: {}".format(
-                  previous_size_sectors))
-        LOG.debug("previous partition.start_sectors: {}".format(
-                  previous_start_sectors))
+        LOG.debug('partition_kname=%s', partition_kname)
+        (previous_start_sectors, previous_size_sectors) = (
+            calc_partition_info(disk_sysfs_path, partition_kname,
+                                logical_block_size_bytes))
 
     # Align to 1M at the beginning of the disk and at logical partitions
     alignment_offset = int((1 << 20) / logical_block_size_bytes)
@@ -849,9 +901,14 @@ def partition_handler(info, storage_config):
             raise ValueError("parent partition has invalid partition table")
 
         # ensure partition exists
-        part_path = block.dev_path(block.partition_kname(disk_kname,
-                                                         partnumber))
-        block.rescan_block_devices([disk])
+        if multipath.is_mpath_device(disk):
+            # update device mapper table mapping to mpathX-partN
+            util.subp(['kpartx', '-v', '-a', '-p-part', disk])
+            part_path = disk + "-part%s" % partnumber
+        else:
+            part_path = block.dev_path(block.partition_kname(disk_kname,
+                                                             partnumber))
+            block.rescan_block_devices([disk])
         udevadm_settle(exists=part_path)
 
     wipe_mode = info.get('wipe')
@@ -883,7 +940,7 @@ def format_handler(info, storage_config):
         return
 
     # Make filesystem using block library
-    LOG.debug("mkfs {} info: {}".format(volume_path, info))
+    LOG.debug("mkfs %s info: %s", volume_path, info)
     mkfs.mkfs_from_config(volume_path, info)
 
     device_type = storage_config.get(volume).get('type')
@@ -988,6 +1045,10 @@ def get_volume_spec(device_path):
         if platform.machine() == 's390x':
             devlinks = [link for link in info['DEVLINKS']
                         if link.startswith('/dev/disk/by-path')]
+        # use device-mapper uuid if present
+        if 'DM_UUID' in info:
+            devlinks = [link for link in info['DEVLINKS']
+                        if os.path.basename(link).startswith('dm-uuid-')]
         if len(devlinks) == 0:
             # use FS UUID if present
             devlinks = [link for link in info['DEVLINKS']
@@ -1360,7 +1421,7 @@ def verify_md_components(md_devname, raidlevel, device_paths, spare_paths):
     check_ok = mdadm.md_check(md_devname, raidlevel, device_paths,
                               spare_paths)
     if not check_ok:
-        LOG.info("assembling preserved raid for {}".format(md_devname))
+        LOG.info("assembling preserved raid for %s", md_devname)
         mdadm.mdadm_assemble(md_devname, device_paths, spare_paths)
         check_ok = mdadm.md_check(md_devname, raidlevel, device_paths,
                                   spare_paths)
@@ -1391,18 +1452,18 @@ def raid_handler(info, storage_config):
         if spare_devices:
             raise ValueError("spareunsupported in raidlevel '%s'" % raidlevel)
 
-    LOG.debug('raid: cfg: {}'.format(util.json_dumps(info)))
+    LOG.debug('raid: cfg: %s', util.json_dumps(info))
     device_paths = list(get_path_to_storage_volume(dev, storage_config) for
                         dev in devices)
-    LOG.debug('raid: device path mapping: {}'.format(
-              list(zip(devices, device_paths))))
+    LOG.debug('raid: device path mapping: %s',
+              list(zip(devices, device_paths)))
 
     spare_device_paths = []
     if spare_devices:
         spare_device_paths = list(get_path_to_storage_volume(dev,
                                   storage_config) for dev in spare_devices)
-        LOG.debug('raid: spare device path mapping: {}'.format(
-                  zip(spare_devices, spare_device_paths)))
+        LOG.debug('raid: spare device path mapping: %s',
+                  list(zip(spare_devices, spare_device_paths)))
 
     create_raid = True
     if preserve:
@@ -1563,8 +1624,8 @@ def bcache_handler(info, storage_config):
     if info.get('ptable'):
         disk_handler(info, storage_config)
 
-    LOG.debug('Finished bcache creation for backing {} or caching {}'
-              .format(backing_device, cache_device))
+    LOG.debug('Finished bcache creation for backing %s or caching %s',
+              backing_device, cache_device)
 
 
 def zpool_handler(info, storage_config):

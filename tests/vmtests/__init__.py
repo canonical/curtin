@@ -642,6 +642,7 @@ class VMBaseClass(TestCase):
     target_distro = None
     target_release = None
     target_krel = None
+    target_kflavor = None
     target_ftype = "squashfs"
     target_kernel_package = None
 
@@ -691,7 +692,7 @@ class VMBaseClass(TestCase):
                 cls.target_distro,
                 cls.target_release,
                 cls.target_arch, subarch=cls.subarch if cls.subarch else None,
-                kflavor=cls.kflavor if cls.kflavor else None,
+                kflavor=cls.target_kflavor if cls.target_kflavor else None,
                 krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
                 ftypes=(tftype,))
 

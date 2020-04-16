@@ -85,6 +85,7 @@ class TestBlock(CiTestCase):
         mock_os_path_exists.return_value = True
         mock_os_path_realpath.return_value = "/dev/sda"
         mock_mpath.is_mpath_device.return_value = False
+        mock_mpath.is_mpath_member.return_value = False
 
         path = block.lookup_disk(serial)
 
@@ -120,6 +121,7 @@ class TestBlock(CiTestCase):
         mock_os_path_exists.return_value = True
         mock_os_path_realpath.return_value = device
         mock_mpath.is_mpath_device.return_value = False
+        mock_mpath.is_mpath_member.return_value = False
 
         path = block.lookup_disk(wwn)
 
@@ -440,21 +442,29 @@ class TestWipeVolume(CiTestCase):
 class TestBlockKnames(CiTestCase):
     """Tests for some of the kname functions in block"""
 
+    @mock.patch('curtin.block.os.path.realpath')
     @mock.patch('curtin.block.get_device_mapper_links')
-    def test_determine_partition_kname(self, m_mlink):
+    def test_determine_partition_kname(self, m_mlink, m_realp):
         dm0_link = '/dev/disk/by-id/dm-name-XXXX2406'
         m_mlink.return_value = dm0_link
+
+        # we need to convert the -part path to the real dm value
+        def _my_realp(pp):
+            if pp.startswith(dm0_link):
+                return 'dm-1'
+            return pp
+        m_realp.side_effect = _my_realp
         part_knames = [(('sda', 1), 'sda1'),
                        (('vda', 1), 'vda1'),
                        (('nvme0n1', 1), 'nvme0n1p1'),
                        (('mmcblk0', 1), 'mmcblk0p1'),
                        (('cciss!c0d0', 1), 'cciss!c0d0p1'),
-                       (('dm-0', 1), dm0_link + '-part1'),
+                       (('dm-0', 1),  'dm-1'),
                        (('md0', 1), 'md0p1'),
                        (('mpath1', 2), 'mpath1p2')]
         for ((disk_kname, part_number), part_kname) in part_knames:
-            self.assertEqual(block.partition_kname(disk_kname, part_number),
-                             part_kname)
+            self.assertEqual(part_kname,
+                             block.partition_kname(disk_kname, part_number))
 
     @mock.patch('curtin.block.os.path.realpath')
     def test_path_to_kname(self, mock_os_realpath):
