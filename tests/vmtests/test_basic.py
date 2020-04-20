@@ -131,8 +131,8 @@ class TestBasicAbs(VMBaseClass):
         self._test_ptable("blkid_output_diska", expected_ptable)
 
     def test_partition_numbers(self):
-        # disk-d should have partitions 1 2, and 10
-        disk = self._serial_to_kname('disk-d')
+        # pnum_disk should have partitions 1 2, and 10
+        disk = self._dname_to_kname('pnum_disk')
         expected = [disk + s for s in ["", "1", "2", "10"]]
         self._test_partition_numbers(disk, expected)
 
@@ -290,8 +290,8 @@ class TestBasicScsiAbs(TestBasicAbs):
         self._test_ptable("blkid_output_sda", expected_ptable)
 
     def test_partition_numbers(self):
-        # sdd should have partitions 1, 2, and 10
-        disk = "sdd"
+        # pnum_disk should have partitions 1, 2, and 10
+        disk = self._dname_to_kname('pnum_disk')
         expected = [disk + s for s in ["", "1", "2", "10"]]
         self._test_partition_numbers(disk, expected)
 
