@@ -33,4 +33,27 @@ class FocalTestPreserveWipeLvm(relbase.focal, TestPreserveWipeLvm):
     __test__ = True
 
 
+class TestPreserveWipeLvmSimple(VMBaseClass):
+    conf_file = "examples/tests/preserve-partition-wipe-vg-simple.yaml"
+    uefi = False
+    extra_collect_scripts = [textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        ls /opt > ls-opt
+        exit 0
+        """)]
+
+
+class BionicTestPreserveWipeLvmSimple(relbase.bionic,
+                                      TestPreserveWipeLvmSimple):
+    __test__ = True
+
+
+class EoanTestPreserveWipeLvmSimple(relbase.eoan, TestPreserveWipeLvmSimple):
+    __test__ = True
+
+
+class FocalTestPreserveWipeLvmSimple(relbase.focal, TestPreserveWipeLvmSimple):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python
