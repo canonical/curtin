@@ -297,6 +297,10 @@ def wipe_superblock(device):
             mpath_id = multipath.find_mpath_id(blockdev)
             for mp_part_id in multipath.find_mpath_partitions(mpath_id):
                 multipath.remove_partition(mp_part_id)
+        # handle /dev/sdX which are held by multipath layer
+        if multipath.is_mpath_member(blockdev):
+            LOG.debug('Skipping multipath partition path member: %s', blockdev)
+            return
 
     _wipe_superblock(blockdev)
 

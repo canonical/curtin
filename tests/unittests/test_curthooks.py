@@ -584,8 +584,10 @@ class TestSetupGrub(CiTestCase):
                 self.target, '/dev/vdb'],),
             self.mock_subp.call_args_list[0][0])
 
+    @patch('curtin.commands.block_meta.multipath')
     @patch('curtin.commands.curthooks.os.path.exists')
-    def test_uses_grub_install_on_storage_config(self, m_exists):
+    def test_uses_grub_install_on_storage_config(self, m_exists, m_multipath):
+        m_multipath.is_mpath_member.return_value = False
         cfg = {
             'storage': {
                 'version': 1,
@@ -600,6 +602,7 @@ class TestSetupGrub(CiTestCase):
             },
         }
         self.subp_output.append(('', ''))
+        self.subp_output.append(('', ''))
         m_exists.return_value = True
         curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
         self.assertEquals(
@@ -609,10 +612,12 @@ class TestSetupGrub(CiTestCase):
                 self.target, '/dev/vdb'],),
             self.mock_subp.call_args_list[0][0])
 
+    @patch('curtin.commands.block_meta.multipath')
     @patch('curtin.block.is_valid_device')
     @patch('curtin.commands.curthooks.os.path.exists')
     def test_uses_grub_install_on_storage_config_uefi(
-            self, m_exists, m_is_valid_device):
+            self, m_exists, m_is_valid_device, m_multipath):
+        m_multipath.is_mpath_member.return_value = False
         self.mock_is_uefi_bootable.return_value = True
         cfg = {
             'storage': {

@@ -455,6 +455,10 @@ def get_path_to_storage_volume(volume, storage_config):
                         # sys/class/block access is valid.  ie, there are no
                         # udev generated values in sysfs
                         volume_path = os.path.realpath(vol_value)
+                    # convert /dev/sdX to /dev/mapper/mpathX value
+                    if multipath.is_mpath_member(volume_path):
+                        volume_path = '/dev/mapper/' + (
+                            multipath.get_mpath_id_from_device(volume_path))
                 elif disk_key == 'device_id':
                     dasd_device = dasd.DasdDevice(vol_value)
                     volume_path = dasd_device.devname

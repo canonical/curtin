@@ -55,6 +55,7 @@ def is_mpath_device(devpath, info=None):
     if not info:
         info = udev.udevadm_info(devpath)
     if info.get('DM_UUID', '').startswith('mpath-'):
+        LOG.debug('%s is multipath device', devpath)
         return True
 
     return False
@@ -64,6 +65,7 @@ def is_mpath_member(devpath, info=None):
     """ Check if a device is a multipath member (a path), returns boolean. """
     try:
         util.subp(['multipath', '-c', devpath], capture=True)
+        LOG.debug('%s is multipath device member', devpath)
         return True
     except util.ProcessExecutionError:
         return False
