@@ -457,9 +457,12 @@ class ProbertParser(object):
             dm_mpath = blockdev.get('DM_MPATH')
             dm_uuid = blockdev.get('DM_UUID')
             dm_part = blockdev.get('DM_PART')
+            dm_name = blockdev.get('DM_NAME')
 
             if dm_mpath:
                 multipath = dm_mpath
+            elif dm_name:
+                multipath = dm_name
             else:
                 # part1-mpath-30000000000000064
                 # mpath-30000000000000064

@@ -473,6 +473,82 @@ class TestBlockdevParser(CiTestCase):
         result = self.bdevp.blockdev_to_id(blockdev)
         self.assertEqual('disk-sda', result)
 
+    def test_blockdev_find_mpath_members_checks_dm_name(self):
+        """ BlockdevParser find_mpath_members uses dm_name if present."""
+        dm14 = {
+            "DEVTYPE": "disk",
+            "DEVLINKS": "/dev/disk/by-id/dm-name-mpathb",
+            "DEVNAME": "/dev/dm-14",
+            "DEVTYPE": "disk",
+            "DM_NAME": "mpathb",
+            "DM_UUID": "mpath-360050768028211d8b000000000000062",
+            "DM_WWN": "0x60050768028211d8b000000000000062",
+            "MPATH_DEVICE_READY": "1",
+            "MPATH_SBIN_PATH": "/sbin",
+        }
+        multipath = {
+            "maps": [
+                {
+                    "multipath": "360050768028211d8b000000000000061",
+                    "sysfs": "dm-11",
+                    "paths": "4"
+                },
+                {
+                    "multipath": "360050768028211d8b000000000000062",
+                    "sysfs": "dm-14",
+                    "paths": "4"
+                },
+                {
+                    "multipath": "360050768028211d8b000000000000063",
+                    "sysfs": "dm-15",
+                    "paths": "4"
+                }],
+            "paths": [
+                {
+                    "device": "sdej",
+                    "serial": "0200a084762cXX00",
+                    "multipath": "mpatha",
+                    "host_wwnn": "0x20000024ff9127de",
+                    "target_wwnn": "0x5005076802065e38",
+                    "host_wwpn": "0x21000024ff9127de",
+                    "target_wwpn": "0x5005076802165e38",
+                    "host_adapter": "[undef]"
+                },
+                {
+                    "device": "sdel",
+                    "serial": "0200a084762cXX00",
+                    "multipath": "mpathb",
+                    "host_wwnn": "0x20000024ff9127de",
+                    "target_wwnn": "0x5005076802065e38",
+                    "host_wwpn": "0x21000024ff9127de",
+                    "target_wwpn": "0x5005076802165e38",
+                    "host_adapter": "[undef]"
+                },
+                {
+                    "device": "sdet",
+                    "serial": "0200a084762cXX00",
+                    "multipath": "mpatha",
+                    "host_wwnn": "0x20000024ff9127de",
+                    "target_wwnn": "0x5005076802065e37",
+                    "host_wwpn": "0x21000024ff9127de",
+                    "target_wwpn": "0x5005076802165e37",
+                    "host_adapter": "[undef]"
+                },
+                {
+                    "device": "sdev",
+                    "serial": "0200a084762cXX00",
+                    "multipath": "mpathb",
+                    "host_wwnn": "0x20000024ff9127de",
+                    "target_wwnn": "0x5005076802065e37",
+                    "host_wwpn": "0x21000024ff9127de",
+                    "target_wwpn": "0x5005076802165e37",
+                    "host_adapter": "[undef]"
+                }],
+        }
+        self.bdevp.blockdev_data['/dev/dm-14'] = dm14
+        self.probe_data['multipath'] = multipath
+        self.assertEqual('disk-sdel', self.bdevp.blockdev_to_id(dm14))
+
     def test_blockdev_detects_dasd_device_id_and_vtoc_ptable(self):
         self.probe_data = _get_data('probert_storage_dasd.json')
         self.bdevp = BlockdevParser(self.probe_data)
