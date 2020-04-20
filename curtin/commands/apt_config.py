@@ -135,6 +135,7 @@ def apply_debconf_selections(cfg, target=None):
         LOG.debug("debconf_selections was not set in config")
         return
 
+    LOG.debug('Applying debconf selections')
     selections = '\n'.join(
         [selsets[key] for key in sorted(selsets.keys())])
     debconf_set_selections(selections.encode() + b"\n", target=target)
@@ -149,13 +150,8 @@ def apply_debconf_selections(cfg, target=None):
             pkgs_cfgd.add(pkg)
 
     pkgs_installed = distro.get_installed_packages(target)
-
-    LOG.debug("pkgs_cfgd: %s", pkgs_cfgd)
-    LOG.debug("pkgs_installed: %s", pkgs_installed)
     need_reconfig = pkgs_cfgd.intersection(pkgs_installed)
-
     if len(need_reconfig) == 0:
-        LOG.debug("no need for reconfig")
         return
 
     dpkg_reconfigure(need_reconfig, target=target)

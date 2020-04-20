@@ -485,6 +485,112 @@ def uefi_remove_duplicate_entries(grubcfg, target):
                                 '--delete-bootnum'])
 
 
+def _debconf_multiselect(package, variable, choices):
+    return "{package} {variable} multiselect {choices}".format(
+        package=package, variable=variable, choices=", ".join(choices))
+
+
+def configure_grub_debconf(boot_devices, target, uefi):
+    """Configure grub debconf variables in target.
+
+    Non-UEFI:
+    grub-pc grub-pc/install_devices multiselect d1, d2, d3
+
+    UEFI:
+    grub-pc grub-efi/install_devices multiselect d1
+
+    """
+    LOG.debug('Generating grub debconf_selections for devices=%s uefi=%s',
+              boot_devices, uefi)
+
+    byid_links = []
+    for dev in boot_devices:
+        link = block.disk_to_byid_path(dev)
+        byid_links.extend([link] if link else [dev])
+
+    selections = []
+    if uefi:
+        selections.append(_debconf_multiselect(
+            'grub-pc', 'grub-efi/install_devices', byid_links))
+    else:
+        selections.append(_debconf_multiselect(
+            'grub-pc', 'grub-pc/install_devices', byid_links))
+
+    cfg = {'debconf_selections': {'grub': "\n".join(selections)}}
+    LOG.info('Applying grub debconf_selections config:\n%s', cfg)
+    apt_config.apply_debconf_selections(cfg, target)
+    return
+
+
+def uefi_find_grub_device_ids(sconfig):
+    """ Scan the provided storage config for device_ids on which we
+        will install grub.  An order of precendence is required due to
+        legacy configurations which set grub_device on the disk but not
+        on the ESP config itself.  We prefer the latter as this allows
+        a disk to contain more than on ESP and choose to install grub
+        to a subset.  We always look for the 'primary' ESP which is
+        signified by being mounted at /boot/efi (only one can be mounted).
+
+        1. ESPs with grub_device: true are the preferred way to find
+           the specific set of devices on which to install grub
+        2. ESPs whose parent disk has grub_device: true
+
+        The primary ESP is the first element of the result if any
+        devices are found.
+
+        returns a list of storage-config ids on which grub will be installed.
+    """
+    # Only one EFI system partition can be mounted, but backup EFI
+    # partitions may exist.  Find all EFI partitions and determine
+    # the primary.
+    grub_device_ids = []
+    primary_esp = None
+    grub_partitions = []
+    esp_partitions = []
+    for item_id, item in sconfig.items():
+        if item['type'] == 'partition':
+            if item.get('grub_device'):
+                grub_partitions.append(item_id)
+                continue
+            elif item.get('flag') == 'boot':
+                esp_partitions.append(item_id)
+                continue
+
+        if item['type'] == 'mount' and item['path'] == '/boot/efi':
+            if primary_esp:
+                LOG.debug('Ignoring duplicate mounted primary ESP: %s',
+                          item_id)
+                continue
+            primary_esp = sconfig[item['device']]['volume']
+            if sconfig[primary_esp]['type'] == 'partition':
+                LOG.debug("Found primary UEFI ESP: %s", primary_esp)
+            else:
+                LOG.warn('Found primary ESP not on a partition: %s', item)
+
+    if primary_esp is None:
+        raise RuntimeError('Failed to find primary ESP mounted at /boot/efi')
+
+    grub_device_ids = [primary_esp]
+    # prefer grub_device: true partitions
+    if len(grub_partitions):
+        if primary_esp in grub_partitions:
+            grub_partitions.remove(primary_esp)
+        # insert the primary esp as first element
+        grub_device_ids.extend(grub_partitions)
+
+    # look at all esp entries, check if parent disk is grub_device: true
+    elif len(esp_partitions):
+        if primary_esp in esp_partitions:
+            esp_partitions.remove(primary_esp)
+        for esp_id in esp_partitions:
+            esp_disk = sconfig[sconfig[esp_id]['device']]
+            if esp_disk.get('grub_device'):
+                grub_device_ids.append(esp_id)
+
+    LOG.debug('Found UEFI ESP(s) for grub install: %s', grub_device_ids)
+    return grub_device_ids
+
+
 def setup_grub(cfg, target, osfamily=DISTROS.debian):
     # target is the path to the mounted filesystem
 
@@ -507,19 +613,13 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
     except ValueError:
         pass
 
+    uefi_bootable = util.is_uefi_bootable()
     if storage_cfg_odict:
         storage_grub_devices = []
-        if util.is_uefi_bootable():
-            # Curtin only supports creating one EFI system partition. Thus the
-            # grub_device can only be the default system partition mounted at
-            # /boot/efi.
-            for item_id, item in storage_cfg_odict.items():
-                if item.get('path') == '/boot/efi':
-                    efi_dev_id = storage_cfg_odict[item['device']]['volume']
-                    LOG.debug("checking: %s", item)
-                    storage_grub_devices.append(get_path_to_storage_volume(
-                        efi_dev_id, storage_cfg_odict))
-                    break
+        if uefi_bootable:
+            storage_grub_devices.extend([
+                get_path_to_storage_volume(dev_id, storage_cfg_odict)
+                for dev_id in uefi_find_grub_device_ids(storage_cfg_odict)])
         else:
             for item_id, item in storage_cfg_odict.items():
                 if not item.get('grub_device'):
@@ -529,6 +629,10 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
                     get_path_to_storage_volume(item_id, storage_cfg_odict))
 
         if len(storage_grub_devices) > 0:
+            if len(grubcfg.get('install_devices', [])):
+                LOG.warn("Storage Config grub device config takes precedence "
+                         "over grub 'install_devices' value, ignoring: %s",
+                         grubcfg['install_devices'])
             grubcfg['install_devices'] = storage_grub_devices
 
     LOG.debug("install_devices: %s", grubcfg.get('install_devices'))
@@ -602,10 +706,11 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
 
     if instdevs:
         instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
+        if osfamily == DISTROS.debian:
+            configure_grub_debconf(instdevs, target, uefi_bootable)
     else:
         instdevs = ["none"]
 
-    uefi_bootable = util.is_uefi_bootable()
     if uefi_bootable and grubcfg.get('update_nvram', True):
         uefi_remove_old_loaders(grubcfg, target)
 
@@ -623,6 +728,11 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
             else:
                 LOG.debug("NOT enabling UEFI nvram updates")
                 LOG.debug("Target system may not boot")
+            if len(instdevs) > 1:
+                instdevs = [instdevs[0]]
+                LOG.debug("Selecting primary EFI boot device %s for install",
+                          instdevs[0])
+
         args.append('--os-family=%s' % osfamily)
         args.append(target)
 

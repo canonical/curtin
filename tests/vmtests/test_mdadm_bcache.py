@@ -3,7 +3,9 @@
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
+import re
 import textwrap
+from unittest import SkipTest
 
 
 class TestMdadmAbs(VMBaseClass):
@@ -271,6 +273,19 @@ class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
     uefi = True
     nr_cpus = 2
     dirty_disks = True
+    GRUB_RE = r'(?P<pkg>grub-pc)\s(?P<var>\S+)\smultiselect\s(?P<cfg>.*$)'
+
+    extra_collect_scripts = TestMdadmAbs.extra_collect_scripts + [
+        textwrap.dedent("""
+        cd OUTPUT_COLLECT_D
+        debconf-get-selections > debconf_selections.txt
+        ls -al /usr/lib/grub/* > usr_lib_grub.txt
+        (cd /boot/efi && find .) | sort >  diska-part1-efi.out
+        mount /dev/disk/by-id/virtio-disk-b-part1 /mnt
+        (cd /mnt && find .) | sort > diskb-part1-efi.out
+        umount /mnt
+        exit 0
+        """)]
 
     def get_fstab_expected(self):
         return [
@@ -279,6 +294,20 @@ class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
             (self._kname_to_uuid_devpath('md-uuid', 'md1'),
              '/var', 'defaults'),
         ]
+
+    def test_grub_debconf_selections(self):
+        """Verify we have grub2/efi_install_devices set correctly."""
+        if self.target_distro not in ["ubuntu", "debian"]:
+            raise SkipTest("debconf-selections not present in distro "
+                           "%s" % self.target_release)
+
+        selections = self.load_collect_file("debconf_selections.txt")
+        found_selections = re.findall(self.GRUB_RE, selections, re.MULTILINE)
+        disks_byid = ['/dev/disk/by-id/virtio-disk-a-part1',
+                      '/dev/disk/by-id/virtio-disk-b-part1']
+        choice = ", ".join(disks_byid)
+        self.assertIn(
+            ('grub-pc', 'grub-efi/install_devices', choice), found_selections)
 
 
 class Centos70TestMirrorbootPartitionsUEFI(centos_relbase.centos70_xenial,
@@ -314,6 +343,11 @@ class EoanTestMirrorbootPartitionsUEFI(relbase.eoan,
 class FocalTestMirrorbootPartitionsUEFI(relbase.focal,
                                         TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
+
+    def test_backup_esp_matches_primary(self):
+        primary_esp = self.load_collect_file("diska-part1-efi.out")
+        backup_esp = self.load_collect_file("diskb-part1-efi.out")
+        self.assertEqual(primary_esp, backup_esp)
 
 
 class TestRaid5bootAbs(TestMdadmAbs):

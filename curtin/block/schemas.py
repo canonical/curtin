@@ -291,6 +291,11 @@ PARTITION = {
                  'enum': ['bios_grub', 'boot', 'extended', 'home', 'linux',
                           'logical', 'lvm', 'mbr', 'prep', 'raid', 'swap',
                           '']},
+        'grub_device': {
+            'type': ['boolean', 'integer'],
+            'minimum': 0,
+            'maximum': 1
+        },
     }
 }
 RAID = {
