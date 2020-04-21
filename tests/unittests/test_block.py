@@ -522,6 +522,12 @@ class TestPartTableSignature(CiTestCase):
     gpt_content_4k = b'\x00' * 0x800 + b'EFI PART' + b'\x00' * (0x800 - 8)
     null_content = b'\x00' * 0xf00
 
+    def setUp(self):
+        super(TestPartTableSignature, self).setUp()
+        self.add_patch('curtin.util.subp', 'm_subp')
+        self.m_subp.side_effect = iter([
+            util.ProcessExecutionError(stdout="", stderr="", exit_code=1)])
+
     def _test_util_load_file(self, content, device, read_len, offset, decode):
         return (bytes if not decode else str)(content[offset:offset+read_len])
 
@@ -577,15 +583,13 @@ class TestPartTableSignature(CiTestCase):
                 (self.assertTrue if expected else self.assertFalse)(
                     block.check_efi_signature(self.blockdev))
 
-    @mock.patch('curtin.block.util.subp')
-    def test_check_vtoc_signature_finds_vtoc_returns_true(self, mock_subp):
-        mock_subp.return_value = ("vtoc.....ok", "")
+    def test_check_vtoc_signature_finds_vtoc_returns_true(self):
+        self.m_subp.side_effect = iter([("vtoc.....ok", "")])
         self.assertTrue(block.check_vtoc_signature(self.blockdev))
 
-    @mock.patch('curtin.block.util.subp')
-    def test_check_vtoc_signature_returns_false_with_no_sig(self, mock_subp):
-        mock_subp.side_effect = [
-            util.ProcessExecutionError(stdout="", stderr="", exit_code=1)]
+    def test_check_vtoc_signature_returns_false_with_no_sig(self):
+        self.m_subp.side_effect = iter([
+            util.ProcessExecutionError(stdout="", stderr="", exit_code=1)])
         self.assertFalse(block.check_vtoc_signature(self.blockdev))
 
 

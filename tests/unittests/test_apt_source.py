@@ -75,6 +75,8 @@ class TestAptSourceConfig(CiTestCase):
         self.aptlistfile3 = os.path.join(self.tmp, "single-deb3.list")
         self.join = os.path.join
         self.matcher = re.compile(ADD_APT_REPO_MATCH).search
+        self.add_patch('curtin.util.subp', 'm_subp')
+        self.m_subp.return_value = ('s390x', '')
 
     @staticmethod
     def _add_apt_sources(*args, **kwargs):

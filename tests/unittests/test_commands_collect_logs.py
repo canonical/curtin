@@ -288,6 +288,7 @@ class TestCreateTar(CiTestCase):
 
         Configured log_file or post_files which don't exist are ignored.
         """
+        self.add_patch('curtin.util.subp', 'mock_subp')
         tarfile = self.tmp_path('my.tar', _dir=self.new_root)
         log1 = self.tmp_path('some.log', _dir=self.new_root)
         write_file(log1, 'log content')
@@ -314,6 +315,7 @@ class TestCreateTar(CiTestCase):
 
     def test_create_log_tarfile_redacts_maas_credentials(self):
         """create_log_tarfile redacts sensitive maas credentials configured."""
+        self.add_patch('curtin.util.subp', 'mock_subp')
         tarfile = self.tmp_path('my.tar', _dir=self.new_root)
         self.add_patch(
             'curtin.commands.collect_logs._redact_sensitive_information',

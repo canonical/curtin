@@ -93,7 +93,9 @@ class TestAptSourceConfigSourceList(CiTestCase):
     def setUp(self):
         super(TestAptSourceConfigSourceList, self).setUp()
         self.new_root = self.tmp_dir()
+        self.add_patch('curtin.util.subp', 'm_subp')
         # self.patchUtils(self.new_root)
+        self.m_subp.return_value = ("amd64", "")
 
     def _apt_source_list(self, cfg, expected):
         "_apt_source_list - Test rendering from template (generic)"

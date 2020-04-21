@@ -19,6 +19,8 @@ class TestGetPathToStorageVolume(CiTestCase):
         self.add_patch(basepath + 'os.path.exists', 'm_exists')
         self.add_patch(basepath + 'block.lookup_disk', 'm_lookup')
         self.add_patch(basepath + 'devsync', 'm_devsync')
+        self.add_patch(basepath + 'util.subp', 'm_subp')
+        self.add_patch(basepath + 'multipath.is_mpath_member', 'm_mp')
 
     def test_block_lookup_called_with_disk_wwn(self):
         volume = 'mydisk'
@@ -93,6 +95,8 @@ class TestGetPathToStorageVolume(CiTestCase):
             ValueError('Error'), ValueError('Error')])
         # no path
         self.m_exists.return_value = False
+        # not multipath
+        self.m_mp.return_value = False
 
         with self.assertRaises(ValueError):
             block_meta.get_path_to_storage_volume(volume, s_cfg)
