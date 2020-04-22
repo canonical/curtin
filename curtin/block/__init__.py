@@ -143,6 +143,8 @@ def sys_block_path(devname, add=None, strict=True):
     toks = ['/sys/class/block']
     # insert parent dev if devname is partition
     devname = os.path.normpath(devname)
+    if devname.startswith('/dev/') and not os.path.exists(devname):
+        LOG.warning('block.sys_block_path: devname %s does not exist', devname)
     (parent, partnum) = get_blockdev_for_partition(devname, strict=strict)
     if partnum:
         toks.append(path_to_kname(parent))
@@ -906,6 +908,7 @@ def lookup_disk(serial):
     if not os.path.exists(path):
         raise ValueError("path '%s' to block device for disk with serial '%s' \
             does not exist" % (path, serial_udev))
+    LOG.debug('block.lookup_disk() returning path %s', path)
     return path
 
 

@@ -69,24 +69,28 @@ storage:
         name: root_disk
         multipath: mpatha
         serial: disk-a
+        path: /dev/sda
         grub_device: true
-        wipe: superblock-recursive
+        wipe: superblock
       - id: boot_bios
         type: partition
         size: 1MB
         number: 1
         device: main_disk
         flag: bios_grub
+        wipe: superblock
       - id: boot_partition
         type: partition
         size: 1GB
         number: 2
         device: main_disk
+        wipe: superblock
       - id: main_disk_p3
         type: partition
         number: 3
         size: 4GB
         device: main_disk
+        wipe: superblock
       - id: root_vg
         type: lvm_volgroup
         name: root_vg

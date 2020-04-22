@@ -605,6 +605,7 @@ def clear_holders(base_paths, try_preserve=False):
     # handle single path
     if not isinstance(base_paths, (list, tuple)):
         base_paths = [base_paths]
+    LOG.info('Generating device storage trees for path(s): %s', base_paths)
 
     # get current holders and plan how to shut them down
     holder_trees = [gen_holders_tree(path) for path in base_paths]

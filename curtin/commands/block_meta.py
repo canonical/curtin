@@ -465,7 +465,9 @@ def get_path_to_storage_volume(volume, storage_config):
             except ValueError:
                 continue
             # verify path exists otherwise try the next key
-            if not os.path.exists(volume_path):
+            if os.path.exists(volume_path):
+                break
+            else:
                 volume_path = None
 
         if volume_path is None:
@@ -906,8 +908,9 @@ def partition_handler(info, storage_config):
 
         # ensure partition exists
         if multipath.is_mpath_device(disk):
+            udevadm_settle()  # allow partition creation to happen
             # update device mapper table mapping to mpathX-partN
-            util.subp(['kpartx', '-v', '-a', '-p-part', disk])
+            util.subp(['kpartx', '-v', '-a', '-s', '-p', '-part', disk])
             part_path = disk + "-part%s" % partnumber
         else:
             part_path = block.dev_path(block.partition_kname(disk_kname,
@@ -1697,7 +1700,7 @@ def zfs_handler(info, storage_config):
 
 def get_device_paths_from_storage_config(storage_config):
     """Returns a list of device paths in a storage config which have wipe
-       config enabled.
+       config enabled filtering out constructed paths that do not exist.
 
     :param: storage_config: Ordered dict of storage configation
     """
@@ -1706,8 +1709,10 @@ def get_device_paths_from_storage_config(storage_config):
         if v.get('type') in ['disk', 'partition']:
             if config.value_as_boolean(v.get('wipe')):
                 try:
-                    dpaths.append(
-                        get_path_to_storage_volume(k, storage_config))
+                    # skip paths that do not exit, nothing to wipe
+                    dpath = get_path_to_storage_volume(k, storage_config)
+                    if os.path.exists(dpath):
+                        dpaths.append(dpath)
                 except Exception:
                     pass
     return dpaths

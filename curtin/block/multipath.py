@@ -52,35 +52,40 @@ def dmname_to_blkdev_mapping():
 
 def is_mpath_device(devpath, info=None):
     """ Check if devpath is a multipath device, returns boolean. """
+    result = False
     if not info:
         info = udev.udevadm_info(devpath)
     if info.get('DM_UUID', '').startswith('mpath-'):
-        LOG.debug('%s is multipath device', devpath)
-        return True
+        result = True
 
-    return False
+    LOG.debug('%s is multipath device? %s', devpath, result)
+    return result
 
 
 def is_mpath_member(devpath, info=None):
     """ Check if a device is a multipath member (a path), returns boolean. """
+    result = False
     try:
         util.subp(['multipath', '-c', devpath], capture=True)
-        LOG.debug('%s is multipath device member', devpath)
-        return True
+        result = True
     except util.ProcessExecutionError:
-        return False
+        pass
+
+    LOG.debug('%s is multipath device member? %s', devpath, result)
+    return result
 
 
 def is_mpath_partition(devpath, info=None):
     """ Check if a device is a multipath partition, returns boolean. """
+    result = False
     if devpath.startswith('/dev/dm-'):
         if not info:
             info = udev.udevadm_info(devpath)
         if 'DM_PART' in udev.udevadm_info(devpath):
-            LOG.debug("%s is multipath device partition", devpath)
-            return True
+            result = True
 
-    return False
+    LOG.debug("%s is multipath device partition? %s", devpath, result)
+    return result
 
 
 def mpath_partition_to_mpath_id(devpath):

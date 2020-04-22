@@ -658,7 +658,7 @@ class TestSlaveKnames(CiTestCase):
         # construct side effects to os.path.exists
         # and os.listdir based on mapping.
         dirs = []
-        exists = []
+        exists = [True] if device.startswith('/dev') else []
         for (dev, slvs) in cfg.items():
             # sys_block_dev checks if dev exists
             exists.append(True)
