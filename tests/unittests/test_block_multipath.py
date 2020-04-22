@@ -227,5 +227,49 @@ class TestMultipath(CiTestCase):
         self.m_subp.return_value = ("\n".join(paths), "")
         self.assertIsNone(multipath.find_mpath_id_by_path('/dev/xxx'))
 
+    @mock.patch('curtin.block.multipath.util.del_file')
+    @mock.patch('curtin.block.multipath.os.path.islink')
+    @mock.patch('curtin.block.multipath.dmname_to_blkdev_mapping')
+    def test_force_devmapper_symlinks(self, m_blkmap, m_islink, m_del_file):
+        """ensure non-symlink for /dev/mapper/mpath* files are regenerated."""
+        m_blkmap.return_value = {
+            'mpatha': '/dev/dm-0',
+            'mpatha-part1': '/dev/dm-1',
+            '1gb zero': '/dev/dm-2',
+        }
+
+        m_islink.side_effect = iter([
+            False, False,  # mpatha, mpath-part1 are not links
+            True, True,    # mpatha, mpath-part1 are symlinks
+        ])
+
+        multipath.force_devmapper_symlinks()
+
+        udev = ['udevadm', 'trigger', '--subsystem-match=block',
+                '--action=add']
+        subp_expected_calls = [
+            mock.call(udev + ['/sys/class/block/dm-0']),
+            mock.call(udev + ['/sys/class/block/dm-1']),
+        ]
+        # sorted for py27, whee!
+        self.assertEqual(sorted(subp_expected_calls),
+                         sorted(self.m_subp.call_args_list))
+
+        islink_expected_calls = [
+            mock.call('/dev/mapper/mpatha'),
+            mock.call('/dev/mapper/mpatha-part1'),
+            mock.call('/dev/mapper/mpatha'),
+            mock.call('/dev/mapper/mpatha-part1'),
+        ]
+        self.assertEqual(sorted(islink_expected_calls),
+                         sorted(m_islink.call_args_list))
+
+        del_file_expected_calls = [
+            mock.call('/dev/mapper/mpatha'),
+            mock.call('/dev/mapper/mpatha-part1'),
+        ]
+        self.assertEqual(sorted(del_file_expected_calls),
+                         sorted(m_del_file.call_args_list))
+
 
 # vi: ts=4 expandtab syntax=python

@@ -208,6 +208,32 @@ def get_mpath_id_from_device(device):
     return None
 
 
+def force_devmapper_symlinks():
+    """Check if /dev/mapper/mpath* files are symlinks, if not trigger udev."""
+    LOG.debug('Verifying /dev/mapper/mpath* files are symlinks')
+    needs_trigger = []
+    for mp_id, dm_dev in dmname_to_blkdev_mapping().items():
+        if mp_id.startswith('mpath'):
+            mapper_path = '/dev/mapper/' + mp_id
+            if not os.path.islink(mapper_path):
+                LOG.warning(
+                    'Found invalid device mapper mp path: %s, removing',
+                    mapper_path)
+                util.del_file(mapper_path)
+                needs_trigger.append((mapper_path, dm_dev))
+
+    if len(needs_trigger):
+        for (mapper_path, dm_dev) in needs_trigger:
+            LOG.debug('multipath: regenerating symlink for %s (%s)',
+                      mapper_path, dm_dev)
+            util.subp(['udevadm', 'trigger', '--subsystem-match=block',
+                       '--action=add',
+                       '/sys/class/block/' + os.path.basename(dm_dev)])
+            udev.udevadm_settle(exists=mapper_path)
+            if not os.path.islink(mapper_path):
+                LOG.error('Failed to regenerate udev symlink %s', mapper_path)
+
+
 def reload():
     """ Request multipath to force reload devmaps. """
     util.subp(['multipath', '-r'])

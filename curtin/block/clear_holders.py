@@ -684,6 +684,7 @@ def start_clear_holders_deps():
     if mp_support:
         LOG.debug('Detected multipath support, reload maps')
         multipath.reload()
+        multipath.force_devmapper_symlinks()
 
     # scan and activate for logical volumes
     lvm.lvm_scan(multipath=mp_support)
