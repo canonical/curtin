@@ -910,8 +910,12 @@ def partition_handler(info, storage_config):
         if multipath.is_mpath_device(disk):
             udevadm_settle()  # allow partition creation to happen
             # update device mapper table mapping to mpathX-partN
-            util.subp(['kpartx', '-v', '-a', '-s', '-p', '-part', disk])
             part_path = disk + "-part%s" % partnumber
+            # sometimes multipath lib creates a block device instead of
+            # a udev symlink, remove this and allow kpartx to create it
+            if os.path.exists(part_path) and not os.path.islink(part_path):
+                util.del_file(part_path)
+            util.subp(['kpartx', '-v', '-a', '-s', '-p', '-part', disk])
         else:
             part_path = block.dev_path(block.partition_kname(disk_kname,
                                                              partnumber))
