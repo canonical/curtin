@@ -40,7 +40,7 @@ def get_storage_type_schemas():
 
 
 STORAGE_CONFIG_SCHEMA = {
-    '$schema': 'http://json-schema.org/draft-07/schema#',
+    '$schema': 'http://json-schema.org/draft-04/schema#',
     'name': 'ASTORAGECONFIG',
     'title': 'curtin storage configuration for an installation.',
     'description': (
