@@ -1589,6 +1589,24 @@ class TestDmCryptHandler(CiTestCase):
         self.m_subp.assert_has_calls(expected_calls)
         self.assertEqual(len(util.load_file(self.crypttab).splitlines()), 1)
 
+    def test_dm_crypt_defaults_dm_name_to_id(self):
+        """ verify dm_crypt_handler falls back to id with no dm_name. """
+        volume_path = self.random_string()
+        self.m_getpath.return_value = volume_path
+        info = self.storage_config['dmcrypt0']
+        del info['dm_name']
+
+        block_meta.dm_crypt_handler(info, self.storage_config)
+        expected_calls = [
+            call(['cryptsetup', '--cipher', self.cipher,
+                  '--key-size', self.keysize,
+                  'luksFormat', volume_path, self.keyfile]),
+            call(['cryptsetup', 'open', '--type', 'luks', volume_path,
+                  info['id'], '--key-file', self.keyfile])
+        ]
+        self.m_subp.assert_has_calls(expected_calls)
+        self.assertEqual(len(util.load_file(self.crypttab).splitlines()), 1)
+
     def test_dm_crypt_zkey_cryptsetup(self):
         """ verify dm_crypt zkey calls generates and run before crypt open."""
 

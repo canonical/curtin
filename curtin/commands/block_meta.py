@@ -1321,13 +1321,13 @@ def dm_crypt_handler(info, storage_config):
     keysize = info.get('keysize')
     cipher = info.get('cipher')
     dm_name = info.get('dm_name')
+    if not dm_name:
+        dm_name = info.get('id')
     dmcrypt_dev = os.path.join("/dev", "mapper", dm_name)
     preserve = config.value_as_boolean(info.get('preserve'))
     if not volume:
         raise ValueError("volume for cryptsetup to operate on must be \
             specified")
-    if not dm_name:
-        dm_name = info.get('id')
 
     volume_path = get_path_to_storage_volume(volume, storage_config)
     volume_byid_path = block.disk_to_byid_path(volume_path)
