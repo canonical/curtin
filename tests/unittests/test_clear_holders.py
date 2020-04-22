@@ -424,10 +424,11 @@ class TestClearHolders(CiTestCase):
     @mock.patch('curtin.block.clear_holders.multipath')
     @mock.patch('curtin.block.clear_holders.is_swap_device')
     @mock.patch('curtin.block.clear_holders.time')
+    @mock.patch('curtin.block.clear_holders.zfs')
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.block')
     def test_clear_holders_wipe_superblock_rereads_pt(self, mock_block,
-                                                      mock_log, m_time,
+                                                      mock_log, m_zfs, m_time,
                                                       mock_swap, mock_mp):
         """test clear_holders.wipe_superblock re-reads partition table"""
         mock_swap.return_value = False
@@ -442,6 +443,7 @@ class TestClearHolders(CiTestCase):
             ['p1', 'p2'],  # still has partitions after wipe
             [],  # partitions are now gone
         ])
+        m_zfs.zfs_supported.return_value = True
         clear_holders.wipe_superblock(self.test_syspath)
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
         mock_block.wipe_volume.assert_called_with(
