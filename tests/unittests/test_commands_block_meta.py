@@ -2160,4 +2160,200 @@ class TestPartitionHandler(CiTestCase):
             block_meta.partition_handler(logical_part, self.storage_config)
 
 
+class TestMultipathPartitionHandler(CiTestCase):
+
+    def setUp(self):
+        super(TestMultipathPartitionHandler, self).setUp()
+
+        basepath = 'curtin.commands.block_meta.'
+        self.add_patch(basepath + 'get_path_to_storage_volume', 'm_getpath')
+        self.add_patch(basepath + 'util', 'm_util')
+        self.add_patch(basepath + 'make_dname', 'm_dname')
+        self.add_patch(basepath + 'block', 'm_block')
+        self.add_patch(basepath + 'multipath', 'm_mp')
+        self.add_patch(basepath + 'udevadm_settle', 'm_uset')
+        self.add_patch(basepath + 'udevadm_info', 'm_uinfo')
+
+        self.target = self.tmp_dir()
+        self.config = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {'id': 'sda',
+                     'type': 'disk',
+                     'name': 'main_disk',
+                     'ptable': 'gpt',
+                     'serial': 'disk-a'},
+                    {'id': 'disk-sda-part-1',
+                     'type': 'partition',
+                     'device': 'sda',
+                     'name': 'bios_boot',
+                     'number': 1,
+                     'size': '1M',
+                     'flag': 'bios_grub'},
+                    {'id': 'disk-sda-part-2',
+                     'type': 'partition',
+                     'device': 'sda',
+                     'number': 2,
+                     'size': '5GB'},
+                ],
+            }
+        }
+        self.storage_config = (
+            block_meta.extract_storage_ordered_dict(self.config))
+
+    @patch('curtin.commands.block_meta.calc_partition_info')
+    def test_part_handler_uses_kpartx_on_multipath_parts(self, m_part_info):
+
+        # dm-0 is mpatha, dm-1 is mpatha-part1, dm-2 is mpatha-part2
+        disk_path = '/wark/mapper/mpatha'
+        self.m_getpath.return_value = disk_path
+        self.m_block.path_to_kname.return_value = 'dm-0'
+        self.m_block.sys_block_path.return_value = 'sys/class/block/dm-0'
+        self.m_block.get_blockdev_sector_size.return_value = (512, 512)
+        self.m_block.partition_kname.return_value = 'dm-2'
+        self.m_mp.is_mpath_device.return_value = True
+
+        # prev_start_sec, prev_size_sec
+        m_part_info.return_value = (2048, 2048)
+
+        part2 = self.storage_config['disk-sda-part-2']
+        block_meta.partition_handler(part2, self.storage_config)
+
+        expected_calls = [
+            call(['sgdisk', '--new', '2:4096:4096', '--typecode=2:8300',
+                  disk_path], capture=True),
+            call(['kpartx', '-v', '-a', '-s', '-p', '-part', disk_path]),
+        ]
+        self.assertEqual(expected_calls, self.m_util.subp.call_args_list)
+
+    @patch('curtin.commands.block_meta.os.path')
+    @patch('curtin.commands.block_meta.calc_partition_info')
+    def test_part_handler_deleted__non_symlink_before_kpartx(self,
+                                                             m_part_info,
+                                                             m_os_path):
+        # dm-0 is mpatha, dm-1 is mpatha-part1, dm-2 is mpatha-part2
+        disk_path = '/wark/mapper/mpatha'
+        self.m_getpath.return_value = disk_path
+        self.m_block.path_to_kname.return_value = 'dm-0'
+        self.m_block.sys_block_path.return_value = 'sys/class/block/dm-0'
+        self.m_block.get_blockdev_sector_size.return_value = (512, 512)
+        self.m_block.partition_kname.return_value = 'dm-2'
+        self.m_mp.is_mpath_device.return_value = True
+        m_os_path.exists.return_value = True
+        m_os_path.islink.return_value = False
+
+        # prev_start_sec, prev_size_sec
+        m_part_info.return_value = (2048, 2048)
+
+        part2 = self.storage_config['disk-sda-part-2']
+        block_meta.partition_handler(part2, self.storage_config)
+
+        expected_calls = [
+            call(['sgdisk', '--new', '2:4096:4096', '--typecode=2:8300',
+                  disk_path], capture=True),
+            call(['kpartx', '-v', '-a', '-s', '-p', '-part', disk_path]),
+        ]
+        self.assertEqual(expected_calls, self.m_util.subp.call_args_list)
+        self.assertEqual([call(disk_path + '-part2')],
+                         self.m_util.del_file.call_args_list)
+
+
+class TestCalcPartitionInfo(CiTestCase):
+
+    def setUp(self):
+        super(TestCalcPartitionInfo, self).setUp()
+        self.add_patch('curtin.commands.block_meta.util.load_file',
+                       'm_load_file')
+
+    def _prepare_load_file_mocks(self, start, size, logsize):
+        partition_size = str(int(size / logsize))
+        partition_start = str(int(start / logsize))
+        self.m_load_file.side_effect = iter([partition_size, partition_start])
+
+    def test_calc_partition_info(self):
+        disk = self.random_string()
+        partition = self.random_string()
+        part_path = os.path.join(disk, partition)
+        part_size = 10 * 1024 * 1024
+        part_start = 1 * 1024 * 1024
+        blk_size = 512
+        self._prepare_load_file_mocks(part_start, part_size, blk_size)
+
+        (start, size) = block_meta.calc_partition_info(
+            disk, partition, blk_size)
+
+        self.assertEqual(part_start / blk_size, start)
+        self.assertEqual(part_size / blk_size, size)
+        self.assertEqual(
+            [call(part_path + '/size'), call(part_path + '/start')],
+            self.m_load_file.call_args_list)
+
+    @patch('curtin.commands.block_meta.calc_dm_partition_info')
+    def test_calc_partition_info_dm_part(self, m_calc_dm):
+        disk = self.random_string()
+        partition = 'dm-237'
+        part_size = 10 * 1024 * 1024
+        part_start = 1 * 1024 * 1024
+        blk_size = 512
+        m_calc_dm.return_value = (part_start / blk_size, part_size / blk_size)
+
+        (start, size) = block_meta.calc_partition_info(
+            disk, partition, blk_size)
+
+        self.assertEqual(part_start / blk_size, start)
+        self.assertEqual(part_size / blk_size, size)
+        self.assertEqual([call(partition)], m_calc_dm.call_args_list)
+        self.assertEqual([], self.m_load_file.call_args_list)
+
+    @patch('curtin.commands.block_meta.calc_dm_partition_info')
+    def test_calc_partition_info_none_start_sec_raise_exc(self, m_calc_dm):
+        disk = self.random_string()
+        partition = 'dm-237'
+        blk_size = 512
+        m_calc_dm.return_value = (None, None)
+
+        with self.assertRaises(RuntimeError):
+            block_meta.calc_partition_info(disk, partition, blk_size)
+
+        self.assertEqual([call(partition)], m_calc_dm.call_args_list)
+        self.assertEqual([], self.m_load_file.call_args_list)
+
+
+class TestCalcDMPartitionInfo(CiTestCase):
+
+    def setUp(self):
+        super(TestCalcDMPartitionInfo, self).setUp()
+        self.add_patch('curtin.commands.block_meta.multipath', 'm_mp')
+        self.add_patch('curtin.commands.block_meta.util.subp', 'm_subp')
+
+        self.mpath_id = 'mpath%s-part1' % self.random_string(length=1)
+        self.m_mp.get_mpath_id_from_device.return_value = self.mpath_id
+
+    def test_calc_dm_partition_info_raises_exc_no_mpath_id(self):
+        self.m_mp.get_mpath_id_from_device.return_value = None
+        with self.assertRaises(RuntimeError):
+            block_meta.calc_dm_partition_info(self.random_string())
+
+    def test_calc_dm_partition_info_return_none_with_no_dmsetup_output(self):
+        self.m_subp.return_value = ("", "")
+        self.assertEqual(
+            (None, None),
+            block_meta.calc_dm_partition_info(self.random_string()))
+
+    def test_calc_dm_partition_info_calls_dmsetup_table(self):
+        partition = 'dm-245'
+        dm_part = '/dev/' + partition
+        self.m_subp.return_value = ("0 20480 linear 253:0 2048", "")
+        (start, size) = block_meta.calc_dm_partition_info(partition)
+        self.assertEqual(2048, start)
+        self.assertEqual(20480, size)
+        self.assertEqual(
+            [call(dm_part)],
+            self.m_mp.get_mpath_id_from_device.call_args_list)
+        self.assertEqual([
+            call(['dmsetup', 'table', '--target', 'linear', self.mpath_id],
+                 capture=True)],
+            self.m_subp.call_args_list)
+
 # vi: ts=4 expandtab syntax=python
