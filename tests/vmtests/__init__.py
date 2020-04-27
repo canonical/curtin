@@ -1732,7 +1732,8 @@ class VMBaseClass(TestCase):
         kname = [os.path.basename(line.split()[10])
                  for line in ls_byid.split('\n')
                  if ("virtio-" + serial) in line.split() or
-                    ("scsi-" + serial) in line.split()]
+                    ("scsi-" + serial) in line.split() or
+                    ("wwn-" + serial) in line.split()]
         self.assertEqual(len(kname), 1)
         kname = kname.pop()
         self.assertIsNotNone(kname)
