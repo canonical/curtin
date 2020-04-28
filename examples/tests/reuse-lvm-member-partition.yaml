@@ -34,7 +34,7 @@ bucket:
     # populate the lv with data to ensure we allocate extents on both pv devs
     mkfs.ext4 /dev/${VG}/${LV}
     mount /dev/${VG}/${LV} /mnt
-    rsync -aqpP /var /mnt
+    rsync -aqpP --one-file-system /var /mnt
     umount /mnt
     # simulate the first boot environment by turning off the vg, and wiping
     # one physical volume
