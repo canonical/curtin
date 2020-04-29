@@ -76,7 +76,7 @@ class TestBlockLvm(CiTestCase):
     @mock.patch('curtin.block.lvm.distro')
     def test_lvm_scan(self, mock_distro, mock_util, mock_lvmetad):
         """check that lvm_scan formats commands correctly for each release"""
-        cmds = [['pvscan'], ['vgscan', '--mknodes']]
+        cmds = [['pvscan'], ['vgscan']]
         for (count, (codename, lvmetad_status, use_cache)) in enumerate(
                 [('precise', False, False),
                  ('trusty', False, False),
@@ -100,7 +100,7 @@ class TestBlockLvm(CiTestCase):
     @mock.patch('curtin.block.lvm.distro')
     def test_lvm_scan_multipath(self, mock_distro, mock_util, mock_lvmetad):
         """check that lvm_scan formats commands correctly for multipath."""
-        cmds = [['pvscan'], ['vgscan', '--mknodes']]
+        cmds = [['pvscan'], ['vgscan']]
         mock_distro.lsb_release.return_value = {'codename': 'focal'}
         mock_lvmetad.return_value = False
         lvm.lvm_scan(multipath=True)

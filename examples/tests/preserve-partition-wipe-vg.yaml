@@ -15,8 +15,8 @@ bucket:
     udevadm settle
     ls -al /dev/disk/by-id
     vgcreate --force --zero=y --yes vg8 /dev/disk/by-id/virtio-disk-b-part1
-    pvscan --cache
-    vgscan --mknodes --cache
+    pvscan --verbose
+    vgscan --verbose
     udevadm settle
     ls -al /dev/disk/by-id
     mkfs.ext4 /dev/disk/by-id/virtio-disk-a-part3

@@ -25,8 +25,8 @@ bucket:
         mkpart primary 2GiB 9GiB
     udevadm settle
     vgcreate --verbose --force --zero=y --yes ${VG} ${SDA}-part2 ${SDB}-part1
-    pvscan --verbose --cache
-    vgscan --verbose --mknodes
+    pvscan --verbose
+    vgscan --verbose
     # create a striped lv
     lvcreate ${VG} --extents 100%FREE --stripes 2 --stripesize 256 \
         --name ${LV}

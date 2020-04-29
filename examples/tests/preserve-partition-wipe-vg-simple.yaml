@@ -10,8 +10,8 @@ bucket:
     udevadm settle
     ls -al /dev/disk/by-id
     vgcreate --force --zero=y --yes root_vg /dev/disk/by-id/virtio-disk-a-part2
-    pvscan --cache
-    vgscan --mknodes --cache
+    pvscan --verbose
+    vgscan --verbose
     vgs
     lvcreate root_vg --name lv1_root --zero=y --wipesignatures=y \
         --size 2G

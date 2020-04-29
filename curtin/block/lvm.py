@@ -129,7 +129,7 @@ def lvm_scan(activate=True, multipath=False):
         # only operate on mp devices
         mponly = 'devices{ filter = [ "a|/dev/mapper/mpath.*|", "r|.*|" ] }'
 
-    for cmd in [['pvscan'], ['vgscan', '--mknodes']]:
+    for cmd in [['pvscan'], ['vgscan']]:
         if release != 'precise' and lvmetad_running():
             cmd.append('--cache')
         if multipath:

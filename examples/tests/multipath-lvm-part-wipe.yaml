@@ -29,8 +29,8 @@ bucket:
     udevadm settle
     ls -al /dev/disk/by-id
     vgcreate --force --zero=y --yes root_vg /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_disk-a-part3
-    pvscan --cache
-    vgscan --verbose --mknodes --cache
+    pvscan --verbose
+    vgscan --verbose
     udevadm settle
     for x in $(seq 1 10); do
         if vgs root_vg; then
