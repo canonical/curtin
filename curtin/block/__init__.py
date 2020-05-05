@@ -637,6 +637,12 @@ def detect_multipath(target_mountpoint=None):
         for device in (os.path.realpath(dev)
                        for (dev, _mp, _vfs, _opts, _freq, _passno)
                        in get_proc_mounts() if dev.startswith('/dev/')):
+            if not is_block_device(device):
+                # A tmpfs can be mounted with any old junk in the "device"
+                # field and unfortunately casper sometimes puts "/dev/shm"
+                # there, which is usually a directory. Ignore such cases.
+                # (See https://bugs.launchpad.net/bugs/1876626)
+                continue
             if _device_is_multipathed(device):
                 return device
 
