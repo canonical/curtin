@@ -1,0 +1,77 @@
+showtrace: true
+install:
+   unmount: disabled
+
+# The point of this test is to test installing to a disk that contains
+# a typical MSDOS partition table with extended and logical parititions,
+# including a 'bootable' flag set and then reuse the existing partition
+# table triggering the partition_verify path to ensure we validate MSDOS
+# partition layouts.
+
+bucket:
+  - &setup |
+    parted /dev/disk/by-id/virtio-disk-a --script -- \
+        mklabel msdos              \
+        mkpart primary 1MiB 3073MiB \
+        mkpart extended 3074MiB 8193MiB \
+        mkpart logical 3075MiB 5122MiB \
+        mkpart logical 5123MiB 8192MiB \
+        set 1 boot on
+    udevadm settle
+
+early_commands:
+  00-setup-msdos-ptable: [sh, -exuc, *setup]
+
+
+showtrace: true
+storage:
+    version: 1
+    config:
+      - id: sda
+        type: disk
+        ptable: msdos
+        model: QEMU HARDDISK
+        serial: disk-a
+        name: main_disk
+        preserve: true
+        grub_device: true
+      - id: sda1
+        type: partition
+        number: 1
+        size: 3072M
+        device: sda
+        flag: boot
+        preserve: true
+        wipe: superblock
+      - id: sda2
+        type: partition
+        number: 2
+        size: 5119M
+        flag: extended
+        device: sda
+        preserve: true
+      - id: sda5
+        type: partition
+        number: 5
+        size: 2047M
+        flag: logical
+        device: sda
+        preserve: true
+        wipe: superblock
+      - id: sda6
+        type: partition
+        number: 6
+        size: 3069M
+        flag: logical
+        device: sda
+        preserve: true
+        wipe: superblock
+      - id: sda1_root
+        type: format
+        fstype: ext4
+        volume: sda1
+      - id: sda1_mount
+        type: mount
+        path: /
+        device: sda1_root
+

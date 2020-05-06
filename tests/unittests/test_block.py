@@ -1,9 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import functools
+import json
 import os
 import mock
 import sys
+import textwrap
 
 from collections import OrderedDict
 
@@ -795,5 +797,77 @@ class TestZkeySupported(CiTestCase):
         block.zkey_supported()
         m_util.subp.assert_called_with(['zkey', 'generate', testname],
                                        capture=True)
+
+
+class TestSfdiskInfo(CiTestCase):
+
+    VALID_SFDISK_OUTPUT = textwrap.dedent("""\
+    {
+       "partitiontable": {
+          "label":"dos",
+          "id":"0xb0dbdde1",
+          "device":"/dev/vdb",
+          "unit":"sectors",
+          "partitions": [
+             {"node":"/dev/vdb1", "start":2048, "size":8388608,
+              "type":"83", "bootable":true},
+             {"node":"/dev/vdb2", "start":8390656, "size":8388608,
+              "type":"83"},
+             {"node":"/dev/vdb3", "start":16779264, "size":62914560,
+              "type":"85"},
+             {"node":"/dev/vdb5", "start":16781312, "size":31457280,
+              "type":"83"},
+             {"node":"/dev/vdb6", "start":48240640, "size":10485760,
+              "type":"83"},
+             {"node":"/dev/vdb7", "start":58728448, "size":20965376,
+              "type":"83"}
+          ]
+       }
+    }""")
+
+    def setUp(self):
+        super(TestSfdiskInfo, self).setUp()
+        self.add_patch('curtin.block.get_blockdev_for_partition',
+                       'm_get_blockdev_for_partition')
+        self.add_patch('curtin.block.util.subp', 'm_subp')
+        self.add_patch('curtin.block.util.load_json', 'm_load_json')
+        self.device = '/dev/vdb3'
+        self.disk = '/dev/vdb'
+        self.part = '3'
+        self.m_get_blockdev_for_partition.return_value = (self.disk, self.part)
+        self.m_subp.return_value = (self.VALID_SFDISK_OUTPUT, "")
+        self.loaded_json = json.loads(self.VALID_SFDISK_OUTPUT)
+        self.m_load_json.return_value = self.loaded_json
+        self.expected = self.loaded_json.get('partitiontable', {})
+
+    def test_sfdisk_info(self):
+        """verify sfdisk_info returns correct info dictionary for device."""
+        self.assertEqual(self.expected, block.sfdisk_info(self.device))
+        self.assertEqual(
+            [mock.call(self.device)],
+            self.m_get_blockdev_for_partition.call_args_list)
+        self.assertEqual(
+            [mock.call(['sfdisk', '--json', self.disk], capture=True)],
+            self.m_subp.call_args_list)
+        self.assertEqual(
+            [mock.call(self.m_subp.return_value[0])],
+            self.m_load_json.call_args_list)
+
+    def test_sfdisk_info_returns_empty_on_subp_error(self):
+        """verify sfdisk_info returns empty dict on subp errors."""
+        self.m_subp.side_effect = (
+            util.ProcessExecutionError(
+                stdout="",
+                stderr="sfdisk: cannot open /dev/vdb: Permission denied",
+                exit_code=1))
+        self.assertEqual({}, block.sfdisk_info(self.device))
+        self.assertEqual(
+            [mock.call(self.device)],
+            self.m_get_blockdev_for_partition.call_args_list)
+        self.assertEqual(
+            [mock.call(['sfdisk', '--json', self.disk], capture=True)],
+            self.m_subp.call_args_list)
+        self.assertEqual([], self.m_load_json.call_args_list)
+
 
 # vi: ts=4 expandtab syntax=python

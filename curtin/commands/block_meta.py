@@ -48,6 +48,12 @@ SGDISK_FLAGS = {
     "linux": '8300'
 }
 
+MSDOS_FLAGS = {
+    'boot': 'boot',
+    'extended': 'extended',
+    'logical': 'logical',
+}
+
 DNAME_BYID_KEYS = ['DM_UUID', 'ID_WWN_WITH_EXTENSION', 'ID_WWN', 'ID_SERIAL',
                    'ID_SERIAL_SHORT']
 CMD_ARGUMENTS = (
@@ -715,8 +721,17 @@ def verify_exists(devpath):
         raise RuntimeError("Device %s does not exist" % devpath)
 
 
-def verify_size(devpath, expected_size_bytes):
-    found_size_bytes = block.read_sys_block_size_bytes(devpath)
+def verify_size(devpath, expected_size_bytes, sfdisk_info=None):
+    if not sfdisk_info:
+        sfdisk_info = block.sfdisk_info(devpath)
+
+    part_info = block.get_partition_sfdisk_info(devpath,
+                                                sfdisk_info=sfdisk_info)
+    (found_type, _code) = ptable_uuid_to_flag_entry(part_info.get('type'))
+    if found_type == 'extended':
+        found_size_bytes = int(part_info['size']) * 512
+    else:
+        found_size_bytes = block.read_sys_block_size_bytes(devpath)
     msg = (
         'Verifying %s size, expecting %s bytes, found %s bytes' % (
          devpath, expected_size_bytes, found_size_bytes))
@@ -725,19 +740,28 @@ def verify_size(devpath, expected_size_bytes):
         raise RuntimeError(msg)
 
 
-def verify_ptable_flag(devpath, expected_flag):
-    if not SGDISK_FLAGS.get(expected_flag):
+def verify_ptable_flag(devpath, expected_flag, sfdisk_info=None):
+    if (expected_flag not in SGDISK_FLAGS.keys()) and (expected_flag not in
+                                                       MSDOS_FLAGS.keys()):
         raise RuntimeError(
-            'Cannot verify unknown partition flag: %s', expected_flag)
+            'Cannot verify unknown partition flag: %s' % expected_flag)
 
-    info = block.sfdisk_info(devpath)
-    if devpath not in info:
-        raise RuntimeError('Device %s not present in sfdisk dump:\n%s' %
-                           devpath, util.json_dumps(info))
+    if not sfdisk_info:
+        sfdisk_info = block.sfdisk_info(devpath)
 
-    entry = info[devpath]
+    entry = block.get_partition_sfdisk_info(devpath, sfdisk_info=sfdisk_info)
     LOG.debug("Device %s ptable entry: %s", devpath, util.json_dumps(entry))
-    (found_flag, code) = ptable_uuid_to_flag_entry(entry['type'])
+    found_flag = None
+    if (sfdisk_info['label'] in ('dos', 'msdos')):
+        if expected_flag == 'boot':
+            found_flag = 'boot' if entry.get('bootable') is True else None
+        elif expected_flag == 'extended':
+            (found_flag, _code) = ptable_uuid_to_flag_entry(entry['type'])
+        elif expected_flag == 'logical':
+            (_parent, partnumber) = block.get_blockdev_for_partition(devpath)
+            found_flag = 'logical' if int(partnumber) > 4 else None
+    else:
+        (found_flag, _code) = ptable_uuid_to_flag_entry(entry['type'])
     msg = (
         'Verifying %s partition flag, expecting %s, found %s' % (
          devpath, expected_flag, found_flag))
@@ -748,10 +772,14 @@ def verify_ptable_flag(devpath, expected_flag):
 
 def partition_verify(devpath, info):
     verify_exists(devpath)
-    verify_size(devpath, int(util.human2bytes(info['size'])))
+    sfdisk_info = block.sfdisk_info(devpath)
+    if not sfdisk_info:
+        raise RuntimeError('Failed to extract sfdisk info from %s' % devpath)
+    verify_size(devpath, int(util.human2bytes(info['size'])),
+                sfdisk_info=sfdisk_info)
     expected_flag = info.get('flag')
     if expected_flag:
-        verify_ptable_flag(devpath, info['flag'])
+        verify_ptable_flag(devpath, info['flag'], sfdisk_info=sfdisk_info)
 
 
 def partition_handler(info, storage_config):
@@ -889,6 +917,9 @@ def partition_handler(info, storage_config):
             cmd = ["parted", disk, "--script", "mkpart", partition_type,
                    "%ss" % offset_sectors, "%ss" % str(offset_sectors +
                                                        length_sectors)]
+            if flag == 'boot':
+                cmd.extend(['set', str(partnumber), 'boot', 'on'])
+
             util.subp(cmd, capture=True)
         elif disk_ptable == "gpt":
             if flag and flag in SGDISK_FLAGS:

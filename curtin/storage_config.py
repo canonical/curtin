@@ -11,6 +11,36 @@ from curtin.block import schemas
 from curtin import config as curtin_config
 from curtin import util
 
+# map
+# https://en.wikipedia.org/wiki/GUID_Partition_Table#Partition_type_GUIDs
+# to
+# curtin/commands/block_meta.py:partition_handler()sgdisk_flags/types
+GPT_GUID_TO_CURTIN_MAP = {
+    'C12A7328-F81F-11D2-BA4B-00A0C93EC93B': ('boot', 'EF00'),
+    '21686148-6449-6E6F-744E-656564454649': ('bios_grub', 'EF02'),
+    '933AC7E1-2EB4-4F13-B844-0E14E2AEF915': ('home', '8302'),
+    '0FC63DAF-8483-4772-8E79-3D69D8477DE4': ('linux', '8300'),
+    'E6D6D379-F507-44C2-A23C-238F2A3DF928': ('lvm', '8e00'),
+    '024DEE41-33E7-11D3-9D69-0008C781F39F': ('mbr', ''),
+    '9E1A2D38-C612-4316-AA26-8B49521E5A8B': ('prep', '4200'),
+    'A19D880F-05FC-4D3B-A006-743F0F84911E': ('raid', 'fd00'),
+    '0657FD6D-A4AB-43C4-84E5-0933C84B4F4F': ('swap', '8200'),
+}
+
+# MBR types
+# https://www.win.tue.nl/~aeb/partitions/partition_types-2.html
+# to
+# curtin/commands/block_meta.py:partition_handler()sgdisk_flags/types
+MBR_TYPE_TO_CURTIN_MAP = {
+    '0XF': ('extended', 'f'),
+    '0X5': ('extended', 'f'),
+    '0X80': ('boot', '80'),
+    '0X83': ('linux', '83'),
+    '0X85': ('extended', 'f'),
+    '0XC5': ('extended', 'f'),
+}
+
+PTABLE_TYPE_MAP = dict(GPT_GUID_TO_CURTIN_MAP, **MBR_TYPE_TO_CURTIN_MAP)
 
 StorageConfig = namedtuple('StorageConfig', ('type', 'schema'))
 STORAGE_CONFIG_TYPES = {
@@ -782,6 +812,10 @@ class BlockdevParser(ProbertParser):
                 entry['size'] *= 512
 
             ptype = blockdev_data.get('ID_PART_ENTRY_TYPE')
+            # use PART_ENTRY_FLAGS if set, msdos
+            ptype_flag = blockdev_data.get('ID_PART_ENTRY_FLAGS')
+            if ptype_flag:
+                ptype = ptype_flag
             flag_name, _flag_code = ptable_uuid_to_flag_entry(ptype)
 
             # logical partitions are not tagged in data, however
@@ -1218,31 +1252,12 @@ class ZfsParser(ProbertParser):
 
 
 def ptable_uuid_to_flag_entry(guid):
-    # map
-    # https://en.wikipedia.org/wiki/GUID_Partition_Table#Partition_type_GUIDs
-    # to
-    # curtin/commands/block_meta.py:partition_handler()sgdisk_flags/types
-    # MBR types
-    # https://www.win.tue.nl/~aeb/partitions/partition_types-2.html
-    guid_map = {
-        'C12A7328-F81F-11D2-BA4B-00A0C93EC93B': ('boot', 'EF00'),
-        '21686148-6449-6E6F-744E-656564454649': ('bios_grub', 'EF02'),
-        '933AC7E1-2EB4-4F13-B844-0E14E2AEF915': ('home', '8302'),
-        '0FC63DAF-8483-4772-8E79-3D69D8477DE4': ('linux', '8300'),
-        'E6D6D379-F507-44C2-A23C-238F2A3DF928': ('lvm', '8e00'),
-        '024DEE41-33E7-11D3-9D69-0008C781F39F': ('mbr', ''),
-        '9E1A2D38-C612-4316-AA26-8B49521E5A8B': ('prep', '4200'),
-        'A19D880F-05FC-4D3B-A006-743F0F84911E': ('raid', 'fd00'),
-        '0657FD6D-A4AB-43C4-84E5-0933C84B4F4F': ('swap', '8200'),
-        '0X83': ('linux', '83'),
-        '0XF': ('extended', 'f'),
-        '0X5': ('extended', 'f'),
-        '0X85': ('extended', 'f'),
-        '0XC5': ('extended', 'f'),
-    }
     name = code = None
-    if guid and guid.upper() in guid_map:
-        name, code = guid_map[guid.upper()]
+    # prefix non-uuid guid values with 0x
+    if guid and '-' not in guid and not guid.upper().startswith('0X'):
+        guid = '0x' + guid
+    if guid and guid.upper() in PTABLE_TYPE_MAP:
+        name, code = PTABLE_TYPE_MAP[guid.upper()]
 
     return (name, code)
 

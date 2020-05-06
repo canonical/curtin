@@ -574,6 +574,15 @@ def decode_binary(blob, encoding='utf-8', errors='replace'):
     return blob.decode(encoding, errors=errors)
 
 
+def load_json(text, root_types=(dict,)):
+    decoded = json.loads(text)
+    if not isinstance(decoded, tuple(root_types)):
+        expected_types = ", ".join([str(t) for t in root_types])
+        raise TypeError("(%s) root types expected, got %s instead"
+                        % (expected_types, type(decoded)))
+    return decoded
+
+
 def file_size(path):
     """get the size of a file"""
     with open(path, 'rb') as fp:

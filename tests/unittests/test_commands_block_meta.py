@@ -335,7 +335,8 @@ class TestBlockMeta(CiTestCase):
                                                      exclusive=False)
         self.mock_subp.assert_has_calls(
             [call(['parted', disk_kname, '--script',
-                   'mkpart', 'primary', '2048s', '1001471s'], capture=True)])
+                   'mkpart', 'primary', '2048s', '1001471s',
+                   'set', '1', 'boot', 'on'], capture=True)])
 
     @patch('curtin.util.write_file')
     def test_mount_handler_defaults(self, mock_write_file):
@@ -2355,5 +2356,94 @@ class TestCalcDMPartitionInfo(CiTestCase):
             call(['dmsetup', 'table', '--target', 'linear', self.mpath_id],
                  capture=True)],
             self.m_subp.call_args_list)
+
+
+class TestPartitionVerify(CiTestCase):
+
+    def setUp(self):
+        super(TestPartitionVerify, self).setUp()
+        base = 'curtin.commands.block_meta.'
+        self.add_patch(base + 'verify_exists', 'm_verify_exists')
+        self.add_patch(base + 'block.sfdisk_info', 'm_block_sfdisk_info')
+        self.add_patch(base + 'verify_size', 'm_verify_size')
+        self.add_patch(base + 'verify_ptable_flag', 'm_verify_ptable_flag')
+        self.info = {
+            'id': 'disk-sda-part-2',
+            'type': 'partition',
+            'device': 'sda',
+            'number': 2,
+            'size': '5GB',
+            'flag': 'boot',
+        }
+        self.part_size = int(util.human2bytes(self.info['size']))
+        self.devpath = self.random_string()
+
+    def test_partition_verify(self):
+        block_meta.partition_verify(self.devpath, self.info)
+        self.assertEqual(
+            [call(self.devpath)],
+            self.m_verify_exists.call_args_list)
+        self.assertEqual(
+            [call(self.devpath)],
+            self.m_block_sfdisk_info.call_args_list)
+        self.assertEqual(
+            [call(self.devpath, self.part_size,
+                  sfdisk_info=self.m_block_sfdisk_info.return_value)],
+            self.m_verify_size.call_args_list)
+        self.assertEqual(
+            [call(self.devpath, self.info['flag'],
+                  sfdisk_info=self.m_block_sfdisk_info.return_value)],
+            self.m_verify_ptable_flag.call_args_list)
+
+    def test_partition_verify_skips_ptable_no_flag(self):
+        del self.info['flag']
+        block_meta.partition_verify(self.devpath, self.info)
+        self.assertEqual(
+            [call(self.devpath)],
+            self.m_verify_exists.call_args_list)
+        self.assertEqual(
+            [call(self.devpath)],
+            self.m_block_sfdisk_info.call_args_list)
+        self.assertEqual(
+            [call(self.devpath, self.part_size,
+                  sfdisk_info=self.m_block_sfdisk_info.return_value)],
+            self.m_verify_size.call_args_list)
+        self.assertEqual([], self.m_verify_ptable_flag.call_args_list)
+
+
+class TestVerifyExists(CiTestCase):
+
+    def setUp(self):
+        super(TestVerifyExists, self).setUp()
+        base = 'curtin.commands.block_meta.'
+        self.add_patch(base + 'os.path.exists', 'm_exists')
+        self.devpath = self.random_string()
+        self.m_exists.return_value = True
+
+    def test_verify_exists(self):
+        block_meta.verify_exists(self.devpath)
+        self.assertEqual(
+            [call(self.devpath)],
+            self.m_exists.call_args_list)
+
+    def test_verify_exists_raise_runtime_exc_if_path_not_exist(self):
+        self.m_exists.return_value = False
+        with self.assertRaises(RuntimeError):
+            block_meta.verify_exists(self.devpath)
+        self.assertEqual(
+            [call(self.devpath)],
+            self.m_exists.call_args_list)
+
+
+class TestVerifySize(CiTestCase):
+
+    def setUp(self):
+        super(TestVerifySize, self).setUp()
+        base = 'curtin.commands.block_meta.'
+        self.add_patch(base + 'block.sfdisk_info', 'm_block_sfdisk_info')
+        self.add_patch(base + 'block.get_partition_sfdisk_info',
+                       'm_block_get_partition_sfdisk_info')
+        self.devpath = self.random_string()
+
 
 # vi: ts=4 expandtab syntax=python

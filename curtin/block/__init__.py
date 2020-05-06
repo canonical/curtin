@@ -248,46 +248,59 @@ def _lsblock(args=None):
     return _lsblock_pairs_to_dict(out)
 
 
-def _sfdisk_parse(lines):
-    info = {}
-    for line in lines:
-        if ':' not in line:
-            continue
-        lhs, _, rhs = line.partition(':')
-        key = lhs.strip()
-        value = rhs.strip()
-        if "," in rhs:
-            value = dict((item.split('=')
-                         for item in rhs.replace(' ', '').split(',')))
-        info[key] = value
-
-    return info
-
-
 def sfdisk_info(devpath):
     ''' returns dict of sfdisk info about disk partitions
     {
-     "/dev/vda1": {
-        "size": "20744159",
-        "start": "227328",
-        "type": "0FC63DAF-8483-4772-8E79-3D69D8477DE4",
-        "uuid": "29983666-2A66-4F14-8533-7CE13B715462"
-     },
-     "device": "/dev/vda",
-     "first-lba": "34",
-     "label": "gpt",
-     "label-id": "E94FCCFE-953D-4D4B-9511-451BBCC17A9A",
-     "last-lba": "20971486",
-     "unit": "sectors"
+      "label": "gpt",
+      "id": "877716F7-31D0-4D56-A1ED-4D566EFE418E",
+      "device": "/dev/vda",
+      "unit": "sectors",
+      "firstlba": 34,
+      "lastlba": 41943006,
+      "partitions": [
+         {"node": "/dev/vda1", "start": 227328, "size": 41715679,
+          "type": "0FC63DAF-8483-4772-8E79-3D69D8477DE4",
+          "uuid": "60541CAF-E2AC-48CD-BF89-AF16051C833F"},
+      ]
+    }
+    {
+      "label":"dos",
+      "id":"0xb0dbdde1",
+      "device":"/dev/vdb",
+      "unit":"sectors",
+      "partitions": [
+         {"node":"/dev/vdb1", "start":2048, "size":8388608,
+          "type":"83", "bootable":true},
+         {"node":"/dev/vdb2", "start":8390656, "size":8388608, "type":"83"},
+         {"node":"/dev/vdb3", "start":16779264, "size":62914560, "type":"5"},
+         {"node":"/dev/vdb5", "start":16781312, "size":31457280, "type":"83"},
+         {"node":"/dev/vdb6", "start":48240640, "size":10485760, "type":"83"},
+         {"node":"/dev/vdb7", "start":58728448, "size":20965376, "type":"83"}
+      ]
     }
     '''
     (parent, partnum) = get_blockdev_for_partition(devpath)
     try:
-        (out, _err) = util.subp(['sfdisk', '--dump', parent], capture=True)
+        (out, _err) = util.subp(['sfdisk', '--json', parent], capture=True)
     except util.ProcessExecutionError as e:
+        out = None
         LOG.exception(e)
-        out = ""
-    return _sfdisk_parse(out.splitlines())
+    if out is not None:
+        return util.load_json(out).get('partitiontable', {})
+
+    return {}
+
+
+def get_partition_sfdisk_info(devpath, sfdisk_info=None):
+    if not sfdisk_info:
+        sfdisk_info = sfdisk_info(devpath)
+
+    entry = [part for part in sfdisk_info['partitions']
+             if part['node'] == devpath]
+    if len(entry) != 1:
+        raise RuntimeError('Device %s not present in sfdisk dump:\n%s' %
+                           devpath, util.json_dumps(sfdisk_info))
+    return entry.pop()
 
 
 def dmsetup_info(devname):
