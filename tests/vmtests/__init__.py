@@ -1943,7 +1943,7 @@ class VMBaseClass(TestCase):
         '''check if test used storage config'''
         try:
             return len(self.get_storage_config()) > 0
-        except FileNotFoundError:
+        except util.FileMissingError:
             return False
 
     @skip_if_flag('expected_failure')

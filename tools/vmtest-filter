@@ -56,10 +56,11 @@ def main():
     for tc in find_testcases_by_attr(**kwargs):
         print(tc)
 
+
 if __name__ == '__main__':
     try:
         ret = main()
-    except:
+    except Exception:
         traceback.print_exc()
         pdb.post_mortem()
         ret = 1
