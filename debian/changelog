@@ -1,3 +1,61 @@
+curtin (19.3-68-g6cbdc02d-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - Makefile: make adjustments to call lint/style tools via python module
+    - block-discover: ignore invalid id_serial/id_wwn values (LP: #1876848)
+    - Fix handing of reusing msdos partitions and flags (LP: #1875903)
+    - block.detect_multipath: ignore fake "devices" from /proc/mounts
+      [Michael Hudson-Doyle] (LP: #1876626)
+    - udev: use shlex.quote when shlex.split errors on shell-escape chars
+      (LP: #1875085)
+    - lvm: don't use vgscan --mknodes
+    - vmtest: rsync don't cross filesystem boundaries when copying
+      (LP: #1873909)
+    - vmtest: basic/basic_scsi adjust collect/tests for unstable device names
+      (LP: #1874100)
+    - Add unittests for partition_handler calc_[dm]_part_info and kpartx paths
+    - multipath: attempt to enforce /dev/mapper/mpath files are symlinks
+    - block-meta: device mapper partitions may be block devices not links
+    - Default to dm_name being id if empty earlier in dm_crypt_handler()
+      [Łukasz 'sil2100' Zemczak] (LP: #1874243)
+    - storage: correct declared schema draft version for storage schema
+    - test_clear_holders: add missing zfs mock
+    - Mock out zfs_supported to prevent attempting to load kernel modules
+    - block-meta: skip wipe device paths if not present (LP: #1869075)
+    - unittest: do not allow util.subp by default (LP: #1873913)
+    - curthooks: support multiple ESP on UEFI bootable systems
+    - block-discover: handle missing multipath 'path' data, use DM_NAME
+      (LP: #1873728)
+    - lvm-over-multipath: handle lookups of multipath members (LP: #1869075)
+    - block-meta: don't filter preserve=true devices, select by wipe
+      (LP: #1837214)
+    - vmtest: basic use dname to lookup disk with multiple partitions
+    - block-meta: Don't check the ptable type of a disk with no ptable
+    - curthooks: always use ChrootableTarget.subp when calling efibootmgr
+    - storage: enable and use multipath during storage configuration
+      (LP: #1869075)
+    - block-discover: detect nvme multipath devices (LP: #1868109)
+    - clear-holders: Tolerate vgchange errors during discovery (LP: #1870037)
+    - block-meta: handle preserve with vtoc ptable (LP: #1871158)
+    - vmtest: use -partition file for TestReuseRAIDMemberPartition class
+    - format: extra_options should be a list type
+    - tox: add pyflakes to the default tox run [Paride Legovini]
+    - storage_config: Add 'extra_options' parameter to allow custom mkfs
+      (LP: #1869069)
+    - Add support for installing Ubuntu Core 20 images
+    - tox.ini: Fix issues with newer tox on focal
+    - vmtest: Fix test_basic.py to run on s390x (LP: #1866663)
+    - vmtest: use util.load_file for loading collect files
+    - block-meta: refactor storage_config preserve and wipe settings
+      (LP: #1837214)
+    - block-discover: skip 'multipath' key in blockdevice if mpath name is None
+    - tox: all py27 environments should use the base py27 deps
+    - uefi: refactor efibootmg handling to support removing duplicate entries
+      (LP: #1864257)
+    - tox: pin setuptools < 45 to allow installing py27 in virtenv
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Thu, 07 May 2020 15:43:37 -0500
+
 curtin (19.3-27-g437caaa9-0ubuntu1) focal; urgency=medium
 
   * New upstream snapshot.
