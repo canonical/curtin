@@ -694,6 +694,13 @@ class BlockdevParser(ProbertParser):
                 configs.append(entry)
         return (configs, errors)
 
+    def valid_id(self, id_value):
+        # reject wwn=0x0+
+        if id_value.lower().startswith('0x'):
+            return int(id_value, 16) > 0
+        # accept non-empty (removing whitspace) strings
+        return len(''.join(id_value.split())) > 0
+
     def get_unique_ids(self, blockdev):
         """ extract preferred ID_* keys for www and serial values.
 
@@ -709,7 +716,8 @@ class BlockdevParser(ProbertParser):
         for skey, id_keys in source_keys.items():
             for id_key in id_keys:
                 if id_key in blockdev and skey not in uniq:
-                    uniq[skey] = blockdev[id_key]
+                    if self.valid_id(blockdev[id_key]):
+                        uniq[skey] = blockdev[id_key]
 
         return uniq
 

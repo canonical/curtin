@@ -232,6 +232,34 @@ class TestBlockdevParser(CiTestCase):
         self.assertDictEqual(expected_ids,
                              self.bdevp.get_unique_ids(blockdev))
 
+    def test_get_unique_ids_ignores_empty_wwn_values(self):
+        """ BlockdevParser skips invalid ID_WWN_* values. """
+        self.bdevp.blockdev_data['/dev/sda'] = {
+            'DEVTYPE': 'disk',
+            'DEVNAME': 'sda',
+            'ID_SERIAL': 'Corsair_Force_GS_1785234921906',
+            'ID_SERIAL_SHORT': '1785234921906',
+            'ID_WWN': '0x0000000000000000',
+            'ID_WWN_WITH_EXTENSION': '0x0000000000000000',
+        }
+        blockdev = self.bdevp.blockdev_data['/dev/sda']
+        expected_ids = {'serial': 'Corsair_Force_GS_1785234921906'}
+        self.assertEqual(expected_ids,
+                         self.bdevp.get_unique_ids(blockdev))
+
+    def test_get_unique_ids_ignores_empty_serial_values(self):
+        """ BlockdevParser skips invalid ID_SERIAL_* values. """
+        self.bdevp.blockdev_data['/dev/sda'] = {
+            'DEVTYPE': 'disk',
+            'DEVNAME': 'sda',
+            'ID_SERIAL': '                      ',
+            'ID_SERIAL_SHORT': 'My Serial is My PassPort',
+        }
+        blockdev = self.bdevp.blockdev_data['/dev/sda']
+        expected_ids = {'serial': 'My Serial is My PassPort'}
+        self.assertEqual(expected_ids,
+                         self.bdevp.get_unique_ids(blockdev))
+
     def test_partition_parent_devname(self):
         """ BlockdevParser calculate partition parent name. """
         expected_parent = '/dev/sda'
@@ -980,6 +1008,23 @@ class TestExtractStorageConfig(CiTestCase):
             'serial': 'SAMSUNG MZPLL3T2HAJQ-00005_S4CCNE0M300015',
             'type': 'disk',
             'wwn': 'eui.344343304d3000150025384500000004',
+        }
+        self.assertEqual(1, len(disks))
+        self.assertEqual(expected_dict, disks[0])
+
+    @skipUnlessJsonSchema()
+    def test_blockdev_skips_invalid_wwn(self):
+        self.probe_data = _get_data('probert_storage_bogus_wwn.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        config = extracted['storage']['config']
+        disks = [cfg for cfg in config
+                 if cfg['type'] == 'disk' and cfg['path'] == '/dev/sda']
+        expected_dict = {
+            'id': 'disk-sda',
+            'path': '/dev/sda',
+            'ptable': 'gpt',
+            'serial': 'Corsair_Force_GS_13207907000097410026',
+            'type': 'disk',
         }
         self.assertEqual(1, len(disks))
         self.assertEqual(expected_dict, disks[0])
