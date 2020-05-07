@@ -574,6 +574,15 @@ def decode_binary(blob, encoding='utf-8', errors='replace'):
     return blob.decode(encoding, errors=errors)
 
 
+def load_json(text, root_types=(dict,)):
+    decoded = json.loads(text)
+    if not isinstance(decoded, tuple(root_types)):
+        expected_types = ", ".join([str(t) for t in root_types])
+        raise TypeError("(%s) root types expected, got %s instead"
+                        % (expected_types, type(decoded)))
+    return decoded
+
+
 def file_size(path):
     """get the size of a file"""
     with open(path, 'rb') as fp:
@@ -633,6 +642,8 @@ class ChrootableTarget(object):
             self.mounts = mounts
         else:
             self.mounts = ["/dev", "/proc", "/run", "/sys"]
+            if is_uefi_bootable():
+                self.mounts.append('/sys/firmware/efi/efivars')
         self.umounts = []
         self.disabled_daemons = False
         self.allow_daemons = allow_daemons
@@ -856,7 +867,7 @@ def parse_efibootmgr(content):
     return output
 
 
-def get_efibootmgr(target):
+def get_efibootmgr(target=None):
     """Return mapping of EFI information.
 
     Calls `efibootmgr` inside the `target`.
@@ -879,7 +890,7 @@ def get_efibootmgr(target):
             }
         }
     """
-    with ChrootableTarget(target) as in_chroot:
+    with ChrootableTarget(target=target) as in_chroot:
         stdout, _ = in_chroot.subp(['efibootmgr', '-v'], capture=True)
         output = parse_efibootmgr(stdout)
         return output

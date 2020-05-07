@@ -1,0 +1,94 @@
+showtrace: true
+
+# The point of this test is to test installing to a partition that used to
+# be a LVM member where the other disks that used to be part of the
+# RAID are not present (the scenario that the disk was just grabbed
+# out of a pile of previously used disks and shoved into a server).
+
+# So what it does is to create a lvm out of two partition from two
+# disks, stop the lvm, wipe one of the disks and then install to the
+# other, reusing the partition that was part of the lvm.
+
+bucket:
+  - &setup |
+    SDA=/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_disk-a
+    SDB=/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_disk-b
+    VG="vg8"
+    LV="lv1_root"
+    parted ${SDA} --script -- \
+        mklabel gpt              \
+        mkpart primary 1GiB 2GiB \
+        set 1 esp on             \
+        mkpart primary 2GiB 9GiB
+    parted ${SDB} --script -- \
+        mklabel gpt              \
+        mkpart primary 2GiB 9GiB
+    udevadm settle
+    vgcreate --verbose --force --zero=y --yes ${VG} ${SDA}-part2 ${SDB}-part1
+    pvscan --verbose
+    vgscan --verbose
+    # create a striped lv
+    lvcreate ${VG} --extents 100%FREE --stripes 2 --stripesize 256 \
+        --name ${LV}
+    udevadm settle
+    # populate the lv with data to ensure we allocate extents on both pv devs
+    mkfs.ext4 /dev/${VG}/${LV}
+    mount /dev/${VG}/${LV} /mnt
+    rsync -aqpP --one-file-system /var /mnt
+    umount /mnt
+    # simulate the first boot environment by turning off the vg, and wiping
+    # one physical volume
+    for vg in `pvdisplay -C --separator = -o vg_name --noheadings`; do
+       vgchange --verbose -an $vg ||:
+    done
+    rm -rf /etc/lvm/archive /etc/lvm/backup /run/lvm
+    wipefs -a ${SDB}-part1
+    mkfs.ext4 ${SDB}-part1
+    udevadm settle
+    udevadm trigger --subsystem-match=block
+    udevadm settle
+    exit 0
+
+early_commands:
+  00-setup-raid: [sh, -exuc, *setup]
+
+storage:
+  config:
+  - type: disk
+    id: id_disk0
+    serial: disk-a
+    ptable: gpt
+    preserve: true
+  - type: disk
+    id: id_disk1
+    serial: disk-b
+  - type: partition
+    id: id_disk0_part1
+    preserve: true
+    device: id_disk0
+    flag: boot
+    number: 1
+    size: 1G
+  - type: partition
+    id: id_disk0_part2
+    preserve: true
+    device: id_disk0
+    number: 2
+    size: 7G
+  - type: format
+    id: id_efi_format
+    volume: id_disk0_part1
+    fstype: fat32
+  - type: format
+    id: id_root_format
+    volume: id_disk0_part2
+    fstype: ext4
+  - type: mount
+    device: id_root_format
+    id: id_root_mount
+    path: /
+  - type: mount
+    id: id_efi_mount
+    device: id_efi_format
+    path: /boot/efi
+  version: 1

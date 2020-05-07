@@ -28,7 +28,7 @@ def main():
 if __name__ == "__main__":
     try:
         ret = main()
-    except:
+    except Exception:
         traceback.print_exc()
         pdb.post_mortem()
         ret = 1

@@ -901,9 +901,13 @@ install_grub() {
             efi_disk="$5"
             efi_part_num="$6"
             grubpost=""
+            grubmulti="/usr/lib/grub/grub-multi-install"
             case $bootid in
                 debian|ubuntu)
                     grubcmd="grub-install"
+                    if [ -e "${grubmulti}" ]; then
+                        grubcmd="${grubmulti}"
+                    fi
                     dpkg-reconfigure "$1"
                     update-grub
                     ;;
@@ -953,7 +957,7 @@ install_grub() {
             echo "Dumping /boot/efi contents"
             find /boot/efi
             echo "Checking for existing EFI grub entry on ESP"
-            if [ -f /boot/efi/EFI/$bootid/grubx64.efi ]; then
+            if [ "$grubcmd" = "grub2-install" -a -f /boot/efi/EFI/$bootid/grubx64.efi ]; then
                 if [ -z "$no_nvram" ]; then
                     # UEFI firmware should be pointed to the shim if available to
                     # enable secure boot.
@@ -970,15 +974,17 @@ install_grub() {
                         --disk $efi_disk --part $efi_part_num --loader $loader
                     rc=$?
                     [ "$rc" != "0" ] && { exit $rc; }
-                    # check and remove duplicates
-                    efibootmgr --verbose --remove-dups
                 else
                     echo "skip EFI entry creation due to \"$no_nvram\" flag"
                 fi
             else
                 echo "No previous EFI grub entry found on ESP, use $grubcmd"
-                $grubcmd $target $efi_dir \
-                    --bootloader-id=$bootid --recheck $no_nvram
+                if [ "${grubcmd}" = "${grubmulti}" ]; then
+                    $grubcmd
+                else
+                    $grubcmd $target $efi_dir \
+                        --bootloader-id=$bootid --recheck $no_nvram
+                fi
             fi
             [ -z "$grubpost" ] || $grubpost;' \
             -- "$grub_name" "$grub_target" "$nvram" "$os_variant" "$efi_disk" "$efi_part_num" </dev/null ||

@@ -2,13 +2,16 @@
 
 import errno
 import os
+import time
 
 from curtin import util
 from curtin.log import LOG
-from . import sys_block_path
+from curtin.udev import udevadm_settle
+from . import dev_path, sys_block_path
 
 # Wait up to 20 minutes (150 + 300 + 750 = 1200 seconds)
 BCACHE_RETRIES = [sleep for nap in [1, 2, 5] for sleep in [nap] * 150]
+BCACHE_REGISTRATION_RETRY = [0.2] * 60
 
 
 def superblock_asdict(device=None, data=None):
@@ -163,6 +166,15 @@ def get_cacheset_cachedev(cset_uuid):
     return None
 
 
+def attach_backing_to_cacheset(backing_device, cache_device, cset_uuid):
+    LOG.info("Attaching backing device to cacheset: "
+             "{} -> {} cset.uuid: {}".format(backing_device, cache_device,
+                                             cset_uuid))
+    backing_device_sysfs = sys_block_path(backing_device)
+    attach = os.path.join(backing_device_sysfs, "bcache", "attach")
+    util.write_file(attach, cset_uuid, mode=None)
+
+
 def get_backing_device(bcache_kname):
     """ For a given bcacheN kname, return the backing device
         bcache sysfs dir.
@@ -261,6 +273,235 @@ def _stop_device(device):
                   bcache_stop, e)
     finally:
         util.wait_for_removal(bcache_stop, retries=BCACHE_RETRIES)
+
+
+def register_bcache(bcache_device):
+    LOG.debug('register_bcache: %s > /sys/fs/bcache/register', bcache_device)
+    util.write_file('/sys/fs/bcache/register', bcache_device, mode=None)
+
+
+def set_cache_mode(bcache_dev, cache_mode):
+    LOG.info("Setting cache_mode on {} to {}".format(bcache_dev, cache_mode))
+    cache_mode_file = '/sys/block/{}/bcache/cache_mode'.format(bcache_dev)
+    util.write_file(cache_mode_file, cache_mode, mode=None)
+
+
+def validate_bcache_ready(bcache_device, bcache_sys_path):
+    """ check if bcache is ready, dump info
+
+    For cache devices, we expect to find a cacheN symlink
+    which will point to the underlying cache device; Find
+    this symlink, read it and compare bcache_device
+    specified in the parameters.
+
+    For backing devices, we expec to find a dev symlink
+    pointing to the bcacheN device to which the backing
+    device is enslaved.  From the dev symlink, we can
+    read the bcacheN holders list, which should contain
+    the backing device kname.
+
+    In either case, if we fail to find the correct
+    symlinks in sysfs, this method will raise
+    an OSError indicating the missing attribute.
+    """
+    # cacheset
+    # /sys/fs/bcache/<uuid>
+
+    # cache device
+    # /sys/class/block/<cdev>/bcache/set -> # .../fs/bcache/uuid
+
+    # backing
+    # /sys/class/block/<bdev>/bcache/cache -> # .../block/bcacheN
+    # /sys/class/block/<bdev>/bcache/dev -> # .../block/bcacheN
+
+    if bcache_sys_path.startswith('/sys/fs/bcache'):
+        LOG.debug("validating bcache caching device '%s' from sys_path"
+                  " '%s'", bcache_device, bcache_sys_path)
+        # we expect a cacheN symlink to point to bcache_device/bcache
+        sys_path_links = [os.path.join(bcache_sys_path, l)
+                          for l in os.listdir(bcache_sys_path)]
+        cache_links = [l for l in sys_path_links
+                       if os.path.islink(l) and (
+                          os.path.basename(l).startswith('cache'))]
+
+        if len(cache_links) == 0:
+            msg = ('Failed to find any cache links in %s:%s' % (
+                   bcache_sys_path, sys_path_links))
+            raise OSError(msg)
+
+        for link in cache_links:
+            target = os.readlink(link)
+            LOG.debug('Resolving symlink %s -> %s', link, target)
+            # cacheN  -> ../../../devices/.../<bcache_device>/bcache
+            # basename(dirname(readlink(link)))
+            target_cache_device = os.path.basename(
+                os.path.dirname(target))
+            if os.path.basename(bcache_device) == target_cache_device:
+                LOG.debug('Found match: bcache_device=%s target_device=%s',
+                          bcache_device, target_cache_device)
+                return
+            else:
+                msg = ('Cache symlink %s ' % target_cache_device +
+                       'points to incorrect device: %s' % bcache_device)
+                raise OSError(msg)
+    elif bcache_sys_path.startswith('/sys/class/block'):
+        LOG.debug("validating bcache backing device '%s' from sys_path"
+                  " '%s'", bcache_device, bcache_sys_path)
+        # we expect a 'dev' symlink to point to the bcacheN device
+        bcache_dev = os.path.join(bcache_sys_path, 'dev')
+        if os.path.islink(bcache_dev):
+            bcache_dev_link = (
+                os.path.basename(os.readlink(bcache_dev)))
+            LOG.debug('bcache device %s using bcache kname: %s',
+                      bcache_sys_path, bcache_dev_link)
+
+            bcache_slaves_path = os.path.join(bcache_dev, 'slaves')
+            slaves = os.listdir(bcache_slaves_path)
+            LOG.debug('bcache device %s has slaves: %s',
+                      bcache_sys_path, slaves)
+            if os.path.basename(bcache_device) in slaves:
+                LOG.debug('bcache device %s found in slaves',
+                          os.path.basename(bcache_device))
+                return
+            else:
+                msg = ('Failed to find bcache device %s' % bcache_device +
+                       'in slaves list %s' % slaves)
+                raise OSError(msg)
+        else:
+            msg = 'didnt find "dev" attribute on: %s', bcache_dev
+            return OSError(msg)
+
+    else:
+        LOG.debug("Failed to validate bcache device '%s' from sys_path"
+                  " '%s'", bcache_device, bcache_sys_path)
+        msg = ('sysfs path %s does not appear to be a bcache device' %
+               bcache_sys_path)
+        return ValueError(msg)
+
+
+def ensure_bcache_is_registered(bcache_device, expected, retry=None):
+    """ Test that bcache_device is found at an expected path and
+        re-register the device if it's not ready.
+
+        Retry the validation and registration as needed.
+    """
+    if not retry:
+        retry = BCACHE_REGISTRATION_RETRY
+
+    for attempt, wait in enumerate(retry):
+        # find the actual bcache device name via sysfs using the
+        # backing device's holders directory.
+        LOG.debug('check just created bcache %s if it is registered,'
+                  ' try=%s', bcache_device, attempt + 1)
+        try:
+            udevadm_settle()
+            if os.path.exists(expected):
+                LOG.debug('Found bcache dev %s at expected path %s',
+                          bcache_device, expected)
+                validate_bcache_ready(bcache_device, expected)
+            else:
+                msg = 'bcache device path not found: %s' % expected
+                LOG.debug(msg)
+                raise ValueError(msg)
+
+            # if bcache path exists and holders are > 0 we can return
+            LOG.debug('bcache dev %s at path %s successfully registered'
+                      ' on attempt %s/%s',  bcache_device, expected,
+                      attempt + 1, len(retry))
+            return
+
+        except (OSError, IndexError, ValueError):
+            # Some versions of bcache-tools will register the bcache device
+            # as soon as we run make-bcache using udev rules, so wait for
+            # udev to settle, then try to locate the dev, on older versions
+            # we need to register it manually though
+            LOG.debug('bcache device was not registered, registering %s '
+                      'at /sys/fs/bcache/register', bcache_device)
+            try:
+                register_bcache(bcache_device)
+            except IOError:
+                # device creation is notoriously racy and this can trigger
+                # "Invalid argument" IOErrors if it got created in "the
+                # meantime" - just restart the function a few times to
+                # check it all again
+                pass
+
+        LOG.debug("bcache dev %s not ready, waiting %ss",
+                  bcache_device, wait)
+        time.sleep(wait)
+
+    # we've exhausted our retries
+    LOG.warning('Repetitive error registering the bcache dev %s',
+                bcache_device)
+    raise RuntimeError("bcache device %s can't be registered" %
+                       bcache_device)
+
+
+def create_cache_device(cache_device):
+    # /sys/class/block/XXX/YYY/
+    cache_device_sysfs = sys_block_path(cache_device)
+
+    if os.path.exists(os.path.join(cache_device_sysfs, "bcache")):
+        LOG.debug('caching device already exists at {}/bcache. Read '
+                  'cset.uuid'.format(cache_device_sysfs))
+        (out, err) = util.subp(["bcache-super-show", cache_device],
+                               capture=True)
+        LOG.debug('bcache-super-show=[{}]'.format(out))
+        [cset_uuid] = [line.split()[-1] for line in out.split("\n")
+                       if line.startswith('cset.uuid')]
+    else:
+        LOG.debug('caching device does not yet exist at {}/bcache. Make '
+                  'cache and get uuid'.format(cache_device_sysfs))
+        # make the cache device, extracting cacheset uuid
+        (out, err) = util.subp(["make-bcache", "-C", cache_device],
+                               capture=True)
+        LOG.debug('out=[{}]'.format(out))
+        [cset_uuid] = [line.split()[-1] for line in out.split("\n")
+                       if line.startswith('Set UUID:')]
+
+    target_sysfs_path = '/sys/fs/bcache/%s' % cset_uuid
+    ensure_bcache_is_registered(cache_device, target_sysfs_path)
+    return cset_uuid
+
+
+def create_backing_device(backing_device, cache_device, cache_mode, cset_uuid):
+    backing_device_sysfs = sys_block_path(backing_device)
+    target_sysfs_path = os.path.join(backing_device_sysfs, "bcache")
+
+    # there should not be any pre-existing bcache device
+    bdir = os.path.join(backing_device_sysfs, "bcache")
+    if os.path.exists(bdir):
+        raise RuntimeError(
+            'Unexpected old bcache device: %s', backing_device)
+
+    LOG.debug('Creating a backing device on %s', backing_device)
+    util.subp(["make-bcache", "-B", backing_device])
+    ensure_bcache_is_registered(backing_device, target_sysfs_path)
+
+    # via the holders we can identify which bcache device we just created
+    # for a given backing device
+    from .clear_holders import get_holders
+    holders = get_holders(backing_device)
+    if len(holders) != 1:
+        err = ('Invalid number {} of holding devices:'
+               ' "{}"'.format(len(holders), holders))
+        LOG.error(err)
+        raise ValueError(err)
+    [bcache_dev] = holders
+    LOG.debug('The just created bcache device is {}'.format(holders))
+
+    if cache_device:
+        # if we specify both then we need to attach backing to cache
+        if cset_uuid:
+            attach_backing_to_cacheset(backing_device, cache_device, cset_uuid)
+        else:
+            msg = "Invalid cset_uuid: {}".format(cset_uuid)
+            LOG.error(msg)
+            raise ValueError(msg)
+
+    if cache_mode:
+        set_cache_mode(bcache_dev, cache_mode)
+    return dev_path(bcache_dev)
 
 
 # vi: ts=4 expandtab syntax=python

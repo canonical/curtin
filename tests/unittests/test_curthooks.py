@@ -5,6 +5,7 @@ from mock import call, patch, MagicMock
 import textwrap
 
 from curtin.commands import curthooks
+from curtin.commands.block_meta import extract_storage_ordered_dict
 from curtin import distro
 from curtin import util
 from curtin import config
@@ -195,7 +196,9 @@ class TestUpdateInitramfs(CiTestCase):
         super(TestUpdateInitramfs, self).setUp()
         self.add_patch('curtin.util.subp', 'mock_subp')
         self.add_patch('curtin.util.which', 'mock_which')
+        self.add_patch('curtin.util.is_uefi_bootable', 'mock_uefi')
         self.mock_which.return_value = self.random_string()
+        self.mock_uefi.return_value = False
         self.target = self.tmp_dir()
         self.boot = os.path.join(self.target, 'boot')
         os.makedirs(self.boot)
@@ -553,6 +556,8 @@ class TestSetupGrub(CiTestCase):
         self.mock_in_chroot_subp = self.mock_in_chroot.subp
         self.mock_in_chroot_subp.side_effect = iter(self.in_chroot_subp_output)
         self.mock_chroot.return_value = self.mock_in_chroot
+        self.add_patch('curtin.commands.curthooks.configure_grub_debconf',
+                       'm_grub_debconf')
 
     def test_uses_old_grub_install_devices_in_cfg(self):
         cfg = {
@@ -582,8 +587,10 @@ class TestSetupGrub(CiTestCase):
                 self.target, '/dev/vdb'],),
             self.mock_subp.call_args_list[0][0])
 
+    @patch('curtin.commands.block_meta.multipath')
     @patch('curtin.commands.curthooks.os.path.exists')
-    def test_uses_grub_install_on_storage_config(self, m_exists):
+    def test_uses_grub_install_on_storage_config(self, m_exists, m_multipath):
+        m_multipath.is_mpath_member.return_value = False
         cfg = {
             'storage': {
                 'version': 1,
@@ -598,6 +605,7 @@ class TestSetupGrub(CiTestCase):
             },
         }
         self.subp_output.append(('', ''))
+        self.subp_output.append(('', ''))
         m_exists.return_value = True
         curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
         self.assertEquals(
@@ -607,10 +615,12 @@ class TestSetupGrub(CiTestCase):
                 self.target, '/dev/vdb'],),
             self.mock_subp.call_args_list[0][0])
 
+    @patch('curtin.commands.block_meta.multipath')
     @patch('curtin.block.is_valid_device')
     @patch('curtin.commands.curthooks.os.path.exists')
     def test_uses_grub_install_on_storage_config_uefi(
-            self, m_exists, m_is_valid_device):
+            self, m_exists, m_is_valid_device, m_multipath):
+        m_multipath.is_mpath_member.return_value = False
         self.mock_is_uefi_bootable.return_value = True
         cfg = {
             'storage': {
@@ -627,6 +637,7 @@ class TestSetupGrub(CiTestCase):
                         'id': 'vdb-part1',
                         'type': 'partition',
                         'device': 'vdb',
+                        'flag': 'boot',
                         'number': 1,
                     },
                     {
@@ -649,7 +660,7 @@ class TestSetupGrub(CiTestCase):
         }
         self.subp_output.append(('', ''))
         m_exists.return_value = True
-        m_is_valid_device.side_effect = (False, True)
+        m_is_valid_device.side_effect = (False, True, False, True)
         curthooks.setup_grub(cfg, self.target, osfamily=distro.DISTROS.redhat)
         self.assertEquals(
             ([
@@ -795,15 +806,115 @@ class TestSetupGrub(CiTestCase):
             self.mock_in_chroot_subp.call_args_list[0][0])
 
 
+class TestUefiRemoveDuplicateEntries(CiTestCase):
+
+    def setUp(self):
+        super(TestUefiRemoveDuplicateEntries, self).setUp()
+        self.target = self.tmp_dir()
+        self.add_patch('curtin.util.get_efibootmgr', 'm_efibootmgr')
+        self.add_patch('curtin.util.subp', 'm_subp')
+
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_uefi_remove_duplicate_entries(self):
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+                'update_nvram': True,
+            },
+        }
+        self.m_efibootmgr.return_value = {
+            'current': '0000',
+            'entries': {
+                '0000': {
+                    'name': 'ubuntu',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+                },
+                '0001': {
+                    'name': 'ubuntu',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+                },
+                '0002': {  # Is not a duplicate because of unique path
+                    'name': 'ubuntu',
+                    'path': (
+                        'HD(2,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+                },
+                '0003': {  # Is duplicate of 0000
+                    'name': 'ubuntu',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+                },
+            }
+        }
+
+        curthooks.uefi_remove_duplicate_entries(cfg, self.target)
+        self.assertEquals([
+            call(['efibootmgr', '--bootnum=0001', '--delete-bootnum'],
+                 target=self.target),
+            call(['efibootmgr', '--bootnum=0003', '--delete-bootnum'],
+                 target=self.target)],
+            self.m_subp.call_args_list)
+
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_uefi_remove_duplicate_entries_no_change(self):
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+                'update_nvram': True,
+            },
+        }
+        self.m_efibootmgr.return_value = {
+            'current': '0000',
+            'entries': {
+                '0000': {
+                    'name': 'ubuntu',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+                },
+                '0001': {
+                    'name': 'centos',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\centos\\shimx64.efi)'),
+                },
+                '0002': {
+                    'name': 'sles',
+                    'path': (
+                        'HD(1,GPT)/File(\\EFI\\sles\\shimx64.efi)'),
+                },
+            }
+        }
+
+        curthooks.uefi_remove_duplicate_entries(cfg, self.target)
+        self.assertEquals([], self.m_subp.call_args_list)
+
+
 class TestUbuntuCoreHooks(CiTestCase):
+
+    def _make_uc16(self, target):
+        ucpath = os.path.join(target, 'system-data', 'var/lib/snapd')
+        util.ensure_dir(ucpath)
+        return ucpath
+
+    def _make_uc20(self, target):
+        ucpath = os.path.join(target, 'snaps')
+        util.ensure_dir(ucpath)
+        return ucpath
+
     def setUp(self):
         super(TestUbuntuCoreHooks, self).setUp()
         self.target = None
 
-    def test_target_is_ubuntu_core(self):
+    def test_target_is_ubuntu_core_16(self):
         self.target = self.tmp_dir()
-        ubuntu_core_path = os.path.join(self.target, 'system-data',
-                                        'var/lib/snapd')
+        ubuntu_core_path = self._make_uc16(self.target)
+        self.assertTrue(os.path.isdir(ubuntu_core_path))
+        is_core = distro.is_ubuntu_core(self.target)
+        self.assertTrue(is_core)
+
+    def test_target_is_ubuntu_core_20(self):
+        self.target = self.tmp_dir()
+        ubuntu_core_path = self._make_uc20(self.target)
         util.ensure_dir(ubuntu_core_path)
         self.assertTrue(os.path.isdir(ubuntu_core_path))
         is_core = distro.is_ubuntu_core(self.target)
@@ -869,6 +980,8 @@ class TestUbuntuCoreHooks(CiTestCase):
                 }
             }
         }
+        uc_cloud = os.path.join(self.target, 'system-data')
+        util.ensure_dir(uc_cloud)
         curthooks.ubuntu_core_curthooks(cfg, target=self.target)
 
         self.assertEqual(len(mock_del_file.call_args_list), 0)
@@ -881,9 +994,32 @@ class TestUbuntuCoreHooks(CiTestCase):
     @patch('curtin.util.write_file')
     @patch('curtin.util.del_file')
     @patch('curtin.commands.curthooks.handle_cloudconfig')
+    def test_curthooks_uc20_cloud_config(self, mock_handle_cc, mock_del_file,
+                                         mock_write_file):
+        self.target = self.tmp_dir()
+        self._make_uc20(self.target)
+        cfg = {
+            'cloudconfig': {
+                'file1': {
+                    'content': "Hello World!\n",
+                }
+            }
+        }
+        curthooks.ubuntu_core_curthooks(cfg, target=self.target)
+        self.assertEqual(len(mock_del_file.call_args_list), 0)
+        cc_path = os.path.join(self.target,
+                               'data', 'etc', 'cloud', 'cloud.cfg.d')
+        mock_handle_cc.assert_called_with(cfg.get('cloudconfig'),
+                                          base_dir=cc_path)
+        self.assertEqual(len(mock_write_file.call_args_list), 0)
+
+    @patch('curtin.util.write_file')
+    @patch('curtin.util.del_file')
+    @patch('curtin.commands.curthooks.handle_cloudconfig')
     def test_curthooks_net_config(self, mock_handle_cc, mock_del_file,
                                   mock_write_file):
         self.target = self.tmp_dir()
+        self._make_uc16(self.target)
         cfg = {
             'network': {
                 'version': '1',
@@ -891,13 +1027,40 @@ class TestUbuntuCoreHooks(CiTestCase):
                             'name': 'eth0', 'subnets': [{'type': 'dhcp4'}]}]
             }
         }
+        uc_cloud = os.path.join(self.target, 'system-data')
         curthooks.ubuntu_core_curthooks(cfg, target=self.target)
 
         self.assertEqual(len(mock_del_file.call_args_list), 0)
         self.assertEqual(len(mock_handle_cc.call_args_list), 0)
-        netcfg_path = os.path.join(self.target,
-                                   'system-data',
+        netcfg_path = os.path.join(uc_cloud,
                                    'etc/cloud/cloud.cfg.d',
+                                   '50-curtin-networking.cfg')
+        netcfg = config.dump_config({'network': cfg.get('network')})
+        mock_write_file.assert_called_with(netcfg_path,
+                                           content=netcfg)
+        self.assertEqual(len(mock_del_file.call_args_list), 0)
+
+    @patch('curtin.util.write_file')
+    @patch('curtin.util.del_file')
+    @patch('curtin.commands.curthooks.handle_cloudconfig')
+    def test_curthooks_uc20_net_config(self, mock_handle_cc, mock_del_file,
+                                       mock_write_file):
+        self.target = self.tmp_dir()
+        self._make_uc20(self.target)
+        cfg = {
+            'network': {
+                'version': '1',
+                'config': [{'type': 'physical',
+                            'name': 'eth0', 'subnets': [{'type': 'dhcp4'}]}]
+            }
+        }
+        uc_cloud = os.path.join(self.target,
+                                'data', 'etc', 'cloud', 'cloud.cfg.d')
+        curthooks.ubuntu_core_curthooks(cfg, target=self.target)
+
+        self.assertEqual(len(mock_del_file.call_args_list), 0)
+        self.assertEqual(len(mock_handle_cc.call_args_list), 0)
+        netcfg_path = os.path.join(uc_cloud,
                                    '50-curtin-networking.cfg')
         netcfg = config.dump_config({'network': cfg.get('network')})
         mock_write_file.assert_called_with(netcfg_path,
@@ -1485,6 +1648,318 @@ class TestCurthooksCopyZkey(CiTestCase):
         curthooks.copy_zkey_repository(self.host_zkey, self.target)
         found_files = dir2dict(self.target, prefix=self.target)
         self.assertEqual(self.zkey_content, found_files)
+
+
+class TestCurthooksGrubDebconf(CiTestCase):
+    def setUp(self):
+        super(TestCurthooksGrubDebconf, self).setUp()
+        base = 'curtin.commands.curthooks.'
+        self.add_patch(
+            base + 'apt_config.apply_debconf_selections', 'm_debconf')
+        self.add_patch(base + 'block.disk_to_byid_path', 'm_byid')
+
+    def test_debconf_multiselect(self):
+        package = self.random_string()
+        variable = "%s/%s" % (self.random_string(), self.random_string())
+        choices = [c for c in self.random_string()]
+        expected = "%s %s multiselect %s" % (package, variable,
+                                             ", ".join(choices))
+        self.assertEqual(expected,
+                         curthooks._debconf_multiselect(package, variable,
+                                                        choices))
+
+    def test_configure_grub_debconf(self):
+        target = self.random_string()
+        boot_devs = [self.random_string()]
+        byid_boot_devs = ["/dev/disk/by-id/" + dev for dev in boot_devs]
+        uefi = False
+        self.m_byid.side_effect = (lambda x: '/dev/disk/by-id/' + x)
+        curthooks.configure_grub_debconf(boot_devs, target, uefi)
+        expected_selection = [
+            ('grub-pc grub-pc/install_devices '
+             'multiselect %s' % ", ".join(byid_boot_devs))
+        ]
+        expectedcfg = {
+            'debconf_selections': {'grub': "\n".join(expected_selection)}}
+        self.m_debconf.assert_called_with(expectedcfg, target)
+
+    def test_configure_grub_debconf_uefi_enabled(self):
+        target = self.random_string()
+        boot_devs = [self.random_string()]
+        byid_boot_devs = ["/dev/disk/by-id/" + dev for dev in boot_devs]
+        uefi = True
+        self.m_byid.side_effect = (lambda x: '/dev/disk/by-id/' + x)
+        curthooks.configure_grub_debconf(boot_devs, target, uefi)
+        expected_selection = [
+            ('grub-pc grub-efi/install_devices '
+             'multiselect %s' % ", ".join(byid_boot_devs))
+        ]
+        expectedcfg = {
+            'debconf_selections': {'grub': "\n".join(expected_selection)}}
+        self.m_debconf.assert_called_with(expectedcfg, target)
+
+    def test_configure_grub_debconf_handle_no_byid_result(self):
+        target = self.random_string()
+        boot_devs = ['aaaaa', 'bbbbb']
+        uefi = True
+        self.m_byid.side_effect = (
+                lambda x: ('/dev/disk/by-id/' + x if 'a' in x else None))
+        curthooks.configure_grub_debconf(boot_devs, target, uefi)
+        expected_selection = [
+            ('grub-pc grub-efi/install_devices '
+             'multiselect /dev/disk/by-id/aaaaa, bbbbb')
+        ]
+        expectedcfg = {
+            'debconf_selections': {'grub': "\n".join(expected_selection)}}
+        self.m_debconf.assert_called_with(expectedcfg, target)
+
+
+class TestUefiFindGrubDeviceIds(CiTestCase):
+
+    def _sconfig(self, cfg):
+        return extract_storage_ordered_dict(cfg)
+
+    def test_missing_primary_esp_raises_exception(self):
+        cfg = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {
+                        'id': 'vdb-part1',
+                        'type': 'partition',
+                        'device': 'vdb',
+                        'flag': 'boot',
+                        'number': 1,
+                        'grub_device': True,
+                    },
+                    {
+                        'id': 'vdb-part1_format',
+                        'type': 'format',
+                        'volume': 'vdb-part1',
+                        'fstype': 'fat32',
+                    },
+                ]
+            },
+        }
+        with self.assertRaises(RuntimeError):
+            curthooks.uefi_find_grub_device_ids(self._sconfig(cfg))
+
+    def test_single_esp_grub_device_true(self):
+        cfg = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {
+                        'id': 'vdb-part1',
+                        'type': 'partition',
+                        'device': 'vdb',
+                        'flag': 'boot',
+                        'number': 1,
+                        'grub_device': True,
+                    },
+                    {
+                        'id': 'vdb-part1_format',
+                        'type': 'format',
+                        'volume': 'vdb-part1',
+                        'fstype': 'fat32',
+                    },
+                    {
+                        'id': 'vdb-part1_mount',
+                        'type': 'mount',
+                        'device': 'vdb-part1_format',
+                        'path': '/boot/efi',
+                    },
+                ]
+            },
+        }
+        self.assertEqual(['vdb-part1'],
+                         curthooks.uefi_find_grub_device_ids(
+                             self._sconfig(cfg)))
+
+    def test_single_esp_grub_device_true_on_disk(self):
+        cfg = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {
+                        'id': 'vdb',
+                        'type': 'disk',
+                        'name': 'vdb',
+                        'path': '/dev/vdb',
+                        'ptable': 'gpt',
+                        'grub_device': True,
+                    },
+                    {
+                        'id': 'vdb-part1',
+                        'type': 'partition',
+                        'device': 'vdb',
+                        'flag': 'boot',
+                        'number': 1,
+                    },
+                    {
+                        'id': 'vdb-part1_format',
+                        'type': 'format',
+                        'volume': 'vdb-part1',
+                        'fstype': 'fat32',
+                    },
+                    {
+                        'id': 'vdb-part1_mount',
+                        'type': 'mount',
+                        'device': 'vdb-part1_format',
+                        'path': '/boot/efi',
+                    },
+                ]
+            },
+        }
+        self.assertEqual(['vdb-part1'],
+                         curthooks.uefi_find_grub_device_ids(
+                             self._sconfig(cfg)))
+
+    def test_single_esp_no_grub_device(self):
+        cfg = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {
+                        'id': 'vdb',
+                        'type': 'disk',
+                        'name': 'vdb',
+                        'path': '/dev/vdb',
+                        'ptable': 'gpt',
+                    },
+                    {
+                        'id': 'vdb-part1',
+                        'type': 'partition',
+                        'device': 'vdb',
+                        'flag': 'boot',
+                        'number': 1,
+                    },
+                    {
+                        'id': 'vdb-part1_format',
+                        'type': 'format',
+                        'volume': 'vdb-part1',
+                        'fstype': 'fat32',
+                    },
+                    {
+                        'id': 'vdb-part1_mount',
+                        'type': 'mount',
+                        'device': 'vdb-part1_format',
+                        'path': '/boot/efi',
+                    },
+                ]
+            },
+        }
+        self.assertEqual(['vdb-part1'],
+                         curthooks.uefi_find_grub_device_ids(
+                             self._sconfig(cfg)))
+
+    def test_multiple_esp_grub_device_true(self):
+        cfg = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {
+                        'id': 'vda-part1',
+                        'type': 'partition',
+                        'device': 'vda',
+                        'flag': 'boot',
+                        'number': 1,
+                        'grub_device': True,
+                    },
+                    {
+                        'id': 'vdb-part1',
+                        'type': 'partition',
+                        'device': 'vdb',
+                        'flag': 'boot',
+                        'number': 1,
+                        'grub_device': True,
+                    },
+                    {
+                        'id': 'vda-part1_format',
+                        'type': 'format',
+                        'volume': 'vdb-part1',
+                        'fstype': 'fat32',
+                    },
+                    {
+                        'id': 'vdb-part1_format',
+                        'type': 'format',
+                        'volume': 'vdb-part1',
+                        'fstype': 'fat32',
+                    },
+                    {
+                        'id': 'vdb-part1_mount',
+                        'type': 'mount',
+                        'device': 'vdb-part1_format',
+                        'path': '/boot/efi',
+                    },
+
+                ]
+            },
+        }
+        self.assertEqual(['vdb-part1', 'vda-part1'],
+                         curthooks.uefi_find_grub_device_ids(
+                             self._sconfig(cfg)))
+
+    def test_multiple_esp_grub_device_true_on_disk(self):
+        cfg = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {
+                        'id': 'vda',
+                        'type': 'disk',
+                        'name': 'vda',
+                        'path': '/dev/vda',
+                        'ptable': 'gpt',
+                        'grub_device': True,
+                    },
+                    {
+                        'id': 'vdb',
+                        'type': 'disk',
+                        'name': 'vdb',
+                        'path': '/dev/vdb',
+                        'ptable': 'gpt',
+                        'grub_device': True,
+                    },
+                    {
+                        'id': 'vda-part1',
+                        'type': 'partition',
+                        'device': 'vda',
+                        'flag': 'boot',
+                        'number': 1,
+                    },
+                    {
+                        'id': 'vdb-part1',
+                        'type': 'partition',
+                        'device': 'vdb',
+                        'flag': 'boot',
+                        'number': 1,
+                    },
+                    {
+                        'id': 'vda-part1_format',
+                        'type': 'format',
+                        'volume': 'vdb-part1',
+                        'fstype': 'fat32',
+                    },
+                    {
+                        'id': 'vdb-part1_format',
+                        'type': 'format',
+                        'volume': 'vdb-part1',
+                        'fstype': 'fat32',
+                    },
+                    {
+                        'id': 'vdb-part1_mount',
+                        'type': 'mount',
+                        'device': 'vdb-part1_format',
+                        'path': '/boot/efi',
+                    },
+
+                ]
+            },
+        }
+        self.assertEqual(['vdb-part1', 'vda-part1'],
+                         curthooks.uefi_find_grub_device_ids(
+                             self._sconfig(cfg)))
 
 
 # vi: ts=4 expandtab syntax=python

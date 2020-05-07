@@ -19,6 +19,17 @@ _persist_journal:
     }
     exit 0
 
+_install_probert:
+ - &install_probert |
+   command -v apt && {
+       # bionic probert doesn't work with block-discover
+       if [ "`lsb_release -sc`" = "bionic" ]; then
+           exit 0;
+       fi
+       apt-get -qy install probert &>/dev/null || { echo "No probert available"; }
+   }
+   exit 0
+
 # this runs curtin block-discover and stores the result
 # in the target system root dir
 _block_discover:
@@ -39,8 +50,11 @@ _block_discover:
        # xenial and lower don't have jsonschema
        if has_jschema; then
            outfile="${TARGET_MOUNT_POINT}/root/curtin-block-discover.json"
+           probefile="${TARGET_MOUNT_POINT}/root/probe-data.json"
+           echo "dumping probert probe data"
+           curtin -vv block-discover -p > $probefile 2>/dev/null
            echo "discovering block devices"
-           curtin -vv block-discover > $outfile
+           curtin -vv block-discover > $outfile 2>/dev/null
            which curtin > $TARGET_MOUNT_POINT/root/which-curtin
            cdir=$(realpath -m "$(dirname `which curtin`)/../")
            echo $cdir >> $TARGET_MOUNT_POINT/root/which-curtin
@@ -50,6 +64,10 @@ _block_discover:
    fi
    exit 0
 
+
+early_commands:
+  # use bash to allow capturing all apt errors when probert isn't available
+  01_install_probert: ['bash', '-c', *install_probert]
 
 late_commands:
   01_vmtest_pollinate: ['curtin', 'in-target', '--', 'sh', '-c', *pvmtest]

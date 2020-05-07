@@ -1,3 +1,5 @@
+install:
+  unmount: disabled
 showtrace: true
 storage:
     version: 1
@@ -9,17 +11,21 @@ storage:
         name: mpath_a
         wipe: superblock
         grub_device: true
+        multipath: mpatha
+        path: /dev/sda
       - id: sda1
         type: partition
         number: 1
         size: 3GB
         device: sda
         flag: boot
+        wipe: superblock
       - id: sda2
         type: partition
         number: 2
         size: 1GB
         device: sda
+        wipe: superblock
       - id: sda1_root
         type: format
         fstype: ext4

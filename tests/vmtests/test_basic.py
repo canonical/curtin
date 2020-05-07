@@ -14,6 +14,7 @@ from unittest import SkipTest
 class TestBasicAbs(VMBaseClass):
     arch_skip = [
         'arm64',  # arm64 is UEFI only
+        's390x',  # LP: #1806823
     ]
     test_type = 'storage'
     interactive = False
@@ -130,8 +131,12 @@ class TestBasicAbs(VMBaseClass):
         self._test_ptable("blkid_output_diska", expected_ptable)
 
     def test_partition_numbers(self):
-        # disk-d should have partitions 1 2, and 10
-        disk = self._serial_to_kname('disk-d')
+        # pnum_disk should have partitions 1 2, and 10
+        if self.target_release != 'centos66':
+            disk = self._dname_to_kname('pnum_disk')
+        else:
+            disk = self._serial_to_kname('disk-d')
+
         expected = [disk + s for s in ["", "1", "2", "10"]]
         self._test_partition_numbers(disk, expected)
 
@@ -254,15 +259,20 @@ class FocalTestBasic(relbase.focal, TestBasicAbs):
 
 
 class TestBasicScsiAbs(TestBasicAbs):
+    arch_skip = [
+        'arm64',  # arm64 is UEFI only
+    ]
     conf_file = "examples/tests/basic_scsi.yaml"
     disk_driver = 'scsi-hd'
     extra_disks = ['15G', '20G', '25G']
     extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        blkid -o export /dev/sda | cat >blkid_output_sda
-        blkid -o export /dev/sda1 | cat >blkid_output_sda1
-        blkid -o export /dev/sda2 | cat >blkid_output_sda2
-        dev="/dev/disk/by-dname/btrfs_volume";
+        main_disk_id="/dev/disk/by-id/wwn-0x39cc071e72c64cc4"
+        main_disk=$(readlink -f ${main_disk_id})
+        blkid -o export ${main_disk} | cat >blkid_output_main_disk
+        blkid -o export ${main_disk}1 | cat >blkid_output_main_disk-part1
+        blkid -o export ${main_disk}2 | cat >blkid_output_main_disk_part2
+        dev="/dev/disk/by-id/wwn-0x22dc58dc023c7008"
         if command -v btrfs-debug-tree >/dev/null; then
            btrfs-debug-tree -r $dev | awk '/^uuid/ {print $2}' | grep "-"
         else
@@ -271,7 +281,7 @@ class TestBasicScsiAbs(TestBasicAbs):
         fi | cat >btrfs_uuid
 
         # compare via /dev/zero 8MB
-        dev="/dev/disk/by-dname/prep"
+        dev="/dev/disk/by-id/wwn-0x550a270c3a5811c5-part2"
         cmp --bytes=8388608 /dev/zero $dev; echo "$?" > cmp_prep.out
         # extract partition info
         udevadm info --export --query=property $dev | cat >udev_info.out
@@ -283,28 +293,32 @@ class TestBasicScsiAbs(TestBasicAbs):
         expected_ptable = "dos"
         if self.target_arch == "ppc64el":
             expected_ptable = "gpt"
-        self._test_ptable("blkid_output_sda", expected_ptable)
+        self._test_ptable("blkid_output_main_disk", expected_ptable)
 
     def test_partition_numbers(self):
-        # sdd should have partitions 1, 2, and 10
-        disk = "sdd"
+        # pnum_disk should have partitions 1, 2, and 10
+        disk = self._serial_to_kname('0x550a270c3a5811c5')
         expected = [disk + s for s in ["", "1", "2", "10"]]
         self._test_partition_numbers(disk, expected)
 
     def get_fstab_expected(self):
-
         root_kname = (
-            self._dname_to_kname('main_disk_with_in---valid--dname-part1'))
+            self._serial_to_kname('0x39cc071e72c64cc4-part1'))
         home_kname = (
-            self._dname_to_kname('main_disk_with_in---valid--dname-part2'))
-        btrfs_kname = self._dname_to_kname('btrfs_volume')
-        return [(self._kname_to_byuuid(root_kname), '/', 'defaults'),
-                (self._kname_to_byuuid(home_kname), '/home', 'defaults'),
-                (self._kname_to_byuuid(btrfs_kname),
-                 '/btrfs', 'defaults,noatime')]
+            self._serial_to_kname('0x39cc071e72c64cc4-part2'))
+        btrfs_kname = self._serial_to_kname('0x22dc58dc023c7008')
 
+        map_func = self._kname_to_byuuid
+        if self.arch == 's390x':
+            map_func = self._kname_to_bypath
+
+        return [(map_func(root_kname), '/', 'defaults'),
+                (map_func(home_kname), '/home', 'defaults'),
+                (map_func(btrfs_kname), '/btrfs', 'defaults,noatime')]
+
+    @skip_if_arch('s390x')
     def test_whole_disk_uuid(self):
-        kname = self._dname_to_kname('btrfs_volume')
+        kname = self._serial_to_kname('0x22dc58dc023c7008')
         self._test_whole_disk_uuid(kname, "btrfs_uuid")
 
     def test_partition_is_prep(self):

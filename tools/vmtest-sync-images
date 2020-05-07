@@ -22,6 +22,7 @@ from tests.vmtests.helpers import (
 def _fmt_list_filter(filter_name, matches):
     return '~'.join((filter_name, '|'.join(matches)))
 
+
 if __name__ == '__main__':
     # Acquire an exclusive lock on IMAGE_DIR. This will prevent jenkins-runner
     # from running while vmtest-sync-images is working.

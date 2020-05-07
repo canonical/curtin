@@ -1,0 +1,77 @@
+showtrace: true
+bucket:
+  - &setup |
+    parted /dev/disk/by-id/virtio-disk-a --script -- \
+        mklabel gpt              \
+        mkpart primary 1MiB 2MiB \
+        set 1 bios_grub on \
+        mkpart primary 3MiB 4099MiB \
+        set 2 boot on
+    udevadm settle
+    ls -al /dev/disk/by-id
+    vgcreate --force --zero=y --yes root_vg /dev/disk/by-id/virtio-disk-a-part2
+    pvscan --verbose
+    vgscan --verbose
+    lvcreate root_vg --name lv1_root --zero=y --wipesignatures=y \
+        --size 3758096384B
+    udevadm settle
+    mkfs.ext4 /dev/root_vg/lv1_root
+    mount /dev/root_vg/lv1_root /mnt
+    touch /mnt/existing
+    umount /mnt
+    # disable vg/lv
+    for vg in `pvdisplay -C --separator = -o vg_name --noheadings`; do
+        vgchange -an $vg ||:
+    done
+    command -v systemctl && systemctl mask lvm2-pvscan\@.service
+    rm -rf /etc/lvm/archive /etc/lvm/backup
+
+# Create a LVM now to test curtin's reuse of existing LVMs
+early_commands:
+  00-setup-lvm: [sh, -exuc, *setup]
+
+storage:
+    version: 1
+    config:
+      - id: main_disk
+        type: disk
+        ptable: gpt
+        name: root_disk
+        serial: disk-a
+        grub_device: true
+        preserve: true
+      - id: bios_boot
+        type: partition
+        size: 1MB
+        number: 1
+        device: main_disk
+        flag: bios_grub
+        preserve: true
+      - id: main_disk_p2
+        type: partition
+        number: 2
+        size: 4GB
+        device: main_disk
+        flag: boot
+        preserve: true
+      - id: root_vg
+        type: lvm_volgroup
+        name: root_vg
+        devices:
+            - main_disk_p2
+        preserve: true
+      - id: root_vg_lv1
+        type: lvm_partition
+        name: lv1_root
+        size: 3.5G
+        volgroup: root_vg
+        preserve: true
+      - id: lv1_root_fs
+        type: format
+        fstype: ext4
+        volume: root_vg_lv1
+        preserve: true
+      - id: lvroot_mount
+        path: /
+        type: mount
+        device: lv1_root_fs

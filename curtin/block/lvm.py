@@ -13,12 +13,14 @@ import os
 _SEP = '='
 
 
-def _filter_lvm_info(lvtool, match_field, query_field, match_key):
+def _filter_lvm_info(lvtool, match_field, query_field, match_key, args=None):
     """
     filter output of pv/vg/lvdisplay tools
     """
+    if args is None:
+        args = []
     (out, _) = util.subp([lvtool, '-C', '--separator', _SEP, '--noheadings',
-                          '-o', ','.join([match_field, query_field])],
+                          '-o', ','.join([match_field, query_field])] + args,
                          capture=True)
     return [qf for (mf, qf) in
             [l.strip().split(_SEP) for l in out.strip().splitlines()]
@@ -37,6 +39,14 @@ def get_lvols_in_volgroup(vg_name):
     get logical volumes in volgroup
     """
     return _filter_lvm_info('lvdisplay', 'vg_name', 'lv_name', vg_name)
+
+
+def get_lv_size_bytes(lv_name):
+    """ get the size in bytes of a logical volume specified by lv_name."""
+    result = _filter_lvm_info('lvdisplay', 'lv_name', 'lv_size', lv_name,
+                              args=['--units=B'])
+    if result:
+        return util.human2bytes(result[0])
 
 
 def split_lvm_name(full):
@@ -58,7 +68,7 @@ def lvmetad_running():
                                          '/run/lvmetad.pid'))
 
 
-def activate_volgroups():
+def activate_volgroups(multipath=False):
     """
     Activate available volgroups and logical volumes within.
 
@@ -69,15 +79,36 @@ def activate_volgroups():
     # none found (no output)
     % vgchange -ay
     """
+    cmd = ['vgchange', '--activate=y']
+    if multipath:
+        # only operate on mp devices
+        mp_filter = generate_multipath_dev_mapper_filter()
+        cmd.extend(['--config', 'devices{ %s }' % mp_filter])
 
     # vgchange handles syncing with udev by default
     # see man 8 vgchange and flag --noudevsync
-    out, _ = util.subp(['vgchange', '--activate=y'], capture=True)
+    out, _ = util.subp(cmd, capture=True)
     if out:
         LOG.info(out)
 
 
-def lvm_scan(activate=True):
+def _generate_multipath_filter(accept=None):
+    if not accept:
+        raise ValueError('Missing list of accept patterns')
+    prefix = ", ".join(['"a|%s|"' % p for p in accept])
+    return 'filter = [ {prefix}, "r|.*|" ]'.format(prefix=prefix)
+
+
+def generate_multipath_dev_mapper_filter():
+    return _generate_multipath_filter(accept=['/dev/mapper/mpath.*'])
+
+
+def generate_multipath_dm_uuid_filter():
+    return _generate_multipath_filter(
+        accept=['/dev/disk/by-id/dm-uuid-.*mpath-.*'])
+
+
+def lvm_scan(activate=True, multipath=False):
     """
     run full scan for volgroups, logical volumes and physical volumes
     """
@@ -94,9 +125,15 @@ def lvm_scan(activate=True):
         LOG.warning('unable to find release number, assuming xenial or later')
         release = 'xenial'
 
-    for cmd in [['pvscan'], ['vgscan', '--mknodes']]:
+    if multipath:
+        # only operate on mp devices
+        mponly = 'devices{ filter = [ "a|/dev/mapper/mpath.*|", "r|.*|" ] }'
+
+    for cmd in [['pvscan'], ['vgscan']]:
         if release != 'precise' and lvmetad_running():
             cmd.append('--cache')
+        if multipath:
+            cmd.extend(['--config', mponly])
         util.subp(cmd, capture=True)
 
 # vi: ts=4 expandtab syntax=python

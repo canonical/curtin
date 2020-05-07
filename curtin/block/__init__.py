@@ -16,6 +16,9 @@ from curtin.udev import udevadm_settle, udevadm_info
 from curtin import storage_config
 
 
+SECTOR_SIZE_BYTES = 512
+
+
 def get_dev_name_entry(devname):
     """
     convert device name to path in /dev
@@ -111,7 +114,9 @@ def partition_kname(disk_kname, partition_number):
         # linux will create a -partX symlink against the disk by-id name.
         devpath = '/dev/' + disk_kname
         disk_link = get_device_mapper_links(devpath, first=True)
-        return '%s-part%s' % (disk_link, partition_number)
+        return path_to_kname(
+                    os.path.realpath('%s-part%s' % (disk_link,
+                                                    partition_number)))
 
     for dev_type in ['bcache', 'nvme', 'mmcblk', 'cciss', 'mpath', 'md']:
         if disk_kname.startswith(dev_type):
@@ -138,6 +143,8 @@ def sys_block_path(devname, add=None, strict=True):
     toks = ['/sys/class/block']
     # insert parent dev if devname is partition
     devname = os.path.normpath(devname)
+    if devname.startswith('/dev/') and not os.path.exists(devname):
+        LOG.warning('block.sys_block_path: devname %s does not exist', devname)
     (parent, partnum) = get_blockdev_for_partition(devname, strict=strict)
     if partnum:
         toks.append(path_to_kname(parent))
@@ -239,6 +246,86 @@ def _lsblock(args=None):
     (out, _err) = util.subp(basecmd + list(args), capture=True)
     out = out.replace('!', '/')
     return _lsblock_pairs_to_dict(out)
+
+
+def sfdisk_info(devpath):
+    ''' returns dict of sfdisk info about disk partitions
+    {
+      "label": "gpt",
+      "id": "877716F7-31D0-4D56-A1ED-4D566EFE418E",
+      "device": "/dev/vda",
+      "unit": "sectors",
+      "firstlba": 34,
+      "lastlba": 41943006,
+      "partitions": [
+         {"node": "/dev/vda1", "start": 227328, "size": 41715679,
+          "type": "0FC63DAF-8483-4772-8E79-3D69D8477DE4",
+          "uuid": "60541CAF-E2AC-48CD-BF89-AF16051C833F"},
+      ]
+    }
+    {
+      "label":"dos",
+      "id":"0xb0dbdde1",
+      "device":"/dev/vdb",
+      "unit":"sectors",
+      "partitions": [
+         {"node":"/dev/vdb1", "start":2048, "size":8388608,
+          "type":"83", "bootable":true},
+         {"node":"/dev/vdb2", "start":8390656, "size":8388608, "type":"83"},
+         {"node":"/dev/vdb3", "start":16779264, "size":62914560, "type":"5"},
+         {"node":"/dev/vdb5", "start":16781312, "size":31457280, "type":"83"},
+         {"node":"/dev/vdb6", "start":48240640, "size":10485760, "type":"83"},
+         {"node":"/dev/vdb7", "start":58728448, "size":20965376, "type":"83"}
+      ]
+    }
+    '''
+    (parent, partnum) = get_blockdev_for_partition(devpath)
+    try:
+        (out, _err) = util.subp(['sfdisk', '--json', parent], capture=True)
+    except util.ProcessExecutionError as e:
+        out = None
+        LOG.exception(e)
+    if out is not None:
+        return util.load_json(out).get('partitiontable', {})
+
+    return {}
+
+
+def get_partition_sfdisk_info(devpath, sfdisk_info=None):
+    if not sfdisk_info:
+        sfdisk_info = sfdisk_info(devpath)
+
+    entry = [part for part in sfdisk_info['partitions']
+             if part['node'] == devpath]
+    if len(entry) != 1:
+        raise RuntimeError('Device %s not present in sfdisk dump:\n%s' %
+                           devpath, util.json_dumps(sfdisk_info))
+    return entry.pop()
+
+
+def dmsetup_info(devname):
+    ''' returns dict of info about device mapper dev.
+
+    {'blkdevname': 'dm-0',
+     'blkdevs_used': 'sda5',
+     'name': 'sda5_crypt',
+     'subsystem': 'CRYPT',
+     'uuid': 'CRYPT-LUKS1-2b370697149743b0b2407d11f88311f1-sda5_crypt'
+    }
+    '''
+    _SEP = '='
+    fields = ('name,uuid,blkdevname,blkdevs_used,subsystem'.split(','))
+    try:
+        (out, _err) = util.subp(['dmsetup', 'info', devname, '-C', '-o',
+                                 ','.join(fields), '--noheading',
+                                 '--separator', _SEP], capture=True)
+    except util.ProcessExecutionError as e:
+        LOG.error('Failed to run dmsetup info:', e)
+        return {}
+
+    values = out.strip().split(_SEP)
+    info = dict(zip(fields, values))
+    return info
 
 
 def get_unused_blockdev_info():
@@ -456,7 +543,7 @@ def blkid(devs=None, cache=True):
     return data
 
 
-def detect_multipath(target_mountpoint):
+def _legacy_detect_multipath(target_mountpoint=None):
     """
     Detect if the operating system has been installed to a multipath device.
     """
@@ -478,7 +565,7 @@ def detect_multipath(target_mountpoint):
     # while installing the system.
     rescan_block_devices()
     binfo = blkid(cache=False)
-    LOG.debug("detect_multipath found blkid info: %s", binfo)
+    LOG.debug("legacy_detect_multipath found blkid info: %s", binfo)
     # get_devices_for_mp may return multiple devices by design. It is not yet
     # implemented but it should return multiple devices when installer creates
     # separate disk partitions for / and /boot. We need to do UUID-based
@@ -508,6 +595,71 @@ def detect_multipath(target_mountpoint):
     # No other devices have the same UUID as the target devices.
     # We probably installed the system to the non-multipath device.
     return False
+
+
+def _device_is_multipathed(devpath):
+    devpath = os.path.realpath(devpath)
+    info = udevadm_info(devpath)
+    if multipath.is_mpath_device(devpath, info=info):
+        return True
+    if multipath.is_mpath_partition(devpath, info=info):
+        return True
+
+    if devpath.startswith('/dev/dm-'):
+        # check members of composed devices (LVM, dm-crypt)
+        if 'DM_LV_NAME' in info:
+            volgroup = info.get('DM_VG_NAME')
+            if volgroup:
+                if any((multipath.is_mpath_member(pv) for pv in
+                        lvm.get_pvols_in_volgroup(volgroup))):
+                    return True
+
+    elif devpath.startswith('/dev/md'):
+        if any((multipath.is_mpath_member(md) for md in
+                md_get_devices_list(devpath) + md_get_spares_list(devpath))):
+            return True
+
+    result = multipath.is_mpath_member(devpath)
+    return result
+
+
+def _md_get_members_list(devpath, state_check):
+    md_dev, _partno = get_blockdev_for_partition(devpath)
+    sysfs_md = sys_block_path(md_dev, "md")
+    return [
+        dev_path(dev[4:]) for dev in os.listdir(sysfs_md)
+        if (dev.startswith('dev-') and
+            state_check(
+                util.load_file(os.path.join(sysfs_md, dev, 'state')).strip()))]
+
+
+def md_get_spares_list(devpath):
+    def state_is_spare(state):
+        return (state == 'spare')
+    return _md_get_members_list(devpath, state_is_spare)
+
+
+def md_get_devices_list(devpath):
+    def state_is_not_spare(state):
+        return (state != 'spare')
+    return _md_get_members_list(devpath, state_is_not_spare)
+
+
+def detect_multipath(target_mountpoint=None):
+    if multipath.multipath_supported():
+        for device in (os.path.realpath(dev)
+                       for (dev, _mp, _vfs, _opts, _freq, _passno)
+                       in get_proc_mounts() if dev.startswith('/dev/')):
+            if not is_block_device(device):
+                # A tmpfs can be mounted with any old junk in the "device"
+                # field and unfortunately casper sometimes puts "/dev/shm"
+                # there, which is usually a directory. Ignore such cases.
+                # (See https://bugs.launchpad.net/bugs/1876626)
+                continue
+            if _device_is_multipathed(device):
+                return device
+
+    return _legacy_detect_multipath(target_mountpoint)
 
 
 def get_scsi_wwid(device, replace_whitespace=False):
@@ -624,6 +776,15 @@ def get_blockdev_sector_size(devpath):
 
     LOG.debug('get_blockdev_sector_size: (log=%s, phys=%s)', logical, physical)
     return (int(logical), int(physical))
+
+
+def read_sys_block_size_bytes(device):
+    """ /sys/class/block/<device>/size and return integer value in bytes"""
+    device_dir = os.path.join('/sys/class/block', os.path.basename(device))
+    blockdev_size = os.path.join(device_dir, 'size')
+    with open(blockdev_size) as d:
+        size = int(d.read().strip()) * SECTOR_SIZE_BYTES
+    return size
 
 
 def get_volume_uuid(path):
@@ -754,18 +915,19 @@ def lookup_disk(serial):
     disks.sort(key=lambda x: len(x))
     LOG.debug('lookup_disks found: %s', disks)
     path = os.path.realpath("/dev/disk/by-id/%s" % disks[0])
-    LOG.debug('lookup_disks realpath(%s)=%s', disks[0], path)
+    # /dev/dm-X
     if multipath.is_mpath_device(path):
-        LOG.debug('Detected multipath device, finding a members')
         info = udevadm_info(path)
-        mpath_members = sorted(multipath.find_mpath_members(info['DM_NAME']))
-        LOG.debug('mpath members: %s', mpath_members)
-        if len(mpath_members):
-            path = mpath_members[0]
+        path = os.path.join('/dev/mapper', info['DM_NAME'])
+    # /dev/sdX
+    elif multipath.is_mpath_member(path):
+        mp_name = multipath.find_mpath_id_by_path(path)
+        path = os.path.join('/dev/mapper', mp_name)
 
     if not os.path.exists(path):
         raise ValueError("path '%s' to block device for disk with serial '%s' \
             does not exist" % (path, serial_udev))
+    LOG.debug('block.lookup_disk() returning path %s', path)
     return path
 
 
@@ -843,7 +1005,8 @@ def get_part_table_type(device):
     # signature, because a gpt formatted disk usually has a valid mbr to
     # protect the disk from being modified by older partitioning tools
     return ('gpt' if check_efi_signature(device) else
-            'dos' if check_dos_signature(device) else None)
+            'dos' if check_dos_signature(device) else
+            'vtoc' if check_vtoc_signature(device) else None)
 
 
 def check_dos_signature(device):
@@ -878,6 +1041,17 @@ def check_efi_signature(device):
             util.file_size(devname) >= 2 * sector_size and
             (util.load_file(devname, decode=False, read_len=8,
                             offset=sector_size) == b'EFI PART'))
+
+
+def check_vtoc_signature(device):
+    """ check if the specified device has a vtoc partition table. """
+    devname = dev_path(path_to_kname(device))
+    try:
+        util.subp(['fdasd', '--table', devname])
+    except util.ProcessExecutionError:
+        return False
+
+    return True
 
 
 def is_extended_partition(device):
@@ -1145,7 +1319,7 @@ def get_supported_filesystems():
             for l in util.load_file(proc_fs).splitlines()]
 
 
-def discover():
+def _discover_get_probert_data():
     try:
         LOG.debug('Importing probert prober')
         from probert import prober
@@ -1156,7 +1330,11 @@ def discover():
     probe = prober.Prober()
     LOG.debug('Probing system for storage devices')
     probe.probe_storage()
-    probe_data = probe.get_results()
+    return probe.get_results()
+
+
+def discover():
+    probe_data = _discover_get_probert_data()
     if 'storage' not in probe_data:
         raise ValueError('Probing storage failed')
 

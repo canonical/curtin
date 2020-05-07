@@ -13,6 +13,7 @@ from curtin import config
 from curtin import block
 from curtin import distro
 from curtin.block import iscsi
+from curtin.block import lvm
 from curtin import net
 from curtin import futil
 from curtin.log import LOG
@@ -443,7 +444,7 @@ def uefi_reorder_loaders(grubcfg, target):
     front of the BootOrder.
     """
     if grubcfg.get('reorder_uefi', True):
-        efi_output = util.get_efibootmgr(target)
+        efi_output = util.get_efibootmgr(target=target)
         currently_booted = efi_output.get('current', None)
         boot_order = efi_output.get('order', [])
         if currently_booted:
@@ -461,6 +462,133 @@ def uefi_reorder_loaders(grubcfg, target):
     else:
         LOG.debug("Skipped reordering of UEFI boot methods.")
         LOG.debug("Currently booted UEFI loader might no longer boot.")
+
+
+def uefi_remove_duplicate_entries(grubcfg, target):
+    seen = set()
+    to_remove = []
+    efi_output = util.get_efibootmgr(target=target)
+    entries = efi_output.get('entries', {})
+    for bootnum in sorted(entries):
+        entry = entries[bootnum]
+        t = tuple(entry.items())
+        if t not in seen:
+            seen.add(t)
+        else:
+            to_remove.append((bootnum, entry))
+    if to_remove:
+        with util.ChrootableTarget(target) as in_chroot:
+            for bootnum, entry in to_remove:
+                LOG.debug('Removing duplicate EFI entry (%s, %s)',
+                          bootnum, entry)
+                in_chroot.subp(['efibootmgr', '--bootnum=%s' % bootnum,
+                                '--delete-bootnum'])
+
+
+def _debconf_multiselect(package, variable, choices):
+    return "{package} {variable} multiselect {choices}".format(
+        package=package, variable=variable, choices=", ".join(choices))
+
+
+def configure_grub_debconf(boot_devices, target, uefi):
+    """Configure grub debconf variables in target.
+
+    Non-UEFI:
+    grub-pc grub-pc/install_devices multiselect d1, d2, d3
+
+    UEFI:
+    grub-pc grub-efi/install_devices multiselect d1
+
+    """
+    LOG.debug('Generating grub debconf_selections for devices=%s uefi=%s',
+              boot_devices, uefi)
+
+    byid_links = []
+    for dev in boot_devices:
+        link = block.disk_to_byid_path(dev)
+        byid_links.extend([link] if link else [dev])
+
+    selections = []
+    if uefi:
+        selections.append(_debconf_multiselect(
+            'grub-pc', 'grub-efi/install_devices', byid_links))
+    else:
+        selections.append(_debconf_multiselect(
+            'grub-pc', 'grub-pc/install_devices', byid_links))
+
+    cfg = {'debconf_selections': {'grub': "\n".join(selections)}}
+    LOG.info('Applying grub debconf_selections config:\n%s', cfg)
+    apt_config.apply_debconf_selections(cfg, target)
+    return
+
+
+def uefi_find_grub_device_ids(sconfig):
+    """ Scan the provided storage config for device_ids on which we
+        will install grub.  An order of precendence is required due to
+        legacy configurations which set grub_device on the disk but not
+        on the ESP config itself.  We prefer the latter as this allows
+        a disk to contain more than on ESP and choose to install grub
+        to a subset.  We always look for the 'primary' ESP which is
+        signified by being mounted at /boot/efi (only one can be mounted).
+
+        1. ESPs with grub_device: true are the preferred way to find
+           the specific set of devices on which to install grub
+        2. ESPs whose parent disk has grub_device: true
+
+        The primary ESP is the first element of the result if any
+        devices are found.
+
+        returns a list of storage-config ids on which grub will be installed.
+    """
+    # Only one EFI system partition can be mounted, but backup EFI
+    # partitions may exist.  Find all EFI partitions and determine
+    # the primary.
+    grub_device_ids = []
+    primary_esp = None
+    grub_partitions = []
+    esp_partitions = []
+    for item_id, item in sconfig.items():
+        if item['type'] == 'partition':
+            if item.get('grub_device'):
+                grub_partitions.append(item_id)
+                continue
+            elif item.get('flag') == 'boot':
+                esp_partitions.append(item_id)
+                continue
+
+        if item['type'] == 'mount' and item['path'] == '/boot/efi':
+            if primary_esp:
+                LOG.debug('Ignoring duplicate mounted primary ESP: %s',
+                          item_id)
+                continue
+            primary_esp = sconfig[item['device']]['volume']
+            if sconfig[primary_esp]['type'] == 'partition':
+                LOG.debug("Found primary UEFI ESP: %s", primary_esp)
+            else:
+                LOG.warn('Found primary ESP not on a partition: %s', item)
+
+    if primary_esp is None:
+        raise RuntimeError('Failed to find primary ESP mounted at /boot/efi')
+
+    grub_device_ids = [primary_esp]
+    # prefer grub_device: true partitions
+    if len(grub_partitions):
+        if primary_esp in grub_partitions:
+            grub_partitions.remove(primary_esp)
+        # insert the primary esp as first element
+        grub_device_ids.extend(grub_partitions)
+
+    # look at all esp entries, check if parent disk is grub_device: true
+    elif len(esp_partitions):
+        if primary_esp in esp_partitions:
+            esp_partitions.remove(primary_esp)
+        for esp_id in esp_partitions:
+            esp_disk = sconfig[sconfig[esp_id]['device']]
+            if esp_disk.get('grub_device'):
+                grub_device_ids.append(esp_id)
+
+    LOG.debug('Found UEFI ESP(s) for grub install: %s', grub_device_ids)
+    return grub_device_ids
 
 
 def setup_grub(cfg, target, osfamily=DISTROS.debian):
@@ -485,19 +613,13 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
     except ValueError:
         pass
 
+    uefi_bootable = util.is_uefi_bootable()
     if storage_cfg_odict:
         storage_grub_devices = []
-        if util.is_uefi_bootable():
-            # Curtin only supports creating one EFI system partition. Thus the
-            # grub_device can only be the default system partition mounted at
-            # /boot/efi.
-            for item_id, item in storage_cfg_odict.items():
-                if item.get('path') == '/boot/efi':
-                    efi_dev_id = storage_cfg_odict[item['device']]['volume']
-                    LOG.debug("checking: %s", item)
-                    storage_grub_devices.append(get_path_to_storage_volume(
-                        efi_dev_id, storage_cfg_odict))
-                    break
+        if uefi_bootable:
+            storage_grub_devices.extend([
+                get_path_to_storage_volume(dev_id, storage_cfg_odict)
+                for dev_id in uefi_find_grub_device_ids(storage_cfg_odict)])
         else:
             for item_id, item in storage_cfg_odict.items():
                 if not item.get('grub_device'):
@@ -507,6 +629,10 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
                     get_path_to_storage_volume(item_id, storage_cfg_odict))
 
         if len(storage_grub_devices) > 0:
+            if len(grubcfg.get('install_devices', [])):
+                LOG.warn("Storage Config grub device config takes precedence "
+                         "over grub 'install_devices' value, ignoring: %s",
+                         grubcfg['install_devices'])
             grubcfg['install_devices'] = storage_grub_devices
 
     LOG.debug("install_devices: %s", grubcfg.get('install_devices'))
@@ -580,10 +706,12 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
 
     if instdevs:
         instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
+        if osfamily == DISTROS.debian:
+            configure_grub_debconf(instdevs, target, uefi_bootable)
     else:
         instdevs = ["none"]
 
-    if util.is_uefi_bootable() and grubcfg.get('update_nvram', True):
+    if uefi_bootable and grubcfg.get('update_nvram', True):
         uefi_remove_old_loaders(grubcfg, target)
 
     LOG.debug("installing grub to %s [replace_default=%s]",
@@ -591,7 +719,7 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
 
     with util.ChrootableTarget(target):
         args = ['install-grub']
-        if util.is_uefi_bootable():
+        if uefi_bootable:
             args.append("--uefi")
             LOG.debug("grubcfg: %s", grubcfg)
             if grubcfg.get('update_nvram', True):
@@ -600,6 +728,11 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
             else:
                 LOG.debug("NOT enabling UEFI nvram updates")
                 LOG.debug("Target system may not boot")
+            if len(instdevs) > 1:
+                instdevs = [instdevs[0]]
+                LOG.debug("Selecting primary EFI boot device %s for install",
+                          instdevs[0])
+
         args.append('--os-family=%s' % osfamily)
         args.append(target)
 
@@ -609,7 +742,8 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
             join_stdout_err + args + instdevs, env=env, capture=True)
         LOG.debug("%s\n%s\n", args + instdevs, out)
 
-    if util.is_uefi_bootable() and grubcfg.get('update_nvram', True):
+    if uefi_bootable and grubcfg.get('update_nvram', True):
+        uefi_remove_duplicate_entries(grubcfg, target)
         uefi_reorder_loaders(grubcfg, target)
 
 
@@ -843,10 +977,12 @@ def detect_and_handle_multipath(cfg, target, osfamily=DISTROS.debian):
     if mpmode == 'disabled':
         return
 
-    if mpmode == 'auto' and not block.detect_multipath(target):
+    mp_device = block.detect_multipath(target)
+    LOG.info('Multipath detection found: %s', mp_device)
+    if mpmode == 'auto' and not mp_device:
         return
 
-    LOG.info("Detected multipath devices. Installing support via %s", mppkgs)
+    LOG.info("Detected multipath device. Installing support via %s", mppkgs)
     needed = [pkg for pkg in mppkgs if pkg
               not in distro.get_installed_packages(target)]
     if needed:
@@ -894,6 +1030,13 @@ def detect_and_handle_multipath(cfg, target, osfamily=DISTROS.debian):
         blockdev, partno = block.get_blockdev_for_partition(target_dev)
 
         mpname = "mpath0"
+        mp_supported = block.multipath.multipath_supported()
+        if mp_supported:
+            mpname = block.multipath.get_mpath_id_from_device(mp_device)
+            if not mpname:
+                LOG.warning('Failed to determine multipath device name, using'
+                            ' fallback name "mpatha".')
+                mpname = 'mpatha'
         grub_dev = "/dev/mapper/" + mpname
         if partno is not None:
             if osfamily == DISTROS.debian:
@@ -904,16 +1047,30 @@ def detect_and_handle_multipath(cfg, target, osfamily=DISTROS.debian):
                 raise ValueError(
                         'Unknown grub_dev mapping for distro: %s' % osfamily)
 
-        LOG.debug("configuring multipath install for root=%s wwid=%s",
-                  grub_dev, wwid)
-
-        multipath_bind_content = '\n'.join(
-            ['# This file was created by curtin while installing the system.',
-             "%s %s" % (mpname, wwid),
-             '# End of content generated by curtin.',
-             '# Everything below is maintained by multipath subsystem.',
-             ''])
-        util.write_file(multipath_bind_path, content=multipath_bind_content)
+        LOG.debug("configuring multipath for root=%s wwid=%s mpname=%s",
+                  grub_dev, wwid, mpname)
+        # use host bindings in target if it exists
+        if mp_supported and os.path.exists('/etc/multipath/bindings'):
+            if os.path.exists(multipath_bind_path):
+                util.del_file(multipath_bind_path)
+            util.ensure_dir(os.path.dirname(multipath_bind_path))
+            shutil.copy('/etc/multipath/bindings', multipath_bind_path)
+        else:
+            # bindings map the wwid of the disk to an mpath name, if we have
+            # a partition extract just the parent mpath_id, otherwise we'll
+            # get /dev/mapper/mpatha-part1-part1 entries in dm.
+            if '-part' in mpname:
+                mpath_id, mpath_part_num = mpname.split("-part")
+            else:
+                mpath_id = mpname
+            multipath_bind_content = '\n'.join([
+                ('# This file was created by curtin while '
+                 'installing the system.'), "%s %s" % (mpath_id, wwid),
+                '# End of content generated by curtin.',
+                '# Everything below is maintained by multipath subsystem.',
+                ''])
+            util.write_file(multipath_bind_path,
+                            content=multipath_bind_content)
 
         if osfamily == DISTROS.debian:
             grub_cfg = os.path.sep.join(
@@ -926,12 +1083,37 @@ def detect_and_handle_multipath(cfg, target, osfamily=DISTROS.debian):
             raise ValueError(
                     'Unknown grub_cfg mapping for distro: %s' % osfamily)
 
-        msg = '\n'.join([
-            '# Written by curtin for multipath device %s %s' % (mpname, wwid),
-            'GRUB_DEVICE=%s' % grub_dev,
-            'GRUB_DISABLE_LINUX_UUID=true',
-            ''])
-        util.write_file(grub_cfg, omode=omode, content=msg)
+        if mp_supported:
+            # if root is on lvm, emit a multipath filter to lvm
+            lvmfilter = lvm.generate_multipath_dm_uuid_filter()
+            # lvm.conf device section indents config by 8 spaces
+            indent = ' ' * 8
+            mpfilter = '\n'.join([
+                indent + ('# Modified by curtin for multipath '
+                          'device %s' % (mpname)),
+                indent + lvmfilter])
+            lvmconf = paths.target_path(target, '/etc/lvm/lvm.conf')
+            orig_content = util.load_file(lvmconf)
+            devices_match = re.search(r'devices\ {',
+                                      orig_content, re.MULTILINE)
+            if devices_match:
+                LOG.debug('Adding multipath filter (%s) to lvm.conf', mpfilter)
+                shutil.move(lvmconf, lvmconf + '.orig-curtin')
+                index = devices_match.end()
+                new_content = (
+                    orig_content[:index] + '\n' + mpfilter + '\n' +
+                    orig_content[index + 1:])
+                util.write_file(lvmconf, new_content)
+        else:
+            # TODO: fix up dnames without multipath available on host
+            msg = '\n'.join([
+                '# Written by curtin for multipath device %s %s' % (mpname,
+                                                                    wwid),
+                'GRUB_DEVICE=%s' % grub_dev,
+                'GRUB_DISABLE_LINUX_UUID=true',
+                ''])
+            util.write_file(grub_cfg, omode=omode, content=msg)
+
     else:
         LOG.warn("Not sure how this will boot")
 
@@ -946,7 +1128,7 @@ def detect_and_handle_multipath(cfg, target, osfamily=DISTROS.debian):
         msg = '\n'.join([
             '# Written by curtin for multipath device wwid "%s"' % wwid,
             'force_drivers+=" dm-multipath "',
-            'add_dracutmodules+="multipath"',
+            'add_dracutmodules+=" multipath"',
             'install_items+="/etc/multipath.conf /etc/multipath/bindings"',
             ''])
         util.write_file(dracut_conf_multipath, content=msg)
@@ -1245,13 +1427,18 @@ def handle_cloudconfig(cfg, base_dir=None):
 
 
 def ubuntu_core_curthooks(cfg, target=None):
-    """ Ubuntu-Core 16 images cannot execute standard curthooks
-        Instead we copy in any cloud-init configuration to
-        the 'LABEL=writable' partition mounted at target.
+    """ Ubuntu-Core images cannot execute standard curthooks.
+        Instead, for core16/18 we copy in any cloud-init configuration to
+        the 'LABEL=writable' partition mounted at target.  For core20, we
+        write a cloud-config.d directory in the 'ubuntu-seed' location.
     """
 
     ubuntu_core_target = os.path.join(target, "system-data")
     cc_target = os.path.join(ubuntu_core_target, 'etc/cloud/cloud.cfg.d')
+    if not os.path.exists(ubuntu_core_target):  # uc20
+        ubuntu_core_target = target
+        cc_target = os.path.join(ubuntu_core_target, 'data', 'etc',
+                                 'cloud', 'cloud.cfg.d')
 
     cloudconfig = cfg.get('cloudconfig', None)
     if cloudconfig:
@@ -1385,7 +1572,7 @@ def redhat_update_dracut_config(target, cfg):
             add_modules.add(initramfs_mapping['lvm']['modules'])
 
     dconfig = ['# Written by curtin for custom storage config']
-    dconfig.append('add_dracutmodules+="%s"' % (" ".join(add_modules)))
+    dconfig.append('add_dracutmodules+=" %s"' % (" ".join(add_modules)))
     for conf in add_conf:
         dconfig.append('%s="yes"' % conf)
 

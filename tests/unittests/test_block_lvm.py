@@ -76,7 +76,7 @@ class TestBlockLvm(CiTestCase):
     @mock.patch('curtin.block.lvm.distro')
     def test_lvm_scan(self, mock_distro, mock_util, mock_lvmetad):
         """check that lvm_scan formats commands correctly for each release"""
-        cmds = [['pvscan'], ['vgscan', '--mknodes']]
+        cmds = [['pvscan'], ['vgscan']]
         for (count, (codename, lvmetad_status, use_cache)) in enumerate(
                 [('precise', False, False),
                  ('trusty', False, False),
@@ -94,6 +94,36 @@ class TestBlockLvm(CiTestCase):
             self.assertEqual(len(expected), len(mock_util.subp.call_args_list))
             mock_util.subp.has_calls(calls)
             mock_util.subp.reset_mock()
+
+    @mock.patch('curtin.block.lvm.lvmetad_running')
+    @mock.patch('curtin.block.lvm.util')
+    @mock.patch('curtin.block.lvm.distro')
+    def test_lvm_scan_multipath(self, mock_distro, mock_util, mock_lvmetad):
+        """check that lvm_scan formats commands correctly for multipath."""
+        cmds = [['pvscan'], ['vgscan']]
+        mock_distro.lsb_release.return_value = {'codename': 'focal'}
+        mock_lvmetad.return_value = False
+        lvm.lvm_scan(multipath=True)
+        cmd_filter = [
+            '--config',
+            'devices{ filter = [ "a|/dev/mapper/mpath.*|", "r|.*|" ] }'
+        ]
+        expected = [cmd + cmd_filter for cmd in cmds]
+        calls = [mock.call(cmd, capture=True) for cmd in expected]
+        self.assertEqual(len(expected), len(mock_util.subp.call_args_list))
+        mock_util.subp.has_calls(calls)
+
+
+class TestBlockLvmMultipathFilter(CiTestCase):
+
+    def test_generate_multipath_dev_mapper_filter(self):
+        expected = 'filter = [ "a|/dev/mapper/mpath.*|", "r|.*|" ]'
+        self.assertEqual(expected, lvm.generate_multipath_dev_mapper_filter())
+
+    def test_generate_multipath_dm_uuid_filter(self):
+        expected = (
+            'filter = [ "a|/dev/disk/by-id/dm-uuid-.*mpath-.*|", "r|.*|" ]')
+        self.assertEqual(expected, lvm.generate_multipath_dm_uuid_filter())
 
 
 # vi: ts=4 expandtab syntax=python

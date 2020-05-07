@@ -4,11 +4,12 @@ from collections import OrderedDict, namedtuple
 from curtin import (block, config, paths, util)
 from curtin.block import schemas
 from curtin.block import (bcache, clear_holders, dasd, iscsi, lvm, mdadm, mkfs,
-                          zfs)
+                          multipath, zfs)
 from curtin import distro
 from curtin.log import LOG, logged_time
 from curtin.reporter import events
-from curtin.storage_config import extract_storage_ordered_dict
+from curtin.storage_config import (extract_storage_ordered_dict,
+                                   ptable_uuid_to_flag_entry)
 
 
 from . import populate_one_subcmd
@@ -32,9 +33,29 @@ FstabData.__new__.__defaults__ = (None, None, None, "", "0", "0", None)
 SIMPLE = 'simple'
 SIMPLE_BOOT = 'simple-boot'
 CUSTOM = 'custom'
-BCACHE_REGISTRATION_RETRY = [0.2] * 60
 PTABLE_UNSUPPORTED = schemas._ptable_unsupported
+PTABLES_SUPPORTED = schemas._ptables
+PTABLES_VALID = schemas._ptables_valid
 
+SGDISK_FLAGS = {
+    "boot": 'ef00',
+    "lvm": '8e00',
+    "raid": 'fd00',
+    "bios_grub": 'ef02',
+    "prep": '4100',
+    "swap": '8200',
+    "home": '8302',
+    "linux": '8300'
+}
+
+MSDOS_FLAGS = {
+    'boot': 'boot',
+    'extended': 'extended',
+    'logical': 'logical',
+}
+
+DNAME_BYID_KEYS = ['DM_UUID', 'ID_WWN_WITH_EXTENSION', 'ID_WWN', 'ID_SERIAL',
+                   'ID_SERIAL_SHORT']
 CMD_ARGUMENTS = (
     ((('-D', '--devices'),
       {'help': 'which devices to operate on', 'action': 'append',
@@ -71,11 +92,13 @@ def block_meta(args):
         if 'storage' in cfg:
             devices = get_device_paths_from_storage_config(
                 extract_storage_ordered_dict(cfg))
+            LOG.debug('block-meta: extracted devices to clear: %s', devices)
         if len(devices) == 0:
             devices = cfg.get('block-meta', {}).get('devices', [])
         LOG.debug('Declared block devices: %s', devices)
         args.devices = devices
 
+    LOG.debug('clearing devices=%s', devices)
     meta_clear(devices, state.get('report_stack_prefix', ''))
 
     # dd-images requires use of meta_simple
@@ -123,7 +146,14 @@ def write_image_to_disk(source, dev):
                     '--', source['uri'], devnode])
     util.subp(['partprobe', devnode])
     udevadm_settle()
-    paths = ["curtin", "system-data/var/lib/snapd"]
+    # Images from MAAS have well-known/required paths present
+    # on the rootfs partition.  Use these values to select the
+    # root (target) partition to complete installation.
+    #
+    # /curtin -> Most Ubuntu Images
+    # /system-data/var/lib/snapd -> UbuntuCore 16 or 18
+    # /snaps -> UbuntuCore20
+    paths = ["curtin", "system-data/var/lib/snapd", "snaps"]
     return block.get_root_device([devname], paths=paths)
 
 
@@ -171,7 +201,6 @@ def get_partition_format_type(cfg, machine=None, uefi_bootable=None):
 
 
 def devsync(devpath):
-    LOG.debug('devsync for %s', devpath)
     util.subp(['partprobe', devpath], rcs=[0, 1])
     udevadm_settle()
     for x in range(0, 10):
@@ -247,13 +276,11 @@ def make_dname_byid(path, error_msg=None, info=None):
             "Disk tag udev rules are only for disks, %s has devtype=%s" %
             (error_msg, devtype))
 
-    byid_keys = ['ID_WWN_WITH_EXTENSION', 'ID_WWN',
-                 'ID_SERIAL', 'ID_SERIAL_SHORT']
-    present = [k for k in byid_keys if info.get(k)]
+    present = [k for k in DNAME_BYID_KEYS if info.get(k)]
     if not present:
         LOG.warning(
             "Cannot create disk tag udev rule for %s, "
-            "missing 'serial' or 'wwn' value" % error_msg)
+            "missing 'serial' or 'wwn' value", error_msg)
         return []
 
     return [[compose_udev_equality('ENV{%s}' % k, info[k]) for k in present]]
@@ -278,8 +305,8 @@ def make_dname(volume, storage_config):
             byid = make_dname_byid(path, error_msg="id=%s" % vol.get('id'))
     # we may not always be able to find a uniq identifier on devices with names
     if (not ptuuid and not byid) and vol.get('type') in ["disk", "partition"]:
-        LOG.warning("Can't find a uuid for volume: {}. Skipping dname.".format(
-            volume))
+        LOG.warning("Can't find a uuid for volume: %s. Skipping dname.",
+                    volume)
         return
 
     matches = []
@@ -332,23 +359,37 @@ def make_dname(volume, storage_config):
     #       lvm devices may use the name attribute and may permit special chars
     sanitized = sanitize_dname(dname)
     if sanitized != dname:
-        LOG.warning(
-            "dname modified to remove invalid chars. old: '{}' new: '{}'"
-            .format(dname, sanitized))
+        LOG.warning("dname modified to remove invalid chars. old:"
+                    "'%s' new: '%s'", dname, sanitized)
     content = ['# Written by curtin']
     for match in matches:
         rule = (base_rule + match +
                 ["SYMLINK+=\"disk/by-dname/%s\"\n" % sanitized])
-        LOG.debug("Creating dname udev rule '{}'".format(str(rule)))
+        LOG.debug("Creating dname udev rule '%s'", str(rule))
         content.append(', '.join(rule))
 
     if vol.get('type') == 'disk':
         for brule in byid:
-            rule = (base_rule +
+            part_rule = None
+            for env_rule in brule:
+                # multipath partitions prefix partN- to DM_UUID for fun!
+                # and partitions are "disks" yay \o/ /sarcasm
+                if 'ENV{DM_UUID}=="mpath' not in env_rule:
+                    continue
+                dm_uuid = env_rule.split("==")[1].replace('"', '')
+                part_dm_uuid = 'part*-' + dm_uuid
+                part_rule = (
+                    [compose_udev_equality('ENV{DEVTYPE}', 'disk')] +
+                    [compose_udev_equality('ENV{DM_UUID}', part_dm_uuid)])
+
+            # non-multipath partition rule
+            if not part_rule:
+                part_rule = (
                     [compose_udev_equality('ENV{DEVTYPE}', 'partition')] +
-                    brule +
+                    brule)
+            rule = (base_rule + part_rule +
                     ['SYMLINK+="disk/by-dname/%s-part%%n"\n' % sanitized])
-            LOG.debug("Creating dname udev rule '{}'".format(str(rule)))
+            LOG.debug("Creating dname udev rule '%s'", str(rule))
             content.append(', '.join(rule))
 
     util.ensure_dir(rules_dir)
@@ -359,7 +400,7 @@ def make_dname(volume, storage_config):
 def get_poolname(info, storage_config):
     """ Resolve pool name from zfs info """
 
-    LOG.debug('get_poolname for volume {}'.format(info))
+    LOG.debug('get_poolname for volume %s', info)
     if info.get('type') == 'zfs':
         pool_id = info.get('pool')
         poolname = get_poolname(storage_config.get(pool_id), storage_config)
@@ -377,9 +418,9 @@ def get_path_to_storage_volume(volume, storage_config):
     # Get path to block device for volume. Volume param should refer to id of
     # volume in storage config
 
-    LOG.debug('get_path_to_storage_volume for volume {}'.format(volume))
     devsync_vol = None
     vol = storage_config.get(volume)
+    LOG.debug('get_path_to_storage_volume for volume %s(%s)', volume, vol)
     if not vol:
         raise ValueError("volume with id '%s' not found" % volume)
 
@@ -388,9 +429,12 @@ def get_path_to_storage_volume(volume, storage_config):
         partnumber = determine_partition_number(vol.get('id'), storage_config)
         disk_block_path = get_path_to_storage_volume(vol.get('device'),
                                                      storage_config)
-        disk_kname = block.path_to_kname(disk_block_path)
-        partition_kname = block.partition_kname(disk_kname, partnumber)
-        volume_path = block.kname_to_path(partition_kname)
+        if disk_block_path.startswith('/dev/mapper/mpath'):
+            volume_path = disk_block_path + '-part%s' % partnumber
+        else:
+            disk_kname = block.path_to_kname(disk_block_path)
+            partition_kname = block.partition_kname(disk_kname, partnumber)
+            volume_path = block.kname_to_path(partition_kname)
         devsync_vol = os.path.join(disk_block_path)
 
     elif vol.get('type') == "dasd":
@@ -417,13 +461,19 @@ def get_path_to_storage_volume(volume, storage_config):
                         # sys/class/block access is valid.  ie, there are no
                         # udev generated values in sysfs
                         volume_path = os.path.realpath(vol_value)
+                    # convert /dev/sdX to /dev/mapper/mpathX value
+                    if multipath.is_mpath_member(volume_path):
+                        volume_path = '/dev/mapper/' + (
+                            multipath.get_mpath_id_from_device(volume_path))
                 elif disk_key == 'device_id':
                     dasd_device = dasd.DasdDevice(vol_value)
                     volume_path = dasd_device.devname
             except ValueError:
                 continue
             # verify path exists otherwise try the next key
-            if not os.path.exists(volume_path):
+            if os.path.exists(volume_path):
+                break
+            else:
                 volume_path = None
 
         if volume_path is None:
@@ -469,7 +519,7 @@ def get_path_to_storage_volume(volume, storage_config):
             sys_path = os.path.split(sys_path)[0]
         bcache_kname = block.path_to_kname(sys_path)
         volume_path = block.kname_to_path(bcache_kname)
-        LOG.debug('got bcache volume path {}'.format(volume_path))
+        LOG.debug('got bcache volume path %s', volume_path)
 
     else:
         raise NotImplementedError("cannot determine the path to storage \
@@ -480,7 +530,7 @@ def get_path_to_storage_volume(volume, storage_config):
         devsync_vol = volume_path
     devsync(devsync_vol)
 
-    LOG.debug('return volume path {}'.format(volume_path))
+    LOG.debug('return volume path %s', volume_path)
     return volume_path
 
 
@@ -507,9 +557,11 @@ def dasd_handler(info, storage_config):
     disk_layout = info.get('disk_layout')
     label = info.get('label')
     mode = info.get('mode')
+    force_format = config.value_as_boolean(info.get('wipe'))
 
     dasd_device = dasd.DasdDevice(device_id)
-    if dasd_device.needs_formatting(blocksize, disk_layout, label):
+    if (force_format or dasd_device.needs_formatting(blocksize,
+                                                     disk_layout, label)):
         if config.value_as_boolean(info.get('preserve')):
             raise ValueError(
                 "dasd '%s' does not match configured properties and"
@@ -530,14 +582,17 @@ def dasd_handler(info, storage_config):
 def disk_handler(info, storage_config):
     _dos_names = ['dos', 'msdos']
     ptable = info.get('ptable')
-    disk = get_path_to_storage_volume(info.get('id'), storage_config)
+    if ptable and ptable not in PTABLES_VALID:
+        raise ValueError(
+            'Invalid partition table type: %s in %s' % (ptable, info))
 
+    disk = get_path_to_storage_volume(info.get('id'), storage_config)
     if config.value_as_boolean(info.get('preserve')):
         # Handle preserve flag, verifying if ptable specified in config
-        if config.value_as_boolean(ptable) and ptable != PTABLE_UNSUPPORTED:
+        if ptable and ptable != PTABLE_UNSUPPORTED:
             current_ptable = block.get_part_table_type(disk)
-            if not ((ptable in _dos_names and current_ptable in _dos_names) or
-                    (ptable == 'gpt' and current_ptable == 'gpt')):
+            LOG.debug('disk: current ptable type: %s', current_ptable)
+            if current_ptable not in PTABLES_SUPPORTED:
                 raise ValueError(
                     "disk '%s' does not have correct partition table or "
                     "cannot be read, but preserve is set to true. "
@@ -562,8 +617,6 @@ def disk_handler(info, storage_config):
             elif ptable == "vtoc":
                 # ignore dasd partition tables
                 pass
-            else:
-                raise ValueError('invalid partition table type: %s', ptable)
         holders = clear_holders.get_holders(disk)
         if len(holders) > 0:
             LOG.info('Detected block holders on disk %s: %s', disk, holders)
@@ -615,6 +668,120 @@ def find_extended_partition(part_device, storage_config):
             return item_id
 
 
+def calc_dm_partition_info(partition):
+    # dm- partitions are not in the same dir as disk dm device,
+    # dmsetup table <dm_name>
+    # handle linear types only
+    #    mpatha-part1: 0 6291456 linear 253:0, 2048
+    #    <dm_name>: <log. start sec> <num sec> <type> <dest dev>  <start sec>
+    #
+    # Mapping this:
+    #   previous_size_sectors = <num_sec> | /sys/class/block/dm-1/size
+    #   previous_start_sectors = <start_sec> |  No 'start' sysfs file
+    pp_size_sec = pp_start_sec = None
+    mpath_id = multipath.get_mpath_id_from_device(block.dev_path(partition))
+    if mpath_id is None:
+        raise RuntimeError('Failed to find mpath_id for partition')
+    table_cmd = ['dmsetup', 'table', '--target', 'linear', mpath_id]
+    out, _err = util.subp(table_cmd, capture=True)
+    if out:
+        (_logical_start, previous_size_sectors, _table_type,
+         _destination, previous_start_sectors) = out.split()
+        pp_size_sec = int(previous_size_sectors)
+        pp_start_sec = int(previous_start_sectors)
+
+    return (pp_start_sec, pp_size_sec)
+
+
+def calc_partition_info(disk, partition, logical_block_size_bytes):
+    if partition.startswith('dm-'):
+        pp = partition
+        pp_start_sec, pp_size_sec = calc_dm_partition_info(partition)
+    else:
+        pp = os.path.join(disk, partition)
+        # XXX: sys/block/X/{size,start} is *ALWAYS* in 512b value
+        pp_size = int(
+            util.load_file(os.path.join(pp, "size")))
+        pp_size_sec = int(pp_size * 512 / logical_block_size_bytes)
+        pp_start = int(util.load_file(os.path.join(pp, "start")))
+        pp_start_sec = int(pp_start * 512 / logical_block_size_bytes)
+
+    LOG.debug("previous partition: %s size_sectors=%s start_sectors=%s",
+              pp, pp_size_sec, pp_start_sec)
+    if not all([pp_size_sec, pp_start_sec]):
+        raise RuntimeError(
+            'Failed to determine previous partition %s info', partition)
+
+    return (pp_start_sec, pp_size_sec)
+
+
+def verify_exists(devpath):
+    LOG.debug('Verifying %s exists', devpath)
+    if not os.path.exists(devpath):
+        raise RuntimeError("Device %s does not exist" % devpath)
+
+
+def verify_size(devpath, expected_size_bytes, sfdisk_info=None):
+    if not sfdisk_info:
+        sfdisk_info = block.sfdisk_info(devpath)
+
+    part_info = block.get_partition_sfdisk_info(devpath,
+                                                sfdisk_info=sfdisk_info)
+    (found_type, _code) = ptable_uuid_to_flag_entry(part_info.get('type'))
+    if found_type == 'extended':
+        found_size_bytes = int(part_info['size']) * 512
+    else:
+        found_size_bytes = block.read_sys_block_size_bytes(devpath)
+    msg = (
+        'Verifying %s size, expecting %s bytes, found %s bytes' % (
+         devpath, expected_size_bytes, found_size_bytes))
+    LOG.debug(msg)
+    if expected_size_bytes != found_size_bytes:
+        raise RuntimeError(msg)
+
+
+def verify_ptable_flag(devpath, expected_flag, sfdisk_info=None):
+    if (expected_flag not in SGDISK_FLAGS.keys()) and (expected_flag not in
+                                                       MSDOS_FLAGS.keys()):
+        raise RuntimeError(
+            'Cannot verify unknown partition flag: %s' % expected_flag)
+
+    if not sfdisk_info:
+        sfdisk_info = block.sfdisk_info(devpath)
+
+    entry = block.get_partition_sfdisk_info(devpath, sfdisk_info=sfdisk_info)
+    LOG.debug("Device %s ptable entry: %s", devpath, util.json_dumps(entry))
+    found_flag = None
+    if (sfdisk_info['label'] in ('dos', 'msdos')):
+        if expected_flag == 'boot':
+            found_flag = 'boot' if entry.get('bootable') is True else None
+        elif expected_flag == 'extended':
+            (found_flag, _code) = ptable_uuid_to_flag_entry(entry['type'])
+        elif expected_flag == 'logical':
+            (_parent, partnumber) = block.get_blockdev_for_partition(devpath)
+            found_flag = 'logical' if int(partnumber) > 4 else None
+    else:
+        (found_flag, _code) = ptable_uuid_to_flag_entry(entry['type'])
+    msg = (
+        'Verifying %s partition flag, expecting %s, found %s' % (
+         devpath, expected_flag, found_flag))
+    LOG.debug(msg)
+    if expected_flag != found_flag:
+        raise RuntimeError(msg)
+
+
+def partition_verify(devpath, info):
+    verify_exists(devpath)
+    sfdisk_info = block.sfdisk_info(devpath)
+    if not sfdisk_info:
+        raise RuntimeError('Failed to extract sfdisk info from %s' % devpath)
+    verify_size(devpath, int(util.human2bytes(info['size'])),
+                sfdisk_info=sfdisk_info)
+    expected_flag = info.get('flag')
+    if expected_flag:
+        verify_ptable_flag(devpath, info['flag'], sfdisk_info=sfdisk_info)
+
+
 def partition_handler(info, storage_config):
     device = info.get('device')
     size = info.get('size')
@@ -634,9 +801,8 @@ def partition_handler(info, storage_config):
     # consider the disks logical sector size when calculating sectors
     try:
         (logical_block_size_bytes, _) = block.get_blockdev_sector_size(disk)
-        LOG.debug(
-            "{} logical_block_size_bytes: {}".format(disk_kname,
-                                                     logical_block_size_bytes))
+        LOG.debug("%s logical_block_size_bytes: %s",
+                  disk_kname, logical_block_size_bytes)
     except OSError as e:
         LOG.warning("Couldn't read block size, using default size 512: %s", e)
         logical_block_size_bytes = 512
@@ -663,21 +829,10 @@ def partition_handler(info, storage_config):
         LOG.debug("previous partition number for '%s' found to be '%s'",
                   info.get('id'), pnum)
         partition_kname = block.partition_kname(disk_kname, pnum)
-        previous_partition = os.path.join(disk_sysfs_path, partition_kname)
-        LOG.debug("previous partition: {}".format(previous_partition))
-        # XXX: sys/block/X/{size,start} is *ALWAYS* in 512b value
-        previous_size = int(
-            util.load_file(os.path.join(previous_partition, "size")))
-        previous_size_sectors = int(previous_size * 512 /
-                                    logical_block_size_bytes)
-        previous_start = int(
-            util.load_file(os.path.join(previous_partition, "start")))
-        previous_start_sectors = int(previous_start * 512 /
-                                     logical_block_size_bytes)
-        LOG.debug("previous partition.size_sectors: {}".format(
-                  previous_size_sectors))
-        LOG.debug("previous partition.start_sectors: {}".format(
-                  previous_start_sectors))
+        LOG.debug('partition_kname=%s', partition_kname)
+        (previous_start_sectors, previous_size_sectors) = (
+            calc_partition_info(disk_sysfs_path, partition_kname,
+                                logical_block_size_bytes))
 
     # Align to 1M at the beginning of the disk and at logical partitions
     alignment_offset = int((1 << 20) / logical_block_size_bytes)
@@ -716,86 +871,96 @@ def partition_handler(info, storage_config):
         length_sectors = length_sectors + (logdisks * alignment_offset)
 
     # Handle preserve flag
+    create_partition = True
     if config.value_as_boolean(info.get('preserve')):
-        return
-    elif config.value_as_boolean(storage_config.get(device).get('preserve')):
-        raise NotImplementedError("Partition '%s' is not marked to be \
-            preserved, but device '%s' is. At this time, preserving devices \
-            but not also the partitions on the devices is not supported, \
-            because of the possibility of damaging partitions intended to be \
-            preserved." % (info.get('id'), device))
+        part_path = block.dev_path(
+            block.partition_kname(disk_kname, partnumber))
+        partition_verify(part_path, info)
+        LOG.debug('Partition %s already present, skipping create', part_path)
+        create_partition = False
 
-    # Set flag
-    # 'sgdisk --list-types'
-    sgdisk_flags = {"boot": 'ef00',
-                    "lvm": '8e00',
-                    "raid": 'fd00',
-                    "bios_grub": 'ef02',
-                    "prep": '4100',
-                    "swap": '8200',
-                    "home": '8302',
-                    "linux": '8300'}
+    if create_partition:
+        # Set flag
+        # 'sgdisk --list-types'
+        LOG.info("adding partition '%s' to disk '%s' (ptable: '%s')",
+                 info.get('id'), device, disk_ptable)
+        LOG.debug("partnum: %s offset_sectors: %s length_sectors: %s",
+                  partnumber, offset_sectors, length_sectors)
 
-    LOG.info("adding partition '%s' to disk '%s' (ptable: '%s')",
-             info.get('id'), device, disk_ptable)
-    LOG.debug("partnum: %s offset_sectors: %s length_sectors: %s",
-              partnumber, offset_sectors, length_sectors)
+        # Pre-Wipe the partition if told to do so, do not wipe dos extended
+        # partitions as this may damage the extended partition table
+        if config.value_as_boolean(info.get('wipe')):
+            LOG.info("Preparing partition location on disk %s", disk)
+            if info.get('flag') == "extended":
+                LOG.warn("extended partitions do not need wiping, "
+                         "so skipping: '%s'" % info.get('id'))
+            else:
+                # wipe the start of the new partition first by zeroing 1M at
+                # the length of the previous partition
+                wipe_offset = int(offset_sectors * logical_block_size_bytes)
+                LOG.debug('Wiping 1M on %s at offset %s', disk, wipe_offset)
+                # We don't require exclusive access as we're wiping data at an
+                # offset and the current holder maybe part of the current
+                # storage configuration.
+                block.zero_file_at_offsets(disk, [wipe_offset],
+                                           exclusive=False)
 
-    # Wipe the partition if told to do so, do not wipe dos extended partitions
-    # as this may damage the extended partition table
-    if config.value_as_boolean(info.get('wipe')):
-        LOG.info("Preparing partition location on disk %s", disk)
-        if info.get('flag') == "extended":
-            LOG.warn("extended partitions do not need wiping, so skipping: "
-                     "'%s'" % info.get('id'))
+        if disk_ptable == "msdos":
+            if flag and flag == 'prep':
+                raise ValueError(
+                    'PReP partitions require a GPT partition table')
+
+            if flag in ["extended", "logical", "primary"]:
+                partition_type = flag
+            else:
+                partition_type = "primary"
+            cmd = ["parted", disk, "--script", "mkpart", partition_type,
+                   "%ss" % offset_sectors, "%ss" % str(offset_sectors +
+                                                       length_sectors)]
+            if flag == 'boot':
+                cmd.extend(['set', str(partnumber), 'boot', 'on'])
+
+            util.subp(cmd, capture=True)
+        elif disk_ptable == "gpt":
+            if flag and flag in SGDISK_FLAGS:
+                typecode = SGDISK_FLAGS[flag]
+            else:
+                typecode = SGDISK_FLAGS['linux']
+            cmd = ["sgdisk", "--new", "%s:%s:%s" % (partnumber, offset_sectors,
+                   length_sectors + offset_sectors),
+                   "--typecode=%s:%s" % (partnumber, typecode), disk]
+            util.subp(cmd, capture=True)
+        elif disk_ptable == "vtoc":
+            disk_device_id = storage_config.get(device).get('device_id')
+            dasd_device = dasd.DasdDevice(disk_device_id)
+            dasd_device.partition(partnumber, length_bytes)
         else:
-            # wipe the start of the new partition first by zeroing 1M at the
-            # length of the previous partition
-            wipe_offset = int(offset_sectors * logical_block_size_bytes)
-            LOG.debug('Wiping 1M on %s at offset %s', disk, wipe_offset)
-            # We don't require exclusive access as we're wiping data at an
-            # offset and the current holder maybe part of the current storage
-            # configuration.
-            block.zero_file_at_offsets(disk, [wipe_offset], exclusive=False)
+            raise ValueError("parent partition has invalid partition table")
 
-    if disk_ptable == "msdos":
-        if flag and flag == 'prep':
-            raise ValueError('PReP partitions require a GPT partition table')
-
-        if flag in ["extended", "logical", "primary"]:
-            partition_type = flag
+        # ensure partition exists
+        if multipath.is_mpath_device(disk):
+            udevadm_settle()  # allow partition creation to happen
+            # update device mapper table mapping to mpathX-partN
+            part_path = disk + "-part%s" % partnumber
+            # sometimes multipath lib creates a block device instead of
+            # a udev symlink, remove this and allow kpartx to create it
+            if os.path.exists(part_path) and not os.path.islink(part_path):
+                util.del_file(part_path)
+            util.subp(['kpartx', '-v', '-a', '-s', '-p', '-part', disk])
         else:
-            partition_type = "primary"
-        cmd = ["parted", disk, "--script", "mkpart", partition_type,
-               "%ss" % offset_sectors, "%ss" % str(offset_sectors +
-                                                   length_sectors)]
-        util.subp(cmd, capture=True)
-    elif disk_ptable == "gpt":
-        if flag and flag in sgdisk_flags:
-            typecode = sgdisk_flags[flag]
+            part_path = block.dev_path(block.partition_kname(disk_kname,
+                                                             partnumber))
+            block.rescan_block_devices([disk])
+        udevadm_settle(exists=part_path)
+
+    wipe_mode = info.get('wipe')
+    if wipe_mode:
+        if wipe_mode == 'superblock' and create_partition:
+            # partition creation pre-wipes partition superblock locations
+            pass
         else:
-            typecode = sgdisk_flags['linux']
-        cmd = ["sgdisk", "--new", "%s:%s:%s" % (partnumber, offset_sectors,
-               length_sectors + offset_sectors),
-               "--typecode=%s:%s" % (partnumber, typecode), disk]
-        util.subp(cmd, capture=True)
-    elif disk_ptable == "vtoc":
-        disk_device_id = storage_config.get(device).get('device_id')
-        dasd_device = dasd.DasdDevice(disk_device_id)
-        dasd_device.partition(partnumber, length_bytes)
-    else:
-        raise ValueError("parent partition has invalid partition table")
-
-    # ensure partition exists
-    part_path = block.dev_path(block.partition_kname(disk_kname, partnumber))
-    block.rescan_block_devices([disk])
-    udevadm_settle(exists=part_path)
-
-    # wipe the created partition if needed, superblocks have already been wiped
-    wipe_mode = info.get('wipe', 'superblock')
-    if wipe_mode != 'superblock':
-        LOG.debug('Wiping partition %s mode=%s', part_path, wipe_mode)
-        block.wipe_volume(part_path, mode=wipe_mode, exclusive=False)
+            LOG.debug('Wiping partition %s mode=%s', part_path, wipe_mode)
+            block.wipe_volume(part_path, mode=wipe_mode, exclusive=False)
 
     # Make the name if needed
     if storage_config.get(device).get('name') and partition_type != 'extended':
@@ -817,7 +982,7 @@ def format_handler(info, storage_config):
         return
 
     # Make filesystem using block library
-    LOG.debug("mkfs {} info: {}".format(volume_path, info))
+    LOG.debug("mkfs %s info: %s", volume_path, info)
     mkfs.mkfs_from_config(volume_path, info)
 
     device_type = storage_config.get(volume).get('type')
@@ -922,6 +1087,10 @@ def get_volume_spec(device_path):
         if platform.machine() == 's390x':
             devlinks = [link for link in info['DEVLINKS']
                         if link.startswith('/dev/disk/by-path')]
+        # use device-mapper uuid if present
+        if 'DM_UUID' in info:
+            devlinks = [link for link in info['DEVLINKS']
+                        if os.path.basename(link).startswith('dm-uuid-')]
         if len(devlinks) == 0:
             # use FS UUID if present
             devlinks = [link for link in info['DEVLINKS']
@@ -1041,10 +1210,28 @@ def mount_handler(info, storage_config):
                 target=state.get('target'), fstab=state.get('fstab'))
 
 
+def verify_volgroup_members(vg_name, pv_paths):
+    # LVM may be offline, so start it
+    lvm.activate_volgroups()
+    # Verify that volgroup exists and contains all specified devices
+    found_pvs = set(lvm.get_pvols_in_volgroup(vg_name))
+    expected_pvs = set(pv_paths)
+    msg = ('Verifying lvm volgroup %s members, expected %s, found %s ' % (
+           vg_name, expected_pvs, found_pvs))
+    LOG.debug(msg)
+    if expected_pvs != found_pvs:
+        raise RuntimeError(msg)
+
+
+def lvm_volgroup_verify(vg_name, device_paths):
+    verify_volgroup_members(vg_name, device_paths)
+
+
 def lvm_volgroup_handler(info, storage_config):
     devices = info.get('devices')
     device_paths = []
     name = info.get('name')
+    preserve = config.value_as_boolean(info.get('preserve'))
     if not devices:
         raise ValueError("devices for volgroup '%s' must be specified" %
                          info.get('id'))
@@ -1059,16 +1246,13 @@ def lvm_volgroup_handler(info, storage_config):
         device_paths.append(get_path_to_storage_volume(device_id,
                             storage_config))
 
-    # Handle preserve flag
-    if config.value_as_boolean(info.get('preserve')):
-        # LVM will probably be offline, so start it
-        util.subp(["vgchange", "-a", "y"])
-        # Verify that volgroup exists and contains all specified devices
-        if set(lvm.get_pvols_in_volgroup(name)) != set(device_paths):
-            raise ValueError("volgroup '%s' marked to be preserved, but does "
-                             "not exist or does not contain the right "
-                             "physical volumes" % info.get('id'))
-    else:
+    create_vg = True
+    if preserve:
+        lvm_volgroup_verify(name, device_paths)
+        LOG.debug('lvm_volgroup %s already present, skipping create', name)
+        create_vg = False
+
+    if create_vg:
         # Create vgrcreate command and run
         # capture output to avoid printing it to log
         # Use zero to clear target devices of any metadata
@@ -1079,9 +1263,34 @@ def lvm_volgroup_handler(info, storage_config):
     lvm.lvm_scan()
 
 
+def verify_lv_in_vg(lv_name, vg_name):
+    found_lvols = lvm.get_lvols_in_volgroup(vg_name)
+    msg = ('Verifying %s logical volume is in %s volume '
+           'group, found %s ' % (lv_name, vg_name, found_lvols))
+    LOG.debug(msg)
+    if lv_name not in found_lvols:
+        raise RuntimeError(msg)
+
+
+def verify_lv_size(lv_name, size):
+    expected_size_bytes = util.human2bytes(size)
+    found_size_bytes = lvm.get_lv_size_bytes(lv_name)
+    msg = ('Verifying %s logical value is size bytes %s, found %s '
+           % (lv_name, expected_size_bytes, found_size_bytes))
+    LOG.debug(msg)
+    if expected_size_bytes != found_size_bytes:
+        raise RuntimeError(msg)
+
+
+def lvm_partition_verify(lv_name, vg_name, info):
+    verify_lv_in_vg(lv_name, vg_name)
+    if 'size' in info:
+        verify_lv_size(lv_name, info['size'])
+
+
 def lvm_partition_handler(info, storage_config):
-    volgroup = storage_config.get(info.get('volgroup')).get('name')
-    name = info.get('name')
+    volgroup = storage_config[info['volgroup']]['name']
+    name = info['name']
     if not volgroup:
         raise ValueError("lvm volgroup for lvm partition must be specified")
     if not name:
@@ -1089,21 +1298,15 @@ def lvm_partition_handler(info, storage_config):
     if info.get('ptable'):
         raise ValueError("Partition tables on top of lvm logical volumes is "
                          "not supported")
+    preserve = config.value_as_boolean(info.get('preserve'))
 
-    # Handle preserve flag
-    if config.value_as_boolean(info.get('preserve')):
-        if name not in lvm.get_lvols_in_volgroup(volgroup):
-            raise ValueError("lvm partition '%s' marked to be preserved, but "
-                             "does not exist or does not mach storage "
-                             "configuration" % info.get('id'))
-    elif storage_config.get(info.get('volgroup')).get('preserve'):
-        raise NotImplementedError(
-            "Lvm Partition '%s' is not marked to be preserved, but volgroup "
-            "'%s' is. At this time, preserving volgroups but not also the lvm "
-            "partitions on the volgroup is not supported, because of the "
-            "possibility of damaging lvm  partitions intended to be "
-            "preserved." % (info.get('id'), volgroup))
-    else:
+    create_lv = True
+    if preserve:
+        lvm_partition_verify(name, volgroup, info)
+        LOG.debug('lvm_partition %s already present, skipping create', name)
+        create_lv = False
+
+    if create_lv:
         # Use 'wipesignatures' (if available) and 'zero' to clear target lv
         # of any fs metadata
         cmd = ["lvcreate", volgroup, "--name", name, "--zero=y"]
@@ -1122,7 +1325,29 @@ def lvm_partition_handler(info, storage_config):
     # refresh lvmetad
     lvm.lvm_scan()
 
-    make_dname(info.get('id'), storage_config)
+    wipe_mode = info.get('wipe', 'superblock')
+    if wipe_mode and create_lv:
+        lv_path = get_path_to_storage_volume(info['id'], storage_config)
+        LOG.debug('Wiping logical volume %s mode=%s', lv_path, wipe_mode)
+        block.wipe_volume(lv_path, mode=wipe_mode, exclusive=False)
+
+    make_dname(info['id'], storage_config)
+
+
+def verify_blkdev_used(dmcrypt_dev, expected_blkdev):
+    dminfo = block.dmsetup_info(dmcrypt_dev)
+    found_blkdev = dminfo['blkdevs_used']
+    msg = (
+        'Verifying %s volume, expecting %s , found %s ' % (
+         dmcrypt_dev, expected_blkdev, found_blkdev))
+    LOG.debug(msg)
+    if expected_blkdev != found_blkdev:
+        raise RuntimeError(msg)
+
+
+def dm_crypt_verify(dmcrypt_dev, volume_path):
+    verify_exists(dmcrypt_dev)
+    verify_blkdev_used(dmcrypt_dev, volume_path)
 
 
 def dm_crypt_handler(info, storage_config):
@@ -1131,11 +1356,13 @@ def dm_crypt_handler(info, storage_config):
     keysize = info.get('keysize')
     cipher = info.get('cipher')
     dm_name = info.get('dm_name')
+    if not dm_name:
+        dm_name = info.get('id')
+    dmcrypt_dev = os.path.join("/dev", "mapper", dm_name)
+    preserve = config.value_as_boolean(info.get('preserve'))
     if not volume:
         raise ValueError("volume for cryptsetup to operate on must be \
             specified")
-    if not dm_name:
-        dm_name = info.get('id')
 
     volume_path = get_path_to_storage_volume(volume, storage_config)
     volume_byid_path = block.disk_to_byid_path(volume_path)
@@ -1154,51 +1381,68 @@ def dm_crypt_handler(info, storage_config):
     else:
         raise ValueError("encryption key or keyfile must be specified")
 
-    # if zkey is available, attempt to generate and use it; if it's not
-    # available or fails to setup properly, fallback to normal cryptsetup
-    # passing strict=False downgrades log messages to warnings
-    zkey_used = None
-    if block.zkey_supported(strict=False):
-        volume_name = "%s:%s" % (volume_byid_path, dm_name)
-        LOG.debug('Attempting to setup zkey for %s', volume_name)
-        luks_type = 'luks2'
-        gen_cmd = ['zkey', 'generate', '--xts', '--volume-type', luks_type,
-                   '--sector-size', '4096', '--name', dm_name,
-                   '--description',
-                   "curtin generated zkey for %s" % volume_name,
-                   '--volumes', volume_name]
-        run_cmd = ['zkey', 'cryptsetup', '--run', '--volumes',
-                   volume_byid_path, '--batch-mode', '--key-file', keyfile]
-        try:
-            util.subp(gen_cmd, capture=True)
-            util.subp(run_cmd, capture=True)
-            zkey_used = os.path.join(os.path.split(state['fstab'])[0],
-                                     "zkey_used")
-            # mark in state that we used zkey
-            util.write_file(zkey_used, "1")
-        except util.ProcessExecutionError as e:
-            LOG.exception(e)
-            msg = 'Setup of zkey on %s failed, fallback to cryptsetup.'
-            LOG.error(msg % volume_path)
+    create_dmcrypt = True
+    if preserve:
+        dm_crypt_verify(dmcrypt_dev, volume_path)
+        LOG.debug('dm_crypt %s already present, skipping create', dmcrypt_dev)
+        create_dmcrypt = False
 
-    if not zkey_used:
-        LOG.debug('Using cryptsetup on %s', volume_path)
-        luks_type = "luks"
-        cmd = ["cryptsetup"]
-        if cipher:
-            cmd.extend(["--cipher", cipher])
-        if keysize:
-            cmd.extend(["--key-size", keysize])
-        cmd.extend(["luksFormat", volume_path, keyfile])
+    if create_dmcrypt:
+        # if zkey is available, attempt to generate and use it; if it's not
+        # available or fails to setup properly, fallback to normal cryptsetup
+        # passing strict=False downgrades log messages to warnings
+        zkey_used = None
+        if block.zkey_supported(strict=False):
+            volume_name = "%s:%s" % (volume_byid_path, dm_name)
+            LOG.debug('Attempting to setup zkey for %s', volume_name)
+            luks_type = 'luks2'
+            gen_cmd = ['zkey', 'generate', '--xts', '--volume-type', luks_type,
+                       '--sector-size', '4096', '--name', dm_name,
+                       '--description',
+                       "curtin generated zkey for %s" % volume_name,
+                       '--volumes', volume_name]
+            run_cmd = ['zkey', 'cryptsetup', '--run', '--volumes',
+                       volume_byid_path, '--batch-mode', '--key-file', keyfile]
+            try:
+                util.subp(gen_cmd, capture=True)
+                util.subp(run_cmd, capture=True)
+                zkey_used = os.path.join(os.path.split(state['fstab'])[0],
+                                         "zkey_used")
+                # mark in state that we used zkey
+                util.write_file(zkey_used, "1")
+            except util.ProcessExecutionError as e:
+                LOG.exception(e)
+                msg = 'Setup of zkey on %s failed, fallback to cryptsetup.'
+                LOG.error(msg % volume_path)
+
+        if not zkey_used:
+            LOG.debug('Using cryptsetup on %s', volume_path)
+            luks_type = "luks"
+            cmd = ["cryptsetup"]
+            if cipher:
+                cmd.extend(["--cipher", cipher])
+            if keysize:
+                cmd.extend(["--key-size", keysize])
+            cmd.extend(["luksFormat", volume_path, keyfile])
+            util.subp(cmd)
+
+        cmd = ["cryptsetup", "open", "--type", luks_type, volume_path, dm_name,
+               "--key-file", keyfile]
+
         util.subp(cmd)
 
-    cmd = ["cryptsetup", "open", "--type", luks_type, volume_path, dm_name,
-           "--key-file", keyfile]
+        if keyfile_is_tmp:
+            os.remove(keyfile)
 
-    util.subp(cmd)
-
-    if keyfile_is_tmp:
-        os.remove(keyfile)
+    wipe_mode = info.get('wipe')
+    if wipe_mode:
+        if wipe_mode == 'superblock' and create_dmcrypt:
+            # newly created dmcrypt volumes do not need superblock wiping
+            pass
+        else:
+            LOG.debug('Wiping dm_crypt device %s mode=%s',
+                      dmcrypt_dev, wipe_mode)
+            block.wipe_volume(dmcrypt_dev, mode=wipe_mode, exclusive=False)
 
     # A crypttab will be created in the same directory as the fstab in the
     # configuration. This will then be copied onto the system later
@@ -1214,12 +1458,33 @@ def dm_crypt_handler(info, storage_config):
             so not writing crypttab")
 
 
+def verify_md_components(md_devname, raidlevel, device_paths, spare_paths):
+    # check if the array is already up, if not try to assemble
+    check_ok = mdadm.md_check(md_devname, raidlevel, device_paths,
+                              spare_paths)
+    if not check_ok:
+        LOG.info("assembling preserved raid for %s", md_devname)
+        mdadm.mdadm_assemble(md_devname, device_paths, spare_paths)
+        check_ok = mdadm.md_check(md_devname, raidlevel, device_paths,
+                                  spare_paths)
+    msg = ('Verifying %s raid composition, found raid is %s'
+           % (md_devname, 'OK' if check_ok else 'not OK'))
+    LOG.debug(msg)
+    if not check_ok:
+        raise RuntimeError(msg)
+
+
+def raid_verify(md_devname, raidlevel, device_paths, spare_paths):
+    verify_md_components(md_devname, raidlevel, device_paths, spare_paths)
+
+
 def raid_handler(info, storage_config):
     state = util.load_command_environment(strict=True)
     devices = info.get('devices')
     raidlevel = info.get('raidlevel')
     spare_devices = info.get('spare_devices')
     md_devname = block.dev_path(info.get('name'))
+    preserve = config.value_as_boolean(info.get('preserve'))
     if not devices:
         raise ValueError("devices for raid must be specified")
     if raidlevel not in ['linear', 'raid0', 0, 'stripe', 'raid1', 1, 'mirror',
@@ -1229,40 +1494,40 @@ def raid_handler(info, storage_config):
         if spare_devices:
             raise ValueError("spareunsupported in raidlevel '%s'" % raidlevel)
 
-    LOG.debug('raid: cfg: {}'.format(util.json_dumps(info)))
+    LOG.debug('raid: cfg: %s', util.json_dumps(info))
     device_paths = list(get_path_to_storage_volume(dev, storage_config) for
                         dev in devices)
-    LOG.debug('raid: device path mapping: {}'.format(
-              zip(devices, device_paths)))
+    LOG.debug('raid: device path mapping: %s',
+              list(zip(devices, device_paths)))
 
     spare_device_paths = []
     if spare_devices:
         spare_device_paths = list(get_path_to_storage_volume(dev,
                                   storage_config) for dev in spare_devices)
-        LOG.debug('raid: spare device path mapping: {}'.format(
-                  zip(spare_devices, spare_device_paths)))
+        LOG.debug('raid: spare device path mapping: %s',
+                  list(zip(spare_devices, spare_device_paths)))
 
-    # Handle preserve flag
-    if config.value_as_boolean(info.get('preserve')):
-        # check if the array is already up, if not try to assemble
-        if not mdadm.md_check(md_devname, raidlevel,
-                              device_paths, spare_device_paths):
-            LOG.info("assembling preserved raid for "
-                     "{}".format(md_devname))
+    create_raid = True
+    if preserve:
+        raid_verify(md_devname, raidlevel, device_paths, spare_device_paths)
+        LOG.debug('raid %s already present, skipping create', md_devname)
+        create_raid = False
 
-            mdadm.mdadm_assemble(md_devname, device_paths, spare_device_paths)
+    if create_raid:
+        mdadm.mdadm_create(md_devname, raidlevel,
+                           device_paths, spare_device_paths,
+                           info.get('mdname', ''))
 
-            # try again after attempting to assemble
-            if not mdadm.md_check(md_devname, raidlevel,
-                                  devices, spare_device_paths):
-                raise ValueError("Unable to confirm preserved raid array: "
-                                 " {}".format(md_devname))
-        # raid is all OK
-        return
-
-    mdadm.mdadm_create(md_devname, raidlevel,
-                       device_paths, spare_device_paths,
-                       info.get('mdname', ''))
+    wipe_mode = info.get('wipe')
+    if wipe_mode:
+        if wipe_mode == 'superblock' and create_raid:
+            # Newly created raid devices already wipe member superblocks at
+            # their data offset (this is equivalent to wiping the assembled
+            # device, see curtin.block.mdadm.zero_device for more details.
+            pass
+        else:
+            LOG.debug('Wiping raid device %s mode=%s', md_devname, wipe_mode)
+            block.wipe_volume(md_devname, mode=wipe_mode, exclusive=False)
 
     # Make dname rule for this dev
     make_dname(info.get('id'), storage_config)
@@ -1287,264 +1552,122 @@ def raid_handler(info, storage_config):
         disk_handler(info, storage_config)
 
 
+def verify_bcache_cachedev(cachedev):
+    """ verify that the specified cache_device is a bcache cache device."""
+    result = bcache.is_caching(cachedev)
+    msg = ('Verifying %s is bcache cache device, found device is %s'
+           % (cachedev, 'OK' if result else 'not OK'))
+    LOG.debug(msg)
+    if not result:
+        raise RuntimeError(msg)
+
+
+def verify_bcache_backingdev(backingdev):
+    """ verify that the specified backingdev is a bcache backing device."""
+    result = bcache.is_backing(backingdev)
+    msg = ('Verifying %s is bcache backing device, found device is %s'
+           % (backingdev, 'OK' if result else 'not OK'))
+    LOG.debug(msg)
+    if not result:
+        raise RuntimeError(msg)
+
+
+def verify_cache_mode(backing_dev, backing_superblock, expected_mode):
+    """ verify the backing device cache-mode is set as expected. """
+    found = backing_superblock.get('dev.data.cache_mode', '')
+    msg = ('Verifying %s bcache cache-mode, expecting %s, found %s'
+           % (backing_dev, expected_mode, found))
+    LOG.debug(msg)
+    if expected_mode not in found:
+        raise RuntimeError(msg)
+
+
+def verify_bcache_cset_uuid_match(backing_dev, cinfo, binfo):
+    expected_cset_uuid = cinfo.get('cset.uuid')
+    found_cset_uuid = binfo.get('cset.uuid')
+    result = ((expected_cset_uuid == found_cset_uuid)
+              if expected_cset_uuid else False)
+    msg = ('Verifying bcache backing_device %s cset.uuid is %s, found %s'
+           % (backing_dev, expected_cset_uuid, found_cset_uuid))
+    LOG.debug(msg)
+    if not result:
+        raise RuntimeError(msg)
+
+
+def bcache_verify_cachedev(cachedev):
+    verify_bcache_cachedev(cachedev)
+    return True
+
+
+def bcache_verify_backingdev(backingdev):
+    verify_bcache_backingdev(backingdev)
+    return True
+
+
+def bcache_verify(cachedev, backingdev, cache_mode):
+    bcache_verify_cachedev(cachedev)
+    bcache_verify_backingdev(backingdev)
+    cache_info = bcache.superblock_asdict(cachedev)
+    backing_info = bcache.superblock_asdict(backingdev)
+    verify_bcache_cset_uuid_match(backingdev, cache_info, backing_info)
+    if cache_mode:
+        verify_cache_mode(backingdev, backing_info, cache_mode)
+
+    return True
+
+
 def bcache_handler(info, storage_config):
     backing_device = get_path_to_storage_volume(info.get('backing_device'),
                                                 storage_config)
     cache_device = get_path_to_storage_volume(info.get('cache_device'),
                                               storage_config)
     cache_mode = info.get('cache_mode', None)
+    preserve = config.value_as_boolean(info.get('preserve'))
 
     if not backing_device or not cache_device:
         raise ValueError("backing device and cache device for bcache"
                          " must be specified")
 
-    bcache_sysfs = "/sys/fs/bcache"
-    udevadm_settle(exists=bcache_sysfs)
+    create_bcache = True
+    if preserve:
+        if cache_device and backing_device:
+            if bcache_verify(cache_device, backing_device, cache_mode):
+                create_bcache = False
+        elif cache_device:
+            if bcache_verify_cachedev(cache_device):
+                create_bcache = False
+        elif backing_device:
+            if bcache_verify_backingdev(backing_device):
+                create_bcache = False
+        if not create_bcache:
+            LOG.debug('bcache %s already present, skipping create', info['id'])
 
-    def register_bcache(bcache_device):
-        LOG.debug('register_bcache: %s > /sys/fs/bcache/register',
-                  bcache_device)
-        with open("/sys/fs/bcache/register", "w") as fp:
-            fp.write(bcache_device)
+    cset_uuid = bcache_dev = None
+    if create_bcache and cache_device:
+        cset_uuid = bcache.create_cache_device(cache_device)
 
-    def _validate_bcache(bcache_device, bcache_sys_path):
-        """ check if bcache is ready, dump info
+    if create_bcache and backing_device:
+        bcache_dev = bcache.create_backing_device(backing_device, cache_device,
+                                                  cache_mode, cset_uuid)
 
-        For cache devices, we expect to find a cacheN symlink
-        which will point to the underlying cache device; Find
-        this symlink, read it and compare bcache_device
-        specified in the parameters.
+    if cache_mode and not backing_device:
+        raise ValueError("cache mode specified which can only be set on "
+                         "backing devices, but none was specified")
 
-        For backing devices, we expec to find a dev symlink
-        pointing to the bcacheN device to which the backing
-        device is enslaved.  From the dev symlink, we can
-        read the bcacheN holders list, which should contain
-        the backing device kname.
-
-        In either case, if we fail to find the correct
-        symlinks in sysfs, this method will raise
-        an OSError indicating the missing attribute.
-        """
-        # cacheset
-        # /sys/fs/bcache/<uuid>
-
-        # cache device
-        # /sys/class/block/<cdev>/bcache/set -> # .../fs/bcache/uuid
-
-        # backing
-        # /sys/class/block/<bdev>/bcache/cache -> # .../block/bcacheN
-        # /sys/class/block/<bdev>/bcache/dev -> # .../block/bcacheN
-
-        if bcache_sys_path.startswith('/sys/fs/bcache'):
-            LOG.debug("validating bcache caching device '%s' from sys_path"
-                      " '%s'", bcache_device, bcache_sys_path)
-            # we expect a cacheN symlink to point to bcache_device/bcache
-            sys_path_links = [os.path.join(bcache_sys_path, l)
-                              for l in os.listdir(bcache_sys_path)]
-            cache_links = [l for l in sys_path_links
-                           if os.path.islink(l) and (
-                              os.path.basename(l).startswith('cache'))]
-
-            if len(cache_links) == 0:
-                msg = ('Failed to find any cache links in %s:%s' % (
-                       bcache_sys_path, sys_path_links))
-                raise OSError(msg)
-
-            for link in cache_links:
-                target = os.readlink(link)
-                LOG.debug('Resolving symlink %s -> %s', link, target)
-                # cacheN  -> ../../../devices/.../<bcache_device>/bcache
-                # basename(dirname(readlink(link)))
-                target_cache_device = os.path.basename(
-                    os.path.dirname(target))
-                if os.path.basename(bcache_device) == target_cache_device:
-                    LOG.debug('Found match: bcache_device=%s target_device=%s',
-                              bcache_device, target_cache_device)
-                    return
-                else:
-                    msg = ('Cache symlink %s ' % target_cache_device +
-                           'points to incorrect device: %s' % bcache_device)
-                    raise OSError(msg)
-        elif bcache_sys_path.startswith('/sys/class/block'):
-            LOG.debug("validating bcache backing device '%s' from sys_path"
-                      " '%s'", bcache_device, bcache_sys_path)
-            # we expect a 'dev' symlink to point to the bcacheN device
-            bcache_dev = os.path.join(bcache_sys_path, 'dev')
-            if os.path.islink(bcache_dev):
-                bcache_dev_link = (
-                    os.path.basename(os.readlink(bcache_dev)))
-                LOG.debug('bcache device %s using bcache kname: %s',
-                          bcache_sys_path, bcache_dev_link)
-
-                bcache_slaves_path = os.path.join(bcache_dev, 'slaves')
-                slaves = os.listdir(bcache_slaves_path)
-                LOG.debug('bcache device %s has slaves: %s',
-                          bcache_sys_path, slaves)
-                if os.path.basename(bcache_device) in slaves:
-                    LOG.debug('bcache device %s found in slaves',
-                              os.path.basename(bcache_device))
-                    return
-                else:
-                    msg = ('Failed to find bcache device %s' % bcache_device +
-                           'in slaves list %s' % slaves)
-                    raise OSError(msg)
-            else:
-                msg = 'didnt find "dev" attribute on: %s', bcache_dev
-                return OSError(msg)
-
-        else:
-            LOG.debug("Failed to validate bcache device '%s' from sys_path"
-                      " '%s'", bcache_device, bcache_sys_path)
-            msg = ('sysfs path %s does not appear to be a bcache device' %
-                   bcache_sys_path)
-            return ValueError(msg)
-
-    def ensure_bcache_is_registered(bcache_device, expected, retry=None):
-        """ Test that bcache_device is found at an expected path and
-            re-register the device if it's not ready.
-
-            Retry the validation and registration as needed.
-        """
-        if not retry:
-            retry = BCACHE_REGISTRATION_RETRY
-
-        for attempt, wait in enumerate(retry):
-            # find the actual bcache device name via sysfs using the
-            # backing device's holders directory.
-            LOG.debug('check just created bcache %s if it is registered,'
-                      ' try=%s', bcache_device, attempt + 1)
-            try:
-                udevadm_settle()
-                if os.path.exists(expected):
-                    LOG.debug('Found bcache dev %s at expected path %s',
-                              bcache_device, expected)
-                    _validate_bcache(bcache_device, expected)
-                else:
-                    msg = 'bcache device path not found: %s' % expected
-                    LOG.debug(msg)
-                    raise ValueError(msg)
-
-                # if bcache path exists and holders are > 0 we can return
-                LOG.debug('bcache dev %s at path %s successfully registered'
-                          ' on attempt %s/%s',  bcache_device, expected,
-                          attempt + 1, len(retry))
-                return
-
-            except (OSError, IndexError, ValueError):
-                # Some versions of bcache-tools will register the bcache device
-                # as soon as we run make-bcache using udev rules, so wait for
-                # udev to settle, then try to locate the dev, on older versions
-                # we need to register it manually though
-                LOG.debug('bcache device was not registered, registering %s '
-                          'at /sys/fs/bcache/register', bcache_device)
-                try:
-                    register_bcache(bcache_device)
-                except IOError:
-                    # device creation is notoriously racy and this can trigger
-                    # "Invalid argument" IOErrors if it got created in "the
-                    # meantime" - just restart the function a few times to
-                    # check it all again
-                    pass
-
-            LOG.debug("bcache dev %s not ready, waiting %ss",
-                      bcache_device, wait)
-            time.sleep(wait)
-
-        # we've exhausted our retries
-        LOG.warning('Repetitive error registering the bcache dev %s',
-                    bcache_device)
-        raise RuntimeError("bcache device %s can't be registered" %
-                           bcache_device)
-
-    if cache_device:
-        # /sys/class/block/XXX/YYY/
-        cache_device_sysfs = block.sys_block_path(cache_device)
-
-        if os.path.exists(os.path.join(cache_device_sysfs, "bcache")):
-            LOG.debug('caching device already exists at {}/bcache. Read '
-                      'cset.uuid'.format(cache_device_sysfs))
-            (out, err) = util.subp(["bcache-super-show", cache_device],
-                                   capture=True)
-            LOG.debug('bcache-super-show=[{}]'.format(out))
-            [cset_uuid] = [line.split()[-1] for line in out.split("\n")
-                           if line.startswith('cset.uuid')]
-        else:
-            LOG.debug('caching device does not yet exist at {}/bcache. Make '
-                      'cache and get uuid'.format(cache_device_sysfs))
-            # make the cache device, extracting cacheset uuid
-            (out, err) = util.subp(["make-bcache", "-C", cache_device],
-                                   capture=True)
-            LOG.debug('out=[{}]'.format(out))
-            [cset_uuid] = [line.split()[-1] for line in out.split("\n")
-                           if line.startswith('Set UUID:')]
-
-        target_sysfs_path = '/sys/fs/bcache/%s' % cset_uuid
-        ensure_bcache_is_registered(cache_device, target_sysfs_path)
-
-    if backing_device:
-        backing_device_sysfs = block.sys_block_path(backing_device)
-        target_sysfs_path = os.path.join(backing_device_sysfs, "bcache")
-
-        # there should not be any pre-existing bcache device
-        bdir = os.path.join(backing_device_sysfs, "bcache")
-        if os.path.exists(bdir):
-            raise RuntimeError(
-                'Unexpected old bcache device: %s', backing_device)
-
-        LOG.debug('Creating a backing device on %s', backing_device)
-        util.subp(["make-bcache", "-B", backing_device])
-        ensure_bcache_is_registered(backing_device, target_sysfs_path)
-
-        # via the holders we can identify which bcache device we just created
-        # for a given backing device
-        holders = clear_holders.get_holders(backing_device)
-        if len(holders) != 1:
-            err = ('Invalid number {} of holding devices:'
-                   ' "{}"'.format(len(holders), holders))
-            LOG.error(err)
-            raise ValueError(err)
-        [bcache_dev] = holders
-        LOG.debug('The just created bcache device is {}'.format(holders))
-
-        if cache_device:
-            # if we specify both then we need to attach backing to cache
-            if cset_uuid:
-                LOG.info("Attaching backing device to cacheset: "
-                         "{} -> {} cset.uuid: {}".format(backing_device,
-                                                         cache_device,
-                                                         cset_uuid))
-                attach = os.path.join(backing_device_sysfs,
-                                      "bcache",
-                                      "attach")
-                with open(attach, "w") as fp:
-                    fp.write(cset_uuid)
-            else:
-                msg = "Invalid cset_uuid: {}".format(cset_uuid)
-                LOG.error(msg)
-                raise ValueError(msg)
-
-        if cache_mode:
-            LOG.info("Setting cache_mode on {} to {}".format(bcache_dev,
-                                                             cache_mode))
-            cache_mode_file = \
-                '/sys/block/{}/bcache/cache_mode'.format(bcache_dev)
-            with open(cache_mode_file, "w") as fp:
-                fp.write(cache_mode)
-    else:
-        # no backing device
-        if cache_mode:
-            raise ValueError("cache mode specified which can only be set per \
-                              backing devices, but none was specified")
+    wipe_mode = info.get('wipe')
+    if wipe_mode and bcache_dev:
+        LOG.debug('Wiping bcache device %s mode=%s', bcache_dev, wipe_mode)
+        block.wipe_volume(bcache_dev, mode=wipe_mode, exclusive=False)
 
     if info.get('name'):
         # Make dname rule for this dev
         make_dname(info.get('id'), storage_config)
 
     if info.get('ptable'):
-        raise ValueError("Partition tables on top of lvm logical volumes is \
-                         not supported")
-    LOG.debug('Finished bcache creation for backing {} or caching {}'
-              .format(backing_device, cache_device))
+        disk_handler(info, storage_config)
+
+    LOG.debug('Finished bcache creation for backing %s or caching %s',
+              backing_device, cache_device)
 
 
 def zpool_handler(info, storage_config):
@@ -1611,8 +1734,8 @@ def zfs_handler(info, storage_config):
 
 
 def get_device_paths_from_storage_config(storage_config):
-    """Returns a list of device paths in a storage config filtering out
-       preserved or devices which do not have wipe configuration.
+    """Returns a list of device paths in a storage config which have wipe
+       config enabled filtering out constructed paths that do not exist.
 
     :param: storage_config: Ordered dict of storage configation
     """
@@ -1620,11 +1743,11 @@ def get_device_paths_from_storage_config(storage_config):
     for (k, v) in storage_config.items():
         if v.get('type') in ['disk', 'partition']:
             if config.value_as_boolean(v.get('wipe')):
-                if config.value_as_boolean(v.get('preserve')):
-                    continue
                 try:
-                    dpaths.append(
-                        get_path_to_storage_volume(k, storage_config))
+                    # skip paths that do not exit, nothing to wipe
+                    dpath = get_path_to_storage_volume(k, storage_config)
+                    if os.path.exists(dpath):
+                        dpaths.append(dpath)
                 except Exception:
                     pass
     return dpaths
