@@ -1315,8 +1315,8 @@ def get_supported_filesystems():
     if not os.path.exists(proc_fs):
         raise RuntimeError("Unable to read 'filesystems' from %s" % proc_fs)
 
-    return [l.split('\t')[1].strip()
-            for l in util.load_file(proc_fs).splitlines()]
+    return [line.split('\t')[1].strip()
+            for line in util.load_file(proc_fs).splitlines()]
 
 
 def _discover_get_probert_data():

@@ -23,7 +23,7 @@ def _filter_lvm_info(lvtool, match_field, query_field, match_key, args=None):
                           '-o', ','.join([match_field, query_field])] + args,
                          capture=True)
     return [qf for (mf, qf) in
-            [l.strip().split(_SEP) for l in out.strip().splitlines()]
+            [line.strip().split(_SEP) for line in out.strip().splitlines()]
             if mf == match_key]
 
 

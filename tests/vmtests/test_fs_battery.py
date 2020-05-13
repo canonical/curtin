@@ -165,7 +165,8 @@ class TestFsBattery(VMBaseClass):
             "/etc /my/bind-ro-etc none bind,ro 0 0".split(),
         ]
         fstab_found = [
-            l.split() for l in self.load_collect_file("fstab").splitlines()]
+            line.split() for line in self.load_collect_file(
+                "fstab").splitlines()]
         self.assertEqual(expected, [e for e in expected if e in fstab_found])
 
     def test_mountinfo_has_mounts(self):
