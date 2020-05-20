@@ -198,14 +198,13 @@ Specify a list of devices onto which grub will attempt to install.
 Controls whether grub-install will update the Linux Default target
 value during installation.
 
-**update_nvram**: *<boolean: default False>*
+**update_nvram**: *<boolean: default True>*
 
 Certain platforms, like ``uefi`` and ``prep`` systems utilize
 NVRAM to hold boot configuration settings which control the order in
-which devices are booted.  Curtin by default will not attempt to
-update the NVRAM settings to preserve the system configuration.
-Users may want to force NVRAM to be updated such that the next boot
-of the system will boot from the installed device.
+which devices are booted.  Curtin by default will enable NVRAM updates
+to boot configuration settings.  Users may disable NVRAM updates by setting
+the ``update_nvram`` value to ``False``.
 
 **probe_additional_os**: *<boolean: default False>*
 

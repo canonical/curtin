@@ -357,6 +357,7 @@ def rpm_get_dist_id(target=None):
     """Use rpm command to extract the '%rhel' distro macro which returns
        the major os version id (6, 7, 8).  This works for centos or rhel
     """
+    # rpm requires /dev /sys and /proc be mounted, use ChrootableTarget
     with ChrootableTarget(target) as in_chroot:
         dist, _ = in_chroot.subp(['rpm', '-E', '%rhel'], capture=True)
     return dist.rstrip()
@@ -429,6 +430,7 @@ def has_pkg_available(pkg, target=None, osfamily=None):
 
 
 def get_installed_packages(target=None):
+    out = None
     if which('dpkg-query', target=target):
         (out, _) = subp(['dpkg-query', '--list'], target=target, capture=True)
     elif which('rpm', target=target):
@@ -548,5 +550,31 @@ def fstab_header():
 # that works even if disks are added and removed. See fstab(5).
 #
 # <file system> <mount point>   <type>  <options>       <dump>  <pass>""")
+
+
+def dpkg_get_architecture(target=None):
+    out, _ = subp(['dpkg', '--print-architecture'], capture=True,
+                  target=target)
+    return out.strip()
+
+
+def rpm_get_architecture(target=None):
+    # rpm requires /dev /sys and /proc be mounted, use ChrootableTarget
+    with ChrootableTarget(target) as in_chroot:
+        out, _ = in_chroot.subp(['rpm', '-E', '%_arch'], capture=True)
+    return out.strip()
+
+
+def get_architecture(target=None, osfamily=None):
+    if not osfamily:
+        osfamily = get_osfamily(target=target)
+
+    if osfamily == DISTROS.debian:
+        return dpkg_get_architecture(target=target)
+
+    if osfamily == DISTROS.redhat:
+        return rpm_get_architecture(target=target)
+
+    raise ValueError("Unhandled osfamily=%s" % osfamily)
 
 # vi: ts=4 expandtab syntax=python

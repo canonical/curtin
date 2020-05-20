@@ -490,4 +490,48 @@ class TestHasPkgAvailable(CiTestCase):
         self.assertEqual(pkg == self.package, result)
         m_subp.assert_has_calls([mock.call('list', opts=['--cacheonly'])])
 
+
+class TestGetArchitecture(CiTestCase):
+
+    def setUp(self):
+        super(TestGetArchitecture, self).setUp()
+        self.target = paths.target_path('mytarget')
+        self.add_patch('curtin.util.subp', 'm_subp')
+        self.add_patch('curtin.distro.get_osfamily', 'm_get_osfamily')
+        self.add_patch('curtin.distro.dpkg_get_architecture',
+                       'm_dpkg_get_arch')
+        self.add_patch('curtin.distro.rpm_get_architecture',
+                       'm_rpm_get_arch')
+        self.m_get_osfamily.return_value = distro.DISTROS.debian
+
+    def test_osfamily_none_calls_get_osfamily(self):
+        distro.get_architecture(target=self.target, osfamily=None)
+        self.assertEqual([mock.call(target=self.target)],
+                         self.m_get_osfamily.call_args_list)
+
+    def test_unhandled_osfamily_raises_value_error(self):
+        osfamily = distro.DISTROS.arch
+        with self.assertRaises(ValueError):
+            distro.get_architecture(target=self.target, osfamily=osfamily)
+        self.assertEqual(0, self.m_dpkg_get_arch.call_count)
+        self.assertEqual(0, self.m_rpm_get_arch.call_count)
+
+    def test_debian_osfamily_calls_dpkg_get_arch(self):
+        osfamily = distro.DISTROS.debian
+        expected_result = self.m_dpkg_get_arch.return_value
+        result = distro.get_architecture(target=self.target, osfamily=osfamily)
+        self.assertEqual(expected_result, result)
+        self.assertEqual([mock.call(target=self.target)],
+                         self.m_dpkg_get_arch.call_args_list)
+        self.assertEqual(0, self.m_rpm_get_arch.call_count)
+
+    def test_redhat_osfamily_calls_rpm_get_arch(self):
+        osfamily = distro.DISTROS.redhat
+        expected_result = self.m_rpm_get_arch.return_value
+        result = distro.get_architecture(target=self.target, osfamily=osfamily)
+        self.assertEqual(expected_result, result)
+        self.assertEqual([mock.call(target=self.target)],
+                         self.m_rpm_get_arch.call_args_list)
+        self.assertEqual(0, self.m_dpkg_get_arch.call_count)
+
 # vi: ts=4 expandtab syntax=python

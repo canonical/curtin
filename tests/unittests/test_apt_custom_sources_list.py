@@ -100,11 +100,12 @@ class TestAptSourceConfigSourceList(CiTestCase):
     def _apt_source_list(self, cfg, expected):
         "_apt_source_list - Test rendering from template (generic)"
 
-        arch = util.get_architecture()
+        arch = distro.get_architecture()
         # would fail inside the unittest context
         bpath = "curtin.commands.apt_config."
         upath = bpath + "util."
-        self.add_patch(upath + "get_architecture", "mockga", return_value=arch)
+        dpath = bpath + 'distro.'
+        self.add_patch(dpath + "get_architecture", "mockga", return_value=arch)
         self.add_patch(upath + "write_file", "mockwrite")
         self.add_patch(bpath + "os.rename", "mockrename")
         self.add_patch(upath + "load_file", "mockload_file",
@@ -143,9 +144,9 @@ class TestAptSourceConfigSourceList(CiTestCase):
         cfg = yaml.safe_load(YAML_TEXT_CUSTOM_SL)
         target = self.new_root
 
-        arch = util.get_architecture()
+        arch = distro.get_architecture()
         # would fail inside the unittest context
-        with mock.patch.object(util, 'get_architecture', return_value=arch):
+        with mock.patch.object(distro, 'get_architecture', return_value=arch):
             with mock.patch.object(distro, 'lsb_release',
                                    return_value={'codename': 'fakerel'}):
                 apt_config.handle_apt(cfg, target)
@@ -155,7 +156,7 @@ class TestAptSourceConfigSourceList(CiTestCase):
             util.load_file(paths.target_path(target, "/etc/apt/sources.list")))
 
     @mock.patch("curtin.distro.lsb_release")
-    @mock.patch("curtin.util.get_architecture", return_value="amd64")
+    @mock.patch("curtin.distro.get_architecture", return_value="amd64")
     def test_trusty_source_lists(self, m_get_arch, m_lsb_release):
         """Support mirror equivalency with and without trailing /.
 
