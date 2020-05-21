@@ -601,6 +601,7 @@ class VMBaseClass(TestCase):
     arch_skip = []
     boot_timeout = BOOT_TIMEOUT
     collect_scripts = []
+    crashdump = False
     extra_collect_scripts = []
     conf_file = "examples/tests/basic.yaml"
     nr_cpus = None
@@ -966,6 +967,25 @@ class VMBaseClass(TestCase):
                    ['--append=%s' % service
                     for service in ["systemd.mask=snapd.seeded.service",
                                     "systemd.mask=snapd.service"]])
+
+        # We set guest kernel panic=1 to trigger immediate rebooot, combined
+        # with the (xkvm) -no-reboot qemu parameter should prevent vmtests from
+        # wasting time in a soft-lockup loop. Add the params after the '---'
+        # separator to extend the parameters to the target system as well.
+        cmd.extend(["--no-reboot", "--append=panic=-1",
+                    "--append=softlockup_panic=1",
+                    "--append=hung_task_panic=1",
+                    "--append=nmi_watchdog=panic,1"])
+
+        # configure guest with crashdump to capture kernel failures for debug
+        if cls.crashdump:
+            # we need to install a kernel and modules so bump the memory by 2g
+            # for the ephemeral environment to hold it all
+            cls.mem = int(cls.mem) + 2048
+            logger.info(
+                'Enabling linux-crashdump during install, mem += 2048 = %s',
+                cls.mem)
+            cmd.extend(["--append=crashkernel=384M-5000M:192M"])
 
         # getting resolvconf configured is only fixed in bionic
         # the iscsi_auto handles resolvconf setup via call to
@@ -1353,7 +1373,7 @@ class VMBaseClass(TestCase):
         target_disks.extend([output_disk])
 
         # create xkvm cmd
-        cmd = (["tools/xkvm", "-v", dowait] +
+        cmd = (["tools/xkvm", "-v", dowait, '--no-reboot'] +
                uefi_flags + netdevs +
                cls.mpath_diskargs(target_disks + extra_disks + nvme_disks) +
                ["--disk=file=%s,if=virtio,media=cdrom" % cls.td.seed_disk] +
@@ -2111,6 +2131,8 @@ def check_install_log(install_log, nrchars=200):
     # regexps expected in curtin output
     install_pass = INSTALL_PASS_MSG
     install_fail = "({})".format("|".join([
+                   'INFO:.* blocked for more than.*seconds.',
+                   'Kernel panic -',
                    'Installation failed',
                    'ImportError: No module named.*',
                    'Out of memory:',
