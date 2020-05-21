@@ -1106,7 +1106,9 @@ def detect_required_packages(cfg, osfamily=DISTROS.debian):
 
         # skip missing or invalid config items, configs may
         # only have network or storage, not always both
-        if not isinstance(cfg.get(cfg_type), dict):
+        cfg_type_value = cfg.get(cfg_type)
+        if (not isinstance(cfg_type_value, dict) or
+                cfg_type_value.get('config') == 'disabled'):
             continue
 
         cfg_version = cfg[cfg_type].get('version')

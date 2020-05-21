@@ -1,0 +1,8 @@
+# example with net meta command using the disabled mode
+# showtrace: true
+network_commands:
+    builtin: null
+    disabled:
+       - curtin
+       - net-meta
+       - disabled

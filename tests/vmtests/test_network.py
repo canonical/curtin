@@ -491,4 +491,5 @@ class Centos70TestNetworkBasic(centos_relbase.centos70_xenial,
                                CentosTestNetworkBasicAbs):
     __test__ = True
 
+
 # vi: ts=4 expandtab syntax=python
