@@ -405,6 +405,40 @@ class TestBlockdevParser(CiTestCase):
         self.assertDictEqual(expected_dict,
                              self.bdevp.asdict(blockdev))
 
+    def test_blockdev_detects_dos_bootable_flag(self):
+        self.probe_data = _get_data(
+            'probert_storage_msdos_mbr_extended_v2.json')
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/vdb1']
+        expected_dict = {
+            'id': 'partition-vdb1',
+            'type': 'partition',
+            'device': 'disk-vdb',
+            'number': 1,
+            'offset': 1048576,
+            'size': 536870912,
+            'flag': 'boot',
+        }
+        self.assertDictEqual(expected_dict,
+                             self.bdevp.asdict(blockdev))
+
+    def test_blockdev_detects_dos_bootable_flag_on_logical_partitions(self):
+        self.probe_data = _get_data('probert_storage_lvm.json')
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/vda5']
+        blockdev['ID_PART_ENTRY_FLAGS'] = '0x80'
+        expected_dict = {
+            'id': 'partition-vda5',
+            'type': 'partition',
+            'device': 'disk-vda',
+            'number': 5,
+            'offset': 3223322624,
+            'size': 2147483648,
+            'flag': 'boot',
+        }
+        self.assertDictEqual(expected_dict,
+                             self.bdevp.asdict(blockdev))
+
     def test_blockdev_asdict_disk_omits_ptable_if_none_present(self):
         blockdev = self.bdevp.blockdev_data['/dev/sda']
         del blockdev['ID_PART_TABLE_TYPE']

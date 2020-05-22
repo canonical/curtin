@@ -760,7 +760,9 @@ def verify_ptable_flag(devpath, expected_flag, sfdisk_info=None):
         elif expected_flag == 'logical':
             (_parent, partnumber) = block.get_blockdev_for_partition(devpath)
             found_flag = 'logical' if int(partnumber) > 4 else None
-    else:
+
+    # gpt and msdos primary partitions look up flag by entry['type']
+    if found_flag is None:
         (found_flag, _code) = ptable_uuid_to_flag_entry(entry['type'])
     msg = (
         'Verifying %s partition flag, expecting %s, found %s' % (
