@@ -1,3 +1,23 @@
+curtin (20.1-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+    - Release 20.1 (LP: #1880741)
+    - Handle multiple separators which were found in TestAllindata vmtest
+    - verify_ptable_flag: dos primary partitions use ptable_uuid map for flag
+      (LP: #1878890)
+    - net_meta: add disabled mode to skip writing any network config
+      [Lucas Moura]
+    - vmtest: trigger guest panic to fail fast
+    - Replace grub-shell-helper with install_grub command
+    - vmtest-sync-images: update the URL of the maas streams [Paride Legovini]
+    - Replace references to old team manager with new team manager
+      [James Falcon]
+    - tox: pin flake8 to version and add a tip-flake8 environment
+      [Paride Legovini]
+    - Fix flake8 E741 warning [Lucas Moura]
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Tue, 26 May 2020 16:31:39 -0500
+
 curtin (19.3-68-g6cbdc02d-0ubuntu1) groovy; urgency=medium
 
   * New upstream snapshot.
