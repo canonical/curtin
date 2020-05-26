@@ -90,7 +90,7 @@ class TestAptSourceConfig(CiTestCase):
         """
         params = {}
         params['RELEASE'] = distro.lsb_release()['codename']
-        arch = util.get_architecture()
+        arch = distro.get_architecture()
         params['MIRROR'] = apt_config.get_default_mirrors(arch)["PRIMARY"]
         return params
 
@@ -457,7 +457,7 @@ class TestAptSourceConfig(CiTestCase):
         self.assertFalse(os.path.isfile(self.aptlistfile2))
         self.assertFalse(os.path.isfile(self.aptlistfile3))
 
-    @mock.patch("curtin.commands.apt_config.util.get_architecture")
+    @mock.patch("curtin.commands.apt_config.distro.get_architecture")
     def test_mir_apt_list_rename(self, m_get_architecture):
         """test_mir_apt_list_rename - Test find mirror and apt list renaming"""
         pre = "/var/lib/apt/lists"
@@ -495,7 +495,7 @@ class TestAptSourceConfig(CiTestCase):
 
         mockren.assert_any_call(fromfn, tofn)
 
-    @mock.patch("curtin.commands.apt_config.util.get_architecture")
+    @mock.patch("curtin.commands.apt_config.distro.get_architecture")
     def test_mir_apt_list_rename_non_slash(self, m_get_architecture):
         target = os.path.join(self.tmp, "rename_non_slash")
         apt_lists_d = os.path.join(target, "./" + apt_config.APT_LISTS)
@@ -577,7 +577,7 @@ class TestAptSourceConfig(CiTestCase):
 
     def test_mirror_default(self):
         """test_mirror_default - Test without defining a mirror"""
-        arch = util.get_architecture()
+        arch = distro.get_architecture()
         default_mirrors = apt_config.get_default_mirrors(arch)
         pmir = default_mirrors["PRIMARY"]
         smir = default_mirrors["SECURITY"]
@@ -628,7 +628,7 @@ class TestAptSourceConfig(CiTestCase):
         self.assertEqual(mirrors['SECURITY'],
                          smir)
 
-    @mock.patch("curtin.commands.apt_config.util.get_architecture")
+    @mock.patch("curtin.commands.apt_config.distro.get_architecture")
     def test_get_default_mirrors_non_intel_no_arch(self, m_get_architecture):
         arch = 'ppc64el'
         m_get_architecture.return_value = arch
@@ -645,7 +645,7 @@ class TestAptSourceConfig(CiTestCase):
 
     def test_mirror_arches_sysdefault(self):
         """test_mirror_arches - Test arches falling back to sys default"""
-        arch = util.get_architecture()
+        arch = distro.get_architecture()
         default_mirrors = apt_config.get_default_mirrors(arch)
         pmir = default_mirrors["PRIMARY"]
         smir = default_mirrors["SECURITY"]
@@ -958,7 +958,8 @@ class TestDebconfSelections(CiTestCase):
         # assumes called with *args value.
         selections = m_set_sel.call_args_list[0][0][0].decode()
 
-        missing = [l for l in lines if l not in selections.splitlines()]
+        missing = [line for line in lines
+                   if line not in selections.splitlines()]
         self.assertEqual([], missing)
 
     @mock.patch("curtin.commands.apt_config.dpkg_reconfigure")

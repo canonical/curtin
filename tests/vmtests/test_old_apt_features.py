@@ -10,7 +10,7 @@ import textwrap
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 
-from curtin import util
+from curtin import distro
 from curtin.config import load_config
 
 
@@ -55,7 +55,7 @@ class TestOldAptAbs(VMBaseClass):
 
         exit 0
         """)]
-    arch = util.get_architecture()
+    arch = distro.get_architecture()
     target_arch = arch
     if target_arch in ['amd64', 'i386']:
         conf_file = "examples/tests/test_old_apt_features.yaml"

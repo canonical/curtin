@@ -26,6 +26,7 @@ from curtin.distro import DISTROS
 from curtin.net import deps as ndeps
 from curtin.reporter import events
 from curtin.commands import apply_net, apt_config
+from curtin.commands.install_grub import install_grub
 from curtin.url_helper import get_maas_version
 
 from . import populate_one_subcmd
@@ -307,7 +308,7 @@ def chzdev_prepare_for_import(chzdev_conf):
 
 def get_flash_kernel_pkgs(arch=None, uefi=None):
     if arch is None:
-        arch = util.get_architecture()
+        arch = distro.get_architecture()
     if uefi is None:
         uefi = util.is_uefi_bootable()
     if uefi:
@@ -682,28 +683,6 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
         else:
             instdevs = list(blockdevs)
 
-    env = os.environ.copy()
-
-    replace_default = grubcfg.get('replace_linux_default', True)
-    if str(replace_default).lower() in ("0", "false"):
-        env['REPLACE_GRUB_LINUX_DEFAULT'] = "0"
-    else:
-        env['REPLACE_GRUB_LINUX_DEFAULT'] = "1"
-
-    probe_os = grubcfg.get('probe_additional_os', False)
-    if probe_os not in (False, True):
-        raise ValueError("Unexpected value %s for 'probe_additional_os'. "
-                         "Value must be boolean" % probe_os)
-    env['DISABLE_OS_PROBER'] = "0" if probe_os else "1"
-
-    # if terminal is present in config, but unset, then don't
-    grub_terminal = grubcfg.get('terminal', 'console')
-    if not isinstance(grub_terminal, str):
-        raise ValueError("Unexpected value %s for 'terminal'. "
-                         "Value must be a string" % grub_terminal)
-    if not grub_terminal.lower() == "unmodified":
-        env['GRUB_TERMINAL'] = grub_terminal
-
     if instdevs:
         instdevs = [block.get_dev_name_entry(i)[1] for i in instdevs]
         if osfamily == DISTROS.debian:
@@ -711,38 +690,13 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
     else:
         instdevs = ["none"]
 
-    if uefi_bootable and grubcfg.get('update_nvram', True):
+    update_nvram = grubcfg.get('update_nvram', True)
+    if uefi_bootable and update_nvram:
         uefi_remove_old_loaders(grubcfg, target)
 
-    LOG.debug("installing grub to %s [replace_default=%s]",
-              instdevs, replace_default)
+    install_grub(instdevs, target, uefi=uefi_bootable, grubcfg=grubcfg)
 
-    with util.ChrootableTarget(target):
-        args = ['install-grub']
-        if uefi_bootable:
-            args.append("--uefi")
-            LOG.debug("grubcfg: %s", grubcfg)
-            if grubcfg.get('update_nvram', True):
-                LOG.debug("GRUB UEFI enabling NVRAM updates")
-                args.append("--update-nvram")
-            else:
-                LOG.debug("NOT enabling UEFI nvram updates")
-                LOG.debug("Target system may not boot")
-            if len(instdevs) > 1:
-                instdevs = [instdevs[0]]
-                LOG.debug("Selecting primary EFI boot device %s for install",
-                          instdevs[0])
-
-        args.append('--os-family=%s' % osfamily)
-        args.append(target)
-
-        # capture stdout and stderr joined.
-        join_stdout_err = ['sh', '-c', 'exec "$0" "$@" 2>&1']
-        out, _err = util.subp(
-            join_stdout_err + args + instdevs, env=env, capture=True)
-        LOG.debug("%s\n%s\n", args + instdevs, out)
-
-    if uefi_bootable and grubcfg.get('update_nvram', True):
+    if uefi_bootable and update_nvram:
         uefi_remove_duplicate_entries(grubcfg, target)
         uefi_reorder_loaders(grubcfg, target)
 
@@ -1152,7 +1106,9 @@ def detect_required_packages(cfg, osfamily=DISTROS.debian):
 
         # skip missing or invalid config items, configs may
         # only have network or storage, not always both
-        if not isinstance(cfg.get(cfg_type), dict):
+        cfg_type_value = cfg.get(cfg_type)
+        if (not isinstance(cfg_type_value, dict) or
+                cfg_type_value.get('config') == 'disabled'):
             continue
 
         cfg_version = cfg[cfg_type].get('version')
@@ -1207,7 +1163,7 @@ def install_missing_packages(cfg, target, osfamily=DISTROS.debian):
                 # signed version.
                 uefi_pkgs.extend(['grub2-efi-x64', 'shim-x64'])
         elif osfamily == DISTROS.debian:
-            arch = util.get_architecture()
+            arch = distro.get_architecture()
             if arch == 'i386':
                 arch = 'ia32'
             uefi_pkgs.append('grub-efi-%s' % arch)
@@ -1759,17 +1715,25 @@ def builtin_curthooks(cfg, target, state):
         elif osfamily == DISTROS.redhat:
             redhat_update_initramfs(target, cfg)
 
-    # As a rule, ARMv7 systems don't use grub. This may change some
-    # day, but for now, assume no. They do require the initramfs
-    # to be updated, and this also triggers boot loader setup via
-    # flash-kernel.
-    if (machine.startswith('armv7') or
-            machine.startswith('s390x') or
-            machine.startswith('aarch64') and not util.is_uefi_bootable()):
-        return
+    with events.ReportEventStack(
+            name=stack_prefix + '/configuring-bootloader',
+            reporting_enabled=True, level="INFO",
+            description="configuring target system bootloader"):
 
-    # all other paths lead to grub
-    setup_grub(cfg, target, osfamily=osfamily)
+        # As a rule, ARMv7 systems don't use grub. This may change some
+        # day, but for now, assume no. They do require the initramfs
+        # to be updated, and this also triggers boot loader setup via
+        # flash-kernel.
+        if (machine.startswith('armv7') or
+                machine.startswith('s390x') or
+                machine.startswith('aarch64') and not util.is_uefi_bootable()):
+            return
+
+        with events.ReportEventStack(
+                name=stack_prefix + '/install-grub',
+                reporting_enabled=True, level="INFO",
+                description="installing grub to target devices"):
+            setup_grub(cfg, target, osfamily=osfamily)
 
 
 def curthooks(args):

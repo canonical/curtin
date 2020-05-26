@@ -799,12 +799,6 @@ def get_paths(curtin_exe=None, lib=None, helpers=None):
     return({'curtin_exe': curtin_exe, 'lib': mydir, 'helpers': helpers})
 
 
-def get_architecture(target=None):
-    out, _ = subp(['dpkg', '--print-architecture'], capture=True,
-                  target=target)
-    return out.strip()
-
-
 def find_newer(src, files):
     mtime = os.stat(src).st_mtime
     return [f for f in files if

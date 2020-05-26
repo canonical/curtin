@@ -34,11 +34,12 @@ GPT_GUID_TO_CURTIN_MAP = {
 MBR_TYPE_TO_CURTIN_MAP = {
     '0XF': ('extended', 'f'),
     '0X5': ('extended', 'f'),
-    '0X80': ('boot', '80'),
     '0X83': ('linux', '83'),
     '0X85': ('extended', 'f'),
     '0XC5': ('extended', 'f'),
 }
+
+MBR_BOOT_FLAG = '0x80'
 
 PTABLE_TYPE_MAP = dict(GPT_GUID_TO_CURTIN_MAP, **MBR_TYPE_TO_CURTIN_MAP)
 
@@ -820,16 +821,20 @@ class BlockdevParser(ProbertParser):
                 entry['size'] *= 512
 
             ptype = blockdev_data.get('ID_PART_ENTRY_TYPE')
-            # use PART_ENTRY_FLAGS if set, msdos
-            ptype_flag = blockdev_data.get('ID_PART_ENTRY_FLAGS')
-            if ptype_flag:
-                ptype = ptype_flag
             flag_name, _flag_code = ptable_uuid_to_flag_entry(ptype)
 
-            # logical partitions are not tagged in data, however
-            # the partition number > 4 (ie, not primary nor extended)
-            if ptable and ptable.get('label') == 'dos' and entry['number'] > 4:
-                flag_name = 'logical'
+            if ptable and ptable.get('label') == 'dos':
+                # if the boot flag is set, use this as the flag, logical
+                # flag is not required as we can determine logical via
+                # partition number
+                ptype_flag = blockdev_data.get('ID_PART_ENTRY_FLAGS')
+                if ptype_flag in [MBR_BOOT_FLAG]:
+                    flag_name = 'boot'
+                else:
+                    # logical partitions are not tagged in data, however
+                    # the partition number > 4 (ie, not primary nor extended)
+                    if entry['number'] > 4:
+                        flag_name = 'logical'
 
             if flag_name:
                 entry['flag'] = flag_name

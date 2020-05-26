@@ -318,11 +318,11 @@ def validate_bcache_ready(bcache_device, bcache_sys_path):
         LOG.debug("validating bcache caching device '%s' from sys_path"
                   " '%s'", bcache_device, bcache_sys_path)
         # we expect a cacheN symlink to point to bcache_device/bcache
-        sys_path_links = [os.path.join(bcache_sys_path, l)
-                          for l in os.listdir(bcache_sys_path)]
-        cache_links = [l for l in sys_path_links
-                       if os.path.islink(l) and (
-                          os.path.basename(l).startswith('cache'))]
+        sys_path_links = [os.path.join(bcache_sys_path, file_name)
+                          for file_name in os.listdir(bcache_sys_path)]
+        cache_links = [file_path for file_path in sys_path_links
+                       if os.path.islink(file_path) and (
+                          os.path.basename(file_path).startswith('cache'))]
 
         if len(cache_links) == 0:
             msg = ('Failed to find any cache links in %s:%s' % (

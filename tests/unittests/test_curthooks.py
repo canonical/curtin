@@ -1,7 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
-from mock import call, patch, MagicMock
+from mock import call, patch
 import textwrap
 
 from curtin.commands import curthooks
@@ -17,8 +17,10 @@ class TestGetFlashKernelPkgs(CiTestCase):
     def setUp(self):
         super(TestGetFlashKernelPkgs, self).setUp()
         self.add_patch('curtin.util.subp', 'mock_subp')
-        self.add_patch('curtin.util.get_architecture', 'mock_get_architecture')
-        self.add_patch('curtin.util.is_uefi_bootable', 'mock_is_uefi_bootable')
+        self.add_patch('curtin.distro.get_architecture',
+                       'mock_get_architecture')
+        self.add_patch('curtin.util.is_uefi_bootable',
+                       'mock_is_uefi_bootable')
 
     def test__returns_none_when_uefi(self):
         self.assertIsNone(curthooks.get_flash_kernel_pkgs(uefi=True))
@@ -307,7 +309,7 @@ class TestSetupKernelImgConf(CiTestCase):
     def setUp(self):
         super(TestSetupKernelImgConf, self).setUp()
         self.add_patch('platform.machine', 'mock_machine')
-        self.add_patch('curtin.util.get_architecture', 'mock_arch')
+        self.add_patch('curtin.distro.get_architecture', 'mock_arch')
         self.add_patch('curtin.util.write_file', 'mock_write_file')
         self.target = 'not-a-real-target'
         self.add_patch('curtin.distro.lsb_release', 'mock_lsb_release')
@@ -377,7 +379,7 @@ class TestInstallMissingPkgs(CiTestCase):
     def setUp(self):
         super(TestInstallMissingPkgs, self).setUp()
         self.add_patch('platform.machine', 'mock_machine')
-        self.add_patch('curtin.util.get_architecture', 'mock_arch')
+        self.add_patch('curtin.distro.get_architecture', 'mock_arch')
         self.add_patch('curtin.distro.get_installed_packages',
                        'mock_get_installed_packages')
         self.add_patch('curtin.util.load_command_environment',
@@ -536,41 +538,27 @@ class TestSetupGrub(CiTestCase):
         self.target = self.tmp_dir()
         self.distro_family = distro.DISTROS.debian
         self.add_patch('curtin.distro.lsb_release', 'mock_lsb_release')
-        self.mock_lsb_release.return_value = {
-            'codename': 'xenial',
-        }
+        self.mock_lsb_release.return_value = {'codename': 'xenial'}
         self.add_patch('curtin.util.is_uefi_bootable',
                        'mock_is_uefi_bootable')
         self.mock_is_uefi_bootable.return_value = False
-        self.add_patch('curtin.util.subp', 'mock_subp')
-        self.subp_output = []
-        self.mock_subp.side_effect = iter(self.subp_output)
         self.add_patch('curtin.commands.block_meta.devsync', 'mock_devsync')
-        self.add_patch('curtin.util.get_architecture', 'mock_arch')
-        self.mock_arch.return_value = 'amd64'
-        self.add_patch(
-            'curtin.util.ChrootableTarget', 'mock_chroot', autospec=False)
-        self.mock_in_chroot = MagicMock()
-        self.mock_in_chroot.__enter__.return_value = self.mock_in_chroot
-        self.in_chroot_subp_output = []
-        self.mock_in_chroot_subp = self.mock_in_chroot.subp
-        self.mock_in_chroot_subp.side_effect = iter(self.in_chroot_subp_output)
-        self.mock_chroot.return_value = self.mock_in_chroot
+        self.add_patch('curtin.util.subp', 'mock_subp')
+        self.add_patch('curtin.commands.curthooks.install_grub',
+                       'm_install_grub')
         self.add_patch('curtin.commands.curthooks.configure_grub_debconf',
-                       'm_grub_debconf')
+                       'm_configure_grub_debconf')
 
     def test_uses_old_grub_install_devices_in_cfg(self):
         cfg = {
             'grub_install_devices': ['/dev/vdb']
         }
-        self.subp_output.append(('', ''))
+        updated_cfg = {
+            'install_devices': ['/dev/vdb']
+        }
         curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
-        self.assertEquals(
-            ([
-                'sh', '-c', 'exec "$0" "$@" 2>&1',
-                'install-grub', '--os-family=%s' % self.distro_family,
-                self.target, '/dev/vdb'],),
-            self.mock_subp.call_args_list[0][0])
+        self.m_install_grub.assert_called_with(
+            ['/dev/vdb'], self.target, uefi=False, grubcfg=updated_cfg)
 
     def test_uses_install_devices_in_grubcfg(self):
         cfg = {
@@ -578,14 +566,9 @@ class TestSetupGrub(CiTestCase):
                 'install_devices': ['/dev/vdb'],
             },
         }
-        self.subp_output.append(('', ''))
         curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
-        self.assertEquals(
-            ([
-                'sh', '-c', 'exec "$0" "$@" 2>&1',
-                'install-grub', '--os-family=%s' % self.distro_family,
-                self.target, '/dev/vdb'],),
-            self.mock_subp.call_args_list[0][0])
+        self.m_install_grub.assert_called_with(
+            ['/dev/vdb'], self.target, uefi=False, grubcfg=cfg.get('grub'))
 
     @patch('curtin.commands.block_meta.multipath')
     @patch('curtin.commands.curthooks.os.path.exists')
@@ -604,16 +587,11 @@ class TestSetupGrub(CiTestCase):
                 ]
             },
         }
-        self.subp_output.append(('', ''))
-        self.subp_output.append(('', ''))
         m_exists.return_value = True
         curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
-        self.assertEquals(
-            ([
-                'sh', '-c', 'exec "$0" "$@" 2>&1',
-                'install-grub', '--os-family=%s' % self.distro_family,
-                self.target, '/dev/vdb'],),
-            self.mock_subp.call_args_list[0][0])
+        self.m_install_grub.assert_called_with(
+            ['/dev/vdb'], self.target, uefi=False,
+            grubcfg={'install_devices': ['/dev/vdb']})
 
     @patch('curtin.commands.block_meta.multipath')
     @patch('curtin.block.is_valid_device')
@@ -658,17 +636,13 @@ class TestSetupGrub(CiTestCase):
                 'update_nvram': False,
             },
         }
-        self.subp_output.append(('', ''))
         m_exists.return_value = True
         m_is_valid_device.side_effect = (False, True, False, True)
         curthooks.setup_grub(cfg, self.target, osfamily=distro.DISTROS.redhat)
-        self.assertEquals(
-            ([
-                'sh', '-c', 'exec "$0" "$@" 2>&1',
-                'install-grub', '--uefi',
-                '--os-family=%s' % distro.DISTROS.redhat, self.target,
-                '/dev/vdb1'],),
-            self.mock_subp.call_args_list[0][0])
+        self.m_install_grub.assert_called_with(
+            ['/dev/vdb1'], self.target, uefi=True,
+            grubcfg={'update_nvram': False, 'install_devices': ['/dev/vdb1']}
+        )
 
     def test_grub_install_installs_to_none_if_install_devices_None(self):
         cfg = {
@@ -676,15 +650,13 @@ class TestSetupGrub(CiTestCase):
                 'install_devices': None,
             },
         }
-        self.subp_output.append(('', ''))
         curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
-        self.assertEquals(
-            ([
-                'sh', '-c', 'exec "$0" "$@" 2>&1',
-                'install-grub', '--os-family=%s' % self.distro_family,
-                self.target, 'none'],),
-            self.mock_subp.call_args_list[0][0])
+        self.m_install_grub.assert_called_with(
+            ['none'], self.target, uefi=False,
+            grubcfg={'install_devices': None}
+        )
 
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_grub_install_uefi_updates_nvram_skips_remove_and_reorder(self):
         self.add_patch('curtin.distro.install_packages', 'mock_install')
         self.add_patch('curtin.distro.has_pkg_available', 'mock_haspkg')
@@ -698,7 +670,6 @@ class TestSetupGrub(CiTestCase):
                 'reorder_uefi': False,
             },
         }
-        self.subp_output.append(('', ''))
         self.mock_haspkg.return_value = False
         self.mock_efibootmgr.return_value = {
             'current': '0000',
@@ -711,14 +682,11 @@ class TestSetupGrub(CiTestCase):
             }
         }
         curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
-        self.assertEquals(
-            ([
-                'sh', '-c', 'exec "$0" "$@" 2>&1',
-                'install-grub', '--uefi', '--update-nvram',
-                '--os-family=%s' % self.distro_family,
-                self.target, '/dev/vdb'],),
-            self.mock_subp.call_args_list[0][0])
+        self.m_install_grub.assert_called_with(
+            ['/dev/vdb'], self.target, uefi=True, grubcfg=cfg.get('grub')
+        )
 
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_grub_install_uefi_updates_nvram_removes_old_loaders(self):
         self.add_patch('curtin.distro.install_packages', 'mock_install')
         self.add_patch('curtin.distro.has_pkg_available', 'mock_haspkg')
@@ -732,7 +700,6 @@ class TestSetupGrub(CiTestCase):
                 'reorder_uefi': False,
             },
         }
-        self.subp_output.append(('', ''))
         self.mock_efibootmgr.return_value = {
             'current': '0000',
             'entries': {
@@ -753,22 +720,19 @@ class TestSetupGrub(CiTestCase):
                 },
             }
         }
-        self.in_chroot_subp_output.append(('', ''))
-        self.in_chroot_subp_output.append(('', ''))
         self.mock_haspkg.return_value = False
         curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
-        self.assertEquals(
-            ['efibootmgr', '-B', '-b'],
-            self.mock_in_chroot_subp.call_args_list[0][0][0][:3])
-        self.assertEquals(
-            ['efibootmgr', '-B', '-b'],
-            self.mock_in_chroot_subp.call_args_list[1][0][0][:3])
-        self.assertEquals(
-            set(['0001', '0002']),
-            set([
-                self.mock_in_chroot_subp.call_args_list[0][0][0][3],
-                self.mock_in_chroot_subp.call_args_list[1][0][0][3]]))
 
+        expected_calls = [
+            call(['efibootmgr', '-B', '-b', '0001'],
+                 capture=True, target=self.target),
+            call(['efibootmgr', '-B', '-b', '0002'],
+                 capture=True, target=self.target),
+        ]
+        self.assertEqual(sorted(expected_calls),
+                         sorted(self.mock_subp.call_args_list))
+
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_grub_install_uefi_updates_nvram_reorders_loaders(self):
         self.add_patch('curtin.distro.install_packages', 'mock_install')
         self.add_patch('curtin.distro.has_pkg_available', 'mock_haspkg')
@@ -782,7 +746,6 @@ class TestSetupGrub(CiTestCase):
                 'reorder_uefi': True,
             },
         }
-        self.subp_output.append(('', ''))
         self.mock_efibootmgr.return_value = {
             'current': '0001',
             'order': ['0000', '0001'],
@@ -798,12 +761,11 @@ class TestSetupGrub(CiTestCase):
                 },
             }
         }
-        self.in_chroot_subp_output.append(('', ''))
         self.mock_haspkg.return_value = False
         curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
-        self.assertEquals(
-            (['efibootmgr', '-o', '0001,0000'],),
-            self.mock_in_chroot_subp.call_args_list[0][0])
+        self.assertEquals([
+            call(['efibootmgr', '-o', '0001,0000'], target=self.target)],
+            self.mock_subp.call_args_list)
 
 
 class TestUefiRemoveDuplicateEntries(CiTestCase):
@@ -853,8 +815,8 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
             call(['efibootmgr', '--bootnum=0001', '--delete-bootnum'],
                  target=self.target),
             call(['efibootmgr', '--bootnum=0003', '--delete-bootnum'],
-                 target=self.target)],
-            self.m_subp.call_args_list)
+                 target=self.target)
+            ], self.m_subp.call_args_list)
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_uefi_remove_duplicate_entries_no_change(self):

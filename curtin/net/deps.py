@@ -23,8 +23,10 @@ def network_config_required_packages(network_config, mapping=None):
 
     # v1 has 'config' key and uses type: devtype elements
     if 'config' in network_config:
-        dev_configs = set(device['type']
-                          for device in network_config['config'])
+        netconf = network_config['config']
+        dev_configs = set() if netconf == 'disabled' else set(
+            device['type'] for device in netconf)
+
     else:
         # v2 has no config key
         dev_configs = set()

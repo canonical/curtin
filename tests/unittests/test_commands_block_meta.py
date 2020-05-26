@@ -2446,4 +2446,115 @@ class TestVerifySize(CiTestCase):
         self.devpath = self.random_string()
 
 
+class TestVerifyPtableFlag(CiTestCase):
+
+    def setUp(self):
+        super(TestVerifyPtableFlag, self).setUp()
+        base = 'curtin.commands.block_meta.'
+        self.add_patch(base + 'block.sfdisk_info', 'm_block_sfdisk_info')
+        self.add_patch(base + 'block.get_blockdev_for_partition',
+                       'm_block_get_blockdev_for_partition')
+        self.sfdisk_info_dos = {
+            "label": "dos",
+            "id": "0xb0dbdde1",
+            "device": "/dev/vdb",
+            "unit": "sectors",
+            "partitions": [
+               {"node": "/dev/vdb1", "start": 2048, "size": 8388608,
+                "type": "83", "bootable": True},
+               {"node": "/dev/vdb2", "start": 8390656, "size": 8388608,
+                "type": "83"},
+               {"node": "/dev/vdb3", "start": 16779264, "size": 62914560,
+                "type": "85"},
+               {"node": "/dev/vdb5", "start": 16781312, "size": 31457280,
+                "type": "83"},
+               {"node": "/dev/vdb6", "start": 48240640, "size": 10485760,
+                "type": "83"},
+               {"node": "/dev/vdb7", "start": 58728448, "size": 20965376,
+                "type": "83"}]}
+        self.sfdisk_info_gpt = {
+            "label": "gpt",
+            "id": "AEA37E20-8E52-4B37-BDFD-9946A352A37B",
+            "device": "/dev/vda",
+            "unit": "sectors",
+            "firstlba": 34,
+            "lastlba": 41943006,
+            "partitions": [
+               {"node": "/dev/vda1", "start": 227328, "size": 41715679,
+                "type": "0FC63DAF-8483-4772-8E79-3D69D8477DE4",
+                "uuid": "42C72DE9-FF5E-4CD6-A4C8-283685DEB1D5"},
+               {"node": "/dev/vda14", "start": 2048, "size": 8192,
+                "type": "21686148-6449-6E6F-744E-656564454649",
+                "uuid": "762F070A-122A-4EB8-90BF-2CA6E9171B01"},
+               {"node": "/dev/vda15", "start": 10240, "size": 217088,
+                "type": "C12A7328-F81F-11D2-BA4B-00A0C93EC93B",
+                "uuid": "789133C6-8579-4792-9D61-FC9A7BEC2A15"}]}
+
+    def test_verify_ptable_flag_finds_boot_on_gpt(self):
+        devpath = '/dev/vda15'
+        expected_flag = 'boot'
+        block_meta.verify_ptable_flag(devpath, expected_flag,
+                                      sfdisk_info=self.sfdisk_info_gpt)
+
+    def test_verify_ptable_flag_raises_exception_missing_flag(self):
+        devpath = '/dev/vda1'
+        expected_flag = 'boot'
+        with self.assertRaises(RuntimeError):
+            block_meta.verify_ptable_flag(devpath, expected_flag,
+                                          sfdisk_info=self.sfdisk_info_gpt)
+
+    def test_verify_ptable_flag_raises_exception_invalid_flag(self):
+        devpath = '/dev/vda1'
+        expected_flag = self.random_string()
+        self.assertNotIn(expected_flag, block_meta.SGDISK_FLAGS.keys())
+        self.assertNotIn(expected_flag, block_meta.MSDOS_FLAGS.keys())
+        with self.assertRaises(RuntimeError):
+            block_meta.verify_ptable_flag(devpath, expected_flag,
+                                          sfdisk_info=self.sfdisk_info_gpt)
+
+    def test_verify_ptable_flag_checks_bootable_not_table_type(self):
+        devpath = '/dev/vdb1'
+        expected_flag = 'boot'
+        del self.sfdisk_info_dos['partitions'][0]['bootable']
+        self.sfdisk_info_dos['partitions'][0]['type'] = '0x80'
+        with self.assertRaises(RuntimeError):
+            block_meta.verify_ptable_flag(devpath, expected_flag,
+                                          sfdisk_info=self.sfdisk_info_dos)
+
+    def test_verify_ptable_flag_calls_block_sfdisk_if_info_none(self):
+        devpath = '/dev/vda15'
+        expected_flag = 'boot'
+        self.m_block_sfdisk_info.return_value = self.sfdisk_info_gpt
+        block_meta.verify_ptable_flag(devpath, expected_flag, sfdisk_info=None)
+        self.assertEqual(
+            [call(devpath)],
+            self.m_block_sfdisk_info.call_args_list)
+
+    def test_verify_ptable_flag_finds_boot_on_msdos(self):
+        devpath = '/dev/vdb1'
+        expected_flag = 'boot'
+        block_meta.verify_ptable_flag(devpath, expected_flag,
+                                      sfdisk_info=self.sfdisk_info_dos)
+
+    def test_verify_ptable_flag_finds_linux_on_dos_primary_partition(self):
+        devpath = '/dev/vdb2'
+        expected_flag = 'linux'
+        block_meta.verify_ptable_flag(devpath, expected_flag,
+                                      sfdisk_info=self.sfdisk_info_dos)
+
+    def test_verify_ptable_flag_finds_dos_extended_partition(self):
+        devpath = '/dev/vdb3'
+        expected_flag = 'extended'
+        block_meta.verify_ptable_flag(devpath, expected_flag,
+                                      sfdisk_info=self.sfdisk_info_dos)
+
+    def test_verify_ptable_flag_finds_dos_logical_partition(self):
+        devpath = '/dev/vdb5'
+        expected_flag = 'logical'
+        self.m_block_get_blockdev_for_partition.return_value = (
+            ('/dev/vdb', '5'))
+        block_meta.verify_ptable_flag(devpath, expected_flag,
+                                      sfdisk_info=self.sfdisk_info_dos)
+
+
 # vi: ts=4 expandtab syntax=python

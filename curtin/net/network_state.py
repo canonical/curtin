@@ -21,7 +21,9 @@ def from_state_file(state_file):
 class NetworkState:
     def __init__(self, version=NETWORK_STATE_VERSION, config=None):
         self.version = version
-        self.config = config
+
+        self.config = [] if config in [None, 'disabled'] else config
+
         self.network_state = {
             'interfaces': {},
             'routes': [],
