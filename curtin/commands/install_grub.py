@@ -119,13 +119,18 @@ def get_carryover_params(distroinfo):
     def wrap(sep):
         return ' ' + sep + ' '
 
+    sections = []
     if wrap(preferred_sep) in cmdline:
-        lead, extra = cmdline.split(wrap(preferred_sep))
+        sections = cmdline.split(wrap(preferred_sep))
     elif wrap(legacy_sep) in cmdline:
-        lead, extra = cmdline.split(wrap(legacy_sep))
+        sections = cmdline.split(wrap(legacy_sep))
     else:
         extra = ""
         lead = cmdline
+
+    if sections:
+        lead = sections[0]
+        extra = " ".join(sections[1:])
 
     carry_extra = []
     if extra:

@@ -181,7 +181,7 @@ class TestGetCarryoverParams(CiTestCase):
         self.m_load_file.return_value = cmdline
         self.assertEqual([], install_grub.get_carryover_params(distroinfo))
 
-    def test_legacy_seporator(self):
+    def test_legacy_separator(self):
         distroinfo = install_grub.distro.get_distroinfo()
         sep = '--'
         expected_carry_params = ['foo=bar', 'debug=1']
@@ -191,12 +191,21 @@ class TestGetCarryoverParams(CiTestCase):
         self.assertEqual(expected_carry_params,
                          install_grub.get_carryover_params(distroinfo))
 
-    def test_preferred_seporator(self):
+    def test_preferred_separator(self):
         distroinfo = install_grub.distro.get_distroinfo()
         sep = '---'
         expected_carry_params = ['foo=bar', 'debug=1']
         cmdline = "root=/dev/xvda1 ro quiet splash %s %s" % (
             sep, " ".join(expected_carry_params))
+        self.m_load_file.return_value = cmdline
+        self.assertEqual(expected_carry_params,
+                         install_grub.get_carryover_params(distroinfo))
+
+    def test_multiple_preferred_separator(self):
+        distroinfo = install_grub.distro.get_distroinfo()
+        sep = '---'
+        expected_carry_params = ['extra', 'additional']
+        cmdline = "lead=args %s extra %s additional" % (sep, sep)
         self.m_load_file.return_value = cmdline
         self.assertEqual(expected_carry_params,
                          install_grub.get_carryover_params(distroinfo))
