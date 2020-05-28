@@ -252,10 +252,12 @@ def parse_net_config_data(net_config):
     """
     state = None
     if 'version' in net_config and 'config' in net_config:
-        ns = network_state.NetworkState(version=net_config.get('version'),
-                                        config=net_config.get('config'))
-        ns.parse_config()
-        state = ns.network_state
+        # For disabled config, we will not return any network state
+        if net_config["config"] != "disabled":
+            ns = network_state.NetworkState(version=net_config.get('version'),
+                                            config=net_config.get('config'))
+            ns.parse_config()
+            state = ns.network_state
 
     return state
 

@@ -10,8 +10,16 @@ import re
 import shlex
 import time
 
-from curtin.block import (dev_short, dev_path, is_valid_device, sys_block_path)
-from curtin.block import get_holders, zero_file_at_offsets
+from curtin.block import (
+    dev_path,
+    dev_short,
+    get_holders,
+    is_valid_device,
+    md_get_devices_list,
+    md_get_spares_list,
+    sys_block_path,
+    zero_file_at_offsets,
+)
 from curtin.distro import lsb_release
 from curtin import (util, udev)
 from curtin.log import LOG
@@ -681,29 +689,6 @@ def md_read_run_mdadm_map():
             mdadm_map.update({key: (meta, md_uuid, dev)})
 
     return mdadm_map
-
-
-def md_get_spares_list(devpath):
-    sysfs_md = sys_block_path(devpath, "md")
-    spares = [dev_path(dev[4:])
-              for dev in os.listdir(sysfs_md)
-              if (dev.startswith('dev-') and
-                  util.load_file(os.path.join(sysfs_md,
-                                              dev,
-                                              'state')).strip() == 'spare')]
-
-    return spares
-
-
-def md_get_devices_list(devpath):
-    sysfs_md = sys_block_path(devpath, "md")
-    devices = [dev_path(dev[4:])
-               for dev in os.listdir(sysfs_md)
-               if (dev.startswith('dev-') and
-                   util.load_file(os.path.join(sysfs_md,
-                                               dev,
-                                               'state')).strip() != 'spare')]
-    return devices
 
 
 def md_check_array_uuid(md_devname, md_uuid):

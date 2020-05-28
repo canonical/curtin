@@ -193,15 +193,64 @@ class TestDistroInfo(CiTestCase):
 
 class TestDistroIdentity(CiTestCase):
 
+    ubuntu_core_os_path_side_effects = [
+        [True, True, True],
+        [True, True, False],
+        [True, False, True],
+        [True, False, False],
+        [False, True, True],
+        [False, True, False],
+        [False, False, True],
+    ]
+
     def setUp(self):
         super(TestDistroIdentity, self).setUp()
         self.add_patch('curtin.distro.os.path.exists', 'mock_os_path')
 
-    def test_is_ubuntu_core(self):
+    def test_is_ubuntu_core_16(self):
         for exists in [True, False]:
             self.mock_os_path.return_value = exists
-            self.assertEqual(exists, distro.is_ubuntu_core())
+            self.assertEqual(exists, distro.is_ubuntu_core_16())
             self.mock_os_path.assert_called_with('/system-data/var/lib/snapd')
+
+    def test_is_ubuntu_core_18(self):
+        for exists in [True, False]:
+            self.mock_os_path.return_value = exists
+            self.assertEqual(exists, distro.is_ubuntu_core_18())
+            self.mock_os_path.assert_called_with('/system-data/var/lib/snapd')
+
+    def test_is_ubuntu_core_is_core20(self):
+        for exists in [True, False]:
+            self.mock_os_path.return_value = exists
+            self.assertEqual(exists, distro.is_ubuntu_core_20())
+            self.mock_os_path.assert_called_with('/snaps')
+
+    def test_is_ubuntu_core_true(self):
+        side_effects = self.ubuntu_core_os_path_side_effects
+        for true_effect in side_effects:
+            self.mock_os_path.side_effect = iter(true_effect)
+            self.assertTrue(distro.is_ubuntu_core())
+
+        expected_calls = [
+            mock.call('/system-data/var/lib/snapd'),
+            mock.call('/system-data/var/lib/snapd'),
+            mock.call('/snaps')]
+        expected_nr_calls = len(side_effects) * len(expected_calls)
+        self.assertEqual(expected_nr_calls, self.mock_os_path.call_count)
+        self.mock_os_path.assert_has_calls(
+            expected_calls * len(side_effects))
+
+    def test_is_ubuntu_core_false(self):
+        self.mock_os_path.return_value = False
+        self.assertFalse(distro.is_ubuntu_core())
+
+        expected_calls = [
+            mock.call('/system-data/var/lib/snapd'),
+            mock.call('/system-data/var/lib/snapd'),
+            mock.call('/snaps')]
+        expected_nr_calls = 3
+        self.assertEqual(expected_nr_calls, self.mock_os_path.call_count)
+        self.mock_os_path.assert_has_calls(expected_calls)
 
     def test_is_centos(self):
         for exists in [True, False]:
@@ -440,5 +489,49 @@ class TestHasPkgAvailable(CiTestCase):
         result = distro.has_pkg_available(self.package, self.target, osfamily)
         self.assertEqual(pkg == self.package, result)
         m_subp.assert_has_calls([mock.call('list', opts=['--cacheonly'])])
+
+
+class TestGetArchitecture(CiTestCase):
+
+    def setUp(self):
+        super(TestGetArchitecture, self).setUp()
+        self.target = paths.target_path('mytarget')
+        self.add_patch('curtin.util.subp', 'm_subp')
+        self.add_patch('curtin.distro.get_osfamily', 'm_get_osfamily')
+        self.add_patch('curtin.distro.dpkg_get_architecture',
+                       'm_dpkg_get_arch')
+        self.add_patch('curtin.distro.rpm_get_architecture',
+                       'm_rpm_get_arch')
+        self.m_get_osfamily.return_value = distro.DISTROS.debian
+
+    def test_osfamily_none_calls_get_osfamily(self):
+        distro.get_architecture(target=self.target, osfamily=None)
+        self.assertEqual([mock.call(target=self.target)],
+                         self.m_get_osfamily.call_args_list)
+
+    def test_unhandled_osfamily_raises_value_error(self):
+        osfamily = distro.DISTROS.arch
+        with self.assertRaises(ValueError):
+            distro.get_architecture(target=self.target, osfamily=osfamily)
+        self.assertEqual(0, self.m_dpkg_get_arch.call_count)
+        self.assertEqual(0, self.m_rpm_get_arch.call_count)
+
+    def test_debian_osfamily_calls_dpkg_get_arch(self):
+        osfamily = distro.DISTROS.debian
+        expected_result = self.m_dpkg_get_arch.return_value
+        result = distro.get_architecture(target=self.target, osfamily=osfamily)
+        self.assertEqual(expected_result, result)
+        self.assertEqual([mock.call(target=self.target)],
+                         self.m_dpkg_get_arch.call_args_list)
+        self.assertEqual(0, self.m_rpm_get_arch.call_count)
+
+    def test_redhat_osfamily_calls_rpm_get_arch(self):
+        osfamily = distro.DISTROS.redhat
+        expected_result = self.m_rpm_get_arch.return_value
+        result = distro.get_architecture(target=self.target, osfamily=osfamily)
+        self.assertEqual(expected_result, result)
+        self.assertEqual([mock.call(target=self.target)],
+                         self.m_rpm_get_arch.call_args_list)
+        self.assertEqual(0, self.m_dpkg_get_arch.call_count)
 
 # vi: ts=4 expandtab syntax=python

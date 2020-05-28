@@ -3,8 +3,7 @@ install:
 showtrace: true
 storage:
   config:
-  - grub_device: true
-    id: sda
+  - id: sda
     model: MG04SCA60EA
     name: sda
     ptable: gpt
@@ -80,6 +79,7 @@ storage:
     wipe: superblock
   - device: sdf
     id: sdf-part1
+    grub_device: true
     name: sdf-part1
     number: 1
     offset: 4194304B

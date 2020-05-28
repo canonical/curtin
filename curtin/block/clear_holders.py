@@ -288,39 +288,21 @@ def wipe_superblock(device):
     # the blockdev (e.g. /dev/sda2) may be a multipath partition which can
     # only be wiped via its device mapper device (e.g. /dev/dm-4)
     # check for this and determine the correct device mapper value to use.
-    mp_dev = None
-    mp_support = multipath.multipath_supported()
-    if mp_support:
-        parent, partnum = block.get_blockdev_for_partition(blockdev)
-        parent_mpath_id = multipath.find_mpath_id_by_path(parent)
-        if parent_mpath_id is not None:
-            # construct multipath dmsetup id
-            # <mpathid>-part%d -> /dev/dm-1
-            mp_id, mp_dev = multipath.find_mpath_id_by_parent(parent_mpath_id,
-                                                              partnum=partnum)
-            # if we don't find a mapping then the mp partition has already been
-            # wiped/removed
-            if mp_dev:
-                LOG.debug('Found multipath device over %s, wiping holder %s',
-                          blockdev, mp_dev)
+    if multipath.multipath_supported():
+        # handle /dev/mapper/mpatha , base mp device
+        if multipath.is_mpath_device(blockdev):
+            # if mpath device has "partitions" those need to be removed.
+            # clear-holders will have already wiped these devices as they
+            # are higher up in the dependency tree.
+            mpath_id = multipath.find_mpath_id(blockdev)
+            for mp_part_id in multipath.find_mpath_partitions(mpath_id):
+                multipath.remove_partition(mp_part_id)
+        # handle /dev/sdX which are held by multipath layer
+        if multipath.is_mpath_member(blockdev):
+            LOG.debug('Skipping multipath partition path member: %s', blockdev)
+            return
 
-            # check if we can remove the parent mpath_id mapping; this is
-            # is possible after removing all dependent mpath devices (like
-            # mpath partitions.  Once the mpath parts are wiped and unmapped
-            # we can remove the parent mpath mapping which releases the lock
-            # on the underlying disk partitions.
-            dm_map = multipath.dmname_to_blkdev_mapping()
-            LOG.debug('dm map: %s', dm_map)
-            parent_mp_dev = dm_map.get(parent_mpath_id)
-            if parent_mp_dev is not None:
-                parent_mp_holders = get_holders(parent_mp_dev)
-                if len(parent_mp_holders) == 0:
-                    LOG.debug('Parent multipath device (%s, %s) has no '
-                              'holders, removing.', parent_mpath_id,
-                              parent_mp_dev)
-                    multipath.remove_map(parent_mpath_id)
-
-    _wipe_superblock(mp_dev if mp_dev else blockdev)
+    _wipe_superblock(blockdev)
 
     # if we had partitions, make sure they've been removed
     if partitions:
@@ -342,20 +324,6 @@ def wipe_superblock(device):
                       " (%s/%s).  sleeping %ss before retry",
                       device, attempt + 1, len(retries), wait)
             time.sleep(wait)
-
-    if mp_support:
-        # multipath partitions are separate block devices (disks)
-        if mp_dev or multipath.is_mpath_partition(blockdev):
-            multipath.remove_partition(mp_dev if mp_dev else blockdev)
-        # multipath devices must be hidden to utilize a single member (path)
-        elif multipath.is_mpath_device(blockdev):
-            mp_id = multipath.find_mpath_id(blockdev)
-            multipath.remove_partition(blockdev)
-            if mp_id:
-                multipath.remove_map(mp_id)
-            else:
-                raise RuntimeError(
-                    'Failed to find multipath id for %s' % blockdev)
 
 
 def _wipe_superblock(blockdev, exclusive=True, strict=True):
@@ -452,7 +420,8 @@ def get_holders(device):
     # block.sys_block_path works when given a /sys or /dev path
     sysfs_path = block.sys_block_path(device)
     # get holders
-    holders = os.listdir(os.path.join(sysfs_path, 'holders'))
+    hpath = os.path.join(sysfs_path, 'holders')
+    holders = os.listdir(hpath)
     LOG.debug("devname '%s' had holders: %s", device, holders)
     return holders
 
@@ -467,7 +436,8 @@ def gen_holders_tree(device):
     # dir in sysfs and any partitions on the device. this ensures that a
     # storage tree starting from a disk will include all devices holding the
     # disk's partitions
-    holder_paths = ([block.sys_block_path(h) for h in get_holders(device)] +
+    holders = get_holders(device)
+    holder_paths = ([block.sys_block_path(h) for h in holders] +
                     block.get_sysfs_partitions(device))
     # the DEV_TYPE registry contains a function under the key 'ident' for each
     # device type entry that returns true if the device passed to it is of the
@@ -635,6 +605,7 @@ def clear_holders(base_paths, try_preserve=False):
     # handle single path
     if not isinstance(base_paths, (list, tuple)):
         base_paths = [base_paths]
+    LOG.info('Generating device storage trees for path(s): %s', base_paths)
 
     # get current holders and plan how to shut them down
     holder_trees = [gen_holders_tree(path) for path in base_paths]
@@ -709,9 +680,21 @@ def start_clear_holders_deps():
         except util.ProcessExecutionError:
             LOG.debug('Non-fatal error when querying mdadm detail on %s', md)
 
+    mp_support = multipath.multipath_supported()
+    if mp_support:
+        LOG.debug('Detected multipath support, reload maps')
+        multipath.reload()
+        multipath.force_devmapper_symlinks()
+
     # scan and activate for logical volumes
-    lvm.lvm_scan()
-    lvm.activate_volgroups()
+    lvm.lvm_scan(multipath=mp_support)
+    try:
+        lvm.activate_volgroups(multipath=mp_support)
+    except util.ProcessExecutionError:
+        # partial vg may not come up due to missing members, that's OK
+        pass
+    udev.udevadm_settle()
+
     # the bcache module needs to be present to properly detect bcache devs
     # on some systems (precise without hwe kernel) it may not be possible to
     # lad the bcache module bcause it is not present in the kernel. if this

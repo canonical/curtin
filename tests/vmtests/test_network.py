@@ -108,7 +108,9 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
 
         eni_lines = eni.split('\n') + eni_cfg.split('\n')
         print("\n".join(eni_lines))
-        for line in [l for l in expected_eni.split('\n') if len(l) > 0]:
+        expected_eni_lines = [
+            line for line in expected_eni.split('\n') if len(line) > 0]
+        for line in expected_eni_lines:
             if line.startswith("#"):
                 continue
             if "hwaddress ether" in line:
@@ -488,5 +490,6 @@ class Centos66TestNetworkBasic(centos_relbase.centos66_xenial,
 class Centos70TestNetworkBasic(centos_relbase.centos70_xenial,
                                CentosTestNetworkBasicAbs):
     __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python

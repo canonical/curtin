@@ -48,50 +48,6 @@ class TestCurtinGpg(CiTestCase):
                                       "--recv", key], capture=True,
                                      retries=None)
 
-    @patch('time.sleep')
-    @patch('curtin.util._subp')
-    def test_recv_key_retry_raises(self, mock_under_subp, mock_sleep):
-        key = 'DEADBEEF'
-        keyserver = 'keyserver.ubuntu.com'
-        retries = (1, 2, 5, 10)
-        nr_calls = 5
-        mock_under_subp.side_effect = iter([
-            util.ProcessExecutionError()] * nr_calls)
-
-        with self.assertRaises(ValueError):
-            gpg.recv_key(key, keyserver, retries=retries)
-
-        print("_subp calls: %s" % mock_under_subp.call_args_list)
-        print("sleep calls: %s" % mock_sleep.call_args_list)
-        expected_calls = nr_calls * [
-            call(["gpg", "--keyserver", keyserver, "--recv", key],
-                 capture=True)]
-        mock_under_subp.assert_has_calls(expected_calls)
-
-        expected_calls = [call(1), call(2), call(5), call(10)]
-        mock_sleep.assert_has_calls(expected_calls)
-
-    @patch('time.sleep')
-    @patch('curtin.util._subp')
-    def test_recv_key_retry_works(self, mock_under_subp, mock_sleep):
-        key = 'DEADBEEF'
-        keyserver = 'keyserver.ubuntu.com'
-        nr_calls = 2
-        mock_under_subp.side_effect = iter([
-            util.ProcessExecutionError(),  # 1
-            ("", ""),
-        ])
-
-        gpg.recv_key(key, keyserver, retries=[1])
-
-        print("_subp calls: %s" % mock_under_subp.call_args_list)
-        print("sleep calls: %s" % mock_sleep.call_args_list)
-        expected_calls = nr_calls * [
-            call(["gpg", "--keyserver", keyserver, "--recv", key],
-                 capture=True)]
-        mock_under_subp.assert_has_calls(expected_calls)
-        mock_sleep.assert_has_calls([call(1)])
-
     @patch('curtin.util.subp')
     def test_delete_key(self, mock_subp):
         key = 'DEADBEEF'
@@ -159,5 +115,55 @@ class TestCurtinGpg(CiTestCase):
         mock_recv.assert_has_calls([
             call(key, keyserver=keyserver, retries=None)])
         mock_del.assert_has_calls([call(key)])
+
+
+class TestCurtinGpgSubp(TestCurtinGpg):
+
+    allowed_subp = True
+
+    @patch('time.sleep')
+    @patch('curtin.util._subp')
+    def test_recv_key_retry_raises(self, mock_under_subp, mock_sleep):
+        key = 'DEADBEEF'
+        keyserver = 'keyserver.ubuntu.com'
+        retries = (1, 2, 5, 10)
+        nr_calls = 5
+        mock_under_subp.side_effect = iter([
+            util.ProcessExecutionError()] * nr_calls)
+
+        with self.assertRaises(ValueError):
+            gpg.recv_key(key, keyserver, retries=retries)
+
+        print("_subp calls: %s" % mock_under_subp.call_args_list)
+        print("sleep calls: %s" % mock_sleep.call_args_list)
+        expected_calls = nr_calls * [
+            call(["gpg", "--keyserver", keyserver, "--recv", key],
+                 capture=True)]
+        mock_under_subp.assert_has_calls(expected_calls)
+
+        expected_calls = [call(1), call(2), call(5), call(10)]
+        mock_sleep.assert_has_calls(expected_calls)
+
+    @patch('time.sleep')
+    @patch('curtin.util._subp')
+    def test_recv_key_retry_works(self, mock_under_subp, mock_sleep):
+        key = 'DEADBEEF'
+        keyserver = 'keyserver.ubuntu.com'
+        nr_calls = 2
+        mock_under_subp.side_effect = iter([
+            util.ProcessExecutionError(),  # 1
+            ("", ""),
+        ])
+
+        gpg.recv_key(key, keyserver, retries=[1])
+
+        print("_subp calls: %s" % mock_under_subp.call_args_list)
+        print("sleep calls: %s" % mock_sleep.call_args_list)
+        expected_calls = nr_calls * [
+            call(["gpg", "--keyserver", keyserver, "--recv", key],
+                 capture=True)]
+        mock_under_subp.assert_has_calls(expected_calls)
+        mock_sleep.assert_has_calls([call(1)])
+
 
 # vi: ts=4 expandtab syntax=python

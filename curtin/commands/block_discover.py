@@ -8,10 +8,19 @@ from curtin import block
 def block_discover_main(args):
     """probe for existing devices and emit Curtin storage config output."""
 
-    print(json.dumps(block.discover(), indent=2, sort_keys=True))
+    if args.probe_data:
+        probe_data = block._discover_get_probert_data()
+    else:
+        probe_data = block.discover()
+
+    print(json.dumps(probe_data, indent=2, sort_keys=True))
 
 
-CMD_ARGUMENTS = ()
+CMD_ARGUMENTS = (
+    (('-p', '--probe-data'),
+     {'help': 'dump probert probe-data to stdout emitting storage config.',
+      'action': 'store_true', 'default': False}),
+)
 
 
 def POPULATE_SUBCMD(parser):

@@ -34,7 +34,7 @@ def environ_get(key, default):
 
 IMAGE_SRC_URL = environ_get(
     'IMAGE_SRC_URL',
-    "http://maas.ubuntu.com/images/ephemeral-v3/daily/streams/v1/index.sjson")
+    "http://images.maas.io/ephemeral-v3/daily/streams/v1/index.sjson")
 IMAGE_DIR = environ_get("IMAGE_DIR", "/srv/images")
 
 KEYRING = environ_get(

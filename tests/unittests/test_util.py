@@ -113,6 +113,7 @@ class TestSubp(CiTestCase):
     utf8_invalid = b'ab\xaadef'
     utf8_valid = b'start \xc3\xa9 end'
     utf8_valid_2 = b'd\xc3\xa9j\xc8\xa7'
+    allowed_subp = True
 
     try:
         decode_type = unicode
@@ -552,7 +553,7 @@ class TestTargetPath(CiTestCase):
                          paths.target_path("/target/", "///my/path/"))
 
 
-class TestRunInChroot(CiTestCase):
+class TestRunInChrootTestSubp(CiTestCase):
     """Test the legacy 'RunInChroot'.
 
     The test works by mocking ChrootableTarget's __enter__ to do nothing.
@@ -560,12 +561,23 @@ class TestRunInChroot(CiTestCase):
       a.) RunInChroot is a subclass of ChrootableTarget
       b.) ChrootableTarget's __exit__ only un-does work that its __enter__
           did.  Meaning for our mocked case, it does nothing."""
+    allowed_subp = True
 
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_run_in_chroot_with_target_slash(self):
         with util.RunInChroot("/") as i:
             out, err = i(['echo', 'HI MOM'], capture=True)
         self.assertEqual('HI MOM\n', out)
+
+
+class TestRunInChrootTest(CiTestCase):
+    """Test the legacy 'RunInChroot'.
+
+    The test works by mocking ChrootableTarget's __enter__ to do nothing.
+    The assumptions made are:
+      a.) RunInChroot is a subclass of ChrootableTarget
+      b.) ChrootableTarget's __exit__ only un-does work that its __enter__
+          did.  Meaning for our mocked case, it does nothing."""
 
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     @mock.patch("curtin.util.subp")
@@ -585,10 +597,21 @@ class TestRunInChroot(CiTestCase):
 class TestChrootableTargetMounts(CiTestCase):
     """Test ChrootableTargets mounts dirs"""
 
+    @mock.patch('curtin.util.is_uefi_bootable')
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
-    def test_chrootable_target_default_mounts(self):
+    def test_chrootable_target_default_mounts(self, m_uefi):
+        m_uefi.return_value = False
         in_chroot = util.ChrootableTarget("mytarget")
         default_mounts = ['/dev', '/proc', '/run', '/sys']
+        self.assertEqual(sorted(default_mounts), sorted(in_chroot.mounts))
+
+    @mock.patch('curtin.util.is_uefi_bootable')
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_chrootable_target_default_mounts_uefi(self, m_uefi):
+        m_uefi.return_value = True
+        in_chroot = util.ChrootableTarget("mytarget")
+        default_mounts = ['/dev', '/proc', '/run', '/sys',
+                          '/sys/firmware/efi/efivars']
         self.assertEqual(sorted(default_mounts), sorted(in_chroot.mounts))
 
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
