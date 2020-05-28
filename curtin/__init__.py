@@ -22,6 +22,8 @@ FEATURES = [
     'STORAGE_CONFIG_V1',
     # install supports the 'storage' config version 1 for DD images
     'STORAGE_CONFIG_V1_DD',
+    # has separate 'preserve' and 'wipe' config options
+    'STORAGE_CONFIG_SEPARATE_PRESERVE_AND_WIPE'
     # subcommand 'system-install' is present
     'SUBCOMMAND_SYSTEM_INSTALL',
     # subcommand 'system-upgrade' is present
@@ -32,6 +34,6 @@ FEATURES = [
     'HAS_VERSION_MODULE',
 ]
 
-__version__ = "19.3"
+__version__ = "20.1"
 
 # vi: ts=4 expandtab syntax=python

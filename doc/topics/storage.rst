@@ -212,7 +212,7 @@ This can specify the manufacturer or model of the disk. It is not currently
 used by curtin, but can be useful for a human reading a config file. Future
 versions of curtin may make use of this information.
 
-**wipe**: *superblock, superblock-recursive, zero, random*
+**wipe**: *superblock, superblock-recursive, pvremove, zero, random*
 
 If wipe is specified, **the disk contents will be destroyed**.  In the case that
 a disk is a part of virtual block device, like bcache, RAID array, or LVM, then
@@ -233,22 +233,34 @@ The ``wipe: random`` option will write pseudo-random data from /dev/urandom
 Depending on the size and speed of the disk; it may take a long time to
 complete.
 
+The ``wipe: pvremove`` option will execute the ``pvremove`` command to
+wipe the LVM metadata so that the device is no longer part of an LVM.
+
+
 **preserve**: *true, false*
 
 When the preserve key is present and set to ``true`` curtin will attempt
-to use the disk without damaging data present on it. If ``preserve`` is set and
-``ptable`` is also set, then curtin will validate that the partition table
-specified by ``ptable`` exists on the disk and will raise an error if it does
-not. If ``preserve`` is set and ``ptable`` is not, then curtin will be able to
-use the disk in later commands, but will not check if the disk has a valid
-partition table, and will only verify that the disk exists.
+reuse the existing storage device.  Curtin will verify aspects of the device
+against the configuration provided.  For example, when assessing whether
+curtin can use a preserved partition, curtin checks that the device exists,
+size of the partition matches the value in the config and checks if the same
+partition flag is set.  The set of verification checks vary by device type.
+If curtin encounters a mismatch between config and what is found on the
+device a RuntimeError will be raised with the expected and found values and
+halt the installation.  Currently curtin will verify the follow storage types:
 
-It can be dangerous to try to move or re-size filesystems and partitions
-containing data that needs to be preserved. Therefor curtin does not support
-preserving a disk without also preserving the partitions on it. If a disk is
-set to be preserved and curtin is told to move a partition on that disk,
-installation will stop. It is still possible to reformat partitions that do
-not need to be preserved.
+- disk
+- partition
+- lvm_volgroup
+- lvm_partition
+- dm_crypt
+- raid
+- bcache
+- format
+
+One specific use-case of ``preserve: true`` is in conjunction with the ``wipe``
+flag.  This allows a device to reused, but have the *content* of the device to
+be removed.
 
 **name**: *<name>*
 
@@ -327,7 +339,7 @@ The ``device`` key refers to the ``id`` of a disk in the storage configuration.
 The disk entry must already be defined in the list of commands to ensure that
 it has already been processed.
 
-**wipe**: *superblock, pvremove, zero, random*
+**wipe**: *superblock, superblock-recursive, pvremove, zero, random*
 
 After the partition is added to the disk's partition table, curtin can run a
 wipe command on the partition. The wipe command values are the sames as for
@@ -337,9 +349,7 @@ disks.
 
   Curtin will automatically wipe 1MB at the starting location of the partition
   prior to creating the partition to ensure that other block layers or devices
-  do not enable themselves and prevent accessing the partition.  Wipe
-  and other destructive operations only occur if the ``preserve`` value
-  is not set to ``True``.
+  do not enable themselves and prevent accessing the partition.
 
 **flag**: *logical, extended, boot, bios_grub, swap, lvm, raid, home, prep*
 
@@ -370,7 +380,7 @@ filesystem or be mounted anywhere on the system.
 **preserve**: *true, false*
 
 If the preserve flag is set to true, curtin will verify that the partition
-exists and will not modify the partition.
+exists and that  the ``size`` and ``flag`` match the configuration provided.
 
 **name**: *<name>*
 
@@ -462,6 +472,12 @@ curtin will set the uuid of the new filesystem to the specified value.
 
 If the ``preserve`` key is set to true, curtin will not format the partition.
 
+**extra_options**: *<list of strings>*
+
+The ``extra_options`` key is a list of strings that is appended to the mkfs
+command used to create the filesystem.  **Use of this setting is dangerous.
+Some flags may cause an error during creation of a filesystem.**
+
 **Config Example**::
 
  - id: disk0-part1-fs1
@@ -469,6 +485,21 @@ If the ``preserve`` key is set to true, curtin will not format the partition.
    fstype: ext4
    label: cloud-image
    volume: disk0-part1
+
+ - id: disk1-part1-fs1
+   type: format
+   fstype: ext4
+   label: osdata1
+   uuid: ed51882e-8688-4cd8-97ca-1f2b8bbee458
+   extra_options: ['-O', '^metadata_csum,^64bit']
+
+ - id: nvme1-part1-fs1
+   type: format
+   fstype: ext4
+   label: cacheset1
+   extra_options:
+     - -E
+     - offset=1024,nodiscard
 
 Mount Command
 ~~~~~~~~~~~~~
@@ -594,6 +625,14 @@ The ``devices`` key gives a list of devices to use as physical volumes. Each
 device is specified using the ``id`` of existing devices in the storage config.
 Almost anything can be used as a device such as partitions, whole disks, RAID.
 
+**preserve**: *true, false*
+
+If the ``preserve`` option is True, curtin will verify that volume group
+specified by the ``name`` option is present and that the physical volumes
+of the group match the devices specified in ``devices``.  There is no ``wipe``
+option for volume groups.
+
+
 **Config Example**::
 
  - id: volgroup1
@@ -641,6 +680,18 @@ number followed by a SI unit should work, i.e. *B, kB, MB, GB, TB*.
 
 If the ``size`` key is omitted then all remaining space on the volgroup will be
 used for the logical volume.
+
+**preserve**: *true, false*
+
+If the ``preserve`` option is True, curtin will verify that specified lvm
+partition is part of the specified volume group.  If ``size`` is specified
+curtin will verify the size matches the specified value.
+
+**wipe**: *superblock, superblock-recursive, pvremove, zero, random*
+
+If ``wipe`` option is set, and ``preserve`` is False, curtin will wipe the
+contents of the lvm partition.  Curtin skips wipe settings if it creates
+the lvm partition.
 
 .. note::
 
@@ -705,6 +756,19 @@ system will prompt for this password in order to mount the disk.
 
 Exactly one of **key** and **keyfile** must be supplied.
 
+**preserve**: *true, false*
+
+If the ``preserve`` option is True, curtin will verify the dm-crypt device
+specified is composed of the device specified in ``volume``.
+
+
+**wipe**: *superblock, superblock-recursive, pvremove, zero, random*
+
+If ``wipe`` option is set, and ``preserve`` is False, curtin will wipe the
+contents of the dm-crypt device.  Curtin skips wipe settings if it creates
+the dm-crypt volume.
+
+
 .. note::
 
   Encrypted disks and partitions are tracked in ``/etc/crypttab`` and will  be
@@ -768,6 +832,19 @@ version of mdadm used during the install will control the value here.  Note
 that metadata version 1.2 is the default in mdadm since release version 3.3
 in 2013.
 
+**preserve**: *true, false*
+
+If the ``preserve`` option is True, curtin will verify the composition of
+the raid device.  This includes array state, raid level, device md-uuid,
+composition of the array devices and spares and that all are present.
+
+**wipe**: *superblock, superblock-recursive, pvremove, zero, random*
+
+If ``wipe`` option is set to values other than 'superblock', curtin will
+wipe contents of the assembled raid device.  Curtin skips 'superblock` wipes
+as it already clears raid data on the members before assembling the array.
+
+
 **Config Example**::
 
  - id: raid_array
@@ -824,6 +901,18 @@ If the ``name`` key is present, curtin will create a link to the device at
    dname values for contructed devices (such as bcache) only remain persistent
    as long as the device metadata does not change.  If users modify the device
    such that device metadata is changed then the udev rule may no longer apply.
+
+**preserve**: *true, false*
+
+If the ``preserve`` option is True, curtin will verify the composition of
+the bcache device.  This includes checking that backing device and cache
+device are enabled and bound correctly (backing device is cached by expected
+cache device).  If ``cache-mode`` is specified, verify that the mode matches.
+
+**wipe**: *superblock, superblock-recursive, pvremove, zero, random*
+
+If ``wipe`` option is set, curtin will wipe the contents of the bcache device.
+If only ``cache`` device is specified, wipe option is ignored.
 
 
 **Config Example**::

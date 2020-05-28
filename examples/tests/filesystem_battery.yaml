@@ -67,6 +67,7 @@ storage:
       label: myext4
       volume: d2p04
       uuid: 5da136b6-0c41-11e8-a664-525400123456
+      extra_options: ['-O', '^ext_attr']
     - id: fs05
       type: format
       fstype: fat16

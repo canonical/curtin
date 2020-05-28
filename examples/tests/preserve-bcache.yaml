@@ -1,0 +1,82 @@
+showtrace: true
+
+bucket:
+  - &setup |
+    parted /dev/disk/by-id/virtio-disk-a --script -- \
+        mklabel msdos \
+        mkpart primary 1MiB 1025Mib \
+        set 1 boot on \
+        mkpart primary 1026MiB 9218MiB
+    udevadm settle
+    make-bcache -C /dev/disk/by-id/virtio-disk-b \
+                -B /dev/disk/by-id/virtio-disk-a-part2 --writeback
+    udevadm settle
+    mkfs.ext4 /dev/bcache0
+    mount /dev/bcache0 /mnt
+    touch /mnt/existing
+    umount /mnt
+    echo 1 > /sys/class/block/bcache0/bcache/stop
+    udevadm settle
+
+# Create a bcache now to test curtin's reuse of existing bcache.
+early_commands:
+  00-setup-raid: [sh, -exuc, *setup]
+
+
+storage:
+  config:
+  - id: id_rotary0
+    type: disk
+    name: rotary0
+    serial: disk-a
+    ptable: msdos
+    preserve: true
+    grub_device: true
+  - id: id_ssd0
+    type: disk
+    name: ssd0
+    serial: disk-b
+    preserve: true
+  - id: id_rotary0_part1
+    type: partition
+    name: rotary0-part1
+    device: id_rotary0
+    number: 1
+    offset: 1M
+    size: 1024M
+    preserve: true
+    wipe: superblock
+  - id: id_rotary0_part2
+    type: partition
+    name: rotary0-part2
+    device: id_rotary0
+    number: 2
+    size: 8G
+    preserve: true
+  - id: id_bcache0
+    type: bcache
+    name: bcache0
+    backing_device: id_rotary0_part2
+    cache_device: id_ssd0
+    cache_mode: writeback
+    preserve: true
+  - id: bootfs
+    type: format
+    label: boot-fs
+    volume: id_rotary0_part1
+    fstype: ext4
+  - id: rootfs
+    type: format
+    label: root-fs
+    volume: id_bcache0
+    fstype: ext4
+    preserve: true
+  - id: rootfs_mount
+    type: mount
+    path: /
+    device: rootfs
+  - id: bootfs_mount
+    type: mount
+    path: /boot
+    device: bootfs
+  version: 1

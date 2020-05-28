@@ -468,35 +468,6 @@ class TestAssertZfsSupported(CiTestCase):
             with self.assertRaises(RuntimeError):
                 zfs.zfs_assert_supported()
 
-    @mock.patch('curtin.block.zfs.util.subprocess.Popen')
-    @mock.patch('curtin.block.zfs.util.is_kmod_loaded')
-    @mock.patch('curtin.block.zfs.get_supported_filesystems')
-    @mock.patch('curtin.block.zfs.distro.lsb_release')
-    @mock.patch('curtin.block.zfs.util.get_platform_arch')
-    def test_zfs_assert_supported_raises_exc_on_missing_module(self,
-                                                               m_arch,
-                                                               m_release,
-                                                               m_supfs,
-                                                               m_kmod,
-                                                               m_popen,
-                                                               ):
-        """zfs_assert_supported raises RuntimeError modprobe zfs error"""
-
-        m_arch.return_value = 'amd64'
-        m_release.return_value = {'codename': 'bionic'}
-        m_supfs.return_value = ['ext4']
-        m_kmod.return_value = False
-        process_mock = mock.Mock()
-        attrs = {
-            'returncode': 1,
-            'communicate.return_value':
-                ('output', 'modprobe: FATAL: Module zfs not found ...'),
-        }
-        process_mock.configure_mock(**attrs)
-        m_popen.return_value = process_mock
-        with self.assertRaises(RuntimeError):
-            zfs.zfs_assert_supported()
-
     @mock.patch('curtin.block.zfs.get_supported_filesystems')
     @mock.patch('curtin.block.zfs.util.lsb_release')
     @mock.patch('curtin.block.zfs.util.get_platform_arch')
@@ -513,6 +484,39 @@ class TestAssertZfsSupported(CiTestCase):
         m_supfs.return_value = ['zfs']
         mock_util.which.return_value = None
 
+        with self.assertRaises(RuntimeError):
+            zfs.zfs_assert_supported()
+
+
+class TestAssertZfsSupportedSubp(TestAssertZfsSupported):
+
+    allowed_subp = True
+
+    @mock.patch('curtin.block.zfs.util.subprocess.Popen')
+    @mock.patch('curtin.block.zfs.util.is_kmod_loaded')
+    @mock.patch('curtin.block.zfs.get_supported_filesystems')
+    @mock.patch('curtin.block.zfs.distro.lsb_release')
+    @mock.patch('curtin.block.zfs.util.get_platform_arch')
+    def test_zfs_assert_supported_raises_exc_on_missing_module(self,
+                                                               m_arch,
+                                                               m_release,
+                                                               m_supfs,
+                                                               m_kmod,
+                                                               m_popen,
+                                                               ):
+        """zfs_assert_supported raises RuntimeError modprobe zfs error"""
+        m_arch.return_value = 'amd64'
+        m_release.return_value = {'codename': 'bionic'}
+        m_supfs.return_value = ['ext4']
+        m_kmod.return_value = False
+        process_mock = mock.Mock()
+        attrs = {
+            'returncode': 1,
+            'communicate.return_value':
+                ('output', 'modprobe: FATAL: Module zfs not found ...'),
+        }
+        process_mock.configure_mock(**attrs)
+        m_popen.return_value = process_mock
         with self.assertRaises(RuntimeError):
             zfs.zfs_assert_supported()
 

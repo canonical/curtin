@@ -66,6 +66,8 @@ _TOPDIR = None
 
 UC16_IMAGE = os.path.join(IMAGE_DIR,
                           'ubuntu-core-16/amd64/20170217/root-image.xz')
+UC20_IMAGE = os.path.join(IMAGE_DIR, ('ubuntu-core-20/amd64/20200304/'
+                                      'ubuntu-core-20-amd64.img.xz'))
 
 
 def remove_empty_dir(dirpath):
@@ -543,8 +545,9 @@ DEFAULT_COLLECT_SCRIPTS = {
         ls /dev/disk/by-dname/ | cat >ls_dname
         ls -al /dev/disk/by-dname/ | cat >ls_al_bydname
         ls -al /dev/disk/by-id/ | cat >ls_al_byid
-        ls -al /dev/disk/by-uuid/ | cat >ls_al_byuuid
         ls -al /dev/disk/by-partuuid/ | cat >ls_al_bypartuuid
+        ls -al /dev/disk/by-path/ | cat >ls_al_bypath
+        ls -al /dev/disk/by-uuid/ | cat >ls_al_byuuid
         blkid -o export | cat >blkid.out
         find /boot | cat > find_boot.out
         if [ -e /sys/firmware/efi ]; then
@@ -598,6 +601,7 @@ class VMBaseClass(TestCase):
     arch_skip = []
     boot_timeout = BOOT_TIMEOUT
     collect_scripts = []
+    crashdump = False
     extra_collect_scripts = []
     conf_file = "examples/tests/basic.yaml"
     nr_cpus = None
@@ -639,6 +643,7 @@ class VMBaseClass(TestCase):
     target_distro = None
     target_release = None
     target_krel = None
+    target_kflavor = None
     target_ftype = "squashfs"
     target_kernel_package = None
 
@@ -669,9 +674,16 @@ class VMBaseClass(TestCase):
 
         tftype = cls.target_ftype
         if tftype in ["root-image.xz"]:
-            logger.info('get-testfiles UC16 hack!')
-            target_ftypes = {'root-image.xz': UC16_IMAGE}
-            target_img_verstr = "UbuntuCore 16"
+            logger.info('get-testfiles UC hack!')
+            if cls.target_release == 'ubuntu-core-16':
+                target_ftypes = {'root-image.xz': UC16_IMAGE}
+                target_img_verstr = "UbuntuCore 16"
+            elif cls.target_release == 'ubuntu-core-20':
+                target_ftypes = {'root-image.xz': UC20_IMAGE}
+                target_img_verstr = "UbuntuCore 20"
+            else:
+                raise ValueError(
+                    "Unknown target_release=%s" % cls.target_release)
         elif cls.target_release == cls.release:
             target_ftypes = ftypes.copy()
             target_img_verstr = eph_img_verstr
@@ -681,7 +693,7 @@ class VMBaseClass(TestCase):
                 cls.target_distro,
                 cls.target_release,
                 cls.target_arch, subarch=cls.subarch if cls.subarch else None,
-                kflavor=cls.kflavor if cls.kflavor else None,
+                kflavor=cls.target_kflavor if cls.target_kflavor else None,
                 krel=cls.target_krel, sync=CURTIN_VMTEST_IMAGE_SYNC,
                 ftypes=(tftype,))
 
@@ -880,11 +892,17 @@ class VMBaseClass(TestCase):
                                                              cls.arch)
             raise SkipTest(reason)
 
+        # there are only centos images for amd64
+        if cls.target_distro == 'centos' and cls.arch != "amd64":
+            reason = "{} is not supported on arch {}".format(cls.__name__,
+                                                             cls.arch)
+            raise SkipTest(reason)
+
         # assign default collect scripts
         if not cls.collect_scripts:
             cls.collect_scripts = (
                 DEFAULT_COLLECT_SCRIPTS['common'] +
-                DEFAULT_COLLECT_SCRIPTS[cls.target_distro])
+                DEFAULT_COLLECT_SCRIPTS.get(cls.target_distro, []))
         else:
             raise RuntimeError('cls collect scripts not empty: %s' %
                                cls.collect_scripts)
@@ -949,6 +967,25 @@ class VMBaseClass(TestCase):
                    ['--append=%s' % service
                     for service in ["systemd.mask=snapd.seeded.service",
                                     "systemd.mask=snapd.service"]])
+
+        # We set guest kernel panic=1 to trigger immediate rebooot, combined
+        # with the (xkvm) -no-reboot qemu parameter should prevent vmtests from
+        # wasting time in a soft-lockup loop. Add the params after the '---'
+        # separator to extend the parameters to the target system as well.
+        cmd.extend(["--no-reboot", "--append=panic=-1",
+                    "--append=softlockup_panic=1",
+                    "--append=hung_task_panic=1",
+                    "--append=nmi_watchdog=panic,1"])
+
+        # configure guest with crashdump to capture kernel failures for debug
+        if cls.crashdump:
+            # we need to install a kernel and modules so bump the memory by 2g
+            # for the ephemeral environment to hold it all
+            cls.mem = int(cls.mem) + 2048
+            logger.info(
+                'Enabling linux-crashdump during install, mem += 2048 = %s',
+                cls.mem)
+            cmd.extend(["--append=crashkernel=384M-5000M:192M"])
 
         # getting resolvconf configured is only fixed in bionic
         # the iscsi_auto handles resolvconf setup via call to
@@ -1070,7 +1107,10 @@ class VMBaseClass(TestCase):
         disks.extend(cls.build_iscsi_disks())
 
         # class config file and vmtest defaults
-        configs = [cls.conf_file, 'examples/tests/vmtest_defaults.yaml']
+        configs = [cls.conf_file]
+        if cls.target_distro not in ['ubuntu-core']:
+            configs.append('examples/tests/vmtest_defaults.yaml')
+
         # proxy config
         cls.proxy = get_apt_proxy()
         if cls.proxy is not None and not cls.td.restored:
@@ -1332,8 +1372,10 @@ class VMBaseClass(TestCase):
             'serial=%s' % os.path.basename(cls.td.output_disk))
         target_disks.extend([output_disk])
 
+        # centos requires a reboot after first boot to do selinux relabing
+        noreboot = ['--no-reboot'] if cls.target_distro != 'centos' else []
         # create xkvm cmd
-        cmd = (["tools/xkvm", "-v", dowait] +
+        cmd = (["tools/xkvm", "-v", dowait] + noreboot +
                uefi_flags + netdevs +
                cls.mpath_diskargs(target_disks + extra_disks + nvme_disks) +
                ["--disk=file=%s,if=virtio,media=cdrom" % cls.td.seed_disk] +
@@ -1544,17 +1586,14 @@ class VMBaseClass(TestCase):
         self.assertTrue(True not in results.values(),
                         msg="Collected files exist that should not.")
 
-    def load_collect_file(self, filename, mode="r"):
-        with open(self.collect_path(filename), mode) as fp:
-            return fp.read()
+    def load_collect_file(self, filename):
+        return util.load_file(self.collect_path(filename))
 
-    def load_collect_file_shell_content(self, filename, mode="r"):
-        with open(self.collect_path(filename), mode) as fp:
-            return util.load_shell_content(content=fp.read())
+    def load_collect_file_shell_content(self, filename):
+        return util.load_shell_content(self.load_collect_file(filename))
 
     def load_log_file(self, filename):
-        with open(filename, 'rb') as fp:
-            return fp.read().decode('utf-8', errors='replace')
+        return util.load_file(filename)
 
     def get_install_log_curtin_version(self):
         # curtin: Installation started. (%s)
@@ -1680,6 +1719,8 @@ class VMBaseClass(TestCase):
             'wwn': 'ID_WWN_WITH_EXTENSION',
         }
         for disk in disks:
+            if not disk.get('name'):
+                continue
             dname_file = "%s.rules" % sanitize_dname(disk.get('name'))
             contents = self.load_collect_file("udev_rules.d/%s" % dname_file)
             for key, key_name in key_to_udev.items():
@@ -1713,11 +1754,25 @@ class VMBaseClass(TestCase):
         kname = [os.path.basename(line.split()[10])
                  for line in ls_byid.split('\n')
                  if ("virtio-" + serial) in line.split() or
-                    ("scsi-" + serial) in line.split()]
+                    ("scsi-" + serial) in line.split() or
+                    ("wwn-" + serial) in line.split()]
         self.assertEqual(len(kname), 1)
         kname = kname.pop()
         self.assertIsNotNone(kname)
         return kname
+
+    def _kname_to_bypath(self, kname):
+        # extract path from /dev/disk/by-path on /dev/<kname>
+        # parsing ls -al output on /dev/disk/by-path
+        # lrwxrwxrwx 1 root root  10 Mar 10 21:28
+        #  ccw-0.0.0000-scsi-0:0:0:0-part1 -> ../../sda1
+        ls_bypath = self.load_collect_file("ls_al_bypath")
+        bypath = [line.split()[8] for line in ls_bypath.split('\n')
+                  if ("../../" + kname) in line.split()]
+        self.assertEqual(len(bypath), 1)
+        bypath = bypath.pop()
+        self.assertIsNotNone(bypath)
+        return bypath
 
     def _kname_to_uuid(self, kname):
         # extract uuid from /dev/disk/by-uuid on /dev/<kname>
@@ -1908,7 +1963,10 @@ class VMBaseClass(TestCase):
 
     def has_storage_config(self):
         '''check if test used storage config'''
-        return len(self.get_storage_config()) > 0
+        try:
+            return len(self.get_storage_config()) > 0
+        except util.FileMissingError:
+            return False
 
     @skip_if_flag('expected_failure')
     def test_swaps_used(self):
@@ -2075,6 +2133,8 @@ def check_install_log(install_log, nrchars=200):
     # regexps expected in curtin output
     install_pass = INSTALL_PASS_MSG
     install_fail = "({})".format("|".join([
+                   'INFO:.* blocked for more than.*seconds.',
+                   'Kernel panic -',
                    'Installation failed',
                    'ImportError: No module named.*',
                    'Out of memory:',

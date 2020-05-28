@@ -17,8 +17,8 @@ def random_device_id():
 
 class TestDasdValidDeviceId(CiTestCase):
 
-    nonhex = [l for l in string.ascii_lowercase if l not in
-              ['a', 'b', 'c', 'd', 'e', 'f']]
+    nonhex = [letter for letter in string.ascii_lowercase
+              if letter not in ['a', 'b', 'c', 'd', 'e', 'f']]
 
     invalids = [None, '', {}, ('', ), 12, '..', CiTestCase.random_string(),
                 'qz.zq.ffff', '.ff.1420', 'ff..1518', '0.0.xyyz',

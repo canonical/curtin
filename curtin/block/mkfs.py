@@ -132,7 +132,8 @@ def get_flag_mapping(flag_name, fs_family, param=None, strict=False):
     return ret
 
 
-def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False):
+def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False,
+         extra_options=None):
     """Make filesystem on block device with given path using given fstype and
        appropriate flags for filesystem family.
 
@@ -146,6 +147,8 @@ def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False):
 
        Force can be specified to force the mkfs command to continue even if it
        finds old data or filesystems on the partition.
+
+       If extra_options are supplied they are appended to mkfs command.
        """
 
     if path is None:
@@ -201,6 +204,9 @@ def mkfs(path, fstype, strict=False, label=None, uuid=None, force=False):
             cmd.extend(get_flag_mapping("fatsize", fs_family, param=fat_size,
                                         strict=strict))
 
+    if extra_options:
+        cmd.extend(extra_options)
+
     cmd.append(path)
     util.subp(cmd, capture=True)
 
@@ -226,6 +232,6 @@ def mkfs_from_config(path, info, strict=False):
     # NOTE: Since old metadata on partitions that have not been wiped can cause
     #       some mkfs commands to refuse to work, it's best to use force=True
     mkfs(path, fstype, strict=strict, force=True, uuid=info.get('uuid'),
-         label=info.get('label'))
+         label=info.get('label'), extra_options=info.get('extra_options'))
 
 # vi: ts=4 expandtab syntax=python

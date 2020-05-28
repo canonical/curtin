@@ -1,4 +1,18 @@
 showtrace: true
+install:
+  unmount: disabled
+
+_install_debconf_utils:
+ - &install_debconf_utils |
+   command -v apt-get && {
+       apt-get -qy install debconf-utils &>/dev/null || { echo "No debconf-utils available"; }
+   }
+   exit 0
+
+late_commands:
+  # used to collect debconf_selections
+  01_install_debconf_utils: ['curtin', 'in-target', '--', 'bash', '-c', *install_debconf_utils]
+
 storage:
   config:
   - grub_device: true
@@ -9,7 +23,8 @@ storage:
     wipe: superblock
     serial: disk-a
     name: main_disk
-  - id: sdb
+  - grub_device: true
+    id: sdb
     name: sdb
     ptable: gpt
     type: disk
@@ -123,4 +138,5 @@ storage:
     options: ''
     path: /var
     type: mount
+
   version: 1

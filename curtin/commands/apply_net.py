@@ -99,6 +99,9 @@ def apply_net(target, network_state=None, network_config=None):
         else:
             ns = net.parse_net_config_data(netcfg.get('network', {}))
 
+            if ns is None:
+                return
+
     if not passthrough:
         LOG.info('Rendering network configuration in target')
         net.render_network_state(target=target, network_state=ns)

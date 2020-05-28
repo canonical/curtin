@@ -18,6 +18,7 @@ class TestUbuntuCoreAbs(VMBaseClass):
         cp -a /etc/cloud ./etc_cloud |:
         cp -a /home . |:
         cp -a /var/lib/extrausers . |:
+        find /boot > ./boot.files
 
         exit 0
         """)]
@@ -43,5 +44,13 @@ class TestUbuntuCoreAbs(VMBaseClass):
 
 class UbuntuCore16TestUbuntuCore(relbase.uc16fromxenial, TestUbuntuCoreAbs):
     __test__ = False
+
+
+class UbuntuCore20TestUbuntuCore(relbase.uc20fromfocal, TestUbuntuCoreAbs):
+    uefi = True
+    __test__ = False
+    mem = 2048
+    nr_cpus = 2
+
 
 # vi: ts=4 expandtab syntax=python

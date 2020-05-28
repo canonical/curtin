@@ -46,7 +46,7 @@ def get_default_mirrors(arch=None):
        architecture, for more see:
        https://wiki.ubuntu.com/UbuntuDevelopment/PackageArchive#Ports"""
     if arch is None:
-        arch = util.get_architecture()
+        arch = distro.get_architecture()
     if arch in PRIMARY_ARCHES:
         return PRIMARY_ARCH_MIRRORS.copy()
     if arch in PORTS_ARCHES:
@@ -61,7 +61,7 @@ def handle_apt(cfg, target=None):
         standalone command.
     """
     release = distro.lsb_release(target=target)['codename']
-    arch = util.get_architecture(target)
+    arch = distro.get_architecture(target)
     mirrors = find_apt_mirror_info(cfg, arch)
     LOG.debug("Apt Mirror info: %s", mirrors)
 
@@ -135,6 +135,7 @@ def apply_debconf_selections(cfg, target=None):
         LOG.debug("debconf_selections was not set in config")
         return
 
+    LOG.debug('Applying debconf selections')
     selections = '\n'.join(
         [selsets[key] for key in sorted(selsets.keys())])
     debconf_set_selections(selections.encode() + b"\n", target=target)
@@ -149,13 +150,8 @@ def apply_debconf_selections(cfg, target=None):
             pkgs_cfgd.add(pkg)
 
     pkgs_installed = distro.get_installed_packages(target)
-
-    LOG.debug("pkgs_cfgd: %s", pkgs_cfgd)
-    LOG.debug("pkgs_installed: %s", pkgs_installed)
     need_reconfig = pkgs_cfgd.intersection(pkgs_installed)
-
     if len(need_reconfig) == 0:
-        LOG.debug("no need for reconfig")
         return
 
     dpkg_reconfigure(need_reconfig, target=target)
@@ -192,7 +188,7 @@ def mirrorurl_to_apt_fileprefix(mirror):
 
 def rename_apt_lists(new_mirrors, target=None):
     """rename_apt_lists - rename apt lists to preserve old cache data"""
-    default_mirrors = get_default_mirrors(util.get_architecture(target))
+    default_mirrors = get_default_mirrors(distro.get_architecture(target))
 
     pre = paths.target_path(target, APT_LISTS)
     for (name, omirror) in default_mirrors.items():
@@ -289,7 +285,7 @@ def generate_sources_list(cfg, release, mirrors, target=None):
         create a source.list file based on a custom or default template
         by replacing mirrors and release in the template
     """
-    default_mirrors = get_default_mirrors(util.get_architecture(target))
+    default_mirrors = get_default_mirrors(distro.get_architecture(target))
     aptsrc = "/etc/apt/sources.list"
     params = {'RELEASE': release}
     for k in mirrors:
@@ -516,7 +512,7 @@ def find_apt_mirror_info(cfg, arch=None):
     """
 
     if arch is None:
-        arch = util.get_architecture()
+        arch = distro.get_architecture()
         LOG.debug("got arch for mirror selection: %s", arch)
     pmirror = get_mirror(cfg, "primary", arch)
     LOG.debug("got primary mirror: %s", pmirror)

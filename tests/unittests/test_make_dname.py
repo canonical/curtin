@@ -153,19 +153,19 @@ class TestMakeDname(CiTestCase):
             '', self.trusty_blkid)
         mock_util.load_command_environment.return_value = self.state
 
-        warning_msg = "Can't find a uuid for volume: {}. Skipping dname."
+        warning_msg = "Can't find a uuid for volume: %s. Skipping dname."
 
         # disk with no PT_UUID
         disk = 'disk_noid'
         block_meta.make_dname(disk, self.storage_config)
-        mock_log.warning.assert_called_with(warning_msg.format(disk))
+        mock_log.warning.assert_called_with(warning_msg, disk)
         self.assertFalse(mock_util.write_file.called)
 
         mock_util.subp.side_effect = self._make_mock_subp_blkid(
             '', self.trusty_blkid)
         # partition with no PART_UUID
         block_meta.make_dname('disk1p1', self.storage_config)
-        mock_log.warning.assert_called_with(warning_msg.format('disk1p1'))
+        mock_log.warning.assert_called_with(warning_msg, 'disk1p1')
         self.assertFalse(mock_util.write_file.called)
 
     @mock.patch('curtin.commands.block_meta.LOG')

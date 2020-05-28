@@ -20,6 +20,7 @@ def get_configs(conf_input):
                        for f in os.listdir(conf_input)])
     return [conf_input]
 
+
 errors = []
 for conf in get_configs(conf_input):
     # validate entire config

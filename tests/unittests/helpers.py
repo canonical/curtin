@@ -1,6 +1,5 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-import contextlib
 import imp
 import importlib
 import mock
@@ -10,8 +9,10 @@ import shutil
 import string
 import tempfile
 from unittest import TestCase, skipIf
-
+from contextlib import contextmanager
 from curtin import util
+
+_real_subp = util.subp
 
 
 def builtin_module_name():
@@ -27,7 +28,7 @@ def builtin_module_name():
             return name
 
 
-@contextlib.contextmanager
+@contextmanager
 def simple_mocked_open(content=None):
     if not content:
         content = ''
@@ -53,6 +54,54 @@ def skipUnlessJsonSchema():
 
 class CiTestCase(TestCase):
     """Common testing class which all curtin unit tests subclass."""
+
+    allowed_subp = False
+    SUBP_SHELL_TRUE = "shell=True"
+
+    @contextmanager
+    def allow_subp(self, allowed_subp):
+        orig = self.allowed_subp
+        try:
+            self.allowed_subp = allowed_subp
+            yield
+        finally:
+            self.allowed_subp = orig
+
+    def setUp(self):
+        super(CiTestCase, self).setUp()
+        if self.allowed_subp is True:
+            util.subp = _real_subp
+        else:
+            util.subp = self._fake_subp
+
+    def _fake_subp(self, *args, **kwargs):
+        if 'args' in kwargs:
+            cmd = kwargs['args']
+        else:
+            cmd = args[0]
+
+        if not isinstance(cmd, str):
+            cmd = cmd[0]
+        pass_through = False
+        if not isinstance(self.allowed_subp, (list, bool)):
+            raise TypeError("self.allowed_subp supports list or bool.")
+        if isinstance(self.allowed_subp, bool):
+            pass_through = self.allowed_subp
+        else:
+            pass_through = (
+                (cmd in self.allowed_subp) or
+                (self.SUBP_SHELL_TRUE in self.allowed_subp and
+                 kwargs.get('shell')))
+        if pass_through:
+            return _real_subp(*args, **kwargs)
+        raise Exception(
+            "called subp. set self.allowed_subp=True to allow\n subp(%s)" %
+            ', '.join([str(repr(a)) for a in args] +
+                      ["%s=%s" % (k, repr(v)) for k, v in kwargs.items()]))
+
+    def tearDown(self):
+        util.subp = _real_subp
+        super(CiTestCase, self).tearDown()
 
     def add_patch(self, target, attr, **kwargs):
         """Patches specified target object and sets it as attr on test

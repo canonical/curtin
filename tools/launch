@@ -50,6 +50,7 @@ Usage: ${0##*/} [ options ] curtin install [args]
            --serial-log F  : log to F (default 'serial.log')
            --root-arg X pass 'X' through as the root= param when booting a
                         kernel.  default: $DEFAULT_ROOT_PARAM
+           --no-reboot  Pass '-no-reboot' through to QEMU
       -v | --verbose    be more verbose
            --no-install-deps  do not install insert '--install-deps'
                               on curtin command invocations
@@ -408,7 +409,7 @@ get_img_fmt() {
 
 main() {
     local short_opts="a:A:d:h:i:k:n:p:s:v"
-    long_opts="add:,append:,arch:,bios:,boot-image:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,no-proxy-config,power:,publish:,root-arg:,silent,serial-log:,smp:,uefi-nvram:,verbose,vnc:"
+    long_opts="add:,append:,arch:,bios:,boot-image:,disk:,dowait,help,initrd:,kernel:,mem:,netdev:,no-dowait,no-proxy-config,no-reboot,power:,publish:,root-arg:,silent,serial-log:,smp:,uefi-nvram:,verbose,vnc:"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -461,6 +462,7 @@ main() {
                --no-dowait) pt[${#pt[@]}]="$cur"; dowait=false;;
                --no-install-deps) install_deps="";;
                --no-proxy-config) proxy_config=false;;
+               --no-reboot) pt[${#pt[@]}]="--no-reboot";;
                --power)
                 case "$next" in
                     off) pstate="poweroff";;

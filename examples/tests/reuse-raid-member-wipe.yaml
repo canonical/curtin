@@ -14,7 +14,8 @@ bucket:
   - &setup |
     parted /dev/disk/by-id/virtio-disk-a --script -- \
         mklabel gpt              \
-        mkpart primary 1GiB 9GiB
+        mkpart primary 1GiB 9GiB \
+        set 1 boot on
     parted /dev/disk/by-id/virtio-disk-b --script -- \
         mklabel gpt              \
         mkpart primary 1GiB 9GiB

@@ -15,11 +15,11 @@ Do these things once
   be listed in the `contributor-agreement-canonical`_ group.  Unfortunately
   there is no easy way to check if an organization or company you are doing
   work for has signed.  If you are unsure or have questions, email
-  `Josh Powers <mailto:josh.powers@canonical.com>` or ping powersj in
+  `Rick Harding <mailto:rick.harding@canonical.com>` or ping rick_h in
   ``#curtin`` channel via Freenode IRC.
 
   When prompted for 'Project contact' or 'Canonical Project Manager' enter
-  'Josh Powers'.
+  'Rick Harding'.
 
 * Configure git with your email and name for commit messages.
 

@@ -21,12 +21,13 @@ class _CentosFromUbuntuBase(_UbuntuBase):
     # base for installing centos tarballs from ubuntu base
     target_distro = "centos"
     target_ftype = "root-tgz"
-    kflavor = None
+    target_kflavor = None
+    kflavor = "generic"
 
 
 class _UbuntuCoreUbuntuBase(_UbuntuBase):
     # base for installing UbuntuCore root-image.xz from ubuntu base
-    target_distro = "ubuntu-core-16"
+    target_distro = "ubuntu-core"
     target_ftype = "root-image.xz"
     kflavor = None
 
@@ -57,7 +58,21 @@ class _UbuntuCore16FromXenialBase(_UbuntuCoreUbuntuBase):
     release = "xenial"
     # release for target
     target_release = "ubuntu-core-16"
-    target_distro = "ubuntu-core"
+
+
+class _UbuntuCore18FromBionicBase(_UbuntuCoreUbuntuBase):
+    # release for boot
+    release = "bionic"
+    # release for target
+    target_release = "ubuntu-core-18"
+
+
+class _UbuntuCore20FromFocalBase(_UbuntuCoreUbuntuBase):
+    # release for boot
+    release = "focal"
+    # release for target
+    target_release = "ubuntu-core-20"
+    mem = "2048"
 
 
 class _Centos66FromXenialBase(_CentosFromUbuntuBase):
@@ -201,6 +216,8 @@ class _CentosReleases(object):
 
 class _UbuntuCoreReleases(object):
     uc16fromxenial = _UbuntuCore16FromXenialBase
+    uc18frombionic = _UbuntuCore18FromBionicBase
+    uc20fromfocal = _UbuntuCore20FromFocalBase
 
 
 base_vm_classes = _Releases

@@ -11,6 +11,37 @@ from curtin.block import schemas
 from curtin import config as curtin_config
 from curtin import util
 
+# map
+# https://en.wikipedia.org/wiki/GUID_Partition_Table#Partition_type_GUIDs
+# to
+# curtin/commands/block_meta.py:partition_handler()sgdisk_flags/types
+GPT_GUID_TO_CURTIN_MAP = {
+    'C12A7328-F81F-11D2-BA4B-00A0C93EC93B': ('boot', 'EF00'),
+    '21686148-6449-6E6F-744E-656564454649': ('bios_grub', 'EF02'),
+    '933AC7E1-2EB4-4F13-B844-0E14E2AEF915': ('home', '8302'),
+    '0FC63DAF-8483-4772-8E79-3D69D8477DE4': ('linux', '8300'),
+    'E6D6D379-F507-44C2-A23C-238F2A3DF928': ('lvm', '8e00'),
+    '024DEE41-33E7-11D3-9D69-0008C781F39F': ('mbr', ''),
+    '9E1A2D38-C612-4316-AA26-8B49521E5A8B': ('prep', '4200'),
+    'A19D880F-05FC-4D3B-A006-743F0F84911E': ('raid', 'fd00'),
+    '0657FD6D-A4AB-43C4-84E5-0933C84B4F4F': ('swap', '8200'),
+}
+
+# MBR types
+# https://www.win.tue.nl/~aeb/partitions/partition_types-2.html
+# to
+# curtin/commands/block_meta.py:partition_handler()sgdisk_flags/types
+MBR_TYPE_TO_CURTIN_MAP = {
+    '0XF': ('extended', 'f'),
+    '0X5': ('extended', 'f'),
+    '0X83': ('linux', '83'),
+    '0X85': ('extended', 'f'),
+    '0XC5': ('extended', 'f'),
+}
+
+MBR_BOOT_FLAG = '0x80'
+
+PTABLE_TYPE_MAP = dict(GPT_GUID_TO_CURTIN_MAP, **MBR_TYPE_TO_CURTIN_MAP)
 
 StorageConfig = namedtuple('StorageConfig', ('type', 'schema'))
 STORAGE_CONFIG_TYPES = {
@@ -40,7 +71,7 @@ def get_storage_type_schemas():
 
 
 STORAGE_CONFIG_SCHEMA = {
-    '$schema': 'http://json-schema.org/draft-07/schema#',
+    '$schema': 'http://json-schema.org/draft-04/schema#',
     'name': 'ASTORAGECONFIG',
     'title': 'curtin storage configuration for an installation.',
     'description': (
@@ -126,7 +157,7 @@ def _stype_to_deps(stype):
     depends_keys = {
         'bcache': {'backing_device', 'cache_device'},
         'dasd': set(),
-        'disk': {'device_id'},
+        'disk': set(),
         'dm_crypt': {'volume'},
         'format': {'volume'},
         'lvm_partition': {'volgroup'},
@@ -144,6 +175,7 @@ def _stype_to_order_key(stype):
     default_sort = {'id'}
     order_key = {
         'bcache': {'name'},
+        'dasd': default_sort,
         'disk': default_sort,
         'dm_crypt': default_sort,
         'format': default_sort,
@@ -170,7 +202,7 @@ def _validate_dep_type(source_id, dep_key, dep_id, sconfig):
         'bcache': {'bcache', 'disk', 'dm_crypt', 'lvm_partition',
                    'partition', 'raid'},
         'dasd': {},
-        'disk': {'device_id'},
+        'disk': {'dasd'},
         'dm_crypt': {'bcache', 'disk', 'dm_crypt', 'lvm_partition',
                      'partition', 'raid'},
         'format': {'bcache', 'disk', 'dm_crypt', 'lvm_partition',
@@ -436,9 +468,9 @@ class ProbertParser(object):
         if blockdev['DEVTYPE'] == 'partition':
             bd_name = self.partition_parent_devname(blockdev)
         bd_name = os.path.basename(bd_name)
-        for path in mpath_data['paths']:
-            if bd_name == path['device']:
-                rv = path['multipath']
+        for path in mpath_data.get('paths', []):
+            if bd_name == path.get('device'):
+                rv = path.get('multipath')
                 return rv
 
     def find_mpath_member(self, blockdev):
@@ -456,9 +488,12 @@ class ProbertParser(object):
             dm_mpath = blockdev.get('DM_MPATH')
             dm_uuid = blockdev.get('DM_UUID')
             dm_part = blockdev.get('DM_PART')
+            dm_name = blockdev.get('DM_NAME')
 
             if dm_mpath:
                 multipath = dm_mpath
+            elif dm_name:
+                multipath = dm_name
             else:
                 # part1-mpath-30000000000000064
                 # mpath-30000000000000064
@@ -647,7 +682,7 @@ class BlockdevParser(ProbertParser):
 
         for devname, data in self.blockdev_data.items():
             # skip composed devices here, except partitions
-            if data.get('DEVPATH', '').startswith('/devices/virtual'):
+            if data.get('DEVPATH', '').startswith('/devices/virtual/block'):
                 if data.get('DEVTYPE', '') != "partition":
                     continue
             entry = self.asdict(data)
@@ -660,34 +695,12 @@ class BlockdevParser(ProbertParser):
                 configs.append(entry)
         return (configs, errors)
 
-    def ptable_uuid_to_flag_entry(self, guid):
-        # map
-        # https://en.wikipedia.org/wiki/GUID_Partition_Table#Partition_type_GUIDs
-        # to
-        # curtin/commands/block_meta.py:partition_handler()sgdisk_flags/types
-        # MBR types
-        # https://www.win.tue.nl/~aeb/partitions/partition_types-2.html
-        guid_map = {
-            'C12A7328-F81F-11D2-BA4B-00A0C93EC93B': ('boot', 'EF00'),
-            '21686148-6449-6E6F-744E-656564454649': ('bios_grub', 'EF02'),
-            '933AC7E1-2EB4-4F13-B844-0E14E2AEF915': ('home', '8302'),
-            '0FC63DAF-8483-4772-8E79-3D69D8477DE4': ('linux', '8300'),
-            'E6D6D379-F507-44C2-A23C-238F2A3DF928': ('lvm', '8e00'),
-            '024DEE41-33E7-11D3-9D69-0008C781F39F': ('mbr', ''),
-            '9E1A2D38-C612-4316-AA26-8B49521E5A8B': ('prep', '4200'),
-            'A19D880F-05FC-4D3B-A006-743F0F84911E': ('raid', 'fd00'),
-            '0657FD6D-A4AB-43C4-84E5-0933C84B4F4F': ('swap', '8200'),
-            '0X83': ('linux', '83'),
-            '0XF': ('extended', 'f'),
-            '0X5': ('extended', 'f'),
-            '0X85': ('extended', 'f'),
-            '0XC5': ('extended', 'f'),
-        }
-        name = code = None
-        if guid and guid.upper() in guid_map:
-            name, code = guid_map[guid.upper()]
-
-        return (name, code)
+    def valid_id(self, id_value):
+        # reject wwn=0x0+
+        if id_value.lower().startswith('0x'):
+            return int(id_value, 16) > 0
+        # accept non-empty (removing whitspace) strings
+        return len(''.join(id_value.split())) > 0
 
     def get_unique_ids(self, blockdev):
         """ extract preferred ID_* keys for www and serial values.
@@ -704,7 +717,8 @@ class BlockdevParser(ProbertParser):
         for skey, id_keys in source_keys.items():
             for id_key in id_keys:
                 if id_key in blockdev and skey not in uniq:
-                    uniq[skey] = blockdev[id_key]
+                    if self.valid_id(blockdev[id_key]):
+                        uniq[skey] = blockdev[id_key]
 
         return uniq
 
@@ -743,7 +757,8 @@ class BlockdevParser(ProbertParser):
         }
         if blockdev_data.get('DM_MULTIPATH_DEVICE_PATH') == "1":
             mpath_name = self.get_mpath_name(blockdev_data)
-            entry['multipath'] = mpath_name
+            if mpath_name:
+                entry['multipath'] = mpath_name
 
         # default disks to gpt
         if entry['type'] == 'disk':
@@ -752,6 +767,19 @@ class BlockdevParser(ProbertParser):
             uniq_ids.update({'path': devname})
             # set wwn, serial, and path
             entry.update(uniq_ids)
+
+            # disk entry for dasds needs device_id and check for vtoc ptable
+            if devname.startswith('/dev/dasd'):
+                device_id = (
+                    blockdev_data.get('ID_PATH', '').replace('ccw-', ''))
+                if device_id:
+                    entry['device_id'] = device_id
+
+                # if dasd has been formatted, attrs.size is non-zero
+                # formatted dasds have ptable type of 'vtoc'
+                dasd_size = blockdev_data.get('attrs', {}).get('size')
+                if dasd_size and dasd_size != "0":
+                    entry['ptable'] = 'vtoc'
 
             if 'ID_PART_TABLE_TYPE' in blockdev_data:
                 ptype = blockdev_data['ID_PART_TABLE_TYPE']
@@ -793,12 +821,20 @@ class BlockdevParser(ProbertParser):
                 entry['size'] *= 512
 
             ptype = blockdev_data.get('ID_PART_ENTRY_TYPE')
-            flag_name, _flag_code = self.ptable_uuid_to_flag_entry(ptype)
+            flag_name, _flag_code = ptable_uuid_to_flag_entry(ptype)
 
-            # logical partitions are not tagged in data, however
-            # the partition number > 4 (ie, not primary nor extended)
-            if ptable and ptable.get('label') == 'dos' and entry['number'] > 4:
-                flag_name = 'logical'
+            if ptable and ptable.get('label') == 'dos':
+                # if the boot flag is set, use this as the flag, logical
+                # flag is not required as we can determine logical via
+                # partition number
+                ptype_flag = blockdev_data.get('ID_PART_ENTRY_FLAGS')
+                if ptype_flag in [MBR_BOOT_FLAG]:
+                    flag_name = 'boot'
+                else:
+                    # logical partitions are not tagged in data, however
+                    # the partition number > 4 (ie, not primary nor extended)
+                    if entry['number'] > 4:
+                        flag_name = 'logical'
 
             if flag_name:
                 entry['flag'] = flag_name
@@ -843,7 +879,7 @@ class FilesystemParser(ProbertParser):
                 continue
 
             # ignore types that we cannot create
-            if data['TYPE'] not in schemas._fstypes:
+            if data.get('TYPE') not in schemas._fstypes:
                 continue
 
             entry = self.asdict(volume_id, data)
@@ -937,6 +973,43 @@ class LvmParser(ProbertParser):
                     continue
                 configs.append(entry)
 
+        return (configs, errors)
+
+
+class DasdParser(ProbertParser):
+
+    probe_data_key = 'dasd'
+
+    def asdict(self, dasd_config):
+        dasd_name = os.path.basename(dasd_config['name'])
+        device_id = dasd_config['device_id']
+        blocksize = dasd_config['blocksize']
+        disk_layout = dasd_config['disk_layout']
+
+        return {'type': 'dasd',
+                'id': 'dasd-%s' % dasd_name,
+                'device_id': device_id,
+                'blocksize': blocksize,
+                'mode': 'full' if disk_layout == 'not-formatted' else 'quick',
+                'disk_layout': disk_layout}
+
+    def parse(self):
+        """parse probert 'dasd' data format.
+
+            returns tuple of lists: (configs, errors)
+            contain configs of type:dasd and any errors.
+        """
+        configs = []
+        errors = []
+        for dasd_name, dasd_config in self.class_data.items():
+            entry = self.asdict(dasd_config)
+            if entry:
+                try:
+                    validate_config(entry)
+                except ValueError as e:
+                    errors.append(e)
+                    continue
+                configs.append(entry)
         return (configs, errors)
 
 
@@ -1191,6 +1264,17 @@ class ZfsParser(ProbertParser):
         return (zpool_configs + zfs_configs, errors)
 
 
+def ptable_uuid_to_flag_entry(guid):
+    name = code = None
+    # prefix non-uuid guid values with 0x
+    if guid and '-' not in guid and not guid.upper().startswith('0X'):
+        guid = '0x' + guid
+    if guid and guid.upper() in PTABLE_TYPE_MAP:
+        name, code = PTABLE_TYPE_MAP[guid.upper()]
+
+    return (name, code)
+
+
 def extract_storage_config(probe_data, strict=False):
     """ Examine a probert storage dictionary and extract a curtin
         storage configuration that would recreate all of the
@@ -1201,6 +1285,7 @@ def extract_storage_config(probe_data, strict=False):
     convert_map = {
         'bcache': BcacheParser,
         'blockdev': BlockdevParser,
+        'dasd': DasdParser,
         'dmcrypt': DmcryptParser,
         'filesystem': FilesystemParser,
         'lvm': LvmParser,
@@ -1218,6 +1303,7 @@ def extract_storage_config(probe_data, strict=False):
         errors.extend(found_errs)
 
     LOG.debug('Sorting extracted configurations')
+    dasd = [cfg for cfg in configs if cfg.get('type') == 'dasd']
     disk = [cfg for cfg in configs if cfg.get('type') == 'disk']
     part = [cfg for cfg in configs if cfg.get('type') == 'partition']
     format = [cfg for cfg in configs if cfg.get('type') == 'format']
@@ -1230,8 +1316,8 @@ def extract_storage_config(probe_data, strict=False):
     zpool = [cfg for cfg in configs if cfg.get('type') == 'zpool']
     zfs = [cfg for cfg in configs if cfg.get('type') == 'zfs']
 
-    ordered = (disk + part + format + lvols + lparts + raids + dmcrypts +
-               mounts + bcache + zpool + zfs)
+    ordered = (dasd + disk + part + format + lvols + lparts + raids +
+               dmcrypts + mounts + bcache + zpool + zfs)
 
     final_config = {'storage': {'version': 1, 'config': ordered}}
     try:

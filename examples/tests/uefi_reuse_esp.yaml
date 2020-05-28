@@ -1,12 +1,14 @@
 showtrace: true
+install:
+  unmount: disabled
 
 bucket:
   - &setup |
     parted /dev/disk/by-id/virtio-disk-a --script -- \
         mklabel gpt \
-        mkpart primary fat32 1MiB 512MiB \
+        mkpart primary fat32 1MiB 513MiB \
         set 1 esp on \
-        mkpart primary ext4 512MiB 3512Mib
+        mkpart primary ext4 513MiB 3585MiB
 
     udevadm settle
     mkfs.vfat -I -n EFI -F 32 /dev/disk/by-id/virtio-disk-a-part1
