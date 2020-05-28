@@ -1,0 +1,5 @@
+# example with network config disabled with version
+# showtrace: true
+network:
+    version: 1
+    config: disabled

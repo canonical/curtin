@@ -78,6 +78,9 @@ def net_meta(args):
     if util.run_hook_if_exists(args.target, 'network-config'):
         sys.exit(0)
 
+    if args.mode == "disabled":
+        sys.exit(0)
+
     state = util.load_command_environment()
     cfg = config.load_command_config(args, state)
     if cfg.get("network") is not None:
@@ -134,7 +137,7 @@ def net_meta(args):
 
     if not target:
         raise Exception(
-            "No target given for mode = '%s'.  No where to write content: %s" %
+            "No target given for mode = '%s'. Nowhere to write content: %s" %
             (args.mode, content))
 
     LOG.debug("writing to file %s with network config: %s", target, content)
@@ -160,7 +163,7 @@ CMD_ARGUMENTS = (
        'action': 'store', 'metavar': 'TARGET',
        'default': os.environ.get('TARGET_MOUNT_POINT')}),
      ('mode', {'help': 'meta-mode to use',
-               'choices': ['dhcp', 'copy', 'auto', 'custom']})
+               'choices': ['dhcp', 'copy', 'auto', 'custom', 'disabled']})
      )
 )
 

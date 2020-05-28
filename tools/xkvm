@@ -339,7 +339,7 @@ get_bios_opts() {
 
 main() {
     local short_opts="hd:n:v"
-    local long_opts="bios:,help,dowait,disk:,dry-run,kvm:,no-dowait,netdev:,uefi,uefi-nvram:,verbose"
+    local long_opts="bios:,help,dowait,disk:,dry-run,kvm:,no-dowait,no-reboot,netdev:,uefi,uefi-nvram:,verbose"
     local getopt_out=""
     getopt_out=$(getopt --name "${0##*/}" \
         --options "${short_opts}" --long "${long_opts}" -- "$@") &&
@@ -371,6 +371,7 @@ main() {
     #  We default to dowait=false if input and output are a terminal
     local dowait=""
     [ -t 0 -a -t 1 ] && dowait=false || dowait=true
+    local noreboot=false
     while [ $# -ne 0 ]; do
         cur=${1}; next=${2};
         case "$cur" in
@@ -384,6 +385,7 @@ main() {
             -v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
             --dowait) dowait=true;;
             --no-dowait) dowait=false;;
+            --no-reboot) noreboot=true;;
             --bios) bios="$next"; shift;;
             --uefi) uefi=true;;
             --uefi-nvram) uefi=true; uefi_nvram="$next"; shift;;
@@ -683,6 +685,9 @@ main() {
     local rng_devices
     rng_devices=( -object "rng-random,filename=/dev/urandom,id=objrng0"
                   -device "$virtio_rng_device,rng=objrng0,id=rng0" )
+    if $noreboot; then
+        kvmcmd=( "${kvmcmd[@]}" -no-reboot )
+    fi
     cmd=( "${kvmcmd[@]}" "${archopts[@]}"
           "${bios_opts[@]}"
           "${bus_devices[@]}"

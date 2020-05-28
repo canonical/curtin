@@ -1,0 +1,116 @@
+showtrace: true
+
+bucket:
+  - &setup |
+    parted /dev/disk/by-id/virtio-disk-a --script -- \
+        mklabel gpt                   \
+        mkpart primary ext4 2MiB 4MiB \
+        set 1 bios_grub on            \
+        mkpart primary ext4 1GiB 4GiB \
+        mkpart primary ext4 4GiB 7GiB
+    parted /dev/disk/by-id/virtio-disk-b --script -- \
+        mklabel gpt                   \
+        mkpart primary ext4 1GiB 4GiB  \
+        mkpart primary ext4 4GiB 7GiB
+    udevadm settle
+    ls -al /dev/disk/by-id
+    vgcreate --force --zero=y --yes vg8 /dev/disk/by-id/virtio-disk-b-part1
+    pvscan --verbose
+    vgscan --verbose
+    udevadm settle
+    ls -al /dev/disk/by-id
+    mkfs.ext4 /dev/disk/by-id/virtio-disk-a-part3
+    mkfs.ext4 /dev/disk/by-id/virtio-disk-b-part2
+    mount /dev/disk/by-id/virtio-disk-b-part2 /mnt
+    touch /mnt/existing-virtio-disk-b-part2
+    umount /mnt
+
+# Partition the disk now to test curtin's reuse of partitions.
+early_commands:
+  00-setup-disk: [sh, -exuc, *setup]
+
+storage:
+  config:
+  - ptable: gpt
+    serial: disk-a
+    preserve: true
+    name: disk-a
+    grub_device: true
+    type: disk
+    id: disk-sda
+    wipe: superblock
+  - serial: disk-b
+    name: disk-b
+    grub_device: false
+    type: disk
+    id: disk-sdb
+    preserve: true
+  - device: disk-sda
+    size: 2097152
+    flag: bios_grub
+    preserve: true
+    wipe: zero
+    type: partition
+    id: disk-sda-part-1
+  - device: disk-sda
+    size: 3G
+    flag: linux
+    preserve: true
+    wipe: zero
+    type: partition
+    id: disk-sda-part-2
+  - device: disk-sdb
+    flag: linux
+    size: 3G
+    preserve: true
+    wipe: zero
+    type: partition
+    id: disk-sdb-part-1
+  - device: disk-sdb
+    flag: linux
+    size: 3G
+    preserve: true
+    type: partition
+    id: disk-sdb-part-2
+  - fstype: ext4
+    volume: disk-sda-part-2
+    preserve: false
+    type: format
+    id: format-0
+  - fstype: ext4
+    volume: disk-sdb-part-2
+    preserve: true
+    type: format
+    id: format-disk-sdb-part-2
+  - device: format-0
+    path: /
+    type: mount
+    id: mount-0
+  - name: vg1
+    devices:
+    - disk-sdb-part-1
+    preserve: false
+    type: lvm_volgroup
+    id: lvm_volgroup-0
+  - name: lv-0
+    volgroup: lvm_volgroup-0
+    size: 2G
+    preserve: false
+    type: lvm_partition
+    id: lvm_partition-0
+  - fstype: ext4
+    volume: lvm_partition-0
+    preserve: false
+    type: format
+    id: format-1
+  - device: format-1
+    path: /home
+    type: mount
+    id: mount-1
+  - device: format-disk-sdb-part-2
+    path: /opt
+    type: mount
+    id: mount-2
+
+  version: 1
+verbosity: 3

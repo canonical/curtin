@@ -1,6 +1,7 @@
 TOP := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 CWD := $(shell pwd)
-PYTHON ?= python3
+PYTHON2 ?= python2
+PYTHON3 ?= python3
 COVERAGE ?= 1
 DEFAULT_COVERAGEOPTS = --with-coverage --cover-erase --cover-branches --cover-package=curtin --cover-inclusive 
 ifeq ($(COVERAGE), 1)
@@ -9,6 +10,8 @@ endif
 CURTIN_VMTEST_IMAGE_SYNC ?= False
 export CURTIN_VMTEST_IMAGE_SYNC
 noseopts ?= -vv --nologcapture
+pylintopts ?= --rcfile=pylintrc --errors-only
+target_dirs ?= curtin tests tools
 
 build:
 
@@ -26,16 +29,22 @@ pep8:
 	@$(CWD)/tools/run-pep8
 
 pyflakes:
-	@$(CWD)/tools/run-pyflakes
+	$(PYTHON2) -m pyflakes $(target_dirs)
 
 pyflakes3:
-	@$(CWD)/tools/run-pyflakes3
+	$(PYTHON3) -m pyflakes $(target_dirs)
+
+pylint:
+	$(PYTHON2) -m pylint $(pylintopts) $(target_dirs)
+
+pylint3:
+	$(PYTHON3) -m pylint $(pylintopts) $(target_dirs)
 
 unittest2:
-	nosetests $(coverageopts) $(noseopts) tests/unittests
+	$(PYTHON2) -m nose $(coverageopts) $(noseopts) tests/unittests
 
 unittest3:
-	nosetests3 $(coverageopts) $(noseopts) tests/unittests
+	$(PYTHON3) -m nose $(coverageopts) $(noseopts) tests/unittests
 
 unittest: unittest2 unittest3
 
@@ -53,7 +62,7 @@ check-doc-deps:
 
 # By default don't sync images when running all tests.
 vmtest: schema-validate
-	nosetests3 $(noseopts) tests/vmtests
+	$(PYTHON3) -m nose $(noseopts) tests/vmtests
 
 vmtest-deps:
 	@$(CWD)/tools/vmtest-system-setup

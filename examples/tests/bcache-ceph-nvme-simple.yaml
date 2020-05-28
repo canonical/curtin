@@ -1,7 +1,6 @@
 storage:
     config:
-    -   grub_device: true
-        id: sda
+    -   id: sda
         model: MM1000GBKAL
         name: sda
         ptable: gpt
@@ -35,6 +34,7 @@ storage:
         type: partition
         uuid: 1e27e7af-26dc-4af4-9ef5-aea928204997
         wipe: superblock
+        grub_device: true
     -   device: sda
         id: sda-part2
         name: sda-part2

@@ -1,0 +1,125 @@
+showtrace: true
+install:
+  unmount: disabled
+bucket:
+  - &setup |
+    export DEBIAN_FRONTEND=noninteractive
+    aptopts="--quiet --assume-yes"
+    aptopts="$aptopts --option=Dpkg::options::=--force-unsafe-io"
+    aptopts="$aptopts --option=Dpkg::Options::=--force-confold"
+    if ! command -v multipath; then
+        eatmydata apt-get install -y $aptopts multipath-tools
+        echo -e "defaults {\n    user_friendly_names yes\n}" > /etc/multipath.conf
+        udevadm trigger --subsystem-match=block --action=add
+        udevadm settle
+        multipath -v3 -R3 -r
+    fi
+    multipath -ll
+    dmsetup remove --force --retry /dev/dm-0
+    dmsetup ls
+    multipath -v3 -R3 -f mpatha
+    udevadm settle
+    parted /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_disk-a --script -- \
+        mklabel gpt              \
+        mkpart primary 1MiB 2MiB \
+        set 1 bios_grub on \
+        mkpart primary 3MiB 999MiB \
+        set 2 boot on \
+        mkpart primary 1000MiB 4099MiB
+    udevadm settle
+    ls -al /dev/disk/by-id
+    vgcreate --force --zero=y --yes root_vg /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_disk-a-part3
+    pvscan --verbose
+    vgscan --verbose
+    udevadm settle
+    for x in $(seq 1 10); do
+        if vgs root_vg; then
+            break;
+        fi
+        sleep 1
+    done
+    lvcreate root_vg --name lv1_root --zero=y --wipesignatures=y \
+        --size 2684354560B
+    udevadm settle
+    mkfs.ext4 /dev/root_vg/lv1_root
+    # stop lvm bits
+    for vg in `pvdisplay -C --separator = -o vg_name --noheadings`; do
+        vgchange -an $vg ||:
+    done
+    command -v systemctl && systemctl mask lvm2-pvscan\@.service
+    rm -rf /etc/lvm/archive /etc/lvm/backup  /run/lvm/*
+    multipath -r
+    udevadm settle
+    dmsetup ls
+    multipath -ll
+    ls -al /dev/mapper/
+    sleep 5
+    ls -al /sys/class/block/dm-0/holders/
+    /curtin/bin/curtin \
+        -v --config /curtin/config/multipath-lvm-part-wipe.yaml \
+        clear-holders --shutdown-plan
+
+
+# Create a LVM now to test curtin's reuse of existing LVMs
+early_commands:
+  00-setup-lvm: [bash, -exuc, *setup]
+
+storage:
+    version: 1
+    config:
+      - id: main_disk
+        type: disk
+        ptable: gpt
+        name: root_disk
+        multipath: mpatha
+        serial: disk-a
+        path: /dev/sda
+        grub_device: true
+        wipe: superblock
+      - id: boot_bios
+        type: partition
+        size: 1MB
+        number: 1
+        device: main_disk
+        flag: bios_grub
+        wipe: superblock
+      - id: boot_partition
+        type: partition
+        size: 1GB
+        number: 2
+        device: main_disk
+        wipe: superblock
+      - id: main_disk_p3
+        type: partition
+        number: 3
+        size: 4GB
+        device: main_disk
+        wipe: superblock
+      - id: root_vg
+        type: lvm_volgroup
+        name: root_vg
+        devices:
+            - main_disk_p3
+      - id: root_vg_lv1
+        type: lvm_partition
+        name: lv1_root
+        size: 2.5G
+        volgroup: root_vg
+      - id: lv1_root_fs
+        type: format
+        fstype: ext4
+        volume: root_vg_lv1
+      - id: lvroot_mount
+        path: /
+        type: mount
+        device: lv1_root_fs
+      - fstype: ext4
+        volume: boot_partition
+        preserve: false
+        type: format
+        id: format-0
+      - device: format-0
+        path: /boot
+        type: mount
+        id: mount-0
+

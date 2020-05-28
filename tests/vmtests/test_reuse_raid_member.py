@@ -16,7 +16,7 @@ class TestReuseRAIDMember(VMBaseClass):
 
 class TestReuseRAIDMemberPartition(VMBaseClass):
     """ Curtin can install to a RAID member if other members are missing. """
-    conf_file = "examples/tests/reuse-raid-member-wipe.yaml"
+    conf_file = "examples/tests/reuse-raid-member-wipe-partition.yaml"
     extra_disks = ['10G', '10G']
     uefi = True
 

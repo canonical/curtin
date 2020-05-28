@@ -4,7 +4,14 @@ import shlex
 import os
 
 from curtin import util
-from curtin.log import logged_call
+from curtin.log import logged_call, LOG
+
+try:
+    shlex_quote = shlex.quote
+except AttributeError:
+    # python2.7 uses pipes.quote
+    import pipes
+    shlex_quote = pipes.quote
 
 
 def compose_udev_equality(key, value):
@@ -90,7 +97,23 @@ def udevadm_info(path=None):
             value = None
         if value:
             # preserve spaces in values to match udev database
-            parsed = shlex.split(value)
+            try:
+                parsed = shlex.split(value)
+            except ValueError:
+                # strip the leading/ending single tick from udev output before
+                # escaping the value to prevent their inclusion in the result.
+                trimmed_value = value[1:-1]
+                try:
+                    quoted = shlex_quote(trimmed_value)
+                    LOG.debug('udevadm_info: quoting shell-escape chars '
+                              'in %s=%s -> %s', key, value, quoted)
+                    parsed = shlex.split(quoted)
+                except ValueError:
+                    escaped_value = (
+                        trimmed_value.replace("'", "_").replace('"', "_"))
+                    LOG.debug('udevadm_info: replacing shell-escape chars '
+                              'in %s=%s -> %s', key, value, escaped_value)
+                    parsed = shlex.split(escaped_value)
             if ' ' not in value:
                 info[key] = parsed[0]
             else:

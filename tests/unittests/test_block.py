@@ -1,9 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import functools
+import json
 import os
 import mock
 import sys
+import textwrap
 
 from collections import OrderedDict
 
@@ -85,6 +87,7 @@ class TestBlock(CiTestCase):
         mock_os_path_exists.return_value = True
         mock_os_path_realpath.return_value = "/dev/sda"
         mock_mpath.is_mpath_device.return_value = False
+        mock_mpath.is_mpath_member.return_value = False
 
         path = block.lookup_disk(serial)
 
@@ -120,6 +123,7 @@ class TestBlock(CiTestCase):
         mock_os_path_exists.return_value = True
         mock_os_path_realpath.return_value = device
         mock_mpath.is_mpath_device.return_value = False
+        mock_mpath.is_mpath_member.return_value = False
 
         path = block.lookup_disk(wwn)
 
@@ -440,21 +444,29 @@ class TestWipeVolume(CiTestCase):
 class TestBlockKnames(CiTestCase):
     """Tests for some of the kname functions in block"""
 
+    @mock.patch('curtin.block.os.path.realpath')
     @mock.patch('curtin.block.get_device_mapper_links')
-    def test_determine_partition_kname(self, m_mlink):
+    def test_determine_partition_kname(self, m_mlink, m_realp):
         dm0_link = '/dev/disk/by-id/dm-name-XXXX2406'
         m_mlink.return_value = dm0_link
+
+        # we need to convert the -part path to the real dm value
+        def _my_realp(pp):
+            if pp.startswith(dm0_link):
+                return 'dm-1'
+            return pp
+        m_realp.side_effect = _my_realp
         part_knames = [(('sda', 1), 'sda1'),
                        (('vda', 1), 'vda1'),
                        (('nvme0n1', 1), 'nvme0n1p1'),
                        (('mmcblk0', 1), 'mmcblk0p1'),
                        (('cciss!c0d0', 1), 'cciss!c0d0p1'),
-                       (('dm-0', 1), dm0_link + '-part1'),
+                       (('dm-0', 1),  'dm-1'),
                        (('md0', 1), 'md0p1'),
                        (('mpath1', 2), 'mpath1p2')]
         for ((disk_kname, part_number), part_kname) in part_knames:
-            self.assertEqual(block.partition_kname(disk_kname, part_number),
-                             part_kname)
+            self.assertEqual(part_kname,
+                             block.partition_kname(disk_kname, part_number))
 
     @mock.patch('curtin.block.os.path.realpath')
     def test_path_to_kname(self, mock_os_realpath):
@@ -512,6 +524,12 @@ class TestPartTableSignature(CiTestCase):
     gpt_content_4k = b'\x00' * 0x800 + b'EFI PART' + b'\x00' * (0x800 - 8)
     null_content = b'\x00' * 0xf00
 
+    def setUp(self):
+        super(TestPartTableSignature, self).setUp()
+        self.add_patch('curtin.util.subp', 'm_subp')
+        self.m_subp.side_effect = iter([
+            util.ProcessExecutionError(stdout="", stderr="", exit_code=1)])
+
     def _test_util_load_file(self, content, device, read_len, offset, decode):
         return (bytes if not decode else str)(content[offset:offset+read_len])
 
@@ -566,6 +584,15 @@ class TestPartTableSignature(CiTestCase):
                 mock_is_block_device.return_value = is_block
                 (self.assertTrue if expected else self.assertFalse)(
                     block.check_efi_signature(self.blockdev))
+
+    def test_check_vtoc_signature_finds_vtoc_returns_true(self):
+        self.m_subp.side_effect = iter([("vtoc.....ok", "")])
+        self.assertTrue(block.check_vtoc_signature(self.blockdev))
+
+    def test_check_vtoc_signature_returns_false_with_no_sig(self):
+        self.m_subp.side_effect = iter([
+            util.ProcessExecutionError(stdout="", stderr="", exit_code=1)])
+        self.assertFalse(block.check_vtoc_signature(self.blockdev))
 
 
 class TestNonAscii(CiTestCase):
@@ -633,7 +660,7 @@ class TestSlaveKnames(CiTestCase):
         # construct side effects to os.path.exists
         # and os.listdir based on mapping.
         dirs = []
-        exists = []
+        exists = [True] if device.startswith('/dev') else []
         for (dev, slvs) in cfg.items():
             # sys_block_dev checks if dev exists
             exists.append(True)
@@ -770,5 +797,77 @@ class TestZkeySupported(CiTestCase):
         block.zkey_supported()
         m_util.subp.assert_called_with(['zkey', 'generate', testname],
                                        capture=True)
+
+
+class TestSfdiskInfo(CiTestCase):
+
+    VALID_SFDISK_OUTPUT = textwrap.dedent("""\
+    {
+       "partitiontable": {
+          "label":"dos",
+          "id":"0xb0dbdde1",
+          "device":"/dev/vdb",
+          "unit":"sectors",
+          "partitions": [
+             {"node":"/dev/vdb1", "start":2048, "size":8388608,
+              "type":"83", "bootable":true},
+             {"node":"/dev/vdb2", "start":8390656, "size":8388608,
+              "type":"83"},
+             {"node":"/dev/vdb3", "start":16779264, "size":62914560,
+              "type":"85"},
+             {"node":"/dev/vdb5", "start":16781312, "size":31457280,
+              "type":"83"},
+             {"node":"/dev/vdb6", "start":48240640, "size":10485760,
+              "type":"83"},
+             {"node":"/dev/vdb7", "start":58728448, "size":20965376,
+              "type":"83"}
+          ]
+       }
+    }""")
+
+    def setUp(self):
+        super(TestSfdiskInfo, self).setUp()
+        self.add_patch('curtin.block.get_blockdev_for_partition',
+                       'm_get_blockdev_for_partition')
+        self.add_patch('curtin.block.util.subp', 'm_subp')
+        self.add_patch('curtin.block.util.load_json', 'm_load_json')
+        self.device = '/dev/vdb3'
+        self.disk = '/dev/vdb'
+        self.part = '3'
+        self.m_get_blockdev_for_partition.return_value = (self.disk, self.part)
+        self.m_subp.return_value = (self.VALID_SFDISK_OUTPUT, "")
+        self.loaded_json = json.loads(self.VALID_SFDISK_OUTPUT)
+        self.m_load_json.return_value = self.loaded_json
+        self.expected = self.loaded_json.get('partitiontable', {})
+
+    def test_sfdisk_info(self):
+        """verify sfdisk_info returns correct info dictionary for device."""
+        self.assertEqual(self.expected, block.sfdisk_info(self.device))
+        self.assertEqual(
+            [mock.call(self.device)],
+            self.m_get_blockdev_for_partition.call_args_list)
+        self.assertEqual(
+            [mock.call(['sfdisk', '--json', self.disk], capture=True)],
+            self.m_subp.call_args_list)
+        self.assertEqual(
+            [mock.call(self.m_subp.return_value[0])],
+            self.m_load_json.call_args_list)
+
+    def test_sfdisk_info_returns_empty_on_subp_error(self):
+        """verify sfdisk_info returns empty dict on subp errors."""
+        self.m_subp.side_effect = (
+            util.ProcessExecutionError(
+                stdout="",
+                stderr="sfdisk: cannot open /dev/vdb: Permission denied",
+                exit_code=1))
+        self.assertEqual({}, block.sfdisk_info(self.device))
+        self.assertEqual(
+            [mock.call(self.device)],
+            self.m_get_blockdev_for_partition.call_args_list)
+        self.assertEqual(
+            [mock.call(['sfdisk', '--json', self.disk], capture=True)],
+            self.m_subp.call_args_list)
+        self.assertEqual([], self.m_load_json.call_args_list)
+
 
 # vi: ts=4 expandtab syntax=python

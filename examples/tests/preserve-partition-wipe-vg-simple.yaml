@@ -1,0 +1,62 @@
+showtrace: true
+
+bucket:
+  - &setup |
+    parted /dev/disk/by-id/virtio-disk-a --script -- \
+        mklabel gpt                   \
+        mkpart primary ext4 2MiB 4MiB \
+        set 1 bios_grub on            \
+        mkpart primary ext4 4GiB 7GiB
+    udevadm settle
+    ls -al /dev/disk/by-id
+    vgcreate --force --zero=y --yes root_vg /dev/disk/by-id/virtio-disk-a-part2
+    pvscan --verbose
+    vgscan --verbose
+    vgs
+    lvcreate root_vg --name lv1_root --zero=y --wipesignatures=y \
+        --size 2G
+    udevadm settle
+    lvs
+    ls -al /dev/disk/by-id
+
+# Partition the disk now to test curtin's reuse of partitions.
+early_commands:
+  00-setup-disk: [sh, -exuc, *setup]
+
+storage:
+  config:
+  - ptable: gpt
+    serial: disk-a
+    preserve: true
+    name: disk-a
+    grub_device: true
+    type: disk
+    id: disk-sda
+  - device: disk-sda
+    size: 2097152
+    flag: bios_grub
+    preserve: true
+    number: 1
+    type: partition
+    id: disk-sda-part-1
+  - device: disk-sda
+    size: 3G
+    flag: linux
+    preserve: true
+    number: 2
+    wipe: zero
+    type: partition
+    id: disk-sda-part-2
+  - fstype: ext4
+    volume: disk-sda-part-2
+    preserve: false
+    type: format
+    id: format-0
+  - device: format-0
+    path: /
+    type: mount
+    id: mount-0
+  version: 1
+
+verbosity: 3
+

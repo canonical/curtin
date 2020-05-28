@@ -1,0 +1,4 @@
+# example with network config disabled
+# showtrace: true
+network:
+    config: disabled

@@ -7,6 +7,7 @@ from curtin.storage_config import ProbertParser as baseparser
 from curtin.storage_config import (BcacheParser, BlockdevParser, DasdParser,
                                    DmcryptParser, FilesystemParser, LvmParser,
                                    RaidParser, MountParser, ZfsParser)
+from curtin.storage_config import ptable_uuid_to_flag_entry
 from curtin import util
 
 
@@ -207,21 +208,21 @@ class TestBlockdevParser(CiTestCase):
         expected_tuple = ('boot', 'EF00')
         for guid in boot_guids:
             self.assertEqual(expected_tuple,
-                             self.bdevp.ptable_uuid_to_flag_entry(guid))
+                             ptable_uuid_to_flag_entry(guid))
 
     # XXX: Parameterize me
     def test_blockdev_ptable_uuid_flag_invalid(self):
         """ BlockdevParser returns (None, None) for invalid uuids. """
         for invalid in [None, '', {}, []]:
             self.assertEqual((None, None),
-                             self.bdevp.ptable_uuid_to_flag_entry(invalid))
+                             ptable_uuid_to_flag_entry(invalid))
 
     # XXX: Parameterize me
     def test_blockdev_ptable_uuid_flag_unknown_uuid(self):
         """ BlockdevParser returns (None, None) for unknown uuids. """
         for unknown in [self.random_string(), self.random_string()]:
             self.assertEqual((None, None),
-                             self.bdevp.ptable_uuid_to_flag_entry(unknown))
+                             ptable_uuid_to_flag_entry(unknown))
 
     def test_get_unique_ids(self):
         """ BlockdevParser extracts uniq udev ID_ values. """
@@ -230,6 +231,34 @@ class TestBlockdevParser(CiTestCase):
         blockdev = self.bdevp.blockdev_data['/dev/sda1']
         self.assertDictEqual(expected_ids,
                              self.bdevp.get_unique_ids(blockdev))
+
+    def test_get_unique_ids_ignores_empty_wwn_values(self):
+        """ BlockdevParser skips invalid ID_WWN_* values. """
+        self.bdevp.blockdev_data['/dev/sda'] = {
+            'DEVTYPE': 'disk',
+            'DEVNAME': 'sda',
+            'ID_SERIAL': 'Corsair_Force_GS_1785234921906',
+            'ID_SERIAL_SHORT': '1785234921906',
+            'ID_WWN': '0x0000000000000000',
+            'ID_WWN_WITH_EXTENSION': '0x0000000000000000',
+        }
+        blockdev = self.bdevp.blockdev_data['/dev/sda']
+        expected_ids = {'serial': 'Corsair_Force_GS_1785234921906'}
+        self.assertEqual(expected_ids,
+                         self.bdevp.get_unique_ids(blockdev))
+
+    def test_get_unique_ids_ignores_empty_serial_values(self):
+        """ BlockdevParser skips invalid ID_SERIAL_* values. """
+        self.bdevp.blockdev_data['/dev/sda'] = {
+            'DEVTYPE': 'disk',
+            'DEVNAME': 'sda',
+            'ID_SERIAL': '                      ',
+            'ID_SERIAL_SHORT': 'My Serial is My PassPort',
+        }
+        blockdev = self.bdevp.blockdev_data['/dev/sda']
+        expected_ids = {'serial': 'My Serial is My PassPort'}
+        self.assertEqual(expected_ids,
+                         self.bdevp.get_unique_ids(blockdev))
 
     def test_partition_parent_devname(self):
         """ BlockdevParser calculate partition parent name. """
@@ -376,6 +405,40 @@ class TestBlockdevParser(CiTestCase):
         self.assertDictEqual(expected_dict,
                              self.bdevp.asdict(blockdev))
 
+    def test_blockdev_detects_dos_bootable_flag(self):
+        self.probe_data = _get_data(
+            'probert_storage_msdos_mbr_extended_v2.json')
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/vdb1']
+        expected_dict = {
+            'id': 'partition-vdb1',
+            'type': 'partition',
+            'device': 'disk-vdb',
+            'number': 1,
+            'offset': 1048576,
+            'size': 536870912,
+            'flag': 'boot',
+        }
+        self.assertDictEqual(expected_dict,
+                             self.bdevp.asdict(blockdev))
+
+    def test_blockdev_detects_dos_bootable_flag_on_logical_partitions(self):
+        self.probe_data = _get_data('probert_storage_lvm.json')
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/vda5']
+        blockdev['ID_PART_ENTRY_FLAGS'] = '0x80'
+        expected_dict = {
+            'id': 'partition-vda5',
+            'type': 'partition',
+            'device': 'disk-vda',
+            'number': 5,
+            'offset': 3223322624,
+            'size': 2147483648,
+            'flag': 'boot',
+        }
+        self.assertDictEqual(expected_dict,
+                             self.bdevp.asdict(blockdev))
+
     def test_blockdev_asdict_disk_omits_ptable_if_none_present(self):
         blockdev = self.bdevp.blockdev_data['/dev/sda']
         del blockdev['ID_PART_TABLE_TYPE']
@@ -419,12 +482,134 @@ class TestBlockdevParser(CiTestCase):
             'number': 2}
         self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
 
+    def test_blockdev_skips_multipath_entry_if_no_multipath_data(self):
+        self.probe_data = _get_data('probert_storage_multipath.json')
+        del self.probe_data['multipath']
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/sda2']
+        expected_dict = {
+            'flag': 'linux',
+            'id': 'partition-sda2',
+            'offset': 2097152,
+            'size': 10734272512,
+            'type': 'partition',
+            'device': 'disk-sda',
+            'number': 2}
+        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
+
+    def test_blockdev_skips_multipath_entry_if_bad_multipath_data(self):
+        self.probe_data = _get_data('probert_storage_multipath.json')
+        for path in self.probe_data['multipath']['paths']:
+            path['multipath'] = ''
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/sda2']
+        expected_dict = {
+            'flag': 'linux',
+            'id': 'partition-sda2',
+            'offset': 2097152,
+            'size': 10734272512,
+            'type': 'partition',
+            'device': 'disk-sda',
+            'number': 2}
+        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
+
+    def test_blockdev_skips_multipath_entry_if_no_mp_paths(self):
+        self.probe_data = _get_data('probert_storage_multipath.json')
+        del self.probe_data['multipath']['paths']
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/sda2']
+        expected_dict = {
+            'flag': 'linux',
+            'id': 'partition-sda2',
+            'offset': 2097152,
+            'size': 10734272512,
+            'type': 'partition',
+            'device': 'disk-sda',
+            'number': 2}
+        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
+
     def test_blockdev_finds_multipath_id_from_dm_uuid(self):
         self.probe_data = _get_data('probert_storage_zlp6.json')
         self.bdevp = BlockdevParser(self.probe_data)
         blockdev = self.bdevp.blockdev_data['/dev/dm-2']
         result = self.bdevp.blockdev_to_id(blockdev)
         self.assertEqual('disk-sda', result)
+
+    def test_blockdev_find_mpath_members_checks_dm_name(self):
+        """ BlockdevParser find_mpath_members uses dm_name if present."""
+        dm14 = {
+            "DEVTYPE": "disk",
+            "DEVLINKS": "/dev/disk/by-id/dm-name-mpathb",
+            "DEVNAME": "/dev/dm-14",
+            "DEVTYPE": "disk",
+            "DM_NAME": "mpathb",
+            "DM_UUID": "mpath-360050768028211d8b000000000000062",
+            "DM_WWN": "0x60050768028211d8b000000000000062",
+            "MPATH_DEVICE_READY": "1",
+            "MPATH_SBIN_PATH": "/sbin",
+        }
+        multipath = {
+            "maps": [
+                {
+                    "multipath": "360050768028211d8b000000000000061",
+                    "sysfs": "dm-11",
+                    "paths": "4"
+                },
+                {
+                    "multipath": "360050768028211d8b000000000000062",
+                    "sysfs": "dm-14",
+                    "paths": "4"
+                },
+                {
+                    "multipath": "360050768028211d8b000000000000063",
+                    "sysfs": "dm-15",
+                    "paths": "4"
+                }],
+            "paths": [
+                {
+                    "device": "sdej",
+                    "serial": "0200a084762cXX00",
+                    "multipath": "mpatha",
+                    "host_wwnn": "0x20000024ff9127de",
+                    "target_wwnn": "0x5005076802065e38",
+                    "host_wwpn": "0x21000024ff9127de",
+                    "target_wwpn": "0x5005076802165e38",
+                    "host_adapter": "[undef]"
+                },
+                {
+                    "device": "sdel",
+                    "serial": "0200a084762cXX00",
+                    "multipath": "mpathb",
+                    "host_wwnn": "0x20000024ff9127de",
+                    "target_wwnn": "0x5005076802065e38",
+                    "host_wwpn": "0x21000024ff9127de",
+                    "target_wwpn": "0x5005076802165e38",
+                    "host_adapter": "[undef]"
+                },
+                {
+                    "device": "sdet",
+                    "serial": "0200a084762cXX00",
+                    "multipath": "mpatha",
+                    "host_wwnn": "0x20000024ff9127de",
+                    "target_wwnn": "0x5005076802065e37",
+                    "host_wwpn": "0x21000024ff9127de",
+                    "target_wwpn": "0x5005076802165e37",
+                    "host_adapter": "[undef]"
+                },
+                {
+                    "device": "sdev",
+                    "serial": "0200a084762cXX00",
+                    "multipath": "mpathb",
+                    "host_wwnn": "0x20000024ff9127de",
+                    "target_wwnn": "0x5005076802065e37",
+                    "host_wwpn": "0x21000024ff9127de",
+                    "target_wwpn": "0x5005076802165e37",
+                    "host_adapter": "[undef]"
+                }],
+        }
+        self.bdevp.blockdev_data['/dev/dm-14'] = dm14
+        self.probe_data['multipath'] = multipath
+        self.assertEqual('disk-sdel', self.bdevp.blockdev_to_id(dm14))
 
     def test_blockdev_detects_dasd_device_id_and_vtoc_ptable(self):
         self.probe_data = _get_data('probert_storage_dasd.json')
@@ -843,5 +1028,40 @@ class TestExtractStorageConfig(CiTestCase):
         partitions = [cfg for cfg in config if cfg['type'] == 'partition']
         extended = [part for part in partitions if part['flag'] == 'extended']
         self.assertEqual(1, len(extended))
+
+    @skipUnlessJsonSchema()
+    def test_blockdev_detects_nvme_multipath_devices(self):
+        self.probe_data = _get_data('probert_storage_nvme_multipath.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        config = extracted['storage']['config']
+        disks = [cfg for cfg in config if cfg['type'] == 'disk']
+        expected_dict = {
+            'id': 'disk-nvme0n1',
+            'path': '/dev/nvme0n1',
+            'ptable': 'gpt',
+            'serial': 'SAMSUNG MZPLL3T2HAJQ-00005_S4CCNE0M300015',
+            'type': 'disk',
+            'wwn': 'eui.344343304d3000150025384500000004',
+        }
+        self.assertEqual(1, len(disks))
+        self.assertEqual(expected_dict, disks[0])
+
+    @skipUnlessJsonSchema()
+    def test_blockdev_skips_invalid_wwn(self):
+        self.probe_data = _get_data('probert_storage_bogus_wwn.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        config = extracted['storage']['config']
+        disks = [cfg for cfg in config
+                 if cfg['type'] == 'disk' and cfg['path'] == '/dev/sda']
+        expected_dict = {
+            'id': 'disk-sda',
+            'path': '/dev/sda',
+            'ptable': 'gpt',
+            'serial': 'Corsair_Force_GS_13207907000097410026',
+            'type': 'disk',
+        }
+        self.assertEqual(1, len(disks))
+        self.assertEqual(expected_dict, disks[0])
+
 
 # vi: ts=4 expandtab syntax=python
