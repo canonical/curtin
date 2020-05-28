@@ -1,4 +1,4 @@
-curtin (20.1-2-g42a9667f-0ubuntu1~20.04.1) UNRELEASED; urgency=medium
+curtin (20.1-2-g42a9667f-0ubuntu1~20.04.1) focal; urgency=medium
 
   * New upstream snapshot. (LP: #1881003)
     - vmtests: update skiptests
