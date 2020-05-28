@@ -1372,8 +1372,10 @@ class VMBaseClass(TestCase):
             'serial=%s' % os.path.basename(cls.td.output_disk))
         target_disks.extend([output_disk])
 
+        # centos requires a reboot after first boot to do selinux relabing
+        noreboot = ['--no-reboot'] if cls.target_distro != 'centos' else []
         # create xkvm cmd
-        cmd = (["tools/xkvm", "-v", dowait, '--no-reboot'] +
+        cmd = (["tools/xkvm", "-v", dowait] + noreboot +
                uefi_flags + netdevs +
                cls.mpath_diskargs(target_disks + extra_disks + nvme_disks) +
                ["--disk=file=%s,if=virtio,media=cdrom" % cls.td.seed_disk] +
