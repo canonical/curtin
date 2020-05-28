@@ -1,3 +1,67 @@
+curtin (20.1-2-g42a9667f-0ubuntu1~20.04.1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot. (LP: #1881003)
+    - vmtests: update skiptests
+    - vmtest: allow installed centos images to reboot
+    - Release 20.1
+    - Handle multiple separators which were found in TestAllindata vmtest
+    - verify_ptable_flag: dos primary partitions use ptable_uuid map for flag
+    - net_meta: add disabled mode to skip writing any network config
+      [Lucas Moura]
+    - vmtest: trigger guest panic to fail fast
+    - Replace grub-shell-helper with install_grub command
+    - vmtest-sync-images: update the URL of the maas streams [Paride Legovini]
+    - Replace references to old team manager with new team manager
+      [James Falcon]
+    - tox: pin flake8 to version and add a tip-flake8 environment
+      [Paride Legovini]
+    - Fix flake8 E741 warning [Lucas Moura]
+    - Makefile: make adjustments to call lint/style tools via python module
+    - block-discover: ignore invalid id_serial/id_wwn values
+    - Fix handing of reusing msdos partitions and flags
+    - block.detect_multipath: ignore fake "devices" from /proc/mounts
+      [Michael Hudson-Doyle]
+    - udev: use shlex.quote when shlex.split errors on shell-escape chars
+    - lvm: don't use vgscan --mknodes
+    - vmtest: rsync don't cross filesystem boundaries when copying
+    - vmtest: basic/basic_scsi adjust collect/tests for unstable device names
+    - Add unittests for partition_handler calc_[dm]_part_info and kpartx paths
+    - multipath: attempt to enforce /dev/mapper/mpath files are symlinks
+    - block-meta: device mapper partitions may be block devices not links
+    - Default to dm_name being id if empty earlier in dm_crypt_handler()
+      [Łukasz 'sil2100' Zemczak]
+    - storage: correct declared schema draft version for storage schema
+    - test_clear_holders: add missing zfs mock
+    - Mock out zfs_supported to prevent attempting to load kernel modules
+    - block-meta: skip wipe device paths if not present
+    - unittest: do not allow util.subp by default
+    - curthooks: support multiple ESP on UEFI bootable systems
+    - block-discover: handle missing multipath 'path' data, use DM_NAME
+    - lvm-over-multipath: handle lookups of multipath members
+    - block-meta: don't filter preserve=true devices, select by wipe
+    - vmtest: basic use dname to lookup disk with multiple partitions
+    - block-meta: Don't check the ptable type of a disk with no ptable
+    - curthooks: always use ChrootableTarget.subp when calling efibootmgr
+    - storage: enable and use multipath during storage configuration
+    - block-discover: detect nvme multipath devices
+    - clear-holders: Tolerate vgchange errors during discovery
+    - block-meta: handle preserve with vtoc ptable
+    - vmtest: use -partition file for TestReuseRAIDMemberPartition class
+    - format: extra_options should be a list type
+    - tox: add pyflakes to the default tox run [Paride Legovini]
+    - storage_config: Add 'extra_options' parameter to allow custom mkfs
+    - Add support for installing Ubuntu Core 20 images
+    - tox.ini: Fix issues with newer tox on focal
+    - vmtest: Fix test_basic.py to run on s390x
+    - vmtest: use util.load_file for loading collect files
+    - block-meta: refactor storage_config preserve and wipe settings
+    - block-discover: skip 'multipath' key in blockdevice if mpath name is None
+    - tox: all py27 environments should use the base py27 deps
+    - uefi: refactor efibootmg handling to support removing duplicate entries
+    - tox: pin setuptools < 45 to allow installing py27 in virtenv
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Thu, 28 May 2020 15:31:36 -0500
+
 curtin (19.3-27-g437caaa9-0ubuntu1) focal; urgency=medium
 
   * New upstream snapshot.
