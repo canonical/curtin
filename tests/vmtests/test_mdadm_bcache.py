@@ -26,6 +26,7 @@ class TestMdadmAbs(VMBaseClass):
         ls -al /dev/bcache* > lsal_dev_bcache_star
         ls -al /dev/bcache/by-uuid/ | cat >ls_al_bcache_byuuid
         ls -al /dev/bcache/by-label/ | cat >ls_al_bcache_bylabel
+        ls -al /dev/md/* | cat >ls_al_dev_md
 
         exit 0
         """)]
@@ -359,11 +360,14 @@ class TestRaid5bootAbs(TestMdadmAbs):
                      ('main_disk', 2),
                      ('second_disk', 1),
                      ('third_disk', 1),
-                     ('md0', 0)]
+                     ('os-raid1', 0)]
 
     def get_fstab_expected(self):
+        kname = self._mdname_to_kname('os-raid1')
         return [
-            (self._kname_to_uuid_devpath('md-uuid', 'md0'), '/', 'defaults'),
+            (self._kname_to_uuid_devpath('md-uuid', kname),
+             '/',
+             'defaults'),
         ]
 
 

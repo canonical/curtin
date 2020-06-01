@@ -1761,6 +1761,19 @@ class VMBaseClass(TestCase):
         self.assertIsNotNone(kname)
         return kname
 
+    def _mdname_to_kname(self, mdname):
+        # extract kname from /dev/md/ on /dev/<kname>
+        # parsing ls -al output on /dev/md/*:
+        # lrwxrwxrwx 1 root root 8 May 28 16:26 /dev/md/os-raid1 -> ../md127
+        ls_dev_md = self.load_collect_file("ls_al_dev_md")
+        knames = [os.path.basename(line.split()[-1])
+                  for line in ls_dev_md.split('\n')
+                  if mdname in line]
+        self.assertEqual(len(knames), 1)
+        kname = knames.pop()
+        self.assertIsNotNone(kname)
+        return kname
+
     def _kname_to_bypath(self, kname):
         # extract path from /dev/disk/by-path on /dev/<kname>
         # parsing ls -al output on /dev/disk/by-path

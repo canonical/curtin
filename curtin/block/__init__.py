@@ -1,5 +1,5 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
-
+import re
 from contextlib import contextmanager
 import errno
 import itertools
@@ -65,6 +65,19 @@ def dev_path(devname):
         return devname
     else:
         return '/dev/' + devname
+
+
+def md_path(mdname):
+    """ Convert device name to path in /dev/md """
+    full_mdname = dev_path(mdname)
+    if full_mdname.startswith('/dev/md/'):
+        return full_mdname
+    elif re.match(r'/dev/md\d+$', full_mdname):
+        return full_mdname
+    elif '/' in mdname:
+        raise ValueError("Invalid RAID device name: {}".format(mdname))
+    else:
+        return '/dev/md/{}'.format(mdname)
 
 
 def path_to_kname(path):

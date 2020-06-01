@@ -1779,6 +1779,7 @@ class TestRaidHandler(CiTestCase):
     def setUp(self):
         super(TestRaidHandler, self).setUp()
 
+        orig_md_path = block_meta.block.md_path
         basepath = 'curtin.commands.block_meta.'
         self.add_patch(basepath + 'get_path_to_storage_volume', 'm_getpath')
         self.add_patch(basepath + 'util', 'm_util')
@@ -1786,6 +1787,10 @@ class TestRaidHandler(CiTestCase):
         self.add_patch(basepath + 'mdadm', 'm_mdadm')
         self.add_patch(basepath + 'block', 'm_block')
         self.add_patch(basepath + 'udevadm_settle', 'm_uset')
+
+        # The behavior of this function is being directly tested in
+        # these tests, so we can't mock it
+        self.m_block.md_path = orig_md_path
 
         self.target = "my_target"
         self.config = {
@@ -1850,12 +1855,40 @@ class TestRaidHandler(CiTestCase):
             block_meta.extract_storage_ordered_dict(self.config))
         self.m_util.load_command_environment.return_value = {'fstab': None}
 
+    def test_md_name(self):
+        input_to_result = [
+            ('md1', '/dev/md1'),
+            ('os-raid1', '/dev/md/os-raid1'),
+            ('md/os-raid1', '/dev/md/os-raid1'),
+            ('/dev/md1', '/dev/md1'),
+            ('/dev/md/os-raid1', '/dev/md/os-raid1'),
+            ('bad/path', ValueError)
+        ]
+        for index, test in enumerate(input_to_result):
+            param, expected = test
+            self.storage_config['mddevice']['name'] = param
+            try:
+                block_meta.raid_handler(self.storage_config['mddevice'],
+                                        self.storage_config)
+            except ValueError:
+                if param in ['bad/path']:
+                    continue
+                else:
+                    raise
+
+            actual = self.m_mdadm.mdadm_create.call_args_list[index][0][0]
+            self.assertEqual(
+                expected,
+                actual,
+                "Expected {} to result in mdadm being called with {}. "
+                "mdadm instead called with {}".format(param, expected, actual)
+            )
+
     def test_raid_handler(self):
         """ raid_handler creates raid device. """
         devices = [self.random_string(), self.random_string(),
                    self.random_string()]
         md_devname = '/dev/' + self.storage_config['mddevice']['name']
-        self.m_block.dev_path.return_value = '/dev/md0'
         self.m_getpath.side_effect = iter(devices)
         block_meta.raid_handler(self.storage_config['mddevice'],
                                 self.storage_config)
@@ -1868,7 +1901,6 @@ class TestRaidHandler(CiTestCase):
 
         devices = [self.random_string(), self.random_string(),
                    self.random_string()]
-        self.m_block.dev_path.return_value = '/dev/md0'
         self.m_getpath.side_effect = iter(devices)
         m_verify.return_value = True
         self.storage_config['mddevice']['preserve'] = True
@@ -1882,7 +1914,6 @@ class TestRaidHandler(CiTestCase):
         devices = [self.random_string(), self.random_string(),
                    self.random_string()]
         md_devname = '/dev/' + self.storage_config['mddevice']['name']
-        self.m_block.dev_path.return_value = '/dev/md0'
         self.m_getpath.side_effect = iter(devices)
         self.m_mdadm.md_check.return_value = True
         self.storage_config['mddevice']['preserve'] = True
@@ -1898,7 +1929,6 @@ class TestRaidHandler(CiTestCase):
         devices = [self.random_string(), self.random_string(),
                    self.random_string()]
         md_devname = '/dev/' + self.storage_config['mddevice']['name']
-        self.m_block.dev_path.return_value = '/dev/md0'
         self.m_getpath.side_effect = iter(devices)
         self.m_mdadm.md_check.side_effect = iter([False, True])
         self.storage_config['mddevice']['preserve'] = True
@@ -1916,7 +1946,6 @@ class TestRaidHandler(CiTestCase):
         devices = [self.random_string(), self.random_string(),
                    self.random_string()]
         md_devname = '/dev/' + self.storage_config['mddevice']['name']
-        self.m_block.dev_path.return_value = '/dev/md0'
         self.m_getpath.side_effect = iter(devices)
         self.m_mdadm.md_check.side_effect = iter([False, False])
         self.storage_config['mddevice']['preserve'] = True
