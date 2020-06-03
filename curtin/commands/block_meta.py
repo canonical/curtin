@@ -1744,7 +1744,12 @@ def get_device_paths_from_storage_config(storage_config):
     dpaths = []
     for (k, v) in storage_config.items():
         if v.get('type') in ['disk', 'partition']:
-            if config.value_as_boolean(v.get('wipe')):
+            wipe = config.value_as_boolean(v.get('wipe'))
+            preserve = config.value_as_boolean(v.get('preserve'))
+            if v.get('type') == 'disk' and all([wipe, preserve]):
+                msg = 'type:disk id=%s has both wipe and preserve' % v['id']
+                raise RuntimeError(msg)
+            if wipe:
                 try:
                     # skip paths that do not exit, nothing to wipe
                     dpath = get_path_to_storage_volume(k, storage_config)

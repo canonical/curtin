@@ -2586,4 +2586,115 @@ class TestVerifyPtableFlag(CiTestCase):
                                       sfdisk_info=self.sfdisk_info_dos)
 
 
+class TestGetDevicePathsFromStorageConfig(CiTestCase):
+
+    def setUp(self):
+        super(TestGetDevicePathsFromStorageConfig, self).setUp()
+        base = 'curtin.commands.block_meta.'
+        self.add_patch(base + 'get_path_to_storage_volume', 'mock_getpath')
+        self.add_patch(base + 'os.path.exists', 'm_exists')
+        self.m_exists.return_value = True
+        self.mock_getpath.side_effect = self._getpath
+        self.prefix = '/test/dev/'
+        self.config = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {'id': 'sda',
+                     'type': 'disk',
+                     'name': 'main_disk',
+                     'ptable': 'gpt',
+                     'serial': 'disk-a'},
+                    {'id': 'disk-sda-part-1',
+                     'type': 'partition',
+                     'device': 'sda',
+                     'name': 'bios_boot',
+                     'number': 1,
+                     'size': '1M',
+                     'flag': 'bios_grub'},
+                    {'id': 'disk-sda-part-2',
+                     'type': 'partition',
+                     'device': 'sda',
+                     'number': 2,
+                     'size': '5GB'},
+                ],
+            }
+        }
+        self.disk1 = self.config['storage']['config'][0]
+        self.part1 = self.config['storage']['config'][1]
+        self.part2 = self.config['storage']['config'][2]
+        self.sconfig = self._sconfig(self.config)
+
+    def _sconfig(self, config):
+        return block_meta.extract_storage_ordered_dict(config)
+
+    def _getpath(self, item_id, _sconfig):
+        return self.prefix + item_id
+
+    def test_devpath_selects_disks_partitions_with_wipe_setting(self):
+        self.disk1['wipe'] = 'superblock'
+        self.part1['wipe'] = 'superblock'
+        self.sconfig = self._sconfig(self.config)
+
+        expected_devpaths = [
+            self.prefix + self.disk1['id'], self.prefix + self.part1['id']]
+        result = block_meta.get_device_paths_from_storage_config(self.sconfig)
+        self.assertEqual(sorted(expected_devpaths), sorted(result))
+        self.assertEqual([
+            call(self.disk1['id'], self.sconfig),
+            call(self.part1['id'], self.sconfig)],
+            self.mock_getpath.call_args_list)
+        self.assertEqual(
+            sorted([call(devpath) for devpath in expected_devpaths]),
+            sorted(self.m_exists.call_args_list))
+
+    def test_devpath_raises_exception_if_wipe_and_preserve_set(self):
+        self.disk1['wipe'] = 'superblock'
+        self.disk1['preserve'] = True
+        self.sconfig = self._sconfig(self.config)
+
+        with self.assertRaises(RuntimeError):
+            block_meta.get_device_paths_from_storage_config(self.sconfig)
+        self.assertEqual([], self.mock_getpath.call_args_list)
+        self.assertEqual([], self.m_exists.call_args_list)
+
+    def test_devpath_check_boolean_value_if_wipe_and_preserve_set(self):
+        self.disk1['wipe'] = 'superblock'
+        self.disk1['preserve'] = False
+        self.sconfig = self._sconfig(self.config)
+
+        expected_devpaths = [self.prefix + self.disk1['id']]
+        result = block_meta.get_device_paths_from_storage_config(self.sconfig)
+        self.assertEqual(expected_devpaths, result)
+        self.assertEqual(
+            [call(self.disk1['id'], self.sconfig)],
+            self.mock_getpath.call_args_list)
+        self.assertEqual(
+            sorted([call(devpath) for devpath in expected_devpaths]),
+            sorted(self.m_exists.call_args_list))
+
+    def test_devpath_check_preserved_devices_skipped(self):
+        self.disk1['preserve'] = True
+        self.sconfig = self._sconfig(self.config)
+
+        result = block_meta.get_device_paths_from_storage_config(self.sconfig)
+        self.assertEqual([], result)
+        self.assertEqual([], self.mock_getpath.call_args_list)
+        self.assertEqual([], self.m_exists.call_args_list)
+
+    def test_devpath_check_missing_path_devices_skipped(self):
+        self.disk1['wipe'] = 'superblock'
+        self.sconfig = self._sconfig(self.config)
+
+        self.m_exists.return_value = False
+        result = block_meta.get_device_paths_from_storage_config(self.sconfig)
+        self.assertEqual([], result)
+        self.assertEqual(
+            [call(self.disk1['id'], self.sconfig)],
+            self.mock_getpath.call_args_list)
+        self.assertEqual(
+            [call(self.prefix + self.disk1['id'])],
+            self.m_exists.call_args_list)
+
+
 # vi: ts=4 expandtab syntax=python
