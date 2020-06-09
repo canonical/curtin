@@ -1,7 +1,0 @@
-#!/bin/bash
-# This file is part of curtin. See LICENSE file for copyright and license info.
-
-[ "${0%/*}" = "$0" ] && . ./common || . "${0%/*}/common"
-install_grub "$@"
-
-# vi: ts=4 expandtab syntax=sh

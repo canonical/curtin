@@ -633,6 +633,7 @@ class VMBaseClass(TestCase):
 
     # these get set from base_vm_classes
     release = None
+    supported_releases = []
     arch = None
     target_arch = None
     kflavor = None
@@ -855,6 +856,13 @@ class VMBaseClass(TestCase):
         return {'kernel': {'fallback-package': package}}
 
     @classmethod
+    def is_unsupported_release(cls):
+        # allow unsupported releases opt-in to avoid the skiptest
+        if cls.release in cls.supported_releases:
+            return False
+        return is_unsupported_ubuntu(cls.release)
+
+    @classmethod
     def skip_by_date(cls, *args, **kwargs):
         """skip_by_date wrapper. this way other modules do not have
         to add an import of skip_by_date to start skipping."""
@@ -883,7 +891,7 @@ class VMBaseClass(TestCase):
                 "Class %s does not have required attrs set: %s" %
                 (cls.__name__, missing))
 
-        if is_unsupported_ubuntu(cls.release):
+        if cls.is_unsupported_release():
             raise SkipTest('"%s" is unsupported release.' % cls.release)
 
         # check if we should skip due to host arch

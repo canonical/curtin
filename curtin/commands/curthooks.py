@@ -1176,11 +1176,6 @@ def install_missing_packages(cfg, target, osfamily=DISTROS.debian):
             # AMD64 has shim-signed for SecureBoot support
             if arch == "amd64":
                 uefi_pkgs.append("shim-signed")
-
-            # realpath is part of coreutils in Xenial+, older versions need
-            # the package to be installed.
-            if not util.which("realpath"):
-                uefi_pkgs.append("realpath")
         else:
             raise ValueError('Unknown grub2 package list for distro: %s' %
                              osfamily)

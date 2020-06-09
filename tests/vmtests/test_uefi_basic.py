@@ -89,6 +89,11 @@ class PreciseHWETUefiTestBasic(relbase.precise_hwe_t, PreciseUefiTestBasic):
     __test__ = False
 
 
+class TrustyHWEXUefiTestBasic(relbase.trusty_hwe_x, TestBasicAbs):
+    supported_releases = ['trusty']  # avoid unsupported release skiptest
+    __test__ = False
+
+
 class XenialGAUefiTestBasic(relbase.xenial_ga, TestBasicAbs):
     __test__ = True
 
