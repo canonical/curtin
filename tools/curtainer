@@ -161,6 +161,14 @@ main() {
 
     inside "$name" which eatmydata >/dev/null || eatmydata=""
 
+    # curtin depends on zfsutils-linux via probert-storage, but zfsutils-linux
+    # can't be installed in an unprivileged container as it fails to start
+    # the zfs-mount and zfs-share services as /dev/zfs is missing. We do
+    # not actually need ZFS to work in the container, so the problem can be
+    # worked around by masking the services before the package is installed.
+    inside "$name" systemctl mask zfs-mount
+    inside "$name" systemctl mask zfs-share
+
     if $proposed; then
         mirror=$(inside $name awk '$1 == "deb" { print $2; exit(0); }' \
             /etc/apt/sources.list) &&
