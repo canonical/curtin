@@ -65,7 +65,7 @@ class TestParseDpkgVersion(CiTestCase):
     def test_simple_native_package_version(self):
         """dpkg versions must have a -. If not present expect value error."""
         self.assertEqual(
-            {'major': 2, 'minor': 28, 'micro': 0, 'extra': None,
+            {'epoch': 0, 'major': 2, 'minor': 28, 'micro': 0, 'extra': None,
              'raw': '2.28', 'upstream': '2.28', 'name': 'germinate',
              'semantic_version': 22800},
             distro.parse_dpkg_version('2.28', name='germinate'))
@@ -73,7 +73,7 @@ class TestParseDpkgVersion(CiTestCase):
     def test_complex_native_package_version(self):
         dver = '1.0.106ubuntu2+really1.0.97ubuntu1'
         self.assertEqual(
-            {'major': 1, 'minor': 0, 'micro': 106,
+            {'epoch': 0, 'major': 1, 'minor': 0, 'micro': 106,
              'extra': 'ubuntu2+really1.0.97ubuntu1',
              'raw': dver, 'upstream': dver, 'name': 'debootstrap',
              'semantic_version': 100106},
@@ -82,14 +82,14 @@ class TestParseDpkgVersion(CiTestCase):
 
     def test_simple_valid(self):
         self.assertEqual(
-            {'major': 1, 'minor': 2, 'micro': 3, 'extra': None,
+            {'epoch': 0, 'major': 1, 'minor': 2, 'micro': 3, 'extra': None,
              'raw': '1.2.3-0', 'upstream': '1.2.3', 'name': 'foo',
              'semantic_version': 10203},
             distro.parse_dpkg_version('1.2.3-0', name='foo'))
 
     def test_simple_valid_with_semx(self):
         self.assertEqual(
-            {'major': 1, 'minor': 2, 'micro': 3, 'extra': None,
+            {'epoch': 0, 'major': 1, 'minor': 2, 'micro': 3, 'extra': None,
              'raw': '1.2.3-0', 'upstream': '1.2.3',
              'semantic_version': 123},
             distro.parse_dpkg_version('1.2.3-0', semx=(100, 10, 1)))
@@ -98,7 +98,8 @@ class TestParseDpkgVersion(CiTestCase):
         """upstream versions may have a hyphen."""
         cver = '18.2-14-g6d48d265-0ubuntu1'
         self.assertEqual(
-            {'major': 18, 'minor': 2, 'micro': 0, 'extra': '-14-g6d48d265',
+            {'epoch': 0, 'major': 18, 'minor': 2, 'micro': 0,
+             'extra': '-14-g6d48d265',
              'raw': cver, 'upstream': '18.2-14-g6d48d265',
              'name': 'cloud-init', 'semantic_version': 180200},
             distro.parse_dpkg_version(cver, name='cloud-init'))
@@ -107,9 +108,28 @@ class TestParseDpkgVersion(CiTestCase):
         """multipath tools has a + in it."""
         mver = '0.5.0+git1.656f8865-5ubuntu2.5'
         self.assertEqual(
-            {'major': 0, 'minor': 5, 'micro': 0, 'extra': '+git1.656f8865',
+            {'epoch': 0, 'major': 0, 'minor': 5, 'micro': 0,
+             'extra': '+git1.656f8865',
              'raw': mver, 'upstream': '0.5.0+git1.656f8865',
              'semantic_version': 500},
+            distro.parse_dpkg_version(mver))
+
+    def test_package_with_epoch(self):
+        """xxd has epoch"""
+        mver = '2:8.1.2269-1ubuntu5'
+        self.assertEqual(
+            {'epoch': 2, 'major': 8, 'minor': 1, 'micro': 2269,
+             'extra': None, 'raw': mver, 'upstream': '8.1.2269',
+             'semantic_version': 82369},
+            distro.parse_dpkg_version(mver))
+
+    def test_package_with_dot_in_extra(self):
+        """linux-image-generic has multiple dots in extra"""
+        mver = '5.4.0.37.40'
+        self.assertEqual(
+            {'epoch': 0, 'major': 5, 'minor': 4, 'micro': 0,
+             'extra': '37.40', 'raw': mver, 'upstream': '5.4.0.37.40',
+             'semantic_version': 50400},
             distro.parse_dpkg_version(mver))
 
 

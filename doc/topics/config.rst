@@ -752,12 +752,26 @@ Configure the max size of the swapfile, defaults to 8GB
 Configure the exact size of the swapfile.  Setting ``size`` to 0 will
 disable swap.
 
+**force**: *<boolean>*
+
+Force the creation of swapfile even if curtin detects it may not work.
+In some target filesystems, e.g. btrfs, xfs, zfs, the use of a swap file has
+restrictions.  If curtin detects that there may be issues it will refuse
+to create the swapfile.  Users can force creation of a swapfile by passing
+``force: true``.  A forced swapfile may not be used by the target OS and could
+log cause an error.
+
 **Example**::
 
   swap:
     filename: swap.img
-    size: None
+    size: 1GB
     maxsize: 4GB
+
+  swap:
+    filename: btrfs_swapfile.img
+    size: 1GB
+    force: true
 
 
 system_upgrade

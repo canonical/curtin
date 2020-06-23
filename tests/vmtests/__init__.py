@@ -1676,8 +1676,8 @@ class VMBaseClass(TestCase):
                 if spec in line:
                     fstab_entry = line
                     self.assertIsNotNone(fstab_entry)
-                    self.assertEqual(mp, fstab_entry.split(' ')[1])
-                    self.assertEqual(fsopts, fstab_entry.split(' ')[3])
+                    self.assertEqual(mp, fstab_entry.split()[1])
+                    self.assertEqual(fsopts, fstab_entry.split()[3])
                     found.append((spec, mp, fsopts))
 
         self.assertEqual(sorted(expected), sorted(found))
@@ -1809,6 +1809,36 @@ class VMBaseClass(TestCase):
         self.assertIsNotNone(uuid)
         self.assertEqual(len(uuid), 36)
         return uuid
+
+    def _byuuid_to_kname(self, devpath):
+        # lookup kname via /dev/disk/by-uuid symlink
+        # parsing ls -al output on /dev/disk/by-uuid:
+        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
+        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
+        uuid = os.path.basename(devpath)
+        self.assertIsNotNone(uuid)
+        print(uuid)
+        ls_uuid = self.load_collect_file("ls_al_byuuid")
+        kname = [line.split()[-1] for line in ls_uuid.split('\n')
+                 if uuid in line.split()]
+        self.assertEqual(len(kname), 1)
+        kname = os.path.basename(kname.pop())
+        return kname
+
+    def _bypath_to_kname(self, devpath):
+        # lookup kname via /dev/disk/by-path symlink
+        # parsing ls -al output on /dev/disk/by-path:
+        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
+        #  pci-0000:00:03.0-scsi-0:0:0:0-part3 -> ../../sda3
+        dpath = os.path.basename(devpath)
+        self.assertIsNotNone(dpath)
+        print(dpath)
+        ls_bypath = self.load_collect_file("ls_al_bypath")
+        kname = [line.split()[-1] for line in ls_bypath.split('\n')
+                 if dpath in line.split()]
+        self.assertEqual(len(kname), 1)
+        kname = os.path.basename(kname.pop())
+        return kname
 
     def _bcache_to_byuuid(self, kname):
         # extract bcache uuid from /dev/bcache/by-uuid on /dev/<kname>
@@ -1991,25 +2021,33 @@ class VMBaseClass(TestCase):
 
     @skip_if_flag('expected_failure')
     def test_swaps_used(self):
-        if not self.has_storage_config():
-            raise SkipTest("This test does not use storage config.")
 
-        stgcfg = self.get_storage_config()
-        swap_ids = [d["id"] for d in stgcfg if d.get("fstype") == "swap"]
-        swap_mounts = [d for d in stgcfg if d.get("device") in swap_ids]
-        self.assertEqual(len(swap_ids), len(swap_mounts),
-                         "number config swap fstypes != number swap mounts")
+        def find_fstab_swaps():
+            swaps = []
+            path = self.collect_path("fstab")
+            if not os.path.exists(path):
+                return swaps
+            for line in util.load_file(path).splitlines():
+                if line.startswith("#"):
+                    continue
+                (fs, mp, fstype, opts, dump, passno) = line.split()
+                if fstype == 'swap':
+                    if fs.startswith('/dev/disk/by-uuid'):
+                        swaps.append('/dev/' + self._byuuid_to_kname(fs))
+                    elif fs.startswith('/dev/disk/by-id'):
+                        kname = self._serial_to_kname(os.path.basename(fs))
+                        swaps.append('/dev/' + kname)
+                    elif fs.startswith('/dev/disk/by-path'):
+                        swaps.append('/dev/' + self._bypath_to_kname(fs))
+                    else:
+                        swaps.append(fs)
 
-        swaps_found = []
-        for line in self.load_collect_file("proc-swaps").splitlines():
-            fname, ttype, size, used, priority = line.split()
-            if ttype == "partition":
-                swaps_found.append(
-                    {"fname": fname, ttype: "ttype", "size": int(size),
-                     "used": int(used), "priority": int(priority)})
-        self.assertEqual(
-            len(swap_mounts), len(swaps_found),
-            "Number swaps configured != number used")
+            return swaps
+
+        expected_swaps = find_fstab_swaps()
+        proc_swaps = self.load_collect_file("proc-swaps")
+        for swap in expected_swaps:
+            self.assertIn(swap, proc_swaps)
 
 
 class PsuedoVMBaseClass(VMBaseClass):

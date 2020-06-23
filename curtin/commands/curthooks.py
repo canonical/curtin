@@ -900,6 +900,7 @@ def add_swap(cfg, target, fstab):
     fname = swapcfg.get('filename', None)
     size = swapcfg.get('size', None)
     maxsize = swapcfg.get('maxsize', None)
+    force = swapcfg.get('force', False)
 
     if size:
         size = util.human2bytes(str(size))
@@ -907,7 +908,7 @@ def add_swap(cfg, target, fstab):
         maxsize = util.human2bytes(str(maxsize))
 
     swap.setup_swapfile(target=target, fstab=fstab, swapfile=fname, size=size,
-                        maxsize=maxsize)
+                        maxsize=maxsize, force=force)
 
 
 def detect_and_handle_multipath(cfg, target, osfamily=DISTROS.debian):

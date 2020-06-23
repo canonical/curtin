@@ -24,4 +24,7 @@ class TestExportsFeatures(CiTestCase):
     def test_has_centos_curthook_support(self):
         self.assertIn('CENTOS_CURTHOOK_SUPPORT', curtin.FEATURES)
 
+    def test_has_btrfs_swapfile_support(self):
+        self.assertIn('BTRFS_SWAPFILE', curtin.FEATURES)
+
 # vi: ts=4 expandtab syntax=python
