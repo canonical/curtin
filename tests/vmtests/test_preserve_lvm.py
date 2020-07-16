@@ -69,10 +69,6 @@ class BionicTestLvmPreserve(relbase.bionic, TestLvmPreserveAbs):
     __test__ = True
 
 
-class EoanTestLvmPreserve(relbase.eoan, TestLvmPreserveAbs):
-    __test__ = True
-
-
 class FocalTestLvmPreserve(relbase.focal, TestLvmPreserveAbs):
     __test__ = True
 

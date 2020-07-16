@@ -18,11 +18,6 @@ class BionicTestReuseMSDOSPartitions(relbase.bionic,
     __test__ = True
 
 
-class EoanTestReuseMSDOSPartitions(relbase.eoan,
-                                   TestReuseMSDOSPartitions):
-    __test__ = True
-
-
 class FocalTestReuseMSDOSPartitions(relbase.focal,
                                     TestReuseMSDOSPartitions):
     __test__ = True

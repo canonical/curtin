@@ -21,11 +21,6 @@ class BionicTestReuseLVMMemberPartition(relbase.bionic,
     __test__ = True
 
 
-class EoanTestReuseLVMMemberPartition(relbase.eoan,
-                                      TestReuseLVMMemberPartition):
-    __test__ = True
-
-
 class FocalTestReuseLVMMemberPartition(relbase.focal,
                                        TestReuseLVMMemberPartition):
     __test__ = True

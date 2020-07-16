@@ -95,10 +95,6 @@ class BionicTestIscsiLvm(relbase.bionic, TestLvmIscsiAbs):
     __test__ = True
 
 
-class EoanTestIscsiLvm(relbase.eoan, TestLvmIscsiAbs):
-    __test__ = True
-
-
 class FocalTestIscsiLvm(relbase.focal, TestLvmIscsiAbs):
     __test__ = True
 

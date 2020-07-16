@@ -186,11 +186,6 @@ class BionicTestNetworkMtu(relbase.bionic, TestNetworkMtuAbs):
     __test__ = True
 
 
-class EoanTestNetworkMtu(relbase.eoan, TestNetworkMtuAbs):
-    conf_file = "examples/tests/network_mtu_networkd.yaml"
-    __test__ = True
-
-
 class FocalTestNetworkMtu(relbase.focal, TestNetworkMtuAbs):
     conf_file = "examples/tests/network_mtu_networkd.yaml"
     __test__ = True

@@ -23,10 +23,6 @@ class BionicTestNetworkIPV6Static(relbase.bionic, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
-class EoanTestNetworkIPV6Static(relbase.eoan, TestNetworkIPV6StaticAbs):
-    __test__ = True
-
-
 class FocalTestNetworkIPV6Static(relbase.focal, TestNetworkIPV6StaticAbs):
     __test__ = True
 

@@ -110,10 +110,6 @@ class BionicUefiTestBasic(relbase.bionic, TestBasicAbs):
     __test__ = True
 
 
-class EoanUefiTestBasic(relbase.eoan, TestBasicAbs):
-    __test__ = True
-
-
 class FocalUefiTestBasic(relbase.focal, TestBasicAbs):
     __test__ = True
 
@@ -129,11 +125,6 @@ class XenialGAUefiTestBasic4k(relbase.xenial_ga, TestBasicAbs):
 
 
 class BionicUefiTestBasic4k(relbase.bionic, TestBasicAbs):
-    __test__ = True
-    disk_block_size = 4096
-
-
-class EoanUefiTestBasic4k(relbase.eoan, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
 

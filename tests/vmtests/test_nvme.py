@@ -73,10 +73,6 @@ class BionicTestNvme(relbase.bionic, TestNvmeAbs):
     __test__ = True
 
 
-class EoanTestNvme(relbase.eoan, TestNvmeAbs):
-    __test__ = True
-
-
 class TestNvmeBcacheAbs(TestNvmeAbs):
     arch_skip = [
         "s390x",  # nvme is a pci device, no pci on s390x
@@ -136,10 +132,6 @@ class XenialEdgeTestNvmeBcache(relbase.xenial_edge, TestNvmeBcacheAbs):
 
 
 class BionicTestNvmeBcache(relbase.bionic, TestNvmeBcacheAbs):
-    __test__ = True
-
-
-class EoanTestNvmeBcache(relbase.eoan, TestNvmeBcacheAbs):
     __test__ = True
 
 

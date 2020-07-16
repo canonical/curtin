@@ -28,11 +28,6 @@ class BionicTestNetworkStaticRoutes(relbase.bionic,
     __test__ = True
 
 
-class EoanTestNetworkStaticRoutes(relbase.eoan,
-                                  TestNetworkStaticRoutesAbs):
-    __test__ = True
-
-
 class FocalTestNetworkStaticRoutes(relbase.focal,
                                    TestNetworkStaticRoutesAbs):
     __test__ = True

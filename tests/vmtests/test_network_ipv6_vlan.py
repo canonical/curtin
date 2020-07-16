@@ -22,10 +22,6 @@ class BionicTestNetworkIPV6Vlan(relbase.bionic, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
-class EoanTestNetworkIPV6Vlan(relbase.eoan, TestNetworkIPV6VlanAbs):
-    __test__ = True
-
-
 class FocalTestNetworkIPV6Vlan(relbase.focal, TestNetworkIPV6VlanAbs):
     __test__ = True
 

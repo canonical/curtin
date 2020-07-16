@@ -33,13 +33,6 @@ class BionicTestUefiReuseEsp(relbase.bionic, TestUefiReuseEspAbs):
         return super().test_efiboot_menu_has_one_distro_entry()
 
 
-class EoanTestUefiReuseEsp(relbase.eoan, TestUefiReuseEspAbs):
-    __test__ = True
-
-    def test_efiboot_menu_has_one_distro_entry(self):
-        return super().test_efiboot_menu_has_one_distro_entry()
-
-
 class FocalTestUefiReuseEsp(relbase.focal, TestUefiReuseEspAbs):
     __test__ = True
 

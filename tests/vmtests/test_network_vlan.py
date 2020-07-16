@@ -76,13 +76,6 @@ class BionicTestNetworkVlan(relbase.bionic, TestNetworkVlanAbs):
     __test__ = True
 
 
-class EoanTestNetworkVlan(relbase.eoan, TestNetworkVlanAbs):
-    __test__ = True
-
-    def test_ip_output(self):
-        return super().test_ip_output()
-
-
 class FocalTestNetworkVlan(relbase.focal, TestNetworkVlanAbs):
     __test__ = True
 

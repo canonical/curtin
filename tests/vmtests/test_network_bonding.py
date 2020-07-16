@@ -57,10 +57,6 @@ class BionicTestBonding(relbase.bionic, TestNetworkBondingAbs):
     __test__ = True
 
 
-class EoanTestBonding(relbase.eoan, TestNetworkBondingAbs):
-    __test__ = True
-
-
 class FocalTestBonding(relbase.focal, TestNetworkBondingAbs):
     __test__ = True
 

@@ -34,10 +34,6 @@ class BionicTestNetworkOvs(relbase.bionic, TestNetworkOvsAbs):
     __test__ = True
 
 
-class EoanTestNetworkOvs(relbase.eoan, TestNetworkOvsAbs):
-    __test__ = True
-
-
 class FocalTestNetworkOvs(relbase.focal, TestNetworkOvsAbs):
     __test__ = True
 

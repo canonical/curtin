@@ -51,10 +51,6 @@ class FocalTestLvmOverRaid(relbase.focal, TestLvmOverRaidAbs):
     __test__ = True
 
 
-class EoanTestLvmOverRaid(relbase.eoan, TestLvmOverRaidAbs):
-    __test__ = True
-
-
 class BionicTestLvmOverRaid(relbase.bionic, TestLvmOverRaidAbs):
     __test__ = True
 

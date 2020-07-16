@@ -236,10 +236,6 @@ class BionicTestBridging(relbase.bionic, TestBridgeNetworkAbs):
     __test__ = True
 
 
-class EoanTestBridging(relbase.eoan, TestBridgeNetworkAbs):
-    __test__ = True
-
-
 class FocalTestBridging(relbase.focal, TestBridgeNetworkAbs):
     __test__ = True
 

@@ -28,21 +28,12 @@ class BionicTestReuseRAIDMember(relbase.bionic, TestReuseRAIDMember):
     __test__ = True
 
 
-class EoanTestReuseRAIDMember(relbase.eoan, TestReuseRAIDMember):
-    __test__ = True
-
-
 class FocalTestReuseRAIDMember(relbase.focal, TestReuseRAIDMember):
     __test__ = True
 
 
 class BionicTestReuseRAIDMemberPartition(relbase.bionic,
                                          TestReuseRAIDMemberPartition):
-    __test__ = True
-
-
-class EoanTestReuseRAIDMemberPartition(relbase.eoan,
-                                       TestReuseRAIDMemberPartition):
     __test__ = True
 
 

@@ -75,10 +75,6 @@ class BionicTestBcacheCeph(relbase.bionic, TestBcacheCeph):
     __test__ = True
 
 
-class EoanTestBcacheCeph(relbase.eoan, TestBcacheCeph):
-    __test__ = True
-
-
 class FocalTestBcacheCeph(relbase.focal, TestBcacheCeph):
     __test__ = True
 

@@ -49,13 +49,6 @@ class BionicTestSimple(relbase.bionic, TestSimple):
         self.output_files_exist(["netplan.yaml"])
 
 
-class EoanTestSimple(relbase.eoan, TestSimple):
-    __test__ = True
-
-    def test_output_files_exist(self):
-        self.output_files_exist(["netplan.yaml"])
-
-
 class FocalTestSimple(relbase.focal, TestSimple):
     __test__ = True
 
@@ -99,13 +92,6 @@ class XenialGATestSimpleStorage(relbase.xenial, TestSimpleStorage):
 
 
 class BionicTestSimpleStorage(relbase.bionic, TestSimpleStorage):
-    __test__ = True
-
-    def test_output_files_exist(self):
-        self.output_files_exist(["netplan.yaml"])
-
-
-class EoanTestSimpleStorage(relbase.eoan, TestSimpleStorage):
     __test__ = True
 
     def test_output_files_exist(self):

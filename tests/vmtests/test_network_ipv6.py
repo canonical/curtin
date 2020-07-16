@@ -53,10 +53,6 @@ class BionicTestNetworkIPV6(relbase.bionic, TestNetworkIPV6Abs):
     __test__ = True
 
 
-class EoanTestNetworkIPV6(relbase.eoan, TestNetworkIPV6Abs):
-    __test__ = True
-
-
 class Centos66TestNetworkIPV6(centos_relbase.centos66_xenial,
                               CentosTestNetworkIPV6Abs):
     __test__ = True

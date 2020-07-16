@@ -52,10 +52,6 @@ class BionicTestBasicDasd(relbase.bionic, TestBasicDasd):
     __test__ = True
 
 
-class EoanTestBasicDasd(relbase.eoan, TestBasicDasd):
-    __test__ = True
-
-
 class FocalTestBasicDasd(relbase.focal, TestBasicDasd):
     __test__ = True
 

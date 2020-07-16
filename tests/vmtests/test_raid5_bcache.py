@@ -88,10 +88,6 @@ class BionicTestRaid5Bcache(relbase.bionic, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class EoanTestRaid5Bcache(relbase.eoan, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 class FocalTestRaid5Bcache(relbase.focal, TestMdadmBcacheAbs):
     __test__ = True
 

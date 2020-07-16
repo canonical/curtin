@@ -25,10 +25,6 @@ class BionicTestPreserveWipeLvm(relbase.bionic, TestPreserveWipeLvm):
     __test__ = True
 
 
-class EoanTestPreserveWipeLvm(relbase.eoan, TestPreserveWipeLvm):
-    __test__ = True
-
-
 class FocalTestPreserveWipeLvm(relbase.focal, TestPreserveWipeLvm):
     __test__ = True
 
@@ -45,10 +41,6 @@ class TestPreserveWipeLvmSimple(VMBaseClass):
 
 class BionicTestPreserveWipeLvmSimple(relbase.bionic,
                                       TestPreserveWipeLvmSimple):
-    __test__ = True
-
-
-class EoanTestPreserveWipeLvmSimple(relbase.eoan, TestPreserveWipeLvmSimple):
     __test__ = True
 
 

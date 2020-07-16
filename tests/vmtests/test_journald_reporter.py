@@ -32,10 +32,6 @@ class BionicTestJournaldReporter(relbase.bionic, TestJournaldReporter):
     __test__ = True
 
 
-class EoanTestJournaldReporter(relbase.eoan, TestJournaldReporter):
-    __test__ = True
-
-
 class FocalTestJournaldReporter(relbase.focal, TestJournaldReporter):
     __test__ = True
 

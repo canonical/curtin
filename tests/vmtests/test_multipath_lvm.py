@@ -56,10 +56,6 @@ class BionicTestMultipathLvm(relbase.bionic, TestMultipathLvmAbs):
     __test__ = True
 
 
-class EoanTestMultipathLvm(relbase.eoan, TestMultipathLvmAbs):
-    __test__ = True
-
-
 class FocalTestMultipathLvm(relbase.focal, TestMultipathLvmAbs):
     __test__ = True
 

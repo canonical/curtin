@@ -255,10 +255,6 @@ class BionicTestBasic(relbase.bionic, TestBasicAbs):
     __test__ = True
 
 
-class EoanTestBasic(relbase.eoan, TestBasicAbs):
-    __test__ = True
-
-
 class FocalTestBasic(relbase.focal, TestBasicAbs):
     __test__ = True
 
@@ -372,10 +368,6 @@ class XenialEdgeTestScsiBasic(relbase.xenial_edge, TestBasicScsiAbs):
 
 
 class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
-    __test__ = True
-
-
-class EoanTestScsiBasic(relbase.eoan, TestBasicScsiAbs):
     __test__ = True
 
 
