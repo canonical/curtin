@@ -32,6 +32,10 @@ class FocalTestNetworkStatic(relbase.focal, TestNetworkStaticAbs):
     __test__ = True
 
 
+class GroovyTestNetworkStatic(relbase.groovy, TestNetworkStaticAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkStatic(centos_relbase.centos66_xenial,
                                 CentosTestNetworkStaticAbs):
     __test__ = True

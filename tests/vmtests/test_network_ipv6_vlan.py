@@ -26,6 +26,10 @@ class FocalTestNetworkIPV6Vlan(relbase.focal, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
+class GroovyTestNetworkIPV6Vlan(relbase.groovy, TestNetworkIPV6VlanAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkIPV6Vlan(centos_relbase.centos66_xenial,
                                   CentosTestNetworkIPV6VlanAbs):
     __test__ = True

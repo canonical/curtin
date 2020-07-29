@@ -54,4 +54,8 @@ class FocalTestIscsiMdadm(relbase.focal, TestMdadmIscsiAbs):
     __test__ = True
 
 
+class GroovyTestIscsiMdadm(relbase.groovy, TestMdadmIscsiAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

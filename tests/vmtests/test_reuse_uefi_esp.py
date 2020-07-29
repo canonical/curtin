@@ -40,4 +40,11 @@ class FocalTestUefiReuseEsp(relbase.focal, TestUefiReuseEspAbs):
         return super().test_efiboot_menu_has_one_distro_entry()
 
 
+class GroovyTestUefiReuseEsp(relbase.groovy, TestUefiReuseEspAbs):
+    __test__ = True
+
+    def test_efiboot_menu_has_one_distro_entry(self):
+        return super().test_efiboot_menu_has_one_distro_entry()
+
+
 # vi: ts=4 expandtab syntax=python

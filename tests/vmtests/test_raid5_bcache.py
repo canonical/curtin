@@ -96,4 +96,8 @@ class FocalTestRaid5Bcache(relbase.focal, TestMdadmBcacheAbs):
         return super().test_fstab()
 
 
+class GroovyTestRaid5Bcache(relbase.groovy, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

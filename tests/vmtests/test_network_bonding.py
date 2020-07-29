@@ -61,6 +61,10 @@ class FocalTestBonding(relbase.focal, TestNetworkBondingAbs):
     __test__ = True
 
 
+class GroovyTestBonding(relbase.groovy, TestNetworkBondingAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkBonding(centos_relbase.centos66_xenial,
                                  CentosTestNetworkBondingAbs):
     __test__ = True

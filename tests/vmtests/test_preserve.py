@@ -29,4 +29,8 @@ class FocalTestPreserve(relbase.focal, TestPreserve):
     __test__ = True
 
 
+class GroovyTestPreserve(relbase.groovy, TestPreserve):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

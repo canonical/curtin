@@ -33,6 +33,11 @@ class FocalTestNetworkStaticRoutes(relbase.focal,
     __test__ = True
 
 
+class GroovyTestNetworkStaticRoutes(relbase.groovy,
+                                    TestNetworkStaticRoutesAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkStaticRoutes(centos_relbase.centos66_xenial,
                                       CentosTestNetworkStaticRoutesAbs):
     __test__ = False

@@ -79,6 +79,10 @@ class FocalTestBcacheCeph(relbase.focal, TestBcacheCeph):
     __test__ = True
 
 
+class GroovyTestBcacheCeph(relbase.groovy, TestBcacheCeph):
+    __test__ = True
+
+
 class TestBcacheCephLvm(TestBcacheCeph):
     test_type = 'storage'
     nr_cpus = 2
@@ -102,6 +106,10 @@ class BionicTestBcacheCephLvm(relbase.bionic, TestBcacheCephLvm):
 
 
 class FocalTestBcacheCephLvm(relbase.focal, TestBcacheCephLvm):
+    __test__ = True
+
+
+class GroovyTestBcacheCephLvm(relbase.groovy, TestBcacheCephLvm):
     __test__ = True
 
 

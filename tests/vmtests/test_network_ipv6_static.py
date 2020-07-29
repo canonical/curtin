@@ -27,6 +27,10 @@ class FocalTestNetworkIPV6Static(relbase.focal, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
+class GroovyTestNetworkIPV6Static(relbase.groovy, TestNetworkIPV6StaticAbs):
+    __test__ = True
+
+
 class Centos66TestNetworkIPV6Static(centos_relbase.centos66_xenial,
                                     CentosTestNetworkIPV6StaticAbs):
     __test__ = True

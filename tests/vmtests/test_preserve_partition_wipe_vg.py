@@ -29,6 +29,10 @@ class FocalTestPreserveWipeLvm(relbase.focal, TestPreserveWipeLvm):
     __test__ = True
 
 
+class GroovyTestPreserveWipeLvm(relbase.groovy, TestPreserveWipeLvm):
+    __test__ = True
+
+
 class TestPreserveWipeLvmSimple(VMBaseClass):
     conf_file = "examples/tests/preserve-partition-wipe-vg-simple.yaml"
     uefi = False
@@ -45,6 +49,11 @@ class BionicTestPreserveWipeLvmSimple(relbase.bionic,
 
 
 class FocalTestPreserveWipeLvmSimple(relbase.focal, TestPreserveWipeLvmSimple):
+    __test__ = True
+
+
+class GroovyTestPreserveWipeLvmSimple(relbase.groovy,
+                                      TestPreserveWipeLvmSimple):
     __test__ = True
 
 

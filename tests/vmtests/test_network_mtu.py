@@ -137,6 +137,10 @@ class TestNetworkMtuAbs(TestNetworkIPV6Abs):
         self._check_iface_subnets('interface7')
 
 
+class TestNetworkMtuNetworkdAbs(TestNetworkMtuAbs):
+    conf_file = "examples/tests/network_mtu_networkd.yaml"
+
+
 class CentosTestNetworkMtuAbs(TestNetworkMtuAbs):
     conf_file = "examples/tests/network_mtu.yaml"
     extra_collect_scripts = TestNetworkMtuAbs.extra_collect_scripts + [
@@ -181,13 +185,15 @@ class TestNetworkMtu(relbase.xenial, TestNetworkMtuAbs):
     __test__ = True
 
 
-class BionicTestNetworkMtu(relbase.bionic, TestNetworkMtuAbs):
-    conf_file = "examples/tests/network_mtu_networkd.yaml"
+class BionicTestNetworkMtu(relbase.bionic, TestNetworkMtuNetworkdAbs):
     __test__ = True
 
 
-class FocalTestNetworkMtu(relbase.focal, TestNetworkMtuAbs):
-    conf_file = "examples/tests/network_mtu_networkd.yaml"
+class FocalTestNetworkMtu(relbase.focal, TestNetworkMtuNetworkdAbs):
+    __test__ = True
+
+
+class GroovyTestNetworkMtu(relbase.groovy, TestNetworkMtuNetworkdAbs):
     __test__ = True
 
 

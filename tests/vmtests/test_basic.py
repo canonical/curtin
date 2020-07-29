@@ -259,6 +259,10 @@ class FocalTestBasic(relbase.focal, TestBasicAbs):
     __test__ = True
 
 
+class GroovyTestBasic(relbase.groovy, TestBasicAbs):
+    __test__ = True
+
+
 class TestBasicScsiAbs(TestBasicAbs):
     arch_skip = [
         'arm64',  # arm64 is UEFI only
@@ -372,6 +376,10 @@ class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
 
 
 class FocalTestScsiBasic(relbase.focal, TestBasicScsiAbs):
+    __test__ = True
+
+
+class GroovyTestScsiBasic(relbase.groovy, TestBasicScsiAbs):
     __test__ = True
 
 

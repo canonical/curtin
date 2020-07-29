@@ -29,4 +29,8 @@ class FocalTestBcachePartitions(relbase.focal, TestBcachePartitions):
     __test__ = True
 
 
+class GroovyTestBcachePartitions(relbase.groovy, TestBcachePartitions):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

@@ -26,4 +26,9 @@ class FocalTestReuseLVMMemberPartition(relbase.focal,
     __test__ = True
 
 
+class GroovyTestReuseLVMMemberPartition(relbase.groovy,
+                                        TestReuseLVMMemberPartition):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

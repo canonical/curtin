@@ -162,6 +162,10 @@ class FocalTestMdadmBcache(relbase.focal, TestMdadmBcacheAbs):
         return super().test_fstab()
 
 
+class GroovyTestMdadmBcache(relbase.groovy, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot.yaml"
@@ -200,6 +204,10 @@ class BionicTestMirrorboot(relbase.bionic, TestMirrorbootAbs):
 
 
 class FocalTestMirrorboot(relbase.focal, TestMirrorbootAbs):
+    __test__ = True
+
+
+class GroovyTestMirrorboot(relbase.groovy, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -245,6 +253,11 @@ class BionicTestMirrorbootPartitions(relbase.bionic,
 
 class FocalTestMirrorbootPartitions(relbase.focal,
                                     TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
+class GroovyTestMirrorbootPartitions(relbase.groovy,
+                                     TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
@@ -297,6 +310,16 @@ class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
         self.assertIn(
             ('grub-pc', 'grub-efi/install_devices', choice), found_selections)
 
+    def test_backup_esp_matches_primary(self):
+        if self.target_distro != "ubuntu":
+            raise SkipTest("backup ESP supported only on Ubuntu")
+        if self.target_release in [
+                "trusty", "xenial", "bionic", "cosmic", "disco", "eoan"]:
+            raise SkipTest("backup ESP supported only on >= Focal")
+        primary_esp = self.load_collect_file("diska-part1-efi.out")
+        backup_esp = self.load_collect_file("diskb-part1-efi.out")
+        self.assertEqual(primary_esp, backup_esp)
+
 
 class Centos70TestMirrorbootPartitionsUEFI(centos_relbase.centos70_xenial,
                                            TestMirrorbootPartitionsUEFIAbs):
@@ -327,10 +350,10 @@ class FocalTestMirrorbootPartitionsUEFI(relbase.focal,
                                         TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
 
-    def test_backup_esp_matches_primary(self):
-        primary_esp = self.load_collect_file("diska-part1-efi.out")
-        backup_esp = self.load_collect_file("diskb-part1-efi.out")
-        self.assertEqual(primary_esp, backup_esp)
+
+class GroovyTestMirrorbootPartitionsUEFI(relbase.groovy,
+                                         TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
 
 
 class TestRaid5bootAbs(TestMdadmAbs):
@@ -374,6 +397,10 @@ class BionicTestRaid5boot(relbase.bionic, TestRaid5bootAbs):
 
 
 class FocalTestRaid5boot(relbase.focal, TestRaid5bootAbs):
+    __test__ = True
+
+
+class GroovyTestRaid5boot(relbase.groovy, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -434,6 +461,10 @@ class FocalTestRaid6boot(relbase.focal, TestRaid6bootAbs):
     __test__ = True
 
 
+class GroovyTestRaid6boot(relbase.groovy, TestRaid6bootAbs):
+    __test__ = True
+
+
 class TestRaid10bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid10boot.yaml"
@@ -474,6 +505,10 @@ class BionicTestRaid10boot(relbase.bionic, TestRaid10bootAbs):
 
 
 class FocalTestRaid10boot(relbase.focal, TestRaid10bootAbs):
+    __test__ = True
+
+
+class GroovyTestRaid10boot(relbase.groovy, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -574,6 +609,10 @@ class BionicTestAllindata(relbase.bionic, TestAllindataAbs):
 
 
 class FocalTestAllindata(relbase.focal, TestAllindataAbs):
+    __test__ = True
+
+
+class GroovyTestAllindata(relbase.groovy, TestAllindataAbs):
     __test__ = True
 
 

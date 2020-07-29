@@ -162,4 +162,8 @@ class FocalTestMultipathBasic(relbase.focal, TestMultipathBasicAbs):
     __test__ = True
 
 
+class GroovyTestMultipathBasic(relbase.groovy, TestMultipathBasicAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

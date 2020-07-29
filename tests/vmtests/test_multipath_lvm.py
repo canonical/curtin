@@ -60,12 +60,21 @@ class FocalTestMultipathLvm(relbase.focal, TestMultipathLvmAbs):
     __test__ = True
 
 
+class GroovyTestMultipathLvm(relbase.groovy, TestMultipathLvmAbs):
+    __test__ = True
+
+
 class TestMultipathLvmPartWipeAbs(TestMultipathLvmAbs):
     conf_file = "examples/tests/multipath-lvm-part-wipe.yaml"
 
 
 class FocalTestMultipathLvmPartWipe(relbase.focal,
                                     TestMultipathLvmPartWipeAbs):
+    __test__ = True
+
+
+class GroovyTestMultipathLvmPartWipe(relbase.groovy,
+                                     TestMultipathLvmPartWipeAbs):
     __test__ = True
 
 

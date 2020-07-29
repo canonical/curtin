@@ -68,4 +68,8 @@ class FocalTestAptConfigCMDCMD(relbase.focal, TestAptConfigCMD):
     __test__ = True
 
 
+class GroovyTestAptConfigCMDCMD(relbase.groovy, TestAptConfigCMD):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

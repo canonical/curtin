@@ -101,6 +101,11 @@ class FocalTestZfsRoot(relbase.focal, TestZfsRootAbs):
     mem = 4096
 
 
+class GroovyTestZfsRoot(relbase.groovy, TestZfsRootAbs):
+    __test__ = True
+    mem = 4096
+
+
 class TestZfsRootFsTypeAbs(TestZfsRootAbs):
     conf_file = "examples/tests/basic-zfsroot.yaml"
 
@@ -123,5 +128,9 @@ class BionicTestZfsRootFsType(relbase.bionic, TestZfsRootFsTypeAbs):
 class FocalTestZfsRootFsType(relbase.focal, TestZfsRootFsTypeAbs):
     __test__ = True
     mem = 4096
+
+
+class GroovyTestZfsRootFsType(relbase.groovy, TestZfsRootFsTypeAbs):
+    __test__ = True
 
 # vi: ts=4 expandtab syntax=python

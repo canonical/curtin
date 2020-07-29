@@ -56,4 +56,8 @@ class FocalTestNetworkAlias(relbase.focal, TestNetworkAliasAbs):
     __test__ = True
 
 
+class GroovyTestNetworkAlias(relbase.groovy, TestNetworkAliasAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

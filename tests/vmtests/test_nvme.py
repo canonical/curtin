@@ -73,6 +73,10 @@ class BionicTestNvme(relbase.bionic, TestNvmeAbs):
     __test__ = True
 
 
+class GroovyTestNvme(relbase.groovy, TestNvmeAbs):
+    __test__ = True
+
+
 class TestNvmeBcacheAbs(TestNvmeAbs):
     arch_skip = [
         "s390x",  # nvme is a pci device, no pci on s390x
@@ -137,6 +141,10 @@ class BionicTestNvmeBcache(relbase.bionic, TestNvmeBcacheAbs):
 
 @TestNvmeBcacheAbs.skip_by_date("1861941", fixby="2020-09-15")
 class FocalTestNvmeBcache(relbase.focal, TestNvmeBcacheAbs):
+    __test__ = True
+
+
+class GroovyTestNvmeBcache(relbase.groovy, TestNvmeBcacheAbs):
     __test__ = True
 
 
