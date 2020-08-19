@@ -153,7 +153,13 @@ main() {
     fi
     getsource="${getsource%/}"
 
-    lxc launch "$src" "$name" || fail "failed lxc launch $src $name"
+    # launch container; mask snapd.seeded.service; not needed
+    {
+        lxc init "$src" "$name" &&
+        lxc file push \
+            /dev/null ${name}/etc/systemd/system/snapd.seeded.service &&
+        lxc start ${name}
+    } || fail "failed lxc launch $src $name"
     CONTAINER=$name
 
     wait_for_ready "$name" $maxwait $VERBOSITY ||
