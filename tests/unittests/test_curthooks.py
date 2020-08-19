@@ -1110,9 +1110,8 @@ class TestDetectRequiredPackages(CiTestCase):
                         {'type': 'static', 'address': '2001:1::1/64'}]}},
             2: {
                 'openvswitch': {
-                    'openvswitch': {
-                        'bridges': {
-                            'br-int': {'ports': {'eth15': {'tag': 2}}}}}},
+                    'bridges': {
+                        'br-int': {'openvswitch': {}}}},
                 'vlans': {
                     'vlans': {
                         'en-intra': {'id': 1, 'link': 'eno1', 'dhcp4': 'yes'},
@@ -1245,7 +1244,7 @@ class TestDetectRequiredPackages(CiTestCase):
             ({'network': {
                 'version': 2,
                 'items': ('openvswitch',)}},
-             ('openvswitch-switch', )),
+             ('bridge-utils', 'openvswitch-switch', )),
         ))
 
     def test_network_v2_detect_renderers(self):

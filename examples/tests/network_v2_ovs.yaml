@@ -8,35 +8,6 @@ network:
             match:
                 macaddress: '52:54:00:12:34:00'
             set-name: eth0
-        eth1:
-            match:
-                macaddress: '52:54:00:12:34:02'
-            set-name: eth1
-        eth2:
-            match:
-                macaddress: '52:54:00:12:34:04'
-            set-name: eth2
-    openvswitch:
-      bridges:
-        br-int:
-          fail-mode: secure
-          datapath_type: system
-          stp: false
-          rstp: false
-          mcast-snooping: false
-          controller:
-            addresses:
-              - tcp:127.0.0.1:6653
-          protocols:
-            - OpenFlow10
-            - OpenFlow12
-            - OpenFlow13
-          ports:
-            patch-tun:
-              type: patch
-              options:
-                peer: patch-int
-            eth1:
-              tag: 2
-            eth2:
-              tag: 2
+    bridges:
+      br-empty:
+        openvswitch: {}
