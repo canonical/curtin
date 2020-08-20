@@ -557,7 +557,7 @@ def uefi_find_grub_device_ids(sconfig):
                 esp_partitions.append(item_id)
                 continue
 
-        if item['type'] == 'mount' and item['path'] == '/boot/efi':
+        if item['type'] == 'mount' and item.get('path') == '/boot/efi':
             if primary_esp:
                 LOG.debug('Ignoring duplicate mounted primary ESP: %s',
                           item_id)

@@ -1725,6 +1725,12 @@ class TestUefiFindGrubDeviceIds(CiTestCase):
                         'fstype': 'fat32',
                     },
                     {
+                        'id': 'vdb-part2-swap_mount',
+                        'type': 'mount',
+                        'device': 'vdb-part2-swap_format',
+                        'options': '',
+                    },
+                    {
                         'id': 'vdb-part1_mount',
                         'type': 'mount',
                         'device': 'vdb-part1_format',
