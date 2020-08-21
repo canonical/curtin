@@ -2,11 +2,13 @@
 
 import imp
 import importlib
+import logging
 import mock
 import os
 import random
 import shutil
 import string
+import sys
 import tempfile
 from unittest import TestCase, skipIf
 from contextlib import contextmanager
@@ -55,6 +57,7 @@ def skipUnlessJsonSchema():
 class CiTestCase(TestCase):
     """Common testing class which all curtin unit tests subclass."""
 
+    with_logs = False
     allowed_subp = False
     SUBP_SHELL_TRUE = "shell=True"
 
@@ -69,6 +72,21 @@ class CiTestCase(TestCase):
 
     def setUp(self):
         super(CiTestCase, self).setUp()
+        if self.with_logs:
+            # Create a log handler so unit tests can search expected logs.
+            self.logger = logging.getLogger()
+            if sys.version_info[0] == 2:
+                import StringIO
+                self.logs = StringIO.StringIO()
+            else:
+                import io
+                self.logs = io.StringIO()
+            formatter = logging.Formatter('%(levelname)s: %(message)s')
+            handler = logging.StreamHandler(self.logs)
+            handler.setFormatter(formatter)
+            self.old_handlers = self.logger.handlers
+            self.logger.handlers = [handler]
+
         if self.allowed_subp is True:
             util.subp = _real_subp
         else:

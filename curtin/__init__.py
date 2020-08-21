@@ -34,6 +34,8 @@ FEATURES = [
     'APT_CONFIG_V1',
     # has version module
     'HAS_VERSION_MODULE',
+    # uefi_reoder has fallback support if BootCurrent is missing
+    'UEFI_REORDER_FALLBACK_SUPPORT',
 ]
 
 __version__ = "20.1"

@@ -85,6 +85,8 @@ do_initrd = yes
 link_in_boot = {inboot}
 """
 
+UEFI_BOOT_ENTRY_IS_NETWORK = r'.*(Network|PXE|NIC|Ethernet|LAN|IP4|IP6)+.*'
+
 
 def do_apt_config(cfg, target):
     cfg = apt_config.translate_old_apt_features(cfg)
@@ -411,6 +413,7 @@ def install_kernel(cfg, target):
 def uefi_remove_old_loaders(grubcfg, target):
     """Removes the old UEFI loaders from efibootmgr."""
     efi_output = util.get_efibootmgr(target)
+    LOG.debug('UEFI remove old olders efi output:\n%s', efi_output)
     current_uefi_boot = efi_output.get('current', None)
     old_efi_entries = {
         entry: info
@@ -437,18 +440,90 @@ def uefi_remove_old_loaders(grubcfg, target):
                     "should be removed.", info['name'])
 
 
-def uefi_reorder_loaders(grubcfg, target):
+def uefi_boot_entry_is_network(boot_entry_name):
+    """
+    Return boolean if boot entry name looks like a known network entry.
+    """
+    return re.match(UEFI_BOOT_ENTRY_IS_NETWORK,
+                    boot_entry_name, re.IGNORECASE) is not None
+
+
+def _reorder_new_entry(boot_order, efi_output, efi_orig=None, variant=None):
+    """
+    Reorder the EFI boot menu as follows
+
+    1. All PXE/Network boot entries
+    2. The newly installed entry variant (ubuntu/centos)
+    3. The other items in the boot order that are not in [1, 2]
+
+    returns a list of bootnum strings
+    """
+
+    if not boot_order:
+        raise RuntimeError('boot_order is not a list')
+
+    if efi_orig is None:
+        raise RuntimeError('Missing efi_orig boot dictionary')
+
+    if variant is None:
+        variant = ""
+
+    net_boot = []
+    other = []
+    target = []
+
+    LOG.debug("UEFI previous boot order: %s", efi_orig['order'])
+    LOG.debug("UEFI current  boot order: %s", boot_order)
+    new_entries = list(set(boot_order).difference(set(efi_orig['order'])))
+    if new_entries:
+        LOG.debug("UEFI Found new boot entries: %s", new_entries)
+    LOG.debug('UEFI Looking for installed entry variant=%s', variant.lower())
+    for bootnum in boot_order:
+        entry = efi_output['entries'][bootnum]
+        if uefi_boot_entry_is_network(entry['name']):
+            net_boot.append(bootnum)
+        else:
+            if entry['name'].lower() == variant.lower():
+                target.append(bootnum)
+            else:
+                other.append(bootnum)
+
+    if net_boot:
+        LOG.debug("UEFI found netboot entries: %s", net_boot)
+    if other:
+        LOG.debug("UEFI found other entries: %s", other)
+    if target:
+        LOG.debug("UEFI found target entry: %s", target)
+    else:
+        LOG.debug("UEFI Did not find an entry with variant=%s",
+                  variant.lower())
+    new_order = net_boot + target + other
+    if boot_order == new_order:
+        LOG.debug("UEFI Current and Previous bootorders match")
+    return new_order
+
+
+def uefi_reorder_loaders(grubcfg, target, efi_orig=None, variant=None):
     """Reorders the UEFI BootOrder to place BootCurrent first.
 
     The specifically doesn't try to do to much. The order in which grub places
     a new EFI loader is up to grub. This only moves the BootCurrent to the
     front of the BootOrder.
+
+    In some systems, BootCurrent may not be set/present.  In this case
+    curtin will attempt to place the new boot entry created when grub
+    is installed after the the previous first entry (before we installed grub).
+
     """
     if grubcfg.get('reorder_uefi', True):
         efi_output = util.get_efibootmgr(target=target)
+        LOG.debug('UEFI efibootmgr output after install:\n%s', efi_output)
         currently_booted = efi_output.get('current', None)
         boot_order = efi_output.get('order', [])
-        if currently_booted:
+        new_boot_order = None
+        force_fallback_reorder = config.value_as_boolean(
+            grubcfg.get('reorder_uefi_force_fallback', False))
+        if currently_booted and force_fallback_reorder is False:
             if currently_booted in boot_order:
                 boot_order.remove(currently_booted)
             boot_order = [currently_booted] + boot_order
@@ -456,6 +531,23 @@ def uefi_reorder_loaders(grubcfg, target):
             LOG.debug(
                 "Setting currently booted %s as the first "
                 "UEFI loader.", currently_booted)
+        else:
+            reason = (
+                "config 'reorder_uefi_force_fallback' is True" if
+                force_fallback_reorder else "missing 'BootCurrent' value")
+            LOG.debug("Using fallback UEFI reordering: " + reason)
+            if len(boot_order) < 2:
+                LOG.debug(
+                    'UEFI BootOrder has less than 2 entries, cannot reorder')
+                return
+            # look at efi entries before we added one to find the new addition
+            new_order = _reorder_new_entry(
+                    copy.deepcopy(boot_order), efi_output, efi_orig, variant)
+            if new_order != boot_order:
+                new_boot_order = ','.join(new_order)
+            else:
+                LOG.debug("UEFI No changes to boot order.")
+        if new_boot_order:
             LOG.debug(
                 "New UEFI boot order: %s", new_boot_order)
             with util.ChrootableTarget(target) as in_chroot:
@@ -592,7 +684,7 @@ def uefi_find_grub_device_ids(sconfig):
     return grub_device_ids
 
 
-def setup_grub(cfg, target, osfamily=DISTROS.debian):
+def setup_grub(cfg, target, osfamily=DISTROS.debian, variant=None):
     # target is the path to the mounted filesystem
 
     # FIXME: these methods need moving to curtin.block
@@ -692,13 +784,14 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian):
 
     update_nvram = grubcfg.get('update_nvram', True)
     if uefi_bootable and update_nvram:
+        efi_orig_output = util.get_efibootmgr(target)
         uefi_remove_old_loaders(grubcfg, target)
 
     install_grub(instdevs, target, uefi=uefi_bootable, grubcfg=grubcfg)
 
     if uefi_bootable and update_nvram:
+        uefi_reorder_loaders(grubcfg, target, efi_orig_output, variant)
         uefi_remove_duplicate_entries(grubcfg, target)
-        uefi_reorder_loaders(grubcfg, target)
 
 
 def update_initramfs(target=None, all_kernels=False):
@@ -1734,7 +1827,8 @@ def builtin_curthooks(cfg, target, state):
                 name=stack_prefix + '/install-grub',
                 reporting_enabled=True, level="INFO",
                 description="installing grub to target devices"):
-            setup_grub(cfg, target, osfamily=osfamily)
+            setup_grub(cfg, target, osfamily=osfamily,
+                       variant=distro_info.variant)
 
 
 def curthooks(args):

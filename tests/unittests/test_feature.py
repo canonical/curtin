@@ -27,4 +27,7 @@ class TestExportsFeatures(CiTestCase):
     def test_has_btrfs_swapfile_support(self):
         self.assertIn('BTRFS_SWAPFILE', curtin.FEATURES)
 
+    def test_has_uefi_reorder_fallback_support(self):
+        self.assertIn('UEFI_REORDER_FALLBACK_SUPPORT', curtin.FEATURES)
+
 # vi: ts=4 expandtab syntax=python

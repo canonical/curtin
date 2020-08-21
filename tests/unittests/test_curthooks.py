@@ -1,5 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import copy
 import os
 from mock import call, patch
 import textwrap
@@ -10,7 +11,7 @@ from curtin import distro
 from curtin import util
 from curtin import config
 from curtin.reporter import events
-from .helpers import CiTestCase, dir2dict, populate_dir
+from .helpers import CiTestCase, dir2dict, populate_dir, random
 
 
 class TestGetFlashKernelPkgs(CiTestCase):
@@ -531,12 +532,55 @@ class TestSetupZipl(CiTestCase):
             content)
 
 
+class EfiOutput(object):
+
+    def __init__(self, current=None, order=None, entries=None):
+        self.entries = {}
+        if entries:
+            for entry in entries:
+                self.entries.update(entry)
+        self.current = current
+        self.order = order
+        if not order and self.entries:
+            self.order = sorted(self.entries.keys())
+
+    def add_entry(self, bootnum=None, name=None, path=None, current=False):
+        if not bootnum:
+            bootnum = "%04x" % random.randint(0, 1000)
+        if not name:
+            name = CiTestCase.random_string()
+        if not path:
+            path = ''
+        if bootnum not in self.entries:
+            self.entries[bootnum] = {'name': name, 'path': path}
+            if not self.order:
+                self.order = []
+            self.order.append(bootnum)
+        if current:
+            self.current = bootnum
+
+    def set_order(self, new_order):
+        self.order = new_order
+
+    def as_dict(self):
+        output = {}
+        if self.current:
+            output['current'] = self.current
+        if self.order:
+            output['order'] = self.order
+        output['entries'] = self.entries
+        return output
+
+
 class TestSetupGrub(CiTestCase):
+
+    with_logs = True
 
     def setUp(self):
         super(TestSetupGrub, self).setUp()
         self.target = self.tmp_dir()
         self.distro_family = distro.DISTROS.debian
+        self.variant = 'ubuntu'
         self.add_patch('curtin.distro.lsb_release', 'mock_lsb_release')
         self.mock_lsb_release.return_value = {'codename': 'xenial'}
         self.add_patch('curtin.util.is_uefi_bootable',
@@ -556,7 +600,8 @@ class TestSetupGrub(CiTestCase):
         updated_cfg = {
             'install_devices': ['/dev/vdb']
         }
-        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family,
+                             variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['/dev/vdb'], self.target, uefi=False, grubcfg=updated_cfg)
 
@@ -588,7 +633,8 @@ class TestSetupGrub(CiTestCase):
             },
         }
         m_exists.return_value = True
-        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family,
+                             variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['/dev/vdb'], self.target, uefi=False,
             grubcfg={'install_devices': ['/dev/vdb']})
@@ -638,7 +684,8 @@ class TestSetupGrub(CiTestCase):
         }
         m_exists.return_value = True
         m_is_valid_device.side_effect = (False, True, False, True)
-        curthooks.setup_grub(cfg, self.target, osfamily=distro.DISTROS.redhat)
+        curthooks.setup_grub(cfg, self.target, osfamily=distro.DISTROS.redhat,
+                             variant='centos')
         self.m_install_grub.assert_called_with(
             ['/dev/vdb1'], self.target, uefi=True,
             grubcfg={'update_nvram': False, 'install_devices': ['/dev/vdb1']}
@@ -650,7 +697,8 @@ class TestSetupGrub(CiTestCase):
                 'install_devices': None,
             },
         }
-        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family,
+                             variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['none'], self.target, uefi=False,
             grubcfg={'install_devices': None}
@@ -681,7 +729,8 @@ class TestSetupGrub(CiTestCase):
                 }
             }
         }
-        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family,
+                             variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['/dev/vdb'], self.target, uefi=True, grubcfg=cfg.get('grub')
         )
@@ -721,7 +770,8 @@ class TestSetupGrub(CiTestCase):
             }
         }
         self.mock_haspkg.return_value = False
-        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family,
+                             variant=self.variant)
 
         expected_calls = [
             call(['efibootmgr', '-B', '-b', '0001'],
@@ -762,10 +812,217 @@ class TestSetupGrub(CiTestCase):
             }
         }
         self.mock_haspkg.return_value = False
-        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family)
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family,
+                             variant=self.variant)
         self.assertEquals([
             call(['efibootmgr', '-o', '0001,0000'], target=self.target)],
             self.mock_subp.call_args_list)
+
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_grub_install_uefi_reorders_no_current_new_entry(self):
+        self.add_patch('curtin.distro.install_packages', 'mock_install')
+        self.add_patch('curtin.distro.has_pkg_available', 'mock_haspkg')
+        self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
+        self.mock_is_uefi_bootable.return_value = True
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+                'update_nvram': True,
+                'remove_old_uefi_loaders': False,
+                'reorder_uefi': True,
+            },
+        }
+
+        # Single existing entry 0001
+        efi_orig = EfiOutput()
+        efi_orig.add_entry(bootnum='0001', name='centos')
+
+        # After install add a second entry, 0000 to the front of order
+        efi_post = copy.deepcopy(efi_orig)
+        efi_post.add_entry(bootnum='0000', name='ubuntu')
+        efi_post.set_order(['0000', '0001'])
+
+        # After reorder we should have the target install first
+        efi_final = copy.deepcopy(efi_post)
+
+        self.mock_efibootmgr.side_effect = iter([
+            efi_orig.as_dict(),   # collect original order before install
+            efi_orig.as_dict(),   # remove_old_loaders query (no change)
+            efi_post.as_dict(),   # efi table after grub install, (changed)
+            efi_final.as_dict(),  # remove duplicates checks and finds reorder
+                                  # has changed
+        ])
+        self.mock_haspkg.return_value = False
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family,
+                             variant=self.variant)
+        logs = self.logs.getvalue()
+        print(logs)
+        self.assertEquals([], self.mock_subp.call_args_list)
+        self.assertIn("Using fallback UEFI reordering:", logs)
+        self.assertIn("missing 'BootCurrent' value", logs)
+        self.assertIn("Found new boot entries: ['0000']", logs)
+
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_grub_install_uefi_reorders_no_curr_same_size_order_no_match(self):
+        self.add_patch('curtin.distro.install_packages', 'mock_install')
+        self.add_patch('curtin.distro.has_pkg_available', 'mock_haspkg')
+        self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
+        self.add_patch('curtin.commands.curthooks.uefi_remove_old_loaders',
+                       'mock_remove_old_loaders')
+        self.mock_is_uefi_bootable.return_value = True
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+                'update_nvram': True,
+                'remove_old_uefi_loaders': False,
+                'reorder_uefi': True,
+            },
+        }
+
+        # Existing Custom Ubuntu, usb and cd/dvd entry, booting Ubuntu
+        efi_orig = EfiOutput()
+        efi_orig.add_entry(bootnum='0001', name='Ubuntu Deluxe Edition')
+        efi_orig.add_entry(bootnum='0002', name='USB Device')
+        efi_orig.add_entry(bootnum='0000', name='CD/DVD')
+        efi_orig.set_order(['0001', '0002', '0000'])
+
+        # after install existing ubuntu entry is reused, no change in order
+        efi_post = efi_orig
+
+        # after reorder, no change is made due to the installed distro variant
+        # string 'ubuntu' is not found in the boot entries so we retain the
+        # original efi order.
+        efi_final = efi_post
+
+        self.mock_efibootmgr.side_effect = iter([
+            efi_orig.as_dict(),   # collect original order before install
+            efi_orig.as_dict(),   # remove_old_loaders query
+            efi_post.as_dict(),   # reorder entries queries post install
+            efi_final.as_dict(),  # remove duplicates checks and finds reorder
+        ])
+
+        self.mock_haspkg.return_value = False
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family,
+                             variant=self.variant)
+
+        logs = self.logs.getvalue()
+        print(logs)
+        self.assertEquals([], self.mock_subp.call_args_list)
+        self.assertIn("Using fallback UEFI reordering:", logs)
+        self.assertIn("missing 'BootCurrent' value", logs)
+        self.assertIn("Current and Previous bootorders match", logs)
+        self.assertIn("Looking for installed entry variant=", logs)
+        self.assertIn("Did not find an entry with variant=", logs)
+        self.assertIn("No changes to boot order.", logs)
+
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_grub_install_uefi_reorders_force_fallback(self):
+        self.add_patch('curtin.distro.install_packages', 'mock_install')
+        self.add_patch('curtin.distro.has_pkg_available', 'mock_haspkg')
+        self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
+        self.mock_is_uefi_bootable.return_value = True
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+                'update_nvram': True,
+                'remove_old_uefi_loaders': True,
+                'reorder_uefi': True,
+                'reorder_uefi_force_fallback': True,
+            },
+        }
+        # Single existing entry 0001 and set as current, which should avoid
+        # any fallback logic, but we're forcing fallback pack via config
+        efi_orig = EfiOutput()
+        efi_orig.add_entry(bootnum='0001', name='PXE', current=True)
+        print(efi_orig.as_dict())
+
+        # After install add a second entry, 0000 to the front of order
+        efi_post = copy.deepcopy(efi_orig)
+        efi_post.add_entry(bootnum='0000', name='ubuntu')
+        efi_post.set_order(['0000', '0001'])
+        print(efi_orig.as_dict())
+
+        # After reorder we should have the original boot entry 0001 as first
+        efi_final = copy.deepcopy(efi_post)
+        efi_final.set_order(['0001', '0000'])
+
+        self.mock_efibootmgr.side_effect = iter([
+            efi_orig.as_dict(),   # collect original order before install
+            efi_orig.as_dict(),   # remove_old_loaders query (no change)
+            efi_post.as_dict(),   # efi table after grub install, (changed)
+            efi_final.as_dict(),  # remove duplicates checks and finds reorder
+                                  # has changed
+        ])
+
+        self.mock_haspkg.return_value = False
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family,
+                             variant=self.variant)
+        logs = self.logs.getvalue()
+        print(logs)
+        self.assertEquals([
+            call(['efibootmgr', '-o', '0001,0000'], target=self.target)],
+            self.mock_subp.call_args_list)
+        self.assertIn("Using fallback UEFI reordering:", logs)
+        self.assertIn("config 'reorder_uefi_force_fallback' is True", logs)
+
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_grub_install_uefi_reorders_network_first(self):
+        self.add_patch('curtin.distro.install_packages', 'mock_install')
+        self.add_patch('curtin.distro.has_pkg_available', 'mock_haspkg')
+        self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
+        self.mock_is_uefi_bootable.return_value = True
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+                'update_nvram': True,
+                'remove_old_uefi_loaders': True,
+                'reorder_uefi': True,
+            },
+        }
+
+        # Existing ubuntu, usb and cd/dvd entry, booting ubuntu
+        efi_orig = EfiOutput()
+        efi_orig.add_entry(bootnum='0001', name='centos')
+        efi_orig.add_entry(bootnum='0002', name='Network')
+        efi_orig.add_entry(bootnum='0003', name='PXE')
+        efi_orig.add_entry(bootnum='0004', name='LAN')
+        efi_orig.add_entry(bootnum='0000', name='CD/DVD')
+        efi_orig.set_order(['0001', '0002', '0003', '0004', '0000'])
+        print(efi_orig.as_dict())
+
+        # after install we add an ubuntu entry, and grub puts it first
+        efi_post = copy.deepcopy(efi_orig)
+        efi_post.add_entry(bootnum='0007', name='ubuntu')
+        efi_post.set_order(['0007'] + efi_orig.order)
+        print(efi_post.as_dict())
+
+        # reorder must place all network devices first, then ubuntu, and others
+        efi_final = copy.deepcopy(efi_post)
+        expected_order = ['0002', '0003', '0004', '0007', '0001', '0000']
+        efi_final.set_order(expected_order)
+
+        self.mock_efibootmgr.side_effect = iter([
+            efi_orig.as_dict(),   # collect original order before install
+            efi_orig.as_dict(),   # remove_old_loaders query
+            efi_post.as_dict(),   # reorder entries queries post install
+            efi_final.as_dict(),  # remove duplicates checks and finds reorder
+        ])
+        self.mock_haspkg.return_value = False
+        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family,
+                             variant=self.variant)
+        logs = self.logs.getvalue()
+        print(logs)
+        print('Number of bootmgr calls: %s' % self.mock_efibootmgr.call_count)
+        self.assertEquals([
+            call(['efibootmgr', '-o', '%s' % (",".join(expected_order))],
+                 target=self.target)],
+            self.mock_subp.call_args_list)
+        self.assertIn("Using fallback UEFI reordering:", logs)
+        self.assertIn("missing 'BootCurrent' value", logs)
+        self.assertIn("Looking for installed entry variant=", logs)
+        self.assertIn("found netboot entries: ['0002', '0003', '0004']", logs)
+        self.assertIn("found other entries: ['0001', '0000']", logs)
+        self.assertIn("found target entry: ['0007']", logs)
 
 
 class TestUefiRemoveDuplicateEntries(CiTestCase):
