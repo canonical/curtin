@@ -179,6 +179,18 @@ class TestBlock(CiTestCase):
         byid_path = block.disk_to_byid_path('/dev/sdb')
         self.assertEqual(mapping.get('/dev/sdb'), byid_path)
 
+    @mock.patch("curtin.block.os.path.exists")
+    def test__get_dev_disk_by_prefix_returns_empty_dict(self, m_exists):
+        """ _get_disk_by_prefix returns empty dict prefix dir does not exit """
+        m_exists.return_value = False
+        self.assertEqual({}, block._get_dev_disk_by_prefix("/dev/disk/by-id"))
+
+    @mock.patch("curtin.block.os.path.exists")
+    def test_disk_to_byid_returns_none_if_disk_byid_missing(self, m_exists):
+        """ disk_to_byid path returns None if /dev/disk/by-id is missing """
+        m_exists.return_value = False
+        self.assertEqual(None, block.disk_to_byid_path('/dev/sdb'))
+
 
 class TestSysBlockPath(CiTestCase):
     @mock.patch("curtin.block.get_blockdev_for_partition")

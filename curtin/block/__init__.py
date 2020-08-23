@@ -853,6 +853,8 @@ def _get_dev_disk_by_prefix(prefix):
      '/dev/sda1': '/dev/disk/<prefix>/virtio-aaaa-part1',
     }
     """
+    if not os.path.exists(prefix):
+        return {}
     return {
         os.path.realpath(bypfx): bypfx
         for bypfx in [os.path.join(prefix, path)
