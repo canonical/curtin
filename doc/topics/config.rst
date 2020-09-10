@@ -255,6 +255,13 @@ even if BootCurrent is present if *reorder_uefi_force_fallback* is True.
 
 This setting is ignored if *update_nvram* or *reorder_uefi* are False.
 
+**remove_duplicate_entries**: <*boolean: default True>*
+
+When curtin updates UEFI NVRAM it will remove duplicate entries that are
+present in the UEFI menu.  If you do not wish for curtin to remove duplicate
+entries setting *remove_duplicate_entries* to False.
+
+This setting is ignored if *update_nvram* is False.
 
 **Example**::
 
@@ -264,6 +271,7 @@ This setting is ignored if *update_nvram* or *reorder_uefi* are False.
      replace_linux_default: False
      update_nvram: True
      terminal: serial
+     remove_duplicate_entries: True
 
 **Default terminal value, GRUB_TERMINAL=console**::
 

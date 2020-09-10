@@ -1027,47 +1027,43 @@ class TestSetupGrub(CiTestCase):
 
 class TestUefiRemoveDuplicateEntries(CiTestCase):
 
+    efibootmgr_output = {
+        'current': '0000',
+        'entries': {
+            '0000': {
+                'name': 'ubuntu',
+                'path': (
+                    'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+            },
+            '0001': {  # Is duplicate of 0000
+                'name': 'ubuntu',
+                'path': (
+                    'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+            },
+            '0002': {  # Is not a duplicate because of unique path
+                'name': 'ubuntu',
+                'path': (
+                    'HD(2,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+            },
+            '0003': {  # Is duplicate of 0000
+                'name': 'ubuntu',
+                'path': (
+                    'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
+            },
+        }
+    }
+
     def setUp(self):
         super(TestUefiRemoveDuplicateEntries, self).setUp()
         self.target = self.tmp_dir()
         self.add_patch('curtin.util.get_efibootmgr', 'm_efibootmgr')
         self.add_patch('curtin.util.subp', 'm_subp')
+        self.m_efibootmgr.return_value = copy.deepcopy(self.efibootmgr_output)
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_uefi_remove_duplicate_entries(self):
-        cfg = {
-            'grub': {
-                'install_devices': ['/dev/vdb'],
-                'update_nvram': True,
-            },
-        }
-        self.m_efibootmgr.return_value = {
-            'current': '0000',
-            'entries': {
-                '0000': {
-                    'name': 'ubuntu',
-                    'path': (
-                        'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
-                },
-                '0001': {
-                    'name': 'ubuntu',
-                    'path': (
-                        'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
-                },
-                '0002': {  # Is not a duplicate because of unique path
-                    'name': 'ubuntu',
-                    'path': (
-                        'HD(2,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
-                },
-                '0003': {  # Is duplicate of 0000
-                    'name': 'ubuntu',
-                    'path': (
-                        'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)'),
-                },
-            }
-        }
-
-        curthooks.uefi_remove_duplicate_entries(cfg, self.target)
+        grubcfg = {}
+        curthooks.uefi_remove_duplicate_entries(grubcfg, self.target)
         self.assertEquals([
             call(['efibootmgr', '--bootnum=0001', '--delete-bootnum'],
                  target=self.target),
@@ -1076,13 +1072,44 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
             ], self.m_subp.call_args_list)
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
-    def test_uefi_remove_duplicate_entries_no_change(self):
-        cfg = {
-            'grub': {
-                'install_devices': ['/dev/vdb'],
-                'update_nvram': True,
-            },
+    def test_uefi_remove_duplicate_entries_no_bootcurrent(self):
+        grubcfg = {}
+        efiout = copy.deepcopy(self.efibootmgr_output)
+        del efiout['current']
+        self.m_efibootmgr.return_value = efiout
+        curthooks.uefi_remove_duplicate_entries(grubcfg, self.target)
+        self.assertEquals([
+            call(['efibootmgr', '--bootnum=0001', '--delete-bootnum'],
+                 target=self.target),
+            call(['efibootmgr', '--bootnum=0003', '--delete-bootnum'],
+                 target=self.target)
+            ], self.m_subp.call_args_list)
+
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_uefi_remove_duplicate_entries_disabled(self):
+        grubcfg = {
+            'remove_duplicate_entries': False,
         }
+        curthooks.uefi_remove_duplicate_entries(grubcfg, self.target)
+        self.assertEquals([], self.m_subp.call_args_list)
+
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_uefi_remove_duplicate_entries_skip_bootcurrent(self):
+        grubcfg = {}
+        efiout = copy.deepcopy(self.efibootmgr_output)
+        efiout['current'] = '0003'
+        self.m_efibootmgr.return_value = efiout
+        curthooks.uefi_remove_duplicate_entries(grubcfg, self.target)
+        self.assertEquals([
+            call(['efibootmgr', '--bootnum=0000', '--delete-bootnum'],
+                 target=self.target),
+            call(['efibootmgr', '--bootnum=0001', '--delete-bootnum'],
+                 target=self.target),
+            ], self.m_subp.call_args_list)
+
+    @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    def test_uefi_remove_duplicate_entries_no_change(self):
+        grubcfg = {}
         self.m_efibootmgr.return_value = {
             'current': '0000',
             'entries': {
@@ -1103,8 +1130,7 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
                 },
             }
         }
-
-        curthooks.uefi_remove_duplicate_entries(cfg, self.target)
+        curthooks.uefi_remove_duplicate_entries(grubcfg, self.target)
         self.assertEquals([], self.m_subp.call_args_list)
 
 

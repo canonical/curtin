@@ -558,11 +558,21 @@ def uefi_reorder_loaders(grubcfg, target, efi_orig=None, variant=None):
 
 
 def uefi_remove_duplicate_entries(grubcfg, target):
+    if not grubcfg.get('remove_duplicate_entries', True):
+        LOG.debug("Skipped removing duplicate UEFI boot entries per config.")
+        return
     seen = set()
     to_remove = []
     efi_output = util.get_efibootmgr(target=target)
     entries = efi_output.get('entries', {})
+    current_bootnum = efi_output.get('current', None)
+    # adding BootCurrent to seen first allows us to remove any other duplicate
+    # entry of BootCurrent.
+    if current_bootnum:
+        seen.add(tuple(entries[current_bootnum].items()))
     for bootnum in sorted(entries):
+        if bootnum == current_bootnum:
+            continue
         entry = entries[bootnum]
         t = tuple(entry.items())
         if t not in seen:
