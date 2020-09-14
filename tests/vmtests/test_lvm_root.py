@@ -163,13 +163,11 @@ class XenialTestUefiLvmRootXfs(relbase.xenial, TestUefiLvmRootAbs):
     }
 
 
-@VMBaseClass.skip_by_date("1652822", fixby="2020-06-01", install=False)
 class XenialTestUefiLvmRootXfsBootXfs(relbase.xenial, TestUefiLvmRootAbs):
     """This tests xfs root and xfs boot with uefi.
 
-    It is known broken (LP: #1652822) and unlikely to be fixed without pushing,
-    so we skip-by for a long time."""
-    __test__ = True
+    It is known broken (LP: #1652822) and unlikely to be fixed."""
+    __test__ = False
     conf_replace = {
         '__BOOTFS_FORMAT__': 'xfs',
         '__ROOTFS_FORMAT__': 'xfs',

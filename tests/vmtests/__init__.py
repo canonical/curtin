@@ -1763,7 +1763,10 @@ class VMBaseClass(TestCase):
                  for line in ls_byid.split('\n')
                  if ("virtio-" + serial) in line.split() or
                     ("scsi-" + serial) in line.split() or
-                    ("wwn-" + serial) in line.split()]
+                    ("wwn-" + serial) in line.split() or
+                    (serial) in line.split()]
+        print("Looking for serial %s in 'ls_al_byid' content\n%s" % (serial,
+                                                                     ls_byid))
         self.assertEqual(len(kname), 1)
         kname = kname.pop()
         self.assertIsNotNone(kname)
@@ -2044,6 +2047,17 @@ class VMBaseClass(TestCase):
 
             return swaps
 
+        # we don't yet have a skip_by_date on specific releases
+        if is_devel_release(self.target_release):
+            name = "test_swaps_used"
+            bug = "1894910"
+            fixby = "2020-10-15"
+            removeby = "2020-11-01"
+            raise SkipTest(
+                "skip_by_date({name}) LP: #{bug} "
+                "fixby={fixby} removeby={removeby}: ".format(
+                    name=name, bug=bug, fixby=fixby, removeby=removeby))
+
         expected_swaps = find_fstab_swaps()
         proc_swaps = self.load_collect_file("proc-swaps")
         for swap in expected_swaps:
@@ -2144,6 +2158,9 @@ class PsuedoVMBaseClass(VMBaseClass):
         pass
 
     def test_kernel_img_conf(self):
+        pass
+
+    def test_swaps_used(self):
         pass
 
     def _maybe_raise(self, exc):

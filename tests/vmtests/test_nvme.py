@@ -139,7 +139,6 @@ class BionicTestNvmeBcache(relbase.bionic, TestNvmeBcacheAbs):
     __test__ = True
 
 
-@TestNvmeBcacheAbs.skip_by_date("1861941", fixby="2020-09-15")
 class FocalTestNvmeBcache(relbase.focal, TestNvmeBcacheAbs):
     __test__ = True
 

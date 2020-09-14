@@ -1,8 +1,7 @@
 showtrace: true
 storage:
   config:
-  - grub_device: true
-    id: sda
+  - id: sda
     model: LOGICAL VOLUME
     name: sda
     ptable: gpt
@@ -23,7 +22,7 @@ storage:
     type: disk
     wipe: superblock
   - device: sda
-    flag: boot
+    grub_device: true
     id: sda-part1
     name: sda-part1
     number: 1
@@ -33,7 +32,6 @@ storage:
     uuid: 9f0fda16-c096-4cee-82ac-4f5f294253a2
     wipe: superblock
   - device: sda
-    flag: boot
     id: sda-part2
     name: sda-part2
     number: 2
