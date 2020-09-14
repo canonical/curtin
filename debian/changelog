@@ -1,3 +1,47 @@
+curtin (20.1-29-g81144052-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+    - vmtest: Fix multiple issues with vmtest on master
+    - Refactor uefi_remove_duplicates into find/remove functions for reuse
+    - distro: run apt-get clean after dist-upgrade, install, upgrade
+    - curthooks: UEFI remove dupes: don't remove BootCurrent, config option
+      (LP: #1894217)
+    - Pin the dependency on pyrsistent [Paride Legovini]
+    - restore default of grub.update_nvram to True in install_grub
+      [Michael Hudson-Doyle]
+    - block: disk_to_byid_path handle missing /dev/disk/by-id directory
+      (LP: #1876258)
+    - UEFI: Handle missing BootCurrent entry when reordering UEFI entries
+      (LP: #1789650)
+    - dasd: fix off-by-one device_id devno range check [Paride Legovini]
+    - curthooks: uefi_find_grub_device_ids handle type:mount without path
+      (LP: #1892242)
+    - netplan openvswitch yaml changed (LP: #1891608)
+    - tools/curtainer: do not wait for snapd.seeded.service
+    - tools/curtainer: enable using ubuntu-minimal images
+    - vmtests: add Groovy [Paride Legovini]
+    - Drop the Eoan vmtests (EOL) [Paride Legovini]
+    - tools: rename remove-vmtest-release to vmtest-remove-release
+    - Snooze the tests failing because of LP: #1861941 for two more months
+      [Paride Legovini]
+    - LP: #1671951 is Fix Released => Drop the PPA [Paride Legovini]
+    - swaps: handle swapfiles on btrfs (LP: #1884161)
+    - curtainer: fail is masking of zfs-mount or zfs-share fails
+      [Paride Legovini]
+    - multipath: handle multipath nvme name fields correctly (LP: #1878041)
+    - curtainer: mask the zfs-mount and zfs-share services [Paride Legovini]
+    - tools/jenkins-runner: shuffle test-cases to randomize load
+      [Paride Legovini]
+    - Add Trusty/UEFI/HWE-X vmtest, drop realpath add, drop shell code
+    - LP: #1881977 - Install realpath on Trusty UEFI. [Lee Trager]
+    - vmtests: fix PreservePartitionWipeVg storage config
+    - Fix mdraid name creates broken configuration
+      [James Falcon] (LP: #1803933)
+    - vmtests: update skiptests
+    - vmtest: allow installed centos images to reboot (LP: #1881011)
+
+ -- Paride Legovini <paride.legovini@canonical.com>  Mon, 14 Sep 2020 17:53:15 +0200
+
 curtin (20.1-0ubuntu1) groovy; urgency=medium
 
   * New upstream release.
