@@ -38,7 +38,6 @@ storage:
     grub_device: true
     type: disk
     id: disk-sda
-    wipe: superblock
   - serial: disk-b
     name: disk-b
     grub_device: false

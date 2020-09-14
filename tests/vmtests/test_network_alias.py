@@ -52,11 +52,11 @@ class BionicTestNetworkAlias(relbase.bionic, TestNetworkAliasAbs):
     __test__ = True
 
 
-class EoanTestNetworkAlias(relbase.eoan, TestNetworkAliasAbs):
+class FocalTestNetworkAlias(relbase.focal, TestNetworkAliasAbs):
     __test__ = True
 
 
-class FocalTestNetworkAlias(relbase.focal, TestNetworkAliasAbs):
+class GroovyTestNetworkAlias(relbase.groovy, TestNetworkAliasAbs):
     __test__ = True
 
 

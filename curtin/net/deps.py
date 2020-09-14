@@ -34,10 +34,13 @@ def network_config_required_packages(network_config, mapping=None):
             if cfgtype == 'version':
                 continue
             dev_configs.add(cfgtype)
-            # the renderer type may trigger package adds
+            # subkeys under the type may trigger package adds
             for entry, entry_cfg in cfg.items():
                 if entry_cfg.get('renderer'):
                     dev_configs.add(entry_cfg.get('renderer'))
+                else:
+                    for sub_entry, sub_cfg in entry_cfg.items():
+                        dev_configs.add(sub_entry)
 
     needed_packages = []
     for dev_type in dev_configs:

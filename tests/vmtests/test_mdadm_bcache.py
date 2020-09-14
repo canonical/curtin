@@ -26,6 +26,7 @@ class TestMdadmAbs(VMBaseClass):
         ls -al /dev/bcache* > lsal_dev_bcache_star
         ls -al /dev/bcache/by-uuid/ | cat >ls_al_bcache_byuuid
         ls -al /dev/bcache/by-label/ | cat >ls_al_bcache_bylabel
+        ls -al /dev/md/* | cat >ls_al_dev_md
 
         exit 0
         """)]
@@ -153,16 +154,16 @@ class BionicTestMdadmBcache(relbase.bionic, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class EoanTestMdadmBcache(relbase.eoan, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 class FocalTestMdadmBcache(relbase.focal, TestMdadmBcacheAbs):
     __test__ = True
 
-    @TestMdadmBcacheAbs.skip_by_date("1861941", fixby="2020-04-15")
+    @TestMdadmBcacheAbs.skip_by_date("1861941", fixby="2020-09-15")
     def test_fstab(self):
         return super().test_fstab()
+
+
+class GroovyTestMdadmBcache(relbase.groovy, TestMdadmBcacheAbs):
+    __test__ = True
 
 
 class TestMirrorbootAbs(TestMdadmAbs):
@@ -202,11 +203,11 @@ class BionicTestMirrorboot(relbase.bionic, TestMirrorbootAbs):
     __test__ = True
 
 
-class EoanTestMirrorboot(relbase.eoan, TestMirrorbootAbs):
+class FocalTestMirrorboot(relbase.focal, TestMirrorbootAbs):
     __test__ = True
 
 
-class FocalTestMirrorboot(relbase.focal, TestMirrorbootAbs):
+class GroovyTestMirrorboot(relbase.groovy, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -250,13 +251,13 @@ class BionicTestMirrorbootPartitions(relbase.bionic,
     __test__ = True
 
 
-class EoanTestMirrorbootPartitions(relbase.eoan,
-                                   TestMirrorbootPartitionsAbs):
+class FocalTestMirrorbootPartitions(relbase.focal,
+                                    TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
-class FocalTestMirrorbootPartitions(relbase.focal,
-                                    TestMirrorbootPartitionsAbs):
+class GroovyTestMirrorbootPartitions(relbase.groovy,
+                                     TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
@@ -309,6 +310,16 @@ class TestMirrorbootPartitionsUEFIAbs(TestMdadmAbs):
         self.assertIn(
             ('grub-pc', 'grub-efi/install_devices', choice), found_selections)
 
+    def test_backup_esp_matches_primary(self):
+        if self.target_distro != "ubuntu":
+            raise SkipTest("backup ESP supported only on Ubuntu")
+        if self.target_release in [
+                "trusty", "xenial", "bionic", "cosmic", "disco", "eoan"]:
+            raise SkipTest("backup ESP supported only on >= Focal")
+        primary_esp = self.load_collect_file("diska-part1-efi.out")
+        backup_esp = self.load_collect_file("diskb-part1-efi.out")
+        self.assertEqual(primary_esp, backup_esp)
+
 
 class Centos70TestMirrorbootPartitionsUEFI(centos_relbase.centos70_xenial,
                                            TestMirrorbootPartitionsUEFIAbs):
@@ -335,19 +346,14 @@ class BionicTestMirrorbootPartitionsUEFI(relbase.bionic,
     __test__ = True
 
 
-class EoanTestMirrorbootPartitionsUEFI(relbase.eoan,
-                                       TestMirrorbootPartitionsUEFIAbs):
-    __test__ = True
-
-
 class FocalTestMirrorbootPartitionsUEFI(relbase.focal,
                                         TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
 
-    def test_backup_esp_matches_primary(self):
-        primary_esp = self.load_collect_file("diska-part1-efi.out")
-        backup_esp = self.load_collect_file("diskb-part1-efi.out")
-        self.assertEqual(primary_esp, backup_esp)
+
+class GroovyTestMirrorbootPartitionsUEFI(relbase.groovy,
+                                         TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
 
 
 class TestRaid5bootAbs(TestMdadmAbs):
@@ -359,11 +365,14 @@ class TestRaid5bootAbs(TestMdadmAbs):
                      ('main_disk', 2),
                      ('second_disk', 1),
                      ('third_disk', 1),
-                     ('md0', 0)]
+                     ('os-raid1', 0)]
 
     def get_fstab_expected(self):
+        kname = self._mdname_to_kname('os-raid1')
         return [
-            (self._kname_to_uuid_devpath('md-uuid', 'md0'), '/', 'defaults'),
+            (self._kname_to_uuid_devpath('md-uuid', kname),
+             '/',
+             'defaults'),
         ]
 
 
@@ -387,11 +396,11 @@ class BionicTestRaid5boot(relbase.bionic, TestRaid5bootAbs):
     __test__ = True
 
 
-class EoanTestRaid5boot(relbase.eoan, TestRaid5bootAbs):
+class FocalTestRaid5boot(relbase.focal, TestRaid5bootAbs):
     __test__ = True
 
 
-class FocalTestRaid5boot(relbase.focal, TestRaid5bootAbs):
+class GroovyTestRaid5boot(relbase.groovy, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -448,11 +457,11 @@ class BionicTestRaid6boot(relbase.bionic, TestRaid6bootAbs):
     __test__ = True
 
 
-class EoanTestRaid6boot(relbase.eoan, TestRaid6bootAbs):
+class FocalTestRaid6boot(relbase.focal, TestRaid6bootAbs):
     __test__ = True
 
 
-class FocalTestRaid6boot(relbase.focal, TestRaid6bootAbs):
+class GroovyTestRaid6boot(relbase.groovy, TestRaid6bootAbs):
     __test__ = True
 
 
@@ -495,11 +504,11 @@ class BionicTestRaid10boot(relbase.bionic, TestRaid10bootAbs):
     __test__ = True
 
 
-class EoanTestRaid10boot(relbase.eoan, TestRaid10bootAbs):
+class FocalTestRaid10boot(relbase.focal, TestRaid10bootAbs):
     __test__ = True
 
 
-class FocalTestRaid10boot(relbase.focal, TestRaid10bootAbs):
+class GroovyTestRaid10boot(relbase.groovy, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -599,11 +608,11 @@ class BionicTestAllindata(relbase.bionic, TestAllindataAbs):
     __test__ = True
 
 
-class EoanTestAllindata(relbase.eoan, TestAllindataAbs):
+class FocalTestAllindata(relbase.focal, TestAllindataAbs):
     __test__ = True
 
 
-class FocalTestAllindata(relbase.focal, TestAllindataAbs):
+class GroovyTestAllindata(relbase.groovy, TestAllindataAbs):
     __test__ = True
 
 

@@ -158,11 +158,11 @@ class BionicTestMultipathBasic(relbase.bionic, TestMultipathBasicAbs):
     __test__ = True
 
 
-class EoanTestMultipathBasic(relbase.eoan, TestMultipathBasicAbs):
+class FocalTestMultipathBasic(relbase.focal, TestMultipathBasicAbs):
     __test__ = True
 
 
-class FocalTestMultipathBasic(relbase.focal, TestMultipathBasicAbs):
+class GroovyTestMultipathBasic(relbase.groovy, TestMultipathBasicAbs):
     __test__ = True
 
 

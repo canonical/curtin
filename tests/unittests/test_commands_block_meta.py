@@ -1779,6 +1779,7 @@ class TestRaidHandler(CiTestCase):
     def setUp(self):
         super(TestRaidHandler, self).setUp()
 
+        orig_md_path = block_meta.block.md_path
         basepath = 'curtin.commands.block_meta.'
         self.add_patch(basepath + 'get_path_to_storage_volume', 'm_getpath')
         self.add_patch(basepath + 'util', 'm_util')
@@ -1786,6 +1787,10 @@ class TestRaidHandler(CiTestCase):
         self.add_patch(basepath + 'mdadm', 'm_mdadm')
         self.add_patch(basepath + 'block', 'm_block')
         self.add_patch(basepath + 'udevadm_settle', 'm_uset')
+
+        # The behavior of this function is being directly tested in
+        # these tests, so we can't mock it
+        self.m_block.md_path = orig_md_path
 
         self.target = "my_target"
         self.config = {
@@ -1850,12 +1855,40 @@ class TestRaidHandler(CiTestCase):
             block_meta.extract_storage_ordered_dict(self.config))
         self.m_util.load_command_environment.return_value = {'fstab': None}
 
+    def test_md_name(self):
+        input_to_result = [
+            ('md1', '/dev/md1'),
+            ('os-raid1', '/dev/md/os-raid1'),
+            ('md/os-raid1', '/dev/md/os-raid1'),
+            ('/dev/md1', '/dev/md1'),
+            ('/dev/md/os-raid1', '/dev/md/os-raid1'),
+            ('bad/path', ValueError)
+        ]
+        for index, test in enumerate(input_to_result):
+            param, expected = test
+            self.storage_config['mddevice']['name'] = param
+            try:
+                block_meta.raid_handler(self.storage_config['mddevice'],
+                                        self.storage_config)
+            except ValueError:
+                if param in ['bad/path']:
+                    continue
+                else:
+                    raise
+
+            actual = self.m_mdadm.mdadm_create.call_args_list[index][0][0]
+            self.assertEqual(
+                expected,
+                actual,
+                "Expected {} to result in mdadm being called with {}. "
+                "mdadm instead called with {}".format(param, expected, actual)
+            )
+
     def test_raid_handler(self):
         """ raid_handler creates raid device. """
         devices = [self.random_string(), self.random_string(),
                    self.random_string()]
         md_devname = '/dev/' + self.storage_config['mddevice']['name']
-        self.m_block.dev_path.return_value = '/dev/md0'
         self.m_getpath.side_effect = iter(devices)
         block_meta.raid_handler(self.storage_config['mddevice'],
                                 self.storage_config)
@@ -1868,7 +1901,6 @@ class TestRaidHandler(CiTestCase):
 
         devices = [self.random_string(), self.random_string(),
                    self.random_string()]
-        self.m_block.dev_path.return_value = '/dev/md0'
         self.m_getpath.side_effect = iter(devices)
         m_verify.return_value = True
         self.storage_config['mddevice']['preserve'] = True
@@ -1882,7 +1914,6 @@ class TestRaidHandler(CiTestCase):
         devices = [self.random_string(), self.random_string(),
                    self.random_string()]
         md_devname = '/dev/' + self.storage_config['mddevice']['name']
-        self.m_block.dev_path.return_value = '/dev/md0'
         self.m_getpath.side_effect = iter(devices)
         self.m_mdadm.md_check.return_value = True
         self.storage_config['mddevice']['preserve'] = True
@@ -1898,7 +1929,6 @@ class TestRaidHandler(CiTestCase):
         devices = [self.random_string(), self.random_string(),
                    self.random_string()]
         md_devname = '/dev/' + self.storage_config['mddevice']['name']
-        self.m_block.dev_path.return_value = '/dev/md0'
         self.m_getpath.side_effect = iter(devices)
         self.m_mdadm.md_check.side_effect = iter([False, True])
         self.storage_config['mddevice']['preserve'] = True
@@ -1916,7 +1946,6 @@ class TestRaidHandler(CiTestCase):
         devices = [self.random_string(), self.random_string(),
                    self.random_string()]
         md_devname = '/dev/' + self.storage_config['mddevice']['name']
-        self.m_block.dev_path.return_value = '/dev/md0'
         self.m_getpath.side_effect = iter(devices)
         self.m_mdadm.md_check.side_effect = iter([False, False])
         self.storage_config['mddevice']['preserve'] = True
@@ -2555,6 +2584,117 @@ class TestVerifyPtableFlag(CiTestCase):
             ('/dev/vdb', '5'))
         block_meta.verify_ptable_flag(devpath, expected_flag,
                                       sfdisk_info=self.sfdisk_info_dos)
+
+
+class TestGetDevicePathsFromStorageConfig(CiTestCase):
+
+    def setUp(self):
+        super(TestGetDevicePathsFromStorageConfig, self).setUp()
+        base = 'curtin.commands.block_meta.'
+        self.add_patch(base + 'get_path_to_storage_volume', 'mock_getpath')
+        self.add_patch(base + 'os.path.exists', 'm_exists')
+        self.m_exists.return_value = True
+        self.mock_getpath.side_effect = self._getpath
+        self.prefix = '/test/dev/'
+        self.config = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {'id': 'sda',
+                     'type': 'disk',
+                     'name': 'main_disk',
+                     'ptable': 'gpt',
+                     'serial': 'disk-a'},
+                    {'id': 'disk-sda-part-1',
+                     'type': 'partition',
+                     'device': 'sda',
+                     'name': 'bios_boot',
+                     'number': 1,
+                     'size': '1M',
+                     'flag': 'bios_grub'},
+                    {'id': 'disk-sda-part-2',
+                     'type': 'partition',
+                     'device': 'sda',
+                     'number': 2,
+                     'size': '5GB'},
+                ],
+            }
+        }
+        self.disk1 = self.config['storage']['config'][0]
+        self.part1 = self.config['storage']['config'][1]
+        self.part2 = self.config['storage']['config'][2]
+        self.sconfig = self._sconfig(self.config)
+
+    def _sconfig(self, config):
+        return block_meta.extract_storage_ordered_dict(config)
+
+    def _getpath(self, item_id, _sconfig):
+        return self.prefix + item_id
+
+    def test_devpath_selects_disks_partitions_with_wipe_setting(self):
+        self.disk1['wipe'] = 'superblock'
+        self.part1['wipe'] = 'superblock'
+        self.sconfig = self._sconfig(self.config)
+
+        expected_devpaths = [
+            self.prefix + self.disk1['id'], self.prefix + self.part1['id']]
+        result = block_meta.get_device_paths_from_storage_config(self.sconfig)
+        self.assertEqual(sorted(expected_devpaths), sorted(result))
+        self.assertEqual([
+            call(self.disk1['id'], self.sconfig),
+            call(self.part1['id'], self.sconfig)],
+            self.mock_getpath.call_args_list)
+        self.assertEqual(
+            sorted([call(devpath) for devpath in expected_devpaths]),
+            sorted(self.m_exists.call_args_list))
+
+    def test_devpath_raises_exception_if_wipe_and_preserve_set(self):
+        self.disk1['wipe'] = 'superblock'
+        self.disk1['preserve'] = True
+        self.sconfig = self._sconfig(self.config)
+
+        with self.assertRaises(RuntimeError):
+            block_meta.get_device_paths_from_storage_config(self.sconfig)
+        self.assertEqual([], self.mock_getpath.call_args_list)
+        self.assertEqual([], self.m_exists.call_args_list)
+
+    def test_devpath_check_boolean_value_if_wipe_and_preserve_set(self):
+        self.disk1['wipe'] = 'superblock'
+        self.disk1['preserve'] = False
+        self.sconfig = self._sconfig(self.config)
+
+        expected_devpaths = [self.prefix + self.disk1['id']]
+        result = block_meta.get_device_paths_from_storage_config(self.sconfig)
+        self.assertEqual(expected_devpaths, result)
+        self.assertEqual(
+            [call(self.disk1['id'], self.sconfig)],
+            self.mock_getpath.call_args_list)
+        self.assertEqual(
+            sorted([call(devpath) for devpath in expected_devpaths]),
+            sorted(self.m_exists.call_args_list))
+
+    def test_devpath_check_preserved_devices_skipped(self):
+        self.disk1['preserve'] = True
+        self.sconfig = self._sconfig(self.config)
+
+        result = block_meta.get_device_paths_from_storage_config(self.sconfig)
+        self.assertEqual([], result)
+        self.assertEqual([], self.mock_getpath.call_args_list)
+        self.assertEqual([], self.m_exists.call_args_list)
+
+    def test_devpath_check_missing_path_devices_skipped(self):
+        self.disk1['wipe'] = 'superblock'
+        self.sconfig = self._sconfig(self.config)
+
+        self.m_exists.return_value = False
+        result = block_meta.get_device_paths_from_storage_config(self.sconfig)
+        self.assertEqual([], result)
+        self.assertEqual(
+            [call(self.disk1['id'], self.sconfig)],
+            self.mock_getpath.call_args_list)
+        self.assertEqual(
+            [call(self.prefix + self.disk1['id'])],
+            self.m_exists.call_args_list)
 
 
 # vi: ts=4 expandtab syntax=python

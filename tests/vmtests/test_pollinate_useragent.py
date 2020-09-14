@@ -61,11 +61,11 @@ class BionicTestPollinateUserAgent(relbase.bionic, TestPollinateUserAgent):
     __test__ = True
 
 
-class EoanTestPollinateUserAgent(relbase.eoan, TestPollinateUserAgent):
+class FocalTestPollinateUserAgent(relbase.focal, TestPollinateUserAgent):
     __test__ = True
 
 
-class FocalTestPollinateUserAgent(relbase.focal, TestPollinateUserAgent):
+class GroovyTestPollinateUserAgent(relbase.groovy, TestPollinateUserAgent):
     __test__ = True
 
 

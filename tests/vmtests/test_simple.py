@@ -49,14 +49,14 @@ class BionicTestSimple(relbase.bionic, TestSimple):
         self.output_files_exist(["netplan.yaml"])
 
 
-class EoanTestSimple(relbase.eoan, TestSimple):
+class FocalTestSimple(relbase.focal, TestSimple):
     __test__ = True
 
     def test_output_files_exist(self):
         self.output_files_exist(["netplan.yaml"])
 
 
-class FocalTestSimple(relbase.focal, TestSimple):
+class GroovyTestSimple(relbase.groovy, TestSimple):
     __test__ = True
 
     def test_output_files_exist(self):
@@ -105,14 +105,14 @@ class BionicTestSimpleStorage(relbase.bionic, TestSimpleStorage):
         self.output_files_exist(["netplan.yaml"])
 
 
-class EoanTestSimpleStorage(relbase.eoan, TestSimpleStorage):
+class FocalTestSimpleStorage(relbase.focal, TestSimpleStorage):
     __test__ = True
 
     def test_output_files_exist(self):
         self.output_files_exist(["netplan.yaml"])
 
 
-class FocalTestSimpleStorage(relbase.focal, TestSimpleStorage):
+class GroovyTestSimpleStorage(relbase.groovy, TestSimpleStorage):
     __test__ = True
 
     def test_output_files_exist(self):
@@ -139,6 +139,13 @@ class TestGrubNoDefaults(VMBaseClass):
 
 
 class FocalTestGrubNoDefaults(relbase.focal, TestGrubNoDefaults):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
+
+class GroovyTestGrubNoDefaults(relbase.groovy, TestGrubNoDefaults):
     __test__ = True
 
     def test_output_files_exist(self):

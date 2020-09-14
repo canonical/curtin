@@ -143,11 +143,16 @@ class TestBasicAbs(VMBaseClass):
     def get_fstab_expected(self):
         rootdev = self._serial_to_kname('disk-a')
         btrfsdev = self._serial_to_kname('disk-c')
-        return [
+        expected = [
             (self._kname_to_byuuid(rootdev + '1'), '/', 'defaults'),
             (self._kname_to_byuuid(rootdev + '2'), '/home', 'defaults'),
-            (self._kname_to_byuuid(btrfsdev), '/btrfs', 'defaults,noatime')
+            (self._kname_to_byuuid(btrfsdev), '/btrfs', 'defaults,noatime'),
+            (self._kname_to_byuuid(rootdev + '3'), 'none', 'sw'),
         ]
+        if self.target_release in ['focal']:
+            expected.append(('/btrfs/btrfsswap.img', 'none', 'sw'))
+
+        return expected
 
     def test_whole_disk_uuid(self):
         self._test_whole_disk_uuid(
@@ -250,11 +255,11 @@ class BionicTestBasic(relbase.bionic, TestBasicAbs):
     __test__ = True
 
 
-class EoanTestBasic(relbase.eoan, TestBasicAbs):
+class FocalTestBasic(relbase.focal, TestBasicAbs):
     __test__ = True
 
 
-class FocalTestBasic(relbase.focal, TestBasicAbs):
+class GroovyTestBasic(relbase.groovy, TestBasicAbs):
     __test__ = True
 
 
@@ -307,14 +312,23 @@ class TestBasicScsiAbs(TestBasicAbs):
         home_kname = (
             self._serial_to_kname('0x39cc071e72c64cc4-part2'))
         btrfs_kname = self._serial_to_kname('0x22dc58dc023c7008')
+        swap_kname = (
+            self._serial_to_kname('0x39cc071e72c64cc4-part3'))
 
         map_func = self._kname_to_byuuid
         if self.arch == 's390x':
             map_func = self._kname_to_bypath
 
-        return [(map_func(root_kname), '/', 'defaults'),
-                (map_func(home_kname), '/home', 'defaults'),
-                (map_func(btrfs_kname), '/btrfs', 'defaults,noatime')]
+        expected = [
+            (map_func(root_kname), '/', 'defaults'),
+            (map_func(home_kname), '/home', 'defaults'),
+            (map_func(btrfs_kname), '/btrfs', 'defaults,noatime'),
+            (map_func(swap_kname), 'none', 'sw')]
+
+        if self.target_release in ['focal']:
+            expected.append(('/btrfs/btrfsswap.img', 'none', 'sw'))
+
+        return expected
 
     @skip_if_arch('s390x')
     def test_whole_disk_uuid(self):
@@ -340,7 +354,6 @@ class Centos70BionicTestScsiBasic(centos_relbase.centos70_bionic,
     __test__ = True
 
 
-@VMBaseClass.skip_by_date("1859858", fixby="2020-03-06", install=False)
 class Centos70FocalTestScsiBasic(centos_relbase.centos70_focal,
                                  TestBasicScsiAbs, CentosTestBasicAbs):
     __test__ = True
@@ -362,11 +375,11 @@ class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
     __test__ = True
 
 
-class EoanTestScsiBasic(relbase.eoan, TestBasicScsiAbs):
+class FocalTestScsiBasic(relbase.focal, TestBasicScsiAbs):
     __test__ = True
 
 
-class FocalTestScsiBasic(relbase.focal, TestBasicScsiAbs):
+class GroovyTestScsiBasic(relbase.groovy, TestBasicScsiAbs):
     __test__ = True
 
 

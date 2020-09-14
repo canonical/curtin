@@ -239,11 +239,11 @@ class BionicTestFsBattery(relbase.bionic, TestFsBattery):
     __test__ = True
 
 
-class EoanTestFsBattery(relbase.eoan, TestFsBattery):
+class FocalTestFsBattery(relbase.focal, TestFsBattery):
     __test__ = True
 
 
-class FocalTestFsBattery(relbase.focal, TestFsBattery):
+class GroovyTestFsBattery(relbase.groovy, TestFsBattery):
     __test__ = True
 
 

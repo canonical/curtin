@@ -56,11 +56,11 @@ class BionicTestPreserveBcache(relbase.bionic, TestPreserveBcache):
     __test__ = True
 
 
-class EoanTestPreserveBcache(relbase.eoan, TestPreserveBcache):
+class FocalTestPreserveBcache(relbase.focal, TestPreserveBcache):
     __test__ = True
 
 
-class FocalTestPreserveBcache(relbase.focal, TestPreserveBcache):
+class GroovyTestPreserveBcache(relbase.groovy, TestPreserveBcache):
     __test__ = True
 
 

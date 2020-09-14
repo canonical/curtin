@@ -36,7 +36,7 @@ def clean_file(fname, distro):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        prog="remove-vmtest-release",
+        prog="vmtest-remove-release",
         description="Tool to remove vmtest classes by distro release")
     parser.add_argument('--distro-release', '-d',
                         action='store', required=True)

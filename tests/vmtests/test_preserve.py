@@ -25,11 +25,11 @@ class BionicTestPreserve(relbase.bionic, TestPreserve):
     __test__ = True
 
 
-class EoanTestPreserve(relbase.eoan, TestPreserve):
+class FocalTestPreserve(relbase.focal, TestPreserve):
     __test__ = True
 
 
-class FocalTestPreserve(relbase.focal, TestPreserve):
+class GroovyTestPreserve(relbase.groovy, TestPreserve):
     __test__ = True
 
 

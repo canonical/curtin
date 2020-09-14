@@ -7,7 +7,7 @@ from curtin import udev
 SHOW_PATHS_FMT = ("device='%d' serial='%z' multipath='%m' host_wwpn='%N' "
                   "target_wwnn='%n' host_wwpn='%R' target_wwpn='%r' "
                   "host_adapter='%a'")
-SHOW_MAPS_FMT = "name=%n multipath='%w' sysfs='%d' paths='%N'"
+SHOW_MAPS_FMT = "name='%n' multipath='%w' sysfs='%d' paths='%N'"
 
 
 def _extract_mpath_data(cmd, show_verb):
