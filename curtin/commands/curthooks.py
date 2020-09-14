@@ -557,13 +557,28 @@ def uefi_reorder_loaders(grubcfg, target, efi_orig=None, variant=None):
         LOG.debug("Currently booted UEFI loader might no longer boot.")
 
 
-def uefi_remove_duplicate_entries(grubcfg, target):
+def uefi_remove_duplicate_entries(grubcfg, target, to_remove=None):
     if not grubcfg.get('remove_duplicate_entries', True):
         LOG.debug("Skipped removing duplicate UEFI boot entries per config.")
         return
+    if to_remove is None:
+        to_remove = uefi_find_duplicate_entries(grubcfg, target)
+
+    # check so we don't run ChrootableTarget code unless we have things to do
+    if to_remove:
+        with util.ChrootableTarget(target) as in_chroot:
+            for bootnum, entry in to_remove:
+                LOG.debug('Removing duplicate EFI entry (%s, %s)',
+                          bootnum, entry)
+                in_chroot.subp(['efibootmgr', '--bootnum=%s' % bootnum,
+                                '--delete-bootnum'])
+
+
+def uefi_find_duplicate_entries(grubcfg, target, efi_output=None):
     seen = set()
     to_remove = []
-    efi_output = util.get_efibootmgr(target=target)
+    if efi_output is None:
+        efi_output = util.get_efibootmgr(target=target)
     entries = efi_output.get('entries', {})
     current_bootnum = efi_output.get('current', None)
     # adding BootCurrent to seen first allows us to remove any other duplicate
@@ -579,13 +594,7 @@ def uefi_remove_duplicate_entries(grubcfg, target):
             seen.add(t)
         else:
             to_remove.append((bootnum, entry))
-    if to_remove:
-        with util.ChrootableTarget(target) as in_chroot:
-            for bootnum, entry in to_remove:
-                LOG.debug('Removing duplicate EFI entry (%s, %s)',
-                          bootnum, entry)
-                in_chroot.subp(['efibootmgr', '--bootnum=%s' % bootnum,
-                                '--delete-bootnum'])
+    return to_remove
 
 
 def _debconf_multiselect(package, variable, choices):
