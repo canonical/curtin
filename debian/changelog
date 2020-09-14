@@ -1,4 +1,4 @@
-curtin (20.1-29-g81144052-0ubuntu1) UNRELEASED; urgency=medium
+curtin (20.1-29-g81144052-0ubuntu1) groovy; urgency=medium
 
   * New upstream snapshot.
     - vmtest: Fix multiple issues with vmtest on master
