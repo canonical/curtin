@@ -449,6 +449,7 @@ class TestSystemUpgrade(CiTestCase):
         auto_remove = apt_base + ['autoremove']
         expected_calls = [
             mock.call(apt_cmd, env=env, target=paths.target_path(target)),
+            mock.call(['apt-get', 'clean'], target=paths.target_path(target)),
             mock.call(auto_remove, env=env, target=paths.target_path(target)),
         ]
         which_calls = [mock.call('eatmydata', target=target)]

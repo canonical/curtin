@@ -264,7 +264,7 @@ def apt_update(target=None, env=None, force=False, comment=None,
 
 
 def run_apt_command(mode, args=None, opts=None, env=None, target=None,
-                    execute=True, allow_daemons=False):
+                    execute=True, allow_daemons=False, clean=True):
     defopts = ['--quiet', '--assume-yes',
                '--option=Dpkg::options::=--force-unsafe-io',
                '--option=Dpkg::Options::=--force-confold']
@@ -289,7 +289,11 @@ def run_apt_command(mode, args=None, opts=None, env=None, target=None,
 
     apt_update(target, env=env, comment=' '.join(cmd))
     with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
-        return inchroot.subp(cmd, env=env)
+        cmd_rv = inchroot.subp(cmd, env=env)
+        if clean and mode in ['dist-upgrade', 'install', 'upgrade']:
+            inchroot.subp(['apt-get', 'clean'])
+
+    return cmd_rv
 
 
 def run_yum_command(mode, args=None, opts=None, env=None, target=None,
