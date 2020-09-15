@@ -333,7 +333,7 @@ def dmsetup_info(devname):
                                  ','.join(fields), '--noheading',
                                  '--separator', _SEP], capture=True)
     except util.ProcessExecutionError as e:
-        LOG.error('Failed to run dmsetup info:', e)
+        LOG.error('Failed to run dmsetup info: %s', e)
         return {}
 
     values = out.strip().split(_SEP)
