@@ -1,3 +1,11 @@
+curtin (20.2-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+    - Release 20.2 (LP: #1896947)
+    - Fix the py3 pylint ci run [Paride Legovini]
+
+ -- Paride Legovini <paride.legovini@canonical.com>  Fri, 25 Sep 2020 22:44:41 +0200
+
 curtin (20.1-29-g81144052-0ubuntu1) groovy; urgency=medium
 
   * New upstream snapshot.
