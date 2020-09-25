@@ -1,4 +1,4 @@
-curtin (20.2-0ubuntu1) UNRELEASED; urgency=medium
+curtin (20.2-0ubuntu1) groovy; urgency=medium
 
   * New upstream release.
     - Release 20.2 (LP: #1896947)
