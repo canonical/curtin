@@ -1,3 +1,42 @@
+curtin (20.2-0ubuntu1~16.04.1) UNRELEASED; urgency=medium
+
+  * New upstream release. (LP: #1896947)
+    - Release 20.2 [Paride Legovini]
+    - Fix the py3 pylint ci run [Paride Legovini]
+    - vmtest: Fix multiple issues with vmtest on master
+    - Refactor uefi_remove_duplicates into find/remove functions for reuse
+    - distro: run apt-get clean after dist-upgrade, install, upgrade
+    - curthooks: UEFI remove dupes: don't remove BootCurrent, config option
+    - Pin the dependency on pyrsistent [Paride Legovini]
+    - restore default of grub.update_nvram to True in install_grub
+      [Michael Hudson-Doyle]
+    - block: disk_to_byid_path handle missing /dev/disk/by-id directory
+    - UEFI: Handle missing BootCurrent entry when reordering UEFI entries
+    - dasd: fix off-by-one device_id devno range check [Paride Legovini]
+    - curthooks: uefi_find_grub_device_ids handle type:mount without path
+    - netplan openvswitch yaml changed
+    - tools/curtainer: do not wait for snapd.seeded.service
+    - tools/curtainer: enable using ubuntu-minimal images
+    - vmtests: add Groovy [Paride Legovini]
+    - Drop the Eoan vmtests (EOL) [Paride Legovini]
+    - tools: rename remove-vmtest-release to vmtest-remove-release
+    - Snooze the tests failing because of LP: #1861941 for two more months
+      [Paride Legovini]
+    - LP: #1671951 is Fix Released => Drop the PPA [Paride Legovini]
+    - swaps: handle swapfiles on btrfs
+    - curtainer: fail is masking of zfs-mount or zfs-share fails
+      [Paride Legovini]
+    - multipath: handle multipath nvme name fields correctly
+    - curtainer: mask the zfs-mount and zfs-share services [Paride Legovini]
+    - tools/jenkins-runner: shuffle test-cases to randomize load
+      [Paride Legovini]
+    - Add Trusty/UEFI/HWE-X vmtest, drop realpath add, drop shell code
+    - LP: #1881977 - Install realpath on Trusty UEFI. [Lee Trager]
+    - vmtests: fix PreservePartitionWipeVg storage config
+    - Fix mdraid name creates broken configuration [James Falcon]
+
+ -- Paride Legovini <paride.legovini@canonical.com>  Tue, 29 Sep 2020 16:15:54 +0200
+
 curtin (20.1-2-g42a9667f-0ubuntu1~16.04.1) xenial; urgency=medium
 
   * New upstream snapshot. (LP: #1881003)
