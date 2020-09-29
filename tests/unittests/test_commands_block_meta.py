@@ -1892,7 +1892,7 @@ class TestRaidHandler(CiTestCase):
         self.m_getpath.side_effect = iter(devices)
         block_meta.raid_handler(self.storage_config['mddevice'],
                                 self.storage_config)
-        self.assertEqual([call(md_devname, 5, devices, [], '')],
+        self.assertEqual([call(md_devname, 5, devices, [], None, '', None)],
                          self.m_mdadm.mdadm_create.call_args_list)
 
     @patch('curtin.commands.block_meta.raid_verify')

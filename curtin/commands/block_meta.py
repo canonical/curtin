@@ -1486,21 +1486,30 @@ def raid_handler(info, storage_config):
     raidlevel = info.get('raidlevel')
     spare_devices = info.get('spare_devices')
     md_devname = block.md_path(info.get('name'))
+    container = info.get('container')
+    metadata = info.get('metadata')
     preserve = config.value_as_boolean(info.get('preserve'))
-    if not devices:
-        raise ValueError("devices for raid must be specified")
+    if not devices and not container:
+        raise ValueError("devices or container for raid must be specified")
     if raidlevel not in ['linear', 'raid0', 0, 'stripe', 'raid1', 1, 'mirror',
-                         'raid4', 4, 'raid5', 5, 'raid6', 6, 'raid10', 10]:
+                         'raid4', 4, 'raid5', 5, 'raid6', 6, 'raid10', 10,
+                         'container']:
         raise ValueError("invalid raidlevel '%s'" % raidlevel)
-    if raidlevel in ['linear', 'raid0', 0, 'stripe']:
+    if raidlevel in ['linear', 'raid0', 0, 'stripe', 'container']:
         if spare_devices:
             raise ValueError("spareunsupported in raidlevel '%s'" % raidlevel)
 
     LOG.debug('raid: cfg: %s', util.json_dumps(info))
-    device_paths = list(get_path_to_storage_volume(dev, storage_config) for
-                        dev in devices)
-    LOG.debug('raid: device path mapping: %s',
-              list(zip(devices, device_paths)))
+
+    container_dev = None
+    device_paths = []
+    if container:
+        container_dev = get_path_to_storage_volume(container, storage_config)
+    else:
+        device_paths = list(get_path_to_storage_volume(dev, storage_config) for
+                            dev in devices)
+        LOG.debug('raid: device path mapping: {}'.format(
+            zip(devices, device_paths)))
 
     spare_device_paths = []
     if spare_devices:
@@ -1517,8 +1526,8 @@ def raid_handler(info, storage_config):
 
     if create_raid:
         mdadm.mdadm_create(md_devname, raidlevel,
-                           device_paths, spare_device_paths,
-                           info.get('mdname', ''))
+                           device_paths, spare_device_paths, container_dev,
+                           info.get('mdname', ''), metadata)
 
     wipe_mode = info.get('wipe')
     if wipe_mode:
