@@ -34,12 +34,11 @@ class BionicTestNetworkOvs(relbase.bionic, TestNetworkOvsAbs):
     __test__ = True
 
 
-class EoanTestNetworkOvs(relbase.eoan, TestNetworkOvsAbs):
-    __test__ = True
-
-
 class FocalTestNetworkOvs(relbase.focal, TestNetworkOvsAbs):
     __test__ = True
 
+
+class GroovyTestNetworkOvs(relbase.groovy, TestNetworkOvsAbs):
+    __test__ = True
 
 # vi: ts=4 expandtab syntax=python

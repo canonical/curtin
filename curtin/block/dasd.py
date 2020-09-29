@@ -269,9 +269,9 @@ def _valid_device_id(device_id):
     if not (0 <= int(dsn, 16) < 256):
         raise ValueError("device_id invalid: dsn not in 0-255: '%s'" % dsn)
 
-    if not (0 <= int(dev.lower(), 16) < 65535):
+    if not (0 <= int(dev.lower(), 16) <= 65535):
         raise ValueError(
-            "device_id invalid: devno not in 0-0x10000: '%s'" % dev)
+            "device_id invalid: devno not in 0-0xffff: '%s'" % dev)
 
     return True
 

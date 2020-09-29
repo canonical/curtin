@@ -1,4 +1,8 @@
 showtrace: true
+swap:
+    filename: /btrfs/btrfsswap.img
+    size: 1GB
+    maxsize: 1GB
 storage:
     version: 1
     config:

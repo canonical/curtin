@@ -73,7 +73,7 @@ class BionicTestNvme(relbase.bionic, TestNvmeAbs):
     __test__ = True
 
 
-class EoanTestNvme(relbase.eoan, TestNvmeAbs):
+class GroovyTestNvme(relbase.groovy, TestNvmeAbs):
     __test__ = True
 
 
@@ -139,12 +139,11 @@ class BionicTestNvmeBcache(relbase.bionic, TestNvmeBcacheAbs):
     __test__ = True
 
 
-class EoanTestNvmeBcache(relbase.eoan, TestNvmeBcacheAbs):
+class FocalTestNvmeBcache(relbase.focal, TestNvmeBcacheAbs):
     __test__ = True
 
 
-@TestNvmeBcacheAbs.skip_by_date("1861941", fixby="2020-07-15")
-class FocalTestNvmeBcache(relbase.focal, TestNvmeBcacheAbs):
+class GroovyTestNvmeBcache(relbase.groovy, TestNvmeBcacheAbs):
     __test__ = True
 
 

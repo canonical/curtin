@@ -77,11 +77,11 @@ class BionicTestLvm(relbase.bionic, TestLvmAbs):
     __test__ = True
 
 
-class EoanTestLvm(relbase.eoan, TestLvmAbs):
+class FocalTestLvm(relbase.focal, TestLvmAbs):
     __test__ = True
 
 
-class FocalTestLvm(relbase.focal, TestLvmAbs):
+class GroovyTestLvm(relbase.groovy, TestLvmAbs):
     __test__ = True
 
 

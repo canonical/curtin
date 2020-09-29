@@ -40,7 +40,7 @@ def swap_main(args):
 
     swap.setup_swapfile(target=state['target'], fstab=state['fstab'],
                         swapfile=args.swapfile, size=size,
-                        maxsize=args.maxsize)
+                        maxsize=args.maxsize, force=args.force)
     sys.exit(2)
 
 
@@ -54,6 +54,9 @@ CMD_ARGUMENTS = (
                 'default is env[TARGET_MOUNT_POINT]'),
        'action': 'store', 'metavar': 'TARGET',
        'default': os.environ.get('TARGET_MOUNT_POINT')}),
+     (('-F', '--force'),
+      {'help': 'force creating of swapfile even if it may fail (btrfs,xfs)',
+               'default': False, 'action': 'store_true'}),
      (('-s', '--size'),
       {'help': 'size of swap file (eg: 1G, 1500M, 1024K, 100000. def: "auto")',
                'default': None, 'action': 'store'}),

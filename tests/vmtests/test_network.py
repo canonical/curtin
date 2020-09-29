@@ -474,11 +474,11 @@ class BionicTestNetworkBasic(relbase.bionic, TestNetworkBasicAbs):
     __test__ = True
 
 
-class EoanTestNetworkBasic(relbase.eoan, TestNetworkBasicAbs):
+class FocalTestNetworkBasic(relbase.focal, TestNetworkBasicAbs):
     __test__ = True
 
 
-class FocalTestNetworkBasic(relbase.focal, TestNetworkBasicAbs):
+class GroovyTestNetworkBasic(relbase.groovy, TestNetworkBasicAbs):
     __test__ = True
 
 

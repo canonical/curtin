@@ -94,6 +94,13 @@ class FocalTestLvmRootExt4(relbase.focal, TestLvmRootAbs):
     }
 
 
+class GroovyTestLvmRootExt4(relbase.groovy, TestLvmRootAbs):
+    __test__ = True
+    conf_replace = {
+        '__ROOTFS_FORMAT__': 'ext4',
+    }
+
+
 class XenialTestLvmRootXfs(relbase.xenial, TestLvmRootAbs):
     __test__ = True
     conf_replace = {
@@ -140,6 +147,14 @@ class FocalTestUefiLvmRootExt4(relbase.focal, TestUefiLvmRootAbs):
     }
 
 
+class GroovyTestUefiLvmRootExt4(relbase.groovy, TestUefiLvmRootAbs):
+    __test__ = True
+    conf_replace = {
+        '__BOOTFS_FORMAT__': 'ext4',
+        '__ROOTFS_FORMAT__': 'ext4',
+    }
+
+
 class XenialTestUefiLvmRootXfs(relbase.xenial, TestUefiLvmRootAbs):
     __test__ = True
     conf_replace = {
@@ -148,13 +163,11 @@ class XenialTestUefiLvmRootXfs(relbase.xenial, TestUefiLvmRootAbs):
     }
 
 
-@VMBaseClass.skip_by_date("1652822", fixby="2020-06-01", install=False)
 class XenialTestUefiLvmRootXfsBootXfs(relbase.xenial, TestUefiLvmRootAbs):
     """This tests xfs root and xfs boot with uefi.
 
-    It is known broken (LP: #1652822) and unlikely to be fixed without pushing,
-    so we skip-by for a long time."""
-    __test__ = True
+    It is known broken (LP: #1652822) and unlikely to be fixed."""
+    __test__ = False
     conf_replace = {
         '__BOOTFS_FORMAT__': 'xfs',
         '__ROOTFS_FORMAT__': 'xfs',

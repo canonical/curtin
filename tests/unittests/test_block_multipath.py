@@ -39,6 +39,20 @@ class TestMultipath(CiTestCase):
                          multipath.show_maps())
         self.m_subp.assert_called_with(expected, capture=True)
 
+    def test_show_maps_nvme(self):
+        """verify show_maps extracts mulitpath map data correctly."""
+        NVME_MP = multipath.util.load_file('tests/data/multipath-nvme.txt')
+        self.m_subp.return_value = (NVME_MP, "")
+        expected = ['multipathd', 'show', 'maps', 'raw', 'format',
+                    multipath.SHOW_MAPS_FMT]
+        self.assertEqual([
+            {'name':
+             ('nqn.1994-11.com.samsung:nvme:PM1725a:HHHL:S3RVNA0J300208      '
+              ':nsid.1'),
+             'multipath': 'eui.335256304a3002080025384100000001',
+             'sysfs': 'nvme0n1', 'paths': '1'}], multipath.show_maps())
+        self.m_subp.assert_called_with(expected, capture=True)
+
     def test_is_mpath_device_true(self):
         """is_mpath_device returns true if dev DM_UUID starts with mpath-"""
         self.m_udev.udevadm_info.return_value = {'DM_UUID': 'mpath-mpatha-foo'}

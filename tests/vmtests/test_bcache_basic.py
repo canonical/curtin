@@ -64,11 +64,11 @@ class BionicBcacheBasic(relbase.bionic, TestBcacheBasic):
     __test__ = True
 
 
-class EoanBcacheBasic(relbase.eoan, TestBcacheBasic):
+class FocalBcacheBasic(relbase.focal, TestBcacheBasic):
     __test__ = True
 
 
-class FocalBcacheBasic(relbase.focal, TestBcacheBasic):
+class GroovyBcacheBasic(relbase.groovy, TestBcacheBasic):
     __test__ = True
 
 

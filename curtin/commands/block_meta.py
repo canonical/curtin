@@ -502,7 +502,7 @@ def get_path_to_storage_volume(volume, storage_config):
     elif vol.get('type') == "raid":
         # For raid partitions, block device is at /dev/mdX
         name = vol.get('name')
-        volume_path = os.path.join("/dev", name)
+        volume_path = block.md_path(name)
 
     elif vol.get('type') == "bcache":
         # For bcache setups, the only reliable way to determine the name of the
@@ -1485,7 +1485,7 @@ def raid_handler(info, storage_config):
     devices = info.get('devices')
     raidlevel = info.get('raidlevel')
     spare_devices = info.get('spare_devices')
-    md_devname = block.dev_path(info.get('name'))
+    md_devname = block.md_path(info.get('name'))
     preserve = config.value_as_boolean(info.get('preserve'))
     if not devices:
         raise ValueError("devices for raid must be specified")
@@ -1744,7 +1744,12 @@ def get_device_paths_from_storage_config(storage_config):
     dpaths = []
     for (k, v) in storage_config.items():
         if v.get('type') in ['disk', 'partition']:
-            if config.value_as_boolean(v.get('wipe')):
+            wipe = config.value_as_boolean(v.get('wipe'))
+            preserve = config.value_as_boolean(v.get('preserve'))
+            if v.get('type') == 'disk' and all([wipe, preserve]):
+                msg = 'type:disk id=%s has both wipe and preserve' % v['id']
+                raise RuntimeError(msg)
+            if wipe:
                 try:
                     # skip paths that do not exit, nothing to wipe
                     dpath = get_path_to_storage_volume(k, storage_config)

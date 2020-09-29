@@ -8,6 +8,8 @@ KERNEL_CMDLINE_COPY_TO_INSTALL_SEP = "---"
 # can determine which features are supported.  Each entry should have
 # a consistent meaning.
 FEATURES = [
+    # curtin supports creating swapfiles on btrfs, if possible
+    'BTRFS_SWAPFILE',
     # curtin can apply centos networking via centos_apply_network_config
     'CENTOS_APPLY_NETWORK_CONFIG',
     # curtin can configure centos storage devices and boot devices
@@ -32,8 +34,10 @@ FEATURES = [
     'APT_CONFIG_V1',
     # has version module
     'HAS_VERSION_MODULE',
+    # uefi_reoder has fallback support if BootCurrent is missing
+    'UEFI_REORDER_FALLBACK_SUPPORT',
 ]
 
-__version__ = "20.1"
+__version__ = "20.2"
 
 # vi: ts=4 expandtab syntax=python

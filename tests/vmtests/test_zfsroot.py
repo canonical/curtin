@@ -96,12 +96,12 @@ class BionicTestZfsRoot(relbase.bionic, TestZfsRootAbs):
     __test__ = True
 
 
-class EoanTestZfsRoot(relbase.eoan, TestZfsRootAbs):
+class FocalTestZfsRoot(relbase.focal, TestZfsRootAbs):
     __test__ = True
     mem = 4096
 
 
-class FocalTestZfsRoot(relbase.focal, TestZfsRootAbs):
+class GroovyTestZfsRoot(relbase.groovy, TestZfsRootAbs):
     __test__ = True
     mem = 4096
 
@@ -125,13 +125,12 @@ class BionicTestZfsRootFsType(relbase.bionic, TestZfsRootFsTypeAbs):
     __test__ = True
 
 
-class EoanTestZfsRootFsType(relbase.eoan, TestZfsRootFsTypeAbs):
-    __test__ = True
-    mem = 4096
-
-
 class FocalTestZfsRootFsType(relbase.focal, TestZfsRootFsTypeAbs):
     __test__ = True
     mem = 4096
+
+
+class GroovyTestZfsRootFsType(relbase.groovy, TestZfsRootFsTypeAbs):
+    __test__ = True
 
 # vi: ts=4 expandtab syntax=python

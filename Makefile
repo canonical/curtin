@@ -9,7 +9,7 @@ ifeq ($(COVERAGE), 1)
 endif
 CURTIN_VMTEST_IMAGE_SYNC ?= False
 export CURTIN_VMTEST_IMAGE_SYNC
-noseopts ?= -vv --nologcapture
+noseopts ?= -vv
 pylintopts ?= --rcfile=pylintrc --errors-only
 target_dirs ?= curtin tests tools
 

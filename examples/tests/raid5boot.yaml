@@ -42,7 +42,7 @@ storage:
        size: 3GB
        device: sdc
      - id: mddevice
-       name: md0
+       name: os-raid1
        type: raid
        raidlevel: 5
        devices:
