@@ -25,11 +25,11 @@ class BionicTestPreserveRAID(relbase.bionic, TestPreserveRAID):
     __test__ = True
 
 
-class EoanTestPreserveRAID(relbase.eoan, TestPreserveRAID):
+class FocalTestPreserveRAID(relbase.focal, TestPreserveRAID):
     __test__ = True
 
 
-class FocalTestPreserveRAID(relbase.focal, TestPreserveRAID):
+class GroovyTestPreserveRAID(relbase.groovy, TestPreserveRAID):
     __test__ = True
 
 

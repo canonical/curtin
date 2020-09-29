@@ -28,11 +28,11 @@ class BionicTestReuseRAIDMember(relbase.bionic, TestReuseRAIDMember):
     __test__ = True
 
 
-class EoanTestReuseRAIDMember(relbase.eoan, TestReuseRAIDMember):
+class FocalTestReuseRAIDMember(relbase.focal, TestReuseRAIDMember):
     __test__ = True
 
 
-class FocalTestReuseRAIDMember(relbase.focal, TestReuseRAIDMember):
+class GroovyTestReuseRAIDMember(relbase.groovy, TestReuseRAIDMember):
     __test__ = True
 
 
@@ -41,13 +41,13 @@ class BionicTestReuseRAIDMemberPartition(relbase.bionic,
     __test__ = True
 
 
-class EoanTestReuseRAIDMemberPartition(relbase.eoan,
-                                       TestReuseRAIDMemberPartition):
+class FocalTestReuseRAIDMemberPartition(relbase.focal,
+                                        TestReuseRAIDMemberPartition):
     __test__ = True
 
 
-class FocalTestReuseRAIDMemberPartition(relbase.focal,
-                                        TestReuseRAIDMemberPartition):
+class GroovyTestReuseRAIDMemberPartition(relbase.groovy,
+                                         TestReuseRAIDMemberPartition):
     __test__ = True
 
 

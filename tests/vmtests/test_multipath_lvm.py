@@ -56,11 +56,11 @@ class BionicTestMultipathLvm(relbase.bionic, TestMultipathLvmAbs):
     __test__ = True
 
 
-class EoanTestMultipathLvm(relbase.eoan, TestMultipathLvmAbs):
+class FocalTestMultipathLvm(relbase.focal, TestMultipathLvmAbs):
     __test__ = True
 
 
-class FocalTestMultipathLvm(relbase.focal, TestMultipathLvmAbs):
+class GroovyTestMultipathLvm(relbase.groovy, TestMultipathLvmAbs):
     __test__ = True
 
 
@@ -70,6 +70,11 @@ class TestMultipathLvmPartWipeAbs(TestMultipathLvmAbs):
 
 class FocalTestMultipathLvmPartWipe(relbase.focal,
                                     TestMultipathLvmPartWipeAbs):
+    __test__ = True
+
+
+class GroovyTestMultipathLvmPartWipe(relbase.groovy,
+                                     TestMultipathLvmPartWipeAbs):
     __test__ = True
 
 

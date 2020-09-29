@@ -18,13 +18,13 @@ class BionicTestReuseMSDOSPartitions(relbase.bionic,
     __test__ = True
 
 
-class EoanTestReuseMSDOSPartitions(relbase.eoan,
-                                   TestReuseMSDOSPartitions):
+class FocalTestReuseMSDOSPartitions(relbase.focal,
+                                    TestReuseMSDOSPartitions):
     __test__ = True
 
 
-class FocalTestReuseMSDOSPartitions(relbase.focal,
-                                    TestReuseMSDOSPartitions):
+class GroovyTestReuseMSDOSPartitions(relbase.groovy,
+                                     TestReuseMSDOSPartitions):
     __test__ = True
 
 

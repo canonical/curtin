@@ -53,8 +53,12 @@ class BionicTestNetworkIPV6(relbase.bionic, TestNetworkIPV6Abs):
     __test__ = True
 
 
-class EoanTestNetworkIPV6(relbase.eoan, TestNetworkIPV6Abs):
+class GroovyTestNetworkIPV6(relbase.groovy, TestNetworkIPV6Abs):
     __test__ = True
+
+    @TestNetworkIPV6Abs.skip_by_date("1888726", "2020-10-15")
+    def test_ip_output(self):
+        return super().test_ip_output()
 
 
 class Centos66TestNetworkIPV6(centos_relbase.centos66_xenial,

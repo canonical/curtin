@@ -52,11 +52,11 @@ class BionicTestBasicDasd(relbase.bionic, TestBasicDasd):
     __test__ = True
 
 
-class EoanTestBasicDasd(relbase.eoan, TestBasicDasd):
+class FocalTestBasicDasd(relbase.focal, TestBasicDasd):
     __test__ = True
 
 
-class FocalTestBasicDasd(relbase.focal, TestBasicDasd):
+class GroovyTestBasicDasd(relbase.groovy, TestBasicDasd):
     __test__ = True
 
 

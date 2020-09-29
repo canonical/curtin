@@ -21,13 +21,13 @@ class BionicTestReuseLVMMemberPartition(relbase.bionic,
     __test__ = True
 
 
-class EoanTestReuseLVMMemberPartition(relbase.eoan,
-                                      TestReuseLVMMemberPartition):
+class FocalTestReuseLVMMemberPartition(relbase.focal,
+                                       TestReuseLVMMemberPartition):
     __test__ = True
 
 
-class FocalTestReuseLVMMemberPartition(relbase.focal,
-                                       TestReuseLVMMemberPartition):
+class GroovyTestReuseLVMMemberPartition(relbase.groovy,
+                                        TestReuseLVMMemberPartition):
     __test__ = True
 
 

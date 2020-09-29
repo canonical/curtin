@@ -264,7 +264,7 @@ def apt_update(target=None, env=None, force=False, comment=None,
 
 
 def run_apt_command(mode, args=None, opts=None, env=None, target=None,
-                    execute=True, allow_daemons=False):
+                    execute=True, allow_daemons=False, clean=True):
     defopts = ['--quiet', '--assume-yes',
                '--option=Dpkg::options::=--force-unsafe-io',
                '--option=Dpkg::Options::=--force-confold']
@@ -289,7 +289,11 @@ def run_apt_command(mode, args=None, opts=None, env=None, target=None,
 
     apt_update(target, env=env, comment=' '.join(cmd))
     with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
-        return inchroot.subp(cmd, env=env)
+        cmd_rv = inchroot.subp(cmd, env=env)
+        if clean and mode in ['dist-upgrade', 'install', 'upgrade']:
+            inchroot.subp(['apt-get', 'clean'])
+
+    return cmd_rv
 
 
 def run_yum_command(mode, args=None, opts=None, env=None, target=None,
@@ -472,6 +476,7 @@ def parse_dpkg_version(raw, name=None, semx=None):
        as the upstream version.
 
        returns a dictionary with fields:
+          'epoch'
           'major' (int), 'minor' (int), 'micro' (int),
           'semantic_version' (int),
           'extra' (string), 'raw' (string), 'upstream' (string),
@@ -484,11 +489,19 @@ def parse_dpkg_version(raw, name=None, semx=None):
     if semx is None:
         semx = (10000, 100, 1)
 
-    if "-" in raw:
-        upstream = raw.rsplit('-', 1)[0]
+    raw_offset = 0
+    if ':' in raw:
+        epoch, _, upstream = raw.partition(':')
+        raw_offset = len(epoch) + 1
+    else:
+        epoch = 0
+        upstream = raw
+
+    if "-" in raw[raw_offset:]:
+        upstream = raw[raw_offset:].rsplit('-', 1)[0]
     else:
         # this is a native package, package version treated as upstream.
-        upstream = raw
+        upstream = raw[raw_offset:]
 
     match = re.search(r'[^0-9.]', upstream)
     if match:
@@ -498,8 +511,10 @@ def parse_dpkg_version(raw, name=None, semx=None):
         upstream_base = upstream
         extra = None
 
-    toks = upstream_base.split(".", 2)
-    if len(toks) == 3:
+    toks = upstream_base.split(".", 3)
+    if len(toks) == 4:
+        major, minor, micro, extra = toks
+    elif len(toks) == 3:
         major, minor, micro = toks
     elif len(toks) == 2:
         major, minor, micro = (toks[0], toks[1], 0)
@@ -507,6 +522,7 @@ def parse_dpkg_version(raw, name=None, semx=None):
         major, minor, micro = (toks[0], 0, 0)
 
     version = {
+        'epoch': int(epoch),
         'major': int(major),
         'minor': int(minor),
         'micro': int(micro),

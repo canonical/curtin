@@ -25,11 +25,11 @@ class BionicTestBcachePartitions(relbase.bionic, TestBcachePartitions):
     __test__ = True
 
 
-class EoanTestBcachePartitions(relbase.eoan, TestBcachePartitions):
+class FocalTestBcachePartitions(relbase.focal, TestBcachePartitions):
     __test__ = True
 
 
-class FocalTestBcachePartitions(relbase.focal, TestBcachePartitions):
+class GroovyTestBcachePartitions(relbase.groovy, TestBcachePartitions):
     __test__ = True
 
 

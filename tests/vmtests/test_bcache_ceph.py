@@ -75,11 +75,11 @@ class BionicTestBcacheCeph(relbase.bionic, TestBcacheCeph):
     __test__ = True
 
 
-class EoanTestBcacheCeph(relbase.eoan, TestBcacheCeph):
+class FocalTestBcacheCeph(relbase.focal, TestBcacheCeph):
     __test__ = True
 
 
-class FocalTestBcacheCeph(relbase.focal, TestBcacheCeph):
+class GroovyTestBcacheCeph(relbase.groovy, TestBcacheCeph):
     __test__ = True
 
 
@@ -106,6 +106,10 @@ class BionicTestBcacheCephLvm(relbase.bionic, TestBcacheCephLvm):
 
 
 class FocalTestBcacheCephLvm(relbase.focal, TestBcacheCephLvm):
+    __test__ = True
+
+
+class GroovyTestBcacheCephLvm(relbase.groovy, TestBcacheCephLvm):
     __test__ = True
 
 

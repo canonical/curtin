@@ -57,6 +57,11 @@ class FocalCurtinDisableNetworkRendering(relbase.focal,
     __test__ = True
 
 
+class GroovyCurtinDisableNetworkRendering(relbase.groovy,
+                                          CurtinDisableNetworkRendering):
+    __test__ = True
+
+
 class FocalCurtinDisableCloudInitNetworkingVersion1(
     relbase.focal,
     CurtinDisableCloudInitNetworkingVersion1
@@ -64,8 +69,20 @@ class FocalCurtinDisableCloudInitNetworkingVersion1(
     __test__ = True
 
 
+class GroovyCurtinDisableCloudInitNetworkingVersion1(
+    relbase.groovy,
+    CurtinDisableCloudInitNetworkingVersion1
+):
+    __test__ = True
+
+
 class FocalCurtinDisableCloudInitNetworking(relbase.focal,
                                             CurtinDisableCloudInitNetworking):
+    __test__ = True
+
+
+class GroovyCurtinDisableCloudInitNetworking(relbase.groovy,
+                                             CurtinDisableCloudInitNetworking):
     __test__ = True
 
 

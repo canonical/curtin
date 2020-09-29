@@ -19,11 +19,11 @@ class BionicTestBcacheBug1718699(relbase.bionic, TestBcacheBug1718699):
     __test__ = True
 
 
-class EoanTestBcacheBug1718699(relbase.eoan, TestBcacheBug1718699):
+class FocalTestBcacheBug1718699(relbase.focal, TestBcacheBug1718699):
     __test__ = True
 
 
-class FocalTestBcacheBug1718699(relbase.focal, TestBcacheBug1718699):
+class GroovyTestBcacheBug1718699(relbase.groovy, TestBcacheBug1718699):
     __test__ = True
 
 
