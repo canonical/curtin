@@ -1,4 +1,4 @@
-curtin (20.2-0ubuntu1~18.04.1) UNRELEASED; urgency=medium
+curtin (20.2-0ubuntu1~18.04.1) bionic; urgency=medium
 
   * New upstream release. (LP: #1896947)
     - Release 20.2 [Paride Legovini]
