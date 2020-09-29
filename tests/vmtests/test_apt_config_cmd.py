@@ -41,7 +41,7 @@ class TestAptConfigCMD(VMBaseClass):
         self.check_file_regex("curtin-dev-ubuntu-test-archive-%s.list" %
                               self.release,
                               (r"http://ppa.launchpad.net/"
-                               r"curtin-dev/test-archive/ubuntu"
+                               r"curtin-dev/test-archive/ubuntu(/*)"
                                r" %s main" % self.release))
 
     def test_cmd_preserve_source(self):
@@ -65,6 +65,10 @@ class BionicTestAptConfigCMDCMD(relbase.bionic, TestAptConfigCMD):
 
 
 class FocalTestAptConfigCMDCMD(relbase.focal, TestAptConfigCMD):
+    __test__ = True
+
+
+class GroovyTestAptConfigCMDCMD(relbase.groovy, TestAptConfigCMD):
     __test__ = True
 
 

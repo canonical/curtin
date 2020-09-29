@@ -633,6 +633,7 @@ class VMBaseClass(TestCase):
 
     # these get set from base_vm_classes
     release = None
+    supported_releases = []
     arch = None
     target_arch = None
     kflavor = None
@@ -855,6 +856,13 @@ class VMBaseClass(TestCase):
         return {'kernel': {'fallback-package': package}}
 
     @classmethod
+    def is_unsupported_release(cls):
+        # allow unsupported releases opt-in to avoid the skiptest
+        if cls.release in cls.supported_releases:
+            return False
+        return is_unsupported_ubuntu(cls.release)
+
+    @classmethod
     def skip_by_date(cls, *args, **kwargs):
         """skip_by_date wrapper. this way other modules do not have
         to add an import of skip_by_date to start skipping."""
@@ -883,7 +891,7 @@ class VMBaseClass(TestCase):
                 "Class %s does not have required attrs set: %s" %
                 (cls.__name__, missing))
 
-        if is_unsupported_ubuntu(cls.release):
+        if cls.is_unsupported_release():
             raise SkipTest('"%s" is unsupported release.' % cls.release)
 
         # check if we should skip due to host arch
@@ -1668,8 +1676,8 @@ class VMBaseClass(TestCase):
                 if spec in line:
                     fstab_entry = line
                     self.assertIsNotNone(fstab_entry)
-                    self.assertEqual(mp, fstab_entry.split(' ')[1])
-                    self.assertEqual(fsopts, fstab_entry.split(' ')[3])
+                    self.assertEqual(mp, fstab_entry.split()[1])
+                    self.assertEqual(fsopts, fstab_entry.split()[3])
                     found.append((spec, mp, fsopts))
 
         self.assertEqual(sorted(expected), sorted(found))
@@ -1755,9 +1763,25 @@ class VMBaseClass(TestCase):
                  for line in ls_byid.split('\n')
                  if ("virtio-" + serial) in line.split() or
                     ("scsi-" + serial) in line.split() or
-                    ("wwn-" + serial) in line.split()]
+                    ("wwn-" + serial) in line.split() or
+                    (serial) in line.split()]
+        print("Looking for serial %s in 'ls_al_byid' content\n%s" % (serial,
+                                                                     ls_byid))
         self.assertEqual(len(kname), 1)
         kname = kname.pop()
+        self.assertIsNotNone(kname)
+        return kname
+
+    def _mdname_to_kname(self, mdname):
+        # extract kname from /dev/md/ on /dev/<kname>
+        # parsing ls -al output on /dev/md/*:
+        # lrwxrwxrwx 1 root root 8 May 28 16:26 /dev/md/os-raid1 -> ../md127
+        ls_dev_md = self.load_collect_file("ls_al_dev_md")
+        knames = [os.path.basename(line.split()[-1])
+                  for line in ls_dev_md.split('\n')
+                  if mdname in line]
+        self.assertEqual(len(knames), 1)
+        kname = knames.pop()
         self.assertIsNotNone(kname)
         return kname
 
@@ -1788,6 +1812,36 @@ class VMBaseClass(TestCase):
         self.assertIsNotNone(uuid)
         self.assertEqual(len(uuid), 36)
         return uuid
+
+    def _byuuid_to_kname(self, devpath):
+        # lookup kname via /dev/disk/by-uuid symlink
+        # parsing ls -al output on /dev/disk/by-uuid:
+        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
+        #  d591e9e9-825a-4f0a-b280-3bfaf470b83c -> ../../vdg
+        uuid = os.path.basename(devpath)
+        self.assertIsNotNone(uuid)
+        print(uuid)
+        ls_uuid = self.load_collect_file("ls_al_byuuid")
+        kname = [line.split()[-1] for line in ls_uuid.split('\n')
+                 if uuid in line.split()]
+        self.assertEqual(len(kname), 1)
+        kname = os.path.basename(kname.pop())
+        return kname
+
+    def _bypath_to_kname(self, devpath):
+        # lookup kname via /dev/disk/by-path symlink
+        # parsing ls -al output on /dev/disk/by-path:
+        # lrwxrwxrwx 1 root root   9 Dec  4 20:02
+        #  pci-0000:00:03.0-scsi-0:0:0:0-part3 -> ../../sda3
+        dpath = os.path.basename(devpath)
+        self.assertIsNotNone(dpath)
+        print(dpath)
+        ls_bypath = self.load_collect_file("ls_al_bypath")
+        kname = [line.split()[-1] for line in ls_bypath.split('\n')
+                 if dpath in line.split()]
+        self.assertEqual(len(kname), 1)
+        kname = os.path.basename(kname.pop())
+        return kname
 
     def _bcache_to_byuuid(self, kname):
         # extract bcache uuid from /dev/bcache/by-uuid on /dev/<kname>
@@ -1970,25 +2024,44 @@ class VMBaseClass(TestCase):
 
     @skip_if_flag('expected_failure')
     def test_swaps_used(self):
-        if not self.has_storage_config():
-            raise SkipTest("This test does not use storage config.")
 
-        stgcfg = self.get_storage_config()
-        swap_ids = [d["id"] for d in stgcfg if d.get("fstype") == "swap"]
-        swap_mounts = [d for d in stgcfg if d.get("device") in swap_ids]
-        self.assertEqual(len(swap_ids), len(swap_mounts),
-                         "number config swap fstypes != number swap mounts")
+        def find_fstab_swaps():
+            swaps = []
+            path = self.collect_path("fstab")
+            if not os.path.exists(path):
+                return swaps
+            for line in util.load_file(path).splitlines():
+                if line.startswith("#"):
+                    continue
+                (fs, mp, fstype, opts, dump, passno) = line.split()
+                if fstype == 'swap':
+                    if fs.startswith('/dev/disk/by-uuid'):
+                        swaps.append('/dev/' + self._byuuid_to_kname(fs))
+                    elif fs.startswith('/dev/disk/by-id'):
+                        kname = self._serial_to_kname(os.path.basename(fs))
+                        swaps.append('/dev/' + kname)
+                    elif fs.startswith('/dev/disk/by-path'):
+                        swaps.append('/dev/' + self._bypath_to_kname(fs))
+                    else:
+                        swaps.append(fs)
 
-        swaps_found = []
-        for line in self.load_collect_file("proc-swaps").splitlines():
-            fname, ttype, size, used, priority = line.split()
-            if ttype == "partition":
-                swaps_found.append(
-                    {"fname": fname, ttype: "ttype", "size": int(size),
-                     "used": int(used), "priority": int(priority)})
-        self.assertEqual(
-            len(swap_mounts), len(swaps_found),
-            "Number swaps configured != number used")
+            return swaps
+
+        # we don't yet have a skip_by_date on specific releases
+        if is_devel_release(self.target_release):
+            name = "test_swaps_used"
+            bug = "1894910"
+            fixby = "2020-10-15"
+            removeby = "2020-11-01"
+            raise SkipTest(
+                "skip_by_date({name}) LP: #{bug} "
+                "fixby={fixby} removeby={removeby}: ".format(
+                    name=name, bug=bug, fixby=fixby, removeby=removeby))
+
+        expected_swaps = find_fstab_swaps()
+        proc_swaps = self.load_collect_file("proc-swaps")
+        for swap in expected_swaps:
+            self.assertIn(swap, proc_swaps)
 
 
 class PsuedoVMBaseClass(VMBaseClass):
@@ -2085,6 +2158,9 @@ class PsuedoVMBaseClass(VMBaseClass):
         pass
 
     def test_kernel_img_conf(self):
+        pass
+
+    def test_swaps_used(self):
         pass
 
     def _maybe_raise(self, exc):

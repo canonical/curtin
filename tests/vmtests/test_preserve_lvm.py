@@ -69,11 +69,11 @@ class BionicTestLvmPreserve(relbase.bionic, TestLvmPreserveAbs):
     __test__ = True
 
 
-class EoanTestLvmPreserve(relbase.eoan, TestLvmPreserveAbs):
+class FocalTestLvmPreserve(relbase.focal, TestLvmPreserveAbs):
     __test__ = True
 
 
-class FocalTestLvmPreserve(relbase.focal, TestLvmPreserveAbs):
+class GroovyTestLvmPreserve(relbase.groovy, TestLvmPreserveAbs):
     __test__ = True
 
 

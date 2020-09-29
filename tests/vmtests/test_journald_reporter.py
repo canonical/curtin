@@ -32,11 +32,11 @@ class BionicTestJournaldReporter(relbase.bionic, TestJournaldReporter):
     __test__ = True
 
 
-class EoanTestJournaldReporter(relbase.eoan, TestJournaldReporter):
+class FocalTestJournaldReporter(relbase.focal, TestJournaldReporter):
     __test__ = True
 
 
-class FocalTestJournaldReporter(relbase.focal, TestJournaldReporter):
+class GroovyTestJournaldReporter(relbase.groovy, TestJournaldReporter):
     __test__ = True
 
 

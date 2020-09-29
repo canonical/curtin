@@ -28,4 +28,9 @@ class TestInstallPanic(VMBaseClass):
 class FocalTestInstallPanic(relbase.focal, TestInstallPanic):
     __test__ = True
 
+
+class GroovyTestInstallPanic(relbase.groovy, TestInstallPanic):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

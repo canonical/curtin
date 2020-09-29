@@ -3,20 +3,22 @@
 from .test_uefi_basic import TestBasicAbs
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as cent_rbase
+from curtin.commands.curthooks import uefi_find_duplicate_entries
+from curtin import util
 
 
 class TestUefiReuseEspAbs(TestBasicAbs):
     conf_file = "examples/tests/uefi_reuse_esp.yaml"
 
     def test_efiboot_menu_has_one_distro_entry(self):
-        efiboot_mgr_content = self.load_collect_file("efibootmgr.out")
-        distro_lines = [line for line in efiboot_mgr_content.splitlines()
-                        if self.target_distro in line]
-        print(distro_lines)
-        self.assertEqual(1, len(distro_lines))
+        efi_output = util.parse_efibootmgr(
+            self.load_collect_file("efibootmgr.out"))
+        duplicates = uefi_find_duplicate_entries(
+            grubcfg=None, target=None, efi_output=efi_output)
+        print(duplicates)
+        self.assertEqual(0, len(duplicates))
 
 
-@TestUefiReuseEspAbs.skip_by_date("1881030", fixby="2020-07-15")
 class Cent70TestUefiReuseEsp(cent_rbase.centos70_bionic, TestUefiReuseEspAbs):
     __test__ = True
 
@@ -33,14 +35,14 @@ class BionicTestUefiReuseEsp(relbase.bionic, TestUefiReuseEspAbs):
         return super().test_efiboot_menu_has_one_distro_entry()
 
 
-class EoanTestUefiReuseEsp(relbase.eoan, TestUefiReuseEspAbs):
+class FocalTestUefiReuseEsp(relbase.focal, TestUefiReuseEspAbs):
     __test__ = True
 
     def test_efiboot_menu_has_one_distro_entry(self):
         return super().test_efiboot_menu_has_one_distro_entry()
 
 
-class FocalTestUefiReuseEsp(relbase.focal, TestUefiReuseEspAbs):
+class GroovyTestUefiReuseEsp(relbase.groovy, TestUefiReuseEspAbs):
     __test__ = True
 
     def test_efiboot_menu_has_one_distro_entry(self):

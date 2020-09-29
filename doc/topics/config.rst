@@ -226,6 +226,42 @@ not provided, Curtin will set the value to 'console'.  If the ``terminal``
 value is 'unmodified' then Curtin will not set any value at all and will
 use Grub defaults.
 
+**reorder_uefi**: *<boolean: default True>*
+
+Curtin is typically used with MAAS where the systems are configured to boot
+from the network leaving MAAS in control.  On UEFI systems, after installing
+a bootloader the systems BootOrder may be updated to boot from the new entry.
+This breaks MAAS control over the system as all subsequent reboots of the node
+will no longer boot over the network.  Therefore, if ``reorder_uefi`` is True
+curtin will modify the UEFI BootOrder settings to place the currently booted
+entry (BootCurrent) to the first option after installing the new target OS into
+the UEFI boot menu.  The result is that the system will boot from the same
+device that it booted to run curtin; for MAAS this will be a network device.
+
+On some UEFI systems the BootCurrent entry may not be present.  This can
+cause a system to not boot to the same device that it was previously booting.
+If BootCurrent is not present, curtin will update the BootOrder such that
+all Network related entries are placed before the newly installed boot entry and
+all other entries are placed at the end.  This enables the system to network
+boot first and on failure will boot the most recently installed entry.
+
+This setting is ignored if *update_nvram* is False.
+
+**reorder_uefi_force_fallback**: *<boolean: default False>*
+
+The fallback reodering mechanism is only active if BootCurrent is not present
+in the efibootmgr output.  The fallback reordering method may be enabled
+even if BootCurrent is present if *reorder_uefi_force_fallback* is True.
+
+This setting is ignored if *update_nvram* or *reorder_uefi* are False.
+
+**remove_duplicate_entries**: <*boolean: default True>*
+
+When curtin updates UEFI NVRAM it will remove duplicate entries that are
+present in the UEFI menu.  If you do not wish for curtin to remove duplicate
+entries setting *remove_duplicate_entries* to False.
+
+This setting is ignored if *update_nvram* is False.
 
 **Example**::
 
@@ -235,6 +271,7 @@ use Grub defaults.
      replace_linux_default: False
      update_nvram: True
      terminal: serial
+     remove_duplicate_entries: True
 
 **Default terminal value, GRUB_TERMINAL=console**::
 
@@ -263,6 +300,12 @@ use Grub defaults.
       - /dev/sda1
      probe_additional_os: True
      terminal: unmodified
+
+**Enable Fallback UEFI Reordering**::
+
+  grub:
+     reorder_uefi: true
+     reorder_uefi_force_fallback: true
 
 
 http_proxy
@@ -752,12 +795,26 @@ Configure the max size of the swapfile, defaults to 8GB
 Configure the exact size of the swapfile.  Setting ``size`` to 0 will
 disable swap.
 
+**force**: *<boolean>*
+
+Force the creation of swapfile even if curtin detects it may not work.
+In some target filesystems, e.g. btrfs, xfs, zfs, the use of a swap file has
+restrictions.  If curtin detects that there may be issues it will refuse
+to create the swapfile.  Users can force creation of a swapfile by passing
+``force: true``.  A forced swapfile may not be used by the target OS and could
+log cause an error.
+
 **Example**::
 
   swap:
     filename: swap.img
-    size: None
+    size: 1GB
     maxsize: 4GB
+
+  swap:
+    filename: btrfs_swapfile.img
+    size: 1GB
+    force: true
 
 
 system_upgrade

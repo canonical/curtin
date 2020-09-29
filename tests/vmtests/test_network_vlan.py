@@ -76,16 +76,17 @@ class BionicTestNetworkVlan(relbase.bionic, TestNetworkVlanAbs):
     __test__ = True
 
 
-class EoanTestNetworkVlan(relbase.eoan, TestNetworkVlanAbs):
+class FocalTestNetworkVlan(relbase.focal, TestNetworkVlanAbs):
     __test__ = True
 
     def test_ip_output(self):
         return super().test_ip_output()
 
 
-class FocalTestNetworkVlan(relbase.focal, TestNetworkVlanAbs):
+class GroovyTestNetworkVlan(relbase.groovy, TestNetworkVlanAbs):
     __test__ = True
 
+    @TestNetworkVlanAbs.skip_by_date("1888726", "2020-10-15")
     def test_ip_output(self):
         return super().test_ip_output()
 

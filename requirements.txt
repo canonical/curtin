@@ -2,3 +2,6 @@ pyyaml
 oauthlib
 # For validation of storate configuration format
 jsonschema
+# Dependency of jsonschema.
+# Version 0.16.0 is the latest version supporting Python < 3.5.
+pyrsistent==0.16.0

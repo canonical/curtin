@@ -5,6 +5,7 @@ topdir="${CURTIN_VMTEST_TOPDIR:-${WORKSPACE:-$PWD}/output}"
 pkeep=${CURTIN_VMTEST_KEEP_DATA_PASS:-logs,collect}
 fkeep=${CURTIN_VMTEST_KEEP_DATA_FAIL:-logs,collect}
 reuse=${CURTIN_VMTEST_REUSE_TOPDIR:-0}
+shuffle=${CURTIN_VMTEST_SHUFFLE_TESTS:-1}
 declare -i ltimeout=${CURTIN_VMTEST_IMAGE_LOCK_TIMEOUT:-"-1"}
 export CURTIN_VMTEST_TAR_DISKS=${CURTIN_VMTEST_TAR_DISKS:-0}
 export CURTIN_VMTEST_REUSE_TOPDIR=$reuse
@@ -14,6 +15,7 @@ export CURTIN_VMTEST_KEEP_DATA_FAIL=$fkeep
 export CURTIN_VMTEST_TOPDIR="$topdir"
 export CURTIN_VMTEST_LOG="${CURTIN_VMTEST_LOG:-$topdir/debug.log}"
 export CURTIN_VMTEST_PARALLEL=${CURTIN_VMTEST_PARALLEL:-0}
+export CURTIN_VMTEST_SHUFFLE_TESTS=$shuffle
 export IMAGE_DIR=${IMAGE_DIR:-/srv/images}
 
 # empty TGT_* variables in current env to avoid killing a pid we didn't start.
@@ -50,6 +52,15 @@ if [ "$reuse" != "1" ]; then
     mkdir -p "$topdir" || fail "failed mkdir $topdir"
 fi
 
+# Use 'shuf' to randomize test case execution order
+if [ "$shuffle" == "1" ]; then
+    SHUFFLE="shuf"
+else
+    # when disabled just repeat the input to output
+    SHUFFLE="tee"
+fi
+
+
 start_s=$(date +%s)
 parallel=${CURTIN_VMTEST_PARALLEL}
 ntfilters=( )
@@ -83,9 +94,10 @@ if [ "${#tests[@]}" -ne 0 -a "${#ntfilters[@]}" -ne 0 ]; then
     error "test arguments provided were: ${#tests[*]}"
     fail
 elif [ "${#tests[@]}" -eq 0 -a "${#ntfilters[@]}" -eq 0 ]; then
-    tests=( tests/vmtests )
+    # run filter without args to enumerate all tests and maybe shuffle
+    tests=( $(./tools/vmtest-filter | ${SHUFFLE}) )
 elif [ "${#ntfilters[@]}" -ne 0 ]; then
-    tests=( $(./tools/vmtest-filter "${ntfilters[@]}") )
+    tests=( $(./tools/vmtest-filter "${ntfilters[@]}" | ${SHUFFLE}) )
     if [ "${#tests[@]}" -eq 0 ]; then
         error "Failed to find any tests with filter(s): \"${ntfilters[*]}\""
         fail "Try testing filters with: ./tools/vmtest-filter ${ntfilters[*]}"

@@ -153,20 +153,35 @@ main() {
     fi
     getsource="${getsource%/}"
 
-    lxc launch "$src" "$name" || fail "failed lxc launch $src $name"
+    # launch container; mask snapd.seeded.service; not needed
+    {
+        lxc init "$src" "$name" &&
+        lxc file push \
+            /dev/null ${name}/etc/systemd/system/snapd.seeded.service &&
+        lxc start ${name}
+    } || fail "failed lxc launch $src $name"
     CONTAINER=$name
 
     wait_for_ready "$name" $maxwait $VERBOSITY ||
         fail "$name did not become ready after $maxwait"
 
     inside "$name" which eatmydata >/dev/null || eatmydata=""
+    release=$(inside $name lsb_release -sc) ||
+        fail "$name did not have a lsb release codename"
+
+    # curtin depends on zfsutils-linux via probert-storage, but zfsutils-linux
+    # can't be installed in an unprivileged container as it fails to start
+    # the zfs-mount and zfs-share services as /dev/zfs is missing. We do
+    # not actually need ZFS to work in the container, so the problem can be
+    # worked around by masking the services before the package is installed.
+    inside "$name" systemctl mask zfs-mount || fail "failed to mask zfs-mount"
+    inside "$name" systemctl mask zfs-share || fail "failed to mask zfs-share"
 
     if $proposed; then
         mirror=$(inside $name awk '$1 == "deb" { print $2; exit(0); }' \
-            /etc/apt/sources.list) &&
-            rel=$(inside $name lsb_release -sc) ||
+            /etc/apt/sources.list) ||
             fail "failed to get mirror in $name"
-        line="$mirror $rel-proposed main universe"
+        line="$mirror $release-proposed main universe"
         local fname="/etc/apt/sources.list.d/proposed.list"
         debug 1 "enabling proposed in $fname: deb $line"
         inside "$name" sh -c "echo deb $line > $fname" ||
@@ -179,9 +194,30 @@ main() {
     if $daily; then
         local daily_ppa="ppa:curtin-dev/daily"
         debug 1 "enabling daily: $daily_ppa"
-        inside "$name" add-apt-repository --enable-source --yes \
-            "${daily_ppa}" ||
-            fail "failed add-apt-repository for daily."
+        local addaptrepo="add-apt-repository"
+        inside "$name" which $addaptrepo >/dev/null || addaptrepo=""
+        if [ -n "${addaptrepo}" ]; then
+            inside "$name" ${addaptrepo} --enable-source --yes --no-update \
+                "${daily_ppa}" ||
+                fail "failed add-apt-repository for daily."
+        else
+            # https://launchpad.net/~curtin-dev/+archive/ubuntu/daily
+            local url="http://ppa.launchpad.net/curtin-dev/daily/ubuntu"
+            local lfile="/etc/apt/sources.list.d/curtin-daily-ppa.list"
+            local kfile="/etc/apt/trusted.gpg.d/curtin-daily-ppa.asc"
+            local key="0x1bc30f715a3b861247a81a5e55fe7c8c0165013e"
+            local keyserver="keyserver.ubuntu.com"
+            local keyurl="https://${keyserver}/pks/lookup?op=get&search=${key}"
+            inside "$name" sh -c "
+                echo deb $url $release main > $lfile &&
+                wget -q \"$keyurl\" -O $kfile" ||
+                fail "failed to add $daily_ppa repository manually"
+            if [ "$getsource" != "none" ]; then
+                inside "$name" sh -c "
+                    echo deb-src $url $release main >> $lfile" ||
+                    fail "failed adding daily ppa deb-src to $lfile"
+            fi
+        fi
     fi
 
     line="Acquire::Languages \"none\";"

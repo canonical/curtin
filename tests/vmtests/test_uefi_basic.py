@@ -89,6 +89,11 @@ class PreciseHWETUefiTestBasic(relbase.precise_hwe_t, PreciseUefiTestBasic):
     __test__ = False
 
 
+class TrustyHWEXUefiTestBasic(relbase.trusty_hwe_x, TestBasicAbs):
+    supported_releases = ['trusty']  # avoid unsupported release skiptest
+    __test__ = False
+
+
 class XenialGAUefiTestBasic(relbase.xenial_ga, TestBasicAbs):
     __test__ = True
 
@@ -105,11 +110,11 @@ class BionicUefiTestBasic(relbase.bionic, TestBasicAbs):
     __test__ = True
 
 
-class EoanUefiTestBasic(relbase.eoan, TestBasicAbs):
+class FocalUefiTestBasic(relbase.focal, TestBasicAbs):
     __test__ = True
 
 
-class FocalUefiTestBasic(relbase.focal, TestBasicAbs):
+class GroovyUefiTestBasic(relbase.groovy, TestBasicAbs):
     __test__ = True
 
 
@@ -128,12 +133,12 @@ class BionicUefiTestBasic4k(relbase.bionic, TestBasicAbs):
     disk_block_size = 4096
 
 
-class EoanUefiTestBasic4k(relbase.eoan, TestBasicAbs):
+class FocalUefiTestBasic4k(relbase.focal, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
 
 
-class FocalUefiTestBasic4k(relbase.focal, TestBasicAbs):
+class GroovyUefiTestBasic4k(relbase.groovy, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
 

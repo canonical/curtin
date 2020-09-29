@@ -50,11 +50,11 @@ class BionicTestIscsiMdadm(relbase.bionic, TestMdadmIscsiAbs):
     __test__ = True
 
 
-class EoanTestIscsiMdadm(relbase.eoan, TestMdadmIscsiAbs):
+class FocalTestIscsiMdadm(relbase.focal, TestMdadmIscsiAbs):
     __test__ = True
 
 
-class FocalTestIscsiMdadm(relbase.focal, TestMdadmIscsiAbs):
+class GroovyTestIscsiMdadm(relbase.groovy, TestMdadmIscsiAbs):
     __test__ = True
 
 
