@@ -1318,7 +1318,7 @@ def lvm_partition_handler(info, storage_config):
 
         if info.get('size'):
             size = util.human2bytes(info["size"])
-            cmd.extend(["--size", "{}B".format(size)])
+            cmd.extend(["--size", "{}B".format(int(size))])
         else:
             cmd.extend(["--extents", "100%FREE"])
 
