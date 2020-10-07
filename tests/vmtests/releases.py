@@ -190,7 +190,7 @@ class _GroovyBase(_UbuntuBase):
     target_release = "groovy"
     mem = "2048"
     if _UbuntuBase.arch == "arm64":
-        subarch = "ga-20.04"
+        subarch = "ga-20.10"
 
 
 class _Releases(object):
