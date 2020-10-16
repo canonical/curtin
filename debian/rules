@@ -20,3 +20,7 @@ override_dh_auto_install:
 
 override_dh_auto_test:
 	make unittest3
+
+override_dh_clean:
+	dh_clean
+	find . -name __pycache__ -exec rm -rf {} +
