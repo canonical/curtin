@@ -3,8 +3,6 @@
 PY3VERS := $(shell py3versions -r)
 
 DEB_VERSION := $(shell dpkg-parsechangelog --show-field=Version)
-UPSTREAM_VERSION := $(shell x="$(DEB_VERSION)"; echo "$${x%-*}")
-PKG_VERSION := $(shell x="$(DEB_VERSION)"; echo "$${x\#\#*-}")
 
 %:
 	dh $@ --with=python3
