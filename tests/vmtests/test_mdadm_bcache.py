@@ -157,10 +157,6 @@ class BionicTestMdadmBcache(relbase.bionic, TestMdadmBcacheAbs):
 class FocalTestMdadmBcache(relbase.focal, TestMdadmBcacheAbs):
     __test__ = True
 
-    @TestMdadmBcacheAbs.skip_by_date("1861941", fixby="2020-09-15")
-    def test_fstab(self):
-        return super().test_fstab()
-
 
 class GroovyTestMdadmBcache(relbase.groovy, TestMdadmBcacheAbs):
     __test__ = True
