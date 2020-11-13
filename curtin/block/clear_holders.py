@@ -396,11 +396,11 @@ def identify_partition(device):
     """
     determine if specified device is a partition
     """
-    blockdev = block.sys_block_path(device)
-    path = os.path.join(blockdev, 'partition')
+    path = os.path.join(device, 'partition')
     if os.path.exists(path):
         return True
 
+    blockdev = block.sysfs_to_devpath(device)
     if multipath.is_mpath_partition(blockdev):
         return True
 
