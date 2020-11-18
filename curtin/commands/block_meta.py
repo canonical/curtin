@@ -437,10 +437,6 @@ def get_path_to_storage_volume(volume, storage_config):
             volume_path = block.kname_to_path(partition_kname)
         devsync_vol = os.path.join(disk_block_path)
 
-    elif vol.get('type') == "dasd":
-        dasd_device = dasd.DasdDevice(vol.get('device_id'))
-        volume_path = dasd_device.devname
-
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
         # to id of device in storage config
