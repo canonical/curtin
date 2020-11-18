@@ -431,18 +431,6 @@ class TestDasdInfo(CiTestCase):
         ID_SERIAL=0x1520
         """)
 
-    info_no_serial = textwrap.dedent("""\
-        ID_BUS=ccw
-        ID_TYPE=disk
-        ID_UID=IBM.750000000DXP71.1500.20
-        ID_XUID=IBM.750000000DXP71.1500.20
-        """)
-
-    info_not_dasd = textwrap.dedent("""\
-        ID_BUS=ccw
-        ID_TYPE=disk
-        """)
-
     def setUp(self):
         super(TestDasdInfo, self).setUp()
         self.add_patch('curtin.block.dasd.util.subp', 'm_subp')
@@ -457,29 +445,8 @@ class TestDasdInfo(CiTestCase):
         expected = util.load_shell_content(self.info)
         self.assertDictEqual(expected, dasd.dasdinfo(device_id))
 
-    def test_info_returns_partial_dictionary(self):
-        """dasdinfo returns partial dictionary on error."""
-        device_id = random_device_id()
-        self.m_subp.side_effect = (
-            util.ProcessExecutionError(stdout=self.info_no_serial,
-                                       stderr=self.random_string(),
-                                       exit_code=random.randint(1, 255),
-                                       cmd=self.random_string()))
-        expected = util.load_shell_content(self.info_no_serial)
-        self.assertDictEqual(expected, dasd.dasdinfo(device_id))
-
-    def test_info_returns_rawoutput(self):
-        """dasdinfo returns stdout, stderr if rawoutput is True."""
-        device_id = random_device_id()
-        expected_stdout = self.random_string()
-        expected_stderr = self.random_string()
-        self.m_subp.return_value = (expected_stdout, expected_stderr)
-        (stdout, stderr) = dasd.dasdinfo(device_id, rawoutput=True)
-        self.assertEqual(expected_stdout, stdout)
-        self.assertEqual(expected_stderr, stderr)
-
-    def test_info_returns_rawoutput_on_partial_discovery(self):
-        """dasdinfo returns stdout, stderr on error if rawoutput is True."""
+    def test_info_raises_on_failure(self):
+        """dasdinfo raises if the process invocation fails."""
         device_id = random_device_id()
         expected_stdout = self.random_string()
         expected_stderr = self.random_string()
@@ -488,20 +455,8 @@ class TestDasdInfo(CiTestCase):
                                        stderr=expected_stderr,
                                        exit_code=random.randint(1, 255),
                                        cmd=self.random_string()))
-        (stdout, stderr) = dasd.dasdinfo(device_id, rawoutput=True)
-        self.assertEqual(expected_stdout, stdout)
-        self.assertEqual(expected_stderr, stderr)
-
-    def test_info_raise_error_if_strict(self):
-        """dasdinfo raises ProcessEdecutionError if strict is True."""
-        device_id = random_device_id()
-        self.m_subp.side_effect = (
-            util.ProcessExecutionError(stdout=self.random_string(),
-                                       stderr=self.random_string(),
-                                       exit_code=random.randint(1, 255),
-                                       cmd=self.random_string()))
         with self.assertRaises(util.ProcessExecutionError):
-            dasd.dasdinfo(device_id, strict=True)
+            dasd.dasdinfo(device_id)
 
 
 class TestDasdView(CiTestCase):
@@ -590,19 +545,6 @@ class TestDasdView(CiTestCase):
         self.m_subp.assert_called_with(
             ['dasdview', '--extended', devname], capture=True)
         self.m_parseview.assert_called_with(self.view)
-
-    def test_dasdview_returns_stdout_stderr_on_rawoutput(self):
-        """dasdview returns stdout, stderr if rawoutput is True."""
-        devname = self.random_string()
-        stdout = ''
-        stderr = self.view_nondasd
-        self.m_subp.return_value = (stdout, stderr)
-        (out, err) = dasd.dasdview(devname, rawoutput=True)
-        self.m_subp.assert_called_with(
-            ['dasdview', '--extended', devname], capture=True)
-        self.assertEqual(0, self.m_parseview.call_count)
-        self.assertEqual(stdout, out)
-        self.assertEqual(stderr, err)
 
 
 class TestParseDasdView(CiTestCase):

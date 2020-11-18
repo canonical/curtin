@@ -10,7 +10,7 @@ from curtin.log import LOG, logged_time
 Dasdvalue = collections.namedtuple('Dasdvalue', ['hex', 'dec', 'txt'])
 
 
-def dasdinfo(device_id, rawoutput=False, strict=False):
+def dasdinfo(device_id):
     ''' Run dasdinfo command and return the exported values.
 
     :param: device_id:  string, device_id of the dasd device to query.
@@ -30,24 +30,14 @@ def dasdinfo(device_id, rawoutput=False, strict=False):
     '''
     _valid_device_id(device_id)
 
-    try:
-        out, err = util.subp(
-            ['dasdinfo', '--all', '--export',
-             '--busid=%s' % device_id], capture=True)
-    except util.ProcessExecutionError as e:
-        LOG.warning('dasdinfo result may be incomplete: %s', e)
-        if strict:
-            raise
-        out = e.stdout
-        err = e.stderr
-
-    if rawoutput:
-        return (out, err)
+    out, err = util.subp(
+        ['dasdinfo', '--all', '--export', '--busid=%s' % device_id],
+        capture=True)
 
     return util.load_shell_content(out)
 
 
-def dasdview(devname, rawoutput=False):
+def dasdview(devname):
     ''' Run dasdview on devname and return dictionary of data.
 
     dasdview --extended has 3 sections
@@ -58,9 +48,6 @@ def dasdview(devname, rawoutput=False):
         raise ValueError("Invalid dasd device name: '%s'" % devname)
 
     out, err = util.subp(['dasdview', '--extended', devname], capture=True)
-
-    if rawoutput:
-        return (out, err)
 
     return _parse_dasdview(out)
 
