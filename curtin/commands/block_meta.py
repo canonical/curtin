@@ -611,8 +611,7 @@ def disk_handler(info, storage_config):
             elif ptable in _dos_names:
                 util.subp(["parted", disk, "--script", "mklabel", "msdos"])
             elif ptable == "vtoc":
-                # ignore dasd partition tables
-                pass
+                util.subp(["fdasd", "-c", "/dev/null", disk])
         holders = clear_holders.get_holders(disk)
         if len(holders) > 0:
             LOG.info('Detected block holders on disk %s: %s', disk, holders)

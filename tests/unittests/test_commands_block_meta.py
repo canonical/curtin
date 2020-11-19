@@ -1294,6 +1294,17 @@ class TestDiskHandler(CiTestCase):
         m_getpath.assert_called_with(info['id'], storage_config)
         m_block.get_part_table_type.assert_called_with(disk_path)
 
+    @patch('curtin.commands.block_meta.util.subp')
+    @patch('curtin.commands.block_meta.clear_holders.get_holders')
+    @patch('curtin.commands.block_meta.get_path_to_storage_volume')
+    def test_disk_handler_calls_fdasd_for_vtoc(self, m_getpath,
+                                               m_get_holders, m_subp):
+        info = {'ptable': 'vtoc', 'type': 'disk', 'id': 'disk-foobar'}
+        path = m_getpath.return_value = self.random_string()
+        m_get_holders.return_value = []
+        block_meta.disk_handler(info, OrderedDict())
+        m_subp.assert_called_once_with(['fdasd', '-c', '/dev/null', path])
+
 
 class TestLvmVolgroupHandler(CiTestCase):
 
