@@ -767,7 +767,7 @@ def verify_ptable_flag(devpath, expected_flag, sfdisk_info=None):
         raise RuntimeError(msg)
 
 
-def partition_verify(devpath, info):
+def partition_verify_sfdisk(devpath, info):
     verify_exists(devpath)
     sfdisk_info = block.sfdisk_info(devpath)
     if not sfdisk_info:
@@ -777,6 +777,21 @@ def partition_verify(devpath, info):
     expected_flag = info.get('flag')
     if expected_flag:
         verify_ptable_flag(devpath, info['flag'], sfdisk_info=sfdisk_info)
+
+
+def partition_verify_fdasd(disk_path, partnumber, info):
+    verify_exists(disk_path)
+    pt = dasd.DasdPartitionTable.from_fdasd(disk_path)
+    pt_entry = pt.partitions[partnumber-1]
+    expected_tracks = pt.tracks_needed(util.human2bytes(info['size']))
+    msg = (
+        'Verifying %s part %s size, expecting %s tracks, found %s tracks' % (
+         disk_path, partnumber, expected_tracks, pt_entry.length))
+    LOG.debug(msg)
+    if expected_tracks != pt_entry.length:
+        raise RuntimeError(msg)
+    if info.get('flag', 'linux') != 'linux':
+        raise RuntimeError("dasd partitions do not support flags")
 
 
 def partition_handler(info, storage_config):
@@ -870,9 +885,12 @@ def partition_handler(info, storage_config):
     # Handle preserve flag
     create_partition = True
     if config.value_as_boolean(info.get('preserve')):
-        part_path = block.dev_path(
-            block.partition_kname(disk_kname, partnumber))
-        partition_verify(part_path, info)
+        if disk_ptable == 'vtoc':
+            partition_verify_fdasd(disk, partnumber, info)
+        else:
+            part_path = block.dev_path(
+                block.partition_kname(disk_kname, partnumber))
+            partition_verify_sfdisk(part_path, info)
         LOG.debug('Partition %s already present, skipping create', part_path)
         create_partition = False
 

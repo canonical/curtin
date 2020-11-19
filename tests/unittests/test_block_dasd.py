@@ -204,11 +204,6 @@ class TestDasdCcwDeviceAttr(CiTestCase):
         self.m_loadfile.return_value = self.random_string()
         self.assertFalse(self.dasd.is_online())
 
-    def test_status_returns_device_status_attr(self):
-        status_val = self.random_string()
-        self.m_loadfile.return_value = status_val
-        self.assertEqual(status_val, self.dasd.status())
-
     def test_blocksize(self):
         blocksize_val = '%d' % random.choice([512, 1024, 2048, 4096])
         self.m_loadfile.return_value = blocksize_val

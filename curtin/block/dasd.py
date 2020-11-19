@@ -2,12 +2,91 @@
 
 import collections
 import os
-import re
 import tempfile
 from curtin import util
 from curtin.log import LOG, logged_time
 
 Dasdvalue = collections.namedtuple('Dasdvalue', ['hex', 'dec', 'txt'])
+
+
+class DasdPartition:
+    def __init__(self, table, device, start, end, length, id, system):
+        self.device = device
+        self.start = int(start)
+        self.end = int(end)
+        self.length = int(length)
+        self.id = id
+        self.system = system
+
+
+class DasdPartitionTable:
+    def __init__(self, devname, blocks_per_track, bytes_per_block):
+        self.devname = devname
+        self.blocks_per_track = blocks_per_track
+        self.bytes_per_block = bytes_per_block
+        self.partitions = []
+
+    @property
+    def bytes_per_track(self):
+        return self.bytes_per_block * self.blocks_per_track
+
+    def tracks_needed(self, size_in_bytes):
+        return ((size_in_bytes - 1) // self.bytes_per_track) + 1
+
+    @classmethod
+    def from_fdasd(cls, devname):
+        """Use fdasd to construct a DasdPartitionTable.
+
+        % fdasd --table /dev/dasdc
+        reading volume label ..: VOL1
+        reading vtoc ..........: ok
+
+
+        Disk /dev/dasdc:
+          cylinders ............: 10017
+          tracks per cylinder ..: 15
+          blocks per track .....: 12
+          bytes per block ......: 4096
+          volume label .........: VOL1
+          volume serial ........: 0X1522
+          max partitions .......: 3
+
+         ------------------------------- tracks -------------------------------
+                       Device      start      end   length   Id  System
+                  /dev/dasdc1          2    43694    43693    1  Linux native
+                  /dev/dasdc2      43695    87387    43693    2  Linux native
+                  /dev/dasdc3      87388   131080    43693    3  Linux native
+                                  131081   150254    19174       unused
+        exiting...
+        """
+        cmd = ['fdasd', '--table', devname]
+        out, _err = util.subp(cmd, capture=True)
+        line_iter = iter(out.splitlines())
+        for line in line_iter:
+            if line.startswith("Disk"):
+                break
+        kw = {'devname': devname}
+        label_to_attr = {
+            'blocks per track': 'blocks_per_track',
+            'bytes per block': 'bytes_per_block'
+            }
+        for line in line_iter:
+            if '--- tracks ---' in line:
+                break
+            if ':' in line:
+                label, value = line.split(':', 1)
+                label = label.strip(' .')
+                value = value.strip()
+                if label in label_to_attr:
+                    kw[label_to_attr[label]] = int(value)
+        table = cls(**kw)
+        for line in line_iter:
+            if line.startswith('exiting'):
+                break
+            vals = line.split(maxsplit=5)
+            if vals[0].startswith('/dev/'):
+                table.partitions.append(DasdPartition(*vals))
+        return table
 
 
 def dasdinfo(device_id):
@@ -325,83 +404,6 @@ class DasdDevice(CcwDevice):
     def devname(self):
         return '/dev/%s' % self.kname
 
-    def _bytes_to_tracks(self, geometry, request_size):
-        """ Return the number of tracks needed to hold the request size.
-
-        :param geometry: dictionary from dasdview output which includes
-            info on number of cylinders, tracks and blocksize.
-        :param request_size: size in Bytes
-
-        :raises: ValueError on missing or invalid geometry dict, missing
-            request_size.
-
-        Example geometry:
-        'geometry': {
-            'blocks_per_track': Dasdvalue(hex='0xc', dec=12, txt=None),
-            'blocksize': Dasdvalue(hex='0x1000', dec=4096, txt=None),
-            'number_of_cylinders':
-                 Dasdvalue(hex='0x2721', dec=10017, txt=None),
-            'tracks_per_cylinder': Dasdvalue(hex='0xf', dec=15, txt=None)}
-        }
-        """
-
-        if not geometry or not isinstance(geometry, dict):
-            raise ValueError('Missing or invalid geometry parameter.')
-
-        if not all([key for key in geometry.keys()
-                    if key in ['blocksize', 'blocks_per_track']]):
-            raise ValueError('Geometry dict missing required keys')
-
-        if not request_size or not isinstance(request_size,
-                                              util.numeric_types):
-            raise ValueError('Missing or invalid request_size.')
-
-        # helper to extract the decimal value from Dasdvalue objects
-        def _dval(dval):
-            return dval.dec
-
-        bytes_per_track = (
-            _dval(geometry['blocksize']) * _dval(geometry['blocks_per_track']))
-        tracks_needed = ((request_size - 1) // bytes_per_track) + 1
-        return tracks_needed
-
-    def get_partition_table(self):
-        """ Use fdasd to query the partition table (VTOC).
-
-            Returns a list of tuples, each tuple composed of the first 6
-            fields of matching lines in the output.
-
-        % fdasd --table /dev/dasdc
-        reading volume label ..: VOL1
-        reading vtoc ..........: ok
-
-
-        Disk /dev/dasdc:
-          cylinders ............: 10017
-          tracks per cylinder ..: 15
-          blocks per track .....: 12
-          bytes per block ......: 4096
-          volume label .........: VOL1
-          volume serial ........: 0X1522
-          max partitions .......: 3
-
-         ------------------------------- tracks -------------------------------
-                       Device      start      end   length   Id  System
-                  /dev/dasdc1          2    43694    43693    1  Linux native
-                  /dev/dasdc2      43695    87387    43693    2  Linux native
-                  /dev/dasdc3      87388   131080    43693    3  Linux native
-                                  131081   150254    19174       unused
-        exiting...
-        """
-        cmd = ['fdasd', '--table', self.devname]
-        out, _err = util.subp(cmd, capture=True)
-        lines = re.findall('.*%s.*Linux.*' % self.devname, out)
-        partitions = []
-        for line in lines:
-            partitions.append(tuple(line.split()[0:5]))
-
-        return partitions
-
     def partition(self, partnumber, partsize, strict=True):
         """ Add a partition to this DasdDevice specifying partnumber and size.
 
@@ -422,31 +424,24 @@ class DasdDevice(CcwDevice):
         if strict and not os.path.exists(self.devname):
             raise RuntimeError("devname '%s' does not exist" % self.devname)
 
-        info = dasdview(self.devname)
-        geo = info['geometry']
-
-        existing_partitions = self.get_partition_table()
-        partitions = []
-        for partinfo in existing_partitions[0:partnumber]:
-            # (devpath, start_track, end_track, nr_tracks, partnum)
-            start = partinfo[1]
-            end = partinfo[2]
-            partitions.append((start, end))
+        pt = DasdPartitionTable.from_fdasd(self.devname)
+        new_partitions = []
+        for partinfo in pt.partitions[0:partnumber]:
+            new_partitions.append((partinfo.start, partinfo.end))
 
         # first partition always starts at track 2
         # all others start after the previous partition ends
         if partnumber == 1:
             start = 2
         else:
-            start = int(partitions[-1][1]) + 1
-        # end is size + 1
-        tracks_needed = int(self._bytes_to_tracks(geo, partsize))
-        end = start + tracks_needed + 1
-        partitions.append(("%s" % start, "%s" % end))
+            start = int(pt.partitions[-1].end) + 1
+        # end is inclusive
+        end = start + pt.tracks_needed(partsize) - 1
+        new_partitions.append((start, end))
 
         content = "\n".join(["[%s,%s]" % (part[0], part[1])
-                             for part in partitions])
-        LOG.debug("fdasd: partitions to be created: %s", partitions)
+                             for part in new_partitions])
+        LOG.debug("fdasd: partitions to be created: %s", new_partitions)
         LOG.debug("fdasd: content=\n%s", content)
         wfp = tempfile.NamedTemporaryFile(suffix=".fdasd", delete=False)
         wfp.close()
@@ -478,14 +473,6 @@ class DasdDevice(CcwDevice):
         :returns: boolean: True if device is online.
         """
         return self.ccw_device_attr('online') == "1"
-
-    def status(self):
-        """ Read and return device_id's 'status' sysfs attribute value'
-
-        :param device_id: string of device ccw bus_id.
-        :returns: string: the value inside the 'status' sysfs attribute.
-        """
-        return self.ccw_device_attr('status')
 
     def blocksize(self):
         """ Read and return device_id's 'blocksize' value.

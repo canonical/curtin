@@ -5,7 +5,9 @@ from collections import OrderedDict
 import copy
 from mock import patch, call
 import os
+import random
 
+from curtin.block import dasd
 from curtin.commands import block_meta
 from curtin import paths, util
 from .helpers import CiTestCase
@@ -2398,10 +2400,10 @@ class TestCalcDMPartitionInfo(CiTestCase):
             self.m_subp.call_args_list)
 
 
-class TestPartitionVerify(CiTestCase):
+class TestPartitionVerifySfdisk(CiTestCase):
 
     def setUp(self):
-        super(TestPartitionVerify, self).setUp()
+        super(TestPartitionVerifySfdisk, self).setUp()
         base = 'curtin.commands.block_meta.'
         self.add_patch(base + 'verify_exists', 'm_verify_exists')
         self.add_patch(base + 'block.sfdisk_info', 'm_block_sfdisk_info')
@@ -2418,8 +2420,8 @@ class TestPartitionVerify(CiTestCase):
         self.part_size = int(util.human2bytes(self.info['size']))
         self.devpath = self.random_string()
 
-    def test_partition_verify(self):
-        block_meta.partition_verify(self.devpath, self.info)
+    def test_partition_verify_sfdisk(self):
+        block_meta.partition_verify_sfdisk(self.devpath, self.info)
         self.assertEqual(
             [call(self.devpath)],
             self.m_verify_exists.call_args_list)
@@ -2437,7 +2439,7 @@ class TestPartitionVerify(CiTestCase):
 
     def test_partition_verify_skips_ptable_no_flag(self):
         del self.info['flag']
-        block_meta.partition_verify(self.devpath, self.info)
+        block_meta.partition_verify_sfdisk(self.devpath, self.info)
         self.assertEqual(
             [call(self.devpath)],
             self.m_verify_exists.call_args_list)
@@ -2449,6 +2451,47 @@ class TestPartitionVerify(CiTestCase):
                   sfdisk_info=self.m_block_sfdisk_info.return_value)],
             self.m_verify_size.call_args_list)
         self.assertEqual([], self.m_verify_ptable_flag.call_args_list)
+
+
+class TestPartitionVerifyFdasd(CiTestCase):
+
+    def setUp(self):
+        super(TestPartitionVerifyFdasd, self).setUp()
+        base = 'curtin.commands.block_meta.'
+        self.add_patch(base + 'verify_exists', 'm_verify_exists')
+        self.add_patch(
+            base + 'dasd.DasdPartitionTable.from_fdasd', 'm_from_fdasd',
+            autospec=False, spec=dasd.DasdPartitionTable.from_fdasd)
+        self.add_patch(base + 'verify_size', 'm_verify_size')
+        self.info = {
+            'id': 'disk-sda-part-2',
+            'type': 'partition',
+            'device': 'sda',
+            'number': 2,
+            'size': '5GB',
+            'flag': 'linux',
+        }
+        self.part_size = int(util.human2bytes(self.info['size']))
+        self.devpath = self.random_string()
+
+    def test_partition_verify_fdasd(self):
+        blocks_per_track = random.randint(10, 20)
+        bytes_per_block = random.randint(1, 8)*512
+        fake_pt = dasd.DasdPartitionTable(
+            '/dev/dasdfoo', blocks_per_track, bytes_per_block)
+        tracks_needed = fake_pt.tracks_needed(
+            util.human2bytes(self.info['size']))
+        fake_pt.partitions = [
+            dasd.DasdPartition(fake_pt, '', 0, 0, tracks_needed, '1', 'Linux'),
+            ]
+        self.m_from_fdasd.side_effect = iter([fake_pt])
+        block_meta.partition_verify_fdasd(self.devpath, 1, self.info)
+        self.assertEqual(
+            [call(self.devpath)],
+            self.m_verify_exists.call_args_list)
+        self.assertEqual(
+            [call(self.devpath)],
+            self.m_from_fdasd.call_args_list)
 
 
 class TestVerifyExists(CiTestCase):
