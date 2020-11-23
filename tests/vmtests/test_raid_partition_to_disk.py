@@ -18,11 +18,12 @@ class BionicTestRAIDPartitionToDisk(relbase.bionic, TestRAIDPartitionToDisk):
     __test__ = True
 
 
-class EoanTestRAIDPartitionToDisk(relbase.eoan, TestRAIDPartitionToDisk):
-    __test__ = True
-
-
 class FocalTestRAIDPartitionToDisk(relbase.focal, TestRAIDPartitionToDisk):
     __test__ = True
+
+
+class GroovyTestRAIDPartitionToDisk(relbase.groovy, TestRAIDPartitionToDisk):
+    __test__ = True
+
 
 # vi: ts=4 expandtab syntax=python
