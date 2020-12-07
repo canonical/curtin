@@ -254,12 +254,19 @@ def gen_uefi_install_commands(grub_name, grub_target, grub_cmd, update_nvram,
         install_cmds.append(['update-grub'])
     elif distroinfo.family == distro.DISTROS.redhat:
         loader = find_efi_loader(target, bootid)
-        if loader and update_nvram:
-            grub_cmd = None  # don't install just add entry
-            efi_disk, efi_part_num = get_efi_disk_part(devices)
-            install_cmds.append(['efibootmgr', '--create', '--write-signature',
-                                 '--label', bootid, '--disk', efi_disk,
-                                 '--part', efi_part_num, '--loader', loader])
+        if loader:
+            # Disable running grub's install command. CentOS/RHEL ships
+            # a pre-built signed grub which installs into /boot. grub2-install
+            # will generated a new unsigned grub which breaks UEFI secure boot.
+            grub_cmd = None
+            if update_nvram:
+                efi_disk, efi_part_num = get_efi_disk_part(devices)
+                # Add entry to the EFI boot menu
+                install_cmds.append(['efibootmgr', '--create',
+                                     '--write-signature', '--label', bootid,
+                                     '--disk', efi_disk,
+                                     '--part', efi_part_num,
+                                     '--loader', loader])
             post_cmds.append(['grub2-mkconfig', '-o',
                               '/boot/efi/EFI/%s/grub.cfg' % bootid])
         else:

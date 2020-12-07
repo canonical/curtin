@@ -774,6 +774,47 @@ class TestGenUefiInstallCommands(CiTestCase):
                 grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
                 devices, self.target))
 
+    def test_redhat_install_existing_no_nvram(self):
+        # verify grub install command is not executed if update_nvram is False
+        # on redhat.
+        def _enable_loaders(bootid):
+            efi_path = 'boot/efi/EFI'
+            target_efi_path = os.path.join(self.target, efi_path)
+            loaders = [
+                os.path.join(target_efi_path, bootid, 'shimx64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+            ]
+            for loader in loaders:
+                util.write_file(loader, content="")
+
+        self.m_os_release.return_value = {'ID': 'redhat'}
+        distroinfo = install_grub.distro.get_distroinfo()
+        bootid = distroinfo.variant
+        _enable_loaders(bootid)
+        grub_name = 'grub2-efi-x64'
+        grub_target = 'x86_64-efi'
+        grub_cmd = 'grub2-install'
+        update_nvram = False
+        devices = ['/dev/disk-a-part1']
+        disk = '/dev/disk-a'
+        part = '1'
+        self.m_get_disk_part.return_value = (disk, part)
+
+        expected_install = [
+            ['efibootmgr', '-v'],
+        ]
+        expected_post = [
+            ['grub2-mkconfig', '-o', '/boot/efi/EFI/%s/grub.cfg' % bootid],
+            ['efibootmgr', '-v']
+        ]
+
+        self.assertEqual(
+            (expected_install, expected_post),
+            install_grub.gen_uefi_install_commands(
+                grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
+                devices, self.target))
+
 
 class TestGenInstallCommands(CiTestCase):
 
