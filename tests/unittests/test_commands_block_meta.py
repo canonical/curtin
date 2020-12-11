@@ -2482,7 +2482,7 @@ class TestPartitionVerifyFdasd(CiTestCase):
         tracks_needed = fake_pt.tracks_needed(
             util.human2bytes(self.info['size']))
         fake_pt.partitions = [
-            dasd.DasdPartition(fake_pt, '', 0, 0, tracks_needed, '1', 'Linux'),
+            dasd.DasdPartition('', 0, 0, tracks_needed, '1', 'Linux'),
             ]
         self.m_from_fdasd.side_effect = iter([fake_pt])
         block_meta.partition_verify_fdasd(self.devpath, 1, self.info)

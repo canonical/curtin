@@ -15,6 +15,47 @@ def random_device_id():
                            random.randint(1, 0x10000 - 1))
 
 
+FDASD_OUTPUT = '''
+reading volume label ..: VOL1
+reading vtoc ..........: ok
+
+
+Disk /dev/dasda:
+  cylinders ............: 10016
+  tracks per cylinder ..: 15
+  blocks per track .....: 12
+  bytes per block ......: 4096
+  volume label .........: VOL1
+  volume serial ........: 0X0200
+  max partitions .......: 3
+
+ ------------------------------- tracks -------------------------------
+               Device      start      end   length   Id  System
+          /dev/dasda1          2    21847    21846    1  Linux native
+                           21848   150239   128392       unused
+exiting...
+ '''
+
+
+class TestDasdPartitionTable(CiTestCase):
+
+    def test_from_dasd_output(self):
+        devname = self.random_string()
+        dasd_pt = dasd.DasdPartitionTable.from_fdasd_output(
+            devname, FDASD_OUTPUT)
+        self.assertEqual(dasd_pt.devname, devname)
+        self.assertEqual(dasd_pt.blocks_per_track, 12)
+        self.assertEqual(dasd_pt.bytes_per_block, 4096)
+        self.assertEqual(len(dasd_pt.partitions), 1)
+        part = dasd_pt.partitions[0]
+        self.assertEqual(part.device, '/dev/dasda1')
+        self.assertEqual(part.start, 2)
+        self.assertEqual(part.end, 21847)
+        self.assertEqual(part.length, 21846)
+        self.assertEqual(part.id, '1')
+        self.assertEqual(part.system, 'Linux native')
+
+
 class TestDasdValidDeviceId(CiTestCase):
 
     nonhex = [letter for letter in string.ascii_lowercase

@@ -10,7 +10,7 @@ Dasdvalue = collections.namedtuple('Dasdvalue', ['hex', 'dec', 'txt'])
 
 
 class DasdPartition:
-    def __init__(self, table, device, start, end, length, id, system):
+    def __init__(self, device, start, end, length, id, system):
         self.device = device
         self.start = int(start)
         self.end = int(end)
@@ -32,6 +32,35 @@ class DasdPartitionTable:
 
     def tracks_needed(self, size_in_bytes):
         return ((size_in_bytes - 1) // self.bytes_per_track) + 1
+
+    @classmethod
+    def from_fdasd_output(cls, devname, output):
+        line_iter = iter(output.splitlines())
+        for line in line_iter:
+            if line.startswith("Disk"):
+                break
+        kw = {'devname': devname}
+        label_to_attr = {
+            'blocks per track': 'blocks_per_track',
+            'bytes per block': 'bytes_per_block'
+            }
+        for line in line_iter:
+            if '--- tracks ---' in line:
+                break
+            if ':' in line:
+                label, value = line.split(':', 1)
+                label = label.strip(' .')
+                value = value.strip()
+                if label in label_to_attr:
+                    kw[label_to_attr[label]] = int(value)
+        table = cls(**kw)
+        for line in line_iter:
+            if line.startswith('exiting'):
+                break
+            vals = line.split(None, 5)
+            if vals[0].startswith('/dev/'):
+                table.partitions.append(DasdPartition(*vals))
+        return table
 
     @classmethod
     def from_fdasd(cls, devname):
@@ -61,32 +90,8 @@ class DasdPartitionTable:
         """
         cmd = ['fdasd', '--table', devname]
         out, _err = util.subp(cmd, capture=True)
-        line_iter = iter(out.splitlines())
-        for line in line_iter:
-            if line.startswith("Disk"):
-                break
-        kw = {'devname': devname}
-        label_to_attr = {
-            'blocks per track': 'blocks_per_track',
-            'bytes per block': 'bytes_per_block'
-            }
-        for line in line_iter:
-            if '--- tracks ---' in line:
-                break
-            if ':' in line:
-                label, value = line.split(':', 1)
-                label = label.strip(' .')
-                value = value.strip()
-                if label in label_to_attr:
-                    kw[label_to_attr[label]] = int(value)
-        table = cls(**kw)
-        for line in line_iter:
-            if line.startswith('exiting'):
-                break
-            vals = line.split(maxsplit=5)
-            if vals[0].startswith('/dev/'):
-                table.partitions.append(DasdPartition(*vals))
-        return table
+        LOG.debug("from_fdasd output:\n---\n%s\n---\n", out)
+        return cls.from_fdasd_output(devname, out)
 
 
 def dasdinfo(device_id):
