@@ -32,6 +32,57 @@ class DasdPartitionTable:
     def tracks_needed(self, size_in_bytes):
         return ((size_in_bytes - 1) // self.bytes_per_track) + 1
 
+    def _ptable_for_new_partition(self, partnumber, partsize):
+        if partnumber > 3:
+            raise ValueError('DASD devices only allow 3 partitions')
+
+        # first partition always starts at track 2
+        # all others start after the previous partition ends
+        if partnumber == 1:
+            start = 2
+        else:
+            start = int(self.partitions[-1].end) + 1
+        end = start + self.tracks_needed(partsize) - 1
+
+        return [
+            (p.start, p.end) for p in self.partitions[:partnumber-1]
+            ] + [(start, end)]
+
+    def add_partition(self, partnumber, partsize):
+        """ Add a partition to this DasdDevice specifying partnumber and size.
+
+        :param partnumber: integer value of partition number (1, 2 or 3)
+        :param partsize: partition sizes in bytes.
+
+        :raises: ValueError on invalid devname
+
+        Example fdasd command with defaults:
+          fdasd --verbose --config=/tmp/curtin/dasd-part1.fdasd /dev/dasdb
+        """
+        LOG.debug(
+            "add_partition: partnumber: %s partsize: %s",
+            partnumber, partsize)
+
+        partitions = self._ptable_for_new_partition(partnumber, partsize)
+        LOG.debug("fdasd: partitions to be created: %s", partitions)
+        content = "\n".join([
+            "[%s,%s]" % (part[0], part[1]) for part in partitions
+            ])
+        LOG.debug("fdasd: content=\n%s", content)
+        wfp = tempfile.NamedTemporaryFile(suffix=".fdasd", delete=False)
+        wfp.close()
+        util.write_file(wfp.name, content)
+        cmd = ['fdasd', '--verbose', '--config=%s' % wfp.name, self.devname]
+        LOG.debug('Partitioning %s with %s', self.devname, cmd)
+        try:
+            out, err = util.subp(cmd, capture=True)
+        except util.ProcessExecutionError as e:
+            LOG.error("Partitioning failed: %s", e)
+            raise
+        finally:
+            if os.path.exists(wfp.name):
+                os.unlink(wfp.name)
+
     @classmethod
     def from_fdasd_output(cls, devname, output):
         line_iter = iter(output.splitlines())
@@ -225,59 +276,6 @@ class DasdDevice(CcwDevice):
     @property
     def devname(self):
         return '/dev/disk/by-path/ccw-%s' % self.device_id
-
-    def partition(self, partnumber, partsize, strict=True):
-        """ Add a partition to this DasdDevice specifying partnumber and size.
-
-        :param partnumber: integer value of partition number (1, 2 or 3)
-        :param partsize: partition sizes in bytes.
-        :param strict: boolean which enforces that dasd device exists before
-            issuing fdasd command, defaults to True.
-
-        :raises: RuntimeError if strict==True and devname does not exist.
-        :raises: ValueError on invalid devname
-
-        Example fdasd command with defaults:
-          fdasd --verbose --config=/tmp/curtin/dasd-part1.fdasd /dev/dasdb
-        """
-        if partnumber > 3:
-            raise ValueError('DASD devices only allow 3 partitions')
-
-        if strict and not os.path.exists(self.devname):
-            raise RuntimeError("devname '%s' does not exist" % self.devname)
-
-        pt = DasdPartitionTable.from_fdasd(self.devname)
-        new_partitions = []
-        for partinfo in pt.partitions[0:partnumber]:
-            new_partitions.append((partinfo.start, partinfo.end))
-
-        # first partition always starts at track 2
-        # all others start after the previous partition ends
-        if partnumber == 1:
-            start = 2
-        else:
-            start = int(pt.partitions[-1].end) + 1
-        # end is inclusive
-        end = start + pt.tracks_needed(partsize) - 1
-        new_partitions.append((start, end))
-
-        content = "\n".join(["[%s,%s]" % (part[0], part[1])
-                             for part in new_partitions])
-        LOG.debug("fdasd: partitions to be created: %s", new_partitions)
-        LOG.debug("fdasd: content=\n%s", content)
-        wfp = tempfile.NamedTemporaryFile(suffix=".fdasd", delete=False)
-        wfp.close()
-        util.write_file(wfp.name, content)
-        cmd = ['fdasd', '--verbose', '--config=%s' % wfp.name, self.devname]
-        LOG.debug('Partitioning %s with %s', self.devname, cmd)
-        try:
-            out, err = util.subp(cmd, capture=True)
-        except util.ProcessExecutionError as e:
-            LOG.error("Partitioning failed: %s", e)
-            raise
-        finally:
-            if os.path.exists(wfp.name):
-                os.unlink(wfp.name)
 
     def is_not_formatted(self):
         """ Returns a boolean indicating if the specified device_id is not yet

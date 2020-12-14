@@ -946,9 +946,8 @@ def partition_handler(info, storage_config):
                    "--typecode=%s:%s" % (partnumber, typecode), disk]
             util.subp(cmd, capture=True)
         elif disk_ptable == "vtoc":
-            disk_device_id = storage_config.get(device).get('device_id')
-            dasd_device = dasd.DasdDevice(disk_device_id)
-            dasd_device.partition(partnumber, length_bytes)
+            dasd_pt = dasd.DasdPartitionTable.from_fdasd(disk)
+            dasd_pt.add_partition(partnumber, length_bytes)
         else:
             raise ValueError("parent partition has invalid partition table")
 
