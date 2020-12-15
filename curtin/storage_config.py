@@ -991,6 +991,8 @@ class DasdParser(ProbertParser):
     probe_data_key = 'dasd'
 
     def asdict(self, dasd_config):
+        if dasd_config.get("type", "ECKD") != "ECKD":
+            return None
         dasd_name = os.path.basename(dasd_config['name'])
         device_id = dasd_config['device_id']
         blocksize = dasd_config['blocksize']
