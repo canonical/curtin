@@ -768,17 +768,20 @@ class BlockdevParser(ProbertParser):
             # set wwn, serial, and path
             entry.update(uniq_ids)
 
-            # disk entry for dasds needs device_id and check for vtoc ptable
-            if devname.startswith('/dev/dasd'):
+            # disk entry for ECKD dasds needs device_id and check for vtoc
+            # ptable
+            dasd_config = self.probe_data.get('dasd', {}).get(devname)
+            if dasd_config is not None and \
+               dasd_config.get('type', 'ECKD') == 'ECKD':
                 device_id = (
                     blockdev_data.get('ID_PATH', '').replace('ccw-', ''))
                 if device_id:
                     entry['device_id'] = device_id
 
                 # if dasd has been formatted, attrs.size is non-zero
-                # formatted dasds have ptable type of 'vtoc'
-                dasd_size = blockdev_data.get('attrs', {}).get('size')
-                if dasd_size and dasd_size != "0":
+                # formatted ECKD dasds have ptable type of 'vtoc'
+                dasd_size = blockdev_data.get('attrs', {}).get('size', "0")
+                if dasd_size != "0":
                     entry['ptable'] = 'vtoc'
 
             if 'ID_PART_TABLE_TYPE' in blockdev_data:
@@ -794,6 +797,13 @@ class BlockdevParser(ProbertParser):
             entry['number'] = int(attrs['partition'])
             parent_devname = self.partition_parent_devname(blockdev_data)
             parent_blockdev = self.blockdev_data[parent_devname]
+            if 'ID_PART_TABLE_TYPE' not in parent_blockdev:
+                # Exclude the fake partition that the kernel creates
+                # for an otherwise unformatted FBA dasd.
+                dasds = self.probe_data.get('dasd', {})
+                dasd_config = dasds.get(parent_devname, {})
+                if dasd_config.get('type', 'ECKD') == 'FBA':
+                    return None
             ptable = parent_blockdev.get('partitiontable')
             if ptable:
                 part = None
