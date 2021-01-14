@@ -22,6 +22,10 @@ class FocalTestRAIDPartitionToDisk(relbase.focal, TestRAIDPartitionToDisk):
     __test__ = True
 
 
+class HirsuteTestRAIDPartitionToDisk(relbase.hirsute, TestRAIDPartitionToDisk):
+    __test__ = True
+
+
 class GroovyTestRAIDPartitionToDisk(relbase.groovy, TestRAIDPartitionToDisk):
     __test__ = True
 

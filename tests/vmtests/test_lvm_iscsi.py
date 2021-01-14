@@ -99,6 +99,10 @@ class FocalTestIscsiLvm(relbase.focal, TestLvmIscsiAbs):
     __test__ = True
 
 
+class HirsuteTestIscsiLvm(relbase.hirsute, TestLvmIscsiAbs):
+    __test__ = True
+
+
 class GroovyTestIscsiLvm(relbase.groovy, TestLvmIscsiAbs):
     __test__ = True
 

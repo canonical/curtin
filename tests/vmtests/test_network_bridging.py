@@ -240,6 +240,10 @@ class FocalTestBridging(relbase.focal, TestBridgeNetworkAbs):
     __test__ = True
 
 
+class HirsuteTestBridging(relbase.hirsute, TestBridgeNetworkAbs):
+    __test__ = True
+
+
 class GroovyTestBridging(relbase.groovy, TestBridgeNetworkAbs):
     __test__ = True
 

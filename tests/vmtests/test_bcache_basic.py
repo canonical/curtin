@@ -68,6 +68,10 @@ class FocalBcacheBasic(relbase.focal, TestBcacheBasic):
     __test__ = True
 
 
+class HirsuteBcacheBasic(relbase.hirsute, TestBcacheBasic):
+    __test__ = True
+
+
 class GroovyBcacheBasic(relbase.groovy, TestBcacheBasic):
     __test__ = True
 

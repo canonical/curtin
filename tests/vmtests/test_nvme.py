@@ -143,6 +143,10 @@ class FocalTestNvmeBcache(relbase.focal, TestNvmeBcacheAbs):
     __test__ = True
 
 
+class HirsuteTestNvmeBcache(relbase.hirsute, TestNvmeBcacheAbs):
+    __test__ = True
+
+
 class GroovyTestNvmeBcache(relbase.groovy, TestNvmeBcacheAbs):
     __test__ = True
 

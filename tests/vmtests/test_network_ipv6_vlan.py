@@ -26,6 +26,10 @@ class FocalTestNetworkIPV6Vlan(relbase.focal, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
+class HirsuteTestNetworkIPV6Vlan(relbase.hirsute, TestNetworkIPV6VlanAbs):
+    __test__ = True
+
+
 class GroovyTestNetworkIPV6Vlan(relbase.groovy, TestNetworkIPV6VlanAbs):
     __test__ = True
 

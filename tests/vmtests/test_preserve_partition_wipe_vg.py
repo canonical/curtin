@@ -29,6 +29,10 @@ class FocalTestPreserveWipeLvm(relbase.focal, TestPreserveWipeLvm):
     __test__ = True
 
 
+class HirsuteTestPreserveWipeLvm(relbase.hirsute, TestPreserveWipeLvm):
+    __test__ = True
+
+
 class GroovyTestPreserveWipeLvm(relbase.groovy, TestPreserveWipeLvm):
     __test__ = True
 
@@ -49,6 +53,11 @@ class BionicTestPreserveWipeLvmSimple(relbase.bionic,
 
 
 class FocalTestPreserveWipeLvmSimple(relbase.focal, TestPreserveWipeLvmSimple):
+    __test__ = True
+
+
+class HirsuteTestPreserveWipeLvmSimple(relbase.hirsute,
+                                       TestPreserveWipeLvmSimple):
     __test__ = True
 
 

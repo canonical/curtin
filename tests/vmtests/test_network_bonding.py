@@ -61,6 +61,10 @@ class FocalTestBonding(relbase.focal, TestNetworkBondingAbs):
     __test__ = True
 
 
+class HirsuteTestBonding(relbase.hirsute, TestNetworkBondingAbs):
+    __test__ = True
+
+
 class GroovyTestBonding(relbase.groovy, TestNetworkBondingAbs):
     __test__ = True
 

@@ -56,6 +56,10 @@ class FocalTestNetworkAlias(relbase.focal, TestNetworkAliasAbs):
     __test__ = True
 
 
+class HirsuteTestNetworkAlias(relbase.hirsute, TestNetworkAliasAbs):
+    __test__ = True
+
+
 class GroovyTestNetworkAlias(relbase.groovy, TestNetworkAliasAbs):
     __test__ = True
 

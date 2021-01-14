@@ -193,6 +193,14 @@ class _GroovyBase(_UbuntuBase):
         subarch = "ga-20.10"
 
 
+class _HirsuteBase(_UbuntuBase):
+    release = "hirsute"
+    target_release = "hirsute"
+    mem = "2048"
+    if _UbuntuBase.arch == "arm64":
+        subarch = "ga-20.10"
+
+
 class _Releases(object):
     trusty = _TrustyBase
     precise = _PreciseBase
@@ -212,6 +220,7 @@ class _Releases(object):
     eoan = _EoanBase
     focal = _FocalBase
     groovy = _GroovyBase
+    hirsute = _HirsuteBase
 
 
 class _CentosReleases(object):

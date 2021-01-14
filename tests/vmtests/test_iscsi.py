@@ -76,6 +76,10 @@ class FocalTestIscsiBasic(relbase.focal, TestBasicIscsiAbs):
     __test__ = True
 
 
+class HirsuteTestIscsiBasic(relbase.hirsute, TestBasicIscsiAbs):
+    __test__ = True
+
+
 class GroovyTestIscsiBasic(relbase.groovy, TestBasicIscsiAbs):
     __test__ = True
 

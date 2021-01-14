@@ -27,6 +27,10 @@ class FocalTestNetworkIPV6Static(relbase.focal, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
+class HirsuteTestNetworkIPV6Static(relbase.hirsute, TestNetworkIPV6StaticAbs):
+    __test__ = True
+
+
 class GroovyTestNetworkIPV6Static(relbase.groovy, TestNetworkIPV6StaticAbs):
     __test__ = True
 
