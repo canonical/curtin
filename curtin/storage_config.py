@@ -771,18 +771,20 @@ class BlockdevParser(ProbertParser):
             # disk entry for ECKD dasds needs device_id and check for vtoc
             # ptable
             dasd_config = self.probe_data.get('dasd', {}).get(devname)
-            if dasd_config is not None and \
-               dasd_config.get('type', 'ECKD') == 'ECKD':
-                device_id = (
-                    blockdev_data.get('ID_PATH', '').replace('ccw-', ''))
-                if device_id:
-                    entry['device_id'] = device_id
+            if dasd_config is not None:
+                dasd_type = dasd_config.get('type', 'ECKD')
+                if dasd_type == 'ECKD':
+                    device_id = (
+                        blockdev_data.get('ID_PATH', '').replace('ccw-', ''))
+                    if device_id:
+                        entry['device_id'] = device_id
 
-                # if dasd has been formatted, attrs.size is non-zero
-                # formatted ECKD dasds have ptable type of 'vtoc'
-                dasd_size = blockdev_data.get('attrs', {}).get('size', "0")
-                if dasd_size != "0":
-                    entry['ptable'] = 'vtoc'
+                if dasd_type in ['ECKD', 'virt']:
+                    # if dasd has been formatted, attrs.size is non-zero
+                    # formatted ECKD dasds have ptable type of 'vtoc'
+                    dasd_size = blockdev_data.get('attrs', {}).get('size', "0")
+                    if dasd_size != "0":
+                        entry['ptable'] = 'vtoc'
 
             if 'ID_PART_TABLE_TYPE' in blockdev_data:
                 ptype = blockdev_data['ID_PART_TABLE_TYPE']
