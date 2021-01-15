@@ -238,6 +238,7 @@ class TestClearHolders(CiTestCase):
         mock_mdadm.md_present.return_value = False
         mock_mdadm.md_get_devices_list.return_value = devices
         mock_mdadm.md_get_spares_list.return_value = spares
+        mock_mdadm.md_is_in_container.return_value = False
 
         clear_holders.shutdown_mdadm(self.test_syspath)
 
@@ -252,6 +253,38 @@ class TestClearHolders(CiTestCase):
             [mock.call(self.test_blockdev, dev) for dev in md_devs])
         mock_mdadm.zero_device.assert_has_calls(
             [mock.call(dev, force=True) for dev in md_devs])
+        mock_mdadm.mdadm_stop.assert_called_with(self.test_blockdev)
+        mock_mdadm.md_present.assert_called_with(self.test_blockdev)
+        self.assertTrue(mock_log.debug.called)
+
+    @mock.patch('curtin.block.wipe_volume')
+    @mock.patch('curtin.block.path_to_kname')
+    @mock.patch('curtin.block.sysfs_to_devpath')
+    @mock.patch('curtin.block.clear_holders.time')
+    @mock.patch('curtin.block.clear_holders.util')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.mdadm')
+    def test_shutdown_mdadm_in_container(self, mock_mdadm, mock_log, mock_util,
+                                         mock_time, mock_sysdev, mock_path,
+                                         mock_wipe):
+        """test clear_holders.shutdown_mdadm"""
+        devices = ['/dev/wda1', '/dev/wda2']
+        spares = ['/dev/wdb1']
+        mock_sysdev.return_value = self.test_blockdev
+        mock_path.return_value = self.test_blockdev
+        mock_mdadm.md_present.return_value = False
+        mock_mdadm.md_get_devices_list.return_value = devices
+        mock_mdadm.md_get_spares_list.return_value = spares
+        mock_mdadm.mdadm_query_detail.return_value = \
+            {'MD_CONTAINER': '/dev/md/imsm0'}
+
+        clear_holders.shutdown_mdadm(self.test_syspath)
+
+        mock_wipe.assert_called_with(self.test_blockdev, exclusive=False,
+                                     mode='superblock', strict=True)
+        mock_mdadm.set_sync_action.assert_has_calls([
+                mock.call(self.test_blockdev, action="idle"),
+                mock.call(self.test_blockdev, action="frozen")])
         mock_mdadm.mdadm_stop.assert_called_with(self.test_blockdev)
         mock_mdadm.md_present.assert_called_with(self.test_blockdev)
         self.assertTrue(mock_log.debug.called)
@@ -271,6 +304,7 @@ class TestClearHolders(CiTestCase):
         mock_mdadm.md_present.return_value = True
         mock_util.subp.return_value = ("", "")
         mock_os.path.exists.return_value = True
+        mock_mdadm.mdadm_query_detail.return_value = {}
 
         with self.assertRaises(OSError):
             clear_holders.shutdown_mdadm(self.test_syspath)
@@ -295,6 +329,7 @@ class TestClearHolders(CiTestCase):
         mock_block.path_to_kname.return_value = self.test_blockdev
         mock_mdadm.md_present.return_value = True
         mock_os.path.exists.return_value = False
+        mock_mdadm.mdadm_query_detail.return_value = {}
 
         with self.assertRaises(OSError):
             clear_holders.shutdown_mdadm(self.test_syspath)

@@ -243,6 +243,10 @@ class FocalTestFsBattery(relbase.focal, TestFsBattery):
     __test__ = True
 
 
+class HirsuteTestFsBattery(relbase.hirsute, TestFsBattery):
+    __test__ = True
+
+
 class GroovyTestFsBattery(relbase.groovy, TestFsBattery):
     __test__ = True
 

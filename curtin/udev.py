@@ -90,9 +90,9 @@ def udevadm_info(path=None):
     for line in output.splitlines():
         if not line:
             continue
-        # maxsplit=2 gives us key and remaininng part of line is value
+        # maxsplit=1 gives us key and remaininng part of line is value
         # py2.7 on Trusty doesn't have keyword, pass as argument
-        key, value = line.split('=', 2)
+        key, value = line.split('=', 1)
         if not value:
             value = None
         if value:

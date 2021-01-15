@@ -97,7 +97,7 @@ class TestBlockMdadmCreate(CiTestCase):
         self.mock_holders.return_value = []
 
     def prepare_mock(self, md_devname, raidlevel, devices, spares,
-                     metadata=None):
+                     container=None, metadata=None):
         side_effects = []
         expected_calls = []
         hostname = 'ubuntu'
@@ -120,10 +120,15 @@ class TestBlockMdadmCreate(CiTestCase):
         side_effects.append(("", ""))  # mdadm create
         # build command how mdadm_create does
         cmd = (["mdadm", "--create", md_devname, "--run",
-                "--metadata=%s" % metadata,
-                "--homehost=%s" % hostname, "--level=%s" % raidlevel,
-                "--raid-devices=%s" % len(devices)] +
-               devices)
+                "--homehost=%s" % hostname,
+                "--raid-devices=%s" % (len(devices) if not container else 4)])
+        if not container:
+            cmd += ["--metadata=%s" % metadata]
+        if raidlevel != 'container':
+            cmd += ["--level=%s" % raidlevel]
+        if container:
+            cmd += [container]
+        cmd += devices
         if spares:
             cmd += ["--spare-devices=%s" % len(spares)] + spares
 
@@ -228,6 +233,48 @@ class TestBlockMdadmCreate(CiTestCase):
                            devices=devices, spares=spares)
         self.mock_util.subp.assert_has_calls(expected_calls)
 
+    def test_mdadm_create_imsm_container(self):
+        md_devname = "/dev/md/imsm"
+        raidlevel = 'container'
+        devices = ['/dev/nvme0n1', '/dev/nvme1n1', '/dev/nvme2n1']
+        metadata = 'imsm'
+        spares = []
+        (side_effects, expected_calls) = self.prepare_mock(md_devname,
+                                                           raidlevel,
+                                                           devices,
+                                                           spares,
+                                                           None,
+                                                           metadata)
+
+        self.mock_util.subp.side_effect = side_effects
+        mdadm.mdadm_create(md_devname=md_devname, raidlevel=raidlevel,
+                           devices=devices, spares=spares, metadata=metadata)
+        self.mock_util.subp.assert_has_calls(expected_calls)
+
+    @patch("curtin.block._md_get_members_list")
+    def test_mdadm_create_array_in_imsm_container(self, mock_get_members):
+        md_devname = "/dev/md126"
+        raidlevel = 5
+        devices = []
+        metadata = 'imsm'
+        spares = []
+        container = "/dev/md/imsm"
+        (side_effects, expected_calls) = self.prepare_mock(md_devname,
+                                                           raidlevel,
+                                                           devices,
+                                                           spares,
+                                                           container,
+                                                           metadata)
+
+        self.mock_util.subp.side_effect = side_effects
+        mock_get_members.return_value = [
+            '/dev/nvme0n1', '/dev/nvme1n1', '/dev/nvme2n1', '/dev/nvme3n1'
+        ]
+        mdadm.mdadm_create(md_devname=md_devname, raidlevel=raidlevel,
+                           devices=devices, spares=spares,
+                           container=container, metadata=metadata)
+        self.mock_util.subp.assert_has_calls(expected_calls)
+
 
 class TestBlockMdadmExamine(CiTestCase):
     def setUp(self):
@@ -314,6 +361,70 @@ class TestBlockMdadmExamine(CiTestCase):
         # don't mock anything if raidlevel and spares mismatch
         self.mock_util.subp.assert_has_calls(expected_calls)
         self.assertEqual(data, {})
+
+    def test_mdadm_examine_no_export_imsm(self):
+        self.mock_util.subp.return_value = ("""/dev/nvme0n1:
+          Magic : Intel Raid ISM Cfg Sig.
+        Version : 1.3.00
+    Orig Family : 6f8c68e3
+         Family : 6f8c68e3
+     Generation : 00000112
+     Attributes : All supported
+           UUID : 7ec12162:ee5cd20b:0ac8b069:cfbd93ec
+       Checksum : 4a5cebe2 correct
+    MPB Sectors : 2
+          Disks : 4
+   RAID Devices : 1
+
+  Disk03 Serial : LJ910504Q41P0FGN
+          State : active
+             Id : 00000000
+    Usable Size : 1953514766 (931.51 GiB 1000.20 GB)
+
+[126]:
+           UUID : f9792759:7f61d0c7:e7313d5a:2e7c2e22
+     RAID Level : 5
+        Members : 4
+          Slots : [UUUU]
+    Failed disk : none
+      This Slot : 3
+    Sector Size : 512
+     Array Size : 5860540416 (2794.52 GiB 3000.60 GB)
+   Per Dev Size : 1953515520 (931.51 GiB 1000.20 GB)
+  Sector Offset : 0
+    Num Stripes : 7630912
+     Chunk Size : 128 KiB
+       Reserved : 0
+  Migrate State : idle
+      Map State : normal
+    Dirty State : dirty
+     RWH Policy : off
+
+  Disk00 Serial : LJ91040H2Y1P0FGN
+          State : active
+             Id : 00000003
+    Usable Size : 1953514766 (931.51 GiB 1000.20 GB)
+
+  Disk01 Serial : LJ916308CZ1P0FGN
+          State : active
+             Id : 00000002
+    Usable Size : 1953514766 (931.51 GiB 1000.20 GB)
+
+  Disk02 Serial : LJ916308RF1P0FGN
+          State : active
+             Id : 00000001
+    Usable Size : 1953514766 (931.51 GiB 1000.20 GB)
+        """, "")   # mdadm --examine /dev/nvme0n1
+
+        device = "/dev/nvme0n1"
+        data = mdadm.mdadm_examine(device, export=False)
+
+        expected_calls = [
+            call(["mdadm", "--examine", device], capture=True),
+        ]
+        self.mock_util.subp.assert_has_calls(expected_calls)
+        self.assertEqual(data['uuid'],
+                         '7ec12162:ee5cd20b:0ac8b069:cfbd93ec')
 
 
 class TestBlockMdadmStop(CiTestCase):
@@ -1171,6 +1282,63 @@ class TestBlockMdadmMdHelpers(CiTestCase):
         self.assertFalse(md_is_present)
         self.mock_util.load_file.assert_called_with('/proc/mdstat')
 
+    def test_md_is_in_container_false(self):
+        self.mock_util.subp.return_value = (
+            """
+            MD_LEVEL=raid1
+            MD_DEVICES=2
+            MD_METADATA=1.2
+            MD_UUID=93a73e10:427f280b:b7076c02:204b8f7a
+            MD_NAME=wily-foobar:0
+            MD_DEVICE_vdc_ROLE=0
+            MD_DEVICE_vdc_DEV=/dev/vdc
+            MD_DEVICE_vdd_ROLE=1
+            MD_DEVICE_vdd_DEV=/dev/vdd
+            MD_DEVICE_vde_ROLE=spare
+            MD_DEVICE_vde_DEV=/dev/vde
+            """, "")
+
+        device = "/dev/md0"
+        self.mock_valid.return_value = True
+        is_in_container = mdadm.md_is_in_container(device)
+
+        expected_calls = [
+            call(["mdadm", "--query", "--detail", "--export", device],
+                 capture=True),
+        ]
+        self.mock_util.subp.assert_has_calls(expected_calls)
+        self.assertEqual(is_in_container, False)
+
+    def test_md_is_in_container_true(self):
+        self.mock_util.subp.return_value = (
+            """
+            MD_LEVEL=raid5
+            MD_DEVICES=4
+            MD_CONTAINER=/dev/md/imsm0
+            MD_MEMBER=0
+            MD_UUID=5fa06b36:53e67142:37ff9ad6:44ef0e89
+            MD_DEVNAME=126
+            MD_DEVICE_ev_nvme2n1_ROLE=3
+            MD_DEVICE_ev_nvme2n1_DEV=/dev/nvme2n1
+            MD_DEVICE_ev_nvme1n1_ROLE=0
+            MD_DEVICE_ev_nvme1n1_DEV=/dev/nvme1n1
+            MD_DEVICE_ev_nvme0n1_ROLE=1
+            MD_DEVICE_ev_nvme0n1_DEV=/dev/nvme0n1
+            MD_DEVICE_ev_nvme3n1_ROLE=2
+            MD_DEVICE_ev_nvme3n1_DEV=/dev/nvme3n1
+            """, "")
+
+        device = "/dev/md0"
+        self.mock_valid.return_value = True
+        is_in_container = mdadm.md_is_in_container(device)
+
+        expected_calls = [
+            call(["mdadm", "--query", "--detail", "--export", device],
+                 capture=True),
+        ]
+        self.mock_util.subp.assert_has_calls(expected_calls)
+        self.assertEqual(is_in_container, True)
+
 
 class TestBlockMdadmZeroDevice(CiTestCase):
 
@@ -1243,6 +1411,4 @@ class TestBlockMdadmZeroDevice(CiTestCase):
         self.mock_examine.assert_called_with(device, export=False)
         self.m_zero.assert_called_with(device, expected_offsets,
                                        buflen=1024, count=1024, strict=True)
-
-
 # vi: ts=4 expandtab syntax=python

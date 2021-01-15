@@ -83,12 +83,15 @@ class FocalTestNetworkVlan(relbase.focal, TestNetworkVlanAbs):
         return super().test_ip_output()
 
 
-class GroovyTestNetworkVlan(relbase.groovy, TestNetworkVlanAbs):
+class HirsuteTestNetworkVlan(relbase.hirsute, TestNetworkVlanAbs):
     __test__ = True
 
-    @TestNetworkVlanAbs.skip_by_date("1888726", "2020-10-15")
     def test_ip_output(self):
         return super().test_ip_output()
+
+
+class GroovyTestNetworkVlan(relbase.groovy, TestNetworkVlanAbs):
+    __test__ = True
 
 
 class Centos66TestNetworkVlan(centos_relbase.centos66_xenial,

@@ -1,0 +1,66 @@
+#!/usr/bin/python3
+
+import argparse
+import glob
+import os
+
+
+def update_file(fname, previous, distro):
+    new_content = []
+    new_class = []
+    modified = False
+    copying_class = False
+    with open(fname, 'r') as fh:
+        # using read().splitlines() to strip the newline char
+        for line in fh.read().splitlines():
+            # if we find class of previous release, copy and replace with
+            # new release
+            if line.startswith('class %s' % previous):
+                copying_class = True
+            elif copying_class and line and not line[0].isspace():
+                copying_class = False
+                # done copying class; transform and extend
+                nc = "\n".join(new_class)
+                nc = nc.replace(previous, distro)  # Focal -> Groovy
+                nc = nc.replace(previous.lower(), distro.lower())  # focal -> groovy
+                nc += "\n"
+                new_content.extend(nc.splitlines())
+                new_class = []
+
+            if copying_class:
+                # retain existing lines, make a copy for the new class
+                new_content.append(line)
+                new_class.append(line)
+                modified = True
+            else:
+                new_content.append(line)
+
+    # skip a re-write of content if no modifications
+    if modified:
+        updated_fn = fname
+        with open(updated_fn, 'w') as wfh:
+            wfh.write("\n".join(new_content) + '\n')
+        print("Wrote updated file: %s" % updated_fn)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        prog="vmtest-add-release",
+        description="Tool to add vmtest classes by distro release")
+    parser.add_argument('--distro-release', '-d',
+                        action='store', required=True)
+    parser.add_argument('--path', '-p', action='store', required=True)
+    parser.add_argument('--previous-release', '-r',
+                        action='store', required=True)
+
+    args = parser.parse_args()
+    distro = args.distro_release.title()
+    previous = args.previous_release.title()
+    target = args.path
+    if os.path.isdir(target):
+        files = glob.glob(os.path.normpath(target) + '/' + 'test_*.py')
+    else:
+        files = [target]
+
+    for fname in files:
+        update_file(fname, previous, distro)

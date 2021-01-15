@@ -68,6 +68,10 @@ class FocalTestAptConfigCMDCMD(relbase.focal, TestAptConfigCMD):
     __test__ = True
 
 
+class HirsuteTestAptConfigCMDCMD(relbase.hirsute, TestAptConfigCMD):
+    __test__ = True
+
+
 class GroovyTestAptConfigCMDCMD(relbase.groovy, TestAptConfigCMD):
     __test__ = True
 

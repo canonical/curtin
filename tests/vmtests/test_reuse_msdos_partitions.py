@@ -23,6 +23,11 @@ class FocalTestReuseMSDOSPartitions(relbase.focal,
     __test__ = True
 
 
+class HirsuteTestReuseMSDOSPartitions(relbase.hirsute,
+                                      TestReuseMSDOSPartitions):
+    __test__ = True
+
+
 class GroovyTestReuseMSDOSPartitions(relbase.groovy,
                                      TestReuseMSDOSPartitions):
     __test__ = True

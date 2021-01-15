@@ -56,6 +56,13 @@ class FocalTestSimple(relbase.focal, TestSimple):
         self.output_files_exist(["netplan.yaml"])
 
 
+class HirsuteTestSimple(relbase.hirsute, TestSimple):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
+
 class GroovyTestSimple(relbase.groovy, TestSimple):
     __test__ = True
 
@@ -112,6 +119,13 @@ class FocalTestSimpleStorage(relbase.focal, TestSimpleStorage):
         self.output_files_exist(["netplan.yaml"])
 
 
+class HirsuteTestSimpleStorage(relbase.hirsute, TestSimpleStorage):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
+
 class GroovyTestSimpleStorage(relbase.groovy, TestSimpleStorage):
     __test__ = True
 
@@ -139,6 +153,13 @@ class TestGrubNoDefaults(VMBaseClass):
 
 
 class FocalTestGrubNoDefaults(relbase.focal, TestGrubNoDefaults):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
+
+class HirsuteTestGrubNoDefaults(relbase.hirsute, TestGrubNoDefaults):
     __test__ = True
 
     def test_output_files_exist(self):

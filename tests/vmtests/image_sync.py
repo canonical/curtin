@@ -32,9 +32,11 @@ def environ_get(key, default):
     return os.environ.get(long_key, os.environ.get(key, default))
 
 
+MAAS_IMAGE_STREAM = environ_get("MAAS_IMAGE_STREAM", "stable")
 IMAGE_SRC_URL = environ_get(
     'IMAGE_SRC_URL',
-    "http://images.maas.io/ephemeral-v3/daily/streams/v1/index.sjson")
+    "http://images.maas.io/ephemeral-v3/%s/streams/v1/index.sjson" %
+    MAAS_IMAGE_STREAM)
 IMAGE_DIR = environ_get("IMAGE_DIR", "/srv/images")
 
 KEYRING = environ_get(
@@ -43,7 +45,7 @@ KEYRING = environ_get(
 ITEM_NAME_FILTERS = \
     ['ftype~(boot-initrd|boot-kernel|root-tgz|squashfs)']
 FORMAT_JSON = 'JSON'
-STREAM_BASE = 'com.ubuntu.maas:daily'
+STREAM_BASE = 'com.ubuntu.maas:' + MAAS_IMAGE_STREAM
 VMTEST_CONTENT_ID_PATH_MAP = {
     STREAM_BASE + ":v3:download": "streams/v1/vmtest.json",
     STREAM_BASE + ":centos-bases-download": "streams/v1/vmtest-centos.json",
