@@ -51,6 +51,11 @@ def get_grub_package_name(target_arch, uefi, rhel_ver=None):
             # grub2-efi-x64 installs a signed grub bootloader
             grub_name = "grub2-efi-x64"
             grub_target = "x86_64-efi"
+        elif target_arch == 'aarch64':
+            # centos 7+, no centos6 support
+            # grub2-efi-aa64 installs a signed grub bootloader
+            grub_name = "grub2-efi-aa64"
+            grub_target = "arm64-efi"
         elif target_arch == 'arm64':
             grub_name = 'grub-efi-%s' % target_arch
             grub_target = "arm64-efi"

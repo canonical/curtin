@@ -44,6 +44,22 @@ class TestGetGrubPackageName(CiTestCase):
             ('grub2-efi-x64', 'x86_64-efi'),
             install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
 
+    def test_uefi_rhel7_arm64(self):
+        target_arch = 'aarch64'
+        uefi = True
+        rhel_ver = '7'
+        self.assertEqual(
+            ('grub2-efi-aa64', 'arm64-efi'),
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+
+    def test_uefi_rhel8_arm64(self):
+        target_arch = 'aarch64'
+        uefi = True
+        rhel_ver = '8'
+        self.assertEqual(
+            ('grub2-efi-aa64', 'arm64-efi'),
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+
     def test_uefi_debian_arm64(self):
         target_arch = 'arm64'
         uefi = True
