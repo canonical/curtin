@@ -1,3 +1,55 @@
+curtin (21.1-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+    - Release 21.1 [Michael Hudson-Doyle] (LP: #1911841)
+    - This adds arm64 compatibility for RH installations [Mark Klein]
+    - vmtest: add Hirsute release classes, tool to add vmtest class
+      [Ryan Harper]
+    - vmtest: fix image-sync after maas URL stream rename
+      [Ryan Harper] (LP: #1908543)
+    - storage_config: set ptable to vtoc for 'virt' dasds as well as 'ECKD'
+      [Michael Hudson-Doyle]
+    - install_grub: Fix bootloader-id for RHEL systems, must be redhat
+      [Ryan Harper] (LP: #1906543)
+    - vmtests: remove LP: #1888726 skip_by_date decorators
+    - storage_config: only produce type: dasd actions for ECKD dasds
+      [Michael Hudson-Doyle]
+    - storage_config: handle some FBA dasd oddities [Michael Hudson-Doyle]
+    - apt_config: stop using the deprecated apt-key command
+      [Nishanth Aravamudan] (LP: #1892494)
+    - allow adding a vtoc partition without a device id [Michael Hudson-Doyle]
+    - simplify dasdview parsing code [Michael Hudson-Doyle]
+    - fix construction of DasdPartitionTable from fdasd output
+      [Michael Hudson-Doyle]
+    - Don't install grub if it is already found on CentOS/RHEL
+      [Lee Trager] (LP: #1895067)
+    - vmtests: Replace newly added Eoan test with Groovy [Ryan Harper]
+    - vmtests: test using a disk with RAID partition on it directly in a RAID
+      [Michael Hudson-Doyle]
+    - fix verification of vtoc partitions [Michael Hudson-Doyle] (LP: #1899471)
+    - create an empty vtoc in disk_handler [Michael Hudson-Doyle]
+    - remove unused parameters from dasd code [Michael Hudson-Doyle]
+    - remove support for calling get_path_to_storage_volume on a dasd action
+      [Michael Hudson-Doyle]
+    - clear-holders: fix identification of multipath partitions
+      [Ryan Harper] (LP: #1900900)
+    - vmtests: remove skip_by_dates for now-fixed bcache issue
+    - debian/rules: drop PKG_VERSION and UPSTREAM_VERSION [Paride Legovini]
+    - deb packaging: fully cleanup directory tree after build
+      [Paride Legovini] (LP: #1899698)
+    - udevadm_info should use maxsplit=1 instead of maxsplit=2
+      [Sergey Bykov] (LP: #1895021)
+    - vmtests/multipath-lvm: dont assume device-mapper block names
+      [Ryan Harper] (LP: #1898758)
+    - vmtest: fix the groovy arm64 subarch [Paride Legovini] (LP: #1898757)
+    - tools/curtainer: dearmor gpg key and use apt-key add
+      [Ryan Harper] (LP: #1898609)
+    - Support imsm external metadata RAID containers
+      [Gyorgy Szombathelyi] (LP: #1893661)
+    - Drop tools/new-upstream-snapshot [Paride Legovini]
+
+ -- Michael Hudson-Doyle <michael.hudson@ubuntu.com>  Fri, 15 Jan 2021 17:06:35 +1300
+
 curtin (20.2-0ubuntu1) groovy; urgency=medium
 
   * New upstream release.
