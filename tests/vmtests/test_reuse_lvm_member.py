@@ -26,6 +26,11 @@ class FocalTestReuseLVMMemberPartition(relbase.focal,
     __test__ = True
 
 
+class HirsuteTestReuseLVMMemberPartition(relbase.hirsute,
+                                         TestReuseLVMMemberPartition):
+    __test__ = True
+
+
 class GroovyTestReuseLVMMemberPartition(relbase.groovy,
                                         TestReuseLVMMemberPartition):
     __test__ = True

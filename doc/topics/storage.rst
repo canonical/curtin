@@ -55,14 +55,21 @@ commands include:
 
 Dasd Command
 ~~~~~~~~~~~~
-The ``dasd`` command sets up a s390x system DASD device for use by curtin.
-DASD devices require several parameters to configure the low-level structure
-of the block device.  Curtin will examine the configuration and determine if
-the specified DASD matches the configuration.  If the device does not match
-the configuration Curtin will perform a format of the device to achieve the
-required configuration.  Once a DASD device has been formatted it may be used
-like regular Linux block devices and can be partitioned (with limitations)
-with Curtin's ``disk`` command.  The ``dasd`` command may contain the following
+
+The ``dasd`` command sets up an ECKD s390x system DASD device for use
+by curtin.  FBA DASD devices do not require this low level set
+up. ECKD DASD drives can also be passed via virtio to KVM virtual
+machines and in this case this set up must be done on the host prior
+to starting the virtual machine.
+
+DASD devices require several parameters to configure the low-level
+structure of the block device.  Curtin will examine the configuration
+and determine if the specified DASD matches the configuration.  If the
+device does not match the configuration Curtin will perform a format
+of the device to achieve the required configuration.  Once a DASD
+device has been formatted it may be used like regular Linux block
+devices and can be partitioned (with limitations) with Curtin's
+``disk`` command.  The ``dasd`` command may contain the following
 keys:
 
 **device_id**: *<ccw bus_id: X.Y.ZZZZ>*
@@ -138,11 +145,12 @@ The disk command sets up disks for use by curtin. It can wipe the disks, create
 partition tables, or just verify that the disks exist with an existing partition
 table. A disk command may contain all or some of the following keys:
 
-**ptable**: *msdos, gpt*
+**ptable**: *msdos, gpt, vtoc*
 
 If the ``ptable`` key is present and a curtin will create an empty
-partition table of that type on the disk.  Curtin supports msdos and
-gpt partition tables.
+partition table of that type on the disk.  On almost all drives,
+curtin supports msdos and gpt partition tables; ECKD DASD drives on
+s390x mainframes can only use the "vtoc" partition table.
 
 **serial**: *<serial number>*
 

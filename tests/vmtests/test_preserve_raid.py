@@ -29,6 +29,10 @@ class FocalTestPreserveRAID(relbase.focal, TestPreserveRAID):
     __test__ = True
 
 
+class HirsuteTestPreserveRAID(relbase.hirsute, TestPreserveRAID):
+    __test__ = True
+
+
 class GroovyTestPreserveRAID(relbase.groovy, TestPreserveRAID):
     __test__ = True
 

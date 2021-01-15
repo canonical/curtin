@@ -1,16 +1,150 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-import collections
+import glob
 import os
 import re
 import tempfile
 from curtin import util
 from curtin.log import LOG, logged_time
 
-Dasdvalue = collections.namedtuple('Dasdvalue', ['hex', 'dec', 'txt'])
+
+class DasdPartition:
+    def __init__(self, device, start, end, length, id, system):
+        self.device = device
+        self.start = int(start)
+        self.end = int(end)
+        self.length = int(length)
+        self.id = id
+        self.system = system
 
 
-def dasdinfo(device_id, rawoutput=False, strict=False):
+class DasdPartitionTable:
+    def __init__(self, devname, blocks_per_track, bytes_per_block):
+        self.devname = devname
+        self.blocks_per_track = blocks_per_track
+        self.bytes_per_block = bytes_per_block
+        self.partitions = []
+
+    @property
+    def bytes_per_track(self):
+        return self.bytes_per_block * self.blocks_per_track
+
+    def tracks_needed(self, size_in_bytes):
+        return ((size_in_bytes - 1) // self.bytes_per_track) + 1
+
+    def _ptable_for_new_partition(self, partnumber, partsize):
+        if partnumber > 3:
+            raise ValueError('DASD devices only allow 3 partitions')
+
+        # first partition always starts at track 2
+        # all others start after the previous partition ends
+        if partnumber == 1:
+            start = 2
+        else:
+            start = int(self.partitions[-1].end) + 1
+        end = start + self.tracks_needed(partsize) - 1
+
+        return [
+            (p.start, p.end) for p in self.partitions[:partnumber-1]
+            ] + [(start, end)]
+
+    def add_partition(self, partnumber, partsize):
+        """ Add a partition to this DasdDevice specifying partnumber and size.
+
+        :param partnumber: integer value of partition number (1, 2 or 3)
+        :param partsize: partition sizes in bytes.
+
+        :raises: ValueError on invalid devname
+
+        Example fdasd command with defaults:
+          fdasd --verbose --config=/tmp/curtin/dasd-part1.fdasd /dev/dasdb
+        """
+        LOG.debug(
+            "add_partition: partnumber: %s partsize: %s",
+            partnumber, partsize)
+
+        partitions = self._ptable_for_new_partition(partnumber, partsize)
+        LOG.debug("fdasd: partitions to be created: %s", partitions)
+        content = "\n".join([
+            "[%s,%s]" % (part[0], part[1]) for part in partitions
+            ])
+        LOG.debug("fdasd: content=\n%s", content)
+        wfp = tempfile.NamedTemporaryFile(suffix=".fdasd", delete=False)
+        wfp.close()
+        util.write_file(wfp.name, content)
+        cmd = ['fdasd', '--verbose', '--config=%s' % wfp.name, self.devname]
+        LOG.debug('Partitioning %s with %s', self.devname, cmd)
+        try:
+            out, err = util.subp(cmd, capture=True)
+        except util.ProcessExecutionError as e:
+            LOG.error("Partitioning failed: %s", e)
+            raise
+        finally:
+            if os.path.exists(wfp.name):
+                os.unlink(wfp.name)
+
+    @classmethod
+    def from_fdasd_output(cls, devname, output):
+        line_iter = iter(output.splitlines())
+        for line in line_iter:
+            if line.startswith("Disk"):
+                break
+        kw = {'devname': devname}
+        label_to_attr = {
+            'blocks per track': 'blocks_per_track',
+            'bytes per block': 'bytes_per_block'
+            }
+        for line in line_iter:
+            if '--- tracks ---' in line:
+                break
+            if ':' in line:
+                label, value = line.split(':', 1)
+                label = label.strip(' .')
+                value = value.strip()
+                if label in label_to_attr:
+                    kw[label_to_attr[label]] = int(value)
+        table = cls(**kw)
+        for line in line_iter:
+            if line.startswith('exiting'):
+                break
+            vals = line.split(None, 5)
+            if vals[0].startswith('/dev/'):
+                table.partitions.append(DasdPartition(*vals))
+        return table
+
+    @classmethod
+    def from_fdasd(cls, devname):
+        """Use fdasd to construct a DasdPartitionTable.
+
+        % fdasd --table /dev/dasdc
+        reading volume label ..: VOL1
+        reading vtoc ..........: ok
+
+
+        Disk /dev/dasdc:
+          cylinders ............: 10017
+          tracks per cylinder ..: 15
+          blocks per track .....: 12
+          bytes per block ......: 4096
+          volume label .........: VOL1
+          volume serial ........: 0X1522
+          max partitions .......: 3
+
+         ------------------------------- tracks -------------------------------
+                       Device      start      end   length   Id  System
+                  /dev/dasdc1          2    43694    43693    1  Linux native
+                  /dev/dasdc2      43695    87387    43693    2  Linux native
+                  /dev/dasdc3      87388   131080    43693    3  Linux native
+                                  131081   150254    19174       unused
+        exiting...
+        """
+        cmd = ['fdasd', '--table', devname]
+        out, _err = util.subp(cmd, capture=True)
+        LOG.debug("from_fdasd output:\n---\n%s\n---\n", out)
+        return cls.from_fdasd_output(devname, out)
+
+
+def dasdinfo(device_id):
     ''' Run dasdinfo command and return the exported values.
 
     :param: device_id:  string, device_id of the dasd device to query.
@@ -30,216 +164,50 @@ def dasdinfo(device_id, rawoutput=False, strict=False):
     '''
     _valid_device_id(device_id)
 
-    try:
-        out, err = util.subp(
-            ['dasdinfo', '--all', '--export',
-             '--busid=%s' % device_id], capture=True)
-    except util.ProcessExecutionError as e:
-        LOG.warning('dasdinfo result may be incomplete: %s', e)
-        if strict:
-            raise
-        out = e.stdout
-        err = e.stderr
-
-    if rawoutput:
-        return (out, err)
+    out, err = util.subp(
+        ['dasdinfo', '--all', '--export', '--busid=%s' % device_id],
+        capture=True)
 
     return util.load_shell_content(out)
 
 
-def dasdview(devname, rawoutput=False):
-    ''' Run dasdview on devname and return dictionary of data.
-
-    dasdview --extended has 3 sections
-    general (2:6), geometry (8:12), extended (14:)
-
-    '''
+def dasd_format(devname):
+    """Return the format (ldl/cdl/not-formatted) of devname."""
     if not os.path.exists(devname):
         raise ValueError("Invalid dasd device name: '%s'" % devname)
 
     out, err = util.subp(['dasdview', '--extended', devname], capture=True)
 
-    if rawoutput:
-        return (out, err)
-
-    return _parse_dasdview(out)
+    return _dasd_format(out)
 
 
-def _parse_dasdview(view_output):
-    """ Parse dasdview --extended output into a dictionary
+DASD_FORMAT = r"^format\s+:.+\s+(?P<value>\w+\s\w+)$"
 
-    Input:
-    --- general DASD information ---------------------------------------------
-    device node            : /dev/dasdd
-    busid                  : 0.0.1518
-    type                   : ECKD
-    device type            : hex 3390       dec 13200
 
-    --- DASD geometry --------------------------------------------------------
-    number of cylinders    : hex 2721       dec 10017
-    tracks per cylinder    : hex f          dec 15
-    blocks per track       : hex c          dec 12
-    blocksize              : hex 1000       dec 4096
+def find_val(regex, content):
+    m = re.search(regex, content, re.MULTILINE)
+    if m is not None:
+        return m.group("value")
 
-    --- extended DASD information --------------------------------------------
-    real device number     : hex 0          dec 0
-    subchannel identifier  : hex 178        dec 376
-    CU type  (SenseID)     : hex 3990       dec 14736
-    CU model (SenseID)     : hex e9         dec 233
-    device type  (SenseID) : hex 3390       dec 13200
-    device model (SenseID) : hex c          dec 12
-    open count             : hex 1          dec 1
-    req_queue_len          : hex 0          dec 0
-    chanq_len              : hex 0          dec 0
-    status                 : hex 5          dec 5
-    label_block            : hex 2          dec 2
-    FBA_layout             : hex 0          dec 0
-    characteristics_size   : hex 40         dec 64
-    confdata_size          : hex 100        dec 256
-    format                 : hex 2          dec 2           CDL formatted
-    features               : hex 0          dec 0           default
 
-    characteristics        : 3990e933 900c5e0c  39f72032 2721000f
-                             e000e5a2 05940222  13090674 00000000
-                             00000000 00000000  32321502 dfee0001
-                             0677080f 007f4800  1f3c0000 00002721
+def _dasd_format(dasdview_output):
+    """ Read and return specified device "disk_layout" value.
 
-    configuration_data     : dc010100 f0f0f2f1  f0f7f9f0 f0c9c2d4
-                             f7f5f0f0 f0f0f0f0  f0c4e7d7 f7f10818
-                             d4020000 f0f0f2f1  f0f7f9f6 f1c9c2d4
-                             f7f5f0f0 f0f0f0f0  f0c4e7d7 f7f10800
-                             d0000000 f0f0f2f1  f0f7f9f6 f1c9c2d4
-                             f7f5f0f0 f0f0f0f0  f0c4e7d7 f7f00800
-                             f0000001 f0f0f2f1  f0f7f9f0 f0c9c2d4
-                             f7f5f0f0 f0f0f0f0  f0c4e7d7 f7f10800
-                             00000000 00000000  00000000 00000000
-                             00000000 00000000  00000000 00000000
-                             00000000 00000000  00000000 00000000
-                             00000000 00000000  00000000 00000000
-                             00000000 00000000  00000000 00000000
-                             00000000 00000000  00000000 00000000
-                             81000003 2d001e00  15000247 000c0016
-                             000cc018 935e41ee  00030000 0000a000
+    :returns: string: One of ['cdl', 'ldl', 'not-formatted'].
+    :raises: ValueError if dasdview result missing 'format' section.
 
-    Output:
-
-    view = {
-    'extended': {
-        'chanq_len': Dasdvalue(hex='0x0', dec=0, txt=None),
-        'characteristics': ['3990e933', ...], # shortened for brevity
-        'characteristics_size': Dasdvalue(hex='0x40', dec=64, txt=None),
-        'confdata_size': Dasdvalue(hex='0x100', dec=256, txt=None),
-        'configuration_data': ['dc010100', ...], # shortened for brevity
-        'cu_model_senseid': Dasdvalue(hex='0xe9', dec=233, txt=None),
-        'cu_type__senseid': Dasdvalue(hex='0x3990', dec=14736, txt=None),
-        'device_model_senseid': Dasdvalue(hex='0xc', dec=12, txt=None),
-        'device_type__senseid': Dasdvalue(hex='0x3390', dec=13200, txt=None),
-        'fba_layout': Dasdvalue(hex='0x0', dec=0, txt=None),
-        'features': Dasdvalue(hex='0x0', dec=0, txt='default'),
-        'format': Dasdvalue(hex='0x2', dec=2, txt='cdl'),
-        'label_block': Dasdvalue(hex='0x2', dec=2, txt=None),
-        'open_count': Dasdvalue(hex='0x1', dec=1, txt=None),
-        'real_device_number': Dasdvalue(hex='0x0', dec=0, txt=None),
-        'req_queue_len': Dasdvalue(hex='0x0', dec=0, txt=None),
-        'status': Dasdvalue(hex='0x5', dec=5, txt=None),
-        'subchannel_identifier': Dasdvalue(hex='0x178', dec=376, txt=None)},
-    'general': {
-        'busid': ['0.0.1518'],
-        'device_node': ['/dev/dasdd'],
-        'device_type': Dasdvalue(hex='0x3390', dec=13200, txt=None),
-        'type': ['ECKD']},
-    'geometry': {
-        'blocks_per_track': Dasdvalue(hex='0xc', dec=12, txt=None),
-        'blocksize': Dasdvalue(hex='0x1000', dec=4096, txt=None),
-        'number_of_cylinders': Dasdvalue(hex='0x2721', dec=10017, txt=None),
-        'tracks_per_cylinder': Dasdvalue(hex='0xf', dec=15, txt=None)}
-    }
     """
+    if not dasdview_output:
+        return
 
-    info_key_map = {
-        'CDL formatted': 'cdl',
-        'LDL formatted': 'ldl',
-        'NOT formatted': 'not-formatted',
+    mapping = {
+       'cdl formatted': 'cdl',
+       'ldl formatted': 'ldl',
+       'not formatted': 'not-formatted',
     }
-
-    def _mkdasdvalue(hex_str, dec_str, comment=None):
-        v_hex = hex_str.replace('hex ', '0x')
-        v_dec = int(dec_str.replace('dec ', ''))
-        v_str = None
-        if comment is not None:
-            v_str = info_key_map.get(comment, comment)
-
-        return Dasdvalue(v_hex, v_dec, v_str)
-
-    def _map_strip(value):
-        v_type = type(value)
-        return v_type(map(lambda x: x.strip(), value))
-
-    def _parse_output(output):
-        parsed = {}
-        key = prev_key = value = None
-        for line in output:
-            if not line:
-                continue
-            if ':' in line:
-                key, value = map(lambda x: x.strip(),
-                                 line.lstrip().split(':'))
-                # normalize lvalue
-                key = key.replace('  ', '_')
-                key = key.replace(' ', '_')
-                key = key.replace('(', '').replace(')', '')
-                key = key.lower()
-                prev_key = key
-                if value and '\t' in value:
-                    value = _map_strip(value.split('\t'))
-                    # [hex X, dec Y]
-                    # [hex X, dec Y, string]
-                    value = _mkdasdvalue(*value)
-                elif value and '  ' in value:
-                    # characteristics : XXXXXXX XXXXXXX  XXXXXXXX XXXXXXX
-                    #                   YYYYYYY YYYYYYY  YYYYYYYY YYYYYYY
-                    # convert to list of strings.
-                    value = value.lstrip().split()
-                else:
-                    value = None
-            else:
-                key = prev_key
-                # no colon line, parse value from line
-                #                   YYYYYYY YYYYYYY  YYYYYYYY YYYYYYY
-                value = line.lstrip().split()
-
-            # extend lists for existing keys
-            if key in parsed and type(value) == list:
-                parsed[key].extend(value)
-            else:
-                parsed.update({key: value})
-
-        return parsed
-
-    if not view_output or not isinstance(view_output, util.string_types):
-        raise ValueError(
-            'Invalid value for input to parse: ' + str(view_output))
-
-    # XXX: dasdview --extended has 52 lines for dasd devices
-    if len(view_output.splitlines()) < 52:
-        raise ValueError(
-            'dasdview output has fewer than 52 lines, cannot parse')
-
-    lines = view_output.splitlines()
-    gen_start, gen_end = (2, 6)
-    geo_start, geo_end = (8, 12)
-    ext_start, ext_end = (14, len(lines))
-
-    general_output = lines[gen_start:gen_end]
-    geometry_output = lines[geo_start:geo_end]
-    extended_output = lines[ext_start:ext_end]
-
-    view = {
-        'general': _parse_output(general_output),
-        'geometry': _parse_output(geometry_output),
-        'extended': _parse_output(extended_output),
-    }
-    return view
+    diskfmt = find_val(DASD_FORMAT, dasdview_output)
+    if diskfmt is not None:
+        return mapping.get(diskfmt.lower())
 
 
 def _valid_device_id(device_id):
@@ -305,200 +273,17 @@ class CcwDevice(object):
 
 class DasdDevice(CcwDevice):
 
-    def __init__(self, device_id):
-        super(DasdDevice, self).__init__(device_id)
-        self._kname = None
-
-    @property
-    def kname(self):
-        if not self._kname:
-            self._kname = self._get_kname()
-        return self._kname
-
-    def _get_kname(self):
-        """ Return the kernel name of the dasd device. """
-        if not self.is_online():
-            raise RuntimeError('Cannot determine dasd kname for offline '
-                               'device: %s' % self.device_id)
-
-        blockdir = self.ccw_device_attr_path('block')
-        if not os.path.isdir(blockdir):
-            raise RuntimeError('Unexpectedly not a directory: %s' % blockdir)
-
-        try:
-            knames = os.listdir(blockdir)
-            [dasd_kname] = knames
-        except ValueError:
-            raise RuntimeError('Unexpected os.listdir result at sysfs path '
-                               '%s: "%s"' % (blockdir, knames))
-
-        return dasd_kname
-
     @property
     def devname(self):
-        return '/dev/%s' % self.kname
-
-    def _bytes_to_tracks(self, geometry, request_size):
-        """ Return the number of tracks needed to hold the request size.
-
-        :param geometry: dictionary from dasdview output which includes
-            info on number of cylinders, tracks and blocksize.
-        :param request_size: size in Bytes
-
-        :raises: ValueError on missing or invalid geometry dict, missing
-            request_size.
-
-        Example geometry:
-        'geometry': {
-            'blocks_per_track': Dasdvalue(hex='0xc', dec=12, txt=None),
-            'blocksize': Dasdvalue(hex='0x1000', dec=4096, txt=None),
-            'number_of_cylinders':
-                 Dasdvalue(hex='0x2721', dec=10017, txt=None),
-            'tracks_per_cylinder': Dasdvalue(hex='0xf', dec=15, txt=None)}
-        }
-        """
-
-        if not geometry or not isinstance(geometry, dict):
-            raise ValueError('Missing or invalid geometry parameter.')
-
-        if not all([key for key in geometry.keys()
-                    if key in ['blocksize', 'blocks_per_track']]):
-            raise ValueError('Geometry dict missing required keys')
-
-        if not request_size or not isinstance(request_size,
-                                              util.numeric_types):
-            raise ValueError('Missing or invalid request_size.')
-
-        # helper to extract the decimal value from Dasdvalue objects
-        def _dval(dval):
-            return dval.dec
-
-        bytes_per_track = (
-            _dval(geometry['blocksize']) * _dval(geometry['blocks_per_track']))
-        tracks_needed = ((request_size - 1) // bytes_per_track) + 1
-        return tracks_needed
-
-    def get_partition_table(self):
-        """ Use fdasd to query the partition table (VTOC).
-
-            Returns a list of tuples, each tuple composed of the first 6
-            fields of matching lines in the output.
-
-        % fdasd --table /dev/dasdc
-        reading volume label ..: VOL1
-        reading vtoc ..........: ok
-
-
-        Disk /dev/dasdc:
-          cylinders ............: 10017
-          tracks per cylinder ..: 15
-          blocks per track .....: 12
-          bytes per block ......: 4096
-          volume label .........: VOL1
-          volume serial ........: 0X1522
-          max partitions .......: 3
-
-         ------------------------------- tracks -------------------------------
-                       Device      start      end   length   Id  System
-                  /dev/dasdc1          2    43694    43693    1  Linux native
-                  /dev/dasdc2      43695    87387    43693    2  Linux native
-                  /dev/dasdc3      87388   131080    43693    3  Linux native
-                                  131081   150254    19174       unused
-        exiting...
-        """
-        cmd = ['fdasd', '--table', self.devname]
-        out, _err = util.subp(cmd, capture=True)
-        lines = re.findall('.*%s.*Linux.*' % self.devname, out)
-        partitions = []
-        for line in lines:
-            partitions.append(tuple(line.split()[0:5]))
-
-        return partitions
-
-    def partition(self, partnumber, partsize, strict=True):
-        """ Add a partition to this DasdDevice specifying partnumber and size.
-
-        :param partnumber: integer value of partition number (1, 2 or 3)
-        :param partsize: partition sizes in bytes.
-        :param strict: boolean which enforces that dasd device exists before
-            issuing fdasd command, defaults to True.
-
-        :raises: RuntimeError if strict==True and devname does not exist.
-        :raises: ValueError on invalid devname
-
-        Example fdasd command with defaults:
-          fdasd --verbose --config=/tmp/curtin/dasd-part1.fdasd /dev/dasdb
-        """
-        if partnumber > 3:
-            raise ValueError('DASD devices only allow 3 partitions')
-
-        if strict and not os.path.exists(self.devname):
-            raise RuntimeError("devname '%s' does not exist" % self.devname)
-
-        info = dasdview(self.devname)
-        geo = info['geometry']
-
-        existing_partitions = self.get_partition_table()
-        partitions = []
-        for partinfo in existing_partitions[0:partnumber]:
-            # (devpath, start_track, end_track, nr_tracks, partnum)
-            start = partinfo[1]
-            end = partinfo[2]
-            partitions.append((start, end))
-
-        # first partition always starts at track 2
-        # all others start after the previous partition ends
-        if partnumber == 1:
-            start = 2
-        else:
-            start = int(partitions[-1][1]) + 1
-        # end is size + 1
-        tracks_needed = int(self._bytes_to_tracks(geo, partsize))
-        end = start + tracks_needed + 1
-        partitions.append(("%s" % start, "%s" % end))
-
-        content = "\n".join(["[%s,%s]" % (part[0], part[1])
-                             for part in partitions])
-        LOG.debug("fdasd: partitions to be created: %s", partitions)
-        LOG.debug("fdasd: content=\n%s", content)
-        wfp = tempfile.NamedTemporaryFile(suffix=".fdasd", delete=False)
-        wfp.close()
-        util.write_file(wfp.name, content)
-        cmd = ['fdasd', '--verbose', '--config=%s' % wfp.name, self.devname]
-        LOG.debug('Partitioning %s with %s', self.devname, cmd)
-        try:
-            out, err = util.subp(cmd, capture=True)
-        except util.ProcessExecutionError as e:
-            LOG.error("Partitioning failed: %s", e)
-            raise
-        finally:
-            if os.path.exists(wfp.name):
-                os.unlink(wfp.name)
+        return '/dev/disk/by-path/ccw-%s' % self.device_id
 
     def is_not_formatted(self):
         """ Returns a boolean indicating if the specified device_id is not yet
             formatted.
 
-        :param device_id: string of device ccw bus_id.
         :returns: boolean: True if the device is not formatted.
         """
         return self.ccw_device_attr('status') == "unformatted"
-
-    def is_online(self):
-        """ Returns a boolean indicating if specified device is online.
-
-        :param device_id: string of device ccw bus_id.
-        :returns: boolean: True if device is online.
-        """
-        return self.ccw_device_attr('online') == "1"
-
-    def status(self):
-        """ Read and return device_id's 'status' sysfs attribute value'
-
-        :param device_id: string of device ccw bus_id.
-        :returns: string: the value inside the 'status' sysfs attribute.
-        """
-        return self.ccw_device_attr('status')
 
     def blocksize(self):
         """ Read and return device_id's 'blocksize' value.
@@ -506,23 +291,26 @@ class DasdDevice(CcwDevice):
         :param: device_id: string of device ccw bus_id.
         :returns: string: the device's current blocksize.
         """
-        blkattr = 'block/%s/queue/hw_sector_size' % self.kname
-        return self.ccw_device_attr(blkattr)
+        blkattr = 'block/*/queue/hw_sector_size'
+        # In practice there will only be one entry in the directory
+        # /sys/bus/ccw/devices/{device_id}/block/, but in case
+        # something strange happens and there are more, this assumes
+        # all block devices connected to the dasd have the same block
+        # size...
+        path = glob.glob(self.ccw_device_attr_path(blkattr))[0]
+        return util.load_file(path)
 
     def disk_layout(self):
         """ Read and return specified device "disk_layout" value.
 
         :returns: string: One of ['cdl', 'ldl', 'not-formatted'].
         :raises: ValueError if dasdview result missing 'format' section.
-
         """
-        view = dasdview(self.devname)
-        disk_format = view.get('extended', {}).get('format')
-        if not disk_format:
+        format = dasd_format(self.devname)
+        if not format:
             raise ValueError(
-                'dasdview on %s missing "format" section' % self.devname)
-
-        return disk_format.txt
+                'could not determine format of %s' % self.devname)
+        return format
 
     def label(self):
         """Read and return specified device label (VOLSER) value.
@@ -572,7 +360,7 @@ class DasdDevice(CcwDevice):
 
     @logged_time("DASD.FORMAT")
     def format(self, blksize=4096, layout='cdl', force=False, set_label=None,
-               keep_label=False, no_label=False, mode='quick', strict=True):
+               keep_label=False, no_label=False, mode='quick'):
         """ Format DasdDevice with supplied parameters.
 
         :param blksize: integer value to configure disk block size in bytes.
@@ -598,7 +386,7 @@ class DasdDevice(CcwDevice):
         :param strict: boolean which enforces that dasd device exists before
             issuing format command, defaults to True.
 
-        :raises: RuntimeError if strict==True and devname does not exist.
+        :raises: RuntimeError if devname does not exist.
         :raises: ValueError on invalid blocksize, disk_layout and mode.
         :raises: ProcessExecutionError on errors running 'dasdfmt' command.
 
@@ -606,7 +394,7 @@ class DasdDevice(CcwDevice):
           dasdformat -y --blocksize=4096 --disk_layout=cdl \
                      --mode=quick /dev/dasda
         """
-        if strict and not os.path.exists(self.devname):
+        if not os.path.exists(self.devname):
             raise RuntimeError("devname '%s' does not exist" % self.devname)
 
         if no_label:

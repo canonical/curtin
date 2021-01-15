@@ -33,6 +33,9 @@ class CurtinDisableNetworkRendering(TestNetworkBaseTestsAbs):
         raise SkipTest('not available on %s' % self.__class__)
 
 
+TestKlass1 = CurtinDisableNetworkRendering
+
+
 class CurtinDisableCloudInitNetworking(TestNetworkBaseTestsAbs):
     """ Test curtin can disable cloud-init networking in the target system """
     conf_file = "examples/tests/network_config_disabled.yaml"
@@ -44,45 +47,53 @@ class CurtinDisableCloudInitNetworking(TestNetworkBaseTestsAbs):
         raise SkipTest('not available on %s' % self.__class__)
 
 
-class CurtinDisableCloudInitNetworkingVersion1(
-    CurtinDisableCloudInitNetworking
-):
+TestKlass2 = CurtinDisableCloudInitNetworking
+
+
+class CurtinDisableCloudInitNetworkingVersion1(TestKlass2):
     """ Test curtin can disable cloud-init networking in the target system
     with version key. """
     conf_file = "examples/tests/network_config_disabled_with_version.yaml"
 
 
-class FocalCurtinDisableNetworkRendering(relbase.focal,
-                                         CurtinDisableNetworkRendering):
+TestKlass3 = CurtinDisableCloudInitNetworkingVersion1
+
+
+class FocalCurtinDisableNetworkRendering(relbase.focal, TestKlass1):
     __test__ = True
 
 
-class GroovyCurtinDisableNetworkRendering(relbase.groovy,
-                                          CurtinDisableNetworkRendering):
+class HirsuteCurtinDisableNetworkRendering(relbase.hirsute, TestKlass1):
     __test__ = True
 
 
-class FocalCurtinDisableCloudInitNetworkingVersion1(
-    relbase.focal,
-    CurtinDisableCloudInitNetworkingVersion1
-):
+class GroovyCurtinDisableNetworkRendering(relbase.groovy, TestKlass1):
     __test__ = True
 
 
-class GroovyCurtinDisableCloudInitNetworkingVersion1(
-    relbase.groovy,
-    CurtinDisableCloudInitNetworkingVersion1
-):
+class FocalCurtinDisableCloudInitNetworking(relbase.focal, TestKlass2):
     __test__ = True
 
 
-class FocalCurtinDisableCloudInitNetworking(relbase.focal,
-                                            CurtinDisableCloudInitNetworking):
+class HirsuteCurtinDisableCloudInitNetworking(relbase.hirsute, TestKlass2):
     __test__ = True
 
 
-class GroovyCurtinDisableCloudInitNetworking(relbase.groovy,
-                                             CurtinDisableCloudInitNetworking):
+class GroovyCurtinDisableCloudInitNetworking(relbase.groovy, TestKlass2):
+    __test__ = True
+
+
+class FocalCurtinDisableCloudInitNetworkingVersion1(relbase.focal, TestKlass3):
+    __test__ = True
+
+
+class HirsuteCurtinDisableCloudInitNetworkingVersion1(relbase.hirsute,
+                                                      TestKlass3):
+    __test__ = True
+
+
+class GroovyCurtinDisableCloudInitNetworkingVersion1(relbase.groovy,
+                                                     TestKlass3):
     __test__ = True
 
 

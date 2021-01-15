@@ -29,6 +29,10 @@ class FocalTestBcachePartitions(relbase.focal, TestBcachePartitions):
     __test__ = True
 
 
+class HirsuteTestBcachePartitions(relbase.hirsute, TestBcachePartitions):
+    __test__ = True
+
+
 class GroovyTestBcachePartitions(relbase.groovy, TestBcachePartitions):
     __test__ = True
 

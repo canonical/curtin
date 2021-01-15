@@ -54,6 +54,10 @@ class FocalTestIscsiMdadm(relbase.focal, TestMdadmIscsiAbs):
     __test__ = True
 
 
+class HirsuteTestIscsiMdadm(relbase.hirsute, TestMdadmIscsiAbs):
+    __test__ = True
+
+
 class GroovyTestIscsiMdadm(relbase.groovy, TestMdadmIscsiAbs):
     __test__ = True
 

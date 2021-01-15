@@ -51,6 +51,11 @@ def get_grub_package_name(target_arch, uefi, rhel_ver=None):
             # grub2-efi-x64 installs a signed grub bootloader
             grub_name = "grub2-efi-x64"
             grub_target = "x86_64-efi"
+        elif target_arch == 'aarch64':
+            # centos 7+, no centos6 support
+            # grub2-efi-aa64 installs a signed grub bootloader
+            grub_name = "grub2-efi-aa64"
+            grub_target = "arm64-efi"
         elif target_arch == 'arm64':
             grub_name = 'grub-efi-%s' % target_arch
             grub_target = "arm64-efi"
@@ -253,13 +258,23 @@ def gen_uefi_install_commands(grub_name, grub_target, grub_cmd, update_nvram,
         install_cmds.append(['dpkg-reconfigure', grub_name])
         install_cmds.append(['update-grub'])
     elif distroinfo.family == distro.DISTROS.redhat:
+        # RHEL distros uses 'redhat' for bootid
+        if bootid == 'rhel':
+            bootid = 'redhat'
         loader = find_efi_loader(target, bootid)
-        if loader and update_nvram:
-            grub_cmd = None  # don't install just add entry
-            efi_disk, efi_part_num = get_efi_disk_part(devices)
-            install_cmds.append(['efibootmgr', '--create', '--write-signature',
-                                 '--label', bootid, '--disk', efi_disk,
-                                 '--part', efi_part_num, '--loader', loader])
+        if loader:
+            # Disable running grub's install command. CentOS/RHEL ships
+            # a pre-built signed grub which installs into /boot. grub2-install
+            # will generated a new unsigned grub which breaks UEFI secure boot.
+            grub_cmd = None
+            if update_nvram:
+                efi_disk, efi_part_num = get_efi_disk_part(devices)
+                # Add entry to the EFI boot menu
+                install_cmds.append(['efibootmgr', '--create',
+                                     '--write-signature', '--label', bootid,
+                                     '--disk', efi_disk,
+                                     '--part', efi_part_num,
+                                     '--loader', loader])
             post_cmds.append(['grub2-mkconfig', '-o',
                               '/boot/efi/EFI/%s/grub.cfg' % bootid])
         else:
