@@ -81,6 +81,10 @@ class FocalTestLvm(relbase.focal, TestLvmAbs):
     __test__ = True
 
 
+class HirsuteTestLvm(relbase.hirsute, TestLvmAbs):
+    __test__ = True
+
+
 class GroovyTestLvm(relbase.groovy, TestLvmAbs):
     __test__ = True
 

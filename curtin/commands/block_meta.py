@@ -437,10 +437,6 @@ def get_path_to_storage_volume(volume, storage_config):
             volume_path = block.kname_to_path(partition_kname)
         devsync_vol = os.path.join(disk_block_path)
 
-    elif vol.get('type') == "dasd":
-        dasd_device = dasd.DasdDevice(vol.get('device_id'))
-        volume_path = dasd_device.devname
-
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
         # to id of device in storage config
@@ -615,8 +611,7 @@ def disk_handler(info, storage_config):
             elif ptable in _dos_names:
                 util.subp(["parted", disk, "--script", "mklabel", "msdos"])
             elif ptable == "vtoc":
-                # ignore dasd partition tables
-                pass
+                util.subp(["fdasd", "-c", "/dev/null", disk])
         holders = clear_holders.get_holders(disk)
         if len(holders) > 0:
             LOG.info('Detected block holders on disk %s: %s', disk, holders)
@@ -772,7 +767,7 @@ def verify_ptable_flag(devpath, expected_flag, sfdisk_info=None):
         raise RuntimeError(msg)
 
 
-def partition_verify(devpath, info):
+def partition_verify_sfdisk(devpath, info):
     verify_exists(devpath)
     sfdisk_info = block.sfdisk_info(devpath)
     if not sfdisk_info:
@@ -782,6 +777,21 @@ def partition_verify(devpath, info):
     expected_flag = info.get('flag')
     if expected_flag:
         verify_ptable_flag(devpath, info['flag'], sfdisk_info=sfdisk_info)
+
+
+def partition_verify_fdasd(disk_path, partnumber, info):
+    verify_exists(disk_path)
+    pt = dasd.DasdPartitionTable.from_fdasd(disk_path)
+    pt_entry = pt.partitions[partnumber-1]
+    expected_tracks = pt.tracks_needed(util.human2bytes(info['size']))
+    msg = (
+        'Verifying %s part %s size, expecting %s tracks, found %s tracks' % (
+         disk_path, partnumber, expected_tracks, pt_entry.length))
+    LOG.debug(msg)
+    if expected_tracks != pt_entry.length:
+        raise RuntimeError(msg)
+    if info.get('flag', 'linux') != 'linux':
+        raise RuntimeError("dasd partitions do not support flags")
 
 
 def partition_handler(info, storage_config):
@@ -875,9 +885,12 @@ def partition_handler(info, storage_config):
     # Handle preserve flag
     create_partition = True
     if config.value_as_boolean(info.get('preserve')):
-        part_path = block.dev_path(
-            block.partition_kname(disk_kname, partnumber))
-        partition_verify(part_path, info)
+        if disk_ptable == 'vtoc':
+            partition_verify_fdasd(disk, partnumber, info)
+        else:
+            part_path = block.dev_path(
+                block.partition_kname(disk_kname, partnumber))
+            partition_verify_sfdisk(part_path, info)
         LOG.debug('Partition %s already present, skipping create', part_path)
         create_partition = False
 
@@ -933,9 +946,8 @@ def partition_handler(info, storage_config):
                    "--typecode=%s:%s" % (partnumber, typecode), disk]
             util.subp(cmd, capture=True)
         elif disk_ptable == "vtoc":
-            disk_device_id = storage_config.get(device).get('device_id')
-            dasd_device = dasd.DasdDevice(disk_device_id)
-            dasd_device.partition(partnumber, length_bytes)
+            dasd_pt = dasd.DasdPartitionTable.from_fdasd(disk)
+            dasd_pt.add_partition(partnumber, length_bytes)
         else:
             raise ValueError("parent partition has invalid partition table")
 
@@ -1486,21 +1498,30 @@ def raid_handler(info, storage_config):
     raidlevel = info.get('raidlevel')
     spare_devices = info.get('spare_devices')
     md_devname = block.md_path(info.get('name'))
+    container = info.get('container')
+    metadata = info.get('metadata')
     preserve = config.value_as_boolean(info.get('preserve'))
-    if not devices:
-        raise ValueError("devices for raid must be specified")
+    if not devices and not container:
+        raise ValueError("devices or container for raid must be specified")
     if raidlevel not in ['linear', 'raid0', 0, 'stripe', 'raid1', 1, 'mirror',
-                         'raid4', 4, 'raid5', 5, 'raid6', 6, 'raid10', 10]:
+                         'raid4', 4, 'raid5', 5, 'raid6', 6, 'raid10', 10,
+                         'container']:
         raise ValueError("invalid raidlevel '%s'" % raidlevel)
-    if raidlevel in ['linear', 'raid0', 0, 'stripe']:
+    if raidlevel in ['linear', 'raid0', 0, 'stripe', 'container']:
         if spare_devices:
             raise ValueError("spareunsupported in raidlevel '%s'" % raidlevel)
 
     LOG.debug('raid: cfg: %s', util.json_dumps(info))
-    device_paths = list(get_path_to_storage_volume(dev, storage_config) for
-                        dev in devices)
-    LOG.debug('raid: device path mapping: %s',
-              list(zip(devices, device_paths)))
+
+    container_dev = None
+    device_paths = []
+    if container:
+        container_dev = get_path_to_storage_volume(container, storage_config)
+    else:
+        device_paths = list(get_path_to_storage_volume(dev, storage_config) for
+                            dev in devices)
+        LOG.debug('raid: device path mapping: {}'.format(
+            zip(devices, device_paths)))
 
     spare_device_paths = []
     if spare_devices:
@@ -1517,8 +1538,8 @@ def raid_handler(info, storage_config):
 
     if create_raid:
         mdadm.mdadm_create(md_devname, raidlevel,
-                           device_paths, spare_device_paths,
-                           info.get('mdname', ''))
+                           device_paths, spare_device_paths, container_dev,
+                           info.get('mdname', ''), metadata)
 
     wipe_mode = info.get('wipe')
     if wipe_mode:

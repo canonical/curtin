@@ -73,6 +73,10 @@ class FocalTestLvmPreserve(relbase.focal, TestLvmPreserveAbs):
     __test__ = True
 
 
+class HirsuteTestLvmPreserve(relbase.hirsute, TestLvmPreserveAbs):
+    __test__ = True
+
+
 class GroovyTestLvmPreserve(relbase.groovy, TestLvmPreserveAbs):
     __test__ = True
 

@@ -56,6 +56,10 @@ class FocalTestBasicDasd(relbase.focal, TestBasicDasd):
     __test__ = True
 
 
+class HirsuteTestBasicDasd(relbase.hirsute, TestBasicDasd):
+    __test__ = True
+
+
 class GroovyTestBasicDasd(relbase.groovy, TestBasicDasd):
     __test__ = True
 

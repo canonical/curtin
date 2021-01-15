@@ -14,11 +14,16 @@ bucket:
         udevadm settle
         multipath -v3 -R3 -r
     fi
+    # disassemble multipath disks
     multipath -ll
-    dmsetup remove --force --retry /dev/dm-0
+    ls -al /dev/mapper/
+    mpatha_dev=$(realpath /dev/mapper/mpatha)
+    dmsetup remove --force --retry ${mpatha_dev}
     dmsetup ls
     multipath -v3 -R3 -f mpatha
     udevadm settle
+    ls -al /dev/mapper/
+    # create an LVM vg and lv with one of the multipath members
     parted /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_disk-a --script -- \
         mklabel gpt              \
         mkpart primary 1MiB 2MiB \
@@ -41,19 +46,24 @@ bucket:
         --size 3758096384B
     udevadm settle
     mkfs.ext4 /dev/root_vg/lv1_root
+    ls -al /dev/mapper/
     # stop lvm bits
     for vg in `pvdisplay -C --separator = -o vg_name --noheadings`; do
         vgchange -an $vg ||:
     done
     command -v systemctl && systemctl mask lvm2-pvscan\@.service
     rm -rf /etc/lvm/archive /etc/lvm/backup  /run/lvm/*
+    ls -al /dev/mapper/
+    # reload multipath mapping
     multipath -r
     udevadm settle
     dmsetup ls
     multipath -ll
     ls -al /dev/mapper/
     sleep 5
-    ls -al /sys/class/block/dm-0/holders/
+    mpatha_block_name=$(basename `realpath /dev/mapper/mpatha`)
+    echo "mpatha dm blockname: [${mpatha_block_name}]"
+    ls -al /sys/class/block/${mpatha_block_name}/holders/
 
 
 # Create a LVM now to test curtin's reuse of existing LVMs

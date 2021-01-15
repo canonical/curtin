@@ -15,6 +15,47 @@ def random_device_id():
                            random.randint(1, 0x10000 - 1))
 
 
+FDASD_OUTPUT = '''
+reading volume label ..: VOL1
+reading vtoc ..........: ok
+
+
+Disk /dev/dasda:
+  cylinders ............: 10016
+  tracks per cylinder ..: 15
+  blocks per track .....: 12
+  bytes per block ......: 4096
+  volume label .........: VOL1
+  volume serial ........: 0X0200
+  max partitions .......: 3
+
+ ------------------------------- tracks -------------------------------
+               Device      start      end   length   Id  System
+          /dev/dasda1          2    21847    21846    1  Linux native
+                           21848   150239   128392       unused
+exiting...
+ '''
+
+
+class TestDasdPartitionTable(CiTestCase):
+
+    def test_from_dasd_output(self):
+        devname = self.random_string()
+        dasd_pt = dasd.DasdPartitionTable.from_fdasd_output(
+            devname, FDASD_OUTPUT)
+        self.assertEqual(dasd_pt.devname, devname)
+        self.assertEqual(dasd_pt.blocks_per_track, 12)
+        self.assertEqual(dasd_pt.bytes_per_block, 4096)
+        self.assertEqual(len(dasd_pt.partitions), 1)
+        part = dasd_pt.partitions[0]
+        self.assertEqual(part.device, '/dev/dasda1')
+        self.assertEqual(part.start, 2)
+        self.assertEqual(part.end, 21847)
+        self.assertEqual(part.length, 21846)
+        self.assertEqual(part.id, '1')
+        self.assertEqual(part.system, 'Linux native')
+
+
 class TestDasdValidDeviceId(CiTestCase):
 
     nonhex = [letter for letter in string.ascii_lowercase
@@ -85,80 +126,18 @@ class TestDasdValidDeviceId(CiTestCase):
             dasd.DasdDevice(invalid_dev)
 
 
-class TestDasdDeviceIdToKname(CiTestCase):
-
-    def setUp(self):
-        super(TestDasdDeviceIdToKname, self).setUp()
-        self.add_patch('curtin.block.dasd.os.path.isdir', 'm_isdir')
-        self.add_patch('curtin.block.dasd.os.listdir', 'm_listdir')
-        self.add_patch('curtin.block.dasd.DasdDevice.is_online', 'm_online')
-
-        self.dasd = dasd.DasdDevice(random_device_id())
-        self.m_online.return_value = True
-        self.m_isdir.return_value = True
-        self.m_listdir.return_value = [self.random_string()]
-
-    def test_device_id_to_kname_returns_kname(self):
-        """returns a dasd kname if device_id is valid and online """
-        result = self.dasd.kname
-        self.assertIsNotNone(result)
-        self.assertEqual(result, self.m_listdir.return_value[0])
-
-    def test_devid_to_kname_raises_runtimeerror_no_online(self):
-        """device_id_to_kname raises RuntimeError on offline devices."""
-        self.m_online.return_value = False
-        result = None
-        with self.assertRaises(RuntimeError):
-            result = self.dasd.kname
-        self.assertEqual(result, None)
-        self.assertEqual(1, self.m_online.call_count)
-        self.assertEqual(0, self.m_isdir.call_count)
-        self.assertEqual(0, self.m_listdir.call_count)
-
-    def test_devid_to_kname_raises_runtimeerror_no_blockpath(self):
-        """device_id_to_kname raises RuntimeError on invalid sysfs path."""
-        self.m_isdir.return_value = False
-        result = None
-        with self.assertRaises(RuntimeError):
-            result = self.dasd.kname
-        self.assertEqual(result, None)
-        self.assertEqual(1, self.m_online.call_count)
-        self.assertEqual(1, self.m_isdir.call_count)
-        self.m_isdir.assert_called_with(
-            '/sys/bus/ccw/devices/%s/block' % self.dasd.device_id)
-        self.assertEqual(0, self.m_listdir.call_count)
-
-    def test_devid_to_kname_raises_runtimeerror_empty_blockdir(self):
-        """device_id_to_kname raises RuntimeError on empty blockdir."""
-        self.m_listdir.return_value = []
-        result = None
-        with self.assertRaises(RuntimeError):
-            result = self.dasd.kname
-        self.assertEqual(result, None)
-        self.assertEqual(1, self.m_online.call_count)
-        self.assertEqual(1, self.m_isdir.call_count)
-        self.m_isdir.assert_called_with(
-            '/sys/bus/ccw/devices/%s/block' % self.dasd.device_id)
-        self.m_listdir.assert_called_with(
-            '/sys/bus/ccw/devices/%s/block' % self.dasd.device_id)
-        self.assertEqual(1, self.m_listdir.call_count)
-
-
 class TestDasdCcwDeviceAttr(CiTestCase):
 
     def setUp(self):
         super(TestDasdCcwDeviceAttr, self).setUp()
         self.add_patch('curtin.block.dasd.os.path.isfile', 'm_isfile')
         self.add_patch('curtin.block.dasd.util.load_file', 'm_loadfile')
-        dpath = 'curtin.block.dasd.DasdDevice'
-        self.add_patch(dpath + '.kname', 'm_kname')
+        self.add_patch('curtin.block.dasd.glob.glob', 'm_glob')
 
         # defaults
         self.m_isfile.return_value = True
         self.m_loadfile.return_value = self.random_string()
         self.dasd = dasd.DasdDevice(random_device_id())
-        self.kname = self.random_string()
-        self.m_kname.return_value = self.kname
 
     def _test_ccw_attr(self, my_attr=None, attr_val_in=None, attr_val=None):
         if not my_attr:
@@ -200,65 +179,37 @@ class TestDasdCcwDeviceAttr(CiTestCase):
         self.m_loadfile.return_value = self.random_string()
         self.assertFalse(self.dasd.is_not_formatted())
 
-    def test_is_online_returns_false_if_not_online(self):
-        self.m_loadfile.return_value = self.random_string()
-        self.assertFalse(self.dasd.is_online())
-
-    def test_status_returns_device_status_attr(self):
-        status_val = self.random_string()
-        self.m_loadfile.return_value = status_val
-        self.assertEqual(status_val, self.dasd.status())
-
     def test_blocksize(self):
         blocksize_val = '%d' % random.choice([512, 1024, 2048, 4096])
+        path = self.random_string()
+        self.m_glob.return_value = [path]
         self.m_loadfile.return_value = blocksize_val
         self.assertEqual(blocksize_val, self.dasd.blocksize())
+        self.m_loadfile.assert_called_once_with(path)
 
 
 class TestDiskLayout(CiTestCase):
 
-    layouts = {
-        'not-formatted': dasd.Dasdvalue(0x0, 0, 'not-formatted'),
-        'ldl': dasd.Dasdvalue(0x1, 1, 'ldl'),
-        'cdl': dasd.Dasdvalue(0x2, 2, 'cdl'),
-    }
-
     def setUp(self):
         super(TestDiskLayout, self).setUp()
-        self.add_patch('curtin.block.dasd.os.path.exists', 'm_exists')
-        self.add_patch('curtin.block.dasd.dasdview', 'm_dasdview')
+        self.add_patch('curtin.block.dasd.dasd_format', 'm_dasd_format')
         dpath = 'curtin.block.dasd.DasdDevice'
         self.add_patch(dpath + '.devname', 'm_devname')
 
-        # defaults
-        self.m_exists.return_value = True
-        self.m_dasdview.return_value = self._mkview()
         self.dasd = dasd.DasdDevice(random_device_id())
         self.devname = self.random_string()
         self.m_devname.return_value = self.devname
 
-    @classmethod
-    def _mkview(cls, layout=None):
-        if not layout:
-            layout = random.choice(list(cls.layouts.values()))
-        return {'extended': {'format': layout}}
-
-    # XXX: Parameterize me
-    def test_disk_layout_returns_dasd_extended_format_value(self):
+    def test_disk_layout_returns_dasd_format_result(self):
         """disk_layout returns dasd disk_layout format as string"""
-        for my_layout in self.layouts.values():
-            self.m_dasdview.return_value = self._mkview(layout=my_layout)
-            self.assertEqual(my_layout.txt, self.dasd.disk_layout())
+        expected = self.m_dasd_format.return_value = self.random_string()
+        self.assertEqual(expected, self.dasd.disk_layout())
 
-    # XXX: Parameterize me
-    def test_disk_layout_raises_valueerror_on_missing_format_section(self):
+    def test_disk_layout_raises_valueerror_on_missing_format(self):
         """disk_layout raises ValueError if view missing 'format' section."""
-        for my_layout in self.layouts.values():
-            view = self._mkview(layout=my_layout)
-            view['extended']['format'] = None
-            self.m_dasdview.return_value = view
-            with self.assertRaises(ValueError):
-                self.dasd.disk_layout()
+        self.m_dasd_format.return_value = None
+        with self.assertRaises(ValueError):
+            self.dasd.disk_layout()
 
 
 class TestLabel(CiTestCase):
@@ -292,8 +243,6 @@ class TestLabel(CiTestCase):
 
 class TestNeedsFormatting(CiTestCase):
 
-    blocksizes = [512, 1024, 2048, 4096]
-
     def setUp(self):
         super(TestNeedsFormatting, self).setUp()
         dpath = 'curtin.block.dasd.DasdDevice'
@@ -303,8 +252,10 @@ class TestNeedsFormatting(CiTestCase):
         self.add_patch(dpath + '.label', 'm_label')
 
         self.m_not_fmt.return_value = False
-        self.m_blocksize.return_value = 4096
-        self.m_disk_layout.return_value = TestDiskLayout.layouts['cdl'].txt
+        self.blocksize = 4096
+        self.m_blocksize.return_value = self.blocksize
+        self.disk_layout = self.random_string()
+        self.m_disk_layout.return_value = self.disk_layout
         self.label = self.random_string()
         self.m_label.return_value = self.label
 
@@ -313,26 +264,34 @@ class TestNeedsFormatting(CiTestCase):
     def test_needs_formatting_label_mismatch(self):
         my_label = self.random_string()
         self.assertNotEqual(self.label, my_label)
-        self.assertTrue(self.dasd.needs_formatting(4096, 'cdl', my_label))
+        self.assertTrue(
+            self.dasd.needs_formatting(
+                self.blocksize, self.disk_layout, my_label))
 
     def test_needs_formatting_layout_mismatch(self):
-        my_layout = TestDiskLayout.layouts['ldl'].txt
+        my_layout = self.random_string()
+        self.assertNotEqual(self.disk_layout, my_layout)
         self.assertTrue(
-            self.dasd.needs_formatting(4096, my_layout, self.label))
+            self.dasd.needs_formatting(
+                self.blocksize, my_layout, self.label))
 
     def test_needs_formatting_blocksize_mismatch(self):
-        my_blocksize = random.choice(self.blocksizes[0:3])
+        my_blocksize = random.randrange(self.blocksize)
+        self.assertNotEqual(self.blocksize, my_blocksize)
         self.assertTrue(
-            self.dasd.needs_formatting(my_blocksize, 'cdl', self.label))
+            self.dasd.needs_formatting(
+                my_blocksize, self.disk_layout, self.label))
 
     def test_needs_formatting_unformatted_disk(self):
         self.m_not_fmt.return_value = True
         self.assertTrue(
-            self.dasd.needs_formatting(4096, 'cdl', self.label))
+            self.dasd.needs_formatting(
+                self.blocksize, self.disk_layout, self.label))
 
     def test_needs_formatting_ignores_label_mismatch(self):
         self.assertFalse(
-            self.dasd.needs_formatting(4096, 'cdl', None))
+            self.dasd.needs_formatting(
+                self.blocksize, self.disk_layout, None))
 
 
 class TestFormat(CiTestCase):
@@ -350,10 +309,6 @@ class TestFormat(CiTestCase):
         self.dasd = dasd.DasdDevice(random_device_id())
         self.devname = self.random_string()
         self.m_devname.return_value = self.devname
-
-    def test_format_devname_ignores_path_missing_strict_false(self):
-        self.m_exists.return_value = False
-        self.dasd.format(strict=False)
 
     def test_format_defaults_match_docstring(self):
         self.dasd.format()
@@ -431,18 +386,6 @@ class TestDasdInfo(CiTestCase):
         ID_SERIAL=0x1520
         """)
 
-    info_no_serial = textwrap.dedent("""\
-        ID_BUS=ccw
-        ID_TYPE=disk
-        ID_UID=IBM.750000000DXP71.1500.20
-        ID_XUID=IBM.750000000DXP71.1500.20
-        """)
-
-    info_not_dasd = textwrap.dedent("""\
-        ID_BUS=ccw
-        ID_TYPE=disk
-        """)
-
     def setUp(self):
         super(TestDasdInfo, self).setUp()
         self.add_patch('curtin.block.dasd.util.subp', 'm_subp')
@@ -457,29 +400,8 @@ class TestDasdInfo(CiTestCase):
         expected = util.load_shell_content(self.info)
         self.assertDictEqual(expected, dasd.dasdinfo(device_id))
 
-    def test_info_returns_partial_dictionary(self):
-        """dasdinfo returns partial dictionary on error."""
-        device_id = random_device_id()
-        self.m_subp.side_effect = (
-            util.ProcessExecutionError(stdout=self.info_no_serial,
-                                       stderr=self.random_string(),
-                                       exit_code=random.randint(1, 255),
-                                       cmd=self.random_string()))
-        expected = util.load_shell_content(self.info_no_serial)
-        self.assertDictEqual(expected, dasd.dasdinfo(device_id))
-
-    def test_info_returns_rawoutput(self):
-        """dasdinfo returns stdout, stderr if rawoutput is True."""
-        device_id = random_device_id()
-        expected_stdout = self.random_string()
-        expected_stderr = self.random_string()
-        self.m_subp.return_value = (expected_stdout, expected_stderr)
-        (stdout, stderr) = dasd.dasdinfo(device_id, rawoutput=True)
-        self.assertEqual(expected_stdout, stdout)
-        self.assertEqual(expected_stderr, stderr)
-
-    def test_info_returns_rawoutput_on_partial_discovery(self):
-        """dasdinfo returns stdout, stderr on error if rawoutput is True."""
+    def test_info_raises_on_failure(self):
+        """dasdinfo raises if the process invocation fails."""
         device_id = random_device_id()
         expected_stdout = self.random_string()
         expected_stderr = self.random_string()
@@ -488,25 +410,43 @@ class TestDasdInfo(CiTestCase):
                                        stderr=expected_stderr,
                                        exit_code=random.randint(1, 255),
                                        cmd=self.random_string()))
-        (stdout, stderr) = dasd.dasdinfo(device_id, rawoutput=True)
-        self.assertEqual(expected_stdout, stdout)
-        self.assertEqual(expected_stderr, stderr)
-
-    def test_info_raise_error_if_strict(self):
-        """dasdinfo raises ProcessEdecutionError if strict is True."""
-        device_id = random_device_id()
-        self.m_subp.side_effect = (
-            util.ProcessExecutionError(stdout=self.random_string(),
-                                       stderr=self.random_string(),
-                                       exit_code=random.randint(1, 255),
-                                       cmd=self.random_string()))
         with self.assertRaises(util.ProcessExecutionError):
-            dasd.dasdinfo(device_id, strict=True)
+            dasd.dasdinfo(device_id)
 
 
-class TestDasdView(CiTestCase):
+class TestDasdFormat(CiTestCase):
 
-    view = textwrap.dedent("""\
+    def setUp(self):
+        super(TestDasdFormat, self).setUp()
+        self.add_patch('curtin.block.dasd.util.subp', 'm_subp')
+        self.add_patch('curtin.block.dasd.os.path.exists', 'm_exists')
+        self.add_patch('curtin.block.dasd._dasd_format', 'm_dasd_format')
+
+        # defaults
+        self.m_exists.return_value = True
+        self.m_subp.return_value = ('', '')
+
+    def test_dasd_format_raise_error_on_invalid_device(self):
+        """dasdview raises error on invalid device path."""
+        devname = self.random_string()
+        self.m_exists.return_value = False
+        with self.assertRaises(ValueError):
+            dasd.dasd_format(devname)
+
+    def test_dasd_foramt_calls__dasd_format(self):
+        """dasdview calls parser on output from dasdview command."""
+        devname = self.random_string()
+        view = self.random_string()
+        self.m_subp.return_value = (view, self.random_string())
+        dasd.dasd_format(devname)
+        self.m_subp.assert_called_with(
+            ['dasdview', '--extended', devname], capture=True)
+        self.m_dasd_format.assert_called_with(view)
+
+
+class Test_DasdFormat(CiTestCase):
+
+    view_output_template = textwrap.dedent("""\
 
     --- general DASD information ----------------------------------------------
     device node            : /dev/dasdd
@@ -535,7 +475,7 @@ class TestDasdView(CiTestCase):
     FBA_layout             : hex 0  	dec 0
     characteristics_size   : hex 40  	dec 64
     confdata_size          : hex 100  	dec 256
-    format                 : hex 2  	dec 2      	CDL formatted
+    format                 : hex 2  	dec 2      	{format}
     features               : hex 0  	dec 0      	default
 
     characteristics        : 3990e933 900c5e0c  39f72032 2721000f
@@ -560,72 +500,15 @@ class TestDasdView(CiTestCase):
                              81000003 2d001e00  15000247 000c0016
                              000cc018 935e41ee  00030000 0000a000""")
 
-    view_nondasd = textwrap.dedent("""\
-    Error: dasdview: Could not retrieve disk information!
-
-    """)
-
-    def setUp(self):
-        super(TestDasdView, self).setUp()
-        self.add_patch('curtin.block.dasd.util.subp', 'm_subp')
-        self.add_patch('curtin.block.dasd.os.path.exists', 'm_exists')
-        self.add_patch('curtin.block.dasd._parse_dasdview', 'm_parseview')
-
-        # defaults
-        self.m_exists.return_value = True
-        self.m_subp.return_value = ('', '')
-
-    def test_dasdview_raise_error_on_invalid_device(self):
-        """dasdview raises error on invalid device path."""
-        devname = self.random_string()
-        self.m_exists.return_value = False
-        with self.assertRaises(ValueError):
-            dasd.dasdview(devname)
-
-    def test_dasdview_calls_parse_dasdview(self):
-        """dasdview calls parser on output from dasdview command."""
-        devname = self.random_string()
-        self.m_subp.return_value = (self.view, self.random_string())
-        dasd.dasdview(devname)
-        self.m_subp.assert_called_with(
-            ['dasdview', '--extended', devname], capture=True)
-        self.m_parseview.assert_called_with(self.view)
-
-    def test_dasdview_returns_stdout_stderr_on_rawoutput(self):
-        """dasdview returns stdout, stderr if rawoutput is True."""
-        devname = self.random_string()
-        stdout = ''
-        stderr = self.view_nondasd
-        self.m_subp.return_value = (stdout, stderr)
-        (out, err) = dasd.dasdview(devname, rawoutput=True)
-        self.m_subp.assert_called_with(
-            ['dasdview', '--extended', devname], capture=True)
-        self.assertEqual(0, self.m_parseview.call_count)
-        self.assertEqual(stdout, out)
-        self.assertEqual(stderr, err)
-
-
-class TestParseDasdView(CiTestCase):
-
-    def test_parse_dasdview_no_input(self):
-        """_parse_dasdview raises ValueError on invalid status input."""
-        for view_output in [None, 123, {}, (), []]:
-            with self.assertRaises(ValueError):
-                dasd._parse_dasdview(view_output)
-
-    def test_parse_dasdview_invalid_strings_short(self):
-        """_parse_dasdview raises ValueError on invalid long input."""
-        with self.assertRaises(ValueError):
-            dasd._parse_dasdview("\n".join([self.random_string()] * 20))
-
-    def test_parse_dasdview_returns_dictionary(self):
+    def test__dasd_format_returns_format(self):
         """_parse_dasdview returns dict w/ required keys parsing valid view."""
-        result = dasd._parse_dasdview(TestDasdView.view)
-        self.assertEqual(dict, type(result))
-        self.assertNotEqual({}, result)
-        self.assertEqual(3, len(result.keys()))
-        for key in result.keys():
-            self.assertEqual(dict, type(result[key]))
-            self.assertNotEqual(0, len(list(result[key].keys())))
+        for (format, expected) in [
+                ('CDL formatted', 'cdl'),
+                ('LDL formatted', 'ldl'),
+                ('not formatted', 'not-formatted'),
+                ]:
+            result = dasd._dasd_format(
+                self.view_output_template.format(format=format))
+            self.assertEqual(result, expected)
 
 # vi: ts=4 expandtab syntax=python

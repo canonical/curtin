@@ -162,6 +162,10 @@ class FocalTestMultipathBasic(relbase.focal, TestMultipathBasicAbs):
     __test__ = True
 
 
+class HirsuteTestMultipathBasic(relbase.hirsute, TestMultipathBasicAbs):
+    __test__ = True
+
+
 class GroovyTestMultipathBasic(relbase.groovy, TestMultipathBasicAbs):
     __test__ = True
 

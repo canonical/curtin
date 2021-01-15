@@ -33,6 +33,11 @@ class FocalTestNetworkStaticRoutes(relbase.focal,
     __test__ = True
 
 
+class HirsuteTestNetworkStaticRoutes(relbase.hirsute,
+                                     TestNetworkStaticRoutesAbs):
+    __test__ = True
+
+
 class GroovyTestNetworkStaticRoutes(relbase.groovy,
                                     TestNetworkStaticRoutesAbs):
     __test__ = True

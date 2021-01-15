@@ -1,0 +1,70 @@
+showtrace: true
+
+bucket:
+  - &setup |
+    parted /dev/disk/by-id/virtio-disk-b --script -- \
+        mklabel gpt              \
+        mkpart primary 1GiB 9GiB
+    parted /dev/disk/by-id/virtio-disk-c --script -- \
+        mklabel gpt              \
+        mkpart primary 1GiB 9GiB
+    udevadm settle
+    mdadm --create --metadata 1.2 --level 1 -n 2 /dev/md1 --assume-clean \
+        /dev/disk/by-id/virtio-disk-b-part1 /dev/disk/by-id/virtio-disk-c-part1
+    udevadm settle
+    mdadm --stop /dev/md1
+    udevadm settle
+
+# Create a RAID now to test curtin's reuse of existing RAIDs.
+early_commands:
+  00-setup-raid: [sh, -exuc, *setup]
+
+storage:
+  config:
+  - type: disk
+    id: disk-a
+    serial: disk-a
+    ptable: gpt
+    wipe: superblock
+  - type: disk
+    id: disk-b
+    serial: disk-b
+    wipe: superblock
+  - type: disk
+    id: disk-c
+    serial: disk-c
+    wipe: superblock
+
+  - type: partition
+    id: disk-a-p1
+    device: disk-a
+    flag: boot
+    number: 1
+    size: 512M
+
+  - type: raid
+    id: md1
+    name: md1
+    devices:
+      - disk-b
+      - disk-c
+    raidlevel: raid1
+
+  - type: format
+    id: id_efi_format
+    volume: disk-a-p1
+    fstype: fat32
+  - type: format
+    id: id_root_format
+    volume: md1
+    fstype: ext4
+
+  - type: mount
+    device: id_root_format
+    id: id_root_mount
+    path: /
+  - type: mount
+    id: id_efi_mount
+    device: id_efi_format
+    path: /boot/efi
+  version: 1

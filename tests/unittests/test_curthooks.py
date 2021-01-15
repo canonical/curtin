@@ -504,6 +504,22 @@ class TestInstallMissingPkgs(CiTestCase):
         self.mock_install_packages.assert_called_with(
                 expected_pkgs, target=target, osfamily=distro.DISTROS.redhat)
 
+    @patch.object(events, 'ReportEventStack')
+    def test_install_packages_on_uefi_arm64_centos(self, mock_events):
+        arch = 'arm64'
+        self.mock_arch.return_value = arch
+        self.mock_machine.return_value = 'arm64'
+        expected_pkgs = ['efibootmgr', 'grub2-efi-aa64',
+                         'grub2-efi-aa64-modules', 'shim-aa64']
+        self.mock_uefi.return_value = True
+        self.mock_haspkg.return_value = True
+        target = "not-a-real-target"
+        cfg = {}
+        curthooks.install_missing_packages(
+            cfg, target=target, osfamily=distro.DISTROS.redhat)
+        self.mock_install_packages.assert_called_with(
+                expected_pkgs, target=target, osfamily=distro.DISTROS.redhat)
+
 
 class TestSetupZipl(CiTestCase):
 

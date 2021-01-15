@@ -38,6 +38,10 @@ class FocalTestNetworkOvs(relbase.focal, TestNetworkOvsAbs):
     __test__ = True
 
 
+class HirsuteTestNetworkOvs(relbase.hirsute, TestNetworkOvsAbs):
+    __test__ = True
+
+
 class GroovyTestNetworkOvs(relbase.groovy, TestNetworkOvsAbs):
     __test__ = True
 

@@ -783,7 +783,6 @@ class TestDasdParser(CiTestCase):
 
     def test_dasd_asdict(self):
         """ DasdParser converts known dasd_data to expected dict. """
-        devname = "/dev/dasda"
         expected_dict = {
             'type': 'dasd',
             'id': 'dasd-dasda',
@@ -792,14 +791,49 @@ class TestDasdParser(CiTestCase):
             'mode': 'quick',
             'disk_layout': 'cdl',
         }
-        dasd_data = self.dasd.class_data[devname]
+        dasd_data = self.dasd.class_data["/dev/dasda"]
         self.assertDictEqual(expected_dict, self.dasd.asdict(dasd_data))
+
+    def test_dasd_includes_ECKD(self):
+        """ DasdParser converts known dasd_data to expected dict. """
+        expected_dict = {
+            'type': 'dasd',
+            'id': 'dasd-dasda',
+            'device_id': '0.0.1522',
+            'blocksize': 4096,
+            'mode': 'quick',
+            'disk_layout': 'cdl',
+        }
+        dasd_data = self.dasd.class_data["/dev/dasda"]
+        dasd_data['type'] = "ECKD"
+        self.assertDictEqual(expected_dict, self.dasd.asdict(dasd_data))
+
+    def test_dasd_skips_FBA(self):
+        """ DasdParser skips FBA dasds. """
+        dasd_data = self.dasd.class_data["/dev/dasda"]
+        dasd_data['type'] = "FBA"
+        self.assertIsNone(self.dasd.asdict(dasd_data))
+
+    def test_dasd_skips_virt(self):
+        """ DasdParser skips virt dasds. """
+        dasd_data = self.dasd.class_data["/dev/dasda"]
+        dasd_data['type'] = "virt"
+        self.assertIsNone(self.dasd.asdict(dasd_data))
 
     @skipUnlessJsonSchema()
     def test_dasd_parser_parses_all_dasd_devs(self):
         """ DasdParser returns expected dicts for known dasd probe data."""
         configs, errors = self.dasd.parse()
         self.assertEqual(5, len(configs))
+        self.assertEqual(0, len(errors))
+
+    @skipUnlessJsonSchema()
+    def test_dasd_parser_skips_virt_FBA(self):
+        """ DasdParser returns expected dicts for known dasd probe data."""
+        self.dasd.class_data["/dev/dasda"]['type'] = "FBA"
+        self.dasd.class_data["/dev/dasdb"]['type'] = "virt"
+        configs, errors = self.dasd.parse()
+        self.assertEqual(3, len(configs))
         self.assertEqual(0, len(errors))
 
 

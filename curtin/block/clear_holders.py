@@ -166,10 +166,16 @@ def shutdown_mdadm(device):
 
     blockdev = block.sysfs_to_devpath(device)
 
-    LOG.info('Discovering raid devices and spares for %s', device)
-    md_devs = (
-        mdadm.md_get_devices_list(blockdev) +
-        mdadm.md_get_spares_list(blockdev))
+    if mdadm.md_is_in_container(blockdev):
+        LOG.info('Array is in a container, skip discovering ' +
+                 'raid devices and spares for %s', device)
+        md_devs = []
+    else:
+        LOG.info('Discovering raid devices and spares for %s', device)
+        md_devs = (
+            mdadm.md_get_devices_list(blockdev) +
+            mdadm.md_get_spares_list(blockdev))
+
     mdadm.set_sync_action(blockdev, action="idle")
     mdadm.set_sync_action(blockdev, action="frozen")
 
@@ -390,11 +396,11 @@ def identify_partition(device):
     """
     determine if specified device is a partition
     """
-    blockdev = block.sys_block_path(device)
-    path = os.path.join(blockdev, 'partition')
+    path = os.path.join(device, 'partition')
     if os.path.exists(path):
         return True
 
+    blockdev = block.sysfs_to_devpath(device)
     if multipath.is_mpath_partition(blockdev):
         return True
 
