@@ -38,6 +38,6 @@ FEATURES = [
     'UEFI_REORDER_FALLBACK_SUPPORT',
 ]
 
-__version__ = "20.2"
+__version__ = "21.1"
 
 # vi: ts=4 expandtab syntax=python
