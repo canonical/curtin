@@ -1,4 +1,4 @@
-curtin (21.1-0ubuntu1~20.04.1) UNRELEASED; urgency=medium
+curtin (21.1-0ubuntu1~20.04.1) focal; urgency=medium
 
   * New upstream release. (LP: #1911841)
     - Release 21.1 [Michael Hudson-Doyle]
