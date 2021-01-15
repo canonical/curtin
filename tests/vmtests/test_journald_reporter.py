@@ -36,6 +36,10 @@ class FocalTestJournaldReporter(relbase.focal, TestJournaldReporter):
     __test__ = True
 
 
+class HirsuteTestJournaldReporter(relbase.hirsute, TestJournaldReporter):
+    __test__ = True
+
+
 class GroovyTestJournaldReporter(relbase.groovy, TestJournaldReporter):
     __test__ = True
 

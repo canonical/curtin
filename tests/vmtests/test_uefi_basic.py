@@ -114,6 +114,10 @@ class FocalUefiTestBasic(relbase.focal, TestBasicAbs):
     __test__ = True
 
 
+class HirsuteUefiTestBasic(relbase.hirsute, TestBasicAbs):
+    __test__ = True
+
+
 class GroovyUefiTestBasic(relbase.groovy, TestBasicAbs):
     __test__ = True
 
@@ -134,6 +138,11 @@ class BionicUefiTestBasic4k(relbase.bionic, TestBasicAbs):
 
 
 class FocalUefiTestBasic4k(relbase.focal, TestBasicAbs):
+    __test__ = True
+    disk_block_size = 4096
+
+
+class HirsuteUefiTestBasic4k(relbase.hirsute, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
 

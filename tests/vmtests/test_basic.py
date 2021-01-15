@@ -259,6 +259,10 @@ class FocalTestBasic(relbase.focal, TestBasicAbs):
     __test__ = True
 
 
+class HirsuteTestBasic(relbase.hirsute, TestBasicAbs):
+    __test__ = True
+
+
 class GroovyTestBasic(relbase.groovy, TestBasicAbs):
     __test__ = True
 
@@ -376,6 +380,10 @@ class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
 
 
 class FocalTestScsiBasic(relbase.focal, TestBasicScsiAbs):
+    __test__ = True
+
+
+class HirsuteTestScsiBasic(relbase.hirsute, TestBasicScsiAbs):
     __test__ = True
 
 

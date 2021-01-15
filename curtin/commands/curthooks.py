@@ -1266,15 +1266,22 @@ def install_missing_packages(cfg, target, osfamily=DISTROS.debian):
     if util.is_uefi_bootable():
         uefi_pkgs = ['efibootmgr']
         if osfamily == DISTROS.redhat:
-            # centos/redhat doesn't support 32-bit?
-            if 'grub2-efi-x64-modules' not in installed_packages:
-                # Previously Curtin only supported unsigned GRUB due to an
-                # upstream bug. By default lp:maas-image-builder and
-                # packer-maas have grub preinstalled. If grub2-efi-x64-modules
-                # is already in the image use unsigned grub so the install
-                # doesn't require Internet access. If grub is missing use the
-                # signed version.
-                uefi_pkgs.extend(['grub2-efi-x64', 'shim-x64'])
+            arch = distro.get_architecture()
+            if arch == 'amd64':
+                # centos/redhat doesn't support 32-bit?
+                if 'grub2-efi-x64-modules' not in installed_packages:
+                    # Previously Curtin only supported unsigned GRUB due to an
+                    # upstream bug. By default lp:maas-image-builder and
+                    # packer-maas have grub preinstalled. If
+                    # grub2-efi-x64-modules is already in the image use
+                    # unsigned grub so the install doesn't require Internet
+                    # access. If grub is missing use to signed version.
+                    uefi_pkgs.extend(['grub2-efi-x64', 'shim-x64'])
+            if arch == 'arm64':
+                if 'grub2-efi-aa64-modules' not in installed_packages:
+                    # Packages required for arm64 grub installer
+                    uefi_pkgs.extend(['grub2-efi-aa64-modules',
+                                      'grub2-efi-aa64', 'shim-aa64'])
         elif osfamily == DISTROS.debian:
             arch = distro.get_architecture()
             if arch == 'i386':

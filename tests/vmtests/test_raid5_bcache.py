@@ -91,9 +91,9 @@ class BionicTestRaid5Bcache(relbase.bionic, TestMdadmBcacheAbs):
 class FocalTestRaid5Bcache(relbase.focal, TestMdadmBcacheAbs):
     __test__ = True
 
-    @TestMdadmBcacheAbs.skip_by_date("1861941", fixby="2020-09-15")
-    def test_fstab(self):
-        return super().test_fstab()
+
+class HirsuteTestRaid5Bcache(relbase.hirsute, TestMdadmBcacheAbs):
+    __test__ = True
 
 
 class GroovyTestRaid5Bcache(relbase.groovy, TestMdadmBcacheAbs):

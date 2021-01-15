@@ -316,12 +316,14 @@ RAID = {
         'preserve': {'$ref': '#/definitions/preserve'},
         'ptable': {'$ref': '#/definitions/ptable'},
         'spare_devices': {'$ref': '#/definitions/devices'},
+        'container': {'$ref': '#/definitions/id'},
         'type': {'const': 'raid'},
         'raidlevel': {
             'type': ['integer', 'string'],
             'oneOf': [
                 {'enum': [0, 1, 4, 5, 6, 10]},
-                {'enum': ['raid0', 'linear', '0',
+                {'enum': ['container',
+                          'raid0', 'linear', '0',
                           'raid1', 'mirror', 'stripe', '1',
                           'raid4', '4',
                           'raid5', '5',

@@ -478,6 +478,10 @@ class FocalTestNetworkBasic(relbase.focal, TestNetworkBasicAbs):
     __test__ = True
 
 
+class HirsuteTestNetworkBasic(relbase.hirsute, TestNetworkBasicAbs):
+    __test__ = True
+
+
 class GroovyTestNetworkBasic(relbase.groovy, TestNetworkBasicAbs):
     __test__ = True
 

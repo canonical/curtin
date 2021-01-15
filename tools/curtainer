@@ -204,13 +204,13 @@ main() {
             # https://launchpad.net/~curtin-dev/+archive/ubuntu/daily
             local url="http://ppa.launchpad.net/curtin-dev/daily/ubuntu"
             local lfile="/etc/apt/sources.list.d/curtin-daily-ppa.list"
-            local kfile="/etc/apt/trusted.gpg.d/curtin-daily-ppa.asc"
+            local kfile="/etc/apt/trusted.gpg.d/curtin-daily-ppa.gpg"
             local key="0x1bc30f715a3b861247a81a5e55fe7c8c0165013e"
             local keyserver="keyserver.ubuntu.com"
             local keyurl="https://${keyserver}/pks/lookup?op=get&search=${key}"
             inside "$name" sh -c "
                 echo deb $url $release main > $lfile &&
-                wget -q \"$keyurl\" -O $kfile" ||
+                wget -q \"$keyurl\" -O - | gpg --dearmour --output $kfile" ||
                 fail "failed to add $daily_ppa repository manually"
             if [ "$getsource" != "none" ]; then
                 inside "$name" sh -c "

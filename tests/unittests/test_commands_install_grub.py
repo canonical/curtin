@@ -44,6 +44,22 @@ class TestGetGrubPackageName(CiTestCase):
             ('grub2-efi-x64', 'x86_64-efi'),
             install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
 
+    def test_uefi_rhel7_arm64(self):
+        target_arch = 'aarch64'
+        uefi = True
+        rhel_ver = '7'
+        self.assertEqual(
+            ('grub2-efi-aa64', 'arm64-efi'),
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+
+    def test_uefi_rhel8_arm64(self):
+        target_arch = 'aarch64'
+        uefi = True
+        rhel_ver = '8'
+        self.assertEqual(
+            ('grub2-efi-aa64', 'arm64-efi'),
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+
     def test_uefi_debian_arm64(self):
         target_arch = 'arm64'
         uefi = True
@@ -120,7 +136,7 @@ class TestGetGrubConfigFile(CiTestCase):
 
     @mock.patch('curtin.commands.install_grub.distro.os_release')
     def test_grub_config_redhat(self, mock_os_release):
-        mock_os_release.return_value = {'ID': 'redhat'}
+        mock_os_release.return_value = {'ID': 'rhel'}
         distroinfo = install_grub.distro.get_distroinfo()
         self.assertEqual(
             '/etc/default/grub',
@@ -241,7 +257,7 @@ class TestGetCarryoverParams(CiTestCase):
                          install_grub.get_carryover_params(distroinfo))
 
     def test_always_set_rh_params(self):
-        self.m_os_release.return_value = {'ID': 'redhat'}
+        self.m_os_release.return_value = {'ID': 'rhel'}
         distroinfo = install_grub.distro.get_distroinfo()
         cmdline = "root=ZFS=rpool/ROOT/ubuntu_bo2om9 ro quiet splash"
         self.m_load_file.return_value = cmdline
@@ -583,7 +599,7 @@ class TestGetGrubInstallCommand(CiTestCase):
 
     def test_grub_install_command_redhat_no_uefi(self):
         uefi = False
-        self.m_os_release.return_value = {'ID': 'redhat'}
+        self.m_os_release.return_value = {'ID': 'rhel'}
         distroinfo = install_grub.distro.get_distroinfo()
         self.assertEqual(
             'grub2-install',
@@ -700,7 +716,7 @@ class TestGenUefiInstallCommands(CiTestCase):
                 devices, self.target))
 
     def test_redhat_install(self):
-        self.m_os_release.return_value = {'ID': 'redhat'}
+        self.m_os_release.return_value = {'ID': 'rhel'}
         distroinfo = install_grub.distro.get_distroinfo()
         grub_name = 'grub2-efi-x64'
         grub_target = 'x86_64-efi'
@@ -715,7 +731,7 @@ class TestGenUefiInstallCommands(CiTestCase):
             ['efibootmgr', '-v'],
             [grub_cmd, '--target=%s' % grub_target,
              '--efi-directory=/boot/efi',
-             '--bootloader-id=%s' % distroinfo.variant, '--recheck'],
+             '--bootloader-id=redhat', '--recheck'],
         ]
         expected_post = [
             ['grub2-mkconfig', '-o', '/boot/grub2/grub.cfg'],
@@ -743,10 +759,9 @@ class TestGenUefiInstallCommands(CiTestCase):
                 with open(loader, 'w+') as fh:
                     fh.write('\n')
 
-        self.m_os_release.return_value = {'ID': 'redhat'}
+        self.m_os_release.return_value = {'ID': 'rhel'}
         distroinfo = install_grub.distro.get_distroinfo()
-        bootid = distroinfo.variant
-        _enable_loaders(bootid)
+        _enable_loaders("redhat")
         grub_name = 'grub2-efi-x64'
         grub_target = 'x86_64-efi'
         grub_cmd = 'grub2-install'
@@ -756,12 +771,53 @@ class TestGenUefiInstallCommands(CiTestCase):
         part = '1'
         self.m_get_disk_part.return_value = (disk, part)
 
-        expected_loader = '/boot/efi/EFI/%s/shimx64.efi' % bootid
+        expected_loader = '/boot/efi/EFI/redhat/shimx64.efi'
         expected_install = [
             ['efibootmgr', '-v'],
             ['efibootmgr', '--create', '--write-signature',
-             '--label', bootid, '--disk', disk, '--part', part,
+             '--label', 'redhat', '--disk', disk, '--part', part,
              '--loader', expected_loader],
+        ]
+        expected_post = [
+            ['grub2-mkconfig', '-o', '/boot/efi/EFI/redhat/grub.cfg'],
+            ['efibootmgr', '-v']
+        ]
+
+        self.assertEqual(
+            (expected_install, expected_post),
+            install_grub.gen_uefi_install_commands(
+                grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
+                devices, self.target))
+
+    def test_redhat_install_existing_no_nvram(self):
+        # verify grub install command is not executed if update_nvram is False
+        # on redhat.
+        def _enable_loaders(bootid):
+            efi_path = 'boot/efi/EFI'
+            target_efi_path = os.path.join(self.target, efi_path)
+            loaders = [
+                os.path.join(target_efi_path, bootid, 'shimx64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+            ]
+            for loader in loaders:
+                util.write_file(loader, content="")
+
+        self.m_os_release.return_value = {'ID': 'redhat'}
+        distroinfo = install_grub.distro.get_distroinfo()
+        bootid = distroinfo.variant
+        _enable_loaders(bootid)
+        grub_name = 'grub2-efi-x64'
+        grub_target = 'x86_64-efi'
+        grub_cmd = 'grub2-install'
+        update_nvram = False
+        devices = ['/dev/disk-a-part1']
+        disk = '/dev/disk-a'
+        part = '1'
+        self.m_get_disk_part.return_value = (disk, part)
+
+        expected_install = [
+            ['efibootmgr', '-v'],
         ]
         expected_post = [
             ['grub2-mkconfig', '-o', '/boot/efi/EFI/%s/grub.cfg' % bootid],

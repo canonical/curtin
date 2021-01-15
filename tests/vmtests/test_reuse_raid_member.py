@@ -32,6 +32,10 @@ class FocalTestReuseRAIDMember(relbase.focal, TestReuseRAIDMember):
     __test__ = True
 
 
+class HirsuteTestReuseRAIDMember(relbase.hirsute, TestReuseRAIDMember):
+    __test__ = True
+
+
 class GroovyTestReuseRAIDMember(relbase.groovy, TestReuseRAIDMember):
     __test__ = True
 
@@ -43,6 +47,11 @@ class BionicTestReuseRAIDMemberPartition(relbase.bionic,
 
 class FocalTestReuseRAIDMemberPartition(relbase.focal,
                                         TestReuseRAIDMemberPartition):
+    __test__ = True
+
+
+class HirsuteTestReuseRAIDMemberPartition(relbase.hirsute,
+                                          TestReuseRAIDMemberPartition):
     __test__ = True
 
 

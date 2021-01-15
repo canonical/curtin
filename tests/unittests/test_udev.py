@@ -104,3 +104,15 @@ class TestUdevInfo(CiTestCase):
         m_subp.side_effect = util.ProcessExecutionError()
         with self.assertRaises(util.ProcessExecutionError):
             udevadm_info(mypath)
+
+    @mock.patch('curtin.util.subp')
+    def test_udevadm_info_multiple_equals(self, m_subp):
+        """ udevadm_info handles parsing values with multiple '=' chars. """
+        mypath = '/dev/nvme0n1'
+        m_subp.return_value = (
+            "SCSI_IDENT_TARGET_VENDOR='clusterid=92901'", "")
+        info = udevadm_info(mypath)
+        m_subp.assert_called_with(
+            ['udevadm', 'info', '--query=property', '--export', mypath],
+            capture=True)
+        self.assertEqual({'SCSI_IDENT_TARGET_VENDOR': 'clusterid=92901'}, info)
