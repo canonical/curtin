@@ -1,4 +1,4 @@
-curtin (21.1-0ubuntu1) UNRELEASED; urgency=medium
+curtin (21.1-0ubuntu1) hirsute; urgency=medium
 
   * New upstream release.
     - Release 21.1 [Michael Hudson-Doyle] (LP: #1911841)
@@ -48,7 +48,7 @@ curtin (21.1-0ubuntu1) UNRELEASED; urgency=medium
       [Gyorgy Szombathelyi] (LP: #1893661)
     - Drop tools/new-upstream-snapshot [Paride Legovini]
 
- -- Michael Hudson-Doyle <michael.hudson@ubuntu.com>  Fri, 15 Jan 2021 17:06:35 +1300
+ -- Michael Hudson-Doyle <michael.hudson@ubuntu.com>  Fri, 15 Jan 2021 17:07:35 +1300
 
 curtin (20.2-0ubuntu1) groovy; urgency=medium
 
