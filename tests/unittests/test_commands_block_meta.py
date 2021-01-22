@@ -2308,41 +2308,54 @@ class TestCalcPartitionInfo(CiTestCase):
         super(TestCalcPartitionInfo, self).setUp()
         self.add_patch('curtin.commands.block_meta.util.load_file',
                        'm_load_file')
+        self.add_patch('curtin.commands.block_meta.block.sys_block_path',
+                       'm_block_path')
 
-    def _prepare_load_file_mocks(self, start, size, logsize):
-        partition_size = str(int(size / logsize))
-        partition_start = str(int(start / logsize))
-        self.m_load_file.side_effect = iter([partition_size, partition_start])
+    def _prepare_mocks(self, start, size):
+        prefix = self.random_string()
+        self.m_block_path.return_value = prefix
+        partition_size = str(int(size / 512))
+        partition_start = str(int(start / 512))
+        self.m_load_file.side_effect = {
+            prefix + '/size': partition_size,
+            prefix + '/start': partition_start,
+            }.__getitem__
 
     def test_calc_partition_info(self):
-        disk = self.random_string()
         partition = self.random_string()
-        part_path = os.path.join(disk, partition)
         part_size = 10 * 1024 * 1024
         part_start = 1 * 1024 * 1024
         blk_size = 512
-        self._prepare_load_file_mocks(part_start, part_size, blk_size)
+        self._prepare_mocks(part_start, part_size)
 
         (start, size) = block_meta.calc_partition_info(
-            disk, partition, blk_size)
+             partition, blk_size)
 
         self.assertEqual(part_start / blk_size, start)
         self.assertEqual(part_size / blk_size, size)
-        self.assertEqual(
-            [call(part_path + '/size'), call(part_path + '/start')],
-            self.m_load_file.call_args_list)
+
+    def test_calc_partition_info_4k(self):
+        partition = self.random_string()
+        part_size = 10 * 1024 * 1024
+        part_start = 1 * 1024 * 1024
+        blk_size = 4096
+        self._prepare_mocks(part_start, part_size)
+
+        (start, size) = block_meta.calc_partition_info(
+             partition, blk_size)
+
+        self.assertEqual(part_start / blk_size, start)
+        self.assertEqual(part_size / blk_size, size)
 
     @patch('curtin.commands.block_meta.calc_dm_partition_info')
     def test_calc_partition_info_dm_part(self, m_calc_dm):
-        disk = self.random_string()
         partition = 'dm-237'
         part_size = 10 * 1024 * 1024
         part_start = 1 * 1024 * 1024
         blk_size = 512
-        m_calc_dm.return_value = (part_start / blk_size, part_size / blk_size)
+        m_calc_dm.return_value = (part_start / 512, part_size / 512)
 
-        (start, size) = block_meta.calc_partition_info(
-            disk, partition, blk_size)
+        (start, size) = block_meta.calc_partition_info(partition, blk_size)
 
         self.assertEqual(part_start / blk_size, start)
         self.assertEqual(part_size / blk_size, size)
@@ -2350,15 +2363,17 @@ class TestCalcPartitionInfo(CiTestCase):
         self.assertEqual([], self.m_load_file.call_args_list)
 
     @patch('curtin.commands.block_meta.calc_dm_partition_info')
-    def test_calc_partition_info_none_start_sec_raise_exc(self, m_calc_dm):
-        disk = self.random_string()
+    def test_calc_partition_info_dm_part_4k(self, m_calc_dm):
         partition = 'dm-237'
-        blk_size = 512
-        m_calc_dm.return_value = (None, None)
+        part_size = 10 * 1024 * 1024
+        part_start = 1 * 1024 * 1024
+        blk_size = 4096
+        m_calc_dm.return_value = (part_start / 512, part_size / 512)
 
-        with self.assertRaises(RuntimeError):
-            block_meta.calc_partition_info(disk, partition, blk_size)
+        (start, size) = block_meta.calc_partition_info(partition, blk_size)
 
+        self.assertEqual(part_start / blk_size, start)
+        self.assertEqual(part_size / blk_size, size)
         self.assertEqual([call(partition)], m_calc_dm.call_args_list)
         self.assertEqual([], self.m_load_file.call_args_list)
 
@@ -2380,9 +2395,8 @@ class TestCalcDMPartitionInfo(CiTestCase):
 
     def test_calc_dm_partition_info_return_none_with_no_dmsetup_output(self):
         self.m_subp.return_value = ("", "")
-        self.assertEqual(
-            (None, None),
-            block_meta.calc_dm_partition_info(self.random_string()))
+        with self.assertRaises(RuntimeError):
+            block_meta.calc_dm_partition_info(self.random_string())
 
     def test_calc_dm_partition_info_calls_dmsetup_table(self):
         partition = 'dm-245'

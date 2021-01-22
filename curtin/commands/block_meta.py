@@ -663,18 +663,17 @@ def find_extended_partition(part_device, storage_config):
             return item_id
 
 
-def calc_dm_partition_info(partition):
-    # dm- partitions are not in the same dir as disk dm device,
-    # dmsetup table <dm_name>
-    # handle linear types only
-    #    mpatha-part1: 0 6291456 linear 253:0, 2048
-    #    <dm_name>: <log. start sec> <num sec> <type> <dest dev>  <start sec>
+def calc_dm_partition_info(partition_kname):
+    # finding the start of a dm partition appears to only be possible
+    # via parsing dmsetup output. the size is present in sysfs but
+    # given that it is included in the dmsetup output anyway, we take
+    # it from there too.
     #
-    # Mapping this:
-    #   previous_size_sectors = <num_sec> | /sys/class/block/dm-1/size
-    #   previous_start_sectors = <start_sec> |  No 'start' sysfs file
-    pp_size_sec = pp_start_sec = None
-    mpath_id = multipath.get_mpath_id_from_device(block.dev_path(partition))
+    # dmsetup table <dm_name>
+    #    mpatha-part1: 0 6291456 linear 253:0 2048
+    #    <dm_name>: <log. start sec> <num sec> <type> <dest dev>  <start sec>
+    mpath_id = multipath.get_mpath_id_from_device(
+        block.dev_path(partition_kname))
     if mpath_id is None:
         raise RuntimeError('Failed to find mpath_id for partition')
     table_cmd = ['dmsetup', 'table', '--target', 'linear', mpath_id]
@@ -682,32 +681,31 @@ def calc_dm_partition_info(partition):
     if out:
         (_logical_start, previous_size_sectors, _table_type,
          _destination, previous_start_sectors) = out.split()
-        pp_size_sec = int(previous_size_sectors)
-        pp_start_sec = int(previous_start_sectors)
-
-    return (pp_start_sec, pp_size_sec)
-
-
-def calc_partition_info(disk, partition, logical_block_size_bytes):
-    if partition.startswith('dm-'):
-        pp = partition
-        pp_start_sec, pp_size_sec = calc_dm_partition_info(partition)
+        return int(previous_start_sectors), int(previous_size_sectors)
     else:
-        pp = os.path.join(disk, partition)
-        # XXX: sys/block/X/{size,start} is *ALWAYS* in 512b value
-        pp_size = int(
-            util.load_file(os.path.join(pp, "size")))
-        pp_size_sec = int(pp_size * 512 / logical_block_size_bytes)
-        pp_start = int(util.load_file(os.path.join(pp, "start")))
-        pp_start_sec = int(pp_start * 512 / logical_block_size_bytes)
+        raise RuntimeError('Failed to find mpath_id for partition')
 
-    LOG.debug("previous partition: %s size_sectors=%s start_sectors=%s",
-              pp, pp_size_sec, pp_start_sec)
-    if not all([pp_size_sec, pp_start_sec]):
+
+def calc_partition_info(partition_kname, logical_block_size_bytes):
+    if partition_kname.startswith('dm-'):
+        p_start, p_size = calc_dm_partition_info(partition_kname)
+    else:
+        pdir = block.sys_block_path(partition_kname)
+        p_size = int(util.load_file(os.path.join(pdir, "size")))
+        p_start = int(util.load_file(os.path.join(pdir, "start")))
+
+    # NB: sys/block/X/{size,start} and dmsetup output are both always
+    # in 512b sectors
+    p_size_sec = p_size * 512 // logical_block_size_bytes
+    p_start_sec = p_start * 512 // logical_block_size_bytes
+
+    LOG.debug("calc_partition_info: %s size_sectors=%s start_sectors=%s",
+              partition_kname, p_size_sec, p_start_sec)
+    if not all([p_size_sec, p_start_sec]):
         raise RuntimeError(
-            'Failed to determine previous partition %s info', partition)
+            'Failed to determine partition %s info', partition_kname)
 
-    return (pp_start_sec, pp_size_sec)
+    return (p_start_sec, p_size_sec)
 
 
 def verify_exists(devpath):
@@ -808,7 +806,6 @@ def partition_handler(info, storage_config):
     disk = get_path_to_storage_volume(device, storage_config)
     partnumber = determine_partition_number(info.get('id'), storage_config)
     disk_kname = block.path_to_kname(disk)
-    disk_sysfs_path = block.sys_block_path(disk)
 
     # consider the disks logical sector size when calculating sectors
     try:
@@ -843,8 +840,7 @@ def partition_handler(info, storage_config):
         partition_kname = block.partition_kname(disk_kname, pnum)
         LOG.debug('partition_kname=%s', partition_kname)
         (previous_start_sectors, previous_size_sectors) = (
-            calc_partition_info(disk_sysfs_path, partition_kname,
-                                logical_block_size_bytes))
+            calc_partition_info(partition_kname, logical_block_size_bytes))
 
     # Align to 1M at the beginning of the disk and at logical partitions
     alignment_offset = int((1 << 20) / logical_block_size_bytes)

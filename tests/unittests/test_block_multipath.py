@@ -170,24 +170,14 @@ class TestMultipath(CiTestCase):
 
     def test_find_mpath_id(self):
         """find_mpath_id returns mpath_id if device is part of mpath group."""
-        mp_id = 'mpatha'
-        maps = ['sysfs=bar multipath=mpatha',
-                'sysfs=wark multipath=mpatha']
-        self.m_subp.return_value = ("\n".join(maps), "")
-        self.assertEqual(mp_id, multipath.find_mpath_id('/dev/bar'))
-
-    def test_find_mpath_id_name(self):
-        """find_mpath_id_name returns the name if present in maps on match."""
-        maps = ['sysfs=bar multipath=mpatha name=friendly',
-                'sysfs=wark multipath=mpatha']
-        self.m_subp.return_value = ("\n".join(maps), "")
-        self.assertEqual('friendly', multipath.find_mpath_id('/dev/bar'))
+        self.m_udev.udevadm_info.return_value = {
+            'DM_NAME': 'mpatha-foo'
+            }
+        self.assertEqual('mpatha-foo', multipath.find_mpath_id('/dev/bar'))
 
     def test_find_mpath_id_none(self):
         """find_mpath_id_name returns none when device is not part of maps."""
-        maps = ['sysfs=bar multipath=mpatha',
-                'sysfs=wark multipath=mpatha']
-        self.m_subp.return_value = ("\n".join(maps), "")
+        self.m_udev.udevadm_info.return_value = {}
         self.assertEqual(None, multipath.find_mpath_id('/dev/foo'))
 
     def test_dmname_to_blkdev_mapping(self):

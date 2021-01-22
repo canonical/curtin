@@ -139,19 +139,10 @@ def find_mpath_members(multipath_id, paths=None):
     return members
 
 
-def find_mpath_id(devpath, maps=None):
+def find_mpath_id(devpath):
     """ Return the mpath_id associated with a specified device path. """
-    if not maps:
-        maps = show_maps()
-
-    for mpmap in maps:
-        if '/dev/' + mpmap['sysfs'] == devpath:
-            name = mpmap.get('name')
-            if name:
-                return name
-            return mpmap['multipath']
-
-    return None
+    info = udev.udevadm_info(devpath)
+    return info.get('DM_NAME')
 
 
 def find_mpath_id_by_path(devpath, paths=None):
