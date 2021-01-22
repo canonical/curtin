@@ -82,19 +82,25 @@ class TestMultipath(CiTestCase):
         """is_mpath_member returns false if DM_PART is not present for dev."""
         self.assertFalse(multipath.is_mpath_partition(self.random_string()))
 
-    def test_mpath_partition_to_mpath_id(self):
+    def test_mpath_partition_to_mpath_id_and_partnumber(self):
         """mpath_part_to_mpath_id extracts MD_MPATH value from mp partition."""
         dev = self.random_string()
         mpath_id = self.random_string()
-        self.m_udev.udevadm_info.return_value = {'DM_MPATH': mpath_id}
-        self.assertEqual(mpath_id,
-                         multipath.mpath_partition_to_mpath_id(dev))
+        mpath_ptnum = self.random_string()
+        self.m_udev.udevadm_info.return_value = {
+            'DM_MPATH': mpath_id,
+            'DM_PART': mpath_ptnum,
+            }
+        self.assertEqual(
+            (mpath_id, mpath_ptnum),
+            multipath.mpath_partition_to_mpath_id_and_partnumber(dev))
 
-    def test_mpath_partition_to_mpath_id_none(self):
+    def test_mpath_partition_to_mpath_id_and_partnumber_none(self):
         """mpath_part_to_mpath_id returns none if DM_MPATH missing."""
         dev = self.random_string()
         self.m_udev.udevadm_info.return_value = {}
-        self.assertIsNone(multipath.mpath_partition_to_mpath_id(dev))
+        self.assertIsNone(
+            multipath.mpath_partition_to_mpath_id_and_partnumber(dev))
 
     @mock.patch('curtin.block.multipath.os.path.exists')
     @mock.patch('curtin.block.multipath.util.wait_for_removal')
