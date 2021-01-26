@@ -226,6 +226,12 @@ def find_efi_loader(target, bootid):
     return None
 
 
+def efi_loader_esp_path(loader):
+    if loader.startswith('/boot/efi'):
+        return loader[9:]  # len('/boot/efi') == 9
+    return loader
+
+
 def get_efi_disk_part(devices):
     for disk in devices:
         (parent, partnum) = block.get_blockdev_for_partition(disk)
@@ -274,7 +280,8 @@ def gen_uefi_install_commands(grub_name, grub_target, grub_cmd, update_nvram,
                                      '--write-signature', '--label', bootid,
                                      '--disk', efi_disk,
                                      '--part', efi_part_num,
-                                     '--loader', loader])
+                                     '--loader',
+                                     efi_loader_esp_path(loader)])
             post_cmds.append(['grub2-mkconfig', '-o',
                               '/boot/efi/EFI/%s/grub.cfg' % bootid])
         else:
