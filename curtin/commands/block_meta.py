@@ -887,7 +887,9 @@ def partition_handler(info, storage_config):
             part_path = block.dev_path(
                 block.partition_kname(disk_kname, partnumber))
             partition_verify_sfdisk(part_path, info)
-        LOG.debug('Partition %s already present, skipping create', part_path)
+        LOG.debug(
+            '%s partition %s already present, skipping create',
+            disk, partnumber)
         create_partition = False
 
     if create_partition:

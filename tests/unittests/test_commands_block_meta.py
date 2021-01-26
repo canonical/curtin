@@ -2202,6 +2202,35 @@ class TestPartitionHandler(CiTestCase):
         with self.assertRaises(RuntimeError):
             block_meta.partition_handler(logical_part, self.storage_config)
 
+    @patch('curtin.commands.block_meta.partition_verify_fdasd')
+    def test_part_hander_reuse_vtoc(self, m_verify_fdasd):
+        sconfig = [
+            {
+                'id': 'disk0',
+                'type': 'disk',
+                'path': '/dev/dasda',
+                'ptable': 'vtoc',
+            },
+            {
+                'id': 'part0',
+                'type': 'partition',
+                'device': 'disk0',
+                'number': 1,
+                'preserve': True,
+                'size': 2 << 30,
+            },
+            ]
+        config = {'storage': {'config': sconfig}}
+        oconfig = block_meta.extract_storage_ordered_dict(config)
+
+        self.m_block.get_blockdev_sector_size.return_value = (512, 512)
+        m_verify_fdasd.return_value = True
+        devpath = self.m_getpath.return_value = self.random_string()
+
+        block_meta.partition_handler(sconfig[1], oconfig)
+
+        m_verify_fdasd.assert_has_calls([call(devpath, 1, sconfig[1])])
+
 
 class TestMultipathPartitionHandler(CiTestCase):
 
