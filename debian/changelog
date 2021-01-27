@@ -1,3 +1,20 @@
+curtin (21.2-0ubuntu1~16.04.1) UNRELEASED; urgency=medium
+
+  * New upstream release. (LP: #1913357)
+    - Release 21.2 [Michael Hudson-Doyle]
+    - Revert "apt_config: stop using the deprecated apt-key command"
+      [Michael Hudson-Doyle]
+    - partition_handler: fix NameError when reusing a vtoc partition
+      [Michael Hudson-Doyle]
+    - install_grub: convert in-target EFI loader path to ESP path.
+      [Dimitri John Ledkov]
+    - block: fixes for verifying existing multipath partitions
+      [Michael Hudson-Doyle]
+    - multipath: use udev DM_NAME for find_mpath_id, fix 4k sector calc
+      [Michael Hudson-Doyle]
+
+ -- Paride Legovini <paride.legovini@canonical.com>  Wed, 27 Jan 2021 21:46:49 +0100
+
 curtin (21.1-0ubuntu1~16.04.1) xenial; urgency=medium
 
   * New upstream release. (LP: #1911841)
