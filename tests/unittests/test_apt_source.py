@@ -33,32 +33,17 @@ S0ORP6HXET3+jC8BMG4tBWCTK/XEZw==
 =ACB2
 -----END PGP PUBLIC KEY BLOCK-----"""
 
-EXPECTEDKEY_NOVER = u"""-----BEGIN PGP PUBLIC KEY BLOCK-----
-
-mI0ESuZLUgEEAKkqq3idtFP7g9hzOu1a8+v8ImawQN4TrvlygfScMU1TIS1eC7UQ
-NUA8Qqgr9iUaGnejb0VciqftLrU9D6WYHSKz+EITefgdyJ6SoQxjoJdsCpJ7o9Jy
-8PQnpRttiFm4qHu6BVnKnBNxw/z3ST9YMqW5kbMQpfxbGe+obRox59NpABEBAAG0
-HUxhdW5jaHBhZCBQUEEgZm9yIFNjb3R0IE1vc2VyiLYEEwECACAFAkrmS1ICGwMG
-CwkIBwMCBBUCCAMEFgIDAQIeAQIXgAAKCRAGILvPA2g/d3aEA/9tVjc10HOZwV29
-OatVuTeERjjrIbxflO586GLA8cp0C9RQCwgod/R+cKYdQcHjbqVcP0HqxveLg0RZ
-FJpWLmWKamwkABErwQLGlM/Hwhjfade8VvEQutH5/0JgKHmzRsoqfR+LMO6OS+Sm
-S0ORP6HXET3+jC8BMG4tBWCTK/XEZw==
-=ACB2
------END PGP PUBLIC KEY BLOCK-----"""
-
-EXPECTED_BINKEY = util.load_file("tests/data/test.gpg", decode=False)
-
 ADD_APT_REPO_MATCH = r"^[\w-]+:\w"
 
 TARGET = "/"
 
 
-def load_tfile(filename, decode=True):
+def load_tfile(filename):
     """ load_tfile
     load file and return content after decoding
     """
     try:
-        content = util.load_file(filename, decode=decode)
+        content = util.load_file(filename, decode=True)
     except Exception as error:
         print('failed to load file content for test: %s' % error)
         raise
@@ -90,6 +75,8 @@ class TestAptSourceConfig(CiTestCase):
         self.aptlistfile3 = os.path.join(self.tmp, "single-deb3.list")
         self.join = os.path.join
         self.matcher = re.compile(ADD_APT_REPO_MATCH).search
+        self.add_patch('curtin.util.subp', 'm_subp')
+        self.m_subp.return_value = ('s390x', '')
 
     @staticmethod
     def _add_apt_sources(*args, **kwargs):
@@ -228,48 +215,23 @@ class TestAptSourceConfig(CiTestCase):
                self.aptlistfile3: {'source': 'deb $MIRROR $RELEASE universe'}}
         self._apt_src_replace_tri(cfg)
 
-    def _apt_src_keyid_txt(self, filename, cfg):
+    def _apt_src_keyid(self, filename, cfg, keynum):
         """ _apt_src_keyid
         Test specification of a source + keyid
         """
         params = self._get_default_params()
 
-        with mock.patch.object(gpg, 'getkeybyid',
-                               return_value=EXPECTEDKEY_NOVER):
+        with mock.patch("curtin.util.subp",
+                        return_value=('fakekey 1234', '')) as mockobj:
             self._add_apt_sources(cfg, TARGET, template_params=params,
                                   aa_repo_match=self.matcher)
 
-        for ent in cfg:
-            key_filename = cfg[ent].get('filename', ent)
-            self.assertTrue(os.path.isfile(key_filename + '.asc'))
-            contents = load_tfile(key_filename + '.asc')
-            self.assertMultiLineEqual(EXPECTEDKEY_NOVER, contents)
-
-    def _apt_src_keyid_bin(self, filename, cfg):
-        """ _apt_src_keyid
-        Test specification of a source + keyid
-        """
-        params = self._get_default_params()
-
-        with mock.patch.object(gpg, 'getkeybyid',
-                               return_value=EXPECTED_BINKEY):
-            self._add_apt_sources(cfg, TARGET, template_params=params,
-                                  aa_repo_match=self.matcher)
-
-        for ent in cfg:
-            key_filename = cfg[ent].get('filename', ent)
-            self.assertTrue(os.path.isfile(key_filename + '.gpg'))
-            contents = load_tfile(key_filename + '.gpg', decode=False)
-            self.assertEqual(EXPECTED_BINKEY, contents)
-
-    def _apt_src_keyid(self, filename, cfg, key_type="txt"):
-        """ _apt_src_keyid
-        Test specification of a source + keyid
-        """
-        if key_type == "txt":
-            self._apt_src_keyid_txt(filename, cfg)
-        else:
-            self._apt_src_keyid_bin(filename, cfg)
+        # check if it added the right ammount of keys
+        calls = []
+        for _ in range(keynum):
+            calls.append(call(['apt-key', 'add', '-'], data=b'fakekey 1234',
+                              target=TARGET))
+        mockobj.assert_has_calls(calls, any_order=True)
 
         self.assertTrue(os.path.isfile(filename))
 
@@ -289,17 +251,7 @@ class TestAptSourceConfig(CiTestCase):
                                              'smoser/cloud-init-test/ubuntu'
                                              ' xenial main'),
                                   'keyid': "03683F77"}}
-        self._apt_src_keyid(self.aptlistfile, cfg)
-
-    @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
-    def test_apt_src_keyid_bin(self):
-        """test_apt_src_keyid - Test source + keyid with filename being set"""
-        cfg = {self.aptlistfile: {'source': ('deb '
-                                             'http://ppa.launchpad.net/'
-                                             'smoser/cloud-init-test/ubuntu'
-                                             ' xenial main'),
-                                  'keyid': "03683F77"}}
-        self._apt_src_keyid(self.aptlistfile, cfg, key_type='bin')
+        self._apt_src_keyid(self.aptlistfile, cfg, 1)
 
     @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_keyid_tri(self):
@@ -321,7 +273,7 @@ class TestAptSourceConfig(CiTestCase):
                                               ' xenial multiverse'),
                                    'keyid': "03683F77"}}
 
-        self._apt_src_keyid(self.aptlistfile, cfg)
+        self._apt_src_keyid(self.aptlistfile, cfg, 3)
         contents = load_tfile(self.aptlistfile2)
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb",
@@ -341,23 +293,18 @@ class TestAptSourceConfig(CiTestCase):
     def test_apt_src_key(self):
         """test_apt_src_key - Test source + key"""
         params = self._get_default_params()
-        fake_key = u"""-----BEGIN PGP PUBLIC KEY BLOCK-----
-                       fakekey 4321"""
-
         cfg = {self.aptlistfile: {'source': ('deb '
                                              'http://ppa.launchpad.net/'
                                              'smoser/cloud-init-test/ubuntu'
                                              ' xenial main'),
-                                  'key': fake_key}}
+                                  'key': "fakekey 4321"}}
 
-        self._add_apt_sources(cfg, TARGET, template_params=params,
-                              aa_repo_match=self.matcher)
+        with mock.patch.object(util, 'subp') as mockobj:
+            self._add_apt_sources(cfg, TARGET, template_params=params,
+                                  aa_repo_match=self.matcher)
 
-        key_filename = self.aptlistfile + '.asc'
-        self.assertTrue(os.path.isfile(key_filename))
-
-        contents = load_tfile(key_filename)
-        self.assertMultiLineEqual(fake_key, contents)
+        mockobj.assert_any_call(['apt-key', 'add', '-'], data=b'fakekey 4321',
+                                target=TARGET)
 
         self.assertTrue(os.path.isfile(self.aptlistfile))
 
@@ -373,18 +320,14 @@ class TestAptSourceConfig(CiTestCase):
     def test_apt_src_keyonly(self):
         """test_apt_src_keyonly - Test key without source"""
         params = self._get_default_params()
-        fake_key = u"""-----BEGIN PGP PUBLIC KEY BLOCK-----
-                       fakekey 4321"""
-        cfg = {self.aptlistfile: {'key': fake_key}}
+        cfg = {self.aptlistfile: {'key': "fakekey 4242"}}
 
-        self._add_apt_sources(cfg, TARGET, template_params=params,
-                              aa_repo_match=self.matcher)
+        with mock.patch.object(util, 'subp') as mockobj:
+            self._add_apt_sources(cfg, TARGET, template_params=params,
+                                  aa_repo_match=self.matcher)
 
-        key_filename = self.aptlistfile + '.asc'
-        self.assertTrue(os.path.isfile(key_filename))
-
-        contents = load_tfile(key_filename)
-        self.assertMultiLineEqual(fake_key, contents)
+        mockobj.assert_any_call(['apt-key', 'add', '-'], data=b'fakekey 4242',
+                                target=TARGET)
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
@@ -395,15 +338,13 @@ class TestAptSourceConfig(CiTestCase):
         params = self._get_default_params()
         cfg = {self.aptlistfile: {'keyid': "03683F77"}}
 
-        with mock.patch.object(gpg, 'getkeybyid',
-                               return_value=EXPECTEDKEY_NOVER):
+        with mock.patch.object(util, 'subp',
+                               return_value=('fakekey 1212', '')) as mockobj:
             self._add_apt_sources(cfg, TARGET, template_params=params,
                                   aa_repo_match=self.matcher)
 
-        key_filename = self.aptlistfile
-        self.assertTrue(os.path.isfile(key_filename + '.asc'))
-        contents = load_tfile(key_filename + '.asc')
-        self.assertMultiLineEqual(EXPECTEDKEY_NOVER, contents)
+        mockobj.assert_any_call(['apt-key', 'add', '-'], data=b'fakekey 1212',
+                                target=TARGET)
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
@@ -427,7 +368,7 @@ class TestAptSourceConfig(CiTestCase):
                                       keycfg.get('keyserver',
                                                  'keyserver.ubuntu.com'),
                                       retries=(1, 2, 5, 10))
-        mockkey.assert_called_with(self.aptlistfile, expectedkey, TARGET)
+        mockkey.assert_called_with(expectedkey, TARGET)
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
@@ -471,7 +412,7 @@ class TestAptSourceConfig(CiTestCase):
 
         mockgetkey.assert_called_with('03683F77', 'test.random.com',
                                       retries=(1, 2, 5, 10))
-        mockadd.assert_called_with(self.aptlistfile, 'fakekey', TARGET)
+        mockadd.assert_called_with('fakekey', TARGET)
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
