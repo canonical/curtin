@@ -771,7 +771,7 @@ class TestGenUefiInstallCommands(CiTestCase):
         part = '1'
         self.m_get_disk_part.return_value = (disk, part)
 
-        expected_loader = '/boot/efi/EFI/redhat/shimx64.efi'
+        expected_loader = '/EFI/redhat/shimx64.efi'
         expected_install = [
             ['efibootmgr', '-v'],
             ['efibootmgr', '--create', '--write-signature',

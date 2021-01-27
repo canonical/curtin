@@ -158,9 +158,6 @@ def sys_block_path(devname, add=None, strict=True):
     devname = os.path.normpath(devname)
     if devname.startswith('/dev/') and not os.path.exists(devname):
         LOG.warning('block.sys_block_path: devname %s does not exist', devname)
-    (parent, partnum) = get_blockdev_for_partition(devname, strict=strict)
-    if partnum:
-        toks.append(path_to_kname(parent))
 
     toks.append(path_to_kname(devname))
 
@@ -309,7 +306,7 @@ def get_partition_sfdisk_info(devpath, sfdisk_info=None):
         sfdisk_info = sfdisk_info(devpath)
 
     entry = [part for part in sfdisk_info['partitions']
-             if part['node'] == devpath]
+             if os.path.realpath(part['node']) == os.path.realpath(devpath)]
     if len(entry) != 1:
         raise RuntimeError('Device %s not present in sfdisk dump:\n%s' %
                            devpath, util.json_dumps(sfdisk_info))
@@ -420,6 +417,13 @@ def get_blockdev_for_partition(devpath, strict=True):
     # don't need to try out multiple sysfs paths as path_to_kname handles cciss
     if strict and not os.path.exists(syspath):
         raise OSError("%s had no syspath (%s)" % (devpath, syspath))
+
+    if rpath.startswith('/dev/dm-'):
+        parent_info = multipath.mpath_partition_to_mpath_id_and_partnumber(
+            rpath)
+        if parent_info is not None:
+            mpath_id, ptnum = parent_info
+            return os.path.realpath('/dev/mapper/' + mpath_id), ptnum
 
     ptpath = os.path.join(syspath, "partition")
     if not os.path.exists(ptpath):

@@ -193,47 +193,37 @@ class TestBlock(CiTestCase):
 
 
 class TestSysBlockPath(CiTestCase):
-    @mock.patch("curtin.block.get_blockdev_for_partition")
     @mock.patch("os.path.exists")
-    def test_existing_valid_devname(self, m_os_path_exists, m_get_blk):
+    def test_existing_valid_devname(self, m_os_path_exists):
         m_os_path_exists.return_value = True
-        m_get_blk.return_value = ('foodevice', None)
         self.assertEqual('/sys/class/block/foodevice',
                          block.sys_block_path("foodevice"))
 
-    @mock.patch("curtin.block.get_blockdev_for_partition")
     @mock.patch("os.path.exists")
-    def test_existing_devpath_allowed(self, m_os_path_exists, m_get_blk):
+    def test_existing_devpath_allowed(self, m_os_path_exists):
         m_os_path_exists.return_value = True
-        m_get_blk.return_value = ('foodev', None)
         self.assertEqual('/sys/class/block/foodev',
                          block.sys_block_path("/dev/foodev"))
 
-    @mock.patch("curtin.block.get_blockdev_for_partition")
     @mock.patch("os.path.exists")
-    def test_add_works(self, m_os_path_exists, m_get_blk):
+    def test_add_works(self, m_os_path_exists):
         m_os_path_exists.return_value = True
-        m_get_blk.return_value = ('foodev', None)
         self.assertEqual('/sys/class/block/foodev/md/b',
                          block.sys_block_path("/dev/foodev", "md/b"))
 
-    @mock.patch("curtin.block.get_blockdev_for_partition")
     @mock.patch("os.path.exists")
-    def test_add_works_leading_slash(self, m_os_path_exists, m_get_blk):
+    def test_add_works_leading_slash(self, m_os_path_exists):
         m_os_path_exists.return_value = True
-        m_get_blk.return_value = ('foodev', None)
         self.assertEqual('/sys/class/block/foodev/md/b',
                          block.sys_block_path("/dev/foodev", "/md/b"))
 
-    @mock.patch("curtin.block.get_blockdev_for_partition")
     @mock.patch("os.path.exists")
-    def test_invalid_devname_raises(self, m_os_path_exists, m_get_blk):
+    def test_invalid_devname_raises(self, m_os_path_exists):
         m_os_path_exists.return_value = False
-        with self.assertRaises(ValueError):
+        with self.assertRaises(OSError):
             block.sys_block_path("foodevice")
 
-    @mock.patch("curtin.block.get_blockdev_for_partition")
-    def test_invalid_with_add(self, m_get_blk):
+    def test_invalid_with_add(self):
         # test the device exists, but 'add' does not
         # path_exists returns true unless 'md/device' is in it
         #  so /sys/class/foodev/ exists, but not /sys/class/foodev/md/device
@@ -242,28 +232,20 @@ class TestSysBlockPath(CiTestCase):
         def path_exists(path):
             return add not in path
 
-        m_get_blk.return_value = ("foodev", None)
         with mock.patch('os.path.exists', side_effect=path_exists):
             self.assertRaises(OSError, block.sys_block_path, "foodev", add)
 
-    @mock.patch("curtin.block.get_blockdev_for_partition")
     @mock.patch("os.path.exists")
-    def test_not_strict_does_not_care(self, m_os_path_exists, m_get_blk):
+    def test_not_strict_does_not_care(self, m_os_path_exists):
         m_os_path_exists.return_value = False
-        m_get_blk.return_value = ('foodev', None)
         self.assertEqual('/sys/class/block/foodev/md/b',
                          block.sys_block_path("foodev", "/md/b", strict=False))
 
-    @mock.patch('curtin.block.get_blockdev_for_partition')
     @mock.patch('os.path.exists')
-    def test_cciss_sysfs_path(self, m_os_path_exists, m_get_blk):
+    def test_cciss_sysfs_path(self, m_os_path_exists):
         m_os_path_exists.return_value = True
-        m_get_blk.return_value = ('cciss!c0d0', None)
         self.assertEqual('/sys/class/block/cciss!c0d0',
                          block.sys_block_path('/dev/cciss/c0d0'))
-        m_get_blk.return_value = ('cciss!c0d0', 1)
-        self.assertEqual('/sys/class/block/cciss!c0d0/cciss!c0d0p1',
-                         block.sys_block_path('/dev/cciss/c0d0p1'))
 
 
 class TestWipeFile(CiTestCase):
