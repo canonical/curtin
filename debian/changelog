@@ -1,4 +1,4 @@
-curtin (21.2-0ubuntu1~16.04.1) UNRELEASED; urgency=medium
+curtin (21.2-0ubuntu1~16.04.1) xenial; urgency=medium
 
   * New upstream release. (LP: #1913357)
     - Release 21.2 [Michael Hudson-Doyle]
