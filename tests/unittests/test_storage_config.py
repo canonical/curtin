@@ -467,149 +467,51 @@ class TestBlockdevParser(CiTestCase):
             self.assertDictEqual(expected_dict,
                                  self.bdevp.asdict(blockdev))
 
-    def test_blockdev_detects_multipath(self):
+    def test_blockdev_multipath_disk(self):
         self.probe_data = _get_data('probert_storage_multipath.json')
         self.bdevp = BlockdevParser(self.probe_data)
-        blockdev = self.bdevp.blockdev_data['/dev/sda2']
+        blockdev = self.bdevp.blockdev_data['/dev/dm-0']
         expected_dict = {
-            'flag': 'linux',
-            'id': 'partition-sda2',
-            'offset': 2097152,
+            'id': 'mpath-disk-mpatha',
             'multipath': 'mpatha',
-            'size': 10734272512,
-            'type': 'partition',
-            'device': 'disk-sda',
-            'number': 2}
+            'path': '/dev/dm-0',
+            'ptable': 'gpt',
+            'type': 'disk',
+            'wwn': '0x0000000000000064',
+            }
         self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
 
-    def test_blockdev_skips_multipath_entry_if_no_multipath_data(self):
+    def test_blockdev_multipath_partition(self):
         self.probe_data = _get_data('probert_storage_multipath.json')
-        del self.probe_data['multipath']
         self.bdevp = BlockdevParser(self.probe_data)
-        blockdev = self.bdevp.blockdev_data['/dev/sda2']
+        blockdev = self.bdevp.blockdev_data['/dev/dm-2']
         expected_dict = {
+            'device': 'mpath-disk-mpatha',
             'flag': 'linux',
-            'id': 'partition-sda2',
+            'id': 'mpath-partition-mpatha-part2',
+            'multipath': 'mpatha',
+            'number': 2,
             'offset': 2097152,
             'size': 10734272512,
             'type': 'partition',
-            'device': 'disk-sda',
-            'number': 2}
+            }
         self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
 
-    def test_blockdev_skips_multipath_entry_if_bad_multipath_data(self):
+    @skipUnlessJsonSchema()
+    def test_blockdev_skips_underlying_disks_and_partitions(self):
         self.probe_data = _get_data('probert_storage_multipath.json')
-        for path in self.probe_data['multipath']['paths']:
-            path['multipath'] = ''
         self.bdevp = BlockdevParser(self.probe_data)
-        blockdev = self.bdevp.blockdev_data['/dev/sda2']
-        expected_dict = {
-            'flag': 'linux',
-            'id': 'partition-sda2',
-            'offset': 2097152,
-            'size': 10734272512,
-            'type': 'partition',
-            'device': 'disk-sda',
-            'number': 2}
-        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
-
-    def test_blockdev_skips_multipath_entry_if_no_mp_paths(self):
-        self.probe_data = _get_data('probert_storage_multipath.json')
-        del self.probe_data['multipath']['paths']
-        self.bdevp = BlockdevParser(self.probe_data)
-        blockdev = self.bdevp.blockdev_data['/dev/sda2']
-        expected_dict = {
-            'flag': 'linux',
-            'id': 'partition-sda2',
-            'offset': 2097152,
-            'size': 10734272512,
-            'type': 'partition',
-            'device': 'disk-sda',
-            'number': 2}
-        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
+        configs = self.bdevp.parse()[0]
+        config_paths = {c.get('path') for c in configs}
+        self.assertNotIn('/dev/sda', config_paths)
 
     def test_blockdev_finds_multipath_id_from_dm_uuid(self):
         self.probe_data = _get_data('probert_storage_zlp6.json')
         self.bdevp = BlockdevParser(self.probe_data)
         blockdev = self.bdevp.blockdev_data['/dev/dm-2']
         result = self.bdevp.blockdev_to_id(blockdev)
-        self.assertEqual('disk-sda', result)
-
-    def test_blockdev_find_mpath_members_checks_dm_name(self):
-        """ BlockdevParser find_mpath_members uses dm_name if present."""
-        dm14 = {
-            "DEVTYPE": "disk",
-            "DEVLINKS": "/dev/disk/by-id/dm-name-mpathb",
-            "DEVNAME": "/dev/dm-14",
-            "DEVTYPE": "disk",
-            "DM_NAME": "mpathb",
-            "DM_UUID": "mpath-360050768028211d8b000000000000062",
-            "DM_WWN": "0x60050768028211d8b000000000000062",
-            "MPATH_DEVICE_READY": "1",
-            "MPATH_SBIN_PATH": "/sbin",
-        }
-        multipath = {
-            "maps": [
-                {
-                    "multipath": "360050768028211d8b000000000000061",
-                    "sysfs": "dm-11",
-                    "paths": "4"
-                },
-                {
-                    "multipath": "360050768028211d8b000000000000062",
-                    "sysfs": "dm-14",
-                    "paths": "4"
-                },
-                {
-                    "multipath": "360050768028211d8b000000000000063",
-                    "sysfs": "dm-15",
-                    "paths": "4"
-                }],
-            "paths": [
-                {
-                    "device": "sdej",
-                    "serial": "0200a084762cXX00",
-                    "multipath": "mpatha",
-                    "host_wwnn": "0x20000024ff9127de",
-                    "target_wwnn": "0x5005076802065e38",
-                    "host_wwpn": "0x21000024ff9127de",
-                    "target_wwpn": "0x5005076802165e38",
-                    "host_adapter": "[undef]"
-                },
-                {
-                    "device": "sdel",
-                    "serial": "0200a084762cXX00",
-                    "multipath": "mpathb",
-                    "host_wwnn": "0x20000024ff9127de",
-                    "target_wwnn": "0x5005076802065e38",
-                    "host_wwpn": "0x21000024ff9127de",
-                    "target_wwpn": "0x5005076802165e38",
-                    "host_adapter": "[undef]"
-                },
-                {
-                    "device": "sdet",
-                    "serial": "0200a084762cXX00",
-                    "multipath": "mpatha",
-                    "host_wwnn": "0x20000024ff9127de",
-                    "target_wwnn": "0x5005076802065e37",
-                    "host_wwpn": "0x21000024ff9127de",
-                    "target_wwpn": "0x5005076802165e37",
-                    "host_adapter": "[undef]"
-                },
-                {
-                    "device": "sdev",
-                    "serial": "0200a084762cXX00",
-                    "multipath": "mpathb",
-                    "host_wwnn": "0x20000024ff9127de",
-                    "target_wwnn": "0x5005076802065e37",
-                    "host_wwpn": "0x21000024ff9127de",
-                    "target_wwpn": "0x5005076802165e37",
-                    "host_adapter": "[undef]"
-                }],
-        }
-        self.bdevp.blockdev_data['/dev/dm-14'] = dm14
-        self.probe_data['multipath'] = multipath
-        self.assertEqual('disk-sdel', self.bdevp.blockdev_to_id(dm14))
+        self.assertEqual(
+            'mpath-disk-36005076306ffd6b60000000000002406', result)
 
     def test_blockdev_detects_dasd_device_id_and_vtoc_ptable(self):
         self.probe_data = _get_data('probert_storage_dasd.json')
@@ -1017,22 +919,6 @@ class TestExtractStorageConfig(CiTestCase):
                                  extracted)
 
     @skipUnlessJsonSchema()
-    def test_find_all_multipath(self):
-        """ verify probed multipath paths are included in config. """
-        self.probe_data = _get_data('probert_storage_multipath.json')
-        extracted = storage_config.extract_storage_config(self.probe_data)
-        config = extracted['storage']['config']
-        blockdev = self.probe_data['blockdev']
-
-        for mpmap in self.probe_data['multipath']['maps']:
-            nr_disks = int(mpmap['paths'])
-            mp_name = blockdev['/dev/%s' % mpmap['sysfs']]['DM_NAME']
-            matched_disks = [cfg for cfg in config
-                             if cfg['type'] == 'disk' and
-                             cfg.get('multipath', '') == mp_name]
-            self.assertEqual(nr_disks, len(matched_disks))
-
-    @skipUnlessJsonSchema()
     def test_find_raid_partition(self):
         """ verify probed raid partitions are found. """
         self.probe_data = _get_data('probert_storage_raid1_partitions.json')
@@ -1079,6 +965,19 @@ class TestExtractStorageConfig(CiTestCase):
         }
         self.assertEqual(1, len(disks))
         self.assertEqual(expected_dict, disks[0])
+
+    @skipUnlessJsonSchema()
+    def test_blockdev_multipath(self):
+        self.probe_data = _get_data('probert_storage_zlp6.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        config = extracted['storage']['config']
+        disks = [cfg for cfg in config if cfg['type'] == 'disk']
+        expected_count = len([
+            1 for bd_name, bd_data in self.probe_data['blockdev'].items()
+            if bd_data.get('DM_UUID', '').startswith('mpath-')
+            or bd_name.startswith('/dev/dasd') and bd_data['DEVTYPE'] == 'disk'
+            ])
+        self.assertEqual(expected_count, len(disks))
 
     @skipUnlessJsonSchema()
     def test_blockdev_skips_invalid_wwn(self):

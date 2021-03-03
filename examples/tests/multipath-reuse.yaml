@@ -1,0 +1,61 @@
+
+# The point of this test is to test installing to a existing
+# partitions of a multipathed disk
+
+bucket:
+  - &setup |
+    parted /dev/disk/by-id/dm-name-mpatha --script -- \
+        mklabel msdos                   \
+        mkpart primary ext4 1GiB 4GiB   \
+        mkpart primary ext4 4GiB 5GiB   \
+        set 1 boot on
+    udevadm settle
+
+early_commands:
+  00-setup-msdos-ptable: [sh, -exuc, *setup]
+
+install:
+  unmount: disabled
+showtrace: true
+storage:
+    version: 1
+    config:
+      - id: sda
+        type: disk
+        ptable: msdos
+        serial: 'IPR-0 1234567890'
+        name: mpath_a
+        grub_device: true
+        multipath: mpatha
+        path: /dev/disk/by-id/dm-name-mpatha
+        preserve: true
+      - id: sda1
+        type: partition
+        number: 1
+        size: 3GB
+        device: sda
+        flag: boot
+        preserve: true
+      - id: sda2
+        type: partition
+        number: 2
+        size: 1GB
+        device: sda
+        preserve: true
+      - id: sda1_root
+        type: format
+        fstype: ext4
+        volume: sda1
+      - id: sda2_home
+        type: format
+        fstype: ext4
+        volume: sda2
+      - id: sda1_mount
+        type: mount
+        path: /
+        device: sda1_root
+      - id: sda2_mount
+        type: mount
+        path: /home
+        device: sda2_home
+        options: 'defaults,nofail'
