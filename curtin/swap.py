@@ -135,9 +135,10 @@ def setup_swapfile(target, fstab=None, swapfile=None, size=None, maxsize=None,
 
     allocate_cmd = 'fallocate -l "${2}M" "$1"'
     # fallocate uses IOCTLs to allocate space in a filesystem, however it's not
-    # clear (from curtin's POV) that it creates non-sparse files as required by
-    # mkswap so we'll skip fallocate for now and use dd.
-    if fstype in ['btrfs', 'xfs']:
+    # clear (from curtin's POV) that it creates non-sparse files on btrfs or
+    # xfs as required by mkswap so we'll skip fallocate for now and use dd. It
+    # is also plain not supported on ext2 and ext3.
+    if fstype in ['btrfs', 'ext2', 'ext3', 'xfs']:
         allocate_cmd = 'dd if=/dev/zero "of=$1" bs=1M "count=$2"'
 
     mbsize = str(int(size / (2 ** 20)))
