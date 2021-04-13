@@ -1324,7 +1324,7 @@ def lvm_partition_handler(info, storage_config):
         cmd = ["lvcreate", volgroup, "--name", name, "--zero=y"]
         release = distro.lsb_release()['codename']
         if release not in ['precise', 'trusty']:
-            cmd.extend(["--wipesignatures=y"])
+            cmd.extend(["--wipesignatures=y", "--yes"])
 
         if info.get('size'):
             size = util.human2bytes(info["size"])
