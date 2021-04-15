@@ -361,7 +361,7 @@ class TestBlockMeta(CiTestCase):
         block_meta.mount_handler(mount_info, self.storage_config)
         options = 'defaults'
         comment = "# / was on /wark/xxx during curtin installation"
-        expected = "%s\n%s %s %s %s 0 0\n" % (comment,
+        expected = "%s\n%s %s %s %s 0 1\n" % (comment,
                                               disk_info['path'],
                                               mount_info['path'],
                                               fs_info['fstype'], options)
@@ -389,7 +389,7 @@ class TestBlockMeta(CiTestCase):
         block_meta.mount_handler(mount_info, self.storage_config)
         options = 'ro'
         comment = "# /readonly was on /wark/xxx during curtin installation"
-        expected = "%s\n%s %s %s %s 0 0\n" % (comment,
+        expected = "%s\n%s %s %s %s 0 1\n" % (comment,
                                               disk_info['path'],
                                               mount_info['path'],
                                               fs_info['fstype'], options)
@@ -418,7 +418,7 @@ class TestBlockMeta(CiTestCase):
         block_meta.mount_handler(mount_info, self.storage_config)
         options = 'defaults'
         comment = "# /readonly was on /wark/xxx during curtin installation"
-        expected = "%s\n%s %s %s %s 0 0\n" % (comment,
+        expected = "%s\n%s %s %s %s 0 1\n" % (comment,
                                               disk_info['path'],
                                               mount_info['path'],
                                               fs_info['fstype'], options)
@@ -449,7 +449,7 @@ class TestBlockMeta(CiTestCase):
         block_meta.mount_handler(mount_info, self.storage_config)
         options = 'defaults'
         comment = "# /readonly was on /wark/xxx during curtin installation"
-        expected = "#curtin-test\n%s\n%s %s %s %s 0 0\n" % (comment,
+        expected = "#curtin-test\n%s\n%s %s %s %s 0 1\n" % (comment,
                                                             disk_info['path'],
                                                             mount_info['path'],
                                                             fs_info['fstype'],
@@ -610,7 +610,7 @@ class TestFstabData(CiTestCase):
         self.assertEqual(
             block_meta.FstabData(
                 spec="none", fstype="tmpfs", path="/tmpfs",
-                options="defaults", freq="0", passno="0", device=None),
+                options="defaults", freq="0", device=None),
             block_meta.mount_data(info, {'xm1': info}))
 
     @patch('curtin.block.iscsi.volpath_is_iscsi')
@@ -625,7 +625,7 @@ class TestFstabData(CiTestCase):
         self.assertEqual(
             block_meta.FstabData(
                 spec=None, fstype="ext4", path="/",
-                options="noatime", freq="0", passno="0", device="/dev/xda1"),
+                options="noatime", freq="0", device="/dev/xda1"),
             block_meta.mount_data(scfg['m1'], scfg))
 
     @patch('curtin.block.iscsi.volpath_is_iscsi', return_value=False)
@@ -643,7 +643,7 @@ class TestFstabData(CiTestCase):
         self.assertEqual(
             block_meta.FstabData(
                 spec=None, fstype="vfat", path="/boot/efi",
-                options="defaults", freq="0", passno="0", device="/dev/xda1"),
+                options="defaults", freq="0", device="/dev/xda1"),
             block_meta.mount_data(scfg['m1'], scfg))
 
     @patch('curtin.block.iscsi.volpath_is_iscsi')
@@ -657,7 +657,7 @@ class TestFstabData(CiTestCase):
         self.assertEqual(
             block_meta.FstabData(
                 spec=None, fstype="ext4", path="/",
-                options="noatime,_netdev", freq="0", passno="0",
+                options="noatime,_netdev", freq="0",
                 device="/dev/xda1"),
             block_meta.mount_data(scfg['m1'], scfg))
 
@@ -683,7 +683,7 @@ class TestFstabData(CiTestCase):
         self.assertEqual(
             block_meta.FstabData(
                 spec=myspec, fstype="ext3", path="/",
-                options="noatime", freq="0", passno="0",
+                options="noatime", freq="0",
                 device=None),
             block_meta.mount_data(mnt, scfg))
 
@@ -761,15 +761,54 @@ class TestFstabData(CiTestCase):
             spec="/dev/disk2", path="/mnt", fstype='btrfs', options='noatime')
         lines = block_meta.fstab_line_for_data(fdata).splitlines()
         self.assertEqual(
-            ["/dev/disk2", "/mnt", "btrfs", "noatime", "0", "0"],
+            ["/dev/disk2", "/mnt", "btrfs", "noatime", "0", "1"],
+            lines[1].split())
+
+    def test_fstab_line_root_and_no_passno(self):
+        """fstab_line_for_data passno autoselect for /."""
+        fdata = block_meta.FstabData(
+            spec="/dev/disk2", path="/", fstype='btrfs', passno='0',
+            options='noatime')
+        lines = block_meta.fstab_line_for_data(fdata).splitlines()
+        self.assertEqual(
+            ["/dev/disk2", "/", "btrfs", "noatime", "0", "0"],
+            lines[1].split())
+
+    def test_fstab_line_boot_and_no_passno(self):
+        """fstab_line_for_data passno autoselect for /boot."""
+        fdata = block_meta.FstabData(
+            spec="/dev/disk2", path="/boot", fstype='btrfs', options='noatime')
+        lines = block_meta.fstab_line_for_data(fdata).splitlines()
+        self.assertEqual(
+            ["/dev/disk2", "/boot", "btrfs", "noatime", "0", "1"],
+            lines[1].split())
+
+    def test_fstab_line_boot_efi_and_no_passno(self):
+        """fstab_line_for_data passno autoselect for /boot/efi."""
+        fdata = block_meta.FstabData(
+            spec="/dev/disk2", path="/boot/efi", fstype='btrfs',
+            options='noatime')
+        lines = block_meta.fstab_line_for_data(fdata).splitlines()
+        self.assertEqual(
+            ["/dev/disk2", "/boot/efi", "btrfs", "noatime", "0", "1"],
+            lines[1].split())
+
+    def test_fstab_line_almost_boot(self):
+        """fstab_line_for_data passno that pretends to be /boot."""
+        fdata = block_meta.FstabData(
+            spec="/dev/disk2", path="/boots", fstype='btrfs',
+            options='noatime')
+        lines = block_meta.fstab_line_for_data(fdata).splitlines()
+        self.assertEqual(
+            ["/dev/disk2", "/boots", "btrfs", "noatime", "0", "1"],
             lines[1].split())
 
     def test_fstab_line_for_data_with_passno_and_freq(self):
         """fstab_line_for_data should respect passno and freq."""
         fdata = block_meta.FstabData(
-            spec="/dev/d1", path="/mnt", fstype='ext4', freq="1", passno="2")
+            spec="/dev/d1", path="/mnt", fstype='ext4', freq="1", passno="1")
         lines = block_meta.fstab_line_for_data(fdata).splitlines()
-        self.assertEqual(["1", "2"], lines[1].split()[4:6])
+        self.assertEqual(["1", "1"], lines[1].split()[4:6])
 
     def test_fstab_line_for_data_raises_error_without_spec_or_device(self):
         """fstab_line_for_data should raise ValueError if no spec or device."""
@@ -797,7 +836,7 @@ class TestFstabData(CiTestCase):
             "# /mnt was on /dev/disk2 during curtin installation",
             lines[0])
         self.assertEqual(
-            [by_uuid, "/mnt", "ext4", "defaults", "0", "0"],
+            [by_uuid, "/mnt", "ext4", "defaults", "0", "1"],
             lines[1].split())
         self.assertEqual(1, m_uinfo.call_count)
         self.assertEqual(1, m_vol_type.call_count)
@@ -819,7 +858,7 @@ class TestFstabData(CiTestCase):
             "# /mnt was on /dev/disk2 during curtin installation",
             lines[0])
         self.assertEqual(
-            ["/dev/disk2", "/mnt", "ext4", "defaults", "0", "0"],
+            ["/dev/disk2", "/mnt", "ext4", "defaults", "0", "1"],
             lines[1].split())
         self.assertEqual(1, m_uinfo.call_count)
         self.assertEqual(1, m_vol_type.call_count)
@@ -837,7 +876,7 @@ class TestFstabData(CiTestCase):
             '# /mnt was on /dev/xvda1 during curtin installation',
             lines[0])
         self.assertEqual(
-            ["/dev/xvda1", "/mnt", "ext4", "defaults", "0", "0"],
+            ["/dev/xvda1", "/mnt", "ext4", "defaults", "0", "1"],
             lines[1].split())
         self.assertEqual(0, m_get_uuid.call_count)
 

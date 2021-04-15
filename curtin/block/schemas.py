@@ -262,6 +262,10 @@ MOUNT = {
             ],
         },
         'spec': {'type': 'string'},  # XXX: Tighten this to fstab fs_spec
+        'freq': {'type': ['integer', 'string'],
+                 'pattern': r'[0-9]'},
+        'passno': {'type': ['integer', 'string'],
+                   'pattern': r'[0-9]'},
     },
 }
 PARTITION = {

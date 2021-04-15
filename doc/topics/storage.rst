@@ -542,6 +542,11 @@ One of ``device`` or ``spec`` must be present.
   fstab entry will contain ``_netdev`` to indicate networking is
   required to mount this filesystem.
 
+**freq**: *<dump(8) integer from 0-9 inclusive>*
+
+The ``freq`` key refers to the freq as defined in dump(8).
+Defaults to ``0`` if unspecified.
+
 **fstype**: *<fileystem type>*
 
 ``fstype`` is only required if ``device`` is not present.  It indicates
@@ -552,7 +557,7 @@ to ``/etc/fstab``
 
 The ``options`` key will replace the default options value of ``defaults``.
 
-.. warning:: 
+.. warning::
   The kernel and user-space utilities may differ between the install
   environment and the runtime environment.  Not all kernels and user-space
   combinations will support all options.  Providing options for a mount point
@@ -564,6 +569,14 @@ The ``options`` key will replace the default options value of ``defaults``.
 
   If either of the environments (install or target) do not have support for
   the provided options, the behavior is undefined.
+
+**passno**: *<fsck(8) non-negative integer, typically 0-2>*
+
+The ``passno`` key refers to the fs_passno as defined in fsck(8).
+If unspecified, ``curtin`` will default to 1 or 0, depending on if that
+filesystem is considered to be a 'nodev' device per /proc/filesystems.
+Note that per systemd-fstab-generator(8), systemd interprets passno as a
+boolean.
 
 **spec**: *<fs_spec>*
 

@@ -27,7 +27,7 @@ import time
 FstabData = namedtuple(
     "FstabData", ('spec', 'path', 'fstype', 'options', 'freq', 'passno',
                   'device'))
-FstabData.__new__.__defaults__ = (None, None, None, "", "0", "0", None)
+FstabData.__new__.__defaults__ = (None, None, None, "", "0", "-1", None)
 
 
 SIMPLE = 'simple'
@@ -1020,7 +1020,7 @@ def mount_data(info, storage_config):
     fstype = info.get('fstype')
     path = info.get('path')
     freq = str(info.get('freq', 0))
-    passno = str(info.get('passno', 0))
+    passno = str(info.get('passno', -1))
 
     # turn empty options into "defaults", which works in fstab and mount -o.
     if not info.get('options'):
@@ -1114,6 +1114,28 @@ def get_volume_spec(device_path):
     return devlinks[0] if len(devlinks) else device_path
 
 
+def proc_filesystems_passno(fstype):
+    """Examine /proc/filesystems - is this fstype listed and marked nodev?
+
+    :param fstype: a filesystem name such as ext2 or tmpfs
+    :return passno for fstype - nodev fs get 0, else 1"""
+
+    if fstype in ('swap', 'none'):
+        return "0"
+    with open('/proc/filesystems', 'r') as procfs:
+        for line in procfs.readlines():
+            tokens = line.strip('\n').split('\t')
+            if len(tokens) < 2:
+                continue
+
+            devstatus, curfs = tokens[:2]
+            if curfs != fstype:
+                continue
+
+            return "0" if devstatus == 'nodev' else "1"
+    return "1"
+
+
 def fstab_line_for_data(fdata):
     """Return a string representing fdata in /etc/fstab format.
 
@@ -1151,8 +1173,12 @@ def fstab_line_for_data(fdata):
     else:
         comment = None
 
+    passno = fdata.passno
+    if int(passno) < 0:
+        passno = proc_filesystems_passno(fdata.fstype)
+
     entry = ' '.join((spec, path, fdata.fstype, options,
-                      fdata.freq, fdata.passno)) + "\n"
+                      fdata.freq, passno)) + "\n"
     line = '\n'.join([comment, entry] if comment else [entry])
     return line
 
