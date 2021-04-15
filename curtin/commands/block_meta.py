@@ -881,11 +881,11 @@ def partition_handler(info, storage_config):
     # Handle preserve flag
     create_partition = True
     if config.value_as_boolean(info.get('preserve')):
+        part_path = block.dev_path(
+            block.partition_kname(disk_kname, partnumber))
         if disk_ptable == 'vtoc':
             partition_verify_fdasd(disk, partnumber, info)
         else:
-            part_path = block.dev_path(
-                block.partition_kname(disk_kname, partnumber))
             partition_verify_sfdisk(part_path, info)
         LOG.debug(
             '%s partition %s already present, skipping create',
