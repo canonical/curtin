@@ -1989,10 +1989,14 @@ def meta_simple(args):
             serial = i.get("serial")
             if serial is None:
                 continue
-            grub = i.get("grub_device")
-            diskPath = block.lookup_disk(serial)
-            if grub is True:
+            try:
+                diskPath = block.lookup_disk(serial)
+            except ValueError as err:
+                LOG.debug("Skipping disk '%s': %s", i.get("id"), err)
+                continue
+            if i.get("grub_device"):
                 devpath = diskPath
+                break
 
     devices = args.devices
     bootpt = get_bootpt_cfg(
@@ -2030,10 +2034,10 @@ def meta_simple(args):
                 LOG.warn("No non-removable, installable devices found. List "
                          "populated with removable devices allowed: %s",
                          devices)
-    elif len(devices) == 0 and devpath:
-        devices = [devpath]
 
-    if len(devices) > 1:
+    if devpath is not None:
+        target = devpath
+    elif len(devices) > 1:
         if args.devices is not None:
             LOG.warn("'%s' mode but multiple devices given. "
                      "using first found", args.mode)

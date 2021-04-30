@@ -209,6 +209,61 @@ class TestBlockMetaSimple(CiTestCase):
         self.mock_subp.assert_has_calls(
             [call(['mount', devname, self.target])])
 
+    @patch('curtin.commands.block_meta.meta_clear')
+    @patch('curtin.commands.block_meta.write_image_to_disk')
+    @patch('curtin.commands.block_meta.get_device_paths_from_storage_config')
+    @patch('curtin.block.lookup_disk', new=lambda s: "/dev/" + s[:-6])
+    def test_meta_simple_grub_device(self, mock_gdpfsc, mock_write_image,
+                                     mock_clear):
+        # grub_device can indicate which device to choose when multiple
+        # are available.  Also override custom mode to use simple anyhow
+        # because that's how dd imaging works.
+        def _gdpfsc(cfg):
+            return [x[1]["path"] for x in cfg.items()]
+        mock_gdpfsc.side_effect = _gdpfsc
+        sources = {
+            'unittest': {'type': 'dd-xz',
+                         'uri': 'http://myhost/curtin-unittest-dd.xz'}
+        }
+        devname = "fakevdd"
+        config = {
+            'sources': sources,
+            'storage': {
+                'config': [{
+                    'id': 'fakevdc',
+                    'name': 'fakevdc',
+                    'type': 'disk',
+                    'wipe': 'superblock',
+                    'path': '/dev/fakevdc',
+                    'serial': 'fakevdcserial',
+                }, {
+                    'grub_device': True,
+                    'id': 'fakevdd',
+                    'name': 'fakevdd',
+                    'type': 'disk',
+                    'wipe': 'superblock',
+                    'path': '/dev/fakevdd',
+                    'serial': 'fakevddserial',
+                }]
+            }
+        }
+        self.mock_config_load.return_value = config
+        self.mock_load_env.return_value = {'target': self.target}
+        self.mock_block_is_valid_device.return_value = True
+
+        def _gdne(devname):
+            bname = devname.split('/dev/')[-1]
+            return (bname, "/dev/" + bname)
+        self.mock_block_get_dev_name_entry.side_effect = _gdne
+        mock_write_image.return_value = devname
+
+        args = Namespace(target=None, devices=None, mode='custom',
+                         boot_fstype=None, fstype=None, force_mode=False)
+
+        block_meta.block_meta(args)
+
+        mock_write_image.assert_called_with(sources.get('unittest'), devname)
+
 
 class TestBlockMeta(CiTestCase):
 
