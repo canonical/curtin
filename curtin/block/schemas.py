@@ -141,7 +141,7 @@ DISK = {
             'type': 'string',
             'oneOf': [
                 {'pattern': r'^0x(\d|[a-zA-Z])+'},
-                {'pattern': r'^(nvme|eui)\.([-0-9a-zA-Z])+'}],
+                {'pattern': r'^(nvme|eui|uuid)\.([-0-9a-zA-Z])+'}],
         },
         'grub_device': {
             'type': ['boolean', 'integer'],

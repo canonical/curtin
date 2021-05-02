@@ -32,6 +32,18 @@ class TestStorageConfigSchema(CiTestCase):
         storage_config.validate_config(config)
 
     @skipUnlessJsonSchema()
+    def test_disk_schema_accepts_nvme_uuid(self):
+        disk = {
+            "id": "disk-nvme0n1",
+            "path": "/dev/nvme0n1",
+            "serial": "Samsung SSD 960 EVO 250GB_S3ESNX0JB35041V",
+            "type": "disk",
+            "wwn": "uuid.344343304d3000150025384500000004"
+        }
+        config = {'config': [disk], 'version': 1}
+        storage_config.validate_config(config)
+
+    @skipUnlessJsonSchema()
     def test_disk_schema_accepts_nvme_wwid(self):
         disk = {
             "id": "disk-nvme0n1",
@@ -962,6 +974,23 @@ class TestExtractStorageConfig(CiTestCase):
             'serial': 'SAMSUNG MZPLL3T2HAJQ-00005_S4CCNE0M300015',
             'type': 'disk',
             'wwn': 'eui.344343304d3000150025384500000004',
+        }
+        self.assertEqual(1, len(disks))
+        self.assertEqual(expected_dict, disks[0])
+
+    @skipUnlessJsonSchema()
+    def test_blockdev_detects_nvme_uuid(self):
+        self.probe_data = _get_data('probert_storage_nvme_uuid.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        config = extracted['storage']['config']
+        disks = [cfg for cfg in config if cfg['type'] == 'disk']
+        expected_dict = {
+            'id': 'disk-nvme0n1',
+            'path': '/dev/nvme0n1',
+            'ptable': 'gpt',
+            'serial': 'SAMSUNG MZPLL3T2HAJQ-00005_S4CCNE0M300015',
+            'type': 'disk',
+            'wwn': 'uuid.344343304d3000150025384500000004',
         }
         self.assertEqual(1, len(disks))
         self.assertEqual(expected_dict, disks[0])
