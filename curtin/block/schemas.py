@@ -308,9 +308,13 @@ RAID = {
     'title': 'curtin storage configuration for a RAID.',
     'description': ('Declarative syntax for specifying RAID.'),
     'definitions': definitions,
-    'required': ['id', 'type', 'name', 'raidlevel', 'devices'],
+    'required': ['id', 'type', 'name', 'raidlevel'],
     'type': 'object',
     'additionalProperties': False,
+    'oneOf': [
+        {'required': ['devices']},
+        {'required': ['container']},
+    ],
     'properties': {
         'id': {'$ref': '#/definitions/id'},
         'devices': {'$ref': '#/definitions/devices'},

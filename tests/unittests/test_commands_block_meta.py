@@ -2008,12 +2008,32 @@ class TestRaidHandler(CiTestCase):
 
         devices = [self.random_string(), self.random_string(),
                    self.random_string()]
+        md_devname = '/dev/' + self.storage_config['mddevice']['name']
         self.m_getpath.side_effect = iter(devices)
-        m_verify.return_value = True
         self.storage_config['mddevice']['preserve'] = True
         block_meta.raid_handler(self.storage_config['mddevice'],
                                 self.storage_config)
         self.assertEqual(0, self.m_mdadm.mdadm_create.call_count)
+        self.assertEqual(
+            [call(md_devname, 5, devices, [], None)],
+            m_verify.call_args_list)
+
+    @patch('curtin.commands.block_meta.raid_verify')
+    def test_raid_handler_preserves_existing_device_container(self, m_verify):
+        """ raid_handler preserves existing device. """
+
+        devices = [self.random_string()]
+        md_devname = '/dev/' + self.storage_config['mddevice']['name']
+        self.m_getpath.side_effect = iter(devices)
+        self.storage_config['mddevice']['preserve'] = True
+        del self.storage_config['mddevice']['devices']
+        self.storage_config['mddevice']['container'] = self.random_string()
+        block_meta.raid_handler(self.storage_config['mddevice'],
+                                self.storage_config)
+        self.assertEqual(0, self.m_mdadm.mdadm_create.call_count)
+        self.assertEqual(
+            [call(md_devname, 5, [], [], devices[0])],
+            m_verify.call_args_list)
 
     def test_raid_handler_preserve_verifies_md_device(self):
         """ raid_handler preserve verifies existing raid device. """
@@ -2027,7 +2047,7 @@ class TestRaidHandler(CiTestCase):
         block_meta.raid_handler(self.storage_config['mddevice'],
                                 self.storage_config)
         self.assertEqual(0, self.m_mdadm.mdadm_create.call_count)
-        self.assertEqual([call(md_devname, 5, devices, [])],
+        self.assertEqual([call(md_devname, 5, devices, [], None)],
                          self.m_mdadm.md_check.call_args_list)
 
     def test_raid_handler_preserve_verifies_md_device_after_assemble(self):
@@ -2037,12 +2057,12 @@ class TestRaidHandler(CiTestCase):
                    self.random_string()]
         md_devname = '/dev/' + self.storage_config['mddevice']['name']
         self.m_getpath.side_effect = iter(devices)
-        self.m_mdadm.md_check.side_effect = iter([False, True])
+        self.m_mdadm.md_check.side_effect = iter([ValueError(), None])
         self.storage_config['mddevice']['preserve'] = True
         block_meta.raid_handler(self.storage_config['mddevice'],
                                 self.storage_config)
         self.assertEqual(0, self.m_mdadm.mdadm_create.call_count)
-        self.assertEqual([call(md_devname, 5, devices, [])] * 2,
+        self.assertEqual([call(md_devname, 5, devices, [], None)] * 2,
                          self.m_mdadm.md_check.call_args_list)
         self.assertEqual([call(md_devname, devices, [])],
                          self.m_mdadm.mdadm_assemble.call_args_list)
@@ -2054,13 +2074,13 @@ class TestRaidHandler(CiTestCase):
                    self.random_string()]
         md_devname = '/dev/' + self.storage_config['mddevice']['name']
         self.m_getpath.side_effect = iter(devices)
-        self.m_mdadm.md_check.side_effect = iter([False, False])
+        self.m_mdadm.md_check.side_effect = iter([ValueError(), ValueError()])
         self.storage_config['mddevice']['preserve'] = True
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(ValueError):
             block_meta.raid_handler(self.storage_config['mddevice'],
                                     self.storage_config)
         self.assertEqual(0, self.m_mdadm.mdadm_create.call_count)
-        self.assertEqual([call(md_devname, 5, devices, [])] * 2,
+        self.assertEqual([call(md_devname, 5, devices, [], None)] * 2,
                          self.m_mdadm.md_check.call_args_list)
         self.assertEqual([call(md_devname, devices, [])],
                          self.m_mdadm.mdadm_assemble.call_args_list)

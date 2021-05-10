@@ -1496,24 +1496,38 @@ def dm_crypt_handler(info, storage_config):
             so not writing crypttab")
 
 
-def verify_md_components(md_devname, raidlevel, device_paths, spare_paths):
+def verify_md_components(md_devname, raidlevel, device_paths, spare_paths,
+                         container):
     # check if the array is already up, if not try to assemble
-    check_ok = mdadm.md_check(md_devname, raidlevel, device_paths,
-                              spare_paths)
-    if not check_ok:
+    errors = []
+    check_ok = False
+    try:
+        mdadm.md_check(md_devname, raidlevel, device_paths,
+                       spare_paths, container)
+        check_ok = True
+    except ValueError as err1:
+        errors.append(err1)
         LOG.info("assembling preserved raid for %s", md_devname)
         mdadm.mdadm_assemble(md_devname, device_paths, spare_paths)
-        check_ok = mdadm.md_check(md_devname, raidlevel, device_paths,
-                                  spare_paths)
-    msg = ('Verifying %s raid composition, found raid is %s'
+        try:
+            mdadm.md_check(md_devname, raidlevel, device_paths,
+                           spare_paths, container)
+            check_ok = True
+        except ValueError as err2:
+            errors.append(err2)
+
+    msg = ('Verified %s raid composition, raid is %s'
            % (md_devname, 'OK' if check_ok else 'not OK'))
     LOG.debug(msg)
     if not check_ok:
-        raise RuntimeError(msg)
+        for err in errors:
+            LOG.error("Error checking raid %s: %s", md_devname, err)
+        raise ValueError(msg)
 
 
-def raid_verify(md_devname, raidlevel, device_paths, spare_paths):
-    verify_md_components(md_devname, raidlevel, device_paths, spare_paths)
+def raid_verify(md_devname, raidlevel, device_paths, spare_paths, container):
+    verify_md_components(
+        md_devname, raidlevel, device_paths, spare_paths, container)
 
 
 def raid_handler(info, storage_config):
@@ -1556,7 +1570,9 @@ def raid_handler(info, storage_config):
 
     create_raid = True
     if preserve:
-        raid_verify(md_devname, raidlevel, device_paths, spare_device_paths)
+        raid_verify(
+            md_devname, raidlevel, device_paths, spare_device_paths,
+            container_dev)
         LOG.debug('raid %s already present, skipping create', md_devname)
         create_raid = False
 
