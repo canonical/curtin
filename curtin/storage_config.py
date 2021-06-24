@@ -164,7 +164,7 @@ def _stype_to_deps(stype):
         'lvm_volgroup': {'devices'},
         'mount': {'device'},
         'partition': {'device'},
-        'raid': {'devices', 'spare_devices'},
+        'raid': {'devices', 'spare_devices', 'container'},
         'zfs': {'pool'},
         'zpool': {'vdevs'},
     }
@@ -212,7 +212,7 @@ def _validate_dep_type(source_id, dep_key, dep_id, sconfig):
         'mount': {'format'},
         'partition': {'bcache', 'disk', 'raid', 'partition'},
         'raid': {'bcache', 'disk', 'dm_crypt', 'lvm_partition',
-                 'partition'},
+                 'partition', 'raid'},
         'zfs': {'zpool'},
         'zpool': {'disk', 'partition'},
     }
@@ -493,8 +493,7 @@ class ProbertParser(object):
                 devtype = 'dmcrypt'
                 name = blockdev['DM_NAME']
         elif devname.startswith('/dev/md'):
-            if 'MD_NAME' in blockdev:
-                devtype = 'raid'
+            devtype = 'raid'
 
         for key, val in {'name': name, 'devtype': devtype}.items():
             if not val or val == 'MISSING':
@@ -1047,16 +1046,27 @@ class RaidParser(ProbertParser):
         # FIXME, need to handle rich md_name values, rather than mdX
         # LP: #1803933
         raidname = os.path.basename(devname)
-        return {'type': 'raid',
-                'id': 'raid-%s' % raidname,
-                'name': raidname,
-                'raidlevel': raid_data.get('raidlevel'),
-                'devices': sorted([
-                    self.blockdev_to_id(self.blockdev_data[dev])
-                    for dev in raid_data.get('devices')]),
-                'spare_devices': sorted([
-                    self.blockdev_to_id(self.blockdev_data[dev])
-                    for dev in raid_data.get('spare_devices')])}
+
+        action = {
+            'type': 'raid',
+            'id': self.blockdev_to_id(raid_data),
+            'name': raidname,
+            'raidlevel': raid_data.get('raidlevel'),
+            }
+
+        if 'MD_METADATA' in raid_data:
+            action['metadata'] = raid_data["MD_METADATA"]
+
+        if 'container' in raid_data:
+            action['container'] = self.blockdev_byid_to_devname(
+                raid_data['container'])
+        else:
+            for k in 'devices', 'spare_devices':
+                action[k] = sorted([
+                    self.blockdev_byid_to_devname(dev)
+                    for dev in raid_data.get(k, [])])
+
+        return action
 
     def parse(self):
         """parse probert 'raid' data format.

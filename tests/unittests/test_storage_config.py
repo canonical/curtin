@@ -651,15 +651,14 @@ class TestLvmParser(CiTestCase):
 
 class TestRaidParser(CiTestCase):
 
-    def setUp(self):
-        super(TestRaidParser, self).setUp()
-        self.probe_data = _get_data('probert_storage_mdadm_bcache.json')
-        self.raidp = RaidParser(self.probe_data)
+    def _load(self, fname):
+        probe_data = _get_data(fname)
+        return RaidParser(probe_data), probe_data
 
     def test_raid_parser(self):
         """ RaidParser 'class_data' on instance matches input. """
-        self.assertDictEqual(self.probe_data['raid'],
-                             self.raidp.class_data)
+        raidp, probe_data = self._load('probert_storage_mdadm_bcache.json')
+        self.assertDictEqual(probe_data['raid'], raidp.class_data)
 
     def test_raid_asdict(self):
         """ RaidParser converts known raid_data to expected dict. """
@@ -668,19 +667,48 @@ class TestRaidParser(CiTestCase):
             'type': 'raid',
             'id': 'raid-md0',
             'name': 'md0',
+            'metadata': '1.2',
             'raidlevel': 'raid5',
             'devices': ['disk-vde', 'disk-vdf', 'disk-vdg'],
             'spare_devices': [],
         }
-        raid_data = self.raidp.class_data[devname]
-        self.assertDictEqual(expected_dict, self.raidp.asdict(raid_data))
+        raidp, _ = self._load('probert_storage_mdadm_bcache.json')
+        raid_data = raidp.class_data[devname]
+        self.assertDictEqual(expected_dict, raidp.asdict(raid_data))
 
     @skipUnlessJsonSchema()
     def test_raid_parser_parses_all_lvs_vgs(self):
         """ RaidParser returns expected dicts for known raid probe data."""
-        configs, errors = self.raidp.parse()
+        raidp, _ = self._load('probert_storage_mdadm_bcache.json')
+        configs, errors = raidp.parse()
         self.assertEqual(1, len(configs))
         self.assertEqual(0, len(errors))
+
+    def test_imsm_container(self):
+        raidp, probe_data = self._load('probert_storage_imsm.json')
+        container_raid_data = probe_data['raid']['/dev/md127']
+        container_expected = {
+            'type': 'raid',
+            'id': 'raid-md127',
+            'name': 'md127',
+            'metadata': 'imsm',
+            'raidlevel': 'container',
+            'devices': ['disk-nvme0n1', 'disk-nvme1n1'],
+            'spare_devices': [],
+            }
+        self.assertEqual(container_expected, raidp.asdict(container_raid_data))
+
+    def test_imsm_volume(self):
+        raidp, probe_data = self._load('probert_storage_imsm.json')
+        container_raid_data = probe_data['raid']['/dev/md126']
+        container_expected = {
+            'type': 'raid',
+            'id': 'raid-md126',
+            'name': 'md126',
+            'raidlevel': 'raid0',
+            'container': 'raid-md127',
+            }
+        self.assertEqual(container_expected, raidp.asdict(container_raid_data))
 
 
 class TestDasdParser(CiTestCase):
@@ -942,7 +970,7 @@ class TestExtractStorageConfig(CiTestCase):
                            cfg['id'].startswith('raid')]
         self.assertEqual(1, len(raids))
         self.assertEqual(1, len(raid_partitions))
-        self.assertEqual({'id': 'raid-md1', 'type': 'raid',
+        self.assertEqual({'id': 'raid-md1', 'type': 'raid', 'metadata': '1.2',
                           'raidlevel': 'raid1', 'name': 'md1',
                           'devices': ['partition-vdb1', 'partition-vdc1'],
                           'spare_devices': []}, raids[0])
