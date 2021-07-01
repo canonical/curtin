@@ -583,7 +583,17 @@ def disk_handler(info, storage_config):
             'Invalid partition table type: %s in %s' % (ptable, info))
 
     disk = get_path_to_storage_volume(info.get('id'), storage_config)
-    if config.value_as_boolean(info.get('preserve')):
+    # For disks, 'preserve' is what indicates whether the partition
+    # table should be reused or recreated but for compound devices
+    # such as raids, it indicates if the raid should be created or
+    # assumed to already exist. So to allow a pre-existing raid to get
+    # a new partition table, we use presence of 'wipe' field to
+    # indicate if the disk should be reformatted or not.
+    if info['type'] == 'disk':
+        preserve_ptable = config.value_as_boolean(info.get('preserve'))
+    else:
+        preserve_ptable = not config.value_as_boolean(info.get('wipe'))
+    if preserve_ptable:
         # Handle preserve flag, verifying if ptable specified in config
         if ptable and ptable != PTABLE_UNSUPPORTED:
             current_ptable = block.get_part_table_type(disk)
@@ -591,8 +601,9 @@ def disk_handler(info, storage_config):
             if current_ptable not in PTABLES_SUPPORTED:
                 raise ValueError(
                     "disk '%s' does not have correct partition table or "
-                    "cannot be read, but preserve is set to true. "
-                    "cannot continue installation." % info.get('id'))
+                    "cannot be read, but preserve is set to true (or wipe is "
+                    "not set).  cannot continue installation." %
+                    info.get('id'))
         LOG.info("disk '%s' marked to be preserved, so keeping partition "
                  "table" % disk)
     else:

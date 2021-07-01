@@ -323,6 +323,7 @@ RAID = {
         'metadata': {'type': ['string', 'number']},
         'preserve': {'$ref': '#/definitions/preserve'},
         'ptable': {'$ref': '#/definitions/ptable'},
+        'wipe': {'$ref': '#/definitions/wipe'},
         'spare_devices': {'$ref': '#/definitions/devices'},
         'container': {'$ref': '#/definitions/id'},
         'type': {'const': 'raid'},

@@ -865,6 +865,10 @@ If ``wipe`` option is set to values other than 'superblock', curtin will
 wipe contents of the assembled raid device.  Curtin skips 'superblock` wipes
 as it already clears raid data on the members before assembling the array.
 
+To allow a pre-existing (i.e. ``preserve=true``) raid to get a new partition
+table, set the ``wipe`` field to indicate the disk should be
+reformatted (this is different from disk actions, where the preserve field is
+used for this. But that means something different for raid devices).
 
 **Config Example**::
 
@@ -929,6 +933,7 @@ If the ``preserve`` option is True, curtin will verify the composition of
 the bcache device.  This includes checking that backing device and cache
 device are enabled and bound correctly (backing device is cached by expected
 cache device).  If ``cache-mode`` is specified, verify that the mode matches.
+
 
 **wipe**: *superblock, superblock-recursive, pvremove, zero, random*
 
