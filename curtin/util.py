@@ -695,7 +695,26 @@ class ChrootableTarget(object):
             log_call(subp, ['udevadm', 'settle'])
 
         for p in reversed(self.umounts):
-            do_umount(p)
+            # Consider the following sequence:
+            #
+            # mkdir a a/b c
+            # mount --bind a c
+            # mount -t sysfs sysfs a/b
+            # umount c
+            #
+            # This umount fails with "mountpoint is busy", because of
+            # the mountpoint at c/b. But if we unmount c recursively,
+            # a/b ends up getting unmounted. What we need to do is to
+            # make the mountpoints c and c/b "private" so that
+            # unmounting them does not propagate to the mount tree c
+            # was cloned from (See "Shared subtree operations" in
+            # mount(8) for more on this).
+            #
+            # Related bug reports:
+            # https://bugs.launchpad.net/maas/+bug/1928839
+            # https://bugs.launchpad.net/subiquity/+bug/1934775
+            subp(['mount', '--make-rprivate', p])
+            do_umount(p, recursive=True)
 
         rconf = paths.target_path(self.target, "/etc/resolv.conf")
         if self.sys_resolvconf and self.rconf_d:

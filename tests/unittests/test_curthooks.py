@@ -109,7 +109,7 @@ class TestEnableDisableUpdateInitramfs(CiTestCase):
 
     def test_disable_changes_binary_name_write_dummy_binary(self):
         self.mock_which.return_value = self.update_initramfs
-        self.mock_subp.side_effect = iter([('', '')] * 10)
+        self.mock_subp.side_effect = iter([('', '')] * 15)
         curthooks.disable_update_initramfs({}, self.target)
         self.assertIn(
             call(['dpkg-divert', '--add', '--rename', '--divert',
@@ -215,18 +215,25 @@ class TestUpdateInitramfs(CiTestCase):
         target = os.path.join(self.target, point)
         return call(['mount', '--bind', '/%s' % point, target])
 
+    def _rpriv_call(self, point):
+        target = os.path.join(self.target, point)
+        return call(['mount', '--make-rprivate', target])
+
     def _side_eff(self, cmd_out=None, cmd_err=None):
         if cmd_out is None:
             cmd_out = ''
         if cmd_err is None:
             cmd_err = ''
         effects = ([('mount', '')] * len(self.mounts) +
-                   [(cmd_out, cmd_err)] + [('settle', '')])
+                   [(cmd_out, cmd_err)] +
+                   [('settle', '')] +
+                   [('mount', '')]*len(self.mounts))
         return effects
 
     def _subp_calls(self, mycall):
         pre = [self._mnt_call(point) for point in self.mounts]
-        post = [call(['udevadm', 'settle'])]
+        post = [call(['udevadm', 'settle'])] + [
+            self._rpriv_call(point) for point in reversed(self.mounts)]
         return pre + [mycall] + post
 
     def test_does_nothing_if_binary_diverted(self):
@@ -243,7 +250,7 @@ class TestUpdateInitramfs(CiTestCase):
                      target=self.target)
         calls = self._subp_calls(dcall)
         self.mock_subp.assert_has_calls(calls)
-        self.assertEqual(6, self.mock_subp.call_count)
+        self.assertEqual(10, self.mock_subp.call_count)
 
     def test_mounts_and_runs(self):
         # in_chroot calls to dpkg-divert, update-initramfs
@@ -256,7 +263,7 @@ class TestUpdateInitramfs(CiTestCase):
             call(['update-initramfs', '-c', '-k', self.kversion],
                  target=self.target))
         self.mock_subp.assert_has_calls(subp_calls)
-        self.assertEqual(12, self.mock_subp.call_count)
+        self.assertEqual(20, self.mock_subp.call_count)
 
     def test_mounts_and_runs_for_all_kernels(self):
         kversion2 = '5.4.0-generic'
@@ -280,7 +287,7 @@ class TestUpdateInitramfs(CiTestCase):
             call(['update-initramfs', '-c', '-k', kversion2],
                  target=self.target))
         self.mock_subp.assert_has_calls(subp_calls)
-        self.assertEqual(24, self.mock_subp.call_count)
+        self.assertEqual(40, self.mock_subp.call_count)
 
     def test_calls_update_if_initrd_exists_else_create(self):
         kversion2 = '5.2.0-generic'
@@ -290,7 +297,7 @@ class TestUpdateInitramfs(CiTestCase):
         with open(os.path.join(self.boot, 'initrd.img-' + kversion2), 'w'):
             pass
 
-        effects = self._side_eff() * 3
+        effects = self._side_eff() * 4
         self.mock_subp.side_effect = iter(effects)
         curthooks.update_initramfs(self.target, True)
         subp_calls = self._subp_calls(
@@ -302,7 +309,7 @@ class TestUpdateInitramfs(CiTestCase):
             call(['update-initramfs', '-c', '-k', self.kversion],
                  target=self.target))
         self.mock_subp.assert_has_calls(subp_calls)
-        self.assertEqual(18, self.mock_subp.call_count)
+        self.assertEqual(30, self.mock_subp.call_count)
 
 
 class TestSetupKernelImgConf(CiTestCase):
