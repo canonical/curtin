@@ -177,14 +177,9 @@ def setup_zipl(cfg, target):
     # assuming that below gives the "/" rootfs
     target_dev = block.get_devices_for_mp(target)[0]
 
-    root_arg = None
-    # not mapped rootfs, use UUID
-    if 'mapper' in target_dev:
-        root_arg = target_dev
-    else:
-        uuid = block.get_volume_uuid(target_dev)
-        if uuid:
-            root_arg = "UUID=%s" % uuid
+    # get preferred device path, according to https://wiki.ubuntu.com/FSTAB
+    from curtin.commands.block_meta import get_volume_spec
+    root_arg = get_volume_spec(target_dev)
 
     if not root_arg:
         msg = "Failed to identify root= for %s at %s." % (target, target_dev)
