@@ -592,7 +592,8 @@ def disk_handler(info, storage_config):
     if info['type'] == 'disk':
         preserve_ptable = config.value_as_boolean(info.get('preserve'))
     else:
-        preserve_ptable = not config.value_as_boolean(info.get('wipe'))
+        preserve_ptable = config.value_as_boolean(info.get('preserve')) \
+                          and not config.value_as_boolean(info.get('wipe'))
     if preserve_ptable:
         # Handle preserve flag, verifying if ptable specified in config
         if ptable and ptable != PTABLE_UNSUPPORTED:
