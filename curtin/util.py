@@ -519,13 +519,41 @@ def do_mount(src, target, opts=None):
 
 
 def do_umount(mountpoint, recursive=False):
-    # unmount mountpoint. if recursive, unmount all mounts under it.
-    # return boolean indicating if mountpoint was previously mounted.
     mp = os.path.abspath(mountpoint)
+    # unmount mountpoint. if recursive, unmount all mounts under it.
+    #
+    # note that recursive unmounting is different to umount -R's
+    # behaviour. Consider the following sequence:
+    #
+    # mkdir a a/b c
+    # mount --bind a c
+    # mount -t sysfs sysfs a/b
+    #
+    # "umount c" will fail, with "mountpoint is busy", because of the
+    # mountpoint at c/b. But "umount -R c" will unmount a/b (and as in
+    # pratice "a/b" is often actually "/sys" itself, this would be
+    # Bad(tm)). So what we do is iterate over the mountpoints under
+    # `mountpoint` and mark each one as "private" before unmounting
+    # it, which means the unmount does not propagate to any mount tree
+    # it was cloned from (See "Shared subtree operations" in mount(8)
+    # for more on this).
+    #
+    # You might think we could replace all this with a call to "mount
+    # --make-rprivate" followed by a call to "umount --recursive" but
+    # that would fail in the case where `mountpoint` is not actually a
+    # mount point, and not doing that is actually relied on by other
+    # parts of curtin.
+    #
+    # Related bug reports:
+    # https://bugs.launchpad.net/maas/+bug/1928839
+    # https://bugs.launchpad.net/subiquity/+bug/1934775
+    #
+    # return boolean indicating if mountpoint was previously mounted.
     ret = False
     for line in reversed(load_file("/proc/mounts", decode=True).splitlines()):
         curmp = line.split()[1]
         if curmp == mp or (recursive and curmp.startswith(mp + os.path.sep)):
+            subp(['mount', '--make-private', curmp])
             subp(['umount', curmp])
         if curmp == mp:
             ret = True
@@ -695,25 +723,6 @@ class ChrootableTarget(object):
             log_call(subp, ['udevadm', 'settle'])
 
         for p in reversed(self.umounts):
-            # Consider the following sequence:
-            #
-            # mkdir a a/b c
-            # mount --bind a c
-            # mount -t sysfs sysfs a/b
-            # umount c
-            #
-            # This umount fails with "mountpoint is busy", because of
-            # the mountpoint at c/b. But if we unmount c recursively,
-            # a/b ends up getting unmounted. What we need to do is to
-            # make the mountpoints c and c/b "private" so that
-            # unmounting them does not propagate to the mount tree c
-            # was cloned from (See "Shared subtree operations" in
-            # mount(8) for more on this).
-            #
-            # Related bug reports:
-            # https://bugs.launchpad.net/maas/+bug/1928839
-            # https://bugs.launchpad.net/subiquity/+bug/1934775
-            subp(['mount', '--make-rprivate', p])
             do_umount(p, recursive=True)
 
         rconf = paths.target_path(self.target, "/etc/resolv.conf")
