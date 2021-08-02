@@ -29,11 +29,6 @@ definitions = {
         'type': 'string',
         'pattern': _uuid_pattern,
     },
-    'fstype': {
-        'type': 'string',
-        'oneOf': [
-            {'pattern': r'^__.*__$'},  # XXX: Accept vmtest values?
-            {'enum': _fstypes}]},
     'params': {
         'type': 'object',
         'patternProperties': {
@@ -187,11 +182,20 @@ FORMAT = {
         'preserve': {'$ref': '#/definitions/preserve'},
         'uuid': {'$ref': '#/definitions/uuid'},    # XXX: This is not used
         'type': {'const': 'format'},
-        'fstype': {'$ref': '#/definitions/fstype'},
+        'fstype': {'type': 'string'},
         'label': {'type': 'string'},
         'volume': {'$ref': '#/definitions/ref_id'},
         'extra_options': {'type': 'array', 'items': {'type': 'string'}},
-    }
+    },
+    'anyOf': [
+        # XXX: Accept vmtest values?
+        {'properties': {'fstype': {'pattern': r'^__.*__$'}}},
+        {'properties': {'fstype': {'enum': _fstypes}}},
+        {
+            'properties': {'preserve': {'enum': [True]}},
+            'required': ['preserve']  # this looks redundant but isn't
+        }
+    ]
 }
 LVM_PARTITION = {
     '$schema': 'http://json-schema.org/draft-07/schema#',

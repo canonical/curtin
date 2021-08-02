@@ -66,6 +66,43 @@ class TestStorageConfigSchema(CiTestCase):
         config = {'config': [disk], 'version': 1}
         storage_config.validate_config(config)
 
+    @skipUnlessJsonSchema()
+    def test_format_schema_arbitrary_fstype_if_preserve(self):
+        format = {
+            "fstype": "BitLocker",
+            "id": "format-partition-sda3",
+            "preserve": True,
+            "type": "format",
+            "volume": "partition-sda3"
+        }
+        config = {'config': [format], 'version': 1}
+        storage_config.validate_config(config)
+
+    @skipUnlessJsonSchema()
+    def test_format_schema_arbitrary_fstype_fail_when_preserve_false(self):
+        format = {
+            "fstype": "BitLocker",
+            "id": "format-partition-sda3",
+            "preserve": False,
+            "type": "format",
+            "volume": "partition-sda3"
+        }
+        config = {'config': [format], 'version': 1}
+        with self.assertRaises(ValueError):
+            storage_config.validate_config(config)
+
+    @skipUnlessJsonSchema()
+    def test_format_schema_arbitrary_fstype_fail_when_no_preserve(self):
+        format = {
+            "fstype": "BitLocker",
+            "id": "format-partition-sda3",
+            "type": "format",
+            "volume": "partition-sda3"
+        }
+        config = {'config': [format], 'version': 1}
+        with self.assertRaises(ValueError):
+            storage_config.validate_config(config)
+
 
 class TestProbertParser(CiTestCase):
 
@@ -870,7 +907,6 @@ class TestZfsParser(CiTestCase):
         }
 
         zpool_data = self.zfsp.class_data['zpools'][zpool]['datasets'][dataset]
-        print(zpool_data)
         self.assertDictEqual(expected_properties,
                              self.zfsp.get_local_ds_properties(zpool_data))
 
@@ -1052,6 +1088,24 @@ class TestExtractStorageConfig(CiTestCase):
         }
         self.assertEqual(1, len(disks))
         self.assertEqual(expected_dict, disks[0])
+
+    @skipUnlessJsonSchema()
+    def test_arbitrary_fstype_if_preserve_true(self):
+        self.probe_data = _get_data('probert_storage_win10_bitlocker.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        configs = extracted['storage']['config']
+        format = [cfg for cfg in configs if cfg.get('type') == 'format']
+        bitlocker = [entry for entry in format
+                     if entry.get('id') == 'format-partition-sda3']
+        expected_dict = {
+            'id': 'format-partition-sda3',
+            'type': 'format',
+            'volume': 'partition-sda3',
+            'fstype': 'BitLocker',
+            'preserve': True,
+        }
+        self.assertEqual(1, len(bitlocker))
+        self.assertEqual(expected_dict, bitlocker[0])
 
 
 # vi: ts=4 expandtab syntax=python

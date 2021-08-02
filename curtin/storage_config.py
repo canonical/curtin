@@ -855,21 +855,24 @@ class FilesystemParser(ProbertParser):
             volume_id = self.blockdev_to_id(blockdev_data)
 
             # don't capture non-filesystem usage
-            if data['USAGE'] != "filesystem":
-                continue
-
-            # ignore types that we cannot create
-            if data.get('TYPE') not in schemas._fstypes:
+            # crypto is just a disguised filesystem
+            if data['USAGE'] not in ("filesystem", "crypto"):
                 continue
 
             entry = self.asdict(volume_id, data)
-            if entry:
-                try:
-                    validate_config(entry)
-                except ValueError as e:
-                    errors.append(e)
-                    continue
-                configs.append(entry)
+            if not entry:
+                continue
+
+            # allow types that we cannot create only if preserve == true
+            if data.get('TYPE') not in schemas._fstypes:
+                entry['preserve'] = True
+
+            try:
+                validate_config(entry)
+            except ValueError as e:
+                errors.append(e)
+                continue
+            configs.append(entry)
         return (configs, errors)
 
     def asdict(self, volume_id, fs_data):
