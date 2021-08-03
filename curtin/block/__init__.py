@@ -62,7 +62,8 @@ def dev_path(devname):
     convert device name to path in /dev
     """
     if devname.startswith('/dev/'):
-        return devname
+        # it could be something like /dev/mapper/mpatha-part2
+        return os.path.realpath(devname)
     else:
         return '/dev/' + devname
 
