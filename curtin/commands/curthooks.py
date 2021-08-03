@@ -13,7 +13,6 @@ from curtin import config
 from curtin import block
 from curtin import distro
 from curtin.block import iscsi
-from curtin.block import lvm
 from curtin import net
 from curtin import futil
 from curtin.log import LOG
@@ -1145,28 +1144,7 @@ def detect_and_handle_multipath(cfg, target, osfamily=DISTROS.debian):
             raise ValueError(
                     'Unknown grub_cfg mapping for distro: %s' % osfamily)
 
-        if mp_supported:
-            # if root is on lvm, emit a multipath filter to lvm
-            lvmfilter = lvm.generate_multipath_dm_uuid_filter()
-            # lvm.conf device section indents config by 8 spaces
-            indent = ' ' * 8
-            mpfilter = '\n'.join([
-                indent + ('# Modified by curtin for multipath '
-                          'device %s' % (mpname)),
-                indent + lvmfilter])
-            lvmconf = paths.target_path(target, '/etc/lvm/lvm.conf')
-            orig_content = util.load_file(lvmconf)
-            devices_match = re.search(r'devices\ {',
-                                      orig_content, re.MULTILINE)
-            if devices_match:
-                LOG.debug('Adding multipath filter (%s) to lvm.conf', mpfilter)
-                shutil.move(lvmconf, lvmconf + '.orig-curtin')
-                index = devices_match.end()
-                new_content = (
-                    orig_content[:index] + '\n' + mpfilter + '\n' +
-                    orig_content[index + 1:])
-                util.write_file(lvmconf, new_content)
-        else:
+        if not mp_supported:
             # TODO: fix up dnames without multipath available on host
             msg = '\n'.join([
                 '# Written by curtin for multipath device %s %s' % (mpname,
