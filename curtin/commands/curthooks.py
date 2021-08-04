@@ -941,7 +941,6 @@ def copy_zkey_repository(zkey_repository, target,
 
 def apply_networking(target, state):
     netconf = state.get('network_config')
-    interfaces = state.get('interfaces')
 
     def is_valid_src(infile):
         with open(infile, 'r') as fp:
@@ -955,11 +954,11 @@ def apply_networking(target, state):
         apply_net.apply_net(target, network_state=None, network_config=netconf)
     else:
         LOG.debug("copying interfaces")
-        copy_interfaces(interfaces, target)
+        copy_interfaces(state.get('interfaces'), target)
 
 
 def copy_interfaces(interfaces, target):
-    if not interfaces:
+    if not interfaces or not os.path.exists(interfaces):
         LOG.warn("no interfaces file to copy!")
         return
     eni = os.path.sep.join([target, 'etc/network/interfaces'])
