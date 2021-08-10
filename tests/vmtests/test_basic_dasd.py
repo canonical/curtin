@@ -60,7 +60,7 @@ class HirsuteTestBasicDasd(relbase.hirsute, TestBasicDasd):
     __test__ = True
 
 
-class GroovyTestBasicDasd(relbase.groovy, TestBasicDasd):
+class ImpishTestBasicDasd(relbase.impish, TestBasicDasd):
     __test__ = True
 
 

@@ -33,7 +33,7 @@ class HirsuteTestInstallPanic(relbase.hirsute, TestInstallPanic):
     __test__ = True
 
 
-class GroovyTestInstallPanic(relbase.groovy, TestInstallPanic):
+class ImpishTestInstallPanic(relbase.impish, TestInstallPanic):
     __test__ = True
 
 

@@ -247,7 +247,7 @@ class HirsuteTestFsBattery(relbase.hirsute, TestFsBattery):
     __test__ = True
 
 
-class GroovyTestFsBattery(relbase.groovy, TestFsBattery):
+class ImpishTestFsBattery(relbase.impish, TestFsBattery):
     __test__ = True
 
 

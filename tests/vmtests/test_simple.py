@@ -63,7 +63,7 @@ class HirsuteTestSimple(relbase.hirsute, TestSimple):
         self.output_files_exist(["netplan.yaml"])
 
 
-class GroovyTestSimple(relbase.groovy, TestSimple):
+class ImpishTestSimple(relbase.impish, TestSimple):
     __test__ = True
 
     def test_output_files_exist(self):
@@ -126,7 +126,7 @@ class HirsuteTestSimpleStorage(relbase.hirsute, TestSimpleStorage):
         self.output_files_exist(["netplan.yaml"])
 
 
-class GroovyTestSimpleStorage(relbase.groovy, TestSimpleStorage):
+class ImpishTestSimpleStorage(relbase.impish, TestSimpleStorage):
     __test__ = True
 
     def test_output_files_exist(self):
@@ -166,7 +166,7 @@ class HirsuteTestGrubNoDefaults(relbase.hirsute, TestGrubNoDefaults):
         self.output_files_exist(["netplan.yaml"])
 
 
-class GroovyTestGrubNoDefaults(relbase.groovy, TestGrubNoDefaults):
+class ImpishTestGrubNoDefaults(relbase.impish, TestGrubNoDefaults):
     __test__ = True
 
     def test_output_files_exist(self):

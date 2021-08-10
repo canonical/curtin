@@ -166,7 +166,7 @@ class HirsuteTestMultipathBasic(relbase.hirsute, TestMultipathBasicAbs):
     __test__ = True
 
 
-class GroovyTestMultipathBasic(relbase.groovy, TestMultipathBasicAbs):
+class ImpishTestMultipathBasic(relbase.impish, TestMultipathBasicAbs):
     __test__ = True
 
 
@@ -182,7 +182,7 @@ class HirsuteTestMultipathReuse(relbase.hirsute, TestMultipathReuseAbs):
     __test__ = True
 
 
-class GroovyTestMultipathReuse(relbase.groovy, TestMultipathReuseAbs):
+class ImpishTestMultipathReuse(relbase.impish, TestMultipathReuseAbs):
     __test__ = True
 
 

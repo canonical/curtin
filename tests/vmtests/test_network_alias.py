@@ -60,7 +60,7 @@ class HirsuteTestNetworkAlias(relbase.hirsute, TestNetworkAliasAbs):
     __test__ = True
 
 
-class GroovyTestNetworkAlias(relbase.groovy, TestNetworkAliasAbs):
+class ImpishTestNetworkAlias(relbase.impish, TestNetworkAliasAbs):
     __test__ = True
 
 

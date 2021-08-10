@@ -185,20 +185,20 @@ class _FocalBase(_UbuntuBase):
         subarch = "ga-20.04"
 
 
-class _GroovyBase(_UbuntuBase):
-    release = "groovy"
-    target_release = "groovy"
-    mem = "2048"
-    if _UbuntuBase.arch == "arm64":
-        subarch = "ga-20.10"
-
-
 class _HirsuteBase(_UbuntuBase):
     release = "hirsute"
     target_release = "hirsute"
     mem = "2048"
     if _UbuntuBase.arch == "arm64":
-        subarch = "ga-20.10"
+        subarch = "ga-21.04"
+
+
+class _ImpishBase(_UbuntuBase):
+    release = "impish"
+    target_release = "impish"
+    mem = "2048"
+    if _UbuntuBase.arch == "arm64":
+        subarch = "ga-21.10"
 
 
 class _Releases(object):
@@ -219,8 +219,8 @@ class _Releases(object):
     disco = _DiscoBase
     eoan = _EoanBase
     focal = _FocalBase
-    groovy = _GroovyBase
     hirsute = _HirsuteBase
+    impish = _ImpishBase
 
 
 class _CentosReleases(object):

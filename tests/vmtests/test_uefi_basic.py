@@ -118,7 +118,7 @@ class HirsuteUefiTestBasic(relbase.hirsute, TestBasicAbs):
     __test__ = True
 
 
-class GroovyUefiTestBasic(relbase.groovy, TestBasicAbs):
+class ImpishUefiTestBasic(relbase.impish, TestBasicAbs):
     __test__ = True
 
 
@@ -147,7 +147,7 @@ class HirsuteUefiTestBasic4k(relbase.hirsute, TestBasicAbs):
     disk_block_size = 4096
 
 
-class GroovyUefiTestBasic4k(relbase.groovy, TestBasicAbs):
+class ImpishUefiTestBasic4k(relbase.impish, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
 

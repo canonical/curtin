@@ -49,7 +49,7 @@ class HirsuteTestUefiReuseEsp(relbase.hirsute, TestUefiReuseEspAbs):
         return super().test_efiboot_menu_has_one_distro_entry()
 
 
-class GroovyTestUefiReuseEsp(relbase.groovy, TestUefiReuseEspAbs):
+class ImpishTestUefiReuseEsp(relbase.impish, TestUefiReuseEspAbs):
     __test__ = True
 
     def test_efiboot_menu_has_one_distro_entry(self):

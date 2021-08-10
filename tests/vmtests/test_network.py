@@ -482,7 +482,7 @@ class HirsuteTestNetworkBasic(relbase.hirsute, TestNetworkBasicAbs):
     __test__ = True
 
 
-class GroovyTestNetworkBasic(relbase.groovy, TestNetworkBasicAbs):
+class ImpishTestNetworkBasic(relbase.impish, TestNetworkBasicAbs):
     __test__ = True
 
 

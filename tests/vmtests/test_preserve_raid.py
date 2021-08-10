@@ -33,7 +33,7 @@ class HirsuteTestPreserveRAID(relbase.hirsute, TestPreserveRAID):
     __test__ = True
 
 
-class GroovyTestPreserveRAID(relbase.groovy, TestPreserveRAID):
+class ImpishTestPreserveRAID(relbase.impish, TestPreserveRAID):
     __test__ = True
 
 
@@ -67,8 +67,8 @@ class HirsuteTestPartitionExistingRAID(
     __test__ = True
 
 
-class GroovyTestPartitionExistingRAID(
-        relbase.groovy, TestPartitionExistingRAID):
+class ImpishTestPartitionExistingRAID(
+        relbase.impish, TestPartitionExistingRAID):
     __test__ = True
 
 
