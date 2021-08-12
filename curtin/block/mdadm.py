@@ -749,8 +749,9 @@ def md_check_array_state(md_devname):
         raise ValueError('Array not in writable state: ' + md_devname)
     if degraded is not None and degraded != "0":
         raise ValueError('Array in degraded state: ' + md_devname)
-    if degraded is not None and sync_action != "idle":
-        raise ValueError('Array syncing, not idle state: ' + md_devname)
+    if degraded is not None and sync_action not in ("idle", "resync"):
+        raise ValueError(
+            'Array is %s, not idle: %s' % (sync_action, md_devname))
 
 
 def md_check_uuid(md_devname):
