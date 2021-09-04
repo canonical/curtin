@@ -5,12 +5,17 @@ _APT_UPDATED=false
 error() { echo "$@" 1>&2; }
 fail() { [ $# -eq 0 ] || error "$@"; exit 2; }
 
-rel="$(lsb_release -sc)"
 case "$(uname -m)" in
   i?86|x86_64) qemu="qemu-system-x86";;
   ppc*) qemu="qemu-system-ppc";;
   s390x) qemu="qemu-system-s390x";;
 esac
+
+get_python_apt() {
+    [[ "$1" < "21.04" ]] && echo python-apt
+    [[ "$1" > "16.04" ]] && echo python3-apt
+}
+
 DEPS=(
   cloud-image-utils
   make
@@ -20,6 +25,7 @@ DEPS=(
   python3-nose
   python3-simplestreams
   python3-yaml
+  $(get_python_apt "$(lsb_release -sr)")
   ovmf
   simplestreams
   $qemu
