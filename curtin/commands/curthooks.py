@@ -1287,8 +1287,9 @@ def install_missing_packages(cfg, target, osfamily=DISTROS.debian):
             if distro.has_pkg_available(uefi_pkg_signed):
                 uefi_pkgs.append(uefi_pkg_signed)
 
-            # AMD64 has shim-signed for SecureBoot support
-            if arch == "amd64":
+            # amd64 and arm64 (since bionic) has shim-signed for
+            # SecureBoot support
+            if distro.has_pkg_available("shim-signed"):
                 uefi_pkgs.append("shim-signed")
         else:
             raise ValueError('Unknown grub2 package list for distro: %s' %
