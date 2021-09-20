@@ -11,6 +11,8 @@ import os
 import re
 import sys
 
+from aptsources.sourceslist import SourceEntry
+
 from curtin.log import LOG
 from curtin import (config, distro, gpg, paths, util)
 
@@ -211,22 +213,38 @@ def rename_apt_lists(new_mirrors, target=None):
                 LOG.warn("Failed to rename apt list:", exc_info=True)
 
 
-def mirror_to_placeholder(tmpl, mirror, placeholder):
-    """ mirror_to_placeholder
-        replace the specified mirror in a template with a placeholder string
-        Checks for existance of the expected mirror and warns if not found
-    """
-    if mirror not in tmpl:
-        if mirror.endswith("/") and mirror[:-1] in tmpl:
-            LOG.debug("mirror_to_placeholder: '%s' did not exist in tmpl, "
-                      "did without a trailing /.  Accomodating.", mirror)
-            mirror = mirror[:-1]
-        else:
-            LOG.warn("Expected mirror '%s' not found in: %s", mirror, tmpl)
-    return tmpl.replace(mirror, placeholder)
+def update_default_mirrors(entries, mirrors, target):
+    """replace existing default repos with the configured mirror"""
+
+    defaults = get_default_mirrors(distro.get_architecture(target))
+    mirrors_replacement = {
+        defaults['PRIMARY']: mirrors["MIRROR"],
+        defaults['SECURITY']: mirrors["SECURITY"],
+    }
+
+    # allow original file URIs without the trailing slash to match mirror
+    # specifications that have it
+    noslash = {}
+    for key in mirrors_replacement.keys():
+        if key[-1] == '/':
+            noslash[key[:-1]] = mirrors_replacement[key]
+
+    mirrors_replacement.update(noslash)
+
+    for entry in entries:
+        entry.uri = mirrors_replacement.get(entry.uri, entry.uri)
+    return entries
 
 
-def map_known_suites(suite):
+def update_mirrors(entries, mirrors):
+    """perform template replacement of mirror placeholders with configured
+       values"""
+    for entry in entries:
+        entry.uri = util.render_string(entry.uri, mirrors)
+    return entries
+
+
+def map_known_suites(suite, release):
     """there are a few default names which will be auto-extended.
        This comes at the inability to use those names literally as suites,
        but on the other hand increases readability of the cfg quite a lot"""
@@ -236,10 +254,10 @@ def map_known_suites(suite):
                'proposed': '$RELEASE-proposed',
                'release': '$RELEASE'}
     try:
-        retsuite = mapping[suite]
+        template_suite = mapping[suite]
     except KeyError:
-        retsuite = suite
-    return retsuite
+        template_suite = suite
+    return util.render_string(template_suite, {'RELEASE': release})
 
 
 def disable_suites(disabled, src, release):
@@ -248,36 +266,30 @@ def disable_suites(disabled, src, release):
     if not disabled:
         return src
 
-    retsrc = src
+    suites_to_disable = []
     for suite in disabled:
-        suite = map_known_suites(suite)
-        releasesuite = util.render_string(suite, {'RELEASE': release})
-        LOG.debug("Disabling suite %s as %s", suite, releasesuite)
+        release_suite = map_known_suites(suite, release)
+        LOG.debug("Disabling suite %s as %s", suite, release_suite)
+        suites_to_disable.append(release_suite)
 
-        newsrc = ""
-        for line in retsrc.splitlines(True):
-            if line.startswith("#"):
-                newsrc += line
-                continue
+    output = []
+    for entry in src:
+        if entry.dist in suites_to_disable and not entry.disabled:
+            # handle commenting ourselves - it handles lines with
+            # options better
+            entry = SourceEntry('# ' + str(entry))
+        output.append(entry)
+    return output
 
-            # sources.list allow options in cols[1] which can have spaces
-            # so the actual suite can be [2] or later. example:
-            # deb [ arch=amd64,armel k=v ] http://example.com/debian
-            cols = line.split()
-            if len(cols) > 1:
-                pcol = 2
-                if cols[1].startswith("["):
-                    for col in cols[1:]:
-                        pcol += 1
-                        if col.endswith("]"):
-                            break
 
-                if cols[pcol] == releasesuite:
-                    line = '# suite disabled by curtin: %s' % line
-            newsrc += line
-        retsrc = newsrc
+def update_dist(entries, release):
+    for entry in entries:
+        entry.dist = util.render_string(entry.dist, {'RELEASE': release})
+    return entries
 
-    return retsrc
+
+def entries_to_str(entries):
+    return ''.join([str(entry) + '\n' for entry in entries])
 
 
 def generate_sources_list(cfg, release, mirrors, target=None):
@@ -285,34 +297,31 @@ def generate_sources_list(cfg, release, mirrors, target=None):
         create a source.list file based on a custom or default template
         by replacing mirrors and release in the template
     """
-    default_mirrors = get_default_mirrors(distro.get_architecture(target))
     aptsrc = "/etc/apt/sources.list"
-    params = {'RELEASE': release}
-    for k in mirrors:
-        params[k] = mirrors[k]
 
     tmpl = cfg.get('sources_list', None)
+    from_file = False
     if tmpl is None:
         LOG.info("No custom template provided, fall back to modify"
                  "mirrors in %s on the target system", aptsrc)
         tmpl = util.load_file(paths.target_path(target, aptsrc))
-        # Strategy if no custom template was provided:
-        # - Only replacing mirrors
-        # - no reason to replace "release" as it is from target anyway
-        # - The less we depend upon, the more stable this is against changes
-        # - warn if expected original content wasn't found
-        tmpl = mirror_to_placeholder(tmpl, default_mirrors['PRIMARY'],
-                                     "$MIRROR")
-        tmpl = mirror_to_placeholder(tmpl, default_mirrors['SECURITY'],
-                                     "$SECURITY")
+        from_file = True
+
+    entries = [SourceEntry(line) for line in tmpl.splitlines(True)]
+    if from_file:
+        # when loading from an existing file, we also replace default
+        # URIs with configured mirrors
+        entries = update_default_mirrors(entries, mirrors, target)
+
+    entries = update_mirrors(entries, mirrors)
+    entries = update_dist(entries, release)
+    entries = disable_suites(cfg.get('disable_suites'), entries, release)
+    output = entries_to_str(entries)
 
     orig = paths.target_path(target, aptsrc)
     if os.path.exists(orig):
         os.rename(orig, orig + ".curtin.old")
-
-    rendered = util.render_string(tmpl, params)
-    disabled = disable_suites(cfg.get('disable_suites'), rendered, release)
-    util.write_file(paths.target_path(target, aptsrc), disabled, mode=0o644)
+    util.write_file(paths.target_path(target, aptsrc), output, mode=0o644)
 
 
 def apply_preserve_sources_list(target):
