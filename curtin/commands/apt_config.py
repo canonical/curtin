@@ -260,11 +260,17 @@ def map_known_suites(suite, release):
     return util.render_string(template_suite, {'RELEASE': release})
 
 
-def disable_suites(disabled, src, release):
+def commentify(entry):
+    # handle commenting ourselves - it handles lines with
+    # options better
+    return SourceEntry('# ' + str(entry))
+
+
+def disable_suites(disabled, entries, release):
     """reads the config for suites to be disabled and removes those
        from the template"""
     if not disabled:
-        return src
+        return entries
 
     suites_to_disable = []
     for suite in disabled:
@@ -273,12 +279,32 @@ def disable_suites(disabled, src, release):
         suites_to_disable.append(release_suite)
 
     output = []
-    for entry in src:
-        if entry.dist in suites_to_disable and not entry.disabled:
-            # handle commenting ourselves - it handles lines with
-            # options better
-            entry = SourceEntry('# ' + str(entry))
+    for entry in entries:
+        if not entry.disabled and entry.dist in suites_to_disable:
+            entry = commentify(entry)
         output.append(entry)
+    return output
+
+
+def disable_components(disabled, entries):
+    """reads the config for components to be disabled and remove those
+       from the entries"""
+    if not disabled:
+        return entries
+
+    # purposefully skip disabling the main component
+    comps_to_disable = {comp for comp in disabled if comp != 'main'}
+
+    output = []
+    for entry in entries:
+        if not entry.disabled and comps_to_disable.intersection(entry.comps):
+            output.append(commentify(entry))
+            entry.comps = [comp for comp in entry.comps
+                           if comp not in comps_to_disable]
+            if entry.comps:
+                output.append(entry)
+        else:
+            output.append(entry)
     return output
 
 
@@ -316,6 +342,7 @@ def generate_sources_list(cfg, release, mirrors, target=None):
     entries = update_mirrors(entries, mirrors)
     entries = update_dist(entries, release)
     entries = disable_suites(cfg.get('disable_suites'), entries, release)
+    entries = disable_components(cfg.get('disable_components'), entries)
     output = entries_to_str(entries)
 
     orig = paths.target_path(target, aptsrc)

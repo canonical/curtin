@@ -955,6 +955,99 @@ deb http://example.com/mirrors/ubuntu trusty-updates main universe
         result = apt_config.disable_suites(disabled, entryify(orig), rel)
         self.assertEqual(expect, lineify(result))
 
+    def test_disable_components(self):
+        orig = """\
+deb http://ubuntu.com/ubuntu xenial main restricted universe multiverse
+deb http://ubuntu.com/ubuntu xenial-updates main restricted universe multiverse
+deb http://ubuntu.com/ubuntu xenial-security \
+main restricted universe multiverse
+deb-src http://ubuntu.com/ubuntu xenial main restricted universe multiverse
+deb http://ubuntu.com/ubuntu/ xenial-proposed \
+main restricted universe multiverse"""
+        expect = orig
+
+        # no-op
+        disabled = []
+        result = apt_config.disable_components(disabled, entryify(orig))
+        self.assertEqual(expect, lineify(result))
+
+        # no-op 2
+        disabled = None
+        result = apt_config.disable_components(disabled, entryify(orig))
+        self.assertEqual(expect, lineify(result))
+
+        # we don't disable main
+        disabled = ('main', )
+        result = apt_config.disable_components(disabled, entryify(orig))
+        self.assertEqual(expect, lineify(result))
+
+        # nonsense
+        disabled = ('asdf', )
+        result = apt_config.disable_components(disabled, entryify(orig))
+        self.assertEqual(expect, lineify(result))
+
+        # free-only
+        expect = """\
+# deb http://ubuntu.com/ubuntu xenial main restricted universe multiverse
+deb http://ubuntu.com/ubuntu xenial main universe
+# deb http://ubuntu.com/ubuntu xenial-updates main restricted \
+universe multiverse
+deb http://ubuntu.com/ubuntu xenial-updates main universe
+# deb http://ubuntu.com/ubuntu xenial-security main restricted \
+universe multiverse
+deb http://ubuntu.com/ubuntu xenial-security main universe
+# deb-src http://ubuntu.com/ubuntu xenial main restricted universe multiverse
+deb-src http://ubuntu.com/ubuntu xenial main universe
+# deb http://ubuntu.com/ubuntu/ xenial-proposed main restricted \
+universe multiverse
+deb http://ubuntu.com/ubuntu/ xenial-proposed main universe"""
+        disabled = ('restricted', 'multiverse')
+        result = apt_config.disable_components(disabled, entryify(orig))
+        self.assertEqual(expect, lineify(result))
+
+        # skip line when this component is the last
+        orig = """\
+deb http://ubuntu.com/ubuntu xenial main universe multiverse
+deb http://ubuntu.com/ubuntu xenial-updates universe
+deb http://ubuntu.com/ubuntu xenial-security universe multiverse"""
+        expect = """\
+# deb http://ubuntu.com/ubuntu xenial main universe multiverse
+deb http://ubuntu.com/ubuntu xenial main
+# deb http://ubuntu.com/ubuntu xenial-updates universe
+# deb http://ubuntu.com/ubuntu xenial-security universe multiverse"""
+        disabled = ('universe', 'multiverse')
+        result = apt_config.disable_components(disabled, entryify(orig))
+        self.assertEqual(expect, lineify(result))
+
+        # comment everything
+        orig = """\
+deb http://ubuntu.com/ubuntu xenial-security universe multiverse"""
+        expect = """\
+# deb http://ubuntu.com/ubuntu xenial-security universe multiverse"""
+        disabled = ('universe', 'multiverse')
+        result = apt_config.disable_components(disabled, entryify(orig))
+        self.assertEqual(expect, lineify(result))
+
+        # double-hash comment
+        orig = """\
+
+## Major bug fix updates produced after the final release of the
+## distribution.
+
+deb http://archive.ubuntu.com/ubuntu/ impish-updates main restricted
+# deb http://archive.ubuntu.com/ubuntu/ impish-updates main restricted"""
+        expect = """\
+
+## Major bug fix updates produced after the final release of the
+## distribution.
+
+# deb http://archive.ubuntu.com/ubuntu/ impish-updates main restricted
+deb http://archive.ubuntu.com/ubuntu/ impish-updates main
+# deb http://archive.ubuntu.com/ubuntu/ impish-updates main restricted"""
+        disabled = ('restricted', )
+        result = apt_config.disable_components(disabled, entryify(orig))
+        self.assertEqual(expect, lineify(result))
+
     @mock.patch("curtin.util.write_file")
     @mock.patch("curtin.distro.get_architecture")
     def test_generate_with_options(self, get_arch, write_file):
