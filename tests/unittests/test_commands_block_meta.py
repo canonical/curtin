@@ -201,7 +201,8 @@ class TestBlockMetaSimple(CiTestCase):
         mock_write_image.return_value = devname
 
         args = Namespace(target=self.target, devices=None, mode=None,
-                         boot_fstype=None, fstype=None, force_mode=False)
+                         boot_fstype=None, fstype=None, force_mode=False,
+                         testmode=True)
 
         block_meta.block_meta(args)
 
@@ -258,7 +259,8 @@ class TestBlockMetaSimple(CiTestCase):
         mock_write_image.return_value = devname
 
         args = Namespace(target=None, devices=None, mode='custom',
-                         boot_fstype=None, fstype=None, force_mode=False)
+                         boot_fstype=None, fstype=None, force_mode=False,
+                         testmode=True)
 
         block_meta.block_meta(args)
 

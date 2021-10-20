@@ -132,7 +132,8 @@ def partition_kname(disk_kname, partition_number):
                     os.path.realpath('%s-part%s' % (disk_link,
                                                     partition_number)))
 
-    for dev_type in ['bcache', 'nvme', 'mmcblk', 'cciss', 'mpath', 'md']:
+    for dev_type in ['bcache', 'nvme', 'mmcblk', 'cciss', 'mpath', 'md',
+                     'loop']:
         if disk_kname.startswith(dev_type):
             partition_number = "p%s" % partition_number
             break

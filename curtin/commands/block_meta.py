@@ -72,6 +72,8 @@ CMD_ARGUMENTS = (
                         'choices': ['ext4', 'ext3'], 'default': None}),
      ('--umount', {'help': 'unmount any mounted filesystems before exit',
                    'action': 'store_true', 'default': False}),
+     ('--testmode', {'help': 'enable some test actions',
+                     'action': 'store_true', 'default': False}),
      ('mode', {'help': 'meta-mode to use',
                'choices': [CUSTOM, SIMPLE, SIMPLE_BOOT]}),
      )
@@ -81,7 +83,10 @@ CMD_ARGUMENTS = (
 @logged_time("BLOCK_META")
 def block_meta(args):
     # main entry point for the block-meta command.
-    state = util.load_command_environment(strict=True)
+    if args.testmode:
+        state = {}
+    else:
+        state = util.load_command_environment(strict=True)
     cfg = config.load_command_config(args, state)
     dd_images = util.get_dd_images(cfg.get('sources', {}))
 
@@ -99,7 +104,8 @@ def block_meta(args):
         args.devices = devices
 
     LOG.debug('clearing devices=%s', devices)
-    meta_clear(devices, state.get('report_stack_prefix', ''))
+    if devices:
+        meta_clear(devices, state.get('report_stack_prefix', ''))
 
     # dd-images requires use of meta_simple
     if len(dd_images) > 0 and args.force_mode is False:
@@ -517,6 +523,9 @@ def get_path_to_storage_volume(volume, storage_config):
         volume_path = block.kname_to_path(bcache_kname)
         LOG.debug('got bcache volume path %s', volume_path)
 
+    elif vol.get('type') == 'image':
+        volume_path = vol['dev']
+
     else:
         raise NotImplementedError("cannot determine the path to storage \
             volume '%s' with type '%s'" % (volume, vol.get('type')))
@@ -528,6 +537,28 @@ def get_path_to_storage_volume(volume, storage_config):
 
     LOG.debug('return volume path %s', volume_path)
     return volume_path
+
+
+DEVS = set()
+
+
+def image_handler(info, storage_config):
+    path = info['path']
+    if os.path.exists(path):
+        os.unlink(path)
+    try:
+        with open(path, 'wb') as fp:
+            fp.truncate(int(util.human2bytes(info['size'])))
+        dev = util.subp([
+            'losetup', '--show', '--find', path],
+            capture=True)[0].strip()
+    except BaseException:
+        if os.path.exists(path):
+            os.unlink(path)
+        raise
+    info['dev'] = dev
+    DEVS.add(dev)
+    disk_handler(info, storage_config)
 
 
 def dasd_handler(info, storage_config):
@@ -1967,7 +1998,11 @@ def meta_custom(args):
         'zpool': zpool_handler,
     }
 
-    state = util.load_command_environment(strict=True)
+    if args.testmode:
+        command_handlers['image'] = image_handler
+        state = {}
+    else:
+        state = util.load_command_environment(strict=True)
     cfg = config.load_command_config(args, state)
 
     storage_config_dict = extract_storage_ordered_dict(cfg)
@@ -1991,6 +2026,9 @@ def meta_custom(args):
                 LOG.error("An error occured handling '%s': %s - %s" %
                           (item_id, type(error).__name__, error))
                 raise
+
+    if args.testmode:
+        util.subp(['losetup', '--detach'] + list(DEVS))
 
     if args.umount:
         util.do_umount(state['target'], recursive=True)
