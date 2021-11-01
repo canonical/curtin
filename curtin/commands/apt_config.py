@@ -188,9 +188,11 @@ def mirrorurl_to_apt_fileprefix(mirror):
     return string
 
 
-def rename_apt_lists(new_mirrors, target=None):
+def rename_apt_lists(new_mirrors, target=None, arch=None):
     """rename_apt_lists - rename apt lists to preserve old cache data"""
-    default_mirrors = get_default_mirrors(distro.get_architecture(target))
+    if arch is None:
+        arch = distro.get_architecture(target)
+    default_mirrors = get_default_mirrors(arch)
 
     pre = paths.target_path(target, APT_LISTS)
     for (name, omirror) in default_mirrors.items():
@@ -213,10 +215,12 @@ def rename_apt_lists(new_mirrors, target=None):
                 LOG.warn("Failed to rename apt list:", exc_info=True)
 
 
-def update_default_mirrors(entries, mirrors, target):
+def update_default_mirrors(entries, mirrors, target, arch=None):
     """replace existing default repos with the configured mirror"""
 
-    defaults = get_default_mirrors(distro.get_architecture(target))
+    if arch is None:
+        arch = distro.get_architecture(target)
+    defaults = get_default_mirrors(arch)
     mirrors_replacement = {
         defaults['PRIMARY']: mirrors["MIRROR"],
         defaults['SECURITY']: mirrors["SECURITY"],
@@ -318,7 +322,7 @@ def entries_to_str(entries):
     return ''.join([str(entry) + '\n' for entry in entries])
 
 
-def generate_sources_list(cfg, release, mirrors, target=None):
+def generate_sources_list(cfg, release, mirrors, target=None, arch=None):
     """ generate_sources_list
         create a source.list file based on a custom or default template
         by replacing mirrors and release in the template
@@ -337,7 +341,7 @@ def generate_sources_list(cfg, release, mirrors, target=None):
     if from_file:
         # when loading from an existing file, we also replace default
         # URIs with configured mirrors
-        entries = update_default_mirrors(entries, mirrors, target)
+        entries = update_default_mirrors(entries, mirrors, target, arch)
 
     entries = update_mirrors(entries, mirrors)
     entries = update_dist(entries, release)
