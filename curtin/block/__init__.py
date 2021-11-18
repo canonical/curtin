@@ -227,6 +227,10 @@ def _lsblock_pairs_to_dict(lines):
         cur = {}
         for tok in toks:
             k, v = tok.split("=", 1)
+            if k == 'MAJ_MIN':
+                k = 'MAJ:MIN'
+            else:
+                k = k.replace('_', '-')
             cur[k] = v
         # use KNAME, as NAME may include spaces and other info,
         # for example, lvm decices may show 'dm0 lvm1'
