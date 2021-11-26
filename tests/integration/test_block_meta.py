@@ -4,10 +4,12 @@ from collections import namedtuple
 import contextlib
 import sys
 import yaml
+import os
 
 from curtin import block, udev, util
 
 from tests.unittests.helpers import CiTestCase
+from tests.integration.webserv import ImageServer
 
 
 class IntegrationTestCase(CiTestCase):
@@ -48,7 +50,7 @@ class StorageConfigBuilder:
                 },
             }
 
-    def add_image(self, *, path, size, **kw):
+    def add_image(self, *, path, size, create=False, **kw):
         action = {
             'type': 'image',
             'id': 'id' + str(len(self.config)),
@@ -58,6 +60,9 @@ class StorageConfigBuilder:
         action.update(**kw)
         self.cur_image = action['id']
         self.config.append(action)
+        if create:
+            with open(path, "wb") as f:
+                f.write(b"\0" * int(util.human2bytes(size)))
 
     def add_part(self, *, size, **kw):
         if self.cur_image is None:
@@ -74,15 +79,28 @@ class StorageConfigBuilder:
 
 class TestBlockMeta(IntegrationTestCase):
 
-    def run_bm(self, config):
+    def run_bm(self, config, *args, **kwargs):
         config_path = self.tmp_path('config.yaml')
         with open(config_path, 'w') as fp:
             yaml.dump(config, fp)
+
+        cmd_env = kwargs.pop('env', {})
+        cmd_env.update({
+            'PATH': os.environ['PATH'],
+            'CONFIG': config_path,
+            'WORKING_DIR': '/tmp',
+            'OUTPUT_FSTAB': self.tmp_path('fstab'),
+            'OUTPUT_INTERFACES': '',
+            'OUTPUT_NETWORK_STATE': '',
+            'OUTPUT_NETWORK_CONFIG': '',
+        })
+
         cmd = [
             sys.executable, '-m', 'curtin', '--showtrace', '-vv',
             '-c', config_path, 'block-meta', '--testmode', 'custom',
+            *args,
             ]
-        util.subp(cmd)
+        util.subp(cmd, env=cmd_env, **kwargs)
 
     def _test_default_offsets(self, ptable):
         psize = 40 << 20
@@ -154,3 +172,37 @@ class TestBlockMeta(IntegrationTestCase):
 
             p1kname = block.partition_kname(block.path_to_kname(dev), 1)
             self.assertTrue(block.is_extended_partition('/dev/' + p1kname))
+
+    def test_raw_image(self):
+        img = self.tmp_path('image.img')
+        config = StorageConfigBuilder()
+        config.add_image(path=img, size='2G', ptable='gpt', create=True)
+
+        curtin_cfg = config.render()
+        server = ImageServer()
+        try:
+            server.start()
+            sources = {
+                'sources': {
+                    '00': {
+                        'uri': server.base_url + '/static/lvm-disk.dd',
+                        'type': 'dd-raw',
+                    },
+                },
+            }
+            curtin_cfg.update(**sources)
+            mnt_point = self.tmp_dir()
+            cmd_env = {
+                'TARGET_MOUNT_POINT': mnt_point,
+            }
+            with loop_dev(img) as dev:
+                try:
+                    self.run_bm(curtin_cfg, f'--devices={dev}', env=cmd_env)
+                finally:
+                    util.subp(['umount', mnt_point])
+                    udev.udevadm_settle()
+                    util.subp(
+                        ['dmsetup', 'remove', '/dev/mapper/vmtests-root']
+                    )
+        finally:
+            server.stop()

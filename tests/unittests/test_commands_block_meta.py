@@ -128,6 +128,8 @@ class TestBlockMetaSimple(CiTestCase):
                        'mock_block_get_root_device')
         self.add_patch('curtin.block.is_valid_device',
                        'mock_block_is_valid_device')
+        self.add_patch('curtin.block.lvm.activate_volgroups',
+                       'mock_activate_volgroups')
         # config
         self.add_patch('curtin.config.load_command_config',
                        'mock_config_load')
@@ -153,6 +155,8 @@ class TestBlockMetaSimple(CiTestCase):
         self.mock_block_get_dev_name_entry.assert_called_with(devname)
         self.mock_subp.assert_has_calls([call(args=wget),
                                          call(['partprobe', devnode]),
+                                         call(['udevadm', 'trigger', devnode]),
+                                         call(['udevadm', 'settle']),
                                          call(['udevadm', 'settle'])])
         paths = ["curtin", "system-data/var/lib/snapd", "snaps"]
         self.mock_block_get_root_device.assert_called_with([devname],
@@ -176,6 +180,8 @@ class TestBlockMetaSimple(CiTestCase):
         self.mock_block_get_dev_name_entry.assert_called_with(devname)
         self.mock_subp.assert_has_calls([call(args=wget),
                                          call(['partprobe', devnode]),
+                                         call(['udevadm', 'trigger', devnode]),
+                                         call(['udevadm', 'settle']),
                                          call(['udevadm', 'settle'])])
         paths = ["curtin", "system-data/var/lib/snapd", "snaps"]
         self.mock_block_get_root_device.assert_called_with([devname],

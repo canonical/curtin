@@ -151,7 +151,15 @@ def write_image_to_disk(source, dev):
                      extractor[source['type']] + '| dd bs=4M of="$2"'),
                     '--', source['uri'], devnode])
     util.subp(['partprobe', devnode])
+
+    udevadm_trigger([devnode])
+    try:
+        lvm.activate_volgroups()
+    except util.ProcessExecutionError:
+        # partial vg may not come up due to missing members, that's OK
+        pass
     udevadm_settle()
+
     # Images from MAAS have well-known/required paths present
     # on the rootfs partition.  Use these values to select the
     # root (target) partition to complete installation.
