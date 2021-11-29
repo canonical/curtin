@@ -550,7 +550,7 @@ def get_path_to_storage_volume(volume, storage_config):
 DEVS = set()
 
 
-def image_handler(info, storage_config):
+def image_handler(info, storage_config, handlers):
     path = info['path']
     if os.path.exists(path):
         os.unlink(path)
@@ -566,10 +566,10 @@ def image_handler(info, storage_config):
         raise
     info['dev'] = dev
     DEVS.add(dev)
-    disk_handler(info, storage_config)
+    handlers['disk'](info, storage_config, handlers)
 
 
-def dasd_handler(info, storage_config):
+def dasd_handler(info, storage_config, handlers):
     """ Prepare the specified dasd device per configuration
 
     params: info: dictionary of configuration, required keys are:
@@ -614,7 +614,7 @@ def dasd_handler(info, storage_config):
                 "Dasd %s failed to format" % dasd_device.devname)
 
 
-def disk_handler(info, storage_config):
+def disk_handler(info, storage_config, handlers):
     _dos_names = ['dos', 'msdos']
     ptable = info.get('ptable')
     if ptable and ptable not in PTABLES_VALID:
@@ -830,7 +830,7 @@ def partition_verify_fdasd(disk_path, partnumber, info):
         raise RuntimeError("dasd partitions do not support flags")
 
 
-def partition_handler(info, storage_config):
+def partition_handler(info, storage_config, handlers):
     device = info.get('device')
     size = info.get('size')
     flag = info.get('flag')
@@ -1019,7 +1019,7 @@ def partition_handler(info, storage_config):
         make_dname(info.get('id'), storage_config)
 
 
-def format_handler(info, storage_config):
+def format_handler(info, storage_config, handlers):
     volume = info.get('volume')
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
@@ -1269,7 +1269,7 @@ def mount_apply(fdata, target=None, fstab=None):
         LOG.info("fstab not in environment, so not writing")
 
 
-def mount_handler(info, storage_config):
+def mount_handler(info, storage_config, handlers):
     """ Handle storage config type: mount
 
     info = {
@@ -1305,7 +1305,7 @@ def lvm_volgroup_verify(vg_name, device_paths):
     verify_volgroup_members(vg_name, device_paths)
 
 
-def lvm_volgroup_handler(info, storage_config):
+def lvm_volgroup_handler(info, storage_config, handlers):
     devices = info.get('devices')
     device_paths = []
     name = info.get('name')
@@ -1366,7 +1366,7 @@ def lvm_partition_verify(lv_name, vg_name, info):
         verify_lv_size(lv_name, info['size'])
 
 
-def lvm_partition_handler(info, storage_config):
+def lvm_partition_handler(info, storage_config, handlers):
     volgroup = storage_config[info['volgroup']]['name']
     name = info['name']
     if not volgroup:
@@ -1428,7 +1428,7 @@ def dm_crypt_verify(dmcrypt_dev, volume_path):
     verify_blkdev_used(dmcrypt_dev, volume_path)
 
 
-def dm_crypt_handler(info, storage_config):
+def dm_crypt_handler(info, storage_config, handlers):
     state = util.load_command_environment(strict=True)
     volume = info.get('volume')
     keysize = info.get('keysize')
@@ -1570,7 +1570,7 @@ def raid_verify(md_devname, raidlevel, device_paths, spare_paths, container):
         md_devname, raidlevel, device_paths, spare_paths, container)
 
 
-def raid_handler(info, storage_config):
+def raid_handler(info, storage_config, handlers):
     state = util.load_command_environment(strict=True)
     devices = info.get('devices')
     raidlevel = info.get('raidlevel')
@@ -1652,7 +1652,7 @@ def raid_handler(info, storage_config):
     # If ptable is specified, call disk_handler on this mdadm device to create
     # the table
     if info.get('ptable'):
-        disk_handler(info, storage_config)
+        handlers['disk'](info, storage_config, handlers)
 
 
 def verify_bcache_cachedev(cachedev):
@@ -1719,7 +1719,7 @@ def bcache_verify(cachedev, backingdev, cache_mode):
     return True
 
 
-def bcache_handler(info, storage_config):
+def bcache_handler(info, storage_config, handlers):
     backing_device = get_path_to_storage_volume(info.get('backing_device'),
                                                 storage_config)
     cache_device = get_path_to_storage_volume(info.get('cache_device'),
@@ -1767,13 +1767,13 @@ def bcache_handler(info, storage_config):
         make_dname(info.get('id'), storage_config)
 
     if info.get('ptable'):
-        disk_handler(info, storage_config)
+        handlers['disk'](info, storage_config, handlers)
 
     LOG.debug('Finished bcache creation for backing %s or caching %s',
               backing_device, cache_device)
 
 
-def zpool_handler(info, storage_config):
+def zpool_handler(info, storage_config, handlers):
     """
     Create a zpool based in storage_configuration
     """
@@ -1812,7 +1812,7 @@ def zpool_handler(info, storage_config):
                      zfs_properties=fs_properties)
 
 
-def zfs_handler(info, storage_config):
+def zfs_handler(info, storage_config, handlers):
     """
     Create a zfs filesystem
     """
@@ -2018,7 +2018,7 @@ def meta_custom(args):
                 description="configuring %s: %s" % (command['type'],
                                                     command['id'])):
             try:
-                handler(command, storage_config_dict)
+                handler(command, storage_config_dict, command_handlers)
             except Exception as error:
                 LOG.error("An error occured handling '%s': %s - %s" %
                           (item_id, type(error).__name__, error))
