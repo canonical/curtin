@@ -2570,8 +2570,6 @@ class TestPartitionVerifySfdisk(CiTestCase):
     def setUp(self):
         super(TestPartitionVerifySfdisk, self).setUp()
         base = 'curtin.commands.block_meta.'
-        self.add_patch(base + 'verify_exists', 'm_verify_exists')
-        self.add_patch(base + 'block.sfdisk_info', 'm_block_sfdisk_info')
         self.add_patch(base + 'verify_size', 'm_verify_size')
         self.add_patch(base + 'verify_ptable_flag', 'm_verify_ptable_flag')
         self.info = {
@@ -2586,34 +2584,29 @@ class TestPartitionVerifySfdisk(CiTestCase):
         self.devpath = self.random_string()
 
     def test_partition_verify_sfdisk(self):
-        block_meta.partition_verify_sfdisk(self.devpath, self.info)
+        devpath = self.random_string()
+        sfdisk_part_info = {
+            'node': devpath,
+            }
+        label = self.random_string()
+        block_meta.partition_verify_sfdisk(self.info, label, sfdisk_part_info)
         self.assertEqual(
-            [call(self.devpath)],
-            self.m_verify_exists.call_args_list)
-        self.assertEqual(
-            [call(self.devpath)],
-            self.m_block_sfdisk_info.call_args_list)
-        self.assertEqual(
-            [call(self.devpath, self.part_size,
-                  sfdisk_info=self.m_block_sfdisk_info.return_value)],
+            [call(devpath, self.part_size, sfdisk_part_info)],
             self.m_verify_size.call_args_list)
         self.assertEqual(
-            [call(self.devpath, self.info['flag'],
-                  sfdisk_info=self.m_block_sfdisk_info.return_value)],
+            [call(devpath, self.info['flag'], label, sfdisk_part_info)],
             self.m_verify_ptable_flag.call_args_list)
 
     def test_partition_verify_skips_ptable_no_flag(self):
         del self.info['flag']
-        block_meta.partition_verify_sfdisk(self.devpath, self.info)
+        devpath = self.random_string()
+        sfdisk_part_info = {
+            'node': devpath,
+            }
+        label = self.random_string()
+        block_meta.partition_verify_sfdisk(self.info, label, sfdisk_part_info)
         self.assertEqual(
-            [call(self.devpath)],
-            self.m_verify_exists.call_args_list)
-        self.assertEqual(
-            [call(self.devpath)],
-            self.m_block_sfdisk_info.call_args_list)
-        self.assertEqual(
-            [call(self.devpath, self.part_size,
-                  sfdisk_info=self.m_block_sfdisk_info.return_value)],
+            [call(devpath, self.part_size, sfdisk_part_info)],
             self.m_verify_size.call_args_list)
         self.assertEqual([], self.m_verify_ptable_flag.call_args_list)
 
@@ -2741,15 +2734,17 @@ class TestVerifyPtableFlag(CiTestCase):
     def test_verify_ptable_flag_finds_boot_on_gpt(self):
         devpath = '/dev/vda15'
         expected_flag = 'boot'
-        block_meta.verify_ptable_flag(devpath, expected_flag,
-                                      sfdisk_info=self.sfdisk_info_gpt)
+        block_meta.verify_ptable_flag(
+            devpath, expected_flag, 'gpt',
+            self.sfdisk_info_gpt['partitions'][2])
 
     def test_verify_ptable_flag_raises_exception_missing_flag(self):
         devpath = '/dev/vda1'
         expected_flag = 'boot'
         with self.assertRaises(RuntimeError):
-            block_meta.verify_ptable_flag(devpath, expected_flag,
-                                          sfdisk_info=self.sfdisk_info_gpt)
+            block_meta.verify_ptable_flag(
+                devpath, expected_flag, 'gpt',
+                self.sfdisk_info_gpt['partitions'][0])
 
     def test_verify_ptable_flag_raises_exception_invalid_flag(self):
         devpath = '/dev/vda1'
@@ -2757,52 +2752,49 @@ class TestVerifyPtableFlag(CiTestCase):
         self.assertNotIn(expected_flag, block_meta.SGDISK_FLAGS.keys())
         self.assertNotIn(expected_flag, block_meta.MSDOS_FLAGS.keys())
         with self.assertRaises(RuntimeError):
-            block_meta.verify_ptable_flag(devpath, expected_flag,
-                                          sfdisk_info=self.sfdisk_info_gpt)
+            block_meta.verify_ptable_flag(
+                devpath, expected_flag, 'gpt',
+                self.sfdisk_info_gpt['partitions'][0])
 
     def test_verify_ptable_flag_checks_bootable_not_table_type(self):
         devpath = '/dev/vdb1'
         expected_flag = 'boot'
-        del self.sfdisk_info_dos['partitions'][0]['bootable']
+        partinfo = self.sfdisk_info_dos['partitions'][0]
+        del partinfo['bootable']
         self.sfdisk_info_dos['partitions'][0]['type'] = '0x80'
         with self.assertRaises(RuntimeError):
-            block_meta.verify_ptable_flag(devpath, expected_flag,
-                                          sfdisk_info=self.sfdisk_info_dos)
-
-    def test_verify_ptable_flag_calls_block_sfdisk_if_info_none(self):
-        devpath = '/dev/vda15'
-        expected_flag = 'boot'
-        self.m_block_sfdisk_info.return_value = self.sfdisk_info_gpt
-        block_meta.verify_ptable_flag(devpath, expected_flag, sfdisk_info=None)
-        self.assertEqual(
-            [call(devpath)],
-            self.m_block_sfdisk_info.call_args_list)
+            block_meta.verify_ptable_flag(
+                devpath, expected_flag, 'dos', partinfo)
 
     def test_verify_ptable_flag_finds_boot_on_msdos(self):
         devpath = '/dev/vdb1'
         expected_flag = 'boot'
-        block_meta.verify_ptable_flag(devpath, expected_flag,
-                                      sfdisk_info=self.sfdisk_info_dos)
+        block_meta.verify_ptable_flag(
+            devpath, expected_flag, 'dos',
+            self.sfdisk_info_dos['partitions'][0])
 
     def test_verify_ptable_flag_finds_linux_on_dos_primary_partition(self):
         devpath = '/dev/vdb2'
         expected_flag = 'linux'
-        block_meta.verify_ptable_flag(devpath, expected_flag,
-                                      sfdisk_info=self.sfdisk_info_dos)
+        block_meta.verify_ptable_flag(
+            devpath, expected_flag, 'dos',
+            self.sfdisk_info_dos['partitions'][1])
 
     def test_verify_ptable_flag_finds_dos_extended_partition(self):
         devpath = '/dev/vdb3'
         expected_flag = 'extended'
-        block_meta.verify_ptable_flag(devpath, expected_flag,
-                                      sfdisk_info=self.sfdisk_info_dos)
+        block_meta.verify_ptable_flag(
+            devpath, expected_flag, 'dos',
+            self.sfdisk_info_dos['partitions'][2])
 
     def test_verify_ptable_flag_finds_dos_logical_partition(self):
         devpath = '/dev/vdb5'
         expected_flag = 'logical'
         self.m_block_get_blockdev_for_partition.return_value = (
             ('/dev/vdb', '5'))
-        block_meta.verify_ptable_flag(devpath, expected_flag,
-                                      sfdisk_info=self.sfdisk_info_dos)
+        block_meta.verify_ptable_flag(
+            devpath, expected_flag, 'dos',
+            self.sfdisk_info_dos['partitions'][4])
 
 
 class TestGetDevicePathsFromStorageConfig(CiTestCase):

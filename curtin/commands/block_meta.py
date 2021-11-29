@@ -765,12 +765,7 @@ def verify_exists(devpath):
         raise RuntimeError("Device %s does not exist" % devpath)
 
 
-def verify_size(devpath, expected_size_bytes, sfdisk_info=None):
-    if not sfdisk_info:
-        sfdisk_info = block.sfdisk_info(devpath)
-
-    part_info = block.get_partition_sfdisk_info(devpath,
-                                                sfdisk_info=sfdisk_info)
+def verify_size(devpath, expected_size_bytes, part_info):
     (found_type, _code) = ptable_uuid_to_flag_entry(part_info.get('type'))
     if found_type == 'extended':
         found_size_bytes = int(part_info['size']) * 512
@@ -784,30 +779,25 @@ def verify_size(devpath, expected_size_bytes, sfdisk_info=None):
         raise RuntimeError(msg)
 
 
-def verify_ptable_flag(devpath, expected_flag, sfdisk_info=None):
+def verify_ptable_flag(devpath, expected_flag, label, part_info):
     if (expected_flag not in SGDISK_FLAGS.keys()) and (expected_flag not in
                                                        MSDOS_FLAGS.keys()):
         raise RuntimeError(
             'Cannot verify unknown partition flag: %s' % expected_flag)
 
-    if not sfdisk_info:
-        sfdisk_info = block.sfdisk_info(devpath)
-
-    entry = block.get_partition_sfdisk_info(devpath, sfdisk_info=sfdisk_info)
-    LOG.debug("Device %s ptable entry: %s", devpath, util.json_dumps(entry))
     found_flag = None
-    if (sfdisk_info['label'] in ('dos', 'msdos')):
+    if (label in ('dos', 'msdos')):
         if expected_flag == 'boot':
-            found_flag = 'boot' if entry.get('bootable') is True else None
+            found_flag = 'boot' if part_info.get('bootable') is True else None
         elif expected_flag == 'extended':
-            (found_flag, _code) = ptable_uuid_to_flag_entry(entry['type'])
+            (found_flag, _code) = ptable_uuid_to_flag_entry(part_info['type'])
         elif expected_flag == 'logical':
             (_parent, partnumber) = block.get_blockdev_for_partition(devpath)
             found_flag = 'logical' if int(partnumber) > 4 else None
 
     # gpt and msdos primary partitions look up flag by entry['type']
     if found_flag is None:
-        (found_flag, _code) = ptable_uuid_to_flag_entry(entry['type'])
+        (found_flag, _code) = ptable_uuid_to_flag_entry(part_info['type'])
     msg = (
         'Verifying %s partition flag, expecting %s, found %s' % (
          devpath, expected_flag, found_flag))
@@ -816,16 +806,13 @@ def verify_ptable_flag(devpath, expected_flag, sfdisk_info=None):
         raise RuntimeError(msg)
 
 
-def partition_verify_sfdisk(devpath, info):
-    verify_exists(devpath)
-    sfdisk_info = block.sfdisk_info(devpath)
-    if not sfdisk_info:
-        raise RuntimeError('Failed to extract sfdisk info from %s' % devpath)
-    verify_size(devpath, int(util.human2bytes(info['size'])),
-                sfdisk_info=sfdisk_info)
-    expected_flag = info.get('flag')
+def partition_verify_sfdisk(part_action, label, sfdisk_part_info):
+    devpath = sfdisk_part_info['node']
+    verify_size(
+        devpath, int(util.human2bytes(part_action['size'])), sfdisk_part_info)
+    expected_flag = part_action.get('flag')
     if expected_flag:
-        verify_ptable_flag(devpath, info['flag'], sfdisk_info=sfdisk_info)
+        verify_ptable_flag(devpath, expected_flag, label, sfdisk_part_info)
 
 
 def partition_verify_fdasd(disk_path, partnumber, info):
@@ -937,7 +924,9 @@ def partition_handler(info, storage_config):
         if disk_ptable == 'vtoc':
             partition_verify_fdasd(disk, partnumber, info)
         else:
-            partition_verify_sfdisk(part_path, info)
+            sfdisk_info = block.sfdisk_info(disk)
+            part_info = block.get_partition_sfdisk_info(part_path, sfdisk_info)
+            partition_verify_sfdisk(info, sfdisk_info['label'], part_info)
         LOG.debug(
             '%s partition %s already present, skipping create',
             disk, partnumber)
