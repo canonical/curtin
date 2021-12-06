@@ -210,6 +210,14 @@ class TestDistroInfo(CiTestCase):
             distro_obj = distro.get_osfamily()
             self.assertEqual(family, distro_obj)
 
+    def test_get_from_idlike(self):
+        name = 'NotADistro'
+        self.mock_os_release.return_value = {
+            'ID': name,
+            'ID_LIKE': "stuff things rhel"
+        }
+        self.assertEqual('rhel', distro.get_distro(name))
+
 
 class TestDistroIdentity(CiTestCase):
 
