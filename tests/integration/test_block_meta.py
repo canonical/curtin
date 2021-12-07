@@ -76,6 +76,10 @@ class StorageConfigBuilder:
         action.update(**kw)
         self.config.append(action)
 
+    def set_preserve(self):
+        for action in self.config:
+            action['preserve'] = True
+
 
 class TestBlockMeta(IntegrationTestCase):
 
@@ -119,6 +123,8 @@ class TestBlockMeta(IntegrationTestCase):
                     PartData(
                         number=2, offset=(1 << 20) + psize, size=psize),
                 ])
+        config.set_preserve()
+        self.run_bm(config.render())
 
     def test_default_offsets_gpt(self):
         self._test_default_offsets('gpt')

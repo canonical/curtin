@@ -552,16 +552,29 @@ DEVS = set()
 
 def image_handler(info, storage_config, handlers):
     path = info['path']
-    if os.path.exists(path):
-        os.unlink(path)
+    size = int(util.human2bytes(info['size']))
+    if info.get('preserve', False):
+        actual_size = os.stat(path).st_size
+        if size != actual_size:
+            raise RuntimeError(
+                'image at {} was size {} not {} as expected.'.format(
+                    path, actual_size, size))
+    else:
+        if os.path.exists(path):
+            os.unlink(path)
+        try:
+            with open(path, 'wb') as fp:
+                fp.truncate(size)
+        except BaseException:
+            if os.path.exists(path):
+                os.unlink(path)
+            raise
     try:
-        with open(path, 'wb') as fp:
-            fp.truncate(int(util.human2bytes(info['size'])))
         dev = util.subp([
             'losetup', '--show', '--find', path],
             capture=True)[0].strip()
     except BaseException:
-        if os.path.exists(path):
+        if os.path.exists(path) and not info.get('preserve'):
             os.unlink(path)
         raise
     info['dev'] = dev
