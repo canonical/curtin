@@ -114,8 +114,19 @@ def _parse_redhat_release(release_file=None, target=None):
 
 
 def get_distroinfo(target=None):
-    variant_name = os_release(target=target)['ID']
-    variant = name_to_distro(variant_name)
+    variant_os_release = os_release(target=target)
+    variant_name = variant_os_release['ID']
+    try:
+        variant = name_to_distro(variant_name)
+    except ValueError:
+        for variant_name in variant_os_release["ID_LIKE"].split():
+            try:
+                variant = name_to_distro(variant_name)
+                break
+            except ValueError:
+                pass
+        else:
+            raise ValueError("Unknown distro: %s" % variant_os_release['ID'])
     family = DISTRO_TO_OSFAMILY.get(variant)
     return DistroInfo(variant, family)
 

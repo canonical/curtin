@@ -38,7 +38,7 @@ class HirsuteTestNetworkStaticRoutes(relbase.hirsute,
     __test__ = True
 
 
-class GroovyTestNetworkStaticRoutes(relbase.groovy,
+class ImpishTestNetworkStaticRoutes(relbase.impish,
                                     TestNetworkStaticRoutesAbs):
     __test__ = True
 

@@ -106,20 +106,24 @@ storage:
       path: "/my/tmpfs"
       options: size=4194304
       fstype: "tmpfs"
+      passno: 1
     - id: ramfs1
       type: mount
       spec: "none"
       path: "/my/ramfs"
       fstype: "ramfs"
+      passno: 0
     - id: bind1
       fstype: "none"
       options: "bind"
       path: "/var/cache"
       spec: "/my/bind-over-var-cache"
       type: mount
+      freq: 3
     - id: bind2
       fstype: "none"
       options: "bind,ro"
       path: "/my/bind-ro-etc"
       spec: "/etc"
       type: mount
+      freq: 1

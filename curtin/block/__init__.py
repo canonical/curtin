@@ -62,7 +62,8 @@ def dev_path(devname):
     convert device name to path in /dev
     """
     if devname.startswith('/dev/'):
-        return devname
+        # it could be something like /dev/mapper/mpatha-part2
+        return os.path.realpath(devname)
     else:
         return '/dev/' + devname
 
@@ -131,7 +132,8 @@ def partition_kname(disk_kname, partition_number):
                     os.path.realpath('%s-part%s' % (disk_link,
                                                     partition_number)))
 
-    for dev_type in ['bcache', 'nvme', 'mmcblk', 'cciss', 'mpath', 'md']:
+    for dev_type in ['bcache', 'nvme', 'mmcblk', 'cciss', 'mpath', 'md',
+                     'loop']:
         if disk_kname.startswith(dev_type):
             partition_number = "p%s" % partition_number
             break
@@ -225,6 +227,10 @@ def _lsblock_pairs_to_dict(lines):
         cur = {}
         for tok in toks:
             k, v = tok.split("=", 1)
+            if k == 'MAJ_MIN':
+                k = 'MAJ:MIN'
+            else:
+                k = k.replace('_', '-')
             cur[k] = v
         # use KNAME, as NAME may include spaces and other info,
         # for example, lvm decices may show 'dm0 lvm1'
@@ -1203,7 +1209,7 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024, exclusive=True):
                 fp.write(pbuf)
 
 
-def quick_zero(path, partitions=True, exclusive=True, strict=False):
+def quick_zero(path, partitions=True, exclusive=True):
     """
     zero 1M at front, 1M at end, and 1M at front
     if this is a block device and partitions is true, then
@@ -1227,11 +1233,11 @@ def quick_zero(path, partitions=True, exclusive=True, strict=False):
     for (pt, kname, ptnum) in pt_names:
         LOG.debug('Wiping path: dev:%s kname:%s partnum:%s',
                   pt, kname, ptnum)
-        quick_zero(pt, partitions=False, strict=strict)
+        quick_zero(pt, partitions=False)
 
     LOG.debug("wiping 1M on %s at offsets %s", path, offsets)
     return zero_file_at_offsets(path, offsets, buflen=buflen, count=count,
-                                exclusive=exclusive, strict=strict)
+                                exclusive=exclusive)
 
 
 def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False,
@@ -1286,7 +1292,7 @@ def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False,
                     fp.write(buf)
 
 
-def wipe_volume(path, mode="superblock", exclusive=True, strict=False):
+def wipe_volume(path, mode="superblock", exclusive=True):
     """wipe a volume/block device
 
     :param path: a path to a block device
@@ -1299,7 +1305,6 @@ def wipe_volume(path, mode="superblock", exclusive=True, strict=False):
                     volume and beginning and end of any partitions that are
                     known to be on this device.
     :param exclusive: boolean to control how path is opened
-    :param strict: boolean to control when to raise errors on write failures
     """
     if mode == "pvremove":
         # We need to use --force --force in case it's already in a volgroup and
@@ -1317,9 +1322,9 @@ def wipe_volume(path, mode="superblock", exclusive=True, strict=False):
         with open("/dev/urandom", "rb") as reader:
             wipe_file(path, reader=reader.read, exclusive=exclusive)
     elif mode == "superblock":
-        quick_zero(path, partitions=False, exclusive=exclusive, strict=strict)
+        quick_zero(path, partitions=False, exclusive=exclusive)
     elif mode == "superblock-recursive":
-        quick_zero(path, partitions=True, exclusive=exclusive, strict=strict)
+        quick_zero(path, partitions=True, exclusive=exclusive)
     else:
         raise ValueError("wipe mode %s not supported" % mode)
 

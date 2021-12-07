@@ -159,10 +159,10 @@ class TestFsBattery(VMBaseClass):
     def test_fstab_has_mounts(self):
         """Verify each of the expected "my" mounts got into fstab."""
         expected = [
-            "none /my/tmpfs tmpfs size=4194304 0 0".split(),
+            "none /my/tmpfs tmpfs size=4194304 0 1".split(),
             "none /my/ramfs ramfs defaults 0 0".split(),
-            "/my/bind-over-var-cache /var/cache none bind 0 0".split(),
-            "/etc /my/bind-ro-etc none bind,ro 0 0".split(),
+            "/my/bind-over-var-cache /var/cache none bind 3 0".split(),
+            "/etc /my/bind-ro-etc none bind,ro 1 0".split(),
         ]
         fstab_found = [
             line.split() for line in self.load_collect_file(
@@ -247,7 +247,7 @@ class HirsuteTestFsBattery(relbase.hirsute, TestFsBattery):
     __test__ = True
 
 
-class GroovyTestFsBattery(relbase.groovy, TestFsBattery):
+class ImpishTestFsBattery(relbase.impish, TestFsBattery):
     __test__ = True
 
 

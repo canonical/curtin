@@ -1,5 +1,10 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+try:
+    from abc import ABC
+except ImportError:
+    ABC = object
+import abc
 import os
 import shutil
 import sys
@@ -57,125 +62,106 @@ def extract_root_tgz_url(url, target):
                     '--', url, target])
 
 
-def extract_root_fsimage_url(url, target):
-    path = _path_from_file_url(url)
-    if path != url or os.path.isfile(path):
-        return _extract_root_fsimage(path, target)
-
-    wfp = tempfile.NamedTemporaryFile(suffix=".img", delete=False)
-    wfp.close()
-    try:
-        url_helper.download(url, wfp.name, retries=3)
-        return _extract_root_fsimage(wfp.name, target)
-    finally:
-        os.unlink(wfp.name)
+def mount(device, mountpoint, options=None, type=None):
+    opts = []
+    if options is not None:
+        opts.extend(['-o', options])
+    if type is not None:
+        opts.extend(['-t', type])
+    util.subp(['mount'] + opts + [device, mountpoint], capture=True)
 
 
-def _extract_root_fsimage(path, target):
-    mp = tempfile.mkdtemp()
-    try:
-        util.subp(['mount', '-o', 'loop,ro', path, mp], capture=True)
-    except util.ProcessExecutionError as e:
-        LOG.error("Failed to mount '%s' for extraction: %s", path, e)
-        os.rmdir(mp)
-        raise e
-    try:
-        return copy_to_target(mp, target)
-    finally:
-        util.subp(['umount', mp])
-        os.rmdir(mp)
+def unmount(mountpoint):
+    util.subp(['umount', mountpoint], capture=True)
 
 
-def extract_root_layered_fsimage_url(uri, target):
-    ''' Build images list to consider from a layered structure
+class AbstractSourceHandler(ABC):
+    """Encapsulate setting up an installation source for copy_to_target.
 
-    uri: URI of the layer file
-    target: Target file system to provision
+    A source hander sets up a curtin installation source (see
+    https://curtin.readthedocs.io/en/latest/topics/config.html#sources)
+    for copying to the target with copy_to_target.
+    """
 
-    return: None
-    '''
-    path = _path_from_file_url(uri)
+    @abc.abstractmethod
+    def setup(self):
+        """Set up the source for copying and return the path to it."""
+        pass
 
-    image_stack = _get_image_stack(path)
-    LOG.debug("Considering fsimages: '%s'", ",".join(image_stack))
-
-    tmp_dir = None
-    try:
-        # Download every remote images if remote url
-        if url_helper.urlparse(path).scheme != "":
-            tmp_dir = tempfile.mkdtemp()
-            image_stack = _download_layered_images(image_stack, tmp_dir)
-
-        # Check that all images exists on disk and are not empty
-        for img in image_stack:
-            if not os.path.isfile(img) or os.path.getsize(img) <= 0:
-                raise ValueError("Failed to use fsimage: '%s' doesn't exist " +
-                                 "or is invalid", img)
-
-        return _extract_root_layered_fsimage(image_stack, target)
-    finally:
-        if tmp_dir and os.path.exists(tmp_dir):
-            shutil.rmtree(tmp_dir)
+    @abc.abstractmethod
+    def cleanup(self):
+        """Perform any necessary clean up of actions performed by setup."""
+        pass
 
 
-def _download_layered_images(image_stack, tmp_dir):
-    local_image_stack = []
-    try:
-        for img_url in image_stack:
-            dest_path = os.path.join(tmp_dir,
-                                     os.path.basename(img_url))
-            url_helper.download(img_url, dest_path, retries=3)
-            local_image_stack.append(dest_path)
-    except url_helper.UrlError as e:
-        LOG.error("Failed to download '%s'" % img_url)
-        raise e
-    return local_image_stack
+class LayeredSourceHandler(AbstractSourceHandler):
 
+    def __init__(self, image_stack):
+        self.image_stack = image_stack
+        self._tmpdir = None
+        self._mounts = []
 
-def _extract_root_layered_fsimage(image_stack, target):
-    mp_base = tempfile.mkdtemp()
-    mps = []
-    try:
-        # Create a mount point for each image file and mount the image
+    def _download(self):
+        new_image_stack = []
+        for path in self.image_stack:
+            if url_helper.urlparse(path).scheme not in ["", "file"]:
+                new_path = os.path.join(self._tmpdir, os.path.basename(path))
+                url_helper.download(path, new_path, retries=3)
+            else:
+                new_path = _path_from_file_url(path)
+            new_image_stack.append(new_path)
+        self.image_stack = new_image_stack
+
+    def setup(self):
+        self._tmpdir = tempfile.mkdtemp()
         try:
-            for img in image_stack:
-                mp = os.path.join(mp_base, os.path.basename(img) + ".dir")
+            self._download()
+            # Check that all images exists on disk and are not empty
+            for img in self.image_stack:
+                if not os.path.isfile(img) or os.path.getsize(img) <= 0:
+                    raise ValueError(
+                        ("Failed to use fsimage: '%s' doesn't exist " +
+                         "or is invalid") % (img,))
+            for img in self.image_stack:
+                mp = os.path.join(
+                    self._tmpdir, os.path.basename(img) + ".dir")
                 os.mkdir(mp)
-                util.subp(['mount', '-o', 'loop,ro', img, mp], capture=True)
-                mps.insert(0, mp)
-        except util.ProcessExecutionError as e:
-            LOG.error("Failed to mount '%s' for extraction: %s", img, e)
-            raise e
+                mount(img, mp, options='loop,ro')
+                self._mounts.append(mp)
+            if len(self._mounts) == 1:
+                root_dir = self._mounts[0]
+            else:
+                # Multiple image files, merge them with an overlay.
+                root_dir = os.path.join(self._tmpdir, "root.dir")
+                os.mkdir(root_dir)
+                mount(
+                    'overlay', root_dir, type='overlay',
+                    options='lowerdir=' + ':'.join(reversed(self._mounts)))
+                self._mounts.append(root_dir)
+            return root_dir
+        except Exception:
+            self.cleanup()
+            raise
 
-        # Prepare
-        if len(mps) == 1:
-            root_dir = mps[0]
-        else:
-            # Multiple image files, merge them with an overlay and do the copy
-            root_dir = os.path.join(mp_base, "root.dir")
-            os.mkdir(root_dir)
-            try:
-                util.subp(['mount', '-t', 'overlay', 'overlay', '-o',
-                           'lowerdir=' + ':'.join(mps), root_dir],
-                          capture=True)
-                mps.append(root_dir)
-            except util.ProcessExecutionError as e:
-                LOG.error("overlay mount to %s failed: %s", root_dir, e)
-                raise e
+    def cleanup(self):
+        for mount in reversed(self._mounts):
+            unmount(mount)
+        self._mounts = []
+        if self._tmpdir is not None:
+            shutil.rmtree(self._tmpdir)
+        self._tmpdir = None
 
-        copy_to_target(root_dir, target)
-    finally:
-        umount_err_mps = []
-        for mp in reversed(mps):
-            try:
-                util.subp(['umount', mp], capture=True)
-            except util.ProcessExecutionError as e:
-                LOG.error("can't unmount %s: %e", mp, e)
-                umount_err_mps.append(mp)
-        if umount_err_mps:
-            raise util.ProcessExecutionError(
-                "Failed to umount: %s", ", ".join(umount_err_mps))
-        shutil.rmtree(mp_base)
+
+class TrivialSourceHandler(AbstractSourceHandler):
+
+    def __init__(self, path):
+        self.path = path
+
+    def setup(self):
+        return self.path
+
+    def cleanup(self):
+        pass
 
 
 def _get_image_stack(uri):
@@ -186,19 +172,43 @@ def _get_image_stack(uri):
     '''
 
     image_stack = []
-    root_dir = os.path.dirname(uri)
     img_name = os.path.basename(uri)
-    _, img_ext = os.path.splitext(img_name)
+    root_dir = uri[:-len(img_name)]
+    img_base, img_ext = os.path.splitext(img_name)
 
-    img_parts = img_name.split('.')
-    # Last item is the extension
-    for i in img_parts[:-1]:
+    if not img_base:
+        return []
+
+    img_parts = img_base.split('.')
+    for i in range(len(img_parts)):
         image_stack.append(
-            os.path.join(
-                root_dir,
-                '.'.join(img_parts[0:img_parts.index(i)+1]) + img_ext))
+            root_dir + '.'.join(img_parts[0:i+1]) + img_ext)
 
     return image_stack
+
+
+def get_handler_for_source(source):
+    """Return an AbstractSourceHandler for setting up `source`."""
+    if source['uri'].startswith("cp://"):
+        return TrivialSourceHandler(source['uri'][5:])
+    elif source['type'] == "fsimage":
+        return LayeredSourceHandler([source['uri']])
+    elif source['type'] == "fsimage-layered":
+        return LayeredSourceHandler(_get_image_stack(source['uri']))
+    else:
+        return None
+
+
+def extract_source(source, target):
+    handler = get_handler_for_source(source)
+    if handler is not None:
+        root_dir = handler.setup()
+        try:
+            copy_to_target(root_dir, target)
+        finally:
+            handler.cleanup()
+    else:
+        extract_root_tgz_url(source['uri'], target=target)
 
 
 def copy_to_target(source, target):
@@ -245,14 +255,7 @@ def extract(args):
                 source['uri']):
             if source['type'].startswith('dd-'):
                 continue
-            if source['uri'].startswith("cp://"):
-                copy_to_target(source['uri'], target)
-            elif source['type'] == "fsimage":
-                extract_root_fsimage_url(source['uri'], target=target)
-            elif source['type'] == "fsimage-layered":
-                extract_root_layered_fsimage_url(source['uri'], target=target)
-            else:
-                extract_root_tgz_url(source['uri'], target=target)
+            extract_source(source, target)
 
     if cfg.get('write_files'):
         LOG.info("Applying write_files from config.")

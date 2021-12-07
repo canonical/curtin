@@ -40,7 +40,7 @@ class HirsuteTestJournaldReporter(relbase.hirsute, TestJournaldReporter):
     __test__ = True
 
 
-class GroovyTestJournaldReporter(relbase.groovy, TestJournaldReporter):
+class ImpishTestJournaldReporter(relbase.impish, TestJournaldReporter):
     __test__ = True
 
 

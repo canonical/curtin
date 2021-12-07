@@ -58,7 +58,7 @@ class HirsuteTestIscsiMdadm(relbase.hirsute, TestMdadmIscsiAbs):
     __test__ = True
 
 
-class GroovyTestIscsiMdadm(relbase.groovy, TestMdadmIscsiAbs):
+class ImpishTestIscsiMdadm(relbase.impish, TestMdadmIscsiAbs):
     __test__ = True
 
 

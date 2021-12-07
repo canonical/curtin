@@ -85,7 +85,7 @@ class HirsuteTestLvm(relbase.hirsute, TestLvmAbs):
     __test__ = True
 
 
-class GroovyTestLvm(relbase.groovy, TestLvmAbs):
+class ImpishTestLvm(relbase.impish, TestLvmAbs):
     __test__ = True
 
 

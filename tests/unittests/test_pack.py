@@ -87,7 +87,7 @@ class TestPack(TestCase):
 
         return out, err, rc, log_contents
 
-    def test_psuedo_install(self):
+    def test_pseudo_install(self):
         # do a install that has only a early stage and only one command.
         mystr = "HI MOM"
         cfg = {

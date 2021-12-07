@@ -28,7 +28,7 @@ class HirsuteTestReuseMSDOSPartitions(relbase.hirsute,
     __test__ = True
 
 
-class GroovyTestReuseMSDOSPartitions(relbase.groovy,
+class ImpishTestReuseMSDOSPartitions(relbase.impish,
                                      TestReuseMSDOSPartitions):
     __test__ = True
 

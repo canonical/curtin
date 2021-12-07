@@ -36,7 +36,7 @@ class HirsuteTestNetworkStatic(relbase.hirsute, TestNetworkStaticAbs):
     __test__ = True
 
 
-class GroovyTestNetworkStatic(relbase.groovy, TestNetworkStaticAbs):
+class ImpishTestNetworkStatic(relbase.impish, TestNetworkStaticAbs):
     __test__ = True
 
 

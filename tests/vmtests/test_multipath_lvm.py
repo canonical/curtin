@@ -64,7 +64,7 @@ class HirsuteTestMultipathLvm(relbase.hirsute, TestMultipathLvmAbs):
     __test__ = True
 
 
-class GroovyTestMultipathLvm(relbase.groovy, TestMultipathLvmAbs):
+class ImpishTestMultipathLvm(relbase.impish, TestMultipathLvmAbs):
     __test__ = True
 
 
@@ -82,7 +82,7 @@ class HirsuteTestMultipathLvmPartWipe(relbase.hirsute,
     __test__ = True
 
 
-class GroovyTestMultipathLvmPartWipe(relbase.groovy,
+class ImpishTestMultipathLvmPartWipe(relbase.impish,
                                      TestMultipathLvmPartWipeAbs):
     __test__ = True
 

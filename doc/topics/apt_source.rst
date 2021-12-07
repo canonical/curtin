@@ -35,6 +35,8 @@ Features
 
   - disabling suites (=pockets)
 
+  - disabling components (multiverse, universe, restricted)
+
   - per architecture mirror definition
 
 

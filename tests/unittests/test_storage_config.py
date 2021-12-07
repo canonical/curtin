@@ -32,6 +32,18 @@ class TestStorageConfigSchema(CiTestCase):
         storage_config.validate_config(config)
 
     @skipUnlessJsonSchema()
+    def test_disk_schema_accepts_nvme_uuid(self):
+        disk = {
+            "id": "disk-nvme0n1",
+            "path": "/dev/nvme0n1",
+            "serial": "Samsung SSD 960 EVO 250GB_S3ESNX0JB35041V",
+            "type": "disk",
+            "wwn": "uuid.344343304d3000150025384500000004"
+        }
+        config = {'config': [disk], 'version': 1}
+        storage_config.validate_config(config)
+
+    @skipUnlessJsonSchema()
     def test_disk_schema_accepts_nvme_wwid(self):
         disk = {
             "id": "disk-nvme0n1",
@@ -53,6 +65,43 @@ class TestStorageConfigSchema(CiTestCase):
         }
         config = {'config': [disk], 'version': 1}
         storage_config.validate_config(config)
+
+    @skipUnlessJsonSchema()
+    def test_format_schema_arbitrary_fstype_if_preserve(self):
+        format = {
+            "fstype": "BitLocker",
+            "id": "format-partition-sda3",
+            "preserve": True,
+            "type": "format",
+            "volume": "partition-sda3"
+        }
+        config = {'config': [format], 'version': 1}
+        storage_config.validate_config(config)
+
+    @skipUnlessJsonSchema()
+    def test_format_schema_arbitrary_fstype_fail_when_preserve_false(self):
+        format = {
+            "fstype": "BitLocker",
+            "id": "format-partition-sda3",
+            "preserve": False,
+            "type": "format",
+            "volume": "partition-sda3"
+        }
+        config = {'config': [format], 'version': 1}
+        with self.assertRaises(ValueError):
+            storage_config.validate_config(config)
+
+    @skipUnlessJsonSchema()
+    def test_format_schema_arbitrary_fstype_fail_when_no_preserve(self):
+        format = {
+            "fstype": "BitLocker",
+            "id": "format-partition-sda3",
+            "type": "format",
+            "volume": "partition-sda3"
+        }
+        config = {'config': [format], 'version': 1}
+        with self.assertRaises(ValueError):
+            storage_config.validate_config(config)
 
 
 class TestProbertParser(CiTestCase):
@@ -467,149 +516,51 @@ class TestBlockdevParser(CiTestCase):
             self.assertDictEqual(expected_dict,
                                  self.bdevp.asdict(blockdev))
 
-    def test_blockdev_detects_multipath(self):
+    def test_blockdev_multipath_disk(self):
         self.probe_data = _get_data('probert_storage_multipath.json')
         self.bdevp = BlockdevParser(self.probe_data)
-        blockdev = self.bdevp.blockdev_data['/dev/sda2']
+        blockdev = self.bdevp.blockdev_data['/dev/dm-0']
         expected_dict = {
-            'flag': 'linux',
-            'id': 'partition-sda2',
-            'offset': 2097152,
+            'id': 'mpath-disk-mpatha',
             'multipath': 'mpatha',
-            'size': 10734272512,
-            'type': 'partition',
-            'device': 'disk-sda',
-            'number': 2}
+            'path': '/dev/dm-0',
+            'ptable': 'gpt',
+            'type': 'disk',
+            'wwn': '0x0000000000000064',
+            }
         self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
 
-    def test_blockdev_skips_multipath_entry_if_no_multipath_data(self):
+    def test_blockdev_multipath_partition(self):
         self.probe_data = _get_data('probert_storage_multipath.json')
-        del self.probe_data['multipath']
         self.bdevp = BlockdevParser(self.probe_data)
-        blockdev = self.bdevp.blockdev_data['/dev/sda2']
+        blockdev = self.bdevp.blockdev_data['/dev/dm-2']
         expected_dict = {
+            'device': 'mpath-disk-mpatha',
             'flag': 'linux',
-            'id': 'partition-sda2',
+            'id': 'mpath-partition-mpatha-part2',
+            'multipath': 'mpatha',
+            'number': 2,
             'offset': 2097152,
             'size': 10734272512,
             'type': 'partition',
-            'device': 'disk-sda',
-            'number': 2}
+            }
         self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
 
-    def test_blockdev_skips_multipath_entry_if_bad_multipath_data(self):
+    @skipUnlessJsonSchema()
+    def test_blockdev_skips_underlying_disks_and_partitions(self):
         self.probe_data = _get_data('probert_storage_multipath.json')
-        for path in self.probe_data['multipath']['paths']:
-            path['multipath'] = ''
         self.bdevp = BlockdevParser(self.probe_data)
-        blockdev = self.bdevp.blockdev_data['/dev/sda2']
-        expected_dict = {
-            'flag': 'linux',
-            'id': 'partition-sda2',
-            'offset': 2097152,
-            'size': 10734272512,
-            'type': 'partition',
-            'device': 'disk-sda',
-            'number': 2}
-        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
-
-    def test_blockdev_skips_multipath_entry_if_no_mp_paths(self):
-        self.probe_data = _get_data('probert_storage_multipath.json')
-        del self.probe_data['multipath']['paths']
-        self.bdevp = BlockdevParser(self.probe_data)
-        blockdev = self.bdevp.blockdev_data['/dev/sda2']
-        expected_dict = {
-            'flag': 'linux',
-            'id': 'partition-sda2',
-            'offset': 2097152,
-            'size': 10734272512,
-            'type': 'partition',
-            'device': 'disk-sda',
-            'number': 2}
-        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
+        configs = self.bdevp.parse()[0]
+        config_paths = {c.get('path') for c in configs}
+        self.assertNotIn('/dev/sda', config_paths)
 
     def test_blockdev_finds_multipath_id_from_dm_uuid(self):
         self.probe_data = _get_data('probert_storage_zlp6.json')
         self.bdevp = BlockdevParser(self.probe_data)
         blockdev = self.bdevp.blockdev_data['/dev/dm-2']
         result = self.bdevp.blockdev_to_id(blockdev)
-        self.assertEqual('disk-sda', result)
-
-    def test_blockdev_find_mpath_members_checks_dm_name(self):
-        """ BlockdevParser find_mpath_members uses dm_name if present."""
-        dm14 = {
-            "DEVTYPE": "disk",
-            "DEVLINKS": "/dev/disk/by-id/dm-name-mpathb",
-            "DEVNAME": "/dev/dm-14",
-            "DEVTYPE": "disk",
-            "DM_NAME": "mpathb",
-            "DM_UUID": "mpath-360050768028211d8b000000000000062",
-            "DM_WWN": "0x60050768028211d8b000000000000062",
-            "MPATH_DEVICE_READY": "1",
-            "MPATH_SBIN_PATH": "/sbin",
-        }
-        multipath = {
-            "maps": [
-                {
-                    "multipath": "360050768028211d8b000000000000061",
-                    "sysfs": "dm-11",
-                    "paths": "4"
-                },
-                {
-                    "multipath": "360050768028211d8b000000000000062",
-                    "sysfs": "dm-14",
-                    "paths": "4"
-                },
-                {
-                    "multipath": "360050768028211d8b000000000000063",
-                    "sysfs": "dm-15",
-                    "paths": "4"
-                }],
-            "paths": [
-                {
-                    "device": "sdej",
-                    "serial": "0200a084762cXX00",
-                    "multipath": "mpatha",
-                    "host_wwnn": "0x20000024ff9127de",
-                    "target_wwnn": "0x5005076802065e38",
-                    "host_wwpn": "0x21000024ff9127de",
-                    "target_wwpn": "0x5005076802165e38",
-                    "host_adapter": "[undef]"
-                },
-                {
-                    "device": "sdel",
-                    "serial": "0200a084762cXX00",
-                    "multipath": "mpathb",
-                    "host_wwnn": "0x20000024ff9127de",
-                    "target_wwnn": "0x5005076802065e38",
-                    "host_wwpn": "0x21000024ff9127de",
-                    "target_wwpn": "0x5005076802165e38",
-                    "host_adapter": "[undef]"
-                },
-                {
-                    "device": "sdet",
-                    "serial": "0200a084762cXX00",
-                    "multipath": "mpatha",
-                    "host_wwnn": "0x20000024ff9127de",
-                    "target_wwnn": "0x5005076802065e37",
-                    "host_wwpn": "0x21000024ff9127de",
-                    "target_wwpn": "0x5005076802165e37",
-                    "host_adapter": "[undef]"
-                },
-                {
-                    "device": "sdev",
-                    "serial": "0200a084762cXX00",
-                    "multipath": "mpathb",
-                    "host_wwnn": "0x20000024ff9127de",
-                    "target_wwnn": "0x5005076802065e37",
-                    "host_wwpn": "0x21000024ff9127de",
-                    "target_wwpn": "0x5005076802165e37",
-                    "host_adapter": "[undef]"
-                }],
-        }
-        self.bdevp.blockdev_data['/dev/dm-14'] = dm14
-        self.probe_data['multipath'] = multipath
-        self.assertEqual('disk-sdel', self.bdevp.blockdev_to_id(dm14))
+        self.assertEqual(
+            'mpath-disk-36005076306ffd6b60000000000002406', result)
 
     def test_blockdev_detects_dasd_device_id_and_vtoc_ptable(self):
         self.probe_data = _get_data('probert_storage_dasd.json')
@@ -737,15 +688,14 @@ class TestLvmParser(CiTestCase):
 
 class TestRaidParser(CiTestCase):
 
-    def setUp(self):
-        super(TestRaidParser, self).setUp()
-        self.probe_data = _get_data('probert_storage_mdadm_bcache.json')
-        self.raidp = RaidParser(self.probe_data)
+    def _load(self, fname):
+        probe_data = _get_data(fname)
+        return RaidParser(probe_data), probe_data
 
     def test_raid_parser(self):
         """ RaidParser 'class_data' on instance matches input. """
-        self.assertDictEqual(self.probe_data['raid'],
-                             self.raidp.class_data)
+        raidp, probe_data = self._load('probert_storage_mdadm_bcache.json')
+        self.assertDictEqual(probe_data['raid'], raidp.class_data)
 
     def test_raid_asdict(self):
         """ RaidParser converts known raid_data to expected dict. """
@@ -754,19 +704,48 @@ class TestRaidParser(CiTestCase):
             'type': 'raid',
             'id': 'raid-md0',
             'name': 'md0',
+            'metadata': '1.2',
             'raidlevel': 'raid5',
             'devices': ['disk-vde', 'disk-vdf', 'disk-vdg'],
             'spare_devices': [],
         }
-        raid_data = self.raidp.class_data[devname]
-        self.assertDictEqual(expected_dict, self.raidp.asdict(raid_data))
+        raidp, _ = self._load('probert_storage_mdadm_bcache.json')
+        raid_data = raidp.class_data[devname]
+        self.assertDictEqual(expected_dict, raidp.asdict(raid_data))
 
     @skipUnlessJsonSchema()
     def test_raid_parser_parses_all_lvs_vgs(self):
         """ RaidParser returns expected dicts for known raid probe data."""
-        configs, errors = self.raidp.parse()
+        raidp, _ = self._load('probert_storage_mdadm_bcache.json')
+        configs, errors = raidp.parse()
         self.assertEqual(1, len(configs))
         self.assertEqual(0, len(errors))
+
+    def test_imsm_container(self):
+        raidp, probe_data = self._load('probert_storage_imsm.json')
+        container_raid_data = probe_data['raid']['/dev/md127']
+        container_expected = {
+            'type': 'raid',
+            'id': 'raid-md127',
+            'name': 'md127',
+            'metadata': 'imsm',
+            'raidlevel': 'container',
+            'devices': ['disk-nvme0n1', 'disk-nvme1n1'],
+            'spare_devices': [],
+            }
+        self.assertEqual(container_expected, raidp.asdict(container_raid_data))
+
+    def test_imsm_volume(self):
+        raidp, probe_data = self._load('probert_storage_imsm.json')
+        container_raid_data = probe_data['raid']['/dev/md126']
+        container_expected = {
+            'type': 'raid',
+            'id': 'raid-md126',
+            'name': 'md126',
+            'raidlevel': 'raid0',
+            'container': 'raid-md127',
+            }
+        self.assertEqual(container_expected, raidp.asdict(container_raid_data))
 
 
 class TestDasdParser(CiTestCase):
@@ -928,7 +907,6 @@ class TestZfsParser(CiTestCase):
         }
 
         zpool_data = self.zfsp.class_data['zpools'][zpool]['datasets'][dataset]
-        print(zpool_data)
         self.assertDictEqual(expected_properties,
                              self.zfsp.get_local_ds_properties(zpool_data))
 
@@ -1017,22 +995,6 @@ class TestExtractStorageConfig(CiTestCase):
                                  extracted)
 
     @skipUnlessJsonSchema()
-    def test_find_all_multipath(self):
-        """ verify probed multipath paths are included in config. """
-        self.probe_data = _get_data('probert_storage_multipath.json')
-        extracted = storage_config.extract_storage_config(self.probe_data)
-        config = extracted['storage']['config']
-        blockdev = self.probe_data['blockdev']
-
-        for mpmap in self.probe_data['multipath']['maps']:
-            nr_disks = int(mpmap['paths'])
-            mp_name = blockdev['/dev/%s' % mpmap['sysfs']]['DM_NAME']
-            matched_disks = [cfg for cfg in config
-                             if cfg['type'] == 'disk' and
-                             cfg.get('multipath', '') == mp_name]
-            self.assertEqual(nr_disks, len(matched_disks))
-
-    @skipUnlessJsonSchema()
     def test_find_raid_partition(self):
         """ verify probed raid partitions are found. """
         self.probe_data = _get_data('probert_storage_raid1_partitions.json')
@@ -1044,7 +1006,7 @@ class TestExtractStorageConfig(CiTestCase):
                            cfg['id'].startswith('raid')]
         self.assertEqual(1, len(raids))
         self.assertEqual(1, len(raid_partitions))
-        self.assertEqual({'id': 'raid-md1', 'type': 'raid',
+        self.assertEqual({'id': 'raid-md1', 'type': 'raid', 'metadata': '1.2',
                           'raidlevel': 'raid1', 'name': 'md1',
                           'devices': ['partition-vdb1', 'partition-vdc1'],
                           'spare_devices': []}, raids[0])
@@ -1081,6 +1043,36 @@ class TestExtractStorageConfig(CiTestCase):
         self.assertEqual(expected_dict, disks[0])
 
     @skipUnlessJsonSchema()
+    def test_blockdev_detects_nvme_uuid(self):
+        self.probe_data = _get_data('probert_storage_nvme_uuid.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        config = extracted['storage']['config']
+        disks = [cfg for cfg in config if cfg['type'] == 'disk']
+        expected_dict = {
+            'id': 'disk-nvme0n1',
+            'path': '/dev/nvme0n1',
+            'ptable': 'gpt',
+            'serial': 'SAMSUNG MZPLL3T2HAJQ-00005_S4CCNE0M300015',
+            'type': 'disk',
+            'wwn': 'uuid.344343304d3000150025384500000004',
+        }
+        self.assertEqual(1, len(disks))
+        self.assertEqual(expected_dict, disks[0])
+
+    @skipUnlessJsonSchema()
+    def test_blockdev_multipath(self):
+        self.probe_data = _get_data('probert_storage_zlp6.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        config = extracted['storage']['config']
+        disks = [cfg for cfg in config if cfg['type'] == 'disk']
+        expected_count = len([
+            1 for bd_name, bd_data in self.probe_data['blockdev'].items()
+            if bd_data.get('DM_UUID', '').startswith('mpath-')
+            or bd_name.startswith('/dev/dasd') and bd_data['DEVTYPE'] == 'disk'
+            ])
+        self.assertEqual(expected_count, len(disks))
+
+    @skipUnlessJsonSchema()
     def test_blockdev_skips_invalid_wwn(self):
         self.probe_data = _get_data('probert_storage_bogus_wwn.json')
         extracted = storage_config.extract_storage_config(self.probe_data)
@@ -1096,6 +1088,24 @@ class TestExtractStorageConfig(CiTestCase):
         }
         self.assertEqual(1, len(disks))
         self.assertEqual(expected_dict, disks[0])
+
+    @skipUnlessJsonSchema()
+    def test_arbitrary_fstype_if_preserve_true(self):
+        self.probe_data = _get_data('probert_storage_win10_bitlocker.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        configs = extracted['storage']['config']
+        format = [cfg for cfg in configs if cfg.get('type') == 'format']
+        bitlocker = [entry for entry in format
+                     if entry.get('id') == 'format-partition-sda3']
+        expected_dict = {
+            'id': 'format-partition-sda3',
+            'type': 'format',
+            'volume': 'partition-sda3',
+            'fstype': 'BitLocker',
+            'preserve': True,
+        }
+        self.assertEqual(1, len(bitlocker))
+        self.assertEqual(expected_dict, bitlocker[0])
 
 
 # vi: ts=4 expandtab syntax=python

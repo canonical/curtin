@@ -70,6 +70,12 @@ vmtest-deps:
 sync-images:
 	@$(CWD)/tools/vmtest-sync-images
 
+integration-deps:
+	@$(CWD)/tools/vmtest-create-static-images
+
+integration: integration-deps
+	$(PYTHON3) -m pytest tests/integration
+
 clean:
 	rm -rf doc/_build
 

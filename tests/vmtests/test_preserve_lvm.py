@@ -77,7 +77,7 @@ class HirsuteTestLvmPreserve(relbase.hirsute, TestLvmPreserveAbs):
     __test__ = True
 
 
-class GroovyTestLvmPreserve(relbase.groovy, TestLvmPreserveAbs):
+class ImpishTestLvmPreserve(relbase.impish, TestLvmPreserveAbs):
     __test__ = True
 
 

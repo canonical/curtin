@@ -72,7 +72,7 @@ class HirsuteBcacheBasic(relbase.hirsute, TestBcacheBasic):
     __test__ = True
 
 
-class GroovyBcacheBasic(relbase.groovy, TestBcacheBasic):
+class ImpishBcacheBasic(relbase.impish, TestBcacheBasic):
     __test__ = True
 
 

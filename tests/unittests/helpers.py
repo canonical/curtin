@@ -121,15 +121,16 @@ class CiTestCase(TestCase):
         util.subp = _real_subp
         super(CiTestCase, self).tearDown()
 
-    def add_patch(self, target, attr, **kwargs):
+    def add_patch(self, target, attr=None, **kwargs):
         """Patches specified target object and sets it as attr on test
         instance also schedules cleanup"""
-        if 'autospec' not in kwargs:
+        if 'autospec' not in kwargs and 'new' not in kwargs:
             kwargs['autospec'] = True
         m = mock.patch(target, **kwargs)
         p = m.start()
         self.addCleanup(m.stop)
-        setattr(self, attr, p)
+        if attr is not None:
+            setattr(self, attr, p)
 
     def tmp_dir(self, dir=None, cleanup=True):
         """Return a full path to a temporary directory for the test run."""

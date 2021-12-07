@@ -1,3 +1,71 @@
+curtin (21.3-0ubuntu1) jammy; urgency=medium
+
+  * New upstream release.
+    - version to 21.3 [Dan Bungert] (LP: #1953410)
+    - distro: handle ID_LIKE [Dan Bungert] (LP: #1934513)
+    - block_meta: pass handlers dict to all handlers [Michael Hudson-Doyle]
+    - block_meta: refactor partition verification slightly
+      [Michael Hudson-Doyle]
+    - block-meta: support using a raw image containing LVM volumes
+      [Alexsander de Souza]
+    - lsblk: adjust output to match old format [Dan Bungert]
+    - curtin.commands.extract: Factor preparing sources for copying into a
+      class [Michael Hudson-Doyle]
+    - apt_config: tweaks to allow some functionality in partial tree as
+      non-root [Michael Hudson-Doyle]
+    - Add integration tests for some partitioning operations
+      [Michael Hudson-Doyle]
+    - command/apt: disable_components [Dan Bungert]
+    - commands/apt: use python-apt for sources.list [Dan Bungert]
+    - curthooks: always install shim-signed if available (when UEFI booted)
+      [Michael Hudson-Doyle]
+    - tox,control: fix jenkins CI jobs [Dan Bungert]
+    - tests: update to demonstrate python-apt functional [Dan Bungert]
+    - block:lvm: search encrypted volumes for LVM
+      [Lukas Märdian] (LP: #1940687)
+    - mdadm: allow installation to a syncing array
+      [Michael Hudson-Doyle] (LP: #1939563)
+    - vmtests: s/Groovy/Impish [Dan Bungert]
+    - tweak making mountpoints private some more [Michael Hudson-Doyle]
+    - curthooks: do not unconditionally copy e/n/interfaces to target
+      [Michael Hudson-Doyle]
+    - block: handle /dev/mapper/* in dev_path() [Lukas Märdian]
+    - curthooks: do not add lvm devices filter when / is mutipathed
+      [Michael Hudson-Doyle] (LP: #1895192)
+    - Extend the 'format' schema for unknown fstypes [Dan Bungert]
+    - move making mounts recursively private into do_unmount
+      [Michael Hudson-Doyle]
+    - disk_handler: fix partitioning a new RAID [Michael Hudson-Doyle]
+    - curthooks:setup_zipl: use proper device path in root= arg for cmdline
+      [Lukas Märdian]
+    - fix tearing down ChrootableTarget when mounts appear while it is set up
+      [Michael Hudson-Doyle] (LP: #1928839, #1934775)
+    - Don't override PYTHON env var in bin/curtin [Dan Bungert]
+    - disk_handler: check wipe field when deciding whether to reformat raids
+      [Michael Hudson-Doyle] (LP: #1932976)
+    - storage_config: properly handle raid containers [Michael Hudson-Doyle]
+    - pylintrc: explicitly list the DISTROS generated-members [Paride Legovini]
+    - block_meta: make preserve: true on a raid in a container work
+      [Michael Hudson-Doyle]
+    - Fix NVMe validation for namespaces with UUID
+      [Ryan Norwood] (LP: #1925399)
+    - meta_simple: handle multiple disks in storage config with dd-image
+      [Dan Bungert] (LP: #1925722)
+    - Use /proc/filesystems to decide passno
+      [Dan Bungert] (LP: #1717584, LP: #1785354)
+    - block_meta: fix wiping of existing dasd partition [Michael Hudson-Doyle]
+    - block_meta: pass --yes to lvcreate alongside --wipesignatures=y
+      [Michael Hudson-Doyle] (LP: #1923487)
+    - remove 'strict' arguments to block.wipe_volume and block.quick_zero
+      [Michael Hudson-Doyle] (LP: #1868177)
+    - swap: use dd to allocate swapfiles on ext2 and ext3
+      [Michael Hudson-Doyle] (LP: #1918990)
+    - storage_config: return one type: disk action per multipathed disk
+      [Michael Hudson-Doyle] (LP: #1893818)
+    - vmtest/centos: handle different paths to grub config [Ryan Harper]
+
+ -- Dan Bungert <daniel.bungert@canonical.com>  Mon, 06 Dec 2021 17:02:22 -0700
+
 curtin (21.2-0ubuntu1) hirsute; urgency=medium
 
   * New upstream release.

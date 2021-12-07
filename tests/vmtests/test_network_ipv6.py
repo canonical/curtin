@@ -53,7 +53,15 @@ class BionicTestNetworkIPV6(relbase.bionic, TestNetworkIPV6Abs):
     __test__ = True
 
 
-class GroovyTestNetworkIPV6(relbase.groovy, TestNetworkIPV6Abs):
+class FocalTestNetworkIPV6(relbase.focal, TestNetworkIPV6Abs):
+    __test__ = True
+
+
+class HirsuteTestNetworkIPV6(relbase.hirsute, TestNetworkIPV6Abs):
+    __test__ = True
+
+
+class ImpishTestNetworkIPV6(relbase.impish, TestNetworkIPV6Abs):
     __test__ = True
 
 
