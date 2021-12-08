@@ -382,6 +382,9 @@ def system_upgrade(opts=None, target=None, env=None, allow_daemons=False,
                    osfamily=None):
     LOG.debug("Upgrading system in %s", target)
 
+    if not osfamily:
+        osfamily = get_osfamily(target=target)
+
     distro_cfg = {
         DISTROS.debian: {'function': run_apt_command,
                          'subcommands': ('dist-upgrade', 'autoremove')},
