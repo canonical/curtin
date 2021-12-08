@@ -79,7 +79,7 @@ STORAGE_CONFIG_SCHEMA = {
     'required': ['version', 'config'],
     'definitions': schemas.definitions,
     'properties': {
-        'version': {'type': 'integer', 'enum': [1]},
+        'version': {'type': 'integer', 'enum': [1, 2]},
         'config': {
             'type': 'array',
             'items': {
@@ -1315,7 +1315,7 @@ def extract_storage_config(probe_data, strict=False):
     ordered = (dasd + disk + part + format + lvols + lparts + raids +
                dmcrypts + mounts + bcache + zpool + zfs)
 
-    final_config = {'storage': {'version': 1, 'config': ordered}}
+    final_config = {'storage': {'version': 2, 'config': ordered}}
     try:
         LOG.info('Validating extracted storage config components')
         validate_config(final_config['storage'])
@@ -1346,7 +1346,7 @@ def extract_storage_config(probe_data, strict=False):
 
     LOG.debug("Merging storage config dependencies")
     merged_config = {
-        'version': 1,
+        'version': 2,
         'config': merge_config_trees_to_list(ctrees)
     }
     LOG.debug("Merged storage config:\n%s",

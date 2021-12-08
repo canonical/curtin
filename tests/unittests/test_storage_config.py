@@ -970,7 +970,7 @@ class TestExtractStorageConfig(CiTestCase):
         """ verify live-iso extracted storage-config finds target disk. """
         extracted = storage_config.extract_storage_config(self.probe_data)
         self.assertEqual(
-            {'storage': {'version': 1,
+            {'storage': {'version': 2,
                          'config': [{'id': 'disk-sda', 'path': '/dev/sda',
                                      'serial': 'QEMU_HARDDISK_QM00001',
                                      'type': 'disk'}]}}, extracted)
@@ -985,13 +985,13 @@ class TestExtractStorageConfig(CiTestCase):
             if missing_key != 'blockdev':
                 self.assertEqual(
                     {'storage':
-                        {'version': 1,
+                        {'version': 2,
                          'config': [{'id': 'disk-sda', 'path': '/dev/sda',
                                      'serial': 'QEMU_HARDDISK_QM00001',
                                      'type': 'disk'}]}}, extracted)
             else:
                 # empty config without blockdev data
-                self.assertEqual({'storage': {'config': [], 'version': 1}},
+                self.assertEqual({'storage': {'config': [], 'version': 2}},
                                  extracted)
 
     @skipUnlessJsonSchema()

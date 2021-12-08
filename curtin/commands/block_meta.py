@@ -2017,6 +2017,17 @@ def meta_custom(args):
 
     storage_config_dict = extract_storage_ordered_dict(cfg)
 
+    version = cfg['storage']['version']
+    if version > 1:
+        from curtin.commands.block_meta_v2 import (
+            disk_handler_v2,
+            partition_handler_v2,
+            )
+        command_handlers.update({
+            'disk': disk_handler_v2,
+            'partition': partition_handler_v2,
+            })
+
     storage_config_dict = zfsroot_update_storage_config(storage_config_dict)
 
     # set up reportstack

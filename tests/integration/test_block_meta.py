@@ -39,7 +39,8 @@ def summarize_partitions(dev):
 
 class StorageConfigBuilder:
 
-    def __init__(self):
+    def __init__(self, *, version):
+        self.version = version
         self.config = []
         self.cur_image = None
 
@@ -47,6 +48,7 @@ class StorageConfigBuilder:
         return {
             'storage': {
                 'config': self.config,
+                'version': self.version,
                 },
             }
 
@@ -106,10 +108,10 @@ class TestBlockMeta(IntegrationTestCase):
             ]
         util.subp(cmd, env=cmd_env, **kwargs)
 
-    def _test_default_offsets(self, ptable):
+    def _test_default_offsets(self, ptable, version):
         psize = 40 << 20
         img = self.tmp_path('image.img')
-        config = StorageConfigBuilder()
+        config = StorageConfigBuilder(version=version)
         config.add_image(path=img, size='100M', ptable=ptable)
         config.add_part(size=psize, number=1)
         config.add_part(size=psize, number=2)
@@ -126,16 +128,22 @@ class TestBlockMeta(IntegrationTestCase):
         config.set_preserve()
         self.run_bm(config.render())
 
-    def test_default_offsets_gpt(self):
-        self._test_default_offsets('gpt')
+    def test_default_offsets_gpt_v1(self):
+        self._test_default_offsets('gpt', 1)
 
-    def test_default_offsets_msdos(self):
-        self._test_default_offsets('msdos')
+    def test_default_offsets_msdos_v1(self):
+        self._test_default_offsets('msdos', 1)
+
+    def test_default_offsets_gpt_v2(self):
+        self._test_default_offsets('gpt', 2)
+
+    def test_default_offsets_msdos_v2(self):
+        self._test_default_offsets('msdos', 2)
 
     def _test_non_default_numbering(self, ptable):
         psize = 40 << 20
         img = self.tmp_path('image.img')
-        config = StorageConfigBuilder()
+        config = StorageConfigBuilder(version=1)
         config.add_image(path=img, size='100M', ptable=ptable)
         config.add_part(size=psize, number=1)
         config.add_part(size=psize, number=4)
@@ -158,7 +166,7 @@ class TestBlockMeta(IntegrationTestCase):
 
     def test_logical(self):
         img = self.tmp_path('image.img')
-        config = StorageConfigBuilder()
+        config = StorageConfigBuilder(version=1)
         config.add_image(path=img, size='100M', ptable='msdos')
         config.add_part(size='50M', number=1, flag='extended')
         config.add_part(size='10M', number=5, flag='logical')
@@ -181,7 +189,7 @@ class TestBlockMeta(IntegrationTestCase):
 
     def test_raw_image(self):
         img = self.tmp_path('image.img')
-        config = StorageConfigBuilder()
+        config = StorageConfigBuilder(version=1)
         config.add_image(path=img, size='2G', ptable='gpt', create=True)
 
         curtin_cfg = config.render()
