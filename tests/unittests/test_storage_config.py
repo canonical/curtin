@@ -285,7 +285,7 @@ class TestBlockdevParser(CiTestCase):
         """ BlockdevParser skips invalid ID_WWN_* values. """
         self.bdevp.blockdev_data['/dev/sda'] = {
             'DEVTYPE': 'disk',
-            'DEVNAME': 'sda',
+            'DEVNAME': '/dev/sda',
             'ID_SERIAL': 'Corsair_Force_GS_1785234921906',
             'ID_SERIAL_SHORT': '1785234921906',
             'ID_WWN': '0x0000000000000000',
@@ -300,7 +300,7 @@ class TestBlockdevParser(CiTestCase):
         """ BlockdevParser skips invalid ID_SERIAL_* values. """
         self.bdevp.blockdev_data['/dev/sda'] = {
             'DEVTYPE': 'disk',
-            'DEVNAME': 'sda',
+            'DEVNAME': '/dev/sda',
             'ID_SERIAL': '                      ',
             'ID_SERIAL_SHORT': 'My Serial is My PassPort',
         }
@@ -345,6 +345,7 @@ class TestBlockdevParser(CiTestCase):
             'id': 'partition-sda1',
             'type': 'partition',
             'device': 'disk-sda',
+            'path': '/dev/sda1',
             'number': 1,
             'offset': 1048576,
             'size': 499122176,
@@ -375,12 +376,12 @@ class TestBlockdevParser(CiTestCase):
         """ BlockdevParser ignores partition with zero start value."""
         self.bdevp.blockdev_data['/dev/vda'] = {
             'DEVTYPE': 'disk',
-            'DEVNAME': 'vda',
+            'DEVNAME': '/dev/vda',
         }
         test_value = {
             'DEVTYPE': 'partition',
             'MAJOR': "252",
-            'DEVNAME': 'vda1',
+            'DEVNAME': '/dev/vda1',
             "DEVPATH":
                 "/devices/pci0000:00/0000:00:04.0/virtio0/block/vda/vda1",
             "ID_PART_ENTRY_TYPE": "0x0",
@@ -390,6 +391,7 @@ class TestBlockdevParser(CiTestCase):
             'id': 'partition-vda1',
             'type': 'partition',
             'device': 'disk-vda',
+            'path': '/dev/vda1',
             'number': 1,
             'size': 784334848,
         }
@@ -403,7 +405,8 @@ class TestBlockdevParser(CiTestCase):
 
     # XXX: Parameterize me
     def test_blockdev_to_id_raises_valueerror_on_empty_devtype(self):
-        test_value = {'DEVTYPE': '', 'DEVNAME': 'bar', 'DEVPATH': 'foobar'}
+        test_value = {'DEVTYPE': '', 'DEVNAME': '/dev/bar',
+                      'DEVPATH': 'foobar'}
         with self.assertRaises(ValueError):
             self.bdevp.blockdev_to_id(test_value)
 
@@ -415,7 +418,7 @@ class TestBlockdevParser(CiTestCase):
 
     # XXX: Parameterize me
     def test_blockdev_to_id_raises_valueerror_on_missing_devtype(self):
-        test_value = {'DEVNAME': 'bar', 'DEVPATH': 'foobar'}
+        test_value = {'DEVNAME': '/dev/bar', 'DEVPATH': 'foobar'}
         with self.assertRaises(ValueError):
             self.bdevp.blockdev_to_id(test_value)
 
@@ -427,6 +430,7 @@ class TestBlockdevParser(CiTestCase):
         expected_dict = {
             'id': 'partition-vda2',
             'type': 'partition',
+            'path': '/dev/vda2',
             'device': 'disk-vda',
             'number': 2,
             'offset': 3222274048,
@@ -446,6 +450,7 @@ class TestBlockdevParser(CiTestCase):
             'id': 'partition-vda5',
             'type': 'partition',
             'device': 'disk-vda',
+            'path': '/dev/vda5',
             'number': 5,
             'offset': 3223322624,
             'size': 2147483648,
@@ -463,6 +468,7 @@ class TestBlockdevParser(CiTestCase):
             'id': 'partition-vdb1',
             'type': 'partition',
             'device': 'disk-vdb',
+            'path': '/dev/vdb1',
             'number': 1,
             'offset': 1048576,
             'size': 536870912,
@@ -480,6 +486,7 @@ class TestBlockdevParser(CiTestCase):
             'id': 'partition-vda5',
             'type': 'partition',
             'device': 'disk-vda',
+            'path': '/dev/vda5',
             'number': 5,
             'offset': 3223322624,
             'size': 2147483648,
@@ -536,6 +543,7 @@ class TestBlockdevParser(CiTestCase):
         blockdev = self.bdevp.blockdev_data['/dev/dm-2']
         expected_dict = {
             'device': 'mpath-disk-mpatha',
+            'path': '/dev/dm-2',
             'flag': 'linux',
             'id': 'mpath-partition-mpatha-part2',
             'multipath': 'mpatha',
@@ -1011,6 +1019,7 @@ class TestExtractStorageConfig(CiTestCase):
                           'devices': ['partition-vdb1', 'partition-vdc1'],
                           'spare_devices': []}, raids[0])
         self.assertEqual({'id': 'raid-md1p1', 'type': 'partition',
+                          'path': '/dev/md1p1',
                           'size': 4285530112, 'flag': 'linux', 'number': 1,
                           'device': 'raid-md1', 'offset': 1048576},
                          raid_partitions[0])

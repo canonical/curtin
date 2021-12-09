@@ -284,6 +284,10 @@ PARTITION = {
     'properties': {
         'id': {'$ref': '#/definitions/id'},
         'multipath': {'type': 'string'},
+        # Permit path to device as output.
+        # This value is ignored for input.
+        'path': {'type': 'string',
+                 'pattern': _path_dev},
         'name': {'$ref': '#/definitions/name'},
         'offset': {'$ref': '#/definitions/size'},  # XXX: This is not used
         'preserve': {'$ref': '#/definitions/preserve'},

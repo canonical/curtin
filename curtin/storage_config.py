@@ -753,6 +753,8 @@ class BlockdevParser(ProbertParser):
             return entry
 
         if entry['type'] == 'partition':
+            if devname:
+                entry['path'] = devname
             attrs = blockdev_data['attrs']
             if self.is_mpath_partition(blockdev_data):
                 entry['number'] = int(blockdev_data['DM_PART'])
