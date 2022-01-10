@@ -17,7 +17,7 @@ class TestBasicAbs(VMBaseClass):
     disk_to_check = [('main_disk', 1), ('main_disk', 2)]
     extra_collect_scripts = [textwrap.dedent("""
         cd OUTPUT_COLLECT_D
-        ls /sys/firmware/efi/ | cat >ls_sys_firmware_efi
+        test -d /sys/firmware/efi ; echo $? >is_efi
         cp /sys/class/block/vda/queue/logical_block_size vda_lbs
         cp /sys/class/block/vda/queue/physical_block_size vda_pbs
         blockdev --getsz /dev/vda | cat >vda_blockdev_getsz
@@ -28,24 +28,10 @@ class TestBasicAbs(VMBaseClass):
         exit 0
         """)]
 
-    def test_sys_firmware_efi(self):
-        self.output_files_exist(["ls_sys_firmware_efi"])
-        sys_efi_possible = [
-            'config_table',
-            'efivars',
-            'fw_platform_size',
-            'fw_vendor',
-            'runtime',
-            'runtime-map',
-            'systab',
-            'vars',
-        ]
-        efi_lines = self.load_collect_file(
-            "ls_sys_firmware_efi").strip().split('\n')
-
-        # sys/firmware/efi contents differ based on kernel and configuration
-        for efi_line in efi_lines:
-            self.assertIn(efi_line, sys_efi_possible)
+    def test_is_efi(self):
+        self.output_files_exist(["is_efi"])
+        efi_lines = self.load_collect_file("is_efi").strip().split('\n')
+        self.assertEqual(['0'], efi_lines)
 
     def test_disk_block_sizes(self):
         """ Test disk logical and physical block size are match
