@@ -77,7 +77,7 @@ apt:
     # arches is list of architectures the following config applies to
     # the special keyword "default" applies to any architecture not explicitly
     # listed.
-      - arches: [amd64, i386, default]
+    - arches: [amd64, i386, default]
       # uri is just defining the target as-is
       uri: http://us.archive.ubuntu.com/ubuntu
       #
@@ -100,7 +100,7 @@ apt:
   # security is optional, if not defined it is set to the same value as primary
   security:
     uri: http://security.ubuntu.com/ubuntu
-    [...]
+    # [...]
 
   # if no mirrors are specified at all, or all lookups fail it will use:
   # primary: http://archive.ubuntu.com/ubuntu
