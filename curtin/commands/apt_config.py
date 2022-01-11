@@ -28,6 +28,9 @@ APT_LISTS = "/var/lib/apt/lists"
 APT_CONFIG_FN = "/etc/apt/apt.conf.d/94curtin-config"
 APT_PROXY_FN = "/etc/apt/apt.conf.d/90curtin-aptproxy"
 
+# Files to store pinning information
+APT_PREFERENCES_FN = "/etc/apt/preferences.d/90curtin.pref"
+
 # Default keyserver to use
 DEFAULT_KEYSERVER = "keyserver.ubuntu.com"
 
@@ -80,6 +83,11 @@ def handle_apt(cfg, target=None):
                                target + APT_CONFIG_FN)
     except (IOError, OSError):
         LOG.exception("Failed to apply proxy or apt config info:")
+
+    try:
+        apply_apt_preferences(cfg, target + APT_PREFERENCES_FN)
+    except (IOError, OSError):
+        LOG.exception("Failed to apply apt preferences.")
 
     # Process 'apt_source -> sources {dict}'
     if 'sources' in cfg:
@@ -593,6 +601,36 @@ def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
     elif os.path.isfile(config_fname):
         util.del_file(config_fname)
         LOG.debug("no apt config configured, removed %s", config_fname)
+
+
+def preference_to_str(preference):
+    """ Return a textual representation of a given preference as specified in
+    apt_preferences(5).
+    """
+
+    return """\
+Package: {package}
+Pin: {pin}
+Pin-Priority: {pin_priority}
+""".format(package=preference["package"],
+           pin=preference["pin"],
+           pin_priority=preference["pin-priority"])
+
+
+def apply_apt_preferences(cfg, pref_fname):
+    """ Apply apt preferences if any is provided.
+    """
+
+    prefs = cfg.get("preferences")
+    if not prefs:
+        if os.path.isfile(pref_fname):
+            util.del_file(pref_fname)
+            LOG.debug("no apt preferences configured, removed %s", pref_fname)
+        return
+    prefs_as_strings = [preference_to_str(pref) for pref in prefs]
+    print(prefs_as_strings)
+    LOG.debug("write apt preferences info to %s.", pref_fname)
+    util.write_file(pref_fname, "\n".join(prefs_as_strings))
 
 
 def apt_command(args):

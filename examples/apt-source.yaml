@@ -152,6 +152,18 @@ apt:
   # The following example is also the builtin default if nothing is specified
   add_apt_repo_match: '^[\w-]+:\w'
 
+  # 1.9 preferences
+  #
+  # Any apt preferences that will be made available to apt
+  # see the APT_PREFERENCES(5) man page for details about what can be specified
+  preferences:
+    - package: python3-*
+      pin: origin *ubuntu.com*
+      pin-priority: 200
+    - package: python-*
+      pin: origin *ubuntu.com*
+      pin-priority: -1
+
 
   ##############################################################################
   # Section 2: source list entries

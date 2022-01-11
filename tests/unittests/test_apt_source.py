@@ -572,6 +572,55 @@ class TestAptSourceConfig(CiTestCase):
                                     'Acquire::ftp::Proxy "foobar3";\n'
                                     'Acquire::https::Proxy "foobar4";\n'))
 
+    def test_preference_to_str(self):
+        """ test_preference_to_str - Test converting a preference dict to
+        textual representation.
+        """
+        preference = {
+            "package": "*",
+            "pin": "release a=unstable",
+            "pin-priority": 50,
+        }
+
+        expected = """\
+Package: *
+Pin: release a=unstable
+Pin-Priority: 50
+"""
+        self.assertEqual(expected, apt_config.preference_to_str(preference))
+
+    @staticmethod
+    def test_apply_apt_preferences():
+        """ test_apply_apt_preferences - Test apt preferences configuration
+        """
+        cfg = {
+            "preferences": [
+                {
+                    "package": "*",
+                    "pin": "release a=unstable",
+                    "pin-priority": 50,
+                }, {
+                    "package": "dummy-unwanted-package",
+                    "pin": "origin *ubuntu.com*",
+                    "pin-priority": -1,
+                }
+            ]
+        }
+
+        expected_content = """\
+Package: *
+Pin: release a=unstable
+Pin-Priority: 50
+
+Package: dummy-unwanted-package
+Pin: origin *ubuntu.com*
+Pin-Priority: -1
+"""
+        with mock.patch.object(util, "write_file") as mockobj:
+            apt_config.apply_apt_preferences(cfg, "preferencesfn")
+
+        mockobj.assert_called_with("preferencesfn", expected_content)
+
     def test_mirror(self):
         """test_mirror - Test defining a mirror"""
         pmir = "http://us.archive.ubuntu.com/ubuntu/"
