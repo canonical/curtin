@@ -628,7 +628,6 @@ def apply_apt_preferences(cfg, pref_fname):
             LOG.debug("no apt preferences configured, removed %s", pref_fname)
         return
     prefs_as_strings = [preference_to_str(pref) for pref in prefs]
-    print(prefs_as_strings)
     LOG.debug("write apt preferences info to %s.", pref_fname)
     util.write_file(pref_fname, "\n".join(prefs_as_strings))
 
