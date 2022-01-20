@@ -623,9 +623,12 @@ def apply_apt_preferences(cfg, pref_fname):
 
     prefs = cfg.get("preferences")
     if not prefs:
-        if os.path.isfile(pref_fname):
-            util.del_file(pref_fname)
-            LOG.debug("no apt preferences configured, removed %s", pref_fname)
+        # When $ curtin apt-config is called with no preferences set, it makes
+        # sense to remove the preferences file (if present). Having said that,
+        # this code is also called automatically at the curthooks stage with an
+        # empty configuration. Since the installation of packages (which
+        # happens after executing the curthooks) needs to honor the preferences
+        # set, we must not let the curthooks remove the preferences file.
         return
     prefs_as_strings = [preference_to_str(pref) for pref in prefs]
     LOG.debug("write apt preferences info to %s.", pref_fname)
