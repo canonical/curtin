@@ -13,8 +13,7 @@ Custom storage configuration is handled by the ``block-meta custom`` command
 in curtin. Partitioning layout is read as a list of in-order modifications to
 make to achieve the desired configuration. The top level configuration key
 containing this configuration is ``storage``. This key should contain a
-dictionary with at least a version number and the configuration list. The
-current config specification is ``version: 1``.
+dictionary with at least a version number and the configuration list.
 
 **Config Example**::
 
@@ -26,6 +25,14 @@ current config specification is ``version: 1``.
        ptable: gpt
        serial: QM00002
        model: QEMU_HARDDISK
+
+Config versions
+---------------
+
+The current version of curtin supports versions ``1`` and ``2``. These
+only differ in the interpretation of ``partition`` actions at this
+time. ``lvm_partition`` actions will be interpreted differently at
+some point in the future.
 
 Configuration Types
 -------------------
@@ -322,13 +329,41 @@ The partition command creates a single partition on a disk. Curtin only needs
 to be told which disk to use and the size of the partition.  Additional options
 are available.
 
+Partition actions are interpreted differently according to the version of the
+storage config.
+
+ * For version 1 configs, the actions are handled one by one and each
+   partition is created (or assumed to exist, in the ``preserve: true`` case)
+   just after that described by the previous action.
+
+ * For version 2 configs, the actions are bundled together to create a
+   complete description of the partition table, and the ``offset`` of each
+   action is respected if present. Any partitions that already exist but are
+   not referenced in the new config are (superblock-) wiped and deleted.
+
+   * Because the numbering of logical partitions is not stable (i.e. if there
+     are two logical partitions numbered 5 and 6, and partition 5 is deleted,
+     what was partition 6 will become partition 5), curtin checks if a
+     partition is deleted or not by checking for the presence of a partition
+     action with a matching offset.
+
+If the disk is being completely repartitioned, the two schemes are effectively
+the same.
+
 **number**: *<number>*
 
-The partition number can be specified using ``number``. However, numbers must
-be in order and some situations, such as extended/logical partitions on msdos
-partition tables will require special numbering, so it maybe better to omit 
-the partition number. If the ``number`` key is not present, curtin will attempt
-determine the right number to use.
+The partition number can be specified using ``number``.
+
+For GPT partition tables, this will just be the slot in the partition table
+that is used to describe this partition.
+
+For DOS partition tables, a primary or extended partition must have a number
+less than or equal to 4. Logical partitions have numbers 5 or greater but are
+numbered by the order they are found when parsing the partitions, so the
+``number`` field is ignored for them.
+
+If the ``number`` key is not present, curtin will attempt determine the right
+number to use.
 
 **size**: *<size>*
 
@@ -338,8 +373,15 @@ the appropriate SI prefix, i.e. *B, k, M, G, T...*
 
 .. note::
 
-  Curtin does not adjust size values.  If you specific a size that exceeds the 
-  capacity of a device then installation will fail.
+  Curtin does not adjust or inspect size values.  If you specify a size that
+  exceeds the capacity of a device then installation will fail.
+
+**offset**: *<offset>*
+
+The offset at which to create the partition. Only respected in a version 2
+config. If the offset field is not present, the partition will be placed after
+that described by the preceding (logical or primary, if appropriate) partition
+action, or at the start of the disk (or extended partition, as appropriate).
 
 **device**: *<device id>*
 
@@ -368,9 +410,7 @@ only apply to gpt partition tables.
 The *logical/extended* partition flags can be used to create logical partitions
 on a msdos table. An extended partition should be created containing all of the
 empty space on the drive, and logical partitions can be created within it. A
-extended partition must already be present to create logical partitions. If the
-``number`` flag is set for an extended partition it must be set to 4, and
-each logical partition should be numbered starting from 5.
+extended partition must already be present to create logical partitions.
 
 On msdos partition tables, the *boot* flag sets the boot parameter to that
 partition. On gpt partition tables, the boot flag sets the esp flag on the
