@@ -8,7 +8,7 @@ bucket:
         mklabel gpt \
         mkpart primary fat32 1MiB 513MiB \
         set 1 esp on \
-        mkpart primary ext4 513MiB 3585MiB
+        mkpart primary ext4 513MiB 4609MiB
 
     udevadm settle
     mkfs.vfat -I -n EFI -F 32 /dev/disk/by-id/virtio-disk-a-part1
@@ -67,7 +67,7 @@ storage:
   - device: id_disk0
     id: id_disk0_part2
     number: 2
-    size: 3G
+    size: 4G
     type: partition
     preserve: true
   - fstype: fat32

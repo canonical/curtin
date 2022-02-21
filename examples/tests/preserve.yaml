@@ -6,8 +6,8 @@ bucket:
         mklabel gpt                     \
         mkpart primary ext4 2MiB 514MiB \
         set 1 esp on                    \
-        mkpart primary ext4 1GiB 4GiB   \
-        mkpart primary ext4 4GiB 7GiB
+        mkpart primary ext4 1GiB 5GiB   \
+        mkpart primary ext4 6GiB 9GiB
     udevadm settle
     mkfs.ext4 /dev/disk/by-id/virtio-disk-a-part3
     mount /dev/disk/by-id/virtio-disk-a-part3 /mnt
@@ -36,7 +36,7 @@ storage:
     id: id_disk0_part2
     device: id_disk0
     number: 2
-    size: 3G
+    size: 4G
     preserve: true
   - type: partition
     id: id_disk0_part3

@@ -31,7 +31,7 @@ storage:
   - device: id_disk0
     id: id_disk0_part2
     number: 2
-    size: 3G
+    size: 4G
     type: partition
     wipe: superblock
   - fstype: fat32
