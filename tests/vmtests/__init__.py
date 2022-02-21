@@ -1930,29 +1930,6 @@ class VMBaseClass(TestCase):
         self.assertIn(kpackage, self.debian_packages)
 
     @skip_if_flag('expected_failure')
-    def test_clear_holders_ran(self):
-        """ Test curtin install runs block-meta/clear-holders. """
-        if not self.has_storage_config():
-            raise SkipTest("This test does not use storage config.")
-
-        install_logfile = 'root/curtin-install.log'
-        self.output_files_exist([install_logfile])
-        install_log = self.load_collect_file(install_logfile)
-
-        # validate block-meta called clear-holders at least once
-        # We match both 'start' and 'finish' strings, so for each
-        # call we'll have 2 matches.
-        clear_holders_re = 'cmd-install/.*cmd-block-meta/clear-holders'
-        events = re.findall(clear_holders_re, install_log)
-        print('Matched clear-holder events:\n%s' % events)
-        self.assertGreaterEqual(len(events), 2)
-
-        # dirty_disks mode runs an early block-meta command which
-        # also runs clear-holders
-        if self.dirty_disks is True:
-            self.assertGreaterEqual(len(events), 4)
-
-    @skip_if_flag('expected_failure')
     def test_kernel_img_conf(self):
         """ Test curtin install kernel-img.conf correctly. """
         if self.target_distro != 'ubuntu':
