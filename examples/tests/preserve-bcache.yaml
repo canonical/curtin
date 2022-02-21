@@ -10,6 +10,7 @@ bucket:
     udevadm settle
     make-bcache -C /dev/disk/by-id/virtio-disk-b \
                 -B /dev/disk/by-id/virtio-disk-a-part2 --writeback
+    sleep 1
     udevadm settle
     mkfs.ext4 /dev/bcache0
     mount /dev/bcache0 /mnt
