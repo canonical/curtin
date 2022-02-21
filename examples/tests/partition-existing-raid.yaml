@@ -15,7 +15,7 @@ bucket:
         /dev/disk/by-id/virtio-disk-b-part1 /dev/disk/by-id/virtio-disk-c-part1
     udevadm settle
     parted /dev/md1 --script -- \
-        mklabel dos
+        mklabel msdos
     udevadm settle
     mdadm --stop /dev/md1
     udevadm settle
