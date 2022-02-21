@@ -7,7 +7,7 @@ class _ReleaseBase(object):
     repo = "maas-daily"
     arch = get_platform_arch()
     target_arch = arch
-    mem = "1024"
+    mem = "2048"
 
 
 class _UbuntuBase(_ReleaseBase):
@@ -72,7 +72,6 @@ class _UbuntuCore20FromFocalBase(_UbuntuCoreUbuntuBase):
     release = "focal"
     # release for target
     target_release = "ubuntu-core-20"
-    mem = "2048"
 
 
 class _Centos66FromXenialBase(_CentosFromUbuntuBase):
@@ -148,7 +147,6 @@ class _XenialEdge(_XenialBase):
 class _BionicBase(_UbuntuBase):
     release = "bionic"
     target_release = "bionic"
-    mem = "2048"
     if _UbuntuBase.arch == "arm64":
         subarch = "ga-18.04"
 
@@ -164,7 +162,6 @@ class _DiscoBase(_UbuntuBase):
     release = "disco"
     target_release = "disco"
     # squashfs is over 300MB, need more ram
-    mem = "2048"
     if _UbuntuBase.arch == "arm64":
         subarch = "ga-19.04"
 
@@ -172,7 +169,6 @@ class _DiscoBase(_UbuntuBase):
 class _EoanBase(_UbuntuBase):
     release = "eoan"
     target_release = "eoan"
-    mem = "2048"
     if _UbuntuBase.arch == "arm64":
         subarch = "ga-19.10"
 
@@ -180,7 +176,6 @@ class _EoanBase(_UbuntuBase):
 class _FocalBase(_UbuntuBase):
     release = "focal"
     target_release = "focal"
-    mem = "2048"
     if _UbuntuBase.arch == "arm64":
         subarch = "ga-20.04"
 
@@ -188,7 +183,6 @@ class _FocalBase(_UbuntuBase):
 class _HirsuteBase(_UbuntuBase):
     release = "hirsute"
     target_release = "hirsute"
-    mem = "2048"
     if _UbuntuBase.arch == "arm64":
         subarch = "ga-21.04"
 
@@ -196,7 +190,6 @@ class _HirsuteBase(_UbuntuBase):
 class _ImpishBase(_UbuntuBase):
     release = "impish"
     target_release = "impish"
-    mem = "2048"
     if _UbuntuBase.arch == "arm64":
         subarch = "ga-21.10"
 
