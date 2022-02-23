@@ -2573,7 +2573,6 @@ def prep_partition_for_device(device):
         'size': '8M',
         'flag': 'prep',
         'guid': '9e1a2d38-c612-4316-aa26-8b49521e5a8b',
-        'offset': '1M',
         'wipe': 'zero',
         'grub_device': True,
         'device': device}

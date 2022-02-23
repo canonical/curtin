@@ -96,8 +96,12 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
     if osfamily not in distro_mapping:
         raise ValueError('No block package mapping for distro: %s' % osfamily)
 
-    return {1: {'handler': storage_config_required_packages,
-                'mapping': distro_mapping.get(osfamily)}}
+    cfg_map = {
+        'handler': storage_config_required_packages,
+        'mapping': distro_mapping.get(osfamily),
+        }
+
+    return {1: cfg_map, 2: cfg_map}
 
 
 # vi: ts=4 expandtab syntax=python

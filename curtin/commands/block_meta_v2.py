@@ -15,6 +15,7 @@ from curtin.log import LOG
 from curtin.storage_config import (
     GPT_GUID_TO_CURTIN_MAP,
     )
+from curtin.udev import udevadm_settle
 
 
 @attr.s(auto_attribs=True)
@@ -69,10 +70,16 @@ class SFDiskPartTable:
     def apply(self, device):
         sfdisk_script = self.render()
         LOG.debug("sfdisk input:\n---\n%s\n---\n", sfdisk_script)
-        util.subp(
-            ['sfdisk', '--lock', '--no-tell', device],
-            data=sfdisk_script.encode('ascii'))
-        util.subp(['partprobe', device])
+        util.subp(['sfdisk', device], data=sfdisk_script.encode('ascii'))
+        # sfdisk (as invoked here) uses ioctls to inform the kernel that the
+        # partition table has changed so it can add and remove device nodes for
+        # the partitions as needed. Unfortunately this is asynchronous: sfdisk
+        # can exit before the nodes are present in /dev (or /sys for that
+        # matter). Calling "udevadm settle" is slightly incoherent as udev has
+        # nothing to do with creating these nodes, but at the same time, udev
+        # won't finish processing the events triggered by the sfdisk until
+        # after the nodes for the partitions have been updated by the kernel.
+        udevadm_settle()
 
 
 class GPTPartTable(SFDiskPartTable):
@@ -217,10 +224,16 @@ def disk_handler_v2(info, storage_config, handlers):
     preserved_offsets = set()
     wipes = {}
 
-    sfdisk_info = block.sfdisk_info(disk)
+    sfdisk_info = None
     for action in part_actions:
         entry = table.add(action)
         if action.get('preserve', False):
+            if sfdisk_info is None:
+                # Lazily computing sfdisk_info is slightly more efficient but
+                # the real reason for doing this is that calling sfdisk_info on
+                # a disk with no partition table logs messages that makes the
+                # vmtest infrastructure unhappy.
+                sfdisk_info = block.sfdisk_info(disk)
             part_info = _find_part_info(sfdisk_info, entry.start)
             partition_verify_sfdisk(action, sfdisk_info['label'], part_info)
             preserved_offsets.add(entry.start)
