@@ -2572,6 +2572,8 @@ class TestPartitionVerifySfdisk(CiTestCase):
         base = 'curtin.commands.block_meta.'
         self.add_patch(base + 'verify_size', 'm_verify_size')
         self.add_patch(base + 'verify_ptable_flag', 'm_verify_ptable_flag')
+        self.add_patch(base + 'os.path.realpath', 'm_realpath')
+        self.m_realpath.side_effect = lambda x: x
         self.info = {
             'id': 'disk-sda-part-2',
             'type': 'partition',

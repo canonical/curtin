@@ -820,7 +820,7 @@ def verify_ptable_flag(devpath, expected_flag, label, part_info):
 
 
 def partition_verify_sfdisk(part_action, label, sfdisk_part_info):
-    devpath = sfdisk_part_info['node']
+    devpath = os.path.realpath(sfdisk_part_info['node'])
     verify_size(
         devpath, int(util.human2bytes(part_action['size'])), sfdisk_part_info)
     expected_flag = part_action.get('flag')
