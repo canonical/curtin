@@ -29,15 +29,6 @@ class Centos70BionicTestSimple(centos_relbase.centos70_bionic, TestSimple):
     __test__ = True
 
 
-class Centos66XenialTestSimple(centos_relbase.centos66_xenial, TestSimple):
-    __test__ = True
-
-
-class Centos66BionicTestSimple(centos_relbase.centos66_bionic, TestSimple):
-    __test__ = False
-    # LP: #1775424 Centos66 fails with Bionic Ephemeral ext4 features
-
-
 class XenialTestSimple(relbase.xenial, TestSimple):
     __test__ = True
 

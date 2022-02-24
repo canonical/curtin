@@ -88,11 +88,6 @@ class ImpishTestNetworkVlan(relbase.impish, TestNetworkVlanAbs):
     __test__ = True
 
 
-class Centos66TestNetworkVlan(centos_relbase.centos66_xenial,
-                              CentosTestNetworkVlanAbs):
-    __test__ = True
-
-
 class Centos70TestNetworkVlan(centos_relbase.centos70_xenial,
                               CentosTestNetworkVlanAbs):
     __test__ = True

@@ -65,11 +65,6 @@ class ImpishTestNetworkIPV6(relbase.impish, TestNetworkIPV6Abs):
     __test__ = True
 
 
-class Centos66TestNetworkIPV6(centos_relbase.centos66_xenial,
-                              CentosTestNetworkIPV6Abs):
-    __test__ = True
-
-
 class Centos70TestNetworkIPV6(centos_relbase.centos70_xenial,
                               CentosTestNetworkIPV6Abs):
     __test__ = True

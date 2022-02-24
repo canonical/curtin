@@ -486,11 +486,6 @@ class ImpishTestNetworkBasic(relbase.impish, TestNetworkBasicAbs):
     __test__ = True
 
 
-class Centos66TestNetworkBasic(centos_relbase.centos66_xenial,
-                               CentosTestNetworkBasicAbs):
-    __test__ = True
-
-
 class Centos70TestNetworkBasic(centos_relbase.centos70_xenial,
                                CentosTestNetworkBasicAbs):
     __test__ = True

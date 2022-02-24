@@ -74,21 +74,6 @@ class _UbuntuCore20FromFocalBase(_UbuntuCoreUbuntuBase):
     target_release = "ubuntu-core-20"
 
 
-class _Centos66FromXenialBase(_CentosFromUbuntuBase):
-    release = "xenial"
-    target_release = "centos66"
-
-
-class _Centos66FromBionicBase(_CentosFromUbuntuBase):
-    release = "bionic"
-    target_release = "centos66"
-
-
-class _Centos66FromFocalBase(_CentosFromUbuntuBase):
-    release = "focal"
-    target_release = "centos66"
-
-
 class _PreciseBase(_UbuntuBase):
     release = "xenial"
     target_release = "precise"
@@ -218,11 +203,8 @@ class _Releases(object):
 
 class _CentosReleases(object):
     centos70_xenial = _Centos70FromXenialBase
-    centos66_xenial = _Centos66FromXenialBase
     centos70_bionic = _Centos70FromBionicBase
-    centos66_bionic = _Centos66FromBionicBase
     centos70_focal = _Centos70FromFocalBase
-    centos66_focal = _Centos66FromFocalBase
 
 
 class _UbuntuCoreReleases(object):

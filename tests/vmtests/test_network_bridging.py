@@ -41,8 +41,6 @@ default_bridge_params_uncheckable = [
 
 # attrs we cannot validate
 release_to_bridge_params_uncheckable = {
-    'centos66': ['bridge_fd', 'bridge_hello', 'bridge_hw', 'bridge_maxage',
-                 'bridge_pathcost', 'bridge_portprio'],
     'centos70': ['bridge_fd', 'bridge_hello', 'bridge_hw', 'bridge_maxage',
                  'bridge_pathcost', 'bridge_portprio'],
     'xenial': ['bridge_ageing'],
@@ -218,11 +216,6 @@ class CentosTestBridgeNetworkAbs(TestBridgeNetworkAbs):
         status = self.load_collect_file("bridge-utils_installed").strip()
         self.logger.debug('bridge-utils installed: {}'.format(status))
         self.assertTrue('bridge' in status)
-
-
-class Centos66TestBridgeNetwork(centos_relbase.centos66_xenial,
-                                CentosTestBridgeNetworkAbs):
-    __test__ = True
 
 
 class Centos70TestBridgeNetwork(centos_relbase.centos70_xenial,

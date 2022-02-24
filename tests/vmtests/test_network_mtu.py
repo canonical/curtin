@@ -201,11 +201,6 @@ class ImpishTestNetworkMtu(relbase.impish, TestNetworkMtuNetworkdAbs):
     __test__ = True
 
 
-class Centos66TestNetworkMtu(centos_relbase.centos66_xenial,
-                             CentosTestNetworkMtuAbs):
-    __test__ = True
-
-
 class Centos70TestNetworkMtu(centos_relbase.centos70_xenial,
                              CentosTestNetworkMtuAbs):
     __test__ = True
