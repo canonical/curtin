@@ -65,6 +65,7 @@ storage:
     number: 1
     size: 8G
     preserve: true
+    offset: 1G
   - type: partition
     id: id_disk2_part1
     device: id_disk2
@@ -72,6 +73,7 @@ storage:
     number: 1
     size: 8G
     preserve: true
+    offset: 1G
   - type: raid
     id: raid-md1
     name: md1

@@ -63,6 +63,7 @@ storage:
     flag: boot
     number: 1
     size: 8G
+    offset: 1G
     preserve: true
   - type: partition
     id: id_disk2_part1
@@ -70,6 +71,7 @@ storage:
     flag: boot
     number: 1
     size: 8G
+    offset: 1G
     preserve: true
   - type: raid
     id: raid-md1

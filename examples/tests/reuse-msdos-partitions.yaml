@@ -43,6 +43,7 @@ storage:
         flag: boot
         preserve: true
         wipe: superblock
+        offset: 1M
       - id: sda2
         type: partition
         number: 2
@@ -50,6 +51,7 @@ storage:
         flag: extended
         device: sda
         preserve: true
+        offset: 3074M
       - id: sda5
         type: partition
         number: 5
@@ -58,6 +60,7 @@ storage:
         device: sda
         preserve: true
         wipe: superblock
+        offset: 3075M
       - id: sda6
         type: partition
         number: 6
@@ -66,6 +69,7 @@ storage:
         device: sda
         preserve: true
         wipe: superblock
+        offset: 5123M
       - id: sda1_root
         type: format
         fstype: ext4

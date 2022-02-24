@@ -70,6 +70,7 @@ storage:
     size: 4G
     type: partition
     preserve: true
+    offset: 513M
   - fstype: fat32
     id: id_efi_format
     label: efi

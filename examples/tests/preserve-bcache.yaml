@@ -47,6 +47,7 @@ storage:
     size: 1024M
     preserve: true
     wipe: superblock
+    offset: 1M
   - id: id_rotary0_part2
     type: partition
     name: rotary0-part2
@@ -54,6 +55,7 @@ storage:
     number: 2
     size: 8G
     preserve: true
+    offset: 1026M
   - id: id_bcache0
     type: bcache
     name: bcache0

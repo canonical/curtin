@@ -36,12 +36,14 @@ storage:
         device: sda
         flag: boot
         preserve: true
+        offset: 1G
       - id: sda2
         type: partition
         number: 2
         size: 1GB
         device: sda
         preserve: true
+        offset: 4G
       - id: sda1_root
         type: format
         fstype: ext4
