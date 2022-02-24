@@ -54,6 +54,11 @@ def align_down(size, block_size):
 FLAG_TO_GUID = {
     flag: guid for (guid, (flag, typecode)) in GPT_GUID_TO_CURTIN_MAP.items()
     }
+FLAG_TO_MBR_TYPE = {
+    flag: typecode[:2].upper() for (guid, (flag, typecode))
+    in GPT_GUID_TO_CURTIN_MAP.items()
+    }
+FLAG_TO_MBR_TYPE['extended'] = '05'
 
 
 class SFDiskPartTable:
@@ -157,14 +162,7 @@ class DOSPartTable(SFDiskPartTable):
                 else:
                     start = align_up(prev.start + prev.size, ONE_MIB_SECTORS)
         size = int(util.human2bytes(action['size'])) // SECTOR_BYTES
-        FLAG_TO_TYPE = {
-            'extended': 'extended',
-            'boot': 'uefi',
-            'swap': 'swap',
-            'lvm': 'lvm',
-            'raid': 'raid',
-            }
-        type = FLAG_TO_TYPE.get(flag)
+        type = FLAG_TO_MBR_TYPE.get(flag)
         if flag == 'boot':
             bootable = True
         else:
