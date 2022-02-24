@@ -156,7 +156,6 @@ class DOSPartTable(SFDiskPartTable):
                 for entry in self.entries:
                     if entry.number <= 4:
                         prev = entry
-                        break
                 if prev is None:
                     start = ONE_MIB_SECTORS
                 else:

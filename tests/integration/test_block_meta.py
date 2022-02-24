@@ -116,19 +116,22 @@ class TestBlockMeta(IntegrationTestCase):
         psize = 40 << 20
         img = self.tmp_path('image.img')
         config = StorageConfigBuilder(version=version)
-        config.add_image(path=img, size='100M', ptable=ptable)
+        config.add_image(path=img, size='200M', ptable=ptable)
         p1 = config.add_part(size=psize, number=1)
         p2 = config.add_part(size=psize, number=2)
+        p3 = config.add_part(size=psize, number=3)
         self.run_bm(config.render())
 
         with loop_dev(img) as dev:
             self.assertEqual(
                 summarize_partitions(dev), [
-                    PartData(number=1, offset=1 << 20,           size=psize),
-                    PartData(number=2, offset=(1 << 20) + psize, size=psize),
+                    PartData(number=1, offset=1 << 20,             size=psize),
+                    PartData(number=2, offset=(1 << 20) + psize,   size=psize),
+                    PartData(number=3, offset=(1 << 20) + 2*psize, size=psize),
                 ])
         p1['offset'] = 1 << 20
         p2['offset'] = (1 << 20) + psize
+        p3['offset'] = (1 << 20) + 2*psize
         config.set_preserve()
         self.run_bm(config.render())
 
