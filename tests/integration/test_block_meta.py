@@ -19,10 +19,11 @@ class IntegrationTestCase(CiTestCase):
 
 
 @contextlib.contextmanager
-def loop_dev(image):
-    dev = util.subp(
-        ['losetup', '--show', '--find', '--partscan', image],
-        capture=True, decode='ignore')[0].strip()
+def loop_dev(image, sector_size=512):
+    dev = util.subp([
+        'losetup', '--show', '--find', '--partscan',
+        '--sector-size', str(sector_size), image,
+        ], capture=True, decode='ignore')[0].strip()
     try:
         udev.udevadm_trigger([dev])
         yield dev
@@ -112,17 +113,18 @@ class TestBlockMeta(IntegrationTestCase):
             ]
         util.subp(cmd, env=cmd_env, **kwargs)
 
-    def _test_default_offsets(self, ptable, version):
+    def _test_default_offsets(self, ptable, version, sector_size=512):
         psize = 40 << 20
         img = self.tmp_path('image.img')
         config = StorageConfigBuilder(version=version)
-        config.add_image(path=img, size='200M', ptable=ptable)
+        config.add_image(
+            path=img, size='200M', ptable=ptable, sector_size=sector_size)
         p1 = config.add_part(size=psize, number=1)
         p2 = config.add_part(size=psize, number=2)
         p3 = config.add_part(size=psize, number=3)
         self.run_bm(config.render())
 
-        with loop_dev(img) as dev:
+        with loop_dev(img, sector_size) as dev:
             self.assertEqual(
                 summarize_partitions(dev), [
                     PartData(number=1, offset=1 << 20,             size=psize),
@@ -146,6 +148,18 @@ class TestBlockMeta(IntegrationTestCase):
 
     def test_default_offsets_msdos_v2(self):
         self._test_default_offsets('msdos', 2)
+
+    def test_default_offsets_gpt_v1_4k(self):
+        self._test_default_offsets('gpt', 1, 4096)
+
+    def test_default_offsets_msdos_v1_4k(self):
+        self._test_default_offsets('msdos', 1, 4096)
+
+    def test_default_offsets_gpt_v2_4k(self):
+        self._test_default_offsets('gpt', 2, 4096)
+
+    def test_default_offsets_msdos_v2_4k(self):
+        self._test_default_offsets('msdos', 2, 4096)
 
     def _test_specified_offsets(self, ptable, version):
         psize = 20 << 20

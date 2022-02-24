@@ -993,18 +993,11 @@ def sysfs_partition_data(blockdev=None, sysfs_path=None):
     else:
         raise ValueError("Blockdev and sysfs_path cannot both be None")
 
-    # queue property is only on parent devices, ie, we can't read
-    # /sys/class/block/vda/vda1/queue/* as queue is only on the
-    # parent device
     sysfs_prefix = sysfs_path
     (parent, partnum) = get_blockdev_for_partition(blockdev)
     if partnum:
         sysfs_prefix = sys_block_path(parent)
         partnum = int(partnum)
-
-    block_size = int(util.load_file(os.path.join(
-        sysfs_prefix, 'queue/logical_block_size')))
-    unit = block_size
 
     ptdata = []
     for part_sysfs in get_sysfs_partitions(sysfs_prefix):
@@ -1015,8 +1008,12 @@ def sysfs_partition_data(blockdev=None, sysfs_path=None):
                 continue
             data[sfile] = int(util.load_file(dfile))
         if partnum is None or data['partition'] == partnum:
-            ptdata.append((path_to_kname(part_sysfs), data['partition'],
-                           data['start'] * unit, data['size'] * unit,))
+            ptdata.append((
+                path_to_kname(part_sysfs),
+                data['partition'],
+                data['start'] * SECTOR_SIZE_BYTES,
+                data['size'] * SECTOR_SIZE_BYTES,
+                ))
 
     return ptdata
 

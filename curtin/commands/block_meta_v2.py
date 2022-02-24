@@ -39,8 +39,6 @@ class PartTableEntry:
 
 
 ONE_MIB_BYTES = 1 << 20
-SECTOR_BYTES = 512
-ONE_MIB_SECTORS = ONE_MIB_BYTES // SECTOR_BYTES
 
 
 def align_up(size, block_size):
@@ -65,8 +63,20 @@ class SFDiskPartTable:
 
     label = None
 
-    def __init__(self):
+    def __init__(self, sector_bytes):
         self.entries = []
+        self._sector_bytes = sector_bytes
+        if ONE_MIB_BYTES % sector_bytes != 0:
+            raise Exception(
+                f"sector_bytes {sector_bytes} does not divide 1MiB, cannot "
+                "continue!")
+        self.one_mib_sectors = ONE_MIB_BYTES // sector_bytes
+
+    def bytes2sectors(self, amount):
+        return int(util.human2bytes(amount)) // self._sector_bytes
+
+    def sectors2bytes(self, amount):
+        return amount * self._sector_bytes
 
     def render(self):
         r = ['label: ' + self.label, ''] + [e.render() for e in self.entries]
@@ -94,14 +104,14 @@ class GPTPartTable(SFDiskPartTable):
     def add(self, action):
         number = action.get('number', len(self.entries) + 1)
         if 'offset' in action:
-            start = int(util.human2bytes(action['offset'])) // SECTOR_BYTES
+            start = self.bytes2sectors(action['offset'])
         else:
             if self.entries:
                 prev = self.entries[-1]
-                start = align_up(prev.start + prev.size, ONE_MIB_SECTORS)
+                start = align_up(prev.start + prev.size, self.one_mib_sectors)
             else:
-                start = ONE_MIB_SECTORS
-        size = int(util.human2bytes(action['size'])) // SECTOR_BYTES
+                start = self.one_mib_sectors
+        size = self.bytes2sectors(action['size'])
         uuid = action.get('uuid')
         type = FLAG_TO_GUID.get(action.get('flag'))
         entry = PartTableEntry(number, start, size, type, uuid)
@@ -118,7 +128,7 @@ class DOSPartTable(SFDiskPartTable):
         flag = action.get('flag', None)
         start = action.get('offset', None)
         if start is not None:
-            start = int(util.human2bytes(start)) // SECTOR_BYTES
+            start = self.bytes2sectors(start)
         if flag == 'logical':
             if self._extended is None:
                 raise Exception("logical partition without extended partition")
@@ -138,14 +148,14 @@ class DOSPartTable(SFDiskPartTable):
                 number = 5
                 if start is None:
                     start = align_up(
-                        self._extended.start + ONE_MIB_SECTORS,
-                        ONE_MIB_SECTORS)
+                        self._extended.start + self.one_mib_sectors,
+                        self.one_mib_sectors)
             else:
                 number = prev.number + 1
                 if start is None:
                     start = align_up(
-                        prev.start + prev.size + ONE_MIB_SECTORS,
-                        ONE_MIB_SECTORS)
+                        prev.start + prev.size + self.one_mib_sectors,
+                        self.one_mib_sectors)
         else:
             number = action.get('number', len(self.entries) + 1)
             if number > 4:
@@ -157,10 +167,12 @@ class DOSPartTable(SFDiskPartTable):
                     if entry.number <= 4:
                         prev = entry
                 if prev is None:
-                    start = ONE_MIB_SECTORS
+                    start = self.one_mib_sectors
                 else:
-                    start = align_up(prev.start + prev.size, ONE_MIB_SECTORS)
-        size = int(util.human2bytes(action['size'])) // SECTOR_BYTES
+                    start = align_up(
+                        prev.start + prev.size,
+                        self.one_mib_sectors)
+        size = self.bytes2sectors(action['size'])
         type = FLAG_TO_MBR_TYPE.get(flag)
         if flag == 'boot':
             bootable = True
@@ -217,7 +229,9 @@ def disk_handler_v2(info, storage_config, handlers):
         return
 
     disk = get_path_to_storage_volume(info.get('id'), storage_config)
-    table = table_cls()
+    (sector_size, _) = block.get_blockdev_sector_size(disk)
+
+    table = table_cls(sector_size)
     preserved_offsets = set()
     wipes = {}
 
@@ -238,7 +252,7 @@ def disk_handler_v2(info, storage_config, handlers):
 
     # Do a superblock wipe of any partitions that are being deleted.
     for kname, nr, offset, sz in block.sysfs_partition_data(disk):
-        offset_sectors = offset // SECTOR_BYTES
+        offset_sectors = table.bytes2sectors(offset)
         if offset_sectors not in preserved_offsets:
             block.wipe_volume(block.kname_to_path(kname), 'superblock')
 
@@ -246,7 +260,7 @@ def disk_handler_v2(info, storage_config, handlers):
 
     # Wipe the new partitions as needed.
     for kname, number, offset, size in block.sysfs_partition_data(disk):
-        offset_sectors = offset // SECTOR_BYTES
+        offset_sectors = table.bytes2sectors(offset)
         mode = wipes[offset_sectors]
         if mode is not None:
             block.wipe_volume(block.kname_to_path(kname), mode)

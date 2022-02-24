@@ -553,6 +553,7 @@ DEVS = set()
 def image_handler(info, storage_config, handlers):
     path = info['path']
     size = int(util.human2bytes(info['size']))
+    sector_size = str(int(util.human2bytes(info.get('sector_size', 512))))
     if info.get('preserve', False):
         actual_size = os.stat(path).st_size
         if size != actual_size:
@@ -571,7 +572,7 @@ def image_handler(info, storage_config, handlers):
             raise
     try:
         dev = util.subp([
-            'losetup', '--show', '--find', path],
+            'losetup', '--show', '--sector-size', sector_size, '--find', path],
             capture=True)[0].strip()
     except BaseException:
         if os.path.exists(path) and not info.get('preserve'):
