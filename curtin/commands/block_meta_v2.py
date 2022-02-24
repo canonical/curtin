@@ -85,15 +85,19 @@ class SFDiskPartTable:
     def apply(self, device):
         sfdisk_script = self.render()
         LOG.debug("sfdisk input:\n---\n%s\n---\n", sfdisk_script)
-        util.subp(['sfdisk', device], data=sfdisk_script.encode('ascii'))
-        # sfdisk (as invoked here) uses ioctls to inform the kernel that the
-        # partition table has changed so it can add and remove device nodes for
-        # the partitions as needed. Unfortunately this is asynchronous: sfdisk
-        # can exit before the nodes are present in /dev (or /sys for that
-        # matter). Calling "udevadm settle" is slightly incoherent as udev has
-        # nothing to do with creating these nodes, but at the same time, udev
-        # won't finish processing the events triggered by the sfdisk until
-        # after the nodes for the partitions have been updated by the kernel.
+        util.subp(
+            ['sfdisk', '--no-tell-kernel', '--no-reread', device],
+            data=sfdisk_script.encode('ascii'))
+        util.subp(['partprobe', device])
+        # sfdisk and partprobe (as invoked here) use ioctls to inform the
+        # kernel that the partition table has changed so it can add and remove
+        # device nodes for the partitions as needed. Unfortunately this is
+        # asynchronous: we can return before the nodes are present in /dev (or
+        # /sys for that matter). Calling "udevadm settle" is slightly
+        # incoherent as udev has nothing to do with creating these nodes, but
+        # at the same time, udev won't finish processing the events triggered
+        # by the sfdisk until after the nodes for the partitions have been
+        # updated by the kernel.
         udevadm_settle()
 
 
