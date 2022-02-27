@@ -6,8 +6,8 @@ bucket:
   - &setup |
     parted /dev/disk/by-id/dm-name-mpatha --script -- \
         mklabel msdos                   \
-        mkpart primary ext4 1GiB 4GiB   \
-        mkpart primary ext4 4GiB 5GiB   \
+        mkpart primary ext4 1GiB 5GiB   \
+        mkpart primary ext4 5GiB 6GiB   \
         set 1 boot on
     udevadm settle
 
@@ -32,7 +32,7 @@ storage:
       - id: sda1
         type: partition
         number: 1
-        size: 3GB
+        size: 4GB
         device: sda
         flag: boot
         preserve: true
