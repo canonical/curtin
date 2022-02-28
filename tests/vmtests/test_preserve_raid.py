@@ -56,6 +56,9 @@ class BionicTestPartitionExistingRAID(
         relbase.bionic, TestPartitionExistingRAID):
     __test__ = True
 
+    def test_correct_ptype(self):
+        self.skipTest("lsblk on bionic does not support PTTYPE")
+
 
 class FocalTestPartitionExistingRAID(
         relbase.focal, TestPartitionExistingRAID):
