@@ -252,7 +252,18 @@ def disk_handler_v2(info, storage_config, handlers):
             part_info = _find_part_info(sfdisk_info, entry.start)
             partition_verify_sfdisk(action, sfdisk_info['label'], part_info)
             preserved_offsets.add(entry.start)
-        wipes[entry.start] = _wipe_for_action(action)
+        wipe = wipes[entry.start] = _wipe_for_action(action)
+        if wipe is not None:
+            # We do a quick wipe of where any new partitions will be,
+            # because if there is bcache or other metadata there, this
+            # can cause the partition to be used by a storage
+            # subsystem and preventing the exclusive open done by the
+            # wipe_volume call below. See
+            # https://bugs.launchpad.net/curtin/+bug/1718699 for all
+            # the gory details.
+            wipe_offset = table.sectors2bytes(entry.start)
+            LOG.debug('Wiping 1M on %s at offset %s', disk, wipe_offset)
+            block.zero_file_at_offsets(disk, [wipe_offset], exclusive=False)
 
     # Do a superblock wipe of any partitions that are being deleted.
     for kname, nr, offset, sz in block.sysfs_partition_data(disk):
