@@ -43,7 +43,7 @@ storage:
         size: 1GB
         device: sda
         preserve: true
-        offset: 4G
+        offset: 5G
       - id: sda1_root
         type: format
         fstype: ext4
