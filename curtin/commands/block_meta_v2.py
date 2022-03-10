@@ -8,6 +8,7 @@ from curtin import (block, util)
 from curtin.commands.block_meta import (
     disk_handler as disk_handler_v1,
     get_path_to_storage_volume,
+    make_dname,
     partition_handler as partition_handler_v1,
     partition_verify_sfdisk,
     )
@@ -279,6 +280,12 @@ def disk_handler_v2(info, storage_config, handlers):
         mode = wipes[offset_sectors]
         if mode is not None:
             block.wipe_volume(block.kname_to_path(kname), mode)
+
+    # Make the names if needed
+    if 'name' in info:
+        for action in part_actions:
+            if action.get('flag') != 'extended':
+                make_dname(action['id'], storage_config)
 
 
 def partition_handler_v2(info, storage_config, handlers):
