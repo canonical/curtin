@@ -12,7 +12,7 @@ storage:
       - id: vdb1
         type: partition
         number: 1
-        size: 3GB
+        size: 4GB
         device: vdb
         flag: boot
       - id: vdb2
@@ -100,7 +100,7 @@ storage:
         wipe: superblock
       - id: sdb_extended
         type: partition
-        size: 4G
+        size: 4.5G
         flag: extended
         device: sdb
       - id: sdb1

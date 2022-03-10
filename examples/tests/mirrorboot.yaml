@@ -17,7 +17,7 @@ storage:
        flag: bios_grub
      - id: sda1
        type: partition
-       size: 3GB
+       size: 3.5GB
        device: sda
      - id: sdb
        type: disk
@@ -28,7 +28,7 @@ storage:
        name: second_disk
      - id: sdb1
        type: partition
-       size: 3GB
+       size: 3.5GB
        device: sdb
      - id: mddevice
        name: md0

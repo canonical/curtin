@@ -18,7 +18,6 @@ storage:
     type: disk
     name: rotary1
     serial: disk-c
-    ptable: gpt
     wipe: superblock
   - id: id_rotary0_part1
     type: partition
