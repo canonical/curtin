@@ -501,6 +501,13 @@ def chdir(dirname):
         os.chdir(curdir)
 
 
+@contextmanager
+def mount(src, target):
+    do_mount(src, target)
+    yield
+    do_umount(target)
+
+
 def do_mount(src, target, opts=None):
     # mount src at target with opts and return True
     # if already mounted, return False

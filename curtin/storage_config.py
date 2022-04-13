@@ -1357,4 +1357,12 @@ def extract_storage_config(probe_data, strict=False):
     return {'storage': merged_config}
 
 
+def select_configs(storage_config, **kwargs):
+    """ Given a set of key=value arguments, return a list of the configs that
+        match all specified key-value pairs.
+    """
+    return [cfg for cfg in storage_config.values()
+            if all(cfg.get(k) == v for k, v in kwargs.items())]
+
+
 # vi: ts=4 expandtab syntax=python

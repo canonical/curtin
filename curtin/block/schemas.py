@@ -290,6 +290,7 @@ PARTITION = {
                  'pattern': _path_dev},
         'name': {'$ref': '#/definitions/name'},
         'offset': {'$ref': '#/definitions/size'},  # XXX: This is not used
+        'resize': {'type': 'boolean'},
         'preserve': {'$ref': '#/definitions/preserve'},
         'size': {'$ref': '#/definitions/size'},
         'uuid': {'$ref': '#/definitions/uuid'},    # XXX: This is not used

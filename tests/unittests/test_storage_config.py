@@ -7,7 +7,7 @@ from curtin.storage_config import ProbertParser as baseparser
 from curtin.storage_config import (BcacheParser, BlockdevParser, DasdParser,
                                    DmcryptParser, FilesystemParser, LvmParser,
                                    RaidParser, MountParser, ZfsParser)
-from curtin.storage_config import ptable_uuid_to_flag_entry
+from curtin.storage_config import ptable_uuid_to_flag_entry, select_configs
 from curtin import util
 
 
@@ -1116,5 +1116,27 @@ class TestExtractStorageConfig(CiTestCase):
         self.assertEqual(1, len(bitlocker))
         self.assertEqual(expected_dict, bitlocker[0])
 
+
+class TestSelectConfigs(CiTestCase):
+    def test_basic(self):
+        id0 = {'a': 1, 'b': 2}
+        id1 = {'a': 1, 'c': 3}
+        sc = {'id0': id0, 'id1': id1}
+
+        self.assertEqual([id0, id1], select_configs(sc, a=1))
+
+    def test_not_found(self):
+        id0 = {'a': 1, 'b': 2}
+        id1 = {'a': 1, 'c': 3}
+        sc = {'id0': id0, 'id1': id1}
+
+        self.assertEqual([], select_configs(sc, a=4))
+
+    def test_multi_criteria(self):
+        id0 = {'a': 1, 'b': 2}
+        id1 = {'a': 1, 'c': 3}
+        sc = {'id0': id0, 'id1': id1}
+
+        self.assertEqual([id0], select_configs(sc, a=1, b=2))
 
 # vi: ts=4 expandtab syntax=python

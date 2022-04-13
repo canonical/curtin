@@ -3,12 +3,16 @@
 from argparse import Namespace
 from collections import OrderedDict
 import copy
-from mock import patch, call
+from mock import (
+    call,
+    Mock,
+    patch,
+)
 import os
 import random
 
 from curtin.block import dasd
-from curtin.commands import block_meta
+from curtin.commands import block_meta, block_meta_v2
 from curtin import paths, util
 from .helpers import CiTestCase
 
@@ -2611,6 +2615,133 @@ class TestPartitionVerifySfdisk(CiTestCase):
             [call(devpath, self.part_size, sfdisk_part_info)],
             self.m_verify_size.call_args_list)
         self.assertEqual([], self.m_verify_ptable_flag.call_args_list)
+
+
+class TestPartitionVerifySfdiskV2(CiTestCase):
+
+    def setUp(self):
+        super(TestPartitionVerifySfdiskV2, self).setUp()
+        base = 'curtin.commands.block_meta_v2.'
+        self.add_patch(base + 'verify_size', 'm_verify_size')
+        self.add_patch(base + 'verify_ptable_flag', 'm_verify_ptable_flag')
+        self.add_patch(base + 'os.path.realpath', 'm_realpath')
+        self.m_realpath.side_effect = lambda x: x
+        self.info = {
+            'id': 'disk-sda-part-2',
+            'type': 'partition',
+            'offset': '1GB',
+            'device': 'sda',
+            'number': 2,
+            'size': '5GB',
+            'flag': 'boot',
+        }
+        self.part_size = int(util.human2bytes(self.info['size']))
+        self.devpath = self.random_string()
+        self.sfdisk_part_info = {
+            'node': self.devpath,
+            'start': (1 << 30) // 512,
+        }
+        self.storage_config = {self.info['id']: self.info}
+        self.label = self.random_string()
+        self.table = Mock()
+        self.table.sectors2bytes = lambda x: x * 512
+
+    def test_partition_verify_sfdisk(self):
+        block_meta_v2.partition_verify_sfdisk_v2(self.info, self.label,
+                                                 self.sfdisk_part_info,
+                                                 self.storage_config,
+                                                 self.table)
+        self.assertEqual(
+            [call(self.devpath, self.part_size, self.sfdisk_part_info)],
+            self.m_verify_size.call_args_list)
+        self.assertEqual(
+            [call(self.devpath, self.info['flag'], self.label,
+                  self.sfdisk_part_info)],
+            self.m_verify_ptable_flag.call_args_list)
+
+    def test_partition_verify_no_moves(self):
+        self.info['preserve'] = True
+        self.info['resize'] = True
+        self.info['offset'] = '2GB'
+        with self.assertRaises(RuntimeError):
+            block_meta_v2.partition_verify_sfdisk_v2(
+                self.info, self.label, self.sfdisk_part_info,
+                self.storage_config, self.table)
+
+
+class TestPartitionNeedsResize(CiTestCase):
+
+    def setUp(self):
+        super(TestPartitionNeedsResize, self).setUp()
+        base = 'curtin.commands.block_meta_v2.'
+        self.add_patch(base + 'os.path.realpath', 'm_realpath')
+        self.add_patch(base + '_get_volume_fstype', 'm_get_volume_fstype')
+        self.m_realpath.side_effect = lambda x: x
+        self.partition = {
+            'id': 'disk-sda-part-2',
+            'type': 'partition',
+            'offset': '1GB',
+            'device': 'sda',
+            'number': 2,
+            'size': '5GB',
+            'flag': 'boot',
+        }
+        self.devpath = self.random_string()
+        self.sfdisk_part_info = {
+            'node': self.devpath,
+            'start': (1 << 30) // 512,
+        }
+        self.format = {
+            'id': 'id-format',
+            'type': 'format',
+            'fstype': 'ext4',
+            'volume': self.partition['id'],
+        }
+        self.storage_config = {
+            self.partition['id']: self.partition,
+            self.format['id']: self.format,
+        }
+
+    def test_partition_resize_change_fs(self):
+        self.partition['preserve'] = True
+        self.partition['resize'] = True
+        self.format['preserve'] = True
+        self.format['fstype'] = 'ext3'
+        self.m_get_volume_fstype.return_value = 'ext4'
+        with self.assertRaises(RuntimeError):
+            block_meta_v2.needs_resize(
+                self.storage_config, self.partition, self.sfdisk_part_info)
+
+    def test_partition_resize_unsupported_fs(self):
+        self.partition['preserve'] = True
+        self.partition['resize'] = True
+        self.format['preserve'] = True
+        self.format['fstype'] = 'reiserfs'
+        self.m_get_volume_fstype.return_value = 'resierfs'
+        with self.assertRaises(RuntimeError):
+            block_meta_v2.needs_resize(
+                self.storage_config, self.partition, self.sfdisk_part_info)
+
+    def test_partition_resize_format_preserve_false(self):
+        # though the filesystem type is not supported for resize, it's ok
+        # because with format preserve=False, we're recreating anyhow
+        self.partition['preserve'] = True
+        self.partition['resize'] = True
+        self.format['preserve'] = False
+        self.format['fstype'] = 'reiserfs'
+        self.m_get_volume_fstype.return_value = 'reiserfs'
+        block_meta_v2.needs_resize(
+            self.storage_config, self.partition, self.sfdisk_part_info)
+
+    def test_partition_resize_partition_preserve_false(self):
+        # not a resize - partition is recreated
+        self.partition['preserve'] = False
+        self.partition['resize'] = True
+        self.format['preserve'] = False
+        self.format['fstype'] = 'reiserfs'
+        self.m_get_volume_fstype.return_value = 'reiserfs'
+        block_meta_v2.needs_resize(
+            self.storage_config, self.partition, self.sfdisk_part_info)
 
 
 class TestPartitionVerifyFdasd(CiTestCase):

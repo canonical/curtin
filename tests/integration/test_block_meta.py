@@ -2,6 +2,7 @@
 
 from collections import namedtuple
 import contextlib
+import json
 import sys
 import yaml
 import os
@@ -34,6 +35,32 @@ def loop_dev(image, sector_size=512):
 PartData = namedtuple("PartData", ('number', 'offset', 'size'))
 
 
+def _get_filesystem_size(dev, part_action, fstype='ext4'):
+    if fstype not in ('ext2', 'ext3', 'ext4'):
+        raise Exception(f'_get_filesystem_size: no support for {fstype}')
+    num = part_action['number']
+    cmd = ['dumpe2fs', '-h', f'{dev}p{num}']
+    out = util.subp(cmd, capture=True)[0]
+    for line in out.splitlines():
+        if line.startswith('Block count'):
+            block_count = line.split(':')[1].strip()
+        if line.startswith('Block size'):
+            block_size = line.split(':')[1].strip()
+    return int(block_count) * int(block_size)
+
+
+def _get_extended_partition_size(dev, num):
+    # sysfs reports extended partitions as having 1K size
+    # sfdisk seems to have a better idea
+    ptable_json = util.subp(['sfdisk', '-J', dev], capture=True)[0]
+    ptable = json.loads(ptable_json)
+
+    nodename = f'{dev}p{num}'
+    partitions = ptable['partitiontable']['partitions']
+    partition = [part for part in partitions if part['node'] == nodename][0]
+    return partition['size'] * 512
+
+
 def summarize_partitions(dev):
     # We don't care about the kname
     return sorted(
@@ -55,33 +82,32 @@ class StorageConfigBuilder:
                 },
             }
 
-    def add_image(self, *, path, size, create=False, **kw):
-        action = {
-            'type': 'image',
-            'id': 'id' + str(len(self.config)),
-            'path': path,
-            'size': size,
-            }
-        action.update(**kw)
-        self.cur_image = action['id']
+    def _add(self, *, type, **kw):
+        if type != 'image' and self.cur_image is None:
+            raise Exception("no current image")
+        action = {'id': 'id' + str(len(self.config))}
+        action.update(type=type, **kw)
         self.config.append(action)
+        return action
+
+    def add_image(self, *, path, size, create=False, **kw):
         if create:
             with open(path, "wb") as f:
                 f.write(b"\0" * int(util.human2bytes(size)))
+        action = self._add(type='image', path=path, size=size, **kw)
+        self.cur_image = action['id']
         return action
 
     def add_part(self, *, size, **kw):
-        if self.cur_image is None:
-            raise Exception("no current image")
-        action = {
-            'type': 'partition',
-            'id': 'id' + str(len(self.config)),
-            'device': self.cur_image,
-            'size': size,
-            }
-        action.update(**kw)
-        self.config.append(action)
-        return action
+        fstype = kw.pop('fstype', None)
+        part = self._add(type='partition', device=self.cur_image, size=size,
+                         **kw)
+        if fstype:
+            self.add_format(part=part, fstype=fstype)
+        return part
+
+    def add_format(self, *, part, fstype='ext4', **kw):
+        return self._add(type='format', volume=part['id'], fstype=fstype, **kw)
 
     def set_preserve(self):
         for action in self.config:
@@ -89,6 +115,29 @@ class StorageConfigBuilder:
 
 
 class TestBlockMeta(IntegrationTestCase):
+    def setUp(self):
+        self.data = self.random_string()
+
+    @contextlib.contextmanager
+    def mount(self, dev, partition_cfg):
+        mnt_point = self.tmp_dir()
+        num = partition_cfg['number']
+        with util.mount(f'{dev}p{num}', mnt_point):
+            yield mnt_point
+
+    @contextlib.contextmanager
+    def open_file_on_part(self, dev, part_action, mode):
+        with self.mount(dev, part_action) as mnt_point:
+            with open(f'{mnt_point}/data.txt', mode) as fp:
+                yield fp
+
+    def create_data(self, dev, part_action):
+        with self.open_file_on_part(dev, part_action, 'w') as fp:
+            fp.write(self.data)
+
+    def check_data(self, dev, part_action):
+        with self.open_file_on_part(dev, part_action, 'r') as fp:
+            self.assertEqual(self.data, fp.read())
 
     def run_bm(self, config, *args, **kwargs):
         config_path = self.tmp_path('config.yaml')
@@ -223,7 +272,10 @@ class TestBlockMeta(IntegrationTestCase):
         img = self.tmp_path('image.img')
         config = StorageConfigBuilder(version=version)
         config.add_image(path=img, size='100M', ptable='msdos')
-        config.add_part(size='50M', number=1, flag='extended')
+        # curtin adds 1MiB to the size of the extend partition per contained
+        # logical partition, but only in v1 mode
+        size = '97M' if version == 1 else '99M'
+        config.add_part(size=size, number=1, flag='extended')
         config.add_part(size='10M', number=5, flag='logical')
         config.add_part(size='10M', number=6, flag='logical')
         self.run_bm(config.render())
@@ -238,6 +290,7 @@ class TestBlockMeta(IntegrationTestCase):
                     # gap.
                     PartData(number=6, offset=13 << 20, size=10 << 20),
                 ])
+            self.assertEqual(99 << 20, _get_extended_partition_size(dev, 1))
 
             p1kname = block.partition_kname(block.path_to_kname(dev), 1)
             self.assertTrue(block.is_extended_partition('/dev/' + p1kname))
@@ -303,6 +356,7 @@ class TestBlockMeta(IntegrationTestCase):
                     PartData(number=5, offset=(2 << 20),         size=psize),
                     PartData(number=6, offset=(3 << 20) + psize, size=psize),
                 ])
+            self.assertEqual(90 << 20, _get_extended_partition_size(dev, 1))
 
         config = StorageConfigBuilder(version=2)
         config.add_image(path=img, size='100M', ptable='msdos', preserve=True)
@@ -318,6 +372,7 @@ class TestBlockMeta(IntegrationTestCase):
                     PartData(number=1, offset=1 << 20,           size=1 << 10),
                     PartData(number=5, offset=(3 << 20) + psize, size=psize),
                 ])
+            self.assertEqual(90 << 20, _get_extended_partition_size(dev, 1))
 
     def _test_wiping(self, ptable):
         # Test wiping behaviour.
@@ -415,3 +470,306 @@ class TestBlockMeta(IntegrationTestCase):
                     )
         finally:
             server.stop()
+
+    def _do_test_resize(self, start, end, fstype):
+        start <<= 20
+        end <<= 20
+        img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=img, size='200M', ptable='gpt')
+        p1 = config.add_part(size=start, offset=1 << 20, number=1,
+                             fstype=fstype)
+        self.run_bm(config.render())
+        with loop_dev(img) as dev:
+            self.create_data(dev, p1)
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    PartData(number=1, offset=1 << 20, size=start),
+                ])
+            fs_size = _get_filesystem_size(dev, p1, fstype)
+            self.assertEqual(start, fs_size)
+
+        config.set_preserve()
+        p1['resize'] = True
+        p1['size'] = end
+        self.run_bm(config.render())
+        with loop_dev(img) as dev:
+            self.check_data(dev, p1)
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    PartData(number=1, offset=1 << 20, size=end),
+                ])
+            fs_size = _get_filesystem_size(dev, p1, fstype)
+            self.assertEqual(end, fs_size)
+
+    def test_resize_up_ext2(self):
+        self._do_test_resize(40, 80, 'ext2')
+
+    def test_resize_down_ext2(self):
+        self._do_test_resize(80, 40, 'ext2')
+
+    def test_resize_up_ext3(self):
+        self._do_test_resize(40, 80, 'ext3')
+
+    def test_resize_down_ext3(self):
+        self._do_test_resize(80, 40, 'ext3')
+
+    def test_resize_up_ext4(self):
+        self._do_test_resize(40, 80, 'ext4')
+
+    def test_resize_down_ext4(self):
+        self._do_test_resize(80, 40, 'ext4')
+
+    def test_resize_logical(self):
+        img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=img, size='100M', ptable='msdos')
+        config.add_part(size='50M', number=1, flag='extended', offset=1 << 20)
+        config.add_part(size='10M', number=5, flag='logical', offset=2 << 20)
+        p6 = config.add_part(size='10M', number=6, flag='logical',
+                             offset=13 << 20, fstype='ext4')
+        self.run_bm(config.render())
+
+        with loop_dev(img) as dev:
+            self.create_data(dev, p6)
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    # extended partitions get a strange size in sysfs
+                    PartData(number=1, offset=1 << 20,  size=1 << 10),
+                    PartData(number=5, offset=2 << 20,  size=10 << 20),
+                    # part 5 takes us to 12 MiB offset, curtin leaves a 1 MiB
+                    # gap.
+                    PartData(number=6, offset=13 << 20, size=10 << 20),
+                ])
+            self.assertEqual(50 << 20, _get_extended_partition_size(dev, 1))
+
+        config.set_preserve()
+        p6['resize'] = True
+        p6['size'] = '20M'
+        self.run_bm(config.render())
+
+        with loop_dev(img) as dev:
+            self.check_data(dev, p6)
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    PartData(number=1, offset=1 << 20,  size=1 << 10),
+                    PartData(number=5, offset=2 << 20,  size=10 << 20),
+                    PartData(number=6, offset=13 << 20, size=20 << 20),
+                ])
+            self.assertEqual(50 << 20, _get_extended_partition_size(dev, 1))
+
+    def test_resize_extended(self):
+        img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=img, size='100M', ptable='msdos')
+        p1 = config.add_part(size='50M', number=1, flag='extended',
+                             offset=1 << 20)
+        p5 = config.add_part(size='49M', number=5, flag='logical',
+                             offset=2 << 20)
+        self.run_bm(config.render())
+
+        with loop_dev(img) as dev:
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    # extended partitions get a strange size in sysfs
+                    PartData(number=1, offset=1 << 20,  size=1 << 10),
+                    PartData(number=5, offset=2 << 20,  size=49 << 20),
+                ])
+            self.assertEqual(50 << 20, _get_extended_partition_size(dev, 1))
+
+        config.set_preserve()
+        p1['resize'] = True
+        p1['size'] = '99M'
+        p5['resize'] = True
+        p5['size'] = '98M'
+        self.run_bm(config.render())
+
+        with loop_dev(img) as dev:
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    PartData(number=1, offset=1 << 20,  size=1 << 10),
+                    PartData(number=5, offset=2 << 20,  size=98 << 20),
+                ])
+            self.assertEqual(99 << 20, _get_extended_partition_size(dev, 1))
+
+    def test_split(self):
+        img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=img, size='200M', ptable='gpt')
+        config.add_part(size=9 << 20, offset=1 << 20, number=1)
+        p2 = config.add_part(size='180M', offset=10 << 20, number=2,
+                             fstype='ext4')
+        self.run_bm(config.render())
+        with loop_dev(img) as dev:
+            self.create_data(dev, p2)
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    PartData(number=1, offset=1 << 20, size=9 << 20),
+                    PartData(number=2, offset=10 << 20, size=180 << 20),
+                ])
+            self.assertEqual(180 << 20, _get_filesystem_size(dev, p2))
+
+        config.set_preserve()
+        p2['resize'] = True
+        p2['size'] = '80M'
+        p3 = config.add_part(size='100M', offset=90 << 20, number=3,
+                             fstype='ext4')
+        self.run_bm(config.render())
+        with loop_dev(img) as dev:
+            self.check_data(dev, p2)
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    PartData(number=1, offset=1 << 20, size=9 << 20),
+                    PartData(number=2, offset=10 << 20, size=80 << 20),
+                    PartData(number=3, offset=90 << 20, size=100 << 20),
+                ])
+            self.assertEqual(80 << 20, _get_filesystem_size(dev, p2))
+            self.assertEqual(100 << 20, _get_filesystem_size(dev, p3))
+
+    def test_partition_unify(self):
+        img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=img, size='200M', ptable='gpt')
+        config.add_part(size=9 << 20, offset=1 << 20, number=1)
+        p2 = config.add_part(size='40M', offset=10 << 20, number=2,
+                             fstype='ext4')
+        p3 = config.add_part(size='60M', offset=50 << 20, number=3,
+                             fstype='ext4')
+        self.run_bm(config.render())
+        with loop_dev(img) as dev:
+            self.create_data(dev, p2)
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    PartData(number=1, offset=1 << 20, size=9 << 20),
+                    PartData(number=2, offset=10 << 20, size=40 << 20),
+                    PartData(number=3, offset=50 << 20, size=60 << 20),
+                ])
+            self.assertEqual(40 << 20, _get_filesystem_size(dev, p2))
+            self.assertEqual(60 << 20, _get_filesystem_size(dev, p3))
+
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=img, size='200M', ptable='gpt')
+        config.add_part(size=9 << 20, offset=1 << 20, number=1)
+        p2 = config.add_part(size='100M', offset=10 << 20, number=2,
+                             fstype='ext4', resize=True)
+        config.set_preserve()
+        self.run_bm(config.render())
+        with loop_dev(img) as dev:
+            self.check_data(dev, p2)
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    PartData(number=1, offset=1 << 20, size=9 << 20),
+                    PartData(number=2, offset=10 << 20, size=100 << 20),
+                ])
+            self.assertEqual(100 << 20, _get_filesystem_size(dev, p2))
+
+    def test_mix_of_operations_gpt(self):
+        # a test that keeps, creates, resizes, and deletes a partition
+        # 200 MiB disk, using full disk
+        #      init size preserve     final size
+        # p1 -  9 MiB    yes            9MiB
+        # p2 - 90 MiB    yes, resize  139MiB
+        # p3 - 99 MiB    no            50MiB
+        img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=img, size='200M', ptable='gpt')
+        config.add_part(size=9 << 20, offset=1 << 20, number=1)
+        p2 = config.add_part(size='90M', offset=10 << 20, number=2,
+                             fstype='ext4')
+        p3 = config.add_part(size='99M', offset=100 << 20, number=3,
+                             fstype='ext4')
+        self.run_bm(config.render())
+        with loop_dev(img) as dev:
+            self.create_data(dev, p2)
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    PartData(number=1, offset=1 << 20, size=9 << 20),
+                    PartData(number=2, offset=10 << 20, size=90 << 20),
+                    PartData(number=3, offset=100 << 20, size=99 << 20),
+                ])
+            self.assertEqual(90 << 20, _get_filesystem_size(dev, p2))
+            self.assertEqual(99 << 20, _get_filesystem_size(dev, p3))
+
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=img, size='200M', ptable='gpt')
+        config.add_part(size=9 << 20, offset=1 << 20, number=1)
+        p2 = config.add_part(size='139M', offset=10 << 20, number=2,
+                             fstype='ext4', resize=True)
+        config.set_preserve()
+        p3 = config.add_part(size='50M', offset=149 << 20, number=3,
+                             fstype='ext4')
+        self.run_bm(config.render())
+        with loop_dev(img) as dev:
+            self.check_data(dev, p2)
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    PartData(number=1, offset=1 << 20, size=9 << 20),
+                    PartData(number=2, offset=10 << 20, size=139 << 20),
+                    PartData(number=3, offset=149 << 20, size=50 << 20),
+                ])
+            self.assertEqual(139 << 20, _get_filesystem_size(dev, p2))
+            self.assertEqual(50 << 20, _get_filesystem_size(dev, p3))
+
+    def test_mix_of_operations_msdos(self):
+        # a test that keeps, creates, resizes, and deletes a partition
+        # including handling of extended/logical
+        # 200 MiB disk, initially only using front 100MiB
+        #      flag     init size preserve     final size
+        # p1 - primary   9MiB     yes            9MiB
+        # p2 - extended 89MiB     yes, resize  189MiB
+        # p3 - logical  37MiB     yes, resize  137MiB
+        # p4 - logical  50MiB     no            50MiB
+        img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=img, size='200M', ptable='msdos')
+        p1 = config.add_part(size='9M', offset=1 << 20, number=1,
+                             fstype='ext4')
+        config.add_part(size='89M', offset=10 << 20, number=2, flag='extended')
+        p5 = config.add_part(size='36M', offset=11 << 20, number=5,
+                             flag='logical', fstype='ext4')
+        p6 = config.add_part(size='50M', offset=49 << 20, number=6,
+                             flag='logical', fstype='ext4')
+        self.run_bm(config.render())
+
+        with loop_dev(img) as dev:
+            self.create_data(dev, p1)
+            self.create_data(dev, p5)
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    PartData(number=1, offset=1 << 20, size=9 << 20),
+                    PartData(number=2, offset=10 << 20, size=1 << 10),
+                    PartData(number=5, offset=11 << 20, size=36 << 20),
+                    PartData(number=6, offset=49 << 20, size=50 << 20),
+                ])
+            self.assertEqual(89 << 20, _get_extended_partition_size(dev, 2))
+            self.assertEqual(9 << 20, _get_filesystem_size(dev, p1))
+            self.assertEqual(36 << 20, _get_filesystem_size(dev, p5))
+            self.assertEqual(50 << 20, _get_filesystem_size(dev, p6))
+
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=img, size='200M', ptable='msdos')
+        p1 = config.add_part(size='9M', offset=1 << 20, number=1,
+                             fstype='ext4')
+        config.add_part(size='189M', offset=10 << 20, number=2,
+                        flag='extended', resize=True)
+        p5 = config.add_part(size='136M', offset=11 << 20, number=5,
+                             flag='logical', fstype='ext4', resize=True)
+        config.set_preserve()
+        p6 = config.add_part(size='50M', offset=149 << 20, number=6,
+                             flag='logical', fstype='ext4')
+        self.run_bm(config.render())
+
+        with loop_dev(img) as dev:
+            self.check_data(dev, p1)
+            self.check_data(dev, p5)
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    PartData(number=1, offset=1 << 20, size=9 << 20),
+                    PartData(number=2, offset=10 << 20, size=1 << 10),
+                    PartData(number=5, offset=11 << 20, size=136 << 20),
+                    PartData(number=6, offset=149 << 20, size=50 << 20),
+                ])
+            self.assertEqual(189 << 20, _get_extended_partition_size(dev, 2))
+            self.assertEqual(9 << 20, _get_filesystem_size(dev, p1))
+            self.assertEqual(136 << 20, _get_filesystem_size(dev, p5))
+            self.assertEqual(50 << 20, _get_filesystem_size(dev, p6))

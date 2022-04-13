@@ -34,6 +34,12 @@ only differ in the interpretation of ``partition`` actions at this
 time. ``lvm_partition`` actions will be interpreted differently at
 some point in the future.
 
+.. note::
+
+  Config version ``2`` is under active development and subject to change.
+  Users are advised to use version ``1`` unless features enabled by version
+  ``2`` are required.
+
 Configuration Types
 -------------------
 Each entry in the config list is a dictionary with several keys which vary
@@ -429,6 +435,17 @@ filesystem or be mounted anywhere on the system.
 
 If the preserve flag is set to true, curtin will verify that the partition
 exists and that  the ``size`` and ``flag`` match the configuration provided.
+See also the ``resize`` flag, which adjusts this behavior.
+
+**resize**: *true, false*
+
+Only applicable to v2 storage configuration.
+If the ``preserve`` flag is set to false, this value is not applicable.
+If the ``preserve`` flag is set to true, curtin will adjust the size of the
+partition to the new size.  When adjusting smaller, the size of the contents
+must permit that.  When adjusting larger, there must already be a gap beyond
+the partition in question.
+Resize is supported on filesystems of types ext2, ext3, ext4.
 
 **name**: *<name>*
 

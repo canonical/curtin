@@ -1,20 +1,24 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import os
 from typing import Optional
 
 import attr
 
 from curtin import (block, util)
 from curtin.commands.block_meta import (
+    _get_volume_fstype,
     disk_handler as disk_handler_v1,
     get_path_to_storage_volume,
     make_dname,
     partition_handler as partition_handler_v1,
-    partition_verify_sfdisk,
+    verify_ptable_flag,
+    verify_size,
     )
 from curtin.log import LOG
 from curtin.storage_config import (
     GPT_GUID_TO_CURTIN_MAP,
+    select_configs,
     )
 from curtin.udev import udevadm_settle
 
@@ -48,6 +52,28 @@ def align_up(size, block_size):
 
 def align_down(size, block_size):
     return size & ~(block_size - 1)
+
+
+def resize_ext(path, size):
+    util.subp(['e2fsck', '-p', '-f', path])
+    size_k = size // 1024
+    util.subp(['resize2fs', path, f'{size_k}k'])
+
+
+def perform_resize(kname, size, direction):
+    path = block.kname_to_path(kname)
+    fstype = _get_volume_fstype(path)
+    if fstype:
+        LOG.debug('Resizing %s of type %s %s to %s',
+                  path, fstype, direction, size)
+        resizers[fstype](path, size)
+
+
+resizers = {
+    'ext2': resize_ext,
+    'ext3': resize_ext,
+    'ext4': resize_ext,
+}
 
 
 FLAG_TO_GUID = {
@@ -214,6 +240,74 @@ def _wipe_for_action(action):
     return 'superblock'
 
 
+def _prepare_resize(entry, part_info, table):
+    return {
+        'start': table.sectors2bytes(part_info['size']),
+        'end': table.sectors2bytes(entry.size),
+    }
+
+
+def needs_resize(storage_config, part_action, sfdisk_part_info):
+    if not part_action.get('preserve'):
+        return False
+    if not part_action.get('resize'):
+        return False
+
+    volume = part_action['id']
+    format_actions = select_configs(storage_config, type='format',
+                                    volume=volume, preserve=True)
+    if len(format_actions) < 1:
+        return False
+    if len(format_actions) > 1:
+        raise Exception(f'too many format actions for volume {volume}')
+
+    if not format_actions[0].get('preserve'):
+        return False
+
+    devpath = os.path.realpath(sfdisk_part_info['node'])
+    fstype = _get_volume_fstype(devpath)
+    target_fstype = format_actions[0]['fstype']
+    msg = (
+        'Verifying %s format, expecting %s, found %s' % (
+         devpath, fstype, target_fstype))
+    LOG.debug(msg)
+    if fstype != target_fstype:
+        raise RuntimeError(msg)
+
+    if part_action.get('resize'):
+        msg = 'Resize requested for format %s' % (fstype, )
+        LOG.debug(msg)
+        if fstype not in resizers:
+            raise RuntimeError(msg + ' is unsupported')
+
+    return True
+
+
+def verify_offset(devpath, part_action, current_info, table):
+    if 'offset' not in part_action:
+        return
+    current_offset = table.sectors2bytes(current_info['start'])
+    action_offset = int(util.human2bytes(part_action['offset']))
+    msg = (
+        'Verifying %s offset, expecting %s, found %s' % (
+         devpath, current_offset, action_offset))
+    LOG.debug(msg)
+    if current_offset != action_offset:
+        raise RuntimeError(msg)
+
+
+def partition_verify_sfdisk_v2(part_action, label, sfdisk_part_info,
+                               storage_config, table):
+    devpath = os.path.realpath(sfdisk_part_info['node'])
+    if not part_action.get('resize'):
+        verify_size(devpath, int(util.human2bytes(part_action['size'])),
+                    sfdisk_part_info)
+    verify_offset(devpath, part_action, sfdisk_part_info, table)
+    expected_flag = part_action.get('flag')
+    if expected_flag:
+        verify_ptable_flag(devpath, expected_flag, label, sfdisk_part_info)
+
+
 def disk_handler_v2(info, storage_config, handlers):
     disk_handler_v1(info, storage_config, handlers)
 
@@ -239,6 +333,7 @@ def disk_handler_v2(info, storage_config, handlers):
     table = table_cls(sector_size)
     preserved_offsets = set()
     wipes = {}
+    resizes = {}
 
     sfdisk_info = None
     for action in part_actions:
@@ -251,7 +346,10 @@ def disk_handler_v2(info, storage_config, handlers):
                 # vmtest infrastructure unhappy.
                 sfdisk_info = block.sfdisk_info(disk)
             part_info = _find_part_info(sfdisk_info, entry.start)
-            partition_verify_sfdisk(action, sfdisk_info['label'], part_info)
+            partition_verify_sfdisk_v2(action, sfdisk_info['label'], part_info,
+                                       storage_config, table)
+            if needs_resize(storage_config, action, part_info):
+                resizes[entry.start] = _prepare_resize(entry, part_info, table)
             preserved_offsets.add(entry.start)
         wipe = wipes[entry.start] = _wipe_for_action(action)
         if wipe is not None:
@@ -266,20 +364,26 @@ def disk_handler_v2(info, storage_config, handlers):
             LOG.debug('Wiping 1M on %s at offset %s', disk, wipe_offset)
             block.zero_file_at_offsets(disk, [wipe_offset], exclusive=False)
 
-    # Do a superblock wipe of any partitions that are being deleted.
-    for kname, nr, offset, sz in block.sysfs_partition_data(disk):
+    for kname, nr, offset, size in block.sysfs_partition_data(disk):
         offset_sectors = table.bytes2sectors(offset)
         if offset_sectors not in preserved_offsets:
+            # Do a superblock wipe of any partitions that are being deleted.
             block.wipe_volume(block.kname_to_path(kname), 'superblock')
+        resize = resizes.get(offset_sectors)
+        if resize and size > resize['end']:
+            perform_resize(kname, resize['end'], 'down')
 
     table.apply(disk)
 
-    # Wipe the new partitions as needed.
     for kname, number, offset, size in block.sysfs_partition_data(disk):
         offset_sectors = table.bytes2sectors(offset)
         mode = wipes[offset_sectors]
         if mode is not None:
+            # Wipe the new partitions as needed.
             block.wipe_volume(block.kname_to_path(kname), mode)
+        resize = resizes.get(offset_sectors)
+        if resize and resize['start'] < size:
+            perform_resize(kname, resize['end'], 'up')
 
     # Make the names if needed
     if 'name' in info:

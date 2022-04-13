@@ -779,12 +779,17 @@ def verify_exists(devpath):
         raise RuntimeError("Device %s does not exist" % devpath)
 
 
-def verify_size(devpath, expected_size_bytes, part_info):
+def get_part_size_bytes(devpath, part_info):
     (found_type, _code) = ptable_uuid_to_flag_entry(part_info.get('type'))
     if found_type == 'extended':
         found_size_bytes = int(part_info['size']) * 512
     else:
         found_size_bytes = block.read_sys_block_size_bytes(devpath)
+    return found_size_bytes
+
+
+def verify_size(devpath, expected_size_bytes, part_info):
+    found_size_bytes = get_part_size_bytes(devpath, part_info)
     msg = (
         'Verifying %s size, expecting %s bytes, found %s bytes' % (
          devpath, expected_size_bytes, found_size_bytes))
@@ -1122,6 +1127,12 @@ def _get_volume_type(device_path):
     lsblock = block._lsblock([device_path])
     kname = block.path_to_kname(device_path)
     return lsblock[kname]['TYPE']
+
+
+def _get_volume_fstype(device_path):
+    lsblock = block._lsblock([device_path])
+    kname = block.path_to_kname(device_path)
+    return lsblock[kname]['FSTYPE']
 
 
 def get_volume_spec(device_path):
