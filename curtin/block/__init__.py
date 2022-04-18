@@ -1368,4 +1368,9 @@ def discover():
     return {}
 
 
+def get_resize_fstypes():
+    from curtin.commands.block_meta_v2 import resizers
+    return {fstype for fstype in resizers.keys()}
+
+
 # vi: ts=4 expandtab syntax=python

@@ -927,4 +927,12 @@ class TestSfdiskInfo(CiTestCase):
         self.assertEqual([], self.m_load_json.call_args_list)
 
 
+class TestResize(CiTestCase):
+    def test_basic(self):
+        resizers = 'curtin.commands.block_meta_v2.resizers'
+        values = {'a': 1, 'b': 2}
+        with mock.patch.dict(resizers, values, clear=True):
+            self.assertEqual({'a', 'b'}, block.get_resize_fstypes())
+
+
 # vi: ts=4 expandtab syntax=python
