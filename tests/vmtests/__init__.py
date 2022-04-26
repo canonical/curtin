@@ -2035,17 +2035,6 @@ class VMBaseClass(TestCase):
 
             return swaps
 
-        # we don't yet have a skip_by_date on specific releases
-        if is_devel_release(self.target_release):
-            name = "test_swaps_used"
-            bug = "1894910"
-            fixby = "2020-10-15"
-            removeby = "2020-11-01"
-            raise SkipTest(
-                "skip_by_date({name}) LP: #{bug} "
-                "fixby={fixby} removeby={removeby}: ".format(
-                    name=name, bug=bug, fixby=fixby, removeby=removeby))
-
         expected_swaps = find_fstab_swaps()
         proc_swaps = self.load_collect_file("proc-swaps")
         for swap in expected_swaps:
