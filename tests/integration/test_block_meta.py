@@ -820,3 +820,45 @@ class TestBlockMeta(IntegrationTestCase):
             self.assertEqual(9 << 20, _get_filesystem_size(dev, p1))
             self.assertEqual(136 << 20, _get_filesystem_size(dev, p5))
             self.assertEqual(50 << 20, _get_filesystem_size(dev, p6))
+
+    def test_split_and_wiping(self):
+        # regression test for a bug where a partition wipe would happen before
+        # a resize was performed, resulting in data loss.
+        img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=img, size='100M', ptable='gpt')
+        p1 = config.add_part(size=98 << 20, offset=1 << 20, number=1,
+                             fstype='ext4')
+        self.run_bm(config.render())
+        with loop_dev(img) as dev:
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    PartData(number=1, offset=1 << 20, size=98 << 20),
+                ])
+            with self.mount(dev, p1) as mnt_point:
+                # Attempt to create files across the partition with gaps
+                for i in range(1, 41):
+                    with open(f'{mnt_point}/{str(i)}', 'wb') as fp:
+                        fp.write(bytes([i]) * (2 << 20))
+                for i in range(1, 41):
+                    if i % 5 != 0:
+                        os.remove(f'{mnt_point}/{str(i)}')
+
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=img, size='100M', ptable='gpt')
+        p1 = config.add_part(size=49 << 20, offset=1 << 20, number=1,
+                             fstype='ext4', resize=True)
+        config.set_preserve()
+        config.add_part(size=49 << 20, offset=50 << 20, number=2,
+                        fstype='ext4')
+        self.run_bm(config.render())
+        with loop_dev(img) as dev:
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    PartData(number=1, offset=1 << 20, size=49 << 20),
+                    PartData(number=2, offset=50 << 20, size=49 << 20),
+                ])
+            with self.mount(dev, p1) as mnt_point:
+                for i in range(5, 41, 5):
+                    with open(f'{mnt_point}/{str(i)}', 'rb') as fp:
+                        self.assertEqual(bytes([i]) * (2 << 20), fp.read())

@@ -362,8 +362,20 @@ def disk_handler_v2(info, storage_config, handlers):
             resizes[entry.start] = _prepare_resize(storage_config, action,
                                                    table, part_info)
             preserved_offsets.add(entry.start)
-        wipe = wipes[entry.start] = _wipe_for_action(action)
-        if wipe is not None:
+        wipes[entry.start] = _wipe_for_action(action)
+
+    for kname, nr, offset, size in block.sysfs_partition_data(disk):
+        offset_sectors = table.bytes2sectors(offset)
+        resize = resizes.get(offset_sectors)
+        if resize and resize['direction'] == 'down':
+            perform_resize(kname, resize)
+
+    for kname, nr, offset, size in block.sysfs_partition_data(disk):
+        offset_sectors = table.bytes2sectors(offset)
+        if offset_sectors not in preserved_offsets:
+            # Do a superblock wipe of any partitions that are being deleted.
+            block.wipe_volume(block.kname_to_path(kname), 'superblock')
+        elif wipes.get(offset_sectors) is not None:
             # We do a quick wipe of where any new partitions will be,
             # because if there is bcache or other metadata there, this
             # can cause the partition to be used by a storage
@@ -371,27 +383,17 @@ def disk_handler_v2(info, storage_config, handlers):
             # wipe_volume call below. See
             # https://bugs.launchpad.net/curtin/+bug/1718699 for all
             # the gory details.
-            wipe_offset = table.sectors2bytes(entry.start)
-            LOG.debug('Wiping 1M on %s at offset %s', disk, wipe_offset)
-            block.zero_file_at_offsets(disk, [wipe_offset], exclusive=False)
-
-    for kname, nr, offset, size in block.sysfs_partition_data(disk):
-        offset_sectors = table.bytes2sectors(offset)
-        if offset_sectors not in preserved_offsets:
-            # Do a superblock wipe of any partitions that are being deleted.
-            block.wipe_volume(block.kname_to_path(kname), 'superblock')
-        resize = resizes.get(offset_sectors)
-        if resize and resize['direction'] == 'down':
-            perform_resize(kname, resize)
+            LOG.debug('Wiping 1M on %s at offset %s', disk, offset)
+            block.zero_file_at_offsets(disk, [offset], exclusive=False)
 
     table.apply(disk)
 
     for kname, number, offset, size in block.sysfs_partition_data(disk):
         offset_sectors = table.bytes2sectors(offset)
-        mode = wipes[offset_sectors]
-        if mode is not None:
+        wipe = wipes[offset_sectors]
+        if wipe is not None:
             # Wipe the new partitions as needed.
-            block.wipe_volume(block.kname_to_path(kname), mode)
+            block.wipe_volume(block.kname_to_path(kname), wipe)
         resize = resizes.get(offset_sectors)
         if resize and resize['direction'] == 'up':
             perform_resize(kname, resize)
