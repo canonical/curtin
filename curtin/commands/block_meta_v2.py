@@ -64,13 +64,14 @@ def resize_ntfs(path, size):
     util.subp(['ntfsresize', '-s', str(size), path])
 
 
-def perform_resize(kname, size, direction):
+def perform_resize(kname, resize):
     path = block.kname_to_path(kname)
-    fstype = _get_volume_fstype(path)
-    if fstype:
-        LOG.debug('Resizing %s of type %s %s to %s',
-                  path, fstype, direction, size)
-        resizers[fstype](path, size)
+    fstype = resize['fstype']
+    size = resize['size']
+    direction = resize['direction']
+    LOG.debug('Resizing %s of type %s %s to %s',
+              path, fstype, direction, size)
+    resizers[fstype](path, size)
 
 
 resizers = {
@@ -245,47 +246,52 @@ def _wipe_for_action(action):
     return 'superblock'
 
 
-def _prepare_resize(entry, part_info, table):
-    return {
-        'start': table.sectors2bytes(part_info['size']),
-        'end': table.sectors2bytes(entry.size),
-    }
+def _prepare_resize(storage_config, part_action, table, part_info):
+    if not part_action.get('preserve') or not part_action.get('resize'):
+        return None
 
-
-def needs_resize(storage_config, part_action, sfdisk_part_info):
-    if not part_action.get('preserve'):
-        return False
-    if not part_action.get('resize'):
-        return False
+    devpath = os.path.realpath(part_info['node'])
+    fstype = _get_volume_fstype(devpath)
+    if fstype == '':
+        return None
 
     volume = part_action['id']
     format_actions = select_configs(storage_config, type='format',
-                                    volume=volume, preserve=True)
-    if len(format_actions) < 1:
-        return False
+                                    volume=volume)
     if len(format_actions) > 1:
         raise Exception(f'too many format actions for volume {volume}')
 
-    if not format_actions[0].get('preserve'):
-        return False
+    if len(format_actions) == 1:
+        if not format_actions[0].get('preserve'):
+            return None
 
-    devpath = os.path.realpath(sfdisk_part_info['node'])
-    fstype = _get_volume_fstype(devpath)
-    target_fstype = format_actions[0]['fstype']
-    msg = (
-        'Verifying %s format, expecting %s, found %s' % (
-         devpath, fstype, target_fstype))
-    LOG.debug(msg)
-    if fstype != target_fstype:
-        raise RuntimeError(msg)
-
-    if part_action.get('resize'):
-        msg = 'Resize requested for format %s' % (fstype, )
+        target_fstype = format_actions[0]['fstype']
+        msg = (
+            'Verifying %s format, expecting %s, found %s' % (
+             devpath, fstype, target_fstype))
         LOG.debug(msg)
-        if fstype not in resizers:
-            raise RuntimeError(msg + ' is unsupported')
+        if fstype != target_fstype:
+            raise RuntimeError(msg)
 
-    return True
+    msg = 'Resize requested for format %s' % (fstype, )
+    LOG.debug(msg)
+    if fstype not in resizers:
+        raise RuntimeError(msg + ' is unsupported')
+
+    start = table.sectors2bytes(part_info['size'])
+    end = int(util.human2bytes(part_action['size']))
+    if start > end:
+        direction = 'down'
+    elif start < end:
+        direction = 'up'
+    else:
+        return None
+
+    return {
+        'fstype': fstype,
+        'size': end,
+        'direction': direction,
+    }
 
 
 def verify_offset(devpath, part_action, current_info, table):
@@ -353,8 +359,8 @@ def disk_handler_v2(info, storage_config, handlers):
             part_info = _find_part_info(sfdisk_info, entry.start)
             partition_verify_sfdisk_v2(action, sfdisk_info['label'], part_info,
                                        storage_config, table)
-            if needs_resize(storage_config, action, part_info):
-                resizes[entry.start] = _prepare_resize(entry, part_info, table)
+            resizes[entry.start] = _prepare_resize(storage_config, action,
+                                                   table, part_info)
             preserved_offsets.add(entry.start)
         wipe = wipes[entry.start] = _wipe_for_action(action)
         if wipe is not None:
@@ -375,8 +381,8 @@ def disk_handler_v2(info, storage_config, handlers):
             # Do a superblock wipe of any partitions that are being deleted.
             block.wipe_volume(block.kname_to_path(kname), 'superblock')
         resize = resizes.get(offset_sectors)
-        if resize and size > resize['end']:
-            perform_resize(kname, resize['end'], 'down')
+        if resize and resize['direction'] == 'down':
+            perform_resize(kname, resize)
 
     table.apply(disk)
 
@@ -387,8 +393,8 @@ def disk_handler_v2(info, storage_config, handlers):
             # Wipe the new partitions as needed.
             block.wipe_volume(block.kname_to_path(kname), mode)
         resize = resizes.get(offset_sectors)
-        if resize and resize['start'] < size:
-            perform_resize(kname, resize['end'], 'up')
+        if resize and resize['direction'] == 'up':
+            perform_resize(kname, resize)
 
     # Make the names if needed
     if 'name' in info:

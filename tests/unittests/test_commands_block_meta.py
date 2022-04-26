@@ -2690,6 +2690,7 @@ class TestPartitionNeedsResize(CiTestCase):
         self.sfdisk_part_info = {
             'node': self.devpath,
             'start': (1 << 30) // 512,
+            'size': (1 << 30) // 512,
         }
         self.format = {
             'id': 'id-format',
@@ -2701,6 +2702,39 @@ class TestPartitionNeedsResize(CiTestCase):
             self.partition['id']: self.partition,
             self.format['id']: self.format,
         }
+        self.table = Mock()
+        self.table.sectors2bytes = lambda x: x * 512
+
+    def test_partition_resize_happy_path(self):
+        self.partition['preserve'] = True
+        self.partition['resize'] = True
+        self.format['preserve'] = True
+        self.format['fstype'] = 'ext4'
+        self.m_get_volume_fstype.return_value = 'ext4'
+        expected = {
+            'fstype': 'ext4',
+            'size': 5 << 30,
+            'direction': 'up',
+        }
+        actual = block_meta_v2._prepare_resize(
+            self.storage_config, self.partition, self.table,
+            self.sfdisk_part_info)
+        self.assertEqual(expected, actual)
+
+    def test_partition_resize_no_format_action(self):
+        self.partition['preserve'] = True
+        self.partition['resize'] = True
+        self.storage_config = {self.partition['id']: self.partition}
+        self.m_get_volume_fstype.return_value = 'ext4'
+        expected = {
+            'fstype': 'ext4',
+            'size': 5 << 30,
+            'direction': 'up',
+        }
+        actual = block_meta_v2._prepare_resize(
+            self.storage_config, self.partition, self.table,
+            self.sfdisk_part_info)
+        self.assertEqual(expected, actual)
 
     def test_partition_resize_change_fs(self):
         self.partition['preserve'] = True
@@ -2709,8 +2743,8 @@ class TestPartitionNeedsResize(CiTestCase):
         self.format['fstype'] = 'ext3'
         self.m_get_volume_fstype.return_value = 'ext4'
         with self.assertRaises(RuntimeError):
-            block_meta_v2.needs_resize(
-                self.storage_config, self.partition, self.sfdisk_part_info)
+            block_meta_v2._prepare_resize(self.storage_config, self.partition,
+                                          self.table, self.sfdisk_part_info)
 
     def test_partition_resize_unsupported_fs(self):
         self.partition['preserve'] = True
@@ -2719,8 +2753,8 @@ class TestPartitionNeedsResize(CiTestCase):
         self.format['fstype'] = 'reiserfs'
         self.m_get_volume_fstype.return_value = 'resierfs'
         with self.assertRaises(RuntimeError):
-            block_meta_v2.needs_resize(
-                self.storage_config, self.partition, self.sfdisk_part_info)
+            block_meta_v2._prepare_resize(self.storage_config, self.partition,
+                                          self.table, self.sfdisk_part_info)
 
     def test_partition_resize_format_preserve_false(self):
         # though the filesystem type is not supported for resize, it's ok
@@ -2730,8 +2764,9 @@ class TestPartitionNeedsResize(CiTestCase):
         self.format['preserve'] = False
         self.format['fstype'] = 'reiserfs'
         self.m_get_volume_fstype.return_value = 'reiserfs'
-        block_meta_v2.needs_resize(
-            self.storage_config, self.partition, self.sfdisk_part_info)
+        self.assertIsNone(
+            block_meta_v2._prepare_resize(self.storage_config, self.partition,
+                                          self.table, self.sfdisk_part_info))
 
     def test_partition_resize_partition_preserve_false(self):
         # not a resize - partition is recreated
@@ -2740,8 +2775,30 @@ class TestPartitionNeedsResize(CiTestCase):
         self.format['preserve'] = False
         self.format['fstype'] = 'reiserfs'
         self.m_get_volume_fstype.return_value = 'reiserfs'
-        block_meta_v2.needs_resize(
-            self.storage_config, self.partition, self.sfdisk_part_info)
+        self.assertIsNone(
+            block_meta_v2._prepare_resize(self.storage_config, self.partition,
+                                          self.table, self.sfdisk_part_info))
+
+    def test_partition_resize_equal_size(self):
+        # not a resize - the size is the same so leave it alone
+        self.partition['preserve'] = True
+        self.partition['resize'] = True
+        self.partition['size'] = '1GB'
+        self.format['preserve'] = True
+        self.m_get_volume_fstype.return_value = 'ext4'
+        self.assertIsNone(
+            block_meta_v2._prepare_resize(self.storage_config, self.partition,
+                                          self.table, self.sfdisk_part_info))
+
+    def test_partition_resize_unformatted(self):
+        # not a resize - an unformatted partition has nothing to preserve
+        self.partition['preserve'] = True
+        self.partition['resize'] = True
+        self.storage_config = {self.partition['id']: self.partition}
+        self.m_get_volume_fstype.return_value = ''
+        self.assertIsNone(
+            block_meta_v2._prepare_resize(self.storage_config, self.partition,
+                                          self.table, self.sfdisk_part_info))
 
 
 class TestPartitionVerifyFdasd(CiTestCase):
