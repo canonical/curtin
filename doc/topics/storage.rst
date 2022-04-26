@@ -445,7 +445,7 @@ If the ``preserve`` flag is set to true, curtin will adjust the size of the
 partition to the new size.  When adjusting smaller, the size of the contents
 must permit that.  When adjusting larger, there must already be a gap beyond
 the partition in question.
-Resize is supported on filesystems of types ext2, ext3, ext4.
+Resize is supported on filesystems of types ext2, ext3, ext4, ntfs.
 
 **name**: *<name>*
 

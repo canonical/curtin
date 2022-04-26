@@ -60,6 +60,10 @@ def resize_ext(path, size):
     util.subp(['resize2fs', path, f'{size_k}k'])
 
 
+def resize_ntfs(path, size):
+    util.subp(['ntfsresize', '-s', str(size), path])
+
+
 def perform_resize(kname, size, direction):
     path = block.kname_to_path(kname)
     fstype = _get_volume_fstype(path)
@@ -73,6 +77,7 @@ resizers = {
     'ext2': resize_ext,
     'ext3': resize_ext,
     'ext4': resize_ext,
+    'ntfs': resize_ntfs,
 }
 
 

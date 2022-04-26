@@ -6,9 +6,11 @@ import json
 import sys
 import yaml
 import os
+import re
 
 from curtin import block, udev, util
 
+from curtin.commands.block_meta import _get_volume_fstype
 from curtin.commands.block_meta_v2 import ONE_MIB_BYTES
 
 from tests.unittests.helpers import CiTestCase
@@ -35,9 +37,7 @@ def loop_dev(image, sector_size=512):
 PartData = namedtuple("PartData", ('number', 'offset', 'size'))
 
 
-def _get_filesystem_size(dev, part_action, fstype='ext4'):
-    if fstype not in ('ext2', 'ext3', 'ext4'):
-        raise Exception(f'_get_filesystem_size: no support for {fstype}')
+def _get_ext_size(dev, part_action):
     num = part_action['number']
     cmd = ['dumpe2fs', '-h', f'{dev}p{num}']
     out = util.subp(cmd, capture=True)[0]
@@ -47,6 +47,37 @@ def _get_filesystem_size(dev, part_action, fstype='ext4'):
         if line.startswith('Block size'):
             block_size = line.split(':')[1].strip()
     return int(block_count) * int(block_size)
+
+
+def _get_ntfs_size(dev, part_action):
+    num = part_action['number']
+    cmd = ['ntfsresize',
+           '--no-action',
+           '--force',  # needed post-resize, which otherwise demands a CHKDSK
+           '--info', f'{dev}p{num}']
+    out = util.subp(cmd, capture=True)[0]
+    # Sample input:
+    # Current volume size: 41939456 bytes (42 MB)
+    volsize_matcher = re.compile(r'^Current volume size: ([0-9]+) bytes')
+    for line in out.splitlines():
+        m = volsize_matcher.match(line)
+        if m:
+            return int(m.group(1))
+    raise Exception('ntfs volume size not found')
+
+
+_get_fs_sizers = {
+    'ext2': _get_ext_size,
+    'ext3': _get_ext_size,
+    'ext4': _get_ext_size,
+    'ntfs': _get_ntfs_size,
+}
+
+
+def _get_filesystem_size(dev, part_action, fstype='ext4'):
+    if fstype not in _get_fs_sizers.keys():
+        raise Exception(f'_get_filesystem_size: no support for {fstype}')
+    return _get_fs_sizers[fstype](dev, part_action)
 
 
 def _get_extended_partition_size(dev, num):
@@ -138,6 +169,17 @@ class TestBlockMeta(IntegrationTestCase):
     def check_data(self, dev, part_action):
         with self.open_file_on_part(dev, part_action, 'r') as fp:
             self.assertEqual(self.data, fp.read())
+
+    def check_fssize(self, dev, part_action, fstype, expected):
+        tolerance = 0
+        if fstype == 'ntfs':
+            # Per ntfsresize manpage, the actual fs size is at least one sector
+            # less than requested.
+            # In these tests it has been consistently 7 sectors fewer.
+            tolerance = 512 * 10
+        actual_fssize = _get_filesystem_size(dev, part_action, fstype)
+        diff = expected - actual_fssize
+        self.assertTrue(0 <= diff <= tolerance, f'difference of {diff}')
 
     def run_bm(self, config, *args, **kwargs):
         config_path = self.tmp_path('config.yaml')
@@ -481,13 +523,13 @@ class TestBlockMeta(IntegrationTestCase):
                              fstype=fstype)
         self.run_bm(config.render())
         with loop_dev(img) as dev:
+            self.assertEqual(fstype, _get_volume_fstype(f'{dev}p1'))
             self.create_data(dev, p1)
             self.assertEqual(
                 summarize_partitions(dev), [
                     PartData(number=1, offset=1 << 20, size=start),
                 ])
-            fs_size = _get_filesystem_size(dev, p1, fstype)
-            self.assertEqual(start, fs_size)
+            self.check_fssize(dev, p1, fstype, start)
 
         config.set_preserve()
         p1['resize'] = True
@@ -499,8 +541,7 @@ class TestBlockMeta(IntegrationTestCase):
                 summarize_partitions(dev), [
                     PartData(number=1, offset=1 << 20, size=end),
                 ])
-            fs_size = _get_filesystem_size(dev, p1, fstype)
-            self.assertEqual(end, fs_size)
+            self.check_fssize(dev, p1, fstype, end)
 
     def test_resize_up_ext2(self):
         self._do_test_resize(40, 80, 'ext2')
@@ -519,6 +560,12 @@ class TestBlockMeta(IntegrationTestCase):
 
     def test_resize_down_ext4(self):
         self._do_test_resize(80, 40, 'ext4')
+
+    def test_resize_up_ntfs(self):
+        self._do_test_resize(40, 80, 'ntfs')
+
+    def test_resize_down_ntfs(self):
+        self._do_test_resize(80, 40, 'ntfs')
 
     def test_resize_logical(self):
         img = self.tmp_path('image.img')
