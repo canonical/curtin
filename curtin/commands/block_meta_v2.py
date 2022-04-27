@@ -210,7 +210,7 @@ class DOSPartTable(SFDiskPartTable):
                         prev.start + prev.size,
                         self.one_mib_sectors)
         size = self.bytes2sectors(action['size'])
-        type = FLAG_TO_MBR_TYPE.get(flag)
+        type = action.get('partition_type', FLAG_TO_MBR_TYPE.get(flag))
         if flag == 'boot':
             bootable = True
         else:

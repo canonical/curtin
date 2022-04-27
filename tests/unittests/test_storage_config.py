@@ -350,6 +350,7 @@ class TestBlockdevParser(CiTestCase):
             'offset': 1048576,
             'size': 499122176,
             'flag': 'linux',
+            'partition_type': '0fc63daf-8483-4772-8e79-3d69d8477de4',
         }
         self.assertDictEqual(expected_dict,
                              self.bdevp.asdict(blockdev))
@@ -394,6 +395,7 @@ class TestBlockdevParser(CiTestCase):
             'path': '/dev/vda1',
             'number': 1,
             'size': 784334848,
+            'partition_type': '0x0',
         }
         self.assertDictEqual(expected_dict, self.bdevp.asdict(test_value))
 
@@ -427,7 +429,7 @@ class TestBlockdevParser(CiTestCase):
         self.probe_data = _get_data('probert_storage_lvm.json')
         self.bdevp = BlockdevParser(self.probe_data)
         blockdev = self.bdevp.blockdev_data['/dev/vda2']
-        expected_dict = {
+        base_expected_dict = {
             'id': 'partition-vda2',
             'type': 'partition',
             'path': '/dev/vda2',
@@ -439,6 +441,8 @@ class TestBlockdevParser(CiTestCase):
         }
         for ext_part_entry in ['0xf', '0x5', '0x85', '0xc5']:
             blockdev['ID_PART_ENTRY_TYPE'] = ext_part_entry
+            expected_dict = base_expected_dict.copy()
+            expected_dict['partition_type'] = ext_part_entry
             self.assertDictEqual(expected_dict,
                                  self.bdevp.asdict(blockdev))
 
@@ -455,6 +459,7 @@ class TestBlockdevParser(CiTestCase):
             'offset': 3223322624,
             'size': 2147483648,
             'flag': 'logical',
+            'partition_type': '0x83',
         }
         self.assertDictEqual(expected_dict,
                              self.bdevp.asdict(blockdev))
@@ -473,6 +478,7 @@ class TestBlockdevParser(CiTestCase):
             'offset': 1048576,
             'size': 536870912,
             'flag': 'boot',
+            'partition_type': '0xb',
         }
         self.assertDictEqual(expected_dict,
                              self.bdevp.asdict(blockdev))
@@ -491,6 +497,7 @@ class TestBlockdevParser(CiTestCase):
             'offset': 3223322624,
             'size': 2147483648,
             'flag': 'boot',
+            'partition_type': '0x83',
         }
         self.assertDictEqual(expected_dict,
                              self.bdevp.asdict(blockdev))
@@ -551,6 +558,7 @@ class TestBlockdevParser(CiTestCase):
             'offset': 2097152,
             'size': 10734272512,
             'type': 'partition',
+            'partition_type': '0fc63daf-8483-4772-8e79-3d69d8477de4',
             }
         self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
 
@@ -1018,11 +1026,17 @@ class TestExtractStorageConfig(CiTestCase):
                           'raidlevel': 'raid1', 'name': 'md1',
                           'devices': ['partition-vdb1', 'partition-vdc1'],
                           'spare_devices': []}, raids[0])
-        self.assertEqual({'id': 'raid-md1p1', 'type': 'partition',
-                          'path': '/dev/md1p1',
-                          'size': 4285530112, 'flag': 'linux', 'number': 1,
-                          'device': 'raid-md1', 'offset': 1048576},
-                         raid_partitions[0])
+        self.assertEqual({
+            'id': 'raid-md1p1',
+            'type': 'partition',
+            'path': '/dev/md1p1',
+            'size': 4285530112,
+            'flag': 'linux',
+            'number': 1,
+            'partition_type': '0fc63daf-8483-4772-8e79-3d69d8477de4',
+            'device': 'raid-md1',
+            'offset': 1048576},
+            raid_partitions[0])
 
     @skipUnlessJsonSchema()
     def test_find_extended_partition(self):

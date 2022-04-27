@@ -1,12 +1,14 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from collections import namedtuple
+import dataclasses
+from dataclasses import dataclass
 import contextlib
 import json
-import sys
-import yaml
 import os
 import re
+import sys
+from typing import Optional
+import yaml
 
 from curtin import block, udev, util
 
@@ -34,7 +36,28 @@ def loop_dev(image, sector_size=512):
         util.subp(['losetup', '--detach', dev])
 
 
-PartData = namedtuple("PartData", ('number', 'offset', 'size'))
+@dataclass(order=True)
+class PartData:
+    number: Optional[int] = None
+    offset: Optional[int] = None
+    size: Optional[int] = None
+    boot: Optional[bool] = None
+    partition_type: Optional[str] = None
+
+    # test cases may initialize the values they care about
+    # test utilities shall initialize all fields
+    def assertFieldsAreNotNone(self):
+        for field in dataclasses.fields(self):
+            assert getattr(self, field.name) is not None
+
+    def __eq__(self, other):
+        for field in dataclasses.fields(self):
+            myval = getattr(self, field.name)
+            otherval = getattr(other, field.name)
+            if myval is not None and otherval is not None \
+                    and myval != otherval:
+                return False
+        return True
 
 
 def _get_ext_size(dev, part_action):
@@ -93,9 +116,21 @@ def _get_extended_partition_size(dev, num):
 
 
 def summarize_partitions(dev):
-    # We don't care about the kname
-    return sorted(
-        [PartData(*d[1:]) for d in block.sysfs_partition_data(dev)])
+    parts = []
+    ptable_json = util.subp(['sfdisk', '-J', dev], capture=True)[0]
+    ptable = json.loads(ptable_json)
+    partitions = ptable['partitiontable']['partitions']
+    for d in block.sysfs_partition_data(dev):
+        nodename = f'/dev/{d[0]}'
+        partition = [part for part in partitions
+                     if part['node'] == nodename][0]
+        ptype = partition['type']
+        boot = partition.get('bootable', False)
+        # We don't care about the kname
+        pd = PartData(*d[1:], partition_type=ptype, boot=boot)
+        pd.assertFieldsAreNotNone()
+        parts.append(pd)
+    return sorted(parts)
 
 
 class StorageConfigBuilder:
@@ -148,6 +183,10 @@ class StorageConfigBuilder:
 class TestBlockMeta(IntegrationTestCase):
     def setUp(self):
         self.data = self.random_string()
+
+    def assertPartitions(self, *args):
+        with loop_dev(self.img) as dev:
+            self.assertEqual([*args], summarize_partitions(dev))
 
     @contextlib.contextmanager
     def mount(self, dev, partition_cfg):
@@ -860,5 +899,30 @@ class TestBlockMeta(IntegrationTestCase):
                 ])
             with self.mount(dev, p1) as mnt_point:
                 for i in range(5, 41, 5):
-                    with open(f'{mnt_point}/{str(i)}', 'rb') as fp:
+                    with open(f'{mnt_point}/{i}', 'rb') as fp:
                         self.assertEqual(bytes([i]) * (2 << 20), fp.read())
+
+    def test_dos_parttype(self):
+        # msdos partition table partitions shall retain their type
+        # create initial situation similar to this
+        # Device     Boot     Start       End   Sectors  Size Id Type
+        # /dev/sda1  *         2048    104447    102400   50M  7 HPFS/NTFS/exFA
+        # /dev/sda2          104448 208668781 208564334 99.5G  7 HPFS/NTFS/exFA
+        # /dev/sda3       208670720 209711103   1040384  508M 27 Hidden NTFS Wi
+        self.img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=self.img, size='200M', ptable='msdos')
+        config.add_part(size=50 << 20, offset=1 << 20, number=1,
+                        fstype='ntfs', flag='boot', partition_type='0x7')
+        config.add_part(size=100 << 20, offset=51 << 20, number=2,
+                        fstype='ntfs', partition_type='0x7')
+        config.add_part(size=48 << 20, offset=151 << 20, number=3,
+                        fstype='ntfs', partition_type='0x27')
+        self.run_bm(config.render())
+        self.assertPartitions(
+            PartData(number=1, offset=1 << 20, size=50 << 20,
+                     partition_type='7', boot=True),
+            PartData(number=2, offset=51 << 20, size=100 << 20,
+                     partition_type='7', boot=False),
+            PartData(number=3, offset=151 << 20, size=48 << 20,
+                     partition_type='27', boot=False))

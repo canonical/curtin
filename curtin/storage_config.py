@@ -800,6 +800,8 @@ class BlockdevParser(ProbertParser):
                 entry['size'] *= 512
 
             ptype = blockdev_data.get('ID_PART_ENTRY_TYPE')
+            if ptype is not None:
+                entry['partition_type'] = ptype
             flag_name, _flag_code = ptable_uuid_to_flag_entry(ptype)
 
             if ptable and ptable.get('label') == 'dos':

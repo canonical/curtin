@@ -304,6 +304,11 @@ PARTITION = {
                  'enum': ['bios_grub', 'boot', 'extended', 'home', 'linux',
                           'logical', 'lvm', 'mbr', 'prep', 'raid', 'swap',
                           '']},
+        'partition_type': {'type': 'string',
+                           'oneOf': [
+                               {'pattern': r'^0x[0-9a-fA-F]{1,2}$'},
+                               {'$ref': '#/definitions/uuid'},
+                               ]},
         'grub_device': {
             'type': ['boolean', 'integer'],
             'minimum': 0,
