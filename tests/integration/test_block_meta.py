@@ -902,7 +902,7 @@ class TestBlockMeta(IntegrationTestCase):
                     with open(f'{mnt_point}/{i}', 'rb') as fp:
                         self.assertEqual(bytes([i]) * (2 << 20), fp.read())
 
-    def test_dos_parttype(self):
+    def test_parttype_dos(self):
         # msdos partition table partitions shall retain their type
         # create initial situation similar to this
         # Device     Boot     Start       End   Sectors  Size Id Type
@@ -926,3 +926,37 @@ class TestBlockMeta(IntegrationTestCase):
                      partition_type='7', boot=False),
             PartData(number=3, offset=151 << 20, size=48 << 20,
                      partition_type='27', boot=False))
+
+    def test_parttype_gpt(self):
+        # gpt partition table partitions shall retain their type
+        # create initial situation similar to this
+        # #  Start (sector)    End (sector)   Size        Code  Name
+        # 1            2048          206847   100.0 MiB   EF00  EFI system part
+        # 2          206848          239615   16.0 MiB    0C01  Microsoft reser
+        # 3          239616       103811181   49.4 GiB    0700  Basic data part
+        # 4       103813120       104853503   508.0 MiB   2700
+        esp = 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B'
+        msreserved = 'E3C9E316-0B5C-4DB8-817D-F92DF00215AE'
+        msdata = 'EBD0A0A2-B9E5-4433-87C0-68B6B72699C7'
+        winre = 'DE94BBA4-06D1-4D40-A16A-BFD50179D6AC'
+        self.img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=self.img, size='100M', ptable='gpt')
+        config.add_part(number=1, offset=1 << 20, size=9 << 20,
+                        flag='boot', fstype='ntfs')
+        config.add_part(number=2, offset=10 << 20, size=20 << 20,
+                        partition_type=msreserved)
+        config.add_part(number=3, offset=30 << 20, size=50 << 20,
+                        partition_type=msdata, fstype='ntfs')
+        config.add_part(number=4, offset=80 << 20, size=19 << 20,
+                        partition_type=winre, fstype='ntfs')
+        self.run_bm(config.render())
+        self.assertPartitions(
+            PartData(number=1, offset=1 << 20, size=9 << 20,
+                     partition_type=esp),
+            PartData(number=2, offset=10 << 20, size=20 << 20,
+                     partition_type=msreserved),
+            PartData(number=3, offset=30 << 20, size=50 << 20,
+                     partition_type=msdata),
+            PartData(number=4, offset=80 << 20, size=19 << 20,
+                     partition_type=winre))

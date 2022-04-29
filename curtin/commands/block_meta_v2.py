@@ -150,7 +150,8 @@ class GPTPartTable(SFDiskPartTable):
                 start = self.one_mib_sectors
         size = self.bytes2sectors(action['size'])
         uuid = action.get('uuid')
-        type = FLAG_TO_GUID.get(action.get('flag'))
+        type = action.get('partition_type',
+                          FLAG_TO_GUID.get(action.get('flag')))
         entry = PartTableEntry(number, start, size, type, uuid)
         self.entries.append(entry)
         return entry
