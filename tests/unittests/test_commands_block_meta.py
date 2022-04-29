@@ -10,11 +10,16 @@ from mock import (
 )
 import os
 import random
+import uuid
 
 from curtin.block import dasd
 from curtin.commands import block_meta, block_meta_v2
 from curtin import paths, util
 from .helpers import CiTestCase
+
+
+def random_uuid():
+    return uuid.uuid4()
 
 
 class TestGetPathToStorageVolume(CiTestCase):
@@ -2667,6 +2672,73 @@ class TestPartitionVerifySfdiskV2(CiTestCase):
             block_meta_v2.partition_verify_sfdisk_v2(
                 self.info, self.label, self.sfdisk_part_info,
                 self.storage_config, self.table)
+
+
+class TestSfdiskV2(CiTestCase):
+    def test_gpt_basic(self):
+        table = block_meta_v2.GPTPartTable(512)
+        expected = '''\
+label: gpt
+'''
+        self.assertEqual(expected, table.render())
+
+    def test_gpt_boot(self):
+        table = block_meta_v2.GPTPartTable(512)
+        table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot'))
+        expected = '''\
+label: gpt
+
+1:  start=2048 size=18432 type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B'''
+        self.assertEqual(expected, table.render())
+
+    def test_gpt_boot_raw_type(self):
+        esp = 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B'
+        table = block_meta_v2.GPTPartTable(512)
+        table.add(dict(number=1, offset=1 << 20, size=9 << 20,
+                       partition_type=esp))
+        expected = '''\
+label: gpt
+
+1:  start=2048 size=18432 type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B'''
+        self.assertEqual(expected, table.render())
+
+    def test_gpt_random_uuid(self):
+        ptype = str(random_uuid()).lower()
+        table = block_meta_v2.GPTPartTable(512)
+        table.add(dict(number=1, offset=1 << 20, size=9 << 20,
+                       flag='boot', partition_type=ptype))
+        expected = f'''\
+label: gpt
+
+1:  start=2048 size=18432 type={ptype}'''
+        self.assertEqual(expected, table.render())
+
+    def test_dos_basic(self):
+        table = block_meta_v2.DOSPartTable(512)
+        expected = '''\
+label: dos
+'''
+        self.assertEqual(expected, table.render())
+
+    def test_dos_boot(self):
+        table = block_meta_v2.DOSPartTable(512)
+        table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot'))
+        expected = '''\
+label: dos
+
+1:  start=2048 size=18432 type=EF bootable'''
+        self.assertEqual(expected, table.render())
+
+    def test_dos_random_code(self):
+        ptype = hex(random.randint(0, 0xff))[2:]
+        table = block_meta_v2.DOSPartTable(512)
+        table.add(dict(number=1, offset=1 << 20, size=9 << 20,
+                       flag='boot', partition_type=ptype))
+        expected = f'''\
+label: dos
+
+1:  start=2048 size=18432 type={ptype} bootable'''
+        self.assertEqual(expected, table.render())
 
 
 class TestPartitionNeedsResize(CiTestCase):
