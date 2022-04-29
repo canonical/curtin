@@ -98,6 +98,7 @@ class SFDiskPartTable:
 
     def __init__(self, sector_bytes):
         self.entries = []
+        self.label_id = None
         self._sector_bytes = sector_bytes
         if ONE_MIB_BYTES % sector_bytes != 0:
             raise Exception(
@@ -112,7 +113,11 @@ class SFDiskPartTable:
         return amount * self._sector_bytes
 
     def render(self):
-        r = ['label: ' + self.label, ''] + [e.render() for e in self.entries]
+        r = ['label: ' + self.label]
+        if self.label_id:
+            r.extend(['label-id: ' + self.label_id])
+        r.extend([''])
+        r.extend([e.render() for e in self.entries])
         return '\n'.join(r)
 
     def apply(self, device):
@@ -364,6 +369,10 @@ def disk_handler_v2(info, storage_config, handlers):
                                                    table, part_info)
             preserved_offsets.add(entry.start)
         wipes[entry.start] = _wipe_for_action(action)
+
+    # preserve disk label ids
+    if info.get('preserve') and sfdisk_info is not None:
+        table.label_id = sfdisk_info['id']
 
     for kname, nr, offset, size in block.sysfs_partition_data(disk):
         offset_sectors = table.bytes2sectors(offset)

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import contextlib
 import json
 import os
+from parameterized import parameterized
 import re
 import sys
 from typing import Optional
@@ -113,6 +114,13 @@ def _get_extended_partition_size(dev, num):
     partitions = ptable['partitiontable']['partitions']
     partition = [part for part in partitions if part['node'] == nodename][0]
     return partition['size'] * 512
+
+
+def _get_disk_label_id(dev):
+    ptable_json = util.subp(['sfdisk', '-J', dev], capture=True)[0]
+    ptable = json.loads(ptable_json)
+    # string in lowercase hex
+    return ptable['partitiontable']['id']
 
 
 def summarize_partitions(dev):
@@ -960,3 +968,23 @@ class TestBlockMeta(IntegrationTestCase):
                      partition_type=msdata),
             PartData(number=4, offset=80 << 20, size=19 << 20,
                      partition_type=winre))
+
+    @parameterized.expand([('msdos',), ('gpt',)])
+    def test_disk_label_id_persistent(self, ptable):
+        # when the disk is preserved, the disk label id shall also be preserved
+        self.img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=self.img, size='20M', ptable=ptable)
+        config.add_part(number=1, offset=1 << 20, size=18 << 20)
+        self.run_bm(config.render())
+        self.assertPartitions(
+            PartData(number=1, offset=1 << 20, size=18 << 20))
+        with loop_dev(self.img) as dev:
+            orig_label_id = _get_disk_label_id(dev)
+
+        config.set_preserve()
+        self.run_bm(config.render())
+        self.assertPartitions(
+            PartData(number=1, offset=1 << 20, size=18 << 20))
+        with loop_dev(self.img) as dev:
+            self.assertEqual(orig_label_id, _get_disk_label_id(dev))

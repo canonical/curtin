@@ -3,3 +3,4 @@ mock
 nose
 pyflakes
 coverage
+parameterized
