@@ -431,6 +431,18 @@ partition with the *bios_grub* flag is needed. This partition should be placed
 at the beginning of the disk and should be 1MB in size. It should not contain a
 filesystem or be mounted anywhere on the system.
 
+**partition_type**: *msdos: byte value in 0xnn style; gpt: GUID*
+
+Only applicable to v2 storage configuration.  If both ``partition_type`` and
+``flag`` are set, ``partition_type`` dictates the acutal type.
+
+The ``partition_type`` field allows for setting arbitrary partition type values
+that do not have a matching ``flag``, or cases that are not handled by the
+``flag`` system.  For example, since the *boot* flag results in both setting
+the bootable state for a MSDOS partition table and setting it to type *0xEF*,
+one can override this behavior and achieve a bootable partition of a different
+type by using ``flag``: *boot* and using ``partition_type``.
+
 **preserve**: *true, false*
 
 If the preserve flag is set to true, curtin will verify that the partition
