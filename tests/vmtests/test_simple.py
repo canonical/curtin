@@ -29,15 +29,6 @@ class Centos70BionicTestSimple(centos_relbase.centos70_bionic, TestSimple):
     __test__ = True
 
 
-class Centos66XenialTestSimple(centos_relbase.centos66_xenial, TestSimple):
-    __test__ = True
-
-
-class Centos66BionicTestSimple(centos_relbase.centos66_bionic, TestSimple):
-    __test__ = False
-    # LP: #1775424 Centos66 fails with Bionic Ephemeral ext4 features
-
-
 class XenialTestSimple(relbase.xenial, TestSimple):
     __test__ = True
 
@@ -63,7 +54,7 @@ class HirsuteTestSimple(relbase.hirsute, TestSimple):
         self.output_files_exist(["netplan.yaml"])
 
 
-class GroovyTestSimple(relbase.groovy, TestSimple):
+class ImpishTestSimple(relbase.impish, TestSimple):
     __test__ = True
 
     def test_output_files_exist(self):
@@ -126,7 +117,7 @@ class HirsuteTestSimpleStorage(relbase.hirsute, TestSimpleStorage):
         self.output_files_exist(["netplan.yaml"])
 
 
-class GroovyTestSimpleStorage(relbase.groovy, TestSimpleStorage):
+class ImpishTestSimpleStorage(relbase.impish, TestSimpleStorage):
     __test__ = True
 
     def test_output_files_exist(self):
@@ -166,7 +157,7 @@ class HirsuteTestGrubNoDefaults(relbase.hirsute, TestGrubNoDefaults):
         self.output_files_exist(["netplan.yaml"])
 
 
-class GroovyTestGrubNoDefaults(relbase.groovy, TestGrubNoDefaults):
+class ImpishTestGrubNoDefaults(relbase.impish, TestGrubNoDefaults):
     __test__ = True
 
     def test_output_files_exist(self):

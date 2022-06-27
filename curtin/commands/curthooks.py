@@ -177,14 +177,9 @@ def setup_zipl(cfg, target):
     # assuming that below gives the "/" rootfs
     target_dev = block.get_devices_for_mp(target)[0]
 
-    root_arg = None
-    # not mapped rootfs, use UUID
-    if 'mapper' in target_dev:
-        root_arg = target_dev
-    else:
-        uuid = block.get_volume_uuid(target_dev)
-        if uuid:
-            root_arg = "UUID=%s" % uuid
+    # get preferred device path, according to https://wiki.ubuntu.com/FSTAB
+    from curtin.commands.block_meta import get_volume_spec
+    root_arg = get_volume_spec(target_dev)
 
     if not root_arg:
         msg = "Failed to identify root= for %s at %s." % (target, target_dev)
@@ -947,7 +942,6 @@ def copy_zkey_repository(zkey_repository, target,
 
 def apply_networking(target, state):
     netconf = state.get('network_config')
-    interfaces = state.get('interfaces')
 
     def is_valid_src(infile):
         with open(infile, 'r') as fp:
@@ -961,11 +955,11 @@ def apply_networking(target, state):
         apply_net.apply_net(target, network_state=None, network_config=netconf)
     else:
         LOG.debug("copying interfaces")
-        copy_interfaces(interfaces, target)
+        copy_interfaces(state.get('interfaces'), target)
 
 
 def copy_interfaces(interfaces, target):
-    if not interfaces:
+    if not interfaces or not os.path.exists(interfaces):
         LOG.warn("no interfaces file to copy!")
         return
     eni = os.path.sep.join([target, 'etc/network/interfaces'])
@@ -1293,8 +1287,9 @@ def install_missing_packages(cfg, target, osfamily=DISTROS.debian):
             if distro.has_pkg_available(uefi_pkg_signed):
                 uefi_pkgs.append(uefi_pkg_signed)
 
-            # AMD64 has shim-signed for SecureBoot support
-            if arch == "amd64":
+            # amd64 and arm64 (since bionic) has shim-signed for
+            # SecureBoot support
+            if distro.has_pkg_available("shim-signed"):
                 uefi_pkgs.append("shim-signed")
         else:
             raise ValueError('Unknown grub2 package list for distro: %s' %

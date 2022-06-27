@@ -164,9 +164,8 @@ class TestAptSrcDisablePockets(TestAptSrcAbs):
                               r"deb.*us.archive.ubuntu.com")
         self.check_file_regex("sources.list",
                               r"deb.*security.ubuntu.com")
-        # updates disabled
-        self.check_file_regex("sources.list",
-                              r"# suite disabled by curtin:.*-updates")
+        # updates disabled and not present
+        self.not_file_regex("sources.list", r"# .*-updates")
 
 
 class TestAptSrcModifyArches(TestAptSrcModify):

@@ -39,6 +39,7 @@ storage:
     number: 1
     type: partition
     id: disk-sda-part-1
+    offset: 2M
   - device: disk-sda
     size: 3G
     flag: linux
@@ -47,6 +48,7 @@ storage:
     wipe: zero
     type: partition
     id: disk-sda-part-2
+    offset: 4G
   - fstype: ext4
     volume: disk-sda-part-2
     preserve: false

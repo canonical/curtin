@@ -36,8 +36,10 @@ FEATURES = [
     'HAS_VERSION_MODULE',
     # uefi_reoder has fallback support if BootCurrent is missing
     'UEFI_REORDER_FALLBACK_SUPPORT',
+    # fstabs by default are output with passno = 1 if not nodev
+    'FSTAB_DEFAULT_FSCK_ON_BLK'
 ]
 
-__version__ = "21.2"
+__version__ = "22.1"
 
 # vi: ts=4 expandtab syntax=python

@@ -34,11 +34,6 @@ class CentosTestNetworkAliasAbs(TestNetworkAliasAbs):
         pass
 
 
-class Centos66TestNetworkAlias(centos_relbase.centos66_xenial,
-                               CentosTestNetworkAliasAbs):
-    __test__ = True
-
-
 class Centos70TestNetworkAlias(centos_relbase.centos70_xenial,
                                CentosTestNetworkAliasAbs):
     __test__ = True
@@ -60,7 +55,7 @@ class HirsuteTestNetworkAlias(relbase.hirsute, TestNetworkAliasAbs):
     __test__ = True
 
 
-class GroovyTestNetworkAlias(relbase.groovy, TestNetworkAliasAbs):
+class ImpishTestNetworkAlias(relbase.impish, TestNetworkAliasAbs):
     __test__ = True
 
 

@@ -49,6 +49,7 @@ storage:
     flag: boot
     number: 1
     size: 1G
+    offset: 1G
   - type: partition
     id: id_disk0_part2
     preserve: true
@@ -56,6 +57,7 @@ storage:
     number: 2
     size: 7G
     wipe: superblock
+    offset: 2G
   - type: format
     id: id_efi_format
     volume: id_disk0_part1

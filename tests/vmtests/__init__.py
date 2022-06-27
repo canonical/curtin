@@ -1631,6 +1631,9 @@ class VMBaseClass(TestCase):
     def check_file_regex(self, filename, regex):
         self.assertRegex(self.load_collect_file(filename), regex)
 
+    def not_file_regex(self, filename, regex):
+        self.assertNotRegex(self.load_collect_file(filename), regex)
+
     # To get rid of deprecation warning in python 3.
     def assertRegex(self, s, r):
         try:
@@ -1639,6 +1642,14 @@ class VMBaseClass(TestCase):
         except AttributeError:
             # Python 2.
             self.assertRegexpMatches(s, r)
+
+    def assertNotRegex(self, s, r):
+        try:
+            # Python 3.
+            super(VMBaseClass, self).assertNotRegex(s, r)
+        except AttributeError:
+            # Python 2.
+            self.assertNotRegexpMatches(s, r)
 
     def get_blkid_data(self, blkid_file):
         data = self.load_collect_file(blkid_file)
@@ -1919,29 +1930,6 @@ class VMBaseClass(TestCase):
         self.assertIn(kpackage, self.debian_packages)
 
     @skip_if_flag('expected_failure')
-    def test_clear_holders_ran(self):
-        """ Test curtin install runs block-meta/clear-holders. """
-        if not self.has_storage_config():
-            raise SkipTest("This test does not use storage config.")
-
-        install_logfile = 'root/curtin-install.log'
-        self.output_files_exist([install_logfile])
-        install_log = self.load_collect_file(install_logfile)
-
-        # validate block-meta called clear-holders at least once
-        # We match both 'start' and 'finish' strings, so for each
-        # call we'll have 2 matches.
-        clear_holders_re = 'cmd-install/.*cmd-block-meta/clear-holders'
-        events = re.findall(clear_holders_re, install_log)
-        print('Matched clear-holder events:\n%s' % events)
-        self.assertGreaterEqual(len(events), 2)
-
-        # dirty_disks mode runs an early block-meta command which
-        # also runs clear-holders
-        if self.dirty_disks is True:
-            self.assertGreaterEqual(len(events), 4)
-
-    @skip_if_flag('expected_failure')
     def test_kernel_img_conf(self):
         """ Test curtin install kernel-img.conf correctly. """
         if self.target_distro != 'ubuntu':
@@ -2046,17 +2034,6 @@ class VMBaseClass(TestCase):
                         swaps.append(fs)
 
             return swaps
-
-        # we don't yet have a skip_by_date on specific releases
-        if is_devel_release(self.target_release):
-            name = "test_swaps_used"
-            bug = "1894910"
-            fixby = "2020-10-15"
-            removeby = "2020-11-01"
-            raise SkipTest(
-                "skip_by_date({name}) LP: #{bug} "
-                "fixby={fixby} removeby={removeby}: ".format(
-                    name=name, bug=bug, fixby=fixby, removeby=removeby))
 
         expected_swaps = find_fstab_swaps()
         proc_swaps = self.load_collect_file("proc-swaps")
@@ -2562,7 +2539,6 @@ def prep_partition_for_device(device):
         'size': '8M',
         'flag': 'prep',
         'guid': '9e1a2d38-c612-4316-aa26-8b49521e5a8b',
-        'offset': '1M',
         'wipe': 'zero',
         'grub_device': True,
         'device': device}

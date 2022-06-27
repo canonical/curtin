@@ -30,12 +30,7 @@ class HirsuteTestNetworkIPV6Vlan(relbase.hirsute, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
-class GroovyTestNetworkIPV6Vlan(relbase.groovy, TestNetworkIPV6VlanAbs):
-    __test__ = True
-
-
-class Centos66TestNetworkIPV6Vlan(centos_relbase.centos66_xenial,
-                                  CentosTestNetworkIPV6VlanAbs):
+class ImpishTestNetworkIPV6Vlan(relbase.impish, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 

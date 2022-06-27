@@ -29,11 +29,6 @@ definitions = {
         'type': 'string',
         'pattern': _uuid_pattern,
     },
-    'fstype': {
-        'type': 'string',
-        'oneOf': [
-            {'pattern': r'^__.*__$'},  # XXX: Accept vmtest values?
-            {'enum': _fstypes}]},
     'params': {
         'type': 'object',
         'patternProperties': {
@@ -141,7 +136,7 @@ DISK = {
             'type': 'string',
             'oneOf': [
                 {'pattern': r'^0x(\d|[a-zA-Z])+'},
-                {'pattern': r'^(nvme|eui)\.([-0-9a-zA-Z])+'}],
+                {'pattern': r'^(nvme|eui|uuid)\.([-0-9a-zA-Z])+'}],
         },
         'grub_device': {
             'type': ['boolean', 'integer'],
@@ -187,11 +182,20 @@ FORMAT = {
         'preserve': {'$ref': '#/definitions/preserve'},
         'uuid': {'$ref': '#/definitions/uuid'},    # XXX: This is not used
         'type': {'const': 'format'},
-        'fstype': {'$ref': '#/definitions/fstype'},
+        'fstype': {'type': 'string'},
         'label': {'type': 'string'},
         'volume': {'$ref': '#/definitions/ref_id'},
         'extra_options': {'type': 'array', 'items': {'type': 'string'}},
-    }
+    },
+    'anyOf': [
+        # XXX: Accept vmtest values?
+        {'properties': {'fstype': {'pattern': r'^__.*__$'}}},
+        {'properties': {'fstype': {'enum': _fstypes}}},
+        {
+            'properties': {'preserve': {'enum': [True]}},
+            'required': ['preserve']  # this looks redundant but isn't
+        }
+    ]
 }
 LVM_PARTITION = {
     '$schema': 'http://json-schema.org/draft-07/schema#',
@@ -262,6 +266,10 @@ MOUNT = {
             ],
         },
         'spec': {'type': 'string'},  # XXX: Tighten this to fstab fs_spec
+        'freq': {'type': ['integer', 'string'],
+                 'pattern': r'[0-9]'},
+        'passno': {'type': ['integer', 'string'],
+                   'pattern': r'[0-9]'},
     },
 }
 PARTITION = {
@@ -276,8 +284,13 @@ PARTITION = {
     'properties': {
         'id': {'$ref': '#/definitions/id'},
         'multipath': {'type': 'string'},
+        # Permit path to device as output.
+        # This value is ignored for input.
+        'path': {'type': 'string',
+                 'pattern': _path_dev},
         'name': {'$ref': '#/definitions/name'},
         'offset': {'$ref': '#/definitions/size'},  # XXX: This is not used
+        'resize': {'type': 'boolean'},
         'preserve': {'$ref': '#/definitions/preserve'},
         'size': {'$ref': '#/definitions/size'},
         'uuid': {'$ref': '#/definitions/uuid'},    # XXX: This is not used
@@ -291,6 +304,11 @@ PARTITION = {
                  'enum': ['bios_grub', 'boot', 'extended', 'home', 'linux',
                           'logical', 'lvm', 'mbr', 'prep', 'raid', 'swap',
                           '']},
+        'partition_type': {'type': 'string',
+                           'oneOf': [
+                               {'pattern': r'^0x[0-9a-fA-F]{1,2}$'},
+                               {'$ref': '#/definitions/uuid'},
+                               ]},
         'grub_device': {
             'type': ['boolean', 'integer'],
             'minimum': 0,
@@ -304,9 +322,13 @@ RAID = {
     'title': 'curtin storage configuration for a RAID.',
     'description': ('Declarative syntax for specifying RAID.'),
     'definitions': definitions,
-    'required': ['id', 'type', 'name', 'raidlevel', 'devices'],
+    'required': ['id', 'type', 'name', 'raidlevel'],
     'type': 'object',
     'additionalProperties': False,
+    'oneOf': [
+        {'required': ['devices']},
+        {'required': ['container']},
+    ],
     'properties': {
         'id': {'$ref': '#/definitions/id'},
         'devices': {'$ref': '#/definitions/devices'},
@@ -315,6 +337,7 @@ RAID = {
         'metadata': {'type': ['string', 'number']},
         'preserve': {'$ref': '#/definitions/preserve'},
         'ptable': {'$ref': '#/definitions/ptable'},
+        'wipe': {'$ref': '#/definitions/wipe'},
         'spare_devices': {'$ref': '#/definitions/devices'},
         'container': {'$ref': '#/definitions/id'},
         'type': {'const': 'raid'},

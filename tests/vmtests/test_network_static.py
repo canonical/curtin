@@ -36,12 +36,7 @@ class HirsuteTestNetworkStatic(relbase.hirsute, TestNetworkStaticAbs):
     __test__ = True
 
 
-class GroovyTestNetworkStatic(relbase.groovy, TestNetworkStaticAbs):
-    __test__ = True
-
-
-class Centos66TestNetworkStatic(centos_relbase.centos66_xenial,
-                                CentosTestNetworkStaticAbs):
+class ImpishTestNetworkStatic(relbase.impish, TestNetworkStaticAbs):
     __test__ = True
 
 

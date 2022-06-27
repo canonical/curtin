@@ -166,7 +166,23 @@ class HirsuteTestMultipathBasic(relbase.hirsute, TestMultipathBasicAbs):
     __test__ = True
 
 
-class GroovyTestMultipathBasic(relbase.groovy, TestMultipathBasicAbs):
+class ImpishTestMultipathBasic(relbase.impish, TestMultipathBasicAbs):
+    __test__ = True
+
+
+class TestMultipathReuseAbs(TestMultipathBasicAbs):
+    conf_file = "examples/tests/multipath-reuse.yaml"
+
+
+class FocalTestMultipathReuse(relbase.focal, TestMultipathReuseAbs):
+    __test__ = True
+
+
+class HirsuteTestMultipathReuse(relbase.hirsute, TestMultipathReuseAbs):
+    __test__ = True
+
+
+class ImpishTestMultipathReuse(relbase.impish, TestMultipathReuseAbs):
     __test__ = True
 
 

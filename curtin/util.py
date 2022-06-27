@@ -501,6 +501,13 @@ def chdir(dirname):
         os.chdir(curdir)
 
 
+@contextmanager
+def mount(src, target):
+    do_mount(src, target)
+    yield
+    do_umount(target)
+
+
 def do_mount(src, target, opts=None):
     # mount src at target with opts and return True
     # if already mounted, return False
@@ -518,13 +525,85 @@ def do_mount(src, target, opts=None):
     return True
 
 
-def do_umount(mountpoint, recursive=False):
-    # unmount mountpoint. if recursive, unmount all mounts under it.
-    # return boolean indicating if mountpoint was previously mounted.
+def do_umount(mountpoint, recursive=False, private=False):
     mp = os.path.abspath(mountpoint)
+    # unmount mountpoint.
+    #
+    # if recursive, unmount all mounts under it.  if private (which
+    # implies recursive), mark all mountpoints private before
+    # unmounting.
+    #
+    # To explain the 'private' parameter, consider the following sequence:
+    #
+    # mkdir a a/b c
+    # mount --bind a c
+    # mount -t sysfs sysfs a/b
+    #
+    # "umount c" will fail with "mountpoint is busy" because the mount
+    # of a/b "propagates" into the subtree at c, i.e. creates a mount
+    # at "c/b". But if you run "umount -R c" the unmount of c/b will
+    # propagate to back to a and unmount a/b (and as in pratice "a/b"
+    # can be something like driver specific mounts in /sys, this would
+    # be Bad(tm)). So what we do here is iterate over the mountpoints
+    # under `mountpoint` and mark them as "private" doing any
+    # unmounting, which means the unmounts do not propagate to any
+    # mount tree they were cloned from.
+    #
+    # So why not do this always? Well! Several systemd services (like
+    # udevd) run in private mount namespaces, set up so that mount
+    # operations on the default namespace propagate into the service's
+    # namespace (but not the other way). This means if you do this:
+    #
+    # mount /dev/sda2 /tmp/my-mount
+    # mount --make-private /tmp/my-mount
+    # umount /tmp/my-mount
+    #
+    # then the mount operation propagates into udevd's mount namespace
+    # but the unmount operation does not and so /dev/sda2 remains
+    # mounted, which causes problems down the road.
+    #
+    # It would be nice to not have to have the caller care about all
+    # this detail. In particular imagine the target system is set up
+    # at /target and has host directories bind-mounted into it, so the
+    # mount tree looks something like this:
+    #
+    # /dev/vda2 is mounted at /target
+    # /dev/vda1 is mounted at /target/boot
+    # /sys is bind-mounted at /target/sys
+    #
+    # And for whatever reason, a mount has appeared at /sys/foo since
+    # this was setup, so there is now an additional mount at
+    # /target/sys/foo.
+    #
+    # What I would like is to be able to run something like "curtin
+    # unmount /target" and have curtin figure out that the mountpoint
+    # at /target/sys/foo should be made private before unmounting and
+    # the others should not. But I don't know how to do that.
+    #
+    # See "Shared subtree operations" in mount(8) for more on all
+    # this.
+    #
+    # You might also think we could replace all this with a call to
+    # "mount --make-rprivate" followed by a call to "umount
+    # --recursive" but that would fail in the case where `mountpoint`
+    # is not actually a mount point, and not doing that is actually
+    # relied on by other parts of curtin.
+    #
+    # Related bug reports:
+    # https://bugs.launchpad.net/maas/+bug/1928839
+    # https://bugs.launchpad.net/subiquity/+bug/1934775
+    #
+    # return boolean indicating if mountpoint was previously mounted.
     ret = False
-    for line in reversed(load_file("/proc/mounts", decode=True).splitlines()):
-        curmp = line.split()[1]
+    mountpoints = [
+        line.split()[1]
+        for line in load_file("/proc/mounts", decode=True).splitlines()]
+    if private:
+        recursive = True
+        for curmp in mountpoints:
+            if curmp == mp or curmp.startswith(mp + os.path.sep):
+                subp(['mount', '--make-private', curmp])
+    for curmp in reversed(mountpoints):
         if curmp == mp or (recursive and curmp.startswith(mp + os.path.sep)):
             subp(['umount', curmp])
         if curmp == mp:
@@ -695,7 +774,7 @@ class ChrootableTarget(object):
             log_call(subp, ['udevadm', 'settle'])
 
         for p in reversed(self.umounts):
-            do_umount(p)
+            do_umount(p, private=True)
 
         rconf = paths.target_path(self.target, "/etc/resolv.conf")
         if self.sys_resolvconf and self.rconf_d:

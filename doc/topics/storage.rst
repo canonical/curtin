@@ -13,8 +13,7 @@ Custom storage configuration is handled by the ``block-meta custom`` command
 in curtin. Partitioning layout is read as a list of in-order modifications to
 make to achieve the desired configuration. The top level configuration key
 containing this configuration is ``storage``. This key should contain a
-dictionary with at least a version number and the configuration list. The
-current config specification is ``version: 1``.
+dictionary with at least a version number and the configuration list.
 
 **Config Example**::
 
@@ -26,6 +25,20 @@ current config specification is ``version: 1``.
        ptable: gpt
        serial: QM00002
        model: QEMU_HARDDISK
+
+Config versions
+---------------
+
+The current version of curtin supports versions ``1`` and ``2``. These
+only differ in the interpretation of ``partition`` actions at this
+time. ``lvm_partition`` actions will be interpreted differently at
+some point in the future.
+
+.. note::
+
+  Config version ``2`` is under active development and subject to change.
+  Users are advised to use version ``1`` unless features enabled by version
+  ``2`` are required.
 
 Configuration Types
 -------------------
@@ -322,13 +335,41 @@ The partition command creates a single partition on a disk. Curtin only needs
 to be told which disk to use and the size of the partition.  Additional options
 are available.
 
+Partition actions are interpreted differently according to the version of the
+storage config.
+
+ * For version 1 configs, the actions are handled one by one and each
+   partition is created (or assumed to exist, in the ``preserve: true`` case)
+   just after that described by the previous action.
+
+ * For version 2 configs, the actions are bundled together to create a
+   complete description of the partition table, and the ``offset`` of each
+   action is respected if present. Any partitions that already exist but are
+   not referenced in the new config are (superblock-) wiped and deleted.
+
+   * Because the numbering of logical partitions is not stable (i.e. if there
+     are two logical partitions numbered 5 and 6, and partition 5 is deleted,
+     what was partition 6 will become partition 5), curtin checks if a
+     partition is deleted or not by checking for the presence of a partition
+     action with a matching offset.
+
+If the disk is being completely repartitioned, the two schemes are effectively
+the same.
+
 **number**: *<number>*
 
-The partition number can be specified using ``number``. However, numbers must
-be in order and some situations, such as extended/logical partitions on msdos
-partition tables will require special numbering, so it maybe better to omit 
-the partition number. If the ``number`` key is not present, curtin will attempt
-determine the right number to use.
+The partition number can be specified using ``number``.
+
+For GPT partition tables, this will just be the slot in the partition table
+that is used to describe this partition.
+
+For DOS partition tables, a primary or extended partition must have a number
+less than or equal to 4. Logical partitions have numbers 5 or greater but are
+numbered by the order they are found when parsing the partitions, so the
+``number`` field is ignored for them.
+
+If the ``number`` key is not present, curtin will attempt determine the right
+number to use.
 
 **size**: *<size>*
 
@@ -338,8 +379,15 @@ the appropriate SI prefix, i.e. *B, k, M, G, T...*
 
 .. note::
 
-  Curtin does not adjust size values.  If you specific a size that exceeds the 
-  capacity of a device then installation will fail.
+  Curtin does not adjust or inspect size values.  If you specify a size that
+  exceeds the capacity of a device then installation will fail.
+
+**offset**: *<offset>*
+
+The offset at which to create the partition. Only respected in a version 2
+config. If the offset field is not present, the partition will be placed after
+that described by the preceding (logical or primary, if appropriate) partition
+action, or at the start of the disk (or extended partition, as appropriate).
 
 **device**: *<device id>*
 
@@ -368,9 +416,7 @@ only apply to gpt partition tables.
 The *logical/extended* partition flags can be used to create logical partitions
 on a msdos table. An extended partition should be created containing all of the
 empty space on the drive, and logical partitions can be created within it. A
-extended partition must already be present to create logical partitions. If the
-``number`` flag is set for an extended partition it must be set to 4, and
-each logical partition should be numbered starting from 5.
+extended partition must already be present to create logical partitions.
 
 On msdos partition tables, the *boot* flag sets the boot parameter to that
 partition. On gpt partition tables, the boot flag sets the esp flag on the
@@ -385,10 +431,33 @@ partition with the *bios_grub* flag is needed. This partition should be placed
 at the beginning of the disk and should be 1MB in size. It should not contain a
 filesystem or be mounted anywhere on the system.
 
+**partition_type**: *msdos: byte value in 0xnn style; gpt: GUID*
+
+Only applicable to v2 storage configuration.  If both ``partition_type`` and
+``flag`` are set, ``partition_type`` dictates the acutal type.
+
+The ``partition_type`` field allows for setting arbitrary partition type values
+that do not have a matching ``flag``, or cases that are not handled by the
+``flag`` system.  For example, since the *boot* flag results in both setting
+the bootable state for a MSDOS partition table and setting it to type *0xEF*,
+one can override this behavior and achieve a bootable partition of a different
+type by using ``flag``: *boot* and using ``partition_type``.
+
 **preserve**: *true, false*
 
 If the preserve flag is set to true, curtin will verify that the partition
 exists and that  the ``size`` and ``flag`` match the configuration provided.
+See also the ``resize`` flag, which adjusts this behavior.
+
+**resize**: *true, false*
+
+Only applicable to v2 storage configuration.
+If the ``preserve`` flag is set to false, this value is not applicable.
+If the ``preserve`` flag is set to true, curtin will adjust the size of the
+partition to the new size.  When adjusting smaller, the size of the contents
+must permit that.  When adjusting larger, there must already be a gap beyond
+the partition in question.
+Resize is supported on filesystems of types ext2, ext3, ext4, ntfs.
 
 **name**: *<name>*
 
@@ -542,6 +611,11 @@ One of ``device`` or ``spec`` must be present.
   fstab entry will contain ``_netdev`` to indicate networking is
   required to mount this filesystem.
 
+**freq**: *<dump(8) integer from 0-9 inclusive>*
+
+The ``freq`` key refers to the freq as defined in dump(8).
+Defaults to ``0`` if unspecified.
+
 **fstype**: *<fileystem type>*
 
 ``fstype`` is only required if ``device`` is not present.  It indicates
@@ -552,7 +626,7 @@ to ``/etc/fstab``
 
 The ``options`` key will replace the default options value of ``defaults``.
 
-.. warning:: 
+.. warning::
   The kernel and user-space utilities may differ between the install
   environment and the runtime environment.  Not all kernels and user-space
   combinations will support all options.  Providing options for a mount point
@@ -564,6 +638,14 @@ The ``options`` key will replace the default options value of ``defaults``.
 
   If either of the environments (install or target) do not have support for
   the provided options, the behavior is undefined.
+
+**passno**: *<fsck(8) non-negative integer, typically 0-2>*
+
+The ``passno`` key refers to the fs_passno as defined in fsck(8).
+If unspecified, ``curtin`` will default to 1 or 0, depending on if that
+filesystem is considered to be a 'nodev' device per /proc/filesystems.
+Note that per systemd-fstab-generator(8), systemd interprets passno as a
+boolean.
 
 **spec**: *<fs_spec>*
 
@@ -852,6 +934,10 @@ If ``wipe`` option is set to values other than 'superblock', curtin will
 wipe contents of the assembled raid device.  Curtin skips 'superblock` wipes
 as it already clears raid data on the members before assembling the array.
 
+To allow a pre-existing (i.e. ``preserve=true``) raid to get a new partition
+table, set the ``wipe`` field to indicate the disk should be
+reformatted (this is different from disk actions, where the preserve field is
+used for this. But that means something different for raid devices).
 
 **Config Example**::
 
@@ -916,6 +1002,7 @@ If the ``preserve`` option is True, curtin will verify the composition of
 the bcache device.  This includes checking that backing device and cache
 device are enabled and bound correctly (backing device is cached by expected
 cache device).  If ``cache-mode`` is specified, verify that the mode matches.
+
 
 **wipe**: *superblock, superblock-recursive, pvremove, zero, random*
 

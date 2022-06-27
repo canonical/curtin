@@ -103,7 +103,7 @@ class HirsuteTestIscsiLvm(relbase.hirsute, TestLvmIscsiAbs):
     __test__ = True
 
 
-class GroovyTestIscsiLvm(relbase.groovy, TestLvmIscsiAbs):
+class ImpishTestIscsiLvm(relbase.impish, TestLvmIscsiAbs):
     __test__ = True
 
 

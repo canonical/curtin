@@ -31,12 +31,7 @@ class HirsuteTestNetworkIPV6Static(relbase.hirsute, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
-class GroovyTestNetworkIPV6Static(relbase.groovy, TestNetworkIPV6StaticAbs):
-    __test__ = True
-
-
-class Centos66TestNetworkIPV6Static(centos_relbase.centos66_xenial,
-                                    CentosTestNetworkIPV6StaticAbs):
+class ImpishTestNetworkIPV6Static(relbase.impish, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 

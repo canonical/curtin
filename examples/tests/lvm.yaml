@@ -23,7 +23,7 @@ storage:
         flag: boot
       - id: sda_extended
         type: partition
-        size: 5G
+        size: 5.5G
         flag: extended
         device: sda
       - id: sda2

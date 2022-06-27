@@ -62,6 +62,9 @@ def get_grub_package_name(target_arch, uefi, rhel_ver=None):
         elif target_arch == 'i386':
             grub_name = 'grub-efi-ia32'
             grub_target = 'i386-efi'
+        elif target_arch == 'riscv64':
+            grub_name = 'grub-efi-riscv64'
+            grub_target = 'riscv64-efi'
         else:
             raise ValueError('Unsupported UEFI arch: %s' % target_arch)
     else:

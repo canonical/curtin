@@ -1,7 +1,7 @@
 #!/bin/sh
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-set -e
+set -eu
 
 sourcename="curtin"
 TEMP_D=""
@@ -13,7 +13,7 @@ cleanup() {
    [ -z "$TEMP_D" ] || rm -Rf "$TEMP_D"
 }
 
-if [ "$1" = "-h" -o "$1" = "--help" ]; then
+if [ "${1:-}" = "-h" -o "${1:-}" = "--help" ]; then
    cat <<EOF
 Usage: ${0##*/}
    build a deb of from trunk directory
@@ -36,19 +36,13 @@ top_d=$(cd "$(dirname "${0}")"/.. && pwd)
 ref=HEAD
 
 if [ $# -eq 0 ]; then
-   # if no opts given, build source, without depends, and not signed.
-   set -- -S -d -us -uc
+   # if no opts given, build source, without depends.
+   set -- -S -d
 fi
-
-# grab the first line in the changelog
-# hopefully this pulls the version info there
-# resulting in something like: UPSTREAM_VER-0ubuntu1
-clogver_o=$(sed -n '1s,.*(\([^)]*\)).*,\1,p' debian/changelog.trunk)
 
 # uver gets 17.1-3-gc85e2562 '17.1' if this is a tag.
 uver=$(git describe --long --abbrev=8 "--match=[0-9][0-9]*" "$ref")
-clogver_debian=${clogver_o##*-}
-clogver_new="${uver}-${clogver_debian}"
+clogver_new="${uver}-0ubuntu1"
 
 # uver_base_rel rel gets '17.1'
 uver_base_rel=${uver%%-*}
@@ -60,7 +54,7 @@ TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${bname}.XXXXXX")
 
 trap cleanup EXIT
 
-echo "building version ${uver}, debian_ver=${clogver_debian}"
+echo "building version ${uver}"
 
 dir="${sourcename}-$uver"
 tarball="${sourcename}_$uver.orig.tar.gz"
@@ -73,38 +67,13 @@ cd "${TEMP_D}"
 tar xzf "$tarball" || fail "failed extract tarball"
 
 if [ ! -d "$dir" ]; then
-    # make-tarball will create the directory name based on the
-    # contents of debian/changelog.trunk in the version provided.
-    # if that differs from what is here, then user has changes.
-    for d in ${sourcename}*; do
-        [ -d "$d" ] && break
-    done
-    if [ -d "$d" ]; then
-        {
-        echo "WARNING: git at '${uver}' had different version"
-        echo "  in debian/changelog.trunk than your tree. version there"
-        echo "  is '$d' working directory had $uver"
-        } 1>&2
-        dir=$d
-    else
-        echo "did not find a directory created by make-tarball. sorry." 1>&2
-        exit
-    fi
+    echo "did not find a directory created by make-tarball. sorry." 1>&2
+    exit
 fi
 cd "$dir" || fail "failed cd $dir"
 
-# move files ending in .trunk to name without .trunk
-# ie, this copies debian/changelog.trunk to debian/changelog
-for f in debian/*.trunk; do
-   mv "$f" "${f%.trunk}"
-done
-
-# first line of debian/changelog looks like
-#   curtin (<version>) UNRELEASED; urgency=low
-# fix the version and UNRELEASED
-sed -i -e "1s,([^)]*),(${clogver_new})," \
-       -e "1s,UNRELEASED,${RELEASE}," debian/changelog ||
-   fail "failed to write debian/changelog"
+dch --create --package curtin --newversion "$clogver_new" \
+    --distribution "$RELEASE" "Development release"
 debuild "$@" || fail "debuild failed"
 
 cd "$TEMP_D"

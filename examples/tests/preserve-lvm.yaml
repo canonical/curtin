@@ -47,6 +47,7 @@ storage:
         device: main_disk
         flag: bios_grub
         preserve: true
+        offset: 1MB
       - id: main_disk_p2
         type: partition
         number: 2
@@ -54,6 +55,7 @@ storage:
         device: main_disk
         flag: boot
         preserve: true
+        offset: 3MB
       - id: root_vg
         type: lvm_volgroup
         name: root_vg

@@ -64,7 +64,7 @@ class HirsuteTestPreserveBcache(relbase.hirsute, TestPreserveBcache):
     __test__ = True
 
 
-class GroovyTestPreserveBcache(relbase.groovy, TestPreserveBcache):
+class ImpishTestPreserveBcache(relbase.impish, TestPreserveBcache):
     __test__ = True
 
 

@@ -23,7 +23,8 @@ from .log import LOG
 
 DistroInfo = namedtuple('DistroInfo', ('variant', 'family'))
 DISTRO_NAMES = ['arch', 'centos', 'debian', 'fedora', 'freebsd', 'gentoo',
-                'opensuse', 'redhat', 'rhel', 'sles', 'suse', 'ubuntu']
+                'opensuse', 'redhat', 'rhel', 'sles', 'suse', 'ubuntu',
+                'rocky']
 
 
 # python2.7 lacks  PEP 435, so we must make use an alternative for py2.7/3.x
@@ -37,7 +38,7 @@ DISTROS = distro_enum(*DISTRO_NAMES)
 OS_FAMILIES = {
     DISTROS.debian: [DISTROS.debian, DISTROS.ubuntu],
     DISTROS.redhat: [DISTROS.centos, DISTROS.fedora, DISTROS.redhat,
-                     DISTROS.rhel],
+                     DISTROS.rhel, DISTROS.rocky],
     DISTROS.gentoo: [DISTROS.gentoo],
     DISTROS.freebsd: [DISTROS.freebsd],
     DISTROS.suse: [DISTROS.opensuse, DISTROS.sles, DISTROS.suse],
@@ -114,8 +115,19 @@ def _parse_redhat_release(release_file=None, target=None):
 
 
 def get_distroinfo(target=None):
-    variant_name = os_release(target=target)['ID']
-    variant = name_to_distro(variant_name)
+    variant_os_release = os_release(target=target)
+    variant_name = variant_os_release['ID']
+    try:
+        variant = name_to_distro(variant_name)
+    except ValueError:
+        for variant_name in variant_os_release["ID_LIKE"].split():
+            try:
+                variant = name_to_distro(variant_name)
+                break
+            except ValueError:
+                pass
+        else:
+            raise ValueError("Unknown distro: %s" % variant_os_release['ID'])
     family = DISTRO_TO_OSFAMILY.get(variant)
     return DistroInfo(variant, family)
 
@@ -370,6 +382,9 @@ def rpm_get_dist_id(target=None):
 def system_upgrade(opts=None, target=None, env=None, allow_daemons=False,
                    osfamily=None):
     LOG.debug("Upgrading system in %s", target)
+
+    if not osfamily:
+        osfamily = get_osfamily(target=target)
 
     distro_cfg = {
         DISTROS.debian: {'function': run_apt_command,

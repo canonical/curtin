@@ -113,7 +113,7 @@ storage:
       - id: root_vg_lv1
         type: lvm_partition
         name: lv1_root
-        size: 2.5G
+        size: 3.5G
         volgroup: root_vg
       - id: lv1_root_fs
         type: format

@@ -41,8 +41,6 @@ default_bridge_params_uncheckable = [
 
 # attrs we cannot validate
 release_to_bridge_params_uncheckable = {
-    'centos66': ['bridge_fd', 'bridge_hello', 'bridge_hw', 'bridge_maxage',
-                 'bridge_pathcost', 'bridge_portprio'],
     'centos70': ['bridge_fd', 'bridge_hello', 'bridge_hw', 'bridge_maxage',
                  'bridge_pathcost', 'bridge_portprio'],
     'xenial': ['bridge_ageing'],
@@ -220,11 +218,6 @@ class CentosTestBridgeNetworkAbs(TestBridgeNetworkAbs):
         self.assertTrue('bridge' in status)
 
 
-class Centos66TestBridgeNetwork(centos_relbase.centos66_xenial,
-                                CentosTestBridgeNetworkAbs):
-    __test__ = True
-
-
 class Centos70TestBridgeNetwork(centos_relbase.centos70_xenial,
                                 CentosTestBridgeNetworkAbs):
     __test__ = True
@@ -244,7 +237,7 @@ class HirsuteTestBridging(relbase.hirsute, TestBridgeNetworkAbs):
     __test__ = True
 
 
-class GroovyTestBridging(relbase.groovy, TestBridgeNetworkAbs):
+class ImpishTestBridging(relbase.impish, TestBridgeNetworkAbs):
     __test__ = True
 
 

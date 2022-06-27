@@ -482,12 +482,7 @@ class HirsuteTestNetworkBasic(relbase.hirsute, TestNetworkBasicAbs):
     __test__ = True
 
 
-class GroovyTestNetworkBasic(relbase.groovy, TestNetworkBasicAbs):
-    __test__ = True
-
-
-class Centos66TestNetworkBasic(centos_relbase.centos66_xenial,
-                               CentosTestNetworkBasicAbs):
+class ImpishTestNetworkBasic(relbase.impish, TestNetworkBasicAbs):
     __test__ = True
 
 

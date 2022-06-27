@@ -31,9 +31,13 @@ Features
 
   - add arbitrary apt.conf settings
 
+  - add arbitrary apt preferences
+
   - provide debconf configurations
 
   - disabling suites (=pockets)
+
+  - disabling components (multiverse, universe, restricted)
 
   - per architecture mirror definition
 

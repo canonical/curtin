@@ -197,12 +197,7 @@ class HirsuteTestNetworkMtu(relbase.hirsute, TestNetworkMtuNetworkdAbs):
     __test__ = True
 
 
-class GroovyTestNetworkMtu(relbase.groovy, TestNetworkMtuNetworkdAbs):
-    __test__ = True
-
-
-class Centos66TestNetworkMtu(centos_relbase.centos66_xenial,
-                             CentosTestNetworkMtuAbs):
+class ImpishTestNetworkMtu(relbase.impish, TestNetworkMtuNetworkdAbs):
     __test__ = True
 
 

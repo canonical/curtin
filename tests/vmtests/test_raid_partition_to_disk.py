@@ -26,7 +26,7 @@ class HirsuteTestRAIDPartitionToDisk(relbase.hirsute, TestRAIDPartitionToDisk):
     __test__ = True
 
 
-class GroovyTestRAIDPartitionToDisk(relbase.groovy, TestRAIDPartitionToDisk):
+class ImpishTestRAIDPartitionToDisk(relbase.impish, TestRAIDPartitionToDisk):
     __test__ = True
 
 

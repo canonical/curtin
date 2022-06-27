@@ -11,6 +11,8 @@ import os
 import re
 import sys
 
+from aptsources.sourceslist import SourceEntry
+
 from curtin.log import LOG
 from curtin import (config, distro, gpg, paths, util)
 
@@ -26,6 +28,9 @@ APT_LISTS = "/var/lib/apt/lists"
 APT_CONFIG_FN = "/etc/apt/apt.conf.d/94curtin-config"
 APT_PROXY_FN = "/etc/apt/apt.conf.d/90curtin-aptproxy"
 
+# Files to store pinning information
+APT_PREFERENCES_FN = "/etc/apt/preferences.d/90curtin.pref"
+
 # Default keyserver to use
 DEFAULT_KEYSERVER = "keyserver.ubuntu.com"
 
@@ -35,7 +40,7 @@ PRIMARY_ARCH_MIRRORS = {"PRIMARY": "http://archive.ubuntu.com/ubuntu/",
 PORTS_MIRRORS = {"PRIMARY": "http://ports.ubuntu.com/ubuntu-ports",
                  "SECURITY": "http://ports.ubuntu.com/ubuntu-ports"}
 PRIMARY_ARCHES = ['amd64', 'i386']
-PORTS_ARCHES = ['s390x', 'arm64', 'armhf', 'powerpc', 'ppc64el']
+PORTS_ARCHES = ['s390x', 'arm64', 'armhf', 'powerpc', 'ppc64el', 'riscv64']
 
 APT_SOURCES_PROPOSED = (
     "deb $MIRROR $RELEASE-proposed main restricted universe multiverse")
@@ -78,6 +83,11 @@ def handle_apt(cfg, target=None):
                                target + APT_CONFIG_FN)
     except (IOError, OSError):
         LOG.exception("Failed to apply proxy or apt config info:")
+
+    try:
+        apply_apt_preferences(cfg, target + APT_PREFERENCES_FN)
+    except (IOError, OSError):
+        LOG.exception("Failed to apply apt preferences.")
 
     # Process 'apt_source -> sources {dict}'
     if 'sources' in cfg:
@@ -186,9 +196,11 @@ def mirrorurl_to_apt_fileprefix(mirror):
     return string
 
 
-def rename_apt_lists(new_mirrors, target=None):
+def rename_apt_lists(new_mirrors, target=None, arch=None):
     """rename_apt_lists - rename apt lists to preserve old cache data"""
-    default_mirrors = get_default_mirrors(distro.get_architecture(target))
+    if arch is None:
+        arch = distro.get_architecture(target)
+    default_mirrors = get_default_mirrors(arch)
 
     pre = paths.target_path(target, APT_LISTS)
     for (name, omirror) in default_mirrors.items():
@@ -211,22 +223,40 @@ def rename_apt_lists(new_mirrors, target=None):
                 LOG.warn("Failed to rename apt list:", exc_info=True)
 
 
-def mirror_to_placeholder(tmpl, mirror, placeholder):
-    """ mirror_to_placeholder
-        replace the specified mirror in a template with a placeholder string
-        Checks for existance of the expected mirror and warns if not found
-    """
-    if mirror not in tmpl:
-        if mirror.endswith("/") and mirror[:-1] in tmpl:
-            LOG.debug("mirror_to_placeholder: '%s' did not exist in tmpl, "
-                      "did without a trailing /.  Accomodating.", mirror)
-            mirror = mirror[:-1]
-        else:
-            LOG.warn("Expected mirror '%s' not found in: %s", mirror, tmpl)
-    return tmpl.replace(mirror, placeholder)
+def update_default_mirrors(entries, mirrors, target, arch=None):
+    """replace existing default repos with the configured mirror"""
+
+    if arch is None:
+        arch = distro.get_architecture(target)
+    defaults = get_default_mirrors(arch)
+    mirrors_replacement = {
+        defaults['PRIMARY']: mirrors["MIRROR"],
+        defaults['SECURITY']: mirrors["SECURITY"],
+    }
+
+    # allow original file URIs without the trailing slash to match mirror
+    # specifications that have it
+    noslash = {}
+    for key in mirrors_replacement.keys():
+        if key[-1] == '/':
+            noslash[key[:-1]] = mirrors_replacement[key]
+
+    mirrors_replacement.update(noslash)
+
+    for entry in entries:
+        entry.uri = mirrors_replacement.get(entry.uri, entry.uri)
+    return entries
 
 
-def map_known_suites(suite):
+def update_mirrors(entries, mirrors):
+    """perform template replacement of mirror placeholders with configured
+       values"""
+    for entry in entries:
+        entry.uri = util.render_string(entry.uri, mirrors)
+    return entries
+
+
+def map_known_suites(suite, release):
     """there are a few default names which will be auto-extended.
        This comes at the inability to use those names literally as suites,
        but on the other hand increases readability of the cfg quite a lot"""
@@ -236,83 +266,101 @@ def map_known_suites(suite):
                'proposed': '$RELEASE-proposed',
                'release': '$RELEASE'}
     try:
-        retsuite = mapping[suite]
+        template_suite = mapping[suite]
     except KeyError:
-        retsuite = suite
-    return retsuite
+        template_suite = suite
+    return util.render_string(template_suite, {'RELEASE': release})
 
 
-def disable_suites(disabled, src, release):
+def commentify(entry):
+    # handle commenting ourselves - it handles lines with
+    # options better
+    return SourceEntry('# ' + str(entry))
+
+
+def disable_suites(disabled, entries, release):
     """reads the config for suites to be disabled and removes those
        from the template"""
     if not disabled:
-        return src
+        return entries
 
-    retsrc = src
+    suites_to_disable = []
     for suite in disabled:
-        suite = map_known_suites(suite)
-        releasesuite = util.render_string(suite, {'RELEASE': release})
-        LOG.debug("Disabling suite %s as %s", suite, releasesuite)
+        release_suite = map_known_suites(suite, release)
+        LOG.debug("Disabling suite %s as %s", suite, release_suite)
+        suites_to_disable.append(release_suite)
 
-        newsrc = ""
-        for line in retsrc.splitlines(True):
-            if line.startswith("#"):
-                newsrc += line
-                continue
-
-            # sources.list allow options in cols[1] which can have spaces
-            # so the actual suite can be [2] or later. example:
-            # deb [ arch=amd64,armel k=v ] http://example.com/debian
-            cols = line.split()
-            if len(cols) > 1:
-                pcol = 2
-                if cols[1].startswith("["):
-                    for col in cols[1:]:
-                        pcol += 1
-                        if col.endswith("]"):
-                            break
-
-                if cols[pcol] == releasesuite:
-                    line = '# suite disabled by curtin: %s' % line
-            newsrc += line
-        retsrc = newsrc
-
-    return retsrc
+    output = []
+    for entry in entries:
+        if not entry.disabled and entry.dist in suites_to_disable:
+            entry = commentify(entry)
+        output.append(entry)
+    return output
 
 
-def generate_sources_list(cfg, release, mirrors, target=None):
+def disable_components(disabled, entries):
+    """reads the config for components to be disabled and remove those
+       from the entries"""
+    if not disabled:
+        return entries
+
+    # purposefully skip disabling the main component
+    comps_to_disable = {comp for comp in disabled if comp != 'main'}
+
+    output = []
+    for entry in entries:
+        if not entry.disabled and comps_to_disable.intersection(entry.comps):
+            output.append(commentify(entry))
+            entry.comps = [comp for comp in entry.comps
+                           if comp not in comps_to_disable]
+            if entry.comps:
+                output.append(entry)
+        else:
+            output.append(entry)
+    return output
+
+
+def update_dist(entries, release):
+    for entry in entries:
+        entry.dist = util.render_string(entry.dist, {'RELEASE': release})
+    return entries
+
+
+def entries_to_str(entries):
+    return ''.join([str(entry) + '\n' for entry in entries])
+
+
+def generate_sources_list(cfg, release, mirrors, target=None, arch=None):
     """ generate_sources_list
         create a source.list file based on a custom or default template
         by replacing mirrors and release in the template
     """
-    default_mirrors = get_default_mirrors(distro.get_architecture(target))
     aptsrc = "/etc/apt/sources.list"
-    params = {'RELEASE': release}
-    for k in mirrors:
-        params[k] = mirrors[k]
 
     tmpl = cfg.get('sources_list', None)
+    from_file = False
     if tmpl is None:
         LOG.info("No custom template provided, fall back to modify"
                  "mirrors in %s on the target system", aptsrc)
         tmpl = util.load_file(paths.target_path(target, aptsrc))
-        # Strategy if no custom template was provided:
-        # - Only replacing mirrors
-        # - no reason to replace "release" as it is from target anyway
-        # - The less we depend upon, the more stable this is against changes
-        # - warn if expected original content wasn't found
-        tmpl = mirror_to_placeholder(tmpl, default_mirrors['PRIMARY'],
-                                     "$MIRROR")
-        tmpl = mirror_to_placeholder(tmpl, default_mirrors['SECURITY'],
-                                     "$SECURITY")
+        from_file = True
+
+    entries = [SourceEntry(line) for line in tmpl.splitlines(True)]
+    if from_file:
+        # when loading from an existing file, we also replace default
+        # URIs with configured mirrors
+        entries = update_default_mirrors(entries, mirrors, target, arch)
+
+    entries = update_mirrors(entries, mirrors)
+    entries = update_dist(entries, release)
+    entries = disable_suites(cfg.get('disable_suites'), entries, release)
+    entries = disable_components(cfg.get('disable_components'), entries)
+    output = entries_to_str(entries)
 
     orig = paths.target_path(target, aptsrc)
     if os.path.exists(orig):
         os.rename(orig, orig + ".curtin.old")
-
-    rendered = util.render_string(tmpl, params)
-    disabled = disable_suites(cfg.get('disable_suites'), rendered, release)
-    util.write_file(paths.target_path(target, aptsrc), disabled, mode=0o644)
+    util.write_file(paths.target_path(target, aptsrc), output, mode=0o644)
 
 
 def apply_preserve_sources_list(target):
@@ -531,7 +579,7 @@ def find_apt_mirror_info(cfg, arch=None):
 
 def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
     """apply_apt_proxy_config
-       Applies any apt*proxy config from if specified
+       Applies any apt*proxy from config if specified
     """
     # Set up any apt proxy
     cfgs = (('proxy', 'Acquire::http::Proxy "%s";'),
@@ -544,8 +592,14 @@ def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
         LOG.debug("write apt proxy info to %s", proxy_fname)
         util.write_file(proxy_fname, '\n'.join(proxies) + '\n')
     elif os.path.isfile(proxy_fname):
-        util.del_file(proxy_fname)
-        LOG.debug("no apt proxy configured, removed %s", proxy_fname)
+        # When $ curtin apt-config is called with no proxy set, it makes
+        # sense to remove the proxy file (if present). Having said that,
+        # this code is also called automatically at the curthooks stage with an
+        # empty configuration. Since the installation of external packages and
+        # execution of unattended-upgrades (which happen after executing the
+        # curthooks) need to use the proxy if specified, we must not let the
+        # curthooks remove the proxy file.
+        pass
 
     if cfg.get('conf', None):
         LOG.debug("write apt config info to %s", config_fname)
@@ -553,6 +607,38 @@ def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
     elif os.path.isfile(config_fname):
         util.del_file(config_fname)
         LOG.debug("no apt config configured, removed %s", config_fname)
+
+
+def preference_to_str(preference):
+    """ Return a textual representation of a given preference as specified in
+    apt_preferences(5).
+    """
+
+    return """\
+Package: {package}
+Pin: {pin}
+Pin-Priority: {pin_priority}
+""".format(package=preference["package"],
+           pin=preference["pin"],
+           pin_priority=preference["pin-priority"])
+
+
+def apply_apt_preferences(cfg, pref_fname):
+    """ Apply apt preferences if any is provided.
+    """
+
+    prefs = cfg.get("preferences")
+    if not prefs:
+        # When $ curtin apt-config is called with no preferences set, it makes
+        # sense to remove the preferences file (if present). Having said that,
+        # this code is also called automatically at the curthooks stage with an
+        # empty configuration. Since the installation of packages (which
+        # happens after executing the curthooks) needs to honor the preferences
+        # set, we must not let the curthooks remove the preferences file.
+        return
+    prefs_as_strings = [preference_to_str(pref) for pref in prefs]
+    LOG.debug("write apt preferences info to %s.", pref_fname)
+    util.write_file(pref_fname, "\n".join(prefs_as_strings))
 
 
 def apt_command(args):

@@ -27,7 +27,7 @@ class HirsuteTestBcacheBug1718699(relbase.hirsute, TestBcacheBug1718699):
     __test__ = True
 
 
-class GroovyTestBcacheBug1718699(relbase.groovy, TestBcacheBug1718699):
+class ImpishTestBcacheBug1718699(relbase.impish, TestBcacheBug1718699):
     __test__ = True
 
 
